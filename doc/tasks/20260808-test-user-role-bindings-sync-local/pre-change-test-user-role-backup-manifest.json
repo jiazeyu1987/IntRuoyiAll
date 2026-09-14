@@ -1,0 +1,14 @@
+{
+  "target": "root@172.30.30.58",
+  "database": "ruoyi-vue-pro",
+  "output": "E:\\IntRuoyi\\doc\\tasks\\20260808-test-user-role-bindings-sync-local\\pre-change-test-user-role-backup.sql",
+  "sha256": "8c409b3de44a3e9846cbc3b6a754f400189bba74834adc9538b3094049230501",
+  "bytes": 727070,
+  "tables": [
+    "system_users",
+    "system_role",
+    "system_user_role",
+    "infra_release_operation_lock"
+  ],
+  "stderr": "close - IO is still pending on closed socket. read:1, write:0, io:000001FBCF957240"
+}

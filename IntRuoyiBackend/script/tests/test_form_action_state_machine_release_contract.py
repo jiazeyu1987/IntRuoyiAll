@@ -123,7 +123,7 @@ SQL_CONTRACTS = [
             "'RELEASE'",
             "'PRECHECK_PASSED'",
             "'EDHR_RELEASE'",
-            "'RETIRED'",
+            "'DISABLED'",
         ],
     },
     {
@@ -162,7 +162,7 @@ SQL_CONTRACTS = [
             "'REPLAN'",
             "'READY'",
             "'MES_SCHEDULE_REPLAN'",
-            "'RETIRED'",
+            "'DISABLED'",
         ],
     },
     {

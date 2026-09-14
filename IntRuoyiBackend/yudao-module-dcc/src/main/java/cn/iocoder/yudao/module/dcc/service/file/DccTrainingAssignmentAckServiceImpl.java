@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingProgr
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileTrainingStatusEnum;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,7 +49,8 @@ public class DccTrainingAssignmentAckServiceImpl implements DccTrainingAssignmen
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void acknowledgeTraining(Long userId, Long controlledFileId) {
-        DccControlledFileDO file = controlledFileMapper.selectById(controlledFileId);
+        DccControlledFileDO file = controlledFileMapper.selectByIdAndTenantForUpdate(
+                TenantContextHolder.getRequiredTenantId(), controlledFileId);
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
@@ -67,8 +69,10 @@ public class DccTrainingAssignmentAckServiceImpl implements DccTrainingAssignmen
         }
         boolean updatedAny = false;
         LocalDateTime acknowledgedAt = LocalDateTime.now();
-        for (DccControlledFileTrainingDO training : trainingMapper.selectListByControlledFileId(controlledFileId)) {
-            List<DccControlledFileTrainingAssignmentDO> assignments = trainingAssignmentMapper.selectListByTrainingId(training.getId());
+        // Serialize acknowledgements by file and read current child rows even if an outer
+        // transaction established a repeatable-read snapshot before acquiring the file lock.
+        for (DccControlledFileTrainingDO training : trainingMapper.selectListByControlledFileIdForUpdate(controlledFileId)) {
+            List<DccControlledFileTrainingAssignmentDO> assignments = trainingAssignmentMapper.selectListByTrainingIdForUpdate(training.getId());
             List<DccControlledFileTrainingAssignmentDO> currentUserPendingAssignments = assignments.stream()
                     .filter(assignment -> userId.equals(assignment.getUserId()))
                     .filter(assignment -> !DccControlledFileTrainingStatusEnum.ACKNOWLEDGED.getCode().equals(assignment.getStatus()))
@@ -94,7 +98,7 @@ public class DccTrainingAssignmentAckServiceImpl implements DccTrainingAssignmen
         if (!updatedAny) {
             throw exception(CONTROLLED_FILE_TRAINING_ACK_NOT_ALLOWED);
         }
-        boolean allTrainingsAcknowledged = trainingMapper.selectListByControlledFileId(controlledFileId).stream()
+        boolean allTrainingsAcknowledged = trainingMapper.selectListByControlledFileIdForUpdate(controlledFileId).stream()
                 .allMatch(training -> DccControlledFileTrainingStatusEnum.ACKNOWLEDGED.getCode().equals(training.getStatus()));
         if (allTrainingsAcknowledged
                 && DccControlledFileStatusEnum.TRAINING_IN_PROGRESS.getStatus().equals(file.getStatus())) {

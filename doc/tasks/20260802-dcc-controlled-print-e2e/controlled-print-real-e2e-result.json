@@ -1,0 +1,332 @@
+{
+  "status": "E2E_BLOCKED",
+  "generatedAt": "2026-08-02T10:50:23.190Z",
+  "scope": "DCC controlled print real Playwright E2E",
+  "frontendBaseUrl": "http://127.0.0.1:8081",
+  "backendBaseUrl": "http://127.0.0.1:48081",
+  "file": {
+    "id": "2054545668044070287",
+    "fileNumber": "CODX-DCC-ORIG-20260802101521"
+  },
+  "authorized": {
+    "user": {
+      "username": "wangsiyu",
+      "userId": 910250,
+      "label": "文控非 admin 用户"
+    },
+    "browser": {
+      "path": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&pageNo=1&pageSize=20",
+      "httpStatus": 200,
+      "apiCode": 0,
+      "total": 1,
+      "rowText": "Codex DCC 原版上传链路 20260802101521 CODX-DCC-ORIG-20260802101521 预览 下载",
+      "rowActions": [
+        "Codex DCC 原版上传链路 20260802101521",
+        "CODX-DCC-ORIG-20260802101521",
+        "预览",
+        "下载"
+      ],
+      "hasPrintLikeRowAction": false
+    },
+    "detail": {
+      "path": "/dcc/controlled-file/detail/2054545668044070287",
+      "enteredFromBrowserUrl": "http://127.0.0.1:8081/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&pageNo=1&pageSize=20",
+      "finalUrl": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070287?traceability=1&from=browser&returnTo=%252Fdcc%252Fcontrolled-file%252Fbrowser%253Fscope%253Dglobal%2526keyword%253DCODX-DCC-ORIG-20260802101521%2526pageNo%253D1%2526pageSize%253D20",
+      "entrySelector": "[data-testid=\"dcc-browser-file-number-detail-link\"]",
+      "httpStatus": 200,
+      "apiCode": 0,
+      "apiMessage": "",
+      "detailBodyHasFileNumber": false,
+      "bodySnippet": "瑛泰管理系统 个人中心 0 审批中心 8 电子签名 文控中心 文档目录 文控权限 上传审批 文件上传 受控浏览 文控日志 基础数据 系统管理 版本信息未生成 文控中心 / 受控浏览 请输入菜单内容 王思雨 受控浏览 受控文件详情 受控文件详情 - 文件编号：- 版本：- 生效日期：- 返回 预览受控文件动作投影缺失，已阻止操作，请刷新后重试或联系管理员确认后端投影。；下载受控文件动作投影缺失，已阻止操作，请刷新后重试或联系管理员确认后端投影。；作废当前版本动作投影缺失，已阻止操作，请刷新后重试或联系管理员确认后端投影。；发布申请动作投影缺失，已阻止操作，请刷新后重试或联系管理员确认后端投影。；正式下发动作投影缺失，已阻止操作，请刷新后重试或联系管理员确认后端投影。；确认培训动作投影缺失，已阻止操作，请刷新后重试或联系管理员确认后端投影。 DCC 项目代码联动 展示当前文件在 DCC 项目代码和文件分类树中的关联文档入口。 关联文档入口 修正追溯入口 当前 DCC 项目 - 当前文件分类 - 关联文件 ID - 关联文档定位 未绑定 DCC 项目代码 受控浏览入口 原版审批生效后展示最终受控浏览目录、发布文件和盖章文件落位。 查看受控浏览当前有效版 最终目录路径 - publishedFileId - stampedFileId - master 当前生效版本 - 审批阶段进度 当前阶段：- 文控审核 待处理 0/0 待解析审批配置 处理人：- 处理时间：- 签名状态：待进入节点 会签审核 待处理 0/0 待解析审批配置 处理人：- 处理时间：- 签名状态：待进入节点 会签批准 待处理 0/0 待解析审批配置 处理人：- 处理时间：- 签名状态：待进入节点 文控批准 待处理 0/0 待解析审批配置 处理人：- 处理时间：- 签名状态：待进入节点 文件类别 - 受控目录 - 文件名称 - 产品编号 - 产品名称 - DCC基础条目 - 文件类别 I - 文件类别 II - 文件类别 III - 文件类别 IV - 文件类别 V - 培训要求 无需培训 现行版本 - 流程实例 - 提交人 - 提交时间 - 发布时间 - 流程定义 - 提交备注 - 关键记录时间线 汇总 0 项 暂无可汇总的时间记录 审批路线快照 阶段 候选摘要 审批要求 解析审批人 暂无路线快照 版本历史 标题 文件编号 版本 升版原因/变更说明 发放方式 状态 发布时间 作废时间 后继版本 操作 暂无历史版本 分发状态 导出回执 打印回执 部门 接收人 分发摘要 回收摘要 操作 当前版本暂无分发记录 培训状态 部门 受训人 培训摘要 当前版本暂无培训记录 签核追溯 汇总上传人、四级审批人、签名时间、签名方式、证据状态、文件哈希和盖章文件。 导出 打印 角色 上传人 / 四级审批人 签名时间 签名...",
+      "status": "ACTIVE",
+      "versionNo": "V1.0",
+      "masterId": "2054545668044062896",
+      "currentActiveVersionNo": "V1.0",
+      "publishedFileId": 9198354916366,
+      "stampedFileId": 9198354916366,
+      "actionTexts": [
+        "返回"
+      ],
+      "dropdownTexts": [],
+      "hasControlledPrintEntry": false,
+      "hasProcessPrintEntry": false,
+      "requiredPrintFormLabelsVisible": {
+        "打印用途": false,
+        "份数": false,
+        "接收部门": false,
+        "使用位置": false
+      }
+    },
+    "signals": {
+      "consoleErrors": [],
+      "pageErrors": [],
+      "requestFailures": [
+        "GET https://hm.baidu.com/hm.gif?hca=6580DF7DE4D57A3D&cc=1&ck=1&cl=24-bit&ds=1440x1000&vl=1000&ep=5892%2C5892&et=3&ja=0&ln=zh-cn&lo=0&rnd=890012254&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Findex&v=1.3.2&lv=1&sn=35683&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Findex net::ERR_ABORTED"
+      ],
+      "dccResponses": [
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/directories/tree",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/browser-page?pageNo=1&pageSize=20&keyword=CODX-DCC-ORIG-20260802101521&latestVersionOnly=true",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/directories/tree",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070287",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories",
+          "status": 200
+        }
+      ]
+    }
+  },
+  "negative": {
+    "user": {
+      "username": "zhangkeying",
+      "userId": 152,
+      "label": "无 DCC 打印/浏览权限非 admin 用户"
+    },
+    "browserPath": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&pageNo=1&pageSize=20",
+    "finalUrl": "http://127.0.0.1:8081/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&pageNo=1&pageSize=20",
+    "browserHttpStatus": 200,
+    "browserApiCode": 0,
+    "browserTotal": 1,
+    "rowVisible": true,
+    "rowText": "Codex DCC 原版上传链路 20260802101521 CODX-DCC-ORIG-20260802101521 预览",
+    "rowActions": [
+      "Codex DCC 原版上传链路 20260802101521",
+      "CODX-DCC-ORIG-20260802101521",
+      "预览"
+    ],
+    "bodySnippet": "瑛泰管理系统 个人中心 5 审批中心 0 电子签名 文控中心 受控浏览 文控日志 MES 系统 版本信息未生成 文控中心 / 受控浏览 请输入菜单内容 张可莹 受控浏览 刷新 质量管理 快速过滤 全文关键字 包含 查询 当前目录 全域 显示字段 文件名称 文件编号 操作 Codex DCC 原版上传链路 20260802101521 CODX-DCC-ORIG-20260802101521 预览 共 1 条 20条/页 1 前往 页 Copyright ©2026 瑛泰管理系统",
+    "hasAnyPrintEntry": false,
+    "hasPermissionDeniedText": false,
+    "signals": {
+      "consoleErrors": [],
+      "pageErrors": [],
+      "requestFailures": [
+        "GET http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE net::ERR_ABORTED",
+        "GET http://127.0.0.1:8081/admin-api/mes/pro/edhr-work-task/my-page?pageNo=1&pageSize=1&status=TODO net::ERR_ABORTED",
+        "GET http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO net::ERR_ABORTED",
+        "GET http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count net::ERR_ABORTED",
+        "GET http://127.0.0.1:8081/admin-api/system/auth/get-permission-info net::ERR_ABORTED",
+        "GET https://hm.baidu.com/hm.gif?hca=417B3565882CADF3&cc=1&ck=1&cl=24-bit&ds=1440x1000&vl=1000&et=0&ja=0&ln=zh-cn&lo=0&rnd=385703943&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Flogin%3Fredirect%3D%2Findex&v=1.3.2&lv=1&api=4_0&sn=35702&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Findex&tt=%E7%91%9B%E6%B3%B0%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F net::ERR_ABORTED",
+        "GET https://hm.baidu.com/hm.gif?hca=417B3565882CADF3&cc=1&ck=1&cl=24-bit&ds=1440x1000&vl=1000&ep=9344%2C9344&et=3&ja=0&ln=zh-cn&lo=0&rnd=1417617770&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Flogin%3Fredirect%3D%2Findex&v=1.3.2&lv=1&sn=35702&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Findex net::ERR_ABORTED"
+      ],
+      "dccResponses": [
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/directories/tree",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        },
+        {
+          "method": "GET",
+          "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/browser-page?pageNo=1&pageSize=20&keyword=CODX-DCC-ORIG-20260802101521&latestVersionOnly=true",
+          "status": 200,
+          "code": 0,
+          "message": ""
+        }
+      ]
+    }
+  },
+  "dbReadonly": {
+    "file": {
+      "id": "2054545668044070287",
+      "file_number": "CODX-DCC-ORIG-20260802101521",
+      "title": "Codex DCC 原版上传链路 20260802101521",
+      "version_no": "V1.0",
+      "status": "ACTIVE",
+      "change_type": "NEW",
+      "master_id": "2054545668044062896",
+      "current_active_controlled_file_id": "2054545668044070287",
+      "category_id": "907233",
+      "directory_id": "906515",
+      "requester_id": "151",
+      "requester_username": "pengyunfeng",
+      "requester_name": "彭云凤",
+      "published_file_id": "9198354916366",
+      "stamped_file_id": "9198354916366",
+      "tenant_id": "1",
+      "deleted": "0"
+    },
+    "dccPrintTables": [
+      {
+        "TABLE_NAME": "dcc_approval_print_template"
+      }
+    ],
+    "dccPrintRelatedColumns": [
+      {
+        "TABLE_NAME": "dcc_category_approval_route_node",
+        "COLUMN_NAME": "subject_department_path"
+      },
+      {
+        "TABLE_NAME": "dcc_controlled_file_access_event",
+        "COLUMN_NAME": "purpose"
+      },
+      {
+        "TABLE_NAME": "dcc_controlled_file_access_log",
+        "COLUMN_NAME": "purpose"
+      },
+      {
+        "TABLE_NAME": "dcc_controlled_file_distribution",
+        "COLUMN_NAME": "department_id"
+      },
+      {
+        "TABLE_NAME": "dcc_controlled_file_signature",
+        "COLUMN_NAME": "controlled_copy_file_id"
+      },
+      {
+        "TABLE_NAME": "dcc_controlled_file_signature",
+        "COLUMN_NAME": "controlled_copy_hash"
+      },
+      {
+        "TABLE_NAME": "dcc_controlled_file_signature",
+        "COLUMN_NAME": "controlled_copy_hash_algorithm"
+      },
+      {
+        "TABLE_NAME": "dcc_controlled_file_signature",
+        "COLUMN_NAME": "controlled_copy_hash_status"
+      },
+      {
+        "TABLE_NAME": "dcc_controlled_file_signature",
+        "COLUMN_NAME": "signature_purpose"
+      },
+      {
+        "TABLE_NAME": "dcc_controlled_file_temporary_file",
+        "COLUMN_NAME": "purpose"
+      },
+      {
+        "TABLE_NAME": "dcc_controlled_file_training",
+        "COLUMN_NAME": "department_id"
+      },
+      {
+        "TABLE_NAME": "dcc_controlled_file_upload_policy",
+        "COLUMN_NAME": "purpose"
+      },
+      {
+        "TABLE_NAME": "dcc_file_category_distribution_rule",
+        "COLUMN_NAME": "department_id"
+      },
+      {
+        "TABLE_NAME": "dcc_file_category_training_rule",
+        "COLUMN_NAME": "department_id"
+      },
+      {
+        "TABLE_NAME": "dcc_project_code",
+        "COLUMN_NAME": "storage_location"
+      },
+      {
+        "TABLE_NAME": "dcc_project_code_import_row",
+        "COLUMN_NAME": "storage_location"
+      }
+    ],
+    "traceCounts": [
+      {
+        "source": "access_event",
+        "count": "10"
+      },
+      {
+        "source": "watermark_trace",
+        "count": "10"
+      },
+      {
+        "source": "download_record",
+        "count": "0"
+      },
+      {
+        "source": "access_log",
+        "count": "15"
+      },
+      {
+        "source": "distribution",
+        "count": "1"
+      }
+    ]
+  },
+  "blocker": "从受控浏览真实点击文件号进入详情后，详情页未加载目标文件编号/API 数据；页面未出现打印用途、份数、接收部门、使用位置等受控打印必填字段；schema 未发现 DCC 受控打印申请/打印记录表；流程打印输出不包含打印编号/用途/份数/接收部门/使用位置等受控打印信息"
+}

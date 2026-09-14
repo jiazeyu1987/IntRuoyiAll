@@ -1,0 +1,8 @@
+{
+  "executionId": 3,
+  "baseUrl": "http://127.0.0.1:8081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "checkedAt": "2026-07-25T16:38:50.022Z",
+  "error": "page.waitForResponse: Timeout 30000ms exceeded while waiting for event \"response\""
+}

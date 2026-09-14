@@ -4,6 +4,9 @@ import cn.iocoder.yudao.framework.common.util.object.ObjectUtils;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 /**
  * 角色标识枚举
  */
@@ -32,6 +35,10 @@ public enum RoleCodeEnum {
 
     public static boolean isSuperAdmin(String code) {
         return ObjectUtils.equalsAny(code, SUPER_ADMIN.getCode());
+    }
+
+    public static boolean isAdminRole(String code) {
+        return Arrays.stream(values()).anyMatch(role -> Objects.equals(role.getCode(), code));
     }
 
 }

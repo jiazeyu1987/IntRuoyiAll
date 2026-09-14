@@ -1,0 +1,335 @@
+package cn.iocoder.yudao.module.mdm.service.enterprise;
+
+import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.mdm.controller.admin.enterprise.vo.MdmEnterprisePageReqVO;
+import cn.iocoder.yudao.module.mdm.controller.admin.enterprise.vo.MdmEnterpriseSaveReqVO;
+import cn.iocoder.yudao.module.mdm.dal.dataobject.enterprise.MdmEnterpriseDO;
+import cn.iocoder.yudao.module.mdm.dal.mysql.enterprise.MdmEnterpriseMapper;
+import cn.iocoder.yudao.module.mdm.enums.MdmEnterpriseStatusEnum;
+import cn.iocoder.yudao.module.mdm.enums.MdmEnterpriseTypeEnum;
+import jakarta.annotation.Resource;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_BATCH_DUPLICATE;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_BATCH_EMPTY;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_BATCH_RESULT_INVALID;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_CODE_DUPLICATE;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_DELETED;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_DISABLED;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_FIELD_REQUIRED;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_NOT_FOUND;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_STATUS_INVALID;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_TENANT_MISMATCH;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_TYPE_INVALID;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_TYPE_MISMATCH;
+
+@Service
+@Validated
+public class MdmEnterpriseServiceImpl implements MdmEnterpriseService {
+
+    private static final String ENTERPRISE_CODE_UNIQUE_CONSTRAINT = "uk_mdm_enterprise_tenant_code";
+
+    @Resource
+    private MdmEnterpriseMapper enterpriseMapper;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createEnterprise(MdmEnterpriseSaveReqVO reqVO) {
+        if (reqVO == null) {
+            throw exception(MDM_ENTERPRISE_FIELD_REQUIRED, "request");
+        }
+        String enterpriseCode = requireText(reqVO.getEnterpriseCode(), "enterpriseCode");
+        String name = requireText(reqVO.getName(), "name");
+        String type = requireType(reqVO.getType());
+        String status = requireStatus(reqVO.getStatus());
+        MdmEnterpriseDO enterprise = MdmEnterpriseDO.builder()
+                .enterpriseCode(enterpriseCode)
+                .name(name)
+                .type(type)
+                .status(status)
+                .revision(1)
+                .build();
+        int affectedRows;
+        try {
+            affectedRows = enterpriseMapper.insert(enterprise);
+        } catch (DuplicateKeyException duplicateKeyException) {
+            if (!isEnterpriseCodeUniqueConflict(duplicateKeyException)) {
+                throw duplicateKeyException;
+            }
+            throw exception(MDM_ENTERPRISE_CODE_DUPLICATE);
+        }
+        if (affectedRows != 1 || enterprise.getId() == null || enterprise.getId() <= 0) {
+            throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+        }
+        return enterprise.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateEnterprise(MdmEnterpriseSaveReqVO reqVO) {
+        if (reqVO == null) {
+            throw exception(MDM_ENTERPRISE_FIELD_REQUIRED, "request");
+        }
+        MdmEnterpriseDO existing = requireEnterprise(reqVO.getId());
+        String enterpriseCode = requireText(reqVO.getEnterpriseCode(), "enterpriseCode");
+        String name = requireText(reqVO.getName(), "name");
+        String type = requireType(reqVO.getType());
+        String status = requireStatus(reqVO.getStatus());
+        MdmEnterpriseDO update = MdmEnterpriseDO.builder()
+                .id(existing.getId())
+                .enterpriseCode(enterpriseCode)
+                .name(name)
+                .type(type)
+                .status(status)
+                .revision(nextRevision(existing))
+                .build();
+        int affectedRows;
+        try {
+            affectedRows = enterpriseMapper.updateById(update);
+        } catch (DuplicateKeyException duplicateKeyException) {
+            if (!isEnterpriseCodeUniqueConflict(duplicateKeyException)) {
+                throw duplicateKeyException;
+            }
+            throw exception(MDM_ENTERPRISE_CODE_DUPLICATE);
+        }
+        requireSingleAffectedRow(affectedRows);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateEnterpriseStatus(Long id, String status) {
+        MdmEnterpriseDO existing = requireEnterprise(id);
+        MdmEnterpriseDO update = MdmEnterpriseDO.builder()
+                .id(existing.getId())
+                .status(requireStatus(status))
+                .revision(nextRevision(existing))
+                .build();
+        requireSingleAffectedRow(enterpriseMapper.updateById(update));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteEnterprise(Long id) {
+        MdmEnterpriseDO existing = requireEnterprise(id);
+        requireSingleAffectedRow(enterpriseMapper.deleteById(existing.getId()));
+    }
+
+    @Override
+    public MdmEnterpriseDO getEnterprise(Long id) {
+        return id == null ? null : enterpriseMapper.selectById(id);
+    }
+
+    @Override
+    public PageResult<MdmEnterpriseDO> getEnterprisePage(MdmEnterprisePageReqVO reqVO) {
+        return enterpriseMapper.selectPage(reqVO);
+    }
+
+    @Override
+    public List<MdmEnterpriseDO> listSimpleEnterprises(String type, String status, String keyword) {
+        String normalizedType = normalizeOptionalType(type);
+        String normalizedStatus = normalizeOptionalStatus(status);
+        return enterpriseMapper.selectSimpleList(normalizedType, normalizedStatus, StrUtil.trimToNull(keyword));
+    }
+
+    @Override
+    public List<MdmEnterpriseDO> listEnabledEnterprises(Collection<String> allowedTypes, String keyword, int limit) {
+        Set<String> requiredTypes = validateAllowedTypes(allowedTypes);
+        if (limit <= 0 || limit > 100) {
+            throw exception(MDM_ENTERPRISE_FIELD_REQUIRED, "limit");
+        }
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        String normalizedKeyword = StrUtil.trimToNull(keyword);
+        List<MdmEnterpriseDO> enterprises = enterpriseMapper.selectEnabledByTypes(
+                tenantId, requiredTypes, normalizedKeyword, limit);
+        if (enterprises == null) {
+            throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+        }
+        for (MdmEnterpriseDO enterprise : enterprises) {
+            validateFormalEnterprise(enterprise, tenantId, requiredTypes);
+        }
+        return enterprises;
+    }
+
+    @Override
+    public List<MdmEnterpriseDO> getEnabledEnterprises(Collection<Long> enterpriseIds,
+                                                       Collection<String> allowedTypes) {
+        List<Long> requestedIds = validateEnterpriseIds(enterpriseIds);
+        Set<String> requiredTypes = validateAllowedTypes(allowedTypes);
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        List<MdmEnterpriseDO> enterprises = enterpriseMapper.selectClassificationByIds(requestedIds);
+        Map<Long, MdmEnterpriseDO> enterprisesById = indexResults(enterprises, new LinkedHashSet<>(requestedIds));
+        for (Long enterpriseId : requestedIds) {
+            MdmEnterpriseDO enterprise = enterprisesById.get(enterpriseId);
+            if (enterprise == null) {
+                throw exception(MDM_ENTERPRISE_NOT_FOUND, enterpriseId);
+            }
+            validateFormalEnterprise(enterprise, tenantId, requiredTypes);
+        }
+        List<MdmEnterpriseDO> orderedResult = new ArrayList<>(requestedIds.size());
+        requestedIds.forEach(enterpriseId -> orderedResult.add(enterprisesById.get(enterpriseId)));
+        return orderedResult;
+    }
+
+    private List<Long> validateEnterpriseIds(Collection<Long> enterpriseIds) {
+        if (enterpriseIds == null || enterpriseIds.isEmpty()) {
+            throw exception(MDM_ENTERPRISE_BATCH_EMPTY);
+        }
+        List<Long> requestedIds = new ArrayList<>(enterpriseIds);
+        if (requestedIds.stream().anyMatch(Objects::isNull)) {
+            throw exception(MDM_ENTERPRISE_NOT_FOUND, "null");
+        }
+        if (new LinkedHashSet<>(requestedIds).size() != requestedIds.size()) {
+            throw exception(MDM_ENTERPRISE_BATCH_DUPLICATE);
+        }
+        return requestedIds;
+    }
+
+    private Set<String> validateAllowedTypes(Collection<String> allowedTypes) {
+        if (allowedTypes == null || allowedTypes.isEmpty()) {
+            throw exception(MDM_ENTERPRISE_TYPE_MISMATCH, "allowedTypes");
+        }
+        Set<String> validatedTypes = new LinkedHashSet<>();
+        for (String allowedType : allowedTypes) {
+            String normalizedType = StrUtil.trimToNull(allowedType);
+            if (!MdmEnterpriseTypeEnum.isValid(normalizedType)) {
+                throw exception(MDM_ENTERPRISE_TYPE_MISMATCH, allowedType);
+            }
+            validatedTypes.add(normalizedType);
+        }
+        return validatedTypes;
+    }
+
+    private MdmEnterpriseDO requireEnterprise(Long id) {
+        if (id == null || id <= 0) {
+            throw exception(MDM_ENTERPRISE_NOT_FOUND, id);
+        }
+        MdmEnterpriseDO enterprise = enterpriseMapper.selectById(id);
+        if (enterprise == null) {
+            throw exception(MDM_ENTERPRISE_NOT_FOUND, id);
+        }
+        if (enterprise.getRevision() == null || enterprise.getRevision() <= 0) {
+            throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+        }
+        return enterprise;
+    }
+
+    private Integer nextRevision(MdmEnterpriseDO enterprise) {
+        if (enterprise.getRevision() == null || enterprise.getRevision() <= 0) {
+            throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+        }
+        return enterprise.getRevision() + 1;
+    }
+
+    private void requireSingleAffectedRow(int affectedRows) {
+        if (affectedRows != 1) {
+            throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+        }
+    }
+
+    private String normalizeOptionalType(String value) {
+        String normalized = StrUtil.trimToNull(value);
+        if (normalized != null && !MdmEnterpriseTypeEnum.isValid(normalized)) {
+            throw exception(MDM_ENTERPRISE_TYPE_INVALID, value);
+        }
+        return normalized;
+    }
+
+    private String normalizeOptionalStatus(String value) {
+        String normalized = StrUtil.trimToNull(value);
+        if (normalized != null && !MdmEnterpriseStatusEnum.isValid(normalized)) {
+            throw exception(MDM_ENTERPRISE_STATUS_INVALID, value);
+        }
+        return normalized;
+    }
+
+    private Map<Long, MdmEnterpriseDO> indexResults(List<MdmEnterpriseDO> enterprises, Set<Long> requestedIds) {
+        if (enterprises == null) {
+            throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+        }
+        Map<Long, MdmEnterpriseDO> result = new LinkedHashMap<>();
+        for (MdmEnterpriseDO enterprise : enterprises) {
+            if (enterprise == null || enterprise.getId() == null
+                    || enterprise.getId() <= 0 || !requestedIds.contains(enterprise.getId())
+                    || result.putIfAbsent(enterprise.getId(), enterprise) != null) {
+                throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+            }
+        }
+        return result;
+    }
+
+    private void validateFormalEnterprise(MdmEnterpriseDO enterprise, Long tenantId, Set<String> allowedTypes) {
+        if (enterprise.getTenantId() == null || enterprise.getDeleted() == null
+                || enterprise.getRevision() == null || enterprise.getRevision() <= 0
+                || StrUtil.isBlank(enterprise.getEnterpriseCode()) || StrUtil.isBlank(enterprise.getName())
+                || !MdmEnterpriseTypeEnum.isValid(enterprise.getType())
+                || !MdmEnterpriseStatusEnum.isValid(enterprise.getStatus())) {
+            throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+        }
+        if (!Objects.equals(tenantId, enterprise.getTenantId())) {
+            throw exception(MDM_ENTERPRISE_TENANT_MISMATCH, enterprise.getId());
+        }
+        if (Boolean.TRUE.equals(enterprise.getDeleted())) {
+            throw exception(MDM_ENTERPRISE_DELETED, enterprise.getId());
+        }
+        if (!MdmEnterpriseStatusEnum.ENABLE.getStatus().equals(enterprise.getStatus())) {
+            throw exception(MDM_ENTERPRISE_DISABLED, enterprise.getId());
+        }
+        if (!MdmEnterpriseTypeEnum.isValid(enterprise.getType()) || !allowedTypes.contains(enterprise.getType())) {
+            throw exception(MDM_ENTERPRISE_TYPE_MISMATCH, enterprise.getId());
+        }
+    }
+
+    private String requireText(String value, String field) {
+        String normalized = StrUtil.trimToNull(value);
+        if (normalized == null) {
+            throw exception(MDM_ENTERPRISE_FIELD_REQUIRED, field);
+        }
+        return normalized;
+    }
+
+    private String requireType(String value) {
+        String normalized = StrUtil.trimToNull(value);
+        if (!MdmEnterpriseTypeEnum.isValid(normalized)) {
+            throw exception(MDM_ENTERPRISE_TYPE_INVALID, value);
+        }
+        return normalized;
+    }
+
+    private String requireStatus(String value) {
+        String normalized = StrUtil.trimToNull(value);
+        if (!MdmEnterpriseStatusEnum.isValid(normalized)) {
+            throw exception(MDM_ENTERPRISE_STATUS_INVALID, value);
+        }
+        return normalized;
+    }
+
+    private boolean isEnterpriseCodeUniqueConflict(DuplicateKeyException exception) {
+        Throwable current = exception;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null
+                    && message.toLowerCase(Locale.ROOT).contains(ENTERPRISE_CODE_UNIQUE_CONSTRAINT)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+}

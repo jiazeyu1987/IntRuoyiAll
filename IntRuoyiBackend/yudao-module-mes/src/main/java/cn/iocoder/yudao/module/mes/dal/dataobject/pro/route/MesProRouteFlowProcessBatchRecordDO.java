@@ -45,6 +45,8 @@ public class MesProRouteFlowProcessBatchRecordDO extends BaseDO {
 
     private String formBindingKey;
 
+    private String globalSyncKey;
+
     private Long formTemplateId;
 
     private String formTemplateNameSnapshot;

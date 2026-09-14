@@ -31,13 +31,18 @@ export interface ApprovalTaskSummaryVO {
   businessKey?: string
   businessTitle: string
   businessCode?: string
+  businessIdentifierHidden?: boolean
   businessStatus?: string
+  businessContextTags?: string[]
   businessDeleted?: boolean
   currentNodeCode?: string
   currentNodeName?: string
   initiatorUserId?: number
+  initiatorUserName?: string
   assigneeUserId?: number
   assigneeUserName?: string
+  assigneeRoleCode?: string
+  assigneeRoleName?: string
   processInstanceId?: string
   initiatedAt?: string
   taskCreatedAt?: string

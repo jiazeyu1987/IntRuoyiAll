@@ -19,7 +19,7 @@
           class="batch-record-form-layout__alert"
         />
         <UnifiedListTemplate
-          table-key="mes.pro.edhrBatch.recordFormList"
+          table-key="mes.pro.edhrBatch.recordFormList.projectCodeV1"
           :query-model="queryParams"
           :filter-definitions="recordFormQuickFilterDefinitions"
           :show-quick-filter-label="false"
@@ -48,14 +48,13 @@
               <Icon icon="ep:upload" class="mr-5px" />
               导入
             </el-button>
-            <el-button
-              type="danger"
-              :disabled="!selectedRows.length"
-              :loading="batchDeleteLoading"
-              @click="handleBatchDelete"
-            >
-              批量删除
-            </el-button>
+            <div class="batch-record-form-toolbar__latest-version-switch">
+              <span class="batch-record-form-toolbar__latest-version-label">最新版本</span>
+              <el-switch
+                v-model="queryParams.latestVersionOnly"
+                @change="handleLatestVersionOnlyChange"
+              />
+            </div>
           </template>
           <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
             <el-table
@@ -66,11 +65,9 @@
               highlight-current-row
               border
               @row-click="selectReport"
-              @selection-change="handleSelectionChange"
               @header-dragend="handleRecordFormHeaderDragend"
               @sort-change="handleTemplateSortChange"
             >
-              <el-table-column type="selection" width="46" fixed="left" />
               <el-table-column
                 v-if="isRecordFormColumnVisible('productName')"
                 label="产品名称"
@@ -85,6 +82,19 @@
                 </template>
               </el-table-column>
               <el-table-column
+                v-if="isRecordFormColumnVisible('projectCode')"
+                label="项目代码"
+                prop="projectCode"
+                :width="getRecordFormColumnWidthString('projectCode', 140)"
+                :min-width="getRecordFormColumnMinWidthString('projectCode', 120)"
+                show-overflow-tooltip
+                v-bind="sortColumnAttrs('projectCode')"
+              >
+                <template #default="{ row }">
+                  <span>{{ row.projectCode || '-' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column
                 v-if="isRecordFormColumnVisible('reportName')"
                 label="表单名称"
                 prop="reportName"
@@ -92,47 +102,6 @@
                 show-overflow-tooltip
                 v-bind="sortColumnAttrs('reportName')"
               />
-              <el-table-column
-                v-if="isRecordFormColumnVisible('fillRule')"
-                label="填写人"
-                prop="fillRule"
-                :width="getRecordFormColumnWidthString('fillRule', 220)"
-                :min-width="getRecordFormColumnMinWidthString('fillRule', 180)"
-                show-overflow-tooltip
-                v-bind="sortColumnAttrs('fillRule')"
-              >
-                <template #default="{ row }">
-                  <button
-                    type="button"
-                    class="batch-record-form-filler-cell"
-                    @click.stop="openBatchRecordFormPermissionDialog(row)"
-                  >
-                    <el-tag
-                      effect="plain"
-                      :type="
-                        resolveFillRuleStatus(
-                          row.permissionRule?.fillRuleStatus,
-                          isPermissionRuleLoading(row)
-                        ).type
-                      "
-                    >
-                      {{
-                        resolveFillRuleStatus(
-                          row.permissionRule?.fillRuleStatus,
-                          isPermissionRuleLoading(row)
-                        ).label
-                      }}
-                    </el-tag>
-                    <span class="batch-record-form-filler-cell__text">
-                      {{
-                        isPermissionRuleLoading(row)
-                          ? '填写规则加载中'
-                          : buildFillRuleCandidateUserText(row) || '配置填写人'
-                      }}
-                    </span>
-                  </button>
-                </template>
-              </el-table-column>
               <el-table-column
                 v-if="isRecordFormColumnVisible('formSlotType')"
                 label="类型"
@@ -206,7 +175,7 @@
             <el-button link type="primary" @click="openDesigner(selectedReport.reportId, 'edit')">编辑</el-button>
             <el-button link type="primary" @click="openSimulate(selectedReport)">填写</el-button>
             <el-button link type="primary" @click="openTemplateAction(selectedReport, 'signature')">签名</el-button>
-            <el-button link type="primary" @click="openTemplateAction(selectedReport, 'cellRules')">规则</el-button>
+            <el-button link type="primary" @click="openTemplateAction(selectedReport, 'cellRules')">填写配置</el-button>
             <el-button link type="primary" @click="handleCellLinks(selectedReport)">链接</el-button>
             <el-button link type="primary" @click="handleRename(selectedReport)">重命名</el-button>
             <el-button link type="danger" @click="handleDelete(selectedReport)">删除</el-button>
@@ -307,9 +276,18 @@
       @closed="resetWordImportDialog"
     >
       <el-form label-width="120px" class="batch-record-word-import-form">
-        <el-form-item label="产品名称" required>
+        <el-form-item label="导入类型" required>
+          <el-radio-group
+            v-model="wordImportDialog.selectedFormSlotType"
+            @change="handleWordImportTypeChange"
+          >
+            <el-radio-button value="MAIN">批记录</el-radio-button>
+            <el-radio-button value="FORM">表单</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="isMainWordImport" label="产品名称" required>
           <el-select
-            v-model="wordImportDialog.selectedProjectName"
+            v-model="wordImportDialog.selectedDccProjectCodeId"
             class="batch-record-word-import-form__project-select"
             filterable
             remote
@@ -322,7 +300,7 @@
               v-for="item in wordImportDialog.projectOptions"
               :key="item.id"
               :label="item.projectName"
-              :value="item.projectName"
+              :value="item.id"
             >
               <div class="batch-record-word-import-form__project-option">
                 <span class="batch-record-word-import-form__project-name">{{ item.projectName }}</span>
@@ -333,11 +311,21 @@
             </el-option>
           </el-select>
         </el-form-item>
+        <el-form-item v-else label="表单名称" required>
+          <el-input
+            v-model="wordImportDialog.formName"
+            class="batch-record-word-import-form__name-input"
+            maxlength="100"
+            clearable
+            placeholder="请输入表单名称"
+            @input="handleUnifiedFormNameInput"
+          />
+        </el-form-item>
         <el-form-item label="Word 文件" required>
           <div class="batch-record-word-import-form__file-row">
             <el-button
               plain
-              :disabled="!wordImportDialog.selectedProjectName"
+              :disabled="!canSelectWordImportFile"
               @click="handleWordImportFileSelect"
             >
               选择文件
@@ -393,12 +381,66 @@
                 </div>
               </div>
               <el-alert
-                v-if="wordImportDialog.preflight.routeUpgradeRequired && wordImportDialog.selectedRouteProductOptionKeys.length > 0"
+                v-if="wordImportDialog.preflight.routeGovernanceStatus === 'DUPLICATE_BLOCKED'"
+                type="error"
+                :closable="false"
+                show-icon
+                class="batch-record-word-import-form__reference-alert"
+                title="所选 DCC 项目代码存在多条正式路线绑定，请先人工确定/清理唯一保留路线。"
+              />
+              <el-alert
+                v-if="wordImportDialog.preflight.routeGovernanceStatus === 'CREATE_REQUIRED'
+                  && wordImportDialog.selectedRouteProductOptionKeys.length > 0"
+                type="info"
+                :closable="false"
+                show-icon
+                class="batch-record-word-import-form__reference-alert"
+                title="所选 DCC 项目代码尚未绑定工艺路线，确认后将新建路线并写入正式绑定。"
+              />
+              <el-alert
+                v-if="wordImportDialog.preflight.routeUpgradeRequired
+                  && wordImportDialog.selectedRouteProductOptionKeys.length > 0
+                  && !wordImportDialog.preflight.currentRouteCandidateVersionId"
                 type="warning"
                 :closable="false"
                 show-icon
                 class="batch-record-word-import-form__reference-alert"
-                :title="`同一个路线名称只能有一个工艺路线，已存在“${wordImportDialog.preflight.currentRouteName || wordImportDialog.preflight.batchRecordName}”。导入时需要确认是否升版本。`"
+                :title="`所选 DCC 项目代码已正式绑定工艺路线“${wordImportDialog.preflight.currentRouteName || wordImportDialog.preflight.batchRecordName}”。本次勾选“工艺流程”后将按 Word 工序顺序生成/更新路线候选版本，发布后才生效；当前生效路线不会被覆盖。`"
+              />
+              <el-alert
+                v-if="wordImportDialog.preflight.routeUpgradeRequired
+                  && wordImportDialog.rebuildBatchRecord
+                  && wordImportDialog.selectedRouteProductOptionKeys.length === 0"
+                type="info"
+                :closable="false"
+                show-icon
+                class="batch-record-word-import-form__reference-alert"
+                title="未勾选“工艺流程”时，本次仅生成/更新批记录表单绑定候选；候选沿用当前工艺流程节点和流程关系，不按 Word 重建工艺流程，发布后才生效。"
+              />
+              <el-alert
+                v-if="wordImportDialog.preflight.routeRestoreRequired
+                  && wordImportDialog.preflight.routeGovernanceStatus === 'UPGRADE_REQUIRED'"
+                type="warning"
+                :closable="false"
+                show-icon
+                class="batch-record-word-import-form__reference-alert"
+                title="当前唯一工艺路线已禁用，确认后将先恢复路线，再生成/更新候选版本。"
+              />
+              <el-alert
+                v-if="wordImportDialog.preflight.currentRouteCandidateVersionStatus === 'DRAFT'"
+                type="warning"
+                :closable="false"
+                show-icon
+                class="batch-record-word-import-form__reference-alert"
+                :title="`当前已有 ${wordImportDialog.preflight.currentRouteCandidateVersionNo || '候选版本'} 草稿，本次导入将更新现有 ${wordImportDialog.preflight.currentRouteCandidateVersionNo || '候选版本'} 草稿，不会创建下一版本；草稿待发布后生效。`"
+              />
+              <el-alert
+                v-else-if="isWordImportRouteCandidateLocked(wordImportDialog.preflight)"
+                type="error"
+                :closable="false"
+                show-icon
+                class="batch-record-word-import-form__reference-alert"
+                :title="`工艺路线候选版本 ${wordImportDialog.preflight.currentRouteCandidateVersionNo || ''} 当前为${wordImportDialog.preflight.currentRouteCandidateVersionStatus === 'PENDING_APPROVAL' ? '待审批' : '待发布'}状态，请先撤回、取消或完成发布后再导入。`"
               />
               <div class="batch-record-word-import-form__action-row">
                 <span class="batch-record-word-import-form__action-label">导入动作</span>
@@ -427,6 +469,7 @@
                     v-for="option in wordImportDialog.preflight.routeProductOptions"
                     :key="option.optionKey"
                     :value="option.optionKey"
+                    :disabled="isWordImportRouteCandidateLocked(wordImportDialog.preflight)"
                     class="batch-record-word-import-form__route-option"
                   >
                     <span>{{ option.productName }}</span>
@@ -458,80 +501,21 @@
     <BatchRecordCellRulesConfirmDialog
       v-model="cellRulesDialog.visible"
       :report="cellRulesDialog.report"
+      :can-navigate-previous="canNavigateCellRulesPrevious"
+      :can-navigate-next="canNavigateCellRulesNext"
+      :navigation-loading="cellRulesNavigation.loading"
+      :navigation-error-message="cellRulesNavigation.errorMessage"
+      :navigation-label="cellRulesNavigation.label"
       @confirmed="handleCellRulesConfirmed"
+      @navigate="navigateCellRulesDialog"
     />
-
-    <Dialog v-model="permissionDialogVisible" title="批记录表单填写人设置" width="760px">
-      <el-form label-width="108px" class="batch-record-form-permission-form">
-        <el-form-item label="产品名称">
-          <span>{{ permissionTarget.report?.productName || '-' }}</span>
-        </el-form-item>
-        <el-form-item label="表单">
-          <span>{{ permissionTarget.report?.reportName || permissionTarget.report?.reportId || '-' }}</span>
-        </el-form-item>
-        <el-divider content-position="left">填写人设置</el-divider>
-        <div class="batch-record-form-permission-rule">
-          <el-form-item label="填写人来源" class="batch-record-form-permission-field">
-            <el-select
-              v-model="permissionForm.fillRule.candidateSourceType"
-              class="batch-record-form-permission-control"
-              placeholder="请选择填写人来源"
-              @change="permissionForm.fillRule.candidateSourceIds = []"
-            >
-              <el-option
-                v-for="option in candidateSourceOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="填写人" class="batch-record-form-permission-field">
-            <el-select
-              v-model="permissionForm.fillRule.candidateSourceIds"
-              multiple
-              filterable
-              class="batch-record-form-permission-control"
-              placeholder="请选择个人或角色"
-            >
-              <el-option
-                v-for="option in buildCandidateTargetOptions(permissionForm.fillRule.candidateSourceType)"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="完成策略" class="batch-record-form-permission-field">
-            <el-select
-              v-model="permissionForm.fillRule.completionPolicy"
-              class="batch-record-form-permission-control"
-              placeholder="请选择完成策略"
-            >
-              <el-option label="任一人完成" value="ANY_ONE" />
-              <el-option label="全部完成" value="ALL" />
-            </el-select>
-          </el-form-item>
-        </div>
-      </el-form>
-      <template #footer>
-        <el-button @click="permissionDialogVisible = false">取消</el-button>
-        <el-button
-          type="primary"
-          :loading="permissionSaving"
-          @click="submitBatchRecordFormPermission"
-        >
-          保存填写设置
-        </el-button>
-      </template>
-    </Dialog>
   </ContentWrap>
 </template>
 
 <script setup lang="ts">
 import { ElLoading, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { formatDate } from '@/utils/formatTime'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
@@ -565,51 +549,51 @@ import type {
   EdhrBatchExecutionReviewFormViewModel,
   EdhrBatchExecutionReviewSignatureRecord
 } from '@/api/mes/pro/edhr/batchExecution'
-import {
-  EdhrProcessFormPermissionRuleApi,
-  type EdhrProcessFormCandidateRule,
-  type EdhrProcessFormCandidateSourceType,
-  type EdhrProcessFormPermissionRuleRespVO
-} from '@/api/mes/pro/edhr/processFormPermissionRule'
-import { getSimpleRoleList, type RoleVO } from '@/api/system/role'
-import { getSimpleUserList, type UserVO } from '@/api/system/user'
 
 defineOptions({ name: 'MesProBatchRecordFormList' })
 
 type RecordFormListRow = BatchRecordReportVO & {
   rowKey: string
-  permissionRule?: EdhrProcessFormPermissionRuleRespVO | null
 }
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const BATCH_RECORD_FORM_LIST_PATH = '/mes/pro/batch-record-form-list'
+const PROCESS_POOL_REPORT_SOURCE_REPORT_ID = 'PROCESS_POOL_REPORT'
+const isBatchRecordFormListPath = () => route.path === BATCH_RECORD_FORM_LIST_PATH
 const isDesignerMode = computed(() => route.query.mode === 'designer')
+const isMainBatchRecordReport = (row: BatchRecordReportVO) => row.formSlotType === 'MAIN'
 const normalizeRouteQueryText = (value: unknown) => {
   const rawValue = Array.isArray(value) ? value[0] : value
   return typeof rawValue === 'string' && rawValue.trim() ? rawValue.trim() : ''
 }
+const buildBatchRecordFormListRouteStateKey = () =>
+  JSON.stringify({
+    reportId: normalizeRouteQueryText(route.query.reportId),
+    action: normalizeRouteQueryText(route.query.action),
+    mode: normalizeRouteQueryText(route.query.mode)
+  })
 const listLoading = ref(false)
 const listErrorMessage = ref('')
 const list = ref<RecordFormListRow[]>([])
 const total = ref(0)
+const batchRecordFormListHasLoadedRouteState = ref(false)
+let batchRecordFormListLastLoadedRouteStateKey = ''
+const shouldKeepBatchRecordFormListLoadedState = (targetStateKey: string) =>
+  batchRecordFormListHasLoadedRouteState.value &&
+  batchRecordFormListLastLoadedRouteStateKey === targetStateKey &&
+  !listLoading.value
 const selectedReportId = ref('')
-const selectedRows = ref<RecordFormListRow[]>([])
-const batchDeleteLoading = ref(false)
 const previewMaximized = ref(false)
 const previewFitMode = ref<'width' | 'height'>('width')
 const wordImporting = ref(false)
 const wordImportFileInputRef = ref<HTMLInputElement>()
 const lastWordImportResult = ref<BatchRecordReportImportResultVO>()
-const routeProcessBoundDeleteMessage = '电子批记录报表已被工艺路线工序绑定，不能删除'
 const WORD_IMPORT_PROJECT_OPTION_PAGE_SIZE = 200
+const CELL_RULES_NAVIGATION_PAGE_SIZE = 200
 const DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE: BatchRecordFormSlotType = 'MAIN'
-const permissionDialogVisible = ref(false)
-const permissionSaving = ref(false)
-const candidateOptionsLoaded = ref(false)
-const simpleUserOptions = ref<UserVO[]>([])
-const simpleRoleOptions = ref<RoleVO[]>([])
-const permissionRuleLoadingReportIds = reactive(new Set<string>())
+const UNIFIED_FORM_WORD_IMPORT_FORM_SLOT_TYPE: BatchRecordFormSlotType = 'FORM'
 const consumedCellRulesActionKey = ref('')
 const cellRulesDialog = reactive<{
   visible: boolean
@@ -618,12 +602,19 @@ const cellRulesDialog = reactive<{
   visible: false,
   report: undefined
 })
+const cellRulesNavigation = reactive({
+  loading: false,
+  errorMessage: '',
+  label: '',
+  reports: [] as RecordFormListRow[]
+})
 
 const wordImportDialog = reactive({
   visible: false,
   confirming: false,
   selectedFormSlotType: DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE as BatchRecordFormSlotType,
-  selectedProjectName: '',
+  selectedDccProjectCodeId: undefined as number | undefined,
+  formName: '',
   projectOptions: [] as DccProjectCodeRespVO[],
   projectLoading: false,
   preflightLoading: false,
@@ -643,13 +634,14 @@ const queryParams = reactive({
   productName: '',
   versionNo: normalizeRouteQueryText(route.query.versionNo),
   formSlotType: undefined as BatchRecordFormSlotType | undefined,
+  latestVersionOnly: false,
   quickFilter: undefined as any
 })
 
 const recordFormDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'productName', label: '产品名称', width: 180 },
+  { key: 'projectCode', label: '项目代码', width: 140 },
   { key: 'reportName', label: '表单名称', minWidth: 220 },
-  { key: 'fillRule', label: '填写人', width: 220 },
   { key: 'formSlotType', label: '类型', width: 120 },
   { key: 'versionNo', label: '版本', width: 110 },
   { key: 'versionStatus', label: '状态', width: 110 },
@@ -664,47 +656,50 @@ const {
   getColumnMinWidthString: getRecordFormColumnMinWidthString,
   handleHeaderDragend: handleRecordFormHeaderDragend,
   saveConfig: saveRecordFormColumnConfig
-} = useUserTableColumns('mes.pro.edhrBatch.recordFormList', recordFormDefaultColumns)
+} = useUserTableColumns('mes.pro.edhrBatch.recordFormList.projectCodeV1', recordFormDefaultColumns)
 
 const formSlotTypeLabels: Record<BatchRecordFormSlotType, string> = {
   MAIN: '批记录',
+  FORM: '表单',
   LOSS_REPORT: '损耗单',
   PROCESS_INSPECTION: '过程检验单',
   PARAMETER_RECORD: '参数记录表'
 }
 
-type FillRuleStatusTagType = 'success' | 'warning' | 'danger' | 'info' | 'primary'
-type VersionStatusTagType = FillRuleStatusTagType
+type VersionStatusTagType = 'success' | 'warning' | 'danger' | 'info' | 'primary'
 
-const candidateSourceOptions: Array<{ label: string; value: EdhrProcessFormCandidateSourceType }> = [
-  { label: '个人', value: 'USERS' },
-  { label: '角色', value: 'ROLE' }
-]
-
-const permissionTarget = reactive<{
-  report?: RecordFormListRow
-  permissionRule?: EdhrProcessFormPermissionRuleRespVO | null
-}>({
-  report: undefined,
-  permissionRule: undefined
-})
-
-const permissionForm = reactive<{ fillRule: EdhrProcessFormCandidateRule }>({
-  fillRule: {
-    candidateSourceType: 'USERS',
-    candidateSourceIds: [],
-    completionPolicy: 'ANY_ONE',
-    dueMinutes: null,
-    enabled: true,
-    remark: ''
-  }
-})
+const queryRecordFormProductNameSuggestions = async (
+  queryString: string,
+  callback: (items: Array<{ value: string }>) => void
+) => {
+  const data = await BatchRecordReportApi.getProductNameOptions(
+    queryString,
+    queryParams.latestVersionOnly
+  )
+  callback((data || []).map((productName) => ({ value: productName })))
+}
 
 const isMainWordImport = computed(() => wordImportDialog.selectedFormSlotType === 'MAIN')
+const isUnifiedFormWordImport = computed(
+  () => wordImportDialog.selectedFormSlotType === UNIFIED_FORM_WORD_IMPORT_FORM_SLOT_TYPE
+)
+const canSelectWordImportFile = computed(() =>
+  isMainWordImport.value
+    ? Boolean(wordImportDialog.selectedDccProjectCodeId)
+    : Boolean(wordImportDialog.formName.trim())
+)
 const wordImportFileAccept = '.doc,.docx'
 
 const recordFormQuickFilterDefinitions: TableQuickFilterDefinition[] = [
-  { key: 'productName', label: '产品名称', type: 'text', queryParamKey: 'productName', placeholder: '请输入产品名称' },
+  {
+    key: 'productName',
+    label: '产品名称',
+    type: 'autocomplete',
+    queryParamKey: 'productName',
+    placeholder: '请输入产品名称',
+    triggerOnFocus: true,
+    fetchSuggestions: queryRecordFormProductNameSuggestions
+  },
   { key: 'name', label: '表单名称', type: 'text', queryParamKey: 'name', placeholder: '请输入表单名称' },
   {
     key: 'formSlotType',
@@ -713,6 +708,7 @@ const recordFormQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     queryParamKey: 'formSlotType',
     options: [
       { label: '批记录', value: 'MAIN' },
+      { label: '表单', value: 'FORM' },
       { label: '损耗单', value: 'LOSS_REPORT' },
       { label: '过程检验单', value: 'PROCESS_INSPECTION' },
       { label: '参数记录表', value: 'PARAMETER_RECORD' }
@@ -721,12 +717,27 @@ const recordFormQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   { key: 'versionNo', label: '版本', type: 'text', queryParamKey: 'versionNo', placeholder: '请输入版本号' }
 ]
 
-const selectedReport = computed(() => list.value.find((item) => item.reportId === selectedReportId.value))
+const selectedReport = computed(
+  () =>
+    list.value.find((item) => item.reportId === selectedReportId.value) ||
+    cellRulesNavigation.reports.find((item) => item.reportId === selectedReportId.value)
+)
 const selectedReportIndex = computed(() =>
   list.value.findIndex((item) => item.reportId === selectedReportId.value)
 )
 const canPreviewPrevious = computed(() => selectedReportIndex.value > 0)
 const canPreviewNext = computed(() => selectedReportIndex.value >= 0 && selectedReportIndex.value < list.value.length - 1)
+const cellRulesNavigationIndex = computed(() =>
+  cellRulesNavigation.reports.findIndex(
+    (item) => item.reportId === cellRulesDialog.report?.reportId
+  )
+)
+const canNavigateCellRulesPrevious = computed(() => cellRulesNavigationIndex.value > 0)
+const canNavigateCellRulesNext = computed(
+  () =>
+    cellRulesNavigationIndex.value >= 0 &&
+    cellRulesNavigationIndex.value < cellRulesNavigation.reports.length - 1
+)
 
 const templatePreview = reactive({
   loading: false,
@@ -738,9 +749,13 @@ const templatePreview = reactive({
 let recordFormListRequestSerial = 0
 let recordFormSecondaryFrameId: number | undefined
 let templatePreviewRequestSerial = 0
+let cellRulesNavigationRequestSerial = 0
 
 const isStaleRecordFormListRequest = (requestSerial: number) =>
   requestSerial !== recordFormListRequestSerial
+
+const isStaleCellRulesNavigationRequest = (requestSerial: number) =>
+  requestSerial !== cellRulesNavigationRequestSerial
 
 const cancelDeferredRecordFormSecondaryLoad = () => {
   if (recordFormSecondaryFrameId === undefined) return
@@ -888,6 +903,94 @@ const normalizeTemplateAction = (value: unknown): BatchRecordTemplateAction | ''
 
 const buildCellRulesActionKey = (reportId: string) => `${reportId}:cellRules`
 
+const normalizeCellRulesNavigationText = (value: unknown) =>
+  typeof value === 'string' && value.trim() ? value.trim() : ''
+
+const buildCellRulesNavigationLabel = (sourceReport: BatchRecordReportVO) => {
+  const productName = normalizeCellRulesNavigationText(sourceReport.productName)
+  const versionNo = normalizeCellRulesNavigationText(sourceReport.versionNo)
+  if (productName && versionNo) return `${productName} / ${versionNo}`
+  return sourceReport.reportName || sourceReport.batchRecordName || sourceReport.reportId || '同版本表单'
+}
+
+const resetCellRulesNavigation = (sourceReport?: BatchRecordReportVO) => {
+  cellRulesNavigation.loading = false
+  cellRulesNavigation.errorMessage = ''
+  cellRulesNavigation.label = sourceReport ? buildCellRulesNavigationLabel(sourceReport) : ''
+  cellRulesNavigation.reports = []
+}
+
+const loadCellRulesNavigationReports = async (sourceReport: BatchRecordReportVO) => {
+  const requestSerial = ++cellRulesNavigationRequestSerial
+  resetCellRulesNavigation(sourceReport)
+  const productName = normalizeCellRulesNavigationText(sourceReport.productName)
+  const versionNo = normalizeCellRulesNavigationText(sourceReport.versionNo)
+  if (!productName || !versionNo) {
+    cellRulesNavigation.errorMessage = '当前表单缺少产品名称或版本号，无法切换同版本表单。'
+    return
+  }
+
+  cellRulesNavigation.loading = true
+  try {
+    const sourceBatchRecordVersionId = Number(sourceReport.batchRecordVersionId)
+    const shouldFilterByBatchRecordVersionId =
+      Number.isFinite(sourceBatchRecordVersionId) && sourceBatchRecordVersionId > 0
+    const allReports: RecordFormListRow[] = []
+    let pageNo = 1
+    let total = 0
+    do {
+      const data = await BatchRecordReportApi.getGeneratedReportPage({
+        pageNo,
+        pageSize: CELL_RULES_NAVIGATION_PAGE_SIZE,
+        productName: sourceReport.productName,
+        versionNo: sourceReport.versionNo
+      })
+      if (isStaleCellRulesNavigationRequest(requestSerial)) return
+      if (!Array.isArray(data.list)) {
+        throw new Error('同产品同版本表单列表响应缺少 list。')
+      }
+      const rows = data.list
+      allReports.push(...rows.map((row, index) => toRecordFormRow(row, allReports.length + index)))
+      total = Number(data.total) || allReports.length
+      if (rows.length === 0) break
+      pageNo += 1
+    } while (allReports.length < total)
+
+    const reportMap = new Map<string, RecordFormListRow>()
+    allReports
+      .filter((row) => normalizeCellRulesNavigationText(row.productName) === productName)
+      .filter((row) => normalizeCellRulesNavigationText(row.versionNo) === versionNo)
+      .filter(
+        (row) =>
+          !shouldFilterByBatchRecordVersionId ||
+          Number(row.batchRecordVersionId) === sourceBatchRecordVersionId
+      )
+      .forEach((row) => {
+        if (row.reportId && !reportMap.has(row.reportId)) {
+          reportMap.set(row.reportId, row)
+        }
+      })
+
+    const nextReports = Array.from(reportMap.values())
+    if (!nextReports.some((row) => row.reportId === sourceReport.reportId)) {
+      throw new Error('同产品同版本候选列表中未包含当前表单，无法安全切换。')
+    }
+    if (isStaleCellRulesNavigationRequest(requestSerial)) return
+    cellRulesNavigation.reports = nextReports
+  } catch (error) {
+    if (isStaleCellRulesNavigationRequest(requestSerial)) return
+    cellRulesNavigation.reports = []
+    cellRulesNavigation.errorMessage = resolveErrorMessage(
+      error,
+      '同产品同版本表单列表加载失败，无法切换。'
+    )
+  } finally {
+    if (!isStaleCellRulesNavigationRequest(requestSerial)) {
+      cellRulesNavigation.loading = false
+    }
+  }
+}
+
 const openCellRulesDialog = (row: BatchRecordReportVO) => {
   const reportId = String(row.reportId || '').trim()
   if (!reportId) {
@@ -896,6 +999,7 @@ const openCellRulesDialog = (row: BatchRecordReportVO) => {
   consumedCellRulesActionKey.value = buildCellRulesActionKey(reportId)
   cellRulesDialog.report = row as RecordFormListRow
   cellRulesDialog.visible = true
+  void loadCellRulesNavigationReports(row)
 }
 
 const handleTemplateActionQuery = async () => {
@@ -914,10 +1018,21 @@ const handleTemplateActionQuery = async () => {
 }
 
 const handleCellRulesConfirmed = async (data: BatchRecordReportCellRulesRespVO) => {
-  const report = list.value.find((item) => item.reportId === data.reportId)
+  const report =
+    list.value.find((item) => item.reportId === data.reportId) ||
+    cellRulesNavigation.reports.find((item) => item.reportId === data.reportId)
   if (report) {
     await loadSelectedReportTemplate(report)
   }
+}
+
+const navigateCellRulesDialog = async (offset: -1 | 1) => {
+  if (cellRulesNavigation.loading) return
+  const nextReport = cellRulesNavigation.reports[cellRulesNavigationIndex.value + offset]
+  if (!nextReport) return
+  cellRulesDialog.report = nextReport
+  selectedReportId.value = nextReport.reportId
+  await loadSelectedReportTemplate(nextReport)
 }
 
 const toRecordFormRow = (row: BatchRecordReportVO, index: number): RecordFormListRow => ({
@@ -925,112 +1040,12 @@ const toRecordFormRow = (row: BatchRecordReportVO, index: number): RecordFormLis
   rowKey: `${row.reportId || 'report'}:${row.productName || 'no-product'}:${index}`
 })
 
-const normalizeFillCandidateSourceType = (
-  sourceType?: EdhrProcessFormCandidateSourceType | null
-): EdhrProcessFormCandidateSourceType => {
-  if (!sourceType) return 'USERS'
-  if (sourceType === 'USER' || sourceType === 'USERS') return 'USERS'
-  if (sourceType === 'ROLE') return 'ROLE'
-  throw new Error(`批记录表单填写人仅支持个人或角色：${sourceType}`)
-}
-
-const cloneCandidateRule = (
-  rule?: EdhrProcessFormCandidateRule | null
-): EdhrProcessFormCandidateRule => ({
-  candidateSourceType: normalizeFillCandidateSourceType(rule?.candidateSourceType),
-  candidateSourceIds: [...(rule?.candidateSourceIds || [])],
-  completionPolicy: rule?.completionPolicy || 'ANY_ONE',
-  dueMinutes: null,
-  enabled: rule?.enabled ?? true,
-  remark: rule?.remark || '',
-  candidateUsers: rule?.candidateUsers ? [...rule.candidateUsers] : []
-})
-
-const resolveFillRuleStatus = (
-  status?: EdhrProcessFormPermissionRuleRespVO['fillRuleStatus'],
-  loading = false
-): { label: string; type: FillRuleStatusTagType } => {
-  if (loading) return { label: '加载中', type: 'info' }
-  if (status === 'CONFIGURED') return { label: '已配置', type: 'success' }
-  if (status === 'CANDIDATE_EMPTY') return { label: '候选为空', type: 'danger' }
-  if (status === 'INCOMPLETE') return { label: '规则不完整', type: 'warning' }
-  return { label: '未配置', type: 'info' }
-}
-
-const buildFillRuleCandidateUserText = (row: RecordFormListRow) => {
-  const candidateUsers = row.permissionRule?.fillRule?.candidateUsers || []
-  return candidateUsers.map((user) => user.displayName).filter(Boolean).join('、')
-}
-
-const isPermissionRuleLoading = (row: RecordFormListRow) =>
-  Boolean(row.reportId && permissionRuleLoadingReportIds.has(row.reportId))
-
-const loadCandidateOptions = async () => {
-  if (candidateOptionsLoaded.value) return
-  const [users, roles] = await Promise.all([getSimpleUserList(), getSimpleRoleList()])
-  simpleUserOptions.value = users
-  simpleRoleOptions.value = roles
-  candidateOptionsLoaded.value = true
-}
-
-const buildCandidateTargetOptions = (sourceType: EdhrProcessFormCandidateSourceType) => {
-  if (sourceType === 'USER' || sourceType === 'USERS') {
-    return simpleUserOptions.value.map((user) => ({
-      label: user.nickname || user.username || `用户 ${user.id}`,
-      value: user.id
-    }))
-  }
-  if (sourceType === 'ROLE') {
-    return simpleRoleOptions.value.map((role) => ({
-      label: role.name || role.code || `角色 ${role.id}`,
-      value: role.id
-    }))
-  }
-  throw new Error(`批记录表单填写人仅支持个人或角色：${sourceType}`)
-}
-
-const loadRecordFormPermissionRules = async (
-  rows: RecordFormListRow[],
-  requestSerial: number
-) => {
-  const rowsByReportId = new Map<string, RecordFormListRow[]>()
-  for (const row of rows) {
-    if (!row.reportId) {
-      row.permissionRule = null
-      continue
-    }
-    const reportRows = rowsByReportId.get(row.reportId)
-    if (reportRows) {
-      reportRows.push(row)
-    } else {
-      rowsByReportId.set(row.reportId, [row])
-    }
-  }
-  await Promise.all(
-    [...rowsByReportId.entries()].map(async ([reportId, reportRows]) => {
-      try {
-        const rule = await EdhrProcessFormPermissionRuleApi.getByReport(reportId)
-        if (isStaleRecordFormListRequest(requestSerial)) return
-        for (const row of reportRows) {
-          row.permissionRule = rule
-        }
-      } finally {
-        if (!isStaleRecordFormListRequest(requestSerial)) {
-          permissionRuleLoadingReportIds.delete(reportId)
-        }
-      }
-    })
-  )
-}
-
 const loadRecordFormSecondaryData = async (
-  rows: RecordFormListRow[],
   selectedRow: RecordFormListRow | undefined,
   requestSerial: number
 ) => {
   try {
     await Promise.all([
-      loadRecordFormPermissionRules(rows, requestSerial),
       selectedRow
         ? loadSelectedReportTemplate(selectedRow, requestSerial)
         : Promise.resolve(),
@@ -1038,97 +1053,41 @@ const loadRecordFormSecondaryData = async (
     ])
   } catch (error) {
     if (isStaleRecordFormListRequest(requestSerial)) return
-    listErrorMessage.value = resolveErrorMessage(
+    templatePreview.errorMessage = resolveErrorMessage(
       error,
-      '批记录表单填写人规则加载失败，请联系管理员检查权限规则链路。'
+      '批记录表单辅助数据加载失败，请联系管理员检查报表预览链路。'
     )
   }
 }
 
 const deferRecordFormSecondaryLoad = (
-  rows: RecordFormListRow[],
   selectedRow: RecordFormListRow | undefined,
   requestSerial: number
 ) => {
   cancelDeferredRecordFormSecondaryLoad()
-  permissionRuleLoadingReportIds.clear()
-  for (const row of rows) {
-    if (row.reportId) {
-      permissionRuleLoadingReportIds.add(row.reportId)
-    }
-  }
   recordFormSecondaryFrameId = requestAnimationFrame(() => {
     recordFormSecondaryFrameId = undefined
     if (isStaleRecordFormListRequest(requestSerial)) return
-    void loadRecordFormSecondaryData(rows, selectedRow, requestSerial)
+    void loadRecordFormSecondaryData(selectedRow, requestSerial)
   })
-}
-
-const validateCandidateRuleForSubmit = (rule: EdhrProcessFormCandidateRule) => {
-  if (!rule.candidateSourceType) throw new Error('填写人规则缺少人员类型')
-  if (!rule.candidateSourceIds?.length) throw new Error('填写人规则缺少人员或角色')
-  if (!rule.completionPolicy) throw new Error('填写人规则缺少完成策略')
-}
-
-const openBatchRecordFormPermissionDialog = async (row: RecordFormListRow) => {
-  if (!row.reportId) {
-    message.warning('当前批记录表单缺少报表 ID')
-    return
-  }
-  try {
-    await loadCandidateOptions()
-    const rule = await EdhrProcessFormPermissionRuleApi.getByReport(row.reportId)
-    row.permissionRule = rule
-    permissionTarget.report = row
-    permissionTarget.permissionRule = rule
-    permissionForm.fillRule = cloneCandidateRule(rule.fillRule)
-    permissionDialogVisible.value = true
-  } catch (error) {
-    message.error(resolveErrorMessage(error, '批记录表单填写人设置加载失败，请联系管理员。'))
-  }
-}
-
-const submitBatchRecordFormPermission = async () => {
-  const report = permissionTarget.report
-  if (!report?.reportId) {
-    throw new Error('保存填写设置失败：缺少批记录表单定位信息')
-  }
-  validateCandidateRuleForSubmit(permissionForm.fillRule)
-  permissionSaving.value = true
-  try {
-    const saved = await EdhrProcessFormPermissionRuleApi.saveByReport({
-      batchRecordReportId: report.reportId,
-      fillRule: cloneCandidateRule(permissionForm.fillRule)
-    })
-    for (const row of list.value) {
-      if (row.reportId === report.reportId) {
-        row.permissionRule = saved
-      }
-    }
-    permissionTarget.permissionRule = saved
-    message.success('填写人已保存')
-    permissionDialogVisible.value = false
-  } catch (error) {
-    message.error(resolveErrorMessage(error, '填写设置保存失败，请联系管理员。'))
-  } finally {
-    permissionSaving.value = false
-  }
 }
 
 const getList = async () => {
   const requestSerial = ++recordFormListRequestSerial
+  const targetRouteStateKey = buildBatchRecordFormListRouteStateKey()
   cancelDeferredRecordFormSecondaryLoad()
-  permissionRuleLoadingReportIds.clear()
   listLoading.value = true
   listErrorMessage.value = ''
   try {
     const data = await BatchRecordReportApi.getGeneratedReportPage({
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
+      reportId: normalizeRouteQueryText(route.query.reportId) || undefined,
       name: queryParams.name || undefined,
       productName: queryParams.productName || undefined,
       versionNo: queryParams.versionNo || undefined,
-      formSlotType: queryParams.formSlotType || undefined
+      formSlotType: queryParams.formSlotType || undefined,
+      latestVersionOnly: queryParams.latestVersionOnly || undefined
     })
     if (isStaleRecordFormListRequest(requestSerial)) return
     const nextList = (Array.isArray(data.list) ? data.list : []).map(toRecordFormRow)
@@ -1145,13 +1104,14 @@ const getList = async () => {
       selectedReportId.value = ''
       clearTemplatePreview()
     }
-    deferRecordFormSecondaryLoad(nextList, nextSelected, requestSerial)
+    deferRecordFormSecondaryLoad(nextSelected, requestSerial)
+    batchRecordFormListLastLoadedRouteStateKey = targetRouteStateKey
+    batchRecordFormListHasLoadedRouteState.value = true
   } catch (error) {
     if (isStaleRecordFormListRequest(requestSerial)) return
     list.value = []
     total.value = 0
     selectedReportId.value = ''
-    permissionRuleLoadingReportIds.clear()
     clearTemplatePreview()
     listErrorMessage.value = resolveErrorMessage(error, '批记录表单列表加载失败，请联系管理员检查报表目录链路。')
   } finally {
@@ -1168,8 +1128,9 @@ const recordFormQuickFilter = useTableQuickFilter(
   getList
 )
 
-const handleSelectionChange = (rows: RecordFormListRow[]) => {
-  selectedRows.value = rows
+const handleLatestVersionOnlyChange = async () => {
+  queryParams.pageNo = 1
+  await getList()
 }
 
 const enterPreviewMaximize = () => {
@@ -1192,16 +1153,6 @@ const selectPreviewNeighbor = async (offset: number) => {
   await selectReport(nextReport)
 }
 
-const getUniqueSelectedReports = () => {
-  const uniqueReportMap = new Map<string, RecordFormListRow>()
-  for (const row of selectedRows.value) {
-    if (row.reportId && !uniqueReportMap.has(row.reportId)) {
-      uniqueReportMap.set(row.reportId, row)
-    }
-  }
-  return Array.from(uniqueReportMap.values())
-}
-
 const selectReport = async (row: RecordFormListRow) => {
   selectedReportId.value = row.reportId
   await loadSelectedReportTemplate(row)
@@ -1210,10 +1161,7 @@ const selectReport = async (row: RecordFormListRow) => {
 const resolveFormSlotTypeLabel = (formSlotType?: BatchRecordFormSlotType) =>
   formSlotTypeLabels[formSlotType || 'MAIN'] || formSlotType || '-'
 
-const formatNullableDate = (value?: Date | string) => {
-  if (!value) return '-'
-  return formatDate(new Date(value), 'YYYY-MM-DD HH:mm')
-}
+const formatNullableDate = (value?: Date | string | number) => formatDateTimeValue(value, '-')
 
 const resolveVersionStatusPresentation = (status?: string): { label: string; type: VersionStatusTagType } => {
   const statusMap: Record<string, { label: string; type: VersionStatusTagType }> = {
@@ -1286,6 +1234,9 @@ const hasWordImportAllowedAction = computed(() =>
 )
 
 const resolveWordImportActionLockedMessage = (preflight?: BatchRecordReportImportPreflightVO) => {
+  if (isWordImportRouteCandidateLocked(preflight)) {
+    return `工艺路线候选版本 ${preflight?.currentRouteCandidateVersionNo || ''} 当前为${preflight?.currentRouteCandidateVersionStatus === 'PENDING_APPROVAL' ? '待审批' : '待发布'}状态，请先撤回、取消或完成发布后再导入。`
+  }
   if (preflight?.latestBatchRecordVersionStatus === 'PENDING_APPROVAL') {
     return '当前批记录存在待审批升版申请，只能等待审批完成或撤回升版申请。'
   }
@@ -1300,13 +1251,20 @@ const resolveWordImportUpgradeVersionMessage = (
   const latestVersion = formatWordImportLatestBatchRecordVersion(preflight)
   const nextVersion = preflight.nextVersionNo || '下一版本'
   if (latestVersion !== currentVersion) {
-    return `批记录「${batchRecordName}」最新批记录版本为 ${latestVersion}，当前生效源版本为 ${currentVersion}，确认后将生成 ${nextVersion}。`
+    return `批记录「${batchRecordName}」已存在同名批记录。是否升版本：最新批记录版本为 ${latestVersion}，当前生效源版本为 ${currentVersion}，确认后将生成 ${nextVersion}。`
   }
-  return `批记录「${batchRecordName}」当前版本为 ${currentVersion}，确认后将生成 ${nextVersion}。`
+  return `批记录「${batchRecordName}」已存在同名批记录。是否升版本：当前版本为 ${currentVersion}，确认后将生成 ${nextVersion}。`
 }
 
 const isWordImportRouteDuplicateBlocked = (preflight?: BatchRecordReportImportPreflightVO) =>
   preflight?.routeGovernanceStatus === 'DUPLICATE_BLOCKED'
+
+const isWordImportRouteCandidateLocked = (preflight?: BatchRecordReportImportPreflightVO) =>
+  preflight?.currentRouteCandidateVersionStatus === 'PENDING_APPROVAL'
+  || preflight?.currentRouteCandidateVersionStatus === 'READY_TO_PUBLISH'
+
+const isWordImportRouteDraftCandidate = (preflight?: BatchRecordReportImportPreflightVO) =>
+  preflight?.currentRouteCandidateVersionStatus === 'DRAFT'
 
 const formatWordImportDuplicateRoutes = (preflight?: BatchRecordReportImportPreflightVO) =>
   preflight?.duplicateRoutes
@@ -1317,8 +1275,41 @@ const formatWordImportDuplicateRoutes = (preflight?: BatchRecordReportImportPref
 const resolveWordImportRouteUpgradeMessage = (
   batchRecordName: string,
   preflight: BatchRecordReportImportPreflightVO
-) =>
-  `同一个路线名称只能有一个工艺路线，已存在“${preflight.currentRouteName || batchRecordName}”（${preflight.currentRouteCode || '无编码'}，${preflight.currentRouteVersionNo || '无版本'}）。确认后将生成路线候选版本，待审批/发布后生效，不会创建第二条同名路线。`
+) => {
+  if (isWordImportRouteDraftCandidate(preflight)) {
+    const candidateVersionNo = preflight.currentRouteCandidateVersionNo || '候选版本'
+    return `工艺路线“${preflight.currentRouteName || batchRecordName}”当前已有 ${candidateVersionNo} 草稿。确认后将按 Word 工序顺序更新现有 ${candidateVersionNo} 草稿，不会创建下一版本；草稿发布后才生效，当前生效路线不会被覆盖。`
+  }
+  return `所选 DCC 项目代码已正式绑定工艺路线“${preflight.currentRouteName || batchRecordName}”（${preflight.currentRouteCode || '无编码'}，${preflight.currentRouteVersionNo || '无版本'}）。确认后将按 Word 工序顺序生成/更新路线候选版本，发布后才生效；当前生效路线不会被覆盖。`
+}
+
+const resolveWordImportRouteUpgradeDialogTitle = (preflight?: BatchRecordReportImportPreflightVO) =>
+  isWordImportRouteDraftCandidate(preflight) ? '确认更新路线草稿' : '确认生成路线候选版本'
+
+const resolveWordImportRouteUpgradeConfirmText = (preflight?: BatchRecordReportImportPreflightVO) =>
+  isWordImportRouteDraftCandidate(preflight)
+    ? `更新 ${preflight?.currentRouteCandidateVersionNo || '候选版本'} 草稿`
+    : '生成候选版本'
+
+const resolveWordImportBatchRecordBindingCandidateMessage = (
+  batchRecordName: string,
+  preflight: BatchRecordReportImportPreflightVO
+) => {
+  const candidateVersionNo = preflight.currentRouteCandidateVersionNo || '候选版本'
+  const routeName = preflight.currentRouteName || batchRecordName
+  if (isWordImportRouteDraftCandidate(preflight)) {
+    return `工艺路线“${routeName}”当前已有 ${candidateVersionNo} 草稿。本次未勾选“工艺流程”，确认后仅更新批记录表单绑定候选；候选沿用当前工艺流程节点和流程关系，不按 Word 重建工艺流程，发布后才生效。`
+  }
+  return `所选 DCC 项目代码已正式绑定工艺路线“${routeName}”。本次未勾选“工艺流程”，确认后仅生成批记录表单绑定候选；候选沿用当前工艺流程节点和流程关系，不按 Word 重建工艺流程，发布后才生效。`
+}
+
+const resolveWordImportBatchRecordBindingCandidateDialogTitle = (
+  preflight?: BatchRecordReportImportPreflightVO
+) => isWordImportRouteDraftCandidate(preflight) ? '确认更新批记录绑定草稿' : '确认生成批记录绑定候选'
+
+const resolveWordImportBatchRecordBindingCandidateConfirmText = (
+  preflight?: BatchRecordReportImportPreflightVO
+) => isWordImportRouteDraftCandidate(preflight) ? '更新绑定草稿' : '生成绑定候选'
 
 const addWordImportRouteUpgradeKey = (
   routeUpgradeKeys: Set<string>,
@@ -1399,7 +1390,8 @@ const resetWordImportDialog = () => {
   }
   wordImportDialog.confirming = false
   wordImportDialog.selectedFormSlotType = DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE
-  wordImportDialog.selectedProjectName = ''
+  wordImportDialog.selectedDccProjectCodeId = undefined
+  wordImportDialog.formName = ''
   wordImportDialog.projectOptions = []
   wordImportDialog.projectLoading = false
   resetWordImportPreflightState()
@@ -1424,6 +1416,30 @@ const clearWordImportState = () => {
   wordImportDialog.file = undefined
 }
 
+const getSelectedWordImportProject = () => {
+  const selectedId = wordImportDialog.selectedDccProjectCodeId
+  if (!selectedId) {
+    return undefined
+  }
+  return wordImportDialog.projectOptions.find((item) => item.id === selectedId)
+}
+
+const resolveWordImportSubjectName = () => {
+  if (isMainWordImport.value) {
+    return getSelectedWordImportProject()?.projectName?.trim() || ''
+  }
+  return wordImportDialog.formName.trim()
+}
+
+const resolveWordImportSubjectRequiredMessage = () =>
+  isMainWordImport.value ? '请选择产品名称。' : '请输入表单名称。'
+
+const resolveWordImportSubjectTooLongMessage = () =>
+  isMainWordImport.value ? '产品名称不能超过 100 个字符。' : '表单名称不能超过 100 个字符。'
+
+const resolveExtraFormSlotSubjectLabel = (formSlotType: BatchRecordFormSlotType) =>
+  formSlotType === UNIFIED_FORM_WORD_IMPORT_FORM_SLOT_TYPE ? '表单名称' : '产品名称'
+
 const loadWordImportProjectOptions = async (keyword = '') => {
   const trimmedKeyword = keyword.trim()
   wordImportDialog.projectLoading = true
@@ -1445,17 +1461,14 @@ const loadWordImportProjectOptions = async (keyword = '') => {
       currentPageNo += 1
     } while (options.length < totalCount)
 
-    const selectedProject = wordImportDialog.projectOptions.find(
-      (item) => item.projectName === wordImportDialog.selectedProjectName
-    )
-    const optionMap = new Map<string, DccProjectCodeRespVO>()
-    if (selectedProject?.projectName) {
-      optionMap.set(selectedProject.projectName, selectedProject)
+    const selectedProject = getSelectedWordImportProject()
+    const optionMap = new Map<number, DccProjectCodeRespVO>()
+    if (selectedProject?.id) {
+      optionMap.set(selectedProject.id, selectedProject)
     }
     options.forEach((item) => {
-      const projectName = item.projectName?.trim()
-      if (projectName && !optionMap.has(projectName)) {
-        optionMap.set(projectName, item)
+      if (item.id && !optionMap.has(item.id)) {
+        optionMap.set(item.id, item)
       }
     })
     wordImportDialog.projectOptions = Array.from(optionMap.values())
@@ -1466,10 +1479,28 @@ const loadWordImportProjectOptions = async (keyword = '') => {
   }
 }
 
+const handleWordImportTypeChange = async () => {
+  clearWordImportState()
+  resetWordImportPreflightState()
+  if (isMainWordImport.value && wordImportDialog.visible && wordImportDialog.projectOptions.length === 0) {
+    await loadWordImportProjectOptions()
+  }
+}
+
+const handleUnifiedFormNameInput = () => {
+  if (!isUnifiedFormWordImport.value) {
+    return
+  }
+  clearWordImportState()
+  resetWordImportPreflightState()
+}
+
 const loadWordImportPreflight = async () => {
   const file = wordImportDialog.file
-  const selectedProjectName = wordImportDialog.selectedProjectName.trim()
-  if (!isMainWordImport.value || !file || !selectedProjectName) {
+  const selectedProject = getSelectedWordImportProject()
+  const selectedProjectName = selectedProject?.projectName?.trim() || ''
+  const selectedDccProjectCodeId = selectedProject?.id
+  if (!isMainWordImport.value || !file || !selectedProjectName || !selectedDccProjectCodeId) {
     resetWordImportPreflightState()
     return
   }
@@ -1480,6 +1511,7 @@ const loadWordImportPreflight = async () => {
     const preflight = await BatchRecordReportApi.preflightUploadedRoute(
       resolveWordImportRouteKey(file.name),
       selectedProjectName,
+      selectedDccProjectCodeId,
       productNames
     )
     wordImportDialog.preflight = preflight
@@ -1519,6 +1551,7 @@ const buildWordImportSelection = () => {
     routeUpgradeRequired: wordImportDialog.preflight?.routeUpgradeRequired,
     expectedRouteId: wordImportDialog.preflight?.currentRouteId,
     expectedRouteVersionId: wordImportDialog.preflight?.currentRouteVersionId,
+    expectedRouteCandidateVersionId: wordImportDialog.preflight?.currentRouteCandidateVersionId,
     selectedOptions,
     selectedRouteProductIds,
     selectedProductNames
@@ -1535,6 +1568,7 @@ type WordImportConfirmedSelection = {
   routeUpgradeConfirmed?: boolean
   expectedRouteId?: number
   expectedRouteVersionId?: number
+  expectedRouteCandidateVersionId?: number
   selectedRouteProductIds: number[]
   selectedProductNames: string[]
 }
@@ -1544,7 +1578,13 @@ const buildWordImportConfirmedSelection = (
   rebuildBatchRecord: boolean,
   selectedOptions: BatchRecordReportImportRouteProductOptionVO[]
 ): WordImportConfirmedSelection => {
-  const shouldConfirmRouteUpgrade = Boolean(selection.routeUpgradeRequired && selection.selectedOptions.length)
+  const routeFlowRebuildRequested = selectedOptions.length > 0
+  const batchRecordBindingCandidateRequested = Boolean(
+    selection.routeUpgradeRequired && rebuildBatchRecord && !routeFlowRebuildRequested
+  )
+  const shouldConfirmRouteUpgrade = Boolean(
+    selection.routeUpgradeRequired && (routeFlowRebuildRequested || batchRecordBindingCandidateRequested)
+  )
   return {
     importAction: selection.importAction,
     expectedSourceVersionId: selection.expectedSourceVersionId,
@@ -1553,6 +1593,9 @@ const buildWordImportConfirmedSelection = (
     routeUpgradeConfirmed: shouldConfirmRouteUpgrade,
     expectedRouteId: shouldConfirmRouteUpgrade ? selection.expectedRouteId : undefined,
     expectedRouteVersionId: shouldConfirmRouteUpgrade ? selection.expectedRouteVersionId : undefined,
+    expectedRouteCandidateVersionId: shouldConfirmRouteUpgrade
+      ? selection.expectedRouteCandidateVersionId
+      : undefined,
     selectedRouteProductIds: selectedOptions
       .map((option) => option.routeProductId)
       .filter((routeProductId): routeProductId is number => typeof routeProductId === 'number'),
@@ -1567,30 +1610,52 @@ const confirmWordImportUpgradeSelections = async (
   batchRecordName: string,
   selection: WordImportSelection
 ) => {
+  const preflight = wordImportDialog.preflight
+  if (!preflight) {
+    return false
+  }
   const rebuildBatchRecord = selection.rebuildBatchRecord
+  const routeFlowRebuildRequested = selection.selectedOptions.length > 0
+  const batchRecordBindingCandidateRequested = Boolean(
+    selection.routeUpgradeRequired && rebuildBatchRecord && !routeFlowRebuildRequested
+  )
   const selectedOptions: BatchRecordReportImportRouteProductOptionVO[] = []
   const confirmedRouteUpgradeKeys = new Set<string>()
   const skippedRouteUpgradeKeys = new Set<string>()
-  const shouldConfirmRouteUpgrade = Boolean(selection.routeUpgradeRequired && selection.selectedOptions.length)
-  if (isWordImportRouteDuplicateBlocked(wordImportDialog.preflight)) {
-    message.warning(`存在多条同名工艺路线：${formatWordImportDuplicateRoutes(wordImportDialog.preflight)}，请先人工确定/清理唯一保留路线。`)
+  const shouldConfirmRouteUpgrade = Boolean(
+    selection.routeUpgradeRequired && (routeFlowRebuildRequested || batchRecordBindingCandidateRequested)
+  )
+  if (isWordImportRouteDuplicateBlocked(preflight)) {
+    message.warning(`所选 DCC 项目代码存在多条正式路线绑定：${formatWordImportDuplicateRoutes(preflight)}，请先清理为唯一绑定。`)
+    return false
+  }
+  if (isWordImportRouteCandidateLocked(preflight)) {
+    message.warning(resolveWordImportActionLockedMessage(preflight))
     return false
   }
   if (shouldConfirmRouteUpgrade) {
     try {
       await ElMessageBox.confirm(
-        resolveWordImportRouteUpgradeMessage(batchRecordName, wordImportDialog.preflight),
-        '确认生成路线候选版本',
+        batchRecordBindingCandidateRequested
+          ? resolveWordImportBatchRecordBindingCandidateMessage(batchRecordName, preflight)
+          : resolveWordImportRouteUpgradeMessage(batchRecordName, preflight),
+        batchRecordBindingCandidateRequested
+          ? resolveWordImportBatchRecordBindingCandidateDialogTitle(preflight)
+          : resolveWordImportRouteUpgradeDialogTitle(preflight),
         {
-          confirmButtonText: '生成候选版本',
+          confirmButtonText: batchRecordBindingCandidateRequested
+            ? resolveWordImportBatchRecordBindingCandidateConfirmText(preflight)
+            : resolveWordImportRouteUpgradeConfirmText(preflight),
           cancelButtonText: '退出导入',
           distinguishCancelAndClose: true,
           type: 'warning'
         }
       )
-      collectWordImportCurrentRouteUpgradeKeys(wordImportDialog.preflight).forEach((routeUpgradeKey) => {
-        confirmedRouteUpgradeKeys.add(routeUpgradeKey)
-      })
+      if (routeFlowRebuildRequested) {
+        collectWordImportCurrentRouteUpgradeKeys(wordImportDialog.preflight).forEach((routeUpgradeKey) => {
+          confirmedRouteUpgradeKeys.add(routeUpgradeKey)
+        })
+      }
     } catch {
       return false
     }
@@ -1664,7 +1729,8 @@ const confirmWordImportUpgradeSelections = async (
 
 const openWordImportDialog = async () => {
   wordImportDialog.selectedFormSlotType = DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE
-  wordImportDialog.selectedProjectName = ''
+  wordImportDialog.selectedDccProjectCodeId = undefined
+  wordImportDialog.formName = ''
   wordImportDialog.projectOptions = []
   clearWordImportState()
   resetWordImportPreflightState()
@@ -1678,16 +1744,14 @@ const cancelWordImportDialog = () => {
 }
 
 const confirmWordImportDialog = async () => {
-  const selectedProjectName = wordImportDialog.selectedProjectName.trim()
-  if (!selectedProjectName) {
-    message.warning('请选择产品名称。')
+  const selectedProject = getSelectedWordImportProject()
+  const selectedSubjectName = resolveWordImportSubjectName()
+  if (!wordImportDialog.selectedFormSlotType) {
+    message.warning('请选择表单类型。')
     return
   }
-  const selectedProject = wordImportDialog.projectOptions.find(
-    (item) => item.projectName === selectedProjectName
-  )
-  if (!selectedProject) {
-    message.warning('只能从 DCC 项目代码页签中的产品名称下拉选择。')
+  if (!selectedSubjectName) {
+    message.warning(resolveWordImportSubjectRequiredMessage())
     return
   }
   const file = wordImportDialog.file
@@ -1695,14 +1759,19 @@ const confirmWordImportDialog = async () => {
     message.warning('请选择 Word 文件。')
     return
   }
-  const batchRecordName = selectedProjectName
-  const productNames = [selectedProjectName]
+  const batchRecordName = selectedSubjectName
+  const productNames = [selectedSubjectName]
   if (batchRecordName.length > 100) {
-    message.warning('产品名称不能超过 100 个字符。')
+    message.warning(resolveWordImportSubjectTooLongMessage())
     return
   }
   if (!isMainWordImport.value) {
-    await runUploadedExtraFormSlotImport(file, selectedProjectName)
+    await runUploadedExtraFormSlotImport(file, selectedSubjectName)
+    return
+  }
+  const selectedDccProjectCodeId = selectedProject?.id
+  if (!selectedDccProjectCodeId) {
+    message.warning('请选择产品名称。')
     return
   }
   if (!wordImportDialog.preflight) {
@@ -1716,7 +1785,7 @@ const confirmWordImportDialog = async () => {
     return
   }
   if (isWordImportRouteDuplicateBlocked(wordImportDialog.preflight)) {
-    message.warning(`存在多条同名工艺路线：${formatWordImportDuplicateRoutes(wordImportDialog.preflight)}，请先人工确定/清理唯一保留路线。`)
+    message.warning(`所选 DCC 项目代码存在多条正式路线绑定：${formatWordImportDuplicateRoutes(wordImportDialog.preflight)}，请先清理为唯一绑定。`)
     return
   }
   if (wordImportDialog.selectedAction === 'REBUILD_V1'
@@ -1750,7 +1819,7 @@ const confirmWordImportDialog = async () => {
   if (confirmedSelection) {
     wordImportDialog.confirming = true
     try {
-      await runUploadedWordImport(file, batchRecordName, productNames, confirmedSelection)
+      await runUploadedWordImport(file, batchRecordName, selectedDccProjectCodeId, productNames, confirmedSelection)
       wordImportDialog.visible = false
     } finally {
       wordImportDialog.confirming = false
@@ -1759,8 +1828,8 @@ const confirmWordImportDialog = async () => {
 }
 
 const handleWordImportFileSelect = () => {
-  if (!wordImportDialog.selectedProjectName.trim()) {
-    message.warning('请选择产品名称。')
+  if (!canSelectWordImportFile.value) {
+    message.warning(resolveWordImportSubjectRequiredMessage())
     return
   }
   if (!wordImportFileInputRef.value) {
@@ -1797,6 +1866,7 @@ const handleImportFileChange = async (event: Event) => {
 const runUploadedWordImport = async (
   file: File,
   batchRecordName: string,
+  dccProjectCodeId: number,
   productNames: string[],
   selection: {
     importAction: BatchRecordWordImportAction
@@ -1806,6 +1876,7 @@ const runUploadedWordImport = async (
     routeUpgradeConfirmed?: boolean
     expectedRouteId?: number
     expectedRouteVersionId?: number
+    expectedRouteCandidateVersionId?: number
     selectedRouteProductIds: number[]
     selectedProductNames: string[]
   }
@@ -1823,6 +1894,7 @@ const runUploadedWordImport = async (
       file,
       wordImportRouteKey,
       batchRecordName,
+      dccProjectCodeId,
       upgrade,
       productNames,
       selection.rebuildBatchRecord,
@@ -1833,7 +1905,8 @@ const runUploadedWordImport = async (
       selection.expectedTargetVersionNo,
       Boolean(selection.routeUpgradeConfirmed),
       selection.expectedRouteId,
-      selection.expectedRouteVersionId
+      selection.expectedRouteVersionId,
+      selection.expectedRouteCandidateVersionId
     )
     lastWordImportResult.value = result
     const productSummary =
@@ -1852,7 +1925,6 @@ const runUploadedWordImport = async (
     )
     clearWordImportState()
     queryParams.pageNo = 1
-    selectedRows.value = []
     selectedReportId.value = ''
     clearTemplatePreview()
     await getList()
@@ -1865,12 +1937,12 @@ const runUploadedWordImport = async (
 }
 
 const findExistingExtraFormSlotReport = async (
-  selectedProjectName: string,
+  selectedSubjectName: string,
   formSlotType: BatchRecordFormSlotType
 ) => {
   const localReport = list.value.find(
     (item) =>
-      item.batchRecordName === selectedProjectName &&
+      item.batchRecordName === selectedSubjectName &&
       (item.formSlotType || 'MAIN') === formSlotType
   )
   if (localReport) {
@@ -1879,27 +1951,28 @@ const findExistingExtraFormSlotReport = async (
   const data = await BatchRecordReportApi.getGeneratedReportPage({
     pageNo: 1,
     pageSize: 200,
-    productName: selectedProjectName,
+    productName: selectedSubjectName,
     formSlotType
   })
   return (Array.isArray(data.list) ? data.list : []).find(
     (item) =>
-      item.batchRecordName === selectedProjectName &&
+      item.batchRecordName === selectedSubjectName &&
       (item.formSlotType || 'MAIN') === formSlotType
   )
 }
 
 const confirmExtraFormSlotVersionUpgrade = async (
-  selectedProjectName: string,
+  selectedSubjectName: string,
   formSlotType: BatchRecordFormSlotType,
   existingReport: BatchRecordReportVO
 ) => {
   const formSlotLabel = resolveFormSlotTypeLabel(formSlotType)
+  const subjectLabel = resolveExtraFormSlotSubjectLabel(formSlotType)
   const currentVersionNo = existingReport.versionNo || '无版本'
   const dialogClosed = await closeWordImportDialogBeforeMessageBox()
   try {
     await ElMessageBox.confirm(
-      `产品名称「${selectedProjectName}」${formSlotLabel}当前版本为 ${currentVersionNo}，确认后将生成新版本，旧版本保留。`,
+      `${subjectLabel}「${selectedSubjectName}」${formSlotLabel}当前版本为 ${currentVersionNo}，确认后将生成新版本，旧版本保留。`,
       `确认${formSlotLabel}升版`,
       {
         confirmButtonText: '升版导入',
@@ -1917,14 +1990,14 @@ const confirmExtraFormSlotVersionUpgrade = async (
   }
 }
 
-const runUploadedExtraFormSlotImport = async (file: File, selectedProjectName: string) => {
+const runUploadedExtraFormSlotImport = async (file: File, selectedSubjectName: string) => {
   const existingReport = await findExistingExtraFormSlotReport(
-    selectedProjectName,
+    selectedSubjectName,
     wordImportDialog.selectedFormSlotType
   )
   if (existingReport) {
     const confirmed = await confirmExtraFormSlotVersionUpgrade(
-      selectedProjectName,
+      selectedSubjectName,
       wordImportDialog.selectedFormSlotType,
       existingReport
     )
@@ -1943,17 +2016,17 @@ const runUploadedExtraFormSlotImport = async (file: File, selectedProjectName: s
   try {
     const result = await BatchRecordReportApi.uploadExtraFormSlot(
       file,
-      selectedProjectName,
+      selectedSubjectName,
       wordImportDialog.selectedFormSlotType
     )
     const versionSummary = submitImportedVersionApproval(result, resolveFormSlotTypeLabel(wordImportDialog.selectedFormSlotType))
+    const subjectLabel = resolveExtraFormSlotSubjectLabel(wordImportDialog.selectedFormSlotType)
     message.success(
-      `产品名称「${selectedProjectName}」${formSlotLabel}解析完成：共 ${result.importedCount} 份，新建 ${result.createdCount} 份，更新 ${result.updatedCount} 份${versionSummary}。`
+      `${subjectLabel}「${selectedSubjectName}」${formSlotLabel}解析完成：共 ${result.importedCount} 份，新建 ${result.createdCount} 份，更新 ${result.updatedCount} 份${versionSummary}。`
     )
     wordImportDialog.visible = false
     clearWordImportState()
     queryParams.pageNo = 1
-    selectedRows.value = []
     selectedReportId.value = ''
     clearTemplatePreview()
     await getList()
@@ -1985,12 +2058,16 @@ const openSimulate = async (row: BatchRecordReportVO) => {
       reportName: row.reportName,
       batchRecordName: row.batchRecordName,
       returnTo: route.fullPath,
-      returnLabel: '返回批记录表单'
+      returnLabel: '返回'
     }
   })
 }
 
 const openTemplateAction = async (row: BatchRecordReportVO, action: 'signature' | 'cellRules') => {
+  if (action === 'cellRules') {
+    openCellRulesDialog(row)
+    return
+  }
   await router.push({
     path: '/mes/pro/batch-record-form-list',
     query: {
@@ -1998,18 +2075,22 @@ const openTemplateAction = async (row: BatchRecordReportVO, action: 'signature' 
       action
     }
   })
-  if (action === 'cellRules') {
-    openCellRulesDialog(row)
-  }
 }
 
 const handleCellLinks = async (row: BatchRecordReportVO) => {
+  const cellLinkRouteId = normalizeRouteQueryText(route.query.routeId)
+  const cellLinkRouteProcessId = normalizeRouteQueryText(route.query.routeProcessId)
   await router.push({
     path: '/mes/pro/batch-record-cell-link',
     query: {
-      sourceReportId: row.reportId,
       definitionId: row.batchRecordDefinitionId ? String(row.batchRecordDefinitionId) : undefined,
-      versionId: row.batchRecordVersionId ? String(row.batchRecordVersionId) : undefined
+      versionId: row.batchRecordVersionId ? String(row.batchRecordVersionId) : undefined,
+      routeId: cellLinkRouteId || undefined,
+      routeProcessId: cellLinkRouteProcessId || undefined,
+      sourceReportId: isMainBatchRecordReport(row) ? PROCESS_POOL_REPORT_SOURCE_REPORT_ID : undefined,
+      dccProjectCodeId: isMainBatchRecordReport(row) && row.dccProjectCodeId ? String(row.dccProjectCodeId) : undefined,
+      dccProjectCode: isMainBatchRecordReport(row) && row.dccProjectCodeId ? row.projectCode : undefined,
+      targetReportId: row.reportId
     }
   })
 }
@@ -2068,89 +2149,8 @@ const handleDelete = async (row: RecordFormListRow) => {
   }
 }
 
-const isRouteProcessBoundDeleteError = (error: unknown) => {
-  return resolveErrorMessage(error, '').includes(routeProcessBoundDeleteMessage)
-}
-
-const deleteSelectedReports = async (candidates: RecordFormListRow[], forceUnbind = false) => {
-  return await BatchRecordReportApi.deleteGeneratedReports({
-    reportIds: candidates.map((item) => item.reportId),
-    forceUnbind
-  })
-}
-
-const handleBatchDelete = async () => {
-  const candidates = getUniqueSelectedReports()
-  if (!candidates.length) {
-    message.warning('请先勾选需要删除的批记录表单')
-    return
-  }
-  const names = candidates.map((item) => item.reportName || item.reportId).join('、')
-  try {
-    await ElMessageBox.confirm(
-      `确认删除已选中的 ${candidates.length} 个批记录表单吗？\n${names}`,
-      '批量删除批记录表单',
-      {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-  } catch (error) {
-    if (error === 'cancel' || error === 'close') return
-    throw error
-  }
-  batchDeleteLoading.value = true
-  try {
-    const deletingReportIds = new Set(candidates.map((item) => item.reportId))
-    await deleteSelectedReports(candidates)
-    message.success(`已删除 ${candidates.length} 个批记录表单`)
-    selectedRows.value = []
-    if (deletingReportIds.has(selectedReportId.value)) {
-      selectedReportId.value = ''
-      clearTemplatePreview()
-    }
-    await getList()
-  } catch (error) {
-    if (isRouteProcessBoundDeleteError(error)) {
-      try {
-        await ElMessageBox.confirm(
-          '选中的批记录表单中存在已绑定工艺路线工序的报表，是否批量解绑后删除？',
-          '批量解绑后删除',
-          {
-            confirmButtonText: '解绑并删除',
-            cancelButtonText: '取消',
-            type: 'warning'
-          }
-        )
-      } catch (confirmError) {
-        if (confirmError === 'cancel' || confirmError === 'close') return
-        throw confirmError
-      }
-      try {
-        const deletingReportIds = new Set(candidates.map((item) => item.reportId))
-        await deleteSelectedReports(candidates, true)
-        message.success(`已批量解绑并删除 ${candidates.length} 个批记录表单`)
-        selectedRows.value = []
-        if (deletingReportIds.has(selectedReportId.value)) {
-          selectedReportId.value = ''
-          clearTemplatePreview()
-        }
-        await getList()
-        return
-      } catch (forceDeleteError) {
-        message.error(resolveErrorMessage(forceDeleteError, '批量解绑删除批记录表单失败，请联系管理员。'))
-        return
-      }
-    }
-    message.error(resolveErrorMessage(error, '批量删除批记录表单失败，请联系管理员。'))
-  } finally {
-    batchDeleteLoading.value = false
-  }
-}
-
 onMounted(() => {
-  if (!isDesignerMode.value) {
+  if (isBatchRecordFormListPath() && !isDesignerMode.value) {
     getList()
   }
 })
@@ -2158,26 +2158,13 @@ onMounted(() => {
 onBeforeUnmount(() => {
   recordFormListRequestSerial += 1
   cancelDeferredRecordFormSecondaryLoad()
-  permissionRuleLoadingReportIds.clear()
   templatePreviewRequestSerial += 1
 })
 
 watch(
-  () => wordImportDialog.selectedFormSlotType,
+  () => wordImportDialog.selectedDccProjectCodeId,
   () => {
-    if (!wordImportDialog.visible) {
-      return
-    }
-    wordImportDialog.selectedProjectName = ''
-    clearWordImportState()
-    resetWordImportPreflightState()
-  }
-)
-
-watch(
-  () => wordImportDialog.selectedProjectName,
-  () => {
-    if (!wordImportDialog.visible) {
+    if (!wordImportDialog.visible || !isMainWordImport.value) {
       return
     }
     clearWordImportState()
@@ -2186,13 +2173,19 @@ watch(
 )
 
 watch(
-  () => [route.query.reportId, route.query.action] as const,
+  () => [route.query.reportId, route.query.action, route.query.mode] as const,
   async ([reportId]) => {
+    if (!isBatchRecordFormListPath()) {
+      return
+    }
     if (isDesignerMode.value) {
       recordFormListRequestSerial += 1
       cancelDeferredRecordFormSecondaryLoad()
-      permissionRuleLoadingReportIds.clear()
       clearTemplatePreview()
+      return
+    }
+    const targetRouteStateKey = buildBatchRecordFormListRouteStateKey()
+    if (shouldKeepBatchRecordFormListLoadedState(targetRouteStateKey)) {
       return
     }
     if (typeof reportId === 'string' && reportId.trim()) {
@@ -2217,8 +2210,11 @@ watch(
   display: none;
 }
 
-.batch-record-word-import-form__slot-select,
 .batch-record-word-import-form__project-select {
+  width: 100%;
+}
+
+.batch-record-word-import-form__name-input {
   width: 100%;
 }
 
@@ -2373,44 +2369,21 @@ watch(
   white-space: nowrap;
 }
 
-.batch-record-form-filler-cell {
+.batch-record-form-toolbar__latest-version-switch {
   display: inline-flex;
-  max-width: 100%;
-  min-width: 0;
   align-items: center;
-  gap: 6px;
-  border: 0;
-  background: transparent;
-  color: #1677ff;
-  cursor: pointer;
-  font: inherit;
-  padding: 0;
-  text-align: left;
-}
-
-.batch-record-form-filler-cell__text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-fill-color-blank);
   white-space: nowrap;
 }
 
-.batch-record-form-permission-form {
-  padding-right: 8px;
-}
-
-.batch-record-form-permission-rule {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.batch-record-form-permission-field {
-  min-width: 0;
-}
-
-.batch-record-form-permission-control {
-  width: 100%;
+.batch-record-form-toolbar__latest-version-label {
+  color: var(--el-text-color-primary);
+  font-size: 14px;
 }
 
 .batch-record-form-layout {

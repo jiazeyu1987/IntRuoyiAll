@@ -113,7 +113,7 @@ assertNotIncludes(uploadPage, 'dccFormCenterContext', 'DCC upload must remove de
 assertNotIncludes(uploadPage, 'dccFormCenterFormData', 'DCC upload must remove dedicated form-center form data state')
 assertIncludes(uploadPage, 'data-testid="dcc-upload-section-submit"', 'DCC upload page must keep official submit section')
 assertIncludes(uploadPage, 'const submitForm = async () =>', 'DCC upload page must keep official submit handler')
-assertIncludes(uploadPage, 'submitControlledFile', 'DCC upload page must keep official DCC submit API')
+assertIncludes(uploadPage, 'createWorkingControlledFile', 'DCC upload page must create a WORKING iteration')
 assertIncludes(actionPanel, 'startUserSelectAssignees 必须是对象', 'form panel must validate selected approver payload')
 assertIncludes(actionPanel, 'submitFormInstance', 'form panel must submit the instance through form center API')
 

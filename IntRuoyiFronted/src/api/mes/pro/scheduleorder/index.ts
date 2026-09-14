@@ -7,6 +7,7 @@ export interface MesProScheduleOrderVO {
   code: string
   workOrderId: number
   erpWorkOrderCode: string
+  sourceWorkOrderStatus?: number
   productionMaterialListCount?: number
   productionMaterialListSummary?: string
   productId: number
@@ -27,6 +28,8 @@ export interface MesProScheduleOrderVO {
   progressPercent: number
   diffStatus: number
   riskStatus: number
+  blockingIssueCount?: number
+  latestBlockingIssueMessage?: string
   frozen?: boolean
   frozenTime?: string
   frozenBy?: number
@@ -35,6 +38,12 @@ export interface MesProScheduleOrderVO {
   manualFinishedTime?: string
   manualFinishedBy?: number
   manualFinishedReason?: string
+  removedFromSchedule?: boolean
+  removedFromScheduleTime?: string
+  removedFromScheduleBy?: number
+  removedFromScheduleReason?: string
+  removedFromScheduleStatus?: number
+  reentryBlocked?: boolean
   latestStartTime?: string
   plannedStartTime?: string
   plannedEndTime?: string
@@ -52,6 +61,7 @@ export interface MesProScheduleOrderVO {
   capacitySnapshotJson?: string
   remark: string
   createTime: string
+  updateTime: string
 }
 
 export interface MesProScheduleOrderProcessVO {
@@ -138,6 +148,7 @@ export interface MesProScheduleOrderProcessWipSettingsReqVO {
   routeProcessId: number
   nightShiftEnabled?: boolean
   plannedStartDate?: string
+  shiftCapacityTotal?: number
   reason: string
 }
 
@@ -195,6 +206,22 @@ export interface MesProScheduleOrderAdmissionDiffPageRespVO {
   total: number
   list: MesProScheduleOrderAdmissionDiffRowVO[]
   summary: MesProScheduleOrderAdmissionDiffSummaryVO
+}
+
+export interface MesProScheduleOrderAdmissionDiffPageReqVO {
+  pageNo?: number
+  pageSize?: number
+  workOrderCode?: string
+  productCode?: string
+  productName?: string
+  productSpecification?: string
+  quantity?: number[]
+  admissionStatus?: string
+  reasonCode?: string
+  message?: string
+  ownerRole?: string
+  requestDate?: string[]
+  quickFilter?: TableQuickFilterValue
 }
 
 export interface MesProScheduleOrderPreflightReqVO {
@@ -262,6 +289,7 @@ export interface MesProScheduleOrderUpdatePriorityReqVO {
 export interface MesProScheduleOrderUpdateReqVO {
   id: number
   promiseDate: string
+  plannedStartTime?: string
   priorityNo: number
   remark?: string
   reason: string
@@ -270,6 +298,30 @@ export interface MesProScheduleOrderUpdateReqVO {
 export interface MesProScheduleOrderBatchReqVO {
   ids: number[]
   reason: string
+}
+
+export interface MesProScheduleOrderDeleteReqVO {
+  items: Array<{
+    id: number
+    expectedUpdateTime: string
+  }>
+  reason: string
+}
+
+export interface MesProScheduleOrderDeleteImpactVO {
+  id: number
+  code: string
+  status: number
+  frozen?: boolean
+  progressPercent: number
+  updateTime: string
+  pendingTaskCount: number
+  inProgressTaskCount: number
+  finishedTaskCount: number
+  feedbackCount: number
+  activeOrderCount: number
+  productionFactsRetained: boolean
+  reentryBlockedAfterRemoval: boolean
 }
 
 export interface MesProScheduleOrderActionReqVO {
@@ -283,12 +335,16 @@ export interface MesProScheduleOrderPageReqVO {
   code?: string
   erpWorkOrderCode?: string
   currentProcessId?: number
+  currentProcessKeyword?: string
   productCode?: string
   productName?: string
   promiseDate?: string[]
   status?: number
   frozen?: boolean
   completionFilter?: 'INCOMPLETE' | 'ALL' | 'COMPLETED'
+  removedFromSchedule?: boolean
+  sortField?: string
+  sortOrder?: 'asc' | 'desc'
   exportColumns?: string[]
   quickFilter?: TableQuickFilterValue
 }
@@ -376,7 +432,9 @@ const normalizeScheduleOrder = (row: MesProScheduleOrderVO): MesProScheduleOrder
     plannedStartTime: normalizeDateTimeValue(row.plannedStartTime),
     plannedEndTime: normalizeDateTimeValue(row.plannedEndTime),
     frozenTime: normalizeDateTimeValue(row.frozenTime),
-    manualFinishedTime: normalizeDateTimeValue(row.manualFinishedTime)
+    manualFinishedTime: normalizeDateTimeValue(row.manualFinishedTime),
+    removedFromScheduleTime: normalizeDateTimeValue(row.removedFromScheduleTime),
+    updateTime: normalizeDateTimeValue(row.updateTime) || ''
   }
 }
 
@@ -439,10 +497,14 @@ export const MesProScheduleOrderApi = {
   },
 
   createFromWorkOrders: async (data: MesProScheduleOrderCreateFromWorkOrdersReqVO) => {
-    return await request.post({ url: '/mes/pro/schedule-order/create-from-work-orders', data })
+    return await request.post({
+      url: '/mes/pro/schedule-order/create-from-work-orders',
+      data,
+      ignoreErrorMessage: true
+    })
   },
 
-  getAdmissionDiff: async (params: any) => {
+  getAdmissionDiff: async (params: MesProScheduleOrderAdmissionDiffPageReqVO) => {
     const data = await request.get<MesProScheduleOrderAdmissionDiffPageRespVO>({
       url: '/mes/pro/schedule-order/admission-diff',
       params
@@ -496,8 +558,19 @@ export const MesProScheduleOrderApi = {
     return await request.post({ url: '/mes/pro/schedule-order/revoke-manual-finish', data })
   },
 
-  deleteScheduleOrders: async (data: MesProScheduleOrderBatchReqVO) => {
+  deleteScheduleOrders: async (data: MesProScheduleOrderDeleteReqVO) => {
     return await request.delete({ url: '/mes/pro/schedule-order/batch-delete', data })
+  },
+
+  getDeleteImpact: async (id: number) => {
+    const data = await request.get<MesProScheduleOrderDeleteImpactVO>({
+      url: '/mes/pro/schedule-order/delete-impact',
+      params: { id }
+    })
+    return {
+      ...data,
+      updateTime: normalizeDateTimeValue(data.updateTime) || ''
+    }
   },
 
   getOperationLog: async (scheduleOrderId: number) => {

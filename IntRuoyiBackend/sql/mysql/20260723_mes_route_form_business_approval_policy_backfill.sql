@@ -27,6 +27,30 @@ BEGIN
       SET MESSAGE_TEXT = 'MES route form policy backfill requires bpm_business_approval_policy';
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'bpm_business_approval_policy'
+      AND column_name = 'form_policy_type'
+  ) THEN
+    ALTER TABLE `bpm_business_approval_policy`
+      ADD COLUMN `form_policy_type` varchar(32) DEFAULT NULL COMMENT 'form policy type when the action needs form slots'
+      AFTER `effect_executor_code`;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'bpm_business_approval_policy'
+      AND column_name = 'form_slots_json'
+  ) THEN
+    ALTER TABLE `bpm_business_approval_policy`
+      ADD COLUMN `form_slots_json` longtext DEFAULT NULL COMMENT 'form policy slots json'
+      AFTER `form_policy_type`;
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM `bpm_form_action_policy` AS `form_policy`
@@ -90,11 +114,39 @@ BEGIN
         `business_policy`.`policy_mode` <> `form_policy`.`approval_mode`
         OR COALESCE(`business_policy`.`process_definition_key`, '') <> COALESCE(`form_policy`.`bpm_process_key`, '')
         OR `business_policy`.`effect_executor_code` <> `form_policy`.`effect_executor_code`
+        OR COALESCE(NULLIF(TRIM(`business_policy`.`form_policy_type`), ''), COALESCE(`form_policy`.`policy_type`, ''))
+            <> COALESCE(`form_policy`.`policy_type`, '')
+        OR COALESCE(NULLIF(TRIM(`business_policy`.`form_slots_json`), ''),
+             COALESCE(NULLIF(TRIM(`form_policy`.`slots_json`), ''), '[]'))
+            <> COALESCE(NULLIF(TRIM(`form_policy`.`slots_json`), ''), '[]')
       )
   ) THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'MES route form policy backfill found conflicting published business policy';
   END IF;
+
+  UPDATE `bpm_business_approval_policy` AS `business_policy`
+  JOIN `bpm_form_action_policy` AS `form_policy`
+    ON `business_policy`.`tenant_id` = `form_policy`.`tenant_id`
+   AND `business_policy`.`data_domain` = `form_policy`.`data_domain`
+   AND `business_policy`.`system_code` = `form_policy`.`system_code`
+   AND `business_policy`.`object_type` = `form_policy`.`object_type`
+   AND `business_policy`.`action_code` = `form_policy`.`action_code`
+   AND `business_policy`.`object_state` = `form_policy`.`object_state`
+   AND `business_policy`.`policy_mode` = `form_policy`.`approval_mode`
+   AND COALESCE(`business_policy`.`process_definition_key`, '') = COALESCE(`form_policy`.`bpm_process_key`, '')
+   AND `business_policy`.`effect_executor_code` = `form_policy`.`effect_executor_code`
+   AND `business_policy`.`status` = `form_policy`.`status`
+   AND `business_policy`.`deleted` = b'0'
+  SET `business_policy`.`form_policy_type` = NULLIF(`form_policy`.`policy_type`, ''),
+      `business_policy`.`form_slots_json` = NULLIF(`form_policy`.`slots_json`, ''),
+      `business_policy`.`updater` = 'codex',
+      `business_policy`.`update_time` = NOW()
+  WHERE `form_policy`.`deleted` = b'0'
+    AND `form_policy`.`data_domain` = 'MES'
+    AND `form_policy`.`system_code` = 'MES'
+    AND `form_policy`.`object_type` = 'EDHR_ROUTE_FORM'
+    AND `form_policy`.`status` = 'PUBLISHED';
 
   INSERT INTO `bpm_business_approval_policy` (
     `tenant_id`,
@@ -106,6 +158,8 @@ BEGIN
     `policy_mode`,
     `process_definition_key`,
     `effect_executor_code`,
+    `form_policy_type`,
+    `form_slots_json`,
     `status`,
     `remark`,
     `creator`,
@@ -124,6 +178,8 @@ BEGIN
     `form_policy`.`approval_mode`,
     NULLIF(`form_policy`.`bpm_process_key`, ''),
     `form_policy`.`effect_executor_code`,
+    NULLIF(`form_policy`.`policy_type`, ''),
+    NULLIF(`form_policy`.`slots_json`, ''),
     `form_policy`.`status`,
     COALESCE(NULLIF(`form_policy`.`remark`, ''), 'MES route dynamic eDHR form business approval backfill'),
     COALESCE(NULLIF(`form_policy`.`creator`, ''), 'codex'),

@@ -52,7 +52,7 @@ const roleSaveIndex = roleSource.indexOf('/admin-api/system/permission/assign-ro
 assert.notEqual(roleSaveIndex, -1, 'role menu setup must contain the real assign-role-menu save request')
 const roleReadOnlyGuardIndex = roleSource.lastIndexOf('if (!ALLOW_ASSIGN)', roleSaveIndex)
 assert.ok(
-  roleReadOnlyGuardIndex > roleSource.indexOf("await checkTreeNode(dialog, '产品主数据')"),
+  roleReadOnlyGuardIndex > roleSource.indexOf("await checkTreeNode(dialog, '展厅主数据')"),
   'role menu setup must return in read-only mode after checking required nodes and before assign-role-menu save'
 )
 assert.ok(

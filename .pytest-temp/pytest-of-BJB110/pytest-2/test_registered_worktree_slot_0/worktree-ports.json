@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "contractVersion": "2026-08-24-branch-runtime-v7",
+  "worktrees": [
+    {
+      "name": "slot-zero",
+      "path": "D:\\IntRuoyiWorktree\\slot-zero",
+      "branch": "codex/slot-zero",
+      "profile": "int_main",
+      "slot": 0,
+      "frontendPort": 8081,
+      "backendPort": 48081,
+      "active": true
+    }
+  ]
+}

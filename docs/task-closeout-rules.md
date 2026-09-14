@@ -35,10 +35,51 @@
 ## 收尾规则
 
 - 实现和验证完成后，先将任务状态设为 `ready_for_closeout`。
+- `## Current Status` 下第一条非空文本必须直接以 `ready_for_closeout`、`completed`、`blocked` 或 `in_progress` 开头；不要把状态值包在反引号里，也不要在状态值前添加说明文字，否则 cleanup apply 会解析为 `unknown` 并阻塞。
 - 运行 task-closeout-cleanup preview，确认 keep/delete/blocked/warnings。
 - preview 无异常后运行 apply。
 - apply 通过后再标记 `completed`。
+- 若用户当轮明确禁止 Git 提交/推送，而项目规则仍要求提交推送才能完成，则实现与验证完成后记录为 `blocked`；cleanup preview 可作为清理证据，cleanup apply 若因 `blocked` 状态拒绝执行必须如实记录为 BLOCKED，禁止写成 PASS。
 - 默认保留 `task.md`、`execution-log.md`、`verification-report.md`。
+
+## 重复任务记录收口门禁
+
+- Trigger: 同一用户缺陷或功能因多次“继续”、重开任务或重复建档，在 `doc/tasks/` 下出现多个语义相同的任务目录，且其中部分仍为 `in_progress`、`pending` 或验证证据为空。
+- Preflight check: 收尾前用任务目标、用户原话、BDD、改动文件和验证命令识别主任务目录；主任务必须包含完整实现、RED/GREEN、回归和收尾证据。重复任务不得复制实现结论冒充独立完成，只能明确引用主任务证据并说明自身为重复记录。
+- Blocker: 无法判断哪个目录是主任务、重复任务记录包含相互冲突的验收范围、主任务缺少关键验证证据，或重复任务仍保留 `in_progress` 导致后续 resume/继续误判未完成时，必须先补齐任务记录再总结。
+- Verification: 主任务 `verification-report.md` 记录最终证据；重复任务 `task.md` 的 `## Current Status` 第一条非空文本为 `completed` 或 `blocked`，并在 `execution-log.md` 写明主任务路径、已复用的 RED/GREEN 证据和任何当前重跑 blocker。
+- Forbidden action: 禁止删除重复任务目录来掩盖历史，禁止把重复任务继续留在 `in_progress`，禁止让过期 pending 验证覆盖主任务已通过证据，也禁止把环境阻塞写成产品代码失败。
+
+## 验收范围变更门禁
+
+- Trigger: 用户明确变更任务完成门禁、取消全量回归、改为只跑开发文档或测试计划列出的定向测试，或说明某个测试命令不再作为当前任务完成条件。
+- Preflight check: 立即同步 `task.md`、`execution-log.md`、`verification-report.md` 或测试计划，逐项列明保留的定向验证、取消的旧门禁、取消原因和用户原话要点；后续验证只按更新后的门禁判断完成。
+- Blocker: 范围变更未写入任务文档、取消项与保留项边界不清、取消的是仍能证明当前行为安全性的唯一测试、或任务代码改动超出定向验证覆盖范围时，必须停止补齐验证设计。
+- Verification: 收尾前复查任务文档的 Expected Verification 与实际执行记录一致；若不跑旧全量命令，必须在验证报告记录其已被用户明确移出当前完成门禁。
+- Forbidden action: 禁止用户已缩小范围后继续把旧全量命令当作完成阻塞；禁止用范围变更掩盖当前开发文档或测试计划内的定向失败；禁止把“未运行全量”写成已通过。
+
+
+## 任务验证脚本保留门禁
+
+- Trigger: 任务把一次性验证脚本放在 `doc/tasks/<task-id>/` 下，尤其是 `.cjs`、`.mjs`、临时 Playwright 脚本或生成脚本。
+- Preflight check: cleanup 前先判断脚本是临时产物还是需要随任务证据长期保留；若需要保留，必须写入 `## Cleanup Keep`，并按 `- doc/tasks/<task-id>/<file>` 这种单独 bullet 路径逐行列出（不要把路径包在反引号里，也不要在同一行追加说明文字）；同时检查是否被 `.gitignore` 的 `doc/tasks/**/*.cjs` 等规则忽略。
+- Blocker: 需要保留但未进入 `Cleanup Keep`、`Cleanup Keep` 因缺少 bullet、内联说明或反引号被解析成错误路径、或 `git status --untracked-files=all` 看不到脚本且未确认忽略规则时，不得提交完成。
+- Verification: cleanup preview 显示脚本在 keep 列表；提交前对被忽略但需要保留的脚本使用 `git add -f <path>`，并在任务日志记录原因。
+- Forbidden action: 禁止把生成脚本、截图、stdout/stderr 日志等临时产物混入最终提交；禁止因为脚本被忽略就误以为验证证据已提交。
+
+## 技能证据文件清理前归档门禁
+
+- Trigger: 任务使用 `database-schema-delivery`、`backend-api-delivery`、`frontend-feature-delivery` 等技能生成 `database-schema-evidence.md`、`backend-api-evidence.md`、`frontend-feature-evidence.md` 或同类临时 evidence 文件，并准备运行 `task-closeout-cleanup`。
+- Preflight check: cleanup preview/apply 前必须先运行对应 evidence validator，并把 validator PASS、RED/GREEN 摘要和关键验收结论复制到默认保留的 `execution-log.md` 或 `verification-report.md`。
+- Blocker: evidence 文件还未通过 validator、validator 结果只存在于将被 cleanup 删除的文件、或 `verification-report.md` 未记录关键 PASS 命令时，不得执行 cleanup apply。
+- Verification: cleanup preview 显示临时 evidence 文件在 delete 列表，同时 `task.md`、`execution-log.md`、`verification-report.md` 在 keep 列表；apply 后保留报告仍包含 validator PASS 和核心验收结论。
+- Forbidden action: 禁止先删除 evidence 文件再补写验证结论；禁止把已被 cleanup 删除的临时 evidence 当作最终审计证据；禁止为了保留所有中间 evidence 而跳过 cleanup。
+## 跨电脑静态审计交接门禁
+
+- Trigger: 将代码审计、主流程与待修复项交给另一电脑或另一任务继续处理。
+- Preflight check: 单个正式交接文档应包含完整业务流程、稳定且不与历史缺陷混淆的编号、触发条件、代码依据、修复边界及逐项验收；代码位置使用仓库相对路径，并记录基线提交、方法锚点和需要时的源码指纹。
+- Evidence boundary: 明确区分目标范围、静态推导、真实复现及已验证修复；接收方代码不同或指纹变化时须重新复核，不能凭历史“已完成”或单个字符串判断关闭问题。文本指纹统一UTF-8并规范化换行，避免跨电脑CRLF差异产生误报。
+- Verification: 交付前核对原流程是否完整、问题编号是否连续、各项验收是否齐全、代码路径与锚点是否存在；交接文件不能依赖发送电脑的盘符、临时任务附件或聊天上下文，也不能携带账号密码、令牌等凭据。
 
 ## 禁止做法
 

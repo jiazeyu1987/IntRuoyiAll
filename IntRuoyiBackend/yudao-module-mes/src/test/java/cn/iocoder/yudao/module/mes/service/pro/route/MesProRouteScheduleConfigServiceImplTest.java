@@ -1,9 +1,13 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.scheduleconfig.MesProRouteResourceCapacityPreviewRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.scheduleconfig.MesProRouteScheduleConfigRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdProductionLineDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryProcessService;
 import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdProductionLineService;
@@ -34,6 +38,10 @@ class MesProRouteScheduleConfigServiceImplTest {
     @Mock
     private MesProRouteProcessService routeProcessService;
     @Mock
+    private MesProRouteProcessMapper routeProcessMapper;
+    @Mock
+    private MesProRouteVersionMapper routeVersionMapper;
+    @Mock
     private MesMdWorkstationService workstationService;
     @Mock
     private MesMdWorkstationMachineService workstationMachineService;
@@ -45,6 +53,47 @@ class MesProRouteScheduleConfigServiceImplTest {
     private MesDvMachineryService machineryService;
     @Mock
     private MesDvMachineryProcessService machineryProcessService;
+
+    @Test
+    void getConfigRespListByRouteVersionId_shouldPreserveDraftClientRouteProcessId() {
+        MesProRouteVersionDO routeVersion = MesProRouteVersionDO.builder()
+                .id(633L)
+                .routeId(980091L)
+                .versionNo("V3")
+                .active(false)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
+                .routeSnapshotJson("""
+                        {
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "nodes": [
+                                {"routeProcessId": -8, "processId": 9908090105, "sort": 8}
+                              ]
+                            },
+                            "scheduleConfigs": {
+                              "-8": {
+                                "routeVersionId": 633,
+                                "routeId": 980091,
+                                "routeProcessId": -8,
+                                "sort": 8,
+                                "capacityMode": "RESOURCE_CALCULATED",
+                                "nightShiftEnabled": false
+                              }
+                            }
+                          }
+                        }
+                        """)
+                .build();
+        when(routeVersionMapper.selectById(633L)).thenReturn(routeVersion);
+        when(routeProcessMapper.selectListByRouteId(980091L)).thenReturn(List.of());
+
+        List<MesProRouteScheduleConfigRespVO> configs =
+                scheduleConfigService.getConfigRespListByRouteVersionId(633L);
+
+        assertEquals(1, configs.size());
+        assertEquals(-8L, configs.get(0).getRouteProcessId());
+        assertEquals("RESOURCE_CALCULATED", configs.get(0).getCapacityMode());
+    }
 
     @Test
     void getResourcePreview_shouldAllowExplicitBoundWorkstationFromDifferentProcess() {

@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.permission.MenuDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.enums.permission.MenuTypeEnum;
+import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -32,14 +33,25 @@ public interface AuthConvert {
     AuthConvert INSTANCE = Mappers.getMapper(AuthConvert.class);
 
     default AuthPermissionInfoRespVO convert(AdminUserDO user, List<RoleDO> roleList, List<MenuDO> menuList) {
+        Set<String> permissions = convertSet(menuList, MenuDO::getPermission);
+        if (hasSuperAdminRole(roleList)) {
+            permissions.add("*:*:*");
+        }
         return AuthPermissionInfoRespVO.builder()
                 .user(BeanUtils.toBean(user, AuthPermissionInfoRespVO.UserVO.class))
                 .roles(convertSet(roleList, RoleDO::getCode))
                 // 权限标识信息
-                .permissions(convertSet(menuList, MenuDO::getPermission))
+                .permissions(permissions)
                 // 菜单树
                 .menus(buildMenuTree(menuList))
                 .build();
+    }
+
+    default boolean hasSuperAdminRole(List<RoleDO> roleList) {
+        if (CollUtil.isEmpty(roleList)) {
+            return false;
+        }
+        return roleList.stream().anyMatch(role -> RoleCodeEnum.SUPER_ADMIN.getCode().equals(role.getCode()));
     }
 
     /**
@@ -52,15 +64,16 @@ public interface AuthConvert {
         if (CollUtil.isEmpty(menuList)) {
             return Collections.emptyList();
         }
+        List<MenuDO> sortedMenuList = new ArrayList<>(menuList);
         // 移除按钮
-        menuList.removeIf(menu -> menu.getType().equals(MenuTypeEnum.BUTTON.getType()));
+        sortedMenuList.removeIf(menu -> menu.getType().equals(MenuTypeEnum.BUTTON.getType()));
         // 排序，保证菜单的有序性
-        menuList.sort(Comparator.comparing(MenuDO::getSort));
+        sortedMenuList.sort(Comparator.comparing(MenuDO::getSort));
 
         // 构建菜单树
         // 使用 LinkedHashMap 的原因，是为了排序 。实际也可以用 Stream API ，就是太丑了。
         Map<Long, AuthPermissionInfoRespVO.MenuVO> treeNodeMap = new LinkedHashMap<>();
-        menuList.forEach(menu -> treeNodeMap.put(menu.getId(),
+        sortedMenuList.forEach(menu -> treeNodeMap.put(menu.getId(),
                 BeanUtils.toBean(menu, AuthPermissionInfoRespVO.MenuVO.class)));
         // 处理父子关系
         treeNodeMap.values().stream().filter(node -> ObjUtil.notEqual(node.getParentId(), ID_ROOT)).forEach(childNode -> {

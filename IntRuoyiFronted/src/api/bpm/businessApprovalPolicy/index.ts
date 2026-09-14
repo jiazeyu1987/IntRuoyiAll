@@ -28,6 +28,7 @@ export interface BusinessApprovalPolicyPageReqVO extends PageParam {
   objectState?: string
   policyMode?: BusinessApprovalPolicyMode
   status?: BusinessApprovalPolicyStatus
+  approvalSwitchScope?: boolean
 }
 
 export interface BusinessApprovalPolicySaveReqVO {

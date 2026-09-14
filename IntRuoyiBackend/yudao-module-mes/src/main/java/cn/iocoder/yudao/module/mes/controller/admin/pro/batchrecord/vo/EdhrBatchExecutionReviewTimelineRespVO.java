@@ -116,6 +116,10 @@ public class EdhrBatchExecutionReviewTimelineRespVO {
 
         private String actorName;
 
+        private String actorNicknameSnapshot;
+
+        private String actorUsernameSnapshot;
+
         private String actionType;
 
         private String signatureMode;
@@ -141,6 +145,10 @@ public class EdhrBatchExecutionReviewTimelineRespVO {
         private String selectedTimePolicyVersion;
 
         private String selectedTimeAuditHash;
+
+        private String signaturePurpose;
+
+        private String recordHashSnapshot;
     }
 
     @Data

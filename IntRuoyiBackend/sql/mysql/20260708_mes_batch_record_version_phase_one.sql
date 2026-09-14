@@ -368,6 +368,10 @@ CALL add_mes_edhr_column_if_missing('mes_pro_edhr_process_form_permission_rule',
   '`batch_record_version_id` bigint DEFAULT NULL COMMENT ''批记录版本ID''');
 CALL add_mes_edhr_column_if_missing('mes_pro_edhr_process_form_permission_rule', 'rule_type',
   '`rule_type` varchar(32) NOT NULL DEFAULT ''FILL'' COMMENT ''规则类型''');
+CALL add_mes_edhr_column_if_missing('mes_pro_edhr_process_form_permission_rule', 'scope_key',
+  '`scope_key` varchar(64) NOT NULL DEFAULT ''ALL'' COMMENT ''责任范围标识''');
+CALL add_mes_edhr_column_if_missing('mes_pro_edhr_process_form_permission_rule', 'fillable_scope_json',
+  '`fillable_scope_json` json DEFAULT NULL COMMENT ''精确可填写范围 JSON''');
 CALL add_mes_edhr_column_if_missing('mes_pro_edhr_process_form_permission_rule', 'signature_role',
   '`signature_role` varchar(64) DEFAULT NULL COMMENT ''签名角色''');
 CALL add_mes_edhr_column_if_missing('mes_pro_edhr_process_form_permission_rule', 'due_minutes',
@@ -388,7 +392,7 @@ DEALLOCATE PREPARE stmt;
 
 SET @create_process_form_rule_unique := (
   SELECT IF(COUNT(*) = 0,
-    'ALTER TABLE `mes_pro_edhr_process_form_permission_rule` ADD UNIQUE KEY `uk_mes_pro_edhr_process_form_rule` (`tenant_id`, `route_process_id`, `batch_record_report_id`, `batch_record_version_id`, `rule_type`, `signature_cell_key`, `deleted`)',
+    'ALTER TABLE `mes_pro_edhr_process_form_permission_rule` ADD UNIQUE KEY `uk_mes_pro_edhr_process_form_rule` (`tenant_id`, `route_process_id`, `batch_record_report_id`, `batch_record_version_id`, `rule_type`, `scope_key`, `signature_cell_key`, `deleted`)',
     'SELECT 1')
   FROM information_schema.statistics
   WHERE table_schema = DATABASE()

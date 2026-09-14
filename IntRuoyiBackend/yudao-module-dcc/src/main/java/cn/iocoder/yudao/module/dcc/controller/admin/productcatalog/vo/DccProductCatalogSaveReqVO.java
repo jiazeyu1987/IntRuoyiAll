@@ -28,6 +28,12 @@ public class DccProductCatalogSaveReqVO {
     @Schema(description = "产品编码")
     private String productCode;
 
+    @Schema(description = "项目名称")
+    private String projectName;
+
+    @Schema(description = "项目代码")
+    private String projectCode;
+
     @Schema(description = "注册证名称")
     private String registrationCertificateName;
 

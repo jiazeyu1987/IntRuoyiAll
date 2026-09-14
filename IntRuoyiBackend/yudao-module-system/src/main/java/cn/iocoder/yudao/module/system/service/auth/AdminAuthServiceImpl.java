@@ -26,6 +26,7 @@ import cn.iocoder.yudao.module.system.service.member.MemberService;
 import cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenService;
 import cn.iocoder.yudao.module.system.service.social.SocialUserService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
+import cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl;
 import cn.iocoder.yudao.module.system.service.user.AdminUserPasswordPolicy;
 import com.anji.captcha.model.common.ResponseModel;
 import com.anji.captcha.model.vo.CaptchaVO;
@@ -88,14 +89,31 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             createLoginLog(null, username, logTypeEnum, LoginResultEnum.BAD_CREDENTIALS);
             throw exception(AUTH_LOGIN_BAD_CREDENTIALS);
         }
-        if (!userService.isPasswordMatch(password, user.getPassword())) {
-            createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.BAD_CREDENTIALS);
-            throw exception(AUTH_LOGIN_BAD_CREDENTIALS);
-        }
         // 校验是否禁用
         if (CommonStatusEnum.isDisable(user.getStatus())) {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.USER_DISABLED);
             throw exception(AUTH_LOGIN_USER_DISABLED);
+        }
+        if (AdminUserServiceImpl.isLoginLockActive(user, LocalDateTime.now())) {
+            createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.USER_LOCKED);
+            throw exception(AUTH_LOGIN_USER_LOCKED);
+        }
+        if (Objects.equals(user.getLoginLocked(), 1)) {
+            userService.resetUserLoginFailure(user.getId());
+            user.setLoginFailureCount(0);
+            user.setLoginFailureWindowStartTime(null);
+            user.setLoginLocked(0);
+            user.setLoginLockedTime(null);
+        }
+        if (!userService.isPasswordMatch(password, user.getPassword())) {
+            userService.recordUserLoginFailure(user.getId());
+            createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.BAD_CREDENTIALS);
+            throw exception(AUTH_LOGIN_BAD_CREDENTIALS);
+        }
+        if (Objects.equals(user.getPasswordCredentialStatus(), "INITIAL")
+                || Objects.equals(user.getPasswordCredentialStatus(), "RESET_REQUIRED")) {
+            createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.PASSWORD_CHANGE_REQUIRED);
+            throw exception(AUTH_LOGIN_PASSWORD_CHANGE_REQUIRED);
         }
         if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now())) {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.PASSWORD_EXPIRED);
@@ -107,10 +125,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     @Override
     @DataPermission(enable = false)
     public AuthLoginRespVO login(AuthLoginReqVO reqVO) {
-        // 校验验证码
-        validateCaptcha(reqVO);
-
-        // 使用账号密码，进行登录
+        // 使用账号密码，进行登录；账号登录已移除图形验证码要求
         AdminUserDO user = authenticate(reqVO.getUsername(), reqVO.getPassword());
 
         // 如果 socialType 非空，说明需要绑定社交用户
@@ -216,6 +231,8 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     }
 
     private AuthLoginRespVO createTokenAfterLoginSuccess(Long userId, String username, LoginLogTypeEnum logType) {
+        // 清空登录失败次数
+        userService.resetUserLoginFailure(userId);
         // 插入登陆日志
         createLoginLog(userId, username, logType, LoginResultEnum.SUCCESS);
         // 创建访问令牌

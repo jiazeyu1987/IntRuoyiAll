@@ -403,6 +403,59 @@ class MesProScheduleCalendarServiceImplTest {
     }
 
     @Test
+    void refreshPlanCapacityForShiftHours_shouldUpdateEveryShiftOnceAndEveryLineCapacity() {
+        MesProScheduleCalendarSimulationDO simulation = MesProScheduleCalendarSimulationDO.builder()
+                .id(11L)
+                .currentDate(LocalDateTime.of(2026, 5, 13, 0, 0))
+                .build();
+        MesMdProductionLineDO firstLine = MesMdProductionLineDO.builder()
+                .id(600L)
+                .code("LINE-01")
+                .name("Line 01")
+                .calendarPlanId(800L)
+                .build();
+        MesMdProductionLineDO secondLine = MesMdProductionLineDO.builder()
+                .id(601L)
+                .code("LINE-02")
+                .name("Line 02")
+                .calendarPlanId(800L)
+                .build();
+        MesCalPlanShiftDO dayShift = MesCalPlanShiftDO.builder()
+                .id(801L)
+                .planId(800L)
+                .sort(1)
+                .name("Day")
+                .startTime("08:00")
+                .endTime("14:00")
+                .build();
+        MesCalPlanShiftDO nightShift = MesCalPlanShiftDO.builder()
+                .id(802L)
+                .planId(800L)
+                .sort(2)
+                .name("Night")
+                .startTime("20:00")
+                .endTime("02:00")
+                .build();
+        when(simulationMapper.selectByTenantId(1L)).thenReturn(simulation);
+        when(productionLineMapper.selectListByStatus(0)).thenReturn(List.of(firstLine, secondLine));
+        when(planShiftService.getPlanShiftListByPlanId(800L)).thenReturn(List.of(dayShift, nightShift));
+
+        service.refreshPlanCapacityForShiftHours(new BigDecimal("8"));
+
+        verify(planShiftMapper).updateEndTimeById(801L, "16:00");
+        verify(planShiftMapper).updateEndTimeById(802L, "04:00");
+        verify(planShiftMapper, times(2)).updateEndTimeById(anyLong(), anyString());
+        verify(capacityPlanMapper).updateCapacityMinutesByLineAndShiftFromDate(
+                600L, 801L, LocalDate.now().atStartOfDay(), 480);
+        verify(capacityPlanMapper).updateCapacityMinutesByLineAndShiftFromDate(
+                600L, 802L, LocalDate.now().atStartOfDay(), 480);
+        verify(capacityPlanMapper).updateCapacityMinutesByLineAndShiftFromDate(
+                601L, 801L, LocalDate.now().atStartOfDay(), 480);
+        verify(capacityPlanMapper).updateCapacityMinutesByLineAndShiftFromDate(
+                601L, 802L, LocalDate.now().atStartOfDay(), 480);
+    }
+
+    @Test
     void circularReferenceProneCollaborators_shouldUseLazyInjection() throws NoSuchFieldException {
         assertLazyInjected("workOrderService");
         assertLazyInjected("routeService");
@@ -606,7 +659,7 @@ class MesProScheduleCalendarServiceImplTest {
     @Test
     void getMonth_shouldOnlyCountTasksWithEffectiveScheduleOrder() {
         stubRuleAndSimulation();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.of(2026, 5, 13);
         MesProTaskDO activeTask = MesProTaskDO.builder()
                 .id(100L)
                 .code("PT-ACTIVE")
@@ -694,7 +747,7 @@ class MesProScheduleCalendarServiceImplTest {
     @Test
     void getMonth_shouldIgnoreFinishedScheduleOrdersInCurrentCalendarContext() {
         stubRuleAndSimulation();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.of(2026, 5, 13);
         MesProTaskDO activeTask = MesProTaskDO.builder()
                 .id(100L)
                 .code("PT-ACTIVE")
@@ -919,6 +972,38 @@ class MesProScheduleCalendarServiceImplTest {
         assertEquals(LocalDateTime.of(2026, 6, 8, 0, 0), captor.getValue().getCalendarDate());
         assertEquals(720, captor.getValue().getCapacityMinutes());
         assertTrue(captor.getValue().getEnabled());
+    }
+
+    @Test
+    void generateCapacityPlans_shouldCreateConfiguredNightShiftCapacityOnWorkingDate() {
+        stubCapacityGenerationRule();
+        when(productionLineMapper.selectListByStatus(0)).thenReturn(List.of(
+                MesMdProductionLineDO.builder()
+                        .id(600L).code("LINE-01").name("Line 01").calendarPlanId(800L).status(0).build()));
+        when(planShiftService.getPlanShiftListByPlanId(800L)).thenReturn(List.of(
+                MesCalPlanShiftDO.builder().id(801L).planId(800L).sort(1).name("白班")
+                        .startTime("08:00").endTime("20:00").build(),
+                MesCalPlanShiftDO.builder().id(803L).planId(800L).sort(3).name("夜班")
+                        .startTime("20:00").endTime("08:00").build()));
+        when(capacityPlanMapper.selectListByLineIdsAndDateRange(anyCollection(), any(), any()))
+                .thenReturn(Collections.emptyList());
+
+        MesProScheduleCalendarCapacityGenerateReqVO reqVO = new MesProScheduleCalendarCapacityGenerateReqVO();
+        reqVO.setStartDate("2026-06-08");
+        reqVO.setDays(1);
+
+        var resp = service.generateCapacityPlans(reqVO);
+
+        assertEquals(2, resp.getGeneratedCount());
+        ArgumentCaptor<MesProCapacityPlanDO> captor = ArgumentCaptor.forClass(MesProCapacityPlanDO.class);
+        verify(capacityPlanMapper, times(2)).insert(captor.capture());
+        MesProCapacityPlanDO nightCapacity = captor.getAllValues().stream()
+                .filter(capacity -> Long.valueOf(803L).equals(capacity.getShiftId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(LocalDateTime.of(2026, 6, 8, 0, 0), nightCapacity.getCalendarDate());
+        assertEquals(720, nightCapacity.getCapacityMinutes());
+        assertTrue(nightCapacity.getEnabled());
     }
 
     @Test
@@ -2351,6 +2436,74 @@ class MesProScheduleCalendarServiceImplTest {
         assertEquals(0, sundayRest.getTotalOrderCount());
         assertEquals(0, sundayRest.getDayShiftTaskCount());
         assertEquals(0, sundayRest.getNightShiftTaskCount());
+    }
+
+    @Test
+    void getDayDetail_shouldWarnAndContinueWhenProductionMaterialItemIsUnmapped() {
+        stubRuleAndSimulation();
+        MesProTaskDO task = MesProTaskDO.builder()
+                .id(100L)
+                .code("PT-0001")
+                .workOrderId(200L)
+                .workstationId(300L)
+                .processId(400L)
+                .itemId(500L)
+                .quantity(BigDecimal.ONE)
+                .startTime(LocalDateTime.of(2026, 5, 13, 8, 0))
+                .endTime(LocalDateTime.of(2026, 5, 13, 16, 0))
+                .build();
+        task.setUpdateTime(LocalDateTime.of(2026, 5, 13, 9, 0));
+        when(taskMapper.selectListByStartTimeRange(isNull(), any())).thenReturn(List.of(task));
+        when(taskMapper.selectCurrentScheduleCount()).thenReturn(1L);
+        when(taskMapper.selectLatestUpdatedTask()).thenReturn(task);
+        when(workOrderService.getWorkOrderMap(anyCollection())).thenReturn(Map.of(
+                200L, MesProWorkOrderDO.builder().id(200L).code("881MO101365").productId(500L).build()));
+        when(productionMaterialListMapper.selectListByWorkOrderIds(anyCollection())).thenReturn(List.of(
+                MesKingdeeProductionMaterialListDO.builder()
+                        .id(901L)
+                        .workOrderId(200L)
+                        .childMaterialCode("A006.015.2003")
+                        .childMaterialName("未映射子项")
+                        .requiredQuantity(BigDecimal.ONE)
+                        .build()));
+        when(workstationMapper.selectByIds(anyCollection())).thenReturn(List.of(
+                MesMdWorkstationDO.builder().id(300L).workshopId(700L).productionLineId(600L).build()));
+        when(productionLineService.getProductionLineMap(anyCollection())).thenReturn(Map.of(600L,
+                MesMdProductionLineDO.builder().id(600L).calendarPlanId(800L).code("LINE-01").name("Line 01").build()));
+        when(workshopService.getWorkshopMap(anyCollection())).thenReturn(Map.of(700L,
+                MesMdWorkshopDO.builder().id(700L).code("WS-01").name("Workshop 01").build()));
+        when(processService.getProcessMap(anyCollection())).thenReturn(Map.of(400L,
+                MesProProcessDO.builder().id(400L).name("Cut").build()));
+        when(itemService.getItemMap(anyCollection())).thenReturn(Map.of(500L,
+                new MesMdItemDO().setId(500L).setCode("ITEM-01").setName("Item 01")));
+        when(taskScheduleExtMapper.selectListByTaskIds(anyCollection())).thenReturn(List.of(
+                MesProTaskScheduleExtDO.builder().taskId(100L).scheduleSource("AUTO").locked(false).riskStatus("NONE").build()));
+        when(planShiftService.getPlanShiftListByPlanId(800L)).thenReturn(List.of(
+                MesCalPlanShiftDO.builder().id(801L).planId(800L).sort(1).name("Day").startTime("08:00").endTime("16:00").build()));
+        when(capacityPlanMapper.selectListByLineIdsAndDate(anyCollection(), any())).thenReturn(List.of(
+                MesProCapacityPlanDO.builder()
+                        .id(950L).lineId(600L).shiftId(801L)
+                        .calendarDate(LocalDateTime.of(2026, 5, 13, 0, 0))
+                        .capacityMinutes(480).enabled(true).build()));
+        when(scheduleIssueMapper.selectListByWorkOrderIds(anyCollection())).thenReturn(Collections.emptyList());
+
+        var monthResp = assertDoesNotThrow(() -> service.getMonth("2026-05"));
+        var dayResp = assertDoesNotThrow(() -> service.getDayDetail("2026-05-13"));
+
+        assertEquals(1, monthResp.getDays().stream()
+                .filter(day -> "2026-05-13".equals(day.getDate()))
+                .findFirst()
+                .orElseThrow()
+                .getTotalTaskCount());
+        assertEquals(1, dayResp.getWorkshops().get(0).getLines().get(0).getTasks().size());
+        assertEquals(0, dayResp.getMaterialDemandSummary().getMaterialCount());
+        assertEquals(1, dayResp.getScheduleIssueSummary().getOpenIssueCount());
+        assertEquals(0, dayResp.getScheduleIssueSummary().getBlockingIssueCount());
+        var warning = dayResp.getScheduleIssueSummary().getItems().get(0);
+        assertEquals("MATERIAL_DEMAND", warning.getIssueType());
+        assertEquals("WARNING", warning.getSeverity());
+        assertEquals("881MO101365", warning.getWorkOrderCode());
+        assertTrue(warning.getMessage().contains("A006.015.2003"));
     }
 
     @Test

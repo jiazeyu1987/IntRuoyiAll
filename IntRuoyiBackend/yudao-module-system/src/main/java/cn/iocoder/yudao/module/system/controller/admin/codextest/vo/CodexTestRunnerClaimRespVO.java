@@ -15,6 +15,7 @@ public class CodexTestRunnerClaimRespVO {
         private Long executionCaseId;
         private Long targetTenantId;
         private String executionMode;
+        private String analysisMode;
         private String caseName;
         private String methodText;
         private String testDataText;

@@ -119,6 +119,26 @@ class MesKingdeeProductionMaterialListQueryServiceImplTest extends BaseDbUnitTes
     }
 
     @Test
+    void getPage_shouldMatchProductionOrderNoExactlyForActiveOrderDetail() {
+        insertMaterialRow("BILL-EXACT", "PRODUCT-A", "WO-001", 1, "CHILD-EXACT", "精确工单子项",
+                LocalDateTime.of(2026, 6, 30, 8, 0),
+                LocalDateTime.of(2026, 6, 30, 8, 30));
+        insertMaterialRow("BILL-SIMILAR", "PRODUCT-A", "WO-001-EXTRA", 1, "CHILD-SIMILAR", "相似工单子项",
+                LocalDateTime.of(2026, 6, 30, 9, 0),
+                LocalDateTime.of(2026, 6, 30, 9, 30));
+
+        MesKingdeeProductionMaterialListPageReqVO reqVO = new MesKingdeeProductionMaterialListPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        reqVO.setProductionOrderNo("WO-001");
+
+        PageResult<?> result = queryService.getPage(reqVO);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(1, result.getList().size());
+    }
+
+    @Test
     void getDetailList_shouldReturnOnlySpecifiedBillAndSortByLineNoThenId() {
         insertMaterialRow("BILL-DETAIL", "PRODUCT-1", "WO-1", 2, "CHILD-LINE2-A", "子项2-A",
                 LocalDateTime.of(2026, 6, 30, 8, 0),

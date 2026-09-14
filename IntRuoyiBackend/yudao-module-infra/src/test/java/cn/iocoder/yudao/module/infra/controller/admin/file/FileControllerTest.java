@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FileNasDirect
 import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FileNasDirectoryTreeRespVO;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.FileUploadSecurityPolicy;
 import cn.iocoder.yudao.module.infra.service.file.access.FileDirectLinkAccessContext;
 import cn.iocoder.yudao.module.infra.service.file.NasConnectionConfig;
 import cn.iocoder.yudao.module.infra.service.file.NasBrowserService;
@@ -28,7 +29,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
-import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_DIRECT_LINK_BLOCKED_BY_DCC;
+import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_BUSINESS_DIRECT_LINK_BLOCKED;
+import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_UPLOAD_EXECUTABLE_BLOCKED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -48,6 +50,8 @@ class FileControllerTest extends BaseMockitoUnitTest {
 
     @Mock
     private FileService fileService;
+    @Mock
+    private FileUploadSecurityPolicy fileUploadSecurityPolicy;
     @Mock
     private NasBrowserService nasBrowserService;
     @Mock
@@ -200,6 +204,21 @@ class FileControllerTest extends BaseMockitoUnitTest {
         assertEquals("/admin-api/infra/file/28/get/showroom/company/20260521/company%20cover.png",
                 result.getData());
         assertTrue(result.getData().startsWith("/admin-api/infra/file/28/get/"));
+        verify(fileUploadSecurityPolicy).validate("company cover.png", "png".getBytes());
+    }
+
+    @Test
+    void uploadFile_whenExecutableRejected_doesNotCreateStorageObjectOrRecord() throws Exception {
+        byte[] content = new byte[]{'M', 'Z', 0, 0};
+        FileUploadReqVO reqVO = new FileUploadReqVO();
+        reqVO.setFile(new MockMultipartFile("file", "installer.EXE", "application/octet-stream", content));
+        doThrow(exception(FILE_UPLOAD_EXECUTABLE_BLOCKED, "installer.EXE"))
+                .when(fileUploadSecurityPolicy).validate("installer.EXE", content);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> fileController.uploadFile(reqVO));
+
+        assertEquals(FILE_UPLOAD_EXECUTABLE_BLOCKED.getCode(), ex.getCode());
+        verify(fileService, never()).createFileAndReturnId(any(), any(), any(), any());
     }
 
     @Test
@@ -209,7 +228,7 @@ class FileControllerTest extends BaseMockitoUnitTest {
         request.addHeader("User-Agent", "Playwright-E2E");
         request.addHeader("X-DCC-Request-Id", "REQ-DIRECT-001");
         MockHttpServletResponse response = new MockHttpServletResponse();
-        doThrow(exception(FILE_DIRECT_LINK_BLOCKED_BY_DCC, 700L))
+        doThrow(exception(FILE_BUSINESS_DIRECT_LINK_BLOCKED, 700L))
                 .when(fileService).validateDirectLinkAllowed(eq(10L), eq("quality/spec.pdf"),
                         argThat(context -> "Playwright-E2E".equals(context.userAgent())
                                 && "REQ-DIRECT-001".equals(context.requestId())));
@@ -217,7 +236,7 @@ class FileControllerTest extends BaseMockitoUnitTest {
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> fileController.getFileContent(request, response, 10L));
 
-        assertEquals(FILE_DIRECT_LINK_BLOCKED_BY_DCC.getCode(), ex.getCode());
+        assertEquals(FILE_BUSINESS_DIRECT_LINK_BLOCKED.getCode(), ex.getCode());
         verify(fileService).validateDirectLinkAllowed(eq(10L), eq("quality/spec.pdf"),
                 any(FileDirectLinkAccessContext.class));
         verify(fileService, never()).getFileContent(any(), any());

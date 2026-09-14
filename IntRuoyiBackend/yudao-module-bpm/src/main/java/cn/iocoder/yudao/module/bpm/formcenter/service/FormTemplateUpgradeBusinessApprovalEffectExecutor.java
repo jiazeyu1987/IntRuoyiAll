@@ -44,9 +44,9 @@ public class FormTemplateUpgradeBusinessApprovalEffectExecutor implements Busine
 
     @Override
     public BusinessApprovalEffectResult executeDirect(BusinessApprovalContext context, BusinessApprovalRequest request) {
-        requireVersionWithStatus(context, FormTemplateStatus.DRAFT);
-        throw new BusinessApprovalException(BusinessApprovalErrorCode.BUSINESS_APPROVAL_MODE_INVALID,
-                "Form template upgrade requires BPM approval");
+        FormTemplateVersionDO version = requireVersionWithStatus(context, FormTemplateStatus.DRAFT);
+        updateStatus(version, FormTemplateStatus.PUBLISHED);
+        return BusinessApprovalEffectResult.completed(FormTemplateStatus.PUBLISHED.name());
     }
 
     @Override

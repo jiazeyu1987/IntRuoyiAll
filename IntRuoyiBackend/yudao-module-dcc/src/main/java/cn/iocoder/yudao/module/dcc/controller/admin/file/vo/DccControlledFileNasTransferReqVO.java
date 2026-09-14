@@ -16,6 +16,9 @@ public class DccControlledFileNasTransferReqVO {
     @NotNull(message = "templateCategoryId is required")
     private Long templateCategoryId;
 
+    @NotNull(message = "dccProjectCodeId is required")
+    private Long dccProjectCodeId;
+
     private Long productMasterId;
 
     @NotNull(message = "effectiveDate is required")

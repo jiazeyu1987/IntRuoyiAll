@@ -3,9 +3,12 @@ package cn.iocoder.yudao.module.dcc.service.file;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileSignatureModeEnum;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapper;
-import cn.iocoder.yudao.module.dcc.enums.DccControlledFileSignatureModeEnum;
+import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.PostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
@@ -29,9 +32,9 @@ import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_LOCKED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_APPROVER_POST_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_TASK_PASSWORD_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED;
 
 @Service
 @Validated
@@ -48,41 +51,26 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
     @Resource
     private RoleService roleService;
     @Resource
-    private DccControlledFileSignatureMapper signatureMapper;
-    @Resource
     private DccElectronicSignatureAuthorizationService electronicSignatureAuthorizationService;
-    @Resource
-    private DccElectronicSignatureFailureAuditService electronicSignatureFailureAuditService;
     @Resource
     private DccControlledFileSignatureEvidenceService signatureEvidenceService;
     @Resource
     private DccElectronicSignatureImageService signatureImageService;
+    @Resource
+    private DccControlledFileSignatureMapper signatureMapper;
+    @Resource
+    private ElectronicSignatureService electronicSignatureService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void verifyPasswordAndCreateSignature(Long actorId, Long controlledFileId, String taskId,
-                                                 String stageCode, String actionType, String password, String comment) {
+    public DccUnifiedSignatureResult verifyPasswordAndCreateSignature(Long actorId, Long controlledFileId, String taskId,
+                                                                      String stageCode, String actionType,
+                                                                      String password, String comment) {
+        String reasonText = requireReasonText(comment);
         electronicSignatureAuthorizationService.validateElectronicSignatureEnabled(actorId);
         String meaningCode = resolveMeaningCode(stageCode, actionType);
         AdminUserDO user = adminUserService.getUser(actorId);
-        if (user == null || StrUtil.isBlank(user.getPassword())
-                || !adminUserService.isPasswordMatch(password, user.getPassword())) {
-            boolean locked = electronicSignatureFailureAuditService.recordPasswordFailure(DccElectronicSignatureFailureAuditCommand.builder()
-                    .targetUserId(actorId)
-                    .controlledFileId(controlledFileId)
-                    .revisionId(controlledFileId)
-                    .taskId(taskId)
-                    .actionType(normalizeTaskActionResult(actionType))
-                    .meaningCode(meaningCode)
-                    .failureMessage("password verification failed")
-                    .failedAt(LocalDateTime.now())
-                    .build());
-            if (locked) {
-                throw exception(CONTROLLED_FILE_SIGNATURE_LOCKED);
-            }
-            throw exception(CONTROLLED_FILE_TASK_PASSWORD_INVALID);
-        }
-        LocalDateTime signedAt = LocalDateTime.now();
+        LocalDateTime signedAt = LocalDateTime.now().withNano(0);
         SignatureActorSnapshot actorSnapshot = buildActorSnapshot(user, meaningCode);
         DccElectronicSignatureImageSnapshot imageSnapshot = signatureImageService.requireActiveSnapshot(actorId);
         DccControlledFileSignatureEvidence evidence = signatureEvidenceService.createEvidence(
@@ -103,7 +91,7 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
                         .authorizationBasis(actorSnapshot.authorizationBasis())
                         .authenticationMethod(actorSnapshot.authenticationMethod())
                         .signedAt(signedAt)
-                        .reasonText(comment)
+                        .reasonText(reasonText)
                         .controlledCopyHashStatus(DccControlledFileSignatureEvidenceServiceImpl.COPY_HASH_STATUS_NOT_APPLICABLE)
                         .signatureImageId(imageSnapshot.getImageId())
                         .signatureImageVersionNo(imageSnapshot.getVersionNo())
@@ -115,15 +103,50 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
                         .signatureImageStatusSnapshot(imageSnapshot.getImageStatus())
                         .signatureImageVerifiedStatus(imageSnapshot.getVerifiedStatus())
                         .build());
-        int inserted = signatureMapper.insert(DccControlledFileSignatureDO.builder()
+        String subjectId = DccControlledFileSignatureSubjectAdapter.encodeSubjectId(controlledFileId, taskId,
+                stageCode, actionType, meaningCode, evidence);
+        ElectronicSignatureResult signature = electronicSignatureService.sign(new ElectronicSignatureCommand(
+                DccControlledFileSignatureSubjectAdapter.MODULE_CODE,
+                actionType,
+                DccControlledFileSignatureSubjectAdapter.SUBJECT_TYPE,
+                subjectId,
+                DccControlledFileSignatureSubjectAdapter.subjectVersion(subjectId),
+                password,
+                reasonText,
+                idempotencyKey(actorId, controlledFileId, taskId, stageCode, actionType, meaningCode, evidence),
+                null,
+                null));
+        DccControlledFileSignatureDO projection = persistSignatureEvidence(actorId, controlledFileId, taskId,
+                actionType, reasonText, signedAt, meaningCode, actorSnapshot, evidence, signature);
+        signatureImageService.markReferenced(imageSnapshot.getImageId());
+        return DccUnifiedSignatureResult.builder()
+                .signatureId(projection.getId())
+                .controlledFileId(controlledFileId)
+                .revisionId(evidence.getRevisionId())
+                .versionNo(evidence.getVersionNo())
+                .meaningCode(meaningCode)
+                .controlledCopyHashStatus(evidence.getControlledCopyHashStatus())
+                .evidenceStatus(projection.getEvidenceStatus())
+                .evidenceHash(projection.getEvidenceHash())
+                .signedAt(projection.getSignedAt())
+                .build();
+    }
+
+    private DccControlledFileSignatureDO persistSignatureEvidence(Long actorId, Long controlledFileId, String taskId,
+                                                                  String actionType, String comment,
+                                                                  LocalDateTime signedAt, String meaningCode,
+                                                                  SignatureActorSnapshot actorSnapshot,
+                                                                  DccControlledFileSignatureEvidence evidence,
+                                                                  ElectronicSignatureResult signature) {
+        DccControlledFileSignatureDO record = DccControlledFileSignatureDO.builder()
                 .controlledFileId(controlledFileId)
                 .revisionId(evidence.getRevisionId())
                 .versionNo(evidence.getVersionNo())
                 .taskId(taskId)
                 .actorId(actorId)
-                .actorUsernameSnapshot(user.getUsername())
-                .actorNicknameSnapshot(user.getNickname())
-                .actorDeptIdSnapshot(user.getDeptId())
+                .actorUsernameSnapshot(actorSnapshot.actorUsernameSnapshot())
+                .actorNicknameSnapshot(actorSnapshot.actorNicknameSnapshot())
+                .actorDeptIdSnapshot(actorSnapshot.actorDeptIdSnapshot())
                 .actorDeptNameSnapshot(actorSnapshot.actorDeptNameSnapshot())
                 .actorPostNamesSnapshot(actorSnapshot.actorPostNamesSnapshot())
                 .actorRoleNamesSnapshot(actorSnapshot.actorRoleNamesSnapshot())
@@ -137,8 +160,8 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
                 .snapshotStatus(actorSnapshot.snapshotStatus())
                 .actionType(actionType)
                 .meaningCode(meaningCode)
-                .meaningLabel(meaningCode)
-                .signatureMode(DccControlledFileSignatureModeEnum.PASSWORD.getCode())
+                .meaningLabel(resolveMeaningLabel(meaningCode))
+                .signatureMode(actorSnapshot.authenticationMethod())
                 .passwordVerified(Boolean.TRUE)
                 .comment(comment)
                 .signedAt(signedAt)
@@ -164,11 +187,50 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
                 .evidenceHash(evidence.getEvidenceHash())
                 .evidenceHashAlgorithm(evidence.getEvidenceHashAlgorithm())
                 .evidenceStatus(evidence.getEvidenceStatus())
-                .build());
-        if (inserted <= 0) {
+                .build();
+        if (signatureMapper.insert(record) <= 0) {
             throw exception(CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
         }
-        signatureImageService.markReferenced(imageSnapshot.getImageId());
+        return record;
+    }
+
+    private static String requireReasonText(String comment) {
+        if (StrUtil.isBlank(comment)) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED);
+        }
+        return StrUtil.trim(comment);
+    }
+
+    private static String resolveMeaningLabel(String meaningCode) {
+        return switch (StrUtil.trimToEmpty(meaningCode)) {
+            case "APPROVE", "APPLICANT_REWORK_APPROVE", "DOC_CONTROL_REVIEW_APPROVE", "MATRIX_REVIEW_APPROVE",
+                    "MATRIX_APPROVAL_APPROVE", "DOC_CONTROL_APPROVAL_APPROVE" -> "审批通过";
+            case "REJECT", "APPLICANT_REWORK_REJECT", "DOC_CONTROL_REVIEW_REJECT", "MATRIX_REVIEW_REJECT",
+                    "MATRIX_APPROVAL_REJECT", "DOC_CONTROL_APPROVAL_REJECT" -> "审批驳回";
+            case "RETURN", "APPLICANT_REWORK_RETURN", "DOC_CONTROL_REVIEW_RETURN", "MATRIX_REVIEW_RETURN",
+                    "MATRIX_APPROVAL_RETURN", "DOC_CONTROL_APPROVAL_RETURN" -> "流程回退";
+            case "TRANSFER", "APPLICANT_REWORK_TRANSFER", "DOC_CONTROL_REVIEW_TRANSFER", "MATRIX_REVIEW_TRANSFER",
+                    "MATRIX_APPROVAL_TRANSFER", "DOC_CONTROL_APPROVAL_TRANSFER" -> "任务转办";
+            case "ADD_SIGN", "APPLICANT_REWORK_ADD_SIGN", "DOC_CONTROL_REVIEW_ADD_SIGN", "MATRIX_REVIEW_ADD_SIGN",
+                    "MATRIX_APPROVAL_ADD_SIGN", "DOC_CONTROL_APPROVAL_ADD_SIGN" -> "加签";
+            case "DISTRIBUTION_ACK" -> "分发确认";
+            case "DISTRIBUTION_SIGN" -> "分发签收";
+            default -> meaningCode;
+        };
+    }
+
+    private static String idempotencyKey(Long actorId, Long controlledFileId, String taskId, String stageCode,
+                                         String actionType, String meaningCode,
+                                         DccControlledFileSignatureEvidence evidence) {
+        return "DCC|" + actorId
+                + "|" + controlledFileId
+                + "|" + taskId
+                + "|" + stageCode
+                + "|" + actionType
+                + "|" + meaningCode
+                + "|" + evidence.getRevisionId()
+                + "|" + evidence.getVersionNo()
+                + "|" + evidence.getEvidenceHash();
     }
 
     private SignatureActorSnapshot buildActorSnapshot(AdminUserDO user, String meaningCode) {
@@ -177,8 +239,11 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
             throw exception(CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
         }
         String postNames = resolvePostNames(user);
+        if (StrUtil.isBlank(postNames)) {
+            throw exception(CONTROLLED_FILE_APPROVER_POST_REQUIRED);
+        }
         String roleNames = resolveRoleNames(user.getId());
-        if (StrUtil.hasBlank(postNames, roleNames)) {
+        if (StrUtil.isBlank(roleNames)) {
             throw exception(CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
         }
         return new SignatureActorSnapshot(

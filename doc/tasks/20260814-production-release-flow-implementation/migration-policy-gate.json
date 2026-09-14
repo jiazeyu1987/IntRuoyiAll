@@ -1,0 +1,169 @@
+{
+  "status": "passed",
+  "migrationCount": 11,
+  "migrations": [
+    {
+      "migrationId": "20260630_mes_pro_work_order_erp_snapshot_fields",
+      "file": "sql/mysql/20260630_mes_pro_work_order_erp_snapshot_fields.sql",
+      "sha256": "a6696dbac77464b4d635b33cf6ee8e2f60ed84666b79219a4b80f8771d5193f5",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "low"
+    },
+    {
+      "migrationId": "20260730_mes_process_pool_fifo_allocation",
+      "file": "sql/mysql/20260730_mes_process_pool_fifo_allocation.sql",
+      "sha256": "69b90f233eade846085a403a5755e54667c3ecd3435f5ecfdc2c03087e39eb12",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260630_mes_pro_work_order_erp_snapshot_fields"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260730_mes_process_pool_review_copy",
+      "file": "sql/mysql/20260730_mes_process_pool_review_copy.sql",
+      "sha256": "5038703d6153d969f67b44aa78662da0b4c90c567e2a2135f441d26db53ecdd6",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260730_mes_process_pool_fifo_allocation"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260730_mes_process_pool_team_leader",
+      "file": "sql/mysql/20260730_mes_process_pool_team_leader.sql",
+      "sha256": "460d23e4ae4717e20bf15d5b25866290ecc5c7414e2a871c3d865da0ae249aa1",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260730_mes_process_pool_review_copy"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260731_mes_process_pool_team_leader_p1_runtime_config",
+      "file": "sql/mysql/20260731_mes_process_pool_team_leader_p1_runtime_config.sql",
+      "sha256": "d8103f35ecaa50caa941b1655c0c662776b733375537f556d2851a2893cf36d8",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260730_mes_process_pool_team_leader"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260801_mes_process_pool_team_leader_p3_report_allocation",
+      "file": "sql/mysql/20260801_mes_process_pool_team_leader_p3_report_allocation.sql",
+      "sha256": "5fea211b006221f7d639f32040eca32cd7c49c8d88358ad79fa87f8f1f2488fb",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260731_mes_process_pool_team_leader_p1_runtime_config"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260801_mes_process_pool_team_leader_p4_order_completion_backfill",
+      "file": "sql/mysql/20260801_mes_process_pool_team_leader_p4_order_completion_backfill.sql",
+      "sha256": "06f5f26d3a7407bbb1ab2b45ff0824f3408362f45ddf35979c68b29dbc07d7f7",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260801_mes_process_pool_team_leader_p3_report_allocation"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260802_mes_process_pool_active_order_authority",
+      "file": "sql/mysql/20260802_mes_process_pool_active_order_authority.sql",
+      "sha256": "a3fcd66906375ab1022089997a48a2e84b591be6ec2aaa671318d465fa36aa0f",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260801_mes_process_pool_team_leader_p4_order_completion_backfill"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260802_mes_process_pool_active_order_process_snapshot",
+      "file": "sql/mysql/20260802_mes_process_pool_active_order_process_snapshot.sql",
+      "sha256": "82c8dfb5fa83ad94b4b85ff9f16b79243860e1c879d738885a28b40ebff060ad",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260802_mes_process_pool_active_order_authority"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260808_mes_active_order_release_application",
+      "file": "sql/mysql/20260808_mes_active_order_release_application.sql",
+      "sha256": "8af87dc526f38518b2621048d65a8070e6b83727ff1dc931abeb1cd6822dea63",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260802_mes_process_pool_active_order_process_snapshot"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260814_mes_production_release_flow",
+      "file": "sql/mysql/20260814_mes_production_release_flow.sql",
+      "sha256": "0846464b8aef75827fc125d446d32fff9273bf731598a131894a33bca3a971de",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260808_mes_active_order_release_application"
+      ],
+      "riskLevel": "high"
+    }
+  ]
+}

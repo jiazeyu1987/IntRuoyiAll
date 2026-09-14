@@ -1,0 +1,22 @@
+{
+  "tenant": "芋道源码",
+  "username": "admin",
+  "targetSource": "int-ruoyi-mysql/ruoyi-vue-pro",
+  "batchExecutionId": 900000000792,
+  "batchExecutionCode": "EDHRB-1784961091996",
+  "batchStatus": 10,
+  "taskId": 5462,
+  "taskStatus": 0,
+  "processName": "粗洗工序",
+  "taskDisplayName": "粗洗工序生产记录",
+  "previewHttpStatus": 200,
+  "previewCode": 0,
+  "executionCreated": false,
+  "executionId": null,
+  "readonlyFormVisible": true,
+  "templateSheetVisible": true,
+  "mesWriteRequests": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260725-full-e2e-admin-validation\\admin-preview-e2e-output\\admin-unstarted-form-preview.png"
+}

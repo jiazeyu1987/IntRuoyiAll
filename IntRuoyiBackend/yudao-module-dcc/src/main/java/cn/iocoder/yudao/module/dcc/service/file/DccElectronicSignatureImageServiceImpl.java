@@ -15,6 +15,10 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriUtils;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
@@ -226,6 +230,15 @@ public class DccElectronicSignatureImageServiceImpl implements DccElectronicSign
 
     private void validateImageContent(byte[] content) {
         if (content == null || content.length == 0 || content.length > MAX_IMAGE_BYTES) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_INVALID);
+        }
+        BufferedImage image;
+        try {
+            image = ImageIO.read(new ByteArrayInputStream(content));
+        } catch (IOException | RuntimeException ex) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_INVALID);
+        }
+        if (image == null || image.getWidth() <= 0 || image.getHeight() <= 0) {
             throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_INVALID);
         }
     }

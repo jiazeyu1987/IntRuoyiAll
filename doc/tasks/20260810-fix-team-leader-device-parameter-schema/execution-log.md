@@ -1,0 +1,22 @@
+# Execution Log
+
+- 用户要求：修复 `/admin` 进入生产组长页签报系统异常。
+- BDD: 生产组长页签进入不报系统异常 -> Given 本机运行库已应用设备参数规则正式迁移，When 用户从 `/admin` 进入生产组长页签，Then 工序配置接口不因缺少 `option_values_json` 抛出系统异常。
+- Gate: 已读取 `database-schema-delivery` 技能、`docs/database-rules.md`、`docs/task-closeout-rules.md`、`docs/powershell-encoding.md`。
+- RED Source: 后端日志显示 `/admin-api/mes/pro/process-pool/team-leader/process-config/list` 经过 `MesProcessPoolDeviceParameterRuleMapper` 查询时报 `Unknown column 'option_values_json' in 'field list'`。
+- RED: 运行库 information_schema 查询 -> FAIL，目标表仅有 `standard_text`，缺少 `option_values_json/default_text/decimal_scale`。
+- GREEN: 应用 `20260810_mes_process_pool_device_parameter_select_options.sql` 后只读查询 -> PASS，目标三列类型依次为 json、varchar、int。
+- GREEN: `run-release-migration-policy-gate.py` -> PASS，迁移依赖、风险等级和环境声明均通过发布策略门禁。
+- Integration: 正式迁移已包含在 int_main 提交 `61ba20294 chore: checkpoint current frontend backend code round 2` 中。
+- Runtime: 本机 Docker MySQL `ruoyi-vue-pro` 已应用正式迁移；未引入业务 fallback 或旧 schema 兼容分支。
+- E2E Blocker: 首次恢复 48081 后端时发现融合代码缺少 `workOrderIds` 声明而编译失败；该声明随后由并发融合任务恢复，待同模块并发 Maven 完成后重启后端并复验页面。
+- GREEN: 标准后端重启脚本 -> PASS；`http://127.0.0.1:48081/actuator/health` 返回 `UP`，进程归属 `E:\IntRuoyi` 的 `int_main`。
+- E2E RED: 首轮任务自有 Playwright 脚本因标题文案在面包屑、标签页和页面标题同时出现而触发 strict-mode，多重匹配属于测试选择器问题。
+- E2E GREEN: 收紧到 `.team-leader-workbench__title:visible` 后真实页面 PASS；`process-config/list` HTTP 200、业务码 0、返回 28 行，页面无“系统异常”，MES 写请求 0，page error 0，console error 0。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderSchemaTest#deviceParameterRuleSchemaMustSupportSelectOptionsTextDefaultAndDecimalScale" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run 1 / Failures 0 / Errors 0。
+- GREEN: `run-release-migration-policy-gate.py` -> PASS，status=passed，migrationCount=459。
+- GREEN: `validate_database_schema.py` -> PASS，Database schema evidence is valid。
+- Integration: 主线协调解除后核对 `int_main` HEAD=`2e1924ae0`；正式迁移提交 `61ba20294` 已在当前主线历史中。
+- Experience: `project-experience-consolidation` 检查后确认 `docs/database-rules.md#运行态迁移漂移系统异常门禁` 和 `docs/e2e-rules.md#schema-backed-e2e-迁移与字段可选态门禁` 已覆盖本次经验，无需重复新增长期规则。
+- Cleanup: `task_closeout.py --mode preview` -> PASS，keep 3 / delete 5 / blocked 0 / warnings 0。
+- Cleanup: `task_closeout.py --mode apply` -> PASS，只删除本任务 database evidence、迁移策略 JSON、一次性 E2E 脚本及截图/结果，保留三份核心任务文档。

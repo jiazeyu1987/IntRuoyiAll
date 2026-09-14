@@ -12,6 +12,7 @@ import java.util.Arrays;
 public enum DccControlledFileStatusEnum implements ArrayValuable<String> {
 
     DRAFT("DRAFT", "Draft"),
+    WORKING("WORKING", "Working"),
     PENDING_DOC_CONTROL_REVIEW("PENDING_DOC_CONTROL_REVIEW", "Pending doc control review"),
     PENDING_MATRIX_REVIEW("PENDING_MATRIX_REVIEW", "Pending matrix review"),
     PENDING_MATRIX_APPROVAL("PENDING_MATRIX_APPROVAL", "Pending matrix approval"),

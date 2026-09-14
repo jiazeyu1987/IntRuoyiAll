@@ -1,0 +1,630 @@
+2026-08-25 12:50:42.748 [background-preinit] INFO  org.hibernate.validator.internal.util.Version:21 - HV000001: Hibernate Validator 8.0.3.Final
+2026-08-25 12:50:42.837 [main] INFO  cn.iocoder.yudao.server.YudaoServerApplication:53 - Starting YudaoServerApplication using Java 21.0.10 with PID 62780 (E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar started by BJB110 in E:\IntRuoyi\IntRuoyiBackend)
+2026-08-25 12:50:42.838 [main] INFO  cn.iocoder.yudao.server.YudaoServerApplication:658 - The following 1 profile is active: "local"
+2026-08-25 12:50:48.221 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:23 -  ******************* init miniDao config [ begin ] *********************** 
+2026-08-25 12:50:48.222 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:26 -  ------ minidao.base-package ------- org.jeecg.modules.jmreport.*,org.jeecg.modules.drag.*
+2026-08-25 12:50:48.222 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:50 -  *******************  init miniDao config  [ end ] *********************** 
+2026-08-25 12:50:48.828 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportCategoryDao }
+2026-08-25 12:50:48.830 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDao }
+2026-08-25 12:50:48.830 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDataSourceDao }
+2026-08-25 12:50:48.830 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbDao }
+2026-08-25 12:50:48.831 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbFieldDao }
+2026-08-25 12:50:48.832 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbParamDao }
+2026-08-25 12:50:48.832 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDictDao }
+2026-08-25 12:50:48.833 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDictItemDao }
+2026-08-25 12:50:48.833 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExportJobDao }
+2026-08-25 12:50:48.833 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExportLogDao }
+2026-08-25 12:50:48.834 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExtDataDao }
+2026-08-25 12:50:48.834 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportLinkDao }
+2026-08-25 12:50:48.834 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportMapDao }
+2026-08-25 12:50:48.835 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportShareDao }
+2026-08-25 12:50:48.835 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportSheetDao }
+2026-08-25 12:50:48.836 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuDragCategoryDao }
+2026-08-25 12:50:48.836 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuDragMapDao }
+2026-08-25 12:50:48.836 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuReportIconLibDao }
+2026-08-25 12:50:48.841 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragCompDao }
+2026-08-25 12:50:48.843 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDataSourceDao }
+2026-08-25 12:50:48.843 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetHeadDao }
+2026-08-25 12:50:48.843 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetItemDao }
+2026-08-25 12:50:48.844 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetParamDao }
+2026-08-25 12:50:48.844 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragPageCompDao }
+2026-08-25 12:50:48.845 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragPageDao }
+2026-08-25 12:50:48.845 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragShareDao }
+2026-08-25 12:50:49.378 [main] INFO  c.g.y.a.MybatisPlusJoinAutoConfiguration:142 - MPJ SqlSessionFactory bean definition: sqlSessionFactory factoryBeanName: com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration factoryMethodName: sqlSessionFactory source: com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration.sqlSessionFactory(javax.sql.DataSource)
+2026-08-25 12:50:51.105 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer:111 - Tomcat initialized with port 48081 (http)
+2026-08-25 12:50:51.142 [main] INFO  org.apache.coyote.http11.Http11NioProtocol:168 - Initializing ProtocolHandler ["http-nio-48081"]
+2026-08-25 12:50:51.143 [main] INFO  org.apache.catalina.core.StandardService:168 - Starting service [Tomcat]
+2026-08-25 12:50:51.144 [main] INFO  org.apache.catalina.core.StandardEngine:168 - Starting Servlet engine: [Apache Tomcat/10.1.54]
+2026-08-25 12:50:51.192 [main] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/]:168 - Initializing Spring embedded WebApplicationContext
+2026-08-25 12:50:51.192 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext:301 - Root WebApplicationContext: initialization completed in 8056 ms
+2026-08-25 12:50:52.214 [main] INFO  com.alibaba.druid.pool.DruidDataSource:673 - {dataSource-1,master} inited
+2026-08-25 12:50:52.219 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:158 - dynamic-datasource - add a datasource named [slave] success
+2026-08-25 12:50:52.220 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:158 - dynamic-datasource - add a datasource named [master] success
+2026-08-25 12:50:52.220 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:241 - dynamic-datasource initial loaded [2] datasource,primary datasource named [master]
+2026-08-25 12:50:56.399 [main] INFO  org.redisson.Version:43 - Redisson 4.3.1
+2026-08-25 12:50:56.965 [redisson-netty-1-4] INFO  org.redisson.connection.ConnectionsHolder:152 - 1 connections initialized for 127.0.0.2/127.0.0.2:26379
+2026-08-25 12:50:57.038 [redisson-netty-1-19] INFO  org.redisson.connection.ConnectionsHolder:152 - 24 connections initialized for 127.0.0.2/127.0.0.2:26379
+2026-08-25 12:51:00.976 [main] INFO  c.a.c.config.AjCaptchaServiceAutoConfiguration:33 - 自定义配置项：
+AjCaptchaProperties{type=BLOCKPUZZLE, jigsaw='classpath:images/jigsaw', picClick='classpath:images/pic-click', waterMark='瑛泰源码', waterFont='WenQuanZhengHei.ttf', fontType='WenQuanZhengHei.ttf', slipOffset='5', aesStatus=true, interferenceOptions='0', cacheNumber='1000', timingClear='180', cacheType=redis, reqFrequencyLimitEnable=false, reqGetLockLimit=5, reqGetLockSeconds=10, reqGetMinuteLimit=30, reqCheckMinuteLimit=60, reqVerifyMinuteLimit=60}
+2026-08-25 12:51:00.995 [main] INFO  com.anji.captcha.util.ImageUtils:71 - 自定义resource底图:[SLIDING_BLOCK=[Ljava.lang.String;@35d281c5, ORIGINAL=[Ljava.lang.String;@787b9d7f, PIC_CLICK=[Ljava.lang.String;@108cfc9a]
+2026-08-25 12:51:00.998 [main] INFO  c.anji.captcha.service.impl.CaptchaServiceFactory:52 - supported-captchaCache-service:[redis, local]
+2026-08-25 12:51:01.007 [main] INFO  c.anji.captcha.service.impl.CaptchaServiceFactory:57 - supported-captchaTypes-service:[clickWord, default, blockPuzzle, pictureWord]
+2026-08-25 12:51:01.007 [main] INFO  c.a.c.service.impl.BlockPuzzleCaptchaServiceImpl:80 - --->>>初始化验证码底图<<<---blockPuzzle
+2026-08-25 12:51:03.763 [main] INFO  org.quartz.impl.StdSchedulerFactory:1222 - Using default implementation for ThreadExecutor
+2026-08-25 12:51:03.791 [main] INFO  org.quartz.core.SchedulerSignalerImpl:62 - Initialized Scheduler Signaller of type: class org.quartz.core.SchedulerSignalerImpl
+2026-08-25 12:51:03.803 [main] INFO  org.quartz.core.QuartzScheduler:224 - Quartz Scheduler v2.5.2 created.
+2026-08-25 12:51:03.817 [main] INFO  o.s.scheduling.quartz.LocalDataSourceJobStore:676 - Using db table-based data access locking (synchronization).
+2026-08-25 12:51:03.827 [main] INFO  o.s.scheduling.quartz.LocalDataSourceJobStore:147 - JobStoreCMT initialized.
+2026-08-25 12:51:03.828 [main] INFO  org.quartz.core.QuartzScheduler:289 - Scheduler meta-data: Quartz Scheduler (v2.5.2) 'schedulerName' with instanceId 'a1787633463780'
+  Scheduler class: 'org.quartz.core.QuartzScheduler' - running locally.
+  NOT STARTED.
+  Currently in standby mode.
+  Number of jobs executed: 0
+  Using thread pool 'org.quartz.simpl.SimpleThreadPool' - with 25 threads.
+  Using job-store 'org.springframework.scheduling.quartz.LocalDataSourceJobStore' - which supports persistence. and is clustered.
+
+2026-08-25 12:51:03.829 [main] INFO  org.quartz.impl.StdSchedulerFactory:1376 - Quartz scheduler 'schedulerName' initialized from an externally provided properties instance.
+2026-08-25 12:51:03.829 [main] INFO  org.quartz.impl.StdSchedulerFactory:1378 - Quartz scheduler version: 2.5.2
+2026-08-25 12:51:03.830 [main] INFO  org.quartz.core.QuartzScheduler:2250 - JobFactory set to: org.springframework.scheduling.quartz.SpringBeanJobFactory@3bf29b1d
+2026-08-25 12:51:04.507 [main] INFO  o.f.s.b.e.EventRegistryAutoConfiguration:106 - No deployment resources were found for autodeployment
+2026-08-25 12:51:04.824 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:132 - Creating thread pool queue of size 100
+2026-08-25 12:51:04.842 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:138 - Creating thread factory with naming pattern flowable-async-task-invoker-%d
+2026-08-25 12:51:04.844 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:146 - Creating executor service with corePoolSize 8, maxPoolSize 8 and keepAliveTime 5000
+2026-08-25 12:51:05.053 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1076 - Found 2 Engine Configurators in total:
+2026-08-25 12:51:05.054 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1078 - class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 12:51:05.054 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1078 - class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 12:51:05.055 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1104 - Executing beforeInit() of class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 12:51:05.062 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1104 - Executing beforeInit() of class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 12:51:06.221 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1111 - Executing configure() of class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 12:51:06.263 [main] INFO  o.f.eventregistry.impl.EventRegistryEngineImpl:53 - EventRegistryEngine default created
+2026-08-25 12:51:06.291 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1111 - Executing configure() of class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 12:51:06.324 [main] INFO  org.flowable.idm.engine.impl.IdmEngineImpl:52 - IdmEngine default created
+2026-08-25 12:51:06.420 [main] INFO  org.flowable.engine.impl.ProcessEngineImpl:89 - ProcessEngine default created
+2026-08-25 12:51:06.487 [main] INFO  o.flowable.engine.impl.cmd.ValidateV5EntitiesCmd:43 - Total of v5 deployments found: 0
+2026-08-25 12:51:22.133 [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext:636 - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'dccAesGcmDownloadEncryptionGateway' defined in URL [jar:nested:/E:/IntRuoyi/IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar/!BOOT-INF/lib/yudao-module-dcc-2026.04-SNAPSHOT.jar!/cn/iocoder/yudao/module/dcc/service/download/DccAesGcmDownloadEncryptionGateway.class]: Unsatisfied dependency expressed through constructor parameter 1: Error creating bean with name 'dccDownloadEncryptionProperties': Invocation of init method failed
+2026-08-25 12:51:22.161 [main] INFO  o.s.scheduling.quartz.SchedulerFactoryBean:845 - Shutting down Quartz Scheduler
+2026-08-25 12:51:22.166 [main] INFO  org.quartz.core.QuartzScheduler:656 - Scheduler schedulerName_$_a1787633463780 shutting down.
+2026-08-25 12:51:22.166 [main] INFO  org.quartz.core.QuartzScheduler:576 - Scheduler schedulerName_$_a1787633463780 paused.
+2026-08-25 12:51:22.642 [main] INFO  org.quartz.core.QuartzScheduler:728 - Scheduler schedulerName_$_a1787633463780 shutdown complete.
+2026-08-25 12:51:22.851 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:215 - dynamic-datasource start closing ....
+2026-08-25 12:51:22.853 [main] INFO  com.alibaba.druid.pool.DruidDataSource:1880 - {dataSource-0} closing ...
+2026-08-25 12:51:22.854 [main] INFO  c.b.d.d.destroyer.DefaultDataSourceDestroyer:98 - dynamic-datasource close the datasource named [slave] success,
+2026-08-25 12:51:22.854 [main] INFO  com.alibaba.druid.pool.DruidDataSource:1880 - {dataSource-1} closing ...
+2026-08-25 12:51:22.858 [main] INFO  com.alibaba.druid.pool.DruidDataSource:1953 - {dataSource-1} closed
+2026-08-25 12:51:22.859 [main] INFO  c.b.d.d.destroyer.DefaultDataSourceDestroyer:98 - dynamic-datasource close the datasource named [master] success,
+2026-08-25 12:51:22.859 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:219 - dynamic-datasource all closed success,bye
+2026-08-25 12:51:22.882 [main] INFO  org.apache.catalina.core.StandardService:168 - Stopping service [Tomcat]
+2026-08-25 12:51:22.971 [main] INFO  o.s.b.a.logging.ConditionEvaluationReportLogger:82 - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-08-25 12:51:23.003 [main] ERROR org.springframework.boot.SpringApplication:857 - Application run failed
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'dccAesGcmDownloadEncryptionGateway' defined in URL [jar:nested:/E:/IntRuoyi/IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar/!BOOT-INF/lib/yudao-module-dcc-2026.04-SNAPSHOT.jar!/cn/iocoder/yudao/module/dcc/service/download/DccAesGcmDownloadEncryptionGateway.class]: Unsatisfied dependency expressed through constructor parameter 1: Error creating bean with name 'dccDownloadEncryptionProperties': Invocation of init method failed
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804)
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1395)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1232)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:569)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:529)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:339)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:373)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:337)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1228)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1194)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1130)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:991)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:628)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:752)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:439)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:318)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1361)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1350)
+	at cn.iocoder.yudao.server.YudaoServerApplication.main(YudaoServerApplication.java:24)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:106)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:64)
+	at org.springframework.boot.loader.launch.JarLauncher.main(JarLauncher.java:40)
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'dccDownloadEncryptionProperties': Invocation of init method failed
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor.postProcessBeforeInitialization(InitDestroyAnnotationBeanPostProcessor.java:222)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.applyBeanPostProcessorsBeforeInitialization(AbstractAutowireCapableBeanFactory.java:429)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1818)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:607)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:529)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:339)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:373)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:337)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1770)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1653)
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:913)
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791)
+	... 26 common frames omitted
+Caused by: ServiceException(super=cn.iocoder.yudao.framework.common.exception.ServiceException: DCC download encryption config is missing or invalid: artifact-directory is required, code=1080000122, message=DCC download encryption config is missing or invalid: artifact-directory is required)
+	at cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0(ServiceExceptionUtil.java:31)
+	at cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(ServiceExceptionUtil.java:26)
+	at cn.iocoder.yudao.module.dcc.service.download.DccDownloadEncryptionProperties.requireNotBlank(DccDownloadEncryptionProperties.java:53)
+	at cn.iocoder.yudao.module.dcc.service.download.DccDownloadEncryptionProperties.validateRuntimeConfig(DccDownloadEncryptionProperties.java:32)
+	at cn.iocoder.yudao.module.dcc.service.download.DccDownloadEncryptionProperties.validateStartupConfig(DccDownloadEncryptionProperties.java:26)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor$LifecycleMethod.invoke(InitDestroyAnnotationBeanPostProcessor.java:457)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor$LifecycleMetadata.invokeInitMethods(InitDestroyAnnotationBeanPostProcessor.java:401)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor.postProcessBeforeInitialization(InitDestroyAnnotationBeanPostProcessor.java:219)
+	... 39 common frames omitted
+2026-08-25 16:26:23.597 [background-preinit] INFO  org.hibernate.validator.internal.util.Version:21 - HV000001: Hibernate Validator 8.0.3.Final
+2026-08-25 16:26:23.766 [main] INFO  cn.iocoder.yudao.server.YudaoServerApplication:53 - Starting YudaoServerApplication using Java 21.0.10 with PID 31056 (E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260825-ai-autodetect-file-input.jar started by BJB110 in E:\IntRuoyi\IntRuoyiBackend)
+2026-08-25 16:26:23.767 [main] INFO  cn.iocoder.yudao.server.YudaoServerApplication:658 - The following 1 profile is active: "local"
+2026-08-25 16:27:22.740 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:23 -  ******************* init miniDao config [ begin ] *********************** 
+2026-08-25 16:27:26.364 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:26 -  ------ minidao.base-package ------- org.jeecg.modules.jmreport.*,org.jeecg.modules.drag.*
+2026-08-25 16:27:26.414 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:50 -  *******************  init miniDao config  [ end ] *********************** 
+2026-08-25 16:27:28.954 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportCategoryDao }
+2026-08-25 16:27:29.109 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDao }
+2026-08-25 16:27:29.167 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDataSourceDao }
+2026-08-25 16:27:29.212 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbDao }
+2026-08-25 16:27:29.265 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbFieldDao }
+2026-08-25 16:27:29.381 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbParamDao }
+2026-08-25 16:27:29.466 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDictDao }
+2026-08-25 16:27:29.526 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDictItemDao }
+2026-08-25 16:27:29.615 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExportJobDao }
+2026-08-25 16:27:29.643 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExportLogDao }
+2026-08-25 16:27:29.787 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExtDataDao }
+2026-08-25 16:27:29.839 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportLinkDao }
+2026-08-25 16:27:29.978 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportMapDao }
+2026-08-25 16:27:30.057 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportShareDao }
+2026-08-25 16:27:30.127 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportSheetDao }
+2026-08-25 16:27:30.239 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuDragCategoryDao }
+2026-08-25 16:27:30.305 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuDragMapDao }
+2026-08-25 16:27:30.402 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuReportIconLibDao }
+2026-08-25 16:27:30.512 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragCompDao }
+2026-08-25 16:27:30.675 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDataSourceDao }
+2026-08-25 16:27:30.677 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetHeadDao }
+2026-08-25 16:27:30.694 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetItemDao }
+2026-08-25 16:27:30.695 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetParamDao }
+2026-08-25 16:27:30.696 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragPageCompDao }
+2026-08-25 16:27:30.696 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragPageDao }
+2026-08-25 16:27:30.696 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragShareDao }
+2026-08-25 16:27:32.307 [main] INFO  c.g.y.a.MybatisPlusJoinAutoConfiguration:142 - MPJ SqlSessionFactory bean definition: sqlSessionFactory factoryBeanName: com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration factoryMethodName: sqlSessionFactory source: com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration.sqlSessionFactory(javax.sql.DataSource)
+2026-08-25 16:27:39.266 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer:111 - Tomcat initialized with port 48081 (http)
+2026-08-25 16:27:39.617 [main] INFO  org.apache.coyote.http11.Http11NioProtocol:168 - Initializing ProtocolHandler ["http-nio-48081"]
+2026-08-25 16:27:39.677 [main] INFO  org.apache.catalina.core.StandardService:168 - Starting service [Tomcat]
+2026-08-25 16:27:39.713 [main] INFO  org.apache.catalina.core.StandardEngine:168 - Starting Servlet engine: [Apache Tomcat/10.1.54]
+2026-08-25 16:27:40.120 [main] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/]:168 - Initializing Spring embedded WebApplicationContext
+2026-08-25 16:27:40.129 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext:301 - Root WebApplicationContext: initialization completed in 75841 ms
+2026-08-25 16:27:45.850 [main] INFO  com.alibaba.druid.pool.DruidDataSource:673 - {dataSource-1,master} inited
+2026-08-25 16:27:45.899 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:158 - dynamic-datasource - add a datasource named [slave] success
+2026-08-25 16:27:45.938 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:158 - dynamic-datasource - add a datasource named [master] success
+2026-08-25 16:27:45.941 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:241 - dynamic-datasource initial loaded [2] datasource,primary datasource named [master]
+2026-08-25 16:27:52.453 [main] INFO  org.redisson.Version:43 - Redisson 4.3.1
+2026-08-25 16:27:53.036 [redisson-netty-1-4] INFO  org.redisson.connection.ConnectionsHolder:152 - 1 connections initialized for 127.0.0.2/127.0.0.2:26379
+2026-08-25 16:27:53.115 [redisson-netty-1-19] INFO  org.redisson.connection.ConnectionsHolder:152 - 24 connections initialized for 127.0.0.2/127.0.0.2:26379
+2026-08-25 16:27:57.256 [main] INFO  c.a.c.config.AjCaptchaServiceAutoConfiguration:33 - 自定义配置项：
+AjCaptchaProperties{type=BLOCKPUZZLE, jigsaw='classpath:images/jigsaw', picClick='classpath:images/pic-click', waterMark='瑛泰源码', waterFont='WenQuanZhengHei.ttf', fontType='WenQuanZhengHei.ttf', slipOffset='5', aesStatus=true, interferenceOptions='0', cacheNumber='1000', timingClear='180', cacheType=redis, reqFrequencyLimitEnable=false, reqGetLockLimit=5, reqGetLockSeconds=10, reqGetMinuteLimit=30, reqCheckMinuteLimit=60, reqVerifyMinuteLimit=60}
+2026-08-25 16:27:57.314 [main] INFO  com.anji.captcha.util.ImageUtils:71 - 自定义resource底图:[SLIDING_BLOCK=[Ljava.lang.String;@5258fc5e, ORIGINAL=[Ljava.lang.String;@2520af4f, PIC_CLICK=[Ljava.lang.String;@ce40c67]
+2026-08-25 16:27:57.317 [main] INFO  c.anji.captcha.service.impl.CaptchaServiceFactory:52 - supported-captchaCache-service:[redis, local]
+2026-08-25 16:27:57.323 [main] INFO  c.anji.captcha.service.impl.CaptchaServiceFactory:57 - supported-captchaTypes-service:[clickWord, default, blockPuzzle, pictureWord]
+2026-08-25 16:27:57.334 [main] INFO  c.a.c.service.impl.BlockPuzzleCaptchaServiceImpl:80 - --->>>初始化验证码底图<<<---blockPuzzle
+2026-08-25 16:28:00.403 [main] INFO  org.quartz.impl.StdSchedulerFactory:1222 - Using default implementation for ThreadExecutor
+2026-08-25 16:28:00.416 [main] INFO  org.quartz.core.SchedulerSignalerImpl:62 - Initialized Scheduler Signaller of type: class org.quartz.core.SchedulerSignalerImpl
+2026-08-25 16:28:00.423 [main] INFO  org.quartz.core.QuartzScheduler:224 - Quartz Scheduler v2.5.2 created.
+2026-08-25 16:28:00.435 [main] INFO  o.s.scheduling.quartz.LocalDataSourceJobStore:676 - Using db table-based data access locking (synchronization).
+2026-08-25 16:28:00.437 [main] INFO  o.s.scheduling.quartz.LocalDataSourceJobStore:147 - JobStoreCMT initialized.
+2026-08-25 16:28:00.438 [main] INFO  org.quartz.core.QuartzScheduler:289 - Scheduler meta-data: Quartz Scheduler (v2.5.2) 'schedulerName' with instanceId 'a1787646480406'
+  Scheduler class: 'org.quartz.core.QuartzScheduler' - running locally.
+  NOT STARTED.
+  Currently in standby mode.
+  Number of jobs executed: 0
+  Using thread pool 'org.quartz.simpl.SimpleThreadPool' - with 25 threads.
+  Using job-store 'org.springframework.scheduling.quartz.LocalDataSourceJobStore' - which supports persistence. and is clustered.
+
+2026-08-25 16:28:00.439 [main] INFO  org.quartz.impl.StdSchedulerFactory:1376 - Quartz scheduler 'schedulerName' initialized from an externally provided properties instance.
+2026-08-25 16:28:00.439 [main] INFO  org.quartz.impl.StdSchedulerFactory:1378 - Quartz scheduler version: 2.5.2
+2026-08-25 16:28:00.440 [main] INFO  org.quartz.core.QuartzScheduler:2250 - JobFactory set to: org.springframework.scheduling.quartz.SpringBeanJobFactory@7f280112
+2026-08-25 16:28:00.964 [main] INFO  o.f.s.b.e.EventRegistryAutoConfiguration:106 - No deployment resources were found for autodeployment
+2026-08-25 16:28:01.367 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:132 - Creating thread pool queue of size 100
+2026-08-25 16:28:01.367 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:138 - Creating thread factory with naming pattern flowable-async-task-invoker-%d
+2026-08-25 16:28:01.369 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:146 - Creating executor service with corePoolSize 8, maxPoolSize 8 and keepAliveTime 5000
+2026-08-25 16:28:01.542 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1076 - Found 2 Engine Configurators in total:
+2026-08-25 16:28:01.543 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1078 - class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 16:28:01.543 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1078 - class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 16:28:01.543 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1104 - Executing beforeInit() of class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 16:28:01.550 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1104 - Executing beforeInit() of class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 16:28:02.624 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1111 - Executing configure() of class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 16:28:02.644 [main] INFO  o.f.eventregistry.impl.EventRegistryEngineImpl:53 - EventRegistryEngine default created
+2026-08-25 16:28:02.658 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1111 - Executing configure() of class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 16:28:02.675 [main] INFO  org.flowable.idm.engine.impl.IdmEngineImpl:52 - IdmEngine default created
+2026-08-25 16:28:02.792 [main] INFO  org.flowable.engine.impl.ProcessEngineImpl:89 - ProcessEngine default created
+2026-08-25 16:28:02.824 [main] INFO  o.flowable.engine.impl.cmd.ValidateV5EntitiesCmd:43 - Total of v5 deployments found: 0
+2026-08-25 16:28:16.622 [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext:636 - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'dccAesGcmDownloadEncryptionGateway' defined in URL [jar:nested:/E:/IntRuoyi/output/runtime/int_main/backend-runtime-control-20260825-ai-autodetect-file-input.jar/!BOOT-INF/lib/yudao-module-dcc-2026.04-SNAPSHOT.jar!/cn/iocoder/yudao/module/dcc/service/download/DccAesGcmDownloadEncryptionGateway.class]: Unsatisfied dependency expressed through constructor parameter 1: Error creating bean with name 'dccDownloadEncryptionProperties': Invocation of init method failed
+2026-08-25 16:28:16.651 [main] INFO  o.s.scheduling.quartz.SchedulerFactoryBean:845 - Shutting down Quartz Scheduler
+2026-08-25 16:28:16.652 [main] INFO  org.quartz.core.QuartzScheduler:656 - Scheduler schedulerName_$_a1787646480406 shutting down.
+2026-08-25 16:28:16.653 [main] INFO  org.quartz.core.QuartzScheduler:576 - Scheduler schedulerName_$_a1787646480406 paused.
+2026-08-25 16:28:16.711 [main] INFO  org.quartz.core.QuartzScheduler:728 - Scheduler schedulerName_$_a1787646480406 shutdown complete.
+2026-08-25 16:28:16.949 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:215 - dynamic-datasource start closing ....
+2026-08-25 16:28:16.951 [main] INFO  com.alibaba.druid.pool.DruidDataSource:1880 - {dataSource-0} closing ...
+2026-08-25 16:28:16.951 [main] INFO  c.b.d.d.destroyer.DefaultDataSourceDestroyer:98 - dynamic-datasource close the datasource named [slave] success,
+2026-08-25 16:28:16.951 [main] INFO  com.alibaba.druid.pool.DruidDataSource:1880 - {dataSource-1} closing ...
+2026-08-25 16:28:16.954 [main] INFO  com.alibaba.druid.pool.DruidDataSource:1953 - {dataSource-1} closed
+2026-08-25 16:28:16.955 [main] INFO  c.b.d.d.destroyer.DefaultDataSourceDestroyer:98 - dynamic-datasource close the datasource named [master] success,
+2026-08-25 16:28:16.955 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:219 - dynamic-datasource all closed success,bye
+2026-08-25 16:28:16.978 [main] INFO  org.apache.catalina.core.StandardService:168 - Stopping service [Tomcat]
+2026-08-25 16:28:17.292 [main] INFO  o.s.b.a.logging.ConditionEvaluationReportLogger:82 - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-08-25 16:28:17.341 [main] ERROR org.springframework.boot.SpringApplication:857 - Application run failed
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'dccAesGcmDownloadEncryptionGateway' defined in URL [jar:nested:/E:/IntRuoyi/output/runtime/int_main/backend-runtime-control-20260825-ai-autodetect-file-input.jar/!BOOT-INF/lib/yudao-module-dcc-2026.04-SNAPSHOT.jar!/cn/iocoder/yudao/module/dcc/service/download/DccAesGcmDownloadEncryptionGateway.class]: Unsatisfied dependency expressed through constructor parameter 1: Error creating bean with name 'dccDownloadEncryptionProperties': Invocation of init method failed
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804)
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1395)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1232)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:569)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:529)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:339)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:373)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:337)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1228)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1194)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1130)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:991)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:628)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:752)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:439)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:318)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1361)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1350)
+	at cn.iocoder.yudao.server.YudaoServerApplication.main(YudaoServerApplication.java:24)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:106)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:64)
+	at org.springframework.boot.loader.launch.JarLauncher.main(JarLauncher.java:40)
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'dccDownloadEncryptionProperties': Invocation of init method failed
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor.postProcessBeforeInitialization(InitDestroyAnnotationBeanPostProcessor.java:222)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.applyBeanPostProcessorsBeforeInitialization(AbstractAutowireCapableBeanFactory.java:429)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1818)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:607)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:529)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:339)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:373)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:337)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1770)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1653)
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:913)
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791)
+	... 26 common frames omitted
+Caused by: ServiceException(super=cn.iocoder.yudao.framework.common.exception.ServiceException: DCC download encryption config is missing or invalid: artifact-directory is required, code=1080000122, message=DCC download encryption config is missing or invalid: artifact-directory is required)
+	at cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0(ServiceExceptionUtil.java:31)
+	at cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(ServiceExceptionUtil.java:26)
+	at cn.iocoder.yudao.module.dcc.service.download.DccDownloadEncryptionProperties.requireNotBlank(DccDownloadEncryptionProperties.java:53)
+	at cn.iocoder.yudao.module.dcc.service.download.DccDownloadEncryptionProperties.validateRuntimeConfig(DccDownloadEncryptionProperties.java:32)
+	at cn.iocoder.yudao.module.dcc.service.download.DccDownloadEncryptionProperties.validateStartupConfig(DccDownloadEncryptionProperties.java:26)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor$LifecycleMethod.invoke(InitDestroyAnnotationBeanPostProcessor.java:457)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor$LifecycleMetadata.invokeInitMethods(InitDestroyAnnotationBeanPostProcessor.java:401)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor.postProcessBeforeInitialization(InitDestroyAnnotationBeanPostProcessor.java:219)
+	... 39 common frames omitted
+2026-08-25 18:50:15.339 [background-preinit] INFO  org.hibernate.validator.internal.util.Version:21 - HV000001: Hibernate Validator 8.0.3.Final
+2026-08-25 18:50:15.490 [main] INFO  cn.iocoder.yudao.server.YudaoServerApplication:53 - Starting YudaoServerApplication using Java 21.0.10 with PID 78800 (E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260825-ai-autodetect-file-input.jar started by BJB110 in E:\IntRuoyi\IntRuoyiBackend)
+2026-08-25 18:50:15.491 [main] INFO  cn.iocoder.yudao.server.YudaoServerApplication:658 - The following 1 profile is active: "local"
+2026-08-25 18:50:38.045 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:23 -  ******************* init miniDao config [ begin ] *********************** 
+2026-08-25 18:50:38.048 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:26 -  ------ minidao.base-package ------- org.jeecg.modules.jmreport.*,org.jeecg.modules.drag.*
+2026-08-25 18:50:38.049 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:50 -  *******************  init miniDao config  [ end ] *********************** 
+2026-08-25 18:50:39.168 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportCategoryDao }
+2026-08-25 18:50:39.230 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDao }
+2026-08-25 18:50:39.239 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDataSourceDao }
+2026-08-25 18:50:39.248 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbDao }
+2026-08-25 18:50:39.268 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbFieldDao }
+2026-08-25 18:50:39.280 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbParamDao }
+2026-08-25 18:50:39.287 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDictDao }
+2026-08-25 18:50:39.307 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDictItemDao }
+2026-08-25 18:50:39.318 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExportJobDao }
+2026-08-25 18:50:39.328 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExportLogDao }
+2026-08-25 18:50:39.357 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExtDataDao }
+2026-08-25 18:50:39.367 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportLinkDao }
+2026-08-25 18:50:39.386 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportMapDao }
+2026-08-25 18:50:39.398 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportShareDao }
+2026-08-25 18:50:39.417 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportSheetDao }
+2026-08-25 18:50:39.436 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuDragCategoryDao }
+2026-08-25 18:50:39.445 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuDragMapDao }
+2026-08-25 18:50:39.456 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuReportIconLibDao }
+2026-08-25 18:50:39.476 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragCompDao }
+2026-08-25 18:50:39.485 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDataSourceDao }
+2026-08-25 18:50:39.504 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetHeadDao }
+2026-08-25 18:50:39.514 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetItemDao }
+2026-08-25 18:50:39.525 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetParamDao }
+2026-08-25 18:50:39.543 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragPageCompDao }
+2026-08-25 18:50:39.554 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragPageDao }
+2026-08-25 18:50:39.564 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragShareDao }
+2026-08-25 18:50:40.911 [main] INFO  c.g.y.a.MybatisPlusJoinAutoConfiguration:142 - MPJ SqlSessionFactory bean definition: sqlSessionFactory factoryBeanName: com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration factoryMethodName: sqlSessionFactory source: com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration.sqlSessionFactory(javax.sql.DataSource)
+2026-08-25 18:50:42.626 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer:111 - Tomcat initialized with port 48081 (http)
+2026-08-25 18:50:42.648 [main] INFO  org.apache.coyote.http11.Http11NioProtocol:168 - Initializing ProtocolHandler ["http-nio-48081"]
+2026-08-25 18:50:42.651 [main] INFO  org.apache.catalina.core.StandardService:168 - Starting service [Tomcat]
+2026-08-25 18:50:42.651 [main] INFO  org.apache.catalina.core.StandardEngine:168 - Starting Servlet engine: [Apache Tomcat/10.1.54]
+2026-08-25 18:50:42.721 [main] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/]:168 - Initializing Spring embedded WebApplicationContext
+2026-08-25 18:50:42.722 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext:301 - Root WebApplicationContext: initialization completed in 26495 ms
+2026-08-25 18:50:43.736 [main] INFO  com.alibaba.druid.pool.DruidDataSource:673 - {dataSource-1,master} inited
+2026-08-25 18:50:43.740 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:158 - dynamic-datasource - add a datasource named [slave] success
+2026-08-25 18:50:43.740 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:158 - dynamic-datasource - add a datasource named [master] success
+2026-08-25 18:50:43.740 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:241 - dynamic-datasource initial loaded [2] datasource,primary datasource named [master]
+2026-08-25 18:50:47.121 [main] INFO  org.redisson.Version:43 - Redisson 4.3.1
+2026-08-25 18:50:47.663 [redisson-netty-1-4] INFO  org.redisson.connection.ConnectionsHolder:152 - 1 connections initialized for 127.0.0.2/127.0.0.2:26379
+2026-08-25 18:50:47.728 [redisson-netty-1-19] INFO  org.redisson.connection.ConnectionsHolder:152 - 24 connections initialized for 127.0.0.2/127.0.0.2:26379
+2026-08-25 18:50:51.473 [main] INFO  c.a.c.config.AjCaptchaServiceAutoConfiguration:33 - 自定义配置项：
+AjCaptchaProperties{type=BLOCKPUZZLE, jigsaw='classpath:images/jigsaw', picClick='classpath:images/pic-click', waterMark='瑛泰源码', waterFont='WenQuanZhengHei.ttf', fontType='WenQuanZhengHei.ttf', slipOffset='5', aesStatus=true, interferenceOptions='0', cacheNumber='1000', timingClear='180', cacheType=redis, reqFrequencyLimitEnable=false, reqGetLockLimit=5, reqGetLockSeconds=10, reqGetMinuteLimit=30, reqCheckMinuteLimit=60, reqVerifyMinuteLimit=60}
+2026-08-25 18:50:51.562 [main] INFO  com.anji.captcha.util.ImageUtils:71 - 自定义resource底图:[SLIDING_BLOCK=[Ljava.lang.String;@2520af4f, ORIGINAL=[Ljava.lang.String;@ce40c67, PIC_CLICK=[Ljava.lang.String;@200fc6b]
+2026-08-25 18:50:51.564 [main] INFO  c.anji.captcha.service.impl.CaptchaServiceFactory:52 - supported-captchaCache-service:[redis, local]
+2026-08-25 18:50:51.570 [main] INFO  c.anji.captcha.service.impl.CaptchaServiceFactory:57 - supported-captchaTypes-service:[clickWord, default, blockPuzzle, pictureWord]
+2026-08-25 18:50:51.596 [main] INFO  c.a.c.service.impl.BlockPuzzleCaptchaServiceImpl:80 - --->>>初始化验证码底图<<<---blockPuzzle
+2026-08-25 18:50:54.304 [main] INFO  org.quartz.impl.StdSchedulerFactory:1222 - Using default implementation for ThreadExecutor
+2026-08-25 18:50:54.318 [main] INFO  org.quartz.core.SchedulerSignalerImpl:62 - Initialized Scheduler Signaller of type: class org.quartz.core.SchedulerSignalerImpl
+2026-08-25 18:50:54.325 [main] INFO  org.quartz.core.QuartzScheduler:224 - Quartz Scheduler v2.5.2 created.
+2026-08-25 18:50:54.337 [main] INFO  o.s.scheduling.quartz.LocalDataSourceJobStore:676 - Using db table-based data access locking (synchronization).
+2026-08-25 18:50:54.340 [main] INFO  o.s.scheduling.quartz.LocalDataSourceJobStore:147 - JobStoreCMT initialized.
+2026-08-25 18:50:54.348 [main] INFO  org.quartz.core.QuartzScheduler:289 - Scheduler meta-data: Quartz Scheduler (v2.5.2) 'schedulerName' with instanceId 'a1787655054306'
+  Scheduler class: 'org.quartz.core.QuartzScheduler' - running locally.
+  NOT STARTED.
+  Currently in standby mode.
+  Number of jobs executed: 0
+  Using thread pool 'org.quartz.simpl.SimpleThreadPool' - with 25 threads.
+  Using job-store 'org.springframework.scheduling.quartz.LocalDataSourceJobStore' - which supports persistence. and is clustered.
+
+2026-08-25 18:50:54.348 [main] INFO  org.quartz.impl.StdSchedulerFactory:1376 - Quartz scheduler 'schedulerName' initialized from an externally provided properties instance.
+2026-08-25 18:50:54.348 [main] INFO  org.quartz.impl.StdSchedulerFactory:1378 - Quartz scheduler version: 2.5.2
+2026-08-25 18:50:54.349 [main] INFO  org.quartz.core.QuartzScheduler:2250 - JobFactory set to: org.springframework.scheduling.quartz.SpringBeanJobFactory@63a81581
+2026-08-25 18:50:54.928 [main] INFO  o.f.s.b.e.EventRegistryAutoConfiguration:106 - No deployment resources were found for autodeployment
+2026-08-25 18:50:55.287 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:132 - Creating thread pool queue of size 100
+2026-08-25 18:50:55.287 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:138 - Creating thread factory with naming pattern flowable-async-task-invoker-%d
+2026-08-25 18:50:55.289 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:146 - Creating executor service with corePoolSize 8, maxPoolSize 8 and keepAliveTime 5000
+2026-08-25 18:50:55.469 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1076 - Found 2 Engine Configurators in total:
+2026-08-25 18:50:55.470 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1078 - class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 18:50:55.471 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1078 - class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 18:50:55.471 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1104 - Executing beforeInit() of class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 18:50:55.478 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1104 - Executing beforeInit() of class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 18:50:56.596 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1111 - Executing configure() of class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 18:50:56.617 [main] INFO  o.f.eventregistry.impl.EventRegistryEngineImpl:53 - EventRegistryEngine default created
+2026-08-25 18:50:56.626 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1111 - Executing configure() of class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 18:50:56.655 [main] INFO  org.flowable.idm.engine.impl.IdmEngineImpl:52 - IdmEngine default created
+2026-08-25 18:50:56.800 [main] INFO  org.flowable.engine.impl.ProcessEngineImpl:89 - ProcessEngine default created
+2026-08-25 18:50:56.833 [main] INFO  o.flowable.engine.impl.cmd.ValidateV5EntitiesCmd:43 - Total of v5 deployments found: 0
+2026-08-25 18:51:10.447 [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext:636 - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'dccAesGcmDownloadEncryptionGateway' defined in URL [jar:nested:/E:/IntRuoyi/output/runtime/int_main/backend-runtime-control-20260825-ai-autodetect-file-input.jar/!BOOT-INF/lib/yudao-module-dcc-2026.04-SNAPSHOT.jar!/cn/iocoder/yudao/module/dcc/service/download/DccAesGcmDownloadEncryptionGateway.class]: Unsatisfied dependency expressed through constructor parameter 1: Error creating bean with name 'dccDownloadEncryptionProperties': Invocation of init method failed
+2026-08-25 18:51:10.471 [main] INFO  o.s.scheduling.quartz.SchedulerFactoryBean:845 - Shutting down Quartz Scheduler
+2026-08-25 18:51:10.472 [main] INFO  org.quartz.core.QuartzScheduler:656 - Scheduler schedulerName_$_a1787655054306 shutting down.
+2026-08-25 18:51:10.473 [main] INFO  org.quartz.core.QuartzScheduler:576 - Scheduler schedulerName_$_a1787655054306 paused.
+2026-08-25 18:51:10.656 [main] INFO  org.quartz.core.QuartzScheduler:728 - Scheduler schedulerName_$_a1787655054306 shutdown complete.
+2026-08-25 18:51:10.848 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:215 - dynamic-datasource start closing ....
+2026-08-25 18:51:10.851 [main] INFO  com.alibaba.druid.pool.DruidDataSource:1880 - {dataSource-0} closing ...
+2026-08-25 18:51:10.851 [main] INFO  c.b.d.d.destroyer.DefaultDataSourceDestroyer:98 - dynamic-datasource close the datasource named [slave] success,
+2026-08-25 18:51:10.851 [main] INFO  com.alibaba.druid.pool.DruidDataSource:1880 - {dataSource-1} closing ...
+2026-08-25 18:51:10.855 [main] INFO  com.alibaba.druid.pool.DruidDataSource:1953 - {dataSource-1} closed
+2026-08-25 18:51:10.856 [main] INFO  c.b.d.d.destroyer.DefaultDataSourceDestroyer:98 - dynamic-datasource close the datasource named [master] success,
+2026-08-25 18:51:10.856 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:219 - dynamic-datasource all closed success,bye
+2026-08-25 18:51:10.879 [main] INFO  org.apache.catalina.core.StandardService:168 - Stopping service [Tomcat]
+2026-08-25 18:51:11.132 [main] INFO  o.s.b.a.logging.ConditionEvaluationReportLogger:82 - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-08-25 18:51:11.192 [main] ERROR org.springframework.boot.SpringApplication:857 - Application run failed
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'dccAesGcmDownloadEncryptionGateway' defined in URL [jar:nested:/E:/IntRuoyi/output/runtime/int_main/backend-runtime-control-20260825-ai-autodetect-file-input.jar/!BOOT-INF/lib/yudao-module-dcc-2026.04-SNAPSHOT.jar!/cn/iocoder/yudao/module/dcc/service/download/DccAesGcmDownloadEncryptionGateway.class]: Unsatisfied dependency expressed through constructor parameter 1: Error creating bean with name 'dccDownloadEncryptionProperties': Invocation of init method failed
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804)
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1395)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1232)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:569)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:529)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:339)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:373)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:337)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1228)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1194)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1130)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:991)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:628)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:752)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:439)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:318)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1361)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1350)
+	at cn.iocoder.yudao.server.YudaoServerApplication.main(YudaoServerApplication.java:24)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:106)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:64)
+	at org.springframework.boot.loader.launch.JarLauncher.main(JarLauncher.java:40)
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'dccDownloadEncryptionProperties': Invocation of init method failed
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor.postProcessBeforeInitialization(InitDestroyAnnotationBeanPostProcessor.java:222)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.applyBeanPostProcessorsBeforeInitialization(AbstractAutowireCapableBeanFactory.java:429)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1818)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:607)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:529)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:339)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:373)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:337)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1770)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1653)
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:913)
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791)
+	... 26 common frames omitted
+Caused by: ServiceException(super=cn.iocoder.yudao.framework.common.exception.ServiceException: DCC download encryption config is missing or invalid: policy-version is required, code=1080000122, message=DCC download encryption config is missing or invalid: policy-version is required)
+	at cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0(ServiceExceptionUtil.java:31)
+	at cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(ServiceExceptionUtil.java:26)
+	at cn.iocoder.yudao.module.dcc.service.download.DccDownloadEncryptionProperties.requireNotBlank(DccDownloadEncryptionProperties.java:53)
+	at cn.iocoder.yudao.module.dcc.service.download.DccDownloadEncryptionProperties.validateRuntimeConfig(DccDownloadEncryptionProperties.java:30)
+	at cn.iocoder.yudao.module.dcc.service.download.DccDownloadEncryptionProperties.validateStartupConfig(DccDownloadEncryptionProperties.java:26)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor$LifecycleMethod.invoke(InitDestroyAnnotationBeanPostProcessor.java:457)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor$LifecycleMetadata.invokeInitMethods(InitDestroyAnnotationBeanPostProcessor.java:401)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor.postProcessBeforeInitialization(InitDestroyAnnotationBeanPostProcessor.java:219)
+	... 39 common frames omitted
+2026-08-25 19:16:25.824 [background-preinit] INFO  org.hibernate.validator.internal.util.Version:21 - HV000001: Hibernate Validator 8.0.3.Final
+2026-08-25 19:16:26.876 [main] INFO  cn.iocoder.yudao.server.YudaoServerApplication:53 - Starting YudaoServerApplication using Java 21.0.10 with PID 82192 (E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260825-ai-autodetect-file-input.jar started by BJB110 in E:\IntRuoyi\IntRuoyiBackend)
+2026-08-25 19:16:26.877 [main] INFO  cn.iocoder.yudao.server.YudaoServerApplication:658 - The following 1 profile is active: "local"
+2026-08-25 19:17:54.866 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:23 -  ******************* init miniDao config [ begin ] *********************** 
+2026-08-25 19:17:55.048 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:26 -  ------ minidao.base-package ------- org.jeecg.modules.jmreport.*,org.jeecg.modules.drag.*
+2026-08-25 19:17:55.212 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:50 -  *******************  init miniDao config  [ end ] *********************** 
+2026-08-25 19:18:00.090 [background-preinit] INFO  org.hibernate.validator.internal.util.Version:21 - HV000001: Hibernate Validator 8.0.3.Final
+2026-08-25 19:18:00.737 [main] INFO  cn.iocoder.yudao.server.YudaoServerApplication:53 - Starting YudaoServerApplication using Java 21.0.10 with PID 54800 (E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260825-ai-autodetect-file-input.jar started by BJB110 in E:\IntRuoyi\IntRuoyiBackend)
+2026-08-25 19:18:01.061 [main] INFO  cn.iocoder.yudao.server.YudaoServerApplication:658 - The following 1 profile is active: "local"
+2026-08-25 19:18:06.690 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:23 -  ******************* init miniDao config [ begin ] *********************** 
+2026-08-25 19:18:09.382 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:26 -  ------ minidao.base-package ------- org.jeecg.modules.jmreport.*,org.jeecg.modules.drag.*
+2026-08-25 19:18:09.716 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:50 -  *******************  init miniDao config  [ end ] *********************** 
+2026-08-25 19:18:12.662 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportCategoryDao }
+2026-08-25 19:18:12.899 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDao }
+2026-08-25 19:18:13.066 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDataSourceDao }
+2026-08-25 19:18:13.295 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbDao }
+2026-08-25 19:18:13.455 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbFieldDao }
+2026-08-25 19:18:13.689 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbParamDao }
+2026-08-25 19:18:13.860 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDictDao }
+2026-08-25 19:18:14.018 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDictItemDao }
+2026-08-25 19:18:14.152 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExportJobDao }
+2026-08-25 19:18:14.402 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExportLogDao }
+2026-08-25 19:18:15.117 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExtDataDao }
+2026-08-25 19:18:15.423 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportLinkDao }
+2026-08-25 19:18:15.683 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportMapDao }
+2026-08-25 19:18:15.805 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportShareDao }
+2026-08-25 19:18:16.081 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportSheetDao }
+2026-08-25 19:18:16.230 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuDragCategoryDao }
+2026-08-25 19:18:16.429 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuDragMapDao }
+2026-08-25 19:18:16.741 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuReportIconLibDao }
+2026-08-25 19:18:16.998 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragCompDao }
+2026-08-25 19:18:17.180 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDataSourceDao }
+2026-08-25 19:18:17.331 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetHeadDao }
+2026-08-25 19:18:17.445 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetItemDao }
+2026-08-25 19:18:17.676 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetParamDao }
+2026-08-25 19:18:17.855 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragPageCompDao }
+2026-08-25 19:18:18.161 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragPageDao }
+2026-08-25 19:18:18.385 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragShareDao }
+2026-08-25 19:18:24.278 [main] INFO  c.g.y.a.MybatisPlusJoinAutoConfiguration:142 - MPJ SqlSessionFactory bean definition: sqlSessionFactory factoryBeanName: com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration factoryMethodName: sqlSessionFactory source: com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration.sqlSessionFactory(javax.sql.DataSource)
+2026-08-25 19:18:47.156 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer:111 - Tomcat initialized with port 48081 (http)
+2026-08-25 19:18:47.325 [main] INFO  org.apache.coyote.http11.Http11NioProtocol:168 - Initializing ProtocolHandler ["http-nio-48081"]
+2026-08-25 19:18:47.404 [main] INFO  org.apache.catalina.core.StandardService:168 - Starting service [Tomcat]
+2026-08-25 19:18:47.461 [main] INFO  org.apache.catalina.core.StandardEngine:168 - Starting Servlet engine: [Apache Tomcat/10.1.54]
+2026-08-25 19:18:47.812 [main] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/]:168 - Initializing Spring embedded WebApplicationContext
+2026-08-25 19:18:47.821 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext:301 - Root WebApplicationContext: initialization completed in 46402 ms
+2026-08-25 19:18:51.369 [main] INFO  com.alibaba.druid.pool.DruidDataSource:673 - {dataSource-1,master} inited
+2026-08-25 19:18:51.389 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:158 - dynamic-datasource - add a datasource named [slave] success
+2026-08-25 19:18:51.397 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:158 - dynamic-datasource - add a datasource named [master] success
+2026-08-25 19:18:51.398 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:241 - dynamic-datasource initial loaded [2] datasource,primary datasource named [master]
+2026-08-25 19:18:57.895 [main] INFO  org.redisson.Version:43 - Redisson 4.3.1
+2026-08-25 19:19:01.038 [redisson-netty-1-4] INFO  org.redisson.connection.ConnectionsHolder:152 - 1 connections initialized for 127.0.0.2/127.0.0.2:26379
+2026-08-25 19:19:01.112 [redisson-netty-1-19] INFO  org.redisson.connection.ConnectionsHolder:152 - 24 connections initialized for 127.0.0.2/127.0.0.2:26379
+2026-08-25 19:19:12.941 [main] INFO  c.a.c.config.AjCaptchaServiceAutoConfiguration:33 - 自定义配置项：
+AjCaptchaProperties{type=BLOCKPUZZLE, jigsaw='classpath:images/jigsaw', picClick='classpath:images/pic-click', waterMark='瑛泰源码', waterFont='WenQuanZhengHei.ttf', fontType='WenQuanZhengHei.ttf', slipOffset='5', aesStatus=true, interferenceOptions='0', cacheNumber='1000', timingClear='180', cacheType=redis, reqFrequencyLimitEnable=false, reqGetLockLimit=5, reqGetLockSeconds=10, reqGetMinuteLimit=30, reqCheckMinuteLimit=60, reqVerifyMinuteLimit=60}
+2026-08-25 19:19:13.103 [main] INFO  com.anji.captcha.util.ImageUtils:71 - 自定义resource底图:[SLIDING_BLOCK=[Ljava.lang.String;@3aec315f, ORIGINAL=[Ljava.lang.String;@520bc7dc, PIC_CLICK=[Ljava.lang.String;@3a3eb2b1]
+2026-08-25 19:19:13.117 [main] INFO  c.anji.captcha.service.impl.CaptchaServiceFactory:52 - supported-captchaCache-service:[redis, local]
+2026-08-25 19:19:13.129 [main] INFO  c.anji.captcha.service.impl.CaptchaServiceFactory:57 - supported-captchaTypes-service:[clickWord, default, blockPuzzle, pictureWord]
+2026-08-25 19:19:13.133 [main] INFO  c.a.c.service.impl.BlockPuzzleCaptchaServiceImpl:80 - --->>>初始化验证码底图<<<---blockPuzzle
+2026-08-25 19:19:18.322 [main] INFO  org.quartz.impl.StdSchedulerFactory:1222 - Using default implementation for ThreadExecutor
+2026-08-25 19:19:18.578 [main] INFO  org.quartz.core.SchedulerSignalerImpl:62 - Initialized Scheduler Signaller of type: class org.quartz.core.SchedulerSignalerImpl
+2026-08-25 19:19:18.579 [main] INFO  org.quartz.core.QuartzScheduler:224 - Quartz Scheduler v2.5.2 created.
+2026-08-25 19:19:18.593 [main] INFO  o.s.scheduling.quartz.LocalDataSourceJobStore:676 - Using db table-based data access locking (synchronization).
+2026-08-25 19:19:18.604 [main] INFO  o.s.scheduling.quartz.LocalDataSourceJobStore:147 - JobStoreCMT initialized.
+2026-08-25 19:19:18.621 [main] INFO  org.quartz.core.QuartzScheduler:289 - Scheduler meta-data: Quartz Scheduler (v2.5.2) 'schedulerName' with instanceId 'a1787656758454'
+  Scheduler class: 'org.quartz.core.QuartzScheduler' - running locally.
+  NOT STARTED.
+  Currently in standby mode.
+  Number of jobs executed: 0
+  Using thread pool 'org.quartz.simpl.SimpleThreadPool' - with 25 threads.
+  Using job-store 'org.springframework.scheduling.quartz.LocalDataSourceJobStore' - which supports persistence. and is clustered.
+
+2026-08-25 19:19:18.621 [main] INFO  org.quartz.impl.StdSchedulerFactory:1376 - Quartz scheduler 'schedulerName' initialized from an externally provided properties instance.
+2026-08-25 19:19:18.646 [main] INFO  org.quartz.impl.StdSchedulerFactory:1378 - Quartz scheduler version: 2.5.2
+2026-08-25 19:19:18.703 [main] INFO  org.quartz.core.QuartzScheduler:2250 - JobFactory set to: org.springframework.scheduling.quartz.SpringBeanJobFactory@1e165365
+2026-08-25 19:19:19.676 [main] INFO  o.f.s.b.e.EventRegistryAutoConfiguration:106 - No deployment resources were found for autodeployment
+2026-08-25 19:19:21.454 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:132 - Creating thread pool queue of size 100
+2026-08-25 19:19:21.480 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:138 - Creating thread factory with naming pattern flowable-async-task-invoker-%d
+2026-08-25 19:19:21.571 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:146 - Creating executor service with corePoolSize 8, maxPoolSize 8 and keepAliveTime 5000
+2026-08-25 19:19:22.349 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1076 - Found 2 Engine Configurators in total:
+2026-08-25 19:19:22.419 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1078 - class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 19:19:22.455 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1078 - class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 19:19:22.463 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1104 - Executing beforeInit() of class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 19:19:22.523 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1104 - Executing beforeInit() of class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 19:19:26.150 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1111 - Executing configure() of class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 19:19:26.206 [main] INFO  o.f.eventregistry.impl.EventRegistryEngineImpl:53 - EventRegistryEngine default created
+2026-08-25 19:19:26.213 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1111 - Executing configure() of class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 19:19:26.277 [main] INFO  org.flowable.idm.engine.impl.IdmEngineImpl:52 - IdmEngine default created
+2026-08-25 19:19:26.545 [main] INFO  org.flowable.engine.impl.ProcessEngineImpl:89 - ProcessEngine default created
+2026-08-25 19:19:26.720 [main] INFO  o.flowable.engine.impl.cmd.ValidateV5EntitiesCmd:43 - Total of v5 deployments found: 0
+2026-08-25 19:19:43.647 [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext:636 - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'dccAesGcmDownloadEncryptionGateway' defined in URL [jar:nested:/E:/IntRuoyi/output/runtime/int_main/backend-runtime-control-20260825-ai-autodetect-file-input.jar/!BOOT-INF/lib/yudao-module-dcc-2026.04-SNAPSHOT.jar!/cn/iocoder/yudao/module/dcc/service/download/DccAesGcmDownloadEncryptionGateway.class]: Unsatisfied dependency expressed through constructor parameter 1: Error creating bean with name 'dccDownloadEncryptionProperties': Invocation of init method failed
+2026-08-25 19:19:43.708 [main] INFO  o.s.scheduling.quartz.SchedulerFactoryBean:845 - Shutting down Quartz Scheduler
+2026-08-25 19:19:43.728 [main] INFO  org.quartz.core.QuartzScheduler:656 - Scheduler schedulerName_$_a1787656758454 shutting down.
+2026-08-25 19:19:43.729 [main] INFO  org.quartz.core.QuartzScheduler:576 - Scheduler schedulerName_$_a1787656758454 paused.
+2026-08-25 19:19:43.884 [main] INFO  org.quartz.core.QuartzScheduler:728 - Scheduler schedulerName_$_a1787656758454 shutdown complete.
+2026-08-25 19:19:44.078 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:215 - dynamic-datasource start closing ....
+2026-08-25 19:19:44.139 [main] INFO  com.alibaba.druid.pool.DruidDataSource:1880 - {dataSource-0} closing ...
+2026-08-25 19:19:44.190 [main] INFO  c.b.d.d.destroyer.DefaultDataSourceDestroyer:98 - dynamic-datasource close the datasource named [slave] success,
+2026-08-25 19:19:44.191 [main] INFO  com.alibaba.druid.pool.DruidDataSource:1880 - {dataSource-1} closing ...
+2026-08-25 19:19:44.196 [main] INFO  com.alibaba.druid.pool.DruidDataSource:1953 - {dataSource-1} closed
+2026-08-25 19:19:44.249 [main] INFO  c.b.d.d.destroyer.DefaultDataSourceDestroyer:98 - dynamic-datasource close the datasource named [master] success,
+2026-08-25 19:19:44.301 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:219 - dynamic-datasource all closed success,bye
+2026-08-25 19:19:44.327 [main] INFO  org.apache.catalina.core.StandardService:168 - Stopping service [Tomcat]
+2026-08-25 19:19:45.191 [main] INFO  o.s.b.a.logging.ConditionEvaluationReportLogger:82 - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-08-25 19:19:45.277 [main] ERROR org.springframework.boot.SpringApplication:857 - Application run failed
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'dccAesGcmDownloadEncryptionGateway' defined in URL [jar:nested:/E:/IntRuoyi/output/runtime/int_main/backend-runtime-control-20260825-ai-autodetect-file-input.jar/!BOOT-INF/lib/yudao-module-dcc-2026.04-SNAPSHOT.jar!/cn/iocoder/yudao/module/dcc/service/download/DccAesGcmDownloadEncryptionGateway.class]: Unsatisfied dependency expressed through constructor parameter 1: Error creating bean with name 'dccDownloadEncryptionProperties': Invocation of init method failed
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804)
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1395)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1232)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:569)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:529)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:339)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:373)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:337)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1228)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1194)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1130)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:991)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:628)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:752)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:439)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:318)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1361)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1350)
+	at cn.iocoder.yudao.server.YudaoServerApplication.main(YudaoServerApplication.java:24)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:106)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:64)
+	at org.springframework.boot.loader.launch.JarLauncher.main(JarLauncher.java:40)
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'dccDownloadEncryptionProperties': Invocation of init method failed
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor.postProcessBeforeInitialization(InitDestroyAnnotationBeanPostProcessor.java:222)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.applyBeanPostProcessorsBeforeInitialization(AbstractAutowireCapableBeanFactory.java:429)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1818)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:607)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:529)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:339)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:373)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:337)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1770)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1653)
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:913)
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791)
+	... 26 common frames omitted
+Caused by: ServiceException(super=cn.iocoder.yudao.framework.common.exception.ServiceException: DCC download encryption config is missing or invalid: policy-version is required, code=1080000122, message=DCC download encryption config is missing or invalid: policy-version is required)
+	at cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0(ServiceExceptionUtil.java:31)
+	at cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(ServiceExceptionUtil.java:26)
+	at cn.iocoder.yudao.module.dcc.service.download.DccDownloadEncryptionProperties.requireNotBlank(DccDownloadEncryptionProperties.java:53)
+	at cn.iocoder.yudao.module.dcc.service.download.DccDownloadEncryptionProperties.validateRuntimeConfig(DccDownloadEncryptionProperties.java:30)
+	at cn.iocoder.yudao.module.dcc.service.download.DccDownloadEncryptionProperties.validateStartupConfig(DccDownloadEncryptionProperties.java:26)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor$LifecycleMethod.invoke(InitDestroyAnnotationBeanPostProcessor.java:457)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor$LifecycleMetadata.invokeInitMethods(InitDestroyAnnotationBeanPostProcessor.java:401)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor.postProcessBeforeInitialization(InitDestroyAnnotationBeanPostProcessor.java:219)
+	... 39 common frames omitted

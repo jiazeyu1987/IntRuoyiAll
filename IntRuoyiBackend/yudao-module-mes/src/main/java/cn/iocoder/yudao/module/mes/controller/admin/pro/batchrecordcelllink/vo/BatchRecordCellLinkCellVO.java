@@ -10,6 +10,9 @@ public class BatchRecordCellLinkCellVO {
     private Integer rowIndex;
     private Integer columnIndex;
     private String cellKey;
+    private String sourceType;
+    private String sourceFieldCode;
+    private String sourceFieldName;
     private String label;
     private String valueType;
     private String componentFlag;

@@ -1,0 +1,22 @@
+{
+  "sql": "E:\\IntRuoyi\\doc\\tasks\\20260808-test-user-role-bindings-sync-local\\verify.sql",
+  "sqlSha256": "baa10ac9f9bf93b101986ba8e8487eedc51b4a87ea7545830c9b8a2577c98125",
+  "returncode": 0,
+  "stdout": [
+    "rowdata",
+    "VERIFY_COUNTS\t2120\t2282\t2282",
+    "rowdata",
+    "VERIFY_MISSING\t142",
+    "rowdata",
+    "VERIFY_EXTRA\t12",
+    "rowdata",
+    "VERIFY_WANGSIYU_ROLES\tapproval_center_entry,wenkong_no_download",
+    "rowdata",
+    "VERIFY_DCC_DANGEROUS_GRANTS\t0",
+    "rowdata",
+    "VERIFY_OTHER_TENANT_HASH\tb460456a55b8f40b578bfb1512d4006e11d45de29beb56cc76f77cb82e76e117"
+  ],
+  "stderr": [
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001CA0C17D6B0"
+  ]
+}

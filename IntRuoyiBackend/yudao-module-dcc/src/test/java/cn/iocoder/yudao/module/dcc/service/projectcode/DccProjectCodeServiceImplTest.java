@@ -10,11 +10,19 @@ import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCod
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeImportRowRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeAssociatedFileAiCategoryRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeControlledFilePageReqVO;
+import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationQuery;
+import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatus;
+import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatusApi;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryMatchRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeAssignmentDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeImportBatchDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeImportRowDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMatchRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeImportBatchMapper;
@@ -25,9 +33,13 @@ import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryLifecycleStageEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeImportActionConstants;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeImportStatusConstants;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.association.DccRegistrationCertificateProjectCodeFileAssociationService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryService;
+import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
+import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
+import cn.iocoder.yudao.module.mdm.enums.MdmProductStatusConstants;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import jakarta.annotation.Resource;
@@ -36,6 +48,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
@@ -45,20 +58,25 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import cn.idev.excel.annotation.ExcelProperty;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.DccProjectCodeAssignmentConstants.STATUS_ACTIVE;
@@ -68,6 +86,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_ASSOCIATED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DELETE_REFERENCED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DUPLICATE;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 
 @Import(DccProjectCodeServiceImpl.class)
 class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
@@ -90,12 +109,28 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     private DccControlledFileMapper controlledFileMapper;
     @Resource
     private DccFileCategoryMapper categoryMapper;
+    @Resource
+    private DccFileCategoryMatchRuleMapper categoryMatchRuleMapper;
     @MockitoBean
     private DccControlledFileQueryService controlledFileQueryService;
+    @MockitoBean
+    private DccRegistrationCertificateProjectCodeFileAssociationService registrationCertificateFileAssociationService;
     @MockitoBean
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @MockitoBean
     private PermissionApi permissionApi;
+    @MockitoBean
+    private DccProjectCodeConfigurationStatusApi configurationStatusApi;
+    @MockitoBean
+    private MdmProductApi productApi;
+
+    @BeforeEach
+    void setUpRegistrationCertificateAssociationDefaults() {
+        when(registrationCertificateFileAssociationService.countAssociatedFilesByProjectCodeIds(any()))
+                .thenReturn(Map.of());
+        when(registrationCertificateFileAssociationService.listAssociatedRows(any(), any(), any()))
+                .thenReturn(List.of());
+    }
 
     @Test
     void createUpdateDeleteShouldPersistNormalizedFieldsAndAllowBlankProjectCode() {
@@ -256,6 +291,95 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void pageShouldFilterRouteMainBatchRecordAndQaConfigurationIndependently() {
+        DccProjectCodeDO routeProject = insertProjectCode("1", "项目路线", "CODE-ROUTE");
+        DccProjectCodeDO batchRecordProject = insertProjectCode("2", "项目批记录", "CODE-BATCH");
+        DccProjectCodeDO qaProject = insertProjectCode("3", "项目QA", "CODE-QA");
+        DccProjectCodeDO allConfiguredProject = insertProjectCode("4", "项目全配置", "CODE-ALL");
+        when(configurationStatusApi.getStatus(any())).thenReturn(Map.of(
+                routeProject.getId(), new DccProjectCodeConfigurationStatus(
+                        routeProject.getId(), true, false, false),
+                batchRecordProject.getId(), new DccProjectCodeConfigurationStatus(
+                        batchRecordProject.getId(), false, true, false),
+                qaProject.getId(), new DccProjectCodeConfigurationStatus(
+                        qaProject.getId(), false, false, true),
+                allConfiguredProject.getId(), new DccProjectCodeConfigurationStatus(
+                        allConfiguredProject.getId(), true, true, true)));
+
+        DccProjectCodePageReqVO routeReqVO = configurationFilterReqVO();
+        routeReqVO.setRouteConfigured(true);
+        assertEquals(List.of(routeProject.getId(), allConfiguredProject.getId()),
+                projectCodeService.getProjectCodePage(routeReqVO).getList().stream()
+                        .map(DccProjectCodeDO::getId).toList());
+
+        DccProjectCodePageReqVO batchRecordReqVO = configurationFilterReqVO();
+        batchRecordReqVO.setMainBatchRecordConfigured(true);
+        assertEquals(List.of(batchRecordProject.getId(), allConfiguredProject.getId()),
+                projectCodeService.getProjectCodePage(batchRecordReqVO).getList().stream()
+                        .map(DccProjectCodeDO::getId).toList());
+
+        DccProjectCodePageReqVO qaReqVO = configurationFilterReqVO();
+        qaReqVO.setQaRegulationConfigured(true);
+        assertEquals(List.of(qaProject.getId(), allConfiguredProject.getId()),
+                projectCodeService.getProjectCodePage(qaReqVO).getList().stream()
+                        .map(DccProjectCodeDO::getId).toList());
+
+        DccProjectCodePageReqVO combinedReqVO = configurationFilterReqVO();
+        combinedReqVO.setRouteConfigured(true);
+        combinedReqVO.setMainBatchRecordConfigured(true);
+        assertEquals(List.of(allConfiguredProject.getId()),
+                projectCodeService.getProjectCodePage(combinedReqVO).getList().stream()
+                        .map(DccProjectCodeDO::getId).toList());
+    }
+
+    @Test
+    void routeConfigurationFilterShouldRequestOnlyRouteStatus() {
+        DccProjectCodeDO routeProject = insertProjectCode("1", "项目路线", "CODE-ROUTE");
+        when(configurationStatusApi.getStatus(any())).thenReturn(Map.of(
+                routeProject.getId(), new DccProjectCodeConfigurationStatus(
+                        routeProject.getId(), true, false, false)));
+
+        DccProjectCodePageReqVO routeReqVO = configurationFilterReqVO();
+        routeReqVO.setRouteConfigured(true);
+        projectCodeService.getProjectCodePage(routeReqVO);
+
+        ArgumentCaptor<Collection<DccProjectCodeConfigurationQuery>> queryCaptor =
+                ArgumentCaptor.forClass(Collection.class);
+        verify(configurationStatusApi).getStatus(queryCaptor.capture());
+        DccProjectCodeConfigurationQuery query = queryCaptor.getValue().iterator().next();
+        assertTrue(query.routeStatusRequired());
+        assertFalse(query.mainBatchRecordStatusRequired());
+        assertFalse(query.qaRegulationStatusRequired());
+    }
+
+    @Test
+    void qaConfigurationFilterShouldRequestOnlyQaStatus() {
+        DccProjectCodeDO qaProject = insertProjectCode("1", "项目QA", "CODE-QA");
+        when(configurationStatusApi.getStatus(any())).thenReturn(Map.of(
+                qaProject.getId(), new DccProjectCodeConfigurationStatus(
+                        qaProject.getId(), false, false, true)));
+
+        DccProjectCodePageReqVO qaReqVO = configurationFilterReqVO();
+        qaReqVO.setQaRegulationConfigured(true);
+        projectCodeService.getProjectCodePage(qaReqVO);
+
+        ArgumentCaptor<Collection<DccProjectCodeConfigurationQuery>> queryCaptor =
+                ArgumentCaptor.forClass(Collection.class);
+        verify(configurationStatusApi).getStatus(queryCaptor.capture());
+        DccProjectCodeConfigurationQuery query = queryCaptor.getValue().iterator().next();
+        assertFalse(query.routeStatusRequired());
+        assertFalse(query.mainBatchRecordStatusRequired());
+        assertTrue(query.qaRegulationStatusRequired());
+    }
+
+    private DccProjectCodePageReqVO configurationFilterReqVO() {
+        DccProjectCodePageReqVO reqVO = new DccProjectCodePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+        return reqVO;
+    }
+
+    @Test
     void pageShouldIncludeAssociatedFileCountAndSortByCount() {
         DccProjectCodeDO emptyProjectCode = insertProjectCode("1", "项目A", "CODE-A");
         DccProjectCodeDO oneFileProjectCode = insertProjectCode("2", "项目B", "CODE-B");
@@ -290,6 +414,88 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void controlledFilePageShouldMergeRegistrationCertificateSourceRows() {
+        DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
+        DccControlledFileDO controlledFile = insertControlledFile(projectCode.getId(), "DCC-7001",
+                "controlled-file.pdf", null, null);
+        DccControlledFileRespVO registrationFile = new DccControlledFileRespVO();
+        registrationFile.setId(8001L);
+        registrationFile.setFileName("registration-certificate.pdf");
+        registrationFile.setBusinessSourceType(
+                DccRegistrationCertificateProjectCodeFileAssociationService.BUSINESS_SOURCE_TYPE);
+        registrationFile.setRegistrationCertificateId(9001L);
+        registrationFile.setRegistrationCertificateBusinessFileId(8001L);
+        when(registrationCertificateFileAssociationService.listAssociatedRows(
+                projectCode.getId(), null, null)).thenReturn(List.of(registrationFile));
+
+        DccProjectCodeControlledFilePageReqVO reqVO = new DccProjectCodeControlledFilePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+        PageResult<DccControlledFileRespVO> page = projectCodeService.getControlledFilePage(
+                99L, projectCode.getId(), reqVO);
+
+        assertEquals(2L, page.getTotal());
+        assertEquals(List.of(controlledFile.getId(), 8001L),
+                page.getList().stream().map(DccControlledFileRespVO::getId).toList());
+        assertEquals("DCC_CONTROLLED_FILE", page.getList().get(0).getBusinessSourceType());
+        assertEquals(DccRegistrationCertificateProjectCodeFileAssociationService.BUSINESS_SOURCE_TYPE,
+                page.getList().get(1).getBusinessSourceType());
+        assertEquals(9001L, page.getList().get(1).getRegistrationCertificateId());
+        assertEquals(8001L, page.getList().get(1).getRegistrationCertificateBusinessFileId());
+    }
+
+    @Test
+    void controlledFilePageShouldListPendingUploadedControlledFilesForUploadRelation() {
+        DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
+        DccControlledFileDO pendingFile = insertControlledFile(projectCode.getId(), "PENDING-001",
+                "待审批上传文件.pdf", null, null, DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus());
+
+        DccProjectCodeControlledFilePageReqVO reqVO = new DccProjectCodeControlledFilePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+        PageResult<DccControlledFileRespVO> page = projectCodeService.getControlledFilePage(
+                99L, projectCode.getId(), reqVO);
+
+        assertEquals(1L, page.getTotal());
+        assertEquals(pendingFile.getId(), page.getList().get(0).getId());
+        assertEquals("PENDING-001", page.getList().get(0).getFileNumber());
+        assertEquals("待审批上传文件.pdf", page.getList().get(0).getFileName());
+        assertEquals(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus(),
+                page.getList().get(0).getStatus());
+        assertEquals("DCC_CONTROLLED_FILE", page.getList().get(0).getBusinessSourceType());
+    }
+
+    @Test
+    void pageShouldOnlyReturnProjectCodesWithValidDccProductsWhenRequested() {
+        DccProjectCodeDO validProjectCode = insertProjectCodeWithProduct("1", "项目A", "CODE-A", 20L);
+        DccProjectCodeDO invalidProductProjectCode = insertProjectCodeWithProduct("2", "项目B", "CODE-B", 21L);
+        DccProjectCodeDO missingProductProjectCode = insertProjectCodeWithProduct("3", "项目C", "CODE-C", null);
+        when(productApi.listSimpleProducts(MdmProductStatusConstants.ENABLE, true, null))
+                .thenReturn(List.of(MdmProductRespDTO.builder()
+                        .id(20L)
+                        .productCode("P-20")
+                        .dccProductCode("A1234567890123")
+                        .nameCn("产品A")
+                        .status(MdmProductStatusConstants.ENABLE)
+                        .build()));
+
+        DccProjectCodePageReqVO reqVO = new DccProjectCodePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+        reqVO.setRequireDccProductCode(true);
+
+        PageResult<DccProjectCodeDO> pageResult = projectCodeService.getProjectCodePage(reqVO);
+
+        assertEquals(1L, pageResult.getTotal());
+        assertEquals(List.of(validProjectCode.getId()),
+                pageResult.getList().stream().map(DccProjectCodeDO::getId).toList());
+        assertFalse(pageResult.getList().stream().map(DccProjectCodeDO::getId)
+                .toList().contains(invalidProductProjectCode.getId()));
+        assertFalse(pageResult.getList().stream().map(DccProjectCodeDO::getId)
+                .toList().contains(missingProductProjectCode.getId()));
+    }
+
+    @Test
     void pageForAssignedUserShouldOnlyReturnOwnActiveAssignedProjectCodes() {
         DccProjectCodeDO ownProjectCode = insertProjectCode("1", "项目A", "CODE-A");
         DccProjectCodeDO otherProjectCode = insertProjectCode("2", "项目B", "CODE-B");
@@ -311,11 +517,56 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void pageForDocControlUserShouldKeepFullProjectCodeScope() {
+    void pageForAssignmentExecutorWithoutAssignmentsShouldReturnEmptyScope() {
+        insertProjectCode("1", "项目A", "CODE-A");
+        insertProjectCode("2", "项目B", "CODE-B");
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code-assignment:execute")).thenReturn(true);
+
+        DccProjectCodePageReqVO reqVO = new DccProjectCodePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+
+        PageResult<DccProjectCodeDO> pageResult = projectCodeService.getProjectCodePage(123L, reqVO);
+
+        assertEquals(0L, pageResult.getTotal());
+        assertTrue(pageResult.getList().isEmpty());
+    }
+
+    @Test
+    void detailForAssignmentExecutorOutsideAssignedScopeShouldBeRejected() {
+        DccProjectCodeDO unassignedProjectCode = insertProjectCode("1", "项目A", "CODE-A");
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code-assignment:execute")).thenReturn(true);
+
+        assertServiceException(() -> projectCodeService.getProjectCode(123L, unassignedProjectCode.getId()),
+                PROJECT_CODE_NOT_EXISTS);
+    }
+
+    @Test
+    void pageForImportExportUserShouldNotGainFullProjectCodeScope() {
+        insertProjectCode("1", "项目A", "CODE-A");
+        insertProjectCode("2", "项目B", "CODE-B");
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code:import")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code:export")).thenReturn(true);
+
+        DccProjectCodePageReqVO reqVO = new DccProjectCodePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+
+        PageResult<DccProjectCodeDO> pageResult = projectCodeService.getProjectCodePage(123L, reqVO);
+
+        assertEquals(0L, pageResult.getTotal());
+    }
+
+    @Test
+    void pageForExplicitFullScopeUserShouldKeepFullProjectCodeScope() {
         DccProjectCodeDO firstProjectCode = insertProjectCode("1", "项目A", "CODE-A");
         DccProjectCodeDO secondProjectCode = insertProjectCode("2", "项目B", "CODE-B");
         insertAssignment(firstProjectCode.getId(), 123L, STATUS_ACTIVE, LocalDateTime.now().plusDays(1));
-        when(permissionApi.hasAnyRolesOrSuperAdmin(eq(99L), any(String[].class))).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code:scope:all")).thenReturn(true);
 
         DccProjectCodePageReqVO reqVO = new DccProjectCodePageReqVO();
         reqVO.setPageNo(1);
@@ -379,6 +630,51 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         assertNull(unchanged.getFileTypeLevel1());
         assertNull(unchanged.getFileTypeLevel2());
         assertNull(unchanged.getFileTypeLevel3());
+    }
+
+    @Test
+    void classifyAssociatedFileByNameShouldPreferConfiguredHighWeightRuleOverBroadAlias() {
+        Long userId = 1L;
+        DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
+        DccFileCategoryDO oqReport = insertCategory("DCC_FVM_DHF_030", "过程运行确认（OQ）报告",
+                DccFileCategoryLifecycleStageEnum.VALIDATION);
+        insertCategory("DCC_FVM_DMR_013", "工序卡/作业指导书", DccFileCategoryLifecycleStageEnum.OUTPUT);
+        insertMatchRule(oqReport.getId(), "OQ报告", "CONTAINS", 1000);
+        DccControlledFileDO file = insertControlledFile(projectCode.getId(), "A-902",
+                "PTCA球囊扩张导管Rx口焊接OQ报告-作业指导书.pdf", null, null);
+        mockVisibleAssociatedFiles(userId, file);
+
+        DccProjectCodeAssociatedFileAiCategoryRespVO result =
+                projectCodeService.classifyAssociatedFileByName(userId, projectCode.getId(), file.getId());
+
+        assertTrue(Boolean.TRUE.equals(result.getMatched()));
+        assertEquals(taxonomyStageName(DccFileCategoryLifecycleStageEnum.VALIDATION), result.getTargetStage());
+        assertEquals("过程运行确认（OQ）报告", result.getTargetFileType());
+        DccControlledFileDO updated = controlledFileMapper.selectById(file.getId());
+        assertEquals(taxonomyStageName(DccFileCategoryLifecycleStageEnum.VALIDATION), updated.getFileTypeLevel2());
+        assertEquals("过程运行确认（OQ）报告", updated.getFileTypeLevel3());
+    }
+
+    @Test
+    void classifyAssociatedFileByNameShouldUseConfiguredExtensionRuleForComponentDrawing() {
+        Long userId = 1L;
+        DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
+        DccFileCategoryDO componentDrawing = insertCategory("DCC_FVM_DMR_018", "零配件图纸",
+                DccFileCategoryLifecycleStageEnum.OUTPUT);
+        insertMatchRule(componentDrawing.getId(), "sldprt", "EXTENSION", 800);
+        DccControlledFileDO file = insertControlledFile(projectCode.getId(), "A-903",
+                "PTCA球囊扩张导管接头零件-001.sldprt", null, null);
+        mockVisibleAssociatedFiles(userId, file);
+
+        DccProjectCodeAssociatedFileAiCategoryRespVO result =
+                projectCodeService.classifyAssociatedFileByName(userId, projectCode.getId(), file.getId());
+
+        assertTrue(Boolean.TRUE.equals(result.getMatched()));
+        assertEquals(taxonomyStageName(DccFileCategoryLifecycleStageEnum.OUTPUT), result.getTargetStage());
+        assertEquals("零配件图纸", result.getTargetFileType());
+        DccControlledFileDO updated = controlledFileMapper.selectById(file.getId());
+        assertEquals(taxonomyStageName(DccFileCategoryLifecycleStageEnum.OUTPUT), updated.getFileTypeLevel2());
+        assertEquals("零配件图纸", updated.getFileTypeLevel3());
     }
 
     @Test
@@ -874,6 +1170,33 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void confirmImportShouldRejectPreviewSummaryMismatchBeforeWrite() {
+        DccProjectCodeImportBatchDO batch = DccProjectCodeImportBatchDO.builder()
+                .status(DccProjectCodeImportStatusConstants.PREVIEWED)
+                .totalCount(2)
+                .createCount(2)
+                .updateCount(0)
+                .disableCount(0)
+                .unchangedCount(0)
+                .failureCount(0)
+                .build();
+        importBatchMapper.insert(batch);
+        importRowMapper.insert(DccProjectCodeImportRowDO.builder()
+                .batchId(batch.getId())
+                .rowNo(2)
+                .projectName("项目A")
+                .projectCode("CODE-A")
+                .importAction(DccProjectCodeImportActionConstants.CREATE)
+                .build());
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> projectCodeService.confirmImport(batch.getId()));
+
+        assertTrue(exception.getMessage().contains("DCC_PROJECT_CODE_IMPORT_BATCH_INTEGRITY_INVALID"));
+        assertNull(projectCodeMapper.selectByProjectNameAndProjectCode("项目A", "CODE-A"));
+    }
+
+    @Test
     void pageAndExportShouldOrderByNumericDocControlNoAscendingBeforeNonNumeric() {
         projectCodeMapper.insert(DccProjectCodeDO.builder()
                 .docControlNo("30")
@@ -966,10 +1289,16 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     private DccProjectCodeDO insertProjectCode(String docControlNo, String projectName, String projectCode) {
+        return insertProjectCodeWithProduct(docControlNo, projectName, projectCode, null);
+    }
+
+    private DccProjectCodeDO insertProjectCodeWithProduct(String docControlNo, String projectName, String projectCode,
+                                                          Long productMasterId) {
         DccProjectCodeDO projectCodeDO = DccProjectCodeDO.builder()
                 .docControlNo(docControlNo)
                 .projectName(projectName)
                 .projectCode(projectCode)
+                .productMasterId(productMasterId)
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build();
         projectCodeMapper.insert(projectCodeDO);
@@ -998,6 +1327,12 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
 
     private DccControlledFileDO insertControlledFile(Long dccProjectCodeId, String fileNumber, String fileName,
                                                     String fileTypeLevel2, String fileTypeLevel3) {
+        return insertControlledFile(dccProjectCodeId, fileNumber, fileName, fileTypeLevel2, fileTypeLevel3,
+                DccControlledFileStatusEnum.ACTIVE.getStatus());
+    }
+
+    private DccControlledFileDO insertControlledFile(Long dccProjectCodeId, String fileNumber, String fileName,
+                                                    String fileTypeLevel2, String fileTypeLevel3, String status) {
         DccControlledFileDO controlledFile = DccControlledFileDO.builder()
                 .masterId(1L)
                 .categoryId(1L)
@@ -1013,7 +1348,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 .needTraining(false)
                 .processType("CONTROLLED_FILE")
                 .versionNo("A1")
-                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .status(status)
                 .submitterId(1L)
                 .requesterId(1L)
                 .build();
@@ -1032,16 +1367,16 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         };
     }
 
-    private void insertCategory(String code, String name, DccFileCategoryLifecycleStageEnum lifecycleStage) {
-        insertCategory(code, name, lifecycleStage, null);
+    private DccFileCategoryDO insertCategory(String code, String name, DccFileCategoryLifecycleStageEnum lifecycleStage) {
+        return insertCategory(code, name, lifecycleStage, null);
     }
 
-    private void insertCategory(String code, String name, DccFileCategoryLifecycleStageEnum lifecycleStage,
+    private DccFileCategoryDO insertCategory(String code, String name, DccFileCategoryLifecycleStageEnum lifecycleStage,
                                 Long fileTypeTaxonomyId) {
         Long resolvedTaxonomyId = fileTypeTaxonomyId != null ? fileTypeTaxonomyId : 10_000L + Math.abs((long) code.hashCode());
         when(fileTypeTaxonomyAdminService.resolveActivePath(resolvedTaxonomyId)).thenReturn(new DccFileTypeTaxonomyPath(
                 resolvedTaxonomyId, "技术文档", taxonomyStageName(lifecycleStage), name, null, null));
-        categoryMapper.insert(DccFileCategoryDO.builder()
+        DccFileCategoryDO category = DccFileCategoryDO.builder()
                 .code(code)
                 .name(name)
                 .active(Boolean.TRUE)
@@ -1051,6 +1386,18 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 .fileTypeTaxonomyId(resolvedTaxonomyId)
                 .distributionRequired(Boolean.FALSE)
                 .trainingRequired(Boolean.FALSE)
+                .build();
+        categoryMapper.insert(category);
+        return category;
+    }
+
+    private void insertMatchRule(Long categoryId, String matchText, String matchType, Integer weight) {
+        categoryMatchRuleMapper.insert(DccFileCategoryMatchRuleDO.builder()
+                .categoryId(categoryId)
+                .matchText(matchText)
+                .matchType(matchType)
+                .weight(weight)
+                .active(Boolean.TRUE)
                 .build());
     }
 

@@ -1,0 +1,49 @@
+{
+  "fileNumber": "CODX-DCC-DIST-REC-DISTREC20260802173908",
+  "tenantName": "芋道源码",
+  "actor": "panhaitao",
+  "paperRecipient": "panhaitao",
+  "runMode": "full",
+  "v1ControlledFileId": "2054545668044070279",
+  "v2ControlledFileId": "2054545668044070280",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "startedAt": "2026-08-02T17:02:48.153Z",
+  "pagePaths": [
+    {
+      "label": "v2-before-ack",
+      "url": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070280?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser"
+    }
+  ],
+  "actions": [],
+  "detailApiSnapshots": {
+    "v2-before-ack": {
+      "id": "2054545668044070280",
+      "visibleDistributionSectionText": "部门\n\t\n接收人\n\t\n分发摘要\n\t\n回收摘要\n\t\n操作\n当前版本暂无分发记录"
+    }
+  },
+  "browserVerification": null,
+  "finalReadonlyDb": null,
+  "targetNetworkFailures": [
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "unhandledRejections": [],
+  "status": "ERROR",
+  "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"dcc-detail-distribution-section\"] .el-table__body-wrapper .el-table__row').first() to be visible\u001b[22m\n\n    at clickDistributionRowButton (E:\\IntRuoyi\\doc\\tasks\\20260803-dcc-distribution-recovery-e2e\\dcc-distribution-recovery-e2e.cjs:241:24)\n    at acknowledgePaperDistributionFromDetail (E:\\IntRuoyi\\doc\\tasks\\20260803-dcc-distribution-recovery-e2e\\dcc-distribution-recovery-e2e.cjs:251:9)\n    at async main (E:\\IntRuoyi\\doc\\tasks\\20260803-dcc-distribution-recovery-e2e\\dcc-distribution-recovery-e2e.cjs:531:30)",
+  "finishedAt": "2026-08-02T17:03:24.312Z"
+}

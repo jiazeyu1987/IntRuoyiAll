@@ -1,0 +1,19 @@
+{
+  "message": "登录租户未稳定选中：expected=芋道源码, actual=",
+  "stack": "Error: 登录租户未稳定选中：expected=芋道源码, actual=\n    at login (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\v14-ui-import-verify.cjs:117:13)\n    at async main (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\v14-ui-import-verify.cjs:566:5)",
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting..."
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected."
+    },
+    {
+      "type": "log",
+      "text": "%c 欢迎使用 %c 瑛泰管理系统 %c background:#2d8cf0;border:1px solid #2d8cf0;\n      padding: 1px; border-radius: 4px 0 0 4px; color: #fff; border:1px solid #2d8cf0;\n      padding: 1px; border-radius: 0 4px 4px 0; color: #2d8cf0; background:transparent"
+    }
+  ],
+  "failurePath": "E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\artifacts\\v14-verify-failure-2026-07-26T04-32-34-683Z.png"
+}

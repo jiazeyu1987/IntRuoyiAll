@@ -1,0 +1,6 @@
+{
+  "message": "GET /admin-api/mes/pro/batch-record-report/page?pageNo=1&pageSize=20&batchRecordName=%E7%90%83%E5%9B%8A%E6%89%A9%E5%BC%A0%E5%8E%8B%E5%8A%9B%E6%B3%B5&versionNo=V14 failed: code=401 msg=账号未登录",
+  "stack": "Error: GET /admin-api/mes/pro/batch-record-report/page?pageNo=1&pageSize=20&batchRecordName=%E7%90%83%E5%9B%8A%E6%89%A9%E5%BC%A0%E5%8E%8B%E5%8A%9B%E6%B3%B5&versionNo=V14 failed: code=401 msg=账号未登录\n    at getResponseJson (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-import-v14\\import-v14-ui.e2e.cjs:111:11)\n    at async latestReports (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-import-v14\\import-v14-ui.e2e.cjs:123:16)\n    at async findImportedReport (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-import-v14\\import-v14-ui.e2e.cjs:128:17)\n    at async run (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-import-v14\\import-v14-ui.e2e.cjs:292:20)",
+  "url": "http://127.0.0.1:8081/mes/pro/batch-record-form-list?versionNo=V14.0",
+  "networkErrors": []
+}

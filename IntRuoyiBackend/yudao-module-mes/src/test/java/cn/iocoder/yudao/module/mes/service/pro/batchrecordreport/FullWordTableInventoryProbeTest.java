@@ -27,8 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FullWordTableInventoryProbeTest {
 
-    private static final Path REAL_DOC = Path.of("C:\\Users\\BJB110\\Desktop\\2\\2\\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc");
-    private static final Path OUTPUT = Path.of("D:\\ProjectPackage\\Int\\IntRuoyi\\doc\\tasks\\20260704-full-word-batch-record-table-consistency\\full-word-inventory-probe.txt");
+    private static final Path REAL_DOC = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
+    private static final Path OUTPUT = Path.of("target", "full-word-inventory-probe.txt");
     private static final List<String> EXPECTED_RENDER_TABLE_TITLES = List.of(
             "产品信息",
             "粗洗工序生产记录",
@@ -73,6 +73,7 @@ class FullWordTableInventoryProbeTest {
                     table.getColumnWidths() == null ? 0 : table.getColumnWidths().size(), cellCount, maxEnd,
                     compact(firstText(table))));
         }
+        Files.createDirectories(OUTPUT.getParent());
         Files.writeString(OUTPUT, String.join(System.lineSeparator(), lines), StandardCharsets.UTF_8);
         System.out.println(String.join(System.lineSeparator(), lines));
     }

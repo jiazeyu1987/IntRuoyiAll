@@ -23,9 +23,10 @@ export interface ControlledFileCategoryVO {
   description?: string
   distributionRequired?: boolean
   trainingRequired?: boolean
+  canUpload?: boolean
   signoffPositionIds?: number[]
   approvalPositionIds?: number[]
-  createTime?: Date | string
+  createTime?: number
 }
 
 export interface ControlledFileCategoryDirectoryBindingReqVO {
@@ -37,6 +38,7 @@ export type ControlledFileCategoryPermissionAction =
   | 'VIEW'
   | 'UPLOAD'
   | 'DOWNLOAD'
+  | 'PRINT'
   | 'OBSOLETE'
   | 'REVIEW'
   | 'APPROVE'
@@ -65,7 +67,7 @@ export interface ControlledFileCategoryDepartmentRuleVO {
 export interface ControlledFileCategoryApprovalMatrixVO {
   categoryId: number
   routeVersionNo?: number
-  effectiveTime?: string
+  effectiveTime?: number
   remark?: string
   rules: ControlledFileCategoryReviewMatrixRuleVO[]
 }
@@ -91,7 +93,7 @@ export interface ControlledFileCategoryReviewMatrixRowVO {
   active: boolean
   configured: boolean
   routeVersionNo?: number
-  effectiveTime?: string
+  effectiveTime?: number
   remark?: string
   rules: ControlledFileCategoryReviewMatrixRuleVO[]
   viewRuleSummary?: string

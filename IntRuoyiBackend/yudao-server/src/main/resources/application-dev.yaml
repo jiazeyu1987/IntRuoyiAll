@@ -217,12 +217,33 @@ yudao:
       timeout-seconds: ${DCC_PROJECT_CODE_CODEX_TIMEOUT_SECONDS:120}
       version: ${DCC_PROJECT_CODE_RECOGNITION_VERSION}
       worker-count: ${DCC_PROJECT_CODE_RECOGNITION_WORKER_COUNT:1}
-    download:
-      encryption:
-        policy-version: ${DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION}
-        key-id: ${DCC_DOWNLOAD_ENCRYPTION_KEY_ID}
-        base64-key: ${DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY}
-        artifact-directory: ${DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY}
+  form-center:
+    fill-rule-ai:
+      codex-cli-command: ${FORM_CENTER_FILL_RULE_AI_CODEX_CLI_COMMAND:cmd.exe /c codex.cmd}
+      timeout-seconds: ${FORM_CENTER_FILL_RULE_AI_CODEX_TIMEOUT_SECONDS:120}
+  erp:
+    invoice-voucher-print-assistant:
+      assistant-host: ${INVOICE_VOUCHER_PRINT_ASSISTANT_HOST:127.0.0.1}
+      assistant-port: ${INVOICE_VOUCHER_PRINT_ASSISTANT_PORT:18733}
+      assistant-root-dir: ${INVOICE_VOUCHER_PRINT_ASSISTANT_ROOT_DIR:E:/ProjectPackage/erp-invoice-voucher-print-assistant}
+      assistant-script: ${INVOICE_VOUCHER_PRINT_ASSISTANT_SCRIPT:server.js}
+      node-command: ${INVOICE_VOUCHER_PRINT_ASSISTANT_NODE_COMMAND:D:/Programs/node.exe}
+      ticket-validate-url: ${INVOICE_VOUCHER_PRINT_TICKET_VALIDATE_URL:http://127.0.0.1:48081/admin-api/system/auth/invoice-voucher-print-ticket/validate}
+      session-ttl-seconds: ${INVOICE_VOUCHER_PRINT_SESSION_TTL_SECONDS:14400}
+      startup-timeout-seconds: ${INVOICE_VOUCHER_PRINT_ASSISTANT_STARTUP_TIMEOUT_SECONDS:30}
+      probe-timeout-seconds: ${INVOICE_VOUCHER_PRINT_ASSISTANT_PROBE_TIMEOUT_SECONDS:3}
+      probe-interval-millis: ${INVOICE_VOUCHER_PRINT_ASSISTANT_PROBE_INTERVAL_MS:1000}
+    fenbeitong-assistant:
+      assistant-host: ${FENBEITONG_ASSISTANT_HOST:127.0.0.1}
+      assistant-port: ${FENBEITONG_ASSISTANT_PORT:18734}
+      assistant-root-dir: ${FENBEITONG_ASSISTANT_ROOT_DIR:E:/ProjectPackage/fenbeitong/student-collaboration-kit}
+      assistant-script: ${FENBEITONG_ASSISTANT_SCRIPT:server.js}
+      node-command: ${FENBEITONG_ASSISTANT_NODE_COMMAND:D:/Programs/node.exe}
+      ticket-validate-url: ${FENBEITONG_ASSISTANT_TICKET_VALIDATE_URL:http://127.0.0.1:48081/admin-api/system/auth/fenbeitong-assistant-ticket/validate}
+      session-ttl-seconds: ${FENBEITONG_ASSISTANT_SESSION_TTL_SECONDS:14400}
+      startup-timeout-seconds: ${FENBEITONG_ASSISTANT_STARTUP_TIMEOUT_SECONDS:30}
+      probe-timeout-seconds: ${FENBEITONG_ASSISTANT_PROBE_TIMEOUT_SECONDS:3}
+      probe-interval-millis: ${FENBEITONG_ASSISTANT_PROBE_INTERVAL_MS:1000}
   pay:
     order-notify-url: http://yunai.natapp1.cc/admin-api/pay/notify/order # 支付渠道的【支付】回调地址
     refund-notify-url: http://yunai.natapp1.cc/admin-api/pay/notify/refund # 支付渠道的【退款】回调地址

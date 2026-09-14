@@ -12,6 +12,7 @@ const readSource = (relativePath) => {
 
 const browserPage = readSource('src/views/dcc/controlled-file/browser/index.vue')
 const stateCache = readSource('src/views/dcc/controlled-file/browser/state-cache.ts')
+const quickFilterHook = readSource('src/hooks/web/useTableQuickFilter.ts')
 
 for (const required of [
   /DCC_BROWSER_STATE_CACHE_SCHEMA_VERSION/,
@@ -69,7 +70,6 @@ for (const required of [
   /buildDirectoryTreeFromCacheRecord/,
   /restoreBrowserRouteFromRememberedState/,
   /persistBrowserRememberedState/,
-  /clearBrowserRememberedState/,
   /restoreBrowserMetadataCache/,
   /persistBrowserMetadataCache/,
   /message\.error\('DCC 受控浏览本地缓存读取失败/,
@@ -109,9 +109,19 @@ assert.match(
   'default empty browser state must clear remembered state instead of being persisted'
 )
 assert.match(
+  quickFilterHook,
+  /const resetQuickFilter = async \(\) => \{[\s\S]*clearQuickFilterParams\(\)[\s\S]*queryParams\.pageNo = 1[\s\S]*await reload\(\)[\s\S]*\}/,
+  'unified filter reset must clear its formal query parameters and reload the first page'
+)
+assert.match(
   browserPage,
-  /const resetQuery = async \(\) => \{[\s\S]*clearSelectedDirectory\(\)[\s\S]*queryParams\.pageSize = DCC_BROWSER_DEFAULT_PAGE_SIZE[\s\S]*directoryTreeRef\.value\?\.setCurrentKey\(\)[\s\S]*clearBrowserRememberedState\(\)[\s\S]*syncRouteFromBrowserState\(\)/,
-  'reset must clear selection, restore default pagination, clear remembered browser state, and then sync the default route state'
+  /const reloadBrowserListAndCommitState = async \(\) => \{[\s\S]*await getList\(\)[\s\S]*await syncRouteFromBrowserState\(\)[\s\S]*persistBrowserRememberedState\(\)/,
+  'unified filter reset must reload first, then synchronize and persist the resulting formal browser state'
+)
+assert.match(
+  browserPage,
+  /if \(isDefaultEmptyBrowserRememberedState\(rememberedState\)\) \{[\s\S]*clearDccBrowserRememberedState\(getBrowserCacheContext\(\)\)/,
+  'persisting a fully reset browser state must remove the remembered-state entry'
 )
 assert.match(
   browserPage,

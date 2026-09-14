@@ -1,0 +1,134 @@
+{
+  "status": "PASS",
+  "finishedAt": "2026-08-02T11:40:33.019Z",
+  "fileId": "2054545668044070281",
+  "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+  "versionNo": "V1.0",
+  "trainingReadConfirmation": "PASS",
+  "finalActiveRelease": "PASS",
+  "currentFileStatus": "ACTIVE",
+  "currentActiveControlledFileId": "2054545668044070281",
+  "needTraining": 1,
+  "publishedFileId": "9198354916366",
+  "stampedFileId": "9198354916366",
+  "trainingRecipients": [
+    {
+      "username": "chenchen",
+      "userId": "885",
+      "accumulatedViewSeconds": 748,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:25:34"
+    },
+    {
+      "username": "sunrongrong",
+      "userId": "937",
+      "accumulatedViewSeconds": 725,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:25:54"
+    },
+    {
+      "username": "liuru",
+      "userId": "957",
+      "accumulatedViewSeconds": 663,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:26:54"
+    },
+    {
+      "username": "zhaojie",
+      "userId": "1074",
+      "accumulatedViewSeconds": 628,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:23:42"
+    },
+    {
+      "username": "xuejianxia",
+      "userId": "1194",
+      "accumulatedViewSeconds": 709,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:25:44"
+    },
+    {
+      "username": "tengweihua",
+      "userId": "1354",
+      "accumulatedViewSeconds": 666,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:26:54"
+    },
+    {
+      "username": "shihaisong",
+      "userId": "1453",
+      "accumulatedViewSeconds": 616,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:27:44"
+    },
+    {
+      "username": "malingling",
+      "userId": "1499",
+      "accumulatedViewSeconds": 666,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:26:54"
+    },
+    {
+      "username": "zhaomingyu",
+      "userId": "424",
+      "accumulatedViewSeconds": 625,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 18:37:37"
+    }
+  ],
+  "unacknowledged": [],
+  "trainingStatuses": [
+    {
+      "id": "108",
+      "status": "ACKNOWLEDGED",
+      "departmentId": "339",
+      "departmentName": "生产计划"
+    },
+    {
+      "id": "109",
+      "status": "ACKNOWLEDGED",
+      "departmentId": "253",
+      "departmentName": "质量体系部"
+    }
+  ],
+  "distributePermission": {
+    "role": {
+      "id": "910431",
+      "code": "dcc_distribute_e2e",
+      "name": "DCC Distribute E2E",
+      "status": 0,
+      "tenantId": "1"
+    },
+    "rule": {
+      "id": "2623",
+      "active": 1,
+      "scopeType": "GLOBAL",
+      "subjectId": "910431",
+      "actionType": "DISTRIBUTE",
+      "categoryId": "906104",
+      "subjectType": "ROLE"
+    },
+    "wangsiyuRole": true
+  },
+  "manualReleaseEvidence": {
+    "status": "PASS",
+    "checkedAt": "2026-08-02T11:39:33.469Z",
+    "account": "wangsiyu",
+    "role": "dcc_distribute_e2e",
+    "roleId": "910431",
+    "controlledFileId": "2054545668044070281",
+    "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+    "releasePayload": {
+      "code": 0,
+      "msg": "",
+      "data": true
+    },
+    "beforeScreenshot": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\manual-release-after-role-before-CODX-DCC-TRAIN-20260802093955.png",
+    "afterScreenshot": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\manual-release-after-role-after-CODX-DCC-TRAIN-20260802093955.png"
+  },
+  "evidence": {
+    "finalDb": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\final-readonly-db-verification-after-distribute-role.json",
+    "manualReleasePage": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\manual-release-after-distribute-role-page-evidence.json",
+    "verificationReport": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\verification-report.md"
+  }
+}

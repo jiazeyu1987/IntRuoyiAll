@@ -69,6 +69,21 @@ def _write_dcc_backup_manifest(manifest_dir: Path, backup_id: str = "20260526-22
         + "\n",
         encoding="utf-8",
     )
+    mysql_dir = manifest_dir.parent / "mysql"
+    mysql_dir.mkdir(parents=True, exist_ok=True)
+    (mysql_dir / "full-dump-manifest.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": "mysql-full-dump-v1",
+                "status": "exported",
+                "dumpPath": "mysql/ruoyi-vue-pro.sql.gz",
+                "sha256": "a" * 64,
+                "size": 4,
+                "endPosition": {"file": "mysql-bin.000001", "position": 100},
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_manifest_model_carries_rehearsal_verification_state() -> None:
@@ -104,7 +119,7 @@ def test_powershell_manifest_uses_runtime_env_ports(tmp_path: Path) -> None:
     (deploy_path / "docker-compose.yml").write_text("services: {}\n", encoding="utf-8")
     (mysql_path / "ruoyi-vue-pro.sql.gz").write_bytes(b"dump")
     (objects_path / "manifest-object-inventory.json").write_text(
-        '{"mode":"incremental-manifest","bucket":"yudao","objectStoreRoot":"/mnt/nas/Backup/BackupPackage/object-store","objects":[]}',
+        '{"mode":"incremental-manifest","backupKind":"FULL","parentBackupId":"","bucket":"yudao","objectStoreRoot":"/mnt/nas/Backup/BackupPackage/object-store","objects":[]}',
         encoding="utf-8",
     )
     (manifest_path / "checksums.txt").write_text("abc  deploy/runtime.env\n", encoding="utf-8")
@@ -122,8 +137,10 @@ $config = [pscustomobject]@{{
             host = '172.30.30.58'
             appDir = '/opt/intruoyi/runtime'
         }}
+        test = [pscustomobject]@{{ host = '172.30.30.58' }}
     }}
     backup = [pscustomobject]@{{
+        repositoryEnvironment = 'test'
         mysqlDatabase = 'ruoyi-vue-pro'
         objectBucket = 'yudao'
     }}
@@ -138,7 +155,7 @@ $workspace = [pscustomobject]@{{
     ObjectsPath = '{_ps_literal(objects_path)}'
 }}
 $session = [pscustomobject]@{{ startedAt = [System.DateTimeOffset]::Parse('2026-05-26T22:00:00+08:00') }}
-$path = New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -LogSession $session
+$path = New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -BackupKind FULL -LogSession $session
 [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
 """
     completed = _run_powershell_script(script)
@@ -185,8 +202,10 @@ $config = [pscustomobject]@{{
             host = '172.30.30.58'
             appDir = '/opt/intruoyi/runtime'
         }}
+        test = [pscustomobject]@{{ host = '172.30.30.58' }}
     }}
     backup = [pscustomobject]@{{
+        repositoryEnvironment = 'test'
         objectBucket = 'yudao'
     }}
 }}
@@ -201,7 +220,7 @@ $workspace = [pscustomobject]@{{
 }}
 $session = [pscustomobject]@{{ startedAt = [System.DateTimeOffset]::Parse('2026-05-26T22:00:00+08:00') }}
 try {{
-    New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -LogSession $session | Out-Null
+    New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -BackupKind FULL -LogSession $session | Out-Null
     [pscustomobject]@{{
         succeeded = $true
         manifestExists = [System.IO.File]::Exists((Join-Path '{_ps_literal(manifest_path)}' 'manifest.json'))

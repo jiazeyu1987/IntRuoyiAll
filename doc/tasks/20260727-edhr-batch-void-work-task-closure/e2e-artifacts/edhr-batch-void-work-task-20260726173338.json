@@ -1,0 +1,48 @@
+{
+  "status": "FAIL",
+  "frontendUrl": "http://127.0.0.1:8084",
+  "backendUrl": "http://127.0.0.1:48084",
+  "tenant": "测试租户",
+  "username": "aoteman",
+  "setup": {
+    "runKey": "M7-VOID-WORKTASK-20260726173338",
+    "batchCode": "M7-VOID-WORKTASK-20260726173338",
+    "batchTaskId": 6576,
+    "doneWorkTaskId": 2163,
+    "todoWorkTaskId": 2160,
+    "doingWorkTaskId": 2161,
+    "batchExecutionId": 900000000847,
+    "overdueWorkTaskId": 2162,
+    "batchExecutionCode": "BE-M7-VOID-WORKTASK-20260726173338",
+    "canceledWorkTaskId": 2164
+  },
+  "error": "page.waitForResponse: Timeout 60000ms exceeded while waiting for event \"response\"\n    at submitVoidThroughUi (D:\\IntRuoyiWorktree\\20260727_pici\\IntRuoyiFronted\\tests\\e2e\\edhr-batch-void-form-center-real-submit.e2e.cjs:609:42)\n    at async main (D:\\IntRuoyiWorktree\\20260727_pici\\IntRuoyiFronted\\tests\\e2e\\edhr-batch-void-form-center-real-submit.e2e.cjs:723:27)",
+  "observedResponses": [
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/admin-api/mes/pro/edhr-work-task/my-page?pageNo=1&pageSize=1&status=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/admin-api/mes/pro/edhr-batch-execution/page?pageNo=1&pageSize=20&batchExecutionCode=BE-M7-VOID-WORKTASK-20260726173338&excludeStatuses%5B0%5D=40&excludeStatuses%5B1%5D=50&excludeReleased=true"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/admin-api/mes/pro/edhr-change/void-batch-execution/approval-resolution"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/admin-api/mes/pro/edhr-change/void-batch-execution/request"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/admin-api/mes/pro/edhr-batch-execution/page?pageNo=1&pageSize=20&batchExecutionCode=BE-M7-VOID-WORKTASK-20260726173338&excludeStatuses%5B0%5D=40&excludeStatuses%5B1%5D=50&excludeReleased=true"
+    }
+  ],
+  "pageErrors": []
+}

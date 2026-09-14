@@ -22,6 +22,7 @@ public class CodexTestExecutionCaseDO extends TenantBaseDO {
     private String caseNameSnapshot;
     private String methodTextSnapshot;
     private String testDataTextSnapshot;
+    private String analysisModeSnapshot;
     private Integer checkpointCount;
     private String status;
     private Long runnerSessionId;
@@ -29,5 +30,9 @@ public class CodexTestExecutionCaseDO extends TenantBaseDO {
     private LocalDateTime startedAt;
     private LocalDateTime finishedAt;
     private String failureReason;
+    private String progressPhase;
+    private Integer currentMethodSort;
+    private Integer currentCheckpointSort;
+    private String progressMessage;
 
 }

@@ -15,6 +15,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProS
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderBatchReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderCreateFromWorkOrderReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderCreateFromWorkOrdersReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDeleteReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDeleteImpactRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDailyCompareRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderExportExcelVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderOperationLogRespVO;
@@ -31,12 +33,15 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProScheduleIssueDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionMaterialListDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleIssueMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionMaterialListMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
@@ -119,6 +124,8 @@ public class MesProScheduleOrderController {
     @Resource
     private MesKingdeeProductionMaterialListMapper productionMaterialListMapper;
     @Resource
+    private MesProScheduleIssueMapper scheduleIssueMapper;
+    @Resource
     private AdminUserApi adminUserApi;
 
     @PostMapping("/create-from-work-order")
@@ -195,9 +202,16 @@ public class MesProScheduleOrderController {
     @Operation(summary = "批量删除排产工单")
     @PreAuthorize("@ss.hasPermission('mes:pro-schedule-order:delete')")
     public CommonResult<Boolean> deleteScheduleOrders(
-            @Valid @RequestBody MesProScheduleOrderBatchReqVO reqVO) {
+            @Valid @RequestBody MesProScheduleOrderDeleteReqVO reqVO) {
         scheduleOrderService.deleteScheduleOrders(reqVO);
         return success(true);
+    }
+
+    @GetMapping("/delete-impact")
+    @Operation(summary = "预览删除排产工单的影响")
+    @PreAuthorize("@ss.hasPermission('mes:pro-schedule-order:delete')")
+    public CommonResult<MesProScheduleOrderDeleteImpactRespVO> getDeleteImpact(@RequestParam("id") Long id) {
+        return success(scheduleOrderService.getDeleteImpact(id));
     }
 
     @GetMapping("/get")
@@ -372,14 +386,13 @@ public class MesProScheduleOrderController {
         Map<Long, MesMdItemDO> itemMap = itemService.getItemMap(convertSet(list, MesProScheduleOrderDO::getProductId));
         Map<Long, MesProRouteDO> routeMap = routeService.getRouteMap(convertSet(list, MesProScheduleOrderDO::getRouteId));
         Map<Long, List<MesKingdeeProductionMaterialListDO>> materialListMap = buildMaterialListMapByWorkOrderId(list);
-        Set<Long> missingWorkOrderCodeIds = list.stream()
+        Set<Long> workOrderIds = list.stream()
                 .filter(item -> item.getWorkOrderId() != null)
-                .filter(item -> item.getErpWorkOrderCode() == null || item.getErpWorkOrderCode().isBlank())
                 .map(MesProScheduleOrderDO::getWorkOrderId)
                 .collect(Collectors.toSet());
-        Map<Long, MesProWorkOrderDO> workOrderMap = CollUtil.isEmpty(missingWorkOrderCodeIds)
+        Map<Long, MesProWorkOrderDO> workOrderMap = CollUtil.isEmpty(workOrderIds)
                 ? Collections.emptyMap()
-                : workOrderService.getWorkOrderMap(missingWorkOrderCodeIds);
+                : workOrderService.getWorkOrderMap(workOrderIds);
         List<MesProScheduleOrderProcessDO> allProcesses = scheduleOrderService
                 .getScheduleOrderProcessListByScheduleOrderIds(convertSet(list, MesProScheduleOrderDO::getId))
                 .stream().toList();
@@ -391,6 +404,7 @@ public class MesProScheduleOrderController {
                         entry -> scheduleOrderService.calculateProcessProgressMetrics(entry.getKey(), entry.getValue())));
         Map<Long, MesProProcessDO> processDefinitionMap = processService.getProcessMap(
                 convertSet(allProcesses, MesProScheduleOrderProcessDO::getProcessId));
+        Map<Long, List<MesProScheduleIssueDO>> blockingIssueMap = buildBlockingIssueMapByWorkOrderId(list);
         return BeanUtils.toBean(list, MesProScheduleOrderRespVO.class, vo -> {
             MesMdItemDO item = vo.getProductId() == null ? null : itemMap.get(vo.getProductId());
             if (item != null) {
@@ -411,7 +425,62 @@ public class MesProScheduleOrderController {
             applyProductionMaterialListSummary(vo, materialListMap.get(vo.getWorkOrderId()));
             applyProcessProgress(vo, processMap.getOrDefault(vo.getId(), Collections.emptyList()),
                     progressMetricsByOrderId.getOrDefault(vo.getId(), Collections.emptyMap()), processDefinitionMap);
+            applyBlockingIssueSummary(vo, blockingIssueMap.get(vo.getWorkOrderId()));
+            applySourceWorkOrderStatusSummary(vo, workOrder);
         });
+    }
+
+    private void applySourceWorkOrderStatusSummary(MesProScheduleOrderRespVO vo, MesProWorkOrderDO workOrder) {
+        if (vo == null || workOrder == null) {
+            return;
+        }
+        vo.setSourceWorkOrderStatus(workOrder.getStatus());
+        String terminalMessage = resolveSourceWorkOrderTerminalMessage(workOrder.getStatus());
+        if (terminalMessage == null) {
+            return;
+        }
+        Integer currentBlockingCount = vo.getBlockingIssueCount();
+        vo.setBlockingIssueCount(currentBlockingCount == null || currentBlockingCount < 1 ? 1 : currentBlockingCount);
+        vo.setLatestBlockingIssueMessage(terminalMessage);
+    }
+
+    private String resolveSourceWorkOrderTerminalMessage(Integer status) {
+        if (MesProWorkOrderStatusEnum.FINISHED.getStatus().equals(status)) {
+            return "生产工单已完成";
+        }
+        if (MesProWorkOrderStatusEnum.CANCELED.getStatus().equals(status)) {
+            return "生产工单已取消";
+        }
+        return null;
+    }
+
+    private Map<Long, List<MesProScheduleIssueDO>> buildBlockingIssueMapByWorkOrderId(
+            List<MesProScheduleOrderDO> list) {
+        Set<Long> workOrderIds = convertSet(list, MesProScheduleOrderDO::getWorkOrderId);
+        if (CollUtil.isEmpty(workOrderIds)) {
+            return Collections.emptyMap();
+        }
+        return scheduleIssueMapper.selectListByWorkOrderIds(workOrderIds).stream()
+                .filter(issue -> "BLOCKING".equals(issue.getSeverity()))
+                .filter(issue -> !Boolean.TRUE.equals(issue.getResolved()))
+                .filter(issue -> issue.getWorkOrderId() != null)
+                .collect(Collectors.groupingBy(MesProScheduleIssueDO::getWorkOrderId,
+                        LinkedHashMap::new, Collectors.toList()));
+    }
+
+    private void applyBlockingIssueSummary(MesProScheduleOrderRespVO vo, List<MesProScheduleIssueDO> issues) {
+        if (CollUtil.isEmpty(issues)) {
+            vo.setBlockingIssueCount(0);
+            vo.setLatestBlockingIssueMessage(null);
+            return;
+        }
+        vo.setBlockingIssueCount(issues.size());
+        vo.setLatestBlockingIssueMessage(issues.stream()
+                .max(Comparator.comparing(MesProScheduleIssueDO::getId,
+                        Comparator.nullsLast(Long::compareTo)))
+                .map(MesProScheduleIssueDO::getMessage)
+                .filter(message -> message != null && !message.isBlank())
+                .orElse("存在阻断问题"));
     }
 
     private Map<Long, List<MesKingdeeProductionMaterialListDO>> buildMaterialListMapByWorkOrderId(

@@ -60,9 +60,9 @@ BEGIN
       AND `policy`.`action_code` = 'OBSOLETE'
       AND `policy`.`status` = 'PUBLISHED'
       AND `policy`.`deleted` = b'0'
+      AND `policy`.`policy_mode` = 'BPM_REQUIRED'
       AND (
-        COALESCE(`policy`.`policy_mode`, '') <> 'BPM_REQUIRED'
-        OR COALESCE(`policy`.`process_definition_key`, '') <> 'form-template-obsolete-v1'
+        COALESCE(`policy`.`process_definition_key`, '') <> 'form-template-obsolete-v1'
         OR COALESCE(`policy`.`effect_executor_code`, '') <> 'FORM_TEMPLATE_OBSOLETE'
       )
   ) THEN

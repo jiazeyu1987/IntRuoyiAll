@@ -34,6 +34,7 @@ export const DCC_CATEGORY_PERMISSIONS = [
   'VIEW',
   'UPLOAD',
   'DOWNLOAD',
+  'PRINT',
   'OBSOLETE',
   'REVIEW',
   'APPROVE',
@@ -142,6 +143,7 @@ export const DCC_CATEGORY_PERMISSION_OPTIONS: ReadonlyArray<DccOption<DccCategor
   { label: '查看', value: 'VIEW' },
   { label: '上传', value: 'UPLOAD' },
   { label: '下载', value: 'DOWNLOAD' },
+  { label: '打印', value: 'PRINT' },
   { label: '作废', value: 'OBSOLETE' },
   { label: '审核', value: 'REVIEW' },
   { label: '批准', value: 'APPROVE' },
@@ -274,13 +276,13 @@ export const mapDccControlledFileProjection = (
     permissionGranted: allowed,
     locked: lockedForAction,
     pending: lockedForAction,
-    pendingInstanceId: lockedForAction ? projection?.pendingRequestId : undefined,
+    pendingInstanceId: lockedForAction ? projection?.pendingRequestId ?? undefined : undefined,
     withdrawable: action === 'WITHDRAW' && projection?.canWithdraw === true,
     blockerCode: lockedForAction ? 'PENDING_APPROVAL_ACTION_LOCK' : allowed ? '' : 'ACTION_PROJECTION_BLOCKED',
     blockerReason: lockedForAction
       ? projection?.actionLockReason || '已有审批中的申请，请先撤回、审批或等待结束。'
-      : projection?.actionLockReason,
-    lockReason: lockedForAction ? projection?.actionLockReason : undefined
+      : projection?.actionLockReason || undefined,
+    lockReason: lockedForAction ? projection?.actionLockReason || undefined : undefined
   }
 }
 

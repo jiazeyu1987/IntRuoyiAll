@@ -40,19 +40,24 @@ public class ScheduleTopologyResolver {
                                 item -> item, (left, right) -> left, LinkedHashMap::new));
         Map<Long, MesProRouteProcessDO> routeProcessMap =
                 buildRouteProcessMapByTopologyKey(snapshotProcesses, routeProcesses);
+        Map<Long, Set<Long>> predecessorIdsByRouteProcessId = resolvePredecessors(snapshotProcesses);
         List<MesProScheduleOrderProcessDO> roots = snapshotMap.values().stream()
                 .filter(item -> Boolean.TRUE.equals(item.getRootProcessFlag()))
-                .filter(item -> item.getPredecessorRouteProcessId() == null)
+                .filter(item -> predecessorIdsByRouteProcessId.getOrDefault(item.getRouteProcessId(), Set.of()).isEmpty())
                 .sorted(Comparator.comparing(MesProScheduleOrderProcessDO::getSort,
                         Comparator.nullsLast(Integer::compareTo)))
                 .toList();
         if (roots.isEmpty() || snapshotMap.size() != routeProcessMap.size()) {
             throw new IllegalStateException("排产工序拓扑快照无效，scheduleOrderId=" + scheduleOrder.getId());
         }
-        Map<Long, List<MesProScheduleOrderProcessDO>> children = snapshotMap.values().stream()
-                .filter(item -> item.getPredecessorRouteProcessId() != null)
-                .collect(Collectors.groupingBy(MesProScheduleOrderProcessDO::getPredecessorRouteProcessId,
-                        LinkedHashMap::new, Collectors.toList()));
+        Map<Long, List<MesProScheduleOrderProcessDO>> children = new LinkedHashMap<>();
+        snapshotMap.values().forEach(process -> predecessorIdsByRouteProcessId
+                .getOrDefault(process.getRouteProcessId(), Set.of())
+                .forEach(predecessorId -> children.computeIfAbsent(predecessorId, ignored -> new ArrayList<>())
+                        .add(process)));
+        Map<Long, Integer> remainingIncoming = predecessorIdsByRouteProcessId.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().size(),
+                        (left, right) -> left, LinkedHashMap::new));
         List<MesProRouteProcessDO> ordered = new ArrayList<>();
         Queue<Long> pending = new ArrayDeque<>();
         roots.stream()
@@ -69,7 +74,12 @@ public class ScheduleTopologyResolver {
                     .sorted(Comparator.comparing(MesProScheduleOrderProcessDO::getSort,
                             Comparator.nullsLast(Integer::compareTo)))
                     .map(MesProScheduleOrderProcessDO::getRouteProcessId)
-                    .forEach(pending::add);
+                    .forEach(childId -> {
+                        int remaining = remainingIncoming.merge(childId, -1, Integer::sum);
+                        if (remaining == 0) {
+                            pending.add(childId);
+                        }
+                    });
         }
         if (ordered.size() != routeProcessMap.size()) {
             throw new IllegalStateException("排产工序拓扑快照存在断点或循环，scheduleOrderId=" + scheduleOrder.getId());
@@ -100,27 +110,37 @@ public class ScheduleTopologyResolver {
                 || routeProcessMap.size() != snapshotRouteProcessIds.size()) {
             return "排产工序拓扑快照无效，scheduleOrderId=" + scheduleOrder.getId();
         }
+        Map<Long, Set<Long>> predecessorIdsByRouteProcessId;
+        try {
+            predecessorIdsByRouteProcessId = resolvePredecessors(snapshotProcesses);
+        } catch (IllegalStateException ex) {
+            return "排产工序拓扑快照无效，scheduleOrderId=" + scheduleOrder.getId();
+        }
         List<MesProScheduleOrderProcessDO> roots = safeList(snapshotProcesses).stream()
                 .filter(item -> Boolean.TRUE.equals(item.getRootProcessFlag()))
-                .filter(item -> item.getPredecessorRouteProcessId() == null)
+                .filter(item -> predecessorIdsByRouteProcessId.getOrDefault(item.getRouteProcessId(), Set.of()).isEmpty())
                 .toList();
         boolean rootFlagsConsistent = safeList(snapshotProcesses).stream().allMatch(item ->
-                Boolean.TRUE.equals(item.getRootProcessFlag()) == (item.getPredecessorRouteProcessId() == null));
+                Boolean.TRUE.equals(item.getRootProcessFlag())
+                        == predecessorIdsByRouteProcessId.getOrDefault(item.getRouteProcessId(), Set.of()).isEmpty());
         if (roots.isEmpty() || !rootFlagsConsistent) {
             return "排产工序拓扑快照无效，scheduleOrderId=" + scheduleOrder.getId();
         }
         for (MesProScheduleOrderProcessDO process : safeList(snapshotProcesses)) {
-            Long predecessorRouteProcessId = process.getPredecessorRouteProcessId();
-            if (predecessorRouteProcessId != null && !snapshotRouteProcessIds.contains(predecessorRouteProcessId)) {
-                return "排产工序直接前置快照不存在，scheduleOrderId="
-                        + scheduleOrder.getId() + ", routeProcessId=" + process.getRouteProcessId();
+            for (Long predecessorRouteProcessId : predecessorIdsByRouteProcessId
+                    .getOrDefault(process.getRouteProcessId(), Set.of())) {
+                if (!snapshotRouteProcessIds.contains(predecessorRouteProcessId)) {
+                    return "排产工序直接前置快照不存在，scheduleOrderId="
+                            + scheduleOrder.getId() + ", routeProcessId=" + process.getRouteProcessId();
+                }
             }
         }
-        Map<Long, List<Long>> children = safeList(snapshotProcesses).stream()
-                .filter(item -> item.getPredecessorRouteProcessId() != null)
-                .collect(Collectors.groupingBy(MesProScheduleOrderProcessDO::getPredecessorRouteProcessId,
-                        LinkedHashMap::new,
-                        Collectors.mapping(MesProScheduleOrderProcessDO::getRouteProcessId, Collectors.toList())));
+        Map<Long, List<Long>> children = new LinkedHashMap<>();
+        predecessorIdsByRouteProcessId.forEach((routeProcessId, predecessorIds) -> predecessorIds.forEach(predecessorId ->
+                children.computeIfAbsent(predecessorId, ignored -> new ArrayList<>()).add(routeProcessId)));
+        Map<Long, Integer> remainingIncoming = predecessorIdsByRouteProcessId.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().size(),
+                        (left, right) -> left, LinkedHashMap::new));
         Set<Long> visited = new LinkedHashSet<>();
         Queue<Long> pending = new ArrayDeque<>();
         roots.stream()
@@ -129,14 +149,30 @@ public class ScheduleTopologyResolver {
         while (!pending.isEmpty()) {
             Long routeProcessId = pending.remove();
             if (!visited.add(routeProcessId)) {
-                return "排产工序拓扑快照存在断点或循环，scheduleOrderId=" + scheduleOrder.getId();
+                continue;
             }
-            pending.addAll(children.getOrDefault(routeProcessId, Collections.emptyList()));
+            for (Long childId : children.getOrDefault(routeProcessId, Collections.emptyList())) {
+                int remaining = remainingIncoming.merge(childId, -1, Integer::sum);
+                if (remaining == 0) {
+                    pending.add(childId);
+                }
+            }
         }
         if (visited.size() != routeProcessMap.size()) {
             return "排产工序拓扑快照存在断点或循环，scheduleOrderId=" + scheduleOrder.getId();
         }
         return null;
+    }
+
+    private Map<Long, Set<Long>> resolvePredecessors(List<MesProScheduleOrderProcessDO> snapshotProcesses) {
+        Map<Long, Set<Long>> result = new LinkedHashMap<>();
+        for (MesProScheduleOrderProcessDO process : safeList(snapshotProcesses)) {
+            if (process == null || process.getRouteProcessId() == null) {
+                continue;
+            }
+            result.put(process.getRouteProcessId(), ScheduleTopologyPredecessors.resolve(process));
+        }
+        return result;
     }
 
     private Map<Long, MesProRouteProcessDO> buildRouteProcessMapByTopologyKey(

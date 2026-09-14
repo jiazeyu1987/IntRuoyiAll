@@ -60,6 +60,17 @@ class MesProEdhrBatchExecutionVoidStatusListenerTest {
                 "void-process-1001", null, "APPROVED", null, null);
     }
 
+    @Test
+    void businessApprovalBusinessKey_shouldBeHandledByBusinessApprovalListenerOnly() {
+        BpmProcessInstanceStatusEvent event = batchVoidEvent(BpmProcessInstanceStatusEnum.APPROVE.getStatus())
+                .setBusinessKey("BUSINESS_APPROVAL:4101");
+
+        listener.onApplicationEvent(event);
+
+        verify(recordChangeService, never()).handleVoidBatchExecutionApprovalCallback(
+                "void-process-1001", null, "APPROVED", null, null);
+    }
+
     private static BpmProcessInstanceStatusEvent batchVoidEvent(Integer status) {
         return new BpmProcessInstanceStatusEvent(new Object())
                 .setId("void-process-1001")

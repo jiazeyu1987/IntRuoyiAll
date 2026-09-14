@@ -55,7 +55,8 @@ def test_form_template_obsolete_policy_seed_binds_bpm_required_bridge_policy() -
         sql,
         re.I,
     )
-    assert "COALESCE(`policy`.`policy_mode`, '') <> 'BPM_REQUIRED'" in sql
+    assert "COALESCE(`policy`.`policy_mode`, '') <> 'BPM_REQUIRED'" not in sql
+    assert "`policy`.`policy_mode` = 'BPM_REQUIRED'" in sql
     assert "COALESCE(`policy`.`process_definition_key`, '') <> 'form-template-obsolete-v1'" in sql
     assert "COALESCE(`policy`.`effect_executor_code`, '') <> 'FORM_TEMPLATE_OBSOLETE'" in sql
     assert "bpm_form_action_policy" not in sql

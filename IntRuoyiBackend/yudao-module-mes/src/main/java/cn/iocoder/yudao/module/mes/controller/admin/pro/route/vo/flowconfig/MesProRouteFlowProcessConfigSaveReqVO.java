@@ -26,6 +26,12 @@ public class MesProRouteFlowProcessConfigSaveReqVO {
     @Schema(description = "生产数量系数，工序计划数量=成品数量*生产数量系数，默认 1", example = "3.000000")
     private BigDecimal productionQuantityFactor;
 
+    @Schema(description = "当前工序输入物料ID列表")
+    private List<Long> inputMaterialIds;
+
+    @Schema(description = "当前工序输出物料ID列表，一线报工需要填写完成数量、损耗数量和批号")
+    private List<Long> outputMaterialIds;
+
     @Schema(description = "用途内批记录报表列表")
     @Valid
     private List<MesProRouteFlowBatchRecordSaveReqVO> batchRecordReports;
@@ -33,6 +39,9 @@ public class MesProRouteFlowProcessConfigSaveReqVO {
     @Schema(description = "用途内动态表单中心绑定列表")
     @Valid
     private List<MesProRouteFlowFormBindingSaveReqVO> formBindings;
+
+    @Schema(description = "是否显式保存过批记录表单绑定快照")
+    private Boolean batchRecordBindingSnapshotExplicit;
 
     @Schema(description = "备注")
     private String remark;

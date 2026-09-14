@@ -6,6 +6,8 @@ public interface MesKingdeeProductionOrderSyncService {
 
     MesKingdeeProductionOrderSyncResult syncWorkOrders();
 
+    MesKingdeeProductionOrderSyncResult syncWorkOrdersFullSkipExisting();
+
     MesKingdeeProductionOrderSyncResult syncWorkOrders(ErpKingdeeSyncContext context);
 
 }

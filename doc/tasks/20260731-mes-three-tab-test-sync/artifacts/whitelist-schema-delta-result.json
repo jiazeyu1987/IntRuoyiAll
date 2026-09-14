@@ -1,0 +1,119 @@
+{
+  "generated_at": "2026-07-31T02:46:04.103776+00:00",
+  "applied": [
+    {
+      "table": "mes_pro_route_flow_process_batch_record",
+      "column": "form_definition_id"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "source_work_order_id"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "source_work_order_code"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "source_order_code"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "planned_quantity"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "promised_delivery_date"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "priority"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "active_flag"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "scheduled_quantity"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "reported_quantity"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "product_code"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "product_name"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "product_specification"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "route_code"
+    },
+    {
+      "table": "mes_pro_schedule_order",
+      "column": "route_name"
+    },
+    {
+      "table": "mes_pro_schedule_order_process",
+      "column": "source_work_order_id"
+    },
+    {
+      "table": "mes_pro_schedule_order_process",
+      "column": "route_id"
+    },
+    {
+      "table": "mes_pro_schedule_order_process",
+      "column": "workstation_id"
+    },
+    {
+      "table": "mes_pro_schedule_order_process",
+      "column": "workstation_code"
+    },
+    {
+      "table": "mes_pro_schedule_order_process",
+      "column": "workstation_name"
+    },
+    {
+      "table": "mes_pro_schedule_order_process",
+      "column": "previous_next_relation"
+    },
+    {
+      "table": "mes_pro_schedule_order_process",
+      "column": "scheduling_enabled"
+    },
+    {
+      "table": "mes_pro_schedule_order_process",
+      "column": "status"
+    },
+    {
+      "table": "mes_pro_schedule_order_process",
+      "column": "standard_hourly_capacity"
+    },
+    {
+      "table": "mes_pro_schedule_order_process",
+      "column": "standard_shift_capacity"
+    },
+    {
+      "table": "mes_pro_schedule_order_process",
+      "column": "resource_quantity"
+    },
+    {
+      "table": "mes_pro_schedule_order_process",
+      "column": "capacity_snapshot"
+    }
+  ],
+  "statement_count": 27,
+  "apply_stdout": "",
+  "warnings": [
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000019CDC0CE860",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000029CA6E894F0"
+  ]
+}

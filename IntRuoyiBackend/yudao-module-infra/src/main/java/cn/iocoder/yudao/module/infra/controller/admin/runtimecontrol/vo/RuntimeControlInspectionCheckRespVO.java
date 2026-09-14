@@ -30,4 +30,7 @@ public class RuntimeControlInspectionCheckRespVO {
 
     @Schema(description = "采样时间", requiredMode = Schema.RequiredMode.REQUIRED)
     private LocalDateTime sampledAt;
+
+    @Schema(description = "可信时间原始证据；仅可信时间检查项返回")
+    private RuntimeControlTrustedTimeRespVO trustedTime;
 }

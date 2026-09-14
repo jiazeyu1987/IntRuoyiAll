@@ -4,13 +4,18 @@ import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.access.DccProjectAccessRuleBatchSaveReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.access.DccProjectAccessRuleRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.access.DccProjectAccessRuleSaveReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeAssociatedFileAiCategoryRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeSaveReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeUpdateReqVO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectAccessRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
+import cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.MockedStatic;
@@ -38,6 +43,9 @@ class DccProjectCodeControllerTest extends BaseMockitoUnitTest {
 
     @Mock
     private DccProjectCodeService projectCodeService;
+
+    @Mock
+    private DccProjectAccessService projectAccessService;
 
     @Test
     void createProjectCode_mapsCreateEndpointRequiresPermissionAndDelegates() throws Exception {
@@ -171,6 +179,55 @@ class DccProjectCodeControllerTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void getProjectAccessRules_mapsFormalAccessEndpointRequiresQueryPermissionAndDelegates() throws Exception {
+        Method method = DccProjectCodeController.class.getDeclaredMethod("getProjectAccessRules", Long.class);
+        GetMapping mapping = method.getAnnotation(GetMapping.class);
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+
+        assertNotNull(mapping);
+        assertEquals("/{id:\\d+}/access-rules", mapping.value()[0]);
+        assertNotNull(preAuthorize);
+        assertTrue(preAuthorize.value().contains("dcc:project-code:query"));
+
+        when(projectAccessService.getProjectAccessRules(101L)).thenReturn(List.of(rule("USER", 99L, "OWNER")));
+
+        CommonResult<List<DccProjectAccessRuleRespVO>> result = controller.getProjectAccessRules(101L);
+
+        assertTrue(Boolean.TRUE.equals(result.isSuccess()));
+        assertEquals("OWNER", result.getData().get(0).getAccessLevel());
+        verify(projectAccessService).getProjectAccessRules(101L);
+    }
+
+    @Test
+    void replaceProjectAccessRules_mapsFormalAccessEndpointRequiresUpdatePermissionAndDelegates() throws Exception {
+        Method method = DccProjectCodeController.class.getDeclaredMethod("replaceProjectAccessRules",
+                Long.class, DccProjectAccessRuleBatchSaveReqVO.class);
+        PutMapping mapping = method.getAnnotation(PutMapping.class);
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+
+        assertNotNull(mapping);
+        assertEquals("/{id:\\d+}/access-rules", mapping.value()[0]);
+        assertNotNull(preAuthorize);
+        assertTrue(preAuthorize.value().contains("dcc:project-code:update"));
+
+        DccProjectAccessRuleSaveReqVO saveReqVO = new DccProjectAccessRuleSaveReqVO();
+        saveReqVO.setSubjectType("USER");
+        saveReqVO.setSubjectId(99L);
+        saveReqVO.setAccessLevel("OWNER");
+        saveReqVO.setActive(true);
+        DccProjectAccessRuleBatchSaveReqVO reqVO = new DccProjectAccessRuleBatchSaveReqVO();
+        reqVO.setRules(List.of(saveReqVO));
+        when(projectAccessService.replaceProjectAccessRules(101L, reqVO.getRules()))
+                .thenReturn(List.of(rule("USER", 99L, "OWNER")));
+
+        CommonResult<List<DccProjectAccessRuleRespVO>> result = controller.replaceProjectAccessRules(101L, reqVO);
+
+        assertTrue(Boolean.TRUE.equals(result.isSuccess()));
+        assertEquals(99L, result.getData().get(0).getSubjectId());
+        verify(projectAccessService).replaceProjectAccessRules(101L, reqVO.getRules());
+    }
+
+    @Test
     void classifyAssociatedFileByName_mapsEndpointRequiresUpdatePermissionAndDelegates() throws Exception {
         Method method = DccProjectCodeController.class.getDeclaredMethod("classifyAssociatedFileByName",
                 Long.class, Long.class);
@@ -201,5 +258,15 @@ class DccProjectCodeControllerTest extends BaseMockitoUnitTest {
         assertTrue(Boolean.TRUE.equals(result.isSuccess()));
         assertEquals("01 plan 策划", result.getData().getTargetStage());
         verify(projectCodeService).classifyAssociatedFileByName(99L, 101L, 201L);
+    }
+
+    private static DccProjectAccessRuleDO rule(String subjectType, Long subjectId, String accessLevel) {
+        DccProjectAccessRuleDO rule = new DccProjectAccessRuleDO();
+        rule.setDccProjectCodeId(101L);
+        rule.setSubjectType(subjectType);
+        rule.setSubjectId(subjectId);
+        rule.setAccessLevel(accessLevel);
+        rule.setActive(true);
+        return rule;
     }
 }

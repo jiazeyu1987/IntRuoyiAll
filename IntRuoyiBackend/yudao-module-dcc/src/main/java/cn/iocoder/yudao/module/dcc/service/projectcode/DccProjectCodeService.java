@@ -28,6 +28,8 @@ public interface DccProjectCodeService {
 
     DccProjectCodeDO getProjectCode(Long id);
 
+    DccProjectCodeDO getProjectCode(Long userId, Long id);
+
     PageResult<DccControlledFileRespVO> getControlledFilePage(Long userId, Long id,
                                                               DccProjectCodeControlledFilePageReqVO reqVO);
 

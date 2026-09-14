@@ -65,9 +65,15 @@ class MesProTaskGanttWorkOrderCodeContractTest {
                 "自动排产预览的工单项目行必须使用正式工单编码");
         assertTrue(previewBuildMethod.contains("workOrder.getCode()))"),
                 "自动排产预览任务行必须从对应工单传递正式工单编码");
-        assertTrue(autoScheduleService.contains("String workOrderCode"),
+        String schedulePlanner = readSource(
+                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/schedule/SchedulePlanner.java");
+        String previewStepConversion = between(
+                schedulePlanner,
+                "GanttDataRespVO toGanttDataRespVO",
+                "private record DailyExplanationKey");
+        assertTrue(previewStepConversion.contains("String workOrderCode"),
                 "自动排产预览任务行转换方法必须接收对应工单编码");
-        assertTrue(autoScheduleService.contains(".setWorkOrderCode(workOrderCode)"),
+        assertTrue(previewStepConversion.contains(".setWorkOrderCode(workOrderCode)"),
                 "自动排产预览任务行 VO 必须继承对应工单编码");
     }
 

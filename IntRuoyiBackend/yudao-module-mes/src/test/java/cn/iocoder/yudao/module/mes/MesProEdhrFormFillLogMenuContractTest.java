@@ -17,7 +17,7 @@ class MesProEdhrFormFillLogMenuContractTest {
         String sql = Files.readString(projectDir.resolve("sql/mysql/20260713_mes_edhr_form_fill_log_menu.sql"),
                 StandardCharsets.UTF_8);
         String route = Files.readString(projectDir.getParent()
-                        .resolve("yudao-ui-admin-vue3/src/router/modules/remaining.ts"),
+                        .resolve("IntRuoyiFronted/src/router/modules/remaining.ts"),
                 StandardCharsets.UTF_8);
 
         assertTrue(sql.contains("release-migration"), "menu SQL must declare release migration metadata");

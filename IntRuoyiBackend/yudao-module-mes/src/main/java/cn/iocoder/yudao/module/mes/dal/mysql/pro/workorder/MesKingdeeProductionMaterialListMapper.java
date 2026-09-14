@@ -33,7 +33,7 @@ public interface MesKingdeeProductionMaterialListMapper extends BaseMapperX<MesK
         return selectPage(reqVO, new LambdaQueryWrapperX<MesKingdeeProductionMaterialListDO>()
                 .likeIfPresent(MesKingdeeProductionMaterialListDO::getSourceBillNo, reqVO.getSourceBillNo())
                 .likeIfPresent(MesKingdeeProductionMaterialListDO::getProductCode, reqVO.getProductCode())
-                .likeIfPresent(MesKingdeeProductionMaterialListDO::getProductionOrderNo, reqVO.getProductionOrderNo())
+                .eqIfPresent(MesKingdeeProductionMaterialListDO::getProductionOrderNo, reqVO.getProductionOrderNo())
                 .likeIfPresent(MesKingdeeProductionMaterialListDO::getChildMaterialCode, reqVO.getChildMaterialCode())
                 .likeIfPresent(MesKingdeeProductionMaterialListDO::getChildMaterialName, reqVO.getChildMaterialName())
                 .betweenIfPresent(MesKingdeeProductionMaterialListDO::getSourceModifyTime, reqVO.getSourceModifyTime())
@@ -55,6 +55,14 @@ public interface MesKingdeeProductionMaterialListMapper extends BaseMapperX<MesK
     default List<MesKingdeeProductionMaterialListDO> selectListByProductionOrderNo(String productionOrderNo) {
         return selectList(new LambdaQueryWrapperX<MesKingdeeProductionMaterialListDO>()
                 .eq(MesKingdeeProductionMaterialListDO::getProductionOrderNo, productionOrderNo)
+                .orderByAsc(MesKingdeeProductionMaterialListDO::getProductionOrderLineNo)
+                .orderByAsc(MesKingdeeProductionMaterialListDO::getId));
+    }
+
+    default List<MesKingdeeProductionMaterialListDO> selectListByProductCode(String productCode) {
+        return selectList(new LambdaQueryWrapperX<MesKingdeeProductionMaterialListDO>()
+                .eq(MesKingdeeProductionMaterialListDO::getProductCode, productCode)
+                .orderByAsc(MesKingdeeProductionMaterialListDO::getProductionOrderNo)
                 .orderByAsc(MesKingdeeProductionMaterialListDO::getProductionOrderLineNo)
                 .orderByAsc(MesKingdeeProductionMaterialListDO::getId));
     }

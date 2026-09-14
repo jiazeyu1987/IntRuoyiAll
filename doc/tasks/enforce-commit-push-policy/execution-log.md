@@ -40,6 +40,18 @@
 - `git commit -m "工作区: 保存 route form filler 收尾后续基线"` -> PASS，第十五个基线提交 `2dbade97`。
 - `git commit -m "工作区: 保存 backend docs 与 SQL 后续基线"` -> PASS，第十六个基线提交 `6361c4be`。
 - `git commit -m "工作区: 保存 route form filler 收尾后续脏区基线"` -> PASS，第十七个基线提交 `16892129`，记录 4 个非本任务文件以及本任务收尾记录的中间状态。
+- `git commit -m "工作区: 保存 codextest 服务后续脏区基线"` -> PASS，第十八个基线提交 `f86832fa`。
+- `git commit -m "工作区: 保存 codextest 服务调整后续基线"` -> PASS，第十九个基线提交 `a22712d1`，包含本任务验证报告中间状态。
+- `git commit -m "工作区: 保存 codextest 控制器后续脏区基线"` -> PASS，第二十个基线提交 `c7662cfc`，包含本任务执行日志和任务文档中间状态。
+- `git commit -m "工作区: 保存 codextest controller 与 route filler 后续基线"` -> PASS，第二十一个基线提交 `b2df2194`。
+- `git commit -m "工作区: 保存 codex test 前端后续基线"` -> PASS，第二十二个基线提交 `5c6a8c7a`。
+- `git commit -m "工作区: 保存填报规则真实 E2E 证据后续基线"` -> PASS，第二十三个基线提交 `44aaf21a`。
+- `git commit -m "工作区: 保存手工排产验证收尾后续基线"` -> PASS，第二十四个基线提交 `c9c75475`。
+- `git commit -m "工作区: 保存 E2E 规则与排产验证后续基线"` -> PASS，第二十五个基线提交 `1d13287a`。
+- `git commit -m "工作区: 保存 eDHR 真实流程 E2E 后续基线"` -> PASS，第二十六个基线提交 `bf9ba726`。
+- `git commit -m "工作区: 保存前端 codex test 与填报任务后续基线"` -> PASS，第二十七个基线提交 `38013115`。
+- `git commit -m "工作区: 保存填报规则真实 E2E 后续基线"` -> PASS，第二十八个基线提交 `2c6e228c`。
+- `git commit -m "工作区: 保存真实 E2E 后续基线"` -> PASS，第二十九个基线提交 `0d434238`。
 
 ## Milestone Status
 
@@ -399,6 +411,143 @@ M	doc/tasks/20260724-edhr-route-form-filler-backfill/backend-api-evidence.md
 M	doc/tasks/enforce-commit-push-policy/execution-log.md
 M	doc/tasks/enforce-commit-push-policy/task.md
 M	doc/tasks/enforce-commit-push-policy/verification-report.md
+```
+
+### Commit `f86832fa`
+
+- Message: `工作区: 保存 codextest 服务后续脏区基线`
+- File count: 9
+
+```text
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestArtifactService.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestArtifactServiceImpl.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestCaseService.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestCaseServiceImpl.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestConstants.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestExecutionService.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestExecutionServiceImpl.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestRunnerService.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestRunnerServiceImpl.java
+```
+
+### Commit `a22712d1`
+
+- Message: `工作区: 保存 codextest 服务调整后续基线`
+- File count: 3
+
+```text
+M	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestArtifactServiceImpl.java
+M	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestRunnerServiceImpl.java
+M	doc/tasks/enforce-commit-push-policy/verification-report.md
+```
+
+### Commit `c7662cfc`
+
+- Message: `工作区: 保存 codextest 控制器后续脏区基线`
+- File count: 5
+
+```text
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/codextest/CodexTestCaseController.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/codextest/CodexTestExecutionController.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/codextest/CodexTestRunnerController.java
+M	doc/tasks/enforce-commit-push-policy/execution-log.md
+M	doc/tasks/enforce-commit-push-policy/task.md
+```
+
+### Commit `b2df2194`
+
+- Message: `工作区: 保存 codextest controller 与 route filler 后续基线`
+- File count: 4
+
+```text
+M	doc/tasks/20260724-edhr-route-form-filler-backfill/execution-log.md
+M	doc/tasks/20260724-edhr-route-form-filler-backfill/task.md
+M	doc/tasks/20260724-edhr-route-form-filler-backfill/verification-report.md
+A	doc/tasks/fix-batch-record-fill-rule/real-e2e-evidence.md
+```
+
+### Commit `5c6a8c7a`
+
+- Message: `工作区: 保存 codex test 前端后续基线`
+- File count: 5
+
+```text
+M	IntRuoyiFronted/package.json
+A	IntRuoyiFronted/scripts/codex-test-runner.mjs
+A	IntRuoyiFronted/src/api/system/codexTestManagement/index.ts
+A	IntRuoyiFronted/src/views/system/codex-test-management/index.vue
+M	doc/tasks/fix-batch-record-fill-rule/real-e2e-evidence.md
+```
+
+### Commit `44aaf21a`
+
+- Message: `工作区: 保存填报规则真实 E2E 证据后续基线`
+- File count: 1
+
+```text
+M	doc/tasks/fix-batch-record-fill-rule/real-e2e-evidence.md
+```
+
+### Commit `c9c75475`
+
+- Message: `工作区: 保存手工排产验证收尾后续基线`
+- File count: 3
+
+```text
+M	doc/tasks/verify-manual-reschedule-881mo-20260724/execution-log.md
+M	doc/tasks/verify-manual-reschedule-881mo-20260724/task.md
+M	doc/tasks/verify-manual-reschedule-881mo-20260724/verification-report.md
+```
+
+### Commit `1d13287a`
+
+- Message: `工作区: 保存 E2E 规则与排产验证后续基线`
+- File count: 4
+
+```text
+M	doc/tasks/verify-manual-reschedule-881mo-20260724/execution-log.md
+M	doc/tasks/verify-manual-reschedule-881mo-20260724/task.md
+M	docs/e2e-rules.md
+M	docs/experience-index.md
+```
+
+### Commit `bf9ba726`
+
+- Message: `工作区: 保存 eDHR 真实流程 E2E 后续基线`
+- File count: 1
+
+```text
+M	IntRuoyiFronted/tests/e2e/edhr-batch-execution-real-flow.e2e.js
+```
+
+### Commit `38013115`
+
+- Message: `工作区: 保存前端 codex test 与填报任务后续基线`
+- File count: 3
+
+```text
+A	IntRuoyiFronted/doc/tasks/fix-batch-record-fill-rule/real-e2e-evidence.md
+M	IntRuoyiFronted/src/api/system/codexTestManagement/index.ts
+M	IntRuoyiFronted/tests/e2e/edhr-batch-execution-real-flow.e2e.js
+```
+
+### Commit `2c6e228c`
+
+- Message: `工作区: 保存填报规则真实 E2E 后续基线`
+- File count: 1
+
+```text
+M	doc/tasks/fix-batch-record-fill-rule/real-e2e-evidence.md
+```
+
+### Commit `0d434238`
+
+- Message: `工作区: 保存真实 E2E 后续基线`
+- File count: 2
+
+```text
+M	IntRuoyiFronted/tests/e2e/edhr-batch-execution-real-flow.e2e.js
+M	doc/tasks/fix-batch-record-fill-rule/real-e2e-evidence.md
 ```
 
 ## Implementation Commit

@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS `mes_kingdee_production_material_list` (
   `numerator` decimal(24,6) DEFAULT NULL COMMENT '分子',
   `denominator` decimal(24,6) DEFAULT NULL COMMENT '分母',
   `child_unit_name` varchar(32) DEFAULT NULL COMMENT '子项单位',
+  `drawing_number` varchar(128) DEFAULT NULL COMMENT '图号',
   `required_quantity` decimal(24,6) NOT NULL COMMENT '应发数量',
   `issue_method` varchar(64) DEFAULT NULL COMMENT '发料方式',
   `demand_time` datetime DEFAULT NULL COMMENT '需求日期',
@@ -39,4 +40,3 @@ CREATE TABLE IF NOT EXISTS `mes_kingdee_production_material_list` (
   KEY `idx_mes_kingdee_prod_material_list_work_order` (`tenant_id`, `work_order_id`),
   KEY `idx_mes_kingdee_prod_material_list_modify_time` (`tenant_id`, `source_modify_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='ERP生产用料清单同步明细';
-

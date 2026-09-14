@@ -1,5 +1,4 @@
 import request from '@/config/axios'
-import * as JobApi from '@/api/infra/job'
 
 export interface ErpKingdeeSyncRunVO {
   id: number
@@ -47,9 +46,11 @@ export interface ErpKingdeeProductionMaterialListSyncRespVO {
   updatedIds: number[]
 }
 
-export interface ErpKingdeeIncrementalSyncRespVO {
+export interface ErpKingdeeFullSyncRespVO {
+  syncType: string
   handlerName: string
   jobId: number
+  message: string
 }
 
 export const ErpKingdeeSyncApi = {
@@ -67,17 +68,17 @@ export const ErpKingdeeSyncApi = {
     return await request.post({ url: '/erp/kingdee-sync/production-order/create', data })
   },
 
-  runIncrementalSyncJob: async (handlerName: string): Promise<ErpKingdeeIncrementalSyncRespVO> => {
-    const page = await JobApi.getJobPage({
-      pageNo: 1,
-      pageSize: 1,
-      handlerName
-    } as PageParam & { handlerName: string })
-    const job = page.list?.[0]
-    if (!job) {
-      throw new Error(`未找到同步任务处理器：${handlerName}`)
-    }
-    await JobApi.runJob(job.id)
-    return { handlerName, jobId: job.id }
+  runIncrementalSync: async (syncType: string): Promise<ErpKingdeeFullSyncRespVO> => {
+    return await request.post({
+      url: '/erp/kingdee-sync/incremental-sync',
+      data: { syncType }
+    })
+  },
+
+  runFullSync: async (syncType: string): Promise<ErpKingdeeFullSyncRespVO> => {
+    return await request.post({
+      url: '/erp/kingdee-sync/full-sync',
+      data: { syncType }
+    })
   }
 }

@@ -1,0 +1,53 @@
+# Execution Log
+
+## 2026-08-05
+
+- Intent: 用户要求在个人工作台配置区域新增“NAS表格自动同步”额外页签，先输出 TDD + BDD 设计文档，再在 worktree 中完成开发与验证。
+- Preflight: 已读取 `docs\worktree-restrictions.md`、`docs\branch-runtime-ports.md`、`docs\task-closeout-rules.md`、`docs\powershell-encoding.md`、`docs\powershell-memory.md`、`docs\backend-development.md`、`docs\frontend-development.md`、`docs\database-rules.md`。
+- Skill: 已读取 `bdd-tdd-acceptance-planner`、`system-design-docs`、`frontend-feature-delivery`、`backend-api-delivery`、`database-schema-delivery` 及其必要 reference。
+- Worktree: `git worktree add -b codex/profile-nas-table-auto-sync D:\IntRuoyiWorktree\profile-nas-table-auto-sync HEAD` -> PASS，HEAD `1d145ff95`。
+- Registry RED: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\runtime\reserve-worktree-slot.ps1 -AsJson` -> FAIL，缺少 mandatory 参数 `Name Path Branch Profile`。
+- Registry RED: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\runtime\reserve-worktree-slot.ps1 -Name profile-nas-table-auto-sync -Path D:\IntRuoyiWorktree\profile-nas-table-auto-sync -Branch codex/profile-nas-table-auto-sync -Profile int_main -AsJson` -> FAIL，`No available runtime slot for profile 'int_main' in range 1..19.`
+- Read-only evidence: `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 显示 `int_main` active slots 1..19 全部占用；slot 7 `D:\IntRuoyiWorktree\r260801b-frozen-smartseed-fix` 和 slot 12 `D:\IntRuoyiWorktree\20260803-fix-dcc-base-schema-menu-id-release` 物理路径只读检查为不存在，但这些 registry entries 不属于本任务，未自动释放。
+- Blocker: 缺少可用 `int_main` runtime slot。影响：不能按项目规则启动 worktree 前后端、不能完成真实 Playwright E2E，也可能不能通过提交前端口守卫。
+- User authorization: 用户回复“释放”，授权释放上述已确认物理路径不存在的 registry 残留槽位。
+- Registry cleanup verification: 目标路径 `D:\IntRuoyiWorktree\r260801b-frozen-smartseed-fix` 与 `D:\IntRuoyiWorktree\20260803-fix-dcc-base-schema-menu-id-release` 均不存在；`git worktree list --porcelain` 无对应注册；端口 `8088/48088/8093/48093` 无监听；进程命令行扫描仅命中本次探测命令自身。
+- Registry cleanup: 精确标记 slot 7 `r260801b-frozen-smartseed-fix` 与 slot 12 `20260803-fix-dcc-base-schema-menu-id-release` 为 `active=false`，写入 `deletedAt`、`cleanupTask=20260805-profile-nas-table-auto-sync` 和授权说明。
+- GREEN: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\runtime\reserve-worktree-slot.ps1 -Name profile-nas-table-auto-sync -Path D:\IntRuoyiWorktree\profile-nas-table-auto-sync -Branch codex/profile-nas-table-auto-sync -Profile int_main -AsJson` -> PASS，分配 `slot=7`、frontend `8088`、backend `48088`。
+- GREEN: `python C:\Users\BJB110\.codex\skills\system-design-docs\scripts\validate_system_design.py --root doc\tasks\20260805-profile-nas-table-auto-sync` -> PASS，系统设计文档结构校验通过。
+- RED: `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root doc\tasks\20260805-profile-nas-table-auto-sync` -> FAIL，`docs/acceptance/e2e-plan.md` 中参考用例文件名包含弱计划词 `TODO`。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root doc\tasks\20260805-profile-nas-table-auto-sync` -> PASS，已将参考用例描述改为可执行文件匹配说明，BDD/TDD 验收计划结构校验通过。
+- BDD: NAS 表格自动同步配置 -> Given 具备个人工作台配置页签权限的用户进入配置页签，When 打开“NAS表格自动同步”并保存启用计划，Then 后端保存当前租户计划、已选 ERP 表、NAS 目录和每日开始时间。
+- BDD: NAS 写入失败可见 -> Given NAS 配置缺失或目录不可写，When 用户点击“测试NAS写入”或“立即执行一次”，Then 前端展示后端失败原因，运行日志记录 FAILED 和 failureMessage。
+- BDD: 自动调度执行 -> Given 当前租户保存并启用计划，When 全局 `erpNasTableAutoSyncJob` 到达每日开始时间后运行，Then 只读取当前租户启用计划并将 ERP 表格写入 NAS。
+- RED: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_erp_nas_table_auto_sync_sql.py` -> FAIL，`20260805_erp_nas_table_auto_sync.sql` 不存在。
+- RED: `mvn -pl yudao-module-erp -am "-Dtest=ErpNasTableSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，Controller、Service、JobHandler、ERP 直接依赖 Infra 和 NAS 上传方法缺失。
+- RED: `node IntRuoyiFronted\tests\e2e\profile-nas-table-auto-sync-static.spec.js` -> FAIL，前端 API wrapper 和 `ProfileNasTableAutoSyncSetting.vue` 不存在。
+- Design correction: 发现 `infra_job.handler_name` 全局唯一，不能按租户创建多个同名 Job；修正为全局 dispatcher Job + `@TenantJob` 逐租户读取业务表，`handler_param` 保持空且不存业务配置。
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_erp_nas_table_auto_sync_sql.py` -> PASS，4 个 SQL 迁移契约通过。
+- GREEN: `mvn -pl yudao-module-erp -am "-Dtest=ErpNasTableSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`ErpNasTableSyncContractTest` 5 个契约通过，覆盖权限、Job dispatcher、LocalTime 字符串格式、计划明细 upsert 与 NAS 写入接口。
+- GREEN: `node IntRuoyiFronted\tests\e2e\profile-nas-table-auto-sync-static.spec.js` -> PASS，前端页签/API/错误展示静态合同通过。
+- GREEN: `pnpm ts:check` -> PASS，Vue/TypeScript 类型检查通过。
+- GREEN: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/profile-nas-table-auto-sync/int_main` 使用 frontend `8088`、backend `48088`。
+- Runtime verification: `Invoke-RestMethod http://127.0.0.1:48088/actuator/health` -> `UP`；`Invoke-WebRequest http://127.0.0.1:8088/` -> HTTP `200`。
+- RED: `node IntRuoyiFronted\tests\e2e\profile-nas-table-auto-sync-real.e2e.js` -> FAIL，真实页面保存后 `enabled=false`，原因是 E2E 在 Element Plus Switch 控件仍处加载禁用态时点击，且未读取真实 `input[role="switch"]` 状态。
+- Fix: 修正真实 E2E 的 `ensureSwitch`，等待 `.el-switch` 解除 `is-disabled`，读取 `input[role="switch"]` 的 `aria-checked`，点击可见 `.el-switch__core` 并轮询确认状态。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\profile-nas-table-auto-sync-real.e2e.js` -> PASS。
+- GREEN: `node IntRuoyiFronted\tests\e2e\profile-nas-table-auto-sync-real.e2e.js` -> PASS，真实页面路径完成：登录测试租户、进入个人工作台配置页签、打开“NAS表格自动同步”、选择“产品”、启用并保存 `23:59:00`、测试 NAS 写入失败可见、立即执行一次失败可见、最近执行日志展示失败原因、最后重新保存为禁用。
+- E2E evidence: `IntRuoyiFronted\test-results\profile-nas-table-auto-sync-real\result.json`，`status=PASS`，`savePlan.enabled=true`，`testNasWrite.code=1001003019` 且失败原因包含 `NAS 写入失败`，`runOnce.status=FAILED`，`disablePlan.enabled=false`，`pageErrors=[]`，`targetNetworkFailures=[]`。
+- DB verification: 通过本地 `int-ruoyi-mysql` 容器内环境变量只读查询当前库，`erp_nas_table_sync_plan` 最新记录为 `enabled=0`、`last_status=FAILED`；未在任务记录中写入数据库凭据。
+- GREEN: `python C:\Users\BJB110\.codex\skills\system-design-docs\scripts\validate_system_design.py --root doc\tasks\20260805-profile-nas-table-auto-sync` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root doc\tasks\20260805-profile-nas-table-auto-sync` -> PASS。
+- Status: 已将 `task.md` 更新为 `ready_for_closeout`，设计/验收文档列入 `Cleanup Keep`，进入经验沉淀与 cleanup preview/apply。
+- Experience consolidation: 已更新 `docs\e2e-rules.md#element-plus-选择框显示门禁` 与 `docs\experience-index.md`，沉淀 Element Plus Switch 真实 E2E 需等待 `is-disabled` 解除、点击可见 `.el-switch__core` 并用隐藏 input `aria-checked` 校验状态的规则；`rg -n "saved plan must be enabled|Element Plus Switch 加载禁用态|el-switch is-disabled|aria-checked" docs\experience-index.md docs\e2e-rules.md` -> PASS。
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-profile-nas-table-auto-sync --mode preview` -> BLOCKED；keep 列表正确保留 `task.md`、`execution-log.md`、`verification-report.md` 和用户指定设计/验收文档，delete 列表仅包含 `IntRuoyiFronted\test-results\profile-nas-table-auto-sync-real`；阻塞原因为实现尚未提交、主工作区 `E:\IntRuoyi` dirty、当前分支不能 ff-only 合入 `int_main`。
+- Commit precheck: `git diff --cached --name-status` 只包含本任务前后端代码、SQL、测试、任务文档和经验规则；`git diff --cached --check` -> PASS。
+- Implementation commit: `git commit -m "feat: add profile NAS table auto sync"` -> PASS，commit `1e4a61500`，53 files changed，branch runtime port guard hook PASS。
+- Cleanup artifact: 已删除本任务临时 E2E 结果目录 `IntRuoyiFronted\test-results\profile-nas-table-auto-sync-real`，`Test-Path` -> `False`。
+- Cleanup preview after commit: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-profile-nas-table-auto-sync --mode preview` -> BLOCKED；剩余阻塞仅为当前分支不能 ff-only 合入 `int_main`，以及主工作区 `E:\IntRuoyi` dirty，不能执行 cleanup apply / worktree removal。
+- Push blocker: `git push origin codex/profile-nas-table-auto-sync` -> FAIL，Git 全局 URL 级代理指向 `127.0.0.1:7890` 但该端口未监听；GitHub 直连 `443` 可 TCP 连接但 HTTPS 请求 reset/timeout；Windows 记录的 `127.0.0.1:8902` 代理端口可监听，但 HTTP/SOCKS5 代理请求均 reset；`ssh -T -o BatchMode=yes git@ssh.github.com -p 443` -> FAIL，`Permission denied (publickey)`。
+- Final blocker: 当前分支本地已有提交 `1e4a61500`、`10dcd8c7f`，但未能推送到 `origin`；按项目规则不得标记 `completed`。cleanup apply / worktree removal 仍阻塞于主工作区 dirty 和 ff-only merge 条件未满足。
+- Runtime release: 已确认 8088 PID `51876` 和 48088 PID `17288` 命令行均指向当前 worktree，执行 `Stop-Process -Id 51876,17288` -> PASS；复核 `Get-NetTCPConnection -LocalPort 8088,48088 -State Listen` 无监听，前后端运行态端口已释放。
+- Slot state: `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中 `profile-nas-table-auto-sync` 仍为 `active=true`，这是预期状态；按规则只有 worktree 合入并删除后才能释放 slot 7。
+- Push retry: 2026-08-05 重试 443 前发现 `127.0.0.1:7890` 已由 `FlClashCore.exe` 重新监听，Windows 用户代理与 GitHub 专用 Git proxy 均指向 `127.0.0.1:7890`；`curl.exe -I -x http://127.0.0.1:7890 https://github.com` -> HTTP `200 OK`，`git ls-remote origin HEAD` -> PASS。
+- Push GREEN: `git push origin codex/profile-nas-table-auto-sync` -> PASS，远端创建 `origin/codex/profile-nas-table-auto-sync`，pre-push branch runtime port guard PASS。

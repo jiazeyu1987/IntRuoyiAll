@@ -1,5 +1,37 @@
 <template>
   <section class="signature-governance-list-pane">
+    <div class="csv-evidence-entrypoints">
+      <div class="csv-evidence-entrypoints__header">
+        <div>
+          <div class="csv-evidence-entrypoints__title">审批证据导出入口</div>
+          <div class="csv-evidence-entrypoints__hint">
+            CSV 页签统一收口导出按钮；查看类证据仍可跳转正式页面核对明细。
+          </div>
+        </div>
+      </div>
+      <div class="csv-evidence-entrypoints__grid">
+        <div
+          v-for="entrypoint in approvalEvidenceEntrypoints"
+          :key="entrypoint.id"
+          class="csv-evidence-entrypoints__item"
+        >
+          <div class="csv-evidence-entrypoints__item-title">{{ entrypoint.label }}</div>
+          <div class="csv-evidence-entrypoints__item-desc">{{ entrypoint.description }}</div>
+          <div class="csv-evidence-entrypoints__item-meta">
+            <span>来源：{{ entrypoint.sourcePage }}</span>
+            <span>权限：{{ entrypoint.permission }}</span>
+          </div>
+          <el-button
+            link
+            type="primary"
+            :loading="approvalEvidenceExportingId === entrypoint.id"
+            @click="handleApprovalEvidenceEntrypoint(entrypoint)"
+          >
+            {{ entrypoint.actionType === 'export' ? '导出' : '查看' }}
+          </el-button>
+        </div>
+      </div>
+    </div>
     <UnifiedListTemplate
       table-key="signature.governance.csvPackage.list"
       :query-model="queryParams"
@@ -115,9 +147,13 @@ import {
 } from '@/api/signature-governance/shared'
 import { useUserStore } from '@/store/modules/user'
 import {
+  downloadDccSignatureEvidenceExport,
   getDccElectronicSignaturePage,
   type DccElectronicSignatureVO
 } from '@/api/dcc/controlledFile/signatures'
+import * as RuntimeControlApi from '@/api/infra/runtimeControl'
+import { downloadBackupEvidence } from '@/api/system/backupPlan'
+import * as UserApi from '@/api/system/user'
 import {
   getEdhrValidationPackagePage,
   getEdhrValidationRequirementItemPage,
@@ -130,12 +166,26 @@ import {
   getEdhrReleaseEventPage,
   getEdhrReleasePage
 } from '@/api/mes/pro/edhr/release'
+import {
+  exportEdhrFieldAudit,
+  getEdhrFieldAuditPage,
+  type EdhrFieldAuditExportRespVO
+} from '@/api/mes/pro/edhr/fieldAudit'
+import {
+  downloadEdhrBatchArchive,
+  EDHR_BATCH_STATUS_ARCHIVED,
+  getEdhrBatchExecutionPage,
+  getLatestEdhrBatchArchive
+} from '@/api/mes/pro/edhr/batchExecution'
+import download from '@/utils/download'
+import { downloadByData } from '@/utils/filt'
 
 defineOptions({ name: 'CsvPackageGovernanceListPane' })
 
 const DCC_SIGNATURE_MANAGE_PERMISSION = 'dcc:controlled-file:signature:manage'
 const ALL_PERMISSION = '*:*:*'
 const userStore = useUserStore()
+const router = useRouter()
 const hasDccSignatureManagePermission = computed(
   () =>
     userStore.getPermissions.has(ALL_PERMISSION) ||
@@ -160,7 +210,102 @@ type GovernanceRow = {
   actions: GovernanceRowAction[]
 }
 
+type ApprovalEvidenceEntrypoint = {
+  id: string
+  label: string
+  description: string
+  sourcePage: string
+  routePath: string
+  permission: string
+  actionType: 'export' | 'view'
+}
+
+const approvalEvidenceEntrypoints: ApprovalEvidenceEntrypoint[] = [
+  {
+    id: 'dcc-signature-evidence',
+    label: 'DCC签名证据PDF',
+    description: '导出 DCC 受控文件审批/签名记录证据 PDF，包含签名人、时间、含义和证据 hash。',
+    sourcePage: '电子签名记录',
+    routePath: '/signature-governance/signature-records',
+    permission: 'dcc:controlled-file:signature:manage',
+    actionType: 'export'
+  },
+  {
+    id: 'trusted-time-evidence',
+    label: '可信时间戳证据ZIP',
+    description: '导出已保存运行巡检中的可信时间证据包，用于证明签名时间由系统可信生成。',
+    sourcePage: '运行控制台',
+    routePath: '/infra/runtime-control',
+    permission: 'infra:runtime-control:operate',
+    actionType: 'export'
+  },
+  {
+    id: 'backup-review-evidence',
+    label: '备份审查证据ZIP',
+    description: '导出备份链、恢复演练和审查结论证据包，用于 CSV 和数据完整性审查。',
+    sourcePage: '备份计划',
+    routePath: '/system/backup-plan',
+    permission: 'system:backup-plan:evidence-export',
+    actionType: 'export'
+  },
+  {
+    id: 'account-security-evidence',
+    label: '账号安全与通用账号证据',
+    description: '导出用户清单和通用账号不合规清单，用于核对账户唯一性、共享账号和账号控制证据。',
+    sourcePage: '用户管理',
+    routePath: '/system/user',
+    permission: 'system:user:export',
+    actionType: 'export'
+  },
+  {
+    id: 'edhr-signature-records',
+    label: 'eDHR签名记录',
+    description: '查看 eDHR 正式签名记录，用于核对签名人、签名时间、认证方式、内容 hash 和签名含义。',
+    sourcePage: 'eDHR签名记录',
+    routePath: '/mes/pro/feedback/edhr-signatures',
+    permission: 'mes:pro-batch-record-execution:signature-query',
+    actionType: 'view'
+  },
+  {
+    id: 'edhr-field-audit-evidence',
+    label: 'eDHR字段审计证据',
+    description: '进入字段审计链导出字段变更证据，用于核对变更前后内容、修改原因和审计追踪完整性。',
+    sourcePage: '字段审计链',
+    routePath: '/mes/pro/feedback/edhr-field-audit',
+    permission: 'mes:pro-batch-record-execution:field-audit-query',
+    actionType: 'export'
+  },
+  {
+    id: 'approval-sequence-evidence',
+    label: '审批中心顺序证据',
+    description: '进入审批中心已办列表查看流程节点、处理人和审批时间线，用于核对多人审批顺序。',
+    sourcePage: '审批中心',
+    routePath: '/approval-center/done',
+    permission: 'bpm:task:query',
+    actionType: 'view'
+  },
+  {
+    id: 'edhr-archive-evidence',
+    label: 'eDHR批记录归档',
+    description: '进入 eDHR 历史追溯下载已密封批记录归档，用于核对批记录、审批、签名和归档证据。',
+    sourcePage: 'eDHR历史追溯',
+    routePath: '/mes/pro/feedback/edhr-batch-history',
+    permission: 'mes:pro-edhr-batch-execution:query',
+    actionType: 'export'
+  },
+  {
+    id: 'edhr-permission-matrix-evidence',
+    label: 'eDHR权限矩阵证据',
+    description: '进入对象权限矩阵评估页，用于核对签名人职责、业务对象权限和账号控制边界。',
+    sourcePage: 'eDHR对象权限',
+    routePath: '/mes/pro/feedback/edhr-permission-matrix',
+    permission: 'mes:pro-edhr-permission-scope:evaluate',
+    actionType: 'view'
+  }
+]
+
 const message = useMessage()
+const approvalEvidenceExportingId = ref<string>()
 
 const defaultColumns: UserTableColumnDefinition[] = [
   { key: 'item', label: '事项', width: 130 },
@@ -281,6 +426,142 @@ const requireText = (value: string, label: string) => {
 const failFast = (messageText: string, errorRef: { value: string }) => {
   errorRef.value = messageText
   message.error(messageText)
+}
+
+const openApprovalEvidenceEntrypoint = async (entrypoint: ApprovalEvidenceEntrypoint) => {
+  try {
+    await router.push({ path: entrypoint.routePath })
+  } catch (error) {
+    failFast(resolveErrorMessage(error, '证据导出入口跳转失败'), csvError)
+  }
+}
+
+const downloadFieldAuditExportPayload = (exportPayload: EdhrFieldAuditExportRespVO) => {
+  if (!exportPayload.fileName?.trim()) throw new Error('字段审计导出响应缺少 fileName，无法下载。')
+  if (!exportPayload.contentType?.trim()) throw new Error('字段审计导出响应缺少 contentType，无法下载。')
+  const { content } = exportPayload
+  let bytes: Uint8Array
+  if (Array.isArray(content)) {
+    if (!content.length) throw new Error('字段审计导出响应 content 为空，无法下载。')
+    bytes = Uint8Array.from(content)
+  } else if (typeof content === 'string' && content.trim()) {
+    const base64Content = content.includes(',') ? content.slice(content.indexOf(',') + 1) : content
+    const binary = window.atob(base64Content)
+    if (!binary.length) throw new Error('字段审计导出响应 content 为空，无法下载。')
+    bytes = new Uint8Array(binary.length)
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index)
+    }
+  } else {
+    throw new Error('字段审计导出响应缺少 content，无法下载。')
+  }
+  downloadByData(new Blob([bytes], { type: exportPayload.contentType }), exportPayload.fileName, exportPayload.contentType)
+}
+
+const exportDccSignatureEvidenceFromCsv = async () => {
+  if (!selectedDccSignatureCandidate.value) {
+    await loadDccSignatureCandidates()
+  }
+  const candidate = selectedDccSignatureCandidate.value
+  if (!candidate?.controlledFileId) {
+    throw new Error('请先在 CSV 质量包选择包含受控文件 ID 的 DCC 签名样本。')
+  }
+  await downloadDccSignatureEvidenceExport(candidate.controlledFileId)
+}
+
+const exportTrustedTimeEvidenceFromCsv = async () => {
+  const inspectionRun = await RuntimeControlApi.runRuntimeControlInspection()
+  if (!inspectionRun?.id) {
+    throw new Error('运行巡检未返回巡检编号，无法导出可信时间戳证据。')
+  }
+  const data = await RuntimeControlApi.downloadRuntimeControlTimeEvidence(inspectionRun.id)
+  download.zip(data, `可信时间证据_巡检${inspectionRun.id}.zip`)
+}
+
+const exportBackupReviewEvidenceFromCsv = async () => {
+  const blob = await downloadBackupEvidence()
+  downloadByData(blob, 'IntRuoyi-备份审查证据.zip', blob.type || 'application/zip')
+}
+
+const exportAccountSecurityEvidenceFromCsv = async () => {
+  const users = await UserApi.exportUser({ pageNo: 1, pageSize: 10 })
+  download.excel(users, '用户数据.xls')
+  const genericAccounts = await UserApi.exportGenericAccountUsers()
+  download.excel(genericAccounts, '通用账户不合规清单.xls')
+}
+
+const exportFieldAuditEvidenceFromCsv = async () => {
+  const page = await getEdhrFieldAuditPage({ pageNo: 1, pageSize: 1 })
+  const firstAudit = (page.list || [])[0]
+  if (!firstAudit?.executionId) {
+    throw new Error('当前没有可导出的 eDHR 字段审计记录。')
+  }
+  const exportPayload = await exportEdhrFieldAudit({
+    pageNo: 1,
+    pageSize: 1000,
+    executionId: firstAudit.executionId,
+    format: 'XLSX'
+  })
+  downloadFieldAuditExportPayload(exportPayload)
+}
+
+const exportEdhrArchiveEvidenceFromCsv = async () => {
+  const page = await getEdhrBatchExecutionPage({
+    pageNo: 1,
+    pageSize: 1,
+    status: EDHR_BATCH_STATUS_ARCHIVED
+  })
+  const batch = (page.list || [])[0]
+  if (!batch?.id) {
+    throw new Error('当前没有可导出的已归档 eDHR 批记录。')
+  }
+  const archive = await getLatestEdhrBatchArchive(batch.id)
+  if (!archive?.id) {
+    throw new Error('当前已归档批记录缺少可下载归档。')
+  }
+  await downloadEdhrBatchArchive(archive.id, archive.fileName, archive.artifactType)
+}
+
+const downloadApprovalEvidenceEntrypoint = async (entrypoint: ApprovalEvidenceEntrypoint) => {
+  approvalEvidenceExportingId.value = entrypoint.id
+  csvError.value = ''
+  try {
+    switch (entrypoint.id) {
+      case 'dcc-signature-evidence':
+        await exportDccSignatureEvidenceFromCsv()
+        break
+      case 'trusted-time-evidence':
+        await exportTrustedTimeEvidenceFromCsv()
+        break
+      case 'backup-review-evidence':
+        await exportBackupReviewEvidenceFromCsv()
+        break
+      case 'account-security-evidence':
+        await exportAccountSecurityEvidenceFromCsv()
+        break
+      case 'edhr-field-audit-evidence':
+        await exportFieldAuditEvidenceFromCsv()
+        break
+      case 'edhr-archive-evidence':
+        await exportEdhrArchiveEvidenceFromCsv()
+        break
+      default:
+        throw new Error(`未配置CSV质量包导出动作：${entrypoint.id}`)
+    }
+    message.success(`${entrypoint.label}已导出`)
+  } catch (error) {
+    failFast(resolveErrorMessage(error, `${entrypoint.label}导出失败`), csvError)
+  } finally {
+    approvalEvidenceExportingId.value = undefined
+  }
+}
+
+const handleApprovalEvidenceEntrypoint = async (entrypoint: ApprovalEvidenceEntrypoint) => {
+  if (entrypoint.actionType === 'view') {
+    await openApprovalEvidenceEntrypoint(entrypoint)
+    return
+  }
+  await downloadApprovalEvidenceEntrypoint(entrypoint)
 }
 
 const formatDccSignatureCandidate = (candidate: DccElectronicSignatureVO) => {
@@ -662,7 +943,83 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.signature-governance-list-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.csv-evidence-entrypoints {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: var(--el-bg-color);
+}
+
+.csv-evidence-entrypoints__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.csv-evidence-entrypoints__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.csv-evidence-entrypoints__hint {
+  margin-top: 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.csv-evidence-entrypoints__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.csv-evidence-entrypoints__item {
+  display: flex;
+  min-height: 126px;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--el-border-color-extra-light);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--el-fill-color-extra-light);
+}
+
+.csv-evidence-entrypoints__item-title {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.csv-evidence-entrypoints__item-desc {
+  flex: 1;
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.csv-evidence-entrypoints__item-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
 .signature-governance-list-pane__select {
   width: 320px;
+}
+
+@media (max-width: 1200px) {
+  .csv-evidence-entrypoints__grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

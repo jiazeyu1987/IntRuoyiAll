@@ -1,0 +1,35 @@
+const fs = require('node:fs')
+const path = require('node:path')
+const assert = require('node:assert/strict')
+
+const root = path.resolve(__dirname, '../..')
+const read = (relativePath) =>
+  fs.readFileSync(path.join(root, relativePath), 'utf8').replace(/\r\n/g, '\n')
+
+const dialog = read('src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue')
+
+const includes = (content, token, message) => assert.ok(content.includes(token), message)
+const notIncludes = (content, token, message) => assert.ok(!content.includes(token), message)
+
+includes(dialog, 'const selectedRuleKeys = ref<Set<string>>(new Set())', '填写配置必须维护多选单元格集合。')
+includes(dialog, "'is-selected': selectedRuleKeys.value.has(identity)", '所有已多选格子都必须显示主选中边框，不能只有最后点击格子有蓝框。')
+includes(dialog, "'is-active-selected': selectedRuleKey.value === identity", '最后点击格子必须保留当前焦点状态。')
+includes(dialog, "'is-multi-selected': selectedRuleKeys.value.has(identity)", '表格单元格必须保留多选状态。')
+includes(dialog, "data-fill-config-batch-selected-count", '右侧面板必须展示已选单元格数量。')
+includes(dialog, "data-fill-config-batch-field-type", '右侧面板必须提供批量字段类型选择入口。')
+includes(dialog, 'const batchFieldTypeOptions = cellRuleValueTypeOptions.filter', '批量字段类型必须复用正式字段类型选项。')
+includes(dialog, "option.value !== 'BOOLEAN'", '批量字段类型暂只开放文本、数字、日期、日期时间和电子签名。')
+includes(dialog, '@change="handleBatchValueTypeChange"', '批量字段类型选择必须绑定正式批量修改处理器。')
+includes(dialog, 'const handleBatchValueTypeChange = async (value: BatchRecordReportCellValueType) => {', '必须存在异步批量类型修改处理器。')
+includes(dialog, 'const resolveMappedSelectedRuleKeys = () =>', '必须先识别已映射的选中格子。')
+includes(dialog, 'batchMappingConflictDialogVisible', '已有映射时必须打开映射处理确认弹窗。')
+includes(dialog, 'data-fill-config-mapping-conflict-dialog', '确认弹窗必须有稳定测试锚点。')
+includes(dialog, "resolveBatchMappingConflict('keep')", '确认框必须允许保留原映射。')
+includes(dialog, "resolveBatchMappingConflict('clear')", '确认框必须允许清除原映射。')
+includes(dialog, "resolveBatchMappingConflict('cancel')", '确认框必须允许取消本次修改。')
+includes(dialog, 'clearAssistMappingsForRuleKeys(mappedRuleKeys)', '用户选择清除原映射时必须清除选中格子的辅助映射。')
+includes(dialog, 'applyValueTypeToRule(rule, value)', '批量修改必须复用单格类型修改语义。')
+includes(dialog, '.batch-record-cell-rules-editor__cell.is-active-selected', '必须用独立样式标识最后点击的焦点格子。')
+notIncludes(dialog, "message.error('所选单元格存在映射，不能修改字段类型。')", '不能强拦已有映射格子的类型修改。')
+
+console.log('PASS batch-record-cell-rules-multiselect-field-type-static')

@@ -123,10 +123,10 @@ const formData = ref({
   username: '',
   password: '',
   sex: undefined,
-  postIds: [],
+  postIds: [] as number[],
   remark: '',
   status: CommonStatusEnum.ENABLE,
-  roleIds: []
+  roleIds: [] as number[]
 })
 const formRules = reactive<FormRules>({
   username: [{ required: true, message: '用户名称不能为空', trigger: 'blur' }],

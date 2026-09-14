@@ -18,7 +18,7 @@ const packageJson = JSON.parse(readSource('package.json'))
 const categoriesPage = readSource('src/views/dcc/controlled-file/categories/index.vue')
 const accessRulePage = readSource('src/views/dcc/controlled-file/access-rules/index.vue')
 const directoryPage = readSource('src/views/dcc/controlled-file/directories/index.vue')
-const dccSchema = readWorkspaceSource('ruoyi-vue-pro/sql/mysql/20260513_dcc_base_schema.sql')
+const dccSchema = readWorkspaceSource('IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql')
 
 assert.equal(
   packageJson.scripts?.['e2e:dcc:permission-tabs-merge:static'],

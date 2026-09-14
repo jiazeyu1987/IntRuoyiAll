@@ -16,13 +16,13 @@ def test_dcc_publish_form_policy_seed_declares_release_metadata_and_fail_fast_gu
 
     assert sql.startswith(
         "-- release-migration: allowedEnvironments=test,backup,prod; "
-        "dependsOn=20260717_bpm_form_center,20260719_dcc_obsolete_form_policy_seed; "
+        "dependsOn=20260719_business_approval_policy,20260719_dcc_upload_form_policy_seed; "
         "type=data; riskLevel=medium"
     )
     assert "SET NAMES utf8mb4;" in sql
     assert "ensure_dcc_publish_form_policy" in sql
     assert "SIGNAL SQLSTATE '45000'" in sql
-    assert "DCC publish form policy requires bpm_form_action_policy" in sql
+    assert "DCC publish form policy requires bpm_business_approval_policy" in sql
     assert "DCC publish form policy conflict" in sql
     assert "DCC publish form policy duplicate" in sql
 
@@ -43,16 +43,18 @@ def test_dcc_publish_form_policy_seed_binds_form_center_publish_effect_contract(
         assert literal in sql
 
     assert re.search(
-        r"INSERT\s+INTO\s+`bpm_form_action_policy`[\s\S]+"
+        r"INSERT\s+INTO\s+`bpm_business_approval_policy`[\s\S]+"
         r"`data_domain`[\s\S]+`system_code`[\s\S]+`object_type`[\s\S]+"
-        r"`action_code`[\s\S]+`object_state`[\s\S]+`policy_type`[\s\S]+"
-        r"`bpm_process_key`[\s\S]+`effect_executor_code`",
+        r"`action_code`[\s\S]+`object_state`[\s\S]+`policy_mode`[\s\S]+"
+        r"`process_definition_key`[\s\S]+`effect_executor_code`[\s\S]+"
+        r"`form_policy_type`[\s\S]+`form_slots_json`",
         sql,
         re.I,
     )
+    assert "COALESCE(`policy`.`policy_mode`, '') <> 'BPM_REQUIRED'" in sql
     assert "COALESCE(`policy`.`effect_executor_code`, '') <> 'DCC_PUBLISH'" in sql
-    assert "COALESCE(`policy`.`policy_type`, '') <> 'NONE'" in sql
-    assert "COALESCE(`policy`.`slots_json`, '[]') <> '[]'" in sql
+    assert "COALESCE(`policy`.`form_policy_type`, '') <> 'NONE'" in sql
+    assert "COALESCE(`policy`.`form_slots_json`, '[]') <> '[]'" in sql
 
 
 def test_dcc_publish_form_policy_seed_derives_tenant_process_from_published_upload_policy() -> None:
@@ -60,16 +62,17 @@ def test_dcc_publish_form_policy_seed_derives_tenant_process_from_published_uplo
 
     assert "CREATE TEMPORARY TABLE `tmp_dcc_publish_policy_source`" in sql
     assert "`upload`.`tenant_id`" in sql
-    assert "`upload`.`bpm_process_key`" in sql
+    assert "`upload`.`process_definition_key`" in sql
     assert "`action_code` = 'UPLOAD'" in sql
     assert "`object_state` = 'DRAFT'" in sql
     assert "`status` = 'PUBLISHED'" in sql
     assert "MAX(`id`) AS `id`" in sql
     assert "GROUP BY `tenant_id`" in sql
-    assert "COALESCE(`bpm_process_key`, '') <> ''" in sql
+    assert "COALESCE(`process_definition_key`, '') <> ''" in sql
     assert "FROM `tmp_dcc_publish_policy_source` AS `source`" in sql
     assert "`source`.`tenant_id`" in sql
-    assert "`source`.`bpm_process_key`" in sql
+    assert "`source`.`process_definition_key`" in sql
+    assert "bpm_form_action_policy" not in sql
 
     assert "mes-route-version-approval-v1" not in sql
     assert "flowable:assignee" not in sql

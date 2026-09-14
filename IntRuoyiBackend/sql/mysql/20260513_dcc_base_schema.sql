@@ -283,6 +283,8 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `superseded_by_file_id` bigint DEFAULT NULL,
   `reject_reason` varchar(255) DEFAULT NULL,
   `finalization_error` varchar(500) DEFAULT NULL,
+  `checked_out_by` bigint DEFAULT NULL COMMENT '当前检出人用户ID',
+  `checked_out_time` datetime DEFAULT NULL COMMENT '当前检出时间',
   `tenant_id` bigint NOT NULL DEFAULT 0,
   `create_time` datetime DEFAULT NULL,
   `update_time` datetime DEFAULT NULL,
@@ -295,8 +297,37 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   KEY `idx_dcc_controlled_file_directory` (`directory_id`),
   KEY `idx_dcc_controlled_file_status` (`status`),
   KEY `idx_dcc_controlled_file_project_code` (`tenant_id`, `dcc_project_code_id`),
-  KEY `idx_dcc_controlled_file_type_level` (`tenant_id`, `file_type_level1`, `file_type_level2`)
+  KEY `idx_dcc_controlled_file_type_level` (`tenant_id`, `file_type_level1`, `file_type_level2`),
+  KEY `idx_dcc_controlled_file_checkout` (`tenant_id`, `checked_out_by`, `checked_out_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC controlled file revision';
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_print_record` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` BIGINT NOT NULL,
+  `file_number` VARCHAR(64) NOT NULL,
+  `version_no` VARCHAR(64) NOT NULL,
+  `print_no` VARCHAR(64) NOT NULL,
+  `purpose` VARCHAR(255) NOT NULL,
+  `copies` INT NOT NULL,
+  `receiving_department` VARCHAR(128) NOT NULL,
+  `use_location` VARCHAR(128) NOT NULL,
+  `print_user_id` BIGINT NOT NULL,
+  `print_user_name` VARCHAR(128) DEFAULT NULL,
+  `print_time` DATETIME NOT NULL,
+  `approval_status` VARCHAR(32) NOT NULL,
+  `approval_user_id` BIGINT DEFAULT NULL,
+  `approval_user_name` VARCHAR(128) DEFAULT NULL,
+  `approval_time` DATETIME DEFAULT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME DEFAULT NULL,
+  `update_time` DATETIME DEFAULT NULL,
+  `creator` VARCHAR(64) DEFAULT NULL,
+  `updater` VARCHAR(64) DEFAULT NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_controlled_print_no` (`tenant_id`, `print_no`, `deleted`),
+  KEY `idx_dcc_controlled_print_file` (`tenant_id`, `controlled_file_id`, `print_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC controlled file print record';
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_route_snapshot` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -597,6 +628,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_nas_transfer_task` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `operator_user_id` bigint NOT NULL,
   `template_category_id` bigint NOT NULL,
+  `dcc_project_code_id` bigint DEFAULT NULL COMMENT 'DCC project code selected for DCC submit',
   `product_master_id` bigint DEFAULT NULL COMMENT 'MDM product selected for DCC submit',
   `effective_date` date NOT NULL,
   `selected_nas_paths_json` longtext NOT NULL,
@@ -731,7 +763,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_access_log` (
   `purpose` varchar(64) DEFAULT NULL,
   `result` varchar(32) NOT NULL,
   `failure_code` varchar(64) DEFAULT NULL,
-  `reason` varchar(255) DEFAULT NULL,
+  `reason` varchar(2000) DEFAULT NULL,
   `source_ip` varchar(64) DEFAULT NULL,
   `request_id` varchar(128) DEFAULT NULL,
   `user_agent` varchar(512) DEFAULT NULL,
@@ -871,16 +903,11 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_download_record` (
   `file_version_no` varchar(64) NOT NULL,
   `user_id` bigint NOT NULL,
   `policy_version` varchar(64) NOT NULL,
-  `encryption_status` varchar(32) NOT NULL,
-  `encryption_policy_version` varchar(64) DEFAULT NULL,
-  `artifact_id` varchar(128) DEFAULT NULL,
-  `cipher_file_ref` varchar(255) DEFAULT NULL,
+  `download_status` varchar(32) NOT NULL,
   `plain_sha256` varchar(128) DEFAULT NULL,
-  `cipher_sha256` varchar(128) DEFAULT NULL,
   `failure_code` varchar(64) DEFAULT NULL,
   `failure_reason` varchar(500) DEFAULT NULL,
   `requested_at` datetime NOT NULL,
-  `encrypted_at` datetime DEFAULT NULL,
   `returned_at` datetime DEFAULT NULL,
   `tenant_id` bigint NOT NULL DEFAULT 0,
   `create_time` datetime DEFAULT NULL,
@@ -893,10 +920,11 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_download_record` (
   KEY `idx_dcc_protection_download_event` (`access_event_id`),
   KEY `idx_dcc_protection_download_file` (`controlled_file_id`, `file_version_no`),
   KEY `idx_dcc_protection_download_user_time` (`user_id`, `requested_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC controlled file encrypted download record';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC controlled file download record';
 
 CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `id` bigint NOT NULL AUTO_INCREMENT,
+  `product_master_id` bigint DEFAULT NULL COMMENT 'MDM product master id',
   `doc_control_no` varchar(64) DEFAULT NULL,
   `project_name` varchar(255) NOT NULL,
   `project_code` varchar(64) NOT NULL DEFAULT '',
@@ -908,6 +936,7 @@ CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `priority` varchar(64) DEFAULT NULL,
   `status` varchar(32) NOT NULL,
   `last_import_batch_id` bigint DEFAULT NULL,
+  `batch_record_total_recognition_json` longtext DEFAULT NULL COMMENT 'Word batch-record total recognition JSON',
   `associated_file_count` bigint NOT NULL DEFAULT 0,
   `tenant_id` bigint NOT NULL DEFAULT 0,
   `create_time` datetime DEFAULT NULL,
@@ -917,10 +946,48 @@ CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `deleted` tinyint NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_dcc_project_code_tenant_project` (`tenant_id`, `project_name`, `project_code`),
+  KEY `idx_dcc_project_code_product` (`tenant_id`, `product_master_id`),
   KEY `idx_dcc_project_code_status` (`tenant_id`, `status`),
   KEY `idx_dcc_project_code_category` (`tenant_id`, `category`),
   KEY `idx_dcc_project_code_priority` (`tenant_id`, `priority`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC project code basic data';
+
+CREATE TABLE IF NOT EXISTS `dcc_product_onboarding_request` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `product_master_id` bigint DEFAULT NULL COMMENT 'Existing or generated MDM product id',
+  `product_code` varchar(64) DEFAULT NULL COMMENT 'MDM product code snapshot',
+  `dcc_product_code` varchar(14) DEFAULT NULL COMMENT 'DCC product code snapshot',
+  `product_name_cn` varchar(255) DEFAULT NULL COMMENT 'Chinese product name snapshot',
+  `product_name_en` varchar(255) DEFAULT NULL COMMENT 'English product name snapshot',
+  `model_specification` varchar(255) DEFAULT NULL COMMENT 'Model/specification snapshot',
+  `product_category` varchar(128) DEFAULT NULL COMMENT 'MDM product category snapshot',
+  `doc_control_no` varchar(64) DEFAULT NULL,
+  `project_name` varchar(255) NOT NULL,
+  `project_code` varchar(64) NOT NULL DEFAULT '',
+  `category` varchar(128) DEFAULT NULL,
+  `commissioned_production` varchar(128) DEFAULT NULL,
+  `project_leader` varchar(128) DEFAULT NULL,
+  `project_engineer` varchar(128) DEFAULT NULL,
+  `storage_location` varchar(128) DEFAULT NULL,
+  `priority` varchar(64) DEFAULT NULL,
+  `status` varchar(32) NOT NULL,
+  `applicant_user_id` bigint NOT NULL,
+  `approver_user_id` bigint DEFAULT NULL,
+  `approved_time` datetime DEFAULT NULL,
+  `generated_project_code_id` bigint DEFAULT NULL,
+  `reject_reason` varchar(512) DEFAULT NULL,
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  `create_time` datetime DEFAULT NULL,
+  `update_time` datetime DEFAULT NULL,
+  `creator` varchar(64) DEFAULT NULL,
+  `updater` varchar(64) DEFAULT NULL,
+  `deleted` tinyint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_product_onboarding_pending_project` (`tenant_id`, `project_name`, `project_code`, `status`, `deleted`),
+  KEY `idx_dcc_product_onboarding_status` (`tenant_id`, `status`, `deleted`),
+  KEY `idx_dcc_product_onboarding_product` (`tenant_id`, `product_master_id`, `deleted`),
+  KEY `idx_dcc_product_onboarding_generated` (`tenant_id`, `generated_project_code_id`, `deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC product onboarding request';
 
 CREATE TABLE IF NOT EXISTS `dcc_project_code_alias_mapping` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -1265,6 +1332,11 @@ INSERT INTO `system_menu`
 (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)
 SELECT 6811, 'DCC受控下载', 'dcc:controlled-file:download', 3, 2, 6807, '', '', '', '', 0, b'1', b'1', b'1', '1', NOW(), '1', NOW(), b'0'
 WHERE NOT EXISTS (SELECT 1 FROM `system_menu` WHERE `permission` = 'dcc:controlled-file:download');
+
+INSERT INTO `system_menu`
+(`name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)
+SELECT 'DCC受控打印', 'dcc:controlled-file:print', 3, 4, 6807, '', '', '', '', 0, b'1', b'1', b'1', '1', NOW(), '1', NOW(), b'0'
+WHERE NOT EXISTS (SELECT 1 FROM `system_menu` WHERE `permission` = 'dcc:controlled-file:print');
 
 INSERT INTO `system_menu`
 (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)

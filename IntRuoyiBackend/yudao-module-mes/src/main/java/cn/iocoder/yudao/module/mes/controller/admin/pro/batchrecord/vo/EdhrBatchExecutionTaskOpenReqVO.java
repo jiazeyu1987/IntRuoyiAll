@@ -15,4 +15,6 @@ public class EdhrBatchExecutionTaskOpenReqVO {
     private Long taskId;
 
     private Long workTaskId;
+
+    private Long assistUserId;
 }

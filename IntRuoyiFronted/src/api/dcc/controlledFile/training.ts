@@ -5,6 +5,10 @@ import { getAccessToken, getTenantId, getVisitTenantId } from '@/utils/auth'
 import type { ControlledPreviewWatermark } from './workflow'
 import { CONTROLLED_FILE_PREVIEW_WATERMARK_HEADER } from './workflow'
 
+interface DccTrainingTaskRequestOptions {
+  ignoreErrorMessage?: boolean
+}
+
 export interface TrainingTaskProgressVO {
   progressId: number
   controlledFileId: number
@@ -19,10 +23,10 @@ export interface TrainingTaskProgressVO {
   requiredViewSeconds: number
   accumulatedViewSeconds: number
   eligibleToAcknowledge: boolean
-  firstViewedAt?: string
-  lastViewedAt?: string
-  acknowledgedAt?: string
-  publishedTime?: string
+  firstViewedAt?: number
+  lastViewedAt?: number
+  acknowledgedAt?: number
+  publishedTime?: number
   status: 'PENDING_VIEW' | 'READY_TO_ACKNOWLEDGE' | 'ACKNOWLEDGED'
 }
 
@@ -40,10 +44,10 @@ export interface TrainingExecutionRowVO {
   requiredViewSeconds: number
   accumulatedViewSeconds: number
   eligibleToAcknowledge: boolean
-  firstViewedAt?: string
-  lastViewedAt?: string
-  acknowledgedAt?: string
-  publishedTime?: string
+  firstViewedAt?: number
+  lastViewedAt?: number
+  acknowledgedAt?: number
+  publishedTime?: number
   status: 'PENDING_VIEW' | 'READY_TO_ACKNOWLEDGE' | 'ACKNOWLEDGED'
 }
 
@@ -108,9 +112,10 @@ const decodePreviewWatermark = (rawHeader: unknown): ControlledPreviewWatermark 
 }
 
 export const getMyTrainingTaskPage = async (
-  params: TrainingTaskPageReqVO
+  params: TrainingTaskPageReqVO,
+  options: DccTrainingTaskRequestOptions = {}
 ): Promise<PageResult<TrainingTaskProgressVO[]>> => {
-  return await request.get({ url: '/dcc/training-tasks/my-page', params })
+  return await request.get({ url: '/dcc/training-tasks/my-page', params, ...options })
 }
 
 export const getTrainingTask = async (progressId: number | string): Promise<TrainingTaskProgressVO> => {

@@ -88,28 +88,26 @@ assert.ok(
   /\.edhr-batch-detail__rail-execution-code\s*\{[\s\S]*?overflow-wrap:\s*anywhere;[\s\S]*?white-space:\s*normal;/.test(detail),
   '批次执行编号过长时必须允许自动换行，不能撑破右侧栏'
 )
-assertIncludes(
+assertExcludes(
   'class="edhr-batch-detail__primary-fill-meta"',
-  '填写人和提交时间必须保留一级界面可见的元信息块'
+  'Right red-box fill metadata must stay hidden'
 )
 assert.ok(
-  rail.includes('class="edhr-batch-detail__primary-fill-meta"') &&
-    rail.includes('primaryFormFillMetaItems'),
-  '填写人和提交时间必须显示在右侧黄框区域'
+  !rail.includes('class="edhr-batch-detail__primary-fill-meta"') &&
+    !rail.includes('primaryFormFillMetaItems'),
+  'Right rail must not render the red-box fill metadata block'
 )
 assert.ok(
-  rail.includes('v-if="showPrimaryFormFillMeta"') &&
-    !rail.includes('primaryFormFillMetaItems.length') &&
-    detail.includes('const showPrimaryFormFillMeta = computed'),
-  '右侧黄框填写元信息必须用脚本层布尔 computed 控制显示，避免模板读取 undefined.length'
+  !rail.includes('v-if="showPrimaryFormFillMeta"') &&
+    !detail.includes('const showPrimaryFormFillMeta = computed'),
+  'Right red-box fill metadata control logic must not remain'
 )
 assert.ok(
   !mainPreview.includes('class="edhr-batch-detail__primary-fill-meta"'),
   '顶部表单预览红框位置不得继续显示填写人和提交时间'
 )
-assertIncludes(
+assertExcludes(
   '.edhr-batch-detail__primary-fill-value',
-  '一级填写元信息必须有紧凑值样式，避免长姓名或时间撑破右侧操作栏'
+  'Right red-box fill metadata styles must not remain'
 )
-
 console.log('PASS: EDHR review summary right rail static contract')

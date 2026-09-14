@@ -1,0 +1,461 @@
+{
+  "runId": "20260802193142",
+  "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802193142",
+  "fileName": "Codex DCC 升版发布全链路 20260802193142",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "browserUser": "wangsiyu",
+  "taskDir": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-revision-publish-real-e2e",
+  "chainScript": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-upload-revision-e2e\\dcc-upload-revision-e2e.cjs",
+  "chainResultPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-revision-publish-real-e2e\\chain-result.json",
+  "startedAt": "2026-08-02T11:31:43.216Z",
+  "phases": [
+    {
+      "phase": "revision-publish-chain",
+      "status": "PASS"
+    },
+    {
+      "phase": "browser-and-history-verification",
+      "status": "PASS"
+    },
+    {
+      "phase": "final-readonly-db-verification",
+      "status": "PASS"
+    }
+  ],
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "chain": {
+    "status": "PASS",
+    "v1ControlledFileId": "2054545668044070293",
+    "v2ControlledFileId": "2054545668044070294",
+    "publishFormInstanceId": "439",
+    "publishBpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
+    "phases": [
+      {
+        "phase": "upload-V1.0",
+        "username": "pengyunfeng",
+        "controlledFileId": "2054545668044070293",
+        "previewFileName": "批记录节点-解析样本.docx",
+        "previewKind": "OFFICE"
+      },
+      {
+        "phase": "approve-V1.0",
+        "username": "zhaohaichen",
+        "role": "文控审核",
+        "userId": 376
+      },
+      {
+        "phase": "approve-V1.0",
+        "username": "zhaojie",
+        "role": "会签审核",
+        "userId": 1074
+      },
+      {
+        "phase": "approve-V1.0",
+        "username": "zhaomingyu",
+        "role": "会签批准",
+        "userId": 424
+      },
+      {
+        "phase": "approve-V1.0",
+        "username": "wangsiyu",
+        "role": "文控批准",
+        "userId": 910250
+      },
+      {
+        "phase": "upload-V2.0",
+        "username": "pengyunfeng",
+        "controlledFileId": "2054545668044070294",
+        "previewFileName": "过程检验记录.docx",
+        "previewKind": "OFFICE"
+      },
+      {
+        "phase": "approve-V2.0",
+        "username": "zhaohaichen",
+        "role": "文控审核",
+        "userId": 376
+      },
+      {
+        "phase": "approve-V2.0",
+        "username": "zhaojie",
+        "role": "会签审核",
+        "userId": 1074
+      },
+      {
+        "phase": "approve-V2.0",
+        "username": "zhaomingyu",
+        "role": "会签批准",
+        "userId": 424
+      },
+      {
+        "phase": "approve-V2.0",
+        "username": "wangsiyu",
+        "role": "文控批准",
+        "userId": 910250
+      },
+      {
+        "phase": "publish-submit",
+        "username": "wangsiyu",
+        "userId": 910250,
+        "controlledFileId": "2054545668044070294",
+        "formInstanceId": "439",
+        "bpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0"
+      },
+      {
+        "phase": "publish-approve",
+        "username": "zhaohaichen",
+        "role": "文控审核",
+        "userId": 376,
+        "bpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
+        "bpmTaskId": "e9f192b8-8e65-11f1-93ff-00155d2984a0",
+        "selectedNextApprover": {
+          "username": "zhaojie",
+          "userId": 1074,
+          "nickname": "赵杰"
+        },
+        "bpmSignatureUploaded": false
+      },
+      {
+        "phase": "publish-approve",
+        "username": "zhaojie",
+        "role": "会签审核",
+        "userId": 1074,
+        "bpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
+        "bpmTaskId": "f08317ab-8e65-11f1-93ff-00155d2984a0",
+        "selectedNextApprover": {
+          "username": "zhaomingyu",
+          "userId": 424,
+          "nickname": "赵明玉"
+        },
+        "bpmSignatureUploaded": false
+      },
+      {
+        "phase": "publish-approve",
+        "username": "zhaomingyu",
+        "role": "会签批准",
+        "userId": 424,
+        "bpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
+        "bpmTaskId": "095faecb-8e66-11f1-93ff-00155d2984a0",
+        "selectedNextApprover": {
+          "username": "wangsiyu",
+          "userId": 910250,
+          "nickname": "王思雨"
+        },
+        "bpmSignatureUploaded": false
+      },
+      {
+        "phase": "publish-approve",
+        "username": "wangsiyu",
+        "role": "文控批准",
+        "userId": 910250,
+        "bpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
+        "bpmTaskId": "316bc247-8e66-11f1-93ff-00155d2984a0",
+        "selectedNextApprover": null,
+        "bpmSignatureUploaded": false
+      },
+      {
+        "phase": "final-db-verification",
+        "v1Status": "SUPERSEDED",
+        "v2Status": "ACTIVE",
+        "currentActiveControlledFileId": "2054545668044070294",
+        "publishInstanceStatus": "EFFECTIVE"
+      }
+    ]
+  },
+  "browserVerification": {
+    "currentRow": {
+      "id": "2054545668044070294",
+      "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802193142",
+      "versionNo": "V2.0",
+      "status": "ACTIVE",
+      "publishedFileId": "",
+      "stampedFileId": ""
+    },
+    "detailFromBrowser": {
+      "id": "2054545668044070294",
+      "url": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070294?traceability=1&from=browser&returnTo=%252Fdcc%252Fcontrolled-file%252Fbrowser%253Fscope%253Dglobal%2526keyword%253DCODX-DCC-REV-FULL-20260802-20260802193142%2526status%253DACTIVE%2526pageNo%253D1%2526pageSize%253D10",
+      "versionNo": "V2.0",
+      "status": "ACTIVE",
+      "publishedFileId": "9198354916366",
+      "stampedFileId": "9198354916366"
+    },
+    "history": {
+      "v1": {
+        "id": "2054545668044070293",
+        "versionNo": "V1.0",
+        "status": "SUPERSEDED",
+        "successor": "2054545668044070294"
+      },
+      "v2": {
+        "id": "2054545668044070294",
+        "versionNo": "V2.0",
+        "status": "ACTIVE"
+      },
+      "revisionRemark": "升版 E2E 20260802193142"
+    },
+    "screenshots": {
+      "browserCurrentV2": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-revision-publish-real-e2e\\browser-current-v2.png",
+      "detailVersionHistory": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-revision-publish-real-e2e\\detail-version-history.png"
+    }
+  },
+  "databaseVerification": {
+    "files": [
+      {
+        "id": "2054545668044070293",
+        "title": "Codex DCC 升版发布全链路 20260802193142",
+        "remark": "新建 E2E 20260802193142",
+        "status": "SUPERSEDED",
+        "masterId": "2054545668044062902",
+        "versionNo": "V1.0",
+        "changeType": "NEW",
+        "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802193142",
+        "publishedTime": "2026-08-02 19:32:18",
+        "stampedFileId": "9198354916366",
+        "publishedFileId": "9198354916366",
+        "supersededByFileId": "2054545668044070294"
+      },
+      {
+        "id": "2054545668044070294",
+        "title": "Codex DCC 升版发布全链路 20260802193142",
+        "remark": "升版 E2E 20260802193142",
+        "status": "ACTIVE",
+        "masterId": "2054545668044062902",
+        "versionNo": "V2.0",
+        "changeType": "REVISION",
+        "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802193142",
+        "publishedTime": "2026-08-02 19:36:10",
+        "stampedFileId": "9198354916366",
+        "publishedFileId": "9198354916366",
+        "supersededByFileId": null
+      }
+    ],
+    "master": {
+      "id": "2054545668044062902",
+      "status": "ACTIVE_CHAIN",
+      "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802193142",
+      "currentActiveControlledFileId": "2054545668044070294"
+    },
+    "bpmSignatures": [],
+    "dccSignatures": [
+      {
+        "taskId": "c235260a-8e65-11f1-93ff-00155d2984a0",
+        "actorId": "376",
+        "signedAt": "2026-08-02 19:31:59",
+        "versionNo": "V1.0",
+        "actionType": "APPROVE",
+        "actorNickname": "赵海辰",
+        "actorUsername": "zhaohaichen",
+        "signatureMode": "PASSWORD",
+        "evidenceStatus": "VALID",
+        "controlledFileId": "2054545668044070293",
+        "passwordVerified": 1
+      },
+      {
+        "taskId": "c5d7532b-8e65-11f1-93ff-00155d2984a0",
+        "actorId": "1074",
+        "signedAt": "2026-08-02 19:32:04",
+        "versionNo": "V1.0",
+        "actionType": "APPROVE",
+        "actorNickname": "赵杰",
+        "actorUsername": "zhaojie",
+        "signatureMode": "PASSWORD",
+        "evidenceStatus": "VALID",
+        "controlledFileId": "2054545668044070293",
+        "passwordVerified": 1
+      },
+      {
+        "taskId": "c9530c8c-8e65-11f1-93ff-00155d2984a0",
+        "actorId": "424",
+        "signedAt": "2026-08-02 19:32:10",
+        "versionNo": "V1.0",
+        "actionType": "APPROVE",
+        "actorNickname": "赵明玉",
+        "actorUsername": "zhaomingyu",
+        "signatureMode": "PASSWORD",
+        "evidenceStatus": "VALID",
+        "controlledFileId": "2054545668044070293",
+        "passwordVerified": 1
+      },
+      {
+        "taskId": "ccc0bb23-8e65-11f1-93ff-00155d2984a0",
+        "actorId": "910250",
+        "signedAt": "2026-08-02 19:32:17",
+        "versionNo": "V1.0",
+        "actionType": "APPROVE",
+        "actorNickname": "王思雨",
+        "actorUsername": "wangsiyu",
+        "signatureMode": "PASSWORD",
+        "evidenceStatus": "VALID",
+        "controlledFileId": "2054545668044070293",
+        "passwordVerified": 1
+      },
+      {
+        "taskId": "d6c8c92b-8e65-11f1-93ff-00155d2984a0",
+        "actorId": "376",
+        "signedAt": "2026-08-02 19:32:33",
+        "versionNo": "V2.0",
+        "actionType": "APPROVE",
+        "actorNickname": "赵海辰",
+        "actorUsername": "zhaohaichen",
+        "signatureMode": "PASSWORD",
+        "evidenceStatus": "VALID",
+        "controlledFileId": "2054545668044070294",
+        "passwordVerified": 1
+      },
+      {
+        "taskId": "da4fa61c-8e65-11f1-93ff-00155d2984a0",
+        "actorId": "1074",
+        "signedAt": "2026-08-02 19:32:38",
+        "versionNo": "V2.0",
+        "actionType": "APPROVE",
+        "actorNickname": "赵杰",
+        "actorUsername": "zhaojie",
+        "signatureMode": "PASSWORD",
+        "evidenceStatus": "VALID",
+        "controlledFileId": "2054545668044070294",
+        "passwordVerified": 1
+      },
+      {
+        "taskId": "dd8c5aad-8e65-11f1-93ff-00155d2984a0",
+        "actorId": "424",
+        "signedAt": "2026-08-02 19:32:44",
+        "versionNo": "V2.0",
+        "actionType": "APPROVE",
+        "actorNickname": "赵明玉",
+        "actorUsername": "zhaomingyu",
+        "signatureMode": "PASSWORD",
+        "evidenceStatus": "VALID",
+        "controlledFileId": "2054545668044070294",
+        "passwordVerified": 1
+      },
+      {
+        "taskId": "e1325854-8e65-11f1-93ff-00155d2984a0",
+        "actorId": "910250",
+        "signedAt": "2026-08-02 19:32:52",
+        "versionNo": "V2.0",
+        "actionType": "APPROVE",
+        "actorNickname": "王思雨",
+        "actorUsername": "wangsiyu",
+        "signatureMode": "PASSWORD",
+        "evidenceStatus": "VALID",
+        "controlledFileId": "2054545668044070294",
+        "passwordVerified": 1
+      }
+    ],
+    "publishInstance": {
+      "id": "439",
+      "status": "EFFECTIVE",
+      "objectId": "2054545668044070294",
+      "objectVersion": "V2.0",
+      "bpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0"
+    },
+    "uploadApprovalTasks": [
+      {
+        "endTime": "2026-08-02 19:31:58",
+        "assignee": "376",
+        "taskName": "文控审核",
+        "startTime": "2026-08-02 19:31:52",
+        "processInstanceId": "c234fee8-8e65-11f1-93ff-00155d2984a0",
+        "taskDefinitionKey": "DOC_CONTROL_REVIEW"
+      },
+      {
+        "endTime": "2026-08-02 19:32:04",
+        "assignee": "1074",
+        "taskName": "审核会签",
+        "startTime": "2026-08-02 19:31:58",
+        "processInstanceId": "c234fee8-8e65-11f1-93ff-00155d2984a0",
+        "taskDefinitionKey": "MATRIX_REVIEW"
+      },
+      {
+        "endTime": "2026-08-02 19:32:10",
+        "assignee": "424",
+        "taskName": "批准",
+        "startTime": "2026-08-02 19:32:04",
+        "processInstanceId": "c234fee8-8e65-11f1-93ff-00155d2984a0",
+        "taskDefinitionKey": "MATRIX_APPROVAL"
+      },
+      {
+        "endTime": "2026-08-02 19:32:17",
+        "assignee": "910250",
+        "taskName": "文控批准",
+        "startTime": "2026-08-02 19:32:10",
+        "processInstanceId": "c234fee8-8e65-11f1-93ff-00155d2984a0",
+        "taskDefinitionKey": "DOC_CONTROL_APPROVAL"
+      },
+      {
+        "endTime": "2026-08-02 19:32:33",
+        "assignee": "376",
+        "taskName": "文控审核",
+        "startTime": "2026-08-02 19:32:27",
+        "processInstanceId": "d6c87af9-8e65-11f1-93ff-00155d2984a0",
+        "taskDefinitionKey": "DOC_CONTROL_REVIEW"
+      },
+      {
+        "endTime": "2026-08-02 19:32:38",
+        "assignee": "1074",
+        "taskName": "审核会签",
+        "startTime": "2026-08-02 19:32:33",
+        "processInstanceId": "d6c87af9-8e65-11f1-93ff-00155d2984a0",
+        "taskDefinitionKey": "MATRIX_REVIEW"
+      },
+      {
+        "endTime": "2026-08-02 19:32:44",
+        "assignee": "424",
+        "taskName": "批准",
+        "startTime": "2026-08-02 19:32:38",
+        "processInstanceId": "d6c87af9-8e65-11f1-93ff-00155d2984a0",
+        "taskDefinitionKey": "MATRIX_APPROVAL"
+      },
+      {
+        "endTime": "2026-08-02 19:32:52",
+        "assignee": "910250",
+        "taskName": "文控批准",
+        "startTime": "2026-08-02 19:32:44",
+        "processInstanceId": "d6c87af9-8e65-11f1-93ff-00155d2984a0",
+        "taskDefinitionKey": "DOC_CONTROL_APPROVAL"
+      }
+    ],
+    "publishApprovalTasks": [
+      {
+        "endTime": "2026-08-02 19:34:59",
+        "assignee": "424",
+        "taskName": "批准",
+        "startTime": "2026-08-02 19:33:52",
+        "processInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
+        "taskDefinitionKey": "MATRIX_APPROVAL"
+      },
+      {
+        "endTime": "2026-08-02 19:36:10",
+        "assignee": "910250",
+        "taskName": "文控批准",
+        "startTime": "2026-08-02 19:34:59",
+        "processInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
+        "taskDefinitionKey": "DOC_CONTROL_APPROVAL"
+      },
+      {
+        "endTime": "2026-08-02 19:33:10",
+        "assignee": "376",
+        "taskName": "文控审核",
+        "startTime": "2026-08-02 19:32:59",
+        "processInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
+        "taskDefinitionKey": "DOC_CONTROL_REVIEW"
+      },
+      {
+        "endTime": "2026-08-02 19:33:52",
+        "assignee": "1074",
+        "taskName": "审核会签",
+        "startTime": "2026-08-02 19:33:10",
+        "processInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
+        "taskDefinitionKey": "MATRIX_REVIEW"
+      }
+    ]
+  },
+  "v1ControlledFileId": "2054545668044070293",
+  "v2ControlledFileId": "2054545668044070294",
+  "publishFormInstanceId": "439",
+  "publishBpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
+  "finishedAt": "2026-08-02T11:36:47.401Z",
+  "status": "PASS"
+}

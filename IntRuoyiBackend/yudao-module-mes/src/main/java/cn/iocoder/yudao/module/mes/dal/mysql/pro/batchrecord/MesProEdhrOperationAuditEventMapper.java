@@ -39,4 +39,26 @@ public interface MesProEdhrOperationAuditEventMapper extends BaseMapperX<MesProE
                 .orderByDesc(MesProEdhrOperationAuditEventDO::getOccurredAt)
                 .orderByDesc(MesProEdhrOperationAuditEventDO::getId));
     }
+
+    default List<MesProEdhrOperationAuditEventDO> selectSuccessfulListByBatchExecutionIdAndOperation(
+            Long batchExecutionId, String operationType) {
+        return selectList(new LambdaQueryWrapperX<MesProEdhrOperationAuditEventDO>()
+                .eq(MesProEdhrOperationAuditEventDO::getBatchExecutionId, batchExecutionId)
+                .eq(MesProEdhrOperationAuditEventDO::getOperationType, operationType)
+                .eq(MesProEdhrOperationAuditEventDO::getResultStatus, "SUCCESS")
+                .orderByDesc(MesProEdhrOperationAuditEventDO::getOccurredAt)
+                .orderByDesc(MesProEdhrOperationAuditEventDO::getId));
+    }
+
+    default List<MesProEdhrOperationAuditEventDO> selectSuccessfulOpenListByActiveOrderId(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProEdhrOperationAuditEventDO>()
+                .eq(MesProEdhrOperationAuditEventDO::getOperationType, "OPEN")
+                .eq(MesProEdhrOperationAuditEventDO::getResultStatus, "SUCCESS")
+                .like(MesProEdhrOperationAuditEventDO::getMetadataJson, "\"activeOrderId\":" + activeOrderId)
+                .orderByDesc(MesProEdhrOperationAuditEventDO::getOccurredAt)
+                .orderByDesc(MesProEdhrOperationAuditEventDO::getId));
+    }
 }

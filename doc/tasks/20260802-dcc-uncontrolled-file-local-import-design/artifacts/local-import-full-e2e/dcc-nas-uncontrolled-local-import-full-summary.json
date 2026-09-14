@@ -1,0 +1,93 @@
+{
+  "localDir": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-uncontrolled-file-local-import-design\\artifacts\\local-import-full-e2e",
+  "nasReadyCount": 3,
+  "requestEvents": [
+    {
+      "type": "import-selected",
+      "method": "POST"
+    },
+    {
+      "type": "content",
+      "method": "GET"
+    },
+    {
+      "type": "local-write-result",
+      "method": "POST"
+    },
+    {
+      "type": "content",
+      "method": "GET"
+    },
+    {
+      "type": "local-write-result",
+      "method": "POST"
+    }
+  ],
+  "harnessEvents": [
+    {
+      "type": "showDirectoryPicker",
+      "path": ""
+    },
+    {
+      "type": "getDirectoryHandle",
+      "path": "PTCABC"
+    },
+    {
+      "type": "getDirectoryHandle",
+      "path": "PTCABC/设计验证方案"
+    },
+    {
+      "type": "getFileHandle",
+      "path": "PTCABC/设计验证方案/2025年质量方针与目标.pdf"
+    },
+    {
+      "type": "createWritable",
+      "path": "PTCABC/设计验证方案/2025年质量方针与目标.pdf"
+    },
+    {
+      "type": "write",
+      "path": "PTCABC/设计验证方案/2025年质量方针与目标.pdf",
+      "byteLength": 504442
+    },
+    {
+      "type": "close",
+      "path": "PTCABC/设计验证方案/2025年质量方针与目标.pdf",
+      "byteLength": 504442
+    },
+    {
+      "type": "getDirectoryHandle",
+      "path": "_未分类待处理"
+    },
+    {
+      "type": "getDirectoryHandle",
+      "path": "_未分类待处理/1. QMS documents"
+    },
+    {
+      "type": "getDirectoryHandle",
+      "path": "_未分类待处理/1. QMS documents/0 QM"
+    },
+    {
+      "type": "getFileHandle",
+      "path": "_未分类待处理/1. QMS documents/0 QM/2026年质量方针与目标(1).pdf"
+    },
+    {
+      "type": "createWritable",
+      "path": "_未分类待处理/1. QMS documents/0 QM/2026年质量方针与目标(1).pdf"
+    },
+    {
+      "type": "write",
+      "path": "_未分类待处理/1. QMS documents/0 QM/2026年质量方针与目标(1).pdf",
+      "byteLength": 487322
+    },
+    {
+      "type": "close",
+      "path": "_未分类待处理/1. QMS documents/0 QM/2026年质量方针与目标(1).pdf",
+      "byteLength": 487322
+    }
+  ],
+  "databaseSummary": {
+    "TASK_COUNT": 1,
+    "LOCAL_WRITTEN_ITEMS": 2,
+    "ACTIVE_SOURCE_COUNT": 0
+  }
+}

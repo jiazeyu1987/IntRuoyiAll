@@ -6,6 +6,8 @@ public interface ErpKingdeeStockSyncService {
 
     ErpKingdeeStockSyncResult syncStocks();
 
+    ErpKingdeeStockSyncResult syncStocksFullSkipExisting();
+
     ErpKingdeeStockSyncResult syncStocksModifiedBetween(LocalDateTime windowStart, LocalDateTime windowEnd);
 
 }

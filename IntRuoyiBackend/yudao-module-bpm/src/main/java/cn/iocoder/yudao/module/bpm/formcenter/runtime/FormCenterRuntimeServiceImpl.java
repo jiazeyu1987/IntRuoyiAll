@@ -1,401 +1,723 @@
 package cn.iocoder.yudao.module.bpm.formcenter.runtime;
 
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
+import cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi;
 import cn.iocoder.yudao.module.bpm.api.task.dto.BpmProcessInstanceCreateReqDTO;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalContext;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalPolicy;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalPolicyMode;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequest;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalErrorCode;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalException;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalOrchestrator;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalRequestStore;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.*;
-import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.*;
-import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.*;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.businessapproval.BusinessApprovalPolicyDO;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionSnapshotDO;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormEffectExecutionDO;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionPolicyDO;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTaskPermissionDO;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
+import cn.iocoder.yudao.module.bpm.dal.mysql.businessapproval.BusinessApprovalPolicyMapper;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionPolicyMapper;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionSnapshotMapper;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormEffectExecutionMapper;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTaskPermissionMapper;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMapper;
+import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants;
 import cn.iocoder.yudao.module.bpm.formcenter.model.*;
 import cn.iocoder.yudao.module.bpm.formcenter.service.FormBusinessEffectExecutor;
 import cn.iocoder.yudao.module.bpm.formcenter.service.FormBusinessEffectPrecheck;
 import cn.iocoder.yudao.module.bpm.formcenter.service.FormBusinessEffectResult;
 import cn.iocoder.yudao.module.bpm.formcenter.service.FormControlledActionLifecycleAdapter;
-import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants;
-import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
+import cn.iocoder.yudao.module.bpm.formcenter.service.FormActionPolicyResolveService;
+import cn.iocoder.yudao.module.bpm.formcenter.service.FormTemplateRecognizer;
 import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.annotation.Resource;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.context.annotation.Lazy;
+import org.flowable.task.api.Task;
+import org.flowable.engine.TaskService;
+import org.jeecg.modules.jmreport.desreport.dao.JimuReportDao;
+import org.jeecg.modules.jmreport.desreport.entity.JimuReport;
+import org.jeecg.modules.jmreport.desreport.entity.JimuReportCategory;
+import org.jeecg.modules.jmreport.desreport.model.TreeModel;
+import org.jeecg.modules.jmreport.desreport.service.IJimuReportCategoryService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.Base64;
+import java.util.Date;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
 
+    private static final String FORM_TEMPLATE_REPORT_PREFIX = "FORMTPL:";
+    private static final String FORM_TEMPLATE_JIMU_CATEGORY_NAME = "表单中心模板";
+    private static final String FILL_FORM_PREVIEW_CSS = """
+            .fillForm-box,
+            .fillForm-box .ivu-form-item,
+            .fillForm-box .ivu-form-item-content {
+              background: transparent !important;
+            }
+            .fillForm-box .inputText,
+            .fillForm-box textarea,
+            .fillForm-box .ivu-input {
+              border: 0 !important;
+              background: transparent !important;
+              box-shadow: none !important;
+              border-radius: 0 !important;
+              padding: 0 2px !important;
+            }
+            .fillForm-box .ivu-input-wrapper,
+            .fillForm-box .ivu-input-type-text,
+            .fillForm-box .ivu-input-type-textarea {
+              border: 0 !important;
+              background: transparent !important;
+              box-shadow: none !important;
+            }
+            """;
     private static final String BUSINESS_KEY_PREFIX = "FORM_ACTION:";
-    private static final String STATUS_DRAFT = "DRAFT";
-    private static final String STATUS_PUBLISHED = "PUBLISHED";
-    private static final TypeReference<List<FormPolicySlot>> POLICY_SLOT_LIST =
-            new TypeReference<>() {
-            };
-    private static final TypeReference<Map<String, Object>> MAP_TYPE =
-            new TypeReference<>() {
-            };
-    private static final TypeReference<List<String>> STRING_LIST =
-            new TypeReference<>() {
-            };
+    private static final String TEMPLATE_IMPORT_ACTION_CREATE = "CREATE";
+    private static final String TEMPLATE_IMPORT_ACTION_UPGRADE = "UPGRADE";
+    private static final String TEMPLATE_PARSE_ONLY_VERSION_NO = "PARSE_ONLY";
+    private static final String TEMPLATE_PARSE_PRODUCTION_BATCH_RECORD = "PRODUCTION_BATCH_RECORD";
+    private static final String TEMPLATE_PARSE_PRODUCTION_BATCH_RECORD_NAME = "生产批记录";
+    private static final String TEMPLATE_ACTION_OBSOLETE = "OBSOLETE";
+    private static final String FORM_TEMPLATE_APPROVAL_DATA_DOMAIN = "FORM_CENTER";
+    private static final String FORM_TEMPLATE_APPROVAL_SYSTEM_CODE = "FORM_CENTER";
+    private static final String FORM_TEMPLATE_APPROVAL_OBJECT_TYPE = "FORM_TEMPLATE";
+    private static final Pattern AUTO_VERSION_PATTERN = Pattern.compile("^([Vv]?)(\\d+)((?:\\.\\d+)*)$");
 
     @Resource
     private FormTemplateVersionMapper templateVersionMapper;
     @Resource
-    private FormActionPolicyMapper policyMapper;
+    private IJimuReportCategoryService reportCategoryService;
     @Resource
-    private FormActionInstanceMapper instanceMapper;
+    private JimuReportDao jimuReportDao;
     @Resource
-    private FormActionSnapshotMapper snapshotMapper;
+    private FormActionPolicyMapper actionPolicyMapper;
+    @Resource
+    private BusinessApprovalPolicyMapper businessApprovalPolicyMapper;
+    @Resource
+    private FormActionInstanceMapper actionInstanceMapper;
+    @Resource
+    private FormActionSnapshotMapper actionSnapshotMapper;
     @Resource
     private FormTaskPermissionMapper taskPermissionMapper;
     @Resource
     private FormEffectExecutionMapper effectExecutionMapper;
     @Resource
-    @Lazy
-    private BpmProcessInstanceService processInstanceService;
+    private FormTemplateRecognizer templateRecognizer;
     @Resource
-    private ObjectProvider<FormBusinessEffectExecutor> effectExecutorProvider;
+    private FormTemplateFillRuleAutoDetectService formTemplateFillRuleAutoDetectService;
     @Resource
-    private ObjectProvider<FormControlledActionLifecycleAdapter> lifecycleAdapterProvider;
+    private BpmProcessInstanceApi processInstanceApi;
+    @Resource
+    private TaskService flowableTaskService;
+    @Autowired(required = false)
+    private BusinessApprovalOrchestrator businessApprovalOrchestrator;
+    @Autowired(required = false)
+    private BusinessApprovalRequestStore businessApprovalRequestStore;
+    @Autowired(required = false)
+    private List<FormControlledActionLifecycleAdapter> lifecycleAdapters = List.of();
+    @Autowired(required = false)
+    private List<FormBusinessEffectExecutor> effectExecutors = List.of();
 
     @Override
     public PageResult<FormCenterTemplateRespVO> getTemplatePool(FormCenterTemplatePoolPageReqVO reqVO) {
-        reqVO.setTenantId(currentTenantIdIfAbsent(reqVO.getTenantId()));
-        PageResult<FormTemplateVersionDO> page = templateVersionMapper.selectPage(reqVO);
-        return new PageResult<>(page.getList().stream().map(this::toTemplateRespVO).toList(), page.getTotal());
+        reqVO.setTenantId(resolveTenantId(reqVO.getTenantId()));
+        PageResult<FormTemplateVersionDO> pageResult = templateVersionMapper.selectPage(reqVO);
+        return new PageResult<>(pageResult.getList().stream().map(this::toTemplateResp).toList(),
+                pageResult.getTotal());
+    }
+
+    @Override
+    public FormCenterTemplateRespVO getTemplateVersion(Long templateId, String versionNo) {
+        return toTemplateResp(requireCurrentTenantTemplateVersion(templateId, versionNo));
+    }
+
+    @Override
+    public String getTemplateDesignerPath(Long templateId, String versionNo) {
+        FormTemplateVersionDO version = requireCurrentTenantTemplateVersion(templateId, versionNo);
+        String reportId = buildFormTemplateReportId(version);
+        ensureFormTemplateJimuReport(version, reportId);
+        return buildTemplatePreviewPath(reportId);
+    }
+
+    @Override
+    public String getTemplateEditPath(Long templateId, String versionNo) {
+        FormTemplateVersionDO version = requireCurrentTenantTemplateVersion(templateId, versionNo);
+        requireDraftTemplateVersion(version, templateId + "/" + versionNo);
+        String reportId = buildFormTemplateReportId(version);
+        ensureFormTemplateJimuReport(version, reportId);
+        return buildTemplateDesignerPath(reportId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public FormTemplateEditableDraftRespVO ensureTemplateEditableDraft(Long templateId, String versionNo) {
+        FormTemplateVersionDO sourceVersion = requireCurrentTenantTemplateVersion(templateId, versionNo);
+        FormTemplateVersionDO editableVersion = sourceVersion;
+        boolean draftCreated = false;
+        if (!FormTemplateStatus.DRAFT.name().equals(sourceVersion.getStatus())) {
+            editableVersion = templateVersionMapper.selectDraftByTemplateId(
+                    TenantContextHolder.getRequiredTenantId(), templateId);
+            if (editableVersion == null) {
+                editableVersion = cloneTemplateVersionAsDraft(sourceVersion, resolveNextDraftVersionNo(sourceVersion));
+                templateVersionMapper.insert(editableVersion);
+                draftCreated = true;
+            }
+        }
+        return toEditableDraftResp(sourceVersion, editableVersion, draftCreated);
     }
 
     @Override
     public PageResult<FormPolicyRespVO> getPolicyPage(FormPolicyPageReqVO reqVO) {
-        reqVO.setTenantId(currentTenantIdIfAbsent(reqVO.getTenantId()));
-        PageResult<FormActionPolicyDO> page = policyMapper.selectPage(reqVO);
-        return new PageResult<>(page.getList().stream().map(this::toPolicyRespVO).toList(), page.getTotal());
+        reqVO.setTenantId(resolveTenantId(reqVO.getTenantId()));
+        PageResult<FormActionPolicyDO> pageResult = actionPolicyMapper.selectPage(reqVO);
+        return new PageResult<>(pageResult.getList().stream().map(this::toPolicyResp).toList(),
+                pageResult.getTotal());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public FormPolicyRespVO savePolicy(FormPolicySaveReqVO reqVO) {
+    public FormCenterTemplateImportRespVO importDoc(FormCenterTemplateImportReqVO reqVO, Long applicantUserId) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
-        List<FormPolicySlot> slots = toPolicySlots(tenantId, reqVO.getSlots());
-        FormActionPolicyDO policy = FormActionPolicyDO.builder()
+        String templateName = normalizeTemplateName(reqVO.getTemplateName());
+        FormTemplateVersionDO latestExisting = resolveImportTargetTemplate(tenantId, templateName,
+                reqVO.getSelectedTemplateId());
+        boolean upgradeImport = latestExisting != null;
+        String versionNo = upgradeImport ? nextVersionNo(latestExisting.getVersionNo()) : "V1.0";
+        byte[] sourceBytes = readSourceBytes(reqVO);
+        FormTemplateImportCommand command = FormTemplateImportCommand.of(templateName, versionNo,
+                reqVO.getFile().getOriginalFilename(), sourceBytes, reqVO.getRemark());
+        validateDocSource(command);
+        FormTemplateRecognition recognition = templateRecognizer.recognize(command);
+        if (!recognition.isSuccess() || recognition.getFields().isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template recognition failed: " + recognition.getFailureReason());
+        }
+        String recognizedJimuSchemaJson = requireRecognizedVisualSchema(recognition.getJimuSchemaJson());
+        FormTemplateVersionDO insertObj = FormTemplateVersionDO.builder()
                 .tenantId(tenantId)
-                .dataDomain(reqVO.getDataDomain())
-                .systemCode(reqVO.getSystemCode())
-                .objectType(reqVO.getObjectType())
-                .actionCode(reqVO.getActionCode())
-                .objectState(reqVO.getObjectState())
-                .policyType(reqVO.getPolicyType())
-                .approvalMode(resolveApprovalMode(reqVO.getApprovalMode()).name())
-                .bpmProcessKey(reqVO.getBpmProcessKey())
-                .effectExecutorCode(reqVO.getEffectExecutorCode())
-                .status(STATUS_DRAFT)
-                .slotsJson(JsonUtils.toJsonString(slots))
-                .remark(reqVO.getRemark())
-                .build();
-        policyMapper.insert(policy);
-        return toPolicyRespVO(policy);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void publishPolicy(Long policyId) {
-        FormActionPolicyDO policy = requirePolicy(policyId);
-        requireEffectExecutor(policy.getEffectExecutorCode());
-        if (FormApprovalMode.BPM_REQUIRED.name().equals(policy.getApprovalMode())
-                && isBlank(policy.getBpmProcessKey())) {
-            throw new FormCenterException(FormCenterErrorCode.BPM_BINDING_MISSING,
-                    "BPM process key is required before publishing policy: " + policyId);
-        }
-        policy.setStatus(STATUS_PUBLISHED);
-        policyMapper.updateById(policy);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public FormPolicyRespVO switchPolicyApprovalMode(Long policyId, FormPolicySwitchApprovalModeReqVO reqVO) {
-        FormActionPolicyDO policy = requirePolicy(policyId);
-        FormApprovalMode approvalMode = resolveApprovalMode(reqVO.getApprovalMode());
-        policy.setApprovalMode(approvalMode.name());
-        if (!isBlank(reqVO.getBpmProcessKey())) {
-            policy.setBpmProcessKey(reqVO.getBpmProcessKey());
-        }
-        if (approvalMode == FormApprovalMode.BPM_REQUIRED && isBlank(policy.getBpmProcessKey())) {
-            throw new FormCenterException(FormCenterErrorCode.BPM_BINDING_MISSING,
-                    "BPM process key is required for BPM_REQUIRED policy: " + policyId);
-        }
-        policyMapper.updateById(policy);
-        return toPolicyRespVO(policy);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public FormCenterTemplateImportRespVO importDoc(FormCenterTemplateImportReqVO reqVO, Long userId) {
-        MultipartFile file = reqVO.getFile();
-        if (file == null || file.isEmpty()) {
-            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
-                    "Template source file is required");
-        }
-        String fileName = Objects.requireNonNullElse(file.getOriginalFilename(), "");
-        if (!fileName.endsWith(".doc") && !fileName.endsWith(".docx")) {
-            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_TYPE_UNSUPPORTED,
-                    "Only doc/docx template source is supported: " + fileName);
-        }
-        Long tenantId = TenantContextHolder.getRequiredTenantId();
-        Long templateId = resolveImportTemplateId(tenantId, reqVO);
-        String versionNo = nextVersionNo(tenantId, templateId, reqVO.getTemplateName());
-        FormTemplateVersionDO version = FormTemplateVersionDO.builder()
-                .templateId(templateId)
-                .tenantId(tenantId)
-                .templateName(reqVO.getTemplateName())
+                .templateId(upgradeImport ? latestExisting.getTemplateId() : null)
+                .templateName(templateName)
                 .versionNo(versionNo)
                 .status(FormTemplateStatus.DRAFT.name())
-                .sourceFileName(fileName)
-                .sourceFileContent(readFileContent(file))
-                .recognizedSchemaJson(JsonUtils.toJsonString(List.of()))
+                .sourceFileName(command.getSourceFileName())
+                .sourceFileContent(Base64.getEncoder().encodeToString(sourceBytes))
+                .recognizedSchemaJson(JsonUtils.toJsonString(recognition.getFields()))
+                .jimuSchemaJson(recognizedJimuSchemaJson)
                 .remark(reqVO.getRemark())
                 .build();
-        templateVersionMapper.insert(version);
-        if (version.getTemplateId() == null) {
-            version.setTemplateId(version.getId());
-            templateVersionMapper.updateById(version);
+        templateVersionMapper.insert(insertObj);
+        if (!upgradeImport) {
+            insertObj.setTemplateId(insertObj.getId());
+            templateVersionMapper.updateById(insertObj);
         }
+
         FormCenterTemplateImportRespVO respVO = new FormCenterTemplateImportRespVO();
-        respVO.setTemplateId(version.getTemplateId());
-        respVO.setVersionNo(version.getVersionNo());
-        respVO.setStatus(version.getStatus());
-        respVO.setImportAction(reqVO.getSelectedTemplateId() == null ? "CREATE" : "UPGRADE");
-        respVO.setSourceTemplateId(reqVO.getSelectedTemplateId());
-        respVO.setRecognizedFields(List.of());
+        respVO.setTemplateId(insertObj.getTemplateId());
+        respVO.setVersionNo(insertObj.getVersionNo());
+        respVO.setStatus(insertObj.getStatus());
+        respVO.setImportAction(upgradeImport ? TEMPLATE_IMPORT_ACTION_UPGRADE : TEMPLATE_IMPORT_ACTION_CREATE);
+        respVO.setSourceTemplateId(upgradeImport ? latestExisting.getTemplateId() : null);
+        if (upgradeImport) {
+            BusinessApprovalRequest approvalRequest = submitTemplateUpgradeApproval(tenantId, insertObj,
+                    applicantUserId, reqVO.getRemark());
+            respVO.setApprovalRequestId(approvalRequest.getRequestId());
+            respVO.setApprovalProcessInstanceId(approvalRequest.getProcessInstanceId());
+            if (approvalRequest.getResultState() != null && !approvalRequest.getResultState().isBlank()) {
+                respVO.setStatus(approvalRequest.getResultState());
+            }
+        }
+        respVO.setRecognizedFields(recognition.getFields());
+        respVO.setWarnings(List.of());
+        return respVO;
+    }
+
+    @Override
+    public FormCenterTemplateParseJsonRespVO parseProductionBatchRecordJson(FormCenterTemplateParseJsonReqVO reqVO) {
+        MultipartFile file = reqVO.getFile();
+        String sourceFileName = resolveSourceFileName(file);
+        byte[] sourceBytes = readSourceBytes(file);
+        FormTemplateImportCommand command = FormTemplateImportCommand.of(resolveParseTemplateName(sourceFileName),
+                TEMPLATE_PARSE_ONLY_VERSION_NO, sourceFileName, sourceBytes,
+                TEMPLATE_PARSE_PRODUCTION_BATCH_RECORD_NAME + "解析");
+        validateDocSource(command);
+        FormTemplateRecognition recognition = templateRecognizer.recognize(command);
+        if (!recognition.isSuccess() || recognition.getFields().isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template recognition failed: " + recognition.getFailureReason());
+        }
+        String recognizedJimuSchemaJson = requireRecognizedVisualSchema(recognition.getJimuSchemaJson());
+
+        FormCenterTemplateParseJsonRespVO respVO = new FormCenterTemplateParseJsonRespVO();
+        respVO.setParseType(TEMPLATE_PARSE_PRODUCTION_BATCH_RECORD);
+        respVO.setParseTypeName(TEMPLATE_PARSE_PRODUCTION_BATCH_RECORD_NAME);
+        respVO.setSourceFileName(sourceFileName);
+        respVO.setRecognizedFields(recognition.getFields());
+        respVO.setRecognizedSchemaJson(JsonUtils.toJsonString(recognition.getFields()));
+        respVO.setJimuSchemaJson(recognizedJimuSchemaJson);
         respVO.setWarnings(List.of());
         return respVO;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public FormPolicyRespVO savePolicy(FormPolicySaveReqVO reqVO) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        FormPolicyType policyType = parsePolicyType(reqVO.getPolicyType());
+        List<FormPolicySlot> slots = reqVO.getSlots().stream().map(this::toPolicySlot).toList();
+        validatePolicySlots(policyType, slots);
+
+        FormActionPolicyDO insertObj = FormActionPolicyDO.builder()
+                .tenantId(tenantId)
+                .dataDomain(reqVO.getDataDomain())
+                .systemCode(reqVO.getSystemCode())
+                .objectType(reqVO.getObjectType())
+                .actionCode(reqVO.getActionCode())
+                .objectState(reqVO.getObjectState())
+                .policyType(policyType.name())
+                .approvalMode(parseApprovalModeOrDefault(reqVO.getApprovalMode()).name())
+                .bpmProcessKey(reqVO.getBpmProcessKey())
+                .effectExecutorCode(reqVO.getEffectExecutorCode())
+                .status("DRAFT")
+                .slotsJson(JsonUtils.toJsonString(slots))
+                .remark(reqVO.getRemark())
+                .build();
+        actionPolicyMapper.insert(insertObj);
+        return toPolicyResp(insertObj);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void publishPolicy(Long policyId) {
+        FormActionPolicyDO policy = requirePolicy(policyId);
+        FormApprovalMode approvalMode = parseApprovalModeOrDefault(policy.getApprovalMode());
+        if (approvalMode == FormApprovalMode.BPM_REQUIRED
+                && (policy.getBpmProcessKey() == null || policy.getBpmProcessKey().isBlank())) {
+            throw new FormCenterException(FormCenterErrorCode.BPM_BINDING_MISSING,
+                    "BPM process key is required before publishing form policy");
+        }
+        if (policy.getEffectExecutorCode() == null || policy.getEffectExecutorCode().isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.EFFECT_EXECUTOR_MISSING,
+                    "Effect executor code is required before publishing form policy");
+        }
+        List<FormPolicySlot> slots = parsePolicySlots(policy.getSlotsJson());
+        validatePolicySlots(parsePolicyType(policy.getPolicyType()), slots);
+        for (FormPolicySlot slot : slots) {
+            FormTemplateVersionDO version = requireLatestPublishedTemplateVersion(policy.getTenantId(), slot);
+            if (!FormTemplateStatus.PUBLISHED.name().equals(version.getStatus())) {
+                throw new FormCenterException(FormCenterErrorCode.TEMPLATE_VERSION_IMMUTABLE,
+                        "Only published template versions can be bound to published form policy: "
+                                + version.getTemplateId() + "/" + version.getVersionNo());
+            }
+        }
+        policy.setStatus(FormActionPolicy.STATUS_PUBLISHED);
+        actionPolicyMapper.updateById(policy);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public FormPolicyRespVO switchPolicyApprovalMode(Long policyId, FormPolicySwitchApprovalModeReqVO reqVO) {
+        FormActionPolicyDO sourcePolicy = requirePolicy(policyId);
+        if (!FormActionPolicy.STATUS_PUBLISHED.equals(sourcePolicy.getStatus())) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
+                    "Only published form policy can switch approval mode: " + policyId);
+        }
+        FormApprovalMode targetMode = parseApprovalMode(reqVO.getApprovalMode());
+        String targetProcessKey = resolveSwitchBpmProcessKey(sourcePolicy, targetMode, reqVO.getBpmProcessKey());
+        if (sourcePolicy.getEffectExecutorCode() == null || sourcePolicy.getEffectExecutorCode().isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.EFFECT_EXECUTOR_MISSING,
+                    "Effect executor code is required before switching form policy approval mode");
+        }
+        List<FormPolicySlot> slots = parsePolicySlots(sourcePolicy.getSlotsJson());
+        validatePolicySlots(parsePolicyType(sourcePolicy.getPolicyType()), slots);
+
+        sourcePolicy.setStatus("DISABLED");
+        actionPolicyMapper.updateById(sourcePolicy);
+
+        FormActionPolicyDO targetPolicy = FormActionPolicyDO.builder()
+                .tenantId(sourcePolicy.getTenantId())
+                .dataDomain(sourcePolicy.getDataDomain())
+                .systemCode(sourcePolicy.getSystemCode())
+                .objectType(sourcePolicy.getObjectType())
+                .actionCode(sourcePolicy.getActionCode())
+                .objectState(sourcePolicy.getObjectState())
+                .policyType(sourcePolicy.getPolicyType())
+                .approvalMode(targetMode.name())
+                .bpmProcessKey(targetProcessKey)
+                .effectExecutorCode(sourcePolicy.getEffectExecutorCode())
+                .status(FormActionPolicy.STATUS_PUBLISHED)
+                .slotsJson(sourcePolicy.getSlotsJson())
+                .remark(sourcePolicy.getRemark())
+                .build();
+        actionPolicyMapper.insert(targetPolicy);
+        return toPolicyResp(targetPolicy);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void saveJimuSchema(Long templateId, String versionNo, FormCenterTemplateJimuSchemaReqVO reqVO) {
         FormTemplateVersionDO version = requireTemplateVersion(templateId, versionNo);
-        requireStatus(version, FormTemplateStatus.DRAFT, FormTemplateStatus.READY);
+        if (!FormTemplateStatus.DRAFT.name().equals(version.getStatus())) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_VERSION_IMMUTABLE,
+                    "Only draft template versions can be adjusted: " + templateId + "/" + versionNo);
+        }
         version.setJimuSchemaJson(reqVO.getJimuSchema());
         templateVersionMapper.updateById(version);
     }
 
     @Override
+    public void validateTemplateJimuReportSaveWritable(String reportId, Long tenantId) {
+        executeWithRequiredTenant(tenantId, () -> requireDraftTemplateVersionForJimuReport(reportId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void syncTemplateJimuReportSave(String reportId, Long tenantId) {
+        executeWithRequiredTenant(tenantId, () -> {
+            FormTemplateVersionDO version = requireDraftTemplateVersionForJimuReport(reportId);
+            JimuReport report = jimuReportDao.get(reportId);
+            if (report == null || report.getJsonStr() == null || report.getJsonStr().isBlank()) {
+                throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                        "Saved Jimu report json is missing: " + reportId);
+            }
+            version.setJimuSchemaJson(mergeFormTemplateDesignerJson(version, report.getJsonStr(), reportId));
+            templateVersionMapper.updateById(version);
+        });
+    }
+
+    @Override
+    public FormTemplateFillRuleAutoDetectRespVO autoDetectTemplateFillRules(Long templateId, String versionNo) {
+        return formTemplateFillRuleAutoDetectService.detect(templateId, versionNo);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void publishTemplate(Long templateId, String versionNo) {
-        updateTemplateStatus(templateId, versionNo, FormTemplateStatus.PUBLISHED);
+        FormTemplateVersionDO version = requireTemplateVersion(templateId, versionNo);
+        if (FormTemplateStatus.OBSOLETE.name().equals(version.getStatus())) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_VERSION_IMMUTABLE,
+                    "Obsolete template versions cannot be published: " + templateId + "/" + versionNo);
+        }
+        if (FormTemplateStatus.PENDING_APPROVAL.name().equals(version.getStatus())) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_VERSION_IMMUTABLE,
+                    "Template versions pending approval cannot be published directly: " + templateId + "/" + versionNo);
+        }
+        version.setStatus(FormTemplateStatus.PUBLISHED.name());
+        templateVersionMapper.updateById(version);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void disableTemplate(Long templateId, String versionNo) {
-        updateTemplateStatus(templateId, versionNo, FormTemplateStatus.DISABLED);
+        FormTemplateVersionDO version = requireTemplateVersion(templateId, versionNo);
+        if (FormTemplateStatus.OBSOLETE.name().equals(version.getStatus())) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_VERSION_IMMUTABLE,
+                    "Obsolete template versions cannot be disabled: " + templateId + "/" + versionNo);
+        }
+        if (FormTemplateStatus.PENDING_APPROVAL.name().equals(version.getStatus())) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_VERSION_IMMUTABLE,
+                    "Template versions pending approval cannot be disabled directly: " + templateId + "/" + versionNo);
+        }
+        version.setStatus(FormTemplateStatus.DISABLED.name());
+        templateVersionMapper.updateById(version);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void enableTemplate(Long templateId, String versionNo) {
-        updateTemplateStatus(templateId, versionNo, FormTemplateStatus.PUBLISHED);
+        FormTemplateVersionDO version = requireTemplateVersion(templateId, versionNo);
+        if (!FormTemplateStatus.DISABLED.name().equals(version.getStatus())) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_VERSION_IMMUTABLE,
+                    "Only disabled template versions can be enabled: " + templateId + "/" + versionNo);
+        }
+        version.setStatus(FormTemplateStatus.PUBLISHED.name());
+        templateVersionMapper.updateById(version);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void obsoleteTemplate(Long templateId, String versionNo) {
-        updateTemplateStatus(templateId, versionNo, FormTemplateStatus.OBSOLETE);
+        requireCurrentTenantTemplateVersion(templateId, versionNo);
+        throw new FormCenterException(FormCenterErrorCode.TEMPLATE_VERSION_IMMUTABLE,
+                "Template obsolete requires BPM approval request: " + templateId + "/" + versionNo);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public FormTemplateObsoleteRespVO submitTemplateObsoleteRequest(Long templateId, String versionNo,
-            FormTemplateObsoleteReqVO reqVO, Long userId) {
-        FormTemplateVersionDO version = requireTemplateVersion(templateId, versionNo);
-        BusinessActionContextReqVO context = buildTemplateContext(version, "OBSOLETE", reqVO.getReason());
-        FormInstanceCreateReqVO createReqVO = new FormInstanceCreateReqVO();
-        createReqVO.setContext(context);
-        createReqVO.setIdempotencyKey("TPL-OBSOLETE-" + version.getId());
-        createReqVO.setFormData(Map.of("reason", reqVO.getReason(), "templateVersionId", version.getId()));
-        FormInstanceRespVO draft = createInstance(createReqVO, userId);
-        FormInstanceSubmitReqVO submitReqVO = new FormInstanceSubmitReqVO();
-        submitReqVO.setFormData(createReqVO.getFormData());
-        submitReqVO.setStartUserSelectAssignees(reqVO.getStartUserSelectAssignees());
-        FormInstanceRespVO submitted = submitInstance(draft.getId(), submitReqVO, userId);
+            FormTemplateObsoleteReqVO reqVO, Long applicantUserId) {
+        FormTemplateVersionDO version = requireCurrentTenantTemplateVersion(templateId, versionNo);
+        if (FormTemplateStatus.PENDING_APPROVAL.name().equals(version.getStatus())) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_VERSION_IMMUTABLE,
+                    "Template versions pending approval cannot submit duplicate obsolete request: "
+                            + templateId + "/" + versionNo);
+        }
+        if (FormTemplateStatus.OBSOLETE.name().equals(version.getStatus())) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_VERSION_IMMUTABLE,
+                    "Obsolete template versions cannot submit obsolete request: " + templateId + "/" + versionNo);
+        }
+        BusinessApprovalRequest approvalRequest = submitTemplateObsoleteApproval(version, applicantUserId,
+                normalizeObsoleteReason(reqVO.getReason()), reqVO.getStartUserSelectAssignees());
         FormTemplateObsoleteRespVO respVO = new FormTemplateObsoleteRespVO();
-        respVO.setApprovalRequestId(submitted.getId());
-        respVO.setApprovalProcessInstanceId(submitted.getBpmProcessInstanceId());
-        respVO.setStatus(submitted.getStatus());
+        respVO.setApprovalRequestId(approvalRequest.getRequestId());
+        respVO.setApprovalProcessInstanceId(approvalRequest.getProcessInstanceId());
+        respVO.setStatus(approvalRequest.getResultState() == null || approvalRequest.getResultState().isBlank()
+                ? FormTemplateStatus.PENDING_APPROVAL.name() : approvalRequest.getResultState());
         return respVO;
     }
 
     @Override
     public FormTemplateObsoletePendingRespVO findTemplateObsoletePendingRequest(Long templateId, String versionNo,
-            Long userId) {
-        FormTemplateVersionDO version = requireTemplateVersion(templateId, versionNo);
-        BusinessActionContextReqVO context = buildTemplateContext(version, "OBSOLETE", null);
-        FormInstanceRespVO active = findActiveBusinessAction(context);
-        if (active == null) {
-            return null;
-        }
-        FormActionInstanceDO instance = requireInstance(active.getId());
-        FormTemplateObsoletePendingRespVO respVO = new FormTemplateObsoletePendingRespVO();
-        respVO.setApprovalRequestId(instance.getId());
-        respVO.setApprovalProcessInstanceId(instance.getBpmProcessInstanceId());
-        respVO.setApplicantUserId(instance.getApplicantUserId());
-        respVO.setCanWithdraw(Objects.equals(instance.getApplicantUserId(), userId));
-        respVO.setObjectState(instance.getObjectState());
-        respVO.setStatus(instance.getStatus());
-        respVO.setReason(context.getReason());
-        return respVO;
+            Long currentUserId) {
+        FormTemplateVersionDO version = requireCurrentTenantTemplateVersion(templateId, versionNo);
+        return findTemplateObsoletePendingRequest(version, currentUserId);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void withdrawTemplateObsoleteRequest(Long templateId, String versionNo, String reason, Long userId) {
-        FormTemplateVersionDO version = requireTemplateVersion(templateId, versionNo);
-        BusinessActionContextReqVO context = buildTemplateContext(version, "OBSOLETE", reason);
-        FormInstanceRespVO active = findActiveBusinessAction(context);
-        if (active == null) {
-            throw new FormCenterException(FormCenterErrorCode.FORM_INSTANCE_STATUS_INVALID,
-                    "No active obsolete request for template: " + templateId + "/" + versionNo);
+    public void withdrawTemplateObsoleteRequest(Long templateId, String versionNo, String reason, Long currentUserId) {
+        FormTemplateVersionDO version = requireCurrentTenantTemplateVersion(templateId, versionNo);
+        BusinessApprovalRequest request = requireTemplateObsoletePendingRequest(version);
+        if (!Objects.equals(request.getContext().getApplicantUserId(), currentUserId)) {
+            throw new FormCenterException(FormCenterErrorCode.BPM_TASK_PERMISSION_MISSING,
+                    "Only obsolete request applicant can withdraw: " + request.getRequestId());
         }
-        abandonInstance(active.getId(), userId);
+        if (request.getProcessInstanceId() == null || request.getProcessInstanceId().isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.BPM_BINDING_MISSING,
+                    "Obsolete request process instance is missing: " + request.getRequestId());
+        }
+        processInstanceApi.cancelProcessInstance(currentUserId, request.getProcessInstanceId(),
+                normalizeWithdrawReason(reason));
     }
 
     @Override
     public byte[] getTemplateSourceFile(Long templateId, String versionNo) {
         FormTemplateVersionDO version = requireTemplateVersion(templateId, versionNo);
         if (version.getSourceFileContent() == null) {
-            return new byte[0];
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template source file not found: " + templateId + "/" + versionNo);
         }
         return Base64.getDecoder().decode(version.getSourceFileContent());
     }
 
     @Override
     public FormActionResolutionRespVO resolveAction(BusinessActionContextReqVO reqVO) {
+        reqVO.setTenantId(resolveTenantId(reqVO.getTenantId()));
         BusinessActionContext context = toContext(reqVO);
-        FormActionPolicyDO policy = requirePublishedPolicy(context);
-        return toResolutionRespVO(toResolution(policy));
+        List<FormActionPolicy> policies = businessApprovalPolicyMapper.selectPublishedByAction(reqVO.getTenantId(),
+                        reqVO.getDataDomain(), reqVO.getSystemCode(), reqVO.getObjectType(), reqVO.getActionCode(),
+                        reqVO.getObjectState())
+                .stream().map(this::toPolicy).toList();
+        FormActionResolution resolution = new FormActionPolicyResolveService(policies).resolve(context);
+        return toResolutionResp(resolution);
     }
 
     @Override
     public FormInstanceRespVO findActiveBusinessAction(BusinessActionContextReqVO reqVO) {
-        BusinessActionContext context = toContext(reqVO);
-        List<FormActionInstanceDO> instances = instanceMapper.selectByBusinessActionAndStatuses(context.getTenantId(),
-                context.getSystemCode(), context.getObjectType(), context.getObjectId(), context.getActionCode(),
-                List.of(FormInstanceStatus.IN_APPROVAL.name(), FormInstanceStatus.REWORKING.name()));
-        return instances.isEmpty() ? null : toInstanceRespVO(instances.get(0));
+        reqVO.setTenantId(resolveTenantId(reqVO.getTenantId()));
+        FormActionInstanceDO active = actionInstanceMapper.selectActiveByBusinessObject(reqVO.getTenantId(),
+                reqVO.getSystemCode(), reqVO.getObjectType(), reqVO.getObjectId());
+        return active == null ? null : toInstanceResp(active);
+    }
+
+    @Override
+    public FormInstanceRespVO findBusinessActionByIdempotency(BusinessActionContextReqVO reqVO,
+                                                               String idempotencyKey) {
+        if (reqVO == null || StrUtil.isBlank(idempotencyKey)
+                || StrUtil.isBlank(reqVO.getSystemCode()) || StrUtil.isBlank(reqVO.getObjectType())
+                || StrUtil.isBlank(reqVO.getObjectId()) || StrUtil.isBlank(reqVO.getObjectVersion())
+                || StrUtil.isBlank(reqVO.getActionCode())) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                    "Business action idempotency lookup context is incomplete");
+        }
+        reqVO.setTenantId(resolveTenantId(reqVO.getTenantId()));
+        FormActionInstanceDO existing = actionInstanceMapper.selectByBusinessActionAndIdempotency(
+                reqVO.getTenantId(), reqVO.getSystemCode(), reqVO.getObjectType(), reqVO.getObjectId(),
+                reqVO.getObjectVersion(), reqVO.getActionCode(), StrUtil.trim(idempotencyKey));
+        return existing == null ? null : toInstanceResp(existing);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public FormInstanceRespVO createInstance(FormInstanceCreateReqVO reqVO, Long userId) {
-        BusinessActionContext context = toContext(reqVO.getContext());
-        FormActionPolicyDO policy = requirePublishedPolicy(context);
-        FormActionInstanceDO instance = FormActionInstanceDO.builder()
-                .instanceCode("FCI-" + context.getTenantId() + "-" + UUID.randomUUID())
-                .tenantId(context.getTenantId())
-                .policyId(policy.getId())
+        reqVO.getContext().setTenantId(resolveTenantId(reqVO.getContext().getTenantId()));
+        FormActionResolutionRespVO resolution = resolveAction(reqVO.getContext());
+        List<FormActionInstanceDO> sameInstances = actionInstanceMapper.selectSameBusinessAction(
+                reqVO.getContext().getTenantId(), reqVO.getContext().getSystemCode(), reqVO.getContext().getObjectType(),
+                reqVO.getContext().getObjectId(), reqVO.getContext().getObjectVersion(), reqVO.getContext().getActionCode());
+        for (FormActionInstanceDO sameInstance : sameInstances) {
+            if (Objects.equals(sameInstance.getApplicantUserId(), userId)
+                    && FormInstanceStatus.DRAFT.name().equals(sameInstance.getStatus())) {
+                ensureDraftIdempotencyMatches(reqVO, sameInstance);
+                return toInstanceResp(sameInstance);
+            }
+            if (FormInstanceStatus.IN_APPROVAL.name().equals(sameInstance.getStatus())
+                    || FormInstanceStatus.REWORKING.name().equals(sameInstance.getStatus())) {
+                throw new FormCenterException(FormCenterErrorCode.DUPLICATE_APPLICATION_ACTIVE,
+                        "Active duplicate form action instance exists: " + sameInstance.getInstanceCode());
+            }
+        }
+        FormActionInstanceDO insertObj = FormActionInstanceDO.builder()
+                .instanceCode("FCI-" + reqVO.getContext().getTenantId() + "-" + System.currentTimeMillis())
+                .tenantId(reqVO.getContext().getTenantId())
+                .policyId(resolution.getPolicyId())
                 .applicantUserId(userId)
                 .status(FormInstanceStatus.DRAFT.name())
-                .dataDomain(context.getDataDomain())
-                .systemCode(context.getSystemCode())
-                .objectType(context.getObjectType())
-                .objectId(context.getObjectId())
-                .objectVersion(context.getObjectVersion())
-                .actionCode(context.getActionCode())
-                .objectState(context.getObjectState())
+                .dataDomain(reqVO.getContext().getDataDomain())
+                .systemCode(reqVO.getContext().getSystemCode())
+                .objectType(reqVO.getContext().getObjectType())
+                .objectId(reqVO.getContext().getObjectId())
+                .objectVersion(reqVO.getContext().getObjectVersion())
+                .actionCode(reqVO.getContext().getActionCode())
+                .objectState(reqVO.getContext().getObjectState())
                 .idempotencyKey(reqVO.getIdempotencyKey())
-                .businessContextJson(JsonUtils.toJsonString(context))
-                .formDataJson(toJson(reqVO.getFormData()))
+                .businessContextJson(JsonUtils.toJsonString(reqVO.getContext()))
+                .formDataJson(JsonUtils.toJsonString(reqVO.getFormData()))
                 .build();
-        instanceMapper.insert(instance);
-        if (reqVO.getFormData() != null && !reqVO.getFormData().isEmpty()) {
-            recordSnapshot(instance, FormSnapshotType.DRAFT, reqVO.getFormData(), List.of());
+        actionInstanceMapper.insert(insertObj);
+        recordSnapshot(insertObj, FormSnapshotType.DRAFT, insertObj.getFormDataJson());
+        return toInstanceResp(insertObj);
+    }
+
+    private void ensureDraftIdempotencyMatches(FormInstanceCreateReqVO reqVO, FormActionInstanceDO sameInstance) {
+        String requestedKey = StrUtil.trim(reqVO.getIdempotencyKey());
+        String existingKey = StrUtil.trim(sameInstance.getIdempotencyKey());
+        if (StrUtil.isNotBlank(requestedKey) && StrUtil.equals(requestedKey, existingKey)) {
+            return;
         }
-        return toInstanceRespVO(instance);
+        throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_IDEMPOTENCY_CONFLICT,
+                "当前请求与已有草稿的请求标识不一致或缺失，不能复用草稿：" + sameInstance.getInstanceCode());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void saveDraft(Long instanceId, FormInstanceDraftReqVO reqVO, Long userId) {
         FormActionInstanceDO instance = requireInstance(instanceId);
-        requireOwner(instance, userId);
         requireStatus(instance, FormInstanceStatus.DRAFT, FormInstanceStatus.REWORKING);
-        instance.setFormDataJson(toJson(reqVO.getFormData()));
-        instanceMapper.updateById(instance);
-        recordSnapshot(instance, FormSnapshotType.DRAFT, reqVO.getFormData(), parseAttachmentIds(reqVO.getAttachmentIds()));
+        instance.setFormDataJson(JsonUtils.toJsonString(reqVO.getFormData()));
+        actionInstanceMapper.updateById(instance);
+        recordSnapshot(instance, FormSnapshotType.DRAFT, instance.getFormDataJson());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public FormInstanceRespVO submitInstance(Long instanceId, FormInstanceSubmitReqVO reqVO, Long userId) {
         FormActionInstanceDO instance = requireInstance(instanceId);
-        requireOwner(instance, userId);
         requireStatus(instance, FormInstanceStatus.DRAFT, FormInstanceStatus.REWORKING);
-        FormActionPolicyDO policy = requirePolicy(instance.getPolicyId());
-        instance.setFormDataJson(toJson(reqVO.getFormData()));
-        recordSnapshot(instance, FormSnapshotType.SUBMIT, reqVO.getFormData(), List.of());
-        if (FormApprovalMode.DIRECT.name().equals(policy.getApprovalMode())) {
-            return applyDirectEffect(instance);
+        BusinessApprovalPolicyDO policy = requireBusinessApprovalPolicy(instance.getPolicyId());
+        FormActionPolicy resolvedPolicy = toPolicy(policy);
+        FormApprovalMode approvalMode = resolvedPolicy.getApprovalMode();
+        if (approvalMode == FormApprovalMode.BPM_REQUIRED
+                && (resolvedPolicy.getBpmProcessKey() == null || resolvedPolicy.getBpmProcessKey().isBlank())) {
+            throw new FormCenterException(FormCenterErrorCode.BPM_BINDING_MISSING,
+                    "BPM process key is required before form action submit");
         }
-        FormActionInstance runtimeInstance = toRuntimeInstance(instance, policy);
-        preflightLifecycle(runtimeInstance);
-        BpmProcessInstanceCreateReqDTO reqDTO = buildBpmRequest(instance, policy, reqVO.getStartUserSelectAssignees());
-        String processInstanceId = processInstanceService.createProcessInstance(userId, reqDTO);
-        instance.setBpmProcessInstanceId(processInstanceId);
-        instance.setStatus(FormInstanceStatus.IN_APPROVAL.name());
-        instanceMapper.updateById(instance);
-        notifyPendingApprovalStarted(toRuntimeInstance(instance, policy));
-        return toInstanceRespVO(instance);
+        FormActionInstance domainInstance = toDomainInstance(instance, resolvedPolicy);
+        domainInstance.setFormData(reqVO.getFormData());
+        FormControlledActionLifecycleAdapter lifecycleAdapter = runLifecyclePreflight(domainInstance);
+        if (approvalMode == FormApprovalMode.DIRECT) {
+            instance.setFormDataJson(JsonUtils.toJsonString(reqVO.getFormData()));
+            actionInstanceMapper.updateById(instance);
+            recordSnapshot(instance, FormSnapshotType.SUBMIT, instance.getFormDataJson());
+            FormEffectExecutionRespVO response = applyBusinessEffect(instance, resolvedPolicy);
+            FormControlledActionApprovalOutcome outcome = FormEffectStatus.APPLIED.name().equals(response.getStatus())
+                    ? FormControlledActionApprovalOutcome.EFFECTIVE
+                    : FormControlledActionApprovalOutcome.EFFECT_FAILED_PENDING;
+            notifyPendingApprovalClosed(instance, outcome, null, lifecycleAdapter);
+            return toInstanceResp(instance);
+        }
+        String processInstanceId = processInstanceApi.createProcessInstance(userId,
+                buildBpmRequest(instance, resolvedPolicy, reqVO.getStartUserSelectAssignees()));
+        try {
+            instance.setStatus(FormInstanceStatus.IN_APPROVAL.name());
+            instance.setFormDataJson(JsonUtils.toJsonString(reqVO.getFormData()));
+            instance.setBpmProcessInstanceId(processInstanceId);
+            actionInstanceMapper.updateById(instance);
+            recordSnapshot(instance, FormSnapshotType.SUBMIT, instance.getFormDataJson());
+            persistCurrentActiveTaskPermissions(instance);
+            domainInstance.setStatus(FormInstanceStatus.IN_APPROVAL);
+            domainInstance.setBpmBinding(new FormBpmBinding(processInstanceId, null));
+            lifecycleAdapter.onPendingApprovalStarted(domainInstance);
+        } catch (RuntimeException submitFailure) {
+            cancelCreatedProcessInstance(userId, processInstanceId, instanceId, submitFailure);
+            throw submitFailure;
+        }
+        return toInstanceResp(instance);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void reworkSubmitInstance(Long instanceId, FormInstanceSubmitReqVO reqVO, Long userId) {
         FormActionInstanceDO instance = requireInstance(instanceId);
-        requireOwner(instance, userId);
         requireStatus(instance, FormInstanceStatus.REWORKING);
-        instance.setFormDataJson(toJson(reqVO.getFormData()));
+        if (instance.getBpmProcessInstanceId() == null || instance.getBpmProcessInstanceId().isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.BPM_BINDING_MISSING,
+                    "Existing BPM process binding is required for rework submit");
+        }
         instance.setStatus(FormInstanceStatus.IN_APPROVAL.name());
-        instanceMapper.updateById(instance);
-        recordSnapshot(instance, FormSnapshotType.REWORK_SUBMIT, reqVO.getFormData(), List.of());
+        instance.setFormDataJson(JsonUtils.toJsonString(reqVO.getFormData()));
+        actionInstanceMapper.updateById(instance);
+        recordSnapshot(instance, FormSnapshotType.REWORK_SUBMIT, instance.getFormDataJson());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void abandonInstance(Long instanceId, Long userId) {
         FormActionInstanceDO instance = requireInstance(instanceId);
-        requireOwner(instance, userId);
         requireStatus(instance, FormInstanceStatus.DRAFT, FormInstanceStatus.REWORKING, FormInstanceStatus.REJECTED);
         instance.setStatus(FormInstanceStatus.ABANDONED.name());
-        instanceMapper.updateById(instance);
+        actionInstanceMapper.updateById(instance);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void onBpmTaskCreated(FormBpmTaskCreatedReqVO reqVO) {
-        FormActionInstanceDO instance = requireInstanceByProcess(reqVO.getProcessInstanceId());
+        FormActionInstanceDO instance = requireInstanceByProcessInstanceId(reqVO.getProcessInstanceId());
+        requireStatus(instance, FormInstanceStatus.IN_APPROVAL);
+        if (reqVO.getHandlerUserIds() == null || reqVO.getHandlerUserIds().isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.BPM_ACTIVE_TASK_ASSIGNEE_MISSING,
+                    "BPM active task assignees are required for derived form permissions: " + reqVO.getTaskId());
+        }
         for (Long userId : reqVO.getHandlerUserIds()) {
-            FormTaskPermissionDO permission = taskPermissionMapper.selectByTaskIdAndUserId(instance.getTenantId(),
+            FormTaskPermissionDO existing = taskPermissionMapper.selectByTaskIdAndUserId(instance.getTenantId(),
                     instance.getId(), reqVO.getTaskId(), userId);
-            if (permission == null) {
-                permission = FormTaskPermissionDO.builder()
+            if (existing == null) {
+                taskPermissionMapper.insert(FormTaskPermissionDO.builder()
                         .tenantId(instance.getTenantId())
                         .instanceId(instance.getId())
-                        .bpmProcessInstanceId(reqVO.getProcessInstanceId())
+                        .bpmProcessInstanceId(instance.getBpmProcessInstanceId())
                         .taskId(reqVO.getTaskId())
                         .userId(userId)
-                        .permissionCodesJson(JsonUtils.toJsonString(List.of(FormTaskPermissionCode.VIEW.name(),
-                                FormTaskPermissionCode.APPROVE.name(), FormTaskPermissionCode.REJECT.name(),
-                                FormTaskPermissionCode.REWORK.name())))
+                        .permissionCodesJson(JsonUtils.toJsonString(EnumSet.allOf(FormTaskPermissionCode.class)))
                         .status(FormTaskPermissionDO.STATUS_ACTIVE)
-                        .build();
-                taskPermissionMapper.insert(permission);
+                        .build());
             } else {
-                permission.setStatus(FormTaskPermissionDO.STATUS_ACTIVE);
-                taskPermissionMapper.updateById(permission);
+                existing.setPermissionCodesJson(JsonUtils.toJsonString(EnumSet.allOf(FormTaskPermissionCode.class)));
+                existing.setStatus(FormTaskPermissionDO.STATUS_ACTIVE);
+                taskPermissionMapper.updateById(existing);
             }
         }
     }
@@ -403,54 +725,66 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void onBpmTaskCompleted(FormBpmTaskCompletedReqVO reqVO) {
-        FormActionInstanceDO instance = requireInstanceByProcess(reqVO.getProcessInstanceId());
-        List<FormTaskPermissionDO> permissions = taskPermissionMapper.selectActiveByTaskId(instance.getTenantId(),
-                instance.getId(), reqVO.getTaskId());
-        for (FormTaskPermissionDO permission : permissions) {
-            permission.setStatus(FormTaskPermissionDO.STATUS_REVOKED);
-            taskPermissionMapper.updateById(permission);
-        }
+        FormActionInstanceDO instance = requireInstanceByProcessInstanceId(reqVO.getProcessInstanceId());
+        revokeTaskPermissions(instance, reqVO.getTaskId());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void onBpmReworkRequired(FormBpmReworkRequiredReqVO reqVO) {
-        FormActionInstanceDO instance = requireInstanceByProcess(reqVO.getProcessInstanceId());
+        FormActionInstanceDO instance = requireInstanceByProcessInstanceId(reqVO.getProcessInstanceId());
+        requireStatus(instance, FormInstanceStatus.IN_APPROVAL);
+        revokeAllActiveTaskPermissions(instance);
         instance.setStatus(FormInstanceStatus.REWORKING.name());
-        instanceMapper.updateById(instance);
+        actionInstanceMapper.updateById(instance);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void onBpmProcessRejected(FormBpmProcessRejectedReqVO reqVO) {
-        FormActionInstanceDO instance = requireInstanceByProcess(reqVO.getProcessInstanceId());
-        instance.setStatus(FormInstanceStatus.REJECTED.name());
-        instanceMapper.updateById(instance);
-        notifyPendingApprovalClosed(instance, FormControlledActionApprovalOutcome.REJECTED, reqVO.getReason());
+        closePendingApproval(reqVO.getProcessInstanceId(), FormInstanceStatus.REJECTED,
+                FormControlledActionApprovalOutcome.REJECTED, reqVO.getReason());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void onBpmProcessCancelled(FormBpmProcessCancelledReqVO reqVO) {
+        closePendingApproval(reqVO.getProcessInstanceId(), FormInstanceStatus.ABANDONED,
+                FormControlledActionApprovalOutcome.CANCELLED, reqVO.getReason());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public FormEffectExecutionRespVO onBpmProcessApproved(FormBpmProcessApprovedReqVO reqVO) {
-        FormActionInstanceDO instance = requireInstanceByProcess(reqVO.getProcessInstanceId());
+        FormActionInstanceDO instance = requireInstanceByProcessInstanceId(reqVO.getProcessInstanceId());
         requireStatus(instance, FormInstanceStatus.IN_APPROVAL);
-        FormEffectExecutionDO execution = executeEffect(instance, false);
-        notifyPendingApprovalClosed(instance, FormControlledActionApprovalOutcome.valueOf(instance.getStatus()), null);
-        return toEffectRespVO(execution);
+        FormActionPolicy policy = toPolicy(requireBusinessApprovalPolicy(instance.getPolicyId()));
+        FormControlledActionLifecycleAdapter lifecycleAdapter = requireLifecycleAdapter(toDomainInstance(instance, policy));
+        revokeAllActiveTaskPermissions(instance);
+        instance.setStatus(FormInstanceStatus.PENDING_EFFECT.name());
+        actionInstanceMapper.updateById(instance);
+        FormEffectExecutionRespVO response = applyBusinessEffect(instance, policy);
+        FormControlledActionApprovalOutcome outcome = FormEffectStatus.APPLIED.name().equals(response.getStatus())
+                ? FormControlledActionApprovalOutcome.EFFECTIVE
+                : FormControlledActionApprovalOutcome.EFFECT_FAILED_PENDING;
+        notifyPendingApprovalClosed(instance, outcome, null, lifecycleAdapter);
+        return response;
     }
 
     @Override
     public List<FormInstanceSnapshotRespVO> getInstanceSnapshots(Long instanceId) {
         FormActionInstanceDO instance = requireInstance(instanceId);
-        return snapshotMapper.selectByInstanceId(instance.getTenantId(), instanceId)
-                .stream().map(this::toSnapshotRespVO).toList();
+        return actionSnapshotMapper.selectByInstanceId(instance.getTenantId(), instance.getId()).stream()
+                .map(this::toSnapshotResp)
+                .toList();
     }
 
     @Override
     public PageResult<FormEffectExecutionRespVO> getPendingEffects(FormEffectPendingPageReqVO reqVO) {
-        reqVO.setTenantId(currentTenantIdIfAbsent(reqVO.getTenantId()));
-        PageResult<FormEffectExecutionDO> page = effectExecutionMapper.selectPendingPage(reqVO);
-        return new PageResult<>(page.getList().stream().map(this::toEffectRespVO).toList(), page.getTotal());
+        reqVO.setTenantId(resolveTenantId(reqVO.getTenantId()));
+        PageResult<FormEffectExecutionDO> pageResult = effectExecutionMapper.selectPendingPage(reqVO);
+        return new PageResult<>(pageResult.getList().stream().map(this::toEffectResp).toList(),
+                pageResult.getTotal());
     }
 
     @Override
@@ -458,238 +792,452 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
     public FormEffectExecutionRespVO retryEffect(Long instanceId) {
         FormActionInstanceDO instance = requireInstance(instanceId);
         requireStatus(instance, FormInstanceStatus.EFFECT_FAILED_PENDING);
-        return toEffectRespVO(executeEffect(instance, true));
+        FormActionPolicy policy = toPolicy(requireBusinessApprovalPolicy(instance.getPolicyId()));
+        FormControlledActionLifecycleAdapter lifecycleAdapter = requireLifecycleAdapter(toDomainInstance(instance, policy));
+        instance.setStatus(FormInstanceStatus.PENDING_EFFECT.name());
+        actionInstanceMapper.updateById(instance);
+        FormEffectExecutionRespVO response = applyBusinessEffect(instance, policy);
+        FormControlledActionApprovalOutcome outcome = FormEffectStatus.APPLIED.name().equals(response.getStatus())
+                ? FormControlledActionApprovalOutcome.EFFECTIVE
+                : FormControlledActionApprovalOutcome.EFFECT_FAILED_PENDING;
+        notifyPendingApprovalClosed(instance, outcome, null, lifecycleAdapter);
+        return response;
     }
 
-    private FormPolicySlot toPolicySlot(Long tenantId, FormPolicySlotReqVO slotReqVO) {
-        FormTemplateVersionDO version = templateVersionMapper.selectLatestPublishedByTemplateId(tenantId,
-                slotReqVO.getTemplateId());
-        if (version == null) {
+    private byte[] readSourceBytes(FormCenterTemplateImportReqVO reqVO) {
+        return readSourceBytes(reqVO.getFile());
+    }
+
+    private byte[] readSourceBytes(MultipartFile file) {
+        if (file == null) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template source file is required");
+        }
+        try {
+            return file.getBytes();
+        } catch (IOException ex) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template source file cannot be read: " + ex.getMessage());
+        }
+    }
+
+    private String resolveSourceFileName(MultipartFile file) {
+        if (file == null || file.getOriginalFilename() == null || file.getOriginalFilename().trim().isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template source filename cannot be blank");
+        }
+        return file.getOriginalFilename().trim();
+    }
+
+    private void validateDocSource(FormTemplateImportCommand command) {
+        String fileName = command.getSourceFileName();
+        if (fileName == null || !(fileName.endsWith(".doc") || fileName.endsWith(".docx"))) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_TYPE_UNSUPPORTED,
+                    "Only doc/docx template source files are supported: " + fileName);
+        }
+        if (command.getSourceBytes().length == 0) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template source file is empty: " + fileName);
+        }
+    }
+
+    private String normalizeTemplateName(String templateName) {
+        if (templateName == null || templateName.trim().isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template name cannot be blank");
+        }
+        return templateName.trim();
+    }
+
+    private String resolveParseTemplateName(String sourceFileName) {
+        String fileName = sourceFileName;
+        int slashIndex = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+        if (slashIndex >= 0) {
+            fileName = fileName.substring(slashIndex + 1);
+        }
+        if (fileName.endsWith(".docx")) {
+            fileName = fileName.substring(0, fileName.length() - ".docx".length());
+        } else if (fileName.endsWith(".doc")) {
+            fileName = fileName.substring(0, fileName.length() - ".doc".length());
+        }
+        return normalizeTemplateName(fileName);
+    }
+
+    private FormTemplateVersionDO resolveImportTargetTemplate(Long tenantId, String templateName,
+            Long selectedTemplateId) {
+        if (selectedTemplateId != null) {
+            FormTemplateVersionDO selected = templateVersionMapper.selectLatestByTemplateId(tenantId, selectedTemplateId);
+            if (selected == null) {
+                throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                        "Selected template not found: " + selectedTemplateId);
+            }
+            if (!Objects.equals(templateName, selected.getTemplateName())) {
+                throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                        "Selected template name mismatched: " + selectedTemplateId + "/" + templateName);
+            }
+            return selected;
+        }
+        return templateVersionMapper.selectLatestByTemplateName(tenantId, templateName);
+    }
+
+    private String nextVersionNo(String latestVersionNo) {
+        if (latestVersionNo == null || latestVersionNo.trim().isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Latest template version number is blank");
+        }
+        Matcher matcher = AUTO_VERSION_PATTERN.matcher(latestVersionNo.trim());
+        if (!matcher.matches()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template version number cannot be auto-incremented: " + latestVersionNo);
+        }
+        long current;
+        try {
+            current = Long.parseLong(matcher.group(2));
+        } catch (NumberFormatException ex) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template version number cannot be auto-incremented: " + latestVersionNo);
+        }
+        return matcher.group(1) + (current + 1) + matcher.group(3);
+    }
+
+    private FormTemplateVersionDO cloneTemplateVersionAsDraft(FormTemplateVersionDO sourceVersion, String versionNo) {
+        return FormTemplateVersionDO.builder()
+                .templateId(sourceVersion.getTemplateId())
+                .tenantId(sourceVersion.getTenantId())
+                .templateName(sourceVersion.getTemplateName())
+                .versionNo(versionNo)
+                .status(FormTemplateStatus.DRAFT.name())
+                .sourceFileName(sourceVersion.getSourceFileName())
+                .sourceFileContent(sourceVersion.getSourceFileContent())
+                .recognizedSchemaJson(sourceVersion.getRecognizedSchemaJson())
+                .jimuSchemaJson(sourceVersion.getJimuSchemaJson())
+                .remark(sourceVersion.getRemark())
+                .build();
+    }
+
+    private String resolveNextDraftVersionNo(FormTemplateVersionDO sourceVersion) {
+        String nextVersionNo = nextVersionNo(sourceVersion.getVersionNo());
+        while (templateVersionMapper.selectByTemplateIdAndVersionNo(sourceVersion.getTemplateId(), nextVersionNo) != null) {
+            nextVersionNo = nextVersionNo(nextVersionNo);
+        }
+        return nextVersionNo;
+    }
+
+    private BusinessApprovalRequest submitTemplateUpgradeApproval(Long tenantId, FormTemplateVersionDO version,
+            Long applicantUserId, String reason) {
+        if (businessApprovalOrchestrator == null) {
             throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
-                    "Published template version not found for template: " + slotReqVO.getTemplateId());
+                    "Form template upgrade approval orchestrator is not available");
+        }
+        BusinessApprovalContext context = BusinessApprovalContext.builder()
+                .tenantId(tenantId)
+                .dataDomain(FORM_TEMPLATE_APPROVAL_DATA_DOMAIN)
+                .systemCode(FORM_TEMPLATE_APPROVAL_SYSTEM_CODE)
+                .objectType(FORM_TEMPLATE_APPROVAL_OBJECT_TYPE)
+                .objectId(String.valueOf(version.getId()))
+                .objectVersion(version.getVersionNo())
+                .actionCode(TEMPLATE_IMPORT_ACTION_UPGRADE)
+                .objectState(FormTemplateStatus.DRAFT.name())
+                .applicantUserId(applicantUserId)
+                .reason(reason)
+                .build();
+        try {
+            return businessApprovalOrchestrator.submit(context);
+        } catch (BusinessApprovalException ex) {
+            FormCenterErrorCode errorCode = ex.getErrorCode() == BusinessApprovalErrorCode.BUSINESS_APPROVAL_POLICY_NOT_FOUND
+                    ? FormCenterErrorCode.FORM_POLICY_NOT_FOUND : FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID;
+            throw new FormCenterException(errorCode,
+                    "Form template upgrade approval cannot be started: " + ex.getMessage());
+        }
+    }
+
+    private BusinessApprovalRequest submitTemplateObsoleteApproval(FormTemplateVersionDO version,
+            Long applicantUserId, String reason, Map<String, List<Long>> startUserSelectAssignees) {
+        if (businessApprovalOrchestrator == null) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
+                    "Form template obsolete approval orchestrator is not available");
+        }
+        BusinessApprovalContext context = buildTemplateObsoleteContext(version, applicantUserId, reason,
+                startUserSelectAssignees);
+        try {
+            return businessApprovalOrchestrator.submit(context);
+        } catch (BusinessApprovalException ex) {
+            FormCenterErrorCode errorCode = ex.getErrorCode() == BusinessApprovalErrorCode.BUSINESS_APPROVAL_POLICY_NOT_FOUND
+                    ? FormCenterErrorCode.FORM_POLICY_NOT_FOUND : FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID;
+            throw new FormCenterException(errorCode,
+                    "Form template obsolete approval cannot be started: " + ex.getMessage());
+        }
+    }
+
+    private BusinessApprovalContext buildTemplateObsoleteContext(FormTemplateVersionDO version, Long applicantUserId,
+            String reason, Map<String, List<Long>> startUserSelectAssignees) {
+        return BusinessApprovalContext.builder()
+                .tenantId(version.getTenantId())
+                .dataDomain(FORM_TEMPLATE_APPROVAL_DATA_DOMAIN)
+                .systemCode(FORM_TEMPLATE_APPROVAL_SYSTEM_CODE)
+                .objectType(FORM_TEMPLATE_APPROVAL_OBJECT_TYPE)
+                .objectId(String.valueOf(version.getId()))
+                .objectVersion(version.getVersionNo())
+                .actionCode(TEMPLATE_ACTION_OBSOLETE)
+                .objectState(version.getStatus())
+                .applicantUserId(applicantUserId)
+                .reason(reason)
+                .startUserSelectAssignees(startUserSelectAssignees)
+                .build();
+    }
+
+    private FormTemplateObsoletePendingRespVO findTemplateObsoletePendingRequest(FormTemplateVersionDO version,
+            Long currentUserId) {
+        if (businessApprovalRequestStore == null) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
+                    "Form template obsolete approval request store is not available");
+        }
+        return businessApprovalRequestStore.findPendingByBusinessAction(
+                        buildTemplateObsoleteContext(version, currentUserId, "query pending obsolete request", null))
+                .map(request -> toTemplateObsoletePendingResp(request, currentUserId))
+                .orElse(null);
+    }
+
+    private BusinessApprovalRequest requireTemplateObsoletePendingRequest(FormTemplateVersionDO version) {
+        if (businessApprovalRequestStore == null) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
+                    "Form template obsolete approval request store is not available");
+        }
+        return businessApprovalRequestStore.findPendingByBusinessAction(
+                        buildTemplateObsoleteContext(version, null, "query pending obsolete request", null))
+                .orElseThrow(() -> new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                        "Pending obsolete approval request not found: " + version.getTemplateId()
+                                + "/" + version.getVersionNo()));
+    }
+
+    private FormTemplateObsoletePendingRespVO toTemplateObsoletePendingResp(BusinessApprovalRequest request,
+            Long currentUserId) {
+        FormTemplateObsoletePendingRespVO respVO = new FormTemplateObsoletePendingRespVO();
+        respVO.setApprovalRequestId(request.getRequestId());
+        respVO.setApprovalProcessInstanceId(request.getProcessInstanceId());
+        respVO.setApplicantUserId(request.getContext().getApplicantUserId());
+        respVO.setCanWithdraw(Objects.equals(request.getContext().getApplicantUserId(), currentUserId));
+        respVO.setObjectState(request.getContext().getObjectState());
+        respVO.setStatus(request.getStatus().name());
+        respVO.setReason(request.getContext().getReason());
+        return respVO;
+    }
+
+    private String normalizeObsoleteReason(String reason) {
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                    "Template obsolete reason cannot be blank");
+        }
+        return reason.trim();
+    }
+
+    private String normalizeWithdrawReason(String reason) {
+        return reason == null || reason.trim().isEmpty() ? "申请人撤回表单模板作废申请" : reason.trim();
+    }
+
+    private BpmProcessInstanceCreateReqDTO buildBpmRequest(FormActionInstanceDO instance, FormActionPolicy policy,
+            Map<String, List<Long>> startUserSelectAssignees) {
+        BpmProcessInstanceCreateReqDTO reqDTO = new BpmProcessInstanceCreateReqDTO();
+        reqDTO.setProcessDefinitionKey(policy.getBpmProcessKey());
+        reqDTO.setBusinessKey(BUSINESS_KEY_PREFIX + instance.getInstanceCode());
+        Map<String, Object> variables = new LinkedHashMap<>();
+        variables.put("formInstanceId", instance.getId());
+        variables.put("objectId", instance.getObjectId());
+        variables.put("objectVersion", instance.getObjectVersion());
+        variables.put("actionCode", instance.getActionCode());
+        Map<String, Object> businessContext = JsonUtils.parseObject(instance.getBusinessContextJson(),
+                new TypeReference<Map<String, Object>>() {});
+        variables.put("businessContext", businessContext);
+        variables.put("tenantId", businessContext.get("tenantId"));
+        variables.put("dataDomain", businessContext.get("dataDomain"));
+        variables.put("systemCode", businessContext.get("systemCode"));
+        variables.put("objectType", businessContext.get("objectType"));
+        variables.put("objectState", businessContext.get("objectState"));
+        variables.put("orgCode", businessContext.get("orgCode"));
+        variables.put("deptCode", businessContext.get("deptCode"));
+        variables.put("roleCodes", businessContext.get("roleCodes"));
+        variables.put("productCode", businessContext.get("productCode"));
+        variables.put("categoryCode", businessContext.get("categoryCode"));
+        variables.put("reason", businessContext.get("reason"));
+        if (startUserSelectAssignees != null && !startUserSelectAssignees.isEmpty()) {
+            variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                    startUserSelectAssignees);
+            reqDTO.setStartUserSelectAssignees(startUserSelectAssignees);
+        }
+        reqDTO.setVariables(variables);
+        return reqDTO;
+    }
+
+    private FormActionInstanceDO requireInstance(Long instanceId) {
+        FormActionInstanceDO instance = actionInstanceMapper.selectById(instanceId);
+        if (instance == null) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                    "Form action instance not found: " + instanceId);
+        }
+        return instance;
+    }
+
+    private FormActionPolicyDO requirePolicy(Long policyId) {
+        FormActionPolicyDO policy = actionPolicyMapper.selectById(policyId);
+        Long currentTenantId = TenantContextHolder.getRequiredTenantId();
+        if (policy == null || !Objects.equals(policy.getTenantId(), currentTenantId)) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
+                    "Form policy not found: " + policyId);
+        }
+        return policy;
+    }
+
+    private BusinessApprovalPolicyDO requireBusinessApprovalPolicy(Long policyId) {
+        BusinessApprovalPolicyDO policy = businessApprovalPolicyMapper.selectById(policyId);
+        Long currentTenantId = TenantContextHolder.getRequiredTenantId();
+        if (policy == null || !Objects.equals(policy.getTenantId(), currentTenantId)) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
+                    "Business approval policy not found: " + policyId);
+        }
+        return policy;
+    }
+
+    private FormTemplateVersionDO requireTemplateVersion(Long templateId, String versionNo) {
+        FormTemplateVersionDO version = templateVersionMapper.selectByTemplateIdAndVersionNo(templateId, versionNo);
+        if (version == null) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template version not found: " + templateId + "/" + versionNo);
+        }
+        return version;
+    }
+
+    private FormTemplateVersionDO requireCurrentTenantTemplateVersion(Long templateId, String versionNo) {
+        FormTemplateVersionDO version = requireTemplateVersion(templateId, versionNo);
+        Long currentTenantId = TenantContextHolder.getRequiredTenantId();
+        if (!Objects.equals(version.getTenantId(), currentTenantId)) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template version not found: " + templateId + "/" + versionNo);
+        }
+        return version;
+    }
+
+    private FormTemplateVersionDO requireTenantTemplateVersion(Long versionId) {
+        FormTemplateVersionDO version = templateVersionMapper.selectById(versionId);
+        Long currentTenantId = TenantContextHolder.getRequiredTenantId();
+        if (version == null || !Objects.equals(version.getTenantId(), currentTenantId)) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template version not found: " + versionId);
+        }
+        return version;
+    }
+
+    private FormTemplateVersionDO requireLatestPublishedTemplateVersion(Long tenantId, FormPolicySlot slot) {
+        Long templateId = parseTemplateId(slot, slot.getTemplateVersionRef());
+        FormTemplateVersionDO latestVersion = templateVersionMapper.selectLatestPublishedByTemplateId(tenantId, templateId);
+        if (latestVersion == null) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Latest published template version not found: " + templateId);
+        }
+        return latestVersion;
+    }
+
+    private void requireStatus(FormActionInstanceDO instance, FormInstanceStatus... allowedStatuses) {
+        for (FormInstanceStatus allowedStatus : allowedStatuses) {
+            if (allowedStatus.name().equals(instance.getStatus())) {
+                return;
+            }
+        }
+        throw new FormCenterException(FormCenterErrorCode.FORM_INSTANCE_STATUS_INVALID,
+                "Form instance status invalid: " + instance.getStatus());
+    }
+
+    private Long resolveTenantId(Long requestedTenantId) {
+        Long currentTenantId = TenantContextHolder.getRequiredTenantId();
+        if (requestedTenantId != null && !Objects.equals(requestedTenantId, currentTenantId)) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                    "Request tenant does not match current tenant context: " + requestedTenantId);
+        }
+        return currentTenantId;
+    }
+
+    private FormPolicyType parsePolicyType(String policyType) {
+        try {
+            return FormPolicyType.valueOf(policyType);
+        } catch (IllegalArgumentException ex) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                    "Unsupported form policy type: " + policyType);
+        }
+    }
+
+    private FormApprovalMode parseApprovalModeOrDefault(String approvalMode) {
+        if (approvalMode == null || approvalMode.isBlank()) {
+            return FormApprovalMode.BPM_REQUIRED;
+        }
+        return parseApprovalMode(approvalMode);
+    }
+
+    private FormApprovalMode parseApprovalMode(String approvalMode) {
+        try {
+            return FormApprovalMode.valueOf(approvalMode);
+        } catch (IllegalArgumentException ex) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                    "Unsupported form approval mode: " + approvalMode);
+        }
+    }
+
+    private String resolveSwitchBpmProcessKey(FormActionPolicyDO sourcePolicy, FormApprovalMode targetMode,
+            String requestedProcessKey) {
+        if (targetMode == FormApprovalMode.DIRECT) {
+            return requestedProcessKey == null || requestedProcessKey.isBlank()
+                    ? sourcePolicy.getBpmProcessKey() : requestedProcessKey;
+        }
+        String processKey = requestedProcessKey == null || requestedProcessKey.isBlank()
+                ? sourcePolicy.getBpmProcessKey() : requestedProcessKey;
+        if (processKey == null || processKey.isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.BPM_BINDING_MISSING,
+                    "BPM process key is required before switching form policy to BPM_REQUIRED");
+        }
+        return processKey;
+    }
+
+    private FormPolicySlot toPolicySlot(FormPolicySlotReqVO slotReqVO) {
+        FormTemplateVersionDO version = templateVersionMapper.selectLatestPublishedByTemplateId(
+                TenantContextHolder.getRequiredTenantId(), slotReqVO.getTemplateId());
+        if (version == null) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Latest published template version not found: " + slotReqVO.getTemplateId());
         }
         return new FormPolicySlot(slotReqVO.getSlotCode(), Boolean.TRUE.equals(slotReqVO.getRequired()),
                 FormTemplateVersionRef.of(version.getId(), String.valueOf(version.getTemplateId()),
                         version.getVersionNo(), version.getTemplateName()));
     }
 
-    private List<FormPolicySlot> toPolicySlots(Long tenantId, List<FormPolicySlotReqVO> reqVOS) {
-        return reqVOS == null ? List.of() : reqVOS.stream().map(reqVO -> toPolicySlot(tenantId, reqVO)).toList();
-    }
-
-    private FormTemplateVersionDO requireLatestPublishedTemplateVersion(Long tenantId, FormPolicySlot slot) {
-        Long templateId = parseTemplateId(slot, slot.getTemplateVersionRef());
-        FormTemplateVersionDO version = templateVersionMapper.selectLatestPublishedByTemplateId(tenantId, templateId);
-        if (version == null) {
-            throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
-                    "Published template version not found for template: " + templateId);
+    private List<FormPolicySlot> parsePolicySlots(String slotsJson) {
+        if (slotsJson == null || slotsJson.isBlank()) {
+            return List.of();
         }
-        return version;
+        return JsonUtils.parseArray(slotsJson, FormPolicySlot.class);
     }
 
-    private void requireStatus(FormTemplateVersionDO version, FormTemplateStatus... statuses) {
-        for (FormTemplateStatus status : statuses) {
-            if (status.name().equals(version.getStatus())) {
-                return;
-            }
+    private void validatePolicySlots(FormPolicyType policyType, List<FormPolicySlot> slots) {
+        if (policyType == FormPolicyType.NONE && slots.isEmpty()) {
+            return;
         }
-        throw new FormCenterException(FormCenterErrorCode.TEMPLATE_VERSION_IMMUTABLE,
-                "Template version status invalid: " + version.getStatus());
-    }
-
-    private Long parseTemplateId(FormPolicySlot slot, FormTemplateVersionRef ref) {
-        if (ref == null || isBlank(ref.getTemplateCode())) {
+        if (slots.isEmpty()) {
             throw new FormCenterException(FormCenterErrorCode.FORM_TEMPLATE_SLOT_CONFLICT,
-                    "Template identity is required for slot: " + slot.getSlotCode());
+                    "Form policy must bind at least one template slot");
         }
-        return Long.valueOf(ref.getTemplateCode());
-    }
-
-    private BpmProcessInstanceCreateReqDTO buildBpmRequest(FormActionInstanceDO instance, FormActionPolicyDO policy,
-            Map<String, List<Long>> startUserSelectAssignees) {
-        Map<String, Object> variables = buildBpmVariables(toContext(instance));
-        variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
-                startUserSelectAssignees);
-        BpmProcessInstanceCreateReqDTO reqDTO = new BpmProcessInstanceCreateReqDTO();
-        reqDTO.setProcessDefinitionKey(policy.getBpmProcessKey());
-        reqDTO.setBusinessKey(BUSINESS_KEY_PREFIX + instance.getInstanceCode());
-        reqDTO.setVariables(variables);
-        reqDTO.setStartUserSelectAssignees(startUserSelectAssignees);
-        return reqDTO;
-    }
-
-    private Map<String, Object> buildBpmVariables(BusinessActionContext context) {
-        Map<String, Object> variables = new LinkedHashMap<>();
-        variables.put("tenantId", context.getTenantId());
-        variables.put("dataDomain", context.getDataDomain());
-        variables.put("systemCode", context.getSystemCode());
-        variables.put("objectType", context.getObjectType());
-        variables.put("objectId", context.getObjectId());
-        variables.put("objectVersion", context.getObjectVersion());
-        variables.put("actionCode", context.getActionCode());
-        variables.put("objectState", context.getObjectState());
-        variables.put("deptCode", context.getDeptCode());
-        variables.put("orgCode", context.getOrgCode());
-        variables.put("roleCodes", context.getRoleCodes());
-        variables.put("productCode", context.getProductCode());
-        variables.put("categoryCode", context.getCategoryCode());
-        variables.put("reason", context.getReason());
-        return variables;
-    }
-
-    private void recordSnapshot(FormActionInstanceDO instance, FormSnapshotType type, Map<String, Object> formData,
-            List<String> attachmentIds) {
-        Long count = snapshotMapper.selectCountByInstanceId(instance.getTenantId(), instance.getId());
-        snapshotMapper.insert(FormActionSnapshotDO.builder()
-                .tenantId(instance.getTenantId())
-                .instanceId(instance.getId())
-                .snapshotType(type.name())
-                .snapshotVersion(count.intValue() + 1)
-                .formDataJson(toJson(formData))
-                .businessContextJson(instance.getBusinessContextJson())
-                .attachmentIdsJson(toJson(attachmentIds))
-                .build());
-    }
-
-    private FormInstanceRespVO applyDirectEffect(FormActionInstanceDO instance) {
-        instance.setStatus(FormInstanceStatus.IN_APPROVAL.name());
-        instanceMapper.updateById(instance);
-        return toInstanceRespVO(executeEffect(instance, false), instance);
-    }
-
-    private FormEffectExecutionDO executeEffect(FormActionInstanceDO instance, boolean retry) {
-        FormEffectExecutionDO existing = effectExecutionMapper.selectByInstanceIdAndIdempotencyKey(instance.getTenantId(),
-                instance.getId(), instance.getIdempotencyKey());
-        if (existing != null && FormEffectStatus.APPLIED.name().equals(existing.getStatus())) {
-            return existing;
-        }
-        if (existing != null && !retry) {
-            return existing;
-        }
-        FormActionPolicyDO policy = requirePolicy(instance.getPolicyId());
-        FormActionInstance runtimeInstance = toRuntimeInstance(instance, policy);
-        FormBusinessEffectPrecheck precheck = preflightLifecycle(runtimeInstance);
-        FormBusinessEffectResult result = precheck.isPassed()
-                ? requireEffectExecutor(policy.getEffectExecutorCode()).execute(runtimeInstance, instance.getIdempotencyKey())
-                : FormBusinessEffectResult.failure(precheck.getFailureReason());
-        FormEffectExecutionDO execution = existing == null ? FormEffectExecutionDO.builder()
-                .tenantId(instance.getTenantId())
-                .instanceId(instance.getId())
-                .executionCode("EFFECT-" + instance.getIdempotencyKey())
-                .idempotencyKey(instance.getIdempotencyKey())
-                .build() : existing;
-        if (result.isSuccess()) {
-            execution.setStatus(FormEffectStatus.APPLIED.name());
-            execution.setResultRef(result.getResultRef());
-            execution.setFailureReason(null);
-            instance.setStatus(FormInstanceStatus.EFFECTIVE.name());
-        } else {
-            execution.setStatus(FormEffectStatus.FAILED_PENDING.name());
-            execution.setResultRef(null);
-            execution.setFailureReason(result.getFailureReason());
-            instance.setStatus(FormInstanceStatus.EFFECT_FAILED_PENDING.name());
-        }
-        if (existing == null) {
-            effectExecutionMapper.insert(execution);
-        } else {
-            effectExecutionMapper.updateById(execution);
-        }
-        instanceMapper.updateById(instance);
-        return execution;
-    }
-
-    private FormBusinessEffectPrecheck preflightLifecycle(FormActionInstance instance) {
-        for (FormControlledActionLifecycleAdapter adapter : lifecycleAdapters()) {
-            if (adapter.supports(instance)) {
-                return adapter.preflight(instance);
+        Set<String> slotCodes = new HashSet<>();
+        for (FormPolicySlot slot : slots) {
+            if (slot.getTemplateVersionRef() == null || slot.getTemplateVersionRef().getVersionId() == null) {
+                throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                        "Form policy slot must bind a template version: " + slot.getSlotCode());
+            }
+            if (!slotCodes.add(slot.getSlotCode())) {
+                throw new FormCenterException(FormCenterErrorCode.FORM_TEMPLATE_SLOT_CONFLICT,
+                        "Form policy slot matched more than one template: " + slot.getSlotCode());
             }
         }
-        return FormBusinessEffectPrecheck.pass();
-    }
-
-    private void notifyPendingApprovalStarted(FormActionInstance instance) {
-        for (FormControlledActionLifecycleAdapter adapter : lifecycleAdapters()) {
-            if (adapter.supports(instance)) {
-                adapter.onPendingApprovalStarted(instance);
-            }
-        }
-    }
-
-    private void notifyPendingApprovalClosed(FormActionInstanceDO instance, FormControlledActionApprovalOutcome outcome,
-            String reason) {
-        FormActionPolicyDO policy = requirePolicy(instance.getPolicyId());
-        FormActionInstance runtimeInstance = toRuntimeInstance(instance, policy);
-        for (FormControlledActionLifecycleAdapter adapter : lifecycleAdapters()) {
-            if (adapter.supports(runtimeInstance)) {
-                adapter.onPendingApprovalClosed(runtimeInstance, outcome, reason);
-            }
-        }
-    }
-
-
-    private List<FormControlledActionLifecycleAdapter> lifecycleAdapters() {
-        return lifecycleAdapterProvider == null ? List.of() : lifecycleAdapterProvider.orderedStream().toList();
-    }
-    private FormBusinessEffectExecutor requireEffectExecutor(String executorCode) {
-        return effectExecutorProvider.orderedStream()
-                .filter(executor -> Objects.equals(executor.getExecutorCode(), executorCode))
-                .findFirst()
-                .orElseThrow(() -> new FormCenterException(FormCenterErrorCode.EFFECT_EXECUTOR_MISSING,
-                        "Form effect executor missing: " + executorCode));
-    }
-
-    private FormActionPolicyDO requirePublishedPolicy(BusinessActionContext context) {
-        List<FormActionPolicyDO> policies = policyMapper.selectPublishedByAction(context.getTenantId(),
-                context.getDataDomain(), context.getSystemCode(), context.getObjectType(), context.getActionCode(),
-                context.getObjectState());
-        if (policies.isEmpty()) {
-            throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
-                    "No published form policy matched action " + context.getActionCode());
-        }
-        if (policies.size() > 1) {
-            throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_CONFLICT,
-                    "More than one published form policy matched action " + context.getActionCode());
-        }
-        FormActionPolicyDO policy = policies.get(0);
-        for (FormPolicySlot slot : parsePolicySlots(policy.getSlotsJson())) {
-            requireLatestPublishedTemplateVersion(context.getTenantId(), slot);
-        }
-        return policy;
-    }
-
-    private FormActionResolution toResolution(FormActionPolicyDO policy) {
-        return FormActionResolution.from(FormActionPolicy.builder()
-                .policyId(policy.getId())
-                .tenantId(policy.getTenantId())
-                .dataDomain(policy.getDataDomain())
-                .systemCode(policy.getSystemCode())
-                .objectType(policy.getObjectType())
-                .actionCode(policy.getActionCode())
-                .objectState(policy.getObjectState())
-                .policyType(FormPolicyType.valueOf(policy.getPolicyType()))
-                .approvalMode(resolveApprovalMode(policy.getApprovalMode()))
-                .bpmProcessKey(policy.getBpmProcessKey())
-                .effectExecutorCode(policy.getEffectExecutorCode())
-                .status(policy.getStatus())
-                .slots(parsePolicySlots(policy.getSlotsJson()))
-                .build());
-    }
-
-    private FormActionInstance toRuntimeInstance(FormActionInstanceDO instance, FormActionPolicyDO policy) {
-        FormActionInstance runtime = new FormActionInstance(instance.getInstanceCode(), toResolution(policy),
-                toContext(instance), instance.getApplicantUserId(), instance.getIdempotencyKey());
-        runtime.setStatus(FormInstanceStatus.valueOf(instance.getStatus()));
-        runtime.setFormData(parseMap(instance.getFormDataJson()));
-        if (!isBlank(instance.getBpmProcessInstanceId())) {
-            runtime.setBpmBinding(new FormBpmBinding(instance.getBpmProcessInstanceId(), null));
-        }
-        return runtime;
     }
 
     private BusinessActionContext toContext(BusinessActionContextReqVO reqVO) {
-        Long tenantId = currentTenantIdIfAbsent(reqVO.getTenantId());
         return BusinessActionContext.builder()
-                .tenantId(tenantId)
+                .tenantId(reqVO.getTenantId())
                 .dataDomain(reqVO.getDataDomain())
                 .systemCode(reqVO.getSystemCode())
                 .objectType(reqVO.getObjectType())
@@ -706,44 +1254,597 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
                 .build();
     }
 
-    private BusinessActionContext toContext(FormActionInstanceDO instance) {
-        BusinessActionContext context = JsonUtils.parseObject(instance.getBusinessContextJson(),
-                BusinessActionContext.class);
-        if (context != null) {
-            return context;
-        }
-        return BusinessActionContext.builder()
-                .tenantId(instance.getTenantId())
-                .dataDomain(instance.getDataDomain())
-                .systemCode(instance.getSystemCode())
-                .objectType(instance.getObjectType())
-                .objectId(instance.getObjectId())
-                .objectVersion(instance.getObjectVersion())
-                .actionCode(instance.getActionCode())
-                .objectState(instance.getObjectState())
+    private FormActionPolicy toPolicy(FormActionPolicyDO policyDO) {
+        return FormActionPolicy.builder()
+                .policyId(policyDO.getId())
+                .tenantId(policyDO.getTenantId())
+                .dataDomain(policyDO.getDataDomain())
+                .systemCode(policyDO.getSystemCode())
+                .objectType(policyDO.getObjectType())
+                .actionCode(policyDO.getActionCode())
+                .objectState(policyDO.getObjectState())
+                .policyType(FormPolicyType.valueOf(policyDO.getPolicyType()))
+                .approvalMode(parseApprovalModeOrDefault(policyDO.getApprovalMode()))
+                .bpmProcessKey(policyDO.getBpmProcessKey())
+                .effectExecutorCode(policyDO.getEffectExecutorCode())
+                .status(policyDO.getStatus())
+                .slots(resolveLatestPublishedSlots(policyDO.getTenantId(),
+                        parsePolicySlots(policyDO.getSlotsJson())))
                 .build();
     }
 
-    private BusinessActionContextReqVO toContextReqVO(BusinessActionContext context) {
-        BusinessActionContextReqVO reqVO = new BusinessActionContextReqVO();
-        reqVO.setTenantId(context.getTenantId());
-        reqVO.setDataDomain(context.getDataDomain());
-        reqVO.setSystemCode(context.getSystemCode());
-        reqVO.setObjectType(context.getObjectType());
-        reqVO.setObjectId(context.getObjectId());
-        reqVO.setObjectVersion(context.getObjectVersion());
-        reqVO.setActionCode(context.getActionCode());
-        reqVO.setObjectState(context.getObjectState());
-        reqVO.setOrgCode(context.getOrgCode());
-        reqVO.setDeptCode(context.getDeptCode());
-        reqVO.setRoleCodes(context.getRoleCodes());
-        reqVO.setProductCode(context.getProductCode());
-        reqVO.setCategoryCode(context.getCategoryCode());
-        reqVO.setReason(context.getReason());
-        return reqVO;
+    private FormActionPolicy toPolicy(BusinessApprovalPolicyDO policyDO) {
+        BusinessApprovalPolicyMode policyMode = parseBusinessApprovalPolicyMode(policyDO.getPolicyMode());
+        return FormActionPolicy.builder()
+                .policyId(policyDO.getId())
+                .tenantId(policyDO.getTenantId())
+                .dataDomain(policyDO.getDataDomain())
+                .systemCode(policyDO.getSystemCode())
+                .objectType(policyDO.getObjectType())
+                .actionCode(policyDO.getActionCode())
+                .objectState(policyDO.getObjectState())
+                .policyType(FormPolicyType.NONE)
+                .approvalMode(toFormApprovalMode(policyMode, policyDO.getId()))
+                .bpmProcessKey(policyDO.getProcessDefinitionKey())
+                .effectExecutorCode(policyDO.getEffectExecutorCode())
+                .status(policyDO.getStatus())
+                .slots(List.of())
+                .build();
     }
 
-    private FormActionResolutionRespVO toResolutionRespVO(FormActionResolution resolution) {
+    private FormActionPolicy toStoredPolicy(FormActionPolicyDO policyDO) {
+        return FormActionPolicy.builder()
+                .policyId(policyDO.getId())
+                .tenantId(policyDO.getTenantId())
+                .dataDomain(policyDO.getDataDomain())
+                .systemCode(policyDO.getSystemCode())
+                .objectType(policyDO.getObjectType())
+                .actionCode(policyDO.getActionCode())
+                .objectState(policyDO.getObjectState())
+                .policyType(FormPolicyType.valueOf(policyDO.getPolicyType()))
+                .approvalMode(parseApprovalModeOrDefault(policyDO.getApprovalMode()))
+                .bpmProcessKey(policyDO.getBpmProcessKey())
+                .effectExecutorCode(policyDO.getEffectExecutorCode())
+                .status(policyDO.getStatus())
+                .slots(parsePolicySlots(policyDO.getSlotsJson()))
+                .build();
+    }
+
+    private List<FormPolicySlot> resolveLatestPublishedSlots(Long tenantId, List<FormPolicySlot> slots) {
+        return slots.stream()
+                .map(slot -> resolveLatestPublishedSlot(tenantId, slot))
+                .toList();
+    }
+
+    private FormPolicySlot resolveLatestPublishedSlot(Long tenantId, FormPolicySlot slot) {
+        FormTemplateVersionDO latestVersion = requireLatestPublishedTemplateVersion(tenantId, slot);
+        return new FormPolicySlot(slot.getSlotCode(), slot.isRequired(),
+                FormTemplateVersionRef.of(latestVersion.getId(), String.valueOf(latestVersion.getTemplateId()),
+                        latestVersion.getVersionNo(), latestVersion.getTemplateName()));
+    }
+
+    private Long parseTemplateId(FormPolicySlot slot, FormTemplateVersionRef ref) {
+        if (ref == null || ref.getTemplateCode() == null || ref.getTemplateCode().isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Form policy slot must carry template identity: " + slot.getSlotCode());
+        }
+        try {
+            return Long.valueOf(ref.getTemplateCode());
+        } catch (NumberFormatException ex) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Form policy slot template identity is invalid: " + slot.getSlotCode());
+        }
+    }
+
+    private void recordSnapshot(FormActionInstanceDO instance, FormSnapshotType snapshotType, String formDataJson) {
+        Long count = actionSnapshotMapper.selectCountByInstanceId(instance.getTenantId(), instance.getId());
+        actionSnapshotMapper.insert(FormActionSnapshotDO.builder()
+                .tenantId(instance.getTenantId())
+                .instanceId(instance.getId())
+                .snapshotType(snapshotType.name())
+                .snapshotVersion(count.intValue() + 1)
+                .formDataJson(formDataJson)
+                .businessContextJson(instance.getBusinessContextJson())
+                .attachmentIdsJson(JsonUtils.toJsonString(List.of()))
+                .build());
+    }
+
+    private FormActionInstanceDO requireInstanceByProcessInstanceId(String processInstanceId) {
+        FormActionInstanceDO instance = actionInstanceMapper.selectByProcessInstanceId(
+                TenantContextHolder.getRequiredTenantId(), processInstanceId);
+        if (instance == null) {
+            throw new FormCenterException(FormCenterErrorCode.BPM_BINDING_MISSING,
+                    "Form action instance not found by BPM process instance: " + processInstanceId);
+        }
+        if (!Objects.equals(processInstanceId, instance.getBpmProcessInstanceId())) {
+            throw new FormCenterException(FormCenterErrorCode.BPM_CALLBACK_STALE,
+                    "BPM callback process instance is stale: " + processInstanceId);
+        }
+        return instance;
+    }
+
+    private void revokeTaskPermissions(FormActionInstanceDO instance, String taskId) {
+        List<FormTaskPermissionDO> activePermissions = taskPermissionMapper.selectActiveByTaskId(instance.getTenantId(),
+                instance.getId(), taskId);
+        if (activePermissions.isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.BPM_TASK_PERMISSION_MISSING,
+                    "Active form task permission not found for BPM task: " + taskId);
+        }
+        for (FormTaskPermissionDO permission : activePermissions) {
+            permission.setStatus(FormTaskPermissionDO.STATUS_REVOKED);
+            taskPermissionMapper.updateById(permission);
+        }
+    }
+
+    private void revokeAllActiveTaskPermissions(FormActionInstanceDO instance) {
+        for (FormTaskPermissionDO permission : taskPermissionMapper.selectActiveByProcessInstanceId(
+                instance.getTenantId(), instance.getBpmProcessInstanceId())) {
+            permission.setStatus(FormTaskPermissionDO.STATUS_REVOKED);
+            taskPermissionMapper.updateById(permission);
+        }
+    }
+
+    private void persistCurrentActiveTaskPermissions(FormActionInstanceDO instance) {
+        List<Task> activeTasks = flowableTaskService.createTaskQuery()
+                .processInstanceId(instance.getBpmProcessInstanceId())
+                .active()
+                .list();
+        if (activeTasks.isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.BPM_ACTIVE_TASK_ASSIGNEE_MISSING,
+                    "BPM active task is required after form action submit: " + instance.getBpmProcessInstanceId());
+        }
+        for (Task activeTask : activeTasks) {
+            List<Long> handlerUserIds = resolveTaskHandlerUserIds(activeTask);
+            if (handlerUserIds.isEmpty()) {
+                throw new FormCenterException(FormCenterErrorCode.BPM_ACTIVE_TASK_ASSIGNEE_MISSING,
+                        "BPM active task assignees are required for derived form permissions: " + activeTask.getId());
+            }
+            FormBpmTaskCreatedReqVO reqVO = new FormBpmTaskCreatedReqVO();
+            reqVO.setProcessInstanceId(instance.getBpmProcessInstanceId());
+            reqVO.setTaskId(activeTask.getId());
+            reqVO.setHandlerUserIds(handlerUserIds);
+            onBpmTaskCreated(reqVO);
+        }
+    }
+
+    private List<Long> resolveTaskHandlerUserIds(Task task) {
+        Set<Long> userIds = new HashSet<>();
+        addTaskHandlerUserId(userIds, task.getAssignee());
+        addTaskHandlerUserId(userIds, task.getOwner());
+        return userIds.stream().toList();
+    }
+
+    private void addTaskHandlerUserId(Set<Long> userIds, String rawUserId) {
+        if (rawUserId == null || rawUserId.isBlank()) {
+            return;
+        }
+        try {
+            userIds.add(Long.valueOf(rawUserId));
+        } catch (NumberFormatException ex) {
+            throw new FormCenterException(FormCenterErrorCode.BPM_ACTIVE_TASK_ASSIGNEE_MISSING,
+                    "BPM active task handler is not a numeric user id: " + rawUserId);
+        }
+    }
+
+    private FormEffectExecutionRespVO applyBusinessEffect(FormActionInstanceDO instance) {
+        return applyBusinessEffect(instance, toPolicy(requireBusinessApprovalPolicy(instance.getPolicyId())));
+    }
+
+    private FormEffectExecutionRespVO applyBusinessEffect(FormActionInstanceDO instance, FormActionPolicy policy) {
+        FormEffectExecutionDO existingExecution = effectExecutionMapper.selectByInstanceIdAndIdempotencyKey(
+                instance.getTenantId(), instance.getId(), instance.getIdempotencyKey());
+        if (existingExecution != null && FormEffectStatus.APPLIED.name().equals(existingExecution.getStatus())) {
+            instance.setStatus(FormInstanceStatus.EFFECTIVE.name());
+            actionInstanceMapper.updateById(instance);
+            return toEffectResp(existingExecution);
+        }
+
+        FormBusinessEffectExecutor executor = requireEffectExecutor(policy.getEffectExecutorCode());
+        FormBusinessEffectResult result = executor.execute(toDomainInstance(instance, policy), instance.getIdempotencyKey());
+
+        FormEffectExecutionDO execution = existingExecution == null ? FormEffectExecutionDO.builder()
+                .tenantId(instance.getTenantId())
+                .instanceId(instance.getId())
+                .executionCode("EFFECT-" + instance.getIdempotencyKey())
+                .idempotencyKey(instance.getIdempotencyKey())
+                .build() : existingExecution;
+        if (result.isSuccess()) {
+            execution.setStatus(FormEffectStatus.APPLIED.name());
+            execution.setResultRef(result.getResultRef());
+            execution.setFailureReason(null);
+            instance.setStatus(FormInstanceStatus.EFFECTIVE.name());
+        } else {
+            execution.setStatus(FormEffectStatus.FAILED_PENDING.name());
+            execution.setResultRef(null);
+            execution.setFailureReason(result.getFailureReason());
+            instance.setStatus(FormInstanceStatus.EFFECT_FAILED_PENDING.name());
+        }
+        if (execution.getId() == null) {
+            effectExecutionMapper.insert(execution);
+        } else {
+            effectExecutionMapper.updateById(execution);
+        }
+        actionInstanceMapper.updateById(instance);
+        return toEffectResp(execution);
+    }
+
+    private FormBusinessEffectExecutor requireEffectExecutor(String executorCode) {
+        if (executorCode == null || executorCode.isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.EFFECT_EXECUTOR_MISSING,
+                    "Effect executor code is required before applying form action");
+        }
+        return effectExecutors.stream()
+                .filter(executor -> executorCode.equals(executor.getExecutorCode()))
+                .findFirst()
+                .orElseThrow(() -> new FormCenterException(FormCenterErrorCode.EFFECT_EXECUTOR_MISSING,
+                        "Effect executor is not registered: " + executorCode));
+    }
+
+    private FormControlledActionLifecycleAdapter runLifecyclePreflight(FormActionInstance instance) {
+        FormControlledActionLifecycleAdapter adapter = requireLifecycleAdapter(instance);
+        FormBusinessEffectPrecheck precheck = adapter.preflight(instance);
+        if (precheck == null || !precheck.isPassed()) {
+            String reason = precheck == null ? "Lifecycle preflight did not return a result"
+                    : precheck.getFailureReason();
+            throw new FormCenterException(FormCenterErrorCode.CONTROLLED_ACTION_PREFLIGHT_FAILED,
+                    "Controlled action lifecycle preflight failed: " + reason);
+        }
+        return adapter;
+    }
+
+    private void cancelCreatedProcessInstance(Long userId, String processInstanceId, Long instanceId,
+            RuntimeException submitFailure) {
+        try {
+            processInstanceApi.cancelProcessInstance(userId, processInstanceId,
+                    "form action submit compensation: instanceId=" + instanceId);
+        } catch (RuntimeException compensationFailure) {
+            compensationFailure.addSuppressed(submitFailure);
+            throw compensationFailure;
+        }
+    }
+
+    private void closePendingApproval(String processInstanceId, FormInstanceStatus targetStatus,
+            FormControlledActionApprovalOutcome outcome, String reason) {
+        FormActionInstanceDO instance = requireInstanceByProcessInstanceId(processInstanceId);
+        requireStatus(instance, FormInstanceStatus.IN_APPROVAL, FormInstanceStatus.REWORKING);
+        revokeAllActiveTaskPermissions(instance);
+        instance.setStatus(targetStatus.name());
+        actionInstanceMapper.updateById(instance);
+        notifyPendingApprovalClosed(instance, outcome, reason);
+    }
+
+    private void notifyPendingApprovalClosed(FormActionInstanceDO instance,
+            FormControlledActionApprovalOutcome outcome, String reason) {
+        notifyPendingApprovalClosed(instance, outcome, reason, null);
+    }
+
+    private void notifyPendingApprovalClosed(FormActionInstanceDO instance,
+            FormControlledActionApprovalOutcome outcome, String reason, FormControlledActionLifecycleAdapter adapter) {
+        FormActionPolicy policy = toPolicy(requireBusinessApprovalPolicy(instance.getPolicyId()));
+        FormActionInstance domainInstance = toDomainInstance(instance, policy);
+        FormControlledActionLifecycleAdapter lifecycleAdapter = adapter == null ? requireLifecycleAdapter(domainInstance) : adapter;
+        lifecycleAdapter.onPendingApprovalClosed(domainInstance, outcome, reason);
+    }
+
+    private FormControlledActionLifecycleAdapter requireLifecycleAdapter(FormActionInstance instance) {
+        return lifecycleAdapters.stream()
+                .filter(candidate -> candidate.supports(instance))
+                .findFirst()
+                .orElseThrow(() -> new FormCenterException(FormCenterErrorCode.CONTROLLED_ACTION_ADAPTER_MISSING,
+                        "Controlled action lifecycle adapter is not registered: "
+                                + instance.getBusinessContext().getSystemCode() + "/"
+                                + instance.getBusinessContext().getObjectType() + "/"
+                                + instance.getBusinessContext().getActionCode()));
+    }
+
+    private FormActionInstance toDomainInstance(FormActionInstanceDO instance, FormActionPolicyDO policy) {
+        return toDomainInstance(instance, toPolicy(policy));
+    }
+
+    private BusinessApprovalPolicyMode parseBusinessApprovalPolicyMode(String policyMode) {
+        try {
+            return BusinessApprovalPolicyMode.valueOf(policyMode);
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                    "Unsupported business approval policy mode: " + policyMode);
+        }
+    }
+
+    private FormApprovalMode toFormApprovalMode(BusinessApprovalPolicyMode policyMode, Long policyId) {
+        if (policyMode == BusinessApprovalPolicyMode.BPM_REQUIRED) {
+            return FormApprovalMode.BPM_REQUIRED;
+        }
+        if (policyMode == BusinessApprovalPolicyMode.DIRECT) {
+            return FormApprovalMode.DIRECT;
+        }
+        throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                "Form Center runtime does not support SIGNATURE_REQUIRED business approval policy: " + policyId);
+    }
+
+    private FormActionInstance toDomainInstance(FormActionInstanceDO instance, FormActionPolicy policy) {
+        BusinessActionContextReqVO contextReqVO = JsonUtils.parseObject(instance.getBusinessContextJson(),
+                BusinessActionContextReqVO.class);
+        FormActionInstance domain = new FormActionInstance(instance.getInstanceCode(), FormActionResolution.from(policy),
+                toContext(contextReqVO),
+                instance.getApplicantUserId(), instance.getIdempotencyKey());
+        domain.setStatus(FormInstanceStatus.valueOf(instance.getStatus()));
+        if (instance.getBpmProcessInstanceId() != null) {
+            domain.setBpmBinding(new FormBpmBinding(instance.getBpmProcessInstanceId(), null));
+        }
+        domain.setFormData(parseFormData(instance.getFormDataJson()));
+        return domain;
+    }
+
+    private FormActionInstance toDomainInstanceSnapshot(FormActionInstanceDO instance, FormActionPolicyDO policy) {
+        BusinessActionContextReqVO contextReqVO = JsonUtils.parseObject(instance.getBusinessContextJson(),
+                BusinessActionContextReqVO.class);
+        FormActionPolicy snapshotPolicy = FormActionPolicy.builder()
+                .policyId(policy.getId())
+                .tenantId(policy.getTenantId())
+                .dataDomain(policy.getDataDomain())
+                .systemCode(policy.getSystemCode())
+                .objectType(policy.getObjectType())
+                .actionCode(policy.getActionCode())
+                .objectState(policy.getObjectState())
+                .policyType(FormPolicyType.valueOf(policy.getPolicyType()))
+                .approvalMode(parseApprovalModeOrDefault(policy.getApprovalMode()))
+                .bpmProcessKey(policy.getBpmProcessKey())
+                .effectExecutorCode(policy.getEffectExecutorCode())
+                .status(policy.getStatus())
+                .slots(parsePolicySlots(policy.getSlotsJson()))
+                .build();
+        FormActionInstance domain = new FormActionInstance(instance.getInstanceCode(),
+                FormActionResolution.from(snapshotPolicy), toContext(contextReqVO), instance.getApplicantUserId(),
+                instance.getIdempotencyKey());
+        domain.setStatus(FormInstanceStatus.valueOf(instance.getStatus()));
+        if (instance.getBpmProcessInstanceId() != null) {
+            domain.setBpmBinding(new FormBpmBinding(instance.getBpmProcessInstanceId(), null));
+        }
+        domain.setFormData(parseFormData(instance.getFormDataJson()));
+        return domain;
+    }
+
+    private FormCenterTemplateRespVO toTemplateResp(FormTemplateVersionDO version) {
+        FormCenterTemplateRespVO respVO = new FormCenterTemplateRespVO();
+        respVO.setTemplateId(version.getTemplateId());
+        respVO.setTemplateName(version.getTemplateName());
+        respVO.setVersionNo(version.getVersionNo());
+        respVO.setStatus(version.getStatus());
+        respVO.setUpdatedTime(version.getUpdateTime());
+        respVO.setRemark(version.getRemark());
+        respVO.setDesignerReportId(buildFormTemplateReportId(version));
+        respVO.setRecognizedFields(parseRecognizedFields(version.getRecognizedSchemaJson()));
+        respVO.setJimuSchemaJson(version.getJimuSchemaJson());
+        respVO.setSourceFileName(version.getSourceFileName());
+        return respVO;
+    }
+
+    private FormTemplateEditableDraftRespVO toEditableDraftResp(FormTemplateVersionDO sourceVersion,
+            FormTemplateVersionDO editableVersion, boolean draftCreated) {
+        FormTemplateEditableDraftRespVO respVO = new FormTemplateEditableDraftRespVO();
+        respVO.setTemplateId(sourceVersion.getTemplateId());
+        respVO.setTemplateName(sourceVersion.getTemplateName());
+        respVO.setSourceVersionNo(sourceVersion.getVersionNo());
+        respVO.setVersionNo(editableVersion.getVersionNo());
+        respVO.setTargetStatus(FormTemplateStatus.DRAFT.name());
+        respVO.setDraftCreated(draftCreated);
+        return respVO;
+    }
+
+    private String buildFormTemplateReportId(FormTemplateVersionDO version) {
+        if (version.getId() == null) {
+            throw new IllegalStateException("template version id is missing");
+        }
+        return FORM_TEMPLATE_REPORT_PREFIX + version.getId();
+    }
+
+    private void ensureFormTemplateJimuReport(FormTemplateVersionDO version, String reportId) {
+        String jsonStr = extractFormTemplateDesignerJson(version, reportId);
+        Date now = new Date();
+        JimuReport report = jimuReportDao.get(reportId);
+        boolean insert = report == null;
+        if (insert) {
+            report = new JimuReport();
+            report.setId(reportId);
+            report.setCode(reportId);
+            report.setCreateBy(resolveJimuActor());
+            report.setCreateTime(now);
+            report.setViewCount(0L);
+            report.setDelFlag(0);
+            report.setUpdateCount(0);
+        } else {
+            report.setUpdateCount(report.getUpdateCount() == null ? 1 : report.getUpdateCount() + 1);
+        }
+        report.setName(formTemplateJimuReportName(version));
+        report.setType(ensureFormTemplateJimuCategoryId());
+        report.setJsonStr(jsonStr);
+        report.setUpdateBy(resolveJimuActor());
+        report.setUpdateTime(now);
+        report.setTenantId(String.valueOf(TenantContextHolder.getRequiredTenantId()));
+        report.setTemplate(0);
+        report.setSubmitForm(1);
+        report.setIsMultiSheet(0);
+        report.setCssStr(FILL_FORM_PREVIEW_CSS);
+        if (insert) {
+            jimuReportDao.insert(report);
+        } else {
+            jimuReportDao.update(report);
+        }
+    }
+
+    private String ensureFormTemplateJimuCategoryId() {
+        String existingCategoryId = findFormTemplateJimuCategoryId();
+        if (existingCategoryId != null && !existingCategoryId.isBlank()) {
+            return existingCategoryId;
+        }
+        Date now = new Date();
+        JimuReportCategory category = new JimuReportCategory();
+        category.setId(newSimpleUuid());
+        category.setName(FORM_TEMPLATE_JIMU_CATEGORY_NAME);
+        category.setParentId("0");
+        category.setIzLeaf(1);
+        category.setSourceType("report");
+        category.setCreateBy(resolveJimuActor());
+        category.setCreateTime(now);
+        category.setUpdateBy(resolveJimuActor());
+        category.setUpdateTime(now);
+        category.setTenantId(String.valueOf(TenantContextHolder.getRequiredTenantId()));
+        category.setSortNo(resolveNextJimuCategorySortNo());
+        reportCategoryService.save(category);
+        return category.getId();
+    }
+
+    private String findFormTemplateJimuCategoryId() {
+        JimuReportCategory query = new JimuReportCategory();
+        query.setSourceType("report");
+        List<TreeModel> categories = reportCategoryService.queryList(query);
+        for (TreeModel category : categories) {
+            if (FORM_TEMPLATE_JIMU_CATEGORY_NAME.equals(category.getTitle())) {
+                return category.getId();
+            }
+        }
+        return null;
+    }
+
+    private Integer resolveNextJimuCategorySortNo() {
+        Integer current = reportCategoryService.getMinSortByParentId("0", "report");
+        return current == null ? 99 : current + 1;
+    }
+
+    private String extractFormTemplateDesignerJson(FormTemplateVersionDO version, String reportId) {
+        Map<String, Object> templateSchema = parseJsonObject(version.getJimuSchemaJson(), reportId);
+        Object sheetLayoutJson = templateSchema.get("sheetLayoutJson");
+        if (!(sheetLayoutJson instanceof String layoutJson) || layoutJson.isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    reportId + " missing sheetLayoutJson");
+        }
+        Map<String, Object> designerRoot = parseDesignerJsonObject(layoutJson, reportId);
+        if (!(designerRoot.get("cols") instanceof Map<?, ?>)) {
+            designerRoot.put("cols", new LinkedHashMap<>());
+        }
+        return JsonUtils.toJsonString(designerRoot);
+    }
+
+    private String mergeFormTemplateDesignerJson(FormTemplateVersionDO version, String designerJson, String reportId) {
+        Map<String, Object> templateSchema = parseJsonObject(version.getJimuSchemaJson(), reportId);
+        Map<String, Object> designerRoot = parseDesignerJsonObject(designerJson, reportId);
+        if (!(designerRoot.get("cols") instanceof Map<?, ?>)) {
+            designerRoot.put("cols", new LinkedHashMap<>());
+        }
+        templateSchema.put("sheetLayoutJson", JsonUtils.toJsonString(designerRoot));
+        return JsonUtils.toJsonString(templateSchema);
+    }
+
+    private FormTemplateVersionDO requireDraftTemplateVersionForJimuReport(String reportId) {
+        Long templateVersionId = parseFormTemplateVersionId(reportId);
+        FormTemplateVersionDO version = requireTenantTemplateVersion(templateVersionId);
+        requireDraftTemplateVersion(version, reportId);
+        return version;
+    }
+
+    private void requireDraftTemplateVersion(FormTemplateVersionDO version, String objectRef) {
+        if (!FormTemplateStatus.DRAFT.name().equals(version.getStatus())) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_VERSION_IMMUTABLE,
+                    "Only draft template versions can be adjusted: " + objectRef);
+        }
+    }
+
+    private Long parseFormTemplateVersionId(String reportId) {
+        if (reportId == null || !reportId.startsWith(FORM_TEMPLATE_REPORT_PREFIX)) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Form template Jimu report id is invalid: " + reportId);
+        }
+        String rawVersionId = reportId.substring(FORM_TEMPLATE_REPORT_PREFIX.length()).trim();
+        if (rawVersionId.isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Form template Jimu report id is invalid: " + reportId);
+        }
+        try {
+            return Long.valueOf(rawVersionId);
+        } catch (NumberFormatException ex) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Form template Jimu report id is invalid: " + reportId);
+        }
+    }
+
+    private void executeWithRequiredTenant(Long tenantId, Runnable runnable) {
+        if (tenantId == null) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                    "Tenant context is required for form template Jimu save");
+        }
+        Long currentTenantId = TenantContextHolder.getTenantId();
+        if (currentTenantId != null && !Objects.equals(currentTenantId, tenantId)) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                    "Request tenant does not match current tenant context: " + tenantId);
+        }
+        TenantUtils.execute(tenantId, runnable);
+    }
+
+    private Map<String, Object> parseJsonObject(String jsonStr, String reportId) {
+        if (jsonStr == null || jsonStr.isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    reportId + " blank json");
+        }
+        try {
+            Map<String, Object> root = JsonUtils.parseObject(jsonStr, new TypeReference<Map<String, Object>>() {});
+            if (root == null) {
+                throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                        reportId + " empty json");
+            }
+            return root;
+        } catch (FormCenterException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    reportId + " " + ex.getMessage());
+        }
+    }
+
+    private Map<String, Object> parseDesignerJsonObject(String jsonStr, String reportId) {
+        Map<String, Object> root = parseJsonObject(jsonStr, reportId);
+        if (!(root.get("rows") instanceof Map<?, ?>)) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    reportId + " missing rows");
+        }
+        return root;
+    }
+
+    private String buildTemplateDesignerPath(String reportId) {
+        return "/jmreport/index/" + reportId + "?tenantId=" + TenantContextHolder.getRequiredTenantId();
+    }
+
+    private String buildTemplatePreviewPath(String reportId) {
+        return "/jmreport/view/" + reportId + "?tenantId=" + TenantContextHolder.getRequiredTenantId();
+    }
+
+    private String formTemplateJimuReportName(FormTemplateVersionDO version) {
+        String templateName = version.getTemplateName() == null || version.getTemplateName().isBlank()
+                ? buildFormTemplateReportId(version) : version.getTemplateName().trim();
+        return version.getVersionNo() == null || version.getVersionNo().isBlank()
+                ? templateName : templateName + " " + version.getVersionNo().trim();
+    }
+
+    private String resolveJimuActor() {
+        String nickname = SecurityFrameworkUtils.getLoginUserNickname();
+        if (nickname != null && !nickname.isBlank()) {
+            return nickname;
+        }
+        Long userId = SecurityFrameworkUtils.getLoginUserId();
+        return userId == null ? "system" : String.valueOf(userId);
+    }
+
+    private String newSimpleUuid() {
+        return UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private List<FormRecognizedField> parseRecognizedFields(String recognizedSchemaJson) {
+        if (recognizedSchemaJson == null || recognizedSchemaJson.isBlank()) {
+            return List.of();
+        }
+        return JsonUtils.parseArray(recognizedSchemaJson, FormRecognizedField.class);
+    }
+
+    private FormActionResolutionRespVO toResolutionResp(FormActionResolution resolution) {
         FormActionResolutionRespVO respVO = new FormActionResolutionRespVO();
         respVO.setPolicyId(resolution.getPolicyId());
         respVO.setPolicyType(resolution.getPolicyType().name());
@@ -755,7 +1856,7 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         return respVO;
     }
 
-    private FormPolicyRespVO toPolicyRespVO(FormActionPolicyDO policy) {
+    private FormPolicyRespVO toPolicyResp(FormActionPolicyDO policy) {
         FormPolicyRespVO respVO = new FormPolicyRespVO();
         respVO.setId(policy.getId());
         respVO.setDataDomain(policy.getDataDomain());
@@ -764,7 +1865,7 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         respVO.setActionCode(policy.getActionCode());
         respVO.setObjectState(policy.getObjectState());
         respVO.setPolicyType(policy.getPolicyType());
-        respVO.setApprovalMode(policy.getApprovalMode());
+        respVO.setApprovalMode(parseApprovalModeOrDefault(policy.getApprovalMode()).name());
         respVO.setBpmProcessKey(policy.getBpmProcessKey());
         respVO.setEffectExecutorCode(policy.getEffectExecutorCode());
         respVO.setStatus(policy.getStatus());
@@ -774,49 +1875,87 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         return respVO;
     }
 
-    private FormCenterTemplateRespVO toTemplateRespVO(FormTemplateVersionDO version) {
-        FormCenterTemplateRespVO respVO = new FormCenterTemplateRespVO();
-        respVO.setTemplateId(version.getTemplateId());
-        respVO.setTemplateName(version.getTemplateName());
-        respVO.setVersionNo(version.getVersionNo());
-        respVO.setStatus(version.getStatus());
-        respVO.setUpdatedTime(version.getUpdateTime());
-        respVO.setRemark(version.getRemark());
-        respVO.setRecognizedFields(JsonUtils.parseArray(version.getRecognizedSchemaJson(), FormRecognizedField.class));
-        respVO.setJimuSchemaJson(version.getJimuSchemaJson());
-        respVO.setSourceFileName(version.getSourceFileName());
-        return respVO;
-    }
-
-    private FormInstanceRespVO toInstanceRespVO(FormActionInstanceDO instance) {
+    private FormInstanceRespVO toInstanceResp(FormActionInstanceDO instance) {
         FormInstanceRespVO respVO = new FormInstanceRespVO();
         respVO.setId(instance.getId());
         respVO.setInstanceCode(instance.getInstanceCode());
         respVO.setStatus(instance.getStatus());
         respVO.setBpmProcessInstanceId(instance.getBpmProcessInstanceId());
-        respVO.setContext(toContextReqVO(toContext(instance)));
+        respVO.setContext(JsonUtils.parseObject(instance.getBusinessContextJson(), BusinessActionContextReqVO.class));
         return respVO;
     }
 
-    private FormInstanceRespVO toInstanceRespVO(FormEffectExecutionDO execution, FormActionInstanceDO instance) {
-        return toInstanceRespVO(instance);
-    }
-
-    private FormInstanceSnapshotRespVO toSnapshotRespVO(FormActionSnapshotDO snapshot) {
+    private FormInstanceSnapshotRespVO toSnapshotResp(FormActionSnapshotDO snapshot) {
         FormInstanceSnapshotRespVO respVO = new FormInstanceSnapshotRespVO();
         respVO.setId(snapshot.getId());
         respVO.setInstanceId(snapshot.getInstanceId());
         respVO.setSnapshotType(snapshot.getSnapshotType());
         respVO.setSnapshotVersion(snapshot.getSnapshotVersion());
-        respVO.setFormData(parseMap(snapshot.getFormDataJson()));
-        respVO.setContext(toContextReqVO(JsonUtils.parseObject(snapshot.getBusinessContextJson(),
-                BusinessActionContext.class)));
-        respVO.setAttachmentIds(parseStringList(snapshot.getAttachmentIdsJson()));
+        respVO.setFormData(parseFormData(snapshot.getFormDataJson()));
+        respVO.setContext(JsonUtils.parseObject(snapshot.getBusinessContextJson(), BusinessActionContextReqVO.class));
+        respVO.setAttachmentIds(parseAttachmentIds(snapshot.getAttachmentIdsJson()));
         respVO.setCreatedTime(snapshot.getCreateTime());
         return respVO;
     }
 
-    private FormEffectExecutionRespVO toEffectRespVO(FormEffectExecutionDO execution) {
+    private List<String> parseAttachmentIds(String attachmentIdsJson) {
+        if (attachmentIdsJson == null || attachmentIdsJson.isBlank()) {
+            return List.of();
+        }
+        return JsonUtils.parseArray(attachmentIdsJson, String.class);
+    }
+
+    private Map<String, Object> parseFormData(String formDataJson) {
+        if (formDataJson == null || formDataJson.isBlank()) {
+            return Map.of();
+        }
+        return JsonUtils.parseObject(formDataJson, new TypeReference<Map<String, Object>>() {});
+    }
+
+    private String requireRecognizedVisualSchema(String jimuSchemaJson) {
+        if (jimuSchemaJson == null || jimuSchemaJson.isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template schema rows are missing");
+        }
+        Map<String, Object> root;
+        try {
+            root = JsonUtils.parseObject(jimuSchemaJson, new TypeReference<Map<String, Object>>() {});
+        } catch (RuntimeException ex) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template visual schema is invalid");
+        }
+        Object rawSheetLayoutJson = root.get("sheetLayoutJson");
+        if (!(rawSheetLayoutJson instanceof String sheetLayoutJson) || sheetLayoutJson.isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template schema rows are missing");
+        }
+        Map<String, Object> layout;
+        try {
+            layout = JsonUtils.parseObject(sheetLayoutJson, new TypeReference<Map<String, Object>>() {});
+        } catch (RuntimeException ex) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template visual schema is invalid");
+        }
+        if (!hasRecognizedRows(layout.get("rows"))) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template schema rows are missing");
+        }
+        Object rawCellRules = root.get("cellRules");
+        if (!(rawCellRules instanceof List<?> cellRules) || cellRules.isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template cell rules are missing");
+        }
+        return jimuSchemaJson;
+    }
+
+    private boolean hasRecognizedRows(Object rawRows) {
+        if (!(rawRows instanceof Map<?, ?> rows)) {
+            return false;
+        }
+        return rows.keySet().stream().anyMatch(key -> !"len".equals(String.valueOf(key)));
+    }
+
+    private FormEffectExecutionRespVO toEffectResp(FormEffectExecutionDO execution) {
         FormEffectExecutionRespVO respVO = new FormEffectExecutionRespVO();
         respVO.setId(execution.getId());
         respVO.setInstanceId(execution.getInstanceId());
@@ -826,153 +1965,6 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         respVO.setResultRef(execution.getResultRef());
         respVO.setFailureReason(execution.getFailureReason());
         return respVO;
-    }
-
-    private FormActionPolicyDO requirePolicy(Long policyId) {
-        FormActionPolicyDO policy = policyMapper.selectById(policyId);
-        if (policy == null) {
-            throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
-                    "Form policy not found: " + policyId);
-        }
-        return policy;
-    }
-
-    private FormTemplateVersionDO requireTemplateVersion(Long templateId, String versionNo) {
-        FormTemplateVersionDO version = templateVersionMapper.selectByTemplateIdAndVersionNo(templateId, versionNo);
-        if (version == null) {
-            throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
-                    "Template version not found: " + templateId + "/" + versionNo);
-        }
-        return version;
-    }
-
-    private FormActionInstanceDO requireInstance(Long instanceId) {
-        FormActionInstanceDO instance = instanceMapper.selectById(instanceId);
-        if (instance == null) {
-            throw new FormCenterException(FormCenterErrorCode.FORM_INSTANCE_STATUS_INVALID,
-                    "Form instance not found: " + instanceId);
-        }
-        return instance;
-    }
-
-    private FormActionInstanceDO requireInstanceByProcess(String processInstanceId) {
-        FormActionInstanceDO instance = instanceMapper.selectByProcessInstanceId(TenantContextHolder.getRequiredTenantId(),
-                processInstanceId);
-        if (instance == null) {
-            throw new FormCenterException(FormCenterErrorCode.BPM_CALLBACK_STALE,
-                    "Form instance not found for BPM process: " + processInstanceId);
-        }
-        return instance;
-    }
-
-    private void requireOwner(FormActionInstanceDO instance, Long userId) {
-        if (!Objects.equals(instance.getApplicantUserId(), userId)) {
-            throw new FormCenterException(FormCenterErrorCode.BPM_TASK_PERMISSION_MISSING,
-                    "Current user cannot modify form instance: " + instance.getId());
-        }
-    }
-
-    private void requireStatus(FormActionInstanceDO instance, FormInstanceStatus... statuses) {
-        for (FormInstanceStatus status : statuses) {
-            if (status.name().equals(instance.getStatus())) {
-                return;
-            }
-        }
-        throw new FormCenterException(FormCenterErrorCode.FORM_INSTANCE_STATUS_INVALID,
-                "Form instance status invalid: " + instance.getStatus());
-    }
-
-    private void updateTemplateStatus(Long templateId, String versionNo, FormTemplateStatus status) {
-        FormTemplateVersionDO version = requireTemplateVersion(templateId, versionNo);
-        version.setStatus(status.name());
-        templateVersionMapper.updateById(version);
-    }
-
-    private Long resolveImportTemplateId(Long tenantId, FormCenterTemplateImportReqVO reqVO) {
-        if (reqVO.getSelectedTemplateId() != null) {
-            return reqVO.getSelectedTemplateId();
-        }
-        FormTemplateVersionDO latest = templateVersionMapper.selectLatestByTemplateName(tenantId, reqVO.getTemplateName());
-        return latest == null ? null : latest.getTemplateId();
-    }
-
-    private String nextVersionNo(Long tenantId, Long templateId, String templateName) {
-        FormTemplateVersionDO latest = templateId == null
-                ? templateVersionMapper.selectLatestByTemplateName(tenantId, templateName)
-                : templateVersionMapper.selectLatestByTemplateId(tenantId, templateId);
-        if (latest == null || isBlank(latest.getVersionNo())) {
-            return "V1";
-        }
-        String versionNo = latest.getVersionNo().replace("v", "V");
-        if (versionNo.startsWith("V")) {
-            return "V" + (Long.parseLong(versionNo.substring(1)) + 1);
-        }
-        return versionNo + "-NEXT";
-    }
-
-    private String readFileContent(MultipartFile file) {
-        try {
-            return Base64.getEncoder().encodeToString(file.getBytes());
-        } catch (IOException e) {
-            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
-                    "Template source file cannot be read: " + file.getOriginalFilename());
-        }
-    }
-
-    private BusinessActionContextReqVO buildTemplateContext(FormTemplateVersionDO version, String actionCode,
-            String reason) {
-        BusinessActionContextReqVO context = new BusinessActionContextReqVO();
-        context.setTenantId(version.getTenantId());
-        context.setDataDomain("BPM");
-        context.setSystemCode("BPM");
-        context.setObjectType("FORM_TEMPLATE");
-        context.setObjectId(String.valueOf(version.getTemplateId()));
-        context.setObjectVersion(version.getVersionNo());
-        context.setActionCode(actionCode);
-        context.setObjectState(version.getStatus());
-        context.setReason(reason);
-        return context;
-    }
-
-    private FormApprovalMode resolveApprovalMode(String approvalMode) {
-        return isBlank(approvalMode) ? FormApprovalMode.BPM_REQUIRED : FormApprovalMode.valueOf(approvalMode);
-    }
-
-    private Long currentTenantIdIfAbsent(Long tenantId) {
-        return tenantId == null ? TenantContextHolder.getRequiredTenantId() : tenantId;
-    }
-
-    private List<FormPolicySlot> parsePolicySlots(String json) {
-        List<FormPolicySlot> slots = JsonUtils.parseObject(json, POLICY_SLOT_LIST);
-        return slots == null ? List.of() : slots;
-    }
-
-    private Map<String, Object> parseMap(String json) {
-        Map<String, Object> map = JsonUtils.parseObject(json, MAP_TYPE);
-        return map == null ? Map.of() : map;
-    }
-
-    private List<String> parseStringList(String json) {
-        List<String> values = JsonUtils.parseObject(json, STRING_LIST);
-        return values == null ? List.of() : values;
-    }
-
-    private List<String> parseAttachmentIds(String attachmentIds) {
-        if (isBlank(attachmentIds)) {
-            return List.of();
-        }
-        if (attachmentIds.trim().startsWith("[")) {
-            return parseStringList(attachmentIds);
-        }
-        return Arrays.stream(attachmentIds.split(",")).map(String::trim).filter(text -> !text.isEmpty()).toList();
-    }
-
-    private String toJson(Object value) {
-        return JsonUtils.toJsonString(value == null ? Map.of() : value);
-    }
-
-    private boolean isBlank(String value) {
-        return value == null || value.isBlank();
     }
 
 }

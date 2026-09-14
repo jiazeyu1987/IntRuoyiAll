@@ -13,7 +13,14 @@ import java.util.List;
 
 public interface MesProBatchRecordReportService {
 
+    /**
+     * 导入项目的批记录总识别 JSON，并同步正式一线设备参数配置。
+     */
+    void importTotalRecognitionJson(Long dccProjectCodeId, MultipartFile file);
+
     MesProBatchRecordImportResult importPilotDoc(MultipartFile file);
+
+    String parseProductionBatchRecordTotalRecognitionJson(MultipartFile file);
 
     MesProBatchRecordImportResult importImage(MultipartFile file);
 
@@ -25,6 +32,10 @@ public interface MesProBatchRecordReportService {
 
     MesProBatchRecordImportPreflightResult preflightUploadedRoute(String routeKey, String batchRecordName,
                                                                   List<String> productNames);
+
+    MesProBatchRecordImportPreflightResult preflightUploadedRoute(String routeKey, String batchRecordName,
+                                                                  List<String> productNames,
+                                                                  Long dccProjectCodeId);
 
     MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
                                                          String batchRecordName, Boolean upgrade,
@@ -40,6 +51,15 @@ public interface MesProBatchRecordReportService {
                                                          Boolean rebuildBatchRecord,
                                                          List<Long> selectedRouteProductIds,
                                                          List<String> selectedProductNames);
+
+    MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
+                                                         String batchRecordName, String importAction,
+                                                         Long expectedSourceVersionId,
+                                                         List<String> productNames,
+                                                         Boolean rebuildBatchRecord,
+                                                         List<Long> selectedRouteProductIds,
+                                                         List<String> selectedProductNames,
+                                                         Long dccProjectCodeId);
 
     MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
                                                          String batchRecordName, String importAction,
@@ -73,6 +93,35 @@ public interface MesProBatchRecordReportService {
                                                          Long expectedRouteVersionId,
                                                          Long approvalSubmitterUserId);
 
+    MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
+                                                         String batchRecordName, String importAction,
+                                                         Long expectedSourceVersionId,
+                                                         String expectedTargetVersionNo,
+                                                         List<String> productNames,
+                                                         Boolean rebuildBatchRecord,
+                                                         List<Long> selectedRouteProductIds,
+                                                         List<String> selectedProductNames,
+                                                         Boolean routeUpgradeConfirmed,
+                                                         Long expectedRouteId,
+                                                         Long expectedRouteVersionId,
+                                                         Long expectedRouteCandidateVersionId,
+                                                         Long approvalSubmitterUserId);
+
+    MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
+                                                         String batchRecordName, String importAction,
+                                                         Long expectedSourceVersionId,
+                                                         String expectedTargetVersionNo,
+                                                         List<String> productNames,
+                                                         Boolean rebuildBatchRecord,
+                                                         List<Long> selectedRouteProductIds,
+                                                         List<String> selectedProductNames,
+                                                         Boolean routeUpgradeConfirmed,
+                                                         Long expectedRouteId,
+                                                         Long expectedRouteVersionId,
+                                                         Long expectedRouteCandidateVersionId,
+                                                         Long dccProjectCodeId,
+                                                         Long approvalSubmitterUserId);
+
     MesProBatchRecordVersionApprovalResult submitBatchRecordVersionApproval(Long versionId, Long actorUserId);
 
     MesProBatchRecordVersionApprovalResult handleBatchRecordVersionApprovalCallback(String approvalInstanceId,
@@ -95,6 +144,8 @@ public interface MesProBatchRecordReportService {
 
     List<String> getBatchRecordNameOptions();
 
+    List<String> getProductNameOptions(String keyword, Boolean latestVersionOnly);
+
     PageResult<MesProBatchRecordReportView> getGeneratedReportPage(BatchRecordReportPageReqVO pageReqVO);
 
     String getDesignerPath(String reportId);
@@ -106,6 +157,8 @@ public interface MesProBatchRecordReportService {
     BatchRecordReportSignatureCellMarkersRespVO saveSignatureCellMarkers(BatchRecordReportSignatureCellMarkersReqVO reqVO);
 
     BatchRecordReportCellRulesRespVO getCellRules(String reportId);
+
+    BatchRecordReportCellRulesRespVO formalizeCellRules(String reportId);
 
     BatchRecordReportCellRulesRespVO saveCellRules(BatchRecordReportCellRulesReqVO reqVO);
 

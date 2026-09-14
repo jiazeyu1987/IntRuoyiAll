@@ -27,7 +27,7 @@ import cn.iocoder.yudao.module.dcc.enums.DccControlledFileMasterStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
 import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
-import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserReqDTO;
+import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserIdempotentReqDTO;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -86,9 +86,13 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
     @InjectMocks
     private DccControlledFileObsoleteServiceImpl obsoleteService;
 
+    @org.junit.jupiter.api.AfterEach
+    void clearMessageTenant() { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
+
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
         messageDeliveryService = new DccControlledFileMessageDeliveryService();
+        DccMessageDeliveryTestSupport.wire(messageDeliveryService, messageJobMapper);
         ReflectionTestUtils.setField(messageDeliveryService, "messageJobMapper", messageJobMapper);
         ReflectionTestUtils.setField(messageDeliveryService, "notifyMessageSendApi", notifyMessageSendApi);
         ReflectionTestUtils.setField(messageDeliveryService, "controlledFileMapper", controlledFileMapper);
@@ -267,8 +271,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
                 DccControlledFileTrainingDO.builder().id(302L).controlledFileId(900L).build()));
         when(trainingAssignmentMapper.selectListByTrainingId(302L)).thenReturn(List.of(
                 DccControlledFileTrainingAssignmentDO.builder().id(402L).trainingId(302L).userId(601L).build()));
-        when(messageJobMapper.insert(org.mockito.ArgumentMatchers.any(DccControlledFileMessageJobDO.class))).thenReturn(1);
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class)))
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any(NotifySendSingleToUserIdempotentReqDTO.class)))
                 .thenReturn(9001L, 9002L);
 
         obsoleteService.applyApprovedObsoleteControlledFile(99L, 900L, reqVO);
@@ -289,11 +292,11 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
                 org.mockito.ArgumentMatchers.argThat(file -> Long.valueOf(900L).equals(file.getId())));
         verify(messageJobMapper, times(2)).insert(org.mockito.ArgumentMatchers.any(DccControlledFileMessageJobDO.class));
         verify(messageJobMapper, times(2)).updateById(org.mockito.ArgumentMatchers.any(DccControlledFileMessageJobDO.class));
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi, times(2)).sendSingleMessageToAdmin(notifyCaptor.capture());
+        ArgumentCaptor<NotifySendSingleToUserIdempotentReqDTO> notifyCaptor =
+                ArgumentCaptor.forClass(NotifySendSingleToUserIdempotentReqDTO.class);
+        verify(notifyMessageSendApi, times(2)).sendSingleMessageIdempotentlyToAdmin(notifyCaptor.capture());
         assertEquals(List.of(501L, 601L),
-                notifyCaptor.getAllValues().stream().map(NotifySendSingleToUserReqDTO::getUserId).toList());
+                notifyCaptor.getAllValues().stream().map(NotifySendSingleToUserIdempotentReqDTO::getUserId).toList());
         assertTrue(notifyCaptor.getAllValues().stream()
                 .allMatch(req -> "dcc_obsolete".equals(req.getTemplateCode())));
         verify(platformAdapter).recordObsoleted(
@@ -322,16 +325,15 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
                 .thenReturn(true);
         when(distributionMapper.selectListByControlledFileId(902L)).thenReturn(List.of());
         when(trainingMapper.selectListByControlledFileId(902L)).thenReturn(List.of());
-        when(messageJobMapper.insert(org.mockito.ArgumentMatchers.any(DccControlledFileMessageJobDO.class))).thenReturn(1);
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class)))
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any(NotifySendSingleToUserIdempotentReqDTO.class)))
                 .thenReturn(9003L);
 
         obsoleteService.applyApprovedObsoleteControlledFile(99L, 902L, reqVO);
 
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
+        ArgumentCaptor<NotifySendSingleToUserIdempotentReqDTO> notifyCaptor =
+                ArgumentCaptor.forClass(NotifySendSingleToUserIdempotentReqDTO.class);
         verify(messageJobMapper).insert(org.mockito.ArgumentMatchers.any(DccControlledFileMessageJobDO.class));
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
+        verify(notifyMessageSendApi).sendSingleMessageIdempotentlyToAdmin(notifyCaptor.capture());
         assertEquals(701L, notifyCaptor.getValue().getUserId());
         assertEquals("dcc_obsolete", notifyCaptor.getValue().getTemplateCode());
     }

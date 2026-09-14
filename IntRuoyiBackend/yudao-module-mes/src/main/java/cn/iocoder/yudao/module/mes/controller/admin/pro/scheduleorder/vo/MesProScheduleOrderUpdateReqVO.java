@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Schema(description = "管理后台 - MES 排产工单修改 Request VO")
 @Data
@@ -24,6 +25,9 @@ public class MesProScheduleOrderUpdateReqVO {
     @NotNull(message = "优先级不能为空")
     @Min(value = 1, message = "排产工单优先级必须大于等于 1")
     private Integer priorityNo;
+
+    @Schema(description = "计划开工时间")
+    private LocalDateTime plannedStartTime;
 
     @Schema(description = "备注")
     private String remark;

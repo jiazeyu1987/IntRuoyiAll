@@ -1,0 +1,43 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const repoRoot = path.resolve(__dirname, '../../../../..')
+const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
+
+const controller = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesProcessPoolTeamLeaderController.java')
+const activeOrderService = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceImpl.java')
+const addCommand = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderAddReqBO.java')
+const activeOrderResponse = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/vo/MesTeamLeaderActiveOrderRespVO.java')
+const api = read('IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts')
+const workbench = read('IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
+
+assert.match(controller, /\/active-order\/simulation\/copy-latest/)
+assert.match(controller, /\/active-order\/simulation\/copy-latest\/cleanup/)
+assert.match(controller, /mes:pro-process-pool-team-leader:maintain/)
+
+assert.match(activeOrderService, /copyLatestSimulationActiveOrder/)
+assert.match(activeOrderService, /cleanupLatestSimulationActiveOrder/)
+assert.match(activeOrderService, /requireProductionRouteSourceForAdd\(workOrder\)/)
+assert.match(activeOrderService, /requireLatestQaSource\(routeId/)
+assert.match(activeOrderService, /LATEST_VERSION_COPY/)
+assert.match(activeOrderService, /SIM-COPY-/)
+assert.doesNotMatch(activeOrderService, /cloneSnapshots|clonePqcTasks/)
+
+assert.match(addCommand, /simulated/)
+assert.match(addCommand, /simulationStage/)
+assert.match(addCommand, /simulationRunId/)
+assert.match(activeOrderResponse, /simulated/)
+assert.match(activeOrderResponse, /simulationStage/)
+assert.match(activeOrderResponse, /simulationRunId/)
+
+assert.match(api, /copyLatestTeamLeaderSimulationActiveOrder/)
+assert.match(api, /cleanupLatestTeamLeaderSimulationActiveOrder/)
+assert.match(workbench, /data-team-leader-copy-latest-simulation-order/)
+assert.match(workbench, /复制测试单/)
+assert.match(workbench, /最新生效工艺路线和最新正式发布 QA 规程/)
+assert.match(workbench, /不复制原订单的报工、进度、PQC 结果、批记录、领料、异常或放行历史/)
+assert.match(workbench, /data-team-leader-cleanup-latest-simulation-order/)
+assert.match(workbench, /已创建，但列表刷新失败/)
+
+console.log('mes-active-order-latest-simulation-copy-static: PASS')

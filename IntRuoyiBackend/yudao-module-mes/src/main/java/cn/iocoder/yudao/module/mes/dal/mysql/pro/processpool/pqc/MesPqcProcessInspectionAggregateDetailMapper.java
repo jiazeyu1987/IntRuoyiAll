@@ -1,0 +1,69 @@
+package cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc;
+
+import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
+import org.apache.ibatis.annotations.Delete;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.Collections;
+import java.util.List;
+
+@Mapper
+public interface MesPqcProcessInspectionAggregateDetailMapper
+        extends BaseMapperX<MesPqcProcessInspectionAggregateDetailDO> {
+
+    default List<MesPqcProcessInspectionAggregateDetailDO> selectListByEventId(Long eventId) {
+        if (eventId == null) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesPqcProcessInspectionAggregateDetailDO>()
+                .eq(MesPqcProcessInspectionAggregateDetailDO::getEventId, eventId)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getSampleNo)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getId));
+    }
+
+    default int deleteByEventId(Long eventId) {
+        if (eventId == null) {
+            return 0;
+        }
+        return delete(new LambdaQueryWrapperX<MesPqcProcessInspectionAggregateDetailDO>()
+                .eq(MesPqcProcessInspectionAggregateDetailDO::getEventId, eventId));
+    }
+
+    default List<MesPqcProcessInspectionAggregateDetailDO> selectListByActiveOrderId(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesPqcProcessInspectionAggregateDetailDO>()
+                .eq(MesPqcProcessInspectionAggregateDetailDO::getActiveOrderId, activeOrderId)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getRouteProcessId)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getProcessId)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getSampleNo)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getId));
+    }
+
+    default List<MesPqcProcessInspectionAggregateDetailDO> selectListByActiveOrderIdForUpdate(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesPqcProcessInspectionAggregateDetailDO>()
+                .eq(MesPqcProcessInspectionAggregateDetailDO::getActiveOrderId, activeOrderId)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getRouteProcessId)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getProcessId)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getSampleNo)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getId)
+                .last("FOR UPDATE"));
+    }
+
+    default int deleteByActiveOrderId(Long activeOrderId) {
+        return activeOrderId == null ? 0 : physicalDeleteByActiveOrderId(activeOrderId);
+    }
+
+    @Delete("DELETE FROM mes_pqc_process_inspection_aggregate_detail WHERE active_order_id = #{activeOrderId}")
+    int physicalDeleteByActiveOrderId(@Param("activeOrderId") Long activeOrderId);
+}

@@ -38,7 +38,7 @@ assert(
   /<el-button[\s\S]*?@click="openPriorityDialog\(row\)"[\s\S]*?>[\s\S]*?调整[\s\S]*?<\/el-button>/.test(
     activeRowActionsSource
   ),
-  '排产工单行操作允许加回只调整优先级的调整按钮。'
+  '排产工单行操作必须保留综合调整按钮。'
 )
 
 for (const forbidden of [
@@ -46,14 +46,12 @@ for (const forbidden of [
   'adjustDialogVisible',
   'adjustSaving',
   'adjustTarget',
-  'adjustForm',
-  '调整排产工单',
-  '排产工单已调整'
+  'adjustForm'
 ]) {
   assert(!source.includes(forbidden), `排产工单页面不应再包含调整入口专用代码：${forbidden}`)
 }
 
-assert(source.includes('调整优先级'), '排产工单页面必须保留只调整优先级的弹窗。')
+assert(source.includes('调整排产工单'), '排产工单页面必须提供综合调整弹窗。')
 assert(source.includes('submitPriorityAdjust'), '排产工单页面必须保留优先级调整提交方法。')
 assert(source.includes('设置承诺交期'), '排产工单页面必须保留设置承诺交期弹窗。')
 assert(source.includes('submitPromiseDateReset'), '排产工单页面必须保留承诺交期提交方法。')

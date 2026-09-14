@@ -1,0 +1,52 @@
+# 填写配置弹窗底部空白区域移除
+
+## Task Goal
+
+修复填写配置弹窗中底部固定空白区域占用高度的问题：去掉截图红框中的空白留白，让原表单、辅助表单预览和右侧映射控制栏的主内容区域填充到可用底部空间。
+
+## Milestones
+
+1. `completed`：确认页面入口、组件文件和底部空白来源。
+2. `completed`：补充 RED 静态回归，证明底部空白容器或固定底部占位仍存在。
+3. `completed`：实施最小前端布局修复，不引入 fallback 或静默降级。
+4. `completed`：运行目标静态合同、相邻红框隐藏合同和类型检查。
+5. `completed`：更新证据、cleanup 状态和最终验证结果。
+
+## Expected Verification
+
+- `node tests/e2e/batch-record-cell-rule-bottom-fill-static.spec.js`
+- `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js`
+- `pnpm ts:check`
+
+## Applicable Gates
+
+- 前端静态契约隔离门禁：使用聚焦静态合同锁定本次布局行为，不用无关全量检查替代。
+- 前端同集合弹窗导航上下文门禁：填写配置弹窗含上一张/下一张导航，布局修复不得破坏当前预览上下文。
+- 脏工作区基线门禁：开始时存在既有未提交改动，需在实现前记录并按项目规则处理。
+- PowerShell 分号串联测试退出码门禁：验证命令逐条执行并记录退出码。
+
+## 设计约束检查
+
+- `是否引入 fallback/降级/吞异常`：否。
+- `是否从根因和长期维护角度解决`：是，直接修复弹窗布局高度分配。
+- `是否存在临时补丁或绕过`：否。
+
+## Current Status
+
+completed
+
+## Final Verification Result
+
+- `node tests/e2e/batch-record-cell-rule-bottom-fill-static.spec.js` -> PASS
+- `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> PASS
+- `pnpm ts:check` -> PASS
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-fill-config-bottom-blank-area/frontend-feature-evidence.md` -> PASS
+- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260729-fill-config-bottom-blank-area/bug-regression-evidence.md` -> PASS
+- `task_closeout.py --task-id 20260729-fill-config-bottom-blank-area --mode preview` -> ready
+- `task_closeout.py --task-id 20260729-fill-config-bottom-blank-area --mode apply` -> applied, deleted none
+- 相邻旧合同 `batch-record-cell-rule-navigation-static.spec.js`、`batch-record-cell-rule-dialog-size-static.spec.js`、`edhr-visual-fill-config-static.spec.js` 当前被并行红框隐藏改动阻塞：旧断言仍要求已移除的顶部操作组/说明标题，不作为本次底部空白修复通过证据。
+
+## Cleanup Keep
+
+- doc/tasks/20260729-fill-config-bottom-blank-area/frontend-feature-evidence.md
+- doc/tasks/20260729-fill-config-bottom-blank-area/bug-regression-evidence.md

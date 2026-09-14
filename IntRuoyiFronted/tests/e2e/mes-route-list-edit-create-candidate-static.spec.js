@@ -16,7 +16,7 @@ const getFunctionBody = (functionName) => {
 }
 
 const templateMatch = source.match(
-  /<UnifiedListTemplate[\s\S]*?table-key="mes\.pro\.route\.main"[\s\S]*?<\/UnifiedListTemplate>/
+  /<UnifiedListTemplate[\s\S]*?:table-key="ROUTE_LIST_TABLE_KEY"[\s\S]*?<\/UnifiedListTemplate>/
 )
 assert.ok(templateMatch, '工艺路线列表必须继续使用标准列表模板。')
 const template = templateMatch[0]
@@ -94,6 +94,21 @@ assert.match(
   candidateEntry,
   /return\s+\{\s*candidate:\s*draftCandidate,\s*created:\s*true\s*\}/,
   '本次调用真正新建 DRAFT 时必须返回 created=true，保留直建草稿退出可取消语义。'
+)
+assert.match(
+  candidateEntry,
+  /OPEN_ROUTE_VERSION_STATUSES\s*=\s*\[[\s\S]*DRAFT_ROUTE_VERSION_STATUS[\s\S]*PENDING_APPROVAL_ROUTE_VERSION_STATUS[\s\S]*READY_TO_PUBLISH_ROUTE_VERSION_STATUS[\s\S]*\]/,
+  '统一候选入口必须只把打开中的 DRAFT/PENDING_APPROVAL/READY_TO_PUBLISH 视为可阻塞候选。'
+)
+assert.doesNotMatch(
+  candidateEntry,
+  /OPEN_ROUTE_VERSION_STATUSES[\s\S]*CANCELLED|CANCELLED[\s\S]*OPEN_ROUTE_VERSION_STATUSES/,
+  '删除草稿后的 CANCELLED 版本不得被复用或阻塞再次点击“编辑”创建新草稿。'
+)
+assert.match(
+  candidateEntry,
+  /ProRouteApi\.createRouteCandidateVersion\(\{[\s\S]*sourceRouteVersionId:\s*routeInfo\.activeRouteVersionId/,
+  '删除草稿后再次点击“编辑”创建的新草稿必须基于当前 ACTIVE 版本。'
 )
 
 const versionWorkspace = getFunctionBody('openRouteVersionWorkspace')

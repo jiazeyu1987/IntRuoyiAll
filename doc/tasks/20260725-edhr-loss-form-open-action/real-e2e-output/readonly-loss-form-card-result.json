@@ -1,0 +1,57 @@
+{
+  "tenant": "芋道源码",
+  "username": "admin",
+  "source": "page-scan",
+  "batchExecutionId": 900000000846,
+  "batchCode": "E2E-FULL-1785024829153",
+  "task": {
+    "taskId": 6557,
+    "taskName": "损耗单",
+    "processName": "粗洗工序",
+    "status": 40,
+    "requiredPolicy": "REQUIRED",
+    "activeWorkTaskId": null,
+    "allowedActions": [],
+    "formCenterInstanceId": 312,
+    "formTemplateId": 25,
+    "disabledReason": null,
+    "gateMessage": null
+  },
+  "uiResult": {
+    "targetUrl": "http://localhost:8081/mes/pro/feedback/edhr-batch-execution/detail?id=900000000846&batchTaskId=6557",
+    "actionLabel": "查看表单",
+    "actionStates": [
+      {
+        "label": "解析",
+        "disabled": true
+      },
+      {
+        "label": "创建",
+        "disabled": true
+      },
+      {
+        "label": "保存草稿",
+        "disabled": true
+      },
+      {
+        "label": "提交",
+        "disabled": true
+      },
+      {
+        "label": "重提",
+        "disabled": true
+      },
+      {
+        "label": "放弃",
+        "disabled": true
+      }
+    ],
+    "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260725-edhr-loss-form-open-action\\real-e2e-output\\readonly-loss-form-card.png",
+    "previewRequests": [],
+    "skipErrorCount": 0,
+    "blockedWrites": []
+  },
+  "consoleErrorCount": 0,
+  "pageErrors": [],
+  "scannedCount": 1
+}

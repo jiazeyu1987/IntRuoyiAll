@@ -8,7 +8,7 @@ function ConvertTo-IntRuoyiWorktreeName {
         [string]$Path,
         [string]$Branch,
         [Parameter(Mandatory = $true)]
-        [ValidateSet('ruoyi-vue-pro', 'yudao-ui-admin-vue3')]
+        [ValidateSet('ruoyi-vue-pro', 'IntRuoyiFronted')]
         [string]$RepoFolder
     )
 
@@ -61,7 +61,7 @@ function Get-IntRuoyiGitWorktrees {
         throw "Missing $Kind repository path: $RepoPath"
     }
 
-    $repoFolder = if ($Kind -eq 'frontend') { 'yudao-ui-admin-vue3' } else { 'ruoyi-vue-pro' }
+    $repoFolder = if ($Kind -eq 'frontend') { 'IntRuoyiFronted' } else { 'ruoyi-vue-pro' }
     $lines = & git -C $RepoPath worktree list --porcelain
     if ($LASTEXITCODE -ne 0) {
         throw "git worktree list failed for $Kind repository: $RepoPath"
@@ -326,7 +326,7 @@ function Get-IntRuoyiWorktreeInventory {
     }
 
     $workspaceRoot = (Split-Path -Parent $mainBackend[0].Path).TrimEnd('\')
-    $frontendMain = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'
+    $frontendMain = Join-Path $workspaceRoot 'IntRuoyiFronted'
     $frontendWorktrees = Get-IntRuoyiGitWorktrees -RepoPath $frontendMain -Kind 'frontend'
 
     return [PSCustomObject]@{
@@ -391,7 +391,7 @@ function New-IntRuoyiMainPortContext {
 
     $backendRepoRoot = (Resolve-Path $CurrentBackendRepoRoot).Path.TrimEnd('\')
     $workspaceRoot = (Split-Path -Parent $backendRepoRoot).TrimEnd('\')
-    $frontendPath = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'
+    $frontendPath = Join-Path $workspaceRoot 'IntRuoyiFronted'
     if (-not (Test-Path -LiteralPath $frontendPath)) {
         throw "Missing int_main frontend path: $frontendPath"
     }

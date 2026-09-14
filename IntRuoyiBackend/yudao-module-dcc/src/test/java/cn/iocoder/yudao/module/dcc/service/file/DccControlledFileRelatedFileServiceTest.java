@@ -1,0 +1,181 @@
+package cn.iocoder.yudao.module.dcc.service.file;
+
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRelatedFileRespVO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRelatedFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMasterDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRelatedFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+
+import java.util.List;
+
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_RELATED_FILE_DUPLICATE;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_RELATED_FILE_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+class DccControlledFileRelatedFileServiceTest extends BaseMockitoUnitTest {
+
+    @Mock
+    private DccControlledFileRelatedFileMapper relatedFileMapper;
+    @Mock
+    private DccControlledFileMapper controlledFileMapper;
+    @Mock
+    private DccControlledFileMasterMapper controlledFileMasterMapper;
+    @InjectMocks
+    private DccControlledFileRelatedFileServiceImpl service;
+
+    @Test
+    void validateAndBindRelatedFiles_emptySelectionDoesNotCreateRelations() {
+        service.validateAndBindRelatedFiles(100L, 20L, List.of());
+
+        verify(relatedFileMapper, never()).insert(any(DccControlledFileRelatedFileDO.class));
+    }
+
+    @Test
+    void validateAndBindRelatedFiles_multipleSameProjectFilesCreatesExplicitRelations() {
+        DccControlledFileDO first = relatedFile(201L, 301L, "DOC-201", "工艺文件", "V1.0");
+        DccControlledFileDO second = relatedFile(202L, 302L, "DOC-202", "检验文件", "V2.0");
+        when(controlledFileMapper.selectAssociatedFilesByProjectCodeId(20L, List.of(201L, 202L)))
+                .thenReturn(List.of(first, second));
+        when(controlledFileMasterMapper.selectBatchIds(List.of(301L, 302L))).thenReturn(List.of(
+                DccControlledFileMasterDO.builder().id(301L).currentActiveControlledFileId(201L).build(),
+                DccControlledFileMasterDO.builder().id(302L).currentActiveControlledFileId(202L).build()));
+
+        service.validateAndBindRelatedFiles(100L, 20L, List.of(201L, 202L));
+
+        ArgumentCaptor<DccControlledFileRelatedFileDO> captor =
+                ArgumentCaptor.forClass(DccControlledFileRelatedFileDO.class);
+        verify(relatedFileMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
+        assertEquals(List.of(201L, 202L), captor.getAllValues().stream()
+                .map(DccControlledFileRelatedFileDO::getRelatedControlledFileId).toList());
+        assertEquals("UPLOAD", captor.getAllValues().get(0).getRelationSource());
+    }
+
+    @Test
+    void validateAndBindRelatedFiles_crossProjectSelectionFailsFast() {
+        when(controlledFileMapper.selectAssociatedFilesByProjectCodeId(20L, List.of(201L)))
+                .thenReturn(List.of());
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.validateAndBindRelatedFiles(100L, 20L, List.of(201L)));
+
+        assertEquals(CONTROLLED_FILE_RELATED_FILE_INVALID.getCode(), exception.getCode());
+        verify(relatedFileMapper, never()).insert(any(DccControlledFileRelatedFileDO.class));
+    }
+
+    @Test
+    void validateAndBindRelatedFiles_duplicateSelectionFailsFast() {
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.validateAndBindRelatedFiles(100L, 20L, List.of(201L, 201L)));
+
+        assertEquals(CONTROLLED_FILE_RELATED_FILE_DUPLICATE.getCode(), exception.getCode());
+        verify(controlledFileMapper, never()).selectAssociatedFilesByProjectCodeId(any(), any());
+    }
+
+    @Test
+    void listRelatedFiles_returnsCurrentMetadataAndSnapshotWhenTargetMissing() {
+        DccControlledFileRelatedFileDO first = relation(1L, 100L, 201L, "DOC-201", "旧名称", "V1.0");
+        DccControlledFileRelatedFileDO second = relation(2L, 100L, 202L, "DOC-202", "快照名称", "V2.0");
+        when(relatedFileMapper.selectListByControlledFileId(100L)).thenReturn(List.of(first, second));
+        when(controlledFileMapper.selectBatchIds(List.of(201L, 202L)))
+                .thenReturn(List.of(relatedFile(201L, 301L, "DOC-201", "当前名称", "V1.1")));
+
+        List<DccControlledFileRelatedFileRespVO> result = service.listRelatedFiles(100L);
+
+        assertEquals(2, result.size());
+        assertEquals("当前名称", result.get(0).getFileName());
+        assertEquals("V1.1", result.get(0).getVersionNo());
+        assertEquals("快照名称", result.get(1).getFileName());
+    }
+
+    @Test
+    void listForwardRelations_returnsFrozenSourceRowsWithoutProjection() {
+        DccControlledFileRelatedFileDO relation = relation(1L, 100L, 201L,
+                "DOC-201", "关联文件", "A/1");
+        when(relatedFileMapper.selectListByControlledFileId(100L)).thenReturn(List.of(relation));
+
+        assertEquals(List.of(relation), service.listForwardRelations(100L));
+    }
+
+    @Test
+    void inheritRelatedFiles_copiesSourceRelationsToCheckinIterationWithoutChangingSource() {
+        DccControlledFileRelatedFileDO sourceRelation = relation(1L, 100L, 201L,
+                "DOC-201", "关联文件", "A/1");
+        sourceRelation.setRelatedMasterId(301L);
+        when(controlledFileMapper.selectById(101L)).thenReturn(DccControlledFileDO.builder()
+                .id(101L).dccProjectCodeId(20L).build());
+        when(relatedFileMapper.selectListByControlledFileId(100L)).thenReturn(List.of(sourceRelation));
+
+        service.inheritRelatedFiles(100L, 101L);
+
+        ArgumentCaptor<DccControlledFileRelatedFileDO> captor =
+                ArgumentCaptor.forClass(DccControlledFileRelatedFileDO.class);
+        verify(relatedFileMapper).insert(captor.capture());
+        DccControlledFileRelatedFileDO inherited = captor.getValue();
+        assertEquals(101L, inherited.getControlledFileId());
+        assertEquals(201L, inherited.getRelatedControlledFileId());
+        assertEquals(301L, inherited.getRelatedMasterId());
+        assertEquals("DOC-201", inherited.getRelatedFileNumberSnapshot());
+        assertEquals("关联文件", inherited.getRelatedFileNameSnapshot());
+        assertEquals("A/1", inherited.getRelatedVersionNoSnapshot());
+        assertEquals("CHECKIN_INHERITED", inherited.getRelationSource());
+        assertEquals(100L, sourceRelation.getControlledFileId());
+    }
+
+    @Test
+    void resolveCurrentActiveRelatedFileIds_replacesSupersededSnapshotWithMasterCurrentActiveIteration() {
+        DccControlledFileRelatedFileDO relation = relation(1L, 100L, 201L,
+                "DOC-201", "关联文件", "A/1");
+        relation.setRelatedMasterId(301L);
+        when(relatedFileMapper.selectListByControlledFileId(100L)).thenReturn(List.of(relation));
+        when(controlledFileMasterMapper.selectBatchIds(List.of(301L))).thenReturn(List.of(
+                DccControlledFileMasterDO.builder().id(301L).currentActiveControlledFileId(211L).build()));
+        when(controlledFileMapper.selectAssociatedFilesByProjectCodeId(20L, List.of(211L))).thenReturn(List.of(
+                relatedFile(211L, 301L, "DOC-201", "关联文件", "B/1")));
+
+        assertEquals(List.of(211L), service.resolveCurrentActiveRelatedFileIds(100L, 20L));
+    }
+
+    @Test
+    void listReverseCurrentActiveRelations_usesTenantAndRelatedMasterBoundary() {
+        DccControlledFileRelatedFileDO relation = relation(2L, 200L, 100L,
+                "DOC-100", "被引用文件", "B/1");
+        when(relatedFileMapper.selectReverseCurrentActiveRelations(31L, 10L)).thenReturn(List.of(relation));
+
+        assertEquals(List.of(relation), service.listReverseCurrentActiveRelations(31L, 10L));
+        verify(relatedFileMapper).selectReverseCurrentActiveRelations(31L, 10L);
+    }
+
+    @Test
+    void listReverseCurrentActiveRelations_missingIdentityFailsFast() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.listReverseCurrentActiveRelations(null, 10L));
+        verify(relatedFileMapper, never()).selectReverseCurrentActiveRelations(any(), any());
+    }
+
+    private DccControlledFileDO relatedFile(Long id, Long masterId, String fileNumber, String fileName,
+                                             String versionNo) {
+        return DccControlledFileDO.builder().id(id).masterId(masterId).fileNumber(fileNumber)
+                .fileName(fileName).versionNo(versionNo).status("ACTIVE").build();
+    }
+
+    private DccControlledFileRelatedFileDO relation(Long id, Long controlledFileId, Long relatedFileId,
+                                                     String fileNumber, String fileName, String versionNo) {
+        return DccControlledFileRelatedFileDO.builder().id(id).controlledFileId(controlledFileId)
+                .relatedControlledFileId(relatedFileId).projectCodeId(20L).relatedMasterId(300L)
+                .relatedFileNumberSnapshot(fileNumber).relatedFileNameSnapshot(fileName)
+                .relatedVersionNoSnapshot(versionNo).relationSource("UPLOAD").build();
+    }
+}

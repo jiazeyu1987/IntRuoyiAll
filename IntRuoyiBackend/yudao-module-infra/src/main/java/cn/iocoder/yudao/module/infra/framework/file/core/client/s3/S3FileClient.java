@@ -175,7 +175,7 @@ public class S3FileClient extends AbstractFileClient<S3FileClientConfig> {
         return requireStorageRetentionEvidence(path, verificationPolicy)
                 .setUrl(presignGetUrl(path, null))
                 .setETag(putResponse.eTag())
-                .setChecksumSha256(putResponse.checksumSHA256());
+                .setChecksumSha256(effectivePolicy.getChecksumSha256());
     }
 
     @Override

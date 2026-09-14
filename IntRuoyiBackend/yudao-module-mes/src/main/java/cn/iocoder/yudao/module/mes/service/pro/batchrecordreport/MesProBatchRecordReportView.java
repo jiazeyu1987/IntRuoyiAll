@@ -10,6 +10,8 @@ public record MesProBatchRecordReportView(
         Long batchRecordDefinitionId,
         Long batchRecordVersionId,
         String productName,
+        String projectCode,
+        Long dccProjectCodeId,
         String versionNo,
         String versionStatus,
         String formSlotType,

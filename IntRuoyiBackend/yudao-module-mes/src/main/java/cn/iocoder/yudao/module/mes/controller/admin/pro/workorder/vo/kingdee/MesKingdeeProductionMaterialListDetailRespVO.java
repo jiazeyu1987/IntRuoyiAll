@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Schema(description = "管理后台 - ERP 生产用料清单单据明细 Response VO")
 @Data
@@ -29,6 +30,18 @@ public class MesKingdeeProductionMaterialListDetailRespVO {
 
     @Schema(description = "子项单位")
     private String childUnitName;
+
+    @Schema(description = "图号")
+    private String drawingNumber;
+
+    @Schema(description = "应发数量")
+    private BigDecimal requiredQuantity;
+
+    @Schema(description = "需求日期")
+    private LocalDateTime demandTime;
+
+    @Schema(description = "发料方式")
+    private String issueMethod;
 
     @Schema(description = "生产订单编号", example = "WO-001")
     private String productionOrderNo;

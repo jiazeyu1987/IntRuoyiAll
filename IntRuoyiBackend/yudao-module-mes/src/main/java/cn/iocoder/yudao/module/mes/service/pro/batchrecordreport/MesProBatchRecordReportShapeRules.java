@@ -37,9 +37,9 @@ final class MesProBatchRecordReportShapeRules {
             Math.round(SHARED_PAGE_WIDTH_DENSE_BUDGET_PX * 297f / 210f);
     static final int DENSE_TAIL_MIN_COLUMN_COUNT = 10;
     static final int DENSE_SEMANTIC_TAIL_MIN_COLUMN_COUNT = 9;
-    static final int DENSE_TAIL_COLUMN_WIDTH_FLOOR_PX = 68;
-    static final int DENSE_TAIL_UNIT_COLUMN_WIDTH_FLOOR_PX = 68;
-    static final int DENSE_TAIL_COMPACT_LABEL_WIDTH_FLOOR_PX = 38;
+    static final int DENSE_TAIL_COLUMN_WIDTH_FLOOR_PX = 44;
+    static final int DENSE_TAIL_UNIT_COLUMN_WIDTH_FLOOR_PX = 44;
+    static final int DENSE_TAIL_COMPACT_LABEL_WIDTH_FLOOR_PX = 40;
     static final int CHECKLIST_CHOICE_COLUMN_WIDTH_FLOOR_PX = 36;
     static final int DEFAULT_ROWS_LEN = 100;
     static final int DEFAULT_COLS_LEN = 100;
@@ -199,13 +199,18 @@ final class MesProBatchRecordReportShapeRules {
             }
             return DENSE_TAIL_UNIT_COLUMN_WIDTH_FLOOR_PX;
         }
-        if (normalized.contains("\u65e5\u671f") || lowerCase.contains("date")
-                || normalized.endsWith("\u4eba") || lowerCase.contains("operator")
-                || lowerCase.contains("reviewer")) {
+        if (normalized.contains("\u65e5\u671f") || lowerCase.contains("date")) {
             if (!semanticTailColumn) {
                 return 0;
             }
             return DENSE_TAIL_COLUMN_WIDTH_FLOOR_PX;
+        }
+        if (normalized.endsWith("\u4eba") || lowerCase.contains("operator")
+                || lowerCase.contains("reviewer")) {
+            if (!semanticTailColumn) {
+                return 0;
+            }
+            return DENSE_TAIL_COMPACT_LABEL_WIDTH_FLOOR_PX;
         }
         if (denseTailColumn && normalized.length() <= 4) {
             return DENSE_TAIL_COMPACT_LABEL_WIDTH_FLOOR_PX;

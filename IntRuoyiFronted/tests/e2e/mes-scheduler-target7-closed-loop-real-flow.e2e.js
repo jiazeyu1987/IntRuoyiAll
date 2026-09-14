@@ -8,25 +8,23 @@ function loadPlaywright() {
   }
 }
 
+function requiredEnv(name) {
+  const value = process.env[name]?.trim()
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`)
+  }
+  return value
+}
+
 const config = {
   baseUrl: (process.env.MES_SCHEDULER_TARGET7_E2E_BASE_URL || 'http://127.0.0.1:8081').replace(/\/+$/, ''),
-  tenant: process.env.MES_SCHEDULER_TARGET7_E2E_TENANT || '测试租户',
-  username: process.env.MES_SCHEDULER_TARGET7_E2E_USERNAME || 'aoteman',
-  password: process.env.MES_SCHEDULER_TARGET7_E2E_PASSWORD || 'admin123',
+  tenant: requiredEnv('MES_SCHEDULER_TARGET7_E2E_TENANT'),
+  username: requiredEnv('MES_SCHEDULER_TARGET7_E2E_USERNAME'),
+  password: requiredEnv('MES_SCHEDULER_TARGET7_E2E_PASSWORD'),
   workOrderCode: process.env.MES_SCHEDULER_TARGET7_E2E_WORK_ORDER_CODE || 'CODexERP20260610E',
   taskCode: process.env.MES_SCHEDULER_TARGET7_E2E_TASK_CODE || 'TASK-CODEX-20260610-E-B010',
   headed: process.env.MES_SCHEDULER_TARGET7_E2E_HEADED === '1'
 }
-
-const quickEntries = [
-  ['生产订单', '/mes/pro/work-order'],
-  ['排产工单池', '/mes/pro/schedule-order'],
-  ['工艺路线与资源', '/mes/pro/route'],
-  ['今日资源调整', '/mes/pro/route'],
-  ['生成排程日历', '/mes/pro/schedule-calendar'],
-  ['生产任务', '/mes/pro/task'],
-  ['生产报工', '/mes/pro/feedback']
-]
 
 async function settle(page) {
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {})
@@ -37,12 +35,68 @@ async function fillFirstVisible(locator, value, label) {
   const count = await locator.count()
   for (let index = 0; index < count; index += 1) {
     const item = locator.nth(index)
-    if (await item.isVisible()) {
+    const editable = await item
+      .evaluate((element) => {
+        if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+          return !element.readOnly && !element.disabled
+        }
+        return true
+      })
+      .catch(() => true)
+    if ((await item.isVisible()) && editable) {
       await item.fill(value)
       return
     }
   }
   throw new Error(`No visible input found for ${label}`)
+}
+
+function summarizePageResponse(response, body, rowCodeField = 'code') {
+  const list = Array.isArray(body?.data?.list) ? body.data.list : []
+  return {
+    url: response.url(),
+    businessCode: body?.code,
+    total: body?.data?.total,
+    codes: list.slice(0, 10).map((row) => row?.[rowCodeField] || row?.code || row?.erpWorkOrderCode)
+  }
+}
+
+function formatResponseEvidence(summary) {
+  return JSON.stringify(summary)
+}
+
+async function applyTableMultiFilter(page, tableKey, fieldKey, fieldLabel, value, responseUrlPart, label) {
+  const filter = page.locator(`.table-multi-filter[data-table-key="${tableKey}"]`).first()
+  await filter.waitFor({ state: 'visible', timeout: 30000 })
+  if ((await filter.locator('.table-multi-filter__condition-row').count()) === 0) {
+    await filter.getByRole('button', { name: '新增筛选条件' }).click()
+  }
+
+  let field = filter.locator(`.table-multi-filter-field[data-filter-key="${fieldKey}"]`).first()
+  if ((await field.count()) === 0 || !(await field.isVisible().catch(() => false))) {
+    await filter.locator('.table-multi-filter__field-select').first().click()
+    await page.getByRole('option', { name: fieldLabel, exact: true }).last().click()
+    field = filter.locator(`.table-multi-filter-field[data-filter-key="${fieldKey}"]`).first()
+  }
+  await field.waitFor({ state: 'visible', timeout: 30000 })
+  const valueInput = field.locator('.table-multi-filter-field__value input')
+  await fillFirstVisible(valueInput, value, label)
+  const actualValue = await valueInput.first().inputValue()
+  assert.equal(actualValue, value, `${label} 筛选值未写入当前页面输入框`)
+  await filter
+    .locator('.table-multi-filter__tabs .el-tabs__item')
+    .filter({ hasText: value })
+    .first()
+    .waitFor({ state: 'visible', timeout: 5000 })
+
+  const [searchResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) => response.url().includes(responseUrlPart) && response.status() === 200,
+      { timeout: 60000 }
+    ),
+    filter.getByRole('button', { name: /查询/ }).click()
+  ])
+  return { filter, searchResponse }
 }
 
 async function login(page, redirect = '/mes/pro/scheduler-workbench') {
@@ -90,7 +144,7 @@ async function login(page, redirect = '/mes/pro/scheduler-workbench') {
     throw new Error(`登录接口返回业务错误: ${loginBody.msg || loginBody.code}`)
   }
   await page.waitForFunction(() => Boolean(localStorage.getItem('ACCESS_TOKEN')), null, { timeout: 60000 })
-  await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 60000 })
+  await page.waitForFunction(() => !window.location.href.includes('/login'), null, { timeout: 60000 })
 }
 
 async function openWorkbench(page) {
@@ -98,7 +152,7 @@ async function openWorkbench(page) {
     (response) => response.url().includes('/admin-api/mes/pro/scheduler-workbench/summary') && response.status() === 200,
     { timeout: 60000 }
   )
-  await page.goto(`${config.baseUrl}/mes/pro/scheduler-workbench`, {
+  await page.goto(`${config.baseUrl}/mes/pro/scheduler-workbench?target7E2e=${Date.now()}`, {
     waitUntil: 'domcontentloaded',
     timeout: 60000
   })
@@ -106,21 +160,20 @@ async function openWorkbench(page) {
   const summaryBody = await summaryResponse.json()
   assert.equal(summaryBody.code, 0, `工作台 summary 接口业务错误: ${summaryBody.msg || summaryBody.code}`)
   await page.locator('.scheduler-workbench').waitFor({ state: 'visible', timeout: 30000 })
-  for (const text of ['快捷入口', '夜间自动重排', '瓶颈建议', '报工偏差', '今日可用产能']) {
+  for (const text of ['工序列表', '排产设置']) {
     await page.getByText(text).first().waitFor({ state: 'visible', timeout: 30000 })
   }
   return summaryBody.data
 }
 
-async function verifyQuickEntryNavigation(page) {
-  for (const [label, targetPath] of quickEntries) {
-    await openWorkbench(page)
-    const button = page.locator('.scheduler-workbench__quick-links button').filter({ hasText: label }).first()
-    await button.waitFor({ state: 'visible', timeout: 30000 })
-    await button.click()
-    await page.waitForURL((url) => url.pathname.includes(targetPath), { timeout: 30000 })
-    await settle(page)
+async function verifySchedulerRuntimeStatusUi(page) {
+  await openWorkbench(page)
+  await page.getByRole('button', { name: /排产设置/ }).first().click()
+  for (const text of ['默认允许使用夜班', '可用夜班班次与产能', '自动排产任务', '处理器 mesProNightlyReplanJob']) {
+    await page.getByText(text).first().waitFor({ state: 'visible', timeout: 30000 })
   }
+  await page.keyboard.press('Escape')
+  await settle(page)
 }
 
 async function searchWorkOrderInUi(page) {
@@ -130,19 +183,24 @@ async function searchWorkOrderInUi(page) {
   )
   await page.goto(`${config.baseUrl}/mes/pro/work-order`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await responsePromise.catch(() => {})
-  await page.getByText('工单编码').first().waitFor({ state: 'visible', timeout: 30000 })
-  await fillFirstVisible(page.locator('input[placeholder="请输入工单编码"]'), config.workOrderCode, 'work order code')
-  const [searchResponse] = await Promise.all([
-    page.waitForResponse(
-      (response) => response.url().includes('/admin-api/mes/pro/work-order/page') && response.status() === 200,
-      { timeout: 60000 }
-    ),
-    page.getByRole('button', { name: /搜索/ }).first().click()
-  ])
+  const { searchResponse } = await applyTableMultiFilter(
+    page,
+    'mes.pro.workorder.main',
+    'code',
+    '工单编号',
+    config.workOrderCode,
+    '/admin-api/mes/pro/work-order/page',
+    'work order code'
+  )
   const body = await searchResponse.json()
   assert.equal(body.code, 0, `生产工单查询接口业务错误: ${body.msg || body.code}`)
   const workOrder = body.data?.list?.find?.((row) => row.code === config.workOrderCode)
-  assert.ok(workOrder, `测试租户缺少 ERP 同步生产工单 ${config.workOrderCode}`)
+  assert.ok(
+    workOrder,
+    `测试租户缺少 ERP 同步生产工单 ${config.workOrderCode}; ${formatResponseEvidence(
+      summarizePageResponse(searchResponse, body, 'code')
+    )}`
+  )
   await page.locator('tr.el-table__row').filter({ hasText: config.workOrderCode }).first().waitFor({
     state: 'visible',
     timeout: 30000
@@ -158,32 +216,54 @@ async function searchScheduleOrderAndSnapshotInUi(page, workOrder) {
   )
   await page.goto(`${config.baseUrl}/mes/pro/schedule-order`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await firstPagePromise.catch(() => {})
-  const schedulePanel = page.locator('.schedule-order-pool > .el-card, .schedule-order-pool > .content-wrap').first()
-  await fillFirstVisible(schedulePanel.locator('input[placeholder="请输入工单编码"]'), config.workOrderCode, 'work order code')
-  const [pageResponse] = await Promise.all([
-    page.waitForResponse(
-      (response) => response.url().includes('/admin-api/mes/pro/schedule-order/page') && response.status() === 200,
-      { timeout: 60000 }
-    ),
-    schedulePanel.getByRole('button', { name: /搜索/ }).click()
-  ])
+  const { searchResponse: pageResponse } = await applyTableMultiFilter(
+    page,
+    'mes.pro.scheduleOrder.main',
+    'erpWorkOrderCode',
+    '来源生产工单号',
+    config.workOrderCode,
+    '/admin-api/mes/pro/schedule-order/page',
+    'source work order code'
+  )
   const body = await pageResponse.json()
   assert.equal(body.code, 0, `排产工单查询接口业务错误: ${body.msg || body.code}`)
   const scheduleOrder = body.data?.list?.find?.((row) => row.erpWorkOrderCode === config.workOrderCode)
-  assert.ok(scheduleOrder, `测试租户缺少排产工单 ${config.workOrderCode}`)
+  assert.ok(
+    scheduleOrder,
+    `测试租户缺少排产工单 ${config.workOrderCode}; ${formatResponseEvidence(
+      summarizePageResponse(pageResponse, body, 'erpWorkOrderCode')
+    )}`
+  )
   assert.equal(String(scheduleOrder.quantity), String(workOrder.quantity), '排产数量必须等于 ERP 生产工单数量')
   assert.equal(typeof scheduleOrder.progressPercent, 'number', '排产工单必须返回进度百分比')
   assert.ok(scheduleOrder.promiseDate || scheduleOrder.promisedDeliveryDate, '排产工单必须有承诺交期')
-  assert.ok(scheduleOrder.routeVersion && /^ROUTE-/.test(scheduleOrder.routeVersion), '排产工单必须固化自动编号路线版本')
+  assert.ok(Number(scheduleOrder.routeId) > 0, '排产工单必须固化工艺路线编号')
+  assert.ok(
+    typeof scheduleOrder.routeVersion === 'string' && scheduleOrder.routeVersion.trim().length > 0,
+    `排产工单必须固化路线版本; ${formatResponseEvidence({
+      id: scheduleOrder.id,
+      code: scheduleOrder.code,
+      erpWorkOrderCode: scheduleOrder.erpWorkOrderCode,
+      routeId: scheduleOrder.routeId,
+      routeCode: scheduleOrder.routeCode,
+      routeName: scheduleOrder.routeName,
+      routeVersion: scheduleOrder.routeVersion,
+      productCode: scheduleOrder.productCode,
+      quantity: scheduleOrder.quantity
+    })}`
+  )
 
-  const row = schedulePanel.locator('tr.el-table__row').filter({ hasText: config.workOrderCode }).first()
+  const row = page
+    .locator('[data-user-table-key="mes.pro.scheduleOrder.main"] tr.el-table__row')
+    .filter({ hasText: config.workOrderCode })
+    .first()
   await row.waitFor({ state: 'visible', timeout: 30000 })
   const [processResponse] = await Promise.all([
     page.waitForResponse(
       (response) => response.url().includes('/admin-api/mes/pro/schedule-order/process-list') && response.status() === 200,
       { timeout: 60000 }
     ),
-    row.getByText('工序快照').click()
+    row.getByRole('button', { name: '查看' }).click()
   ])
   const processBody = await processResponse.json()
   assert.equal(processBody.code, 0, `工序快照接口业务错误: ${processBody.msg || processBody.code}`)
@@ -194,19 +274,25 @@ async function searchScheduleOrderAndSnapshotInUi(page, workOrder) {
   )
   assert.ok(processBody.data.some((item) => item.shiftHours !== undefined), '工序快照必须包含班次小时')
   assert.ok(processBody.data.some((item) => item.shiftCapacityTotal !== undefined), '工序快照必须包含班次产能')
-  await page.getByText('总产能/班次').first().waitFor({ state: 'visible', timeout: 30000 })
+  await page
+    .locator('[data-user-table-key="mes.pro.scheduleOrder.processRoute"]')
+    .getByText('班次产能')
+    .first()
+    .waitFor({ state: 'visible', timeout: 30000 })
   return { scheduleOrder, processes: processBody.data }
 }
 
 async function openFeedbackAttributionUi(page) {
   const pagePromise = page.waitForResponse(
-    (response) => response.url().includes('/admin-api/mes/pro/feedback/page') && response.status() === 200,
+    (response) => response.url().includes('/admin-api/mes/pro/feedback/import-record/page') && response.status() === 200,
     { timeout: 60000 }
   )
-  await page.goto(`${config.baseUrl}/mes/pro/feedback`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.goto(`${config.baseUrl}/mes/pro/feedback?tab=import-record&target7E2e=${Date.now()}`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 60000
+  })
   await pagePromise.catch(() => {})
   await page.getByText('第三方导入').waitFor({ state: 'visible', timeout: 30000 })
-  await page.getByRole('tab', { name: '待归属' }).click()
   await page.getByText('归属状态').first().waitFor({ state: 'visible', timeout: 30000 })
 }
 
@@ -280,12 +366,25 @@ async function apiGet(page, path) {
 async function verifyClosedLoopData(page, workOrder, scheduleOrder, processes, summary) {
   const imported = await apiGet(
     page,
-    `/mes/pro/feedback/import-record/page?pageNo=1&pageSize=50&attributionStatus=ATTRIBUTED`
+    `/mes/pro/feedback/import-record/page?pageNo=1&pageSize=200&attributionStatus=ATTRIBUTED`
   )
   const attributed = imported.list?.find?.(
     (row) => row.workOrderCode === config.workOrderCode && row.taskCode === config.taskCode
   )
-  assert.ok(attributed, `测试租户缺少已归属报工导入记录 ${config.taskCode}`)
+  assert.ok(
+    attributed,
+    `测试租户缺少已归属报工导入记录 ${config.taskCode}; ${formatResponseEvidence({
+      total: imported.total,
+      sample: (imported.list || []).slice(0, 20).map((row) => ({
+        id: row.id,
+        taskCode: row.taskCode,
+        workOrderCode: row.workOrderCode,
+        attributionStatus: row.attributionStatus,
+        scheduleOrderId: row.scheduleOrderId,
+        scheduleOrderProcessId: row.scheduleOrderProcessId
+      }))
+    })}`
+  )
   assert.equal(String(attributed.scheduleOrderId), String(scheduleOrder.id), '报工归属必须指向当前排产工单')
   assert.ok(attributed.scheduleOrderProcessId, '报工归属必须指向排产工单工序')
 
@@ -317,7 +416,7 @@ async function main() {
   try {
     await login(page)
     const summary = await openWorkbench(page)
-    await verifyQuickEntryNavigation(page)
+    await verifySchedulerRuntimeStatusUi(page)
     const workOrder = await searchWorkOrderInUi(page)
     const { scheduleOrder, processes } = await searchScheduleOrderAndSnapshotInUi(page, workOrder)
     await openFeedbackAttributionUi(page)

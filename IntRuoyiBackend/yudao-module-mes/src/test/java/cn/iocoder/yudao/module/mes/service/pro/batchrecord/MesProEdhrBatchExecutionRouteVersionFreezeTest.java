@@ -36,6 +36,16 @@ class MesProEdhrBatchExecutionRouteVersionFreezeTest {
                 "eDHR 批次响应必须从批次持久化快照读取 routeVersionId，不能回查当前 active。");
     }
 
+    @Test
+    void historicalBatchTaskGatesUsePersistedTaskPredecessors() throws Exception {
+        String source = Files.readString(SERVICE, StandardCharsets.UTF_8);
+
+        assertTrue(source.contains("!isActiveBatch(batch)"),
+                "历史批次任务门禁必须区分关闭/归档批次，不能强制匹配当前路线快照身份。");
+        assertTrue(source.contains("buildPersistedTaskPredecessorRouteProcessIdMap(tasks)"),
+                "历史批次任务门禁必须使用批次任务已冻结的直接前置关系。");
+    }
+
     private static void assertHasFields(Class<?> type, String... fieldNames) {
         for (String fieldName : fieldNames) {
             assertDoesNotThrow(() -> declaredField(type, fieldName),

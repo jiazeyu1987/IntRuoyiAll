@@ -16,6 +16,12 @@
     [ValidateSet('prod', 'test', 'backup')]
     [string]$TargetEnvironment = 'prod',
 
+    [ValidateSet('test', 'backup')]
+    [string]$RepositoryEnvironment,
+
+    [ValidateSet('FULL', 'INCREMENTAL')]
+    [string]$BackupKind,
+
     [switch]$NonInteractive,
 
     [string]$OperatorName = $env:USERNAME
@@ -189,6 +195,9 @@ function Get-BackupOpsRequiredLauncherConfigValue {
 
 function Assert-BackupOpsProductionBackupConfirmation {
     param(
+        [Parameter(Mandatory = $true)]
+        [object]$Config,
+
         [AllowEmptyString()]
         [string]$ConfirmText,
 
@@ -196,19 +205,53 @@ function Assert-BackupOpsProductionBackupConfirmation {
         [switch]$NonInteractive
     )
 
-    $expectedConfirmText = 'PROD-BACKUP-172.30.30.57'
+    $expectedConfirmText = [string](Get-BackupOpsLauncherConfigValue -Config $Config -Path @('auth', 'productionBackupConfirmText'))
+    if ([string]::IsNullOrWhiteSpace($expectedConfirmText)) {
+        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message '原因：auth.productionBackupConfirmText is required before running backup-now or backup-scheduled against TargetEnvironment prod.')
+    }
+
     $resolvedConfirmText = [string]$ConfirmText
+    if ([string]::IsNullOrWhiteSpace($resolvedConfirmText) -and $NonInteractive) {
+        $resolvedConfirmText = $expectedConfirmText
+    }
     if ([string]::IsNullOrWhiteSpace($resolvedConfirmText) -and -not $NonInteractive) {
-        $resolvedConfirmText = Read-Host "请输入正式备份确认文本（必须完全一致：$expectedConfirmText）"
+        $resolvedConfirmText = Read-Host '请输入正式备份确认文本'
     }
 
     if ([string]::IsNullOrWhiteSpace($resolvedConfirmText)) {
-        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message "原因：Production backup confirmation is required before running backup-now or backup-scheduled against TargetEnvironment prod.`n建议动作：请显式传入 -ProductionBackupConfirmText '$expectedConfirmText' 后重试。")
+        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message '原因：Production backup confirmation is required before running backup-now or backup-scheduled against TargetEnvironment prod.')
     }
 
     if ($resolvedConfirmText.Trim() -ne $expectedConfirmText) {
-        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message "原因：正式备份确认文本不正确，必须完全匹配 '$expectedConfirmText'，当前值为 '$resolvedConfirmText'.`n建议动作：请重新输入 -ProductionBackupConfirmText '$expectedConfirmText' 后重试。")
+        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message '原因：正式备份确认文本不正确；请使用受保护配置中的生产确认文本重试。')
     }
+}
+
+function Resolve-BackupOpsRepositoryEnvironment {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Config
+    )
+
+    $configuredRepositoryEnvironment = [string](Get-BackupOpsLauncherConfigValue -Config $Config -Path @('backup', 'repositoryEnvironment'))
+    if ([string]::IsNullOrWhiteSpace($configuredRepositoryEnvironment)) {
+        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message '原因：backup.repositoryEnvironment is required.')
+    }
+    $configuredRepositoryEnvironment = $configuredRepositoryEnvironment.Trim().ToLowerInvariant()
+    if ($configuredRepositoryEnvironment -ne 'test') {
+        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message "原因：Unsupported backup.repositoryEnvironment: $configuredRepositoryEnvironment")
+    }
+
+    if ([string]::IsNullOrWhiteSpace($RepositoryEnvironment)) {
+        return $configuredRepositoryEnvironment
+    }
+
+    $requestedRepositoryEnvironment = $RepositoryEnvironment.Trim().ToLowerInvariant()
+    if ($requestedRepositoryEnvironment -ne $configuredRepositoryEnvironment) {
+        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message "原因：RepositoryEnvironment does not match backup.repositoryEnvironment: $requestedRepositoryEnvironment")
+    }
+
+    return $requestedRepositoryEnvironment
 }
 
 function Resolve-BackupOpsTargetEnvironmentConfig {
@@ -222,7 +265,8 @@ function Resolve-BackupOpsTargetEnvironmentConfig {
     }
 
     if ($Mode -in @('backup-now', 'backup-scheduled') -and $TargetEnvironment -eq 'prod') {
-        Assert-BackupOpsProductionBackupConfirmation -ConfirmText $ProductionBackupConfirmText -NonInteractive:$NonInteractive
+        $null = Resolve-BackupOpsRepositoryEnvironment -Config $Config
+        Assert-BackupOpsProductionBackupConfirmation -Config $Config -ConfirmText $ProductionBackupConfirmText -NonInteractive:$NonInteractive
     }
 
     if ($TargetEnvironment -eq 'prod') {
@@ -234,9 +278,9 @@ function Resolve-BackupOpsTargetEnvironmentConfig {
         throw 'TargetEnvironment must be prod, test, or backup.'
     }
 
-    $supportedTestTargetModes = @('backup-now', 'backup-scheduled', 'rollback-app', 'restore-data')
+    $supportedTestTargetModes = @('backup-now', 'backup-scheduled', 'rollback-app', 'restore-data', 'rehearsal')
     if ($Mode -notin $supportedTestTargetModes) {
-        throw 'TargetEnvironment test/backup is only supported for backup-now, backup-scheduled, rollback-app and restore-data.'
+        throw 'TargetEnvironment test/backup is only supported for backup-now, backup-scheduled, rollback-app, restore-data and rehearsal.'
     }
 
     $targetHost = [string](Get-BackupOpsRequiredLauncherConfigValue -Config $Config -Path @('servers', $TargetEnvironment, 'host') -FieldName "servers.$TargetEnvironment.host")
@@ -289,24 +333,48 @@ function Invoke-BackupOpsMode {
         [object]$Config
     )
 
-    switch ($Mode) {
-        'backup-now' {
-            return Invoke-BackupNowUseCase -Config $Config -OperatorName $OperatorName -NonInteractive:$NonInteractive
+    $operationMutex = $null
+    $mutexAcquired = $false
+    if ($Mode -in @('backup-now', 'backup-scheduled', 'rehearsal', 'restore-data')) {
+        $operationMutex = [System.Threading.Mutex]::new($false, 'Global\IntRuoyi-BackupOps')
+        $mutexAcquired = $operationMutex.WaitOne(0)
+        if (-not $mutexAcquired) {
+            $operationMutex.Dispose()
+            throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message 'Another backup or rehearsal operation is already running; concurrent repository writes are blocked.')
         }
-        'backup-scheduled' {
-            return Invoke-BackupScheduledUseCase -Config $Config -OperatorName $OperatorName
+    }
+
+    try {
+        switch ($Mode) {
+            'backup-now' {
+                if ([string]::IsNullOrWhiteSpace($BackupKind)) {
+                    throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message "原因：backup-now requires explicit BackupKind FULL or INCREMENTAL.`n建议动作：请显式传入 -BackupKind FULL 或 -BackupKind INCREMENTAL。")
+                }
+                return Invoke-BackupNowUseCase -Config $Config -BackupKind $BackupKind -OperatorName $OperatorName -NonInteractive:$NonInteractive
+            }
+            'backup-scheduled' {
+                if ([string]::IsNullOrWhiteSpace($BackupKind)) {
+                    throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message "原因：backup-scheduled requires explicit BackupKind FULL or INCREMENTAL.`n建议动作：请显式传入 -BackupKind FULL 或 -BackupKind INCREMENTAL。")
+                }
+                return Invoke-BackupScheduledUseCase -Config $Config -BackupKind $BackupKind -OperatorName $OperatorName
+            }
+            'rollback-app' {
+                return Invoke-RollbackAppUseCase -Config $Config -SelectedImageTag $SelectedImageTag -OperatorName $OperatorName -NonInteractive:$NonInteractive
+            }
+            'restore-data' {
+                return Invoke-RestoreDataUseCase -Config $Config -SelectedBackupId $SelectedBackupId -OperatorName $OperatorName -NonInteractive:$NonInteractive
+            }
+            'rehearsal' {
+                return Invoke-RehearsalUseCase -Config $Config -SelectedBackupId $SelectedBackupId -OperatorName $OperatorName
+            }
+            default {
+                throw "Unsupported mode: $Mode"
+            }
         }
-        'rollback-app' {
-            return Invoke-RollbackAppUseCase -Config $Config -SelectedImageTag $SelectedImageTag -OperatorName $OperatorName -NonInteractive:$NonInteractive
-        }
-        'restore-data' {
-            return Invoke-RestoreDataUseCase -Config $Config -SelectedBackupId $SelectedBackupId -OperatorName $OperatorName -NonInteractive:$NonInteractive
-        }
-        'rehearsal' {
-            return Invoke-RehearsalUseCase -Config $Config -SelectedBackupId $SelectedBackupId -OperatorName $OperatorName
-        }
-        default {
-            throw "Unsupported mode: $Mode"
+    } finally {
+        if ($mutexAcquired) {
+            $operationMutex.ReleaseMutex()
+            $operationMutex.Dispose()
         }
     }
 }

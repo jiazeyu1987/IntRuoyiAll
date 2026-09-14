@@ -1,0 +1,140 @@
+# QA 规程独立页面配置
+
+## Task Goal
+
+将 QA 规程配置调整为独立页面入口，让 QA 可以定义给 PQC 执行的过程检验规则，并用压力泵 PDF 规程信息初始化示例内容。该功能不嵌入生产/PQC 工作台内部 tab，不接入 DCC、不做 DCC 文件分类、不作为受控文件上传入口。
+
+## Milestones
+
+- [x] 识别现有生产/PQC 工作台入口和 QA/PQC 需求边界。
+- [x] 增加 QA 规程配置静态契约，先证明现有页面缺少该能力。
+- [x] 实现 QA 规程配置 UI，包含规程元数据、适用范围、首检/巡检/末检规则、检验项目和发布完整性检查。
+- [x] 运行定向静态契约和相邻 QA/PQC 回归验证。
+- [x] 记录验证报告和剩余阻塞。
+- [x] 增加检验项目原文依据摘录，让 QA 能看到每条解析标准对应的扫描 PDF 相关原文。
+- [x] 将 QA 规程从生产/PQC 工作台内部 tab 拆为独立路由页面，并验证原工作台不再出现 `QA 规程` 内部 tab。
+- [x] 在 eDHR 左侧动态菜单中将 `QA` 插入到 `批记录表单` 和 `批次执行` 之间，并让本机 `芋道源码/admin` 可见。
+
+## Expected Verification
+
+- RED: `node IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` must fail before implementation because the existing workbench has no `QA 规程` tab.
+- GREEN: `node IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` must pass after implementation.
+- REGRESSION: `pnpm --dir IntRuoyiFronted run e2e:role-matrix-qa-regulation:static` must pass to protect the existing QA regulation schema/dynamic item contract.
+- REGRESSION: `pnpm --dir IntRuoyiFronted run e2e:role-matrix-pqc-dynamic-form:static` must pass to protect PQC dynamic rendering from published QA regulation data.
+- REGRESSION: `pnpm --dir IntRuoyiFronted ts:check` must pass to prove the Vue/TypeScript changes are type-safe.
+- EVIDENCE: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-qa-regulation-tab/frontend-feature-evidence.md` must pass.
+- RED/GREEN: `node IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` must require each QA inspection item to expose relevant original-source fields and short excerpts.
+- REGRESSION: local browser E2E should open `/mes/pro/process-pool/qa-regulation`, show source excerpts, and send no backend write request while formal save/publish API is absent.
+- GREEN: `node IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` must pass against local `8081/48081` and verify visible item-level source excerpts with no backend write requests.
+- RED/GREEN: `node IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` must require standalone route `/mes/pro/process-pool/qa-regulation`, page component `QaRegulationPage.vue`, and no `QA 规程` tab inside `TeamLeaderWorkbenchPage.vue`.
+- REGRESSION: real local browser E2E must open `/mes/pro/process-pool/qa-regulation` directly, verify source excerpts, and send no backend write request.
+- RED/GREEN: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_mes_edhr_qa_menu_sql.py -q` must first fail because the QA dynamic menu migration is missing, then pass after adding the formal menu SQL.
+- GREEN: `node IntRuoyiFronted/tests/e2e/mes-edhr-qa-menu-static.spec.js` must pass, proving the backend dynamic menu row and frontend standalone route agree.
+- E2E: local Playwright must login as `芋道源码/admin`, open eDHR left menu, verify visible order `批记录表单` -> `QA` -> `批次执行`, click `QA`, and land on `/mes/pro/process-pool/qa-regulation`.
+
+## BDD/TDD Acceptance Matrix
+
+| Scenario ID | BDD Given / When / Then | RED Expected Failure | GREEN / Regression Evidence |
+| --- | --- | --- | --- |
+| BDD-QA-001 | Given QA opens `/mes/pro/process-pool/qa-regulation`, When the standalone QA page loads, Then the page shows regulation metadata, scope, first/patrol/final rules, and item configuration. | Static contract fails because no standalone QA page, route, or stable QA selectors exist. | New static contract passes and `ts:check` passes. |
+| BDD-QA-002 | Given the pressure-pump PDF is the source reference, When the standalone QA page loads, Then it shows `PQC-IDI-001`, `B/0`, `2026-01-04`, and `按压式球囊扩充压力泵组装过程检验规程`. | Static contract fails because pressure-pump metadata is absent from the standalone page. | New static contract passes with source metadata assertions. |
+| BDD-QA-003 | Given PQC only executes QA rules, When QA defines rules on the standalone page, Then the page contains no DCC file classification, controlled-file upload, or document-control workflow semantics. | Static contract fails if QA page contains DCC/file-classification/controlled-file terms. | New static contract passes with negative DCC-coupling assertions. |
+| BDD-QA-004 | Given formal save/publish API is not wired, When QA previews or runs publish checks on the standalone page, Then the page exposes missing publishing prerequisites and does not fake backend success. | Static contract fails because the page does not show API-not-wired and no-backend-write messaging. | New static contract passes and frontend evidence validator passes. |
+| BDD-QA-005 | Given QA reviews a parsed inspection item, When QA checks its判定标准, Then the item shows only the relevant original PDF excerpt, source page, source item, and method excerpt so QA can compare parsed text with the source. | Static contract fails because item rows only have parsed standard/source notes and no original excerpt fields or UI. | Static contract and real browser E2E verify original-source excerpts are visible in the item model/UI with no backend writes. |
+| BDD-QA-006 | Given QA needs its own workspace entry, When QA opens `QA 规程配置`, Then it loads as a standalone route page and the production/PQC workbench no longer contains an internal `QA 规程` tab. | Static contract fails because QA is still embedded in `TeamLeaderWorkbenchPage.vue` and `QaRegulationPage.vue` does not exist. | Standalone route/page contract passes, real browser opens `/mes/pro/process-pool/qa-regulation` directly, and workbench tab contract forbids QA tab residue. |
+| BDD-QA-007 | Given `芋道源码/admin` opens the eDHR left menu, When `批记录表单` and `批次执行` are visible, Then `QA` appears between them and opens `/mes/pro/process-pool/qa-regulation`. | Static SQL contract fails because no QA dynamic menu row is registered under eDHR. | Menu SQL, frontend route contract, and real admin E2E prove `QA` is visible and opens the standalone QA page. |
+
+## Test Data
+
+- PDF source: `C:/Users/BJB110/Desktop/文档/1/PQC-IDI-001（B 0）按压式球囊扩充压力泵组装过程检验规程--2026.01.04生效.pdf`.
+- Extracted reliable metadata: `PQC-IDI-001`, `B/0`, `2026-01-04`, `按压式球囊扩充压力泵组装过程检验规程`.
+- QA draft product: `按压式球囊扩充压力泵`.
+- Example order quantity: `301`, used to prove patrol sampling can display `301 × 5%` and round up to `16`.
+- Inspection item seed rows are editable QA draft defaults, not authoritative OCR extraction.
+- Source excerpts are manually transcribed from the rendered scanned PDF pages because direct PDF text extraction returned empty text. Excerpts are short, item-specific, and remain QA-reviewable rather than full-page OCR.
+
+## E2E / User Path Plan
+
+- Current verified path is a standalone QA route because no formal QA save/publish API is exposed in this slice.
+- Real E2E path: login as QA, open `/mes/pro/process-pool/qa-regulation`, edit rules, run publish precheck, verify no backend write is sent until the formal API exists.
+- Dynamic menu E2E path: login as `芋道源码/admin`, open eDHR left menu, click the `QA` child item located between `批记录表单` and `批次执行`, and verify the standalone QA page loads.
+- Future PQC integration path: publish a QA regulation through the formal API, login as PQC, verify generated tasks use the published version snapshot and not hardcoded demo items.
+
+## Current Status
+
+ready_for_closeout
+
+QA now displays through the standalone route `/mes/pro/process-pool/qa-regulation`. The eDHR dynamic left-menu item named `QA` is verified between `批记录表单` and `批次执行`; real `芋道源码/admin` menu-click E2E passed on local `8081/48081`. Remaining work is closeout-only because commit/push is not performed in this dirty shared workspace state.
+
+## Design Constraints
+
+- QA 是给 PQC 制定规则的角色，PQC 按 QA 发布规程执行。
+- QA 规程页面不得出现 DCC、文件分类、受控文件上传或文控审批含义。
+- QA 规程不得嵌入生产/PQC 工作台内部 `el-tabs`；必须作为独立路由页面打开。
+- eDHR 左侧菜单项名称使用 `QA`，页面标题继续使用 `QA 规程配置`；不得把 QA 放回生产/PQC 工作台内部 tab。
+- 页面可以用压力泵 PDF 元数据初始化示例，但不得宣称已完成 DCC 识别或受控文件归档。
+- 每个解析后的检验项目必须能看到与该项目相关的短原文摘录，不展示整页 OCR，也不把看不清或未定位的内容伪装成已确认原文。
+- 如果正式保存/发布 API 未接入，页面必须明确停留在前端配置/发布前检查表达，不得伪造持久化成功。
+
+## 设计约束检查
+
+- `是否引入 fallback/降级/吞异常`：否。
+- `是否从根因和长期维护角度解决`：是，按 QA 规程 -> PQC 执行的业务边界设计页面入口和静态契约。
+- `是否存在临时补丁或绕过`：否。
+
+## Applicable Gates
+
+- 前端静态契约隔离门禁：新增任务专用静态契约覆盖 QA 独立页面行为，避免被无关大契约失败掩盖。
+- 任务验证脚本保留门禁：若任务专用脚本需要作为长期证据，必须在收尾前记录保留原因。
+- 技能证据文件清理前归档门禁：`frontend-feature-evidence.md` 通过 validator 后，把核心结论复制到 `verification-report.md`。
+
+## Worktree Verification
+
+- Worktree: `D:\IntRuoyiWorktree\2020804_qa`.
+- Branch: `codex/2020804_qa`.
+- Dependency prerequisite: `pnpm --dir IntRuoyiFronted install --frozen-lockfile` -> PASS, `node_modules` created from the worktree lock file.
+- Runtime prerequisite: `powershell -ExecutionPolicy Bypass -File scripts\runtime\reserve-worktree-slot.ps1 -Name 2020804_qa -Path D:\IntRuoyiWorktree\2020804_qa -Branch codex/2020804_qa -Profile int_main -AsJson` -> BLOCKED, no available runtime slot for profile `int_main` in range `1..19`.
+- Commit prerequisite: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> BLOCKED, no worktree port registry entry is registered for `D:\IntRuoyiWorktree\2020804_qa`.
+
+## Int Main Sync Verification
+
+- Workspace: `E:\IntRuoyi`.
+- Branch: `int_main`.
+- Source sync: `IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue` matches `2020804_qa` when ignoring EOL-only differences.
+- GREEN: local browser E2E on `http://127.0.0.1:8081/mes/pro/process-pool/team-leader` -> PASS before standalone split; verified login, the former `QA 规程` tab, pressure-pump metadata, inspection rules/items, completeness checks, PQC task preview, local draft add, precheck messages, no DCC terms, no backend write requests, no console/page errors.
+- Evidence screenshot: `doc/tasks/20260804-qa-regulation-tab/qa-regulation-live-e2e.png`.
+- GREEN: `node IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS.
+- GREEN: `pnpm --dir IntRuoyiFronted run e2e:role-matrix-qa-regulation:static` -> PASS.
+- GREEN: `pnpm --dir IntRuoyiFronted run e2e:role-matrix-pqc-dynamic-form:static` -> PASS.
+- GREEN: `pnpm --dir IntRuoyiFronted run ts:check` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-qa-regulation-tab/frontend-feature-evidence.md` -> PASS.
+- GREEN: `E:\IntRuoyi` `node IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS after adding original-source excerpt UI and fields.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-qa-regulation:static` -> PASS after adding original-source excerpt UI and fields.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-pqc-dynamic-form:static` -> PASS after adding original-source excerpt UI and fields.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `pnpm run ts:check` -> PASS after adding original-source excerpt UI and fields.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node --check tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; verified `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- GREEN: standalone route split verified by `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`; `QaRegulationPage.vue` owns `data-qa-regulation-page`, route `/mes/pro/process-pool/qa-regulation` is registered, and `TeamLeaderWorkbenchPage.vue` no longer has a `QA 规程` internal tab.
+- GREEN: latest focused standalone contract rerun `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS.
+- GREEN: latest adjacent PQC static regression `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-pqc-dynamic-form:static` -> PASS.
+- GREEN: latest Vue type check `E:\IntRuoyi\IntRuoyiFronted` `pnpm run ts:check` -> PASS.
+- BLOCKED: latest broader QA regulation static regression `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-qa-regulation:static` -> FAIL in pre-existing M6 SQL fixture assertion: `M6 QA/PQC formal fixture must freeze the task-owned PQC task ids before resetting them to PENDING`.
+- RETRY: latest standalone real E2E first run timed out on login `domcontentloaded` during Vite warm-up; direct HTTP and Playwright route probes confirmed the login route subsequently loaded.
+- GREEN: latest standalone real E2E rerun `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; opened `/mes/pro/process-pool/qa-regulation`, verified `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- Evidence JSON: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.json`.
+- Evidence screenshot: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.png`.
+- GREEN: eDHR QA menu SQL contract `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_mes_edhr_qa_menu_sql.py -q` -> PASS, `3 passed`.
+- GREEN: eDHR QA menu static route contract `node IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-static.spec.js` -> PASS.
+- GREEN: eDHR QA real E2E script syntax `node --check IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-real.e2e.js` -> PASS.
+- GREEN: local Docker MySQL verification -> `QA` menu id `900434` appears between `批记录表单` and `批次执行`; admin role bindings `3`; tenant package bindings `2`.
+- GREEN: real local `芋道源码/admin` menu-click E2E `node IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-real.e2e.js` -> PASS; menu order `批记录表单 -> QA -> 批次执行`, target `/mes/pro/process-pool/qa-regulation`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- GREEN: database schema evidence validator -> PASS.
+- GREEN: frontend feature evidence validator -> PASS.
+- REVIEW: latest UTF-8 read and `git diff --check` checks -> PASS.
+
+## Cleanup Keep
+
+- doc/tasks/20260804-qa-regulation-tab/frontend-feature-evidence.md
+- doc/tasks/20260804-qa-regulation-tab/qa-regulation-live-e2e.png
+- output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.json
+- output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.png

@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.service.filepreview;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePreviewMetadataRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledPreviewWatermarkOverlayRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledPreviewWatermarkRespVO;
@@ -24,8 +25,12 @@ import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -33,7 +38,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 import static cn.iocoder.yudao.module.dcc.service.filepreview.DccOnlineFilePreviewServiceImpl.ONLINE_FILE_PREVIEW_PURPOSE;
 import static cn.iocoder.yudao.module.dcc.service.filepreview.DccOnlineFilePreviewServiceImpl.ONLINE_FILE_PREVIEW_TTL_SECONDS;
@@ -41,9 +45,13 @@ import static cn.iocoder.yudao.module.dcc.service.filepreview.DccOnlineFilePrevi
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,6 +69,8 @@ class DccOnlineFilePreviewServiceTest extends BaseMockitoUnitTest {
     private static final String VERSION_ID = "INFRA_FILE:7001";
     private static final DccRequestAuditContext AUDIT_CONTEXT =
             new DccRequestAuditContext("10.8.0.31", "JUnit", "REQ-ONLINE-PREVIEW-1");
+    private static final BusinessFileAccessReference DCC_REFERENCE = new BusinessFileAccessReference(
+            "dcc", "DCC_CONTROLLED_FILE", 990L, "1.0", TENANT_ID, null);
 
     @Mock
     private FileMapper fileMapper;
@@ -81,16 +91,10 @@ class DccOnlineFilePreviewServiceTest extends BaseMockitoUnitTest {
     @Mock
     private DccOnlyOfficePreviewTokenService onlyOfficePreviewTokenService;
     @Mock
-    private DccControlledFileQueryService controlledFileQueryService;
+    private BusinessFileAccessService businessFileAccessService;
 
     @InjectMocks
     private DccOnlineFilePreviewServiceImpl service;
-
-    @BeforeEach
-    void stubOrdinaryInfraFileScope() {
-        when(controlledFileQueryService.identifyControlledFileScope(FILE_ID))
-                .thenReturn(new DccControlledFileScope(FILE_ID, List.of()));
-    }
 
     @AfterEach
     void clearTenantContext() {
@@ -106,7 +110,15 @@ class DccOnlineFilePreviewServiceTest extends BaseMockitoUnitTest {
         when(onlyOfficePreviewProperties.isConfigured()).thenReturn(true);
         when(onlyOfficePreviewProperties.getBaseUrl()).thenReturn("http://onlyoffice.local/");
         when(onlyOfficePreviewProperties.getPublicFileBaseUrl()).thenReturn("http://127.0.0.1:48081/");
-        when(onlyOfficePreviewTokenService.issue(RESOURCE_ONLINE_FILE_PREVIEW, FILE_ID)).thenReturn("office-token");
+        when(onlyOfficePreviewProperties.getTokenExpireSeconds()).thenReturn(300);
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenReturn(java.util.Optional.of(DCC_REFERENCE));
+        when(onlyOfficePreviewTokenService.issueBusinessFile(
+                DccOnlyOfficePreviewTokenService.AUDIENCE_ONLINE_FILE_PREVIEW,
+                BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, FILE_ID, TENANT_ID, USER_ID, null,
+                DCC_REFERENCE, 300L))
+                .thenReturn(new DccOnlyOfficePreviewTokenService.IssuedPreviewToken(
+                        "office-token", new DccOnlyOfficePreviewTokenService.PreviewTokenPayload()));
 
         DccControlledFilePreviewMetadataRespVO result =
                 service.getPreviewMetadata(USER_ID, FILE_ID, AUDIT_CONTEXT);
@@ -132,6 +144,25 @@ class DccOnlineFilePreviewServiceTest extends BaseMockitoUnitTest {
         assertEquals(AUDIT_CONTEXT.sourceIp(), request.sourceIp());
         assertEquals(AUDIT_CONTEXT.userAgent(), request.userAgent());
         assertEquals(AUDIT_CONTEXT.requestId(), request.requestId());
+        verify(businessFileAccessService).assertAllowed(argThat(this::isPreviewBusinessAccessRequest));
+        verify(onlyOfficePreviewTokenService).issueBusinessFile(
+                DccOnlyOfficePreviewTokenService.AUDIENCE_ONLINE_FILE_PREVIEW,
+                BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, FILE_ID, TENANT_ID, USER_ID, null,
+                DCC_REFERENCE, 300L);
+    }
+
+    @Test
+    void getPreviewMetadata_businessGateDenialStopsBeforeFileLookup() {
+        TenantContextHolder.setTenantId(TENANT_ID);
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenThrow(new BusinessFileAccessDeniedException("denied",
+                        BusinessFileAccessOperation.PREVIEW, FILE_ID, "dcc"));
+
+        assertThrows(ServiceException.class,
+                () -> service.getPreviewMetadata(USER_ID, FILE_ID, AUDIT_CONTEXT));
+
+        verify(fileMapper, never()).selectById(any());
+        verify(previewAccessService, never()).prepareAccess(any());
     }
 
     @Test
@@ -170,11 +201,86 @@ class DccOnlineFilePreviewServiceTest extends BaseMockitoUnitTest {
         assertEquals("application/pdf", result.contentType());
         assertArrayEquals("%PDF-1.7".getBytes(), result.bytes());
 
-        InOrder inOrder = inOrder(viewerTokenService, fileService);
+        InOrder inOrder = inOrder(businessFileAccessService, viewerTokenService, fileService);
+        inOrder.verify(businessFileAccessService).assertAllowed(argThat(this::isPreviewBusinessAccessRequest));
         inOrder.verify(viewerTokenService).verify(eq(VIEWER_TOKEN), eq(new DccViewerTokenExpectedContext(
                 TENANT_ID, USER_ID, FILE_ID, VERSION_ID, ACCESS_EVENT_ID, ONLINE_FILE_PREVIEW_PURPOSE,
                 ONLINE_FILE_PREVIEW_TTL_SECONDS, VIEWER_TOKEN_NONCE, VIEWER_TOKEN_ID)));
         inOrder.verify(fileService).getFileContent(1L, "edhr/special-nodes/report.pdf");
+    }
+
+    @Test
+    void readOnlyOfficePreviewFile_rechecksTokenClaimAndStopsBeforeFileLookupWhenRevoked() throws Exception {
+        DccOnlyOfficePreviewTokenService.PreviewTokenPayload payload = businessTokenPayload();
+        when(onlyOfficePreviewProperties.isConfigured()).thenReturn(true);
+        when(onlyOfficePreviewTokenService.verifyBusinessFile(
+                "office-token", DccOnlyOfficePreviewTokenService.AUDIENCE_ONLINE_FILE_PREVIEW,
+                BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, FILE_ID))
+                .thenReturn(payload);
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenThrow(new BusinessFileAccessDeniedException("revoked",
+                        BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, FILE_ID, "dcc"));
+
+        assertThrows(ServiceException.class,
+                () -> service.readOnlyOfficePreviewFile(FILE_ID, "office-token", AUDIT_CONTEXT));
+
+        verify(fileMapper, never()).selectById(any());
+        verify(fileService, never()).getFileContent(any(), any());
+        verify(businessFileAccessService).assertAllowed(argThat(request ->
+                request.operation() == BusinessFileAccessOperation.ONLYOFFICE_PREVIEW
+                        && FILE_ID.equals(request.fileId())
+                        && TENANT_ID.equals(request.tenantId())
+                        && USER_ID.equals(request.userId())
+                        && DCC_REFERENCE.equals(request.claim())
+                        && request.tokenClaimRequired()));
+    }
+
+    @Test
+    void readOnlyOfficePreviewFile_runsInTokenTenantAndRestoresIgnoredCallerContext() throws Exception {
+        TenantContextHolder.setTenantId(88L);
+        TenantContextHolder.setIgnore(true);
+        DccOnlyOfficePreviewTokenService.PreviewTokenPayload payload = businessTokenPayload();
+        when(onlyOfficePreviewProperties.isConfigured()).thenReturn(true);
+        when(onlyOfficePreviewTokenService.verifyBusinessFile(
+                "office-token", DccOnlyOfficePreviewTokenService.AUDIENCE_ONLINE_FILE_PREVIEW,
+                BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, FILE_ID)).thenReturn(payload);
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenAnswer(invocation -> {
+                    assertEquals(TENANT_ID, TenantContextHolder.getRequiredTenantId());
+                    assertTrue(!TenantContextHolder.isIgnore());
+                    return java.util.Optional.of(DCC_REFERENCE);
+                });
+        when(fileMapper.selectById(FILE_ID)).thenReturn(officeFile());
+        when(fileService.getFileContent(1L, "edhr/special-nodes/Spec.docx"))
+                .thenReturn("office".getBytes());
+
+        service.readOnlyOfficePreviewFile(FILE_ID, "office-token", AUDIT_CONTEXT);
+
+        assertEquals(88L, TenantContextHolder.getRequiredTenantId());
+        assertTrue(TenantContextHolder.isIgnore());
+    }
+
+    private DccOnlyOfficePreviewTokenService.PreviewTokenPayload businessTokenPayload() {
+        DccOnlyOfficePreviewTokenService.PreviewTokenPayload payload =
+                new DccOnlyOfficePreviewTokenService.PreviewTokenPayload();
+        payload.setTokenId("OT-ONLINE-1");
+        payload.setTenantId(TENANT_ID);
+        payload.setUserId(USER_ID);
+        payload.setOperation(BusinessFileAccessOperation.ONLYOFFICE_PREVIEW.name());
+        payload.setInfraFileId(FILE_ID);
+        payload.setProviderId(DCC_REFERENCE.providerId());
+        payload.setBusinessType(DCC_REFERENCE.businessType());
+        payload.setBusinessId(DCC_REFERENCE.businessId());
+        payload.setVersionKey(DCC_REFERENCE.versionKey());
+        return payload;
+    }
+
+    private boolean isPreviewBusinessAccessRequest(BusinessFileAccessRequest request) {
+        return request.operation() == BusinessFileAccessOperation.PREVIEW
+                && FILE_ID.equals(request.fileId())
+                && TENANT_ID.equals(request.tenantId())
+                && USER_ID.equals(request.userId())
+                && AUDIT_CONTEXT.requestId().equals(request.requestId());
     }
 
     private FileDO officeFile() {

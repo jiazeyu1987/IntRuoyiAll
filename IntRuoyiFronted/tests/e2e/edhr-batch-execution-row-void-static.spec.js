@@ -38,4 +38,22 @@ assert.match(
   '前端 API 必须调用批次执行作废申请专用接口。'
 )
 
+assert.match(
+  listPage,
+  /resolveVoidBatchExecutionApproval\(\{[\s\S]*batchExecutionId:\s*row\.id/,
+  '作废弹窗加载审批人必须使用批次执行作废业务审批策略解析接口。'
+)
+
+assert.match(
+  changeApi,
+  /resolveVoidBatchExecutionApproval[\s\S]*\/mes\/pro\/edhr-change\/void-batch-execution\/approval-resolution/,
+  '前端 API 必须提供批次执行作废业务审批策略解析接口。'
+)
+
+assert.doesNotMatch(
+  listPage,
+  /resolveBusinessAction\(context\)|\/form-center\/actions\/resolve/,
+  '批次执行作废不得通过表单中心 form policy 解析审批流程。'
+)
+
 console.log('PASS edhr batch execution row void static contract')

@@ -8,37 +8,21 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 const detailPage = read('src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue')
 const formTraceReleaseTab = read('src/views/mes/pro/edhr/form-trace/FormTraceReleaseTab.vue')
 
-const releaseFlowStepsModelStart = detailPage.indexOf('const releaseFlowStepsViewModel = computed')
-const releaseFlowStepsModelEnd = detailPage.indexOf(
-  'const terminalReleaseActionItems',
-  releaseFlowStepsModelStart
+const releaseProcessItemStart = detailPage.indexOf(
+  'class="edhr-batch-detail__review-item edhr-batch-detail__release-process-item"'
 )
+const releaseProcessItemEnd = detailPage.indexOf('</nav>', releaseProcessItemStart)
 assert.ok(
-  releaseFlowStepsModelStart > 0 && releaseFlowStepsModelEnd > releaseFlowStepsModelStart,
-  '必须能定位放行流程步骤 ViewModel。'
+  releaseProcessItemStart > 0 && releaseProcessItemEnd > releaseProcessItemStart,
+  '必须能定位批次详情中的单一放行工序入口。'
 )
-const releaseFlowStepsModel = detailPage.slice(
-  releaseFlowStepsModelStart,
-  releaseFlowStepsModelEnd
+const releaseProcessItem = detailPage.slice(releaseProcessItemStart, releaseProcessItemEnd)
+assert.match(
+  releaseProcessItem,
+  /@click="selectReleaseProcess"[\s\S]*RELEASE_VIRTUAL_PROCESS\.label/,
+  '批次详情必须通过单一放行工序入口进入当前放行阶段。'
 )
-
-for (const retainedStep of ["key: 'close'", "key: 'precheck'", "key: 'release-approval'"]) {
-  assert.match(
-    releaseFlowStepsModel,
-    new RegExp(retainedStep),
-    `放行流程图必须保留步骤：${retainedStep}`
-  )
-}
-assert.doesNotMatch(
-  releaseFlowStepsModel,
-  /key:\s*'archive'[\s\S]*title:\s*'归档打印'/,
-  '放行流程图不得继续渲染“归档打印”卡片。'
-)
-assert.doesNotMatch(
-  releaseFlowStepsModel,
-  /key:\s*'archived'[\s\S]*title:\s*'已归档'/,
-  '放行流程图不得继续渲染“已归档”卡片。'
-)
+assert.doesNotMatch(releaseProcessItem, /归档打印|已归档/, '左侧放行工序入口不得恢复归档卡片。')
 
 assert.match(
   formTraceReleaseTab,
@@ -61,4 +45,4 @@ assert.match(
   '最新归档不存在时必须显示明确错误，不能默认成功。'
 )
 
-console.log('PASS: eDHR release flow archive cards removed and form trace print contract')
+console.log('PASS: eDHR single release entry and form trace print contract')

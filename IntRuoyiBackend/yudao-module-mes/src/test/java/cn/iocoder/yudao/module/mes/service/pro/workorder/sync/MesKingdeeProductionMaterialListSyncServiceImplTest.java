@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -97,6 +98,10 @@ class MesKingdeeProductionMaterialListSyncServiceImplTest {
         assertEquals(601L, saved.getWorkOrderBomId());
         assertEquals(20L, saved.getProductId());
         assertEquals(30L, saved.getChildMaterialId());
+        assertEquals("ZYDG-001", saved.getDrawingNumber());
+        assertEquals(BigDecimal.ONE, saved.getRequiredQuantity());
+        assertEquals(LocalDateTime.of(2026, 6, 12, 0, 0), saved.getDemandTime());
+        assertEquals("直接领料", saved.getIssueMethod());
     }
 
     @Test
@@ -123,6 +128,56 @@ class MesKingdeeProductionMaterialListSyncServiceImplTest {
                 ArgumentCaptor.forClass(MesKingdeeProductionMaterialListDO.class);
         verify(materialListMapper).updateById(captor.capture());
         assertEquals(77L, captor.getValue().getId());
+    }
+
+    @Test
+    void syncAllSkipExisting_doesNotUpdateExistingLine() {
+        ErpKingdeeProductionMaterialList row = buildRow();
+        when(client.fetchProductionMaterialLists(properties)).thenReturn(List.of(row));
+        when(workOrderMapper.selectListByCodes(argThat((Collection<String> codes) ->
+                codes != null && codes.contains("CODXMO20260")))).thenReturn(List.of());
+        when(materialListMapper.selectBySourceLine("PPBOM0030888", "CODXMO20260", 1, "A001.02.014.300"))
+                .thenReturn(new MesKingdeeProductionMaterialListDO()
+                        .setId(77L)
+                        .setDrawingNumber("ZYDG-001")
+                        .setDemandTime(LocalDateTime.of(2026, 6, 12, 0, 0)));
+
+        MesKingdeeProductionMaterialListSyncResult result = syncService.syncAllSkipExisting();
+
+        assertEquals(1, result.getSkippedCount());
+        assertEquals(0, result.getCreatedCount());
+        assertEquals(0, result.getUpdatedCount());
+        verify(materialListMapper, never()).insert(any(MesKingdeeProductionMaterialListDO.class));
+        verify(materialListMapper, never()).updateById(any(MesKingdeeProductionMaterialListDO.class));
+    }
+
+    @Test
+    void syncAllSkipExisting_shouldBackfillNewErpColumnsOnExistingLine() {
+        ErpKingdeeProductionMaterialList row = buildRow();
+        when(client.fetchProductionMaterialLists(properties)).thenReturn(List.of(row));
+        when(workOrderMapper.selectListByCodes(argThat((Collection<String> codes) ->
+                codes != null && codes.contains("CODXMO20260")))).thenReturn(List.of());
+        when(materialListMapper.selectBySourceLine("PPBOM0030888", "CODXMO20260", 1, "A001.02.014.300"))
+                .thenReturn(new MesKingdeeProductionMaterialListDO()
+                        .setId(77L)
+                        .setDrawingNumber(null)
+                        .setDemandTime(null));
+        when(itemMapper.selectByCode("AW.106.03.08.10"))
+                .thenReturn(new MesMdItemDO().setId(20L).setCode("AW.106.03.08.10"));
+        when(itemMapper.selectByCode("A001.02.014.300"))
+                .thenReturn(new MesMdItemDO().setId(30L));
+
+        MesKingdeeProductionMaterialListSyncResult result = syncService.syncAllSkipExisting();
+
+        assertEquals(0, result.getSkippedCount());
+        assertEquals(0, result.getCreatedCount());
+        assertEquals(1, result.getUpdatedCount());
+        ArgumentCaptor<MesKingdeeProductionMaterialListDO> captor =
+                ArgumentCaptor.forClass(MesKingdeeProductionMaterialListDO.class);
+        verify(materialListMapper).updateById(captor.capture());
+        assertEquals(77L, captor.getValue().getId());
+        assertEquals("ZYDG-001", captor.getValue().getDrawingNumber());
+        assertEquals(LocalDateTime.of(2026, 6, 12, 0, 0), captor.getValue().getDemandTime());
     }
 
     @Test
@@ -216,6 +271,7 @@ class MesKingdeeProductionMaterialListSyncServiceImplTest {
                 .numerator(new BigDecimal("3"))
                 .denominator(new BigDecimal("1000"))
                 .childUnitName("支")
+                .drawingNumber("ZYDG-001")
                 .requiredQuantity(BigDecimal.ONE)
                 .issueMethod("直接领料")
                 .demandTime(LocalDateTime.of(2026, 6, 12, 0, 0))

@@ -5,7 +5,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseAreaDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseLocationDO;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.KeySequence;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.*;
@@ -67,18 +69,21 @@ public class MesMdWorkstationDO extends BaseDO {
      *
      * 关联 {@link MesWmWarehouseDO#getId()}
      */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long warehouseId;
     /**
      * 库区编号
      *
      * 关联 {@link MesWmWarehouseLocationDO#getId()}
      */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long locationId;
     /**
      * 库位编号
      *
      * 关联 {@link MesWmWarehouseAreaDO#getId()}
      */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long areaId;
     /**
      * 单人标准小时产能

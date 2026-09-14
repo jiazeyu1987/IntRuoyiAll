@@ -1,0 +1,143 @@
+# P0 生产执行主闭环真实 E2E 证据
+
+- Task ID: `20260803-p0-production-execution-loop-implementation`
+- Generated At: `2026-08-04T11:52:19.131Z`
+- Status: `BLOCKED`
+- Frontend: `http://127.0.0.1:8081`
+- Backend: `http://127.0.0.1:48081`
+- Tenant: `--`
+- User: `--`
+- Run ID: `int-main-20260804-rerun`
+- Data Prefix: `P0-EXEC-int-main-20260804-rerun`
+- Device Account ID: `--`
+- Batch Record Binding: report=`--`, definition=`--`, version=`--`
+- Schema Migration ID: `--`
+- Migration Policy Evidence: `--`
+- Submit Idempotency Key Configured: `false`
+- PQC Idempotency Key Configured: `false`
+- Confirm Idempotency Key Configured: `false`
+- processPoolEventId: `--`
+- Duplicate Production Submit Verified: `false`
+- Duplicate PQC Submit Verified: `false`
+- Duplicate FIFO Confirm Rejected: `false`
+- Browser Preflight: `--`
+- Route Preflight Steps: `0`
+- Target Request FRONTLINE_SUBMIT_ENDPOINT Hit: `false`
+- Target Request FRONTLINE_SUBMIT_ENDPOINT URL: `--`
+- Target Request FRONTLINE_SUBMIT_ENDPOINT Method: `--`
+- Target Request FRONTLINE_SUBMIT_ENDPOINT HTTP Status: `--`
+- Target Request FRONTLINE_SUBMIT_ENDPOINT Business Code: `--`
+- Target Request PQC_SUBMIT_ENDPOINT Hit: `false`
+- Target Request PQC_SUBMIT_ENDPOINT URL: `--`
+- Target Request PQC_SUBMIT_ENDPOINT Method: `--`
+- Target Request PQC_SUBMIT_ENDPOINT HTTP Status: `--`
+- Target Request PQC_SUBMIT_ENDPOINT Business Code: `--`
+- Target Request TEAM_LEADER_REVIEW_ENDPOINT Hit: `false`
+- Target Request TEAM_LEADER_REVIEW_ENDPOINT URL: `--`
+- Target Request TEAM_LEADER_REVIEW_ENDPOINT Method: `--`
+- Target Request TEAM_LEADER_REVIEW_ENDPOINT HTTP Status: `--`
+- Target Request TEAM_LEADER_REVIEW_ENDPOINT Business Code: `--`
+- Target Request TEAM_LEADER_ALLOCATION_CONFIRM_ENDPOINT Hit: `false`
+- Target Request TEAM_LEADER_ALLOCATION_CONFIRM_ENDPOINT URL: `--`
+- Target Request TEAM_LEADER_ALLOCATION_CONFIRM_ENDPOINT Method: `--`
+- Target Request TEAM_LEADER_ALLOCATION_CONFIRM_ENDPOINT HTTP Status: `--`
+- Target Request TEAM_LEADER_ALLOCATION_CONFIRM_ENDPOINT Business Code: `--`
+- Target Request PRODUCTION_EXECUTION_TRACE_ENDPOINT Hit: `false`
+- Target Request PRODUCTION_EXECUTION_TRACE_ENDPOINT URL: `--`
+- Target Request PRODUCTION_EXECUTION_TRACE_ENDPOINT Method: `--`
+- Target Request PRODUCTION_EXECUTION_TRACE_ENDPOINT HTTP Status: `--`
+- Target Request PRODUCTION_EXECUTION_TRACE_ENDPOINT Business Code: `--`
+- Target Response FRONTLINE_SUBMIT_ENDPOINT processPoolEventId: `--`
+- Target Response PQC_SUBMIT_ENDPOINT pqcEventId: `--`
+- Target Response TEAM_LEADER_REVIEW_ENDPOINT reviewId: `--`
+- Target Response TEAM_LEADER_ALLOCATION_CONFIRM_ENDPOINT reviewId: `--`
+- Target Response PRODUCTION_EXECUTION_TRACE_ENDPOINT processPoolEventId: `--`
+- Browser Page Errors: `0`
+- Browser Console Errors: `0`
+- Target Request Failures: `0`
+
+## BDD
+
+- BDD: P0 生产执行主闭环 -> Given 真实测试租户、工单、设备、PQC、电子签名、班组长和正式批记录绑定齐备 When 一线提交后经过 PQC、复核、FIFO 分配和批记录回填 Then trace 必须以 processPoolEventId 返回完整闭环。
+
+## Closure Evidence Packet
+
+- Status: `BLOCKED`
+- Reason: 真实页面 run 尚未捕获新的 `processPoolEventId` 和后端 `closureEvidence`，不得用历史 ID、页面文案或脚本常量补齐。
+- Missing Rule: `CLOSURE_EVIDENCE_MISSING_SOURCE` 任一正式来源缺失时真实 E2E 不得 PASS。
+- Required Answers: `who`, `device`, `process`, `quantity`, `quality`, `signature`, `workOrder`, `review`, `batchRecord`
+- Required Proof: 每个 answer 必须包含 `sourceIds`、`sameSource=true` 和 `readOnlyVerificationEntries`。
+
+## Runtime Migration
+
+- Status: `BLOCKED`
+- Reason: 真实 E2E 前置条件未齐备，尚未调用只读运行态迁移验证器。
+- Required Proof: 浏览器写入前必须运行 `verify_p0_runtime_migration.py` 并返回 `PASS`。
+
+## BLOCKED
+
+- E2E: `pnpm --dir IntRuoyiFronted e2e:p0-production-execution-loop:real` -> BLOCKED, 缺少真实写入型 E2E 前置条件。
+- Missing: `P0_TENANT` - 可写测试租户，禁止生产或 admin 基线租户。
+- Missing: `P0_USERNAME` - 拥有一线提交、PQC、班组长复核和批记录追溯路径权限的测试账号。
+- Missing: `P0_PASSWORD` - 测试账号密码，只能通过进程环境注入。
+- Missing: `P0_WORK_ORDER_ID` - 任务自有生产工单 ID。
+- Missing: `P0_WORK_ORDER_CODE` - 任务自有生产工单编码。
+- Missing: `P0_ROUTE_PROCESS_ID` - 正式路线工序 ID。
+- Missing: `P0_PROCESS_ID` - 正式工序 ID。
+- Missing: `P0_DEVICE_ACCOUNT_ID` - 真实设备账号 ID，必须等于当前登录用户，避免设备账号上下文隐式漂移。
+- Missing: `P0_DEVICE_ID` - 真实设备 ID。
+- Missing: `P0_WORKSTATION_ID` - 真实工作站 ID。
+- Missing: `P0_SIGNATURE_ID` - 一线提交真实电子签名 ID。
+- Missing: `P0_SIGNATURE_EMPLOYEE_ID` - 一线签名员工 ID，必须等于实际填写员工。
+- Missing: `P0_SUBMIT_IDEMPOTENCY_KEY` - 一线生产提交幂等键，本次 run 内固定，用于重复提交验证。
+- Missing: `P0_SUBMIT_QUANTITY` - 一线本次提交数量，必须大于 0。
+- Missing: `P0_CONFIRM_QUANTITY` - 生产组长本次 FIFO 确认数量，必须大于 0 且不超过质量可分配数量。
+- Missing: `P0_PQC_TASK_ID` - PQC 正式任务 ID。
+- Missing: `P0_QA_REGULATION_VERSION_ID` - PQC QA 规程版本 ID。
+- Missing: `P0_PQC_SIGNATURE_ID` - PQC 提交真实电子签名 ID。
+- Missing: `P0_PQC_SIGNATURE_EMPLOYEE_ID` - PQC 签名员工 ID，必须等于实际 PQC 员工。
+- Missing: `P0_PQC_IDEMPOTENCY_KEY` - PQC 检验提交幂等键，本次 run 内固定，用于重复提交验证。
+- Missing: `P0_PQC_INSPECTION_QUANTITY` - PQC 检验数量，必须覆盖本次确认数量。
+- Missing: `P0_PQC_QUALIFIED_QUANTITY` - PQC 合格数量，必须覆盖本次确认数量。
+- Missing: `P0_PQC_ALLOCATABLE_QUANTITY` - PQC 可分配数量，必须覆盖本次确认数量。
+- Missing: `P0_PQC_REVIEW_SIGNATURE_ID` - PQC 组长复核真实电子签名 ID，必须与生产组长 FIFO 确认签名分开。
+- Missing: `P0_PQC_REVIEW_SIGNATURE_EMPLOYEE_ID` - PQC 组长复核签名员工 ID。
+- Missing: `P0_REVIEW_SIGNATURE_ID` - 班组长复核真实电子签名 ID。
+- Missing: `P0_REVIEW_SIGNATURE_EMPLOYEE_ID` - 班组长复核签名员工 ID。
+- Missing: `P0_CONFIRM_IDEMPOTENCY_KEY` - 生产组长 FIFO 确认幂等键，本次 run 内固定；若后端未暴露请求字段，仅作为重复确认证据前置。
+- Missing: `P0_BATCH_RECORD_REPORT_ID` - 当前工序正式批记录报表 ID。
+- Missing: `P0_BATCH_RECORD_DEFINITION_ID` - 当前工序正式批记录定义 ID，必须来自工序设置逐工序绑定。
+- Missing: `P0_BATCH_RECORD_VERSION_ID` - 当前工序正式批记录版本 ID，必须来自工序设置逐工序绑定。
+- Missing: `P0_SCHEMA_MIGRATION_ID` - 运行态已应用 P0 schema 迁移的版本或变更 ID。
+- Missing: `P0_MIGRATION_POLICY_EVIDENCE` - 本次 run 使用的 release migration policy gate 证据路径。
+- Missing: `P0_RUNTIME_DB_HOST` - 真实运行态 MySQL host，用于浏览器写入前只读核验 P0 schema 迁移。
+- Missing: `P0_RUNTIME_DB_PORT` - 真实运行态 MySQL port，用于浏览器写入前只读核验 P0 schema 迁移。
+- Missing: `P0_RUNTIME_DB_NAME` - 真实运行态 MySQL database，用于浏览器写入前只读核验 P0 schema 迁移。
+- Missing: `P0_RUNTIME_DB_USER` - 真实运行态 MySQL 只读核验用户。
+- Missing: `P0_RUNTIME_DB_PASSWORD` - 真实运行态 MySQL 密码，只能通过进程环境注入且不得写入证据。
+- Missing: `P0_WORK_ORDER_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_ROUTE_PROCESS_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_PROCESS_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_DEVICE_ACCOUNT_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_DEVICE_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_WORKSTATION_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_SIGNATURE_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_SIGNATURE_EMPLOYEE_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_SUBMIT_QUANTITY` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_CONFIRM_QUANTITY` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_PQC_TASK_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_QA_REGULATION_VERSION_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_PQC_SIGNATURE_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_PQC_SIGNATURE_EMPLOYEE_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_PQC_INSPECTION_QUANTITY` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_PQC_QUALIFIED_QUANTITY` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_PQC_ALLOCATABLE_QUANTITY` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_PQC_REVIEW_SIGNATURE_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_PQC_REVIEW_SIGNATURE_EMPLOYEE_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_REVIEW_SIGNATURE_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_REVIEW_SIGNATURE_EMPLOYEE_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_BATCH_RECORD_REPORT_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_BATCH_RECORD_DEFINITION_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_BATCH_RECORD_VERSION_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `P0_RUNTIME_DB_PORT` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Impact: 未执行写入型真实 E2E；没有用静态合同、API-only 或默认成功冒充闭环通过。

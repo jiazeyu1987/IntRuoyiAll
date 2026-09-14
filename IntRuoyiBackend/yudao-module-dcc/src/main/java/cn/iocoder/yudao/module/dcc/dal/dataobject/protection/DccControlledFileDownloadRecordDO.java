@@ -13,7 +13,7 @@ import lombok.ToString;
 import java.time.LocalDateTime;
 
 /**
- * DCC controlled file encrypted download record.
+ * DCC controlled file download audit record.
  */
 @TableName("dcc_controlled_file_download_record")
 @Data
@@ -33,16 +33,11 @@ public class DccControlledFileDownloadRecordDO extends BaseDO {
     private String fileVersionNo;
     private Long userId;
     private String policyVersion;
-    private String encryptionStatus;
-    private String encryptionPolicyVersion;
-    private String artifactId;
-    private String cipherFileRef;
+    private String downloadStatus;
     private String plainSha256;
-    private String cipherSha256;
     private String failureCode;
     private String failureReason;
     private LocalDateTime requestedAt;
-    private LocalDateTime encryptedAt;
     private LocalDateTime returnedAt;
 
 }

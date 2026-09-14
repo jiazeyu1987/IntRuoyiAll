@@ -49,7 +49,7 @@ class MesProEdhrTemplateConfigMenuRemovalContractTest {
         assertFalse(sql.matches("(?is).*DELETE\\s+FROM\\s+`?system_(menu|role_menu|tenant_package)`?.*"),
                 "migration must not delete menu, role-menu, or tenant package data");
 
-        Path frontendRoot = projectDir.getParent().resolve("yudao-ui-admin-vue3");
+        Path frontendRoot = projectDir.getParent().resolve("IntRuoyiFronted");
         assertFalse(Files.exists(frontendRoot.resolve("src/views/mes/pro/batchrecordtemplate/index.vue")),
                 "legacy template config page must be removed from frontend source");
         assertTrue(Files.exists(frontendRoot.resolve("src/views/mes/pro/batchrecord-shared/DesignerWrapper.vue")),

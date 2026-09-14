@@ -85,6 +85,7 @@
     </el-alert>
 
     <el-table
+      ref="directoryTableRef"
       v-loading="loading"
       :data="filteredDirectories"
       data-user-table-column-explicit
@@ -95,7 +96,43 @@
       :load="loadDirectoryChildren"
       :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
     >
-      <el-table-column label="目录名称" min-width="280" prop="name" show-overflow-tooltip />
+      <el-table-column
+        class-name="dcc-directory-name-column"
+        label="目录名称"
+        min-width="280"
+        prop="name"
+        show-overflow-tooltip
+      >
+        <template #default="{ row }">
+          <div
+            :class="['directory-name-cell', { 'is-expandable': isDirectoryExpandable(row) }]"
+            role="button"
+            :tabindex="isDirectoryExpandable(row) ? 0 : -1"
+            :aria-disabled="!isDirectoryExpandable(row)"
+            :aria-label="`${row.name} 展开或折叠目录`"
+            @click="toggleDirectoryRow(row)"
+            @keydown.enter.prevent="toggleDirectoryRow(row)"
+            @keydown.space.prevent="toggleDirectoryRow(row)"
+          >
+            <span
+              class="directory-folder-toggle"
+              :class="resolveDirectoryFolderBorderClass(row)"
+              aria-hidden="true"
+            >
+              <Icon icon="ep:folder" />
+            </span>
+            <span class="directory-name-cell__text" :title="row.name">{{ row.name }}</span>
+            <el-tag
+              v-if="resolveDirectoryChildLoadError(row)"
+              type="danger"
+              size="small"
+              :title="resolveDirectoryChildLoadError(row)"
+            >
+              子目录加载失败
+            </el-tag>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column align="center" fixed="right" label="操作" width="320">
         <template #default="{ row }">
           <el-button
@@ -203,9 +240,11 @@ const router = useRouter()
 const loading = ref(false)
 const importLoading = ref(false)
 const directories = ref<ControlledFileDirectoryVO[]>([])
+const directoryTableRef = ref()
 const queryFormRef = ref()
 const formRef = ref()
 const loadErrorMessage = ref('')
+const childLoadErrorMessages = reactive<Record<string, string>>({})
 const directoryFormMounted = ref(false)
 const deleteDialogVisible = ref(false)
 const deleteConfirmText = ref('')
@@ -237,10 +276,39 @@ const filteredDirectories = computed(() => {
   return filterTree(directories.value)
 })
 
+const clearDirectoryChildLoadErrors = () => {
+  for (const key of Object.keys(childLoadErrorMessages)) {
+    delete childLoadErrorMessages[key]
+  }
+}
+
+const resolveDirectoryChildLoadError = (row: ControlledFileDirectoryVO) =>
+  row.id ? childLoadErrorMessages[String(row.id)] || '' : ''
+
+const isDirectoryExpandable = (row: ControlledFileDirectoryVO) =>
+  Boolean(row.hasChildren || row.children?.length)
+
+const resolveDirectoryFolderBorderClass = (row: ControlledFileDirectoryVO) =>
+  isDirectoryExpandable(row)
+    ? 'directory-folder-toggle--has-children'
+    : 'directory-folder-toggle--no-children'
+
+const toggleDirectoryRow = (row: ControlledFileDirectoryVO) => {
+  if (!isDirectoryExpandable(row)) {
+    return
+  }
+  const toggleRowExpansion = directoryTableRef.value?.toggleRowExpansion
+  if (typeof toggleRowExpansion !== 'function') {
+    throw new Error('文档目录表格展开方法不可用')
+  }
+  toggleRowExpansion(row)
+}
+
 const getList = async () => {
   loading.value = true
   try {
     directories.value = await getDirectoryChildren()
+    clearDirectoryChildLoadErrors()
     loadErrorMessage.value = ''
   } catch (error) {
     directories.value = []
@@ -266,10 +334,10 @@ const loadDirectoryChildren = async (
     const children = await getDirectoryChildren(row.id)
     row.children = children
     resolve(children)
-    loadErrorMessage.value = ''
+    delete childLoadErrorMessages[String(row.id)]
   } catch (error) {
     resolve([])
-    loadErrorMessage.value = resolveControlledFileReadErrorMessage(
+    childLoadErrorMessages[String(row.id)] = resolveControlledFileReadErrorMessage(
       error,
       '子目录加载失败，请确认 `/admin-api/dcc/directories/children` 接口已正常发布后重试。'
     )
@@ -314,6 +382,7 @@ const handleQuery = async (skipEmptyReset = false) => {
     directories.value = appliedQueryParams.name
       ? await searchDirectories(appliedQueryParams.name, 100)
       : await getDirectoryChildren()
+    clearDirectoryChildLoadErrors()
     loadErrorMessage.value = ''
   } catch (error) {
     directories.value = []
@@ -431,6 +500,68 @@ onMounted(() => {
 </script>
 
 <style scoped>
+:deep(.dcc-directory-name-column .cell) {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  white-space: nowrap;
+}
+
+:deep(.dcc-directory-name-column .el-table__expand-icon) {
+  display: none;
+}
+
+:deep(.dcc-directory-name-column .el-table__placeholder) {
+  display: none;
+}
+
+.directory-name-cell {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.directory-name-cell.is-expandable {
+  cursor: pointer;
+}
+
+.directory-folder-toggle {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.directory-folder-toggle--has-children {
+  color: #16a34a;
+}
+
+.directory-folder-toggle--no-children {
+  color: #111827;
+}
+
+.directory-folder-toggle :deep(svg) {
+  width: 16px;
+  height: 16px;
+}
+
+.directory-name-cell__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .directory-summary {
   display: grid;
   gap: 6px;

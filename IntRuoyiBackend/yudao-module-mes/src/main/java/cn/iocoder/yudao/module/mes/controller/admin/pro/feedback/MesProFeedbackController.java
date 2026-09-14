@@ -15,6 +15,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.importrecord
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.importrecord.MesProFeedbackImportConfirmBatchReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.importrecord.MesProFeedbackImportRecordPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.importrecord.MesProFeedbackImportRecordRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.MesProFeedbackPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.MesProFeedbackRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.MesProFeedbackSaveReqVO;
@@ -32,6 +34,7 @@ import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.md.unitmeasure.MesMdUnitMeasureService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
+import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackSubmitService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackImportRecordService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.importer.ThirdPartyFeedbackImportPayload;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.importer.ThirdPartyFeedbackImportResult;
@@ -76,6 +79,8 @@ public class MesProFeedbackController {
     @Resource
     private MesProFeedbackService feedbackService;
     @Resource
+    private MesProFrontlineFeedbackSubmitService frontlineFeedbackSubmitService;
+    @Resource
     private MesMdWorkstationService workstationService;
     @Resource
     private MesProRouteService routeService;
@@ -104,6 +109,14 @@ public class MesProFeedbackController {
     @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
     public CommonResult<Long> createFeedback(@Valid @RequestBody MesProFeedbackSaveReqVO createReqVO) {
         return success(feedbackService.createFeedback(createReqVO));
+    }
+
+    @PostMapping("/frontline/submit")
+    @Operation(summary = "一线报工与记录本一体提交")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    public CommonResult<MesProFrontlineFeedbackSubmitRespVO> frontlineSubmit(
+            @Valid @RequestBody MesProFrontlineFeedbackSubmitReqVO reqVO) {
+        return success(frontlineFeedbackSubmitService.submit(reqVO));
     }
 
     @PostMapping("/import-third-party-xlsx")

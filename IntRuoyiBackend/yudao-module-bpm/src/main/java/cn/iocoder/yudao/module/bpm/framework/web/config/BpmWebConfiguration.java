@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.bpm.framework.web.config;
 
 import cn.iocoder.yudao.framework.common.enums.WebFilterOrderEnum;
 import cn.iocoder.yudao.framework.swagger.config.YudaoSwaggerAutoConfiguration;
+import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
+import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormTemplateJimuReportSaveSyncFilter;
 import cn.iocoder.yudao.module.bpm.framework.web.core.FlowableWebFilter;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -32,6 +34,16 @@ public class BpmWebConfiguration {
         FilterRegistrationBean<FlowableWebFilter> registrationBean = new FilterRegistrationBean<>();
         registrationBean.setFilter(new FlowableWebFilter());
         registrationBean.setOrder(WebFilterOrderEnum.FLOWABLE_FILTER);
+        return registrationBean;
+    }
+
+    @Bean
+    public FilterRegistrationBean<FormTemplateJimuReportSaveSyncFilter> formTemplateJimuReportSaveSyncFilter(
+            FormCenterRuntimeService formCenterRuntimeService) {
+        FilterRegistrationBean<FormTemplateJimuReportSaveSyncFilter> registrationBean = new FilterRegistrationBean<>();
+        registrationBean.setFilter(new FormTemplateJimuReportSaveSyncFilter(formCenterRuntimeService));
+        registrationBean.setOrder(WebFilterOrderEnum.FLOWABLE_FILTER + 1);
+        registrationBean.addUrlPatterns("/jmreport/save");
         return registrationBean;
     }
 

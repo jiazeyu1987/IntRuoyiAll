@@ -21,9 +21,12 @@ for (const token of [
   'DCC_UNCLASSIFIED_TAXONOMY_STAGE',
   'buildDccFileTypeTaxonomyPathMap',
   'buildDccFileTypeTaxonomyStageNameMap',
+  'buildDccFileTypeTaxonomyStageTypeNameMap',
+  'buildDccFileTypeTaxonomyStageTypeOptionsMap',
   'getDccFileTypeTaxonomyStageRows',
   'toDccFileTypeTaxonomyStageOptions',
-  'resolveDccFileTypeTaxonomyStageName'
+  'resolveDccFileTypeTaxonomyStageName',
+  'resolveDccFileTypeTaxonomyStageTypeName'
 ]) {
   assert.ok(taxonomyStageUtility.includes(token), `shared taxonomy stage utility must expose ${token}`)
 }
@@ -32,7 +35,10 @@ assert.ok(
   pageSource.includes("from '../../shared/file-type-taxonomy-stage'") &&
     pageSource.includes('toDccFileTypeTaxonomyStageOptions') &&
     pageSource.includes('buildDccFileTypeTaxonomyStageNameMap') &&
+    pageSource.includes('buildDccFileTypeTaxonomyStageTypeNameMap') &&
+    pageSource.includes('buildDccFileTypeTaxonomyStageTypeOptionsMap') &&
     pageSource.includes('resolveDccFileTypeTaxonomyStageName') &&
+    pageSource.includes('resolveDccFileTypeTaxonomyStageTypeName') &&
     pageSource.includes('DCC_UNCLASSIFIED_TAXONOMY_STAGE'),
   'associated documents must reuse shared DCC file type taxonomy stage helpers'
 )
@@ -143,7 +149,7 @@ assert.match(
 
 assert.ok(
   pageSource.includes("file.fileTypeLevel2") && pageSource.includes("file.fileTypeLevel3"),
-  'associated documents must group by fileTypeLevel2 as stage and fileTypeLevel3 as file type'
+  'associated documents must keep fileTypeLevel2/fileTypeLevel3 only as legacy fallback metadata'
 )
 
 assert.ok(
@@ -158,6 +164,22 @@ assert.ok(
   pageSource.includes('associatedTaxonomyStageNames.value.has(stage)') &&
     pageSource.includes('resolveDccFileTypeTaxonomyStageName(file, associatedTaxonomyStageNameMap.value)'),
   'associated documents must prefer current fileTypeLevel2 values and derive stage from fileTypeTaxonomyId when needed'
+)
+
+assert.ok(
+  pageSource.includes('associatedTaxonomyStageTypeOptionsMap') &&
+    pageSource.includes('associatedTaxonomyStageTypeNameMap') &&
+    pageSource.includes('associatedTaxonomyStageTypeOptionsMap.value.get(stageKey) || []') &&
+    pageSource.includes('for (const option of associatedStageTypeOptions)') &&
+    pageSource.includes('typeMap.set(option.value'),
+  'associated documents must prebuild the file type column from DCC taxonomy direct children of the selected stage'
+)
+
+assert.ok(
+  /resolveDccFileTypeTaxonomyStageTypeName\(\s*file,\s*associatedTaxonomyStageTypeNameMap\.value\s*\)/.test(pageSource) &&
+    pageSource.includes('resolvedTaxonomyType?.typeName') &&
+    pageSource.includes('normalizeAssociatedLevel(file.fileTypeLevel3)'),
+  'associated files must be grouped by taxonomy path level 3 before falling back to legacy fileTypeLevel3'
 )
 
 assert.ok(

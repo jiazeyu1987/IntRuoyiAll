@@ -203,6 +203,38 @@ THEN 1 ELSE 0 END;
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260530_dcc_tenant_scoped_code_indexes.sql'
     },
     [PSCustomObject]@{
+        Name = 'MES route DCC project binding schema'
+        ProbeSql = @'
+SELECT CASE WHEN
+  EXISTS (
+    SELECT 1
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_route_dcc_project_binding'
+  )
+  AND (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_route_dcc_project_binding'
+      AND COLUMN_NAME IN ('route_id', 'dcc_project_code_id', 'version', 'active_route_id')
+  ) = 4
+  AND (
+    SELECT COUNT(DISTINCT INDEX_NAME)
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_route_dcc_project_binding'
+      AND INDEX_NAME IN (
+        'uk_mes_pro_route_dcc_current',
+        'uk_mes_pro_route_dcc_history_version',
+        'idx_mes_pro_route_dcc_project'
+      )
+  ) = 3
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260813_mes_route_dcc_project_binding_schema.sql'
+    },
+    [PSCustomObject]@{
         Name = 'DCC file-category batch recognition schema'
         ProbeSql = @'
 SELECT CASE WHEN
@@ -385,6 +417,22 @@ THEN 1 ELSE 0 END;
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260626_dcc_access_rule_manual_binding.sql'
     },
     [PSCustomObject]@{
+        Name = 'Business approval policy form slots schema'
+        ProbeSql = @'
+SELECT CASE WHEN (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'bpm_business_approval_policy'
+    AND COLUMN_NAME IN (
+      'form_policy_type',
+      'form_slots_json'
+    )
+) = 2 THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260721_form_action_policy_approval_mode.sql'
+    },
+    [PSCustomObject]@{
         Name = 'MES route version approval BPM user assignment seed'
         ProbeSql = @'
 SELECT CASE WHEN EXISTS (
@@ -519,15 +567,290 @@ SELECT CASE WHEN (
 ) = 11 THEN 1 ELSE 0 END;
 '@
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260722_mes_route_form_center_runtime_columns.sql'
+    },
+    [PSCustomObject]@{
+        Name = 'MES production release flow schema'
+        ProbeSql = @'
+SELECT CASE WHEN
+  (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_process_pool_active_order_release_application'
+      AND COLUMN_NAME IN (
+        'pqc_release_work_task_id',
+        'pqc_decision',
+        'pqc_decided_by',
+        'pqc_decided_at',
+        'pqc_reject_reason',
+        'report_snapshot_hash',
+        'version'
+      )
+  ) = 7
+  AND EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_edhr_work_task'
+      AND COLUMN_NAME = 'batch_execution_id'
+      AND DATA_TYPE = 'bigint'
+      AND IS_NULLABLE = 'YES'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_edhr_work_task'
+      AND COLUMN_NAME = 'pqc_release_application_scope_id'
+      AND DATA_TYPE = 'bigint'
+      AND EXTRA LIKE '%STORED GENERATED%'
+  )
+  AND (
+    SELECT COUNT(DISTINCT INDEX_NAME)
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND (
+        (TABLE_NAME = 'mes_pro_process_pool_active_order_release_application'
+          AND INDEX_NAME IN ('uk_mes_pp_release_pqc_task', 'uk_mes_pp_release_batch_execution'))
+        OR (TABLE_NAME = 'mes_pro_edhr_work_task'
+          AND INDEX_NAME = 'uk_mes_edhr_work_task_release_application')
+      )
+      AND NON_UNIQUE = 0
+  ) = 3
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260814_mes_production_release_flow.sql'
+    },
+    [PSCustomObject]@{
+        Name = 'System notify message business key schema'
+        ProbeSql = @'
+SELECT CASE WHEN
+  EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'system_notify_message'
+      AND COLUMN_NAME = 'business_key'
+      AND DATA_TYPE = 'varchar'
+      AND CHARACTER_MAXIMUM_LENGTH = 255
+      AND IS_NULLABLE = 'YES'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'system_notify_message'
+      AND INDEX_NAME = 'uk_system_notify_message_tenant_business_key'
+      AND NON_UNIQUE = 0
+  )
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260815_system_notify_message_business_key.sql'
+    },
+    [PSCustomObject]@{
+        Name = 'MES eDHR release final state trace schema'
+        ProbeSql = @'
+SELECT CASE WHEN
+  (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_work_order'
+      AND COLUMN_NAME IN ('release_decision_id', 'released_by', 'released_at')
+  ) = 3
+  AND (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_process_pool_active_order'
+      AND COLUMN_NAME IN ('release_decision_id', 'released_by', 'released_at')
+  ) = 3
+  AND EXISTS (
+    SELECT 1
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_edhr_release_decision'
+  )
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260822_mes_edhr_release_final_state_trace.sql'
+    },
+    [PSCustomObject]@{
+        Name = 'System user lifecycle deactivation schema'
+        ProbeSql = @'
+SELECT CASE WHEN
+  (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'system_users'
+      AND COLUMN_NAME IN (
+        'lifecycle_document_type',
+        'lifecycle_document_no',
+        'lifecycle_document_time',
+        'lifecycle_effective_time',
+        'lifecycle_deactivated_time'
+      )
+  ) = 5
+  AND EXISTS (
+    SELECT 1
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'system_users'
+      AND INDEX_NAME = 'idx_system_users_lifecycle_due'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM `infra_job`
+    WHERE handler_name = 'userLifecycleDeactivateJob'
+      AND `deleted` = b'0'
+  )
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260830_system_user_lifecycle_deactivation.sql'
+    },
+    [PSCustomObject]@{
+        Name = 'MES batch record cell link structured source widths'
+        ProbeSql = @'
+SELECT CASE WHEN
+  (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_batch_record_cell_link_rule'
+      AND (
+        (
+          COLUMN_NAME = 'source_cell_key'
+          AND CHARACTER_MAXIMUM_LENGTH >= 128
+          AND IS_NULLABLE = 'NO'
+        )
+        OR (
+          COLUMN_NAME = 'source_field_code'
+          AND CHARACTER_MAXIMUM_LENGTH >= 1024
+        )
+        OR (
+          COLUMN_NAME = 'source_field_name'
+          AND CHARACTER_MAXIMUM_LENGTH >= 255
+        )
+      )
+  ) = 3
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260830_mes_batch_record_cell_link_structured_source_widths.sql'
+    },
+    [PSCustomObject]@{
+        Name = 'MES process pool IDI device parameter rules'
+        ProbeSql = @'
+SELECT CASE WHEN
+  (
+    SELECT COUNT(*)
+    FROM `dcc_project_code` project
+    JOIN `mes_pro_route_dcc_project_binding` binding
+      ON binding.`dcc_project_code_id` = project.`id`
+     AND binding.`tenant_id` = project.`tenant_id`
+     AND binding.`deleted` = b'0'
+     AND binding.`active_route_id` = binding.`route_id`
+    JOIN `mes_pro_route` target_route
+      ON target_route.`id` = binding.`route_id`
+     AND target_route.`tenant_id` = project.`tenant_id`
+     AND target_route.`deleted` = b'0'
+     AND target_route.`code` = 'RT000028-IDI'
+    JOIN `mes_pro_route_process` target_route_process
+      ON target_route_process.`route_id` = target_route.`id`
+     AND target_route_process.`tenant_id` = target_route.`tenant_id`
+     AND target_route_process.`deleted` = b'0'
+    JOIN `mes_pro_process_pool_team_process_device` target_binding
+      ON target_binding.`tenant_id` = target_route_process.`tenant_id`
+     AND target_binding.`process_id` = target_route_process.`process_id`
+     AND target_binding.`enabled` = b'1'
+     AND target_binding.`deleted` = b'0'
+    JOIN `system_users` leader
+      ON leader.`id` = target_binding.`leader_user_id`
+     AND leader.`tenant_id` = target_binding.`tenant_id`
+     AND leader.`username` = 'admin'
+     AND leader.`deleted` = b'0'
+    JOIN `mes_pro_process_pool_team_device` target_device
+      ON target_device.`id` = target_binding.`device_id`
+     AND target_device.`leader_user_id` = target_binding.`leader_user_id`
+     AND target_device.`tenant_id` = target_binding.`tenant_id`
+     AND target_device.`device_status` = 'ENABLED'
+     AND target_device.`enabled` = b'1'
+     AND target_device.`deleted` = b'0'
+    JOIN `mes_pro_process_pool_device_parameter_rule` target_rule
+      ON target_rule.`tenant_id` = target_route_process.`tenant_id`
+     AND target_rule.`leader_user_id` = target_binding.`leader_user_id`
+     AND target_rule.`route_process_id` = target_route_process.`id`
+     AND target_rule.`process_id` = target_route_process.`process_id`
+     AND target_rule.`device_id` = target_device.`id`
+     AND target_rule.`enabled` = b'1'
+     AND target_rule.`deleted` = b'0'
+    WHERE project.`tenant_id` = 1
+      AND project.`project_code` = 'IDI'
+      AND project.`project_name` = _utf8mb4 0xe68c89e58e8be5bc8fe79083e59b8ae689a9e58585e58e8be58a9be6b3b5
+      AND project.`status` = 'ENABLE'
+      AND project.`deleted` = 0
+  ) >= 37
+  AND (
+    SELECT COUNT(DISTINCT target_rule.`parameter_code`)
+    FROM `dcc_project_code` project
+    JOIN `mes_pro_route_dcc_project_binding` binding
+      ON binding.`dcc_project_code_id` = project.`id`
+     AND binding.`tenant_id` = project.`tenant_id`
+     AND binding.`deleted` = b'0'
+     AND binding.`active_route_id` = binding.`route_id`
+    JOIN `mes_pro_route` target_route
+      ON target_route.`id` = binding.`route_id`
+     AND target_route.`tenant_id` = project.`tenant_id`
+     AND target_route.`deleted` = b'0'
+     AND target_route.`code` = 'RT000028-IDI'
+    JOIN `mes_pro_route_process` target_route_process
+      ON target_route_process.`route_id` = target_route.`id`
+     AND target_route_process.`tenant_id` = target_route.`tenant_id`
+     AND target_route_process.`deleted` = b'0'
+    JOIN `mes_pro_process_pool_team_process_device` target_binding
+      ON target_binding.`tenant_id` = target_route_process.`tenant_id`
+     AND target_binding.`process_id` = target_route_process.`process_id`
+     AND target_binding.`enabled` = b'1'
+     AND target_binding.`deleted` = b'0'
+    JOIN `system_users` leader
+      ON leader.`id` = target_binding.`leader_user_id`
+     AND leader.`tenant_id` = target_binding.`tenant_id`
+     AND leader.`username` = 'admin'
+     AND leader.`deleted` = b'0'
+    JOIN `mes_pro_process_pool_team_device` target_device
+      ON target_device.`id` = target_binding.`device_id`
+     AND target_device.`leader_user_id` = target_binding.`leader_user_id`
+     AND target_device.`tenant_id` = target_binding.`tenant_id`
+     AND target_device.`device_status` = 'ENABLED'
+     AND target_device.`enabled` = b'1'
+     AND target_device.`deleted` = b'0'
+     AND target_device.`device_code` = 'B09393'
+    JOIN `mes_pro_process_pool_device_parameter_rule` target_rule
+      ON target_rule.`tenant_id` = target_route_process.`tenant_id`
+     AND target_rule.`leader_user_id` = target_binding.`leader_user_id`
+     AND target_rule.`route_process_id` = target_route_process.`id`
+     AND target_rule.`process_id` = target_route_process.`process_id`
+     AND target_rule.`device_id` = target_device.`id`
+     AND target_rule.`enabled` = b'1'
+     AND target_rule.`deleted` = b'0'
+     AND target_rule.`parameter_code` IN (
+       'IDIJSON_01_B09393_01',
+       'IDIJSON_01_B09393_02',
+       'IDIJSON_01_B09393_03',
+       'IDIJSON_01_B09393_04',
+       'IDIJSON_01_B09393_05'
+     )
+    WHERE project.`tenant_id` = 1
+      AND project.`project_code` = 'IDI'
+      AND project.`project_name` = _utf8mb4 0xe68c89e58e8be5bc8fe79083e59b8ae689a9e58585e58e8be58a9be6b3b5
+      AND project.`status` = 'ENABLE'
+      AND project.`deleted` = 0
+  ) = 5
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260830_mes_process_pool_idi_device_parameter_rules.sql'
     }
 )
-$RequiredDccDownloadEncryptionEnv = @(
-    'DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION',
-    'DCC_DOWNLOAD_ENCRYPTION_KEY_ID',
-    'DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY',
-    'DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY'
-)
-
 function Fail([string]$Message) {
     Update-OperationRecord -Status 'failed' -Summary $Message
     Write-Host "[FAIL] $Message" -ForegroundColor Red
@@ -565,28 +888,6 @@ function Require-Command([string]$Name) {
             Fail 'Missing pnpm command'
         }
         Fail "Missing $Name command"
-    }
-}
-
-function Import-PersistentEnvironmentVariable([string]$Name) {
-    foreach ($target in @(
-        [System.EnvironmentVariableTarget]::Process,
-        [System.EnvironmentVariableTarget]::User,
-        [System.EnvironmentVariableTarget]::Machine
-    )) {
-        $value = [Environment]::GetEnvironmentVariable($Name, $target)
-        if ([string]::IsNullOrWhiteSpace($value)) {
-            continue
-        }
-        [Environment]::SetEnvironmentVariable($Name, $value, [System.EnvironmentVariableTarget]::Process)
-        return $true
-    }
-    return $false
-}
-
-function Require-EnvironmentVariable([string]$Name) {
-    if (-not (Import-PersistentEnvironmentVariable $Name)) {
-        Fail "Missing $Name; DCC controlled download encryption is fail-fast and requires explicit runtime configuration."
     }
 }
 
@@ -906,9 +1207,6 @@ pnpm dev -- --strictPort
 function Start-Backend {
     Require-Command 'java'
     Require-Command 'mvn'
-    foreach ($requiredEnv in $RequiredDccDownloadEncryptionEnv) {
-        Require-EnvironmentVariable $requiredEnv
-    }
     if (-not (Test-Path -LiteralPath (Join-Path $BackendDir 'pom.xml'))) {
         Fail "Missing backend workspace: $BackendDir"
     }
@@ -937,6 +1235,9 @@ function Start-Backend {
     }
     $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $runtimeJar = Join-Path $RuntimeDir "backend-runtime-control-$timestamp.jar"
+    $backendLogDir = Join-Path $RuntimeDir 'logs'
+    $backendLogFile = Join-Path $backendLogDir 'yudao-server.log'
+    New-Item -ItemType Directory -Force -Path $backendLogDir | Out-Null
     Copy-Item -LiteralPath $sourceJar -Destination $runtimeJar -Force
     Stop-Port $BackendPort
     $backendScript = @"
@@ -944,6 +1245,7 @@ function Start-Backend {
 `$env:DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL = '$OnlyOfficePublicFileBaseUrl'
 `$env:DCC_SIGNATURE_EVIDENCE_HMAC_SECRET = '$DccSignatureEvidenceHmacSecret'
 `$env:DCC_SIGNATURE_EVIDENCE_KEY_VERSION = '$DccSignatureEvidenceKeyVersion'
+Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
 `$backendArgs = @(
   "-jar"
   "$runtimeJar"
@@ -957,8 +1259,10 @@ function Start-Backend {
   "--spring.datasource.dynamic.datasource.slave.password=123456"
   "--spring.data.redis.host=$LocalDockerRuntimeHost"
   "--spring.data.redis.port=26379"
+  "--logging.file.name=$backendLogFile"
   "--yudao.runtime-control.repo-root=$RepoRoot"
   "--yudao.runtime-control.state-dir=$RuntimeControlStateDir"
+  "--yudao.runtime-control.storage-guard.log-dir=$backendLogDir"
 )
 & java @backendArgs
 "@

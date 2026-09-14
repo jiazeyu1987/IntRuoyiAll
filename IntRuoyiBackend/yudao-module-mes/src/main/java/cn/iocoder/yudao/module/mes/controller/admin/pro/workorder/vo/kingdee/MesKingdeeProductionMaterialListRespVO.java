@@ -55,6 +55,9 @@ public class MesKingdeeProductionMaterialListRespVO {
     @Schema(description = "子项单位")
     private String childUnitName;
 
+    @Schema(description = "图号")
+    private String drawingNumber;
+
     @Schema(description = "应发数量")
     private BigDecimal requiredQuantity;
 

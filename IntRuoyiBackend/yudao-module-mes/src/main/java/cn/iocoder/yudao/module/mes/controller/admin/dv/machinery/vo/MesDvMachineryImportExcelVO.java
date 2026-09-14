@@ -4,6 +4,8 @@ import cn.idev.excel.annotation.ExcelProperty;
 import cn.iocoder.yudao.framework.excel.core.annotations.DictFormat;
 import cn.iocoder.yudao.framework.excel.core.convert.DictConvert;
 import cn.iocoder.yudao.module.mes.enums.DictTypeConstants;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,9 +23,11 @@ import java.math.BigDecimal;
 public class MesDvMachineryImportExcelVO {
 
     @ExcelProperty("\u8BBE\u5907\u7F16\u7801")
+    @NotBlank(message = "设备编码不能为空")
     private String code;
 
     @ExcelProperty("\u8BBE\u5907\u540D\u79F0")
+    @NotBlank(message = "设备名称不能为空")
     private String name;
 
     @ExcelProperty("\u54C1\u724C")
@@ -33,15 +37,18 @@ public class MesDvMachineryImportExcelVO {
     private String specification;
 
     @ExcelProperty("\u8BBE\u5907\u7C7B\u578B\u7F16\u7801")
+    @NotBlank(message = "设备类型编码不能为空")
     private String machineryTypeCode;
 
     @ExcelProperty("\u6240\u5C5E\u8F66\u95F4\u7F16\u7801")
+    @NotBlank(message = "所属车间编码不能为空")
     private String workshopCode;
 
     @ExcelProperty("\u5DE5\u5E8F\u540D\u79F0")
     private String processName;
 
     @ExcelProperty("\u8BBE\u5907\u6807\u51C6\u5C0F\u65F6\u4EA7\u80FD")
+    @DecimalMin(value = "0.000000001", message = "设备标准小时产能必须大于 0")
     private BigDecimal standardHourlyCapacity;
 
     @ExcelProperty(value = "\u8BBE\u5907\u72B6\u6001", converter = DictConvert.class)

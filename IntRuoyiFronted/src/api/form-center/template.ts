@@ -26,9 +26,58 @@ export interface FormTemplateListItemVO {
   remark?: string
   slotCode?: string
   actionCode?: string
+  designerReportId?: string
   recognizedFields?: FormRecognizedFieldVO[]
   jimuSchemaJson?: string
   sourceFileName?: string
+}
+
+export interface FormTemplateFillRuleCandidateVO {
+  rowIndex: number
+  columnIndex: number
+  label: string
+  valueType: 'STRING' | 'NUMBER' | 'DATE' | 'DATETIME' | 'BOOLEAN' | 'SIGNATURE'
+  componentFlag:
+    | 'input-text'
+    | 'input-number'
+    | 'date'
+    | 'datetime'
+    | 'checkbox'
+    | 'radio-group'
+    | 'option-group'
+    | 'select'
+    | 'signature'
+    | 'textarea'
+    | 'upload-file'
+    | 'upload-image'
+    | 'upload-images'
+  required: boolean
+  constraints?: Record<string, unknown>
+  unit?: string
+  placeholder?: string
+  helpText?: string
+  confidence: number
+  reason: string
+}
+
+export interface FormTemplateFillRuleAutoDetectRespVO {
+  templateId: number
+  templateName: string
+  sourceVersionNo: string
+  versionNo: string
+  targetStatus: FormTemplateStatus
+  draftCreated: boolean
+  candidateCount: number
+  candidates: FormTemplateFillRuleCandidateVO[]
+}
+
+export interface FormTemplateEditableDraftRespVO {
+  templateId: number
+  templateName: string
+  sourceVersionNo: string
+  versionNo: string
+  targetStatus: FormTemplateStatus
+  draftCreated: boolean
 }
 
 export interface FormTemplateImportRespVO {
@@ -39,6 +88,16 @@ export interface FormTemplateImportRespVO {
   sourceTemplateId?: number
   approvalRequestId?: number
   approvalProcessInstanceId?: string
+  recognizedFields: FormRecognizedFieldVO[]
+  warnings: string[]
+}
+
+export interface FormTemplateParseJsonRespVO {
+  parseType: 'PRODUCTION_BATCH_RECORD'
+  parseTypeName: string
+  sourceFileName: string
+  recognizedSchemaJson: string
+  jimuSchemaJson: string
   recognizedFields: FormRecognizedFieldVO[]
   warnings: string[]
 }
@@ -76,9 +135,40 @@ export const getTemplatePool = (params: FormTemplatePoolPageReqVO) => {
   })
 }
 
+export const getTemplateVersion = (templateId: number, versionNo: string) => {
+  return request.get<FormTemplateListItemVO>({
+    url: `/form-center/templates/${templateId}/versions/${versionNo}`
+  })
+}
+
+export const getTemplateDesignerPath = (templateId: number, versionNo: string) => {
+  return request.get<{ path: string }>({
+    url: `/form-center/templates/${templateId}/versions/${versionNo}/designer-path`
+  })
+}
+
+export const getTemplateEditPath = (templateId: number, versionNo: string) => {
+  return request.get<{ path: string }>({
+    url: `/form-center/templates/${templateId}/versions/${versionNo}/edit-path`
+  })
+}
+
+export const ensureTemplateEditableDraft = (templateId: number, versionNo: string) => {
+  return request.post<FormTemplateEditableDraftRespVO>({
+    url: `/form-center/templates/${templateId}/versions/${versionNo}/editable-draft`
+  })
+}
+
 export const importTemplateDoc = (data: FormData) => {
   return request.upload<FormTemplateImportRespVO>({
     url: '/form-center/templates/import-doc',
+    data
+  })
+}
+
+export const parseProductionBatchRecordJson = (data: FormData) => {
+  return request.upload<FormTemplateParseJsonRespVO>({
+    url: '/form-center/parser/production-batch-record/json',
     data
   })
 }
@@ -87,6 +177,14 @@ export const saveTemplateJimuSchema = (templateId: number, versionNo: string, ji
   return request.put<boolean>({
     url: `/form-center/templates/${templateId}/versions/${versionNo}/jimu-schema`,
     data: { jimuSchema }
+  })
+}
+
+export const autoDetectTemplateFillRules = (templateId: number, versionNo: string) => {
+  return request.post<FormTemplateFillRuleAutoDetectRespVO>({
+    url: `/form-center/templates/${templateId}/versions/${versionNo}/fill-rule-auto-detect`,
+    // Keep the browser request open long enough to receive the backend rule-recognition result.
+    timeout: 180000
   })
 }
 

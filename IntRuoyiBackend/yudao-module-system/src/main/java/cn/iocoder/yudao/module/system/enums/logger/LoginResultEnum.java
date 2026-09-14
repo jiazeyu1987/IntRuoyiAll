@@ -13,9 +13,11 @@ public enum LoginResultEnum {
     SUCCESS(0), // 成功
     BAD_CREDENTIALS(10), // 账号或密码不正确
     USER_DISABLED(20), // 用户被禁用
+    USER_LOCKED(21), // 用户被锁定
     CAPTCHA_NOT_FOUND(30), // 图片验证码不存在
     CAPTCHA_CODE_ERROR(31), // 图片验证码不正确
     PASSWORD_EXPIRED(40), // 密码过期
+    PASSWORD_CHANGE_REQUIRED(41), // 首次或重置后必须改密
 
     ;
 

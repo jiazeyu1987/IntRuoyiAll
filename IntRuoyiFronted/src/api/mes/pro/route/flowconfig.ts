@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { MesRouteId } from '@/api/mes/pro/route'
 import type {
   EdhrProcessFormCandidateSourceType,
   EdhrProcessFormPermissionRuleRespVO
@@ -24,9 +25,82 @@ export type ProRouteFlowArchiveVisibility =
   | 'INTERNAL_REVIEW'
   | 'AUDIT_ONLY'
   | 'ATTACHMENT_REFERENCE'
+export type ProRouteDeviceParameterValueType =
+  | 'INTEGER'
+  | 'DECIMAL'
+  | 'TEXT_STANDARD'
+  | 'SELECT'
+  | 'BOOLEAN'
+
+export interface ProRouteBatchRecordAttachmentOwnerVO {
+  attachmentCode: string
+  attachmentName: string
+  defaultRoleCode: string
+  defaultRoleName: string
+  candidateSourceType: EdhrProcessFormCandidateSourceType
+  candidateSourceIds: number[]
+  candidateSourceNames?: string[]
+  assignedUserIds?: number[]
+  assignedUserNames?: string[]
+  sort: number
+  remark?: string | null
+}
+
+export interface ProRouteBatchRecordAttachmentOwnerItemSaveVO {
+  attachmentCode: string
+  candidateSourceType: EdhrProcessFormCandidateSourceType
+  candidateSourceIds: number[]
+  candidateSourceNames?: string[]
+  remark?: string | null
+}
+
+export interface ProRouteBatchRecordAttachmentOwnerSaveVO {
+  routeId: number
+  routeVersionId: MesRouteId
+  items: ProRouteBatchRecordAttachmentOwnerItemSaveVO[]
+}
+
+export interface ProRouteBatchRecordAttachmentOwnerInitVO {
+  routeId: number
+  routeVersionId: MesRouteId
+}
+
+export interface ProRouteStartProductionLeaderVO {
+  productionLineId: number
+  productionLineCode?: string | null
+  productionLineName?: string | null
+  candidateSourceType: EdhrProcessFormCandidateSourceType
+  candidateSourceIds: number[]
+  candidateSourceNames?: string[]
+  sort?: number | null
+  remark?: string | null
+}
+
+export interface ProRouteStartProductionLeaderItemSaveVO {
+  productionLineId: number
+  candidateSourceType: EdhrProcessFormCandidateSourceType
+  candidateSourceIds: number[]
+  candidateSourceNames?: string[]
+  remark?: string | null
+}
+
+export interface ProRouteStartProductionLeaderSaveVO {
+  routeId: number
+  routeVersionId: MesRouteId
+  items: ProRouteStartProductionLeaderItemSaveVO[]
+}
+
+export interface ProRouteStartProductionLeaderProductionLineVO {
+  productionLineId: number
+  productionLineCode?: string | null
+  productionLineName?: string | null
+  routeProcessIds?: number[]
+  processNames?: string[]
+}
 
 export interface ProRouteFlowFormBindingVO {
   formBindingKey?: string | null
+  globalSyncKey?: string | null
   formSlotType?: ProRouteFlowFormSlotType | null
   formTemplateId: number
   formTemplateName?: string | null
@@ -38,6 +112,7 @@ export interface ProRouteFlowFormBindingVO {
   fillableScopeJson?: string | null
   recordCategory?: ProRouteFlowRecordCategory | null
   validationProfile?: ProRouteFlowValidationProfile | null
+  recordbookEnabled?: boolean | null
   requiredPolicy?: ProRouteFlowRequiredPolicy | null
   requiredConditionJson?: string | null
   ownerRoleKey?: ProRouteFlowOwnerRoleKey | null
@@ -64,6 +139,7 @@ export interface ProRouteFlowBatchRecordVO {
   fillableScopeJson?: string | null
   recordCategory?: ProRouteFlowRecordCategory | null
   validationProfile?: ProRouteFlowValidationProfile | null
+  recordbookEnabled?: boolean | null
   permissionScopeId?: number | null
   requiredPolicy?: ProRouteFlowRequiredPolicy | null
   requiredConditionJson?: string | null
@@ -76,6 +152,8 @@ export interface ProRouteFlowBatchRecordVO {
 
 export interface ProRouteFlowFormBindingSaveVO {
   formBindingKey?: string | null
+  globalSyncKey?: string | null
+  formSlotType?: ProRouteFlowFormSlotType | null
   formTemplateId: number
   formTemplateName?: string | null
   instanceScope?: 'PROCESS' | 'BATCH_SHARED' | string
@@ -83,6 +161,7 @@ export interface ProRouteFlowFormBindingSaveVO {
   fillableScopeJson?: string | null
   recordCategory?: ProRouteFlowRecordCategory | null
   validationProfile?: ProRouteFlowValidationProfile | null
+  recordbookEnabled?: boolean | null
   requiredPolicy?: ProRouteFlowRequiredPolicy | null
   requiredConditionJson?: string | null
   ownerRoleKey?: ProRouteFlowOwnerRoleKey | null
@@ -106,6 +185,8 @@ export interface ProRouteFlowProcessConfigVO {
   keyFlag?: boolean | null
   executionMode?: ProRouteFlowExecutionMode | null
   productionQuantityFactor?: number | null
+  inputMaterialIds?: number[]
+  outputMaterialIds?: number[]
   batchRecordReports?: ProRouteFlowBatchRecordVO[]
   formBindings?: ProRouteFlowFormBindingVO[]
   routeScheduleConfigId?: number | null
@@ -127,13 +208,75 @@ export interface ProRouteFlowProcessConfigSaveVO {
   enabled: boolean
   executionMode?: ProRouteFlowExecutionMode | null
   productionQuantityFactor?: number | null
+  inputMaterialIds?: number[]
+  outputMaterialIds?: number[]
+  batchRecordReports?: ProRouteFlowBatchRecordVO[]
   formBindings?: ProRouteFlowFormBindingSaveVO[]
   remark?: string | null
 }
 
+export interface ProRouteDeviceParameterVO {
+  ruleId?: number | null
+  parameterCode: string
+  parameterName?: string | null
+  unit?: string | null
+  valueType: ProRouteDeviceParameterValueType
+  standardText: string
+  lowerLimit?: number | null
+  targetValue?: number | null
+  upperLimit?: number | null
+  optionValues?: string[]
+  defaultText?: string | null
+  decimalScale?: number | null
+}
+
+export interface ProRouteProcessDeviceParameterDeviceVO {
+  deviceId: number
+  deviceCode?: string | null
+  deviceName?: string | null
+  deviceStatus?: string | null
+  parameters?: ProRouteDeviceParameterVO[]
+}
+
+export interface ProRouteProcessDeviceParameterConfigVO {
+  routeVersionId: MesRouteId
+  routeSnapshotSha256: string
+  routeProcessId: number
+  processId?: number | null
+  processName?: string | null
+  devices?: ProRouteProcessDeviceParameterDeviceVO[]
+}
+
+export interface ProRouteDeviceParameterRuleSaveVO {
+  routeVersionId: MesRouteId
+  expectedRouteSnapshotSha256: string
+  routeProcessId: number
+  deviceId: number
+  parameterCode: string
+  originalParameterCode?: string | null
+  parameterName?: string | null
+  unit?: string | null
+  standardText: string
+  lowerLimit?: number | null
+  upperLimit?: number | null
+  targetValue?: number | null
+  valueType: ProRouteDeviceParameterValueType
+  optionValues?: string[]
+  defaultText?: string | null
+  decimalScale?: number | null
+}
+
+export interface ProRouteDeviceParameterRuleDeleteVO {
+  routeVersionId: MesRouteId
+  expectedRouteSnapshotSha256: string
+  routeProcessId: number
+  deviceId: number
+  parameterCode: string
+}
+
 export interface ProRouteFlowConfigSaveVO {
   routeId: number
-  routeVersionId: number
+  routeVersionId: MesRouteId
   useType?: ProRouteFlowConfigType
   configVersion?: string | null
   remark?: string | null
@@ -141,23 +284,106 @@ export interface ProRouteFlowConfigSaveVO {
 }
 
 export const ProRouteFlowConfigApi = {
-  getProcessConfigList: async (routeId: number, useType: ProRouteFlowConfigType, routeVersionId?: number) => {
+  getProcessConfigList: async (
+    routeId: number,
+    useType: ProRouteFlowConfigType,
+    routeVersionId?: MesRouteId
+  ) => {
     return await request.get<ProRouteFlowProcessConfigVO[]>({
       url: '/mes/pro/route/flow-config',
       params: { routeId, useType, routeVersionId }
     })
   },
 
-  saveScheduleConfig: async (data: ProRouteFlowConfigSaveVO) => {
+  saveScheduleConfig: async (
+    data: ProRouteFlowConfigSaveVO,
+    options: Record<string, unknown> = {}
+  ) => {
     return await request.post({
       url: '/mes/pro/route/flow-config/schedule/save',
+      data,
+      ...options
+    })
+  },
+
+  saveBatchRecordConfig: async (
+    data: ProRouteFlowConfigSaveVO,
+    options: Record<string, unknown> = {}
+  ) => {
+    return await request.post({
+      url: '/mes/pro/route/flow-config/batch-record/save',
+      data,
+      ...options
+    })
+  },
+
+  getRouteProcessDeviceParameterConfig: async (
+    routeVersionId: MesRouteId,
+    routeProcessId: number
+  ) => {
+    return await request.get<ProRouteProcessDeviceParameterConfigVO>({
+      url: '/mes/pro/route/flow-config/process-device-parameters',
+      params: { routeVersionId, routeProcessId }
+    })
+  },
+
+  saveRouteProcessDeviceParameterRule: async (data: ProRouteDeviceParameterRuleSaveVO) => {
+    return await request.post<ProRouteProcessDeviceParameterConfigVO>({
+      url: '/mes/pro/route/flow-config/process-device-parameter-rule/save',
       data
     })
   },
 
-  saveBatchRecordConfig: async (data: ProRouteFlowConfigSaveVO) => {
+  deleteRouteProcessDeviceParameterRule: async (
+    data: ProRouteDeviceParameterRuleDeleteVO
+  ) => {
+    return await request.delete<ProRouteProcessDeviceParameterConfigVO>({
+      url: '/mes/pro/route/flow-config/process-device-parameter-rule/delete',
+      data
+    })
+  },
+
+  getBatchRecordAttachmentOwners: async (routeId: number, routeVersionId?: MesRouteId) => {
+    return await request.get<ProRouteBatchRecordAttachmentOwnerVO[]>({
+      url: '/mes/pro/route/flow-config/batch-record-attachment-owners',
+      params: { routeId, routeVersionId }
+    })
+  },
+
+  initBatchRecordAttachmentOwners: async (data: ProRouteBatchRecordAttachmentOwnerInitVO) => {
+    return await request.post<ProRouteBatchRecordAttachmentOwnerVO[]>({
+      url: '/mes/pro/route/flow-config/batch-record-attachment-owners/init-defaults',
+      data
+    })
+  },
+
+  saveBatchRecordAttachmentOwners: async (data: ProRouteBatchRecordAttachmentOwnerSaveVO) => {
     return await request.post({
-      url: '/mes/pro/route/flow-config/batch-record/save',
+      url: '/mes/pro/route/flow-config/batch-record-attachment-owners/save',
+      data
+    })
+  },
+
+  getRouteStartProductionLeaderProductionLines: async (
+    routeId: number,
+    routeVersionId?: MesRouteId
+  ) => {
+    return await request.get<ProRouteStartProductionLeaderProductionLineVO[]>({
+      url: '/mes/pro/route/flow-config/route-start-production-leader-production-lines',
+      params: { routeId, routeVersionId }
+    })
+  },
+
+  getRouteStartProductionLeaders: async (routeId: number, routeVersionId?: MesRouteId) => {
+    return await request.get<ProRouteStartProductionLeaderVO[]>({
+      url: '/mes/pro/route/flow-config/route-start-production-leaders',
+      params: { routeId, routeVersionId }
+    })
+  },
+
+  saveRouteStartProductionLeaders: async (data: ProRouteStartProductionLeaderSaveVO) => {
+    return await request.post({
+      url: '/mes/pro/route/flow-config/route-start-production-leaders/save',
       data
     })
   }

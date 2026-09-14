@@ -37,3 +37,15 @@ def test_release_migration_depends_on_uses_migration_ids_without_sql_suffix():
                 offenders.append(f"{migration.name}: {dependency}")
 
     assert offenders == []
+
+
+def test_erp_nas_table_auto_sync_has_single_schema_migration_type():
+    repo_root = Path(__file__).resolve().parents[2]
+    migration = repo_root / "sql" / "mysql" / "20260805_erp_nas_table_auto_sync.sql"
+
+    first_line = migration.read_text(encoding="utf-8").splitlines()[0].strip()
+
+    assert first_line == (
+        "-- release-migration: allowedEnvironments=test,backup,prod; "
+        "dependsOn=20260612_erp_kingdee_sync_runtime; type=schema; riskLevel=medium"
+    )

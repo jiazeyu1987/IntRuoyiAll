@@ -1,0 +1,25 @@
+{
+  "user": "xieqi",
+  "targetFileId": "2054545668044070261",
+  "distributionId": "4307",
+  "recipientId": "46495",
+  "status": "ERROR",
+  "profileUrl": "",
+  "permissions": {
+    "hasDccControlledFileQuery": null,
+    "dccLike": []
+  },
+  "distributionTaskPayload": null,
+  "profileBody": "",
+  "rowVisible": false,
+  "clickedDetailUrl": "",
+  "clickedDetailBody": "",
+  "directUrl": "",
+  "directBody": "",
+  "confirmButtonCount": 0,
+  "acknowledgeResponse": null,
+  "hits": [],
+  "errors": [
+    "AssertionError [ERR_ASSERTION]: login business 1002000000:登录失败，账号密码不正确\n    at login ([stdin]:61:10)\n    at async main ([stdin]:111:5)"
+  ]
+}

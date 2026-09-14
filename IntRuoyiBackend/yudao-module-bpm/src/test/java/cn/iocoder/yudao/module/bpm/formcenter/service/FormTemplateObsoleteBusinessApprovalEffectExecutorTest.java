@@ -83,15 +83,15 @@ class FormTemplateObsoleteBusinessApprovalEffectExecutorTest extends BaseMockito
     }
 
     @Test
-    void executeDirectIsRejectedBecauseObsoleteMustGoThroughBpmApproval() {
+    void executeDirectObsoletesCurrentVersionWithoutStartingBpmApproval() {
         mockVersion(FormTemplateStatus.PUBLISHED);
+        when(templateVersionMapper.updateById((FormTemplateVersionDO) any())).thenReturn(1);
 
-        BusinessApprovalException ex = assertThrows(BusinessApprovalException.class,
-                () -> executor.executeDirect(context(FormTemplateStatus.PUBLISHED),
-                        request(null, FormTemplateStatus.PUBLISHED)));
+        BusinessApprovalEffectResult result = executor.executeDirect(context(FormTemplateStatus.PUBLISHED),
+                request(null, FormTemplateStatus.PUBLISHED));
 
-        assertEquals(BusinessApprovalErrorCode.BUSINESS_APPROVAL_MODE_INVALID, ex.getErrorCode());
-        verify(templateVersionMapper, never()).updateById((FormTemplateVersionDO) any());
+        assertEquals(FormTemplateStatus.OBSOLETE.name(), result.getResultState());
+        assertUpdatedStatus(FormTemplateStatus.OBSOLETE);
     }
 
     @Test

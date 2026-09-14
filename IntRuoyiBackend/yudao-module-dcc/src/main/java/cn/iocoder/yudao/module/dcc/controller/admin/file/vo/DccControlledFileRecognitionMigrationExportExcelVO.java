@@ -4,7 +4,6 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRecognitionRecordDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
-import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -48,16 +47,17 @@ public class DccControlledFileRecognitionMigrationExportExcelVO {
             DccControlledFileDO file,
             String directoryPath,
             DccControlledFileRecognitionRecordDO record,
-            DccProjectCodeDO projectCode,
-            MdmProductRespDTO product) {
+            DccProjectCodeDO projectCode) {
         return DccControlledFileRecognitionMigrationExportExcelVO.builder()
                 .directoryPath(directoryPath)
                 .fileName(StrUtil.trim(file.getFileName()))
                 .fileNumber(StrUtil.trim(file.getFileNumber()))
                 .testControlledFileId(file.getId())
                 .recognitionStatus(record.getStatus())
-                .productName(product == null ? StrUtil.trim(record.getRecognizedProductName()) : StrUtil.trim(product.getNameCn()))
-                .productCode(product == null ? StrUtil.trim(record.getRecognizedProductCode()) : StrUtil.trim(product.getDccProductCode()))
+                .productName(projectCode == null
+                        ? StrUtil.trim(record.getRecognizedProductName()) : StrUtil.trim(projectCode.getProjectName()))
+                .productCode(projectCode == null
+                        ? StrUtil.trim(record.getRecognizedProductCode()) : StrUtil.trim(projectCode.getProjectCode()))
                 .projectName(projectCode == null ? null : StrUtil.trim(projectCode.getProjectName()))
                 .projectCode(projectCode == null ? null : StrUtil.trim(projectCode.getProjectCode()))
                 .testProjectCodeId(record.getMatchedProjectCodeId())

@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.system.service.permission;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.ArrayUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
@@ -16,7 +17,12 @@ import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMenuMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.UserRoleMapper;
 import cn.iocoder.yudao.module.system.dal.redis.RedisKeyConstants;
 import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
+import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import com.baomidou.dynamic.datasource.annotation.DSTransactional;
 import com.google.common.annotations.VisibleForTesting;
@@ -30,11 +36,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.Resource;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertSet;
 import static cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
 
 /**
  * 权限 Service 实现类
@@ -44,6 +54,8 @@ import static cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString
 @Service
 @Slf4j
 public class PermissionServiceImpl implements PermissionService {
+
+    private static final Pattern LOG_PERMISSION_PATTERN = Pattern.compile("(^|[:\\-])log([:\\-]|$)");
 
     @Resource
     private RoleMenuMapper roleMenuMapper;
@@ -60,6 +72,10 @@ public class PermissionServiceImpl implements PermissionService {
     private AdminUserService userService;
     @Resource
     private SystemEntitlementService systemEntitlementService;
+    @Resource
+    private TemporaryRoleGrantService temporaryRoleGrantService;
+    @Resource
+    private GxpAuditService gxpAuditService;
 
     @Override
     public boolean hasAnyPermissions(Long userId, String... permissions) {
@@ -75,21 +91,32 @@ public class PermissionServiceImpl implements PermissionService {
             }
         }
 
-        // 获得当前登录的角色。如果为空，说明没有静态角色权限
-        List<RoleDO> roles = getEnableUserRoleListByUserIdFromCache(userId);
-        if (CollUtil.isEmpty(roles)) {
-            return false;
-        }
-
-        // 情况二：遍历判断每个权限，如果有一满足，说明有权限
+        // 情况二：先判断用户永久角色，永久角色可放行时不记录临时权限使用
+        List<RoleDO> permanentRoles = getEnablePermanentRoleListByUserIdFromCache(userId);
         for (String permission : permissions) {
-            if (hasAnyPermission(roles, permission)) {
+            if (hasAnyPermission(permanentRoles, permission)) {
                 return true;
             }
         }
 
-        // 情况三：如果是超管，也说明有权限
-        return roleService.hasAnySuperAdmin(convertSet(roles, RoleDO::getId));
+        // 情况三：如果永久角色是超管，也说明有权限
+        if (CollUtil.isNotEmpty(permanentRoles)
+                && roleService.hasAnySuperAdmin(convertSet(permanentRoles, RoleDO::getId))) {
+            return true;
+        }
+
+        // 情况四：永久角色无法放行时，才判断临时角色并记录使用审计
+        List<RoleDO> temporaryRoles = getEnableTemporaryRoleListByUserId(userId);
+        if (CollUtil.isEmpty(temporaryRoles)) {
+            return false;
+        }
+        for (String permission : permissions) {
+            if (hasAnyPermission(temporaryRoles, permission)) {
+                temporaryRoleGrantService.recordPermissionUse(userId, permission);
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -179,17 +206,22 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Override
     @DSTransactional // 多数据源，使用 @DSTransactional 保证本地事务，以及数据源的切换
+    @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
             @CacheEvict(value = RedisKeyConstants.MENU_ROLE_ID_LIST,
             allEntries = true),
             @CacheEvict(value = RedisKeyConstants.PERMISSION_MENU_ID_LIST,
             allEntries = true) // allEntries 清空所有缓存，主要一次更新涉及到的 menuIds 较多，反倒批量会更快
     })
-    public void assignRoleMenu(Long roleId, Set<Long> menuIds) {
+    @GxpWriteOperation(operationId = "system.permission.role-menu.assign")
+    public void assignRoleMenu(Long roleId, Set<Long> menuIds, String reason, String idempotencyKey) {
+        requireGxpPermissionAuditEvidence(reason, idempotencyKey);
         // 获得角色拥有菜单编号
         Set<Long> dbMenuIds = convertSet(roleMenuMapper.selectListByRoleId(roleId), RoleMenuDO::getMenuId);
+        Set<Long> beforeMenuIds = sortedLongSet(dbMenuIds);
         // 计算新增和删除的菜单编号
         Set<Long> menuIdList = CollUtil.emptyIfNull(menuIds);
+        Set<Long> afterMenuIds = sortedLongSet(menuIdList);
         Collection<Long> createMenuIds = CollUtil.subtract(menuIdList, dbMenuIds);
         Collection<Long> deleteMenuIds = CollUtil.subtract(dbMenuIds, menuIdList);
         // 执行新增和删除。对于已经授权的菜单，不用做任何处理
@@ -204,6 +236,8 @@ public class PermissionServiceImpl implements PermissionService {
         if (CollUtil.isNotEmpty(deleteMenuIds)) {
             roleMenuMapper.deleteListByRoleIdAndMenuIds(roleId, deleteMenuIds);
         }
+        appendPermissionAudit("system.permission.role-menu.assign", "SYSTEM_ROLE:" + roleId,
+                reason, idempotencyKey, Map.of("menuIds", beforeMenuIds), Map.of("menuIds", afterMenuIds));
     }
 
     @Override
@@ -256,13 +290,19 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Override
     @DSTransactional // 多数据源，使用 @DSTransactional 保证本地事务，以及数据源的切换
+    @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = RedisKeyConstants.USER_ROLE_ID_LIST, key = "#userId")
-    public void assignUserRole(Long userId, Set<Long> roleIds) {
+    @GxpWriteOperation(operationId = "system.permission.user-role.assign")
+    public void assignUserRole(Long userId, Set<Long> roleIds, String reason, String idempotencyKey) {
+        requireGxpPermissionAuditEvidence(reason, idempotencyKey);
         // 获得角色拥有角色编号
         Set<Long> dbRoleIds = convertSet(userRoleMapper.selectListByUserId(userId),
                 UserRoleDO::getRoleId);
+        validateAssignableUserRoles(dbRoleIds, roleIds);
+        Set<Long> beforeRoleIds = sortedLongSet(dbRoleIds);
         // 计算新增和删除的角色编号
         Set<Long> roleIdList = CollUtil.emptyIfNull(roleIds);
+        Set<Long> afterRoleIds = sortedLongSet(roleIdList);
         Collection<Long> createRoleIds = CollUtil.subtract(roleIdList, dbRoleIds);
         Collection<Long> deleteMenuIds = CollUtil.subtract(dbRoleIds, roleIdList);
         // 执行新增和删除。对于已经授权的角色，不用做任何处理
@@ -277,6 +317,46 @@ public class PermissionServiceImpl implements PermissionService {
         if (!CollectionUtil.isEmpty(deleteMenuIds)) {
             userRoleMapper.deleteListByUserIdAndRoleIdIds(userId, deleteMenuIds);
         }
+        appendPermissionAudit("system.permission.user-role.assign", "SYSTEM_USER:" + userId,
+                reason, idempotencyKey, Map.of("roleIds", beforeRoleIds), Map.of("roleIds", afterRoleIds));
+    }
+
+    private void validateAssignableUserRoles(Collection<Long> currentRoleIds, Collection<Long> targetRoleIds) {
+        if (CollectionUtil.isEmpty(targetRoleIds)) {
+            return;
+        }
+        if (hasAnyRestrictedRole(currentRoleIds)) {
+            return;
+        }
+        if (hasAnyRestrictedRole(targetRoleIds)) {
+            throw exception(USER_ASSIGN_HIGH_PERMISSION_FORBIDDEN);
+        }
+    }
+
+    private boolean hasAnyRestrictedRole(Collection<Long> roleIds) {
+        if (CollectionUtil.isEmpty(roleIds)) {
+            return false;
+        }
+        List<RoleDO> roles = roleService.getRoleListFromCache(roleIds);
+        if (CollUtil.isEmpty(roles)) {
+            return false;
+        }
+        for (RoleDO role : roles) {
+            if (role != null && RoleCodeEnum.isAdminRole(role.getCode())) {
+                return true;
+            }
+        }
+
+        Set<Long> menuIds = convertSet(roleMenuMapper.selectListByRoleId(roleIds), RoleMenuDO::getMenuId);
+        if (CollUtil.isEmpty(menuIds)) {
+            return false;
+        }
+        List<MenuDO> menus = menuService.getMenuList(menuIds);
+        return menus.stream().anyMatch(menu -> menu != null && isLogPermission(menu.getPermission()));
+    }
+
+    private boolean isLogPermission(String permission) {
+        return permission != null && LOG_PERMISSION_PATTERN.matcher(permission).find();
     }
 
     @Override
@@ -309,19 +389,46 @@ public class PermissionServiceImpl implements PermissionService {
      */
     @VisibleForTesting
     List<RoleDO> getEnableUserRoleListByUserIdFromCache(Long userId) {
+        List<RoleDO> roles = getEnablePermanentRoleListByUserIdFromCache(userId);
+        roles.addAll(getEnableTemporaryRoleListByUserId(userId));
+        return roles;
+    }
+
+    private List<RoleDO> getEnablePermanentRoleListByUserIdFromCache(Long userId) {
         // 获得用户拥有的角色编号
-        Set<Long> roleIds = getSelf().getUserRoleIdListByUserIdFromCache(userId);
+        Set<Long> roleIds = new LinkedHashSet<>(getSelf().getUserRoleIdListByUserIdFromCache(userId));
         // 获得角色数组，并移除被禁用的
-        List<RoleDO> roles = roleService.getRoleListFromCache(roleIds);
+        List<RoleDO> roles = new ArrayList<>(roleService.getRoleListFromCache(roleIds));
         roles.removeIf(role -> !CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus()));
         return roles;
+    }
+
+    private List<RoleDO> getEnableTemporaryRoleListByUserId(Long userId) {
+        Set<Long> temporaryRoleIds = temporaryRoleGrantService.getActiveRoleIdsByUserId(userId, LocalDateTime.now());
+        if (CollUtil.isEmpty(temporaryRoleIds)) {
+            return new ArrayList<>();
+        }
+        List<RoleDO> temporaryRoles = new ArrayList<>(roleService.getRoleListFromCache(temporaryRoleIds));
+        temporaryRoles.removeIf(role -> !CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus()));
+        return temporaryRoles;
     }
 
     // ========== 用户-部门的相关方法  ==========
 
     @Override
-    public void assignRoleDataScope(Long roleId, Integer dataScope, Set<Long> dataScopeDeptIds) {
+    @Transactional(rollbackFor = Exception.class)
+    @GxpWriteOperation(operationId = "system.permission.role-data-scope.assign")
+    public void assignRoleDataScope(Long roleId, Integer dataScope, Set<Long> dataScopeDeptIds,
+                                    String reason, String idempotencyKey) {
+        requireGxpPermissionAuditEvidence(reason, idempotencyKey);
+        RoleDO beforeRole = roleService.getRole(roleId);
+        Map<String, Object> beforeState = roleDataScopeState(beforeRole);
         roleService.updateRoleDataScope(roleId, dataScope, dataScopeDeptIds);
+        Map<String, Object> afterState = new LinkedHashMap<>();
+        afterState.put("dataScope", dataScope);
+        afterState.put("dataScopeDeptIds", sortedLongSet(dataScopeDeptIds));
+        appendPermissionAudit("system.permission.role-data-scope.assign", "SYSTEM_ROLE:" + roleId,
+                reason, idempotencyKey, beforeState, afterState);
     }
 
     @Override
@@ -393,6 +500,48 @@ public class PermissionServiceImpl implements PermissionService {
      */
     private PermissionServiceImpl getSelf() {
         return SpringUtil.getBean(getClass());
+    }
+
+    private void requireGxpPermissionAuditEvidence(String reason, String idempotencyKey) {
+        if (StrUtil.hasBlank(reason, idempotencyKey)) {
+            throw new IllegalArgumentException("GxP permission audit reason and idempotencyKey are required");
+        }
+    }
+
+    private void appendPermissionAudit(String operationId, String subjectId, String reason, String idempotencyKey,
+                                       Map<String, ?> beforeState, Map<String, ?> afterState) {
+        String beforeJson = toJsonString(beforeState);
+        String afterJson = toJsonString(afterState);
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .operationId(operationId)
+                .subjectId(subjectId)
+                .subjectVersion(String.valueOf(Objects.hash(beforeJson, afterJson)))
+                .reason(reason)
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state("PRESENT")
+                        .objectVersion(String.valueOf(beforeJson.hashCode()))
+                        .canonicalJson(beforeJson)
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state("PRESENT")
+                        .objectVersion(String.valueOf(afterJson.hashCode()))
+                        .canonicalJson(afterJson)
+                        .build())
+                .idempotencyKey(idempotencyKey)
+                .requestId(operationId + ":" + subjectId)
+                .source("PermissionServiceImpl")
+                .build());
+    }
+
+    private Map<String, Object> roleDataScopeState(RoleDO role) {
+        Map<String, Object> state = new LinkedHashMap<>();
+        state.put("dataScope", role == null ? null : role.getDataScope());
+        state.put("dataScopeDeptIds", sortedLongSet(role == null ? null : role.getDataScopeDeptIds()));
+        return state;
+    }
+
+    private Set<Long> sortedLongSet(Collection<Long> values) {
+        return values == null ? Set.of() : new TreeSet<>(values);
     }
 
 }

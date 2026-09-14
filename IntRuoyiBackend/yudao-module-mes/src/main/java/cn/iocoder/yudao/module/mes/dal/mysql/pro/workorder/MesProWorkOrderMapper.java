@@ -24,6 +24,15 @@ import java.util.Map;
 @Mapper
 public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
 
+    default MesProWorkOrderDO selectByIdForUpdate(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProWorkOrderDO>()
+                .eq(MesProWorkOrderDO::getId, id)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProWorkOrderDO> selectListAll() {
         return selectList(new LambdaQueryWrapperX<MesProWorkOrderDO>()
                 .orderByAsc(MesProWorkOrderDO::getId));
@@ -40,15 +49,19 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
                 .likeIfPresent(MesProWorkOrderDO::getName, reqVO.getName())
                 .eqIfPresent(MesProWorkOrderDO::getType, reqVO.getType())
                 .likeIfPresent(MesProWorkOrderDO::getOrderSourceCode, reqVO.getOrderSourceCode())
+                .likeIfPresent(MesProWorkOrderDO::getDemandBillNo, reqVO.getDemandBillNo())
                 .eqIfPresent(MesProWorkOrderDO::getProductId,
                         CollUtil.isEmpty(productIds) ? resolveSingleProductId(reqVO) : null)
                 .inIfPresent(MesProWorkOrderDO::getProductId, productIds)
                 .eqIfPresent(MesProWorkOrderDO::getClientId, reqVO.getClientId())
                 .eqIfPresent(MesProWorkOrderDO::getStatus, reqVO.getStatus())
                 .eqIfPresent(MesProWorkOrderDO::getTemporaryFrozen, reqVO.getTemporaryFrozen())
+                .betweenIfPresent(MesProWorkOrderDO::getQuantity, reqVO.getQuantity())
                 .betweenIfPresent(MesProWorkOrderDO::getRequestDate, reqVO.getRequestDate());
         QuickFilterUtils.filter(queryWrapper, reqVO.getQuickFilter(), Map.of(
                 "code", QuickFilterUtils.QuickFilterField.text(MesProWorkOrderDO::getCode),
+                "demandBillNo", QuickFilterUtils.QuickFilterField.text(MesProWorkOrderDO::getDemandBillNo),
+                "productSpecification", QuickFilterUtils.QuickFilterField.text(MesProWorkOrderDO::getMaterialSpecification),
                 "requestDate", QuickFilterUtils.QuickFilterField.localDateTimeRange(MesProWorkOrderDO::getRequestDate),
                 "status", QuickFilterUtils.QuickFilterField.integerSelect(MesProWorkOrderDO::getStatus)
         ));
@@ -69,6 +82,21 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
 
     default MesProWorkOrderDO selectByCode(String code) {
         return selectOne(MesProWorkOrderDO::getCode, code);
+    }
+
+    default List<MesProWorkOrderDO> selectCandidatesByKeyword(String keyword, Collection<Long> productIds) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        String searchText = keyword.trim();
+        return selectList(new LambdaQueryWrapperX<MesProWorkOrderDO>()
+                .and(wrapper -> {
+                    wrapper.like(MesProWorkOrderDO::getCode, searchText);
+                    if (productIds != null && !productIds.isEmpty()) {
+                        wrapper.or().in(MesProWorkOrderDO::getProductId, productIds);
+                    }
+                })
+                .orderByDesc(MesProWorkOrderDO::getId));
     }
 
     default List<MesProWorkOrderDO> selectListByCodes(Collection<String> codes) {
@@ -143,11 +171,11 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
         return selectCount(MesProWorkOrderDO::getVendorId, vendorId);
     }
 
-    default void updateTemporaryFrozenByIds(Collection<Long> ids, Boolean temporaryFrozen) {
+    default int updateTemporaryFrozenByIds(Collection<Long> ids, Boolean temporaryFrozen) {
         if (ids == null || ids.isEmpty()) {
-            return;
+            return 0;
         }
-        update(null, new LambdaUpdateWrapper<MesProWorkOrderDO>()
+        return update(null, new LambdaUpdateWrapper<MesProWorkOrderDO>()
                 .in(MesProWorkOrderDO::getId, ids)
                 .set(MesProWorkOrderDO::getTemporaryFrozen, temporaryFrozen));
     }

@@ -6,6 +6,7 @@ ALTER TABLE `system_tenant_package` MODIFY COLUMN `menu_ids` LONGTEXT NOT NULL;
 CREATE TABLE IF NOT EXISTS `system_codex_test_case` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `name` varchar(128) NOT NULL,
+  `project` varchar(16) NOT NULL COMMENT '所属项目：智能排产/文控/批记录',
   `method_text` text NOT NULL,
   `test_data_text` text NULL,
   `default_execution_mode` varchar(16) NOT NULL,
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `system_codex_test_case` (
   `tenant_id` bigint NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_system_codex_test_case_tenant_name_deleted` (`tenant_id`, `name`, `deleted`),
+  KEY `idx_system_codex_test_case_tenant_project` (`tenant_id`, `project`, `deleted`),
   KEY `idx_system_codex_test_case_tenant_status` (`tenant_id`, `status`, `deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Codex 自动测试项';
 

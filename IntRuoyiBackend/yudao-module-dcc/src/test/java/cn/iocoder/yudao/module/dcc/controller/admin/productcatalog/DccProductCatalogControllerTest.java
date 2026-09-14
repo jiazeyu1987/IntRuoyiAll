@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProduct
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRegistrationExpiryCompareRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogSaveReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogTreeNodeRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogTreeReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogService;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,7 @@ class DccProductCatalogControllerTest extends BaseMockitoUnitTest {
     private static final String CREATE_PATH = "/dcc/product-catalog/create";
     private static final String UPDATE_PATH = "/dcc/product-catalog/update";
     private static final String DELETE_PATH = "/dcc/product-catalog/delete";
+    private static final String TREE_PATH = "/dcc/product-catalog/tree";
     private static final String REGISTRATION_EXPIRY_COMPARE_PATH =
             "/dcc/product-catalog/registration-expiry/compare";
 
@@ -57,10 +60,10 @@ class DccProductCatalogControllerTest extends BaseMockitoUnitTest {
         assertTrue(preAuthorize.value().contains("dcc:project-code:create"));
 
         DccProductCatalogSaveReqVO reqVO = new DccProductCatalogSaveReqVO();
-        reqVO.setDataSource("子公司产品");
+        reqVO.setDataSource("瑛泰产品");
         reqVO.setProduct("测试产品");
         DccProductCatalogRespVO row = new DccProductCatalogRespVO();
-        row.setDataSource("子公司产品");
+        row.setDataSource("瑛泰产品");
         row.setProduct("测试产品");
         row.setOriginalRowNo(22);
         when(productCatalogService.createProductCatalog(reqVO)).thenReturn(row);
@@ -98,10 +101,10 @@ class DccProductCatalogControllerTest extends BaseMockitoUnitTest {
         assertNotNull(preAuthorize, "Missing @PreAuthorize on product catalog delete endpoint");
         assertTrue(preAuthorize.value().contains("dcc:project-code:delete"));
 
-        CommonResult<Boolean> result = controller.deleteProductCatalog("子公司产品", 12);
+        CommonResult<Boolean> result = controller.deleteProductCatalog("瑛泰产品", 12);
 
         assertTrue(Boolean.TRUE.equals(result.isSuccess()));
-        verify(productCatalogService).deleteProductCatalog("子公司产品", 12);
+        verify(productCatalogService).deleteProductCatalog("瑛泰产品", 12);
     }
 
     @Test
@@ -116,7 +119,7 @@ class DccProductCatalogControllerTest extends BaseMockitoUnitTest {
         reqVO.setPageNo(1);
         reqVO.setPageSize(10);
         DccProductCatalogRespVO row = new DccProductCatalogRespVO();
-        row.setDataSource("子公司产品");
+        row.setDataSource("瑛泰产品");
         row.setProduct("导管鞘组（大腔鞘）");
         when(productCatalogService.getProductCatalogPage(reqVO))
                 .thenReturn(new PageResult<>(List.of(row), 1L));
@@ -130,6 +133,29 @@ class DccProductCatalogControllerTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void getProductCatalogTreeShouldRequireProjectCodeQueryPermissionAndDelegate() throws Exception {
+        Method method = findMappedMethod(GetMapping.class, TREE_PATH);
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+        assertNotNull(preAuthorize, "Missing @PreAuthorize on product catalog tree endpoint");
+        assertTrue(preAuthorize.value().contains("dcc:project-code:query"));
+        assertCommonResultListType(method, DccProductCatalogTreeNodeRespVO.class);
+
+        DccProductCatalogTreeReqVO reqVO = new DccProductCatalogTreeReqVO();
+        reqVO.setDataSource("瑛泰产品");
+        DccProductCatalogTreeNodeRespVO row = new DccProductCatalogTreeNodeRespVO();
+        row.setTreeNodeId("categoryLevel1:瑛泰产品:神经和心血管手术器械");
+        row.setNodeType("categoryLevel1");
+        row.setCategoryLevel1("神经和心血管手术器械");
+        when(productCatalogService.getProductCatalogTree(reqVO)).thenReturn(List.of(row));
+
+        CommonResult<List<DccProductCatalogTreeNodeRespVO>> result = controller.getProductCatalogTree(reqVO);
+
+        assertTrue(Boolean.TRUE.equals(result.isSuccess()));
+        assertEquals("categoryLevel1", result.getData().get(0).getNodeType());
+        verify(productCatalogService).getProductCatalogTree(reqVO);
+    }
+
+    @Test
     void compareRegistrationExpiryShouldRequireProjectCodeQueryPermissionAndDelegate() throws Exception {
         Method method = findMappedMethod(PostMapping.class, REGISTRATION_EXPIRY_COMPARE_PATH);
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
@@ -139,11 +165,11 @@ class DccProductCatalogControllerTest extends BaseMockitoUnitTest {
 
         DccProductCatalogRegistrationExpiryCompareReqVO reqVO =
                 new DccProductCatalogRegistrationExpiryCompareReqVO();
-        reqVO.setRows(List.of(new DccProductCatalogRegistrationExpiryCompareReqVO.RowKey("子公司产品", 2)));
+        reqVO.setRows(List.of(new DccProductCatalogRegistrationExpiryCompareReqVO.RowKey("瑛泰产品", 2)));
 
         DccProductCatalogRegistrationExpiryCompareRespVO row =
                 new DccProductCatalogRegistrationExpiryCompareRespVO();
-        row.setDataSource("子公司产品");
+        row.setDataSource("瑛泰产品");
         row.setOriginalRowNo(2);
         row.setStatus("MATCH");
         row.setLocalExpiryDate("2029-08-19");

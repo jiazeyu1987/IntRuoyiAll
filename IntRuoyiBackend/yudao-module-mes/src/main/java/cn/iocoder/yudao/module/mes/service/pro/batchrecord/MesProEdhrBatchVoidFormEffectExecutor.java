@@ -28,10 +28,10 @@ public class MesProEdhrBatchVoidFormEffectExecutor
     private static final String LIFECYCLE_CONTEXT_ERROR =
             "EDHR_BATCH_VOID lifecycle adapter only accepts MES EDHR_BATCH_EXECUTION VOID actions";
 
-    private final MesProEdhrRecordChangeService recordChangeService;
+    private final MesProEdhrBatchVoidEffectService batchVoidEffectService;
 
-    public MesProEdhrBatchVoidFormEffectExecutor(MesProEdhrRecordChangeService recordChangeService) {
-        this.recordChangeService = recordChangeService;
+    public MesProEdhrBatchVoidFormEffectExecutor(MesProEdhrBatchVoidEffectService batchVoidEffectService) {
+        this.batchVoidEffectService = batchVoidEffectService;
     }
 
     @Override
@@ -39,6 +39,7 @@ public class MesProEdhrBatchVoidFormEffectExecutor
         return EXECUTOR_CODE;
     }
 
+    @Override
     public String getBpmProcessDefinitionKey() {
         return MesProEdhrRecordChangeServiceImpl.BATCH_EXECUTION_VOID_PROCESS_DEFINITION_KEY;
     }
@@ -46,13 +47,13 @@ public class MesProEdhrBatchVoidFormEffectExecutor
     @Override
     public void precheck(BusinessApprovalContext context) {
         requireBusinessVoidContext(context);
-        recordChangeService.precheckPlatformVoidBatchExecution(toRequest(context));
+        batchVoidEffectService.precheckPlatformVoidBatchExecution(toRequest(context));
     }
 
     @Override
     public BusinessApprovalEffectResult executeDirect(BusinessApprovalContext context, BusinessApprovalRequest request) {
         requireBusinessVoidContext(context);
-        EdhrRecordChangeRespVO event = recordChangeService.executeDirectPlatformVoidBatchExecution(
+        EdhrRecordChangeRespVO event = batchVoidEffectService.executeDirectPlatformVoidBatchExecution(
                 toRequest(context), requiredBusinessActorUserId(context.getApplicantUserId(), "applicantUserId"));
         return BusinessApprovalEffectResult.completed(resultState(event, "direct batch void"));
     }
@@ -60,7 +61,7 @@ public class MesProEdhrBatchVoidFormEffectExecutor
     @Override
     public BusinessApprovalEffectResult markPending(BusinessApprovalContext context, BusinessApprovalRequest request) {
         requireBusinessVoidContext(context);
-        EdhrRecordChangeRespVO event = recordChangeService.requestPlatformVoidBatchExecution(
+        EdhrRecordChangeRespVO event = batchVoidEffectService.requestPlatformVoidBatchExecution(
                 toRequest(context), requiredProcessInstanceId(request));
         return BusinessApprovalEffectResult.pending(resultState(event, "pending batch void"));
     }
@@ -69,7 +70,7 @@ public class MesProEdhrBatchVoidFormEffectExecutor
     public BusinessApprovalEffectResult executeApproved(BusinessApprovalContext context, BusinessApprovalRequest request,
             Long actorUserId) {
         requireBusinessVoidContext(context);
-        EdhrRecordChangeRespVO event = recordChangeService.handleVoidBatchExecutionApprovalCallback(
+        EdhrRecordChangeRespVO event = batchVoidEffectService.handleVoidBatchExecutionApprovalCallback(
                 requiredProcessInstanceId(request), null, "APPROVED", null, actorUserId);
         return BusinessApprovalEffectResult.completed(resultState(event, "approved batch void"));
     }
@@ -78,7 +79,7 @@ public class MesProEdhrBatchVoidFormEffectExecutor
     public BusinessApprovalEffectResult reject(BusinessApprovalContext context, BusinessApprovalRequest request,
             Long actorUserId, String reason) {
         requireBusinessVoidContext(context);
-        EdhrRecordChangeRespVO event = recordChangeService.handleVoidBatchExecutionApprovalCallback(
+        EdhrRecordChangeRespVO event = batchVoidEffectService.handleVoidBatchExecutionApprovalCallback(
                 requiredProcessInstanceId(request), null, "REJECTED", reason, actorUserId);
         return BusinessApprovalEffectResult.rejected(resultState(event, "rejected batch void"));
     }
@@ -87,7 +88,7 @@ public class MesProEdhrBatchVoidFormEffectExecutor
     public BusinessApprovalEffectResult cancel(BusinessApprovalContext context, BusinessApprovalRequest request,
             Long actorUserId, String reason) {
         requireBusinessVoidContext(context);
-        EdhrRecordChangeRespVO event = recordChangeService.handleVoidBatchExecutionApprovalCallback(
+        EdhrRecordChangeRespVO event = batchVoidEffectService.handleVoidBatchExecutionApprovalCallback(
                 requiredProcessInstanceId(request), null, "CANCELLED",
                 requiredCloseReason(reason, "Missing eDHR batch void cancellation reason"), actorUserId);
         return BusinessApprovalEffectResult.cancelled(resultState(event, "cancelled batch void"));
@@ -102,10 +103,10 @@ public class MesProEdhrBatchVoidFormEffectExecutor
         try {
             EdhrRecordChangeRespVO event;
             if (instance.getBpmBinding() == null || StrUtil.isBlank(instance.getBpmBinding().getProcessInstanceId())) {
-                event = recordChangeService.executeDirectPlatformVoidBatchExecution(toRequest(instance),
+                event = batchVoidEffectService.executeDirectPlatformVoidBatchExecution(toRequest(instance),
                         instance.getApplicantUserId());
             } else {
-                event = recordChangeService.handleVoidBatchExecutionApprovalCallback(requiredProcessInstanceId(instance),
+                event = batchVoidEffectService.handleVoidBatchExecutionApprovalCallback(requiredProcessInstanceId(instance),
                         null, "APPROVED", null, instance.getApplicantUserId());
             }
             if (event == null || event.getId() == null) {
@@ -133,7 +134,7 @@ public class MesProEdhrBatchVoidFormEffectExecutor
             return FormBusinessEffectPrecheck.fail(LIFECYCLE_CONTEXT_ERROR);
         }
         try {
-            recordChangeService.precheckPlatformVoidBatchExecution(toRequest(instance));
+            batchVoidEffectService.precheckPlatformVoidBatchExecution(toRequest(instance));
             return FormBusinessEffectPrecheck.pass();
         } catch (RuntimeException ex) {
             return FormBusinessEffectPrecheck.fail(ex.getMessage());
@@ -145,7 +146,7 @@ public class MesProEdhrBatchVoidFormEffectExecutor
         if (!supports(instance)) {
             throw new IllegalArgumentException(LIFECYCLE_CONTEXT_ERROR);
         }
-        recordChangeService.requestPlatformVoidBatchExecution(toRequest(instance), requiredProcessInstanceId(instance));
+        batchVoidEffectService.requestPlatformVoidBatchExecution(toRequest(instance), requiredProcessInstanceId(instance));
     }
 
     @Override
@@ -160,12 +161,12 @@ public class MesProEdhrBatchVoidFormEffectExecutor
         if (outcome == FormControlledActionApprovalOutcome.REJECTED) {
             String rejectReason = StrUtil.blankToDefault(reason, StrUtil.blankToDefault(
                     optionalString(instance.getFormData(), "comment"), requiredString(instance.getFormData(), "reasonText")));
-            recordChangeService.handleVoidBatchExecutionApprovalCallback(requiredProcessInstanceId(instance),
+            batchVoidEffectService.handleVoidBatchExecutionApprovalCallback(requiredProcessInstanceId(instance),
                     null, "REJECTED", rejectReason, instance.getApplicantUserId());
             return;
         }
         if (outcome == FormControlledActionApprovalOutcome.CANCELLED) {
-            recordChangeService.handleVoidBatchExecutionApprovalCallback(requiredProcessInstanceId(instance),
+            batchVoidEffectService.handleVoidBatchExecutionApprovalCallback(requiredProcessInstanceId(instance),
                     null, "CANCELLED",
                     requiredCloseReason(reason, "Missing eDHR batch void cancellation reason"),
                     instance.getApplicantUserId());

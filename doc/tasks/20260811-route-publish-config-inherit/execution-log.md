@@ -1,0 +1,25 @@
+# Execution Log
+
+- User intent: 在 worktree 里修复“工艺路线每次发布新版本导致生产组长工序配置损耗原因和设备参数需要重新绑定”的问题，验证成功后融合进 int_main。
+- Rules read: bug-regression-fix-loop skill and bug contract; docs/worktree-restrictions.md; docs/branch-runtime-ports.md; docs/backend-development.md; docs/database-rules.md; docs/powershell-encoding.md; docs/powershell-memory.md; docs/task-closeout-rules.md.
+- Worktree: `D:\\IntRuoyiWorktree\\20260811-route-publish-config-inherit`, branch `fix/route-publish-config-inherit-20260811`, initial status clean.
+- BDD: 路线发布继承生产组长配置 -> Given 已发布路线存在旧 routeProcessId 且生产组长已维护损耗原因和设备参数标准 / When 候选路线版本发布生成新的 routeProcessId / Then 新 routeProcessId 应继承对应业务配置，旧 routeProcessId 不应被运行态回读。
+- BDD: 无法唯一映射时不迁移 -> Given 候选发布后同一旧工序无法按原 routeProcessId、sort 或 processId 唯一匹配新工序 / When 发布投影执行配置继承 / Then 系统不得复制旧配置到不确定目标，也不得吞掉错误或产生默认成功数据。
+- Implementation: 在 `MesProRouteVersionPublishProjectionServiceImpl` 发布投影完成后继承生产组长工序配置；损耗/不良原因复制 `mes_pro_process_pool_defect_reason`，设备参数标准复制 `mes_pro_process_pool_device_parameter_rule`，目标业务键已存在时跳过，不覆盖当前配置。
+- Implementation: 继承源收窄为快照节点中的正式 `routeProcessId`，保留 `clientRouteProcessId` 仅用于既有配置投影解析，禁止把前端临时 ID 当旧工序配置来源。
+- Implementation: 修复同服务既有长 `routeFormActionCode` 超过审批策略列长度问题，短 key 保持原格式，长 key 使用稳定 SHA-256 短哈希截断到 64 字符以内。
+- RED: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesProRouteVersionPublishProjectionServiceTest,MesProRouteVersionPublishProjectionServiceImplTest,MesTeamLeaderProcessConfigServiceImplTest,MesTeamLeaderLossReasonServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，新增 Mapper 未注入 `MesProRouteVersionPublishProjectionServiceImplTest` 导致发布投影相邻测试 NPE，另有同服务长 actionCode 既有断言失败。
+- GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesProRouteVersionPublishProjectionServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`MesProRouteVersionPublishProjectionServiceTest` 12 tests, 0 failures, 0 errors。
+- REGRESSION: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesProRouteVersionPublishProjectionServiceTest,MesProRouteVersionPublishProjectionServiceImplTest,MesTeamLeaderProcessConfigServiceImplTest,MesTeamLeaderLossReasonServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，18 tests, 0 failures, 0 errors。
+- WORKTREE-CLOSEOUT: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260811-route-publish-config-inherit\bug-regression-evidence.md` -> PASS。
+- WORKTREE-CLOSEOUT: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，fix/route-publish-config-inherit-20260811/int_main frontend 8092 / backend 48092。
+- WORKTREE-CLOSEOUT: `mvn -f IntRuoyiBackend\yudao-module-mes\pom.xml "-Dtest=MesProRouteVersionPublishProjectionServiceTest,MesProRouteVersionPublishProjectionServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，18 tests, 0 failures, 0 errors。
+- MERGE: 分支修复精确融合进 `int_main`，commit `8f82cea4b fix: integrate route publish config inheritance`；仅提交本任务 7 个文件，保留主工作区其它脏改动不动。
+- INT_MAIN-GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260811-route-publish-config-inherit\bug-regression-evidence.md` -> PASS。
+- INT_MAIN-GREEN: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，int_main frontend 8081 / backend 48081。
+- INT_MAIN-GREEN: `mvn -f IntRuoyiBackend\yudao-module-mes\pom.xml "-Dtest=MesProRouteVersionPublishProjectionServiceTest,MesProRouteVersionPublishProjectionServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，18 tests, 0 failures, 0 errors。
+- FINAL-CHECK: 2026-08-11 在 `int_main` 当前 HEAD `8f82cea4b` 复跑 `mvn -f IntRuoyiBackend\yudao-module-mes\pom.xml "-Dtest=MesProRouteVersionPublishProjectionServiceTest,MesProRouteVersionPublishProjectionServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，18 tests, 0 failures, 0 errors。
+- FINAL-CHECK: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260811-route-publish-config-inherit --mode preview` -> ready，keep 核心任务记录和 bug evidence，无删除项、无阻塞、无警告。
+- FINAL-CHECK: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260811-route-publish-config-inherit --mode apply` -> applied，无删除项、无阻塞、无警告。
+- FINAL-EXPERIENCE: 已按 project-experience-consolidation 规则核对长期经验归宿；当前规则已存在于 `docs/backend-development.md#生产组长工序配置必须按正式负责路线限定` 和 `docs/experience-index.md`，本次无需新建长期经验文档。
+- FINAL-STATUS: 任务状态更新为 `completed`；本次未清理或删除其它 worktree、未触碰主工作区其它脏改动。

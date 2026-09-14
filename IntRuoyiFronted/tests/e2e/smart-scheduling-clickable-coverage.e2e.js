@@ -51,7 +51,7 @@ const PAGE_SPECS = [
     title: '排程日历',
     path: '/mes/pro/schedule-calendar',
     role: 'planner',
-    expectedText: '返回排产',
+    expectedText: '返回',
     contentSelector: '.schedule-calendar-page'
   },
   {

@@ -1,0 +1,18 @@
+{
+  "taskId": "20260902-active-order-latest-version-upgrade-restart-code",
+  "frontendUrl": "http://127.0.0.1:8093",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "workOrderCode": "CODX-AOUP-20260902205106",
+  "activeOrderId": 1009200000,
+  "requests": [],
+  "consoleErrors": [
+    "审批待办数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8093/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8093/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8093/node_modules/.vite-env-local-8093/deps/axios.js?v=460676a6:2126:14)\n    at async Object.get (http://127.0.0.1:8093/src/config/axios/index.ts:16:17)\n    at async getApprovalTaskPage (http://127.0.0.1:8093/src/api/approval-center/index.ts:8:10)\n    at async http://127.0.0.1:8093/src/store/modules/approvalTodoBadge.ts:51:24",
+    "审批待办数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8093/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8093/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8093/node_modules/.vite-env-local-8093/deps/axios.js?v=460676a6:2126:14)\n    at async Object.get (http://127.0.0.1:8093/src/config/axios/index.ts:16:17)\n    at async getApprovalTaskPage (http://127.0.0.1:8093/src/api/approval-center/index.ts:8:10)\n    at async http://127.0.0.1:8093/src/store/modules/approvalTodoBadge.ts:51:24"
+  ],
+  "pageErrors": [],
+  "login": "PASS",
+  "status": "FAIL",
+  "error": "Error: 活跃订单 CODX-AOUP-20260902205106 未出现在当前活跃订单池分页中；当前页可见行：150\n\t\nKDMO-309748-1416202028\n数量冲突 +1234.000\n\t\n球囊扩张压力泵\n\t\nV29\n\t\n正式订单\n\t\n2248.000\n\t\n100%\n\t\n100%\n\t\n未申请\n\t\n2026-08-19 11:57:20\n\t\n详情\n移除\n异常\n完工\n重建\n升级\n复制测试单\nStage1模拟\n模拟完工\n---ROW---\n348\n\t\nSTAGE1-WO-STAGE11788122488832\n\t\n球囊扩张压力泵\n\t\nV29\n\t\n测试模拟\n\t\n2248.000\n\t\n100%\n\t\n100%\n\t\n待PQC放行\n\t\n2026-08-31 04:41:29\n\t\n详情\n移除\n异常\n完工\n重建\n升级\n复制测试单\nStage1模拟\n模拟完工\n---ROW---\n396\n\t\nSIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891\n数量冲突 +212.000\n\t\n按压式球囊扩充压力泵\n\t\nV12\n\t\n测试模拟\n\t\n10.000\n\t\n6.7%\n\t\n0%\n\t\n未申请\n\t\n2026-09-02 20:29:23\n\t\n详情\n移除\n异常\n完工\n重建\n升级\n复制测试单\n清理测试单\nStage1模拟\n模拟完工\n---ROW---\n1009200001\n\t\nCODX-PQC-20260807-SP-WO-05\n\t\n按压式球囊扩充压力泵\n\t\nV12\n\t\n正式订单\n\t\n10.000\n\t\n0%\n\t\n0%\n\t\n未申请\n\t\n2026-09-02 23:17:25\n\t\n详情\n移除\n异常\n完工\n重建\n升级\n复制测试单\nStage1模拟\n模拟完工\n    at findActiveOrderRowAcrossPages (D:\\IntRuoyiWorktree\\20260902-active-order-latest-version-upgrade-restart-docs\\IntRuoyiFronted\\tests\\e2e\\active-order-version-upgrade-submit-real.e2e.cjs:156:9)\n    at async run (D:\\IntRuoyiWorktree\\20260902-active-order-latest-version-upgrade-restart-docs\\IntRuoyiFronted\\tests\\e2e\\active-order-version-upgrade-submit-real.e2e.cjs:202:17)",
+  "screenshot": "D:\\IntRuoyiWorktree\\20260902-active-order-latest-version-upgrade-restart-docs\\doc\\tasks\\20260902-active-order-latest-version-upgrade-restart-code\\e2e-artifacts\\active-order-version-upgrade-submit-real.png"
+}

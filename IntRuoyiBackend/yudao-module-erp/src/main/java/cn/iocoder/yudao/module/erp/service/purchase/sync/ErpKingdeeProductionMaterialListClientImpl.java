@@ -57,8 +57,10 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
             "FNumerator",
             "FDenominator",
             "FUnitID.FName",
+            "FMaterialID2.F_PAEZ_TUHAO",
             "FMustQty",
             "FIssueType",
+            "FNeedDate",
             "FModifyDate");
     private static final int INDEX_ENTRY_ID = 0;
     private static final int INDEX_BILL_NO = 1;
@@ -73,10 +75,12 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
     private static final int INDEX_NUMERATOR = 10;
     private static final int INDEX_DENOMINATOR = 11;
     private static final int INDEX_CHILD_UNIT_NAME = 12;
-    private static final int INDEX_REQUIRED_QUANTITY = 13;
-    private static final int INDEX_ISSUE_METHOD = 14;
-    private static final int INDEX_SOURCE_MODIFY_TIME = 15;
-    private static final int FIELD_COUNT = 16;
+    private static final int INDEX_DRAWING_NUMBER = 13;
+    private static final int INDEX_REQUIRED_QUANTITY = 14;
+    private static final int INDEX_ISSUE_METHOD = 15;
+    private static final int INDEX_DEMAND_TIME = 16;
+    private static final int INDEX_SOURCE_MODIFY_TIME = 17;
+    private static final int FIELD_COUNT = 18;
     private static final int PAGE_LIMIT = 1000;
     private static final int ORDER_NO_QUERY_BATCH_SIZE = 50;
     private static final DateTimeFormatter KINGDEE_DATE_TIME_FORMAT =
@@ -84,6 +88,33 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
 
     @Qualifier("erpKingdeeRestTemplate")
     private final RestTemplate restTemplate;
+
+    @Override
+    public List<ErpKingdeeProductionMaterialList> fetchProductionMaterialLists(
+            ErpKingdeeProperties properties) {
+        properties.validateProductionOrderSyncConfig();
+        String cookieHeader = login(properties);
+        List<ErpKingdeeProductionMaterialList> result = new ArrayList<>();
+        int startRow = 0;
+        while (true) {
+            int limit = Math.min(PAGE_LIMIT, properties.getProductionOrder().getQueryLimit());
+            JsonNode rows = executeBillQuery(properties, cookieHeader, buildFullFilterString(), startRow, limit);
+            if (!rows.isArray()) {
+                throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_PPBOM response is not an array");
+            }
+            if (rows.isEmpty()) {
+                break;
+            }
+            for (JsonNode row : rows) {
+                result.add(buildRow(row));
+            }
+            if (rows.size() < limit) {
+                break;
+            }
+            startRow += rows.size();
+        }
+        return result;
+    }
 
     @Override
     public List<ErpKingdeeProductionMaterialList> fetchProductionMaterialListsModifiedBetween(
@@ -190,9 +221,10 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
                 .numerator(parseDecimal(optionalText(row, INDEX_NUMERATOR), "FNumerator"))
                 .denominator(parseDecimal(optionalText(row, INDEX_DENOMINATOR), "FDenominator"))
                 .childUnitName(optionalText(row, INDEX_CHILD_UNIT_NAME))
+                .drawingNumber(optionalText(row, INDEX_DRAWING_NUMBER))
                 .requiredQuantity(parseRequiredDecimal(row, INDEX_REQUIRED_QUANTITY, "FMustQty"))
                 .issueMethod(optionalText(row, INDEX_ISSUE_METHOD))
-                .demandTime(null)
+                .demandTime(parseDateTime(optionalText(row, INDEX_DEMAND_TIME), "FNeedDate"))
                 .sourceModifyTime(parseDateTime(optionalText(row, INDEX_SOURCE_MODIFY_TIME), "FModifyDate"))
                 .rawPayload(JsonUtils.toJsonString(row))
                 .build();
@@ -237,6 +269,11 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
         return "(FBillNo <> '') and (FMoBillNo in (" + productionOrderNos.stream()
                 .map(orderNo -> "'" + orderNo + "'")
                 .collect(Collectors.joining(",")) + "))";
+    }
+
+    private String buildFullFilterString() {
+        return "(FBillNo <> '') and (FMoBillNo <> '') and (FMaterialID.FNumber <> '')"
+                + " and (FMaterialID2.FNumber <> '')";
     }
 
     private String formatDateTime(LocalDateTime dateTime) {

@@ -4,9 +4,13 @@ import json
 from pathlib import Path
 
 from script.release.release_migration_manifest import (
+    EVIDENCE_ONLY_TYPES,
+    EXECUTABLE_TYPES,
     METADATA_PATTERN,
+    ROLLBACK_METADATA_PATTERN,
     MigrationManifestError,
     build_migration_manifest,
+    is_rollback_migration,
 )
 
 
@@ -29,7 +33,10 @@ def _load_frozen_registry(path: Path | str | None) -> dict[str, str]:
 
 def _resolve_sql_paths(sql_root: Path, sql_paths: list[Path | str] | None) -> list[Path]:
     if sql_paths is None:
-        return sorted(sql_root.rglob("20*.sql"), key=lambda item: item.relative_to(sql_root).as_posix())
+        return sorted(
+            (path for path in sql_root.rglob("20*.sql") if not is_rollback_migration(path)),
+            key=lambda item: item.relative_to(sql_root).as_posix(),
+        )
     resolved: list[Path] = []
     for sql_path in sql_paths:
         path = Path(sql_path).resolve()
@@ -46,6 +53,10 @@ def _resolve_sql_paths(sql_root: Path, sql_paths: list[Path | str] | None) -> li
 def _require_explicit_metadata(sql_root: Path, sql_paths: list[Path] | None = None) -> None:
     for path in _resolve_sql_paths(sql_root, sql_paths):
         text = path.read_text(encoding="utf-8")
+        if ROLLBACK_METADATA_PATTERN.search(text):
+            raise MigrationPolicyError(
+                f"rollback-only migration cannot be included in a release manifest: {path}"
+            )
         if not METADATA_PATTERN.search(text):
             raise MigrationPolicyError(f"missing release-migration metadata: {path}")
 
@@ -84,6 +95,25 @@ def _check_dependency_environment_contract(entries: list[dict[str, object]]) -> 
             )
 
 
+def _check_executable_dependency_closure(entries: list[dict[str, object]]) -> None:
+    types_by_id = {str(entry["migrationId"]): str(entry["type"]) for entry in entries}
+    for entry in entries:
+        migration_id = str(entry["migrationId"])
+        migration_type = str(entry["type"])
+        if migration_type not in EXECUTABLE_TYPES:
+            continue
+        for dependency in entry["dependsOn"]:
+            dependency_id = str(dependency)
+            dependency_type = types_by_id[dependency_id]
+            if dependency_type not in EVIDENCE_ONLY_TYPES:
+                continue
+            raise MigrationPolicyError(
+                "executable migration cannot depend on evidence-only migration: "
+                f"migrationId '{migration_id}' ({migration_type}) depends on "
+                f"'{dependency_id}' ({dependency_type})"
+            )
+
+
 def run_migration_policy_gate(
     sql_root: Path | str,
     *,
@@ -99,6 +129,7 @@ def run_migration_policy_gate(
     except MigrationManifestError as exc:
         raise MigrationPolicyError(str(exc)) from exc
     _check_dependency_environment_contract(entries)
+    _check_executable_dependency_closure(entries)
     _check_frozen_checksums(entries, _load_frozen_registry(frozen_registry_path))
     return {
         "status": "passed",

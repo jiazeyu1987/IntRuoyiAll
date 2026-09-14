@@ -415,7 +415,9 @@ public class GlobalExceptionHandler {
                     "[微信公众号 yudao-module-mp - 表结构未导入][参考 https://cloud.iocoder.cn/mp/build/ 开启]");
         }
         // 4. 商城系统
-        if (StrUtil.containsAny(message, "product_", "promotion_", "trade_")) {
+        if (isMissingTableName(message, "product_")
+                || isMissingTableName(message, "promotion_")
+                || isMissingTableName(message, "trade_")) {
             log.error("[商城系统 yudao-module-mall - 已禁用][参考 https://cloud.iocoder.cn/mall/build/ 开启]");
             return CommonResult.error(NOT_IMPLEMENTED.getCode(),
                     "[商城系统 yudao-module-mall - 已禁用][参考 https://cloud.iocoder.cn/mall/build/ 开启]");
@@ -451,6 +453,14 @@ public class GlobalExceptionHandler {
                     "[IoT 物联网 yudao-module-iot - 表结构未导入][参考 https://doc.iocoder.cn/iot/build/ 开启]");
         }
         return null;
+    }
+
+    private boolean isMissingTableName(String message, String tablePrefix) {
+        return StrUtil.containsAny(message,
+                "." + tablePrefix,
+                "`" + tablePrefix,
+                "'" + tablePrefix,
+                "\"" + tablePrefix);
     }
 
 }

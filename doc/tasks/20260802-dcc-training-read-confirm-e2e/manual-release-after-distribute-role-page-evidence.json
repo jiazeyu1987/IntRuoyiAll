@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "checkedAt": "2026-08-02T11:39:33.469Z",
+  "account": "wangsiyu",
+  "role": "dcc_distribute_e2e",
+  "roleId": "910431",
+  "controlledFileId": "2054545668044070281",
+  "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+  "releasePayload": {
+    "code": 0,
+    "msg": "",
+    "data": true
+  },
+  "beforeScreenshot": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\manual-release-after-role-before-CODX-DCC-TRAIN-20260802093955.png",
+  "afterScreenshot": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\manual-release-after-role-after-CODX-DCC-TRAIN-20260802093955.png"
+}

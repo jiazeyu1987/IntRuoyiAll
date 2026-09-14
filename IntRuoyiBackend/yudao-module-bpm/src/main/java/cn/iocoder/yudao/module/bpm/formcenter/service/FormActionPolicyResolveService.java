@@ -26,11 +26,11 @@ public class FormActionPolicyResolveService {
                 .toList();
         if (matchedPolicies.isEmpty()) {
             throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
-                    "No published form policy matched action " + context.getActionCode());
+                    "No published business approval policy matched action " + context.getActionCode());
         }
         if (matchedPolicies.size() > 1) {
             throw new FormCenterException(FormCenterErrorCode.FORM_POLICY_CONFLICT,
-                    "More than one published form policy matched action " + context.getActionCode());
+                    "More than one published business approval policy matched action " + context.getActionCode());
         }
         FormActionPolicy policy = matchedPolicies.get(0);
         validateSlots(policy.getSlots());

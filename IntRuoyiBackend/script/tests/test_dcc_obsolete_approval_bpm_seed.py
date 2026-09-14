@@ -10,7 +10,7 @@ def test_dcc_obsolete_approval_bpm_seed_exists_and_is_tenant_scoped() -> None:
     sql = SEED.read_text(encoding="utf-8")
 
     assert sql.startswith(
-        "-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260717_bpm_form_center; type=seed; riskLevel=low\n"
+        "-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260719_business_approval_policy,20260719_dcc_obsolete_form_policy_seed; type=seed; riskLevel=low\n"
     )
     assert "dcc-controlled-file-obsolete-approval" in sql
     assert "DCC受控文件作废审批" in sql
@@ -47,9 +47,10 @@ def test_dcc_obsolete_approval_bpm_seed_wires_model_procdef_and_info() -> None:
     assert "act_re_model" in sql
     assert "act_re_procdef" in sql
     assert "bpm_process_definition_info" in sql
-    assert "bpm_form_action_policy" in sql
+    assert "bpm_business_approval_policy" in sql
     assert "effect_executor_code = 'DCC_OBSOLETE'" in sql
-    assert "bpm_process_key = 'dcc-controlled-file-obsolete-approval'" in sql
+    assert "process_definition_key = 'dcc-controlled-file-obsolete-approval'" in sql
+    assert "bpm_form_action_policy" not in sql
     assert '"formCustomViewPath":"/dcc/controlled-file/detail"' in sql
     assert "HAS_GRAPHICAL_NOTATION_ = 1" in sql
     assert "DROP TABLE" not in sql.upper()

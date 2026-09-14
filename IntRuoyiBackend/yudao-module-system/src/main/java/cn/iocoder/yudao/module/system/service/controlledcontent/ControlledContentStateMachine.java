@@ -27,6 +27,7 @@ import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledC
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.PUBLISH;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.REJECT;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.REGISTER_ACTIVE;
+import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.REGISTER_READY_CANDIDATE;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.REQUEST_REWORK;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.RETRY_FINALIZATION;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.START_FINALIZATION;
@@ -46,6 +47,7 @@ public class ControlledContentStateMachine {
 
     private static final Set<TransitionRule> ALLOWED_TRANSITIONS = Set.of(
             new TransitionRule(null, ACTIVE, REGISTER_ACTIVE),
+            new TransitionRule(null, READY_TO_PUBLISH, REGISTER_READY_CANDIDATE),
             new TransitionRule(DRAFT, IN_REVIEW, SUBMIT),
             new TransitionRule(REWORK, IN_REVIEW, SUBMIT),
             new TransitionRule(IN_REVIEW, READY_TO_PUBLISH, APPROVE),

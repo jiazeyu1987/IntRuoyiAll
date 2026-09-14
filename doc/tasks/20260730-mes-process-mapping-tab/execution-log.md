@@ -1,0 +1,74 @@
+# Execution Log
+
+## 2026-07-30
+
+- 用户需求：在“工序设置”和“工艺流程”之间新增“MES 工序”页签，列表展示设备和工序设置里的工序对应关系。
+- 上下文约束：报工是一线入口，同时写入记录本；本次不考虑排产系统，只考虑生产工单和当前报工系统结合。
+- BDD: 查看 MES 工序映射 -> Given 用户进入某条工艺路线编辑页, When 切换到“MES 工序”页签, Then 页面展示当前路线下每道 MES 工序、对应工序设置主数据和设备编码/名称/数量/产能/批记录工序名称。
+- BDD: 页签位置 -> Given 用户打开路线编辑页, When 查看顶部页签, Then “MES 工序”位于“工序设置/基础信息”和“工艺流程/流转关系图”之间。
+- RED: `node tests/e2e/mes-route-mes-process-tab-static.spec.js` -> FAIL，预期失败：`RouteFormContent must lazy-load the MES process mapping list`。
+- 实施：新增 `RouteMesProcessList.vue`，复用 `/mes/pro/route-process/list-by-route` 读取路线工序和 `machineryList`，在 `RouteFormContent.vue` 中把“MES 工序”页签插入“基础信息”和“流转关系图”之间。
+- 实施：`RouteEditPage.vue` 支持 `?tab=mesProcess`，页面级保存按钮不在 MES 工序只读页签显示。
+- 实施：`process/index.ts` 补齐 `batchRecordReportId / batchRecordReportCode / batchRecordReportName` 前端类型，匹配后端 `MesProRouteProcessController` 已有响应填充。
+- GREEN: `node tests/e2e/mes-route-mes-process-tab-static.spec.js` -> PASS。
+- GREEN: `pnpm e2e:mes:route-mes-process-tab:static` -> PASS。
+- REGRESSION: `node tests/e2e/mes-route-basic-info-tab-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/mes-route-edit-default-flow-tab-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/mes-route-flow-entry-readonly-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/mes-route-flow-graph-only-static.spec.js` -> PASS。
+- REGRESSION: `pnpm ts:check` -> PASS。
+- REGRESSION: `git diff --check` -> PASS，仅有 CRLF 提示，无空白错误。
+- 后端核对：`MesProRouteProcessController` 的 `list-by-route` 已从 `MesProBatchRecordReportMapper` 加载报表元数据并设置 `batchRecordReportCode` / `batchRecordReportName`，本次不新增后端接口和数据库迁移。
+- 用户反馈：前端没有看到。复核后确认首轮实现放在“工艺流程编辑页”内部，不是用户实际看的“工序设置 / 工艺流程”同级菜单。
+- 修正：新增同级页面 `src/views/mes/pro/mes-process/index.vue`，通过 `MesProcessApi.getMesProcessPage` 复用现有 `ProRouteResourceApi.getResourcePage` 产品工艺资源读模型。
+- 修正：新增菜单迁移 `20260730_mes_process_readonly_catalog_menu.sql`，插入 `system_menu.id=5718`，菜单名 `MES工序`，组件 `mes/pro/mes-process/index`，并调整 `工序设置 sort=20`、`MES工序 sort=25`、`工艺流程 sort=30`。
+- 修正：`MesProRouteResourceController` 允许 `mes:pro-route:query` 读取资源只读页；`MesProRouteResourceRespVO` 和前端类型补充批记录报表字段。
+- 修正：菜单迁移补 `system_menu.id=5719` 查询权限 `mes:pro-mes-process:query`，并将该权限授权到同一批角色/租户套餐；`MesProRouteResourceController` 同步允许该权限，避免“菜单可见但接口 403”。
+- RED: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file IntRuoyiBackend\sql\mysql\20260730_mes_process_readonly_catalog_menu.sql --output doc\tasks\20260730-mes-process-mapping-tab\migration-policy-gate-before.json` -> FAIL，预期失败：目标 SQL 单独纳入门禁时缺少 `dependsOn` 依赖集合，报 `dependsOn missing migration '20260709_mes_route_flow_config_unification'`。
+- GREEN: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file IntRuoyiBackend\sql\mysql\20260512_mes_base_schema.sql --sql-file IntRuoyiBackend\sql\mysql\20260709_mes_route_process_flow_graph.sql --sql-file IntRuoyiBackend\sql\mysql\20260709_mes_route_flow_config_unification.sql --sql-file IntRuoyiBackend\sql\mysql\20260730_mes_process_readonly_catalog_menu.sql --output doc\tasks\20260730-mes-process-mapping-tab\migration-policy-gate-after.json` -> PASS，依赖链 4 个 migration 全部通过。
+- GREEN: `pnpm e2e:mes:pro-mes-process-readonly:static` -> PASS。
+- GREEN: 权限闭环补充后复跑 `pnpm e2e:mes:pro-mes-process-readonly:static` -> PASS。
+- GREEN: 权限闭环补充后复跑 `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file IntRuoyiBackend\sql\mysql\20260512_mes_base_schema.sql --sql-file IntRuoyiBackend\sql\mysql\20260709_mes_route_process_flow_graph.sql --sql-file IntRuoyiBackend\sql\mysql\20260709_mes_route_flow_config_unification.sql --sql-file IntRuoyiBackend\sql\mysql\20260730_mes_process_readonly_catalog_menu.sql --output doc\tasks\20260730-mes-process-mapping-tab\migration-policy-gate-after.json` -> PASS。
+- GREEN: 权限闭环补充后复跑 `mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile` -> PASS。
+- REGRESSION: 权限闭环补充后复跑 `pnpm ts:check` -> PASS。
+- REGRESSION: 权限闭环补充后复跑 `git diff --check` -> PASS，仅有 LF/CRLF 提示，无空白错误。
+- GREEN: `pnpm e2e:mes:route-mes-process-tab:static` -> PASS。
+- REGRESSION: `node tests/e2e/mes-route-basic-info-tab-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/mes-route-edit-default-flow-tab-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/mes-route-flow-entry-readonly-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/mes-route-flow-graph-only-static.spec.js` -> PASS。
+- REGRESSION: `pnpm ts:check` -> PASS。
+- REGRESSION: `mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile` -> PASS。
+- REGRESSION: `git diff --check` -> PASS，仅有 LF/CRLF 提示，无空白错误。
+- APPLY: `docker cp IntRuoyiBackend\sql\mysql\20260730_mes_process_readonly_catalog_menu.sql int-ruoyi-mysql:/tmp/20260730_mes_process_readonly_catalog_menu.sql` + container-local `mysql --default-character-set=utf8mb4 ... ruoyi-vue-pro < /tmp/20260730_mes_process_readonly_catalog_menu.sql` -> PASS，已应用到本机 Docker MySQL `int-ruoyi-mysql / ruoyi-vue-pro`。
+- VERIFY DB: `SELECT id,parent_id,sort,path,component,component_name,permission,HEX(name),deleted FROM system_menu WHERE id IN (5718,5719)` -> PASS，`5718` 名称 HEX 为 `4D4553E5B7A5E5BA8F`，`5719` 名称 HEX 为 `4D4553E5B7A5E5BA8FE69FA5E8AFA2`；活跃 `system_role_menu` 授权行数 `10`，同时包含 `5718/5719` 的有效租户套餐数 `1`。
+- CLEANUP: 删除容器临时 SQL `/tmp/20260730_mes_process_readonly_catalog_menu.sql` -> PASS。
+- 范围说明：工作区存在另一个未跟踪任务 `20260730-mes-process-readonly-implementation` 及其“独立目录表”测试草稿；该方向会新增独立 MES 工序目录系统，不符合本任务“尽量复用现有系统、少开发新系统”的口径，本次未纳入修正和验证。
+- 用户反馈：`芋道源码/admin` 当前浏览器里仍没看到 `MES工序`。
+- 复现定位：通过本机后端 `http://127.0.0.1:48081/admin-api/system/auth/get-permission-info` 使用 `芋道源码/admin` 只读登录态拉取菜单，返回 `system_menu.id=5718`，`name=MES工序`，`path=mes-process`，`component=mes/pro/mes-process/index`，`fullPath=/mes/pro/mes-process`，且权限集合包含 `mes:pro-mes-process:query` -> PASS。
+- 真实页面核验：用本机 Chrome 新上下文登录 `http://127.0.0.1:8081`，直达 `/mes/pro/mes-process` 后页面文本包含 `MES工序`，侧边栏路径为 `MES 系统 / 生产管理 / MES工序`，位置在 `工序设置` 和 `工艺流程` 之间 -> PASS。
+- 误报排除：页面捕获的唯一 HTTP 502 来自外部头像资源 `test.yudao.iocoder.cn/user/avatar/...jpg`，不是 `MES工序` 菜单或资源列表接口；登录跳转过程中的 `net::ERR_ABORTED` 为导航中止的旧请求，不影响目标页面渲染。
+- 结论：当前本机库和新登录态已可见；如果用户已有浏览器仍不可见，优先处理旧登录态动态菜单缓存，退出重登或硬刷新后再看 `MES 系统 > 生产管理 > MES工序`。
+- REGRESSION-EVIDENCE: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260730-mes-process-mapping-tab\bug-regression-evidence.md` -> PASS。
+- 用户反馈：访问 `MES工序` 页面后出现 `系统异常` toast。
+- 复现定位：使用 `芋道源码/admin` 登录态直接请求 `GET /admin-api/mes/pro/route-resource/page?pageNo=1&pageSize=20`，HTTP 200 但业务码 `500`、消息 `系统异常`。
+- 后端日志定位：`MesProRouteResourceServiceImpl#getResourcePage` 抛出 `IllegalStateException: Missing route: 922138`。
+- DB 只读核对：本机 Docker MySQL 中存在 4 条活跃 `mes_pro_route_product` 指向缺失路线 `922138`，导致全量资源读模型被一条孤儿关联拖垮。
+- BDD: MES 工序页面忽略无效路线关联 -> Given 资源池读模型中存在指向缺失路线的旧 route_product 关联, When 管理员打开 MES 工序只读列表, Then 页面只展示可解析到正式路线、产品、工序和资源的数据，不因孤儿关联返回系统异常。
+- RED: `GET /admin-api/mes/pro/route-resource/page?pageNo=1&pageSize=20` -> FAIL，HTTP 200 但业务码 `500`，后端日志 `Missing route: 922138`。
+- 实施：`MesProRouteResourceServiceImpl#getResourcePage` 在组装行前过滤无法解析到正式路线或产品的 `route_product`，只读资源池列表只展示可解析的正式来源记录；不删除、不修补运行库孤儿数据。
+- 实施：新增 `filterResolvedRouteProducts(...)`，要求 `routeMap.containsKey(routeId)` 且 `itemMap.containsKey(itemId)` 后才进入 route process / workstation / equipment 行组装。
+- 实施：补充 `MesProRouteResourceServiceImplTest#getResourcePage_doesNotFailWholePageWhenRouteProductReferencesMissingRoute` 和静态合同 `mes-pro-route-resource-orphan-static.spec.js`，锁定孤儿路线关联不能拖垮整页。
+- GREEN: `node tests/e2e/mes-pro-route-resource-orphan-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-pro-mes-process-readonly-static.spec.js` -> PASS。
+- GREEN: `mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `mvn.cmd -pl yudao-server -am "-Dmaven.test.skip=true" package` -> PASS，生成 `yudao-server\target\yudao-server-exec.jar`。
+- RUNTIME: 停止旧后端 PID `46996` 后，使用独立运行 Jar `E:\IntRuoyi\output\runtime\int_main\backend-mes-process-route-resource-20260730-1757.jar` 启动本机 `48081`；新 PID `33108`，`/actuator/health` 返回 `UP`。
+- GREEN: 登录态 API 复验 `GET /admin-api/mes/pro/route-resource/page?pageNo=1&pageSize=20` -> HTTP `200`、业务码 `0`、`total=580`、首屏 `20` 行。
+- GREEN: Playwright 真实页面复验 `/mes/pro/mes-process` -> `route-resource` 响应业务码 `0`、可见表格 `20` 行、`系统异常` 出现次数 `0`、console error `0`。
+- BLOCKER: 目标 JUnit 运行仍受本任务外未跟踪文件 `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/MesProMesProcessCatalogSchemaTest.java` 阻塞；该文件引用不存在的独立 MES 工序目录包，属于与“复用现有系统”口径冲突的并行方向，本次未纳入。
+- EXPERIENCE: 按 `project-experience-consolidation` 合并经验到 `docs/database-rules.md#只读资源池引用完整性门禁`，并在 `docs/experience-index.md` 增加 `MES工序 系统异常 / Missing route / route_product 孤儿关联` 路由。
+- EXPERIENCE VERIFY: `rg -n --no-mmap "只读资源池引用完整性|Missing route" docs\database-rules.md docs\experience-index.md` -> PASS。
+- GREEN: 文档补充后复跑 `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260730-mes-process-mapping-tab\bug-regression-evidence.md` -> PASS。
+- REGRESSION: 文档补充后复跑 `git diff --check` -> PASS，仅有 CRLF 提示，无空白错误。

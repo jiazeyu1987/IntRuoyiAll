@@ -7,6 +7,7 @@ import java.util.Arrays;
 public enum MesProBatchRecordFormSlotType {
 
     MAIN("MAIN", "主批记录"),
+    FORM("FORM", "表单"),
     LOSS_REPORT("LOSS_REPORT", "损耗单"),
     PROCESS_INSPECTION("PROCESS_INSPECTION", "过程检验单"),
     PARAMETER_RECORD("PARAMETER_RECORD", "参数记录表");

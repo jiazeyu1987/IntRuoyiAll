@@ -1,0 +1,64 @@
+{
+  "status": "passed",
+  "migrationCount": 4,
+  "migrations": [
+    {
+      "migrationId": "20260512_mes_base_schema",
+      "file": "sql/mysql/20260512_mes_base_schema.sql",
+      "sha256": "dcf46fe85ba9d2bd14b84c416c03013f3b96f3ea5f42b833e1eff560418aa80d",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260709_mes_route_flow_config_unification",
+      "file": "sql/mysql/20260709_mes_route_flow_config_unification.sql",
+      "sha256": "7f888185349ea754aa4aebf97bf87895ff880c7b013e2f1cc5267010a0cce70d",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260709_mes_route_process_flow_graph"
+      ],
+      "riskLevel": "high"
+    },
+    {
+      "migrationId": "20260709_mes_route_process_flow_graph",
+      "file": "sql/mysql/20260709_mes_route_process_flow_graph.sql",
+      "sha256": "fa8f3f23ea2866a2b7ab6eb4678c94cb02477f59ead8f073742306eba63ce896",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260512_mes_base_schema"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260730_mes_process_readonly_catalog_menu",
+      "file": "sql/mysql/20260730_mes_process_readonly_catalog_menu.sql",
+      "sha256": "afe91cb7db91e9e1f4d17bbd4809966c55174073b3a0be7f6d815be5e6226142",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260709_mes_route_flow_config_unification"
+      ],
+      "riskLevel": "low"
+    }
+  ]
+}

@@ -1,8 +1,13 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo;
 
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistResult;
+
 import lombok.Data;
 import lombok.experimental.Accessors;
 
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormRecognizedField;
+
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -14,6 +19,8 @@ public class EdhrBatchExecutionTaskOpenRespVO {
     private Long executionId;
 
     private Long workTaskId;
+
+    private Long assistUserId;
 
     private Long routeProcessId;
 
@@ -47,6 +54,10 @@ public class EdhrBatchExecutionTaskOpenRespVO {
 
     private Long formCenterInstanceId;
 
+    private String formTemplateJimuSchemaJson;
+
+    private List<FormRecognizedField> formTemplateRecognizedFields;
+
     private String recordCategory;
 
     private String validationProfile;
@@ -72,4 +83,6 @@ public class EdhrBatchExecutionTaskOpenRespVO {
     private Integer status;
 
     private Map<String, Object> executionPageQuery;
+
+    private BatchRecordCellLinkAutoPersistResult cellLinkAutoPersist;
 }

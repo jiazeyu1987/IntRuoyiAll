@@ -17,6 +17,12 @@ public class MesProAutoScheduleSummaryRespVO {
 
     private Integer blockingIssueCount;
 
+    private Integer appliedWorkOrderCount;
+
+    private Integer blockedWorkOrderCount;
+
+    private Integer skippedWorkOrderCount;
+
     private Integer shortageCount;
 
     private LocalDateTime startTime;

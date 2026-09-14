@@ -51,8 +51,10 @@ for (const marker of [
   assertIncludes(marker, `右侧特殊节点三按钮缺少契约标记：${marker}`)
 }
 
-assertIncludes(
-  ':disabled="!canUploadSpecialNodeAttachment(selectedTaskForEvidence) || specialNodeAttachmentUploading"',
+assert(
+  /:disabled="\s*!canUploadSpecialNodeAttachment\(selectedTaskForEvidence\)\s*\|\|\s*specialNodeAttachmentUploading\s*"/.test(
+    detail
+  ),
   '隐藏 el-upload 必须使用独立上传门禁，不能复用跳过/完成门禁导致已完成节点无法选择文件。'
 )
 
@@ -64,7 +66,10 @@ assertIncludes(
 const uploadPermissionMatch = detail.match(
   /const canUploadSpecialNodeAttachment = \(row: EdhrBatchExecutionTaskRespVO\) =>([\s\S]*?)const canOperateSpecialNode/
 )
-assert(uploadPermissionMatch, '必须拆分 canUploadSpecialNodeAttachment，避免上传权限被完成/跳过权限误绑定。')
+assert(
+  uploadPermissionMatch,
+  '必须拆分 canUploadSpecialNodeAttachment，避免上传权限被完成/跳过权限误绑定。'
+)
 const uploadPermissionBody = uploadPermissionMatch[1]
 assert(
   !uploadPermissionBody.includes("hasAllowedTaskAction(row, 'CLOSE')"),
@@ -113,7 +118,9 @@ assert(
 )
 
 assert(
-  /const normalizeSpecialNodeAttachmentFileName = \(fileName\?: string \| null\) =>[\s\S]*?toLocaleLowerCase\(\)/.test(detail),
+  /const normalizeSpecialNodeAttachmentFileName = \(fileName\?: string \| null\) =>[\s\S]*?toLocaleLowerCase\(\)/.test(
+    detail
+  ),
   '同名覆盖必须通过规范化文件名比较，避免大小写和首尾空格导致重复。'
 )
 
@@ -126,16 +133,18 @@ assert(
 
 assert(
   detail.includes('pendingSpecialNodeAttachments') &&
-    /syncSpecialNodePendingAttachmentsFromDetail[\s\S]*?task\.pendingSpecialNodeAttachments/.test(detail),
+    /syncSpecialNodePendingAttachmentsFromDetail[\s\S]*?task\.pendingSpecialNodeAttachments/.test(
+      detail
+    ),
   '重新打开详情时必须从后端 pendingSpecialNodeAttachments 恢复待提交附件列表。'
 )
 
 assert(
   detail.includes('deleteEdhrBatchSpecialNodePendingAttachment') &&
-    /removeSelectedSpecialNodePendingAttachment[\s\S]*?deleteEdhrBatchSpecialNodePendingAttachment\(\{ taskId, attachment \}\)/.test(
+    /removeSelectedSpecialNodePendingAttachment[\s\S]*?ElMessageBox\.prompt[\s\S]*?inputErrorMessage: '删除原因不能为空'[\s\S]*?deleteEdhrBatchSpecialNodePendingAttachment\(\{ taskId, attachment, reason \}\)/.test(
       detail
     ),
-  '删除待提交附件必须调用后端删除接口，不能只删前端内存。'
+  '删除待提交附件必须先取得非空原因并调用后端删除接口，不能只删前端内存。'
 )
 
 assert(
@@ -153,15 +162,16 @@ assert(
   /const parseSpecialNodePayload = \(row: EdhrBatchExecutionTaskRespVO\)[\s\S]*?JSON\.parse\(row\.specialPayloadJson\)/.test(
     detail
   ) &&
-    /const selectedSpecialNodePersistedAttachments = computed[\s\S]*?payload\.attachments/.test(detail),
+    /const selectedSpecialNodePersistedAttachments = computed[\s\S]*?payload\.attachments/.test(
+      detail
+    ),
   '已入账附件必须从 specialPayloadJson 解析并在中间区域只读展示。'
 )
 
 assert(
   /const previewSpecialNodeAttachment = \(attachment:[\s\S]*?attachment\.fileId[\s\S]*?buildEdhrSpecialNodeAttachmentPreviewSource/.test(
     detail
-  ) &&
-    !/window\.open\(attachment\.fileUrl, '_blank'/.test(detail),
+  ) && !/window\.open\(attachment\.fileUrl, '_blank'/.test(detail),
   '附件预览必须通过 fileId 走统一在线预览能力，不能继续裸开后端 fileUrl。'
 )
 
@@ -206,10 +216,10 @@ assert(
 )
 
 assert(
-  /const openReleaseTransactionDialog = async \(mode: ReleaseTransactionMode\) =>[\s\S]*?if \(mode === 'submit'\)[\s\S]*?await ensurePendingSpecialNodeAttachmentsSavedBeforeRelease\(\)/.test(
+  /const openReleaseSignatureConfirmDialog = async \(\) =>[\s\S]*?await ensurePendingSpecialNodeAttachmentsSavedBeforeRelease\(\)/.test(
     detail
   ),
-  '提交放行弹窗打开前必须先检查并保存待提交特殊节点附件。'
+  '负责人电子签名放行弹窗打开前必须先检查并保存待提交特殊节点附件。'
 )
 
 for (const obsolete of [

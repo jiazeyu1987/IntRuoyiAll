@@ -18,6 +18,10 @@ class MesProBatchRecordCellLinkSchemaTest {
 
     private static final String RUNTIME_SCHEMA_FILE =
             "sql/mysql/20260711_mes_batch_record_cell_link_rule.sql";
+    private static final String WORK_ORDER_SOURCE_SCHEMA_FILE =
+            "sql/mysql/20260726_mes_batch_record_cell_link_work_order_source.sql";
+    private static final String STRUCTURED_SOURCE_SCHEMA_FILE =
+            "sql/mysql/20260830_mes_batch_record_cell_link_structured_source_widths.sql";
     private static final String TEST_SCHEMA_FILE =
             "yudao-module-mes/src/test/resources/sql/create_tables.sql";
 
@@ -25,21 +29,27 @@ class MesProBatchRecordCellLinkSchemaTest {
     void dataObjectDeclaresCrossFormCellLinkContract() {
         assertHasFields(MesProBatchRecordCellLinkRuleDO.class,
                 "scopeType", "scopeId", "routeId", "batchRecordDefinitionId", "batchRecordVersionId",
-                "sourceReportId", "sourceReportName", "sourceRowIndex", "sourceColumnIndex", "sourceCellKey",
-                "sourceLabel", "sourceValueType", "targetReportId", "targetReportName", "targetRowIndex",
+                "sourceType", "sourceReportId", "sourceReportName", "sourceRowIndex", "sourceColumnIndex", "sourceCellKey",
+                "sourceFieldCode", "sourceFieldName", "sourceLabel", "sourceValueType", "targetReportId", "targetReportName", "targetRowIndex",
                 "targetColumnIndex", "targetCellKey", "targetLabel", "targetValueType",
-                "overwritePolicy", "templateSnapshotHash", "ruleVersion", "enabled", "remark");
+                "aggregationStrategy", "overwritePolicy", "templateSnapshotHash", "ruleVersion", "enabled", "remark");
     }
 
     @Test
     void runtimeAndTestSchemasDeclareCrossFormCellLinkContract() throws Exception {
         Path projectDir = findProjectDir();
-        String runtimeSchema = Files.readString(projectDir.resolve(RUNTIME_SCHEMA_FILE), StandardCharsets.UTF_8);
+        String runtimeSchema = Files.readString(projectDir.resolve(RUNTIME_SCHEMA_FILE), StandardCharsets.UTF_8)
+                + "\n"
+                + Files.readString(projectDir.resolve(WORK_ORDER_SOURCE_SCHEMA_FILE), StandardCharsets.UTF_8)
+                + "\n"
+                + Files.readString(projectDir.resolve(STRUCTURED_SOURCE_SCHEMA_FILE), StandardCharsets.UTF_8);
         String testSchema = Files.readString(projectDir.resolve(TEST_SCHEMA_FILE), StandardCharsets.UTF_8);
 
         assertSchemaIsNonDestructive(runtimeSchema);
         assertSchemaContainsColumns(runtimeSchema);
         assertSchemaContainsColumns(testSchema);
+        assertSchemaContainsStructuredSourceWidths(runtimeSchema, "`");
+        assertSchemaContainsStructuredSourceWidths(testSchema, "\"");
         assertTrue(schemaContainsToken(runtimeSchema, "uk_mes_batch_record_cell_link_pair"));
         assertTrue(schemaContainsToken(runtimeSchema, "uk_mes_batch_record_cell_link_target"));
         assertTrue(schemaContainsToken(runtimeSchema, "idx_mes_batch_record_cell_link_source"));
@@ -47,6 +57,15 @@ class MesProBatchRecordCellLinkSchemaTest {
         assertTrue(schemaContainsToken(runtimeSchema, "mes:pro-batch-record-cell-link:update"));
         assertFalse(schemaContainsToken(runtimeSchema, "`batch_record_definition_id` bigint NOT NULL"));
         assertFalse(schemaContainsToken(runtimeSchema, "`batch_record_version_id` bigint NOT NULL"));
+    }
+
+    private static void assertSchemaContainsStructuredSourceWidths(String schema, String quote) {
+        assertTrue(schemaContainsToken(schema, quote + "source_cell_key" + quote + " varchar(128) NOT NULL"),
+                "source_cell_key must fit deterministic structured-source keys");
+        assertTrue(schemaContainsToken(schema, quote + "source_field_code" + quote + " varchar(1024)"),
+                "source_field_code must keep full process-pool report field codes");
+        assertTrue(schemaContainsToken(schema, quote + "source_field_name" + quote + " varchar(255)"),
+                "source_field_name must keep readable structured-source labels");
     }
 
     @Test
@@ -84,10 +103,10 @@ class MesProBatchRecordCellLinkSchemaTest {
         assertTrue(schemaContainsToken(schema, "mes_pro_batch_record_cell_link_rule"));
         for (String column : List.of(
                 "scope_type", "scope_id", "route_id", "batch_record_definition_id", "batch_record_version_id",
-                "source_report_id", "source_report_name", "source_row_index", "source_column_index",
-                "source_cell_key", "source_label", "source_value_type", "target_report_id",
+                "source_type", "source_report_id", "source_report_name", "source_row_index", "source_column_index",
+                "source_cell_key", "source_field_code", "source_field_name", "source_label", "source_value_type", "target_report_id",
                 "target_report_name", "target_row_index", "target_column_index", "target_cell_key",
-                "target_label", "target_value_type", "overwrite_policy", "template_snapshot_hash",
+                "target_label", "target_value_type", "aggregation_strategy", "overwrite_policy", "template_snapshot_hash",
                 "rule_version", "enabled", "tenant_id", "active_pair_unique_flag",
                 "active_target_unique_flag")) {
             assertTrue(schemaContainsToken(schema, column), "Missing column " + column);

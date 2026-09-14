@@ -7,7 +7,7 @@
         <div class="report-designer-toolbar">
           <div class="report-designer-toolbar__actions">
             <el-button v-if="iframeSrc !== defaultDesignerSrc" @click="resetDesignerView">
-              <Icon icon="ep:back" class="mr-5px" /> 返回报表列表
+              <Icon icon="ep:arrow-left" class="mr-5px" /> 返回
             </el-button>
           </div>
           <div class="report-designer-toolbar__hint">

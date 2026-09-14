@@ -11,8 +11,8 @@ assert(
 )
 
 assert(
-  pageSource.includes('selectedProjectName'),
-  '导入 Word 弹窗必须用单个 DCC 项目名称选择值承载批记录名称和对应产品名称。'
+  pageSource.includes('selectedDccProjectCodeId'),
+  '导入 Word 弹窗必须用单个 DCC 项目代码 ID 选择值承载正式 DCC 记录。'
 )
 
 assert(
@@ -41,21 +41,26 @@ assert(
 )
 
 const dccSelectPattern =
-  /<el-form-item label="产品名称" required>[\s\S]*?<el-select[\s\S]*?v-model="wordImportDialog\.selectedProjectName"[\s\S]*?>[\s\S]*?<el-option[\s\S]*?:label="item\.projectName"[\s\S]*?:value="item\.projectName"[\s\S]*?>[\s\S]*?<\/el-option>[\s\S]*?<\/el-select>[\s\S]*?<\/el-form-item>/
+  /<el-form-item v-if="isMainWordImport" label="产品名称" required>[\s\S]*?<el-select[\s\S]*?v-model="wordImportDialog\.selectedDccProjectCodeId"[\s\S]*?>[\s\S]*?<el-option[\s\S]*?:label="item\.projectName"[\s\S]*?:value="item\.id"[\s\S]*?>[\s\S]*?item\.projectCode[\s\S]*?<\/el-option>[\s\S]*?<\/el-select>[\s\S]*?<\/el-form-item>/
 
 assert(
   dccSelectPattern.test(pageSource),
-  '导入 Word 弹窗必须提供来自 DCC 项目代码的产品名称单选下拉，并以项目名称作为选项 label/value。'
+  '导入 Word 弹窗必须提供来自 DCC 项目代码的产品名称单选下拉，并以 DCC 记录 ID 作为选项值。'
 )
 
 assert(
-  pageSource.includes('const batchRecordName = selectedProjectName'),
+  pageSource.includes('const batchRecordName = selectedSubjectName'),
   '提交导入时批记录名称必须直接使用选中的 DCC 项目名称。'
 )
 
 assert(
-  pageSource.includes('const productNames = [selectedProjectName]'),
+  pageSource.includes('const productNames = [selectedSubjectName]'),
   '提交导入时对应产品名称必须与选中的 DCC 项目名称合并为同一条。'
+)
+
+assert(
+  !pageSource.includes('wordImportDialog.selectedProjectName'),
+  '导入 Word 不得维护脱离 DCC 记录 ID 的项目名称选择状态。'
 )
 
 console.log('PASS: batch-record Word import DCC project select static contract')

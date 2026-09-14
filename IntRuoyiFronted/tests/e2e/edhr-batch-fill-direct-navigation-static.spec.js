@@ -16,13 +16,12 @@ const notifyNavigation = readSource('src/utils/notifyMessageNavigation.ts')
 const workTaskNavigation = readSource('src/utils/edhrWorkTaskNavigation.ts')
 
 assert.ok(
-  rail.includes('primaryFormFillMetaItems') &&
-    detailPage.includes("label: '填写人'") &&
-    detailPage.includes("label: '提交时间'") &&
+  rail.includes('edhr-batch-detail__rail-process-form-filler') &&
+    rail.includes('resolveTaskCardFillersText(task)') &&
+    !rail.includes('primaryFormFillMetaItems') &&
     detailPage.includes('resolveTaskGateText'),
-  '批次详情右侧一级区域必须使用填写语义，并统一格式化任务阻断原因。'
+  'Batch detail right rail must keep form-card filler and task gate text, without independent fill metadata red-box.'
 )
-
 for (const forbidden of ['待处理详情', '我的权限', '当前节点没有待处理任务', '当前登录人暂无该表单填写入口']) {
   assert.ok(!detailPage.includes(forbidden), `批次执行填写界面不得展示审核/待办噪音文案：${forbidden}`)
 }

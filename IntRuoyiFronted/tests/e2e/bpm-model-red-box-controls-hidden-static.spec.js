@@ -17,7 +17,7 @@ assert.doesNotMatch(actionSlot, /<el-dropdown[\s\S]*handleCategoryAdd[\s\S]*open
 assert.match(source, /:show-column-settings="false"/, '流程模型页应关闭标准列表模板右侧显示字段入口。')
 assert.doesNotMatch(source, /:show-column-reset="true"/, '流程模型页不应启用标准列表模板重置列按钮。')
 
-assert.match(actionSlot, /openModelForm\('create'\)/, '流程模型页仍应保留新建模型按钮。')
+assert.match(actionSlot, /openCreateApprovalParticipantConfig/, '流程模型页仍应保留新建模型按钮。')
 assert.match(source, /@quick-filter-query="handleQuery"/, '流程模型页仍应保留快速过滤查询。')
 assert.match(source, /<el-table[\s\S]*:data="pagedModelList"/, '流程模型页仍应渲染模型列表。')
 

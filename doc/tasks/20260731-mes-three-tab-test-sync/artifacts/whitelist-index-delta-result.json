@@ -1,0 +1,22 @@
+{
+  "generated_at": "2026-07-31T03:03:06.304084+00:00",
+  "applied": [
+    {
+      "action": "add",
+      "table": "mes_pro_route_flow_process_batch_record",
+      "index": "uk_mes_pro_route_flow_process_report_sort"
+    },
+    {
+      "action": "add",
+      "table": "mes_pro_route_schedule_config",
+      "index": "uk_mes_pro_route_schedule_config_item_process"
+    }
+  ],
+  "deferred_adds_after_main_sync": [],
+  "statement_count": 2,
+  "apply_stdout": "",
+  "warnings": [
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001B66B9768A0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:00000232EEF594E0"
+  ]
+}

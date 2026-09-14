@@ -40,12 +40,14 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_LOCAL_STATE_SAMPLE_CONTEXT_FORBIDDEN;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_LOCAL_STATE_SAMPLE_PROFILE_FORBIDDEN;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_LOCAL_STATE_SAMPLE_STATE_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionErrorCodeConstants.PRO_EDHR_PERMISSION_SCOPE_REQUIRED;
 
 @Service
 public class MesProEdhrLocalStateSampleServiceImpl implements MesProEdhrLocalStateSampleService {
 
     private static final Long YUDAO_SOURCE_TENANT_ID = 1L;
     private static final String LOCAL_STATE_SAMPLE_MARK = "[LOCAL_STATE_SAMPLE]";
+    private static final String OBJECT_TYPE_BATCH_EXECUTION_TASK = "BATCH_EXECUTION_TASK";
     private static final String DETAIL_PATH = "/mes/pro/feedback/edhr-batch-execution/detail";
     private static final DateTimeFormatter CODE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
     private static final Set<String> SUPPORTED_STATES = Set.of(
@@ -69,6 +71,8 @@ public class MesProEdhrLocalStateSampleServiceImpl implements MesProEdhrLocalSta
     @Resource
     private AdminUserApi adminUserApi;
     @Resource
+    private MesProEdhrPermissionScopeService permissionScopeService;
+    @Resource
     private MesProEdhrOperationAuditService operationAuditService;
 
     @Override
@@ -85,6 +89,7 @@ public class MesProEdhrLocalStateSampleServiceImpl implements MesProEdhrLocalSta
 
         MesProEdhrBatchExecutionTaskDO batchTask = buildBatchTask(batch, state, now, loginUser.getId());
         batchTaskMapper.insert(batchTask);
+        bindBatchTaskAuditPermissionScope(batchTask, loginUser.getId());
 
         MesProEdhrReleaseTransactionDO releaseTransaction = buildReleaseTransaction(batch, state, now, loginUser.getId());
         List<MesProEdhrReleaseCheckItemDO> releaseCheckItems = List.of();
@@ -217,6 +222,29 @@ public class MesProEdhrLocalStateSampleServiceImpl implements MesProEdhrLocalSta
                 .setSubmittedAt(now.minusHours(1))
                 .setApprovedAt(now.minusMinutes(45))
                 .setSpecialPayloadJson(JSON.toJSONString(Map.of("marker", LOCAL_STATE_SAMPLE_MARK, "state", state)));
+    }
+
+    private void bindBatchTaskAuditPermissionScope(MesProEdhrBatchExecutionTaskDO batchTask, Long actorUserId) {
+        MesProEdhrPermissionScopeDetailResult scope = permissionScopeService.saveRules(
+                new MesProEdhrPermissionScopeSaveCommand()
+                        .setScopeName("本地状态样本任务追溯权限-" + batchTask.getId())
+                        .setObjectType(OBJECT_TYPE_BATCH_EXECUTION_TASK)
+                        .setObjectId(String.valueOf(batchTask.getId()))
+                        .setActorUserId(actorUserId)
+                        .setActorUsername(SecurityFrameworkUtils.getLoginUserNickname())
+                        .setRules(List.of(new MesProEdhrPermissionRuleCommand()
+                                .setSubjectType("USER")
+                                .setSubjectId(actorUserId)
+                                .setAbility("AUDIT_VIEW")
+                                .setDecision("ALLOW")
+                                .setPriority(10)
+                                .setStatus("ENABLED"))));
+        if (scope == null || scope.getScopeId() == null) {
+            throw exception(PRO_EDHR_PERMISSION_SCOPE_REQUIRED,
+                    OBJECT_TYPE_BATCH_EXECUTION_TASK + ":" + batchTask.getId());
+        }
+        batchTask.setPermissionScopeId(scope.getScopeId());
+        batchTaskMapper.updateById(batchTask);
     }
 
     private MesProEdhrReleaseTransactionDO buildReleaseTransaction(MesProEdhrBatchExecutionDO batch, String state,
@@ -455,7 +483,8 @@ public class MesProEdhrLocalStateSampleServiceImpl implements MesProEdhrLocalSta
         payload.put("batchTask", Map.of(
                 "id", batchTask.getId(),
                 "status", batchTask.getStatus(),
-                "batchRecordReportId", batchTask.getBatchRecordReportId()));
+                "batchRecordReportId", batchTask.getBatchRecordReportId(),
+                "permissionScopeId", batchTask.getPermissionScopeId()));
         if (releaseTransaction != null) {
             Map<String, Object> releasePayload = new LinkedHashMap<>();
             releasePayload.put("id", releaseTransaction.getId());

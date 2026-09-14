@@ -11,9 +11,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.MockedStatic;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -38,6 +40,56 @@ class MesProRouteVersionLifecycleServiceTest {
     private MesProRouteVersionPublishProjectionServiceImpl publishProjectionService;
     @Mock
     private MesProRouteControlledContentAdapter platformAdapter;
+    @Spy
+    private MesProRouteSnapshotCanonicalizer canonicalizer = new MesProRouteSnapshotCanonicalizer();
+
+    @Test
+    void publishCandidate_shouldPersistCanonicalRewrittenSnapshotBeforeStatusSwitch() {
+        String activeSnapshot = validSnapshotJson(9601L, "RT-9601-V1", "Route V1");
+        MesProRouteVersionDO active = MesProRouteVersionDO.builder()
+                .id(1601L)
+                .routeId(9601L)
+                .versionNo("V1")
+                .active(Boolean.TRUE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE)
+                .routeSnapshotJson(activeSnapshot)
+                .routeSnapshotSha256(canonicalizer.sha256(activeSnapshot))
+                .routeSnapshotFormatVersion(MesProRouteSnapshotCanonicalizer.FORMAT_VERSION)
+                .build();
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(1602L)
+                .routeId(9601L)
+                .versionNo("V2")
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH)
+                .sourceRouteVersionId(active.getId())
+                .routeSnapshotJson(validSnapshotJson(9601L, "RT-9601-V2", "Route V2"))
+                .build();
+        String rewrittenSnapshot = validSnapshotJsonWithRouteProcessId(
+                9601L, "RT-9601-V2", "Route V2", 210L);
+        String activeHashBefore = active.getRouteSnapshotSha256();
+
+        when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
+        when(routeVersionMapper.selectActiveByRouteId(candidate.getRouteId())).thenReturn(active);
+        when(routeVersionMapper.updateById(any(MesProRouteVersionDO.class))).thenReturn(1);
+        when(publishProjectionService.projectCandidate(candidate)).thenReturn(
+                new MesProRouteVersionPublishProjectionServiceImpl.ProjectionResult(
+                        rewrittenSnapshot, Set.of(210L)));
+
+        lifecycleService.publishCandidate(candidate.getId(), 607L);
+
+        ArgumentCaptor<MesProRouteVersionDO> updateCaptor =
+                ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper, times(3)).updateById(updateCaptor.capture());
+        MesProRouteVersionDO snapshotUpdate = updateCaptor.getAllValues().get(0);
+        assertEquals(candidate.getId(), snapshotUpdate.getId());
+        assertEquals(canonicalizer.canonicalize(rewrittenSnapshot), snapshotUpdate.getRouteSnapshotJson());
+        assertEquals(canonicalizer.sha256(rewrittenSnapshot), snapshotUpdate.getRouteSnapshotSha256());
+        assertEquals(MesProRouteSnapshotCanonicalizer.FORMAT_VERSION,
+                snapshotUpdate.getRouteSnapshotFormatVersion());
+        assertEquals(activeSnapshot, active.getRouteSnapshotJson());
+        assertEquals(activeHashBefore, active.getRouteSnapshotSha256());
+    }
 
     @Test
     void publishCandidate_shouldSupersedeActiveAndActivateCandidateInOneServiceCall() {
@@ -60,6 +112,9 @@ class MesProRouteVersionLifecycleServiceTest {
 
         when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
         when(routeVersionMapper.selectActiveByRouteId(candidate.getRouteId())).thenReturn(active);
+        when(routeVersionMapper.updateById(any(MesProRouteVersionDO.class))).thenReturn(1);
+        when(publishProjectionService.projectCandidate(candidate)).thenReturn(
+                projection(candidate.getRouteSnapshotJson(), 10L));
 
         MesProRouteVersionDO published;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -74,16 +129,18 @@ class MesProRouteVersionLifecycleServiceTest {
 
         ArgumentCaptor<MesProRouteVersionDO> updateCaptor =
                 ArgumentCaptor.forClass(MesProRouteVersionDO.class);
-        verify(routeVersionMapper, times(2)).updateById(updateCaptor.capture());
+        verify(routeVersionMapper, times(3)).updateById(updateCaptor.capture());
         List<MesProRouteVersionDO> updates = updateCaptor.getAllValues();
-        assertEquals(active.getId(), updates.get(0).getId());
-        assertEquals(Boolean.FALSE, updates.get(0).getActive());
-        assertEquals("SUPERSEDED", updates.get(0).getLifecycleStatus());
-        assertEquals(candidate.getId(), updates.get(1).getId());
-        assertEquals(Boolean.TRUE, updates.get(1).getActive());
-        assertEquals("ACTIVE", updates.get(1).getLifecycleStatus());
-        assertEquals(600L, updates.get(1).getPublishedBy());
-        assertNotNull(updates.get(1).getPublishedTime());
+        assertEquals(candidate.getId(), updates.get(0).getId());
+        assertNotNull(updates.get(0).getRouteSnapshotSha256());
+        assertEquals(active.getId(), updates.get(1).getId());
+        assertEquals(Boolean.FALSE, updates.get(1).getActive());
+        assertEquals("SUPERSEDED", updates.get(1).getLifecycleStatus());
+        assertEquals(candidate.getId(), updates.get(2).getId());
+        assertEquals(Boolean.TRUE, updates.get(2).getActive());
+        assertEquals("ACTIVE", updates.get(2).getLifecycleStatus());
+        assertEquals(600L, updates.get(2).getPublishedBy());
+        assertNotNull(updates.get(2).getPublishedTime());
         verify(publishProjectionService).projectCandidate(candidate);
     }
 
@@ -108,6 +165,9 @@ class MesProRouteVersionLifecycleServiceTest {
 
         when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
         when(routeVersionMapper.selectActiveByRouteId(candidate.getRouteId())).thenReturn(active);
+        when(routeVersionMapper.updateById(any(MesProRouteVersionDO.class))).thenReturn(1);
+        when(publishProjectionService.projectCandidate(candidate)).thenReturn(
+                projection(candidate.getRouteSnapshotJson(), 10L));
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(601L);
@@ -116,8 +176,8 @@ class MesProRouteVersionLifecycleServiceTest {
 
             ArgumentCaptor<MesProRouteVersionDO> updateCaptor =
                     ArgumentCaptor.forClass(MesProRouteVersionDO.class);
-            verify(routeVersionMapper, times(2)).updateById(updateCaptor.capture());
-            MesProRouteVersionDO candidateUpdate = updateCaptor.getAllValues().get(1);
+            verify(routeVersionMapper, times(3)).updateById(updateCaptor.capture());
+            MesProRouteVersionDO candidateUpdate = updateCaptor.getAllValues().get(2);
             assertEquals(601L, candidateUpdate.getPublishedBy());
             assertNotNull(candidateUpdate.getPublishedTime());
             assertEquals(601L, published.getPublishedBy());
@@ -170,6 +230,9 @@ class MesProRouteVersionLifecycleServiceTest {
 
         when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
         when(routeVersionMapper.selectActiveByRouteId(candidate.getRouteId())).thenReturn(active);
+        when(routeVersionMapper.updateById(any(MesProRouteVersionDO.class))).thenReturn(1);
+        when(publishProjectionService.projectCandidate(candidate)).thenReturn(
+                projection(candidate.getRouteSnapshotJson(), 10L));
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(602L);
@@ -178,6 +241,11 @@ class MesProRouteVersionLifecycleServiceTest {
 
         org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(publishProjectionService, routeVersionMapper);
         inOrder.verify(publishProjectionService).projectCandidate(candidate);
+        inOrder.verify(routeVersionMapper).updateById(org.mockito.ArgumentMatchers.<MesProRouteVersionDO>argThat(update ->
+                candidate.getId().equals(update.getId())
+                        && update.getRouteSnapshotSha256() != null
+                        && MesProRouteSnapshotCanonicalizer.FORMAT_VERSION.equals(
+                        update.getRouteSnapshotFormatVersion())));
         inOrder.verify(routeVersionMapper).updateById(org.mockito.ArgumentMatchers.<MesProRouteVersionDO>argThat(update ->
                 active.getId().equals(update.getId())
                         && Boolean.FALSE.equals(update.getActive())
@@ -319,6 +387,17 @@ class MesProRouteVersionLifecycleServiceTest {
     }
 
     private String validSnapshotJson(Long routeId, String routeCode, String routeName) {
+        return validSnapshotJsonWithRouteProcessId(routeId, routeCode, routeName, 10L);
+    }
+
+    private MesProRouteVersionPublishProjectionServiceImpl.ProjectionResult projection(
+            String snapshotJson, Long routeProcessId) {
+        return new MesProRouteVersionPublishProjectionServiceImpl.ProjectionResult(
+                snapshotJson, Set.of(routeProcessId));
+    }
+
+    private String validSnapshotJsonWithRouteProcessId(Long routeId, String routeCode, String routeName,
+                                                       Long routeProcessId) {
         return """
                 {
                   "routeId": %d,
@@ -327,7 +406,7 @@ class MesProRouteVersionLifecycleServiceTest {
                   "configSnapshots": {
                     "flowGraph": {
                       "nodes": [
-                        {"routeProcessId": 10, "processId": 20, "sort": 1}
+                        {"routeProcessId": %d, "processId": 20, "sort": 1}
                       ],
                       "edges": []
                     },
@@ -337,6 +416,6 @@ class MesProRouteVersionLifecycleServiceTest {
                     "scheduleUseConfigs": []
                   }
                 }
-                """.formatted(routeId, routeCode, routeName);
+                """.formatted(routeId, routeCode, routeName, routeProcessId);
     }
 }

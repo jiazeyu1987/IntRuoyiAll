@@ -12,6 +12,7 @@ import lombok.experimental.Accessors;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -36,7 +37,11 @@ public class ApprovalTaskSummary {
 
     private String businessCode;
 
+    private Boolean businessIdentifierHidden;
+
     private String businessStatus;
+
+    private List<String> businessContextTags;
 
     private Boolean businessDeleted;
 
@@ -46,9 +51,18 @@ public class ApprovalTaskSummary {
 
     private Long initiatorUserId;
 
+    private String initiatorUserName;
+
     private Long assigneeUserId;
 
     private String assigneeUserName;
+
+    /**
+     * Formal reviewer role identity. The user assignee remains separately available for execution and audit.
+     */
+    private String assigneeRoleCode;
+
+    private String assigneeRoleName;
 
     private String processInstanceId;
 

@@ -1,8 +1,8 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-file-type-taxonomy">
     <div class="mb-16px flex items-center gap-8px">
       <span class="text-18px font-600 text-[var(--el-text-color-primary)]">DCC文件分类</span>
-      <el-tag effect="plain" size="small">五级分类</el-tag>
+      <el-tag class="scheme-d-tag" effect="plain" size="small">五级分类</el-tag>
     </div>
 
     <UnifiedListTemplate
@@ -27,7 +27,13 @@
       @pagination="handlePagination"
     >
       <template #actions>
-        <el-button type="primary" plain @click="openForm('create')" v-hasPermi="['dcc:controlled-file:category:manage']">
+        <el-button
+          class="scheme-d-btn scheme-d-btn--success"
+          type="primary"
+          plain
+          @click="openForm('create')"
+          v-hasPermi="['dcc:controlled-file:category:manage']"
+        >
           <Icon icon="ep:plus" class="mr-5px" />
           新增一级
         </el-button>
@@ -70,7 +76,7 @@
             align="center"
           >
             <template #default="{ row }">
-              <el-tag size="small" effect="plain">{{ row.levelNo }}级</el-tag>
+              <el-tag class="scheme-d-tag" size="small" effect="plain">{{ row.levelNo }}级</el-tag>
             </template>
           </el-table-column>
           <el-table-column
@@ -92,7 +98,7 @@
             align="center"
           >
             <template #default="{ row }">
-              <el-tag :type="row.active ? 'success' : 'info'" size="small">
+              <el-tag class="scheme-d-tag" :type="row.active ? 'success' : 'info'" size="small">
                 {{ row.active ? '启用' : '停用' }}
               </el-tag>
             </template>
@@ -121,6 +127,7 @@
             <template #default="{ row }">
               <el-button
                 link
+                class="scheme-d-row-action scheme-d-row-action--success"
                 type="primary"
                 :disabled="row.levelNo >= 5"
                 @click="openForm('create', undefined, row)"
@@ -130,6 +137,7 @@
               </el-button>
               <el-button
                 link
+                class="scheme-d-row-action scheme-d-row-action--primary"
                 type="primary"
                 @click="openForm('update', row)"
                 v-hasPermi="['dcc:controlled-file:category:manage']"
@@ -138,6 +146,7 @@
               </el-button>
               <el-button
                 link
+                class="scheme-d-row-action scheme-d-row-action--danger"
                 type="danger"
                 @click="handleDelete(row)"
                 v-hasPermi="['dcc:controlled-file:category:manage']"
@@ -151,7 +160,7 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
-  <Dialog v-model="formVisible" :title="formTitle" width="640px">
+  <Dialog v-model="formVisible" class="scheme-d-form-control" :title="formTitle" width="640px">
     <el-form
       ref="formRef"
       v-loading="formLoading"
@@ -191,8 +200,17 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="formVisible = false">取消</el-button>
-      <el-button type="primary" :loading="formLoading" @click="submitForm">保存</el-button>
+      <div class="scheme-d-dialog-footer">
+        <el-button class="scheme-d-btn scheme-d-btn--neutral" @click="formVisible = false">取消</el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--success"
+          type="primary"
+          :loading="formLoading"
+          @click="submitForm"
+        >
+          保存
+        </el-button>
+      </div>
     </template>
   </Dialog>
 </template>

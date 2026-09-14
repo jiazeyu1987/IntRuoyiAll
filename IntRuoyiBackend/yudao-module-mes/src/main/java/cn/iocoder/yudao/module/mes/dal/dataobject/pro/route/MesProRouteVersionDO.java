@@ -43,6 +43,10 @@ public class MesProRouteVersionDO extends BaseDO {
 
     private String routeSnapshotJson;
 
+    private String routeSnapshotSha256;
+
+    private String routeSnapshotFormatVersion;
+
     private String changeSummaryJson;
 
     private String validationResultJson;

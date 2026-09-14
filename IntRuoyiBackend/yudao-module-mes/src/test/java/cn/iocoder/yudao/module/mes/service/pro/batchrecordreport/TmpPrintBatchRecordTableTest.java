@@ -4,7 +4,6 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,13 +14,10 @@ class TmpPrintBatchRecordTableTest {
 
     @Test
     void printTable() throws Exception {
-        Path source = Path.of("C:\\Users\\BJB110\\Desktop\\2\\2\\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc");
+        Path source = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
         byte[] bytes = Files.readAllBytes(source);
-        MesProBatchRecordRouteDRecognizer recognizer = new MesProBatchRecordRouteDRecognizer();
-        setField(recognizer, "pythonCommand", "python");
-        setField(recognizer, "pythonWorkingDirectory", source.getParent().toString());
-        setField(recognizer, "timeoutMs", 600_000L);
-        List<MesProBatchRecordParsedTable> tables = recognizer.recognize(source, bytes, source.getFileName().toString());
+        MesProBatchRecordDocParser parser = new MesProBatchRecordDocParser();
+        List<MesProBatchRecordParsedTable> tables = parser.parse(bytes);
         MesProBatchRecordParsedTable sourceTable = tables.stream()
                 .filter(table -> "组装Ⅰ工序生产记录".equals(table.getTableTitle()))
                 .findFirst()
@@ -90,7 +86,7 @@ class TmpPrintBatchRecordTableTest {
 
     @Test
     void printRouteBAssemblyOne() throws Exception {
-        Path source = Path.of("C:\\Users\\BJB110\\Desktop\\2\\2\\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc");
+        Path source = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
         byte[] bytes = Files.readAllBytes(source);
         MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
         List<MesProBatchRecordParsedTable> tables = recognizer.recognize(
@@ -213,7 +209,7 @@ class TmpPrintBatchRecordTableTest {
 
     @Test
     void printRouteBFailingTableContext() throws Exception {
-        Path source = Path.of("C:\\Users\\BJB110\\Desktop\\2\\2\\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc");
+        Path source = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
         byte[] bytes = Files.readAllBytes(source);
         MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
         MesProBatchRecordReportLayoutCalibrator calibrator = new MesProBatchRecordReportLayoutCalibrator();
@@ -262,12 +258,6 @@ class TmpPrintBatchRecordTableTest {
                 .horizontalAlign("center")
                 .verticalAlign("middle")
                 .build();
-    }
-
-    private static void setField(Object target, String fieldName, Object value) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(target, value);
     }
 
     private static int extractRowIndex(String message) {

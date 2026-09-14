@@ -54,7 +54,7 @@ export const environmentText = (environment?: string) => {
     local: 'Local',
     test: 'Test',
     prod: 'Production',
-    backup: 'Backup'
+    backup: '审查服'
   }
   return environment ? textMap[environment] || environment : '-'
 }
@@ -65,7 +65,7 @@ export const actionText = (action?: string) => {
     'publish-test': '部署发布包到测试服',
     'mark-release-tested': '标记测试通过',
     'promote-prod': '上线已验证发布包',
-    'promote-backup': '上线备份服务器',
+    'promote-backup': '上线审查服',
     'backup-now': '立即备份',
     'rollback-app': '回滚版本',
     'restore-data': '恢复数据',

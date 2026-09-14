@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileWaterma
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 @Service
 public class DccControlledFileAccessAuditService {
@@ -53,7 +54,7 @@ public class DccControlledFileAccessAuditService {
                 .accessEventId(command.accessEventId())
                 .accessEventCode(StrUtil.trim(command.accessEventCode()))
                 .controlledFileId(command.fileId())
-                .fileNumber(StrUtil.trim(command.fileNumber()))
+                .fileNumber(StrUtil.trimToEmpty(command.fileNumber()))
                 .fileVersionNo(StrUtil.trim(command.versionId()))
                 .userId(command.userId())
                 .userIdentifier(StrUtil.trim(command.userIdentifier()))
@@ -112,6 +113,30 @@ public class DccControlledFileAccessAuditService {
         return accessLog;
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public DccControlledFileAccessLogDO recordLifecycleLog(DccLifecycleLogCreateCommand command) {
+        if (command == null) {
+            throw new IllegalArgumentException("lifecycle audit command is required");
+        }
+        requirePositive(command.fileId(), "fileId");
+        requirePositive(command.userId(), "userId");
+        requireNotBlank(command.actionType(), "actionType");
+        requireNotBlank(command.result(), "result");
+        DccControlledFileAccessLogDO accessLog = DccControlledFileAccessLogDO.builder()
+                .tenantId(TenantContextHolder.getRequiredTenantId())
+                .controlledFileId(command.fileId())
+                .fileVersionNo(StrUtil.trimToNull(command.versionNo()))
+                .userId(command.userId())
+                .actionType(StrUtil.trim(command.actionType()))
+                .purpose("LIFECYCLE")
+                .result(StrUtil.trim(command.result()))
+                .failureCode(StrUtil.trimToNull(command.failureCode()))
+                .reason(StrUtil.trimToNull(command.reason()))
+                .build();
+        accessLogMapper.insert(accessLog);
+        return accessLog;
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public DccControlledFileAccessLogDO recordDirectLinkDeniedLog(DccDirectLinkDeniedLogCreateCommand command) {
         requireDirectLinkDeniedLog(command);
@@ -158,7 +183,6 @@ public class DccControlledFileAccessAuditService {
         requirePositive(command.accessEventId(), "accessEventId");
         requireNotBlank(command.accessEventCode(), "accessEventCode");
         requirePositive(command.fileId(), "fileId");
-        requireNotBlank(command.fileNumber(), "fileNumber");
         requireNotBlank(command.versionId(), "versionId");
         requirePositive(command.userId(), "userId");
         requireNotBlank(command.privacyMode(), "privacyMode");

@@ -12,6 +12,7 @@ public class BatchRecordCellLinkFormRespVO {
     private String formSlotType;
     private Long batchRecordDefinitionId;
     private Long batchRecordVersionId;
+    private Long routeProcessId;
     private Integer sourceTableIndex;
     private String tableTitle;
     private String reportId;

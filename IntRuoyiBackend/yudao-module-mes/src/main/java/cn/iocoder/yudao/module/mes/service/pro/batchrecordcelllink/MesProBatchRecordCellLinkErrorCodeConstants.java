@@ -26,4 +26,28 @@ public interface MesProBatchRecordCellLinkErrorCodeConstants {
             new ErrorCode(1_040_509_089, "批记录表单布局 JSON 无效：{}");
     ErrorCode PRO_BATCH_RECORD_CELL_LINK_CELL_VALUES_INVALID =
             new ErrorCode(1_040_509_090, "批记录单元格值 JSON 无效：{}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED =
+            new ErrorCode(1_040_509_091, "批记录单元格链接不支持的来源字段：{}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_WORK_ORDER_MISSING =
+            new ErrorCode(1_040_509_092, "批记录执行实例缺少生产工单，无法从生产工单字段自动带值：{}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_AUTO_PERSIST_SOURCE_VALUE_MISSING =
+            new ErrorCode(1_040_509_093, "批记录单元格链接自动落库缺少来源值：executionId={}，ruleId={}，sourceField={}，targetCell={}");
+    ErrorCode PRO_BATCH_RECORD_PICK_LIST_CONTEXT_REQUIRED =
+            new ErrorCode(1_040_509_094, "批记录领料单来源关系不完整：{}");
+    ErrorCode PRO_BATCH_RECORD_PICK_LIST_SOURCE_VALUE_REQUIRED =
+            new ErrorCode(1_040_509_095, "批记录领料单来源值不可用：{}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_PQC_QA_CATALOG_MISSING =
+            new ErrorCode(1_040_509_096, "一线PQC来源缺少当前DCC项目的已发布QA工序目录：routeId={}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_PQC_QA_PROCESS_MISSING =
+            new ErrorCode(1_040_509_097, "所选一线PQC工序不属于当前DCC项目的已发布QA版本：qaProcessId={}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_PQC_QA_ITEMS_MISSING =
+            new ErrorCode(1_040_509_098, "所选一线PQC工序未配置已发布QA检验项目：qaProcessId={}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_DCC_ROUTE_BINDING_REQUIRED =
+            new ErrorCode(1_040_509_099, "DCC项目代码未绑定唯一有效工艺路线：dccProjectCodeId={}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_DCC_ROUTE_BINDING_MISMATCH =
+            new ErrorCode(1_040_509_100, "DCC项目代码与当前工艺路线绑定不一致：routeId={}，dccProjectCodeId={}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_DCC_ROUTE_PROCESS_MISSING =
+            new ErrorCode(1_040_509_101, "所选工序不属于DCC项目代码绑定的工艺路线：routeId={}，routeProcessId={}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_PROCESS_POOL_DEVICE_MISSING =
+            new ErrorCode(1_040_509_102, "所选报工工序未绑定有效设备：routeProcessId={}");
 }

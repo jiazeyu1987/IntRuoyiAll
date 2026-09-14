@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "contractVersion": "2026-08-24-branch-runtime-v7",
+  "worktrees": [
+    {
+      "name": "bad-ports",
+      "path": "D:\\IntRuoyiWorktree\\bad-ports",
+      "branch": "codex/bad-ports",
+      "profile": "int_main",
+      "slot": 2,
+      "frontendPort": 9999,
+      "backendPort": 48083,
+      "active": true
+    }
+  ]
+}

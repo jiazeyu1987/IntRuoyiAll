@@ -7,19 +7,26 @@ assert(fs.existsSync(pagePath), `排产工单页面必须存在：${pagePath}`)
 
 const source = fs.readFileSync(pagePath, 'utf8')
 
+const replanableMatch = source.match(
+  /const isScheduleOrderReplanable = \(row: MesProScheduleOrderVO\) => \{([\s\S]*?)\n\}/
+)
+assert(replanableMatch, '排产工单页面必须集中定义手动重排资格。')
+const replanableSource = replanableMatch[1]
+
 assert(
   source.includes(':selectable="isScheduleOrderSelectable"') &&
-    /const\s+isScheduleOrderSelectable\s*=\s*\([^)]*row[^)]*\)\s*=>\s*\{[\s\S]*!row\.frozen[\s\S]*\}/.test(
+    /const\s+isScheduleOrderSelectable\s*=\s*\([^)]*row[^)]*\)\s*=>\s*\{\s*return isScheduleOrderReplanable\(row\)\s*\}/.test(
       source
-    ),
+    ) &&
+    replanableSource.includes('!row.frozen'),
   '排产工单主表 selection 必须绑定 isScheduleOrderSelectable，并禁止冻结行被勾选参与排产。'
 )
 
 assert(
-  /selectedScheduleOrders\.value\s*=\s*rows\.filter\(\s*\(?\s*item\s*\)?\s*=>\s*!item\.frozen\s*\)/.test(
+  /selectedScheduleOrders\.value\s*=\s*rows\.filter\(\s*\(?\s*item\s*\)?\s*=>\s*isScheduleOrderReplanable\(item\)\s*\)/.test(
     source
   ),
-  '排产工单选中集合必须再次过滤冻结行，避免冻结工单进入重排集合。'
+  '排产工单选中集合必须复用统一重排资格再次过滤，避免冻结等不可重排工单进入集合。'
 )
 
 assert(
@@ -45,13 +52,15 @@ assert(
   '排产工单操作列必须对冻结行和非冻结行使用互斥分支，确保冻结行只显示解冻。'
 )
 
-const frozenBranchMatch = actionColumn.match(/v-if="row\.frozen"[\s\S]*?(?=<template v-else>|<div v-else|v-else)/)
+const frozenBranchMatch = actionColumn.match(
+  /v-if="row\.frozen"[\s\S]*?(?=<template v-else>|<div v-else|v-else)/
+)
 assert(frozenBranchMatch, '排产工单操作列必须存在冻结行专用分支。')
 const frozenBranch = frozenBranchMatch[0]
 const actionButtonLabels = ['查看', '调整', '交期', '冻结', '完成', '撤销', '解冻']
 
 assert(
-    frozenBranch.includes('openUnfreezeDialog(row)') &&
+  frozenBranch.includes('openUnfreezeDialog(row)') &&
     frozenBranch.includes('解冻') &&
     !frozenBranch.includes('openPriorityDialog(row)') &&
     !frozenBranch.includes('openPromiseDateDialog(row)') &&
@@ -72,7 +81,10 @@ for (const label of actionButtonLabels) {
 }
 
 for (const longLabel of ['设置交期', '设为已完成', '撤销已完成']) {
-  assert(!actionColumn.includes(longLabel), `排产工单操作列按钮文案必须压缩为两个字，不应出现：${longLabel}`)
+  assert(
+    !actionColumn.includes(longLabel),
+    `排产工单操作列按钮文案必须压缩为两个字，不应出现：${longLabel}`
+  )
 }
 
 assert(
@@ -105,7 +117,9 @@ assert(
   '排产工单数量/进度列必须隐藏完成、未完、待审批、待检、真实完工、超报明细，只保留总量、百分比和进度条。'
 )
 
-const mainTableMatch = source.match(/<el-table[\s\S]*?:data="scheduleOrderList"[\s\S]*?<\/el-table>/)
+const mainTableMatch = source.match(
+  /<el-table[\s\S]*?:data="scheduleOrderList"[\s\S]*?<\/el-table>/
+)
 assert(mainTableMatch, '排产工单主列表必须存在绑定 scheduleOrderList 的主表。')
 const mainTable = mainTableMatch[0]
 

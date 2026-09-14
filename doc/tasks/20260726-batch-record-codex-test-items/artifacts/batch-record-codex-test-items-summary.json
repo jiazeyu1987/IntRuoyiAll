@@ -1,0 +1,100 @@
+{
+  "status": "PASS",
+  "mode": "assert-existing",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "checkedAt": "2026-07-25T16:47:06.105Z",
+  "requestedCaseCount": 7,
+  "cases": [],
+  "existingBefore": [
+    {
+      "name": "批记录批次创建与已发布路线快照",
+      "id": 2
+    },
+    {
+      "name": "批记录打开填写与单元格规则治理",
+      "id": 3
+    },
+    {
+      "name": "批记录伴随单据填写人与必填跳过口径",
+      "id": 4
+    },
+    {
+      "name": "批记录提交审核批准闭环",
+      "id": 5
+    },
+    {
+      "name": "批记录字段审计与操作追溯",
+      "id": 6
+    },
+    {
+      "name": "批记录归档与电子签名完整性",
+      "id": 7
+    },
+    {
+      "name": "批记录 Word 导入解析与版式回归",
+      "id": 8
+    }
+  ],
+  "missingBefore": [],
+  "verified": [
+    {
+      "id": 2,
+      "name": "批记录批次创建与已发布路线快照",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE"
+    },
+    {
+      "id": 3,
+      "name": "批记录打开填写与单元格规则治理",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE"
+    },
+    {
+      "id": 4,
+      "name": "批记录伴随单据填写人与必填跳过口径",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE"
+    },
+    {
+      "id": 5,
+      "name": "批记录提交审核批准闭环",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE"
+    },
+    {
+      "id": 6,
+      "name": "批记录字段审计与操作追溯",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE"
+    },
+    {
+      "id": 7,
+      "name": "批记录归档与电子签名完整性",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE"
+    },
+    {
+      "id": 8,
+      "name": "批记录 Word 导入解析与版式回归",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE"
+    }
+  ]
+}

@@ -64,7 +64,7 @@ function runOfficialLoginPreflight() {
       '--target-path',
       listPath,
       '--target-text',
-      '执行列表'
+      '批次'
     ],
     {
       cwd: repoRoot,
@@ -192,7 +192,7 @@ async function openList(page, evidence) {
     page,
     async () => {
       await page.goto(listUrl.toString(), { waitUntil: 'domcontentloaded' })
-      await page.getByText('执行列表', { exact: false }).first().waitFor({ state: 'visible', timeout: 60000 })
+      await page.getByText('批次', { exact: false }).first().waitFor({ state: 'visible', timeout: 60000 })
     },
     evidence
   )
@@ -323,7 +323,7 @@ async function verifyReadonlyForm(page, rowIndex, executionLabel, evidence) {
     evidence.rowAttempts.push({ rowIndex, executionLabel, error: error.message, ...failureEvidence })
   }
   await page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => undefined)
-  await page.getByText('执行列表', { exact: false }).first().waitFor({ state: 'visible', timeout: 60000 }).catch(() => undefined)
+  await page.getByText('批次', { exact: false }).first().waitFor({ state: 'visible', timeout: 60000 }).catch(() => undefined)
   return null
 }
 

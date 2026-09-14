@@ -38,9 +38,10 @@ assert(
   '全部必填任务完成或无需填写时必须返回已完成状态类。'
 )
 assert(
-  detail.includes("task.status != null && task.status !== EDHR_BATCH_TASK_STATUS_WAITING") &&
+  detail.includes("if (isCurrentExecutableProcessGroup(group) || isCurrentProcessGroup(group)) return 'is-in-progress'") &&
+    detail.includes("task.status != null && task.status !== EDHR_BATCH_TASK_STATUS_WAITING") &&
     detail.includes("return hasStartedTask ? 'is-in-progress' : 'is-not-started'"),
-  '已开始但未完成的工序必须返回填写中状态类，全部待打开时必须返回未开始状态类。'
+  '当前工序或已开始但未完成的工序必须返回填写中状态类，非当前且全部待打开时保持未开始状态类。'
 )
 
 const readStyleBlock = (selector) => {

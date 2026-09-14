@@ -22,27 +22,16 @@ assert.match(
 for (const expected of [
   'isRecordBindingProcessIndependent',
   'handleRecordBindingProcessIndependentChange',
-  'applyRecordBindingProcessIndependentByTemplate',
-  'syncRouteWideRecordBindingProcessIndependent',
+  'syncGlobalRecordBindingGroupFromSource',
   'getOrCreateRouteProcessAttributeDraft'
 ]) {
-  assert.ok(component.includes(expected), `工序独立开关必须具备同路线同表单联动 helper: ${expected}`)
+  assert.ok(component.includes(expected), `工序独立开关必须具备显式全局组联动 helper: ${expected}`)
 }
 
 assert.match(
   component,
-  /handleRecordBindingProcessIndependentChange[\s\S]*const formTemplateId = Number\(binding\.formTemplateId \|\| 0\)[\s\S]*syncRouteWideRecordBindingProcessIndependent\(formTemplateId, processIndependent\)/,
-  '切换开关时必须以 formTemplateId 为同表单身份触发路线内联动。'
-)
-assert.match(
-  component,
-  /syncRouteWideRecordBindingProcessIndependent[\s\S]*routeNodes\.value\.forEach[\s\S]*getOrCreateRouteProcessAttributeDraft\(node\.routeProcessId\)[\s\S]*applyRecordBindingProcessIndependentByTemplate\(draft\.recordBindings, formTemplateId, processIndependent\)/,
-  '路线内联动必须覆盖所有工序草稿，包括尚未打开过详情的工序。'
-)
-assert.match(
-  component,
-  /applyRecordBindingProcessIndependentByTemplate[\s\S]*Number\(binding\.formTemplateId \|\| 0\) === formTemplateId[\s\S]*applyRecordBindingInstanceScope\(binding, instanceScope\)/,
-  '联动必须只按相同 formTemplateId 更新，不得影响其他表单。'
+  /handleRecordBindingProcessIndependentChange[\s\S]*applyRecordBindingInstanceScope\(binding, processIndependent \? 'PROCESS' : 'BATCH_SHARED'\)[\s\S]*syncGlobalRecordBindingGroupFromSource\(binding\)/,
+  '切换开关时仅显式 globalSyncKey 组联动；未开启全局的同模板表单必须保持独立。'
 )
 assert.match(
   component,

@@ -12,12 +12,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class BusinessApprovalEffectExecutorRegistry {
 
-    private static final Map<String, String> DEFAULT_BPM_PROCESS_DEFINITION_KEYS = Map.of(
-            "FORM_TEMPLATE_OBSOLETE", "form-template-obsolete-v1",
-            "FORM_TEMPLATE_UPGRADE", "form-template-upgrade-v1",
-            "MES_ROUTE_VERSION_PUBLISH", "mes-route-version-approval-v1",
-            "MES_BATCH_RECORD_VERSION_PUBLISH", "mes-batch-record-version-approval-v1",
-            "EDHR_BATCH_EXECUTION_SUBMIT_REVIEW", "mes-edhr-approval-v1");
+    private static final Map<String, String> DEFAULT_BPM_PROCESS_DEFINITION_KEYS = Map.ofEntries(
+            Map.entry("FORM_TEMPLATE_OBSOLETE", "form-template-obsolete-v1"),
+            Map.entry("FORM_TEMPLATE_UPGRADE", "form-template-upgrade-v1"),
+            Map.entry("MES_ROUTE_VERSION_PUBLISH", "mes-route-version-approval-v1"),
+            Map.entry("MES_BATCH_RECORD_VERSION_PUBLISH", "mes-batch-record-version-approval-v1"),
+            Map.entry("MES_ACTIVE_ORDER_VERSION_UPGRADE_RESTART", "mes-active-order-version-upgrade-v1"),
+            Map.entry("EDHR_BATCH_EXECUTION_SUBMIT_REVIEW", "mes-edhr-approval-v1"));
 
     private final Map<String, BusinessApprovalEffectExecutor> executors;
 

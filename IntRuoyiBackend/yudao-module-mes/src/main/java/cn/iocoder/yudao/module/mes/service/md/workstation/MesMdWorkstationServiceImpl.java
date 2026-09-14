@@ -159,15 +159,6 @@ public class MesMdWorkstationServiceImpl implements MesMdWorkstationService {
         Long locationId = reqVO.getLocationId();
         Long areaId = reqVO.getAreaId();
         if (warehouseId == null && locationId == null && areaId == null) {
-            MesWmWarehouseDO warehouse = warehouseService.ensureWarehouseByCode(
-                    MesWmWarehouseDO.WIP_VIRTUAL_WAREHOUSE);
-            MesWmWarehouseLocationDO location = locationService.getWarehouseLocationByCode(
-                    MesWmWarehouseLocationDO.WIP_VIRTUAL_LOCATION);
-            MesWmWarehouseAreaDO area = areaService.getWarehouseAreaByCode(
-                    MesWmWarehouseAreaDO.WIP_VIRTUAL_AREA);
-            reqVO.setWarehouseId(warehouse.getId());
-            reqVO.setLocationId(location.getId());
-            reqVO.setAreaId(area.getId());
             return;
         }
 

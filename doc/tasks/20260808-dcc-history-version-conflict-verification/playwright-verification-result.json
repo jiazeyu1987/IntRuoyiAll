@@ -1,0 +1,789 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "芋道源码",
+  "username": "zhaohaichen",
+  "targetPath": "/dcc/controlled-file/upload",
+  "dccWriteRequests": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "failedResponses": [],
+  "backendHealth": {
+    "status": "UP"
+  },
+  "apiEvidence": {
+    "projectPage": {
+      "httpStatus": 200,
+      "businessCode": 0,
+      "total": 1,
+      "visibleCount": 1,
+      "targetProject": {
+        "id": 129,
+        "productMasterId": 14,
+        "docControlNo": "1",
+        "projectName": "按压式球囊扩充压力泵",
+        "projectCode": "IDI",
+        "category": "输注类",
+        "commissionedProduction": null,
+        "projectLeader": "杨欣成",
+        "projectEngineer": "徐育胜",
+        "storageLocation": "√",
+        "priority": "B",
+        "status": "ENABLE",
+        "associatedFileCount": 46,
+        "createTime": 1781781164000,
+        "updateTime": 1781781164000
+      }
+    },
+    "taxonomyCount": 67,
+    "categoryCount": 60,
+    "taxonomies": {
+      "technicalResearch": {
+        "path": [
+          "技术文档",
+          "设计和开发策划阶段",
+          "技术调研报告"
+        ],
+        "resolved": true,
+        "id": 139,
+        "row": {
+          "id": 139,
+          "parentId": 68,
+          "levelNo": 3,
+          "code": "FT_DESIGN_DOC_003",
+          "name": "技术调研报告",
+          "active": true,
+          "sort": 3,
+          "remark": "",
+          "createTime": 1784615516000
+        }
+      },
+      "dhfList": {
+        "path": [
+          "技术文档",
+          "清单",
+          "DHF文件清单"
+        ],
+        "resolved": true,
+        "id": 137,
+        "row": {
+          "id": 137,
+          "parentId": 134,
+          "levelNo": 3,
+          "code": "FT_DESIGN_DOC_001",
+          "name": "DHF文件清单",
+          "active": true,
+          "sort": 1,
+          "remark": "",
+          "createTime": 1784615516000
+        }
+      },
+      "marketResearch": {
+        "path": [
+          "技术文档",
+          "设计和开发策划阶段",
+          "市场调研报告"
+        ],
+        "resolved": true,
+        "id": 138,
+        "row": {
+          "id": 138,
+          "parentId": 68,
+          "levelNo": 3,
+          "code": "FT_DESIGN_DOC_002",
+          "name": "市场调研报告",
+          "active": true,
+          "sort": 2,
+          "remark": "",
+          "createTime": 1784615516000
+        }
+      }
+    },
+    "categoryBindings": {
+      "technicalResearch": {
+        "path": [
+          "技术文档",
+          "设计和开发策划阶段",
+          "技术调研报告"
+        ],
+        "taxonomyId": 139,
+        "resolved": true,
+        "activeCategoryCount": 1,
+        "categories": [
+          {
+            "id": 907212,
+            "code": "DCC_FVM_DHF_002",
+            "name": "技术调研报告",
+            "directoryId": null,
+            "approvalPositionCount": 2,
+            "signoffPositionCount": 5
+          }
+        ]
+      },
+      "dhfList": {
+        "path": [
+          "技术文档",
+          "清单",
+          "DHF文件清单"
+        ],
+        "taxonomyId": 137,
+        "resolved": true,
+        "activeCategoryCount": 0,
+        "categories": []
+      },
+      "marketResearch": {
+        "path": [
+          "技术文档",
+          "设计和开发策划阶段",
+          "市场调研报告"
+        ],
+        "taxonomyId": 138,
+        "resolved": true,
+        "activeCategoryCount": 2,
+        "categories": [
+          {
+            "id": 907211,
+            "code": "DCC_FVM_DHF_001",
+            "name": "市场调研报告",
+            "directoryId": 906469,
+            "approvalPositionCount": 2,
+            "signoffPositionCount": 5
+          },
+          {
+            "id": 907216,
+            "code": "DCC_FVM_DHF_010",
+            "name": "风险管理计划",
+            "directoryId": null,
+            "approvalPositionCount": 2,
+            "signoffPositionCount": 5
+          }
+        ]
+      }
+    },
+    "technicalResearchDirectoryTree": {
+      "httpStatus": 200,
+      "businessCode": 0,
+      "data": {
+        "bindingDirectoryId": 949135,
+        "bindingDirectoryPath": "未分类",
+        "leafBinding": true,
+        "defaultUnclassified": true,
+        "children": []
+      }
+    },
+    "uploadNameOptions": {
+      "httpStatus": 200,
+      "businessCode": 0,
+      "count": 0
+    },
+    "targetHistoryOption": null,
+    "projectControlledFiles": {
+      "httpStatus": 200,
+      "businessCode": 0,
+      "total": 0,
+      "rows": []
+    },
+    "browserSearchFiles": {
+      "httpStatus": 200,
+      "businessCode": 0,
+      "total": 0,
+      "rows": []
+    },
+    "revisionCandidates": {
+      "httpStatus": 200,
+      "businessCode": 0,
+      "total": 0,
+      "rows": []
+    },
+    "currentVersion": null
+  },
+  "uiEvidence": {
+    "initialFileInputs": [
+      {
+        "multiple": false,
+        "accept": ".doc,.docx,.xls,.xlsx,.dwg,.sldprt,.sldasm,.slddrw"
+      },
+      {
+        "multiple": false,
+        "accept": ".pdf,application/pdf"
+      }
+    ],
+    "trainingSwitch": {
+      "beforeClass": "el-switch",
+      "afterFirstClickClass": "el-switch is-checked",
+      "afterSecondClickClass": "el-switch"
+    },
+    "productCodeValue": "IDI",
+    "categoryText": "文件类别 技术调研报告",
+    "directoryText": "提交目录 未分类 当前文件类别未绑定提交目录，系统将自动提交到未分类目录。",
+    "historySelection": {
+      "selected": false,
+      "reason": "history option not visible for 按压式球囊扩充压力泵技术调研报告.pdf",
+      "businessCode": 0,
+      "count": 0
+    },
+    "selectedHistoryText": "文件名称",
+    "versionValue": "V1.0",
+    "fileNumberValue": "",
+    "currentVersionPanelText": "",
+    "preflightAfterHistory": [
+      {
+        "header": "文件编号/版本待填写",
+        "description": "请输入文件编号和版本号后检查是否重复。"
+      },
+      {
+        "header": "文件类别已匹配",
+        "description": "当前文件类别：技术调研报告。"
+      },
+      {
+        "header": "审批人链路已配置",
+        "description": "审批岗位 2 个，会签/签核岗位 5 个，审批人链路已具备"
+      },
+      {
+        "header": "受控浏览目录可落位",
+        "description": "最终受控浏览目录：未分类"
+      },
+      {
+        "header": "浏览权限范围按矩阵生效",
+        "description": "浏览权限范围：分类 技术调研报告；目录 未分类；项目代码 IDI；发布后按正式 VIEW 权限矩阵控制可见人员。"
+      }
+    ],
+    "preflightAfterInvalidVersionAndPastDate": [
+      {
+        "header": "文件编号/版本可提交",
+        "description": "未发现同编号现行版本，将按新建编号继续校验。"
+      },
+      {
+        "header": "文件类别已匹配",
+        "description": "当前文件类别：技术调研报告。"
+      },
+      {
+        "header": "审批人链路已配置",
+        "description": "审批岗位 2 个，会签/签核岗位 5 个，审批人链路已具备"
+      },
+      {
+        "header": "受控浏览目录可落位",
+        "description": "最终受控浏览目录：未分类"
+      },
+      {
+        "header": "浏览权限范围按矩阵生效",
+        "description": "浏览权限范围：分类 技术调研报告；目录 未分类；项目代码 IDI；发布后按正式 VIEW 权限矩阵控制可见人员。"
+      }
+    ],
+    "userSelect": {
+      "ui": {
+        "headers": [
+          "用户编号",
+          "用户名称",
+          "用户昵称",
+          "部门",
+          "手机号码",
+          "状态",
+          "创建时间"
+        ],
+        "paginationText": "Total 2125 20/page 1 2 3 4 5 6 107 Go to",
+        "visibleRowCount": 20
+      },
+      "inputAfterCancel": "",
+      "api": {
+        "defaultPage20": {
+          "httpStatus": 200,
+          "businessCode": 0,
+          "total": 2125,
+          "rows": [
+            {
+              "id": 914524,
+              "username": "pqce2efullscreen",
+              "nickname": "PQC E2E",
+              "status": 0,
+              "deptName": "研发部门"
+            },
+            {
+              "id": 910273,
+              "username": "edhrmatrixapprover",
+              "nickname": "eDHR??-???",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910272,
+              "username": "aoteman",
+              "nickname": "??1",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910271,
+              "username": "smokeread1",
+              "nickname": "???????",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910270,
+              "username": "smokeappr1",
+              "nickname": "???????",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910269,
+              "username": "smokeplan1",
+              "nickname": "???????",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910268,
+              "username": "smokeerp1",
+              "nickname": "????ERP???",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910250,
+              "username": "wangsiyu",
+              "nickname": "王思雨",
+              "status": 0,
+              "deptName": "QMS"
+            },
+            {
+              "id": 910199,
+              "username": "TPFB_APPR_010",
+              "nickname": "刘青（临时工）",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910196,
+              "username": "TPFB_APPR_007",
+              "nickname": "柯善雄（临时工）",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910191,
+              "username": "TPFB_APPR_002",
+              "nickname": "李萍临时工",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910189,
+              "username": "A4020063",
+              "nickname": "彭勇丽",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910188,
+              "username": "A4020114",
+              "nickname": "周娟兰",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910187,
+              "username": "A4020137",
+              "nickname": "张亚平",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910186,
+              "username": "A4020292",
+              "nickname": "周建营",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910185,
+              "username": "A4020034",
+              "nickname": "李海侠",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910184,
+              "username": "A4020118",
+              "nickname": "徐雪玲",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910183,
+              "username": "A4020168",
+              "nickname": "汪梅",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910182,
+              "username": "A4020030",
+              "nickname": "徐荣芳",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910181,
+              "username": "A4020057",
+              "nickname": "任丹",
+              "status": 0,
+              "deptName": null
+            }
+          ]
+        },
+        "page2Page20": {
+          "httpStatus": 200,
+          "businessCode": 0,
+          "total": 2125,
+          "rows": [
+            {
+              "id": 910180,
+              "username": "A4020326",
+              "nickname": "刘美丽",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910179,
+              "username": "A021",
+              "nickname": "李鑫鑫",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910178,
+              "username": "A4050014",
+              "nickname": "吴礼荣",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910177,
+              "username": "W009",
+              "nickname": "林荣",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910176,
+              "username": "A4020337",
+              "nickname": "刘凤英",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910175,
+              "username": "W068",
+              "nickname": "余彩霞",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910174,
+              "username": "A4020017",
+              "nickname": "何莉",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910173,
+              "username": "A4020314",
+              "nickname": "毛怡萍",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910172,
+              "username": "A4020315",
+              "nickname": "宋彩晴",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910171,
+              "username": "A4020126",
+              "nickname": "孙倩倩",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910170,
+              "username": "A4020140",
+              "nickname": "商孟莹",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910169,
+              "username": "A4020040",
+              "nickname": "廖清华",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910168,
+              "username": "A4020285",
+              "nickname": "赵苗苗",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910167,
+              "username": "A4020064",
+              "nickname": "朱月香",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910166,
+              "username": "A4020330",
+              "nickname": "刘伟伟",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910165,
+              "username": "A4020058",
+              "nickname": "杨瑞",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910164,
+              "username": "A4020013",
+              "nickname": "杜海娥",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910163,
+              "username": "A4020042",
+              "nickname": "姚慧",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910162,
+              "username": "A4020038",
+              "nickname": "刘小霞",
+              "status": 0,
+              "deptName": null
+            },
+            {
+              "id": 910161,
+              "username": "A4020065",
+              "nickname": "牛敏",
+              "status": 0,
+              "deptName": null
+            }
+          ]
+        },
+        "exactZhaohaichen": {
+          "httpStatus": 200,
+          "businessCode": 0,
+          "total": 1,
+          "rows": [
+            {
+              "id": 376,
+              "username": "zhaohaichen",
+              "nickname": "赵海辰",
+              "status": 0,
+              "deptName": "QMS"
+            }
+          ]
+        },
+        "partialZhaohaichen": {
+          "httpStatus": 200,
+          "businessCode": 0,
+          "total": 56,
+          "rows": [
+            {
+              "id": 2125,
+              "username": "zhaoyue2",
+              "nickname": "赵粤",
+              "status": 0,
+              "deptName": "珠海璞瑞"
+            },
+            {
+              "id": 2054,
+              "username": "zhaoliuyang",
+              "nickname": "赵刘洋",
+              "status": 0,
+              "deptName": "止血带车间"
+            },
+            {
+              "id": 2041,
+              "username": "zhaolang",
+              "nickname": "赵阆",
+              "status": 0,
+              "deptName": "珠海璞瑞"
+            },
+            {
+              "id": 2004,
+              "username": "zhaojing",
+              "nickname": "赵静",
+              "status": 0,
+              "deptName": "移视科技"
+            },
+            {
+              "id": 1999,
+              "username": "zhaoxiaochun",
+              "nickname": "赵小春",
+              "status": 0,
+              "deptName": "生产部"
+            },
+            {
+              "id": 1964,
+              "username": "zhaozhenhua",
+              "nickname": "赵振华",
+              "status": 0,
+              "deptName": "生产部"
+            },
+            {
+              "id": 1946,
+              "username": "zhaozhihong",
+              "nickname": "赵志红",
+              "status": 0,
+              "deptName": "唯强"
+            },
+            {
+              "id": 1921,
+              "username": "zhaoyao",
+              "nickname": "赵耀",
+              "status": 0,
+              "deptName": "研发部"
+            },
+            {
+              "id": 1904,
+              "username": "zhaolei",
+              "nickname": "赵蕾",
+              "status": 0,
+              "deptName": "北区（赵蕾）"
+            },
+            {
+              "id": 1836,
+              "username": "zhaokaili",
+              "nickname": "赵凯丽",
+              "status": 0,
+              "deptName": "行政部"
+            },
+            {
+              "id": 1815,
+              "username": "zhaoxiaoxia3",
+              "nickname": "赵晓霞",
+              "status": 0,
+              "deptName": "质量部"
+            },
+            {
+              "id": 1785,
+              "username": "zhaosiyuan",
+              "nickname": "赵思远",
+              "status": 0,
+              "deptName": "外部人员"
+            },
+            {
+              "id": 1767,
+              "username": "zhaolun",
+              "nickname": "赵伦",
+              "status": 0,
+              "deptName": "北区（赵蕾）"
+            },
+            {
+              "id": 1742,
+              "username": "zhaoxiaoqiao",
+              "nickname": "赵小乔",
+              "status": 0,
+              "deptName": "缝瓣组"
+            },
+            {
+              "id": 1689,
+              "username": "zhaoyu",
+              "nickname": "赵宇",
+              "status": 0,
+              "deptName": "移视科技"
+            },
+            {
+              "id": 1675,
+              "username": "zhaorui",
+              "nickname": "赵锐",
+              "status": 0,
+              "deptName": "移视科技"
+            },
+            {
+              "id": 1530,
+              "username": "zhaoyan",
+              "nickname": "赵燕",
+              "status": 0,
+              "deptName": "财务"
+            },
+            {
+              "id": 1450,
+              "username": "zhaoyuenan",
+              "nickname": "赵岳楠",
+              "status": 0,
+              "deptName": "项目部"
+            },
+            {
+              "id": 1404,
+              "username": "baozhaofeng",
+              "nickname": "鲍兆凤",
+              "status": 0,
+              "deptName": "财务"
+            },
+            {
+              "id": 1377,
+              "username": "zhaoqing",
+              "nickname": "赵晴",
+              "status": 0,
+              "deptName": "组装2计件"
+            }
+          ]
+        },
+        "nonexistent": {
+          "httpStatus": 200,
+          "businessCode": 0,
+          "total": 0,
+          "rows": []
+        },
+        "disabledStatus": {
+          "httpStatus": 200,
+          "businessCode": 0,
+          "total": 0,
+          "rows": []
+        },
+        "smokeplan1Enabled": {
+          "httpStatus": 200,
+          "businessCode": 0,
+          "total": 1,
+          "rows": [
+            {
+              "id": 910269,
+              "username": "smokeplan1",
+              "nickname": "???????",
+              "status": 0,
+              "deptName": null
+            }
+          ]
+        },
+        "smokeplan1AnyStatus": {
+          "httpStatus": 200,
+          "businessCode": 0,
+          "total": 1,
+          "rows": [
+            {
+              "id": 910269,
+              "username": "smokeplan1",
+              "nickname": "???????",
+              "status": 0,
+              "deptName": null
+            }
+          ]
+        }
+      }
+    },
+    "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260808-dcc-history-version-conflict-verification\\upload-page-history-conflict.png"
+  }
+}

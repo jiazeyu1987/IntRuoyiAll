@@ -12,6 +12,8 @@ public interface MesProBatchRecordJimuReportGateway {
 
     MesProBatchRecordReportInfo getReportInfo(String reportId);
 
+    void ensureFormTemplateDesignerReport(String reportId);
+
     String getReportJson(String reportId);
 
     void updateReportJson(String reportId, String jsonStr);

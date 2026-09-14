@@ -8,6 +8,7 @@ import {
   RELEASE_CHECK_COMMAND,
   RELEASE_CHECK_SCRIPT,
   RELEASE_E2E_COVERAGE_MATRIX,
+  RELEASE_COVERAGE_EXCLUDED_EDHR_SOURCE_FILES,
   RELEASE_REAL_COMMAND,
   RELEASE_REAL_SCRIPT,
   REQUIRED_FEATURE_IDS,
@@ -81,6 +82,19 @@ test('matrix contains the complete eDHR release feature set once', () => {
 
   assert.deepEqual(ids, REQUIRED_FEATURE_IDS)
   assert.equal(unique(ids).length, ids.length)
+})
+
+test('excluded non-release eDHR source files are explicit and present', () => {
+  const exclusions = RELEASE_COVERAGE_EXCLUDED_EDHR_SOURCE_FILES
+
+  assert.equal(unique(exclusions).length, exclusions.length)
+  for (const relativePath of exclusions) {
+    assert.equal(
+      fs.existsSync(path.resolve(repoRoot, relativePath)),
+      true,
+      `${relativePath} must exist while excluded from the release-core E2E gate`
+    )
+  }
 })
 
 test('matrix binds every feature to source, API, route, E2E, package, check, and task evidence', () => {

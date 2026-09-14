@@ -7,6 +7,9 @@ import lombok.Data;
 @Data
 public class DccProductCatalogRespVO {
 
+    @Schema(description = "DCC 产品目录 ID")
+    private Long id;
+
     @Schema(description = "数据来源")
     private String dataSource;
 
@@ -24,6 +27,21 @@ public class DccProductCatalogRespVO {
 
     @Schema(description = "产品编码")
     private String productCode;
+
+    @Schema(description = "项目名称")
+    private String projectName;
+
+    @Schema(description = "项目代码")
+    private String projectCode;
+
+    @Schema(description = "绑定 DCC 项目代码 ID")
+    private Long projectCodeId;
+
+    @Schema(description = "绑定注册证 ID")
+    private Long registrationCertificateId;
+
+    @Schema(description = "批记录总识别 JSON")
+    private String batchRecordTotalRecognitionJson;
 
     @Schema(description = "注册证名称")
     private String registrationCertificateName;

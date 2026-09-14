@@ -17,6 +17,17 @@ public class DccControlledFileSubmitReqVO {
 
     private String sessionId;
 
+    @NotBlank(message = "idempotencyKey is required")
+    private String idempotencyKey;
+
+    @JsonIgnore
+    @Schema(hidden = true)
+    private String submitPayloadHash;
+
+    @JsonIgnore
+    @Schema(hidden = true)
+    private String creationPayloadHash;
+
     private String originalUploadTicket;
 
     private String sourceUploadTicket;
@@ -47,6 +58,13 @@ public class DccControlledFileSubmitReqVO {
 
     private Long revisionTargetControlledFileId;
 
+    /** Explicit A/2 (or another iteration) selected as the source for a new major revision. */
+    private Long revisionSourceControlledFileId;
+
+    private String revisionSourceReason;
+
+    private List<Long> relatedControlledFileIds;
+
     private Boolean needTraining;
 
     private String processType;
@@ -65,7 +83,6 @@ public class DccControlledFileSubmitReqVO {
     @NotNull(message = "directoryId is required")
     private Long directoryId;
 
-    @NotBlank(message = "versionNo is required")
     private String versionNo;
 
     @NotNull(message = "effectiveDate is required")

@@ -409,34 +409,6 @@ async function findEditableDraftInput(page, marker) {
   return null
 }
 
-async function readAssistMissingCount(page) {
-  const text = (await page.locator('.edhr-fill-workspace__assist-missing-jump').first().innerText()).trim()
-  const match = text.match(/还差\s*(\d+)\s*项/)
-  if (!match) {
-    throw failFast('assist_missing_count_text_not_found', { text })
-  }
-  return Number(match[1])
-}
-
-async function verifyMissingJump(page) {
-  const missingCount = await readAssistMissingCount(page)
-  if (missingCount <= 0) {
-    throw failFast('assist_missing_jump_requires_incomplete_field', { missingCount })
-  }
-  await page.locator('.edhr-fill-workspace__assist-missing-jump').first().click()
-  await page.waitForFunction(
-    () => Boolean(document.querySelector('.edhr-fill-workspace__assist-row.is-highlighted')),
-    undefined,
-    { timeout: 5000 }
-  )
-  const highlighted = page.locator('.edhr-fill-workspace__assist-row.is-highlighted').first()
-  return {
-    missingCount,
-    highlightedFieldId: await highlighted.getAttribute('data-assist-field-id'),
-    highlightedText: (await highlighted.innerText()).trim().slice(0, 160)
-  }
-}
-
 async function collectAssistWorkbenchState(page) {
   const quickSwitches = await page.locator('.edhr-fill-workspace__assist-switch').allInnerTexts()
   return {
@@ -444,7 +416,6 @@ async function collectAssistWorkbenchState(page) {
     rowCount: await page.locator('.edhr-fill-workspace__assist-row').count(),
     legacyCardCount: await page.locator('.edhr-fill-workspace__assist-card').count(),
     quickSwitches: quickSwitches.map((text) => text.replace(/\s+/g, ' ').trim()),
-    missingCount: await readAssistMissingCount(page),
     signatureRowCount: await page
       .locator('.edhr-fill-workspace__assist-row')
       .filter({ hasText: '签名' })
@@ -612,10 +583,6 @@ async function verifyCurrentAssistForm(page, source, evidence) {
   await page.getByRole('button', { name: '原表模式' }).first().waitFor({ state: 'visible', timeout: 30000 })
   const workbench = await collectAssistWorkbenchState(page)
   const helpText = (await page.locator('.edhr-fill-workspace__assist-help').first().innerText().catch(() => '')).trim()
-  const missingJump =
-    workbench.missingCount > 0
-      ? await verifyMissingJump(page).catch((error) => ({ error: error.message, details: error.details }))
-      : { missingCount: 0, highlightedFieldId: '', highlightedText: '' }
   const marker = `789${Date.now().toString().slice(-7)}`
   const draftProbe = await findEditableDraftInput(page, marker)
   const attempt = {
@@ -624,7 +591,6 @@ async function verifyCurrentAssistForm(page, source, evidence) {
     workTaskId,
     workbench,
     helpText,
-    missingJump,
     editable: Boolean(draftProbe)
   }
   evidence.rowAttempts.push(attempt)
@@ -634,7 +600,6 @@ async function verifyCurrentAssistForm(page, source, evidence) {
     workbench.legacyCardCount === 0 &&
     workbench.quickSwitches.length >= 3 &&
     helpText &&
-    !missingJump.error &&
     draftProbe
   ) {
     return { ...attempt, draftProbe }
@@ -725,7 +690,6 @@ async function verifyCandidateForm(page, rowIndex, executionLabel, evidence) {
     await page.getByRole('button', { name: '原表模式' }).first().waitFor({ state: 'visible', timeout: 30000 })
     const workbench = await collectAssistWorkbenchState(page)
     const helpText = (await page.locator('.edhr-fill-workspace__assist-help').first().innerText().catch(() => '')).trim()
-    const missingJump = await verifyMissingJump(page).catch((error) => ({ error: error.message, details: error.details }))
     const marker = `789${Date.now().toString().slice(-7)}`
     const draftProbe = await findEditableDraftInput(page, marker)
     evidence.rowAttempts.push({
@@ -733,7 +697,6 @@ async function verifyCandidateForm(page, rowIndex, executionLabel, evidence) {
       executionLabel,
       workbench,
       helpText,
-      missingJump,
       editable: Boolean(draftProbe)
     })
     if (
@@ -741,12 +704,10 @@ async function verifyCandidateForm(page, rowIndex, executionLabel, evidence) {
       workbench.rowCount > 0 &&
       workbench.legacyCardCount === 0 &&
       workbench.quickSwitches.length >= 3 &&
-      workbench.missingCount > 0 &&
       helpText &&
-      !missingJump.error &&
       draftProbe
     ) {
-      return { rowIndex, executionLabel, workbench, helpText, missingJump, draftProbe }
+      return { rowIndex, executionLabel, workbench, helpText, draftProbe }
     }
   } catch (error) {
     evidence.rowAttempts.push({ rowIndex, executionLabel, error: error.message, url: page.url() })

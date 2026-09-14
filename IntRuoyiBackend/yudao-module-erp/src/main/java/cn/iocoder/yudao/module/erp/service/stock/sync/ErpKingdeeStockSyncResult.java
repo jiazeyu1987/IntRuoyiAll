@@ -6,5 +6,10 @@ import lombok.Data;
 public class ErpKingdeeStockSyncResult {
 
     private int syncedCount;
+    private int skippedCount;
+
+    public void addSkipped() {
+        skippedCount++;
+    }
 
 }

@@ -39,7 +39,7 @@ for (const fragment of [
   '/system/tenant/package',
   '/system/tenant/list',
   '基础数据',
-  '产品主数据',
+  '展厅主数据',
   '文件提交',
   '文件查阅',
   '文控权限',

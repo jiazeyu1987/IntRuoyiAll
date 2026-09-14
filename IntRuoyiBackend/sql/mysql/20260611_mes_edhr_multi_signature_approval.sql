@@ -53,7 +53,7 @@ CALL ensure_mes_edhr_multi_signature_column(
 CALL ensure_mes_edhr_multi_signature_column(
   'mes_pro_edhr_work_task',
   'review_source_type',
-  'ALTER TABLE `mes_pro_edhr_work_task` ADD COLUMN `review_source_type` varchar(16) DEFAULT NULL COMMENT ''审核来源类型：POST/ROLE'' AFTER `signature_column_index`'
+  'ALTER TABLE `mes_pro_edhr_work_task` ADD COLUMN `review_source_type` varchar(64) DEFAULT NULL COMMENT ''审核来源类型：POST/ROLE/MES_ACTIVE_ORDER_SIMULATION'' AFTER `signature_column_index`'
 );
 CALL ensure_mes_edhr_multi_signature_column(
   'mes_pro_edhr_work_task',
@@ -89,7 +89,7 @@ CALL ensure_mes_edhr_multi_signature_column(
 CALL ensure_mes_edhr_multi_signature_column(
   'mes_pro_batch_record_execution_signature',
   'review_source_type',
-  'ALTER TABLE `mes_pro_batch_record_execution_signature` ADD COLUMN `review_source_type` varchar(16) DEFAULT NULL COMMENT ''审核来源类型：POST/ROLE'' AFTER `signature_column_index`'
+  'ALTER TABLE `mes_pro_batch_record_execution_signature` ADD COLUMN `review_source_type` varchar(64) DEFAULT NULL COMMENT ''审核来源类型：POST/ROLE/MES_ACTIVE_ORDER_SIMULATION'' AFTER `signature_column_index`'
 );
 CALL ensure_mes_edhr_multi_signature_column(
   'mes_pro_batch_record_execution_signature',

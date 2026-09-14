@@ -1,0 +1,34 @@
+# Execution Log：一线生产选择陈丽提交系统异常修复
+
+- 2026-08-09 USER REPORT：`芋道源码/admin` 登录一线生产，选择陈丽，点击提交并输入陈丽签名密码后，页面提示“系统异常”。明文密码仅来自当前用户消息，不写入任务文件。
+- 2026-08-09 PRECHECK：已读取 `bug-regression-fix-loop` 及其证据契约、`playwright`、`docs/task-closeout-rules.md`、`docs/backend-development.md`、`docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/local-runtime.md`、`docs/login-access.md` 和匹配的既有选择员工签名任务证据。
+- BDD: 正式员工陈丽完成一线生产签名提交 -> Given 本机 `芋道源码/admin` 已进入一线生产并选择启用正式员工陈丽，陈丽电子签名授权有效 / When 输入陈丽本人正确签名密码并确认提交 / Then 服务端按陈丽身份验证密码、生成签名并在同一事务完成正式提交，前端返回成功且不显示“系统异常”。
+- BDD: 错误签名密码仍被拒绝 -> Given 一线生产选择陈丽 / When 输入不属于陈丽的签名密码 / Then 返回明确签名密码业务错误，且不写入报工、签名或工序池事件。
+- 2026-08-09 PRECHECK：本机前端 `8081`、后端 `48081`、MySQL 和 Redis 运行正常；陈丽对应正式人员档案、系统用户与 DCC 电子签名授权均启用，未锁定。
+- 2026-08-09 REPRODUCTION：用户真实提交已到达 `/admin-api/mes/pro/feedback/frontline/submit`；后端日志证明选择员工身份、电子签名授权和密码校验通过，随后在创建 `mes_pro_process_pool` 时因 `work_order_id` 无默认值抛出数据完整性异常，事务整体回滚。
+- 2026-08-09 ROOT CAUSE：仓库已有正式迁移 `20260808_mes_process_pool_frontline_no_work_order.sql`，但本机运行态数据库仍是旧结构：工序池、事件和数量片段的 `work_order_id` 为 `NOT NULL`，且缺少用于无工单幂等唯一性的 `work_order_context_key` 生成列。当前服务代码按已批准口径提交空工单上下文，数据库版本滞后导致系统异常。
+- RED: `& .\doc\tasks\20260809-fix-frontline-chenli-submit-system-error\verify-runtime-schema.ps1` -> FAIL，三张工序池表的 `work_order_id` 仍为 `NOT NULL`，工序池和事件表缺少 `work_order_context_key`，两个唯一索引仍使用旧 `work_order_id`。
+- 2026-08-09 TEST-CORRECTION：首次迁移后结构契约把 MySQL 生成列错误预期为 `is_nullable=NO`；正式 DDL 未声明 `NOT NULL`，已将契约修正为 MySQL 实际元数据 `YES`，并新增生成表达式必须包含 `NO_WORK_ORDER` 的断言。该修正不改变原始 RED 对缺列、旧非空约束和旧索引的覆盖。
+- 2026-08-09 E2E-SCRIPT-CORRECTION：首次只读 Playwright 复验直接打开员工选择器，因页面员工候选依赖先选择工序而未找到陈丽，目标正式提交请求数为 0；脚本已改为按真实交互顺序先选工序、再选员工。
+- 2026-08-09 E2E-SCRIPT-CORRECTION：首个可见工序的员工候选中没有陈丽，目标正式提交请求数仍为 0；脚本按页面“工序决定员工候选”的正式规则改为只读遍历可见工序，定位包含陈丽的工序后停止。
+- GREEN: 执行仓库正式迁移 `IntRuoyiBackend\sql\mysql\20260808_mes_process_pool_frontline_no_work_order.sql` -> PASS，本机 MySQL DDL 成功完成。
+- GREEN: `& .\doc\tasks\20260809-fix-frontline-chenli-submit-system-error\verify-runtime-schema.ps1` -> PASS，7 个关键列契约和 2 个唯一索引契约全部通过。
+- GREEN: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --output doc\tasks\20260809-fix-frontline-chenli-submit-system-error\migration-policy-gate.json` -> PASS，453 个迁移通过发布策略门禁，包含目标迁移。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProFrontlineFeedbackSubmitServiceTest,MesProcessPoolEventServiceTest,MesProBatchRecordExecutionSignatureServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，29 tests，0 failures，0 errors；覆盖无工单正式提交、选择员工签名和错误密码拒绝。
+- GREEN: `node tests\e2e\frontline-formal-submit-static.spec.cjs`、`frontline-formal-submit-selected-employee-static.spec.cjs`、`frontline-production-extra-restrictions-removed-static.spec.cjs` -> PASS。
+- GREEN: 任务自有只读 Playwright `verify-readonly-ui.cjs` -> PASS，真实登录 `芋道源码/admin`，打开一线生产，在“粗洗工序”选择陈丽；`targetWriteRequests=[]`、`pageErrors=[]`、控制台错误数 0。
+- BLOCKED: 成功写入型 Playwright 未执行。确认提交会在 `芋道源码/admin` 基线租户新增正式报工、签名和工序池事件，项目门禁要求用户明确授权，当前不允许自动产生该业务记录。
+- INFO: experience-consolidation -> 已按 `project-experience-consolidation` 将“源码已有正式迁移但运行库 schema 漂移导致系统异常”的通用排查与 RED/GREEN 门禁合并到 `docs/database-rules.md#运行态迁移漂移系统异常门禁`，并更新 `docs/experience-index.md`；未新建长期经验文档。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260809-fix-frontline-chenli-submit-system-error\bug-regression-evidence.md` -> PASS，缺陷回归证据契约有效。
+- 2026-08-09 AUTHORIZATION：用户明确授权执行一次 `芋道源码/admin` 基线租户正式提交，复用上次失败请求的粗洗工序、陈丽、完成数量 `123` 和页面当前设备参数。
+- 2026-08-09 E2E-PREWRITE：第一次授权脚本尝试在员工选择阶段被工序异步初始化关闭选择器，`targetWriteRequestCount=0`；只读数据库核对陈丽的工序池生产事件、报工和签名计数均仍为 `0`，因此未消费授权写入次数。脚本改为等待工序初始化后提交按钮重新可用，再打开员工选择器。
+- 2026-08-09 E2E-PREWRITE：第二次授权脚本尝试发现页面加载已自动选择粗洗工序，重复点击同一工序时候选 DOM 被初始化刷新；`targetWriteRequestCount=0` 且三类数据库计数仍为 `0`。脚本改为等待页面自动选中的粗洗工序和提交按钮就绪，不再重复选择工序。
+- 2026-08-09 E2E-PREWRITE：第三次授权脚本尝试以提交按钮可用作为初始化完成信号，但默认员工不可提交使该信号不成立；`targetWriteRequestCount=0` 且三类数据库计数仍为 `0`。脚本改为明确等待工序 `runtime-config`、默认员工 `switch-employee` 和陈丽 `switch-employee` 三个真实响应成功。
+- 2026-08-09 E2E-PREWRITE：第四次授权脚本尝试已完成陈丽切换，但脚本使用了页面不存在的提交按钮 `data-*` 属性而超时；`targetWriteRequestCount=0` 且三类数据库计数仍为 `0`。已按真实 DOM 改用 `.frontline-production-submit-button`。
+- GREEN: 授权写入型 Playwright `verify-authorized-submit.cjs` -> PASS，仅发送 1 次 `/admin-api/mes/pro/feedback/frontline/submit`；HTTP `200`、业务码 `0`、报工 ID `877`、工序池事件 ID `192`，页面 `pageErrors=[]`、控制台错误数 `0`。
+- GREEN: 数据库只读落链核对 -> PASS，工序池事件 `192`、报工 `877`、签名 `3396`、工序池 `49` 各 1 条；`actual_employee_id=signature_user_id=actor_id=1681`，签名密码验证标志为真，完成数量及数量片段均为 `123`，事件/报工/工序池 `work_order_id` 均为空。
+- GREEN: 凭据扫描 -> PASS，任务目录不包含用户提供的明文签名密码。
+- INFO: experience-consolidation -> 已将“一线生产真实 E2E 必须等待 `runtime-config`、默认员工和目标员工 `switch-employee` 正式响应，不能用固定延迟或提交按钮推断初始化完成”的通用门禁合并到既有 `docs/frontend-development.md#前端选择弹框即时反馈门禁`，并更新 `docs/experience-index.md`；未新建长期经验文档。
+- GREEN: `task-closeout-cleanup` preview -> PASS，任务状态满足清理条件；保留 `task.md`、`execution-log.md`、`verification-report.md`，识别 10 个本任务附属证据和临时测试产物待清理，无阻塞、无警告。
+- GREEN: `task-closeout-cleanup` apply -> PASS，10 个本任务附属证据和临时测试产物已清理，仅保留 3 个正式任务文档；当前不是额外 worktree，无需合并或删除 worktree，无阻塞、无警告。
+- 2026-08-09 COMPLETED：正式提交、数据库落链、回归验证、凭据扫描、经验沉淀和任务清理均已完成。

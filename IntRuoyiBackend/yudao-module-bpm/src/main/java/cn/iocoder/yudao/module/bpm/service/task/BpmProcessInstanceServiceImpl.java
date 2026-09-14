@@ -41,6 +41,8 @@ import cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionServic
 import cn.iocoder.yudao.module.bpm.service.message.BpmMessageService;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
+import cn.iocoder.yudao.module.system.api.permission.RoleApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
@@ -96,6 +98,13 @@ import static org.flowable.bpmn.constants.BpmnXMLConstants.*;
 @Slf4j
 public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService {
 
+    private static final String REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE = "UPLOAD_CERTIFICATE";
+    private static final String REGISTRATION_CERTIFICATE_UPLOAD_OPERATION = "UPLOAD_CERTIFICATE";
+    private static final String REGISTRATION_CERTIFICATE_RENEWAL_OPERATION = "RENEWAL_CERTIFICATE";
+    private static final String REGISTRATION_CERTIFICATE_CHANGE_OPERATION = "CHANGE_CERTIFICATE";
+    private static final String REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE =
+            "dcc_registration_certificate_approver";
+
     @Resource
     private RuntimeService runtimeService;
     @Resource
@@ -113,6 +122,8 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
     private AdminUserApi adminUserApi;
     @Resource
     private DeptApi deptApi;
+    @Resource
+    private RoleApi roleApi;
 
     @Resource
     private BpmProcessInstanceEventPublisher processInstanceEventPublisher;
@@ -218,7 +229,7 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
         if (BpmProcessInstanceStatusEnum.isProcessEndStatus(processInstanceStatus)) {
             return buildApprovalDetail(reqVO, bpmnModel, processDefinition, processDefinitionInfo,
                     historicProcessInstance,
-                    processInstanceStatus, endActivityNodes, runActivityNodes, null, null);
+                    processInstanceStatus, endActivityNodes, runActivityNodes, null, null, processVariables);
         }
 
         // 3.1 计算当前登录用户的待办任务
@@ -242,7 +253,8 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
 
         // 4. 拼接最终数据
         return buildApprovalDetail(reqVO, bpmnModel, processDefinition, processDefinitionInfo, historicProcessInstance,
-                processInstanceStatus, endActivityNodes, runActivityNodes, simulateActivityNodes, todoTask);
+                processInstanceStatus, endActivityNodes, runActivityNodes, simulateActivityNodes, todoTask,
+                processVariables);
     }
 
     @Override
@@ -376,10 +388,12 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
                                                         List<ActivityNode> endApprovalNodeInfos,
                                                         List<ActivityNode> runningApprovalNodeInfos,
                                                         List<ActivityNode> simulateApprovalNodeInfos,
-                                                        BpmTaskRespVO todoTask) {
+                                                        BpmTaskRespVO todoTask,
+                                                        Map<String, Object> processVariables) {
         // 1. 获取所有需要读取用户信息的 userIds
         List<ActivityNode> approveNodes = newArrayList(
                 asList(endApprovalNodeInfos, runningApprovalNodeInfos, simulateApprovalNodeInfos));
+        applyRegistrationCertificateApprovalRole(approveNodes, processVariables);
         Set<Long> userIds = BpmProcessInstanceConvert.INSTANCE.parseUserIds(processInstance, approveNodes, todoTask);
         Map<Long, AdminUserRespDTO> userMap = adminUserApi.getUserMap(userIds);
         Map<Long, DeptRespDTO> deptMap = deptApi.getDeptMap(convertSet(userMap.values(), AdminUserRespDTO::getDeptId));
@@ -392,6 +406,72 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
         return BpmProcessInstanceConvert.INSTANCE.buildApprovalDetail(bpmnModel, processDefinition,
                 processDefinitionInfo, processInstance,
                 processInstanceStatus, approveNodes, todoTask, formFieldsPermission, userMap, deptMap);
+    }
+
+    private void applyRegistrationCertificateApprovalRole(List<ActivityNode> approveNodes,
+                                                          Map<String, Object> processVariables) {
+        RoleRespDTO role = resolveRegistrationCertificateAssigneeRole(processVariables);
+        if (role == null || CollUtil.isEmpty(approveNodes)) {
+            return;
+        }
+        approveNodes.stream()
+                .filter(Objects::nonNull)
+                .filter(node -> BpmSimpleModelNodeTypeEnum.APPROVE_NODE.getType().equals(node.getNodeType()))
+                .forEach(node -> {
+                    node.setAssigneeRoleCode(role.getCode());
+                    node.setAssigneeRoleName(role.getName());
+                    if (CollUtil.isNotEmpty(node.getTasks())) {
+                        node.getTasks().forEach(task -> task.setAssigneeRoleCode(role.getCode())
+                                .setAssigneeRoleName(role.getName()));
+                    }
+                });
+    }
+
+    private RoleRespDTO resolveRegistrationCertificateAssigneeRole(Map<String, Object> variables) {
+        if (!isRegistrationCertificateUploadOrRenewalApproval(variables)) {
+            return null;
+        }
+        RoleRespDTO role = Objects.requireNonNull(roleApi.getRoleByCode(REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE),
+                "BPM_APPROVAL_DETAIL_ASSIGNEE_ROLE_REQUIRED: " + REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE);
+        if (!REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE.equals(role.getCode()) || StrUtil.isBlank(role.getName())) {
+            throw new IllegalStateException("BPM_APPROVAL_DETAIL_ASSIGNEE_ROLE_INVALID: "
+                    + REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE);
+        }
+        return role;
+    }
+
+    private static boolean isRegistrationCertificateUploadOrRenewalApproval(Map<String, Object> variables) {
+        if (variables == null
+                || !REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE.equals(firstText(variables.get("requestType")))) {
+            return false;
+        }
+        String operation = firstText(variables.get("requestOperation"));
+        if (StrUtil.isBlank(operation)) {
+            return true;
+        }
+        if (REGISTRATION_CERTIFICATE_UPLOAD_OPERATION.equals(operation)
+                || REGISTRATION_CERTIFICATE_RENEWAL_OPERATION.equals(operation)
+                || REGISTRATION_CERTIFICATE_CHANGE_OPERATION.equals(operation)) {
+            return true;
+        }
+        throw new IllegalArgumentException(
+                "BPM_APPROVAL_DETAIL_VARIABLE_INVALID: registration certificate requestOperation");
+    }
+
+    private static String firstText(Object... values) {
+        if (values == null) {
+            return null;
+        }
+        for (Object value : values) {
+            if (value == null) {
+                continue;
+            }
+            String text = String.valueOf(value).trim();
+            if (StrUtil.isNotBlank(text)) {
+                return text;
+            }
+        }
+        return null;
     }
 
     /**
@@ -737,6 +817,10 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
                     .ifPresent(reject -> rejectTaskActivityIds.add(reject.getTaskDefinitionKey()));
             finishedTaskActivityIds.removeAll(rejectTaskActivityIds);
         }
+        retainExistingBpmnElementIds(bpmnModel, unfinishedTaskActivityIds);
+        retainExistingBpmnElementIds(bpmnModel, finishedTaskActivityIds);
+        retainExistingBpmnElementIds(bpmnModel, finishedSequenceFlowActivityIds);
+        retainExistingBpmnElementIds(bpmnModel, rejectTaskActivityIds);
 
         // 2.2 拼接基础信息
         Set<Long> userIds = BpmProcessInstanceConvert.INSTANCE.parseUserIds02(processInstance, tasks);
@@ -749,6 +833,14 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
                 userMap, deptMap);
     }
 
+    private static void retainExistingBpmnElementIds(BpmnModel bpmnModel, Set<String> activityIds) {
+        if (CollUtil.isEmpty(activityIds)) {
+            return;
+        }
+        activityIds.removeIf(activityId -> StrUtil.isBlank(activityId)
+                || BpmnModelUtils.getFlowElementById(bpmnModel, activityId) == null);
+    }
+
     // ========== Update 写入相关方法 ==========
 
     @Override
@@ -759,7 +851,7 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
         ProcessDefinition definition = processDefinitionService
                 .getProcessDefinition(createReqVO.getProcessDefinitionId());
         // 发起流程
-        return createProcessInstance0(userId, definition, createReqVO.getVariables(), null,
+        return createProcessInstance0(userId, definition, createReqVO.getVariables(), null, null,
                 createReqVO.getStartUserSelectAssignees());
     }
 
@@ -771,14 +863,14 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
             ProcessDefinition definition = processDefinitionService
                     .getActiveProcessDefinition(createReqDTO.getProcessDefinitionKey());
             // 发起流程
-            return createProcessInstance0(userId, definition, createReqDTO.getVariables(),
+            return createProcessInstance0(userId, definition, createReqDTO.getVariables(), createReqDTO.getName(),
                     createReqDTO.getBusinessKey(),
                     createReqDTO.getStartUserSelectAssignees());
         });
     }
 
     private String createProcessInstance0(Long userId, ProcessDefinition definition,
-                                          Map<String, Object> variables, String businessKey,
+                                          Map<String, Object> variables, String name, String businessKey,
                                           Map<String, List<Long>> startUserSelectAssignees) {
         // 1.1 校验流程定义
         if (definition == null) {
@@ -804,6 +896,11 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
             variables = new HashMap<>();
         }
         FlowableUtils.filterProcessInstanceFormVariable(variables); // 过滤一下，避免 ProcessInstance 系统级的变量被占用
+        variables.remove(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_EXPLICIT_NAME);
+        boolean explicitProcessInstanceName = StrUtil.isNotBlank(name);
+        if (explicitProcessInstanceName) {
+            variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_EXPLICIT_NAME, true);
+        }
         variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_ID, userId); // 设置流程变量，发起人 ID
         variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_STATUS, // 流程实例状态：审批中
                 BpmProcessInstanceStatusEnum.RUNNING.getStatus());
@@ -825,7 +922,8 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
             processInstanceBuilder.predefineProcessInstanceId(processIdRedisDAO.generate(processIdRule));
         }
         // 3.2 流程名称
-        processInstanceBuilder.name(generateProcessInstanceName(userId, definition, processDefinitionInfo, variables));
+        processInstanceBuilder.name(explicitProcessInstanceName ? name.trim()
+                : generateProcessInstanceName(userId, definition, processDefinitionInfo, variables));
         // 3.3 发起流程实例
         ProcessInstance instance = processInstanceBuilder.start();
         return instance.getId();
@@ -878,6 +976,15 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
         cloneVariables.put(BpmnVariableConstants.PROCESS_START_TIME, DateUtil.now());
         cloneVariables.put(BpmnVariableConstants.PROCESS_DEFINITION_NAME, definition.getName().trim());
         return StrUtil.format(definitionInfo.getTitleSetting().getTitle(), cloneVariables);
+    }
+
+    private boolean isExplicitProcessInstanceName(ProcessInstance instance) {
+        Map<String, Object> processVariables = instance.getProcessVariables();
+        if (CollUtil.isEmpty(processVariables)) {
+            return false;
+        }
+        return BooleanUtil.isTrue(Convert.toBool(
+                processVariables.get(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_EXPLICIT_NAME)));
     }
 
     @Override
@@ -1063,10 +1170,12 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
 
             @Override
             public void afterCommit() {
-                String name = generateProcessInstanceName(Long.valueOf(instance.getStartUserId()),
-                        processDefinition, processDefinitionInfo, instance.getProcessVariables());
-                if (ObjUtil.notEqual(instance.getName(), name)) {
-                    runtimeService.setProcessInstanceName(instance.getProcessInstanceId(), name);
+                if (!isExplicitProcessInstanceName(instance)) {
+                    String name = generateProcessInstanceName(Long.valueOf(instance.getStartUserId()),
+                            processDefinition, processDefinitionInfo, instance.getProcessVariables());
+                    if (ObjUtil.notEqual(instance.getName(), name)) {
+                        runtimeService.setProcessInstanceName(instance.getProcessInstanceId(), name);
+                    }
                 }
 
                 // 流程前置通知：需要在流程启动后(事务提交后)，保证 variables 已设置

@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FileNasListRe
 import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FileNasConfigTestRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FileNasDirectoryTreeRespVO;
 
+import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
@@ -21,6 +22,10 @@ public interface NasBrowserService {
         FileNasListRespVO listFiles(String path);
 
         NasFileReadResult readFile(String path);
+
+        default void writeFile(String path, InputStream inputStream) {
+            throw new UnsupportedOperationException("NAS session write is not implemented");
+        }
 
         void writeFileTo(String path, OutputStream outputStream);
 
@@ -85,6 +90,27 @@ public interface NasBrowserService {
      * @return 文件内容与类型
      */
     NasFileReadResult readFile(NasConnectionConfig config, String path);
+
+    /**
+     * 写入文件到默认 NAS 配置。
+     *
+     * @param path 相对共享根目录的文件路径
+     * @param inputStream 待写入内容
+     */
+    default void writeFile(String path, InputStream inputStream) {
+        throw new UnsupportedOperationException("NAS write is not implemented");
+    }
+
+    /**
+     * 使用指定 NAS 配置写入文件。
+     *
+     * @param config NAS 连接配置
+     * @param path 相对共享根目录的文件路径
+     * @param inputStream 待写入内容
+     */
+    default void writeFile(NasConnectionConfig config, String path, InputStream inputStream) {
+        throw new UnsupportedOperationException("NAS write is not implemented");
+    }
 
     /**
      * 直接将 NAS 文件写入目标输出流。

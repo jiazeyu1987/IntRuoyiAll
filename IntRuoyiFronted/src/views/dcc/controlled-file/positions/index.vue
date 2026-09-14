@@ -111,7 +111,7 @@
               </span>
             </div>
             <div class="position-summary__meta">
-              创建：{{ row.createTime ? formatDate(row.createTime) : '-' }}
+              创建：{{ formatDateTimeValue(row.createTime, '-') }}
             </div>
           </div>
         </template>
@@ -258,7 +258,7 @@
 <script lang="ts" setup>
 import { isSearchFormInputEmpty } from '@/utils/search'
 import download from '@/utils/download'
-import { formatDate } from '@/utils/formatTime'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   createApprovalPosition,
   exportApprovalPositionConfigPackage,

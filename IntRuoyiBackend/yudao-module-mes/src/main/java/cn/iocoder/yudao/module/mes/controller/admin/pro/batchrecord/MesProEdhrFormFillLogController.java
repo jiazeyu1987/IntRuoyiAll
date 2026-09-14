@@ -2,10 +2,16 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrFormFillLogDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrFormFillLogPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrFormFillLogPageRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProProductionReportRevisionLogDetailRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProProductionReportRevisionLogPageReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProProductionReportRevisionLogPageRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrFormFillLogService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolProductionReportRevisionLogBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolProductionReportRevisionLogService;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,6 +30,8 @@ public class MesProEdhrFormFillLogController {
 
     @Resource
     private MesProEdhrFormFillLogService formFillLogService;
+    @Resource
+    private MesProcessPoolProductionReportRevisionLogService productionReportRevisionLogService;
 
     @GetMapping("/page")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-form-fill-log:query')")
@@ -37,5 +45,26 @@ public class MesProEdhrFormFillLogController {
     public CommonResult<MesProEdhrFormFillLogDetailRespVO> getDetail(
             @RequestParam("auditBatchId") Long auditBatchId) {
         return success(formFillLogService.getDetail(auditBatchId));
+    }
+
+    @GetMapping("/production-report-revision/page")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-form-fill-log:query')")
+    public CommonResult<PageResult<MesProProductionReportRevisionLogPageRespVO>>
+    getProductionReportRevisionPage(@Valid MesProProductionReportRevisionLogPageReqVO reqVO) {
+        PageResult<MesProcessPoolProductionReportRevisionLogBO> page =
+                productionReportRevisionLogService.getProductionReportRevisionPage(
+                        reqVO, SecurityFrameworkUtils.getLoginUserId());
+        return success(new PageResult<>(page.getList().stream()
+                .map(MesProProductionReportRevisionLogPageRespVO::from)
+                .toList(), page.getTotal()));
+    }
+
+    @GetMapping("/production-report-revision/detail")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-form-fill-log:query')")
+    public CommonResult<MesProProductionReportRevisionLogDetailRespVO>
+    getProductionReportRevisionDetail(@RequestParam("revisionId") Long revisionId) {
+        return success(MesProProductionReportRevisionLogDetailRespVO.from(
+                productionReportRevisionLogService.getProductionReportRevisionDetail(
+                        revisionId, SecurityFrameworkUtils.getLoginUserId())));
     }
 }

@@ -4,6 +4,8 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenExpectedContext;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
 import lombok.Data;
 import org.springframework.stereotype.Service;
 
@@ -29,43 +31,61 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 public class DccOnlyOfficePreviewTokenService {
 
     public static final String RESOURCE_CONTROLLED_FILE = "CONTROLLED_FILE";
-    public static final String RESOURCE_UPLOAD_PREVIEW = "UPLOAD_PREVIEW";
     public static final String PURPOSE_CONTROLLED_PREVIEW = "CONTROLLED_PREVIEW";
+    public static final String AUDIENCE_ONLINE_FILE_PREVIEW = "ONLINE_FILE_PREVIEW_CALLBACK";
+    public static final String AUDIENCE_CONTROLLED_FILE_PREVIEW = "CONTROLLED_FILE_PREVIEW_CALLBACK";
+    public static final String AUDIENCE_UPLOAD_PREVIEW = "UPLOAD_PREVIEW_CALLBACK";
+    public static final String SERVICE_DCC_PDF_CONVERSION = "DCC_ONLYOFFICE_PDF_CONVERSION";
 
     @Resource
     private DccOnlyOfficePreviewProperties properties;
 
-    public String issue(String resourceType, Long resourceId) {
+    public IssuedPreviewToken issueBusinessFile(String audience, BusinessFileAccessOperation operation,
+                                                Long infraFileId, Long tenantId, Long userId,
+                                                String serviceIdentity, BusinessFileAccessReference reference,
+                                                Long ttlSeconds) {
         requireConfigured();
-        long expiresAt = Instant.now().plusSeconds(Math.max(properties.getTokenExpireSeconds(), 60)).getEpochSecond();
-        Map<String, Object> payloadMap = new LinkedHashMap<>();
-        payloadMap.put("resourceType", resourceType);
-        payloadMap.put("resourceId", resourceId);
-        payloadMap.put("tenantId", TenantContextHolder.getTenantId());
-        payloadMap.put("expiresAt", expiresAt);
-        String payload = Base64.getUrlEncoder().withoutPadding()
-                .encodeToString(JsonUtils.toJsonString(payloadMap).getBytes(StandardCharsets.UTF_8));
-        return payload + "." + sign(payload);
+        requireBusinessContext(audience, operation, infraFileId, tenantId, userId, serviceIdentity,
+                reference, ttlSeconds);
+        Instant issuedAt = Instant.now();
+        PreviewTokenPayload payload = new PreviewTokenPayload();
+        payload.setResourceType("BUSINESS_FILE");
+        payload.setAudience(StrUtil.trim(audience));
+        payload.setTokenId(newTokenComponent("OT"));
+        payload.setNonce(newTokenComponent("ON"));
+        payload.setOperation(operation.name());
+        payload.setInfraFileId(infraFileId);
+        payload.setTenantId(tenantId);
+        payload.setUserId(userId);
+        payload.setServiceIdentity(StrUtil.trimToNull(serviceIdentity));
+        applyReference(payload, reference);
+        payload.setTtlSeconds(ttlSeconds);
+        payload.setIssuedAtEpochSecond(issuedAt.getEpochSecond());
+        payload.setExpiresAtEpochSecond(issuedAt.plusSeconds(ttlSeconds).getEpochSecond());
+        String encodedPayload = encodePayload(payload);
+        return new IssuedPreviewToken(encodedPayload + "." + sign(encodedPayload), payload);
     }
 
-    public PreviewTokenPayload verify(String token, String expectedResourceType, Long expectedResourceId) {
-        requireConfigured();
-        if (StrUtil.isBlank(token) || !token.contains(".")) {
-            throw new IllegalStateException("OnlyOffice preview token is invalid");
+    public PreviewTokenPayload verifyBusinessFile(String token, String expectedAudience,
+                                                  BusinessFileAccessOperation expectedOperation,
+                                                  Long expectedInfraFileId) {
+        PreviewTokenPayload payload = verifyBusinessFileToken(token, expectedAudience, expectedInfraFileId);
+        if (expectedOperation == null || !expectedOperation.name().equals(payload.getOperation())) {
+            throw exception(CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH);
         }
-        String[] parts = token.split("\\.", 2);
-        if (!Objects.equals(sign(parts[0]), parts[1])) {
-            throw new IllegalStateException("OnlyOffice preview token signature is invalid");
+        return payload;
+    }
+
+    public PreviewTokenPayload verifyBusinessFileToken(String token, String expectedAudience,
+                                                       Long expectedInfraFileId) {
+        PreviewTokenPayload payload = verifySignedPayload(token);
+        requireBusinessPayload(payload);
+        if (!Instant.now().isBefore(Instant.ofEpochSecond(payload.getExpiresAtEpochSecond()))) {
+            throw exception(CONTROLLED_FILE_VIEWER_TOKEN_EXPIRED);
         }
-        String json = new String(Base64.getUrlDecoder().decode(parts[0]), StandardCharsets.UTF_8);
-        PreviewTokenPayload payload = JsonUtils.parseObject(json, PreviewTokenPayload.class);
-        if (payload == null
-                || !Objects.equals(payload.getResourceType(), expectedResourceType)
-                || !Objects.equals(payload.getResourceId(), expectedResourceId)) {
-            throw new IllegalStateException("OnlyOffice preview token payload is invalid");
-        }
-        if (payload.getExpiresAt() == null || payload.getExpiresAt() < Instant.now().getEpochSecond()) {
-            throw new IllegalStateException("OnlyOffice preview token expired");
+        if (!Objects.equals(StrUtil.trim(payload.getAudience()), StrUtil.trim(expectedAudience))
+                || !Objects.equals(payload.getInfraFileId(), expectedInfraFileId)) {
+            throw exception(CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH);
         }
         requireMatchingTenantContext(payload);
         return payload;
@@ -73,23 +93,36 @@ public class DccOnlyOfficePreviewTokenService {
 
     private void requireMatchingTenantContext(PreviewTokenPayload payload) {
         Long currentTenantId = TenantContextHolder.getTenantId();
-        if (currentTenantId != null && !Objects.equals(payload.getTenantId(), currentTenantId)) {
+        if (!TenantContextHolder.isIgnore() && currentTenantId != null
+                && !Objects.equals(payload.getTenantId(), currentTenantId)) {
             throw new IllegalStateException("OnlyOffice preview token tenant context is invalid");
         }
     }
 
     public IssuedPreviewToken issueControlledFile(Long tenantId, Long userId, Long fileId, String versionId,
-                                                  Long accessEventId, String purpose, Long ttlSeconds) {
+                                                  Long accessEventId, String purpose, Long ttlSeconds,
+                                                  Long infraFileId, BusinessFileAccessReference reference) {
         requireConfigured();
         requireControlledContext(tenantId, userId, fileId, versionId, accessEventId, purpose, ttlSeconds);
+        requireBusinessContext(AUDIENCE_CONTROLLED_FILE_PREVIEW,
+                BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, infraFileId, tenantId, userId,
+                null, reference, ttlSeconds);
+        if (reference == null || !Objects.equals(reference.businessId(), fileId)
+                || !Objects.equals(StrUtil.trim(reference.versionKey()), StrUtil.trim(versionId))) {
+            throw new IllegalArgumentException("controlled file token formal reference mismatch");
+        }
         Instant issuedAt = Instant.now();
         PreviewTokenPayload payload = new PreviewTokenPayload();
         payload.setResourceType(RESOURCE_CONTROLLED_FILE);
+        payload.setAudience(AUDIENCE_CONTROLLED_FILE_PREVIEW);
         payload.setTokenId(newTokenComponent("OT"));
         payload.setNonce(newTokenComponent("ON"));
         payload.setTenantId(tenantId);
         payload.setUserId(userId);
         payload.setFileId(fileId);
+        payload.setInfraFileId(infraFileId);
+        payload.setOperation(BusinessFileAccessOperation.ONLYOFFICE_PREVIEW.name());
+        applyReference(payload, reference);
         payload.setVersionId(StrUtil.trim(versionId));
         payload.setAccessEventId(accessEventId);
         payload.setPurpose(StrUtil.trim(purpose));
@@ -108,7 +141,9 @@ public class DccOnlyOfficePreviewTokenService {
         }
         if (!RESOURCE_CONTROLLED_FILE.equals(payload.getResourceType())
                 || !Objects.equals(payload.getFileId(), expectedFileId)
-                || !PURPOSE_CONTROLLED_PREVIEW.equals(payload.getPurpose())) {
+                || !PURPOSE_CONTROLLED_PREVIEW.equals(payload.getPurpose())
+                || !AUDIENCE_CONTROLLED_FILE_PREVIEW.equals(payload.getAudience())
+                || !BusinessFileAccessOperation.ONLYOFFICE_PREVIEW.name().equals(payload.getOperation())) {
             throw exception(CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH);
         }
         return payload;
@@ -199,6 +234,7 @@ public class DccOnlyOfficePreviewTokenService {
     }
 
     private void requireControlledPayload(PreviewTokenPayload payload) {
+        requireBusinessPayload(payload);
         if (payload == null
                 || StrUtil.isBlank(payload.getResourceType())
                 || StrUtil.isBlank(payload.getTokenId())
@@ -216,6 +252,73 @@ public class DccOnlyOfficePreviewTokenService {
                 || payload.getExpiresAtEpochSecond() <= payload.getIssuedAtEpochSecond()) {
             throw exception(CONTROLLED_FILE_VIEWER_TOKEN_INVALID);
         }
+    }
+
+    private void requireBusinessContext(String audience, BusinessFileAccessOperation operation,
+                                        Long infraFileId, Long tenantId, Long userId,
+                                        String serviceIdentity, BusinessFileAccessReference reference,
+                                        Long ttlSeconds) {
+        requireNotBlank(audience, "audience");
+        if (operation == null) {
+            throw new IllegalArgumentException("operation is required");
+        }
+        requirePositive(infraFileId, "infraFileId");
+        requirePositive(tenantId, "tenantId");
+        requirePositive(ttlSeconds, "ttlSeconds");
+        boolean hasUser = userId != null;
+        boolean hasService = StrUtil.isNotBlank(serviceIdentity);
+        if (hasUser == hasService) {
+            throw new IllegalArgumentException("exactly one token subject is required");
+        }
+        if (hasUser) {
+            requirePositive(userId, "userId");
+        }
+        requireReference(reference, tenantId);
+    }
+
+    private void requireBusinessPayload(PreviewTokenPayload payload) {
+        if (payload == null || StrUtil.isBlank(payload.getAudience())
+                || StrUtil.isBlank(payload.getTokenId()) || StrUtil.isBlank(payload.getNonce())
+                || payload.getTenantId() == null || payload.getInfraFileId() == null
+                || StrUtil.isBlank(payload.getOperation()) || payload.getTtlSeconds() == null
+                || payload.getTtlSeconds() <= 0 || payload.getIssuedAtEpochSecond() == null
+                || payload.getExpiresAtEpochSecond() == null
+                || payload.getExpiresAtEpochSecond() <= payload.getIssuedAtEpochSecond()) {
+            throw exception(CONTROLLED_FILE_VIEWER_TOKEN_INVALID);
+        }
+        try {
+            BusinessFileAccessOperation.valueOf(payload.getOperation());
+        } catch (IllegalArgumentException ex) {
+            throw exception(CONTROLLED_FILE_VIEWER_TOKEN_INVALID);
+        }
+        boolean hasUser = payload.getUserId() != null;
+        boolean hasService = StrUtil.isNotBlank(payload.getServiceIdentity());
+        if (hasUser == hasService) {
+            throw exception(CONTROLLED_FILE_VIEWER_TOKEN_INVALID);
+        }
+        requireReference(payload.toBusinessFileReference(), payload.getTenantId());
+    }
+
+    private void requireReference(BusinessFileAccessReference reference, Long tenantId) {
+        if (reference == null) {
+            return;
+        }
+        if (StrUtil.isBlank(reference.providerId()) || StrUtil.isBlank(reference.businessType())
+                || reference.businessId() == null || StrUtil.isBlank(reference.versionKey())
+                || reference.tenantId() == null || !Objects.equals(reference.tenantId(), tenantId)) {
+            throw new IllegalArgumentException("complete tenant-matched business file reference is required");
+        }
+    }
+
+    private void applyReference(PreviewTokenPayload payload, BusinessFileAccessReference reference) {
+        if (reference == null) {
+            return;
+        }
+        payload.setProviderId(reference.providerId());
+        payload.setBusinessType(reference.businessType());
+        payload.setBusinessId(reference.businessId());
+        payload.setVersionKey(reference.versionKey());
+        payload.setCompanyId(reference.companyId());
     }
 
     private void requirePositive(Long value, String fieldName) {
@@ -240,12 +343,19 @@ public class DccOnlyOfficePreviewTokenService {
     @Data
     public static class PreviewTokenPayload {
         private String resourceType;
-        private Long resourceId;
-        private Long expiresAt;
+        private String audience;
         private String tokenId;
         private String nonce;
         private Long tenantId;
         private Long userId;
+        private String serviceIdentity;
+        private String operation;
+        private Long infraFileId;
+        private String providerId;
+        private String businessType;
+        private Long businessId;
+        private String versionKey;
+        private Long companyId;
         private Long fileId;
         private String versionId;
         private Long accessEventId;
@@ -253,5 +363,17 @@ public class DccOnlyOfficePreviewTokenService {
         private Long ttlSeconds;
         private Long issuedAtEpochSecond;
         private Long expiresAtEpochSecond;
+
+        public BusinessFileAccessReference toBusinessFileReference() {
+            if (StrUtil.isBlank(providerId)) {
+                if (StrUtil.isBlank(businessType) && businessId == null && StrUtil.isBlank(versionKey)
+                        && companyId == null) {
+                    return null;
+                }
+                throw exception(CONTROLLED_FILE_VIEWER_TOKEN_INVALID);
+            }
+            return new BusinessFileAccessReference(providerId, businessType, businessId, versionKey,
+                    tenantId, companyId);
+        }
     }
 }

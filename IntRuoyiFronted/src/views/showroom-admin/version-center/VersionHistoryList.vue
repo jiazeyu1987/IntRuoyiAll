@@ -41,7 +41,7 @@
         </div>
       </div>
       <p class="showroom-version-history-list__meta">
-        {{ item.publishedAt || '发布时间未记录' }}
+        {{ formatDateTimeValue(item.publishedAt, '发布时间未记录') }}
       </p>
       <ul class="showroom-version-history-list__summary">
         <li v-for="summary in item.diffSummary" :key="summary">{{ summary }}</li>
@@ -64,6 +64,7 @@
 
 <script setup lang="ts">
 import { formatVersionCenterBlocker, type VersionCenterHistoryItem } from './contracts'
+import { formatDateTimeValue } from '@/utils/formatTime'
 
 defineOptions({ name: 'VersionHistoryList' })
 

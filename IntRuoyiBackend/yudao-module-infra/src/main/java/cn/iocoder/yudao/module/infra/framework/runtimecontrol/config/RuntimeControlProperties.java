@@ -89,7 +89,7 @@ public class RuntimeControlProperties implements InitializingBean {
     }
 
     private static Environment backupEnvironment() {
-        Environment env = remoteEnvironment("Backup", BACKUP_SERVER_HOST);
+        Environment env = remoteEnvironment("审查服", BACKUP_SERVER_HOST);
         env.setRemoteReleaseRoot("/mnt/intruoyi-data/intruoyi-releases");
         env.setRemoteDataRoot("/mnt/intruoyi-data/runtime-data");
         env.setRemoteDataDiskMount("/mnt/intruoyi-data");

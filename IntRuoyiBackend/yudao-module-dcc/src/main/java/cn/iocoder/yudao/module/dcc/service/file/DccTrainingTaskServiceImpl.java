@@ -98,7 +98,8 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
     @Override
     public PageResult<DccTrainingTaskRespVO> getMyTrainingTaskPage(Long userId, DccTrainingTaskPageReqVO reqVO) {
         List<DccTrainingTaskRespVO> rows = trainingProgressMapper.selectListByUserId(userId).stream()
-                .map(this::buildTaskRow)
+                .map(this::buildTaskRowOrNull)
+                .filter(java.util.Objects::nonNull)
                 .filter(row -> matchesTaskFilter(row, reqVO))
                 .sorted(Comparator.comparing(
                                 DccTrainingTaskRespVO::getPublishedTime,
@@ -148,10 +149,10 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DccTrainingTaskRespVO startViewSession(Long userId, Long progressId, DccTrainingViewSessionStartReqVO reqVO) {
-        DccControlledFileTrainingProgressDO progress = loadOwnedProgress(userId, progressId);
+        DccControlledFileTrainingProgressDO progress = loadOwnedProgressForUpdate(userId, progressId);
         loadTrainingVisibleFile(progress.getControlledFileId());
         LocalDateTime now = LocalDateTime.now();
-        closeOtherActiveSessions(progressId, userId, reqVO.getClientSessionId(), now);
+        closeOtherActiveSessions(progress, userId, reqVO.getClientSessionId(), now, true);
         DccControlledFileTrainingViewSessionDO existing =
                 trainingViewSessionMapper.selectActiveByProgressIdAndClientSessionId(progressId, reqVO.getClientSessionId());
         if (existing == null) {
@@ -165,14 +166,14 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
                     .build());
         }
         updateProgressMetadata(progress, now, false, 0);
-        return buildTaskRow(progressId, userId);
+        return buildTaskRow(progress);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DccTrainingTaskRespVO heartbeatViewSession(Long userId, Long progressId,
                                                       DccTrainingViewSessionHeartbeatReqVO reqVO) {
-        DccControlledFileTrainingProgressDO progress = loadOwnedProgress(userId, progressId);
+        DccControlledFileTrainingProgressDO progress = loadOwnedProgressForUpdate(userId, progressId);
         loadTrainingVisibleFile(progress.getControlledFileId());
         DccControlledFileTrainingViewSessionDO session =
                 trainingViewSessionMapper.selectActiveByProgressIdAndClientSessionId(progressId, reqVO.getClientSessionId());
@@ -180,6 +181,7 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
             throw exception(CONTROLLED_FILE_TRAINING_ACK_NOT_ALLOWED);
         }
         LocalDateTime now = LocalDateTime.now();
+        closeOtherActiveSessions(progress, userId, reqVO.getClientSessionId(), now, false);
         int increment = resolveIncrementSeconds(session.getLastHeartbeatAt(), now);
         trainingViewSessionMapper.updateById(DccControlledFileTrainingViewSessionDO.builder()
                 .id(session.getId())
@@ -187,13 +189,13 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
                 .accumulatedSeconds(safeSeconds(session.getAccumulatedSeconds()) + increment)
                 .build());
         updateProgressMetadata(progress, now, false, increment);
-        return buildTaskRow(progressId, userId);
+        return buildTaskRow(progress);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DccTrainingTaskRespVO stopViewSession(Long userId, Long progressId, DccTrainingViewSessionStopReqVO reqVO) {
-        DccControlledFileTrainingProgressDO progress = loadOwnedProgress(userId, progressId);
+        DccControlledFileTrainingProgressDO progress = loadOwnedProgressForUpdate(userId, progressId);
         loadTrainingVisibleFile(progress.getControlledFileId());
         DccControlledFileTrainingViewSessionDO session =
                 trainingViewSessionMapper.selectActiveByProgressIdAndClientSessionId(progressId, reqVO.getClientSessionId());
@@ -207,14 +209,15 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
                     .accumulatedSeconds(safeSeconds(session.getAccumulatedSeconds()) + increment)
                     .build());
             updateProgressMetadata(progress, now, false, increment);
+            closeOtherActiveSessions(progress, userId, reqVO.getClientSessionId(), now, false);
         }
-        return buildTaskRow(progressId, userId);
+        return buildTaskRow(progress);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void acknowledgeTraining(Long userId, Long progressId) {
-        DccControlledFileTrainingProgressDO progress = loadOwnedProgress(userId, progressId);
+        DccControlledFileTrainingProgressDO progress = loadOwnedProgressForUpdate(userId, progressId);
         if (Boolean.TRUE.equals(progress.getAcknowledgedAt() != null)) {
             return;
         }
@@ -241,6 +244,16 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
 
     private DccTrainingTaskRespVO buildTaskRow(Long progressId, Long userId) {
         return buildTaskRow(loadOwnedProgress(userId, progressId));
+    }
+
+    private DccTrainingTaskRespVO buildTaskRowOrNull(DccControlledFileTrainingProgressDO progress) {
+        DccControlledFileDO file = controlledFileMapper.selectById(progress.getControlledFileId());
+        if (file == null) {
+            return null;
+        }
+        DccTrainingTaskRespVO respVO = new DccTrainingTaskRespVO();
+        fillCommonTaskFields(respVO, progress, file);
+        return respVO;
     }
 
     private DccTrainingTaskRespVO buildTaskRow(DccControlledFileTrainingProgressDO progress) {
@@ -353,6 +366,14 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
         return progress;
     }
 
+    private DccControlledFileTrainingProgressDO loadOwnedProgressForUpdate(Long userId, Long progressId) {
+        DccControlledFileTrainingProgressDO progress = trainingProgressMapper.selectByIdForUpdate(progressId);
+        if (progress == null || !userId.equals(progress.getUserId())) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+        return progress;
+    }
+
     private DccControlledFileDO loadTrainingVisibleFile(Long controlledFileId) {
         DccControlledFileDO file = controlledFileMapper.selectById(controlledFileId);
         if (file == null) {
@@ -372,9 +393,11 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
         return publishedFile;
     }
 
-    private void closeOtherActiveSessions(Long progressId, Long userId, String currentClientSessionId, LocalDateTime now) {
+    private void closeOtherActiveSessions(DccControlledFileTrainingProgressDO progress, Long userId, String currentClientSessionId,
+                                          LocalDateTime now, boolean countTailSeconds) {
+        boolean countedTail = false;
         for (DccControlledFileTrainingViewSessionDO activeSession :
-                trainingViewSessionMapper.selectActiveListByProgressId(progressId)) {
+                trainingViewSessionMapper.selectActiveListByProgressId(progress.getId())) {
             if (!userId.equals(activeSession.getUserId()) || StrUtil.equals(activeSession.getClientSessionId(), currentClientSessionId)) {
                 continue;
             }
@@ -385,10 +408,14 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
                     .endedAt(now)
                     .accumulatedSeconds(safeSeconds(activeSession.getAccumulatedSeconds()) + increment)
                     .build());
-            DccControlledFileTrainingProgressDO progress = trainingProgressMapper.selectById(progressId);
-            if (progress != null) {
-                updateProgressMetadata(progress, now, false, increment);
+            if (!countTailSeconds) {
+                continue;
             }
+            if (countedTail || increment <= 0) {
+                continue;
+            }
+            updateProgressMetadata(progress, now, false, increment);
+            countedTail = true;
         }
     }
 

@@ -34,6 +34,12 @@ assert.match(
 )
 
 assert.match(
+  workTaskNavigation,
+  /resolveTaskNavigationUrl[\s\S]*buildStructuredBatchFillTaskUrl[\s\S]*batchExecutionId[\s\S]*batchTaskId/,
+  '填写任务行即使缺少 actionUrl，也必须能用结构化 batchExecutionId + batchTaskId + workTaskId 走正式 task/open 入口。'
+)
+
+assert.match(
   notifyNavigation,
   /navigateToEdhrWorkTask/,
   '站内信 eDHR 工作任务点击必须复用统一跳转函数。'

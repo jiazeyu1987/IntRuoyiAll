@@ -146,7 +146,7 @@ import StudentForm from './StudentForm.vue';
 export default {
   name: "Student",
   components: {
-          StudentForm,
+          StudentForm
   },
   data() {
     return {

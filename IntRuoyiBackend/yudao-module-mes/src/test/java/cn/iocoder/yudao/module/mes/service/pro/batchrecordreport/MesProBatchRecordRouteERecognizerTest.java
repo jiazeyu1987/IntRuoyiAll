@@ -14,11 +14,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMAGE_OUTPUT_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -72,6 +74,96 @@ class MesProBatchRecordRouteERecognizerTest {
         assertEquals("profile-fillable", tables.get(0).getRows().get(0).get(0).getText());
         assertTrue(tables.get(0).getRows().get(0).get(0).isFillable());
         assertTrue(imageParser.calls().isEmpty(), "profile-matched source Word tables must bypass image recognition");
+    }
+
+    @Test
+    void recognize_whenSourceWordIsProcessInspection_usesProfileBeforeImageRoute() {
+        FailingImageParser imageParser = new FailingImageParser();
+        MesProBatchRecordRouteERecognizer recognizer = new MesProBatchRecordRouteERecognizer(
+                new StubDocParser(List.of(createProcessInspectionSourceTable())), imageParser,
+                new MesProBatchRecordFormProfileRegistry(List.of(
+                        new MesProBatchRecordLossReportNormalizer(),
+                        new MesProBatchRecordProcessInspectionNormalizer())));
+
+        List<MesProBatchRecordParsedTable> tables = recognizer.recognize(
+                Path.of(SOURCE_DOC_FILE_NAME), new byte[]{1}, "按压式球囊扩充压力泵过程检验记录.docx");
+
+        assertEquals(1, tables.size());
+        assertEquals(0, imageParser.callCount());
+        MesProBatchRecordParsedTable table = tables.get(0);
+        assertEquals("按压式球囊扩充压力泵组装过程检验记录", table.getTableTitle());
+        assertEquals("气密性检测工装：______", table.getRows().get(2).get(5).getText());
+    }
+
+    @Test
+    void recognize_whenSourceWordIncludesNonProcessTables_extractsProcessInspectionProfileOnly() {
+        FailingImageParser imageParser = new FailingImageParser();
+        MesProBatchRecordRouteERecognizer recognizer = new MesProBatchRecordRouteERecognizer(
+                new StubDocParser(List.of(createCoverSourceTable(), createProcessInspectionSourceTable())),
+                imageParser,
+                new MesProBatchRecordFormProfileRegistry(List.of(
+                        new MesProBatchRecordLossReportNormalizer(),
+                        new MesProBatchRecordProcessInspectionNormalizer())));
+
+        List<MesProBatchRecordParsedTable> tables = recognizer.recognize(
+                Path.of(SOURCE_DOC_FILE_NAME), new byte[]{1}, "按压式球囊扩充压力泵过程检验记录.docx");
+
+        assertEquals(1, tables.size());
+        assertEquals(0, imageParser.callCount());
+        assertEquals("按压式球囊扩充压力泵组装过程检验记录", tables.get(0).getTableTitle());
+        assertEquals(Boolean.TRUE, tables.get(0).getPreserveSourceGrid());
+    }
+
+    @Test
+    void recognize_whenDocxSourceNameLosesExtension_usesDocxParserByContent() {
+        FailingImageParser imageParser = new FailingImageParser();
+        MesProBatchRecordRouteERecognizer recognizer = new MesProBatchRecordRouteERecognizer(
+                new StubDocParser(List.of(createProcessInspectionSourceTable())), imageParser,
+                new MesProBatchRecordFormProfileRegistry(List.of(
+                        new MesProBatchRecordLossReportNormalizer(),
+                        new MesProBatchRecordProcessInspectionNormalizer())));
+
+        List<MesProBatchRecordParsedTable> tables = recognizer.recognize(
+                Path.of("upload.tmp"), new byte[]{0x50, 0x4B, 0x03, 0x04}, "");
+
+        assertEquals(1, tables.size());
+        assertEquals(0, imageParser.callCount());
+        assertEquals(Boolean.TRUE, tables.get(0).getPreserveSourceGrid());
+    }
+
+    @Test
+    void recognize_whenRealProcessInspectionDocxV6_usesProfileAndTextInput() throws Exception {
+        Path sample = findRepoResource("按压式球囊扩充压力泵IDI-001", "过程检验记录.docx");
+        Assumptions.assumeTrue(Files.exists(sample), "pressure pump 6.0 process inspection docx fixture is required");
+        FailingImageParser imageParser = new FailingImageParser();
+        MesProBatchRecordRouteERecognizer recognizer = new MesProBatchRecordRouteERecognizer(
+                new MesProBatchRecordDocParser(), imageParser,
+                new MesProBatchRecordFormProfileRegistry(List.of(
+                        new MesProBatchRecordLossReportNormalizer(),
+                        new MesProBatchRecordProcessInspectionNormalizer())));
+
+        List<MesProBatchRecordParsedTable> tables = recognizer.recognize(
+                sample, Files.readAllBytes(sample), sample.getFileName().toString());
+
+        assertEquals(1, tables.size());
+        assertEquals(0, imageParser.callCount(), "process inspection docx must not enter image recognition");
+        MesProBatchRecordParsedTable table = tables.get(0);
+        assertEquals(Boolean.TRUE, table.getPreserveSourceGrid());
+        assertTrue(table.getColumnCount() >= 18, "6.0 source grid should keep the 18-column process inspection layout");
+        assertTrue(containsText(table, "气密性检测工装：________"));
+
+        JSONObject root = JSON.parseObject(new MesProBatchRecordReportJsonBuilder().build(
+                new MesProBatchRecordReportLayoutCalibrator().calibrate(table), "EBR_V6_PROCESS_INSPECTION"));
+        List<JSONObject> equipmentRows = renderedRowsContaining(root, "气密性检测工装");
+        assertEquals(3, equipmentRows.size(), "three air-tightness equipment rows should be rendered");
+        for (JSONObject row : equipmentRows) {
+            JSONObject cells = row.getJSONObject("cells");
+            JSONObject labelCell = findCellByText(cells, "气密性检测工装：");
+            assertNotNull(labelCell, "equipment prompt label should stay static");
+            assertFalse(labelCell.containsKey("fillForm"), "equipment prompt label must not absorb the input box");
+            assertTrue(countInputTextFillForms(cells) >= 1,
+                    "equipment prompt underline must become a writable text input");
+        }
     }
 
     @Test
@@ -321,6 +413,81 @@ class MesProBatchRecordRouteERecognizerTest {
                 && bytes[7] == 0x0A;
     }
 
+    private static Path findRepoResource(String directoryName, String fileName) {
+        Path cursor = Path.of("").toAbsolutePath();
+        for (int depth = 0; cursor != null && depth < 8; depth++) {
+            Path candidate = cursor.resolve("resource").resolve(directoryName).resolve(fileName);
+            if (Files.exists(candidate)) {
+                return candidate;
+            }
+            cursor = cursor.getParent();
+        }
+        return Path.of("resource").resolve(directoryName).resolve(fileName);
+    }
+
+    private static boolean containsText(MesProBatchRecordParsedTable table, String expected) {
+        if (table == null || table.getRows() == null) {
+            return false;
+        }
+        return table.getRows().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .map(MesProBatchRecordParsedCell::getText)
+                .anyMatch(expected::equals);
+    }
+
+    private static List<JSONObject> renderedRowsContaining(JSONObject root, String expectedText) {
+        JSONObject rows = root.getJSONObject("rows");
+        List<JSONObject> matches = new ArrayList<>();
+        for (String rowKey : rows.keySet()) {
+            if (!rowKey.chars().allMatch(Character::isDigit)) {
+                continue;
+            }
+            JSONObject row = rows.getJSONObject(rowKey);
+            if (row != null && renderedRowText(row).contains(expectedText)) {
+                matches.add(row);
+            }
+        }
+        return matches;
+    }
+
+    private static String renderedRowText(JSONObject row) {
+        JSONObject cells = row == null ? null : row.getJSONObject("cells");
+        if (cells == null) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (String columnKey : cells.keySet()) {
+            JSONObject cell = cells.getJSONObject(columnKey);
+            if (cell != null) {
+                builder.append(Objects.toString(cell.getString("text"), ""));
+            }
+        }
+        return builder.toString();
+    }
+
+    private static JSONObject findCellByText(JSONObject cells, String expectedText) {
+        for (String columnKey : cells.keySet()) {
+            JSONObject cell = cells.getJSONObject(columnKey);
+            if (cell != null && expectedText.equals(cell.getString("text"))) {
+                return cell;
+            }
+        }
+        return null;
+    }
+
+    private static int countInputTextFillForms(JSONObject cells) {
+        int count = 0;
+        for (String columnKey : cells.keySet()) {
+            JSONObject fillForm = cells.getJSONObject(columnKey).getJSONObject("fillForm");
+            if (fillForm != null && "input-text".equals(fillForm.getString("componentFlag"))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     private static MesProBatchRecordRouteERecognizer recognizer(MesProBatchRecordDocParser docParser,
                                                                 MesProBatchRecordImageParser imageParser) {
         return new MesProBatchRecordRouteERecognizer(docParser, imageParser,
@@ -446,6 +613,63 @@ class MesProBatchRecordRouteERecognizerTest {
                 .build();
     }
 
+    private static MesProBatchRecordParsedTable createProcessInspectionSourceTable() {
+        return MesProBatchRecordParsedTable.builder()
+                .sourceTableIndex(1)
+                .tableTitle("按压式球囊扩充压力泵组装过程检验记录")
+                .rowCount(3)
+                .columnCount(12)
+                .rows(List.of(
+                        List.of(processInspectionCell("按压式球囊扩充压力泵组装过程检验记录", 12, 960, 28, false)),
+                        List.of(
+                                processInspectionCell("序号", 1, 60, 28, false),
+                                processInspectionCell("检验日期", 1, 78, 28, false),
+                                processInspectionCell("检验项目", 2, 86, 28, false),
+                                processInspectionCell("检测数量pcs", 1, 92, 28, false),
+                                processInspectionCell("检测结果", 3, 180, 28, false),
+                                processInspectionCell("检验设备", 2, 86, 28, false),
+                                processInspectionCell("判定", 2, 86, 28, false)
+                        ),
+                        List.of(
+                                processInspectionCell("1", 1, 60, 36, false),
+                                processInspectionCell("", 1, 78, 36, true),
+                                processInspectionCell("气密性", 2, 86, 36, false),
+                                processInspectionCell("首检", 1, 92, 36, false),
+                                processInspectionCell("□符合要求  □不符合要求______", 3, 180, 36, false),
+                                processInspectionCell("气密性检测工装：______", 2, 86, 36, false),
+                                processInspectionCell("□合格\n□不合格", 2, 86, 36, false)
+                        )
+                ))
+                .build();
+    }
+
+    private static MesProBatchRecordParsedTable createCoverSourceTable() {
+        return MesProBatchRecordParsedTable.builder()
+                .sourceTableIndex(1)
+                .tableTitle("过程检验记录封面信息")
+                .rowCount(2)
+                .columnCount(2)
+                .rows(List.of(
+                        List.of(processInspectionCell("记录编号", 1, 120, 28, false),
+                                processInspectionCell("RE-PQC-IDI-001-01", 1, 220, 28, false)),
+                        List.of(processInspectionCell("版本", 1, 120, 28, false),
+                                processInspectionCell("A/0", 1, 220, 28, false))
+                ))
+                .build();
+    }
+
+    private static MesProBatchRecordParsedCell processInspectionCell(String text, int colSpan, int widthPx,
+                                                                     int heightPx, boolean fillable) {
+        return MesProBatchRecordParsedCell.builder()
+                .text(text)
+                .rowSpan(1)
+                .colSpan(colSpan)
+                .widthPx(widthPx)
+                .heightPx(heightPx)
+                .fillable(fillable)
+                .build();
+    }
+
     private static MesProBatchRecordParsedCell lossReportCell(String text) {
         return MesProBatchRecordParsedCell.builder()
                 .text(text)
@@ -536,6 +760,11 @@ class MesProBatchRecordRouteERecognizerTest {
 
         @Override
         public List<MesProBatchRecordParsedTable> parse(byte[] bytes) {
+            return tables;
+        }
+
+        @Override
+        public List<MesProBatchRecordParsedTable> parseDocx(byte[] bytes) {
             return tables;
         }
     }

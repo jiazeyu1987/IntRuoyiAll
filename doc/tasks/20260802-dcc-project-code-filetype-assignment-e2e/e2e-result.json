@@ -1,0 +1,179 @@
+{
+  "status": "PASS",
+  "tenant": "芋道源码",
+  "username": "wangsiyu",
+  "baseUrl": "http://127.0.0.1:8081",
+  "iterations": [
+    {
+      "iterationNo": 1,
+      "projectCodeId": 217,
+      "projectCode": "IMC",
+      "fileTypeTaxonomyId": 137,
+      "fileTypePath": [
+        "技术文档",
+        "清单",
+        "DHF文件清单"
+      ],
+      "uiVerified": true,
+      "readOnlyVerified": true
+    },
+    {
+      "iterationNo": 2,
+      "projectCodeId": 217,
+      "projectCode": "IMC",
+      "fileTypeTaxonomyId": 138,
+      "fileTypePath": [
+        "技术文档",
+        "设计和开发策划阶段",
+        "市场调研报告"
+      ],
+      "uiVerified": true,
+      "readOnlyVerified": true
+    },
+    {
+      "iterationNo": 3,
+      "projectCodeId": 217,
+      "projectCode": "IMC",
+      "fileTypeTaxonomyId": 139,
+      "fileTypePath": [
+        "技术文档",
+        "设计和开发策划阶段",
+        "技术调研报告"
+      ],
+      "uiVerified": true,
+      "readOnlyVerified": true
+    },
+    {
+      "iterationNo": 4,
+      "projectCodeId": 217,
+      "projectCode": "IMC",
+      "fileTypeTaxonomyId": 140,
+      "fileTypePath": [
+        "技术文档",
+        "设计和开发策划阶段",
+        "注册和临床路径分析报告"
+      ],
+      "uiVerified": true,
+      "readOnlyVerified": true
+    },
+    {
+      "iterationNo": 5,
+      "projectCodeId": 217,
+      "projectCode": "IMC",
+      "fileTypeTaxonomyId": 141,
+      "fileTypePath": [
+        "技术文档",
+        "设计和开发策划阶段",
+        "项目可行性分析报告"
+      ],
+      "uiVerified": true,
+      "readOnlyVerified": true
+    }
+  ],
+  "restored": true,
+  "progressLog": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-project-code-filetype-assignment-e2e\\e2e-progress.log",
+  "file": {
+    "id": "2054545668044070264",
+    "identity": "CODX-DCC-REV-20260802-20260802034644",
+    "original": {
+      "dccProjectCodeId": 234,
+      "projectCode": "HGGW",
+      "projectName": "一次性使用亲水涂层导丝",
+      "productCode": "HGGW",
+      "productName": "一次性使用亲水涂层导丝",
+      "fileTypeTaxonomyId": 102,
+      "fileTypePath": [
+        "技术文档",
+        "设计和开发输出阶段",
+        "来料/过程/成品检验规范"
+      ],
+      "needTraining": false,
+      "fileName": "Codex DCC 升版链路 20260802034644",
+      "fileNumber": "CODX-DCC-REV-20260802-20260802034644",
+      "categoryId": 907233,
+      "directoryId": 906515
+    }
+  },
+  "targetProject": {
+    "id": 217,
+    "docControlNo": "60",
+    "projectName": "扭控微导管",
+    "projectCode": "IMC",
+    "category": "导管类",
+    "commissionedProduction": null,
+    "projectLeader": "李伟峰",
+    "projectEngineer": "汪薏",
+    "storageLocation": "新2",
+    "priority": null,
+    "status": "ENABLE",
+    "associatedFileCount": 396,
+    "createTime": 1781781164000,
+    "updateTime": 1781781164000
+  },
+  "selectedTypes": [
+    {
+      "id": 137,
+      "name": "DHF文件清单",
+      "path": [
+        "技术文档",
+        "清单",
+        "DHF文件清单"
+      ]
+    },
+    {
+      "id": 138,
+      "name": "市场调研报告",
+      "path": [
+        "技术文档",
+        "设计和开发策划阶段",
+        "市场调研报告"
+      ]
+    },
+    {
+      "id": 139,
+      "name": "技术调研报告",
+      "path": [
+        "技术文档",
+        "设计和开发策划阶段",
+        "技术调研报告"
+      ]
+    },
+    {
+      "id": 140,
+      "name": "注册和临床路径分析报告",
+      "path": [
+        "技术文档",
+        "设计和开发策划阶段",
+        "注册和临床路径分析报告"
+      ]
+    },
+    {
+      "id": 141,
+      "name": "项目可行性分析报告",
+      "path": [
+        "技术文档",
+        "设计和开发策划阶段",
+        "项目可行性分析报告"
+      ]
+    }
+  ],
+  "networkErrors": [
+    "GET https://hm.baidu.com/hm.gif?hca=0D0B62BA30E8ED5D&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&ep=9802%2C9802&et=3&ja=0&ln=zh-cn&lo=0&rnd=1139922797&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Findex&v=1.3.2&lv=1&sn=24298&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Findex :: net::ERR_ABORTED",
+    "GET http://127.0.0.1:8081/admin-api/dcc/file-categories :: net::ERR_ABORTED",
+    "GET https://hm.baidu.com/hm.gif?hca=0D0B62BA30E8ED5D&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&ep=3410%2C3410&et=3&ja=0&ln=zh-cn&lo=0&lt=1785656441&rnd=821427721&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fdetail%2F2054545668044070264%3Fviewer%3D1%26from%3Ddcc-assignment-e2e&v=1.3.2&lv=2&sn=24307&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fdetail%2F2054545668044070264%3Fviewer%3D1%26from%3Ddcc-assignment-e2e :: net::ERR_ABORTED",
+    "GET https://hm.baidu.com/hm.gif?hca=0D0B62BA30E8ED5D&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&ep=55563%2C55563&et=3&ja=0&ln=zh-cn&lo=0&lt=1785656441&rnd=1275950645&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fmdm%2Fproject-code%3FprojectCodeId%3D217&v=1.3.2&lv=2&sn=24310&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Fmdm%2Fproject-code%3FprojectCodeId%3D217 :: net::ERR_ABORTED",
+    "GET http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070264 :: net::ERR_ABORTED",
+    "GET http://127.0.0.1:8081/admin-api/dcc/file-categories :: net::ERR_ABORTED",
+    "GET https://hm.baidu.com/hm.gif?hca=0D0B62BA30E8ED5D&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&ep=5911%2C5911&et=3&ja=0&ln=zh-cn&lo=0&lt=1785656441&rnd=53137831&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fdetail%2F2054545668044070264%3Fviewer%3D1%26from%3Ddcc-assignment-e2e&v=1.3.2&lv=2&sn=24366&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fdetail%2F2054545668044070264%3Fviewer%3D1%26from%3Ddcc-assignment-e2e :: net::ERR_ABORTED",
+    "GET https://hm.baidu.com/hm.gif?hca=0D0B62BA30E8ED5D&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&ep=48026%2C48026&et=3&ja=0&ln=zh-cn&lo=0&lt=1785656441&rnd=9288072&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fmdm%2Fproject-code%3FprojectCodeId%3D217&v=1.3.2&lv=2&sn=24372&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Fmdm%2Fproject-code%3FprojectCodeId%3D217 :: net::ERR_ABORTED",
+    "GET http://127.0.0.1:8081/admin-api/dcc/file-categories :: net::ERR_ABORTED",
+    "GET https://hm.baidu.com/hm.gif?hca=0D0B62BA30E8ED5D&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&ep=3307%2C3307&et=3&ja=0&ln=zh-cn&lo=0&lt=1785656441&rnd=1160712594&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fdetail%2F2054545668044070264%3Fviewer%3D1%26from%3Ddcc-assignment-e2e&v=1.3.2&lv=2&sn=24420&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fdetail%2F2054545668044070264%3Fviewer%3D1%26from%3Ddcc-assignment-e2e :: net::ERR_ABORTED",
+    "GET https://hm.baidu.com/hm.gif?hca=0D0B62BA30E8ED5D&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&ep=46212%2C46212&et=3&ja=0&ln=zh-cn&lo=0&lt=1785656441&rnd=1948530151&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fmdm%2Fproject-code%3FprojectCodeId%3D217&v=1.3.2&lv=2&sn=24424&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Fmdm%2Fproject-code%3FprojectCodeId%3D217 :: net::ERR_ABORTED",
+    "GET http://127.0.0.1:8081/admin-api/bpm/task/list-by-process-instance-id?processInstanceId=ea902d1b-8e24-11f1-a451-00155d9fd668 :: net::ERR_ABORTED",
+    "GET https://hm.baidu.com/hm.gif?hca=0D0B62BA30E8ED5D&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&ep=3385%2C3385&et=3&ja=0&ln=zh-cn&lo=0&lt=1785656441&rnd=1864219742&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fdetail%2F2054545668044070264%3Fviewer%3D1%26from%3Ddcc-assignment-e2e&v=1.3.2&lv=2&sn=24470&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fdetail%2F2054545668044070264%3Fviewer%3D1%26from%3Ddcc-assignment-e2e :: net::ERR_ABORTED",
+    "GET https://hm.baidu.com/hm.gif?hca=0D0B62BA30E8ED5D&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&ep=46639%2C46639&et=3&ja=0&ln=zh-cn&lo=0&lt=1785656441&rnd=2046236457&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fmdm%2Fproject-code%3FprojectCodeId%3D217&v=1.3.2&lv=2&sn=24474&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Fmdm%2Fproject-code%3FprojectCodeId%3D217 :: net::ERR_ABORTED",
+    "GET https://hm.baidu.com/hm.gif?hca=0D0B62BA30E8ED5D&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&ep=3633%2C3633&et=3&ja=0&ln=zh-cn&lo=0&lt=1785656441&rnd=1504388745&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fdetail%2F2054545668044070264%3Fviewer%3D1%26from%3Ddcc-assignment-e2e&v=1.3.2&lv=2&sn=24521&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fdetail%2F2054545668044070264%3Fviewer%3D1%26from%3Ddcc-assignment-e2e :: net::ERR_ABORTED",
+    "GET https://hm.baidu.com/hm.gif?hca=0D0B62BA30E8ED5D&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&ep=46296%2C46296&et=3&ja=0&ln=zh-cn&lo=0&lt=1785656441&rnd=2119115331&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fmdm%2Fproject-code%3FprojectCodeId%3D217&v=1.3.2&lv=2&sn=24525&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Fmdm%2Fproject-code%3FprojectCodeId%3D217 :: net::ERR_ABORTED"
+  ],
+  "pageErrors": []
+}

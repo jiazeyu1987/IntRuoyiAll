@@ -8,6 +8,7 @@ import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import org.springframework.format.annotation.DateTimeFormat;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import static cn.iocoder.yudao.framework.common.util.date.DateUtils.FORMAT_YEAR_MONTH_DAY_HOUR_MINUTE_SECOND;
@@ -29,6 +30,9 @@ public class MesProWorkOrderPageReqVO extends PageParam {
 
     @Schema(description = "来源单据编号", example = "SO-001")
     private String orderSourceCode;
+
+    @Schema(description = "需求单据", example = "SO-001")
+    private String demandBillNo;
 
     @Schema(description = "产品编号", example = "100")
     private Long productId;
@@ -53,6 +57,9 @@ public class MesProWorkOrderPageReqVO extends PageParam {
 
     @Schema(description = "是否临时冻结", example = "false")
     private Boolean temporaryFrozen;
+
+    @Schema(description = "生产数量区间")
+    private BigDecimal[] quantity;
 
     @Schema(description = "需求日期")
     @DateTimeFormat(pattern = FORMAT_YEAR_MONTH_DAY_HOUR_MINUTE_SECOND)

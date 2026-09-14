@@ -1,0 +1,80 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8081",
+  "path": "/mdm/project-code",
+  "tenant": "测试租户",
+  "username": "aoteman",
+  "runData": {
+    "runId": "20260803120033",
+    "productCode": "CODX-MDM-ONB-20260803120033",
+    "dccProductCode": "C0260803120033",
+    "productNameCn": "Codex建档产品20260803120033",
+    "productNameEn": "Codex Onboarding Product 20260803120033",
+    "modelSpecification": "CODX-SPEC-120033",
+    "productCategory": "Codex E2E",
+    "docControlNo": "CODX-DOC-120033",
+    "projectName": "Codex建档项目20260803120033",
+    "projectCode": "CODXONB03120033",
+    "category": "Codex E2E",
+    "projectLeader": "Codex",
+    "projectEngineer": "Codex",
+    "storageLocation": "Codex E2E",
+    "priority": "P2"
+  },
+  "requestId": 8,
+  "generatedProjectCodeId": 262,
+  "productMasterId": 336,
+  "targetWriteRequests": [
+    "POST http://127.0.0.1:8081/admin-api/dcc/product-onboarding-requests/create",
+    "POST http://127.0.0.1:8081/admin-api/dcc/product-onboarding-requests/8/approve"
+  ],
+  "targetNetworkFailures": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "criticalNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "verifiedProjectCode": {
+    "id": 262,
+    "productMasterId": 336,
+    "docControlNo": "CODX-DOC-120033",
+    "projectName": "Codex建档项目20260803120033",
+    "projectCode": "CODXONB03120033",
+    "category": "Codex E2E",
+    "commissionedProduction": null,
+    "projectLeader": "Codex",
+    "projectEngineer": "Codex",
+    "storageLocation": "Codex E2E",
+    "priority": "P2",
+    "status": "ENABLE",
+    "associatedFileCount": null,
+    "createTime": 1785758441000,
+    "updateTime": 1785758441000
+  },
+  "verifiedMdmProduct": {
+    "id": 336,
+    "productCode": "CODX-MDM-ONB-20260803120033",
+    "dccProductCode": "C0260803120033",
+    "nameCn": "Codex建档产品20260803120033",
+    "nameEn": "Codex Onboarding Product 20260803120033",
+    "modelSpecification": "CODX-SPEC-120033",
+    "category": "Codex E2E",
+    "status": "ENABLE",
+    "createTime": 1785758441000,
+    "updateTime": 1785758441000
+  }
+}

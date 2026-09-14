@@ -63,6 +63,7 @@ services:
         condition: service_healthy
     environment:
       TZ: Asia/Shanghai
+      INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS: ${INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS-}
       JAVA_OPTS: ${JAVA_OPTS}
       EDHR_S3_ENDPOINT: ${EDHR_S3_ENDPOINT}
       EDHR_S3_BUCKET: ${EDHR_S3_BUCKET}
@@ -117,10 +118,6 @@ services:
         --yudao.dcc.preview.onlyoffice.base-url=${DCC_ONLYOFFICE_BASE_URL}
         --yudao.dcc.preview.onlyoffice.jwt-secret=${DCC_ONLYOFFICE_JWT_SECRET}
         --yudao.dcc.preview.onlyoffice.public-file-base-url=${DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL}
-        --yudao.dcc.download.encryption.policy-version=${DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION}
-        --yudao.dcc.download.encryption.key-id=${DCC_DOWNLOAD_ENCRYPTION_KEY_ID}
-        --yudao.dcc.download.encryption.base64-key=${DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY}
-        --yudao.dcc.download.encryption.artifact-directory=${DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY}
         --yudao.dcc.project-code-recognition.codex-cli-command=${DCC_PROJECT_CODE_CODEX_CLI_COMMAND}
         --yudao.runtime-control.repo-root=/opt/intruoyi/ops/backup-ops/linux-native
         --yudao.runtime-control.state-dir=/opt/intruoyi/ops/runtime-control

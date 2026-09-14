@@ -1,0 +1,33 @@
+{
+  "taskId": "20260805-ac-m04-acceptance-sync",
+  "scope": "local Docker MySQL ruoyi-vue-pro only",
+  "repairId": "ACM04_RRM_RECORDBOOK_TEMPLATE_SCHEMA_20260805",
+  "target": {
+    "recordbookId": 980011,
+    "recordbookCode": "RRM-20260801-PP-MO-001-PRODUCTION-RB",
+    "templateId": 980010,
+    "templateCode": "RRM-20260801-PRODUCTION-RECORD-TPL"
+  },
+  "rootCause": "The task-owned RRM production recordbook template omitted fields written by the formal frontline submit splitter.",
+  "missingFields": [
+    {
+      "key": "equipmentParameters",
+      "label": "Equipment Parameters",
+      "type": "text",
+      "required": false
+    },
+    {
+      "key": "rawPayload",
+      "label": "Raw Payload",
+      "type": "text",
+      "required": false
+    }
+  ],
+  "applySql": "doc/tasks/20260805-ac-m04-acceptance-sync/db-repair/rrm-recordbook-template-schema-apply.sql",
+  "rollbackSql": "doc/tasks/20260805-ac-m04-acceptance-sync/db-repair/rrm-recordbook-template-schema-rollback.sql",
+  "backup": {
+    "path": "doc/tasks/20260805-ac-m04-acceptance-sync/db-backup/acm04-rrm-recordbook-template-schema-20260805-212116.sql",
+    "sha256": "92E55DA292299D7DA18FD39A4AB235FB07F957478E8AA957CAC2E90DBF2DD6BE"
+  },
+  "noFallback": true
+}

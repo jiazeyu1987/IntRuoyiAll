@@ -310,9 +310,9 @@ import {
 } from '@/api/mes/pro/edhr/batchExecution'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
-import { formatDate } from '@/utils/formatTime'
 import BatchExecutionTraceDrawer from './BatchExecutionTraceDrawer.vue'
 import type { BatchExecutionTraceContext } from './traceContext'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import {
   resolveReleaseCheckCategoryLabel,
   resolveReleaseCheckCodeLabel,
@@ -345,7 +345,7 @@ const EDHR_RELEASE_TRACE_EXCLUDED_BATCH_STATUSES = [EDHR_BATCH_STATUS_REJECTED] 
 const loading = ref(false)
 const checkItemLoading = ref(false)
 const eventLoading = ref(false)
-const printLoadingBatchExecutionId = ref<number>()
+const printLoadingBatchExecutionId = ref<string>()
 const loadError = ref('')
 const actionError = ref('')
 const list = ref<EdhrReleaseRowVO[]>([])
@@ -359,8 +359,9 @@ const checkItems = ref<EdhrReleaseCheckItemVO[]>([])
 const eventList = ref<EdhrReleaseEventRespVO[]>([])
 const checkItemTotal = ref(0)
 const eventTotal = ref(0)
+const autoOpenedTraceKey = ref('')
 
-const queryParams = reactive({
+const queryParams = reactive<EdhrReleasePageReqVO & { pageNo: number; pageSize: number }>({
   pageNo: 1,
   pageSize: 10,
   batchExecutionCode:
@@ -368,12 +369,12 @@ const queryParams = reactive({
   workOrderCode: typeof route.query.workOrderCode === 'string' ? route.query.workOrderCode : '',
   batchCode: typeof route.query.batchCode === 'string' ? route.query.batchCode : '',
   productCode: typeof route.query.productCode === 'string' ? route.query.productCode : ''
-}) as EdhrReleasePageReqVO
+})
 
 const checkItemQuery = reactive<EdhrReleaseCheckItemPageReqVO>({
   pageNo: 1,
   pageSize: 10,
-  releaseTransactionId: 0,
+  releaseTransactionId: '',
   itemStatus: 'OPEN' as const,
   checkResult: ''
 })
@@ -381,7 +382,7 @@ const checkItemQuery = reactive<EdhrReleaseCheckItemPageReqVO>({
 const eventQuery = reactive<EdhrReleaseEventPageReqVO>({
   pageNo: 1,
   pageSize: 10,
-  releaseTransactionId: 0,
+  releaseTransactionId: '',
   eventType: ''
 })
 
@@ -454,7 +455,8 @@ const buildQuery = (): EdhrReleasePageReqVO => ({
   productCode: queryParams.productCode?.trim() || undefined,
   batchExecutionStatuses: isRejectTrace ? [...EDHR_REJECT_TRACE_BATCH_STATUSES] : undefined,
   excludeBatchExecutionStatuses: isRejectTrace ? undefined : [...EDHR_RELEASE_TRACE_EXCLUDED_BATCH_STATUSES],
-  completedTraceOnly: true
+  completedTraceOnly: true,
+  releaseStatus: 'RELEASED'
 })
 
 async function getList() {
@@ -464,6 +466,16 @@ async function getList() {
     const data = await getEdhrReleasePage(buildQuery())
     list.value = data.list || []
     total.value = data.total || 0
+    const requestedBatchExecutionId = String(route.query.autoOpenBatchExecutionId || '').trim()
+    if (requestedBatchExecutionId && autoOpenedTraceKey.value !== requestedBatchExecutionId) {
+      const matchedRow = list.value.find(
+        (row) => String(row.batchExecutionId) === requestedBatchExecutionId
+      )
+      if (matchedRow) {
+        autoOpenedTraceKey.value = requestedBatchExecutionId
+        openBatchTrace(matchedRow)
+      }
+    }
   } catch (error) {
     list.value = []
     total.value = 0
@@ -594,14 +606,7 @@ const loadEventList = async () => {
 }
 
 const formatDateTime = (value?: string | number) => {
-  if (!value) {
-    return '--'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return '时间格式异常'
-  }
-  return formatDate(date, 'YYYY-MM-DD HH:mm')
+  return formatEdhrDateTime(value)
 }
 
 onMounted(() => getList())

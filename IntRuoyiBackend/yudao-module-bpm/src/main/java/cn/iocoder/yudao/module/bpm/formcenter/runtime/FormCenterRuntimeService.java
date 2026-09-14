@@ -3,13 +3,23 @@ package cn.iocoder.yudao.module.bpm.formcenter.runtime;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.*;
 
-import java.util.List;
-
 public interface FormCenterRuntimeService {
 
     PageResult<FormCenterTemplateRespVO> getTemplatePool(FormCenterTemplatePoolPageReqVO reqVO);
 
+    FormCenterTemplateRespVO getTemplateVersion(Long templateId, String versionNo);
+
+    String getTemplateDesignerPath(Long templateId, String versionNo);
+
+    String getTemplateEditPath(Long templateId, String versionNo);
+
+    FormTemplateEditableDraftRespVO ensureTemplateEditableDraft(Long templateId, String versionNo);
+
     PageResult<FormPolicyRespVO> getPolicyPage(FormPolicyPageReqVO reqVO);
+
+    FormCenterTemplateImportRespVO importDoc(FormCenterTemplateImportReqVO reqVO, Long applicantUserId);
+
+    FormCenterTemplateParseJsonRespVO parseProductionBatchRecordJson(FormCenterTemplateParseJsonReqVO reqVO);
 
     FormPolicyRespVO savePolicy(FormPolicySaveReqVO reqVO);
 
@@ -17,9 +27,13 @@ public interface FormCenterRuntimeService {
 
     FormPolicyRespVO switchPolicyApprovalMode(Long policyId, FormPolicySwitchApprovalModeReqVO reqVO);
 
-    FormCenterTemplateImportRespVO importDoc(FormCenterTemplateImportReqVO reqVO, Long userId);
-
     void saveJimuSchema(Long templateId, String versionNo, FormCenterTemplateJimuSchemaReqVO reqVO);
+
+    void validateTemplateJimuReportSaveWritable(String reportId, Long tenantId);
+
+    void syncTemplateJimuReportSave(String reportId, Long tenantId);
+
+    FormTemplateFillRuleAutoDetectRespVO autoDetectTemplateFillRules(Long templateId, String versionNo);
 
     void publishTemplate(Long templateId, String versionNo);
 
@@ -30,18 +44,20 @@ public interface FormCenterRuntimeService {
     void obsoleteTemplate(Long templateId, String versionNo);
 
     FormTemplateObsoleteRespVO submitTemplateObsoleteRequest(Long templateId, String versionNo,
-            FormTemplateObsoleteReqVO reqVO, Long userId);
+            FormTemplateObsoleteReqVO reqVO, Long applicantUserId);
 
     FormTemplateObsoletePendingRespVO findTemplateObsoletePendingRequest(Long templateId, String versionNo,
-            Long userId);
+            Long currentUserId);
 
-    void withdrawTemplateObsoleteRequest(Long templateId, String versionNo, String reason, Long userId);
+    void withdrawTemplateObsoleteRequest(Long templateId, String versionNo, String reason, Long currentUserId);
 
     byte[] getTemplateSourceFile(Long templateId, String versionNo);
 
     FormActionResolutionRespVO resolveAction(BusinessActionContextReqVO reqVO);
 
     FormInstanceRespVO findActiveBusinessAction(BusinessActionContextReqVO reqVO);
+
+    FormInstanceRespVO findBusinessActionByIdempotency(BusinessActionContextReqVO reqVO, String idempotencyKey);
 
     FormInstanceRespVO createInstance(FormInstanceCreateReqVO reqVO, Long userId);
 
@@ -61,9 +77,11 @@ public interface FormCenterRuntimeService {
 
     void onBpmProcessRejected(FormBpmProcessRejectedReqVO reqVO);
 
+    void onBpmProcessCancelled(FormBpmProcessCancelledReqVO reqVO);
+
     FormEffectExecutionRespVO onBpmProcessApproved(FormBpmProcessApprovedReqVO reqVO);
 
-    List<FormInstanceSnapshotRespVO> getInstanceSnapshots(Long instanceId);
+    java.util.List<FormInstanceSnapshotRespVO> getInstanceSnapshots(Long instanceId);
 
     PageResult<FormEffectExecutionRespVO> getPendingEffects(FormEffectPendingPageReqVO reqVO);
 

@@ -51,6 +51,8 @@ public class MesProEdhrReleaseRespVO {
 
     private String releaseStatus;
 
+    private Long releaseDecisionId;
+
     private Integer requiredCheckCount;
 
     private Integer failedCheckCount;
@@ -79,6 +81,8 @@ public class MesProEdhrReleaseRespVO {
 
     private String approvalOpinion;
 
+    private String reportSnapshotHash;
+
     private Long rejectedBy;
 
     private LocalDateTime rejectedAt;
@@ -90,4 +94,8 @@ public class MesProEdhrReleaseRespVO {
     private LocalDateTime withdrawnAt;
 
     private String withdrawReason;
+
+    private Long releaseApprovalWorkTaskId;
+
+    private Integer version;
 }

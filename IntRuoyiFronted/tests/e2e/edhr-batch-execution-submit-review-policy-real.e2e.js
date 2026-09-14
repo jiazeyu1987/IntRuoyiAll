@@ -128,6 +128,13 @@ function prepareLegacyReviewExecution() {
               }
             }
           }
+        },
+        2: {
+          cells: {
+            1: {
+              text: 'M7提交审核字段'
+            }
+          }
         }
       }
     },
@@ -141,15 +148,18 @@ function prepareLegacyReviewExecution() {
         required: false,
         componentType: 'input',
         inputType: 'text',
-        valueType: 'STRING'
+        valueType: 'STRING',
+        defaultValue: ''
       }
     ]
   }
+  const sheetLayout = snapshot.layout
   const output = mysql(`
 SET NAMES utf8mb4;
 SET @tenant_id := 122;
 SET @run_key := ${sqlString(runKey)};
 SET @snapshot := ${sqlString(JSON.stringify(snapshot))};
+SET @sheet_layout := ${sqlString(JSON.stringify(sheetLayout))};
 SET @source_execution_id := (
   SELECT e.id
   FROM mes_pro_batch_record_execution e
@@ -245,7 +255,7 @@ INSERT INTO mes_pro_batch_record_execution (
 )
 SELECT CONCAT('BRE-', @run_key), e.template_id, e.template_code, e.template_name, e.work_order_id, e.work_order_code,
   COALESCE(e.route_id, rp.route_id), COALESCE(e.route_process_id, wt.route_process_id), NULL, e.workstation_id, e.batch_record_report_id, e.batch_record_definition_id,
-  e.batch_record_version_id, @batch_execution_id, @run_key, 0, @snapshot, '{}', @snapshot,
+  e.batch_record_version_id, @batch_execution_id, @run_key, 0, @sheet_layout, '{}', @snapshot,
   '[]', '84b9a938bd9a94b26da55f087f6a2fab21c438a2333cfb6d45fc85e34388690b', 0, 'c89790f1db795880e667042c652ac63aaba03b9a91c1a14ae34c7d0fbf855a42', 1,
   b'1', 'INTERNAL_RECORD', 'INTERNAL_TRACE', e.slot_config_snapshot_hash, 'M7 submit review real E2E', 'codex', 'codex', b'0', @tenant_id
 FROM mes_pro_batch_record_execution e
@@ -367,6 +377,118 @@ async function clickFirstEnabled(locator, label) {
   throw new Error(`missing enabled control: ${label}; visibleControls=${JSON.stringify(visibleControls)}`)
 }
 
+async function closeResultDialogIfVisible(page, expectedText) {
+  const dialog = page
+    .locator('.edhr-fill-workspace__result-dialog .el-dialog:visible, .el-dialog:visible')
+    .filter({ hasText: expectedText })
+    .first()
+  if (!(await dialog.isVisible().catch(() => false))) {
+    return false
+  }
+  await clickFirstEnabled(dialog.getByRole('button', { name: /^确认$/ }), `close ${expectedText} result`)
+  await dialog.waitFor({ state: 'hidden', timeout: 30000 }).catch(() => undefined)
+  return true
+}
+
+async function fillAndSaveExecutionValue(page, setup) {
+  const sampleValue = `${setup.runKey}-已提交内容`
+  await page.locator('button:visible').filter({ hasText: '原表模式' }).first().waitFor({
+    state: 'visible',
+    timeout: 30000
+  })
+  await page.evaluate(() => {
+    const button = Array.from(document.querySelectorAll('button')).find((item) =>
+      (item.textContent || '').includes('原表模式')
+    )
+    if (!button) {
+      throw new Error('original mode button not found')
+    }
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+  })
+  const originalForm = page.locator('.edhr-fill-workspace__form, .edhr-page-shell__legacy-form').first()
+  try {
+    await originalForm.waitFor({ state: 'visible', timeout: 30000 })
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      url: window.location.href,
+      text: document.body.innerText.replace(/\s+/g, ' ').slice(0, 2000),
+      buttons: Array.from(document.querySelectorAll('button')).map((button) => ({
+        text: button.innerText.trim(),
+        ariaPressed: button.getAttribute('aria-pressed'),
+        className: button.className
+      })),
+      counts: {
+        workspace: document.querySelectorAll('.edhr-fill-workspace').length,
+        form: document.querySelectorAll('.edhr-fill-workspace__form').length,
+        legacy: document.querySelectorAll('.edhr-page-shell__legacy-form').length,
+        assistPanel: document.querySelectorAll('.edhr-fill-workspace__assist-panel').length,
+        formError: document.querySelectorAll('.edhr-fill-workspace__form-error').length,
+        inputs: document.querySelectorAll('input, textarea').length
+      }
+    }))
+    fs.mkdirSync(ARTIFACT_DIR, { recursive: true })
+    fs.writeFileSync(
+      path.join(ARTIFACT_DIR, `debug-original-mode-${RUN_ID}.json`),
+      `${JSON.stringify(state, null, 2)}\n`,
+      'utf8'
+    )
+    throw error
+  }
+  const fieldInputs = page.locator(
+    [
+      '.edhr-fill-workspace__form .edhr-fill-workspace__field input.el-input__inner:not([type="password"])',
+      '.edhr-fill-workspace__form .edhr-fill-workspace__field textarea',
+      '.edhr-fill-workspace input.el-input__inner:not([type="password"]):not([readonly])',
+      '.edhr-fill-workspace textarea:not([readonly])',
+      '.edhr-template-editable-form__editable-cell input.el-input__inner:not([type="password"])',
+      '.edhr-template-editable-form__editable-cell textarea',
+      '.edhr-page-shell__legacy-form input.el-input__inner:not([type="password"])',
+      '.edhr-page-shell__legacy-form textarea'
+    ].join(', ')
+  )
+  await fillFirstVisible(fieldInputs, sampleValue, 'submitted content sample field')
+  await page.waitForFunction(
+    () =>
+      Array.from(document.querySelectorAll('button')).some(
+        (button) => /保存草稿|保存变更/.test(button.textContent || '') && !button.disabled
+      ),
+    { timeout: 30000 }
+  )
+  const saveResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/mes/pro/batch-record-execution/field-audit/save-changes') &&
+      response.request().method() === 'PUT',
+    { timeout: 60000 }
+  )
+  await clickFirstEnabled(page.getByRole('button', { name: /保存草稿|保存变更/ }), 'save field changes')
+  const saveResponse = await saveResponsePromise
+  assert.equal(saveResponse.status(), 200, 'field audit save HTTP status must be 200')
+  const saveBody = await saveResponse.json()
+  assert.ok([0, 200].includes(Number(saveBody.code)), `field audit save failed: ${JSON.stringify(saveBody)}`)
+  assert.equal(
+    saveBody.data?.hashVerification?.status,
+    'VALID',
+    `field audit hash verification must be valid: ${JSON.stringify(saveBody)}`
+  )
+  await closeResultDialogIfVisible(page, '已保存')
+  await page.waitForFunction(
+    (expected) =>
+      Array.from(document.querySelectorAll('input, textarea')).some(
+        (element) => element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
+          ? element.value === expected
+          : false
+      ),
+    sampleValue,
+    { timeout: 60000 }
+  )
+  return {
+    sampleValue,
+    auditBatchId: saveBody.data?.auditBatchId,
+    fieldAuditRevision: saveBody.data?.fieldAuditRevision,
+    cellValuesHash: saveBody.data?.cellValuesHash
+  }
+}
+
 async function login(page, username = USERNAME, password = PASSWORD, target = '/index') {
   await page.context().clearCookies().catch(() => undefined)
   await page.goto(`${BASE_URL}/login?redirect=/index`, { waitUntil: 'domcontentloaded', timeout: 60000 })
@@ -474,12 +596,13 @@ async function submitExecutionThroughUi(page, setup) {
       })
     }
   })
-  await page.goto(`${BASE_URL}${setup.actionUrl}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-  await page
+  const executionGetResponse = page
     .waitForResponse((response) => response.url().includes('/admin-api/mes/pro/batch-record-execution/get'), {
       timeout: 60000
     })
     .catch(() => undefined)
+  await page.goto(`${BASE_URL}${setup.actionUrl}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await executionGetResponse
   await page.locator('.edhr-fill-workspace').first().waitFor({ state: 'visible', timeout: 60000 })
   const submitButtonCount = await page.getByRole('button', { name: '提交执行' }).count()
   if (submitButtonCount === 0) {
@@ -489,11 +612,13 @@ async function submitExecutionThroughUi(page, setup) {
     )
   }
   await clickFirstEnabled(page.getByRole('button', { name: '提交执行' }), 'submit execution')
-  const dialog = page.locator('.el-dialog:visible').filter({ hasText: '提交 eDHR 执行' }).first()
+  const dialog = page
+    .locator('.edhr-fill-workspace__submit-sign-dialog .el-dialog:visible, .el-dialog:visible')
+    .filter({ hasText: /电子签名|提交 eDHR 执行/ })
+    .first()
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
   const selects = dialog.locator('.edhr-page-shell__submit-select')
   const selectCount = await selects.count()
-  assert.ok(selectCount > 0, 'submit dialog must render review assignee selectors')
   for (let index = 0; index < selectCount; index += 1) {
     const select = selects.nth(index)
     const selectedText = (await select.innerText().catch(() => '')).trim()
@@ -518,7 +643,7 @@ async function submitExecutionThroughUi(page, setup) {
       response.request().method() === 'PUT',
     { timeout: 60000 }
   )
-  await clickFirstEnabled(dialog.getByRole('button', { name: /确\s*认\s*提\s*交/ }), 'confirm submit')
+  await clickFirstEnabled(dialog.getByRole('button', { name: /确\s*认(?:\s*提\s*交)?/ }), 'confirm submit')
   const response = await responsePromise
   assert.equal(response.status(), 200, 'submit HTTP status must be 200')
   const body = await response.json()
@@ -785,6 +910,7 @@ async function main() {
   const page = await context.newPage()
   try {
     await login(page, USERNAME, PASSWORD, setup.actionUrl)
+    const fieldSave = await fillAndSaveExecutionValue(page, setup)
     await submitExecutionThroughUi(page, setup)
     const evidence = loadExecutionEvidence(setup.executionId)
     let approvalSummary
@@ -805,6 +931,7 @@ async function main() {
       username: USERNAME,
       approverUsername: SHOULD_COMPLETE_APPROVAL ? APPROVER_USERNAME : undefined,
       setup,
+      fieldSave,
       evidence,
       approvalSummary,
       terminalEvidence

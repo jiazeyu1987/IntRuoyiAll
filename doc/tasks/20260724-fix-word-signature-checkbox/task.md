@@ -10,17 +10,19 @@
 - [x] 补充失败优先的回归测试
 - [x] 实施最小正式修复
 - [x] 运行目标验证并记录结果
-- [x] 完成收尾记录
+- [x] 执行真实页面 E2E 复验
+- [x] 修复空白/checkbox 签名日期格继承 checkbox 的真实 E2E 回归
+- [x] 完成 E2E 收尾记录
 
 ## Expected Verification
 
 - 新增 Word 表格列偏移场景的回归测试，先证明签名日期尾部区域会被误识别为 checkbox。
 - 修复后新增测试通过，并保持既有签名日期 checkbox fragment 保护用例通过。
-- `docs/experience-index.md` 当前不存在；本任务不涉及发布、远程服务、生产数据或破坏性操作，按低风险缺陷修复继续推进并记录门禁缺失事实。
+- 任务启动时记录 `docs/experience-index.md` 未命中；本次 E2E 复跑已按现有 `docs/experience-index.md`、E2E、登录、本机运行和 worktree 门禁核对，继续限定在本机真实前端路径。
 
 ## Current Status
 
-completed；新增和既有签名日期保护回归均已通过，`task-closeout-cleanup` 已执行且没有任务临时产物需要删除。
+ready_for_closeout；真实页面 E2E 已通过并于 2026-07-25 复跑确认。最终验证使用本机前端 `http://localhost:8081`、后端 PID `39380`、Jar SHA256 `1090219624699F708D9440DB71E5FDC1303B71C7787EE7F99330E6E827C8B99F`，导入 `pressure-pump-record.doc` 到 `数显球囊扩张压力泵（FDA)`，确认签名日期区域 `signatureDateCellsChecked=177` 均未渲染 checkbox。当前工作区存在大量其它任务改动，尚未执行提交/推送收尾。
 
 ## 设计约束检查
 

@@ -1,0 +1,61 @@
+{
+  "startedAt": "2026-08-08T03:53:15.795Z",
+  "baseUrl": "http://127.0.0.1:8081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "browserPageResponses": [
+    {
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/browser-page?pageNo=2&pageSize=20&latestVersionOnly=true",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "total": 15917,
+      "listLength": 20
+    },
+    {
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/browser-page?pageNo=796&pageSize=20&latestVersionOnly=true",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "total": 15917,
+      "listLength": 17
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "dccWriteRequests": [],
+  "afterGlobalGoto": {
+    "url": "http://127.0.0.1:8081/dcc/controlled-file/browser?scope=global&pageNo=2&pageSize=20",
+    "rowCount": 20,
+    "jumperValue": "2",
+    "bodySnippet": "瑛泰管理系统\n展厅\n个人中心\n824\n审批中心\n177\n电子签名\n文控中心\n文档目录\n文控权限\n上传审批\n文件上传\n受控浏览\n文控日志\n文控管理员\n基础数据\nMES 系统\n系统管理\n报表管理\nERP 系统\n版本信息未生成\n文控中心\n/\n受控浏览\n请输入菜单内容\n瑛泰管理员\n受控浏览\n刷新\n质量管理\n未分类\n暂无筛选条件\n当前目录\n全域\n高级\n显示字段\n文件名称\n\t\n文件编号\n\t\n版本摘要\n\t\n操作\nCodex DCC 升版发布全链路 20260802091213\n当前有效版\n版本号：V2.0\n目录路径：4.Ohter\n发布文件：已生成\n盖章文件：已生成\n当前有效版来源：master 当前生效版本 V2.0\n\t\nCODX-DCC-REV-FULL-20260802-20260802091213\n当前有效版\n版本号：V2.0\n目录路径：4.Ohter\n发布文件：已生成\n盖章文件：已生成\n当前有效版来源：master 当前生效版本 V2.0\n\t\n选择版本\n现行\n历史版\n生效：2026,8,2\n发布：2026-08-02 17:16:23\n\t\n预览\n追溯\n签核\n下载\n\n\nCodex DCC 原版上传链路 20260802090903\n当前有效版\n版本号：V1.0\n目录路径：4.Ohter\n发布文件：已生成\n盖章文件：已生成\n当前有效版来源：master 当前生效版本 V1.0\n\t\nCODX-DCC-ORIG-20260802090903\n当前有效版\n版本号：V1.0\n目录路径：4.Ohter\n发布文件：已生成\n盖章文件：已生成\n当前有效版来源：master 当前生效版本 V1.0\n\t\n选择版本\n现行\n历史版\n生效：2026,8,2\n发布：2026-08-02 17:09:42\n\t\n预览\n追溯\n签核\n下载\n\n\nCodex DCC 原版上传链路 20260802085522\n当前有效版\n版本号：V1.0\n目录路径：4.Ohter\n发布文件：已生成\n盖章文件：已生成\n当前有效版来源：master 当前生效版本 V1.0\n\t\nCODX-DCC-ORIG-20260802085522\n当前有效版\n版本号：V1.0\n目录路径：4.Ohter\n发布文件：已生成\n盖章文件：已生成\n当前有效版来源：master 当前生效版本 V1.0\n\t\n选择版本\n现行\n历史版\n生效：2026,8,2\n发布"
+  },
+  "afterJumperEnter": {
+    "targetPage": 796,
+    "responseCountDelta": 1,
+    "url": "http://127.0.0.1:8081/dcc/controlled-file/browser?pageNo=796&pageSize=20&scope=global",
+    "pageNo": "796",
+    "rowCount": 17,
+    "jumperValue": "796"
+  },
+  "targetPagerVisible": true,
+  "afterPagerClick": {
+    "responseCountDelta": 0,
+    "url": "http://127.0.0.1:8081/dcc/controlled-file/browser?pageNo=796&pageSize=20&scope=global",
+    "pageNo": "796",
+    "rowCount": 17,
+    "jumperValue": "796"
+  },
+  "previewBeforeClick": {
+    "previewVisible": true,
+    "fileNameVisible": true
+  },
+  "previewButtonClick": {
+    "popupUrl": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044052048?viewer=1&from=browser&returnTo=%252Fdcc%252Fcontrolled-file%252Fbrowser%253FpageNo%253D796%2526pageSize%253D20%2526scope%253Dglobal",
+    "messages": []
+  },
+  "fileNameClick": {
+    "popupUrl": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044052048?viewer=1&from=browser&returnTo=%252Fdcc%252Fcontrolled-file%252Fbrowser%253FpageNo%253D796%2526pageSize%253D20%2526scope%253Dglobal",
+    "messages": []
+  },
+  "completedAt": "2026-08-08T03:53:32.553Z",
+  "status": "PASS"
+}

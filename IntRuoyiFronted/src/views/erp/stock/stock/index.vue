@@ -197,7 +197,7 @@ const handleExport = async () => {
 const handleSyncKingdeeStocks = async () => {
   kingdeeSyncLoading.value = true
   try {
-    await ErpKingdeeSyncApi.runIncrementalSyncJob('kingdeeStockSyncJob')
+    await ErpKingdeeSyncApi.runIncrementalSync('STOCK')
     message.success('ERP 库存增量同步任务已提交')
     await getList()
     productList.value = await ProductApi.getProductSimpleList()

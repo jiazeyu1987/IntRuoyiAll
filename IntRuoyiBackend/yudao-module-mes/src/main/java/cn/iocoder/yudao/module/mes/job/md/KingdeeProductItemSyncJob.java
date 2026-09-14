@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.erp.service.product.sync.ErpKingdeeProductSyncSer
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRuntimeService;
+import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeFullSyncHandler;
 import cn.iocoder.yudao.module.mes.service.md.item.sync.MesKingdeeItemSyncResult;
 import cn.iocoder.yudao.module.mes.service.md.item.sync.MesKingdeeItemSyncService;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Component("kingdeeProductItemSyncJob")
 @RequiredArgsConstructor
-public class KingdeeProductItemSyncJob implements JobHandler {
+public class KingdeeProductItemSyncJob implements JobHandler, ErpKingdeeFullSyncHandler {
 
     private final ErpKingdeeProductSyncService productSyncService;
     private final MesKingdeeItemSyncService itemSyncService;
@@ -31,6 +32,9 @@ public class KingdeeProductItemSyncJob implements JobHandler {
     @Override
     @TenantJob
     public String execute(String param) {
+        if (ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM.equals(param)) {
+            return executeFullSync();
+        }
         LocalDateTime windowEnd = LocalDateTime.now();
         AtomicReference<ErpKingdeeProductSyncResult> productResultReference = new AtomicReference<>();
         AtomicReference<MesKingdeeItemSyncResult> itemResultReference = new AtomicReference<>();
@@ -58,6 +62,32 @@ public class KingdeeProductItemSyncJob implements JobHandler {
                 productResult.getCreatedCount(), productResult.getUpdatedCount(), productResult.getSkippedCount(),
                 itemResult.getCreatedCount(), itemResult.getUpdatedCount(), itemResult.getDisabledCount(),
                 itemResult.getSkippedCount());
+    }
+
+    @Override
+    public String executeFullSync() {
+        LocalDateTime windowEnd = LocalDateTime.now();
+        AtomicReference<ErpKingdeeProductSyncResult> productResultReference = new AtomicReference<>();
+        AtomicReference<MesKingdeeItemSyncResult> itemResultReference = new AtomicReference<>();
+        syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
+                .syncType(ErpKingdeeSyncTypeEnum.PRODUCT)
+                .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                .windowEnd(windowEnd)
+                .build(), context -> {
+            ErpKingdeeProductSyncResult productResult = productSyncService.syncProductsFullSkipExisting();
+            MesKingdeeItemSyncResult itemResult = itemSyncService.syncItemsByProductCodes(
+                    productResult.getCreatedProductCodes());
+            productResultReference.set(productResult);
+            itemResultReference.set(itemResult);
+            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(),
+                    productResult.getCreatedCount() + itemResult.getCreatedCount(),
+                    itemResult.getUpdatedCount() + itemResult.getDisabledCount(),
+                    productResult.getSkippedCount() + itemResult.getSkippedCount(), 0);
+        });
+        ErpKingdeeProductSyncResult productResult = productResultReference.get();
+        MesKingdeeItemSyncResult itemResult = itemResultReference.get();
+        return String.format("ERP product full sync: productsCreated=%d, productsSkipped=%d, itemsCreated=%d",
+                productResult.getCreatedCount(), productResult.getSkippedCount(), itemResult.getCreatedCount());
     }
 
     private List<String> changedProductCodes(ErpKingdeeProductSyncResult productResult) {

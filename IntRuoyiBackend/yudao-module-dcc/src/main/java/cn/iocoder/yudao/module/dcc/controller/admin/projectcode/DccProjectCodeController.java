@@ -16,7 +16,10 @@ import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCod
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeSaveReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeUpdateReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.access.DccProjectAccessRuleBatchSaveReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.access.DccProjectAccessRuleRespVO;
 import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
+import cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -50,6 +53,8 @@ public class DccProjectCodeController {
 
     @Resource
     private DccProjectCodeService projectCodeService;
+    @Resource
+    private DccProjectAccessService projectAccessService;
 
     @PostMapping("/create")
     @Operation(summary = "创建 DCC 项目代码")
@@ -87,7 +92,26 @@ public class DccProjectCodeController {
     @Operation(summary = "获得 DCC 项目代码详情")
     @PreAuthorize("@ss.hasPermission('dcc:project-code:query')")
     public CommonResult<DccProjectCodeRespVO> getProjectCode(@PathVariable("id") Long id) {
-        return success(BeanUtils.toBean(projectCodeService.getProjectCode(id), DccProjectCodeRespVO.class));
+        return success(BeanUtils.toBean(projectCodeService.getProjectCode(getLoginUserId(), id),
+                DccProjectCodeRespVO.class));
+    }
+
+    @GetMapping("/{id:\\d+}/access-rules")
+    @Operation(summary = "获得 DCC 项目正式权限规则")
+    @PreAuthorize("@ss.hasPermission('dcc:project-code:query')")
+    public CommonResult<List<DccProjectAccessRuleRespVO>> getProjectAccessRules(@PathVariable("id") Long id) {
+        return success(BeanUtils.toBean(projectAccessService.getProjectAccessRules(id),
+                DccProjectAccessRuleRespVO.class));
+    }
+
+    @PutMapping("/{id:\\d+}/access-rules")
+    @Operation(summary = "保存 DCC 项目正式权限规则")
+    @PreAuthorize("@ss.hasPermission('dcc:project-code:update')")
+    public CommonResult<List<DccProjectAccessRuleRespVO>> replaceProjectAccessRules(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody DccProjectAccessRuleBatchSaveReqVO reqVO) {
+        return success(BeanUtils.toBean(projectAccessService.replaceProjectAccessRules(id, reqVO.getRules()),
+                DccProjectAccessRuleRespVO.class));
     }
 
     @GetMapping("/{id:\\d+}/controlled-files/page")

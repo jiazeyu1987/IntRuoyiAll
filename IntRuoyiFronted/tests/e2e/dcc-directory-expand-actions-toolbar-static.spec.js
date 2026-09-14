@@ -53,7 +53,7 @@ for (const behaviorToken of [
   'handleDeleteParentFolder(row)',
   'expandAll',
   'collapseAll',
-  'useTreeTableExpand(true)'
+  'useTreeTableExpand(false)'
 ]) {
   assert.ok(directoryPage.includes(behaviorToken), `目录管理原有行为必须保留：${behaviorToken}`)
 }

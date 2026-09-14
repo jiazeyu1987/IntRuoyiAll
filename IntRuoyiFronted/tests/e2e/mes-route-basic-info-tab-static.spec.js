@@ -56,7 +56,7 @@ const flowTabIndex = indexOfTabOrThrow(routeFormContent, '流转关系图', 'flo
 const productTabIndex = indexOfTabOrThrow(routeFormContent, '关联产品', 'product')
 
 if (!(basicTabIndex < flowTabIndex && flowTabIndex < productTabIndex)) {
-  throw new Error('route tabs must keep basic -> flow before product')
+  throw new Error('route tabs must keep basic -> flow -> product')
 }
 
 const formStartIndex = indexOfOrThrow(routeFormContent, '<el-form', 'form start')

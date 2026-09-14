@@ -51,6 +51,15 @@ public class MesProRouteResourceRespVO {
     @Schema(description = "工序序号")
     private Integer sort;
 
+    @Schema(description = "批记录报表 ID")
+    private String batchRecordReportId;
+
+    @Schema(description = "批记录报表编码")
+    private String batchRecordReportCode;
+
+    @Schema(description = "批记录报表名称")
+    private String batchRecordReportName;
+
     @Schema(description = "工位编号")
     private Long workstationId;
 

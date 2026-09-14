@@ -22,6 +22,8 @@ public class DccControlledFileFormEffectExecutor
     public static final String EXECUTOR_CODE = "DCC_UPLOAD";
     private static final String LIFECYCLE_CONTEXT_ERROR =
             "DCC_UPLOAD lifecycle adapter only accepts DCC CONTROLLED_FILE UPLOAD actions";
+    private static final String RETIRED_ENTRY_ERROR =
+            "DCC_UPLOAD form-center entry is retired; use /dcc/controlled-files/working";
 
     private final DccControlledFileWorkflowService workflowService;
 
@@ -39,15 +41,7 @@ public class DccControlledFileFormEffectExecutor
         if (!supports(instance)) {
             return FormBusinessEffectResult.failure("DCC_UPLOAD executor only accepts DCC CONTROLLED_FILE UPLOAD actions");
         }
-        try {
-            String approvalProcessInstanceId = instance.getBpmBinding() == null
-                    ? null : instance.getBpmBinding().getProcessInstanceId();
-            Long fileId = workflowService.submitControlledFileWithoutApproval(instance.getApplicantUserId(),
-                    toSubmitReqVO(instance.getFormData()), approvalProcessInstanceId, idempotencyKey);
-            return FormBusinessEffectResult.success(String.valueOf(fileId));
-        } catch (IllegalArgumentException ex) {
-            return FormBusinessEffectResult.failure(ex.getMessage());
-        }
+        return FormBusinessEffectResult.failure(RETIRED_ENTRY_ERROR);
     }
 
     @Override
@@ -60,12 +54,7 @@ public class DccControlledFileFormEffectExecutor
         if (!supports(instance)) {
             return FormBusinessEffectPrecheck.fail(LIFECYCLE_CONTEXT_ERROR);
         }
-        try {
-            toSubmitReqVO(instance.getFormData());
-            return FormBusinessEffectPrecheck.pass();
-        } catch (IllegalArgumentException ex) {
-            return FormBusinessEffectPrecheck.fail(ex.getMessage());
-        }
+        return FormBusinessEffectPrecheck.fail(RETIRED_ENTRY_ERROR);
     }
 
     @Override
@@ -107,8 +96,9 @@ public class DccControlledFileFormEffectExecutor
         reqVO.setSourceFileId(optionalLong(formData, "sourceFileId"));
         reqVO.setSourceFileName(optionalString(formData, "sourceFileName"));
         reqVO.setDrawingPdfFileId(optionalLong(formData, "drawingPdfFileId"));
-        reqVO.setProductMasterId(optionalLong(formData, "productMasterId"));
+        reqVO.setProductMasterId(null);
         reqVO.setProductCode(optionalString(formData, "productCode"));
+        reqVO.setDccProjectCodeId(requiredLong(formData, "dccProjectCodeId"));
         reqVO.setNeedTraining(optionalBoolean(formData, "needTraining"));
         reqVO.setProcessType(optionalString(formData, "processType"));
         reqVO.setChangeType(requiredString(formData, "changeType"));

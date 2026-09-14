@@ -1,0 +1,55 @@
+{
+  "message": "page.waitForResponse: Timeout 60000ms exceeded while waiting for event \"response\"",
+  "stack": "page.waitForResponse: Timeout 60000ms exceeded while waiting for event \"response\"\n    at waitForBusinessResponse (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\v14-ui-import-verify.cjs:81:31)\n    at login (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\v14-ui-import-verify.cjs:116:32)\n    at async main (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\v14-ui-import-verify.cjs:560:5)",
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting..."
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected."
+    },
+    {
+      "type": "log",
+      "text": "%c 欢迎使用 %c 瑛泰管理系统 %c background:#2d8cf0;border:1px solid #2d8cf0;\n      padding: 1px; border-radius: 4px 0 0 4px; color: #fff; border:1px solid #2d8cf0;\n      padding: 1px; border-radius: 0 4px 4px 0; color: #2d8cf0; background:transparent"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    },
+    {
+      "type": "log",
+      "text": "errAxiosError: Request failed with status code 500"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    },
+    {
+      "type": "log",
+      "text": "errAxiosError: Request failed with status code 500"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    },
+    {
+      "type": "log",
+      "text": "errAxiosError: Request failed with status code 500"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    },
+    {
+      "type": "log",
+      "text": "errAxiosError: Request failed with status code 500"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] hot updated: /__uno.css"
+    }
+  ],
+  "failurePath": "E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\artifacts\\v14-verify-failure-2026-07-26T04-29-25-942Z.png"
+}

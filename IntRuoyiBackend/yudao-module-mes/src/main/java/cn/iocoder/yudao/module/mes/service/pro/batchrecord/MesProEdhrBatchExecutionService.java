@@ -5,7 +5,10 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveDownloadRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionCloseReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionOpenOrCreateReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionManualOpenOrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionQualityRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionReexecuteReqVO;
@@ -15,6 +18,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskOpenReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskOpenRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskPreviewRespVO;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseReportNodeEvidence;
 
 import java.util.List;
 
@@ -26,7 +30,14 @@ public interface MesProEdhrBatchExecutionService {
 
     EdhrBatchExecutionRespVO openOrCreate(EdhrBatchExecutionOpenOrCreateReqVO reqVO);
 
+    EdhrBatchExecutionRespVO openOrCreateManual(EdhrBatchExecutionManualOpenOrCreateReqVO reqVO);
+
+    Long openOrCreateFromProductionRelease(MesProEdhrProductionReleaseBatchCommand command);
+
     EdhrBatchExecutionRespVO reexecuteRejectedBatch(EdhrBatchExecutionReexecuteReqVO reqVO);
+
+    EdhrBatchExecutionGoldenFingerBulkVoidRespVO goldenFingerBulkVoid(
+            EdhrBatchExecutionGoldenFingerBulkVoidReqVO reqVO);
 
     List<EdhrBatchExecutionRouteOptionRespVO> listRouteOptionsByWorkOrder(Long workOrderId);
 
@@ -46,8 +57,19 @@ public interface MesProEdhrBatchExecutionService {
     EdhrBatchExecutionRespVO completeSpecialNode(Long taskId, String sterilizationBatchNo,
                                                  List<MesProEdhrSpecialNodeAttachment> attachments);
 
+    MesProductionReleaseReportNodeEvidence completeProductionReleaseReportNode(
+            Long taskId, Long actorUserId, String sterilizationBatchNo,
+            List<MesProEdhrSpecialNodeAttachment> attachments);
+
+    MesProductionReleaseReportNodeEvidence completePreReleaseDossierNode(
+            Long taskId, Long actorUserId, String sterilizationBatchNo,
+            List<MesProEdhrSpecialNodeAttachment> attachments);
+
     MesProEdhrSpecialNodeAttachmentPrepareUploadResult prepareSpecialNodeAttachmentUpload(
             MesProEdhrSpecialNodeAttachmentPrepareUploadCommand command);
+
+    MesProEdhrSpecialNodeAttachmentPrepareUploadResult prepareProductionReleaseReportAttachmentUpload(
+            MesProEdhrSpecialNodeAttachmentPrepareUploadCommand command, Long actorUserId);
 
     void deletePendingSpecialNodeAttachment(Long taskId, MesProEdhrSpecialNodeAttachment attachment, String reason);
 

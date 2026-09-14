@@ -6,7 +6,11 @@ public interface DccUploadTicketService {
 
     DccUploadTicketCreated createTicket(DccUploadTicketCreateCommand command);
 
+    DccUploadTicketCreated reuseActiveTicketOrReject(DccUploadTicketPreflightCommand command);
+
     DccUploadTicketBoundFile resolveForBinding(DccUploadTicketResolveCommand command);
+
+    DccUploadTicketBoundFile resolveBoundFile(DccUploadTicketResolveCommand command, Long controlledFileId);
 
     void markBound(DccUploadTicketMarkBoundCommand command);
 
@@ -14,6 +18,9 @@ public interface DccUploadTicketService {
 
     int cleanupSessionTemporaryFiles(Long userId, String sessionId, LocalDateTime cleanupTime, String cleanupReason)
             throws Exception;
+
+    int cleanupTemporaryFileByTicket(Long userId, String sessionId, String uploadTicket, LocalDateTime cleanupTime,
+                                     String cleanupReason) throws Exception;
 
     DccUploadTemporaryFileStatus getTemporaryFileStatusByRequestId(Long userId, String requestId);
 }

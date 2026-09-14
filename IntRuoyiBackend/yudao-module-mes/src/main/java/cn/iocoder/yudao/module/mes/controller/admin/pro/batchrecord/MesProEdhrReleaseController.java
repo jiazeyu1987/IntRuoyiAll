@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseSubmitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseWithdrawReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseService;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationCommand;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -71,6 +72,14 @@ public class MesProEdhrReleaseController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-release:approve')")
     public CommonResult<MesProEdhrReleaseRespVO> approve(@Valid @RequestBody MesProEdhrReleaseApproveReqVO reqVO) {
         return success(releaseService.approve(reqVO));
+    }
+
+    @PostMapping("/finalize")
+    @Operation(summary = "统一完成 eDHR 放行最终化")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-release:approve')")
+    public CommonResult<MesProEdhrReleaseRespVO> finalizeRelease(
+            @Valid @RequestBody MesReleaseFinalizationCommand command) {
+        return success(releaseService.finalizeRelease(command));
     }
 
     @PostMapping("/reject")

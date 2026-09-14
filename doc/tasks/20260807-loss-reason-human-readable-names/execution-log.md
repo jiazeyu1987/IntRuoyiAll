@@ -1,0 +1,26 @@
+# Execution Log
+
+- Intent: 用户要求将当前页面中形如 `RLR0807M-*` 的损耗原因改成人员可理解、类似“黑点”的实际损耗描述。
+- Scope: 仅本机 `int_main`、真实登录确认的 `芋道源码/admin`、用户截图对应路线；仅修改目标记录的 `reasonName`。
+- Skill: 使用 `playwright` 技能通过真实页面执行，已核对 `docs/database-rules.md`、`docs/login-access.md`、`docs/e2e-rules.md`、`docs/backend-development.md` 和 `docs/task-closeout-rules.md` 的适用门禁。
+- Playwright prerequisite: `npx` 位于 `D:\Programs\npx.ps1`。
+- Experience gate: 已读取 `docs/experience-index.md`，命中登录租户范围、生产组长工序配置维护权限、写入型 E2E 和表格行定位门禁；摘要已写入 `task.md`。
+- BDD: 当前工序损耗原因使用可理解中文描述 -> Given 用户截图对应路线的工序配置中存在 `RLR0807M-*` 占位描述, When 管理员通过损耗维护弹窗逐项修改, Then 所有目标占位描述被与工序匹配的中文原因替代。
+- BDD: 非目标字段和原因保持不变 -> Given 目标记录具有正式 ID、内部编码、启用状态且路线内已有“黑点”等人工描述, When 修改目标描述, Then ID、内部编码、启用状态及全部非目标描述保持不变。
+- BDD: 范围或写入异常立即停止 -> Given 页面路线、工序、目标记录或响应与预检清单不一致, When 执行维护, Then 停止后续写入并记录精确差异，不切换租户、数据源或采用直接 API/SQL 写入。
+- Runtime preflight: 本机 `http://127.0.0.1:8081/` -> HTTP 200；`http://127.0.0.1:48081/actuator/health` -> `UP`。
+- Read-only scope: Playwright 真实登录 `芋道源码/admin`，`process-config/list` 返回 `106` 行；`球囊扩张导管(routeId=900025)` 有 `23` 个工序、`64` 条损耗原因，其中 `63` 条匹配 `RLR0807M-*`，已有非目标原因仅“黑点”；MES 写请求 `0`、page error `0`、console error `0`、目标网络失败 `0`。
+- RED: `node ..\\doc\\tasks\\20260807-loss-reason-human-readable-names\\loss-reason-human-readable.e2e.mjs red` -> FAIL（预期），`仍有 63 条 RLR0807M 占位描述`。
+- Plan gate: 同脚本 `plan` -> PASS；为 23 个精确工序建立 63 条显式中文原因映射，无未知工序、重复名称、数量差异或非目标名称冲突，MES 写请求 `0`。
+- Apply checkpoint: 真实页面首轮完成 `14` 条后，第 `15` 条 `ID=267 / 管材切口斜` 的 PUT 已发出，因目标响应等待超时停止；后端访问日志与独立页面只读状态确认该条实际已生效，因此当前完成 `15`、待处理 `48`。未重复提交 `ID=267`。
+- Concurrent data: `2026-08-07 16:36` 另一个页面通过正式 POST 为 `routeProcessId=926786` 新增 `ID=566 / LOSS-926786-003 / 黑点`。该记录属于可理解的非目标原因，已纳入保持快照；本任务不删除、不修改。
+- Layout correction: 当前账号采用生产模块平铺布局，工序配置表存在但无独立 `data-production-leader-module-tab-process-config` 页签；脚本改为同时接受“页签切换”和“平铺直接显示”两个正式组件布局，仍要求工序配置表与目标行真实可见。
+- GREEN apply: 断点只读复核 -> `completed=15`、`pending=48`、MES 写请求 `0`；续跑真实页面修改 -> PASS，本轮 `48` 条 PUT 均与清单 ID、目标中文描述和原启用状态一致，最终 63 条全部完成、`placeholderCount=0`、路线原因总数 `65`。
+- GREEN verify: 全新 Playwright 浏览器会话执行 `verify` -> PASS；`routeProcessCount=23`、`routeReasonCount=65`、`changedCount=63`、`placeholderCount=0`、`mesWriteCount=0`、page error `0`、console error `0`、目标网络失败 `0`。
+- Visual verification: `1600x900` 页面截图已滚动到工序配置表，前 12 道工序显示中文原因，包括“球囊成型不良、裁剪尺寸超差、管口毛刺、焊接不牢、显影环漏装”等，无 `RLR0807M-*`。
+- UI note: 页面仍显示与本任务无关的既有 `team-device/list` 请求地址不存在提示；损耗列表和修改接口正常，本任务未隐藏该错误，也未扩大范围修改设备接口。
+- Status: 实现和必需验证完成，已更新为 `ready_for_closeout`，等待经验沉淀检查与任务清理。
+- Experience consolidation: 使用 `project-experience-consolidation` 检查既有归宿后，将“写请求已发出但响应/刷新超时，恢复前按稳定 ID 只读分类并只重放 pending，同时保持并发非目标数据”的通用门禁合并到 `docs/e2e-rules.md#写入型-e2e-响应不确定断点恢复门禁`，并更新 `docs/experience-index.md`；未新建长期经验文档。
+- Closeout preview: `task_closeout.py --task-id 20260807-loss-reason-human-readable-names --mode preview` -> `status=ready`；保留 3 份核心记录，计划删除 8 个临时产物，`blocked=0`、`warnings=0`。
+- Closeout apply: `task_closeout.py --task-id 20260807-loss-reason-human-readable-names --mode apply` -> `status=applied`；已删除脚本、快照、截图和诊断等 8 个临时产物，保留 `task.md`、`execution-log.md`、`verification-report.md`，`blocked=0`、`warnings=0`。
+- Final status: `completed`。依照项目 Git 策略，用户未要求 Git 操作，本任务未暂存、提交、合并或推送任何文件。

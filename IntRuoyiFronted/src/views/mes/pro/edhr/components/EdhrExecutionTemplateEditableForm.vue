@@ -13,7 +13,11 @@
     />
 
     <template v-else>
-      <div class="edhr-template-editable-form__rule-legend" aria-label="单元格规则类型图例">
+      <div
+        v-if="props.showRuleLegend"
+        class="edhr-template-editable-form__rule-legend"
+        aria-label="单元格规则类型图例"
+      >
         <span
           v-for="item in ruleLegendItems"
           :key="item.tone"
@@ -54,9 +58,10 @@
                   :rowspan="cell.rowSpan"
                   :colspan="cell.colSpan"
                   :class="cell.classNames"
+                  :style="cell.cellStyle"
                 >
                   <span
-                    v-if="cell.ruleBadge"
+                    v-if="cell.ruleBadge && props.cellTypeDisplay === 'badge'"
                     class="edhr-template-editable-form__rule-type-badge"
                     :class="`is-${cell.ruleBadge.tone}`"
                     :title="cell.ruleTooltip"
@@ -105,6 +110,42 @@
                         勾选
                       </el-checkbox>
 
+                      <el-radio-group
+                        v-else-if="cell.editableContext.componentKind === 'radio'"
+                        :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
+                        class="edhr-template-editable-form__radio-group"
+                        @update:model-value="
+                          (value) => patchField(cell.editableContext!.fieldIdentity, String(value || ''))
+                        "
+                      >
+                        <el-radio
+                          v-for="option in cell.editableContext.options || []"
+                          :key="option.value"
+                          :value="option.value"
+                        >
+                          {{ option.label }}
+                        </el-radio>
+                      </el-radio-group>
+
+                      <el-select
+                        v-else-if="cell.editableContext.componentKind === 'select'"
+                        :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
+                        size="small"
+                        class="!w-1/1"
+                        clearable
+                        :placeholder="cell.editableContext.placeholder || '请选择'"
+                        @update:model-value="
+                          (value) => patchField(cell.editableContext!.fieldIdentity, value || '')
+                        "
+                      >
+                        <el-option
+                          v-for="option in cell.editableContext.options || []"
+                          :key="option.value"
+                          :label="option.label"
+                          :value="option.value"
+                        />
+                      </el-select>
+
                       <el-input-number
                         v-else-if="cell.editableContext.componentKind === 'number'"
                         :model-value="resolveNumberValue(modelValue[cell.editableContext.fieldIdentity])"
@@ -140,6 +181,18 @@
                         :placeholder="cell.editableContext.placeholder || '请选择日期时间'"
                         @update:model-value="
                           (value) => patchField(cell.editableContext!.fieldIdentity, value || '')
+                        "
+                      />
+
+                      <el-input
+                        v-else-if="cell.editableContext.componentKind === 'textarea'"
+                        :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
+                        type="textarea"
+                        :rows="2"
+                        size="small"
+                        :placeholder="cell.editableContext.placeholder || '请输入内容'"
+                        @update:model-value="
+                          (value) => patchField(cell.editableContext!.fieldIdentity, value)
                         "
                       />
 
@@ -191,9 +244,10 @@
                 :rowspan="cell.rowSpan"
                 :colspan="cell.colSpan"
                 :class="cell.classNames"
+                :style="cell.cellStyle"
               >
                 <span
-                  v-if="cell.ruleBadge"
+                  v-if="cell.ruleBadge && props.cellTypeDisplay === 'badge'"
                   class="edhr-template-editable-form__rule-type-badge"
                   :class="`is-${cell.ruleBadge.tone}`"
                   :title="cell.ruleTooltip"
@@ -242,6 +296,42 @@
                       勾选
                     </el-checkbox>
 
+                    <el-radio-group
+                      v-else-if="cell.editableContext.componentKind === 'radio'"
+                      :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
+                      class="edhr-template-editable-form__radio-group"
+                      @update:model-value="
+                        (value) => patchField(cell.editableContext!.fieldIdentity, String(value || ''))
+                      "
+                    >
+                      <el-radio
+                        v-for="option in cell.editableContext.options || []"
+                        :key="option.value"
+                        :value="option.value"
+                      >
+                        {{ option.label }}
+                      </el-radio>
+                    </el-radio-group>
+
+                    <el-select
+                      v-else-if="cell.editableContext.componentKind === 'select'"
+                      :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
+                      size="small"
+                      class="!w-1/1"
+                      clearable
+                      :placeholder="cell.editableContext.placeholder || '请选择'"
+                      @update:model-value="
+                        (value) => patchField(cell.editableContext!.fieldIdentity, value || '')
+                      "
+                    >
+                      <el-option
+                        v-for="option in cell.editableContext.options || []"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+
                     <el-input-number
                       v-else-if="cell.editableContext.componentKind === 'number'"
                       :model-value="resolveNumberValue(modelValue[cell.editableContext.fieldIdentity])"
@@ -277,6 +367,18 @@
                       :placeholder="cell.editableContext.placeholder || '请选择日期时间'"
                       @update:model-value="
                         (value) => patchField(cell.editableContext!.fieldIdentity, value || '')
+                      "
+                    />
+
+                    <el-input
+                      v-else-if="cell.editableContext.componentKind === 'textarea'"
+                      :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
+                      type="textarea"
+                      :rows="2"
+                      size="small"
+                      :placeholder="cell.editableContext.placeholder || '请输入内容'"
+                      @update:model-value="
+                        (value) => patchField(cell.editableContext!.fieldIdentity, value)
                       "
                     />
 
@@ -323,6 +425,7 @@ import {
   resolveTemplateRuleState,
   resolveTemplateRuleTooltip,
   resolveTemplateRuleTypeBadge,
+  resolveTemplateCellCssStyle,
   stringifyTemplateCell,
   templateRuleTypeBadgeLegend,
   type TemplateEditableCellContext,
@@ -352,6 +455,7 @@ type RenderedCell = {
   ruleState?: TemplateRuleState
   ruleTooltip?: string
   classNames: Record<string, boolean>
+  cellStyle: Record<string, string>
 }
 
 type RenderedRow = {
@@ -379,21 +483,28 @@ const TALL_EDITABLE_COMPONENT_KINDS = new Set<TemplateEditableCellContext['compo
   'attachment'
 ])
 
-const props = defineProps<{
-  sheetLayoutJson?: string
-  cellRules?: BatchRecordReportCellRuleVO[]
-  signatureMarkers?: BatchRecordReportSignatureCellMarkerVO[]
-  modelValue: TemplateSimulationValueMap
-  fitToViewport?: boolean
-  fitMode?: 'width' | 'height'
-}>()
+const props = withDefaults(
+  defineProps<{
+    sheetLayoutJson?: string
+    cellRules?: BatchRecordReportCellRuleVO[]
+    signatureMarkers?: BatchRecordReportSignatureCellMarkerVO[]
+    modelValue: TemplateSimulationValueMap
+    fieldIdentityMap?: Record<string, string>
+    fitToViewport?: boolean
+    fitMode?: 'width' | 'height'
+    showRuleLegend?: boolean
+    cellTypeDisplay?: 'badge' | 'background'
+  }>(),
+  {
+    showRuleLegend: true,
+    cellTypeDisplay: 'badge'
+  }
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: TemplateSimulationValueMap]
   signatureAction: [context: TemplateEditableCellContext]
 }>()
-
-const parseError = ref('')
 
 const parseJson = <T,>(raw: string | undefined, label: string): T | undefined => {
   if (!raw?.trim()) return undefined
@@ -405,20 +516,30 @@ const parseJson = <T,>(raw: string | undefined, label: string): T | undefined =>
   }
 }
 
-const layout = computed(() => {
-  parseError.value = ''
+const parsedLayoutState = computed<{
+  layout?: RichTemplateRawLayout
+  error: string
+}>(() => {
   try {
     const parsed = parseJson<RichTemplateRawLayout>(props.sheetLayoutJson, '模板布局')
     if (!parsed?.rows || !Object.keys(parsed.rows).length) {
-      parseError.value = '缺少电子批记录模板布局，无法渲染模板内填写。'
-      return undefined
+      return {
+        error: '缺少电子批记录模板布局，无法渲染模板内填写。'
+      }
     }
-    return parsed
+    return {
+      layout: parsed,
+      error: ''
+    }
   } catch (error) {
-    parseError.value = error instanceof Error ? error.message : '模板布局解析失败。'
-    return undefined
+    return {
+      error: error instanceof Error ? error.message : '模板布局解析失败。'
+    }
   }
 })
+
+const parseError = computed(() => parsedLayoutState.value.error)
+const layout = computed(() => parsedLayoutState.value.layout)
 
 const normalizedRules = computed(() => (props.cellRules || []).map(normalizeCellRule))
 
@@ -429,8 +550,12 @@ const editableContextMap = computed(() => {
     .forEach((marker) => markerMap.set(buildTemplateFieldIdentity(marker.rowIndex, marker.columnIndex), marker))
   const map = new Map<string, TemplateEditableCellContext>()
   normalizedRules.value.forEach((rule) => {
-    const key = buildTemplateFieldIdentity(rule.rowIndex, rule.columnIndex)
-    map.set(key, buildTemplateEditableCellContext(rule, markerMap.get(key)))
+    const cellIdentity = buildTemplateFieldIdentity(rule.rowIndex, rule.columnIndex)
+    const formDataFieldIdentity = props.fieldIdentityMap?.[cellIdentity] || cellIdentity
+    map.set(cellIdentity, {
+      ...buildTemplateEditableCellContext(rule, markerMap.get(cellIdentity)),
+      fieldIdentity: formDataFieldIdentity
+    })
   })
   return map
 })
@@ -556,6 +681,7 @@ const renderedRows = computed<RenderedRow[]>(() => {
       const editableContext = editableContextMap.value.get(buildTemplateFieldIdentity(rowIndex, columnIndex))
       const ruleState = editableContext ? resolveTemplateRuleState(editableContext) : undefined
       const ruleBadge = editableContext ? resolveTemplateRuleTypeBadge(editableContext) : undefined
+      const typeClassName = ruleBadge ? `is-cell-type-${ruleBadge.tone}` : ''
       if (editableContext) {
         rowEditableHeightFloor = Math.max(rowEditableHeightFloor, resolveEditableRowMinHeight(editableContext))
       }
@@ -569,6 +695,7 @@ const renderedRows = computed<RenderedRow[]>(() => {
         ruleBadge,
         ruleState,
         ruleTooltip: editableContext ? resolveTemplateRuleTooltip(editableContext) : '',
+        cellStyle: resolveTemplateCellCssStyle(rawCell, layout.value?.styles),
         classNames: {
           'edhr-template-editable-form__cell': true,
           'is-static': !editableContext,
@@ -577,8 +704,12 @@ const renderedRows = computed<RenderedRow[]>(() => {
           'is-rule-reviewed': ruleState === 'reviewed',
           'is-rule-manual': ruleState === 'manual',
           'is-rule-error': ruleState === 'error',
+          'is-cell-type-background': props.cellTypeDisplay === 'background' && Boolean(ruleBadge),
+          [typeClassName]: props.cellTypeDisplay === 'background' && Boolean(ruleBadge),
           'is-signature': editableContext?.componentKind === 'signature',
           'is-attachment': editableContext?.componentKind === 'attachment',
+          'is-diagonal-slash': Boolean(rawCell?.edhrDiagonalSlash),
+          'is-diagonal-slash-tl2br': rawCell?.edhrDiagonalSlashDirection === 'TL2BR',
           'is-empty': !editableContext && !stringifyTemplateCell(rawCell?.value ?? rawCell?.text)
         }
       })
@@ -712,9 +843,27 @@ const resolveNumberValue = (value: TemplateSimulationValueMap[string]) => {
 }
 
 .edhr-template-editable-form__cell.is-static {
-  background: #f3f4f6;
+  background: #fff;
   color: #172033;
-  font-weight: 600;
+  font-weight: inherit;
+}
+
+.edhr-template-editable-form__cell.is-diagonal-slash {
+  background: #fff;
+}
+
+.edhr-template-editable-form__cell.is-diagonal-slash::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #1f2937;
+  clip-path: polygon(calc(100% - 1px) 0, 100% 0, 1px 100%, 0 100%);
+  pointer-events: none;
+  content: '';
+}
+
+.edhr-template-editable-form__cell.is-diagonal-slash-tl2br::after {
+  clip-path: polygon(0 0, 1px 0, 100% calc(100% - 1px), 100% 100%);
 }
 
 .edhr-template-editable-form__cell.is-editable {
@@ -763,6 +912,42 @@ const resolveNumberValue = (value: TemplateSimulationValueMap[string]) => {
 }
 
 .edhr-template-editable-form__cell.is-rule-error {
+  background: #fef2f2;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-text {
+  background: #fff7ed;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-number {
+  background: #eff6ff;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-date {
+  background: #ecfeff;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-datetime {
+  background: #f0fdfa;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-boolean {
+  background: #f0fdf4;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-signature {
+  background: #faf5ff;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-radio {
+  background: #f5f3ff;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-select {
+  background: #eff6ff;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-attachment {
   background: #fef2f2;
 }
 
@@ -821,6 +1006,16 @@ const resolveNumberValue = (value: TemplateSimulationValueMap[string]) => {
   color: #6d28d9;
 }
 
+.edhr-template-editable-form__rule-type-badge.is-radio {
+  border-color: #c4b5fd;
+  color: #5b21b6;
+}
+
+.edhr-template-editable-form__rule-type-badge.is-select {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
 .edhr-template-editable-form__rule-type-badge.is-attachment {
   border-color: #fdba74;
   color: #c2410c;
@@ -872,6 +1067,13 @@ const resolveNumberValue = (value: TemplateSimulationValueMap[string]) => {
   color: #92400e;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.edhr-template-editable-form__radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 8px;
 }
 
 .edhr-template-editable-form__hint {

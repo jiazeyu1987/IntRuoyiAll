@@ -49,10 +49,8 @@ assert(
 )
 
 assert(
-  source.includes('金手指测试权限') &&
-    source.includes('可绕过放行、关闭、作废或审批锁定') &&
-    !source.includes('不绕过放行、关闭、作废或审批锁定'),
-  'The page must visibly warn users that golden finger can bypass action locks for testing.'
+  !source.includes('goldenFingerNotice'),
+  'The fill workspace must not render the golden finger explanatory notice in the sidebar.'
 )
 
 console.log('PASS: eDHR golden finger frontend static contract')

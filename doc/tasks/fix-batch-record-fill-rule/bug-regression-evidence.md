@@ -30,4 +30,12 @@
 
 ## Blockers
 
-严格 RED 缺少修复前运行证据。运行 `MesProBatchRecordCellRuleSupportTest,MesProBatchRecordReportServiceImplDbTest` 后，129 个测试中有 1 个损耗报告 Word 解析断言失败，期望 `□报废`、实际 `报废`，与本次来源归一化无直接关系。后续单独复现时，范围外的 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled` 调用缺少 helper，主代码无法编译。真实 E2E 因浏览器登录超时、缺少任务专用测试账号而未执行。
+原始 `source/reviewed` 严格 RED 缺少修复前运行证据，作为历史证据缺口保留。用户授权纳入的编译前置、损耗报告 Word 解析和真实前端 E2E 阻塞均已修复并验证通过；当前授权范围内无剩余阻塞。历史模板 JSON dry run/apply 需另行授权。
+
+## Additional Regression: Traditional Batch Record openTask
+
+真实 E2E 复验时新增暴露 `/task/open` 返回 `1040750412 eDHR 批次缺少唯一批记录路线`。根因是 `openTask` 把传统批记录任务和 Form Center 动态表单任务使用同一组上下文字段校验；传统任务已有 `executionId` 和 `batchRecordReportId`，但没有 `formTemplateId/formCenterInstanceId/formBindingKey`，因此被误判为上下文缺失。
+
+- RED: `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_opensLegacyBatchRecordTaskWithFrozenExecutionWithoutFormCenterContext' test` -> FAIL，复现 `PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED` / `1040750412`。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_opensLegacyBatchRecordTaskWithFrozenExecutionWithoutFormCenterContext+openTask_requiresFrozenExecutionForBatchSharedTask' test` -> PASS，2 个测试通过。
+- E2E: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS，真实前端打开既有批次任务并进入执行页。

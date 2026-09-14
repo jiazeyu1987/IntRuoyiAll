@@ -22,6 +22,13 @@ public interface DccControlledFileMasterMapper extends BaseMapperX<DccControlled
     default List<DccControlledFileMasterDO> selectListByFileNumber(String fileNumber) {
         return selectList(DccControlledFileMasterDO::getFileNumber, fileNumber);
     }
+    default List<DccControlledFileMasterDO> selectListByLogicalIdentity(Long projectCodeId, Long taxonomyLeafId,
+                                                                          String normalizedFileNumber) {
+        return selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<DccControlledFileMasterDO>()
+                .eq(DccControlledFileMasterDO::getDccProjectCodeId, projectCodeId)
+                .eq(DccControlledFileMasterDO::getFileTypeTaxonomyLeafId, taxonomyLeafId)
+                .eq(DccControlledFileMasterDO::getNormalizedFileNumber, normalizedFileNumber));
+    }
 
     @Select("""
             SELECT id,
@@ -29,6 +36,40 @@ public interface DccControlledFileMasterMapper extends BaseMapperX<DccControlled
                    directory_id,
                    file_name,
                    file_number,
+                   tenant_id,
+                   dcc_project_code_id,
+                   file_type_taxonomy_leaf_id,
+                   normalized_file_number,
+                   current_active_controlled_file_id,
+                   status,
+                   create_time,
+                   update_time,
+                   creator,
+                   updater,
+                   deleted
+            FROM dcc_controlled_file_master
+            WHERE tenant_id = #{tenantId}
+              AND dcc_project_code_id = #{dccProjectCodeId}
+              AND file_type_taxonomy_leaf_id = #{fileTypeTaxonomyLeafId}
+              AND normalized_file_number = #{normalizedFileNumber}
+              AND deleted = b'0'
+            LIMIT 1
+            """)
+    DccControlledFileMasterDO selectByNewLogicalIdentity(@Param("tenantId") Long tenantId,
+                                                         @Param("dccProjectCodeId") Long dccProjectCodeId,
+                                                         @Param("fileTypeTaxonomyLeafId") Long fileTypeTaxonomyLeafId,
+                                                         @Param("normalizedFileNumber") String normalizedFileNumber);
+
+    @Select("""
+            SELECT id,
+                   category_id,
+                   directory_id,
+                   file_name,
+                   file_number,
+                   tenant_id,
+                   dcc_project_code_id,
+                   file_type_taxonomy_leaf_id,
+                   normalized_file_number,
                    current_active_controlled_file_id,
                    status,
                    create_time,
@@ -38,10 +79,36 @@ public interface DccControlledFileMasterMapper extends BaseMapperX<DccControlled
                    deleted
             FROM dcc_controlled_file_master
             WHERE id = #{id}
-              AND deleted = b'0'
+              AND deleted = 0
             FOR UPDATE
             """)
     DccControlledFileMasterDO selectByIdForUpdate(@Param("id") Long id);
+
+    @Update("""
+            UPDATE dcc_controlled_file_master
+            SET category_id = #{categoryId},
+                directory_id = #{directoryId},
+                file_name = #{fileName},
+                file_number = #{fileNumber},
+                dcc_project_code_id = #{dccProjectCodeId},
+                file_type_taxonomy_leaf_id = #{fileTypeTaxonomyLeafId},
+                normalized_file_number = #{normalizedFileNumber},
+                current_active_controlled_file_id = #{currentActiveControlledFileId},
+                updater = #{updater},
+                update_time = CURRENT_TIMESTAMP
+            WHERE id = #{id}
+              AND deleted = b'0'
+            """)
+    int updateMetadataIdentity(@Param("id") Long id,
+                               @Param("categoryId") Long categoryId,
+                               @Param("directoryId") Long directoryId,
+                               @Param("fileName") String fileName,
+                               @Param("fileNumber") String fileNumber,
+                               @Param("dccProjectCodeId") Long dccProjectCodeId,
+                               @Param("fileTypeTaxonomyLeafId") Long fileTypeTaxonomyLeafId,
+                               @Param("normalizedFileNumber") String normalizedFileNumber,
+                               @Param("currentActiveControlledFileId") Long currentActiveControlledFileId,
+                               @Param("updater") String updater);
 
     @Select("""
             SELECT id,

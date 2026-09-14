@@ -32,6 +32,14 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_411, "eDHR 批次最终归档不存在");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_ARCHIVE_REGENERATE_REQUIRED =
             new ErrorCode(1_040_750_418, "请先重新生成最终归档后再下载打印版 PDF");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_ARCHIVE_PDFA_INVALID =
+            new ErrorCode(1_040_750_425, "eDHR 批次最终归档未通过 PDF/A-1b 校验：{}");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_ARCHIVE_STORAGE_FAILED =
+            new ErrorCode(1_040_750_426, "eDHR 批次最终归档受保护存储失败");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_ARCHIVE_STORAGE_EVIDENCE_INVALID =
+            new ErrorCode(1_040_750_427, "eDHR 批次最终归档缺少有效的对象锁与保留证据");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_ARCHIVE_CHECKSUM_MISMATCH =
+            new ErrorCode(1_040_750_428, "eDHR 批次最终归档文件完整性校验失败");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED =
             new ErrorCode(1_040_750_412, "eDHR 批次缺少唯一批记录路线");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID =
@@ -52,6 +60,50 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_422, "eDHR 批次执行对应工艺路线缺少生效版本，routeId={}");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_PENDING_VOID_ACTION_LOCKED =
             new ErrorCode(1_040_750_423, "作废申请待处理，只能撤回作废申请");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED =
+            new ErrorCode(1_040_750_424, "当前工单产品未绑定启用的工艺路线，请先完成产品与工艺路线绑定");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_TYPE_REQUIRED =
+            new ErrorCode(1_040_750_470, "批次入口缺少 entryType");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_BUSINESS_ID_REQUIRED =
+            new ErrorCode(1_040_750_471, "批次入口缺少 entryBusinessId");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_CREDENTIAL_REQUIRED =
+            new ErrorCode(1_040_750_472, "批次入口缺少正式前置凭证");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_SCENARIO_MISMATCH =
+            new ErrorCode(1_040_750_473, "批次入口场景与前置凭证类型不一致");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED =
+            new ErrorCode(1_040_750_474, "批次入口缺少正式来源关系");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_SOURCE_CONTEXT_REQUIRED =
+            new ErrorCode(1_040_750_475, "批次入口缺少 sourceContextHash");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_IDEMPOTENCY_REQUIRED =
+            new ErrorCode(1_040_750_476, "批次入口缺少幂等键");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_TENANT_REQUIRED =
+            new ErrorCode(1_040_750_481, "批次入口缺少安全租户上下文");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_BACKFILL_NOT_SUCCEEDED =
+            new ErrorCode(1_040_750_477, "活跃订单完成回填未成功，禁止创建批次");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_RECEIPT_EXPIRED =
+            new ErrorCode(1_040_750_478, "批次入口正式凭证已过期");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_RECEIPT_REVOKED =
+            new ErrorCode(1_040_750_479, "批次入口正式凭证已撤销");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID =
+            new ErrorCode(1_040_750_480, "批次入口正式凭证完整性校验失败");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_INVALID =
+            new ErrorCode(1_040_750_482, "独立批次正式前置凭证无效");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_PREREQUISITE_MISSING =
+            new ErrorCode(1_040_750_483, "独立批次缺少正式前置凭证");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_PERMISSION_DENIED =
+            new ErrorCode(1_040_750_484, "当前用户无权签发或撤销独立批次正式前置凭证");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_IDEMPOTENCY_CONFLICT =
+            new ErrorCode(1_040_750_485, "独立批次正式前置凭证幂等键与来源载荷冲突");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_SOURCE_CHANGED =
+            new ErrorCode(1_040_750_486, "独立批次正式来源快照已变化");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_TENANT_MISMATCH =
+            new ErrorCode(1_040_750_487, "独立批次正式前置凭证租户不匹配");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_SIGNATURE_INVALID =
+            new ErrorCode(1_040_750_488, "独立批次正式前置凭证签名校验失败");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_HASH_INVALID =
+            new ErrorCode(1_040_750_489, "独立批次正式前置凭证规范载荷摘要校验失败");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_ALREADY_REVOKED =
+            new ErrorCode(1_040_750_490, "独立批次正式前置凭证已撤销");
     ErrorCode PRO_EDHR_RELEASE_PRECHECK_REQUIRED =
             new ErrorCode(1_040_750_430, "eDHR 放行前检查未通过，禁止提交放行");
     ErrorCode PRO_EDHR_RELEASE_STATUS_INVALID =
@@ -63,7 +115,7 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
     ErrorCode PRO_EDHR_RELEASE_IDEMPOTENCY_KEY_REQUIRED =
             new ErrorCode(1_040_750_434, "eDHR 放行动作缺少幂等键");
     ErrorCode PRO_EDHR_RELEASE_OWNER_INVALID =
-            new ErrorCode(1_040_750_435, "仅批次负责人可放行 eDHR 批次：{}");
+            new ErrorCode(1_040_750_435, "仅放行责任人可放行 eDHR 批次：{}");
     ErrorCode PRO_EDHR_RELEASE_SIGNATURE_PASSWORD_REQUIRED =
             new ErrorCode(1_040_750_436, "eDHR 放行必须填写负责人电子签名密码");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_CLOSE_PRECHECK_REQUIRED =
@@ -104,4 +156,42 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_456, "本地 eDHR 状态样本只能由芋道源码/admin 当前租户创建");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_NOT_VISIBLE =
             new ErrorCode(1_040_750_457, "当前用户不可查看该 eDHR 批次执行");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_GOLDEN_FINGER_REQUIRED =
+            new ErrorCode(1_040_750_458, "仅金手指角色允许执行该 eDHR 批次批量直通作废");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_BULK_VOID_EMPTY =
+            new ErrorCode(1_040_750_459, "当前筛选条件下没有可作废的 eDHR 批次执行");
+    ErrorCode PRO_EDHR_RECORDBOOK_GLOBAL_CONFIG_MISSING =
+            new ErrorCode(1_040_750_460, "eDHR 记录本全局开关配置缺失：{}");
+    ErrorCode PRO_EDHR_RECORDBOOK_GLOBAL_CONFIG_INVALID =
+            new ErrorCode(1_040_750_461, "eDHR 记录本全局开关配置值非法：{}={}");
+    ErrorCode PRO_EDHR_RECORDBOOK_GLOBAL_DISABLED =
+            new ErrorCode(1_040_750_462, "记录本全局开关已关闭，只允许使用批记录流程");
+    ErrorCode PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_MISSING =
+            new ErrorCode(1_040_750_463, "eDHR 放行资料限制配置缺失：{}");
+    ErrorCode PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_INVALID =
+            new ErrorCode(1_040_750_464, "eDHR 放行资料限制配置值非法：{}={}");
+    ErrorCode PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE =
+            new ErrorCode(1_040_750_465, "eDHR 放行资料限制配置已变更，请重新执行放行预检");
+    ErrorCode PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_LOCKED =
+            new ErrorCode(1_040_750_468, "eDHR 放行资料限制配置已冻结，不允许修改");
+    ErrorCode PRO_EDHR_RELEASE_FOUR_MATERIAL_GATE_BLOCKED =
+            new ErrorCode(1_040_750_466, "四份放行材料未齐套或当前版本无效：{}");
+    ErrorCode PRO_EDHR_RELEASE_MATERIAL_MANIFEST_STALE =
+            new ErrorCode(1_040_750_467, "四份放行材料版本或清单摘要已变化，请重新预检");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_NOT_EXISTS =
+            new ErrorCode(1_040_750_469, "eDHR 不合格评审单不存在");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_PENDING_EXISTS =
+            new ErrorCode(1_040_750_470, "当前 eDHR 批次已存在待处置不合格评审单");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID =
+            new ErrorCode(1_040_750_471, "eDHR 不合格评审来源类型无效");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_DISPOSITION_INVALID =
+            new ErrorCode(1_040_750_472, "eDHR 不合格评审处置结论无效");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED =
+            new ErrorCode(1_040_750_473, "eDHR 不合格评审原因、材料、意见和电子签名密码均不能为空");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED =
+            new ErrorCode(1_040_750_474, "当前批次存在不合格评审冻结，禁止{}：{}");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_WORK_ORDER_STATE_REQUIRED =
+            new ErrorCode(1_040_750_491, "不合格评审缺少工单冻结前状态，禁止恢复工单");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED =
+            new ErrorCode(1_040_750_492, "eDHR 批次缺少冻结工艺路线身份或快照，禁止归档");
 }

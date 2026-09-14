@@ -1,0 +1,44 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "scheduleTargetCode": "SCH-SMART-SCHED-20260630-RERUN8-MO-20260711-0001",
+  "scheduleTargetErpWorkOrderCode": "SMART-SCHED-20260630-RERUN8-MO",
+  "scheduleInitialParams": {
+    "pageNo": "1",
+    "pageSize": "20"
+  },
+  "scheduleFilteredParams": {
+    "pageNo": "1",
+    "pageSize": "20",
+    "code": "SCH-SMART-SCHED-20260630-RERUN8-MO-20260711-0001",
+    "erpWorkOrderCode": "SMART-SCHED-20260630-RERUN8-MO"
+  },
+  "scheduleResetParams": {
+    "pageNo": "1",
+    "pageSize": "20"
+  },
+  "admissionTargetWorkOrderCode": "PQC-E2E-FS-20260804",
+  "admissionTargetProductCode": "AW.107.02.01.2010",
+  "admissionTargetStatus": "BLOCKED",
+  "admissionInitialParams": {
+    "pageNo": "1",
+    "pageSize": "20"
+  },
+  "admissionFilteredParams": {
+    "pageNo": "1",
+    "pageSize": "20",
+    "workOrderCode": "PQC-E2E-FS-20260804",
+    "productCode": "AW.107.02.01.2010",
+    "admissionStatus": "BLOCKED"
+  },
+  "admissionResetParams": {
+    "pageNo": "1",
+    "pageSize": "20"
+  },
+  "targetWriteRequestCount": 0,
+  "targetBadResponseCount": 0,
+  "runtimeIssueCount": 0
+}

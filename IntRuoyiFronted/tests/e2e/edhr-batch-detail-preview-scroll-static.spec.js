@@ -37,10 +37,14 @@ assert.ok(scrollBodyIndex > headerIndex, '纵向滚动容器必须位于顶部�
 const readonlyForms = [...previewTemplate.matchAll(/<EdhrExecutionReadonlyForm[\s\S]*?\/>/g)].map(
   (match) => match[0]
 )
-assert.equal(readonlyForms.length, 2, '已执行表单和任务预览表单都必须保留')
-for (const readonlyForm of readonlyForms) {
-  assert.match(readonlyForm, /\sfit-to-viewport(?:\s|\/>)/, '两种只读表单都必须按中栏宽度等比缩放')
-}
+assert.equal(readonlyForms.length, 1, '已执行表单和空表单预览应共用同一个只读渲染分支')
+assert.ok(
+  readonlyForms[0].includes('v-else-if="selectedPreviewFormViewModel"') &&
+    readonlyForms[0].includes(':form-view-model="selectedPreviewFormViewModel"') &&
+    readonlyForms[0].includes(':signature-records="selectedPreviewSignatureRecords"'),
+  '统一只读表单必须由 submitted 内容或清空后的 task preview formViewModel 驱动'
+)
+assert.match(readonlyForms[0], /\sfit-to-viewport(?:\s|\/>)/, '统一只读表单必须按中栏宽度等比缩放')
 
 const reviewCard = readStyleBlock('.edhr-batch-detail__review-card')
 for (const requiredStyle of [

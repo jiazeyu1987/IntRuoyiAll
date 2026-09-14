@@ -125,6 +125,11 @@ class MesProEdhrFormFillLogServiceImplTest extends BaseDbUnitTest {
                 LocalDateTime.of(2026, 7, 13, 11, 0), 2);
         insertAuditItem(4201L, 1201L, execution.getId(), 1L, "temperature", "温度", "36.6", "37.5");
         insertAuditItem(4202L, 1201L, execution.getId(), 2L, "pressure", "压力", "1.1", "1.2");
+        MesProBatchRecordExecutionFieldAuditItemDO recordbookItem = auditItemMapper.selectById(4201L);
+        recordbookItem
+                .setRecordbookValueDisplay("50")
+                .setBatchRecordValueDisplay("40");
+        auditItemMapper.updateById(recordbookItem);
 
         MesProEdhrFormFillLogDetailRespVO detail = formFillLogService.getDetail(1201L);
 
@@ -134,6 +139,8 @@ class MesProEdhrFormFillLogServiceImplTest extends BaseDbUnitTest {
         assertEquals(2, detail.getItems().size());
         assertEquals("温度", detail.getItems().get(0).getFieldLabel());
         assertEquals("37.5", detail.getItems().get(0).getNewValueDisplay());
+        assertEquals("50", detail.getItems().get(0).getRecordbookValueDisplay());
+        assertEquals("40", detail.getItems().get(0).getBatchRecordValueDisplay());
         assertEquals("压力", detail.getItems().get(1).getFieldLabel());
     }
 

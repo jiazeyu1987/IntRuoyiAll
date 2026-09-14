@@ -1,0 +1,51 @@
+{
+  "mode": "existing-v14-read-repair",
+  "versionNo": "V14.0",
+  "versionId": "130",
+  "batchRecordName": "球囊扩张压力泵",
+  "targets": [
+    {
+      "report": {
+        "batchRecordName": "球囊扩张压力泵",
+        "batchRecordDefinitionId": 47,
+        "batchRecordVersionId": 130,
+        "productName": "球囊扩张压力泵",
+        "versionNo": "V14.0",
+        "versionStatus": "APPROVED",
+        "formSlotType": "MAIN",
+        "routeKey": "B",
+        "sourceTableIndex": 5,
+        "tableTitle": "清洁工序生产记录",
+        "reportId": "ff909645721d4c7cb9220a74e4497254",
+        "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T05",
+        "reportName": "清洁工序生产记录",
+        "sourceFileName": "批记录压力泵.doc",
+        "lastImportTime": 1784998325000,
+        "updateTime": 1784998325000
+      },
+      "offenders": []
+    },
+    {
+      "report": {
+        "batchRecordName": "球囊扩张压力泵",
+        "batchRecordDefinitionId": 47,
+        "batchRecordVersionId": 130,
+        "productName": "球囊扩张压力泵",
+        "versionNo": "V14.0",
+        "versionStatus": "APPROVED",
+        "formSlotType": "MAIN",
+        "routeKey": "B",
+        "sourceTableIndex": 7,
+        "tableTitle": "光固Ⅰ工序生产记录",
+        "reportId": "bd1ac748f2be41bd8e63b2c0a924059e",
+        "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T07",
+        "reportName": "光固Ⅰ工序生产记录",
+        "sourceFileName": "批记录压力泵.doc",
+        "lastImportTime": 1784998325000,
+        "updateTime": 1784998325000
+      },
+      "offenders": []
+    }
+  ],
+  "offenders": []
+}

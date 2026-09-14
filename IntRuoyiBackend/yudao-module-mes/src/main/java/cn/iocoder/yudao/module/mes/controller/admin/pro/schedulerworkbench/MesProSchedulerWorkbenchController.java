@@ -11,10 +11,13 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.Me
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchSmokeTestStartReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchSmokeTestStatusRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchSummaryRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchAutoScheduleJobStatusRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchNightShiftCapacityStatusRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.schedulerworkbench.MesProSchedulerWorkbenchFullConfigPackageService;
 import cn.iocoder.yudao.module.mes.service.pro.schedulerworkbench.MesProSchedulerWorkbenchRouteConfigPackageService;
 import cn.iocoder.yudao.module.mes.service.pro.schedulerworkbench.MesProSchedulerWorkbenchSmokeTestService;
 import cn.iocoder.yudao.module.mes.service.pro.schedulerworkbench.MesProSchedulerWorkbenchService;
+import cn.iocoder.yudao.module.mes.service.pro.schedulerworkbench.MesProSchedulerWorkbenchRuntimeStatusService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -47,6 +50,8 @@ public class MesProSchedulerWorkbenchController {
 
     @Resource
     private MesProSchedulerWorkbenchService schedulerWorkbenchService;
+    @Resource
+    private MesProSchedulerWorkbenchRuntimeStatusService runtimeStatusService;
     @Resource
     private MesProSchedulerWorkbenchSmokeTestService smokeTestService;
     @Resource
@@ -83,6 +88,20 @@ public class MesProSchedulerWorkbenchController {
     @PreAuthorize("@ss.hasPermission('mes:pro-scheduler-workbench:query')")
     public CommonResult<MesProSchedulerWorkbenchPolicySettingsRespVO> getPolicySettings() {
         return success(schedulerWorkbenchService.getPolicySettings());
+    }
+
+    @GetMapping("/auto-schedule-job/status")
+    @Operation(summary = "获得自动排产任务状态")
+    @PreAuthorize("@ss.hasPermission('mes:pro-scheduler-workbench:query')")
+    public CommonResult<MesProSchedulerWorkbenchAutoScheduleJobStatusRespVO> getAutoScheduleJobStatus() {
+        return success(runtimeStatusService.getAutoScheduleJobStatus());
+    }
+
+    @GetMapping("/night-shift-capacity/status")
+    @Operation(summary = "获得可用夜班和产能状态")
+    @PreAuthorize("@ss.hasPermission('mes:pro-scheduler-workbench:query')")
+    public CommonResult<MesProSchedulerWorkbenchNightShiftCapacityStatusRespVO> getNightShiftCapacityStatus() {
+        return success(runtimeStatusService.getNightShiftCapacityStatus());
     }
     @GetMapping("/capacity-unification-audit")
     @Operation(summary = "获得产能统一审计")

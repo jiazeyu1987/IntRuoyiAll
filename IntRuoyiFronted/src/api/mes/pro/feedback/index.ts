@@ -1,6 +1,12 @@
 import request from '@/config/axios'
+import type { DeviceParameterValueType } from '@/api/mes/pro/processpool/teamLeader'
+import {
+  projectFrontlinePqcProcesses,
+  type FrontlinePqcProcessResponseVO
+} from './pqcProjection'
 import type {
   EdhrBatchArchiveVisibility,
+  EdhrBatchExecutionTaskRespVO,
   EdhrBatchFormSlotType,
   EdhrBatchOwnerRoleKey,
   EdhrBatchRequiredPolicy,
@@ -75,6 +81,509 @@ export interface ProFeedbackVO {
   sourceImportRowNo?: number
   sourceImportAttributionTime?: string | number | Date
   approvalImpactText?: string
+}
+
+export interface ProFrontlineLossDetailReqVO {
+  reasonId: number
+  reasonCode?: string
+  reasonName?: string
+  quantity: number
+}
+
+export interface ProFrontlineSelectedDeviceReqVO {
+  deviceId: number
+  deviceCode?: string
+  deviceName?: string
+  inMeteringValidityPeriod?: boolean
+}
+
+export type ProFrontlineParameterStatus = 'NORMAL' | 'BELOW_LOWER' | 'ABOVE_UPPER'
+export type FrontlinePqcInspectionRuleKey = 'FIRST' | 'PATROL_AM' | 'PATROL_PM' | 'FINAL'
+export type FrontlinePqcResultType = 'BOOLEAN' | 'NUMERIC' | 'TEXT'
+export type FrontlinePqcTaskStatus = 'PENDING' | 'SUBMITTED' | 'CONFIRMED' | 'CANCELLED'
+export type FrontlinePqcTaskSummaryState =
+  | 'NOT_CREATED'
+  | 'PENDING'
+  | 'SUBMITTED'
+  | 'CONFIRMED'
+  | 'CANCELLED'
+  | 'MIXED'
+export type FrontlinePqcInspectionType = 'FIRST' | 'PATROL' | 'FINAL'
+export type FrontlinePqcRegulationSourceType = 'PRODUCT_QA' | 'COMMON_PACKAGING'
+
+export interface ProFrontlineDeviceParameterReadingReqVO {
+  deviceId?: number
+  deviceCode?: string
+  deviceName?: string
+  parameterCode?: string
+  parameterName?: string
+  unit?: string
+  value?: number
+  textValue?: string
+  lowerLimit?: number | string
+  upperLimit?: number | string
+  parameterStatus?: ProFrontlineParameterStatus
+}
+
+export interface ProFrontlineFeedbackPayloadReqVO {
+  code?: string
+  type?: number
+  workstationId: number
+  routeId: number
+  processId: number
+  workOrderId?: number
+  taskId?: number
+  activeOrderProcessSnapshotId?: number
+  scheduleOrderId?: number
+  scheduleOrderProcessId?: number
+  itemId?: number
+  expireDate?: string | number | Date
+  scheduledQuantity?: number
+  outputQuantity: number
+  lossQuantity: number
+  laborScrapQuantity?: number
+  materialScrapQuantity?: number
+  otherScrapQuantity?: number
+  lossReasonId?: number
+  lossDetails?: ProFrontlineLossDetailReqVO[]
+  selectedDevices?: ProFrontlineSelectedDeviceReqVO[]
+  deviceParameterReadings?: ProFrontlineDeviceParameterReadingReqVO[]
+  approveUserId: number
+  remark?: string
+}
+
+export interface ProFrontlineFeedbackMaterialReqVO {
+  materialId: number
+  materialCode?: string
+  materialName?: string
+  materialSpecification?: string
+  outputQuantity: number
+  lossQuantity: number
+  lossDetails?: ProFrontlineLossDetailReqVO[]
+  selectedDevices?: ProFrontlineSelectedDeviceReqVO[]
+  deviceParameterReadings?: ProFrontlineDeviceParameterReadingReqVO[]
+}
+
+export interface ProFrontlineRecordbookPayloadReqVO {
+  recordbookId: number
+  entryTitle: string
+  entryContent: Record<string, unknown>
+  equipmentParameters: Record<string, unknown>
+  tagCodes?: string[]
+  idempotencyKey: string
+  remark?: string
+}
+
+export interface ProFrontlineProcessPoolContextReqVO {
+  activeOrderId: number
+  workOrderId?: number
+  taskId?: number
+  routeId: number
+  routeProcessId: number
+  processId: number
+  workstationId: number
+  deviceId?: number
+  deviceAccountUserId: number
+  templateType: string
+}
+
+export interface ProFrontlineFeedbackSubmitReqVO {
+  materialDetails: ProFrontlineFeedbackMaterialReqVO[]
+  feedbackPayload: ProFrontlineFeedbackPayloadReqVO
+  recordbookPayload?: ProFrontlineRecordbookPayloadReqVO
+  processPoolContext: ProFrontlineProcessPoolContextReqVO
+  processPoolSubmissionIdempotencyKey: string
+  actualEmployeeId: number
+  signatureId?: number
+  signatureEmployeeId: number
+  signaturePassword: string
+  frontlineSessionSnapshotId: string
+  frontlineSessionSnapshotHash: string
+  rawPayload: Record<string, unknown>
+}
+
+export interface ProFrontlineFeedbackSubmitRespVO {
+  feedbackId: number
+  recordbookEntryId?: number
+  recordbookEventId?: number
+  processPoolEventId: number
+  parameterAuditStatus: 'RESOLVED' | 'UNRESOLVED'
+  parameterAuditTotalCount: number
+  parameterAuditResolvedCount: number
+  parameterAuditUnresolvedCount: number
+  auditItems: ProFrontlineParameterAuditItemVO[]
+}
+
+export interface ProFrontlineParameterAuditItemVO {
+  readingIndex: number
+  materialId?: number
+  materialName?: string
+  deviceId?: number
+  parameterCode?: string
+  parameterName?: string
+  unit?: string
+  value?: number
+  textValue?: string
+  lowerLimit?: number
+  upperLimit?: number
+  parameterStatus?: ProFrontlineParameterStatus
+  resolutionStatus: 'RESOLVED' | 'UNRESOLVED'
+  reasonCode?: string
+  snapshotSource: 'FROZEN' | 'MISSING_LEGACY' | 'CURRENT_ROUTE_PROCESS_AT_SUBMIT'
+}
+
+export interface FrontlineDeviceRouteProcessVO {
+  activeOrderId?: number
+  routeVersionId: number
+  routeId: number
+  routeCode?: string
+  routeName?: string
+  routeProcessId: number
+  processId: number
+  processCode?: string
+  processName?: string
+  sort?: number
+  deviceId?: number | null
+  deviceCode?: string
+  deviceName?: string
+  workstationId?: number | null
+  workstationCode?: string
+  workstationName?: string
+  productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
+}
+
+export interface FrontlinePqcInspectionTypeRuleVO {
+  key: FrontlinePqcInspectionRuleKey
+  inspectionType: FrontlinePqcInspectionType
+  label: string
+  roundLabel: string
+  required: boolean
+  fixedQuantity?: number
+  notApplicableReason?: string
+  taskRule: string
+  releaseGate: string
+}
+
+export interface FrontlinePqcTaskSummaryVO {
+  state: FrontlinePqcTaskSummaryState
+  totalCount: number
+  pendingCount: number
+  submittedCount: number
+  confirmedCount: number
+  cancelledCount: number
+}
+
+export interface FrontlinePqcProcessVO {
+  routeId: number
+  routeCode?: string
+  routeName?: string
+  dccProjectCodeId: number
+  regulationId: number
+  regulationCode?: string
+  regulationName?: string
+  regulationSourceType?: FrontlinePqcRegulationSourceType
+  regulationVersionId: number
+  qaProcessId: number
+  qaProcessCode: string
+  qaProcessName: string
+  qaProcessSort: number
+  activeOrderId: number
+  finalInspectionApplicable?: boolean
+  inspectionTypeRules: FrontlinePqcInspectionTypeRuleVO[]
+  inspectionItems: FrontlinePqcInspectionItemVO[]
+  taskSummary: FrontlinePqcTaskSummaryVO
+  pqcTaskOptions: FrontlinePqcTaskOptionVO[]
+  productionSubmitCandidates: FrontlinePqcProductionSubmitCandidateVO[]
+}
+
+export interface FrontlinePqcTaskOptionVO {
+  pqcTaskId: number
+  regulationVersionId: number
+  qaProcessId: number
+  qaItemCode?: string | null
+  inspectionRuleKey: FrontlinePqcInspectionRuleKey
+  taskStatus: FrontlinePqcTaskStatus
+  finalInspectionApplicable?: boolean
+  inspectionType: FrontlinePqcInspectionType
+  businessDate: string
+  shiftCode: string
+  roundNo: number
+  plannedInspectionQuantity: number
+  ruleSort: number
+  inspectionTypeRule: FrontlinePqcInspectionTypeRuleVO
+  inspectionItems: FrontlinePqcInspectionItemVO[]
+}
+
+export interface FrontlinePqcProductionSubmitCandidateVO {
+  eventId: number
+  serverSubmitTime: string | number
+  activeOrderId: number
+  routeProcessId: number
+  processId: number
+}
+
+export interface FrontlinePqcEquipmentOptionVO {
+  equipmentId: number
+  equipmentCode?: string
+  equipmentName?: string
+  equipmentNumber: string
+  defaultFlag?: boolean
+  sort?: number
+  parameters?: FrontlinePqcDeviceParameterVO[]
+}
+
+export interface FrontlinePqcDeviceParameterVO {
+  parameterCode: string
+  parameterName?: string
+  unit?: string
+  lowerLimit?: number | string
+  upperLimit?: number | string
+  defaultValue?: number | string
+  valueType?: string
+  standardText?: string
+  optionValues?: string[]
+  defaultText?: string
+  decimalScale?: number
+}
+
+export interface FrontlinePqcInspectionItemVO {
+  itemSort: number
+  itemCode: string
+  itemName: string
+  inspectionMethod: string
+  standardText: string
+  inspectionTool: string | null
+  samplingPlanText: string | null
+  resultType: FrontlinePqcResultType
+  standardLowerLimit?: number | string
+  standardUpperLimit?: number | string
+  standardUnit?: string
+  standardPrecision?: number
+  equipmentRequired?: boolean
+  equipmentOptions?: FrontlinePqcEquipmentOptionVO[]
+  applicableInspectionTypes: FrontlinePqcInspectionType[]
+  firstInspectionQuantity?: number
+  patrolInspectionRatio?: number | string
+  critical: boolean
+  failureRule?: string
+  sourceNote?: string
+  sourceOriginalPage?: number
+  sourceOriginalItem?: string
+  sourceOriginalExcerpt?: string
+  sourceOriginalMethod?: string
+  lastSelectedEquipmentId?: number
+  lastSelectedEquipmentNumber?: string
+}
+
+export interface FrontlineActiveOrderVO {
+  activeOrderId: number
+  routeVersionId: number
+  workOrderId: number
+  workOrderCode?: string
+  workOrderName?: string
+  productId: number
+  productCode?: string
+  productName: string
+  batchCode?: string
+  quantity: number
+  routeId: number
+  routeCode?: string
+  routeName?: string
+  latestSubmitTime?: string
+}
+
+export interface FrontlineEmployeeCandidateVO {
+  userId: number
+  username?: string
+  nickname?: string
+  employeeProfileId?: number
+  systemUserId?: number
+  employeeCode?: string
+  employeeName?: string
+  displayName?: string
+  employeeType?: string
+}
+
+export interface FrontlineTemplateVO {
+  templateNo: string
+  templateType?: string
+  routeProcessId: number
+  processId: number
+  actualEmployeeId: number
+}
+
+export interface FrontlinePqcTemplateVO {
+  templateNo: string
+  templateType?: string
+  qaProcessId: number
+  actualEmployeeId: number
+}
+
+export interface FrontlineSwitchActualEmployeeReqVO {
+  activeOrderId: number
+  routeId: number
+  routeProcessId: number
+  processId: number
+  actualEmployeeId: number
+}
+
+export interface FrontlinePqcSwitchActualEmployeeReqVO {
+  activeOrderId: number
+  regulationVersionId: number
+  qaProcessId: number
+  pqcTaskId: number
+  actualEmployeeId: number
+}
+
+export interface FrontlinePqcItemResultSubmitReqVO {
+  itemCode: string
+  selectedEquipmentId?: number
+  selectedEquipmentNumber?: string
+  sampleValues: string[]
+}
+
+export interface FrontlinePqcInspectionSubmitReqVO {
+  activeOrderId: number
+  pqcTaskId: number
+  regulationVersionId: number
+  qaProcessId: number
+  actualEmployeeId: number
+  workOrderId?: number
+  routeId?: number
+  inspectionType?: string
+  businessDate?: string
+  shiftCode?: string
+  roundNo?: number
+  actualInspectionQuantity: number
+  scrapQuantity: number
+  signaturePassword: string
+  itemResults?: FrontlinePqcItemResultSubmitReqVO[]
+  rawPayload?: Record<string, unknown>
+  clientSubmitTime?: string
+}
+
+export interface FrontlinePqcInspectionSubmitRespVO {
+  pqcTaskId: number
+  pqcEventId: number
+  pqcRecordId: number
+  signatureId: number
+  inspectionResult: 'SUCCESS' | 'FAILURE'
+  serverSubmitTime: string | number
+}
+
+export interface FrontlineSwitchActualEmployeeRespVO {
+  loginUserId: number
+  actualEmployeeId: number
+  routeId: number
+  routeProcessId: number
+  processId: number
+  extraVerificationRequired: boolean
+  template: FrontlineTemplateVO
+}
+
+export interface FrontlinePqcSwitchActualEmployeeRespVO {
+  loginUserId: number
+  actualEmployeeId: number
+  routeId: number
+  dccProjectCodeId: number
+  regulationVersionId: number
+  qaProcessId: number
+  extraVerificationRequired: boolean
+  template: FrontlinePqcTemplateVO
+}
+
+export interface FrontlineRuntimeEmployeeVO {
+  employeeProfileId: number
+  systemUserId?: number
+  employeeCode?: string
+  employeeName?: string
+  displayName?: string
+  employeeType?: string
+}
+
+export interface FrontlineRuntimeDeviceParameterVO {
+  parameterCode: string
+  parameterName?: string
+  unit?: string
+  standardText: string
+  lowerLimit?: number | string | null
+  upperLimit?: number | string | null
+  defaultValue?: number | string | null
+  valueType?: DeviceParameterValueType
+  optionValues?: string[]
+  defaultText?: string | null
+  decimalScale?: number | null
+}
+
+export interface FrontlineRuntimeDeviceVO {
+  deviceId: number
+  deviceCode?: string
+  deviceName?: string
+  deviceStatus?: string
+  deviceGroupKey: string
+  selectionMode: 'SINGLE' | 'MULTIPLE'
+  parameters: FrontlineRuntimeDeviceParameterVO[]
+}
+
+export interface FrontlineRuntimeDefectReasonVO {
+  reasonId: number
+  reasonType?: string
+  reasonCode: string
+  reasonName: string
+}
+
+export interface FrontlineRuntimeMaterialVO {
+  materialId: number
+  materialCode: string
+  materialName: string
+  materialSpecification?: string
+  bomQuantity?: number | null
+  batchCodes: string[]
+  materialRole: 'INPUT' | 'OUTPUT'
+  requestedQuantity?: number | null
+  actualQuantity?: number | null
+  baseActualQuantity?: number | null
+  sourcePickListIds?: number[]
+  sourcePickListItemIds?: number[]
+  sourceSnapshotHash?: string
+}
+
+export interface FrontlineProductionSubmitContextVO {
+  workOrderId?: number
+  workOrderCode?: string
+  workOrderName?: string
+  taskId?: number
+  routeId: number
+  routeProcessId: number
+  processId: number
+  workstationId: number
+  itemId?: number
+  approveUserId: number
+  recordbookId?: number
+  scheduleOrderId?: number
+  scheduleOrderProcessId?: number
+  scheduledQuantity?: number
+  expireDate?: string | number | Date
+  activeOrderProcessSnapshotId?: number
+  parameterSnapshotSha256?: string
+  parameterSnapshotState: 'FROZEN' | 'MISSING_LEGACY' | 'CURRENT_ROUTE_PROCESS_AT_SUBMIT'
+  deviceSelectionSnapshotJson?: string
+  deviceSelectionSnapshotSha256?: string
+}
+
+export interface FrontlineRuntimeConfigVO {
+  routeId: number
+  routeProcessId: number
+  processId: number
+  employees: FrontlineRuntimeEmployeeVO[]
+  devices: FrontlineRuntimeDeviceVO[]
+  defectReasons: FrontlineRuntimeDefectReasonVO[]
+  materials: FrontlineRuntimeMaterialVO[]
+  inputMaterials: FrontlineRuntimeMaterialVO[]
+  productionSubmitContext: FrontlineProductionSubmitContextVO
+  employeeSwitchSnapshots: FrontlineSwitchActualEmployeeRespVO[]
+  frontlineSessionSnapshotId: string
+  frontlineSessionSnapshotHash: string
 }
 
 export interface ThirdPartyFeedbackImportResultVO {
@@ -281,6 +790,7 @@ export interface ProFeedbackEdhrEntryContextVO {
   formSlotType?: EdhrExecutionFormSlotType
   recordCategory?: EdhrRecordCategory
   validationProfile?: EdhrValidationProfile
+  recordbookEnabled?: boolean | null
   requiredPolicy?: EdhrExecutionRequiredPolicy
   ownerRoleKey?: EdhrExecutionOwnerRoleKey
   archiveVisibility?: EdhrExecutionArchiveVisibility
@@ -327,6 +837,7 @@ export interface ProFeedbackEdhrOpenOrCreateRespVO {
   slotConfigSnapshotHash?: string | null
   routeBindingId?: number
   routeBindingSnapshotHash?: string
+  recordbookEnabled?: boolean | null
   canOpen?: boolean
   bindingResolved?: boolean
   created?: boolean
@@ -360,15 +871,38 @@ export interface ProFeedbackEdhrSnapshotFieldVO {
   disabled?: boolean
   inputType?: string
   componentType?: string
+  fieldType?: string
+  componentKind?: string
+  component?: string
+  componentFlag?: string
   type?: string
+  dataType?: string
   value?: unknown
   defaultValue?: unknown
+  constraints?: Record<string, unknown>
+  attachmentRule?: Record<string, unknown>
+  unit?: string
   options?: Array<Record<string, unknown> | string | number | boolean>
+  fillForm?: Record<string, unknown>
+  edhrCellRule?: Record<string, unknown>
   [key: string]: unknown
+}
+
+export interface ProFeedbackEdhrAssistRowFieldVO {
+  rowIndex: number
+  columnIndex: number
+}
+
+export interface ProFeedbackEdhrAssistRowVO {
+  rowKey: string
+  description: string
+  sort: number
+  fields: ProFeedbackEdhrAssistRowFieldVO[]
 }
 
 export interface ProFeedbackEdhrExecutionSnapshotVO {
   fields?: ProFeedbackEdhrSnapshotFieldVO[]
+  assistRows?: ProFeedbackEdhrAssistRowVO[]
   [key: string]: unknown
 }
 
@@ -495,6 +1029,7 @@ export interface ProFeedbackEdhrExecutionVO {
   reviewAssigneeOptions?: ProFeedbackEdhrReviewAssigneeOptionVO[]
   reviewAssigneeOptionError?: string
   attachmentSummaries?: ProFeedbackEdhrExecutionAttachmentSummaryVO[]
+  assistSwitchTasks?: EdhrBatchExecutionTaskRespVO[]
   closedAt?: string
   remark?: string
   creator?: string
@@ -622,6 +1157,14 @@ export const ProFeedbackApi = {
   createFeedback: async (data: ProFeedbackVO) => {
     return await request.post({ url: `/mes/pro/feedback/create`, data })
   },
+  // 一线报工与记录本一体提交
+  frontlineSubmit: async (data: ProFrontlineFeedbackSubmitReqVO) => {
+    return await request.post<ProFrontlineFeedbackSubmitRespVO>({
+      url: `/mes/pro/feedback/frontline/submit`,
+      data,
+      ignoreErrorMessage: true
+    })
+  },
   // 淇敼鐢熶骇鎶ュ伐
   updateFeedback: async (data: ProFeedbackVO) => {
     return await request.put({ url: `/mes/pro/feedback/update`, data })
@@ -694,6 +1237,112 @@ export const ProFeedbackApi = {
     return await request.put<ProFeedbackEdhrFormReviewSignRespVO>({
       url: `/mes/pro/batch-record-execution/cosign`,
       data
+    })
+  },
+  // 获取设备账号可切换工序
+  getFrontlineDeviceAccountProcesses: async () => {
+    return await request.get<FrontlineDeviceRouteProcessVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/processes`,
+      ignoreErrorMessage: true
+    })
+  },
+  // 获取当前生产组长维护的一线生产活跃订单
+  getFrontlineProductionActiveOrders: async () => {
+    return await request.get<FrontlineActiveOrderVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/active-orders`,
+      ignoreErrorMessage: true
+    })
+  },
+  // 获取一线生产活跃订单冻结工序
+  getFrontlineProductionActiveOrderProcesses: async (activeOrderId: number) => {
+    return await request.get<FrontlineDeviceRouteProcessVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/active-order/processes`,
+      params: { activeOrderId },
+      ignoreErrorMessage: true
+    })
+  },
+  // 获取 PQC 当前活跃订单
+  getFrontlinePqcActiveOrders: async () => {
+    return await request.get<FrontlineActiveOrderVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/pqc/active-orders`,
+      ignoreErrorMessage: true
+    })
+  },
+  // 获取 PQC 活跃订单对应 QA 规程工序
+  getPqcProcesses: async (activeOrderId: number, actualEmployeeId?: number) => {
+    const processes = await request.get<FrontlinePqcProcessResponseVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/pqc/active-order/processes`,
+      params: { activeOrderId, actualEmployeeId },
+      ignoreErrorMessage: true
+    })
+    return projectFrontlinePqcProcesses(processes)
+  },
+  // 获取当前工序可切换员工
+  getFrontlineEmployeeCandidates: async (params: {
+    activeOrderId?: number
+    routeId: number
+    routeProcessId: number
+    processId: number
+  }) => {
+    return await request.get<FrontlineEmployeeCandidateVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/employee-candidates`,
+      params,
+      ignoreErrorMessage: true
+    })
+  },
+  // 获取生产组长维护的员工填报运行态配置
+  getFrontlineRuntimeConfig: async (params: {
+    activeOrderId: number
+    routeId: number
+    routeProcessId: number
+    processId: number
+  }) => {
+    if (!params.activeOrderId) {
+      throw new Error('当前工序缺少活跃订单身份，无法加载运行配置')
+    }
+    return await request.get<FrontlineRuntimeConfigVO>({
+      url: `/mes/pro/feedback/frontline/device-account/runtime-config`,
+      params,
+      ignoreErrorMessage: true
+    })
+  },
+  // 获取 PQC 员工 + PQC 组长
+  getFrontlinePqcEmployeeCandidates: async () => {
+    return await request.get<FrontlineEmployeeCandidateVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/pqc/personnel`,
+      ignoreErrorMessage: true
+    })
+  },
+  // 切换实际填写员工并重新加载当前模板
+  switchFrontlineActualEmployee: async (data: FrontlineSwitchActualEmployeeReqVO) => {
+    return await request.post<FrontlineSwitchActualEmployeeRespVO>({
+      url: `/mes/pro/feedback/frontline/device-account/switch-employee`,
+      data,
+      ignoreErrorMessage: true
+    })
+  },
+  // PQC 切换实际填写员工并重新加载当前模板
+  switchFrontlinePqcActualEmployee: async (data: FrontlinePqcSwitchActualEmployeeReqVO) => {
+    return await request.post<FrontlinePqcSwitchActualEmployeeRespVO>({
+      url: `/mes/pro/feedback/frontline/device-account/pqc/switch-employee`,
+      data,
+      ignoreErrorMessage: true
+    })
+  },
+  // PQC 检验提交到工序池
+  submitFrontlinePqcInspection: async (data: FrontlinePqcInspectionSubmitReqVO) => {
+    return await request.post<FrontlinePqcInspectionSubmitRespVO>({
+      url: `/mes/pro/feedback/frontline/device-account/pqc/submit`,
+      data,
+      ignoreErrorMessage: true
+    })
+  },
+  // 只读确认 PQC 正式提交回执
+  getFrontlinePqcSubmitReceipt: async (params: { pqcTaskId: number }) => {
+    return await request.get<FrontlinePqcInspectionSubmitRespVO | null>({
+      url: `/mes/pro/feedback/frontline/device-account/pqc/submit-receipt`,
+      params,
+      ignoreErrorMessage: true
     })
   },
   // 瀵煎叆绗笁鏂圭敓浜ф姤宸?Excel

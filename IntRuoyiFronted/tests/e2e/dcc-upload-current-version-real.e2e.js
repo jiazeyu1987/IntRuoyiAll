@@ -145,15 +145,17 @@ async function main() {
       .filter({ hasText: '文件编号' })
       .locator('input')
       .first()
-    await fileNumberInput.fill(selectedFile.fileNumber)
-
-    const currentVersionResponse = await page.waitForResponse(
+    const currentVersionResponsePromise = page.waitForResponse(
       (response) =>
         response.url().includes('/admin-api/dcc/controlled-files/current-version') &&
         response.url().includes(encodeURIComponent(selectedFile.fileNumber)) &&
         response.request().method() === 'GET',
       { timeout: 60000 }
     )
+    await fileNumberInput.fill(selectedFile.fileNumber)
+    await fileNumberInput.blur()
+
+    const currentVersionResponse = await currentVersionResponsePromise
     assert.equal(currentVersionResponse.ok(), true, `current-version HTTP status ${currentVersionResponse.status()}`)
     currentVersionPayload = await currentVersionResponse.json()
     assert.ok([0, 200].includes(currentVersionPayload.code), `current-version business code ${currentVersionPayload.code}`)
@@ -167,7 +169,11 @@ async function main() {
     assert.ok(panelText.includes(selectedFile.fileNumber), 'current-version panel must show file number')
     assert.ok(panelText.includes(selectedFile.versionNo), 'current-version panel must show active version')
     assert.ok(panelText.includes('当前变更方式：升版'), 'current-version lookup must switch change type to revision')
-    await page.getByRole('radio', { name: '升版' }).waitFor({ state: 'visible' })
+    assert.equal(
+      await page.getByRole('radio', { name: '升版' }).count(),
+      0,
+      'current-version real E2E must not expose manual change-type radios'
+    )
     assert.deepEqual(writeRequests, [], 'current-version real E2E must not send DCC write requests')
 
     const result = {

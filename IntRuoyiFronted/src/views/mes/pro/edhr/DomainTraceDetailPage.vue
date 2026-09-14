@@ -9,7 +9,10 @@
           </div>
         </div>
         <div class="edhr-domain-trace-detail__actions">
-          <el-button @click="backToPage">返回列表</el-button>
+          <el-button @click="backToPage">
+            <Icon icon="ep:arrow-left" class="mr-5px" />
+            返回
+          </el-button>
           <el-button @click="openExecution">执行表单</el-button>
           <el-button
             v-hasPermi="[EDHR_DOMAIN_TRACE_VERIFY_PERMISSION]"
@@ -24,6 +27,7 @@
       </div>
 
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
+      <el-alert v-if="verifyError" :title="verifyError" type="error" :closable="false" show-icon />
 
       <template v-if="detail">
         <el-alert
@@ -68,7 +72,7 @@
             <div class="edhr-domain-trace-detail__summary-item">
               <div class="edhr-domain-trace-detail__label">最近校验</div>
               <div class="edhr-domain-trace-detail__value">
-                {{ detail.verifiedAt || '未校验' }}
+                {{ formatEdhrDateTime(detail.verifiedAt, '未校验') }}
               </div>
             </div>
             <div class="edhr-domain-trace-detail__summary-item">
@@ -86,6 +90,61 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <div
+          v-if="detail.nonconformanceReviews?.length"
+          class="edhr-domain-trace-detail__section"
+        >
+          <div class="edhr-domain-trace-detail__section-title">不合格评审</div>
+          <el-table
+            :data="detail.nonconformanceReviews"
+            border
+            :show-overflow-tooltip="true"
+            empty-text="暂无不合格评审"
+          >
+            <el-table-column label="评审单" min-width="210">
+              <template #default="{ row }">
+                <div class="edhr-domain-trace-detail__strong">{{ row.reviewCode || '--' }}</div>
+                <div class="edhr-domain-trace-detail__muted">
+                  {{ row.nonconformanceReason || '--' }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="处置结论" width="150">
+              <template #default="{ row }">
+                <el-tag :type="resolveNonconformanceDispositionTagType(row.disposition)">
+                  {{ resolveNonconformanceDispositionLabel(row.disposition) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="评审信息" min-width="260">
+              <template #default="{ row }">
+                <div>评审材料：{{ row.reviewMaterialUrl || '--' }}</div>
+                <div class="edhr-domain-trace-detail__muted">评审意见：{{ row.reviewOpinion || '--' }}</div>
+                <div class="edhr-domain-trace-detail__muted">QA签名：{{ row.qaSignature || '--' }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="时间" min-width="220">
+              <template #default="{ row }">
+                <div>冻结：{{ formatEdhrDateTime(row.frozenAt, '--') }}</div>
+                <div v-if="row.disposition === 'concession_release'" class="edhr-domain-trace-detail__muted">
+                  解冻：{{ formatEdhrDateTime(row.unfrozenAt, '--') }}
+                </div>
+                <div v-if="row.disposition === 'rework'" class="edhr-domain-trace-detail__muted">
+                  返工：{{ formatEdhrDateTime(row.unfrozenAt, '--') }}
+                </div>
+                <div v-if="row.disposition === 'void'" class="edhr-domain-trace-detail__muted">
+                  作废：{{ formatEdhrDateTime(row.voidedAt, '--') }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="结果" min-width="220">
+              <template #default="{ row }">
+                {{ resolveNonconformanceDispositionNote(row.disposition) }}
+              </template>
+            </el-table-column>
+          </el-table>
         </div>
 
         <el-collapse
@@ -218,6 +277,7 @@ import {
 } from '@/api/mes/pro/edhr/domainTrace'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProFeedbackEdhrDomainTraceDetail' })
 
@@ -227,6 +287,7 @@ const message = useMessage()
 const loading = ref(false)
 const verifyLoading = ref(false)
 const loadError = ref('')
+const verifyError = ref('')
 const detail = ref<EdhrDomainTraceDetailRespVO>()
 const domainTraceDetailTechnicalEvidenceNames = ref<string[]>([])
 
@@ -297,6 +358,27 @@ const resolveItemStatusLabel = (status?: EdhrDomainTraceItemVO['status']) => {
   return ITEM_STATUS_LABEL_MAP[rawStatus] || rawStatus || '--'
 }
 
+const resolveNonconformanceDispositionLabel = (disposition?: string) => {
+  if (disposition === 'concession_release') return '让步放行'
+  if (disposition === 'rework') return '返工'
+  if (disposition === 'void') return '作废'
+  return '待评审'
+}
+
+const resolveNonconformanceDispositionTagType = (disposition?: string) => {
+  if (disposition === 'concession_release') return 'success'
+  if (disposition === 'rework') return 'warning'
+  if (disposition === 'void') return 'danger'
+  return 'info'
+}
+
+const resolveNonconformanceDispositionNote = (disposition?: string) => {
+  if (disposition === 'concession_release') return '批次解冻并继续主流程。'
+  if (disposition === 'rework') return 'MVP返工确认后直接回到主流程。'
+  if (disposition === 'void') return '批次已作废，只允许只读追溯。'
+  return 'QA尚未完成处置。'
+}
+
 const resolveBlockerCount = (current: EdhrDomainTraceDetailRespVO) => {
   return current.blockers?.length || 0
 }
@@ -330,6 +412,7 @@ const loadDetail = async () => {
   }
   loading.value = true
   loadError.value = ''
+  verifyError.value = ''
   try {
     const data = await getEdhrDomainTraceDetail({ executionId })
     if (!data?.executionId) {
@@ -354,7 +437,7 @@ const handleVerify = async () => {
     return
   }
   verifyLoading.value = true
-  loadError.value = ''
+  verifyError.value = ''
   try {
     const result = await verifyEdhrDomainTrace({
       executionId: detail.value.executionId,
@@ -362,14 +445,13 @@ const handleVerify = async () => {
     })
     detail.value = result
     if (result.status !== 'VERIFIED') {
-      loadError.value = blockedMessage.value || '主数据追溯校验未通过。'
-      message.error(loadError.value)
+      message.error(blockedMessage.value || '主数据追溯校验未通过。')
       return
     }
     message.success('主数据追溯校验通过')
   } catch (error) {
-    loadError.value = resolveErrorMessage(error, '主数据追溯校验失败，请联系管理员。')
-    message.error(loadError.value)
+    verifyError.value = resolveErrorMessage(error, '主数据追溯校验失败，请联系管理员。')
+    message.error(verifyError.value)
   } finally {
     verifyLoading.value = false
   }

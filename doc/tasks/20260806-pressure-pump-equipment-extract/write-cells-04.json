@@ -1,0 +1,550 @@
+[
+  {
+    "command": "set",
+    "path": "/Sheet1/A16",
+    "props": {
+      "value": "单包装",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B16",
+    "props": {
+      "value": "热合机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C16",
+    "props": {
+      "value": "A05048",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D16",
+    "props": {
+      "value": "热合温度℃",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E16",
+    "props": {
+      "value": "107±10",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F16",
+    "props": {
+      "value": "热合时间s",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G16",
+    "props": {
+      "value": "4.5±1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H16",
+    "props": {
+      "value": "热合压力MPa",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I16",
+    "props": {
+      "value": "0.5-0.6",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J16",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K16",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L16",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M16",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N16",
+    "props": {
+      "value": "单包装源表含4台设备、3组温度/时间标准；该行按文本顺序提取。",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A17",
+    "props": {
+      "value": "单包装",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B17",
+    "props": {
+      "value": "自动热合机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C17",
+    "props": {
+      "value": "A03274",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D17",
+    "props": {
+      "value": "热合温度℃",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E17",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F17",
+    "props": {
+      "value": "热合时间s",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G17",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H17",
+    "props": {
+      "value": "热合压力MPa",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I17",
+    "props": {
+      "value": "0.5-0.6",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J17",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K17",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L17",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M17",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N17",
+    "props": {
+      "value": "源表可读文本未能唯一对应该设备的温度/时间标准；未臆造。",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A18",
+    "props": {
+      "value": "中包装",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B18",
+    "props": {
+      "value": "未见设备编码字段",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C18",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D18",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E18",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F18",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G18",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H18",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I18",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J18",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K18",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L18",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M18",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N18",
+    "props": {
+      "value": "源文档未见设备参数表。",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A19",
+    "props": {
+      "value": "大包装",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B19",
+    "props": {
+      "value": "未见设备编码字段",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C19",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D19",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E19",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F19",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G19",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H19",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I19",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J19",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K19",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L19",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M19",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N19",
+    "props": {
+      "value": "源文档未见设备参数表。",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1",
+    "props": {
+      "name": "工序设备参数"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数",
+    "props": {
+      "freeze": "A2",
+      "orientation": "landscape",
+      "fitToPage": "1x0"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[A]",
+    "props": {
+      "width": 12
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[B]",
+    "props": {
+      "width": 24
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[C]",
+    "props": {
+      "width": 18
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[D]",
+    "props": {
+      "width": 16
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[E]",
+    "props": {
+      "width": 22
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[F]",
+    "props": {
+      "width": 16
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[G]",
+    "props": {
+      "width": 22
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[H]",
+    "props": {
+      "width": 16
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[I]",
+    "props": {
+      "width": 22
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[J]",
+    "props": {
+      "width": 16
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[K]",
+    "props": {
+      "width": 22
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[L]",
+    "props": {
+      "width": 16
+    }
+  }
+]

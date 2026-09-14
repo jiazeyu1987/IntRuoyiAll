@@ -26,6 +26,7 @@ import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProductBomService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProductService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteControlledContentAdapter;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteOwnerPermissionService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteServiceImpl;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,7 +50,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -89,6 +92,8 @@ class MesProRouteVersionAndCopyTest {
     private MesProRouteProductBomService routeProductBomService;
     @Mock
     private MesProRouteControlledContentAdapter controlledContentAdapter;
+    @Mock
+    private MesProRouteOwnerPermissionService routeOwnerPermissionService;
 
     @BeforeEach
     void stubCurrentRouteProcessIdentity() {
@@ -592,6 +597,13 @@ class MesProRouteVersionAndCopyTest {
     @Test
     void deleteRoute_shouldDeleteFlowGraphWithRouteCascade() {
         Long routeId = 50L;
+        MesProRouteVersionDO draftCandidate = MesProRouteVersionDO.builder()
+                .id(502L)
+                .routeId(routeId)
+                .versionNo("V2")
+                .active(Boolean.FALSE)
+                .lifecycleStatus("DRAFT")
+                .build();
         MesProRouteDO route = MesProRouteDO.builder()
                 .id(routeId)
                 .code("R-FLOW-DELETE")
@@ -599,14 +611,24 @@ class MesProRouteVersionAndCopyTest {
                 .status(CommonStatusEnum.DISABLE.getStatus())
                 .build();
         when(routeMapper.selectById(routeId)).thenReturn(route);
+        when(routeVersionMapper.selectOpenCandidateByRouteId(routeId)).thenReturn(draftCandidate);
+        when(routeVersionMapper.updateById(any(MesProRouteVersionDO.class))).thenReturn(1);
 
         routeService.deleteRoute(routeId);
 
+        verify(routeVersionMapper).updateById(argThat((MesProRouteVersionDO version) ->
+                draftCandidate.getId().equals(version.getId())
+                        && "CANCELLED".equals(version.getLifecycleStatus())));
+        verify(controlledContentAdapter).recordCancelled(eq(draftCandidate), nullable(Long.class));
         verify(routeProcessFlowService).deleteByRouteId(routeId);
         verify(routeProcessService).deleteRouteProcessByRouteId(routeId);
         verify(routeProductService).deleteRouteProductByRouteId(routeId);
         verify(routeProductBomService).deleteRouteProductBomByRouteId(routeId);
         verify(routeMapper).deleteById(routeId);
+        var order = inOrder(routeVersionMapper, controlledContentAdapter, routeMapper);
+        order.verify(routeVersionMapper).updateById(any(MesProRouteVersionDO.class));
+        order.verify(controlledContentAdapter).recordCancelled(eq(draftCandidate), nullable(Long.class));
+        order.verify(routeMapper).deleteById(routeId);
     }
 
     @Test

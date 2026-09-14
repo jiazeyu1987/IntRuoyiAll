@@ -16,7 +16,7 @@ class DccViewMatrixIndependentContractTest extends BaseMockitoUnitTest {
     void sourceContracts_requireIndependentViewMatrixEndpointsAndBrowseReason() throws Exception {
         String controller = read("src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/category/DccFileCategoryController.java");
         String queryService = read("src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java");
-        String detailPage = read("../../yudao-ui-admin-vue3/src/views/dcc/controlled-file/detail/index.vue");
+        String detailPage = read("../../IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue");
 
         assertTrue(controller.contains("@Tag(name = \"管理后台 - DCC 文件类别\")"));
         assertTrue(controller.contains("@GetMapping(\"/view-matrix\")"),

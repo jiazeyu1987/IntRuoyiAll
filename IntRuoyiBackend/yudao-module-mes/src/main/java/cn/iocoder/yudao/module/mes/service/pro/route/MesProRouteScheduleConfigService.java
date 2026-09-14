@@ -18,4 +18,6 @@ public interface MesProRouteScheduleConfigService {
 
     MesProRouteResourceCapacityPreviewRespVO getResourcePreview(Long routeProcessId);
 
+    void validateNightShiftResources(Long routeProcessId, String capacityMode);
+
 }

@@ -133,11 +133,14 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
         requireSourceTaskType(context.getSourceTaskType());
         Long workTaskId = parseRequiredLong(context.getSourceTaskId(),
                 "APPROVAL_BUSINESS_KEY_REQUIRED: eDHR work task id is required");
-        MesProEdhrWorkTaskDO task = workTaskService.validateReleaseApprovalTask(workTaskId, null);
+        MesProEdhrWorkTaskDO task = workTaskService.getReleaseApprovalTaskForReview(workTaskId, null);
         Long releaseTransactionId = task.getBusinessScopeId();
         if (ApprovalTaskReviewResult.APPROVE.equals(context.getResult())) {
             releaseService.approve(new MesProEdhrReleaseApproveReqVO()
                     .setReleaseTransactionId(releaseTransactionId)
+                    .setWorkTaskId(workTaskId)
+                    .setExpectedVersion(releaseService.get(releaseTransactionId).getVersion())
+                    .setSignoffSubjectId(context.getSignatureSubjectId())
                     .setIdempotencyKey(buildReviewIdempotencyKey(context.getResult(), workTaskId))
                     .setSignoffEvidenceHash(buildSignoffEvidenceHash(context))
                     .setApprovalOpinion(context.getReason()));
@@ -226,6 +229,8 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
                 .businessStatus(task.getStatus())
                 .currentNodeCode(hasText(task.getSignatureCellKey()) ? task.getSignatureCellKey() : task.getTaskType())
                 .currentNodeName(task.getProcessName())
+                .initiatorUserId(task.getSourceUserId())
+                .initiatorUserName(task.getSourceUserName())
                 .assigneeUserId(task.getAssigneeUserId())
                 .processInstanceId(resolveProcessInstanceId(task))
                 .taskCreatedAt(task.getCreateTime())
@@ -367,7 +372,7 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
 
     private static Set<String> resolveAvailableActions(MesProEdhrWorkTaskRespVO task) {
         if (isReleaseApprovalTask(task) && isProcessableStatus(task.getStatus())) {
-            return Set.of("APPROVE", "REJECT", "PROCESS_IN_MODULE");
+            return Set.of("APPROVE", "PROCESS_IN_MODULE");
         }
         if (isApprovalDecisionTask(task) && isProcessableStatus(task.getStatus())) {
             String reviewAction = MesProEdhrWorkTaskService.TASK_TYPE_APPROVE.equals(task.getTaskType())
@@ -500,10 +505,10 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
     }
 
     private static String buildSignoffEvidenceHash(ApprovalTaskReviewContext context) {
-        if (!hasText(context.getSignatureImageFileUrl())) {
+        if (!hasText(context.getSignatureSubjectId()) || !hasText(context.getSignatureEvidenceHash())) {
             throw new IllegalStateException("APPROVAL_SIGNATURE_EVIDENCE_REQUIRED: EDHR release approval");
         }
-        return DigestUtil.sha256Hex(context.getSignatureImageFileUrl());
+        return context.getSignatureEvidenceHash();
     }
 
     private static boolean isProcessableStatus(String status) {

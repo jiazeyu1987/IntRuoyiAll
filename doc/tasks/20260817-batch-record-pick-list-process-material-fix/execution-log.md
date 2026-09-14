@@ -1,0 +1,27 @@
+# Execution Log
+
+- USER-INTENT: 用户报告球囊扩张压力泵 routeId=922119 从具体工序批记录链接页重新进入时，提示未配置工序物料清单。
+- SCOPE: 仅修复批记录领料单来源目录及其测试；不修改其它并行任务文件或共享业务数据。
+- BDD: 已配置正式物料关系的工序可进入领料单来源 -> Given 球囊扩张压力泵路线、当前 DCC 项目、路线产品与具体工序存在可追溯正式物料关系，When 用户从该工序进入批记录表单链接并选择领料单数据，Then 系统返回该工序对应的物料字段且不提示“未配置工序物料清单”。
+- BDD: 正式关系确实缺失时明确阻断 -> Given 当前路线产品或目标工序没有可追溯的正式物料关系，When 用户请求领料单来源目录，Then 后端明确返回缺失关系，不使用其它工序或首条物料兜底。
+- ROOT-CAUSE: routeId=922119 已绑定 DCC 项目、4 个路线产品和 14 个工序，但 `mes_pro_route_product_bom` 为 0；现有服务将该可选路线工序清单错误当成唯一来源，因此页面初始化即被阻断。路线产品编码已有正式 ERP 生产用料同步数据，可作为产品级物料目录，并在保存关系时继续绑定当前 `routeProcessId`。
+- SOURCE-CONTRACT: 路线存在工序物料清单时按该清单精确限制；整条路线未维护工序物料清单时，按 DCC 路线产品编码读取 ERP 生产用料清单并为当前路线各工序提供可选字段。申请放行仍按当前产品、生产订单、唯一已审核领料单和物料编码复核，不能跨产品取值。
+- RED: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProductionPickListSourceServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，测试编译明确缺少 ERP 生产用料目录依赖、按产品编码查询端口及新构造参数，符合预期 RED。
+- GREEN: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProductionPickListSourceServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，6/6。
+- REGRESSION: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProductionPickListSourceServiceImplTest,MesProBatchRecordCellLinkServiceImplTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，46/46。
+- BUILD: `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS，30/30 模块 BUILD SUCCESS。
+- READONLY-DATA-AUDIT: routeId=922119 已绑定 DCC 项目、4 个路线产品和 14 个工序；路线工序物料清单为 0。路线产品中已有 2 个产品编码同步 ERP 生产用料目录，分别包含 24 和 23 个物料，物料标识完整且无同编码多名称冲突。审计仅执行 SELECT，未修改数据。
+- RUNTIME: 使用同一提交的隔离 worktree 完整构建运行包，后端端口 48162 health=UP；运行 Jar SHA-256=`BF48992724673D5EBA3158CF941F052A3BDADF0E1C820725095933A08293053F`。前端端口 8162 HTTP 200，代理到该后端。
+- FRONTEND-CHECK: `node --check tests/e2e/mes/batch-record-cell-link-production-pick-list-readonly.e2e.mjs` -> PASS。
+- FRONTEND-REGRESSION: `node tests/e2e/mes/batch-record-cell-link-process-pool-report-static.spec.js` -> PASS。
+- E2E: 芋道源码/admin 从 routeId=922119、routeProcessId=9908090160 的流转关系图进入“粗洗工序生产记录 -> 链接”，选择“领料单数据” -> PASS。当前工序返回并显示 192 个正式领料单来源字段，样例包含物料批次号；MES 写请求 0，页面错误 0。
+- E2E-EVIDENCE: 通过截图确认“领料单数据”字段真实可见；截图在 task-closeout-cleanup apply 中按一次性产物规则清理，最终断言和数量保留在 `verification-report.md`。
+- BEHAVIOR: 路线配置了工序物料清单时仍按产品+工序精确限制；只有整条路线没有工序物料清单时，才使用路线产品编码对应的 ERP 生产用料目录。两类来源都缺失、产品身份不一致或物料编码不属于当前产品时继续 fail-fast。
+- EXPERIENCE: 通过 project-experience-consolidation 将“工序清单优先、整条路线无工序清单时按路线产品编码读取 ERP 生产用料目录、放行时继续精确复核”的长期规则合并到现有 `docs/backend-development.md`，未新建长期经验文档。
+- CLEANUP-PREVIEW: task-closeout-cleanup -> ready，keep 3、delete 4、blocked 0、warnings 0。
+- CLEANUP-APPLY: task-closeout-cleanup -> applied；删除只读审计辅助类、陈旧临时 evidence 和 E2E 截图，保留 task/execution/verification 三份正式记录。
+- WORKTREE-CLEANUP: 停止本任务 48162/8162 隔离运行态，删除 `D:\IntRuoyiWorktree\20260817-batch-record-pick-list-process-material-fix-runtime`，端口登记 slot=28 已设为 active=false；未操作其它 worktree 或端口。
+- GIT-PREFLIGHT: `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS，int_main 基准端口仍为 8081/48081；暂存区在本任务暂存前为空。
+- IMPLEMENTATION-COMMIT: `969cf6d75`，仅包含本任务 8 个文件：后端来源服务、Mapper、单测、前端只读 E2E、任务三份正式记录和既有后端开发规范。
+- IMPLEMENTATION-PUSH: `git push origin int_main` -> PASS，远端从 `9a594a66a` 前进到 `969cf6d75`；推送后 `int_main...origin/int_main` 无 ahead。
+- CLOSEOUT: M1-M5 全部完成，任务状态更新为 completed；最终收尾记录单独提交并推送。

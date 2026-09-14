@@ -25,8 +25,8 @@ class DccFormCenterPolicyMigrationTest {
                 "DCC obsolete form-center policy migration must carry release metadata");
         assertTrue(sql.contains("dependsOn=20260717_bpm_form_center"),
                 "DCC obsolete form-center policy migration must depend on form-center schema");
-        assertTrue(sql.contains("`bpm_form_action_policy`"),
-                "DCC obsolete form-center policy migration must seed bpm_form_action_policy");
+        assertTrue(sql.contains("`bpm_business_approval_policy`"),
+                "DCC obsolete form-center policy migration must seed bpm_business_approval_policy");
         assertTrue(sql.contains("'DCC'") && sql.contains("'CONTROLLED_FILE'"),
                 "DCC obsolete policy must target DCC controlled files");
         assertTrue(sql.contains("'OBSOLETE'") && sql.contains("'ACTIVE'"),
@@ -39,9 +39,9 @@ class DccFormCenterPolicyMigrationTest {
                 "DCC obsolete policy migration must fail fast on invalid prerequisites or conflicts");
         assertTrue(sql.contains("DCC obsolete form policy conflict"),
                 "DCC obsolete policy migration must not overwrite conflicting existing policies");
-        assertTrue(sql.contains("COALESCE(`policy`.`policy_type`, '') <> 'NONE'"),
+        assertTrue(sql.contains("COALESCE(`policy`.`form_policy_type`, '') <> 'NONE'"),
                 "DCC obsolete policy migration must reject obsolete policies that still use upload template mode");
-        assertTrue(sql.contains("COALESCE(`policy`.`slots_json`, '[]') <> '[]'"),
+        assertTrue(sql.contains("COALESCE(`policy`.`form_slots_json`, '[]') <> '[]'"),
                 "DCC obsolete policy migration must reject obsolete policies that still bind upload template slots");
         assertTrue(sql.contains("DCC obsolete form policy duplicate"),
                 "DCC obsolete policy migration must reject duplicate published policies");

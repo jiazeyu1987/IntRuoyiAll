@@ -31,6 +31,7 @@ public class ErpKingdeeProductionOrder {
     private String auxiliaryCode;
     private String businessStatus;
     private String drawingNumber;
+    private String refNo;
     private String scheduleStatus;
     private LocalDateTime sourceModifyTime;
 

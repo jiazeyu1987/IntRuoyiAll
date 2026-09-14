@@ -1,21 +1,28 @@
 import request from '@/config/axios'
 import type { ControlledFileVO } from './workflow'
+import type { DccFileTypeTaxonomyVO } from './fileTypeTaxonomies'
 
 export const DCC_PROJECT_CODE_STATUS_ENABLE = 'ENABLE'
 export const DCC_PROJECT_CODE_STATUS_DISABLE = 'DISABLE'
 
 export interface DccProjectCodePageReqVO extends PageParam {
+  productMasterId?: number | string
   keyword?: string
   projectName?: string
   projectCode?: string
   category?: string
   priority?: string
   status?: string
+  routeConfigured?: boolean
+  mainBatchRecordConfigured?: boolean
+  qaRegulationConfigured?: boolean
+  requireDccProductCode?: boolean
   fileCountSort?: 'asc' | 'desc'
 }
 
 export interface DccProjectCodeRespVO {
   id: number
+  productMasterId?: number | null
   docControlNo?: string | null
   projectName: string
   projectCode: string
@@ -27,11 +34,13 @@ export interface DccProjectCodeRespVO {
   priority?: string | null
   status: string
   associatedFileCount?: number | null
-  createTime?: string
-  updateTime?: string
+  batchRecordTotalRecognitionJson?: string | null
+  createTime?: number
+  updateTime?: number
 }
 
 export interface DccProjectCodeSaveReqVO {
+  productMasterId?: number | null
   docControlNo?: string | null
   projectName: string
   projectCode?: string
@@ -48,9 +57,64 @@ export interface DccProjectCodeUpdateReqVO extends DccProjectCodeSaveReqVO {
   id: number
 }
 
+export interface DccProjectAccessRuleRespVO {
+  id?: number
+  dccProjectCodeId?: number
+  subjectType: string
+  subjectId: number
+  accessLevel: string
+  active: boolean
+  validFrom?: string | null
+  expireTime?: string | null
+  changeReason?: string | null
+}
+
+export interface DccProjectAccessRuleSaveReqVO {
+  subjectType: string
+  subjectId: number
+  accessLevel: string
+  active: boolean
+  validFrom?: string | null
+  expireTime?: string | null
+  changeReason?: string | null
+}
+
+export interface DccProjectAccessRuleBatchSaveReqVO {
+  rules: DccProjectAccessRuleSaveReqVO[]
+}
+
 export interface DccProjectCodeControlledFilePageReqVO extends PageParam {
   keyword?: string
   status?: string
+}
+
+export interface DccProjectFileTemplateItemRespVO {
+  id: number
+  projectCodeId: number
+  fileTypeTaxonomyId: number
+  stageTaxonomyId: number
+  stageName: string
+  fileTypeNodeId: number
+  fileTypeName: string
+  taxonomyPath: string
+  fileName: string
+  sortOrder: number
+}
+
+export interface DccProjectFileTemplateRespVO {
+  projectCodeId: number
+  taxonomyOptions: DccFileTypeTaxonomyVO[]
+  items: DccProjectFileTemplateItemRespVO[]
+}
+
+export interface DccProjectFileTemplateItemSaveReqVO {
+  fileTypeTaxonomyId: number
+  fileName: string
+  sortOrder: number
+}
+
+export interface DccProjectFileTemplateSaveReqVO {
+  items: DccProjectFileTemplateItemSaveReqVO[]
 }
 
 export interface DccProjectCodeAssociatedFileAiCategoryRespVO {
@@ -93,6 +157,37 @@ export interface DccProjectCodeImportPreviewRespVO {
   rows: DccProjectCodeImportRowRespVO[]
 }
 
+export interface DccProductOnboardingCreateReqVO {
+  productMasterId?: number | null
+  productCode?: string | null
+  dccProductCode?: string | null
+  productNameCn?: string | null
+  productNameEn?: string | null
+  modelSpecification?: string | null
+  productCategory?: string | null
+  docControlNo?: string | null
+  projectName: string
+  projectCode: string
+  category?: string | null
+  commissionedProduction?: string | null
+  projectLeader?: string | null
+  projectEngineer?: string | null
+  storageLocation?: string | null
+  priority?: string | null
+}
+
+export interface DccProductOnboardingRespVO extends DccProductOnboardingCreateReqVO {
+  id: number
+  status: string
+  applicantUserId?: number | null
+  approverUserId?: number | null
+  approvedTime?: number | null
+  generatedProjectCodeId?: number | null
+  rejectReason?: string | null
+  createTime?: number
+  updateTime?: number
+}
+
 interface UploadCommonResult<T> {
   data: T
 }
@@ -100,7 +195,7 @@ interface UploadCommonResult<T> {
 export const getProjectCodePage = async (
   params: DccProjectCodePageReqVO
 ): Promise<PageResult<DccProjectCodeRespVO[]>> => {
-  return await request.get({ url: "/dcc/project-codes/page", params })
+  return await request.get({ url: '/dcc/project-codes/page', params })
 }
 
 export const getProjectCode = async (id: number | string): Promise<DccProjectCodeRespVO> => {
@@ -119,6 +214,19 @@ export const deleteProjectCode = async (id: number): Promise<boolean> => {
   return await request.delete({ url: `/dcc/project-codes/delete?id=${id}` })
 }
 
+export const getProjectCodeAccessRules = async (
+  projectCodeId: number | string
+): Promise<DccProjectAccessRuleRespVO[]> => {
+  return await request.get({ url: `/dcc/project-codes/${projectCodeId}/access-rules` })
+}
+
+export const replaceProjectCodeAccessRules = async (
+  projectCodeId: number | string,
+  data: DccProjectAccessRuleBatchSaveReqVO
+): Promise<DccProjectAccessRuleRespVO[]> => {
+  return await request.put({ url: `/dcc/project-codes/${projectCodeId}/access-rules`, data })
+}
+
 export const getProjectCodeControlledFilesPage = async (
   id: number | string,
   params: DccProjectCodeControlledFilePageReqVO
@@ -126,25 +234,42 @@ export const getProjectCodeControlledFilesPage = async (
   return await request.get({ url: `/dcc/project-codes/${id}/controlled-files/page`, params })
 }
 
+export const getProjectCodeFileTemplate = async (
+  projectCodeId: number | string
+): Promise<DccProjectFileTemplateRespVO> => {
+  return await request.get({ url: `/dcc/project-codes/${projectCodeId}/file-template` })
+}
+
+export const replaceProjectCodeFileTemplate = async (
+  projectCodeId: number | string,
+  data: DccProjectFileTemplateSaveReqVO
+): Promise<DccProjectFileTemplateRespVO> => {
+  return await request.put({ url: `/dcc/project-codes/${projectCodeId}/file-template`, data })
+}
+
 export const getProjectCodeAssociatedFileAiCategoryCandidates = async (
   id: number | string
 ): Promise<DccProjectCodeAssociatedFileAiCategoryRespVO[]> => {
-  return await request.get({ url: `/dcc/project-codes/${id}/associated-files/ai-category-candidates` })
+  return await request.get({
+    url: `/dcc/project-codes/${id}/associated-files/ai-category-candidates`
+  })
 }
 
 export const classifyProjectCodeAssociatedFileByAi = async (
   id: number | string,
   fileId: number | string
 ): Promise<DccProjectCodeAssociatedFileAiCategoryRespVO> => {
-  return await request.post({ url: `/dcc/project-codes/${id}/associated-files/${fileId}/ai-category` })
+  return await request.post({
+    url: `/dcc/project-codes/${id}/associated-files/${fileId}/ai-category`
+  })
 }
 
 export const exportProjectCodeExcel = async (params: DccProjectCodePageReqVO) => {
-  return await request.download({ url: "/dcc/project-codes/export-excel", params })
+  return await request.download({ url: '/dcc/project-codes/export-excel', params })
 }
 
 export const getProjectCodeImportTemplate = async () => {
-  return await request.download({ url: "/dcc/project-codes/import-template" })
+  return await request.download({ url: '/dcc/project-codes/import-template' })
 }
 
 export const importProjectCodePreview = async (
@@ -153,7 +278,7 @@ export const importProjectCodePreview = async (
   const data = new FormData()
   data.append('file', file)
   const result = await request.upload<UploadCommonResult<DccProjectCodeImportPreviewRespVO>>({
-    url: "/dcc/project-codes/import-preview",
+    url: '/dcc/project-codes/import-preview',
     data
   })
   return result.data
@@ -162,5 +287,21 @@ export const importProjectCodePreview = async (
 export const importProjectCodeConfirm = async (
   batchId: number
 ): Promise<DccProjectCodeImportPreviewRespVO> => {
-  return await request.post({ url: "/dcc/project-codes/import-confirm", data: { batchId } })
+  return await request.post({ url: '/dcc/project-codes/import-confirm', data: { batchId } })
+}
+
+export const createProductOnboardingRequest = async (
+  data: DccProductOnboardingCreateReqVO
+): Promise<number> => {
+  return await request.post({ url: '/dcc/product-onboarding-requests/create', data })
+}
+
+export const getPendingProductOnboardingRequests = async (): Promise<DccProductOnboardingRespVO[]> => {
+  return await request.get({ url: '/dcc/product-onboarding-requests/pending' })
+}
+
+export const approveProductOnboardingRequest = async (
+  id: number | string
+): Promise<DccProductOnboardingRespVO> => {
+  return await request.post({ url: `/dcc/product-onboarding-requests/${id}/approve` })
 }

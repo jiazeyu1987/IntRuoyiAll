@@ -1,5 +1,9 @@
 <template>
-  <ContentWrap :body-style="{ padding: '0px' }" class="!mb-0 form-template-page">
+  <ContentWrap
+    v-if="!isDesignerMode && !isTemplateSimulationMode"
+    :body-style="{ padding: '0px' }"
+    class="!mb-0 form-template-page scheme-d-basic-data-page scheme-d-basic-data-page--form-template"
+  >
     <div class="form-template-workbench">
       <section class="form-template-workbench__list">
         <UnifiedListTemplate
@@ -23,12 +27,13 @@
           @pagination="getList"
         >
           <template #actions>
-            <el-button @click="resetQuery">
+            <el-button class="scheme-d-btn scheme-d-btn--warning" @click="resetQuery">
               <Icon class="mr-5px" icon="ep:refresh" />
               重置
             </el-button>
             <el-button
               v-hasPermi="['form:template:create']"
+              class="scheme-d-btn scheme-d-btn--primary"
               plain
               type="primary"
               @click="openImport"
@@ -90,7 +95,7 @@
                 <template #default="{ row }">
                   <el-tag
                     v-if="isPendingTemplateVersion(row.status)"
-                    class="template-version-tag"
+                    class="template-version-tag scheme-d-tag"
                     :type="pendingVersionTagType(row.status)"
                     effect="plain"
                   >
@@ -108,7 +113,7 @@
                 v-bind="sortColumnAttrs('status')"
               >
                 <template #default="{ row }">
-                  <el-tag :type="statusTagType(row.status)" effect="plain">
+                  <el-tag class="scheme-d-tag" :type="statusTagType(row.status)" effect="plain">
                     {{ statusLabel(row.status) }}
                   </el-tag>
                 </template>
@@ -148,13 +153,29 @@
             </strong>
           </div>
           <div v-if="selectedTemplate" class="form-template-preview__actions">
-            <el-button link type="primary" @click="enterPreviewMaximize">最大化</el-button>
-            <el-button link type="primary" @click="openSelectedTemplate">打开</el-button>
+            <el-button
+              link
+              class="scheme-d-row-action scheme-d-row-action--primary"
+              type="primary"
+              @click="enterPreviewMaximize"
+            >
+              最大化
+            </el-button>
+            <el-button
+              link
+              class="scheme-d-row-action scheme-d-row-action--primary"
+              type="primary"
+              @click="openSelectedTemplate"
+            >
+              打开
+            </el-button>
             <el-button
               v-if="canUseTemplateInteractiveAction(selectedTemplate)"
-              v-hasPermi="['form:template:create']"
               link
+              class="scheme-d-row-action scheme-d-row-action--primary"
               type="primary"
+              data-form-template-action="edit"
+              v-hasPermi="['form:template:update']"
               @click="editSelectedTemplate"
             >
               编辑
@@ -162,14 +183,37 @@
             <el-button
               v-if="canUseTemplateInteractiveAction(selectedTemplate)"
               link
+              class="scheme-d-row-action scheme-d-row-action--primary"
               type="primary"
               @click="openSelectedTemplateFill"
             >
               填写
             </el-button>
             <el-button
+              v-if="canUseTemplateInteractiveAction(selectedTemplate)"
+              @click="openSelectedTemplateFillConfig"
+              v-hasPermi="['form:template:update']"
+              link
+              class="scheme-d-row-action scheme-d-row-action--primary"
+              type="primary"
+              :loading="fillConfigOpening"
+              :disabled="fillConfigOpening"
+            >
+              填写配置
+            </el-button>
+            <el-button
+              v-if="canUseTemplateInteractiveAction(selectedTemplate)"
+              link
+              class="scheme-d-row-action scheme-d-row-action--primary"
+              type="primary"
+              @click="openSelectedTemplateCellLinks"
+            >
+              链接
+            </el-button>
+            <el-button
               v-hasPermi="['form:template-source:download']"
               link
+              class="scheme-d-row-action scheme-d-row-action--warning"
               type="primary"
               @click="downloadSelectedTemplateSource"
             >
@@ -179,6 +223,7 @@
               v-if="canPublishTemplate(selectedTemplate)"
               v-hasPermi="['form:template:publish']"
               link
+              class="scheme-d-row-action scheme-d-row-action--success"
               type="primary"
               @click="publishSelectedTemplate"
             >
@@ -188,6 +233,7 @@
               v-if="canDisableTemplate(selectedTemplate)"
               v-hasPermi="['form:template:disable']"
               link
+              class="scheme-d-row-action scheme-d-row-action--warning"
               type="warning"
               @click="disableSelectedTemplate"
             >
@@ -197,6 +243,7 @@
               v-if="canEnableTemplate(selectedTemplate)"
               v-hasPermi="['form:template:disable']"
               link
+              class="scheme-d-row-action scheme-d-row-action--success"
               type="primary"
               @click="enableSelectedTemplate"
             >
@@ -206,6 +253,7 @@
               v-if="resolveTemplateObsoleteOperationState(selectedTemplate) === 'pending-withdrawable'"
               v-hasPermi="['form:template:obsolete']"
               link
+              class="scheme-d-row-action scheme-d-row-action--warning"
               type="warning"
               @click="withdrawSelectedTemplateObsoleteRequest"
             >
@@ -214,6 +262,7 @@
             <el-button
               v-else-if="resolveTemplateObsoleteOperationState(selectedTemplate) === 'pending-readonly'"
               link
+              class="scheme-d-row-action scheme-d-row-action--warning"
               type="warning"
               disabled
             >
@@ -223,6 +272,7 @@
               v-else-if="canObsoleteTemplate(selectedTemplate)"
               v-hasPermi="['form:template:obsolete']"
               link
+              class="scheme-d-row-action scheme-d-row-action--danger"
               type="danger"
               @click="obsoleteSelectedTemplate"
             >
@@ -252,7 +302,14 @@
         <aside class="form-template-focused-preview__control">
           <span>当前模板</span>
           <strong>{{ selectedTemplate?.templateName || '未选择模板' }}</strong>
-          <el-button plain type="primary" @click="restorePreviewLayout">恢复</el-button>
+          <el-button
+            class="scheme-d-btn scheme-d-btn--primary"
+            plain
+            type="primary"
+            @click="restorePreviewLayout"
+          >
+            恢复
+          </el-button>
         </aside>
         <main class="form-template-focused-preview__stage">
           <div class="form-template-focused-preview__body">
@@ -273,9 +330,40 @@
     </Teleport>
   </ContentWrap>
 
-  <TemplateImportDialog ref="importDialogRef" @success="getList" />
-  <TemplateViewDialog ref="templateViewDialogRef" />
-  <Dialog v-model="obsoleteRequestDialogVisible" title="作废表单模板" width="560px">
+  <ContentWrap v-if="isDesignerMode && templateRouteLoadError" class="!mb-0 form-template-route-workspace">
+    <el-alert :title="templateRouteLoadError" type="error" :closable="false" show-icon />
+  </ContentWrap>
+  <FormTemplateDesignerWrapper
+    v-else-if="isDesignerMode"
+    designer-title="表单模板 Jimu 编辑器"
+    preview-title="表单模板预览"
+  />
+
+  <TemplateImportDialog
+    v-if="!isDesignerMode && !isTemplateSimulationMode"
+    ref="importDialogRef"
+    @success="getList"
+  />
+  <FormTemplateFillConfigDialog
+    v-if="!isDesignerMode && !isTemplateSimulationMode"
+    v-model="fillConfigDialogVisible"
+    :template="selectedTemplate"
+    :sheet-layout-json="visualPreviewFormViewModel?.sheetLayoutJson || parsedTemplateJimuSchema?.sheetLayoutJson"
+    :cell-rules="templatePreviewCellRules"
+    :signature-cell-markers="templatePreviewSignatureMarkers"
+    :assist-rows="parsedTemplateJimuSchema?.assistRows || []"
+    :fill-assignments="parsedTemplateJimuSchema?.fillAssignments || []"
+    :readonly="selectedTemplate?.status !== 'DRAFT'"
+    :saving="fillConfigSaving"
+    @draft-version-ready="handleDraftVersionReady"
+    @save="saveSelectedTemplateFillConfig"
+  />
+  <Dialog
+    v-model="obsoleteRequestDialogVisible"
+    class="scheme-d-form-control"
+    title="作废表单模板"
+    width="560px"
+  >
     <el-alert
       title="提交后进入 BPM 审核，审批通过后才会变为已作废；审批中会锁定普通操作。"
       type="warning"
@@ -307,18 +395,57 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="obsoleteRequestDialogVisible = false">取消</el-button>
-      <el-button
-        type="danger"
-        :loading="obsoleteRequestSubmitting"
-        @click="submitSelectedTemplateObsoleteRequest"
-      >
-        提交作废申请
-      </el-button>
+      <div class="scheme-d-dialog-footer">
+        <el-button
+          class="scheme-d-btn scheme-d-btn--neutral"
+          @click="obsoleteRequestDialogVisible = false"
+        >
+          取消
+        </el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--danger"
+          type="danger"
+          :loading="obsoleteRequestSubmitting"
+          @click="submitSelectedTemplateObsoleteRequest"
+        >
+          提交作废申请
+        </el-button>
+      </div>
     </template>
   </Dialog>
-  <Dialog v-model="fillDialogVisible" class="form-template-fill-dialog" title="模拟填写" width="80%">
-    <div v-if="visualPreviewFormViewModel && simulatedPreviewFormViewModel" class="form-template-fill-workspace">
+  <ContentWrap
+    v-if="isTemplateSimulationMode"
+    :body-style="{ padding: '0px' }"
+    class="!mb-0 form-template-route-workspace scheme-d-basic-data-page scheme-d-basic-data-page--form-template"
+  >
+    <div class="form-template-route-workspace__header">
+      <el-button
+        link
+        class="scheme-d-icon-button scheme-d-row-action scheme-d-row-action--primary"
+        type="primary"
+        @click="returnFromTemplateSimulation"
+      >
+        <Icon icon="ep:arrow-left" class="mr-4px" />
+        返回
+      </el-button>
+      <div class="form-template-route-workspace__heading">
+        <span>模拟填写</span>
+        <strong>{{ selectedTemplate?.templateName || '未加载模板' }}</strong>
+      </div>
+      <el-tag class="scheme-d-tag" type="primary">模拟填写</el-tag>
+    </div>
+    <el-alert
+      v-if="templateRouteLoadError"
+      :title="templateRouteLoadError"
+      type="error"
+      :closable="false"
+      show-icon
+      class="m-16px"
+    />
+    <div
+      v-else-if="visualPreviewFormViewModel && simulatedPreviewFormViewModel"
+      class="form-template-fill-workspace form-template-route-workspace__body"
+    >
       <section class="form-template-fill-workspace__panel">
         <div class="form-template-dialog-panel-head">
           <strong>模板内填写</strong>
@@ -352,198 +479,10 @@
       </section>
     </div>
     <el-empty v-else description="当前模板暂无可填写字段" />
-  </Dialog>
-  <Dialog
-    v-model="rulesDialogVisible"
-    class="form-template-rules-dialog"
-    :title="rulesDialogTitle"
-    width="calc(100vw - 32px)"
-  >
-    <div class="batch-record-cell-rules-editor form-template-rule-workspace">
-      <section class="batch-record-cell-rules-editor__summary">
-        <span class="batch-record-cell-rules-editor__name">
-          {{ selectedTemplate?.templateName || '-' }}
-        </span>
-        <el-tag type="primary" effect="plain">规则 {{ editableTemplateCellRules.length }}</el-tag>
-        <el-tag :type="pendingTemplateRuleCount > 0 ? 'warning' : 'success'" effect="plain">
-          待确认 {{ pendingTemplateRuleCount }}
-        </el-tag>
-        <span class="batch-record-cell-rules-editor__mode">
-          规则编辑模式：左侧只选单元格，右侧切换可填写/不可填写
-        </span>
-      </section>
-
-      <section class="batch-record-cell-rules-editor__workspace">
-        <div class="batch-record-cell-rules-editor__preview">
-          <div class="batch-record-cell-rules-editor__panel-head">
-            <div>
-              <strong>{{ rulesDialogPreviewTitle }}</strong>
-              <p>{{ rulesDialogPreviewTip }}</p>
-            </div>
-            <el-tag type="info" effect="plain">只读</el-tag>
-          </div>
-          <el-alert
-            v-if="editableRulesSheetLayoutError"
-            :title="editableRulesSheetLayoutError"
-            type="error"
-            :closable="false"
-            show-icon
-          />
-          <div v-else-if="renderedTemplateRuleRows.length" class="batch-record-cell-rules-editor__sheet-scroll">
-            <table class="batch-record-cell-rules-editor__sheet">
-              <colgroup>
-                <col
-                  v-for="column in renderedTemplateRuleColumns"
-                  :key="column.columnIndex"
-                  :style="{ width: `${column.widthPercent}%` }"
-                />
-              </colgroup>
-              <tbody>
-                <tr
-                  v-for="row in renderedTemplateRuleRows"
-                  :key="row.rowIndex"
-                  :style="{ height: `${row.height}px` }"
-                >
-                  <td
-                    v-for="cell in row.cells"
-                    :key="cell.identity"
-                    :rowspan="cell.rowSpan"
-                    :colspan="cell.colSpan"
-                    :class="cell.classNames"
-                  >
-                    <button
-                      type="button"
-                      class="batch-record-cell-rules-editor__cell-button"
-                      aria-label="选择单元格规则"
-                      :aria-pressed="cell.identity === selectedRuleKey"
-                      @click="selectRuleCell(cell)"
-                    >
-                      <span v-if="cell.text" class="batch-record-cell-rules-editor__cell-text">
-                        {{ cell.text }}
-                      </span>
-                      <span v-else class="batch-record-cell-rules-editor__cell-placeholder">
-                        第 {{ cell.rowIndex + 1 }} 行第 {{ cell.columnIndex + 1 }} 列
-                      </span>
-                      <span v-if="cell.rule" class="batch-record-cell-rules-editor__cell-rule">
-                        <span>{{ valueTypeLabelMap[cell.rule.valueType] || cell.rule.valueType }}</span>
-                        <b v-if="cell.rule.required">必填</b>
-                      </span>
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <el-empty v-else description="暂无可展示的表单布局" />
-        </div>
-
-        <aside class="batch-record-cell-rules-editor__side-panel">
-          <el-alert
-            v-if="selectedTemplate?.status !== 'DRAFT'"
-            :title="rulesReadonlyTitle"
-            type="warning"
-            :closable="false"
-            show-icon
-          />
-          <template v-if="selectedRuleCell">
-            <div class="batch-record-cell-rules-editor__fillable-toggle">
-              <strong>是否可填写</strong>
-              <el-switch
-                v-model="isSelectedCellFillable"
-                active-text="可填写"
-                inactive-text="不可填写"
-              />
-            </div>
-
-            <template v-if="selectedRule">
-              <el-form label-position="top" class="batch-record-cell-rules-editor__form">
-                <el-form-item label="字段名称">
-                  <el-input
-                    v-model="selectedRule.label"
-                    maxlength="80"
-                    show-word-limit
-                    placeholder="请输入字段名称"
-                  />
-                </el-form-item>
-                <el-form-item label="单元格提示词">
-                  <el-input
-                    v-model="selectedRule.placeholder"
-                    maxlength="120"
-                    show-word-limit
-                    placeholder="请输入单元格空值提示"
-                  />
-                </el-form-item>
-                <el-form-item label="字段说明">
-                  <el-input
-                    v-model="selectedRule.helpText"
-                    type="textarea"
-                    :rows="3"
-                    maxlength="300"
-                    show-word-limit
-                    placeholder="说明这个单元格要填写什么内容"
-                  />
-                </el-form-item>
-                <el-form-item label="是否必填">
-                  <el-switch
-                    v-model="selectedRule.required"
-                    active-text="必填"
-                    inactive-text="可选"
-                  />
-                </el-form-item>
-                <el-form-item label="字段类型">
-                  <el-select
-                    v-model="selectedRule.valueType"
-                    class="!w-1/1"
-                    @change="handleSelectedValueTypeChange"
-                  >
-                    <el-option
-                      v-for="option in cellRuleValueTypeOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="控件类型">
-                  <el-select
-                    v-model="selectedRule.componentFlag"
-                    class="!w-1/1"
-                    filterable
-                    allow-create
-                    default-first-option
-                    placeholder="请选择或输入控件类型"
-                  >
-                    <el-option
-                      v-for="option in componentFlagOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </el-form-item>
-              </el-form>
-            </template>
-          </template>
-          <el-empty v-else description="请在左侧表单中点击一个单元格" />
-        </aside>
-      </section>
-    </div>
-    <template #footer>
-      <el-button @click="rulesDialogVisible = false">关闭</el-button>
-      <el-button @click="reloadEditableTemplateRules">重新读取</el-button>
-      <el-button
-        type="primary"
-        :loading="rulesSaving"
-        :disabled="!canSaveEditableRules"
-        @click="saveEditableTemplateRules"
-      >
-        {{ rulesSaveButtonText }}
-      </el-button>
-    </template>
-  </Dialog>
+  </ContentWrap>
   <Dialog
     v-model="signatureDialogVisible"
-    class="form-template-signature-dialog"
+    class="form-template-signature-dialog scheme-d-form-control"
     title="签名位"
     width="720px"
   >
@@ -563,15 +502,23 @@
       <el-table-column label="签名动作" prop="actionType" width="140" />
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tag :type="row.enabled ? 'success' : 'info'" effect="plain">
+          <el-tag class="scheme-d-tag" :type="row.enabled ? 'success' : 'info'" effect="plain">
             {{ row.enabled ? '启用' : '停用' }}
           </el-tag>
         </template>
       </el-table-column>
     </el-table>
     <template #footer>
-      <el-button @click="signatureDialogVisible = false">关闭</el-button>
-      <el-button type="primary" @click="openEditorFromSignatureDialog">去编辑配置</el-button>
+      <div class="scheme-d-dialog-footer">
+        <el-button class="scheme-d-btn scheme-d-btn--danger" @click="signatureDialogVisible = false">关闭</el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--primary"
+          type="primary"
+          @click="openEditorFromSignatureDialog"
+        >
+          去编辑配置
+        </el-button>
+      </div>
     </template>
   </Dialog>
 </template>
@@ -581,18 +528,25 @@ import download from '@/utils/download'
 import * as TemplateApi from '@/api/form-center/template'
 import type {
   FormRecognizedFieldVO,
+  FormTemplateEditableDraftRespVO,
   FormTemplateListItemVO,
   FormTemplateObsoletePendingRespVO,
+  FormTemplateFillRuleAutoDetectRespVO,
   FormTemplateStatus
 } from '@/api/form-center/template'
 import type {
+  BatchRecordReportAssistRowVO,
   BatchRecordReportCellRuleVO,
   BatchRecordReportSignatureCellMarkerVO,
   BatchRecordReportCellValueType
 } from '@/api/mes/pro/batchrecordreport'
+import type { EdhrProcessFormFillAssignment } from '@/api/mes/pro/edhr/processFormPermissionRule'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import TemplateImportDialog from './components/TemplateImportDialog.vue'
-import TemplateViewDialog from './components/TemplateViewDialog.vue'
+import FormTemplateDesignerWrapper from './components/FormTemplateDesignerWrapper.vue'
+import FormTemplateFillConfigDialog, {
+  type FormTemplateFillConfigSavePayload
+} from './components/FormTemplateFillConfigDialog.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { formatDate } from '@/utils/formatTime'
@@ -601,43 +555,42 @@ import EdhrExecutionTemplateEditableForm from '@/views/mes/pro/edhr/components/E
 import type { EdhrBatchExecutionReviewFormViewModel } from '@/api/mes/pro/edhr/batchExecution'
 import {
   buildTemplateFieldIdentity,
-  cellRuleDefaultComponentMap,
-  cellRuleValueTypeOptions,
   normalizeCellRule,
-  normalizeTemplateCellMerge,
-  stringifyTemplateCell,
   type TemplateEditableCellContext,
   type TemplateSimulationValueMap
 } from '@/views/mes/pro/batchrecord-shared/batchRecordTemplateRules'
 
 defineOptions({ name: 'FormCenterTemplate' })
 
+const props = defineProps<{
+  simulationOnly?: boolean
+}>()
+
 const message = useMessage()
 const route = useRoute()
 const router = useRouter()
 const importDialogRef = ref()
-const templateViewDialogRef = ref()
 const loading = ref(false)
 const total = ref(0)
 const list = ref<FormTemplateListItemVO[]>([])
 const selectedTemplateKey = ref('')
 const previewMaximized = ref(false)
-const fillDialogVisible = ref(false)
-const rulesDialogVisible = ref(false)
 const signatureDialogVisible = ref(false)
+const fillConfigDialogVisible = ref(false)
 const obsoleteRequestDialogVisible = ref(false)
 const obsoleteRequestSubmitting = ref(false)
-const rulesSaving = ref(false)
+const fillConfigOpening = ref(false)
+const fillConfigSaving = ref(false)
+const templateRouteLoadError = ref('')
 const templateFillValues = ref<TemplateSimulationValueMap>({})
 const obsoletePendingByTemplateKey = ref<Record<string, FormTemplateObsoletePendingRespVO | null>>({})
 const obsoleteRequestTarget = ref<FormTemplateListItemVO | null>(null)
 const obsoleteRequestForm = reactive({
   reason: ''
 })
-const editableTemplateCellRules = ref<BatchRecordReportCellRuleVO[]>([])
-const editableTemplateSheetLayoutJson = ref('')
-const selectedRuleKey = ref('')
 const consumedTemplateActionKey = ref('')
+const isDesignerMode = computed(() => route.query.mode === 'designer')
+const isTemplateSimulationMode = computed(() => props.simulationOnly)
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
@@ -693,14 +646,6 @@ const templateRowKey = (row: FormTemplateListItemVO) => `${row.templateId}:${row
 const ruleIdentity = (rule: Pick<BatchRecordReportCellRuleVO, 'rowIndex' | 'columnIndex'>) =>
   buildTemplateFieldIdentity(rule.rowIndex, rule.columnIndex)
 
-const normalizeRuleSource = (source?: string) => {
-  const normalized = String(source || '').trim().toUpperCase()
-  return normalized || 'MANUAL'
-}
-
-const isConfirmedRule = (rule: BatchRecordReportCellRuleVO) =>
-  Boolean(rule.reviewed) && normalizeRuleSource(rule.source) !== 'AUTO'
-
 const selectedTemplate = computed(() =>
   list.value.find((item) => templateRowKey(item) === selectedTemplateKey.value)
 )
@@ -735,92 +680,7 @@ const simulatedPreviewFormViewModel = computed(() =>
     templateFillValues.value
   )
 )
-const editableTemplateSignatureMarkers = computed(() =>
-  buildSignatureMarkersFromRules(editableTemplateCellRules.value)
-)
-const editableRulesPreviewFormViewModel = computed(() =>
-  buildTemplateVisualPreviewModel(
-    selectedTemplate.value,
-    editableTemplateCellRules.value,
-    editableTemplateSignatureMarkers.value,
-    editableTemplateSheetLayoutJson.value || parsedTemplateJimuSchema.value?.sheetLayoutJson
-  )
-)
 const templateSignatureRows = computed(() => templatePreviewSignatureMarkers.value)
-const valueTypeLabelMap = Object.fromEntries(
-  cellRuleValueTypeOptions.map((option) => [option.value, option.label])
-) as Record<string, string>
-const pendingTemplateRuleCount = computed(
-  () => editableTemplateCellRules.value.filter((rule) => !isConfirmedRule(rule)).length
-)
-const editableRulesSheetLayoutState = computed(() =>
-  parseRuleEditorSheetLayout(editableRulesPreviewFormViewModel.value?.sheetLayoutJson)
-)
-const editableRulesSheetLayout = computed(() => editableRulesSheetLayoutState.value.layout)
-const editableRulesSheetLayoutError = computed(() => editableRulesSheetLayoutState.value.error)
-const ruleMap = computed(() => {
-  const map = new Map<string, BatchRecordReportCellRuleVO>()
-  editableTemplateCellRules.value.forEach((rule) => map.set(ruleIdentity(rule), rule))
-  return map
-})
-const selectedRule = computed(() =>
-  editableTemplateCellRules.value.find((rule) => ruleIdentity(rule) === selectedRuleKey.value)
-)
-const renderedTemplateRuleColumns = computed<RuleEditorColumn[]>(() =>
-  buildRuleEditorColumns(editableRulesSheetLayout.value, editableTemplateCellRules.value)
-)
-const renderedTemplateRuleRows = computed<RuleEditorRow[]>(() =>
-  buildRuleEditorRows(
-    editableRulesSheetLayout.value,
-    editableTemplateCellRules.value,
-    ruleMap.value,
-    selectedRuleKey.value
-  )
-)
-const selectedRuleCell = computed(() => {
-  if (!selectedRuleKey.value) return null
-  for (const row of renderedTemplateRuleRows.value) {
-    const cell = row.cells.find((item) => item.identity === selectedRuleKey.value)
-    if (cell) return cell
-  }
-  return null
-})
-const canSaveEditableRules = computed(
-  () =>
-    Boolean(selectedTemplate.value) &&
-    selectedTemplate.value?.status === 'DRAFT' &&
-    Boolean(editableRulesSheetLayout.value) &&
-    !editableRulesSheetLayoutError.value &&
-    !rulesSaving.value
-)
-const rulesDialogTitle = computed(() => '编辑表单模板')
-const rulesDialogPreviewTitle = computed(() => '模板编辑预览')
-const rulesDialogPreviewTip = computed(() => '编辑单元格填写规则后会同步刷新模板预览、徽标和签名位。')
-const rulesReadonlyTitle = computed(() => '当前版本只读：只有草稿版本可以保存模板编辑。')
-const rulesSaveButtonText = computed(() => '保存模板')
-
-const componentFlagBaseOptions = [
-  { label: '文本输入 input-text', value: 'input-text' },
-  { label: '数字输入 input-number', value: 'input-number' },
-  { label: '日期 date', value: 'date' },
-  { label: '日期时间 datetime', value: 'datetime' },
-  { label: '复选框 checkbox', value: 'checkbox' },
-  { label: '电子签名 signature', value: 'signature' },
-  { label: '多行文本 textarea', value: 'textarea' },
-  { label: '文件上传 upload-file', value: 'upload-file' },
-  { label: '图片上传 upload-image', value: 'upload-image' }
-]
-
-const componentFlagOptions = computed(() => {
-  const optionMap = new Map(componentFlagBaseOptions.map((option) => [option.value, option]))
-  editableTemplateCellRules.value.forEach((rule) => {
-    const value = String(rule.componentFlag || '').trim()
-    if (value && !optionMap.has(value)) {
-      optionMap.set(value, { label: value, value })
-    }
-  })
-  return Array.from(optionMap.values())
-})
 
 const isSelectedTemplateRow = (row: FormTemplateListItemVO) =>
   templateRowKey(row) === selectedTemplateKey.value
@@ -835,17 +695,27 @@ const syncSelectedTemplate = () => {
 
 const getList = async () => {
   loading.value = true
+  templateRouteLoadError.value = ''
   try {
+    if (isDesignerMode.value || isTemplateSimulationMode.value) {
+      list.value = []
+      total.value = 0
+      await syncTemplateRouteContext()
+      return
+    }
     const data = await TemplateApi.getTemplatePool(queryParams)
     list.value = data.list
     total.value = data.total
-    const routedTemplate = findTemplateFromRoute()
-    if (routedTemplate) {
-      selectedTemplateKey.value = templateRowKey(routedTemplate)
-    }
     syncSelectedTemplate()
+    await syncTemplateRouteContext()
     await refreshSelectedTemplateObsoletePending()
     await handleTemplateActionQuery()
+  } catch (error) {
+    if (isDesignerMode.value || isTemplateSimulationMode.value) {
+      templateRouteLoadError.value = resolveErrorMessage(error, '表单模板加载失败，请联系管理员。')
+      return
+    }
+    throw error
   } finally {
     loading.value = false
   }
@@ -868,6 +738,44 @@ const openImport = () => {
 const selectTemplate = (row: FormTemplateListItemVO) => {
   selectedTemplateKey.value = templateRowKey(row)
   void refreshSelectedTemplateObsoletePending()
+}
+
+const selectTemplateVersion = (templateId: number, versionNo: string) => {
+  const row = list.value.find((item) => item.templateId === templateId && item.versionNo === versionNo)
+  if (!row) return
+  selectedTemplateKey.value = templateRowKey(row)
+  void refreshSelectedTemplateObsoletePending()
+}
+
+type FormTemplateDraftReadyPayload =
+  | FormTemplateFillRuleAutoDetectRespVO
+  | FormTemplateEditableDraftRespVO
+
+const handleDraftVersionReady = async (response: FormTemplateDraftReadyPayload) => {
+  if (
+    selectedTemplate.value &&
+    selectedTemplate.value.templateId === response.templateId &&
+    selectedTemplate.value.versionNo === response.versionNo
+  ) {
+    return
+  }
+  await getList()
+  let resolvedRow = list.value.find(
+    (item) => item.templateId === response.templateId && item.versionNo === response.versionNo
+  )
+  if (!resolvedRow) {
+    const fetchedRow = await TemplateApi.getTemplateVersion(response.templateId, response.versionNo)
+    if (!fetchedRow) {
+      throw new Error(`未找到规则识别生成的草稿版本 ${response.templateId}/${response.versionNo}。`)
+    }
+    resolvedRow = fetchedRow
+    const resolvedRowKey = templateRowKey(resolvedRow)
+    list.value = [
+      resolvedRow,
+      ...list.value.filter((item) => templateRowKey(item) !== resolvedRowKey)
+    ]
+  }
+  selectTemplateVersion(response.templateId, response.versionNo)
 }
 
 const refreshSelectedTemplateObsoletePending = async () => {
@@ -896,22 +804,92 @@ const selectedTemplateObsoletePending = computed(() => {
   return obsoletePendingByTemplateKey.value[templateRowKey(selectedTemplate.value)] || null
 })
 
-const openSelectedTemplate = () => {
+const openDesigner = async (template: FormTemplateListItemVO, reportMode: 'preview' | 'edit' = 'preview') => {
+  const reportId = normalizeRouteQueryText(template.designerReportId)
+  if (!reportId) {
+    const reason = `表单模板“${template.templateName || template.templateId}”缺少 Jimu 报表 ID，无法进入表单模板 Jimu 编辑器。`
+    message.error(reason)
+    throw new Error(reason)
+  }
+  await router.push({
+    path: route.path,
+    query: {
+      templateId: template.templateId,
+      versionNo: template.versionNo,
+      mode: 'designer',
+      reportId,
+      reportMode
+    }
+  })
+}
+
+const openSelectedTemplateWorkspace = async (reportMode: 'preview' | 'edit') => {
   if (!selectedTemplate.value) return
-  templateViewDialogRef.value?.open(selectedTemplate.value)
+  let targetTemplate = selectedTemplate.value
+  if (reportMode === 'edit' && selectedTemplate.value.status !== 'DRAFT') {
+    const response = await TemplateApi.ensureTemplateEditableDraft(
+      selectedTemplate.value.templateId,
+      selectedTemplate.value.versionNo
+    )
+    await handleDraftVersionReady(response)
+    const draftTemplate = selectedTemplate.value
+    if (!draftTemplate || draftTemplate.status !== 'DRAFT' || draftTemplate.versionNo !== response.versionNo) {
+      const reason = `未能切换到表单模板草稿版本 ${response.templateId}/${response.versionNo}，无法进入 Jimu 编辑器。`
+      message.error(reason)
+      throw new Error(reason)
+    }
+    targetTemplate = draftTemplate
+    message.success(
+      response.draftCreated
+        ? `已生成草稿版本 ${response.versionNo}，正在打开 Jimu 编辑器。`
+        : `已切换到草稿版本 ${response.versionNo}，正在打开 Jimu 编辑器。`
+    )
+  }
+  await openDesigner(targetTemplate, reportMode)
 }
 
-const editSelectedTemplate = () => {
-  openSelectedTemplateAction('edit')
+const openSelectedTemplate = async () => {
+  await openSelectedTemplateWorkspace('preview')
 }
 
-const openSelectedTemplateFill = () => {
+const editSelectedTemplate = async () => {
+  await openSelectedTemplateWorkspace('edit')
+}
+
+const openSelectedTemplateFill = async () => {
   if (!selectedTemplate.value) return
-  resetTemplateFillValues()
-  fillDialogVisible.value = true
+  const row = selectedTemplate.value
+  await router.push({
+    path: '/mdm/form-center/template/simulate',
+    query: {
+      templateId: row.templateId,
+      versionNo: row.versionNo,
+      returnTo: route.fullPath,
+      returnLabel: '返回'
+    }
+  })
 }
 
-type FormTemplateAction = 'edit' | 'signature'
+const openSelectedTemplateCellLinks = async () => {
+  if (!selectedTemplate.value) return
+  const row = selectedTemplate.value
+  await router.push({
+    path: '/mes/pro/batch-record-cell-link',
+    query: {
+      templateId: row.templateId,
+      versionNo: row.versionNo,
+      returnTo: route.fullPath,
+      returnLabel: '返回'
+    }
+  })
+}
+
+const openSelectedTemplateFillConfig = async () => {
+  if (!selectedTemplate.value || fillConfigOpening.value) return
+  fillConfigDialogVisible.value = true
+}
+
+type FormTemplateAction = 'signature'
 type FormTemplateObsoleteOperationState = 'normal' | 'pending-withdrawable' | 'pending-readonly' | 'voided'
 
 const normalizeRouteQueryText = (value: unknown) => {
@@ -921,7 +899,7 @@ const normalizeRouteQueryText = (value: unknown) => {
 
 const normalizeTemplateAction = (value: unknown): FormTemplateAction | '' => {
   const action = normalizeRouteQueryText(value)
-  return action === 'edit' || action === 'signature' ? action : ''
+  return action === 'signature' ? action : ''
 }
 
 const buildTemplateActionKey = (row: FormTemplateListItemVO, action: FormTemplateAction) =>
@@ -930,34 +908,69 @@ const buildTemplateActionKey = (row: FormTemplateListItemVO, action: FormTemplat
 const findTemplateFromRoute = () => {
   const templateId = Number(normalizeRouteQueryText(route.query.templateId))
   const versionNo = normalizeRouteQueryText(route.query.versionNo)
-  if (!Number.isFinite(templateId) || !versionNo) return undefined
+  if (!Number.isInteger(templateId) || templateId <= 0 || !versionNo) return undefined
   return list.value.find((item) => item.templateId === templateId && item.versionNo === versionNo)
+}
+
+const syncTemplateRouteContext = async () => {
+  const templateId = Number(normalizeRouteQueryText(route.query.templateId))
+  const versionNo = normalizeRouteQueryText(route.query.versionNo)
+  const routeNeedsTemplate = isDesignerMode.value || isTemplateSimulationMode.value
+  if (!Number.isInteger(templateId) || templateId <= 0 || !versionNo) {
+    if (routeNeedsTemplate) {
+      templateRouteLoadError.value = '缺少有效模板 ID 或版本号，无法打开表单模板工作区。'
+      selectedTemplateKey.value = ''
+    }
+    return
+  }
+
+  const requiresExactTemplateVersion = isDesignerMode.value || isTemplateSimulationMode.value
+  let row = requiresExactTemplateVersion
+    ? await TemplateApi.getTemplateVersion(templateId, versionNo)
+    : findTemplateFromRoute()
+  if (!row) {
+    row = await TemplateApi.getTemplateVersion(templateId, versionNo)
+  }
+  if (!row) {
+    throw new Error(`未找到表单模板 ${templateId} 的版本 ${versionNo}。`)
+  }
+  const resolvedRow = row
+  list.value = [
+    resolvedRow,
+    ...list.value.filter((item) => templateRowKey(item) !== templateRowKey(resolvedRow))
+  ]
+  selectedTemplateKey.value = templateRowKey(resolvedRow)
+  if (isTemplateSimulationMode.value) {
+    resetTemplateFillValues()
+  }
+}
+
+const returnToTemplateList = async () => {
+  const row = selectedTemplate.value
+  await router.push({
+    path: '/mdm/form-center/template',
+    query: row
+      ? {
+          templateId: row.templateId,
+          versionNo: row.versionNo
+        }
+      : {}
+  })
+}
+
+const returnFromTemplateSimulation = async () => {
+  const returnTo = normalizeRouteQueryText(route.query.returnTo)
+  if (returnTo) {
+    await router.push(returnTo)
+    return
+  }
+  await returnToTemplateList()
 }
 
 const openTemplateActionDialog = (row: FormTemplateListItemVO, action: FormTemplateAction) => {
   selectedTemplateKey.value = templateRowKey(row)
   consumedTemplateActionKey.value = buildTemplateActionKey(row, action)
-  if (action === 'signature') {
-    signatureDialogVisible.value = true
-    return
-  }
-  reloadEditableTemplateRules()
-  rulesDialogVisible.value = true
-}
-
-const openSelectedTemplateAction = async (action: FormTemplateAction) => {
-  if (!selectedTemplate.value) return
-  const row = selectedTemplate.value
-  await router.push({
-    path: route.path,
-    query: {
-      ...route.query,
-      templateId: row.templateId,
-      versionNo: row.versionNo,
-      action
-    }
-  })
-  openTemplateActionDialog(row, action)
+  signatureDialogVisible.value = true
 }
 
 const handleTemplateActionQuery = async () => {
@@ -973,98 +986,40 @@ const handleTemplateActionQuery = async () => {
   openTemplateActionDialog(row, action)
 }
 
-const reloadEditableTemplateRules = () => {
-  const nextRules = templatePreviewCellRules.value.map((rule) => ({ ...rule }))
-  editableTemplateSheetLayoutJson.value = visualPreviewFormViewModel.value?.sheetLayoutJson || ''
-  editableTemplateCellRules.value = nextRules
-  selectedRuleKey.value = nextRules.length ? ruleIdentity(nextRules[0]) : ''
-}
-
-const selectRuleCell = (cell: RuleEditorCell) => {
-  selectedRuleKey.value = cell.identity
-}
-
-const buildManualRuleFromCell = (cell: RuleEditorCell): BatchRecordReportCellRuleVO =>
-  normalizeCellRule({
-    rowIndex: cell.rowIndex,
-    columnIndex: cell.columnIndex,
-    valueType: 'STRING',
-    componentFlag: cellRuleDefaultComponentMap.STRING,
-    required: false,
-    label: cell.text.trim() || `第 ${cell.rowIndex + 1} 行第 ${cell.columnIndex + 1} 列`,
-    placeholder: '',
-    helpText: '',
-    constraints: {},
-    unit: '',
-    source: 'MANUAL',
-    confidence: 1,
-    reviewed: true
-  })
-
-const enableSelectedCellRule = () => {
-  const cell = selectedRuleCell.value
-  if (!cell || ruleMap.value.has(cell.identity)) return
-  editableTemplateCellRules.value = sortCellRules([
-    ...editableTemplateCellRules.value,
-    buildManualRuleFromCell(cell)
-  ])
-  selectedRuleKey.value = cell.identity
-}
-
-const disableSelectedCellRule = () => {
-  const key = selectedRuleKey.value
-  if (!key || !ruleMap.value.has(key)) return
-  editableTemplateCellRules.value = editableTemplateCellRules.value.filter(
-    (rule) => ruleIdentity(rule) !== key
-  )
-  selectedRuleKey.value = key
-}
-
-const isSelectedCellFillable = computed({
-  get: () => Boolean(selectedRule.value),
-  set: (value: boolean) => {
-    if (value) {
-      enableSelectedCellRule()
-      return
-    }
-    disableSelectedCellRule()
-  }
-})
-
-const handleSelectedValueTypeChange = (value: BatchRecordReportCellValueType) => {
-  if (!selectedRule.value) return
-  selectedRule.value.componentFlag = cellRuleDefaultComponentMap[value]
-}
-
-const saveEditableTemplateRules = async () => {
+const saveSelectedTemplateFillConfig = async (data: FormTemplateFillConfigSavePayload) => {
   if (!selectedTemplate.value) return
   if (selectedTemplate.value.status !== 'DRAFT') {
-    message.warning('只有草稿版本可以保存模板编辑。')
+    message.warning('只有草稿版本可以保存填写配置。')
     return
   }
-  const rules = sortCellRules(editableTemplateCellRules.value.map((rule) => ({
-    ...normalizeCellRule(rule),
-    source: 'MANUAL',
-    confidence: 1,
-    reviewed: true
-  })))
-  const markers = buildSignatureMarkersFromRules(rules)
+  const rules = sortCellRules(data.cellRules.map(normalizeCellRule))
+  const markers = data.signatureCellMarkers || buildSignatureMarkersFromRules(rules)
   const formViewModel = buildTemplateVisualPreviewModel(
     selectedTemplate.value,
     rules,
     markers,
-    editableRulesPreviewFormViewModel.value?.sheetLayoutJson
+    data.sheetLayoutJson
   )
   if (!formViewModel) {
     message.error('当前模板缺少可保存的规则布局。')
     return
   }
-  const payload = JSON.stringify({
+  const preservedAssistPayload = {
+    assistRows: parsedTemplateJimuSchema.value?.assistRows,
+    fillAssignments: parsedTemplateJimuSchema.value?.fillAssignments
+  }
+  const payload = buildTemplateJimuSchemaPayload({
     sheetLayoutJson: formViewModel.sheetLayoutJson,
     cellRules: rules,
-    signatureCellMarkers: markers
+    signatureCellMarkers: markers,
+    ...(data.configMode === 'assistMapping'
+      ? {
+          assistRows: data.assistRows,
+          fillAssignments: data.fillAssignments
+        }
+      : preservedAssistPayload)
   })
-  rulesSaving.value = true
+  fillConfigSaving.value = true
   try {
     await TemplateApi.saveTemplateJimuSchema(
       selectedTemplate.value.templateId,
@@ -1072,18 +1027,20 @@ const saveEditableTemplateRules = async () => {
       payload
     )
     selectedTemplate.value.jimuSchemaJson = payload
-    message.success('模板保存成功')
-    rulesDialogVisible.value = false
+    fillConfigDialogVisible.value = false
+    message.success('填写配置已保存')
     await getList()
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '填写配置保存失败，请联系管理员。'))
   } finally {
-    rulesSaving.value = false
+    fillConfigSaving.value = false
   }
 }
 
 const openEditorFromSignatureDialog = () => {
   if (!selectedTemplate.value) return
   signatureDialogVisible.value = false
-  void openSelectedTemplateAction('edit')
+  void editSelectedTemplate()
 }
 
 const handleTemplatePreviewSignatureAction = (_context: TemplateEditableCellContext) => {
@@ -1272,58 +1229,131 @@ type RuleEditorRawLayout = {
   rows?: Record<string, TemplateVisualPreviewRow>
 }
 
-type RuleEditorColumn = {
-  columnIndex: number
-  widthPercent: number
-}
-
-type RuleEditorCell = {
-  identity: string
-  rowIndex: number
-  columnIndex: number
-  text: string
-  rowSpan: number
-  colSpan: number
-  rule?: BatchRecordReportCellRuleVO
-  classNames: Record<string, boolean>
-}
-
-type RuleEditorRow = {
-  rowIndex: number
-  height: number
-  cells: RuleEditorCell[]
-}
-
 type FormTemplateJimuSchemaPayload = {
+  [key: string]: unknown
   sheetLayoutJson?: string
   cellRules?: BatchRecordReportCellRuleVO[]
   signatureCellMarkers?: BatchRecordReportSignatureCellMarkerVO[]
+  assistRows?: BatchRecordReportAssistRowVO[]
+  fillAssignments?: EdhrProcessFormFillAssignment[]
 }
 
+const normalizeRecognizedFieldType = (fieldType?: string) =>
+  String(fieldType || '')
+    .trim()
+    .toLowerCase()
+
+const compactRecognizedFieldType = (fieldType?: string) =>
+  normalizeRecognizedFieldType(fieldType).replace(/[\s_-]+/g, '')
+
+const isSignatureRecognizedFieldType = (normalized: string) =>
+  normalized === 'signature' ||
+  normalized === 'sign' ||
+  normalized === 'electronic-signature' ||
+  normalized === 'electronic-sign' ||
+  normalized === 'e-signature' ||
+  normalized === 'e-sign' ||
+  normalized.includes('signature') ||
+  normalized.includes('签名') ||
+  normalized.includes('签字') ||
+  compactRecognizedFieldType(normalized).includes('electronicsignature')
+
 const fieldValueType = (fieldType?: string): BatchRecordReportCellValueType => {
-  const normalized = String(fieldType || '').toLowerCase()
-  if (normalized === 'number') return 'NUMBER'
-  if (normalized === 'date') return 'DATE'
-  if (normalized === 'datetime') return 'DATETIME'
-  if (normalized === 'checkbox') return 'BOOLEAN'
-  if (normalized === 'signature') return 'SIGNATURE'
+  const normalized = normalizeRecognizedFieldType(fieldType)
+  const compact = compactRecognizedFieldType(fieldType)
+  if (
+    normalized === 'number' ||
+    normalized === 'input-number' ||
+    compact === 'inputnumber' ||
+    normalized.includes('数字')
+  ) return 'NUMBER'
+  if (
+    normalized === 'datetime' ||
+    normalized === 'date-time' ||
+    compact === 'datetime' ||
+    normalized.includes('日期时间')
+  ) return 'DATETIME'
+  if (normalized === 'date' || normalized.includes('日期')) return 'DATE'
+  if (normalized.includes('时间')) return 'DATETIME'
+  if (normalized === 'checkbox' || compact === 'checkbox') return 'BOOLEAN'
+  if (isSignatureRecognizedFieldType(normalized)) return 'SIGNATURE'
   return 'STRING'
 }
 
 const fieldComponentFlag = (fieldType?: string) => {
-  const normalized = String(fieldType || '').toLowerCase()
-  if (normalized === 'number') return 'input-number'
-  if (normalized === 'date') return 'date'
-  if (normalized === 'datetime') return 'datetime'
-  if (normalized === 'checkbox') return 'checkbox'
-  if (normalized === 'signature') return 'signature'
-  if (normalized === 'textarea') return 'textarea'
-  return 'input-text'
+  const normalized = normalizeRecognizedFieldType(fieldType)
+  const compact = compactRecognizedFieldType(fieldType)
+  switch (normalized) {
+    case 'number':
+    case 'input-number':
+    case '数字':
+      return 'input-number'
+    case 'date':
+    case '日期':
+      return 'date'
+    case 'datetime':
+    case 'date-time':
+    case '时间':
+    case '日期时间':
+      return 'datetime'
+    case 'checkbox':
+      return 'checkbox'
+    case 'checkbox-group':
+    case 'radio-group':
+    case 'option-group':
+    case 'single-choice':
+    case 'radiogroup':
+    case 'optiongroup':
+    case 'singlechoice':
+    case '单选':
+      return 'radio-group'
+    case 'select':
+    case 'dropdown':
+    case '下拉':
+    case '选择':
+      return 'select'
+    case 'textarea':
+      return 'textarea'
+    case 'upload-file':
+    case 'upload-image':
+    case 'upload-images':
+      return normalized
+    case '电子签名':
+    case '签名':
+    case '签字':
+      return 'signature'
+    default:
+      if (isSignatureRecognizedFieldType(normalized)) return 'signature'
+      if (
+        normalized.includes('radio') ||
+        normalized.includes('single-choice') ||
+        normalized.includes('singlechoice') ||
+        normalized.includes('option-group') ||
+        normalized.includes('optiongroup') ||
+        normalized.includes('checkbox-group') ||
+        normalized.includes('checkboxgroup') ||
+        normalized.includes('单选') ||
+        compact.includes('radiogroup') ||
+        compact.includes('optiongroup') ||
+        compact.includes('singlechoice')
+      ) return 'radio-group'
+      if (normalized.includes('附件') || normalized.includes('文件')) return 'upload-file'
+      if (normalized.includes('图片')) return 'upload-image'
+      return 'input-text'
+  }
 }
 
 const fieldPlaceholder = (field: FormRecognizedFieldVO) => {
-  if (field.fieldType === 'checkbox') return '□'
-  return '?'
+  const label = field.label || field.fieldCode
+  const componentFlag = fieldComponentFlag(field.fieldType)
+  if (componentFlag === 'checkbox') return '□'
+  if (componentFlag === 'signature') return '请签名'
+  if (componentFlag === 'date' || componentFlag === 'datetime') return `请选择${label}`
+  if (componentFlag === 'radio-group' || componentFlag === 'select') {
+    return `请选择${label}`
+  }
+  if (componentFlag.startsWith('upload-')) return `请上传${label}`
+  return `请输入${label}`
 }
 
 const buildRecognizedFieldCellRules = (fields: FormRecognizedFieldVO[]) =>
@@ -1348,19 +1378,25 @@ const parseTemplateJimuSchema = (schema?: string): FormTemplateJimuSchemaPayload
   if (!schema?.trim()) return undefined
   const parsed = JSON.parse(schema) as FormTemplateJimuSchemaPayload
   return {
+    ...parsed,
     sheetLayoutJson: typeof parsed.sheetLayoutJson === 'string' ? parsed.sheetLayoutJson : undefined,
     cellRules: Array.isArray(parsed.cellRules) ? parsed.cellRules : undefined,
     signatureCellMarkers: Array.isArray(parsed.signatureCellMarkers)
       ? parsed.signatureCellMarkers
-      : undefined
+      : undefined,
+    assistRows: Array.isArray(parsed.assistRows) ? parsed.assistRows : undefined,
+    fillAssignments: Array.isArray(parsed.fillAssignments) ? parsed.fillAssignments : undefined
   }
 }
 
+const buildTemplateJimuSchemaPayload = (payload: FormTemplateJimuSchemaPayload) =>
+  JSON.stringify({
+    ...(parsedTemplateJimuSchema.value || {}),
+    ...payload
+  })
+
 const sortCellRules = (rules: BatchRecordReportCellRuleVO[]) =>
   [...rules].sort((left, right) => left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex)
-
-const DEFAULT_RULE_EDITOR_COLUMN_WIDTH = 150
-const DEFAULT_RULE_EDITOR_ROW_HEIGHT = 34
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message.trim()) return error.message
@@ -1368,146 +1404,6 @@ const resolveErrorMessage = (error: unknown, fallback: string) => {
   const dataMessage = (error as any)?.msg || (error as any)?.message
   if (typeof dataMessage === 'string' && dataMessage.trim()) return dataMessage
   return fallback
-}
-
-const parseRuleEditorSheetLayout = (sheetLayoutJson?: string) => {
-  if (!sheetLayoutJson?.trim()) {
-    return { layout: null, error: '当前模板缺少表单布局，无法进入可视化规则编辑。' }
-  }
-  try {
-    const parsed = JSON.parse(sheetLayoutJson) as RuleEditorRawLayout
-    if (!parsed?.rows || !Object.keys(parsed.rows).length) {
-      throw new Error('当前模板缺少有效表单布局，无法进入可视化规则编辑。')
-    }
-    return { layout: parsed, error: '' }
-  } catch (error) {
-    return { layout: null, error: resolveErrorMessage(error, '表单布局解析失败，无法进入可视化规则编辑。') }
-  }
-}
-
-const collectRuleEditorColumnIndexes = (
-  layout: RuleEditorRawLayout | null,
-  rules: BatchRecordReportCellRuleVO[]
-) => {
-  const columns = new Set<number>()
-  Object.keys(layout?.cols || {}).forEach((key) => {
-    const columnIndex = Number(key)
-    if (Number.isInteger(columnIndex)) columns.add(columnIndex)
-  })
-  Object.values(layout?.rows || {}).forEach((row) => {
-    Object.keys(row.cells || {}).forEach((key) => {
-      const columnIndex = Number(key)
-      if (Number.isInteger(columnIndex)) columns.add(columnIndex)
-    })
-  })
-  rules.forEach((rule) => columns.add(rule.columnIndex))
-  return Array.from(columns).sort((a, b) => a - b)
-}
-
-const collectRuleEditorRowIndexes = (
-  layout: RuleEditorRawLayout | null,
-  rules: BatchRecordReportCellRuleVO[]
-) => {
-  const rows = new Set<number>()
-  Object.keys(layout?.rows || {}).forEach((key) => {
-    const rowIndex = Number(key)
-    if (Number.isInteger(rowIndex)) rows.add(rowIndex)
-  })
-  rules.forEach((rule) => rows.add(rule.rowIndex))
-  return Array.from(rows).sort((a, b) => a - b)
-}
-
-const buildRuleEditorColumns = (
-  layout: RuleEditorRawLayout | null,
-  rules: BatchRecordReportCellRuleVO[]
-): RuleEditorColumn[] => {
-  if (!layout) return []
-  const columnIndexes = collectRuleEditorColumnIndexes(layout, rules)
-  const widths = columnIndexes.map((columnIndex) => {
-    const configuredWidth = Number(layout.cols?.[String(columnIndex)]?.width)
-    return Number.isFinite(configuredWidth) && configuredWidth > 0
-      ? configuredWidth
-      : DEFAULT_RULE_EDITOR_COLUMN_WIDTH
-  })
-  const totalWidth = widths.reduce((sum, width) => sum + width, 0)
-  return columnIndexes.map((columnIndex, index) => ({
-    columnIndex,
-    widthPercent: totalWidth > 0 ? (widths[index] / totalWidth) * 100 : 100
-  }))
-}
-
-const buildCoveredRuleEditorCellSet = (layout: RuleEditorRawLayout | null) => {
-  const covered = new Set<string>()
-  Object.entries(layout?.rows || {}).forEach(([rowKey, row]) => {
-    const rowIndex = Number(rowKey)
-    if (!Number.isInteger(rowIndex)) return
-    Object.entries(row.cells || {}).forEach(([columnKey, cell]) => {
-      const columnIndex = Number(columnKey)
-      if (!Number.isInteger(columnIndex)) return
-      const merge = normalizeTemplateCellMerge(cell)
-      for (let rowOffset = 0; rowOffset < merge.rowSpan; rowOffset += 1) {
-        for (let columnOffset = 0; columnOffset < merge.colSpan; columnOffset += 1) {
-          if (rowOffset === 0 && columnOffset === 0) continue
-          covered.add(`${rowIndex + rowOffset}:${columnIndex + columnOffset}`)
-        }
-      }
-    })
-  })
-  return covered
-}
-
-const resolveRuleEditorRowHeight = (height: unknown) => {
-  const numericHeight = Number(height)
-  return Math.max(
-    Number.isFinite(numericHeight) && numericHeight > 0
-      ? numericHeight
-      : DEFAULT_RULE_EDITOR_ROW_HEIGHT,
-    28
-  )
-}
-
-const buildRuleEditorRows = (
-  layout: RuleEditorRawLayout | null,
-  rules: BatchRecordReportCellRuleVO[],
-  rulesByCell: Map<string, BatchRecordReportCellRuleVO>,
-  activeRuleKey: string
-): RuleEditorRow[] => {
-  if (!layout) return []
-  const columnIndexes = collectRuleEditorColumnIndexes(layout, rules)
-  const coveredCells = buildCoveredRuleEditorCellSet(layout)
-  return collectRuleEditorRowIndexes(layout, rules).map((rowIndex) => {
-    const rawRow = layout.rows?.[String(rowIndex)] || { cells: {} }
-    const cells: RuleEditorCell[] = []
-    columnIndexes.forEach((columnIndex) => {
-      const identity = `${rowIndex}:${columnIndex}`
-      if (coveredCells.has(identity)) return
-      const rawCell = rawRow.cells?.[String(columnIndex)]
-      const merge = normalizeTemplateCellMerge(rawCell)
-      const text = stringifyTemplateCell(rawCell?.value ?? rawCell?.text)
-      const rule = rulesByCell.get(identity)
-      cells.push({
-        identity,
-        rowIndex,
-        columnIndex,
-        text,
-        rowSpan: merge.rowSpan,
-        colSpan: merge.colSpan,
-        rule,
-        classNames: {
-          'batch-record-cell-rules-editor__cell': true,
-          'is-empty': !text.trim(),
-          'is-rule': Boolean(rule),
-          'is-required': Boolean(rule?.required),
-          'is-selected': activeRuleKey === identity
-        }
-      })
-    })
-    return {
-      rowIndex,
-      height: resolveRuleEditorRowHeight(rawRow.height),
-      cells
-    }
-  })
 }
 
 const isSignatureRule = (rule: BatchRecordReportCellRuleVO) =>
@@ -1721,9 +1617,27 @@ const buildTemplateVisualPreviewModel = (
 onMounted(getList)
 
 watch(
-  () => [route.query.templateId, route.query.versionNo, route.query.action] as const,
+  () => [
+    route.name,
+    route.query.templateId,
+    route.query.versionNo,
+    route.query.mode,
+    route.query.reportId,
+    route.query.reportMode,
+    route.query.action
+  ] as const,
   async () => {
-    await handleTemplateActionQuery()
+    templateRouteLoadError.value = ''
+    try {
+      await syncTemplateRouteContext()
+      await handleTemplateActionQuery()
+    } catch (error) {
+      if (isDesignerMode.value || isTemplateSimulationMode.value) {
+        templateRouteLoadError.value = resolveErrorMessage(error, '表单模板加载失败，请联系管理员。')
+        return
+      }
+      throw error
+    }
   }
 )
 </script>
@@ -1736,6 +1650,75 @@ watch(
 
 .form-template-page :deep(.el-card__body) {
   padding: 0 !important;
+}
+
+.form-template-route-workspace {
+  border: none;
+  background: transparent;
+}
+
+.form-template-route-workspace :deep(.el-card__body) {
+  padding: 0 !important;
+}
+
+.form-template-route-workspace__header {
+  display: grid;
+  min-height: 58px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px 8px 0 0;
+  background: #f7f9fc;
+}
+
+.form-template-route-workspace__heading {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.form-template-route-workspace__heading span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.form-template-route-workspace__heading strong {
+  overflow: hidden;
+  color: #172033;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.form-template-route-workspace__body {
+  min-height: calc(100vh - 190px);
+  padding: 16px;
+  border: 1px solid #dbe3ef;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: #ffffff;
+  overflow: auto;
+}
+
+.form-template-route-workspace > .form-template-rule-workspace {
+  padding: 16px;
+  border: 1px solid #dbe3ef;
+  border-top: 0;
+  background: #ffffff;
+}
+
+.form-template-route-workspace__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 1px solid #dbe3ef;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: #ffffff;
 }
 
 .form-template-workbench {

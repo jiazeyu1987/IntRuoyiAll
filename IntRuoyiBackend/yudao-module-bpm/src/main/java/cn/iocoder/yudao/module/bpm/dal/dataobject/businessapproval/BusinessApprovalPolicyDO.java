@@ -38,6 +38,10 @@ public class BusinessApprovalPolicyDO extends BaseDO {
 
     private String effectExecutorCode;
 
+    private String formPolicyType;
+
+    private String formSlotsJson;
+
     private String status;
 
     private String remark;

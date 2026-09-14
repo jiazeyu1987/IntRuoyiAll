@@ -12,6 +12,20 @@
           <el-option v-for="item in roleList" :key="item.id" :label="item.name" :value="item.id" />
         </el-select>
       </el-form-item>
+      <el-form-item
+        label="变更原因"
+        prop="reason"
+        :rules="[{ required: true, message: '请输入角色变更原因', trigger: 'blur' }]"
+      >
+        <el-input
+          v-model="formData.reason"
+          type="textarea"
+          :rows="3"
+          maxlength="500"
+          show-word-limit
+          placeholder="请输入本次用户角色变更原因"
+        />
+      </el-form-item>
     </el-form>
     <template #footer>
       <el-button :disabled="formLoading" type="primary" @click="submitForm">确 定</el-button>
@@ -35,7 +49,8 @@ const formData = ref({
   id: -1,
   nickname: '',
   username: '',
-  roleIds: []
+  roleIds: [],
+  reason: ''
 })
 const formRef = ref() // 表单 Ref
 const roleList = ref([] as RoleApi.RoleVO[]) // 角色的列表
@@ -72,7 +87,9 @@ const submitForm = async () => {
   try {
     await PermissionApi.assignUserRole({
       userId: formData.value.id,
-      roleIds: formData.value.roleIds
+      roleIds: formData.value.roleIds,
+      reason: formData.value.reason.trim(),
+      idempotencyKey: createPermissionAuditIdempotencyKey()
     })
     message.success(t('common.updateSuccess'))
     dialogVisible.value = false
@@ -89,8 +106,16 @@ const resetForm = () => {
     id: -1,
     nickname: '',
     username: '',
-    roleIds: []
+    roleIds: [],
+    reason: ''
   }
   formRef.value?.resetFields()
+}
+
+const createPermissionAuditIdempotencyKey = () => {
+  if (typeof crypto !== 'object' || typeof crypto.randomUUID !== 'function') {
+    throw new Error('当前浏览器不支持 crypto.randomUUID，无法生成权限审计幂等键')
+  }
+  return `SYSTEM-PERM-USER-ROLE-${formData.value.id}-${crypto.randomUUID()}`
 }
 </script>

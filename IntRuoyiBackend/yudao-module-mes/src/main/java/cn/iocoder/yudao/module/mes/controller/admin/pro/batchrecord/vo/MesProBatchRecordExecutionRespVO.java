@@ -153,6 +153,8 @@ public class MesProBatchRecordExecutionRespVO {
 
     private List<AttachmentSummary> attachmentSummaries;
 
+    private List<EdhrBatchExecutionTaskRespVO> assistSwitchTasks;
+
     private String sheetLayoutJson;
 
     private String metaJson;

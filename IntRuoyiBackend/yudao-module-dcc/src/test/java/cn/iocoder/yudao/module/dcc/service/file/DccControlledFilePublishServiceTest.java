@@ -1,19 +1,38 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.BusinessActionContextReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceCreateReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceRespVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceSubmitReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormActionResolutionRespVO;
 import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
+import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeServiceImpl;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormCenterErrorCode;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormCenterException;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.businessapproval.BusinessApprovalPolicyDO;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
+import cn.iocoder.yudao.module.bpm.dal.mysql.businessapproval.BusinessApprovalPolicyMapper;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePublishReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.DccControlledFileController;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.lang.reflect.Method;
 
 import java.util.List;
 import java.util.Map;
@@ -22,12 +41,20 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PUBLISH_NOT_ALLOWED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
 
@@ -39,9 +66,31 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
     private FormCenterRuntimeService formCenterRuntimeService;
     @Mock
     private DccControlledFileApprovalRouteAssigneeResolver approvalRouteAssigneeResolver;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     @InjectMocks
     private DccControlledFilePublishServiceImpl publishService;
+
+    @BeforeEach
+    void defaultPublishPolicyRequiresBpm() {
+        FormActionResolutionRespVO resolution = new FormActionResolutionRespVO();
+        resolution.setApprovalMode("BPM_REQUIRED");
+        resolution.setRequiresBpm(true);
+        resolution.setBpmProcessKey("dcc-controlled-file-approval");
+        lenient().when(formCenterRuntimeService.resolveAction(any(BusinessActionContextReqVO.class)))
+                .thenReturn(resolution);
+    }
+
+    @Test
+    void publishEndpointRequiresDocControlRoleAndApprovePermission() throws Exception {
+        Method method = DccControlledFileController.class.getDeclaredMethod(
+                "publishControlledFile", Long.class, DccControlledFilePublishReqVO.class);
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+
+        assertTrue(preAuthorize.value().contains("hasRole('doc_control')"));
+        assertTrue(preAuthorize.value().contains("dcc:controlled-file:approve"));
+    }
 
     @Test
     void publishControlledFile_submitsFormCenterActionWithoutApplyingDomainEffect() {
@@ -66,6 +115,7 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
         when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), eq(99L))).thenReturn(draft);
         when(formCenterRuntimeService.submitInstance(eq(57L), any(FormInstanceSubmitReqVO.class), eq(99L)))
                 .thenReturn(submitted);
+        when(gxpAuditService.append(any())).thenReturn(new GxpAuditAppendResult(9101L, 1L, "a".repeat(64), false));
 
         FormInstanceRespVO result = publishService.publishControlledFile(99L, 920L, reqVO);
 
@@ -95,6 +145,186 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
         assertEquals(Map.of("DOC_CONTROL_REVIEW", List.of(914518L)),
                 submitCaptor.getValue().getStartUserSelectAssignees());
         verify(finalizationService, never()).applyApprovedPublishControlledFile(any(), any(), any());
+
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        GxpAuditCommand auditCommand = auditCaptor.getValue();
+        assertEquals("dcc.controlled-file.publish", auditCommand.getOperationId());
+        assertEquals("CONTROLLED_FILE:920", auditCommand.getSubjectId());
+        assertEquals("V2.0", auditCommand.getSubjectVersion());
+        assertEquals("Release V2.0 after revision approval", auditCommand.getReason());
+        assertEquals("DCC-PUBLISH-920-V2", auditCommand.getIdempotencyKey());
+        assertEquals("READY_TO_PUBLISH", auditCommand.getBeforeState().getState());
+        assertEquals("PUBLISH_APPROVAL_STARTED", auditCommand.getAfterState().getState());
+        assertEquals("V2.0", auditCommand.getBeforeState().getObjectVersion());
+        assertEquals("V2.0", auditCommand.getAfterState().getObjectVersion());
+        assertEquals("DccControlledFilePublishServiceImpl.publishControlledFile", auditCommand.getSource());
+        assertEquals("process-57", auditCommand.getRequestId());
+        assertNull(auditCommand.getSignatureRecordId());
+    }
+
+    @Test
+    void publishControlledFile_directPolicySkipsBpmAssigneesAndAuditsActualActiveState() {
+        DccControlledFilePublishReqVO reqVO = new DccControlledFilePublishReqVO();
+        reqVO.setReason("文控正式发布 B/1");
+        reqVO.setIdempotencyKey("DCC-PUBLISH-920-DIRECT");
+        DccControlledFileDO ready = DccControlledFileDO.builder().id(920L).categoryId(18L)
+                .versionNo("B/1").status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus()).build();
+        DccControlledFileDO active = DccControlledFileDO.builder().id(920L).categoryId(18L)
+                .versionNo("B/1").status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
+        when(controlledFileMapper.selectById(920L)).thenReturn(ready, active);
+        FormActionResolutionRespVO resolution = new FormActionResolutionRespVO();
+        resolution.setApprovalMode("DIRECT");
+        resolution.setRequiresBpm(false);
+        when(formCenterRuntimeService.resolveAction(any(BusinessActionContextReqVO.class))).thenReturn(resolution);
+        FormInstanceRespVO draft = new FormInstanceRespVO();
+        draft.setId(58L);
+        FormInstanceRespVO submitted = new FormInstanceRespVO();
+        submitted.setId(58L);
+        submitted.setStatus("EFFECTIVE");
+        when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), eq(99L))).thenReturn(draft);
+        when(formCenterRuntimeService.submitInstance(eq(58L), any(FormInstanceSubmitReqVO.class), eq(99L)))
+                .thenReturn(submitted);
+
+        publishService.publishControlledFile(99L, 920L, reqVO);
+
+        verify(approvalRouteAssigneeResolver, never()).resolveStartUserSelectAssignees(any(), any());
+        ArgumentCaptor<FormInstanceSubmitReqVO> submitCaptor = ArgumentCaptor.forClass(FormInstanceSubmitReqVO.class);
+        verify(formCenterRuntimeService).submitInstance(eq(58L), submitCaptor.capture(), eq(99L));
+        assertEquals(Map.of(), submitCaptor.getValue().getStartUserSelectAssignees());
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        assertEquals("ACTIVE", auditCaptor.getValue().getAfterState().getState());
+    }
+
+    @Test
+    void publishControlledFile_sameIdempotencyKeyReturnsCommittedActionBeforeReadyStatePrecheck() {
+        DccControlledFilePublishReqVO reqVO = new DccControlledFilePublishReqVO();
+        reqVO.setReason("文控正式发布 B/1");
+        reqVO.setIdempotencyKey("DCC-PUBLISH-920-REPLAY");
+        DccControlledFileDO active = DccControlledFileDO.builder().id(920L).categoryId(18L)
+                .versionNo("B/1").status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
+        when(controlledFileMapper.selectById(920L)).thenReturn(active);
+        BusinessActionContextReqVO existingContext = new BusinessActionContextReqVO();
+        existingContext.setObjectId("920");
+        existingContext.setObjectVersion("B/1");
+        existingContext.setActionCode("PUBLISH");
+        existingContext.setReason("文控正式发布 B/1");
+        FormInstanceRespVO existing = new FormInstanceRespVO();
+        existing.setId(58L);
+        existing.setStatus("EFFECTIVE");
+        existing.setContext(existingContext);
+        when(formCenterRuntimeService.findBusinessActionByIdempotency(
+                any(BusinessActionContextReqVO.class), eq("DCC-PUBLISH-920-REPLAY"))).thenReturn(existing);
+
+        FormInstanceRespVO result = publishService.publishControlledFile(99L, 920L, reqVO);
+
+        assertSame(existing, result);
+        verify(finalizationService, never()).precheckPublishControlledFile(any(), any());
+        verify(formCenterRuntimeService, never()).createInstance(any(), any());
+        verify(formCenterRuntimeService, never()).submitInstance(any(), any(), any());
+        verify(gxpAuditService, never()).append(any());
+    }
+
+    @Test
+    void publishControlledFile_reusedIdempotencyKeyWithDifferentReasonIsRejected() {
+        DccControlledFilePublishReqVO reqVO = new DccControlledFilePublishReqVO();
+        reqVO.setReason("更改后的发布原因");
+        reqVO.setIdempotencyKey("DCC-PUBLISH-920-CONFLICT");
+        when(controlledFileMapper.selectById(920L)).thenReturn(DccControlledFileDO.builder().id(920L)
+                .categoryId(18L).versionNo("B/1").status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build());
+        BusinessActionContextReqVO existingContext = new BusinessActionContextReqVO();
+        existingContext.setObjectId("920");
+        existingContext.setObjectVersion("B/1");
+        existingContext.setActionCode("PUBLISH");
+        existingContext.setReason("原发布原因");
+        FormInstanceRespVO existing = new FormInstanceRespVO();
+        existing.setId(59L);
+        existing.setStatus("EFFECTIVE");
+        existing.setContext(existingContext);
+        when(formCenterRuntimeService.findBusinessActionByIdempotency(
+                any(BusinessActionContextReqVO.class), eq("DCC-PUBLISH-920-CONFLICT"))).thenReturn(existing);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> publishService.publishControlledFile(99L, 920L, reqVO));
+
+        verify(finalizationService, never()).precheckPublishControlledFile(any(), any());
+        verify(formCenterRuntimeService, never()).createInstance(any(), any());
+    }
+
+    @Test
+    void publishControlledFile_differentKeyCannotSubmitExistingFormCenterDraft() {
+        TenantContextHolder.setTenantId(122L);
+        try {
+            FormActionInstanceMapper actionMapper = mock(FormActionInstanceMapper.class);
+            BusinessApprovalPolicyMapper policyMapper = mock(BusinessApprovalPolicyMapper.class);
+            FormCenterRuntimeServiceImpl runtime = spy(new FormCenterRuntimeServiceImpl());
+            ReflectionTestUtils.setField(runtime, "actionInstanceMapper", actionMapper);
+            ReflectionTestUtils.setField(runtime, "businessApprovalPolicyMapper", policyMapper);
+            ReflectionTestUtils.setField(publishService, "formCenterRuntimeService", runtime);
+            when(policyMapper.selectPublishedByAction(122L, "DCC", "DCC", "CONTROLLED_FILE",
+                    "PUBLISH", "READY_TO_PUBLISH")).thenReturn(List.of(BusinessApprovalPolicyDO.builder()
+                    .id(7L).tenantId(122L).dataDomain("DCC").systemCode("DCC")
+                    .objectType("CONTROLLED_FILE").actionCode("PUBLISH").objectState("READY_TO_PUBLISH")
+                    .policyMode("BPM_REQUIRED").processDefinitionKey("dcc-controlled-file-publish")
+                    .status("PUBLISHED").build()));
+            BusinessActionContextReqVO oldContext = new BusinessActionContextReqVO();
+            oldContext.setReason("旧发布原因");
+            when(actionMapper.selectSameBusinessAction(122L, "DCC", "CONTROLLED_FILE", "920", "B/1",
+                    "PUBLISH")).thenReturn(List.of(FormActionInstanceDO.builder()
+                    .id(58L).instanceCode("FCI-122-58").tenantId(122L).applicantUserId(99L)
+                    .status("DRAFT").idempotencyKey("DCC-PUBLISH-920-K1")
+                    .businessContextJson(JsonUtils.toJsonString(oldContext)).build()));
+            when(controlledFileMapper.selectById(920L)).thenReturn(DccControlledFileDO.builder()
+                    .id(920L).categoryId(18L).versionNo("B/1")
+                    .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus()).build());
+            DccControlledFilePublishReqVO reqVO = new DccControlledFilePublishReqVO();
+            reqVO.setReason("更正后的发布原因");
+            reqVO.setIdempotencyKey("DCC-PUBLISH-920-K2");
+
+            FormCenterException exception = assertThrows(FormCenterException.class,
+                    () -> publishService.publishControlledFile(99L, 920L, reqVO));
+
+            assertEquals(FormCenterErrorCode.FORM_ACTION_IDEMPOTENCY_CONFLICT, exception.getErrorCode());
+            verify(actionMapper).selectByBusinessActionAndIdempotency(122L, "DCC", "CONTROLLED_FILE",
+                    "920", "B/1", "PUBLISH", "DCC-PUBLISH-920-K2");
+            verify(runtime, never()).submitInstance(any(), any(), any());
+            verify(actionMapper, never()).insert(any(FormActionInstanceDO.class));
+            verify(actionMapper, never()).updateById(any(FormActionInstanceDO.class));
+            verify(finalizationService, never()).applyApprovedPublishControlledFile(any(), any(), any());
+            verifyNoInteractions(approvalRouteAssigneeResolver, gxpAuditService);
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @Test
+    void publishControlledFile_auditAppendFailureRejectsPublishResult() {
+        DccControlledFilePublishReqVO reqVO = new DccControlledFilePublishReqVO();
+        reqVO.setReason("Release V2.0 after revision approval");
+        reqVO.setIdempotencyKey("DCC-PUBLISH-920-V2-AUDIT-FAIL");
+        when(controlledFileMapper.selectById(920L)).thenReturn(DccControlledFileDO.builder()
+                .id(920L)
+                .categoryId(18L)
+                .productCode("PRD-002")
+                .versionNo("V2.0")
+                .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus())
+                .build());
+        FormInstanceRespVO draft = new FormInstanceRespVO();
+        draft.setId(57L);
+        FormInstanceRespVO submitted = new FormInstanceRespVO();
+        submitted.setId(57L);
+        submitted.setStatus("IN_APPROVAL");
+        submitted.setBpmProcessInstanceId("process-57");
+        when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), eq(99L))).thenReturn(draft);
+        when(formCenterRuntimeService.submitInstance(eq(57L), any(FormInstanceSubmitReqVO.class), eq(99L)))
+                .thenReturn(submitted);
+        when(gxpAuditService.append(any())).thenThrow(new IllegalStateException("audit append failed"));
+
+        assertThrows(IllegalStateException.class, () -> publishService.publishControlledFile(99L, 920L, reqVO));
+
+        verify(formCenterRuntimeService).submitInstance(eq(57L), any(FormInstanceSubmitReqVO.class), eq(99L));
+        verify(gxpAuditService).append(any());
     }
 
     @Test

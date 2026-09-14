@@ -1,0 +1,4 @@
+{
+  "status": "failed",
+  "error": "dependsOn missing migration '20260709_mes_route_flow_config_unification' for migrationId '20260730_mes_process_readonly_catalog_menu'"
+}

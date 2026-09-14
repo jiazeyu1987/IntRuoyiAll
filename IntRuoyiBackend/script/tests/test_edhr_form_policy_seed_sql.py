@@ -16,12 +16,13 @@ def test_edhr_form_policy_seed_declares_release_metadata_and_fail_fast_guards() 
 
     assert sql.startswith(
         "-- release-migration: allowedEnvironments=test,backup,prod; "
-        "dependsOn=20260717_bpm_form_center; type=data; riskLevel=medium"
+        "dependsOn=20260719_business_approval_policy,20260610_mes_admin_edhr_approval_v1_seed,"
+        "20260714_mes_edhr_batch_execution_void_bpm_seed; type=data; riskLevel=medium"
     )
     assert "SET NAMES utf8mb4;" in sql
     assert "ensure_edhr_release_void_form_policy" in sql
     assert "SIGNAL SQLSTATE '45000'" in sql
-    assert "EDHR form policy requires bpm_form_action_policy" in sql
+    assert "EDHR form policy requires bpm_business_approval_policy" in sql
     assert "EDHR form policy requires ACT_RE_PROCDEF" in sql
     assert "EDHR form policy requires release and void process definitions" in sql
     assert "EDHR release form policy conflict" in sql
@@ -39,7 +40,7 @@ def test_edhr_form_policy_seed_binds_release_and_void_effect_contracts() -> None
         "'PRECHECK_PASSED'",
         "'EDHR_RELEASE'",
         "'VOID'",
-        "'CLOSED'",
+        "'ALL'",
         "'EDHR_BATCH_VOID'",
         "'PUBLISHED'",
         "'[]'",
@@ -51,17 +52,19 @@ def test_edhr_form_policy_seed_binds_release_and_void_effect_contracts() -> None
     assert "mes-edhr-approval-v1" in sql
     assert "mes-edhr-batch-execution-void-v1" in sql
     assert re.search(
-        r"INSERT\s+INTO\s+`bpm_form_action_policy`[\s\S]+"
+        r"INSERT\s+INTO\s+`bpm_business_approval_policy`[\s\S]+"
         r"`data_domain`[\s\S]+`system_code`[\s\S]+`object_type`[\s\S]+"
-        r"`action_code`[\s\S]+`object_state`[\s\S]+`policy_type`[\s\S]+"
-        r"`bpm_process_key`[\s\S]+`effect_executor_code`",
+        r"`action_code`[\s\S]+`object_state`[\s\S]+`policy_mode`[\s\S]+"
+        r"`process_definition_key`[\s\S]+`effect_executor_code`[\s\S]+"
+        r"`form_policy_type`[\s\S]+`form_slots_json`",
         sql,
         re.I,
     )
+    assert "COALESCE(`policy`.`policy_mode`, '') <> 'BPM_REQUIRED'" in sql
     assert "COALESCE(`policy`.`effect_executor_code`, '') <> 'EDHR_RELEASE'" in sql
     assert "COALESCE(`policy`.`effect_executor_code`, '') <> 'EDHR_BATCH_VOID'" in sql
-    assert "COALESCE(`policy`.`policy_type`, '') <> 'NONE'" in sql
-    assert "COALESCE(`policy`.`slots_json`, '[]') <> '[]'" in sql
+    assert "COALESCE(`policy`.`form_policy_type`, '') <> 'NONE'" in sql
+    assert "COALESCE(`policy`.`form_slots_json`, '[]') <> '[]'" in sql
 
 
 def test_edhr_form_policy_seed_derives_tenants_from_existing_bpm_process_definitions() -> None:
@@ -78,6 +81,7 @@ def test_edhr_form_policy_seed_derives_tenants_from_existing_bpm_process_definit
     assert "`source`.`tenant_id`" in sql
     assert "`source`.`release_process_key`" in sql
     assert "`source`.`void_process_key`" in sql
+    assert "bpm_form_action_policy" not in sql
 
     assert "flowable:assignee" not in sql
     assert "smokeappr" not in sql

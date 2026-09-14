@@ -23,8 +23,10 @@ assert(
 )
 assert(
   readonlyForm.includes('const resolveReadonlyCheckboxLabelText = (') &&
-    readonlyForm.includes('cell?.fillForm?.labelText'),
-  'checkbox label 必须来自识别 JSON 的 fillForm.labelText，而不是表名或坐标硬编码。'
+    readonlyForm.includes('cell?.fillForm?.labelText') &&
+    readonlyForm.includes('cell?.fillForm?.label') &&
+    readonlyForm.includes('cell?.edhrCellRule?.label'),
+  'checkbox label 必须兼容识别 JSON 的 labelText 与持久化规则 label，而不是表名或坐标硬编码。'
 )
 assert(
   readonlyForm.includes('const normalizeReadonlyCheckboxLabelText = ('),

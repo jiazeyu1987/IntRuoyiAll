@@ -6,57 +6,86 @@
 - 涉及 worktree 路径、分支命名、端口分配、端口占用处理、端口登记表或 worktree 删除时，必须按本文件执行。
 - 本文件是 IntRuoyi worktree 操作的强制限制文件；不得用临时判断、随机端口或旧项目规则替代。
 
-## 固定基线
+## 可移植基线
 
-PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
+PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 
-- 主工作区：`E:\IntRuoyi`。
+- 主工作区：当前 Git 仓库根目录，不绑定盘符或绝对路径。
+- `int_main_d`：通过 `INTRUOYI_RUNTIME_PROFILE=int_main_d` 显式选择，不通过目录判断。
 - 主分支：`int_main`。
-- worktree 根目录：`D:\IntRuoyiWorktree\`。
-- 端口登记表：`D:\IntRuoyiWorktree\.ports\worktree-ports.json`。
+- worktree 根目录：由使用者按电脑环境选择，可通过 `-WorktreeRoot` 明确约束。
+- 端口登记表：默认位于 Git common directory 的 `intrruoyi-runtime\worktree-ports.json`，也可通过 `INTRUOYI_WORKTREE_PORT_REGISTRY` 或 `-RegistryPath` 指定。
+- `int_main_d` 固定槽位：`slot = 0`。
+- `int_main_d` 前端专属端口：`8101`。
+- `int_main_d` 后端专属端口：`48101`。
 - `int_main` 固定槽位：`slot = 0`。
 - `int_main` 前端专属端口：`8081`。
 - `int_main` 后端专属端口：`48081`。
 
 ## Runtime Profile 端口矩阵
 
-- `int_main` profile：基准前端 `8081`，基准后端 `48081`。
+- `int_main_d` profile：基准前端 `8101`，基准后端 `48101`，必须显式选择。
+- `int_main` profile：基准前端 `8081`，基准后端 `48081`，是 `int_main` 分支默认 profile。
 - `int_batch` profile：基准前端 `8041`，基准后端 `48041`。
 - `int_shedule` profile：基准前端 `8021`，基准后端 `48021`。
 - `int_qms` profile：基准前端 `8061`，基准后端 `48061`。
-- 前端端口 = 所属 profile 前端基准端口 + slot。
-- 后端端口 = 所属 profile 后端基准端口 + slot。
-- `slot = 0` 只用于各 profile 的基准工作区；同一 profile 的附加 worktree 必须使用稳定正整数 slot。
+- 槽位 `1..19` 的前后端端口继续按所属 profile 基准端口 + slot 计算。
+- 槽位 `20..30` 使用本文件定义的独立扩展端口段。
+- `slot = 0` 只用于各 profile 的基准工作区；同一 profile 的附加 worktree 必须使用稳定槽位 `1..100`。
 - 跨 profile 不共享 slot 语义；例如 `int_batch slot=1` 是 `8042/48042`，`int_qms slot=1` 是 `8062/48062`。
 - 分支端口矩阵的权威说明见 `docs\branch-runtime-ports.md`，提交、合并、推送前必须运行 `scripts\preflight\branch-runtime-port-guard.ps1`。
 
-## 创建位置限制
+## 创建位置规则
 
-- 所有 IntRuoyi worktree 只能创建在 `D:\IntRuoyiWorktree\` 下。
-- 创建前必须解析目标目录的绝对路径，并确认它是 `D:\IntRuoyiWorktree\` 的子路径。
-- 禁止在 `E:\IntRuoyi`、`E:\IntRuoyi\IntRuoyiBackend`、`E:\IntRuoyi\IntRuoyiFronted`、`%TEMP%`、用户目录或任何旧项目目录创建 IntRuoyi worktree。
-- 如果 `D:\IntRuoyiWorktree\` 不存在或不可写，必须 fail fast，并报告缺失前置条件和影响；不得改用其他目录。
+- IntRuoyi worktree 根目录可随电脑磁盘布局选择，不得把盘符或某个用户目录写成跨电脑强制规则。
+- 创建前必须解析目标目录的绝对路径；传入 `-WorktreeRoot` 时，目标必须位于该根目录下。
+- 禁止在当前仓库的 `IntRuoyiBackend`、`IntRuoyiFronted` 等源码子目录内嵌套创建 worktree。
+- 所选目录不存在、不可写或与当前仓库源码目录重叠时必须 fail fast；不得随机换目录后继续。
 
 ## 端口槽位规则
 
+- `int_main_d` 基准工作区永远使用 `slot = 0`，前端 `8101`，后端 `48101`。
 - `int_main` 基准工作区永远使用 `slot = 0`，前端 `8081`，后端 `48081`。
 - `int_batch` 基准工作区永远使用 `slot = 0`，前端 `8041`，后端 `48041`。
 - `int_shedule` 基准工作区永远使用 `slot = 0`，前端 `8021`，后端 `48021`。
 - `int_qms` 基准工作区永远使用 `slot = 0`，前端 `8061`，后端 `48061`。
-- 附加 worktree 必须使用稳定正整数槽位，`slot >= 1`。
-- 附加 worktree 的端口按所属 runtime profile 的基准端口计算：
-  - 前端端口：profile 前端基准端口 + `slot`
-  - 后端端口：profile 后端基准端口 + `slot`
+- 附加 worktree 必须使用稳定整数槽位，`slot = 1..100`。
+- `slot >= 101` 必须 fail fast。
+- 槽位 `1..19` 的端口按所属 runtime profile 的基准端口计算；槽位 `20..30` 必须使用集中定义的扩展端口段，不得自行推算或随机选择。
 - 示例：
+  - `int_main_d slot = 1`：前端 `8102`，后端 `48102`
   - `int_main slot = 1`：前端 `8082`，后端 `48082`
   - `int_batch slot = 1`：前端 `8042`，后端 `48042`
   - `int_shedule slot = 1`：前端 `8022`，后端 `48022`
   - `int_qms slot = 1`：前端 `8062`，后端 `48062`
+- `int_main_d` 必须使用 `8101/48101`，不得使用保留给默认 `int_main` profile 的 `8081/48081`。
 - 非 `int_main` profile 永远不得使用 `8081` 或 `48081`。
+- 各 profile 的附加 worktree 可用端口段分别为：
+  - `int_shedule`：槽位 `1..19` 为 `8022-8040/48022-48040`，槽位 `20..30` 为 `8121-8131/48121-48131`
+  - `int_batch`：槽位 `1..19` 为 `8042-8060/48042-48060`，槽位 `20..30` 为 `8132-8142/48132-48142`
+  - `int_qms`：槽位 `1..19` 为 `8062-8080/48062-48080`，槽位 `20..30` 为 `8143-8153/48143-48153`
+  - `int_main`：槽位 `1..19` 为 `8082-8100/48082-48100`，槽位 `20..30` 为 `8154-8164/48154-48164`
+  - `int_main_d`：槽位 `1..19` 为 `8102-8120/48102-48120`，槽位 `20..30` 为 `8165-8175/48165-48175`
+
+- 新增槽位 31..40 使用独立扩展端口段，不得与前两段或其他 profile 重叠。
+- 新增槽位 41..50 使用第三独立扩展端口段，不得与前三段或其他 profile 重叠。
+  - int_shedule：8176-8185 / 48176-48185
+  - int_batch：8186-8195 / 48186-48195
+  - int_qms：8196-8205 / 48196-48205
+  - int_main：8206-8215 / 48206-48215
+  - int_main_d：8216-8225 / 48216-48225
+
+- 新增槽位 51..60、61..70、71..80、81..90、91..100 分别使用第四至第八独立扩展端口段：
+  - `int_shedule`：8276-8285/48276-48285、8326-8335/48326-48335、8376-8385/48376-48385、8426-8435/48426-48435、8476-8485/48476-48485
+  - `int_batch`：8286-8295/48286-48295、8336-8345/48336-48345、8386-8395/48386-48395、8436-8445/48436-48445、8486-8495/48486-48495
+  - `int_qms`：8296-8305/48296-48305、8346-8355/48346-48355、8396-8405/48396-48405、8446-8455/48446-48455、8496-8505/48496-48505
+  - `int_main`：8306-8315/48306-48315、8356-8365/48356-48365、8406-8415/48406-48415、8456-8465/48456-48465、8506-8515/48506-48515
+  - `int_main_d`：8316-8325/48316-48325、8366-8375/48366-48375、8416-8425/48416-48425、8466-8475/48466-48475、8516-8525/48516-48525
 
 ## 端口登记表规则
 
-- 创建非 `int_main` worktree 前，必须读取 `D:\IntRuoyiWorktree\.ports\worktree-ports.json`。
+- 创建任何附加 worktree 后、首次启动前，必须通过 `scripts\runtime\reserve-worktree-slot.ps1` 原子分配并登记槽位；可用 `-WorktreeRoot` 固定当前电脑的共同根目录。
+- 分配脚本必须使用跨进程互斥锁读写当前登记表，并选择所属 profile 的最低空闲槽位。
 - 如果登记表不存在，必须创建空登记表并立即登记本次分配；不得跳过登记。
 - 每个登记项至少记录：
   - `name`
@@ -71,6 +100,7 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
   - `updatedAt`
 - worktree 停止服务但目录仍存在时，槽位不得释放。
 - 只有确认 worktree 目录已删除、分支/合并状态已处理、任务记录已完成后，才允许将对应槽位标记为可复用。
+- 所有 `active = true` 的登记项必须保持 `profile/slot`、前端端口和后端端口全局唯一。
 - 不允许因为端口冲突临时随机换端口；必须修正登记表或阻塞。
 
 ## 启动和端口占用处理
@@ -80,14 +110,14 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 - 启动 `int_batch`、`int_shedule`、`int_qms` 基准工作区前，必须确认各自矩阵端口占用情况。
 - 如果端口被同一 profile 对应的旧前端/后端进程占用，先停止对应旧进程，再启动新的同 profile 服务。
 - 如果端口被其他 profile、未知进程或无关程序占用，必须 fail fast，报告占用进程、端口和影响；不得强杀、不得换端口启动。
-- 启动非 `int_main` worktree 前，必须确认登记端口的占用情况。
+- 启动任何附加 worktree 前，必须确认登记端口的占用情况。
 - 如果登记端口被同一 worktree 的旧进程占用，先停止对应旧进程，再启动该 worktree。
 - 如果登记端口被其他 worktree、未知进程或无关程序占用，必须 fail fast，报告冲突；不得自动换端口。
 
 ## 断链快照恢复规则
 
 - 如果旧 worktree 的 `.git` 文件指向缺失的 `.git/worktrees/<name>` 元数据，不要在旧目录内直接修补或重写 `.git`。
-- 先从有效主仓库在 `D:\IntRuoyiWorktree\` 下创建干净 worktree，再把旧快照中的源码、测试、文档、SQL 和脚本差异迁移过去。
+- 先从有效主仓库在当前电脑选定的 worktree 根目录下创建干净 worktree，再把旧快照中的源码、测试、文档、SQL 和脚本差异迁移过去。
 - 迁移前必须明确旧目录到新仓库目录的映射；例如旧后端快照映射到 `IntRuoyiBackend`，旧前端快照映射到 `IntRuoyiFronted`。
 - 迁移时默认排除 `.git`、`node_modules`、运行日志、`.runtime`、`runtime`、`target`、`dist`、环境密钥文件和生成物。
 - 迁移后用 `git status --short --branch`、`.git` 指向检查和 `git diff --stat` 验证新 worktree 可追踪；旧断链快照保持只读，不在原地修复。
@@ -97,16 +127,19 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 - 禁止在未读取本文件时创建或启动 worktree。
 - 禁止非 `int_main` 使用 `8081/48081`。
 - 禁止任一 profile 使用其他 profile 的基准端口。
+- 禁止附加 worktree 使用 `slot >= 101`。
+- 禁止绕过 `scripts\runtime\reserve-worktree-slot.ps1` 手工猜测或并发写入槽位。
+- 禁止活动登记项复用其他 worktree 的 `profile/slot`、前端端口或后端端口。
 - 禁止随机选择端口或按启动顺序临时分配端口。
 - 禁止端口冲突时静默换端口、静默跳过服务或假装启动成功。
-- 禁止不检查目标绝对路径就执行 `git worktree add`。
+- 禁止不检查目标绝对路径就执行 `git worktree add`，但不得仅因电脑盘符不同而拒绝合法路径。
 - 禁止删除或清理不属于当前任务的 worktree、进程、端口登记项或任务记录。
 
 ## 验证方式
 
 - 创建 worktree 前记录已读取本文件。
-- 记录目标路径解析结果，证明目标在 `D:\IntRuoyiWorktree\` 下。
-- 记录端口登记表读取和写入结果。
+- 记录目标路径解析结果；若指定了 `-WorktreeRoot`，证明目标位于该根目录下。
+- 记录 `reserve-worktree-slot.ps1` 的分配结果和端口登记表写入结果。
 - 记录分配的 `slot`、前端端口、后端端口。
 - 启动服务前记录端口占用检查结果。
 - 如果停止旧进程，必须记录进程 ID、端口、归属判断依据和停止结果。

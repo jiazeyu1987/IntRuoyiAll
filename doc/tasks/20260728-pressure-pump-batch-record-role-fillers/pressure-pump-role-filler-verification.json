@@ -1,0 +1,528 @@
+{
+  "status": "PASS",
+  "generatedAt": "2026-07-29T00:18:50",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "芋道源码",
+  "tenantId": 1,
+  "username": "admin",
+  "batchRecordName": "球囊扩张压力泵",
+  "batchRecordVersionId": 130,
+  "expectedReportCount": 15,
+  "reportCount": 15,
+  "expectedUsersPerRole": 3,
+  "roleCount": 15,
+  "apiVerifiedCount": 15,
+  "reports": [
+    {
+      "index": 1,
+      "title": "产品信息",
+      "reportId": "a658780af779452e8f2f4b0f08e2b2c6",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T01",
+      "roleId": 910415,
+      "roleName": "产品信息填写者角色",
+      "candidateSourceNames": [
+        "产品信息填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        672,
+        1284,
+        1484
+      ],
+      "assignedUsers": [
+        {
+          "userId": 672,
+          "username": "sunqianqian",
+          "nickname": "孙倩倩"
+        },
+        {
+          "userId": 1284,
+          "username": "malan",
+          "nickname": "马兰"
+        },
+        {
+          "userId": 1484,
+          "username": "yanxinjun",
+          "nickname": "严心均"
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "title": "粗洗工序生产记录",
+      "reportId": "1d05410f1d3140c5b8aa6786887ae69c",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T02",
+      "roleId": 910416,
+      "roleName": "粗洗工序填写者角色",
+      "candidateSourceNames": [
+        "粗洗工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        435,
+        1106,
+        1297
+      ],
+      "assignedUsers": [
+        {
+          "userId": 435,
+          "username": "liuziliang",
+          "nickname": "刘子良"
+        },
+        {
+          "userId": 1106,
+          "username": "zuowenbin",
+          "nickname": "左文彬"
+        },
+        {
+          "userId": 1297,
+          "username": "dingwenfei",
+          "nickname": "丁文飞"
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "title": "精洗工序生产记录",
+      "reportId": "e82eec5927d14cd093bb66c0886489e1",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T03",
+      "roleId": 910417,
+      "roleName": "精洗工序填写者角色",
+      "candidateSourceNames": [
+        "精洗工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        765,
+        1260,
+        1839
+      ],
+      "assignedUsers": [
+        {
+          "userId": 765,
+          "username": "taoqin",
+          "nickname": "陶芹"
+        },
+        {
+          "userId": 1260,
+          "username": "songxu",
+          "nickname": "宋旭"
+        },
+        {
+          "userId": 1839,
+          "username": "zhouwenqi",
+          "nickname": "周雯琪"
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "title": "清洗工序生产记录",
+      "reportId": "9d78beff251548538f73cb6f98c624fc",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T04",
+      "roleId": 910418,
+      "roleName": "清洗工序填写者角色",
+      "candidateSourceNames": [
+        "清洗工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        338,
+        778,
+        1428
+      ],
+      "assignedUsers": [
+        {
+          "userId": 338,
+          "username": "donglanxin",
+          "nickname": "董蓝欣"
+        },
+        {
+          "userId": 778,
+          "username": "mayimei",
+          "nickname": "马怡美"
+        },
+        {
+          "userId": 1428,
+          "username": "zhengdianzhong",
+          "nickname": "郑殿忠"
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "title": "清洁工序生产记录",
+      "reportId": "ff909645721d4c7cb9220a74e4497254",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T05",
+      "roleId": 910419,
+      "roleName": "清洁工序填写者角色",
+      "candidateSourceNames": [
+        "清洁工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        627,
+        1636,
+        2032
+      ],
+      "assignedUsers": [
+        {
+          "userId": 627,
+          "username": "guqi",
+          "nickname": "顾颀"
+        },
+        {
+          "userId": 1636,
+          "username": "weitao",
+          "nickname": "魏涛"
+        },
+        {
+          "userId": 2032,
+          "username": "mana",
+          "nickname": "马娜"
+        }
+      ]
+    },
+    {
+      "index": 6,
+      "title": "组装Ⅰ工序生产记录",
+      "reportId": "c4561f71bb844f9b86409ae8b468f0c1",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T06",
+      "roleId": 910420,
+      "roleName": "组装Ⅰ工序填写者角色",
+      "candidateSourceNames": [
+        "组装Ⅰ工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        815,
+        852,
+        966
+      ],
+      "assignedUsers": [
+        {
+          "userId": 815,
+          "username": "niechuanxi",
+          "nickname": "聂传席"
+        },
+        {
+          "userId": 852,
+          "username": "zhangxu",
+          "nickname": "张旭"
+        },
+        {
+          "userId": 966,
+          "username": "wangying",
+          "nickname": "王颖"
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "title": "光固Ⅰ工序生产记录",
+      "reportId": "bd1ac748f2be41bd8e63b2c0a924059e",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T07",
+      "roleId": 910421,
+      "roleName": "光固Ⅰ工序填写者角色",
+      "candidateSourceNames": [
+        "光固Ⅰ工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        722,
+        1887,
+        910113
+      ],
+      "assignedUsers": [
+        {
+          "userId": 722,
+          "username": "bailing",
+          "nickname": "白玲"
+        },
+        {
+          "userId": 1887,
+          "username": "huwentao",
+          "nickname": "胡文涛"
+        },
+        {
+          "userId": 910113,
+          "username": "A2020097",
+          "nickname": "王丹"
+        }
+      ]
+    },
+    {
+      "index": 8,
+      "title": "硅化Ⅰ工序生产记录",
+      "reportId": "6c50023db4324ff2825f6e2650028280",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T08",
+      "roleId": 910422,
+      "roleName": "硅化Ⅰ工序填写者角色",
+      "candidateSourceNames": [
+        "硅化Ⅰ工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        250,
+        979,
+        1030
+      ],
+      "assignedUsers": [
+        {
+          "userId": 250,
+          "username": "maowanyun",
+          "nickname": "毛婉云"
+        },
+        {
+          "userId": 979,
+          "username": "shiaiqin",
+          "nickname": "史爱琴"
+        },
+        {
+          "userId": 1030,
+          "username": "lirui",
+          "nickname": "李蕊"
+        }
+      ]
+    },
+    {
+      "index": 9,
+      "title": "硅化Ⅱ工序生产记录",
+      "reportId": "a218356158d045058cfb476f31f8c7cc",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T09",
+      "roleId": 910423,
+      "roleName": "硅化Ⅱ工序填写者角色",
+      "candidateSourceNames": [
+        "硅化Ⅱ工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        166,
+        632,
+        1503
+      ],
+      "assignedUsers": [
+        {
+          "userId": 166,
+          "username": "zhaojumei",
+          "nickname": "赵居梅"
+        },
+        {
+          "userId": 632,
+          "username": "luoyulan",
+          "nickname": "骆玉兰"
+        },
+        {
+          "userId": 1503,
+          "username": "zhufengfeng",
+          "nickname": "朱锋峰"
+        }
+      ]
+    },
+    {
+      "index": 10,
+      "title": "组装Ⅱ工序生产记录",
+      "reportId": "7ed5ae6f05bb43a1a845763c1236fcc8",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T10",
+      "roleId": 910424,
+      "roleName": "组装Ⅱ工序填写者角色",
+      "candidateSourceNames": [
+        "组装Ⅱ工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        235,
+        439,
+        629
+      ],
+      "assignedUsers": [
+        {
+          "userId": 235,
+          "username": "qushuang",
+          "nickname": "屈双"
+        },
+        {
+          "userId": 439,
+          "username": "zhangminhui",
+          "nickname": "张敏慧"
+        },
+        {
+          "userId": 629,
+          "username": "xiaojia",
+          "nickname": "肖佳"
+        }
+      ]
+    },
+    {
+      "index": 11,
+      "title": "检测工序生产记录",
+      "reportId": "2631e6faf5b4423aa747d3392c0a10d8",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T11",
+      "roleId": 910425,
+      "roleName": "检测工序填写者角色",
+      "candidateSourceNames": [
+        "检测工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        1008,
+        1144,
+        1845
+      ],
+      "assignedUsers": [
+        {
+          "userId": 1008,
+          "username": "yangxincheng",
+          "nickname": "杨欣成"
+        },
+        {
+          "userId": 1144,
+          "username": "liuzhimei",
+          "nickname": "刘志梅"
+        },
+        {
+          "userId": 1845,
+          "username": "dingxinxia",
+          "nickname": "丁信霞"
+        }
+      ]
+    },
+    {
+      "index": 12,
+      "title": "光固Ⅱ工序生产记录",
+      "reportId": "a3b59100db094cc2bacb48286d2c6eea",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T12",
+      "roleId": 910426,
+      "roleName": "光固Ⅱ工序填写者角色",
+      "candidateSourceNames": [
+        "光固Ⅱ工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        492,
+        895,
+        1882
+      ],
+      "assignedUsers": [
+        {
+          "userId": 492,
+          "username": "wangyaoyao",
+          "nickname": "王瑶瑶"
+        },
+        {
+          "userId": 895,
+          "username": "wudeying",
+          "nickname": "吴德颍"
+        },
+        {
+          "userId": 1882,
+          "username": "zhuxiaojing",
+          "nickname": "朱晓静"
+        }
+      ]
+    },
+    {
+      "index": 13,
+      "title": "单包装工序生产记录",
+      "reportId": "273239492aa24b838f70b06d7d624406",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T13",
+      "roleId": 910427,
+      "roleName": "单包装工序填写者角色",
+      "candidateSourceNames": [
+        "单包装工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        1331,
+        2170,
+        910175
+      ],
+      "assignedUsers": [
+        {
+          "userId": 1331,
+          "username": "jiangtao",
+          "nickname": "江涛"
+        },
+        {
+          "userId": 2170,
+          "username": "chenxinyu",
+          "nickname": "陈馨宇"
+        },
+        {
+          "userId": 910175,
+          "username": "W068",
+          "nickname": "余彩霞"
+        }
+      ]
+    },
+    {
+      "index": 14,
+      "title": "中包装工序生产记录",
+      "reportId": "72e111d292a244f1adf13ab65901cc5f",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T14",
+      "roleId": 910428,
+      "roleName": "中包装工序填写者角色",
+      "candidateSourceNames": [
+        "中包装工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        199,
+        2155,
+        910164
+      ],
+      "assignedUsers": [
+        {
+          "userId": 199,
+          "username": "baoxianli",
+          "nickname": "鲍先丽"
+        },
+        {
+          "userId": 2155,
+          "username": "zhangmin",
+          "nickname": "张敏"
+        },
+        {
+          "userId": 910164,
+          "username": "A4020013",
+          "nickname": "杜海娥"
+        }
+      ]
+    },
+    {
+      "index": 15,
+      "title": "大包装工序生产记录",
+      "reportId": "3de93e21dbe4426596b51e767624b491",
+      "reportCode": "EBR_TN1_B_DOC_830a89a2_V130_T15",
+      "roleId": 910429,
+      "roleName": "大包装工序填写者角色",
+      "candidateSourceNames": [
+        "大包装工序填写者角色"
+      ],
+      "candidateUserCount": 3,
+      "candidateUserIds": [
+        1358,
+        1871,
+        910172
+      ],
+      "assignedUsers": [
+        {
+          "userId": 1358,
+          "username": "songyuan",
+          "nickname": "宋媛"
+        },
+        {
+          "userId": 1871,
+          "username": "zhuoqingqing",
+          "nickname": "卓庆庆"
+        },
+        {
+          "userId": 910172,
+          "username": "A4020315",
+          "nickname": "宋彩晴"
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

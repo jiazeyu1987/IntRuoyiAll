@@ -114,4 +114,13 @@ assert(
   'Operation audit controller must authorize batch trace queries by batchExecutionId without requiring object filters.'
 )
 
+assert(
+  localStateSampleService.includes('permissionScopeService.saveRules') &&
+    localStateSampleService.includes('OBJECT_TYPE_BATCH_EXECUTION_TASK = "BATCH_EXECUTION_TASK"') &&
+    localStateSampleService.includes('.setObjectType(OBJECT_TYPE_BATCH_EXECUTION_TASK)') &&
+    localStateSampleService.includes('.setAbility("AUDIT_VIEW")') &&
+    localStateSampleService.includes('.setPermissionScopeId'),
+  'Local state sample creation must bind a BATCH_EXECUTION_TASK AUDIT_VIEW permission scope so batch trace audit is visible.'
+)
+
 console.log('PASS: eDHR FDA operation audit coverage static contract')

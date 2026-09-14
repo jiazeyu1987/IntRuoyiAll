@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import cn.iocoder.yudao.framework.common.biz.system.permission.dto.DeptDataPermissionRespDTO;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.MenuDO;
@@ -14,10 +15,15 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMenuMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.UserRoleMapper;
 import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
+import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -25,6 +31,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static cn.hutool.core.collection.ListUtil.toList;
 import static cn.iocoder.yudao.framework.common.util.collection.SetUtils.asSet;
@@ -34,6 +41,7 @@ import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomPojo;
 import static java.util.Collections.singleton;
 import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -58,6 +66,15 @@ public class PermissionServiceTest extends BaseDbUnitTest {
     private AdminUserService userService;
     @MockitoBean
     private SystemEntitlementService systemEntitlementService;
+    @MockitoBean
+    private TemporaryRoleGrantService temporaryRoleGrantService;
+    @MockitoBean
+    private GxpAuditService gxpAuditService;
+
+    @BeforeEach
+    public void setUpTemporaryRoleGrantMock() {
+        when(temporaryRoleGrantService.getActiveRoleIdsByUserId(any(), any())).thenReturn(Set.of());
+    }
 
     @Test
     public void testHasAnyPermissions_superAdmin() {
@@ -103,6 +120,55 @@ public class PermissionServiceTest extends BaseDbUnitTest {
 
             // 调用，并断言
             assertTrue(permissionService.hasAnyPermissions(userId, roles));
+            verify(temporaryRoleGrantService, never()).recordPermissionUse(any(), any());
+        }
+    }
+
+    @Test
+    public void testHasAnyPermissions_temporaryRoleRecordsUse() {
+        try (MockedStatic<SpringUtil> springUtilMockedStatic = mockStatic(SpringUtil.class)) {
+            springUtilMockedStatic.when(() -> SpringUtil.getBean(eq(PermissionServiceImpl.class)))
+                    .thenReturn(permissionService);
+
+            Long userId = 1L;
+            Long temporaryRoleId = 300L;
+            String permission = "system:user:create";
+            RoleDO temporaryRole = randomPojo(RoleDO.class, o -> o.setId(temporaryRoleId)
+                    .setStatus(CommonStatusEnum.ENABLE.getStatus()));
+            when(roleService.getRoleListFromCache(eq(Set.of()))).thenReturn(new java.util.ArrayList<>());
+            when(roleService.getRoleListFromCache(eq(Set.of(temporaryRoleId)))).thenReturn(toList(temporaryRole));
+            when(temporaryRoleGrantService.getActiveRoleIdsByUserId(eq(userId), any())).thenReturn(Set.of(temporaryRoleId));
+            Long menuId = 1000L;
+            when(menuService.getMenuIdListByPermissionFromCache(eq(permission))).thenReturn(singletonList(menuId));
+            roleMenuMapper.insert(randomPojo(RoleMenuDO.class).setRoleId(temporaryRoleId).setMenuId(menuId));
+
+            assertTrue(permissionService.hasAnyPermissions(userId, permission));
+            verify(temporaryRoleGrantService).recordPermissionUse(eq(userId), eq(permission));
+        }
+    }
+
+    @Test
+    public void testHasAnyPermissions_permanentRoleDoesNotRecordTemporaryUse() {
+        try (MockedStatic<SpringUtil> springUtilMockedStatic = mockStatic(SpringUtil.class)) {
+            springUtilMockedStatic.when(() -> SpringUtil.getBean(eq(PermissionServiceImpl.class)))
+                    .thenReturn(permissionService);
+
+            Long userId = 1L;
+            Long permanentRoleId = 100L;
+            Long temporaryRoleId = 300L;
+            String permission = "system:user:create";
+            userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(userId).setRoleId(permanentRoleId));
+            RoleDO permanentRole = randomPojo(RoleDO.class, o -> o.setId(permanentRoleId)
+                    .setStatus(CommonStatusEnum.ENABLE.getStatus()));
+            when(roleService.getRoleListFromCache(eq(Set.of(permanentRoleId)))).thenReturn(toList(permanentRole));
+            when(temporaryRoleGrantService.getActiveRoleIdsByUserId(eq(userId), any())).thenReturn(Set.of(temporaryRoleId));
+            Long menuId = 1000L;
+            when(menuService.getMenuIdListByPermissionFromCache(eq(permission))).thenReturn(singletonList(menuId));
+            roleMenuMapper.insert(randomPojo(RoleMenuDO.class).setRoleId(permanentRoleId).setMenuId(menuId));
+            roleMenuMapper.insert(randomPojo(RoleMenuDO.class).setRoleId(temporaryRoleId).setMenuId(menuId));
+
+            assertTrue(permissionService.hasAnyPermissions(userId, permission));
+            verify(temporaryRoleGrantService, never()).recordPermissionUse(any(), any());
         }
     }
 
@@ -196,7 +262,7 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         roleMenuMapper.insert(roleMenu02);
 
         // 调用
-        permissionService.assignRoleMenu(roleId, menuIds);
+        permissionService.assignRoleMenu(roleId, menuIds, "测试分配角色菜单权限", "TEST-ROLE-MENU-SUCCESS");
         // 断言
         List<RoleMenuDO> roleMenuList = roleMenuMapper.selectList();
         assertEquals(2, roleMenuList.size());
@@ -204,6 +270,26 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         assertEquals(200L, roleMenuList.get(0).getMenuId());
         assertEquals(1L, roleMenuList.get(1).getRoleId());
         assertEquals(300L, roleMenuList.get(1).getMenuId());
+    }
+
+    @Test
+    public void assignRoleMenuShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure() {
+        Long roleId = 1L;
+        RoleMenuDO existing = randomPojo(RoleMenuDO.class).setRoleId(roleId).setMenuId(100L);
+        roleMenuMapper.insert(existing);
+        when(gxpAuditService.append(any())).thenThrow(new IllegalStateException("audit append failed"));
+
+        assertThrows(IllegalStateException.class, () -> permissionService.assignRoleMenu(roleId, asSet(200L),
+                "测试分配角色菜单权限失败回滚", "TEST-ROLE-MENU-ROLLBACK"));
+
+        assertEquals(asSet(100L), roleMenuMapper.selectListByRoleId(roleId).stream()
+                .map(RoleMenuDO::getMenuId).collect(Collectors.toSet()));
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        assertEquals("system.permission.role-menu.assign", auditCaptor.getValue().getOperationId());
+        assertEquals("SYSTEM_ROLE:" + roleId, auditCaptor.getValue().getSubjectId());
+        assertNotNull(auditCaptor.getValue().getBeforeState());
+        assertNotNull(auditCaptor.getValue().getAfterState());
     }
 
     @Test
@@ -312,7 +398,7 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         userRoleMapper.insert(userRole02);
 
         // 调用
-        permissionService.assignUserRole(userId, roleIds);
+        permissionService.assignUserRole(userId, roleIds, "测试分配用户角色", "TEST-USER-ROLE-SUCCESS");
         // 断言
         List<UserRoleDO> userRoleDOList = userRoleMapper.selectList();
         assertEquals(2, userRoleDOList.size());
@@ -320,6 +406,85 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         assertEquals(200L, userRoleDOList.get(0).getRoleId());
         assertEquals(1L, userRoleDOList.get(1).getUserId());
         assertEquals(300L, userRoleDOList.get(1).getRoleId());
+    }
+
+    @Test
+    public void assignUserRoleShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure() {
+        Long userId = 1L;
+        UserRoleDO existing = randomPojo(UserRoleDO.class).setUserId(userId).setRoleId(100L);
+        userRoleMapper.insert(existing);
+        when(gxpAuditService.append(any())).thenThrow(new IllegalStateException("audit append failed"));
+
+        assertThrows(IllegalStateException.class, () -> permissionService.assignUserRole(userId, asSet(200L),
+                "测试分配用户角色失败回滚", "TEST-USER-ROLE-ROLLBACK"));
+
+        assertEquals(asSet(100L), userRoleMapper.selectListByUserId(userId).stream()
+                .map(UserRoleDO::getRoleId).collect(Collectors.toSet()));
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        assertEquals("system.permission.user-role.assign", auditCaptor.getValue().getOperationId());
+        assertEquals("SYSTEM_USER:" + userId, auditCaptor.getValue().getSubjectId());
+        assertNotNull(auditCaptor.getValue().getBeforeState());
+        assertNotNull(auditCaptor.getValue().getAfterState());
+    }
+
+    @Test
+    public void testAssignUserRole_adminRoleForbiddenForNormalUser() {
+        Long userId = 1L;
+        Long currentRoleId = 100L;
+        Long targetRoleId = 200L;
+        userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(userId).setRoleId(currentRoleId));
+
+        RoleDO currentRole = randomPojo(RoleDO.class, o -> o.setId(currentRoleId)
+                .setCode("normal_role").setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        RoleDO targetRole = randomPojo(RoleDO.class, o -> o.setId(targetRoleId)
+                .setCode(RoleCodeEnum.BPM_ADMIN.getCode()).setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        when(roleService.getRoleListFromCache(any())).thenAnswer(invocation -> {
+            Collection<Long> ids = invocation.getArgument(0);
+            List<RoleDO> roles = new java.util.ArrayList<>();
+            if (ids != null && ids.contains(currentRoleId)) {
+                roles.add(currentRole);
+            }
+            if (ids != null && ids.contains(targetRoleId)) {
+                roles.add(targetRole);
+            }
+            return roles;
+        });
+
+        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(userId, Set.of(targetRoleId),
+                "测试普通用户禁止分配管理员角色", "TEST-USER-ROLE-ADMIN-FORBIDDEN"));
+    }
+
+    @Test
+    public void testAssignUserRole_logPermissionForbiddenForNormalUser() {
+        Long userId = 1L;
+        Long currentRoleId = 100L;
+        Long targetRoleId = 200L;
+        Long logMenuId = 3000L;
+        userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(userId).setRoleId(currentRoleId));
+        roleMenuMapper.insert(randomPojo(RoleMenuDO.class).setRoleId(targetRoleId).setMenuId(logMenuId));
+
+        RoleDO currentRole = randomPojo(RoleDO.class, o -> o.setId(currentRoleId)
+                .setCode("normal_role").setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        RoleDO targetRole = randomPojo(RoleDO.class, o -> o.setId(targetRoleId)
+                .setCode("report_role").setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        when(roleService.getRoleListFromCache(any())).thenAnswer(invocation -> {
+            Collection<Long> ids = invocation.getArgument(0);
+            List<RoleDO> roles = new java.util.ArrayList<>();
+            if (ids != null && ids.contains(currentRoleId)) {
+                roles.add(currentRole);
+            }
+            if (ids != null && ids.contains(targetRoleId)) {
+                roles.add(targetRole);
+            }
+            return roles;
+        });
+        when(menuService.getMenuList(eq(Set.of(logMenuId)))).thenReturn(List.of(
+                randomPojo(MenuDO.class, o -> o.setId(logMenuId).setPermission("system:login-log:query"))
+        ));
+
+        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(userId, Set.of(targetRoleId),
+                "测试普通用户禁止分配日志权限", "TEST-USER-ROLE-LOG-FORBIDDEN"));
     }
 
     @Test
@@ -440,9 +605,27 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         Set<Long> dataScopeDeptIds = asSet(10L, 20L);
 
         // 调用
-        permissionService.assignRoleDataScope(roleId, dataScope, dataScopeDeptIds);
+        permissionService.assignRoleDataScope(roleId, dataScope, dataScopeDeptIds,
+                "测试分配角色数据权限", "TEST-ROLE-DATA-SCOPE-SUCCESS");
         // 断言
         verify(roleService).updateRoleDataScope(eq(roleId), eq(dataScope), eq(dataScopeDeptIds));
+    }
+
+    @Test
+    public void assignRoleDataScopeShouldAppendUnifiedGxpAudit() {
+        Long roleId = 1L;
+        Integer dataScope = DataScopeEnum.DEPT_CUSTOM.getScope();
+        Set<Long> dataScopeDeptIds = asSet(10L, 20L);
+
+        permissionService.assignRoleDataScope(roleId, dataScope, dataScopeDeptIds,
+                "测试分配角色数据权限审计", "TEST-ROLE-DATA-SCOPE-AUDIT");
+
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        assertEquals("system.permission.role-data-scope.assign", auditCaptor.getValue().getOperationId());
+        assertEquals("SYSTEM_ROLE:" + roleId, auditCaptor.getValue().getSubjectId());
+        assertNotNull(auditCaptor.getValue().getBeforeState());
+        assertNotNull(auditCaptor.getValue().getAfterState());
     }
 
     @Test

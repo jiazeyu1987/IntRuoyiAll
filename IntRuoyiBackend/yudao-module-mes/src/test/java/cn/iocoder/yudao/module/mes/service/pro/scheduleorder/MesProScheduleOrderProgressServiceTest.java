@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrd
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderOperationLogMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.task.MesProTaskMapper;
+import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleDailyCompareStatusEnum;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -162,7 +164,7 @@ class MesProScheduleOrderProgressServiceTest {
     }
 
     @Test
-    void calculateProcessAggregateProgressSummary_shouldUseScheduleOrderQuantityPerProcessAndCapOverReport() {
+    void calculateProcessAggregateProgressSummary_shouldUseProcessPlannedQuantityTotals() {
         List<MesProScheduleOrderProcessDO> processes = java.util.stream.IntStream.rangeClosed(1, 10)
                 .mapToObj(index -> MesProScheduleOrderProcessDO.builder()
                         .id((long) index)
@@ -178,9 +180,9 @@ class MesProScheduleOrderProgressServiceTest {
         MesProScheduleOrderService.ProgressSummary summary =
                 scheduleOrderService.calculateProcessAggregateProgressSummary(new BigDecimal("1000.000000"), processes);
 
-        assertEquals(new BigDecimal("10000.000000"), summary.totalQuantity());
-        assertEquals(new BigDecimal("1000.000000"), summary.completedQuantity());
-        assertEquals(new BigDecimal("9000.000000"), summary.uncompletedQuantity());
+        assertEquals(new BigDecimal("12000.000000"), summary.totalQuantity());
+        assertEquals(new BigDecimal("1200.000000"), summary.completedQuantity());
+        assertEquals(new BigDecimal("10800.000000"), summary.uncompletedQuantity());
         assertEquals(new BigDecimal("10.000000"), summary.progressPercent());
     }
 
@@ -203,8 +205,8 @@ class MesProScheduleOrderProgressServiceTest {
 
         scheduleOrderService.syncFeedbackProgress(501L);
 
-        verify(scheduleOrderMapper).updateProgressSummary(501L, new BigDecimal("10000.000000"),
-                new BigDecimal("1000.000000"), new BigDecimal("9000.000000"), new BigDecimal("10.000000"),
+        verify(scheduleOrderMapper).updateProgressSummary(501L, new BigDecimal("12000.000000"),
+                new BigDecimal("1200.000000"), new BigDecimal("10800.000000"), new BigDecimal("10.000000"),
                 MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus());
     }
 
@@ -231,7 +233,7 @@ class MesProScheduleOrderProgressServiceTest {
     }
 
     @Test
-    void syncFeedbackProgress_shouldCapProcessProgressWhenReportedQuantityExceedsPlan() {
+    void syncFeedbackProgress_shouldRejectWhenReportedQuantityExceedsPlan() {
         MesProScheduleOrderDO order = MesProScheduleOrderDO.builder()
                 .id(501L).quantity(new BigDecimal("1000.000000")).build();
         MesProScheduleOrderProcessDO process = process(701L, 501L, 11L, 1, "FINITE_HOURLY", "1000.000000",
@@ -245,11 +247,14 @@ class MesProScheduleOrderProgressServiceTest {
                         .setStatus(MesProFeedbackStatusEnum.APPROVING.getStatus())
         ));
 
-        scheduleOrderService.syncFeedbackProgress(501L);
+        cn.iocoder.yudao.framework.common.exception.ServiceException ex = assertThrows(
+                cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> scheduleOrderService.syncFeedbackProgress(501L));
 
-        verify(scheduleOrderProcessMapper).updateProgress(701L, new BigDecimal("1100.000000"),
+        assertEquals(ErrorCodeConstants.PRO_FEEDBACK_QUANTITY_EXCEED.getCode(), ex.getCode());
+        verify(scheduleOrderProcessMapper, never()).updateProgress(701L, new BigDecimal("1100.000000"),
                 BigDecimal.ZERO.setScale(6), new BigDecimal("100.000000"));
-        verify(scheduleOrderMapper).updateProgressSummary(501L, new BigDecimal("1000.000000"),
+        verify(scheduleOrderMapper, never()).updateProgressSummary(501L, new BigDecimal("1000.000000"),
                 new BigDecimal("1000.000000"), BigDecimal.ZERO.setScale(6), new BigDecimal("100.000000"),
                 MesProScheduleOrderStatusEnum.FINISHED.getStatus());
     }

@@ -6,8 +6,14 @@ import type {
 const EDHR_BATCH_TASK_STATUS_APPROVED = 40
 const EDHR_BATCH_TASK_STATUS_SKIPPED = 45
 
+export const isRouteFormTask = (task: EdhrBatchExecutionTaskRespVO) =>
+  Boolean(task.formTemplateId || task.batchRecordReportId)
+
+export const isOptionalRouteFormTask = (task: EdhrBatchExecutionTaskRespVO) =>
+  task.requiredPolicy === 'OPTIONAL' && isRouteFormTask(task)
+
 export const isRequiredBatchRecordTask = (task: EdhrBatchExecutionTaskRespVO) =>
-  task.requiredFlag !== false && Boolean(task.formTemplateId || task.batchRecordReportId)
+  task.requiredFlag !== false && task.requiredPolicy !== 'OPTIONAL' && isRouteFormTask(task)
 
 export const resolveRequiredBatchRecordTaskTotal = (batch?: EdhrBatchExecutionRespVO) =>
   (batch?.tasks || []).filter(isRequiredBatchRecordTask).length

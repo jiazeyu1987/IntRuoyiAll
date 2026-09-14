@@ -1,0 +1,19 @@
+{
+  "status": "BLOCKED",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "targetRoute": "/mes/pro/process-pool/production-leader",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "productKeyword": "YXN.069.001.1013",
+  "browserExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "targetNetworkFailures": [],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "activeOrderAddRequestCount": 0,
+  "reason": "产品关键词没有返回任何活跃订单候选，缺少可验证的本机测试数据。",
+  "details": {
+    "productKeyword": "YXN.069.001.1013"
+  },
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260808-active-order-product-search\\evidence\\active-order-product-search-real\\product-search-candidates.png"
+}

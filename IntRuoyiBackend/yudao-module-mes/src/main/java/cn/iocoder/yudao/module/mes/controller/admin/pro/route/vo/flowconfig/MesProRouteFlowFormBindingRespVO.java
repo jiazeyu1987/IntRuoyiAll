@@ -12,11 +12,17 @@ public class MesProRouteFlowFormBindingRespVO {
     @Schema(description = "动态表单绑定稳定 Key", example = "FB_100_1")
     private String formBindingKey;
 
+    @Schema(description = "全局联动组 Key；为空表示仅当前工序", example = "GFB_1723860000000_1")
+    private String globalSyncKey;
+
     @Schema(description = "表单中心模板稳定 ID", example = "10001")
     private Long formTemplateId;
 
     @Schema(description = "表单中心模板名称快照", example = "清洗记录")
     private String formTemplateName;
+
+    @Schema(description = "表单槽位类型：MAIN/LOSS_REPORT/PROCESS_INSPECTION/PARAMETER_RECORD", example = "MAIN")
+    private String formSlotType;
 
     @Schema(description = "最后校验到的发布版本 ID", example = "20001")
     private Long lastPublishedTemplateVersionId;
@@ -44,6 +50,9 @@ public class MesProRouteFlowFormBindingRespVO {
 
     @Schema(description = "对象级权限范围ID", example = "5001")
     private Long permissionScopeId;
+
+    @Schema(description = "记录类型快照 Hash", example = "sha256")
+    private String recordCategorySnapshotHash;
 
     @Schema(description = "必填策略：REQUIRED/CONDITIONAL_REQUIRED/OPTIONAL/SKIPPABLE_CONTROLLED", example = "REQUIRED")
     private String requiredPolicy;

@@ -76,8 +76,8 @@ function getUrlValue(key: string): string {
 }
 
 const bind = (row) => {
-  // 双层 encode 解决钉钉回调 type 参数丢失的问题
-  const redirectUri = location.origin + '/user/profile?' + encodeURIComponent(`type=${row.type}`)
+  // Keep the callback query valid; encode the complete URI only for the API request below.
+  const redirectUri = `${location.origin}/user/profile?type=${row.type}`
   // 进行跳转
   socialAuthRedirect(row.type, encodeURIComponent(redirectUri)).then((res) => {
     window.location.href = res

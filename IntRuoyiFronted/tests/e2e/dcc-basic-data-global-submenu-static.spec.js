@@ -25,7 +25,7 @@ const projectCodePanelSource = readSource(
   'src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue'
 )
 const detailSource = readSource('src/views/dcc/controlled-file/detail/index.vue')
-const dccSchema = readWorkspaceSource('ruoyi-vue-pro/sql/mysql/20260513_dcc_base_schema.sql')
+const dccSchema = readWorkspaceSource('IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql')
 const legacyShellPath = path.join(root, 'src/views/dcc/controlled-file/basic-data/index.vue')
 const legacyShellSource = fs.existsSync(legacyShellPath) ? fs.readFileSync(legacyShellPath, 'utf8') : ''
 

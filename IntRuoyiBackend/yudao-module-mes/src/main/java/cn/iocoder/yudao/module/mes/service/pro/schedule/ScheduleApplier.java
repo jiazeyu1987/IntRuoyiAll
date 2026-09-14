@@ -28,12 +28,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+
 @Component
 public class ScheduleApplier {
 
     private static final String SCHEDULE_SOURCE_MANUAL = "MANUAL";
     private static final String RISK_STATUS_NONE = "NONE";
-    private static final String ISSUE_TYPE_EDHR_BATCH_CREATION = "EDHR_BATCH_CREATION";
 
     @Resource
     private MesProTaskMapper taskMapper;
@@ -186,15 +186,18 @@ public class ScheduleApplier {
                     edhrBatchExecutionService.getScheduleCompletionMissingItems(command),
                     "edhr schedule completion missing items must not be null");
             if (!missingItems.isEmpty()) {
-                issues.add(ScheduleIssueDraft.warning(ISSUE_TYPE_EDHR_BATCH_CREATION,
-                        command.getWorkOrderId(), null, null, null,
-                        "eDHR 执行批次创建未完成：排产完成创建 eDHR 批次缺少前置条件："
-                                + String.join("、", missingItems)));
+                issues.add(edhrBatchCreationWarning(command, missingItems));
                 continue;
             }
             edhrBatchExecutionService.openOrCreateFromScheduleCompletion(command);
         }
         return issues;
+    }
+
+    private ScheduleIssueDraft edhrBatchCreationWarning(EdhrScheduleCompletionCreateCommand command,
+                                                        List<String> missingItems) {
+        return ScheduleIssueDraft.warning("EDHR_BATCH_CREATION", command.getWorkOrderId(), null, null, null,
+                "排产完成创建 eDHR 批次缺少前置条件：" + String.join("、", missingItems));
     }
 
     public static final class ApplyCommand {

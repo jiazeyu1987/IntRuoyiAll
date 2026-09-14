@@ -138,6 +138,9 @@ class RuntimeOpsGuideServiceImplTest {
                 "{\"mode\":\"incremental-manifest\",\"objects\":[]}");
         java.nio.file.Files.writeString(root.resolve("manifest").resolve("checksums.txt"),
                 "sha256  deploy/runtime.env");
+        java.nio.file.Files.writeString(root.resolve("manifest").resolve("dcc-backup-manifest.json"),
+                "{\"schemaVersion\":\"dcc-backup-manifest-v1\",\"backupMode\":\"FULL\","
+                        + "\"chainStatus\":\"COMPLETE\",\"changeSummary\":{\"business\":\"none\"}}");
         if (manifest) {
             String configuration = includeComposePath
                     ? "\"configuration\":{\"manifestPath\":\"deploy/runtime.env\",\"composePath\":\"deploy/docker-compose.yml\"}"

@@ -44,12 +44,22 @@ for (const token of [
   'saveScheduleRules',
   'saveShiftHoursSetting',
   'savePolicySettings',
-  'openRouteConfigImport',
   'openFullConfigImport',
+  '导出全部数据包',
+  '导入全部数据包',
+  '保存策略'
+]) {
+  assert.ok(dialogSource[0].includes(token), `排产设置弹框缺少原有设置能力：${token}`)
+}
+for (const token of [
+  'openRouteConfigImport',
+  'exportRouteConfigPackage',
+  'routeConfigInputRef',
+  'handleRouteConfigFileChange',
   '导出排产工艺路线',
   '导入排产工艺路线'
 ]) {
-  assert.ok(dialogSource[0].includes(token), `排产设置弹框缺少原有设置能力：${token}`)
+  assert.ok(!dialogSource[0].includes(token), `排产设置弹框不得保留排产工艺路线导入导出入口：${token}`)
 }
 for (const token of ['toggleSmokeTest', '开始测试', '结束测试', '冒烟']) {
   assert.ok(!dialogSource[0].includes(token), `排产设置弹框不得保留冒烟测试内容：${token}`)

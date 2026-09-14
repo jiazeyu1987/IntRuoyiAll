@@ -1,0 +1,470 @@
+{
+  "tenantName": "芋道源码",
+  "username": "wangsiyu",
+  "baseUrl": "http://127.0.0.1:8081",
+  "startedAt": "2026-08-02T14:45:19.825Z",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "permissionInfo": {
+    "code": 0,
+    "msg": "",
+    "data": {
+      "user": {
+        "id": 910250,
+        "nickname": "王思雨",
+        "avatar": "",
+        "deptId": 226,
+        "username": "wangsiyu",
+        "email": ""
+      },
+      "roles": [
+        "wenkong",
+        "approval_center_entry",
+        "dcc_distribute_e2e",
+        "doc_control",
+        "wenkong_download"
+      ],
+      "permissions": [
+        "",
+        "bpm:process-instance-cc:query",
+        "dcc:controlled-file:submit",
+        "dcc:controlled-file:query",
+        "form:instance:submit",
+        "dcc:project-code-assignment:assign",
+        "bpm:task:update",
+        "dcc:controlled-file:position:manage",
+        "system:user:query",
+        "dcc:controlled-file:category:manage",
+        "dcc:controlled-file:preview",
+        "dcc:controlled-file:stamp:retry",
+        "dcc:controlled-file:download",
+        "dcc:project-code-assignment:audit:query",
+        "signature-governance:policy:query",
+        "dcc:controlled-file:print-template:manage",
+        "dcc:project-code-assignment:revoke",
+        "dcc:controlled-file:log:query",
+        "form:instance:create",
+        "bpm:process-instance:query",
+        "bpm:task:query",
+        "system:user:list",
+        "dcc:project-code:import",
+        "dcc:project-code:export",
+        "dcc:project-code:query",
+        "dcc:controlled-file:training:mine",
+        "dcc:project-code-assignment:execute",
+        "dcc:controlled-file:directory:manage",
+        "dcc:controlled-file:approve",
+        "dcc:controlled-file:review",
+        "dcc:project-code-assignment:query",
+        "dcc:controlled-file:route:manage"
+      ],
+      "menus": [
+        {
+          "id": 1,
+          "parentId": 0,
+          "name": "系统管理",
+          "path": "/system",
+          "component": null,
+          "componentName": null,
+          "icon": "ep:tools",
+          "visible": true,
+          "keepAlive": true,
+          "alwaysShow": true,
+          "children": [
+            {
+              "id": 100,
+              "parentId": 1,
+              "name": "用户管理",
+              "path": "user",
+              "component": "system/user/index",
+              "componentName": "SystemUser",
+              "icon": "ep:avatar",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 101,
+              "parentId": 1,
+              "name": "角色管理",
+              "path": "role",
+              "component": "",
+              "componentName": null,
+              "icon": "ep:user",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": [
+                {
+                  "id": 6804,
+                  "parentId": 101,
+                  "name": "审批角色",
+                  "path": "approval-role",
+                  "component": "dcc/controlled-file/positions/index",
+                  "componentName": "DccControlledFilePositions",
+                  "icon": "ep:user",
+                  "visible": true,
+                  "keepAlive": true,
+                  "alwaysShow": true,
+                  "children": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 990200,
+          "parentId": 0,
+          "name": "基础数据",
+          "path": "/mdm",
+          "component": null,
+          "componentName": null,
+          "icon": "ep:coin",
+          "visible": true,
+          "keepAlive": true,
+          "alwaysShow": true,
+          "children": [
+            {
+              "id": 990210,
+              "parentId": 990200,
+              "name": "DCC项目代码",
+              "path": "project-code",
+              "component": "dcc/controlled-file/basic-data/project-code/index",
+              "componentName": "DccProjectCodeBasicDataPage",
+              "icon": "ep:data-analysis",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 990216,
+              "parentId": 990200,
+              "name": "DCC产品目录",
+              "path": "product-catalog",
+              "component": "dcc/controlled-file/basic-data/product-catalog/index",
+              "componentName": "DccProductCatalogBasicDataPage",
+              "icon": "ep:goods",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 990230,
+              "parentId": 990200,
+              "name": "DCC文件分类",
+              "path": "file-type-taxonomy",
+              "component": "dcc/controlled-file/basic-data/file-type-taxonomy/index",
+              "componentName": "DccFileTypeTaxonomyBasicDataPage",
+              "icon": "ep:collection-tag",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 605071200,
+              "parentId": 990200,
+              "name": "表单中心",
+              "path": "form-center",
+              "component": "",
+              "componentName": "",
+              "icon": "ep:document",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            }
+          ]
+        },
+        {
+          "id": 1200,
+          "parentId": 0,
+          "name": "审批中心",
+          "path": "/approval-center",
+          "component": null,
+          "componentName": null,
+          "icon": "ep:finished",
+          "visible": true,
+          "keepAlive": true,
+          "alwaysShow": true,
+          "children": [
+            {
+              "id": 1207,
+              "parentId": 1200,
+              "name": "待办",
+              "path": "todo",
+              "component": "approval-center/index",
+              "componentName": "ApprovalCenterTodo",
+              "icon": "fa:slack",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 1208,
+              "parentId": 1200,
+              "name": "已办",
+              "path": "done",
+              "component": "approval-center/index",
+              "componentName": "ApprovalCenterDone",
+              "icon": "fa:delicious",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 1201,
+              "parentId": 1200,
+              "name": "我发起的",
+              "path": "my-initiated",
+              "component": "approval-center/index",
+              "componentName": "ApprovalCenterMyInitiated",
+              "icon": "fa-solid:book",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 2713,
+              "parentId": 1200,
+              "name": "抄送我的",
+              "path": "cc",
+              "component": "approval-center/index",
+              "componentName": "ApprovalCenterCc",
+              "icon": "ep:copy-document",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            }
+          ]
+        },
+        {
+          "id": 900218,
+          "parentId": 0,
+          "name": "电子签名",
+          "path": "/signature-governance",
+          "component": "signature-governance/index",
+          "componentName": "SignatureGovernanceWorkbench",
+          "icon": "ep:edit-pen",
+          "visible": true,
+          "keepAlive": true,
+          "alwaysShow": true,
+          "children": [
+            {
+              "id": 900418,
+              "parentId": 900218,
+              "name": "我的签名",
+              "path": "my-signature",
+              "component": "signature-governance/index",
+              "componentName": "SignatureGovernanceMySignature",
+              "icon": "ep:edit-pen",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": false,
+              "children": null
+            }
+          ]
+        },
+        {
+          "id": 6800,
+          "parentId": 0,
+          "name": "文控中心",
+          "path": "/dcc",
+          "component": "",
+          "componentName": "DccRoot",
+          "icon": "ep:files",
+          "visible": true,
+          "keepAlive": true,
+          "alwaysShow": true,
+          "children": [
+            {
+              "id": 6801,
+              "parentId": 6800,
+              "name": "文档目录",
+              "path": "controlled-file/directories",
+              "component": "dcc/controlled-file/directories/index",
+              "componentName": "DccControlledFileDirectories",
+              "icon": "ep:folder",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 6803,
+              "parentId": 6800,
+              "name": "文控权限",
+              "path": "controlled-file/categories",
+              "component": "dcc/controlled-file/categories/index",
+              "componentName": "DccControlledFileCategories",
+              "icon": "ep:collection-tag",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 6805,
+              "parentId": 6800,
+              "name": "上传审批",
+              "path": "controlled-file/routes",
+              "component": "dcc/controlled-file/routes/index",
+              "componentName": "DccControlledFileRoutes",
+              "icon": "ep:share",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 6808,
+              "parentId": 6800,
+              "name": "文件分发",
+              "path": "controlled-file/distribution",
+              "component": "dcc/controlled-file/distribution/index",
+              "componentName": "DccControlledFileDistribution",
+              "icon": "ep:share",
+              "visible": false,
+              "keepAlive": true,
+              "alwaysShow": false,
+              "children": null
+            },
+            {
+              "id": 6809,
+              "parentId": 6800,
+              "name": "培训规则",
+              "path": "controlled-file/training",
+              "component": "dcc/controlled-file/training/index",
+              "componentName": "DccControlledFileTraining",
+              "icon": "ep:reading",
+              "visible": false,
+              "keepAlive": true,
+              "alwaysShow": false,
+              "children": null
+            },
+            {
+              "id": 6806,
+              "parentId": 6800,
+              "name": "文件上传",
+              "path": "controlled-file/upload",
+              "component": "dcc/controlled-file/upload/index",
+              "componentName": "DccControlledFileUpload",
+              "icon": "ep:upload",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 6807,
+              "parentId": 6800,
+              "name": "受控浏览",
+              "path": "controlled-file/browser",
+              "component": "dcc/controlled-file/browser/index",
+              "componentName": "DccControlledFileBrowser",
+              "icon": "ep:document",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 6814,
+              "parentId": 6800,
+              "name": "受控浏览",
+              "path": "controlled-file/approval-tasks",
+              "component": "dcc/controlled-file/approval-tasks/index",
+              "componentName": "DccControlledFileApprovalTasks",
+              "icon": "ep:checked",
+              "visible": false,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 6818,
+              "parentId": 6800,
+              "name": "文控日志",
+              "path": "controlled-file/logs",
+              "component": "dcc/controlled-file/logs/index",
+              "componentName": "DccControlledFileLogs",
+              "icon": "ep:document-checked",
+              "visible": true,
+              "keepAlive": true,
+              "alwaysShow": true,
+              "children": null
+            },
+            {
+              "id": 980121,
+              "parentId": 6800,
+              "name": "我的培训",
+              "path": "controlled-file/training-mine",
+              "component": "dcc/controlled-file/training/mine/index",
+              "componentName": "DccControlledFileTrainingMine",
+              "icon": "ep:reading",
+              "visible": false,
+              "keepAlive": true,
+              "alwaysShow": false,
+              "children": null
+            },
+            {
+              "id": 980120,
+              "parentId": 6800,
+              "name": "模板配置",
+              "path": "controlled-file/print-template",
+              "component": "dcc/controlled-file/print-template/index",
+              "componentName": "DccApprovalPrintTemplate",
+              "icon": "ep:document-copy",
+              "visible": false,
+              "keepAlive": true,
+              "alwaysShow": false,
+              "children": null
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "targetResponses": [
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/get-permission-info"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/get-permission-info"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/get-permission-info"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories/review-matrix"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "page": {
+    "url": "http://127.0.0.1:8081/dcc/controlled-file/categories?tab=review-matrix",
+    "title": "瑛泰管理系统 - 文控权限",
+    "reviewTabVisible": true,
+    "category906104Visible": false,
+    "editOrCreateButtonVisible": false,
+    "hasCategoryManagePermission": true,
+    "hasControlledFileQueryPermission": true,
+    "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-distribution-recovery-e2e\\screenshots\\wangsiyu-category-manage-before.png",
+    "bodyTextSample": "瑛泰管理系统 个人中心 0 审批中心 8 电子签名 文控中心 文档目录 文控权限 上传审批 文件上传 受控浏览 文控日志 基础数据 系统管理 版本信息未生成 文控中心 / 文控权限 请输入菜单内容 王思雨 文控权限 类别列表 审阅矩阵 查看矩阵 目录授权 分发规则 培训规则 快速过滤 类别编码 包含 查询 按人反查 显示字段 类别编码 类别名称 审核规则 批准规则 操作 DCC_FVM_DHF_001 市场调研报告 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_002 技术调研报告 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_003 临床注册路径分析 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_004 项目立项书 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_005 项目策划书 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_006 专利检索与分析报告 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_007 同类产品测试方案、报告 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_008 不良事件调研报告 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_009 法规、标准清单 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_010 风险管理计划 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_011 风险管理报告 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_012 验证主计划 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_013 设计验证方案 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_014 设计验证报告 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_015 通用验证方案 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_016 通用验证报告 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_017 运输包装验证方案/报告 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_018 货架寿命验证方案/报告 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_019 设计转移方案/报告 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 DCC_FVM_DHF_020 性能评价方案和报告 编制人直接主管 ▲ / QA ▲ / QMS ▲ / 注册 ▲ / 文档管理员 ▲ 部门负责人 ▲ / 部门授权代表 ▲ 编辑 删除 预览 共 60 条 20条/页 1 2 3 前往 页 Copyright ©2026 瑛泰管理系统"
+  },
+  "finishedAt": "2026-08-02T14:45:27.567Z"
+}

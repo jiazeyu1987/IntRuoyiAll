@@ -116,13 +116,35 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setUsername(username)
                 .setPassword(password).setStatus(CommonStatusEnum.ENABLE.getStatus()));
         when(userService.getUserByUsername(eq(username))).thenReturn(user);
+        when(userService.isPasswordMatch(eq(password), eq(user.getPassword()))).thenReturn(false);
 
         // 调用, 并断言异常
         assertServiceException(() -> authService.authenticate(username, password),
                 AUTH_LOGIN_BAD_CREDENTIALS);
+        verify(userService).recordUserLoginFailure(eq(user.getId()));
         verify(loginLogService).createLoginLog(
                 argThat(o -> o.getLogType().equals(LoginLogTypeEnum.LOGIN_USERNAME.getType())
                         && o.getResult().equals(LoginResultEnum.BAD_CREDENTIALS.getResult())
+                        && o.getUserId().equals(user.getId()))
+        );
+    }
+
+    @Test
+    public void testAuthenticate_userLocked() {
+        String username = randomString();
+        String password = randomString();
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setUsername(username)
+                .setPassword(password).setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setLoginLocked(1)
+                .setLoginLockedTime(LocalDateTime.now().minusMinutes(10)));
+        when(userService.getUserByUsername(eq(username))).thenReturn(user);
+
+        assertServiceException(() -> authService.authenticate(username, password),
+                AUTH_LOGIN_USER_LOCKED);
+        verify(userService, never()).isPasswordMatch(anyString(), anyString());
+        verify(loginLogService).createLoginLog(
+                argThat(o -> o.getLogType().equals(LoginLogTypeEnum.LOGIN_USERNAME.getType())
+                        && o.getResult().equals(LoginResultEnum.USER_LOCKED.getResult())
                         && o.getUserId().equals(user.getId()))
         );
     }
@@ -155,7 +177,7 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         String password = randomString();
         AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setUsername(username)
                 .setPassword(password).setStatus(CommonStatusEnum.ENABLE.getStatus())
-                .setPasswordUpdateTime(LocalDateTime.now().minusDays(91)));
+                .setPasswordUpdateTime(LocalDateTime.now().minusDays(90)));
         when(userService.getUserByUsername(eq(username))).thenReturn(user);
         when(userService.isPasswordMatch(eq(password), eq(user.getPassword()))).thenReturn(true);
 
@@ -164,6 +186,41 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         verify(loginLogService).createLoginLog(
                 argThat(o -> o.getLogType().equals(LoginLogTypeEnum.LOGIN_USERNAME.getType())
                         && o.getResult().equals(LoginResultEnum.PASSWORD_EXPIRED.getResult())
+                        && o.getUserId().equals(user.getId()))
+        );
+    }
+
+    @Test
+    public void testAuthenticate_passwordValidAt89Days() {
+        String username = randomString();
+        String password = randomString();
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setUsername(username)
+                .setPassword(password).setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setPasswordUpdateTime(LocalDateTime.now().minusDays(89)));
+        when(userService.getUserByUsername(eq(username))).thenReturn(user);
+        when(userService.isPasswordMatch(eq(password), eq(user.getPassword()))).thenReturn(true);
+
+        AdminUserDO loginUser = authService.authenticate(username, password);
+
+        assertPojoEquals(user, loginUser);
+    }
+
+    @Test
+    public void testAuthenticate_passwordChangeRequired() {
+        String username = randomString();
+        String password = randomString();
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setUsername(username)
+                .setPassword(password).setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setPasswordCredentialStatus("RESET_REQUIRED")
+                .setPasswordUpdateTime(LocalDateTime.now()));
+        when(userService.getUserByUsername(eq(username))).thenReturn(user);
+        when(userService.isPasswordMatch(eq(password), eq(user.getPassword()))).thenReturn(true);
+
+        assertServiceException(() -> authService.authenticate(username, password),
+                AUTH_LOGIN_PASSWORD_CHANGE_REQUIRED);
+        verify(loginLogService).createLoginLog(
+                argThat(o -> o.getLogType().equals(LoginLogTypeEnum.LOGIN_USERNAME.getType())
+                        && o.getResult().equals(LoginResultEnum.PASSWORD_CHANGE_REQUIRED.getResult())
                         && o.getUserId().equals(user.getId()))
         );
     }
@@ -199,9 +256,42 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
                         && o.getResult().equals(LoginResultEnum.SUCCESS.getResult())
                         && o.getUserId().equals(user.getId()))
         );
+        verify(userService).resetUserLoginFailure(eq(user.getId()));
         verify(socialUserService).bindSocialUser(eq(new SocialUserBindReqDTO(
                 user.getId(), UserTypeEnum.ADMIN.getValue(),
                 reqVO.getSocialType(), reqVO.getSocialCode(), reqVO.getSocialState())));
+    }
+
+    @Test
+    public void testLogin_successWithoutCaptchaVerificationWhenCaptchaEnabled() {
+        // 准备参数
+        AuthLoginReqVO reqVO = new AuthLoginReqVO();
+        reqVO.setUsername("test_username");
+        reqVO.setPassword("test_password");
+        reqVO.setCaptchaVerification(null);
+
+        // mock user 数据
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(1L).setUsername("test_username")
+                .setPassword("test_password").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setPasswordUpdateTime(LocalDateTime.now().minusDays(30)));
+        when(userService.getUserByUsername(eq("test_username"))).thenReturn(user);
+        // mock password 匹配
+        when(userService.isPasswordMatch(eq("test_password"), eq(user.getPassword()))).thenReturn(true);
+        // mock 缓存登录用户到 Redis
+        OAuth2AccessTokenDO accessTokenDO = randomPojo(OAuth2AccessTokenDO.class, o -> o.setUserId(1L)
+                .setUserType(UserTypeEnum.ADMIN.getValue()));
+        when(oauth2TokenService.createAccessToken(eq(1L), eq(UserTypeEnum.ADMIN.getValue()), eq("default"), isNull()))
+                .thenReturn(accessTokenDO);
+
+        // 调用，并校验
+        AuthLoginRespVO loginRespVO = authService.login(reqVO);
+        assertPojoEquals(accessTokenDO, loginRespVO);
+        verifyNoInteractions(captchaService);
+        verify(loginLogService).createLoginLog(
+                argThat(o -> o.getLogType().equals(LoginLogTypeEnum.LOGIN_USERNAME.getType())
+                        && o.getResult().equals(LoginResultEnum.SUCCESS.getResult())
+                        && o.getUserId().equals(user.getId()))
+        );
     }
 
     @Test

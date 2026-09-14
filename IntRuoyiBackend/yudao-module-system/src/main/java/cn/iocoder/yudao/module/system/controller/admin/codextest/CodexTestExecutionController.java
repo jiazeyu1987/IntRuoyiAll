@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.system.controller.admin.codextest;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionCancelReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCodeReadonlyExecutionStartReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionStartReqVO;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
@@ -45,6 +47,14 @@ public class CodexTestExecutionController {
     @PreAuthorize("@ss.hasPermission('system:codex-test:execute')")
     public CommonResult<Long> startExecution(@Valid @RequestBody CodexTestExecutionStartReqVO startReqVO) {
         return success(codexTestExecutionService.startExecution(startReqVO, getLoginUserId()));
+    }
+
+    @PostMapping("/start-code-readonly")
+    @Operation(summary = "写入只读代码测试定义并启动 Codex 执行")
+    @PreAuthorize("@ss.hasPermission('system:codex-test:execute')")
+    public CommonResult<Long> startCodeReadonlyExecution(
+            @Valid @RequestBody CodexTestCodeReadonlyExecutionStartReqVO startReqVO) {
+        return success(codexTestExecutionService.startCodeReadonlyExecution(startReqVO, getLoginUserId()));
     }
 
     @PostMapping("/cancel")
@@ -69,6 +79,21 @@ public class CodexTestExecutionController {
     @PreAuthorize("@ss.hasPermission('system:codex-test:query')")
     public CommonResult<CodexTestExecutionRespVO> getExecution(@RequestParam("id") Long id) {
         return success(codexTestExecutionService.getExecution(id));
+    }
+
+    @GetMapping("/result")
+    @Operation(summary = "获得当前用户发起的 Codex 测试执行结果")
+    @Parameter(name = "id", description = "执行编号", required = true)
+    @PreAuthorize("@ss.hasPermission('system:codex-test:execute')")
+    public CommonResult<CodexTestExecutionRespVO> getExecutionResult(@RequestParam("id") Long id) {
+        return success(codexTestExecutionService.getExecutionResult(id, getLoginUserId()));
+    }
+
+    @GetMapping("/monitor")
+    @Operation(summary = "获得 Codex 测试运行监控")
+    @PreAuthorize("@ss.hasPermission('system:codex-test:query')")
+    public CommonResult<List<CodexTestExecutionRespVO>> getExecutionMonitor() {
+        return success(codexTestExecutionService.getExecutionMonitor());
     }
 
     @GetMapping("/artifact")

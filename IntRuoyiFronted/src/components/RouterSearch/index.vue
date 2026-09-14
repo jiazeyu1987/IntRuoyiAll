@@ -132,6 +132,9 @@ interface SearchHistoryRecord {
 
 const ROUTER_SEARCH_HISTORY_KEY = 'routerSearchHistory'
 const ROUTER_SEARCH_HISTORY_LIMIT = 20
+const ROUTER_SEARCH_ALIASES: Record<string, string[]> = {
+  '/mes/pro/mes-process': ['MES工序']
+}
 
 defineProps({
   isModal: {
@@ -151,7 +154,10 @@ const showSearch = ref(false)
 const showTopSearch = ref(false)
 const value = ref('')
 
-const routers = router.getRoutes()
+function getSearchRoutes() {
+  return router.getRoutes()
+}
+
 const recentOptions = ref<SearchHistoryRecord[]>(loadSearchHistory())
 
 const keyword = computed(() => value.value.trim())
@@ -159,15 +165,18 @@ const filteredOptions = computed<SearchHistoryRecord[]>(() => {
   if (!keyword.value) {
     return []
   }
-  const list = routers.filter((item: any) => {
-    return (
-      isSearchableRoute(item) &&
-      (item.meta.title?.indexOf(keyword.value) > -1 || item.path.indexOf(keyword.value) > -1)
-    )
+  const list = getSearchRoutes().filter((item: any) => {
+    return isSearchableRoute(item) && routeMatchesSearchQuery(item, keyword.value)
   })
   return list.map((item) => createSearchRecord(item, keyword.value))
 })
 const showHistoryGroup = computed(() => !keyword.value && recentOptions.value.length > 0)
+
+function normalizeSearchText(value: unknown) {
+  return String(value || '')
+    .trim()
+    .toLocaleLowerCase()
+}
 
 function normalizeSearchPath(path: string) {
   const rawPath = String(path || '').split(/[?#]/)[0].trim()
@@ -185,11 +194,25 @@ function routePathMatches(routePath: string, path: string) {
 }
 
 function findRouteBySearchPath(path: string) {
-  return routers.find((route: any) => routePathMatches(route.path, path))
+  return getSearchRoutes().find((route: any) => routePathMatches(route.path, path))
 }
 
 function isSearchableRoute(route: any) {
   return Boolean(route?.path && route?.meta?.title && !route.meta?.hidden)
+}
+
+function getRouteSearchAliases(route: any) {
+  return ROUTER_SEARCH_ALIASES[normalizeSearchPath(route?.path)] || []
+}
+
+function routeMatchesSearchQuery(route: any, query: string) {
+  const normalizedQuery = normalizeSearchText(query)
+  if (!normalizedQuery) {
+    return false
+  }
+  return [route.meta?.title, route.path, ...getRouteSearchAliases(route)].some((text) =>
+    normalizeSearchText(text).includes(normalizedQuery)
+  )
 }
 
 function createSearchRecord(route: any, query: string): SearchHistoryRecord {

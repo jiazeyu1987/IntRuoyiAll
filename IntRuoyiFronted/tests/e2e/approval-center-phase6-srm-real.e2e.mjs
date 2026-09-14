@@ -10,8 +10,8 @@ const zh = {
   usernamePlaceholder: '请输入用户名',
   passwordPlaceholder: '请输入密码',
   pageTitle: '审批中心',
-  timeline: '轨迹',
-  open: '打开',
+  timeline: '流程',
+  open: '查看',
   srmReviewTitle: '供应商门户审核台',
   srmDetailTitle: '门户申请详情'
 }

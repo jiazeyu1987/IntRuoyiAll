@@ -6,9 +6,8 @@ const root = path.resolve(__dirname, '../..')
 const sourcePath = path.join(root, 'src/views/mes/pro/route/index.vue')
 const source = fs.readFileSync(sourcePath, 'utf8')
 
-const templateMatch = source.match(
-  /<UnifiedListTemplate[\s\S]*?table-key="mes\.pro\.route\.main"[\s\S]*?<\/UnifiedListTemplate>/
-)
+assert.match(source, /const ROUTE_LIST_TABLE_KEY = 'mes\.pro\.route\.main[^']*'/, '工艺流程列表必须使用稳定表格 key。')
+const templateMatch = source.match(/<UnifiedListTemplate[\s\S]*?<\/UnifiedListTemplate>/)
 assert.ok(templateMatch, '工艺流程列表必须继续使用标准列表模板。')
 const template = templateMatch[0]
 

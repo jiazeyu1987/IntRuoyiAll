@@ -8,14 +8,16 @@ const source = readFileSync(fileURLToPath(new URL('../src/views/dcc/controlled-f
 
 test('ordinary approval does not render legacy mutation buttons; external review retains its controls', () => {
   for (const action of ['return', 'transfer', 'sign']) {
-    const tag = [...source.matchAll(/<el-button\b(?:[^>"']|"[^"]*"|'[^']*')*>/g)].map(m => m[0])
-      .find(tag => tag.includes(`openTaskActionDialog('${action}')`))
-    assert.ok(tag, `external review ${action} control exists`)
+    const tags = [...source.matchAll(/<el-button\b(?:[^>"']|"[^"]*"|'[^']*')*>/g)].map(m => m[0])
+      .filter(tag => tag.includes(`openTaskActionDialog('${action}')`))
+    assert.ok(tags.length > 0, `external review ${action} control exists`)
+    for (const tag of tags) {
     const condition = tag.match(/v-if="([^"]+)"/)?.[1]
     assert.ok(condition)
     const context = { isExternalReviewProcess: false, isReturnedApplicantTask: false, returnTargetOptions: [1] }
     assert.equal(vm.runInNewContext(condition, context), false, `${action} must be hidden for ordinary DCC`)
     assert.equal(vm.runInNewContext(condition, { ...context, isExternalReviewProcess: true }), true)
+    }
   }
 })
 

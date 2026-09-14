@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260717_bpm_form_center; type=seed; riskLevel=low
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260719_business_approval_policy,20260719_dcc_obsolete_form_policy_seed; type=seed; riskLevel=low
 -- Purpose: deploy the dedicated single-step BPM process required by DCC controlled-file obsolete form-center actions.
 -- The process key must stay aligned with DCC obsolete policy effect_executor_code=DCC_OBSOLETE.
 
@@ -232,9 +232,12 @@ WHERE NOT EXISTS (
       AND i.deleted = b'0'
 );
 
-UPDATE bpm_form_action_policy
-SET bpm_process_key = 'dcc-controlled-file-obsolete-approval',
+UPDATE bpm_business_approval_policy
+SET policy_mode = 'BPM_REQUIRED',
+    process_definition_key = 'dcc-controlled-file-obsolete-approval',
     effect_executor_code = 'DCC_OBSOLETE',
+    form_policy_type = 'NONE',
+    form_slots_json = '[]',
     updater = 'codex',
     update_time = NOW()
 WHERE tenant_id IN (1, 122)
@@ -246,4 +249,3 @@ WHERE tenant_id IN (1, 122)
   AND deleted = b'0';
 
 COMMIT;
-

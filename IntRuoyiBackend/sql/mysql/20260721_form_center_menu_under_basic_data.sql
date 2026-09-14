@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260717_bpm_form_center; type=data; riskLevel=low
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260717_bpm_form_center; type=menu; riskLevel=low
 -- Purpose: move Form Center from workflow management to the global Basic Data menu.
 
 SET NAMES utf8mb4;

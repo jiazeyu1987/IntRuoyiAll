@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import java.util.Collections;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -101,6 +102,28 @@ public class UserController {
         return success(true);
     }
 
+    @PutMapping("/lifecycle-deactivation")
+    @Operation(summary = "登记离职/转岗账号联动停用")
+    @PreAuthorize("@ss.hasPermission('system:user:update')")
+    public CommonResult<Boolean> recordUserLifecycleDeactivation(
+            @Valid @RequestBody UserLifecycleDeactivateReqVO reqVO) {
+        userService.recordUserLifecycleDeactivation(reqVO);
+        return success(true);
+    }
+
+    @PutMapping("/unlock")
+    @Operation(summary = "解锁用户")
+    @Parameters({
+            @Parameter(name = "id", description = "编号", required = true, example = "1024"),
+            @Parameter(name = "reason", description = "解锁原因", required = true, example = "误输密码后经线下核验确认本人")
+    })
+    @PreAuthorize("@ss.hasPermission('system:user:update')")
+    public CommonResult<Boolean> unlockUser(@RequestParam("id") Long id,
+                                            @RequestParam("reason") @NotBlank(message = "解锁原因不能为空") String reason) {
+        userService.resetUserLoginFailure(id, reason);
+        return success(true);
+    }
+
     @GetMapping("/page")
     @Operation(summary = "获得用户分页列表")
     @PreAuthorize("@ss.hasPermission('system:user:query')")
@@ -160,13 +183,25 @@ public class UserController {
     @PreAuthorize("@ss.hasPermission('system:user:export')")
     @ApiAccessLog(operateType = EXPORT)
     public void exportUserList(@Validated UserPageReqVO exportReqVO,
-                               HttpServletResponse response) throws IOException {
+                                HttpServletResponse response) throws IOException {
         exportReqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
         List<AdminUserDO> list = userService.getUserPage(exportReqVO).getList();
         // 输出 Excel
         Map<Long, DeptDO> deptMap = deptService.getDeptMap(
                 convertList(list, AdminUserDO::getDeptId));
         ExcelUtils.write(response, "用户数据.xls", "数据", UserRespVO.class,
+                UserConvert.INSTANCE.convertList(list, deptMap));
+    }
+
+    @GetMapping("/export-generic-account-excel")
+    @Operation(summary = "导出通用账户不合规清单")
+    @PreAuthorize("@ss.hasPermission('system:user:export')")
+    @ApiAccessLog(operateType = EXPORT)
+    public void exportGenericAccountUserList(HttpServletResponse response) throws IOException {
+        List<AdminUserDO> list = userService.getGenericAccountUserList();
+        Map<Long, DeptDO> deptMap = deptService.getDeptMap(
+                convertList(list, AdminUserDO::getDeptId));
+        ExcelUtils.write(response, "通用账户不合规清单.xls", "数据", UserRespVO.class,
                 UserConvert.INSTANCE.convertList(list, deptMap));
     }
 

@@ -143,7 +143,9 @@
               :width="getFeedbackColumnLayoutWidthString('excelProductCode', 170)"
               :min-width="getFeedbackColumnMinWidthString('excelProductCode', 170)"
               v-bind="sortColumnAttrs('excelProductCode')"
-            />
+            >
+              <template #default="scope">{{ resolveFeedbackProductCode(scope.row) }}</template>
+            </el-table-column>
             <el-table-column
               v-if="isFeedbackColumnVisible('excelProductName')"
               label="产品名称"
@@ -152,7 +154,9 @@
               :width="getFeedbackColumnLayoutWidthString('excelProductName', 260)"
               :min-width="getFeedbackColumnMinWidthString('excelProductName', 260)"
               v-bind="sortColumnAttrs('excelProductName')"
-            />
+            >
+              <template #default="scope">{{ resolveFeedbackProductName(scope.row) }}</template>
+            </el-table-column>
             <el-table-column
               v-if="isFeedbackColumnVisible('excelProcessCode')"
               label="工序编码"
@@ -161,7 +165,9 @@
               :width="getFeedbackColumnLayoutWidthString('excelProcessCode', 110)"
               :min-width="getFeedbackColumnMinWidthString('excelProcessCode', 110)"
               v-bind="sortColumnAttrs('excelProcessCode')"
-            />
+            >
+              <template #default="scope">{{ resolveFeedbackProcessCode(scope.row) }}</template>
+            </el-table-column>
             <el-table-column
               v-if="isFeedbackColumnVisible('excelProcessName')"
               label="工序名称"
@@ -170,7 +176,9 @@
               :width="getFeedbackColumnLayoutWidthString('excelProcessName', 140)"
               :min-width="getFeedbackColumnMinWidthString('excelProcessName', 140)"
               v-bind="sortColumnAttrs('excelProcessName')"
-            />
+            >
+              <template #default="scope">{{ resolveFeedbackProcessName(scope.row) }}</template>
+            </el-table-column>
             <el-table-column
               v-if="isFeedbackColumnVisible('excelDepartment')"
               label="部门"
@@ -197,7 +205,9 @@
               :width="getFeedbackColumnLayoutWidthString('excelEmployeeName', 110)"
               :min-width="getFeedbackColumnMinWidthString('excelEmployeeName', 110)"
               v-bind="sortColumnAttrs('excelEmployeeName')"
-            />
+            >
+              <template #default="scope">{{ resolveFeedbackEmployeeName(scope.row) }}</template>
+            </el-table-column>
             <el-table-column
               v-if="isFeedbackColumnVisible('excelSectionLeader')"
               label="工段长"
@@ -221,11 +231,14 @@
               label="日期"
               align="center"
               prop="excelFeedbackTime"
-              :formatter="dateFormatter"
               :width="getFeedbackColumnLayoutWidthString('excelFeedbackTime', 180)"
               :min-width="getFeedbackColumnMinWidthString('excelFeedbackTime', 180)"
               v-bind="sortColumnAttrs('excelFeedbackTime')"
-            />
+            >
+              <template #default="scope">
+                {{ formatDateTimeValue(resolveFeedbackDisplayTime(scope.row), '-') }}
+              </template>
+            </el-table-column>
           </el-table>
         </div>
       </template>
@@ -457,7 +470,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
 import { shallowRef } from 'vue'
-import { dateFormatter } from '@/utils/formatTime'
+import { dateFormatter, formatDateTimeValue } from '@/utils/formatTime'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import download from '@/utils/download'
 import {
@@ -572,6 +585,28 @@ const getFeedbackColumnLayoutWidthString = (key: string, fallback?: number) => {
   return getFeedbackColumnWidthString(key, fallback)
 }
 
+const resolveFeedbackDisplayText = (...values: unknown[]) => {
+  for (const value of values) {
+    const text = String(value ?? '').trim()
+    if (text) {
+      return text
+    }
+  }
+  return '--'
+}
+
+const resolveFeedbackProductCode = (row: ProFeedbackVO) =>
+  resolveFeedbackDisplayText(row.excelProductCode, row.itemCode)
+const resolveFeedbackProductName = (row: ProFeedbackVO) =>
+  resolveFeedbackDisplayText(row.excelProductName, row.itemName)
+const resolveFeedbackProcessCode = (row: ProFeedbackVO) =>
+  resolveFeedbackDisplayText(row.excelProcessCode, row.processCode)
+const resolveFeedbackProcessName = (row: ProFeedbackVO) =>
+  resolveFeedbackDisplayText(row.excelProcessName, row.processName)
+const resolveFeedbackEmployeeName = (row: ProFeedbackVO) =>
+  resolveFeedbackDisplayText(row.excelEmployeeName, row.feedbackUserNickname)
+const resolveFeedbackDisplayTime = (row: ProFeedbackVO) => row.excelFeedbackTime ?? row.feedbackTime
+
 const activeTab = ref<'feedback' | 'import-record'>('feedback')
 const loading = ref(true)
 const list = ref<ProFeedbackVO[]>([])
@@ -638,8 +673,8 @@ const isApprovalReviewFilterActive = computed(
 const importQueryFormRef = ref()
 const thirdPartyImportFormRef = ref()
 const importAttributionDialogRef = ref()
-const thirdPartyImportFormComponent = shallowRef<Component | null>(null)
-const importAttributionDialogComponent = shallowRef<Component | null>(null)
+const thirdPartyImportFormComponent = shallowRef<Component>()
+const importAttributionDialogComponent = shallowRef<Component>()
 
 const clearFeedbackQueryFields = () => {
   queryParams.id = undefined
@@ -966,14 +1001,7 @@ const handleTabChange = async () => {
 }
 
 const formatImportAttributionTime = (value?: string | number | Date) => {
-  if (!value) {
-    return '-'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return String(value)
-  }
-  return date.toLocaleString('zh-CN', { hour12: false })
+  return formatDateTimeValue(value, '-')
 }
 
 const syncCurrentImportBatchSummary = (summary?: ProFeedbackImportBatchSummaryVO) => {

@@ -4,7 +4,7 @@ const assert = require('node:assert/strict')
 
 const repoRoot = path.resolve(__dirname, '..', '..')
 const detailPath = path.join(repoRoot, 'src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue')
-const detail = fs.readFileSync(detailPath, 'utf8')
+const detail = fs.readFileSync(detailPath, 'utf8').replace(/\r\n/g, '\n')
 
 const processNavStart = detail.indexOf(
   '<nav class="edhr-batch-detail__process-panel edhr-batch-detail__process-list edhr-batch-detail__review-list"'
@@ -37,6 +37,7 @@ for (const requiredMarker of [
   'v-if="selectedProcessTasks.length"',
   'v-for="task in selectedProcessTasks"',
   '@click="selectProcessTask(task)"',
+  'resolveTaskCardDisplayName(task)',
   '@click.stop="handleSelectedPendingTaskAction(task)"',
   'const handlePendingTaskAction = async (row: EdhrBatchExecutionTaskRespVO)',
   'description="当前工序未配置表单"'

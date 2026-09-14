@@ -60,6 +60,26 @@ CREATE TABLE IF NOT EXISTS `dcc_file_category` (
   KEY `idx_dcc_file_category_taxonomy` (`tenant_id`, `file_type_taxonomy_id`, `deleted`)
 );
 
+CREATE TABLE IF NOT EXISTS `dcc_file_category_match_rule` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `category_id` BIGINT NOT NULL,
+  `match_text` VARCHAR(255) NOT NULL,
+  `match_type` VARCHAR(32) NOT NULL DEFAULT 'CONTAINS',
+  `weight` INT NOT NULL DEFAULT 0,
+  `active` TINYINT NOT NULL DEFAULT 1,
+  `remark` VARCHAR(255) NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_file_category_match_rule_unique` (`tenant_id`, `category_id`, `match_text`, `match_type`, `deleted`),
+  KEY `idx_dcc_file_category_match_rule_category` (`tenant_id`, `category_id`, `active`, `deleted`),
+  KEY `idx_dcc_file_category_match_rule_type` (`tenant_id`, `match_type`, `active`, `deleted`)
+);
+
 CREATE TABLE IF NOT EXISTS `dcc_file_type_taxonomy` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `parent_id` BIGINT NOT NULL DEFAULT 0,
@@ -274,6 +294,9 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_master` (
   `directory_id` BIGINT NULL,
   `file_name` VARCHAR(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `file_number` VARCHAR(64) NOT NULL,
+  `dcc_project_code_id` BIGINT NULL,
+  `file_type_taxonomy_leaf_id` BIGINT NULL,
+  `normalized_file_number` VARCHAR(128) NULL,
   `current_active_controlled_file_id` BIGINT NULL,
   `status` VARCHAR(32) NOT NULL,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
@@ -318,6 +341,13 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `process_type` VARCHAR(32) NOT NULL DEFAULT 'CONTROLLED_FILE',
   `change_type` VARCHAR(32) NOT NULL DEFAULT 'NEW',
   `version_no` VARCHAR(64) NOT NULL,
+  `revision_code` VARCHAR(8) NULL,
+  `iteration_no` INT NULL,
+  `predecessor_controlled_file_id` BIGINT NULL,
+  `revision_base_active_controlled_file_id` BIGINT NULL,
+  `source_sha256` VARCHAR(64) NULL,
+  `previous_source_sha256` VARCHAR(64) NULL,
+  `change_description` VARCHAR(1000) NULL,
   `effective_date` DATE NULL,
   `remark` VARCHAR(1024) NULL,
   `status` VARCHAR(64) NOT NULL,
@@ -325,6 +355,10 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `requester_id` BIGINT NOT NULL,
   `process_instance_id` VARCHAR(64) NULL,
   `process_definition_key` VARCHAR(128) NULL,
+  `creation_idempotency_key` VARCHAR(128) NULL,
+  `creation_payload_hash` CHAR(64) NULL,
+  `submit_idempotency_key` VARCHAR(128) NULL,
+  `submit_payload_hash` CHAR(64) NULL,
   `submitted_time` DATETIME NULL,
   `approved_time` DATETIME NULL,
   `published_time` DATETIME NULL,
@@ -336,6 +370,9 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `superseded_by_file_id` BIGINT NULL,
   `reject_reason` VARCHAR(255) NULL,
   `finalization_error` VARCHAR(500) NULL,
+  `checked_out_by` BIGINT NULL,
+  `checked_out_time` DATETIME NULL,
+  `checked_out_reason` VARCHAR(500) NULL,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
   `create_time` DATETIME NULL,
   `update_time` DATETIME NULL,
@@ -345,7 +382,313 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   PRIMARY KEY (`id`),
   KEY `idx_dcc_controlled_file_project_code` (`tenant_id`, `dcc_project_code_id`),
   KEY `idx_dcc_controlled_file_taxonomy` (`tenant_id`, `file_type_taxonomy_id`, `deleted`),
-  KEY `idx_dcc_controlled_file_type_level` (`tenant_id`, `file_type_level1`, `file_type_level2`)
+  KEY `idx_dcc_controlled_file_type_level` (`tenant_id`, `file_type_level1`, `file_type_level2`),
+  KEY `idx_dcc_controlled_file_checkout` (`tenant_id`, `checked_out_by`, `checked_out_time`)
+  ,UNIQUE KEY `uk_dcc_file_submit_idempotency` (`tenant_id`, `submitter_id`, `submit_idempotency_key`, `deleted`)
+  ,UNIQUE KEY `uk_dcc_file_creation_idempotency` (`tenant_id`, `requester_id`, `creation_idempotency_key`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_checkout` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `master_id` BIGINT NOT NULL,
+  `base_iteration_id` BIGINT NOT NULL,
+  `actor_id` BIGINT NOT NULL,
+  `reason` VARCHAR(500) NOT NULL,
+  `base_source_sha256` VARCHAR(64) NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `active_master_id` BIGINT AS (CASE WHEN `status` = 'ACTIVE' THEN `master_id` ELSE NULL END),
+  `checkin_upload_ticket` VARCHAR(128) NULL,
+  `checkin_iteration_id` BIGINT NULL,
+  `checkin_source_file_id` BIGINT NULL,
+  `checkin_source_sha256` VARCHAR(64) NULL,
+  `checked_in_time` DATETIME NULL,
+  `cancel_reason` VARCHAR(500) NULL,
+  `cancelled_time` DATETIME NULL,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_checkout_active_master` (`tenant_id`, `active_master_id`),
+  UNIQUE KEY `uk_dcc_checkout_checkin_ticket` (`tenant_id`, `checkin_upload_ticket`),
+  KEY `idx_dcc_checkout_base_iteration` (`tenant_id`, `base_iteration_id`, `id`),
+  KEY `idx_dcc_checkout_actor` (`tenant_id`, `actor_id`, `status`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_related_file` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` BIGINT NOT NULL,
+  `related_controlled_file_id` BIGINT NOT NULL,
+  `project_code_id` BIGINT NOT NULL,
+  `related_master_id` BIGINT NULL,
+  `related_file_number_snapshot` VARCHAR(64) NULL,
+  `related_file_name_snapshot` VARCHAR(256) NULL,
+  `related_version_no_snapshot` VARCHAR(64) NULL,
+  `relation_source` VARCHAR(32) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `controlled_file_id`, `related_controlled_file_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_followup_batch` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `published_controlled_file_id` BIGINT NOT NULL,
+  `published_master_id` BIGINT NOT NULL,
+  `previous_active_controlled_file_id` BIGINT NULL,
+  `dcc_project_code_id` BIGINT NULL,
+  `category_id` BIGINT NOT NULL,
+  `directory_id` BIGINT NULL,
+  `file_type_taxonomy_leaf_id` BIGINT NULL,
+  `file_number_snapshot` VARCHAR(128) NOT NULL,
+  `file_name_snapshot` VARCHAR(512) NOT NULL,
+  `version_no_snapshot` VARCHAR(64) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `published_at` DATETIME NOT NULL,
+  `creation_token` VARCHAR(36) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `published_controlled_file_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_visibility_rule_snapshot` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `source_type` VARCHAR(48) NOT NULL,
+  `source_rule_id` BIGINT NOT NULL,
+  `source_scope` VARCHAR(32) NULL,
+  `subject_type` VARCHAR(32) NOT NULL,
+  `subject_id` BIGINT NULL,
+  `dcc_project_code_id` BIGINT NULL,
+  `category_id` BIGINT NOT NULL,
+  `directory_id` BIGINT NULL,
+  `source_summary` VARCHAR(512) NOT NULL,
+  `resolution_status` VARCHAR(32) NOT NULL,
+  `resolution_message` VARCHAR(1000) NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `batch_id`, `source_type`, `source_rule_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_visibility_user_snapshot` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `rule_snapshot_id` BIGINT NOT NULL,
+  `user_id` BIGINT NOT NULL,
+  `user_name_snapshot` VARCHAR(128) NULL,
+  `dept_id_snapshot` BIGINT NULL,
+  `dept_name_snapshot` VARCHAR(128) NULL,
+  `user_status_snapshot` INT NULL,
+  `resolution_reason` VARCHAR(512) NULL,
+  `assignment_scope_result` VARCHAR(32) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `batch_id`, `rule_snapshot_id`, `user_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_notification_candidate` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `user_id` BIGINT NOT NULL,
+  `user_name_snapshot` VARCHAR(128) NULL,
+  `dept_id_snapshot` BIGINT NULL,
+  `dept_name_snapshot` VARCHAR(128) NULL,
+  `user_status_snapshot` INT NULL,
+  `resolution_status` VARCHAR(32) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `batch_id`, `user_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_notification_candidate_reason` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `candidate_id` BIGINT NOT NULL,
+  `reason_type` VARCHAR(48) NOT NULL,
+  `source_id` BIGINT NOT NULL,
+  `related_master_id` BIGINT NULL,
+  `reason_summary` VARCHAR(512) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `candidate_id`, `reason_type`, `source_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_notification_delivery` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `candidate_id` BIGINT NOT NULL,
+  `user_id` BIGINT NOT NULL,
+  `business_key` VARCHAR(255) NOT NULL,
+  `template_code` VARCHAR(64) NOT NULL,
+  `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+  `attempt_count` INT NOT NULL DEFAULT 0,
+  `last_attempt_at` DATETIME NULL,
+  `sent_at` DATETIME NULL,
+  `system_message_id` BIGINT NULL,
+  `last_error_summary` VARCHAR(512) NULL,
+  `row_version` INT NOT NULL DEFAULT 0,
+  `creation_token` VARCHAR(36) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `batch_id`, `candidate_id`, `deleted`),
+  UNIQUE (`tenant_id`, `business_key`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_notification_audit` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `delivery_id` BIGINT NOT NULL,
+  `batch_id` BIGINT NOT NULL,
+  `action_type` VARCHAR(32) NOT NULL,
+  `actor_id` BIGINT NULL,
+  `reason` VARCHAR(1000) NULL,
+  `status_before` VARCHAR(16) NULL,
+  `status_after` VARCHAR(16) NOT NULL,
+  `attempt_count` INT NOT NULL,
+  `system_message_id` BIGINT NULL,
+  `error_summary` VARCHAR(512) NULL,
+  `row_version_before` INT NOT NULL,
+  `row_version_after` INT NOT NULL,
+  `occurred_at` DATETIME NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_relation_snapshot` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `related_master_id` BIGINT NOT NULL,
+  `related_active_controlled_file_id` BIGINT NULL,
+  `related_file_number_snapshot` VARCHAR(128) NULL,
+  `related_file_name_snapshot` VARCHAR(512) NULL,
+  `related_version_no_snapshot` VARCHAR(64) NULL,
+  `responsible_user_id_snapshot` BIGINT NULL,
+  `responsible_user_name_snapshot` VARCHAR(128) NULL,
+  `responsible_user_status_snapshot` INT NULL,
+  `resolution_status` VARCHAR(32) NOT NULL,
+  `frozen_at` DATETIME NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `batch_id`, `related_master_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_relation_direction_snapshot` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `relation_snapshot_id` BIGINT NOT NULL,
+  `direction` VARCHAR(16) NOT NULL,
+  `source_relation_id` BIGINT NOT NULL,
+  `source_controlled_file_id` BIGINT NOT NULL,
+  `target_controlled_file_id` BIGINT NOT NULL,
+  `relation_source_snapshot` VARCHAR(32) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `batch_id`, `relation_snapshot_id`, `direction`, `source_relation_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_impact_task` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT, `batch_id` BIGINT NOT NULL,
+  `publication_relation_snapshot_id` BIGINT NOT NULL, `published_controlled_file_id` BIGINT NOT NULL,
+  `related_master_id` BIGINT NOT NULL, `related_active_controlled_file_id` BIGINT NULL,
+  `related_file_number_snapshot` VARCHAR(128) NULL, `related_file_name_snapshot` VARCHAR(512) NULL,
+  `related_version_no_snapshot` VARCHAR(64) NULL, `assignee_user_id` BIGINT NULL,
+  `assignee_user_name_snapshot` VARCHAR(128) NULL, `task_status` VARCHAR(32) NOT NULL,
+  `decision` VARCHAR(32) NULL, `decision_reason` VARCHAR(1000) NULL, `decided_by` BIGINT NULL,
+  `decided_at` DATETIME NULL, `revision_tracking_status` VARCHAR(32) NOT NULL,
+  `linked_revision_controlled_file_id` BIGINT NULL, `linked_revision_version_snapshot` VARCHAR(64) NULL,
+  `resolved_at` DATETIME NULL, `row_version` INT NOT NULL DEFAULT 0, `creation_token` VARCHAR(36) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0, `create_time` DATETIME NULL, `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL, `updater` VARCHAR(64) NULL, `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`), UNIQUE (`tenant_id`, `batch_id`, `related_master_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_impact_audit` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT, `task_id` BIGINT NOT NULL, `batch_id` BIGINT NOT NULL,
+  `action_type` VARCHAR(32) NOT NULL, `actor_id` BIGINT NULL, `reason` VARCHAR(1000) NULL,
+  `status_before` VARCHAR(32) NULL, `status_after` VARCHAR(32) NOT NULL, `assignee_before` BIGINT NULL,
+  `assignee_after` BIGINT NULL, `decision_snapshot` VARCHAR(32) NULL,
+  `linked_revision_controlled_file_id` BIGINT NULL, `row_version_before` INT NOT NULL,
+  `row_version_after` INT NOT NULL, `occurred_at` DATETIME NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0, `create_time` DATETIME NULL, `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL, `updater` VARCHAR(64) NULL, `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_print_record` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` BIGINT NOT NULL,
+  `file_number` VARCHAR(64) NOT NULL,
+  `version_no` VARCHAR(64) NOT NULL,
+  `print_no` VARCHAR(64) NOT NULL,
+  `purpose` VARCHAR(255) NOT NULL,
+  `copies` INT NOT NULL,
+  `receiving_department` VARCHAR(128) NOT NULL,
+  `use_location` VARCHAR(128) NOT NULL,
+  `print_user_id` BIGINT NOT NULL,
+  `print_user_name` VARCHAR(128) NULL,
+  `print_time` DATETIME NOT NULL,
+  `approval_status` VARCHAR(32) NOT NULL,
+  `approval_user_id` BIGINT NULL,
+  `approval_user_name` VARCHAR(128) NULL,
+  `approval_time` DATETIME NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `uk_dcc_controlled_print_no` UNIQUE (`tenant_id`, `print_no`, `deleted`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_route_snapshot` (
@@ -652,12 +995,16 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_message_job` (
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_nas_transfer_task` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `audit_task_id` BIGINT NULL,
   `operator_user_id` BIGINT NOT NULL,
-  `template_category_id` BIGINT NOT NULL,
+  `template_category_id` BIGINT NULL,
+  `dcc_project_code_id` BIGINT NULL,
   `product_master_id` BIGINT NULL,
-  `effective_date` DATE NOT NULL,
+  `effective_date` DATE NULL,
   `selected_nas_paths_json` LONGTEXT NOT NULL,
   `source_type` VARCHAR(32) NOT NULL DEFAULT 'NAS',
+  `idempotency_key` VARCHAR(128) NULL,
+  `request_hash` CHAR(64) NULL,
   `expected_file_count` BIGINT NOT NULL DEFAULT 0,
   `expected_total_bytes` BIGINT NOT NULL DEFAULT 0,
   `uploaded_file_count` BIGINT NOT NULL DEFAULT 0,
@@ -683,11 +1030,40 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_nas_transfer_task` (
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_nas_transfer_task_item` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `task_id` BIGINT NOT NULL,
+  `audit_file_id` BIGINT NULL,
   `parent_item_id` BIGINT NULL,
   `item_type` VARCHAR(16) NOT NULL,
   `nas_path` VARCHAR(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `item_name` VARCHAR(255) NOT NULL,
   `source_file_id` BIGINT NULL,
+  `source_signature` CHAR(64) NULL,
+  `classification_status_snapshot` VARCHAR(32) NULL,
+  `matched_project_code_id_snapshot` BIGINT NULL,
+  `matched_file_type_taxonomy_id_snapshot` BIGINT NULL,
+  `matched_file_type_level1_snapshot` VARCHAR(128) NULL,
+  `matched_file_type_level2_snapshot` VARCHAR(128) NULL,
+  `matched_file_type_level3_snapshot` VARCHAR(128) NULL,
+  `matched_file_type_level4_snapshot` VARCHAR(128) NULL,
+  `matched_file_type_level5_snapshot` VARCHAR(128) NULL,
+  `classification_reason_snapshot` VARCHAR(255) NULL,
+  `classification_candidates_json_snapshot` TEXT NULL,
+  `local_relative_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
+  `local_write_status` VARCHAR(32) NULL,
+  `local_write_error_code` VARCHAR(64) NULL,
+  `local_write_error` VARCHAR(512) NULL,
+  `archive_status` VARCHAR(32) NULL,
+  `archive_error_code` VARCHAR(64) NULL,
+  `archive_error` VARCHAR(512) NULL,
+  `archive_category_id_snapshot` BIGINT NULL,
+  `archive_directory_id_snapshot` BIGINT NULL,
+  `archive_dcc_project_code_id_snapshot` BIGINT NULL,
+  `archive_file_type_taxonomy_id_snapshot` BIGINT NULL,
+  `archive_change_type_snapshot` VARCHAR(32) NULL,
+  `archive_file_name_snapshot` VARCHAR(255) NULL,
+  `archive_file_number_snapshot` VARCHAR(128) NULL,
+  `archive_version_no_snapshot` VARCHAR(32) NULL,
+  `archive_effective_date_snapshot` DATE NULL,
+  `archive_remark_snapshot` VARCHAR(512) NULL,
   `status` VARCHAR(32) NOT NULL,
   `attempt_count` INT NOT NULL DEFAULT 0,
   `failure_stage` VARCHAR(32) NULL,
@@ -720,6 +1096,142 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_local_folder_upload_chunk` (
   `chunk_sha256` VARCHAR(64) NOT NULL,
   `chunk_temp_path` VARCHAR(1024) NOT NULL,
   `status` VARCHAR(32) NOT NULL DEFAULT 'COMPLETED',
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_nas_source` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` BIGINT NOT NULL,
+  `nas_share_name` VARCHAR(128) NOT NULL,
+  `normalized_relative_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `path_hash` CHAR(64) NOT NULL,
+  `source_type` VARCHAR(32) NOT NULL,
+  `source_confidence` VARCHAR(32) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_nas_control_audit_task` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `operator_user_id` BIGINT NOT NULL,
+  `nas_share_name` VARCHAR(128) NOT NULL,
+  `scan_roots_json` LONGTEXT NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `current_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
+  `scanned_file_count` BIGINT NOT NULL DEFAULT 0,
+  `controlled_file_count` BIGINT NOT NULL DEFAULT 0,
+  `not_controlled_file_count` BIGINT NOT NULL DEFAULT 0,
+  `ambiguous_file_count` BIGINT NOT NULL DEFAULT 0,
+  `source_missing_count` BIGINT NOT NULL DEFAULT 0,
+  `skipped_directory_count` BIGINT NOT NULL DEFAULT 0,
+  `report_file_id` BIGINT NULL,
+  `report_file_name` VARCHAR(255) NULL,
+  `started_at` DATETIME NULL,
+  `completed_at` DATETIME NULL,
+  `failure_reason` VARCHAR(512) NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_nas_control_audit_file` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `task_id` BIGINT NOT NULL,
+  `nas_share_name` VARCHAR(128) NOT NULL,
+  `root_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `normalized_relative_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `path_hash` CHAR(64) NOT NULL,
+  `file_name` VARCHAR(255) NOT NULL,
+  `file_size` BIGINT NOT NULL,
+  `modified_at` DATETIME NOT NULL,
+  `source_signature` CHAR(64) NOT NULL,
+  `control_status` VARCHAR(32) NOT NULL DEFAULT 'NOT_CONTROLLED',
+  `classification_status` VARCHAR(32) NOT NULL DEFAULT 'PENDING_RECOGNITION',
+  `matched_project_code_id` BIGINT NULL,
+  `matched_file_type_taxonomy_id` BIGINT NULL,
+  `matched_file_type_level1` VARCHAR(128) NULL,
+  `matched_file_type_level2` VARCHAR(128) NULL,
+  `matched_file_type_level3` VARCHAR(128) NULL,
+  `matched_file_type_level4` VARCHAR(128) NULL,
+  `matched_file_type_level5` VARCHAR(128) NULL,
+  `classification_reason` VARCHAR(255) NULL,
+  `classification_candidates_json` TEXT NULL,
+  `expected_local_relative_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
+  `download_status` VARCHAR(32) NOT NULL DEFAULT 'NOT_SELECTED',
+  `archive_status` VARCHAR(32) NOT NULL DEFAULT 'NOT_STARTED',
+  `selected_import_task_id` BIGINT NULL,
+  `selected_import_task_item_id` BIGINT NULL,
+  `local_relative_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
+  `local_write_error_code` VARCHAR(64) NULL,
+  `local_write_error` VARCHAR(512) NULL,
+  `archive_error_code` VARCHAR(64) NULL,
+  `archive_error` VARCHAR(512) NULL,
+  `controlled_file_id` BIGINT NULL,
+  `original_path_sync_status` VARCHAR(32) NULL,
+  `original_path_sync_file_id` BIGINT NULL,
+  `original_path_sync_task_id` BIGINT NULL,
+  `original_path_sync_task_item_id` BIGINT NULL,
+  `original_path_sync_error_code` VARCHAR(64) NULL,
+  `original_path_sync_error` VARCHAR(512) NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_nas_original_path_sync_file` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `audit_task_id` BIGINT NOT NULL,
+  `audit_file_id` BIGINT NOT NULL,
+  `transfer_task_id` BIGINT NOT NULL,
+  `transfer_task_item_id` BIGINT NOT NULL,
+  `source_file_id` BIGINT NOT NULL,
+  `nas_share_name` VARCHAR(128) NOT NULL,
+  `root_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `normalized_relative_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `path_hash` CHAR(64) NOT NULL,
+  `file_name` VARCHAR(255) NOT NULL,
+  `file_size` BIGINT NOT NULL,
+  `modified_at` DATETIME NOT NULL,
+  `source_signature` CHAR(64) NOT NULL,
+  `sync_status` VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+  `synced_by_user_id` BIGINT NOT NULL,
+  `synced_at` DATETIME NOT NULL,
+  `deleted_by_user_id` BIGINT NULL,
+  `deleted_at` DATETIME NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_nas_control_audit_skipped_directory` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `task_id` BIGINT NOT NULL,
+  `directory_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `skip_reason` VARCHAR(64) NOT NULL,
+  `skipped_at` DATETIME NOT NULL,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
   `create_time` DATETIME NULL,
   `update_time` DATETIME NULL,
@@ -779,7 +1291,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_access_log` (
   `purpose` VARCHAR(64) NULL,
   `result` VARCHAR(32) NOT NULL,
   `failure_code` VARCHAR(64) NULL,
-  `reason` VARCHAR(255) NULL,
+  `reason` VARCHAR(2000) NULL,
   `source_ip` VARCHAR(64) NULL,
   `request_id` VARCHAR(128) NULL,
   `user_agent` VARCHAR(512) NULL,
@@ -865,11 +1377,33 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_upload_policy` (
   PRIMARY KEY (`id`)
 );
 
+CREATE TABLE IF NOT EXISTS `dcc_project_access_rule` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `dcc_project_code_id` BIGINT NOT NULL,
+  `subject_type` VARCHAR(32) NOT NULL,
+  `subject_id` BIGINT NOT NULL,
+  `access_level` VARCHAR(16) NOT NULL,
+  `active` BIT NOT NULL,
+  `valid_from` DATETIME NULL,
+  `expire_time` DATETIME NULL,
+  `change_reason` VARCHAR(512) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_project_access_active_subject`
+    (`tenant_id`, `dcc_project_code_id`, `subject_type`, `subject_id`, `active`, `deleted`)
+);
+
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_temporary_file` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `upload_ticket` VARCHAR(64) NOT NULL,
   `session_id` VARCHAR(128) NOT NULL,
   `purpose` VARCHAR(64) NOT NULL,
+  `category_id` BIGINT NULL,
   `uploader_id` BIGINT NOT NULL,
   `original_file_name` VARCHAR(255) NOT NULL,
   `content_type` VARCHAR(255) NULL,
@@ -890,7 +1424,19 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_temporary_file` (
   `creator` VARCHAR(64) NULL,
   `updater` VARCHAR(64) NULL,
   `deleted` TINYINT NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`)
+  `active_slot_unique_flag` TINYINT GENERATED ALWAYS AS (
+    CASE
+      WHEN `deleted` = 0
+        AND `status` = 'AVAILABLE'
+        AND `cleanup_status` IN ('ACTIVE', 'CLEANING')
+        AND `bound_controlled_file_id` IS NULL
+      THEN 1
+      ELSE NULL
+    END
+  ),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_temp_active_slot`
+    (`tenant_id`, `uploader_id`, `session_id`, `purpose`, `active_slot_unique_flag`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_download_record` (
@@ -902,16 +1448,11 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_download_record` (
   `file_version_no` VARCHAR(64) NOT NULL,
   `user_id` BIGINT NOT NULL,
   `policy_version` VARCHAR(64) NOT NULL,
-  `encryption_status` VARCHAR(32) NOT NULL,
-  `encryption_policy_version` VARCHAR(64) NULL,
-  `artifact_id` VARCHAR(128) NULL,
-  `cipher_file_ref` VARCHAR(255) NULL,
+  `download_status` VARCHAR(32) NOT NULL,
   `plain_sha256` VARCHAR(128) NULL,
-  `cipher_sha256` VARCHAR(128) NULL,
   `failure_code` VARCHAR(64) NULL,
   `failure_reason` VARCHAR(500) NULL,
   `requested_at` DATETIME NOT NULL,
-  `encrypted_at` DATETIME NULL,
   `returned_at` DATETIME NULL,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
   `create_time` DATETIME NULL,
@@ -1126,6 +1667,7 @@ CREATE TABLE IF NOT EXISTS `dcc_nas_acl_restore_log` (
 
 CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `product_master_id` BIGINT NULL,
   `doc_control_no` VARCHAR(64) NULL,
   `project_name` VARCHAR(255) NOT NULL,
   `project_code` VARCHAR(64) NOT NULL DEFAULT '',
@@ -1137,6 +1679,7 @@ CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `priority` VARCHAR(64) NULL,
   `status` VARCHAR(32) NOT NULL,
   `last_import_batch_id` BIGINT NULL,
+  `batch_record_total_recognition_json` LONGTEXT NULL,
   `associated_file_count` BIGINT NOT NULL DEFAULT 0,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
   `create_time` DATETIME NULL,
@@ -1146,6 +1689,71 @@ CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `deleted` TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   CONSTRAINT `uk_dcc_project_code_tenant_project` UNIQUE (`tenant_id`, `project_name`, `project_code`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_project_file_template_item` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `project_code_id` BIGINT NOT NULL,
+  `file_type_taxonomy_id` BIGINT NOT NULL,
+  `file_name` VARCHAR(255) NOT NULL,
+  `sort_order` INT NOT NULL DEFAULT 0,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `active_unique_flag` BIGINT GENERATED ALWAYS AS (
+    CASE WHEN `deleted` = 0 THEN 1 ELSE NULL END
+  ),
+  PRIMARY KEY (`id`),
+  CONSTRAINT `uk_dcc_project_file_template_item_active`
+    UNIQUE (`tenant_id`, `project_code_id`, `file_type_taxonomy_id`, `file_name`, `active_unique_flag`)
+);
+
+CREATE TABLE IF NOT EXISTS `mdm_enterprise` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `enterprise_code` VARCHAR(64) NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `type` VARCHAR(32) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_product_onboarding_request` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `product_master_id` BIGINT NULL,
+  `product_code` VARCHAR(64) NULL,
+  `dcc_product_code` VARCHAR(14) NULL,
+  `product_name_cn` VARCHAR(255) NULL,
+  `product_name_en` VARCHAR(255) NULL,
+  `model_specification` VARCHAR(255) NULL,
+  `product_category` VARCHAR(128) NULL,
+  `doc_control_no` VARCHAR(64) NULL,
+  `project_name` VARCHAR(255) NOT NULL,
+  `project_code` VARCHAR(64) NOT NULL DEFAULT '',
+  `category` VARCHAR(128) NULL,
+  `commissioned_production` VARCHAR(128) NULL,
+  `project_leader` VARCHAR(128) NULL,
+  `project_engineer` VARCHAR(128) NULL,
+  `storage_location` VARCHAR(128) NULL,
+  `priority` VARCHAR(64) NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `applicant_user_id` BIGINT NOT NULL,
+  `approver_user_id` BIGINT NULL,
+  `approved_time` DATETIME NULL,
+  `generated_project_code_id` BIGINT NULL,
+  `reject_reason` VARCHAR(512) NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `uk_dcc_product_onboarding_pending_project` UNIQUE (`tenant_id`, `project_name`, `project_code`, `status`, `deleted`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_project_code_alias_mapping` (
@@ -1416,4 +2024,731 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_recognition_claim` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_dcc_file_recognition_claim_scope`
     (`controlled_file_id`, `recognition_scope`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_signature_binding` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `signature_id` bigint NOT NULL,
+  `controlled_file_id` bigint NOT NULL,
+  `original_evidence_hash` varchar(128) NOT NULL,
+  `controlled_copy_file_id` bigint NOT NULL,
+  `controlled_copy_object_key` varchar(1024) NOT NULL,
+  `controlled_copy_sha256` char(64) NOT NULL,
+  `controlled_copy_hash_algorithm` varchar(32) NOT NULL DEFAULT 'SHA256',
+  `bound_at` datetime NOT NULL,
+  `bound_by` bigint DEFAULT NULL,
+  `binding_event_key` varchar(128) NOT NULL,
+  `binding_payload_version` varchar(32) NOT NULL DEFAULT 'v2',
+  `binding_hash_algorithm` varchar(32) NOT NULL DEFAULT 'SHA256',
+  `binding_hash` char(64) NOT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_signature_binding_signature` (`tenant_id`, `signature_id`, `deleted`),
+  KEY `idx_dcc_signature_binding_file` (`tenant_id`, `controlled_file_id`),
+  KEY `idx_dcc_signature_binding_copy` (`tenant_id`, `controlled_copy_file_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_signature_reissue_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` bigint NOT NULL,
+  `signature_id` bigint NOT NULL,
+  `before_evidence_hash` varchar(128) NOT NULL,
+  `before_evidence_key_version` varchar(128) NOT NULL,
+  `before_evidence_status` varchar(32) NOT NULL,
+  `after_evidence_hash` varchar(128) NOT NULL,
+  `after_evidence_key_version` varchar(128) NOT NULL,
+  `after_evidence_status` varchar(32) NOT NULL,
+  `reissued_by` bigint NOT NULL,
+  `reissued_at` datetime NOT NULL,
+  `request_id` varchar(128) NOT NULL,
+  `reason` varchar(1024) NOT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_dcc_signature_reissue_file` (`tenant_id`, `controlled_file_id`, `deleted`),
+  KEY `idx_dcc_signature_reissue_signature` (`tenant_id`, `signature_id`, `deleted`),
+  UNIQUE KEY `uk_dcc_signature_reissue_request` (`tenant_id`, `signature_id`, `request_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_source_ownership` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` BIGINT NOT NULL,
+  `source_file_id` BIGINT NOT NULL,
+  `origin_source_file_id` BIGINT NOT NULL,
+  `source_sha256` VARCHAR(64) NOT NULL,
+  `ownership_type` VARCHAR(32) NOT NULL,
+  `claimed_by` BIGINT NULL,
+  `claimed_time` DATETIME NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_source_owner_file` (`tenant_id`, `controlled_file_id`),
+  UNIQUE KEY `uk_dcc_source_owner_source` (`tenant_id`, `source_file_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_source_migration` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` BIGINT NOT NULL,
+  `legacy_source_file_id` BIGINT NOT NULL,
+  `isolated_source_file_id` BIGINT NULL,
+  `source_sha256` VARCHAR(64) NULL,
+  `migration_status` VARCHAR(32) NOT NULL,
+  `error_message` VARCHAR(1000) NULL,
+  `migrated_by` BIGINT NULL,
+  `migrated_time` DATETIME NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_source_migration_file` (`tenant_id`, `controlled_file_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `owner_company_id` BIGINT NOT NULL,
+  `product_master_id` BIGINT NULL,
+  `project_code_id` BIGINT NULL,
+  `first_obtained_date` DATE NULL,
+  `current_version_id` BIGINT NULL,
+  `pending_version_id` BIGINT NULL,
+  `current_snapshot_id` BIGINT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `row_version` INT NOT NULL DEFAULT 0,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_master_status` CHECK (`status` IN
+    ('DRAFT', 'PENDING_FIRST_EFFECTIVE', 'ACTIVE', 'EXPIRED_UNRENEWED', 'VOIDED')),
+  KEY `idx_dcc_reg_cert_owner_product` (`tenant_id`, `owner_company_id`, `product_master_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_version` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `certificate_id` BIGINT NOT NULL,
+  `version_no` INT NOT NULL,
+  `version_type` VARCHAR(32) NOT NULL,
+  `certificate_no` VARCHAR(128) NULL,
+  `approval_date` DATE NULL,
+  `effective_date` DATE NULL,
+  `expiry_date` DATE NULL,
+  `classification` VARCHAR(64) NULL,
+  `category_changed` TINYINT NOT NULL DEFAULT 0,
+  `base_snapshot_id` BIGINT NULL,
+  `remark` VARCHAR(1024) NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `current_unique_flag` TINYINT NULL,
+  `pending_unique_flag` TINYINT NULL,
+  `formalized_at` DATETIME NULL,
+  `formalized_by` BIGINT NULL,
+  `voided_at` DATETIME NULL,
+  `voided_by` BIGINT NULL,
+  `void_reason` VARCHAR(1024) NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_version_type` CHECK
+    (`version_type` IN ('INITIAL_CERTIFICATE', 'RENEWAL_CERTIFICATE')),
+  CONSTRAINT `chk_dcc_reg_cert_version_status` CHECK
+    (`status` IN ('DRAFT', 'PENDING_EFFECTIVE', 'CURRENT', 'OLD', 'VOIDED')),
+  UNIQUE KEY `uk_dcc_reg_cert_version_no` (`tenant_id`, `certificate_id`, `version_no`),
+  UNIQUE KEY `uk_dcc_reg_cert_current` (`tenant_id`, `certificate_id`, `current_unique_flag`),
+  UNIQUE KEY `uk_dcc_reg_cert_pending` (`tenant_id`, `certificate_id`, `pending_unique_flag`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_snapshot` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `version_id` BIGINT NOT NULL,
+  `revision_no` INT NOT NULL,
+  `source_change_id` BIGINT NULL,
+  `product_name` VARCHAR(255) NOT NULL,
+  `registrant_name` VARCHAR(255) NULL,
+  `model_specification` VARCHAR(2000) NULL,
+  `structure_composition` VARCHAR(4000) NULL,
+  `intended_use` VARCHAR(4000) NULL,
+  `technical_requirements` VARCHAR(4000) NULL,
+  `residence_address` VARCHAR(1000) NULL,
+  `production_address` VARCHAR(1000) NULL,
+  `entrusted_production` TINYINT NOT NULL,
+  `self_production` TINYINT NOT NULL,
+  `entrusted_enterprises_json` VARCHAR(8000) NOT NULL,
+  `entrusted_enterprise_count` INT NULL,
+  `effective_at` DATETIME NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_production_mode` CHECK
+    ((`entrusted_production` = 0 AND `self_production` = 0 AND `entrusted_enterprises_json` = '[]')
+      OR ((`entrusted_production` = 1 OR `self_production` = 1)
+        AND ((`entrusted_production` = 1 AND `entrusted_enterprises_json` <> '[]')
+          OR (`entrusted_production` = 0 AND `entrusted_enterprises_json` = '[]')))),
+  UNIQUE KEY `uk_dcc_reg_cert_snapshot_revision` (`tenant_id`, `version_id`, `revision_no`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_snapshot_entrusted` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `snapshot_id` BIGINT NOT NULL,
+  `enterprise_id` BIGINT NOT NULL,
+  `enterprise_name_snapshot` VARCHAR(255) NOT NULL,
+  `sort_order` INT NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_entrusted` (`tenant_id`, `snapshot_id`, `enterprise_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `owner_type` VARCHAR(32) NOT NULL,
+  `owner_id` BIGINT NOT NULL,
+  `file_kind` VARCHAR(64) NOT NULL,
+  `infra_file_id` BIGINT NOT NULL,
+  `original_name` VARCHAR(512) NOT NULL,
+  `mime_type` VARCHAR(128) NOT NULL,
+  `file_size` BIGINT NOT NULL,
+  `sha256` CHAR(64) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `bound_file_unique_flag` BIGINT NULL,
+  `bound_at` DATETIME NULL,
+  `bound_by` BIGINT NULL,
+  `dcc_project_code_id` BIGINT NULL,
+  `file_type_taxonomy_id` BIGINT NULL,
+  `file_type_level1` VARCHAR(64) NULL,
+  `file_type_level2` VARCHAR(128) NULL,
+  `file_type_level3` VARCHAR(128) NULL,
+  `file_type_level4` VARCHAR(128) NULL,
+  `file_type_level5` VARCHAR(128) NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_file_owner_type` CHECK
+    (`owner_type` IN ('VERSION', 'CHANGE', 'SUPPORTING_DOCUMENT')),
+  CONSTRAINT `chk_dcc_reg_cert_file_kind` CHECK (`file_kind` IN
+    ('REGISTRATION_CERTIFICATE', 'CHANGE_APPROVAL', 'RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
+  CONSTRAINT `chk_dcc_reg_cert_file_status` CHECK
+    (`status` IN ('STAGED', 'BOUND', 'CLEANUP_REQUIRED', 'VOIDED')),
+  UNIQUE KEY `uk_dcc_reg_cert_bound_file` (`tenant_id`, `bound_file_unique_flag`),
+  KEY `idx_dcc_reg_cert_file_project_code` (`tenant_id`, `dcc_project_code_id`),
+  KEY `idx_dcc_reg_cert_file_taxonomy` (`tenant_id`, `file_type_taxonomy_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_audit` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `owner_company_id` BIGINT NULL,
+  `certificate_id` BIGINT NULL,
+  `requested_owner_company_id` BIGINT NULL,
+  `requested_certificate_id` BIGINT NULL,
+  `version_id` BIGINT NULL,
+  `snapshot_id` BIGINT NULL,
+  `business_file_id` BIGINT NULL,
+  `event_key` VARCHAR(256) NOT NULL,
+  `event_type` VARCHAR(64) NOT NULL,
+  `actor_id` BIGINT NULL,
+  `result` VARCHAR(32) NOT NULL,
+  `result_code` VARCHAR(64) NULL,
+  `request_trace_id` VARCHAR(128) NOT NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `occurred_at` DATETIME NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_audit_event_key` CHECK (TRIM(`event_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_audit_result` CHECK (`result` IN ('SUCCESS', 'FAILURE')),
+  CONSTRAINT `chk_dcc_reg_cert_audit_trusted_identity` CHECK (
+    (`result` = 'SUCCESS'
+      AND `owner_company_id` IS NOT NULL AND `owner_company_id` > 0
+      AND `certificate_id` IS NOT NULL AND `certificate_id` > 0)
+    OR (`result` = 'FAILURE'
+      AND ((`owner_company_id` IS NULL AND `certificate_id` IS NULL)
+        OR (`owner_company_id` IS NOT NULL AND `owner_company_id` > 0
+          AND `certificate_id` IS NOT NULL AND `certificate_id` > 0)))
+  ),
+  CONSTRAINT `chk_dcc_reg_cert_audit_trace` CHECK (TRIM(`request_trace_id`) <> ''),
+  UNIQUE KEY `uk_dcc_reg_cert_audit_event` (`tenant_id`, `event_key`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_lifecycle_event` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `owner_company_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `source_version_id` BIGINT NULL,
+  `target_version_id` BIGINT NULL,
+  `source_snapshot_id` BIGINT NULL,
+  `target_snapshot_id` BIGINT NULL,
+  `event_key` VARCHAR(256) NOT NULL,
+  `event_type` VARCHAR(64) NOT NULL,
+  `event_sequence` INT NOT NULL,
+  `baseline_row_version` INT NULL,
+  `baseline_snapshot_revision` INT NULL,
+  `actor_id` BIGINT NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `occurred_at` DATETIME NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_lifecycle_event_key` CHECK (TRIM(`event_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_lifecycle_event_type` CHECK (`event_type` IN
+    ('RENEWAL_UPLOADED', 'ACTIVATION_APPLIED', 'SUPPORTING_DOCUMENT_UPLOADED',
+     'SUPPORTING_DOCUMENT_CONFIRMED', 'SUPPORTING_DOCUMENT_REJECTED',
+     'SUPPORTING_DOCUMENT_EFFECTIVE',
+     'CHANGE_SUBMITTED', 'CHANGE_APPLIED', 'CANDIDATE_VOIDED', 'CERTIFICATE_VOIDED')),
+  CONSTRAINT `chk_dcc_reg_cert_lifecycle_sequence` CHECK (`event_sequence` > 0),
+  UNIQUE KEY `uk_dcc_reg_cert_lifecycle_event_key` (`tenant_id`, `event_key`),
+  UNIQUE KEY `uk_dcc_reg_cert_lifecycle_sequence` (`tenant_id`, `certificate_id`, `event_sequence`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_activation_replay` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `activation_event_id` BIGINT NOT NULL,
+  `source_event_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `source_sequence` INT NOT NULL,
+  `applied_sequence` INT NOT NULL,
+  `replay_result` VARCHAR(32) NOT NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_activation_replay_order` CHECK
+    (`source_sequence` > 0 AND `applied_sequence` > 0),
+  CONSTRAINT `chk_dcc_reg_cert_activation_replay_result` CHECK
+    (`replay_result` IN ('APPLIED', 'SKIPPED')),
+  UNIQUE KEY `uk_dcc_reg_cert_activation_source` (`tenant_id`, `activation_event_id`, `source_event_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_supporting_document` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `owner_company_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `version_id` BIGINT NOT NULL,
+  `business_file_id` BIGINT NULL,
+  `document_type` VARCHAR(64) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `open_unique_flag` BIGINT NULL,
+  `row_version` INT NOT NULL DEFAULT 1,
+  `uploaded_at` DATETIME NOT NULL,
+  `uploaded_by` BIGINT NOT NULL,
+  `confirmed_at` DATETIME NULL,
+  `confirmed_by` BIGINT NULL,
+  `rejected_at` DATETIME NULL,
+  `rejected_by` BIGINT NULL,
+  `reject_reason` VARCHAR(1024) NULL,
+  `voided_at` DATETIME NULL,
+  `voided_by` BIGINT NULL,
+  `void_reason` VARCHAR(1024) NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_support_type` CHECK (`document_type` IN
+    ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
+  CONSTRAINT `chk_dcc_reg_cert_support_status` CHECK (`status` IN
+    ('EFFECTIVE', 'REJECTED', 'VOIDED')),
+  CONSTRAINT `chk_dcc_reg_cert_support_reject_reason` CHECK (
+    `status` <> 'REJECTED' OR (`reject_reason` IS NOT NULL AND TRIM(`reject_reason`) <> '')
+  ),
+  UNIQUE KEY `uk_dcc_reg_cert_support_open` (`tenant_id`, `certificate_id`, `document_type`, `open_unique_flag`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_change` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `owner_company_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `source_version_id` BIGINT NOT NULL,
+  `source_snapshot_id` BIGINT NOT NULL,
+  `resulting_snapshot_id` BIGINT NULL,
+  `event_id` BIGINT NOT NULL,
+  `approval_request_id` BIGINT NULL,
+  `approval_date` DATE NOT NULL,
+  `selected_change_types_json` VARCHAR(8000) NOT NULL,
+  `selected_item_count` INT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `row_version` INT NOT NULL DEFAULT 1,
+  `actor_id` BIGINT NOT NULL,
+  `reviewer_user_id` BIGINT NULL,
+  `reviewed_at` DATETIME NULL,
+  `applied_at` DATETIME NULL,
+  `voided_at` DATETIME NULL,
+  `voided_by` BIGINT NULL,
+  `void_reason` VARCHAR(1024) NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_change_status` CHECK (`status` IN ('PENDING_APPROVAL', 'APPLIED', 'REJECTED', 'VOIDED')),
+  CONSTRAINT `chk_dcc_reg_cert_change_selected_count` CHECK (`selected_item_count` > 0),
+  UNIQUE KEY `uk_dcc_reg_cert_change_event` (`tenant_id`, `event_id`),
+  UNIQUE KEY `uk_dcc_reg_cert_change_approval_request` (`tenant_id`, `approval_request_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_change_item` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `change_id` BIGINT NOT NULL,
+  `item_type` VARCHAR(64) NOT NULL,
+  `before_value_json` VARCHAR(8000) NOT NULL,
+  `after_value_json` VARCHAR(8000) NOT NULL,
+  `sort_order` INT NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_change_item_type` CHECK (`item_type` IN
+    ('PRODUCT_NAME', 'REGISTRANT_NAME', 'MODEL_SPECIFICATION', 'STRUCTURE_COMPOSITION',
+     'INTENDED_USE', 'TECHNICAL_REQUIREMENTS', 'RESIDENCE_ADDRESS', 'PRODUCTION_ADDRESS',
+     'OTHER_CONTENT')),
+  CONSTRAINT `chk_dcc_reg_cert_change_item_value` CHECK (`sort_order` > 0),
+  UNIQUE KEY `uk_dcc_reg_cert_change_item_type` (`tenant_id`, `change_id`, `item_type`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_reminder_config` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `active_unique_flag` BIGINT NULL,
+  `enabled` BOOLEAN NOT NULL DEFAULT TRUE,
+  `daily_run_time` VARCHAR(5) NOT NULL DEFAULT '09:00',
+  `timezone` VARCHAR(64) NOT NULL DEFAULT 'Asia/Shanghai',
+  `threshold_days_json` VARCHAR(8000) NOT NULL,
+  `threshold_recipient_user_ids_json` VARCHAR(8000) NOT NULL DEFAULT '{}',
+  `row_version` INT NOT NULL DEFAULT 1,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_config_time` CHECK
+    (REGEXP_LIKE(`daily_run_time`, '^[0-2][0-9]:[0-5][0-9]$') AND `daily_run_time` <= '23:59'),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_config_timezone` CHECK (`timezone` = 'Asia/Shanghai'),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_config_revision` CHECK (`row_version` > 0),
+  UNIQUE KEY `uk_dcc_reg_cert_reminder_config_active` (`tenant_id`, `active_unique_flag`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_daily_run` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `business_date` DATE NOT NULL,
+  `run_key` VARCHAR(128) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `retry_count` INT NOT NULL DEFAULT 0,
+  `failure_reason` VARCHAR(1024) NULL,
+  `started_at` DATETIME NOT NULL,
+  `finished_at` DATETIME NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_daily_run_key` CHECK (TRIM(`run_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_daily_run_status` CHECK (`status` IN ('RUNNING', 'SUCCESS', 'FAILED')),
+  CONSTRAINT `chk_dcc_reg_cert_daily_run_failure` CHECK (
+    `status` <> 'FAILED' OR (`failure_reason` IS NOT NULL AND TRIM(`failure_reason`) <> '')
+  ),
+  CONSTRAINT `chk_dcc_reg_cert_daily_run_success` CHECK (`status` <> 'SUCCESS' OR `finished_at` IS NOT NULL),
+  CONSTRAINT `chk_dcc_reg_cert_daily_run_retry` CHECK (`retry_count` >= 0),
+  UNIQUE KEY `uk_dcc_reg_cert_daily_run_date` (`tenant_id`, `business_date`),
+  UNIQUE KEY `uk_dcc_reg_cert_daily_run_key` (`tenant_id`, `run_key`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_reminder_occurrence` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `run_id` BIGINT NOT NULL,
+  `owner_company_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `version_id` BIGINT NOT NULL,
+  `supporting_document_id` BIGINT NULL,
+  `reminder_type` VARCHAR(64) NOT NULL,
+  `threshold_level` VARCHAR(16) NOT NULL,
+  `business_date` DATE NOT NULL,
+  `due_date` DATE NOT NULL,
+  `event_key` VARCHAR(256) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `suppressed_by_occurrence_id` BIGINT NULL,
+  `suppress_reason` VARCHAR(512) NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_key` CHECK (TRIM(`event_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_type` CHECK (`reminder_type` IN
+    ('CERTIFICATE_EXPIRY', 'RENEWAL_UPLOAD', 'SUPPORTING_DOCUMENT')),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_threshold` CHECK (`threshold_level` IN
+    ('T_30', 'T_8', 'T_2', 'T_1')),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_status` CHECK (`status` IN
+    ('PENDING_DELIVERY', 'SUPPRESSED', 'DELIVERED', 'CLEARED', 'FAILED')),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_suppression` CHECK (
+    `status` <> 'SUPPRESSED'
+    OR (`suppressed_by_occurrence_id` IS NOT NULL
+      AND `suppress_reason` IS NOT NULL
+      AND TRIM(`suppress_reason`) <> '')
+  ),
+  UNIQUE KEY `uk_dcc_reg_cert_reminder_occurrence_key` (`tenant_id`, `event_key`),
+  UNIQUE KEY `uk_dcc_reg_cert_reminder_occurrence_run` (`tenant_id`, `run_id`, `certificate_id`, `reminder_type`, `threshold_level`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_reminder_delivery` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `occurrence_id` BIGINT NOT NULL,
+  `recipient_user_id` BIGINT NOT NULL,
+  `recipient_company_id` BIGINT NULL,
+  `delivery_key` VARCHAR(256) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `notify_message_id` BIGINT NULL,
+  `attempt_count` INT NOT NULL DEFAULT 0,
+  `last_failure_code` VARCHAR(64) NULL,
+  `last_failure_reason` VARCHAR(1024) NULL,
+  `sent_at` DATETIME NULL,
+  `next_retry_at` DATETIME NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_delivery_key` CHECK (TRIM(`delivery_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_delivery_recipient` CHECK (`recipient_user_id` > 0),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_delivery_status` CHECK (`status` IN
+    ('PENDING', 'SENDING', 'SENT', 'FAILED')),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_delivery_message` CHECK (
+    `status` <> 'SENT' OR (`notify_message_id` IS NOT NULL AND `notify_message_id` > 0 AND `sent_at` IS NOT NULL)
+  ),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_delivery_failure` CHECK (
+    `status` <> 'FAILED'
+    OR (`last_failure_reason` IS NOT NULL AND TRIM(`last_failure_reason`) <> '')
+  ),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_delivery_attempt` CHECK (`attempt_count` >= 0),
+  UNIQUE KEY `uk_dcc_reg_cert_reminder_delivery_key` (`tenant_id`, `delivery_key`),
+  UNIQUE KEY `uk_dcc_reg_cert_reminder_delivery_recipient` (`tenant_id`, `occurrence_id`, `recipient_user_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_access_request` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `owner_company_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `requester_user_id` BIGINT NOT NULL,
+  `request_type` VARCHAR(32) NOT NULL,
+  `request_key` VARCHAR(256) NOT NULL,
+  `bpm_process_instance_id` VARCHAR(128) NULL,
+  `purpose` VARCHAR(512) NOT NULL,
+  `project_code_id` BIGINT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `requested_at` DATETIME NOT NULL,
+  `completed_at` DATETIME NULL,
+  `withdrawn_at` DATETIME NULL,
+  `withdraw_reason` VARCHAR(512) NULL,
+  `reject_reason` VARCHAR(512) NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` BIT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_access_request_key` (`tenant_id`, `request_key`),
+  UNIQUE KEY `uk_dcc_reg_cert_access_request_bpm` (`tenant_id`, `bpm_process_instance_id`),
+  CONSTRAINT `chk_dcc_reg_cert_access_request_type` CHECK (`request_type` IN
+    ('VIEW_OLD_CERTIFICATE', 'DOWNLOAD_FILE', 'UPLOAD_CERTIFICATE')),
+  CONSTRAINT `chk_dcc_reg_cert_access_request_status` CHECK (`status` IN
+    ('SUBMITTED', 'BPM_BOUND', 'APPROVED', 'REJECTED', 'WITHDRAWN', 'REVOKED')),
+  CONSTRAINT `chk_dcc_reg_cert_access_request_key` CHECK (TRIM(`request_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_access_request_purpose` CHECK (TRIM(`purpose`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_access_request_reject` CHECK (
+    `status` <> 'REJECTED' OR (`reject_reason` IS NOT NULL AND TRIM(`reject_reason`) <> '')
+  ),
+  CONSTRAINT `chk_dcc_reg_cert_access_request_withdraw` CHECK (
+    `status` <> 'WITHDRAWN' OR `withdrawn_at` IS NOT NULL
+  )
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_access_request_file` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `request_id` BIGINT NOT NULL,
+  `business_file_id` BIGINT NOT NULL,
+  `file_kind` VARCHAR(64) NOT NULL,
+  `download_requested` BOOLEAN NOT NULL DEFAULT FALSE,
+  `status` VARCHAR(32) NOT NULL,
+  `detail_json` VARCHAR(8000) NOT NULL DEFAULT '{}',
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` BIT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_request_file_scope` (`tenant_id`, `request_id`, `business_file_id`),
+  CONSTRAINT `chk_dcc_reg_cert_request_file_kind` CHECK (TRIM(`file_kind`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_request_file_download` CHECK (
+    (`download_requested` = TRUE AND `status` IN ('REQUESTED', 'APPROVED', 'REJECTED', 'GRANTED'))
+    OR (`download_requested` = FALSE AND `status` IN ('REQUESTED', 'APPROVED', 'REJECTED'))
+  )
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_bpm_binding` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `request_id` BIGINT NOT NULL,
+  `business_key` VARCHAR(256) NOT NULL,
+  `bpm_process_instance_id` VARCHAR(128) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  `completed_at` DATETIME NULL,
+  `detail_json` VARCHAR(8000) NOT NULL DEFAULT '{}',
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_bpm_binding_business` (`tenant_id`, `business_key`),
+  UNIQUE KEY `uk_dcc_reg_cert_bpm_binding_process` (`tenant_id`, `bpm_process_instance_id`),
+  CONSTRAINT `chk_dcc_reg_cert_bpm_binding_key` CHECK (TRIM(`business_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_bpm_binding_instance` CHECK (TRIM(`bpm_process_instance_id`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_bpm_binding_status` CHECK (`status` IN
+    ('RUNNING', 'APPROVED', 'REJECTED', 'WITHDRAWN', 'CANCELLED'))
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_grant` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `request_id` BIGINT NOT NULL,
+  `request_file_id` BIGINT NULL,
+  `owner_company_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `business_file_id` BIGINT NULL,
+  `grantee_user_id` BIGINT NOT NULL,
+  `grant_type` VARCHAR(32) NOT NULL,
+  `grant_key` VARCHAR(256) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `granted_at` DATETIME NOT NULL,
+  `expires_at` DATETIME NOT NULL,
+  `revoked_at` DATETIME NULL,
+  `revoked_by` BIGINT NULL,
+  `revoke_reason` VARCHAR(512) NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` BIT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_grant_key` (`tenant_id`, `grant_key`),
+  UNIQUE KEY `uk_dcc_reg_cert_grant_request_file` (`tenant_id`, `request_file_id`, `grant_type`),
+  CONSTRAINT `chk_dcc_reg_cert_grant_key` CHECK (TRIM(`grant_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_grant_type` CHECK (`grant_type` IN
+    ('VIEW_OLD_CERTIFICATE', 'DOWNLOAD')),
+  CONSTRAINT `chk_dcc_reg_cert_grant_status` CHECK (`status` IN
+    ('ACTIVE', 'EXPIRED', 'REVOKED', 'CONSUMED')),
+  CONSTRAINT `chk_dcc_reg_cert_grant_file_scope` CHECK (
+    (`grant_type` = 'DOWNLOAD' AND `request_file_id` IS NOT NULL AND `business_file_id` IS NOT NULL)
+    OR (`grant_type` = 'VIEW_OLD_CERTIFICATE' AND `request_file_id` IS NULL)
+  ),
+  CONSTRAINT `chk_dcc_reg_cert_grant_window` CHECK (`expires_at` > `granted_at`),
+  CONSTRAINT `chk_dcc_reg_cert_grant_revoke` CHECK (
+    `status` <> 'REVOKED'
+    OR (`revoked_at` IS NOT NULL AND `revoked_by` IS NOT NULL
+      AND `revoke_reason` IS NOT NULL AND TRIM(`revoke_reason`) <> '')
+  )
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_download_consumption` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `grant_id` BIGINT NOT NULL,
+  `business_file_id` BIGINT NOT NULL,
+  `attempt_key` VARCHAR(256) NOT NULL,
+  `result` VARCHAR(32) NOT NULL,
+  `success_unique_flag` BIGINT GENERATED ALWAYS AS (
+    CASE WHEN `result` = 'SUCCESS' THEN 1 ELSE NULL END
+  ),
+  `started_at` DATETIME NOT NULL,
+  `completed_at` DATETIME NULL,
+  `failure_reason` VARCHAR(1024) NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` BIT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_download_once` (`tenant_id`, `grant_id`, `business_file_id`, `success_unique_flag`),
+  UNIQUE KEY `uk_dcc_reg_cert_download_attempt` (`tenant_id`, `attempt_key`),
+  CONSTRAINT `chk_dcc_reg_cert_download_key` CHECK (TRIM(`attempt_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_download_result` CHECK (`result` IN
+    ('SUCCESS', 'FAILED_BEFORE_START', 'FAILED_AFTER_START')),
+  CONSTRAINT `chk_dcc_reg_cert_download_success` CHECK (
+    (`result` = 'SUCCESS' AND `success_unique_flag` = 1)
+    OR (`result` <> 'SUCCESS' AND `success_unique_flag` IS NULL)
+  )
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_access_audit` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `request_id` BIGINT NULL,
+  `grant_id` BIGINT NULL,
+  `business_file_id` BIGINT NULL,
+  `actor_user_id` BIGINT NOT NULL,
+  `event_type` VARCHAR(64) NOT NULL,
+  `event_key` VARCHAR(256) NOT NULL,
+  `result` VARCHAR(32) NOT NULL,
+  `occurred_at` DATETIME NOT NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` BIT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_access_audit_key` (`tenant_id`, `event_key`),
+  CONSTRAINT `chk_dcc_reg_cert_access_audit_key` CHECK (TRIM(`event_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_access_audit_type` CHECK (TRIM(`event_type`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_access_audit_result` CHECK (`result` IN ('SUCCESS', 'FAILURE'))
 );

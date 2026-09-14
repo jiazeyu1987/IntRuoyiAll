@@ -47,15 +47,29 @@ assertPackageScript(
 
 assertContains(source, '/infra/monitors/runtime-control', 'runtime-control frontend route')
 assertContains(source, '/admin-api/infra/runtime-control/business-health', 'business health API response capture')
+assertContains(source, 'requestBusinessHealth(page)', 'authenticated business health request after real page login')
+assertContains(source, 'headers.Authorization', 'business health request access token header')
+assertContains(source, "headers['tenant-id']", 'business health request tenant header')
 assertContains(source, 'edhr-archive-integrity', 'business health item code')
 assertContains(source, 'eDHR 归档完整性', 'business health item name')
 assertContains(source, 'login?redirect=/infra/monitors/runtime-control', 'login redirect real user path')
+assertContains(source, "waitUntil: 'commit'", 'Vite dev server login navigation waits for committed response')
+assertContains(source, "waitFor({ state: 'visible', timeout: 120000 })", 'login page waits for visible username input')
 assertContains(source, 'button:has-text("登录")', 'real frontend login submit')
+assertContains(source, 'input[placeholder="请输入账号"]', 'current login account input selector')
+assertContains(source, 'input[role="combobox"]', 'current Element Plus tenant combobox selector')
+assertContains(source, '.el-select-dropdown:visible .el-select-dropdown__item', 'tenant dropdown option selector')
+assertContains(source, 'page.keyboard.press', 'tenant select keyboard confirmation path')
 assertContains(source, 'RUNTIME_CONTROL_E2E_BASE_URL', 'frontend base URL env marker')
 assertContains(source, 'RUNTIME_CONTROL_E2E_TEST_TENANT', 'test tenant env marker')
 assertContains(source, 'RUNTIME_CONTROL_E2E_TEST_USERNAME', 'test username env marker')
 assertContains(source, 'RUNTIME_CONTROL_E2E_TEST_PASSWORD', 'test password env marker')
 assertContains(source, 'writeRequests', 'read-only request collection')
 assertContains(source, "request.method() !== 'GET'", 'non-GET runtime-control guard')
+assertContains(
+  source,
+  'verified by real runtime-control login',
+  'current frontend has no business health panel and uses login plus final read-only API verification'
+)
 
 console.log('PASS: eDHR archive business health real E2E static contract is wired')

@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "runId": "20260802084900",
+  "fileNumber": "CODX-DCC-MINIO-20260802084900",
+  "fileName": "Codex DCC MinIO 前置验证 20260802084900",
+  "baseUrl": "http://127.0.0.1:8081",
+  "username": "pengyunfeng",
+  "sourceFilePath": "E:\\IntRuoyi\\resource\\批记录节点-解析样本.docx",
+  "phases": [
+    {
+      "phase": "login",
+      "username": "pengyunfeng"
+    },
+    {
+      "phase": "open-upload-page"
+    },
+    {
+      "phase": "fill-upload-fields"
+    },
+    {
+      "phase": "upload-preview",
+      "previewFileName": "批记录节点-解析样本.docx",
+      "previewKind": "OFFICE"
+    }
+  ],
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "finishedAt": "2026-08-02T08:49:09.929Z"
+}

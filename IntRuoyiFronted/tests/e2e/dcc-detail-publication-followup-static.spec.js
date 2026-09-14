@@ -1,0 +1,48 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const root = path.resolve(__dirname, '..', '..')
+const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8')
+
+const api = read('src/api/dcc/controlledFile/publicationFollowup.ts')
+const detail = read('src/views/dcc/controlled-file/detail/index.vue')
+const panel = read('src/views/dcc/controlled-file/detail/PublicationFollowupPanel.vue')
+const detailContract = `${detail}\n${panel}`
+const presentation = read('src/views/dcc/controlled-file/shared/publicationFollowupPresentation.ts')
+const timeline = read('src/views/dcc/controlled-file/shared/PublicationFollowupTimeline.vue')
+
+assert.match(api, /publication-followups\/files\/\$\{controlledFileId\}/)
+assert.match(api, /timeline: DccPublicationTimelineEventVO\[\]/)
+for (const field of ['attemptCount', 'assigneeBefore', 'assigneeAfter',
+  'linkedRevisionControlledFileId', 'linkedRevisionVersion']) {
+  assert.match(api, new RegExp(`${field}\\?`))
+}
+assert.doesNotMatch(api, /\b(?:Number|parseInt)\s*\(/)
+assert.match(detailContract, /data-testid="dcc-detail-publication-followup"/)
+assert.match(detailContract, /发布后续/)
+assert.match(detailContract, /业务可见范围/)
+assert.match(detailContract, /收件原因/)
+assert.match(detailContract, /影响评估/)
+assert.match(detailContract, /followupLoading/)
+assert.match(detailContract, /followupLoadError/)
+assert.match(detailContract, /暂无发布后续记录/)
+assert.match(panel, /data-testid="dcc-detail-publication-timeline"/)
+assert.match(timeline, /暂无时间线记录/)
+assert.match(timeline, /发送尝试次数/)
+assert.match(timeline, /原负责人/)
+assert.match(timeline, /新负责人/)
+assert.match(timeline, /关联版本 ID/)
+assert.match(timeline, /版本号未记录/)
+assert.match(timeline, /event\.assigneeBefore[\s\S]*'未记录'/)
+assert.match(timeline, /event\.assigneeAfter[\s\S]*'未记录'/)
+assert.match(panel, /followup\.timeline/)
+assert.match(panel, /batchStatusLabel/)
+assert.match(panel, /notificationStatusLabel/)
+assert.match(panel, /impactTaskStatusLabel/)
+assert.match(panel, /revisionTrackingStatusLabel/)
+assert.match(panel, /visibilitySourceLabel/)
+assert.match(panel, /relationDirectionLabel/)
+assert.match(presentation, /未知状态（\$\{code\}）/)
+
+console.log('dcc detail publication followup static contract passed')

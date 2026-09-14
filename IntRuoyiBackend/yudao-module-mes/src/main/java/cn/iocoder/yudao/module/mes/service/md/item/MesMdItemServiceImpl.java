@@ -6,6 +6,8 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
+import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemImportExcelVO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemImportRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemPageReqVO;
@@ -17,10 +19,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemTypeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.unitmeasure.MesMdUnitMeasureDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.enums.md.MesMdItemTypeEnum;
-import cn.iocoder.yudao.module.mes.enums.md.autocode.MesMdAutoCodeRuleCodeEnum;
 import cn.iocoder.yudao.module.mes.enums.wm.BarcodeBizTypeEnum;
 import cn.iocoder.yudao.module.mes.service.md.unitmeasure.MesMdUnitMeasureService;
-import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
 import cn.iocoder.yudao.module.mes.service.wm.barcode.MesWmBarcodeService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -62,7 +62,7 @@ public class MesMdItemServiceImpl implements MesMdItemService {
     @Resource
     private MesWmBarcodeService barcodeService;
     @Resource
-    private MesMdAutoCodeRecordService autoCodeRecordService;
+    private MdmProductApi mdmProductApi;
 
     @Override
     public Long createItem(MesMdItemSaveReqVO createReqVO) {
@@ -103,6 +103,8 @@ public class MesMdItemServiceImpl implements MesMdItemService {
         validateItemTypeExists(reqVO.getItemTypeId());
         // 校验计量单位存在
         validateUnitMeasureExists(reqVO.getUnitMeasureId());
+        // 校验可选的 MDM 产品主档关系
+        validateProductMasterExists(reqVO.getProductMasterId());
     }
 
     @Override
@@ -243,6 +245,11 @@ public class MesMdItemServiceImpl implements MesMdItemService {
     }
 
     @Override
+    public MesMdItemDO getItemByCode(String code) {
+        return itemMapper.selectByCode(code);
+    }
+
+    @Override
     public PageResult<MesMdItemDO> getItemPage(MesMdItemPageReqVO pageReqVO) {
         // 查找时，如果查找某个分类编号，则包含它的子分类
         Set<Long> itemTypeIds = null;
@@ -286,15 +293,20 @@ public class MesMdItemServiceImpl implements MesMdItemService {
         MesMdItemImportRespVO respVO = MesMdItemImportRespVO.builder()
                 .createCodes(new ArrayList<>()).updateCodes(new ArrayList<>())
                 .failureCodes(new LinkedHashMap<>()).build();
+        Set<String> importCodes = new HashSet<>();
         AtomicInteger index = new AtomicInteger(1);
         importItems.forEach(importItem -> {
             int currentIndex = index.getAndIncrement();
             // 2.1 校验字段
             if (StrUtil.isBlank(importItem.getCode())) {
-                // 空编码时自动生成
-                importItem.setCode(autoCodeRecordService.generateAutoCode(MesMdAutoCodeRuleCodeEnum.MD_ITEM_CODE.getCode()));
+                respVO.getFailureCodes().put("第 " + currentIndex + " 行", "物料编码不能为空");
+                return;
             }
             String key = importItem.getCode();
+            if (!importCodes.add(key)) {
+                respVO.getFailureCodes().put(key, "导入文件中物料编码重复");
+                return;
+            }
             if (StrUtil.isBlank(importItem.getName())) {
                 respVO.getFailureCodes().put(key, "物料名称不能为空");
                 return;
@@ -314,8 +326,10 @@ public class MesMdItemServiceImpl implements MesMdItemService {
                 return;
             }
             // 2.2 校验分类是否存在
+            Long productMasterId;
             try {
                 validateItemTypeExists(importItem.getItemTypeId());
+                productMasterId = resolveProductMasterId(importItem.getProductMasterCode());
             } catch (ServiceException ex) {
                 respVO.getFailureCodes().put(key, ex.getMessage());
                 return;
@@ -333,6 +347,7 @@ public class MesMdItemServiceImpl implements MesMdItemService {
                 }
                 MesMdItemDO item = BeanUtils.toBean(importItem, MesMdItemDO.class);
                 item.setUnitMeasureId(unitMeasure.getId());
+                item.setProductMasterId(productMasterId);
                 item.setStatus(CommonStatusEnum.DISABLE.getStatus()); // 默认禁用。信息完成后，再启用
                 clearStockIfNotSafe(item);
                 itemMapper.insert(item);
@@ -351,6 +366,7 @@ public class MesMdItemServiceImpl implements MesMdItemService {
                 MesMdItemDO updateObj = BeanUtils.toBean(importItem, MesMdItemDO.class);
                 updateObj.setId(existItem.getId());
                 updateObj.setUnitMeasureId(unitMeasure.getId());
+                updateObj.setProductMasterId(productMasterId);
                 clearStockIfNotSafe(updateObj);
                 itemMapper.updateById(updateObj);
                 respVO.getUpdateCodes().add(importItem.getCode());
@@ -360,6 +376,30 @@ public class MesMdItemServiceImpl implements MesMdItemService {
             }
         });
         return respVO;
+    }
+
+    private void validateProductMasterExists(Long productMasterId) {
+        if (productMasterId == null) {
+            return;
+        }
+        if (mdmProductApi.getProduct(productMasterId) == null) {
+            throw exception(MD_ITEM_PRODUCT_MASTER_NOT_EXISTS, productMasterId);
+        }
+    }
+
+    private Long resolveProductMasterId(String productMasterCode) {
+        String normalizedCode = StrUtil.trimToNull(productMasterCode);
+        if (normalizedCode == null) {
+            return null;
+        }
+        List<MdmProductRespDTO> exactMatches = mdmProductApi
+                .listSimpleProducts(null, null, normalizedCode).stream()
+                .filter(product -> Objects.equals(product.getProductCode(), normalizedCode))
+                .toList();
+        if (exactMatches.size() != 1 || exactMatches.get(0).getId() == null) {
+            throw exception(MD_ITEM_PRODUCT_MASTER_NOT_EXISTS, normalizedCode);
+        }
+        return exactMatches.get(0).getId();
     }
 
 }

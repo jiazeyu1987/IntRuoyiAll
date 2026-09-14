@@ -1,0 +1,587 @@
+{
+  "generated_at": "2026-07-31T01:20:40.146934+00:00",
+  "target": "172.30.30.58 / ruoyi-vue-pro / tenant_id=1",
+  "strategy": "preserve source IDs when globally free or already exact in tenant 1; assign deterministic next free IDs for global conflicts or tenant-1 same-ID mismatches",
+  "remap": {
+    "system_users": {
+      "910269": "910293"
+    },
+    "mes_pro_work_order": {
+      "925473": "925781",
+      "925477": "925782",
+      "925483": "925783",
+      "925553": "925784",
+      "925671": "925785",
+      "925675": "925786",
+      "925685": "925787",
+      "925689": "925788",
+      "925693": "925789",
+      "925698": "925790",
+      "925704": "925791",
+      "925710": "925792",
+      "925711": "925793",
+      "925716": "925794",
+      "925721": "925795",
+      "925724": "925796",
+      "925729": "925797",
+      "925732": "925798"
+    }
+  },
+  "preserve": {
+    "mes_md_item": [
+      "924005"
+    ],
+    "system_users": [],
+    "mes_pro_work_order": [
+      "925809",
+      "925813",
+      "925816",
+      "925820",
+      "925825",
+      "925827",
+      "925828",
+      "925829",
+      "925830",
+      "925843",
+      "925850",
+      "925854",
+      "925858",
+      "925864",
+      "925865",
+      "925866",
+      "925867",
+      "925868",
+      "925874",
+      "925877"
+    ]
+  },
+  "insert_ids": {
+    "mes_md_item": [
+      "924005"
+    ],
+    "system_users": [
+      "910293"
+    ],
+    "mes_pro_work_order": [
+      "925809",
+      "925813",
+      "925816",
+      "925820",
+      "925825",
+      "925827",
+      "925828",
+      "925829",
+      "925830",
+      "925843",
+      "925850",
+      "925854",
+      "925858",
+      "925864",
+      "925865",
+      "925866",
+      "925867",
+      "925868",
+      "925874",
+      "925877",
+      "925781",
+      "925782",
+      "925783",
+      "925784",
+      "925785",
+      "925786",
+      "925787",
+      "925788",
+      "925789",
+      "925790",
+      "925791",
+      "925792",
+      "925793",
+      "925794",
+      "925795",
+      "925796",
+      "925797",
+      "925798"
+    ]
+  },
+  "already_exact_ids": {
+    "mes_md_item": [
+      "901965",
+      "902101",
+      "902149",
+      "902231",
+      "902252",
+      "902262",
+      "902476",
+      "907035",
+      "907167",
+      "907172",
+      "907175",
+      "907176",
+      "907242",
+      "909393",
+      "910152",
+      "910359",
+      "910447",
+      "910587",
+      "910650",
+      "916875",
+      "916923",
+      "917590"
+    ],
+    "system_users": [
+      "1",
+      "1074"
+    ],
+    "mes_pro_work_order": [
+      "903200",
+      "903245"
+    ]
+  },
+  "business_key_duplicates": {
+    "system_users": [
+      {
+        "id": "1",
+        "username": "admin",
+        "nickname": "瑛泰管理员",
+        "tenant_id": "1"
+      },
+      {
+        "id": "1074",
+        "username": "zhaojie",
+        "nickname": "赵杰",
+        "tenant_id": "1"
+      }
+    ],
+    "mes_pro_work_order": [
+      {
+        "id": "903245",
+        "code": "881MO090863",
+        "product_id": "902262",
+        "quantity": "99.00",
+        "batch_code": "K202601130",
+        "tenant_id": "1"
+      },
+      {
+        "id": "903200",
+        "code": "881MO090880",
+        "product_id": "902231",
+        "quantity": "432.00",
+        "batch_code": "K202601132",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925779",
+        "code": "CODEX-FACTOR-20260708093210",
+        "product_id": "907035",
+        "quantity": "100.00",
+        "batch_code": "CODEX-FACTOR-20260708093210-BATCH",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925772",
+        "code": "E2E-SYNC-NOPD-20260708093207",
+        "product_id": "902262",
+        "quantity": "1.00",
+        "batch_code": "E2E-SYNC-NOPD-20260708093207-BATCH",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925368",
+        "code": "SMART-SCHED-20260619T080300908609504-MO",
+        "product_id": "907175",
+        "quantity": "10.00",
+        "batch_code": "TEST-SMOKE-BATCH",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925372",
+        "code": "SMART-SCHED-20260619T083802417323110-MO",
+        "product_id": "907175",
+        "quantity": "10.00",
+        "batch_code": "TEST-SMOKE-BATCH",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925375",
+        "code": "SMART-SCHED-20260619T095332038360222-MO",
+        "product_id": "907175",
+        "quantity": "10.00",
+        "batch_code": "TEST-SMOKE-BATCH",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925705",
+        "code": "SMART-SCHED-20260630-RERUN10-MO",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SCHED-20260630-BATCH",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925706",
+        "code": "SMART-SCHED-20260630-RERUN11-MO",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SCHED-20260630-BATCH",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925702",
+        "code": "SMART-SCHED-20260630-RERUN7-MO",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SCHED-20260630-BATCH",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925703",
+        "code": "SMART-SCHED-20260630-RERUN8-MO",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SCHED-20260630-BATCH",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925704",
+        "code": "SMART-SCHED-20260630-RERUN9-MO",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SCHED-20260630-BATCH",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925554",
+        "code": "SMART-SMOKE-20260629-ADMIN-E",
+        "product_id": "902476",
+        "quantity": "1.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-E-BATCH",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925555",
+        "code": "SMART-SMOKE-20260629-ADMIN-F",
+        "product_id": "902476",
+        "quantity": "1.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-F-BATCH",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925565",
+        "code": "SMART-SMOKE-20260629-ADMIN-G10-MO",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-G10-B1",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925566",
+        "code": "SMART-SMOKE-20260629-ADMIN-G11-MO",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-G11-B1",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925567",
+        "code": "SMART-SMOKE-20260629-ADMIN-G12-MO",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-G12-B1",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925568",
+        "code": "SMART-SMOKE-20260629-ADMIN-G14-MO",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-G14-B1",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925569",
+        "code": "SMART-SMOKE-20260629-ADMIN-G15-MO",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-G15-B1",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925557",
+        "code": "SMART-SMOKE-20260629-ADMIN-G2",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-G2-B1",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925558",
+        "code": "SMART-SMOKE-20260629-ADMIN-G3",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-G3-B1",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925559",
+        "code": "SMART-SMOKE-20260629-ADMIN-G4",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-G4-B1",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925560",
+        "code": "SMART-SMOKE-20260629-ADMIN-G5",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-G5-B1",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925562",
+        "code": "SMART-SMOKE-20260629-ADMIN-G7-MO",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-G7-B1",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925563",
+        "code": "SMART-SMOKE-20260629-ADMIN-G8-MO",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-G8-B1",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925564",
+        "code": "SMART-SMOKE-20260629-ADMIN-G9-MO",
+        "product_id": "902476",
+        "quantity": "10.00",
+        "batch_code": "SMART-SMOKE-20260629-ADMIN-G9-B1",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925768",
+        "code": "SWITCH-20260706085348-ALLOW",
+        "product_id": "902476",
+        "quantity": "1.00",
+        "batch_code": "SWITCH-20260706085348-ALLOW-BATCH",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925707",
+        "code": "TESTERP2441FBBFFDEE",
+        "product_id": "902476",
+        "quantity": "911.00",
+        "batch_code": "NULL",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925710",
+        "code": "TESTERP4A96E54218FA",
+        "product_id": "902476",
+        "quantity": "682.00",
+        "batch_code": "NULL",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925711",
+        "code": "TESTERP62AF41D87EFA",
+        "product_id": "902262",
+        "quantity": "685.00",
+        "batch_code": "NULL",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925709",
+        "code": "TESTERP6640C97D318E",
+        "product_id": "902262",
+        "quantity": "499.00",
+        "batch_code": "NULL",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925712",
+        "code": "TESTERPA54B4B930505",
+        "product_id": "902262",
+        "quantity": "937.00",
+        "batch_code": "NULL",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925435",
+        "code": "TESTERPA9ED2D417434",
+        "product_id": "907175",
+        "quantity": "565.00",
+        "batch_code": "NULL",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925708",
+        "code": "TESTERPC378872C68B7",
+        "product_id": "902476",
+        "quantity": "445.00",
+        "batch_code": "NULL",
+        "tenant_id": "1"
+      },
+      {
+        "id": "925761",
+        "code": "TESTERPF102B88DA0E7",
+        "product_id": "902262",
+        "quantity": "305.00",
+        "batch_code": "NULL",
+        "tenant_id": "1"
+      }
+    ],
+    "mes_md_item": [
+      {
+        "id": "902476",
+        "code": "AW.106.03.08.1007",
+        "name": "一次性使用造影导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "902101",
+        "code": "AW.107.02.01.1009",
+        "name": "球囊扩张压力泵",
+        "tenant_id": "1"
+      },
+      {
+        "id": "902149",
+        "code": "AW.107.02.01.2010",
+        "name": "球囊扩张压力泵",
+        "tenant_id": "1"
+      },
+      {
+        "id": "901965",
+        "code": "AW.107.02.01.2036",
+        "name": "球囊扩张压力泵",
+        "tenant_id": "1"
+      },
+      {
+        "id": "902262",
+        "code": "YXN.037.011.1002",
+        "name": "PTCA球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "907242",
+        "code": "YXN.037.011.1005",
+        "name": "PTCA球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "902231",
+        "code": "YXN.037.011.1007",
+        "name": "PTCA球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "902252",
+        "code": "YXN.037.011.1008",
+        "name": "PTCA球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "916923",
+        "code": "YXN.037.011.1009",
+        "name": "PTCA球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "910587",
+        "code": "YXN.037.011.1011",
+        "name": "PTCA球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "907167",
+        "code": "YXN.041.011.1003",
+        "name": "非顺应性球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "907172",
+        "code": "YXN.041.011.1008",
+        "name": "非顺应性球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "907035",
+        "code": "YXN.069.001.1002",
+        "name": "冠状动脉棘突球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "907175",
+        "code": "YXN.069.001.1003",
+        "name": "冠状动脉棘突球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "916875",
+        "code": "YXN.069.001.1005",
+        "name": "冠状动脉棘突球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "909393",
+        "code": "YXN.069.001.1006",
+        "name": "冠状动脉棘突球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "910359",
+        "code": "YXN.069.001.1007",
+        "name": "冠状动脉棘突球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "910447",
+        "code": "YXN.069.001.1008",
+        "name": "冠状动脉棘突球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "910152",
+        "code": "YXN.069.001.1009",
+        "name": "冠状动脉棘突球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "910650",
+        "code": "YXN.069.001.1011",
+        "name": "冠状动脉棘突球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "907176",
+        "code": "YXN.069.001.1013",
+        "name": "冠状动脉棘突球囊扩张导管",
+        "tenant_id": "1"
+      },
+      {
+        "id": "917590",
+        "code": "YXN.069.001.1014",
+        "name": "冠状动脉棘突球囊扩张导管",
+        "tenant_id": "1"
+      }
+    ]
+  },
+  "warnings": [
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000021E2DFC6180",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001DA7F631E40",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000021476D8F120",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001CBA9B3E790",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001886509E980",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000019E15BDBF40",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000021948BF5C80",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002DB42C41B60",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002A79D258A70",
+    "close - IO is still pending on closed socket. read:1, write:0, io:00000286042ABD10",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002665C09F3C0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:00000212CB4840B0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001DB59EB3760"
+  ]
+}

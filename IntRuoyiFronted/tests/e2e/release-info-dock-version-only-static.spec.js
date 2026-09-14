@@ -13,6 +13,7 @@ const dockTemplate = template.slice(
   template.indexOf('<div class="release-info-dock"'),
   template.indexOf('<ElDialog')
 )
+const dialogTemplate = template.slice(template.indexOf('<ElDialog'), template.indexOf('</ElDialog>'))
 
 assert.match(
   dockTemplate,
@@ -33,6 +34,38 @@ assert.doesNotMatch(
   /<ElButton[\s\S]*release-info-dock__button/,
   '版本入口不应保留单独的查看变更按钮'
 )
+
+assert.match(
+  component,
+  /const\s+gitChangeItems\s*=\s*computed\([\s\S]*slice\(0,\s*10\)/,
+  '变更说明弹窗必须只取 Git 差异前 10 条'
+)
+
+assert.match(
+  dialogTemplate,
+  /版本变化（最多 10 条）/,
+  '变更说明弹窗必须明确只展示版本变化'
+)
+
+assert.match(
+  dialogTemplate,
+  /v-for="item in gitChangeItems"/,
+  '变更说明弹窗必须渲染 gitChangeItems，而不是发布包元信息'
+)
+
+assert.match(
+  dialogTemplate,
+  /版本变化说明未生成/,
+  '版本变化为空时必须显示明确空状态，不能回退到发布包元信息'
+)
+
+for (const forbiddenDialogText of ['版本号', '构建时间', '发布范围', '组件', '摘要', '变更项', '源码提交']) {
+  assert.equal(
+    dialogTemplate.includes(forbiddenDialogText),
+    false,
+    `变更说明弹窗不应显示旧发布元信息区块：${forbiddenDialogText}`
+  )
+}
 
 assert.match(
   component,

@@ -36,7 +36,7 @@ assert.doesNotMatch(
   /<RouteProcessList/,
   'route form must not mount the old process settings tab component'
 )
-const initialTabType = /type RouteFormInitialTab =([\s\S]*?)type RouteFormSubmitOptions/.exec(routeFormContent)?.[1] || ''
+const initialTabType = /type RouteFormInitialTab =([\s\S]*?)const activeTab/.exec(routeFormContent)?.[1] || ''
 assert.ok(
   !initialTabType.includes("'process'"),
   'route form initial tab type must not accept the removed process settings tab'

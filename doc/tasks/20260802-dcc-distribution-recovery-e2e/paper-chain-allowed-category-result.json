@@ -1,0 +1,122 @@
+{
+  "runId": "DIST90034720260802185602",
+  "tenantName": "测试租户",
+  "fileNumber": "CODX-DCC-DIST-900347-DIST90034720260802185602",
+  "fileName": "Codex DCC 分发回收权限类别 DIST90034720260802185602",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "v1FilePath": "E:\\IntRuoyi\\resource\\批记录节点-解析样本.docx",
+  "v2FilePath": "E:\\IntRuoyi\\resource\\过程检验记录.docx",
+  "stampedPdfPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-upload-revision-e2e\\stamped-approval-sample.pdf",
+  "startedAt": "2026-08-02T11:38:10.654Z",
+  "phases": [
+    {
+      "phase": "resume-after-upload-approvals",
+      "v1ControlledFileId": "2054545668044070292",
+      "v2ControlledFileId": "2054545668044070295"
+    },
+    {
+      "phase": "publish-start-user-select-not-required",
+      "dialogText": "提交发布申请 No published business approval policy matched action PUBLISH 发布说明 取消 提交发布申请"
+    }
+  ],
+  "targetNetworkFailures": [
+    {
+      "label": "publish-submit-aoteman",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/showroom/assignment/page?status=OPEN&assigneeUserId=914520&pageNo=1&pageSize=20",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "publish-submit-aoteman",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "publish-submit-aoteman",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "publish-submit-aoteman",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "publish-submit-aoteman",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/work-order/page?pageNo=1&pageSize=1&status=1&type=1&temporaryFrozen=false",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "publish-submit-aoteman",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "publish-submit-aoteman",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "accountProfiles": {
+    "uploader": {
+      "id": 914520,
+      "nickname": "??1",
+      "username": "aoteman"
+    },
+    "publishApplicant": {
+      "username": "aoteman",
+      "userId": 914520,
+      "nickname": "??1"
+    },
+    "approvers": [
+      {
+        "username": "aoteman",
+        "role": "文控审核",
+        "userId": 914520,
+        "nickname": "??1"
+      },
+      {
+        "username": "aoteman",
+        "role": "会签审核",
+        "userId": 914520,
+        "nickname": "??1"
+      },
+      {
+        "username": "aoteman",
+        "role": "会签批准",
+        "userId": 914520,
+        "nickname": "??1"
+      },
+      {
+        "username": "aoteman",
+        "role": "文控批准",
+        "userId": 914520,
+        "nickname": "??1"
+      }
+    ]
+  },
+  "fileSizes": {
+    "v1": 37680,
+    "v2": 74170,
+    "stampedPdf": 658
+  },
+  "finishedAt": "2026-08-02T11:38:47.373Z",
+  "status": "BLOCKED",
+  "blocker": "submit publish 2054545668044070295 business failed, code=500, msg=系统异常"
+}

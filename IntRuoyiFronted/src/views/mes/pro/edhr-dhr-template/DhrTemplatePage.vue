@@ -68,7 +68,7 @@
                   <el-table :data="row.versions || []" size="small" border empty-text="暂无模板版本">
                     <el-table-column label="模板版本" prop="versionNo" width="140" />
                     <el-table-column label="变更摘要" prop="changeSummary" min-width="220" />
-                    <el-table-column label="创建时间" prop="createTime" width="180" />
+                    <el-table-column label="创建时间" prop="createTime" width="180" :formatter="edhrDateTimeFormatter" />
                     <el-table-column label="快照" min-width="240">
                       <template #default="scope">
                         <span class="edhr-dhr-template__json">{{ scope.row.templateSnapshotJson || '--' }}</span>
@@ -376,7 +376,7 @@
         </el-table-column>
         <el-table-column label="影响范围" prop="impactScopeJson" min-width="320" />
         <el-table-column label="确认人" prop="confirmedBy" width="120" />
-        <el-table-column label="确认时间" prop="confirmedAt" width="180" />
+        <el-table-column label="确认时间" prop="confirmedAt" width="180" :formatter="edhrDateTimeFormatter" />
       </el-table>
       <Pagination
         :total="impactTotal"
@@ -409,6 +409,7 @@ import {
   type EdhrDhrTemplateRespVO,
   type EdhrDhrTemplateStatus
 } from '@/api/mes/pro/edhr/dhrTemplate'
+import { edhrDateTimeFormatter } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProFeedbackEdhrDhrTemplate' })
 

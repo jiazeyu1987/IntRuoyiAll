@@ -27,7 +27,9 @@
         >
           <el-card v-if="runningTask?.formId > 0" class="mb-15px !-mt-10px">
             <template #header>
-              <span class="el-icon-picture-outline"> 填写表单【{{ runningTask?.formName }}】 </span>
+              <span class="el-icon-picture-outline">
+                填写表单【{{ resolveProcessFormDisplayName(runningTask?.formName) }}】
+              </span>
             </template>
             <form-create
               v-model="approveForm.value"
@@ -453,7 +455,7 @@
               <el-option
                 v-for="item in returnList"
                 :key="item.taskDefinitionKey"
-                :label="item.name"
+                :label="resolveProcessNodeDisplayName(item.taskDefinitionKey, item.name)"
                 :value="item.taskDefinitionKey"
               />
             </el-select>
@@ -484,8 +486,9 @@
       :width="420"
       trigger="click"
       v-if="
-        userId === processInstance?.startUser?.id && !isEndProcessStatus(processInstance?.status)
-        && !isDccControlledFileProcess
+        userId === processInstance?.startUser?.id &&
+        !isEndProcessStatus(processInstance?.status) &&
+        !isDccControlledFileProcess
       "
     >
       <template #reference>
@@ -559,6 +562,7 @@ import { until, useDebounceFn } from '@vueuse/core'
 import SignDialog from './SignDialog.vue'
 import ProcessInstanceTimeline from '../detail/ProcessInstanceTimeline.vue'
 import { isEmpty } from '@/utils/is'
+import { resolveProcessFormDisplayName, resolveProcessNodeDisplayName } from './display-name'
 
 defineOptions({ name: 'ProcessInstanceBtnContainer' })
 

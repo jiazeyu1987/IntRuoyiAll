@@ -324,7 +324,7 @@ import {
 import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
 import { ProRouteProcessApi } from '@/api/mes/pro/route/process'
 import { ProWorkOrderApi, type ProWorkOrderVO } from '@/api/mes/pro/workorder'
-import { openOrCreateEdhrBatchExecution } from '@/api/mes/pro/edhr/batchExecution'
+import { openOrCreateManualEdhrBatchExecution } from '@/api/mes/pro/edhr/batchExecution'
 import ProWorkOrderSelect from '@/views/mes/pro/workorder/components/ProWorkOrderSelect.vue'
 import ProTaskSelect from '@/views/mes/pro/task/components/ProTaskSelect.vue'
 import MdWorkstationSelect from '@/views/mes/md/workstation/components/MdWorkstationSelect.vue'
@@ -647,7 +647,7 @@ const handleOpenEdhr = async () => {
       throw new Error('eDHR 入口未返回批次号，无法打开执行页。')
     }
     formData.value.batchCode = resolvedBatchCode
-    const batch = await openOrCreateEdhrBatchExecution({
+    const batch = await openOrCreateManualEdhrBatchExecution({
       workOrderId: entryRequest.workOrderId,
       routeId: entryRequest.routeId,
       batchCode: resolvedBatchCode

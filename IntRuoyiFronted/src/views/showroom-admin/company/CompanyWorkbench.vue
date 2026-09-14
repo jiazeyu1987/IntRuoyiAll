@@ -31,13 +31,6 @@
             <Icon icon="ep:download" />
             下载安卓客户端
           </el-button>
-          <el-button
-            :loading="downloadingDesktopClient"
-            @click="handleDownloadDesktopClient"
-          >
-            <Icon icon="ep:download" />
-            下载电脑桌面端
-          </el-button>
           <el-button type="primary" @click="openEditDialog">编辑公司</el-button>
           <el-button
             v-if="canPublishShowroomRelease"
@@ -315,7 +308,6 @@
 <script setup lang="ts">
 import {
   SHOWROOM_ANDROID_CLIENT_FILE_NAME,
-  SHOWROOM_DESKTOP_CLIENT_FILE_NAME,
   ShowroomAdminApi,
   type ShowroomCompanyNarrationGenerateRespVO,
   type ShowroomCompanyNarrationScriptGenerateRespVO,
@@ -369,7 +361,6 @@ const loading = ref(false)
 const publishing = ref(false)
 const publishingShowroomRelease = ref(false)
 const downloadingAndroidClient = ref(false)
-const downloadingDesktopClient = ref(false)
 const generatingNarrationScript = ref(false)
 const generatingZhNarration = ref(false)
 const generatingEnNarration = ref(false)
@@ -715,20 +706,6 @@ const handleDownloadAndroidClient = async () => {
     throw (error instanceof Error ? error : new Error(formatted))
   } finally {
     downloadingAndroidClient.value = false
-  }
-}
-
-const handleDownloadDesktopClient = async () => {
-  downloadingDesktopClient.value = true
-  try {
-    const data = await ShowroomAdminApi.downloadDesktopClient()
-    downloadByData(data, SHOWROOM_DESKTOP_CLIENT_FILE_NAME, 'application/zip')
-  } catch (error) {
-    const formatted = formatShowroomStructuredError(error, '电脑桌面端下载')
-    message.error(formatted)
-    throw (error instanceof Error ? error : new Error(formatted))
-  } finally {
-    downloadingDesktopClient.value = false
   }
 }
 

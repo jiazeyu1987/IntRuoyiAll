@@ -1,7 +1,7 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="scheme-d-basic-data-page scheme-d-basic-data-page--mdm-product">
     <div class="mb-16px flex items-center gap-8px">
-      <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / 产品主数据</span>
+      <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / 展厅主数据</span>
     </div>
     <UnifiedListTemplate
       table-key="mdm.product.main"
@@ -23,15 +23,29 @@
       @pagination="getList"
     >
       <template #actions>
-        <el-button type="primary" @click="openForm('create')" v-hasPermi="['mdm:product:create']">
+        <el-button
+          class="scheme-d-btn scheme-d-btn--success"
+          type="primary"
+          @click="openForm('create')"
+          v-hasPermi="['mdm:product:create']"
+        >
           <Icon icon="ep:plus" class="mr-5px" />
           新增
         </el-button>
-        <el-button @click="openImportDialog" v-hasPermi="['mdm:product:import']">
+        <el-button
+          class="scheme-d-btn scheme-d-btn--primary"
+          @click="openImportDialog"
+          v-hasPermi="['mdm:product:import']"
+        >
           <Icon icon="ep:upload" class="mr-5px" />
           导入
         </el-button>
-        <el-button :loading="exportLoading" @click="handleExport" v-hasPermi="['mdm:product:export']">
+        <el-button
+          class="scheme-d-btn scheme-d-btn--warning"
+          :loading="exportLoading"
+          @click="handleExport"
+          v-hasPermi="['mdm:product:export']"
+        >
           <Icon icon="ep:download" class="mr-5px" />
           导出
         </el-button>
@@ -109,7 +123,7 @@
             v-bind="sortColumnAttrs('status')"
           >
             <template #default="{ row }">
-              <el-tag :type="row.status === 'ENABLE' ? 'success' : 'info'">
+              <el-tag class="scheme-d-tag" :type="row.status === 'ENABLE' ? 'success' : 'info'">
                 {{ formatStatus(row.status) }}
               </el-tag>
             </template>
@@ -127,20 +141,46 @@
             label="操作"
             prop="actions"
             fixed="right"
-            :width="getProductColumnWidthString('actions', 220)"
+            :width="getProductColumnWidthString('actions', 320)"
           >
             <template #default="{ row }">
               <el-button
                 link
+                class="scheme-d-row-action scheme-d-row-action--primary"
                 type="primary"
                 @click="openForm('update', row.id)"
                 v-hasPermi="['mdm:product:update']"
               >
                 编辑
               </el-button>
-              <el-button link type="primary" @click="handleReferences(row)"> 引用 </el-button>
               <el-button
                 link
+                class="scheme-d-row-action scheme-d-row-action--primary"
+                type="primary"
+                @click="handleReferences(row)"
+              >
+                引用
+              </el-button>
+              <el-button
+                link
+                class="scheme-d-row-action scheme-d-row-action--primary"
+                type="primary"
+                @click="openLinkedProjectCodeManagement(row)"
+              >
+                项目代码
+              </el-button>
+              <el-button
+                link
+                class="scheme-d-row-action scheme-d-row-action--primary"
+                type="primary"
+                @click="openLinkedRegistrationCertificateManagement(row)"
+              >
+                注册证
+              </el-button>
+              <el-button
+                link
+                class="scheme-d-row-action"
+                :class="row.status === 'ENABLE' ? 'scheme-d-row-action--warning' : 'scheme-d-row-action--success'"
                 :type="row.status === 'ENABLE' ? 'warning' : 'success'"
                 @click="handleStatusChange(row)"
                 v-hasPermi="['mdm:product:update']"
@@ -154,7 +194,12 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
-  <el-dialog v-model="formVisible" :title="formType === 'create' ? '新增产品主数据' : '编辑产品主数据'" width="720px">
+  <el-dialog
+    v-model="formVisible"
+    class="scheme-d-form-control"
+    :title="formType === 'create' ? '新增产品主数据' : '编辑产品主数据'"
+    width="720px"
+  >
     <el-form ref="formRef" :model="formData" :rules="formRules" label-width="118px">
       <el-form-item label="产品编码" prop="productCode">
         <el-input v-model="formData.productCode" maxlength="64" />
@@ -182,12 +227,21 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="formVisible = false">取消</el-button>
-      <el-button type="primary" :loading="formSubmitting" @click="submitForm">保存</el-button>
+      <div class="scheme-d-dialog-footer">
+        <el-button class="scheme-d-btn scheme-d-btn--neutral" @click="formVisible = false">取消</el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--success"
+          type="primary"
+          :loading="formSubmitting"
+          @click="submitForm"
+        >
+          保存
+        </el-button>
+      </div>
     </template>
   </el-dialog>
 
-  <el-dialog v-model="importVisible" title="产品主数据导入" width="1040px">
+  <el-dialog v-model="importVisible" class="scheme-d-form-control" title="产品主数据导入" width="1040px">
     <div class="product-master-import-toolbar">
       <el-upload
         v-model:file-list="importFileList"
@@ -197,21 +251,27 @@
         :on-change="handleImportFileChange"
         :on-remove="handleImportFileRemove"
       >
-        <el-button>
+        <el-button class="scheme-d-btn scheme-d-btn--neutral">
           <Icon icon="ep:folder-opened" class="mr-5px" />
           选择文件
         </el-button>
       </el-upload>
-      <el-button @click="handleDownloadTemplate">
+      <el-button class="scheme-d-btn scheme-d-btn--warning" @click="handleDownloadTemplate">
         <Icon icon="ep:document" class="mr-5px" />
         模板
       </el-button>
-      <el-button type="primary" :loading="importPreviewLoading" @click="handleImportPreview">
+      <el-button
+        class="scheme-d-btn scheme-d-btn--primary"
+        type="primary"
+        :loading="importPreviewLoading"
+        @click="handleImportPreview"
+      >
         <Icon icon="ep:view" class="mr-5px" />
         预览差异
       </el-button>
       <el-button
         type="success"
+        class="scheme-d-btn scheme-d-btn--success"
         :disabled="!importPreviewResult || importPreviewResult.failureCount > 0"
         :loading="importConfirmLoading"
         @click="handleImportConfirm"
@@ -221,12 +281,12 @@
       </el-button>
     </div>
     <div v-if="importPreviewResult" class="product-master-summary">
-      <el-tag>总数 {{ importPreviewResult.totalCount }}</el-tag>
-      <el-tag type="success">新增 {{ importPreviewResult.createCount }}</el-tag>
-      <el-tag type="warning">更新 {{ importPreviewResult.updateCount }}</el-tag>
-      <el-tag type="info">停用 {{ importPreviewResult.disableCount }}</el-tag>
-      <el-tag>不变 {{ importPreviewResult.unchangedCount }}</el-tag>
-      <el-tag :type="importPreviewResult.failureCount > 0 ? 'danger' : 'success'">
+      <el-tag class="scheme-d-tag">总数 {{ importPreviewResult.totalCount }}</el-tag>
+      <el-tag class="scheme-d-tag" type="success">新增 {{ importPreviewResult.createCount }}</el-tag>
+      <el-tag class="scheme-d-tag" type="warning">更新 {{ importPreviewResult.updateCount }}</el-tag>
+      <el-tag class="scheme-d-tag" type="info">停用 {{ importPreviewResult.disableCount }}</el-tag>
+      <el-tag class="scheme-d-tag">不变 {{ importPreviewResult.unchangedCount }}</el-tag>
+      <el-tag class="scheme-d-tag" :type="importPreviewResult.failureCount > 0 ? 'danger' : 'success'">
         失败 {{ importPreviewResult.failureCount }}
       </el-tag>
     </div>
@@ -239,7 +299,7 @@
       <el-table-column label="行号" prop="rowNo" width="80" />
       <el-table-column label="动作" prop="importAction" width="110">
         <template #default="{ row }">
-          <el-tag :type="importActionTagType(row.importAction)">
+          <el-tag class="scheme-d-tag" :type="importActionTagType(row.importAction)">
             {{ formatImportAction(row.importAction) }}
           </el-tag>
         </template>
@@ -253,7 +313,7 @@
     </el-table>
   </el-dialog>
 
-  <el-dialog v-model="referenceVisible" title="引用情况" width="460px">
+  <el-dialog v-model="referenceVisible" class="scheme-d-form-control" title="引用情况" width="460px">
     <el-descriptions :column="1" border>
       <el-descriptions-item label="产品编码">{{ selectedReferenceProduct?.productCode }}</el-descriptions-item>
       <el-descriptions-item label="DCC引用数">{{ referenceData?.dccReferenceCount ?? '-' }}</el-descriptions-item>
@@ -273,6 +333,8 @@ import {
   useTableQuickFilter,
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
+import { onActivated } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import * as ProductApi from '@/api/mdm/product'
 import type {
   MdmProductImportPreviewRespVO,
@@ -282,6 +344,12 @@ import type {
 } from '@/api/mdm/product'
 
 defineOptions({ name: 'MdmProduct' })
+
+const route = useRoute()
+const router = useRouter()
+const PRODUCT_ROUTE_PATH = '/mes/md/showroom-product'
+
+const isProductRoute = () => route.path === PRODUCT_ROUTE_PATH
 
 const productQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   {
@@ -318,7 +386,7 @@ const productDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'category', label: '分类', minWidth: 130 },
   { key: 'status', label: '状态', width: 100 },
   { key: 'updateTime', label: '更新时间', width: 180 },
-  { key: 'actions', label: '操作', width: 220, hideable: false, business: false }
+  { key: 'actions', label: '操作', width: 320, hideable: false, business: false }
 ]
 
 const {
@@ -345,6 +413,7 @@ type MdmProductPageQuery = ProductApi.MdmProductPageReqVO & {
 const queryParams = reactive<MdmProductPageQuery>({
   pageNo: 1,
   pageSize: 10,
+  productMasterId: undefined,
   keyword: undefined,
   productCode: undefined,
   status: undefined
@@ -408,6 +477,23 @@ const importActionTagType = (action: string) =>
     DISABLE: 'info',
     INVALID: 'danger'
   })[action] || ''
+
+const resolveRouteQueryText = (value: unknown) => {
+  const rawValue = Array.isArray(value) ? value[0] : value
+  if (rawValue === undefined || rawValue === null) {
+    return undefined
+  }
+  const text = String(rawValue).trim()
+  return /^[1-9]\d*$/.test(text) ? text : undefined
+}
+
+const syncProductQueryFromRoute = () => {
+  queryParams.productMasterId = resolveRouteQueryText(route.query.productMasterId)
+  if (queryParams.productMasterId) {
+    queryParams.pageNo = 1
+  }
+}
+
 const getList = async () => {
   loading.value = true
   try {
@@ -575,7 +661,49 @@ const handleReferences = async (row: MdmProductRespVO) => {
   referenceVisible.value = true
 }
 
-onMounted(getList)
+const openLinkedProjectCodeManagement = (row: MdmProductRespVO) => {
+  router.push({
+    path: '/mes/md/dcc-project-code',
+    query: { productMasterId: String(row.id) }
+  })
+}
+
+const openLinkedRegistrationCertificateManagement = (row: MdmProductRespVO) => {
+  router.push({
+    path: '/mdm/registration-certificate',
+    query: { productMasterId: String(row.id) }
+  })
+}
+
+onMounted(() => {
+  syncProductQueryFromRoute()
+  void getList()
+})
+
+let productInitialActivationHandled = false
+
+onActivated(async () => {
+  if (!isProductRoute()) {
+    return
+  }
+  if (!productInitialActivationHandled) {
+    productInitialActivationHandled = true
+    return
+  }
+  syncProductQueryFromRoute()
+  await getList()
+})
+
+watch(
+  () => [route.path, route.query.productMasterId],
+  async () => {
+    if (!isProductRoute()) {
+      return
+    }
+    syncProductQueryFromRoute()
+    await getList()
+  }
+)
 </script>
 
 <style scoped>

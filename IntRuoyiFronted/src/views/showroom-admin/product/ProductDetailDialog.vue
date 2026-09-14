@@ -95,7 +95,7 @@
               <el-table-column label="签名人" width="120" prop="actorId" />
               <el-table-column label="签名方式" width="120" prop="signatureMode" />
               <el-table-column label="签名意见" min-width="220" prop="comment" show-overflow-tooltip />
-              <el-table-column label="签名时间" min-width="180" prop="signedAt" />
+              <el-table-column label="签名时间" min-width="180" prop="signedAt" :formatter="dateTimeValueFormatter" />
             </el-table>
           </template>
         </div>
@@ -253,6 +253,7 @@
 <script setup lang="ts">
 import { ShowroomAdminApi } from '@/api/showroom-admin'
 import { useUserStore } from '@/store/modules/user'
+import { dateTimeValueFormatter } from '@/utils/formatTime'
 import ShowroomApprovalSignatureDialog from '@/views/showroom-admin/approval/ShowroomApprovalSignatureDialog.vue'
 import {
   normalizeApprovalDetail,

@@ -41,7 +41,6 @@ public class DccControlledFileMetadataUpdateReqVO {
     @NotNull(message = "categoryId is required")
     private Long categoryId;
 
-    @NotNull(message = "directoryId is required")
     private Long directoryId;
 
 }

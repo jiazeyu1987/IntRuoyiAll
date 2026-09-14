@@ -63,6 +63,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProTaskStatusEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesTimeUnitTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.CapacityWindowAllocator.ScheduleWindowResult;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.CapacityWindowAllocator.ShiftWindow;
@@ -82,6 +83,7 @@ import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleDefaul
 import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleInputAssembler;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.component.RouteSnapshotResolver;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleTopologyResolver;
+import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleTopologyPredecessors;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.identity.LineProcessIdentity;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.identity.RouteProcessIdentity;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.identity.ScheduleOrderProcessIdentity;
@@ -139,13 +141,20 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private static final String ISSUE_TYPE_CALENDAR = "CALENDAR";
     private static final String ISSUE_TYPE_CAPACITY = "CAPACITY";
     private static final String ISSUE_TYPE_ACTIVE_TASK = "ACTIVE_TASK";
+    private static final String ISSUE_TYPE_WORK_ORDER_STATUS = "WORK_ORDER_STATUS";
     private static final String ISSUE_STATUS_OPEN = "OPEN";
     private static final String ISSUE_STATUS_RESOLVED = "RESOLVED";
     private static final String ISSUE_TYPE_PROTECTED = "PROTECTED_TASK";
     private static final String ISSUE_TYPE_LATEST_START = "LATEST_START";
+    private static final String ISSUE_TYPE_PREFLIGHT = "PREFLIGHT";
     private static final String ISSUE_TYPE_MANUAL_NIGHT_SHIFT_CANCEL = "MANUAL_NIGHT_SHIFT_CANCEL";
     private static final String ISSUE_SEVERITY_BLOCKING = "BLOCKING";
     private static final String ISSUE_SEVERITY_WARNING = "WARNING";
+    private static final String PROTECTION_REASON_FINISHED = "FINISHED";
+    private static final String PROTECTION_REASON_FEEDBACK = "FEEDBACK";
+    private static final String PROTECTION_REASON_IN_PROGRESS = "IN_PROGRESS";
+    private static final String PROTECTION_REASON_LOCKED = "LOCKED";
+    private static final String PROTECTION_REASON_MANUAL = "MANUAL";
     private static final String ISSUE_MESSAGE_ROUTE_CALENDAR_CAPACITY_INSUFFICIENT =
             "路线工序可用日历产能不足";
     private static final int MAX_SHIFT_CAPACITY_ISSUES = 1;
@@ -162,12 +171,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private static final String CAPACITY_SOURCE_MACHINE = "MACHINE";
     private static final String CAPACITY_SOURCE_WORKER = "WORKER";
     private static final String CAPACITY_SOURCE_ROUTE_PROCESS = "ROUTE_PROCESS";
+    private static final String CAPACITY_SOURCE_MANUAL_OVERRIDE = "MANUAL_OVERRIDE";
     private static final String OPERATION_AUTO_APPLY = "AUTO_APPLY";
     private static final String OPERATION_REPLAN_APPLY = "REPLAN_APPLY";
     private static final String REPLAN_TRIGGER_MANUAL = "MANUAL";
     private static final String REPLAN_TRIGGER_NIGHTLY = "NIGHTLY";
-    private static final BigDecimal DEFAULT_PRODUCTION_QUANTITY_FACTOR = new BigDecimal("1.000000");
-
     @Resource
     private MesProWorkOrderService workOrderService;
     @Resource
@@ -296,19 +304,27 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         validateNoFrozenWorkOrders(reqVO.getWorkOrderIds());
         scheduleApplyGuard.validateCalendarContextToken(reqVO.getCalendarContextToken(),
                 computation.calendarContext == null ? null : computation.calendarContext.token);
-        validateApplyPreflight(reqVO);
-        if (hasBlockingIssues(computation.issues)) {
+        computation.issues.addAll(validateApplyPreflight(reqVO, computation));
+        if (hasGlobalBlockingIssues(computation.issues)) {
             throwBlockingIssue(computation, reqVO.getRuntimeCapacityBasis(), computation.issues);
         }
         validateLatestStartZeroTask(computation);
-        workOrderMapper.selectListByIdsForUpdate(reqVO.getWorkOrderIds());
+        Set<Long> blockedWorkOrderIds = blockingWorkOrderIds(computation.issues);
+        List<Long> applyWorkOrderIds = reqVO.getWorkOrderIds().stream()
+                .filter(workOrderId -> !blockedWorkOrderIds.contains(workOrderId))
+                .toList();
+        if (CollUtil.isNotEmpty(applyWorkOrderIds)) {
+            workOrderMapper.selectListByIdsForUpdate(applyWorkOrderIds);
+        }
 
         List<Long> existingScopeTaskIds = computation.scopeTasks.stream()
                 .filter(task -> !computation.nonBlockingSkippedWorkOrderIds.contains(task.getWorkOrderId()))
+                .filter(task -> !blockedWorkOrderIds.contains(task.getWorkOrderId()))
                 .map(MesProTaskDO::getId)
                 .toList();
         List<Long> deleteTaskIds = computation.replaceableScopeTasks.stream()
                 .filter(task -> !computation.nonBlockingSkippedWorkOrderIds.contains(task.getWorkOrderId()))
+                .filter(task -> !blockedWorkOrderIds.contains(task.getWorkOrderId()))
                 .map(MesProTaskDO::getId)
                 .toList();
         ScheduleApplier.ApplyResult applyCleanup = scheduleApplier.deleteReplaceableTasks(
@@ -332,7 +348,10 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                 scheduleOrderProcessByWorkOrderProcess.put(taskKey(scheduleOrder.getWorkOrderId(), process.getProcessId()), process);
             }
         });
-        for (MesProTaskDO preservedTask : computation.preservedTasks) {
+        List<MesProTaskDO> appliedPreservedTasks = computation.preservedTasks.stream()
+                .filter(task -> !blockedWorkOrderIds.contains(task.getWorkOrderId()))
+                .toList();
+        for (MesProTaskDO preservedTask : appliedPreservedTasks) {
             String key = taskKey(preservedTask.getWorkOrderId(), preservedTask.getProcessId());
             firstTaskIdsByWorkOrderProcess.putIfAbsent(key, preservedTask.getId());
             lastTaskIdsByWorkOrderProcess.put(key, preservedTask.getId());
@@ -397,22 +416,24 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         scheduleApplier.insertDependencies(dependencies);
         scheduleApplier.insertIssues(computation.issues);
 
-        scheduleApplier.syncQuantityScheduled(reqVO.getWorkOrderIds());
+        scheduleApplier.syncQuantityScheduled(applyWorkOrderIds);
         scheduleApplier.syncScheduleOrderPlanFields(buildScheduleOrderPlanFieldUpdates(computation));
-        List<ScheduleIssueDraft> edhrBatchCreationIssues = scheduleApplier
-                .createEdhrBatchExecutionsAfterScheduleCompletion(buildEdhrBatchExecutionCompletionCommands(computation));
-        if (CollUtil.isNotEmpty(edhrBatchCreationIssues)) {
-            computation.issues.addAll(edhrBatchCreationIssues);
-            scheduleApplier.insertIssues(edhrBatchCreationIssues);
+        if (!OPERATION_REPLAN_APPLY.equals(operationType)) {
+            List<ScheduleIssueDraft> edhrBatchCreationIssues = scheduleApplier
+                    .createEdhrBatchExecutionsAfterScheduleCompletion(buildEdhrBatchExecutionCompletionCommands(computation));
+            if (CollUtil.isNotEmpty(edhrBatchCreationIssues)) {
+                computation.issues.addAll(edhrBatchCreationIssues);
+                scheduleApplier.insertIssues(edhrBatchCreationIssues);
+            }
         }
 
         MesProAutoScheduleApplyRespVO respVO = new MesProAutoScheduleApplyRespVO();
-        respVO.setApplied(Boolean.TRUE);
+        respVO.setApplied(CollUtil.isNotEmpty(applyWorkOrderIds));
         respVO.setSummary(buildSummary(computation, computation.issues));
         respVO.setCreatedTaskIds(createdTaskIds);
         respVO.setDeletedTaskIds(deleteTaskIds);
-        respVO.setPreservedTaskIds(computation.preservedTasks.stream().map(MesProTaskDO::getId).toList());
-        respVO.setIssues(Collections.emptyList());
+        respVO.setPreservedTaskIds(appliedPreservedTasks.stream().map(MesProTaskDO::getId).toList());
+        respVO.setIssues(buildIssueRespList(computation.issues.stream().map(issue -> issue.toDO(null)).toList()));
         insertScheduleApplyEventLogs(operationType, reqVO, computation, respVO, requestId);
         if (OPERATION_REPLAN_APPLY.equals(operationType)) {
             insertReplanExplanationSnapshot(reqVO, computation, respVO, requestId, replanTriggerSource);
@@ -453,6 +474,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
 
     private List<EdhrScheduleCompletionCreateCommand> buildEdhrBatchExecutionCompletionCommands(ScheduleComputation computation) {
         List<EdhrScheduleCompletionCreateCommand> commands = new ArrayList<>();
+        Set<Long> blockedWorkOrderIds = blockingWorkOrderIds(computation.issues);
         Map<Long, MesProWorkOrderDO> workOrderMap = computation.scheduleOrders.stream()
                 .map(MesProScheduleOrderDO::getWorkOrderId)
                 .filter(Objects::nonNull)
@@ -469,7 +491,8 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                 .filter(this::hasEnabledEdhrBatchConfig)
                 .collect(Collectors.toSet());
         for (MesProScheduleOrderDO scheduleOrder : computation.scheduleOrders) {
-            if (computation.latestStartRejectedPlans.containsKey(scheduleOrder.getWorkOrderId())
+            if (blockedWorkOrderIds.contains(scheduleOrder.getWorkOrderId())
+                    || computation.latestStartRejectedPlans.containsKey(scheduleOrder.getWorkOrderId())
                     || CollUtil.isEmpty(computation.finalSteps.get(scheduleOrder.getWorkOrderId()))
                     || !edhrEnabledRouteIds.contains(scheduleOrder.getRouteId())) {
                 continue;
@@ -869,11 +892,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         MesProReplanExplanationRespVO.ProtectionSummary summary =
                 new MesProReplanExplanationRespVO.ProtectionSummary();
         summary.setTotalCount(protectedTasks.size());
-        summary.setFeedbackCount(countProtectionReason(protectedTasks, "FEEDBACK"));
-        summary.setInProgressCount(countProtectionReason(protectedTasks, "IN_PROGRESS"));
-        summary.setFinishedCount(countProtectionReason(protectedTasks, "FINISHED"));
-        summary.setLockedCount(countProtectionReason(protectedTasks, "LOCKED"));
-        summary.setManualCount(countProtectionReason(protectedTasks, "MANUAL"));
+        summary.setFeedbackCount(countProtectionReason(protectedTasks, PROTECTION_REASON_FEEDBACK));
+        summary.setInProgressCount(countProtectionReason(protectedTasks, PROTECTION_REASON_IN_PROGRESS));
+        summary.setFinishedCount(countProtectionReason(protectedTasks, PROTECTION_REASON_FINISHED));
+        summary.setLockedCount(countProtectionReason(protectedTasks, PROTECTION_REASON_LOCKED));
+        summary.setManualCount(countProtectionReason(protectedTasks, PROTECTION_REASON_MANUAL));
         summary.setOtherCount(protectedTasks.size() - summary.getFeedbackCount() - summary.getInProgressCount()
                 - summary.getFinishedCount() - summary.getLockedCount() - summary.getManualCount());
         return summary;
@@ -1114,12 +1137,18 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             BigDecimal productionQuantityFactor = resolveProductionQuantityFactor(latestRouteProcess,
                     scheduleRouteFlowConfigByRouteProcessId.get(process.getRouteProcessId()));
             BigDecimal plannedQuantity = calculateLatestPlannedQuantity(scheduleOrder, productionQuantityFactor);
-            boolean changed = isRouteScheduleSnapshotChanged(process, config)
+            boolean preserveWorkbenchCapacityOverride = hasWorkbenchManualCapacityOverride(process);
+            if (preserveWorkbenchCapacityOverride) {
+                capacitySnapshot = buildWorkbenchManualCapacitySnapshot(process, capacitySnapshot);
+            }
+            boolean changed = isRouteScheduleSnapshotChanged(process, config, preserveWorkbenchCapacityOverride)
                     || isRouteScheduleCapacitySnapshotChanged(process, capacitySnapshot)
                     || isRouteScheduleQuantitySnapshotChanged(process, productionQuantityFactor, plannedQuantity);
             process.setRouteVersionId(routeVersionId);
             process.setRouteScheduleConfigId(config.getId());
-            process.setCapacityMode(config.getCapacityMode());
+            process.setCapacityMode(preserveWorkbenchCapacityOverride
+                    ? MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode()
+                    : config.getCapacityMode());
             process.setInfiniteDurationQuantityFactor(config.getInfiniteDurationQuantityFactor());
             process.setInfiniteDurationBaseMinutes(config.getInfiniteDurationBaseMinutes());
             process.setNightShiftEnabled(Boolean.TRUE.equals(config.getNightShiftEnabled()));
@@ -1164,7 +1193,8 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private BigDecimal resolveProductionQuantityFactor(MesProRouteProcessDO routeProcess,
                                                        MesProRouteFlowProcessConfigDO scheduleRouteFlowConfig) {
         if (scheduleRouteFlowConfig == null || scheduleRouteFlowConfig.getProductionQuantityFactor() == null) {
-            return DEFAULT_PRODUCTION_QUANTITY_FACTOR;
+            Long routeProcessId = routeProcess == null ? null : routeProcess.getId();
+            throw exception(PRO_ROUTE_FLOW_CONFIG_PRODUCTION_QUANTITY_FACTOR_INVALID, routeProcessId);
         }
         BigDecimal factor = scheduleRouteFlowConfig.getProductionQuantityFactor();
         if (factor.compareTo(BigDecimal.ZERO) <= 0) {
@@ -1177,9 +1207,10 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private BigDecimal calculateLatestPlannedQuantity(MesProScheduleOrderDO scheduleOrder,
                                                       BigDecimal productionQuantityFactor) {
         BigDecimal baseQuantity = normalizeProcessQuantity(scheduleOrder == null ? null : scheduleOrder.getQuantity());
-        return baseQuantity.multiply(productionQuantityFactor == null
-                        ? DEFAULT_PRODUCTION_QUANTITY_FACTOR
-                        : productionQuantityFactor)
+        if (productionQuantityFactor == null || productionQuantityFactor.compareTo(BigDecimal.ZERO) <= 0) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_PRODUCTION_QUANTITY_FACTOR_INVALID, null);
+        }
+        return baseQuantity.multiply(productionQuantityFactor)
                 .setScale(6, RoundingMode.HALF_UP);
     }
 
@@ -1261,16 +1292,33 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         Map<Long, MesMdWorkstationCapacityMetrics> metricsByWorkstationId =
                 loadLatestPublishedCapacityMetrics(configByRouteProcessId, workstationByRouteProcessId);
         Map<Long, LatestPublishedCapacitySnapshot> result = new LinkedHashMap<>();
+        boolean unboundWorkbenchShiftHoursResolved = false;
+        BigDecimal unboundWorkbenchShiftHours = null;
         for (Map.Entry<Long, MesProRouteScheduleConfigDO> entry : configByRouteProcessId.entrySet()) {
             MesProRouteProcessDO routeProcess = routeProcessById.get(entry.getKey());
             MesMdWorkstationDO workstation = workstationByRouteProcessId.get(entry.getKey());
+            if (shouldUseWorkbenchShiftHoursForUnboundRouteProcess(entry.getValue(), routeProcess, workstation)
+                    && !unboundWorkbenchShiftHoursResolved) {
+                unboundWorkbenchShiftHours = resolveUnifiedWorkbenchShiftHoursOrNull(routeProcess);
+                unboundWorkbenchShiftHoursResolved = true;
+            }
             MesMdWorkstationCapacityMetrics metrics = workstation == null
                     ? null : metricsByWorkstationId.get(workstation.getId());
             result.put(entry.getKey(), buildLatestPublishedCapacitySnapshot(
                     entry.getValue(), routeProcess, workstation, metrics,
-                    scheduleOrderProcessByRouteProcessId.get(entry.getKey())));
+                    unboundWorkbenchShiftHours));
         }
         return result;
+    }
+
+    private boolean shouldUseWorkbenchShiftHoursForUnboundRouteProcess(MesProRouteScheduleConfigDO config,
+                                                                       MesProRouteProcessDO routeProcess,
+                                                                       MesMdWorkstationDO workstation) {
+        return workstation == null
+                && routeProcess != null
+                && routeProcess.getWorkstationId() == null
+                && config != null
+                && MesProScheduleCapacityModeEnum.isManualOverrideLike(config.getCapacityMode());
     }
 
     private Map<Long, MesMdWorkstationDO> loadLatestPublishedWorkstationByRouteProcessId(
@@ -1369,11 +1417,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             MesProRouteProcessDO routeProcess,
             MesMdWorkstationDO workstation,
             MesMdWorkstationCapacityMetrics metrics,
-            MesProScheduleOrderProcessDO scheduleOrderProcess) {
+            BigDecimal unboundWorkbenchShiftHours) {
         if (config == null || routeProcess == null) {
             throw exception(PRO_AUTO_SCHEDULE_WORKSTATION_REQUIRED);
         }
-        BigDecimal shiftHours = requireLatestPublishedShiftHours(routeProcess, workstation, scheduleOrderProcess);
+        BigDecimal shiftHours = requireLatestPublishedShiftHours(routeProcess, workstation, unboundWorkbenchShiftHours);
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("routeScheduleConfigId", config.getId());
         payload.put("routeProcessId", routeProcess.getId());
@@ -1426,17 +1474,43 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
 
     private BigDecimal requireLatestPublishedShiftHours(MesProRouteProcessDO routeProcess,
                                                         MesMdWorkstationDO workstation,
-                                                        MesProScheduleOrderProcessDO scheduleOrderProcess) {
-        BigDecimal shiftHours = workstation != null ? workstation.getShiftHours() : null;
-        if ((shiftHours == null || shiftHours.compareTo(BigDecimal.ZERO) <= 0)
-                && scheduleOrderProcess != null) {
-            shiftHours = scheduleOrderProcess.getShiftHours();
+                                                        BigDecimal unboundWorkbenchShiftHours) {
+        if (workstation != null) {
+            return scheduleDefaultCompatibilityPolicy.shiftHoursOrDefault(workstation.getShiftHours());
         }
-        if (shiftHours == null || shiftHours.compareTo(BigDecimal.ZERO) <= 0) {
-            throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED, routeProcess.getId(),
-                    workstation == null ? null : workstation.getId());
+        BigDecimal shiftHours = normalizePositiveShiftHours(unboundWorkbenchShiftHours);
+        return shiftHours == null ? scheduleDefaultCompatibilityPolicy.defaultShiftHoursWhenMissing() : shiftHours;
+    }
+
+    private BigDecimal resolveUnifiedWorkbenchShiftHoursOrNull(MesProRouteProcessDO routeProcess) {
+        List<MesMdWorkstationDO> workstations = ObjUtil.defaultIfNull(
+                workstationMapper.selectListForShiftHours(), Collections.emptyList());
+        if (CollUtil.isEmpty(workstations)) {
+            return null;
         }
-        return shiftHours;
+        boolean hasMissingShiftHours = workstations.stream()
+                .map(workstation -> workstation == null ? null : workstation.getShiftHours())
+                .anyMatch(shiftHours -> normalizePositiveShiftHours(shiftHours) == null);
+        if (hasMissingShiftHours) {
+            return scheduleDefaultCompatibilityPolicy.defaultShiftHoursWhenMissing();
+        }
+        BigDecimal unifiedShiftHours = null;
+        for (MesMdWorkstationDO workstation : workstations) {
+            BigDecimal shiftHours = normalizePositiveShiftHours(workstation == null ? null : workstation.getShiftHours());
+            Long workstationId = workstation == null ? null : workstation.getId();
+            if (unifiedShiftHours == null) {
+                unifiedShiftHours = shiftHours;
+                continue;
+            }
+            if (unifiedShiftHours.compareTo(shiftHours) != 0) {
+                return scheduleDefaultCompatibilityPolicy.defaultShiftHoursWhenMissing();
+            }
+        }
+        return unifiedShiftHours;
+    }
+
+    private BigDecimal normalizePositiveShiftHours(BigDecimal shiftHours) {
+        return shiftHours == null || shiftHours.compareTo(BigDecimal.ZERO) <= 0 ? null : shiftHours;
     }
 
     private MesMdWorkstationCapacityMetrics requireLatestPublishedCapacityMetrics(
@@ -1473,6 +1547,43 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         process.setShiftHours(capacitySnapshot.shiftHours);
         process.setShiftCapacityTotal(capacitySnapshot.shiftCapacityTotal);
         process.setResourceSnapshotJson(capacitySnapshot.resourceSnapshotJson);
+    }
+
+    private boolean hasWorkbenchManualCapacityOverride(MesProScheduleOrderProcessDO process) {
+        return process != null
+                && CAPACITY_SOURCE_MANUAL_OVERRIDE.equals(process.getCapacitySource())
+                && MesProScheduleCapacityModeEnum.isManualOverrideLike(process.getCapacityMode());
+    }
+
+    private LatestPublishedCapacitySnapshot buildWorkbenchManualCapacitySnapshot(
+            MesProScheduleOrderProcessDO process,
+            LatestPublishedCapacitySnapshot latestPublishedSnapshot) {
+        BigDecimal hourlyCapacity = requirePositiveWorkbenchCapacity(process.getHourlyCapacityTotal());
+        BigDecimal shiftHours = requirePositiveWorkbenchCapacity(process.getShiftHours());
+        BigDecimal shiftCapacity = hourlyCapacity.multiply(shiftHours);
+        Map<String, Object> payload = parseCapacitySnapshotPayload(latestPublishedSnapshot);
+        payload.put("capacityMode", MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode());
+        payload.put("capacitySource", CAPACITY_SOURCE_MANUAL_OVERRIDE);
+        payload.put("hourlyCapacityTotal", hourlyCapacity);
+        payload.put("shiftHours", shiftHours);
+        payload.put("shiftCapacityTotal", shiftCapacity);
+        return new LatestPublishedCapacitySnapshot(CAPACITY_SOURCE_MANUAL_OVERRIDE, hourlyCapacity,
+                shiftHours, shiftCapacity, JsonUtils.toJsonString(payload));
+    }
+
+    private BigDecimal requirePositiveWorkbenchCapacity(BigDecimal value) {
+        if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
+            throw exception(PRO_AUTO_SCHEDULE_CAPACITY_REQUIRED);
+        }
+        return value;
+    }
+
+    private Map<String, Object> parseCapacitySnapshotPayload(LatestPublishedCapacitySnapshot latestPublishedSnapshot) {
+        if (latestPublishedSnapshot == null || StrUtil.isBlank(latestPublishedSnapshot.resourceSnapshotJson)) {
+            return new LinkedHashMap<>();
+        }
+        Map<String, Object> parsed = JsonUtils.parseObject(latestPublishedSnapshot.resourceSnapshotJson, Map.class);
+        return parsed == null ? new LinkedHashMap<>() : new LinkedHashMap<>(parsed);
     }
 
     private static final class LatestPublishedCapacitySnapshot {
@@ -1526,16 +1637,21 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             }
         }
         for (MesProScheduleOrderProcessDO process : processes) {
-            if (process == null || process.getPredecessorRouteProcessId() == null || Boolean.FALSE.equals(process.getEnabled())) {
+            if (process == null || Boolean.FALSE.equals(process.getEnabled())) {
                 continue;
             }
-            Long snapshotPredecessorId = process.getPredecessorRouteProcessId();
-            Long currentPredecessorId = currentRouteProcessIdBySnapshotId.computeIfAbsent(
-                    snapshotPredecessorId,
-                    id -> resolveLatestPublishedRouteProcessId(
-                            scheduleOrder.getRouteId(), id, latestRouteProcessById));
-            if (!Objects.equals(snapshotPredecessorId, currentPredecessorId)) {
-                process.setPredecessorRouteProcessId(currentPredecessorId);
+            Set<Long> snapshotPredecessorIds = ScheduleTopologyPredecessors.resolve(process);
+            Set<Long> currentPredecessorIds = snapshotPredecessorIds.stream()
+                    .map(snapshotPredecessorId -> currentRouteProcessIdBySnapshotId.computeIfAbsent(
+                            snapshotPredecessorId,
+                            id -> resolveLatestPublishedRouteProcessId(
+                                    scheduleOrder.getRouteId(), id, latestRouteProcessById)))
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            if (!Objects.equals(snapshotPredecessorIds, currentPredecessorIds)
+                    || !Objects.equals(process.getPredecessorRouteProcessIdsJson(),
+                    ScheduleTopologyPredecessors.serialize(currentPredecessorIds))) {
+                process.setPredecessorRouteProcessId(ScheduleTopologyPredecessors.legacyScalar(currentPredecessorIds));
+                process.setPredecessorRouteProcessIdsJson(ScheduleTopologyPredecessors.serialize(currentPredecessorIds));
                 changedProcessIds.add(process.getId());
             }
         }
@@ -1551,6 +1667,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         updateObj.setId(process.getId());
         updateObj.setRouteProcessId(process.getRouteProcessId());
         updateObj.setPredecessorRouteProcessId(process.getPredecessorRouteProcessId());
+        updateObj.setPredecessorRouteProcessIdsJson(process.getPredecessorRouteProcessIdsJson());
         updateObj.setProcessId(process.getProcessId());
         scheduleOrderProcessMapper.updateById(updateObj);
     }
@@ -1625,11 +1742,14 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     }
 
     private boolean isRouteScheduleSnapshotChanged(MesProScheduleOrderProcessDO process,
-                                                   MesProRouteScheduleConfigDO config) {
+                                                   MesProRouteScheduleConfigDO config,
+                                                   boolean preserveWorkbenchCapacityOverride) {
+        boolean capacityConfigChanged = !preserveWorkbenchCapacityOverride
+                && (!Objects.equals(process.getCapacityMode(), config.getCapacityMode())
+                || !Objects.equals(process.getHourlyCapacityTotal(), config.getHourlyCapacity()));
         return !Objects.equals(process.getRouteScheduleConfigId(), config.getId())
                 || !Objects.equals(process.getRouteVersionId(), config.getRouteVersionId())
-                || !Objects.equals(process.getCapacityMode(), config.getCapacityMode())
-                || !Objects.equals(process.getHourlyCapacityTotal(), config.getHourlyCapacity())
+                || capacityConfigChanged
                 || !Objects.equals(process.getInfiniteDurationQuantityFactor(), config.getInfiniteDurationQuantityFactor())
                 || !Objects.equals(process.getInfiniteDurationBaseMinutes(), config.getInfiniteDurationBaseMinutes())
                 || !Objects.equals(process.getNightShiftEnabled(), Boolean.TRUE.equals(config.getNightShiftEnabled()))
@@ -1760,13 +1880,14 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         computation.workOrderMap = computation.workOrders.stream()
                 .collect(Collectors.toMap(MesProWorkOrderDO::getId, workOrder -> workOrder));
 
+        appendTerminalWorkOrderIssues(computation);
         collectRouteContexts(computation);
         collectMasterData(computation);
         collectExistingTasks(computation);
         initializeProcessCapacityLedger(computation);
         validateMaterialAvailability(computation);
 
-        if (!hasBlockingIssues(computation.issues)) {
+        if (!hasGlobalBlockingIssues(computation.issues)) {
             scheduleTasks(computation);
         }
         validateAttributableProcessActiveTaskCoverage(computation);
@@ -1780,6 +1901,9 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private void collectRouteContexts(ScheduleComputation computation) {
         Set<Long> routeIds = new LinkedHashSet<>();
         for (MesProWorkOrderDO workOrder : computation.workOrders) {
+            if (hasBlockingIssueForWorkOrder(computation.issues, workOrder.getId())) {
+                continue;
+            }
             MesProRouteProductDO routeProduct = routeProductService.getRouteProductByItemId(workOrder.getProductId());
             if (routeProduct == null) {
                 computation.issues.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_ROUTE, workOrder.getId(), null, null, null,
@@ -2094,7 +2218,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     }
 
     private void collectExistingTasks(ScheduleComputation computation) {
-        computation.scopeTasks = taskMapper.selectListByWorkOrderIds(computation.workOrderMap.keySet());
+        Set<Long> blockedWorkOrderIds = blockingWorkOrderIds(computation.issues);
+        computation.scopeTasks = taskMapper.selectListByWorkOrderIds(computation.workOrderMap.keySet()).stream()
+                .filter(task -> !blockedWorkOrderIds.contains(task.getWorkOrderId()))
+                .filter(task -> !isCanceledTask(task))
+                .toList();
         Set<Long> scopeTaskIds = computation.scopeTasks.stream()
                 .map(MesProTaskDO::getId)
                 .filter(Objects::nonNull)
@@ -2139,7 +2267,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             List<MesProTaskDO> stronglyProtectedTasks = protectedTasks.stream()
                     .filter(task -> {
                         MesProTaskScheduleExtDO ext = extMap.get(task.getId());
-                        return MesProTaskStatusEnum.isEndStatus(task.getStatus())
+                        return isFinishedTask(task)
                                 || (ext != null && Boolean.TRUE.equals(ext.getLocked()));
                     })
                     .toList();
@@ -2164,6 +2292,30 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         collectLineAvailabilityFromExistingTasks(computation);
     }
 
+    private void appendTerminalWorkOrderIssues(ScheduleComputation computation) {
+        for (MesProWorkOrderDO workOrder : computation.workOrders) {
+            String message = resolveSourceWorkOrderTerminalMessage(workOrder);
+            if (StrUtil.isBlank(message)) {
+                continue;
+            }
+            computation.issues.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_WORK_ORDER_STATUS,
+                    workOrder.getId(), null, null, null, message));
+        }
+    }
+
+    private String resolveSourceWorkOrderTerminalMessage(MesProWorkOrderDO workOrder) {
+        if (workOrder == null) {
+            return null;
+        }
+        if (ObjUtil.equal(workOrder.getStatus(), MesProWorkOrderStatusEnum.FINISHED.getStatus())) {
+            return "生产工单已完成";
+        }
+        if (ObjUtil.equal(workOrder.getStatus(), MesProWorkOrderStatusEnum.CANCELED.getStatus())) {
+            return "生产工单已取消";
+        }
+        return null;
+    }
+
     private void hydrateProtectedTaskWorkstations(ScheduleComputation computation) {
         if (CollUtil.isEmpty(computation.preservedTasks)) {
             return;
@@ -2182,6 +2334,9 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         Map<Long, MesMdWorkstationDO> workstationsToAdd = new LinkedHashMap<>();
         for (MesProTaskDO protectedTask : computation.preservedTasks) {
             Long workstationId = protectedTask.getWorkstationId();
+            if (isProgressOnlyProtectedTask(computation, protectedTask)) {
+                continue;
+            }
             if (workstationId == null) {
                 computation.issues.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_WORKSTATION,
                         protectedTask.getWorkOrderId(), protectedTask.getProcessId(), null, null,
@@ -2331,6 +2486,9 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             if (computation.replaceableScopeTasks.stream().anyMatch(replaceable -> ObjUtil.equal(replaceable.getId(), task.getId()))) {
                 continue;
             }
+            if (isProgressOnlyProtectedTask(computation, task)) {
+                continue;
+            }
             MesMdWorkstationDO workstation = computation.workstationMap.get(task.getWorkstationId());
             if (workstation == null || workstation.getProductionLineId() == null) {
                 continue;
@@ -2359,11 +2517,17 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
 
         Set<Long> seededTaskIds = new LinkedHashSet<>();
         for (MesProTaskDO preservedTask : computation.preservedTasks) {
+            if (isProgressOnlyProtectedTask(computation, preservedTask)) {
+                continue;
+            }
             seedTaskDailyProcessCapacity(computation, ledger, preservedTask,
                     effectiveScheduleOrderByWorkOrderId, processByScheduleOrderId, seededTaskIds);
         }
         for (MesProTaskDO lineResourceTask : lineResourceTasks) {
             if (lineResourceTask.getId() != null && replaceableTaskIds.contains(lineResourceTask.getId())) {
+                continue;
+            }
+            if (isProgressOnlyProtectedTask(computation, lineResourceTask)) {
                 continue;
             }
             seedTaskDailyProcessCapacity(computation, ledger, lineResourceTask,
@@ -2381,6 +2545,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             return Collections.emptyMap();
         }
         return scheduleOrderMapper.selectEffectiveListByWorkOrderIds(workOrderIds).stream()
+                .filter(item -> !Boolean.TRUE.equals(item.getRemovedFromSchedule()))
                 .collect(Collectors.toMap(MesProScheduleOrderDO::getWorkOrderId, order -> order,
                         (left, right) -> left, LinkedHashMap::new));
     }
@@ -2566,6 +2731,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             return Collections.emptySet();
         }
         return scheduleOrderMapper.selectEffectiveListByWorkOrderIds(workOrderIds).stream()
+                .filter(item -> !Boolean.TRUE.equals(item.getRemovedFromSchedule()))
                 .map(MesProScheduleOrderDO::getWorkOrderId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -2582,23 +2748,32 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private String resolveProtectionReason(ScheduleComputation computation,
                                            MesProTaskDO task,
                                            MesProTaskScheduleExtDO ext) {
-        if (MesProTaskStatusEnum.isEndStatus(task.getStatus())) {
-            return "FINISHED";
+        if (isFinishedTask(task)) {
+            return PROTECTION_REASON_FINISHED;
         }
         if (ObjUtil.equal(task.getStatus(), MesProTaskStatusEnum.IN_PROGRESS.getStatus())) {
-            return "IN_PROGRESS";
+            return PROTECTION_REASON_IN_PROGRESS;
         }
         if (CollUtil.isNotEmpty(computation.feedbackByTaskId.get(task.getId()))) {
-            return "FEEDBACK";
+            return PROTECTION_REASON_FEEDBACK;
         }
         if (ext != null && Boolean.TRUE.equals(ext.getLocked())) {
-            return "LOCKED";
+            return PROTECTION_REASON_LOCKED;
         }
         if (Boolean.TRUE.equals(computation.preserveManualLockedTasks)
-                && (ext == null || ObjUtil.notEqual(SCHEDULE_SOURCE_AUTO, ext.getScheduleSource()))) {
-            return "MANUAL";
+                && ext != null
+                && ObjUtil.notEqual(SCHEDULE_SOURCE_AUTO, ext.getScheduleSource())) {
+            return PROTECTION_REASON_MANUAL;
         }
         return null;
+    }
+
+    private boolean isCanceledTask(MesProTaskDO task) {
+        return task != null && ObjUtil.equal(task.getStatus(), MesProTaskStatusEnum.CANCELED.getStatus());
+    }
+
+    private boolean isFinishedTask(MesProTaskDO task) {
+        return task != null && ObjUtil.equal(task.getStatus(), MesProTaskStatusEnum.FINISHED.getStatus());
     }
 
     private void validateMaterialAvailability(ScheduleComputation computation) {
@@ -2672,6 +2847,9 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
 
     private void scheduleTasks(ScheduleComputation computation) {
         for (MesProWorkOrderDO workOrder : computation.workOrders) {
+            if (hasBlockingIssueForWorkOrder(computation.issues, workOrder.getId())) {
+                continue;
+            }
             MesProRouteProductDO routeProduct = computation.routeProductByWorkOrderId.get(workOrder.getId());
             List<MesProRouteProcessDO> routeProcesses = computation.routeProcessesByWorkOrderId.get(workOrder.getId());
             if (routeProduct == null || CollUtil.isEmpty(routeProcesses)) {
@@ -2788,16 +2966,21 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                         routeProcess.getProcessId(), null, null, "排产工序缺少路线快照"));
                 return null;
             }
-            if (scheduleOrderProcess.getPredecessorRouteProcessId() == null) {
+            Set<Long> predecessorRouteProcessIds = ScheduleTopologyPredecessors.resolve(scheduleOrderProcess);
+            if (predecessorRouteProcessIds.isEmpty()) {
                 if (Boolean.FALSE.equals(scheduleOrderProcess.getRootProcessFlag())) {
                     computation.issues.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_ROUTE, workOrder.getId(),
                             routeProcess.getProcessId(), null, null, "排产工序缺少直接前置关系快照"));
                     return null;
                 }
             } else {
-                LocalDateTime predecessorScheduledEndTime =
-                        routeProcessEndTimeMap.get(scheduleOrderProcess.getPredecessorRouteProcessId());
-                if (predecessorScheduledEndTime == null) {
+                LocalDateTime predecessorScheduledEndTime = predecessorRouteProcessIds.stream()
+                        .map(routeProcessEndTimeMap::get)
+                        .filter(Objects::nonNull)
+                        .max(LocalDateTime::compareTo)
+                        .orElse(null);
+                if (predecessorScheduledEndTime == null
+                        || predecessorRouteProcessIds.stream().anyMatch(id -> !routeProcessEndTimeMap.containsKey(id))) {
                     computation.issues.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_ROUTE, workOrder.getId(),
                             routeProcess.getProcessId(), null, null, "直接前置工序尚未完成排产"));
                     return null;
@@ -2813,7 +2996,8 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             }
 
             MesProTaskDO protectedTask = CollUtil.isEmpty(protectedTasks) ? null : protectedTasks.get(0);
-            MesMdWorkstationDO protectedWorkstation = protectedTask == null ? null
+            boolean useProtectedTaskResource = shouldUseProtectedTaskResourceForFuturePlanning(computation, protectedTask);
+            MesMdWorkstationDO protectedWorkstation = !useProtectedTaskResource ? null
                     : computation.workstationMap.get(protectedTask.getWorkstationId());
             Long requiredLineId = protectedWorkstation != null ? protectedWorkstation.getProductionLineId() : null;
             if (protectedTask != null && (protectedTask.getStartTime() == null || protectedTask.getEndTime() == null)) {
@@ -2821,7 +3005,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                         routeProcess.getProcessId(), protectedTask.getWorkstationId(), null, "受保护任务缺少开始或结束时间"));
                 return null;
             }
-            if (protectedTask != null && requiredLineId == null) {
+            if (useProtectedTaskResource && requiredLineId == null) {
                 computation.issues.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_LINE, workOrder.getId(),
                         routeProcess.getProcessId(), protectedTask.getWorkstationId(), null, "受保护任务未绑定产线"));
                 return null;
@@ -2840,7 +3024,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             if (processCandidate == null) {
                 return null;
             }
-            LocalDateTime dependencyReleasedAt = computation.requestStartTime;
+            LocalDateTime dependencyReleasedAt = predecessorRouteProcessIds.stream()
+                    .map(routeProcessEndTimeMap::get)
+                    .filter(Objects::nonNull)
+                    .max(LocalDateTime::compareTo)
+                    .orElse(computation.requestStartTime);
 
             if (protectedTask != null) {
                 candidate.steps.add(PreviewStep.fromExisting(protectedTask));
@@ -3137,9 +3325,12 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             }
             extensionStartDate = extensionEndDate.plusDays(1);
         }
+        String failureMessage = scheduleOrderProcess != null
+                && Boolean.TRUE.equals(scheduleOrderProcess.getNightShiftEnabled())
+                ? buildLineCapacityInsufficientMessage(computation, scheduleOrderProcess)
+                : buildLineCapacitySearchLimitMessage(scheduleOrderProcess, targetQuantity);
         ScheduleIssueDraft searchLimitIssue = ScheduleIssueDraft.blocking(ISSUE_TYPE_CAPACITY, workOrder.getId(),
-                routeProcess.getProcessId(), null, null,
-                buildLineCapacitySearchLimitMessage(scheduleOrderProcess, targetQuantity));
+                routeProcess.getProcessId(), null, null, failureMessage);
         return ProcessLineCandidate.failed(searchLimitIssue);
     }
 
@@ -3527,7 +3718,8 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private boolean hasRouteProcessTopologySnapshot(Collection<MesProScheduleOrderProcessDO> snapshotProcesses) {
         return CollUtil.isNotEmpty(snapshotProcesses)
                 && snapshotProcesses.stream().anyMatch(item -> item != null
-                && (item.getPredecessorRouteProcessId() != null || item.getRootProcessFlag() != null));
+                && (StrUtil.isNotBlank(item.getPredecessorRouteProcessIdsJson())
+                || item.getPredecessorRouteProcessId() != null || item.getRootProcessFlag() != null));
     }
 
     private List<MesProRouteProcessDO> restrictToActiveSnapshotRouteProcesses(
@@ -3562,8 +3754,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         return snapshotProcesses.stream()
-                .map(MesProScheduleOrderProcessDO::getPredecessorRouteProcessId)
-                .filter(Objects::nonNull)
+                .flatMap(process -> ScheduleTopologyPredecessors.resolve(process).stream())
                 .anyMatch(predecessorRouteProcessId -> !activeRouteProcessIds.contains(predecessorRouteProcessId));
     }
 
@@ -3844,6 +4035,15 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         summary.setPreservedTaskCount(computation.preservedTasks.size());
         summary.setBlockingIssueCount((int) issues.stream().filter(issue -> ISSUE_SEVERITY_BLOCKING.equals(issue.severity)).count());
         summary.setShortageCount((int) issues.stream().filter(issue -> ISSUE_TYPE_MATERIAL.equals(issue.issueType)).count());
+        Set<Long> blockedWorkOrderIds = blockingWorkOrderIds(issues);
+        summary.setBlockedWorkOrderCount(blockedWorkOrderIds.size());
+        summary.setSkippedWorkOrderCount(computation.nonBlockingSkippedWorkOrderIds.size());
+        summary.setAppliedWorkOrderCount((int) computation.workOrders.stream()
+                .map(MesProWorkOrderDO::getId)
+                .filter(Objects::nonNull)
+                .filter(workOrderId -> !blockedWorkOrderIds.contains(workOrderId))
+                .filter(workOrderId -> !computation.nonBlockingSkippedWorkOrderIds.contains(workOrderId))
+                .count());
 
         List<LocalDateTime> startTimes = computation.finalSteps.values().stream()
                 .flatMap(Collection::stream)
@@ -4014,7 +4214,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
 
     private List<ScheduleApplier.ScheduleOrderPlanFieldUpdate> buildScheduleOrderPlanFieldUpdates(ScheduleComputation computation) {
         List<ScheduleApplier.ScheduleOrderPlanFieldUpdate> updates = new ArrayList<>();
+        Set<Long> blockedWorkOrderIds = blockingWorkOrderIds(computation.issues);
         for (MesProScheduleOrderDO scheduleOrder : computation.scheduleOrders) {
+            if (blockedWorkOrderIds.contains(scheduleOrder.getWorkOrderId())) {
+                continue;
+            }
             List<PreviewStep> steps = computation.finalSteps.getOrDefault(scheduleOrder.getWorkOrderId(), Collections.emptyList());
             if (CollUtil.isEmpty(steps)) {
                 ScheduleApplier.ScheduleOrderPlanFieldUpdate rejectedUpdate =
@@ -4347,7 +4551,8 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         return MesProScheduleCalendarRuleSupport.resolveShiftCode(shift);
     }
 
-    private void validateApplyPreflight(MesProAutoSchedulePreviewReqVO reqVO) {
+    private List<ScheduleIssueDraft> validateApplyPreflight(MesProAutoSchedulePreviewReqVO reqVO,
+                                                            ScheduleComputation computation) {
         MesProScheduleOrderPreflightReqVO preflightReqVO = new MesProScheduleOrderPreflightReqVO();
         preflightReqVO.setScopeType("SELECTED");
         preflightReqVO.setScheduleOrderIds(new ArrayList<>(reqVO.getScheduleOrderIds()));
@@ -4356,11 +4561,41 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         preflightReqVO.setCapacityMode(reqVO.getRuntimeCapacityBasis());
         MesProScheduleOrderPreflightRespVO preflightResp = Objects.requireNonNull(
                 scheduleOrderService.preflight(preflightReqVO), "schedule preflight returned null");
-        if (PREFLIGHT_RESULT_BLOCKED.equals(preflightResp.getResult())
+        boolean erpSourceWarning = Optional.ofNullable(preflightResp.getIssues()).orElse(Collections.emptyList()).stream()
+                .anyMatch(issue -> "WARN_ERP_SYNC_RECORD_MISSING".equals(issue.getReasonCode()));
+        if (erpSourceWarning && !Boolean.TRUE.equals(reqVO.getErpSourceRiskConfirmed())) {
+            throw exception(PRO_AUTO_SCHEDULE_ERP_SOURCE_CONFIRMATION_REQUIRED);
+        }
+        boolean blocked = PREFLIGHT_RESULT_BLOCKED.equals(preflightResp.getResult())
                 || (preflightResp.getSummary() != null
-                && ObjUtil.defaultIfNull(preflightResp.getSummary().getBlockedCount(), 0) > 0)) {
+                && ObjUtil.defaultIfNull(preflightResp.getSummary().getBlockedCount(), 0) > 0);
+        if (!blocked) {
+            return Collections.emptyList();
+        }
+        List<MesProScheduleOrderPreflightIssueRespVO> blockedIssues =
+                Optional.ofNullable(preflightResp.getIssues()).orElse(Collections.emptyList()).stream()
+                        .filter(issue -> PREFLIGHT_RESULT_BLOCKED.equals(issue.getSeverity()))
+                        .toList();
+        Map<Long, Long> workOrderIdByScheduleOrderId = computation.scheduleOrders.stream()
+                .filter(order -> order.getId() != null && order.getWorkOrderId() != null)
+                .collect(Collectors.toMap(MesProScheduleOrderDO::getId, MesProScheduleOrderDO::getWorkOrderId,
+                        (left, right) -> left, LinkedHashMap::new));
+        List<ScheduleIssueDraft> drafts = new ArrayList<>();
+        for (MesProScheduleOrderPreflightIssueRespVO issue : blockedIssues) {
+            Long workOrderId = issue.getWorkOrderId();
+            if (workOrderId == null && issue.getScheduleOrderId() != null) {
+                workOrderId = workOrderIdByScheduleOrderId.get(issue.getScheduleOrderId());
+            }
+            if (workOrderId == null) {
+                throw exception(PRO_AUTO_SCHEDULE_PREFLIGHT_BLOCKED, resolvePreflightBlockedMessage(preflightResp));
+            }
+            drafts.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_PREFLIGHT, workOrderId, issue.getProcessId(),
+                    null, null, StrUtil.blankToDefault(issue.getMessage(), "排产前检查存在阻断项")));
+        }
+        if (drafts.isEmpty()) {
             throw exception(PRO_AUTO_SCHEDULE_PREFLIGHT_BLOCKED, resolvePreflightBlockedMessage(preflightResp));
         }
+        return drafts;
     }
 
     private String resolvePreflightBlockedMessage(MesProScheduleOrderPreflightRespVO preflightResp) {
@@ -4394,9 +4629,10 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     }
 
     private void validateAttributableProcessActiveTaskCoverage(ScheduleComputation computation) {
-        if (hasBlockingIssues(computation.issues)) {
+        if (hasGlobalBlockingIssues(computation.issues)) {
             return;
         }
+        Set<Long> blockedWorkOrderIds = blockingWorkOrderIds(computation.issues);
         Set<String> generatedTaskKeys = computation.generatedTasks.stream()
                 .map(plan -> taskKey(plan.workOrderId, plan.processId))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -4406,6 +4642,9 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                 .forEach(generatedTaskKeys::add);
         for (MesProScheduleOrderDO scheduleOrder : computation.scheduleOrders) {
             if (!isAttributable(scheduleOrder)) {
+                continue;
+            }
+            if (blockedWorkOrderIds.contains(scheduleOrder.getWorkOrderId())) {
                 continue;
             }
             if (computation.nonBlockingSkippedWorkOrderIds.contains(scheduleOrder.getWorkOrderId())) {
@@ -4449,11 +4688,13 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     }
 
     private void validateGeneratedProcessQuantityTieOut(ScheduleComputation computation) {
-        if (hasBlockingIssues(computation.issues)) {
+        if (hasGlobalBlockingIssues(computation.issues)) {
             return;
         }
+        Set<Long> blockedWorkOrderIds = blockingWorkOrderIds(computation.issues);
         for (MesProScheduleOrderDO scheduleOrder : computation.scheduleOrders) {
             if (!isAttributable(scheduleOrder)
+                    || blockedWorkOrderIds.contains(scheduleOrder.getWorkOrderId())
                     || computation.nonBlockingSkippedWorkOrderIds.contains(scheduleOrder.getWorkOrderId())
                     || computation.latestStartRejectedPlans.containsKey(scheduleOrder.getWorkOrderId())) {
                 continue;
@@ -4504,6 +4745,28 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
 
     private boolean hasBlockingIssues(List<ScheduleIssueDraft> issues) {
         return issues.stream().anyMatch(issue -> ISSUE_SEVERITY_BLOCKING.equals(issue.severity));
+    }
+
+    private boolean hasGlobalBlockingIssues(List<ScheduleIssueDraft> issues) {
+        return issues.stream()
+                .anyMatch(issue -> ISSUE_SEVERITY_BLOCKING.equals(issue.severity) && issue.workOrderId == null);
+    }
+
+    private boolean hasBlockingIssueForWorkOrder(List<ScheduleIssueDraft> issues, Long workOrderId) {
+        if (workOrderId == null) {
+            return false;
+        }
+        return issues.stream()
+                .anyMatch(issue -> ISSUE_SEVERITY_BLOCKING.equals(issue.severity)
+                        && ObjUtil.equal(workOrderId, issue.workOrderId));
+    }
+
+    private Set<Long> blockingWorkOrderIds(List<ScheduleIssueDraft> issues) {
+        return issues.stream()
+                .filter(issue -> ISSUE_SEVERITY_BLOCKING.equals(issue.severity))
+                .map(issue -> issue.workOrderId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private boolean isNonBlockingSchedulingWarning(ScheduleIssueDraft issue) {
@@ -4700,6 +4963,19 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         return ScheduleOrderProcessIdentity.scheduleOrderProcessTaskKey(workOrderId, scheduleOrderProcessId);
     }
 
+    private boolean shouldUseProtectedTaskResourceForFuturePlanning(ScheduleComputation computation,
+                                                                    MesProTaskDO protectedTask) {
+        return protectedTask != null && !isProgressOnlyProtectedTask(computation, protectedTask);
+    }
+
+    private boolean isProgressOnlyProtectedTask(ScheduleComputation computation, MesProTaskDO task) {
+        if (computation == null || task == null || task.getId() == null) {
+            return false;
+        }
+        String reason = computation.protectionReasonByTaskId.get(task.getId());
+        return PROTECTION_REASON_FEEDBACK.equals(reason) || PROTECTION_REASON_FINISHED.equals(reason);
+    }
+
     private Long resolveScheduleOrderId(Map<String, MesProScheduleOrderDO> scheduleOrderByWorkOrderId, Long workOrderId) {
         MesProScheduleOrderDO scheduleOrder = scheduleOrderByWorkOrderId.get(String.valueOf(workOrderId));
         return scheduleOrder == null ? null : scheduleOrder.getId();
@@ -4718,7 +4994,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                                                     Map<String, MesProScheduleOrderDO> scheduleOrderByWorkOrderId,
                                                     Map<String, MesProScheduleOrderProcessDO> scheduleOrderProcessByWorkOrderProcess) {
         List<ScheduleApplier.PreservedTaskScheduleRelation> relations = new ArrayList<>();
+        Set<Long> blockedWorkOrderIds = blockingWorkOrderIds(computation.issues);
         for (MesProTaskDO preservedTask : computation.preservedTasks) {
+            if (blockedWorkOrderIds.contains(preservedTask.getWorkOrderId())) {
+                continue;
+            }
             Long scheduleOrderId = resolveScheduleOrderId(scheduleOrderByWorkOrderId, preservedTask.getWorkOrderId());
             Long scheduleOrderProcessId = resolveScheduleOrderProcessId(
                     scheduleOrderProcessByWorkOrderProcess, preservedTask.getWorkOrderId(), preservedTask.getProcessId(), null);

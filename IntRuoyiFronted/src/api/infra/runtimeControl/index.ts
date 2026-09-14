@@ -231,6 +231,27 @@ export interface RuntimeControlInspectionCheckVO {
   evidence?: string
   reason?: string
   sampledAt?: RuntimeControlDateTime
+  trustedTime?: RuntimeControlTrustedTimeVO
+}
+
+export interface RuntimeControlTrustedTimeVO {
+  targetEnvironment: 'prod' | 'backup'
+  nodeName: string
+  serverHost: string
+  selectedSource?: string
+  stratum?: number
+  lastOffsetMillis?: number
+  rmsOffsetMillis?: number
+  maxOffsetMillis?: number
+  leapStatus?: string
+  systemClockSynchronized?: boolean
+  ntpServiceState?: string
+  serverTimeUtc?: string
+  databaseTimeUtc?: string
+  checkedAtUtc?: string
+  chronycTracking?: string
+  chronycSources?: string
+  timedatectlStatus?: string
 }
 
 export interface RuntimeControlInspectionRunVO {
@@ -555,6 +576,13 @@ export const runRuntimeControlInspection = () => {
 export const getRuntimeControlInspectionRun = (id: number) => {
   return request.get<RuntimeControlInspectionRunVO>({
     url: `/infra/runtime-control/inspection-runs/${id}`
+  })
+}
+
+export const downloadRuntimeControlTimeEvidence = (id: number) => {
+  return request.download<Blob>({
+    url: `/infra/runtime-control/inspection-runs/${id}/time-evidence.zip`,
+    timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
   })
 }
 

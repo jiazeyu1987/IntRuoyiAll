@@ -27,6 +27,7 @@ public class MesProBatchRecordReportLayoutCalibrator {
     private static final int OPERATION_BAND_LABEL_COL_SPAN = 3;
     private static final int OPERATION_BAND_SELF_INSPECTION_COL_SPAN = 3;
     private static final int OPERATION_BAND_TAIL_COL_SPAN = 2;
+    private static final int OPERATION_SELF_INSPECTION_TAIL_WIDTH_FLOOR_PX = 68;
 
     public MesProBatchRecordParsedTable calibrate(MesProBatchRecordParsedTable parsedTable) {
         int columnCount = Math.max(parsedTable.getColumnCount(), 1);
@@ -145,6 +146,7 @@ public class MesProBatchRecordReportLayoutCalibrator {
         }
         rows.addAll(documentFooterRows);
         closeSourceIndexedRightEdgeGaps(rows, columnCount);
+        balanceChecklistNarrativeTrailingBlankSpans(rows);
 
         List<Integer> fixedColumnWidths = resolveFixedColumnWidths(parsedTable, rows, columnCount, renderWidth,
                 sharedOverviewTemplate, preserveExactSourceShape, preserveOverviewSourceColumnWidths);
@@ -2301,9 +2303,40 @@ public class MesProBatchRecordReportLayoutCalibrator {
                 Math.round(renderWidth * (availableColumns / (float) Math.max(columnCount, 1))));
         List<MesProBatchRecordParsedCell> normalizedRow = cloneRowWithDistributedSpans(
                 row, 1.0f, normalizedWidth, availableColumns, colSpans, rowSpans);
+        balanceChecklistNarrativeTrailingBlankSpans(normalizedRow, availableColumns);
         alignFirstNarrativeCellLeft(normalizedRow);
         return tuneProcessRow(normalizedRow, PROCESS_BODY_FONT_SIZE,
                 resolveChecklistNarrativeRowHeight(row, normalizedRow), false);
+    }
+
+    private void balanceChecklistNarrativeTrailingBlankSpans(List<MesProBatchRecordParsedCell> row, int availableColumns) {
+        if (availableColumns <= PROCESS_TEMPLATE_TOTAL_COL_SPAN * 2 || row == null || row.size() != 5) {
+            return;
+        }
+        if (!isShortLabelText(textOf(row.get(0)))
+                || !looksLikeParagraphText(textOf(row.get(1)))
+                || !containsChecklistChoice(textOf(row.get(2)))
+                || !isBlankCell(row.get(3))
+                || !isBlankCell(row.get(4))) {
+            return;
+        }
+        MesProBatchRecordParsedCell penultimateBlank = row.get(3);
+        MesProBatchRecordParsedCell lastBlank = row.get(4);
+        int penultimateSpan = Math.max(1, penultimateBlank.getColSpan());
+        int lastSpan = Math.max(1, lastBlank.getColSpan());
+        if (lastSpan <= penultimateSpan + 4) {
+            return;
+        }
+        lastBlank.setColSpan(lastSpan - 1);
+    }
+
+    private void balanceChecklistNarrativeTrailingBlankSpans(List<List<MesProBatchRecordParsedCell>> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        for (List<MesProBatchRecordParsedCell> row : rows) {
+            balanceChecklistNarrativeTrailingBlankSpans(row, sumColSpans(row));
+        }
     }
 
     private int resolveChecklistNarrativeRowHeight(List<MesProBatchRecordParsedCell> sourceRow,
@@ -4442,6 +4475,7 @@ public class MesProBatchRecordReportLayoutCalibrator {
             if (row == null || row.isEmpty()) {
                 continue;
             }
+            boolean operationInstructionBodyRow = isOperationInstructionBodyRow(row);
             int cursor = 0;
             for (MesProBatchRecordParsedCell cell : row) {
                 int colSpan = Math.max(1, cell.getColSpan());
@@ -4452,9 +4486,24 @@ public class MesProBatchRecordReportLayoutCalibrator {
                         floors[cursor + index] = Math.max(floors[cursor + index], perColumnFloor);
                     }
                 }
+                if (operationInstructionBodyRow && isOperationSelfInspectionTailLabel(text)) {
+                    int perColumnFloor = (int) Math.ceil(
+                            OPERATION_SELF_INSPECTION_TAIL_WIDTH_FLOOR_PX / (double) colSpan);
+                    for (int index = 0; index < colSpan && cursor + index < floors.length; index++) {
+                        floors[cursor + index] = Math.max(floors[cursor + index], perColumnFloor);
+                    }
+                }
                 cursor += colSpan;
             }
         }
+    }
+
+    private boolean isOperationSelfInspectionTailLabel(String text) {
+        return text.contains("生产数量/pcs")
+                || text.contains("自检合格数量/pcs")
+                || text.contains("不合格数量/pcs")
+                || "操作人".equals(text)
+                || "复核人".equals(text);
     }
 
     private boolean applyColumnFloors(int[] columnWidths, int[] floors) {
@@ -5235,12 +5284,7 @@ public class MesProBatchRecordReportLayoutCalibrator {
                 || Math.max(1, packedCell.getColSpan()) < columnCount - Math.max(8, Math.max(1, sideHeaderCell.getColSpan()) + 2)) {
             return null;
         }
-        List<String> lines = packedCell.getText() == null
-                ? List.of()
-                : packedCell.getText().lines()
-                .map(String::trim)
-                .filter(line -> !line.isBlank())
-                .toList();
+        List<String> lines = MesProBatchRecordPackedMaterialMatrixTextSupport.nonBlankLines(packedCell.getText());
         if (lines.size() < PACKED_MATERIAL_MATRIX_HEADER_COUNT + 2) {
             return null;
         }
@@ -5255,14 +5299,8 @@ public class MesProBatchRecordReportLayoutCalibrator {
         if (!explicitMergedSideHeader && !collapsedMatrixShape) {
             return null;
         }
-        List<String> itemNames = new ArrayList<>();
-        for (int index = PACKED_MATERIAL_MATRIX_HEADER_COUNT; index < lines.size(); index++) {
-            String line = lines.get(index);
-            if ("/".equals(line)) {
-                continue;
-            }
-            itemNames.add(line);
-        }
+        List<String> itemNames = MesProBatchRecordPackedMaterialMatrixTextSupport.extractItemNames(
+                lines, PACKED_MATERIAL_MATRIX_HEADER_COUNT);
         if (itemNames.size() < 2) {
             return null;
         }

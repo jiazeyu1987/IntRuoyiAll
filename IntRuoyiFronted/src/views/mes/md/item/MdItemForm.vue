@@ -40,6 +40,26 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
+          <el-form-item label="MDM 产品" prop="productMasterId">
+            <el-select
+              v-model="formData.productMasterId"
+              data-md-item-product-master-select
+              placeholder="请选择 MDM 产品"
+              filterable
+              clearable
+              :loading="productMasterOptionsLoading"
+              class="!w-1/1"
+            >
+              <el-option
+                v-for="option in productMasterOptions"
+                :key="option.productMasterId"
+                :label="formatProductMasterOption(option)"
+                :value="option.productMasterId"
+              />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        <el-col :span="8">
           <el-form-item label="状态" prop="status">
             <el-radio-group v-model="formData.status" disabled>
               <el-radio
@@ -101,6 +121,9 @@
       <el-tab-pane label="BOM 组成" name="bom" lazy>
         <MdProductBomForm ref="productBomFormRef" :itemId="formData.id!" :formType="formType" />
       </el-tab-pane>
+      <el-tab-pane label="工艺路线" name="route" lazy v-if="isProductItem">
+        <MdItemRouteForm :itemId="formData.id!" :formType="formType" />
+      </el-tab-pane>
       <el-tab-pane label="批次属性" name="batch" lazy v-if="formData.batchFlag">
         <MdItemBatchConfigForm
           :itemId="formData.id!"
@@ -144,17 +167,18 @@
 </template>
 <script setup lang="ts">
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
-import { MdItemApi, MdItemVO } from '@/api/mes/md/item'
+import { MdItemApi, MdItemProductMasterOptionVO, MdItemVO } from '@/api/mes/md/item'
 import { MdProductBomApi } from '@/api/mes/md/item/productBom'
 import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
 import MdItemBatchConfigForm from './MdItemBatchConfigForm.vue'
 import MdProductBomForm from './MdProductBomForm.vue'
+import MdItemRouteForm from './MdItemRouteForm.vue'
 import MdProductSopForm from './MdProductSopForm.vue'
 import MdProductSipForm from './MdProductSipForm.vue'
 import MdUnitMeasureSelect from '@/views/mes/md/unitmeasure/components/MdUnitMeasureSelect.vue'
 import MdItemTypeSelect from '@/views/mes/md/item/type/components/MdItemTypeSelect.vue'
 import { CommonStatusEnum } from '@/utils/constants'
-import { MesAutoCodeRuleCode, BarcodeBizTypeEnum } from '@/views/mes/utils/constants'
+import { MesAutoCodeRuleCode, BarcodeBizTypeEnum, MesItemOrProductEnum } from '@/views/mes/utils/constants'
 import { BarcodeDetail } from '@/views/mes/wm/barcode/components'
 
 /** MES 物料产品 表单 */
@@ -183,6 +207,7 @@ const formData = ref({
   specification: undefined,
   unitMeasureId: undefined,
   itemTypeId: undefined,
+  productMasterId: undefined,
   status: CommonStatusEnum.DISABLE,
   safeStockFlag: false,
   minStock: 0,
@@ -202,6 +227,21 @@ const formRules = reactive({
 const formRef = ref() // 表单 Ref
 const barcodeDetailRef = ref() // 条码详情弹窗 Ref
 const currentItemOrProduct = computed(() => formData.value.itemOrProduct || '') // 物料/产品的标签
+const isProductItem = computed(() => currentItemOrProduct.value === MesItemOrProductEnum.PRODUCT.value)
+const productMasterOptions = ref<MdItemProductMasterOptionVO[]>([])
+const productMasterOptionsLoading = ref(false)
+
+const formatProductMasterOption = (option: MdItemProductMasterOptionVO) =>
+  [option.productCode, option.dccProductCode, option.nameCn].filter(Boolean).join(' / ')
+
+const loadProductMasterOptions = async () => {
+  productMasterOptionsLoading.value = true
+  try {
+    productMasterOptions.value = await MdItemApi.getMdmProductOptions()
+  } finally {
+    productMasterOptionsLoading.value = false
+  }
+}
 
 /** 生成物料编码 */
 const generateCode = async () => {
@@ -229,6 +269,7 @@ const open = async (type: string, id?: number) => {
   formType.value = type
   activeTab.value = 'bom'
   resetForm()
+  await loadProductMasterOptions()
   // 修改时，设置数据
   if (id) {
     formLoading.value = true
@@ -276,6 +317,7 @@ const resetForm = () => {
     specification: undefined,
     unitMeasureId: undefined,
     itemTypeId: undefined,
+    productMasterId: undefined,
     status: CommonStatusEnum.DISABLE,
     safeStockFlag: false,
     minStock: 0,

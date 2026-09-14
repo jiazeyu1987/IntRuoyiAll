@@ -16,7 +16,7 @@ def test_form_center_basic_data_menu_migration_has_release_guards() -> None:
 
     assert text.startswith(
         "-- release-migration: allowedEnvironments=test,backup,prod; "
-        "dependsOn=20260717_bpm_form_center; type=data; riskLevel=low"
+        "dependsOn=20260717_bpm_form_center; type=menu; riskLevel=low"
     )
     assert "SET NAMES utf8mb4;" in text
     assert "SIGNAL SQLSTATE '45000'" in text

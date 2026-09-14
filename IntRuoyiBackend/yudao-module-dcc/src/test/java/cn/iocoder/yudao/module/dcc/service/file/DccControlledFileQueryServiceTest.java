@@ -5,9 +5,13 @@ import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledPreviewWatermarkOverlayRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledPreviewWatermarkRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCheckoutReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCheckinReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCancelCheckoutReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePreviewMetadataRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadDirectoryTreeRespVO;
@@ -19,6 +23,9 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccFileDirectoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileAccessLogDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileCheckoutDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMasterDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSourceOwnershipDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDistributionDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDistributionRecipientDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRouteSnapshotDO;
@@ -37,6 +44,9 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileAccessLogMapp
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionRecipientMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileCheckoutMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSourceOwnershipMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRouteSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingAssignmentMapper;
@@ -47,7 +57,6 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileAccessE
 import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileDownloadRecordMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileWatermarkTraceMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentFileMapper;
-import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccAccessTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileProcessTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
@@ -55,21 +64,34 @@ import cn.iocoder.yudao.module.dcc.enums.DccControlledFileTrainingStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccDistributionMediumEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
 import cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAccessPermissionService;
+import cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditService;
 import cn.iocoder.yudao.module.dcc.service.download.DccDownloadFileBinary;
 import cn.iocoder.yudao.module.dcc.service.download.DccDownloadPolicyService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
 import cn.iocoder.yudao.module.dcc.service.preview.DccControlledPreviewAccessService;
 import cn.iocoder.yudao.module.dcc.service.preview.DccPreviewAccessRequest;
 import cn.iocoder.yudao.module.dcc.service.preview.DccPreviewAccessResult;
+import cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenExpectedContext;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenPayload;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenService;
+import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketBoundFile;
+import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketMarkBoundCommand;
+import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketResolveCommand;
+import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import org.flowable.task.api.Task;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -93,19 +115,24 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.Objects;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ALREADY_CHECKED_OUT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DOWNLOAD_WARNING_UNCONFIRMED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_CHECKED_OUT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_AUDIT_RECORD_FAILED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REUSED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_UNCLASSIFIED_DIRECTORY_NOT_EXISTS;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -120,6 +147,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -155,6 +183,16 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileMapper controlledFileMapper;
     @Mock
+    private DccControlledFileCheckoutMapper checkoutMapper;
+    @Mock
+    private DccControlledFileMasterMapper controlledFileMasterMapper;
+    @Mock
+    private DccControlledFileSourceOwnershipMapper sourceOwnershipMapper;
+    @Mock
+    private DccControlledFileSourceOwnershipService sourceOwnershipService;
+    @Mock
+    private DccUploadTicketService uploadTicketService;
+    @Mock
     private DccControlledFileRouteSnapshotMapper routeSnapshotMapper;
     @Mock
     private DccControlledFileDistributionMapper distributionMapper;
@@ -169,11 +207,19 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileSignatureMapper signatureMapper;
     @Mock
+    private DccControlledFileSignatureBindingService signatureBindingService;
+    @Mock
+    private DccControlledFileRelatedFileService relatedFileService;
+    @Mock
     private DccExternalFileReviewMapper externalReviewMapper;
     @Mock
     private DccControlledFileAccessLogMapper accessLogMapper;
     @Mock
     private DccControlledFileCategoryPermissionSupport permissionSupport;
+    @Mock
+    private DccProjectAccessService projectAccessService;
+    @Mock
+    private DccControlledFileFormActionPendingService formActionPendingService;
     @Mock
     private DccControlledFileViewMatrixAccessService viewMatrixAccessService;
     @Mock
@@ -201,13 +247,19 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileBrowserSettingsService browserSettingsService;
     @Mock
-    private DccProjectCodeAssignmentMapper projectCodeAssignmentMapper;
-    @Mock
     private DccProjectCodeAssignmentFileMapper projectCodeAssignmentFileMapper;
     @Mock
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Mock
+    private DccControlledFileAccessAuditService lifecycleAuditService;
+    @Mock
     private PermissionApi permissionApi;
+    @Mock
+    private AdminUserApi adminUserApi;
+    @Mock
+    private BusinessFileAccessService businessFileAccessService;
+    @Mock
+    private BpmTaskService bpmTaskService;
     @Spy
     private DccDownloadPolicyService downloadPolicyService = new DccDownloadPolicyService();
 
@@ -217,6 +269,12 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     @BeforeEach
     void setUpDirectoryAccessDefaults() {
         TenantContextHolder.setTenantId(31L);
+        DccControlledFileAssignmentScopeService assignmentScopeService =
+                new DccControlledFileAssignmentScopeService();
+        ReflectionTestUtils.setField(assignmentScopeService, "permissionApi", permissionApi);
+        ReflectionTestUtils.setField(assignmentScopeService, "assignmentFileMapper", projectCodeAssignmentFileMapper);
+        ReflectionTestUtils.setField(assignmentScopeService, "distributionRecipientMapper", distributionRecipientMapper);
+        ReflectionTestUtils.setField(queryService, "assignmentScopeService", assignmentScopeService);
         lenient().when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY))
                 .thenReturn(Set.of(20L));
         lenient().when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW))
@@ -226,6 +284,10 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         lenient().when(browserSettingsService.getBlacklistedExtensionPatterns()).thenReturn(List.of());
         lenient().when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(99L), any(DccControlledFileDO.class)))
                 .thenReturn(true);
+        lenient().when(permissionSupport.hasCategoryPermission(10L, 99L,
+                DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(true);
+        lenient().when(controlledFileMapper.selectByIdAndTenantForUpdate(anyLong(), anyLong()))
+                .thenAnswer(invocation -> controlledFileMapper.selectById(invocation.<Long>getArgument(1)));
         lenient().when(previewAccessService.prepareAccess(any(DccPreviewAccessRequest.class)))
                 .thenReturn(previewAccessResult());
         lenient().when(accessEventMapper.selectOne(any())).thenAnswer(invocation -> accessEvent(900L, "1.0"));
@@ -234,6 +296,11 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         lenient().when(downloadRecordMapper.update(isNull(), any(UpdateWrapper.class))).thenReturn(1);
         lenient().when(accessLogMapper.insert(any(DccControlledFileAccessLogDO.class))).thenReturn(1);
         lenient().when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+        lenient().when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenReturn(java.util.Optional.of(new BusinessFileAccessReference(
+                        "dcc", "DCC_CONTROLLED_FILE", 900L, "1.0", 31L, null)));
+        lenient().when(bpmTaskService.getRunningTaskListByProcessInstanceId(anyString(), isNull(), isNull()))
+                .thenReturn(List.of());
         lenient().when(viewerTokenService.verify(eq(VIEWER_TOKEN), any(DccViewerTokenExpectedContext.class)))
                 .thenReturn(DccViewerTokenPayload.builder()
                         .tokenId(VIEWER_TOKEN_ID)
@@ -262,6 +329,632 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertNoForbiddenProperties(DccExternalFileReviewRespVO.class);
         assertNoForbiddenProperties(DccControlledFilePreviewMetadataRespVO.class);
         assertNoForbiddenProperties(DccControlledFileUploadRespVO.class);
+    }
+
+    @Test
+    void checkoutCurrentActiveVersionCreatesLockWithoutCreatingIterationOrChangingFormalPointer() {
+        DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
+                .id(700L).currentActiveControlledFileId(900L).build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(sourceOwnershipMapper.selectByControlledFileId(31L, 900L)).thenReturn(
+                DccControlledFileSourceOwnershipDO.builder().sourceSha256("old-sha").build());
+        when(checkoutMapper.insert(any(DccControlledFileCheckoutDO.class))).thenAnswer(invocation -> {
+            DccControlledFileCheckoutDO checkout = invocation.getArgument(0);
+            checkout.setId(1001L);
+            return 1;
+        });
+        when(controlledFileMapper.checkoutByIdAndTenantWhenAvailable(31L, 900L, 99L, "更新操作说明"))
+                .thenReturn(1);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        DccControlledFileCheckoutReqVO request = new DccControlledFileCheckoutReqVO();
+        request.setReason("更新操作说明");
+
+        DccControlledFileRespVO result = queryService.checkoutControlledFile(99L, 900L, request);
+
+        assertEquals("A/1", result.getVersionNo());
+        assertEquals(99L, result.getCheckedOutBy());
+        assertEquals("更新操作说明", result.getCheckedOutReason());
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
+    }
+
+    @Test
+    void checkoutRechecksCurrentStatusAfterWaitingForSubmissionLock() {
+        DccControlledFileDO beforeSubmission = lifecycleFile(900L, "A/1", "WORKING");
+        DccControlledFileDO afterSubmission = lifecycleFile(900L, "A/1", "PENDING_DOC_CONTROL_REVIEW");
+        afterSubmission.setProcessInstanceId("submitted-process");
+        when(controlledFileMapper.selectById(900L)).thenReturn(beforeSubmission);
+        when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenAnswer(invocation -> {
+            when(controlledFileMapper.selectByIdAndTenantForUpdate(31L, 900L)).thenReturn(afterSubmission);
+            return DccControlledFileMasterDO.builder().id(700L).build();
+        });
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(sourceOwnershipMapper.selectByControlledFileId(31L, 900L))
+                .thenReturn(DccControlledFileSourceOwnershipDO.builder().sourceSha256("old-sha").build());
+        when(checkoutMapper.insert(any(DccControlledFileCheckoutDO.class))).thenAnswer(invocation -> {
+            invocation.<DccControlledFileCheckoutDO>getArgument(0).setId(1001L);
+            return 1;
+        });
+        when(controlledFileMapper.checkoutByIdAndTenantWhenAvailable(31L, 900L, 99L, "修改内容")).thenReturn(1);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(beforeSubmission));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        DccControlledFileCheckoutReqVO request = new DccControlledFileCheckoutReqVO();
+        request.setReason("修改内容");
+
+        assertServiceException(() -> queryService.checkoutControlledFile(99L, 900L, request),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED);
+
+        verify(checkoutMapper, never()).insert(any(DccControlledFileCheckoutDO.class));
+        verify(controlledFileMapper, never()).checkoutByIdAndTenantWhenAvailable(anyLong(), anyLong(), anyLong(), anyString());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"WORKING", "PENDING_DOC_CONTROL_REVIEW", "PENDING_MATRIX_REVIEW", "PENDING_MATRIX_APPROVAL", "PENDING_DOC_CONTROL_APPROVAL"})
+    void currentDrawingPreviewUsesCompanionPdf(String status) {
+        DccControlledFileDO drawing = lifecycleFile(1041L, "A/1", status);
+        drawing.setSourceFileId(7041L);
+        drawing.setDrawingPdfFileId(8041L);
+        drawing.setProcessInstanceId("drawing-review");
+        when(controlledFileMapper.selectById(1041L)).thenReturn(drawing);
+        when(fileMapper.selectById(7041L)).thenReturn(FileDO.builder()
+                .id(7041L).name("current-drawing.dwg").type("application/acad").build());
+        when(fileMapper.selectById(8041L)).thenReturn(FileDO.builder()
+                .id(8041L).name("current-drawing.pdf").type("application/pdf").build());
+        when(watermarkService.build(99L, "preview", "current-drawing.pdf"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+
+        DccControlledFilePreviewMetadataRespVO preview =
+                queryService.getPreviewMetadata(99L, 1041L, auditContext(PREVIEW_REQUEST_ID));
+
+        assertEquals("PDF", preview.getPreviewKind());
+        assertEquals("current-drawing.pdf", preview.getFileName());
+        assertNotNull(preview.getViewerToken());
+    }
+
+    @Test
+    void checkoutWorkingVersion_byNonRequesterWithCategoryUploadPermission_isDenied() {
+        DccControlledFileDO working = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
+        when(controlledFileMapper.selectById(901L)).thenReturn(working);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(88L)).thenReturn(true);
+        when(permissionSupport.hasCategoryPermission(10L, 88L, DccFileCategoryPermissionActionEnum.UPLOAD))
+                .thenReturn(true);
+        DccControlledFileCheckoutReqVO request = new DccControlledFileCheckoutReqVO();
+        request.setReason("尝试编辑他人工作版本");
+
+        assertServiceException(() -> queryService.checkoutControlledFile(88L, 901L, request),
+                CONTROLLED_FILE_ACCESS_DENIED);
+
+        verify(controlledFileMasterMapper, never()).selectByIdForUpdate(any());
+        verify(checkoutMapper, never()).insert(any(DccControlledFileCheckoutDO.class));
+    }
+
+    @Test
+    void checkoutSameActorDifferentBaseIterationDoesNotReportRequestedVersionCheckedOut() {
+        DccControlledFileDO activeA2 = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
+                .id(700L).currentActiveControlledFileId(901L).build();
+        DccControlledFileCheckoutDO activeCheckout = DccControlledFileCheckoutDO.builder()
+                .id(1001L)
+                .masterId(700L)
+                .baseIterationId(900L)
+                .actorId(99L)
+                .reason("A/1 编辑中")
+                .status("ACTIVE")
+                .build();
+        when(controlledFileMapper.selectById(901L)).thenReturn(activeA2);
+        when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
+                .thenReturn(true);
+        when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(activeCheckout);
+        DccControlledFileCheckoutReqVO request = new DccControlledFileCheckoutReqVO();
+        request.setReason("尝试切换到 A/2");
+
+        assertServiceException(() -> queryService.checkoutControlledFile(99L, 901L, request),
+                CONTROLLED_FILE_ALREADY_CHECKED_OUT, 99L);
+
+        verify(checkoutMapper, never()).insert(any(DccControlledFileCheckoutDO.class));
+        verify(controlledFileMapper, never()).checkoutByIdAndTenantWhenAvailable(anyLong(), anyLong(),
+                anyLong(), anyString());
+    }
+
+    @Test
+    void checkoutQueryAccessibleFile_withoutProjectEditorOrOwner_isDeniedBeforeCreatingLock() {
+        DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
+                .id(700L).currentActiveControlledFileId(900L).build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        doThrow(exception(DCC_PROJECT_ACCESS_DENIED))
+                .when(projectAccessService).assertProjectEditorOrOwner(99L, 300L);
+        DccControlledFileCheckoutReqVO request = new DccControlledFileCheckoutReqVO();
+        request.setReason("查询人员尝试检出");
+
+        assertServiceException(() -> queryService.checkoutControlledFile(99L, 900L, request),
+                DCC_PROJECT_ACCESS_DENIED);
+
+        verify(projectAccessService).assertProjectEditorOrOwner(99L, 300L);
+        verify(permissionSupport, never()).hasCategoryPermission(10L, 99L,
+                DccFileCategoryPermissionActionEnum.UPLOAD);
+        verify(checkoutMapper, never()).insert(any(DccControlledFileCheckoutDO.class));
+        verify(controlledFileMapper, never()).checkoutByIdAndTenantWhenAvailable(anyLong(), anyLong(),
+                anyLong(), anyString());
+    }
+
+    @Test
+    void checkinRealSourceCreatesWorkingA2AndLeavesA1FormalPointerUnchanged() {
+        DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        active.setDccProjectCodeId(40L);
+        DccControlledFileCheckoutDO checkout = DccControlledFileCheckoutDO.builder()
+                .id(1001L).masterId(700L).baseIterationId(900L).actorId(99L)
+                .baseSourceSha256("old-sha").status("ACTIVE").build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
+                .thenReturn(true);
+        when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(checkout);
+        when(uploadTicketService.resolveForBinding(new DccUploadTicketResolveCommand(
+                "UT-CHECKIN", 99L, 10L, "session-checkin", "SOURCE")))
+                .thenReturn(new DccUploadTicketBoundFile("UT-CHECKIN", 101L, "updated.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 10L));
+        when(sourceOwnershipService.prepareSubmissionSource(101L, false)).thenReturn(
+                new DccControlledFilePreparedSource(101L, 101L, "new-sha", false));
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active));
+        when(controlledFileMapper.insert(any(DccControlledFileDO.class))).thenAnswer(invocation -> {
+            DccControlledFileDO inserted = invocation.getArgument(0);
+            inserted.setId(901L);
+            return 1;
+        });
+        when(checkoutMapper.markCheckedIn(31L, 1001L, 99L, "UT-CHECKIN", 901L, 101L, "new-sha"))
+                .thenReturn(1);
+        when(controlledFileMapper.checkinByIdAndTenantWhenOwner(31L, 900L, 99L)).thenReturn(1);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        DccControlledFileCheckinReqVO request = new DccControlledFileCheckinReqVO();
+        request.setUploadTicket("UT-CHECKIN");
+        request.setSessionId("session-checkin");
+        request.setChangeDescription("更新第 3 步");
+
+        DccControlledFileRespVO result = queryService.checkinControlledFile(99L, 900L, request);
+
+        assertEquals("A/2", result.getVersionNo());
+        assertEquals(DccControlledFileStatusEnum.WORKING.getStatus(), result.getStatus());
+        ArgumentCaptor<DccControlledFileDO> inserted = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).insert(inserted.capture());
+        assertEquals(900L, inserted.getValue().getPredecessorControlledFileId());
+        assertEquals("old-sha", inserted.getValue().getPreviousSourceSha256());
+        assertEquals("new-sha", inserted.getValue().getSourceSha256());
+        assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), active.getStatus());
+        verify(relatedFileService).inheritRelatedFiles(900L, 901L);
+        verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
+        verify(uploadTicketService).markBound(new DccUploadTicketMarkBoundCommand(
+                "UT-CHECKIN", 99L, 10L, "session-checkin", "SOURCE", 901L));
+    }
+
+    @Test
+    void checkinDrawingSourceWithoutCurrentPdfRejectsBeforeCopyingOldPdf() {
+        DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        active.setDccProjectCodeId(40L);
+        active.setSourceFileId(1000L);
+        active.setOriginalFileId(1000L);
+        active.setDrawingPdfFileId(1001L);
+        DccControlledFileCheckoutDO checkout = DccControlledFileCheckoutDO.builder()
+                .id(1001L).masterId(700L).baseIterationId(900L).actorId(99L)
+                .baseSourceSha256("old-dwg-sha").status("ACTIVE").build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
+                .thenReturn(true);
+        when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(checkout);
+        when(uploadTicketService.resolveForBinding(new DccUploadTicketResolveCommand(
+                "UT-DWG-CHECKIN", 99L, 10L, "session-checkin", "SOURCE")))
+                .thenReturn(new DccUploadTicketBoundFile("UT-DWG-CHECKIN", 101L, "updated.dwg",
+                        "application/acad", 10L));
+        when(sourceOwnershipService.prepareSubmissionSource(101L, false)).thenReturn(
+                new DccControlledFilePreparedSource(101L, 101L, "new-dwg-sha", false));
+        when(fileMapper.selectById(101L)).thenReturn(FileDO.builder()
+                .id(101L)
+                .name("updated.dwg")
+                .type("application/acad")
+                .build());
+        DccControlledFileCheckinReqVO request = new DccControlledFileCheckinReqVO();
+        request.setUploadTicket("UT-DWG-CHECKIN");
+        request.setSessionId("session-checkin");
+        request.setChangeDescription("替换图纸源件");
+
+        assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request),
+                CONTROLLED_FILE_DRAWING_PDF_REQUIRED);
+
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(uploadTicketService, never()).markBound(any(DccUploadTicketMarkBoundCommand.class));
+        verify(relatedFileService, never()).inheritRelatedFiles(anyLong(), anyLong());
+        verify(controlledFileMapper, never()).checkinByIdAndTenantWhenOwner(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void checkinByCheckoutActor_withoutCategoryUploadPermission_isDeniedBeforeNewIteration() {
+        DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
+                .thenReturn(false);
+        DccControlledFileCheckinReqVO request = new DccControlledFileCheckinReqVO();
+        request.setUploadTicket("UT-CHECKIN");
+        request.setSessionId("session-checkin");
+        request.setChangeDescription("查询权限不能检入");
+
+        assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request),
+                DCC_PROJECT_ACCESS_DENIED);
+
+        verify(projectAccessService).assertProjectEditorOrOwner(99L, 300L);
+        verify(checkoutMapper, never()).selectActiveByMasterId(anyLong(), anyLong());
+        verify(uploadTicketService, never()).resolveForBinding(any(DccUploadTicketResolveCommand.class));
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(controlledFileMapper, never()).checkinByIdAndTenantWhenOwner(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void checkinChangedDrawingWithoutCompanionPdfDoesNotCreateNewVersion() {
+        DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
+        assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_REQUIRED);
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(checkoutMapper, never()).markCheckedIn(anyLong(), anyLong(), anyLong(), anyString(),
+                anyLong(), anyLong(), anyString());
+    }
+
+    private DccControlledFileCheckinReqVO prepareDrawingCheckin() {
+        DccControlledFileDO base = lifecycleFile(900L, "A/1", "WORKING");
+        base.setSourceFileId(100L);
+        base.setDrawingPdfFileId(700L);
+        when(controlledFileMapper.selectById(900L)).thenReturn(base);
+        when(fileMapper.selectById(100L)).thenReturn(FileDO.builder()
+                .id(100L).name("current-drawing.dwg").type("application/acad").build());
+        when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(DccControlledFileCheckoutDO.builder()
+                .id(1001L).masterId(700L).baseIterationId(900L).actorId(99L)
+                .status("ACTIVE").baseSourceSha256("old-sha").build());
+        when(uploadTicketService.resolveForBinding(new DccUploadTicketResolveCommand(
+                "UT-DRAWING", 99L, 10L, "drawing-checkin", "SOURCE")))
+                .thenReturn(new DccUploadTicketBoundFile("UT-DRAWING", 101L, "corrected.dwg", "application/acad", 10L));
+        when(sourceOwnershipService.prepareSubmissionSource(101L, false))
+                .thenReturn(new DccControlledFilePreparedSource(101L, 101L, "new-sha", false));
+        when(fileMapper.selectById(101L)).thenReturn(FileDO.builder()
+                .id(101L).name("corrected.dwg").type("application/acad").build());
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(base));
+        when(controlledFileMapper.insert(any(DccControlledFileDO.class))).thenAnswer(invocation -> {
+            invocation.<DccControlledFileDO>getArgument(0).setId(901L);
+            return 1;
+        });
+        when(checkoutMapper.markCheckedIn(31L, 1001L, 99L, "UT-DRAWING", 901L, 101L, "new-sha")).thenReturn(1);
+        when(controlledFileMapper.checkinByIdAndTenantWhenOwner(31L, 900L, 99L)).thenReturn(1);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        DccControlledFileCheckinReqVO request = new DccControlledFileCheckinReqVO();
+        request.setUploadTicket("UT-DRAWING");
+        request.setSessionId("drawing-checkin");
+        request.setChangeDescription("修改CAD正文");
+        return request;
+    }
+
+    @Test
+    void checkinDrawingReplacesAndBindsCompanionPdf() throws Exception {
+        DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
+        request.setDrawingPdfUploadTicket("UT-DRAWING-PDF");
+        stubDrawingCheckinPdf("%PDF-1.7 corrected drawing".getBytes(StandardCharsets.US_ASCII));
+
+        DccControlledFileRespVO result = queryService.checkinControlledFile(99L, 900L, request);
+
+        assertEquals("A/2", result.getVersionNo());
+        ArgumentCaptor<DccControlledFileDO> inserted = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).insert(inserted.capture());
+        assertEquals(201L, inserted.getValue().getDrawingPdfFileId());
+        assertEquals(101L, inserted.getValue().getSourceFileId());
+        verify(uploadTicketService).markBound(new DccUploadTicketMarkBoundCommand(
+                "UT-DRAWING-PDF", 99L, 10L, "drawing-checkin", "DRAWING_PDF", 901L));
+    }
+
+    @Test
+    void checkinDrawingRejectsInvalidPdfBeforeCreatingVersion() throws Exception {
+        DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
+        request.setDrawingPdfUploadTicket("UT-DRAWING-PDF");
+        stubDrawingCheckinPdf("not a PDF".getBytes(StandardCharsets.US_ASCII));
+        assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID);
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(uploadTicketService, never()).markBound(any());
+    }
+
+    private void stubDrawingCheckinPdf(byte[] content) throws Exception {
+        when(uploadTicketService.resolveForBinding(new DccUploadTicketResolveCommand(
+                "UT-DRAWING-PDF", 99L, 10L, "drawing-checkin", "DRAWING_PDF")))
+                .thenReturn(new DccUploadTicketBoundFile("UT-DRAWING-PDF", 201L, "corrected.pdf", "application/pdf",
+                        (long) content.length));
+        when(fileMapper.selectById(201L)).thenReturn(FileDO.builder().id(201L).configId(1L)
+                .name("corrected.pdf").type("application/pdf").path("dcc/corrected.pdf").build());
+        when(fileService.getFileContent(1L, "dcc/corrected.pdf")).thenReturn(content);
+    }
+
+    @Test
+    void metadataOnlyDrawingCheckinCopiesCompanionToKeepPreviewOwnershipUnambiguous() {
+        DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
+        request.setUploadTicket(null);
+        request.setRemark("修正图纸备注");
+        when(sourceOwnershipService.prepareSubmissionSource(100L, false))
+                .thenReturn(new DccControlledFilePreparedSource(101L, 100L, "old-sha", true));
+        when(sourceOwnershipService.createVerifiedCopy(700L))
+                .thenReturn(new DccControlledFilePreparedSource(201L, 700L, "pdf-sha", true));
+        when(fileMapper.selectById(201L)).thenReturn(FileDO.builder()
+                .id(201L).name("same-content.pdf").type("application/pdf").build());
+        when(checkoutMapper.markCheckedIn(31L, 1001L, 99L, null, 901L, 101L, "old-sha")).thenReturn(1);
+
+        assertEquals(901L, queryService.checkinControlledFile(99L, 900L, request).getId());
+
+        ArgumentCaptor<DccControlledFileDO> inserted = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).insert(inserted.capture());
+        assertEquals(201L, inserted.getValue().getDrawingPdfFileId());
+        assertEquals("old-sha", inserted.getValue().getSourceSha256());
+        verify(sourceOwnershipService).createVerifiedCopy(700L);
+    }
+
+    @Test
+    void metadataOnlyDrawingCopyFailureCleansPreparedSourceAndKeepsCheckout() {
+        DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
+        request.setUploadTicket(null);
+        request.setRemark("修正图纸备注");
+        DccControlledFilePreparedSource prepared = new DccControlledFilePreparedSource(101L, 100L, "old-sha", true);
+        when(sourceOwnershipService.prepareSubmissionSource(100L, false)).thenReturn(prepared);
+        IllegalStateException failure = new IllegalStateException("PDF copy failed");
+        when(sourceOwnershipService.createVerifiedCopy(700L)).thenThrow(failure);
+
+        assertEquals(failure, assertThrows(IllegalStateException.class,
+                () -> queryService.checkinControlledFile(99L, 900L, request)));
+        verify(sourceOwnershipService).cleanupPreparedSource(prepared);
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(checkoutMapper, never()).markCheckedIn(anyLong(), anyLong(), anyLong(), any(),
+                anyLong(), anyLong(), anyString());
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(longs = {201L, 202L})
+    void drawingCheckinReplayRequiresTheSameBoundCompanion(long boundPdfId) {
+        DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
+        request.setDrawingPdfUploadTicket("UT-DRAWING-PDF");
+        DccControlledFileDO existing = lifecycleFile(901L, "A/2", "WORKING");
+        existing.setPredecessorControlledFileId(900L);
+        existing.setSourceFileId(101L);
+        existing.setDrawingPdfFileId(201L);
+        existing.setChangeDescription("修改CAD正文");
+        when(controlledFileMapper.selectById(901L)).thenReturn(existing);
+        when(fileMapper.selectById(201L)).thenReturn(FileDO.builder()
+                .id(201L).name("corrected.pdf").type("application/pdf").build());
+        when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(null);
+        when(checkoutMapper.selectLatestByBaseIterationId(31L, 900L)).thenReturn(DccControlledFileCheckoutDO.builder()
+                .id(1001L).masterId(700L).baseIterationId(900L).actorId(99L).status("CHECKED_IN")
+                .checkinUploadTicket("UT-DRAWING").checkinIterationId(901L).build());
+        when(uploadTicketService.resolveBoundFile(new DccUploadTicketResolveCommand(
+                "UT-DRAWING-PDF", 99L, 10L, "drawing-checkin", "DRAWING_PDF"), 901L))
+                .thenReturn(new DccUploadTicketBoundFile("UT-DRAWING-PDF", boundPdfId, "corrected.pdf", "application/pdf", 20L));
+        if (boundPdfId == 201L) {
+            assertEquals(901L, queryService.checkinControlledFile(99L, 900L, request).getId());
+        } else {
+            assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request),
+                    CONTROLLED_FILE_NOT_CHECKED_OUT);
+        }
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(uploadTicketService, never()).markBound(any());
+    }
+
+    @Test
+    void checkinReplayRequiresSameBaseIterationBeforeReturningExistingResult() {
+        DccControlledFileDO requestedBase = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        requestedBase.setRemark("原备注");
+        DccControlledFileDO existing = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
+        existing.setPredecessorControlledFileId(899L);
+        existing.setChangeDescription("更新原因");
+        existing.setRemark("新备注");
+        DccControlledFileCheckoutDO latest = DccControlledFileCheckoutDO.builder()
+                .id(1001L)
+                .masterId(700L)
+                .baseIterationId(899L)
+                .actorId(99L)
+                .status("CHECKED_IN")
+                .checkinUploadTicket(null)
+                .checkinIterationId(901L)
+                .build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(requestedBase);
+        when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(null);
+        when(checkoutMapper.selectLatestByBaseIterationId(31L, 900L)).thenReturn(latest);
+        when(controlledFileMapper.selectById(901L)).thenReturn(existing);
+        DccControlledFileCheckinReqVO request = new DccControlledFileCheckinReqVO();
+        request.setChangeDescription(" 更新原因 ");
+        request.setRemark(" 新备注 ");
+
+        assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request),
+                CONTROLLED_FILE_NOT_CHECKED_OUT);
+
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+    }
+
+    @Test
+    void checkinReplayReturnsExistingOnlyForSameActorBaseTicketAndNormalizedPayload() {
+        DccControlledFileDO requestedBase = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        requestedBase.setRemark("原备注");
+        DccControlledFileDO existing = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
+        existing.setPredecessorControlledFileId(900L);
+        existing.setChangeDescription("更新原因");
+        existing.setRemark("新备注");
+        DccControlledFileCheckoutDO latest = DccControlledFileCheckoutDO.builder()
+                .id(1001L)
+                .masterId(700L)
+                .baseIterationId(900L)
+                .actorId(99L)
+                .status("CHECKED_IN")
+                .checkinUploadTicket("UT-CHECKIN")
+                .checkinIterationId(901L)
+                .build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(requestedBase);
+        when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(null);
+        when(checkoutMapper.selectLatestByBaseIterationId(31L, 900L)).thenReturn(latest);
+        when(controlledFileMapper.selectById(901L)).thenReturn(existing);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        DccControlledFileCheckinReqVO request = new DccControlledFileCheckinReqVO();
+        request.setUploadTicket(" UT-CHECKIN ");
+        request.setChangeDescription(" 更新原因 ");
+        request.setRemark(" 新备注 ");
+
+        DccControlledFileRespVO result = queryService.checkinControlledFile(99L, 900L, request);
+
+        assertEquals(901L, result.getId());
+        assertEquals("A/2", result.getVersionNo());
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+    }
+
+    @Test
+    void checkinReplayRejectsDifferentActorEvenWhenUploadTicketIsEmpty() {
+        DccControlledFileDO requestedBase = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        requestedBase.setRequesterId(88L);
+        DccControlledFileCheckoutDO latest = DccControlledFileCheckoutDO.builder()
+                .id(1001L)
+                .masterId(700L)
+                .baseIterationId(900L)
+                .actorId(99L)
+                .status("CHECKED_IN")
+                .checkinUploadTicket(null)
+                .checkinIterationId(901L)
+                .build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(requestedBase);
+        lenient().when(permissionSupport.hasCategoryPermission(10L, 88L,
+                DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(true);
+        when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(null);
+        when(checkoutMapper.selectLatestByBaseIterationId(31L, 900L)).thenReturn(latest);
+        DccControlledFileCheckinReqVO request = new DccControlledFileCheckinReqVO();
+        request.setChangeDescription("更新原因");
+        request.setRemark("新备注");
+
+        assertServiceException(() -> queryService.checkinControlledFile(88L, 900L, request),
+                CONTROLLED_FILE_NOT_CHECKED_OUT);
+
+        verify(controlledFileMapper, never()).selectById(901L);
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+    }
+
+    @Test
+    void checkinReplayRejectsDifferentNormalizedPayloadWhenUploadTicketIsEmpty() {
+        DccControlledFileDO requestedBase = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        requestedBase.setRemark("原备注");
+        DccControlledFileDO existing = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
+        existing.setPredecessorControlledFileId(900L);
+        existing.setChangeDescription("更新原因");
+        existing.setRemark("原备注");
+        DccControlledFileCheckoutDO latest = DccControlledFileCheckoutDO.builder()
+                .id(1001L)
+                .masterId(700L)
+                .baseIterationId(900L)
+                .actorId(99L)
+                .status("CHECKED_IN")
+                .checkinUploadTicket(null)
+                .checkinIterationId(901L)
+                .build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(requestedBase);
+        when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(null);
+        when(checkoutMapper.selectLatestByBaseIterationId(31L, 900L)).thenReturn(latest);
+        when(controlledFileMapper.selectById(901L)).thenReturn(existing);
+        DccControlledFileCheckinReqVO request = new DccControlledFileCheckinReqVO();
+        request.setChangeDescription("不同更新原因");
+        request.setRemark("新备注");
+
+        assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request),
+                CONTROLLED_FILE_NOT_CHECKED_OUT);
+
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+    }
+
+    @Test
+    void cancelCheckoutByOwnerRecordsReasonReleasesLockAndDoesNotCreateIteration() {
+        DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        active.setCheckedOutBy(99L);
+        DccControlledFileCheckoutDO checkout = DccControlledFileCheckoutDO.builder()
+                .id(1001L).masterId(700L).baseIterationId(900L).actorId(99L).status("ACTIVE").build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(checkout);
+        when(checkoutMapper.markCancelled(31L, 1001L, 99L, "不再修改")).thenReturn(1);
+        when(controlledFileMapper.cancelCheckoutByIdAndTenantWhenOwner(31L, 900L, 99L)).thenReturn(1);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        DccControlledFileCancelCheckoutReqVO request = new DccControlledFileCancelCheckoutReqVO();
+        request.setReason("不再修改");
+
+        DccControlledFileRespVO result = queryService.cancelCheckoutControlledFile(99L, 900L, request);
+
+        assertFalse(Boolean.TRUE.equals(result.getCheckedOut()));
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(checkoutMapper).markCancelled(31L, 1001L, 99L, "不再修改");
+    }
+
+    @Test
+    void versionHistoryOrdersWindchillIterationsAboveFormalA1() {
+        DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        DccControlledFileDO working = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active, working));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+
+        DccControlledFileRespVO result = queryService.getControlledFile(99L, 900L);
+
+        assertEquals(List.of("A/2", "A/1"), result.getVersionHistory().stream()
+                .map(item -> item.getVersionNo()).toList());
+        assertTrue(Boolean.TRUE.equals(result.getModifying()));
+    }
+
+    @Test
+    void getControlledFile_projectOwnerDifferentFromRequesterCanCreateMajorRevisionFromActiveVersion() {
+        DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(1074L)).thenReturn(true);
+        when(projectAccessService.hasProjectOwner(1074L, 300L)).thenReturn(true);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        stubEmptyDetailRelations(900L);
+
+        DccControlledFileRespVO result = queryService.getControlledFile(1074L, 900L);
+
+        assertTrue(result.getActionProjection().getAllowedActions().contains("MAJOR_REVISION"));
+    }
+
+    @Test
+    void getControlledFile_workingRequesterDoesNotReceiveMisleadingMajorRevisionAction() {
+        DccControlledFileDO working = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
+        when(controlledFileMapper.selectById(901L)).thenReturn(working);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(projectAccessService.hasProjectOwner(99L, 300L)).thenReturn(true);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(working));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        stubEmptyDetailRelations(901L);
+
+        DccControlledFileRespVO result = queryService.getControlledFile(99L, 901L);
+
+        assertFalse(result.getActionProjection().getAllowedActions().contains("MAJOR_REVISION"));
+    }
+
+    @Test
+    void ordinaryViewerOnlyReceivesCurrentActiveVersionAndCannotOpenWorkingDirectly() {
+        DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        DccControlledFileDO working = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
+        active.setRequesterId(77L);
+        working.setRequesterId(77L);
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(controlledFileMapper.selectById(901L)).thenReturn(working);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active, working));
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(88L, active)).thenReturn(true);
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(88L, working)).thenReturn(true);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(88L)).thenReturn(false);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+
+        DccControlledFileRespVO result = queryService.getControlledFile(88L, 900L);
+
+        assertEquals(List.of("A/1"), result.getVersionHistory().stream()
+                .map(DccControlledFileVersionHistoryRespVO::getVersionNo).toList());
+        assertServiceException(() -> queryService.getControlledFile(88L, 901L), CONTROLLED_FILE_ACCESS_DENIED);
     }
 
     @Test
@@ -335,6 +1028,39 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void getUploadDirectoryTree_categoryWithoutBindingReturnsUnclassifiedDirectory() {
+        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
+                .id(10L)
+                .active(Boolean.TRUE)
+                .build());
+        when(categoryDirectoryBindingMapper.selectActiveByCategoryId(10L)).thenReturn(null);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of(
+                directory(900L, 0L, "未分类", "UNCLASSIFIED"),
+                directory(30L, null, "其他根目录")));
+
+        DccControlledFileUploadDirectoryTreeRespVO result = queryService.getUploadDirectoryTree(10L);
+
+        assertEquals(900L, result.getBindingDirectoryId());
+        assertEquals("未分类", result.getBindingDirectoryPath());
+        assertTrue(Boolean.TRUE.equals(result.getLeafBinding()));
+        assertTrue(Boolean.TRUE.equals(result.getDefaultUnclassified()));
+        assertTrue(result.getChildren().isEmpty());
+    }
+
+    @Test
+    void getUploadDirectoryTree_categoryWithoutBindingAndUnclassifiedMissingFailsFast() {
+        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
+                .id(10L)
+                .active(Boolean.TRUE)
+                .build());
+        when(categoryDirectoryBindingMapper.selectActiveByCategoryId(10L)).thenReturn(null);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of(directory(30L, null, "其他根目录")));
+
+        assertServiceException(() -> queryService.getUploadDirectoryTree(10L),
+                FILE_CATEGORY_UNCLASSIFIED_DIRECTORY_NOT_EXISTS);
+    }
+
+    @Test
     void getPreviewMetadata_officeFileReturnsOnlyOfficeLink() {
         DccOnlyOfficePreviewProperties properties = new DccOnlyOfficePreviewProperties();
         properties.setBaseUrl("http://onlyoffice.local");
@@ -363,8 +1089,12 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 new DccOnlyOfficePreviewTokenService.PreviewTokenPayload();
         officeTokenPayload.setTokenId("OT-20260528-0001");
         officeTokenPayload.setNonce("ON-20260528-0001");
+        BusinessFileAccessReference officeReference = new BusinessFileAccessReference(
+                "dcc", "DCC_CONTROLLED_FILE", 990L, "1.0", 31L, null);
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenReturn(java.util.Optional.of(officeReference));
         when(onlyOfficePreviewTokenService.issueControlledFile(eq(31L), eq(99L), eq(990L), eq("1.0"),
-                eq(88001L), eq("CONTROLLED_PREVIEW"), eq(900L)))
+                eq(88001L), eq("CONTROLLED_PREVIEW"), eq(900L), eq(7001L), eq(officeReference)))
                 .thenReturn(new DccOnlyOfficePreviewTokenService.IssuedPreviewToken("office-token", officeTokenPayload));
         when(watermarkService.build(99L, "preview", "Spec.docx"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder()
@@ -462,6 +1192,164 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals("OnlyOffice preview config is missing: yudao.dcc.preview.onlyoffice.base-url is missing",
                 result.getPreviewUnavailableReason());
         assertEquals("preview", result.getWatermark().getPurpose());
+    }
+
+    @Test
+    void getPreviewMetadata_activeOfficeFileWithMissingPublishedArtifactReturnsUnavailableReason() {
+        DccOnlyOfficePreviewProperties properties = new DccOnlyOfficePreviewProperties();
+        properties.setBaseUrl("http://onlyoffice.local");
+        properties.setJwtSecret("secret-demo");
+        properties.setPublicFileBaseUrl("http://127.0.0.1:48081");
+        ReflectionTestUtils.setField(queryService, "onlyOfficePreviewProperties", properties);
+
+        when(controlledFileMapper.selectById(994L)).thenReturn(DccControlledFileDO.builder()
+                .id(994L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .publishedFileId(7004L)
+                .fileName("STM-PM-002（A 0）微粒污染检测操作规程.docx")
+                .title("STM-PM-002（A 0）微粒污染检测操作规程.docx")
+                .versionNo("V1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build());
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.VIEW))
+                .thenReturn(true);
+        when(fileMapper.selectById(7004L)).thenReturn(null);
+        when(watermarkService.build(99L, "preview", "STM-PM-002（A 0）微粒污染检测操作规程.docx"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+
+        DccControlledFilePreviewMetadataRespVO result = queryService.getPreviewMetadata(99L, 994L,
+                auditContext(PREVIEW_REQUEST_ID));
+
+        assertEquals("OFFICE", result.getPreviewKind());
+        assertEquals("STM-PM-002（A 0）微粒污染检测操作规程.docx", result.getFileName());
+        assertEquals("application/octet-stream", result.getContentType());
+        assertEquals("正式预览文件不存在或已被删除",
+                result.getPreviewUnavailableReason());
+        assertNull(result.getViewerToken());
+        assertNull(result.getViewerTokenId());
+        assertNull(result.getViewerTokenNonce());
+        assertNull(result.getAccessEventCode());
+        assertNull(result.getWatermarkTraceCode());
+        assertNull(result.getOnlyofficeBaseUrl());
+        assertNull(result.getOnlyofficeDocumentUrl());
+        verify(previewAccessService, never()).prepareAccess(any(DccPreviewAccessRequest.class));
+        verify(onlyOfficePreviewTokenService, never()).issueControlledFile(anyLong(), anyLong(), anyLong(),
+                anyString(), anyLong(), anyString(), anyLong(), anyLong(), any(BusinessFileAccessReference.class));
+    }
+
+    @Test
+    void getControlledFile_missingPublishedFileRecordDisablesPreviewProjection() {
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(995L)
+                .masterId(730L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .publishedFileId(7005L)
+                .title("Missing published file")
+                .fileName("missing-published.pdf")
+                .fileNumber("SOP-995")
+                .versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build();
+        when(controlledFileMapper.selectById(995L)).thenReturn(file);
+        when(controlledFileMapper.selectListByMasterId(730L)).thenReturn(List.of(file));
+        when(fileMapper.selectById(7005L)).thenReturn(null);
+        stubEmptyDetailRelations(995L);
+
+        DccControlledFileRespVO result = queryService.getControlledFile(99L, 995L);
+
+        assertFalse(Boolean.TRUE.equals(result.getCanPreview()));
+        assertNull(result.getContentType());
+        assertNull(result.getPreviewKind());
+        assertEquals("正式预览文件不存在或已被删除",
+                result.getPreviewUnavailableReason());
+        assertFalse(result.getActionProjection().getAllowedActions().contains("PREVIEW"));
+        assertEquals(1, result.getVersionHistory().size());
+        assertFalse(Boolean.TRUE.equals(result.getVersionHistory().get(0).getCanPreview()));
+        assertEquals("正式预览文件不存在或已被删除",
+                result.getVersionHistory().get(0).getPreviewUnavailableReason());
+    }
+
+    @Test
+    void getControlledFile_signatureSummaryMarksPublishedCopyBindingMissingAsInvalid() {
+        LocalDateTime signedAt = LocalDateTime.of(2026, 8, 12, 9, 30);
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(997L)
+                .masterId(731L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .publishedFileId(7007L)
+                .title("Published with historical signatures")
+                .fileName("published-signature.pdf")
+                .fileNumber("SOP-997")
+                .versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build();
+        DccControlledFileSignatureDO signature = DccControlledFileSignatureDO.builder()
+                .id(8801L)
+                .controlledFileId(997L)
+                .revisionId(997L)
+                .versionNo("1.0")
+                .taskId("task-997")
+                .actorId(101L)
+                .actionType("APPROVE")
+                .meaningCode("REVIEW_APPROVE")
+                .controlledCopyHashStatus("NOT_APPLICABLE")
+                .evidenceStatus("VALID")
+                .evidenceHash("abcdef1234567890")
+                .actorUsernameSnapshot("approver")
+                .actorNicknameSnapshot("Approver")
+                .signedAt(signedAt)
+                .build();
+        when(controlledFileMapper.selectById(997L)).thenReturn(file);
+        when(controlledFileMapper.selectListByMasterId(731L)).thenReturn(List.of(file));
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.VIEW))
+                .thenReturn(true);
+        when(fileMapper.selectById(7007L)).thenReturn(FileDO.builder()
+                .id(7007L)
+                .name("published-signature.pdf")
+                .type("application/pdf")
+                .configId(1L)
+                .path("dcc/published-signature.pdf")
+                .build());
+        stubEmptyDetailRelations(997L);
+        when(signatureMapper.selectListByControlledFileId(997L)).thenReturn(List.of(signature));
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file)).thenReturn(
+                DccControlledFileSignatureBindingVerification.invalid("CONTROLLED_COPY_BINDING_MISSING"));
+
+        DccControlledFileRespVO result = queryService.getControlledFile(99L, 997L);
+
+        assertEquals(1, result.getSignatureSummaries().size());
+        assertEquals("INVALID", result.getSignatureSummaries().get(0).getControlledCopyHashStatus());
+        assertEquals("INVALID", result.getSignatureSummaries().get(0).getEvidenceStatus());
+    }
+
+    @Test
+    void getControlledFilePage_missingPublishedFileRecordDisablesPreviewProjection() {
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(996L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .publishedFileId(7006L)
+                .title("Missing list file")
+                .fileName("missing-list.pdf")
+                .fileNumber("SOP-996")
+                .versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build();
+        DccControlledFilePageReqVO reqVO = pageReq();
+        when(controlledFileMapper.selectWorkflowList(reqVO)).thenReturn(List.of(file));
+        when(fileMapper.selectById(7006L)).thenReturn(null);
+
+        PageResult<DccControlledFileRespVO> result = queryService.getControlledFilePage(99L, reqVO);
+
+        assertEquals(1L, result.getTotal());
+        DccControlledFileRespVO row = result.getList().get(0);
+        assertFalse(Boolean.TRUE.equals(row.getCanPreview()));
+        assertEquals("正式预览文件不存在或已被删除",
+                row.getPreviewUnavailableReason());
+        assertFalse(row.getActionProjection().getAllowedActions().contains("PREVIEW"));
     }
 
     @Test
@@ -598,6 +1486,268 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void readPreviewFile_pendingCheckinRevisionReadsSourceBinaryWhenOriginalDiffers() throws Exception {
+        byte[] sourceBytes = "checked-in A/2 source".getBytes(StandardCharsets.UTF_8);
+        when(fileMapper.selectById(601L)).thenReturn(FileDO.builder()
+                .id(601L)
+                .configId(1L)
+                .path("dcc/original/a1-original.pdf")
+                .name("a1-original.pdf")
+                .type("application/pdf")
+                .build());
+        when(fileMapper.selectById(603L)).thenReturn(FileDO.builder()
+                .id(603L)
+                .configId(1L)
+                .path("dcc/source/a2-checked-in.pdf")
+                .name("a2-checked-in.pdf")
+                .type("application/pdf")
+                .build());
+        when(fileService.getFileContent(1L, "dcc/original/a1-original.pdf"))
+                .thenReturn("old A/1 original".getBytes(StandardCharsets.UTF_8));
+        when(fileService.getFileContent(1L, "dcc/source/a2-checked-in.pdf")).thenReturn(sourceBytes);
+        when(watermarkService.build(99L, "preview", "a2-checked-in.pdf"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+        when(controlledFileMapper.selectById(907L)).thenReturn(DccControlledFileDO.builder()
+                .id(907L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(99L)
+                .originalFileId(601L)
+                .sourceFileId(603L)
+                .versionNo("A/2")
+                .status(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus())
+                .build());
+        when(accessEventMapper.selectOne(any())).thenReturn(accessEvent(907L, "A/2"));
+        when(watermarkTraceMapper.selectOne(any())).thenReturn(watermarkTrace(907L, "A/2"));
+
+        DccControlledFileBinary binary = queryService.readPreviewFile(99L, 907L,
+                VIEWER_TOKEN, ACCESS_EVENT_CODE, WATERMARK_TRACE_CODE, VIEWER_TOKEN_ID, VIEWER_TOKEN_NONCE,
+                auditContext(PREVIEW_REQUEST_ID));
+
+        assertEquals("a2-checked-in.pdf", binary.fileName());
+        assertArrayEquals(sourceBytes, binary.bytes());
+        assertEquals("preview", binary.watermark().getPurpose());
+        verify(fileService, never()).getFileContent(1L, "dcc/original/a1-original.pdf");
+    }
+
+    @Test
+    void getControlledFile_workingRequesterCanPreviewSourceButCannotDownload() {
+        DccControlledFileDO working = lifecycleFile(1040L, "A/2",
+                DccControlledFileStatusEnum.WORKING.getStatus());
+        working.setSourceFileId(7040L);
+        working.setOriginalFileId(6040L);
+        when(controlledFileMapper.selectById(1040L)).thenReturn(working);
+        when(fileMapper.selectById(7040L)).thenReturn(FileDO.builder()
+                .id(7040L)
+                .name("working-source.docx")
+                .type("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                .build());
+        stubEmptyDetailRelations(1040L);
+
+        DccControlledFileRespVO respVO = queryService.getControlledFile(99L, 1040L);
+
+        assertTrue(Boolean.TRUE.equals(respVO.getCanPreview()));
+        assertFalse(Boolean.TRUE.equals(respVO.getCanDownload()));
+        assertNull(respVO.getPreviewUnavailableReason());
+        assertTrue(respVO.getActionProjection().getAllowedActions().contains("PREVIEW"));
+        assertFalse(respVO.getActionProjection().getAllowedActions().contains("DOWNLOAD"));
+    }
+
+    @Test
+    void readPreviewFile_workingRequesterReadsSourceBinary() throws Exception {
+        DccControlledFileDO working = lifecycleFile(1041L, "A/2",
+                DccControlledFileStatusEnum.WORKING.getStatus());
+        working.setSourceFileId(7041L);
+        working.setOriginalFileId(6041L);
+        when(controlledFileMapper.selectById(1041L)).thenReturn(working);
+        when(fileMapper.selectById(7041L)).thenReturn(FileDO.builder()
+                .id(7041L)
+                .configId(1L)
+                .path("dcc/source/working-source.pdf")
+                .name("working-source.pdf")
+                .type("application/pdf")
+                .build());
+        when(fileService.getFileContent(1L, "dcc/source/working-source.pdf"))
+                .thenReturn("working-source".getBytes());
+        when(watermarkService.build(99L, "preview", "working-source.pdf"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+        when(accessEventMapper.selectOne(any())).thenReturn(accessEvent(1041L, "A/2"));
+        when(watermarkTraceMapper.selectOne(any())).thenReturn(watermarkTrace(1041L, "A/2"));
+
+        DccControlledFileBinary binary = queryService.readPreviewFile(99L, 1041L,
+                VIEWER_TOKEN, ACCESS_EVENT_CODE, WATERMARK_TRACE_CODE, VIEWER_TOKEN_ID, VIEWER_TOKEN_NONCE,
+                auditContext(PREVIEW_REQUEST_ID));
+
+        assertEquals("working-source.pdf", binary.fileName());
+        assertArrayEquals("working-source".getBytes(), binary.bytes());
+        assertEquals("preview", binary.watermark().getPurpose());
+    }
+
+    @Test
+    void readPreviewFile_workingDrawingRequesterReadsCurrentDrawingPdfBinary() throws Exception {
+        byte[] pdfBytes = "%PDF-current-drawing".getBytes(StandardCharsets.UTF_8);
+        DccControlledFileDO working = lifecycleFile(1045L, "A/2",
+                DccControlledFileStatusEnum.WORKING.getStatus());
+        working.setSourceFileId(7045L);
+        working.setOriginalFileId(6045L);
+        working.setDrawingPdfFileId(8045L);
+        when(controlledFileMapper.selectById(1045L)).thenReturn(working);
+        when(fileMapper.selectById(7045L)).thenReturn(FileDO.builder()
+                .id(7045L)
+                .configId(1L)
+                .path("dcc/source/a2-drawing.dwg")
+                .name("a2-drawing.dwg")
+                .type("application/acad")
+                .build());
+        when(fileMapper.selectById(8045L)).thenReturn(FileDO.builder()
+                .id(8045L)
+                .configId(1L)
+                .path("dcc/drawing/a2-drawing.pdf")
+                .name("a2-drawing.pdf")
+                .type("application/pdf")
+                .build());
+        when(fileService.getFileContent(1L, "dcc/drawing/a2-drawing.pdf")).thenReturn(pdfBytes);
+        when(watermarkService.build(99L, "preview", "a2-drawing.pdf"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+        when(accessEventMapper.selectOne(any())).thenReturn(accessEvent(1045L, "A/2"));
+        when(watermarkTraceMapper.selectOne(any())).thenReturn(watermarkTrace(1045L, "A/2"));
+
+        DccControlledFileBinary binary = queryService.readPreviewFile(99L, 1045L,
+                VIEWER_TOKEN, ACCESS_EVENT_CODE, WATERMARK_TRACE_CODE, VIEWER_TOKEN_ID, VIEWER_TOKEN_NONCE,
+                auditContext(PREVIEW_REQUEST_ID));
+
+        assertEquals("a2-drawing.pdf", binary.fileName());
+        assertEquals("application/pdf", binary.contentType());
+        assertArrayEquals(pdfBytes, binary.bytes());
+        assertEquals("preview", binary.watermark().getPurpose());
+        verify(fileService, never()).getFileContent(1L, "dcc/source/a2-drawing.dwg");
+        verify(businessFileAccessService, atLeastOnce()).assertAllowed(argThat(request ->
+                BusinessFileAccessOperation.PREVIEW.equals(request.operation())
+                        && Long.valueOf(8045L).equals(request.fileId())));
+    }
+
+    @Test
+    void getPreviewMetadata_workingDrawingWithoutCurrentPdfRejectsBeforeSourcePreview() {
+        DccControlledFileDO working = lifecycleFile(1046L, "A/2",
+                DccControlledFileStatusEnum.WORKING.getStatus());
+        working.setSourceFileId(7046L);
+        working.setOriginalFileId(6046L);
+        working.setDrawingPdfFileId(null);
+        when(controlledFileMapper.selectById(1046L)).thenReturn(working);
+        when(fileMapper.selectById(7046L)).thenReturn(FileDO.builder()
+                .id(7046L)
+                .configId(1L)
+                .path("dcc/source/a2-missing-pdf.dwg")
+                .name("a2-missing-pdf.dwg")
+                .type("application/acad")
+                .build());
+
+        assertServiceException(() -> queryService.getPreviewMetadata(99L, 1046L,
+                        auditContext(PREVIEW_REQUEST_ID)),
+                CONTROLLED_FILE_DRAWING_PDF_REQUIRED);
+
+        verify(businessFileAccessService, never()).assertAllowed(argThat(request ->
+                Long.valueOf(7046L).equals(request.fileId())));
+        verify(previewAccessService, never()).prepareAccess(any(DccPreviewAccessRequest.class));
+    }
+
+    @Test
+    void getControlledFile_readyToPublishDocControlCanPreviewStampedArtifactButCannotDownload() {
+        DccControlledFileDO ready = DccControlledFileDO.builder()
+                .id(1042L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(88L)
+                .publishedFileId(7042L)
+                .stampedFileId(7042L)
+                .title("Ready to publish")
+                .fileNumber("SOP-1042")
+                .versionNo("B/1")
+                .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus())
+                .build();
+        when(controlledFileMapper.selectById(1042L)).thenReturn(ready);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(false);
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.APPROVE))
+                .thenReturn(true);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve")).thenReturn(true);
+        when(fileMapper.selectById(7042L)).thenReturn(FileDO.builder()
+                .id(7042L)
+                .name("ready-stamped.pdf")
+                .type("application/pdf")
+                .build());
+        stubEmptyDetailRelations(1042L);
+
+        DccControlledFileRespVO respVO = queryService.getControlledFile(99L, 1042L);
+
+        assertTrue(Boolean.TRUE.equals(respVO.getCanPreview()));
+        assertFalse(Boolean.TRUE.equals(respVO.getCanDownload()));
+        assertNull(respVO.getPreviewUnavailableReason());
+        assertTrue(respVO.getActionProjection().getAllowedActions().contains("PREVIEW"));
+        assertFalse(respVO.getActionProjection().getAllowedActions().contains("DOWNLOAD"));
+    }
+
+    @Test
+    void readPreviewFile_readyToPublishDocControlReadsStampedBinary() throws Exception {
+        when(controlledFileMapper.selectById(1043L)).thenReturn(DccControlledFileDO.builder()
+                .id(1043L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(88L)
+                .publishedFileId(7043L)
+                .stampedFileId(7043L)
+                .fileNumber("SOP-1043")
+                .versionNo("B/1")
+                .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus())
+                .build());
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.APPROVE))
+                .thenReturn(true);
+        when(fileMapper.selectById(7043L)).thenReturn(FileDO.builder()
+                .id(7043L)
+                .configId(1L)
+                .path("dcc/stamped/ready-stamped.pdf")
+                .name("ready-stamped.pdf")
+                .type("application/pdf")
+                .build());
+        when(fileService.getFileContent(1L, "dcc/stamped/ready-stamped.pdf"))
+                .thenReturn("ready-stamped".getBytes());
+        when(watermarkService.build(99L, "preview", "ready-stamped.pdf"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+        when(accessEventMapper.selectOne(any())).thenReturn(accessEvent(1043L, "B/1"));
+        when(watermarkTraceMapper.selectOne(any())).thenReturn(watermarkTrace(1043L, "B/1"));
+
+        DccControlledFileBinary binary = queryService.readPreviewFile(99L, 1043L,
+                VIEWER_TOKEN, ACCESS_EVENT_CODE, WATERMARK_TRACE_CODE, VIEWER_TOKEN_ID, VIEWER_TOKEN_NONCE,
+                auditContext(PREVIEW_REQUEST_ID));
+
+        assertEquals("ready-stamped.pdf", binary.fileName());
+        assertArrayEquals("ready-stamped".getBytes(), binary.bytes());
+        assertEquals("preview", binary.watermark().getPurpose());
+    }
+
+    @Test
+    void readPreviewFile_readyToPublishOrdinaryReaderIsDeniedBeforeContentRead() throws Exception {
+        when(controlledFileMapper.selectById(1044L)).thenReturn(DccControlledFileDO.builder()
+                .id(1044L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(88L)
+                .publishedFileId(7044L)
+                .stampedFileId(7044L)
+                .fileNumber("SOP-1044")
+                .versionNo("B/1")
+                .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus())
+                .build());
+
+        assertServiceException(() -> queryService.readPreviewFile(120L, 1044L,
+                        VIEWER_TOKEN, ACCESS_EVENT_CODE, WATERMARK_TRACE_CODE, VIEWER_TOKEN_ID, VIEWER_TOKEN_NONCE,
+                        auditContext(PREVIEW_REQUEST_ID)),
+                CONTROLLED_FILE_ACCESS_DENIED);
+
+        verify(fileMapper, never()).selectById(7044L);
+        verify(fileService, never()).getFileContent(any(), any());
+    }
+
+    @Test
     void readPreviewFile_pendingRevisionSnapshotParticipantReadsOriginalBinaryWithoutCategoryReviewApprovePermission() throws Exception {
         when(fileMapper.selectById(602L)).thenReturn(FileDO.builder()
                 .id(602L)
@@ -707,6 +1857,48 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 CONTROLLED_FILE_ACCESS_DENIED);
 
         verify(accessLogMapper).insert(org.mockito.ArgumentMatchers.any(DccControlledFileAccessLogDO.class));
+    }
+
+    @Test
+    void getPreviewMetadata_missingPublishedArtifactStillAuthorizesBeforeProjection() {
+        when(controlledFileMapper.selectById(996L)).thenReturn(DccControlledFileDO.builder()
+                .id(996L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .publishedFileId(7006L)
+                .fileName("restricted.docx")
+                .versionNo("V1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build());
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenThrow(new BusinessFileAccessDeniedException("denied",
+                        BusinessFileAccessOperation.PREVIEW, 7006L, "dcc"));
+
+        assertServiceException(() -> queryService.getPreviewMetadata(99L, 996L,
+                        auditContext(PREVIEW_REQUEST_ID)),
+                CONTROLLED_FILE_ACCESS_DENIED);
+
+        verify(fileMapper, never()).selectById(any());
+        verify(watermarkService, never()).build(any(), any(), any());
+        verify(previewAccessService, never()).prepareAccess(any());
+        verify(onlyOfficePreviewTokenService, never()).issueControlledFile(anyLong(), anyLong(), anyLong(),
+                anyString(), anyLong(), anyString(), anyLong(), anyLong(), any(BusinessFileAccessReference.class));
+    }
+
+    @Test
+    void readDownloadFile_businessGateDenialStopsBeforeAccessEventRecordAndBytes() throws Exception {
+        stubActiveDownloadFile(919L, 520L, "gate-denied.pdf");
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenThrow(new BusinessFileAccessDeniedException("denied",
+                        BusinessFileAccessOperation.DOWNLOAD, 520L, "dcc"));
+
+        assertServiceException(() -> queryService.readDownloadFile(99L, 919L, true, DOWNLOAD_REQUEST_ID,
+                        auditContext(DOWNLOAD_REQUEST_ID)),
+                CONTROLLED_FILE_ACCESS_DENIED);
+
+        verify(accessEventMapper, never()).insert(any(DccControlledFileAccessEventDO.class));
+        verify(downloadRecordMapper, never()).insert(any(DccControlledFileDownloadRecordDO.class));
+        verify(fileService, never()).getFileContent(any(), any());
     }
 
     @Test
@@ -846,7 +2038,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void readDownloadFile_returnsOpenableControlledPdfWithoutEncryptionPackage() throws Exception {
+    void readDownloadFile_returnsOpenableControlledPdfDirectly() throws Exception {
         byte[] pdfBytes = "%PDF-1.7 controlled copy".getBytes(StandardCharsets.UTF_8);
         String pdfSha256 = sha256Hex(pdfBytes);
         stubActiveDownloadFile(918L, 519L, "openable-controlled.pdf");
@@ -861,20 +2053,12 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals("application/pdf", result.contentType());
         assertArrayEquals(pdfBytes, result.bytes());
         assertEquals(DOWNLOAD_REQUEST_ID, result.downloadRequestId());
-        assertNull(result.encryptionPolicyVersion());
-        assertNull(result.artifactId());
         assertEquals(pdfSha256, result.plainSha256());
-        assertNull(result.cipherSha256());
         verify(fileService).getFileContent(1L, "dcc/published/openable-controlled.pdf");
         verify(downloadRecordMapper).updateById(org.mockito.ArgumentMatchers.<DccControlledFileDownloadRecordDO>argThat(record ->
                 Long.valueOf(98018L).equals(record.getId())
-                        && "READY".equals(record.getEncryptionStatus())
+                        && "READY".equals(record.getDownloadStatus())
                         && pdfSha256.equals(record.getPlainSha256())
-                        && record.getEncryptionPolicyVersion() == null
-                        && record.getArtifactId() == null
-                        && record.getCipherFileRef() == null
-                        && record.getCipherSha256() == null
-                        && record.getEncryptedAt() == null
                         && record.getReturnedAt() != null));
         verify(accessLogMapper).insert(org.mockito.ArgumentMatchers.<DccControlledFileAccessLogDO>argThat(log ->
                 "DOWNLOAD".equals(log.getActionType())
@@ -898,10 +2082,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals("application/pdf", result.contentType());
         assertArrayEquals(pdfBytes, result.bytes());
         assertEquals(DOWNLOAD_REQUEST_ID, result.downloadRequestId());
-        assertNull(result.encryptionPolicyVersion());
-        assertNull(result.artifactId());
         assertEquals(pdfSha256, result.plainSha256());
-        assertNull(result.cipherSha256());
 
         ArgumentCaptor<DccControlledFileAccessEventDO> eventCaptor =
                 ArgumentCaptor.forClass(DccControlledFileAccessEventDO.class);
@@ -932,20 +2113,14 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals("1.0", insertedRecord.getFileVersionNo());
         assertEquals(99L, insertedRecord.getUserId());
         assertEquals("dcc-download-policy-v1", insertedRecord.getPolicyVersion());
-        assertEquals("REQUESTED", insertedRecord.getEncryptionStatus());
+        assertEquals("REQUESTED", insertedRecord.getDownloadStatus());
         assertNotNull(insertedRecord.getRequestedAt());
-        assertNull(insertedRecord.getEncryptedAt());
         assertNull(insertedRecord.getReturnedAt());
 
         DccControlledFileDownloadRecordDO updatedRecord = updatedRecordCaptor.getValue();
         assertEquals(98008L, updatedRecord.getId());
-        assertEquals("READY", updatedRecord.getEncryptionStatus());
-        assertNull(updatedRecord.getEncryptionPolicyVersion());
-        assertNull(updatedRecord.getArtifactId());
-        assertNull(updatedRecord.getCipherFileRef());
+        assertEquals("READY", updatedRecord.getDownloadStatus());
         assertEquals(pdfSha256, updatedRecord.getPlainSha256());
-        assertNull(updatedRecord.getCipherSha256());
-        assertNull(updatedRecord.getEncryptedAt());
         assertNotNull(updatedRecord.getReturnedAt());
         assertNull(updatedRecord.getFailureCode());
         assertNull(updatedRecord.getFailureReason());
@@ -1001,10 +2176,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
 
         verify(downloadRecordMapper).updateById(org.mockito.ArgumentMatchers.<DccControlledFileDownloadRecordDO>argThat(record ->
                 Long.valueOf(98016L).equals(record.getId())
-                        && "READY".equals(record.getEncryptionStatus())
-                        && pdfSha256.equals(record.getPlainSha256())
-                        && record.getArtifactId() == null
-                        && record.getCipherSha256() == null));
+                        && "READY".equals(record.getDownloadStatus())
+                        && pdfSha256.equals(record.getPlainSha256())));
         assertFailureUpdateClearsReturnableEvidence("AUDIT_RECORD_FAILED");
         verify(transactionManager).rollback(any());
         verify(accessLogMapper).insert(org.mockito.ArgumentMatchers.<DccControlledFileAccessLogDO>argThat(log ->
@@ -1026,7 +2199,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .thenReturn("%PDF ready-update-zero".getBytes(StandardCharsets.UTF_8));
         when(downloadRecordMapper.updateById(any(DccControlledFileDownloadRecordDO.class))).thenAnswer(invocation -> {
             DccControlledFileDownloadRecordDO record = invocation.getArgument(0);
-            if ("READY".equals(record.getEncryptionStatus())) {
+            if ("READY".equals(record.getDownloadStatus())) {
                 return 0;
             }
             return 1;
@@ -1045,7 +2218,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void readDownloadFile_categoryAndDirectoryAllowedReturnsPdfWithoutEncryptionGateway() throws Exception {
+    void readDownloadFile_categoryAndDirectoryAllowedReturnsPdfDirectly() throws Exception {
         byte[] pdfBytes = "%PDF allowed-download".getBytes(StandardCharsets.UTF_8);
         String pdfSha256 = sha256Hex(pdfBytes);
         when(controlledFileMapper.selectById(906L)).thenReturn(DccControlledFileDO.builder()
@@ -1077,9 +2250,6 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals("application/pdf", result.contentType());
         assertArrayEquals(pdfBytes, result.bytes());
         assertEquals(pdfSha256, result.plainSha256());
-        assertNull(result.encryptionPolicyVersion());
-        assertNull(result.artifactId());
-        assertNull(result.cipherSha256());
         verify(accessLogMapper).insert(org.mockito.ArgumentMatchers.<DccControlledFileAccessLogDO>argThat(log ->
                 "DOWNLOAD".equals(log.getActionType())
                         && "ALLOWED".equals(log.getResult())
@@ -1170,6 +2340,92 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         stubEmptyDetailRelations(950L);
 
         assertServiceException(() -> queryService.getControlledFile(99L, 950L), CONTROLLED_FILE_ACCESS_DENIED);
+    }
+
+    @Test
+    void getControlledFile_activeElectronicDistributionRecipientCanAccessWithoutViewMatrix() {
+        when(controlledFileMapper.selectById(960L)).thenReturn(DccControlledFileDO.builder()
+                .id(960L).categoryId(10L).directoryId(20L).requesterId(88L).publishedFileId(520L)
+                .title("Recipient detail").fileNumber("SOP-960").versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build());
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(120L), any(DccControlledFileDO.class)))
+                .thenReturn(false);
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 960L, 120L)).thenReturn(1L);
+        when(fileMapper.selectById(520L)).thenReturn(FileDO.builder()
+                .id(520L).name("recipient.pdf").type("application/pdf").build());
+        stubEmptyDetailRelations(960L);
+
+        DccControlledFileRespVO result = queryService.getControlledFile(120L, 960L);
+
+        assertTrue(result.getCanPreview());
+        assertTrue(result.getCanDownload());
+        assertEquals("ELECTRONIC_DISTRIBUTION_RECIPIENT", result.getAccessExplanation().getDetailSource());
+        verify(distributionRecipientMapper, atLeastOnce())
+                .countActiveElectronicRecipientAccess(31L, 960L, 120L);
+    }
+
+    @Test
+    void getPreviewMetadata_activeElectronicDistributionRecipientCanAccess() {
+        when(controlledFileMapper.selectById(961L)).thenReturn(DccControlledFileDO.builder()
+                .id(961L).categoryId(10L).directoryId(20L).requesterId(88L).publishedFileId(521L)
+                .fileNumber("SOP-961").versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build());
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(120L), any(DccControlledFileDO.class)))
+                .thenReturn(false);
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 961L, 120L)).thenReturn(1L);
+        when(fileMapper.selectById(521L)).thenReturn(FileDO.builder()
+                .id(521L).configId(1L).path("dcc/published/recipient-preview.pdf")
+                .name("recipient-preview.pdf").type("application/pdf").build());
+        when(watermarkService.build(120L, "preview", "recipient-preview.pdf"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+
+        DccControlledFilePreviewMetadataRespVO result = queryService.getPreviewMetadata(120L, 961L,
+                auditContext(PREVIEW_REQUEST_ID));
+
+        assertEquals("PDF", result.getPreviewKind());
+        assertEquals(VIEWER_TOKEN, result.getViewerToken());
+        verify(previewAccessService).prepareAccess(argThat(request -> request.userId().equals(120L)
+                && request.fileId().equals(961L)));
+    }
+
+    @Test
+    void readDownloadFile_activeElectronicDistributionRecipientCanDownloadWithoutCategoryOrDirectoryGrant()
+            throws Exception {
+        byte[] pdfBytes = "%PDF-recipient-copy".getBytes(StandardCharsets.UTF_8);
+        when(controlledFileMapper.selectById(962L)).thenReturn(DccControlledFileDO.builder()
+                .id(962L).categoryId(10L).directoryId(20L).requesterId(88L).publishedFileId(522L)
+                .fileNumber("SOP-962").versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build());
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 962L, 120L)).thenReturn(1L);
+        when(fileMapper.selectById(522L)).thenReturn(FileDO.builder()
+                .id(522L).configId(1L).path("dcc/published/recipient-download.pdf")
+                .name("recipient-download.pdf").type("application/pdf").build());
+        when(fileService.getFileContent(1L, "dcc/published/recipient-download.pdf")).thenReturn(pdfBytes);
+        stubDownloadAccessEventInsert(88062L);
+        stubDownloadRecordInsert(98062L);
+
+        DccDownloadFileBinary result = queryService.readDownloadFile(120L, 962L, true, DOWNLOAD_REQUEST_ID,
+                auditContext(DOWNLOAD_REQUEST_ID));
+
+        assertArrayEquals(pdfBytes, result.bytes());
+        verify(permissionSupport, never()).hasCategoryPermission(10L, 120L,
+                DccFileCategoryPermissionActionEnum.DOWNLOAD);
+        verify(directoryAccessPermissionService, never()).getAuthorizedDirectoryIds(120L, DccAccessTypeEnum.DOWNLOAD);
+    }
+
+    @Test
+    void getControlledFile_recoveredPaperOrCrossTenantRelationDoesNotAuthorize() {
+        when(controlledFileMapper.selectById(963L)).thenReturn(DccControlledFileDO.builder()
+                .id(963L).categoryId(10L).directoryId(20L).requesterId(88L).publishedFileId(523L)
+                .fileNumber("SOP-963").versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build());
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(120L), any(DccControlledFileDO.class)))
+                .thenReturn(false);
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 963L, 120L)).thenReturn(0L);
+
+        assertServiceException(() -> queryService.getControlledFile(120L, 963L), CONTROLLED_FILE_ACCESS_DENIED);
+
+        verify(distributionRecipientMapper).countActiveElectronicRecipientAccess(31L, 963L, 120L);
     }
 
     @Test
@@ -1421,13 +2677,40 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectById(959L)).thenReturn(file);
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(false);
         when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.APPROVE))
-                .thenReturn(true);
+                .thenReturn(false);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve")).thenReturn(true);
         stubEmptyDetailRelations(959L);
 
         DccControlledFileRespVO respVO = queryService.getControlledFile(99L, 959L);
 
         assertTrue(Boolean.TRUE.equals(respVO.getCanPublish()));
         assertFalse(Boolean.TRUE.equals(respVO.getCanObsolete()));
+        assertTrue(respVO.getActionProjection().getAllowedActions().contains("PUBLISH"));
+    }
+
+    @Test
+    void getControlledFile_readyToPublishWithoutApprovePermissionDoesNotProjectPublishAction() {
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(960L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(99L)
+                .title("Ready revision without permission")
+                .fileNumber("SOP-960")
+                .versionNo("2.0")
+                .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus())
+                .build();
+        when(controlledFileMapper.selectById(960L)).thenReturn(file);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(false);
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.APPROVE))
+                .thenReturn(true);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve")).thenReturn(false);
+        stubEmptyDetailRelations(960L);
+
+        DccControlledFileRespVO respVO = queryService.getControlledFile(99L, 960L);
+
+        assertFalse(Boolean.TRUE.equals(respVO.getCanPublish()));
+        assertFalse(respVO.getActionProjection().getAllowedActions().contains("PUBLISH"));
     }
 
     @Test
@@ -1526,6 +2809,79 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
 
         assertTrue(Boolean.TRUE.equals(respVO.getCanPreview()));
         assertFalse(Boolean.TRUE.equals(respVO.getCanDownload()));
+    }
+
+    @Test
+    void getControlledFile_pendingFileAllowsCurrentBpmAssigneeEvenWhenRouteSnapshotMissingAndAssignmentScopeExcludesFile() {
+        when(controlledFileMapper.selectById(957L)).thenReturn(DccControlledFileDO.builder()
+                .id(957L)
+                .masterId(742L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(88L)
+                .originalFileId(517L)
+                .title("Pending BPM visible")
+                .fileNumber("SOP-957")
+                .versionNo("2.0")
+                .processInstanceId("pi-957")
+                .status(DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus())
+                .effectiveDate(LocalDate.of(2026, 6, 22))
+                .build());
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(1074L)).thenReturn(false);
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(1074L), any(DccControlledFileDO.class)))
+                .thenReturn(false);
+        when(permissionApi.hasAnyPermissions(1074L, "dcc:controlled-file:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(1074L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(
+                eq(1074L), any(LocalDateTime.class))).thenReturn(List.of());
+        when(distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(31L, 1074L))
+                .thenReturn(List.of());
+        when(routeSnapshotMapper.selectListByControlledFileId(957L)).thenReturn(List.of());
+        Task runningTask = mock(Task.class);
+        when(runningTask.getTaskDefinitionKey()).thenReturn("MATRIX_REVIEW");
+        when(runningTask.getAssignee()).thenReturn("1074");
+        when(bpmTaskService.getRunningTaskListByProcessInstanceId("pi-957", null, null))
+                .thenReturn(List.of(runningTask));
+        when(fileMapper.selectById(517L)).thenReturn(FileDO.builder()
+                .id(517L)
+                .name("pending-bpm.docx")
+                .type("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                .build());
+
+        DccControlledFileRespVO respVO = queryService.getControlledFile(1074L, 957L);
+
+        assertEquals("SOP-957", respVO.getFileNumber());
+        assertTrue(Boolean.TRUE.equals(respVO.getCanPreview()));
+        assertFalse(Boolean.TRUE.equals(respVO.getCanDownload()));
+    }
+
+    @Test
+    void getControlledFile_requesterOutsideAssignmentHardScopeIsDenied() {
+        when(controlledFileMapper.selectById(958L)).thenReturn(DccControlledFileDO.builder()
+                .id(958L)
+                .masterId(743L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(1074L)
+                .originalFileId(518L)
+                .title("Requester out of hard scope")
+                .fileNumber("SOP-958")
+                .versionNo("2.0")
+                .processInstanceId("pi-958")
+                .status(DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus())
+                .effectiveDate(LocalDate.of(2026, 6, 22))
+                .build());
+        when(permissionApi.hasAnyPermissions(1074L, "dcc:controlled-file:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(1074L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(
+                eq(1074L), any(LocalDateTime.class))).thenReturn(List.of());
+        when(distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(31L, 1074L))
+                .thenReturn(List.of());
+        when(bpmTaskService.getRunningTaskListByProcessInstanceId("pi-958", null, null))
+                .thenReturn(List.of());
+
+        assertServiceException(() -> queryService.getControlledFile(1074L, 958L),
+                CONTROLLED_FILE_ACCESS_DENIED);
     }
 
     @Test
@@ -1773,6 +3129,13 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .build();
         when(controlledFileMapper.selectById(1006L)).thenReturn(obsoleteFile);
         when(controlledFileMapper.selectById(1007L)).thenReturn(supersededFile);
+        when(fileMapper.selectById(7007L)).thenReturn(FileDO.builder()
+                .id(7007L)
+                .configId(1L)
+                .path("dcc/published/superseded.pdf")
+                .name("superseded.pdf")
+                .type("application/pdf")
+                .build());
         DccControlledFilePageReqVO reqVO = pageReq();
         when(controlledFileMapper.selectWorkflowList(reqVO)).thenReturn(List.of(obsoleteFile, supersededFile));
         Set<String> ordinaryActions = Set.of("WITHDRAW", "OBSOLETE", "MANUAL_RELEASE",
@@ -1821,6 +3184,20 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .thenReturn(true);
         when(permissionSupport.hasCategoryPermission(11L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(false);
+        when(fileMapper.selectById(7008L)).thenReturn(FileDO.builder()
+                .id(7008L)
+                .configId(1L)
+                .path("dcc/published/active-obsolete-allowed.pdf")
+                .name("active-obsolete-allowed.pdf")
+                .type("application/pdf")
+                .build());
+        when(fileMapper.selectById(7009L)).thenReturn(FileDO.builder()
+                .id(7009L)
+                .configId(1L)
+                .path("dcc/published/active-obsolete-denied.pdf")
+                .name("active-obsolete-denied.pdf")
+                .type("application/pdf")
+                .build());
         DccControlledFilePageReqVO reqVO = pageReq();
         when(controlledFileMapper.selectWorkflowList(reqVO))
                 .thenReturn(List.of(obsoleteAllowedFile, obsoleteDeniedFile));
@@ -1900,8 +3277,13 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectListByMasterId(812L)).thenReturn(List.of(activeFile));
         when(permissionSupport.hasCategoryPermission(12L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(true);
-        when(projectCodeAssignmentMapper.selectActiveProjectCodeIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+        when(fileMapper.selectById(7012L)).thenReturn(FileDO.builder()
+                .id(7012L)
+                .configId(1L)
+                .path("dcc/published/active-browser-projection.pdf")
+                .name("active-browser-projection.pdf")
+                .type("application/pdf")
+                .build());
 
         DccControlledFileRespVO detail = queryService.getControlledFile(99L, 1012L);
         DccControlledFileRespVO pageRow = queryService.getControlledFilePage(99L, pageReqVO).getList().get(0);
@@ -2352,8 +3734,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .effectiveDate(LocalDate.of(2026, 7, 13))
                 .build();
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(false);
-        when(projectCodeAssignmentMapper.selectActiveProjectCodeIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
-                .thenReturn(List.of(3001L));
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
         when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
                 .thenReturn(List.of(981L));
         when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), isNull(), eq(Set.of(981L))))
@@ -2405,8 +3786,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .effectiveDate(LocalDate.of(2026, 7, 13))
                 .build();
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
-        when(projectCodeAssignmentMapper.selectActiveProjectCodeIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
-                .thenReturn(List.of(3001L));
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
         when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
                 .thenReturn(List.of(981L));
         when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class)))
@@ -2460,8 +3840,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
         when(permissionApi.hasAnyRoles(99L, DccControlledFileMetadataUpdateService.DOC_CONTROL_ROLE_CODE))
                 .thenReturn(true);
-        when(projectCodeAssignmentMapper.selectActiveProjectCodeIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
-                .thenReturn(List.of(3001L));
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
         when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
                 .thenReturn(List.of(981L));
         when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), isNull(), eq(Set.of(981L))))
@@ -2474,6 +3853,143 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals(1L, result.getTotal());
         assertEquals(List.of(981L), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
         verify(controlledFileMapper).selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), isNull(), eq(Set.of(981L)));
+    }
+
+    @Test
+    void getControlledFileBrowserPage_emptyProjectCodeAssignmentStillUsesViewMatrixWithoutDirectoryFallback() {
+        DccControlledFilePageReqVO reqVO = new DccControlledFilePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        reqVO.setLatestVersionOnly(Boolean.TRUE);
+        DccControlledFileDO matrixFile = DccControlledFileDO.builder()
+                .id(983L)
+                .masterId(783L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(11L)
+                .publishedFileId(583L)
+                .title("查看矩阵文件")
+                .fileName("matrix.pdf")
+                .fileNumber("MATRIX-983")
+                .versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .effectiveDate(LocalDate.of(2026, 7, 13))
+                .build();
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class)))
+                .thenReturn(List.of(matrixFile));
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(99L, matrixFile)).thenReturn(true);
+        when(controlledFileMapper.selectListByMasterId(783L)).thenReturn(List.of(matrixFile));
+
+        PageResult<DccControlledFileRespVO> result = queryService.getControlledFileBrowserPage(99L, reqVO);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(List.of(983L), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
+        verify(controlledFileMapper).selectBrowserSummaryList(any(DccControlledFilePageReqVO.class));
+    }
+
+    @Test
+    void getControlledFile_assignmentExecutorCanAccessDistributedFileOutsideCorrectionAssignments() {
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(964L).categoryId(10L).directoryId(20L).requesterId(88L).publishedFileId(524L)
+                .title("Distributed assignment scope").fileNumber("SOP-964").versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
+        when(controlledFileMapper.selectById(964L)).thenReturn(file);
+        when(permissionApi.hasAnyPermissions(120L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(
+                eq(120L), any(LocalDateTime.class))).thenReturn(List.of());
+        when(distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(31L, 120L))
+                .thenReturn(List.of(964L));
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 964L, 120L)).thenReturn(1L);
+        when(fileMapper.selectById(524L)).thenReturn(FileDO.builder()
+                .id(524L).name("recipient-scope.pdf").type("application/pdf").build());
+        stubEmptyDetailRelations(964L);
+
+        DccControlledFileRespVO result = queryService.getControlledFile(120L, 964L);
+
+        assertTrue(result.getCanPreview());
+        assertTrue(result.getCanDownload());
+    }
+
+    @Test
+    void getControlledFileBrowserPage_assignmentExecutorWithoutAssignmentDoesNotFallBackToDirectoryScope() {
+        DccControlledFilePageReqVO reqVO = new DccControlledFilePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        DccControlledFileDO unrelated = DccControlledFileDO.builder()
+                .id(961L)
+                .masterId(761L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(11L)
+                .publishedFileId(506L)
+                .title("Unassigned")
+                .fileName("unassigned.pdf")
+                .fileNumber("FI-961")
+                .versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build();
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(99L), any(DccControlledFileDO.class)))
+                .thenReturn(false);
+        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class)))
+                .thenReturn(List.of(unrelated));
+
+        PageResult<DccControlledFileRespVO> result = queryService.getControlledFileBrowserPage(99L, reqVO);
+
+        assertEquals(0L, result.getTotal());
+        assertTrue(result.getList().isEmpty());
+    }
+
+    @Test
+    void getControlledFile_assignmentExecutorCannotOpenUnassignedFileDespiteDirectoryManagement() {
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(962L)
+                .masterId(762L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(11L)
+                .publishedFileId(507L)
+                .title("Unassigned detail")
+                .fileName("unassigned-detail.pdf")
+                .fileNumber("FI-962")
+                .versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build();
+        when(controlledFileMapper.selectById(962L)).thenReturn(file);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+
+        assertServiceException(() -> queryService.getControlledFile(99L, 962L), CONTROLLED_FILE_ACCESS_DENIED);
+    }
+
+    @Test
+    void getControlledFile_explicitFullFileScopeCanOpenFile() {
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(963L)
+                .masterId(763L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(11L)
+                .title("Full scope")
+                .fileName("full-scope.pdf")
+                .fileNumber("FI-963")
+                .versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build();
+        when(controlledFileMapper.selectById(963L)).thenReturn(file);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:scope:all")).thenReturn(true);
+        stubEmptyDetailRelations(963L);
+
+        DccControlledFileRespVO result = queryService.getControlledFile(99L, 963L);
+
+        assertEquals(963L, result.getId());
     }
 
     @Test
@@ -2897,6 +4413,13 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.DOWNLOAD))
                 .thenReturn(true);
         when(controlledFileMapper.selectListByMasterId(730L)).thenReturn(List.of(file));
+        when(fileMapper.selectById(560L)).thenReturn(FileDO.builder()
+                .id(560L)
+                .configId(1L)
+                .path("dcc/published/browser-summary.pdf")
+                .name("browser-summary.pdf")
+                .type("application/pdf")
+                .build());
 
         PageResult<DccControlledFileRespVO> result = queryService.getControlledFileBrowserPage(99L, reqVO);
 
@@ -2945,6 +4468,13 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.DOWNLOAD))
                 .thenReturn(false);
         when(controlledFileMapper.selectListByMasterId(731L)).thenReturn(List.of(file));
+        when(fileMapper.selectById(561L)).thenReturn(FileDO.builder()
+                .id(561L)
+                .configId(1L)
+                .path("dcc/published/doc-control-browser.pdf")
+                .name("doc-control-browser.pdf")
+                .type("application/pdf")
+                .build());
 
         PageResult<DccControlledFileRespVO> result = queryService.getControlledFileBrowserPage(99L, reqVO);
 
@@ -2979,6 +4509,13 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .thenReturn(true);
         when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(true);
+        when(fileMapper.selectById(503L)).thenReturn(FileDO.builder()
+                .id(503L)
+                .configId(1L)
+                .path("dcc/published/sop-001-v2.pdf")
+                .name("sop-001-v2.pdf")
+                .type("application/pdf")
+                .build());
         when(routeSnapshotMapper.selectListByControlledFileId(902L)).thenReturn(List.of(
                 DccControlledFileRouteSnapshotDO.builder()
                         .id(1001L)
@@ -3128,10 +4665,14 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     private DccFileDirectoryDO directory(Long id, Long parentId, String name) {
+        return directory(id, parentId, name, "DIR-" + id);
+    }
+
+    private DccFileDirectoryDO directory(Long id, Long parentId, String name, String code) {
         return DccFileDirectoryDO.builder()
                 .id(id)
                 .parentId(parentId)
-                .code("DIR-" + id)
+                .code(code)
                 .name(name)
                 .active(Boolean.TRUE)
                 .sort(1)
@@ -3189,6 +4730,31 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .build();
     }
 
+    private DccControlledFileDO lifecycleFile(Long id, String versionNo, String status) {
+        DccWindchillVersionNumber version = DccWindchillVersionNumber.parse(versionNo);
+        return DccControlledFileDO.builder()
+                .id(id)
+                .tenantId(31L)
+                .masterId(700L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .sourceFileId(100L)
+                .originalFileId(100L)
+                .fileName("SOP-001.docx")
+                .title("SOP-001")
+                .fileNumber("SOP-001")
+                .versionNo(versionNo)
+                .revisionCode(version.revisionCode())
+                .iterationNo(version.iterationNo())
+                .dccProjectCodeId(300L)
+                .processType(DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode())
+                .changeType("NEW")
+                .requesterId(99L)
+                .submitterId(99L)
+                .status(status)
+                .build();
+    }
+
     private DccControlledFileWatermarkTraceDO watermarkTrace(Long controlledFileId, String versionNo) {
         return DccControlledFileWatermarkTraceDO.builder()
                 .id(99001L)
@@ -3243,14 +4809,10 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         verify(downloadRecordMapper, atLeastOnce()).update(isNull(), updateCaptor.capture());
         UpdateWrapper failureUpdate = updateCaptor.getValue();
         String sqlSet = failureUpdate.getSqlSet();
-        assertTrue(sqlSet.contains("encryption_policy_version="), sqlSet);
-        assertTrue(sqlSet.contains("artifact_id="), sqlSet);
-        assertTrue(sqlSet.contains("cipher_file_ref="), sqlSet);
         assertTrue(sqlSet.contains("plain_sha256="), sqlSet);
-        assertTrue(sqlSet.contains("cipher_sha256="), sqlSet);
         assertTrue(sqlSet.contains("returned_at="), sqlSet);
-        Collection<Object> values = failureUpdate.getParamNameValuePairs().values();
-        assertTrue(values.stream().filter(Objects::isNull).count() >= 6, values::toString);
+        var values = failureUpdate.getParamNameValuePairs().values();
+        assertTrue(values.stream().filter(Objects::isNull).count() >= 2, values::toString);
         assertTrue(values.contains("FAILED"), values::toString);
         assertTrue(values.contains(failureCode), values::toString);
         return failureUpdate;

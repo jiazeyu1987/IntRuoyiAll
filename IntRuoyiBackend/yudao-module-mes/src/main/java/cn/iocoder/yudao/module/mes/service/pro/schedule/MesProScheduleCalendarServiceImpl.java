@@ -94,6 +94,9 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
     private static final String CAPACITY_SOURCE_ROUTE_PROCESS = "ROUTE_PROCESS";
     private static final String ISSUE_STATUS_OPEN = "OPEN";
     private static final String ISSUE_SEVERITY_BLOCKING = "BLOCKING";
+    private static final String ISSUE_SEVERITY_WARNING = "WARNING";
+    private static final String ISSUE_TYPE_MATERIAL_DEMAND = "MATERIAL_DEMAND";
+    private static final String SOURCE_TYPE_PRODUCTION_MATERIAL_LIST = "PRODUCTION_MATERIAL_LIST";
 
     @Resource
     private MesProScheduleCalendarRuleMapper scheduleCalendarRuleMapper;
@@ -253,13 +256,18 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
         Map<Long, List<MesCalPlanShiftDO>> shiftsByPlanId = loadPlanShifts(lines);
         Set<Long> refreshedShiftIds = new LinkedHashSet<>();
         for (MesMdProductionLineDO line : lines) {
-            MesCalPlanShiftDO shift = firstShiftForLine(line, shiftsByPlanId);
-            String refreshedEndTime = calculateShiftEndTime(shift.getStartTime(), capacityMinutes);
-            if (refreshedShiftIds.add(shift.getId())) {
-                planShiftMapper.updateEndTimeById(shift.getId(), refreshedEndTime);
+            List<MesCalPlanShiftDO> shifts = shiftsByPlanId.get(line.getCalendarPlanId());
+            if (CollUtil.isEmpty(shifts)) {
+                throw exception0(400, "产线 " + line.getName() + " 未配置排班班次，无法同步班时");
             }
-            capacityPlanMapper.updateCapacityMinutesByLineAndShiftFromDate(
-                    line.getId(), shift.getId(), refreshStartDate, capacityMinutes);
+            for (MesCalPlanShiftDO shift : shifts) {
+                String refreshedEndTime = calculateShiftEndTime(shift.getStartTime(), capacityMinutes);
+                if (refreshedShiftIds.add(shift.getId())) {
+                    planShiftMapper.updateEndTimeById(shift.getId(), refreshedEndTime);
+                }
+                capacityPlanMapper.updateCapacityMinutesByLineAndShiftFromDate(
+                        line.getId(), shift.getId(), refreshStartDate, capacityMinutes);
+            }
         }
     }
 
@@ -941,7 +949,10 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
                     Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(),
                     currentTaskCount.intValue(), latestUpdatedTask != null ? latestUpdatedTask.getUpdateTime() : null, true);
         }
-        List<MesProScheduleOrderDO> activeScheduleOrders = scheduleOrderMapper.selectEffectiveListByWorkOrderIds(historicalWorkOrderIds);
+        List<MesProScheduleOrderDO> activeScheduleOrders = scheduleOrderMapper
+                .selectEffectiveListByWorkOrderIds(historicalWorkOrderIds).stream()
+                .filter(item -> !Boolean.TRUE.equals(item.getRemovedFromSchedule()))
+                .toList();
         activeScheduleOrders = activeScheduleOrders.stream()
                 .filter(item -> !ObjUtil.equal(item.getStatus(), cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum.FINISHED.getStatus()))
                 .filter(item -> !ObjUtil.equal(item.getStatus(), cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum.CANCELED.getStatus()))
@@ -986,7 +997,10 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
         Map<Long, MesProWorkOrderDO> workOrderMap = workOrderService.getWorkOrderMap(activeWorkOrderIds);
         validateIdsFound(activeWorkOrderIds, workOrderMap, PRO_WORK_ORDER_NOT_EXISTS);
 
-        Map<Long, Map<Long, BigDecimal>> materialDemandByWorkOrderId = buildProductionMaterialDemandMap(workOrderMap);
+        Map<Long, LocalDate> firstStartDateByWorkOrderId = buildFirstStartDateByWorkOrder(activeTasksBeforeEnd);
+        ProductionMaterialDemandResult productionMaterialDemand = buildProductionMaterialDemandMap(
+                workOrderMap, firstStartDateByWorkOrderId);
+        Map<Long, Map<Long, BigDecimal>> materialDemandByWorkOrderId = productionMaterialDemand.getDemandByWorkOrderId();
         Set<Long> materialIds = materialDemandByWorkOrderId.values().stream()
                 .flatMap(materialDemand -> materialDemand.keySet().stream())
                 .filter(Objects::nonNull)
@@ -998,7 +1012,6 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
                 .collect(Collectors.groupingBy(MesWmMaterialStockDO::getItemId,
                         LinkedHashMap::new,
                         Collectors.reducing(BigDecimal.ZERO, MesWmMaterialStockDO::getQuantity, BigDecimal::add)));
-        Map<Long, LocalDate> firstStartDateByWorkOrderId = buildFirstStartDateByWorkOrder(activeTasksBeforeEnd);
         Map<String, List<DailyMaterialSummaryRow>> materialRowsByDate = buildMaterialRowsByDate(
                 startDate, endDate, activeTasksBeforeEnd, workOrderMap, materialDemandByWorkOrderId, availableStockByItemId);
 
@@ -1077,9 +1090,10 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
                     .toList());
         }
 
-        List<MesProScheduleIssueDO> issues = ObjUtil.defaultIfNull(
+        List<MesProScheduleIssueDO> issues = new ArrayList<>(ObjUtil.defaultIfNull(
                 scheduleIssueMapper.selectListByWorkOrderIds(workOrderMap.keySet()),
-                Collections.emptyList());
+                Collections.emptyList()));
+        issues.addAll(productionMaterialDemand.getWarningIssues());
         Set<Long> itemIds = new LinkedHashSet<>();
         visibleTasks.stream().map(MesProTaskDO::getItemId).filter(Objects::nonNull).forEach(itemIds::add);
         materialIds.forEach(itemIds::add);
@@ -1470,15 +1484,6 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
         return shiftsByPlanId;
     }
 
-    private MesCalPlanShiftDO firstShiftForLine(MesMdProductionLineDO line,
-                                                Map<Long, List<MesCalPlanShiftDO>> shiftsByPlanId) {
-        List<MesCalPlanShiftDO> shifts = shiftsByPlanId.get(line.getCalendarPlanId());
-        if (CollUtil.isEmpty(shifts)) {
-            throw exception0(400, "产线 " + line.getName() + " 未配置排班班次，无法同步班时");
-        }
-        return shifts.get(0);
-    }
-
     private String calculateShiftEndTime(String startTime, Integer capacityMinutes) {
         if (startTime == null || startTime.length() != 5) {
             throw exception0(400, "排班班次开始时间必须为 HH:mm 格式");
@@ -1508,8 +1513,9 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
                 && task.getEndTime().isAfter(rangeStart);
     }
 
-    private Map<Long, Map<Long, BigDecimal>> buildProductionMaterialDemandMap(
-            Map<Long, MesProWorkOrderDO> workOrderMap) {
+    private ProductionMaterialDemandResult buildProductionMaterialDemandMap(
+            Map<Long, MesProWorkOrderDO> workOrderMap,
+            Map<Long, LocalDate> firstStartDateByWorkOrderId) {
         List<MesKingdeeProductionMaterialListDO> rows = ObjUtil.defaultIfNull(
                 productionMaterialListMapper.selectListByWorkOrderIds(workOrderMap.keySet()),
                 Collections.<MesKingdeeProductionMaterialListDO>emptyList());
@@ -1519,6 +1525,7 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
                         LinkedHashMap::new,
                         Collectors.toList()));
         Map<Long, Map<Long, BigDecimal>> demandByWorkOrderId = new LinkedHashMap<>();
+        List<MesProScheduleIssueDO> warningIssues = new ArrayList<>();
         for (MesProWorkOrderDO workOrder : workOrderMap.values()) {
             List<MesKingdeeProductionMaterialListDO> workOrderRows = rowsByWorkOrderId
                     .getOrDefault(workOrder.getId(), Collections.emptyList());
@@ -1529,9 +1536,9 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
             Map<Long, BigDecimal> demandByItemId = new LinkedHashMap<>();
             for (MesKingdeeProductionMaterialListDO row : workOrderRows) {
                 if (row.getChildMaterialId() == null) {
-                    throw exception0(PRO_SCHEDULE_CALENDAR_PRODUCTION_MATERIAL_REQUIRED.getCode(),
-                            "排程工单生产用料清单子项未映射本地物料: {}",
-                            buildProductionMaterialRowLabel(workOrder, row));
+                    warningIssues.add(buildProductionMaterialChildMappingWarning(
+                            workOrder, row, firstStartDateByWorkOrderId.get(workOrder.getId())));
+                    continue;
                 }
                 if (row.getRequiredQuantity() == null) {
                     throw exception0(PRO_SCHEDULE_CALENDAR_PRODUCTION_MATERIAL_REQUIRED.getCode(),
@@ -1542,7 +1549,28 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
             }
             demandByWorkOrderId.put(workOrder.getId(), demandByItemId);
         }
-        return demandByWorkOrderId;
+        return ProductionMaterialDemandResult.builder()
+                .demandByWorkOrderId(demandByWorkOrderId)
+                .warningIssues(warningIssues)
+                .build();
+    }
+
+    private MesProScheduleIssueDO buildProductionMaterialChildMappingWarning(
+            MesProWorkOrderDO workOrder,
+            MesKingdeeProductionMaterialListDO row,
+            LocalDate firstStartDate) {
+        return MesProScheduleIssueDO.builder()
+                .issueType(ISSUE_TYPE_MATERIAL_DEMAND)
+                .severity(ISSUE_SEVERITY_WARNING)
+                .workOrderId(workOrder != null ? workOrder.getId() : null)
+                .calendarDate(firstStartDate != null ? firstStartDate.atStartOfDay() : null)
+                .message("排程工单生产用料清单子项未映射本地物料: "
+                        + buildProductionMaterialRowLabel(workOrder, row))
+                .resolved(Boolean.FALSE)
+                .status(ISSUE_STATUS_OPEN)
+                .sourceType(SOURCE_TYPE_PRODUCTION_MATERIAL_LIST)
+                .sourceId(row != null ? row.getId() : null)
+                .build();
     }
 
     private String buildWorkOrderLabel(MesProWorkOrderDO workOrder) {
@@ -1995,6 +2023,13 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
 
     @Getter
     @Builder
+    private static class ProductionMaterialDemandResult {
+        private Map<Long, Map<Long, BigDecimal>> demandByWorkOrderId;
+        private List<MesProScheduleIssueDO> warningIssues;
+    }
+
+    @Getter
+    @Builder
     private static class DailyMaterialSummaryRow {
         private String date;
         private Long materialId;
@@ -2110,4 +2145,3 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
     }
 
 }
-

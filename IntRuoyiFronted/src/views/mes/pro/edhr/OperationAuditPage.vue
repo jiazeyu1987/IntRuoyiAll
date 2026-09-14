@@ -11,7 +11,7 @@
         <el-form-item label="记录类型">
           <el-select v-model="queryParams.recordCategory" clearable class="!w-150px">
             <el-option label="批记录表" value="BATCH_RECORD" />
-            <el-option label="内部记录表" value="INTERNAL_RECORD" />
+            <el-option v-if="!hideRecordbookMode" label="内部记录表" value="INTERNAL_RECORD" />
           </el-select>
         </el-form-item>
         <el-form-item label="动作类型">
@@ -127,7 +127,7 @@
               {{ row.actorUsername || row.actorUserId || '--' }}
             </template>
           </el-table-column>
-          <el-table-column label="发生时间" prop="occurredAt" width="180" />
+          <el-table-column label="发生时间" prop="occurredAt" width="180" :formatter="edhrDateTimeFormatter" />
           <el-table-column label="操作" width="90" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click="openDetail(row.id)">详情</el-button>
@@ -168,7 +168,7 @@
           <el-descriptions-item label="操作者">
             {{ detail.actorUsername || detail.actorUserId || '--' }}
           </el-descriptions-item>
-          <el-descriptions-item label="发生时间">{{ detail.occurredAt || '--' }}</el-descriptions-item>
+          <el-descriptions-item label="发生时间">{{ formatEdhrDateTime(detail.occurredAt) }}</el-descriptions-item>
           <el-descriptions-item label="失败码">{{ detail.failureCode || '--' }}</el-descriptions-item>
           <el-descriptions-item label="失败说明">{{ detail.failureMessage || '--' }}</el-descriptions-item>
         </el-descriptions>
@@ -222,11 +222,15 @@ import {
   resolveOperationAuditResultTagType as resolveResultTagType,
   resolveOperationTypeLabel
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
+import { edhrDateTimeFormatter, formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 
 defineOptions({ name: 'MesProFeedbackEdhrOperationAudit' })
 
 const route = useRoute()
+const hideRecordbookMode = computed(() =>
+  route.query.hideRecordbookMode === 'true' || route.query.hideRecordbookMode === '1'
+)
 const loading = ref(false)
 const loadError = ref('')
 const list = ref<EdhrOperationAuditRespVO[]>([])
@@ -282,7 +286,10 @@ const buildQuery = () => {
     routeId: parsePositiveRouteQueryId(queryParams.routeId) || undefined,
     routeProcessId: parsePositiveRouteQueryId(queryParams.routeProcessId) || undefined,
     reportId: queryParams.reportId.trim() || undefined,
-    recordCategory: queryParams.recordCategory,
+    recordCategory:
+      hideRecordbookMode.value && queryParams.recordCategory === 'INTERNAL_RECORD'
+        ? undefined
+        : queryParams.recordCategory,
     operationType: queryParams.operationType.trim() || undefined,
     actorUserId: queryParams.actorUserId || undefined,
     permissionDecision: queryParams.permissionDecision,
@@ -320,6 +327,9 @@ const openDetail = async (id: number) => {
 }
 
 const handleQuery = () => {
+  if (hideRecordbookMode.value && queryParams.recordCategory === 'INTERNAL_RECORD') {
+    queryParams.recordCategory = undefined
+  }
   queryParams.pageNo = 1
   getList()
 }

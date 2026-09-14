@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderPageReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderTemporaryFreezeStatusRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
@@ -21,9 +22,11 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.task.MesProTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProTaskStatusEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemBatchConfigService;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.task.MesProTaskService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationOrderChangeService;
 import cn.iocoder.yudao.module.mes.service.wm.barcode.MesWmBarcodeService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -82,6 +86,8 @@ class MesProWorkOrderServiceImplTest {
     private MesProTaskDependencyMapper taskDependencyMapper;
     @Mock
     private MesProScheduleIssueMapper scheduleIssueMapper;
+    @Mock
+    private MesReportAllocationOrderChangeService reportAllocationOrderChangeService;
 
     @BeforeEach
     void setUp() {
@@ -231,6 +237,8 @@ class MesProWorkOrderServiceImplTest {
 
         workOrderService.updateWorkOrderTemporaryFrozen(200L, true);
 
+        verify(reportAllocationOrderChangeService)
+                .invalidateWorkOrder(200L, null, "工单冻结暂停");
         verify(workOrderMapper).updateTemporaryFrozenByIds(List.of(200L), true);
         verify(taskDependencyMapper).deleteByTaskIds(List.of(300L));
         verify(taskScheduleExtMapper).deleteByTaskIds(List.of(300L));
@@ -239,6 +247,42 @@ class MesProWorkOrderServiceImplTest {
         verify(taskMapper).deleteById(300L);
         verify(taskMapper, never()).deleteById(301L);
         verify(workOrderMapper).updateQuantityScheduled(200L, BigDecimal.ZERO);
+    }
+
+    @Test
+    void cancelWorkOrder_shouldReturnUnreleasedAllocationsBeforeStatusChange() {
+        MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder().id(202L)
+                .status(MesProWorkOrderStatusEnum.CONFIRMED.getStatus()).build();
+        when(workOrderMapper.selectById(202L)).thenReturn(workOrder);
+
+        workOrderService.cancelWorkOrder(202L);
+
+        verify(reportAllocationOrderChangeService)
+                .invalidateWorkOrder(eq(202L), isNull(), eq("工单取消"));
+        verify(taskService).cancelTaskByOrderId(202L);
+        verify(workOrderMapper).updateById(org.mockito.ArgumentMatchers.argThat((MesProWorkOrderDO row) ->
+                row.getId().equals(202L)
+                        && row.getStatus().equals(MesProWorkOrderStatusEnum.CANCELED.getStatus())));
+    }
+
+    @Test
+    void updateWorkOrder_shouldReturnOnlyQuantityExcessBeforeDecrease() {
+        MesProWorkOrderDO old = MesProWorkOrderDO.builder().id(203L).code("WO-203").productId(20L)
+                .quantity(new BigDecimal("100")).status(MesProWorkOrderStatusEnum.PREPARE.getStatus()).build();
+        MesProWorkOrderSaveReqVO request = new MesProWorkOrderSaveReqVO();
+        request.setId(203L);
+        request.setCode("WO-203");
+        request.setProductId(20L);
+        request.setQuantity(new BigDecimal("60"));
+        when(workOrderMapper.selectById(203L)).thenReturn(old);
+        when(workOrderMapper.selectByCode("WO-203")).thenReturn(old);
+
+        workOrderService.updateWorkOrder(request);
+
+        verify(reportAllocationOrderChangeService).reduceWorkOrderAllocations(
+                eq(203L), eq(new BigDecimal("60")), isNull(), eq("工单数量减少"));
+        verify(workOrderBomService).generateWorkOrderBom(203L, request, true);
+        verify(workOrderMapper).updateById(org.mockito.ArgumentMatchers.any(MesProWorkOrderDO.class));
     }
 
     @Test

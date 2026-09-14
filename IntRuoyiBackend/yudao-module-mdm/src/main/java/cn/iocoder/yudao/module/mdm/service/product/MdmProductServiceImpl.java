@@ -138,7 +138,13 @@ public class MdmProductServiceImpl implements MdmProductService {
         if (normalizedStatus != null && !MdmProductStatusConstants.isValid(normalizedStatus)) {
             throw new IllegalArgumentException("MDM_PRODUCT_STATUS_INVALID: status=" + status);
         }
-        return productMapper.selectSimpleList(normalizedStatus, requireDccProductCode, keyword);
+        List<MdmProductDO> products = productMapper.selectSimpleList(normalizedStatus, requireDccProductCode, keyword);
+        if (!Boolean.TRUE.equals(requireDccProductCode)) {
+            return products;
+        }
+        return products.stream()
+                .filter(product -> MdmProductCodePolicy.isValidDccProductCode(product.getDccProductCode()))
+                .toList();
     }
 
     @Override

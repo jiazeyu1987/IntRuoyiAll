@@ -1,0 +1,31 @@
+{
+  "baseUrl": "http://127.0.0.1:8081",
+  "targetPath": "/approval-center/todo",
+  "alternatePath": "/user/profile",
+  "user": "admin",
+  "tenant": "芋道源码",
+  "initialResponseCount": 2,
+  "returnResponseCount": 0,
+  "approvalResponses": [
+    {
+      "phase": "initial",
+      "status": 200,
+      "path": "/admin-api/approval-center/tasks/page",
+      "pageNo": "1",
+      "pageSize": "10",
+      "viewType": "TODO",
+      "moduleCode": ""
+    },
+    {
+      "phase": "initial",
+      "status": 200,
+      "path": "/admin-api/approval-center/tasks/page",
+      "pageNo": "1",
+      "pageSize": "20",
+      "viewType": "TODO",
+      "moduleCode": ""
+    }
+  ],
+  "pageErrors": [],
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260804-approval-center-tab-cache\\approval-center-tab-return-no-reload.png"
+}

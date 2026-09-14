@@ -133,6 +133,9 @@ public class DeptServiceImplTest extends BaseDbUnitTest {
             o.setDeptId(childrenDeptDO.getId());
             o.setSex(1);
             o.setStatus(CommonStatusEnum.ENABLE.getStatus());
+            o.setLoginFailureCount(0);
+            o.setLoginLocked(0);
+            o.setLoginLockedTime(null);
         });
         userMapper.insert(userDO);
 

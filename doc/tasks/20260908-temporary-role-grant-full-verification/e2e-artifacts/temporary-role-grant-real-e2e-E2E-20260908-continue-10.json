@@ -1,0 +1,24 @@
+{
+  "runId": "E2E-20260908-continue-10",
+  "startedAt": "2026-09-08T15:17:13.647Z",
+  "frontendUrl": "http://127.0.0.1:8081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "grantee": "页面首个可选非 admin 用户",
+  "created": [],
+  "jobs": [
+    "temporaryRoleGrantExpireJob"
+  ],
+  "login": "PASS",
+  "openFromMenu": "PASS",
+  "resume": "PASS",
+  "overdueRow": "活跃订单升级E2E20260902205106\n\t\nCRM 管理员\n\t\n有效中\n\t\n临时权限E2E到期-E2E-20260908-continue-10\n\t\n1788879686000\n\t\n1788879719000\n\t\n1788879834000\n\t\n1788879787000\n\t\n异常逾期\n\t\n撤销\n审计记录",
+  "activeRow": "???????\n\t\n普通角色\n\t\n有效中\n\t\n临时权限E2E长期-E2E-20260908-continue-10\n\t\n1788879579000\n\t\n1788879616000\n\t\n1789052361000\n\t\n\t\n仍有效\n\t\n撤销\n审计记录",
+  "expiredRow": "活跃订单升级E2E20260902205106\n\t\nCRM 管理员\n\t\n已过期\n\t\n临时权限E2E到期-E2E-20260908-continue-10\n\t\n1788879686000\n\t\n1788879719000\n\t\n1788879834000\n\t\n1788879787000\n\t\n-\n\t\n审计记录",
+  "expireAudit": "临时角色授权审计记录\n事件\n\t\n权限标识\n\t\n操作人\n\t\n说明\n\t\n时间\nAPPLY\n\t\n\t\nadmin\n\t\ntemporary role grant applied\n\t\n1788879686000\n\n\nAPPROVE\n\t\n\t\nadmin\n\t\ntemporary role grant approved\n\t\n1788879719000\n\n\nREMIND\n\t\n\t\ntemporaryRoleGrantReminderJob\n\t\ntemporary role grant will expire within 24 hours\n\t\n1788879787000\n\n\nEXPIRE\n\t\n\t\ntemporaryRoleGrantExpireJob\n\t\ntemporary role grant expired\n\t\n1788880769000",
+  "reviewSummaryText": "仍有效\n4\n即将到期\n0\n异常逾期\n0",
+  "dbFinal": "11\t910270\t2\tACTIVE\t临时权限E2E长期-E2E-20260908-continue-10\t2026-09-10 22:59:21\tNULL\tAPPLY,APPROVE\n12\t9908090335\t3\tEXPIRED\t临时权限E2E到期-E2E-20260908-continue-10\t2026-09-08 23:03:54\t2026-09-08 23:03:07\tAPPLY,APPROVE,REMIND,EXPIRE\n0",
+  "cleanup": "revoked active grant 11",
+  "completedAt": "2026-09-08T15:20:41.401Z",
+  "result": "PASS"
+}

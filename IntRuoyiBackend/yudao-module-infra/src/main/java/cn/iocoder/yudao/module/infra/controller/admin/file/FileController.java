@@ -10,6 +10,7 @@ import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
 import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.*;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.FileUploadSecurityPolicy;
 import cn.iocoder.yudao.module.infra.service.file.NasBrowserService;
 import cn.iocoder.yudao.module.infra.service.file.NasDirectoryService;
 import cn.iocoder.yudao.module.infra.service.file.NasSettingsService;
@@ -49,6 +50,8 @@ public class FileController {
     @Resource
     private FileService fileService;
     @Resource
+    private FileUploadSecurityPolicy fileUploadSecurityPolicy;
+    @Resource
     private NasBrowserService nasBrowserService;
     @Resource
     private NasDirectoryService nasDirectoryService;
@@ -62,6 +65,7 @@ public class FileController {
     public CommonResult<String> uploadFile(@Valid FileUploadReqVO uploadReqVO) throws Exception {
         MultipartFile file = uploadReqVO.getFile();
         byte[] content = IoUtil.readBytes(file.getInputStream());
+        fileUploadSecurityPolicy.validate(file.getOriginalFilename(), content);
         Long fileId = fileService.createFileAndReturnId(content, file.getOriginalFilename(),
                 uploadReqVO.getDirectory(), file.getContentType());
         return success(buildAdminFileAccessUrl(fileService.getFile(fileId)));

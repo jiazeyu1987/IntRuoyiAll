@@ -23,6 +23,7 @@
 - BDD: 保存已确认自动建议时归一化为人工确认 -> Given 规则保存请求包含 `source=AUTO` 且 `reviewed=true` 的可填单元格 / When 后端保存规则并写回 Jimu JSON / Then 持久化规则必须为 `source=MANUAL` 且 `reviewed=true`
 - BDD: 真正未确认规则仍阻断打开填写 -> Given 模板存在缺少有效确认规则的可填单元格 / When 用户点击打开填写 / Then 系统必须 fail fast 并返回具体坐标，不得创建执行快照
 - BDD: 历史异常规则显式修复 -> Given 历史模板存在 `source=AUTO` 且 `reviewed=true` 的异常规则 / When 管理员 dry run 后对指定报表执行修复 / Then 系统只修复经校验和确认范围内的候选规则，不静默批准未知模板
+- BDD: 传统批记录任务打开不依赖动态表单中心上下文 -> Given 既有批次任务包含 `executionId` 和 `batchRecordReportId` 但没有 Form Center 字段 / When 填写人从批次执行点击打开填写 / Then 后端应使用已冻结的批记录执行上下文打开任务，不应误报“eDHR 批次缺少唯一批记录路线”
 
 ## TDD Evidence
 
@@ -54,3 +55,46 @@
 - 相邻回归集存在范围外失败：损耗报告 Word 解析将 `□报废` 解析为 `报废`；该行为需其所属任务确认或修复。
 - 后续单独复现相邻失败或继续本任务关键用例时，模块主代码被范围外 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled` 缺失阻塞，当前构建状态不稳定。
 - 真实 E2E 缺少可用登录会话和任务专用测试账号；不得使用共享或生产业务账号替代。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_opensLegacyBatchRecordTaskWithFrozenExecutionWithoutFormCenterContext' test` -> PASS，传统批记录任务已有 `executionId + batchRecordReportId` 时不再被 Form Center 字段误拦截。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_opensLegacyBatchRecordTaskWithFrozenExecutionWithoutFormCenterContext+openTask_requiresFrozenExecutionForBatchSharedTask' test` -> PASS，2 个测试通过，确认传统批记录可打开且 `BATCH_SHARED` 缺少冻结执行仍 fail fast。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProRouteFlowConfigServiceImplTest#getRouteFlowProcessConfigList_shouldReturnInternalRecordMetadata' test` -> PASS，1 个测试通过，编译前置 helper 已可用。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProBatchRecordCellRuleSupportTest,MesProBatchRecordReportServiceImplDbTest' test` -> PASS，129 个测试通过，损耗报告 Word 解析已保留 `□报废`。
+- GREEN: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS，真实前端路径登录测试租户/aoteman，打开既有批次 `JILUBEN-E2E-1784859323164` 的可填写任务并进入 eDHR 执行页。
+
+
+## 2026-07-24 Authorized Blocker Closeout Extension
+
+- BDD: 新建批次使用实时路线配置，历史缺失任务恢复使用冻结快照 -> Given 路线草稿配置和已发布冻结快照可能不同 / When 创建新的 eDHR 批次 / Then 任务必须来自当前启用的路线批记录配置；When 渲染历史缺失路线任务的批次 / Then 只按冻结快照恢复缺失任务，不同步或篡改已有任务状态。
+- BDD: 批次共享传统批记录冻结单一执行上下文 -> Given 多个工序绑定同一 `BATCH_SHARED` 批记录表单 / When 创建批次任务 / Then 系统只创建一个批记录执行并绑定同一共享组；若打开时缺少冻结执行仍 fail fast。
+- RED: `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest' test` -> FAIL，134 个测试中 12 failures / 4 errors；根因是新建批次误走冻结快照、最新已批准报表解析缺失、页面渲染同步过宽、共享传统批记录未冻结执行。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreate_resolvesLatestApprovedRouteBindingReportAndShowsCurrentFillersToReadonlyViewer+openOrCreate_rejectsExplicitRouteWhenBindingBelongsToDisabledProcessConfig+openOrCreate_dynamicFormsResolveLatestPublishedVersionAndCreateInstances+getPage_shouldRecoverMissingRouteProcessTasksBeforeRendering' test` -> PASS，4 个测试通过。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest#getPage_exposesInitialUpdateTimeAsBatchRowCreateTime+getPage_doesNotSynchronizeTaskStatusOrMutateBatchData+openOrCreate_rejectsCompanionFormWithoutSlotMetadata+openOrCreate_usesCurrentRouteFormBindingsInsteadOfFrozenSnapshot+openOrCreate_createsSingleExecutionForBatchSharedFormAcrossProcesses+qualityReject_wrongSignaturePassword_rejectsWithoutSignatureOrStatusChange' test` -> PASS，6 个测试通过。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest' test` -> PASS，134 个测试通过。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProBatchRecordCellRuleSupportTest,MesProBatchRecordReportServiceImplDbTest' test` -> PASS，129 个测试通过，损耗报告 Word 解析继续保留 `□报废`。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProRouteVersionPublishProjectionServiceTest,MesProRouteVersionPublishProjectionServiceImplTest,MesProRouteServiceImplTest#buildCurrentRouteSnapshotJson_shouldSerializeCurrentBatchRecordBindingsFromProcessSettings' test` -> PASS，13 个测试通过。
+- GREEN: 文档结构与证据校验通过：`validate_acceptance_plan.py`、`validate_bug_regression.py`、`validate_backend_api.py` 均 PASS；`git diff --check` 退出码 0，仅提示 LF/CRLF 工作区转换 warning。
+- E2E 当前复跑：`node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> BLOCKED，当前 shell 缺少 `EDHR_BATCH_E2E_PASSWORD`、`EDHR_BATCH_E2E_WORK_ORDER_ID`、`EDHR_BATCH_E2E_BATCH_CODE`、`EDHR_BATCH_E2E_FIRST_FIELD_VALUE`、`EDHR_BATCH_E2E_CLOSE_PASSWORD`，未进入浏览器；已恢复该失败复跑误写的历史证据文件。
+- Current blocker status: 两个用户授权阻塞已有 PASS 证据：129 回归集通过、任务证据文件中的真实前端 E2E PASS 仍保留；若需要“从当前 shell 再次复跑真实 E2E”，必须重新注入任务专用环境变量，不能使用受保护租户或默认账号替代。
+- 2026-07-25 E2E 复跑前置检查：`Get-Command npx` -> PASS，`npx` 可用；`Invoke-WebRequest http://127.0.0.1:8081/` -> PASS，前端返回 200；`Invoke-WebRequest http://127.0.0.1:48081/actuator/health` -> PASS，后端返回 `status=UP`。
+- BLOCKED: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> NOT RUN，任务专用 E2E 环境变量缺失：`EDHR_BATCH_E2E_PASSWORD`、`EDHR_BATCH_E2E_WORK_ORDER_ID`、`EDHR_BATCH_E2E_BATCH_CODE`、`EDHR_BATCH_E2E_FIRST_FIELD_VALUE`、`EDHR_BATCH_E2E_CLOSE_PASSWORD`；同时未设置 `EDHR_BATCH_E2E_TASK_ID` 或 `EDHR_BATCH_E2E_EVIDENCE_FILE`，按 E2E 门禁未进入浏览器，未覆盖历史 PASS 证据。
+
+## 2026-07-25 Database Fixture E2E Refactor
+
+- BDD: 数据库夹具发现 -> Given 本机数据库存在用户授权的 `芋道源码/admin` 与可打开批次工作任务 / When 执行真实 E2E / Then 脚本从数据库读取批次执行、任务和执行 ID，不再要求工单、批次、填写值或签名密码环境变量。
+- BDD: 责任人夹具写入 -> Given 当前授权账号没有待办填写任务 / When 用户授权在本地数据库准备夹具 / Then 只更新一条受控工作任务责任人，并记录原值、影响行数和回滚 SQL。
+- RED: `node tests\e2e\edhr-batch-execution-filler-entry-static.spec.js` -> FAIL，真实 E2E 尚未包含 `queryLocalDatabase` / `resolveDatabaseFixture`，仍依赖人工注入数据环境变量。
+- RED: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> FAIL，数据库夹具初次读取后发现 `admin` 不是候选任务责任人，详情接口返回 `allowedActions=[]`。
+- GREEN: 受控 DB fixture write -> PASS，`mes_pro_edhr_work_task.id=1139` 从 `assignee_user_id=810` 更新为 `1`，`WHERE` guard 命中 1 行；回滚 SQL 已记录在 `database-schema-evidence.md`。
+- GREEN: `node tests\e2e\edhr-batch-execution-filler-entry-static.spec.js` -> PASS，静态合同确认真实 E2E 使用数据库夹具并不再声明必需 `EDHR_BATCH_E2E_*` 数据变量。
+- GREEN: `node --check tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS。
+- GREEN: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS，真实前端以 `芋道源码/admin` 登录，从数据库夹具批次 `EDHRB-1784485509402` 打开任务 `3394` 并进入执行页，证据见 `real-e2e-evidence.md`。
+## 2026-07-25 Database Fixture E2E Rerun
+
+- GREEN: `npx --version` -> PASS，`11.6.2`。
+- GREEN: 前端 `http://127.0.0.1:8081/` -> PASS，HTTP 200；后端 `http://127.0.0.1:48081/actuator/health` -> PASS，`UP`。
+- GREEN: `node tests\e2e\edhr-batch-execution-filler-entry-static.spec.js` -> PASS，静态合同确认真实 E2E 使用数据库夹具并禁止旧必需数据环境变量。
+- GREEN: `node --check tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS。
+- GREEN: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS，真实前端路径通过，数据库夹具读取本机 `int-ruoyi-mysql/ruoyi-vue-pro`。
+- GREEN: `node scripts\edhr-release-e2e-coverage-contract.test.mjs` -> PASS，12/12。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\fix-batch-record-fill-rule\database-schema-evidence.md` -> PASS。
+- GREEN: `git diff --check -- <task-owned paths>` -> PASS，退出码 0，仅 CRLF 提示。

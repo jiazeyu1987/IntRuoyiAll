@@ -24,6 +24,9 @@ public class MesProDccProjectGovernanceStatusRespVO {
     @Schema(description = "工艺路线编码列表")
     private List<String> routeCodes;
 
+    @Schema(description = "工艺路线当前版本列表")
+    private List<String> routeVersionNos;
+
     @Schema(description = "主批记录状态：OK/MISSING/DUPLICATE", example = "OK")
     private String mainBatchRecordStatus;
 
@@ -42,6 +45,9 @@ public class MesProDccProjectGovernanceStatusRespVO {
     @Schema(description = "损耗单编码列表")
     private List<String> lossReportCodes;
 
+    @Schema(description = "损耗单当前版本列表")
+    private List<String> lossReportVersionNos;
+
     @Schema(description = "过程检验单状态：OK/MISSING/DUPLICATE", example = "OK")
     private String processInspectionStatus;
 
@@ -51,6 +57,9 @@ public class MesProDccProjectGovernanceStatusRespVO {
     @Schema(description = "过程检验单编码列表")
     private List<String> processInspectionCodes;
 
+    @Schema(description = "过程检验单当前版本列表")
+    private List<String> processInspectionVersionNos;
+
     @Schema(description = "参数记录表状态：OK/MISSING/DUPLICATE", example = "OK")
     private String parameterRecordStatus;
 
@@ -59,6 +68,9 @@ public class MesProDccProjectGovernanceStatusRespVO {
 
     @Schema(description = "参数记录表编码列表")
     private List<String> parameterRecordCodes;
+
+    @Schema(description = "参数记录表当前版本列表")
+    private List<String> parameterRecordVersionNos;
 
     @Schema(description = "阻断提示")
     private List<String> blockerMessages;

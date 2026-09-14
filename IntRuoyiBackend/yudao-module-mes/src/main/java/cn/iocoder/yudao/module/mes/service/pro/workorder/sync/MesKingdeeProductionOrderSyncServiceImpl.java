@@ -31,6 +31,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import lombok.RequiredArgsConstructor;
+import org.apache.ibatis.exceptions.TooManyResultsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -46,7 +47,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import static cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID;
+import static cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID;
 
 @Service
 @Validated
@@ -82,46 +83,76 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public MesKingdeeProductionOrderSyncResult syncWorkOrdersFullSkipExisting() {
+        ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
+        kingdeeProperties.validateBaseConfig();
+        return syncProductionOrders(kingdeeProperties,
+                productionOrderClient.fetchProductionOrders(kingdeeProperties), true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesKingdeeProductionOrderSyncResult syncWorkOrders(ErpKingdeeSyncContext context) {
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validateBaseConfig();
         List<ErpKingdeeProductionOrder> productionOrders = fetchProductionOrders(kingdeeProperties, context);
+        return syncProductionOrders(kingdeeProperties, productionOrders, false);
+    }
+
+    private MesKingdeeProductionOrderSyncResult syncProductionOrders(
+            ErpKingdeeProperties kingdeeProperties,
+            List<ErpKingdeeProductionOrder> productionOrders,
+            boolean skipExisting) {
         MesKingdeeProductionOrderSyncResult result = new MesKingdeeProductionOrderSyncResult();
+        Set<String> processedSourceKeys = new LinkedHashSet<>();
         Set<String> processedWorkOrderCodes = new LinkedHashSet<>();
         for (ErpKingdeeProductionOrder productionOrder : productionOrders) {
-            if (isKingdeeVoided(productionOrder) || isKingdeeFinished(productionOrder)) {
+            if (isKingdeeVoided(productionOrder)) {
                 continue;
             }
             String sourceKey = buildSourceKey(productionOrder);
+            if (!processedSourceKeys.add(sourceKey)) {
+                result.addSkipped(sourceKey);
+                continue;
+            }
             String workOrderCode = buildWorkOrderCode(productionOrder);
             if (!processedWorkOrderCodes.add(workOrderCode)) {
                 result.addSkipped(sourceKey);
                 continue;
             }
+            MesKingdeeProductionOrderSyncRecordDO syncRecord = selectSyncRecord(productionOrder);
+            MesProWorkOrderDO existingWorkOrder = resolveExistingWorkOrder(syncRecord, sourceKey, workOrderCode);
+            if (skipExisting && existingWorkOrder != null) {
+                result.addSkipped(sourceKey);
+                continue;
+            }
             Long productId = ensureMesItem(productionOrder);
-            MesProWorkOrderDO existingWorkOrder = workOrderService.getWorkOrder(workOrderCode);
-            MesKingdeeProductionOrderSyncRecordDO syncRecord =
-                    syncRecordMapper.selectBySourceKey(productionOrder.getFid(), productionOrder.getMaterialNumber());
             if (existingWorkOrder == null) {
                 Long workOrderId = workOrderService.createWorkOrder(buildCreateReqVO(productionOrder, productId));
                 workOrderMapper.updateById(buildErpSnapshotUpdate(workOrderId, productionOrder));
                 updateWorkOrderStatus(workOrderId);
                 saveOrUpdateSyncRecord(syncRecord, productionOrder, workOrderId);
                 result.addCreated(workOrderId);
+                finishWorkOrderIfKingdeeFinished(productionOrder, new MesProWorkOrderDO()
+                        .setId(workOrderId)
+                        .setStatus(MesProWorkOrderStatusEnum.CONFIRMED.getStatus()), result);
                 continue;
             }
             syncExistingWorkOrder(existingWorkOrder, productionOrder, productId);
             saveOrUpdateSyncRecord(syncRecord, productionOrder, existingWorkOrder.getId());
             result.addUpdated(existingWorkOrder.getId());
+            finishWorkOrderIfKingdeeFinished(productionOrder, existingWorkOrder, result);
         }
-        syncInactiveWorkOrders(kingdeeProperties, result, processedWorkOrderCodes);
+        if (!skipExisting) {
+            syncInactiveWorkOrders(kingdeeProperties, result, processedWorkOrderCodes);
+        }
         return result;
     }
 
     private List<ErpKingdeeProductionOrder> fetchProductionOrders(ErpKingdeeProperties kingdeeProperties,
                                                                   ErpKingdeeSyncContext context) {
         if (context.isInitialSync()) {
-            return productionOrderClient.fetchUnfinishedProductionOrders(kingdeeProperties,
+            return productionOrderClient.fetchProductionOrdersByBillDateRange(kingdeeProperties,
                     context.getWindowStart().toLocalDate(), context.getWindowEnd().toLocalDate());
         }
         return productionOrderClient.fetchProductionOrdersModifiedBetween(kingdeeProperties,
@@ -139,6 +170,59 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         createScheduleOrderDiffIfNeeded(existingWorkOrder, updated);
     }
 
+    private MesProWorkOrderDO resolveExistingWorkOrder(MesKingdeeProductionOrderSyncRecordDO syncRecord,
+                                                       String sourceKey,
+                                                       String workOrderCode) {
+        MesProWorkOrderDO sourceLinkedWorkOrder = resolveSourceLinkedWorkOrder(syncRecord, sourceKey);
+        MesProWorkOrderDO workOrderByCode = selectWorkOrderByCode(workOrderCode, sourceKey);
+        if (sourceLinkedWorkOrder != null && workOrderByCode != null
+                && !Objects.equals(sourceLinkedWorkOrder.getId(), workOrderByCode.getId())) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "production order source key conflicts with existing work order code: "
+                            + sourceKey + " -> " + workOrderCode);
+        }
+        return sourceLinkedWorkOrder != null ? sourceLinkedWorkOrder : workOrderByCode;
+    }
+
+    private MesProWorkOrderDO resolveSourceLinkedWorkOrder(MesKingdeeProductionOrderSyncRecordDO syncRecord,
+                                                           String sourceKey) {
+        if (syncRecord == null) {
+            return null;
+        }
+        if (syncRecord.getWorkOrderId() == null) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "production order sync record workOrderId is blank: " + syncRecord.getId()
+                            + ", sourceKey=" + sourceKey);
+        }
+        MesProWorkOrderDO workOrder = workOrderMapper.selectById(syncRecord.getWorkOrderId());
+        if (workOrder == null) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "production order sync record points to missing work order: " + syncRecord.getId()
+                            + ", sourceKey=" + sourceKey);
+        }
+        return workOrder;
+    }
+
+    private MesKingdeeProductionOrderSyncRecordDO selectSyncRecord(ErpKingdeeProductionOrder productionOrder) {
+        try {
+            return syncRecordMapper.selectBySourceKey(productionOrder.getFid(), productionOrder.getMaterialNumber());
+        } catch (TooManyResultsException ex) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "生产订单同步记录重复: sourceFid=" + productionOrder.getFid()
+                            + ", sourceMaterialNumber=" + productionOrder.getMaterialNumber()
+                            + ", sourceKey=" + buildSourceKey(productionOrder));
+        }
+    }
+
+    private MesProWorkOrderDO selectWorkOrderByCode(String workOrderCode, String sourceKey) {
+        try {
+            return workOrderService.getWorkOrder(workOrderCode);
+        } catch (TooManyResultsException ex) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "生产工单编码重复: workOrderCode=" + workOrderCode + ", sourceKey=" + sourceKey);
+        }
+    }
+
     private MesProWorkOrderSaveReqVO buildCreateReqVO(ErpKingdeeProductionOrder productionOrder, Long productId) {
         MesProWorkOrderSaveReqVO reqVO = new MesProWorkOrderSaveReqVO();
         String workOrderCode = buildWorkOrderCode(productionOrder);
@@ -147,7 +231,9 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         reqVO.setType(MesProWorkOrderTypeEnum.SELF.getType());
         reqVO.setOrderSourceType(resolveSourceType(productionOrder));
         reqVO.setOrderSourceCode(resolveOrderSourceCode(productionOrder, workOrderCode));
+        reqVO.setDemandBillNo(resolveDemandBillNo(productionOrder));
         reqVO.setProductId(productId);
+        reqVO.setMaterialSpecification(resolveMaterialSpecification(productionOrder));
         reqVO.setQuantity(productionOrder.getQuantity());
         reqVO.setQuantityProduced(BigDecimal.ZERO);
         reqVO.setQuantityChanged(BigDecimal.ZERO);
@@ -172,6 +258,14 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         return sourceBillNo;
     }
 
+    private String resolveDemandBillNo(ErpKingdeeProductionOrder productionOrder) {
+        return StrUtil.trimToNull(productionOrder.getSourceBillNo());
+    }
+
+    private String resolveMaterialSpecification(ErpKingdeeProductionOrder productionOrder) {
+        return StrUtil.trimToNull(productionOrder.getMaterialSpecification());
+    }
+
     private LocalDateTime resolveRequestDate(ErpKingdeeProductionOrder productionOrder) {
         if (productionOrder.getPlannedEndDate() != null) {
             return productionOrder.getPlannedEndDate();
@@ -182,12 +276,12 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         if (productionOrder.getBillDate() != null) {
             return productionOrder.getBillDate();
         }
-        throw ServiceExceptionUtil.exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
+        throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
                 "production order request date is blank for bill " + productionOrder.getBillNo());
     }
 
     private Long ensureMesItem(ErpKingdeeProductionOrder productionOrder) {
-        MesMdItemDO item = itemMapper.selectByCode(productionOrder.getMaterialNumber());
+        MesMdItemDO item = selectItemByCode(productionOrder);
         if (item != null) {
             return item.getId();
         }
@@ -208,8 +302,18 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         return item.getId();
     }
 
+    private MesMdItemDO selectItemByCode(ErpKingdeeProductionOrder productionOrder) {
+        try {
+            return itemMapper.selectByCode(productionOrder.getMaterialNumber());
+        } catch (TooManyResultsException ex) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "物料编码重复: materialNumber=" + productionOrder.getMaterialNumber()
+                            + ", workOrderCode=" + buildWorkOrderCode(productionOrder));
+        }
+    }
+
     private Long ensureItemType() {
-        MesMdItemTypeDO itemType = itemTypeMapper.selectByParentIdAndCode(MesMdItemTypeDO.PARENT_ID_ROOT, DEFAULT_ITEM_TYPE_CODE);
+        MesMdItemTypeDO itemType = selectDefaultItemType();
         if (itemType != null) {
             return itemType.getId();
         }
@@ -224,16 +328,26 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         return itemType.getId();
     }
 
+    private MesMdItemTypeDO selectDefaultItemType() {
+        try {
+            return itemTypeMapper.selectByParentIdAndCode(MesMdItemTypeDO.PARENT_ID_ROOT, DEFAULT_ITEM_TYPE_CODE);
+        } catch (TooManyResultsException ex) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "物料分类编码重复: parentId=" + MesMdItemTypeDO.PARENT_ID_ROOT
+                            + ", code=" + DEFAULT_ITEM_TYPE_CODE);
+        }
+    }
+
     private Long ensureUnitMeasure(ErpKingdeeProductionOrder productionOrder) {
         String unitCode = StrUtil.blankToDefault(productionOrder.getUnitCode(), productionOrder.getUnitName());
         String unitName = StrUtil.blankToDefault(productionOrder.getUnitName(), unitCode);
         if (StrUtil.isBlank(unitCode) || StrUtil.isBlank(unitName)) {
-            throw ServiceExceptionUtil.exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
                     "production order unit is blank for material " + productionOrder.getMaterialNumber());
         }
-        MesMdUnitMeasureDO unitMeasure = unitMeasureMapper.selectByCode(unitCode);
+        MesMdUnitMeasureDO unitMeasure = selectUnitMeasureByCode(unitCode, productionOrder);
         if (unitMeasure == null) {
-            unitMeasure = unitMeasureMapper.selectByName(unitName);
+            unitMeasure = selectUnitMeasureByName(unitName, productionOrder);
         }
         if (unitMeasure != null) {
             return unitMeasure.getId();
@@ -249,6 +363,26 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         return unitMeasure.getId();
     }
 
+    private MesMdUnitMeasureDO selectUnitMeasureByCode(String unitCode, ErpKingdeeProductionOrder productionOrder) {
+        try {
+            return unitMeasureMapper.selectByCode(unitCode);
+        } catch (TooManyResultsException ex) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "计量单位编码重复: unitCode=" + unitCode
+                            + ", workOrderCode=" + buildWorkOrderCode(productionOrder));
+        }
+    }
+
+    private MesMdUnitMeasureDO selectUnitMeasureByName(String unitName, ErpKingdeeProductionOrder productionOrder) {
+        try {
+            return unitMeasureMapper.selectByName(unitName);
+        } catch (TooManyResultsException ex) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "计量单位名称重复: unitName=" + unitName
+                            + ", workOrderCode=" + buildWorkOrderCode(productionOrder));
+        }
+    }
+
     private void updateWorkOrderStatus(Long workOrderId) {
         MesProWorkOrderDO update = new MesProWorkOrderDO()
                 .setId(workOrderId)
@@ -258,13 +392,21 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
 
     private String buildWorkOrderCode(ErpKingdeeProductionOrder productionOrder) {
         if (StrUtil.isBlank(productionOrder.getBillNo())) {
-            throw ServiceExceptionUtil.exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
                     "production order billNo is blank for fid " + productionOrder.getFid());
         }
         return productionOrder.getBillNo();
     }
 
     private String buildSourceKey(ErpKingdeeProductionOrder productionOrder) {
+        if (StrUtil.isBlank(productionOrder.getFid())) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "production order fid is blank for bill " + productionOrder.getBillNo());
+        }
+        if (StrUtil.isBlank(productionOrder.getMaterialNumber())) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "production order materialNumber is blank for fid " + productionOrder.getFid());
+        }
         return productionOrder.getFid() + ":" + productionOrder.getMaterialNumber();
     }
 
@@ -279,7 +421,9 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
                 .setType(MesProWorkOrderTypeEnum.SELF.getType())
                 .setOrderSourceType(resolveSourceType(productionOrder))
                 .setOrderSourceCode(resolveOrderSourceCode(productionOrder, workOrderCode))
+                .setDemandBillNo(resolveDemandBillNo(productionOrder))
                 .setProductId(productId)
+                .setMaterialSpecification(resolveMaterialSpecification(productionOrder))
                 .setQuantity(productionOrder.getQuantity())
                 .setBatchCode(resolveBatchCode(existingWorkOrder, productionOrder))
                 .setWorkshopName(StrUtil.trimToNull(productionOrder.getWorkshopName()))
@@ -288,6 +432,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
                 .setAuxiliaryCode(StrUtil.trimToNull(productionOrder.getAuxiliaryCode()))
                 .setBusinessStatus(StrUtil.trimToNull(productionOrder.getBusinessStatus()))
                 .setDrawingNumber(StrUtil.trimToNull(productionOrder.getDrawingNumber()))
+                .setRefNo(StrUtil.trimToNull(productionOrder.getRefNo()))
                 .setScheduleStatus(StrUtil.trimToNull(productionOrder.getScheduleStatus()))
                 .setPlannedStartTime(productionOrder.getPlannedStartDate())
                 .setPlannedEndTime(productionOrder.getPlannedEndDate())
@@ -304,12 +449,15 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
                                                      ErpKingdeeProductionOrder productionOrder) {
         return new MesProWorkOrderDO()
                 .setId(workOrderId)
+                .setDemandBillNo(resolveDemandBillNo(productionOrder))
+                .setMaterialSpecification(resolveMaterialSpecification(productionOrder))
                 .setWorkshopName(StrUtil.trimToNull(productionOrder.getWorkshopName()))
                 .setBomVersion(StrUtil.trimToNull(productionOrder.getBomVersion()))
                 .setPickMode(StrUtil.trimToNull(productionOrder.getPickMode()))
                 .setAuxiliaryCode(StrUtil.trimToNull(productionOrder.getAuxiliaryCode()))
                 .setBusinessStatus(StrUtil.trimToNull(productionOrder.getBusinessStatus()))
                 .setDrawingNumber(StrUtil.trimToNull(productionOrder.getDrawingNumber()))
+                .setRefNo(StrUtil.trimToNull(productionOrder.getRefNo()))
                 .setScheduleStatus(StrUtil.trimToNull(productionOrder.getScheduleStatus()))
                 .setPlannedStartTime(productionOrder.getPlannedStartDate())
                 .setPlannedEndTime(productionOrder.getPlannedEndDate());
@@ -319,7 +467,9 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         return !Objects.equals(existingWorkOrder.getName(), updatedWorkOrder.getName())
                 || !Objects.equals(existingWorkOrder.getOrderSourceType(), updatedWorkOrder.getOrderSourceType())
                 || !Objects.equals(existingWorkOrder.getOrderSourceCode(), updatedWorkOrder.getOrderSourceCode())
+                || !Objects.equals(existingWorkOrder.getDemandBillNo(), updatedWorkOrder.getDemandBillNo())
                 || !Objects.equals(existingWorkOrder.getProductId(), updatedWorkOrder.getProductId())
+                || !Objects.equals(existingWorkOrder.getMaterialSpecification(), updatedWorkOrder.getMaterialSpecification())
                 || compareDecimal(existingWorkOrder.getQuantity(), updatedWorkOrder.getQuantity()) != 0
                 || !Objects.equals(existingWorkOrder.getBatchCode(), updatedWorkOrder.getBatchCode())
                 || !Objects.equals(existingWorkOrder.getWorkshopName(), updatedWorkOrder.getWorkshopName())
@@ -328,6 +478,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
                 || !Objects.equals(existingWorkOrder.getAuxiliaryCode(), updatedWorkOrder.getAuxiliaryCode())
                 || !Objects.equals(existingWorkOrder.getBusinessStatus(), updatedWorkOrder.getBusinessStatus())
                 || !Objects.equals(existingWorkOrder.getDrawingNumber(), updatedWorkOrder.getDrawingNumber())
+                || !Objects.equals(existingWorkOrder.getRefNo(), updatedWorkOrder.getRefNo())
                 || !Objects.equals(existingWorkOrder.getScheduleStatus(), updatedWorkOrder.getScheduleStatus())
                 || !Objects.equals(existingWorkOrder.getPlannedStartTime(), updatedWorkOrder.getPlannedStartTime())
                 || !Objects.equals(existingWorkOrder.getPlannedEndTime(), updatedWorkOrder.getPlannedEndTime())
@@ -336,7 +487,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
     }
 
     private void createScheduleOrderDiffIfNeeded(MesProWorkOrderDO existingWorkOrder, MesProWorkOrderDO updatedWorkOrder) {
-        MesProScheduleOrderDO scheduleOrder = scheduleOrderMapper.selectEffectiveByWorkOrderId(existingWorkOrder.getId());
+        MesProScheduleOrderDO scheduleOrder = selectEffectiveScheduleOrder(existingWorkOrder);
         if (scheduleOrder == null) {
             return;
         }
@@ -359,12 +510,24 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
                 .setDiffStatus(MesProScheduleOrderDiffStatusEnum.PENDING.getStatus()));
     }
 
+    private MesProScheduleOrderDO selectEffectiveScheduleOrder(MesProWorkOrderDO existingWorkOrder) {
+        try {
+            return scheduleOrderMapper.selectEffectiveByWorkOrderId(existingWorkOrder.getId());
+        } catch (TooManyResultsException ex) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "排产工单有效记录重复: workOrderId=" + existingWorkOrder.getId()
+                            + ", workOrderCode=" + existingWorkOrder.getCode());
+        }
+    }
+
     private Map<String, Object> buildDiffPayload(MesProWorkOrderDO workOrder) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("name", workOrder.getName());
         payload.put("orderSourceType", workOrder.getOrderSourceType());
         payload.put("orderSourceCode", workOrder.getOrderSourceCode());
+        payload.put("demandBillNo", workOrder.getDemandBillNo());
         payload.put("productId", workOrder.getProductId());
+        payload.put("materialSpecification", workOrder.getMaterialSpecification());
         payload.put("quantity", workOrder.getQuantity());
         payload.put("batchCode", workOrder.getBatchCode());
         payload.put("workshopName", workOrder.getWorkshopName());
@@ -373,6 +536,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         payload.put("auxiliaryCode", workOrder.getAuxiliaryCode());
         payload.put("businessStatus", workOrder.getBusinessStatus());
         payload.put("drawingNumber", workOrder.getDrawingNumber());
+        payload.put("refNo", workOrder.getRefNo());
         payload.put("scheduleStatus", workOrder.getScheduleStatus());
         payload.put("plannedStartTime", workOrder.getPlannedStartTime());
         payload.put("plannedEndTime", workOrder.getPlannedEndTime());
@@ -410,12 +574,12 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         for (MesKingdeeProductionOrderSyncRecordDO syncRecord : syncRecords) {
             Long workOrderId = syncRecord.getWorkOrderId();
             if (workOrderId == null) {
-                throw ServiceExceptionUtil.exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
+                throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
                         "production order sync record workOrderId is blank: " + syncRecord.getId());
             }
             String sourceBillNo = StrUtil.trimToNull(syncRecord.getSourceBillNo());
             if (sourceBillNo == null) {
-                throw ServiceExceptionUtil.exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
+                throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
                         "production order sync record sourceBillNo is blank: " + syncRecord.getId());
             }
             if (activeWorkOrderCodes.contains(sourceBillNo)) {
@@ -453,7 +617,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
                                        MesKingdeeProductionOrderSyncResult result) {
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(syncRecord.getWorkOrderId());
         if (workOrder == null) {
-            throw ServiceExceptionUtil.exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
                     "production order sync record points to missing work order: " + syncRecord.getId());
         }
         if (isKingdeeVoided(statusOrder)) {
@@ -461,6 +625,14 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             return;
         }
         if (isKingdeeFinished(statusOrder)) {
+            finishSyncedWorkOrder(workOrder, result);
+        }
+    }
+
+    private void finishWorkOrderIfKingdeeFinished(ErpKingdeeProductionOrder productionOrder,
+                                                  MesProWorkOrderDO workOrder,
+                                                  MesKingdeeProductionOrderSyncResult result) {
+        if (isKingdeeFinished(productionOrder)) {
             finishSyncedWorkOrder(workOrder, result);
         }
     }

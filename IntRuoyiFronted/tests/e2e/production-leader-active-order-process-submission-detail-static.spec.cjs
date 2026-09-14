@@ -1,0 +1,88 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const root = path.resolve(__dirname, '../..')
+const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
+const page = read('src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
+const detailPage = read('src/views/mes/pro/processpool/ActiveOrderSubmissionDetailPage.vue')
+const detailPanel = read('src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue')
+const routes = read('src/router/modules/remaining.ts')
+const api = read('src/api/mes/pro/processpool/teamLeader.ts')
+
+assert.match(
+  page,
+  /data-team-leader-active-order-detail[\s\S]*@click="openActiveOrderSubmissionDetail\(row\)"[\s\S]*>\s*详情\s*<\/el-button>[\s\S]*data-team-leader-remove-active-order/,
+  '活跃订单详情按钮必须位于上下移与移除操作之间，并绑定当前订单。'
+)
+assert.match(
+  page,
+  /const\s+navigateActiveOrderSubmissionDetail[\s\S]*router\.push[\s\S]*MesProcessPoolActiveOrderSubmissionDetail[\s\S]*activeOrderId/,
+  '详情页导航 helper 必须通过路由打开独立详情页面，并携带活跃订单ID。'
+)
+assert.match(
+  page,
+  /const\s+openActiveOrderSubmissionDetail\s*=\s*\(row:\s*TeamLeaderActiveOrderRespVO\)[\s\S]*sourceActiveOrderId[\s\S]*navigateActiveOrderSubmissionDetail\(sourceActiveOrderId\)/,
+  '点击列表行详情必须打开当前行自身详情，不能被 Stage1 生成订单替换。'
+)
+assert.doesNotMatch(page, /data-team-leader-active-order-detail-dialog|activeOrderDetailVisible/, '工作台不得继续渲染活跃订单详情弹窗。')
+assert.match(
+  page,
+  /navigateActiveOrderSubmissionDetail\(activeOrderId\)/,
+  'Stage1 模拟完成后的自动跳转必须打开当前点击活跃订单。'
+)
+assert.match(
+  routes,
+  /path:\s*'pro\/process-pool\/active-order\/:activeOrderId\/submission-detail'[\s\S]*ActiveOrderSubmissionDetailPage\.vue[\s\S]*name:\s*'MesProcessPoolActiveOrderSubmissionDetail'/,
+  '路由必须注册活跃订单提交详情独立页面。'
+)
+assert.match(detailPage, /data-team-leader-active-order-detail-page[\s\S]*ActiveOrderSubmissionDetailPanel/, '详情页面必须挂载详情展示面板。')
+assert.ok(detailPage.includes('getTeamLeaderActiveOrderDetail(requireActiveOrderId())'), '详情页面必须由正式请求驱动。')
+assert.match(
+  detailPanel,
+  /v-for="\(process, processIndex\) in detail\.processes"[\s\S]*应提数量[\s\S]*已提交[\s\S]*提交记录/,
+  '详情必须以生产工序为分组并显示应提数量、已提交合计和提交次数。'
+)
+for (const label of ['完成数量', '设备', '提交人', '审核人', '提交时间']) {
+  assert.match(detailPanel, new RegExp(`label="${label}"`), `每次正式生产提交明细必须显示${label}。`)
+}
+assert.match(
+  detailPanel,
+  /data-active-order-production-record-input-materials[\s\S]*输入物料批次号[\s\S]*selectedProductionInputMaterials/,
+  '生产记录表单必须在每个工序下显示输入物料批次号，且数据来自该工序 inputMaterials。'
+)
+assert.match(
+  detailPanel,
+  /formatProductionInputMaterialPickListEvidence[\s\S]*sourcePickListNos/,
+  '输入物料批次号展示必须同时保留命中的领料单业务编号，不能只展示批号。'
+)
+assert.match(detailPanel, /row\.reviewerName\s*\|\|\s*'未审核'/, '没有正式审核记录的提交必须明确显示未审核。')
+assert.match(detailPanel, /暂无一线生产提交/, '没有生产提交的工序必须保留并显示明确空态。')
+assert.match(detailPanel, /暂无一线PQC提交/, '没有 PQC 提交时必须显示明确空态。')
+assert.match(
+  detailPanel,
+  /resolvePqcInspectionTypeText\(pqcSubmission\)[\s\S]*PATROL_AM[\s\S]*上午巡检[\s\S]*PATROL_PM[\s\S]*下午巡检/,
+  'PQC 巡检标题必须按正式 inspectionRuleKey 显示上午巡检/下午巡检。'
+)
+assert.doesNotMatch(
+  detailPanel,
+  /resolvePqcInspectionTypeText\(pqcSubmission\.inspectionType\)/,
+  'PQC 标题不得只按 inspectionType 渲染，否则 PATROL_AM/PATROL_PM 会显示成同一个巡检。'
+)
+assert.match(
+  api,
+  /export interface TeamLeaderActiveOrderDetailRespVO[\s\S]*processes:\s*TeamLeaderActiveOrderProcessDetailRespVO\[\]/,
+  '前端 API 必须声明按工序分组的详情响应。'
+)
+assert.match(
+  api,
+  /export interface TeamLeaderActiveOrderPqcSubmissionDetailRespVO[\s\S]*inspectionRuleKey\?:\s*string[\s\S]*inspectionType\?:\s*string/,
+  'PQC 提交响应类型必须暴露正式 inspectionRuleKey，供页面区分上午/下午巡检。'
+)
+assert.match(
+  api,
+  /getTeamLeaderActiveOrderDetail[\s\S]*\/mes\/pro\/process-pool\/team-leader\/active-order\/detail[\s\S]*activeOrderId/,
+  '前端必须调用正式活跃订单详情接口。'
+)
+
+console.log('PASS: production leader active-order process submission detail static contract')

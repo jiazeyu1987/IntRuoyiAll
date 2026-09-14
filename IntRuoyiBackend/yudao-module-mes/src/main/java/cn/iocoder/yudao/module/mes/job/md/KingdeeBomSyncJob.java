@@ -7,9 +7,11 @@ import cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTypeEnum;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRuntimeService;
+import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeFullSyncHandler;
 import cn.iocoder.yudao.module.mes.service.md.item.sync.MesKingdeeProductBomSyncResult;
 import cn.iocoder.yudao.module.mes.service.md.item.sync.MesKingdeeProductBomSyncService;
 import cn.iocoder.yudao.module.mes.service.md.item.kingdee.MesKingdeeBomListService;
+import cn.iocoder.yudao.module.mes.service.md.item.kingdee.MesKingdeeBomListSyncResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -18,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Component("kingdeeBomSyncJob")
 @RequiredArgsConstructor
-public class KingdeeBomSyncJob implements JobHandler {
+public class KingdeeBomSyncJob implements JobHandler, ErpKingdeeFullSyncHandler {
 
     private final MesKingdeeProductBomSyncService syncService;
     private final MesKingdeeBomListService bomListService;
@@ -27,6 +29,9 @@ public class KingdeeBomSyncJob implements JobHandler {
     @Override
     @TenantJob
     public String execute(String param) {
+        if (ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM.equals(param)) {
+            return executeFullSync();
+        }
         LocalDateTime windowEnd = LocalDateTime.now();
         AtomicReference<MesKingdeeProductBomSyncResult> resultReference = new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
@@ -44,6 +49,25 @@ public class KingdeeBomSyncJob implements JobHandler {
         MesKingdeeProductBomSyncResult result = resultReference.get();
         return String.format("ERP BOM sync: parents=%d, bomLines=%d, workOrders=%d",
                 result.getSyncedParentCount(), result.getSyncedBomCount(), result.getRecalculatedWorkOrderCount());
+    }
+
+    @Override
+    public String executeFullSync() {
+        LocalDateTime windowEnd = LocalDateTime.now();
+        AtomicReference<MesKingdeeBomListSyncResult> resultReference = new AtomicReference<>();
+        syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
+                .syncType(ErpKingdeeSyncTypeEnum.BOM)
+                .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                .windowEnd(windowEnd)
+                .build(), context -> {
+            MesKingdeeBomListSyncResult result = bomListService.syncAllSkipExisting();
+            resultReference.set(result);
+            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(), result.getCreatedCount(),
+                    0, result.getSkippedCount(), 0);
+        });
+        MesKingdeeBomListSyncResult result = resultReference.get();
+        return String.format("ERP BOM full sync: created=%d, skipped=%d",
+                result.getCreatedCount(), result.getSkippedCount());
     }
 
 }

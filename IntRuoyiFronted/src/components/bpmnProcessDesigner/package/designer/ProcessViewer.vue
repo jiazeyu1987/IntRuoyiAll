@@ -1,6 +1,15 @@
 <template>
   <div class="process-viewer">
     <div style="height: 100%" ref="processCanvas" v-show="!isLoading"> </div>
+    <el-alert
+      v-if="processViewWarning"
+      data-testid="bpm-process-viewer-warning"
+      class="process-viewer__warning"
+      type="warning"
+      show-icon
+      :closable="false"
+      :title="processViewWarning"
+    />
     <!-- 自定义箭头样式，用于已完成状态下流程连线箭头 -->
     <defs ref="customDefs">
       <marker
@@ -161,6 +170,8 @@ const bpmnViewer = ref<BpmnViewer | null>(null)
 const customDefs = ref<any>()
 const defaultZoom = ref(1) // 默认缩放比例
 const isLoading = ref(false) // 是否加载中
+const processViewWarning = ref('')
+const missingProcessMarkerIds = ref<string[]>([])
 
 const processInstance = ref<any>({}) // 流程实例
 const tasks = ref<any[]>([]) // 流程任务
@@ -219,6 +230,65 @@ const addCustomDefs = () => {
   const canvas: any = bpmnViewer.value?.get('canvas')
   const svg = canvas?._svg
   svg.appendChild(customDefs.value)
+}
+
+const resetProcessMarkerWarnings = () => {
+  processViewWarning.value = ''
+  missingProcessMarkerIds.value = []
+}
+
+const recordMissingProcessMarker = (activityId: unknown, markerName: string, error?: unknown) => {
+  const normalizedId = String(activityId || '').trim()
+  const markerKey = normalizedId ? `${normalizedId}:${markerName}` : `unknown:${markerName}`
+  if (!missingProcessMarkerIds.value.includes(markerKey)) {
+    missingProcessMarkerIds.value.push(markerKey)
+  }
+  const errorMessage = error instanceof Error ? `；${error.message}` : ''
+  processViewWarning.value = `流程图节点高亮不完整：${missingProcessMarkerIds.value.join('、')}${errorMessage}`
+}
+
+const safeAddProcessMarker = (
+  canvas: any,
+  elementRegistry: any,
+  activityId: unknown,
+  markerName: string
+) => {
+  if (activityId == null || activityId === '') {
+    return undefined
+  }
+  const element = elementRegistry.get(activityId)
+  if (!element) {
+    recordMissingProcessMarker(activityId, markerName)
+    return undefined
+  }
+  try {
+    canvas.addMarker(activityId, markerName)
+  } catch (error) {
+    recordMissingProcessMarker(activityId, markerName, error)
+    return undefined
+  }
+  return element
+}
+
+const safeRemoveProcessMarker = (
+  canvas: any,
+  elementRegistry: any,
+  activityId: unknown,
+  markerName: string
+) => {
+  if (activityId == null || activityId === '') {
+    return
+  }
+  const element = elementRegistry.get(activityId)
+  if (!element) {
+    recordMissingProcessMarker(activityId, markerName)
+    return
+  }
+  try {
+    canvas.removeMarker(activityId, markerName)
+  } catch (error) {
+    recordMissingProcessMarker(activityId, markerName, error)
+  }
 }
 
 /** 节点选中 */
@@ -290,11 +360,12 @@ const importXML = async (xml: string) => {
 /** 高亮流程 */
 const setProcessStatus = (view: any) => {
   // 设置相关变量
+  resetProcessMarkerWarnings()
   if (!view || !view.processInstance) {
     return
   }
   processInstance.value = view.processInstance
-  tasks.value = view.tasks
+  tasks.value = Array.isArray(view.tasks) ? view.tasks : []
   if (isLoading.value || !bpmnViewer.value) {
     return
   }
@@ -311,29 +382,32 @@ const setProcessStatus = (view: any) => {
   if (Array.isArray(finishedSequenceFlowActivityIds)) {
     finishedSequenceFlowActivityIds.forEach((item: any) => {
       if (item != null) {
-        canvas.addMarker(item, 'success')
-        const element = elementRegistry.get(item)
-        const conditionExpression = element.businessObject.conditionExpression
+        const element = safeAddProcessMarker(canvas, elementRegistry, item, 'success')
+        const conditionExpression = element?.businessObject?.conditionExpression
         if (conditionExpression) {
-          canvas.addMarker(item, 'condition-expression')
+          safeAddProcessMarker(canvas, elementRegistry, item, 'condition-expression')
         }
       }
     })
   }
   if (Array.isArray(finishedTaskActivityIds)) {
-    finishedTaskActivityIds.forEach((item: any) => canvas.addMarker(item, 'success'))
+    finishedTaskActivityIds.forEach((item: any) => {
+      safeAddProcessMarker(canvas, elementRegistry, item, 'success')
+    })
   }
 
   // 未完成节点
   if (Array.isArray(unfinishedTaskActivityIds)) {
-    unfinishedTaskActivityIds.forEach((item: any) => canvas.addMarker(item, 'primary'))
+    unfinishedTaskActivityIds.forEach((item: any) => {
+      safeAddProcessMarker(canvas, elementRegistry, item, 'primary')
+    })
   }
 
   // 被拒绝节点
   if (Array.isArray(rejectedTaskActivityIds)) {
     rejectedTaskActivityIds.forEach((item: any) => {
       if (item != null) {
-        canvas.addMarker(item, 'danger')
+        safeAddProcessMarker(canvas, elementRegistry, item, 'danger')
       }
     })
   }
@@ -346,11 +420,11 @@ const setProcessStatus = (view: any) => {
   ) {
     const endNodes = elementRegistry.filter((element: any) => element.type === 'bpmn:EndEvent')
     endNodes.forEach((item: any) => {
-      canvas.removeMarker(item.id, 'success')
+      safeRemoveProcessMarker(canvas, elementRegistry, item.id, 'success')
       if (processInstance.value.status === BpmProcessInstanceStatus.CANCEL) {
-        canvas.addMarker(item.id, 'cancel')
+        safeAddProcessMarker(canvas, elementRegistry, item.id, 'cancel')
       } else {
-        canvas.addMarker(item.id, 'danger')
+        safeAddProcessMarker(canvas, elementRegistry, item.id, 'danger')
       }
     })
   }
@@ -383,3 +457,17 @@ onBeforeUnmount(() => {
   clearViewer()
 })
 </script>
+
+<style scoped>
+.process-viewer {
+  position: relative;
+}
+
+.process-viewer__warning {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  max-width: min(720px, calc(100% - 24px));
+}
+</style>

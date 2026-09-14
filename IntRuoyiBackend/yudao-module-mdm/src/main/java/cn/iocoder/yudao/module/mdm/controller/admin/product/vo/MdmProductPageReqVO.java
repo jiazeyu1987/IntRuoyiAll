@@ -8,6 +8,7 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 public class MdmProductPageReqVO extends PageParam {
 
+    private Long productMasterId;
     private String keyword;
     private String productCode;
     private String dccProductCode;

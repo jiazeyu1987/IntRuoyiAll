@@ -12,9 +12,12 @@ public class BatchRecordCellLinkPrefillItemVO {
     private Integer targetColumnIndex;
     private Object value;
     private Long sourceExecutionId;
+    private String sourceType;
     private String sourceReportId;
     private String sourceReportName;
     private String sourceCellKey;
+    private String sourceFieldCode;
+    private String sourceFieldName;
     private String sourceLabel;
     private Long ruleId;
     private Long ruleVersion;

@@ -25,6 +25,10 @@ public class DccControlledFileMasterDO extends BaseDO {
     private Long directoryId;
     private String fileName;
     private String fileNumber;
+    private Long tenantId;
+    private Long dccProjectCodeId;
+    private Long fileTypeTaxonomyLeafId;
+    private String normalizedFileNumber;
     private Long currentActiveControlledFileId;
     private String status;
 

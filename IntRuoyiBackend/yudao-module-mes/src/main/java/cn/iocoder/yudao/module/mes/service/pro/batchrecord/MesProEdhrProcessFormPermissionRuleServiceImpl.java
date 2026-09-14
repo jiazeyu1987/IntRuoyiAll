@@ -2,8 +2,10 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportAssistRowVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchRecordFormPermissionRuleSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrProcessFormPermissionRuleRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrProcessFormPermissionRuleSaveReqVO;
@@ -19,18 +21,26 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowConfigMapp
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessConfigMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordCellRuleSupport;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordJimuReportGateway;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFlowContextMatcher;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.permission.RoleApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.dto.SystemEntitlementSyncReqDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +64,7 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
 
     private static final String RULE_TYPE_FILL = "FILL";
     private static final String RULE_TYPE_SIGNATURE = "SIGNATURE";
+    private static final String ASSIST_SCOPE_ALL = "ALL";
     private static final String SOURCE_TYPE_USER = "USER";
     private static final String SOURCE_TYPE_USERS = "USERS";
     private static final String SOURCE_TYPE_ROLE = "ROLE";
@@ -69,6 +80,7 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
     private static final int UNLIMITED_DUE_MINUTES = Integer.MAX_VALUE;
     private static final String ENTITLEMENT_SOURCE_TYPE_FILLER = "EDHR_PROCESS_FORM_FILLER";
     private static final String ENTITLEMENT_POLICY_FILLER_MINIMAL = "MES_EDHR_FILLER_MINIMAL";
+    private static final int MAX_ENTITLEMENT_SOURCE_DIGEST_LENGTH = 128;
 
     @Resource
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
@@ -89,7 +101,11 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
     @Resource
     private PermissionApi permissionApi;
     @Resource
+    private RoleApi roleApi;
+    @Resource
     private MesProEdhrWorkTaskService workTaskService;
+    @Resource
+    private MesProBatchRecordJimuReportGateway jimuReportGateway;
 
     @Override
     public MesProEdhrProcessFormPermissionRuleRespVO getRule(Long routeProcessId, String batchRecordReportId) {
@@ -132,10 +148,35 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
     public MesProEdhrProcessFormPermissionRuleRespVO getRuleByReport(String batchRecordReportId) {
         String reportId = StrUtil.trim(batchRecordReportId);
         List<MesProRouteFlowProcessBatchRecordDO> routeBatchRecords = findRouteBatchRecordsByReport(reportId);
+        Long batchRecordVersionId = resolveReportBatchRecordVersionId(reportId, routeBatchRecords);
         Set<Long> enabledRouteProcessIds = routeBatchRecords.stream()
                 .map(MesProRouteFlowProcessBatchRecordDO::getRouteProcessId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<MesProEdhrProcessFormPermissionRuleDO> formLevelFillRules =
+                processFormPermissionRuleMapper.selectEnabledFillRules(
+                        FORM_LEVEL_ROUTE_PROCESS_ID, reportId, batchRecordVersionId)
+                        .stream()
+                        .filter(rule -> RULE_TYPE_FILL.equals(rule.getRuleType()))
+                        .toList();
+        List<MesProEdhrProcessFormPermissionRuleRespVO.FillAssignment> fillAssignments =
+                formLevelFillRules.stream()
+                        .filter(this::isAssistScopeRule)
+                        .map(this::toFillAssignmentResp)
+                        .toList();
+        MesProRouteFlowProcessBatchRecordDO firstBinding = routeBatchRecords.isEmpty() ? null : routeBatchRecords.get(0);
+        if (!fillAssignments.isEmpty()) {
+            return new MesProEdhrProcessFormPermissionRuleRespVO()
+                    .setRouteProcessId(FORM_LEVEL_ROUTE_PROCESS_ID)
+                    .setBatchRecordReportId(reportId)
+                    .setFillRuleStatus(STATUS_CONFIGURED)
+                    .setSignatureRuleStatus(STATUS_NOT_CONFIGURED)
+                    .setPermissionScopeId(firstBinding == null ? null : firstBinding.getPermissionScopeId())
+                    .setFillRule(null)
+                    .setFillAssignments(fillAssignments)
+                    .setSignatureRules(List.of())
+                    .setAffectedRouteBindingCount(routeBatchRecords.size());
+        }
         MesProEdhrProcessFormPermissionRuleDO fillRuleDO =
                 selectFormLevelFillRuleForReportList(reportId, routeBatchRecords);
         if (fillRuleDO == null) {
@@ -145,7 +186,6 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
                         .findFirst()
                         .orElse(null);
         }
-        MesProRouteFlowProcessBatchRecordDO firstBinding = routeBatchRecords.isEmpty() ? null : routeBatchRecords.get(0);
         MesProEdhrProcessFormPermissionRuleRespVO.CandidateRule fillRule =
                 fillRuleDO == null ? null : toCandidateResp(fillRuleDO);
         return new MesProEdhrProcessFormPermissionRuleRespVO()
@@ -155,6 +195,7 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
                 .setSignatureRuleStatus(STATUS_NOT_CONFIGURED)
                 .setPermissionScopeId(firstBinding == null ? null : firstBinding.getPermissionScopeId())
                 .setFillRule(fillRule)
+                .setFillAssignments(List.of())
                 .setSignatureRules(List.of())
                 .setAffectedRouteBindingCount(routeBatchRecords.size());
     }
@@ -197,10 +238,36 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrProcessFormPermissionRuleRespVO saveRuleByReport(
             MesProEdhrBatchRecordFormPermissionRuleSaveReqVO reqVO) {
-        normalizeCandidateRuleDueMinutes(reqVO.getFillRule());
-        validateCandidateRule(reqVO.getFillRule());
         String reportId = StrUtil.trim(reqVO.getBatchRecordReportId());
         List<MesProRouteFlowProcessBatchRecordDO> routeBatchRecords = findRouteBatchRecordsByReport(reportId);
+        if (CollUtil.isNotEmpty(reqVO.getFillAssignments())) {
+            if (reqVO.getFillRule() != null) {
+                throw new IllegalArgumentException("fillRule and fillAssignments cannot both be submitted");
+            }
+            normalizeFillAssignmentDueMinutes(reqVO.getFillAssignments());
+            Map<String, BatchRecordReportAssistRowVO> assistRows = requireAssistRowsByKey(reportId);
+            validateFillAssignments(reqVO.getFillAssignments(), assistRows);
+            List<MesProEdhrProcessFormPermissionRuleDO> savedRules =
+                    saveReportLevelAssignments(reportId, reqVO.getFillAssignments(), assistRows, routeBatchRecords);
+            MesProEdhrProcessFormPermissionRuleSaveReqVO.CandidateRule permissionRule =
+                    aggregateAssignmentPermissionRule(reqVO.getFillAssignments());
+            for (MesProRouteFlowProcessBatchRecordDO routeBatchRecord : routeBatchRecords) {
+                bindPermissionScope(new MesProEdhrProcessFormPermissionRuleSaveReqVO()
+                        .setRouteProcessId(routeBatchRecord.getRouteProcessId())
+                        .setBatchRecordReportId(reportId)
+                        .setFillRule(permissionRule)
+                        .setSignatureRules(List.of()), routeBatchRecord);
+            }
+            String sourceKey = syncFormLevelFillerEntitlement(
+                    reportId, reqVO.getFillAssignments(), routeBatchRecords);
+            workTaskService.reconcileProcessFormFillTaskOwnership(sourceKey, savedRules.get(0), "填写人配置变更");
+            return getRuleByReport(reportId).setAffectedRouteBindingCount(routeBatchRecords.size());
+        }
+        if (reqVO.getFillRule() == null) {
+            throw new IllegalArgumentException("fillRule or fillAssignments is required");
+        }
+        normalizeCandidateRuleDueMinutes(reqVO.getFillRule());
+        validateCandidateRule(reqVO.getFillRule());
         MesProEdhrProcessFormPermissionRuleDO savedRule =
                 saveReportLevelRule(reportId, reqVO.getFillRule(), routeBatchRecords);
         for (MesProRouteFlowProcessBatchRecordDO routeBatchRecord : routeBatchRecords) {
@@ -236,6 +303,41 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
                 .setBatchRecordVersionId(batchRecordVersionId);
         processFormPermissionRuleMapper.insert(rule);
         return rule;
+    }
+
+    private List<MesProEdhrProcessFormPermissionRuleDO> saveReportLevelAssignments(
+            String reportId,
+            List<MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.FillAssignment> fillAssignments,
+            Map<String, BatchRecordReportAssistRowVO> assistRows,
+            List<MesProRouteFlowProcessBatchRecordDO> routeBatchRecords) {
+        Long batchRecordVersionId = requireBatchRecordVersionId(
+                resolveReportBatchRecordVersionId(reportId, routeBatchRecords),
+                FORM_LEVEL_ROUTE_PROCESS_ID, reportId);
+        processFormPermissionRuleMapper.physicalDeleteRouteFillRulesByReportAndVersion(
+                reportId, batchRecordVersionId, FORM_LEVEL_ROUTE_PROCESS_ID);
+        processFormPermissionRuleMapper.physicalDeleteByRouteProcessAndReport(
+                FORM_LEVEL_ROUTE_PROCESS_ID, reportId);
+        MesProRouteFlowProcessBatchRecordDO firstBinding =
+                routeBatchRecords.isEmpty() ? null : routeBatchRecords.get(0);
+        List<MesProEdhrProcessFormPermissionRuleDO> savedRules = new ArrayList<>();
+        for (MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.FillAssignment assignment : fillAssignments) {
+            BatchRecordReportAssistRowVO assistRow = assistRows.get(StrUtil.trim(assignment.getScopeKey()));
+            MesProEdhrProcessFormPermissionRuleSaveReqVO.CandidateRule candidateRule =
+                    toCandidateRule(assignment);
+            MesProEdhrProcessFormPermissionRuleDO rule = toDO(new MesProEdhrProcessFormPermissionRuleSaveReqVO()
+                            .setRouteProcessId(FORM_LEVEL_ROUTE_PROCESS_ID)
+                            .setBatchRecordReportId(reportId)
+                            .setFillRule(candidateRule)
+                            .setSignatureRules(List.of()),
+                    firstBinding, RULE_TYPE_FILL, "", null, candidateRule)
+                    .setRouteProcessId(FORM_LEVEL_ROUTE_PROCESS_ID)
+                    .setBatchRecordVersionId(batchRecordVersionId)
+                    .setScopeKey(StrUtil.trim(assignment.getScopeKey()))
+                    .setFillableScopeJson(buildAssistRowFillableScopeJson(assistRow));
+            processFormPermissionRuleMapper.insert(rule);
+            savedRules.add(rule);
+        }
+        return savedRules;
     }
 
     private MesProEdhrProcessFormPermissionRuleRespVO saveRuleForRouteBinding(
@@ -284,6 +386,36 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
                 FORM_LEVEL_ROUTE_PROCESS_ID, reportId);
         String sourceKey = "FORM|" + reportId + "|" + batchRecordVersionId;
         syncFillerEntitlement(sourceKey, batchRecordVersionId, fillRule);
+        return sourceKey;
+    }
+
+    private String syncFormLevelFillerEntitlement(
+            String reportId,
+            List<MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.FillAssignment> fillAssignments,
+            List<MesProRouteFlowProcessBatchRecordDO> routeBatchRecords) {
+        Long batchRecordVersionId = requireBatchRecordVersionId(
+                resolveReportBatchRecordVersionId(reportId, routeBatchRecords),
+                FORM_LEVEL_ROUTE_PROCESS_ID, reportId);
+        String sourceKey = "FORM|" + reportId + "|" + batchRecordVersionId;
+        Set<Long> resolvedUserIds = collectResolvedAssignmentUserIds(fillAssignments);
+        if (resolvedUserIds.isEmpty()) {
+            throw exception(PRO_EDHR_PROCESS_FORM_PERMISSION_RULE_CANDIDATE_EMPTY);
+        }
+        Long tenantId = TenantContextHolder.getTenantId();
+        if (tenantId == null) {
+            throw new IllegalStateException("tenantId is required to sync eDHR filler entitlement");
+        }
+        permissionApi.syncEntitlementClaims(SystemEntitlementSyncReqDTO.builder()
+                .tenantId(tenantId)
+                .sourceType(ENTITLEMENT_SOURCE_TYPE_FILLER)
+                .sourceKey(sourceKey)
+                .sourceVersion(String.valueOf(batchRecordVersionId))
+                .sourceDigest(buildAssignmentEntitlementSourceDigest(fillAssignments))
+                .policyCode(ENTITLEMENT_POLICY_FILLER_MINIMAL)
+                .resolvedUserIds(resolvedUserIds)
+                .operatorUserId(getLoginUserId())
+                .operatorUsername(getLoginUserNickname())
+                .build());
         return sourceKey;
     }
 
@@ -348,6 +480,22 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
                 + ";enabled=" + Boolean.TRUE.equals(fillRule.getEnabled());
     }
 
+    private String buildAssignmentEntitlementSourceDigest(
+            List<MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.FillAssignment> fillAssignments) {
+        String rawDigest = fillAssignments.stream()
+                .map(assignment -> StrUtil.trim(assignment.getScopeKey())
+                        + ":" + assignment.getCandidateSourceType()
+                        + ":" + normalizeIds(assignment.getCandidateSourceIds()).stream().sorted().toList()
+                        + ":" + assignment.getCompletionPolicy()
+                        + ":" + assignment.getDueMinutes()
+                        + ":" + Boolean.TRUE.equals(assignment.getEnabled()))
+                .collect(Collectors.joining("|"));
+        if (rawDigest.length() <= MAX_ENTITLEMENT_SOURCE_DIGEST_LENGTH) {
+            return rawDigest;
+        }
+        return "assignmentCount=" + fillAssignments.size() + ";sha256=" + DigestUtil.sha256Hex(rawDigest);
+    }
+
     private void normalizeCandidateRuleDueMinutes(MesProEdhrProcessFormPermissionRuleSaveReqVO.CandidateRule rule) {
         if (rule != null) {
             rule.setDueMinutes(UNLIMITED_DUE_MINUTES);
@@ -362,6 +510,50 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
         for (MesProEdhrProcessFormPermissionRuleSaveReqVO.SignatureRule signatureRule : signatureRules) {
             normalizeCandidateRuleDueMinutes(signatureRule == null ? null : signatureRule.getRule());
         }
+    }
+
+    private void normalizeFillAssignmentDueMinutes(
+            List<MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.FillAssignment> fillAssignments) {
+        for (MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.FillAssignment assignment : fillAssignments) {
+            if (assignment != null) {
+                assignment.setDueMinutes(UNLIMITED_DUE_MINUTES);
+            }
+        }
+    }
+
+    private MesProEdhrProcessFormPermissionRuleSaveReqVO.CandidateRule toCandidateRule(
+            MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.FillAssignment assignment) {
+        return new MesProEdhrProcessFormPermissionRuleSaveReqVO.CandidateRule()
+                .setCandidateSourceType(assignment.getCandidateSourceType())
+                .setCandidateSourceIds(assignment.getCandidateSourceIds())
+                .setCompletionPolicy(assignment.getCompletionPolicy())
+                .setDueMinutes(assignment.getDueMinutes())
+                .setEnabled(assignment.getEnabled())
+                .setRemark(assignment.getRemark());
+    }
+
+    private MesProEdhrProcessFormPermissionRuleSaveReqVO.CandidateRule aggregateAssignmentPermissionRule(
+            List<MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.FillAssignment> fillAssignments) {
+        return new MesProEdhrProcessFormPermissionRuleSaveReqVO.CandidateRule()
+                .setCandidateSourceType(SOURCE_TYPE_USERS)
+                .setCandidateSourceIds(new ArrayList<>(collectResolvedAssignmentUserIds(fillAssignments)))
+                .setCompletionPolicy("ANY_ONE")
+                .setDueMinutes(UNLIMITED_DUE_MINUTES)
+                .setEnabled(true)
+                .setRemark("辅助行填写人合并授权");
+    }
+
+    private Set<Long> collectResolvedAssignmentUserIds(
+            List<MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.FillAssignment> fillAssignments) {
+        Set<Long> userIds = new LinkedHashSet<>();
+        for (MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.FillAssignment assignment : fillAssignments) {
+            userIds.addAll(resolveEnabledUsers(assignment.getCandidateSourceType(),
+                            normalizeIds(assignment.getCandidateSourceIds()))
+                    .stream()
+                    .map(AdminUserRespDTO::getId)
+                    .toList());
+        }
+        return userIds;
     }
 
     private MesProEdhrProcessFormPermissionRuleRespVO.CandidateRule toResp(
@@ -497,6 +689,7 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
                 .setBatchRecordDefinitionId(routeBatchRecord == null ? null : routeBatchRecord.getBatchRecordDefinitionId())
                 .setBatchRecordVersionId(routeBatchRecord == null ? null : routeBatchRecord.getBatchRecordVersionId())
                 .setRuleType(ruleType)
+                .setScopeKey(ASSIST_SCOPE_ALL)
                 .setSignatureCellKey(StrUtil.blankToDefault(signatureCellKey, ""))
                 .setSignatureRole(signatureRole)
                 .setCandidateSourceType(rule.getCandidateSourceType())
@@ -504,12 +697,15 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
                 .setCompletionPolicy(rule.getCompletionPolicy())
                 .setDueMinutes(rule.getDueMinutes())
                 .setEnabled(Boolean.TRUE.equals(rule.getEnabled()))
+                .setFillableScopeJson(null)
                 .setRemark(rule.getRemark());
     }
 
     private MesProEdhrProcessFormPermissionRuleRespVO.CandidateRule toCandidateResp(
             MesProEdhrProcessFormPermissionRuleDO rule) {
         List<Long> sourceIds = parseIds(rule.getCandidateSourceIds());
+        List<MesProEdhrProcessFormPermissionRuleRespVO.CandidateUser> candidateUsers =
+                toCandidateUsers(resolveEnabledUsers(rule.getCandidateSourceType(), sourceIds));
         return new MesProEdhrProcessFormPermissionRuleRespVO.CandidateRule()
                 .setCandidateSourceType(rule.getCandidateSourceType())
                 .setCandidateSourceIds(sourceIds)
@@ -517,7 +713,34 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
                 .setDueMinutes(rule.getDueMinutes())
                 .setEnabled(rule.getEnabled())
                 .setRemark(rule.getRemark())
-                .setCandidateUsers(toCandidateUsers(resolveEnabledUsers(rule.getCandidateSourceType(), sourceIds)));
+                .setCandidateUsers(candidateUsers)
+                .setCandidateSourceNames(resolveCandidateSourceNames(
+                        rule.getCandidateSourceType(), sourceIds, candidateUsers));
+    }
+
+    private MesProEdhrProcessFormPermissionRuleRespVO.FillAssignment toFillAssignmentResp(
+            MesProEdhrProcessFormPermissionRuleDO rule) {
+        List<Long> sourceIds = parseIds(rule.getCandidateSourceIds());
+        List<MesProEdhrProcessFormPermissionRuleRespVO.CandidateUser> candidateUsers =
+                toCandidateUsers(resolveEnabledUsers(rule.getCandidateSourceType(), sourceIds));
+        return new MesProEdhrProcessFormPermissionRuleRespVO.FillAssignment()
+                .setScopeKey(rule.getScopeKey())
+                .setCandidateSourceType(rule.getCandidateSourceType())
+                .setCandidateSourceIds(sourceIds)
+                .setCompletionPolicy(rule.getCompletionPolicy())
+                .setDueMinutes(rule.getDueMinutes())
+                .setEnabled(rule.getEnabled())
+                .setRemark(rule.getRemark())
+                .setCandidateUsers(candidateUsers)
+                .setCandidateSourceNames(resolveCandidateSourceNames(
+                        rule.getCandidateSourceType(), sourceIds, candidateUsers));
+    }
+
+    private boolean isAssistScopeRule(MesProEdhrProcessFormPermissionRuleDO rule) {
+        String scopeKey = StrUtil.trim(rule.getScopeKey());
+        return RULE_TYPE_FILL.equals(rule.getRuleType())
+                && StrUtil.isNotBlank(scopeKey)
+                && !ASSIST_SCOPE_ALL.equals(scopeKey);
     }
 
     private void validateCandidateRule(MesProEdhrProcessFormPermissionRuleSaveReqVO.CandidateRule rule) {
@@ -531,6 +754,68 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
         if (sourceIds.isEmpty() || resolveEnabledUsers(rule.getCandidateSourceType(), sourceIds).isEmpty()) {
             throw exception(PRO_EDHR_PROCESS_FORM_PERMISSION_RULE_CANDIDATE_EMPTY);
         }
+    }
+
+    private void validateFillAssignments(
+            List<MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.FillAssignment> fillAssignments,
+            Map<String, BatchRecordReportAssistRowVO> assistRows) {
+        Set<String> scopeKeys = new LinkedHashSet<>();
+        for (MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.FillAssignment assignment : fillAssignments) {
+            if (assignment == null || StrUtil.isBlank(assignment.getScopeKey())) {
+                throw new IllegalArgumentException("fill assignment scopeKey must not be blank");
+            }
+            String scopeKey = StrUtil.trim(assignment.getScopeKey());
+            if (!scopeKeys.add(scopeKey)) {
+                throw new IllegalArgumentException("duplicate fill assignment scopeKey " + scopeKey);
+            }
+            if (!assistRows.containsKey(scopeKey)) {
+                throw new IllegalArgumentException("unknown assist row scopeKey " + scopeKey);
+            }
+            validateCandidateRule(toCandidateRule(assignment));
+        }
+        Set<String> missing = new LinkedHashSet<>(assistRows.keySet());
+        missing.removeAll(scopeKeys);
+        if (!missing.isEmpty()) {
+            throw new IllegalArgumentException("missing fill assignment for assist rows " + missing);
+        }
+    }
+
+    private Map<String, BatchRecordReportAssistRowVO> requireAssistRowsByKey(String reportId) {
+        String reportJson = jimuReportGateway.getReportJson(reportId);
+        if (StrUtil.isBlank(reportJson)) {
+            throw new IllegalArgumentException("assist rows require existing report json " + reportId);
+        }
+        JSONObject root = JSON.parseObject(reportJson);
+        List<BatchRecordReportAssistRowVO> assistRows = MesProBatchRecordCellRuleSupport.extractAssistRows(root);
+        if (assistRows.isEmpty()) {
+            throw new IllegalArgumentException("assist rows are required before fillAssignments can be saved");
+        }
+        Map<String, BatchRecordReportAssistRowVO> result = new LinkedHashMap<>();
+        for (BatchRecordReportAssistRowVO assistRow : assistRows) {
+            String rowKey = StrUtil.trim(assistRow.getRowKey());
+            if (StrUtil.isBlank(rowKey) || assistRow.getFields() == null || assistRow.getFields().isEmpty()) {
+                throw new IllegalArgumentException("invalid assist row " + rowKey);
+            }
+            if (result.put(rowKey, assistRow) != null) {
+                throw new IllegalArgumentException("duplicate assist row scopeKey " + rowKey);
+            }
+        }
+        return result;
+    }
+
+    private String buildAssistRowFillableScopeJson(BatchRecordReportAssistRowVO assistRow) {
+        JSONObject scope = new JSONObject(true);
+        scope.put("schemaVersion", 2);
+        JSONArray cells = new JSONArray();
+        for (BatchRecordReportAssistRowVO.FieldVO field : assistRow.getFields()) {
+            JSONObject cell = new JSONObject(true);
+            cell.put("sourceTableIndex", 0);
+            cell.put("rowIndex", field.getRowIndex());
+            cell.put("columnIndex", field.getColumnIndex());
+            cells.add(cell);
+        }
+        scope.put("cells", cells);
+        return scope.toJSONString();
     }
 
     private void validateSignatureRules(
@@ -556,7 +841,7 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
     private MesProEdhrProcessFormPermissionRuleRespVO.CandidateRule extractFillRule(
             List<MesProEdhrProcessFormPermissionRuleDO> rules) {
         return rules.stream()
-                .filter(rule -> RULE_TYPE_FILL.equals(rule.getRuleType()))
+                .filter(rule -> RULE_TYPE_FILL.equals(rule.getRuleType()) && !isAssistScopeRule(rule))
                 .findFirst()
                 .map(this::toCandidateResp)
                 .orElse(null);
@@ -614,6 +899,42 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
                 .map(user -> new MesProEdhrProcessFormPermissionRuleRespVO.CandidateUser()
                         .setUserId(user.getId())
                         .setDisplayName(StrUtil.blankToDefault(user.getNickname(), String.valueOf(user.getId()))))
+                .toList();
+    }
+
+    private List<String> resolveCandidateSourceNames(
+            String sourceType,
+            List<Long> sourceIds,
+            List<MesProEdhrProcessFormPermissionRuleRespVO.CandidateUser> candidateUsers) {
+        if (CollUtil.isEmpty(sourceIds)) {
+            return List.of();
+        }
+        if (SOURCE_TYPE_ROLE.equals(sourceType)) {
+            List<RoleRespDTO> roles = roleApi.getRoleList(sourceIds);
+            Map<Long, RoleRespDTO> roleMap = CollUtil.isEmpty(roles)
+                    ? Map.of()
+                    : roles.stream()
+                            .filter(role -> role != null && role.getId() != null)
+                            .collect(Collectors.toMap(
+                                    RoleRespDTO::getId,
+                                    role -> role,
+                                    (left, right) -> left,
+                                    LinkedHashMap::new));
+            List<String> names = new ArrayList<>();
+            for (Long sourceId : sourceIds) {
+                RoleRespDTO role = roleMap.get(sourceId);
+                if (role == null
+                        || StrUtil.isBlank(role.getName())
+                        || !CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus())) {
+                    throw exception(PRO_EDHR_PROCESS_FORM_PERMISSION_RULE_CANDIDATE_EMPTY);
+                }
+                names.add(role.getName());
+            }
+            return names;
+        }
+        return candidateUsers.stream()
+                .map(MesProEdhrProcessFormPermissionRuleRespVO.CandidateUser::getDisplayName)
+                .filter(StrUtil::isNotBlank)
                 .toList();
     }
 

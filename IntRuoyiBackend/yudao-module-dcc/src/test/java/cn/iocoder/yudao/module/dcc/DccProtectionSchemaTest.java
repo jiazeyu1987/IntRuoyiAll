@@ -118,14 +118,9 @@ class DccProtectionSchemaTest extends BaseDbUnitTest {
                 .fileVersionNo("V1.0")
                 .userId(2001L)
                 .policyVersion("download-v1")
-                .encryptionStatus("READY")
-                .encryptionPolicyVersion("enc-v1")
-                .artifactId("artifact-001")
-                .cipherFileRef("cipher/ref/001")
+                .downloadStatus("READY")
                 .plainSha256("plain-sha256")
-                .cipherSha256("cipher-sha256")
                 .requestedAt(now)
-                .encryptedAt(now.plusSeconds(5))
                 .returnedAt(now.plusSeconds(10))
                 .build();
         downloadRecordMapper.insert(downloadRecord);

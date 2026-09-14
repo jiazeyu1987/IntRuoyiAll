@@ -12,11 +12,13 @@ public interface ErrorCodeConstants {
     // ========== AUTH 模块 1-002-000-000 ==========
     ErrorCode AUTH_LOGIN_BAD_CREDENTIALS = new ErrorCode(1_002_000_000, "登录失败，账号密码不正确");
     ErrorCode AUTH_LOGIN_USER_DISABLED = new ErrorCode(1_002_000_001, "登录失败，账号被禁用");
+    ErrorCode AUTH_LOGIN_USER_LOCKED = new ErrorCode(1_002_000_010, "登录失败，账号已锁定");
     ErrorCode AUTH_LOGIN_CAPTCHA_CODE_ERROR = new ErrorCode(1_002_000_004, "验证码不正确，原因：{}");
     ErrorCode AUTH_THIRD_LOGIN_NOT_BIND = new ErrorCode(1_002_000_005, "未绑定账号，需要进行绑定");
     ErrorCode AUTH_MOBILE_NOT_EXISTS = new ErrorCode(1_002_000_007, "手机号不存在");
     ErrorCode AUTH_REGISTER_CAPTCHA_CODE_ERROR = new ErrorCode(1_002_000_008, "验证码不正确，原因：{}");
     ErrorCode AUTH_LOGIN_PASSWORD_EXPIRED = new ErrorCode(1_002_000_009, "密码已过期，请修改密码后再登录");
+    ErrorCode AUTH_LOGIN_PASSWORD_CHANGE_REQUIRED = new ErrorCode(1_002_000_011, "首次或重置后必须修改密码后再登录");
 
     // ========== 菜单模块 1-002-001-000 ==========
     ErrorCode MENU_NAME_DUPLICATE = new ErrorCode(1_002_001_000, "已经存在该名字的菜单");
@@ -66,6 +68,18 @@ public interface ErrorCodeConstants {
     ErrorCode CODEX_TEST_EXECUTION_NOT_EXISTS = new ErrorCode(1_002_031_010, "测试执行不存在");
     ErrorCode CODEX_TEST_RUNNER_TOKEN_INVALID = new ErrorCode(1_002_031_011, "Codex Runner token 无效或未配置");
     ErrorCode CODEX_TEST_DISABLED_CASE = new ErrorCode(1_002_031_012, "禁用测试项不能执行：{}");
+    ErrorCode CODEX_TEST_RUNNER_STARTER_MISSING = new ErrorCode(1_002_031_013, "Codex Runner 按需启动脚本未配置：{}");
+    ErrorCode CODEX_TEST_RUNNER_START_FAILED = new ErrorCode(1_002_031_014, "Codex Runner 按需启动失败：{}");
+
+    // ========== GxP 审计追踪 1-002-032-000 ==========
+    ErrorCode GXP_AUDIT_POLICY_NOT_FOUND = new ErrorCode(1_002_032_000, "GxP 审计策略不存在或未启用：{}");
+    ErrorCode GXP_AUDIT_REASON_REQUIRED = new ErrorCode(1_002_032_001, "GxP 审计变更原因不能为空：{}");
+    ErrorCode GXP_AUDIT_BEFORE_AFTER_REQUIRED = new ErrorCode(1_002_032_002, "GxP 审计缺少变更前后快照：{}");
+    ErrorCode GXP_AUDIT_SIGNATURE_REQUIRED = new ErrorCode(1_002_032_003, "GxP 审计缺少电子签名关联：{}");
+    ErrorCode GXP_AUDIT_ACTOR_MISMATCH = new ErrorCode(1_002_032_004, "GxP 审计操作人上下文缺失或不一致：{}");
+    ErrorCode GXP_AUDIT_IDEMPOTENCY_CONFLICT = new ErrorCode(1_002_032_005, "GxP 审计幂等键载荷冲突：{}");
+    ErrorCode GXP_AUDIT_APPEND_FAILED = new ErrorCode(1_002_032_006, "GxP 审计写入失败，业务已回滚：{}");
+    ErrorCode GXP_AUDIT_COVERAGE_GAP = new ErrorCode(1_002_032_007, "GxP 审计覆盖登记存在缺口：{}");
 
     // ========== 用户模块 1-002-003-000 ==========
     ErrorCode USER_USERNAME_EXISTS = new ErrorCode(1_002_003_000, "用户账号已经存在");
@@ -88,8 +102,31 @@ public interface ErrorCodeConstants {
     ErrorCode USER_DING_TALK_IMPORT_SOURCE_DEPT_ID_CONFLICT = new ErrorCode(1_002_003_018, "钉钉导入 Excel 主部门ID与部门路径不一致");
     ErrorCode USER_DING_TALK_IMPORT_USERNAME_INVALID = new ErrorCode(1_002_003_019, "钉钉导入生成的登录账号不合法");
     ErrorCode USER_DELETE_LIST_IS_EMPTY = new ErrorCode(1_002_003_020, "请选择需要删除的用户");
-    ErrorCode USER_PASSWORD_STRENGTH_INVALID = new ErrorCode(1_002_003_021, "密码强度不足，至少 8 位且必须包含英文和数字");
+    ErrorCode USER_PASSWORD_STRENGTH_INVALID = new ErrorCode(1_002_003_021, "密码强度不足，至少 8 位且必须包含大写字母、小写字母、数字和特殊字符");
     ErrorCode USER_TABLE_COLUMN_CONFIG_INVALID = new ErrorCode(1_002_003_022, "用户列表列配置非法");
+    ErrorCode PROFILE_WORKBENCH_TASK_VISIBILITY_INVALID = new ErrorCode(1_002_003_023, "个人工作台任务隐藏配置非法");
+    ErrorCode USER_ASSIGN_HIGH_PERMISSION_FORBIDDEN = new ErrorCode(1_002_003_024, "普通用户不能被分配管理员或日志权限");
+    ErrorCode USER_GENERIC_ACCOUNT_FORBIDDEN = new ErrorCode(1_002_003_025, "用户账号不能使用通用账户：{}");
+    ErrorCode USER_LIFECYCLE_DOCUMENT_REQUIRED = new ErrorCode(1_002_003_026, "离职/转岗单据信息不能为空");
+    ErrorCode USER_LIFECYCLE_DOCUMENT_TYPE_INVALID = new ErrorCode(1_002_003_027, "离职/转岗单据类型不支持：{}");
+    ErrorCode USER_LIFECYCLE_ALREADY_DEACTIVATED = new ErrorCode(1_002_003_028, "账号已按离职/转岗单【{}】联动停用");
+    ErrorCode USER_LIFECYCLE_DEACTIVATED_ENABLE_FORBIDDEN = new ErrorCode(1_002_003_029, "账号已按离职/转岗单【{}】联动停用，不能手工启用");
+    ErrorCode USER_LIFECYCLE_PROCESS_TIME_REQUIRED = new ErrorCode(1_002_003_030, "账号生命周期停用处理时间不能为空");
+    ErrorCode USER_LIFECYCLE_PROCESS_LIMIT_INVALID = new ErrorCode(1_002_003_031, "账号生命周期停用处理数量必须大于 0");
+    ErrorCode USER_PASSWORD_REUSE_FORBIDDEN = new ErrorCode(1_002_003_032, "新密码不能与当前密码或最近 5 次历史密码重复");
+    ErrorCode ESIGN_IDENTITY_BAD_CREDENTIALS = new ErrorCode(1_002_003_033, "电子签名身份验证失败");
+    ErrorCode ESIGN_IDENTITY_LOCKED = new ErrorCode(1_002_003_034, "电子签名身份已锁定");
+    ErrorCode ESIGN_CREDENTIAL_CHANGE_REQUIRED = new ErrorCode(1_002_003_035, "首次或重置后必须修改密码后再签名");
+    ErrorCode ESIGN_CREDENTIAL_EXPIRED = new ErrorCode(1_002_003_036, "签名凭据已过期");
+    ErrorCode ESIGN_IDENTITY_DISABLED = new ErrorCode(1_002_003_037, "电子签名账号已禁用");
+    ErrorCode USER_UNLOCK_REASON_REQUIRED = new ErrorCode(1_002_003_038, "管理员解锁原因不能为空");
+
+    // ========== 临时角色授权 1-002-003-100 ==========
+    ErrorCode TEMPORARY_ROLE_GRANT_EXPIRE_TIME_INVALID = new ErrorCode(1_002_003_100, "临时角色授权有效期必须晚于当前时间");
+    ErrorCode TEMPORARY_ROLE_GRANT_REASON_REQUIRED = new ErrorCode(1_002_003_101, "临时角色授权原因不能为空");
+    ErrorCode TEMPORARY_ROLE_GRANT_NOT_EXISTS = new ErrorCode(1_002_003_102, "临时角色授权记录不存在");
+    ErrorCode TEMPORARY_ROLE_GRANT_STATUS_INVALID = new ErrorCode(1_002_003_103, "临时角色授权状态不允许当前操作：{}");
+    ErrorCode TEMPORARY_ROLE_GRANT_ACTIVE_DUPLICATE = new ErrorCode(1_002_003_104, "用户已存在相同角色的待审批或有效临时授权");
 
     // ========== 部门模块 1-002-004-000 ==========
     ErrorCode DEPT_NAME_DUPLICATE = new ErrorCode(1_002_004_000, "已经存在该名字的部门");
@@ -212,5 +249,10 @@ public interface ErrorCodeConstants {
 
     // ========== 站内信发送 1-002-028-000 ==========
     ErrorCode NOTIFY_SEND_TEMPLATE_PARAM_MISS = new ErrorCode(1_002_028_000, "模板参数({})缺失");
+    ErrorCode NOTIFY_SEND_TEMPLATE_DISABLED = new ErrorCode(1_002_028_001, "站内信模板已禁用");
+    ErrorCode NOTIFY_SEND_BUSINESS_KEY_INVALID = new ErrorCode(1_002_028_002, "站内信业务键不能为空且长度不能超过 255");
+    ErrorCode NOTIFY_SEND_BUSINESS_KEY_CONFLICT = new ErrorCode(1_002_028_003, "站内信业务键({})已绑定不同发送内容");
+    ErrorCode NOTIFY_SEND_MESSAGE_ID_EMPTY = new ErrorCode(1_002_028_004, "站内信创建后未返回消息编号");
+    ErrorCode NOTIFY_SEND_TEMPLATE_PARAMS_REQUIRED = new ErrorCode(1_002_028_005, "站内信模板参数不能为空");
 
 }

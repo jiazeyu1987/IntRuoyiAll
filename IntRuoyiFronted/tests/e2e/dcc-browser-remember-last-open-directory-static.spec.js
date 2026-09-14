@@ -20,7 +20,7 @@ assert.match(
 )
 assert.match(
   stateCache,
-  /lastOpenedDirectoryId: normalizePositiveNumber\(\s*source\.lastOpenedDirectoryId,\s*'lastOpenedDirectoryId'\s*\)/,
+  /lastOpenedDirectoryId: normalizePositiveIdText\(\s*source\.lastOpenedDirectoryId,\s*'lastOpenedDirectoryId'\s*\)/,
   'remembered browser state must validate the last opened directory id before restoring it'
 )
 assert.match(
@@ -40,8 +40,8 @@ assert.match(
 )
 assert.match(
   browserPage,
-  /const restoreBrowserRouteFromRememberedState = async \([\s\S]*const rememberedDirectoryId = resolveRememberedDirectoryId\(rememberedState\)[\s\S]*directoryId: rememberedDirectoryId/,
-  'no-query entry must restore a route state that opens the remembered last directory'
+  /const buildBrowserRestoredRememberedState = \([\s\S]*const rememberedDirectoryId = resolveRememberedDirectoryId\(rememberedState\)[\s\S]*directoryId: rememberedDirectoryId[\s\S]*lastOpenedDirectoryId: rememberedDirectoryId/,
+  'remembered state normalization must restore the last opened directory as the active directory'
 )
 assert.match(
   browserPage,
@@ -50,7 +50,7 @@ assert.match(
 )
 assert.match(
   browserPage,
-  /const restoreBrowserRouteFromRememberedState = async \([\s\S]*const restoredState: DccBrowserRememberedState = \{[\s\S]*directoryId: rememberedDirectoryId[\s\S]*lastOpenedDirectoryId: rememberedDirectoryId[\s\S]*withBrowserRouteSyncGuard\(\(\) =>[\s\S]*router\.replace\([\s\S]*applyBrowserRememberedState\(restoredState\)/,
+  /const restoreBrowserRouteFromRememberedState = async \([\s\S]*const restoredState = buildBrowserRestoredRememberedState\(rememberedState\)[\s\S]*withBrowserRouteSyncGuard\(\(\) =>[\s\S]*router\.replace\([\s\S]*applyBrowserRememberedState\(restoredState\)/,
   'no-query remembered directory restore must not rely on async route reactivity before loading the file list'
 )
 assert.match(

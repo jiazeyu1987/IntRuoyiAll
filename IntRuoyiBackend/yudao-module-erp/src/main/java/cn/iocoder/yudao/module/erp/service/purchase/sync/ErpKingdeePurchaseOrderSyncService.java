@@ -6,6 +6,8 @@ public interface ErpKingdeePurchaseOrderSyncService {
 
     ErpKingdeePurchaseOrderSyncResult syncPurchaseOrders();
 
+    ErpKingdeePurchaseOrderSyncResult syncPurchaseOrdersFullSkipExisting();
+
     ErpKingdeePurchaseOrderSyncResult syncPurchaseOrdersModifiedBetween(LocalDateTime windowStart,
                                                                         LocalDateTime windowEnd);
 

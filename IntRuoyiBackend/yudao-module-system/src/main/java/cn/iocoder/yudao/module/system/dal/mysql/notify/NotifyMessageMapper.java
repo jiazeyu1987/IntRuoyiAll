@@ -16,6 +16,19 @@ import java.util.List;
 @Mapper
 public interface NotifyMessageMapper extends BaseMapperX<NotifyMessageDO> {
 
+    default NotifyMessageDO selectByBusinessKey(Long tenantId, String businessKey) {
+        return selectOne(new LambdaQueryWrapperX<NotifyMessageDO>()
+                .eq(NotifyMessageDO::getTenantId, tenantId)
+                .eq(NotifyMessageDO::getBusinessKey, businessKey));
+    }
+
+    default NotifyMessageDO selectByBusinessKeyForUpdate(Long tenantId, String businessKey) {
+        return selectOne(new LambdaQueryWrapperX<NotifyMessageDO>()
+                .eq(NotifyMessageDO::getTenantId, tenantId)
+                .eq(NotifyMessageDO::getBusinessKey, businessKey)
+                .last("FOR UPDATE"));
+    }
+
     default PageResult<NotifyMessageDO> selectPage(NotifyMessagePageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<NotifyMessageDO>()
                 .eqIfPresent(NotifyMessageDO::getUserId, reqVO.getUserId())

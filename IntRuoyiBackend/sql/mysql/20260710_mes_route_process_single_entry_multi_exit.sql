@@ -1,6 +1,6 @@
 -- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260709_mes_route_process_flow_graph; type=schema; riskLevel=medium
--- MES 工艺路线单入口多出口：约束目标工序唯一入边，并在排产/eDHR任务中快照直接前置关系。
--- Rollback: DROP INDEX uk_mes_route_process_flow_target ON mes_pro_route_process_flow_edge;
+-- MES 工艺路线多前置汇合与多出口：为排产/eDHR任务保留拓扑依赖快照。
+-- 多前置关系由正式关系图校验保证无自环、孤立节点和循环，不再使用目标唯一入边约束。
 -- Rollback: ALTER TABLE mes_pro_schedule_order_process DROP COLUMN root_process_flag, DROP COLUMN predecessor_route_process_id;
 -- Rollback: ALTER TABLE mes_pro_edhr_batch_execution_task DROP COLUMN root_process_flag, DROP COLUMN predecessor_route_process_id;
 
@@ -27,27 +27,6 @@ BEGIN
     WHERE table_schema = DATABASE() AND table_name = 'mes_pro_edhr_batch_execution_task'
   ) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'missing mes_pro_edhr_batch_execution_task';
-  END IF;
-
-  IF EXISTS (
-    SELECT 1
-    FROM mes_pro_route_process_flow_edge
-    WHERE deleted = b'0'
-    GROUP BY tenant_id, route_id, target_route_process_id
-    HAVING COUNT(*) > 1
-  ) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'route process flow contains multiple incoming edges';
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.statistics
-    WHERE table_schema = DATABASE()
-      AND table_name = 'mes_pro_route_process_flow_edge'
-      AND index_name = 'uk_mes_route_process_flow_target'
-  ) THEN
-    ALTER TABLE `mes_pro_route_process_flow_edge`
-      ADD UNIQUE INDEX `uk_mes_route_process_flow_target`
-      (`tenant_id`, `route_id`, `target_route_process_id`, `deleted`);
   END IF;
 
   IF NOT EXISTS (

@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessFlowEdgeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteScheduleConfigDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProCapacityPlanDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
@@ -29,6 +30,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowEdgeMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfigMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProCapacityActualMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProCapacityPlanMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleIssueMapper;
@@ -73,6 +75,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -85,6 +90,7 @@ import java.util.Objects;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_AUTO_SCHEDULE_ORDER_NOT_SCHEDULABLE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_AUTO_SCHEDULE_SCOPE_EMPTY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -96,6 +102,15 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProAutoScheduleContractTest {
+
+    @Test
+    void sourceContract_shouldNotDefaultMissingProductionQuantityFactorToOne() throws Exception {
+        String source = Files.readString(resolveSourcePath(
+                "service/pro/schedule/MesProAutoScheduleServiceImpl.java"), StandardCharsets.UTF_8);
+
+        assertFalse(source.matches("(?s).*productionQuantityFactor\\s*==\\s*null\\s*\\?.{0,120}DEFAULT_PRODUCTION_QUANTITY_FACTOR.*"),
+                "自动排产缺少生产系数时必须 fail-fast，不能默认 DEFAULT_PRODUCTION_QUANTITY_FACTOR");
+    }
 
     @InjectMocks
     private MesProAutoScheduleServiceImpl autoScheduleService;
@@ -150,6 +165,8 @@ class MesProAutoScheduleContractTest {
     private MesProRouteFlowProcessConfigMapper routeFlowProcessConfigMapper;
     @Mock
     private MesProRouteScheduleConfigMapper routeScheduleConfigMapper;
+    @Mock
+    private MesProRouteVersionMapper routeVersionMapper;
     @Mock
     private MesProScheduleOrderService scheduleOrderService;
     @Mock
@@ -439,6 +456,13 @@ class MesProAutoScheduleContractTest {
         when(scheduleOrderMapper.selectByIds(List.of(501L))).thenReturn(List.of(scheduleOrder));
         when(scheduleOrderMapper.selectAutoSchedulableByIds(List.of(501L))).thenReturn(List.of(scheduleOrder));
         when(scheduleOrderProcessMapper.selectListByScheduleOrderId(501L)).thenReturn(List.of(scheduleOrderProcess));
+        when(routeVersionMapper.selectActiveByRouteId(20L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(700L)
+                .routeId(20L)
+                .versionNo("V1")
+                .active(Boolean.TRUE)
+                .lifecycleStatus(MesProRouteVersionMapper.STATUS_ACTIVE)
+                .build());
         when(productionMaterialListMapper.selectListByWorkOrderIds(any())).thenReturn(Collections.emptyList());
         when(workstationMapper.selectListByProcessIds(any(), any())).thenReturn(List.of(workstation));
         when(productionLineService.getProductionLineMap(any())).thenReturn(Map.of(40L, productionLine));
@@ -482,6 +506,15 @@ class MesProAutoScheduleContractTest {
         reqVO.setRuntimeCapacityBasis("PLANNED");
         reqVO.setPreserveManualLockedTasks(true);
         return reqVO;
+    }
+
+    private static Path resolveSourcePath(String relative) {
+        Path cwd = Path.of("").toAbsolutePath();
+        if ("yudao-module-mes".equals(cwd.getFileName().toString())) {
+            return cwd.resolve("src/main/java/cn/iocoder/yudao/module/mes").resolve(relative);
+        }
+        return cwd.resolve("IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes")
+                .resolve(relative);
     }
 
 }

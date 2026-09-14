@@ -11,12 +11,14 @@
     :small="isSmall"
     class="float-right mb-15px mt-15px"
     layout="total, sizes, prev, pager, next, jumper"
+    @keydown.enter.capture="handleJumperEnter"
     @size-change="handleSizeChange"
     @current-change="handleCurrentChange"
   />
 </template>
 <script lang="ts" setup>
 import { computed, onMounted, watchEffect } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { useAppStore } from '@/store/modules/app'
 
@@ -67,6 +69,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:page', 'update:limit', 'pagination'])
+const message = ElMessage
 const resolvedStorageKey = computed(() => {
   if (props.storageKey) return props.storageKey
   const routePath = route.path || window.location.pathname
@@ -120,6 +123,37 @@ const pageSize = computed({
     emit('update:limit', val)
   }
 })
+const getMaxPage = () => Math.max(1, Math.ceil(props.total / pageSize.value))
+const normalizeJumperPage = (value: unknown) => {
+  const page = Number(String(value || '').trim())
+  if (!Number.isInteger(page) || page < 1 || page > getMaxPage()) {
+    return undefined
+  }
+  return page
+}
+const restoreJumperInput = (target: HTMLInputElement) => {
+  target.value = String(currentPage.value)
+}
+const handleJumperEnter = (event: KeyboardEvent) => {
+  const target = event.target
+  if (!(target instanceof HTMLInputElement) || !target.closest('.el-pagination__jump')) {
+    return
+  }
+  event.preventDefault()
+  event.stopPropagation()
+  const nextPage = normalizeJumperPage(target.value)
+  if (!nextPage) {
+    restoreJumperInput(target)
+    message.warning('请输入有效页码')
+    return
+  }
+  target.value = String(nextPage)
+  if (nextPage === currentPage.value) {
+    return
+  }
+  currentPage.value = nextPage
+  emit('pagination', { page: nextPage, limit: pageSize.value })
+}
 const handleSizeChange = (val) => {
   saveRememberedPageSize(val)
   // 如果修改后超过最大页面，强制跳转到第 1 页

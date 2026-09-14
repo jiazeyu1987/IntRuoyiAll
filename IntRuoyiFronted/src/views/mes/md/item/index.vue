@@ -316,7 +316,7 @@ const handleImport = () => {
 const handleSyncKingdeeItems = async () => {
   kingdeeSyncLoading.value = true
   try {
-    await ErpKingdeeSyncApi.runIncrementalSyncJob('kingdeeProductItemSyncJob')
+    await ErpKingdeeSyncApi.runIncrementalSync('PRODUCT')
     message.success('MES 物料增量同步任务已提交')
     await typeTreeRef.value?.loadTree?.()
     await getList()

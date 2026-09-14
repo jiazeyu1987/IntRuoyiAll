@@ -25,9 +25,13 @@ public class DccControlledFileNasTransferTaskDO extends BaseDO {
     @TableId
     private Long id;
 
+    private Long auditTaskId;
+
     private Long operatorUserId;
 
     private Long templateCategoryId;
+
+    private Long dccProjectCodeId;
 
     private Long productMasterId;
 
@@ -36,6 +40,10 @@ public class DccControlledFileNasTransferTaskDO extends BaseDO {
     private String selectedNasPathsJson;
 
     private String sourceType;
+
+    private String idempotencyKey;
+
+    private String requestHash;
 
     private String status;
 

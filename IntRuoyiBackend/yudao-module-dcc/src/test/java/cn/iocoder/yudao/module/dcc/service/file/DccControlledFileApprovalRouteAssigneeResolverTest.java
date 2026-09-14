@@ -21,6 +21,7 @@ import java.util.Map;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_CONFIGURED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW_APPROVER_NOT_FOUND;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
@@ -39,6 +40,8 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
     private DccApprovalPositionRuntimeResolver positionRuntimeResolver;
     @Mock
     private AdminUserApi adminUserApi;
+    @Mock
+    private DccApprovalParticipantPostValidator approvalParticipantPostValidator;
 
     @InjectMocks
     private DccControlledFileApprovalRouteAssigneeResolver resolver;
@@ -53,7 +56,11 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "USER", null,
                         "914518,914519", 1),
                 routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "USER", 914520L,
-                        null, 2)
+                        null, 2),
+                routeNode(3, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "USER", 914521L,
+                        null, 3),
+                routeNode(4, DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode(), "USER", 914522L,
+                        null, 4)
         ));
 
         Map<String, List<Long>> result = resolver.resolveStartUserSelectAssignees(file, 99L);
@@ -75,7 +82,11 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "POSITION", 301L,
                         null, 1),
                 routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "USER", 914520L,
-                        null, 2)
+                        null, 2),
+                routeNode(3, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "USER", 914521L,
+                        null, 3),
+                routeNode(4, DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode(), "USER", 914522L,
+                        null, 4)
         ));
         when(positionRuntimeResolver.isUploaderDerivedPosition(301L)).thenReturn(false);
         when(positionAssignmentMapper.selectActiveListByPositionId(301L)).thenReturn(List.of(
@@ -108,7 +119,13 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
         when(routeMapper.selectLatestActiveByCategoryId(13L)).thenReturn(route);
         when(routeNodeMapper.selectListByRouteId(23L)).thenReturn(List.of(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "POSITION", 303L,
-                        null, 1)
+                        null, 1),
+                routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "USER", 914520L,
+                        null, 2),
+                routeNode(3, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "USER", 914521L,
+                        null, 3),
+                routeNode(4, DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode(), "USER", 914522L,
+                        null, 4)
         ));
         when(positionRuntimeResolver.isUploaderDerivedPosition(303L)).thenReturn(false);
         when(positionAssignmentMapper.selectActiveListByPositionId(303L)).thenReturn(List.of());
@@ -117,8 +134,77 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
                 ROUTE_PREVIEW_APPROVER_NOT_FOUND);
     }
 
+    @Test
+    void resolveStartUserSelectAssignees_userWithoutPostFailsFast() {
+        DccControlledFileDO file = DccControlledFileDO.builder().id(904L).categoryId(14L).build();
+        DccCategoryApprovalRouteDO route = DccCategoryApprovalRouteDO.builder()
+                .id(24L).categoryId(14L).versionNo(1).active(Boolean.TRUE).build();
+        when(routeMapper.selectLatestActiveByCategoryId(14L)).thenReturn(route);
+        when(routeNodeMapper.selectListByRouteId(24L)).thenReturn(List.of(
+                routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "USER", 914518L,
+                        null, 1),
+                routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "USER", 914520L,
+                        null, 2),
+                routeNode(3, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "USER", 914521L,
+                        null, 3),
+                routeNode(4, DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode(), "USER", 914522L,
+                        null, 4)
+        ));
+        org.mockito.Mockito.doThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil
+                        .exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants
+                                .CONTROLLED_FILE_APPROVER_POST_REQUIRED))
+                .when(approvalParticipantPostValidator).requireConfiguredPosts(List.of(914518L));
+
+        assertServiceException(() -> resolver.resolveStartUserSelectAssignees(file, 99L),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_APPROVER_POST_REQUIRED);
+    }
+
+    @Test
+    void resolveRouteForReadiness_unsupportedFixedApprovalPolicyFailsFast() {
+        DccCategoryApprovalRouteDO route = DccCategoryApprovalRouteDO.builder()
+                .id(25L).categoryId(15L).versionNo(1).active(Boolean.TRUE).build();
+        DccCategoryApprovalRouteNodeDO unsupportedApprovalNode = routeNode(3,
+                DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "USER", 914521L, null, 3);
+        unsupportedApprovalNode.setApproveMethod("ALL");
+        unsupportedApprovalNode.setApproveRatio(100);
+        unsupportedApprovalNode.setRequireAllApprovals(Boolean.TRUE);
+        when(routeMapper.selectLatestActiveByCategoryId(15L)).thenReturn(route);
+        when(routeNodeMapper.selectListByRouteId(25L)).thenReturn(List.of(
+                routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "USER", 914518L,
+                        null, 1),
+                routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "USER", 914520L,
+                        null, 2),
+                unsupportedApprovalNode,
+                routeNode(4, DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode(), "USER", 914522L,
+                        null, 4)
+        ));
+
+        assertServiceException(() -> resolver.resolveRouteForReadiness(15L, 99L),
+                CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+        verifyNoInteractions(positionAssignmentMapper, positionRuntimeResolver, adminUserApi);
+    }
+
+    @Test
+    void buildApproveUserSelectAssigneeMap_duplicateStageCodeFailsFast() {
+        List<DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode> nodes = List.of(
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                        2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "会签审核-第一组", 2,
+                        "USER", 201L, List.of(201L), "ALL", 100, Boolean.TRUE, List.of(201L)),
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                        2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "会签审核-第二组", 2,
+                        "USER", 202L, List.of(202L), "ALL", 100, Boolean.TRUE, List.of(202L)),
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                        3, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "会签批准", 3,
+                        "USER", 203L, List.of(203L), "ANY", null, Boolean.FALSE, List.of(203L))
+        );
+
+        assertServiceException(() -> resolver.buildApproveUserSelectAssigneeMap(nodes),
+                CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+    }
+
     private DccCategoryApprovalRouteNodeDO routeNode(Integer stageNo, String stageCode, String candidateSourceType,
                                                     Long candidateSourceId, String candidateSourceIds, Integer sort) {
+        boolean matrixReview = DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode().equals(stageCode);
         return DccCategoryApprovalRouteNodeDO.builder()
                 .routeId(20L)
                 .stageNo(stageNo)
@@ -128,9 +214,10 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
                 .candidateSourceType(candidateSourceType)
                 .candidateSourceId(candidateSourceId)
                 .candidateSourceIds(candidateSourceIds)
-                .approveMethod("ANY")
-                .approveRatio(1)
-                .requireAllApprovals(Boolean.FALSE)
+                .approveMethod(matrixReview ? "ALL" : "ANY")
+                .approveRatio(matrixReview ? 100 : null)
+                .requireAllApprovals(matrixReview)
+                .required(Boolean.TRUE)
                 .sort(sort)
                 .build();
     }

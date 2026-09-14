@@ -1,0 +1,49 @@
+{
+  "status": "BLOCKED",
+  "reason": "缺少真实写入型 E2E 前置条件。",
+  "config": {
+    "baseUrl": "",
+    "backendUrl": "",
+    "tenant": "",
+    "username": "",
+    "processText": "",
+    "dataPrefix": "LMD20260807",
+    "initialName": "LMD20260807-20260807080858-初始损耗",
+    "cancelledName": "LMD20260807-20260807080858-初始损耗-取消修改",
+    "updatedName": "LMD20260807-20260807080858-初始损耗-已修改",
+    "updatedRemark": "LMD20260807-20260807080858-真实页面维护说明",
+    "reenabledRemark": "LMD20260807-20260807080858-重新启用后清理",
+    "headed": false
+  },
+  "missing": [
+    {
+      "key": "TEAM_LEADER_LOSS_DIALOG_BASE_URL",
+      "description": "真实前端入口，例如 http://127.0.0.1:8081。"
+    },
+    {
+      "key": "TEAM_LEADER_LOSS_DIALOG_BACKEND_URL",
+      "description": "真实后端入口，例如 http://127.0.0.1:48081。"
+    },
+    {
+      "key": "TEAM_LEADER_LOSS_DIALOG_TENANT",
+      "description": "可写测试租户，禁止使用生产基线租户。"
+    },
+    {
+      "key": "TEAM_LEADER_LOSS_DIALOG_USERNAME",
+      "description": "拥有生产组长工序配置入口权限的测试账号。"
+    },
+    {
+      "key": "TEAM_LEADER_LOSS_DIALOG_PASSWORD",
+      "description": "测试账号密码，只能通过进程环境注入。"
+    },
+    {
+      "key": "TEAM_LEADER_LOSS_DIALOG_ROUTE_PROCESS_ID",
+      "description": "生产组长正式授权的路线工序 ID。"
+    },
+    {
+      "key": "TEAM_LEADER_LOSS_DIALOG_PROCESS_TEXT",
+      "description": "目标工序行唯一可见的路线/工序业务标识。"
+    }
+  ],
+  "steps": []
+}

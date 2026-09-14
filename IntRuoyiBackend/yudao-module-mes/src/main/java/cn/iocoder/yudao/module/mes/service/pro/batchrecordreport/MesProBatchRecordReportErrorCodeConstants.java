@@ -32,6 +32,12 @@ public interface MesProBatchRecordReportErrorCodeConstants {
     ErrorCode PRO_BATCH_RECORD_REPORT_CELL_RULE_CELL_MISSING = new ErrorCode(1_040_509_026, "电子批记录单元格规则对应单元格不存在：第 {} 行第 {} 列");
     ErrorCode PRO_BATCH_RECORD_REPORT_LEGACY_LAYOUT_MIGRATION_REQUIRED =
             new ErrorCode(1_040_509_069, "电子批记录报表仍为旧布局，请先通过导入、升版或显式迁移入口完成迁移：{}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_TARGET_CHANGED =
+            new ErrorCode(1_040_509_070, "工艺路线候选版本已变化，请重新预检后再导入：预期 {}，当前 {}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_STATUS_BLOCKED =
+            new ErrorCode(1_040_509_071, "工艺路线候选版本 {} 当前状态为 {}，请先撤回、取消或完成发布后再导入");
+    ErrorCode PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_SOURCE_CHANGED =
+            new ErrorCode(1_040_509_072, "工艺路线草稿 {} 的来源版本已变化：草稿来源 {}，当前生效版本 {}，请先取消该草稿后重新导入");
     ErrorCode PRO_BATCH_RECORD_REPORT_SIGNATURE_CELL_DUPLICATE =
             new ErrorCode(1_040_509_027, "电子批记录签名单元格重复：{}");
     ErrorCode PRO_BATCH_RECORD_REPORT_SIGNATURE_REVIEW_SOURCE_REQUIRED =
@@ -107,11 +113,25 @@ public interface MesProBatchRecordReportErrorCodeConstants {
     ErrorCode PRO_BATCH_RECORD_REPORT_VERSION_PENDING_APPROVAL_EXISTS =
             new ErrorCode(1_040_509_068, "批记录「{}」已有申请中的升版版本，请等待审批完成或撤回后再提交");
     ErrorCode PRO_BATCH_RECORD_REPORT_ROUTE_DUPLICATE =
-            new ErrorCode(1_040_509_064, "DCC项目「{}」存在多条同名工艺路线，请先人工保留唯一路线：{}");
+            new ErrorCode(1_040_509_064, "DCC项目「{}」存在多条候选工艺路线，请先人工保留唯一路线：{}");
     ErrorCode PRO_BATCH_RECORD_REPORT_ROUTE_UPGRADE_CONFIRM_REQUIRED =
             new ErrorCode(1_040_509_065, "工艺路线「{}」已存在，请确认是否升版本");
     ErrorCode PRO_BATCH_RECORD_REPORT_ROUTE_UPGRADE_TARGET_CHANGED =
             new ErrorCode(1_040_509_066, "工艺路线已变化，请重新预检后再导入：预期路线 {}/版本 {}，当前路线 {}/版本 {}");
     ErrorCode PRO_BATCH_RECORD_REPORT_DCC_PROJECT_NAME_REQUIRED =
             new ErrorCode(1_040_509_067, "一次只能导入一个 DCC 项目，且批记录名称必须等于 DCC 项目名称：{} / {}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_DCC_PROJECT_CODE_REQUIRED =
+            new ErrorCode(1_040_509_069, "请选择有效的 DCC 项目代码后再导入 Word");
+    ErrorCode PRO_BATCH_RECORD_REPORT_DCC_PROJECT_CODE_MISMATCH =
+            new ErrorCode(1_040_509_070, "所选 DCC 项目代码与导入产品名称不一致：{} / {}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_DCC_PROJECT_PRODUCT_MISSING =
+            new ErrorCode(1_040_509_071, "DCC 项目代码未绑定有效产品主数据，不能用于导入 Word：{}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_PARSED_TABLE_INVALID =
+            new ErrorCode(1_040_509_080, "电子批记录解析表格结构无效：{}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_IMPORT_INTEGRITY_INVALID =
+            new ErrorCode(1_040_509_081, "电子批记录导入完整性校验失败：{}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_TOTAL_RECOGNITION_JSON_INVALID =
+            new ErrorCode(1_040_509_082, "批记录总识别 JSON 完整性校验失败：{}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_DELETE_CONTROLLED_FORBIDDEN =
+            new ErrorCode(1_040_509_083, "电子批记录报表属于受控批记录版本，不能物理删除，请通过升版或作废审批流程处理：{}");
 }

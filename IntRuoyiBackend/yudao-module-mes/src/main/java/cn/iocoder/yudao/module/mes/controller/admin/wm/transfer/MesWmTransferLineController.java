@@ -31,8 +31,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertSet;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.WM_TRANSFER_MANUAL_OPERATION_FORBIDDEN;
 
 @Tag(name = "管理后台 - MES 转移单行")
 @RestController
@@ -57,15 +59,14 @@ public class MesWmTransferLineController {
     @Operation(summary = "创建转移单行")
     @PreAuthorize("@ss.hasPermission('mes:wm-transfer:create')")
     public CommonResult<Long> createTransferLine(@Valid @RequestBody MesWmTransferLineSaveReqVO createReqVO) {
-        return success(transferLineService.createTransferLine(createReqVO));
+        throw manualOperationForbidden();
     }
 
     @PutMapping("/update")
     @Operation(summary = "修改转移单行")
     @PreAuthorize("@ss.hasPermission('mes:wm-transfer:update')")
     public CommonResult<Boolean> updateTransferLine(@Valid @RequestBody MesWmTransferLineSaveReqVO updateReqVO) {
-        transferLineService.updateTransferLine(updateReqVO);
-        return success(true);
+        throw manualOperationForbidden();
     }
 
     @DeleteMapping("/delete")
@@ -73,8 +74,7 @@ public class MesWmTransferLineController {
     @Parameter(name = "id", description = "编号", required = true)
     @PreAuthorize("@ss.hasPermission('mes:wm-transfer:delete')")
     public CommonResult<Boolean> deleteTransferLine(@RequestParam("id") Long id) {
-        transferLineService.deleteTransferLine(id);
-        return success(true);
+        throw manualOperationForbidden();
     }
 
     @GetMapping("/get")
@@ -128,6 +128,10 @@ public class MesWmTransferLineController {
             MapUtils.findAndThen(areaMap, vo.getFromAreaId(),
                     area -> vo.setFromAreaName(area.getName()));
         });
+    }
+
+    private RuntimeException manualOperationForbidden() {
+        return exception(WM_TRANSFER_MANUAL_OPERATION_FORBIDDEN);
     }
 
 }

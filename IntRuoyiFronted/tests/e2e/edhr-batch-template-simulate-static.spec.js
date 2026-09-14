@@ -21,6 +21,7 @@ assert.ok(fs.existsSync(fitViewportPath), '必须新增模板等比缩放视口�
 
 const templatePage = fs.readFileSync(templatePagePath, 'utf8')
 const simulatePage = fs.readFileSync(simulatePagePath, 'utf8')
+const simulateTemplate = simulatePage.split('<script setup')[0]
 const editableForm = fs.readFileSync(editableFormPath, 'utf8')
 const fitViewport = fs.readFileSync(fitViewportPath, 'utf8')
 
@@ -39,7 +40,7 @@ assertIncludes(
   '模板说明页必须跳转到模拟填写路由'
 )
 assertIncludes(templatePage, 'returnTo: route.fullPath', '模板说明页进入模拟填写时必须透传来源页 fullPath')
-assertIncludes(templatePage, "returnLabel: '返回模板说明'", '模板说明页进入模拟填写时必须透传返回文案')
+assertIncludes(templatePage, "returnLabel: '返回'", '模板说明页进入模拟填写时必须透传标准返回文案')
 
 assertIncludes(
   router,
@@ -49,13 +50,15 @@ assertIncludes(
 assertIncludes(router, 'BatchExecutionTemplateSimulatePage.vue', '模拟填写路由必须指向新页面')
 assertIncludes(router, "title: 'eDHR模板模拟填写'", '模拟填写路由标题必须正确')
 
-assertIncludes(simulatePage, 'const batchExecutionId = computed(() => Number(route.query.id))', '模拟页必须校验批次执行 ID')
-assertIncludes(simulatePage, 'const taskId = computed(() => Number(route.query.taskId))', '模拟页必须校验 taskId')
+assertIncludes(simulatePage, 'const batchExecutionId = computed(() => parsePositiveRouteQueryId(route.query.id))', '模拟页必须校验批次执行 ID')
+assertIncludes(simulatePage, 'const taskId = computed(() => parsePositiveRouteQueryId(route.query.taskId))', '模拟页必须校验 taskId')
 assertIncludes(simulatePage, "const directReportId = computed(() => String(route.query.reportId || '').trim())", '模拟页必须支持 reportId 直达模式')
 assertIncludes(simulatePage, "const returnTo = computed(() => String(route.query.returnTo || '').trim())", '模拟页必须支持来源路由返回参数')
-assertIncludes(simulatePage, "const returnLabel = computed(() => String(route.query.returnLabel || '').trim())", '模拟页必须支持来源返回文案参数')
 assertIncludes(simulatePage, '<el-button link type="primary" @click="handleBack">', '模拟页头部必须渲染返回按钮')
-assertIncludes(simulatePage, "const backButtonLabel = computed(() => returnLabel.value || '返回')", '模拟页必须计算返回按钮文案')
+assertIncludes(simulatePage, '<Icon icon="ep:arrow-left" class="mr-5px" />', '模拟页返回按钮必须使用统一左箭头图标')
+assertIncludes(simulatePage, '返回', '模拟页返回按钮必须固定显示标准“返回”文案')
+assertNotIncludes(simulatePage, 'returnLabel.value', '模拟页不应再按来源覆盖返回按钮文案')
+assertNotIncludes(simulatePage, 'backButtonLabel', '模拟页不应再使用动态返回按钮文案')
 assertIncludes(simulatePage, 'await router.push(returnTo.value)', '模拟页返回时必须优先回到来源页')
 assertIncludes(simulatePage, 'if (directReportId.value)', '模拟页必须在 reportId 模式下绕过批次详情加载')
 assertIncludes(simulatePage, 'getEdhrBatchExecution(', '模拟页必须先读取批次详情')
@@ -75,7 +78,8 @@ assertIncludes(
   'return []',
   '模拟页未走真实电子签名时签名记录必须保持为空，不得伪造本地签名记录'
 )
-assertIncludes(simulatePage, '模板内填写', '模拟页左侧标题必须明确是模板内填写')
+assertNotIncludes(simulateTemplate, '模板内填写', '模拟页左侧不应显示模板内填写辅助标题')
+assertIncludes(simulateTemplate, ':show-rule-legend="false"', '模拟页左侧不应显示规则图例')
 assertIncludes(simulatePage, '表单显示', '模拟页右侧标题必须明确是表单显示')
 assertIncludes(simulatePage, '模拟填写加载失败', '模拟页必须对接口或配置错误明确报错')
 assertIncludes(simulatePage, 'fit-to-viewport', '模拟页左右模板必须启用等比缩放视口')
@@ -101,6 +105,8 @@ assertIncludes(editableForm, ':rowspan="cell.rowSpan"', '模板内可编辑组�
 assertIncludes(editableForm, ':colspan="cell.colSpan"', '模板内可编辑组件必须保留合并单元格 colspan')
 assertIncludes(editableForm, 'EdhrTemplateFitViewport', '模板内可编辑组件必须接入等比缩放视口')
 assertIncludes(editableForm, 'fitToViewport', '模板内可编辑组件必须支持模板等比缩放模式')
+assertIncludes(editableForm, 'showRuleLegend?: boolean', '模板内可编辑组件必须支持控制规则图例显示')
+assertIncludes(editableForm, 'showRuleLegend: true', '模板内可编辑组件必须默认显示规则图例')
 
 assertIncludes(templateRuleHelper, 'TemplateEditableCellContext', '共享模板规则工具必须导出单元格编辑上下文类型')
 assertIncludes(templateRuleHelper, 'buildTemplateEditableCellContext', '共享模板规则工具必须支持构造可编辑单元格上下文')

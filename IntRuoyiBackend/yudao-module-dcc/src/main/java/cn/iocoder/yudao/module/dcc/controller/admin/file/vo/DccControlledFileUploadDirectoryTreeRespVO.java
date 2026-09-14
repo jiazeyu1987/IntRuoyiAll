@@ -16,6 +16,7 @@ public class DccControlledFileUploadDirectoryTreeRespVO {
     private Long bindingDirectoryId;
     private String bindingDirectoryPath;
     private Boolean leafBinding;
+    private Boolean defaultUnclassified;
     private List<DirectoryNode> children;
 
     @Data

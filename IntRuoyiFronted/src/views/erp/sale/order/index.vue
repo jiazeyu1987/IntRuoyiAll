@@ -415,7 +415,7 @@ const handleSelectionChange = (rows: SaleOrderVO[]) => {
 const handleSyncKingdeeSaleOrders = async () => {
   kingdeeSyncLoading.value = true
   try {
-    await ErpKingdeeSyncApi.runIncrementalSyncJob('kingdeeSaleOrderSyncJob')
+    await ErpKingdeeSyncApi.runIncrementalSync('SALE_ORDER')
     message.success('销售订单增量同步任务已提交')
     await getList()
   } finally {

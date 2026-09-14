@@ -5,8 +5,8 @@ import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import java.util.Collections;
 import java.util.Set;
 
 @Schema(description = "管理后台 - 赋予角色数据权限 Request VO")
@@ -22,7 +22,16 @@ public class PermissionAssignRoleDataScopeReqVO {
     @InEnum(value = DataScopeEnum.class, message = "数据范围必须是 {value}")
     private Integer dataScope;
 
-    @Schema(description = "部门编号列表，只有范围类型为 DEPT_CUSTOM 时，该字段才需要", example = "1,3,5")
-    private Set<Long> dataScopeDeptIds = Collections.emptySet(); // 兜底
+    @Schema(description = "部门编号列表，非自定义部门范围时传空集合", requiredMode = Schema.RequiredMode.REQUIRED, example = "1,3,5")
+    @NotNull(message = "部门编号列表不能为空")
+    private Set<Long> dataScopeDeptIds;
+
+    @Schema(description = "GxP 审计变更原因", requiredMode = Schema.RequiredMode.REQUIRED, example = "限定 QA 角色数据访问范围")
+    @NotBlank(message = "GxP 审计变更原因不能为空")
+    private String reason;
+
+    @Schema(description = "GxP 审计幂等键", requiredMode = Schema.RequiredMode.REQUIRED, example = "SYSTEM-PERM-DATA-SCOPE-1-uuid")
+    @NotBlank(message = "GxP 审计幂等键不能为空")
+    private String idempotencyKey;
 
 }

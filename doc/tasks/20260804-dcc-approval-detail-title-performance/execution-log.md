@@ -1,0 +1,67 @@
+# Execution Log
+
+## 2026-08-04
+
+- USER_INTENT: 用户指出审批详情页红框标题显示英文 `DCC Controlled File Approval`，要求显示对应中文；同时反馈从详情进入页面加载很久，需要解释并修复慢加载原因。
+- PREFLIGHT: 已读取 `docs/task-closeout-rules.md`、`docs/frontend-development.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`、`docs/branch-runtime-ports.md`、`docs/e2e-rules.md`，并读取 `frontend-feature-delivery`、`bug-regression-fix-loop`、`clear-frontend-copy` 及其契约文件。
+- BASELINE: `git status --short --branch` 初始显示 `int_main` 存在大量开始前残余改动且领先远端；按项目规则完成基线提交 `71177c0a5` 与 `ae0cf0d96`。基线期间仍观察到并行任务持续写入，后续只选择性暂存本任务文件。
+- BDD: 标题中文化 -> Given 用户从 DCC 审批详情进入 BPM 审批页, When 页面渲染顶部审批标题, Then 标题显示中文审批名称而不是 `DCC Controlled File Approval`。
+- BDD: 详情加载性能边界 -> Given BPM 审批详情只需要审批摘要和正式处理入口, When 页面加载 DCC 审批业务表单, Then 不应无条件挂载完整 DCC 受控文件详情组件或触发其重型详情请求。
+- SCAN: `clear-frontend-copy` 全量扫描启动后输出范围过大且未返回可用目标摘要，已停止任务自有扫描进程；随后用 `rg` 命中目标静态合同 `approval-center-chinese-copy-static.spec.js` 和 BPM 详情页源码继续定位。
+- ROOT_CAUSE: BPM 详情页顶部标题直接渲染 `processInstance.name`，未复用审批中心已有 `DCC Controlled File Approval` -> `文控受控文件审批` 中文映射。
+- ROOT_CAUSE: 详情页首屏 `getDetail()` 同时触发 `getProcessModelView()`，并且 DCC 审批摘要 `await loadDccApprovalFileSummary()` 会拖住主 `processInstanceLoading`，导致从详情进入时必须等待审批详情、DCC 摘要和流程图请求链路。
+- RED: `node tests/e2e/bpm-dcc-approval-detail-title-performance-static.spec.js` -> FAIL, expected reason: 旧代码缺少 `DCC Controlled File Approval` 中文标题映射，且仍存在首屏流程图预加载/摘要串行加载。
+- IMPLEMENTATION: `BpmProcessInstanceDetail` 增加 `processInstanceDisplayName` 中文映射，DCC 摘要改为独立加载，流程图改为进入“流程图”Tab 后通过 `ensureProcessModelViewLoaded()` 懒加载。
+- GREEN: `node tests/e2e/bpm-dcc-approval-detail-title-performance-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/approval-center-chinese-copy-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/dcc-bpm-dcc-approval-viewer-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/form-center-bpm-dcc-approval-bypass-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/bpm-process-timeline-current-node-green-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- PROJECT_EXPERIENCE: 已读取 `project-experience-consolidation` 技能；将本次标题映射和流程图懒加载经验合并到 `docs/frontend-development.md#前端同路由多入口分面门禁`，并更新 `docs/experience-index.md` 关键词，未新建长期经验文档。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-dcc-approval-detail-title-performance/frontend-feature-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-dcc-approval-detail-title-performance/bug-regression-evidence.md` -> PASS。
+- GREEN: `git diff --check -- <task-owned files>` -> PASS，只有 Git LF/CRLF working-copy warnings。
+- STATUS: implementation and required verification complete; marked task `ready_for_closeout` pending selective commit/push in shared dirty worktree.
+- CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode preview` -> PASS，keep task/execution/verification，delete evidence files only。
+- CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode apply` -> PASS，deleted `bug-regression-evidence.md` and `frontend-feature-evidence.md` after validator summaries were copied into retained reports。
+- STATUS: cleanup complete; task status set to `completed` pending selective commit and push.
+- IMPLEMENTATION_COMMIT: `ac2412835` -> committed task-owned source, test, task report, and experience-rule updates only.
+- CLOSEOUT_COMMIT: `b00a4b36f` -> committed final closeout records only.
+- PREFLIGHT: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
+- PUSH_BLOCKER: `git push origin int_main` -> FAIL, expected impact: GitHub 443 连接经本机 `127.0.0.1` 代理失败，本地 `int_main` 仍领先 `origin/int_main`，按项目规则任务不能标记为 completed。
+- STATUS: implementation, verification, cleanup, and local commits complete; final remote delivery blocked by GitHub connectivity/proxy precondition.
+- USER_INTENT_UPDATE: 用户要求删除截图红框中的“流程图”和“流转记录”，进一步加快 BPM/DCC 审批详情页加载速度。
+- PREFLIGHT: 本轮继续使用 `frontend-feature-delivery` 与 `bug-regression-fix-loop`；已读取前端、E2E、任务收尾、PowerShell 编码、PowerShell/Git 与分支端口规则。
+- BASELINE: 开始本轮实现前，保存并行脏工作区基线 `0cb7335da` 和 `46e0670a7`，后续只选择性暂存本任务文件。
+- BDD: 删除非首屏审批 Tab -> Given 用户从 DCC 审批详情进入 BPM 审批页, When 页面首屏渲染, Then 页面只展示审批详情内容，不再显示“流程图”“流转记录”Tab。
+- BDD: 移除额外加载链路 -> Given 审批详情不再提供流程图和流转记录入口, When 页面加载审批详情, Then 前端不再保留流程图 viewer、任务列表组件、流程图状态或 BPMN 模型视图请求链路。
+- RED: `node tests/e2e/bpm-dcc-approval-detail-title-performance-static.spec.js` -> FAIL, expected reason: 旧源码仍包含 `<el-tabs v-model="activeTab">` 和“流程图/流转记录”相关链路。
+- IMPLEMENTATION: 删除 BPM 审批详情页流程图/流转记录 Tab、`ProcessInstanceSimpleViewer`、`ProcessInstanceBpmnViewer`、`ProcessInstanceTaskList`、`activeTab` watcher、流程图状态和 `getProcessInstanceBpmnModelView` 调用链；保留审批详情、DCC 摘要、右侧当前审批时间线、底部审批操作按钮和文控正式处理入口。
+- GREEN: `node tests/e2e/bpm-dcc-approval-detail-title-performance-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/approval-center-chinese-copy-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/dcc-bpm-dcc-approval-viewer-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/form-center-bpm-dcc-approval-bypass-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/bpm-process-timeline-current-node-green-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- PROJECT_EXPERIENCE: 已读取 `project-experience-consolidation` 技能；将“用户明确删除 Tab 后不得只隐藏，必须移除 pane、组件、状态 watch 和专属 API 请求”的经验合并到 `docs/frontend-development.md#前端同路由多入口分面门禁`，并更新 `docs/experience-index.md`。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-dcc-approval-detail-title-performance/frontend-feature-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-dcc-approval-detail-title-performance/bug-regression-evidence.md` -> PASS。
+- GREEN: `git diff --check -- <task-owned files>` -> PASS，只有 Git LF/CRLF working-copy warnings。
+- STATUS: implementation and required verification complete; marked task `ready_for_closeout` pending cleanup preview/apply, selective commit, and push.
+- CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode preview` -> PASS，keep task/execution/verification，delete本轮 evidence files only。
+- CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode apply` -> PASS，deleted本轮 `bug-regression-evidence.md` and `frontend-feature-evidence.md` after validator summaries were copied into retained reports。
+- IMPLEMENTATION_COMMIT: `b0f45a432` -> committed 本轮 task-owned source, test, task report, and experience-rule updates only.
+- STATUS: cleanup complete; task status set to `blocked_on_push` because local verification is complete but remote push remains blocked by GitHub 443 local proxy connectivity.
+- USER_INTENT_UPDATE: 用户要求继续进行真实 E2E 验证。
+- PREFLIGHT: 本轮 E2E 已读取 Playwright 技能、`docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/task-closeout-rules.md`、`docs/powershell-encoding.md`；确认 `npx --version` -> `11.6.2`、前端 `http://127.0.0.1:8081/` -> `200 OK`、后端 `http://127.0.0.1:48081/actuator/health` -> `{"status":"UP"}`。
+- BDD: 真实 BPM/DCC 审批详情复验 -> Given 用户用本机默认身份从审批中心 BPM 待办打开文控流程详情, When BPM 详情页加载完成, Then 页面显示中文标题与精简审核视图，不显示“流程图”“流转记录”，不请求 BPMN 模型视图或流转记录列表，且不产生目标写请求。
+- SCRIPT_FIX: 首次任务目录脚本直接 `require('playwright')` 失败，原因是任务目录不在前端 `node_modules` 解析链路；已改为显式加载 `IntRuoyiFronted/node_modules/playwright`，未改变业务路径或断言。
+- GREEN: `node --check doc\tasks\20260804-dcc-approval-detail-title-performance\bpm-dcc-approval-detail-real.e2e.cjs` -> PASS。
+- GREEN: `node doc\tasks\20260804-dcc-approval-detail-title-performance\bpm-dcc-approval-detail-real.e2e.cjs` -> PASS；真实路径为 `审批中心 / 待办 / moduleCode=BPM` 第 1 行“流程”按钮进入 `/bpm/process-instance/detail?id=c1cd2ae6-8fbf-11f1-a00f-00155d2984a0&taskId=c1d6eef8-8fbf-11f1-a00f-00155d2984a0`。
+- E2E_ASSERTIONS: 页面可见 `文控受控文件审批`、`精简审核视图`、`进入文控审批处理页`；页面不可见 `DCC Controlled File Approval`、`流程图`、`流转记录`；`tabLabels=[]`。
+- E2E_NETWORK: `/admin-api/bpm/process-instance/get-approval-detail` 和 `/admin-api/dcc/controlled-files/2054545668044070311` 均返回业务 `code=0`；`extraLoadRequests=[]`，证明未触发 `/bpm/process-instance/get-bpmn-model-view` 和 `/bpm/task/list-by-process-instance-id`；`targetWriteRequests=[]`，证明本轮只读。
+- E2E_NOTES: 运行中记录到若干审批中心切换期间的 `net::ERR_ABORTED` 和百度统计外部请求中止，均发生在导航切换或非目标链路；目标 BPM/DCC 详情链路无 HTTP 错误、`consoleErrors=[]`、`pageErrors=[]`。
+- E2E_ARTIFACT: JSON 证据 `output\playwright\20260804-dcc-approval-detail-title-performance\bpm-dcc-approval-detail-real-evidence.json`；截图 `output\playwright\20260804-dcc-approval-detail-title-performance\bpm-dcc-approval-detail-real.png`。
+- GREEN: experience-preflight -> PASS；已按 `project-experience-consolidation` 检索既有经验归宿，`docs/e2e-rules.md#playwright-目标链路与外部资源异常归因门禁`、`docs/e2e-rules.md#真实-e2e-页面加载判据门禁` 和 `docs/task-closeout-rules.md#任务验证脚本保留门禁` 已覆盖本轮 E2E 归因与被忽略 `.cjs` 保留要求，无需新建长期经验文档。
+- STATUS: 真实 E2E 已补齐并通过；远端推送仍沿用既有 GitHub 443 本机代理连接 blocker，任务保持 `blocked_on_push`。

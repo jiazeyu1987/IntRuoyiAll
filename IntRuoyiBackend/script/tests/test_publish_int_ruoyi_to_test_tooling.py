@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
@@ -11,6 +12,9 @@ DEPLOY_ROOT = Path(__file__).resolve().parents[1] / "deploy"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE_ROOT = REPO_ROOT.parent
 PUBLISH_SCRIPT = DEPLOY_ROOT / "publish-int-ruoyi.ps1"
+REMOVED_DCC_DOWNLOAD_SECRET_PREFIX = "DCC_DOWNLOAD_" + "ENCRYPTION"
+REMOVED_DCC_DOWNLOAD_PROPERTY_PREFIX = "yudao.dcc.download." + "encryption"
+REMOVED_DCC_DOWNLOAD_CLASS_PREFIX = "DccDownload" + "Encryption"
 
 
 def _extract_nginx_block(text: str, marker: str) -> str:
@@ -85,6 +89,186 @@ def _invoke_release_package_directory_name(release_tag: str) -> subprocess.Compl
     )
 
 
+def _invoke_codex_summary_validator(
+    response: object,
+    facts: list[dict[str, str]],
+) -> subprocess.CompletedProcess[str]:
+    function_text = _extract_powershell_function(
+        read_publish_script(),
+        "ConvertTo-ValidatedReleaseCodexSummaryItems",
+    )
+    response_json = json.dumps(response, ensure_ascii=False)
+    facts_json = json.dumps(facts, ensure_ascii=False)
+    command = textwrap.dedent(
+        f"""
+        $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        function Fail([string]$Message) {{
+            throw $Message
+        }}
+        {function_text}
+        try {{
+            $response = @'
+{response_json}
+'@ | ConvertFrom-Json
+            $facts = @'
+{facts_json}
+'@ | ConvertFrom-Json
+            $items = @(ConvertTo-ValidatedReleaseCodexSummaryItems -Response $response -Facts @($facts) -MaxItems 10)
+            $items | ConvertTo-Json -Compress
+        }} catch {{
+            Write-Output $_.Exception.Message
+            exit 1
+        }}
+        """
+    )
+    encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def _invoke_source_repo_identity_for_ordered_dictionary() -> subprocess.CompletedProcess[str]:
+    text = read_publish_script()
+    property_function = _extract_powershell_function(text, "Get-ReleaseObjectPropertyText")
+    identity_function = _extract_powershell_function(text, "Get-ReleaseSourceRepoIdentity")
+    command = textwrap.dedent(
+        f"""
+        $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        function Fail([string]$Message) {{
+            throw $Message
+        }}
+        {property_function}
+        {identity_function}
+        try {{
+            $repo = [ordered]@{{
+                name = 'ruoyi-vue-pro'
+                pathRole = 'backend'
+                commit = 'abc123'
+            }}
+            $identity = Get-ReleaseSourceRepoIdentity -Repo $repo
+            Write-Output $identity
+        }} catch {{
+            Write-Output $_.Exception.Message
+            exit 1
+        }}
+        """
+    )
+    encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def _invoke_codex_command_resolver(configured_command: str) -> subprocess.CompletedProcess[str]:
+    function_text = _extract_powershell_function(
+        read_publish_script(),
+        "Resolve-ReleaseChangeSummaryCodexCliCommand",
+    )
+    command = textwrap.dedent(
+        f"""
+        $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        function Fail([string]$Message) {{
+            throw $Message
+        }}
+        {function_text}
+        try {{
+            $configuredCommand = @'
+{configured_command}
+'@
+            $result = Resolve-ReleaseChangeSummaryCodexCliCommand -ConfiguredCommand $configuredCommand
+            Write-Output $result
+        }} catch {{
+            Write-Output $_.Exception.Message
+            exit 1
+        }}
+        """
+    )
+    encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def _invoke_empty_codex_summary() -> subprocess.CompletedProcess[str]:
+    function_text = _extract_powershell_function(read_publish_script(), "Invoke-ReleaseCodexSummary")
+    command = textwrap.dedent(
+        f"""
+        $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        function Fail([string]$Message) {{
+            throw $Message
+        }}
+        {function_text}
+        try {{
+            $summary = Invoke-ReleaseCodexSummary -Facts @() -PreviousReleaseTag 'previous' -CurrentReleaseTag 'current'
+            $summary | ConvertTo-Json -Compress
+        }} catch {{
+            Write-Output $_.Exception.Message
+            exit 1
+        }}
+        """
+    )
+    encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def test_source_repo_identity_reads_ordered_dictionary_manifest_entries() -> None:
+    result = _invoke_source_repo_identity_for_ordered_dictionary()
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == "backend"
+
+
+def test_codex_command_resolver_uses_native_cmd_when_configured_command_is_ps1(tmp_path: Path) -> None:
+    ps1_path = tmp_path / "codex.ps1"
+    cmd_path = tmp_path / "codex.cmd"
+    ps1_path.write_text("Write-Output ps1\n", encoding="utf-8")
+    cmd_path.write_text("@echo off\r\necho cmd\r\n", encoding="utf-8")
+
+    result = _invoke_codex_command_resolver(str(ps1_path))
+
+    assert result.returncode == 0
+    assert Path(result.stdout.strip()) == cmd_path
+
+
+def test_codex_summary_accepts_empty_git_change_facts_without_cli_fallback() -> None:
+    result = _invoke_empty_codex_summary()
+
+    assert result.returncode == 0
+    summary = json.loads(result.stdout)
+    assert summary["summaryGenerator"] == "none"
+    assert summary["items"] is None or summary["items"] == []
+
+
 def test_only_one_publish_script_entrypoint_remains() -> None:
     publish_like = sorted(
         path.name
@@ -137,6 +321,88 @@ def test_publish_script_uses_configured_target_hosts_instead_of_hardcoded_enviro
     assert not re.search(r"172\.30\.30\.(57|58|59)", text)
 
 
+def test_release_change_set_uses_codex_plain_language_summary_from_previous_git_diff() -> None:
+    text = read_publish_script()
+
+    assert "function Get-PreviousReleaseManifestForGitChanges" in text
+    assert "function New-ReleaseGitChangeItems" in text
+    assert "function Get-ReleaseGitChangeFacts" in text
+    assert "function Invoke-ReleaseCodexSummary" in text
+    assert re.search(r"& git -C \$repoPath log", text)
+    assert "--numstat" in text
+    assert "$previousCommit..$currentCommit" in text
+    assert "summaryGenerator = 'codex'" in text
+    assert "--output-schema" in text
+    assert "--output-last-message" in text
+    assert "ConvertFrom-Json" in text
+    assert "plain-language" in text
+    assert r"[\u4e00-\u9fff]" in text
+    assert "previousReleaseTag" in text
+    assert "gitChanges = @($gitChangeSummary.items)" in text
+    assert "items = @($gitChangeSummary.items)" in text
+    assert "changes = @($gitChangeSummary.items)" in text
+    assert "[{0}] {1} {2}" not in text
+    assert "--pretty=format:%cI%x09%h%x09%s" not in text
+
+
+def test_release_change_set_fails_fast_without_codex_or_valid_plain_language_output() -> None:
+    text = read_publish_script()
+
+    assert "Codex CLI is required to generate release change summary" in text
+    assert "Codex CLI failed" in text
+    assert "Codex CLI timed out after $TimeoutSeconds seconds" in text
+    assert "Codex summary output must be valid JSON" in text
+    assert "Codex summary must contain between 1 and 10 items" in text
+    assert "Codex summary item must be plain Chinese" in text
+    assert "Codex summary must not expose raw commit identifiers" in text
+    assert "Do not fall back to raw Git subjects or hashes" in text
+
+
+def test_codex_summary_validator_accepts_plain_chinese_items_and_caps_at_ten() -> None:
+    result = _invoke_codex_summary_validator(
+        {"items": ["新增批次执行页面的填写人配置", "修复审批提交后状态显示不正确"]},
+        [{"subject": "feat: add filler configuration"}, {"subject": "fix: approval status"}],
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "新增批次执行页面的填写人配置" in result.stdout
+
+
+def test_codex_summary_validator_rejects_raw_hashes_and_non_chinese_items() -> None:
+    hash_result = _invoke_codex_summary_validator(
+        {"items": ["修复功能 abcdef1234567"]},
+        [{"subject": "fix: release summary"}],
+    )
+    english_result = _invoke_codex_summary_validator(
+        {"items": ["Fix the release summary"]},
+        [{"subject": "fix: release summary"}],
+    )
+
+    assert hash_result.returncode != 0
+    assert "raw commit identifiers" in hash_result.stdout
+    assert english_result.returncode != 0
+    assert "plain Chinese" in english_result.stdout
+
+
+def test_codex_summary_validator_rejects_more_than_ten_items() -> None:
+    result = _invoke_codex_summary_validator(
+        {"items": [f"第{i}项版本变化说明" for i in range(11)]},
+        [{"subject": "feat: many changes"}],
+    )
+
+    assert result.returncode != 0
+    assert "between 1 and 10 items" in result.stdout
+
+
+def test_release_info_json_is_written_before_frontend_docker_context() -> None:
+    text = read_publish_script()
+
+    assert "function Write-FrontendReleaseInfo" in text
+    assert "'release-info.json'" in text
+    assert "[System.IO.File]::WriteAllText($releaseInfoPath" in text
+    assert text.index("Write-FrontendReleaseInfo -PackageTag $ReleaseTag") < text.index("Info 'Preparing Docker build context from current worktree artifacts'")
+
+
 def test_smart_release_report_only_switch_and_env_are_explicit_without_changing_mode_enum() -> None:
     text = read_publish_script()
     param_block = text[text.index("param(") : text.index("$ErrorActionPreference")]
@@ -169,6 +435,27 @@ def test_build_release_smart_report_runs_validation_and_intake_after_manifest_be
     assert "-Mode', 'report-only'" in build_report_body
     assert "-OutputPath', $manifestValidationOutputPath" in build_report_body
     assert "-OutputDir', $intakeOutputDir" in build_report_body
+
+
+def test_build_release_writes_frontend_release_info_before_docker_context() -> None:
+    text = read_publish_script()
+
+    assert "function Write-FrontendReleaseInfo" in text
+    release_info_body = _extract_powershell_function(text, "Write-FrontendReleaseInfo")
+    assert "release-info.json" in release_info_body
+    assert "New-ReleaseSourceRepoManifestEntries" in release_info_body
+    assert "releaseTag = $PackageTag" in release_info_body
+    assert "changeSet = Get-ReleaseChangeSetForManifest" in release_info_body
+    assert "gitChanges = @($gitChangeSummary.items)" in text
+    assert "publishScope = if ($SkipDatabaseSync -and $SkipMinioSync) { 'code-only' } else { 'with-data' }" in release_info_body
+    assert "includeOnlyOffice = [bool]$IncludeOnlyOffice" in text
+    assert 'summary = "Release package $packageDirectoryName"' not in release_info_body
+    assert "[System.IO.File]::WriteAllText($releaseInfoPath, $releaseInfoJson, [System.Text.UTF8Encoding]::new($false))" in release_info_body
+
+    write_release_info_index = text.index("Write-FrontendReleaseInfo -PackageTag $ReleaseTag")
+    docker_context_index = text.index("New-ReleaseDockerBuildContext `")
+    frontend_build_index = text.index("Invoke-FrontendViteBuild -FrontendDir $frontendDir")
+    assert frontend_build_index < write_release_info_index < docker_context_index
 
 
 def test_smart_release_report_only_keeps_legacy_publish_flow_unhooked_when_disabled() -> None:
@@ -519,7 +806,15 @@ def test_publish_script_resolves_paired_frontend_worktree_before_failing() -> No
     text = read_publish_script()
     path_resolution_block = text[text.index("$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path") : text.index("$defaultWebsiteRepo = 'D:\\ProjectPackage\\Website'")]
 
-    assert "$frontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'" in path_resolution_block
+    current_frontend = "$currentFrontendDir = Join-Path $workspaceRoot 'IntRuoyiFronted'"
+    legacy_frontend = "$legacyFrontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'"
+    frontend_selection = "$frontendDir = if (Test-Path -LiteralPath $currentFrontendDir) { $currentFrontendDir } else { $legacyFrontendDir }"
+
+    assert current_frontend in path_resolution_block
+    assert legacy_frontend in path_resolution_block
+    assert frontend_selection in path_resolution_block
+    assert path_resolution_block.index(current_frontend) < path_resolution_block.index(legacy_frontend)
+    assert path_resolution_block.index(legacy_frontend) < path_resolution_block.index(frontend_selection)
     assert "if (-not (Test-Path -LiteralPath $frontendDir)) {" in path_resolution_block
     assert "$worktreePortMapPath = Join-Path $scriptDir 'worktree-port-map.ps1'" in path_resolution_block
     assert ". $worktreePortMapPath" in path_resolution_block
@@ -792,11 +1087,13 @@ def test_deploy_release_executes_only_preflight_apply_migrations() -> None:
     assert "preflight-plan.json status must be passed before deploy-release" in text
     assert "preflight-plan.json contains blocked migration" in text
     assert "SKIP_ENV_NOT_ALLOWED" in text
-    assert "function Get-ReleasePreflightApplyItems" in text
+    assert "SKIP_SCOPE_EXCLUDED" in text
+    assert "function Get-ReleasePreflightApplyItems" not in text
     assert "function Invoke-ReleaseMigrationStateUpdate" in text
     assert "INSERT INTO infra_release_migration" in text
     assert "SKIPPED_ALREADY_APPLIED" in invoke_block
-    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan) -TargetEnvironment $Environment" in invoke_block
+    assert "$preflightApplyItems = @($preflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })" in invoke_block
+    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment" in invoke_block
     assert "Get-RequiredDatabaseSqlEntriesForEnvironment -TargetEnvironment $Environment" not in invoke_block
     assert "Invoke-ReleaseMigrationStateUpdate -Item $item -Status 'RUNNING'" in invoke_block
     assert "Invoke-ReleaseMigrationStateUpdate -Item $item -Status 'APPLIED'" in invoke_block
@@ -840,7 +1137,19 @@ def test_deploy_release_executes_dcc_view_matrix_test_tenant_prereq_before_seed_
     assert "function Sort-RequiredDatabaseSqlApplyItems" in text
     assert "'20260624_dcc_view_matrix_test_tenant_prereq' = 10" in helper_block
     assert "'20260624_dcc_view_matrix_independent_seed' = 20" in helper_block
-    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan) -TargetEnvironment $Environment" in invoke_block
+    assert "$preflightApplyItems = @($preflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })" in invoke_block
+    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment" in invoke_block
+
+
+def test_deploy_release_handles_empty_code_only_apply_queue_before_sorting() -> None:
+    text = read_publish_script()
+    invoke_start = text.index("function Invoke-RequiredDatabaseSqlScripts")
+    invoke_end = text.index("if ($Mode -eq 'mark-tested')", invoke_start)
+    invoke_block = text[invoke_start:invoke_end]
+
+    assert "$preflightApplyItems = @($preflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })" in invoke_block
+    assert "Get-ReleasePreflightApplyItems" not in invoke_block
+    assert "[AllowEmptyCollection()]" in _extract_powershell_function(text, "Sort-RequiredDatabaseSqlApplyItems")
 
 
 def test_deploy_release_preserves_preflight_dependency_order_for_non_priority_required_sql() -> None:
@@ -863,6 +1172,7 @@ def test_deploy_release_generates_target_bound_preflight_plan_before_required_sq
     assert "function Write-ReleasePreflightPlan" in text
     assert "preflight-target-state-$Environment.json" in text
     assert "--target-environment', $Environment" in text
+    assert "--publish-scope', $releasePublishScope" in text
     assert "JSON_OBJECTAGG(" in text
     assert "script\\release\\release_preflight_plan.py" in text
 
@@ -871,6 +1181,18 @@ def test_deploy_release_generates_target_bound_preflight_plan_before_required_sq
     migration_idx = text.rindex("Invoke-RequiredDatabaseSqlScripts")
 
     assert acquire_idx < write_plan_idx < migration_idx
+
+
+def test_deploy_release_uses_scope_aware_plan_without_post_plan_filtering() -> None:
+    text = read_publish_script()
+    invoke_start = text.index("function Invoke-RequiredDatabaseSqlScripts")
+    invoke_end = text.index("if ($Mode -eq 'mark-tested')", invoke_start)
+    invoke_block = text[invoke_start:invoke_end]
+
+    assert "function Get-ReleasePreflightApplyItems" not in text
+    assert "SKIP_SCOPE_EXCLUDED" in text
+    assert "$preflightApplyItems = @($preflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })" in invoke_block
+    assert "code-only scope filtering" not in invoke_block
 
 
 def test_deploy_release_acquires_release_operation_lock_before_migrations() -> None:
@@ -920,37 +1242,48 @@ def test_publish_runtime_requires_dcc_signature_evidence_secret() -> None:
     assert "--dcc.signature.evidence.key-version=${DCC_SIGNATURE_EVIDENCE_KEY_VERSION}" in compose
 
 
-def test_publish_runtime_requires_dcc_viewer_token_onlyoffice_and_download_encryption_configuration() -> None:
+def test_publish_runtime_requires_dcc_viewer_token_onlyoffice_and_direct_download_configuration() -> None:
     text = read_publish_script()
     compose = (DEPLOY_ROOT / "int-ruoyi-test" / "docker-compose.yml").read_text(encoding="utf-8")
     status = (DEPLOY_ROOT / "show-int-ruoyi-remote-status.ps1").read_text(encoding="utf-8")
+    legacy_env_prefix = "DCC_DOWNLOAD_" + "ENCRYPTION"
+    legacy_spring_prefix = "yudao.dcc.download." + "encryption"
+    legacy_names = [
+        f"{legacy_env_prefix}_POLICY_VERSION",
+        f"{legacy_env_prefix}_KEY_ID",
+        f"{legacy_env_prefix}_BASE64_KEY",
+        f"{legacy_env_prefix}_ARTIFACT_DIRECTORY",
+        f"{legacy_env_prefix}_CURRENT_KEY_VERSION",
+        f"{legacy_env_prefix}_KEYRING",
+        f"{legacy_spring_prefix}.policy-version",
+        f"{legacy_spring_prefix}.key-id",
+        f"{legacy_spring_prefix}.base64-key",
+        f"{legacy_spring_prefix}.artifact-directory",
+    ]
 
     assert "[string]$DccViewerTokenHmacSecret = $env:DCC_VIEWER_TOKEN_HMAC_SECRET" in text
     assert "[string]$DccOnlyOfficeJwtSecret = $env:DCC_ONLYOFFICE_JWT_SECRET" in text
     assert "[string]$DccOnlyOfficeBaseUrl = $env:DCC_ONLYOFFICE_BASE_URL" in text
     assert "[string]$DccOnlyOfficePublicFileBaseUrl = $env:DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL" in text
-    assert "[string]$DccDownloadEncryptionPolicyVersion = $env:DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION" in text
-    assert "[string]$DccDownloadEncryptionKeyId = $env:DCC_DOWNLOAD_ENCRYPTION_KEY_ID" in text
-    assert "[string]$DccDownloadEncryptionBase64Key = $env:DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY" in text
-    assert "[string]$DccDownloadEncryptionArtifactDirectory = $env:DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY" in text
     assert "Missing DCC_VIEWER_TOKEN_HMAC_SECRET" in text
     assert "Missing DCC_ONLYOFFICE_JWT_SECRET" in text
     assert "Missing DCC_ONLYOFFICE_BASE_URL" in text
     assert "Missing DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL" in text
-    assert "Missing DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION" in text
-    assert "Missing DCC_DOWNLOAD_ENCRYPTION_KEY_ID" in text
-    assert "Missing DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY" in text
-    assert "Missing DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY" in text
     assert "DCC_VIEWER_TOKEN_HMAC_SECRET=$DccViewerTokenHmacSecret" in text
     assert "DCC_ONLYOFFICE_JWT_SECRET=$DccOnlyOfficeJwtSecret" in text
     assert "DCC_ONLYOFFICE_BASE_URL=$DccOnlyOfficeBaseUrl" in text
     assert "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL=$DccOnlyOfficePublicFileBaseUrl" in text
-    assert "DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY=$DccDownloadEncryptionBase64Key" in text
+    assert REMOVED_DCC_DOWNLOAD_SECRET_PREFIX not in text
+    assert REMOVED_DCC_DOWNLOAD_CLASS_PREFIX not in text
     assert "--yudao.dcc.viewer-token.hmac-secret=${DCC_VIEWER_TOKEN_HMAC_SECRET}" in compose
     assert "--yudao.dcc.preview.onlyoffice.base-url=${DCC_ONLYOFFICE_BASE_URL}" in compose
     assert "--yudao.dcc.preview.onlyoffice.jwt-secret=${DCC_ONLYOFFICE_JWT_SECRET}" in compose
     assert "--yudao.dcc.preview.onlyoffice.public-file-base-url=${DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL}" in compose
-    assert "--yudao.dcc.download.encryption.base64-key=${DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY}" in compose
+    assert REMOVED_DCC_DOWNLOAD_SECRET_PREFIX not in compose
+    assert REMOVED_DCC_DOWNLOAD_PROPERTY_PREFIX not in compose
+    for legacy_name in legacy_names:
+        assert legacy_name not in text
+        assert legacy_name not in compose
     assert "OnlyOffice" in status
 
 
@@ -985,21 +1318,34 @@ def test_release_package_embeds_runtime_env_for_all_targets() -> None:
     assert "DCC_HARDCODED_VIEWER_TOKEN_HMAC_SECRET" in text
     assert "DCC_HARDCODED_ONLYOFFICE_JWT_SECRET" in text
     assert "DCC_HARDCODED_SIGNATURE_EVIDENCE_HMAC_SECRET" in text
+    assert "DCC_HARDCODED_DOWNLOAD_ENCRYPTION" not in text
     assert "Write-ReleaseRuntimeEnvPackage" in text
     assert "New-ReleaseRuntimeEnvContent -TargetEnvironment $targetEnvironment -TargetServerHost $targetServerHost" in text
     assert "Apply-ReleaseRuntimeEnvPackage -TargetEnvironment $Environment" in text
     assert '-HardcodedValue "http://${TargetServerHost}:$OnlyOfficeHostPort"' in text
-    assert '-HardcodedValue "http://backend:48081"' in text
+    assert '$script:DccOnlyOfficePublicFileBaseUrl = "http://backend:48081"' in text
     assert "DCC_ONLYOFFICE_BASE_URL=$resolvedDccOnlyOfficeBaseUrl" in text
     assert "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL=$resolvedDccOnlyOfficePublicFileBaseUrl" in text
-    assert "DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY=$resolvedDccDownloadEncryptionBase64Key" in text
+    assert REMOVED_DCC_DOWNLOAD_SECRET_PREFIX not in text
+    assert "DCC_HARDCODED_DOWNLOAD_" + "ENCRYPTION" not in text
+    assert "DccDownload" + "Encryption" not in text
 
 
 def test_onlyoffice_public_file_base_url_uses_compose_backend_service() -> None:
     text = read_publish_script()
 
-    assert '-HardcodedValue "http://backend:48081"' in text
+    assert '$script:DccOnlyOfficePublicFileBaseUrl = "http://backend:48081"' in text
     assert '-HardcodedValue "http://host.docker.internal:$BackendPort"' not in text
+
+
+def test_remote_backend_deploy_replaces_stale_onlyoffice_public_file_url() -> None:
+    text = read_publish_script()
+    defaults_function = _extract_powershell_function(text, "Set-PublishRuntimeDefaultsForTarget")
+
+    assert '$script:DccOnlyOfficePublicFileBaseUrl = "http://backend:48081"' in defaults_function
+    assert "-CurrentValue $script:DccOnlyOfficePublicFileBaseUrl" not in defaults_function
+    assert '$effectiveDccOnlyOfficePublicFileBaseUrl = "http://backend:48081"' in text
+    assert "elseif ($existingRemoteEnv.ContainsKey('DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL'))" not in text
 
 
 def test_release_runtime_env_onlyoffice_public_file_url_uses_backend_service() -> None:
@@ -1014,13 +1360,68 @@ def test_deploy_checks_onlyoffice_container_can_reach_public_file_base_url() -> 
 
     assert "function Assert-RemoteOnlyOfficePublicFileBaseUrlReachable" in text
     assert "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL must not use host.docker.internal" in text
-    assert "docker exec intruoyi-onlyoffice sh -lc" in text
-    assert "/actuator/health" in text
-    readiness_start = text.index('if ($IncludeOnlyOffice) {\n    Wait-RemoteHttpOk -Url "http://127.0.0.1:$OnlyOfficeHostPort/healthcheck"')
-    readiness_block = text[readiness_start:text.index("if ($publishWebsite)", readiness_start)]
-    assert readiness_block.index('Wait-RemoteHttpOk -Url "http://127.0.0.1:$OnlyOfficeHostPort/healthcheck"') < readiness_block.index(
-        "Assert-RemoteOnlyOfficePublicFileBaseUrlReachable"
+    assert "$healthUrlLiteral = ConvertTo-ShellSingleQuotedLiteral -Value $healthUrl" in text
+    assert "docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 $healthUrlLiteral" in text
+    assert "docker exec intruoyi-onlyoffice sh -lc" not in _extract_powershell_function(
+        text, "Assert-RemoteOnlyOfficePublicFileBaseUrlReachable"
     )
+    assert "/actuator/health" in text
+    assert "if ($publishBackend) { Assert-RemoteOnlyOfficePublicFileBaseUrlReachable }" in text
+
+
+def test_deploy_requires_real_docx_xlsx_pptx_onlyoffice_preview_before_success_lock() -> None:
+    text = read_publish_script()
+    runner_function = _extract_powershell_function(text, "Invoke-RemoteOnlyOfficeReleasePreviewGate")
+
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_TENANT" in text
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_USERNAME" in text
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD" in text
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_DOCX_FILE_ID" in text
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_XLSX_FILE_ID" in text
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_PPTX_FILE_ID" in text
+    assert "dcc-onlyoffice-release-preview-real.e2e.js" in runner_function
+    assert "Invoke-SshCapture" in runner_function
+    assert "Invoke-ReleaseOperationLockRelease -Status 'FAILED'" in runner_function
+
+    gate_call = text.rindex("Invoke-RemoteOnlyOfficeReleasePreviewGate")
+    success_lock = text.rindex("Invoke-ReleaseOperationLockRelease -Status 'APPLIED'")
+    completed = text.rindex('Write-Host "Publish completed for $PublishTargetName."')
+    assert gate_call < success_lock < completed
+
+
+def test_deploy_onlyoffice_release_gate_scans_only_new_preview_log_lines() -> None:
+    text = read_publish_script()
+    gate_function = _extract_powershell_function(text, "Invoke-RemoteOnlyOfficeReleasePreviewGate")
+
+    assert "wc -l" in gate_function
+    assert "tail -n" in gate_function
+    assert "converter/out.log" in gate_function
+    assert "docservice/out.log" in gate_function
+    assert "\\[ERROR\\]" in gate_function
+    for marker in ["dnsLookup", "ENOTFOUND", "checkIpFilter", "download", "convert"]:
+        assert marker in gate_function
+    assert "ONLYOFFICE_RELEASE_LOG_GATE_FAILED" in gate_function
+
+
+def test_release_smoke_package_contains_onlyoffice_real_preview_runner() -> None:
+    text = read_publish_script()
+    package_function = _extract_powershell_function(text, "New-SchedulerSmokeRunnerPackage")
+    copy_function = _extract_powershell_function(text, "Copy-SchedulerSmokeRunnerToServer")
+
+    assert "dcc-onlyoffice-release-preview-real.e2e.js" in package_function
+    assert '"e2e:dcc:onlyoffice-release-preview"' in package_function
+    assert "dcc-onlyoffice-release-preview-real.e2e.js" in copy_function
+
+
+def test_release_package_does_not_persist_onlyoffice_e2e_login_secret() -> None:
+    text = read_publish_script()
+    runtime_env_function = _extract_powershell_function(text, "New-ReleaseRuntimeEnvContent")
+
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD" not in runtime_env_function
+    assert '$onlyOfficeReleasePreviewEnvFile = "$RemoteAppDir/onlyoffice-release-preview.env"' in text
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD=$effectiveDccOnlyOfficeReleaseE2ePassword" in text
+    assert "chmod 600 '$onlyOfficeReleasePreviewEnvFile'" in text
+    assert "Remove-Item -LiteralPath $onlyOfficeReleasePreviewEnvLocal -Force" in text
 
 
 def test_publish_onlyoffice_runtime_uses_real_image_and_health_gates() -> None:
@@ -1106,6 +1507,25 @@ def test_frontend_nginx_allows_large_showroom_product_import_requests() -> None:
     assert nginx.index("client_max_body_size 0;") < nginx.index("location /admin-api/")
 
 
+def test_publish_script_accepts_release_migration_metadata_types_used_by_policy_gate() -> None:
+    text = read_publish_script()
+    type_parser_block = _extract_powershell_function(text, "Read-ReleaseMigrationMetadata")
+
+    for migration_type in [
+        "schema",
+        "data",
+        "menu",
+        "config",
+        "permission",
+        "seed",
+        "preflight",
+        "backfill",
+        "postflight",
+        "rollback-dry-run",
+    ]:
+        assert f"'{migration_type}'" in type_parser_block
+
+
 def test_publish_script_uses_release_repo_server_and_share_overrides() -> None:
     text = read_publish_script()
 
@@ -1160,7 +1580,8 @@ def test_publish_website_component_does_not_require_dcc_backend_runtime_secrets(
     assert "if ($publishBackend -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccSignatureEvidenceKeyVersion))" in text
     assert "if ($publishBackend -and $Mode -ne 'build-release' -and ([string]::IsNullOrWhiteSpace($DccViewerTokenHmacSecret)" in text
     assert "if ($publishBackend -and $IncludeOnlyOffice -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccOnlyOfficeJwtSecret))" in text
-    assert "if ($publishBackend -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccDownloadEncryptionPolicyVersion))" in text
+    assert REMOVED_DCC_DOWNLOAD_SECRET_PREFIX not in text
+    assert REMOVED_DCC_DOWNLOAD_CLASS_PREFIX not in text
 
 
 def test_publish_website_component_deploy_skips_backend_required_sql_package_gate() -> None:
@@ -1229,7 +1650,7 @@ def test_publish_dockerfiles_point_at_current_workspace_artifacts() -> None:
     assert "docker.io" not in backend_dockerfile
     assert "docker-compose-v2" not in backend_dockerfile
     assert "FROM maven:" not in backend_dockerfile
-    assert 'CMD ["sh", "-c", "exec java ${JAVA_OPTS} -jar app.jar ${ARGS}"]' in backend_dockerfile
+    assert 'CMD ["sh", "-c", "exec java ${JAVA_OPTS} -jar app.jar ${ARGS} ${INTRUOYI_EXTRA_ARGS}"]' in backend_dockerfile
     assert "FROM eclipse-temurin:21-jre-noble" in backend_base_dockerfile
     assert "ARG APT_MIRROR=http://mirrors.aliyun.com/ubuntu" in backend_base_dockerfile
     assert "security.ubuntu.com/ubuntu#${APT_MIRROR}" in backend_base_dockerfile
@@ -1242,6 +1663,13 @@ def test_publish_dockerfiles_point_at_current_workspace_artifacts() -> None:
 
 def test_publish_script_loads_and_verifies_internal_backend_runtime_base_image() -> None:
     text = read_publish_script()
+    docker_context_index = text.index("New-ReleaseDockerBuildContext `")
+    runtime_base_integrity_call_index = text.index(
+        "Assert-BackendRuntimeBaseTarIntegrity -Config $backendRuntimeBaseConfig"
+    )
+    runtime_base_image_call_index = text.index(
+        "Assert-BackendRuntimeBaseImageAvailable -Config $backendRuntimeBaseConfig"
+    )
     backend_build_info_index = text.index("Info 'Building backend image'")
     backend_build_block_start = text.rindex("if ($publishBackend) {", 0, backend_build_info_index)
     build_block = text[
@@ -1257,6 +1685,7 @@ def test_publish_script_loads_and_verifies_internal_backend_runtime_base_image()
     assert "[string]$BackendRuntimeBaseDigest = $env:INTRUOYI_BACKEND_RUNTIME_BASE_DIGEST" in text
     assert "[string]$BackendRuntimeBaseVersion = $env:INTRUOYI_BACKEND_RUNTIME_BASE_VERSION" in text
     assert "function Resolve-BackendRuntimeBaseConfig" in text
+    assert "function Assert-BackendRuntimeBaseTarIntegrity" in text
     assert "function Assert-BackendRuntimeBaseImageAvailable" in text
     assert "Missing BackendRuntimeBaseMode" in text
     assert "Missing BackendRuntimeBaseTarPath" in text
@@ -1274,9 +1703,12 @@ def test_publish_script_loads_and_verifies_internal_backend_runtime_base_image()
     assert "RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_DIGEST=$BackendRuntimeBaseDigest" in text
     assert "RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_VERSION=$BackendRuntimeBaseVersion" in text
     assert "'--build-arg', \"BACKEND_RUNTIME_BASE_IMAGE=$($backendRuntimeBaseConfig.Image)\"" in build_block
-    assert text.index("Assert-BackendRuntimeBaseImageAvailable -Config $backendRuntimeBaseConfig") < text.index(
+    assert text.count("Assert-BackendRuntimeBaseTarIntegrity -Config $backendRuntimeBaseConfig") == 1
+    assert text.count("Assert-BackendRuntimeBaseImageAvailable -Config $backendRuntimeBaseConfig") == 1
+    assert runtime_base_integrity_call_index < text.index(
         "Invoke-CheckedCommand -FilePath 'mvn'"
     )
+    assert docker_context_index < runtime_base_image_call_index < backend_build_info_index
 
 
 def test_publish_script_fails_fast_when_backend_target_jar_is_locked_before_maven_clean() -> None:
@@ -1292,6 +1724,47 @@ def test_publish_script_fails_fast_when_backend_target_jar_is_locked_before_mave
     assert text.index("Assert-BackendJarAvailableForMavenClean -JarPath $backendJar") < text.index(
         "Invoke-CheckedCommand -FilePath 'mvn'"
     )
+
+
+def test_release_sql_discovery_excludes_manual_rollback_and_rejects_missing_metadata(tmp_path: Path) -> None:
+    forward = tmp_path / "20260914_forward.sql"
+    forward.write_text("-- release-migration: type=schema\nSELECT 1;\n", encoding="utf-8")
+    (tmp_path / "20260914_forward_rollback.sql").write_text(
+        "-- rollback-migration: type=schema\nDROP TABLE task_example;\n", encoding="utf-8"
+    )
+    source = read_publish_script()
+    functions = "\n".join(_extract_powershell_function(source, name) for name in (
+        "Read-ReleaseMigrationMetadata", "Get-ReleaseDatabaseSqlSortKey", "Get-ReleaseDatabaseSqlScripts"
+    ))
+    command = """
+$ErrorActionPreference = 'Stop'
+function Fail([string]$Message) { throw $Message }
+function Get-ReleaseDatabaseSqlRoots {
+    return @{ Root = $env:TEST_RELEASE_SQL_ROOT; RelativePath = 'sql/mysql'; IncludeFiles = @() }
+}
+""" + functions + "\n@(Get-ReleaseDatabaseSqlScripts) | ConvertTo-Json -Compress"
+    env = os.environ.copy()
+    env["TEST_RELEASE_SQL_ROOT"] = str(tmp_path)
+
+    def collect() -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["powershell.exe", "-NoProfile", "-Command", command],
+                              env=env, capture_output=True, text=True, encoding="utf-8", timeout=30)
+
+    result = collect()
+    assert result.returncode == 0, result.stderr
+    assert "20260914_forward.sql" in result.stdout
+    assert "rollback.sql" not in result.stdout
+    forward.write_text("SELECT 1;\n", encoding="utf-8")
+    result = collect()
+    assert result.returncode != 0
+    assert "Release migration metadata missing" in result.stderr
+    forward.write_text("-- release-migration: type=schema\nSELECT 1;\n", encoding="utf-8")
+    (tmp_path / "20260914_forward_rollback.sql").write_text(
+        "-- rollback-migration: type=schema\n-- release-migration: type=schema\n", encoding="utf-8"
+    )
+    result = collect()
+    assert result.returncode != 0
+    assert "Conflicting release and rollback migration metadata" in result.stderr
 
 
 def test_build_release_backend_e2e_fails_fast_without_internal_backend_runtime_base_config(tmp_path: Path) -> None:
@@ -1380,7 +1853,8 @@ def test_publish_compose_uses_isolated_runtime_names_ports_and_dcc_config() -> N
     assert "JWT_SECRET:" not in compose
     assert "condition: service_healthy" in compose
     assert "--yudao.dcc.viewer-token.hmac-secret=${DCC_VIEWER_TOKEN_HMAC_SECRET}" in compose
-    assert "--yudao.dcc.download.encryption.artifact-directory=${DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY}" in compose
+    assert REMOVED_DCC_DOWNLOAD_SECRET_PREFIX not in compose
+    assert REMOVED_DCC_DOWNLOAD_PROPERTY_PREFIX not in compose
     assert "--yudao.dcc.project-code-recognition.codex-cli-command=${DCC_PROJECT_CODE_CODEX_CLI_COMMAND}" in compose
     assert "DCC_PROJECT_CODE_CODEX_HOME: ${DCC_PROJECT_CODE_CODEX_HOME}" in compose
     assert "CODEX_HOME: ${DCC_PROJECT_CODE_CODEX_HOME}" in compose
@@ -1572,6 +2046,17 @@ def test_restart_bat_wrappers_target_test_and_production() -> None:
     assert 'set "PS1=%SCRIPT_DIR%restart-int-ruoyi-remote.ps1"' in prod_text
     assert 'set "SERVER_HOST=172.30.30.57"' in prod_text
     assert 'if /i "%~1"=="cancel"' in prod_text
+
+
+def test_remote_restart_checks_onlyoffice_public_file_url_from_document_server_container() -> None:
+    restart_text = (DEPLOY_ROOT / "restart-int-ruoyi-remote.ps1").read_text(encoding="utf-8")
+
+    assert "function Assert-RemoteOnlyOfficePublicFileBaseUrlReachable" in restart_text
+    assert "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL must not use host.docker.internal" in restart_text
+    assert "docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5" in restart_text
+    restart_call = restart_text.index("    Assert-RemoteOnlyOfficePublicFileBaseUrlReachable")
+    restart_command = restart_text.index('Invoke-SshCommand "cd \'$RemoteAppDir\' && docker compose restart $serviceNames"')
+    assert restart_call < restart_command
 
 
 def test_status_bat_wrappers_target_test_and_production() -> None:

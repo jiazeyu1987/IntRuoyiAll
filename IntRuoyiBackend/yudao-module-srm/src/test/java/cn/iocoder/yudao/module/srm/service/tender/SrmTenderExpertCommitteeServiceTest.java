@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.srm.enums.procurement.SrmProcurementMethodEnum;
 import cn.iocoder.yudao.module.srm.enums.procurement.SrmSourcingProjectStatusEnum;
 import cn.iocoder.yudao.module.srm.service.coderule.SrmCodeRuleServiceImpl;
 import cn.iocoder.yudao.module.srm.service.supplier.SrmSupplierAccessRiskServiceImpl;
+import cn.iocoder.yudao.module.srm.service.supplier.SrmSupplierPortalApplicationServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
@@ -26,6 +27,7 @@ import static org.mockito.Mockito.mockStatic;
 @Import({
         SrmCodeRuleServiceImpl.class,
         SrmSupplierAccessRiskServiceImpl.class,
+        SrmSupplierPortalApplicationServiceImpl.class,
         SrmTenderProcurementServiceImpl.class
 })
 class SrmTenderExpertCommitteeServiceTest extends BaseDbUnitTest {

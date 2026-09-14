@@ -69,25 +69,25 @@ assert(
   'Admission diff table must disable selection for already-admitted and blocked rows.'
 )
 assert(
-  /:filter-definitions="workOrderAdmissionQuickFilterDefinitions"[\s\S]*@quick-filter-query="workOrderAdmissionQuickFilter\.applyQuickFilter"/.test(
+  /:show-multi-filter="true"[\s\S]*:multi-filter-definitions="workOrderAdmissionMultiFilterDefinitions"[\s\S]*@multi-filter-query="workOrderAdmissionMultiFilter\.applyMultiFilter"/.test(
     pageSource
   ),
-  'Admission status filter must use the unified quick-filter query flow.'
+  'Admission status filter must use the standard multi-filter query flow.'
 )
 assert(
-  /const workOrderAdmissionQueryParams = reactive\(\{[\s\S]*admissionStatus: DEFAULT_WORK_ORDER_ADMISSION_STATUS/.test(
+  /const workOrderAdmissionQueryParams = reactive\(\{[\s\S]*admissionStatus:\s*undefined/.test(
     pageSource
   ),
-  'Admission query params must keep admissionStatus as an explicit query parameter.'
+  'Admission query params must keep admissionStatus as an explicit query parameter without a default filter.'
 )
 assert(
   /key:\s*'admissionStatus'[\s\S]*label:\s*'入池状态'[\s\S]*type:\s*'select'/.test(
     pageSource
   ),
-  'Admission quick filter must keep admissionStatus as a selectable filter.'
+  'Admission multi-filter must keep admissionStatus as a selectable filter.'
 )
 assert(
-  /confirmApplyReplanStartChoice[\s\S]*runPreflightForRequest\(applyRequest\)[\s\S]*排产前检查存在阻断问题，不能应用重排/.test(
+  /confirmApplyReplanStartChoice[\s\S]*runPreflightForRequest\(applyRequest\)[\s\S]*排产前检查存在无法归因到工单的阻断问题，不能应用重排/.test(
     pageSource
   ),
   'Start replan must rerun preflight and stop before writing when blockers exist.'

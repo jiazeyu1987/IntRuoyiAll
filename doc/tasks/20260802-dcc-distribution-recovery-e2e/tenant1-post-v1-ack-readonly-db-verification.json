@@ -1,0 +1,57 @@
+{
+  "checkedAt": "2026-08-02 21:25:50",
+  "fileNumber": "CODX-DCC-DIST-906104-DISTTENANT120260802195305",
+  "files": [
+    {
+      "id": "2054545668044070297",
+      "versionNo": "V1.0",
+      "status": "ACTIVE",
+      "publishedTime": "2026-08-02 20:19:57"
+    },
+    {
+      "id": "2054545668044070302",
+      "versionNo": "V2.0",
+      "status": "READY_TO_PUBLISH",
+      "publishedTime": null
+    }
+  ],
+  "distributions": [
+    {
+      "id": "4341",
+      "controlledFileId": "2054545668044070297",
+      "versionNo": "V1.0",
+      "fileStatus": "ACTIVE",
+      "medium": "PAPER",
+      "status": "ACKNOWLEDGED",
+      "acknowledgedBy": "910250",
+      "acknowledgedByUsername": "wangsiyu",
+      "acknowledgedAt": "2026-08-02 21:25:23",
+      "recoveredBy": null,
+      "recoveredByUsername": null,
+      "recoveredAt": null,
+      "recipients": [
+        {
+          "recipientId": "46820",
+          "userId": "173",
+          "username": "panhaitao",
+          "acknowledgedAt": null
+        }
+      ]
+    },
+    {
+      "id": "4344",
+      "controlledFileId": "2054545668044070302",
+      "versionNo": "V2.0",
+      "fileStatus": "READY_TO_PUBLISH",
+      "medium": "PAPER",
+      "status": "PENDING",
+      "acknowledgedBy": null,
+      "acknowledgedByUsername": null,
+      "acknowledgedAt": null,
+      "recoveredBy": null,
+      "recoveredByUsername": null,
+      "recoveredAt": null,
+      "recipients": []
+    }
+  ]
+}

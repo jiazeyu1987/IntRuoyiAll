@@ -1,0 +1,8 @@
+{
+  "stepId": "01-owner-batch-entry",
+  "url": "http://localhost:8081/mes/pro/feedback/edhr-batch-execution",
+  "capturedAt": "2026-07-26T00:14:23.614Z",
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260725-full-e2e-admin-validation\\artifacts\\full-chain-admin-1785024829153\\01-owner-batch-entry.png",
+  "actor": "admin",
+  "assertion": "批次负责人已通过真实登录进入批次执行入口"
+}

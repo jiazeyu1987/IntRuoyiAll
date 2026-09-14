@@ -234,7 +234,7 @@ function New-RehearsalFailureResult {
             Set-BackupOpsRehearsalVerificationState -Config $Config -BackupId ([string]$Context['backupId']) -RehearsalStatus 'pending-review' -Note $message -LogSession $LogSession
         }
         catch {
-            # 演练失败后尽力降级备份点，但不要覆盖原始失败原因
+            throw (New-RehearsalEvidenceException -Code 'INTBK-7002' -Status 'fail' -Message "恢复演练失败，且无法将备份点标记为 pending-review。原始失败：$message；状态写回失败：$($_.Exception.Message)")
         }
     }
 
@@ -312,9 +312,9 @@ function Invoke-RehearsalUseCase {
         if ($rehearsalValidation -and $rehearsalValidation.PSObject.Properties['checks']) {
             $resultContext.checks = $rehearsalValidation.checks
         }
-        Set-BackupOpsRehearsalVerificationState -Config $Config -BackupId $resultContext.backupId -RehearsalStatus 'PASSED' -LogSession $logSession
         $evidenceCompletedAt = Get-Date
         Write-BackupOpsRehearsalEvidence -Config $Config -BackupId $resultContext.backupId -Context $resultContext -StartedAt $startedAt -CompletedAt $evidenceCompletedAt -LogSession $logSession
+        Set-BackupOpsRehearsalVerificationState -Config $Config -BackupId $resultContext.backupId -RehearsalStatus 'PASSED' -LogSession $logSession
 
         Show-BackupOpsProgress -Current 4 -Total 5 -Message '生成演练报告...'
         $report = Publish-BackupOpsReport -Config $Config -Action 'rehearsal' -Status 'success' -StartedAt $startedAt -CompletedAt (Get-Date) -Summary 'Rehearsal restore completed successfully.' -Context $resultContext -LogSession $logSession

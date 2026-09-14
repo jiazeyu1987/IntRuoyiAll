@@ -1,0 +1,8 @@
+NAMES             IMAGE                                              STATUS
+int-ruoyi-mysql   mysql:8.0.39                                       Exited (137) 5 minutes ago
+int-ruoyi-redis   redis:8-alpine                                     Exited (0) 5 minutes ago
+yudao-redis       redis:8-alpine                                     Exited (0) 3 days ago
+onlyoffice        onlyoffice/documentserver:latest                   Up 16 seconds
+docker-redis-1    valkey/valkey:8                                    Exited (0) 3 days ago
+docker-minio-1    quay.io/minio/minio:RELEASE.2025-06-13T11-33-47Z   Exited (0) 5 minutes ago
+docker-es01-1     elasticsearch:8.11.3                               Exited (137) 5 days ago

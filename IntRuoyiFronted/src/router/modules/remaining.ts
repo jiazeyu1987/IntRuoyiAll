@@ -271,13 +271,74 @@ const remainingRouter: AppRouteRecordRaw[] = [
     },
     children: [
       {
+        path: 'todo',
+        component: () => import('@/views/approval-center/index.vue'),
+        name: 'ApprovalCenterTodo',
+        meta: {
+          noCache: false,
+          keepAliveName: 'ApprovalCenterWorkbench',
+          canTo: true,
+          title: '待办',
+          approvalTodoBadge: true,
+          tagsViewKey: '/approval-center',
+          tagsViewTitle: '审批中心',
+          activeMenu: '/approval-center/todo',
+          permission: ['bpm:task:query']
+        }
+      },
+      {
+        path: 'done',
+        component: () => import('@/views/approval-center/index.vue'),
+        name: 'ApprovalCenterDone',
+        meta: {
+          noCache: false,
+          keepAliveName: 'ApprovalCenterWorkbench',
+          canTo: true,
+          title: '已办',
+          tagsViewKey: '/approval-center',
+          tagsViewTitle: '审批中心',
+          activeMenu: '/approval-center/done',
+          permission: ['bpm:task:query']
+        }
+      },
+      {
+        path: 'my-initiated',
+        component: () => import('@/views/approval-center/index.vue'),
+        name: 'ApprovalCenterMyInitiated',
+        meta: {
+          noCache: false,
+          keepAliveName: 'ApprovalCenterWorkbench',
+          canTo: true,
+          title: '我发起的',
+          tagsViewKey: '/approval-center',
+          tagsViewTitle: '审批中心',
+          activeMenu: '/approval-center/my-initiated',
+          permission: ['bpm:task:query']
+        }
+      },
+      {
+        path: 'cc',
+        component: () => import('@/views/approval-center/index.vue'),
+        name: 'ApprovalCenterCc',
+        meta: {
+          noCache: false,
+          keepAliveName: 'ApprovalCenterWorkbench',
+          canTo: true,
+          title: '抄送我的',
+          tagsViewKey: '/approval-center',
+          tagsViewTitle: '审批中心',
+          activeMenu: '/approval-center/cc',
+          permission: ['bpm:task:query']
+        }
+      },
+      {
         path: 'manager',
         redirect: '/approval-center/manager/model',
         name: 'ApprovalCenterWorkflowManagement',
         meta: {
           title: '流程管理',
           icon: 'fa:dedent',
-          alwaysShow: true
+          alwaysShow: false
         },
         children: [
           {
@@ -298,6 +359,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
             name: 'ApprovalCenterBpmForm',
             meta: {
               noCache: true,
+              hidden: true,
               canTo: true,
               title: '流程表单',
               activeMenu: '/approval-center/manager/form',
@@ -310,6 +372,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
             name: 'ApprovalCenterBpmCategory',
             meta: {
               noCache: true,
+              hidden: true,
               canTo: true,
               title: '流程分类',
               activeMenu: '/approval-center/manager/category',
@@ -322,6 +385,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
             name: 'ApprovalCenterBpmBusinessApprovalPolicy',
             meta: {
               noCache: true,
+              hidden: true,
               canTo: true,
               title: '业务审批策略',
               activeMenu: '/approval-center/manager/business-approval-policy',
@@ -334,6 +398,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
             name: 'ApprovalCenterBpmUserGroup',
             meta: {
               noCache: true,
+              hidden: true,
               canTo: true,
               title: '用户分组',
               activeMenu: '/approval-center/manager/user-group',
@@ -346,6 +411,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
             name: 'ApprovalCenterBpmProcessExpression',
             meta: {
               noCache: true,
+              hidden: true,
               canTo: true,
               title: '流程表达式',
               activeMenu: '/approval-center/manager/process-expression',
@@ -357,9 +423,10 @@ const remainingRouter: AppRouteRecordRaw[] = [
             redirect: '/approval-center/manager/form-center/template',
             name: 'ApprovalCenterFormCenter',
             meta: {
+              hidden: true,
               title: '表单中心',
               icon: 'ep:document',
-              alwaysShow: true
+              alwaysShow: false
             },
             children: [
               {
@@ -368,10 +435,24 @@ const remainingRouter: AppRouteRecordRaw[] = [
                 name: 'ApprovalCenterFormCenterTemplate',
                 meta: {
                   noCache: true,
+                  hidden: true,
                   canTo: true,
                   title: '表单模板',
                   activeMenu: '/mdm/form-center/template',
                   permission: ['form:template:query']
+                }
+              },
+              {
+                path: 'policy',
+                component: () => import('@/views/form-center/policy/index.vue'),
+                name: 'ApprovalCenterFormCenterPolicy',
+                meta: {
+                  noCache: true,
+                  hidden: true,
+                  canTo: true,
+                  title: '表单策略',
+                  activeMenu: '/mdm/form-center/policy',
+                  permission: ['form:policy:query']
                 }
               },
               {
@@ -380,6 +461,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
                 name: 'ApprovalCenterFormCenterEffect',
                 meta: {
                   noCache: true,
+                  hidden: true,
                   canTo: true,
                   title: '生效待处理',
                   activeMenu: '/mdm/form-center/effect',
@@ -389,63 +471,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
             ]
           }
         ]
-      },
-      {
-        path: 'todo',
-        component: () => import('@/views/approval-center/index.vue'),
-        name: 'ApprovalCenterTodo',
-        meta: {
-          noCache: true,
-          canTo: true,
-          title: '待办',
-          approvalTodoBadge: true,
-          tagsViewKey: '/approval-center',
-          tagsViewTitle: '审批中心',
-          activeMenu: '/approval-center/todo',
-          permission: ['bpm:task:query']
-        }
-      },
-      {
-        path: 'done',
-        component: () => import('@/views/approval-center/index.vue'),
-        name: 'ApprovalCenterDone',
-        meta: {
-          noCache: true,
-          canTo: true,
-          title: '已办',
-          tagsViewKey: '/approval-center',
-          tagsViewTitle: '审批中心',
-          activeMenu: '/approval-center/done',
-          permission: ['bpm:task:query']
-        }
-      },
-      {
-        path: 'my-initiated',
-        component: () => import('@/views/approval-center/index.vue'),
-        name: 'ApprovalCenterMyInitiated',
-        meta: {
-          noCache: true,
-          canTo: true,
-          title: '我发起的',
-          tagsViewKey: '/approval-center',
-          tagsViewTitle: '审批中心',
-          activeMenu: '/approval-center/my-initiated',
-          permission: ['bpm:task:query']
-        }
-      },
-      {
-        path: 'cc',
-        component: () => import('@/views/approval-center/index.vue'),
-        name: 'ApprovalCenterCc',
-        meta: {
-          noCache: true,
-          canTo: true,
-          title: '抄送我的',
-          tagsViewKey: '/approval-center',
-          tagsViewTitle: '审批中心',
-          activeMenu: '/approval-center/cc',
-          permission: ['bpm:task:query']
-        }
       },
       {
         path: 'oa',
@@ -619,6 +644,29 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           title: '供应商资料提交'
+        }
+      }
+    ]
+  },
+  {
+    path: '/mdm',
+    component: Layout,
+    name: 'MdmHidden',
+    meta: {
+      hidden: true
+    },
+    children: [
+      {
+        path: 'company-scope',
+        component: () => import('@/views/mdm/company-scope/index.vue'),
+        name: 'MdmCompanyScopeHidden',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: '授权公司',
+          activeMenu: '/mdm/company-scope',
+          permission: ['mdm:company-scope:query']
         }
       }
     ]
@@ -1032,6 +1080,19 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'controlled-file/publication-followup',
+        component: () => import('@/views/dcc/controlled-file/publication-followup/index.vue'),
+        name: 'DccControlledFilePublicationFollowup',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: '发布后续',
+          activeMenu: '/dcc/controlled-file/publication-followup',
+          permission: ['dcc:controlled-file:publication-followup:manage']
+        }
+      },
+      {
         path: 'controlled-file/admin',
         component: () => import('@/views/dcc/controlled-file/admin/index.vue'),
         name: 'DccControlledFileAdmin',
@@ -1133,7 +1194,24 @@ const remainingRouter: AppRouteRecordRaw[] = [
         component: () => import('@/views/dcc/controlled-file/detail/index.vue'),
         name: 'DccControlledFileDetail',
         beforeEnter: (to) => {
-          if (String(to.query.viewer || '') === '1') {
+          const isApprovalHandling =
+            String(to.query.handling || '') === 'approval' &&
+            String(to.query.from || '') === 'approval-center' &&
+            Boolean(String(to.query.processInstanceId || '') || String(to.query.taskId || ''))
+          const isBrowserTraceability =
+            String(to.query.traceability || '') === '1' &&
+            String(to.query.from || '') === 'browser' &&
+            Boolean(String(to.query.returnTo || ''))
+          const isBrowserManagement =
+            String(to.query.management || '') === '1' &&
+            String(to.query.from || '') === 'browser' &&
+            Boolean(String(to.query.returnTo || ''))
+          if (
+            String(to.query.viewer || '') === '1' ||
+            isApprovalHandling ||
+            isBrowserTraceability ||
+            isBrowserManagement
+          ) {
             return true
           }
           return { name: 'DccControlledFileBrowser' }
@@ -1497,6 +1575,29 @@ const remainingRouter: AppRouteRecordRaw[] = [
     ]
   },
   {
+    path: '/mdm',
+    component: Layout,
+    name: 'MdmHiddenRoutes',
+    meta: {
+      hidden: true
+    },
+    children: [
+      {
+        path: 'form-center/template/simulate',
+        component: () => import('@/views/form-center/template/FormTemplateSimulatePage.vue'),
+        name: 'MdmFormCenterTemplateSimulate',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: '表单模板模拟填写',
+          activeMenu: '/mdm/form-center/template',
+          permission: ['form:template:query']
+        }
+      }
+    ]
+  },
+  {
     path: '/mes',
     component: Layout,
     name: 'MesWmRouter',
@@ -1599,6 +1700,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-nonconformance-review',
+        component: () => import('@/views/mes/pro/edhr-nonconformance/NonconformanceReviewPage.vue'),
+        name: 'MesProFeedbackEdhrNonconformanceReview',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '不合格评审',
+          activeMenu: '/mes/pro/feedback/edhr-batch-execution',
+          permission: ['mes:pro-edhr-nonconformance-review:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-domain-trace',
         component: () => import('@/views/mes/pro/edhr/DomainTracePage.vue'),
         name: 'MesProFeedbackEdhrDomainTrace',
@@ -1639,6 +1754,21 @@ const remainingRouter: AppRouteRecordRaw[] = [
           title: '表单追溯',
           activeMenu: '/mes/pro/feedback/edhr-form-trace',
           permission: ['mes:pro-batch-record-execution:track', 'mes:pro-edhr-change:query', 'mes:pro-edhr-release:query']
+        }
+      },
+      {
+        path: 'pro/feedback/edhr-release',
+        component: () => import('@/views/mes/pro/edhr-release/ReleasePage.vue'),
+        name: 'MesProEdhrReleasePage',
+        meta: {
+          noCache: true,
+          tagsViewKeyMode: 'path',
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '放行追溯',
+          activeMenu: '/mes/pro/feedback/edhr-release',
+          permission: ['mes:pro-edhr-release:query']
         }
       },
       {
@@ -1754,6 +1884,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-batch-history',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchRecordHistoryPage.vue'),
+        name: 'MesProEdhrBatchHistory',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'eDHR历史追溯',
+          activeMenu: '/mes/pro/feedback/edhr-batch-execution',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-form-fill-log',
         component: () => import('@/views/mes/pro/edhr/FormFillLogPage.vue'),
         name: 'MesProEdhrFormFillLogPage',
@@ -1810,16 +1954,58 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'pro/feedback/edhr-batch-history',
-        component: () => import('@/views/mes/pro/edhr-batch/BatchRecordHistoryPage.vue'),
-        name: 'MesProEdhrBatchHistory',
+        path: 'pro/feedback/edhr-batch-production-fill',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchProductionFillPage.vue'),
+        name: 'MesProEdhrBatchProductionFill',
         meta: {
-          noCache: false,
+          noCache: true,
           hidden: true,
           canTo: true,
           icon: '',
-          title: '历史批记录',
-          activeMenu: '/mes/pro/feedback/edhr-batch-history',
+          title: '一线生产',
+          activeMenu: '/mes/pro/feedback/edhr-batch-production-fill',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
+        path: 'pro/feedback/edhr-batch-pqc-fill',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchPqcFillPage.vue'),
+        name: 'MesProEdhrBatchPqcFill',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '一线PQC',
+          activeMenu: '/mes/pro/feedback/edhr-batch-pqc-fill',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
+        path: 'pro/feedback/edhr-batch-test',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchRecordTestPage.vue'),
+        name: 'MesProEdhrBatchRecordTest',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '批记录测试',
+          activeMenu: '/mes/pro/feedback/edhr-batch-test',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
+        path: 'pro/feedback/edhr-batch-page-graph',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchPageGraphPage.vue'),
+        name: 'MesProEdhrBatchPageGraph',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '批记录页面关系图',
+          activeMenu: '/mes/pro/feedback/edhr-batch-page-graph',
           permission: ['mes:pro-edhr-batch-execution:query']
         }
       },
@@ -1863,6 +2049,90 @@ const remainingRouter: AppRouteRecordRaw[] = [
           title: 'eDHR统一变更',
           activeMenu: '/mes/pro/feedback/edhr-unified-change',
           permission: ['mes:pro-edhr-unified-change:query']
+        }
+      },
+      {
+        path: 'pro/process-pool/review-copy',
+        component: () => import('@/views/mes/pro/processpool/ReviewCopyPage.vue'),
+        name: 'MesProProcessPoolReviewCopy',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '工序池审核副本',
+          activeMenu: '/mes/pro/process-pool/review-copy',
+          permission: ['mes:pro-process-pool-review-copy:generate-submit']
+        }
+      },
+      {
+        path: 'pro/process-pool/event-revision',
+        component: () => import('@/views/mes/pro/processpool/EventRevisionPage.vue'),
+        name: 'MesProProcessPoolEventRevision',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '工序池原始记录修改',
+          activeMenu: '/mes/pro/process-pool/event-revision',
+          permission: ['mes:pro-process-pool:event-revision:update']
+        }
+      },
+      {
+        path: 'pro/process-pool/qa-regulation',
+        component: () => import('@/views/mes/pro/processpool/QaRegulationPage.vue'),
+        name: 'MesProProcessPoolQaRegulation',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'QA 规程配置',
+          activeMenu: '/mes/pro/process-pool/qa-regulation',
+          permission: ['mes:qa-inspection-regulation:query']
+        }
+      },
+      {
+        path: 'pro/process-pool/production-leader',
+        component: () => import('@/views/mes/pro/processpool/ProductionLeaderWorkbenchPage.vue'),
+        name: 'MesProProcessPoolProductionLeaderWorkbench',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '生产组长',
+          activeMenu: '/mes/pro/process-pool/production-leader',
+          permission: ['mes:pro-process-pool-team-leader:query']
+        }
+      },
+      {
+        path: 'pro/process-pool/active-order/:activeOrderId/submission-detail',
+        component: () => import('@/views/mes/pro/processpool/ActiveOrderSubmissionDetailPage.vue'),
+        name: 'MesProcessPoolActiveOrderSubmissionDetail',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '工序提交详情',
+          activeMenu: '/mes/pro/process-pool/production-leader',
+          permission: ['mes:pro-process-pool-team-leader:query']
+        }
+      },
+      {
+        path: 'pro/process-pool/pqc-leader',
+        component: () => import('@/views/mes/pro/processpool/PqcLeaderWorkbenchPage.vue'),
+        name: 'MesProProcessPoolPqcLeaderWorkbench',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'PQC组长',
+          activeMenu: '/mes/pro/process-pool/pqc-leader',
+          permission: ['mes:pro-process-pool-pqc-leader:query']
         }
       },
       {

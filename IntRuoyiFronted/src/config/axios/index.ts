@@ -43,6 +43,7 @@ export default {
     return await service({
       method: 'GET',
       responseType: 'blob',
+      returnOriginalResponse: true,
       ...option,
       headers: {
         'Content-Type': option?.headersType || default_headers,

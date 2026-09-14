@@ -1,5 +1,11 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalContext;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalEffectResult;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalException;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequest;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalEffectExecutor;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalErrorCode;
 import cn.iocoder.yudao.module.bpm.formcenter.model.BusinessActionContext;
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormActionInstance;
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormControlledActionApprovalOutcome;
@@ -13,7 +19,8 @@ import java.util.Map;
 
 @Service
 public class DccControlledFilePublishFormEffectExecutor
-        implements FormBusinessEffectExecutor, FormControlledActionLifecycleAdapter {
+        implements FormBusinessEffectExecutor, FormControlledActionLifecycleAdapter,
+        BusinessApprovalEffectExecutor {
 
     public static final String EXECUTOR_CODE = "DCC_PUBLISH";
     private static final String LIFECYCLE_CONTEXT_ERROR =
@@ -28,6 +35,59 @@ public class DccControlledFilePublishFormEffectExecutor
     @Override
     public String getExecutorCode() {
         return EXECUTOR_CODE;
+    }
+
+    @Override
+    public void precheck(BusinessApprovalContext context) {
+        Long controlledFileId = requireBusinessApprovalContext(context);
+        finalizationService.precheckPublishControlledFile(context.getApplicantUserId(), controlledFileId);
+    }
+
+    @Override
+    public BusinessApprovalEffectResult executeDirect(BusinessApprovalContext context,
+                                                       BusinessApprovalRequest request) {
+        Long controlledFileId = requireBusinessApprovalContext(context);
+        finalizationService.applyApprovedPublishControlledFile(context.getApplicantUserId(), controlledFileId,
+                businessEventKey(request, "DIRECT"));
+        return BusinessApprovalEffectResult.completed("ACTIVE");
+    }
+
+    @Override
+    public BusinessApprovalEffectResult markPending(BusinessApprovalContext context,
+                                                     BusinessApprovalRequest request) {
+        requireBusinessApprovalContext(context);
+        return BusinessApprovalEffectResult.pending("READY_TO_PUBLISH");
+    }
+
+    @Override
+    public BusinessApprovalEffectResult executeApproved(BusinessApprovalContext context,
+                                                         BusinessApprovalRequest request,
+                                                         Long actorUserId) {
+        Long controlledFileId = requireBusinessApprovalContext(context);
+        if (actorUserId == null) {
+            throw invalidBusinessApprovalContext("DCC publish approval actor is required");
+        }
+        finalizationService.applyApprovedPublishControlledFile(actorUserId, controlledFileId,
+                businessEventKey(request, "APPROVED"));
+        return BusinessApprovalEffectResult.completed("ACTIVE");
+    }
+
+    @Override
+    public BusinessApprovalEffectResult reject(BusinessApprovalContext context,
+                                                BusinessApprovalRequest request,
+                                                Long actorUserId,
+                                                String reason) {
+        requireBusinessApprovalContext(context);
+        return BusinessApprovalEffectResult.rejected("READY_TO_PUBLISH");
+    }
+
+    @Override
+    public BusinessApprovalEffectResult cancel(BusinessApprovalContext context,
+                                                BusinessApprovalRequest request,
+                                                Long actorUserId,
+                                                String reason) {
+        requireBusinessApprovalContext(context);
+        return BusinessApprovalEffectResult.cancelled("READY_TO_PUBLISH");
     }
 
     @Override
@@ -103,6 +163,34 @@ public class DccControlledFilePublishFormEffectExecutor
             throw new IllegalArgumentException("DCC publish controlledFileId must match context objectId");
         }
         return contextControlledFileId;
+    }
+
+    private Long requireBusinessApprovalContext(BusinessApprovalContext context) {
+        if (context == null
+                || !"DCC".equals(context.getDataDomain())
+                || !"DCC".equals(context.getSystemCode())
+                || !"CONTROLLED_FILE".equals(context.getObjectType())
+                || !"PUBLISH".equals(context.getActionCode())
+                || !"READY_TO_PUBLISH".equals(context.getObjectState())
+                || context.getApplicantUserId() == null) {
+            throw invalidBusinessApprovalContext("DCC publish business approval context is invalid");
+        }
+        try {
+            return Long.valueOf(context.getObjectId());
+        } catch (RuntimeException ex) {
+            throw invalidBusinessApprovalContext("DCC publish controlled file id is invalid");
+        }
+    }
+
+    private String businessEventKey(BusinessApprovalRequest request, String result) {
+        if (request == null || request.getRequestId() == null) {
+            throw invalidBusinessApprovalContext("DCC publish business approval request id is required");
+        }
+        return "BUSINESS_APPROVAL:" + request.getRequestId() + ":" + result;
+    }
+
+    private BusinessApprovalException invalidBusinessApprovalContext(String message) {
+        return new BusinessApprovalException(BusinessApprovalErrorCode.BUSINESS_APPROVAL_CONTEXT_INVALID, message);
     }
 
     private Long requiredLong(Map<String, Object> formData, String key) {

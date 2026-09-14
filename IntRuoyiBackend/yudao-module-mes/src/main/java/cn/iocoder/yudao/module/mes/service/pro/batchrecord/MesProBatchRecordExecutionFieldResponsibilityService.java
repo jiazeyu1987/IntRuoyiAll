@@ -296,6 +296,9 @@ public class MesProBatchRecordExecutionFieldResponsibilityService {
             throw exception(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_EXPORT_FAILED);
         }
         SummaryComputation computation = computeSummary(reqVO.getExecutionId());
+        if (computation.overallStatus() != MesProBatchRecordExecutionResponsibilityEvidenceStatus.COMPLETE) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_EXPORT_FAILED);
+        }
         LocalDateTime generatedAt = LocalDateTime.now();
         byte[] content = renderResponsibilityWorkbook(computation, generatedAt);
         MesProBatchRecordExecutionDO execution = computation.execution();

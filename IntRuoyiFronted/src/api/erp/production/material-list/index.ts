@@ -17,6 +17,7 @@ export interface ErpProductionMaterialListVO {
   numerator: number
   denominator: number
   childUnitName: string
+  drawingNumber: string
   requiredQuantity: number
   issueMethod: string
   demandTime: string
@@ -47,6 +48,10 @@ export interface ErpProductionMaterialListDetailVO {
   numerator: number
   denominator: number
   childUnitName: string
+  drawingNumber: string
+  requiredQuantity: number
+  demandTime: string
+  issueMethod: string
   productionOrderNo: string
   workOrderId: number
   workOrderCode: string

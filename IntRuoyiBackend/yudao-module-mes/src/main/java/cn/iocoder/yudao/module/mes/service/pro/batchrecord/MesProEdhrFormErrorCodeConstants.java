@@ -24,4 +24,8 @@ public interface MesProEdhrFormErrorCodeConstants {
             new ErrorCode(1_040_753_421, "eDHR 独立表单数字字段超出范围：{}");
     ErrorCode PRO_EDHR_FORM_FIELD_ENUM_INVALID =
             new ErrorCode(1_040_753_422, "eDHR 独立表单枚举字段取值无效：{}");
+    ErrorCode PRO_EDHR_FORM_FIELD_DATE_INVALID =
+            new ErrorCode(1_040_753_423, "eDHR 独立表单日期字段格式无效：{}");
+    ErrorCode PRO_EDHR_FORM_FIELD_TEXT_TOO_LONG =
+            new ErrorCode(1_040_753_424, "eDHR 独立表单字段值超出长度限制：{}");
 }

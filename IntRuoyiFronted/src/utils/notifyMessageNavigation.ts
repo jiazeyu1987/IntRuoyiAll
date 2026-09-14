@@ -7,6 +7,7 @@ import {
 
 export const SHOWROOM_NOTIFY_PRODUCT_TARGET_KEY = 'showroomNotifyProductTarget'
 export const BPM_PROCESS_DETAIL_PATH = '/bpm/process-instance/detail'
+export const DCC_CONTROLLED_FILE_DETAIL_PATH_PATTERN = /^\/dcc\/controlled-file\/detail\/(\d+)$/
 
 export const NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS = new Set([
   'detailUrl',
@@ -18,7 +19,8 @@ export const NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS = new Set([
   'notifyChangeRequestId',
   'changeRequestId',
   'notifyOpen',
-  'workTaskId'
+  'workTaskId',
+  'followupUrl'
 ])
 
 type NotifyMessageLike = Pick<NotifyMessageVO, 'templateParams'>
@@ -45,10 +47,17 @@ export type EdhrWorkTaskNotifyTarget = {
   query: Record<string, string>
 }
 
+export type DccPublicationNotifyTarget = {
+  type: 'dccPublication'
+  label: '查看发布文件'
+  targetId: string
+}
+
 export type NotifyMessageTarget =
   | ShowroomProductNotifyTarget
   | BpmApprovalNotifyTarget
   | EdhrWorkTaskNotifyTarget
+  | DccPublicationNotifyTarget
 
 const normalizeTemplateParams = (value: unknown) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -143,12 +152,39 @@ const resolveEdhrWorkTaskTarget = (
   }
 }
 
+const resolveDccPublicationTarget = (
+  templateParams: Record<string, unknown>
+): DccPublicationNotifyTarget | null => {
+  if (typeof templateParams.followupUrl !== 'string') {
+    return null
+  }
+  let url: URL
+  try {
+    url = new URL(templateParams.followupUrl, window.location.origin)
+  } catch (error) {
+    console.warn('DCC发布站内信 followupUrl 解析失败', error)
+    return null
+  }
+  const match = DCC_CONTROLLED_FILE_DETAIL_PATH_PATTERN.exec(url.pathname)
+  const allowedKeys = new Set(['viewer', 'from'])
+  if (
+    url.origin !== window.location.origin ||
+    !match ||
+    url.searchParams.get('viewer') !== '1' ||
+    url.searchParams.get('from') !== 'notification' ||
+    Array.from(url.searchParams.keys()).some((key) => !allowedKeys.has(key))
+  ) {
+    return null
+  }
+  return { type: 'dccPublication', label: '查看发布文件', targetId: match[1] }
+}
+
 export const getNotifyMessageTargets = (message?: NotifyMessageLike | null): NotifyMessageTarget[] => {
   const templateParams = normalizeTemplateParams(message?.templateParams)
   if (!templateParams) {
     return []
   }
-  return [resolveShowroomProductTarget(templateParams), resolveBpmApprovalTarget(templateParams), resolveEdhrWorkTaskTarget(templateParams)].filter(
+  return [resolveDccPublicationTarget(templateParams), resolveShowroomProductTarget(templateParams), resolveBpmApprovalTarget(templateParams), resolveEdhrWorkTaskTarget(templateParams)].filter(
     (target): target is NotifyMessageTarget => Boolean(target)
   )
 }
@@ -199,6 +235,14 @@ export const navigateToNotifyMessageTarget = async (
       batchExecutionId: target.query.batchExecutionId,
       batchTaskId: target.query.batchTaskId,
       executionId: target.query.executionId
+    })
+    return
+  }
+  if (target.type === 'dccPublication') {
+    await router.push({
+      name: 'DccControlledFileDetail',
+      params: { id: target.targetId },
+      query: { viewer: '1', from: 'notification' }
     })
     return
   }

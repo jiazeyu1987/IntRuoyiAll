@@ -52,6 +52,6 @@ assert.match(
 
 assert.match(
   listPage,
-  /if\s*\(createForm\.routeId == null\) throw new Error\('请选择工艺路线。'\)[\s\S]*routeId:\s*createForm\.routeId/,
-  '提交打开或创建时必须校验并传递 routeId。'
+  /if\s*\(createForm\.routeId == null\)\s*\{[\s\S]*请选择工艺路线。'[\s\S]*return[\s\S]*routeId:\s*createForm\.routeId/,
+  '提交打开或创建时必须校验路线选择并在正式请求中传递 routeId。'
 )

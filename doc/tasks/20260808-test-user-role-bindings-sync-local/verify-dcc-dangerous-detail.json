@@ -1,0 +1,12 @@
+{
+  "sql": "E:\\IntRuoyi\\doc\\tasks\\20260808-test-user-role-bindings-sync-local\\verify-dcc-dangerous-detail.sql",
+  "sqlSha256": "a833a7ecb6f60a87e8a42c51121d6fbdb391d05343f7cf08f3f9287502b8a5f7",
+  "returncode": 0,
+  "stdout": [
+    "JSON_ARRAYAGG(JSON_OBJECT('username', username, 'roleCode', role_code, 'permission', permission))",
+    "[{\"roleCode\": \"wenkong\", \"username\": \"wangsiyu\", \"permission\": \"dcc:controlled-file:category:manage\"}, {\"roleCode\": \"wenkong\", \"username\": \"wangsiyu\", \"permission\": \"dcc:controlled-file:directory:manage\"}, {\"roleCode\": \"wenkong\", \"username\": \"wangsiyu\", \"permission\": \"dcc:controlled-file:download\"}, {\"roleCode\": \"wenkong_download\", \"username\": \"wangsiyu\", \"permission\": \"dcc:controlled-file:download\"}, {\"roleCode\": \"wenkong\", \"username\": \"zhaohaichen\", \"permission\": \"dcc:controlled-file:category:manage\"}, {\"roleCode\": \"wenkong\", \"username\": \"zhaohaichen\", \"permission\": \"dcc:controlled-file:directory:manage\"}, {\"roleCode\": \"wenkong\", \"username\": \"zhaohaichen\", \"permission\": \"dcc:controlled-file:download\"}]"
+  ],
+  "stderr": [
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000026A3D76D7D0"
+  ]
+}

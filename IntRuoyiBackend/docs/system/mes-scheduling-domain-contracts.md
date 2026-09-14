@@ -56,7 +56,7 @@
 - `当前路线工序` 是工艺路线当前版本中的最新工序定义。新建排产工单、配置维护和工作台当前路线展示应优先使用当前路线工序。
 - 手动重排不能只按当前工艺路线定义生成任务。排产工单快照中仍启用且有剩余量的工序，即使当前路线工序已被删除、替换或 processId 漂移，也必须纳入重排计算并生成活动任务。
 - 当快照与当前路线发生漂移时，必须显式判断“当前路线定义优先”还是“历史快照优先”，并用测试说明原因；禁止用默认工序、空快照或静默跳过掩盖配置问题。
-- 快照拓扑必须包含唯一 root、直接前置、无断点、无循环；缺少前置快照时应 fail fast，而不是继续排程。
+- 快照拓扑必须包含根工序集合、完整直接前置集合、无断点、无循环；合法多前置汇合不得被单值 `predecessorRouteProcessId` 校验拒绝。缺少完整前置快照时应 fail fast，而不是按排序前一工序或默认空集合继续排程。
 
 ## 受保护任务
 
@@ -87,12 +87,48 @@
 - 夜班启用必须有对应日历规则和可用班次；缺少夜班日历不能用白班、默认日期或空窗口继续排。
 - 产线日历缺失、路线工序日历缺失、班时冲突、容量覆盖不足都必须形成明确 issue；是否 BLOCKING 或 WARNING 必须由业务规则显式决定。
 
+## 排程日历用料映射告警门禁
+
+- Trigger: 排程日历月份视图、单日详情、生产用料清单、`mes_kingdee_production_material_list`、`childMaterialId`、`生产用料清单子项未映射本地物料`、`MATERIAL_DEMAND`。
+- Preflight check: 先区分“整张生产用料清单缺失”“用料清单子项缺应发数量”“子项 ERP 编码存在但本地物料 ID 未映射”三类情况；未映射子项只能在排程日历读模型中作为 `WARNING` 告警暴露，库存需求只统计已经解析到正式本地物料 ID 的子项。
+- Blocker: 整张生产用料清单缺失、已映射子项缺应发数量、试图伪造或跨租户填充 `childMaterialId`、或把未映射子项计入库存汇总时必须停止。
+- Verification: 后端回归必须覆盖月份视图和单日详情在未映射子项存在时主流程继续，单日详情 `scheduleIssueSummary` 返回 `MATERIAL_DEMAND / WARNING`，且 `materialDemandSummary` 不包含无本地物料 ID 的子项；同时保留整张清单缺失和缺应发数量的阻断测试。
+- Forbidden action: 禁止吞掉告警、返回默认库存充足、手工补本地物料 ID、跨租户引用物料、把未映射 ERP 编码当作本地物料参与缺料计算，或为了日历展示放宽生产用料清单同步的数据治理。
+- Evidence: `doc/tasks/20260830-schedule-calendar-material-mapping-warning/verification-report.md`。
+
+## 工作台产能覆盖门禁
+
+- Trigger: 排产员工作台编辑“班次产能”、保存 `process-wip-settings`、统一班次小时、手动重排刷新路线配置快照或修改 `refreshScheduleOrderProcessesFromRouteConfig`。
+- Preflight check: 先区分工艺路线基准产能与工作台当前排产覆盖值；工作台展示/编辑班次产能，持久化到排产工序快照的小时产量覆盖值，重排刷新最新路线配置时必须识别并保留 `capacitySource=MANUAL_OVERRIDE` 的工作台覆盖快照。
+- Blocker: 工作台保存产能会更新工艺路线配置或触发审批，班次小时变化后仍沿用旧班次总产能，重排刷新把工作台覆盖值改回 `ROUTE_PROCESS`、`MACHINE`、`WORKER` 或路线/设备产能，必须停止并补回归。
+- Verification: 后端回归同时覆盖“保存班次产能为小时覆盖值”“统一班次小时后按小时覆盖值重算班次产能”“手动重排刷新路线配置仍保留工作台覆盖值”；前端合同覆盖编辑入口只调用工作台在制设置接口。
+- Forbidden action: 禁止用前端临时缓存冒充已保存，禁止把工作台覆盖写回工艺路线版本、工作站主数据或路线审批链，禁止重排时用最新资源快照静默覆盖已保存的工作台当前产能。
+- Evidence: `doc/tasks/20260818-scheduler-workbench-capacity-override/verification-report.md`。
+
+## 工作台最近一次排产口径门禁
+
+- Trigger: 排产员工作台工序列表、`process-wip-statistics`、`process-wip-settings`、班次小时刷新或用户反馈“最近只排了 N 个订单但工序显示更多订单在做”。
+- Preflight check: 先定位最新成功 `AUTO_APPLY` / `REPLAN_APPLY` 操作日志，并只读取该日志 `afterSnapshotJson.scheduleOrderIds` 作为工作台当前排产范围；工序统计、设置保存和班次产能刷新都必须先收口到这批排产工单，再按 `routeVersionId + routeProcessId` 聚合。
+- Blocker: 最新成功排产日志缺少工单范围快照、快照不是数组、包含非数字工单 ID、目标逻辑把同批操作日志行的 `scheduleOrderId` 并入快照范围，或目标逻辑仍从所有 PREPARE/SCHEDULED/IN_PROGRESS 历史工单直接聚合时，必须停止并补正式读模型，不得继续展示默认全量在制。
+- Verification: 后端回归至少覆盖同工序历史订单不计入工作台在制单数、最新快照范围不被同批操作日志行扩展、保存工作台工序设置不更新历史订单、统一班次小时刷新不更新历史订单；本机运行态复验必须确认 48081 已加载新 Jar。
+- Forbidden action: 禁止只在前端隐藏历史行、按产品号或基础 `processId` 去重、用所有未完成订单冒充最近排产、用同批 operation log 的多行 `scheduleOrderId` 补齐或扩大最新快照范围，或让可见列表是最近排产但保存/刷新仍批量更新历史工单。
+- Evidence: `doc/tasks/20260828-scheduler-workbench-latest-run-wip/verification-report.md`；`doc/tasks/20260829-scheduler-workbench-latest-run-current-orders/verification-report.md`。
+
 ## 报工联动变更门禁
 
 - `报工联动变更门禁`：任何影响报工、导入报工、进度同步、历史报工、进度数量或剩余量的改动，必须同时核对排产任务、排产工序快照、排产工单进度和正式业务单。
 - 导入归属类场景必须覆盖正向和超量负向；正向核导入记录已归属、正式业务单、进度数量增减，负向核记录仍待归属且页面错误可见。
 - 进度同步不能把已完成、已取消或不可归属工单当有效排产继续统计。
 - 报工联动发现缺任务、缺排产链、缺活动任务、缺报工人、缺审批人或重复指纹时，应输出行级原因，不能返回泛化成功或“报工单号：无”。
+
+## 手动重排数据包门禁
+
+- Trigger: 排产员工作台“导出全部数据包/导入全部数据包”、手动重排复现、跨环境排产数据迁移、`manualReplanDataPackage`、`scheduler-manual-replan-data`。
+- Preflight check: 区分路线配置包和全部数据包；路线配置包只承载路线排产用途、排产配置和资源引用，全部数据包若承诺可复现手动重排，必须同时承载排产工单、生产工单、排产工序快照、路线拓扑、日历规则、计划/实际产能、现有任务、任务扩展、报工、用料、物料、库存和工作台策略设置；若承诺跨租户恢复，导入必须把租户型数据行重写到目标租户上下文。
+- Blocker: 只导出岗位/角色/路线配置却宣称可手动重排，或导入缺少排产工序快照、任务扩展、日历产能、用料/库存、策略设置任一正式字段，或 `TenantBaseDO` 数据保留源租户 `tenantId` 时，必须 fail-fast；不得用空列表、默认路线、默认产能、默认策略或运行时重新同步冒充数据包完整。
+- Verification: 后端契约必须证明全量包包含手动重排数据包和策略设置、缺包时导入失败、导入结果返回主数据/排产工单数据/运行态数据/策略设置计数、跨租户导入重写 `tenantId`；前端按钮提示必须展示这些计数。
+- Forbidden action: 禁止把“导出排产工艺路线”扩大成业务数据导出；禁止在手动重排接口里补 mock 或默认数据；禁止导入时吞掉缺引用、保留源租户 `tenantId` 或用随机新 ID 破坏排产工单快照身份。
+- Evidence: `doc/tasks/20260729-scheduler-workbench-full-data-package-replan/verification-report.md`；`doc/tasks/20260730-scheduler-workbench-full-package-tenant-policy/verification-report.md`。
 
 ## 默认值与历史兼容
 

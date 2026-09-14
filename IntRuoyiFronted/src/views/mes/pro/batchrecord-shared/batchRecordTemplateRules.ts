@@ -10,6 +10,12 @@ export type TemplateRawCell = {
   text?: unknown
   value?: unknown
   merge?: unknown
+  style?: unknown
+  edhrDiagonalSlash?: boolean
+  edhrDiagonalSlashDirection?: 'TL2BR' | 'TR2BL' | 'BOTH'
+  fillForm?: Record<string, unknown>
+  edhrCellRule?: Record<string, unknown>
+  edhrSignature?: BatchRecordReportSignatureCellMarkerVO
 }
 
 export type TemplateRawRow = {
@@ -18,14 +24,28 @@ export type TemplateRawRow = {
 
 export type TemplateRawLayout = {
   rows?: Record<string, TemplateRawRow>
+  styles?: TemplateRawStyle[]
+}
+
+export type TemplateRawStyle = {
+  align?: unknown
+  valign?: unknown
+  textwrap?: unknown
+  font?: unknown
+  bgcolor?: unknown
+  color?: unknown
+  border?: unknown
 }
 
 export type TemplateSimulationComponentKind =
   | 'text'
+  | 'textarea'
   | 'number'
   | 'date'
   | 'datetime'
   | 'checkbox'
+  | 'radio'
+  | 'select'
   | 'signature'
   | 'attachment'
 
@@ -40,6 +60,11 @@ export type TemplateRuleTypeBadge = {
 export type TemplateSimulationSignatureValue = {
   actorName?: string
   signedAt?: string
+}
+
+export type TemplateSimulationOption = {
+  label: string
+  value: string
 }
 
 export type TemplateSimulationValue =
@@ -63,6 +88,7 @@ export type TemplateSimulationField = {
   helpText?: string
   unit?: string
   format?: string
+  options?: TemplateSimulationOption[]
   attachmentRule?: BatchRecordReportCellAttachmentRuleVO
   signatureActionType?: BatchRecordReportSignatureCellMarkerVO['actionType']
   signatureLabel?: string
@@ -83,6 +109,7 @@ export type TemplateEditableCellContext = {
   reviewed: boolean
   unit?: string
   format?: string
+  options?: TemplateSimulationOption[]
   attachmentRule?: BatchRecordReportCellAttachmentRuleVO
   signatureActionType?: BatchRecordReportSignatureCellMarkerVO['actionType']
   signatureLabel?: string
@@ -156,6 +183,57 @@ export const normalizeTemplateCellMerge = (cell: TemplateRawCell | undefined) =>
   }
 }
 
+const resolveTemplateBorderCss = (rawBorder: unknown) => {
+  if (!Array.isArray(rawBorder) || rawBorder.length < 1) return ''
+  const rawWeight = String(rawBorder[0] || '').toLowerCase()
+  if (!rawWeight || rawWeight === 'none' || rawWeight === 'nil') return ''
+  const width = rawWeight.includes('thick') ? 3 : rawWeight.includes('medium') ? 2 : 1
+  const color = typeof rawBorder[1] === 'string' && rawBorder[1].trim() ? rawBorder[1].trim() : '#000'
+  return `${width}px solid ${color}`
+}
+
+export const resolveTemplateCellCssStyle = (
+  cell: { style?: unknown } | undefined,
+  styles: TemplateRawStyle[] | undefined
+) => {
+  const styleIndex = Number(cell?.style)
+  if (!Number.isInteger(styleIndex) || styleIndex < 0 || !styles?.[styleIndex]) {
+    return {} as Record<string, string>
+  }
+  const source = styles[styleIndex]
+  const css: Record<string, string> = {}
+  const align = typeof source.align === 'string' ? source.align.toLowerCase() : ''
+  if (['left', 'center', 'right'].includes(align)) css.textAlign = align
+  const valign = typeof source.valign === 'string' ? source.valign.toLowerCase() : ''
+  if (['top', 'middle', 'bottom'].includes(valign)) css.verticalAlign = valign
+  if (typeof source.bgcolor === 'string' && source.bgcolor.trim()) {
+    css.backgroundColor = source.bgcolor.trim()
+  }
+  if (typeof source.color === 'string' && source.color.trim()) {
+    css.color = source.color.trim()
+  }
+  if (source.font && typeof source.font === 'object' && !Array.isArray(source.font)) {
+    const font = source.font as Record<string, unknown>
+    const fontSize = Number(font.size)
+    if (Number.isFinite(fontSize) && fontSize >= 6 && fontSize <= 72) {
+      css.fontSize = `${fontSize}px`
+    }
+    if (font.bold === true || String(font.bold).toLowerCase() === 'true') {
+      css.fontWeight = '700'
+    }
+  }
+  if (source.border && typeof source.border === 'object' && !Array.isArray(source.border)) {
+    const border = source.border as Record<string, unknown>
+    ;(['top', 'right', 'bottom', 'left'] as const).forEach((side) => {
+      const value = resolveTemplateBorderCss(border[side])
+      if (!value) return
+      const property = `border${side[0].toUpperCase()}${side.slice(1)}`
+      css[property] = value
+    })
+  }
+  return css
+}
+
 export const stringifyTemplateCell = (value: unknown) => {
   if (value == null || value === '') return ''
   if (typeof value === 'string') return value
@@ -184,6 +262,26 @@ export const cleanedAttachmentRule = (attachmentRule?: BatchRecordReportCellAtta
   return Object.keys(cleaned).length ? cleaned : undefined
 }
 
+export const cleanedSelectOptions = (rawOptions: unknown): TemplateSimulationOption[] => {
+  if (!Array.isArray(rawOptions)) return []
+  const options: TemplateSimulationOption[] = []
+  rawOptions.forEach((rawOption) => {
+    let label = ''
+    let value = ''
+    if (rawOption && typeof rawOption === 'object') {
+      const optionRecord = rawOption as Record<string, unknown>
+      label = String(optionRecord.label ?? '').trim()
+      value = String(optionRecord.value ?? label).trim()
+    } else {
+      label = String(rawOption ?? '').trim()
+      value = label
+    }
+    if (!label || !value || options.some((option) => option.value === value)) return
+    options.push({ label, value })
+  })
+  return options
+}
+
 export const buildTemplateFieldIdentity = (rowIndex: number, columnIndex: number) =>
   `${rowIndex}:${columnIndex}`
 
@@ -204,6 +302,11 @@ export const cleanedRuleConstraints = (
   }
   if (valueType === 'STRING') {
     ;(['minLength', 'maxLength'] as const).forEach(copyNumber)
+    const options = cleanedSelectOptions(source.options)
+    if (source.selectionMode === 'single' || options.length) {
+      cleaned.selectionMode = 'single'
+      cleaned.options = options
+    }
   }
   if ((valueType === 'DATE' || valueType === 'DATETIME') && typeof source.format === 'string' && source.format.trim()) {
     cleaned.format = source.format.trim()
@@ -245,6 +348,12 @@ export const resolveTemplateRuleTypeBadge = (
   }
   if (context.componentKind === 'signature') {
     return templateRuleTypeBadgeMap.SIGNATURE
+  }
+  if (context.componentKind === 'radio') {
+    return { label: '单选', symbol: '单', tone: 'radio' }
+  }
+  if (context.componentKind === 'select') {
+    return { label: '下拉', symbol: '选', tone: 'select' }
   }
   return templateRuleTypeBadgeMap[context.valueType] || templateRuleTypeBadgeMap.STRING
 }
@@ -310,19 +419,79 @@ const resolveTemplateSimulationComponentKind = (
   rule: BatchRecordReportCellRuleVO,
   marker?: BatchRecordReportSignatureCellMarkerVO
 ): TemplateSimulationComponentKind => {
-  if (marker?.enabled || rule.valueType === 'SIGNATURE') {
+  const rawComponent = String(rule.componentFlag || '').toLowerCase()
+  const compactComponent = rawComponent.replace(/[\s_-]+/g, '')
+  const selectionMode = String(rule.constraints?.selectionMode || '').trim().toLowerCase()
+  const options = cleanedSelectOptions(rule.constraints?.options)
+  if (
+    marker?.enabled ||
+    rule.valueType === 'SIGNATURE' ||
+    rawComponent.includes('signature') ||
+    rawComponent.includes('sign') ||
+    rawComponent.includes('电子签名') ||
+    rawComponent.includes('签名') ||
+    rawComponent.includes('签字')
+  ) {
     return 'signature'
   }
-  const rawComponent = String(rule.componentFlag || '').toLowerCase()
   if (
     rawComponent.includes('upload-file') ||
     rawComponent.includes('upload-image') ||
     rawComponent.includes('upload-images') ||
     rawComponent.includes('attachment') ||
+    compactComponent.includes('uploadfile') ||
+    rawComponent.includes('附件') ||
+    rawComponent.includes('文件') ||
+    rawComponent.includes('图片') ||
     cleanedAttachmentRule(rule.attachmentRule)
   ) {
     return 'attachment'
   }
+  if (
+    rawComponent.includes('radio-group') ||
+    rawComponent.includes('radio') ||
+    rawComponent.includes('option-group') ||
+    rawComponent.includes('single-choice') ||
+    compactComponent.includes('radiogroup') ||
+    compactComponent.includes('optiongroup') ||
+    compactComponent.includes('singlechoice') ||
+    rawComponent.includes('单选')
+  ) {
+    return 'radio'
+  }
+  if (
+    rawComponent.includes('select') ||
+    rawComponent.includes('dropdown') ||
+    selectionMode === 'single' ||
+    options.length > 0
+  ) {
+    return 'select'
+  }
+  if (
+    rawComponent.includes('checkbox') ||
+    rawComponent.includes('switch') ||
+    selectionMode === 'multiple'
+  ) {
+    return 'checkbox'
+  }
+  if (rawComponent.includes('textarea') || rawComponent.includes('multiline')) {
+    return 'textarea'
+  }
+  if (
+    rawComponent.includes('number') ||
+    rawComponent.includes('digit') ||
+    rawComponent.includes('decimal') ||
+    rawComponent.includes('数字')
+  ) {
+    return 'number'
+  }
+  if (rawComponent.includes('datetime') || rawComponent.includes('date-time') || rawComponent.includes('日期时间')) {
+    return 'datetime'
+  }
+  if (rawComponent === 'date' || rawComponent.includes('date-picker') || rawComponent.includes('日期')) {
+    return 'date'
+  }
+  if (rawComponent.includes('时间')) return 'datetime'
   return templateSimulationComponentMap[rule.valueType] || 'text'
 }
 
@@ -347,6 +516,7 @@ export const buildTemplateSimulationField = (
     helpText: normalizedRule.helpText,
     unit: normalizedRule.unit || undefined,
     format: typeof cleanedConstraints.format === 'string' ? cleanedConstraints.format : undefined,
+    options: cleanedSelectOptions(cleanedConstraints.options),
     attachmentRule: cleanedAttachmentRule(normalizedRule.attachmentRule),
     signatureActionType: marker?.actionType,
     signatureLabel: marker?.enabled ? resolveTemplateSignatureActionLabel(marker) : undefined
@@ -371,9 +541,10 @@ export const buildTemplateEditableCellContext = (
     placeholder: normalizedRule.placeholder,
     helpText: normalizedRule.helpText,
     source: normalizedRule.source,
-    reviewed: normalizedRule.reviewed,
+    reviewed: Boolean(normalizedRule.reviewed),
     unit: field.unit,
     format: field.format,
+    options: field.options,
     attachmentRule: field.attachmentRule,
     signatureActionType: field.signatureActionType,
     signatureLabel: field.signatureLabel

@@ -47,7 +47,7 @@ assertMatch(
 assertMatch(
   routeEditPage,
   /!\['flow', 'basic', 'product'\]\.includes\(activeRouteTab\)/,
-  '基础信息页签不得继续显示页面级保存按钮'
+  '基础信息、流转关系图和关联产品页签不得继续显示页面级保存按钮'
 )
 
 assertMatch(

@@ -4,6 +4,9 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapper;
+import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.PostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
@@ -14,28 +17,37 @@ import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
+import org.mockito.MockedStatic;
 import org.mockito.Mock;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_DISABLED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_APPROVER_POST_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_LOCKED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_NOT_AUTHORIZED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_TASK_PASSWORD_INVALID;
+import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_PASSWORD_FAILED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,9 +73,20 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
     private PermissionService permissionService;
     @Mock
     private RoleService roleService;
+    @Mock
+    private ElectronicSignatureService electronicSignatureService;
 
     @InjectMocks
     private DccSignatureVerificationServiceImpl signatureVerificationService;
+
+    @BeforeEach
+    void stubSignatureProjectionInsert() {
+        lenient().when(signatureMapper.insert(any(DccControlledFileSignatureDO.class))).thenAnswer(invocation -> {
+            DccControlledFileSignatureDO record = invocation.getArgument(0);
+            record.setId(8801L);
+            return 1;
+        });
+    }
 
     @AfterEach
     void clearTenantContext() {
@@ -74,13 +97,14 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
     void verifyPasswordAndCreateSignature_success() {
         TenantContextHolder.setTenantId(1L);
         when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L, "审核员"));
-        when(adminUserService.isPasswordMatch("secret", "encoded-password")).thenReturn(true);
         stubActorSnapshot(true);
         when(signatureEvidenceService.createEvidence(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class)))
                 .thenReturn(signatureEvidence());
-        when(signatureMapper.insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class))).thenReturn(1);
+        LocalDateTime unifiedSignedAt = LocalDateTime.of(2026, 9, 8, 10, 30, 0);
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7001L, unifiedSignedAt));
 
-        signatureVerificationService.verifyPasswordAndCreateSignature(99L, 900L, "task-1",
+        DccUnifiedSignatureResult result = signatureVerificationService.verifyPasswordAndCreateSignature(99L, 900L, "task-1",
                 "MATRIX_REVIEW", "APPROVE", "secret", "looks good");
 
         ArgumentCaptor<DccControlledFileSignatureEvidenceCreateReq> evidenceCaptor =
@@ -107,48 +131,87 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
         assertEquals(1501L, evidenceCaptor.getValue().getSignatureImageFileId());
         assertEquals("image-sha256", evidenceCaptor.getValue().getSignatureImageSha256());
 
-        ArgumentCaptor<DccControlledFileSignatureDO> signatureCaptor = ArgumentCaptor.forClass(DccControlledFileSignatureDO.class);
+        ArgumentCaptor<ElectronicSignatureCommand> commandCaptor = ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        verify(electronicSignatureService).sign(commandCaptor.capture());
+        assertEquals("DCC", commandCaptor.getValue().moduleCode());
+        assertEquals("APPROVE", commandCaptor.getValue().actionCode());
+        assertEquals("DCC_CONTROLLED_FILE", commandCaptor.getValue().subjectType());
+        assertEquals("secret", commandCaptor.getValue().credential());
+        assertEquals("looks good", commandCaptor.getValue().reason());
+        assertTrue(commandCaptor.getValue().idempotencyKey().startsWith("DCC|99|900|task-1|MATRIX_REVIEW|APPROVE|MATRIX_REVIEW_APPROVE|901|A.1|"));
+        assertEquals(8801L, result.getSignatureId());
+        assertEquals(900L, result.getControlledFileId());
+        assertEquals(901L, result.getRevisionId());
+        assertEquals("A.1", result.getVersionNo());
+        assertEquals("MATRIX_REVIEW_APPROVE", result.getMeaningCode());
+        assertEquals("NOT_APPLICABLE", result.getControlledCopyHashStatus());
+        assertEquals("VALID", result.getEvidenceStatus());
+        assertEquals("6f2c91ab03d4aabb", result.getEvidenceHash());
+        verify(signatureImageService).markReferenced(501L);
+        ArgumentCaptor<DccControlledFileSignatureDO> signatureCaptor =
+                ArgumentCaptor.forClass(DccControlledFileSignatureDO.class);
         verify(signatureMapper).insert(signatureCaptor.capture());
+        assertEquals(signatureCaptor.getValue().getSignedAt(), result.getSignedAt());
         assertEquals(900L, signatureCaptor.getValue().getControlledFileId());
         assertEquals(901L, signatureCaptor.getValue().getRevisionId());
-        assertEquals("A.1", signatureCaptor.getValue().getVersionNo());
         assertEquals("task-1", signatureCaptor.getValue().getTaskId());
         assertEquals(99L, signatureCaptor.getValue().getActorId());
-        assertEquals("auditor", signatureCaptor.getValue().getActorUsernameSnapshot());
-        assertEquals("审核员", signatureCaptor.getValue().getActorNicknameSnapshot());
-        assertEquals(20L, signatureCaptor.getValue().getActorDeptIdSnapshot());
-        assertEquals("质量部", signatureCaptor.getValue().getActorDeptNameSnapshot());
-        assertEquals("QA岗位", signatureCaptor.getValue().getActorPostNamesSnapshot());
-        assertEquals("质量审核员", signatureCaptor.getValue().getActorRoleNamesSnapshot());
-        assertEquals("MATRIX_REVIEW_APPROVE", signatureCaptor.getValue().getSignaturePurpose());
-        assertEquals("DCC电子签名授权启用；系统角色/岗位快照已记录", signatureCaptor.getValue().getAuthorizationBasis());
-        assertEquals("PASSWORD", signatureCaptor.getValue().getAuthenticationMethod());
-        assertEquals("A.1", signatureCaptor.getValue().getRecordVersionSnapshot());
-        assertEquals("0e7b12ca44fe", signatureCaptor.getValue().getRecordHashSnapshot());
-        assertEquals("CAPTURED", signatureCaptor.getValue().getSnapshotStatus());
         assertEquals("APPROVE", signatureCaptor.getValue().getActionType());
         assertEquals("MATRIX_REVIEW_APPROVE", signatureCaptor.getValue().getMeaningCode());
-        assertEquals("looks good", signatureCaptor.getValue().getComment());
-        assertTrue(Boolean.TRUE.equals(signatureCaptor.getValue().getPasswordVerified()));
-        assertEquals("0e7b12ca44fe", signatureCaptor.getValue().getSourceFileHash());
-        assertEquals(501L, signatureCaptor.getValue().getSignatureImageId());
-        assertEquals(3, signatureCaptor.getValue().getSignatureImageVersionNo());
-        assertEquals(1501L, signatureCaptor.getValue().getSignatureImageFileId());
-        assertEquals("image-sha256", signatureCaptor.getValue().getSignatureImageSha256());
-        assertEquals("VALID", signatureCaptor.getValue().getSignatureImageVerifiedStatus());
         assertEquals("VALID", signatureCaptor.getValue().getEvidenceStatus());
-        verify(signatureImageService).markReferenced(501L);
+        assertEquals("6f2c91ab03d4aabb", signatureCaptor.getValue().getEvidenceHash());
+        assertEquals("HMAC_SHA256", signatureCaptor.getValue().getEvidenceHashAlgorithm());
+        assertEquals("dcc-signature-2026-05", signatureCaptor.getValue().getEvidenceKeyVersion());
+    }
+
+    @Test
+    void verifyPasswordAndCreateSignature_normalizesSignedAtToDatabaseSecondPrecision() {
+        TenantContextHolder.setTenantId(1L);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L, "审核员"));
+        stubActorSnapshot(true);
+        when(signatureEvidenceService.createEvidence(
+                org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class)))
+                .thenReturn(signatureEvidence());
+        LocalDateTime clockValue = LocalDateTime.of(2026, 9, 7, 8, 15, 30, 987_654_321);
+        LocalDateTime unifiedSignedAt = LocalDateTime.of(2026, 9, 7, 8, 15, 31);
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7002L, unifiedSignedAt));
+
+        DccUnifiedSignatureResult result;
+        try (MockedStatic<LocalDateTime> clock = mockStatic(LocalDateTime.class)) {
+            clock.when(LocalDateTime::now).thenReturn(clockValue);
+            result = signatureVerificationService.verifyPasswordAndCreateSignature(99L, 900L, "task-db-precision",
+                    "MATRIX_REVIEW", "APPROVE", "secret", "looks good");
+        }
+
+        ArgumentCaptor<DccControlledFileSignatureEvidenceCreateReq> evidenceCaptor =
+                ArgumentCaptor.forClass(DccControlledFileSignatureEvidenceCreateReq.class);
+        verify(signatureEvidenceService).createEvidence(evidenceCaptor.capture());
+        LocalDateTime expectedDatabaseValue = clockValue.withNano(0);
+        assertEquals(expectedDatabaseValue, evidenceCaptor.getValue().getSignedAt());
+        assertEquals(expectedDatabaseValue, result.getSignedAt());
+    }
+
+    @Test
+    void verifyPasswordAndCreateSignature_blankApproveCommentIsRejectedBeforeEvidenceWrite() {
+        TenantContextHolder.setTenantId(1L);
+        assertServiceException(() -> signatureVerificationService.verifyPasswordAndCreateSignature(
+                        99L, 900L, "task-blank-approve", "MATRIX_REVIEW", "APPROVE", "secret", "   "),
+                CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED);
+        verify(signatureEvidenceService, never()).createEvidence(any());
+        verify(electronicSignatureService, never()).sign(any());
+        verify(signatureMapper, never()).insert(any(DccControlledFileSignatureDO.class));
     }
 
     @Test
     void verifyPasswordAndCreateSignature_derivesDistinctMeaningCodeFromStageAndAction() {
         TenantContextHolder.setTenantId(1L);
         when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L, "审核员"));
-        when(adminUserService.isPasswordMatch("secret", "encoded-password")).thenReturn(true);
         stubActorSnapshot(true);
         when(signatureEvidenceService.createEvidence(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class)))
                 .thenReturn(signatureEvidence());
-        when(signatureMapper.insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class))).thenReturn(1);
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7003L, LocalDateTime.of(2026, 9, 8, 10, 31, 0)));
 
         signatureVerificationService.verifyPasswordAndCreateSignature(99L, 900L, "task-review",
                 "MATRIX_REVIEW", "APPROVE", "secret", "review approved");
@@ -168,11 +231,11 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
     void verifyPasswordAndCreateSignature_applicantReworkApproveUsesApplicantReworkMeaningCode() {
         TenantContextHolder.setTenantId(1L);
         when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L, "申请人"));
-        when(adminUserService.isPasswordMatch("secret", "encoded-password")).thenReturn(true);
         stubActorSnapshot(true);
         when(signatureEvidenceService.createEvidence(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class)))
                 .thenReturn(signatureEvidence());
-        when(signatureMapper.insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class))).thenReturn(1);
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7004L, LocalDateTime.of(2026, 9, 8, 10, 32, 0)));
 
         signatureVerificationService.verifyPasswordAndCreateSignature(99L, 900L, "task-applicant",
                 "APPLICANT_REWORK", "APPROVE", "secret", "已修改，继续原流程");
@@ -183,22 +246,22 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
         assertEquals("APPROVED", evidenceCaptor.getValue().getTaskActionResult());
         assertEquals("APPLICANT_REWORK_APPROVE", evidenceCaptor.getValue().getMeaningCode());
 
-        ArgumentCaptor<DccControlledFileSignatureDO> signatureCaptor =
-                ArgumentCaptor.forClass(DccControlledFileSignatureDO.class);
-        verify(signatureMapper).insert(signatureCaptor.capture());
-        assertEquals("APPROVE", signatureCaptor.getValue().getActionType());
-        assertEquals("APPLICANT_REWORK_APPROVE", signatureCaptor.getValue().getMeaningCode());
+        ArgumentCaptor<ElectronicSignatureCommand> commandCaptor =
+                ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        verify(electronicSignatureService).sign(commandCaptor.capture());
+        assertEquals("APPROVE", commandCaptor.getValue().actionCode());
+        assertTrue(commandCaptor.getValue().idempotencyKey().contains("|APPLICANT_REWORK_APPROVE|"));
     }
 
     @Test
     void verifyPasswordAndCreateSignature_derivesDistributionReceiptMeaningCodeStrictly() {
         TenantContextHolder.setTenantId(1L);
         when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L, "审核员"));
-        when(adminUserService.isPasswordMatch("secret", "encoded-password")).thenReturn(true);
         stubActorSnapshot(true);
         when(signatureEvidenceService.createEvidence(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class)))
                 .thenReturn(signatureEvidence());
-        when(signatureMapper.insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class))).thenReturn(1);
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7005L, LocalDateTime.of(2026, 9, 8, 10, 33, 0)));
 
         signatureVerificationService.verifyPasswordAndCreateSignature(99L, 900L, "DISTRIBUTION:301:501",
                 "DISTRIBUTION", "DISTRIBUTION_ACK", "secret", "ack");
@@ -225,11 +288,11 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
                 .postIds(Set.of(30L))
                 .password("encoded-password")
                 .build());
-        when(adminUserService.isPasswordMatch("secret", "encoded-password")).thenReturn(true);
         stubActorSnapshot(false);
         when(signatureEvidenceService.createEvidence(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class)))
                 .thenReturn(signatureEvidence());
-        when(signatureMapper.insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class))).thenReturn(1);
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7006L, LocalDateTime.of(2026, 9, 8, 10, 34, 0)));
 
         signatureVerificationService.verifyPasswordAndCreateSignature(99L, 900L, "task-1",
                 "MATRIX_REVIEW", "APPROVE", "secret", "looks good");
@@ -243,80 +306,86 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
         assertEquals("QA岗位", evidenceCaptor.getValue().getSignerPostNames());
         assertEquals("质量审核员", evidenceCaptor.getValue().getSignerRoleNames());
 
-        ArgumentCaptor<DccControlledFileSignatureDO> signatureCaptor =
-                ArgumentCaptor.forClass(DccControlledFileSignatureDO.class);
-        verify(signatureMapper).insert(signatureCaptor.capture());
-        assertEquals(99L, signatureCaptor.getValue().getActorId());
-        assertNull(signatureCaptor.getValue().getActorDeptIdSnapshot());
-        assertEquals("VALID", signatureCaptor.getValue().getEvidenceStatus());
+        verify(electronicSignatureService).sign(any(ElectronicSignatureCommand.class));
     }
 
     @Test
     void verifyPasswordAndCreateSignature_wrongPassword_rejects() {
-        when(adminUserService.getUser(99L)).thenReturn(AdminUserDO.builder()
-                .id(99L)
-                .password("encoded-password")
-                .build());
-        when(adminUserService.isPasswordMatch("wrong", "encoded-password")).thenReturn(false);
+        TenantContextHolder.setTenantId(1L);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L, "审核员"));
+        stubActorSnapshot(true);
+        when(signatureEvidenceService.createEvidence(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class)))
+                .thenReturn(signatureEvidence());
+        doThrow(exception(USER_PASSWORD_FAILED))
+                .when(electronicSignatureService).sign(any(ElectronicSignatureCommand.class));
 
         assertServiceException(() -> signatureVerificationService.verifyPasswordAndCreateSignature(
                 99L, 900L, "task-1", "MATRIX_REVIEW", "APPROVE", "wrong", "no"),
-                CONTROLLED_FILE_TASK_PASSWORD_INVALID);
+                USER_PASSWORD_FAILED);
 
-        ArgumentCaptor<DccElectronicSignatureFailureAuditCommand> failureCaptor =
-                ArgumentCaptor.forClass(DccElectronicSignatureFailureAuditCommand.class);
-        verify(electronicSignatureFailureAuditService).recordPasswordFailure(failureCaptor.capture());
-        assertEquals(99L, failureCaptor.getValue().getTargetUserId());
-        assertEquals(900L, failureCaptor.getValue().getControlledFileId());
-        assertEquals(900L, failureCaptor.getValue().getRevisionId());
-        assertEquals("task-1", failureCaptor.getValue().getTaskId());
-        assertEquals("APPROVED", failureCaptor.getValue().getActionType());
-        assertEquals("MATRIX_REVIEW_APPROVE", failureCaptor.getValue().getMeaningCode());
-        assertEquals("password verification failed", failureCaptor.getValue().getFailureMessage());
+        verify(electronicSignatureService).sign(any(ElectronicSignatureCommand.class));
+        verify(electronicSignatureFailureAuditService, never()).recordPasswordFailure(
+                org.mockito.ArgumentMatchers.any(DccElectronicSignatureFailureAuditCommand.class));
         verify(signatureMapper, never()).insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class));
+        verify(signatureImageService, never()).markReferenced(501L);
+    }
+
+    @Test
+    void verifyPasswordAndCreateSignature_postRemovedBeforeSigningUsesDedicatedErrorAndHasNoEvidenceSideEffect() {
+        when(adminUserService.getUser(99L)).thenReturn(AdminUserDO.builder()
+                .id(99L)
+                .username("auditor")
+                .nickname("审核员")
+                .postIds(Set.of())
+                .password("encoded-password")
+                .build());
+
+        assertServiceException(() -> signatureVerificationService.verifyPasswordAndCreateSignature(
+                        99L, 900L, "task-1", "MATRIX_REVIEW", "APPROVE", "secret", "looks good"),
+                CONTROLLED_FILE_APPROVER_POST_REQUIRED);
+
+        verify(signatureImageService, never()).requireActiveSnapshot(99L);
         verify(signatureEvidenceService, never()).createEvidence(
                 org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class));
+        verify(signatureMapper, never()).insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class));
     }
 
     @Test
     void verifyPasswordAndCreateSignature_wrongPasswordThatReachesLockThreshold_usesLockedErrorCode() {
-        when(adminUserService.getUser(99L)).thenReturn(AdminUserDO.builder()
-                .id(99L)
-                .password("encoded-password")
-                .build());
-        when(adminUserService.isPasswordMatch("wrong", "encoded-password")).thenReturn(false);
-        when(electronicSignatureFailureAuditService.recordPasswordFailure(
-                org.mockito.ArgumentMatchers.any(DccElectronicSignatureFailureAuditCommand.class))).thenReturn(true);
+        TenantContextHolder.setTenantId(1L);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L, "审核员"));
+        stubActorSnapshot(true);
+        when(signatureEvidenceService.createEvidence(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class)))
+                .thenReturn(signatureEvidence());
+        doThrow(exception(CONTROLLED_FILE_SIGNATURE_LOCKED))
+                .when(electronicSignatureService).sign(any(ElectronicSignatureCommand.class));
 
         assertServiceException(() -> signatureVerificationService.verifyPasswordAndCreateSignature(
                 99L, 900L, "task-1", "MATRIX_REVIEW", "APPROVE", "wrong", "no"),
                 CONTROLLED_FILE_SIGNATURE_LOCKED);
 
-        ArgumentCaptor<DccElectronicSignatureFailureAuditCommand> failureCaptor =
-                ArgumentCaptor.forClass(DccElectronicSignatureFailureAuditCommand.class);
-        verify(electronicSignatureFailureAuditService).recordPasswordFailure(failureCaptor.capture());
-        assertEquals(99L, failureCaptor.getValue().getTargetUserId());
-        assertEquals(900L, failureCaptor.getValue().getControlledFileId());
-        assertEquals("APPROVED", failureCaptor.getValue().getActionType());
-        assertEquals("MATRIX_REVIEW_APPROVE", failureCaptor.getValue().getMeaningCode());
+        verify(electronicSignatureService).sign(any(ElectronicSignatureCommand.class));
+        verify(electronicSignatureFailureAuditService, never()).recordPasswordFailure(
+                org.mockito.ArgumentMatchers.any(DccElectronicSignatureFailureAuditCommand.class));
         verify(signatureMapper, never()).insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class));
-        verify(signatureEvidenceService, never()).createEvidence(
-                org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class));
+        verify(signatureImageService, never()).markReferenced(501L);
     }
 
     @Test
-    void verifyPasswordAndCreateSignature_insertFailure_isExplicit() {
+    void verifyPasswordAndCreateSignature_unifiedSignatureFailure_isExplicit() {
         TenantContextHolder.setTenantId(1L);
         when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L, "审核员"));
-        when(adminUserService.isPasswordMatch(eq("secret"), eq("encoded-password"))).thenReturn(true);
         stubActorSnapshot(true);
         when(signatureEvidenceService.createEvidence(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class)))
                 .thenReturn(signatureEvidence());
-        when(signatureMapper.insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class))).thenReturn(0);
+        doThrow(exception(CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED))
+                .when(electronicSignatureService).sign(any(ElectronicSignatureCommand.class));
 
         assertServiceException(() -> signatureVerificationService.verifyPasswordAndCreateSignature(
                 99L, 900L, "task-1", "DOC_CONTROL_APPROVAL", "REJECT", "secret", "fail"),
                 CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
+        verify(signatureMapper, never()).insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class));
+        verify(signatureImageService, never()).markReferenced(501L);
     }
 
     @Test
@@ -349,6 +418,11 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
                 org.mockito.ArgumentMatchers.any(DccElectronicSignatureFailureAuditCommand.class));
         verify(signatureEvidenceService, never()).createEvidence(
                 org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class));
+    }
+
+    private static ElectronicSignatureResult unifiedSignatureResult(Long signatureId, LocalDateTime signedAt) {
+        return new ElectronicSignatureResult(signatureId, "VALID", signedAt, "SERVER_CLOCK:" + signedAt,
+                "dcc-subject-version", "dcc-content-hash", "unified-evidence-hash", "SHA-256", "system-local-v1");
     }
 
     private static DccControlledFileSignatureEvidence signatureEvidence() {

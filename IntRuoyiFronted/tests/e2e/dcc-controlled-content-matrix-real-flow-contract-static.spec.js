@@ -17,20 +17,22 @@ function escapeRegExp(value) {
 const packageJson = JSON.parse(read('package.json'))
 const flowScript = read('tests/e2e/dcc-controlled-content-matrix-real-flow.e2e.js')
 const normalizedFlowScript = flowScript.replace(/\\/g, '/')
-const buildScenarioArtifactBody = flowScript.match(
+const inspectableFlowScript = flowScript.replace(/\r\n/g, '\n')
+const buildScenarioArtifactBody = inspectableFlowScript.match(
   /function buildScenarioArtifact\(scenario, preflight\) \{[\s\S]*?\n\}\n\nasync function main/
 )?.[0]
-const loginBody = flowScript.match(/async function login\(page, actor = \{}, targetPath = ['"`]\/dcc\/controlled-file\/upload['"`]\) \{[\s\S]*?\n\}\n\nasync function readBrowserCache/)?.[0]
-const openDetailPageBody = flowScript.match(/async function openDetailPage\(page, controlledFileId\) \{[\s\S]*?\n\}/)?.[0]
-const selectDccProjectThroughUiBody = flowScript.match(/async function selectDccProjectThroughUi\(page, scenario\) \{[\s\S]*?\n\}/)?.[0]
-const selectFileTypeTaxonomyThroughUiBody = flowScript.match(/async function selectFileTypeTaxonomyThroughUi\(page, scenario\) \{[\s\S]*?\n\}/)?.[0]
-const selectProductMasterThroughUiBody = flowScript.match(/async function selectProductMasterThroughUi\(page, scenario\) \{[\s\S]*?\n\}/)?.[0]
-const submitControlledFileThroughUiBody = flowScript.match(/async function submitControlledFileThroughUi\(page, scenario, runId, options = \{}\) \{[\s\S]*?\n\}/)?.[0]
-const createReleasedControlledFileThroughUiBody = flowScript.match(/async function createReleasedControlledFileThroughUi\(browser, scenario, preflight, runId, suffix\) \{[\s\S]*?\n\}/)?.[0]
-const approveCurrentStageThroughUiBody = flowScript.match(/async function approveCurrentStageThroughUi\(browser, scenario, controlledFileId, actor, stageIndex, stageCount, options = \{}\) \{[\s\S]*?\n\}/)?.[0]
-const approveAllStagesThroughUiBody = flowScript.match(/async function approveAllStagesThroughUi\(browser, page, scenario, controlledFileId, activeRoute\) \{[\s\S]*?\n\}/)?.[0]
-const runObsoleteFullFlowBody = flowScript.match(/async function runObsoleteFullFlow\(browser, scenario, preflight\) \{[\s\S]*?\n\}\n\nfunction assertObsoleteTerminalState/)?.[0]
-const browserActiveCountBody = flowScript.match(/async function browserActiveCount\(page, scenario, fileNumber = null\) \{[\s\S]*?\n\}/)?.[0]
+const loginBody = inspectableFlowScript.match(/async function login\(page, actor = \{}, targetPath = ['"`]\/dcc\/controlled-file\/upload['"`]\) \{[\s\S]*?\n\}\n\nasync function readBrowserCache/)?.[0]
+const openDetailPageBody = inspectableFlowScript.match(/async function openDetailPage\(page, controlledFileId\) \{[\s\S]*?\n\}/)?.[0]
+const selectDccProjectThroughUiBody = inspectableFlowScript.match(/async function selectDccProjectThroughUi\(page, scenario\) \{[\s\S]*?\n\}/)?.[0]
+const selectFileTypeTaxonomyThroughUiBody = inspectableFlowScript.match(/async function selectFileTypeTaxonomyThroughUi\(page, scenario\) \{[\s\S]*?\n\}/)?.[0]
+const selectProductMasterThroughUiBody = inspectableFlowScript.match(/async function selectProductMasterThroughUi\(page, scenario\) \{[\s\S]*?\n\}/)?.[0]
+const submitControlledFileThroughUiBody = inspectableFlowScript.match(/async function submitControlledFileThroughUi\(page, scenario, runId, options = \{}\) \{[\s\S]*?\n\}/)?.[0]
+const createReleasedControlledFileThroughUiBody = inspectableFlowScript.match(/async function createReleasedControlledFileThroughUi\(browser, scenario, preflight, runId, suffix\) \{[\s\S]*?\n\}/)?.[0]
+const approveCurrentStageThroughUiBody = inspectableFlowScript.match(/async function approveCurrentStageThroughUi\(browser, scenario, controlledFileId, actor, stageIndex, stageCount, options = \{}\) \{[\s\S]*?\n\}/)?.[0]
+const approveAllStagesThroughUiBody = inspectableFlowScript.match(/async function approveAllStagesThroughUi\(browser, page, scenario, controlledFileId, activeRoute\) \{[\s\S]*?\n\}/)?.[0]
+const runObsoleteFullFlowBody = inspectableFlowScript.match(/async function runObsoleteFullFlow\(browser, scenario, preflight\) \{[\s\S]*?\n\}\n\nfunction assertObsoleteTerminalState/)?.[0]
+const browserActiveCountBody = inspectableFlowScript.match(/async function browserActiveCount\(page, scenario, fileNumber = null\) \{[\s\S]*?\n\}/)?.[0]
+const collectScenarioPreflightBody = inspectableFlowScript.match(/async function collectScenarioPreflight\(page, scenario, submitterProfile\) \{[\s\S]*?\n\}\n\nfunction buildScenarioArtifact/)?.[0]
 
 assert.ok(buildScenarioArtifactBody, 'buildScenarioArtifact must remain inspectable by the DCC matrix static contract.')
 assert.ok(loginBody, 'login helper must remain inspectable by the DCC matrix static contract.')
@@ -44,6 +46,7 @@ assert.ok(approveCurrentStageThroughUiBody, 'approveCurrentStageThroughUi must r
 assert.ok(approveAllStagesThroughUiBody, 'approveAllStagesThroughUi must remain inspectable by the DCC matrix static contract.')
 assert.ok(runObsoleteFullFlowBody, 'runObsoleteFullFlow must remain inspectable by the DCC matrix static contract.')
 assert.ok(browserActiveCountBody, 'browserActiveCount must remain inspectable by the DCC matrix static contract.')
+assert.ok(collectScenarioPreflightBody, 'collectScenarioPreflight must remain inspectable by the DCC matrix static contract.')
 
 assert.equal(
   packageJson.scripts['e2e:controlled-content:dcc-matrix:real'],
@@ -366,8 +369,20 @@ assert.match(
 
 assert.match(
   submitControlledFileThroughUiBody,
-  /selectDccProjectThroughUi\(page,\s*scenario\)[\s\S]*selectFileTypeTaxonomyThroughUi\(page,\s*scenario\)[\s\S]*selectOptionByFormLabel\(page,\s*['"`]文件类别['"`],\s*scenario\.categoryName\)/,
-  'DCC submit helper must select DCC project, file type taxonomy, and file category before submitting.'
+  /selectDccProjectThroughUi\(page,\s*scenario\)[\s\S]*selectFileTypeTaxonomyThroughUi\(page,\s*scenario\)[\s\S]*getByTestId\(['"`]dcc-upload-category-leaf-display['"`]\)/,
+  'DCC submit helper must select the project and taxonomy, then wait for the page to auto-bind the formal file category.'
+)
+
+assert.match(
+  collectScenarioPreflightBody,
+  /lifecycleStage[\s\S]*fileTypeTaxonomyId[\s\S]*DCC category has no formal file type taxonomy binding/,
+  'DCC full-flow preflight must reject a standard category that cannot be selected through the taxonomy-bound upload UI.'
+)
+
+assert.doesNotMatch(
+  submitControlledFileThroughUiBody,
+  /selectOptionByFormLabel\(page,\s*['"`]文件类别['"`]/,
+  'DCC submit helper must not click the read-only file-category projection after taxonomy selection.'
 )
 
 assert.match(
@@ -378,8 +393,14 @@ assert.match(
 
 assert.match(
   selectFileTypeTaxonomyThroughUiBody,
-  /buildFileTypeTaxonomyPath\(rows\)[\s\S]*locator\(['"`]\.el-cascader-node:visible['"`]\)[\s\S]*pathRows\.length/,
+  /buildFileTypeTaxonomyPath\(rows,\s*targetTaxonomyId\)[\s\S]*locator\(['"`]\.el-cascader-node:visible['"`]\)[\s\S]*pathRows\.length/,
   'DCC file type taxonomy selection must use a real active 3-level cascader path through the visible UI.'
+)
+
+assert.match(
+  selectFileTypeTaxonomyThroughUiBody,
+  /apiGet\(page,\s*['"`]\/dcc\/file-categories['"`]\)[\s\S]*scenario\.categoryId[\s\S]*fileTypeTaxonomyId/,
+  'DCC taxonomy selection must target the taxonomy leaf formally bound to the selected scenario category.'
 )
 
 assert.match(

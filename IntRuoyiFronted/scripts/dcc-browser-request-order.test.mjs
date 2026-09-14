@@ -17,8 +17,10 @@ const setup = () => {
   const context = {
     isCurrentDirectorySearch: { value: true }, selectedDirectoryId: { value: 1 },
     list: { value: [] }, total: { value: 0 }, loading: { value: false },
-    listLoadErrorMessage: { value: '' }, route: { path: '/dcc/browser' },
+    browserListErrorMessage: { value: '' }, route: { path: '/dcc/browser' },
     page: 1, tenant: 1,
+    buildBrowserRouteStateKey: () => String(context.page),
+    markBrowserListLoadedForState: () => {}, clearBrowserLoadedListState: () => {},
     buildBrowserRequestParams: () => ({ directoryId: context.selectedDirectoryId.value, pageNo: context.page }),
     getBrowserCacheContext: () => ({ tenantId: context.tenant, userId: 1 }),
     getControlledFileBrowserPage: () => { const d = deferred(); requests.push(d); return d.promise },
@@ -45,7 +47,7 @@ for (const staleFails of [false, true]) {
     assert.equal(c.list.value[0].id, 'B')
     assert.equal(c.list.value[0].canPreview, true)
     assert.equal(c.total.value, 2)
-    assert.equal(c.listLoadErrorMessage.value, '')
+    assert.equal(c.browserListErrorMessage.value, '')
     assert.equal(c.loading.value, false)
   })
 }
@@ -76,7 +78,7 @@ test('current failure remains visible and rejects, without stale rows', async ()
   const a = c.getList(); requests[0].reject(new Error('current failed'))
   await assert.rejects(a, /current failed/)
   assert.equal(c.list.value.length, 0)
-  assert.equal(c.listLoadErrorMessage.value, 'current failed')
+  assert.equal(c.browserListErrorMessage.value, 'current failed')
   assert.equal(c.loading.value, false)
 })
 
@@ -111,7 +113,7 @@ test('old tenant directory tree cannot replace new tenant cache', async () => {
     applyDirectoryTree: x => { c.directories.value = x }, persistBrowserMetadataCache: () => {}
   }
   vm.createContext(c)
-  vm.runInContext(`let directoryLoadSequence = 0; globalThis.load = async () => {${directoryBody}}`, c)
+  vm.runInContext(`let directoryLoadSequence = 0; let browserDirectoriesLoaded = false; globalThis.load = async () => {${directoryBody}}`, c)
   const request = c.load(); c.tenant = 2; d.resolve([{ id: 1 }]); await request
   assert.equal(c.directories.value.length, 0)
 })

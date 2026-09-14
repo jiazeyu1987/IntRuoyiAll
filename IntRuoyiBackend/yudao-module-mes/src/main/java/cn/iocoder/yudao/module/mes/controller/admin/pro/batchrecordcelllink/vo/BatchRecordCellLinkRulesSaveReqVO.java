@@ -13,6 +13,7 @@ public class BatchRecordCellLinkRulesSaveReqVO {
     private String scopeType;
     private Long scopeId;
     private Long routeId;
+    private Long routeProcessId;
     private Long batchRecordDefinitionId;
     private Long batchRecordVersionId;
     @Valid

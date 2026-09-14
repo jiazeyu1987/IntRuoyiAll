@@ -1,0 +1,321 @@
+package cn.iocoder.yudao.module.mes.service.pro.processpool;
+
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDiffDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionDiffMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureResult;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_CHANGE_REASON_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_FIFO_LOCK_STATUS_UNKNOWN;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_SIGNATURE_DUPLICATE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_SIGNATURE_REUSED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH;
+
+@Service
+@Validated
+public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEventRevisionService {
+
+    private static final String REVISION_REASON_CATEGORY = "PROCESS_POOL_EVENT_REVISION";
+
+    private final MesProProcessPoolEventMapper eventMapper;
+    private final MesProProcessPoolEventRevisionMapper revisionMapper;
+    private final MesProProcessPoolEventRevisionDiffMapper revisionDiffMapper;
+    private final MesProcessPoolFifoAllocationService fifoAllocationService;
+    private final MesProcessPoolSubmissionReviewMapper submissionReviewMapper;
+    private final MesProBatchRecordExecutionSignatureService signatureService;
+
+    public MesProcessPoolEventRevisionServiceImpl(MesProProcessPoolEventMapper eventMapper,
+                                                  MesProProcessPoolEventRevisionMapper revisionMapper,
+                                                  MesProProcessPoolEventRevisionDiffMapper revisionDiffMapper,
+                                                  MesProcessPoolFifoAllocationService fifoAllocationService,
+                                                  MesProcessPoolSubmissionReviewMapper submissionReviewMapper,
+                                                  MesProBatchRecordExecutionSignatureService signatureService) {
+        this.eventMapper = eventMapper;
+        this.revisionMapper = revisionMapper;
+        this.revisionDiffMapper = revisionDiffMapper;
+        this.fifoAllocationService = fifoAllocationService;
+        this.submissionReviewMapper = submissionReviewMapper;
+        this.signatureService = signatureService;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long updateOriginalRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+        return updateRecord(reqBO, RevisionPolicy.REJECTED_REVIEW_REQUIRED, true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long updateProductionReportRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+        return updateRecord(reqBO, RevisionPolicy.PRODUCTION_REPORT_CORRECTION, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long updatePqcInspectionRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+        return updateRecord(reqBO, RevisionPolicy.PQC_INSPECTION_CORRECTION, false);
+    }
+
+    private Long updateRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO, RevisionPolicy revisionPolicy,
+                              boolean generateSignature) {
+        validateRequest(reqBO);
+        MesProProcessPoolEventDO event = eventMapper.selectByIdForUpdate(reqBO.getEventId());
+        if (event == null) {
+            throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, reqBO.getEventId());
+        }
+        validateJsonPayload(event.getRawPayload(), "rawPayload");
+        validateRevisionPolicy(event, revisionPolicy);
+        validateDiffAndFifoLocks(reqBO);
+        RevisionSignatureEvidence signature = generateSignature
+                ? recordRevisionSignature(reqBO, event)
+                : validateProvidedSignature(reqBO, event);
+
+        LocalDateTime serverRevisionTime = signature.signedAt() == null ? LocalDateTime.now() : signature.signedAt();
+        MesProProcessPoolEventRevisionDO revision = MesProProcessPoolEventRevisionDO.builder()
+                .eventId(event.getId())
+                .poolId(event.getPoolId())
+                .workOrderId(event.getWorkOrderId())
+                .routeId(event.getRouteId())
+                .routeProcessId(event.getRouteProcessId())
+                .processId(event.getProcessId())
+                .beforePayload(event.getRawPayload())
+                .afterPayload(reqBO.getAfterPayload())
+                .changeReason(reqBO.getChangeReason().trim())
+                .revisionSignatureId(signature.signatureId())
+                .revisionSignatureUserId(signature.actorId())
+                .revisionSignatureSnapshot(signature.snapshotJson())
+                .modifiedByUserId(signature.actorId())
+                .serverRevisionTime(serverRevisionTime)
+                .revisionStatus(MesProProcessPoolEventRevisionDO.STATUS_EFFECTIVE)
+                .build();
+        revisionMapper.insert(revision);
+
+        for (MesProcessPoolEventRevisionFieldChangeBO field : reqBO.getChangedFields()) {
+            revisionDiffMapper.insert(toDiffDO(revision.getId(), event.getId(), field));
+        }
+
+        eventMapper.updateById(new MesProProcessPoolEventDO()
+                .setId(event.getId())
+                .setRawPayload(reqBO.getAfterPayload()));
+        return revision.getId();
+    }
+
+    private void validateRevisionPolicy(MesProProcessPoolEventDO event, RevisionPolicy revisionPolicy) {
+        if (RevisionPolicy.REJECTED_REVIEW_REQUIRED.equals(revisionPolicy)) {
+            validateLatestRejectedReview(event.getId());
+            return;
+        }
+        if (RevisionPolicy.PRODUCTION_REPORT_CORRECTION.equals(revisionPolicy)) {
+            validateProductionReportCorrection(event);
+            return;
+        }
+        if (!MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionEvent");
+        }
+    }
+
+    private void validateProductionReportCorrection(MesProProcessPoolEventDO event) {
+        if (!MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionSubmitEvent");
+        }
+    }
+
+    private void validateRequest(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+        if (reqBO == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "revisionRequest");
+        }
+        requirePositive(reqBO.getEventId(), "eventId");
+        if (StrUtil.isBlank(reqBO.getAfterPayload())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "afterPayload");
+        }
+        validateJsonPayload(reqBO.getAfterPayload(), "afterPayload");
+        if (StrUtil.isBlank(reqBO.getChangeReason())) {
+            throw exception(PRO_PROCESS_POOL_REVISION_CHANGE_REASON_REQUIRED);
+        }
+        if (CollUtil.isEmpty(reqBO.getChangedFields())) {
+            throw exception(PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED);
+        }
+    }
+
+    private void validateLatestRejectedReview(Long eventId) {
+        MesProcessPoolSubmissionReviewDO latestReview =
+                submissionReviewMapper.selectLatestByEventIdForUpdate(eventId);
+        if (latestReview == null
+                || !MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(latestReview.getReviewStatus())) {
+            throw exception(PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED,
+                    eventId, latestReview == null ? "MISSING" : latestReview.getReviewStatus());
+        }
+    }
+
+    private RevisionSignatureEvidence recordRevisionSignature(MesProcessPoolEventRevisionUpdateReqBO reqBO,
+                                                              MesProProcessPoolEventDO event) {
+        requirePositive(reqBO.getModifiedByUserId(), "modifiedByUserId");
+        if (StrUtil.isBlank(reqBO.getSignaturePassword())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "signaturePassword");
+        }
+        MesProBatchRecordExecutionFieldAuditSignatureResult signature =
+                signatureService.recordFieldChangeSignature(
+                        new MesProBatchRecordExecutionFieldAuditSignatureCommand()
+                                .setExecutionId(0L)
+                                .setPassword(reqBO.getSignaturePassword())
+                                .setReasonCategory(REVISION_REASON_CATEGORY)
+                                .setReasonText(reqBO.getChangeReason().trim())
+                                .setSignatureChallengeHash(revisionChallengeHash(event, reqBO)));
+        if (signature == null || signature.getSignatureId() == null || signature.getSignatureId() <= 0
+                || signature.getActorId() == null || signature.getActorId() <= 0
+                || signature.getSignedAt() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "revisionSignature");
+        }
+        if (!Objects.equals(signature.getActorId(), reqBO.getModifiedByUserId())) {
+            throw exception(PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH);
+        }
+        validateSignatureUniqueness(signature.getSignatureId(), event);
+        return new RevisionSignatureEvidence(signature.getSignatureId(), signature.getActorId(),
+                JsonUtils.toJsonString(signature), signature.getSignedAt());
+    }
+
+    private RevisionSignatureEvidence validateProvidedSignature(MesProcessPoolEventRevisionUpdateReqBO reqBO,
+                                                                MesProProcessPoolEventDO event) {
+        requirePositive(reqBO.getRevisionSignatureId(), "revisionSignatureId");
+        requirePositive(reqBO.getRevisionSignatureUserId(), "revisionSignatureUserId");
+        if (StrUtil.isBlank(reqBO.getRevisionSignatureSnapshot())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "revisionSignatureSnapshot");
+        }
+        validateJsonPayload(reqBO.getRevisionSignatureSnapshot(), "revisionSignatureSnapshot");
+        requirePositive(reqBO.getModifiedByUserId(), "modifiedByUserId");
+        if (!Objects.equals(reqBO.getRevisionSignatureUserId(), reqBO.getModifiedByUserId())) {
+            throw exception(PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH);
+        }
+        validateSignatureUniqueness(reqBO.getRevisionSignatureId(), event);
+        return new RevisionSignatureEvidence(reqBO.getRevisionSignatureId(), reqBO.getRevisionSignatureUserId(),
+                reqBO.getRevisionSignatureSnapshot(), null);
+    }
+
+    private void validateSignatureUniqueness(Long signatureId, MesProProcessPoolEventDO event) {
+        if (Objects.equals(signatureId, event.getSignatureId())) {
+            throw exception(PRO_PROCESS_POOL_REVISION_SIGNATURE_REUSED);
+        }
+        if (eventMapper.selectBySignatureId(signatureId) != null
+                || revisionMapper.selectBySignatureId(signatureId) != null) {
+            throw exception(PRO_PROCESS_POOL_REVISION_SIGNATURE_DUPLICATE, signatureId);
+        }
+    }
+
+    private String revisionChallengeHash(MesProProcessPoolEventDO event, MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+        return MesProBatchRecordExecutionFieldAuditHasher.sha256(String.join("|",
+                REVISION_REASON_CATEGORY,
+                value(event.getTenantId()),
+                value(event.getId()),
+                value(event.getPoolId()),
+                value(event.getWorkOrderId()),
+                value(event.getRouteId()),
+                value(event.getRouteProcessId()),
+                value(event.getProcessId()),
+                value(event.getRawPayload()),
+                value(reqBO.getAfterPayload()),
+                value(reqBO.getChangeReason().trim()),
+                JsonUtils.toJsonString(reqBO.getChangedFields())));
+    }
+
+    private void validateDiffAndFifoLocks(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+        for (MesProcessPoolEventRevisionFieldChangeBO field : reqBO.getChangedFields()) {
+            validateFieldDiff(field);
+            if (Boolean.TRUE.equals(field.getAffectsQuantityFragment())) {
+                if (field.getSourceQuantityFragmentId() == null || field.getOriginalField() == null) {
+                    throw exception(PRO_PROCESS_POOL_REVISION_FIFO_LOCK_STATUS_UNKNOWN,
+                            field.getFieldCode());
+                }
+                fifoAllocationService.validateOriginalFieldMutationAllowed(
+                        field.getSourceQuantityFragmentId(), field.getOriginalField());
+            }
+        }
+    }
+
+    private void validateFieldDiff(MesProcessPoolEventRevisionFieldChangeBO field) {
+        if (field == null || StrUtil.isBlank(field.getFieldCode()) || StrUtil.isBlank(field.getFieldName())
+                || field.getAffectsQuantityFragment() == null || field.getOriginalField() == null
+                || Objects.equals(field.getBeforeValue(), field.getAfterValue())) {
+            throw exception(PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED);
+        }
+    }
+
+    private MesProProcessPoolEventRevisionDiffDO toDiffDO(Long revisionId, Long eventId,
+                                                          MesProcessPoolEventRevisionFieldChangeBO field) {
+        return MesProProcessPoolEventRevisionDiffDO.builder()
+                .revisionId(revisionId)
+                .eventId(eventId)
+                .fieldCode(field.getFieldCode())
+                .fieldName(field.getFieldName())
+                .beforeValue(field.getBeforeValue())
+                .afterValue(field.getAfterValue())
+                .affectsQuantityFragment(Boolean.TRUE.equals(field.getAffectsQuantityFragment()))
+                .sourceQuantityFragmentId(field.getSourceQuantityFragmentId())
+                .originalFieldCode(field.getOriginalField().name())
+                .originalFieldName(toOriginalFieldName(field.getOriginalField()))
+                .build();
+    }
+
+    private String toOriginalFieldName(MesProcessPoolFragmentOriginalField field) {
+        return switch (field) {
+            case OUTPUT_QUANTITY -> "输出数量";
+            case LOSS_QUANTITY -> "损耗数量";
+            case DEVICE_PARAMETERS -> "设备参数";
+            case QUALITY_STATUS -> "质量状态";
+            case ALLOCATABLE_STATUS -> "可分配状态";
+            case REMARK -> "备注";
+        };
+    }
+
+    private void requirePositive(Long value, String fieldName) {
+        if (value == null || value <= 0) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, fieldName);
+        }
+    }
+
+    private void validateJsonPayload(String payload, String fieldName) {
+        if (StrUtil.isBlank(payload)) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, fieldName);
+        }
+        try {
+            JsonUtils.parseTree(payload);
+        } catch (RuntimeException ex) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, fieldName);
+        }
+    }
+
+    private String value(Object value) {
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    private record RevisionSignatureEvidence(Long signatureId, Long actorId, String snapshotJson,
+                                             LocalDateTime signedAt) {
+    }
+
+    private enum RevisionPolicy {
+        REJECTED_REVIEW_REQUIRED,
+        PRODUCTION_REPORT_CORRECTION,
+        PQC_INSPECTION_CORRECTION
+    }
+}

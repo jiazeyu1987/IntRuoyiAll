@@ -123,6 +123,8 @@ public interface MesProWorkOrderService {
      */
     void finishWorkOrder(Long id);
 
+    void finishWorkOrderForRelease(Long id, Long releaseDecisionId, Long actorUserId);
+
     /**
      * 取消工单
      *

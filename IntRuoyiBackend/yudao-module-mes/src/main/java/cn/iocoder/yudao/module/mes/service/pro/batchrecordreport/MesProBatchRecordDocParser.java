@@ -32,6 +32,8 @@ import java.lang.reflect.Constructor;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -42,6 +44,14 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 public class MesProBatchRecordDocParser {
 
     private static final Pattern LAST_INTEGER_PATTERN = Pattern.compile("\\d+");
+
+    public List<MesProBatchRecordParsedTable> parseWord(byte[] bytes, String sourceFileName) {
+        return isDocxSource(bytes, sourceFileName) ? parseDocx(bytes) : parse(bytes);
+    }
+
+    public MesProBatchRecordDocumentFrame extractWordDocumentFrame(byte[] bytes, String sourceFileName) {
+        return isDocxSource(bytes, sourceFileName) ? extractDocxDocumentFrame(bytes) : extractDocumentFrame(bytes);
+    }
 
     public List<MesProBatchRecordParsedTable> parse(byte[] bytes) {
         try (HWPFDocument document = new HWPFDocument(new ByteArrayInputStream(bytes))) {
@@ -102,6 +112,26 @@ public class MesProBatchRecordDocParser {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
                     ex.getMessage());
         }
+    }
+
+    private boolean isDocxSource(byte[] bytes, String sourceFileName) {
+        String lowerFileName = Objects.toString(sourceFileName, "").trim().toLowerCase(Locale.ROOT);
+        if (lowerFileName.endsWith(".docx")) {
+            return true;
+        }
+        if (lowerFileName.endsWith(".doc")) {
+            return false;
+        }
+        return hasZipPackageHeader(bytes);
+    }
+
+    private boolean hasZipPackageHeader(byte[] bytes) {
+        return bytes != null
+                && bytes.length >= 4
+                && bytes[0] == 0x50
+                && bytes[1] == 0x4B
+                && bytes[2] == 0x03
+                && bytes[3] == 0x04;
     }
 
     public MesProBatchRecordDocumentFrame extractDocxDocumentFrame(byte[] bytes) {
@@ -427,7 +457,54 @@ public class MesProBatchRecordDocParser {
             }
         }
         String text = builder.toString();
+        String nestedTableText = resolveDocxNestedTableText(cell);
+        if (!nestedTableText.isBlank()) {
+            text = text.isBlank() ? nestedTableText : text + "\n" + nestedTableText;
+        }
         return text.isBlank() ? cell.getText() : text;
+    }
+
+    private String resolveDocxNestedTableText(XWPFTableCell cell) {
+        if (cell == null || cell.getTables() == null || cell.getTables().isEmpty()) {
+            return "";
+        }
+        List<String> lines = new ArrayList<>();
+        for (XWPFTable nestedTable : cell.getTables()) {
+            if (nestedTable == null || nestedTable.getRows() == null) {
+                continue;
+            }
+            for (XWPFTableRow nestedRow : nestedTable.getRows()) {
+                List<String> values = new ArrayList<>();
+                for (XWPFTableCell nestedCell : nestedRow.getTableCells()) {
+                    values.add(resolveDocxOwnCellText(nestedCell));
+                }
+                String line = String.join("\t", values).trim();
+                if (!line.isBlank()) {
+                    lines.add(line);
+                }
+            }
+        }
+        return String.join("\n", lines);
+    }
+
+    private String resolveDocxOwnCellText(XWPFTableCell cell) {
+        if (cell == null || cell.getParagraphs() == null || cell.getParagraphs().isEmpty()) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (XWPFParagraph paragraph : cell.getParagraphs()) {
+            if (builder.length() > 0) {
+                builder.append('\n');
+            }
+            if (paragraph == null || paragraph.getRuns().isEmpty()) {
+                builder.append(paragraph == null ? "" : paragraph.getText());
+                continue;
+            }
+            for (XWPFRun run : paragraph.getRuns()) {
+                builder.append(resolveDocxRunText(run));
+            }
+        }
+        return builder.toString().trim();
     }
 
     private String resolveDocxRunText(XWPFRun run) {

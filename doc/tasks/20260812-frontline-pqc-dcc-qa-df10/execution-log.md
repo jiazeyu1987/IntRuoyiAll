@@ -1,0 +1,32 @@
+# Execution Log
+
+## 2026-08-13 DF10 kickoff
+
+- User intent: 完成 DF10 Backend process page projection，只在授权范围内修改一线 PQC context service / response VO / context service test 和 DF10 任务文档。
+- Rules read: root/worktree AGENTS.md, task-closeout-rules.md, backend-development.md, powershell-encoding.md, worktree-restrictions.md, branch-runtime-ports.md, powershell-memory.md, backend-api-delivery SKILL.md, backend contract reference, delivery supervision DF10 dev/test/prd sections.
+- Experience gate: docs/experience-index.md exists; matched PQC process projection, Maven PowerShell, and backend API evidence gates copied into task.md.
+- BDD: DF10 process projection includes locked QA processes -> Given an active order has locked MES_QA/PUBLISHED regulation processes and QA items, When listProcessesByActiveOrder(activeOrderId) is requested, Then every locked QA process is returned with dedicated MesFrontlinePqcProcessRespVO item details and no production-route response model changes.
+- BDD: DF10 task overlay does not filter QA processes -> Given a locked QA process has no existing PQC task and another process has FIRST/PATROL task options, When the projection is assembled, Then task state is NOT_CREATED for absent tasks and task options are attached without filtering or fabricating QA processes.
+- BDD: DF10 avoids forbidden current QA and route validation -> Given an active order already stores the QA regulation version snapshot, When the process page projection runs, Then it uses locked snapshot readers and does not call management current-QA lookup, product/material/routeProcess QA inference, or QA-vs-MES route-process existence validation.
+- BDD: DF10 production candidates belong to the selected active order -> Given production submit events include snapshot-backed and non-backed MES processes, When the PQC projection is assembled, Then only events backed by activeOrderId + routeProcessId + processId are returned in descending submit-time order, without relating any QA process to an MES process.
+- BDD: DF10 response preserves section 2 contract fields -> Given a locked QA version contains inspection type rules and published QA item metadata, When the active-order process page projection is assembled, Then each QA process returns inspectionTypeRules, taskSummary, ordered PqcTaskOption rule metadata, and full published inspection item fields.
+- BDD: DF10 invalid null task row fails fast -> Given/When/Then: Given the task mapper returns an invalid null task row for the selected active order; When the active-order process projection validates task overlay rows; Then it returns the formal task-identity ServiceException instead of throwing NullPointerException.
+- RED: independent-test-report.md -> FAIL, mandatory productionSubmitCandidates contract and multi-rule overlay ordering were absent from the projection evidence.
+- RED: independent-test-report.md -> FAIL, section 2 response contract fields inspectionTypeRules, taskSummary, task option ruleSort/inspectionTypeRule, and complete published item fields were absent from the projection evidence.
+- RED: mvn -pl yudao-module-mes -am "-DskipITs" "-Dtest=MesFrontlinePqcContextServiceTest#listProcessesByActiveOrderIdRejectsNullTaskRecordWithServiceException" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, null task row produced NullPointerException from pqcTaskIdentityText(null) instead of the formal task identity ServiceException.
+- GREEN: mvn -pl yudao-module-mes -am "-DskipITs" "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 5 tests / 0 failures / 0 errors; candidate inclusion, exclusion, descending ordering, shared response projection, single batched mapper reads, FIRST/PATROL_AM/PATROL_PM/FINAL ordering, section 2 response fields, and null task fast-fail are asserted. Final passing Surefire report timestamp: 2026-08-13 16:02:55.
+- GREEN: python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260812-frontline-pqc-dcc-qa-df10\backend-api-evidence.md -> PASS.
+- GREEN: git diff --check -> PASS; only LF-to-CRLF advisory warnings.
+- GREEN: production added-line forbidden scan -> PASS; routeProcessId occurrences are limited to active-order production candidate ownership and do not relate QA processes to MES processes.
+- Review note: removed the pre-existing compatibility-only acceptanceStandard/processInspectionMethod aliases from the new dedicated response; the runtime item contract now follows the published QA item field names directly.
+
+## 2026-08-14 DF10 round-3 regression fix
+
+- BDD: locked QA aggregate is owned by QA service -> Given an active order locks DCC project, QA regulation and QA version IDs, When the frontline PQC process list is read, Then MesQaInspectionRegulationService returns the complete PUBLISHED/RETIRED aggregate and the frontline service does not rebuild it from regulation/version/process/item mappers.
+- BDD: canonical dedicated item contract compiles -> Given the dedicated PQC item contains canonical standardText and inspectionMethod only, When the module is compiled, Then the dedicated converter writes only those fields while the production-route response contract remains unchanged.
+- RED: target Maven command -> FAIL at 2026-08-14 01:18:41, dedicated converter referenced removed acceptanceStandard/processInspectionMethod setters and the partial locked aggregate patch had missing imports.
+- RED: target Maven command -> FAIL at 2026-08-14 01:48:12, one remaining aggregate accessor used processes() instead of getProcesses().
+- GREEN: mvn -pl yudao-module-mes -am "-DskipITs" "-Dtest=MesFrontlinePqcContextServiceTest,MesQaInspectionRegulationServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS at 2026-08-14 01:57:19, 18 tests / 0 failures / 0 errors / 0 skipped.
+- GREEN: QA service regression coverage proves RETIRED locked versions are readable with a disabled DCC status and returns complete process/item aggregate; draft or mismatched identities fail fast.
+- GREEN: frontline context regression coverage verifies the three active-order locked IDs are passed to getLockedVersionForOrder and direct regulation/version/process/item mapper calls are absent from the activeOrder projection.
+- GREEN: backend-api evidence validator -> PASS; bug-regression evidence validator -> PASS after marker update; git diff --check -> PASS with line-ending advisories only.

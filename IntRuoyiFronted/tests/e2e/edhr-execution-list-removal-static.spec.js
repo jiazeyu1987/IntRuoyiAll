@@ -64,7 +64,16 @@ assert.equal(
   false,
   '执行表单不得继续显示返回执行列表。'
 )
-assert.match(executionPage, /返回批次详情|返回批次执行/, '执行表单返回文案必须指向批次入口。')
+assert.match(
+  executionPage,
+  /<Icon\s+icon="ep:arrow-left"[\s\S]{0,160}返回[\s\S]{0,80}<\/el-button>/,
+  '执行表单返回按钮必须使用标准返回图标和“返回”文案。'
+)
+assert.equal(
+  /返回批次详情|返回批次执行/.test(executionPage),
+  false,
+  '执行表单不得继续暴露批次入口长返回文案。'
+)
 assert.match(
   executionPage,
   /path:\s*'\/mes\/pro\/feedback\/edhr-batch-execution\/detail'/,

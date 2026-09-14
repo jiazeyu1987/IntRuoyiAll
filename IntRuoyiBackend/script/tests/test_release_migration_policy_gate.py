@@ -34,6 +34,30 @@ def test_policy_gate_rejects_missing_required_metadata(tmp_path: Path) -> None:
         run_migration_policy_gate(sql_root)
 
 
+def test_policy_gate_excludes_explicit_rollback_migration_from_release_manifest(tmp_path: Path) -> None:
+    sql_root = tmp_path / "sql" / "mysql"
+    sql_root.mkdir(parents=True)
+    write_sql(
+        sql_root,
+        "20260613_release_schema.sql",
+        "-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium\n"
+        "CREATE TABLE IF NOT EXISTS release_table (id bigint);\n",
+    )
+    write_sql(
+        sql_root,
+        "20260613_release_schema_rollback.sql",
+        "-- rollback-migration: allowedEnvironments=test,backup,prod; requiresBackup=true; type=schema; riskLevel=high\n"
+        "DROP TABLE release_table;\n",
+    )
+
+    report = run_migration_policy_gate(sql_root)
+
+    assert report["status"] == "passed"
+    assert [entry["migrationId"] for entry in report["migrations"]] == [
+        "20260613_release_schema"
+    ]
+
+
 def test_policy_gate_rejects_missing_dependency(tmp_path: Path) -> None:
     sql_root = tmp_path / "sql" / "mysql"
     sql_root.mkdir(parents=True)
@@ -65,6 +89,26 @@ def test_policy_gate_rejects_dependency_environment_superset(tmp_path: Path) -> 
     )
 
     with pytest.raises(MigrationPolicyError, match="allowedEnvironments must be a subset"):
+        run_migration_policy_gate(sql_root)
+
+
+def test_policy_gate_rejects_executable_dependency_on_evidence_only(tmp_path: Path) -> None:
+    sql_root = tmp_path / "sql" / "mysql"
+    sql_root.mkdir(parents=True)
+    write_sql(
+        sql_root,
+        "20260613_preflight.sql",
+        "-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=preflight; riskLevel=medium\n"
+        "SELECT 1;\n",
+    )
+    write_sql(
+        sql_root,
+        "20260613_schema.sql",
+        "-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260613_preflight; type=schema; riskLevel=medium\n"
+        "CREATE TABLE IF NOT EXISTS child_table (id bigint);\n",
+    )
+
+    with pytest.raises(MigrationPolicyError, match="executable migration cannot depend on evidence-only migration"):
         run_migration_policy_gate(sql_root)
 
 

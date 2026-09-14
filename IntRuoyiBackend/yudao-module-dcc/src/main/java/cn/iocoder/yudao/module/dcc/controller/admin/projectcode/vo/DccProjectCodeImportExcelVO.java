@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo;
 
 import cn.idev.excel.annotation.ExcelProperty;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,6 +17,7 @@ public class DccProjectCodeImportExcelVO {
     private String docControlNo;
 
     @ExcelProperty("项目名称")
+    @NotBlank(message = "项目名称不能为空")
     private String projectName;
 
     @ExcelProperty("项目代码")

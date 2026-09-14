@@ -1,0 +1,44 @@
+{
+  "status": "LOGIN_PROBE_COMPLETED",
+  "actor": "wangsiyu",
+  "baseUrl": "http://127.0.0.1:8081",
+  "startedAt": "2026-08-02T10:01:51.917Z",
+  "requests": [
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/system/tenant/get-by-website?website=127.0.0.1:8081"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/system/tenant/get-by-website?website=127.0.0.1:8081"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/system/tenant/get-id-by-name?name=%E8%8A%8B%E9%81%93%E6%BA%90%E7%A0%81"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/system/tenant/get-id-by-name?name=%E8%8A%8B%E9%81%93%E6%BA%90%E7%A0%81"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/login"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/login"
+    }
+  ],
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "visibleText": "瑛泰管理系统\n个人中心\n0\n审批中心\n8\n电子签名\n文控中心\n基础数据\n系统管理\n版本信息未生成\n请输入菜单内容\n王思雨\n\n首页\n\n欢迎使用 IntRuoyi 管理后台\n\n开始使用前，请从左侧菜单进入对应业务模块。\n\n当前登录：王思雨\n\n当前日期\n2026年8月2日星期日\n系统状态\n系统已就绪\n操作方式\n通过左侧菜单进入业务页面\n\n数字展厅\n\n展厅后台入口\n\n从主页直接进入展厅后台管理页，无需手动输入路径。\n\n进入展厅后台\n开始使用\n\n建议先确认当前用户权限、所属部门和业务入口是否正确，再进入具体模块处理数据。\n\n使用提示\nMES、ERP、DCC 等模块请按实际业务流程逐项操作。\n遇到报错时请保留页面提示和操作路径，便于快速排查。\n需要新增权限或菜单时，请联系系统管理员处理。\nCopyright ©2026 瑛泰管理系统",
+  "screenshot": "E:\\IntRuoyi\\IntRuoyiFronted\\doc\\tasks\\20260802-dcc-distribution-recovery-e2e\\runtime-login-blocker-20260802.png",
+  "finishedAt": "2026-08-02T10:05:05.817Z"
+}

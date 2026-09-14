@@ -27,8 +27,16 @@ if (!viewerSource.includes('<audio') || !viewerSource.includes('protected-viewer
   throw new Error('Protected viewer must render audio files with a native audio element')
 }
 
-if (!viewerSource.includes("resolvedPreviewKind.value === 'OFFICE' || resolvedPreviewKind.value === 'DOWNLOAD_ONLY'")) {
-  throw new Error('Only OFFICE and DOWNLOAD_ONLY should skip binary preview loading')
+const unavailableReasonGuardIndex = viewerSource.indexOf('if (resolvedPreviewUnavailableReason.value)')
+const binaryPreviewLoadIndex = viewerSource.indexOf('const previewPayload = await resolvePreviewBlob()')
+if (unavailableReasonGuardIndex < 0) {
+  throw new Error('Protected viewer must short-circuit preview binary loading when previewUnavailableReason is present')
+}
+if (binaryPreviewLoadIndex < 0 || unavailableReasonGuardIndex > binaryPreviewLoadIndex) {
+  throw new Error('previewUnavailableReason must be honored before any binary preview request is made')
+}
+if (!viewerSource.includes("resolvedPreviewKind.value !== 'OFFICE'")) {
+  throw new Error('Non-Office preview kinds must surface previewUnavailableReason through the generic viewer error area')
 }
 
 const requiredTransformFragments = [

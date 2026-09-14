@@ -66,7 +66,9 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
             "FUnitId.FName",
             "FLot.FNumber",
             "FWorkShopID.FName",
-            "FBomId.FNumber");
+            "FBomId.FNumber",
+            "FMaterialId.F_PAEZ_TUHAO",
+            "FMaterialId.F_PAEZ_REFNO");
     private static final String BILL_LOOKUP_FIELD_KEYS = String.join(",",
             "FID",
             "FBillNo",
@@ -81,7 +83,6 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
             "FSrcBillNo",
             "FStatus");
     private static final String INCREMENTAL_FIELD_KEYS = FIELD_KEYS + ",FModifyDate";
-    private static final String KINGDEE_FINISHED_STATUS = "5";
     private static final int INDEX_FID = 0;
     private static final int INDEX_BILL_NO = 1;
     private static final int INDEX_DOCUMENT_STATUS = 2;
@@ -99,12 +100,9 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
     private static final int INDEX_BATCH_NUMBER = 14;
     private static final int INDEX_WORKSHOP_NAME = 15;
     private static final int INDEX_BOM_VERSION = 16;
-    private static final int INDEX_PICK_MODE = 17;
-    private static final int INDEX_AUXILIARY_CODE = 18;
-    private static final int INDEX_BUSINESS_STATUS = 19;
-    private static final int INDEX_DRAWING_NUMBER = 20;
-    private static final int INDEX_SCHEDULE_STATUS = 21;
-    private static final int INDEX_SOURCE_MODIFY_TIME = 22;
+    private static final int INDEX_DRAWING_NUMBER = 17;
+    private static final int INDEX_REF_NO = 18;
+    private static final int INDEX_SOURCE_MODIFY_TIME = 19;
     private static final int MIN_REQUIRED_FIELD_COUNT = 12;
     private static final int PAGE_LIMIT = 1000;
     private static final int BILL_NO_QUERY_BATCH_SIZE = 50;
@@ -125,17 +123,17 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
 
     @Override
     public List<ErpKingdeeProductionOrder> fetchProductionOrders(ErpKingdeeProperties properties) {
-        return fetchProductionOrders(properties, null, null, false);
+        return fetchProductionOrders(properties, null, null);
     }
 
     @Override
-    public List<ErpKingdeeProductionOrder> fetchUnfinishedProductionOrders(ErpKingdeeProperties properties,
-                                                                           LocalDate fromDate,
-                                                                           LocalDate toDate) {
+    public List<ErpKingdeeProductionOrder> fetchProductionOrdersByBillDateRange(ErpKingdeeProperties properties,
+                                                                            LocalDate fromDate,
+                                                                            LocalDate toDate) {
         if (fromDate == null || toDate == null || fromDate.isAfter(toDate)) {
             throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_MO sync date range is invalid");
         }
-        return fetchProductionOrders(properties, fromDate, toDate, true);
+        return fetchProductionOrders(properties, fromDate, toDate);
     }
 
     @Override
@@ -147,7 +145,7 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         ErpKingdeeIncrementalQuerySpec querySpec = ErpKingdeeIncrementalQuerySpec.builder()
                 .formId(ErpKingdeeProductionOrder.FORM_ID)
                 .fieldKeys(INCREMENTAL_FIELD_KEYS)
-                .baseFilter(buildFilterString(null, null, false))
+                .baseFilter(buildFilterString(null, null))
                 .startRow(0)
                 .limit(properties.getProductionOrder().getQueryLimit())
                 .build();
@@ -240,8 +238,7 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
 
     private List<ErpKingdeeProductionOrder> fetchProductionOrders(ErpKingdeeProperties properties,
                                                                   LocalDate fromDate,
-                                                                  LocalDate toDate,
-                                                                  boolean unfinishedOnly) {
+                                                                  LocalDate toDate) {
         properties.validateProductionOrderSyncConfig();
         String cookieHeader = login(properties);
         int startRow = 0;
@@ -250,7 +247,7 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         while (remaining > 0) {
             int pageLimit = Math.min(PAGE_LIMIT, remaining);
             JsonNode rows = executeBillQuery(properties, cookieHeader,
-                    buildFilterString(fromDate, toDate, unfinishedOnly), startRow, pageLimit);
+                    buildFilterString(fromDate, toDate), startRow, pageLimit);
             if (!rows.isArray()) {
                 throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_MO response is not an array");
             }
@@ -472,7 +469,7 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         return parseJson(response.getBody(), label);
     }
 
-    private String buildFilterString(LocalDate fromDate, LocalDate toDate, boolean unfinishedOnly) {
+    private String buildFilterString(LocalDate fromDate, LocalDate toDate) {
         List<String> filters = new ArrayList<>();
         filters.add("(FBillNo <> '')");
         filters.add("(FMaterialId.FNumber <> '')");
@@ -482,9 +479,6 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         }
         if (toDate != null) {
             filters.add("(FDate <= '" + toDate + "')");
-        }
-        if (unfinishedOnly) {
-            filters.add("(FStatus <> '" + KINGDEE_FINISHED_STATUS + "')");
         }
         return String.join(" and ", filters);
     }
@@ -545,11 +539,8 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         order.setBatchNumber(optionalText(row, INDEX_BATCH_NUMBER));
         order.setWorkshopName(optionalText(row, INDEX_WORKSHOP_NAME));
         order.setBomVersion(optionalText(row, INDEX_BOM_VERSION));
-        order.setPickMode(optionalText(row, INDEX_PICK_MODE));
-        order.setAuxiliaryCode(optionalText(row, INDEX_AUXILIARY_CODE));
-        order.setBusinessStatus(optionalText(row, INDEX_BUSINESS_STATUS));
         order.setDrawingNumber(optionalText(row, INDEX_DRAWING_NUMBER));
-        order.setScheduleStatus(optionalText(row, INDEX_SCHEDULE_STATUS));
+        order.setRefNo(optionalText(row, INDEX_REF_NO));
         if (row.size() > INDEX_SOURCE_MODIFY_TIME) {
             order.setSourceModifyTime(parseDateTime(optionalText(row, INDEX_SOURCE_MODIFY_TIME), "FModifyDate"));
         }

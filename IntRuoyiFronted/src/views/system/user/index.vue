@@ -39,7 +39,6 @@
               v-hasPermi="[
                 'system:user:create',
                 'system:user:import',
-                'system:user:export',
                 'system:user:delete',
                 'system:dept:delete'
               ]"
@@ -57,14 +56,6 @@
                   <el-dropdown-item command="import" v-hasPermi="['system:user:import']">
                     <Icon icon="ep:upload" />
                     <span class="ml-5px">导入</span>
-                  </el-dropdown-item>
-                  <el-dropdown-item
-                    command="export"
-                    :disabled="exportLoading"
-                    v-hasPermi="['system:user:export']"
-                  >
-                    <Icon icon="ep:download" />
-                    <span class="ml-5px">导出</span>
                   </el-dropdown-item>
                   <el-dropdown-item command="dingTalkImport" v-hasPermi="['system:user:import']">
                     <Icon icon="ep:office-building" />
@@ -209,10 +200,56 @@
                     :active-value="0"
                     :inactive-value="1"
                     @change="handleStatusChange(scope.row)"
-                    :disabled="!checkPermi(['system:user:update'])"
+                    :disabled="
+                      !checkPermi(['system:user:update']) ||
+                      Boolean(scope.row.lifecycleDeactivatedTime)
+                    "
                   />
                 </template>
               </el-table-column>
+              <el-table-column
+                v-if="isUserColumnVisible('loginLocked')"
+                label="锁定状态"
+                key="loginLocked"
+                prop="loginLocked"
+                :width="getUserColumnWidthString('loginLocked', 100)"
+                v-bind="sortColumnAttrs('loginLocked')"
+              >
+                <template #default="{ row }">
+                  {{ row.loginLocked === 1 ? '已锁定' : '未锁定' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isUserColumnVisible('lifecycleDocumentNo')"
+                label="离职/转岗单号"
+                align="center"
+                key="lifecycleDocumentNo"
+                prop="lifecycleDocumentNo"
+                :width="getUserColumnWidthString('lifecycleDocumentNo')"
+                :min-width="getUserColumnMinWidthString('lifecycleDocumentNo', 160)"
+                :show-overflow-tooltip="true"
+                v-bind="sortColumnAttrs('lifecycleDocumentNo')"
+              />
+              <el-table-column
+                v-if="isUserColumnVisible('lifecycleEffectiveTime')"
+                label="停用生效时间"
+                align="center"
+                key="lifecycleEffectiveTime"
+                prop="lifecycleEffectiveTime"
+                :formatter="dateFormatter"
+                :width="getUserColumnWidthString('lifecycleEffectiveTime', 180)"
+                v-bind="sortColumnAttrs('lifecycleEffectiveTime')"
+              />
+              <el-table-column
+                v-if="isUserColumnVisible('lifecycleDeactivatedTime')"
+                label="联动停用时间"
+                align="center"
+                key="lifecycleDeactivatedTime"
+                prop="lifecycleDeactivatedTime"
+                :formatter="dateFormatter"
+                :width="getUserColumnWidthString('lifecycleDeactivatedTime', 180)"
+                v-bind="sortColumnAttrs('lifecycleDeactivatedTime')"
+              />
               <el-table-column
                 v-if="isUserColumnVisible('createTime')"
                 label="创建时间"
@@ -229,7 +266,7 @@
                 key="actions"
                 prop="actions"
                 fixed="right"
-                :width="getUserColumnWidthString('actions', 190)"
+                :width="getUserColumnWidthString('actions', 230)"
               >
                 <template #default="scope">
                   <div class="system-user-row-actions">
@@ -268,6 +305,26 @@
                       >
                         分配角色
                       </el-button>
+                      <el-button
+                        v-if="scope.row.loginLocked === 1"
+                        type="success"
+                        link
+                        @click="handleUnlock(scope.row)"
+                        v-hasPermi="['system:user:update']"
+                      >
+                        解锁
+                      </el-button>
+                    </div>
+                    <div class="system-user-row-actions__row">
+                      <el-button
+                        type="danger"
+                        link
+                        :disabled="Boolean(scope.row.lifecycleDeactivatedTime)"
+                        @click="openLifecycleDeactivate(scope.row)"
+                        v-hasPermi="['system:user:update']"
+                      >
+                        离职/转岗
+                      </el-button>
                     </div>
                   </div>
                 </template>
@@ -287,12 +344,13 @@
   <UserDingTalkImportForm ref="dingTalkImportFormRef" @success="getList" />
   <!-- 分配角色 -->
   <UserAssignRoleForm ref="assignRoleFormRef" @success="getList" />
+  <!-- 离职/转岗联动停用 -->
+  <UserLifecycleDeactivateForm ref="lifecycleDeactivateFormRef" @success="getList" />
 </template>
 <script lang="ts" setup>
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { checkPermi } from '@/utils/permission'
 import { dateFormatter } from '@/utils/formatTime'
-import download from '@/utils/download'
 import { CommonStatusEnum } from '@/utils/constants'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -312,6 +370,7 @@ import UserForm from './UserForm.vue'
 import UserImportForm from './UserImportForm.vue'
 import UserDingTalkImportForm from './UserDingTalkImportForm.vue'
 import UserAssignRoleForm from './UserAssignRoleForm.vue'
+import UserLifecycleDeactivateForm from './UserLifecycleDeactivateForm.vue'
 import DeptTreeSelect from '@/views/system/dept/components/DeptTreeSelect.vue'
 import { isSystemPasswordStrong, SYSTEM_PASSWORD_MESSAGE } from './systemPasswordPolicy'
 import {
@@ -370,8 +429,12 @@ const userDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'postNamesText', label: '岗位', minWidth: 180 },
   { key: 'mobile', label: '手机号码', width: 120 },
   { key: 'status', label: '状态', width: 100 },
+  { key: 'loginLocked', label: '锁定状态', width: 100 },
+  { key: 'lifecycleDocumentNo', label: '离职/转岗单号', minWidth: 160, visible: false },
+  { key: 'lifecycleEffectiveTime', label: '停用生效时间', width: 180, visible: false },
+  { key: 'lifecycleDeactivatedTime', label: '联动停用时间', width: 180, visible: false },
   { key: 'createTime', label: '创建时间', width: 180 },
-  { key: 'actions', label: '操作', width: 160, hideable: false, business: false, sortable: false }
+  { key: 'actions', label: '操作', width: 230, hideable: false, business: false, sortable: false }
 ]
 
 const {
@@ -556,22 +619,6 @@ const handleStatusChange = async (row: UserApi.UserVO) => {
   }
 }
 
-/** 导出按钮操作 */
-const exportLoading = ref(false)
-const handleExport = async () => {
-  try {
-    // 导出的二次确认
-    await message.exportConfirm()
-    // 发起导出
-    exportLoading.value = true
-    const data = await UserApi.exportUser(queryParams)
-    download.excel(data, '用户数据.xls')
-  } catch {
-  } finally {
-    exportLoading.value = false
-  }
-}
-
 /** 删除按钮操作 */
 const handleDelete = async (id: number) => {
   try {
@@ -633,9 +680,6 @@ const handleAdvancedCommand = async (command: string) => {
     case 'import':
       handleImport()
       break
-    case 'export':
-      await handleExport()
-      break
     case 'dingTalkImport':
       handleDingTalkImport()
       break
@@ -669,10 +713,26 @@ const handleResetPwd = async (row: UserApi.UserVO) => {
   } catch {}
 }
 
+/** 解锁用户 */
+const handleUnlock = async (row: UserApi.UserVO) => {
+  try {
+    await message.confirm('确认要解锁"' + row.username + '"用户吗?')
+    await UserApi.unlockUser(row.id)
+    message.success('解锁成功')
+    await getList()
+  } catch {}
+}
+
 /** 分配角色 */
 const assignRoleFormRef = ref()
 const handleRole = (row: UserApi.UserVO) => {
   assignRoleFormRef.value.open(row)
+}
+
+/** 登记离职/转岗联动停用 */
+const lifecycleDeactivateFormRef = ref()
+const openLifecycleDeactivate = (row: UserApi.UserVO) => {
+  lifecycleDeactivateFormRef.value.open(row)
 }
 
 /** 初始化 */
@@ -708,7 +768,7 @@ watch(
 
 .system-user-row-actions__row {
   display: grid;
-  grid-template-columns: repeat(2, max-content);
+  grid-template-columns: repeat(3, max-content);
   align-items: center;
   justify-content: center;
   column-gap: 10px;

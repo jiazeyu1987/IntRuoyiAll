@@ -32,19 +32,19 @@ const hiddenSidebarPaths = [
   'controlled-file/print-template'
 ]
 
-const baseSchema = readWorkspace('ruoyi-vue-pro/sql/mysql/20260513_dcc_base_schema.sql')
+const baseSchema = readWorkspace('IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql')
 const governanceSplit = readWorkspace(
-  'ruoyi-vue-pro/sql/mysql/20260515_dcc_governance_split_menu.sql'
+  'IntRuoyiBackend/sql/mysql/20260515_dcc_governance_split_menu.sql'
 )
 const trainingClosedLoop = readWorkspace(
-  'ruoyi-vue-pro/sql/mysql/20260516_dcc_training_closed_loop_menu.sql'
+  'IntRuoyiBackend/sql/mysql/20260516_dcc_training_closed_loop_menu.sql'
 )
-const printTemplate = readWorkspace('ruoyi-vue-pro/sql/mysql/20260527_dcc_approval_print_template.sql')
+const printTemplate = readWorkspace('IntRuoyiBackend/sql/mysql/20260527_dcc_approval_print_template.sql')
 const trainingMineRestore = readWorkspace(
-  'ruoyi-vue-pro/sql/mysql/20260529_dcc_training_mine_menu_restore.sql'
+  'IntRuoyiBackend/sql/mysql/20260529_dcc_training_mine_menu_restore.sql'
 )
 const runtimePatch = readWorkspace(
-  'ruoyi-vue-pro/sql/mysql/20260714_dcc_hide_legacy_menu_tabs_admin_only.sql'
+  'IntRuoyiBackend/sql/mysql/20260714_dcc_hide_legacy_menu_tabs_admin_only.sql'
 )
 const remainingRouter = readUtf8(path.join(repoRoot, 'src/router/modules/remaining.ts'))
 

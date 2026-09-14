@@ -15,11 +15,14 @@ import cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccSignatureAut
 import cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccSignatureEvidenceRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccSignatureVerifyRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureBindingDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureReissueLogDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureAuthorizationAuditDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureAuthorizationDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureReissueLogMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureAuthorizationAuditMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureAuthorizationMapper;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
@@ -55,6 +58,7 @@ import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServic
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_AUTH_REASON_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EXPORT_BLOCKED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -75,6 +79,8 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileSignatureMapper signatureMapper;
     @Mock
+    private DccControlledFileSignatureReissueLogMapper signatureReissueLogMapper;
+    @Mock
     private DccControlledFileMapper controlledFileMapper;
     @Mock
     private DccElectronicSignatureAuthorizationMapper authorizationMapper;
@@ -92,6 +98,10 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
     private DccSignatureEvidenceProperties signatureEvidenceProperties;
     @Mock
     private FileService fileService;
+    @Mock
+    private DccControlledFileSignatureBindingService signatureBindingService;
+    @Mock
+    private DccElectronicSignatureImageService signatureImageService;
 
     @InjectMocks
     private DccElectronicSignatureManagementServiceImpl service;
@@ -161,6 +171,29 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
         assertEquals("A.1", result.getList().get(0).getSourceVersionId());
         assertEquals("dcc/controlled-copy/DCC-001-A.1.pdf", result.getList().get(0).getControlledCopyObjectKey());
         assertEquals("A.1", result.getList().get(0).getControlledCopyVersionId());
+    }
+
+    @Test
+    void getSignaturePage_marksPublishedUnboundEvidenceInvalid() throws Exception {
+        DccElectronicSignaturePageReqVO reqVO = new DccElectronicSignaturePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        DccControlledFileDO file = signedFile();
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeSignature(hmacSha256Hex("secret", canonicalPayload(file)));
+        when(signatureMapper.selectPage(any(DccElectronicSignaturePageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(signature), 1L));
+        when(controlledFileMapper.selectBatchIds(Set.of(900L))).thenReturn(List.of(file));
+        when(adminUserService.getUserList(Set.of(101L))).thenReturn(List.of(
+                AdminUserDO.builder().id(101L).username("auditor").nickname("审核员").build()));
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file))
+                .thenReturn(DccControlledFileSignatureBindingVerification.invalid("CONTROLLED_COPY_BINDING_MISSING"));
+
+        PageResult<DccElectronicSignatureRespVO> result = service.getSignaturePage(reqVO);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals("INVALID", result.getList().get(0).getEvidenceStatus());
+        assertEquals("INVALID", result.getList().get(0).getControlledCopyHashStatus());
     }
 
     @Test
@@ -510,6 +543,32 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
         assertEquals(signature.getEvidenceHash().substring(0, 12), result.getEvidenceHashShort());
         assertEquals("VALID", result.getVerificationStatus());
         verify(signatureMapper, never()).updateById(any(DccControlledFileSignatureDO.class));
+    }
+
+    @Test
+    void verifySignatureEvidence_detectsSourceFileContentMismatch() throws Exception {
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
+        DccControlledFileDO file = signedFile();
+        DccControlledFileSignatureDO signature = completeSignature(
+                hmacSha256Hex("secret", canonicalPayload(file)));
+        signature.setSourceFileId(7001L);
+        when(signatureMapper.selectById(1001L)).thenReturn(signature);
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(fileService.getFile(7001L)).thenReturn(FileDO.builder()
+                .id(7001L).configId(7L).path("dcc/source/900.docx").build());
+        when(fileService.getFileContent(7L, "dcc/source/900.docx"))
+                .thenReturn("changed-source".getBytes(StandardCharsets.UTF_8));
+
+        TenantContextHolder.setTenantId(1L);
+        DccSignatureVerifyRespVO result;
+        try {
+            result = service.verifySignatureEvidence(1001L);
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        assertEquals("INVALID", result.getVerificationStatus());
+        assertEquals("SOURCE_FILE_HASH_MISMATCH", result.getVerificationReason());
     }
 
     @Test
@@ -868,6 +927,57 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void getSignatureExportSummary_recomputesHmacAndReturnsStableFailureReason() throws Exception {
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
+        DccControlledFileDO file = signedFile();
+        DccControlledFileSignatureDO signature = completeSignature("tampered-hmac");
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileSignatureExportSummaryRespVO result;
+        try {
+            result = service.getSignatureExportSummary(900L);
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        assertFalse(result.getAllRequiredEvidenceValid());
+        assertEquals("EVIDENCE_HMAC_MISMATCH", result.getSignatures().get(0).getVerificationReason());
+    }
+
+    @Test
+    void getSignatureExportSummary_publishedCopyMismatchMatchesExportDecision() throws Exception {
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
+        DccControlledFileDO file = signedFile();
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeSignature(hmacSha256Hex("secret", canonicalPayload(file)));
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file)).thenReturn(
+                DccControlledFileSignatureBindingVerification.invalid("CONTROLLED_COPY_HASH_MISMATCH",
+                        DccControlledFileSignatureBindingDO.builder()
+                                .signatureId(1001L).controlledFileId(900L).controlledCopyFileId(800L)
+                                .controlledCopySha256("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                                .bindingEventKey("process-900").boundAt(LocalDateTime.of(2026, 5, 26, 15, 0))
+                                .build()));
+
+        TenantContextHolder.setTenantId(1L);
+        try {
+            DccControlledFileSignatureExportSummaryRespVO result = service.getSignatureExportSummary(900L);
+            assertFalse(result.getAllRequiredEvidenceValid());
+            assertEquals("CONTROLLED_COPY_HASH_MISMATCH",
+                    result.getSignatures().get(0).getVerificationReason());
+            assertEquals("BOUND", result.getSignatures().get(0).getControlledCopyHashStatus());
+            assertEquals(800L, result.getSignatures().get(0).getControlledCopyFileId());
+            assertServiceException(() -> service.exportSignatureEvidence(900L),
+                    CONTROLLED_FILE_SIGNATURE_EXPORT_BLOCKED);
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @Test
     void exportSignatureEvidenceReturnsSystemVerifiedPdfArtifactWithReadableEvidence() throws Exception {
         when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
         DccControlledFileDO file = signedFile();
@@ -901,6 +1011,360 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
         assertTrue(pdfText.contains("校验状态: VALID"));
         assertFalse(pdfText.contains("DocuSign"));
         assertFalse(pdfText.contains("外部 CA"));
+    }
+
+    @Test
+    void migratePublishedCopyBindings_bindsOnlyAfterOriginalEvidenceVerification() throws Exception {
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
+        when(signatureEvidenceProperties.getKeyVersion()).thenReturn("kv1");
+        DccControlledFileDO file = signedFile();
+        file.setStatus("ACTIVE");
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeSignature(
+                hmacSha256Hex("secret", canonicalPayload(file)));
+        DccControlledFileSignatureBindingDO binding = DccControlledFileSignatureBindingDO.builder()
+                .signatureId(1001L)
+                .controlledFileId(900L)
+                .originalEvidenceHash(signature.getEvidenceHash())
+                .controlledCopyFileId(800L)
+                .controlledCopyObjectKey("dcc/controlled-copy/DCC-SOP-001-A.1.pdf")
+                .controlledCopySha256("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .bindingEventKey("historical:900:REQ-1")
+                .boundAt(LocalDateTime.of(2026, 8, 13, 16, 0))
+                .build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file))
+                .thenReturn(DccControlledFileSignatureBindingVerification.bound(binding));
+
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileSignatureExportSummaryRespVO result;
+        try {
+            result = service.migratePublishedCopyBindings(900L, 9L, "REQ-1");
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        assertTrue(result.getAllRequiredEvidenceValid());
+        assertEquals("dcc/controlled-copy/DCC-SOP-001-A.1.pdf",
+                result.getSignatures().get(0).getControlledCopyObjectKey());
+        verify(signatureBindingService).bindPublishedCopy(file, 800L, 9L, "historical:900:REQ-1");
+    }
+
+    @Test
+    void migratePublishedCopyBindings_rejectsUnconfiguredHistoricalKeyWithoutBinding() throws Exception {
+        when(signatureEvidenceProperties.getKeyVersion()).thenReturn("kv2");
+        when(signatureEvidenceProperties.getVerificationKeys()).thenReturn(Map.of());
+        DccControlledFileDO file = signedFile();
+        file.setStatus("ACTIVE");
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeSignature(
+                hmacSha256Hex("secret", canonicalPayload(file)));
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+
+        assertServiceException(() -> service.migratePublishedCopyBindings(900L, 9L, "REQ-2"),
+                CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                "签名 1001 原始证据校验失败：EVIDENCE_KEY_VERSION_NOT_CONFIGURED");
+        verify(signatureBindingService, never()).bindPublishedCopy(
+                any(DccControlledFileDO.class), any(Long.class), any(Long.class), any(String.class));
+    }
+
+    @Test
+    void migratePublishedCopyBindings_usesExplicitHistoricalVerificationKey() throws Exception {
+        when(signatureEvidenceProperties.getKeyVersion()).thenReturn("kv2");
+        when(signatureEvidenceProperties.getVerificationKeys()).thenReturn(Map.of("kv1", "historical-secret"));
+        DccControlledFileDO file = signedFile();
+        file.setStatus("ACTIVE");
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeSignature(
+                hmacSha256Hex("historical-secret", canonicalPayload(file)));
+        DccControlledFileSignatureBindingDO binding = DccControlledFileSignatureBindingDO.builder()
+                .signatureId(1001L).controlledFileId(900L).controlledCopyFileId(800L)
+                .controlledCopyObjectKey("dcc/controlled-copy/DCC-SOP-001-A.1.pdf")
+                .controlledCopySha256("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .bindingEventKey("historical:900:REQ-3").boundAt(LocalDateTime.of(2026, 8, 13, 16, 0)).build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file))
+                .thenReturn(DccControlledFileSignatureBindingVerification.bound(binding));
+
+        TenantContextHolder.setTenantId(1L);
+        try {
+            assertTrue(service.migratePublishedCopyBindings(900L, 9L, "REQ-3").getAllRequiredEvidenceValid());
+        } finally {
+            TenantContextHolder.clear();
+        }
+        verify(signatureBindingService).bindPublishedCopy(file, 800L, 9L, "historical:900:REQ-3");
+    }
+
+    @Test
+    void reissuePublishedSignatureEvidence_resealsHmacWithAuditThenBindsPublishedCopy() throws Exception {
+        when(signatureEvidenceProperties.getKeyVersion()).thenReturn("kv2");
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("new-secret");
+        DccControlledFileDO file = signedFile();
+        file.setStatus("ACTIVE");
+        file.setPublishedFileId(800L);
+        String beforeEvidenceHash = hmacSha256Hex("wrong-secret", canonicalPayload(file));
+        DccControlledFileSignatureDO signature = completeSignature(beforeEvidenceHash);
+        DccControlledFileSignatureBindingDO binding = DccControlledFileSignatureBindingDO.builder()
+                .signatureId(1001L)
+                .controlledFileId(900L)
+                .originalEvidenceHash(hmacSha256Hex("new-secret", canonicalPayloadWithKeyVersion(file, "kv2")))
+                .controlledCopyFileId(800L)
+                .controlledCopyObjectKey("dcc/controlled-copy/DCC-SOP-001-A.1.pdf")
+                .controlledCopySha256("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .bindingEventKey("reissue:900:REQ-REISSUE-1")
+                .boundAt(LocalDateTime.of(2026, 8, 14, 10, 0))
+                .build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+        when(signatureMapper.updateById(any(DccControlledFileSignatureDO.class))).thenReturn(1);
+        when(signatureReissueLogMapper.insert(any(DccControlledFileSignatureReissueLogDO.class))).thenReturn(1);
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file))
+                .thenReturn(DccControlledFileSignatureBindingVerification.bound(binding));
+
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileSignatureExportSummaryRespVO result;
+        try {
+            result = service.reissuePublishedSignatureEvidence(900L, 9L, "REQ-REISSUE-1",
+                    "旧密钥不可恢复，业务批准重新封存");
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        assertTrue(result.getAllRequiredEvidenceValid());
+        assertEquals("kv2", signature.getEvidenceKeyVersion());
+        assertEquals(hmacSha256Hex("new-secret", canonicalPayloadWithKeyVersion(file, "kv2")),
+                signature.getEvidenceHash());
+        ArgumentCaptor<DccControlledFileSignatureDO> updateCaptor =
+                ArgumentCaptor.forClass(DccControlledFileSignatureDO.class);
+        verify(signatureMapper).updateById(updateCaptor.capture());
+        assertEquals("kv2", updateCaptor.getValue().getEvidenceKeyVersion());
+        assertEquals("VALID", updateCaptor.getValue().getEvidenceStatus());
+        ArgumentCaptor<DccControlledFileSignatureReissueLogDO> logCaptor =
+                ArgumentCaptor.forClass(DccControlledFileSignatureReissueLogDO.class);
+        verify(signatureReissueLogMapper).insert(logCaptor.capture());
+        assertEquals("kv1", logCaptor.getValue().getBeforeEvidenceKeyVersion());
+        assertEquals("kv2", logCaptor.getValue().getAfterEvidenceKeyVersion());
+        assertEquals("REQ-REISSUE-1", logCaptor.getValue().getRequestId());
+        assertEquals("旧密钥不可恢复，业务批准重新封存", logCaptor.getValue().getReason());
+        verify(signatureBindingService, never()).bindPublishedCopy(file, 800L, 9L,
+                "reissue:900:REQ-REISSUE-1");
+        verify(signatureBindingService).bindPublishedCopyAfterEvidenceReissue(file, 800L, 9L,
+                "reissue:900:REQ-REISSUE-1", Map.of(1001L, beforeEvidenceHash));
+    }
+
+    @Test
+    void reissuePublishedSignatureEvidence_resealsAuditedEvidenceBindingMismatch() throws Exception {
+        when(signatureEvidenceProperties.getKeyVersion()).thenReturn("kv2");
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("new-secret");
+        when(signatureEvidenceProperties.getVerificationKeys()).thenReturn(Map.of("kv1", "historical-secret"));
+        DccControlledFileDO file = signedFile();
+        file.setStatus("ACTIVE");
+        file.setPublishedFileId(800L);
+        String currentEvidenceHash = hmacSha256Hex("historical-secret", canonicalPayload(file));
+        String boundEvidenceHash = "evidence-before-previous-reissue";
+        DccControlledFileSignatureDO signature = completeSignature(currentEvidenceHash);
+        DccControlledFileSignatureBindingDO previousBinding = DccControlledFileSignatureBindingDO.builder()
+                .signatureId(1001L)
+                .controlledFileId(900L)
+                .originalEvidenceHash(boundEvidenceHash)
+                .controlledCopyFileId(800L)
+                .controlledCopyObjectKey("dcc/controlled-copy/DCC-SOP-001-A.1.pdf")
+                .controlledCopySha256("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .build();
+        DccControlledFileSignatureBindingDO updatedBinding = DccControlledFileSignatureBindingDO.builder()
+                .signatureId(1001L)
+                .controlledFileId(900L)
+                .originalEvidenceHash(hmacSha256Hex("new-secret", canonicalPayloadWithKeyVersion(file, "kv2")))
+                .controlledCopyFileId(800L)
+                .controlledCopyObjectKey("dcc/controlled-copy/DCC-SOP-001-A.1.pdf")
+                .controlledCopySha256("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+        when(signatureMapper.updateById(any(DccControlledFileSignatureDO.class))).thenReturn(1);
+        when(signatureReissueLogMapper.insert(any(DccControlledFileSignatureReissueLogDO.class))).thenReturn(1);
+        when(signatureReissueLogMapper.selectCount(any())).thenReturn(1L);
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file))
+                .thenReturn(DccControlledFileSignatureBindingVerification.invalid(
+                                "CONTROLLED_COPY_BINDING_EVIDENCE_MISMATCH", previousBinding),
+                        DccControlledFileSignatureBindingVerification.bound(updatedBinding));
+
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileSignatureExportSummaryRespVO result;
+        try {
+            result = service.reissuePublishedSignatureEvidence(900L, 9L, "REQ-REISSUE-CHAIN-1",
+                    "历史部分重新封存已获批准，补齐受控副本绑定");
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        assertTrue(result.getAllRequiredEvidenceValid());
+        assertEquals("kv2", signature.getEvidenceKeyVersion());
+        ArgumentCaptor<DccControlledFileSignatureReissueLogDO> logCaptor =
+                ArgumentCaptor.forClass(DccControlledFileSignatureReissueLogDO.class);
+        verify(signatureReissueLogMapper).insert(logCaptor.capture());
+        assertEquals(currentEvidenceHash, logCaptor.getValue().getBeforeEvidenceHash());
+        verify(signatureBindingService).bindPublishedCopyAfterEvidenceReissue(file, 800L, 9L,
+                "reissue:900:REQ-REISSUE-CHAIN-1", Map.of(1001L, boundEvidenceHash));
+    }
+
+    @Test
+    void reissuePublishedSignatureEvidence_rejectsNonHmacEvidenceFailure() throws Exception {
+        when(signatureEvidenceProperties.getKeyVersion()).thenReturn("kv2");
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("new-secret");
+        DccControlledFileDO file = signedFile();
+        file.setStatus("ACTIVE");
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeSignature(
+                hmacSha256Hex("wrong-secret", canonicalPayload(file)));
+        signature.setEvidencePayloadVersion("unsupported");
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+
+        assertServiceException(() -> service.reissuePublishedSignatureEvidence(900L, 9L,
+                        "REQ-REISSUE-2", "旧密钥不可恢复，业务批准重新封存"),
+                CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                "签名 1001 不可重新封存：EVIDENCE_PAYLOAD_VERSION_UNSUPPORTED");
+        verify(signatureMapper, never()).updateById(any(DccControlledFileSignatureDO.class));
+        verify(signatureBindingService, never()).bindPublishedCopy(
+                any(DccControlledFileDO.class), any(Long.class), any(Long.class), any(String.class));
+    }
+
+    @Test
+    void exportSignatureEvidence_publishedCopyBindingValidExportsWithBoundProjection() throws Exception {
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
+        DccControlledFileDO file = signedFile();
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeSignature(hmacSha256Hex("secret", canonicalPayload(file)));
+        DccControlledFileSignatureBindingDO binding = DccControlledFileSignatureBindingDO.builder()
+                .signatureId(1001L)
+                .controlledFileId(900L)
+                .originalEvidenceHash(signature.getEvidenceHash())
+                .controlledCopyFileId(800L)
+                .controlledCopySha256("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .bindingEventKey("dcc-finalization:900")
+                .boundAt(LocalDateTime.of(2026, 5, 26, 15, 0))
+                .build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file))
+                .thenReturn(DccControlledFileSignatureBindingVerification.bound(binding));
+
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileSignatureExportSummaryRespVO summary;
+        DccSignatureEvidenceExportArtifact artifact;
+        try {
+            summary = service.getSignatureExportSummary(900L);
+            artifact = service.exportSignatureEvidence(900L);
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        assertTrue(summary.getAllRequiredEvidenceValid());
+        assertEquals("BOUND", summary.getSignatures().get(0).getControlledCopyHashStatus());
+        assertEquals(800L, summary.getSignatures().get(0).getControlledCopyFileId());
+        assertEquals("application/pdf", artifact.contentType());
+    }
+
+    @Test
+    void exportSignatureEvidence_handlesFourBoundSignaturesWithRuntimeLikeFields() throws Exception {
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
+        DccControlledFileDO file = signedFile();
+        file.setPublishedFileId(800L);
+        List<DccControlledFileSignatureDO> signatures = List.of(
+                runtimeLikeSignature(1001L, "auditor1", "赵海辰", "审批中心入库、文控"),
+                runtimeLikeSignature(1002L, "auditor2", "赵杰", "审批中心入库、排产员、文控"),
+                runtimeLikeSignature(1003L, "auditor3", "赵明玥", "审批中心入库、文控"),
+                runtimeLikeSignature(1004L, "auditor4", "王露雯", "DCC Distribute E2E、审批中心入库、文控、文控、文控下载")
+        );
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(signatures);
+        for (DccControlledFileSignatureDO signature : signatures) {
+            DccControlledFileSignatureBindingDO binding = DccControlledFileSignatureBindingDO.builder()
+                    .signatureId(signature.getId())
+                    .controlledFileId(900L)
+                    .originalEvidenceHash(signature.getEvidenceHash())
+                    .controlledCopyFileId(800L)
+                    .controlledCopyObjectKey("dcc/original/20260802/作废文件/9198354916370/stamped-approval-sample.pdf")
+                    .controlledCopySha256("cd91b32d9b00123456789abcdef0123456789abcdef0123456789abcdef01234")
+                    .bindingEventKey("reissue:900:REQ-REISSUE-RUNTIME")
+                    .boundAt(LocalDateTime.of(2026, 8, 14, 11, 8, 54))
+                    .build();
+            when(signatureBindingService.verifyPublishedCopyBinding(signature, file))
+                    .thenReturn(DccControlledFileSignatureBindingVerification.bound(binding));
+        }
+
+        TenantContextHolder.setTenantId(1L);
+        DccSignatureEvidenceExportArtifact artifact;
+        try {
+            artifact = service.exportSignatureEvidence(900L);
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        String pdfText;
+        try (PDDocument document = PDDocument.load(new ByteArrayInputStream(artifact.bytes()))) {
+            pdfText = new PDFTextStripper().getText(document);
+        }
+        assertEquals("application/pdf", artifact.contentType());
+        assertTrue(pdfText.contains("Signer Events / 签名事件 4"));
+        assertTrue(pdfText.contains("王露雯"));
+        assertTrue(pdfText.contains("cd91b32d9b00"));
+    }
+
+    @Test
+    void exportSignatureEvidence_marksUndecodableHistoricalImageInsteadOfBlockingArchive() throws Exception {
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
+        DccControlledFileDO file = signedFile();
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeImageSignature(file);
+        byte[] corruptPng = new byte[] {(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0};
+        DccControlledFileSignatureBindingDO binding = DccControlledFileSignatureBindingDO.builder()
+                .signatureId(signature.getId())
+                .controlledFileId(file.getId())
+                .originalEvidenceHash(signature.getEvidenceHash())
+                .controlledCopyFileId(800L)
+                .controlledCopyObjectKey("dcc/controlled-copy/DCC-SOP-001-A.1.pdf")
+                .controlledCopySha256("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .bindingEventKey("reissue:900:REQ-HISTORICAL-IMAGE")
+                .boundAt(LocalDateTime.of(2026, 8, 14, 13, 0))
+                .build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file))
+                .thenReturn(DccControlledFileSignatureBindingVerification.bound(binding));
+        when(signatureImageService.verifySignatureSnapshot(signature))
+                .thenReturn(DccElectronicSignatureImageSnapshot.builder()
+                        .imageId(501L)
+                        .versionNo(3)
+                        .fileId(1501L)
+                        .contentType("image/png")
+                        .fileSize((long) corruptPng.length)
+                        .sha256("image-sha256")
+                        .imageStatus("ACTIVE")
+                        .verifiedStatus("VALID")
+                        .content(corruptPng)
+                        .build());
+
+        TenantContextHolder.setTenantId(1L);
+        DccSignatureEvidenceExportArtifact artifact;
+        try {
+            artifact = service.exportSignatureEvidence(900L);
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        String pdfText;
+        try (PDDocument document = PDDocument.load(new ByteArrayInputStream(artifact.bytes()))) {
+            pdfText = new PDFTextStripper().getText(document);
+        }
+        assertEquals("application/pdf", artifact.contentType());
+        assertTrue(pdfText.contains("历史签名图片不可渲染"));
+        assertTrue(pdfText.contains("image-sha256"));
+        assertTrue(pdfText.contains("dcc/controlled-copy/DCC-SOP-001-A.1.pdf"));
     }
 
     @Test
@@ -1008,6 +1472,57 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
                 .build();
     }
 
+    private DccControlledFileSignatureDO runtimeLikeSignature(Long id, String username, String nickname,
+                                                              String roleNames) throws Exception {
+        DccControlledFileDO file = signedFile();
+        String payload = canonicalPayloadWithKeyVersion(file, "kv1", 20L, "APPROVED", "REVIEW_APPROVE", nickname);
+        DccControlledFileSignatureDO signature = completeSignature(hmacSha256Hex("secret", payload));
+        signature.setId(id);
+        signature.setActorUsernameSnapshot(username);
+        signature.setActorNicknameSnapshot(nickname);
+        signature.setActorRoleNamesSnapshot(roleNames);
+        signature.setEvidenceHash(hmacSha256Hex("secret", canonicalPayloadWithKeyVersion(file, "kv1", 20L,
+                "APPROVED", "REVIEW_APPROVE", nickname, username, roleNames)));
+        signature.setClientIpSnapshot("127.0.0.1");
+        signature.setUserAgentSnapshot("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                + "(KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36");
+        return signature;
+    }
+
+    private DccControlledFileSignatureDO completeImageSignature(DccControlledFileDO file) throws Exception {
+        DccControlledFileSignatureDO signature = completeSignature("");
+        signature.setEvidencePayloadVersion(DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V3_IMAGE);
+        signature.setSignatureImageId(501L);
+        signature.setSignatureImageVersionNo(3);
+        signature.setSignatureImageFileId(1501L);
+        signature.setSignatureImageSha256("image-sha256");
+        signature.setSignatureImageContentType("image/png");
+        signature.setSignatureImageFileSize(12L);
+        signature.setSignatureImageStatusSnapshot("ACTIVE");
+        signature.setSignatureImageVerifiedStatus("VALID");
+        signature.setEvidenceHash(hmacSha256Hex("secret", canonicalImagePayload(file)));
+        return signature;
+    }
+
+    private String canonicalImagePayload(DccControlledFileDO file) {
+        return "{\"payloadVersion\":\"v3-image\",\"hashAlgorithm\":\"HMAC_SHA256\",\"keyVersion\":\"kv1\","
+                + "\"tenantId\":1,\"controlledFileId\":900,\"fileNumber\":\"" + file.getFileNumber() + "\","
+                + "\"revisionId\":900,\"versionNo\":\"A.1\",\"sourceFileHash\":\"0e7b12ca44fe\","
+                + "\"controlledCopyHashStatus\":\"NOT_APPLICABLE\",\"controlledCopyHash\":\"\","
+                + "\"signatureImageId\":501,\"signatureImageVersionNo\":3,\"signatureImageFileId\":1501,"
+                + "\"signatureImageSha256\":\"image-sha256\",\"signatureImageContentType\":\"image/png\","
+                + "\"signatureImageFileSize\":12,\"signatureImageStatusSnapshot\":\"ACTIVE\","
+                + "\"signatureImageVerifiedStatus\":\"VALID\",\"processInstanceId\":\"bpm-pi-8001\","
+                + "\"taskId\":\"bpm-task-9001\",\"taskActionResult\":\"APPROVED\","
+                + "\"meaningCode\":\"REVIEW_APPROVE\",\"signerUserId\":101,\"signerUsername\":\"auditor\","
+                + "\"signerNickname\":\"审核员\",\"signerDeptId\":20,\"signerDeptName\":\"质量部\","
+                + "\"signerPostNames\":\"QA岗位\",\"signerRoleNames\":\"质量审核员\","
+                + "\"signaturePurpose\":\"REVIEW_APPROVE\","
+                + "\"authorizationBasis\":\"DCC电子签名授权启用；系统角色/岗位快照已记录\","
+                + "\"authenticationMethod\":\"PASSWORD\",\"signedAt\":\"2026-05-26T14:32:18+08:00\","
+                + "\"reasonText\":\"\"}";
+    }
+
     private String canonicalPayload(DccControlledFileDO file) {
         return canonicalPayload(file, 20L);
     }
@@ -1022,17 +1537,34 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
     }
 
     private String canonicalPayload(DccControlledFileDO file, Long signerDeptId,
-                                    String taskActionResult, String meaningCode, String signerNickname) {
-        return "{\"payloadVersion\":\"v2\",\"hashAlgorithm\":\"HMAC_SHA256\",\"keyVersion\":\"kv1\","
+                                     String taskActionResult, String meaningCode, String signerNickname) {
+        return canonicalPayloadWithKeyVersion(file, "kv1", signerDeptId, taskActionResult, meaningCode,
+                signerNickname);
+    }
+
+    private String canonicalPayloadWithKeyVersion(DccControlledFileDO file, String keyVersion) {
+        return canonicalPayloadWithKeyVersion(file, keyVersion, 20L, "APPROVED", "REVIEW_APPROVE", "审核员");
+    }
+
+    private String canonicalPayloadWithKeyVersion(DccControlledFileDO file, String keyVersion, Long signerDeptId,
+                                                  String taskActionResult, String meaningCode, String signerNickname) {
+        return canonicalPayloadWithKeyVersion(file, keyVersion, signerDeptId, taskActionResult, meaningCode,
+                signerNickname, "auditor", "质量审核员");
+    }
+
+    private String canonicalPayloadWithKeyVersion(DccControlledFileDO file, String keyVersion, Long signerDeptId,
+                                                  String taskActionResult, String meaningCode, String signerNickname,
+                                                  String signerUsername, String signerRoleNames) {
+        return "{\"payloadVersion\":\"v2\",\"hashAlgorithm\":\"HMAC_SHA256\",\"keyVersion\":\"" + keyVersion + "\","
                 + "\"tenantId\":1,\"controlledFileId\":900,\"fileNumber\":\"" + file.getFileNumber() + "\","
                 + "\"revisionId\":900,\"versionNo\":\"A.1\",\"sourceFileHash\":\"0e7b12ca44fe\","
                 + "\"controlledCopyHashStatus\":\"NOT_APPLICABLE\",\"controlledCopyHash\":\"\","
                 + "\"processInstanceId\":\"bpm-pi-8001\",\"taskId\":\"bpm-task-9001\","
                 + "\"taskActionResult\":\"" + taskActionResult + "\",\"meaningCode\":\"" + meaningCode + "\","
-                + "\"signerUserId\":101,\"signerUsername\":\"auditor\","
+                + "\"signerUserId\":101,\"signerUsername\":\"" + signerUsername + "\","
                 + "\"signerNickname\":\"" + signerNickname + "\",\"signerDeptId\":" + signerDeptId
                 + ",\"signerDeptName\":\"" + (signerDeptId == null ? "" : "质量部") + "\","
-                + "\"signerPostNames\":\"QA岗位\",\"signerRoleNames\":\"质量审核员\","
+                + "\"signerPostNames\":\"QA岗位\",\"signerRoleNames\":\"" + signerRoleNames + "\","
                 + "\"signaturePurpose\":\"REVIEW_APPROVE\","
                 + "\"authorizationBasis\":\"DCC电子签名授权启用；系统角色/岗位快照已记录\","
                 + "\"authenticationMethod\":\"PASSWORD\""

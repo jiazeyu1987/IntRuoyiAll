@@ -5,7 +5,9 @@ const assert = require('node:assert/strict')
 const pagePath = path.resolve(process.cwd(), 'src/views/mes/pro/edhr/ExecutionPage.vue')
 const source = fs.readFileSync(pagePath, 'utf8')
 
-const resultDialogStart = source.indexOf('<el-dialog\n      class="edhr-fill-workspace__result-dialog"')
+const resultDialogClassIndex = source.indexOf('class="edhr-fill-workspace__result-dialog"')
+assert.notEqual(resultDialogClassIndex, -1, '填写工作区操作结果大弹框缺少专用 class。')
+const resultDialogStart = source.lastIndexOf('<el-dialog', resultDialogClassIndex)
 assert.notEqual(resultDialogStart, -1, '填写工作区操作结果大弹框缺少 el-dialog 模板。')
 const resultDialogEnd = source.indexOf('</el-dialog>', resultDialogStart)
 assert.notEqual(resultDialogEnd, -1, '填写工作区操作结果大弹框模板未闭合。')
@@ -31,16 +33,21 @@ for (const token of [
   'resolveFillActionResultFillerText',
   "showFillActionResultDialog('save-success'",
   "showFillActionResultDialog('submit-success'",
-  "showFillActionResultDialog('submit-failed'",
+  "showFillActionResultDialog('submit-failed', submitErrorMessage",
   'edhr-fill-workspace__result-dialog',
+  'edhr-fill-workspace__result-close',
   'edhr-fill-workspace__result-status',
   'edhr-fill-workspace__result-context',
-  'edhr-fill-workspace__result-confirm'
+  'edhr-fill-workspace__result-reason',
+  'edhr-fill-workspace__result-confirm',
+  'closeFillActionResultDialog',
+  '@click="closeFillActionResultDialog"',
+  'aria-label="关闭结果弹窗"'
 ]) {
   assert.ok(source.includes(token), `填写工作区操作结果大弹框缺少契约片段：${token}`)
 }
 
-for (const text of ['订单', '工序', '已保存', '已提交', '提交失败', '确认']) {
+for (const text of ['订单', '工序', '已保存', '已提交', '提交失败', '失败原因', '确认']) {
   assert.ok(source.includes(text), `填写工作区操作结果大弹框必须显示用户要求的简短大字文案：${text}`)
 }
 
@@ -60,12 +67,43 @@ assert.ok(
 
 assert.ok(
   /<el-dialog[\s\S]*class="edhr-fill-workspace__result-dialog"[\s\S]*:show-close="false"[\s\S]*:close-on-click-modal="false"[\s\S]*:close-on-press-escape="false"/.test(source),
-  '操作结果弹框必须禁用右上角关闭、点击遮罩关闭和 ESC 关闭，确保只有一个确认按钮。'
+  '操作结果弹框必须禁用 Element Plus 默认关闭、点击遮罩关闭和 ESC 关闭，只保留受控关闭按钮和确认按钮。'
+)
+
+assert.ok(
+  /<button[\s\S]*class="edhr-fill-workspace__result-close"[\s\S]*aria-label="关闭结果弹窗"[\s\S]*@click="closeFillActionResultDialog"[\s\S]*<Icon icon="ep:close" \/>[\s\S]*<\/button>/.test(resultDialogTemplate),
+  '操作结果弹框右上角必须提供受控关闭按钮。'
 )
 
 assert.ok(
   /class="edhr-fill-workspace__result-status"[\s\S]*fillerText[\s\S]*statusText/.test(resultDialogTemplate),
   '操作结果弹框必须把“谁”和“已保存/已提交/提交失败”合成一行。'
+)
+
+assert.ok(
+  /class="edhr-fill-workspace__result-reason"[\s\S]*v-if="fillActionResultDialog\.failureReasonText"[\s\S]*失败原因[\s\S]*failureReasonText/.test(
+    resultDialogTemplate
+  ),
+  '提交失败弹框必须在大字状态下方展示真实失败原因。'
+)
+
+assert.ok(
+  /failureReasonText:\s*string/.test(resultDialogStateSource),
+  '操作结果弹框状态必须承载 failureReasonText。'
+)
+
+assert.ok(
+  /showFillActionResultDialog\s*=\s*\(\s*type:\s*FillActionResultType,\s*failureReasonText\s*=\s*''\s*\)/.test(
+    resultDialogLogicSource
+  ),
+  'showFillActionResultDialog 必须接收失败原因参数。'
+)
+
+assert.ok(
+  /fillActionResultDialog\.failureReasonText\s*=\s*type\s*===\s*'submit-failed'[\s\S]*failureReasonText[\s\S]*:\s*''/.test(
+    resultDialogLogicSource
+  ),
+  '只有提交失败弹框可以展示失败原因，成功弹框必须清空失败原因。'
 )
 
 assert.ok(
@@ -89,6 +127,16 @@ assert.ok(
 )
 
 assert.ok(
+  /const closeFillActionResultDialog = \(\) => \{[\s\S]*fillActionResultDialogVisible\.value = false[\s\S]*\}/.test(resultDialogLogicSource),
+  '操作结果弹框关闭事件必须只关闭当前结果弹框。'
+)
+
+assert.ok(
+  /\.edhr-fill-workspace__result-close\s*\{[\s\S]*position:\s*absolute[\s\S]*top:\s*12px[\s\S]*right:\s*12px/.test(source),
+  '操作结果弹框关闭按钮必须固定在右上角。'
+)
+
+assert.ok(
   source.indexOf("showFillActionResultDialog('save-success'") > source.indexOf('saveEdhrFieldChanges'),
   '保存成功后必须弹出“已保存”大弹框。'
 )
@@ -99,8 +147,9 @@ assert.ok(
 )
 
 assert.ok(
-  source.indexOf("showFillActionResultDialog('submit-failed'") > source.indexOf('catch (error)'),
-  '提交失败后必须弹出“提交失败”大弹框。'
+  source.indexOf("showFillActionResultDialog('submit-failed', submitErrorMessage") >
+    source.indexOf('catch (error)'),
+  '提交失败后必须把真实错误原因传入“提交失败”大弹框。'
 )
 
 assert.ok(!/mock|降级|静默跳过/.test(source), '操作结果弹框不得引入 mock、降级或静默跳过。')

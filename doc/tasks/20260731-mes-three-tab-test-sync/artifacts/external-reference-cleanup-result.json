@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-07-31T02:39:51.095189+00:00",
+  "status": "skipped",
+  "reason": "no active external references",
+  "backup_tables": [
+    "m3extbk_20260731023513_edhroperaudieven",
+    "m3extbk_20260731023513_feed",
+    "m3extbk_20260731023513_feedimporeco",
+    "m3extbk_20260731023513_feedsurppool",
+    "m3extbk_20260731023513_machproc",
+    "m3extbk_20260731023513_routuseconflega",
+    "m3extbk_20260731023513_routuseprocbatcrecolega",
+    "m3extbk_20260731023513_routuseprocconflega",
+    "m3extbk_20260731023513_task",
+    "m3extbk_20260731023513_taskscheext",
+    "m3extbk_20260731023513_work"
+  ],
+  "warnings": [
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001B7952661F0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:00000185105E17F0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002B7BF35A6C0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000021D5C1621E0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000020A5232C4F0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001F13A8AFF90",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001369BE06780",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000020C25E93D40",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001E41F77EDD0"
+  ]
+}

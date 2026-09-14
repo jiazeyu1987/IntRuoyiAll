@@ -30,12 +30,12 @@ class DccProductCatalogRegistrationExpiryCompareServiceTest extends BaseMockitoU
     @Test
     void compareRegistrationExpiryShouldReturnMatchWhenNormalizedDatesEqual() {
         when(productCatalogMapper.selectAllInDisplayOrder())
-                .thenReturn(List.of(row("子公司产品", 2, "2029.8.19", "https://example.com/nmpa-match")));
+                .thenReturn(List.of(row("瑛泰产品", 2, "2029.8.19", "https://example.com/nmpa-match")));
         when(externalPageClient.fetch("https://example.com/nmpa-match"))
                 .thenReturn("批准日期 2024-08-20 有效期至 2029年8月19日 结构及组成");
 
         List<DccProductCatalogRegistrationExpiryCompareRespVO> result =
-                service.compareRegistrationExpiry(req("子公司产品", 2));
+                service.compareRegistrationExpiry(req("瑛泰产品", 2));
 
         assertEquals(1, result.size());
         assertEquals("MATCH", result.get(0).getStatus());
@@ -48,7 +48,7 @@ class DccProductCatalogRegistrationExpiryCompareServiceTest extends BaseMockitoU
         String nmpaUrl = "https://www.nmpa.gov.cn/datasearch/search-info.html"
                 + "?nmpa=aWQ9MTdlYjFiMGM5OTg3OGQ2YjUyZTU4NTc1Y2JhNTlkNmYmaXRlbUlkPWZmODA4MDgxODNjYWQ3NTAwMTgzY2I2NmZlNjkwMjg1";
         when(productCatalogMapper.selectAllInDisplayOrder())
-                .thenReturn(List.of(row("子公司产品", 88, "2027.9.8", nmpaUrl)));
+                .thenReturn(List.of(row("瑛泰产品", 88, "2027.9.8", nmpaUrl)));
         when(externalPageClient.fetch(nmpaUrl))
                 .thenReturn("""
                         <html>
@@ -62,7 +62,7 @@ class DccProductCatalogRegistrationExpiryCompareServiceTest extends BaseMockitoU
                         """);
 
         List<DccProductCatalogRegistrationExpiryCompareRespVO> result =
-                service.compareRegistrationExpiry(req("子公司产品", 88));
+                service.compareRegistrationExpiry(req("瑛泰产品", 88));
 
         assertEquals(1, result.size());
         assertEquals("MATCH", result.get(0).getStatus());
@@ -73,12 +73,12 @@ class DccProductCatalogRegistrationExpiryCompareServiceTest extends BaseMockitoU
     @Test
     void compareRegistrationExpiryShouldReturnMismatchWhenDatesDiffer() {
         when(productCatalogMapper.selectAllInDisplayOrder())
-                .thenReturn(List.of(row("子公司产品", 2, "2029/8/19", "https://example.com/nmpa-mismatch")));
+                .thenReturn(List.of(row("瑛泰产品", 2, "2029/8/19", "https://example.com/nmpa-mismatch")));
         when(externalPageClient.fetch("https://example.com/nmpa-mismatch"))
                 .thenReturn("有效期至：2030-08-19");
 
         List<DccProductCatalogRegistrationExpiryCompareRespVO> result =
-                service.compareRegistrationExpiry(req("子公司产品", 2));
+                service.compareRegistrationExpiry(req("瑛泰产品", 2));
 
         assertEquals("MISMATCH", result.get(0).getStatus());
         assertEquals("2029-08-19", result.get(0).getLocalExpiryDate());
@@ -88,12 +88,12 @@ class DccProductCatalogRegistrationExpiryCompareServiceTest extends BaseMockitoU
     @Test
     void compareRegistrationExpiryShouldReturnFetchFailedWhenExternalRequestFails() {
         when(productCatalogMapper.selectAllInDisplayOrder())
-                .thenReturn(List.of(row("子公司产品", 2, "2029-08-19", "https://example.com/nmpa-412")));
+                .thenReturn(List.of(row("瑛泰产品", 2, "2029-08-19", "https://example.com/nmpa-412")));
         when(externalPageClient.fetch("https://example.com/nmpa-412"))
                 .thenThrow(new DccRegistrationExpiryExternalPageFetchException("HTTP 412"));
 
         List<DccProductCatalogRegistrationExpiryCompareRespVO> result =
-                service.compareRegistrationExpiry(req("子公司产品", 2));
+                service.compareRegistrationExpiry(req("瑛泰产品", 2));
 
         assertEquals("FETCH_FAILED", result.get(0).getStatus());
         assertEquals("HTTP 412", result.get(0).getMessage());
@@ -102,10 +102,10 @@ class DccProductCatalogRegistrationExpiryCompareServiceTest extends BaseMockitoU
     @Test
     void compareRegistrationExpiryShouldReturnNoLinkWithoutColoring() {
         when(productCatalogMapper.selectAllInDisplayOrder())
-                .thenReturn(List.of(row("子公司产品", 2, "2029-08-19", null)));
+                .thenReturn(List.of(row("瑛泰产品", 2, "2029-08-19", null)));
 
         List<DccProductCatalogRegistrationExpiryCompareRespVO> result =
-                service.compareRegistrationExpiry(req("子公司产品", 2));
+                service.compareRegistrationExpiry(req("瑛泰产品", 2));
 
         assertEquals("NO_LINK", result.get(0).getStatus());
     }
@@ -113,12 +113,12 @@ class DccProductCatalogRegistrationExpiryCompareServiceTest extends BaseMockitoU
     @Test
     void compareRegistrationExpiryShouldReturnUnsupportedWhenPageHasNoExpiryDate() {
         when(productCatalogMapper.selectAllInDisplayOrder())
-                .thenReturn(List.of(row("子公司产品", 2, "2029-08-19", "https://example.com/fda")));
+                .thenReturn(List.of(row("瑛泰产品", 2, "2029-08-19", "https://example.com/fda")));
         when(externalPageClient.fetch("https://example.com/fda"))
                 .thenReturn("Decision Date 09/05/2025");
 
         List<DccProductCatalogRegistrationExpiryCompareRespVO> result =
-                service.compareRegistrationExpiry(req("子公司产品", 2));
+                service.compareRegistrationExpiry(req("瑛泰产品", 2));
 
         assertEquals("UNSUPPORTED", result.get(0).getStatus());
     }
@@ -126,19 +126,19 @@ class DccProductCatalogRegistrationExpiryCompareServiceTest extends BaseMockitoU
     @Test
     void compareRegistrationExpiryShouldFailFastWhenRowKeyIsMissing() {
         when(productCatalogMapper.selectAllInDisplayOrder())
-                .thenReturn(List.of(row("子公司产品", 2, "2029-08-19", "https://example.com/nmpa")));
+                .thenReturn(List.of(row("瑛泰产品", 2, "2029-08-19", "https://example.com/nmpa")));
 
-        assertThrows(ServiceException.class, () -> service.compareRegistrationExpiry(req("子公司产品", 999)));
+        assertThrows(ServiceException.class, () -> service.compareRegistrationExpiry(req("瑛泰产品", 999)));
     }
 
     @Test
     void compareRegistrationExpiryShouldFailFastWhenRowKeyIsDuplicated() {
         when(productCatalogMapper.selectAllInDisplayOrder())
                 .thenReturn(List.of(
-                        row("子公司产品", 2, "2029-08-19", "https://example.com/one"),
-                        row("子公司产品", 2, "2029-08-19", "https://example.com/two")));
+                        row("瑛泰产品", 2, "2029-08-19", "https://example.com/one"),
+                        row("瑛泰产品", 2, "2029-08-19", "https://example.com/two")));
 
-        assertThrows(ServiceException.class, () -> service.compareRegistrationExpiry(req("子公司产品", 2)));
+        assertThrows(ServiceException.class, () -> service.compareRegistrationExpiry(req("瑛泰产品", 2)));
     }
 
     private DccProductCatalogRegistrationExpiryCompareReqVO req(String dataSource, Integer originalRowNo) {

@@ -16,8 +16,8 @@
 - [x] 通过真实前端路径执行手动重排。
 - [x] 采集并核验产品编号颜色、最近一次成功排产时间、甘特图工单范围。
 - [x] 输出初始 verification-report.md。
-- [ ] 以严格 TDD 修复产品编号橙色状态。
-- [ ] 复测四项目标并更新验证报告。
+- [x] 以严格 TDD 修复产品编号橙色状态。
+- [x] 复测四项目标并更新验证报告。
 - [ ] 完成二次收尾。
 
 ## Expected Verification
@@ -29,7 +29,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -42,6 +42,7 @@ in_progress
 - 任务创建时 `docs/experience-index.md` 不存在；用户已明确授权“在芋道源码里验证”，据此记录风险后继续。
 - 收尾时已发现并读取 `docs/experience-index.md`；命中 `docs/e2e-rules.md` 和 `docs/login-access.md`。
 - 适用门禁摘要：真实写入验证必须走 Playwright 前端路径，API 仅作辅助核验；使用本机入口和授权身份；失败必须保留页面、网络和截图证据；不得使用 SQL、API-only 或 mock 替代。
+- 新增经验摘要：Element Plus `el-table` 勾选行复选框必须限定可见 body row，排除表头/thead，写入前断言已选业务唯一键集合与目标集合完全一致。
 
 ## Cleanup Candidates
 
@@ -52,3 +53,6 @@ in_progress
 
 - 初次真实验证：a/c/d 通过，b 失败。
 - 2026-07-24 用户授权继续修复 b；本任务重新进入执行状态。
+- 修复后真实验证：2026-07-24 17:32 使用 `manual-reschedule-repair-verify.e2e.cjs` 通过真实前端路径再次执行手动重排，a/b/c/d 全部通过。
+- 关键证据：`output/playwright/verify-manual-reschedule-881mo-20260724-repair/repair-verification-report.json`、`after-replan-product-code.png`、`after-replan-gantt.png`。
+- 当前状态为 `ready_for_closeout`：功能修复和必需验证已完成，二次收尾、提交与推送仍需处理。

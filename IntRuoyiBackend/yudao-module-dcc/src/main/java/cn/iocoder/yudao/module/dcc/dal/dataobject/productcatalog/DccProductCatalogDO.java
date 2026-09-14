@@ -28,6 +28,8 @@ public class DccProductCatalogDO extends BaseDO {
     private String productSequence;
     private String product;
     private String productCode;
+    private String projectName;
+    private String projectCode;
     private String registrationCertificateName;
     private String registrationCertificateNumber;
     private String certificateHolder;

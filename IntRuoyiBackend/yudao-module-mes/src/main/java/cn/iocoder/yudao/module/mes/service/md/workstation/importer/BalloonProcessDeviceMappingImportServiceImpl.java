@@ -12,6 +12,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstatio
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationMachineDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationWorkerDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseAreaDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseLocationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkshopMapper;
@@ -21,6 +24,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationWork
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.service.dv.machinery.Sheet1MachineryProcessExcelParser;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationService;
+import cn.iocoder.yudao.module.mes.service.wm.warehouse.MesWmWarehouseAreaService;
+import cn.iocoder.yudao.module.mes.service.wm.warehouse.MesWmWarehouseLocationService;
+import cn.iocoder.yudao.module.mes.service.wm.warehouse.MesWmWarehouseService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,6 +74,12 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
     private MesDvMachineryProcessMapper machineryProcessMapper;
     @Resource
     private MesMdWorkstationService workstationService;
+    @Resource
+    private MesWmWarehouseService warehouseService;
+    @Resource
+    private MesWmWarehouseLocationService locationService;
+    @Resource
+    private MesWmWarehouseAreaService areaService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -369,6 +381,7 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
             if (candidates.isEmpty()) {
                 MesMdWorkstationSaveReqVO createReqVO = buildCreateWorkstationReq(process, targetWorkshop,
                         resolveSingleStandardHourlyCapacity(processName, normalizedSheet.manualRows()));
+                applyVirtualWarehouseHierarchyIfMissing(createReqVO);
                 Long workstationId = workstationService.createWorkstation(createReqVO);
                 if (workstationId == null) {
                     throw ServiceExceptionUtil.invalidParamException("工序 [{}] 创建工作站未返回编号，无法同步", processName);
@@ -382,12 +395,35 @@ public class BalloonProcessDeviceMappingImportServiceImpl implements BalloonProc
             BigDecimal singleStandardHourlyCapacity = resolveSingleStandardHourlyCapacity(processName, normalizedSheet.manualRows());
             MesMdWorkstationSaveReqVO updateReqVO = buildUpdateWorkstationReq(existing, process, targetWorkshop,
                     singleStandardHourlyCapacity);
+            applyVirtualWarehouseHierarchyIfMissing(updateReqVO);
             workstationService.updateWorkstation(updateReqVO);
             workstationMapper.updateSingleStandardHourlyCapacity(existing.getId(), singleStandardHourlyCapacity);
             workstationIdByProcessId.put(process.getId(), existing.getId());
             reusedCount++;
         }
         return new WorkstationSyncResult(workstationIdByProcessId, reusedCount, createdCount);
+    }
+
+    private void applyVirtualWarehouseHierarchyIfMissing(MesMdWorkstationSaveReqVO reqVO) {
+        if (reqVO.getWarehouseId() != null || reqVO.getLocationId() != null || reqVO.getAreaId() != null) {
+            return;
+        }
+        MesWmWarehouseDO warehouse = warehouseService.ensureWarehouseByCode(
+                MesWmWarehouseDO.WIP_VIRTUAL_WAREHOUSE);
+        MesWmWarehouseLocationDO location = locationService.getWarehouseLocationByCode(
+                MesWmWarehouseLocationDO.WIP_VIRTUAL_LOCATION);
+        MesWmWarehouseAreaDO area = areaService.getWarehouseAreaByCode(
+                MesWmWarehouseAreaDO.WIP_VIRTUAL_AREA);
+        if (warehouse == null || warehouse.getId() == null
+                || location == null || location.getId() == null
+                || area == null || area.getId() == null
+                || !Objects.equals(location.getWarehouseId(), warehouse.getId())
+                || !Objects.equals(area.getLocationId(), location.getId())) {
+            throw ServiceExceptionUtil.invalidParamException("虚拟线边仓储层级不完整，无法同步工作站");
+        }
+        reqVO.setWarehouseId(warehouse.getId());
+        reqVO.setLocationId(location.getId());
+        reqVO.setAreaId(area.getId());
     }
 
     private BigDecimal resolveSingleStandardHourlyCapacity(String processName,

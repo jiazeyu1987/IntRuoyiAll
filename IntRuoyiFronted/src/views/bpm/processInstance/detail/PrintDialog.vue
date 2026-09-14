@@ -4,6 +4,12 @@ import { useUserStore } from '@/store/modules/user'
 import { formatDate } from '@/utils/formatTime'
 import { DICT_TYPE, getDictLabel } from '@/utils/dict'
 import { decodeFields } from '@/utils/formCreate'
+import {
+  resolveProcessDetailDescription,
+  resolveProcessFormDisplayName,
+  resolveProcessInstanceDisplayName,
+  resolveProcessNodeDisplayName
+} from './display-name'
 
 const userStore = useUserStore()
 
@@ -75,7 +81,9 @@ const parseFormFields = () => {
 const initPrintDataMap = () => {
   printDataMap.value['startUser'] = printData.value.processInstance.startUser.nickname
   printDataMap.value['startUserDept'] = printData.value.processInstance.startUser.deptName
-  printDataMap.value['processName'] = printData.value.processInstance.name
+  printDataMap.value['processName'] = resolveProcessInstanceDisplayName(
+    printData.value.processInstance.name
+  )
   printDataMap.value['processNum'] = printData.value.processInstance.id
   printDataMap.value['startTime'] = formatDate(printData.value.processInstance.startTime)
   printDataMap.value['endTime'] = formatDate(printData.value.processInstance.endTime)
@@ -120,9 +128,9 @@ const getPrintTemplateHTML = () => {
     printData.value.tasks.forEach((item) => {
       const tr = document.createElement('tr')
       const td1 = document.createElement('td')
-      td1.innerHTML = item.name
+      td1.innerHTML = resolveProcessNodeDisplayName(undefined, item.name)
       const td2 = document.createElement('td')
-      td2.innerHTML = item.description
+      td2.innerHTML = resolveProcessDetailDescription(item.description)
       tr.appendChild(td1)
       tr.appendChild(td2)
       processRecordTable.appendChild(tr)
@@ -149,7 +157,9 @@ const printObj = ref({
     <div id="printDivTag" style="word-break: break-all">
       <div v-if="printData.printTemplateEnable" v-html="getPrintTemplateHTML()"></div>
       <div v-else>
-        <h2 class="text-center">{{ printData.processInstance.name }}</h2>
+        <h2 class="text-center">
+          {{ resolveProcessInstanceDisplayName(printData.processInstance.name) }}
+        </h2>
         <div class="text-right text-15px">{{ '打印人员: ' + userName }}</div>
         <div class="flex justify-between">
           <div class="text-15px">{{ '流程编号: ' + printData.processInstance.id }}</div>
@@ -183,7 +193,7 @@ const printObj = ref({
             </tr>
             <tr v-for="item in formFields" :key="item.id">
               <td class="p-5px w-20%">
-                {{ item.name }}
+                {{ resolveProcessFormDisplayName(item.name) }}
               </td>
               <td class="p-5px w-80%" colspan="3">
                 <div v-html="item.html"></div>
@@ -196,10 +206,10 @@ const printObj = ref({
             </tr>
             <tr v-for="item in printData.tasks" :key="item.id">
               <td class="p-5px w-20%">
-                {{ item.name }}
+                {{ resolveProcessNodeDisplayName(undefined, item.name) }}
               </td>
               <td class="p-5px w-80%" colspan="3">
-                {{ item.description }}
+                {{ resolveProcessDetailDescription(item.description) }}
                 <div v-if="item.signPicUrl && item.signPicUrl.length > 0">
                   <img class="w-90px h-40px" :src="item.signPicUrl" alt="" />
                 </div>

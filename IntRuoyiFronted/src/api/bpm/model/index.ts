@@ -3,7 +3,8 @@ import request from '@/config/axios'
 export type ProcessDefinitionVO = {
   id: string
   version: number
-  deploymentTIme: string
+  deploymentTime?: string
+  deploymentTIme?: string
   suspensionState: number
   formType?: number
   formCustomCreatePath?: string
@@ -11,6 +12,7 @@ export type ProcessDefinitionVO = {
 
 export type ModelVO = {
   id: number
+  type?: number
   formName: string
   key: string
   name: string
@@ -25,6 +27,44 @@ export type ModelVO = {
   remark: string
   createTime: string
   bpmnXml: string
+  simpleModel?: unknown
+}
+
+export type ModelUpdateReqVO = Partial<ModelVO> & {
+  id: number
+}
+
+export type ModelCreateReqVO = Partial<ModelVO> & {
+  key: string
+  name: string
+  type: number
+  formType: number
+  visible: boolean
+  startUserIds?: number[]
+  startDeptIds?: number[]
+  managerUserIds: number[]
+  allowCancelRunningProcess?: boolean
+  allowWithdrawTask?: boolean
+  processIdRule?: {
+    enable: boolean
+    prefix?: string
+    infix?: string
+    postfix?: string
+    length: number
+  }
+  autoApprovalType?: number
+  titleSetting?: {
+    enable: boolean
+    title?: string
+  }
+  summarySetting?: {
+    enable: boolean
+    summary?: string[]
+  }
+  printTemplateSetting?: {
+    enable: boolean
+    template?: string
+  }
 }
 
 export const getModelList = async (name: string | undefined) => {
@@ -35,7 +75,7 @@ export const getModel = async (id: string) => {
   return await request.get({ url: '/bpm/model/get?id=' + id })
 }
 
-export const updateModel = async (data: ModelVO) => {
+export const updateModel = async (data: ModelUpdateReqVO) => {
   return await request.put({ url: '/bpm/model/update', data: data })
 }
 
@@ -62,7 +102,7 @@ export const updateModelState = async (id: number, state: number) => {
   return await request.put({ url: '/bpm/model/update-state', data: data })
 }
 
-export const createModel = async (data: ModelVO) => {
+export const createModel = async (data: ModelCreateReqVO) => {
   return await request.post({ url: '/bpm/model/create', data: data })
 }
 

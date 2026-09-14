@@ -20,7 +20,7 @@ expectIncludes(
   '批记录表单左侧列表必须直接导入标准列表模板。'
 )
 expectIncludes('<UnifiedListTemplate', '批记录表单左侧必须使用标准列表模板。')
-expectIncludes('table-key="mes.pro.edhrBatch.recordFormList"', '批记录表单列表必须使用稳定 tableKey。')
+expectIncludes('table-key="mes.pro.edhrBatch.recordFormList.projectCodeV1"', '批记录表单列表新增默认列后必须升级稳定 tableKey。')
 expectIncludes(':show-quick-filter-label="false"', '批记录表单列表必须删除红框中的快速过滤文字标签。')
 expectIncludes(':columns="recordFormColumns"', '标准列表模板必须接入显示字段配置。')
 expectIncludes('@column-change="saveRecordFormColumnConfig"', '列表列配置必须可保存。')
@@ -37,7 +37,7 @@ assert.match(page, /batch-record-form-toolbar__import-button[\s\S]*@click="openW
 expectIncludes('const wordImportDialog = reactive({', '导入按钮必须复用 DCC 项目选择弹窗状态。')
 expectIncludes('loadWordImportProjectOptions', '导入逻辑必须加载 DCC 项目名称候选。')
 expectIncludes('getProjectCodePage', '导入逻辑必须从 DCC 项目代码页签读取项目名称。')
-expectIncludes('selectedFormSlotType', '导入逻辑必须要求先选择表单类型。')
+expectIncludes('selectedFormSlotType', '导入逻辑必须保留内部表单类型状态。')
 expectIncludes('BatchRecordReportApi.preflightUploadedRoute', '主批记录导入逻辑必须复用预检接口。')
 expectIncludes('BatchRecordReportApi.recognizeUploadedRoute', '导入逻辑必须复用真实 Word 识别导入接口。')
 expectIncludes('BatchRecordReportApi.uploadExtraFormSlot', '附加表单导入逻辑必须复用附加槽位上传接口。')
@@ -45,7 +45,7 @@ expectIncludes('ElMessageBox.confirm', '同名批记录导入必须保留升版�
 expectIncludes('wordImportRouteKey', '导入逻辑必须保留 B/E 路线识别。')
 expectIncludes('@pagination="getList"', '分页必须由标准列表模板触发真实列表加载。')
 
-for (const column of ['产品名称', '表单名称', '类型', '版本', '状态', '更新时间']) {
+for (const column of ['产品名称', '项目代码', '表单名称', '类型', '版本', '状态', '更新时间']) {
   assert(page.includes(`label: '${column}'`) || page.includes(`label="${column}"`), `列表必须显示列：${column}`)
 }
 
@@ -63,22 +63,34 @@ expectIncludes('BatchRecordReportApi.getCellRules', '右侧预览必须读取真
 expectIncludes('BatchRecordReportApi.getSignatureCellMarkers', '右侧预览必须读取真实签名位。')
 expectIncludes('EdhrExecutionReadonlyForm', '右侧预览必须复用 eDHR 只读表单组件。')
 expectIncludes('@row-click="selectReport"', '点击左侧表单行必须切换右侧预览。')
-expectIncludes('type="selection"', '批记录表单列表必须提供多选列用于批量删除。')
-expectIncludes('@selection-change="handleSelectionChange"', '批记录表单列表必须维护选中行。')
-expectIncludes('批量删除', '批记录表单列表必须提供批量删除按钮。')
-expectIncludes('@click="handleBatchDelete"', '批量删除按钮必须调用批量删除处理函数。')
-expectIncludes('const selectedRows = ref<RecordFormListRow[]>([])', '批量删除必须维护选中行状态。')
-expectIncludes('const getUniqueSelectedReports = () =>', '批量删除必须按表单 ID 去重。')
-expectIncludes('const uniqueReportMap = new Map<string, RecordFormListRow>()', '批量删除去重必须使用 reportId 作为唯一键。')
-expectIncludes('uniqueReportMap.set(row.reportId, row)', '同一表单按产品拆行时必须只删除一次。')
-expectIncludes('BatchRecordReportApi.deleteGeneratedReports', '批量删除必须调用后端批量删除接口，不得直接删库。')
-expectIncludes('isRouteProcessBoundDeleteError', '批量删除必须识别工艺路线工序绑定错误。')
-expectIncludes('是否批量解绑后删除', '遇到工艺路线工序绑定错误时必须提示是否批量解绑后删除。')
-expectIncludes('deleteSelectedReports(candidates, true)', '用户确认后必须按 forceUnbind=true 执行真实批量解绑删除。')
+assert.doesNotMatch(page, /type="selection"/, '删除批量删除按钮后不应继续保留仅服务于批量操作的多选列。')
+assert.doesNotMatch(page, /@selection-change="handleSelectionChange"/, '删除批量删除按钮后不应继续维护批量选择状态。')
+assert.doesNotMatch(page, /批量删除/, '批记录表单列表顶部不得继续显示批量删除按钮。')
+assert.doesNotMatch(page, /handleBatchDelete/, '删除批量删除按钮后不应保留废弃 handleBatchDelete。')
+assert.doesNotMatch(page, /selectedRows/, '删除批量删除按钮后不应保留废弃 selectedRows 状态。')
+assert.doesNotMatch(page, /getUniqueSelectedReports/, '删除批量删除按钮后不应保留批量删除去重逻辑。')
+assert.doesNotMatch(page, /deleteSelectedReports/, '删除批量删除按钮后不应保留批量删除请求处理。')
+assert.doesNotMatch(page, /是否批量解绑后删除/, '删除批量删除按钮后不应保留批量解绑删除弹窗文案。')
 
 for (const action of ['打开', '编辑', '填写', '签名', '规则', '链接', '重命名', '删除']) {
   expectIncludes(action, `右侧预览顶部必须保留动作：${action}`)
 }
+
+const tableStart = page.indexOf('<el-table')
+const tableEnd = page.indexOf('</el-table>', tableStart)
+assert.notEqual(tableStart, -1, '批记录表单列表必须保留左侧表格。')
+assert.notEqual(tableEnd, -1, '批记录表单列表左侧表格必须完整闭合。')
+const listTable = page.slice(tableStart, tableEnd)
+assert.doesNotMatch(listTable, /label="填写人"/, '左侧批记录表单列表不得再显示“填写人”列。')
+assert.doesNotMatch(listTable, /prop="fillRule"/, '左侧批记录表单列表不得再绑定填写人列字段。')
+assert.doesNotMatch(listTable, /batch-record-form-filler-cell/, '左侧批记录表单列表不得再显示“未配置 / 配置填写人”入口。')
+assert.doesNotMatch(page, /\{\s*key:\s*'fillRule'[\s\S]*?label:\s*'填写人'/, '批记录表单列表默认列配置不得再注册“填写人”。')
+assert.doesNotMatch(page, /EdhrProcessFormPermissionRuleApi/, '删除列表“填写人”列后，当前页面不应再为不可见列延迟加载填写人规则。')
+assert.match(
+  page,
+  /<el-button link type="primary" @click="openTemplateAction\(selectedReport, 'cellRules'\)">填写配置<\/el-button>/,
+  '需要进入全屏填写配置时必须继续通过右侧“填写配置”动作打开。'
+)
 
 expectIncludes('class="batch-record-form-preview__actions"', '右侧预览顶部必须承载表单操作区。')
 assert(!page.includes('prop="operation"'), '批记录表单列表不应继续保留操作列。')
@@ -93,6 +105,7 @@ for (const mapping of [
 }
 
 assert.match(api, /productName\?:\s*string/, '前端报表 VO 必须包含产品名称字段。')
+assert.match(api, /projectCode\?:\s*string/, '前端报表 VO 必须包含 DCC 项目代码字段。')
 assert.match(api, /versionNo\?:\s*string/, '前端报表 VO 必须包含版本号字段。')
 assert.match(api, /versionStatus\?:\s*string/, '前端报表 VO 必须包含版本状态字段。')
 assert.match(api, /deleteGeneratedReports:\s*async/, '前端 API 必须暴露批量删除接口。')

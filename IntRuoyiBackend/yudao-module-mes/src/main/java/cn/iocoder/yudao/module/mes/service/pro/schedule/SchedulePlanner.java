@@ -27,6 +27,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationCapacityMetrics;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.CapacityWindowAllocator.ScheduleWindowResult;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.CapacityWindowAllocator.ShiftWindow;
+import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleTopologyPredecessors;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -263,22 +264,23 @@ public class SchedulePlanner {
                     .collect(Collectors.toMap(MesProScheduleOrderProcessDO::getRouteProcessId,
                             item -> item, (left, right) -> left, LinkedHashMap::new));
             for (MesProScheduleOrderProcessDO process : processByRouteProcessId.values()) {
-                if (process.getPredecessorRouteProcessId() == null) {
-                    continue;
-                }
-                MesProScheduleOrderProcessDO predecessor =
-                        processByRouteProcessId.get(process.getPredecessorRouteProcessId());
-                if (predecessor == null) {
-                    throw new IllegalStateException("排产工序直接前置快照不存在，scheduleOrderId="
-                            + scheduleOrder.getId() + ", routeProcessId=" + process.getRouteProcessId());
-                }
-                Long predecessorProcessId = resolveRuntimeProcessId(routeProcessById, routeProcessBySort, predecessor);
                 Long processId = resolveRuntimeProcessId(routeProcessById, routeProcessBySort, process);
-                if (predecessorProcessId == null || processId == null) {
+                if (processId == null) {
                     continue;
                 }
-                computation.linkPlans.add(new LinkPlan(
-                        scheduleOrder.getWorkOrderId(), predecessorProcessId, processId));
+                for (Long predecessorRouteProcessId : ScheduleTopologyPredecessors.resolve(process)) {
+                    MesProScheduleOrderProcessDO predecessor = processByRouteProcessId.get(predecessorRouteProcessId);
+                    if (predecessor == null) {
+                        throw new IllegalStateException("排产工序直接前置快照不存在，scheduleOrderId="
+                                + scheduleOrder.getId() + ", routeProcessId=" + process.getRouteProcessId());
+                    }
+                    Long predecessorProcessId = resolveRuntimeProcessId(routeProcessById, routeProcessBySort, predecessor);
+                    if (predecessorProcessId == null) {
+                        continue;
+                    }
+                    computation.linkPlans.add(new LinkPlan(
+                            scheduleOrder.getWorkOrderId(), predecessorProcessId, processId));
+                }
             }
         }
         return computation.linkPlans;
@@ -905,7 +907,8 @@ public class SchedulePlanner {
     private boolean hasRouteProcessTopologySnapshot(Collection<MesProScheduleOrderProcessDO> snapshotProcesses) {
         return snapshotProcesses != null && !snapshotProcesses.isEmpty()
                 && snapshotProcesses.stream().anyMatch(item -> item != null
-                && (item.getPredecessorRouteProcessId() != null || item.getRootProcessFlag() != null));
+                && (StrUtil.isNotBlank(item.getPredecessorRouteProcessIdsJson())
+                || item.getPredecessorRouteProcessId() != null || item.getRootProcessFlag() != null));
     }
 
     private boolean hasInactiveTopologyPredecessor(Collection<MesProScheduleOrderProcessDO> snapshotProcesses) {
@@ -917,8 +920,7 @@ public class SchedulePlanner {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         return snapshotProcesses.stream()
-                .map(MesProScheduleOrderProcessDO::getPredecessorRouteProcessId)
-                .filter(Objects::nonNull)
+                .flatMap(process -> ScheduleTopologyPredecessors.resolve(process).stream())
                 .anyMatch(predecessorRouteProcessId -> !activeRouteProcessIds.contains(predecessorRouteProcessId));
     }
 

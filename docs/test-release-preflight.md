@@ -36,11 +36,11 @@
 - 本次是否只允许测试服。
 - 本次 releaseTag。
 - 目标测试服务器是否为 `172.30.30.58`。
-- 是否明确禁止正式服、备份服、`mark-tested`、`promote-prod`、`promote-backup`。
+- 是否明确禁止正式服、审查服、`mark-tested`、`promote-prod`、`promote-backup`。
 
 ### Fail Fast
 
-- 用户未明确授权正式服或备份服，却出现正式服/备份服动作。
+- 用户未明确授权正式服或审查服，却出现正式服/审查服动作。
 - 发布目标、服务器或 releaseTag 无法确认。
 - 想复用旧 releaseTag 拼接新构建、新测试服结果或旧成功记录。
 
@@ -115,7 +115,7 @@ corepack pnpm@10.25.0 --version
 
 ### 必查项
 
-- build preview 只包含构建动作，不包含正式服、备份服、恢复、回滚或推广动作。
+- build preview 只包含构建动作，不包含正式服、审查服、恢复、回滚或推广动作。
 - build operation 最终为 `SUCCESS`。
 - 发布包目录存在。
 - `manifest.json` 存在且为来源权威。
@@ -152,7 +152,7 @@ corepack pnpm@10.25.0 --version
 ### Fail Fast
 
 - 预览动作不是测试服。
-- 参数来自正式服或备份服模板。
+- 参数来自正式服或审查服模板。
 - required SQL 依赖未验证 live data。
 - 测试服数据修复缺少授权、备份、ROLLBACK 演练或引用保持验证。
 
@@ -328,7 +328,7 @@ ssh root@172.30.30.58 bash -s
 ### Blocker
 
 - preview 无法明确证明 `ServerHost=172.30.30.58` 或 `environment=test`。
-- preview 中出现正式服/备份服的实际 `ServerHost`、`RemoteAppDir` 或 promote/mark-tested 动作。
+- preview 中出现正式服/审查服的实际 `ServerHost`、`RemoteAppDir` 或 promote/mark-tested 动作。
 - release-info、运行控制台或页面无法证明版本号与变更说明来自本次 releaseTag。
 
 ### Verification
@@ -410,3 +410,68 @@ ssh root@172.30.30.58 bash -s
 
 - 本次任务：`doc/tasks/20260713-current-head-test-only-release-rerun/task.md` P006，`runtime-console-page-probe-r260713u.json`。
 - ReleaseTag：`release-20260713-current-head-test-r260713u`；build operation `op-2026-07-13T130433994984600Z-0ddaec3f-7a3b-465a-a40b-182c572b3508`；publish operation `op-2026-07-13T132238031788800Z-7427e313-5a0e-4bae-8bc3-be5decaa3c0a`。
+
+## 2026-07-28 release-info 静态文件出包门禁
+
+### Trigger
+
+仅测试服发布、code-only 发布、运行态验收、版本变更说明验收，或 `/release-info.json` 返回 HTML / `index.html` / 当前 releaseTag 不可见。
+
+### Preflight check
+
+- `build-release` 后必须直接检查发布包 Docker build context 内的 `yudao-ui-admin-vue3/dist-intruoyi-test/release-info.json`，并确认 `releaseTag`、`publishScope`、`changeSet.includeOnlyOffice`、`sourceRepos[*].dirty` 与 `manifest.json` 一致。
+- `deploy-release` 后必须同时检查远端前端容器内 `/usr/share/nginx/html/release-info.json` 和 HTTP `http://<server>:8081/release-info.json`；返回内容必须是 JSON，不得是 SPA fallback 的 `index.html`。
+- 如果为了修复 release-info 出包问题修改发布脚本，必须补静态合同测试，保证 `release-info.json` 在 `New-ReleaseDockerBuildContext` 之前写入前端 dist。
+
+### Blocker
+
+- 发布包或远端容器内缺少 `release-info.json`。
+- `/release-info.json` 返回 HTML、`releaseTag` 不是本轮 releaseTag、`publishScope` 不是本轮范围、`includeOnlyOffice` 与本轮包边界不一致，或任一 source repo `dirty=true`。
+
+### Verification
+
+- 记录本地包、NAS 包、远端容器文件和 HTTP `release-info.json` 的 `releaseTag`、`publishScope`、`includeOnlyOffice` 和 sourceRepos dirty 结果。
+- 同时记录前端入口 HTTP 200、后端 health、`.env IMAGE_TAG`、实际镜像 tag 和 release lock，避免只修静态文件而忽略真实运行态。
+
+### Forbidden action
+
+- 禁止把前端入口 HTTP 200 当作 release-info 通过。
+- 禁止把 `/release-info.json` 返回的 `index.html` 当作 JSON 或页面缓存问题跳过。
+- 禁止复用缺少 release-info 的 releaseTag；修复后必须使用新的 releaseTag 重新 build-release 和 deploy-release。
+
+### Evidence
+
+- 本次任务：`doc/tasks/20260728-codeonly-no-onlyoffice-test-release/execution-log.md`。
+- r1 暴露 `/release-info.json` 返回 SPA `index.html`；修复发布脚本写入 `release-info.json` 后，r2 `release-20260728-codeonly-noonlyoffice-test-r2` 通过本地包、NAS 包和测试服 HTTP release-info 验收。
+
+## 2026-08-18 测试服前端 SPA 回退入口缓存头门禁
+
+### Trigger
+
+测试服前端发布后，老浏览器或旧会话访问 `/index`、`/login`、动态路由等 SPA 回退地址时仍加载旧登录页、旧脚本或旧菜单缓存，表现为新浏览器可登录但旧浏览器无法登录。
+
+### Preflight check
+
+- 修改测试服前端 Nginx、Dockerfile、发布脚本或运行态验收时，必须同时检查 `/`、`/index.html`、`/index` 和通用 `location /` SPA 回退入口。
+- SPA 入口和回退入口必须返回 `Cache-Control: no-store, no-cache, must-revalidate, max-age=0`、`Pragma: no-cache`、`Expires: 0`。
+- 带 hash 的 `/assets/` 和 `/admin-ui-vue3/assets/` 资源继续使用 `public, max-age=31536000, immutable`，入口页不缓存与静态资源长期缓存必须分开验证。
+
+### Blocker
+
+- `/index` 或通用 SPA 回退只 `try_files ... /index.html` 但没有禁缓存响应头。
+- 只验证 `/` 或 `/index.html`，未覆盖测试服常用入口 `/index`。
+- 为解决旧浏览器问题要求用户手工清缓存，却没有修正发布入口缓存策略。
+
+### Verification
+
+- 运行 `node script/tests/test_admin_frontend_nginx_cache_headers.mjs`，确认入口、`/index`、SPA 回退和 hash 静态资源缓存策略同时通过。
+- 发布后用 HTTP header 或浏览器网络面板核对 `/index` 与任一动态路由返回禁缓存头，`/assets/*.js` 返回 immutable 缓存头。
+
+### Forbidden action
+
+- 禁止用强制用户清缓存、无痕窗口、退出重登、仅重启后端或仅刷新 Redis 作为根因修复。
+- 禁止把所有静态资源都改成不缓存来掩盖入口页缓存问题。
+
+### Evidence
+
+- 本次任务：`doc/tasks/20260818-test-server-login-cache/execution-log.md`。

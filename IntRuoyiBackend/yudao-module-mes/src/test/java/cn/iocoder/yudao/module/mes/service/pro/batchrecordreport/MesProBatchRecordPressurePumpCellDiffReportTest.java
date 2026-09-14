@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProBatchRecordPressurePumpCellDiffReportTest {
 
-    private static final Path REAL_DOC = Path.of("C:\\Users\\BJB110\\Desktop\\文档\\批记录压力泵.doc");
+    private static final Path REAL_DOC = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
     private static final String REPORT_RELATIVE =
             "doc/tasks/20260723-batch-assembly1-lightcure1-recognition/pressure-pump-assembly-lightcure-cell-diff-report.md";
     private static final List<String> TARGET_TITLES = List.of("组装Ⅰ工序生产记录", "光固Ⅰ工序生产记录");

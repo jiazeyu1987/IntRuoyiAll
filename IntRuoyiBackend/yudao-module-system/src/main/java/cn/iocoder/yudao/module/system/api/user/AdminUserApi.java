@@ -32,6 +32,14 @@ public interface AdminUserApi {
     List<AdminUserRespDTO> getUserListBySubordinate(Long id);
 
     /**
+     * 按昵称模糊查询全量用户
+     *
+     * @param nickname 用户昵称
+     * @return 用户列表
+     */
+    List<AdminUserRespDTO> getUserListByNickname(String nickname);
+
+    /**
      * 通过用户 ID 查询用户们
      *
      * @param ids 用户 ID 们
@@ -93,5 +101,13 @@ public interface AdminUserApi {
      * @param rawPassword 未加密的密码
      */
     void validatePassword(Long id, String rawPassword);
+
+    /**
+     * 使用当前实名账号密码执行正式电子签名重新认证。
+     *
+     * @param id 当前登录用户编号
+     * @param rawPassword 本人密码明文
+     */
+    void reauthenticateForSignature(Long id, String rawPassword);
 
 }

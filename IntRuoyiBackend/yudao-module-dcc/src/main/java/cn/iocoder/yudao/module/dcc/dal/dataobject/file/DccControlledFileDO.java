@@ -58,6 +58,13 @@ public class DccControlledFileDO extends BaseDO {
     private String processType;
     private String changeType;
     private String versionNo;
+    private String revisionCode;
+    private Integer iterationNo;
+    private Long predecessorControlledFileId;
+    private Long revisionBaseActiveControlledFileId;
+    private String sourceSha256;
+    private String previousSourceSha256;
+    private String changeDescription;
     private LocalDate effectiveDate;
     private String remark;
     private String status;
@@ -65,6 +72,10 @@ public class DccControlledFileDO extends BaseDO {
     private Long requesterId;
     private String processInstanceId;
     private String processDefinitionKey;
+    private String creationIdempotencyKey;
+    private String creationPayloadHash;
+    private String submitIdempotencyKey;
+    private String submitPayloadHash;
     private LocalDateTime submittedTime;
     private LocalDateTime approvedTime;
     private LocalDateTime publishedTime;
@@ -76,5 +87,8 @@ public class DccControlledFileDO extends BaseDO {
     private Long supersededByFileId;
     private String rejectReason;
     private String finalizationError;
+    private Long checkedOutBy;
+    private LocalDateTime checkedOutTime;
+    private String checkedOutReason;
 
 }

@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.relaxed.json",
+  "include": [
+    "types/**/*.d.ts",
+    "src/types/auto-imports.d.ts",
+    "src/types/auto-components.d.ts",
+    "src/api/mes/pro/feedback/index.ts",
+    "src/api/mes/pro/feedback/pqcProjection.ts",
+    "src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue",
+    "src/api/mes/qc/template/index.ts",
+    "src/views/mes/pro/processPool/QaRegulationPage.vue"
+  ]
+}

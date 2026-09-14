@@ -1,0 +1,642 @@
+<template>
+  <ContentWrap class="backup-plan-page">
+    <el-card shadow="never" class="backup-plan-card" v-loading="statusLoading">
+      <template #header>
+        <div class="backup-plan-card__header">
+          <div>
+            <div class="backup-plan-card__title">当前自动备份计划</div>
+            <div class="backup-plan-card__hint">
+              管理员只需要选择开关、频率和时间，系统会按计划自动备份。
+            </div>
+          </div>
+          <div class="backup-plan-card__actions">
+            <el-button :loading="statusLoading" @click="loadAll">刷新状态</el-button>
+            <el-button
+              plain
+              type="primary"
+              :loading="backupNowKind === 'FULL'"
+              :disabled="Boolean(backupNowKind)"
+              @click="handleBackupNow('FULL')"
+              v-hasPermi="['system:backup-plan:execute']"
+            >
+              立即全量备份
+            </el-button>
+            <el-button
+              plain
+              type="primary"
+              :loading="backupNowKind === 'INCREMENTAL'"
+              :disabled="Boolean(backupNowKind)"
+              @click="handleBackupNow('INCREMENTAL')"
+              v-hasPermi="['system:backup-plan:execute']"
+            >
+              立即增量备份
+            </el-button>
+          </div>
+        </div>
+      </template>
+
+      <div class="backup-plan-status-grid">
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">状态</span>
+          <el-tag :type="healthStatusType">{{ displayHealthStatus }}</el-tag>
+        </div>
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">自动备份</span>
+          <span>{{ status?.planStatus || '已关闭' }}</span>
+        </div>
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">每周全量备份</span>
+          <span>{{ formatFullSchedule(status?.fullSchedule) }}</span>
+        </div>
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">周一至周六增量备份</span>
+          <span>{{ status?.incrementalSchedule || '--' }}</span>
+        </div>
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">备份仓库</span>
+          <span>{{ formatRepositoryEnvironment(status?.repositoryEnvironment) }}</span>
+        </div>
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">新鲜度阈值</span>
+          <span>{{ formatFreshnessThreshold(status?.maxFreshnessHours) }}</span>
+        </div>
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">最新成功备份点</span>
+          <span>{{ formatLatestBackupPoint(status?.latestBackupPoint) }}</span>
+        </div>
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">下次备份时间</span>
+          <span>{{ formatDateTime(status?.nextRunTime) }}</span>
+        </div>
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">上次备份结果</span>
+          <span>{{ formatLastResult(status) }}</span>
+        </div>
+      </div>
+
+      <el-alert
+        v-if="status?.blockedReason"
+        class="mt-16px"
+        type="error"
+        title="配置异常"
+        :description="status.blockedReason"
+        show-icon
+        :closable="false"
+      />
+
+      <el-divider />
+
+      <el-form
+        v-if="canUpdateBackupPlan"
+        class="backup-plan-form"
+        label-width="96px"
+        :model="scheduleForm"
+        @submit.prevent
+      >
+        <el-form-item label="自动备份">
+          <el-switch
+            v-model="scheduleForm.autoBackup"
+            :loading="toggleLoading"
+            @change="handleAutoBackupChange"
+            v-hasPermi="['system:backup-plan:update']"
+          />
+          <span class="backup-plan-form__tip">
+            打开后，系统会按下面设置的时间自动备份。
+          </span>
+        </el-form-item>
+        <el-form-item label="全量备份">
+          <el-select v-model="scheduleForm.fullWeekday" class="!w-140px" placeholder="请选择星期">
+            <el-option
+              v-for="item in weekdayOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+          <el-time-picker
+            v-model="scheduleForm.fullTime"
+            class="!w-180px"
+            format="HH:mm"
+            value-format="HH:mm"
+            placeholder="全量时间"
+          />
+        </el-form-item>
+        <el-form-item label="增量备份">
+          <el-time-picker
+            v-model="scheduleForm.incrementalTime"
+            class="!w-180px"
+            format="HH:mm"
+            value-format="HH:mm"
+            placeholder="增量时间"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button
+            type="primary"
+            :loading="saveLoading"
+            @click="handleSaveSchedule"
+            v-hasPermi="['system:backup-plan:update']"
+          >
+            保存计划
+          </el-button>
+          <el-button :loading="statusLoading" @click="loadAll">刷新状态</el-button>
+        </el-form-item>
+      </el-form>
+      <el-alert
+        v-else
+        class="mt-16px"
+        type="info"
+        title="当前账号只有查询权限"
+        description="可查看备份计划状态和备份包历史，不能修改备份计划。"
+        show-icon
+        :closable="false"
+      />
+    </el-card>
+
+    <el-card shadow="never" class="backup-plan-card mt-16px">
+      <template #header>
+        <div class="backup-plan-card__header">
+          <div>
+            <div class="backup-plan-card__title">备份包历史</div>
+            <div class="backup-plan-card__hint">
+              这里展示已经生成的备份包，恢复操作仍在运行控制台中处理。
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <UnifiedListTemplate
+        table-key="system.backup-plan.history"
+        :query-model="queryParams"
+        :filter-definitions="[]"
+        :quick-filter-state="quickFilterState"
+        :operator-options="[]"
+        :columns="historyColumns"
+        :column-saving="false"
+        :show-column-settings="false"
+        :show-quick-filter="false"
+        :total="total"
+        v-model:page="queryParams.pageNo"
+        v-model:limit="queryParams.pageSize"
+        @update:quick-filter-state="handleQuickFilterStateUpdate"
+        @pagination="getHistoryList"
+      >
+        <template #actions>
+          <el-button :loading="historyLoading" @click="getHistoryList">刷新列表</el-button>
+        </template>
+        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+          <el-table
+            v-loading="historyLoading"
+            :data="historyList"
+            border
+            @sort-change="handleTemplateSortChange"
+          >
+            <el-table-column
+              label="备份编号"
+              prop="backupId"
+              min-width="190"
+              show-overflow-tooltip
+              v-bind="sortColumnAttrs('backupId')"
+            />
+            <el-table-column
+              label="生成时间"
+              prop="backupId"
+              width="180"
+              v-bind="sortColumnAttrs('backupId')"
+            >
+              <template #default="{ row }">
+                {{ formatBackupGeneratedTime(row) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="类型" width="120">
+              <template #default="{ row }">{{ formatBackupType(row) }}</template>
+            </el-table-column>
+            <el-table-column label="备份链" min-width="300" show-overflow-tooltip>
+              <template #default="{ row }">{{ formatBackupChain(row) }}</template>
+            </el-table-column>
+            <el-table-column label="结果" width="120">
+              <template #default="{ row }">
+                <el-tag :type="row.recoverabilityStatus === 'RECOVERABLE' ? 'success' : 'warning'">
+                  {{ row.recoverabilityStatus === 'RECOVERABLE' ? '成功' : '需检查' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="是否可恢复" width="130">
+              <template #default="{ row }">
+                {{ row.recoverabilityStatus === 'RECOVERABLE' ? '可恢复' : '不可恢复' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="保存位置" min-width="240" show-overflow-tooltip>
+              <template #default="{ row }">{{ formatBackupStorageLabel(row) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" fixed="right" width="110" align="center">
+              <template #default="{ row }">
+                <el-button type="primary" link @click="openBackupDetail(row)">查看详情</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </UnifiedListTemplate>
+    </el-card>
+
+    <el-dialog v-model="detailDialog.visible" title="备份包详情" width="680px">
+      <el-descriptions :column="1" border>
+        <el-descriptions-item label="备份编号">
+          {{ detailDialog.item?.backupId || '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="生成时间">
+          {{ detailDialog.item ? formatBackupGeneratedTime(detailDialog.item) : '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="是否可恢复">
+          {{
+            detailDialog.item?.recoverabilityStatus === 'RECOVERABLE' ? '可恢复' : '不可恢复'
+          }}
+        </el-descriptions-item>
+        <el-descriptions-item label="备份类型">
+          {{ detailDialog.item ? formatBackupType(detailDialog.item) : '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="备份链">
+          {{ detailDialog.item ? formatBackupChain(detailDialog.item) : '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="保存位置">
+          {{ detailDialog.item ? formatBackupStorageLabel(detailDialog.item) : '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="检查说明">
+          <div v-if="detailDialog.item?.unrecoverableReasons?.length" class="backup-plan-reasons">
+            <div v-for="reason in detailDialog.item.unrecoverableReasons" :key="reason">
+              {{ reason }}
+            </div>
+          </div>
+          <span v-else>未发现异常。</span>
+        </el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button @click="detailDialog.visible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+  </ContentWrap>
+</template>
+
+<script setup lang="ts">
+import { ElMessageBox } from 'element-plus'
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import { checkPermi } from '@/utils/permission'
+import { formatDateTimeValue } from '@/utils/formatTime'
+import type { UserTableColumnState } from '@/hooks/web/useUserTableColumns'
+import {
+  backupNow,
+  disableBackupPlan,
+  enableBackupPlan,
+  getBackupPlanHistoryPage,
+  getBackupPlanStatus,
+  saveBackupPlanSchedule,
+  type BackupPlanBackupPointVO,
+  type BackupPlanHealthStatus,
+  type BackupKind,
+  type BackupPlanStatusVO,
+  type BackupPlanWeekday
+} from '@/api/system/backupPlan'
+
+defineOptions({ name: 'SystemBackupPlan' })
+
+const message = useMessage()
+
+const simpleHealthStatusLabels: BackupPlanHealthStatus[] = ['正常', '已关闭', '上次失败', '配置异常']
+
+const weekdayOptions: Array<{ label: string; value: BackupPlanWeekday }> = [
+  { label: '周一', value: 'MON' },
+  { label: '周二', value: 'TUE' },
+  { label: '周三', value: 'WED' },
+  { label: '周四', value: 'THU' },
+  { label: '周五', value: 'FRI' },
+  { label: '周六', value: 'SAT' },
+  { label: '周日', value: 'SUN' }
+]
+
+const historyColumns: UserTableColumnState[] = [
+  { key: 'backupId', label: '备份编号', visible: true, minWidth: 190 },
+  { key: 'generatedTime', label: '生成时间', visible: true, width: 180, sortProp: 'backupId' },
+  { key: 'backupMode', label: '类型', visible: true, width: 120, sortable: false },
+  { key: 'backupChain', label: '备份链', visible: true, minWidth: 300, sortable: false },
+  { key: 'result', label: '结果', visible: true, width: 120, sortable: false },
+  { key: 'recoverabilityStatus', label: '是否可恢复', visible: true, width: 130 },
+  { key: 'manifestPath', label: '保存位置', visible: true, minWidth: 240 },
+  { key: 'actions', label: '操作', visible: true, width: 110, hideable: false, business: false, sortable: false }
+]
+
+const statusLoading = ref(false)
+const historyLoading = ref(false)
+const saveLoading = ref(false)
+const toggleLoading = ref(false)
+const backupNowKind = ref<BackupKind>()
+const status = ref<BackupPlanStatusVO>()
+const historyList = ref<BackupPlanBackupPointVO[]>([])
+const total = ref(0)
+const quickFilterState = reactive({})
+const queryParams = reactive<PageParam & { pageNo: number; pageSize: number }>({
+  pageNo: 1,
+  pageSize: 10
+})
+const scheduleForm = reactive({
+  autoBackup: false,
+  fullWeekday: 'SUN' as BackupPlanWeekday,
+  fullTime: '01:00',
+  incrementalTime: '02:00'
+})
+const canUpdateBackupPlan = computed(() => checkPermi(['system:backup-plan:update']))
+const detailDialog = reactive<{
+  visible: boolean
+  item?: BackupPlanBackupPointVO
+}>({
+  visible: false,
+  item: undefined
+})
+
+const displayHealthStatus = computed(() =>
+  simpleHealthStatusLabels.includes(status.value?.healthStatus as BackupPlanHealthStatus)
+    ? status.value?.healthStatus
+    : '配置异常'
+)
+
+const healthStatusType = computed(() => {
+  if (displayHealthStatus.value === '正常') return 'success'
+  if (displayHealthStatus.value === '已关闭') return 'info'
+  if (displayHealthStatus.value === '上次失败') return 'danger'
+  return 'warning'
+})
+
+const handleQuickFilterStateUpdate = (state: Record<string, unknown>) => {
+  Object.assign(quickFilterState, state)
+}
+
+const formatDateTime = (value?: string) => formatDateTimeValue(value, '--')
+
+const formatFullSchedule = (value?: string) => {
+  if (!value) return '--'
+  const [weekday, time] = value.split(/\s+/, 2)
+  const label = weekdayOptions.find((item) => item.value === weekday)?.label || weekday
+  return (label + ' ' + (time || '')).trim()
+}
+
+const formatRepositoryEnvironment = (value?: string) => {
+  if (value === 'backup') return '备份仓库'
+  if (value === 'test') return '测试仓库'
+  return value ? `未知仓库（${value}）` : '未配置'
+}
+
+const formatFreshnessThreshold = (value?: number) => {
+  if (!value || value <= 0) return '未配置'
+  return `${value} 小时`
+}
+
+const formatLatestBackupPoint = (backupPoint?: BackupPlanBackupPointVO) => {
+  if (!backupPoint) return '暂无成功备份'
+  const completedAt = formatDateTime(backupPoint.completedAt)
+  if (backupPoint.backupId) return `${completedAt}（${backupPoint.backupId}）`
+  return completedAt
+}
+
+const formatLastResult = (currentStatus?: BackupPlanStatusVO) => {
+  if (!currentStatus?.lastRunTime) return '暂无记录'
+  if (currentStatus.lastResultCode === 0) return `成功（${formatDateTime(currentStatus.lastRunTime)}）`
+  return `失败（${formatDateTime(currentStatus.lastRunTime)}）`
+}
+
+const formatBackupType = (row: BackupPlanBackupPointVO) => {
+  if (row.backupKind === 'FULL') return '全量备份'
+  if (row.backupKind === 'INCREMENTAL') return '增量备份'
+  if (row.backupMode === 'full' || row.dccBackupMode === 'baseline') return '完整备份'
+  if (row.backupMode === 'incremental' || row.dccBackupMode === 'incremental') return '增量备份'
+  return row.backupMode || row.dccBackupMode || '备份包'
+}
+
+const parseBackupIdTime = (backupId?: string) => {
+  const match = backupId?.match(/(20\d{2})[-_]?(\d{2})[-_]?(\d{2})[-_T]?(\d{2})[-_]?(\d{2})[-_]?(\d{2})?/)
+  if (!match) return undefined
+  const [, year, month, day, hour, minute, second = '00'] = match
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`
+}
+
+const formatBackupGeneratedTime = (row: BackupPlanBackupPointVO) =>
+  parseBackupIdTime(row.backupId) || formatDateTime(row.lastVerifiedAt)
+
+const formatBackupStorageLabel = (row: BackupPlanBackupPointVO) => {
+  if (row.backupId) return `备份包：${row.backupId}`
+  return '备份包'
+}
+
+const syncScheduleForm = (data: BackupPlanStatusVO) => {
+  scheduleForm.autoBackup = data.planStatus === '已开启'
+  const [weekday, time] = (data.fullSchedule || 'SUN 01:00').split(/\s+/, 2)
+  scheduleForm.fullWeekday = weekdayOptions.some((item) => item.value === weekday)
+    ? (weekday as BackupPlanWeekday)
+    : 'SUN'
+  scheduleForm.fullTime = time || '01:00'
+  scheduleForm.incrementalTime = data.incrementalSchedule || '02:00'
+}
+
+const formatBackupChain = (row: BackupPlanBackupPointVO) => {
+  if (row.backupKind === 'FULL') return `基线 ${row.backupId}`
+  if (row.backupKind === 'INCREMENTAL') {
+    const base = row.baseBackupId || '基线缺失'
+    const parent = row.parentBackupId || '父点缺失'
+    return `${base} -> ${row.backupId}（直接父点 ${parent}）`
+  }
+  return '链身份缺失'
+}
+
+const buildSchedulePayload = () => {
+  if (!scheduleForm.fullTime || !scheduleForm.incrementalTime) {
+    throw new Error('请选择全量和增量备份时间')
+  }
+  return {
+    fullSchedule: scheduleForm.fullWeekday + ' ' + scheduleForm.fullTime,
+    incrementalSchedule: scheduleForm.incrementalTime
+  }
+}
+
+const loadStatus = async () => {
+  statusLoading.value = true
+  try {
+    const data = await getBackupPlanStatus()
+    status.value = data
+    syncScheduleForm(data)
+  } finally {
+    statusLoading.value = false
+  }
+}
+
+const getHistoryList = async () => {
+  historyLoading.value = true
+  try {
+    const data = await getBackupPlanHistoryPage(queryParams)
+    historyList.value = data.list || []
+    total.value = data.total || 0
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+const loadAll = async () => {
+  await Promise.all([loadStatus(), getHistoryList()])
+}
+
+const handleSaveSchedule = async () => {
+  saveLoading.value = true
+  try {
+    const data = await saveBackupPlanSchedule(buildSchedulePayload())
+    status.value = data
+    syncScheduleForm(data)
+    message.success('备份计划已保存')
+  } catch (error: any) {
+    message.error(error?.message || '备份计划保存失败')
+  } finally {
+    saveLoading.value = false
+  }
+}
+
+const handleAutoBackupChange = async (enabled: string | number | boolean) => {
+  const targetEnabled = Boolean(enabled)
+  toggleLoading.value = true
+  try {
+    let data: BackupPlanStatusVO
+    if (targetEnabled) {
+      await saveBackupPlanSchedule(buildSchedulePayload())
+      data = await enableBackupPlan()
+      message.success('自动备份已开启')
+    } else {
+      data = await disableBackupPlan()
+      message.success('自动备份已关闭')
+    }
+    status.value = data
+    syncScheduleForm(data)
+  } catch (error: any) {
+    scheduleForm.autoBackup = !targetEnabled
+    message.error(error?.message || '自动备份状态修改失败')
+    await loadStatus()
+  } finally {
+    toggleLoading.value = false
+  }
+}
+
+const handleBackupNow = async (backupKind: BackupKind) => {
+  const label = backupKind === 'FULL' ? '全量' : '增量'
+  try {
+    await ElMessageBox.confirm('会立即执行' + label + '备份并短暂停止系统写入，是否继续？', '立即' + label + '备份', {
+      confirmButtonText: '继续备份',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    throw error
+  }
+  backupNowKind.value = backupKind
+  try {
+    const result = await backupNow(backupKind)
+    message.success(result.operationId ? '已提交备份任务：' + result.operationId : '已提交备份任务')
+    await loadAll()
+  } catch (error: any) {
+    message.error(error?.message || '立即' + label + '备份提交失败')
+  } finally {
+    backupNowKind.value = undefined
+  }
+}
+
+const openBackupDetail = (row: BackupPlanBackupPointVO) => {
+  detailDialog.item = row
+  detailDialog.visible = true
+}
+
+onMounted(loadAll)
+</script>
+
+<style scoped>
+.backup-plan-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.backup-plan-card {
+  border-radius: 8px;
+}
+
+.backup-plan-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.backup-plan-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.backup-plan-card__title {
+  color: #172033;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.backup-plan-card__hint {
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.backup-plan-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.backup-plan-status-item {
+  min-height: 72px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #fafcff;
+  padding: 12px;
+}
+
+.backup-plan-status-item__label {
+  display: block;
+  margin-bottom: 8px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.backup-plan-form {
+  max-width: 760px;
+}
+
+.backup-plan-form__tip {
+  margin-left: 10px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.backup-plan-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #b42318;
+}
+
+@media (max-width: 900px) {
+  .backup-plan-card__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .backup-plan-card__actions {
+    flex-wrap: wrap;
+  }
+
+  .backup-plan-status-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

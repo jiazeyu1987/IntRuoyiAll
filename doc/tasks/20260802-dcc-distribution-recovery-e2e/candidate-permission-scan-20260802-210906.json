@@ -1,0 +1,46 @@
+{
+  "scope": "read-only scan for existing DCC category usable by non-admin distribution/recovery E2E",
+  "checkedAt": "2026-08-02 21:09:06",
+  "runtime": {
+    "frontend8081": "HTTP 200",
+    "backend48081": "not listening"
+  },
+  "tenant1Category906104": {
+    "categoryId": "906104",
+    "permissionRules": [
+      { "id": "293", "active": 1, "subjectId": "1", "actionType": "APPROVE", "subjectType": "USER" },
+      { "id": "2623", "active": 1, "subjectId": "910431", "actionType": "DISTRIBUTE", "subjectType": "ROLE" },
+      { "id": "2546", "active": 1, "subjectId": "1", "actionType": "DISTRIBUTE", "subjectType": "USER" },
+      { "id": "1018", "active": 1, "subjectId": "910232", "actionType": "DOWNLOAD", "subjectType": "ROLE" },
+      { "id": "294", "active": 1, "subjectId": "1", "actionType": "DOWNLOAD", "subjectType": "USER" },
+      { "id": "2547", "active": 1, "subjectId": "1", "actionType": "OBSOLETE", "subjectType": "USER" },
+      { "id": "295", "active": 1, "subjectId": "1", "actionType": "REVIEW", "subjectType": "USER" },
+      { "id": "296", "active": 1, "subjectId": "1", "actionType": "UPLOAD", "subjectType": "USER" },
+      { "id": "2607", "active": 1, "subjectId": "151", "actionType": "UPLOAD", "subjectType": "USER" },
+      { "id": "2608", "active": 1, "subjectId": "910250", "actionType": "UPLOAD", "subjectType": "USER" },
+      { "id": "856", "active": 1, "subjectId": "910231", "actionType": "VIEW", "subjectType": "ROLE" },
+      { "id": "937", "active": 1, "subjectId": "910232", "actionType": "VIEW", "subjectType": "ROLE" },
+      { "id": "297", "active": 1, "subjectId": "1", "actionType": "VIEW", "subjectType": "USER" }
+    ],
+    "distributionRules": [
+      { "id": "106", "medium": "PUBLIC_FOLDER", "departmentId": "253", "departmentName": "质量体系部" }
+    ],
+    "publishedPublishPolicyCount": 1
+  },
+  "sameUserApproveDistributeDistributionRuleCandidates": [
+    {
+      "tenantId": "122",
+      "tenantName": "测试租户",
+      "categoryId": "900347",
+      "categoryName": "Codex Local DCC Category",
+      "username": "aoteman",
+      "approveCount": 1,
+      "distributeCount": 1,
+      "uploadCount": 1,
+      "permissionSources": "APPROVE:USER:2544; DISTRIBUTE:USER:2533; UPLOAD:USER:2538",
+      "hasPublishedPublishPolicy": false
+    }
+  ],
+  "splitUserFullCandidatesCount": 0,
+  "finding": "No existing category was found that simultaneously has a published DCC PUBLISH policy, active distribution rule, and non-admin APPROVE plus DISTRIBUTE permissions without modifying permissions or policy data."
+}

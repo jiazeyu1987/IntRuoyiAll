@@ -12,7 +12,10 @@ assert.notEqual(feedbackTemplateStart, -1, 'Production feedback main list block 
 assert.notEqual(feedbackTemplateEnd, -1, 'Import-record block must remain separate from feedback main list.')
 
 const feedbackBlock = source.slice(feedbackTemplateStart, feedbackTemplateEnd)
-const importBlock = source.slice(feedbackTemplateEnd, source.indexOf('<FeedbackForm', feedbackTemplateEnd))
+const contentWrapEndTag = '</ContentWrap>'
+const importTemplateEnd = source.indexOf(contentWrapEndTag, feedbackTemplateEnd)
+assert.notEqual(importTemplateEnd, -1, 'Import-record block must have its own ContentWrap end tag.')
+const importBlock = source.slice(feedbackTemplateEnd, importTemplateEnd + contentWrapEndTag.length)
 
 assert.match(
   feedbackBlock,

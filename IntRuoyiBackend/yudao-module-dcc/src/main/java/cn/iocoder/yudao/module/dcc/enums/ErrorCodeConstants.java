@@ -15,6 +15,7 @@ public interface ErrorCodeConstants {
     ErrorCode APPROVAL_ROUTE_NODE_EMPTY = new ErrorCode(1_080_000_005, "Approval route nodes cannot be empty");
     ErrorCode ROUTE_PREVIEW_APPROVER_NOT_FOUND = new ErrorCode(1_080_000_006, "Route preview failed because a stage has no resolved approver");
     ErrorCode FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS = new ErrorCode(1_080_000_007, "File category is not bound to a directory");
+    ErrorCode FILE_CATEGORY_UNCLASSIFIED_DIRECTORY_NOT_EXISTS = new ErrorCode(1_080_000_196, "Unclassified upload directory does not exist");
     ErrorCode CONTROLLED_FILE_ROUTE_NOT_CONFIGURED = new ErrorCode(1_080_000_008, "Controlled file route is not configured");
     ErrorCode CONTROLLED_FILE_NOT_EXISTS = new ErrorCode(1_080_000_009, "Controlled file does not exist");
     ErrorCode CONTROLLED_FILE_WITHDRAW_NOT_ALLOWED = new ErrorCode(1_080_000_010, "Current controlled file cannot be withdrawn");
@@ -135,12 +136,11 @@ public interface ErrorCodeConstants {
     ErrorCode CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH = new ErrorCode(1_080_000_114, "DCC viewer token context mismatch");
     ErrorCode CONTROLLED_FILE_UPLOAD_TICKET_INVALID = new ErrorCode(1_080_000_115, "DCC upload ticket is invalid");
     ErrorCode CONTROLLED_FILE_UPLOAD_SESSION_INVALID = new ErrorCode(1_080_000_116, "DCC upload session is invalid");
-    ErrorCode DCC_DOWNLOAD_ENCRYPTION_CONTRACT_MISSING = new ErrorCode(1_080_000_117, "DCC download encryption contract is missing");
-    ErrorCode DCC_DOWNLOAD_ENCRYPTION_EVIDENCE_INVALID = new ErrorCode(1_080_000_118, "DCC download encryption evidence is invalid");
+    ErrorCode CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT = new ErrorCode(1_080_000_198,
+            "DCC upload slot already contains different content");
     ErrorCode DCC_DOWNLOAD_REQUEST_ID_REQUIRED = new ErrorCode(1_080_000_119, "DCC download request id is required");
     ErrorCode DCC_DOWNLOAD_REQUEST_ID_REUSED = new ErrorCode(1_080_000_120, "DCC download request id has already been used");
     ErrorCode DCC_DOWNLOAD_AUDIT_RECORD_FAILED = new ErrorCode(1_080_000_121, "DCC download audit record failed");
-    ErrorCode DCC_DOWNLOAD_ENCRYPTION_CONFIG_MISSING = new ErrorCode(1_080_000_122, "DCC download encryption config is missing or invalid: {}");
     ErrorCode FILE_DIRECTORY_DELETE_NAS_TRANSFER_ACTIVE = new ErrorCode(1_080_000_123,
             "Controlled file directory deletion blocked because NAS transfer task is still active");
     ErrorCode CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED = new ErrorCode(1_080_000_124,
@@ -153,8 +153,6 @@ public interface ErrorCodeConstants {
             "DCC product name recognition failed: {}");
     ErrorCode CONTROLLED_FILE_PRODUCT_NAME_RECOGNITION_EMPTY = new ErrorCode(1_080_000_128,
             "DCC product name recognition returned empty product name");
-    ErrorCode CONTROLLED_FILE_PRODUCT_MASTER_INVALID = new ErrorCode(1_080_000_129,
-            "Controlled file product master data must be enabled and contain a valid DCC product code");
     ErrorCode CONTROLLED_FILE_PROJECT_CODE_RECOGNITION_CONFIG_MISSING = new ErrorCode(1_080_000_130,
             "DCC project-code recognition Codex CLI config is missing: {}");
     ErrorCode CONTROLLED_FILE_PROJECT_CODE_RECOGNITION_SOURCE_MISSING = new ErrorCode(1_080_000_131,
@@ -176,10 +174,24 @@ public interface ErrorCodeConstants {
     ErrorCode PROJECT_CODE_DELETE_REFERENCED = new ErrorCode(1_080_000_141,
             "DCC project code cannot be deleted because DCC files still reference it");
     ErrorCode PROJECT_CODE_STATUS_INVALID = new ErrorCode(1_080_000_142, "DCC project code status is invalid");
+    ErrorCode PRODUCT_ONBOARDING_NOT_EXISTS = new ErrorCode(1_080_000_191,
+            "DCC product onboarding request does not exist");
+    ErrorCode PRODUCT_ONBOARDING_DUPLICATE_PROJECT_CODE = new ErrorCode(1_080_000_192,
+            "DCC product onboarding project code already exists or is pending");
+    ErrorCode PRODUCT_ONBOARDING_STATUS_INVALID = new ErrorCode(1_080_000_193,
+            "DCC product onboarding request status is invalid");
+    ErrorCode PRODUCT_ONBOARDING_MDM_PRODUCT_INVALID = new ErrorCode(1_080_000_194,
+            "DCC product onboarding MDM product is invalid: {}");
+    ErrorCode PRODUCT_ONBOARDING_REQUIRED_FIELD_MISSING = new ErrorCode(1_080_000_195,
+            "DCC product onboarding required field is missing: {}");
     ErrorCode DCC_PRODUCT_CATALOG_ROW_KEY_INVALID = new ErrorCode(1_080_000_148,
             "DCC product catalog row key is invalid: {}");
     ErrorCode DCC_PRODUCT_CATALOG_DATA_SOURCE_INVALID = new ErrorCode(1_080_000_149,
             "DCC product catalog data source is invalid: {}");
+    ErrorCode DCC_DATA_RELATION_TARGET_INVALID = new ErrorCode(1_080_000_150,
+            "DCC data relation target is missing or identity mismatched");
+    ErrorCode DCC_DATA_RELATION_CONFLICT = new ErrorCode(1_080_000_151,
+            "DCC data relation already exists");
     ErrorCode FILE_CATEGORY_LIFECYCLE_STAGE_INVALID = new ErrorCode(1_080_000_147,
             "Controlled file category lifecycle stage is invalid: {}");
     ErrorCode FILE_CATEGORY_DELETE_CHILD_EXISTS = new ErrorCode(1_080_000_050, "Controlled file category cannot be deleted because child categories still exist");
@@ -213,7 +225,7 @@ public interface ErrorCodeConstants {
     ErrorCode CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING = new ErrorCode(1_080_000_151,
             "DCC electronic signature image is missing or not enabled");
     ErrorCode CONTROLLED_FILE_SIGNATURE_IMAGE_INVALID = new ErrorCode(1_080_000_152,
-            "DCC electronic signature image is invalid");
+            "签名图片内容无效，请上传可正常打开的 PNG/JPEG 图片");
     ErrorCode CONTROLLED_FILE_SIGNATURE_IMAGE_HASH_MISMATCH = new ErrorCode(1_080_000_153,
             "DCC electronic signature image hash verification failed");
     ErrorCode CONTROLLED_FILE_SIGNATURE_IMAGE_PERSIST_FAILED = new ErrorCode(1_080_000_154,
@@ -244,6 +256,8 @@ public interface ErrorCodeConstants {
             "DCC project-code assignment metadata audit does not exist");
     ErrorCode PROJECT_CODE_ASSIGNMENT_ASSIGNEE_PERMISSION_MISSING = new ErrorCode(1_080_000_168,
             "DCC project-code assignment assignee lacks the assignment execution menu permission");
+    ErrorCode PROJECT_CODE_ASSIGNMENT_TARGET_PROJECT_MISMATCH = new ErrorCode(1_080_000_197,
+            "DCC project-code assignment target project does not match requested project code");
     ErrorCode CONTROLLED_FILE_PERSONAL_PAGE_DISABLED = new ErrorCode(1_080_000_169,
             "DCC personal file page is retired; use controlled file browser");
     ErrorCode DCC_DMR_SHEET_ROOT_CONFIG_MISSING = new ErrorCode(1_080_000_170,
@@ -275,7 +289,309 @@ public interface ErrorCodeConstants {
     ErrorCode FILE_TYPE_TAXONOMY_PARENT_CHANGE_FORBIDDEN = new ErrorCode(1_080_000_187,
             "DCC file type taxonomy parent cannot be changed");
     ErrorCode PROJECT_CODE_DISABLED = new ErrorCode(1_080_000_188, "DCC project code is disabled");
-    ErrorCode FILE_DIRECTORY_HIERARCHY_CYCLE = new ErrorCode(1_080_000_189,
+    ErrorCode FILE_DIRECTORY_HIERARCHY_CYCLE = new ErrorCode(1_080_000_347,
             "目录关系存在循环，不能将目录设置为自身或下级目录的子目录：{}");
+    ErrorCode CONTROLLED_FILE_PRINT_NOT_ALLOWED = new ErrorCode(1_080_000_189,
+            "Current controlled file cannot be printed as a controlled copy");
+    ErrorCode CONTROLLED_FILE_PRINT_REQUIRED_FIELD_MISSING = new ErrorCode(1_080_000_190,
+            "Controlled print request is missing required print fields");
+    ErrorCode CONTROLLED_FILE_APPROVER_POST_REQUIRED = new ErrorCode(1_080_000_199,
+            "审批人未配置系统岗位");
+    ErrorCode CONTROLLED_FILE_ROUTE_NOT_READY = new ErrorCode(1_080_000_200,
+            "审批路线未就绪：{}");
+    ErrorCode CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH = new ErrorCode(1_080_000_201,
+            "审批路线快照与实际任务分配不一致");
+    ErrorCode CONTROLLED_FILE_FINAL_APPROVAL_NOT_READY = new ErrorCode(1_080_000_202,
+            "最终批准条件未就绪：{}");
+    ErrorCode CONTROLLED_FILE_SIGNATURE_BINDING_FAILED = new ErrorCode(1_080_000_203,
+            "签名证据受控副本绑定失败：{}");
+    ErrorCode CONTROLLED_FILE_ALREADY_CHECKED_OUT = new ErrorCode(1_080_000_304,
+            "受控文件已由用户 {} 检出，不能重复检出");
+    ErrorCode CONTROLLED_FILE_NOT_CHECKED_OUT = new ErrorCode(1_080_000_305,
+            "受控文件当前未检出");
+    ErrorCode CONTROLLED_FILE_CHECKIN_NOT_OWNER = new ErrorCode(1_080_000_306,
+            "受控文件已由用户 {} 检出，只有检出人可以检入");
+    ErrorCode CONTROLLED_FILE_SOURCE_GOVERNANCE_MANIFEST_INVALID = new ErrorCode(1_080_000_307,
+            "DCC 源文件治理清单未确认或摘要不一致");
+    ErrorCode CONTROLLED_FILE_SOURCE_GOVERNANCE_ITEM_BLOCKED = new ErrorCode(1_080_000_308,
+            "DCC 源文件治理明细已阻塞：controlledFileId={}");
+    ErrorCode CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID = new ErrorCode(1_080_000_309,
+            "DCC 源文件治理清单与明细范围不一致");
+    ErrorCode CONTROLLED_FILE_SOURCE_GOVERNANCE_EXECUTION_FAILED = new ErrorCode(1_080_000_310,
+            "DCC 源文件治理执行失败：controlledFileId={}");
+    ErrorCode CONTROLLED_FILE_SOURCE_GOVERNANCE_LEGACY_ENTRY_DISABLED = new ErrorCode(1_080_000_311,
+            "DCC 旧源文件迁移入口已停用，请使用已确认治理清单");
+    ErrorCode CONTROLLED_FILE_SOURCE_GOVERNANCE_BATCH_SIZE_SPLITS_GROUP = new ErrorCode(1_080_000_312,
+            "DCC 共享源治理组不能被批大小拆分：sharedGroupKey={}");
+    ErrorCode CONTROLLED_FILE_CHECKOUT_REASON_REQUIRED = new ErrorCode(1_080_000_313,
+            "检出原因不能为空");
+    ErrorCode CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED = new ErrorCode(1_080_000_314,
+            "当前版本不允许检出");
+    ErrorCode CONTROLLED_FILE_CHECKIN_REQUEST_INVALID = new ErrorCode(1_080_000_315,
+            "检入请求缺少真实文件或修改说明");
+    ErrorCode CONTROLLED_FILE_CHECKIN_NO_CHANGE = new ErrorCode(1_080_000_316,
+            "检入内容与检出基线没有差异");
+    ErrorCode CONTROLLED_FILE_CHECKIN_NOT_ALLOWED = new ErrorCode(1_080_000_317,
+            "当前版本不允许检入");
+    ErrorCode CONTROLLED_FILE_MAJOR_REVISION_NOT_ALLOWED = new ErrorCode(1_080_000_318,
+            "当前版本不允许创建大版本");
+    ErrorCode PUBLICATION_IMPACT_TASK_NOT_EXISTS = new ErrorCode(1_080_000_319,
+            "关联文件影响评估任务不存在");
+    ErrorCode PUBLICATION_IMPACT_TASK_STATE_INVALID = new ErrorCode(1_080_000_320,
+            "关联文件影响评估任务状态不允许当前操作");
+    ErrorCode PUBLICATION_IMPACT_ASSIGNEE_DENIED = new ErrorCode(1_080_000_321,
+            "只有当前负责人可以处理关联文件影响评估");
+    ErrorCode PUBLICATION_IMPACT_DOC_CONTROL_DENIED = new ErrorCode(1_080_000_322,
+            "只有同时具备文控角色和批准权限的人员可以管理影响评估");
+    ErrorCode PUBLICATION_IMPACT_REASON_REQUIRED = new ErrorCode(1_080_000_323,
+            "影响评估操作原因不能为空");
+    ErrorCode PUBLICATION_IMPACT_DECISION_INVALID = new ErrorCode(1_080_000_324,
+            "影响评估结论不合法");
+    ErrorCode PUBLICATION_IMPACT_VERSION_CONFLICT = new ErrorCode(1_080_000_325,
+            "影响评估任务已被修改，请刷新后重试");
+    ErrorCode PUBLICATION_IMPACT_ASSIGNEE_INVALID = new ErrorCode(1_080_000_326,
+            "影响评估新负责人不存在或已停用");
+    ErrorCode PUBLICATION_IMPACT_REVISION_INVALID = new ErrorCode(1_080_000_327,
+            "关联的大版本不属于当前相关文件或不是唯一开放大版本");
+    ErrorCode PUBLICATION_IMPACT_REVISION_ALREADY_LINKED = new ErrorCode(1_080_000_328,
+            "影响评估任务已经关联大版本");
+    ErrorCode PUBLICATION_NOTIFICATION_NOT_EXISTS = new ErrorCode(1_080_000_329,
+            "发布通知记录不存在");
+    ErrorCode PUBLICATION_NOTIFICATION_STATE_INVALID = new ErrorCode(1_080_000_330,
+            "当前通知状态不允许该操作");
+    ErrorCode PUBLICATION_NOTIFICATION_VERSION_CONFLICT = new ErrorCode(1_080_000_331,
+            "发布通知记录已被修改，请刷新后重试");
+    ErrorCode PUBLICATION_NOTIFICATION_MANAGE_DENIED = new ErrorCode(1_080_000_332,
+            "只有同时具备文控角色和批准权限的人员可以管理发布通知");
+    ErrorCode PUBLICATION_NOTIFICATION_REASON_REQUIRED = new ErrorCode(1_080_000_333,
+            "通知操作原因不能为空");
+    ErrorCode PUBLICATION_NOTIFICATION_CANDIDATE_INVALID = new ErrorCode(1_080_000_334,
+            "通知候选用户当前不可发送");
+    ErrorCode PUBLICATION_FOLLOWUP_FILTER_INVALID = new ErrorCode(1_080_000_335,
+            "发布后续筛选条件不合法");
+    ErrorCode CONTROLLED_FILE_RELATED_FILE_INVALID = new ErrorCode(1_080_000_302,
+            "关联文件必须属于当前 DCC 项目代码");
+    ErrorCode CONTROLLED_FILE_RELATED_FILE_DUPLICATE = new ErrorCode(1_080_000_303,
+            "关联文件不能重复选择");
+    ErrorCode CONTROLLED_FILE_SOURCE_OWNERSHIP_CONFLICT = new ErrorCode(1_080_000_204,
+            "正式源文件已由其它受控记录占用：sourceFileId={}");
+    ErrorCode CONTROLLED_FILE_SOURCE_ISOLATION_FAILED = new ErrorCode(1_080_000_205,
+            "正式源文件隔离失败：{}");
+    ErrorCode CONTROLLED_FILE_SOURCE_MIGRATION_CONFLICT = new ErrorCode(1_080_000_206,
+            "正式源文件历史迁移发生并发变更：controlledFileId={}");
+    ErrorCode CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED = new ErrorCode(1_080_000_207,
+            "历史签名受控副本绑定迁移被阻止：{}");
+    ErrorCode REGISTRATION_CERTIFICATE_NOT_EXISTS = new ErrorCode(1_080_000_208,
+            "注册证不存在");
+    ErrorCode REGISTRATION_CERTIFICATE_DRAFT_NOT_EXISTS = new ErrorCode(1_080_000_209,
+            "注册证草稿不存在");
+    ErrorCode REGISTRATION_CERTIFICATE_STATUS_INVALID = new ErrorCode(1_080_000_210,
+            "注册证状态不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_VERSION_CONFLICT = new ErrorCode(1_080_000_211,
+            "注册证版本已存在");
+    ErrorCode REGISTRATION_CERTIFICATE_CURRENT_CONFLICT = new ErrorCode(1_080_000_212,
+            "注册证已存在当前有效版本");
+    ErrorCode REGISTRATION_CERTIFICATE_PENDING_CONFLICT = new ErrorCode(1_080_000_213,
+            "注册证已存在待生效版本");
+    ErrorCode REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID = new ErrorCode(1_080_000_214,
+            "注册证生产方式不合法：是否委托生产和是否自行生产不能同时为否，委托生产为是时必须选择受托企业");
+    ErrorCode REGISTRATION_CERTIFICATE_PROJECTION_MISMATCH = new ErrorCode(1_080_000_215,
+            "注册证受托生产关系投影与正式数据不一致");
+    ErrorCode REGISTRATION_CERTIFICATE_FILE_CONFLICT = new ErrorCode(1_080_000_216,
+            "注册证文件已绑定");
+    ErrorCode REGISTRATION_CERTIFICATE_FORMAL_FACT_IMMUTABLE = new ErrorCode(1_080_000_217,
+            "已正式化的注册证信息不可修改");
+    ErrorCode REGISTRATION_CERTIFICATE_AUDIT_EVENT_KEY_REQUIRED = new ErrorCode(1_080_000_218,
+            "注册证审计事件标识不能为空");
+    ErrorCode REGISTRATION_CERTIFICATE_AUDIT_EVENT_CONFLICT = new ErrorCode(1_080_000_219,
+            "注册证审计事件已存在");
+    ErrorCode REGISTRATION_CERTIFICATE_REVISION_CONFLICT = new ErrorCode(1_080_000_220,
+            "注册证数据版本已变更，请刷新后重试");
+    ErrorCode REGISTRATION_CERTIFICATE_IDEMPOTENCY_KEY_REQUIRED = new ErrorCode(1_080_000_221,
+            "注册证请求幂等键不能为空");
+    ErrorCode REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT = new ErrorCode(1_080_000_222,
+            "注册证幂等键已绑定其他请求内容");
+    ErrorCode REGISTRATION_CERTIFICATE_TENANT_MISMATCH = new ErrorCode(1_080_000_223,
+            "注册证不属于当前租户");
+    ErrorCode REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED = new ErrorCode(1_080_000_224,
+            "请选择公司名称");
+    ErrorCode REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED = new ErrorCode(1_080_000_225,
+            "当前账号无该公司注册证上传权限，请选择已授权公司");
+    ErrorCode REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED = new ErrorCode(1_080_000_226,
+            "请输入产品名称");
+    ErrorCode REGISTRATION_CERTIFICATE_PRODUCT_INVALID = new ErrorCode(1_080_000_227,
+            "所选 DCC 项目代码绑定的产品不存在或已停用，请更换项目代码或维护产品状态");
+    ErrorCode REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID = new ErrorCode(1_080_000_228,
+            "DCC项目代码不存在或不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED = new ErrorCode(1_080_000_229,
+            "DCC项目代码已停用");
+    ErrorCode REGISTRATION_CERTIFICATE_PROJECT_CODE_TENANT_MISMATCH = new ErrorCode(1_080_000_230,
+            "DCC项目代码不属于当前租户");
+    ErrorCode REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH = new ErrorCode(1_080_000_231,
+            "DCC项目代码绑定的产品不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID = new ErrorCode(1_080_000_232,
+            "注册证日期顺序不正确：首次获证日期不能晚于生效日期，生效日期必须早于有效期至");
+    ErrorCode REGISTRATION_CERTIFICATE_FIRST_OBTAINED_DATE_INVALID = new ErrorCode(1_080_000_233,
+            "首次获证日期不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID = new ErrorCode(1_080_000_234,
+            "批准日期不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_FILE_REQUIRED = new ErrorCode(1_080_000_235,
+            "请先选择注册证文件");
+    ErrorCode REGISTRATION_CERTIFICATE_FILE_NOT_STAGED = new ErrorCode(1_080_000_236,
+            "注册证文件尚未完成暂存");
+    ErrorCode REGISTRATION_CERTIFICATE_FILE_TENANT_MISMATCH = new ErrorCode(1_080_000_237,
+            "注册证文件不属于当前租户");
+    ErrorCode REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT = new ErrorCode(1_080_000_238,
+            "注册证文件归属状态冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT = new ErrorCode(1_080_000_239,
+            "注册证审批入库状态冲突，请刷新后重试");
+    ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN = new ErrorCode(1_080_000_240,
+            "注册证延续不允许修改当前字段");
+    ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED = new ErrorCode(1_080_000_241,
+            "注册证延续变更类别时，必须填写新注册证号和类别");
+    ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT = new ErrorCode(1_080_000_242,
+            "该注册证已有待审批或待生效的延续，请勿重复提交");
+    ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_BASE_CONFLICT = new ErrorCode(1_080_000_243,
+            "注册证延续基准版本已变更，请刷新后重试");
+    ErrorCode REGISTRATION_CERTIFICATE_ACTIVATION_BASE_CONFLICT = new ErrorCode(1_080_000_244,
+            "注册证生效基准版本已变更，请刷新后重试");
+    ErrorCode REGISTRATION_CERTIFICATE_ACTIVATION_REPLAY_INCOMPLETE = new ErrorCode(1_080_000_245,
+            "注册证生效重放记录不完整");
+    ErrorCode REGISTRATION_CERTIFICATE_ACTIVATION_EVENT_CONFLICT = new ErrorCode(1_080_000_246,
+            "注册证生效事件冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED = new ErrorCode(1_080_000_247,
+            "请提供注册证支持文件");
+    ErrorCode REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_STATUS_INVALID = new ErrorCode(1_080_000_248,
+            "注册证支持文件状态不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REJECT_REASON_REQUIRED = new ErrorCode(1_080_000_249,
+            "请填写注册证支持文件驳回原因");
+    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID = new ErrorCode(1_080_000_250,
+            "注册证变更类型不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED = new ErrorCode(1_080_000_251,
+            "请填写注册证变更内容");
+    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_VALUE_FORBIDDEN = new ErrorCode(1_080_000_252,
+            "当前注册证变更类型不允许填写该内容");
+    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED = new ErrorCode(1_080_000_253,
+            "注册证生产关系变更信息不能为空");
+    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT = new ErrorCode(1_080_000_254,
+            "注册证变更历史冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_PENDING_CONFLICT = new ErrorCode(1_080_000_262,
+            "该注册证已有待审批的变更，请审批完成后再提交");
+    ErrorCode REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_CONFLICT = new ErrorCode(1_080_000_255,
+            "注册证生命周期事件冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_SEQUENCE_CONFLICT = new ErrorCode(1_080_000_256,
+            "注册证生命周期事件顺序冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_CANDIDATE_VOID_REASON_REQUIRED = new ErrorCode(1_080_000_257,
+            "请填写注册证延续候选作废原因");
+    ErrorCode REGISTRATION_CERTIFICATE_TOP_LEVEL_VOID_REASON_REQUIRED = new ErrorCode(1_080_000_258,
+            "请填写注册证作废原因");
+    ErrorCode REGISTRATION_CERTIFICATE_LIFECYCLE_SCHEMA_CONFLICT = new ErrorCode(1_080_000_259,
+            "注册证生命周期数据结构不完整");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_CONFIG_REVISION_CONFLICT = new ErrorCode(1_080_000_260,
+            "注册证提醒配置已被修改，请刷新后重试");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_CONFIG_TIME_INVALID = new ErrorCode(1_080_000_261,
+            "注册证提醒配置时间不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_DAILY_RUN_CONFLICT = new ErrorCode(1_080_000_262,
+            "注册证提醒每日任务运行冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_DAILY_RUN_FAILED = new ErrorCode(1_080_000_263,
+            "注册证提醒每日任务运行失败");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_OCCURRENCE_CONFLICT = new ErrorCode(1_080_000_264,
+            "注册证提醒事件冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_OCCURRENCE_STATUS_INVALID = new ErrorCode(1_080_000_265,
+            "注册证提醒事件状态不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_CONFLICT = new ErrorCode(1_080_000_266,
+            "注册证提醒发送记录冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_STATUS_INVALID = new ErrorCode(1_080_000_267,
+            "注册证提醒发送状态不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_MESSAGE_ID_REQUIRED = new ErrorCode(1_080_000_268,
+            "注册证提醒发送消息 ID 不能为空");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_RECIPIENT_REQUIRED = new ErrorCode(1_080_000_269,
+            "注册证提醒接收人不能为空");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_THRESHOLD_INVALID = new ErrorCode(1_080_000_270,
+            "注册证提醒阈值不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_RECIPIENT_RESOLUTION_FAILED = new ErrorCode(1_080_000_271,
+            "注册证提醒接收人解析失败");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_INVALID = new ErrorCode(1_080_000_272,
+            "注册证提醒通知模板不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING = new ErrorCode(1_080_000_273,
+            "注册证提醒通知模板参数缺失");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_NOTIFY_SEND_FAILED = new ErrorCode(1_080_000_274,
+            "注册证提醒通知发送失败");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_JOB_NOT_CONFIGURED = new ErrorCode(1_080_000_275,
+            "未配置注册证提醒任务");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_RUN_RETRY_CONFLICT = new ErrorCode(1_080_000_276,
+            "注册证提醒任务重试冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_SUPPRESSION_CONFLICT = new ErrorCode(1_080_000_277,
+            "注册证提醒抑制状态冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_EVENT_NOTIFICATION_SCOPE_UNAPPROVED = new ErrorCode(1_080_000_278,
+            "注册证事件通知范围未获批准");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_SCHEMA_CONFLICT = new ErrorCode(1_080_000_279,
+            "注册证提醒数据结构不完整");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_REQUEST_KEY_REQUIRED = new ErrorCode(1_080_000_280,
+            "注册证访问申请幂等键不能为空");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT = new ErrorCode(1_080_000_281,
+            "注册证访问申请冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_REQUEST_TYPE_INVALID = new ErrorCode(1_080_000_282,
+            "注册证访问申请类型不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_REQUEST_STATUS_INVALID = new ErrorCode(1_080_000_283,
+            "注册证访问申请状态不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_PROJECT_CODE_REQUIRED = new ErrorCode(1_080_000_284,
+            "注册证下载申请必须关联有效的项目代码");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT = new ErrorCode(1_080_000_285,
+            "注册证审批绑定状态异常，请刷新后重试");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_BPM_CANDIDATE_EMPTY = new ErrorCode(1_080_000_286,
+            "未配置注册部经理审批人，请先配置注册证上传审批权限");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_APPROVAL_REJECT_REASON_REQUIRED = new ErrorCode(1_080_000_287,
+            "请填写注册证访问申请驳回原因");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_WITHDRAW_CONFLICT = new ErrorCode(1_080_000_288,
+            "注册证访问申请无法撤回，请刷新后重试");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_CONFLICT = new ErrorCode(1_080_000_289,
+            "注册证访问授权冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_STATUS_INVALID = new ErrorCode(1_080_000_290,
+            "注册证访问授权状态不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED = new ErrorCode(1_080_000_291,
+            "注册证访问授权已过期");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_REVOKED = new ErrorCode(1_080_000_292,
+            "注册证访问授权已撤销");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID = new ErrorCode(1_080_000_293,
+            "注册证访问授权范围不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_DOWNLOAD_CONSUMPTION_CONFLICT = new ErrorCode(1_080_000_294,
+            "注册证下载记录冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_DOWNLOAD_ALREADY_CONSUMED = new ErrorCode(1_080_000_295,
+            "注册证下载授权已使用");
+    ErrorCode REGISTRATION_CERTIFICATE_DOWNLOAD_PROJECT_CODE_INVALID = new ErrorCode(1_080_000_296,
+            "注册证下载项目代码不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_FILE_DELIVERY_AUDIT_CONFLICT = new ErrorCode(1_080_000_297,
+            "注册证文件交付审计记录冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_AUDIT_CONFLICT = new ErrorCode(1_080_000_298,
+            "注册证访问审计记录冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_SCHEMA_CONFLICT = new ErrorCode(1_080_000_299,
+            "注册证访问数据结构不完整");
+    ErrorCode REGISTRATION_CERTIFICATE_SORT_INVALID = new ErrorCode(1_080_000_300,
+            "注册证列表排序参数不合法");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_STATE_INVALID = new ErrorCode(1_080_000_301,
+            "注册证提醒状态参数不合法");
+    ErrorCode PROJECT_FILE_TEMPLATE_NOT_CONFIGURED = new ErrorCode(1_080_000_336,
+            "当前 DCC 项目未配置文件模板");
+    ErrorCode PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID = new ErrorCode(1_080_000_337,
+            "项目文件模板中的文件分类无效");
+    ErrorCode PROJECT_FILE_TEMPLATE_DUPLICATE_ITEM = new ErrorCode(1_080_000_338,
+            "项目文件模板中存在重复的文件分类和文件名称");
+    ErrorCode PROJECT_FILE_TEMPLATE_SELECTION_INVALID = new ErrorCode(1_080_000_339,
+            "所选文件分类和文件名称不属于当前项目模板");
+    ErrorCode PROJECT_FILE_TEMPLATE_CATEGORY_INVALID = new ErrorCode(1_080_000_340,
+            "项目文件模板中的文件分类未绑定唯一启用的正式文件类别");
+    ErrorCode DCC_PROJECT_ACCESS_DENIED = new ErrorCode(1_080_000_341,
+            "Current user is not the DCC project owner");
+    ErrorCode CONTROLLED_FILE_SUBMIT_IDEMPOTENCY_CONFLICT = new ErrorCode(1_080_000_342,
+            "Controlled file submit idempotency key conflicts with another request");
+    ErrorCode CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED = new ErrorCode(1_080_000_343,
+            "DCC approval signature reason is required");
+    ErrorCode CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED = new ErrorCode(1_080_000_344,
+            "Only an unlocked WORKING controlled file iteration can be submitted");
+    ErrorCode CONTROLLED_FILE_ITERATION_NOT_LATEST = new ErrorCode(1_080_000_345,
+            "Only the latest WORKING controlled file iteration can be submitted");
+    ErrorCode DCC_PROJECT_ACCESS_RULE_INVALID = new ErrorCode(1_080_000_346,
+            "DCC project access rules are invalid: include at least one active OWNER and non-blank change reason");
 
 }

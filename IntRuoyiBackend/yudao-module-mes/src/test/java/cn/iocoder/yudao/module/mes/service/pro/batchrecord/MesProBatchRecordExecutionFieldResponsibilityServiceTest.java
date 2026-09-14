@@ -1,6 +1,5 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
-import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
@@ -35,7 +34,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +54,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_EXPORT_FAILED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionErrorCodeConstants.PRO_EDHR_OBJECT_PERMISSION_DENIED;
 
@@ -218,7 +217,7 @@ class MesProBatchRecordExecutionFieldResponsibilityServiceTest extends BaseDbUni
     }
 
     @Test
-    void export_keepsBlockedEvidencePackageWithReasonCodesInsteadOfFailing() {
+    void export_failsFastWhenEvidencePackageIsBlocked() {
         TenantContextHolder.setTenantId(122L);
         ResponsibilityFixture fixture = responsibilityFixture();
         when(executionMapper.selectById(1001L)).thenReturn(fixture.execution());
@@ -232,20 +231,11 @@ class MesProBatchRecordExecutionFieldResponsibilityServiceTest extends BaseDbUni
                 new MesProEdhrWorkTaskDO().setId(701L).setExecutionId(1001L)
                         .setAssigneeUserId(999L).setCandidateUserSnapshot("998,999")));
 
-        MesProBatchRecordExecutionFieldResponsibilityExportRespVO export = responsibilityService.export(
-                new MesProBatchRecordExecutionFieldResponsibilityExportReqVO().setExecutionId(1001L));
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> responsibilityService.export(
+                        new MesProBatchRecordExecutionFieldResponsibilityExportReqVO().setExecutionId(1001L)));
 
-        assertEquals("field-responsibility-1001.xlsx", export.getFileName());
-        assertEquals("XLSX", export.getFormat());
-        assertEquals(MesProBatchRecordExecutionResponsibilityEvidenceStatus.BLOCKED, export.getEvidenceStatus());
-        assertEquals(List.of(MesProBatchRecordExecutionResponsibilityReasonCode.FIELD_IDENTITY_AMBIGUOUS),
-                export.getReasonCodes());
-        assertEquals(List.of(MesProBatchRecordExecutionResponsibilityContextWarning.VERSION_CONTEXT_MISSING),
-                export.getContextWarnings());
-        assertEquals(5L, export.getRecordCount());
-        byte[] content = Base64.getDecoder().decode(export.getContentBase64());
-        assertTrue(content.length > 0);
-        assertEquals(DigestUtil.sha256Hex(content), export.getSha256());
+        assertEquals(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_EXPORT_FAILED.getCode(), exception.getCode());
     }
 
     @Test

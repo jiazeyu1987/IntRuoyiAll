@@ -18,6 +18,8 @@ public class EdhrBatchExecutionRespVO {
 
     private String workOrderCode;
 
+    private Long activeOrderId;
+
     private String batchCode;
 
     private LocalDateTime createTime;
@@ -61,6 +63,8 @@ public class EdhrBatchExecutionRespVO {
     private List<CurrentProcessFiller> currentProcessQualityFillers;
 
     private Integer status;
+
+    private String provisioningStatus;
 
     private Integer taskTotal;
 

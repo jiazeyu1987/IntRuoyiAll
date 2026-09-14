@@ -6,7 +6,7 @@ import test from 'node:test'
 const root = process.cwd()
 const readText = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
 
-const passwordMessage = '密码至少 8 位且必须包含英文和数字'
+const passwordMessage = '密码至少 8 位且必须包含大写字母、小写字母、数字和特殊字符'
 const passwordEntryFiles = [
   'src/views/Login/components/RegisterForm.vue',
   'src/views/Login/components/ForgetPasswordForm.vue',
@@ -22,8 +22,14 @@ test('system password policy has one shared frontend rule source', () => {
   assert.match(policySource, /SYSTEM_PASSWORD_MESSAGE/)
   assert.match(policySource, /isSystemPasswordStrong/)
   assert.match(policySource, /systemPasswordRule/)
-  assert.match(policySource, /[A-Za-z]/)
-  assert.match(policySource, /\d/)
+  assert.match(policySource, /UPPERCASE_PATTERN/)
+  assert.match(policySource, /LOWERCASE_PATTERN/)
+  assert.match(policySource, /DIGIT_PATTERN/)
+  assert.match(policySource, /SPECIAL_CHAR_PATTERN/)
+  assert.match(policySource, /\[A-Z\]/)
+  assert.match(policySource, /\[a-z\]/)
+  assert.match(policySource, /\\d/)
+  assert.match(policySource, /!@#/)
   assert.match(policySource, new RegExp(passwordMessage))
 })
 

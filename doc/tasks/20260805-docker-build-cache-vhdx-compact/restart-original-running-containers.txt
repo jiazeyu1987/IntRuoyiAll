@@ -1,0 +1,3 @@
+int-ruoyi-mysql
+int-ruoyi-redis
+docker-minio-1

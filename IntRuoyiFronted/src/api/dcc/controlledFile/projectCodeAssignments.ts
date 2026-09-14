@@ -23,6 +23,24 @@ export interface DccProjectCodeAssignmentPageReqVO extends PageParam {
   createdTime?: string[]
 }
 
+export interface DccProjectCodeAssignmentCandidatePageReqVO extends PageParam {
+  keyword?: string
+}
+
+export interface DccProjectCodeAssignmentCandidateRespVO {
+  id: number
+  masterId: number
+  fileName?: string | null
+  fileNumber?: string | null
+  versionNo?: string | null
+  status: string
+  currentProjectCodeId?: number | null
+  currentProjectName?: string | null
+  currentProjectCode?: string | null
+  selectable: boolean
+  disabledReason?: string | null
+}
+
 export interface DccProjectCodeAssignmentRespVO {
   id: number
   assignmentNo: string
@@ -33,18 +51,18 @@ export interface DccProjectCodeAssignmentRespVO {
   assigneeUserId: number
   assigneeNickname?: string | null
   assignedBy?: number | null
-  assignedTime?: string | null
-  expireTime?: string | null
+  assignedTime?: number | null
+  expireTime?: number | null
   status: string
   assignmentReason?: string | null
   fileCount: number
   changedFileCount: number
   changedFieldCount: number
   revokedBy?: number | null
-  revokedTime?: string | null
+  revokedTime?: number | null
   revokeReason?: string | null
-  createTime?: string | null
-  updateTime?: string | null
+  createTime?: number | null
+  updateTime?: number | null
 }
 
 export interface DccProjectCodeAssignmentFilePageReqVO extends PageParam {
@@ -59,7 +77,7 @@ export interface DccProjectCodeAssignmentFileRespVO extends ControlledFileVO {
   metadataEditable: boolean
   metadataEditAssignmentId: number
   changedFieldCount: number
-  lastChangedTime?: string | null
+  lastChangedTime?: number | null
 }
 
 export interface DccProjectCodeAssignmentAuditPageReqVO extends PageParam {
@@ -91,7 +109,7 @@ export interface DccProjectCodeAssignmentAuditRespVO {
   newValueText?: string | null
   source: string
   changeReason?: string | null
-  changedTime: string
+  changedTime: number
 }
 
 export const createProjectCodeAssignment = async (
@@ -106,6 +124,16 @@ export const getProjectCodeAssignmentPage = async (
   params: DccProjectCodeAssignmentPageReqVO
 ): Promise<PageResult<DccProjectCodeAssignmentRespVO[]>> => {
   return await request.get({ url: `/dcc/project-codes/${projectCodeId}/assignments/page`, params })
+}
+
+export const getProjectCodeAssignmentCandidatePage = async (
+  projectCodeId: number | string,
+  params: DccProjectCodeAssignmentCandidatePageReqVO
+): Promise<PageResult<DccProjectCodeAssignmentCandidateRespVO[]>> => {
+  return await request.get({
+    url: `/dcc/project-codes/${projectCodeId}/assignment-candidates/page`,
+    params
+  })
 }
 
 export const getMyProjectCodeAssignmentPage = async (

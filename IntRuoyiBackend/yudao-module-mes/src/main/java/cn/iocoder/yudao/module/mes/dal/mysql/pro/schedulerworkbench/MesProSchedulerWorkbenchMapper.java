@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Param;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 @Mapper
@@ -27,13 +28,15 @@ public interface MesProSchedulerWorkbenchMapper {
 
     Long selectPendingApprovalFeedbackCount();
 
-    BigDecimal selectCurrentSchedulePlannedQuantity();
+    BigDecimal selectCurrentSchedulePlannedQuantity(@Param("scheduleOrderIds") Collection<Long> scheduleOrderIds);
 
-    BigDecimal selectCurrentScheduleReportedQuantity();
+    BigDecimal selectCurrentScheduleReportedQuantity(@Param("scheduleOrderIds") Collection<Long> scheduleOrderIds);
 
-    List<MesProSchedulerWorkbenchSummaryRespVO.ReportedDeviationDetail> selectReportedDeviationDetails();
+    List<MesProSchedulerWorkbenchSummaryRespVO.ReportedDeviationDetail> selectReportedDeviationDetails(
+            @Param("scheduleOrderIds") Collection<Long> scheduleOrderIds);
 
-    List<MesProSchedulerWorkbenchSummaryRespVO.RouteActiveOrder> selectRouteActiveOrders();
+    List<MesProSchedulerWorkbenchSummaryRespVO.RouteActiveOrder> selectRouteActiveOrders(
+            @Param("scheduleOrderIds") Collection<Long> scheduleOrderIds);
 
     BigDecimal selectTodayAvailableCapacity(@Param("beginTime") LocalDateTime beginTime,
                                             @Param("endTime") LocalDateTime endTime);
@@ -45,7 +48,9 @@ public interface MesProSchedulerWorkbenchMapper {
     Long selectMaterialShortageCount(@Param("beginTime") LocalDateTime beginTime,
                                      @Param("endTime") LocalDateTime endTime);
 
-    List<MesProSchedulerWorkbenchSummaryRespVO.Bottleneck> selectBottlenecks(@Param("beginTime") LocalDateTime beginTime,
-                                                                             @Param("endTime") LocalDateTime endTime);
+    List<MesProSchedulerWorkbenchSummaryRespVO.Bottleneck> selectBottlenecks(
+            @Param("beginTime") LocalDateTime beginTime,
+            @Param("endTime") LocalDateTime endTime,
+            @Param("scheduleOrderIds") Collection<Long> scheduleOrderIds);
 
 }

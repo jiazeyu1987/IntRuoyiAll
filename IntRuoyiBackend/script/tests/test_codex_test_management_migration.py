@@ -39,6 +39,9 @@ def test_codex_test_management_migration_exists_with_schema_and_permission_seed(
         assert permission in sql
 
     assert "codex_test_admin" in sql
+    assert "project varchar(16) not null" in sql
+    assert "comment '所属项目：智能排产/文控/批记录'" in sql
+    assert "idx_system_codex_test_case_tenant_project" in sql
     assert "username = 'admin'" in sql
     assert "json_valid(package.menu_ids)" in sql
     assert "alter table system_tenant_package modify column menu_ids longtext" in sql

@@ -1,0 +1,4 @@
+
+FullName      : D:\Docker\DockerDesktopWSL\disk\docker_data.vhdx
+LengthGB      : 426.87
+LastWriteTime : 2026/8/5 17:23:01

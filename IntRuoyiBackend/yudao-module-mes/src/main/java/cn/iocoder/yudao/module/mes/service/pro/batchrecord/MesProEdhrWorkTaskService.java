@@ -81,6 +81,12 @@ public interface MesProEdhrWorkTaskService {
 
     MesProEdhrWorkTaskDO validateReleaseApprovalTask(Long workTaskId, Long releaseTransactionId);
 
+    /**
+     * Resolve the frozen manager task for an approval-center review, including
+     * an idempotent replay after the task has already been completed.
+     */
+    MesProEdhrWorkTaskDO getReleaseApprovalTaskForReview(Long workTaskId, Long releaseTransactionId);
+
     void completeReleaseApprovalTask(Long workTaskId, Long releaseTransactionId, String result, String reason);
 
     void cancelReleaseApprovalTask(Long releaseTransactionId, String reason);
@@ -93,6 +99,8 @@ public interface MesProEdhrWorkTaskService {
                                                  List<MesProEdhrReviewTaskCreateCommand> reviewTasks);
 
     MesProEdhrWorkTaskDO completeFillAndCreateNextFillAfterOrdinarySubmit(Long workTaskId, Long executionId);
+
+    MesProEdhrWorkTaskDO completeRouteFormFillAndCreateNextFill(Long batchTaskId, Long actorUserId);
 
     MesProEdhrWorkTaskDO completeFillAndCreateNextFillAfterGoldenFingerSubmit(Long workTaskId, Long executionId);
 

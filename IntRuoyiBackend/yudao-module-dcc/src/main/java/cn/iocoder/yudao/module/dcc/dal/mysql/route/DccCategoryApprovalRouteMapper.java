@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 
 /**
@@ -26,10 +27,21 @@ public interface DccCategoryApprovalRouteMapper extends BaseMapperX<DccCategoryA
     }
 
     default DccCategoryApprovalRouteDO selectLatestActiveByCategoryId(Long categoryId) {
+        return selectLatestActiveByCategoryId(categoryId, LocalDateTime.now());
+    }
+
+    default DccCategoryApprovalRouteDO selectLatestActiveByCategoryId(Long categoryId, LocalDateTime effectiveAt) {
+        LocalDateTime selectionTime = effectiveAt == null ? LocalDateTime.now() : effectiveAt;
         return selectList(DccCategoryApprovalRouteDO::getCategoryId, categoryId).stream()
                 .filter(item -> Boolean.TRUE.equals(item.getActive()))
-                .max(Comparator.comparing(DccCategoryApprovalRouteDO::getVersionNo))
+                .filter(item -> isEffectiveAt(item, selectionTime))
+                .max(Comparator.comparing(DccCategoryApprovalRouteDO::getVersionNo)
+                        .thenComparing(DccCategoryApprovalRouteDO::getId))
                 .orElse(null);
+    }
+
+    private static boolean isEffectiveAt(DccCategoryApprovalRouteDO route, LocalDateTime effectiveAt) {
+        return route.getEffectiveTime() == null || !route.getEffectiveTime().isAfter(effectiveAt);
     }
 
     @Select("""

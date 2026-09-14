@@ -42,6 +42,7 @@ type RequestCustomHeaders = InternalAxiosRequestConfig['headers'] & {
 
 type RequestCustomConfig = InternalAxiosRequestConfig & {
   ignoreErrorMessage?: boolean
+  returnOriginalResponse?: boolean
 }
 
 const isBinaryAttachmentResponse = (response: AxiosResponse<any>) => {
@@ -59,7 +60,7 @@ type ApiError = Error & {
 
 const createApiError = (message: string, code: number | string, data: any): ApiError => {
   const error = new Error(message) as ApiError
-  const details = data?.details ?? null
+  const details = data?.data ?? data?.details ?? null
   error.code = code
   error.details = details
   error.backendErrorCode =
@@ -177,6 +178,9 @@ service.interceptors.response.use(
     if (responseType === 'blob' || responseType === 'arraybuffer') {
       // 注意：如果导出的响应为 json，说明可能失败了，不直接返回进行下载
       if (response.data.type !== 'application/json' || isBinaryAttachmentResponse(response)) {
+        if (config.returnOriginalResponse) {
+          return response
+        }
         return response.data
       }
       data = await new Response(response.data).json()
@@ -198,8 +202,20 @@ service.interceptors.response.use(
         // 2. 进行刷新访问令牌
         try {
           const refreshTokenRes = await refreshToken()
+          const refreshTokenPayload = refreshTokenRes.data
+          const refreshCode = refreshTokenPayload?.code ?? result_code
+          if (refreshCode !== 0 && refreshCode !== 200) {
+            throw createApiError(
+              refreshTokenPayload?.msg || refreshTokenPayload?.message || t('sys.api.timeoutMessage'),
+              refreshCode,
+              refreshTokenPayload
+            )
+          }
+          if (!refreshTokenPayload?.data?.accessToken || !refreshTokenPayload?.data?.refreshToken) {
+            throw createApiError(t('sys.api.timeoutMessage'), refreshCode, refreshTokenPayload)
+          }
           // 2.1 刷新成功，则回放队列的请求 + 当前请求
-          setToken((await refreshTokenRes).data.data)
+          setToken(refreshTokenPayload.data)
           ;(config.headers as RequestCustomHeaders).Authorization = 'Bearer ' + getAccessToken()
           requestList.forEach((cb: any) => {
             cb()
@@ -276,6 +292,7 @@ service.interceptors.response.use(
     console.log('err' + error) // for debug
     let { message } = error
     const { t } = useI18n()
+    const ignoreErrorMessage = (error.config as RequestCustomConfig | undefined)?.ignoreErrorMessage === true
     if (message === 'Network Error') {
       message = t('sys.api.errorMessage')
     } else if (message.includes('timeout')) {
@@ -283,7 +300,9 @@ service.interceptors.response.use(
     } else if (message.includes('Request failed with status code')) {
       message = t('sys.api.apiRequestFailed') + message.substr(message.length - 3)
     }
-    ElMessage.error(message)
+    if (!ignoreErrorMessage) {
+      ElMessage.error(message)
+    }
     return Promise.reject(error)
   }
 )
@@ -294,6 +313,12 @@ const refreshToken = async () => {
 }
 const handleAuthorized = () => {
   const { t } = useI18n()
+  if (isRelogin.show) {
+    deleteUserCache()
+    removeToken()
+    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search)
+    return Promise.reject(t('sys.api.timeoutMessage'))
+  }
   if (!isRelogin.show) {
     // 如果已经到登录页面则不进行弹窗提示
     if (window.location.href.includes('login')) {

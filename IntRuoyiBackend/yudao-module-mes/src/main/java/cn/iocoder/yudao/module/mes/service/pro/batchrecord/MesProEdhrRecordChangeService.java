@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeApproveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchVoidApprovalResolutionReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchVoidApprovalResolutionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRequestReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRespVO;
@@ -13,6 +15,9 @@ public interface MesProEdhrRecordChangeService {
     EdhrRecordChangeRespVO approveVoidExecution(EdhrRecordChangeApproveReqVO reqVO);
 
     EdhrRecordChangeRespVO requestVoidBatchExecution(EdhrRecordChangeRequestReqVO reqVO);
+
+    EdhrBatchVoidApprovalResolutionRespVO resolveVoidBatchExecutionApproval(
+            EdhrBatchVoidApprovalResolutionReqVO reqVO);
 
     EdhrRecordChangeRespVO precheckPlatformVoidBatchExecution(EdhrRecordChangeRequestReqVO reqVO);
 

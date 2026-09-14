@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8081",
+  "fileNumber": "CODX-DCC-ORIG-20260802085404",
+  "fileName": "Codex DCC 原版上传链路 20260802085404",
+  "controlledFileId": "2054545668044070267",
+  "username": "wangsiyu",
+  "startedAt": "2026-08-02T08:59:49.072Z",
+  "dccWriteRequests": [],
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "browserPath": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802085404&pageNo=1&pageSize=20",
+  "browserTotal": 1,
+  "browserRow": {
+    "id": "2054545668044070267",
+    "masterId": "2054545668044062878",
+    "fileNumber": "CODX-DCC-ORIG-20260802085404",
+    "status": "ACTIVE"
+  },
+  "detail": {
+    "id": "2054545668044070267",
+    "status": "ACTIVE",
+    "versionNo": "V1.0",
+    "masterId": "2054545668044062878",
+    "publishedFileId": "9198354916362",
+    "stampedFileId": "9198354916362"
+  },
+  "finishedAt": "2026-08-02T08:59:56.708Z"
+}

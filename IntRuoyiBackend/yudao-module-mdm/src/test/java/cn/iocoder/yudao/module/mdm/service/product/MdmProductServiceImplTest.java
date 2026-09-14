@@ -148,4 +148,36 @@ class MdmProductServiceImplTest {
         verifyNoInteractions(importBatchMapper, importRowMapper);
     }
 
+    @Test
+    void listSimpleProductsShouldKeepOnlyValidDccProductCodesWhenRequested() {
+        MdmProductDO valid = MdmProductDO.builder()
+                .id(100L)
+                .productCode("VALID")
+                .dccProductCode("A1234567890123")
+                .nameCn("合法产品")
+                .status(MdmProductStatusConstants.ENABLE)
+                .build();
+        MdmProductDO blank = MdmProductDO.builder()
+                .id(200L)
+                .productCode("BLANK")
+                .dccProductCode(" ")
+                .nameCn("空编号产品")
+                .status(MdmProductStatusConstants.ENABLE)
+                .build();
+        MdmProductDO shortCode = MdmProductDO.builder()
+                .id(300L)
+                .productCode("SHORT")
+                .dccProductCode("A123")
+                .nameCn("短编号产品")
+                .status(MdmProductStatusConstants.ENABLE)
+                .build();
+        when(productMapper.selectSimpleList(MdmProductStatusConstants.ENABLE, true, null))
+                .thenReturn(List.of(valid, blank, shortCode));
+
+        List<MdmProductDO> products = productService.listSimpleProducts(
+                MdmProductStatusConstants.ENABLE, true, null);
+
+        assertEquals(List.of(valid), products);
+    }
+
 }

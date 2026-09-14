@@ -167,6 +167,19 @@ def test_dcc_file_type_levels_are_in_all_runtime_schema_paths():
     assert "idx_dcc_controlled_file_type_level" in test_schema
 
 
+def test_dcc_runtime_repair_file_number_backfill_is_length_safe():
+    repair_schema = read(REPAIR_SCHEMA)
+
+    unsafe_title_backfill = (
+        "`file_number` = COALESCE(NULLIF(`file_number`, ''), "
+        "NULLIF(`title`, ''), CONCAT('DCC-FILE-', `id`))"
+    )
+    assert unsafe_title_backfill not in repair_schema
+    assert "CHAR_LENGTH(NULLIF(`file_number`, '')) <= 64" in repair_schema
+    assert "CHAR_LENGTH(NULLIF(`title`, '')) <= 64" in repair_schema
+    assert "CONCAT('DCC-FILE-', `id`)" in repair_schema
+
+
 def test_dcc_recognition_ledger_migration_is_idempotent_and_non_destructive():
     assert LEDGER_MIGRATION.exists(), "recognition ledger migration must exist"
     sql = read(LEDGER_MIGRATION)

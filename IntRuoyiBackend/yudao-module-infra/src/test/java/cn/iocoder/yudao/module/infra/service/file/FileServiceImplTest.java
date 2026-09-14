@@ -13,7 +13,10 @@ import cn.iocoder.yudao.module.infra.framework.file.core.client.StorageRetention
 import cn.iocoder.yudao.module.infra.framework.file.core.client.StorageRetentionPolicy;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.s3.S3FileClient;
 import cn.iocoder.yudao.module.infra.service.file.access.FileDirectLinkAccessContext;
-import cn.iocoder.yudao.module.infra.service.file.access.FileDirectLinkAccessGuard;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +39,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static cn.iocoder.yudao.framework.common.util.date.LocalDateTimeUtils.buildTime;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.*;
-import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_DIRECT_LINK_BLOCKED_BY_DCC;
+import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_BUSINESS_DIRECT_LINK_BLOCKED;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_PROTECTED_SHOWROOM_MEDIA;
 import static org.junit.jupiter.api.Assertions.*;
@@ -55,7 +58,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private FileConfigService fileConfigService;
     @MockitoBean
-    private FileDirectLinkAccessGuard fileDirectLinkAccessGuard;
+    private BusinessFileAccessService businessFileAccessService;
 
     @BeforeEach
     public void setUp() {
@@ -510,23 +513,28 @@ public class FileServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    public void testValidateDirectLinkAllowed_whenDccControlledFile_failClosed() {
+    public void testValidateDirectLinkAllowed_whenBusinessFile_failClosed() {
+        assertFalse(FILE_BUSINESS_DIRECT_LINK_BLOCKED.getMsg().contains("DCC"));
         FileDO dbFile = randomPojo(FileDO.class, o -> o.setConfigId(10L).setPath("quality/spec.pdf"));
         fileMapper.insert(dbFile);
-        doThrow(new FileDirectLinkAccessGuard.ControlledFileDirectLinkBlockedException(dbFile.getId()))
-                .when(fileDirectLinkAccessGuard).assertAllowed(eq(dbFile), any(FileDirectLinkAccessContext.class));
+        doThrow(new BusinessFileAccessDeniedException("business file direct link is forbidden",
+                BusinessFileAccessOperation.DIRECT_LINK, dbFile.getId(), "dcc"))
+                .when(businessFileAccessService).assertAllowed(any(BusinessFileAccessRequest.class));
 
         assertServiceException(() -> fileService.validateDirectLinkAllowed(10L, "quality/spec.pdf",
                         directLinkContext()),
-                FILE_DIRECT_LINK_BLOCKED_BY_DCC, dbFile.getId());
+                FILE_BUSINESS_DIRECT_LINK_BLOCKED, dbFile.getId());
+        verify(businessFileAccessService).assertAllowed(argThat(request ->
+                request.operation() == BusinessFileAccessOperation.DIRECT_LINK
+                        && dbFile.getId().equals(request.fileId())
+                        && "REQ-DIRECT-001".equals(request.requestId())
+                        && hasDirectLinkAuditContext(request)));
     }
 
     @Test
     public void testGetFileContent_whenDccControlledFile_internalReadNotBlockedByDirectLinkGuard() throws Exception {
         FileDO dbFile = randomPojo(FileDO.class, o -> o.setConfigId(10L).setPath("quality/internal.pdf"));
         fileMapper.insert(dbFile);
-        doThrow(new FileDirectLinkAccessGuard.ControlledFileDirectLinkBlockedException(dbFile.getId()))
-                .when(fileDirectLinkAccessGuard).assertAllowed(eq(dbFile), any(FileDirectLinkAccessContext.class));
         FileClient client = mock(FileClient.class);
         byte[] content = "controlled".getBytes();
         when(fileConfigService.getFileClient(eq(10L))).thenReturn(client);
@@ -535,7 +543,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         byte[] result = fileService.getFileContent(10L, "quality/internal.pdf");
 
         assertSame(content, result);
-        verify(fileDirectLinkAccessGuard, never()).assertAllowed(any(), any());
+        verify(businessFileAccessService, never()).assertAllowed(any());
         verify(client).getContent("quality/internal.pdf");
     }
 
@@ -546,11 +554,24 @@ public class FileServiceImplTest extends BaseDbUnitTest {
 
         fileService.validateDirectLinkAllowed(10L, "ordinary/spec.pdf", directLinkContext());
 
-        verify(fileDirectLinkAccessGuard).assertAllowed(eq(dbFile), any(FileDirectLinkAccessContext.class));
+        verify(businessFileAccessService).assertAllowed(argThat(request ->
+                request.operation() == BusinessFileAccessOperation.DIRECT_LINK
+                        && dbFile.getId().equals(request.fileId())
+                        && "REQ-DIRECT-001".equals(request.requestId())));
     }
 
     private FileDirectLinkAccessContext directLinkContext() {
         return new FileDirectLinkAccessContext("10.0.0.7", "Playwright-E2E", "REQ-DIRECT-001");
+    }
+
+    private boolean hasDirectLinkAuditContext(BusinessFileAccessRequest request) {
+        try {
+            Object sourceIp = request.getClass().getMethod("sourceIp").invoke(request);
+            Object userAgent = request.getClass().getMethod("userAgent").invoke(request);
+            return "10.0.0.7".equals(sourceIp) && "Playwright-E2E".equals(userAgent);
+        } catch (ReflectiveOperationException ex) {
+            return false;
+        }
     }
 
     @Test

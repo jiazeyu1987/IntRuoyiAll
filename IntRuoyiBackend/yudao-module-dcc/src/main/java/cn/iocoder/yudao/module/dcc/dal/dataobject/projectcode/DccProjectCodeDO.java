@@ -22,6 +22,7 @@ public class DccProjectCodeDO extends TenantBaseDO {
 
     @TableId
     private Long id;
+    private Long productMasterId;
     private String docControlNo;
     private String projectName;
     private String projectCode;
@@ -33,6 +34,7 @@ public class DccProjectCodeDO extends TenantBaseDO {
     private String priority;
     private String status;
     private Long lastImportBatchId;
+    private String batchRecordTotalRecognitionJson;
     @TableField(exist = false)
     private Long associatedFileCount;
 }

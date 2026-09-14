@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackImp
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackImportRecordMapper;
 import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import jakarta.annotation.Resource;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -47,6 +48,8 @@ class ThirdPartyFeedbackImportServiceImplDbTest extends BaseDbUnitTest {
     private MesMdAutoCodeRecordService autoCodeRecordService;
     @MockitoBean
     private MesProFeedbackService feedbackService;
+    @MockitoBean
+    private MesProRouteProcessService routeProcessService;
 
     @BeforeEach
     void prepareSchema() throws Exception {

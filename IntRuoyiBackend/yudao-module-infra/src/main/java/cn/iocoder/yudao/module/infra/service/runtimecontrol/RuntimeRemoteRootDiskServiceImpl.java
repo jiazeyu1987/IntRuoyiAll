@@ -61,7 +61,7 @@ public class RuntimeRemoteRootDiskServiceImpl implements RuntimeRemoteRootDiskSe
         RuntimeControlProperties.Environment environment = requireKnownEnvironment(reqVO.getTargetEnvironment());
         if (requiresProtectedCleanupConfirm(reqVO.getTargetEnvironment())
                 && !"PROD".equals(reqVO.getProdConfirmText())) {
-            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "正式服/备用服务器根分区清理必须输入 PROD");
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "正式服/审查服务器根分区清理必须输入 PROD");
         }
         String output = commandExecutor.executeForOutput(buildCommand("cleanup", environment, reqVO.getReason(),
                 loginUserId, reqVO.getProdConfirmText()), CLEANUP_TIMEOUT);

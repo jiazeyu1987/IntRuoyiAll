@@ -1,0 +1,17 @@
+{
+  "status": "BLOCKED",
+  "reason": "missing_non_admin_password_env",
+  "requiredEnv": [
+    "DCC_OBSOLETE_E2E_PASSWORD",
+    "DCC_OBSOLETE_E2E_USERNAME",
+    "DCC_OBSOLETE_E2E_TENANT"
+  ],
+  "presentEnv": {
+    "DCC_OBSOLETE_E2E_PASSWORD": false,
+    "DCC_OBSOLETE_E2E_USERNAME": false,
+    "DCC_OBSOLETE_E2E_TENANT": false
+  },
+  "frontend": "http://localhost:8081",
+  "backend": "http://127.0.0.1:48081",
+  "timestamp": "2026-08-02T16:10:45"
+}

@@ -7,6 +7,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionCancelReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCodeReadonlyExecutionStartReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionStartReqVO;
@@ -15,24 +16,23 @@ import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCheckpoi
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCheckpointResultDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionCaseDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionDO;
-import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestRunnerSessionDO;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestCaseMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestCheckpointMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestCheckpointResultMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestExecutionCaseMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestExecutionMapper;
-import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestRunnerSessionMapper;
 import cn.iocoder.yudao.module.system.service.tenant.TenantService;
 import jakarta.annotation.Resource;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_CASE_NOT_EXISTS;
@@ -41,17 +41,12 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_EXECUTION_RUNNING;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_PARALLEL_UNSAFE_CASE;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RESULT_SCHEMA_INVALID;
-import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RUNNER_CAPABILITY_MISSING;
-import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RUNNER_OFFLINE;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_TARGET_TENANT_INVALID;
 import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.*;
 
 @Service
 @Validated
 public class CodexTestExecutionServiceImpl implements CodexTestExecutionService {
-
-    @Value("${yudao.codex-test.runner.heartbeat-timeout-seconds:60}")
-    private Integer runnerHeartbeatTimeoutSeconds;
 
     @Resource
     private CodexTestCaseMapper codexTestCaseMapper;
@@ -64,7 +59,9 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
     @Resource
     private CodexTestCheckpointResultMapper codexTestCheckpointResultMapper;
     @Resource
-    private CodexTestRunnerSessionMapper codexTestRunnerSessionMapper;
+    private CodexTestRunnerBootstrapService codexTestRunnerBootstrapService;
+    @Resource
+    private CodexTestCaseService codexTestCaseService;
     @Resource
     private TenantService tenantService;
 
@@ -73,13 +70,15 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
     public Long startExecution(CodexTestExecutionStartReqVO startReqVO, Long requestedBy) {
         validateStartReqVO(startReqVO, requestedBy);
         validateTargetTenant(startReqVO.getTargetTenantId());
-        validateRunnerOnline();
-        List<CodexTestCaseDO> cases = getOrderedCases(startReqVO.getCaseIds());
+        List<CodexTestCaseDO> cases = getOrderedCases(startReqVO.getCaseIds(), startReqVO.getExecutionMode());
         validateExecutableCases(cases, startReqVO.getExecutionMode());
+        codexTestRunnerBootstrapService.ensureRunnerAvailable();
 
         CodexTestExecutionDO execution = new CodexTestExecutionDO();
         execution.setTargetTenantId(startReqVO.getTargetTenantId());
         execution.setExecutionMode(startReqVO.getExecutionMode());
+        execution.setNodeChainExecution(cases.stream()
+                .allMatch(testCase -> StrUtil.isNotBlank(testCase.getNodeChainName())));
         execution.setStatus(EXECUTION_PENDING);
         execution.setRequestedBy(requestedBy);
         codexTestExecutionMapper.insert(execution);
@@ -92,6 +91,8 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
             executionCase.setCaseNameSnapshot(testCase.getName());
             executionCase.setMethodTextSnapshot(testCase.getMethodText());
             executionCase.setTestDataTextSnapshot(testCase.getTestDataText());
+            executionCase.setAnalysisModeSnapshot(StrUtil.blankToDefault(
+                    testCase.getAnalysisMode(), ANALYSIS_MODE_PLAYWRIGHT_E2E));
             executionCase.setCheckpointCount(checkpoints.size());
             executionCase.setStatus(EXECUTION_PENDING);
             codexTestExecutionCaseMapper.insert(executionCase);
@@ -107,6 +108,17 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
             }
         }
         return execution.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long startCodeReadonlyExecution(CodexTestCodeReadonlyExecutionStartReqVO startReqVO, Long requestedBy) {
+        Long caseId = codexTestCaseService.upsertCodeReadonlyCase(startReqVO.getCaseDefinition());
+        CodexTestExecutionStartReqVO executionStartReqVO = new CodexTestExecutionStartReqVO();
+        executionStartReqVO.setTargetTenantId(startReqVO.getTargetTenantId());
+        executionStartReqVO.setExecutionMode(MODE_SEQUENTIAL);
+        executionStartReqVO.setCaseIds(List.of(caseId));
+        return startExecution(executionStartReqVO, requestedBy);
     }
 
     @Override
@@ -128,8 +140,26 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
     @Override
     public CodexTestExecutionRespVO getExecution(Long id) {
         CodexTestExecutionDO execution = validateExecutionExists(id);
+        return buildExecutionResp(execution);
+    }
+
+    @Override
+    public CodexTestExecutionRespVO getExecutionResult(Long id, Long requestedBy) {
+        CodexTestExecutionDO execution = validateExecutionExists(id);
+        if (requestedBy == null || !Objects.equals(execution.getRequestedBy(), requestedBy)) {
+            throw exception(CODEX_TEST_EXECUTION_NOT_EXISTS);
+        }
+        return buildExecutionResp(execution);
+    }
+
+    @Override
+    public List<CodexTestExecutionRespVO> getExecutionMonitor() {
+        return CollectionUtils.convertList(codexTestExecutionMapper.selectMonitorList(), this::buildExecutionResp);
+    }
+
+    private CodexTestExecutionRespVO buildExecutionResp(CodexTestExecutionDO execution) {
         CodexTestExecutionRespVO respVO = BeanUtils.toBean(execution, CodexTestExecutionRespVO.class);
-        List<CodexTestExecutionCaseDO> executionCases = codexTestExecutionCaseMapper.selectListByExecutionId(id);
+        List<CodexTestExecutionCaseDO> executionCases = codexTestExecutionCaseMapper.selectListByExecutionId(execution.getId());
         List<Long> executionCaseIds = CollectionUtils.convertList(executionCases, CodexTestExecutionCaseDO::getId);
         Map<Long, List<CodexTestCheckpointResultDO>> resultMap = CollectionUtils.convertMultiMap(
                 CollUtil.isEmpty(executionCaseIds) ? List.of() :
@@ -148,15 +178,30 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
     @Override
     public void rollupExecution(Long executionId) {
         CodexTestExecutionDO execution = validateExecutionExists(executionId);
+        String summary = execution.getSummary();
+        if (Boolean.TRUE.equals(execution.getNodeChainExecution())
+                && codexTestExecutionCaseMapper.selectFailedCountByExecutionId(executionId) > 0) {
+            List<CodexTestExecutionCaseDO> pendingCases =
+                    codexTestExecutionCaseMapper.selectPendingListByExecutionId(executionId);
+            if (CollUtil.isNotEmpty(pendingCases)) {
+                LocalDateTime blockedAt = LocalDateTime.now();
+                codexTestExecutionCaseMapper.blockPendingByExecutionId(
+                        executionId, SEQUENTIAL_BLOCK_REASON, blockedAt);
+                codexTestCheckpointResultMapper.blockNotRunByExecutionCaseIds(
+                        CollectionUtils.convertList(pendingCases, CodexTestExecutionCaseDO::getId),
+                        SEQUENTIAL_BLOCK_REASON, blockedAt);
+                summary = SEQUENTIAL_BLOCK_REASON;
+            }
+        }
         if (codexTestExecutionCaseMapper.selectUnfinishedCountByExecutionId(executionId) > 0) {
             codexTestExecutionMapper.updateStatus(executionId, EXECUTION_RUNNING, execution.getStartedAt(),
-                    null, execution.getSummary(), execution.getRunnerSessionId());
+                    null, summary, execution.getRunnerSessionId());
             return;
         }
         String status = codexTestExecutionCaseMapper.selectFailedCountByExecutionId(executionId) > 0
                 ? EXECUTION_FAIL : EXECUTION_PASS;
         codexTestExecutionMapper.updateStatus(executionId, status, execution.getStartedAt(),
-                LocalDateTime.now(), execution.getSummary(), execution.getRunnerSessionId());
+                LocalDateTime.now(), summary, execution.getRunnerSessionId());
     }
 
     private void validateStartReqVO(CodexTestExecutionStartReqVO startReqVO, Long requestedBy) {
@@ -179,27 +224,63 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
         }
     }
 
-    private void validateRunnerOnline() {
-        List<CodexTestRunnerSessionDO> onlineRunners = codexTestRunnerSessionMapper.selectOnlineSessions(
-                LocalDateTime.now().minusSeconds(runnerHeartbeatTimeoutSeconds));
-        if (CollUtil.isEmpty(onlineRunners)) {
-            throw exception(CODEX_TEST_RUNNER_OFFLINE);
-        }
-        boolean hasRequiredCapabilities = onlineRunners.stream()
-                .anyMatch(runner -> StrUtil.contains(runner.getCapabilitiesJson(), "playwright")
-                        && StrUtil.contains(runner.getCapabilitiesJson(), "codex"));
-        if (!hasRequiredCapabilities) {
-            throw exception(CODEX_TEST_RUNNER_CAPABILITY_MISSING, "playwright,codex");
-        }
-    }
-
-    private List<CodexTestCaseDO> getOrderedCases(List<Long> caseIds) {
+    private List<CodexTestCaseDO> getOrderedCases(List<Long> caseIds, String executionMode) {
         List<CodexTestCaseDO> dbCases = codexTestCaseMapper.selectListByIds(caseIds);
         Map<Long, CodexTestCaseDO> caseMap = CollectionUtils.convertMap(dbCases, CodexTestCaseDO::getId);
         if (caseMap.size() != caseIds.stream().distinct().count()) {
             throw exception(CODEX_TEST_CASE_NOT_EXISTS);
         }
-        return caseIds.stream().distinct().map(caseMap::get).toList();
+        List<CodexTestCaseDO> selectedCases = caseIds.stream().distinct().map(caseMap::get).toList();
+        String nodeChainName = validateNodeChainSelection(selectedCases, executionMode);
+        if (nodeChainName == null) {
+            return selectedCases;
+        }
+        return selectedCases.stream()
+                .sorted(Comparator.comparing(CodexTestCaseDO::getNodeChainSort))
+                .toList();
+    }
+
+    private String validateNodeChainSelection(List<CodexTestCaseDO> cases, String executionMode) {
+        List<CodexTestCaseDO> nodeChainCases = cases.stream()
+                .filter(testCase -> StrUtil.isNotBlank(testCase.getNodeChainName()))
+                .toList();
+        if (nodeChainCases.isEmpty()) {
+            return null;
+        }
+        Set<String> nodeChainNames = CollectionUtils.convertSet(
+                nodeChainCases, CodexTestCaseDO::getNodeChainName);
+        if (nodeChainNames.size() != 1) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "一次执行只能选择一个节点串");
+        }
+        if (nodeChainCases.size() != cases.size()) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串测试项不能与独立测试项混合执行");
+        }
+        if (!MODE_SEQUENTIAL.equals(executionMode)) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串只能使用顺序执行");
+        }
+        if (nodeChainCases.stream().anyMatch(testCase -> testCase.getNodeChainSort() == null
+                || testCase.getNodeChainSort() <= 0
+                || !MODE_SEQUENTIAL.equals(testCase.getDefaultExecutionMode())
+                || Boolean.TRUE.equals(testCase.getParallelSafe()))) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串配置不完整或执行控制不正确");
+        }
+        if (nodeChainCases.stream().map(CodexTestCaseDO::getNodeChainSort).distinct().count()
+                != nodeChainCases.size()) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串内存在重复序号");
+        }
+        List<Integer> selectedNodeChainSorts = nodeChainCases.stream()
+                .map(CodexTestCaseDO::getNodeChainSort)
+                .sorted()
+                .toList();
+        for (int index = 0; index < selectedNodeChainSorts.size(); index++) {
+            if (selectedNodeChainSorts.get(index) != index + 1) {
+                throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串必须从第 1 节点开始连续选择");
+            }
+        }
+        if (selectedNodeChainSorts.isEmpty()) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串必须从第 1 节点开始连续选择");
+        }
+        return nodeChainNames.iterator().next();
     }
 
     private void validateExecutableCases(List<CodexTestCaseDO> cases, String executionMode) {

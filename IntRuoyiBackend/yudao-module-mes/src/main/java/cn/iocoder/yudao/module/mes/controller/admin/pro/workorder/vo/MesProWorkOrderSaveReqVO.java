@@ -34,9 +34,15 @@ public class MesProWorkOrderSaveReqVO {
     @Schema(description = "来源单据编号", example = "SO-001")
     private String orderSourceCode;
 
+    @Schema(description = "需求单据", example = "SO-001")
+    private String demandBillNo;
+
     @Schema(description = "产品编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "100")
     @NotNull(message = "产品不能为空")
     private Long productId;
+
+    @Schema(description = "规格型号", example = "100x200mm")
+    private String materialSpecification;
 
     @Schema(description = "生产数量", requiredMode = Schema.RequiredMode.REQUIRED, example = "100.00")
     @NotNull(message = "生产数量不能为空")

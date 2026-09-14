@@ -3,17 +3,23 @@ import request from '@/config/axios'
 export interface PermissionAssignUserRoleReqVO {
   userId: number
   roleIds: number[]
+  reason: string
+  idempotencyKey: string
 }
 
 export interface PermissionAssignRoleMenuReqVO {
   roleId: number
   menuIds: number[]
+  reason: string
+  idempotencyKey: string
 }
 
 export interface PermissionAssignRoleDataScopeReqVO {
   roleId: number
   dataScope: number
   dataScopeDeptIds: number[]
+  reason: string
+  idempotencyKey: string
 }
 
 // 查询角色拥有的菜单权限

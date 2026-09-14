@@ -7,6 +7,7 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.pojo.QuickFilter;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderSaveReqVO;
@@ -33,6 +34,7 @@ import cn.iocoder.yudao.module.mes.enums.wm.BarcodeBizTypeEnum;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemBatchConfigService;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.task.MesProTaskService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationOrderChangeService;
 import cn.iocoder.yudao.module.mes.service.wm.barcode.MesWmBarcodeService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -92,6 +94,8 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
     private MesProScheduleIssueMapper scheduleIssueMapper;
     @Resource
     private MesProScheduleCalendarRuleMapper scheduleCalendarRuleMapper;
+    @Resource
+    private MesReportAllocationOrderChangeService reportAllocationOrderChangeService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -132,6 +136,10 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
         // 2. 判断产品或数量是否变更，如果变更则重新生成 BOM（updated=true 会先清理旧数据）
         boolean productChanged = ObjUtil.notEqual(oldWorkOrder.getProductId(), updateReqVO.getProductId());
         boolean quantityChanged = oldWorkOrder.getQuantity().compareTo(updateReqVO.getQuantity()) != 0;
+        if (oldWorkOrder.getQuantity().compareTo(updateReqVO.getQuantity()) > 0) {
+            reportAllocationOrderChangeService.reduceWorkOrderAllocations(updateReqVO.getId(),
+                    updateReqVO.getQuantity(), SecurityFrameworkUtils.getLoginUserId(), "工单数量减少");
+        }
         if (productChanged || quantityChanged) {
             workOrderBomService.generateWorkOrderBom(updateReqVO.getId(), updateReqVO, true);
         }
@@ -285,7 +293,6 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
         return switch (StrUtil.blankToDefault(quickFilter.getFieldKey(), "")) {
             case "productName" -> toProductIds(itemMapper.selectListByNameLike(value));
             case "productCode" -> toProductIds(itemMapper.selectListByCodeLike(value));
-            case "productSpecification" -> toProductIds(itemMapper.selectListBySpecificationLike(value));
             default -> Collections.emptyList();
         };
     }
@@ -295,7 +302,7 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
             return false;
         }
         return switch (StrUtil.blankToDefault(quickFilter.getFieldKey(), "")) {
-            case "productName", "productCode", "productSpecification" -> true;
+            case "productName", "productCode" -> true;
             default -> false;
         };
     }
@@ -380,6 +387,40 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void finishWorkOrderForRelease(Long id, Long releaseDecisionId, Long actorUserId) {
+        if (id == null || releaseDecisionId == null || actorUserId == null) {
+            throw exception(PRO_WORK_ORDER_NOT_EXISTS, id);
+        }
+        MesProWorkOrderDO workOrder = workOrderMapper.selectByIdForUpdate(id);
+        if (workOrder == null) {
+            throw exception(PRO_WORK_ORDER_NOT_EXISTS, id);
+        }
+        if (MesProWorkOrderStatusEnum.FINISHED.getStatus().equals(workOrder.getStatus())) {
+            if (workOrder.getReleaseDecisionId() != null
+                    && !releaseDecisionId.equals(workOrder.getReleaseDecisionId())) {
+                throw exception(PRO_WORK_ORDER_NOT_CONFIRMED);
+            }
+            workOrderMapper.updateById(new MesProWorkOrderDO().setId(id)
+                    .setReleaseDecisionId(releaseDecisionId)
+                    .setReleasedBy(actorUserId)
+                    .setReleasedAt(workOrder.getReleasedAt() == null ? LocalDateTime.now() : workOrder.getReleasedAt()));
+            return;
+        }
+        if (!MesProWorkOrderStatusEnum.CONFIRMED.getStatus().equals(workOrder.getStatus())) {
+            throw exception(PRO_WORK_ORDER_NOT_CONFIRMED);
+        }
+        taskService.finishTaskByOrderId(id);
+        LocalDateTime releasedAt = LocalDateTime.now();
+        workOrderMapper.updateById(new MesProWorkOrderDO().setId(id)
+                .setStatus(MesProWorkOrderStatusEnum.FINISHED.getStatus())
+                .setFinishDate(releasedAt)
+                .setReleaseDecisionId(releaseDecisionId)
+                .setReleasedBy(actorUserId)
+                .setReleasedAt(releasedAt));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void cancelWorkOrder(Long id) {
         // 1. 校验存在 + 只有已确认状态才能取消
         MesProWorkOrderDO workOrder = validateWorkOrderExists(id);
@@ -387,6 +428,8 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
             throw exception(PRO_WORK_ORDER_NOT_CONFIRMED);
         }
 
+        reportAllocationOrderChangeService.invalidateWorkOrder(id, SecurityFrameworkUtils.getLoginUserId(),
+                "工单取消");
         // 2. 级联取消所有关联任务
         taskService.cancelTaskByOrderId(id);
 
@@ -476,6 +519,10 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
         if (ObjUtil.equal(workOrder.getTemporaryFrozen(), temporaryFrozen)) {
             return;
         }
+        if (Boolean.TRUE.equals(temporaryFrozen)) {
+            reportAllocationOrderChangeService.invalidateWorkOrder(id, SecurityFrameworkUtils.getLoginUserId(),
+                    "工单冻结暂停");
+        }
         workOrderMapper.updateTemporaryFrozenByIds(List.of(id), temporaryFrozen);
         if (Boolean.TRUE.equals(temporaryFrozen)) {
             clearOpenScheduleForWorkOrders(List.of(id));
@@ -499,6 +546,10 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
             workOrderMapper.updateTemporaryFrozenByIds(unfreezeIds, Boolean.FALSE);
         }
         if (CollUtil.isNotEmpty(freezeIds)) {
+            Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
+            for (Long workOrderId : freezeIds) {
+                reportAllocationOrderChangeService.invalidateWorkOrder(workOrderId, actorUserId, "工单冻结暂停");
+            }
             workOrderMapper.updateTemporaryFrozenByIds(freezeIds, Boolean.TRUE);
             return clearOpenScheduleForWorkOrders(freezeIds);
         }

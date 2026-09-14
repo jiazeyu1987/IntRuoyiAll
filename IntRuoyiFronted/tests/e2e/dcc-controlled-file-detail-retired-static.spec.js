@@ -50,8 +50,38 @@ assert.match(
 )
 assert.match(
   detailRoute,
+  /const isBrowserTraceability\s*=/,
+  'controlled file detail route must declare the controlled browser traceability exception'
+)
+assert.match(
+  detailRoute,
+  /String\(to\.query\.traceability \|\| ''\) === '1'/,
+  'controlled browser traceability entry must require traceability=1'
+)
+assert.match(
+  detailRoute,
+  /String\(to\.query\.from \|\| ''\) === 'browser'/,
+  'controlled browser traceability entry must be limited to the browser source'
+)
+assert.match(
+  detailRoute,
+  /Boolean\(String\(to\.query\.returnTo \|\| ''\)\)/,
+  'controlled browser traceability entry must preserve a return path'
+)
+assert.match(
+  detailRoute,
+  /isBrowserTraceability/,
+  'route guard must allow the explicit controlled browser traceability entry'
+)
+assert.match(
+  detailRoute,
   /name:\s*'DccControlledFileBrowser'/,
   'normal controlled file detail access must redirect to the browser page'
+)
+assert.match(
+  viewerPresentation,
+  /buildControlledFileTraceabilityPath/,
+  'shared presentation helpers must expose a traceability path builder'
 )
 assert.match(
   viewerPresentation,

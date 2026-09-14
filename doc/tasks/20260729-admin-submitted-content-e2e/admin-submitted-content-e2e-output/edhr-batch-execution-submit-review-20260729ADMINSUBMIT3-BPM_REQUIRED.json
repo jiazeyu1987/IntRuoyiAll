@@ -1,0 +1,67 @@
+{
+  "approvalMode": "BPM_REQUIRED",
+  "tenant": "测试租户",
+  "username": "aoteman",
+  "approverUsername": "aoteman",
+  "setup": {
+    "runKey": "M7-EDHR-EXEC-BPM_REQUIRED-20260729ADMINSUBMIT3",
+    "actionUrl": "/mes/pro/feedback/edhr-execution/form?id=1593&workTaskId=2306",
+    "fillTaskId": 2306,
+    "executionId": 1593,
+    "signatureCellKey": "M7-EDHR-EXEC-BPM_REQUIRED-20260729ADMINSUBMIT3-REVIEW"
+  },
+  "evidence": {
+    "status": 1,
+    "closedAt": null,
+    "approvedBy": null,
+    "executionId": 1593,
+    "submittedBy": 914520,
+    "snapshotStatus": "SUBMITTED",
+    "reviewTaskCount": 1,
+    "processInstanceId": "9c87879a-8afe-11f1-8387-00155d012339",
+    "submitSignatureId": 3360,
+    "reviewTaskDoneCount": 0,
+    "reviewTaskTodoCount": 1,
+    "runningBpmTaskCount": 1,
+    "processDefinitionKey": "mes-edhr-approval-v1",
+    "historicProcessEndTime": null,
+    "snapshotCurrentBpmTaskId": "9c884b28-8afe-11f1-8387-00155d012339",
+    "approvalSignatureRecordId": null,
+    "snapshotProcessInstanceId": "9c87879a-8afe-11f1-8387-00155d012339",
+    "approvalSignatureRecordCount": 0,
+    "approvalSignatureSignerUserId": null
+  },
+  "approvalSummary": {
+    "reviewResult": true,
+    "requestPayload": {
+      "moduleCode": "BPM",
+      "sourceTaskType": "BPM_TASK_TODO",
+      "sourceTaskId": "9c884b28-8afe-11f1-8387-00155d012339",
+      "businessKey": "9c87879a-8afe-11f1-8387-00155d012339",
+      "processInstanceId": "9c87879a-8afe-11f1-8387-00155d012339",
+      "result": "APPROVE",
+      "signaturePassword": "[REDACTED]"
+    }
+  },
+  "terminalEvidence": {
+    "status": 3,
+    "closedAt": "2026-07-29 11:36:06",
+    "approvedBy": 914520,
+    "executionId": 1593,
+    "submittedBy": 914520,
+    "snapshotStatus": "APPROVED",
+    "reviewTaskCount": 1,
+    "processInstanceId": "9c87879a-8afe-11f1-8387-00155d012339",
+    "submitSignatureId": 3360,
+    "reviewTaskDoneCount": 1,
+    "reviewTaskTodoCount": 0,
+    "runningBpmTaskCount": 0,
+    "processDefinitionKey": "mes-edhr-approval-v1",
+    "historicProcessEndTime": "2026-07-29 11:36:05",
+    "snapshotCurrentBpmTaskId": null,
+    "approvalSignatureRecordId": 157,
+    "snapshotProcessInstanceId": "9c87879a-8afe-11f1-8387-00155d012339",
+    "approvalSignatureRecordCount": 1,
+    "approvalSignatureSignerUserId": 914520
+  }
+}

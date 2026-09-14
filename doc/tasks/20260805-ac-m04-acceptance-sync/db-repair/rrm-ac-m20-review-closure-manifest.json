@@ -1,0 +1,51 @@
+{
+  "taskId": "20260805-ac-m04-acceptance-sync",
+  "scope": "local Docker MySQL int-ruoyi-mysql / ruoyi-vue-pro only",
+  "authorization": "User authorized local-only P0 backfill repair",
+  "migration": {
+    "path": "IntRuoyiBackend/sql/mysql/20260805_mes_process_pool_ac_m20_pqc_review_closure.sql",
+    "sha256": "314453842D9B3A008F3B16DBA5D952E6808DAA840A3748137F8343B18DF03E8B"
+  },
+  "backup": {
+    "path": "doc/tasks/20260805-ac-m04-acceptance-sync/db-backup/acm04-ac-m20-review-closure-20260805.sql",
+    "sha256": "29324ACA1195A81D198CD81CC51ECB9862C1582660EF5F5427609C6EB66E0565",
+    "tables": [
+      "mes_pro_process_pool_submission_review",
+      "mes_pro_process_pool_pqc_record",
+      "mes_pqc_inspection_task"
+    ]
+  },
+  "preState": {
+    "reviewRows": 75,
+    "reviewRowsWithMissingEvent": 0,
+    "duplicateActiveReviewEvents": 0,
+    "pqcReviewRows": 74,
+    "productionReviewRows": 1,
+    "leaderTypeColumnExists": false,
+    "terminalUniqueIndexExists": false,
+    "aggregateDetailTableExists": false,
+    "pqcRecordRows": 87,
+    "pqcAggregationColumnsExist": true,
+    "pqcAggregationIndexExists": true,
+    "pqcTaskRows": 155
+  },
+  "expectedPostState": {
+    "leaderTypeColumn": "varchar(32) NOT NULL",
+    "pqcLeaderTypeRows": 74,
+    "productionLeaderTypeRows": 1,
+    "nullLeaderTypeRows": 0,
+    "terminalUniqueIndex": "uk_mes_pp_submission_review_event_terminal",
+    "aggregateDetailTable": "mes_pqc_process_inspection_aggregate_detail",
+    "aggregateDetailRowsBeforeE2e": 0,
+    "pqcTaskStatuses": "PENDING/SUBMITTED/CONFIRMED/CANCELLED"
+  },
+  "rollback": {
+    "path": "doc/tasks/20260805-ac-m04-acceptance-sync/db-repair/rrm-ac-m20-review-closure-rollback.sql",
+    "guards": [
+      "database must be ruoyi-vue-pro",
+      "review row count must remain 75",
+      "aggregate detail table must remain empty",
+      "leader_type values must match the formal event type"
+    ]
+  }
+}

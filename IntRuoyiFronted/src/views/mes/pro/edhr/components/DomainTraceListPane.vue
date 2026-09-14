@@ -153,7 +153,7 @@
             v-bind="sortColumnAttrs('verifiedAt')"
           >
             <template #default="{ row }">
-              {{ row.verifiedAt || '未校验' }}
+              {{ formatEdhrDateTime(row.verifiedAt, '未校验') }}
             </template>
           </el-table-column>
           <el-table-column
@@ -187,6 +187,7 @@ import {
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProEdhrDomainTraceListPane' })
 
@@ -230,7 +231,7 @@ const normalizeText = (value: unknown) => {
   return rawValue == null ? '' : String(rawValue).trim()
 }
 
-const queryParams = reactive<EdhrDomainTracePageReqVO>({
+const queryParams = reactive<EdhrDomainTracePageReqVO & { pageNo: number; pageSize: number }>({
   pageNo: 1,
   pageSize: props.pageSize,
   executionId: parsePositiveNumber(props.executionId),

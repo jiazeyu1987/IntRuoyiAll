@@ -1,0 +1,114 @@
+{
+  "runId": "DISTTENANT120260802195305",
+  "tenantName": "芋道源码",
+  "fileNumber": "CODX-DCC-DIST-906104-DISTTENANT120260802195305",
+  "fileName": "Codex DCC 分发回收纸质类别 DISTTENANT120260802195305",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "v1FilePath": "E:\\IntRuoyi\\resource\\批记录节点-解析样本.docx",
+  "v2FilePath": "E:\\IntRuoyi\\resource\\过程检验记录.docx",
+  "stampedPdfPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-upload-revision-e2e\\stamped-approval-sample.pdf",
+  "startedAt": "2026-08-02T14:53:04.465Z",
+  "phases": [
+    {
+      "phase": "resume-after-upload-approvals",
+      "v1ControlledFileId": "2054545668044070297",
+      "v2ControlledFileId": "2054545668044070302"
+    },
+    {
+      "phase": "resume-after-publish-submit",
+      "formInstanceId": "443",
+      "bpmProcessInstanceId": "39fb6cce-8e81-11f1-aa29-00155d2984a0"
+    }
+  ],
+  "targetNetworkFailures": [
+    {
+      "label": "publish-approve-wangsiyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "publish-approve-wangsiyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "publish-approve-wangsiyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "publish-approve-wangsiyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "publish-approve-wangsiyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "accountProfiles": {
+    "uploader": {
+      "id": 910250,
+      "nickname": "王思雨",
+      "username": "wangsiyu"
+    },
+    "publishApplicant": {
+      "username": "wangsiyu",
+      "userId": 910250,
+      "nickname": "王思雨"
+    },
+    "trainingParticipant": {
+      "username": "zhaomingyu",
+      "userId": 424,
+      "nickname": "赵明玉"
+    },
+    "approvers": [
+      {
+        "username": "wangsiyu",
+        "role": "文控审核",
+        "userId": 910250,
+        "nickname": "王思雨"
+      },
+      {
+        "username": "zhaohaichen",
+        "role": "会签审核",
+        "userId": 376,
+        "nickname": "赵海辰"
+      },
+      {
+        "username": "zhaojie",
+        "role": "会签批准",
+        "userId": 1074,
+        "nickname": "赵杰"
+      },
+      {
+        "username": "zhaomingyu",
+        "role": "文控批准",
+        "userId": 424,
+        "nickname": "赵明玉"
+      }
+    ]
+  },
+  "fileSizes": {
+    "v1": 37680,
+    "v2": 74170,
+    "stampedPdf": 658
+  },
+  "finishedAt": "2026-08-02T14:53:13.954Z",
+  "status": "BLOCKED",
+  "blocker": "Unexpected publish next approver selector for terminal approver wangsiyu"
+}

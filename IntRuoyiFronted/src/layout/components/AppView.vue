@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { useTagsViewStore } from '@/store/modules/tagsView'
 import { useAppStore } from '@/store/modules/app'
 import { Footer } from '@/layout/components/Footer'
@@ -11,15 +12,18 @@ const layout = computed(() => appStore.getLayout)
 
 const fixedHeader = computed(() => appStore.getFixedHeader)
 
-const footer = computed(() => appStore.getFooter)
-
 const tagsViewStore = useTagsViewStore()
 const currentRoute = useRoute()
+const shouldShowFooter = computed(() => appStore.getFooter && currentRoute.meta?.hideFooter !== true)
+
+const resolveKeepAliveName = (route: RouteLocationNormalizedLoaded) =>
+  String(route.meta?.keepAliveName || route.name || '')
 
 const getCaches = computed((): string[] => {
   const caches = new Set(tagsViewStore.getCachedViews)
-  if (currentRoute.name && currentRoute.meta?.noCache !== true) {
-    caches.add(String(currentRoute.name))
+  const keepAliveName = resolveKeepAliveName(currentRoute)
+  if (keepAliveName && currentRoute.meta?.noCache !== true) {
+    caches.add(keepAliveName)
   }
   return Array.from(caches)
 })
@@ -47,7 +51,7 @@ void [layout, fixedHeader, tagsView]
       'p-[var(--app-content-padding)] w-full bg-[var(--app-content-bg-color)] dark:bg-[var(--el-bg-color)]',
       {
         '!min-h-[calc(100vh-var(--top-tool-height)-var(--tags-view-height)-var(--app-footer-height))] pb-0':
-          footer
+          shouldShowFooter
       }
     ]"
   >
@@ -59,5 +63,5 @@ void [layout, fixedHeader, tagsView]
       </template>
     </router-view>
   </section>
-  <Footer v-if="footer" />
+  <Footer v-if="shouldShowFooter" />
 </template>

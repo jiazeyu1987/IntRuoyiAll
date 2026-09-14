@@ -37,7 +37,7 @@
           </template>
         </el-table-column>
         <el-table-column label="操作" width="120" prop="operatorAction" />
-        <el-table-column label="时间" min-width="180" prop="createdAt" />
+        <el-table-column label="时间" min-width="180" prop="createdAt" :formatter="dateTimeValueFormatter" />
       </el-table>
     </template>
   </el-drawer>
@@ -45,6 +45,7 @@
 
 <script setup lang="ts">
 import { formatHistoryDiffValue, type VersionHistoryRecord } from './contracts'
+import { dateTimeValueFormatter } from '@/utils/formatTime'
 
 defineOptions({ name: 'VersionDiffDrawer' })
 

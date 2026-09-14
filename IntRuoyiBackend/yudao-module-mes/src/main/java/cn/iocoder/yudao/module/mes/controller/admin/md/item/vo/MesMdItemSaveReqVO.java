@@ -22,6 +22,9 @@ public class MesMdItemSaveReqVO {
     @NotEmpty(message = "物料名称不能为空")
     private String name;
 
+    @Schema(description = "MDM 产品主档编号", example = "1024")
+    private Long productMasterId;
+
     @Schema(description = "规格型号", example = "M6*20")
     private String specification;
 

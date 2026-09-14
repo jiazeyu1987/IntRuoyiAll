@@ -1,0 +1,48 @@
+# Execution Log
+
+## 2026-07-29
+
+- User intent: 查看当前有几个 worktree，并将 worktree 分别提交融合到 `int_main`。
+- Rule bootstrap: 已读取 `docs\worktree-restrictions.md`、`docs\branch-runtime-ports.md`、`docs\powershell-memory.md`、`docs\powershell-encoding.md`、`docs\task-closeout-rules.md`。
+- Task directory: `doc\tasks\20260729-merge-worktrees-into-int-main\`。
+- BDD: Worktree merge inventory -> Given multiple registered worktrees, When each worktree is inspected, Then every branch status and merge eligibility is recorded before integration.
+- BDD: Integrate eligible worktrees -> Given an attached worktree branch has no unresolved blocker, When its changes are committed and merged, Then `int_main` contains the branch commits and the result is verified.
+- GREEN: experience-preflight -> PASS, applicable gates loaded from `docs\worktree-memory.md`, `docs\powershell-memory.md`, `docs\branch-runtime-ports.md`, and `docs\task-closeout-rules.md`.
+- Inventory: `git worktree list --porcelain` reported 11 registered worktrees total: 1 main workspace plus 10 attached worktrees under `D:\IntRuoyiWorktree\`.
+- Preflight: `git fetch origin int_main` -> FAIL, GitHub connection reset (`Recv failure: Connection was reset`).
+- Baseline dirty state: main workspace had pre-existing untracked `doc/tasks/20260728-restart-local-frontend-backend/{task.md,execution-log.md}` plus current task docs.
+- Baseline secret scan: `rg -n "password|token|secret|私钥|密码|密钥|Authorization|Bearer"` found only policy text `CODEX_TEST_RUNNER_TOKEN`, no raw secret value.
+- BASELINE: `git commit -m "chore: baseline existing restart task docs"` -> PASS, commit `8cf2c4f6`; files: `doc/tasks/20260728-restart-local-frontend-backend/execution-log.md`, `doc/tasks/20260728-restart-local-frontend-backend/task.md`.
+- Baseline post-check: `git status --short --branch` -> `## int_main...origin/int_main [ahead 1, behind 3]` plus current task docs untracked.
+- TASK DOCS: `git commit -m "docs: start worktree merge task"` -> PASS, commit `99005cfa`.
+- SYNC: `git merge --no-ff origin/int_main -m "merge: sync origin int_main before worktree integration"` -> PASS, commit `cc64234d`; `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- WORKTREE COMMIT: `D:\IntRuoyiWorktree\20260728-codex-node-chain-first-node-contract` -> committed formal files as `7354b8a5 fix: allow node chain execution from first-node prefix`; excluded `.runtime/codex-test-runner/codex-runner.pid`.
+- GREEN: `mvn -pl yudao-module-system -am "-Dtest=CodexTestExecutionServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 8 tests.
+- MERGE: `codex/20260728-codex-node-chain-first-node-contract` -> PASS, merge commit `d3fcbc7b`; branch runtime guard PASS.
+- WORKTREE COMMIT: `D:\IntRuoyiWorktree\20260728-edhr-dynamic-form-cell-link-runtime` -> committed `07ad0955 test: normalize dynamic form cell link static contract newlines`.
+- GREEN: `node yudao-module-mes\src\test\js\mes-edhr-dynamic-form-cell-link-batch-code-static.spec.cjs` -> PASS.
+- MERGE: `codex/20260728-edhr-dynamic-form-cell-link-runtime` -> PASS, merge commit `50453f4e`; branch runtime guard PASS.
+- WORKTREE COMMIT: `D:\IntRuoyiWorktree\edhr-special-node-filler-e2e-20260727` -> committed `e3ba7c96 fix: guard recordbook writes for special node routes`.
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\edhr-special-node-route-owner-api-current-task.e2e.cjs` -> PASS.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionFieldAuditServiceTest,MesProEdhrRecordbookGlobalSettingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 45 tests.
+- MERGE: `codex/edhr-special-node-filler-e2e-20260727` -> PASS, merge commit `e9ea70a7`; branch runtime guard PASS.
+- BASELINE: `doc/tasks/20260729-restart-local-frontend-backend` appeared during merge work; secret scan found only tokenless policy text. `git commit -m "chore: baseline restart task docs after merge"` -> PASS, commit `d27ca83a`.
+- MERGE: `codex/20260727-route-history-cancelled-version-view` -> conflict resolved in route service test imports and `docs/experience-index.md`; merge commit `0acad930`.
+- GREEN: route-history frontend static contracts -> PASS: `mes-route-cancelled-version-view-static.spec.js`, `mes-route-version-list-active-history-only-static.spec.js`.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProRouteProcessFlowServiceImplTest,MesProRouteFlowConfigServiceImplTest,MesProRouteScheduleConfigServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 97 tests.
+- MERGE: `codex/20260727-onlyoffice-test-release` -> add/add conflicts in two task docs resolved by keeping the complete branch evidence records.
+- RED: `python -X utf8 -m pytest script\tests\test_code_only_required_sql_contract.py script\tests\test_publish_int_ruoyi_to_test_tooling.py script\tests\test_release_preflight_plan.py script\tests\test_mes_balloon_xlsx_route_00002_invalid_process_cleanup_sql.py script\tests\test_mes_balloon_excel_device_workstation_binding_sql.py -q` -> FAIL, `test_build_release_writes_frontend_release_info_before_docker_context` found duplicate/old `Write-FrontendReleaseInfo` implementation.
+- GREEN: after merge fix, same pytest command -> PASS, 129 tests.
+- MERGE: `codex/20260727-onlyoffice-test-release` -> PASS, merge commit `0c584f71`; `git diff --check` PASS and branch runtime guard PASS.
+- BASELINE: concurrent restart closeout docs were preserved separately. `git commit -m "chore: baseline restart task closeout docs"` -> PASS, commit `b9187a11`.
+- INVENTORY: final `git worktree list --porcelain` -> 12 registered worktrees total, 11 attached.
+- ANCESTOR CHECK: 9 attached worktree branches are ancestors of local `int_main`.
+- BLOCKER: `codex/20260727-route-flow-batch-record-form-source-e2e` remains `not-ancestor`; task evidence is `blocked` because exact `球囊扩张导管` lacks formal batch-record report source and PTCA page verification lacks test-tenant login.
+- BLOCKER: `codex/restart-int-main-latest-backend-20260727` remains `not-ancestor`; worktree is dirty and task evidence is `blocked_for_e2e_validation` due deprecated `/batch-record-cell-link/prefill` path and missing `LOCAL_DATABASE_FIXTURE`.
+- EXPERIENCE: project-experience-consolidation updated existing `docs\worktree-memory.md`, `docs\release-build-preflight-lessons.md`, and `docs\experience-index.md`; no new long-term document created.
+- GREEN: GitHub large blob scan over `origin/int_main..HEAD` -> PASS, `LARGE_BLOBS=0`.
+- WARN: `git fetch origin int_main` -> FAIL, GitHub connection reset (`Recv failure: Connection was reset`); follow-up push was attempted as a standalone command.
+- GREEN: `git push origin int_main` -> PASS, remote updated `6ebf9f1a..4c0db70a`.
+- GREEN: final `git status --short --branch` -> `## int_main...origin/int_main`.
+- GREEN: final `git worktree list --porcelain` count -> 12 total, 11 attached.
+- GREEN: final `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.

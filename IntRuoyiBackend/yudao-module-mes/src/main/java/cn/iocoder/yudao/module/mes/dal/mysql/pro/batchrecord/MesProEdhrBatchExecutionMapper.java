@@ -17,11 +17,42 @@ import java.util.Map;
 public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBatchExecutionDO> {
 
     int BATCH_STATUS_ARCHIVED = 40;
+    int BATCH_STATUS_FROZEN = 15;
     int BATCH_STATUS_REJECTED = 50;
     int BATCH_STATUS_VOIDED = 60;
 
     @Update("UPDATE mes_pro_edhr_batch_execution SET active_context_key = NULL WHERE id = #{id}")
     void clearActiveContextKey(@Param("id") Long id);
+
+    @Update("UPDATE mes_pro_edhr_batch_execution SET provisioning_status = #{status} "
+            + "WHERE tenant_id = #{tenantId} AND id = #{id}")
+    int updateProvisioningStatus(@Param("tenantId") Long tenantId,
+                                 @Param("id") Long id,
+                                 @Param("status") String status);
+
+    @Update("""
+            UPDATE mes_pro_edhr_batch_execution
+            SET status = 60,
+                active_context_key = NULL,
+                remark = CONCAT(COALESCE(remark, ''), #{reason}),
+                updater = CAST(#{actorUserId} AS CHAR),
+                update_time = NOW()
+            WHERE id = #{id}
+              AND deleted = b'0'
+              AND status <> 60
+            """)
+    int voidForVersionUpgrade(@Param("id") Long id,
+                              @Param("actorUserId") Long actorUserId,
+                              @Param("reason") String reason);
+
+    default MesProEdhrBatchExecutionDO selectByActiveContextKey(String activeContextKey) {
+        if (activeContextKey == null || activeContextKey.isBlank()) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .eq(MesProEdhrBatchExecutionDO::getActiveContextKey, activeContextKey)
+                .notIn(MesProEdhrBatchExecutionDO::getStatus, BATCH_STATUS_VOIDED));
+    }
 
     default MesProEdhrBatchExecutionDO selectByContext(Long workOrderId, String batchCode, Long routeId) {
         return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
@@ -51,6 +82,7 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
 
     private LambdaQueryWrapperX<MesProEdhrBatchExecutionDO> buildPageQuery(EdhrBatchExecutionPageReqVO reqVO) {
         LambdaQueryWrapperX<MesProEdhrBatchExecutionDO> queryWrapper = new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .inIfPresent(MesProEdhrBatchExecutionDO::getId, reqVO.getBatchExecutionIds())
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getBatchExecutionCode, reqVO.getBatchExecutionCode())
                 .eqIfPresent(MesProEdhrBatchExecutionDO::getWorkOrderId, reqVO.getWorkOrderId())
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getWorkOrderCode, reqVO.getWorkOrderCode())
@@ -75,11 +107,13 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
         }
         if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly())) {
             queryWrapper.and(wrapper -> wrapper
-                    .in(MesProEdhrBatchExecutionDO::getStatus, BATCH_STATUS_ARCHIVED, BATCH_STATUS_REJECTED)
+                    .in(MesProEdhrBatchExecutionDO::getStatus,
+                            BATCH_STATUS_ARCHIVED, BATCH_STATUS_REJECTED, BATCH_STATUS_VOIDED)
                     .or()
                     .exists(releasedTransactionExistsSql()));
+        } else {
+            queryWrapper.notIn(MesProEdhrBatchExecutionDO::getStatus, BATCH_STATUS_VOIDED);
         }
-        queryWrapper.notIn(MesProEdhrBatchExecutionDO::getStatus, BATCH_STATUS_VOIDED);
         QuickFilterUtils.filter(queryWrapper, reqVO.getQuickFilter(), Map.of(
                 "batchExecutionCode", QuickFilterUtils.QuickFilterField.text(MesProEdhrBatchExecutionDO::getBatchExecutionCode),
                 "workOrderCode", QuickFilterUtils.QuickFilterField.text(MesProEdhrBatchExecutionDO::getWorkOrderCode),
@@ -104,5 +138,24 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
                 .eq(MesProEdhrBatchExecutionDO::getBatchCode, batchCode)
                 .notIn(MesProEdhrBatchExecutionDO::getStatus, 40, 50, BATCH_STATUS_VOIDED)
                 .orderByDesc(MesProEdhrBatchExecutionDO::getId));
+    }
+
+    default MesProEdhrBatchExecutionDO selectLatestStage4Simulation() {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .like(MesProEdhrBatchExecutionDO::getRemark, "[STAGE4_SIMULATION]")
+                .orderByDesc(MesProEdhrBatchExecutionDO::getId)
+                .last("LIMIT 1"));
+    }
+
+    default MesProEdhrBatchExecutionDO selectLatestStage5Simulation() {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .like(MesProEdhrBatchExecutionDO::getRemark, "[STAGE5_SIMULATION]")
+                .orderByDesc(MesProEdhrBatchExecutionDO::getId)
+                .last("LIMIT 1"));
+    }
+
+    default MesProEdhrBatchExecutionDO selectStage5SimulationByRemark(String remark) {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .eq(MesProEdhrBatchExecutionDO::getRemark, remark));
     }
 }

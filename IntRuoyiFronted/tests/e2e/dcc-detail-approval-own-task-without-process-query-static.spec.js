@@ -29,6 +29,11 @@ assert.match(
 )
 assert.match(
   detailPage,
+  /findCurrentUserTodoTask[\s\S]*task\.assigneeUser\?\.id[\s\S]*task\.assigneeUserId[\s\S]*task\.assignee/,
+  'DCC detail must match the current approver from assigneeUser, assigneeUserId, or Flowable assignee fields'
+)
+assert.match(
+  detailPage,
   /TaskApi\.getTaskListByProcessInstanceId\(processInstanceId\)/,
   'DCC detail must keep loading the process task list for stage progress and current task actions'
 )

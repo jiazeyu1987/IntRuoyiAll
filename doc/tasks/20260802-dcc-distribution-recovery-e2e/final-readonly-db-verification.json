@@ -1,0 +1,214 @@
+{
+    "files": [
+        {
+            "id": "2054545668044070260",
+            "status": "SUPERSEDED",
+            "masterId": "2054545668044062873",
+            "versionNo": "V1.0",
+            "changeType": "NEW",
+            "publishedTime": "2026-08-02 03:39:29",
+            "supersededByFileId": "2054545668044070261"
+        },
+        {
+            "id": "2054545668044070261",
+            "status": "ACTIVE",
+            "masterId": "2054545668044062873",
+            "versionNo": "V2.0",
+            "changeType": "REVISION",
+            "publishedTime": "2026-08-02 03:51:38",
+            "supersededByFileId": null
+        }
+    ],
+    "master": {
+        "id": "2054545668044062873",
+        "status": "ACTIVE_CHAIN",
+        "currentActiveControlledFileId": "2054545668044070261"
+    },
+    "fileNumber": "CODX-DCC-REV-20260802-20260801193848",
+    "distributions": [
+        {
+            "id": "4306",
+            "status": "PENDING",
+            "versionNo": "V1.0",
+            "fileStatus": "SUPERSEDED",
+            "recipients": [
+                {
+                    "userId": "173",
+                    "nickname": "\u5a3c\u6a3b\u6363\u5a11\udc9b",
+                    "username": "panhaitao",
+                    "recipientId": "46483",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "370",
+                    "nickname": "\u748b\u3221\udca3\udc8b",
+                    "username": "xieqi",
+                    "recipientId": "46484",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "443",
+                    "nickname": "\u9352\u6a3f\udca7\u509a\u2513",
+                    "username": "liuguanting",
+                    "recipientId": "46485",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "524",
+                    "nickname": "\u6924\u70ac\udc80\udca1",
+                    "username": "guyi",
+                    "recipientId": "46486",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "537",
+                    "nickname": "\u93b4\u6c2b\u7df7\u6e1a\udc9d",
+                    "username": "qiyiyi",
+                    "recipientId": "46487",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "899",
+                    "nickname": "\u9482\u5b2a\u57c4\u6960\udc8f",
+                    "username": "jianglijun",
+                    "recipientId": "46488",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "999",
+                    "nickname": "\u5bee\u72b2\u5bf2\u74d2\udc85",
+                    "username": "zhanghuachao",
+                    "recipientId": "46489",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "1120",
+                    "nickname": "\u5a08\u5cf0\u7d11\u9351\udcaf",
+                    "username": "yinkaikai",
+                    "recipientId": "46490",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "1136",
+                    "nickname": "\u74a7\u6828\u6ae4\u941c\udcb2",
+                    "username": "laizhiling",
+                    "recipientId": "46491",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "1141",
+                    "nickname": "\u741a\u4f78\u756f\u6d7c\udc9f",
+                    "username": "yuanhongwei",
+                    "recipientId": "46492",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "1519",
+                    "nickname": "\u95c4\u581c\u50f5\u6d63\udca9",
+                    "username": "chenpeipei",
+                    "recipientId": "46493",
+                    "acknowledgedAt": null
+                }
+            ],
+            "recoveredAt": null,
+            "recoveredBy": null,
+            "departmentId": 144,
+            "acknowledgedAt": null,
+            "acknowledgedBy": null,
+            "controlledFileId": "2054545668044070260",
+            "distributionMedium": "PUBLIC_FOLDER"
+        },
+        {
+            "id": "4307",
+            "status": "PENDING",
+            "versionNo": "V2.0",
+            "fileStatus": "ACTIVE",
+            "recipients": [
+                {
+                    "userId": "173",
+                    "nickname": "\u5a3c\u6a3b\u6363\u5a11\udc9b",
+                    "username": "panhaitao",
+                    "recipientId": "46494",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "370",
+                    "nickname": "\u748b\u3221\udca3\udc8b",
+                    "username": "xieqi",
+                    "recipientId": "46495",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "443",
+                    "nickname": "\u9352\u6a3f\udca7\u509a\u2513",
+                    "username": "liuguanting",
+                    "recipientId": "46496",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "524",
+                    "nickname": "\u6924\u70ac\udc80\udca1",
+                    "username": "guyi",
+                    "recipientId": "46497",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "537",
+                    "nickname": "\u93b4\u6c2b\u7df7\u6e1a\udc9d",
+                    "username": "qiyiyi",
+                    "recipientId": "46498",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "899",
+                    "nickname": "\u9482\u5b2a\u57c4\u6960\udc8f",
+                    "username": "jianglijun",
+                    "recipientId": "46499",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "999",
+                    "nickname": "\u5bee\u72b2\u5bf2\u74d2\udc85",
+                    "username": "zhanghuachao",
+                    "recipientId": "46500",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "1120",
+                    "nickname": "\u5a08\u5cf0\u7d11\u9351\udcaf",
+                    "username": "yinkaikai",
+                    "recipientId": "46501",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "1136",
+                    "nickname": "\u74a7\u6828\u6ae4\u941c\udcb2",
+                    "username": "laizhiling",
+                    "recipientId": "46502",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "1141",
+                    "nickname": "\u741a\u4f78\u756f\u6d7c\udc9f",
+                    "username": "yuanhongwei",
+                    "recipientId": "46503",
+                    "acknowledgedAt": null
+                },
+                {
+                    "userId": "1519",
+                    "nickname": "\u95c4\u581c\u50f5\u6d63\udca9",
+                    "username": "chenpeipei",
+                    "recipientId": "46504",
+                    "acknowledgedAt": null
+                }
+            ],
+            "recoveredAt": null,
+            "recoveredBy": null,
+            "departmentId": 144,
+            "acknowledgedAt": null,
+            "acknowledgedBy": null,
+            "controlledFileId": "2054545668044070261",
+            "distributionMedium": "PUBLIC_FOLDER"
+        }
+    ]
+}

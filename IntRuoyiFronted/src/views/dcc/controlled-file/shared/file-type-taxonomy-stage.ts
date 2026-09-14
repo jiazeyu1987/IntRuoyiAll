@@ -15,6 +15,19 @@ export interface DccFileTypeTaxonomyStageOption {
   value: string
 }
 
+export interface DccFileTypeTaxonomyStageTypeOption {
+  label: string
+  value: string
+  stageName: string
+  taxonomyId: number
+}
+
+export interface DccFileTypeTaxonomyStageTypeName {
+  stageName: string
+  typeName: string
+  taxonomyId: number
+}
+
 type TaxonomyNodeRef = {
   row: DccFileTypeTaxonomyVO
   parentId: number | null
@@ -80,9 +93,7 @@ const getTaxonomyNodeId = (node: TaxonomyNodeRef) => normalizeTaxonomyId(node.ro
 const getSortedTaxonomyNodes = (nodes: TaxonomyNodeRef[]) =>
   [...nodes].sort((left, right) => compareTaxonomySort(left.row, right.row))
 
-export const buildDccFileTypeTaxonomyPathMap = (rows: DccFileTypeTaxonomyVO[]) => {
-  const nodes = collectTaxonomyNodes(rows)
-  const pathById = new Map<number, string>()
+const buildTaxonomyChildrenByParentId = (nodes: TaxonomyNodeRef[]) => {
   const knownIds = new Set(nodes.map((node) => getTaxonomyNodeId(node)).filter(Boolean) as number[])
   const childrenByParentId = new Map<number | null, TaxonomyNodeRef[]>()
 
@@ -92,6 +103,14 @@ export const buildDccFileTypeTaxonomyPathMap = (rows: DccFileTypeTaxonomyVO[]) =
     children.push(node)
     childrenByParentId.set(parentId, children)
   }
+
+  return childrenByParentId
+}
+
+export const buildDccFileTypeTaxonomyPathMap = (rows: DccFileTypeTaxonomyVO[]) => {
+  const nodes = collectTaxonomyNodes(rows)
+  const pathById = new Map<number, string>()
+  const childrenByParentId = buildTaxonomyChildrenByParentId(nodes)
 
   const visit = (node: TaxonomyNodeRef, parentPath = '') => {
     const id = getTaxonomyNodeId(node)
@@ -111,6 +130,27 @@ export const buildDccFileTypeTaxonomyPathMap = (rows: DccFileTypeTaxonomyVO[]) =
   }
 
   return pathById
+}
+
+export const buildDccFileTypeTaxonomyStageTypeNameMap = (
+  rows: DccFileTypeTaxonomyVO[],
+  rootName = DCC_TECHNICAL_DOCUMENT_ROOT_NAME
+) => {
+  const pathById = buildDccFileTypeTaxonomyPathMap(rows)
+  const typeNameByTaxonomyId = new Map<number, DccFileTypeTaxonomyStageTypeName>()
+
+  pathById.forEach((path, id) => {
+    const pathParts = path.split('/').map(normalizeName)
+    if (pathParts[0] === rootName && pathParts[1] && pathParts[2]) {
+      typeNameByTaxonomyId.set(id, {
+        taxonomyId: id,
+        stageName: pathParts[1],
+        typeName: pathParts[2]
+      })
+    }
+  })
+
+  return typeNameByTaxonomyId
 }
 
 export const getDccFileTypeTaxonomyStageRows = (
@@ -145,6 +185,47 @@ export const buildDccFileTypeTaxonomyStageNameMap = (
   return stageNameByTaxonomyId
 }
 
+export const buildDccFileTypeTaxonomyStageTypeOptionsMap = (
+  rows: DccFileTypeTaxonomyVO[],
+  rootName = DCC_TECHNICAL_DOCUMENT_ROOT_NAME
+) => {
+  const nodes = collectTaxonomyNodes(rows)
+  const childrenByParentId = buildTaxonomyChildrenByParentId(nodes)
+  const root = getSortedTaxonomyNodes(childrenByParentId.get(null) || []).find(
+    (node) => normalizeName(node.row.name) === rootName
+  )
+  const rootId = root ? getTaxonomyNodeId(root) : undefined
+  const optionsByStageName = new Map<string, DccFileTypeTaxonomyStageTypeOption[]>()
+  if (!rootId) {
+    return optionsByStageName
+  }
+
+  for (const stageNode of getSortedTaxonomyNodes(childrenByParentId.get(rootId) || [])) {
+    const stageId = getTaxonomyNodeId(stageNode)
+    const stageName = normalizeName(stageNode.row.name)
+    if (!stageId || !stageName) {
+      continue
+    }
+    const typeOptions = getSortedTaxonomyNodes(childrenByParentId.get(stageId) || [])
+      .map((typeNode) => {
+        const taxonomyId = getTaxonomyNodeId(typeNode)
+        const typeName = normalizeName(typeNode.row.name)
+        return taxonomyId && typeName
+          ? {
+              label: typeName,
+              value: typeName,
+              stageName,
+              taxonomyId
+            }
+          : undefined
+      })
+      .filter((option): option is DccFileTypeTaxonomyStageTypeOption => Boolean(option))
+    optionsByStageName.set(stageName, typeOptions)
+  }
+
+  return optionsByStageName
+}
+
 export const toDccFileTypeTaxonomyStageOptions = (
   rows: DccFileTypeTaxonomyVO[]
 ): DccFileTypeTaxonomyStageOption[] =>
@@ -162,6 +243,17 @@ export const resolveDccFileTypeTaxonomyStageName = (
       ? normalizeTaxonomyId(source)
       : normalizeTaxonomyId(source?.fileTypeTaxonomyId ?? source?.id)
   return taxonomyId ? stageNameByTaxonomyId.get(taxonomyId) : undefined
+}
+
+export const resolveDccFileTypeTaxonomyStageTypeName = (
+  source: DccFileTypeTaxonomyStageSource,
+  typeNameByTaxonomyId: Map<number, DccFileTypeTaxonomyStageTypeName>
+) => {
+  const taxonomyId =
+    typeof source === 'number'
+      ? normalizeTaxonomyId(source)
+      : normalizeTaxonomyId(source?.fileTypeTaxonomyId ?? source?.id)
+  return taxonomyId ? typeNameByTaxonomyId.get(taxonomyId) : undefined
 }
 
 export const getDccFileTypeTaxonomyStageTagType = (

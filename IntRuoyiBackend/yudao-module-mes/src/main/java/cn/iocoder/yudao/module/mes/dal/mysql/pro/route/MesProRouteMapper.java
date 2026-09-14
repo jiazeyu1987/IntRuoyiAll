@@ -20,6 +20,15 @@ import java.util.List;
 @Mapper
 public interface MesProRouteMapper extends BaseMapperX<MesProRouteDO> {
 
+    default MesProRouteDO selectByIdForUpdate(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProRouteDO>()
+                .eq(MesProRouteDO::getId, id)
+                .last("FOR UPDATE"));
+    }
+
     default PageResult<MesProRouteDO> selectPage(MesProRoutePageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<MesProRouteDO>()
                 .likeIfPresent(MesProRouteDO::getCode, reqVO.getCode())

@@ -15,12 +15,17 @@ import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCod
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeSaveReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeUpdateReqVO;
+import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationQuery;
+import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatus;
+import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatusApi;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryMatchRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeImportBatchDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeImportRowDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMatchRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeImportBatchMapper;
@@ -29,10 +34,14 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeImportActionConstants;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeImportStatusConstants;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.association.DccRegistrationCertificateProjectCodeFileAssociationService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileMetadataUpdateService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
+import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
+import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
+import cn.iocoder.yudao.module.mdm.enums.MdmProductStatusConstants;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -57,6 +66,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -82,18 +92,14 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     private static final String TECHNICAL_FILE_TYPE_LEVEL1 = "技术文档";
     private static final String UNCLASSIFIED_STAGE = "未分类";
     private static final String UNCLASSIFIED_FILE_TYPE = "未分类文件类型";
+    private static final String CONTROLLED_FILE_SOURCE_TYPE = "DCC_CONTROLLED_FILE";
+    private static final String CATEGORY_MATCH_TYPE_CONTAINS = "CONTAINS";
+    private static final String CATEGORY_MATCH_TYPE_EXACT = "EXACT";
+    private static final String CATEGORY_MATCH_TYPE_PREFIX = "PREFIX";
+    private static final String CATEGORY_MATCH_TYPE_SUFFIX = "SUFFIX";
+    private static final String CATEGORY_MATCH_TYPE_EXTENSION = "EXTENSION";
     private static final String ASSIGNMENT_EXECUTE_PERMISSION = "dcc:project-code-assignment:execute";
-    private static final String[] FULL_PROJECT_CODE_SCOPE_PERMISSIONS = {
-            "dcc:project-code:create",
-            "dcc:project-code:update",
-            "dcc:project-code:delete",
-            "dcc:project-code:import",
-            "dcc:project-code:export",
-            "dcc:project-code-assignment:assign",
-            "dcc:project-code-assignment:query",
-            "dcc:project-code-assignment:revoke",
-            "dcc:project-code-assignment:audit:query"
-    };
+    private static final String FULL_PROJECT_CODE_SCOPE_PERMISSION = "dcc:project-code:scope:all";
     private static final Map<String, List<String>> CATEGORY_MATCH_ALIASES = Map.ofEntries(
             Map.entry("临床注册路径分析", List.of("注册临床路径")),
             Map.entry("项目立项书", List.of("项目立项申请书", "项目建议书")),
@@ -148,11 +154,19 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     @Resource
     private DccFileCategoryMapper categoryMapper;
     @Resource
+    private DccFileCategoryMatchRuleMapper categoryMatchRuleMapper;
+    @Resource
     private DccControlledFileQueryService controlledFileQueryService;
+    @Resource
+    private DccRegistrationCertificateProjectCodeFileAssociationService registrationCertificateFileAssociationService;
     @Resource
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Resource
     private PermissionApi permissionApi;
+    @Resource
+    private DccProjectCodeConfigurationStatusApi configurationStatusApi;
+    @Resource
+    private MdmProductApi productApi;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -210,21 +224,34 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     }
 
     @Override
+    public DccProjectCodeDO getProjectCode(Long userId, Long id) {
+        DccProjectCodeDO projectCode = getProjectCode(id);
+        List<Long> scopedProjectCodeIds = resolveAssignedProjectCodeScope(userId);
+        if (scopedProjectCodeIds != null && !scopedProjectCodeIds.contains(id)) {
+            throw exception(PROJECT_CODE_NOT_EXISTS);
+        }
+        return projectCode;
+    }
+
+    @Override
     public PageResult<DccControlledFileRespVO> getControlledFilePage(Long userId, Long id,
                                                                       DccProjectCodeControlledFilePageReqVO reqVO) {
-        getProjectCode(id);
-        DccControlledFilePageReqVO controlledFilePageReqVO = new DccControlledFilePageReqVO();
-        controlledFilePageReqVO.setPageNo(reqVO.getPageNo());
-        controlledFilePageReqVO.setPageSize(reqVO.getPageSize());
-        controlledFilePageReqVO.setKeyword(reqVO.getKeyword());
-        controlledFilePageReqVO.setStatus(reqVO.getStatus());
-        controlledFilePageReqVO.setDccProjectCodeId(id);
-        return controlledFileQueryService.getControlledFilePage(userId, controlledFilePageReqVO);
+        getProjectCode(userId, id);
+        List<DccControlledFileRespVO> associatedRows = controlledFileMapper
+                .selectAssociatedFilesByProjectCodeId(id, null)
+                .stream()
+                .filter(file -> matchesAssociatedFileFilters(file, reqVO.getKeyword(), reqVO.getStatus()))
+                .map(this::toAssociatedControlledFileRespVO)
+                .collect(Collectors.toCollection(ArrayList::new));
+        associatedRows.forEach(this::markControlledFileSource);
+        associatedRows.addAll(registrationCertificateFileAssociationService.listAssociatedRows(
+                id, reqVO.getKeyword(), reqVO.getStatus()));
+        return buildAssociatedControlledFilePageResult(associatedRows, reqVO);
     }
 
     @Override
     public List<DccProjectCodeAssociatedFileAiCategoryRespVO> getAssociatedFileAiCategoryCandidates(Long userId, Long id) {
-        getProjectCode(id);
+        getProjectCode(userId, id);
         List<Long> visibleFileIds = listVisibleAssociatedControlledFileIds(userId, id);
         if (visibleFileIds.isEmpty()) {
             return List.of();
@@ -245,7 +272,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DccProjectCodeAssociatedFileAiCategoryRespVO classifyAssociatedFileByName(Long userId, Long id, Long fileId) {
-        getProjectCode(id);
+        getProjectCode(userId, id);
         DccControlledFileDO controlledFile = controlledFileMapper.selectById(fileId);
         if (controlledFile == null || !listVisibleAssociatedControlledFileIds(userId, id).contains(fileId)) {
             throw exception(PROJECT_CODE_ASSOCIATED_FILE_NOT_EXISTS);
@@ -255,7 +282,9 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
             throw exception(PROJECT_CODE_ASSOCIATED_FILE_ALREADY_CATEGORIZED);
         }
 
-        FileTypeCategoryTarget target = resolveAiCategoryTarget(controlledFile, activeCategories);
+        Map<Long, List<DccFileCategoryMatchRuleDO>> categoryMatchRules =
+                listActiveCategoryMatchRules(activeCategories);
+        FileTypeCategoryTarget target = resolveAiCategoryTarget(controlledFile, activeCategories, categoryMatchRules);
         if (target.ambiguous()) {
             return toAiCategoryResp(controlledFile, target);
         }
@@ -315,6 +344,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
         DccProjectCodePageReqVO queryReqVO = new DccProjectCodePageReqVO();
         queryReqVO.setPageNo(1);
         queryReqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
+        queryReqVO.setProductMasterId(reqVO.getProductMasterId());
         queryReqVO.setKeyword(reqVO.getKeyword());
         queryReqVO.setProjectName(reqVO.getProjectName());
         queryReqVO.setProjectCode(reqVO.getProjectCode());
@@ -326,9 +356,63 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
             Set<Long> scope = new LinkedHashSet<>(scopedProjectCodeIds);
             records.removeIf(record -> !scope.contains(record.getId()));
         }
+        records = applyDccProductCodeFilter(records, reqVO);
+        records = applyConfigurationFilters(records, reqVO);
         populateAssociatedFileCounts(records);
         records.sort(projectCodeDisplayOrder(reqVO));
         return records;
+    }
+
+    private List<DccProjectCodeDO> applyDccProductCodeFilter(List<DccProjectCodeDO> records,
+                                                              DccProjectCodePageReqVO reqVO) {
+        if (records.isEmpty() || !Boolean.TRUE.equals(reqVO.getRequireDccProductCode())) {
+            return records;
+        }
+        Set<Long> validProductIds = productApi.listSimpleProducts(
+                        MdmProductStatusConstants.ENABLE, true, null).stream()
+                .map(MdmProductRespDTO::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (validProductIds.isEmpty()) {
+            return List.of();
+        }
+        return records.stream()
+                .filter(record -> validProductIds.contains(record.getProductMasterId()))
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    private List<DccProjectCodeDO> applyConfigurationFilters(List<DccProjectCodeDO> records,
+                                                              DccProjectCodePageReqVO reqVO) {
+        if (records.isEmpty()
+                || (reqVO.getRouteConfigured() == null
+                && reqVO.getMainBatchRecordConfigured() == null
+                && reqVO.getQaRegulationConfigured() == null)) {
+            return records;
+        }
+        Map<Long, DccProjectCodeConfigurationStatus> statusByProjectCodeId = configurationStatusApi.getStatus(
+                records.stream()
+                        .map(record -> new DccProjectCodeConfigurationQuery(record.getId(), record.getProjectName(),
+                                reqVO.getRouteConfigured() != null,
+                                reqVO.getMainBatchRecordConfigured() != null,
+                                reqVO.getQaRegulationConfigured() != null))
+                        .toList());
+        return records.stream()
+                .filter(record -> matchesConfigurationFilter(reqVO.getRouteConfigured(),
+                        statusByProjectCodeId.get(record.getId()),
+                        DccProjectCodeConfigurationStatus::routeConfigured))
+                .filter(record -> matchesConfigurationFilter(reqVO.getMainBatchRecordConfigured(),
+                        statusByProjectCodeId.get(record.getId()),
+                        DccProjectCodeConfigurationStatus::mainBatchRecordConfigured))
+                .filter(record -> matchesConfigurationFilter(reqVO.getQaRegulationConfigured(),
+                        statusByProjectCodeId.get(record.getId()),
+                        DccProjectCodeConfigurationStatus::qaRegulationConfigured))
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    private boolean matchesConfigurationFilter(Boolean expected,
+                                               DccProjectCodeConfigurationStatus status,
+                                               Function<DccProjectCodeConfigurationStatus, Boolean> valueReader) {
+        return expected == null || (status != null && Objects.equals(expected, valueReader.apply(status)));
     }
 
     private List<Long> resolveAssignedProjectCodeScope(Long userId) {
@@ -339,8 +423,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     }
 
     private boolean hasFullProjectCodeScope(Long userId) {
-        return permissionApi.hasAnyRolesOrSuperAdmin(userId, DccControlledFileMetadataUpdateService.DOC_CONTROL_ROLE_CODE)
-                || permissionApi.hasAnyPermissions(userId, FULL_PROJECT_CODE_SCOPE_PERMISSIONS);
+        return permissionApi.hasAnyPermissions(userId, FULL_PROJECT_CODE_SCOPE_PERMISSION);
     }
 
     private boolean hasAssignmentExecuteScope(Long userId) {
@@ -362,24 +445,91 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                 .map(DccProjectCodeDO::getId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        Map<Long, Long> fileCountByProjectCodeId = projectCodeIds.isEmpty()
-                ? Map.of()
-                : controlledFileMapper.selectAssociatedFileCountsByProjectCodeIds(projectCodeIds).stream()
-                        .collect(Collectors.toMap(
-                                DccControlledFileMapper.ProjectCodeFileCount::getProjectCodeId,
-                                DccControlledFileMapper.ProjectCodeFileCount::getFileCount));
+        Map<Long, Long> fileCountByProjectCodeId = new LinkedHashMap<>();
+        if (!projectCodeIds.isEmpty()) {
+            controlledFileMapper.selectAssociatedFileCountsByProjectCodeIds(projectCodeIds).forEach(fileCount ->
+                    fileCountByProjectCodeId.put(fileCount.getProjectCodeId(), fileCount.getFileCount()));
+            registrationCertificateFileAssociationService.countAssociatedFilesByProjectCodeIds(projectCodeIds)
+                    .forEach((projectCodeId, fileCount) -> fileCountByProjectCodeId.merge(
+                            projectCodeId, fileCount, Long::sum));
+        }
         records.forEach(record -> record.setAssociatedFileCount(
                 fileCountByProjectCodeId.getOrDefault(record.getId(), 0L)));
     }
 
     private List<Long> listVisibleAssociatedControlledFileIds(Long userId, Long projectCodeId) {
-        DccProjectCodeControlledFilePageReqVO reqVO = new DccProjectCodeControlledFilePageReqVO();
+        DccControlledFilePageReqVO reqVO = new DccControlledFilePageReqVO();
         reqVO.setPageNo(1);
         reqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
-        return getControlledFilePage(userId, projectCodeId, reqVO).getList().stream()
+        reqVO.setDccProjectCodeId(projectCodeId);
+        return controlledFileQueryService.getControlledFilePage(userId, reqVO).getList().stream()
                 .map(DccControlledFileRespVO::getId)
                 .filter(Objects::nonNull)
                 .toList();
+    }
+
+    private void markControlledFileSource(DccControlledFileRespVO row) {
+        if (row != null && row.getBusinessSourceType() == null) {
+            row.setBusinessSourceType(CONTROLLED_FILE_SOURCE_TYPE);
+        }
+    }
+
+    private boolean matchesAssociatedFileFilters(DccControlledFileDO file, String keyword, String status) {
+        if (file == null) {
+            return false;
+        }
+        if (StrUtil.isNotBlank(status) && !StrUtil.equals(status, file.getStatus())) {
+            return false;
+        }
+        if (StrUtil.isBlank(keyword)) {
+            return true;
+        }
+        String normalizedKeyword = StrUtil.trim(keyword).toLowerCase(Locale.ROOT);
+        return containsIgnoreCase(file.getFileNumber(), normalizedKeyword)
+                || containsIgnoreCase(file.getFileName(), normalizedKeyword)
+                || containsIgnoreCase(file.getTitle(), normalizedKeyword)
+                || containsIgnoreCase(file.getVersionNo(), normalizedKeyword);
+    }
+
+    private boolean containsIgnoreCase(String value, String normalizedKeyword) {
+        return StrUtil.isNotBlank(value) && value.toLowerCase(Locale.ROOT).contains(normalizedKeyword);
+    }
+
+    private DccControlledFileRespVO toAssociatedControlledFileRespVO(DccControlledFileDO file) {
+        DccControlledFileRespVO respVO = new DccControlledFileRespVO();
+        respVO.setId(file.getId());
+        respVO.setMasterId(file.getMasterId());
+        respVO.setCategoryId(file.getCategoryId());
+        respVO.setDirectoryId(file.getDirectoryId());
+        respVO.setFileName(file.getFileName());
+        respVO.setTitle(file.getTitle());
+        respVO.setFileNumber(file.getFileNumber());
+        respVO.setDccProjectCodeId(file.getDccProjectCodeId());
+        respVO.setFileTypeTaxonomyId(file.getFileTypeTaxonomyId());
+        respVO.setFileTypeLevel1(file.getFileTypeLevel1());
+        respVO.setFileTypeLevel2(file.getFileTypeLevel2());
+        respVO.setFileTypeLevel3(file.getFileTypeLevel3());
+        respVO.setFileTypeLevel4(file.getFileTypeLevel4());
+        respVO.setFileTypeLevel5(file.getFileTypeLevel5());
+        respVO.setProcessType(file.getProcessType());
+        respVO.setVersionNo(file.getVersionNo());
+        respVO.setStatus(file.getStatus());
+        respVO.setSubmittedTime(file.getSubmittedTime());
+        respVO.setApprovedTime(file.getApprovedTime());
+        respVO.setPublishedTime(file.getPublishedTime());
+        respVO.setBusinessSourceType(CONTROLLED_FILE_SOURCE_TYPE);
+        return respVO;
+    }
+
+    private PageResult<DccControlledFileRespVO> buildAssociatedControlledFilePageResult(
+            List<DccControlledFileRespVO> rows, DccProjectCodeControlledFilePageReqVO reqVO) {
+        long total = rows.size();
+        if (PageParam.PAGE_SIZE_NONE.equals(reqVO.getPageSize())) {
+            return new PageResult<>(rows, total);
+        }
+        int fromIndex = Math.min((reqVO.getPageNo() - 1) * reqVO.getPageSize(), rows.size());
+        int toIndex = Math.min(fromIndex + reqVO.getPageSize(), rows.size());
+        return new PageResult<>(new ArrayList<>(rows.subList(fromIndex, toIndex)), total);
     }
 
     private List<DccFileCategoryDO> listActiveAiCategories() {
@@ -387,6 +537,22 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                 .filter(category -> Boolean.TRUE.equals(category.getActive()))
                 .filter(category -> category.getFileTypeTaxonomyId() != null)
                 .toList();
+    }
+
+    private Map<Long, List<DccFileCategoryMatchRuleDO>> listActiveCategoryMatchRules(
+            List<DccFileCategoryDO> activeCategories) {
+        Set<Long> categoryIds = activeCategories.stream()
+                .map(DccFileCategoryDO::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (categoryIds.isEmpty()) {
+            return Map.of();
+        }
+        return categoryMatchRuleMapper.selectList(new LambdaQueryWrapperX<DccFileCategoryMatchRuleDO>()
+                        .in(DccFileCategoryMatchRuleDO::getCategoryId, categoryIds)
+                        .eq(DccFileCategoryMatchRuleDO::getActive, true))
+                .stream()
+                .collect(Collectors.groupingBy(DccFileCategoryMatchRuleDO::getCategoryId));
     }
 
     private boolean requiresAiCategory(DccControlledFileDO file, List<DccFileCategoryDO> activeCategories) {
@@ -408,14 +574,19 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
         });
     }
 
-    private FileTypeCategoryTarget resolveAiCategoryTarget(DccControlledFileDO controlledFile,
-                                                           List<DccFileCategoryDO> activeCategories) {
+    private FileTypeCategoryTarget resolveAiCategoryTarget(
+            DccControlledFileDO controlledFile,
+            List<DccFileCategoryDO> activeCategories,
+            Map<Long, List<DccFileCategoryMatchRuleDO>> categoryMatchRules) {
         List<String> fileMatchTexts = resolveAssociatedFileMatchTexts(controlledFile);
+        List<String> rawFileMatchTexts = resolveAssociatedFileRawMatchTexts(controlledFile);
         if (fileMatchTexts.isEmpty()) {
             return FileTypeCategoryTarget.unclassified();
         }
         List<CategoryMatch> matches = activeCategories.stream()
-                .map(category -> new CategoryMatch(category, categoryMatchScore(fileMatchTexts, category)))
+                .map(category -> new CategoryMatch(category, categoryMatchScore(
+                        fileMatchTexts, rawFileMatchTexts, category,
+                        categoryMatchRules.getOrDefault(category.getId(), List.of()))))
                 .filter(match -> match.score() > 0)
                 .toList();
         if (matches.isEmpty()) {
@@ -450,13 +621,20 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                 path.level5());
     }
 
-    private int categoryMatchScore(List<String> fileMatchTexts, DccFileCategoryDO category) {
+    private int categoryMatchScore(List<String> fileMatchTexts, List<String> rawFileMatchTexts,
+                                   DccFileCategoryDO category, List<DccFileCategoryMatchRuleDO> matchRules) {
         String categoryName = StrUtil.trim(category.getName());
-        return resolveCategoryMatchNames(category).stream()
+        int legacyScore = resolveCategoryMatchNames(category).stream()
                 .filter(matchName -> fileMatchTexts.stream().anyMatch(text -> text.contains(matchName)))
                 .mapToInt(matchName -> categoryMatchScore(categoryName, matchName))
                 .max()
                 .orElse(0);
+        int ruleScore = matchRules.stream()
+                .filter(rule -> Boolean.TRUE.equals(rule.getActive()))
+                .mapToInt(rule -> categoryMatchRuleScore(rule, fileMatchTexts, rawFileMatchTexts))
+                .max()
+                .orElse(0);
+        return Math.max(legacyScore, ruleScore);
     }
 
     private int categoryMatchScore(String categoryName, String matchName) {
@@ -495,6 +673,93 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
+    }
+
+    private List<String> resolveAssociatedFileRawMatchTexts(DccControlledFileDO controlledFile) {
+        return Arrays.asList(
+                controlledFile.getFileName(),
+                controlledFile.getTitle(),
+                controlledFile.getFileNumber()).stream()
+                .map(StrUtil::trimToNull)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    private int categoryMatchRuleScore(DccFileCategoryMatchRuleDO rule, List<String> fileMatchTexts,
+                                       List<String> rawFileMatchTexts) {
+        String matchType = StrUtil.trimToNull(rule.getMatchType());
+        if (matchType == null) {
+            throw new IllegalStateException("DCC file category match rule has blank matchType: " + rule.getId());
+        }
+        matchType = matchType.toUpperCase(Locale.ROOT);
+        return switch (matchType) {
+            case CATEGORY_MATCH_TYPE_CONTAINS, CATEGORY_MATCH_TYPE_EXACT, CATEGORY_MATCH_TYPE_PREFIX,
+                    CATEGORY_MATCH_TYPE_SUFFIX -> categoryTextRuleScore(rule, fileMatchTexts, matchType);
+            case CATEGORY_MATCH_TYPE_EXTENSION -> categoryExtensionRuleScore(rule, rawFileMatchTexts);
+            default -> throw new IllegalStateException(
+                    "Unsupported DCC file category match rule type: " + rule.getMatchType());
+        };
+    }
+
+    private int categoryTextRuleScore(DccFileCategoryMatchRuleDO rule, List<String> fileMatchTexts, String matchType) {
+        String matchText = normalizeCategoryMatchText(rule.getMatchText());
+        if (matchText == null) {
+            throw new IllegalStateException("DCC file category match rule has blank matchText: " + rule.getId());
+        }
+        boolean matched = switch (matchType) {
+            case CATEGORY_MATCH_TYPE_CONTAINS -> fileMatchTexts.stream().anyMatch(text -> text.contains(matchText));
+            case CATEGORY_MATCH_TYPE_EXACT -> fileMatchTexts.stream().anyMatch(text -> Objects.equals(text, matchText));
+            case CATEGORY_MATCH_TYPE_PREFIX -> fileMatchTexts.stream().anyMatch(text -> text.startsWith(matchText));
+            case CATEGORY_MATCH_TYPE_SUFFIX -> fileMatchTexts.stream().anyMatch(text -> text.endsWith(matchText));
+            default -> throw new IllegalStateException(
+                    "Unsupported DCC file category text match rule type: " + matchType);
+        };
+        return matched
+                ? categoryMatchRuleBaseScore(rule, matchText)
+                : 0;
+    }
+
+    private int categoryExtensionRuleScore(DccFileCategoryMatchRuleDO rule, List<String> rawFileMatchTexts) {
+        String extension = normalizeRuleExtension(rule.getMatchText());
+        if (extension == null) {
+            throw new IllegalStateException("DCC file category extension rule has blank matchText: " + rule.getId());
+        }
+        return rawFileMatchTexts.stream()
+                .map(this::extractFileExtension)
+                .filter(Objects::nonNull)
+                .anyMatch(extension::equals)
+                ? categoryMatchRuleBaseScore(rule, extension)
+                : 0;
+    }
+
+    private int categoryMatchRuleBaseScore(DccFileCategoryMatchRuleDO rule, String normalizedMatchText) {
+        int weight = rule.getWeight() == null ? 0 : rule.getWeight();
+        return weight + normalizedMatchText.length();
+    }
+
+    private String normalizeRuleExtension(String value) {
+        String normalized = StrUtil.trimToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.startsWith(".")) {
+            normalized = normalized.substring(1);
+        }
+        return StrUtil.trimToNull(normalized.toLowerCase(Locale.ROOT));
+    }
+
+    private String extractFileExtension(String value) {
+        String fileName = StrUtil.trimToNull(value);
+        if (fileName == null) {
+            return null;
+        }
+        int slashIndex = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex <= slashIndex || dotIndex == fileName.length() - 1) {
+            return null;
+        }
+        return fileName.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
     }
 
     private DccFileTypeTaxonomyPath resolveCategoryTaxonomyPath(DccFileCategoryDO category) {
@@ -649,6 +914,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
             throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_BATCH_NOT_CONFIRMABLE: status=" + batch.getStatus());
         }
         List<DccProjectCodeImportRowDO> rows = importRowMapper.selectListByBatchId(batchId);
+        validateImportBatchIntegrity(batch, rows);
         if (rows.stream().anyMatch(row -> row.getFailureReason() != null)) {
             throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_HAS_FAILURES: 请重新预览并修正失败行");
         }
@@ -870,6 +1136,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
 
     private DccProjectCodeDO buildProjectCodeDO(DccProjectCodeSaveReqVO reqVO, Long lastImportBatchId) {
         return DccProjectCodeDO.builder()
+                .productMasterId(reqVO.getProductMasterId())
                 .docControlNo(reqVO.getDocControlNo())
                 .projectName(reqVO.getProjectName())
                 .projectCode(reqVO.getProjectCode())
@@ -897,6 +1164,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                 .set(DccProjectCodeDO::getStorageLocation, reqVO.getStorageLocation())
                 .set(DccProjectCodeDO::getPriority, reqVO.getPriority())
                 .set(DccProjectCodeDO::getStatus, reqVO.getStatus())
+                .set(lastImportBatchId == null, DccProjectCodeDO::getProductMasterId, reqVO.getProductMasterId())
                 .set(lastImportBatchId != null, DccProjectCodeDO::getLastImportBatchId, lastImportBatchId));
     }
 
@@ -940,6 +1208,39 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
 
     private int countAction(List<DccProjectCodeImportRowDO> rows, String action) {
         return (int) rows.stream().filter(row -> action.equals(row.getImportAction())).count();
+    }
+
+    private void validateImportBatchIntegrity(DccProjectCodeImportBatchDO batch, List<DccProjectCodeImportRowDO> rows) {
+        if (CollUtil.isEmpty(rows)) {
+            throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_BATCH_INTEGRITY_INVALID: preview rows are empty");
+        }
+        Long batchId = batch.getId();
+        for (DccProjectCodeImportRowDO row : rows) {
+            if (!Objects.equals(batchId, row.getBatchId())) {
+                throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_BATCH_INTEGRITY_INVALID: row batch mismatch");
+            }
+            if (!DccProjectCodeImportActionConstants.CREATE.equals(row.getImportAction())
+                    && !DccProjectCodeImportActionConstants.UPDATE.equals(row.getImportAction())
+                    && !DccProjectCodeImportActionConstants.DISABLE.equals(row.getImportAction())
+                    && !DccProjectCodeImportActionConstants.UNCHANGED.equals(row.getImportAction())
+                    && !DccProjectCodeImportActionConstants.INVALID.equals(row.getImportAction())) {
+                throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_BATCH_INTEGRITY_INVALID: action="
+                        + row.getImportAction());
+            }
+            if (DccProjectCodeImportActionConstants.INVALID.equals(row.getImportAction())
+                    && StrUtil.isBlank(row.getFailureReason())) {
+                throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_BATCH_INTEGRITY_INVALID: invalid row missing reason");
+            }
+        }
+        ImportSummary summary = summarize(rows);
+        if (!Objects.equals(batch.getTotalCount(), summary.totalCount())
+                || !Objects.equals(batch.getCreateCount(), summary.createCount())
+                || !Objects.equals(batch.getUpdateCount(), summary.updateCount())
+                || !Objects.equals(batch.getDisableCount(), summary.disableCount())
+                || !Objects.equals(batch.getUnchangedCount(), summary.unchangedCount())
+                || !Objects.equals(batch.getFailureCount(), summary.failureCount())) {
+            throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_BATCH_INTEGRITY_INVALID: preview summary mismatch");
+        }
     }
 
     private DccProjectCodeImportPreviewRespVO toPreviewResp(DccProjectCodeImportBatchDO batch,

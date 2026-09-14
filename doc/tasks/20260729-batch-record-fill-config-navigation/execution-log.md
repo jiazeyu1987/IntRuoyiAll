@@ -1,0 +1,26 @@
+# Execution Log
+
+- USER: 将批记录表单“填写配置”弹窗底部红框按钮移到顶部右侧蓝框，在顶部中间黄框新增“上一张/下一张”，点击切换同一产品同一版本的其他表单。
+- RULES: 已读取 `frontend-feature-delivery` 技能、`references/frontend-contract.md`、`docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/task-closeout-rules.md`、`docs/experience-index.md`、`docs/powershell-memory.md`、`docs/powershell-encoding.md`。
+- PREFLIGHT: `git status --short --branch` 首次显示 `## int_main...origin/int_main [ahead 4]` 且存在既有改动 `M IntRuoyiFronted/tests/e2e/edhr-assist-fill-mode-static.spec.js`。
+- BASELINE: `f410a338 chore: baseline pre-existing edhr assist static test change` -> 已基线提交既有静态测试改动。
+- BASELINE: `3a556a26 docs: baseline preexisting edhr fill workspace task docs` -> 已基线提交既有未跟踪任务文档目录。
+- PREFLIGHT: 基线后 `git status --short --branch --untracked-files=all` -> `## int_main...origin/int_main [ahead 6]`，工作区清洁。
+- BDD: 顶部操作区 -> Given 用户打开批记录表单填写配置弹窗 / When 弹窗渲染 / Then `关闭 / 重新读取 / 保存填写配置` 位于顶部右侧操作区，弹窗不再使用全宽 footer。
+- BDD: 同版本导航 -> Given 当前表单属于某一产品和版本 / When 用户点击上一张或下一张 / Then 弹窗切换到同一产品同一版本的相邻表单并重新读取该表单 cell-rules。
+- BDD: 未保存变更保护 -> Given 当前填写配置有未保存修改 / When 用户点击上一张或下一张 / Then 页面先确认是否放弃未保存修改；取消时保持当前表单。
+- BDD: 导航候选加载失败显式暴露 -> Given 同产品同版本候选列表接口失败或当前表单缺少产品/版本 / When 用户打开填写配置 / Then 导航按钮禁用并显示真实阻塞原因，不返回默认成功或 mock 候选。
+- RED: `node tests/e2e/batch-record-cell-rule-navigation-static.spec.js` -> FAIL，预期失败在 `填写配置弹窗顶部必须有三段式主工具栏。`
+- RED: `node tests/e2e/batch-record-cell-rule-navigation-static.spec.js` -> FAIL，预期失败在 `切换目标不在当前列表页时，页面预览上下文必须能从同版本候选集合解析当前表单。`
+- GREEN: `node tests/e2e/batch-record-cell-rule-navigation-static.spec.js` -> PASS，顶部三段式工具栏、上一张/下一张事件、候选分页 200、batchRecordVersionId 精确过滤、候选预览上下文和 footer 移除均通过。
+- GREEN: `node tests/e2e/batch-record-cell-rule-default-fullscreen-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/batch-record-cell-rule-dialog-size-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> 首次 120s 超时未返回失败堆栈；300s 复跑 PASS。
+- REAL-E2E-PREFLIGHT: `http://127.0.0.1:8081/` -> 200；`http://127.0.0.1:48081/actuator/health` -> UP；`where.exe npx` 与 `require('playwright')` 均可用。
+- GREEN: `node tests/e2e/batch-record-cell-rule-dialog-size-real.e2e.js` -> PASS；真实页面打开“填写配置”，顶部工具栏可见，`下一张` 切换触发 cell-rules GET 从 `44eedd7cf9e44ebda68e8f264656567f` 切到 `5d78e62bf4b44f9e9b38e4c7a7eca046`，MES 写请求数 `0`。
+- STATUS: 实现和验证完成，任务进入 `ready_for_closeout`，剩余 experience consolidation、cleanup、提交和推送。
+- EXPERIENCE: 已更新 `docs/frontend-development.md#前端同集合弹窗导航上下文门禁` 与 `docs/experience-index.md`，记录同集合弹窗导航必须同步父页面预览上下文。
+- CLEANUP: `task_closeout.py --task-id 20260729-batch-record-fill-config-navigation --mode preview` -> keep task/execution/frontend-feature/verification，delete none，blocked none。
+- CLEANUP: `task_closeout.py --task-id 20260729-batch-record-fill-config-navigation --mode apply` -> applied，deleted none，blocked none。
+- STATUS: cleanup 完成，任务状态更新为 `completed`。

@@ -1,0 +1,40 @@
+{
+  "generated_at": "2026-07-31T01:32:16.997221+00:00",
+  "plan_source": "existing",
+  "plan": "E:\\IntRuoyi\\doc\\tasks\\20260731-mes-three-tab-test-sync\\artifacts\\dependency-remap-plan.json",
+  "summary": "E:\\IntRuoyi\\doc\\tasks\\20260731-mes-three-tab-test-sync\\artifacts\\dependency-remap-summary.md",
+  "backup_tables": {
+    "mes_md_item": "mes_three_tab_dep_remap_backup_20260731012048_mes_md_item",
+    "mes_pro_work_order": "mes_three_tab_dep_remap_backup_20260731012048_mes_pro_work_order",
+    "system_users": "mes_three_tab_dep_remap_backup_20260731012048_system_users"
+  },
+  "pending_insert_ids": {
+    "mes_md_item": [],
+    "system_users": [],
+    "mes_pro_work_order": []
+  },
+  "postcheck": {
+    "mes_md_item": {
+      "missing": [],
+      "mismatched": []
+    },
+    "system_users": {
+      "missing": [],
+      "mismatched": []
+    },
+    "mes_pro_work_order": {
+      "missing": [],
+      "mismatched": []
+    }
+  },
+  "apply_stdout": "SKIPPED: dependency rows already match dependency-remap-plan.json",
+  "warnings": [
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000019D59E33CF0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001E02783B1A0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001FE765C6180",
+    "close - IO is still pending on closed socket. read:1, write:0, io:00000162A1001C10",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002AA246271D0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000022D89CB6180",
+    "close - IO is still pending on closed socket. read:1, write:0, io:00000171952B55F0"
+  ]
+}

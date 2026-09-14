@@ -232,7 +232,7 @@
             />
           </el-form-item>
           <el-form-item
-            label="夜班"
+            label="默认允许使用夜班"
             prop="defaultNightShiftEnabled"
             class="scheduler-workbench__policy-item"
           >
@@ -240,8 +240,8 @@
               v-model="policySettingsForm.defaultNightShiftEnabled"
               :disabled="!canUpdateSettings"
               inline-prompt
-              active-text="开启"
-              inactive-text="关闭"
+              active-text="允许"
+              inactive-text="不允许"
             />
           </el-form-item>
           <el-form-item
@@ -272,6 +272,60 @@
               :disabled="!canUpdateSettings"
             />
           </el-form-item>
+          <div class="scheduler-workbench__policy-runtime-status">
+            <el-alert
+              :title="policySettingsForm.workerCapacityApplicabilityText"
+              type="info"
+              :closable="false"
+              show-icon
+            />
+            <el-alert
+              title="默认允许使用夜班只代表新工序默认允许排夜班；不会自动创建夜班班次、设备或产能。"
+              type="warning"
+              :closable="false"
+              show-icon
+            />
+            <div class="scheduler-workbench__runtime-card">
+              <div>
+                <strong>可用夜班班次与产能</strong>
+                <small>{{ nightShiftCapacityStatusText }}</small>
+              </div>
+              <el-tag :type="nightShiftCapacityTagType" effect="light">
+                {{ nightShiftCapacityStatus?.available ? '可用' : '不可用' }}
+              </el-tag>
+              <small
+                v-if="nightShiftCapacityStatus?.shifts?.length"
+                class="scheduler-workbench__runtime-detail"
+              >
+                {{
+                  nightShiftCapacityStatus.shifts
+                    .map(
+                      (shift) =>
+                        `${shift.shiftName || shift.shiftId || '夜班'} ${shift.startTime || '--'}-${shift.endTime || '--'}，产线 ${shift.capacityLineCount || 0} 条`
+                    )
+                    .join('；')
+                }}
+              </small>
+            </div>
+            <div class="scheduler-workbench__runtime-card">
+              <div>
+                <strong>自动排产任务</strong>
+                <small>{{ autoScheduleJobStatusText }}</small>
+              </div>
+              <el-tag :type="autoScheduleJobTagType" effect="light">
+                {{ autoScheduleJobStatus?.enabled ? '已启用' : '未启用' }}
+              </el-tag>
+              <small
+                class="scheduler-workbench__runtime-detail"
+                :class="{ 'is-danger': isAutoScheduleLatestFailure(autoScheduleJobStatus) }"
+              >
+                处理器 mesProNightlyReplanJob；下次触发
+                {{ formatDateTimeValue(autoScheduleJobStatus?.nextTriggerTime, '未计算') }}；最近日志
+                {{ formatAutoScheduleLatestLogText(autoScheduleJobStatus) }}；执行结果
+                {{ formatAutoScheduleLatestResultText(autoScheduleJobStatus) }}
+              </small>
+            </div>
+          </div>
           <div class="scheduler-workbench__settings-actions">
             <el-button
               plain
@@ -291,23 +345,6 @@
               <Icon icon="ep:upload" class="mr-5px" /> 导入全部数据包
             </el-button>
             <el-button
-              plain
-              class="scheduler-workbench__settings-button"
-              :loading="routeConfigExporting"
-              @click="exportRouteConfigPackage"
-            >
-              <Icon icon="ep:download" class="mr-5px" /> 导出排产工艺路线
-            </el-button>
-            <el-button
-              v-if="canUpdateSettings"
-              plain
-              class="scheduler-workbench__settings-button"
-              :loading="routeConfigImporting"
-              @click="openRouteConfigImport"
-            >
-              <Icon icon="ep:upload" class="mr-5px" /> 导入排产工艺路线
-            </el-button>
-            <el-button
               v-if="canUpdateSettings"
               type="primary"
               class="scheduler-workbench__settings-button"
@@ -322,13 +359,6 @@
       </div>
       </div>
     </Dialog>
-    <input
-      ref="routeConfigInputRef"
-      type="file"
-      class="scheduler-workbench__hidden-input"
-      accept=".json,application/json"
-      @change="handleRouteConfigFileChange"
-    />
     <input
       ref="fullConfigInputRef"
       type="file"
@@ -458,20 +488,32 @@
                     v-if="isProcessWipColumnVisible('shiftCapacityTotal')"
                     label="班次产能"
                     prop="shiftCapacityTotal"
-                    :width="getProcessWipColumnLayoutWidthString('shiftCapacityTotal', 116)"
-                    :min-width="getProcessWipColumnMinWidthString('shiftCapacityTotal', 104)"
+                    :width="getProcessWipColumnLayoutWidthString('shiftCapacityTotal', 160)"
+                    :min-width="getProcessWipColumnMinWidthString('shiftCapacityTotal', 148)"
                     align="right"
                     v-bind="sortColumnAttrs('shiftCapacityTotal')"
                   >
                     <template #default="{ row }">
                       <div class="scheduler-workbench__shift-capacity">
+                        <div class="scheduler-workbench__inline-control" @click.stop>
+                          <el-input-number
+                            v-model="processWipShiftCapacityDrafts[getProcessWipRowKey(row)]"
+                            :min="1"
+                            :precision="0"
+                            :controls="false"
+                            :title="formatProcessWipShiftCapacity(row.shiftCapacityTotal)"
+                            :disabled="processWipSettingsSavingId === getProcessWipRowKey(row)"
+                            class="scheduler-workbench__shift-capacity-input"
+                            @change="handleProcessWipShiftCapacityChange(row, $event)"
+                          />
+                        </div>
                         <button
                           type="button"
                           class="scheduler-workbench__capacity-source-link"
                           :title="getProcessWipCapacitySourceTooltip(row)"
                           @click.stop="openProcessWipCapacitySource(row)"
                         >
-                          {{ formatProcessWipShiftCapacity(row.shiftCapacityTotal) }}
+                          来源
                         </button>
                         <el-tag
                           v-if="isProcessWipDoubleShift(row)"
@@ -1134,12 +1176,14 @@
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import download from '@/utils/download'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   SchedulerWorkbenchApi,
+  type AutoScheduleJobStatusVO,
+  type NightShiftCapacityStatusVO,
   type SchedulerWorkbenchFullConfigImportRespVO,
   type SchedulerWorkbenchPolicySettingsVO,
   type SchedulerWorkbenchRouteActiveOrderVO,
-  type SchedulerWorkbenchRouteConfigImportRespVO,
   type SchedulerWorkbenchShiftHoursVO,
   type SchedulerWorkbenchSummaryVO
 } from '@/api/mes/pro/schedulerWorkbench'
@@ -1150,6 +1194,7 @@ import {
 } from '@/api/mes/pro/scheduleCalendar'
 import {
   MesProScheduleOrderApi,
+  type MesProScheduleOrderProcessWipSettingsReqVO,
   type MesProScheduleOrderProcessWipVO
 } from '@/api/mes/pro/scheduleorder'
 import {
@@ -1194,8 +1239,6 @@ const shiftHoursSaving = ref(false)
 const scheduleRulesLoading = ref(false)
 const scheduleRulesSaving = ref(false)
 const policySettingsSaving = ref(false)
-const routeConfigExporting = ref(false)
-const routeConfigImporting = ref(false)
 const fullConfigExporting = ref(false)
 const fullConfigImporting = ref(false)
 const schedulerSettingsLoading = ref(false)
@@ -1203,17 +1246,20 @@ const schedulerSettingsLoaded = ref(false)
 const schedulerSettingsDialogVisible = ref(false)
 const selectedDate = ref(dayjs().format('YYYY-MM-DD'))
 const router = useRouter()
+const DEFAULT_SHIFT_HOURS = 10.5
 const shiftHoursFormRef = ref()
 const policySettingsFormRef = ref()
-const routeConfigInputRef = ref<HTMLInputElement>()
 const fullConfigInputRef = ref<HTMLInputElement>()
 const processWipStatistics = ref<MesProScheduleOrderProcessWipVO[]>([])
 const processWipPlannedStartDateDrafts = reactive<Record<string, string | undefined>>({})
+const processWipShiftCapacityDrafts = reactive<Record<string, number | undefined>>({})
 const processWipSettingsSavingId = ref<string>()
 const activeWipTab = ref('process-list')
 const replanExplanationLoading = ref(false)
 const replanExplanationError = ref('')
 const replanExplanation = ref<ProTaskReplanExplanationRespVO | null>(null)
+const autoScheduleJobStatus = ref<AutoScheduleJobStatusVO | null>(null)
+const nightShiftCapacityStatus = ref<NightShiftCapacityStatusVO | null>(null)
 let replanExplanationRequest: Promise<void> | null = null
 let schedulerWorkbenchRequestSerial = 0
 let schedulerWorkbenchSecondaryFrameId: number | undefined
@@ -1243,19 +1289,19 @@ const nonMaterialReplanIssues = computed<ProTaskAutoScheduleIssueVO[]>(() =>
   )
 )
 const schedulerWorkbenchProcessWipDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'routeCode', label: '工艺路线编码', width: 150, minWidth: 136 },
-  { key: 'routeName', label: '工艺路线名称', width: 180, minWidth: 160 },
-  { key: 'processCode', label: '工序编号', width: 130, minWidth: 120 },
-  { key: 'processName', label: '工序名称', width: 160, minWidth: 140 },
-  { key: 'wipOrderCount', label: '在制单数', width: 148, minWidth: 132 },
-  { key: 'shiftCapacityTotal', label: '班次产能', width: 116, minWidth: 104 },
-  { key: 'shiftStatus', label: '班次状态', width: 104, minWidth: 96 },
-  { key: 'nightShiftEnabled', label: '夜班', width: 116, minWidth: 108 },
-  { key: 'plannedStartDate', label: '开排日期', width: 164, minWidth: 150 },
-  { key: 'unfinishedDemandQuantity', label: '未完需求', width: 140, minWidth: 128 },
-  { key: 'estimatedStartTime', label: '预计开始', width: 168, minWidth: 156 },
-  { key: 'estimatedCompletionTime', label: '预计完工', width: 168, minWidth: 156 },
-  { key: 'todayFeedbackQuantity', label: '今日报工', width: 148, minWidth: 132 }
+  { key: 'routeCode', label: '工艺路线编码', width: 150, minWidth: 136, sortable: true },
+  { key: 'routeName', label: '工艺路线名称', width: 180, minWidth: 160, sortable: true },
+  { key: 'processCode', label: '工序编号', width: 130, minWidth: 120, sortable: true },
+  { key: 'processName', label: '工序名称', width: 160, minWidth: 140, sortable: true },
+  { key: 'wipOrderCount', label: '在制单数', width: 148, minWidth: 132, sortable: true },
+  { key: 'shiftCapacityTotal', label: '班次产能', width: 160, minWidth: 148, sortable: true },
+  { key: 'shiftStatus', label: '班次状态', width: 104, minWidth: 96, sortable: true },
+  { key: 'nightShiftEnabled', label: '夜班', width: 116, minWidth: 108, sortable: true },
+  { key: 'plannedStartDate', label: '开排日期', width: 164, minWidth: 150, sortable: true },
+  { key: 'unfinishedDemandQuantity', label: '未完需求', width: 140, minWidth: 128, sortable: true },
+  { key: 'estimatedStartTime', label: '预计开始', width: 168, minWidth: 156, sortable: true },
+  { key: 'estimatedCompletionTime', label: '预计完工', width: 168, minWidth: 156, sortable: true },
+  { key: 'todayFeedbackQuantity', label: '今日报工', width: 148, minWidth: 132, sortable: true }
 ]
 const {
   columns: schedulerWorkbenchProcessWipColumns,
@@ -1472,17 +1518,29 @@ const schedulerWorkbenchProcessWipQuickFilterDefinitions: TableQuickFilterDefini
   { key: 'estimatedCompletionTime', label: '预计完工', type: 'dateRange' }
 ]
 const shiftHoursForm = reactive({
-  shiftHours: undefined as number | undefined
+  shiftHours: DEFAULT_SHIFT_HOURS
 })
 const shiftHoursSetting = ref<SchedulerWorkbenchShiftHoursVO>({
+  shiftHours: DEFAULT_SHIFT_HOURS,
   workstationCount: 0,
   configuredWorkstationCount: 0,
   missingWorkstationCount: 0,
   distinctShiftHoursCount: 0,
   updatedWorkstationCount: 0
 })
+const shiftHoursRequiredRule = (
+  _rule: unknown,
+  value: number | undefined,
+  callback: (error?: Error) => void
+) => {
+  if (value === undefined || value === null || Number(value) <= 0) {
+    callback(new Error('班次小时必须大于 0'))
+    return
+  }
+  callback()
+}
 const shiftHoursRules = {
-  shiftHours: [{ required: true, message: '班次小时不能为空', trigger: 'blur' }]
+  shiftHours: [{ validator: shiftHoursRequiredRule, trigger: 'blur' }]
 }
 const defaultScheduleRules = (): ProScheduleCalendarRulesRespVO => ({
   skipStatutoryHolidays: false,
@@ -1506,7 +1564,8 @@ const policySettingsForm = reactive<SchedulerWorkbenchPolicySettingsVO>({
   defaultInfiniteDurationBaseHours: undefined,
   defaultNightShiftEnabled: false,
   defaultWorkerQuantity: 5,
-  defaultWorkerSingleHourlyCapacity: 30
+  defaultWorkerSingleHourlyCapacity: 30,
+  workerCapacityApplicabilityText: ''
 })
 const timeRule = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value || '')) {
@@ -1586,6 +1645,53 @@ const shiftHoursSettingText = computed(() => {
   return '未配置'
 })
 
+const autoScheduleJobTagType = computed(() => {
+  if (!autoScheduleJobStatus.value?.configured) return 'danger'
+  return autoScheduleJobStatus.value.enabled ? 'success' : 'warning'
+})
+
+const autoScheduleJobStatusText = computed(() => {
+  const status = autoScheduleJobStatus.value
+  if (!status?.configured) return '自动排产任务未注册'
+  const enabledText = status.enabled ? '已注册并启用' : '已注册但未启用'
+  return `${enabledText}，cron ${status.cronExpression || '未配置'}`
+})
+
+const nightShiftCapacityTagType = computed(() =>
+  nightShiftCapacityStatus.value?.available ? 'success' : 'danger'
+)
+
+const nightShiftCapacityStatusText = computed(() => {
+  const status = nightShiftCapacityStatus.value
+  if (!status) return '正在读取可用夜班班次和产能'
+  if (!status.availableShiftCount) return '没有可用夜班班次'
+  if (!status.capacityLineCount) return '已有夜班班次，但没有可用夜班产能'
+  return `可用夜班 ${status.availableShiftCount} 个，具备夜班产能的产线 ${status.capacityLineCount} 条`
+})
+
+const formatAutoScheduleLatestLogText = (status?: AutoScheduleJobStatusVO | null) => {
+  if (!status?.latestBeginTime) return '暂无执行日志'
+  const statusText =
+    status.latestStatus === 'SUCCESS'
+      ? '成功'
+      : status.latestStatus === 'PARTIAL_FAILURE'
+        ? '部分失败'
+      : status.latestStatus === 'FAILURE'
+        ? '失败'
+        : status.latestStatus === 'RUNNING'
+          ? '运行中'
+          : status.latestStatus || '未知'
+  return `${formatDateTimeValue(status.latestBeginTime, '未知时间')} ${statusText}`
+}
+
+const formatAutoScheduleLatestResultText = (status?: AutoScheduleJobStatusVO | null) => {
+  if (!status?.latestBeginTime) return '暂无执行结果'
+  return status.latestResultSummary || '执行结果缺失'
+}
+
+const isAutoScheduleLatestFailure = (status?: AutoScheduleJobStatusVO | null) =>
+  status?.latestStatus === 'FAILURE' || status?.latestStatus === 'PARTIAL_FAILURE'
+
 const loadSummary = async (requestSerial?: number) => {
   loading.value = true
   try {
@@ -1613,6 +1719,21 @@ const syncProcessWipPlannedStartDateDrafts = (rows: MesProScheduleOrderProcessWi
   })
 }
 
+const syncProcessWipShiftCapacityDrafts = (rows: MesProScheduleOrderProcessWipVO[]) => {
+  const activeRowKeys = new Set<string>()
+  rows.forEach((row) => {
+    const rowKey = getProcessWipRowKey(row)
+    activeRowKeys.add(rowKey)
+    const capacity = Number(row.shiftCapacityTotal)
+    processWipShiftCapacityDrafts[rowKey] = Number.isFinite(capacity) ? capacity : undefined
+  })
+  Object.keys(processWipShiftCapacityDrafts).forEach((rowKey) => {
+    if (!activeRowKeys.has(rowKey)) {
+      delete processWipShiftCapacityDrafts[rowKey]
+    }
+  })
+}
+
 const getProcessWipRowKey = (row: MesProScheduleOrderProcessWipVO) => {
   if (row.routeVersionId == null || row.routeProcessId == null) {
     throw new Error(`工序在制数据缺少路线工序标识，processId=${row.processId ?? '未知'}`)
@@ -1629,6 +1750,7 @@ const loadProcessWipStatistics = async (requestSerial?: number) => {
     rows.forEach(getProcessWipRowKey)
     if (requestSerial !== undefined && isStaleSchedulerWorkbenchRequest(requestSerial)) return
     syncProcessWipPlannedStartDateDrafts(rows)
+    syncProcessWipShiftCapacityDrafts(rows)
     processWipStatistics.value = rows
   } catch (error) {
     if (requestSerial !== undefined && isStaleSchedulerWorkbenchRequest(requestSerial)) return
@@ -1798,8 +1920,12 @@ const handleProcessWipSortChange = () => {
 }
 
 const loadShiftHoursSetting = async () => {
-  shiftHoursSetting.value = await SchedulerWorkbenchApi.getShiftHoursSetting()
-  shiftHoursForm.shiftHours = shiftHoursSetting.value.shiftHours
+  const loadedSetting = await SchedulerWorkbenchApi.getShiftHoursSetting()
+  shiftHoursSetting.value = {
+    ...loadedSetting,
+    shiftHours: loadedSetting.shiftHours ?? DEFAULT_SHIFT_HOURS
+  }
+  shiftHoursForm.shiftHours = shiftHoursSetting.value.shiftHours ?? DEFAULT_SHIFT_HOURS
 }
 
 const loadScheduleRules = async () => {
@@ -1817,6 +1943,15 @@ const loadPolicySettings = async () => {
   Object.assign(policySettingsForm, await SchedulerWorkbenchApi.getPolicySettings())
 }
 
+const loadRuntimeStatus = async () => {
+  const [jobStatus, capacityStatus] = await Promise.all([
+    SchedulerWorkbenchApi.getAutoScheduleJobStatus(),
+    SchedulerWorkbenchApi.getNightShiftCapacityStatus()
+  ])
+  autoScheduleJobStatus.value = jobStatus
+  nightShiftCapacityStatus.value = capacityStatus
+}
+
 const saveShiftHoursSetting = async () => {
   await shiftHoursFormRef.value.validate()
   if (!shiftHoursForm.shiftHours || shiftHoursForm.shiftHours <= 0) {
@@ -1827,7 +1962,12 @@ const saveShiftHoursSetting = async () => {
     shiftHoursSetting.value = await SchedulerWorkbenchApi.saveShiftHoursSetting({
       shiftHours: shiftHoursForm.shiftHours
     })
-    shiftHoursForm.shiftHours = shiftHoursSetting.value.shiftHours
+    shiftHoursSetting.value = {
+      ...shiftHoursSetting.value,
+      shiftHours: shiftHoursSetting.value.shiftHours ?? DEFAULT_SHIFT_HOURS
+    }
+    shiftHoursForm.shiftHours = shiftHoursSetting.value.shiftHours ?? DEFAULT_SHIFT_HOURS
+    await Promise.all([loadSummary(), loadProcessWipStatistics()])
     ElMessage.success('班次小时已统一保存')
   } finally {
     shiftHoursSaving.value = false
@@ -1842,6 +1982,8 @@ const savePolicySettings = async () => {
       policySettingsForm,
       await SchedulerWorkbenchApi.savePolicySettings({ ...policySettingsForm })
     )
+    await loadRuntimeStatus()
+    await Promise.all([loadSummary(), loadProcessWipStatistics()])
     ElMessage.success('排产策略已保存')
   } finally {
     policySettingsSaving.value = false
@@ -1883,17 +2025,6 @@ const unwrapDownloadedBlob = (payload: unknown, actionName: string): Blob => {
   throw new Error(`${actionName}返回的下载数据不是 Blob`)
 }
 
-const exportRouteConfigPackage = async () => {
-  routeConfigExporting.value = true
-  try {
-    const data = await SchedulerWorkbenchApi.exportRouteConfigPackage()
-    download.json(unwrapDownloadedBlob(data, '导出排产工艺路线配置包'), '排产工艺路线配置包.json')
-    ElMessage.success('排产工艺路线配置包已导出')
-  } finally {
-    routeConfigExporting.value = false
-  }
-}
-
 const exportFullConfigPackage = async () => {
   fullConfigExporting.value = true
   try {
@@ -1905,33 +2036,8 @@ const exportFullConfigPackage = async () => {
   }
 }
 
-const openRouteConfigImport = () => {
-  routeConfigInputRef.value?.click()
-}
-
 const openFullConfigImport = () => {
   fullConfigInputRef.value?.click()
-}
-
-const handleRouteConfigFileChange = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) {
-    return
-  }
-  const formData = new FormData()
-  formData.append('file', file)
-  routeConfigImporting.value = true
-  try {
-    const result: SchedulerWorkbenchRouteConfigImportRespVO =
-      await SchedulerWorkbenchApi.importRouteConfigPackage(formData)
-    ElMessage.success(
-      `导入完成；路线 ${result.routeCount} 条；工艺流程配置工序 ${result.flowConfigProcessCount} 条；排产配置 ${result.scheduleConfigCount} 条；资源 ${result.resourceCount} 条`
-    )
-  } finally {
-    routeConfigImporting.value = false
-  }
 }
 
 const handleFullConfigFileChange = async (event: Event) => {
@@ -1948,7 +2054,7 @@ const handleFullConfigFileChange = async (event: Event) => {
     const result: SchedulerWorkbenchFullConfigImportRespVO =
       await SchedulerWorkbenchApi.importFullConfigPackage(formData)
     ElMessage.success(
-      `导入完成；用户角色绑定 ${result.userRoleBindingCount} 条；分配角色 ${result.assignedRoleCount} 条`
+      `导入完成；用户角色绑定 ${result.userRoleBindingCount} 条；分配角色 ${result.assignedRoleCount} 条；手动重排主数据 ${result.replanMasterDataCount} 条；排产工单数据 ${result.replanScheduleOrderDataCount} 条；运行态数据 ${result.replanRuntimeDataCount} 条；策略设置 ${result.policySettingsCount} 条`
     )
   } finally {
     fullConfigImporting.value = false
@@ -1967,7 +2073,8 @@ const ensureSchedulerSettingsLoaded = async () => {
         await Promise.all([
           loadShiftHoursSetting(),
           loadPolicySettings(),
-          loadScheduleRules()
+          loadScheduleRules(),
+          loadRuntimeStatus()
         ])
         schedulerSettingsLoaded.value = true
       } finally {
@@ -2075,22 +2182,31 @@ const openProcessWipCapacitySource = (item: MesProScheduleOrderProcessWipVO) => 
   })
 }
 
+const hasProcessWipSettingOverride = <K extends keyof MesProScheduleOrderProcessWipVO>(
+  overrides: Partial<MesProScheduleOrderProcessWipVO>,
+  key: K
+) => Object.prototype.hasOwnProperty.call(overrides, key)
+
 const buildProcessWipSettingsPayload = (
   row: MesProScheduleOrderProcessWipVO,
   overrides: Partial<MesProScheduleOrderProcessWipVO>
-) => ({
-  routeVersionId: row.routeVersionId,
-  routeProcessId: row.routeProcessId,
-  nightShiftEnabled:
-    overrides.nightShiftEnabled === undefined
-      ? Boolean(row.nightShiftEnabled)
-      : Boolean(overrides.nightShiftEnabled),
-  plannedStartDate:
-    overrides.plannedStartDate === undefined
-      ? row.plannedStartDate
-      : overrides.plannedStartDate || undefined,
-  reason: '排产员工作台工序在制列表维护'
-})
+) => {
+  const payload = {
+    routeVersionId: row.routeVersionId,
+    routeProcessId: row.routeProcessId,
+    reason: '排产员工作台工序在制列表维护'
+  } as MesProScheduleOrderProcessWipSettingsReqVO
+  if (hasProcessWipSettingOverride(overrides, 'nightShiftEnabled')) {
+    payload.nightShiftEnabled = Boolean(overrides.nightShiftEnabled)
+  }
+  if (hasProcessWipSettingOverride(overrides, 'plannedStartDate')) {
+    payload.plannedStartDate = overrides.plannedStartDate || undefined
+  }
+  if (overrides.shiftCapacityTotal !== undefined) {
+    payload.shiftCapacityTotal = overrides.shiftCapacityTotal
+  }
+  return payload
+}
 
 const saveProcessWipSettings = async (
   row: MesProScheduleOrderProcessWipVO,
@@ -2120,6 +2236,18 @@ const handleProcessWipPlannedStartDateChange = async (
   plannedStartDate: string | undefined
 ) => {
   await saveProcessWipSettings(row, { plannedStartDate })
+}
+
+const handleProcessWipShiftCapacityChange = async (
+  row: MesProScheduleOrderProcessWipVO,
+  shiftCapacityTotal: number | undefined
+) => {
+  if (!Number.isFinite(Number(shiftCapacityTotal)) || Number(shiftCapacityTotal) <= 0) {
+    processWipShiftCapacityDrafts[getProcessWipRowKey(row)] = row.shiftCapacityTotal
+    ElMessage.error('班次产能必须大于 0')
+    return
+  }
+  await saveProcessWipSettings(row, { shiftCapacityTotal: Number(shiftCapacityTotal) })
 }
 
 const routeActiveProductsText = (item: SchedulerWorkbenchRouteActiveOrderVO) => {
@@ -2156,11 +2284,8 @@ const formatProcessWipShiftCapacity = (value?: number) => {
   return Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 0 })
 }
 
-const formatEstimatedTime = (value?: string) => {
-  if (!value) {
-    return '无法估算'
-  }
-  return dayjs(value).format('YYYY-MM-DD HH:mm')
+const formatEstimatedTime = (value?: string | number | Date) => {
+  return formatDateTimeValue(value, '无法估算')
 }
 
 const formatExplanationNumber = (value?: number) => {
@@ -2170,11 +2295,8 @@ const formatExplanationNumber = (value?: number) => {
   return Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 6 })
 }
 
-const formatExplanationDateTime = (value?: string) => {
-  if (!value) {
-    return '—'
-  }
-  return dayjs(value).format('YYYY-MM-DD HH:mm')
+const formatExplanationDateTime = (value?: string | number | Date) => {
+  return formatDateTimeValue(value, '—')
 }
 
 const formatExplanationDuration = (minutes?: number) => {
@@ -2455,8 +2577,45 @@ onBeforeUnmount(() => {
 }
 
 .scheduler-workbench__policy-checks,
+.scheduler-workbench__policy-runtime-status,
 .scheduler-workbench__settings-actions {
   grid-column: 1 / -1;
+}
+
+.scheduler-workbench__policy-runtime-status {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.scheduler-workbench__policy-runtime-status > :deep(.el-alert) {
+  grid-column: 1 / -1;
+}
+
+.scheduler-workbench__runtime-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 12px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.scheduler-workbench__runtime-card > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.scheduler-workbench__runtime-card small {
+  color: var(--el-text-color-secondary);
+  line-height: 20px;
+}
+
+.scheduler-workbench__runtime-detail {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
 }
 
 .scheduler-workbench__policy-checks :deep(.el-form-item__label) {
@@ -2600,6 +2759,14 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
   line-height: 1.3;
   padding: 0;
+}
+
+.scheduler-workbench__shift-capacity-input {
+  width: 76px;
+}
+
+.scheduler-workbench__shift-capacity-input :deep(.el-input__inner) {
+  text-align: right;
 }
 
 .scheduler-workbench__capacity-source-link:hover {
@@ -2875,6 +3042,10 @@ onBeforeUnmount(() => {
   }
 
   .scheduler-workbench__policy-form {
+    grid-template-columns: 1fr;
+  }
+
+  .scheduler-workbench__policy-runtime-status {
     grid-template-columns: 1fr;
   }
 

@@ -1,12 +1,15 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.scheduleconfig.MesProRouteResourceCapacityPreviewRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.scheduleconfig.MesProRouteScheduleConfigRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.scheduleconfig.MesProRouteScheduleConfigSaveReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.cal.plan.MesCalPlanDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.cal.plan.MesCalPlanShiftDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdProductionLineDO;
@@ -16,22 +19,28 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstatio
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteScheduleConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProCapacityPlanDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProScheduleCalendarRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProCapacityPlanMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleCalendarRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
+import cn.iocoder.yudao.module.mes.enums.cal.MesCalPlanStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryProcessService;
 import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryService;
+import cn.iocoder.yudao.module.mes.service.cal.plan.MesCalPlanService;
+import cn.iocoder.yudao.module.mes.service.cal.plan.MesCalPlanShiftService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdProductionLineService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationMachineService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationWorkerService;
+import cn.iocoder.yudao.module.mes.service.pro.schedule.CapacityWindowAllocator;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -42,6 +51,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Collections;
@@ -53,6 +63,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0;
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertMap;
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertMultiMap;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_SCHEDULE_CAPACITY_MODE_INVALID;
@@ -72,11 +83,18 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VER
 public class MesProRouteScheduleConfigServiceImpl implements MesProRouteScheduleConfigService {
 
     private static final String SNAPSHOT_CONFIGS_KEY = "configSnapshots";
+    private static final String FLOW_GRAPH_KEY = "flowGraph";
     private static final String SCHEDULE_CONFIGS_KEY = "scheduleConfigs";
     private static final String NIGHT_SHIFT_MARK = "DAY_AND_NIGHT";
     private static final String CAPACITY_SOURCE_MACHINE = "MACHINE";
     private static final String CAPACITY_SOURCE_WORKER = "WORKER";
     private static final String CAPACITY_SOURCE_UNCONFIGURED = "UNCONFIGURED";
+    private static final Set<String> READABLE_CANDIDATE_SNAPSHOT_STATUSES = Set.of(
+            MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_REJECTED,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED);
 
     @Value("${mes.schedule.allow-legacy-finite-hourly-write:false}")
     private boolean allowLegacyFiniteHourlyWrite = false;
@@ -91,6 +109,8 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
     private MesProRouteScheduleConfigMapper routeScheduleConfigMapper;
     @Resource
     private MesProScheduleCalendarRuleMapper scheduleCalendarRuleMapper;
+    @Resource
+    private MesProCapacityPlanMapper capacityPlanMapper;
     @Resource
     private MesMdWorkstationService workstationService;
     @Resource
@@ -109,6 +129,12 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
     private MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
     @Resource
     private MesProRouteCandidateConfigService routeCandidateConfigService;
+    @Resource
+    private MesCalPlanShiftService planShiftService;
+    @Resource
+    private MesCalPlanService planService;
+    @Resource
+    private CapacityWindowAllocator capacityWindowAllocator;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -121,6 +147,10 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
         }
         validateNightShiftExplicit(reqVO);
         validateCapacity(reqVO);
+        if (Boolean.TRUE.equals(reqVO.getNightShiftEnabled())) {
+            reqVO.setCalendarRuleId(resolveCalendarRuleId(reqVO.getCalendarRuleId()));
+            validateNightShiftResources(routeProcess, reqVO.getCapacityMode());
+        }
         rejectLegacyFiniteHourlyWriteAfterMigration(reqVO, null);
         routeCandidateConfigService.saveConfigSnapshot(routeVersion.getId(), SCHEDULE_CONFIGS_KEY,
                 buildMergedScheduleConfigSnapshot(reqVO, routeVersion, routeProcess));
@@ -145,6 +175,12 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
     private boolean isDraftCandidate(MesProRouteVersionDO routeVersion) {
         return Boolean.FALSE.equals(routeVersion.getActive())
                 && MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(routeVersion.getLifecycleStatus());
+    }
+
+    private boolean isReadableCandidateSnapshotVersion(MesProRouteVersionDO routeVersion) {
+        return routeVersion != null
+                && Boolean.FALSE.equals(routeVersion.getActive())
+                && READABLE_CANDIDATE_SNAPSHOT_STATUSES.contains(routeVersion.getLifecycleStatus());
     }
 
     private JSONObject buildMergedScheduleConfigSnapshot(MesProRouteScheduleConfigSaveReqVO reqVO,
@@ -303,8 +339,8 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
         if (routeVersion == null) {
             throw exception(PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED);
         }
-        if (isDraftCandidate(routeVersion)) {
-            return normalizeConfigRouteProcessIds(routeVersion, getCandidateScheduleConfigList(routeVersion));
+        if (isReadableCandidateSnapshotVersion(routeVersion)) {
+            return getCandidateScheduleConfigList(routeVersion);
         }
         return normalizeConfigRouteProcessIds(routeVersion,
                 routeScheduleConfigMapper.selectListByRouteVersionId(routeVersionId));
@@ -316,8 +352,8 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
         if (routeVersion == null) {
             throw exception(PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED);
         }
-        List<MesProRouteScheduleConfigDO> configs = isDraftCandidate(routeVersion)
-                ? normalizeConfigRouteProcessIds(routeVersion, getCandidateScheduleConfigList(routeVersion))
+        List<MesProRouteScheduleConfigDO> configs = isReadableCandidateSnapshotVersion(routeVersion)
+                ? getCandidateScheduleConfigList(routeVersion)
                 : normalizeConfigRouteProcessIds(routeVersion,
                         routeScheduleConfigMapper.selectListByRouteVersionId(routeVersionId));
         Map<Long, BigDecimal> shiftHoursMap = loadShiftHoursMap(routeVersion.getRouteId());
@@ -460,6 +496,176 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
         return preview;
     }
 
+    @Override
+    public void validateNightShiftResources(Long routeProcessId, String capacityMode) {
+        MesProRouteProcessDO routeProcess = routeProcessService.resolveCurrentRouteProcess(routeProcessId, null, null);
+        if (routeProcess == null || routeProcess.getProcessId() == null) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED);
+        }
+        validateNightShiftResources(routeProcess, capacityMode);
+    }
+
+    private void validateNightShiftResources(MesProRouteProcessDO routeProcess, String capacityMode) {
+        if (routeProcess.getWorkstationId() == null) {
+            throw nightShiftResourceException(routeProcess, null, null, null,
+                    "未绑定工作站，无法确定夜班班次、设备和产能");
+        }
+        MesMdWorkstationDO workstation = workstationService.getWorkstation(routeProcess.getWorkstationId());
+        if (workstation == null) {
+            throw nightShiftResourceException(routeProcess, null, null, null,
+                    "绑定的工作站不存在");
+        }
+        if (!Objects.equals(CommonStatusEnum.ENABLE.getStatus(), workstation.getStatus())) {
+            throw nightShiftResourceException(routeProcess, workstation, null, null,
+                    "绑定的工作站未启用");
+        }
+        MesMdProductionLineDO productionLine = workstation.getProductionLineId() == null
+                ? null : productionLineService.getProductionLine(workstation.getProductionLineId());
+        if (productionLine == null) {
+            throw nightShiftResourceException(routeProcess, workstation, null, null,
+                    "工作站未绑定有效产线");
+        }
+        if (!Objects.equals(CommonStatusEnum.ENABLE.getStatus(), productionLine.getStatus())) {
+            throw nightShiftResourceException(routeProcess, workstation, productionLine, null,
+                    "绑定的产线未启用");
+        }
+        if (productionLine.getCalendarPlanId() == null) {
+            throw nightShiftResourceException(routeProcess, workstation, productionLine, null,
+                    "产线未配置排班计划，缺少夜班班次");
+        }
+        MesCalPlanDO plan = planService.getPlan(productionLine.getCalendarPlanId());
+        if (plan == null) {
+            throw nightShiftResourceException(routeProcess, workstation, productionLine, null,
+                    "产线绑定的排班计划不存在，缺少夜班班次");
+        }
+        if (!Objects.equals(MesCalPlanStatusEnum.CONFIRMED.getStatus(), plan.getStatus())) {
+            throw nightShiftResourceException(routeProcess, workstation, productionLine, null,
+                    "排班计划未确认，缺少正式夜班班次");
+        }
+        List<MesCalPlanShiftDO> nightShifts = safeList(
+                planShiftService.getPlanShiftListByPlanId(productionLine.getCalendarPlanId())).stream()
+                .filter(capacityWindowAllocator::isNightShift)
+                .toList();
+        if (nightShifts.isEmpty()) {
+            throw nightShiftResourceException(routeProcess, workstation, productionLine, null,
+                    "排班计划缺少夜班班次");
+        }
+        for (MesCalPlanShiftDO shift : nightShifts) {
+            int shiftMinutes;
+            try {
+                shiftMinutes = capacityWindowAllocator.calculateShiftCapacityMinutes(shift);
+            } catch (RuntimeException invalidShiftTime) {
+                throw nightShiftResourceException(routeProcess, workstation, productionLine, shift,
+                        "夜班班次时间无效");
+            }
+            if (shiftMinutes <= 0) {
+                throw nightShiftResourceException(routeProcess, workstation, productionLine, shift,
+                        "夜班班次没有可用时长产能");
+            }
+        }
+        assertNightShiftCapacityPlan(routeProcess, workstation, productionLine, nightShifts);
+        if (MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode().equals(capacityMode)) {
+            assertResourceCalculatedCapacity(routeProcess, workstation, productionLine, nightShifts.get(0));
+        }
+    }
+
+    private void assertNightShiftCapacityPlan(MesProRouteProcessDO routeProcess,
+                                              MesMdWorkstationDO workstation,
+                                              MesMdProductionLineDO productionLine,
+                                              List<MesCalPlanShiftDO> nightShifts) {
+        Set<Long> nightShiftIds = nightShifts.stream()
+                .map(MesCalPlanShiftDO::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        List<MesProCapacityPlanDO> capacityPlans = safeList(capacityPlanMapper.selectListByLineIdsAndDate(
+                List.of(productionLine.getId()), LocalDate.now().atStartOfDay()));
+        boolean hasNightCapacity = capacityPlans.stream()
+                .filter(plan -> Boolean.TRUE.equals(plan.getEnabled()))
+                .filter(plan -> plan.getCapacityMinutes() != null && plan.getCapacityMinutes() > 0)
+                .map(MesProCapacityPlanDO::getShiftId)
+                .anyMatch(nightShiftIds::contains);
+        if (!hasNightCapacity) {
+            throw nightShiftResourceException(routeProcess, workstation, productionLine, nightShifts.get(0),
+                    "夜班班次缺少未来可用产能计划");
+        }
+    }
+
+    private void assertResourceCalculatedCapacity(MesProRouteProcessDO routeProcess,
+                                                  MesMdWorkstationDO workstation,
+                                                  MesMdProductionLineDO productionLine,
+                                                  MesCalPlanShiftDO shift) {
+        List<MesMdWorkstationMachineDO> machineBindings = safeList(
+                workstationMachineService.getWorkstationMachineListByWorkstationIds(Set.of(workstation.getId())));
+        if (machineBindings.isEmpty()) {
+            if (!positive(workstation.getSingleStandardHourlyCapacity())) {
+                throw nightShiftResourceException(routeProcess, workstation, productionLine, shift,
+                        "人工小时产能未配置");
+            }
+            return;
+        }
+        Set<Long> machineryIds = machineBindings.stream()
+                .map(MesMdWorkstationMachineDO::getMachineryId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+        Map<Long, MesDvMachineryDO> machineryMap = machineryService.getMachineryMap(machineryIds);
+        Map<String, MesDvMachineryProcessDO> machineryProcessMap = buildMachineryProcessMap(
+                machineryProcessService.getMachineryProcessListByMachineryIdsAndProcessIds(
+                        machineryIds, Set.of(routeProcess.getProcessId())));
+        for (MesMdWorkstationMachineDO binding : machineBindings) {
+            MesDvMachineryDO machinery = machineryMap.get(binding.getMachineryId());
+            String machineryLabel = displayLabel(machinery == null ? null : machinery.getCode(),
+                    machinery == null ? null : machinery.getName(), binding.getMachineryId());
+            if (machinery == null) {
+                throw nightShiftResourceException(routeProcess, workstation, productionLine, shift,
+                        "设备[" + machineryLabel + "]不存在");
+            }
+            if (binding.getQuantity() == null || binding.getQuantity() <= 0) {
+                throw nightShiftResourceException(routeProcess, workstation, productionLine, shift,
+                        "设备[" + machineryLabel + "]数量未配置");
+            }
+            MesDvMachineryProcessDO machineryProcess = machineryProcessMap.get(
+                    buildMachineryProcessKey(binding.getMachineryId(), routeProcess.getProcessId()));
+            if (machineryProcess == null || !positive(machineryProcess.getStandardHourlyCapacity())) {
+                throw nightShiftResourceException(routeProcess, workstation, productionLine, shift,
+                        "设备[" + machineryLabel + "]缺少当前工序的设备工序小时产能");
+            }
+        }
+    }
+
+    private RuntimeException nightShiftResourceException(MesProRouteProcessDO routeProcess,
+                                                         MesMdWorkstationDO workstation,
+                                                         MesMdProductionLineDO productionLine,
+                                                         MesCalPlanShiftDO shift,
+                                                         String reason) {
+        String workstationLabel = displayLabel(workstation == null ? null : workstation.getCode(),
+                workstation == null ? null : workstation.getName(),
+                workstation == null ? routeProcess.getWorkstationId() : workstation.getId());
+        String lineLabel = displayLabel(productionLine == null ? null : productionLine.getCode(),
+                productionLine == null ? null : productionLine.getName(),
+                productionLine == null ? null : productionLine.getId());
+        String shiftLabel = displayLabel(null, shift == null ? null : shift.getName(), shift == null ? null : shift.getId());
+        return exception0(400,
+                "工序启用夜班失败：routeProcessId={}，工作站[{}]，产线[{}]，夜班[{}]，{}",
+                routeProcess.getId(), workstationLabel, lineLabel, shiftLabel, reason);
+    }
+
+    private String displayLabel(String code, String name, Long id) {
+        if (StrUtil.isNotBlank(code) && StrUtil.isNotBlank(name)) {
+            return code + "/" + name;
+        }
+        if (StrUtil.isNotBlank(code)) {
+            return code;
+        }
+        if (StrUtil.isNotBlank(name)) {
+            return name;
+        }
+        return id == null ? "未配置" : String.valueOf(id);
+    }
+
+    private <T> List<T> safeList(List<T> values) {
+        return values == null ? Collections.emptyList() : values;
+    }
+
     private MesMdWorkstationDO copyWorkstationForRouteProcess(MesMdWorkstationDO workstation, Long processId) {
         MesMdWorkstationDO copy = BeanUtils.toBean(workstation, MesMdWorkstationDO.class);
         copy.setProcessId(processId);
@@ -531,6 +737,7 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
 
     private JSONObject resolveCandidateScheduleConfigMap(MesProRouteVersionDO routeVersion) {
         Object snapshot = resolveCandidateConfigSnapshot(routeVersion, SCHEDULE_CONFIGS_KEY);
+        Set<Long> candidateRouteProcessIds = resolveCandidateRouteProcessIds(routeVersion);
         JSONObject result = new JSONObject(true);
         if (snapshot instanceof JSONObject configsByRouteProcessId) {
             for (Map.Entry<String, Object> entry : configsByRouteProcessId.entrySet()) {
@@ -538,22 +745,65 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
                 if (config.getLong("routeProcessId") == null) {
                     config.put("routeProcessId", parseRouteProcessIdKey(entry.getKey(), routeVersion));
                 }
-                Long currentRouteProcessId = resolveCurrentRouteProcessId(routeVersion, config.getLong("routeProcessId"));
-                config.put("routeProcessId", currentRouteProcessId);
-                result.put(String.valueOf(currentRouteProcessId), config);
+                Long routeProcessId = config.getLong("routeProcessId");
+                if (!candidateRouteProcessIds.contains(routeProcessId)) {
+                    routeProcessId = resolveCurrentRouteProcessId(routeVersion, routeProcessId);
+                }
+                Long candidateRouteProcessId = requireCandidateRouteProcessId(
+                        routeVersion, candidateRouteProcessIds, routeProcessId);
+                config.put("routeProcessId", candidateRouteProcessId);
+                result.put(String.valueOf(candidateRouteProcessId), config);
             }
             return result;
         }
         if (snapshot instanceof JSONArray configs) {
             for (Object value : configs) {
                 JSONObject config = toScheduleConfigJson(value, routeVersion);
-                Long currentRouteProcessId = resolveCurrentRouteProcessId(routeVersion, config.getLong("routeProcessId"));
-                config.put("routeProcessId", currentRouteProcessId);
-                result.put(String.valueOf(currentRouteProcessId), config);
+                Long routeProcessId = config.getLong("routeProcessId");
+                if (!candidateRouteProcessIds.contains(routeProcessId)) {
+                    routeProcessId = resolveCurrentRouteProcessId(routeVersion, routeProcessId);
+                }
+                Long candidateRouteProcessId = requireCandidateRouteProcessId(
+                        routeVersion, candidateRouteProcessIds, routeProcessId);
+                config.put("routeProcessId", candidateRouteProcessId);
+                result.put(String.valueOf(candidateRouteProcessId), config);
             }
             return result;
         }
         throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+    }
+
+    private Set<Long> resolveCandidateRouteProcessIds(MesProRouteVersionDO routeVersion) {
+        Object flowGraphSnapshot = resolveCandidateConfigSnapshot(routeVersion, FLOW_GRAPH_KEY);
+        JSONObject flowGraph = toScheduleConfigJson(flowGraphSnapshot, routeVersion);
+        JSONArray nodes = flowGraph.getJSONArray("nodes");
+        if (nodes == null) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+        }
+        Set<Long> routeProcessIds = new java.util.LinkedHashSet<>();
+        for (Object value : nodes) {
+            JSONObject node = toScheduleConfigJson(value, routeVersion);
+            Long routeProcessId = node.getLong("routeProcessId");
+            if (routeProcessId == null) {
+                routeProcessId = node.getLong("clientRouteProcessId");
+            }
+            Long processId = node.getLong("processId");
+            Integer sort = node.getInteger("sort");
+            if (routeProcessId == null || processId == null || processId <= 0 || sort == null
+                    || !routeProcessIds.add(routeProcessId)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+            }
+        }
+        return routeProcessIds;
+    }
+
+    private Long requireCandidateRouteProcessId(MesProRouteVersionDO routeVersion,
+                                                Set<Long> candidateRouteProcessIds,
+                                                Long routeProcessId) {
+        if (routeProcessId == null || !candidateRouteProcessIds.contains(routeProcessId)) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+        }
+        return routeProcessId;
     }
 
     private Long resolveCurrentRouteProcessId(MesProRouteVersionDO routeVersion, Long routeProcessId) {

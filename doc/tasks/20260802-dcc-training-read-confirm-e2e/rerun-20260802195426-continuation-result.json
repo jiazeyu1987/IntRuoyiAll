@@ -1,0 +1,7 @@
+{
+  "status": "FAIL",
+  "finishedAt": "2026-08-02T12:09:03.103Z",
+  "fileId": "2054545668044070298",
+  "fileNumber": "CODX-DCC-TRAIN-RERUN-20260802195426",
+  "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.dcc-training-mine-list-template .el-table__body-wrapper .el-table__row').filter({ hasText: 'CODX-DCC-TRAIN-RERUN-20260802195426' }).first() to be visible\u001b[22m\n\n    at openTrainingTask (E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\rerun-complete-training-real-page.cjs:203:15)\n    at async main (E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\rerun-complete-training-real-page.cjs:363:22)"
+}

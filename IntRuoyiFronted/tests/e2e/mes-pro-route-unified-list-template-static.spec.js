@@ -74,6 +74,16 @@ assert.match(source, /key: 'name'[\s\S]*label: '路线名称'[\s\S]*queryParamKe
 assert.match(source, /key: 'status'[\s\S]*label: '状态'[\s\S]*type: 'select'[\s\S]*queryParamKey: 'status'/, '快速过滤必须支持状态。')
 assert.match(source, /const routeQuickFilter = useTableQuickFilter\([\s\S]*'mes\.pro\.route\.main'[\s\S]*routeQuickFilterDefinitions[\s\S]*queryParams[\s\S]*getList/, '必须用标准 hook 连接快速过滤和查询。')
 assert.match(source, /useUserTableColumns\('mes\.pro\.route\.main', routeDefaultColumns\)/, '必须用稳定 tableKey 保存显示字段。')
+assert.match(
+  source,
+  /ProRouteApi\.exportRouteImportWorkbook\(\{\}\)/,
+  '工艺路线导出必须传空查询参数，导出现有全部工艺路线数据包。'
+)
+assert.doesNotMatch(
+  source,
+  /ProRouteApi\.exportRouteImportWorkbook\(queryParams\)/,
+  '工艺路线全量导出不应再被当前列表筛选条件裁剪。'
+)
 
 assert.doesNotMatch(source, /class="-mb-15px"/, '旧搜索栏样式必须移除。')
 assert.doesNotMatch(source, /<Pagination[\s\S]*@pagination="getList"[\s\S]*\/>/, '分页必须由标准列表模板承载。')

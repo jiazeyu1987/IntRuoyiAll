@@ -17,6 +17,7 @@ public interface MdmProductMapper extends BaseMapperX<MdmProductDO> {
     default PageResult<MdmProductDO> selectPage(MdmProductPageReqVO reqVO) {
         String keyword = StrUtil.trimToNull(reqVO.getKeyword());
         LambdaQueryWrapperX<MdmProductDO> wrapper = new LambdaQueryWrapperX<MdmProductDO>()
+                .eqIfPresent(MdmProductDO::getId, reqVO.getProductMasterId())
                 .likeIfPresent(MdmProductDO::getProductCode, reqVO.getProductCode())
                 .likeIfPresent(MdmProductDO::getDccProductCode, reqVO.getDccProductCode())
                 .eqIfPresent(MdmProductDO::getStatus, reqVO.getStatus())

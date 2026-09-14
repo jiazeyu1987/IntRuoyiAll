@@ -48,8 +48,8 @@ assert.match(componentSource, /@media \(max-width:\s*1360px\)/, '模板必须提
 assert.match(scheduleOrderSource, /import BaseScheduleOrderMainList from '\.\/components\/ScheduleOrderMainList\.vue'/, '排产工单必须通过主列表包装组件接入统一列表模板。')
 assert.match(scheduleOrderMainListSource, /import UnifiedListTemplate from '@\/components\/UnifiedListTemplate\/index.vue'/, '排产工单主列表包装组件必须导入统一列表模板。')
 assert.match(scheduleOrderMainListSource, /<UnifiedListTemplate[\s\S]*table-key="mes\.pro\.scheduleOrder\.main"/, '排产工单必须用稳定 tableKey 接入模板。')
-assert.match(scheduleOrderSource, /key:\s*'completionFilter'[\s\S]*label:\s*'完成筛选'[\s\S]*queryParamKey:\s*'completionFilter'/, '完成筛选必须融合进统一快速筛选列表。')
-assert.doesNotMatch(scheduleOrderSource, /#extra-filters[\s\S]*label="完成筛选"/, '完成筛选不能再作为额外筛选插槽单独渲染。')
+assert.match(scheduleOrderSource, /key:\s*'completionFilter'[\s\S]*label:\s*'完成状态'[\s\S]*queryParamKey:\s*'completionFilter'/, '完成状态必须融合进统一快速筛选列表。')
+assert.doesNotMatch(scheduleOrderSource, /#extra-filters[\s\S]*label="完成状态"/, '完成状态不能再作为额外筛选插槽单独渲染。')
 assert.match(
   scheduleOrderSource,
   /<ScheduleOrderMainList[\s\S]*?<template #actions>[\s\S]*导出[\s\S]*手动重排[\s\S]*<UserTableColumnSettings/,

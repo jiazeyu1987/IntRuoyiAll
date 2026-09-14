@@ -25,6 +25,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccCategoryTrain
 import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileCategoryImportRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileCategoryRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileCategorySaveReqVO;
+import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
 import cn.iocoder.yudao.module.dcc.service.category.DccCategoryDistributionRuleAdminService;
 import cn.iocoder.yudao.module.dcc.service.category.DccCategoryApprovalMatrixAdminService;
 import cn.iocoder.yudao.module.dcc.service.category.DccCategoryApprovalMatrixSeedService;
@@ -33,6 +34,7 @@ import cn.iocoder.yudao.module.dcc.service.category.DccCategoryPermissionAdminSe
 import cn.iocoder.yudao.module.dcc.service.category.DccCategoryTrainingRuleAdminService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileCategoryAdminService;
 import cn.iocoder.yudao.module.dcc.service.category.DccAdminFullConfigPackageService;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileCategoryPermissionSupport;
 import cn.iocoder.yudao.framework.common.util.http.HttpUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -49,6 +51,7 @@ import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertList;
+import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
 
 @Tag(name = "管理后台 - DCC 文件类别")
 @RestController
@@ -72,15 +75,28 @@ public class DccFileCategoryController {
     private DccCategoryApprovalMatrixSeedService approvalMatrixSeedService;
     @Resource
     private DccAdminFullConfigPackageService adminFullConfigPackageService;
+    @Resource
+    private DccControlledFileCategoryPermissionSupport permissionSupport;
 
     @GetMapping
     @Operation(summary = "获取文件类别列表")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
     public CommonResult<List<DccFileCategoryRespVO>> getCategoryList() {
         var bindingMap = categoryAdminService.getCategoryDirectoryBindingMap();
-        return success(convertList(categoryAdminService.getCategoryList(), item -> {
+        var categories = categoryAdminService.getCategoryList();
+        var matrixPositionMap = approvalMatrixAdminService.getActiveMatrixPositionIdsByCategoryIds(
+                categories.stream().map(item -> item.getId()).toList());
+        Long loginUserId = getLoginUserId();
+        return success(convertList(categories, item -> {
             DccFileCategoryRespVO respVO = BeanUtils.toBean(item, DccFileCategoryRespVO.class);
+            var matrixPositionIds = matrixPositionMap.get(item.getId());
             respVO.setDirectoryId(bindingMap.get(item.getId()));
+            respVO.setSignoffPositionIds(matrixPositionIds == null
+                    ? List.of() : matrixPositionIds.signoffPositionIds());
+            respVO.setApprovalPositionIds(matrixPositionIds == null
+                    ? List.of() : matrixPositionIds.approvalPositionIds());
+            respVO.setCanUpload(loginUserId != null && permissionSupport.hasCategoryPermission(
+                    item.getId(), loginUserId, DccFileCategoryPermissionActionEnum.UPLOAD));
             return respVO;
         }));
     }

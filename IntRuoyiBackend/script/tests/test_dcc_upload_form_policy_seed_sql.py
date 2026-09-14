@@ -16,12 +16,12 @@ def test_dcc_upload_form_policy_seed_declares_release_metadata_and_fail_fast_gua
 
     assert sql.startswith(
         "-- release-migration: allowedEnvironments=test,backup,prod; "
-        "dependsOn=20260717_bpm_form_center; type=data; riskLevel=medium"
+        "dependsOn=20260719_business_approval_policy; type=data; riskLevel=medium"
     )
     assert "SET NAMES utf8mb4;" in sql
     assert "ensure_dcc_upload_form_policy" in sql
     assert "SIGNAL SQLSTATE '45000'" in sql
-    assert "DCC upload form policy requires bpm_form_action_policy" in sql
+    assert "DCC upload form policy requires bpm_business_approval_policy" in sql
     assert "DCC upload form policy conflict" in sql
     assert "DCC upload form policy duplicate" in sql
 
@@ -42,16 +42,19 @@ def test_dcc_upload_form_policy_seed_binds_form_center_upload_effect_contract() 
         assert literal in sql
 
     assert re.search(
-        r"INSERT\s+INTO\s+`bpm_form_action_policy`[\s\S]+"
+        r"INSERT\s+INTO\s+`bpm_business_approval_policy`[\s\S]+"
         r"`data_domain`[\s\S]+`system_code`[\s\S]+`object_type`[\s\S]+"
-        r"`action_code`[\s\S]+`object_state`[\s\S]+`policy_type`[\s\S]+"
-        r"`bpm_process_key`[\s\S]+`effect_executor_code`",
+        r"`action_code`[\s\S]+`object_state`[\s\S]+`policy_mode`[\s\S]+"
+        r"`process_definition_key`[\s\S]+`effect_executor_code`[\s\S]+"
+        r"`form_policy_type`[\s\S]+`form_slots_json`",
         sql,
         re.I,
     )
+    assert "COALESCE(`policy`.`policy_mode`, '') <> 'BPM_REQUIRED'" in sql
     assert "COALESCE(`policy`.`effect_executor_code`, '') <> 'DCC_UPLOAD'" in sql
-    assert "COALESCE(`policy`.`policy_type`, '') <> 'NONE'" in sql
-    assert "COALESCE(`policy`.`slots_json`, '[]') <> '[]'" in sql
+    assert "COALESCE(`policy`.`form_policy_type`, '') <> 'NONE'" in sql
+    assert "COALESCE(`policy`.`form_slots_json`, '[]') <> '[]'" in sql
+    assert "bpm_form_action_policy" not in sql
 
 
 def test_dcc_upload_form_policy_seed_reuses_existing_controlled_file_process_and_tenant_scope() -> None:

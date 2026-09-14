@@ -36,6 +36,10 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -75,6 +79,7 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -95,7 +100,6 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_REASON_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_SIGNATURE_CELL_VALUE_FORBIDDEN;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_SIGNATURE_BIND_FAILED;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_SIGNATURE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_CONSTRAINT_VIOLATION;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_TYPE_UNSUPPORTED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_ATTACHMENT_FILE_METADATA_INVALID;
@@ -113,6 +117,7 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
     private static final String FILL_CARRIER_RECORDBOOK = "RECORDBOOK";
     private static final String FILL_MODE_RECORDBOOK_UNRESTRICTED = "RECORDBOOK_UNRESTRICTED";
     private static final String INSTANCE_SCOPE_BATCH_SHARED = "BATCH_SHARED";
+    private static final String ENTITLEMENT_SOURCE_TYPE_FILLER = "EDHR_PROCESS_FORM_FILLER";
     private static final DateTimeFormatter DEFAULT_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DEFAULT_DATETIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -152,12 +157,30 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
     private MesProBatchRecordExecutionFieldResponsibilityService responsibilityService;
     @Resource
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
+    @Resource
+    private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
+    @Resource
+    private GxpAuditService gxpAuditService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @GxpWriteOperation(operationId = "edhr.execution.field.update")
     public MesProBatchRecordExecutionFieldAuditSaveResult saveChanges(
             MesProBatchRecordExecutionFieldAuditSaveChangesCommand command) {
-        validateCommandShape(command);
+        return saveChangesInternal(command, true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProBatchRecordExecutionFieldAuditSaveResult saveSystemCellLinkChanges(
+            MesProBatchRecordExecutionFieldAuditSaveChangesCommand command) {
+        return saveChangesInternal(command, false);
+    }
+
+    private MesProBatchRecordExecutionFieldAuditSaveResult saveChangesInternal(
+            MesProBatchRecordExecutionFieldAuditSaveChangesCommand command,
+            boolean requireWorkTaskValidation) {
+        validateCommandShape(command, requireWorkTaskValidation);
         List<MesProBatchRecordExecutionFieldAuditChange> sortedChanges = sortedChanges(command.getChanges());
         command.setChanges(sortedChanges)
                 .setReasonText(StrUtil.trim(command.getReasonText()));
@@ -168,30 +191,36 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         }
         boolean draftExecution = Objects.equals(execution.getStatus(), EXECUTION_STATUS_DRAFT);
         boolean preReleaseEditableExecution = Objects.equals(execution.getStatus(), EXECUTION_STATUS_FILL_COMPLETED);
-        if (!draftExecution && !preReleaseEditableExecution) {
+        if (!draftExecution && (!requireWorkTaskValidation || !preReleaseEditableExecution)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
         Long currentUserId = currentAuditUserId();
-        boolean goldenFingerMode = goldenFingerPermissionService.hasGoldenFingerPermission(currentUserId);
-        if (draftExecution) {
-            MesProEdhrWorkTaskDO workTask = goldenFingerMode
-                    ? workTaskService.validateGoldenFingerFillTaskForExecution(command.getWorkTaskId(), execution.getId())
-                    : workTaskService.validateWritableFillTaskForExecution(command.getWorkTaskId(), execution.getId());
-            if (!goldenFingerMode) {
-                validateBatchSharedFillScope(command, execution, workTask);
-            }
-        } else {
-            if (goldenFingerMode) {
-                preReleaseEditabilityService.requireSubmittedOrdinaryGoldenFingerEditable(
-                        execution, command.getWorkTaskId());
+        boolean goldenFingerMode = requireWorkTaskValidation
+                && goldenFingerPermissionService.hasGoldenFingerPermission(currentUserId);
+        if (requireWorkTaskValidation) {
+            if (draftExecution) {
+                MesProEdhrWorkTaskDO workTask = goldenFingerMode
+                        ? workTaskService.validateGoldenFingerFillTaskForExecution(command.getWorkTaskId(), execution.getId())
+                        : workTaskService.validateWritableFillTaskForExecution(command.getWorkTaskId(), execution.getId());
+                if (!goldenFingerMode) {
+                    validateBatchSharedFillScope(command, execution, workTask);
+                }
             } else {
-                preReleaseEditabilityService.requireSubmittedOrdinaryEditable(execution, command.getWorkTaskId());
+                if (goldenFingerMode) {
+                    preReleaseEditabilityService.requireSubmittedOrdinaryGoldenFingerEditable(
+                            execution, command.getWorkTaskId());
+                } else {
+                    preReleaseEditabilityService.requireSubmittedOrdinaryEditable(execution, command.getWorkTaskId());
+                }
             }
         }
         validateBaselineAvailable(execution);
         validateBaselineMatches(command, execution);
-        if (isRecordbookUnrestrictedMode(command) && !Boolean.TRUE.equals(execution.getRecordbookEnabled())) {
-            throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
+        if (isRecordbookUnrestrictedMode(command)) {
+            if (!Boolean.TRUE.equals(execution.getRecordbookEnabled())) {
+                throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
+            }
+            recordbookGlobalSettingService.requireRecordbookWriteAllowed(execution.getRecordbookEnabled(), execution.getRecordCategory());
         }
 
         String requestHash = MesProBatchRecordExecutionFieldAuditHasher.hashRequest(command);
@@ -218,13 +247,7 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         String signatureChallengeHash = MesProBatchRecordExecutionFieldAuditHasher.hashSignatureChallenge(
                 command, SecurityFrameworkUtils.getLoginUserId());
         MesProBatchRecordExecutionFieldAuditSignatureResult signature =
-                signatureService.recordFieldChangeSignature(new MesProBatchRecordExecutionFieldAuditSignatureCommand()
-                        .setExecutionId(execution.getId())
-                        .setPassword(command.getSignature().getPassword())
-                        .setReasonCategory(command.getReasonCategory())
-                        .setReasonText(command.getReasonText())
-                        .setSignatureChallengeHash(signatureChallengeHash)
-                        .setSignatureTimeCommand(command.getSignature().getSignatureTimeCommand()));
+                recordFieldAuditSaveEvidence(execution.getId(), command, signatureChallengeHash);
 
         String afterCellValuesJson = buildAfterCellValuesJson(currentCells, resolvedChanges);
         String afterCellValuesHash = MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(afterCellValuesJson);
@@ -290,6 +313,8 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                 .setChangedAt(signature.getSignedAt())
                 .setChangedFieldCount(items.size())
                 .setHashVerification(verification);
+        gxpAuditService.append(buildUnifiedGxpAuditCommand(execution, command, batchId, signature,
+                signatureProjectionHash, afterCellValuesHash, afterRevision, newHeadHash, items.size()));
         operationAuditService.record(new MesProEdhrOperationAuditCommand()
                 .setRequestId("EDHR-AUD-" + IdWorker.getId())
                 .setObjectType("FIELD_AUDIT_BATCH")
@@ -314,6 +339,81 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                 .setMetadataJson(buildFieldAuditOperationMetadata(execution, resolvedChanges,
                         items.size(), signature.getSignatureId(), goldenFingerMode)));
         return result;
+    }
+
+    private GxpAuditCommand buildUnifiedGxpAuditCommand(
+            MesProBatchRecordExecutionDO execution,
+            MesProBatchRecordExecutionFieldAuditSaveChangesCommand command,
+            Long batchId,
+            MesProBatchRecordExecutionFieldAuditSignatureResult signature,
+            String signatureProjectionHash,
+            String afterCellValuesHash,
+            long afterRevision,
+            String newHeadHash,
+            int changedFieldCount) {
+        return GxpAuditCommand.builder()
+                .operationId("edhr.execution.field.update")
+                .subjectId("MES_PRO_BATCH_RECORD_EXECUTION:" + execution.getId())
+                .subjectVersion(String.valueOf(afterRevision))
+                .reason(command.getReasonCategory() + ":" + command.getReasonText())
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state("HEAD_HASH")
+                        .objectVersion(execution.getFieldAuditHeadHash())
+                        .canonicalJson(buildUnifiedGxpBeforeStateJson(execution))
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state("HEAD_HASH")
+                        .objectVersion(newHeadHash)
+                        .canonicalJson(buildUnifiedGxpAfterStateJson(execution, command, batchId, signature,
+                                afterCellValuesHash, afterRevision, newHeadHash, changedFieldCount))
+                        .build())
+                .idempotencyKey(command.getIdempotencyKey())
+                .requestId("EDHR-FIELD-AUDIT:" + batchId)
+                .source("MesProBatchRecordExecutionFieldAuditServiceImpl.saveChanges")
+                .signatureRecordId(signature.getSignatureId() == null ? null : String.valueOf(signature.getSignatureId()))
+                .signatureContentHash(signatureProjectionHash)
+                .build();
+    }
+
+    private String buildUnifiedGxpBeforeStateJson(MesProBatchRecordExecutionDO execution) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("executionId", execution.getId());
+        payload.put("executionCode", execution.getExecutionCode());
+        payload.put("fieldAuditRevision", execution.getFieldAuditRevision());
+        payload.put("fieldAuditHeadHash", execution.getFieldAuditHeadHash());
+        payload.put("cellValuesHash", execution.getCellValuesHash());
+        payload.put("recordCategory", execution.getRecordCategory());
+        payload.put("status", execution.getStatus());
+        return JsonUtils.toJsonString(payload);
+    }
+
+    private String buildUnifiedGxpAfterStateJson(
+            MesProBatchRecordExecutionDO execution,
+            MesProBatchRecordExecutionFieldAuditSaveChangesCommand command,
+            Long batchId,
+            MesProBatchRecordExecutionFieldAuditSignatureResult signature,
+            String afterCellValuesHash,
+            long afterRevision,
+            String newHeadHash,
+            int changedFieldCount) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("executionId", execution.getId());
+        payload.put("executionCode", execution.getExecutionCode());
+        payload.put("auditBatchId", batchId);
+        payload.put("workTaskId", command.getWorkTaskId());
+        payload.put("fieldAuditRevision", afterRevision);
+        payload.put("fieldAuditHeadHash", newHeadHash);
+        payload.put("cellValuesHash", afterCellValuesHash);
+        payload.put("changedFieldCount", changedFieldCount);
+        payload.put("reasonCategory", command.getReasonCategory());
+        payload.put("reasonText", command.getReasonText());
+        payload.put("signatureId", signature.getSignatureId());
+        payload.put("actorId", signature.getActorId());
+        payload.put("actorName", signature.getActorName());
+        payload.put("changedAt", signature.getSignedAt());
+        payload.put("recordCategory", execution.getRecordCategory());
+        payload.put("status", execution.getStatus());
+        return JsonUtils.toJsonString(payload);
     }
 
     @Override
@@ -1105,8 +1205,10 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                 .setHashVerification(verifyChain(execution.getId()));
     }
 
-    private void validateCommandShape(MesProBatchRecordExecutionFieldAuditSaveChangesCommand command) {
-        if (command == null || command.getExecutionId() == null || command.getWorkTaskId() == null
+    private void validateCommandShape(MesProBatchRecordExecutionFieldAuditSaveChangesCommand command,
+                                      boolean requireWorkTaskId) {
+        if (command == null || command.getExecutionId() == null
+                || (requireWorkTaskId && command.getWorkTaskId() == null)
                 || StrUtil.isBlank(command.getIdempotencyKey())
                 || StrUtil.isBlank(command.getBaseCellValuesHash())
                 || command.getBaseFieldAuditRevision() == null
@@ -1150,9 +1252,25 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         if (!REASON_CATEGORIES.contains(command.getReasonCategory())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_REASON_CATEGORY_INVALID);
         }
-        if (command.getSignature() == null || StrUtil.isBlank(command.getSignature().getPassword())) {
-            throw exception(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_SIGNATURE_REQUIRED);
+    }
+
+    private MesProBatchRecordExecutionFieldAuditSignatureResult recordFieldAuditSaveEvidence(
+            Long executionId,
+            MesProBatchRecordExecutionFieldAuditSaveChangesCommand command,
+            String signatureChallengeHash) {
+        MesProBatchRecordExecutionFieldAuditSaveChangesCommand.Signature signature = command.getSignature();
+        MesProBatchRecordExecutionFieldAuditSignatureCommand signatureCommand =
+                new MesProBatchRecordExecutionFieldAuditSignatureCommand()
+                        .setExecutionId(executionId)
+                        .setReasonCategory(command.getReasonCategory())
+                        .setReasonText(command.getReasonText())
+                        .setSignatureChallengeHash(signatureChallengeHash);
+        if (signature != null && StrUtil.isNotBlank(signature.getPassword())) {
+            return signatureService.recordFieldChangeSignature(signatureCommand
+                    .setPassword(signature.getPassword())
+                    .setSignatureTimeCommand(signature.getSignatureTimeCommand()));
         }
+        return signatureService.recordFieldChangeDraftSave(signatureCommand);
     }
 
     private void validateBatchSharedFillScope(MesProBatchRecordExecutionFieldAuditSaveChangesCommand command,
@@ -1174,12 +1292,14 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         }
         for (MesProBatchRecordExecutionFieldAuditChange change : command.getChanges()) {
             requireCellInFillScope(batchTask.getFillableScopeJson(), sourceTableIndex, change.getRowIndex());
+            requireCellInResponsibilityScope(workTask, sourceTableIndex, change.getRowIndex(), change.getColumnIndex());
         }
         for (MesProBatchRecordExecutionFieldAuditAttachmentChange change : command.getAttachmentChanges()) {
             if (!Objects.equals(command.getWorkTaskId(), change.getWorkTaskId())) {
                 throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "附件写入任务与当前任务不一致");
             }
             requireCellInFillScope(batchTask.getFillableScopeJson(), sourceTableIndex, change.getRowIndex());
+            requireCellInResponsibilityScope(workTask, sourceTableIndex, change.getRowIndex(), change.getColumnIndex());
         }
     }
 
@@ -1220,6 +1340,57 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
             return false;
         } catch (JsonProcessingException e) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "共享表单填写范围无效");
+        }
+    }
+
+    private void requireCellInResponsibilityScope(MesProEdhrWorkTaskDO workTask,
+                                                  Integer sourceTableIndex,
+                                                  Integer rowIndex,
+                                                  Integer columnIndex) {
+        if (workTask == null || !ENTITLEMENT_SOURCE_TYPE_FILLER.equals(workTask.getResponsibilitySourceType())) {
+            return;
+        }
+        if (sourceTableIndex == null || rowIndex == null || columnIndex == null
+                || StrUtil.isBlank(workTask.getResponsibilityScopeJson())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "工作任务责任范围缺失");
+        }
+        if (!cellInResponsibilityScope(workTask.getResponsibilityScopeJson(), sourceTableIndex, rowIndex, columnIndex)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "单元格不在当前用户责任范围内");
+        }
+    }
+
+    private boolean cellInResponsibilityScope(String responsibilityScopeJson,
+                                              Integer sourceTableIndex,
+                                              Integer rowIndex,
+                                              Integer columnIndex) {
+        try {
+            JsonNode root = JsonUtils.getObjectMapper().readTree(responsibilityScopeJson);
+            JsonNode scopes = root.path("scopes");
+            if (!scopes.isArray() || scopes.isEmpty()) {
+                throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "工作任务责任范围无效");
+            }
+            for (JsonNode scope : scopes) {
+                JsonNode cells = scope.path("fillableScope").path("cells");
+                if (!cells.isArray() || cells.isEmpty()) {
+                    throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "工作任务责任范围无效");
+                }
+                for (JsonNode cell : cells) {
+                    Integer cellSourceTableIndex = integer(cell, "sourceTableIndex");
+                    Integer cellRowIndex = integer(cell, "rowIndex");
+                    Integer cellColumnIndex = integer(cell, "columnIndex");
+                    if (cellSourceTableIndex == null || cellRowIndex == null || cellColumnIndex == null) {
+                        throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "工作任务责任范围无效");
+                    }
+                    if (Objects.equals(sourceTableIndex, cellSourceTableIndex)
+                            && Objects.equals(rowIndex, cellRowIndex)
+                            && Objects.equals(columnIndex, cellColumnIndex)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } catch (JsonProcessingException e) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "工作任务责任范围无效");
         }
     }
 
@@ -1324,12 +1495,9 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
             JsonNode newValueNode = MesProBatchRecordExecutionFieldAuditHasher.toJsonNode(change.getNewValueJson());
             if (recordbookMode) {
                 validateRecordbookSourceShape(field, newValueNode);
-            } else {
-                validateSnapshotConstraints(change, field, newValueNode, skipNumberBounds);
             }
-            JsonNode batchRecordValueNode = recordbookMode
-                    ? resolveBatchRecordValueNode(field, newValueNode)
-                    : newValueNode;
+            validateSnapshotConstraints(change, field, newValueNode, skipNumberBounds);
+            JsonNode batchRecordValueNode = newValueNode;
             String batchRecordValueJson = canonicalizeNewValue(change.getValueType(), batchRecordValueNode);
             String batchRecordValueDisplay = recordbookMode && !Objects.equals(newValueJson, batchRecordValueJson)
                     ? displayValue(batchRecordValueNode)
@@ -1441,22 +1609,6 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         boolean belowMin = min != null && value.compareTo(min) < 0;
         boolean aboveMax = max != null && value.compareTo(max) > 0;
         return belowMin || aboveMax ? new NonBlockingLimitWarning(value, min, max) : null;
-    }
-
-    private JsonNode resolveBatchRecordValueNode(SnapshotField field, JsonNode sourceNode) {
-        if (field.valueType() != MesProBatchRecordExecutionFieldAuditValueType.NUMBER || !sourceNode.isNumber()) {
-            return sourceNode;
-        }
-        BigDecimal value = MesProBatchRecordExecutionFieldAuditHasher.normalizeNumber(sourceNode.decimalValue());
-        BigDecimal min = decimalConstraint(field.constraints(), "min");
-        BigDecimal max = decimalConstraint(field.constraints(), "max");
-        if (min != null && value.compareTo(min) < 0) {
-            value = min;
-        }
-        if (max != null && value.compareTo(max) > 0) {
-            value = max;
-        }
-        return DecimalNode.valueOf(MesProBatchRecordExecutionFieldAuditHasher.normalizeNumber(value));
     }
 
     private void validateNumberConstraints(SnapshotField field, JsonNode valueNode, boolean skipNumberBounds) {

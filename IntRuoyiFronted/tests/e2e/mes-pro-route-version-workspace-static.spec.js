@@ -9,6 +9,15 @@ const routeIndex = read('src/views/mes/pro/route/index.vue')
 const routeEditPage = read('src/views/mes/pro/route/RouteEditPage.vue')
 const routeApi = read('src/api/mes/pro/route/index.ts')
 
+const getFunctionBody = (source, functionName) => {
+  const marker = `const ${functionName} = `
+  const start = source.indexOf(marker)
+  assert.notEqual(start, -1, `必须定义 ${functionName}。`)
+  const nextFunction = source.indexOf('\nconst ', start + marker.length)
+  assert.notEqual(nextFunction, -1, `必须能截取 ${functionName} 函数体。`)
+  return source.slice(start, nextFunction)
+}
+
 assert.match(
   routeApi,
   /export interface ProRouteVersionBlockerVO[\s\S]*publishable:\s*boolean[\s\S]*blockers:\s*string\[\]/,
@@ -101,13 +110,35 @@ assert.match(
 )
 assert.match(
   routeIndex,
-  /cancelRouteCandidateVersion\(version\.id\)/,
-  '版本工作区必须提供候选取消入口。'
+  /deleteRouteDraftVersion\(version\)/,
+  '版本工作区必须提供 DRAFT 删除草稿入口。'
 )
 assert.match(
   routeIndex,
-  /v-if="canCancelRouteVersion\(version\)"[\s\S]*cancelRouteCandidateVersion\(version\.id\)/,
-  'DRAFT / READY_TO_PUBLISH / REJECTED 才显示取消动作。'
+  /v-if="canDeleteRouteDraftVersion\(version\)"[\s\S]*deleteRouteDraftVersion\(version\)[\s\S]*>\s*删除草稿\s*<\/el-button>/,
+  'DRAFT 草稿必须显示“删除草稿”动作，不能继续显示泛化的“取消”。'
+)
+assert.doesNotMatch(
+  routeIndex,
+  /v-if="canCancelRouteVersion\(version\)"[\s\S]*>\s*取消\s*<\/el-button>/,
+  'DRAFT 可见行不得继续通过泛化取消按钮关闭草稿。'
+)
+const deleteRouteDraftVersion = getFunctionBody(routeIndex, 'deleteRouteDraftVersion')
+assert.match(
+  deleteRouteDraftVersion,
+  /message\.confirm\([\s\S]*删除后该草稿将关闭[\s\S]*再次点击编辑会基于当前已发布版本重新生成草稿[\s\S]*删除草稿确认[\s\S]*runRouteVersionAction\(version\.id,\s*'删除草稿'[\s\S]*ProRouteApi\.cancelRouteCandidateVersion\(version\.id\)/,
+  '删除草稿必须先确认，确认后通过正式候选版本动作链调用取消接口。'
+)
+assert.match(
+  deleteRouteDraftVersion,
+  /catch\s*\(error\)[\s\S]*if\s*\(isUserCancel\(error\)\)\s*return[\s\S]*throw error/,
+  '用户取消删除确认时不得调用接口；非用户取消异常不得被吞掉。'
+)
+const runRouteVersionAction = getFunctionBody(routeIndex, 'runRouteVersionAction')
+assert.match(
+  runRouteVersionAction,
+  /message\.success\(`\$\{actionName\}成功`\)[\s\S]*loadRouteVersions\(routeVersionRoute\.value\.id\)[\s\S]*getList\(\)/,
+  '删除草稿复用的动作执行器必须显示成功提示并刷新版本弹窗和路线列表。'
 )
 assert.match(
   routeIndex,

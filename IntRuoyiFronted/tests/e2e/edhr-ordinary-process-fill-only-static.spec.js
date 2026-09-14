@@ -30,8 +30,8 @@ const routeUseSubmit = extractBetween(
 )
 const submitDialog = extractBetween(
   executionPage,
-  '<Dialog title="提交 eDHR 执行"',
-  '<Dialog title="表单复核签名"'
+  '<Dialog title="\u8868\u5355\u590d\u6838\u7b7e\u540d"',
+  '<Dialog title="\u751f\u6210\u5f52\u6863\u6253\u5370\u4ef6"'
 )
 const submitHandler = extractBetween(
   executionPage,
@@ -120,13 +120,14 @@ for (const forbiddenToken of [
 }
 
 assert.ok(
-  pendingDetailPanel.includes('primaryFormFillMetaItems') &&
-    pendingDetailPanel.includes('{{ item.label }}'),
-  'ordinary pending detail must keep filler information in the right-side first-level area'
+  pendingDetailPanel.includes('edhr-batch-detail__rail-process-form-filler') &&
+    pendingDetailPanel.includes('resolveTaskCardFillersText(task)'),
+  'ordinary pending detail must keep filler information on each right-side form card'
 )
 assert.ok(
-  !pendingMainPreview.includes('class="edhr-batch-detail__primary-fill-meta"'),
-  'ordinary pending detail must not keep filler information in the top red-box preview area'
+  !pendingDetailPanel.includes('class="edhr-batch-detail__primary-fill-meta"') &&
+    !pendingDetailPanel.includes('primaryFormFillMetaItems') &&
+    !pendingMainPreview.includes('class="edhr-batch-detail__primary-fill-meta"'),
+  'ordinary pending detail must not keep independent filler metadata red-box content'
 )
-
 console.log('PASS: eDHR ordinary process fill-only T4 static contract')

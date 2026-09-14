@@ -7,6 +7,20 @@
       <el-form-item label="权限角色标识">
         <el-tag>{{ formData.code }}</el-tag>
       </el-form-item>
+      <el-form-item
+        label="变更原因"
+        prop="reason"
+        :rules="[{ required: true, message: '请输入权限变更原因', trigger: 'blur' }]"
+      >
+        <el-input
+          v-model="formData.reason"
+          type="textarea"
+          :rows="3"
+          maxlength="500"
+          show-word-limit
+          placeholder="请输入本次菜单权限变更原因"
+        />
+      </el-form-item>
       <el-form-item label="菜单权限">
         <el-card class="w-full h-400px !overflow-y-scroll" shadow="never">
           <template #header>
@@ -26,9 +40,12 @@
               inline-prompt
               @change="handleCheckedTreeExpand"
             />
+            父子联动(选中父节点，自动选择子节点):
+            <el-switch v-model="checkStrictly" active-text="是" inactive-text="否" inline-prompt />
           </template>
           <el-tree
             ref="treeRef"
+            :check-strictly="!checkStrictly"
             :data="menuOptions"
             :props="defaultProps"
             empty-text="加载中，请稍候"
@@ -60,13 +77,15 @@ interface RoleAssignMenuFormData {
   name: string
   code: string
   menuIds: number[]
+  reason: string
 }
 
 const createDefaultFormData = (): RoleAssignMenuFormData => ({
   id: undefined,
   name: '',
   code: '',
-  menuIds: []
+  menuIds: [],
+  reason: ''
 })
 
 const dialogVisible = ref(false) // 弹窗的是否展示
@@ -77,6 +96,7 @@ const menuOptions = ref<any[]>([]) // 菜单树形结构
 const menuExpand = ref(false) // 展开/折叠
 const treeRef = ref() // 菜单树组件 Ref
 const treeNodeAll = ref(false) // 全选/全不选
+const checkStrictly = ref(true) // 是否父子联动
 
 /** 打开弹窗 */
 const open = async (row: RoleApi.RoleVO) => {
@@ -116,7 +136,9 @@ const submitForm = async () => {
       menuIds: [
         ...(treeRef.value.getCheckedKeys(false) as unknown as Array<number>), // 获得当前选中节点
         ...(treeRef.value.getHalfCheckedKeys() as unknown as Array<number>) // 获得半选中的父节点
-      ]
+      ],
+      reason: formData.reason.trim(),
+      idempotencyKey: createPermissionAuditIdempotencyKey()
     } as PermissionApi.PermissionAssignRoleMenuReqVO
     await PermissionApi.assignRoleMenu(data)
     message.success(t('common.updateSuccess'))
@@ -133,6 +155,7 @@ const resetForm = () => {
   // 重置选项
   treeNodeAll.value = false
   menuExpand.value = false
+  checkStrictly.value = true
   // 重置表单
   Object.assign(formData, createDefaultFormData())
   treeRef.value?.setCheckedNodes([])
@@ -153,5 +176,12 @@ const handleCheckedTreeExpand = () => {
     }
     nodes[node].expanded = menuExpand.value
   }
+}
+
+const createPermissionAuditIdempotencyKey = () => {
+  if (typeof crypto !== 'object' || typeof crypto.randomUUID !== 'function') {
+    throw new Error('当前浏览器不支持 crypto.randomUUID，无法生成权限审计幂等键')
+  }
+  return `SYSTEM-PERM-ROLE-MENU-${formData.id}-${crypto.randomUUID()}`
 }
 </script>

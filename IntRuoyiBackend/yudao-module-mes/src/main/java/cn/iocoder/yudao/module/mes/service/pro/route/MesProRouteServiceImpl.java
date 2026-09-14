@@ -2,11 +2,11 @@ package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRoutePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteRespVO;
@@ -77,6 +77,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
 
     private static final String OWNER_PREFIX = "[owner]";
     private static final String OWNER_SUFFIX = "[/owner]";
+    private static final String COPY_NAME_SUFFIX = "-副本";
+    private static final int MAX_COPY_NAME_SUFFIX_ATTEMPTS = 1000;
     private static final String SNAPSHOT_CONFIGS_KEY = "configSnapshots";
     private static final String FLOW_GRAPH_KEY = "flowGraph";
     private static final String PRODUCTS_KEY = "products";
@@ -84,6 +86,11 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private static final String SCHEDULE_CONFIGS_KEY = "scheduleConfigs";
     private static final String BATCH_USE_CONFIGS_KEY = "batchUseConfigs";
     private static final String SCHEDULE_USE_CONFIGS_KEY = "scheduleUseConfigs";
+    private static final String BATCH_RECORD_ATTACHMENT_OWNERS_KEY = "batchRecordAttachmentOwners";
+    private static final String ROUTE_START_PRODUCTION_LEADERS_KEY = "routeStartProductionLeaders";
+    private static final String PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY = "productionProcessConfigSchemaVersion";
+    private static final String PRODUCTION_PROCESS_CONFIGS_KEY = "productionProcessConfigs";
+    private static final int PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION = 1;
     public static final String DEFAULT_SCHEDULE_CONFIG_VERSION = "AUTO-DEFAULT";
     public static final String DEFAULT_SCHEDULE_REMARK = "[AUTO_DEFAULT_SCHEDULE_CONFIG]";
     private static final String DEFAULT_SCHEDULE_USE_CONFIG_VERSION = "AUTO-SCHEDULE";
@@ -92,6 +99,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private static final String ROUTE_VERSION_STATUS_DRAFT = "DRAFT";
     private static final String ROUTE_VERSION_STATUS_PENDING_APPROVAL = "PENDING_APPROVAL";
     private static final String ROUTE_VERSION_STATUS_READY_TO_PUBLISH = "READY_TO_PUBLISH";
+    private static final String ROUTE_VERSION_STATUS_CANCELLED = "CANCELLED";
     private static final List<String> PENDING_ROUTE_VERSION_STATUSES = List.of(
             ROUTE_VERSION_STATUS_READY_TO_PUBLISH,
             ROUTE_VERSION_STATUS_PENDING_APPROVAL,
@@ -191,11 +199,11 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     public Long copyRoute(Long sourceRouteId, String targetCode, String targetName) {
         MesProRouteDO sourceRoute = validateRouteExists(sourceRouteId);
         validateRouteCodeUnique(null, targetCode);
-        validateRouteNameUnique(null, targetName);
+        String resolvedTargetName = resolveUniqueCopyRouteName(targetName);
 
         MesProRouteDO targetRoute = MesProRouteDO.builder()
                 .code(targetCode)
-                .name(targetName)
+                .name(resolvedTargetName)
                 .description(sourceRoute.getDescription())
                 .status(CommonStatusEnum.DISABLE.getStatus())
                 .remark(sourceRoute.getRemark())
@@ -217,12 +225,13 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         MesProRouteVersionDO sourceVersion = routeVersionMapper.selectActiveByRouteId(sourceRouteId);
         MesProRouteVersionDO targetVersion = createRouteVersion(targetRoute, "V1",
                 sourceVersion == null ? null : sourceVersion.getId());
+        JSONObject inheritedRouteLevelConfigSnapshots = extractReusableRouteLevelConfigSnapshots(sourceVersion);
         if (sourceVersion != null) {
             copyScheduleConfigs(sourceRouteId, sourceVersion.getId(), targetVersion.getId(), copiedRouteProcessIds);
         }
         copyRouteFlowConfigs(sourceRouteId, targetRoute.getId(), copiedRouteProcessIds);
         routeProcessFlowService.copyGraph(sourceRouteId, targetRoute.getId(), copiedRouteProcessIds);
-        refreshRouteVersionSnapshot(targetRoute, targetVersion.getId());
+        refreshRouteVersionSnapshot(targetRoute, targetVersion.getId(), inheritedRouteLevelConfigSnapshots);
         registerActiveVersionRef(targetVersion);
         return targetRoute.getId();
     }
@@ -324,6 +333,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         validateRouteExists(id);
         // 1.2 已启用的工艺路线，不允许删除
         validateRouteNotEnable(id);
+        // 1.3 删除路线前必须结束其开放候选，避免留下无法再编辑或发布的孤立草稿
+        cancelOpenCandidateBeforeDelete(id);
 
         // 2.1 级联删除
         routeProcessFlowService.deleteByRouteId(id);
@@ -332,6 +343,25 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         routeProductBomService.deleteRouteProductBomByRouteId(id);
         // 2.2 删除工艺路线
         routeMapper.deleteById(id);
+    }
+
+    private void cancelOpenCandidateBeforeDelete(Long routeId) {
+        MesProRouteVersionDO candidate = routeVersionMapper.selectOpenCandidateByRouteId(routeId);
+        if (candidate == null) {
+            return;
+        }
+        if (!(ROUTE_VERSION_STATUS_DRAFT.equals(candidate.getLifecycleStatus())
+                || ROUTE_VERSION_STATUS_READY_TO_PUBLISH.equals(candidate.getLifecycleStatus()))) {
+            throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
+                    candidate.getId(), candidate.getLifecycleStatus());
+        }
+        MesProRouteVersionDO update = new MesProRouteVersionDO();
+        update.setId(candidate.getId());
+        update.setLifecycleStatus(ROUTE_VERSION_STATUS_CANCELLED);
+        if (routeVersionMapper.updateById(update) != 1) {
+            throw exception(PRO_ROUTE_VERSION_NOT_EXISTS, candidate.getId());
+        }
+        platformAdapter.recordCancelled(candidate, SecurityFrameworkUtils.getLoginUserId());
     }
 
     @Override
@@ -363,6 +393,21 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         }
     }
 
+    private String resolveUniqueCopyRouteName(String targetName) {
+        if (routeMapper.selectByName(targetName) == null) {
+            return targetName;
+        }
+        String copyNameBase = targetName.endsWith(COPY_NAME_SUFFIX) ? targetName : targetName + COPY_NAME_SUFFIX;
+        int startIndex = copyNameBase.equals(targetName) ? 2 : 1;
+        for (int copyIndex = startIndex; copyIndex <= MAX_COPY_NAME_SUFFIX_ATTEMPTS; copyIndex++) {
+            String candidateName = copyIndex == 1 ? copyNameBase : copyNameBase + copyIndex;
+            if (routeMapper.selectByName(candidateName) == null) {
+                return candidateName;
+            }
+        }
+        throw exception(PRO_ROUTE_NAME_DUPLICATE);
+    }
+
     /**
      * 启用工艺路线时的校验
      */
@@ -372,15 +417,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         if (CollUtil.isEmpty(processList)) {
             throw exception(PRO_ROUTE_ENABLE_NO_PROCESS);
         }
-        // 2. 必须有关键工序
-        boolean hasKeyProcess = processList.stream()
-                .anyMatch(process -> BooleanUtil.isTrue(process.getKeyFlag()));
-        if (BooleanUtil.isFalse(hasKeyProcess)) {
-            throw exception(PRO_ROUTE_ENABLE_NO_KEY_PROCESS);
-        }
-        // 3. 流转关系图必须完整有效
+        // 2. 流转关系图必须完整有效
         routeProcessFlowService.validateRouteEnable(routeId);
-        // 4. 所有产品必须配置了 BOM 消耗
+        // 3. 所有产品必须配置了 BOM 消耗
     }
 
     @Override
@@ -455,7 +494,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private MesProRouteVersionDO createDraftCandidateRouteVersion(MesProRouteDO route,
                                                                   MesProRouteVersionDO activeVersion) {
         MesProRouteVersionDO candidate = createRouteVersion(route, nextVersionNo(route.getId()), activeVersion.getId(),
-                Boolean.FALSE, ROUTE_VERSION_STATUS_DRAFT, extractConfigSnapshots(activeVersion));
+                Boolean.FALSE, ROUTE_VERSION_STATUS_DRAFT,
+                buildCompleteRouteConfigSnapshots(route.getId(), activeVersion.getId()));
         platformAdapter.recordCandidateCreated(activeVersion, candidate, null, "route version candidate created");
         return candidate;
     }
@@ -490,8 +530,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                 .active(active)
                 .lifecycleStatus(lifecycleStatus)
                 .sourceRouteVersionId(sourceRouteVersionId)
-                .routeSnapshotJson(buildRouteSnapshotJson(route, configSnapshots))
                 .build();
+        MesProRouteVersionSnapshotIdentityWriter.apply(version,
+                buildRouteSnapshotJson(route, configSnapshots));
         routeVersionMapper.insert(version);
         return version;
     }
@@ -753,10 +794,17 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     }
 
     private void refreshRouteVersionSnapshot(MesProRouteDO route, Long routeVersionId) {
+        refreshRouteVersionSnapshot(route, routeVersionId, null);
+    }
+
+    private void refreshRouteVersionSnapshot(MesProRouteDO route, Long routeVersionId,
+                                             JSONObject inheritedConfigSnapshots) {
+        JSONObject configSnapshots = buildCompleteRouteConfigSnapshots(route.getId(), routeVersionId);
+        inheritConfigSnapshotIfMissing(configSnapshots, inheritedConfigSnapshots, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
         MesProRouteVersionDO update = new MesProRouteVersionDO();
         update.setId(routeVersionId);
-        update.setRouteSnapshotJson(buildRouteSnapshotJson(
-                route, buildCompleteRouteConfigSnapshots(route.getId(), routeVersionId)));
+        MesProRouteVersionSnapshotIdentityWriter.apply(update,
+                buildRouteSnapshotJson(route, configSnapshots));
         routeVersionMapper.updateById(update);
     }
 
@@ -776,13 +824,60 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         configSnapshots.put(PRODUCT_BOMS_KEY, JSON.toJSON(routeProductBomMapper.selectList(routeId, null, null)));
         configSnapshots.put(SCHEDULE_CONFIGS_KEY,
                 JSON.toJSON(routeScheduleConfigMapper.selectListByRouteVersionId(routeVersionId)));
-        configSnapshots.put(BATCH_USE_CONFIGS_KEY, buildBatchUseConfigSnapshots(routeId));
+        configSnapshots.put(BATCH_USE_CONFIGS_KEY, buildBatchUseConfigSnapshots(routeId,
+                resolveExistingConfigSnapshot(routeVersionId, BATCH_USE_CONFIGS_KEY), routeVersionId));
         configSnapshots.put(SCHEDULE_USE_CONFIGS_KEY, JSON.toJSON(routeFlowProcessConfigMapper
                 .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())));
+        configSnapshots.put(PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY, PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION);
+        Object productionProcessConfigs =
+                resolveExistingConfigSnapshot(routeVersionId, PRODUCTION_PROCESS_CONFIGS_KEY);
+        configSnapshots.put(PRODUCTION_PROCESS_CONFIGS_KEY,
+                productionProcessConfigs == null ? new JSONArray() : productionProcessConfigs);
+        Object batchRecordAttachmentOwners =
+                resolveExistingConfigSnapshot(routeVersionId, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+        if (batchRecordAttachmentOwners != null) {
+            configSnapshots.put(BATCH_RECORD_ATTACHMENT_OWNERS_KEY, batchRecordAttachmentOwners);
+        }
+        Object routeStartProductionLeaders =
+                resolveExistingConfigSnapshot(routeVersionId, ROUTE_START_PRODUCTION_LEADERS_KEY);
+        if (routeStartProductionLeaders != null) {
+            configSnapshots.put(ROUTE_START_PRODUCTION_LEADERS_KEY, routeStartProductionLeaders);
+        }
         return configSnapshots;
     }
 
-    private JSONArray buildBatchUseConfigSnapshots(Long routeId) {
+    private Object resolveExistingConfigSnapshot(Long routeVersionId, String configKey) {
+        if (routeVersionId == null || StrUtil.isBlank(configKey)) {
+            return null;
+        }
+        MesProRouteVersionDO routeVersion = routeVersionMapper.selectById(routeVersionId);
+        if (routeVersion == null || StrUtil.isBlank(routeVersion.getRouteSnapshotJson())) {
+            return null;
+        }
+        JSONObject snapshot;
+        try {
+            snapshot = JSON.parseObject(routeVersion.getRouteSnapshotJson());
+        } catch (RuntimeException ex) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        JSONObject configSnapshots = snapshot == null ? null : snapshot.getJSONObject(SNAPSHOT_CONFIGS_KEY);
+        if (configSnapshots == null || !configSnapshots.containsKey(configKey)) {
+            return null;
+        }
+        Object configSnapshot = configSnapshots.get(configKey);
+        if (configSnapshot == null
+                || ((BATCH_RECORD_ATTACHMENT_OWNERS_KEY.equals(configKey)
+                || ROUTE_START_PRODUCTION_LEADERS_KEY.equals(configKey))
+                && !(configSnapshot instanceof JSONArray))) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        return configSnapshot;
+    }
+
+    private JSONArray buildBatchUseConfigSnapshots(Long routeId, Object existingBatchUseConfigs,
+                                                   Long routeVersionId) {
+        Map<Long, RouteProcessMaterialSnapshot> materialSnapshotsByRouteProcessId =
+                extractRouteProcessMaterialSnapshots(existingBatchUseConfigs, routeVersionId);
         List<MesProRouteFlowProcessConfigDO> processConfigs = routeFlowProcessConfigMapper
                 .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.BATCH.getType());
         List<MesProRouteFlowProcessBatchRecordDO> records = routeFlowProcessBatchRecordMapper
@@ -801,9 +896,45 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                     recordsByConfigId.getOrDefault(processConfig.getId(), Collections.emptyList());
             config.put("formBindings", buildFormBindingSnapshots(ownedRecords));
             config.put("batchRecordReports", buildBatchRecordReportSnapshots(ownedRecords));
+            RouteProcessMaterialSnapshot materialSnapshot =
+                    materialSnapshotsByRouteProcessId.get(processConfig.getRouteProcessId());
+            if (materialSnapshot != null) {
+                config.put("inputMaterialIds", materialSnapshot.inputMaterialIds());
+                config.put("outputMaterialIds", materialSnapshot.outputMaterialIds());
+            }
             result.add(config);
         }
         return result;
+    }
+
+    private Map<Long, RouteProcessMaterialSnapshot> extractRouteProcessMaterialSnapshots(
+            Object existingBatchUseConfigs,
+            Long routeVersionId) {
+        if (existingBatchUseConfigs == null) {
+            return Collections.emptyMap();
+        }
+        if (!(existingBatchUseConfigs instanceof JSONArray configs)) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        Map<Long, RouteProcessMaterialSnapshot> result = new LinkedHashMap<>();
+        for (Object value : configs) {
+            if (!(value instanceof JSONObject config)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+            }
+            Long routeProcessId = config.getLong("routeProcessId");
+            if (routeProcessId == null || routeProcessId <= 0) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+            }
+            if ((config.containsKey("inputMaterialIds") || config.containsKey("outputMaterialIds"))
+                    && result.put(routeProcessId, new RouteProcessMaterialSnapshot(
+                    config.get("inputMaterialIds"), config.get("outputMaterialIds"))) != null) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+            }
+        }
+        return result;
+    }
+
+    private record RouteProcessMaterialSnapshot(Object inputMaterialIds, Object outputMaterialIds) {
     }
 
     private boolean isSnapshotBatchRecordOwnedByConfig(MesProRouteFlowProcessBatchRecordDO record,
@@ -818,7 +949,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private JSONArray buildFormBindingSnapshots(List<MesProRouteFlowProcessBatchRecordDO> records) {
         JSONArray result = new JSONArray();
         records.stream()
-                .filter(record -> record.getFormTemplateId() != null)
+                .filter(this::isDynamicFormBindingSnapshot)
                 .sorted(Comparator.comparing(MesProRouteFlowProcessBatchRecordDO::getReportSort,
                         Comparator.nullsLast(Integer::compareTo)))
                 .map(this::buildFormBindingSnapshot)
@@ -826,9 +957,21 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         return result;
     }
 
+    private boolean isDynamicFormBindingSnapshot(MesProRouteFlowProcessBatchRecordDO record) {
+        return record != null
+                && StrUtil.isBlank(record.getBatchRecordReportId())
+                && record.getFormTemplateId() != null;
+    }
+
     private JSONObject buildFormBindingSnapshot(MesProRouteFlowProcessBatchRecordDO record) {
         JSONObject binding = new JSONObject(true);
+        binding.put("routeBindingId", record.getId());
+        binding.put("batchRecordReportId", record.getBatchRecordReportId());
+        binding.put("batchRecordDefinitionId", record.getBatchRecordDefinitionId());
+        binding.put("batchRecordVersionId", record.getBatchRecordVersionId());
+        binding.put("formSlotType", record.getFormSlotType());
         binding.put("formBindingKey", record.getFormBindingKey());
+        binding.put("globalSyncKey", record.getGlobalSyncKey());
         binding.put("formTemplateId", record.getFormTemplateId());
         binding.put("formTemplateName", record.getFormTemplateNameSnapshot());
         binding.put("lastPublishedTemplateVersionId", record.getLastPublishedTemplateVersionId());
@@ -838,7 +981,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         binding.put("fillableScopeJson", record.getFillableScopeJson());
         binding.put("recordCategory", record.getRecordCategory());
         binding.put("validationProfile", record.getValidationProfile());
+        binding.put("recordbookEnabled", record.getRecordbookEnabled());
         binding.put("permissionScopeId", record.getPermissionScopeId());
+        binding.put("recordCategorySnapshotHash", record.getRecordCategorySnapshotHash());
         binding.put("requiredPolicy", record.getRequiredPolicy());
         binding.put("requiredConditionJson", record.getRequiredConditionJson());
         binding.put("ownerRoleKey", record.getOwnerRoleKey());
@@ -865,6 +1010,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
 
     private JSONObject buildBatchRecordReportSnapshot(MesProRouteFlowProcessBatchRecordDO record) {
         JSONObject report = new JSONObject(true);
+        report.put("routeBindingId", record.getId());
         report.put("batchRecordReportId", record.getBatchRecordReportId());
         report.put("batchRecordDefinitionId", record.getBatchRecordDefinitionId());
         report.put("batchRecordVersionId", record.getBatchRecordVersionId());
@@ -930,6 +1076,33 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         return snapshot == null ? null : snapshot.getJSONObject(SNAPSHOT_CONFIGS_KEY);
     }
 
+    private JSONObject extractReusableRouteLevelConfigSnapshots(MesProRouteVersionDO sourceVersion) {
+        JSONObject sourceConfigSnapshots = extractConfigSnapshots(sourceVersion);
+        if (sourceConfigSnapshots == null) {
+            return null;
+        }
+        JSONObject reusableConfigSnapshots = new JSONObject(true);
+        if (sourceConfigSnapshots.containsKey(BATCH_RECORD_ATTACHMENT_OWNERS_KEY)) {
+            Object owners = sourceConfigSnapshots.get(BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+            if (!(owners instanceof JSONArray)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+            }
+            reusableConfigSnapshots.put(BATCH_RECORD_ATTACHMENT_OWNERS_KEY, owners);
+        }
+        return reusableConfigSnapshots.isEmpty() ? null : reusableConfigSnapshots;
+    }
+
+    private void inheritConfigSnapshotIfMissing(JSONObject targetConfigSnapshots,
+                                                JSONObject inheritedConfigSnapshots,
+                                                String configKey) {
+        if (targetConfigSnapshots == null || inheritedConfigSnapshots == null
+                || targetConfigSnapshots.containsKey(configKey)
+                || !inheritedConfigSnapshots.containsKey(configKey)) {
+            return;
+        }
+        targetConfigSnapshots.put(configKey, inheritedConfigSnapshots.get(configKey));
+    }
+
     private String buildRouteSnapshotJson(MesProRouteDO route, JSONObject configSnapshots) {
         JSONObject snapshot = new JSONObject(true);
         snapshot.put("routeId", route.getId());
@@ -972,6 +1145,11 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         List<MesProRouteRespVO> list = BeanUtils.toBean(pageResult.getList(), MesProRouteRespVO.class);
         enrichRouteDisplayFields(list);
         return new PageResult<>(list, pageResult.getTotal());
+    }
+
+    @Override
+    public List<MesProRouteDO> getRouteList() {
+        return routeMapper.selectList();
     }
 
     @Override

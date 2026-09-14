@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 public class DccProjectCodeRespVO {
 
     private Long id;
+    private Long productMasterId;
     private String docControlNo;
     private String projectName;
     private String projectCode;
@@ -21,6 +22,8 @@ public class DccProjectCodeRespVO {
     private String priority;
     private String status;
     private Long associatedFileCount;
+    @Schema(description = "Word 批记录总识别 JSON")
+    private String batchRecordTotalRecognitionJson;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

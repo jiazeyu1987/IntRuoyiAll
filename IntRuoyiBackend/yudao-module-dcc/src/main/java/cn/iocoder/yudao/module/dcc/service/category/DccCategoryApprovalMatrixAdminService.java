@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccCategoryRevie
 import cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteDO;
 
 import java.util.List;
+import java.util.Map;
 
 public interface DccCategoryApprovalMatrixAdminService {
 
@@ -25,5 +26,10 @@ public interface DccCategoryApprovalMatrixAdminService {
 
     List<DccCategoryReviewMatrixUserLookupRespVO> getUserReviewMatrixAccess(Long userId);
 
+    Map<Long, MatrixPositionIds> getActiveMatrixPositionIdsByCategoryIds(List<Long> categoryIds);
+
     void deleteApprovalMatrix(Long categoryId);
+
+    record MatrixPositionIds(List<Long> signoffPositionIds, List<Long> approvalPositionIds) {
+    }
 }

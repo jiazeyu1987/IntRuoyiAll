@@ -8,11 +8,11 @@
 
 ## 固定端口
 
-PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
+PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 
 - `int_main` 前端专属端口：`8081`。
 - int_main 后端专属端口：48081。
-- int_main 主线本地仓库：D:\ProjectPackage\IntRuoyi\IntRuoyiAll。
+- 仓库位置：以当前 Git 仓库根目录为准，不绑定盘符或绝对路径。
 - 前端本机入口：`http://127.0.0.1:8081` 或 `http://localhost:8081`。
 - 后端健康检查：`http://127.0.0.1:48081/actuator/health`。
 - 前端本机模式应使用 `IntRuoyiFronted\.env.local`：
@@ -22,13 +22,20 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 
 ## 分支运行端口矩阵
 
-- `int_main`：前端 `8081`，后端 `48081`，对应 `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`，保持原始本机默认设置不变。
-- `int_batch`：前端 `8041`，后端 `48041`，对应 `E:\IntRuoyiBranch\BatchRecord\IntRuoyiAll`。
-- `int_shedule`：前端 `8021`，后端 `48021`，对应 `E:\IntRuoyiBranch\Shedule\IntRuoyiAll`。
-- `int_qms`：前端 `8061`，后端 `48061`，对应 `E:\IntRuoyiBranch\QMS\IntRuoyiAll`。
+- `int_main_d`：前端 `8101`，后端 `48101`，由 `INTRUOYI_RUNTIME_PROFILE=int_main_d` 显式选择。
+- `int_main`：前端 `8081`，后端 `48081`，是 `int_main` 分支的默认 profile。
+- `int_batch`：前端 `8041`，后端 `48041`，是 `int_batch` 分支的默认 profile。
+- `int_shedule`：前端 `8021`，后端 `48021`，是 `int_shedule`/`int_schedule` 分支的默认 profile。
+- `int_qms`：前端 `8061`，后端 `48061`，是 `int_qms` 分支的默认 profile。
 - 分支专属前端调试必须通过 `scripts\runtime\start-branch-frontend.ps1` 或对应 `IntRuoyiFronted\.env.branch-*` 模式启动，不得通过改写共享 `.env` 抢占端口。
 - 分支专属后端调试必须通过 `scripts\runtime\start-branch-backend.ps1` 传入 `--server.port`，不得把后端 `application-local.yaml` 改成分支端口。
 - 合并 `int_main` 或跨分支合并后必须运行 `scripts\preflight\branch-runtime-port-guard.ps1`，确认本矩阵未被覆盖、删除或改回 `8081/48081`。
+
+## D Main Independent Runtime
+
+- `int_main_d` is bound to `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`.
+- Its fixed ports are frontend `8101` and backend `48101`.
+- `int_main_d` must never use `8081/48081`, which remain reserved for the default `int_main` profile.
 
 ## 启动前检查
 
@@ -40,38 +47,253 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 - 如果端口被当前 `int_main` 旧进程占用，可记录进程 ID、命令行和归属依据后停止对应旧进程，再启动。
 - 如果端口被同一 runtime profile 的旧进程占用，可记录进程 ID、命令行和归属依据后停止对应旧进程，再启动。
 - 如果端口被未知进程、非 IntRuoyi 进程或其他 runtime profile 占用，必须 fail fast，不得强杀或换端口。
-- worktree 必须按 `docs/worktree-restrictions.md` 的 profile + slot 规则使用独立端口。
+- worktree 可位于当前电脑选择的目录，但必须按 `docs/worktree-restrictions.md` 的 profile + slot 规则登记并使用独立端口。
+- 附加 worktree 的 `slot` 只允许 `1..100`，必须由 `scripts\runtime\reserve-worktree-slot.ps1` 原子分配；`slot >= 101` 或命中任一基准端口时必须 fail fast。槽位 `1..19` 保持原端口，`20..30`、`31..40`、`41..50`、`51..60`、`61..70`、`71..80`、`81..90` 和 `91..100` 分别使用 `docs\branch-runtime-ports.md` 的独立扩展段。
 
-## 本地运行构建输入完整性门禁
+- 槽位 31..40 使用第二独立扩展端口段：int_shedule 8176-8185/48176-48185、int_batch 8186-8195/48186-48195、int_qms 8196-8205/48196-48205、int_main 8206-8215/48206-48215、int_main_d 8216-8225/48216-48225。
+- 槽位 41..50 使用第三独立扩展端口段：int_shedule 8226-8235/48226-48235、int_batch 8236-8245/48236-48245、int_qms 8246-8255/48246-48255、int_main 8256-8265/48256-48265、int_main_d 8266-8275/48266-48275。
+- 槽位 51..60、61..70、71..80、81..90、91..100 使用第四至第八独立扩展端口段：`docs\branch-runtime-ports.md` 是唯一完整映射来源。
 
-- Trigger: 本地前后端启动、后端可执行 JAR 缺失、前端 `node_modules` 缺失、Maven 打包出现源码包或类型不存在。
-- Preflight check: 启动前确认后端可执行 JAR 或完整可构建源码存在，并确认前端锁文件对应依赖已安装；缺少产物时先运行正式构建命令验证源码完整性。
-- Blocker: 后端构建因 Git 跟踪源码包或类型缺失而失败，或者前端依赖未安装时，必须停止启动流程并记录精确缺失项。
-- Verification: 记录后端正式打包命令及退出码、前端运行器是否存在、目标端口监听状态，以及失败后临时诊断文件清理结果。
-- Forbidden action: 禁止凭调用方反推并保留半实现 runtime 源码，禁止把忽略目录中的临时代码当作正式前置，禁止只启动一端却宣称前后端已启动。
-- Evidence: `doc/tasks/run-qms-local-runtime-20260724/verification-report.md`。
+## 前端在线但后端未监听业务系统异常门禁
+
+- Trigger: 8081 前端可打开，但点击排产、重排、个人中心聚合或其它业务按钮提示 `系统异常`；前端 `.env.local` 指向 `VITE_BASE_URL=http://127.0.0.1:48081`；或用户怀疑“后端不是最新”。
+- Preflight check: 先分别确认 `8081` 与 `48081` 监听状态、`http://127.0.0.1:48081/actuator/health`、48081 PID 命令行和运行 Jar 时间；再看目标业务接口日志。前端 HTTP 200 只能证明 Vite 在线，不能证明后端已启动或已加载最新 Jar。
+- Blocker: 48081 未监听、health 拒绝/超时、48081 PID 不属于当前 Git 仓库的 `int_main`、标准重启还在打包或 Spring 启动未出现 `Started YudaoServerApplication` 时，必须先恢复后端运行态；不得通过刷新前端、切换端口、隐藏 toast 或 API-only 旧结果宣称业务恢复。
+- Verification: 后端 health 必须 HTTP 200 / UP；真实页面或登录态接口复验目标业务路径，记录目标接口 HTTP 状态、业务 code、关键日志时间段和截图。若旧日志已有业务 NPE，例如 `productionMaterialListSyncService is null`，新后端启动后必须对同一路径重新验证成功。若日志只出现 `/admin-api/mes/pro/schedule-order/page` 的 `AsyncRequestNotUsableException` / `ClientAbortException` / `SocketTimeoutException`，需先核对目标按钮链路的实际响应；该类客户端断开日志不能单独证明手动重排 `preflight`、`replan/preview` 或 `replan/apply` 失败。
+- Forbidden action: 禁止只看 8081 可打开就判断系统在线；禁止在后端未监听时排查前端列配置或按钮逻辑；禁止用旧截图、旧 result JSON 或未登录请求替代当前 48081 运行态证明。
+- Evidence: `doc/tasks/20260828-schedule-click-system-exception/verification-report.md`。
 
 ## 2026-07-24 本地重启脚本路径门禁
 
 - Trigger: 本地重启、E2E 复验、`restart-int-ruoyi-local.ps1`、`Missing int_main frontend path`、`yudao-ui-admin-vue3`、`IntRuoyiFronted`。
-- Preflight check: 执行本地重启脚本前，确认脚本解析出的前端根目录与本项目规则一致，当前主工作区前端根目录必须是 `E:\IntRuoyi\IntRuoyiFronted`。
-- Blocker: 脚本报 `Missing int_main frontend path: E:\IntRuoyi\yudao-ui-admin-vue3` 时必须停止该脚本路径，记录失败；不得通过新建同名目录、软链、换端口或静默跳过前端路径检查继续。
+- Canonical path: 当前 `int_main` 标准本地重启脚本是当前 Git 仓库根目录下的 `IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1`；不得只检查工作区根 `scripts\runtime` 后就判定标准脚本缺失。
+- Preflight check: 执行本地重启脚本前，确认脚本解析出的前端根目录是当前 Git 仓库根目录下的 `IntRuoyiFronted`。
+- Blocker: 脚本报前端路径缺失时必须停止并记录失败；不得通过新建假目录、软链、换端口或静默跳过前端路径检查继续。
 - Verification: 记录脚本失败文本、端口归属 PID、`mvn.cmd -pl yudao-server -am -DskipTests package` 结果、重启后 `http://127.0.0.1:48081/actuator/health` 状态。
 - Forbidden action: 禁止为了绕过脚本硬编码路径创建 `yudao-ui-admin-vue3` 假目录、修改端口、强杀未知进程或把 API-only 验证冒充 E2E。
 - Evidence: `doc/tasks/fix-batch-exec-last-update-created-time/verification-report.md`。
 
-### Java runtime 源码包误忽略门禁
+## 2026-07-28 标准本地后端重启 tokenless Runner 门禁
 
-- Trigger: 本地启动、后端打包或跨分支对比时出现 `src/main/java/**/runtime` 源码包缺失、`package ...runtime does not exist`、Shedule/其他分支本地可运行但 QMS 缺类。
-- Preflight check: 先运行 `git check-ignore -v` 检查缺失的 Java runtime 源码路径，并对比可运行工作区是否存在同名被忽略源码；确认 `.gitignore` 只忽略运行产物，不忽略 `IntRuoyiBackend/**/src/main/java/**/runtime/**`。
-- Blocker: 若源码只存在于其他本地工作区且被 Git ignore 命中，必须停止并修正源码跟踪规则；不得凭调用方反推半实现类。
-- Verification: `python -m pytest IntRuoyiBackend\script\tests\test_runtime_source_tracking_guard.py` 通过，且后端打包和目标分支端口健康检查通过。
-- Forbidden action: 禁止把 Java `runtime` 包当作临时运行产物清理，禁止只复制到本地但不修正 Git ignore，禁止用 fallback 端口或禁用插件冒充启动成功。
-- Evidence: `doc/tasks/run-qms-local-runtime-20260724/verification-report.md`。
+- Trigger: `restart-int-ruoyi-local.ps1 -Component backend`、本地后端重启后测试管理提示 `Codex Runner token 无效或未配置`、`CODEX_TEST_RUNNER_TOKEN`、tokenless Runner、Runner 注册失败或 heartbeat 过期。
+- Preflight check: 标准本地后端重启默认必须保持 tokenless Runner 模式；脚本不得生成、读取或复用 `.runtime/codex-test-runner/runner-token.txt`，不得在父进程或 Java 启动进程设置 `CODEX_TEST_RUNNER_TOKEN`；启动 Java 前必须显式清理继承来的 `Env:\CODEX_TEST_RUNNER_TOKEN`，确保 `yudao.codex-test.runner.token` 为空。Runner HTTP client 只能在环境变量真实存在时发送 `X-Codex-Runner-Token`，tokenless 模式不得发送伪 token 头。
+- Blocker: 重启脚本仍包含 token 文件初始化、随机 token 生成、`CODEX_TEST_RUNNER_TOKEN` 注入、后端运行态 `yudao.codex-test.runner.token` 非空、Runner 注册请求仍带旧 token 头、注册探针业务码非 `0`、Runner `current_running_count` 无法归零，或空闲 heartbeat age 达到 `heartbeat-timeout-seconds` 时必须停止成功结论。
+- Verification: 运行 `python -X utf8 -m pytest script/tests/test_runtime_control_scripts.py -q`、PowerShell parser、Runner 启动脚本静态合同、Runner HTTP client 静态合同；后端 health 为 `UP` 后使用不带 `X-Codex-Runner-Token` 的受控注册探针确认业务码 `0`，再等待至少一个 heartbeat 周期，确认实际 Runner 会话 heartbeat age 小于超时阈值且 `current_running_count=0`。
+- Forbidden action: 禁止为了消除 token 报错重新生成 token 文件、只在当前 shell 设置 token、把 token 写入提交文件或日志、用 Runner 进程存在代替注册与 heartbeat 证明，或因 token 缺失切换端口/Runner/后端。
+- Evidence: `doc/tasks/20260727-codex-runner-token-invalid/verification-report.md`；`doc/tasks/20260728-codex-runner-tokenless-cli/verification-report.md`；`doc/tasks/20260728-codex-runner-tokenless-local-restart/verification-report.md`。
+
+## 2026-07-24 隔离构建 Jar 加载门禁
+
+- Trigger: 主工作区存在并行脏改动，但需要把本任务后端修复加载到 `int_main` 的 `48081` 做真实 E2E；或页面仍提示 `请求地址不存在:<接口>`、返回修复前旧业务错误，怀疑运行中 Jar 未加载新 Controller、Service 或 VO。
+- Preflight check: 先确认 `48081` 监听 PID 的命令行属于预期源码或运行时 worktree、端口为 `48081`、`repo-root` 指向本项目；同时确认新 Jar 来自本次任务已验证的构建产物。只为把 `int_main` 重启到最新后端、且主工作区存在并行脏改动时，应从干净 detached worktree 构建完整 server Jar，复制到稳定运行目录并校验 SHA256；在新 Jar 构建和哈希验证完成前不要停止旧 `48081` 后端。对 fat jar 内嵌模块，必须只读检查 `BOOT-INF/lib/<module>.jar` 是否包含本次新增或修改的关键 class。若 `48081` 实际运行的是附加 worktree 下的 runtime jar，必须在该 runtime worktree 内补齐源码、测试、schema 夹具并重建该 Jar，不能只检查另一个工作区源码。
+- Launch template check: 若为了启动已验证的预构建 Jar 而复用 `restart-int-ruoyi-local.ps1` 中的 `$backendScript` here-string，必须在停止旧进程前解析并验证该 here-string 引用的全部外层参数默认值，包括 OnlyOffice 地址和 DCC 电子签名证据密钥配置；只抽取 here-string、未带入外层变量会把必需环境变量展开为空，导致新进程在 Spring Bean 初始化阶段 fail fast。预检至少应生成待启动脚本的脱敏结构摘要，并断言每个必需环境变量非空；不得输出密钥原值。若无法证明自定义启动器与标准脚本参数等价，应停止并扩展标准脚本的预构建 Jar 入口，不能先停旧服务再试错。
+- Child-process configuration boundary: 本地重启脚本生成 Java 子进程时，运行所需配置必须通过 `backendArgs` 或等价启动参数显式传递；只依赖父进程环境继承会把配置在 Spring Bean 初始化阶段丢失。仍必须显式传递 DCC 预览、OnlyOffice 和电子签名证据等现行必需配置；DCC 下载已改为授权后直接返回原文件字节，不再读取或注入旧下载密钥环境变量，也不再传递旧下载加密启动参数。静态脚本合同必须断言关键参数存在、下载加密配置不存在，并继续核对其他必需配置未丢失；不得用默认值、切换数据源或绕过校验掩盖真实缺失配置。
+- Cross-module API check: 若修复新增或改动跨模块 Java API 方法，热替换时必须成组核对并替换接口、调用方、实现类、服务接口、服务实现和 Mapper/DAO 等全部相关 class；只替换直接报错的调用方 class 会导致运行态继续走旧实现或启动后 `NoSuchMethodError`。替换包含匿名类、局部类、lambda 或编译器生成伴随类的实现时，必须同时替换同名前缀的 `$*.class`，并在启动前从内嵌模块核对这些 class 均存在，避免运行时 `NoClassDefFoundError`。若目标修复还改变 Controller 注解、`@RequestParam(required=false)`、VO 字段或路由声明，必须同时用 `javap -v`、登录态 API 和真实页面路径核对运行 Jar 内对应 Controller/VO class 已刷新；只替换 Service/依赖模块会出现页面 `keyword=` 通过但缺省参数或新注解仍按旧 class 失败。只看到运行 Jar 内存在同名 Controller class 不足以证明映射已刷新；当页面仍报 `请求地址不存在` 时，必须用 `javap -private -verbose` 比对方法列表和 `GetMapping` 常量，防止 `target/classes` 已更新但内嵌模块 jar 仍是旧方法集。
+- Blocker: 如果 PID 归属不明、Jar 来源不明、目标 Jar 哈希与隔离构建 Jar 不一致、运行 Jar 内嵌模块缺少本次关键 class、热替换内嵌 jar 被压缩写入、或主工作区源码混有其他任务改动，必须停止，不得从脏主工作区重新打包冒充本任务运行态。
+- Verification: 记录旧 PID、停止依据、新 PID、Jar SHA256、启动命令、`http://127.0.0.1:48081/actuator/health`、端口监听新 PID 命令行、登录态目标接口业务响应、必要 schema 字段核对、内嵌模块关键 class 检查结果、嵌套 jar 压缩方式（`compress_type=0`），并在 E2E 后记录真实数据库状态。若使用临时 detached worktree 构建 Jar，收尾必须用 `git worktree remove --force <path>` 删除并复核 `Test-Path=False`。
+- Route check: 目标接口需要登录时，未登录请求返回 `401` 只能证明安全过滤器生效，不能证明 MVC 路由已加载；必须使用本机登录态请求目标接口，业务码为 `0` 或预期业务错误，才可宣称新 Controller 已进入运行态。
+- Forbidden action: 禁止强杀未知进程、随机换端口、用主工作区脏源码重新构建、只看 health 或未登录 `401` 就宣称修复已加载。
+- Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/verification-report.md`；`doc/tasks/20260803-controlled-file-category-missing/verification-report.md`；`doc/tasks/20260806-restart-latest-backend/verification-report.md`；`doc/tasks/20260807-pressure-pump-process-device-standards/verification-report.md`；`doc/tasks/20260810-rebuild-restart-int-main-pqc-fix/verification-report.md`。
+
+## 2026-08-14 DCC 历史签名密钥保留与迁移门禁
+
+- Trigger: DCC 已生效文件的签名记录显示 `VALID`，但证据导出返回 `1080000092`；历史绑定迁移返回 `1080000207`；签名 `keyVersion` 与当前运行密钥版本不同；最终受控副本绑定为空。
+- Preflight check: 先只读盘点目标文件的签名数量、证据状态、`keyVersion`、最终受控副本和绑定记录；再确认历史 `keyVersion -> secret` 是否通过正式的历史校验密钥配置提供。任何核对和日志都只能记录“是否存在、版本名和匹配数量”，不得输出密钥原值、原始签名载荷或完整 HMAC。
+- Evidence timestamp precision: HMAC 载荷包含数据库时间字段时，生成证据前必须先把时间归一到目标列实际保存精度，并让证据计算与持久化对象共用同一个值；MySQL `datetime` 默认只保留秒级，直接使用带纳秒的 `LocalDateTime.now()` 会导致落库回读后的规范化载荷变化。回归测试必须固定一个非零纳秒时间，同时断言证据请求与落库对象均为同一秒级值。
+- Partial reissue check: 如果历史版本曾更新签名证据但没有同步绑定，必须先校验绑定自身 hash、最终副本 `fileId + objectKey + SHA-256`，再要求重新封存审计表中存在“绑定原证据 hash -> 当前签名证据 hash”的精确连续记录。只有证据变化且审计链连续时才可继续；绑定被篡改、副本变化或审计记录不精确时必须拒绝。
+- Blocker: 历史密钥不存在、密钥版本未映射、或按原签名规范复算 HMAC 不匹配时，必须停止绑定迁移和导出成功结论；系统应明确要求补齐历史密钥或重新签署。
+- Verification: 对每条原签名先完成 HMAC 校验，再创建冻结最终副本 `fileId + objectKey + SHA-256` 的不可变绑定；批准重新封存时，当前密钥重签、前后证据审计和既有绑定切换必须在同一事务完成。迁移后同时复核签名 `VALID`、绑定 `BOUND`、当前密钥版本、hash/objectKey 非空、文件级证据 PDF 和统一签名 PDF。成功写入后的 E2E 复跑必须使用显式只读模式，不得重复重新封存。
+- Forbidden action: 禁止把当前密钥猜测映射到旧版本，禁止绕过 HMAC 直接插入绑定，禁止仅把状态改为 `VALID`，禁止用数据库手工回填 hash/objectKey 冒充正式迁移成功，禁止在重新封存已成功后为补页面断言再次执行写接口。
+- Evidence: `doc/tasks/20260813-dcc-residual-issues-fix/verification-report.md`。
+
+## 2026-07-25 本地后端数据库凭据门禁
+
+- Trigger: 启动 `int_main` 本地后端、`48081` 未监听、日志出现 `dynamic-datasource create datasource named [master] error` 或 `Access denied for user 'root'@'localhost'`。
+- Preflight check: 启动后端前确认本地 MySQL `127.0.0.1:3306` 与 `application-local.yaml` 中的正式本地数据源配置一致；如果只做启动验证，可先启动并用日志判定真实失败原因，但不得改端口或切换数据源。
+- Blocker: MySQL 拒绝当前配置账号、数据库不可达、或后端无法创建 `master` 数据源时，必须停止后端启动结论，不得声明 `48081` 已成功运行。
+- Verification: 数据库前置条件修复后重新启动后端，记录 `48081` PID、命令行归属当前 Git 仓库的 `IntRuoyiBackend`，并用 `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` 断言 `status=UP`。
+- Forbidden action: 禁止静默换端口、临时改 `application-local.yaml` 凭据、切换到 mock/空数据源、只启动前端就宣称前后端完成。
+- Evidence: `doc/tasks/20260725-start-local-frontend-backend/verification-report.md`。
+
+## 2026-08-08 标准本地 full 重启依赖容器退出门禁
+
+- Trigger: `restart-int-ruoyi-local.ps1 -Component full` 或本地后端重启报 `Required Docker container is not running: int-ruoyi-mysql`，且 `int-ruoyi-mysql`、`int-ruoyi-redis`、`docker-minio-1` 显示为刚退出。
+- Preflight check: 先用 `docker ps -a` 只读确认容器名、状态和镜像均属于 IntRuoyi 本地依赖；再检查 `23306`、`26379`、`9000` 端口，不得读取或记录容器完整 env、数据库密码或 secret-bearing 输出。
+- Blocker: 容器不存在、Docker CLI 不可用、容器归属不明、端口被未知进程占用、MySQL/Redis/MinIO 启动后仍不可达时必须停止；不得改数据库端口、改后端端口、换数据源、mock 依赖或跳过后端启动。
+- Verification: 仅启动确认归属的本地依赖容器后，复核 `int-ruoyi-mysql`、`int-ruoyi-redis`、`docker-minio-1` 为 running，`23306`、`26379`、`9000` 可访问；随后重跑标准 full 重启脚本，并验证 `48081` health `UP`、`8081` HTTP `200`。
+- Forbidden action: 禁止删除或重建容器/volume、清空 MySQL 或 MinIO 数据、随机换端口、强杀未知进程、只启动前端或用 API-only 成功冒充 full 重启完成。
+- Evidence: `doc/tasks/20260808-restart-local-runtime/verification-report.md`。
+
+## 2026-07-28 Docker Desktop E 盘 bind 挂载门禁
+
+- Trigger: `int-ruoyi-mysql` 启动报 `invalid mount config for type "bind"`、`bind source path does not exist`、Docker 临时容器看不到当前仓库挂载、或 WSL 无法转换当前仓库路径。
+- Preflight check: 先用 `Test-Path <repo-root>\IntRuoyiBackend\sql\mysql\ruoyi-vue-pro.sql` 验证源文件真实存在，再用临时只读容器验证 Docker 能看到该文件；若 Docker/WSL 看不到当前仓库所在磁盘，检查对应挂载点或 Docker Desktop host path 日志。
+- Blocker: Windows 文件存在但 Docker/WSL 挂载为空或缺失时，必须停止容器启动成功结论；不得复制 SQL 到假目录、删除 MySQL 数据卷、重建空库、改数据库端口或把缺失 bind 当成业务 schema 问题。
+- Verification: 修复挂载后，临时只读容器必须返回 `BIND_OK`；再启动 `int-ruoyi-mysql`，重跑标准重启脚本，并验证 `48081` health `UP`、`8081` HTTP `200`。
+- Forbidden action: 禁止用 C 盘临时副本、空初始化 SQL、容器重建换数据卷、mock 数据库或 API-only 成功绕过正式 E 盘项目路径。
+- Evidence: `doc/tasks/20260728-restart-local-runtime/verification-report.md`。
+
+## 2026-07-25 分支本地运行复用 Docker 依赖门禁
+
+- Trigger: `int_batch`、`int_shedule`、`int_qms` 等分支工作区启动后端时出现本机 MySQL/Redis 认证或连接失败。
+- Preflight check: 先确认用户授权的本地 Docker 依赖端口，再只修改该分支工作区的依赖连接配置；服务运行端口仍必须由分支脚本和端口矩阵控制。
+- Current local Docker dependency convention: MySQL `127.0.0.1:23306/ruoyi-vue-pro`，Redis `127.0.0.1:26379`。
+- Blocker: Docker MySQL/Redis 端口未监听、认证失败或 schema 不匹配时必须 fail fast，不得切换数据库、换端口、mock 成功或跳过后端启动。
+- Verification: 记录 Docker 依赖端口监听、后端分支端口监听、`/actuator/health` HTTP 状态和前端入口 HTTP 状态。
+- Forbidden action: 禁止为了复用 Docker 依赖而修改分支前端/后端服务端口；禁止打印或记录数据库密码、容器完整 env 或 secret-bearing 命令输出。
+
+## 2026-07-25 D-Main 本地启动源码与依赖门禁
+
+- Trigger: D-Main 本地启动、`int_main_d`、`8101/48101`、`vite command not found`、Java 包名包含 `runtime`、后端打包提示 `*.runtime不存在`。
+- Preflight check: 后端打包前先确认被引用的 `runtime` Java 包未被 `.gitignore` 的 `**/runtime/` 误忽略；若同源工作区存在正式实现，必须同步正式源码并用 `git check-ignore -v` 记录忽略来源，提交时对合法源码使用 `git add -f`。前端启动前确认 `IntRuoyiFronted/node_modules/.bin/vite` 存在；缺失时执行 `pnpm install --frozen-lockfile`。
+- Blocker: 缺失源码只能用同源正式实现补齐；若找不到正式实现或 `pnpm install --frozen-lockfile` 修改 lockfile/失败，必须阻塞，不得造空实现、改用旧 Jar、换端口或跳过前端。
+- Verification: 记录 Maven RED/GREEN、`yudao-server-exec.jar` 生成结果、`git check-ignore -v` 输出、`pnpm install --frozen-lockfile` 退出码、后端 health `UP` 和前端 HTTP `200`。
+- Forbidden action: 禁止因为目录名是 `runtime` 就放任合法 Java 源码被忽略；禁止复制 `node_modules`、复用旧 Jar、改共享 `.env`/`application-local.yaml`、API-only 冒充前端启动成功。
+- Evidence: `doc/tasks/20260725-start-d-main-runtime/verification-report.md`。
+
+## 2026-07-27 本地 OnlyOffice 容器下载地址门禁
+
+- Trigger: 本地受控浏览、OnlyOffice `错误码 -4`、`下载失败`、`public-file-base-url`、`onlyofficeDocumentUrl`、Docker `onlyoffice` 容器访问 `48081`。
+- Preflight check: 若 OnlyOffice 运行在 Docker 容器，本地 `application-local.yaml` 的 `yudao.dcc.preview.onlyoffice.public-file-base-url` 必须让容器访问 Windows Host 后端，默认应为 `http://host.docker.internal:${server.port}`；同时保留浏览器加载 OnlyOffice 的 `base-url` 为 `http://127.0.0.1:8080`。
+- Blocker: `docker exec onlyoffice curl http://127.0.0.1:48081/actuator/health` 不可达但 `host.docker.internal:48081` 可达时，预览元数据下载 URL 不得继续使用 `127.0.0.1:48081`。
+- Verification: 记录 `docker exec onlyoffice curl http://host.docker.internal:48081/actuator/health` HTTP `200`、旧容器内 `127.0.0.1:48081` 不可达、Jar 内 `application-local.yaml` 目标行、后端 health `UP`，并用静态契约覆盖该默认值。
+- Forbidden action: 禁止把浏览器用的 OnlyOffice `base-url` 改成 `host.docker.internal`；禁止用 API-only 成功或未登录 `401` 冒充 OnlyOffice 容器已能下载文件；禁止修改测试服/生产配置来修复本地 Docker 网络问题。
+- Evidence: `doc/tasks/20260727-local-onlyoffice-download-failed/verification-report.md`。
+
+## 2026-08-04 DCC 上传预览 OnlyOffice 文档地址门禁
+
+- Trigger: DCC 文件上传页、`OnlyOffice 预览地址未准备好`、`upload-preview` 响应、`onlyofficeBaseUrl`、`onlyofficeDocumentUrl`、上传 `.docx/.xlsx` 后提交前预览为空。
+- Preflight check: 上传预览响应契约必须同时包含浏览器加载 OnlyOffice 的 `onlyofficeBaseUrl` 和带签名 token 的临时文件 `onlyofficeDocumentUrl`；`onlyofficeDocumentUrl` 应指向 `/admin-api/dcc/controlled-files/upload-preview/{fileId}/onlyoffice-file?token=...`，且文件类别从文件分类叶子节点自动绑定，不要求用户手填或选择。
+- Blocker: 响应只有 `onlyofficeBaseUrl`、缺 `onlyofficeDocumentUrl`、前端 parser 将 `onlyofficeDocumentUrl` 当成 forbidden raw file capability 拒绝、页面继续显示 `OnlyOffice 预览地址未准备好`、或响应暴露原始 `fileId` 时必须停止验收。
+- Verification: 前端静态合同必须覆盖 response parser、上传页 props 和 viewer props；后端 JUnit 必须覆盖签名文档地址和不暴露 `fileId`；真实 Playwright 必须通过上传页选择正式文件分类叶子节点、上传 `.xlsx/.docx`、断言 `previewKind=OFFICE`、`onlyofficeDocumentUrl` 有 token、页面无 `OnlyOffice 预览地址未准备好`，并清理临时上传 session。
+- Forbidden action: 禁止让用户手工填写文件类别或预览地址；禁止用 API-only 上传、旧历史截图、未登录 `401`、只看 health、隐藏预览区错误或复用未清理临时文件冒充通过。
+- Evidence: `doc/tasks/20260803-dcc-upload-onlyoffice-document-url/verification-report.md`。
+
+## 2026-08-02 本机 Docker 开机自启门禁
+
+- Trigger: 调整本机 Docker 开机自启、Docker Desktop 自动恢复容器、`docker update --restart`、清理非项目 Docker 运行项。
+- Preflight check: 先用 `docker inspect` 记录容器名、镜像、Compose project/service、restart policy 和状态；只允许与 IntRuoyi 明确相关的容器或已记录的本地依赖保留自启策略。
+- Blocker: 容器归属不明、Compose project 不属于 IntRuoyi/Yudao/已记录依赖、或无关容器 restart policy 不是 `no` 时必须阻塞自启合规结论。
+- Verification: `docker inspect` 复查所有本机容器，非 IntRuoyi 容器的 `HostConfig.RestartPolicy.Name` 必须为 `no`；记录未停止、未删除、未重建容器。
+- Forbidden action: 禁止通过停止、删除、重建容器来冒充禁用自启；禁止让 `docker_ragflow` 等无关栈保留 `always`、`unless-stopped` 或 `on-failure` 自启策略。
+- Evidence: `doc/tasks/20260802-docker-autostart-policy/verification-report.md`。
+
+## 2026-08-05 本机 Docker 未使用镜像清理门禁
+
+- Trigger: D 盘空间不足、`D:\Docker\DockerDesktopWSL\disk\docker_data.vhdx` 过大、`docker system df` 显示大量未使用镜像、用户要求通过 Docker 命令清理未使用镜像。
+- Preflight check: 先记录 `docker system df`、`docker container ls -a` 和当前 D 盘可用空间；仅在用户明确要求清理镜像时执行 `docker image prune -a -f`，输出较大时用 `Tee-Object` 流式写入任务证据文件，不要先整体捕获到 PowerShell 变量。
+- Blocker: Docker CLI 不可用、Docker Desktop/WSL 引擎异常、无法确认命令只清镜像、或用户未授权清理 volume/container/build cache 时必须停止；不得手工删除 `docker_data.vhdx`。
+- Verification: 再次运行 `docker image prune -a -f` 应返回 `Total reclaimed space: 0B`；记录清理前后 `docker system df`，并确认容器仍存在、volume 未执行 prune。
+- Forbidden action: 禁止执行 `docker system prune --volumes`、`docker volume prune`、删除容器、删除 VHDX、或把 VHDX 文件未立刻缩小误判为清理失败；VHDX 回收/压缩必须作为单独授权任务处理。
+- Evidence: `doc/tasks/20260805-docker-unused-image-cleanup/verification-report.md`。
+
+## 2026-08-05 本机 Ruoyi Docker 未用容器卷镜像清理门禁
+
+- Trigger: 用户明确要求删除当前 Ruoyi 环境用不到的 Docker `image`、`volume`、`container`，或需要在 Docker Desktop WSL2 磁盘过大后进一步清理容器和卷。
+- Preflight check: 先记录 `docker system df`、`docker container ls -a`、`docker volume ls`、每个 volume 的容器引用关系，以及当前运行容器的 mount；只有在用户明确授权 volume/container 清理时，才能删除停止容器、悬挂卷和无容器引用镜像。
+- Blocker: 无法确认当前 Ruoyi 运行容器、无法确认 volume 引用关系、存在疑似 MySQL/MinIO/OnlyOffice 当前数据卷、Docker CLI 异常、或用户只授权镜像清理时必须停止；不得把 `docker system df` 的 image reclaimable 百分比当作删除正在运行容器镜像的依据。
+- Verification: 清理后运行 `docker container ls -a` 确认只剩当前运行容器；运行 volume 引用扫描确认每个剩余 volume 都被当前容器引用；再次运行 `docker image prune -a -f` 和 `docker volume prune -f` 应返回 `Total reclaimed space: 0B`。
+- Forbidden action: 禁止删除当前 MySQL 数据卷、MinIO 数据卷、OnlyOffice 卷、正在运行容器、`docker_data.vhdx`，或为了让 D 盘立刻变小而手工删除 VHDX；VHDX 压缩必须单独走管理员权限压缩流程。
+- Evidence: `doc/tasks/20260805-docker-ruoyi-unused-cleanup/verification-report.md`。
+
+## 2026-08-02 DCC 上传预览本机 MinIO 前置门禁
+
+- Trigger: DCC 原版上传、上传升版、`/admin-api/dcc/controlled-files/upload-preview`、`SdkClientException`、`Connect to 127.0.0.1:9000 failed: Connection refused`、`docker-minio-1`。
+- Preflight check: 跑 DCC 写入型上传 E2E 前，先确认 `docker-minio-1` 正在运行且 healthy，`http://127.0.0.1:9000/minio/health/ready` 返回 HTTP 200，`/data/yudao` bucket 目录存在；同时确认后端文件配置 endpoint 指向 `http://127.0.0.1:9000`、bucket 为 `yudao`，不得输出 access key 或 secret。
+- Blocker: MinIO 容器未运行、9000 未监听、ready health 非 200、bucket 缺失、后端 `48081` 未 UP，或标准 backend 重启仍在 Maven package 阶段时必须停止 DCC 完整链路结论。
+- Verification: MinIO ready 200、后端 health `UP`、前端 8081 HTTP 200 后，再用 Playwright 真实页面跑到 `upload-preview`，目标请求无 500，结果 JSON 中 `targetNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
+- Verification extension: 上传接口返回文件 ID、ticket 或数据库元数据不等于对象已持久化；涉及审批后发布时，必须在最终批准后只读核对对象键可读取、内容 SHA-256 与上传证据一致，并继续跑到正式发布或明确的 `FINALIZATION_FAILED`。对象锁配置字段也不等于 bucket 真实支持 Object Lock，必须以实际 retention/legal-hold 能力检查为准。
+- Forbidden action: 禁止用 API-only 上传、SQL 改状态、mock 文件服务、切换存储实现、复用历史会话或复用半失败文件号冒充上传链路恢复；禁止在共享 Maven package 正在运行时抢占启动后端或强停未知进程。
+- Forbidden action extension: 禁止把缺失对象直接标记为已发布、禁止只修数据库路径或状态；测试环境确需恢复时只能还原同一对象键和同一内容摘要，并保留失败与重试证据。Object Lock 不受支持时不得把 retention/legal-hold 命令失败记录成通过。
+- Evidence: `doc/tasks/20260802-dcc-minio-object-storage-runtime/verification-report.md`。
+
+## 2026-07-27 本地后端标准输出阻塞与日志目录门禁
+
+- Trigger: 本地后端 health 为 `UP`，但登录、租户查询或业务 API 长时间无响应；线程栈集中阻塞在 Logback `OutputStreamAppender`；或 task-closeout 无法删除仍被 Java 进程占用的 stdout/stderr 日志。
+- Preflight check: 启动长期运行的本地后端前，确认 stdout/stderr 有持续消费或重定向到不会被当前任务 cleanup 删除的稳定运行目录；运行态排查必须同时核对 `48081` PID/命令行、真实登录态业务接口和线程阻塞点，不能只看 health。
+- Config check: `application-local.yaml` 本地默认不得把自研 `cn.iocoder.yudao.module.*.dal.mysql` mapper 包设为 `debug`；后端应用日志默认必须进入 `output/runtime/<profile>/logs`，标准本地重启脚本必须显式传入 `--logging.file.name` 和匹配的 `yudao.runtime-control.storage-guard.log-dir`。
+- Blocker: health 为 `UP` 但登录态接口挂起，或待清理日志仍被有活动客户端连接的共享后端占用时，必须停止成功或清理结论；不得强杀共享进程、强删日志或在缺少完整运行环境变量时重启。
+- Verification: 记录 listener PID、Jar 路径、活动客户端归属、登录预检和目标业务接口结果；cleanup 前用独占文件打开检查日志句柄，只有进程已安全迁移或停止且文件不再锁定后才能删除。涉及本地日志配置修改时，还必须运行 `mvn -pl yudao-server "-Dtest=LocalRuntimeLoggingConfigTest,RuntimeControlLocalConfigTest" test` 与 `python -X utf8 -m pytest script/tests/test_runtime_control_local_config.py script/tests/test_runtime_control_scripts.py -q`。
+- Forbidden action: 禁止把 health `UP` 等同于请求链路可用；禁止让长运行进程把日志写入任务 cleanup 候选目录；禁止因首次重启缺少安全配置而改配置、降级或跳过启动校验。
+- Evidence: `doc/tasks/20260727-form-template-button-alignment-design/execution-log.md`。
+
+## 2026-07-27 本地后端运行 Jar 不可变门禁
+
+- Trigger: 本地后端运行中再次执行 Maven `package`、接口突然出现多个无关依赖的 `NoClassDefFoundError`、Jimu MiniDAO 模板资源缺失、或运行命令直接引用 `yudao-server\target\yudao-server-exec.jar`。
+- Preflight check: 长期运行的后端必须从 `output\runtime\<profile>\` 的独立 Jar 副本启动；记录进程启动时间、运行 Jar 路径和 Jar 修改时间。启动后允许 `target` 继续构建，但运行 Jar 不得被覆盖。
+- Blocker: 监听进程直接引用 Maven `target` Jar，或运行 Jar 修改时间晚于进程启动时间时必须重启到独立运行副本；不得把跨 Hutool、Spring、Tomcat、Freemarker 的连续类/资源缺失当作多个业务缺陷分别修补。
+- Verification: 后端启动后确认运行 Jar 位于稳定运行目录且 `runtimeJar.lastWriteTime <= process.startTime`；随后执行一次 `mvn -pl yudao-server -am "-DskipTests" package`，目标登录态业务接口仍返回 HTTP 200、health 为 `UP`、运行 PID 和运行 Jar 路径保持不变。
+- Forbidden action: 禁止长期运行进程直接使用会被 Maven 重建的 `target\yudao-server-exec.jar`；禁止通过复制缺失类、吞异常、跳过 Jimu 更新或返回空详情掩盖运行归档损坏。
+- Evidence: `doc/tasks/20260727-batch-record-list-detail-500/verification-report.md`。
+
+## 2026-07-28 本地前端 pnpm 链接损坏门禁
+
+- Trigger: `restart-int-ruoyi-local.ps1 -Component frontend/full`、`pnpm dev -- --strictPort`、Vite 报 `Cannot find module '@babel/helper-validator-identifier'`、`failed to load config from IntRuoyiFronted\vite.config.ts`、`EPERM: operation not permitted, rename ...\deps_temp_* -> ...\deps`、或 `pnpm install --frozen-lockfile` 显示 `Already up to date` 但前端仍无法启动或 8081 虽监听但页面请求超时。
+- Preflight check: 先确认 `IntRuoyiFronted\node_modules` 存在、`pnpm list <missing-package> --depth 5` 能从 lockfile 依赖树定位缺失包，再用真实包路径执行 Node 解析探针，例如从 `node_modules\.pnpm\@babel+types@7.26.0\node_modules\@babel\types` 加载 `@babel/types` 或 `@babel/helper-validator-identifier`。
+- Blocker: lockfile 依赖树中不存在缺失包、`pnpm install --frozen-lockfile` 修改 lockfile 或失败、强制重建后真实包路径仍不能解析、或 `pnpm approve-builds`/构建脚本审批缺失导致 Vite 运行依赖不可用时必须停止启动成功结论。
+- Verification: 记录首次前端启动失败日志、`pnpm install --frozen-lockfile` 结果、必要时 `pnpm install --frozen-lockfile --force` 结果、真实包路径 Node 解析探针 PASS、Vite 依赖缓存目录锁释放或重建证据、重新启动前端后 `http://127.0.0.1:8081/` HTTP `200`。
+- Forbidden action: 禁止手工复制缺失包、手工创建 `node_modules` symlink/junction、修改 `package.json` 或 lockfile 绕过、换端口、跳过前端、或把后端 health `UP` 冒充前后端均已启动。
+- Evidence: `doc/tasks/20260728-start-local-frontend-backend-runtime/verification-report.md`。
+
+## 2026-08-14 标准 full 重启测试编译阻塞门禁
+
+- Trigger: `restart-int-ruoyi-local.ps1 -Component full` 或 `-Component backend` 在 `mvn -pl yudao-server -am -DskipTests package` 阶段失败，日志出现 `testCompile`、`COMPILATION ERROR`、测试类引用当前生产代码不存在的常量、方法、字段或 VO setter。
+- Preflight check: 本地重启前若当前工作区存在未完成的测试/生产代码不一致风险，先用标准脚本实际打包结果作为门禁；`-DskipTests` 仍会编译测试代码，不能把它理解成完全跳过测试编译。
+- Recovery check: 若失败信息是 `testCompile` 读取 `target/classes` 中当前源码确实存在的类时报 `NoSuchFileException`，先全仓确认源码存在、无同目录并发 Maven/重启，再运行对应模块的 `mvn -pl <module> -am -DskipTests test-compile` 重建编译产物；该命令通过后仍必须重跑标准 `full/backend` 脚本，不能把定向 test-compile 当作后端已启动。
+- Blocker: 标准脚本退出码非 `0`、Maven 测试编译失败、`yudao-server-exec.jar` 未重新生成，或当前运行进程来源不是本次标准脚本成功启动时，必须停止完整重启结论；只能记录当前端口是否已有可访问运行态，不能宣称标准 full 重启完成。
+- Verification: 记录 Maven 失败模块、失败测试文件、缺失符号、脚本退出码；同时复核 `8081` HTTP 状态、`48081` health 状态、监听 PID、命令行归属和运行 Jar 路径，明确区分“当前可访问”和“本次标准重启成功”。
+- Forbidden action: 禁止改用 `-Dmaven.test.skip=true`、旧 Jar、手工 Java 启动、API-only health、随机端口或跳过后端打包来冒充标准 full 重启成功；禁止为重启任务擅自修改无关测试或生产代码。
+- Evidence: `doc/tasks/20260813-restart-local-runtime/verification-report.md`。
+
+## 2026-08-14 主工作区并发重启所有权门禁
+
+- Trigger: `restart-int-ruoyi-local.ps1 -Component full` 长时间打包期间，`8081/48081` 监听 PID、运行 Jar 或启动时间发生变化；同一 Git 工作区还有其它 Maven 测试、打包或重启任务；当前重启准备再次执行 `Stop-Port`；标准重启后 `backend-runtime-control-*.jar` 明显小于历史完整 fat jar、启动报“没有主清单属性”；或复制运行 Jar 报文件正在被其它进程使用。
+- Preflight check: 重启前记录 `8081/48081` 的 PID、启动时间、命令行和运行路径；长时间打包期间再次检查监听归属。若监听 PID 在当前脚本尚未启动新服务前变化，必须把它视为可能由并发任务新启动的共享运行态，并核对同工作区 Maven/Java 进程和新运行 Jar 时间，不能继续沿用启动前的“旧进程可停止”判断。若发现同一主工作区存在多个 `mvn -pl yudao-server -am -DskipTests package` 或重复 `restart-int-ruoyi-local.ps1`，必须先按进程启动时间、父进程、当前任务归属和输出目录判断是否为当前任务自有重复构建；只有明确属于当前任务的重复构建才可停止。若 `Copy-Item` 报目标运行 Jar 被占用，先查占用者是否已经是同一 `int_main` 新 Java 或并发 full 重启派发的新包；若是，应等待并验证 health 与目标接口，不能再覆盖该 Jar 或强停新进程。
+- Blocker: 新监听进程不是本次重启启动、同一工作区存在无法归属的并发测试或重启、无法证明新 PID 可由当前任务停止、或 `yudao-server-exec.jar` / `backend-runtime-control-*.jar` 中任一 Jar 缺少 Spring Boot 可执行清单时，必须停止完整重启结论；不得让标准脚本后续第二次 `Stop-Port` 终止并发任务的新运行态，也不得把不可执行 Jar 的派发记录为成功。
+- Verification: 记录本次任务自有构建已停止且无残留同目录 Maven 进程；分别核对最终前端、后端 PID 与启动时间，确认均在用户请求后启动、路径属于当前 Git 仓库，并验证前端 HTTP `200`、后端 health `UP`。若后端由并发任务重启、前端由当前任务单独重启，必须明确记录组件归属，不得宣称当前 `full` 脚本退出码为 `0`。
+- Forbidden action: 禁止只凭“同属 int_main”强停请求后新出现的 PID；禁止并发任务仍在共享主工作区构建或重启时盲目重跑 `full`；禁止把被中止的 `full` 脚本记录为成功；禁止复制明显不完整或不可执行的 Jar 后继续刷新前端冒充恢复。
+- Evidence: `doc/tasks/20260814-restart-local-runtime/verification-report.md`；`doc/tasks/20260828-schedule-click-system-exception/verification-report.md`，重复 Maven 构建导致 `backend-runtime-control-20260828-080057.jar` 缺少主清单属性，停止同目录重复构建后单次标准重启生成完整 fat jar 并恢复 48081；`doc/tasks/20260828-schedule-order-stale-protected-issue/verification-report.md`，标准 backend 重启在复制 `backend-runtime-control-20260828-182442.jar` 时遇到文件锁，随后确认并发 full 已派发 `backend-runtime-control-20260828-182812.jar` 并完成 48081 health 与目标页面验证。
+
+## 2026-08-17 Spring Boot 重打包长时 I/O 门禁
+
+- Trigger: 标准 `full/backend` 重启已进入 `spring-boot:repackage`，`yudao-server-exec.jar` 暂时为 `0` 字节、Maven 长时间无新输出，或误以为最终打包卡死。
+- Preflight check: 不得只根据终端静默、低 CPU 或临时 `0` 字节 Jar 判定失败；先确认 Maven 进程仍属于本次任务，再用 `jcmd <pid> Thread.print -l` 检查主线程。若主线程处于 `AbstractJarWriter$StoredEntryPreparator.load`、`writeNestedLibrary` 或 `Repackager.repackage` 的文件读取/写入链路，说明仍在处理 Spring Boot 嵌套依赖，应继续等待标准命令返回。
+- Blocker: Maven 进程已退出且脚本非零返回、线程栈不再属于打包链路、进程归属不明、目标 Jar 长时间不变化且无法证明仍在 I/O，或最终没有 `BUILD SUCCESS` 时，必须停止成功结论。
+- Verification: 以 Maven `BUILD SUCCESS`、`yudao-server-exec.jar` 完整生成、标准重启脚本退出码 `0`、新 `48081/8081` 进程归属及最终 health/HTTP 检查共同证明完成；线程栈只能证明“仍在执行”，不能代替最终成功结果。
+- Forbidden action: 禁止因临时 `0` 字节 Jar 或终端静默强停本任务构建、改用旧 Jar、跳过重打包或手工启动旧后端冒充成功。
+- Evidence: `doc/tasks/20260817-restart-local-runtime/verification-report.md`。
+
+## 2026-08-29 本地重启脚本 WMI 查询卡住门禁
+
+- Trigger: 标准本地重启脚本在 `Stop-MatchingProcesses` 阶段长时间无输出，或 `Get-CimInstance Win32_Process` 查询不返回，导致脚本未进入服务启动阶段。
+- Preflight check: 先用 `netstat -ano` 核对目标端口监听状态，再用已知 PID 的 `Get-Process` 核对进程名称、启动时间和路径；不要把 WMI 查询卡住解释为目标服务已停止，也不要在归属未确认时强杀进程。
+- Blocker: 无法确认监听 PID、运行 Jar 来源或启动参数等价性时，必须停止重启成功结论；不得重复执行卡住的停止阶段、静默换端口或用健康检查旧结果冒充新运行态。
+- Verification: 恢复运行态后重新检查目标端口、前端 HTTP、后端 health、PID 和运行 Jar；真实页面验证必须在这些检查之后执行，并记录实际验证时的最新 PID 与 Jar。
+- Forbidden action: 禁止因 WMI 卡住就修改共享端口配置、删除未知进程、切换旧 Jar 或把手工启动未验证参数的服务当作标准重启成功。
+
+
+## 2026-08-21 E 盘 NTFS Dirty/索引损坏最小修复门禁
+
+- 触发场景：E: 显示 NTFS Warning/Full Repair Needed、fsutil dirty query 报 Dirty、读取报 OS error 1392，或 Windows sandbox 访问 E: 时出现 apply deny-read ACLs。
+- 前置检查：先记录磁盘、分区和卷健康状态并运行只读 chkdsk/scan；只停止已确认属于当前任务的 E: 占用进程。无法备份时，离线修复前必须取得用户明确授权，并区分执行器 ACL 失败与文件系统损坏。
+- 阻塞条件：磁盘 Offline/ReadOnly、设备断开、健康状态不稳定或修复报告坏扇区时必须停止，保留原盘等待恢复复制；禁止循环重复修复命令。
+- 修复范围：用户授权且卷已卸载后，只使用 chkdsk E: /f /x。禁止格式化、diskpart clean、重建分区、用大范围 icacls/takeown 冒充文件系统修复，或删除 target/build 目录掩盖索引错误。
+- 验证方式：必须看到 chkdsk 报 no further action、坏扇区为 0、Get-Volume 为 Healthy/OK、fsutil dirty 报 NOT Dirty，且关键项目路径可读。Git fsck 必须单独核对；本地 Git 对象错误不等于 NTFS 修复失败，远端 Git 提交也不覆盖非 Git E: 数据。
+- 证据：doc/tasks/20260821-e-drive-minimal-repair/execution-log.md。
+
+## 标准后端重启构建失败离线门禁
+
+- Trigger: `restart-int-ruoyi-local.ps1 -Component backend` 在完整 Maven 打包前已停止 48081 旧进程，随后 `testCompile` 或任一下游模块编译失败。
+- Preflight check: 执行标准重启前先记录 48081 PID、运行 Jar 和 health；主工作区有并行改动时，先运行能覆盖全部模块和测试编译的构建门禁，不能只证明目标模块 `compile` 通过。
+- Blocker: 标准脚本已停止旧后端且构建失败时，必须明确报告 48081 离线，并修复真实编译阻断后重跑同一标准脚本；不得声称旧后端仍在运行。
+- Verification: 最终必须同时看到完整 Reactor `BUILD SUCCESS`、脚本退出码 0、新运行 Jar/PID 归属和 `/actuator/health` 返回 `UP`。
+- Forbidden action: 禁止用旧 Jar、跳过测试编译、手工启动不等价参数或随机端口恢复来冒充标准重启成功。
+
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。
 - 禁止非 `int_main` 使用 `8081/48081`。
+- 禁止任何附加 worktree 使用 `slot >= 101` 或其他 profile 的基准端口。
 - 禁止把 `int_batch`、`int_shedule` 或 `int_qms` 的分支端口写入 `int_main` 默认配置。
 - 禁止通过修改共享 `.env` 或 `application-local.yaml` 来实现分支端口。
 - 禁止端口占用时静默换端口、静默跳过服务或宣称启动成功。
@@ -84,3 +306,24 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 - 前端启动后验证 `http://127.0.0.1:8081/`。
 - 后端启动后验证 `http://127.0.0.1:48081/actuator/health`。
 - 分支启动后验证对应 profile 的前端入口和后端健康检查，例如 `int_batch` 使用 `http://127.0.0.1:8041/` 与 `http://127.0.0.1:48041/actuator/health`。
+- 分支后端需要覆盖 Spring 参数时必须使用 `start-branch-backend.ps1 -ExtraArgs @('...')`；启动后除 health 外，还要核对监听 PID 的真实命令行包含任务 `repo-root/state-dir` 等关键参数。参数名写错但 PowerShell 未阻断、或只看到 health `UP`，都不能作为目标功能已加载的证据。
+
+
+## 本地运行构建输入完整性门禁
+
+- Trigger: 本地前后端启动、后端可执行 JAR 缺失、前端 `node_modules` 缺失、Maven 打包出现源码包或类型不存在。
+- Preflight check: 启动前确认后端可执行 JAR 或完整可构建源码存在，并确认前端锁文件对应依赖已安装；缺少产物时先运行正式构建命令验证源码完整性。
+- Blocker: 后端构建因 Git 跟踪源码包或类型缺失而失败，或者前端依赖未安装时，必须停止启动流程并记录精确缺失项。
+- Verification: 记录后端正式打包命令及退出码、前端运行器是否存在、目标端口监听状态，以及失败后临时诊断文件清理结果。
+- Forbidden action: 禁止凭调用方反推并保留半实现 runtime 源码，禁止把忽略目录中的临时代码当作正式前置，禁止只启动一端却宣称前后端已启动。
+- Evidence: `doc/tasks/run-qms-local-runtime-20260724/verification-report.md`。
+
+
+### Java runtime 源码包误忽略门禁
+
+- Trigger: 本地启动、后端打包或跨分支对比时出现 `src/main/java/**/runtime` 源码包缺失、`package ...runtime does not exist`、Shedule/其他分支本地可运行但 QMS 缺类。
+- Preflight check: 先运行 `git check-ignore -v` 检查缺失的 Java runtime 源码路径，并对比可运行工作区是否存在同名被忽略源码；确认 `.gitignore` 只忽略运行产物，不忽略 `IntRuoyiBackend/**/src/main/java/**/runtime/**`。
+- Blocker: 若源码只存在于其他本地工作区且被 Git ignore 命中，必须停止并修正源码跟踪规则；不得凭调用方反推半实现类。
+- Verification: `python -m pytest IntRuoyiBackend\script\tests\test_runtime_source_tracking_guard.py` 通过，且后端打包和目标分支端口健康检查通过。
+- Forbidden action: 禁止把 Java `runtime` 包当作临时运行产物清理，禁止只复制到本地但不修正 Git ignore，禁止用 fallback 端口或禁用插件冒充启动成功。
+- Evidence: `doc/tasks/run-qms-local-runtime-20260724/verification-report.md`。

@@ -4,6 +4,8 @@ import cn.idev.excel.annotation.ExcelProperty;
 import cn.iocoder.yudao.framework.excel.core.annotations.DictFormat;
 import cn.iocoder.yudao.framework.excel.core.convert.DictConvert;
 import cn.iocoder.yudao.module.mes.enums.DictTypeConstants;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,9 +21,11 @@ import lombok.NoArgsConstructor;
 public class MesMdVendorImportExcelVO {
 
     @ExcelProperty("供应商编码")
+    @NotBlank(message = "供应商编码不能为空")
     private String code;
 
     @ExcelProperty("供应商名称")
+    @NotBlank(message = "供应商名称不能为空")
     private String name;
 
     @ExcelProperty("供应商简称")
@@ -35,6 +39,7 @@ public class MesMdVendorImportExcelVO {
     private String telephone;
 
     @ExcelProperty("供应商邮箱地址")
+    @Email(message = "供应商邮箱地址格式不正确")
     private String email;
 
     @ExcelProperty("供应商英文名称")
@@ -56,6 +61,7 @@ public class MesMdVendorImportExcelVO {
     private String contact1Telephone;
 
     @ExcelProperty("联系人1-邮箱")
+    @Email(message = "联系人1-邮箱格式不正确")
     private String contact1Email;
 
     @ExcelProperty("联系人2")
@@ -65,6 +71,7 @@ public class MesMdVendorImportExcelVO {
     private String contact2Telephone;
 
     @ExcelProperty("联系人2-邮箱")
+    @Email(message = "联系人2-邮箱格式不正确")
     private String contact2Email;
 
     @ExcelProperty("统一社会信用代码")

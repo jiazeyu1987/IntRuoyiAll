@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -15,12 +16,19 @@ public class MesProRouteFlowFormBindingSaveReqVO {
     @Schema(description = "动态表单绑定稳定 Key，由后端生成或前端回传", example = "FB_100_1")
     private String formBindingKey;
 
+    @Schema(description = "全局联动组 Key；为空表示仅当前工序", example = "GFB_1723860000000_1")
+    @Size(max = 128, message = "全局联动组 Key 长度不能超过 128")
+    private String globalSyncKey;
+
     @Schema(description = "表单中心模板稳定 ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "10001")
     @NotNull(message = "表单中心模板不能为空")
     private Long formTemplateId;
 
     @Schema(description = "表单中心模板名称快照", example = "清洗记录")
     private String formTemplateName;
+
+    @Schema(description = "表单槽位类型：MAIN/LOSS_REPORT/PROCESS_INSPECTION/PARAMETER_RECORD，缺省 MAIN", example = "MAIN")
+    private String formSlotType;
 
     @Schema(description = "最后校验到的发布版本 ID，由后端填充", example = "20001")
     private Long lastPublishedTemplateVersionId;
@@ -49,6 +57,9 @@ public class MesProRouteFlowFormBindingSaveReqVO {
     @Schema(description = "对象级权限范围ID", example = "5001")
     private Long permissionScopeId;
 
+    @Schema(description = "记录类型快照 Hash，由后端保存时生成", example = "sha256")
+    private String recordCategorySnapshotHash;
+
     @Schema(description = "必填策略：REQUIRED/CONDITIONAL_REQUIRED/OPTIONAL/SKIPPABLE_CONTROLLED", example = "REQUIRED")
     private String requiredPolicy;
 
@@ -60,6 +71,9 @@ public class MesProRouteFlowFormBindingSaveReqVO {
 
     @Schema(description = "归档可见性：FINAL_DHR/INTERNAL_REVIEW/AUDIT_ONLY/ATTACHMENT_REFERENCE", example = "FINAL_DHR")
     private String archiveVisibility;
+
+    @Schema(description = "槽位配置快照 Hash，由后端保存时生成", example = "sha256")
+    private String slotConfigSnapshotHash;
 
     @Schema(description = "填写人来源：USER/USERS/ROLE", example = "USERS")
     private String candidateSourceType;

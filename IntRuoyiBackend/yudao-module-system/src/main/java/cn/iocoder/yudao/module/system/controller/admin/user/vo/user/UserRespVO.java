@@ -61,6 +61,38 @@ public class UserRespVO{
     @DictFormat(DictTypeConstants.COMMON_STATUS)
     private Integer status;
 
+    @Schema(description = "登录失败次数", example = "3")
+    @ExcelProperty("登录失败次数")
+    private Integer loginFailureCount;
+
+    @Schema(description = "登录锁定状态，0-未锁定，1-锁定", example = "1")
+    @ExcelProperty("登录锁定状态")
+    private Integer loginLocked;
+
+    @Schema(description = "登录锁定时间", example = "时间戳格式")
+    @ExcelProperty("登录锁定时间")
+    private LocalDateTime loginLockedTime;
+
+    @Schema(description = "账号生命周期单据类型，RESIGNATION-离职单，TRANSFER-转岗单")
+    @ExcelProperty("账号生命周期单据类型")
+    private String lifecycleDocumentType;
+
+    @Schema(description = "离职/转岗单号")
+    @ExcelProperty("离职/转岗单号")
+    private String lifecycleDocumentNo;
+
+    @Schema(description = "离职/转岗单据时间", example = "时间戳格式")
+    @ExcelProperty("离职/转岗单据时间")
+    private LocalDateTime lifecycleDocumentTime;
+
+    @Schema(description = "账号停用生效时间", example = "时间戳格式")
+    @ExcelProperty("账号停用生效时间")
+    private LocalDateTime lifecycleEffectiveTime;
+
+    @Schema(description = "账号联动停用时间", example = "时间戳格式")
+    @ExcelProperty("账号联动停用时间")
+    private LocalDateTime lifecycleDeactivatedTime;
+
     @Schema(description = "最后登录 IP", requiredMode = Schema.RequiredMode.REQUIRED, example = "192.168.1.1")
     @ExcelProperty("最后登录IP")
     private String loginIp;

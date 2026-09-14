@@ -29,13 +29,18 @@ const fileNumberColumn = extractBetween(
 
 assert.match(
   fileNumberColumn,
-  /data-testid="dcc-browser-file-number-detail-link"/,
-  'browser file number column must expose a stable detail-link test id'
+  /<span\s+class="browser-file-number">\s*\{\{\s*getSelectedVersion\(row\)\.fileNumber\s*\}\}\s*<\/span>/,
+  'browser file number column must render file number as plain text'
 )
-assert.match(
+assert.doesNotMatch(
   fileNumberColumn,
   /@click="openDetail\(getSelectedVersion\(row\)\.id\)"/,
-  'browser file number link must open the currently selected version viewer'
+  'browser file number column must not open traceability detail'
+)
+assert.doesNotMatch(
+  fileNumberColumn,
+  /data-testid="dcc-browser-file-number-detail-link"/,
+  'browser file number column must not expose a traceability entry test id'
 )
 assert.match(
   fileNumberColumn,
@@ -45,7 +50,7 @@ assert.match(
 assert.match(
   fileNumberColumn,
   /v-if="getSelectedVersion\(row\)\.fileNumber"/,
-  'browser file number column must only show a link when a file number exists'
+  'browser file number column must only show a file number display when a file number exists'
 )
 assert.match(
   fileNumberColumn,
@@ -60,8 +65,18 @@ const actionColumn = extractBetween(
   'browser action column'
 )
 assert.doesNotMatch(actionColumn, />\s*详情\s*</, 'browser action column must not show the detail action')
-assert.doesNotMatch(actionColumn, /openDetail\(/, 'browser action column must not route to detail')
 assert.match(actionColumn, />\s*预览\s*</, 'browser action column must keep the preview action')
+assert.match(actionColumn, />\s*追溯\s*</, 'browser action column must keep the traceability action')
+assert.match(
+  actionColumn,
+  /data-testid="dcc-browser-row-traceability"/,
+  'browser action column must expose the only traceability entry test id'
+)
+assert.match(
+  actionColumn,
+  /@click="openDetail\(getSelectedVersion\(row\)\.id\)"/,
+  'browser operation traceability button must open the currently selected version traceability detail'
+)
 assert.match(actionColumn, />\s*下载\s*</, 'browser action column must keep the download action')
 assert.match(actionColumn, />\s*更多\s*</, 'browser action column must keep the more action')
 assert.match(actionColumn, /hasBrowserRowActions\(row\)/, 'browser action column must detect empty row action state')
@@ -69,10 +84,20 @@ assert.match(actionColumn, /暂无可用操作/, 'browser action column must ren
 
 assert.match(
   browserPage,
-  /openControlledFileViewer\(router,\s*route,\s*id,\s*'browser'\)/,
-  'browser openDetail must route to the shared controlled file viewer helper'
+  /openControlledFileTraceability\(router,\s*route,\s*id,\s*'browser',\s*'trace'\)/,
+  'browser openDetail must route to the shared controlled file traceability helper with trace scope'
 )
 assert.doesNotMatch(browserPage, /name:\s*'DccControlledFileDetail'/, 'browser file number link must not route to the normal detail page')
+assert.doesNotMatch(
+  browserPage,
+  /openControlledFileViewer\(router,\s*route,\s*id,\s*'browser'\)/,
+  'browser file number link must not open viewer mode because viewer hides signature traceability'
+)
+assert.match(
+  browserPage,
+  /buildControlledFileViewerPath\(id,\s*'browser',\s*buildBrowserReturnPath\(\)\)/,
+  'browser preview action must keep using the protected viewer path'
+)
 assert.match(
   browserPage,
   /const hasBrowserRowActions = \(row: ControlledFileBrowserRow\) =>/,
@@ -81,7 +106,7 @@ assert.match(
 assert.doesNotMatch(
   fileNumberColumn,
   /mock|placeholder data|fallback|降级|吞异常|默认成功/i,
-  'browser file number detail link must not introduce mock, fallback, downgrade, swallowed errors, or default success'
+  'browser file number display must not introduce mock, fallback, downgrade, swallowed errors, or default success'
 )
 
 console.log('PASS: DCC browser file number detail entry static contract')

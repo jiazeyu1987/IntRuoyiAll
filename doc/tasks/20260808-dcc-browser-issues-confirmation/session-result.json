@@ -1,0 +1,136 @@
+{
+  "taskId": "20260808-dcc-browser-issues-confirmation",
+  "startedAt": "2026-08-08T03:54:27.784Z",
+  "baseUrl": "http://127.0.0.1:8081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "phase": "session",
+  "targetDirectory": "0 QM",
+  "targetCategories": {
+    "other": "其他",
+    "empty": "市场调研报告"
+  },
+  "executablePath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "status": "PASS",
+  "consoleErrors": [],
+  "pageErrors": [
+    "登录超时,请重新登录!"
+  ],
+  "dccWriteRequests": [],
+  "sourceFindings": {
+    "queryCommitsRouteBeforeList": true,
+    "getListKeepsOldRowsOnFailure": true,
+    "quickFilterTabUsesDraftCondition": true,
+    "previewUsesUnguardedWindowOpen": true,
+    "paginationOnlyEmitsOnCurrentChange": true
+  },
+  "sessionFailure": {
+    "directory": {
+      "id": 906512,
+      "name": "0 QM",
+      "directoryPath": "质量管理/1. QMS documents/0 QM"
+    },
+    "baselineResponse": {
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/browser-page?pageNo=1&pageSize=20&latestVersionOnly=true&directoryId=906512&includeDescendantDirectories=false",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "total": 3,
+      "listLength": 3,
+      "rows": [
+        {
+          "id": "2054545668044052987",
+          "fileName": "INT∕QM(E∕2) 质量手册 Quality Manual-INT-2026.2.28生效.pdf",
+          "fileNumber": "IN",
+          "categoryId": 906104,
+          "status": "ACTIVE",
+          "publishedFileId": 9198354895793,
+          "stampedFileId": null
+        },
+        {
+          "id": "2054545668044052986",
+          "fileName": "2026年质量方针与目标(1).pdf",
+          "fileNumber": "",
+          "categoryId": 906104,
+          "status": "ACTIVE",
+          "publishedFileId": 9198354895792,
+          "stampedFileId": null
+        },
+        {
+          "id": "2054545668044052985",
+          "fileName": "2025年质量方针与目标.pdf",
+          "fileNumber": "",
+          "categoryId": 906104,
+          "status": "ACTIVE",
+          "publishedFileId": 9198354895791,
+          "stampedFileId": null
+        }
+      ]
+    },
+    "otherResponse": {
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/browser-page?pageNo=1&pageSize=20&quickFilter.fieldKey=categoryId&quickFilter.operator=eq&quickFilter.value=906104&latestVersionOnly=true&directoryId=906512&includeDescendantDirectories=false",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "total": 3,
+      "listLength": 3,
+      "rows": [
+        {
+          "id": "2054545668044052987",
+          "fileName": "INT∕QM(E∕2) 质量手册 Quality Manual-INT-2026.2.28生效.pdf",
+          "fileNumber": "IN",
+          "categoryId": 906104,
+          "status": "ACTIVE",
+          "publishedFileId": 9198354895793,
+          "stampedFileId": null
+        },
+        {
+          "id": "2054545668044052986",
+          "fileName": "2026年质量方针与目标(1).pdf",
+          "fileNumber": "",
+          "categoryId": 906104,
+          "status": "ACTIVE",
+          "publishedFileId": 9198354895792,
+          "stampedFileId": null
+        },
+        {
+          "id": "2054545668044052985",
+          "fileName": "2025年质量方针与目标.pdf",
+          "fileNumber": "",
+          "categoryId": 906104,
+          "status": "ACTIVE",
+          "publishedFileId": 9198354895791,
+          "stampedFileId": null
+        }
+      ]
+    },
+    "otherRows": [
+      "INT∕QM(E∕2) 质量手册 Quality Manual-INT-2026.2.28生效.pdf 当前有效版 版本号：V1.0 目录路径：质量管理/1. QMS documents/0 QM 发布文件：已生成 盖章文件：未生成 当前有效版来源：master 当前生效版本 V1.0 IN 当前有效版 版本号：V1.0 目录路径：质量管理/1. QMS documents/0 QM 发布文件：已生成 盖章文件：未生成 当前有效版来源：master 当前生效版本 V1.0 选择版本 现行 历史版 生效：2026,6,14 发布：2026-06-14 19:54:52 预览 追溯 签核 下载",
+      "2026年质量方针与目标(1).pdf 当前有效版 版本号：V1.0 目录路径：质量管理/1. QMS documents/0 QM 发布文件：已生成 盖章文件：未生成 当前有效版来源：master 当前生效版本 V1.0 - 当前有效版 版本号：V1.0 目录路径：质量管理/1. QMS documents/0 QM 发布文件：已生成 盖章文件：未生成 当前有效版来源：master 当前生效版本 V1.0 选择版本 现行 历史版 生效：2026,6,14 发布：2026-06-14 19:54:52 预览 追溯 签核 下载",
+      "2025年质量方针与目标.pdf 当前有效版 版本号：V1.0 目录路径：质量管理/1. QMS documents/0 QM 发布文件：已生成 盖章文件：未生成 当前有效版来源：master 当前生效版本 V1.0 - 当前有效版 版本号：V1.0 目录路径：质量管理/1. QMS documents/0 QM 发布文件：已生成 盖章文件：未生成 当前有效版来源：master 当前生效版本 V1.0 选择版本 现行 历史版 生效：2026,6,14 发布：2026-06-14 19:54:52 预览 追溯 签核 下载"
+    ],
+    "failedResponse": {
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/browser-page?pageNo=1&pageSize=20&quickFilter.fieldKey=categoryId&quickFilter.operator=eq&quickFilter.value=907211&latestVersionOnly=true&directoryId=906512&includeDescendantDirectories=false",
+      "httpStatus": 200,
+      "businessCode": 401,
+      "message": "账号未登录",
+      "rows": []
+    },
+    "timeoutDialogText": "系统提示 登录超时,请重新登录! 重新登录",
+    "labelsAfterFailure": [
+      "类别: 市场调研报告"
+    ],
+    "rowsAfterFailure": [
+      "INT∕QM(E∕2) 质量手册 Quality Manual-INT-2026.2.28生效.pdf 当前有效版 版本号：V1.0 目录路径：质量管理/1. QMS documents/0 QM 发布文件：已生成 盖章文件：未生成 当前有效版来源：master 当前生效版本 V1.0 IN 当前有效版 版本号：V1.0 目录路径：质量管理/1. QMS documents/0 QM 发布文件：已生成 盖章文件：未生成 当前有效版来源：master 当前生效版本 V1.0 选择版本 现行 历史版 生效：2026,6,14 发布：2026-06-14 19:54:52 预览 追溯 签核 下载",
+      "2026年质量方针与目标(1).pdf 当前有效版 版本号：V1.0 目录路径：质量管理/1. QMS documents/0 QM 发布文件：已生成 盖章文件：未生成 当前有效版来源：master 当前生效版本 V1.0 - 当前有效版 版本号：V1.0 目录路径：质量管理/1. QMS documents/0 QM 发布文件：已生成 盖章文件：未生成 当前有效版来源：master 当前生效版本 V1.0 选择版本 现行 历史版 生效：2026,6,14 发布：2026-06-14 19:54:52 预览 追溯 签核 下载",
+      "2025年质量方针与目标.pdf 当前有效版 版本号：V1.0 目录路径：质量管理/1. QMS documents/0 QM 发布文件：已生成 盖章文件：未生成 当前有效版来源：master 当前生效版本 V1.0 - 当前有效版 版本号：V1.0 目录路径：质量管理/1. QMS documents/0 QM 发布文件：已生成 盖章文件：未生成 当前有效版来源：master 当前生效版本 V1.0 选择版本 现行 历史版 生效：2026,6,14 发布：2026-06-14 19:54:52 预览 追溯 签核 下载"
+    ],
+    "confirmed": true
+  },
+  "completedAt": "2026-08-08T03:54:50.503Z",
+  "overall": {
+    "sessionFailureConfirmed": true,
+    "paginationConfirmed": false,
+    "previewRuntimeNoFeedbackConfirmed": false,
+    "previewSourceNoFailureFeedbackConfirmed": true,
+    "dccWriteRequestCount": 0
+  }
+}

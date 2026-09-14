@@ -1,0 +1,16 @@
+[
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[M]",
+    "props": {
+      "width": 22
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[N]",
+    "props": {
+      "width": 48
+    }
+  }
+]

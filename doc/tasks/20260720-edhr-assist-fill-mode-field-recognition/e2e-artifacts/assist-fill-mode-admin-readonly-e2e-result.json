@@ -1,0 +1,18 @@
+{
+  "status": "BLOCKED",
+  "readonly": true,
+  "baseUrl": "http://localhost:8081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "officialPreflight": "PASS: login preflight tenant=芋道源码 username=admin target=/mes/pro/feedback/edhr-batch-execution",
+  "pageAttempts": [],
+  "rowAttempts": [],
+  "listResponses": [],
+  "mesWriteRequests": [],
+  "error": {
+    "message": "no_admin_edhr_execution_rows_visible",
+    "details": {},
+    "stack": "Error: no_admin_edhr_execution_rows_visible\n    at failFast (E:\\IntRuoyi\\IntRuoyiFronted\\tests\\e2e\\edhr-assist-fill-mode-admin-readonly.e2e.js:29:17)\n    at tryOpenReadableExecution (E:\\IntRuoyi\\IntRuoyiFronted\\tests\\e2e\\edhr-assist-fill-mode-admin-readonly.e2e.js:338:13)\n    at async main (E:\\IntRuoyi\\IntRuoyiFronted\\tests\\e2e\\edhr-assist-fill-mode-admin-readonly.e2e.js:409:22)"
+  },
+  "failureScreenshot": "E:\\IntRuoyi\\doc\\tasks\\20260720-edhr-assist-fill-mode-field-recognition\\e2e-artifacts\\assist-fill-mode-admin-readonly-e2e-failure.png"
+}

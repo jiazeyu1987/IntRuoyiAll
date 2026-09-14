@@ -57,7 +57,8 @@ const summary = ref<MesHomeSummaryVO>({
   machineryStop: 0,
   machineryMaintenance: 0,
   andonActiveCount: 0,
-  repairActiveCount: 0
+  repairActiveCount: 0,
+  nonconformanceReviewPendingCount: 0
 }) // 数据
 
 const handleNavigate = (name: string) => {

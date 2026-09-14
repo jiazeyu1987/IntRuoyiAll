@@ -1,0 +1,83 @@
+{
+  "taskId": "20260808-dcc-browser-issues-confirmation",
+  "startedAt": "2026-08-08T03:55:07.504Z",
+  "baseUrl": "http://127.0.0.1:8081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "phase": "preview",
+  "targetDirectory": "0 QM",
+  "targetCategories": {
+    "other": "其他",
+    "empty": "市场调研报告"
+  },
+  "executablePath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "status": "PASS",
+  "consoleErrors": [],
+  "pageErrors": [],
+  "dccWriteRequests": [],
+  "sourceFindings": {
+    "queryCommitsRouteBeforeList": true,
+    "getListKeepsOldRowsOnFailure": true,
+    "quickFilterTabUsesDraftCondition": true,
+    "previewUsesUnguardedWindowOpen": true,
+    "paginationOnlyEmitsOnCurrentChange": true
+  },
+  "preview": {
+    "directory": {
+      "id": 906512,
+      "name": "0 QM",
+      "directoryPath": "质量管理/1. QMS documents/0 QM"
+    },
+    "baselineResponse": {
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/browser-page?pageNo=1&pageSize=20&latestVersionOnly=true&directoryId=906512&includeDescendantDirectories=false",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "total": 3,
+      "listLength": 3,
+      "rows": [
+        {
+          "id": "2054545668044052987",
+          "fileName": "INT∕QM(E∕2) 质量手册 Quality Manual-INT-2026.2.28生效.pdf",
+          "fileNumber": "IN",
+          "categoryId": 906104,
+          "status": "ACTIVE",
+          "publishedFileId": 9198354895793,
+          "stampedFileId": null
+        },
+        {
+          "id": "2054545668044052986",
+          "fileName": "2026年质量方针与目标(1).pdf",
+          "fileNumber": "",
+          "categoryId": 906104,
+          "status": "ACTIVE",
+          "publishedFileId": 9198354895792,
+          "stampedFileId": null
+        },
+        {
+          "id": "2054545668044052985",
+          "fileName": "2025年质量方针与目标.pdf",
+          "fileNumber": "",
+          "categoryId": 906104,
+          "status": "ACTIVE",
+          "publishedFileId": 9198354895791,
+          "stampedFileId": null
+        }
+      ]
+    },
+    "previewButtonVisible": true,
+    "previewPopupUrl": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044052987?viewer=1&from=browser&returnTo=%252Fdcc%252Fcontrolled-file%252Fbrowser%253FpageNo%253D1%2526pageSize%253D20%2526scope%253Dcurrent%2526directoryId%253D906512",
+    "previewMessageText": "",
+    "fileNameButtonVisible": true,
+    "fileNamePopupUrl": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044052987?viewer=1&from=browser&returnTo=%252Fdcc%252Fcontrolled-file%252Fbrowser%253FpageNo%253D1%2526pageSize%253D20%2526scope%253Dcurrent%2526directoryId%253D906512",
+    "fileNameMessageText": "",
+    "runtimeNoFeedbackConfirmed": false
+  },
+  "completedAt": "2026-08-08T03:55:29.593Z",
+  "overall": {
+    "sessionFailureConfirmed": false,
+    "paginationConfirmed": false,
+    "previewRuntimeNoFeedbackConfirmed": false,
+    "previewSourceNoFailureFeedbackConfirmed": true,
+    "dccWriteRequestCount": 0
+  }
+}

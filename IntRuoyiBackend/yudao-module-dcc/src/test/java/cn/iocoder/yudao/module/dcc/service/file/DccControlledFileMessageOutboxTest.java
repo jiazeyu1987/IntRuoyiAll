@@ -30,7 +30,7 @@ import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
-import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserReqDTO;
+import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserIdempotentReqDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -103,17 +103,26 @@ class DccControlledFileMessageOutboxTest extends BaseMockitoUnitTest {
     private PermissionApi permissionApi;
     @Mock
     private DccControlledContentAdapter platformAdapter;
+    @Mock
+    private DccControlledFileSignatureBindingService signatureBindingService;
 
     private DccControlledFileMessageDeliveryService messageDeliveryService;
+    @Mock
+    private DccControlledFileFinalizationFailureService finalizationFailureService;
+    private java.util.Map<Long, DccControlledFileMessageJobDO> messageJobs;
     @InjectMocks
     private DccControlledFileFinalizationServiceImpl finalizationService;
 
     private final AtomicLong distributionIdGenerator = new AtomicLong(5100L);
     private final AtomicLong trainingIdGenerator = new AtomicLong(6100L);
 
+    @org.junit.jupiter.api.AfterEach
+    void clearMessageTenant() { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
+
     @BeforeEach
     void setUp() {
         messageDeliveryService = new DccControlledFileMessageDeliveryService();
+        messageJobs = DccMessageDeliveryTestSupport.wire(messageDeliveryService, messageJobMapper);
         ReflectionTestUtils.setField(messageDeliveryService, "messageJobMapper", messageJobMapper);
         ReflectionTestUtils.setField(messageDeliveryService, "notifyMessageSendApi", notifyMessageSendApi);
         ReflectionTestUtils.setField(messageDeliveryService, "controlledFileMapper", controlledFileMapper);
@@ -163,9 +172,9 @@ class DccControlledFileMessageOutboxTest extends BaseMockitoUnitTest {
                 org.mockito.ArgumentMatchers.<SFunction<DccFileCategoryDistributionRuleDO, ?>>any(), eq(20L))).thenReturn(List.of(
                 DccFileCategoryDistributionRuleDO.builder().id(10L).categoryId(20L).departmentId(500L).active(Boolean.TRUE).build()));
         when(adminUserApi.getUserListByDeptIds(List.of(500L))).thenReturn(List.of(
-                new AdminUserRespDTO().setId(701L),
-                new AdminUserRespDTO().setId(702L)));
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class)))
+                new AdminUserRespDTO().setId(701L).setStatus(0),
+                new AdminUserRespDTO().setId(702L).setStatus(0)));
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any(NotifySendSingleToUserIdempotentReqDTO.class)))
                 .thenReturn(9101L, 9102L);
         stubStampedArtifact(120L, 9120L);
 
@@ -208,7 +217,7 @@ class DccControlledFileMessageOutboxTest extends BaseMockitoUnitTest {
                 org.mockito.ArgumentMatchers.<SFunction<DccFileCategoryDistributionRuleDO, ?>>any(), eq(21L))).thenReturn(List.of(
                 DccFileCategoryDistributionRuleDO.builder().id(12L).categoryId(21L).departmentId(501L).active(Boolean.TRUE).build()));
         when(adminUserApi.getUserListByDeptIds(List.of(501L))).thenReturn(List.of(
-                new AdminUserRespDTO().setId(801L)));
+                new AdminUserRespDTO().setId(801L).setStatus(0)));
         stubStampedArtifact(121L, 9121L);
         doAnswer(invocation -> {
             throw new IllegalStateException("message persistence failed");
@@ -218,9 +227,9 @@ class DccControlledFileMessageOutboxTest extends BaseMockitoUnitTest {
                 () -> finalizationService.handleProcessInstanceStatusChanged(approveEvent(921L)));
 
         assertEquals(CONTROLLED_FILE_STAMP_GENERATION_FAILED.getCode(), ex.getCode());
-        ArgumentCaptor<DccControlledFileDO> updateCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
-        verify(controlledFileMapper).updateById(updateCaptor.capture());
-        assertEquals(DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus(), updateCaptor.getValue().getStatus());
+        verify(finalizationFailureService).recordFailure(eq(1L), eq(921L),
+                eq(DccControlledFileStatusEnum.FINALIZING.getStatus()), any(),
+                eq("message persistence failed"), any());
         verify(controlledFileMasterMapper, never()).updateById(any(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMasterDO.class));
     }
 

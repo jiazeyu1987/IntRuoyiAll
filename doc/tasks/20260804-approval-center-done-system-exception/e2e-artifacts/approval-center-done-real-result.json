@@ -1,0 +1,83 @@
+{
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "identity": "芋道源码/admin",
+  "targetPath": "/approval-center/done",
+  "doneRequest": {
+    "status": 200,
+    "code": 0,
+    "total": 3222,
+    "listSize": 20,
+    "requestPath": "/admin-api/approval-center/tasks/page?pageNo=1&pageSize=20&viewType=DONE&keyword="
+  },
+  "ui": {
+    "route": "/approval-center/done",
+    "visibleRowCount": 20,
+    "emptyText": "",
+    "activeTexts": [
+      "审批中心128流程管理流程模型流程表单流程分类业务审批策略用户分组流程表达式待办128已办我发起的抄送我的OA 示例请假查询",
+      "已办",
+      "审批中心",
+      "1"
+    ]
+  },
+  "targetWriteRequestCount": 0,
+  "pageErrors": [],
+  "consoleErrors": [],
+  "targetNetworkFailures": [],
+  "nonDoneApprovalCenterNetworkFailures": [
+    {
+      "method": "GET",
+      "url": "/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "externalNetworkFailures": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/work-order/page?pageNo=1&pageSize=1&status=1&type=1&temporaryFrozen=false",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/showroom/assignment/page?status=OPEN&assigneeUserId=1&pageNo=1&pageSize=20",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-work-task/my-page?pageNo=1&pageSize=1&status=TODO",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://hm.baidu.com/hm.gif?hca=94F9460346ECDD6F&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&et=0&ja=0&ln=zh-cn&lo=0&rnd=384066570&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Findex&v=1.3.2&lv=1&api=4_0&sn=15646&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Findex&tt=%E7%91%9B%E6%B3%B0%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://hm.baidu.com/hm.gif?hca=94F9460346ECDD6F&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&ep=18822%2C18822&et=3&ja=0&ln=zh-cn&lo=0&rnd=215281756&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Findex&v=1.3.2&lv=1&sn=15646&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Findex",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260804-approval-center-done-system-exception\\e2e-artifacts\\approval-center-done-real.png"
+}

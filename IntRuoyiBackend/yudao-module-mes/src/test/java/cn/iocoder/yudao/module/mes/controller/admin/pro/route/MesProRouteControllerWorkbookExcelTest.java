@@ -6,6 +6,8 @@ import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
 import cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookExportService;
 import cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookImportResult;
 import cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookImportService;
+import cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteProcessTemplateImportResult;
+import cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteProcessTemplateService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -39,6 +41,8 @@ class MesProRouteControllerWorkbookExcelTest {
     private MesProRouteWorkbookExportService routeWorkbookExportService;
     @Mock
     private MesProRouteWorkbookImportService routeWorkbookImportService;
+    @Mock
+    private MesProRouteProcessTemplateService routeProcessTemplateService;
     @InjectMocks
     private MesProRouteController controller;
 
@@ -90,5 +94,51 @@ class MesProRouteControllerWorkbookExcelTest {
                 importMethod.getAnnotation(PreAuthorize.class).value());
         RequestParam fileParam = importMethod.getParameters()[0].getAnnotation(RequestParam.class);
         assertEquals("file", fileParam.value());
+    }
+
+    @Test
+    void processTemplateEndpoints_delegateRouteIdAndImportMode() throws Exception {
+        byte[] workbookBytes = new byte[] {4, 5, 6};
+        when(routeProcessTemplateService.exportTemplate(10L)).thenReturn(workbookBytes);
+        MockHttpServletResponse exportResponse = new MockHttpServletResponse();
+
+        controller.exportRouteProcessTemplateXlsx(10L, exportResponse);
+
+        assertArrayEquals(workbookBytes, exportResponse.getContentAsByteArray());
+        assertEquals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+                exportResponse.getContentType());
+
+        MockMultipartFile file = new MockMultipartFile("file", "process-template.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", workbookBytes);
+        MesProRouteProcessTemplateImportResult result = new MesProRouteProcessTemplateImportResult();
+        result.setRouteProcessCount(2);
+        when(routeProcessTemplateService.importTemplate(eq(file), eq("UPGRADE"))).thenReturn(result);
+
+        CommonResult<MesProRouteProcessTemplateImportResult> response =
+                controller.importRouteProcessTemplateXlsx(file, "UPGRADE");
+
+        assertEquals(0, response.getCode());
+        assertSame(result, response.getData());
+        verify(routeProcessTemplateService).importTemplate(eq(file), eq("UPGRADE"));
+    }
+
+    @Test
+    void processTemplateEndpoints_exposeExpectedContract() throws Exception {
+        Method exportMethod = MesProRouteController.class.getDeclaredMethod(
+                "exportRouteProcessTemplateXlsx", Long.class, jakarta.servlet.http.HttpServletResponse.class);
+        assertArrayEquals(new String[] {"/export-process-template-xlsx"},
+                exportMethod.getAnnotation(GetMapping.class).value());
+        assertEquals("@ss.hasPermission('mes:pro-route:export')",
+                exportMethod.getAnnotation(PreAuthorize.class).value());
+
+        Method importMethod = MesProRouteController.class.getDeclaredMethod(
+                "importRouteProcessTemplateXlsx", org.springframework.web.multipart.MultipartFile.class,
+                String.class);
+        assertArrayEquals(new String[] {"/import-process-template-xlsx"},
+                importMethod.getAnnotation(PostMapping.class).value());
+        assertEquals("@ss.hasPermission('mes:pro-route:update')",
+                importMethod.getAnnotation(PreAuthorize.class).value());
+        assertEquals("file", importMethod.getParameters()[0].getAnnotation(RequestParam.class).value());
+        assertEquals("importMode", importMethod.getParameters()[1].getAnnotation(RequestParam.class).value());
     }
 }

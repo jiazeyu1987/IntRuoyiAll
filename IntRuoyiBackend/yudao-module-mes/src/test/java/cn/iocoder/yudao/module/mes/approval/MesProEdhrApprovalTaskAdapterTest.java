@@ -106,6 +106,36 @@ class MesProEdhrApprovalTaskAdapterTest {
     }
 
     @Test
+    void pageTodoMapsSourceUserToUnifiedApplicant() {
+        MesProEdhrWorkTaskRespVO task = new MesProEdhrWorkTaskRespVO()
+                .setId(67L)
+                .setTaskCode("EDHR-WT-67")
+                .setTaskType("PQC_PRODUCTION_RELEASE")
+                .setBatchCode("BATCH-APPLICANT")
+                .setProcessName("PQC生产放行")
+                .setSourceUserId(201L)
+                .setSourceUserName("张三")
+                .setAssigneeUserId(188L)
+                .setStatus("TODO")
+                .setCreateTime(LocalDateTime.parse("2026-08-31T04:41:37"));
+        when(workTaskService.getApprovalCenterTodoPage(
+                org.mockito.ArgumentMatchers.any(MesProEdhrWorkTaskPageReqVO.class),
+                org.mockito.ArgumentMatchers.eq(false)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(workTaskService.getApprovalCenterCandidateSignatureTodoPage(
+                org.mockito.ArgumentMatchers.any(MesProEdhrWorkTaskPageReqVO.class),
+                org.mockito.ArgumentMatchers.eq(false)))
+                .thenReturn(PageResult.empty());
+
+        ApprovalTaskSummary summary = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.EDHR, "BATCH-APPLICANT", 1, 10))
+                .getList().get(0);
+
+        assertEquals(201L, summary.getInitiatorUserId());
+        assertEquals("张三", summary.getInitiatorUserName());
+    }
+
+    @Test
     void pageTodoUsesFillActionUrlAsDecisionDetailInsteadOfApprovalDetail() {
         MesProEdhrWorkTaskRespVO task = new MesProEdhrWorkTaskRespVO()
                 .setId(1166L)
@@ -384,7 +414,7 @@ class MesProEdhrApprovalTaskAdapterTest {
         assertEquals("166", summary.getDecisionDetailQuery().get("workTaskId"));
         assertEquals("approval", summary.getDecisionDetailQuery().get("focus"));
         assertEquals("9100", summary.getDecisionDetailQuery().get("releaseTransactionId"));
-        assertEquals(Set.of("APPROVE", "REJECT", "PROCESS_IN_MODULE"), summary.getAvailableActions());
+        assertEquals(Set.of("APPROVE", "PROCESS_IN_MODULE"), summary.getAvailableActions());
     }
 
     @Test
@@ -394,18 +424,25 @@ class MesProEdhrApprovalTaskAdapterTest {
                 .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE)
                 .setBusinessScopeType("RELEASE_TRANSACTION")
                 .setBusinessScopeId(9200L);
-        when(workTaskService.validateReleaseApprovalTask(177L, null)).thenReturn(task);
+        when(workTaskService.getReleaseApprovalTaskForReview(177L, null)).thenReturn(task);
+        when(releaseService.get(9200L)).thenReturn(new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseRespVO().setVersion(3));
 
         ApprovalTaskReviewContext context = ApprovalTaskReviewContext.of(188L, ApprovalModuleCode.EDHR,
                 "EDHR_WORK_TASK", "177", "177", null, ApprovalTaskReviewResult.APPROVE,
                 "符合放行要求", "111111", false);
         context.setSignatureImageFileUrl("http://localhost/signature/177.png");
+        context.setSignatureSubjectId("signed-subject-177");
+        context.setSignatureEvidenceHash("a".repeat(64));
         adapter.review(context);
 
         ArgumentCaptor<MesProEdhrReleaseApproveReqVO> captor =
                 ArgumentCaptor.forClass(MesProEdhrReleaseApproveReqVO.class);
         verify(releaseService).approve(captor.capture());
         assertEquals(9200L, captor.getValue().getReleaseTransactionId());
+        assertEquals(177L, captor.getValue().getWorkTaskId());
+        assertEquals(3, captor.getValue().getExpectedVersion());
+        assertEquals("signed-subject-177", captor.getValue().getSignoffSubjectId());
+        assertEquals("a".repeat(64), captor.getValue().getSignoffEvidenceHash());
         assertEquals("APPROVAL-CENTER-APPROVE-177", captor.getValue().getIdempotencyKey());
         assertEquals("符合放行要求", captor.getValue().getApprovalOpinion());
         assertNotEquals("http://localhost/signature/177.png", captor.getValue().getSignoffEvidenceHash());

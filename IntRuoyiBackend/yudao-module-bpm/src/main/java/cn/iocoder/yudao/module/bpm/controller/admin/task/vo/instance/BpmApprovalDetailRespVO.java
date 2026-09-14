@@ -54,6 +54,12 @@ public class BpmApprovalDetailRespVO {
         @Schema(description = "节点状态", requiredMode = Schema.RequiredMode.REQUIRED, example = "0")
         private Integer status; // 参见 BpmTaskStatusEnum 枚举
 
+        @Schema(description = "正式审批角色编码", example = "dcc_registration_certificate_approver")
+        private String assigneeRoleCode;
+
+        @Schema(description = "正式审批角色名称", example = "注册部经理")
+        private String assigneeRoleName;
+
         @Schema(description = "节点的开始时间")
         private LocalDateTime startTime;
         @Schema(description = "节点的结束时间")
@@ -97,6 +103,12 @@ public class BpmApprovalDetailRespVO {
 
         @Schema(description = "任务分配人", example = "2048")
         private UserSimpleBaseVO assigneeUser;
+
+        @Schema(description = "正式审批角色编码", example = "dcc_registration_certificate_approver")
+        private String assigneeRoleCode;
+
+        @Schema(description = "正式审批角色名称", example = "注册部经理")
+        private String assigneeRoleName;
 
         @Schema(description = "任务状态", requiredMode = Schema.RequiredMode.REQUIRED, example = "1")
         private Integer status;  // 参见 BpmTaskStatusEnum 枚举

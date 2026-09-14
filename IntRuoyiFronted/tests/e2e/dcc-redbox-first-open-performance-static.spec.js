@@ -15,7 +15,7 @@ const readWorkspaceSource = (relativePath) =>
   fs.readFileSync(path.join(workspaceRoot, relativePath), 'utf8')
 
 const packageJson = JSON.parse(readSource('package.json'))
-const menuSchema = readWorkspaceSource('ruoyi-vue-pro/sql/mysql/20260513_dcc_base_schema.sql')
+const menuSchema = readWorkspaceSource('IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql')
 const categoriesPage = readSource('src/views/dcc/controlled-file/categories/index.vue')
 const directoriesPage = readSource('src/views/dcc/controlled-file/directories/index.vue')
 const routesPage = readSource('src/views/dcc/controlled-file/routes/index.vue')
@@ -32,8 +32,8 @@ for (const [title, component] of [
   ['文档目录', 'dcc/controlled-file/directories/index'],
   ['文控权限', 'dcc/controlled-file/categories/index'],
   ['上传审批', 'dcc/controlled-file/routes/index'],
-  ['文件提交', 'dcc/controlled-file/upload/index'],
-  ['文件查阅', 'dcc/controlled-file/browser/index']
+  ['文件上传', 'dcc/controlled-file/upload/index'],
+  ['受控浏览', 'dcc/controlled-file/browser/index']
 ]) {
   assert.ok(menuSchema.includes(`'${title}'`), `DCC menu seed must keep ${title}`)
   assert.ok(menuSchema.includes(`'${component}'`), `DCC menu seed must map ${title} to ${component}`)
@@ -98,7 +98,7 @@ assert.doesNotMatch(
 )
 assert.match(
   routesPage,
-  /const ensureRoutePreviewLookupsLoaded = async \(\) => \{[\s\S]*getApprovalPositionList\(\)[\s\S]*getSimpleUserList\(\)/,
+  /const loadRouteSubjectLookups = async \(\) => \{[\s\S]*getApprovalPositionList\(\)[\s\S]*getSimpleUserList\(\)/,
   '流程路线岗位和用户候选应延迟到预览需要时加载'
 )
 

@@ -7,6 +7,8 @@ export interface BatchRecordReportVO {
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
   productName?: string
+  projectCode?: string
+  dccProjectCodeId?: number
   versionNo?: string
   versionStatus?: string
   sourceTableIndex: number
@@ -25,6 +27,7 @@ export interface BatchRecordReportPageReqVO extends PageParam {
   productName?: string
   versionNo?: string
   formSlotType?: BatchRecordFormSlotType
+  latestVersionOnly?: boolean
   routeKey?: string
   name?: string
 }
@@ -50,6 +53,7 @@ export interface BatchRecordReportImportResultVO {
   boundProductCodeCount?: number
   skippedProductNames?: string[]
   reports: BatchRecordReportVO[]
+  totalRecognitionJson?: string
 }
 
 export interface BatchRecordReportImportRouteProductOptionVO {
@@ -101,9 +105,14 @@ export interface BatchRecordReportImportPreflightVO {
   currentRouteId?: number
   currentRouteCode?: string
   currentRouteName?: string
+  currentRouteStatus?: number
+  routeRestoreRequired?: boolean
   currentRouteVersionId?: number
   currentRouteVersionNo?: string
   currentRouteVersionActive?: boolean
+  currentRouteCandidateVersionId?: number
+  currentRouteCandidateVersionNo?: string
+  currentRouteCandidateVersionStatus?: string
   hasHistoricalReferences?: boolean
   referenceBlockers?: BatchRecordReportReferenceBlockerVO[]
   allowedActions?: BatchRecordWordImportAction[]
@@ -122,12 +131,13 @@ export interface BatchRecordVersionApprovalResultVO {
   processedResult?: string
 }
 
-export type BatchRecordFormSlotType = 'MAIN' | 'LOSS_REPORT' | 'PROCESS_INSPECTION' | 'PARAMETER_RECORD'
+export type BatchRecordFormSlotType = 'MAIN' | 'FORM' | 'LOSS_REPORT' | 'PROCESS_INSPECTION' | 'PARAMETER_RECORD'
 
 export interface BatchRecordReportDeleteAllRespVO {
   deletedReportCount: number
   deletedMetadataCount: number
   skippedBoundReportCount: number
+  skippedControlledReportCount: number
   unboundRouteProcessCount?: number
   deletedRouteFlowBindingCount?: number
   unboundRouteFlowProcessConfigCount?: number
@@ -188,6 +198,8 @@ export interface BatchRecordReportCellRuleConstraints {
   minLength?: number
   maxLength?: number
   format?: string
+  selectionMode?: string
+  options?: Array<{ label: string; value: string }>
   [key: string]: unknown
 }
 
@@ -197,6 +209,18 @@ export interface BatchRecordReportCellAttachmentRuleVO {
   maxCount?: number
   attachmentType?: string
   groupKey?: string
+}
+
+export interface BatchRecordReportAssistRowFieldVO {
+  rowIndex: number
+  columnIndex: number
+}
+
+export interface BatchRecordReportAssistRowVO {
+  rowKey: string
+  description: string
+  sort: number
+  fields: BatchRecordReportAssistRowFieldVO[]
 }
 
 export interface BatchRecordReportCellRuleVO {
@@ -222,18 +246,46 @@ export interface BatchRecordReportCellRulesRespVO {
   rules: BatchRecordReportCellRuleVO[]
   suggestions: BatchRecordReportCellRuleVO[]
   unreviewedFillableCellCount: number
+  assistRows?: BatchRecordReportAssistRowVO[]
+  assistGridRowCount?: number
+  assistGridColumnCount?: number
 }
 
 export interface BatchRecordReportCellRulesReqVO {
   reportId: string
   rules: BatchRecordReportCellRuleVO[]
+  signatureCellMarkers?: BatchRecordReportSignatureCellMarkerVO[]
+  assistRows?: BatchRecordReportAssistRowVO[]
+  assistGridRowCount?: number
+  assistGridColumnCount?: number
 }
 
 export const BatchRecordReportApi = {
+  importTotalRecognitionJson: async (dccProjectCodeId: number, file: File) => {
+    const data = new FormData()
+    data.append('dccProjectCodeId', String(dccProjectCodeId))
+    data.append('file', file)
+    return await request.upload<boolean>({
+      url: '/mes/pro/batch-record-report/import-total-recognition-json',
+      data
+    })
+  },
+
   importPilotDoc: async (data: FormData) => {
     const result = await request.upload<{ data: BatchRecordReportImportResultVO }>({
       url: '/mes/pro/batch-record-report/import',
       data
+    })
+    return result.data
+  },
+
+  parseProductionBatchRecordTotalRecognitionJson: async (file: File) => {
+    const data = new FormData()
+    data.append('file', file)
+    const result = await request.upload<{ data: string }>({
+      url: '/mes/pro/batch-record-report/production-batch-record/total-recognition-json',
+      data,
+      timeout: WORD_IMPORT_REQUEST_TIMEOUT
     })
     return result.data
   },
@@ -257,6 +309,7 @@ export const BatchRecordReportApi = {
     file: File,
     routeKey: string,
     batchRecordName: string,
+    dccProjectCodeId: number,
     upgrade: boolean,
     productNames: string[],
     rebuildBatchRecord = true,
@@ -267,12 +320,14 @@ export const BatchRecordReportApi = {
     expectedTargetVersionNo?: string,
     routeUpgradeConfirmed = false,
     expectedRouteId?: number,
-    expectedRouteVersionId?: number
+    expectedRouteVersionId?: number,
+    expectedRouteCandidateVersionId?: number
   ) => {
     const data = new FormData()
     data.append('file', file)
     data.append('routeKey', routeKey)
     data.append('batchRecordName', batchRecordName)
+    data.append('dccProjectCodeId', String(dccProjectCodeId))
     data.append('upgrade', String(upgrade))
     data.append('importAction', importAction)
     if (expectedSourceVersionId !== undefined) {
@@ -288,6 +343,9 @@ export const BatchRecordReportApi = {
     if (expectedRouteVersionId !== undefined) {
       data.append('expectedRouteVersionId', String(expectedRouteVersionId))
     }
+    if (expectedRouteCandidateVersionId != null) {
+      data.append('expectedRouteCandidateVersionId', String(expectedRouteCandidateVersionId))
+    }
     data.append('rebuildBatchRecord', String(rebuildBatchRecord))
     productNames.forEach((productName) => data.append('productNames', productName))
     selectedRouteProductIds.forEach((routeProductId) =>
@@ -302,10 +360,16 @@ export const BatchRecordReportApi = {
     return result.data
   },
 
-  preflightUploadedRoute: async (routeKey: string, batchRecordName: string, productNames: string[]) => {
+  preflightUploadedRoute: async (
+    routeKey: string,
+    batchRecordName: string,
+    dccProjectCodeId: number,
+    productNames: string[]
+  ) => {
     const params = new URLSearchParams()
     params.append('routeKey', routeKey)
     params.append('batchRecordName', batchRecordName)
+    params.append('dccProjectCodeId', String(dccProjectCodeId))
     productNames.forEach((productName) => params.append('productNames', productName))
     const query = params.toString()
     return await request.get<BatchRecordReportImportPreflightVO>({
@@ -344,6 +408,13 @@ export const BatchRecordReportApi = {
     return await request.get<string[]>({ url: '/mes/pro/batch-record-report/batch-record-names' })
   },
 
+  getProductNameOptions: async (keyword?: string, latestVersionOnly?: boolean) => {
+    return await request.get<string[]>({
+      url: '/mes/pro/batch-record-report/product-name-options',
+      params: { keyword, latestVersionOnly }
+    })
+  },
+
   getGeneratedReportPage: async (params: BatchRecordReportPageReqVO) => {
     return await request.get({ url: '/mes/pro/batch-record-report/page', params })
   },
@@ -379,6 +450,13 @@ export const BatchRecordReportApi = {
   getCellRules: async (reportId: string) => {
     return await request.get<BatchRecordReportCellRulesRespVO>({
       url: '/mes/pro/batch-record-report/cell-rules',
+      params: { reportId }
+    })
+  },
+
+  formalizeCellRules: async (reportId: string) => {
+    return await request.post<BatchRecordReportCellRulesRespVO>({
+      url: '/mes/pro/batch-record-report/cell-rules/formalize',
       params: { reportId }
     })
   },

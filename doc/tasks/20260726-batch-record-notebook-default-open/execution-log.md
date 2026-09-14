@@ -1,0 +1,26 @@
+# Execution Log
+
+- User intent: 截图红框内“记录本”选项不显示，默认全部打开。
+- Skills: `bug-regression-fix-loop`, `frontend-feature-delivery`。
+- Trigger docs read: `docs/frontend-development.md`, `docs/task-closeout-rules.md`, `docs/powershell-memory.md`, `docs/e2e-rules.md`, `docs/powershell-encoding.md`。
+- Pre-existing baseline: 工作区开始时存在多项非本任务脏改动，随后已出现本地领先提交 `697f4e3b chore: baseline dirty worktree before route load optimization`，文件清单见 `git show --name-status --oneline -1`。
+- Experience preflight: 命中前端静态契约隔离、静态合同同步和截图红框区域保护门禁；本任务采用窄静态合同覆盖，不运行写入型真实 E2E。
+- BDD: 隐藏记录本开关并默认开启 -> Given 用户打开工艺路线/批记录配置右侧动态表单列表, When 页面渲染每个表单配置卡片, Then 不显示“记录本”开关且每个表单配置按记录本开启保存。
+- RED: `node tests\e2e\edhr-recordbook-config-default-open-static.spec.js` -> FAIL, expected reason: `路线配置右侧动态表单列表不得再显示“记录本”开关。`
+- Root cause: `RouteFlowGraphDesigner.vue` 在动态表单绑定卡片内渲染 `data-route-process-setting-field="recordbook-enabled"` 开关，并在读取/草稿/保存时继续用 `report|binding.recordbookEnabled !== false` 保留关闭状态。
+- Implementation: 移除“记录本”开关 DOM 和 `handleRecordBindingRecordbookEnabledChange`；将 `normalizeFormBinding`、草稿快照和 `buildFormBindingSaveRows` 的 `recordbookEnabled` 统一写为 `true`。
+- Test update: 新增 `edhr-recordbook-config-default-open-static.spec.js`；更新 `edhr-recordbook-batch-sync-static.spec.js` 为“不得显示开关/不得保留关闭状态”；移除真实 E2E 中通过旧开关创建禁用样本的分支。
+- GREEN: `node tests\e2e\edhr-recordbook-config-default-open-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\edhr-recordbook-batch-sync-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\edhr-recordbook-global-setting-static.spec.js` -> PASS。
+- GREEN: `node --check tests\e2e\edhr-recordbook-batch-sync-real.e2e.js` -> PASS。
+- REGRESSION: `node tests\e2e\edhr-batch-detail-hide-red-box-static.spec.js` -> PASS。
+- REGRESSION: `node tests\e2e\edhr-batch-process-form-card-fillers-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `git diff --check` -> PASS with CRLF normalization warnings only.
+- Git note: 任务执行期间出现并发本地基线提交 `792fec93`、`377d00db` 和其它非本任务未提交改动；本任务提交前按文件/补丁范围隔离当前修改。
+- GREEN: `project-experience-consolidation` -> PASS，已搜索 `docs/`；现有 `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁` 和 `docs/frontend-development.md#前端静态契约隔离门禁` 已覆盖“隐藏控件时同步静态/真实 E2E 合同”的可复用经验，本次不新增长期经验文档。
+- GREEN: cleanup preview -> PASS, keep `task.md`, `execution-log.md`, `verification-report.md`, `bug-regression-evidence.md`, `frontend-feature-evidence.md`; delete `<none>`, blocked `<none>`, warnings `<none>`。
+- GREEN: cleanup apply -> PASS, deleted_paths `<none>`。
+- GREEN: implementation commit -> PASS, `2323d141 fix: default route recordbook configs open`。
+- Final status: completed; remaining dirty files in `git status` are concurrent non-task changes and were not staged into this task commit.

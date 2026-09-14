@@ -4,6 +4,7 @@ export const MDM_PRODUCT_STATUS_ENABLE = 'ENABLE'
 export const MDM_PRODUCT_STATUS_DISABLE = 'DISABLE'
 
 export interface MdmProductPageReqVO extends PageParam {
+  productMasterId?: number | string
   keyword?: string
   productCode?: string
   dccProductCode?: string

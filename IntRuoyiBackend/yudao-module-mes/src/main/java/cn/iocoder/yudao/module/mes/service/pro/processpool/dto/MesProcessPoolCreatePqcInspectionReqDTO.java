@@ -1,0 +1,41 @@
+package cn.iocoder.yudao.module.mes.service.pro.processpool.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class MesProcessPoolCreatePqcInspectionReqDTO {
+
+    private Long workOrderId;
+    private Long productionSubmitEventId;
+    private String pqcSubmissionIdempotencyKey;
+    private Long routeId;
+    private Long routeProcessId;
+    private Long processId;
+    private Long qaProcessId;
+    private Long actualEmployeeId;
+    private Long deviceAccountId;
+    private Long deviceId;
+    private Long workstationId;
+    private String templateType;
+    private String feedbackSourceType;
+    private Long feedbackSourceId;
+    private String recordbookSourceType;
+    private Long recordbookSourceId;
+    private String inspectionResult;
+    private String rawPayload;
+    private LocalDateTime clientSubmitTime;
+    private Long signatureId;
+    private Long signatureUserId;
+    private String signatureSnapshot;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
+}

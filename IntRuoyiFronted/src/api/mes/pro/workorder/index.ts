@@ -1,6 +1,10 @@
 import request from '@/config/axios'
 import type { TableQuickFilterValue } from '@/hooks/web/useTableQuickFilter'
 
+interface ProWorkOrderRequestOptions {
+  ignoreErrorMessage?: boolean
+}
+
 export interface ProWorkOrderVO {
   id: number
   code: string
@@ -8,6 +12,7 @@ export interface ProWorkOrderVO {
   type: number
   orderSourceType: number
   orderSourceCode: string
+  demandBillNo: string
   productId: number
   productName: string
   productCode: string
@@ -30,6 +35,7 @@ export interface ProWorkOrderVO {
   auxiliaryCode: string
   businessStatus: string
   drawingNumber: string
+  refNo: string
   scheduleStatus: string
   plannedStartTime: Date
   plannedEndTime: Date
@@ -43,6 +49,7 @@ export interface ProWorkOrderVO {
   remark: string
   productionMaterialListCount: number
   productionMaterialListSummary: string
+  createTime?: string | number | Date
 }
 
 export interface ProWorkOrderTemporaryFreezeStatusVO {
@@ -97,6 +104,7 @@ export interface ProWorkOrderKingdeeSyncStatusVO {
 
 export interface ProWorkOrderPageReqVO extends PageParam {
   code?: string
+  demandBillNo?: string
   productNameKeyword?: string
   productCodeKeyword?: string
   requestDate?: string[]
@@ -104,8 +112,11 @@ export interface ProWorkOrderPageReqVO extends PageParam {
 }
 
 export const ProWorkOrderApi = {
-  getWorkOrderPage: async (params: ProWorkOrderPageReqVO) => {
-    return await request.get({ url: `/mes/pro/work-order/page`, params })
+  getWorkOrderPage: async (
+    params: ProWorkOrderPageReqVO,
+    options: ProWorkOrderRequestOptions = {}
+  ) => {
+    return await request.get({ url: `/mes/pro/work-order/page`, params, ...options })
   },
 
   getWorkOrderProductNameOptions: async (keyword?: string): Promise<string[]> => {

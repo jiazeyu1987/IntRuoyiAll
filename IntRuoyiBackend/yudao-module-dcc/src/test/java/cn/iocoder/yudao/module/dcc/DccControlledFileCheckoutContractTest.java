@@ -1,0 +1,116 @@
+package cn.iocoder.yudao.module.dcc;
+
+import org.junit.jupiter.api.Test;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class DccControlledFileCheckoutContractTest {
+
+    private static final Path BACKEND_ROOT = resolveBackendRoot(Path.of("").toAbsolutePath());
+
+    @Test
+    void backendExposesCheckoutAndCheckinApi() throws Exception {
+        String controller = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java");
+        assertTrue(controller.contains("/{id:\\\\d+}/checkout"));
+        assertTrue(controller.contains("/{id:\\\\d+}/checkin"));
+        assertTrue(controller.contains("/{id:\\\\d+}/checkout/cancel"));
+        assertTrue(controller.contains("@Valid @RequestBody DccControlledFileCheckoutReqVO reqVO"));
+        assertTrue(controller.contains("@Valid @RequestBody DccControlledFileCheckinReqVO reqVO"));
+        assertTrue(controller.contains("queryService.checkoutControlledFile(getLoginUserId(), id, reqVO)"));
+        assertTrue(controller.contains("queryService.checkinControlledFile(getLoginUserId(), id, reqVO)"));
+        assertTrue(controller.contains("queryService.cancelCheckoutControlledFile(getLoginUserId(), id, reqVO)"));
+        assertTrue(controller.contains("/major-revision"));
+        assertTrue(controller.contains("workflowService.createMajorRevision(getLoginUserId(), reqVO)"));
+    }
+
+    @Test
+    void checkoutStateIsPersistedAndProjectedWithOwner() throws Exception {
+        String service = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java");
+        String mapper = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.java");
+        String response = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.java");
+        String versionHistoryResponse = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileVersionHistoryRespVO.java");
+        String dataObject = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileDO.java");
+        assertTrue(service.contains("checkoutControlledFile"));
+        assertTrue(service.contains("checkinControlledFile"));
+        assertTrue(service.contains("selectActiveByMasterId"));
+        assertTrue(service.contains("prepareSubmissionSource"));
+        assertTrue(service.contains("markCheckedIn"));
+        assertTrue(service.contains("markCancelled"));
+        assertTrue(service.contains("requireCheckoutAccessibleControlledFile(userId, id)"));
+        assertTrue(service.contains("private DccControlledFileDO requireCheckoutAccessibleControlledFile"));
+        assertTrue(service.contains("canAccessQuery(userId, file, new DccControlledFilePageReqVO(), hasDirectoryManagementPermission)"));
+        assertTrue(service.contains("file.setCheckedOutBy(userId);"));
+        assertTrue(service.contains("file.setCheckedOutTime(LocalDateTime.now());"));
+        assertTrue(service.contains("checkinByIdAndTenantWhenOwner"));
+        assertTrue(service.contains("return toBrowserRespVO(userId, file);"));
+        assertTrue(service.contains("setCheckedOutByName"));
+        assertTrue(mapper.contains("checked_out_by IS NULL"));
+        assertTrue(mapper.contains("checked_out_by = #{actorId}"));
+        assertTrue(mapper.contains("checked_out_by = NULL"));
+        assertTrue(response.contains("private Long checkedOutBy"));
+        assertTrue(response.contains("private String checkedOutByName"));
+        assertTrue(response.contains("private String checkedOutReason"));
+        assertTrue(versionHistoryResponse.contains("private Long checkedOutBy"));
+        assertTrue(versionHistoryResponse.contains("private String checkedOutByName"));
+        assertTrue(service.contains("fillCheckoutProjection(respVO, history)"));
+        assertTrue(dataObject.contains("private Long checkedOutBy"));
+        assertTrue(dataObject.contains("private LocalDateTime checkedOutTime"));
+        assertTrue(dataObject.contains("private String checkedOutReason"));
+    }
+
+    @Test
+    void browserKeepsViewMatrixVisibleWhenAssignmentScopeIsEmpty() throws Exception {
+        String service = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java");
+        assertTrue(service.contains("listControlledFileBrowserCandidates(userId, reqVO, blacklistedExtensionPatterns,"));
+        assertTrue(service.contains("activeAssignedControlledFileIds);"));
+        assertTrue(service.contains("selectBrowserSummaryList(candidateReqVO)"));
+        assertTrue(service.contains("activeAssignedControlledFileIds == null || activeAssignedControlledFileIds.isEmpty()"));
+        assertTrue(service.contains(": isActiveAssignedControlledFile(file, activeAssignedControlledFileIds)"));
+        assertTrue(service.contains("? canAccessQuery(userId, file, reqVO, false, currentViewMatrixAccessByCategory)"));
+        assertFalse(service.contains("isActiveAssignedControlledFile(file, activeAssignedControlledFileIds)\n"
+                + "                        || canAccessQuery(userId, file, reqVO, hasDirectoryManagementPermission,"));
+    }
+
+    @Test
+    void schemaContainsCheckoutColumnsAndIndex() throws Exception {
+        String baseSchema = readBackend("sql/mysql/20260513_dcc_base_schema.sql");
+        String testSchema = readBackend("yudao-module-dcc/src/test/resources/sql/create_tables.sql");
+        String migration = readBackend("sql/mysql/20260903_dcc_controlled_file_checkout.sql");
+        String lifecycleMigration = readBackend("sql/mysql/20260906_dcc_new_file_lifecycle_p2.sql");
+        for (String schema : new String[]{baseSchema, testSchema, migration}) {
+            assertTrue(schema.contains("checked_out_by"));
+            assertTrue(schema.contains("checked_out_time"));
+        }
+        assertTrue(migration.contains("idx_dcc_controlled_file_checkout"));
+        assertTrue(migration.contains("release-migration:"));
+        assertTrue(migration.contains("CREATE PROCEDURE ensure_dcc_checkout_column"));
+        assertTrue(migration.contains("information_schema.columns"));
+        assertTrue(migration.contains("information_schema.statistics"));
+        assertTrue(migration.contains("DROP PROCEDURE IF EXISTS ensure_dcc_checkout_column"));
+        assertTrue(migration.contains("DROP PROCEDURE IF EXISTS ensure_dcc_checkout_index"));
+        assertTrue(lifecycleMigration.contains("dcc_controlled_file_checkout"));
+        assertTrue(lifecycleMigration.contains("checkin_upload_ticket"));
+        assertTrue(lifecycleMigration.contains("active_master_id"));
+        assertTrue(lifecycleMigration.contains("predecessor_controlled_file_id"));
+    }
+
+    private static String readBackend(String relativePath) throws Exception {
+        return Files.readString(BACKEND_ROOT.resolve(relativePath), StandardCharsets.UTF_8);
+    }
+
+    private static Path resolveBackendRoot(Path start) {
+        Path current = start;
+        while (current != null) {
+            if (Files.exists(current.resolve("sql/mysql/20260513_dcc_base_schema.sql"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Cannot resolve IntRuoyi backend root from " + start);
+    }
+}

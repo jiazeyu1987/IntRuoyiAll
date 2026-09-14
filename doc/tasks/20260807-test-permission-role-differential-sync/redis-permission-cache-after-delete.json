@@ -1,0 +1,15 @@
+{
+  "keyCount": 2,
+  "keys": [
+    {
+      "db": 1,
+      "pattern": "*user_role_ids*",
+      "key": "user_role_ids:376"
+    },
+    {
+      "db": 1,
+      "pattern": "*user_role_ids*",
+      "key": "user_role_ids:910250"
+    }
+  ]
+}

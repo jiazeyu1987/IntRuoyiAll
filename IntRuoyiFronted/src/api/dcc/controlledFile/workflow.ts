@@ -13,6 +13,7 @@ export const DCC_CONTROLLED_FILE_ACTIONS = [
   'VIEW',
   'PREVIEW',
   'DOWNLOAD',
+  'PRINT',
   'WITHDRAW',
   'OBSOLETE',
   'PUBLISH',
@@ -21,7 +22,8 @@ export const DCC_CONTROLLED_FILE_ACTIONS = [
   'RESUBMIT_WITHDRAWN_FLOW',
   'UPLOAD_TRAINING_RECORD',
   'ACKNOWLEDGE_TRAINING',
-  'RETRY_FINALIZATION'
+  'RETRY_FINALIZATION',
+  'MAJOR_REVISION'
 ] as const
 
 export type DccControlledFileAction = (typeof DCC_CONTROLLED_FILE_ACTIONS)[number]
@@ -40,30 +42,38 @@ export interface ControlledFileSubmitReqVO {
   categoryId: number
   directoryId: number
   sessionId: string
+  idempotencyKey: string
   originalUploadTicket: string
   sourceUploadTicket?: string
   sourceFileName?: string
   drawingPdfUploadTicket?: string
   fileName: string
   fileNumber: string
-  productMasterId?: number | null
+  productMasterId?: null
   productCode?: string
   dccProjectCodeId?: number | null
   fileTypeTaxonomyId?: number | null
   revisionTargetControlledFileId?: number | null
+  relatedControlledFileIds?: number[]
   needTraining: boolean
   selectedSignoffUserIds?: number[]
   processType?: string
   changeType: ControlledFileChangeType
-  versionNo: string
+  versionNo?: string
+  revisionSourceControlledFileId?: number | null
   effectiveDate: string
   remark?: string
+}
+
+export interface ControlledFileSubmitIterationReqVO {
+  idempotencyKey: string
+  selectedSignoffUserIds: number[]
 }
 
 export interface ControlledFileMetadataUpdateReqVO {
   assignmentId?: number
   changeReason?: string
-  productMasterId?: number | null
+  productMasterId?: null
   productName?: string
   dccProjectCodeId?: number | null
   needTraining: boolean
@@ -77,7 +87,7 @@ export interface ControlledFileMetadataUpdateReqVO {
   productCode?: string
   fileNumber?: string | null
   categoryId: number
-  directoryId: number
+  directoryId?: number | null
 }
 
 export interface ControlledFileProjectCodeRecognitionRespVO {
@@ -127,8 +137,10 @@ export interface ControlledFileUploadRespVO {
   contentType: string
   previewKind?: ControlledFilePreviewKind
   onlyofficeBaseUrl?: string
+  onlyofficeDocumentUrl?: string
   previewUnavailableReason?: string
   fileSize: number
+  expireTime?: number
   watermarkTraceCode?: string | null
   watermark?: ControlledPreviewWatermark | null
 }
@@ -146,10 +158,10 @@ export interface ControlledFileUploadTemporaryStatusRespVO {
   sessionId?: string
   purpose?: string
   status?: string
-  expireTime?: string
+  expireTime?: number
   cleanupStatus?: string
   cleanupReason?: string
-  cleanupTime?: string
+  cleanupTime?: number
   cleanedCount?: number
 }
 
@@ -216,19 +228,6 @@ export interface ControlledFileCurrentVersionRespVO {
   actionProjection?: DccControlledFileActionProjectionVO | null
 }
 
-export interface DccControlledFileProductOptionVO {
-  id: number
-  productCode: string
-  dccProductCode?: string | null
-  nameCn: string
-  nameEn?: string | null
-  modelSpecification?: string | null
-  category?: string | null
-  status: string
-}
-
-export const DCC_PRODUCT_STATUS_ENABLE = 'ENABLE'
-
 export interface ControlledFileUploadDirectoryNodeVO {
   id: number
   name: string
@@ -240,6 +239,7 @@ export interface ControlledFileUploadDirectoryTreeVO {
   bindingDirectoryId: number
   bindingDirectoryPath: string
   leafBinding: boolean
+  defaultUnclassified: boolean
   children: ControlledFileUploadDirectoryNodeVO[]
 }
 
@@ -284,8 +284,41 @@ export interface ControlledFileDownloadOptions {
   nonControlledWarningConfirmed?: boolean
 }
 
+export interface ControlledFilePrintCreateReqVO {
+  purpose: string
+  copies: number
+  receivingDepartment: string
+  useLocation: string
+}
+
+export interface ControlledFilePrintRecordVO {
+  id: number
+  controlledFileId: number
+  fileNumber: string
+  versionNo: string
+  printNo: string
+  purpose: string
+  copies: number
+  receivingDepartment: string
+  useLocation: string
+  printUserId: number
+  printUserName?: string | null
+  printTime: number
+  approvalStatus: string
+  approvalUserId?: number | null
+  approvalUserName?: string | null
+  approvalTime?: number | null
+}
+
+export interface ControlledFilePrintHtmlVO {
+  printRecordId: number
+  printNo: string
+  html: string
+}
+
 export interface ControlledFileRoutePreviewReqVO {
   categoryId: number
+  selectedSignoffUserIds: number[]
 }
 
 export interface ControlledFileRoutePreviewVO {
@@ -300,6 +333,22 @@ export interface ControlledFileRoutePreviewVO {
   approveRatio?: number | null
   requireAllApprovals?: boolean
   resolvedUserIds: number[]
+}
+
+export interface ControlledFileRouteReadinessBlockerVO {
+  reasonCode: string
+  message: string
+  stageNo?: number | null
+  stageCode?: string | null
+  stageName?: string | null
+  userId?: number | null
+  userName?: string | null
+}
+
+export interface ControlledFileRouteReadinessVO {
+  ready: boolean
+  nodes: ControlledFileRoutePreviewVO[]
+  blockers: ControlledFileRouteReadinessBlockerVO[]
 }
 
 export interface ControlledFileRouteSnapshotVO {
@@ -322,16 +371,39 @@ export interface ControlledFileVersionHistoryVO {
   id: number
   title: string
   fileNumber: string
-  versionNo: string
+  versionNo?: string
+  revisionCode?: string | null
+  iterationNo?: number | null
+  predecessorControlledFileId?: number | null
+  revisionBaseActiveControlledFileId?: number | null
+  sourceSha256?: string | null
+  previousSourceSha256?: string | null
+  changeDescription?: string | null
+  submitterId?: number | null
+  requesterId?: number | null
+  submittedTime?: number | null
+  approvedTime?: number | null
+  rejectedTime?: number | null
+  rejectReason?: string | null
+  finalizationError?: string | null
   status: string
+  publishedArtifactAvailable?: boolean
+  stampedArtifactAvailable?: boolean
+  currentActiveVersionNo?: string | null
   effectiveDate?: string
-  publishedTime?: string
-  obsoletedTime?: string
-  supersededByFileId?: number | null
+  publishedTime?: number
+  obsoletedTime?: number
+  supersededByFileId?: number | string | null
   remark?: string
   canPreview?: boolean
+  previewUnavailableReason?: string
   canDownload?: boolean
   modifying?: boolean
+  checkedOut?: boolean
+  checkedOutBy?: number | null
+  checkedOutByName?: string | null
+  checkedOutTime?: number | null
+  checkedOutReason?: string | null
 }
 
 export interface ControlledFileDistributionStatusVO {
@@ -340,9 +412,9 @@ export interface ControlledFileDistributionStatusVO {
   distributionMedium?: 'PUBLIC_FOLDER' | 'PAPER'
   status: string
   acknowledgedBy?: number | null
-  acknowledgedAt?: string | null
+  acknowledgedAt?: number | null
   recoveredBy?: number | null
-  recoveredAt?: string | null
+  recoveredAt?: number | null
   recipientUserIds: number[]
   recipients?: ControlledFileDistributionRecipientStatusVO[]
 }
@@ -350,8 +422,8 @@ export interface ControlledFileDistributionStatusVO {
 export interface ControlledFileDistributionRecipientStatusVO {
   id: number
   userId: number
-  readAt?: string | null
-  acknowledgedAt?: string | null
+  readAt?: number | null
+  acknowledgedAt?: number | null
   ackComment?: string | null
 }
 
@@ -387,10 +459,10 @@ export interface ControlledFilePaperDistributionRecordVO {
   issuerName?: string | null
   recipientUserIds: number[]
   recipientNames: string[]
-  issuedAt?: string | null
+  issuedAt?: number | null
   recovererUserId?: number | null
   recovererName?: string | null
-  recoveredAt?: string | null
+  recoveredAt?: number | null
   status: string
 }
 
@@ -398,7 +470,7 @@ export interface ControlledFileTrainingAssignmentVO {
   id: number
   userId: number
   status: string
-  acknowledgedAt?: string
+  acknowledgedAt?: number
   accumulatedViewSeconds?: number
   requiredViewSeconds?: number
   eligibleToAcknowledge?: boolean
@@ -456,7 +528,7 @@ export interface ControlledFileSignatureSummaryVO {
   actionType?: string
   signatureMode?: string
   comment?: string
-  signedAt?: string
+  signedAt?: number
 }
 
 export type DccSignatureTaskActionResult = 'APPROVED' | 'REJECTED'
@@ -471,7 +543,7 @@ export interface DccSignatureActionRespVO {
   controlledCopyHashStatus: string
   evidenceStatus: string
   evidenceHashShort: string
-  signedAt: string
+  signedAt: number
   nextStatus: string
 }
 
@@ -483,6 +555,25 @@ export interface ControlledFileApproveTaskReqVO {
   stampedPdfUploadTicket?: string
   confirmedDirectoryId?: number
   selectedDistributionScopes?: ControlledFileDistributionScopeVO[]
+}
+
+export interface ControlledFileTaskReadinessReqVO {
+  taskId: string
+  sessionId?: string
+  stampedPdfUploadTicket?: string
+  confirmedDirectoryId?: number
+  selectedDistributionScopes?: ControlledFileDistributionScopeVO[]
+}
+
+export interface ControlledFileTaskReadinessBlockerVO {
+  reasonCode: string
+  message: string
+}
+
+export interface ControlledFileTaskReadinessVO {
+  ready: boolean
+  finalApproval: boolean
+  blockers: ControlledFileTaskReadinessBlockerVO[]
 }
 
 export interface ExternalFileReviewApproveTaskReqVO extends ControlledFileApproveTaskReqVO {
@@ -523,16 +614,21 @@ export interface ControlledFileCreateSignTaskReqVO {
 export interface ControlledFileVO {
   id: number
   masterId?: number | null
+  businessSourceType?: 'DCC_CONTROLLED_FILE' | 'DCC_REGISTRATION_CERTIFICATE' | null
+  registrationCertificateId?: number | string | null
+  registrationCertificateVersionId?: number | string | null
+  registrationCertificateBusinessFileId?: number | string | null
   productMasterId?: number | null
   dccProjectCodeId?: number | null
   categoryId: number
   directoryId: number
+  directoryPath?: string | null
   productCode?: string
   productName?: string
   projectCodeRecognitionType?: string | null
   projectCodeRecognitionText?: string | null
   projectCodeRecognizedBy?: number | null
-  projectCodeRecognizedTime?: string | null
+  projectCodeRecognizedTime?: number | null
   fileTypeTaxonomyId?: number | null
   fileTypeLevel1?: string | null
   fileTypeLevel2?: string | null
@@ -546,26 +642,38 @@ export interface ControlledFileVO {
   contentType?: string
   previewKind?: ControlledFilePreviewKind
   fileNumber?: string
+  publishedArtifactAvailable?: boolean
+  stampedArtifactAvailable?: boolean
   versionNo: string
+  revisionCode?: string | null
+  iterationNo?: number | null
   effectiveDate?: string
   remark?: string
+  relatedFiles?: ControlledFileRelatedFileVO[]
   status: string
   requesterId: number
   processInstanceId?: string
   processDefinitionKey?: string
-  submittedTime?: string
-  approvedTime?: string
-  publishedTime?: string
-  rejectedTime?: string
-  stampedTime?: string
+  submittedTime?: number
+  approvedTime?: number
+  publishedTime?: number
+  rejectedTime?: number
+  stampedTime?: number
   obsoletedBy?: number | null
-  obsoletedTime?: string
+  obsoletedTime?: number
   obsoleteReason?: string
-  supersededByFileId?: number | null
+  supersededByFileId?: number | string | null
   rejectReason?: string
   finalizationError?: string
+  checkedOut?: boolean
+  checkedOutBy?: number | null
+  checkedOutByName?: string | null
+  checkedOutTime?: number | null
+  checkedOutReason?: string | null
   canPreview?: boolean
+  previewUnavailableReason?: string
   canDownload?: boolean
+  canPrint?: boolean
   accessExplanation?: ControlledFileAccessExplanationVO
   canObsolete?: boolean
   canPublish?: boolean
@@ -583,6 +691,38 @@ export interface ControlledFileVO {
   signatureSummaries?: ControlledFileSignatureSummaryVO[]
 }
 
+export interface ControlledFileCheckoutReqVO {
+  reason: string
+}
+
+export interface ControlledFileCheckinReqVO {
+  uploadTicket?: string
+  drawingPdfUploadTicket?: string
+  sessionId?: string
+  changeDescription: string
+  remark?: string
+}
+
+export interface ControlledFileCancelCheckoutReqVO {
+  reason: string
+}
+
+export interface ControlledFileMajorRevisionReqVO {
+  sourceControlledFileId: number | string
+  reason: string
+  idempotencyKey: string
+}
+
+export interface ControlledFileRelatedFileVO {
+  controlledFileId: number
+  masterId?: number | null
+  projectCodeId?: number | null
+  fileNumber?: string | null
+  fileName?: string | null
+  versionNo?: string | null
+  status?: string | null
+}
+
 export interface ExternalFileReviewVO {
   controlledFileId: number
   externalSource: string
@@ -592,7 +732,7 @@ export interface ExternalFileReviewVO {
   reviewConclusion?: string | null
   conclusionComment?: string | null
   outputFileName?: string | null
-  closedTime?: string | null
+  closedTime?: number | null
 }
 
 export interface ControlledFilePageReqVO extends PageParam {
@@ -666,8 +806,8 @@ export interface ControlledFileBatchRecognitionTaskRespVO {
   remainingCount: number
   lastFailureMessage?: string | null
   failureSummaries?: ControlledFileBatchRecognitionFailureSummaryVO[]
-  startedAt?: string | null
-  completedAt?: string | null
+  startedAt?: number | null
+  completedAt?: number | null
 }
 
 export interface ControlledFileMetadataImportRowRespVO {
@@ -749,13 +889,15 @@ export interface ControlledFilePublishReqVO {
 export interface ControlledFileNasTransferReqVO {
   selectedNasPaths: string[]
   templateCategoryId: number
-  productMasterId?: number | null
+  dccProjectCodeId: number
+  productMasterId?: null
   effectiveDate: string
 }
 
 export interface ControlledFileLocalFolderImportSessionCreateReqVO {
   templateCategoryId: number
-  productMasterId?: number | null
+  dccProjectCodeId: number
+  productMasterId?: null
   effectiveDate: string
   rootDirectoryName: string
   expectedFileCount: number
@@ -782,7 +924,7 @@ export interface ControlledFileLocalFolderImportUploadStateRespVO {
   files: ControlledFileLocalFolderImportUploadFileStateVO[]
 }
 
-export type ControlledFileNasTransferSourceType = 'NAS' | 'LOCAL_FOLDER'
+export type ControlledFileNasTransferSourceType = 'NAS' | 'LOCAL_FOLDER' | 'NAS_UNCONTROLLED_IMPORT' | 'NAS_ORIGINAL_PATH_SYNC'
 
 export interface ControlledFileNasTransferFailureVO {
   nasPath: string
@@ -793,7 +935,7 @@ export interface ControlledFileNasTransferFailureVO {
 export interface ControlledFileNasTransferRespVO {
   taskId: number
   status: string
-  sourceType: 'NAS' | 'LOCAL_FOLDER'
+  sourceType: ControlledFileNasTransferSourceType
   selectedNasPaths: string[]
   expectedFileCount: number
   expectedTotalBytes: number
@@ -832,7 +974,7 @@ export interface NasPermissionSnapshotSummaryVO {
   unsupportedAceCount: number
   unmappedPrincipalCount: number
   blockerCount: number
-  capturedAt?: string | null
+  capturedAt?: number | null
   lastFailureMessage?: string | null
   restoreSupported: boolean
 }
@@ -934,8 +1076,8 @@ export interface NasPermissionRestoreApplyRespVO {
 
 export interface NasPermissionRestoreStatusVO extends NasPermissionRestoreApplyRespVO {
   lastFailureMessage?: string | null
-  startedAt?: string | null
-  completedAt?: string | null
+  startedAt?: number | null
+  completedAt?: number | null
 }
 
 export const CONTROLLED_FILE_PROCESS_DEFINITION_KEY = 'dcc-controlled-file-approval'
@@ -981,8 +1123,7 @@ const DCC_FORBIDDEN_FILE_CAPABILITY_FIELDS = [
 ] as const
 
 const DCC_UPLOAD_RESPONSE_FORBIDDEN_FIELDS = [
-  ...DCC_FORBIDDEN_FILE_CAPABILITY_FIELDS,
-  'onlyofficeDocumentUrl'
+  ...DCC_FORBIDDEN_FILE_CAPABILITY_FIELDS
 ] as const
 
 const DCC_DOWNLOAD_REQUIRED_RESPONSE_HEADERS = [
@@ -1011,6 +1152,14 @@ export class DccControlledFileContractError extends Error {
     this.name = 'DccControlledFileContractError'
     this.details = details
   }
+}
+
+const buildDccExplicitTenantHeaders = () => {
+  const tenantId = getTenantId()
+  if (typeof tenantId !== 'number' || !Number.isSafeInteger(tenantId) || tenantId <= 0) {
+    throw new DccControlledFileContractError('DCC 请求缺少有效的系统租户，请重新登录')
+  }
+  return { 'tenant-id': String(tenantId) }
 }
 
 const isBlankString = (value: unknown) => typeof value === 'string' && value.trim().length === 0
@@ -1096,6 +1245,17 @@ const readOptionalString = (payload: Record<string, unknown>, field: string): st
   return value.trim()
 }
 
+const readOptionalTimestamp = (payload: Record<string, unknown>, field: string): number | undefined => {
+  const value = payload[field]
+  if (value === undefined || value === null) {
+    return undefined
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new DccControlledFileContractError(`DCC response field has invalid type: ${field}`)
+  }
+  return value
+}
+
 const readOptionalNullableString = (
   payload: Record<string, unknown>,
   field: string
@@ -1172,10 +1332,10 @@ export const parseControlledFileUploadTemporaryStatusResp = (
     sessionId: readOptionalString(payload, 'sessionId'),
     purpose: readOptionalString(payload, 'purpose'),
     status: readOptionalString(payload, 'status'),
-    expireTime: readOptionalString(payload, 'expireTime'),
+    expireTime: readOptionalTimestamp(payload, 'expireTime'),
     cleanupStatus: readOptionalString(payload, 'cleanupStatus'),
     cleanupReason: readOptionalString(payload, 'cleanupReason'),
-    cleanupTime: readOptionalString(payload, 'cleanupTime'),
+    cleanupTime: readOptionalTimestamp(payload, 'cleanupTime'),
     cleanedCount:
       payload.cleanedCount === undefined || payload.cleanedCount === null
         ? undefined
@@ -1194,8 +1354,10 @@ export const parseControlledFileUploadResp = (data: unknown): ControlledFileUplo
     contentType: assertRequiredString(payload, 'contentType', 'DCC upload'),
     previewKind: readOptionalPreviewKind(payload, 'previewKind'),
     onlyofficeBaseUrl: readOptionalString(payload, 'onlyofficeBaseUrl'),
+    onlyofficeDocumentUrl: readOptionalString(payload, 'onlyofficeDocumentUrl'),
     previewUnavailableReason: readOptionalString(payload, 'previewUnavailableReason'),
     fileSize: assertRequiredNumber(payload, 'fileSize', 'DCC upload'),
+    expireTime: readOptionalTimestamp(payload, 'expireTime'),
     watermarkTraceCode: readOptionalNullableString(payload, 'watermarkTraceCode'),
     watermark:
       payload.watermark === undefined || payload.watermark === null
@@ -1439,9 +1601,16 @@ export const isControlledFileTaskPasswordInvalidError = (error: unknown) => {
   )
 }
 
-export const submitControlledFile = async (data: ControlledFileSubmitReqVO): Promise<number> => {
-  assertControlledFileSubmitRequest(data, 'DCC controlled file submit')
-  return await request.post({ url: '/dcc/controlled-files/submit', data })
+export const createWorkingControlledFile = async (data: ControlledFileSubmitReqVO): Promise<number> => {
+  assertControlledFileSubmitRequest(data, 'DCC controlled file working iteration create')
+  return await request.post({ url: '/dcc/controlled-files/working', data })
+}
+
+export const submitControlledFileWorkingIteration = async (
+  id: number | string,
+  data: ControlledFileSubmitIterationReqVO
+): Promise<number | string> => {
+  return await request.post({ url: `/dcc/controlled-files/${id}/submit`, data })
 }
 
 export const submitExternalFileReview = async (
@@ -1465,7 +1634,10 @@ export const uploadControlledFilePreview = async (
   const res = await request.upload({
     url: '/dcc/controlled-files/upload-preview',
     data: formData,
-    headers: { [DCC_REQUEST_ID_HEADER]: requestId }
+    headers: {
+      ...buildDccExplicitTenantHeaders(),
+      [DCC_REQUEST_ID_HEADER]: requestId
+    }
   })
   const uploadResp = parseControlledFileUploadResp((res as { data?: unknown }).data)
   if (uploadResp.requestId !== requestId) {
@@ -1480,7 +1652,8 @@ export const getControlledFileUploadTemporaryStatus = async (
   return parseControlledFileUploadTemporaryStatusResp(
     await request.get({
       url: '/dcc/controlled-files/upload-temporary/status',
-      params: { requestId }
+      params: { requestId },
+      headers: { ...buildDccExplicitTenantHeaders() }
     })
   )
 }
@@ -1493,38 +1666,63 @@ export const cleanupControlledFileUploadSession = async (
     await request.post({
       url: '/dcc/controlled-files/upload-temporary/session-cleanup',
       data: { sessionId },
-      headers: requestId ? { [DCC_REQUEST_ID_HEADER]: requestId } : undefined
+      headers: {
+        ...buildDccExplicitTenantHeaders(),
+        ...(requestId ? { [DCC_REQUEST_ID_HEADER]: requestId } : {})
+      }
     })
   )
 }
 
-export const previewControlledFileRoute = async (
+export const cleanupControlledFileUploadTicket = async (
+  sessionId: string,
+  uploadTicket: string,
+  requestId?: string
+): Promise<ControlledFileUploadTemporaryStatusRespVO> => {
+  return parseControlledFileUploadTemporaryStatusResp(
+    await request.post({
+      url: '/dcc/controlled-files/upload-temporary/ticket-cleanup',
+      data: { sessionId, uploadTicket },
+      headers: {
+        ...buildDccExplicitTenantHeaders(),
+        ...(requestId ? { [DCC_REQUEST_ID_HEADER]: requestId } : {})
+      }
+    })
+  )
+}
+
+export const checkControlledFileRouteReadiness = async (
   data: ControlledFileRoutePreviewReqVO
-): Promise<ControlledFileRoutePreviewVO[]> => {
+): Promise<ControlledFileRouteReadinessVO> => {
   return await request.post({ url: '/dcc/controlled-files/route-preview', data })
 }
 
-export const getControlledFileUploadNameOptions = async (
-  categoryId: number
-): Promise<ControlledFileUploadNameOptionVO[]> => {
-  return await request.get({ url: '/dcc/controlled-files/upload-name-options', params: { categoryId } })
-}
-
-export const getControlledFileCurrentVersion = async (
-  fileNumber: string
-): Promise<ControlledFileCurrentVersionRespVO> => {
-  return await request.get({
-    url: '/dcc/controlled-files/current-version',
-    params: { fileNumber }
+export const getControlledFileTaskActionReadiness = async (
+  id: number | string,
+  data: ControlledFileTaskReadinessReqVO
+): Promise<ControlledFileTaskReadinessVO> => {
+  return await request.post({
+    url: `/dcc/controlled-files/${id}/task-action-readiness`,
+    data
   })
 }
 
-export const getDccProductOptions = async (params?: {
-  status?: string
-  requireDccProductCode?: boolean
-  keyword?: string
-}): Promise<DccControlledFileProductOptionVO[]> => {
-  return await request.get({ url: '/dcc/controlled-files/product-options', params })
+export const getControlledFileUploadNameOptions = async (params: {
+  dccProjectCodeId: number
+  fileTypeTaxonomyId: number
+}): Promise<ControlledFileUploadNameOptionVO[]> => {
+  return await request.get({ url: '/dcc/controlled-files/upload-name-options', params })
+}
+
+export const getControlledFileCurrentVersion = async (
+  fileNumber: string,
+  dccProjectCodeId?: number | null,
+  fileTypeTaxonomyId?: number | null
+): Promise<ControlledFileCurrentVersionRespVO> => {
+  return await request.get({
+    url: '/dcc/controlled-files/current-version',
+    params: { fileNumber, dccProjectCodeId, fileTypeTaxonomyId }
+  })
 }
 
 export const getControlledFileUploadDirectoryTree = async (
@@ -1554,6 +1752,25 @@ export const getControlledFileBrowserPage = async (
 ): Promise<PageResult<ControlledFileVO[]>> => {
   return await request.get({ url: '/dcc/controlled-files/browser-page', params })
 }
+
+export const checkoutControlledFile = async (
+  id: number | string,
+  data: ControlledFileCheckoutReqVO
+) => await request.post({ url: `/dcc/controlled-files/${id}/checkout`, data })
+
+export const checkinControlledFile = async (
+  id: number | string,
+  data: ControlledFileCheckinReqVO
+) => await request.post({ url: `/dcc/controlled-files/${id}/checkin`, data })
+
+export const cancelCheckoutControlledFile = async (
+  id: number | string,
+  data: ControlledFileCancelCheckoutReqVO
+) => await request.post({ url: `/dcc/controlled-files/${id}/checkout/cancel`, data })
+
+export const createControlledFileMajorRevision = async (
+  data: ControlledFileMajorRevisionReqVO
+): Promise<number | string> => await request.post({ url: '/dcc/controlled-files/major-revision', data })
 
 export const getControlledFileBrowserExtensionBlacklist = async (): Promise<ControlledFileBrowserExtensionBlacklistRespVO> => {
   return await request.get({ url: '/dcc/controlled-files/browser-extension-blacklist' })
@@ -1815,6 +2032,29 @@ export const retryControlledFileStamp = async (id: number | string) => {
 
 export const manualReleaseControlledFile = async (id: number | string): Promise<boolean> => {
   return await request.post({ url: `/dcc/controlled-files/${id}/manual-release` })
+}
+
+export const createControlledFilePrintRecord = async (
+  id: number | string,
+  data: ControlledFilePrintCreateReqVO
+): Promise<ControlledFilePrintRecordVO> => {
+  return await request.post({ url: `/dcc/controlled-files/${id}/controlled-print`, data })
+}
+
+export const getControlledFilePrintRecords = async (
+  id: number | string
+): Promise<ControlledFilePrintRecordVO[]> => {
+  return await request.get({ url: `/dcc/controlled-files/${id}/controlled-print/records` })
+}
+
+export const getControlledFilePrintHtml = async (
+  id: number | string,
+  printRecordId: number | string
+): Promise<ControlledFilePrintHtmlVO> => {
+  return await request.get({
+    url: `/dcc/controlled-files/${id}/controlled-print/print-html`,
+    params: { printRecordId }
+  })
 }
 
 export const getAxiosHeader = (headers: AxiosResponse['headers'], headerName: string): unknown => {

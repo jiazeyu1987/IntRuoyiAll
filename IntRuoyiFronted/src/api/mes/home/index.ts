@@ -15,6 +15,7 @@ export interface MesHomeSummaryVO {
   machineryMaintenance: number
   andonActiveCount: number
   repairActiveCount: number
+  nonconformanceReviewPendingCount: number
 }
 
 // MES 工单状态分布 VO

@@ -1,10 +1,12 @@
 import request from '@/config/axios'
 import { downloadByData } from '@/utils/filt'
 import type { TableQuickFilterValue } from '@/hooks/web/useTableQuickFilter'
+import type { FormRecognizedFieldVO } from '@/api/form-center/template'
 
 export const EDHR_BATCH_ARCHIVE_ARTIFACT_FINAL_PDF = 'BATCH_FINAL_PDF'
 export const EDHR_BATCH_STATUS_CREATED = 0
 export const EDHR_BATCH_STATUS_IN_PROGRESS = 10
+export const EDHR_BATCH_STATUS_FROZEN = 15
 export const EDHR_BATCH_STATUS_READY_TO_CLOSE = 20
 export const EDHR_BATCH_STATUS_REWORK_REQUIRED = 25
 export const EDHR_BATCH_STATUS_CLOSED = 30
@@ -56,6 +58,7 @@ export interface EdhrSignatureTimeReqVO {
 }
 
 export interface EdhrBatchExecutionPageReqVO extends PageParam {
+  batchExecutionIds?: number[]
   batchExecutionCode?: string
   workOrderCode?: string
   batchCode?: string
@@ -73,6 +76,13 @@ export interface EdhrBatchExecutionOpenOrCreateReqVO {
   workOrderId: number
   batchCode: string
   routeId?: number
+  remark?: string
+}
+
+export interface EdhrBatchExecutionManualOpenOrCreateReqVO {
+  workOrderId: number
+  batchCode: string
+  routeId: number
   remark?: string
 }
 
@@ -103,6 +113,44 @@ export interface EdhrLocalStateSampleRespVO {
   routeQuery?: Record<string, string>
 }
 
+export interface EdhrStage4DossierUploadSimulationRespVO {
+  simulationRunId: string
+  inputMode: string
+  cleanedSimulationRunId?: string
+  batchExecutionId: string
+  batchExecutionCode?: string
+  detailPath?: string
+  completeBatchExecutionSnapshot: Record<string, unknown>
+  batchExecutionSnapshot: Record<string, unknown>
+  batchExecutionDossierSnapshot: Record<string, unknown>
+  dossierReadyForRelease: boolean
+  blockers?: string[]
+}
+
+export interface EdhrStage5FinalReleaseSimulationRespVO {
+  simulationRunId: string
+  cleanedSimulationRunId?: string
+  batchExecutionId: string
+  batchExecutionCode?: string
+  releaseApplicationId: string
+  releaseTransactionId: string
+  managerReleaseWorkTaskId: string
+  managerSignoffEvidenceHash: string
+  managerCandidateSnapshotHash: string
+  reportSnapshotHash: string
+  sourceDossierHash: string
+  releaseStatus: string
+  applicationStatus: string
+  managerWorkTaskPath: string
+  finalReleaseReady: boolean
+  batchExecutionDossierSnapshot: Record<string, unknown>
+  managerReleaseContext: Record<string, unknown>
+ precheckResult: Record<string, unknown>
+  runManifest?: Record<string, unknown>
+  releaseSnapshot?: Record<string, unknown> | null
+ blockers?: string[]
+}
+
 export interface EdhrRehearsalReadinessReqVO {
   routeId: number
   executorUserId: number
@@ -129,6 +177,7 @@ export interface EdhrBatchExecutionTaskOpenReqVO {
   batchExecutionId: EdhrRouteId
   taskId: EdhrRouteId
   workTaskId?: EdhrRouteId
+  assistUserId?: EdhrRouteId
 }
 
 export interface EdhrBatchExecutionSpecialNodeSkipReqVO {
@@ -140,6 +189,8 @@ export interface EdhrBatchExecutionSpecialNodeSkipReqVO {
 
 export interface EdhrBatchExecutionSpecialNodeCompleteReqVO {
   taskId: number
+  expectedVersion?: number
+  idempotencyKey?: string
   sterilizationBatchNo?: string
   attachments?: EdhrBatchSpecialNodeAttachment[]
 }
@@ -157,9 +208,9 @@ export interface EdhrBatchExecutionSpecialNodeAttachmentSavePendingReqVO {
 
 export interface EdhrBatchSpecialNodeAttachment {
   uploadToken: string
-  fileId: number
+  fileId: EdhrRouteId
   fileUrl: string
-  storageConfigId: number
+  storageConfigId: EdhrRouteId
   storagePath: string
   fileName: string
   contentType: string
@@ -174,10 +225,47 @@ export interface EdhrBatchSpecialNodeAttachmentPrepareUploadReqVO {
   file: File | Blob
 }
 
+export interface EdhrProductionReleaseReportAttachmentPrepareUploadReqVO {
+  taskId: string
+  expectedVersion: number
+  idempotencyKey: string
+  file: File | Blob
+}
+
+export interface EdhrProductionReleaseReportAttachmentPrepareRespVO
+  extends EdhrBatchSpecialNodeAttachment {
+  version: number
+}
+
+export interface MesProductionReleaseReportNodeCompleteRespVO {
+  batchExecutionId: string
+  batchTaskId: string
+  workTaskId: string
+  nodeType: string
+  nodeStatus: string
+  activeAttachmentVersion: number
+  attachmentIds: string[]
+  attachmentHashes: string[]
+  reportUploadStatus: string
+  reportSnapshotHash?: string
+  releaseTransactionId?: string
+  managerReleaseWorkTaskId?: string
+  version: number
+}
+
+export interface EdhrProductionReleaseReportNodeCompleteReqVO {
+  taskId: string
+  expectedVersion: number
+  idempotencyKey: string
+  sterilizationBatchNo?: string
+  attachments: EdhrBatchSpecialNodeAttachment[]
+}
+
 export interface EdhrBatchExecutionTaskOpenRespVO {
   taskId: number
-  executionId: number
+  executionId?: number
   workTaskId?: number
+  assistUserId?: number
   routeProcessId?: number
   batchRecordReportId?: string
   formBindingKey?: string
@@ -185,19 +273,22 @@ export interface EdhrBatchExecutionTaskOpenRespVO {
   formTemplateName?: string
   formTemplateVersionId?: number
   formTemplateVersionNo?: string
+  formTemplateJimuSchemaJson?: string
+  formTemplateRecognizedFields?: FormRecognizedFieldVO[]
   formCenterInstanceId?: number
   recordCategory?: EdhrRecordCategory
   validationProfile?: EdhrValidationProfile
   permissionScopeId?: number | null
   routeBindingId?: number
   routeBindingSnapshotHash?: string
+  recordbookEnabled?: boolean | null
   batchRecordSort?: number
   instanceScope?: 'PROCESS' | 'BATCH_SHARED' | string
   sharedFormKey?: string
   fillableScopeJson?: string
   executionMode?: 'SEQUENTIAL' | 'PARALLEL'
   status?: number
-  executionPageQuery?: Record<string, string | number | null | undefined>
+  executionPageQuery?: Record<string, unknown>
 }
 
 export interface EdhrBatchExecutionTaskFillableUserRespVO {
@@ -230,10 +321,33 @@ export interface EdhrBatchExecutionReexecuteReqVO {
   remark?: string
 }
 
+export interface EdhrBatchExecutionGoldenFingerBulkVoidReqVO {
+  filter: EdhrBatchExecutionPageReqVO
+  reasonCategory: string
+  reasonText: string
+  password: string
+  comment?: string
+}
+
+export interface EdhrBatchExecutionGoldenFingerBulkVoidItem {
+  batchExecutionId?: number
+  batchExecutionCode?: string
+  status?: number
+  result?: string
+  message?: string
+  changeEventId?: number
+}
+
+export interface EdhrBatchExecutionGoldenFingerBulkVoidRespVO {
+  matchedCount?: number
+  voidedCount?: number
+  skippedCount?: number
+  items?: EdhrBatchExecutionGoldenFingerBulkVoidItem[]
+}
 export interface EdhrBatchExecutionArchiveGenerateReqVO {
   batchExecutionId: EdhrRouteId
   artifactType: string
-  workTaskId: EdhrRouteId
+  workTaskId: number
   signatureTime?: EdhrSignatureTimeReqVO
 }
 
@@ -246,6 +360,9 @@ export interface EdhrBatchExecutionArchiveRespVO {
   fileName?: string
   fileSize?: number
   contentHash?: string
+  pdfaProfile?: string
+  pdfaValidationStatus?: string
+  pdfaValidatedAt?: string
   sourceManifestJson?: string
   generatedAt?: string
   canDownloadArchive?: boolean
@@ -281,6 +398,7 @@ export interface EdhrBatchExecutionTaskRespVO {
   slotBlockerMessage?: string | null
   routeBindingId?: number
   routeBindingSnapshotHash?: string
+  recordbookEnabled?: boolean | null
   batchRecordSort?: number
   instanceScope?: 'PROCESS' | 'BATCH_SHARED' | string
   sharedFormKey?: string
@@ -320,6 +438,7 @@ export interface EdhrBatchExecutionRespVO {
   batchExecutionCode?: string
   workOrderId?: number
   workOrderCode?: string
+  activeOrderId?: number
   batchCode?: string
   attemptNo?: number
   sourceRejectedBatchExecutionId?: number
@@ -396,13 +515,16 @@ export interface EdhrBatchWorkbenchRespVO {
     blockedCount?: number
   }
   releaseSummary?: {
-    releaseTransactionId?: number
+    releaseTransactionId?: string
     releaseStatus?: string
     releaseStatusLabel?: string
     blockingCheckCount?: number
     failedCheckCount?: number
     precheckSummary?: string
     lastPrecheckAt?: string
+    releaseOwnerConfigured?: boolean
+    releaseOwnerSourceType?: string
+    releaseOwnerLabel?: string
   }
   auditSummary?: {
     latestOperationAuditId?: number
@@ -738,6 +860,49 @@ export const createEdhrLocalStateSample = async (data: EdhrLocalStateSampleReqVO
   })
 }
 
+export const simulateEdhrStage4DossierUpload = async (
+  simulationRunId: string,
+  batchExecutionId: string | number | undefined,
+  stage2_5SimulationRunId: string | undefined,
+  inputMode: string
+) => {
+  return await request.post<EdhrStage4DossierUploadSimulationRespVO>({
+    url: BATCH_EXECUTION_BASE_URL + '/simulation/stage4/dossier-upload',
+    data: { simulationRunId, batchExecutionId, stage2_5SimulationRunId, inputMode }
+  })
+}
+
+export const openOrCreateManualEdhrBatchExecution = async (
+  data: EdhrBatchExecutionManualOpenOrCreateReqVO
+) => {
+  return await request.post<EdhrBatchExecutionRespVO>({
+    url: BATCH_EXECUTION_BASE_URL + '/open-or-create-manual',
+    data
+  })
+}
+
+export const simulateEdhrStage5FinalRelease = async (
+  simulationRunId: string,
+  batchExecutionId: string | number,
+  stage4SimulationRunId: string,
+  previousSimulationRunId?: string
+) => {
+  return await request.post<EdhrStage5FinalReleaseSimulationRespVO>({
+    url: BATCH_EXECUTION_BASE_URL + '/simulation/stage5/final-release',
+    data: { simulationRunId, batchExecutionId, stage4SimulationRunId, previousSimulationRunId }
+  })
+}
+
+export const getEdhrStage5ReleaseSnapshot = async (
+  simulationRunId: string,
+  batchExecutionId?: string
+) => {
+  return await request.get<Record<string, unknown>>({
+    url: BATCH_EXECUTION_BASE_URL + '/simulation/stage5/release-snapshot',
+    params: { simulationRunId, batchExecutionId }
+  })
+}
+
 export const getEdhrRehearsalReadiness = async (params: EdhrRehearsalReadinessReqVO) => {
   return await request.get<EdhrRehearsalReadinessResult>({
     url: `${BATCH_EXECUTION_BASE_URL}/rehearsal-readiness`,
@@ -802,6 +967,39 @@ export const prepareEdhrBatchSpecialNodeAttachmentUpload = async (
   return response.data
 }
 
+interface EdhrProductionReleaseReportAttachmentPrepareUploadApiResp {
+  data: EdhrProductionReleaseReportAttachmentPrepareRespVO
+}
+
+export const prepareEdhrProductionReleaseReportAttachmentUpload = async (
+  data: EdhrProductionReleaseReportAttachmentPrepareUploadReqVO,
+  onUploadProgress?: Function
+) => {
+  const formData = new FormData()
+  formData.append('taskId', String(data.taskId))
+  formData.append('expectedVersion', String(data.expectedVersion))
+  formData.append('idempotencyKey', data.idempotencyKey)
+  formData.append('file', data.file)
+  const response = await request.upload<EdhrProductionReleaseReportAttachmentPrepareUploadApiResp>({
+    url: `${BATCH_EXECUTION_BASE_URL}/task/special-node/attachment/prepare-upload`,
+    data: formData,
+    onUploadProgress
+  })
+  if (!response.data) {
+    throw new Error('生产放行报告附件预登记响应缺少 data，不能继续完成报告。')
+  }
+  return response.data
+}
+
+export const completeEdhrProductionReleaseReportNode = async (
+  data: EdhrProductionReleaseReportNodeCompleteReqVO
+) => {
+  return await request.post<MesProductionReleaseReportNodeCompleteRespVO>({
+    url: `${BATCH_EXECUTION_BASE_URL}/task/special-node/complete`,
+    data
+  })
+}
+
 export const deleteEdhrBatchSpecialNodePendingAttachment = async (
   data: EdhrBatchExecutionSpecialNodeAttachmentDeletePendingReqVO
 ) => {
@@ -847,6 +1045,14 @@ export const reexecuteRejectedEdhrBatchExecution = async (data: EdhrBatchExecuti
   })
 }
 
+export const goldenFingerBulkVoidEdhrBatchExecutions = async (
+  data: EdhrBatchExecutionGoldenFingerBulkVoidReqVO
+) => {
+  return await request.post<EdhrBatchExecutionGoldenFingerBulkVoidRespVO>({
+    url: `${BATCH_EXECUTION_BASE_URL}/golden-finger/bulk-void`,
+    data
+  })
+}
 export const getEdhrBatchReviewTimeline = async (id: EdhrRouteId) => {
   return await request.get<EdhrBatchReviewTimelineRespVO>({
     url: `${BATCH_EXECUTION_BASE_URL}/review-timeline`,

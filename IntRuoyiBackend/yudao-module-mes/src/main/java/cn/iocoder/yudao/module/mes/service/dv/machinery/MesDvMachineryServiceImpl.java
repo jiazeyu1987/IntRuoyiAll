@@ -211,6 +211,7 @@ public class MesDvMachineryServiceImpl implements MesDvMachineryService {
                 .updateCodes(new ArrayList<>())
                 .failureCodes(new LinkedHashMap<>())
                 .build();
+        Set<String> importCodes = new HashSet<>();
         AtomicInteger index = new AtomicInteger(1);
         importMachineryList.forEach(importItem -> {
             int currentIndex = index.getAndIncrement();
@@ -221,6 +222,10 @@ public class MesDvMachineryServiceImpl implements MesDvMachineryService {
             }
             if (StrUtil.isBlank(importItem.getName())) {
                 respVO.getFailureCodes().put(key, "设备名称不能为空");
+                return;
+            }
+            if (!importCodes.add(importItem.getCode())) {
+                respVO.getFailureCodes().put(key, "导入文件中设备编码重复");
                 return;
             }
             if (StrUtil.isBlank(importItem.getMachineryTypeCode())) {

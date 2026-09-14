@@ -8,6 +8,9 @@ import lombok.Data;
 @Data
 public class DccProjectCodeSaveReqVO {
 
+    @Schema(description = "MDM 产品主数据 ID")
+    private Long productMasterId;
+
     @Schema(description = "文控")
     private String docControlNo;
 

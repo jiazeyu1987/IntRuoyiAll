@@ -1,5 +1,5 @@
 param(
-    [int]$Slot = 0,
+    [Nullable[int]]$Slot = $null,
     [string]$HostAddress = '0.0.0.0'
 )
 
@@ -10,8 +10,9 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Get-CurrentRepoRoot
 $branch = Get-GitValue -RepoRoot $repoRoot -Arguments @('branch', '--show-current')
-$profile = Resolve-BranchRuntimeProfile -RepoRoot $repoRoot -Branch $branch
-$ports = Get-BranchRuntimePorts -Profile $profile -Slot $Slot
+$context = Resolve-BranchRuntimeContext -RepoRoot $repoRoot -Branch $branch -RequestedSlot $Slot
+$profile = $context.Profile
+$ports = $context.Ports
 $frontendRoot = Join-Path $repoRoot 'IntRuoyiFronted'
 
 if (-not (Test-Path (Join-Path $frontendRoot 'package.json'))) {
@@ -21,6 +22,8 @@ if (-not (Test-Path (Join-Path $frontendRoot 'package.json'))) {
 $env:VITE_PORT = [string]$ports.FrontendPort
 $env:VITE_BASE_URL = "http://127.0.0.1:$($ports.BackendPort)"
 $env:VITE_PROXY_TARGET = "http://127.0.0.1:$($ports.BackendPort)"
+$env:VITE_API_URL = '/admin-api'
+$env:VITE_APP_CAPTCHA_ENABLE = 'false'
 
 Write-Host "Starting $($profile.Name) frontend on $($ports.FrontendPort), proxying backend $($ports.BackendPort)."
 Push-Location $frontendRoot

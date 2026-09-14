@@ -18,4 +18,10 @@ public class DccControlledFileUploadNameOptionRespVO {
 
     @Schema(description = "当前版本号", example = "V1.0")
     private String currentVersionNo;
+
+    @Schema(description = "当前活动受控文件 ID", example = "901")
+    private Long controlledFileId;
+
+    @Schema(description = "文件编号", example = "SOP-001")
+    private String fileNumber;
 }

@@ -184,22 +184,15 @@ public class MesProFeedbackImportRecordServiceImpl implements MesProFeedbackImpo
     public List<MesProFeedbackImportCandidateRespVO> getAttributionCandidates(Long importRecordId) {
         MesProFeedbackImportRecordDO importRecord = validateImportRecordExists(importRecordId);
         ThirdPartyFeedbackImportPayload payload = parsePayload(importRecord);
-        MesProProcessDO process = processMapper.selectByCode(payload.getProcessCode());
-        if (process == null) {
+        List<MesProProcessDO> importProcessList = loadImportProcesses(payload);
+        if (CollUtil.isEmpty(importProcessList)) {
             return List.of();
         }
         ModifyEligibility modifyEligibility = null;
         Map<Long, BigDecimal> selectedQuantityByProcessId = new LinkedHashMap<>();
         BigDecimal externalOtherSelectedQuantity = BigDecimal.ZERO;
-        List<MesProProcessDO> importProcessList = processMapper.selectListByCodes(List.of(payload.getProcessCode()));
-        if (CollUtil.isEmpty(importProcessList)) {
-            importProcessList = List.of(process);
-        }
         List<Long> importProcessIds = importProcessList.stream().map(MesProProcessDO::getId).distinct().toList();
-        if (CollUtil.isEmpty(importProcessIds)) {
-            importProcessIds = List.of(process.getId());
-        }
-        BigDecimal processSurplusPoolQuantity = surplusPoolMapper.sumAvailableQuantityByProcessId(process.getId());
+        BigDecimal processSurplusPoolQuantity = sumAvailableQuantityByProcessIds(importProcessIds);
         if (StrUtil.equals(importRecord.getAttributionStatus(), ATTRIBUTION_STATUS_ATTRIBUTED)) {
             modifyEligibility = evaluateModifyEligibility(importRecord);
             if (!modifyEligibility.canModify()) {
@@ -217,7 +210,7 @@ public class MesProFeedbackImportRecordServiceImpl implements MesProFeedbackImpo
                 scheduleOrderProcessMapper.selectListByProcessIdsOrZeroSnapshots(importProcessIds);
         if (processList.isEmpty()) {
             List<MesProFeedbackImportCandidateRespVO> candidates = List.of(
-                    buildExternalOtherOrderCandidate(importRecord, payload, process, processSurplusPoolQuantity));
+                    buildExternalOtherOrderCandidate(importRecord, payload, importProcessList, processSurplusPoolQuantity));
             if (modifyEligibility != null) {
                 candidates.get(0).setSelectedQuantity(externalOtherSelectedQuantity);
             }
@@ -287,7 +280,7 @@ public class MesProFeedbackImportRecordServiceImpl implements MesProFeedbackImpo
             candidates.add(candidate);
         }
         MesProFeedbackImportCandidateRespVO externalOtherOrderCandidate =
-                buildExternalOtherOrderCandidate(importRecord, payload, process, processSurplusPoolQuantity);
+                buildExternalOtherOrderCandidate(importRecord, payload, importProcessList, processSurplusPoolQuantity);
         externalOtherOrderCandidate.setSelectedQuantity(externalOtherSelectedQuantity);
         candidates.add(externalOtherOrderCandidate);
         candidates.sort(Comparator
@@ -416,12 +409,7 @@ public class MesProFeedbackImportRecordServiceImpl implements MesProFeedbackImpo
 
     private BigDecimal resolveAvailableFeedbackQuantity(ThirdPartyFeedbackImportPayload payload) {
         BigDecimal importFeedbackQuantity = payload.getFeedbackQuantity() == null ? BigDecimal.ZERO : payload.getFeedbackQuantity();
-        MesProProcessDO process = processMapper.selectByCode(payload.getProcessCode());
-        if (process == null) {
-            return importFeedbackQuantity;
-        }
-        BigDecimal surplusPoolQuantity = surplusPoolMapper.sumAvailableQuantityByProcessId(process.getId());
-        return importFeedbackQuantity.add(surplusPoolQuantity == null ? BigDecimal.ZERO : surplusPoolQuantity);
+        return importFeedbackQuantity.add(sumAvailableQuantityByProcessIds(loadImportProcessIds(payload)));
     }
 
     private void validateAllocationTotal(BigDecimal availableFeedbackQuantity,
@@ -487,10 +475,7 @@ public class MesProFeedbackImportRecordServiceImpl implements MesProFeedbackImpo
         if (residualQuantity.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
-        MesProProcessDO process = processMapper.selectByCode(payload.getProcessCode());
-        if (process == null) {
-            throw exception(PRO_FEEDBACK_IMPORT_SCHEDULE_ORDER_PROCESS_NOT_EXISTS);
-        }
+        MesProProcessDO process = resolveResidualSurplusPoolProcess(payload, allocations);
         MesProFeedbackSurplusPoolDO pool = buildBaseSurplusPool(importRecord, payload)
                 .setSourceType(MesProFeedbackSurplusPoolDO.SOURCE_TYPE_EXTERNAL_OTHER_ORDER)
                 .setProcessId(process.getId())
@@ -513,11 +498,14 @@ public class MesProFeedbackImportRecordServiceImpl implements MesProFeedbackImpo
         if (quantityToConsume.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
-        MesProProcessDO process = processMapper.selectByCode(payload.getProcessCode());
-        if (process == null) {
+        List<Long> importProcessIds = loadImportProcessIds(payload);
+        if (CollUtil.isEmpty(importProcessIds)) {
             throw exception(PRO_FEEDBACK_IMPORT_SCHEDULE_ORDER_PROCESS_NOT_EXISTS);
         }
-        List<MesProFeedbackSurplusPoolDO> availablePools = surplusPoolMapper.selectAvailableListByProcessId(process.getId());
+        List<MesProFeedbackSurplusPoolDO> availablePools = importProcessIds.stream()
+                .flatMap(processId -> safeList(surplusPoolMapper.selectAvailableListByProcessId(processId)).stream())
+                .sorted(Comparator.comparing(pool -> pool.getId() == null ? Long.MAX_VALUE : pool.getId()))
+                .toList();
         BigDecimal remainingToConsume = quantityToConsume;
         for (MesProFeedbackSurplusPoolDO pool : availablePools) {
             if (remainingToConsume.compareTo(BigDecimal.ZERO) <= 0) {
@@ -679,10 +667,7 @@ public class MesProFeedbackImportRecordServiceImpl implements MesProFeedbackImpo
     private AttributionResult attributeExternalOtherOrder(MesProFeedbackImportRecordDO importRecord,
                                                           ThirdPartyFeedbackImportPayload payload,
                                                           BigDecimal feedbackQuantity) {
-        MesProProcessDO process = processMapper.selectByCode(payload.getProcessCode());
-        if (process == null) {
-            throw exception(PRO_FEEDBACK_IMPORT_SCHEDULE_ORDER_PROCESS_NOT_EXISTS);
-        }
+        MesProProcessDO process = resolveSingleImportProcessForPool(payload);
         MesProFeedbackSurplusPoolDO pool = buildBaseSurplusPool(importRecord, payload)
                 .setSourceType(MesProFeedbackSurplusPoolDO.SOURCE_TYPE_EXTERNAL_OTHER_ORDER)
                 .setProcessId(process.getId())
@@ -991,12 +976,7 @@ public class MesProFeedbackImportRecordServiceImpl implements MesProFeedbackImpo
     }
 
     private List<Long> loadImportProcessIds(ThirdPartyFeedbackImportPayload payload) {
-        List<MesProProcessDO> importProcessList = processMapper.selectListByCodes(List.of(payload.getProcessCode()));
-        if (CollUtil.isEmpty(importProcessList)) {
-            MesProProcessDO importProcess = processMapper.selectByCode(payload.getProcessCode());
-            importProcessList = importProcess == null ? List.of() : List.of(importProcess);
-        }
-        return importProcessList.stream().map(MesProProcessDO::getId).distinct().toList();
+        return loadImportProcesses(payload).stream().map(MesProProcessDO::getId).distinct().toList();
     }
 
     private Map<Long, Long> resolveProcessIdentityMap(Collection<Long> processIds) {
@@ -1035,6 +1015,61 @@ public class MesProFeedbackImportRecordServiceImpl implements MesProFeedbackImpo
         return list == null ? List.of() : new ArrayList<>(list);
     }
 
+    private List<MesProProcessDO> loadImportProcesses(ThirdPartyFeedbackImportPayload payload) {
+        if (payload == null || StrUtil.isBlank(payload.getProcessCode())) {
+            return List.of();
+        }
+        return safeList(processMapper.selectListByCodes(List.of(payload.getProcessCode()))).stream()
+                .filter(Objects::nonNull)
+                .filter(process -> process.getId() != null)
+                .collect(Collectors.toMap(MesProProcessDO::getId, process -> process,
+                        (left, right) -> left, LinkedHashMap::new))
+                .values().stream().toList();
+    }
+
+    private BigDecimal sumAvailableQuantityByProcessIds(Collection<Long> processIds) {
+        return safeList(processIds).stream()
+                .filter(processId -> processId != null && processId > 0)
+                .distinct()
+                .map(surplusPoolMapper::sumAvailableQuantityByProcessId)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private MesProProcessDO resolveSingleImportProcessForPool(ThirdPartyFeedbackImportPayload payload) {
+        List<MesProProcessDO> importProcesses = loadImportProcesses(payload);
+        if (CollUtil.isEmpty(importProcesses)) {
+            throw exception(PRO_FEEDBACK_IMPORT_SCHEDULE_ORDER_PROCESS_NOT_EXISTS);
+        }
+        if (importProcesses.size() > 1) {
+            throw exception(PRO_FEEDBACK_IMPORT_ATTRIBUTION_TARGET_INVALID);
+        }
+        return importProcesses.get(0);
+    }
+
+    private MesProProcessDO resolveResidualSurplusPoolProcess(ThirdPartyFeedbackImportPayload payload,
+                                                              List<MesProFeedbackImportAttributeReqVO.Allocation> allocations) {
+        for (MesProFeedbackImportAttributeReqVO.Allocation allocation : safeList(allocations)) {
+            if (!StrUtil.equals(TARGET_TYPE_CURRENT_ORDER, allocation.getTargetType())
+                    || allocation.getScheduleOrderProcessId() == null
+                    || allocation.getScheduleOrderProcessId() <= 0) {
+                continue;
+            }
+            MesProScheduleOrderProcessDO scheduleOrderProcess =
+                    scheduleOrderProcessMapper.selectById(allocation.getScheduleOrderProcessId());
+            if (scheduleOrderProcess != null
+                    && scheduleOrderProcess.getProcessId() != null
+                    && scheduleOrderProcess.getProcessId() > 0) {
+                return MesProProcessDO.builder()
+                        .id(scheduleOrderProcess.getProcessId())
+                        .code(StrUtil.blankToDefault(scheduleOrderProcess.getProcessCode(), payload.getProcessCode()))
+                        .name(StrUtil.blankToDefault(scheduleOrderProcess.getProcessName(), payload.getProcessName()))
+                        .build();
+            }
+        }
+        return resolveSingleImportProcessForPool(payload);
+    }
+
     private boolean matchesPayloadItem(ThirdPartyFeedbackImportPayload payload, MesMdItemDO item) {
         if (item == null) {
             return false;
@@ -1052,9 +1087,10 @@ public class MesProFeedbackImportRecordServiceImpl implements MesProFeedbackImpo
     }
 
     private MesProFeedbackImportCandidateRespVO buildExternalOtherOrderCandidate(MesProFeedbackImportRecordDO importRecord,
-                                                                                ThirdPartyFeedbackImportPayload payload,
-                                                                                MesProProcessDO process,
-                                                                                BigDecimal processSurplusPoolQuantity) {
+                                                                                 ThirdPartyFeedbackImportPayload payload,
+                                                                                 List<MesProProcessDO> importProcesses,
+                                                                                 BigDecimal processSurplusPoolQuantity) {
+        MesProProcessDO process = importProcesses.size() == 1 ? importProcesses.get(0) : null;
         MesProFeedbackImportCandidateRespVO candidate = new MesProFeedbackImportCandidateRespVO();
         candidate.setTargetType(TARGET_TYPE_EXTERNAL_OTHER_ORDER);
         candidate.setExternalOtherOrder(true);
@@ -1064,9 +1100,10 @@ public class MesProFeedbackImportRecordServiceImpl implements MesProFeedbackImpo
         candidate.setItemCode(payload.getItemCode());
         candidate.setItemName("其他产品");
         candidate.setSpecification(payload.getSpecification());
-        candidate.setProcessId(process.getId());
-        candidate.setProcessCode(process.getCode());
-        candidate.setProcessName(StrUtil.blankToDefault(process.getName(), payload.getProcessName()));
+        candidate.setProcessId(process == null ? null : process.getId());
+        candidate.setProcessCode(process == null ? payload.getProcessCode() : process.getCode());
+        candidate.setProcessName(process == null ? payload.getProcessName()
+                : StrUtil.blankToDefault(process.getName(), payload.getProcessName()));
         candidate.setReportedQuantity(BigDecimal.ZERO);
         candidate.setRemainingQuantity(BigDecimal.ZERO);
         candidate.setExactWorkOrderMatch(false);
@@ -1092,11 +1129,7 @@ public class MesProFeedbackImportRecordServiceImpl implements MesProFeedbackImpo
                                                 MesProScheduleOrderProcessDO scheduleOrderProcess,
                                                 Long scheduleProcessIdentityProcessId,
                                                 Map<Long, Long> processIdentityMap) {
-        List<MesProProcessDO> importProcessList = processMapper.selectListByCodes(List.of(payload.getProcessCode()));
-        if (CollUtil.isEmpty(importProcessList)) {
-            MesProProcessDO importProcess = processMapper.selectByCode(payload.getProcessCode());
-            importProcessList = importProcess == null ? List.of() : List.of(importProcess);
-        }
+        List<MesProProcessDO> importProcessList = loadImportProcesses(payload);
         boolean processMatched = importProcessList.stream()
                 .anyMatch(process -> isSameProcessIdentity(process.getId(), scheduleProcessIdentityProcessId, processIdentityMap));
         if (!processMatched && !StrUtil.equals(payload.getProcessCode(), scheduleOrderProcess.getProcessCode())) {
@@ -1179,8 +1212,7 @@ public class MesProFeedbackImportRecordServiceImpl implements MesProFeedbackImpo
         respVO.setFeedbackUserCode(payload.getFeedbackUserCode());
         respVO.setFeedbackUserName(payload.getFeedbackUserName());
         respVO.setApproverName(payload.getApproverName());
-        MesProProcessDO process = processMapper.selectByCode(payload.getProcessCode());
-        respVO.setSurplusPoolQuantity(process == null ? BigDecimal.ZERO : surplusPoolMapper.sumAvailableQuantityByProcessId(process.getId()));
+        respVO.setSurplusPoolQuantity(sumAvailableQuantityByProcessIds(loadImportProcessIds(payload)));
         if (snapshot != null) {
             respVO.setGeneratedFeedbackDraft(snapshot.generatedFeedbackDraft());
             respVO.setLinkedFeedbackStatus(snapshot.primaryStatus());

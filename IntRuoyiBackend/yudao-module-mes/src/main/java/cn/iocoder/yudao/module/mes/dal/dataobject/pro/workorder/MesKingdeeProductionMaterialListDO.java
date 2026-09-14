@@ -92,6 +92,10 @@ public class MesKingdeeProductionMaterialListDO extends BaseDO {
      */
     private String childUnitName;
     /**
+     * 图号
+     */
+    private String drawingNumber;
+    /**
      * 应发数量
      */
     private BigDecimal requiredQuantity;
@@ -145,4 +149,3 @@ public class MesKingdeeProductionMaterialListDO extends BaseDO {
     private String rawPayload;
 
 }
-

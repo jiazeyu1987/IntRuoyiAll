@@ -60,6 +60,14 @@ public interface MesMdItemService {
     MesMdItemDO getItem(Long id);
 
     /**
+     * 按产品编号获得物料产品
+     *
+     * @param code 产品编号
+     * @return 物料产品
+     */
+    MesMdItemDO getItemByCode(String code);
+
+    /**
      * 校验物料产品存在
      *
      * @param id 编号

@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.Me
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchSummaryRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchPolicySettingsRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchShiftHoursRespVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationMachineDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteScheduleConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProScheduleCalendarRuleDO;
 import cn.iocoder.yudao.module.infra.controller.admin.config.vo.ConfigSaveReqVO;
@@ -17,8 +18,10 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfig
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleCalendarRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedulerworkbench.MesProSchedulerWorkbenchMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
+import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationMachineService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteScheduleConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.MesProScheduleCalendarService;
+import cn.iocoder.yudao.module.mes.service.pro.scheduleorder.MesProScheduleOrderService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
@@ -30,11 +33,15 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.enums.CommonStatusEnum.ENABLE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULER_WORKBENCH_POLICY_SETTINGS_INVALID;
 
 @Service
@@ -43,6 +50,8 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     private static final String POLICY_SETTINGS_CONFIG_KEY = "mes.scheduler-workbench.policy-settings";
     private static final Set<String> PRIORITY_RULES = Set.of("PROMISE_DATE", "ORDER_PRIORITY", "CREATED_TIME");
     private static final BigDecimal CAPACITY_DIFF_EPSILON = new BigDecimal("0.000001");
+    private static final String WORKER_CAPACITY_APPLICABILITY_TEXT =
+            "人效h仅影响资源计算模式且产能来源为人工的工序；设备产能、手工覆盖和无限公式不受影响。人数仅作为新配置默认值，不强制重算现有工位。";
     private static final Set<String> DEFAULT_SCHEDULE_CAPACITY_MODES = Set.of(
             MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode(),
             MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode(),
@@ -53,6 +62,8 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     @Resource
     private MesMdWorkstationMapper workstationMapper;
     @Resource
+    private MesMdWorkstationMachineService workstationMachineService;
+    @Resource
     private ConfigService configService;
     @Resource
     private MesProScheduleCalendarRuleMapper scheduleCalendarRuleMapper;
@@ -62,6 +73,10 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     private MesProRouteScheduleConfigMapper routeScheduleConfigMapper;
     @Resource
     private MesProRouteScheduleConfigService routeScheduleConfigService;
+    @Resource
+    private MesProSchedulerWorkbenchRuntimeStatusService runtimeStatusService;
+    @Resource
+    private MesProScheduleOrderService scheduleOrderService;
     @Value("${mes.schedule.default-route-capacity-mode:RESOURCE_CALCULATED}")
     private String defaultRouteCapacityMode = MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode();
     @Value("${mes.schedule.capacity-audit-enabled:true}")
@@ -72,6 +87,8 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     public MesProSchedulerWorkbenchSummaryRespVO getSummary(LocalDate date) {
         LocalDateTime beginTime = date.atStartOfDay();
         LocalDateTime endTime = date.plusDays(1).atStartOfDay();
+        Set<Long> latestScheduleOrderIds = scheduleOrderService.getLatestSuccessfulApplyScheduleOrderIds();
+        boolean hasLatestScheduleScope = !latestScheduleOrderIds.isEmpty();
 
         MesProSchedulerWorkbenchSummaryRespVO summary = new MesProSchedulerWorkbenchSummaryRespVO();
         summary.setDate(date);
@@ -81,8 +98,12 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
         summary.setTodayFeedbackCount(nvl(schedulerWorkbenchMapper.selectTodayFeedbackCount(beginTime, endTime)));
         summary.setTodayFeedbackQuantity(nvl(schedulerWorkbenchMapper.selectTodayFeedbackQuantity(beginTime, endTime)));
         summary.setPendingApprovalFeedbackCount(nvl(schedulerWorkbenchMapper.selectPendingApprovalFeedbackCount()));
-        summary.setCurrentSchedulePlannedQuantity(nvl(schedulerWorkbenchMapper.selectCurrentSchedulePlannedQuantity()));
-        summary.setCurrentScheduleReportedQuantity(nvl(schedulerWorkbenchMapper.selectCurrentScheduleReportedQuantity()));
+        summary.setCurrentSchedulePlannedQuantity(hasLatestScheduleScope
+                ? nvl(schedulerWorkbenchMapper.selectCurrentSchedulePlannedQuantity(latestScheduleOrderIds))
+                : BigDecimal.ZERO);
+        summary.setCurrentScheduleReportedQuantity(hasLatestScheduleScope
+                ? nvl(schedulerWorkbenchMapper.selectCurrentScheduleReportedQuantity(latestScheduleOrderIds))
+                : BigDecimal.ZERO);
         summary.setReportedDeviationQuantity(summary.getCurrentScheduleReportedQuantity()
                 .subtract(summary.getCurrentSchedulePlannedQuantity()));
         summary.setReportedDeviationText(buildDeviationText(summary.getReportedDeviationQuantity()));
@@ -95,12 +116,18 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
                 + summary.getMaterialShortageCount());
         summary.setNightlyReplanText("每晚 02:00 自动重排；已报工、已完成、手工锁定任务保持不动。");
         summary.setTodayActionSuggestion(buildActionSuggestion(summary));
-        summary.setCurrentScheduleScopeText("报工偏差按当前有效排产工单（已排产/生产中）的实际报工数量与排产数量计算；不再按当天任务段重复累计。");
+        summary.setCurrentScheduleScopeText("报工偏差按最近一次成功排产的工单实际报工数量与排产数量计算；不再混入历史排产或其它未参与本次排产的工单。");
         summary.setGlobalRiskScopeText(buildGlobalRiskScopeText(summary));
         summary.setSteps(buildSteps(summary));
-        summary.setBottlenecks(schedulerWorkbenchMapper.selectBottlenecks(beginTime, endTime));
-        summary.setReportedDeviationDetails(schedulerWorkbenchMapper.selectReportedDeviationDetails());
-        summary.setRouteActiveOrders(schedulerWorkbenchMapper.selectRouteActiveOrders());
+        summary.setBottlenecks(hasLatestScheduleScope
+                ? schedulerWorkbenchMapper.selectBottlenecks(beginTime, endTime, latestScheduleOrderIds)
+                : Collections.emptyList());
+        summary.setReportedDeviationDetails(hasLatestScheduleScope
+                ? schedulerWorkbenchMapper.selectReportedDeviationDetails(latestScheduleOrderIds)
+                : Collections.emptyList());
+        summary.setRouteActiveOrders(hasLatestScheduleScope
+                ? schedulerWorkbenchMapper.selectRouteActiveOrders(latestScheduleOrderIds)
+                : Collections.emptyList());
         return summary;
     }
 
@@ -114,6 +141,7 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     public MesProSchedulerWorkbenchShiftHoursRespVO saveShiftHoursSetting(BigDecimal shiftHours) {
         int updatedCount = workstationMapper.updateAllShiftHours(shiftHours);
         scheduleCalendarService.refreshPlanCapacityForShiftHours(shiftHours);
+        scheduleOrderService.refreshProcessWipCapacitySnapshotsForShiftHours(shiftHours);
         return buildShiftHoursSetting(workstationMapper.selectListForShiftHours(), updatedCount);
     }
 
@@ -127,12 +155,16 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesProSchedulerWorkbenchPolicySettingsRespVO savePolicySettings(
             MesProSchedulerWorkbenchPolicySettingsRespVO reqVO) {
         MesProSchedulerWorkbenchPolicySettingsRespVO normalizedReqVO = normalizePolicySettings(reqVO);
         validatePolicySettings(normalizedReqVO);
         String value = serializePolicySettings(normalizedReqVO);
         ConfigDO config = configService.getConfigByKey(POLICY_SETTINGS_CONFIG_KEY);
+        MesProSchedulerWorkbenchPolicySettingsRespVO previousSettings = config == null
+                || config.getValue() == null || config.getValue().isBlank()
+                ? null : parsePolicySettings(config.getValue());
         ConfigSaveReqVO saveReqVO = new ConfigSaveReqVO();
         saveReqVO.setId(config == null ? null : config.getId());
         saveReqVO.setCategory("mes");
@@ -146,7 +178,50 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
         } else {
             configService.updateConfig(saveReqVO);
         }
+        applyWorkerHumanEfficiencyIfChanged(previousSettings, normalizedReqVO);
+        if (previousSettings == null || !Objects.equals(previousSettings.getNightlyReplanTime(),
+                normalizedReqVO.getNightlyReplanTime())) {
+            runtimeStatusService.updateNightlyReplanTime(normalizedReqVO.getNightlyReplanTime());
+        }
+        normalizedReqVO.setWorkerCapacityApplicabilityText(WORKER_CAPACITY_APPLICABILITY_TEXT);
         return normalizedReqVO;
+    }
+
+    private void applyWorkerHumanEfficiencyIfChanged(
+            MesProSchedulerWorkbenchPolicySettingsRespVO previousSettings,
+            MesProSchedulerWorkbenchPolicySettingsRespVO currentSettings) {
+        BigDecimal currentHumanEfficiency = currentSettings.getDefaultWorkerSingleHourlyCapacity();
+        BigDecimal previousHumanEfficiency = previousSettings == null
+                ? null : previousSettings.getDefaultWorkerSingleHourlyCapacity();
+        if (previousHumanEfficiency != null && previousHumanEfficiency.compareTo(currentHumanEfficiency) == 0) {
+            return;
+        }
+        List<MesMdWorkstationDO> workstations = Objects.requireNonNull(
+                workstationMapper.selectListByStatus(ENABLE.getStatus()),
+                "enabled workstations must not be null");
+        if (workstations.isEmpty()) {
+            return;
+        }
+        List<Long> workstationIds = workstations.stream()
+                .map(MesMdWorkstationDO::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (workstationIds.isEmpty()) {
+            return;
+        }
+        List<MesMdWorkstationMachineDO> machineBindings = Objects.requireNonNull(
+                workstationMachineService.getWorkstationMachineListByWorkstationIds(workstationIds),
+                "workstation machine bindings must not be null");
+        Set<Long> machineWorkstationIds = machineBindings.stream()
+                .map(MesMdWorkstationMachineDO::getWorkstationId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        workstations.stream()
+                .map(MesMdWorkstationDO::getId)
+                .filter(Objects::nonNull)
+                .filter(workstationId -> !machineWorkstationIds.contains(workstationId))
+                .forEach(workstationId -> workstationMapper.updateSingleStandardHourlyCapacity(
+                        workstationId, currentHumanEfficiency));
     }
 
     @Override
@@ -303,7 +378,9 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     }
 
     private MesProSchedulerWorkbenchPolicySettingsRespVO defaultPolicySettings() {
-        return normalizePolicySettings(null);
+        MesProSchedulerWorkbenchPolicySettingsRespVO settings = normalizePolicySettings(null);
+        settings.setWorkerCapacityApplicabilityText(WORKER_CAPACITY_APPLICABILITY_TEXT);
+        return settings;
     }
 
     private MesProSchedulerWorkbenchPolicySettingsRespVO parsePolicySettings(String value) {
@@ -312,6 +389,7 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
                     MesProSchedulerWorkbenchPolicySettingsRespVO.class);
             settings = normalizePolicySettings(settings);
             validatePolicySettings(settings);
+            settings.setWorkerCapacityApplicabilityText(WORKER_CAPACITY_APPLICABILITY_TEXT);
             return settings;
         } catch (JsonProcessingException ex) {
             throw exception(PRO_SCHEDULER_WORKBENCH_POLICY_SETTINGS_INVALID);

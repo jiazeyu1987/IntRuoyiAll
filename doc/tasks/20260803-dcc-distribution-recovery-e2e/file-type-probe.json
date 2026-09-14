@@ -1,0 +1,10 @@
+{
+  "startedAt": "2026-08-02T16:17:39.999Z",
+  "projectOptions": [],
+  "cascaderLevels": [],
+  "responses": [],
+  "errors": [
+    "page.waitForURL: Timeout 60000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================"
+  ],
+  "url": "http://127.0.0.1:8081/login?redirect=/index"
+}

@@ -10,6 +10,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Mapper
 public interface CodexTestExecutionMapper extends BaseMapperX<CodexTestExecutionDO> {
@@ -31,6 +32,12 @@ public interface CodexTestExecutionMapper extends BaseMapperX<CodexTestExecution
                 .set(CodexTestExecutionDO::getFinishedAt, finishedAt)
                 .set(CodexTestExecutionDO::getSummary, summary)
                 .set(runnerSessionId != null, CodexTestExecutionDO::getRunnerSessionId, runnerSessionId));
+    }
+
+    default List<CodexTestExecutionDO> selectMonitorList() {
+        return selectList(new LambdaQueryWrapperX<CodexTestExecutionDO>()
+                .in(CodexTestExecutionDO::getStatus, List.of("PENDING", "CLAIMED", "RUNNING"))
+                .orderByDesc(CodexTestExecutionDO::getId));
     }
 
 }

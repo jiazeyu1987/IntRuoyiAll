@@ -1,0 +1,182 @@
+{
+  "taskId": "20260729-test-server-wangsiyu-file-upload-simulation",
+  "startedAt": "2026-07-30T04:24:03.070Z",
+  "baseUrl": "http://172.30.30.58:8081",
+  "tenant": "芋道源码",
+  "username": "wangsiyu",
+  "sourceFilePath": "E:\\IntRuoyi\\doc\\tasks\\20260729-test-server-wangsiyu-file-upload-simulation\\input\\codex-upload-simulation-20260729.docx",
+  "sourceFileName": "codex-upload-simulation-20260729.docx",
+  "fileName": "Codex file upload simulation 20260730035911679-431F9C",
+  "fileNumber": "CODEX-UPLOAD-20260730035911679-431F9C",
+  "steps": [
+    {
+      "status": "PASS",
+      "step": "captcha",
+      "detail": {
+        "authorized": true,
+        "detection": {
+          "intrinsicOffset": 180,
+          "displayOffset": 232.25806451612902,
+          "backgroundWidth": 310,
+          "displayedWidth": 400,
+          "pieceBounds": {
+            "minX": 0,
+            "maxX": 45,
+            "minY": 87,
+            "maxY": 132
+          },
+          "topCandidates": [
+            {
+              "x": 180,
+              "score": 196.70641000000012
+            },
+            {
+              "x": 178,
+              "score": 193.33953000000002
+            },
+            {
+              "x": 177,
+              "score": 132.23924000000005
+            },
+            {
+              "x": 181,
+              "score": 120.86129
+            },
+            {
+              "x": 179,
+              "score": 100.72001999999995
+            },
+            {
+              "x": 176,
+              "score": 97.80098
+            },
+            {
+              "x": 182,
+              "score": 92.29795000000004
+            },
+            {
+              "x": 175,
+              "score": 87.41306999999999
+            }
+          ]
+        },
+        "httpStatus": 200,
+        "repCode": "0000",
+        "repMsg": null
+      },
+      "at": "2026-07-30T04:24:05.901Z"
+    },
+    {
+      "status": "PASS",
+      "step": "login",
+      "detail": {
+        "url": "http://172.30.30.58:8081/dcc/controlled-file/upload"
+      },
+      "at": "2026-07-30T04:24:07.180Z"
+    },
+    {
+      "status": "PASS",
+      "step": "detail-visible",
+      "detail": {
+        "id": "2054545668044083977",
+        "fileName": "Codex file upload simulation 20260730035911679-431F9C",
+        "fileNumber": "CODEX-UPLOAD-20260730035911679-431F9C",
+        "versionNo": "V1.0",
+        "status": "PENDING_DOC_CONTROL_REVIEW",
+        "categoryId": 908709,
+        "processInstanceId": "0c985e29-8bcb-11f1-8ee9-0242c0a83005"
+      },
+      "at": "2026-07-30T04:24:09.476Z"
+    }
+  ],
+  "writeRequests": [
+    {
+      "method": "POST",
+      "path": "/system/captcha/get"
+    },
+    {
+      "method": "POST",
+      "path": "/system/captcha/get"
+    },
+    {
+      "method": "POST",
+      "path": "/system/captcha/get"
+    },
+    {
+      "method": "POST",
+      "path": "/system/captcha/check"
+    },
+    {
+      "method": "POST",
+      "path": "/system/captcha/get"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "retainedTestData": true,
+  "captcha": {
+    "authorized": true,
+    "detection": {
+      "intrinsicOffset": 180,
+      "displayOffset": 232.25806451612902,
+      "backgroundWidth": 310,
+      "displayedWidth": 400,
+      "pieceBounds": {
+        "minX": 0,
+        "maxX": 45,
+        "minY": 87,
+        "maxY": 132
+      },
+      "topCandidates": [
+        {
+          "x": 180,
+          "score": 196.70641000000012
+        },
+        {
+          "x": 178,
+          "score": 193.33953000000002
+        },
+        {
+          "x": 177,
+          "score": 132.23924000000005
+        },
+        {
+          "x": 181,
+          "score": 120.86129
+        },
+        {
+          "x": 179,
+          "score": 100.72001999999995
+        },
+        {
+          "x": 176,
+          "score": 97.80098
+        },
+        {
+          "x": 182,
+          "score": 92.29795000000004
+        },
+        {
+          "x": 175,
+          "score": 87.41306999999999
+        }
+      ]
+    },
+    "httpStatus": 200,
+    "repCode": "0000",
+    "repMsg": null
+  },
+  "controlledFileId": "2054545668044083977",
+  "detail": {
+    "id": "2054545668044083977",
+    "fileName": "Codex file upload simulation 20260730035911679-431F9C",
+    "fileNumber": "CODEX-UPLOAD-20260730035911679-431F9C",
+    "versionNo": "V1.0",
+    "status": "PENDING_DOC_CONTROL_REVIEW",
+    "categoryId": 908709,
+    "processInstanceId": "0c985e29-8bcb-11f1-8ee9-0242c0a83005"
+  },
+  "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260729-test-server-wangsiyu-file-upload-simulation\\upload-result.png",
+  "status": "PASS",
+  "finishedAt": "2026-07-30T04:24:09.544Z"
+}

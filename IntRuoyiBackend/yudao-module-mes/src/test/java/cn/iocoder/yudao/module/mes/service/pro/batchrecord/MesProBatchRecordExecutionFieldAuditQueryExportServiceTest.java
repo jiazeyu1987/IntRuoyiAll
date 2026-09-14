@@ -149,6 +149,12 @@ class MesProBatchRecordExecutionFieldAuditQueryExportServiceTest extends BaseDbU
     private MesProEdhrPermissionGateService permissionGateService;
     @MockitoBean
     private MesProEdhrPermissionScopeService permissionScopeService;
+    @MockitoBean
+    private MesProEdhrPreReleaseEditabilityService preReleaseEditabilityService;
+    @MockitoBean
+    private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
+    @MockitoBean
+    private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
 
     @BeforeEach
     void setUpTenant() {

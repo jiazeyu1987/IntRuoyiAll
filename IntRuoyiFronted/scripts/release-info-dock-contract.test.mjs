@@ -16,14 +16,19 @@ test('Menu mounts the release info dock at the sidebar footer', () => {
   assert.doesNotMatch(app, /ReleaseInfoDock/)
 })
 
-test('ReleaseInfoDock reads release-info.json and exposes version details', () => {
+test('ReleaseInfoDock reads release-info.json and exposes git diff changes only', () => {
   const source = readText('src/components/ReleaseInfoDock/ReleaseInfoDock.vue')
 
   assert.match(source, /\/release-info\.json/)
   assert.match(source, /releaseTag/)
   assert.match(source, /changeSet/)
-  assert.match(source, /sourceRepos/)
   assert.match(source, /版本信息未生成/)
-  assert.match(source, /查看变更/)
+  assert.match(source, /gitChangeItems/)
+  assert.match(source, /gitChanges/)
+  assert.match(source, /slice\(0,\s*10\)/)
+  assert.match(source, /版本变化（最多 10 条）/)
+  assert.doesNotMatch(source, />源码提交</)
+  assert.doesNotMatch(source, />摘要</)
+  assert.doesNotMatch(source, />变更项</)
   assert.doesNotMatch(source, /position:\s*fixed/)
 })

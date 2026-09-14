@@ -84,10 +84,14 @@ public class TenantServiceImplTest extends BaseDbUnitTest {
     @Test
     public void testGetTenantIdList() {
         // mock 数据
-        TenantDO tenant = randomPojo(TenantDO.class, o -> o.setId(1L));
-        tenantMapper.insert(tenant);
+        TenantDO enabledTenant = randomPojo(TenantDO.class, o -> o.setId(1L)
+                .setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        tenantMapper.insert(enabledTenant);
+        TenantDO disabledTenant = randomPojo(TenantDO.class, o -> o.setId(2L)
+                .setStatus(CommonStatusEnum.DISABLE.getStatus()));
+        tenantMapper.insert(disabledTenant);
 
-        // 调用，并断言业务异常
+        // 调用并只返回启用租户
         List<Long> result = tenantService.getTenantIdList();
         assertEquals(Collections.singletonList(1L), result);
     }
@@ -171,9 +175,11 @@ public class TenantServiceImplTest extends BaseDbUnitTest {
         assertPojoEquals(reqVO, tenant, "id");
         assertEquals(300L, tenant.getContactUserId());
         // verify 分配权限
-        verify(permissionService).assignRoleMenu(eq(200L), same(tenantPackage.getMenuIds()));
+        verify(permissionService).assignRoleMenu(eq(200L), same(tenantPackage.getMenuIds()),
+                eq("租户创建时分配租户套餐菜单权限"), anyString());
         // verify 分配角色
-        verify(permissionService).assignUserRole(eq(300L), eq(singleton(200L)));
+        verify(permissionService).assignUserRole(eq(300L), eq(singleton(200L)),
+                eq("租户创建时分配租户管理员角色"), anyString());
     }
 
     @Test
@@ -207,8 +213,10 @@ public class TenantServiceImplTest extends BaseDbUnitTest {
         TenantDO tenant = tenantMapper.selectById(reqVO.getId()); // 获取最新的
         assertPojoEquals(reqVO, tenant);
         // verify 设置角色权限
-        verify(permissionService).assignRoleMenu(eq(100L), eq(asSet(200L, 201L)));
-        verify(permissionService).assignRoleMenu(eq(101L), eq(asSet(201L)));
+        verify(permissionService).assignRoleMenu(eq(100L), eq(asSet(200L, 201L)),
+                eq("租户套餐变更同步租户管理员菜单权限"), anyString());
+        verify(permissionService).assignRoleMenu(eq(101L), eq(asSet(201L)),
+                eq("租户套餐变更收敛角色菜单权限"), anyString());
     }
 
     @Test

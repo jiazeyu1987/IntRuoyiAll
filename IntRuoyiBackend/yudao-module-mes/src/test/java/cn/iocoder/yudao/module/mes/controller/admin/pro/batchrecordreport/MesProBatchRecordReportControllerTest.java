@@ -32,16 +32,20 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Answers.RETURNS_DEFAULTS;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -75,6 +79,8 @@ class MesProBatchRecordReportControllerTest {
                         .batchRecordDefinitionId(10L)
                         .batchRecordVersionId(20L)
                         .productName("球囊扩张压力泵")
+                        .projectCode("IDPR")
+                        .dccProjectCodeId(901L)
                         .versionNo("V2.0")
                         .versionStatus("APPROVED")
                         .formSlotType("MAIN")
@@ -90,16 +96,19 @@ class MesProBatchRecordReportControllerTest {
         when(reportService.recognizeUploadedRoute(any(), eq("B"), eq("测试批记录"), eq("UPGRADE"), isNull(Long.class),
                 isNull(String.class),
                 eq(List.of("球囊扩张压力泵")), eq(true), eq(List.of(101L)), eq(List.of("球囊扩张压力泵")),
-                eq(false), isNull(Long.class), isNull(Long.class), isNull(Long.class)))
+                eq(false), isNull(Long.class), isNull(Long.class), isNull(Long.class), eq(901L), isNull(Long.class)))
                 .thenReturn(importResult);
         when(reportService.existsBatchRecordName("B", "测试批记录")).thenReturn(true);
         when(reportService.getBatchRecordNameOptions()).thenReturn(List.of("测试批记录", "棘突球囊"));
+        when(reportService.getProductNameOptions("压力", true)).thenReturn(List.of("球囊扩张压力泵"));
         when(reportService.getGeneratedReportPage(any()))
                 .thenReturn(new PageResult<>(List.of(MesProBatchRecordReportView.builder()
                         .batchRecordName("测试批记录")
                         .batchRecordDefinitionId(10L)
                         .batchRecordVersionId(20L)
                         .productName("球囊扩张压力泵")
+                        .projectCode("IDPR")
+                        .dccProjectCodeId(901L)
                         .versionNo("V2.0")
                         .versionStatus("APPROVED")
                         .formSlotType("MAIN")
@@ -131,12 +140,13 @@ class MesProBatchRecordReportControllerTest {
         CommonResult<BatchRecordReportImportRespVO> docResult = controller.importPilotDoc(docFile);
         CommonResult<BatchRecordReportImportRespVO> imageResult = controller.importImage(docFile);
         CommonResult<BatchRecordReportImportRespVO> uploadedRouteResult =
-                controller.recognizeUploadedRoute(docFile, "B", "测试批记录", true,
+                controller.recognizeUploadedRoute(docFile, "B", "测试批记录", 901L, true,
                         null, null, null,
                         List.of("球囊扩张压力泵"), true, List.of(101L), List.of("球囊扩张压力泵"),
-                        false, null, null);
+                        false, null, null, null);
         CommonResult<Boolean> existsResult = controller.existsBatchRecordName("B", "测试批记录");
         CommonResult<List<String>> namesResult = controller.getBatchRecordNameOptions();
+        CommonResult<List<String>> productNamesResult = controller.getProductNameOptions("压力", true);
         CommonResult<PageResult<BatchRecordReportRespVO>> pageResult =
                 controller.getGeneratedReportPage(new BatchRecordReportPageReqVO());
         CommonResult<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportDesignerPathRespVO>
@@ -173,11 +183,14 @@ class MesProBatchRecordReportControllerTest {
         assertEquals(List.of("无编码产品"), uploadedRouteResult.getData().getSkippedProductNames());
         assertTrue(existsResult.getData());
         assertEquals(List.of("测试批记录", "棘突球囊"), namesResult.getData());
+        assertEquals(List.of("球囊扩张压力泵"), productNamesResult.getData());
         assertEquals(1L, pageResult.getData().getTotal());
         assertEquals("测试批记录", pageResult.getData().getList().get(0).getBatchRecordName());
         assertEquals(10L, pageResult.getData().getList().get(0).getBatchRecordDefinitionId());
         assertEquals(20L, pageResult.getData().getList().get(0).getBatchRecordVersionId());
         assertEquals("球囊扩张压力泵", pageResult.getData().getList().get(0).getProductName());
+        assertEquals("IDPR", pageResult.getData().getList().get(0).getProjectCode());
+        assertEquals(901L, pageResult.getData().getList().get(0).getDccProjectCodeId());
         assertEquals("V2.0", pageResult.getData().getList().get(0).getVersionNo());
         assertEquals("APPROVED", pageResult.getData().getList().get(0).getVersionStatus());
         assertEquals("MAIN", pageResult.getData().getList().get(0).getFormSlotType());
@@ -196,9 +209,10 @@ class MesProBatchRecordReportControllerTest {
         verify(reportService).importImage(docFile);
         verify(reportService).recognizeUploadedRoute(docFile, "B", "测试批记录", "UPGRADE", null, null,
                 List.of("球囊扩张压力泵"), true, List.of(101L), List.of("球囊扩张压力泵"),
-                false, null, null, null);
+                false, null, null, null, 901L, null);
         verify(reportService).existsBatchRecordName("B", "测试批记录");
         verify(reportService).getBatchRecordNameOptions();
+        verify(reportService).getProductNameOptions("压力", true);
         verify(reportService).getGeneratedReportPage(any());
         verify(reportService).getDesignerPath("report-1");
         verify(reportService).getEditPath("report-1");
@@ -207,6 +221,30 @@ class MesProBatchRecordReportControllerTest {
         verify(reportService).deleteGeneratedReports(List.of("report-1", "report-2"), true);
         verify(reportService).deleteGeneratedReportsByBatchRecordName("测试批记录", false);
         verify(reportService).deleteAllGeneratedReports("PROD");
+    }
+
+    @Test
+    void parseProductionBatchRecordTotalRecognitionJsonKeepsParseOnlyPermissionContract() throws Exception {
+        MockMultipartFile docFile = new MockMultipartFile("file", "production.doc", "application/msword",
+                new byte[]{1, 2, 3});
+        String totalRecognitionJson =
+                "{\"product\":{\"name\":\"按压式球囊扩充压力泵\",\"code\":\"IDI-01\"},"
+                        + "\"schemaVersion\":2,\"processes\":[]}";
+        when(reportService.parseProductionBatchRecordTotalRecognitionJson(docFile)).thenReturn(totalRecognitionJson);
+
+        CommonResult<String> response = controller.parseProductionBatchRecordTotalRecognitionJson(docFile);
+
+        assertTrue(response.isSuccess());
+        assertEquals(totalRecognitionJson, response.getData());
+        verify(reportService).parseProductionBatchRecordTotalRecognitionJson(docFile);
+
+        Method parseMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
+                "parseProductionBatchRecordTotalRecognitionJson", MultipartFile.class);
+        assertArrayEquals(new String[]{"/production-batch-record/total-recognition-json"},
+                parseMethod.getAnnotation(PostMapping.class).value());
+        assertEquals("file", parseMethod.getParameters()[0].getAnnotation(RequestParam.class).value());
+        assertEquals("@ss.hasPermission('form:parser:production-batch-record')",
+                parseMethod.getAnnotation(PreAuthorize.class).value());
     }
 
     @Test
@@ -259,6 +297,99 @@ class MesProBatchRecordReportControllerTest {
     }
 
     @Test
+    void contractMappings_protectBatchRecordTemplateImportUpdateAndDeleteEndpoints() throws Exception {
+        assertPreAuthorize("mes:pro-batch-record-template:import",
+                MesProBatchRecordReportController.class.getDeclaredMethod("importPilotDoc", MultipartFile.class));
+        assertPreAuthorize("mes:pro-batch-record-template:import",
+                MesProBatchRecordReportController.class.getDeclaredMethod("importImage", MultipartFile.class));
+        assertPreAuthorize("mes:pro-batch-record-template:import",
+                MesProBatchRecordReportController.class.getDeclaredMethod("recognizeFixedRoute", String.class));
+        assertPreAuthorize("mes:pro-batch-record-template:import",
+                MesProBatchRecordReportController.class.getDeclaredMethod("recognizeUploadedRoute",
+                        MultipartFile.class, String.class, String.class, Long.class, Boolean.class, String.class,
+                        Long.class, String.class, List.class, Boolean.class, List.class, List.class, Boolean.class,
+                        Long.class, Long.class, Long.class));
+        assertPreAuthorize("mes:pro-batch-record-template:import",
+                MesProBatchRecordReportController.class.getDeclaredMethod("preflightUploadedRoute",
+                        String.class, String.class, Long.class, List.class));
+        assertPreAuthorize("mes:pro-batch-record-template:import",
+                MesProBatchRecordReportController.class.getDeclaredMethod("uploadExtraFormSlot",
+                        MultipartFile.class, String.class, String.class));
+
+        assertPreAuthorize("mes:pro-batch-record-template:query",
+                MesProBatchRecordReportController.class.getDeclaredMethod("getGeneratedReportPage",
+                        BatchRecordReportPageReqVO.class));
+        assertPreAuthorize("mes:pro-batch-record-template:query",
+                MesProBatchRecordReportController.class.getDeclaredMethod("getDesignerPath", String.class));
+        assertPreAuthorize("mes:pro-batch-record-template:query",
+                MesProBatchRecordReportController.class.getDeclaredMethod("existsBatchRecordName",
+                        String.class, String.class));
+        assertPreAuthorize("mes:pro-batch-record-template:query",
+                MesProBatchRecordReportController.class.getDeclaredMethod("getBatchRecordNameOptions"));
+        assertPreAuthorize("mes:pro-batch-record-template:query",
+                MesProBatchRecordReportController.class.getDeclaredMethod("getProductNameOptions",
+                        String.class, Boolean.class));
+
+        assertPreAuthorize("mes:pro-batch-record-template:update",
+                MesProBatchRecordReportController.class.getDeclaredMethod("getEditPath", String.class));
+        assertPreAuthorize("mes:pro-batch-record-template:update",
+                MesProBatchRecordReportController.class.getDeclaredMethod("renameGeneratedReport",
+                        BatchRecordReportRenameReqVO.class));
+
+        assertPreAuthorize("mes:pro-batch-record-template:delete",
+                MesProBatchRecordReportController.class.getDeclaredMethod("deleteGeneratedReport", String.class));
+        assertPreAuthorize("mes:pro-batch-record-template:delete",
+                MesProBatchRecordReportController.class.getDeclaredMethod("deleteGeneratedReports",
+                        BatchRecordReportBatchDeleteReqVO.class));
+        assertPreAuthorize("mes:pro-batch-record-template:delete",
+                MesProBatchRecordReportController.class.getDeclaredMethod(
+                        "deleteGeneratedReportByBatchRecordNameAndFormSlotType", String.class, String.class));
+        assertPreAuthorize("mes:pro-batch-record-template:delete",
+                MesProBatchRecordReportController.class.getDeclaredMethod(
+                        "deleteGeneratedReportsByBatchRecordName", String.class, Boolean.class));
+        assertPreAuthorize("mes:pro-batch-record-template:delete",
+                MesProBatchRecordReportController.class.getDeclaredMethod("deleteAllGeneratedReports", String.class));
+    }
+
+    private void assertPreAuthorize(String permission, Method method) {
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+        assertNotNull(preAuthorize, method.getName() + " must require " + permission);
+        assertEquals("@ss.hasPermission('" + permission + "')", preAuthorize.value());
+    }
+
+    @Test
+    void formalizeCellRulesDelegatesToService() throws Exception {
+        BatchRecordReportCellRulesRespVO expected = new BatchRecordReportCellRulesRespVO();
+        MesProBatchRecordReportService localReportService = mock(MesProBatchRecordReportService.class, invocation -> {
+            if ("formalizeCellRules".equals(invocation.getMethod().getName())) {
+                return expected;
+            }
+            return RETURNS_DEFAULTS.answer(invocation);
+        });
+        MesProBatchRecordReportController localController = new MesProBatchRecordReportController();
+        Field serviceField = MesProBatchRecordReportController.class.getDeclaredField("batchRecordReportService");
+        serviceField.setAccessible(true);
+        serviceField.set(localController, localReportService);
+
+        Method formalizeMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
+                "formalizeCellRules", String.class);
+        CommonResult<BatchRecordReportCellRulesRespVO> response =
+                (CommonResult<BatchRecordReportCellRulesRespVO>) formalizeMethod.invoke(localController, "report-1");
+
+        assertSame(expected, response.getData());
+    }
+
+    @Test
+    void contractMappings_exposeCellRuleFormalizationEndpoint() throws Exception {
+        Method formalizeMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
+                "formalizeCellRules", String.class);
+        assertArrayEquals(new String[]{"/cell-rules/formalize"}, formalizeMethod.getAnnotation(PostMapping.class).value());
+        assertEquals("reportId", formalizeMethod.getParameters()[0].getAnnotation(RequestParam.class).value());
+        assertEquals("@ss.hasPermission('mes:pro-batch-record-template:update')",
+                formalizeMethod.getAnnotation(PreAuthorize.class).value());
+    }
+
+    @Test
     void contractMappings_exposeFixedRouteRecognitionEndpoint() throws Exception {
         Method recognizeMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
                 "recognizeFixedRoute", String.class);
@@ -274,34 +405,38 @@ class MesProBatchRecordReportControllerTest {
     @Test
     void contractMappings_exposeUploadedRouteRecognitionEndpoint() throws Exception {
         Method recognizeMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
-                "recognizeUploadedRoute", MultipartFile.class, String.class, String.class, Boolean.class,
+                "recognizeUploadedRoute", MultipartFile.class, String.class, String.class, Long.class, Boolean.class,
                 String.class, Long.class, String.class, List.class, Boolean.class, List.class, List.class,
-                Boolean.class, Long.class, Long.class);
+                Boolean.class, Long.class, Long.class, Long.class);
         assertArrayEquals(new String[]{"/recognize-uploaded"}, recognizeMethod.getAnnotation(PostMapping.class).value());
         assertEquals("file", recognizeMethod.getParameters()[0].getAnnotation(RequestParam.class).value());
         assertEquals("routeKey", recognizeMethod.getParameters()[1].getAnnotation(RequestParam.class).value());
         assertEquals("batchRecordName", recognizeMethod.getParameters()[2].getAnnotation(RequestParam.class).value());
-        assertEquals("upgrade", recognizeMethod.getParameters()[3].getAnnotation(RequestParam.class).value());
-        assertEquals("importAction", recognizeMethod.getParameters()[4].getAnnotation(RequestParam.class).value());
-        assertEquals("expectedSourceVersionId", recognizeMethod.getParameters()[5].getAnnotation(RequestParam.class).value());
-        assertEquals("expectedTargetVersionNo", recognizeMethod.getParameters()[6].getAnnotation(RequestParam.class).value());
-        assertEquals("productNames", recognizeMethod.getParameters()[7].getAnnotation(RequestParam.class).value());
-        assertEquals("rebuildBatchRecord", recognizeMethod.getParameters()[8].getAnnotation(RequestParam.class).value());
-        assertEquals("true", recognizeMethod.getParameters()[8].getAnnotation(RequestParam.class).defaultValue());
-        assertEquals("selectedRouteProductIds", recognizeMethod.getParameters()[9].getAnnotation(RequestParam.class).value());
-        assertEquals("selectedProductNames", recognizeMethod.getParameters()[10].getAnnotation(RequestParam.class).value());
-        assertEquals("routeUpgradeConfirmed", recognizeMethod.getParameters()[11].getAnnotation(RequestParam.class).value());
-        assertEquals("false", recognizeMethod.getParameters()[11].getAnnotation(RequestParam.class).defaultValue());
-        assertEquals("expectedRouteId", recognizeMethod.getParameters()[12].getAnnotation(RequestParam.class).value());
-        assertEquals("expectedRouteVersionId", recognizeMethod.getParameters()[13].getAnnotation(RequestParam.class).value());
+        assertEquals("dccProjectCodeId", recognizeMethod.getParameters()[3].getAnnotation(RequestParam.class).value());
+        assertEquals("upgrade", recognizeMethod.getParameters()[4].getAnnotation(RequestParam.class).value());
+        assertEquals("importAction", recognizeMethod.getParameters()[5].getAnnotation(RequestParam.class).value());
+        assertEquals("expectedSourceVersionId", recognizeMethod.getParameters()[6].getAnnotation(RequestParam.class).value());
+        assertEquals("expectedTargetVersionNo", recognizeMethod.getParameters()[7].getAnnotation(RequestParam.class).value());
+        assertEquals("productNames", recognizeMethod.getParameters()[8].getAnnotation(RequestParam.class).value());
+        assertEquals("rebuildBatchRecord", recognizeMethod.getParameters()[9].getAnnotation(RequestParam.class).value());
+        assertEquals("true", recognizeMethod.getParameters()[9].getAnnotation(RequestParam.class).defaultValue());
+        assertEquals("selectedRouteProductIds", recognizeMethod.getParameters()[10].getAnnotation(RequestParam.class).value());
+        assertEquals("selectedProductNames", recognizeMethod.getParameters()[11].getAnnotation(RequestParam.class).value());
+        assertEquals("routeUpgradeConfirmed", recognizeMethod.getParameters()[12].getAnnotation(RequestParam.class).value());
+        assertEquals("false", recognizeMethod.getParameters()[12].getAnnotation(RequestParam.class).defaultValue());
+        assertEquals("expectedRouteId", recognizeMethod.getParameters()[13].getAnnotation(RequestParam.class).value());
+        assertEquals("expectedRouteVersionId", recognizeMethod.getParameters()[14].getAnnotation(RequestParam.class).value());
+        assertEquals("expectedRouteCandidateVersionId",
+                recognizeMethod.getParameters()[15].getAnnotation(RequestParam.class).value());
 
         Method preflightMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
-                "preflightUploadedRoute", String.class, String.class, List.class);
+                "preflightUploadedRoute", String.class, String.class, Long.class, List.class);
         assertArrayEquals(new String[]{"/recognize-uploaded/preflight"},
                 preflightMethod.getAnnotation(GetMapping.class).value());
         assertEquals("routeKey", preflightMethod.getParameters()[0].getAnnotation(RequestParam.class).value());
         assertEquals("batchRecordName", preflightMethod.getParameters()[1].getAnnotation(RequestParam.class).value());
-        assertEquals("productNames", preflightMethod.getParameters()[2].getAnnotation(RequestParam.class).value());
+        assertEquals("dccProjectCodeId", preflightMethod.getParameters()[2].getAnnotation(RequestParam.class).value());
+        assertEquals("productNames", preflightMethod.getParameters()[3].getAnnotation(RequestParam.class).value());
 
         Method existsMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
                 "existsBatchRecordName", String.class, String.class);
@@ -311,6 +446,17 @@ class MesProBatchRecordReportControllerTest {
 
         Method namesMethod = MesProBatchRecordReportController.class.getDeclaredMethod("getBatchRecordNameOptions");
         assertArrayEquals(new String[]{"/batch-record-names"}, namesMethod.getAnnotation(GetMapping.class).value());
+
+        Method productNamesMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
+                "getProductNameOptions", String.class, Boolean.class);
+        assertArrayEquals(new String[]{"/product-name-options"},
+                productNamesMethod.getAnnotation(GetMapping.class).value());
+        assertEquals("keyword",
+                productNamesMethod.getParameters()[0].getAnnotation(RequestParam.class).value());
+        assertEquals("latestVersionOnly",
+                productNamesMethod.getParameters()[1].getAnnotation(RequestParam.class).value());
+        assertEquals("false",
+                productNamesMethod.getParameters()[1].getAnnotation(RequestParam.class).defaultValue());
     }
 
     @Test
@@ -381,14 +527,14 @@ class MesProBatchRecordReportControllerTest {
         when(reportService.recognizeUploadedRoute(any(), eq("B"), eq("测试批记录"), eq("UPGRADE"), isNull(Long.class),
                 isNull(String.class),
                 eq(List.of("球囊扩张压力泵")), eq(true), eq(List.<Long>of()), eq(List.of("球囊扩张压力泵")),
-                eq(false), isNull(Long.class), isNull(Long.class), isNull(Long.class)))
+                eq(false), isNull(Long.class), isNull(Long.class), isNull(Long.class), eq(901L), isNull(Long.class)))
                 .thenReturn(importResult);
 
         CommonResult<BatchRecordReportImportRespVO> importResponse = controller.recognizeUploadedRoute(
                 new MockMultipartFile("file", "phase-one.doc", "application/msword", new byte[]{1}),
-                "B", "测试批记录", true, null, null, null,
+                "B", "测试批记录", 901L, true, null, null, null,
                 List.of("球囊扩张压力泵"), true, List.of(), List.of("球囊扩张压力泵"),
-                false, null, null);
+                false, null, null, null);
 
         assertTrue(importResponse.isSuccess());
         assertEquals(10L, importResponse.getData().getBatchRecordDefinitionId());
@@ -454,11 +600,11 @@ class MesProBatchRecordReportControllerTest {
                         .existing(true)
                         .build()))
                 .build();
-        when(reportService.preflightUploadedRoute("B", "测试批记录", List.of("球囊扩张压力泵")))
+        when(reportService.preflightUploadedRoute("B", "测试批记录", List.of("球囊扩张压力泵"), 901L))
                 .thenReturn(preflight);
 
         CommonResult<BatchRecordReportImportPreflightRespVO> response =
-                controller.preflightUploadedRoute("B", "测试批记录", List.of("球囊扩张压力泵"));
+                controller.preflightUploadedRoute("B", "测试批记录", 901L, List.of("球囊扩张压力泵"));
 
         assertTrue(response.isSuccess());
         assertEquals("V1.0", response.getData().getCurrentBatchRecordVersionNo());
@@ -475,6 +621,6 @@ class MesProBatchRecordReportControllerTest {
         assertEquals(1, response.getData().getRouteProductOptions().size());
         assertEquals("ROUTE_PRODUCT:101", response.getData().getRouteProductOptions().get(0).getOptionKey());
         assertEquals("球囊扩张压力泵", response.getData().getRouteProductOptions().get(0).getProductName());
-        verify(reportService).preflightUploadedRoute("B", "测试批记录", List.of("球囊扩张压力泵"));
+        verify(reportService).preflightUploadedRoute("B", "测试批记录", List.of("球囊扩张压力泵"), 901L);
     }
 }

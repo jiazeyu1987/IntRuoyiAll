@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.schedule.component;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessFlowEdgeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
@@ -65,22 +66,25 @@ public class RouteSnapshotResolver {
         if (activeSnapshotProcesses.size() == 1) {
             MesProScheduleOrderProcessDO process = activeSnapshotProcesses.get(0);
             process.setPredecessorRouteProcessId(null);
+            process.setPredecessorRouteProcessIdsJson(ScheduleTopologyPredecessors.serialize(Set.of()));
             process.setRootProcessFlag(Boolean.TRUE);
             return new RouteTopologyRecovery(safeSnapshotProcesses, null);
         }
-        Map<Long, Long> predecessorMap = buildRouteEdgePredecessorMap(routeId, activeSnapshotProcesses);
+        Map<Long, Set<Long>> predecessorMap = buildRouteEdgePredecessorMap(routeId, activeSnapshotProcesses);
         if (predecessorMap == null) {
             return new RouteTopologyRecovery(safeSnapshotProcesses, routeTopologyValidationError(routeId));
         }
         activeSnapshotProcesses.forEach(process -> {
-            Long predecessorRouteProcessId = predecessorMap.get(process.getRouteProcessId());
-            process.setPredecessorRouteProcessId(predecessorRouteProcessId);
-            process.setRootProcessFlag(predecessorRouteProcessId == null);
+            Set<Long> predecessorRouteProcessIds = predecessorMap.getOrDefault(
+                    process.getRouteProcessId(), Set.of());
+            process.setPredecessorRouteProcessId(ScheduleTopologyPredecessors.legacyScalar(predecessorRouteProcessIds));
+            process.setPredecessorRouteProcessIdsJson(ScheduleTopologyPredecessors.serialize(predecessorRouteProcessIds));
+            process.setRootProcessFlag(predecessorRouteProcessIds.isEmpty());
         });
         return new RouteTopologyRecovery(safeSnapshotProcesses, null);
     }
 
-    private Map<Long, Long> buildRouteEdgePredecessorMap(
+    private Map<Long, Set<Long>> buildRouteEdgePredecessorMap(
             Long routeId, List<MesProScheduleOrderProcessDO> activeSnapshotProcesses) {
         if (routeId == null || CollUtil.isEmpty(activeSnapshotProcesses)) {
             return null;
@@ -125,20 +129,13 @@ public class RouteSnapshotResolver {
         if (rootRouteProcessIds.isEmpty()) {
             return null;
         }
-        boolean hasMultiPredecessor = incomingMap.values().stream().anyMatch(predecessors -> predecessors.size() > 1);
         Set<Long> reachableRouteProcessIds = new LinkedHashSet<>();
         rootRouteProcessIds.forEach(rootRouteProcessId ->
                 reachableRouteProcessIds.addAll(reachableRouteProcessIds(rootRouteProcessId, outgoingMap)));
-        if (hasMultiPredecessor || reachableRouteProcessIds.size() != routeProcessIds.size()) {
+        if (reachableRouteProcessIds.size() != routeProcessIds.size()) {
             return null;
         }
-        Map<Long, Long> predecessorMap = new LinkedHashMap<>();
-        incomingMap.forEach((routeProcessId, predecessorIds) -> {
-            if (predecessorIds.size() == 1) {
-                predecessorMap.put(routeProcessId, predecessorIds.iterator().next());
-            }
-        });
-        return predecessorMap;
+        return incomingMap;
     }
 
     private boolean hasRouteProcessCycle(Set<Long> routeProcessIds, Map<Long, Set<Long>> outgoingMap) {
@@ -422,7 +419,8 @@ public class RouteSnapshotResolver {
     private boolean hasRouteProcessTopologySnapshot(Collection<MesProScheduleOrderProcessDO> snapshotProcesses) {
         return CollUtil.isNotEmpty(snapshotProcesses)
                 && snapshotProcesses.stream().anyMatch(item -> item != null
-                && (item.getPredecessorRouteProcessId() != null || item.getRootProcessFlag() != null));
+                && (StrUtil.isNotBlank(item.getPredecessorRouteProcessIdsJson())
+                || item.getPredecessorRouteProcessId() != null || item.getRootProcessFlag() != null));
     }
 
     private boolean hasInactiveTopologyPredecessor(Collection<MesProScheduleOrderProcessDO> snapshotProcesses) {
@@ -434,8 +432,7 @@ public class RouteSnapshotResolver {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         return snapshotProcesses.stream()
-                .map(MesProScheduleOrderProcessDO::getPredecessorRouteProcessId)
-                .filter(Objects::nonNull)
+                .flatMap(process -> ScheduleTopologyPredecessors.resolve(process).stream())
                 .anyMatch(predecessorRouteProcessId -> !activeRouteProcessIds.contains(predecessorRouteProcessId));
     }
 

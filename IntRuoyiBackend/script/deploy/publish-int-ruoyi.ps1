@@ -55,12 +55,16 @@ param(
     [string]$DccOnlyOfficeJwtSecret = $env:DCC_ONLYOFFICE_JWT_SECRET,
     [string]$DccOnlyOfficeBaseUrl = $env:DCC_ONLYOFFICE_BASE_URL,
     [string]$DccOnlyOfficePublicFileBaseUrl = $env:DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL,
-    [string]$DccDownloadEncryptionPolicyVersion = $env:DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION,
-    [string]$DccDownloadEncryptionKeyId = $env:DCC_DOWNLOAD_ENCRYPTION_KEY_ID,
-    [string]$DccDownloadEncryptionBase64Key = $env:DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY,
-    [string]$DccDownloadEncryptionArtifactDirectory = $env:DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY,
+    [string]$DccOnlyOfficeReleaseE2eTenant = $env:DCC_ONLYOFFICE_RELEASE_E2E_TENANT,
+    [string]$DccOnlyOfficeReleaseE2eUsername = $env:DCC_ONLYOFFICE_RELEASE_E2E_USERNAME,
+    [string]$DccOnlyOfficeReleaseE2ePassword = $env:DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD,
+    [string]$DccOnlyOfficeReleaseE2eDocxFileId = $env:DCC_ONLYOFFICE_RELEASE_E2E_DOCX_FILE_ID,
+    [string]$DccOnlyOfficeReleaseE2eXlsxFileId = $env:DCC_ONLYOFFICE_RELEASE_E2E_XLSX_FILE_ID,
+    [string]$DccOnlyOfficeReleaseE2ePptxFileId = $env:DCC_ONLYOFFICE_RELEASE_E2E_PPTX_FILE_ID,
     [string]$DccProjectCodeCodexCliCommand = $env:DCC_PROJECT_CODE_CODEX_CLI_COMMAND,
     [string]$DccProjectCodeCodexHome = $env:DCC_PROJECT_CODE_CODEX_HOME,
+    [string]$ReleaseChangeSummaryCodexCliCommand = $env:INTRUOYI_RELEASE_CHANGE_SUMMARY_CODEX_CLI_COMMAND,
+    [int]$ReleaseChangeSummaryCodexTimeoutSeconds = 180,
     [string]$LocalCacheRoot = $env:INTRUOYI_LOCAL_CACHE_ROOT,
     [ValidateSet('offline-tar')]
     [string]$BackendRuntimeBaseMode = $env:INTRUOYI_BACKEND_RUNTIME_BASE_MODE,
@@ -173,10 +177,6 @@ $DCC_HARDCODED_SIGNATURE_EVIDENCE_HMAC_SECRET = 'INTRUOYI-DCC-HARDCODED-SIGNATUR
 $DCC_HARDCODED_SIGNATURE_EVIDENCE_KEY_VERSION = 'dcc-hardcoded-signature-20260601'
 $DCC_HARDCODED_VIEWER_TOKEN_HMAC_SECRET = 'INTRUOYI-DCC-HARDCODED-VIEWER-TOKEN-HMAC-20260601'
 $DCC_HARDCODED_ONLYOFFICE_JWT_SECRET = 'INTRUOYI-DCC-HARDCODED-ONLYOFFICE-JWT-20260601'
-$DCC_HARDCODED_DOWNLOAD_ENCRYPTION_POLICY_VERSION = 'dcc-hardcoded-policy-v1'
-$DCC_HARDCODED_DOWNLOAD_ENCRYPTION_KEY_ID = 'dcc-hardcoded-key-20260601'
-$DCC_HARDCODED_DOWNLOAD_ENCRYPTION_BASE64_KEY = 'MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY='
-$DCC_HARDCODED_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY = 'dcc/download-encrypted-artifacts'
 
 function Require-ConfiguredTargetServerHost {
     param(
@@ -794,7 +794,7 @@ function Resolve-BackendRuntimeBaseConfig {
     }
 }
 
-function Assert-BackendRuntimeBaseImageAvailable {
+function Assert-BackendRuntimeBaseTarIntegrity {
     param(
         [Parameter(Mandatory = $true)]
         [System.Collections.IDictionary]$Config
@@ -804,6 +804,13 @@ function Assert-BackendRuntimeBaseImageAvailable {
     if ($actualTarSha256 -ne $config.TarSha256) {
         Fail "Backend runtime base tar sha256 mismatch: expected $($config.TarSha256), got $actualTarSha256 ($($config.TarPath))"
     }
+}
+
+function Assert-BackendRuntimeBaseImageAvailable {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IDictionary]$Config
+    )
 
     Info "Loading backend runtime base image: $($config.TarPath)"
     Invoke-CheckedCommand -FilePath 'docker' -ArgumentList @('load', '-i', $config.TarPath)
@@ -931,10 +938,13 @@ function Get-RemoteComposeServices {
 }
 
 function Get-RemoteRuntimeEnvMap {
-    if (-not (Test-RemoteFileExists -Path $remoteEnv)) {
+    param(
+        [string]$Path = $remoteEnv
+    )
+    if (-not (Test-RemoteFileExists -Path $Path)) {
         return @{}
     }
-    $result = Invoke-SshCapture -Command "cat '$remoteEnv'"
+    $result = Invoke-SshCapture -Command "cat '$Path'"
     $map = @{}
     foreach ($line in ($result.Output -split "`r?`n")) {
         if ([string]::IsNullOrWhiteSpace($line)) {
@@ -1196,26 +1206,7 @@ function Set-PublishRuntimeDefaultsForTarget {
         -Name 'DCC_ONLYOFFICE_BASE_URL' `
         -CurrentValue $script:DccOnlyOfficeBaseUrl `
         -HardcodedValue "http://${TargetServerHost}:$OnlyOfficeHostPort"
-    $script:DccOnlyOfficePublicFileBaseUrl = Resolve-PublishRuntimeValue `
-        -Name 'DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL' `
-        -CurrentValue $script:DccOnlyOfficePublicFileBaseUrl `
-        -HardcodedValue "http://backend:48081"
-    $script:DccDownloadEncryptionPolicyVersion = Resolve-PublishRuntimeValue `
-        -Name 'DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION' `
-        -CurrentValue $script:DccDownloadEncryptionPolicyVersion `
-        -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_POLICY_VERSION
-    $script:DccDownloadEncryptionKeyId = Resolve-PublishRuntimeValue `
-        -Name 'DCC_DOWNLOAD_ENCRYPTION_KEY_ID' `
-        -CurrentValue $script:DccDownloadEncryptionKeyId `
-        -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_KEY_ID
-    $script:DccDownloadEncryptionBase64Key = Resolve-PublishRuntimeValue `
-        -Name 'DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY' `
-        -CurrentValue $script:DccDownloadEncryptionBase64Key `
-        -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_BASE64_KEY
-    $script:DccDownloadEncryptionArtifactDirectory = Resolve-PublishRuntimeValue `
-        -Name 'DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY' `
-        -CurrentValue $script:DccDownloadEncryptionArtifactDirectory `
-        -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY
+    $script:DccOnlyOfficePublicFileBaseUrl = "http://backend:48081"
 
     $script:EdhrS3Endpoint = Resolve-TargetPublishRuntimeValue -Name 'EDHR_S3_ENDPOINT' -TargetEnvironment $TargetEnvironment -CurrentValue $script:EdhrS3Endpoint
     $script:EdhrS3Bucket = Resolve-TargetPublishRuntimeValue -Name 'EDHR_S3_BUCKET' -TargetEnvironment $TargetEnvironment -CurrentValue $script:EdhrS3Bucket
@@ -1257,10 +1248,6 @@ function Set-PublishRuntimeValuesFromSettings {
     if ($Settings.ContainsKey('DCC_ONLYOFFICE_JWT_SECRET')) { $script:DccOnlyOfficeJwtSecret = $Settings['DCC_ONLYOFFICE_JWT_SECRET'] }
     if ($Settings.ContainsKey('DCC_ONLYOFFICE_BASE_URL')) { $script:DccOnlyOfficeBaseUrl = $Settings['DCC_ONLYOFFICE_BASE_URL'] }
     if ($Settings.ContainsKey('DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL')) { $script:DccOnlyOfficePublicFileBaseUrl = $Settings['DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL'] }
-    if ($Settings.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION')) { $script:DccDownloadEncryptionPolicyVersion = $Settings['DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION'] }
-    if ($Settings.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_KEY_ID')) { $script:DccDownloadEncryptionKeyId = $Settings['DCC_DOWNLOAD_ENCRYPTION_KEY_ID'] }
-    if ($Settings.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY')) { $script:DccDownloadEncryptionBase64Key = $Settings['DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY'] }
-    if ($Settings.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY')) { $script:DccDownloadEncryptionArtifactDirectory = $Settings['DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY'] }
     if ($Settings.ContainsKey('EDHR_S3_ENDPOINT')) { $script:EdhrS3Endpoint = $Settings['EDHR_S3_ENDPOINT'] }
     if ($Settings.ContainsKey('EDHR_S3_BUCKET')) { $script:EdhrS3Bucket = $Settings['EDHR_S3_BUCKET'] }
     if ($Settings.ContainsKey('EDHR_S3_REGION')) { $script:EdhrS3Region = $Settings['EDHR_S3_REGION'] }
@@ -1285,10 +1272,6 @@ function New-ReleaseRuntimeEnvContent {
     $resolvedDccOnlyOfficeJwtSecret = Resolve-PublishRuntimeValue -Name 'DCC_ONLYOFFICE_JWT_SECRET' -CurrentValue $DccOnlyOfficeJwtSecret -HardcodedValue $DCC_HARDCODED_ONLYOFFICE_JWT_SECRET
     $resolvedDccOnlyOfficeBaseUrl = "http://${TargetServerHost}:$OnlyOfficeHostPort"
     $resolvedDccOnlyOfficePublicFileBaseUrl = "http://backend:48081"
-    $resolvedDccDownloadEncryptionPolicyVersion = Resolve-PublishRuntimeValue -Name 'DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION' -CurrentValue $DccDownloadEncryptionPolicyVersion -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_POLICY_VERSION
-    $resolvedDccDownloadEncryptionKeyId = Resolve-PublishRuntimeValue -Name 'DCC_DOWNLOAD_ENCRYPTION_KEY_ID' -CurrentValue $DccDownloadEncryptionKeyId -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_KEY_ID
-    $resolvedDccDownloadEncryptionBase64Key = Resolve-PublishRuntimeValue -Name 'DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY' -CurrentValue $DccDownloadEncryptionBase64Key -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_BASE64_KEY
-    $resolvedDccDownloadEncryptionArtifactDirectory = Resolve-PublishRuntimeValue -Name 'DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY' -CurrentValue $DccDownloadEncryptionArtifactDirectory -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY
     $resolvedEdhrS3Endpoint = Resolve-TargetPublishRuntimeValue -Name 'EDHR_S3_ENDPOINT' -TargetEnvironment $TargetEnvironment -CurrentValue $EdhrS3Endpoint
     $resolvedEdhrS3Bucket = Resolve-TargetPublishRuntimeValue -Name 'EDHR_S3_BUCKET' -TargetEnvironment $TargetEnvironment -CurrentValue $EdhrS3Bucket
     $resolvedEdhrS3Region = Resolve-TargetPublishRuntimeValue -Name 'EDHR_S3_REGION' -TargetEnvironment $TargetEnvironment -CurrentValue $EdhrS3Region
@@ -1305,10 +1288,6 @@ DCC_VIEWER_TOKEN_HMAC_SECRET=$resolvedDccViewerTokenHmacSecret
 DCC_ONLYOFFICE_JWT_SECRET=$resolvedDccOnlyOfficeJwtSecret
 DCC_ONLYOFFICE_BASE_URL=$resolvedDccOnlyOfficeBaseUrl
 DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL=$resolvedDccOnlyOfficePublicFileBaseUrl
-DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION=$resolvedDccDownloadEncryptionPolicyVersion
-DCC_DOWNLOAD_ENCRYPTION_KEY_ID=$resolvedDccDownloadEncryptionKeyId
-DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY=$resolvedDccDownloadEncryptionBase64Key
-DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY=$resolvedDccDownloadEncryptionArtifactDirectory
 EDHR_S3_ENDPOINT=$resolvedEdhrS3Endpoint
 EDHR_S3_BUCKET=$resolvedEdhrS3Bucket
 EDHR_S3_REGION=$resolvedEdhrS3Region
@@ -1833,9 +1812,10 @@ function Assert-RemoteOnlyOfficePublicFileBaseUrlReachable {
     }
 
     $healthUrl = ($DccOnlyOfficePublicFileBaseUrl.Trim().TrimEnd('/') + '/actuator/health')
-    $remoteCommand = "docker exec intruoyi-onlyoffice sh -lc `"curl -fsS --connect-timeout 5 '$healthUrl' >/dev/null && echo OK`""
+    $healthUrlLiteral = ConvertTo-ShellSingleQuotedLiteral -Value $healthUrl -Purpose 'OnlyOffice public file health URL'
+    $remoteCommand = "docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 $healthUrlLiteral"
     $result = Invoke-SshCapture -Command $remoteCommand -IgnoreExitCode
-    if (-not ($result.Ok -and $result.Output -match 'OK')) {
+    if (-not $result.Ok) {
         Fail "ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE: intruoyi-onlyoffice cannot reach backend health URL $healthUrl`n$($result.Output)"
     }
 }
@@ -2895,6 +2875,628 @@ function New-ReleaseSourceRepoManifestEntries {
     return @($entries)
 }
 
+function Get-ReleaseObjectPropertyText {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Object,
+        [Parameter(Mandatory = $true)]
+        [string]$PropertyName
+    )
+
+    $property = $Object.PSObject.Properties[$PropertyName]
+    if ($null -ne $property) {
+        if ($null -eq $property.Value) {
+            return ''
+        }
+        return ([string]$property.Value).Trim()
+    }
+
+    if ($Object -is [System.Collections.IDictionary] -and $Object.Contains($PropertyName)) {
+        $value = $Object[$PropertyName]
+        if ($null -eq $value) {
+            return ''
+        }
+        return ([string]$value).Trim()
+    }
+
+    return ''
+}
+
+function Get-ReleaseManifestCreatedAt {
+    if ([string]::IsNullOrWhiteSpace($script:releaseManifestCreatedAt)) {
+        $script:releaseManifestCreatedAt = (Get-Date).ToUniversalTime().ToString('o')
+    }
+    return $script:releaseManifestCreatedAt
+}
+
+function Get-ReleaseSourceReposForManifest {
+    if ($null -eq $script:releaseSourceReposForManifest) {
+        $script:releaseSourceReposForManifest = @(New-ReleaseSourceRepoManifestEntries)
+    }
+    return @($script:releaseSourceReposForManifest)
+}
+
+function Get-ReleaseSourceRepoIdentity {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Repo
+    )
+
+    $pathRole = Get-ReleaseObjectPropertyText -Object $Repo -PropertyName 'pathRole'
+    if (-not [string]::IsNullOrWhiteSpace($pathRole)) {
+        return $pathRole.ToLowerInvariant()
+    }
+
+    $name = Get-ReleaseObjectPropertyText -Object $Repo -PropertyName 'name'
+    if (-not [string]::IsNullOrWhiteSpace($name)) {
+        return $name.ToLowerInvariant()
+    }
+
+    Fail 'Release source repo entry must include pathRole or name before git change comparison'
+}
+
+function Resolve-ReleaseSourceRepoPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Repo
+    )
+
+    $repoIdentity = Get-ReleaseSourceRepoIdentity -Repo $Repo
+    switch ($repoIdentity) {
+        'backend' { return $backendRepo }
+        'admin-frontend' { return $frontendDir }
+        'website' { return $websiteRepo }
+        default { Fail "Unknown release source repo pathRole for git change comparison: $repoIdentity" }
+    }
+}
+
+function Get-PreviousReleaseManifestForGitChanges {
+    if ([string]::IsNullOrWhiteSpace($localTempRoot) -or -not (Test-Path -LiteralPath $localTempRoot -PathType Container)) {
+        Fail "Previous release comparison requires local release package root: $localTempRoot"
+    }
+
+    $candidates = @(
+        Get-ChildItem -LiteralPath $localTempRoot -Directory |
+            Where-Object {
+                $_.Name -ne $packageDirectoryName -and
+                (Test-Path -LiteralPath (Join-Path $_.FullName 'manifest.json') -PathType Leaf)
+            } |
+            Sort-Object -Property LastWriteTimeUtc -Descending
+    )
+    if ($candidates.Count -eq 0) {
+        Fail "Previous release manifest is required to build git change summary: $localTempRoot"
+    }
+
+    $previousPackage = $candidates[0]
+    $manifestPath = Join-Path $previousPackage.FullName 'manifest.json'
+    try {
+        $manifest = [System.IO.File]::ReadAllText($manifestPath, [System.Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
+    } catch {
+        Fail "Previous release manifest parse failed for git change summary: $manifestPath. $($_.Exception.Message)"
+    }
+
+    $previousReleaseTag = Get-ReleaseObjectPropertyText -Object $manifest -PropertyName 'releaseTag'
+    if ([string]::IsNullOrWhiteSpace($previousReleaseTag)) {
+        Fail "Previous release manifest missing releaseTag for git change summary: $manifestPath"
+    }
+
+    return [pscustomobject]@{
+        Manifest = $manifest
+        ManifestPath = $manifestPath
+        PackageDirectoryName = $previousPackage.Name
+        ReleaseTag = $previousReleaseTag
+    }
+}
+
+function Get-ReleaseGitChangeFacts {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$SourceRepos,
+        [Parameter(Mandatory = $true)]
+        [string]$CurrentReleaseTag
+    )
+
+    $previousRelease = Get-PreviousReleaseManifestForGitChanges
+    $previousRepos = @($previousRelease.Manifest.sourceRepos)
+    if ($previousRepos.Count -eq 0) {
+        Fail "Previous release manifest missing sourceRepos for git change summary: $($previousRelease.ManifestPath)"
+    }
+
+    $changes = @()
+    foreach ($repo in @($SourceRepos)) {
+        $repoIdentity = Get-ReleaseSourceRepoIdentity -Repo $repo
+        $previousRepo = @($previousRepos | Where-Object { (Get-ReleaseSourceRepoIdentity -Repo $_) -eq $repoIdentity } | Select-Object -First 1)
+        if ($previousRepo.Count -eq 0) {
+            Fail "Previous release manifest missing source repo '$repoIdentity' for git change summary: $($previousRelease.ManifestPath)"
+        }
+
+        $previousCommit = Get-ReleaseObjectPropertyText -Object $previousRepo[0] -PropertyName 'commit'
+        $currentCommit = Get-ReleaseObjectPropertyText -Object $repo -PropertyName 'commit'
+        if ([string]::IsNullOrWhiteSpace($previousCommit) -or [string]::IsNullOrWhiteSpace($currentCommit)) {
+            Fail "Git change summary requires previous and current commit for source repo '$repoIdentity'"
+        }
+        if ($previousCommit -eq $currentCommit) {
+            continue
+        }
+
+        $repoPath = Resolve-ReleaseSourceRepoPath -Repo $repo
+        $range = "$previousCommit..$currentCommit"
+        $logLines = & git -C $repoPath log --no-merges '--date=iso-strict' '--format=%cI%x09%s' '--numstat' $range 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Fail "Git change summary failed for source repo '$repoIdentity' with range $range"
+        }
+
+        $currentFact = $null
+        foreach ($line in @($logLines)) {
+            if ([string]::IsNullOrWhiteSpace($line)) {
+                continue
+            }
+            $lineText = [string]$line
+            if ($lineText -match '^(?<committedAt>\d{4}-\d{2}-\d{2}T[^\t]+)\t(?<subject>.+)$') {
+                if ($null -ne $currentFact) {
+                    $changes += $currentFact
+                }
+                $currentFact = [pscustomobject]@{
+                    repository = $repoIdentity
+                    committedAt = $matches.committedAt
+                    subject = $matches.subject
+                    paths = @()
+                    additions = 0
+                    deletions = 0
+                }
+                continue
+            }
+
+            if ($lineText -match '^(?<additions>\d+|-)\t(?<deletions>\d+|-)\t(?<path>.+)$') {
+                if ($null -eq $currentFact) {
+                    Fail "Git change summary parse found file statistics before commit header for source repo '$repoIdentity'"
+                }
+                $currentFact.paths += $matches.path
+                if ($matches.additions -ne '-') {
+                    $currentFact.additions += [int]$matches.additions
+                }
+                if ($matches.deletions -ne '-') {
+                    $currentFact.deletions += [int]$matches.deletions
+                }
+                continue
+            }
+
+            Fail "Git change summary parse failed for source repo '$repoIdentity'"
+        }
+        if ($null -ne $currentFact) {
+            $changes += $currentFact
+        }
+    }
+
+    return [ordered]@{
+        previousReleaseTag = $previousRelease.ReleaseTag
+        previousPackageId = $previousRelease.PackageDirectoryName
+        currentReleaseTag = $CurrentReleaseTag
+        items = @($changes | Sort-Object -Property committedAt -Descending)
+    }
+}
+
+function Resolve-ReleaseChangeSummaryCodexCliCommand {
+    param(
+        [string]$ConfiguredCommand
+    )
+
+    $commandName = if ([string]::IsNullOrWhiteSpace($ConfiguredCommand)) {
+        'codex'
+    } else {
+        $ConfiguredCommand.Trim()
+    }
+    $commands = @(Get-Command -Name $commandName -All -ErrorAction SilentlyContinue)
+    if ($commands.Count -eq 0) {
+        Fail "Codex CLI is required to generate release change summary but was not found: $commandName"
+    }
+
+    $nativeCommand = @($commands | Where-Object { $_.CommandType -eq 'Application' } | Select-Object -First 1)
+    if ($nativeCommand.Count -gt 0) {
+        return $nativeCommand[0].Source
+    }
+
+    $firstCommand = $commands[0]
+    $scriptPath = [string]$firstCommand.Source
+    if ($firstCommand.CommandType -eq 'ExternalScript' -and [System.IO.Path]::GetExtension($scriptPath).Equals('.ps1', [System.StringComparison]::OrdinalIgnoreCase)) {
+        $cmdShimPath = [System.IO.Path]::ChangeExtension($scriptPath, '.cmd')
+        if (Test-Path -LiteralPath $cmdShimPath -PathType Leaf) {
+            return $cmdShimPath
+        }
+        Fail "Codex CLI command resolved to a PowerShell shim but no native .cmd shim was found: $scriptPath"
+    }
+
+    return $scriptPath
+}
+
+function ConvertTo-WindowsProcessArgument {
+    param(
+        [AllowNull()]
+        [string]$Value
+    )
+
+    if ($null -eq $Value) {
+        return '""'
+    }
+    if ($Value -notmatch '[\s"]') {
+        return $Value
+    }
+
+    $builder = [System.Text.StringBuilder]::new()
+    [void]$builder.Append('"')
+    $backslashCount = 0
+    foreach ($character in $Value.ToCharArray()) {
+        if ($character -eq '\') {
+            $backslashCount += 1
+            continue
+        }
+        if ($character -eq '"') {
+            [void]$builder.Append(('\' * (($backslashCount * 2) + 1)))
+            [void]$builder.Append('"')
+            $backslashCount = 0
+            continue
+        }
+        if ($backslashCount -gt 0) {
+            [void]$builder.Append(('\' * $backslashCount))
+            $backslashCount = 0
+        }
+        [void]$builder.Append($character)
+    }
+    if ($backslashCount -gt 0) {
+        [void]$builder.Append(('\' * ($backslashCount * 2)))
+    }
+    [void]$builder.Append('"')
+    return $builder.ToString()
+}
+
+function Invoke-ReleaseCodexExec {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+        [Parameter(Mandatory = $true)]
+        [string[]]$ArgumentList,
+        [Parameter(Mandatory = $true)]
+        [string]$StandardInput,
+        [int]$TimeoutSeconds = 180
+    )
+
+    if ($TimeoutSeconds -lt 30) {
+        Fail 'Codex CLI timeout must be at least 30 seconds'
+    }
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $FilePath
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $startInfo.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
+    $startInfo.WorkingDirectory = $backendRepo
+
+    if ($startInfo.PSObject.Properties.Name -contains 'ArgumentList') {
+        foreach ($argument in $ArgumentList) {
+            [void]$startInfo.ArgumentList.Add($argument)
+        }
+    } else {
+        $startInfo.Arguments = (($ArgumentList | ForEach-Object { ConvertTo-WindowsProcessArgument -Value $_ }) -join ' ')
+    }
+
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    if (-not $process.Start()) {
+        Fail 'Codex CLI failed to start'
+    }
+
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $process.StandardInput.Write($StandardInput)
+    $process.StandardInput.Close()
+
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        try {
+            $process.Kill()
+        } catch {
+            Fail "Codex CLI timed out after $TimeoutSeconds seconds and the timed-out process could not be terminated: $($_.Exception.Message)"
+        }
+        Fail "Codex CLI timed out after $TimeoutSeconds seconds while generating release change summary"
+    }
+
+    $stdoutText = $stdoutTask.GetAwaiter().GetResult()
+    $stderrText = $stderrTask.GetAwaiter().GetResult()
+    return [pscustomobject]@{
+        ExitCode = $process.ExitCode
+        Stdout = $stdoutText
+        Stderr = $stderrText
+    }
+}
+
+function New-ReleaseCodexSummarySchema {
+    param(
+        [int]$MaxItems = 10
+    )
+
+    if ($MaxItems -lt 1 -or $MaxItems -gt 10) {
+        Fail "Codex summary item limit must be between 1 and 10"
+    }
+
+    return ([ordered]@{
+            '$schema' = 'https://json-schema.org/draft/2020-12/schema'
+            type = 'object'
+            additionalProperties = $false
+            required = @('items')
+            properties = [ordered]@{
+                items = [ordered]@{
+                    type = 'array'
+                    minItems = 1
+                    maxItems = $MaxItems
+                    items = [ordered]@{
+                        type = 'string'
+                        minLength = 6
+                        maxLength = 240
+                    }
+                }
+            }
+        } | ConvertTo-Json -Depth 10)
+}
+
+function New-ReleaseCodexSummaryPrompt {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [array]$Facts,
+        [Parameter(Mandatory = $true)]
+        [string]$PreviousReleaseTag,
+        [Parameter(Mandatory = $true)]
+        [string]$CurrentReleaseTag
+    )
+
+    $input = [ordered]@{
+        previousReleaseTag = $PreviousReleaseTag
+        currentReleaseTag = $CurrentReleaseTag
+        changes = @(
+            $Facts | ForEach-Object {
+                [ordered]@{
+                    repository = $_.repository
+                    committedAt = $_.committedAt
+                    subject = $_.subject
+                    changedPaths = @($_.paths)
+                    additions = [int]$_.additions
+                    deletions = [int]$_.deletions
+                }
+            }
+        )
+    }
+    $inputJson = $input | ConvertTo-Json -Depth 20
+
+    return @"
+You are writing release notes for ordinary users.
+Create a concise plain-language summary of what changed between the previous release and the current release.
+Return only JSON that matches the supplied schema.
+Rules:
+- Return 1 to 10 items when the input contains changes.
+- Write every item in simple, natural Simplified Chinese that a non-technical user can understand.
+- Describe the user-visible feature, workflow, data, or problem change, not implementation details.
+- Combine related technical commits into one understandable result.
+- Use only the supplied Git metadata. Do not invent behavior or outcomes.
+- Do not output Markdown, bullet prefixes, repository names, branch names, dates, file paths, commit hashes, issue IDs, or raw commit subjects.
+- Do not fall back to raw Git subjects or hashes.
+Git metadata input:
+$inputJson
+"@
+}
+
+function ConvertTo-ValidatedReleaseCodexSummaryItems {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Response,
+        [Parameter(Mandatory = $true)]
+        [array]$Facts,
+        [int]$MaxItems = 10
+    )
+
+    if ($null -eq $Response.PSObject.Properties['items']) {
+        Fail 'Codex summary output must contain an items array'
+    }
+
+    $items = @($Response.items)
+    if ($items.Count -lt 1 -or $items.Count -gt $MaxItems) {
+        Fail 'Codex summary must contain between 1 and 10 items'
+    }
+    foreach ($itemValue in $items) {
+        if ($itemValue -isnot [string]) {
+            Fail 'Codex summary item must be a string'
+        }
+        $item = ([string]$itemValue).Trim()
+        if ([string]::IsNullOrWhiteSpace($item) -or $item.Length -lt 6 -or $item.Length -gt 240) {
+            Fail 'Codex summary item must be nonempty and between 6 and 240 characters'
+        }
+        if ($item -notmatch '[\u4e00-\u9fff]') {
+            Fail 'Codex summary item must be plain Chinese'
+        }
+        if ($item -match '[\r\n]' -or $item -match '^\s*[-*]\s+') {
+            Fail 'Codex summary item must not contain Markdown or line breaks'
+        }
+        if ($item -match '(?i)(?<![0-9a-f])[0-9a-f]{7,40}(?![0-9a-f])') {
+            Fail 'Codex summary must not expose raw commit identifiers'
+        }
+        if ($item -match '^\s*\[[^\]]+\]\s+') {
+            Fail 'Codex summary must not expose raw commit entries'
+        }
+        foreach ($fact in $Facts) {
+            if ($item.Equals(([string]$fact.subject).Trim(), [System.StringComparison]::OrdinalIgnoreCase)) {
+                Fail 'Codex summary must not expose raw commit entries'
+            }
+        }
+    }
+
+    return @($items)
+}
+
+function Invoke-ReleaseCodexSummary {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [array]$Facts,
+        [Parameter(Mandatory = $true)]
+        [string]$PreviousReleaseTag,
+        [Parameter(Mandatory = $true)]
+        [string]$CurrentReleaseTag,
+        [int]$MaxItems = 10
+    )
+
+    if ($Facts.Count -eq 0) {
+        return [ordered]@{
+            summaryGenerator = 'none'
+            items = @()
+        }
+    }
+
+    $codexCommand = Resolve-ReleaseChangeSummaryCodexCliCommand -ConfiguredCommand $ReleaseChangeSummaryCodexCliCommand
+    $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("intruoyi-release-codex-" + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
+    $schemaPath = Join-Path $tempRoot 'summary-schema.json'
+    $promptPath = Join-Path $tempRoot 'summary-prompt.txt'
+    $outputPath = Join-Path $tempRoot 'summary-output.json'
+    $stderrPath = Join-Path $tempRoot 'summary-stderr.txt'
+
+    try {
+        Write-Utf8LfNoBomFile -Path $schemaPath -Content (New-ReleaseCodexSummarySchema -MaxItems $MaxItems)
+        Write-Utf8LfNoBomFile -Path $promptPath -Content (New-ReleaseCodexSummaryPrompt -Facts $Facts -PreviousReleaseTag $PreviousReleaseTag -CurrentReleaseTag $CurrentReleaseTag)
+        $promptText = [System.IO.File]::ReadAllText($promptPath, [System.Text.UTF8Encoding]::new($false))
+        $codexArguments = @(
+            'exec'
+            '--ephemeral'
+            '--sandbox'
+            'read-only'
+            '-C'
+            $backendRepo
+            '--output-schema'
+            $schemaPath
+            '--output-last-message'
+            $outputPath
+            '-'
+        )
+
+        $codexResult = Invoke-ReleaseCodexExec `
+            -FilePath $codexCommand `
+            -ArgumentList $codexArguments `
+            -StandardInput $promptText `
+            -TimeoutSeconds $ReleaseChangeSummaryCodexTimeoutSeconds
+        Write-Utf8LfNoBomFile -Path $stderrPath -Content $codexResult.Stderr
+        if ($codexResult.ExitCode -ne 0) {
+            Fail "Codex CLI failed while generating release change summary with exit code $($codexResult.ExitCode)"
+        }
+        if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
+            Fail "Codex summary output file was not produced"
+        }
+
+        $responseText = [System.IO.File]::ReadAllText($outputPath, [System.Text.UTF8Encoding]::new($false))
+        try {
+            $response = $responseText | ConvertFrom-Json
+        } catch {
+            Fail "Codex summary output must be valid JSON: $($_.Exception.Message)"
+        }
+        $items = @(ConvertTo-ValidatedReleaseCodexSummaryItems -Response $response -Facts $Facts -MaxItems $MaxItems)
+
+        return [ordered]@{
+            summaryGenerator = 'codex'
+            items = @($items)
+        }
+    } finally {
+        if (Test-Path -LiteralPath $tempRoot) {
+            Remove-Item -LiteralPath $tempRoot -Recurse -Force
+        }
+    }
+}
+
+function New-ReleaseGitChangeItems {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$SourceRepos,
+        [int]$MaxItems = 10
+    )
+
+    $gitFacts = Get-ReleaseGitChangeFacts -SourceRepos $SourceRepos -CurrentReleaseTag $ReleaseTag
+    $summary = Invoke-ReleaseCodexSummary `
+        -Facts $gitFacts.items `
+        -PreviousReleaseTag $gitFacts.previousReleaseTag `
+        -CurrentReleaseTag $gitFacts.currentReleaseTag `
+        -MaxItems $MaxItems
+
+    return [ordered]@{
+        previousReleaseTag = $gitFacts.previousReleaseTag
+        previousPackageId = $gitFacts.previousPackageId
+        maxItems = $MaxItems
+        summaryGenerator = $summary.summaryGenerator
+        items = @($summary.items)
+    }
+}
+
+function New-ReleaseChangeSetManifest {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$SourceRepos
+    )
+
+    $gitChangeSummary = New-ReleaseGitChangeItems -SourceRepos $SourceRepos -MaxItems 10
+    return [ordered]@{
+        summary = "Git changes since previous release $($gitChangeSummary.previousReleaseTag)"
+        component = $Component
+        previousReleaseTag = $gitChangeSummary.previousReleaseTag
+        summaryGenerator = $gitChangeSummary.summaryGenerator
+        gitComparisonBase = [ordered]@{
+            previousReleaseTag = $gitChangeSummary.previousReleaseTag
+            previousPackageId = $gitChangeSummary.previousPackageId
+            maxItems = $gitChangeSummary.maxItems
+        }
+        gitChanges = @($gitChangeSummary.items)
+        items = @($gitChangeSummary.items)
+        changes = @($gitChangeSummary.items)
+        includeShowroomBuildPackage = [bool]$publishWebsite
+        includeOnlyOffice = [bool]$IncludeOnlyOffice
+    }
+}
+
+function Get-ReleaseChangeSetForManifest {
+    if ($null -eq $script:releaseChangeSetForManifest) {
+        $script:releaseChangeSetForManifest = New-ReleaseChangeSetManifest -SourceRepos (Get-ReleaseSourceReposForManifest)
+    }
+    return $script:releaseChangeSetForManifest
+}
+
+function Write-FrontendReleaseInfo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageTag
+    )
+
+    if (-not $publishFrontend) {
+        return
+    }
+
+    $distDir = Join-Path $frontendDir 'dist-intruoyi-test'
+    if (-not (Test-Path -LiteralPath $distDir -PathType Container)) {
+        Fail "Frontend build output missing before writing release-info.json: $distDir"
+    }
+
+    $changeSet = Get-ReleaseChangeSetForManifest
+    $releaseInfo = [ordered]@{
+        manifestVersion = '1.0'
+        packageId = $packageDirectoryName
+        releaseTag = $PackageTag
+        createdAt = Get-ReleaseManifestCreatedAt
+        createdBy = $OperatorName
+        sourceRepos = New-ReleaseSourceRepoManifestEntries
+        changeSet = $changeSet
+        publishScope = if ($SkipDatabaseSync -and $SkipMinioSync) { 'code-only' } else { 'with-data' }
+        components = Get-ReleaseComponentManifestNames
+    }
+    $releaseInfoJson = $releaseInfo | ConvertTo-Json -Depth 20
+    $releaseInfoPath = Join-Path $distDir 'release-info.json'
+    [System.IO.File]::WriteAllText($releaseInfoPath, $releaseInfoJson, [System.Text.UTF8Encoding]::new($false))
+}
+
 function Get-ReleaseDependencyHash {
     param(
         [Parameter(Mandatory = $true)]
@@ -2965,7 +3567,7 @@ function Read-ReleaseMigrationMetadata {
                 $metadata.dependsOn = @($values)
             }
             'type' {
-                if ($values.Count -ne 1 -or $values[0] -notin @('schema', 'data', 'menu', 'config', 'permission', 'seed')) {
+                if ($values.Count -ne 1 -or $values[0] -notin @('schema', 'data', 'menu', 'config', 'permission', 'seed', 'preflight', 'backfill', 'postflight', 'rollback-dry-run')) {
                     Fail "Invalid type in release migration metadata: $SqlPath"
                 }
                 $metadata.type = [string]$values[0]
@@ -3309,7 +3911,8 @@ function Write-ReleaseManifestV1 {
         $migrationPlan = @()
     }
     $components = Get-ReleaseComponentManifestNames
-    $sourceRepos = New-ReleaseSourceRepoManifestEntries
+    $sourceRepos = Get-ReleaseSourceReposForManifest
+    $changeSet = Get-ReleaseChangeSetForManifest
     $buildModules = New-ReleaseBuildModuleManifestEntries -Components $components -LegacyArtifacts $LegacyArtifacts -SourceRepos $sourceRepos -SchemaDigest $schemaDigest
     $artifacts = New-ReleaseArtifactManifestEntries -LegacyArtifacts $LegacyArtifacts -BuildModules $buildModules
     $packageType = if ($SkipDatabaseSync -and $SkipMinioSync) { 'full-release' } else { 'data-release' }
@@ -3320,15 +3923,10 @@ function Write-ReleaseManifestV1 {
         packageId = $packageDirectoryName
         releaseTag = $PackageTag
         packageType = $packageType
-        createdAt = (Get-Date).ToUniversalTime().ToString('o')
+        createdAt = Get-ReleaseManifestCreatedAt
         createdBy = $OperatorName
         sourceRepos = $sourceRepos
-        changeSet = [ordered]@{
-            summary = "Release package $packageDirectoryName"
-            component = $Component
-            includeShowroomBuildPackage = [bool]$publishWebsite
-            includeOnlyOffice = [bool]$IncludeOnlyOffice
-        }
+        changeSet = $changeSet
         publishScope = $publishScopeValue
         components = $components
         artifacts = $artifacts
@@ -3491,7 +4089,9 @@ $componentExplicit = $PSBoundParameters.ContainsKey('Component')
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $backendRepo = (Resolve-Path (Join-Path $scriptDir '..\..')).Path
 $workspaceRoot = (Resolve-Path (Join-Path $backendRepo '..')).Path
-$frontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'
+$currentFrontendDir = Join-Path $workspaceRoot 'IntRuoyiFronted'
+$legacyFrontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'
+$frontendDir = if (Test-Path -LiteralPath $currentFrontendDir) { $currentFrontendDir } else { $legacyFrontendDir }
 if (-not (Test-Path -LiteralPath $frontendDir)) {
     $worktreePortMapPath = Join-Path $scriptDir 'worktree-port-map.ps1'
     if (Test-Path -LiteralPath $worktreePortMapPath) {
@@ -3598,6 +4198,15 @@ function Get-ReleaseDatabaseSqlScripts {
         }
 
         foreach ($file in $files) {
+            if ($file.Name -match '_rollback\.sql$') {
+                $sqlText = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
+                if ($sqlText -match '(?im)^\s*--\s*rollback-migration\s*:') {
+                    if ($sqlText -match '(?im)^\s*--\s*release-migration\s*:') {
+                        Fail "Conflicting release and rollback migration metadata: $($file.FullName)"
+                    }
+                    continue
+                }
+            }
             if ($seenPackageFileNames.ContainsKey($file.Name)) {
                 Fail "Duplicate release database SQL file name: $($file.Name) in $($seenPackageFileNames[$file.Name]) and $($file.FullName)"
             }
@@ -3606,6 +4215,8 @@ function Get-ReleaseDatabaseSqlScripts {
             $entries += @{
                 Path = ($relativeRoot + '/' + $file.Name)
                 Environments = @($metadata.allowedEnvironments)
+                Type = [string]$metadata.type
+                MigrationId = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
             }
         }
     }
@@ -3620,6 +4231,7 @@ function Get-ReleaseDatabaseSqlScripts {
     return $entries
 }
 
+$backendRuntimeBaseConfig = Resolve-BackendRuntimeBaseConfig
 $requiredDatabaseSqlScripts = Get-ReleaseDatabaseSqlScripts
 $requiredSqlLocalDir = Join-Path $releaseDir 'required-sql'
 $opsRuntimeLocalDir = Join-Path $releaseDir 'ops-runtime'
@@ -3639,13 +4251,14 @@ $remoteWebsiteStagingDir = "$remoteReleaseDir/website"
 $remoteWebsitePreviousDir = "$RemoteAppDir/website.previous"
 $schedulerSmokeFrontendDirectory = '/opt/intruoyi/runtime/smoke/yudao-ui-admin-vue3'
 $schedulerSmokeScriptName = 'e2e:mes:smart-scheduling-smoke'
+$onlyOfficeReleasePreviewScriptName = 'e2e:dcc:onlyoffice-release-preview'
 $schedulerSmokeNodeImage = 'mcr.microsoft.com/playwright:v1.60.0-noble'
 $schedulerSmokeRunnerLocalDir = Join-Path $releaseDir 'smoke'
 $remoteSchedulerSmokeRoot = "$RemoteAppDir/smoke"
 $remoteSchedulerSmokeFrontendDir = "$remoteSchedulerSmokeRoot/yudao-ui-admin-vue3"
 $remoteSchedulerSmokeBinDir = "$remoteSchedulerSmokeRoot/bin"
 $remoteSchedulerSmokeNpmWrapper = "$remoteSchedulerSmokeBinDir/npm"
-$backendRuntimeBaseConfig = Resolve-BackendRuntimeBaseConfig
+$onlyOfficeReleasePreviewEnvFile = "$RemoteAppDir/onlyoffice-release-preview.env"
 $smartReleaseReportOnlyEnabled = Resolve-SmartReleaseReportOnlyEnabled
 if ($publishBackend -and $Mode -notin @('deploy-release', 'mark-tested')) {
     Assert-BackendJarAvailableForMavenClean -JarPath $backendJar
@@ -3763,18 +4376,26 @@ $envArgs
 }
 
 function New-SchedulerSmokeRunnerPackage {
-    if (-not $publishBackend) {
+    if (-not ($publishBackend -or $publishFrontend)) {
         return
     }
 
     $smokeTestsSourceDir = Join-Path $frontendDir 'tests\e2e'
     $realFlowSource = Join-Path $smokeTestsSourceDir 'smart-scheduling-smoke-real-flow.e2e.js'
     $staticSpecSource = Join-Path $smokeTestsSourceDir 'smart-scheduling-smoke-real-flow-static.spec.js'
+    $onlyOfficeRealFlowSource = Join-Path $smokeTestsSourceDir 'dcc-onlyoffice-release-preview-real.e2e.js'
+    $onlyOfficeStaticSpecSource = Join-Path $smokeTestsSourceDir 'dcc-onlyoffice-release-preview-static.spec.js'
     if (-not (Test-Path -LiteralPath $realFlowSource -PathType Leaf)) {
         Fail "Smart scheduling smoke E2E script missing: $realFlowSource"
     }
     if (-not (Test-Path -LiteralPath $staticSpecSource -PathType Leaf)) {
         Fail "Smart scheduling smoke static script missing: $staticSpecSource"
+    }
+    if (-not (Test-Path -LiteralPath $onlyOfficeRealFlowSource -PathType Leaf)) {
+        Fail "OnlyOffice release preview E2E script missing: $onlyOfficeRealFlowSource"
+    }
+    if (-not (Test-Path -LiteralPath $onlyOfficeStaticSpecSource -PathType Leaf)) {
+        Fail "OnlyOffice release preview static script missing: $onlyOfficeStaticSpecSource"
     }
 
     if (Test-Path -LiteralPath $schedulerSmokeRunnerLocalDir) {
@@ -3793,7 +4414,9 @@ function New-SchedulerSmokeRunnerPackage {
   "private": true,
   "scripts": {
     "e2e:mes:smart-scheduling-smoke:check": "node tests/e2e/smart-scheduling-smoke-real-flow-static.spec.js",
-    "e2e:mes:smart-scheduling-smoke": "node tests/e2e/smart-scheduling-smoke-real-flow.e2e.js"
+    "e2e:mes:smart-scheduling-smoke": "node tests/e2e/smart-scheduling-smoke-real-flow.e2e.js",
+    "e2e:dcc:onlyoffice-release-preview:check": "node tests/e2e/dcc-onlyoffice-release-preview-static.spec.js",
+    "e2e:dcc:onlyoffice-release-preview": "node tests/e2e/dcc-onlyoffice-release-preview-real.e2e.js"
   },
   "devDependencies": {
     "playwright": "1.60.0",
@@ -3804,11 +4427,13 @@ function New-SchedulerSmokeRunnerPackage {
     Write-Utf8LfNoBomFile -Path (Join-Path $localFrontendDir 'package.json') -Content $packageJson
     Copy-Item -LiteralPath $realFlowSource -Destination (Join-Path $localTestsDir 'smart-scheduling-smoke-real-flow.e2e.js') -Force
     Copy-Item -LiteralPath $staticSpecSource -Destination (Join-Path $localTestsDir 'smart-scheduling-smoke-real-flow-static.spec.js') -Force
+    Copy-Item -LiteralPath $onlyOfficeRealFlowSource -Destination (Join-Path $localTestsDir 'dcc-onlyoffice-release-preview-real.e2e.js') -Force
+    Copy-Item -LiteralPath $onlyOfficeStaticSpecSource -Destination (Join-Path $localTestsDir 'dcc-onlyoffice-release-preview-static.spec.js') -Force
     Write-Utf8LfNoBomFile -Path (Join-Path $localBinDir 'npm') -Content (New-SchedulerSmokeNpmWrapperContent)
 }
 
 function Copy-SchedulerSmokeRunnerToServer {
-    if (-not $publishBackend) {
+    if (-not ($publishBackend -or $publishFrontend)) {
         return
     }
 
@@ -3818,7 +4443,7 @@ function Copy-SchedulerSmokeRunnerToServer {
     Info "Copying scheduler smoke runner to the $PublishTargetName server"
     Invoke-SshCommand "mkdir -p '$RemoteAppDir' '$remoteSchedulerSmokeRoot' '$remoteSchedulerSmokeFrontendDir/input' '$remoteSchedulerSmokeFrontendDir/output/artifacts' '$remoteSchedulerSmokeBinDir'"
     Copy-ToServer -LocalPath $schedulerSmokeRunnerLocalDir -RemotePath $RemoteAppDir -Recursive
-    Invoke-SshCommand "chmod +x '$remoteSchedulerSmokeNpmWrapper' && test -f '$remoteSchedulerSmokeFrontendDir/package.json' && test -f '$remoteSchedulerSmokeFrontendDir/tests/e2e/smart-scheduling-smoke-real-flow.e2e.js'"
+    Invoke-SshCommand "chmod +x '$remoteSchedulerSmokeNpmWrapper' && test -f '$remoteSchedulerSmokeFrontendDir/package.json' && test -f '$remoteSchedulerSmokeFrontendDir/tests/e2e/smart-scheduling-smoke-real-flow.e2e.js' && test -f '$remoteSchedulerSmokeFrontendDir/tests/e2e/dcc-onlyoffice-release-preview-real.e2e.js' && test -f '$remoteSchedulerSmokeFrontendDir/tests/e2e/dcc-onlyoffice-release-preview-static.spec.js'"
     Invoke-SshCommand "cd '$remoteSchedulerSmokeFrontendDir' && '$remoteSchedulerSmokeNpmWrapper' install --no-audit --no-fund"
 }
 
@@ -3830,6 +4455,69 @@ function Assert-RemoteSchedulerSmokeRuntime {
     Info "Checking scheduler smoke runtime on the $PublishTargetName server"
     Invoke-SshCommand "docker exec intruoyi-backend sh -lc 'test `"`${YUDAO_MES_SCHEDULER_WORKBENCH_SMOKE_TEST_FRONTEND_DIRECTORY}`" = `"$schedulerSmokeFrontendDirectory`" && test `"`${YUDAO_MES_SCHEDULER_WORKBENCH_SMOKE_TEST_SCRIPT_NAME}`" = `"$schedulerSmokeScriptName`" && test -d `"$schedulerSmokeFrontendDirectory`" && test -f `"$schedulerSmokeFrontendDirectory/package.json`" && test -x /usr/local/bin/npm && npm --version >/dev/null'"
     Invoke-SshCommand "cd '$remoteSchedulerSmokeFrontendDir' && '$remoteSchedulerSmokeNpmWrapper' exec -- node --check tests/e2e/smart-scheduling-smoke-real-flow.e2e.js"
+    Invoke-SshCommand "cd '$remoteSchedulerSmokeFrontendDir' && '$remoteSchedulerSmokeNpmWrapper' run e2e:dcc:onlyoffice-release-preview:check"
+}
+
+function Invoke-RemoteOnlyOfficeReleasePreviewGate {
+    if (-not ($publishBackend -or $publishFrontend)) {
+        return
+    }
+
+    $failGate = {
+        param([string]$FailureCode, [string]$Details)
+        if ($publishBackend) {
+            Invoke-ReleaseOperationLockRelease -Status 'FAILED' -ErrorMessage $FailureCode
+        }
+        Fail "$FailureCode`: $Details"
+    }
+
+    $onlyOfficeLogPaths = @(
+        '/var/log/onlyoffice/documentserver/converter/out.log',
+        '/var/log/onlyoffice/documentserver/converter/err.log',
+        '/var/log/onlyoffice/documentserver/docservice/out.log',
+        '/var/log/onlyoffice/documentserver/docservice/err.log'
+    )
+    $logLineCounts = @{}
+    foreach ($logPath in $onlyOfficeLogPaths) {
+        $logPathLiteral = ConvertTo-ShellSingleQuotedLiteral -Value $logPath -Purpose 'OnlyOffice log path'
+        $countResult = Invoke-SshCapture -Command "docker exec intruoyi-onlyoffice sh -c `"test -f $logPathLiteral && wc -l < $logPathLiteral`"" -IgnoreExitCode
+        $lineCount = 0L
+        if (-not $countResult.Ok -or -not [long]::TryParse($countResult.Output.Trim(), [ref]$lineCount)) {
+            & $failGate 'ONLYOFFICE_RELEASE_LOG_GATE_FAILED' "Unable to capture the initial line count for $logPath"
+        }
+        $logLineCounts[$logPath] = $lineCount
+    }
+
+    Info 'Running real DOCX/XLSX/PPTX OnlyOffice controlled preview release gate'
+    $previewScriptPath = "$remoteSchedulerSmokeFrontendDir/tests/e2e/dcc-onlyoffice-release-preview-real.e2e.js"
+    $previewCommand = "test -f '$previewScriptPath' && test -f '$onlyOfficeReleasePreviewEnvFile' && docker run --rm --network host --env-file '$onlyOfficeReleasePreviewEnvFile' -v '$RemoteAppDir`:$RemoteAppDir' -w '$remoteSchedulerSmokeFrontendDir' '$schedulerSmokeNodeImage' npm run $onlyOfficeReleasePreviewScriptName"
+    $previewResult = Invoke-SshCapture -Command $previewCommand -IgnoreExitCode
+    if (-not $previewResult.Ok) {
+        & $failGate 'ONLYOFFICE_RELEASE_PREVIEW_GATE_FAILED' $previewResult.Output
+    }
+    if (-not [string]::IsNullOrWhiteSpace($previewResult.Output)) {
+        Write-Host $previewResult.Output
+    }
+
+    $newLogLines = @()
+    foreach ($logPath in $onlyOfficeLogPaths) {
+        $startLine = [long]$logLineCounts[$logPath] + 1
+        $logPathLiteral = ConvertTo-ShellSingleQuotedLiteral -Value $logPath -Purpose 'OnlyOffice log path'
+        $tailResult = Invoke-SshCapture -Command "docker exec intruoyi-onlyoffice tail -n +$startLine $logPathLiteral" -IgnoreExitCode
+        if (-not $tailResult.Ok) {
+            & $failGate 'ONLYOFFICE_RELEASE_LOG_GATE_FAILED' "Unable to read new OnlyOffice log lines from $logPath"
+        }
+        if (-not [string]::IsNullOrWhiteSpace($tailResult.Output)) {
+            $newLogLines += $tailResult.Output
+        }
+    }
+    $onlyOfficeFailurePattern = '(?im)(\[ERROR\]|dnsLookup.*(error|fail)|ENOTFOUND|checkIpFilter.*(error|deny|forbid)|download.*(error|fail)|convert.*(error|fail))'
+    $matchingLogErrors = @($newLogLines | Where-Object { $_ -match $onlyOfficeFailurePattern })
+    if ($matchingLogErrors.Count -gt 0) {
+        & $failGate 'ONLYOFFICE_RELEASE_LOG_GATE_FAILED' (($matchingLogErrors | Select-Object -First 10) -join "`n")
+    }
+
+    Info 'OnlyOffice real DOCX/XLSX/PPTX preview and incremental error-log gates passed'
 }
 
 function Get-RequiredDatabaseSqlFileName {
@@ -3890,6 +4578,11 @@ function Get-ReleasePackageDatabaseSqlScripts {
         @{
             Path = $sourcePath
             Environments = @($allowedEnvironments)
+            Type = [string]$_.type
+            MigrationId = [string]$_.migrationId
+            DependsOn = @($_.dependsOn)
+            File = [string]$_.file
+            Sha256 = [string]$_.sha256
         }
     })
     if ($entries.Count -eq 0) {
@@ -3908,6 +4601,9 @@ function Read-ReleasePreflightPlan {
     } catch {
         Fail "preflight-plan.json parse failed: $($_.Exception.Message)"
     }
+    if ([string]$plan.publishScope -ne $releasePublishScope) {
+        Fail "preflight-plan.json publishScope does not match release package: $($plan.publishScope) != $releasePublishScope"
+    }
     if ([string]$plan.status -ne 'passed') {
         Fail "preflight-plan.json status must be passed before deploy-release: $($plan.status)"
     }
@@ -3916,7 +4612,7 @@ function Read-ReleasePreflightPlan {
         if ($action.StartsWith('BLOCKED_')) {
             Fail "preflight-plan.json contains blocked migration: $($item.migrationId) -> $action"
         }
-        if ($action -notin @('APPLY', 'SKIP_ALREADY_APPLIED', 'SKIP_ENV_NOT_ALLOWED')) {
+        if ($action -notin @('APPLY', 'SKIP_ALREADY_APPLIED', 'SKIP_ENV_NOT_ALLOWED', 'SKIP_SCOPE_EXCLUDED')) {
             Fail "preflight-plan.json contains unsupported migration action: $($item.migrationId) -> $action"
         }
     }
@@ -3966,6 +4662,7 @@ SQL"
         '--manifest', $manifestPath,
         '--target-state', $targetStatePath,
         '--target-environment', $Environment,
+        '--publish-scope', $releasePublishScope,
         '--output', $preflightPlanPath
     )
 }
@@ -4000,14 +4697,6 @@ function Assert-ProdDryRunEvidence {
     if ($null -eq $evidence.writeActions -or @($evidence.writeActions).Count -gt 0) {
         Fail 'Production dry-run evidence must be read-only and include empty writeActions.'
     }
-}
-
-function Get-ReleasePreflightApplyItems {
-    param(
-        [Parameter(Mandatory = $true)]
-        $PreflightPlan
-    )
-    return @($PreflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })
 }
 
 function Invoke-ReleaseMigrationStateUpdate {
@@ -4254,7 +4943,11 @@ function Invoke-RequiredDatabaseSqlScripts {
     foreach ($item in @($preflightPlan.items | Where-Object { [string]$_.action -eq 'SKIP_ENV_NOT_ALLOWED' })) {
         Info "Skipping required database SQL outside target environment: $($item.migrationId)"
     }
-    $applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan) -TargetEnvironment $Environment
+    foreach ($item in @($preflightPlan.items | Where-Object { [string]$_.action -eq 'SKIP_SCOPE_EXCLUDED' })) {
+        Info "Skipping required database SQL excluded by publish scope ${releasePublishScope}: $($item.migrationId)"
+    }
+    $preflightApplyItems = @($preflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })
+    $applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment
     foreach ($item in $applyItems) {
         $fileName = Get-RequiredDatabaseSqlFileName -RelativePath ([string]$item.file)
         $remoteSqlPath = "$remoteRequiredSqlDir/$fileName"
@@ -4356,22 +5049,6 @@ if ($publishBackend -and $IncludeOnlyOffice -and $Mode -ne 'build-release' -and 
     Fail 'Missing DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL; DCC OnlyOffice preview requires an explicit document-server-accessible backend URL.'
 }
 
-if ($publishBackend -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccDownloadEncryptionPolicyVersion)) {
-    Fail 'Missing DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION; DCC controlled download encryption is fail-fast and requires an explicit policy version.'
-}
-
-if ($publishBackend -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccDownloadEncryptionKeyId)) {
-    Fail 'Missing DCC_DOWNLOAD_ENCRYPTION_KEY_ID; DCC controlled download encryption is fail-fast and requires an explicit key id.'
-}
-
-if ($publishBackend -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccDownloadEncryptionBase64Key)) {
-    Fail 'Missing DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY; DCC controlled download encryption is fail-fast and requires an explicit AES key.'
-}
-
-if ($publishBackend -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccDownloadEncryptionArtifactDirectory)) {
-    Fail 'Missing DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY; DCC controlled download encryption is fail-fast and requires an explicit artifact directory.'
-}
-
 $edhrProtectedStorageSettings = Get-EdhrProtectedStorageSettings
 if ($publishBackend) {
     Assert-EdhrProtectedStorageConfig -Context 'target publish environment' -Settings $edhrProtectedStorageSettings
@@ -4434,7 +5111,7 @@ if ($requiresRemoteMinioCredentials -and (
 Info 'Checking local Docker daemon'
 Invoke-CheckedCommand -FilePath 'docker' -ArgumentList @('info')
 if ($null -ne $backendRuntimeBaseConfig) {
-    Assert-BackendRuntimeBaseImageAvailable -Config $backendRuntimeBaseConfig
+    Assert-BackendRuntimeBaseTarIntegrity -Config $backendRuntimeBaseConfig
 }
 
 if ($Mode -ne 'build-release') {
@@ -4515,6 +5192,10 @@ if ($Mode -eq 'build-release') {
 }
 }
 
+if ($publishFrontend) {
+    Write-FrontendReleaseInfo -PackageTag $ReleaseTag
+}
+
 if ($publishBackend -or $publishFrontend) {
     Info 'Preparing Docker build context from current worktree artifacts'
     New-ReleaseDockerBuildContext `
@@ -4527,6 +5208,7 @@ if ($publishBackend -or $publishFrontend) {
 }
 
 if ($publishBackend) {
+Assert-BackendRuntimeBaseImageAvailable -Config $backendRuntimeBaseConfig
 Info 'Building backend image'
 Invoke-CheckedCommand -FilePath 'docker' -ArgumentList @(
     'build',
@@ -4608,7 +5290,7 @@ if ($publishBackend -and $Mode -eq 'build-release' -and -not $SkipMinioSync) {
     }
 }
 
-if ($publishBackend) {
+if ($publishBackend -or $publishFrontend) {
     New-SchedulerSmokeRunnerPackage
 }
 
@@ -4658,8 +5340,10 @@ Prepare-RemoteReleaseTree
 
 Info 'Writing remote compose environment file locally'
 $existingRemoteEnv = @{}
+$existingOnlyOfficeReleasePreviewEnv = @{}
 if (($publishBackend -or $publishFrontend) -and $Mode -ne 'build-release') {
     $existingRemoteEnv = Get-RemoteRuntimeEnvMap
+    $existingOnlyOfficeReleasePreviewEnv = Get-RemoteRuntimeEnvMap -Path $onlyOfficeReleasePreviewEnvFile
 }
 function Resolve-ExistingRuntimeEnvValue {
     param(
@@ -4688,11 +5372,7 @@ $effectiveEdhrS3RequireLegalHold = if (-not [string]::IsNullOrWhiteSpace($EdhrS3
 $effectiveDccViewerTokenHmacSecret = if (-not [string]::IsNullOrWhiteSpace($DccViewerTokenHmacSecret)) { $DccViewerTokenHmacSecret } elseif ($existingRemoteEnv.ContainsKey('DCC_VIEWER_TOKEN_HMAC_SECRET')) { $existingRemoteEnv['DCC_VIEWER_TOKEN_HMAC_SECRET'] } else { '' }
 $effectiveDccOnlyOfficeJwtSecret = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeJwtSecret)) { $DccOnlyOfficeJwtSecret } elseif ($existingRemoteEnv.ContainsKey('DCC_ONLYOFFICE_JWT_SECRET')) { $existingRemoteEnv['DCC_ONLYOFFICE_JWT_SECRET'] } else { '' }
 $effectiveDccOnlyOfficeBaseUrl = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeBaseUrl)) { $DccOnlyOfficeBaseUrl } elseif ($existingRemoteEnv.ContainsKey('DCC_ONLYOFFICE_BASE_URL')) { $existingRemoteEnv['DCC_ONLYOFFICE_BASE_URL'] } else { '' }
-$effectiveDccOnlyOfficePublicFileBaseUrl = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficePublicFileBaseUrl)) { $DccOnlyOfficePublicFileBaseUrl } elseif ($existingRemoteEnv.ContainsKey('DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL')) { $existingRemoteEnv['DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL'] } else { '' }
-$effectiveDccDownloadEncryptionPolicyVersion = if (-not [string]::IsNullOrWhiteSpace($DccDownloadEncryptionPolicyVersion)) { $DccDownloadEncryptionPolicyVersion } elseif ($existingRemoteEnv.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION')) { $existingRemoteEnv['DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION'] } else { '' }
-$effectiveDccDownloadEncryptionKeyId = if (-not [string]::IsNullOrWhiteSpace($DccDownloadEncryptionKeyId)) { $DccDownloadEncryptionKeyId } elseif ($existingRemoteEnv.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_KEY_ID')) { $existingRemoteEnv['DCC_DOWNLOAD_ENCRYPTION_KEY_ID'] } else { '' }
-$effectiveDccDownloadEncryptionBase64Key = if (-not [string]::IsNullOrWhiteSpace($DccDownloadEncryptionBase64Key)) { $DccDownloadEncryptionBase64Key } elseif ($existingRemoteEnv.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY')) { $existingRemoteEnv['DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY'] } else { '' }
-$effectiveDccDownloadEncryptionArtifactDirectory = if (-not [string]::IsNullOrWhiteSpace($DccDownloadEncryptionArtifactDirectory)) { $DccDownloadEncryptionArtifactDirectory } elseif ($existingRemoteEnv.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY')) { $existingRemoteEnv['DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY'] } else { '' }
+$effectiveDccOnlyOfficePublicFileBaseUrl = "http://backend:48081"
 $effectiveDccProjectCodeCodexCliCommand = if (-not [string]::IsNullOrWhiteSpace($DccProjectCodeCodexCliCommand)) { $DccProjectCodeCodexCliCommand } elseif ($existingRemoteEnv.ContainsKey('DCC_PROJECT_CODE_CODEX_CLI_COMMAND')) { $existingRemoteEnv['DCC_PROJECT_CODE_CODEX_CLI_COMMAND'] } else { '/opt/intruoyi/runtime/tools/codex' }
 $effectiveDccProjectCodeCodexHome = if (-not [string]::IsNullOrWhiteSpace($DccProjectCodeCodexHome)) { $DccProjectCodeCodexHome } elseif ($existingRemoteEnv.ContainsKey('DCC_PROJECT_CODE_CODEX_HOME')) { $existingRemoteEnv['DCC_PROJECT_CODE_CODEX_HOME'] } else { '/opt/intruoyi/runtime/backend-codex-home' }
 $effectiveBackendRuntimeBaseMode = if (-not [string]::IsNullOrWhiteSpace($BackendRuntimeBaseMode)) { $BackendRuntimeBaseMode } elseif ($existingRemoteEnv.ContainsKey('RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_MODE')) { $existingRemoteEnv['RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_MODE'] } else { '' }
@@ -4701,6 +5381,33 @@ $effectiveBackendRuntimeBaseTarSha256 = if (-not [string]::IsNullOrWhiteSpace($B
 $effectiveBackendRuntimeBaseImage = if (-not [string]::IsNullOrWhiteSpace($BackendRuntimeBaseImage)) { $BackendRuntimeBaseImage } elseif ($existingRemoteEnv.ContainsKey('RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_IMAGE')) { $existingRemoteEnv['RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_IMAGE'] } else { '' }
 $effectiveBackendRuntimeBaseDigest = if (-not [string]::IsNullOrWhiteSpace($BackendRuntimeBaseDigest)) { $BackendRuntimeBaseDigest } elseif ($existingRemoteEnv.ContainsKey('RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_DIGEST')) { $existingRemoteEnv['RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_DIGEST'] } else { '' }
 $effectiveBackendRuntimeBaseVersion = if (-not [string]::IsNullOrWhiteSpace($BackendRuntimeBaseVersion)) { $BackendRuntimeBaseVersion } elseif ($existingRemoteEnv.ContainsKey('RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_VERSION')) { $existingRemoteEnv['RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_VERSION'] } else { '' }
+$effectiveDccOnlyOfficeReleaseE2eBaseUrl = "http://127.0.0.1:$FrontendPort"
+$effectiveDccOnlyOfficeReleaseE2eTenant = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeReleaseE2eTenant)) { $DccOnlyOfficeReleaseE2eTenant } elseif ($existingOnlyOfficeReleasePreviewEnv.ContainsKey('DCC_ONLYOFFICE_RELEASE_E2E_TENANT')) { $existingOnlyOfficeReleasePreviewEnv['DCC_ONLYOFFICE_RELEASE_E2E_TENANT'] } else { '' }
+$effectiveDccOnlyOfficeReleaseE2eUsername = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeReleaseE2eUsername)) { $DccOnlyOfficeReleaseE2eUsername } elseif ($existingOnlyOfficeReleasePreviewEnv.ContainsKey('DCC_ONLYOFFICE_RELEASE_E2E_USERNAME')) { $existingOnlyOfficeReleasePreviewEnv['DCC_ONLYOFFICE_RELEASE_E2E_USERNAME'] } else { '' }
+$effectiveDccOnlyOfficeReleaseE2ePassword = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeReleaseE2ePassword)) { $DccOnlyOfficeReleaseE2ePassword } elseif ($existingOnlyOfficeReleasePreviewEnv.ContainsKey('DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD')) { $existingOnlyOfficeReleasePreviewEnv['DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD'] } else { '' }
+$effectiveDccOnlyOfficeReleaseE2eDocxFileId = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeReleaseE2eDocxFileId)) { $DccOnlyOfficeReleaseE2eDocxFileId } elseif ($existingOnlyOfficeReleasePreviewEnv.ContainsKey('DCC_ONLYOFFICE_RELEASE_E2E_DOCX_FILE_ID')) { $existingOnlyOfficeReleasePreviewEnv['DCC_ONLYOFFICE_RELEASE_E2E_DOCX_FILE_ID'] } else { '' }
+$effectiveDccOnlyOfficeReleaseE2eXlsxFileId = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeReleaseE2eXlsxFileId)) { $DccOnlyOfficeReleaseE2eXlsxFileId } elseif ($existingOnlyOfficeReleasePreviewEnv.ContainsKey('DCC_ONLYOFFICE_RELEASE_E2E_XLSX_FILE_ID')) { $existingOnlyOfficeReleasePreviewEnv['DCC_ONLYOFFICE_RELEASE_E2E_XLSX_FILE_ID'] } else { '' }
+$effectiveDccOnlyOfficeReleaseE2ePptxFileId = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeReleaseE2ePptxFileId)) { $DccOnlyOfficeReleaseE2ePptxFileId } elseif ($existingOnlyOfficeReleasePreviewEnv.ContainsKey('DCC_ONLYOFFICE_RELEASE_E2E_PPTX_FILE_ID')) { $existingOnlyOfficeReleasePreviewEnv['DCC_ONLYOFFICE_RELEASE_E2E_PPTX_FILE_ID'] } else { '' }
+if ($publishBackend -or $publishFrontend) {
+    foreach ($requiredValue in @(
+        @{ Name = 'DCC_ONLYOFFICE_RELEASE_E2E_TENANT'; Value = $effectiveDccOnlyOfficeReleaseE2eTenant },
+        @{ Name = 'DCC_ONLYOFFICE_RELEASE_E2E_USERNAME'; Value = $effectiveDccOnlyOfficeReleaseE2eUsername },
+        @{ Name = 'DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD'; Value = $effectiveDccOnlyOfficeReleaseE2ePassword }
+    )) {
+        if ([string]::IsNullOrWhiteSpace([string]$requiredValue.Value)) {
+            Fail "Missing $($requiredValue.Name); the real DOCX/XLSX/PPTX release preview gate is mandatory."
+        }
+    }
+    foreach ($requiredFile in @(
+        @{ Name = 'DCC_ONLYOFFICE_RELEASE_E2E_DOCX_FILE_ID'; Value = $effectiveDccOnlyOfficeReleaseE2eDocxFileId },
+        @{ Name = 'DCC_ONLYOFFICE_RELEASE_E2E_XLSX_FILE_ID'; Value = $effectiveDccOnlyOfficeReleaseE2eXlsxFileId },
+        @{ Name = 'DCC_ONLYOFFICE_RELEASE_E2E_PPTX_FILE_ID'; Value = $effectiveDccOnlyOfficeReleaseE2ePptxFileId }
+    )) {
+        if ([string]::IsNullOrWhiteSpace([string]$requiredFile.Value) -or [string]$requiredFile.Value -notmatch '^\d+$') {
+            Fail "Missing or invalid $($requiredFile.Name); a numeric controlled-file ID is required for the real release preview gate."
+        }
+    }
+}
 $effectiveSchedulerSmokeFrontendDirectory = $schedulerSmokeFrontendDirectory
 $effectiveSchedulerSmokeScriptName = $schedulerSmokeScriptName
 $effectiveMesSmokeBaseUrl = Resolve-ExistingRuntimeEnvValue -Name 'MES_SMOKE_BASE_URL' -DefaultValue "http://127.0.0.1:$FrontendPort"
@@ -4752,10 +5459,6 @@ $DccViewerTokenHmacSecret = $effectiveDccViewerTokenHmacSecret
 $DccOnlyOfficeJwtSecret = $effectiveDccOnlyOfficeJwtSecret
 $DccOnlyOfficeBaseUrl = $effectiveDccOnlyOfficeBaseUrl
 $DccOnlyOfficePublicFileBaseUrl = $effectiveDccOnlyOfficePublicFileBaseUrl
-$DccDownloadEncryptionPolicyVersion = $effectiveDccDownloadEncryptionPolicyVersion
-$DccDownloadEncryptionKeyId = $effectiveDccDownloadEncryptionKeyId
-$DccDownloadEncryptionBase64Key = $effectiveDccDownloadEncryptionBase64Key
-$DccDownloadEncryptionArtifactDirectory = $effectiveDccDownloadEncryptionArtifactDirectory
 $DccProjectCodeCodexCliCommand = $effectiveDccProjectCodeCodexCliCommand
 $DccProjectCodeCodexHome = $effectiveDccProjectCodeCodexHome
 $BackendRuntimeBaseMode = $effectiveBackendRuntimeBaseMode
@@ -4816,10 +5519,6 @@ DCC_VIEWER_TOKEN_HMAC_SECRET=$DccViewerTokenHmacSecret
 DCC_ONLYOFFICE_JWT_SECRET=$DccOnlyOfficeJwtSecret
 DCC_ONLYOFFICE_BASE_URL=$DccOnlyOfficeBaseUrl
 DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL=$DccOnlyOfficePublicFileBaseUrl
-DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION=$DccDownloadEncryptionPolicyVersion
-DCC_DOWNLOAD_ENCRYPTION_KEY_ID=$DccDownloadEncryptionKeyId
-DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY=$DccDownloadEncryptionBase64Key
-DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY=$DccDownloadEncryptionArtifactDirectory
 DCC_PROJECT_CODE_CODEX_CLI_COMMAND=$DccProjectCodeCodexCliCommand
 DCC_PROJECT_CODE_CODEX_HOME=$DccProjectCodeCodexHome
 RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_MODE=$BackendRuntimeBaseMode
@@ -4831,6 +5530,17 @@ RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_VERSION=$BackendRuntimeBaseVersion
 "@
 $remoteEnvLocal = Join-Path $releaseDir '.env'
 Write-Utf8LfNoBomFile -Path $remoteEnvLocal -Content $remoteEnvContent
+$onlyOfficeReleasePreviewEnvContent = @"
+DCC_ONLYOFFICE_RELEASE_E2E_BASE_URL=$effectiveDccOnlyOfficeReleaseE2eBaseUrl
+DCC_ONLYOFFICE_RELEASE_E2E_TENANT=$effectiveDccOnlyOfficeReleaseE2eTenant
+DCC_ONLYOFFICE_RELEASE_E2E_USERNAME=$effectiveDccOnlyOfficeReleaseE2eUsername
+DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD=$effectiveDccOnlyOfficeReleaseE2ePassword
+DCC_ONLYOFFICE_RELEASE_E2E_DOCX_FILE_ID=$effectiveDccOnlyOfficeReleaseE2eDocxFileId
+DCC_ONLYOFFICE_RELEASE_E2E_XLSX_FILE_ID=$effectiveDccOnlyOfficeReleaseE2eXlsxFileId
+DCC_ONLYOFFICE_RELEASE_E2E_PPTX_FILE_ID=$effectiveDccOnlyOfficeReleaseE2ePptxFileId
+"@
+$onlyOfficeReleasePreviewEnvLocal = Join-Path $localTempRoot "$packageDirectoryName-onlyoffice-release-preview.env"
+Write-Utf8LfNoBomFile -Path $onlyOfficeReleasePreviewEnvLocal -Content $onlyOfficeReleasePreviewEnvContent
 
 Info "Copying compose and environment files to the $PublishTargetName server"
 $composeLocal = Join-Path $releaseDir 'docker-compose.yml'
@@ -4840,9 +5550,17 @@ if (-not (Test-Path -LiteralPath $composeLocal)) {
 if ($publishBackend -or $publishFrontend) {
     Copy-ToServer -LocalPath $composeLocal -RemotePath $remoteCompose
     Copy-ToServer -LocalPath $remoteEnvLocal -RemotePath $remoteEnv
+    try {
+        Copy-ToServer -LocalPath $onlyOfficeReleasePreviewEnvLocal -RemotePath $onlyOfficeReleasePreviewEnvFile
+        Invoke-SshCommand "chmod 600 '$onlyOfficeReleasePreviewEnvFile'"
+    } finally {
+        if (Test-Path -LiteralPath $onlyOfficeReleasePreviewEnvLocal) {
+            Remove-Item -LiteralPath $onlyOfficeReleasePreviewEnvLocal -Force
+        }
+    }
     Assert-RemoteRuntimeEnvImageTag
 }
-if ($publishBackend) { Copy-SchedulerSmokeRunnerToServer }
+if ($publishBackend -or $publishFrontend) { Copy-SchedulerSmokeRunnerToServer }
 if ($publishBackend -or $publishFrontend) {
     Copy-ToServer -LocalPath $imageTar -RemotePath $remoteImageTar
 }
@@ -4979,14 +5697,10 @@ if ($publishFrontend) {
 if ($publishBackend) { Assert-RemoteSchedulerSmokeRuntime }
 if ($IncludeOnlyOffice) {
     Wait-RemoteHttpOk -Url "http://127.0.0.1:$OnlyOfficeHostPort/healthcheck" -TimeoutSeconds 180
-    Assert-RemoteOnlyOfficePublicFileBaseUrlReachable
 }
+if ($publishBackend) { Assert-RemoteOnlyOfficePublicFileBaseUrlReachable }
 if ($publishWebsite) {
     Wait-RemoteHttpOk -Url "http://127.0.0.1:$WebsiteHostPort/showroom" -TimeoutSeconds 180
-}
-
-if ($publishBackend) {
-    Invoke-ReleaseOperationLockRelease -Status 'APPLIED'
 }
 
 if ($publishBackend) { Wait-HttpOk -Url "http://${ServerHost}:$BackendPort/actuator/health" -TimeoutSeconds 180 }
@@ -5007,6 +5721,11 @@ if ($publishWebsite) { Wait-HttpOk -Url "http://${ServerHost}:$WebsiteHostPort/"
 if ($publishWebsite) { Wait-HttpOk -Url "http://${ServerHost}:$WebsiteHostPort/showroom" -TimeoutSeconds 180 }
 if ($publishWebsite) { Assert-PublicWebsiteEntryReadback }
 if ($publishWebsite) { Assert-PublicWebsiteScopedReleaseCurrent }
+if ($publishBackend -or $publishFrontend) { Invoke-RemoteOnlyOfficeReleasePreviewGate }
+
+if ($publishBackend) {
+    Invoke-ReleaseOperationLockRelease -Status 'APPLIED'
+}
 
 if ($Mode -eq 'deploy-release' -and @('prod', 'backup') -contains $Environment) {
     Write-NasReleaseDeploymentHistory -PackageTag $ReleaseTag -HistoryAction 'deploy' -HistoryEnvironment $Environment

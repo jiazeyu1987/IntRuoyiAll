@@ -11,6 +11,8 @@ import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledConten
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+
 /**
  * MES route-version adapter for the platform controlled-content lifecycle.
  */
@@ -29,6 +31,23 @@ public class MesProRouteControlledContentAdapter {
                 active.getVersionNo(), active.getLifecycleStatus(), actorId, reason);
     }
 
+    public void recordActiveRegisteredIfMissing(MesProRouteVersionDO active, Long actorId, String reason) {
+        requireVersion(active, "active");
+        if (!Boolean.TRUE.equals(active.getActive())) {
+            throw new IllegalArgumentException("active route version must be active");
+        }
+        ControlledContentKey key = routeKey(active);
+        ControlledContentVersionRefDO existingActiveRef = lifecycleCoreService.getActiveRef(key);
+        if (existingActiveRef == null) {
+            recordActiveRegistered(active, actorId, reason);
+            return;
+        }
+        if (!Objects.equals(existingActiveRef.getNativeVersionId(), active.getId())) {
+            throw new IllegalStateException("controlled content active ref drifted for route: "
+                    + active.getRouteId() + "/" + existingActiveRef.getNativeVersionId() + "/" + active.getId());
+        }
+    }
+
     public void recordCandidateCreated(MesProRouteVersionDO active, MesProRouteVersionDO candidate,
                                        Long actorId, String reason) {
         requireVersion(active, "active");
@@ -42,6 +61,21 @@ public class MesProRouteControlledContentAdapter {
         lifecycleCoreService.createCandidateRef(key, candidate.getRouteId(), candidate.getId(),
                 candidate.getVersionNo(), candidate.getLifecycleStatus(), activeRef.getId(), active.getId(),
                 actorId, reason);
+    }
+
+    public void recordDraftCandidateRegisteredIfMissing(MesProRouteVersionDO active,
+                                                        MesProRouteVersionDO candidate,
+                                                        Long actorId, String reason) {
+        requireVersion(active, "active");
+        requireVersion(candidate, "candidate");
+        if (!MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(candidate.getLifecycleStatus())) {
+            throw new IllegalArgumentException("route candidate must be draft when registering missing ref");
+        }
+        ControlledContentKey key = routeKey(candidate);
+        if (lifecycleCoreService.getVersionRef(key, candidate.getId()) != null) {
+            return;
+        }
+        recordCandidateCreated(active, candidate, actorId, reason);
     }
 
     public void recordSubmitted(MesProRouteVersionDO candidate, Long actorId, String approvalProcessInstanceId) {

@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionAttachmentDO;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -12,6 +13,8 @@ import org.springframework.stereotype.Component;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,6 +40,9 @@ public class PdfExecutionArchiveRenderer implements MesProBatchRecordExecutionAr
     private static final float TITLE_FONT_SIZE = 16F;
     private static final float LEADING = 14F;
     private static final int WRAP_CHARS = 96;
+    private static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final String OFFICIAL_SIGNATURE_TIME_ZONE =
+            MesProBatchRecordExecutionSignatureService.DEFAULT_SIGNATURE_TIME_ZONE;
 
     @Override
     public String getArtifactType() {
@@ -108,17 +114,19 @@ public class PdfExecutionArchiveRenderer implements MesProBatchRecordExecutionAr
             lines.add("ID=" + value(signature.getId())
                     + ", Action=" + value(signature.getActionType())
                     + ", Meaning=" + value(signatureMeaning(signature.getActionType()))
-                    + ", Actor=" + value(signature.getActorId())
+                    + ", Signer=" + value(resolveSignerName(signature))
+                    + ", Purpose=" + value(resolveSignaturePurpose(signature))
                     + ", Mode=" + value(signature.getSignatureMode())
                     + ", PasswordVerified=" + value(signature.getPasswordVerified())
-                    + ", SignedAt=" + value(signature.getSignedAt())
+                    + ", SignedAt=" + formatDateTime(signature.getSignedAt())
                     + ", Comment=" + value(signature.getComment()));
-            lines.add("  SelectedSignedAt=" + value(signature.getSelectedSignedAt()));
-            lines.add("  DisplaySignedAt=" + value(signature.getSignatureDisplayAt()));
+            lines.add("  BusinessOccurredAt=" + formatDateTime(signature.getSelectedSignedAt()));
+            lines.add("  DisplaySignedAt=" + formatSignatureDisplayDateTime(signature));
             lines.add("  SignatureTimeMode=" + value(signature.getSignatureTimeMode()));
-            lines.add("  SelectedTimeZone=" + value(signature.getSelectedTimeZone()));
-            lines.add("  SelectedTimeReason=" + value(signature.getSelectedTimeReason()));
-            lines.add("  SelectedTimeAuditHash=" + value(signature.getSelectedTimeAuditHash()));
+            lines.add("  BusinessTimeZone=" + value(signature.getSelectedTimeZone()));
+            lines.add("  BusinessTimeReason=" + value(signature.getSelectedTimeReason()));
+            lines.add("  BusinessTimeAuditHash=" + value(signature.getSelectedTimeAuditHash()));
+            lines.add("  RecordHash=" + value(resolveRecordHash(signature)));
         }
         lines.add("");
         lines.add("Attachments:");
@@ -149,10 +157,72 @@ public class PdfExecutionArchiveRenderer implements MesProBatchRecordExecutionAr
             case MesProBatchRecordExecutionSignatureService.ACTION_FORM_REVIEW -> "表单复核";
             case MesProBatchRecordExecutionSignatureService.ACTION_SUBMIT -> "提交审批";
             case MesProBatchRecordExecutionSignatureService.ACTION_APPROVE -> "审批通过";
+            case MesProBatchRecordExecutionSignatureService.ACTION_REVIEW_APPROVE -> "审核签名";
             case MesProBatchRecordExecutionSignatureService.ACTION_REJECT -> "审批驳回";
             case MesProBatchRecordExecutionSignatureService.ACTION_ARCHIVE_SEAL -> "归档封存";
-            default -> actionType;
+            case MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT -> "一线生产报工提交";
+            case MesProBatchRecordExecutionSignatureService.ACTION_PQC_SUBMIT -> "PQC检验提交";
+            case MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW -> "组长复核";
+            default -> null;
         };
+    }
+
+    private String resolveSignerName(MesProBatchRecordExecutionSignatureDO signature) {
+        String signerName = firstNonBlank(signature.getActorName(), signature.getActorNicknameSnapshot());
+        if (StrUtil.isBlank(signerName)) {
+            throw new IllegalStateException("EDHR archive signature signer name is required, signatureId="
+                    + value(signature.getId()));
+        }
+        return signerName;
+    }
+
+    private String resolveSignaturePurpose(MesProBatchRecordExecutionSignatureDO signature) {
+        String purpose = firstNonBlank(signature.getSignaturePurpose(), signatureMeaning(signature.getActionType()));
+        if (StrUtil.isBlank(purpose)) {
+            throw new IllegalStateException("EDHR archive signature purpose is required, signatureId="
+                    + value(signature.getId()) + ", actionType=" + value(signature.getActionType()));
+        }
+        return purpose;
+    }
+
+    private String resolveRecordHash(MesProBatchRecordExecutionSignatureDO signature) {
+        String recordHash = firstNonBlank(signature.getRecordHashSnapshot(), signature.getFieldAuditHeadHash(),
+                signature.getCellValuesHash(), null);
+        if (StrUtil.isBlank(recordHash)) {
+            throw new IllegalStateException("EDHR archive signature record hash is required, signatureId="
+                    + value(signature.getId()));
+        }
+        return recordHash;
+    }
+
+    private String formatDateTime(LocalDateTime time) {
+        return time == null ? "--" : DISPLAY_TIME.format(time);
+    }
+
+    private String formatSignatureDisplayDateTime(MesProBatchRecordExecutionSignatureDO signature) {
+        LocalDateTime signedAt = signature.getSignedAt();
+        if (signedAt == null) {
+            throw new IllegalStateException("EDHR archive official signature time is required, signatureId="
+                    + value(signature.getId()));
+        }
+        return DISPLAY_TIME.format(signedAt) + " (" + OFFICIAL_SIGNATURE_TIME_ZONE + ")";
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return StrUtil.isNotBlank(first) ? first : second;
+    }
+
+    private String firstNonBlank(String first, String second, String third, String fourth) {
+        if (StrUtil.isNotBlank(first)) {
+            return first;
+        }
+        if (StrUtil.isNotBlank(second)) {
+            return second;
+        }
+        if (StrUtil.isNotBlank(third)) {
+            return third;
+        }
+        return fourth;
     }
 
     private String fileName(RenderData data) {

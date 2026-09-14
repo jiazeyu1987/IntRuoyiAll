@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCasePageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseSaveReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestNodeChainOptionRespVO;
 import cn.iocoder.yudao.module.system.service.codextest.CodexTestCaseService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -21,6 +22,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 
@@ -70,6 +73,13 @@ public class CodexTestCaseController {
     @PreAuthorize("@ss.hasPermission('system:codex-test:query')")
     public CommonResult<PageResult<CodexTestCaseRespVO>> getCasePage(@Valid CodexTestCasePageReqVO pageReqVO) {
         return success(codexTestCaseService.getCasePage(pageReqVO));
+    }
+
+    @GetMapping("/node-chain-options")
+    @Operation(summary = "获得 Codex 测试节点串选项")
+    @PreAuthorize("@ss.hasPermission('system:codex-test:query')")
+    public CommonResult<List<CodexTestNodeChainOptionRespVO>> getNodeChainOptions() {
+        return success(codexTestCaseService.getNodeChainOptions());
     }
 
 }

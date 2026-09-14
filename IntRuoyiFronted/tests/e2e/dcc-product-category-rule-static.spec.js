@@ -23,12 +23,12 @@ assert.match(
 assert.match(
   submitterSource,
   /isDccProductRequiredForCategoryCode/,
-  '上传提交器必须能识别 DHF/DMR 类别需要产品主数据。'
+  '上传提交器必须能识别 DHF/DMR 类别需要产品编号。'
 )
 assert.match(
   submitterSource,
-  /validateProductMasterSelection[\s\S]*productRequired[\s\S]*请选择产品主数据/,
-  '产品校验必须在产品相关类别缺产品时阻止提交。'
+  /validateDccProjectProductCode[\s\S]*productRequired[\s\S]*请选择包含项目代码的 DCC 项目/,
+  '产品校验必须在 DHF/DMR 类别缺 DCC 项目代码产品编号时阻止提交。'
 )
 assert.match(
   uploadPageSource,
@@ -37,13 +37,13 @@ assert.match(
 )
 assert.match(
   uploadPageSource,
-  /:placeholder="isProductRequiredForSelectedCategory \? '请选择产品主数据' : '可不选择产品主数据'"/,
-  '上传页必须按当前类别切换产品选择提示。'
+  /placeholder="选择 DCC 项目后自动生成"/,
+  '上传页产品编号必须提示由 DCC 项目自动生成。'
 )
 assert.match(
   uploadPageSource,
   /v-if="isProductRequiredForSelectedCategory"/,
-  '上传页必须在 DHF/DMR 类别显示产品必选提示。'
+  '上传页必须在 DHF/DMR 类别显示产品编号必选提示。'
 )
 
 console.log('PASS: DCC product category rule static contract')

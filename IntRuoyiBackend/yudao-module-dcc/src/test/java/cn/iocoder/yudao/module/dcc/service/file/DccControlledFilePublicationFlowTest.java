@@ -96,6 +96,10 @@ class DccControlledFilePublicationFlowTest extends BaseMockitoUnitTest {
     private PermissionApi permissionApi;
     @Mock
     private DccControlledContentAdapter platformAdapter;
+    @Mock
+    private DccControlledFileSignatureBindingService signatureBindingService;
+    @Mock
+    private DccPublicationFollowupService publicationFollowupService;
 
     @InjectMocks
     private DccControlledFileFinalizationServiceImpl finalizationService;
@@ -164,7 +168,7 @@ class DccControlledFilePublicationFlowTest extends BaseMockitoUnitTest {
                 updates.stream().filter(item -> item.getId().equals(800L)).findFirst().orElseThrow().getSupersededByFileId());
         assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(),
                 updates.stream().filter(item -> item.getId().equals(900L)).findFirst().orElseThrow().getStatus());
-        verify(obsoleteFileStorageService).moveControlledFileArtifactsToObsoleteFolder(previousActive);
+        verify(obsoleteFileStorageService, never()).moveControlledFileArtifactsToObsoleteFolder(previousActive);
     }
 
     @Test

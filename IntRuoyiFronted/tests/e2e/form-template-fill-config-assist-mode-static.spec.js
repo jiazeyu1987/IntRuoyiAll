@@ -1,0 +1,49 @@
+const fs = require('node:fs')
+const path = require('node:path')
+const assert = require('node:assert/strict')
+
+const root = path.resolve(__dirname, '../..')
+const read = (relativePath) =>
+  fs.readFileSync(path.join(root, relativePath), 'utf8').replace(/\r\n/g, '\n')
+
+const dialog = read('src/views/form-center/template/components/FormTemplateFillConfigDialog.vue')
+
+const includes = (content, token, message) => assert.ok(content.includes(token), message)
+const notIncludes = (content, token, message) => assert.ok(!content.includes(token), message)
+
+includes(dialog, 'activeConfigMode', '表单模板填写配置必须有原表配置/辅助表单映射模式状态。')
+includes(dialog, '辅助表单映射', '表单模板填写配置必须显示辅助表单映射切换入口。')
+includes(dialog, "activeConfigMode === 'assistMapping'", '辅助表单映射模式必须由同一状态控制。')
+includes(dialog, 'assistGridRowCount', '表单模板辅助映射必须可配置辅助表格行数。')
+includes(dialog, 'assistGridColumnCount', '表单模板辅助映射必须可配置辅助表格列数。')
+includes(dialog, 'assistFillerUserIds', '表单模板辅助映射必须维护当前模板填写人集合。')
+includes(dialog, 'selectedAssistFillerUserId', '表单模板辅助映射必须支持切换当前填写人。')
+includes(dialog, 'selectedAssistGridCellKey', '表单模板辅助映射必须先选择辅助表格单元。')
+includes(dialog, 'data-assist-grid-cell', '表单模板辅助映射必须渲染可点击 M*N 辅助表格。')
+includes(dialog, 'handleAssistGridCellClick', '点击辅助格必须设置当前映射目标。')
+includes(dialog, '@dblclick.stop="handleAssistGridCellDoubleClick(gridCell)"', '表单模板辅助映射必须支持双击已映射辅助格取消映射。')
+includes(dialog, 'handleAssistGridCellDoubleClick', '表单模板辅助映射必须有双击取消映射处理函数。')
+includes(dialog, 'mapSourceCellToSelectedAssistGridCell', '点击原表单元格必须映射到当前辅助格。')
+includes(dialog, 'removeAssistGridCellMapping', '辅助格必须支持取消映射。')
+includes(dialog, 'sourceCellGridAssignmentMap', '表单模板必须维护原表单元格全局分配索引。')
+includes(dialog, 'isSourceCellDisabledForAssistMapping', '已分配原表单元格必须灰化并禁止重复点击。')
+includes(dialog, ':disabled="isSourceCellDisabledForAssistMapping(cell)"', '原表按钮必须真正 disabled 防止重复分配。')
+includes(dialog, "'is-assist-mapped': isSourceCellMappedToAssistGrid(cell)", '已分配原表格必须有灰化样式类。')
+includes(dialog, 'sourceCellGridAssignmentMap.value.has(cell.identity)', '同一个原表单元格不能分给多个填写人。')
+includes(dialog, 'ASSIST_GRID_ROW_KEY_PREFIX', '辅助格保存必须使用稳定 rowKey 表达用户和表格位置。')
+includes(dialog, 'parseAssistGridRowKey', '读取已有辅助映射时必须还原用户和辅助格位置。')
+includes(dialog, "candidateSourceType: 'USERS'", '每个辅助格保存时必须绑定到具体填写人。')
+includes(dialog, 'candidateSourceIds: [userId]', '辅助格保存的填写人必须来自当前用户。')
+includes(dialog, 'assistRows: assistRowsForSave', '保存必须继续输出模板自身 assistRows。')
+includes(dialog, 'fillAssignments: normalizedAssistAssignmentsForSave(assistRowsForSave)', '保存必须继续输出模板自身 fillAssignments。')
+assert.match(
+  dialog,
+  /\.batch-record-cell-rules-editor__assist-grid-cell span \{[\s\S]*?text-overflow: ellipsis;[\s\S]*?white-space: nowrap;/,
+  '表单模板辅助格字段名必须单行显示并用省略号截断。'
+)
+notIncludes(dialog, 'batch-record-cell-rules-editor__assist-grid-unmap', '表单模板辅助格不应继续显示独立取消映射按钮。')
+notIncludes(dialog, '<em v-if="gridCell.valueTypeLabel">', '表单模板辅助格不应继续显示字段类型圆标。')
+notIncludes(dialog, 'BatchRecordReportApi', '表单模板辅助映射不得依赖批记录报表 API。')
+notIncludes(dialog, 'batchRecordReportId', '表单模板辅助映射不得要求批记录报表 ID。')
+
+console.log('PASS form-template-fill-config-assist-mode-static')

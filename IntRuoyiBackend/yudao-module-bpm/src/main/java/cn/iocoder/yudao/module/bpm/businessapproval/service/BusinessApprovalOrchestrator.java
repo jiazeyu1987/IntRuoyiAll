@@ -87,7 +87,6 @@ public class BusinessApprovalOrchestrator {
         }
         String trimmedPassword = StrUtil.trim(signaturePassword);
         BusinessApprovalRequest request = requestStore.createDirectRequest(context, policy);
-        adminUserApi.validatePassword(context.getApplicantUserId(), trimmedPassword);
         Objects.requireNonNull(signatureRecordService.recordReviewSignature(ApprovalTaskReviewContext.of(
                 context.getApplicantUserId(),
                 ApprovalModuleCode.BPM,

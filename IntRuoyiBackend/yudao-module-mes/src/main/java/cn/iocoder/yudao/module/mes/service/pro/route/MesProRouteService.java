@@ -95,6 +95,11 @@ public interface MesProRouteService {
     PageResult<MesProRouteRespVO> getRoutePageRespVO(MesProRoutePageReqVO pageReqVO);
 
     /**
+     * 获得工艺路线列表
+     */
+    List<MesProRouteDO> getRouteList();
+
+    /**
      * 获得启用状态的工艺路线列表
      */
     List<MesProRouteDO> getRouteListByStatus(Integer status);

@@ -1,0 +1,51 @@
+{
+  "runId": "20260727-shared-word-parser-real-e2e",
+  "baseUrl": "http://localhost:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "测试租户",
+  "username": "aoteman",
+  "formCenterDoc": "E:\\IntRuoyi\\resource\\过程检验记录.docx",
+  "batchRecordDoc": "E:\\IntRuoyi\\resource\\批记录压力泵.doc",
+  "productName": "球囊扩张压力泵",
+  "startedAt": "2026-07-27T03:37:16.957Z",
+  "results": [
+    {
+      "scope": "form-center",
+      "status": "PASS",
+      "route": "/mdm/form-center/template",
+      "endpoint": "/admin-api/form-center/templates/import-doc",
+      "file": "E:\\IntRuoyi\\resource\\过程检验记录.docx",
+      "templateName": "E2E共享Word解析-20260727-shared-word-parser-real-e2e-1785123443116",
+      "templateId": 30,
+      "versionNo": "V1.0",
+      "importAction": "CREATE",
+      "recognizedFieldCount": 56,
+      "warningCount": 0,
+      "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260727-shared-word-parser-real-e2e\\artifacts\\form-center-20260727-shared-word-parser-real-e2e.png"
+    },
+    {
+      "scope": "mes-batch-record",
+      "status": "BLOCKED",
+      "route": "/mes/pro/batch-record-form-list",
+      "endpoint": "/admin-api/mes/pro/batch-record-report/recognize-uploaded/preflight",
+      "file": "E:\\IntRuoyi\\resource\\批记录压力泵.doc",
+      "productName": "球囊扩张压力泵",
+      "confirmDisabled": true,
+      "allowedActions": [],
+      "recommendedAction": null,
+      "latestBatchRecordVersionNo": "V3.0",
+      "latestBatchRecordVersionStatus": "PENDING_APPROVAL",
+      "currentBatchRecordVersionNo": "V1.0",
+      "currentBatchRecordHasMainReports": true,
+      "routeGovernanceStatus": "CREATE_REQUIRED",
+      "currentRouteName": null,
+      "currentRouteVersionNo": null,
+      "nextVersionNo": "V4.0",
+      "routeUpgradeRequired": false,
+      "duplicateRouteCount": 0,
+      "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260727-shared-word-parser-real-e2e\\artifacts\\mes-preflight-20260727-shared-word-parser-real-e2e.png"
+    }
+  ],
+  "completedAt": "2026-07-27T03:38:23.229Z",
+  "status": "BLOCKED"
+}

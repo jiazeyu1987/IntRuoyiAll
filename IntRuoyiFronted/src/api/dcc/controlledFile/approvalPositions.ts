@@ -17,7 +17,7 @@ export interface ControlledFileApprovalPositionVO {
   active: boolean
   source?: string
   remark?: string
-  createTime?: Date | string
+  createTime?: number
   assignments: ControlledFilePositionAssignmentVO[]
 }
 

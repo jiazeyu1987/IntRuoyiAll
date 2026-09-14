@@ -30,7 +30,7 @@
       <template #actions>
         <el-button
           type="primary"
-          @click="openModelForm('create')"
+          @click="openCreateApprovalParticipantConfig"
           v-hasPermi="['bpm:model:create']"
         >
           <Icon icon="ep:plus" class="mr-5px" />
@@ -40,7 +40,6 @@
 
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
-          ref="tableRef"
           v-loading="loading"
           class="bpm-model-unified-table"
           data-user-table-column-explicit
@@ -208,7 +207,7 @@
               <el-button
                 link
                 type="primary"
-                @click="openModelForm('update', row.id)"
+                @click="openApprovalParticipantConfig(row)"
                 :disabled="!isManagerUser(row) && !hasPermiUpdate"
               >
                 修改
@@ -283,8 +282,7 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
-  <CategoryForm ref="categoryFormRef" @success="getList" />
-  <Dialog title="流程审批路线" v-model="viewDetailVisible" width="520">
+  <Dialog :title="modelApprovalRouteDialogTitle" v-model="viewDetailVisible" width="520">
     <div
       v-if="selectedModel"
       v-loading="modelDetailLoading"
@@ -307,6 +305,223 @@
       </div>
     </div>
   </Dialog>
+  <Dialog :title="participantConfigDialogTitle" v-model="participantConfigVisible" width="860">
+    <el-form
+      ref="participantConfigFormRef"
+      v-loading="participantConfigLoading"
+      :model="participantConfigForm"
+      :rules="participantConfigRules"
+      label-width="88px"
+      data-bpm-model-view="participant-config"
+    >
+      <el-form-item
+        v-if="participantConfigMode === 'create'"
+        prop="name"
+        label="流程名字"
+      >
+        <el-input
+          v-model="participantConfigForm.name"
+          maxlength="80"
+          show-word-limit
+          clearable
+          placeholder="请输入流程名字"
+        />
+      </el-form-item>
+      <el-form-item prop="reviewers" label="审核人">
+        <div class="bpm-participant-config">
+          <div class="bpm-participant-config__toolbar">
+            <el-radio-group v-model="participantConfigForm.reviewers.relation">
+              <el-radio-button value="or">或关系</el-radio-button>
+              <el-radio-button value="and">和关系</el-radio-button>
+            </el-radio-group>
+            <el-button link type="primary" @click="addParticipantObject('reviewers')">
+              添加审核对象
+            </el-button>
+          </div>
+          <div
+            v-for="(item, index) in participantConfigForm.reviewers.objects"
+            :key="item.id"
+            class="bpm-participant-config__row"
+          >
+            <el-select
+              v-model="item.objectType"
+              class="bpm-participant-config__type"
+              @change="resetParticipantObject(item)"
+            >
+              <el-option
+                v-for="option in PARTICIPANT_OBJECT_TYPE_OPTIONS"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+            <el-select
+              v-if="item.objectType === 'user'"
+              v-model="item.objectIds"
+              class="bpm-participant-config__target"
+              multiple
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="请选择用户"
+            >
+              <el-option
+                v-for="user in participantUserList"
+                :key="user.id"
+                :label="user.nickname || user.username"
+                :value="user.id"
+              />
+            </el-select>
+            <el-select
+              v-else-if="item.objectType === 'role'"
+              v-model="item.objectIds"
+              class="bpm-participant-config__target"
+              multiple
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="请选择权限角色"
+            >
+              <el-option
+                v-for="role in participantRoleList"
+                :key="role.id"
+                :label="role.name"
+                :value="role.id"
+              />
+            </el-select>
+            <el-tree-select
+              v-else-if="item.objectType === 'dept'"
+              v-model="item.objectIds"
+              class="bpm-participant-config__target"
+              :data="participantDeptTree"
+              :props="defaultProps"
+              multiple
+              check-strictly
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="请选择部门"
+            />
+            <el-tag v-else class="bpm-participant-config__target" effect="plain">
+              发起对象直属主管
+            </el-tag>
+            <el-button
+              link
+              type="danger"
+              :disabled="participantConfigForm.reviewers.objects.length === 1"
+              @click="removeParticipantObject('reviewers', index)"
+            >
+              删除
+            </el-button>
+          </div>
+        </div>
+      </el-form-item>
+      <el-form-item prop="approvers" label="批准人">
+        <div class="bpm-participant-config">
+          <div class="bpm-participant-config__toolbar">
+            <el-radio-group v-model="participantConfigForm.approvers.relation">
+              <el-radio-button value="or">或关系</el-radio-button>
+              <el-radio-button value="and">和关系</el-radio-button>
+            </el-radio-group>
+            <el-button link type="primary" @click="addParticipantObject('approvers')">
+              添加批准对象
+            </el-button>
+          </div>
+          <div
+            v-for="(item, index) in participantConfigForm.approvers.objects"
+            :key="item.id"
+            class="bpm-participant-config__row"
+          >
+            <el-select
+              v-model="item.objectType"
+              class="bpm-participant-config__type"
+              @change="resetParticipantObject(item)"
+            >
+              <el-option
+                v-for="option in PARTICIPANT_OBJECT_TYPE_OPTIONS"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+            <el-select
+              v-if="item.objectType === 'user'"
+              v-model="item.objectIds"
+              class="bpm-participant-config__target"
+              multiple
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="请选择用户"
+            >
+              <el-option
+                v-for="user in participantUserList"
+                :key="user.id"
+                :label="user.nickname || user.username"
+                :value="user.id"
+              />
+            </el-select>
+            <el-select
+              v-else-if="item.objectType === 'role'"
+              v-model="item.objectIds"
+              class="bpm-participant-config__target"
+              multiple
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="请选择权限角色"
+            >
+              <el-option
+                v-for="role in participantRoleList"
+                :key="role.id"
+                :label="role.name"
+                :value="role.id"
+              />
+            </el-select>
+            <el-tree-select
+              v-else-if="item.objectType === 'dept'"
+              v-model="item.objectIds"
+              class="bpm-participant-config__target"
+              :data="participantDeptTree"
+              :props="defaultProps"
+              multiple
+              check-strictly
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="请选择部门"
+            />
+            <el-tag v-else class="bpm-participant-config__target" effect="plain">
+              发起对象直属主管
+            </el-tag>
+            <el-button
+              link
+              type="danger"
+              @click="removeParticipantObject('approvers', index)"
+            >
+              删除
+            </el-button>
+          </div>
+          <div
+            v-if="participantConfigForm.approvers.objects.length === 0"
+            class="bpm-participant-config__empty"
+          >
+            未配置批准人
+          </div>
+        </div>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="participantConfigVisible = false">取消</el-button>
+      <el-button
+        type="primary"
+        :loading="participantConfigSaving"
+        @click="handleSaveParticipantConfig"
+      >
+        保存
+      </el-button>
+    </template>
+  </Dialog>
   <Dialog title="表单详情" v-model="formDetailVisible" width="800">
     <form-create :rule="formDetailPreview.rule" :option="formDetailPreview.option" />
   </Dialog>
@@ -318,8 +533,20 @@ import { CategoryApi, CategoryVO } from '@/api/bpm/category'
 import * as ModelApi from '@/api/bpm/model'
 import * as FormApi from '@/api/bpm/form'
 import * as RoleApi from '@/api/system/role'
-import CategoryForm from '../category/CategoryForm.vue'
+import * as UserApi from '@/api/system/user'
+import * as DeptApi from '@/api/system/dept'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import {
+  CandidateStrategy,
+  NodeType,
+  ApproveMethodType,
+  ApproveType,
+  RejectHandlerType,
+  AssignEmptyHandlerType,
+  AssignStartUserHandlerType,
+  DEFAULT_BUTTON_SETTING,
+  START_USER_BUTTON_SETTING
+} from '@/components/SimpleProcessDesignerV2/src/consts'
 import {
   useUserTableColumns,
   type UserTableColumnDefinition
@@ -330,15 +557,13 @@ import {
   type TableQuickFilterOption,
   type TableQuickFilterValue
 } from '@/hooks/web/useTableQuickFilter'
-import Sortable from 'sortablejs'
 import { formatDate } from '@/utils/formatTime'
 import { setConfAndFields2 } from '@/utils/formCreate'
-import { BpmModelFormType } from '@/utils/constants'
+import { BpmAutoApproveType, BpmModelFormType, BpmModelType } from '@/utils/constants'
 import { checkPermi } from '@/utils/permission'
 import { useUserStoreWithOut } from '@/store/modules/user'
-import { cloneDeep } from 'lodash-es'
-import { useDebounceFn } from '@vueuse/core'
 import { subString } from '@/utils/index'
+import { defaultProps, handleTree } from '@/utils/tree'
 
 defineOptions({ name: 'BpmModel' })
 
@@ -386,6 +611,17 @@ interface SimpleModelNode {
   showText?: string
   candidateStrategy?: number | string
   candidateParam?: string
+  approveType?: number
+  approveMethod?: number
+  approveRatio?: number
+  buttonsSetting?: any[]
+  fieldsPermission?: Array<Record<string, string>>
+  rejectHandler?: { type: number; returnNodeId?: string }
+  timeoutHandler?: { enable: boolean }
+  assignEmptyHandler?: { type: number; userIds?: number[] }
+  assignStartUserHandlerType?: number
+  signEnable?: boolean
+  reasonRequire?: boolean
   childNode?: SimpleModelNode
   conditionNodes?: SimpleModelNode[]
 }
@@ -393,6 +629,32 @@ interface SimpleModelNode {
 interface ParticipantGroups {
   reviewers: string[]
   approvers: string[]
+}
+
+type ParticipantSectionKey = 'reviewers' | 'approvers'
+type ParticipantRelation = 'or' | 'and'
+type ParticipantObjectType = 'user' | 'role' | 'dept' | 'startUserLeader'
+
+interface ApprovalParticipantObject {
+  id: string
+  objectType: ParticipantObjectType
+  objectIds: number[]
+}
+
+interface ApprovalParticipantSection {
+  relation: ParticipantRelation
+  objects: ApprovalParticipantObject[]
+}
+
+interface ApprovalParticipantForm {
+  name?: string
+  reviewers: ApprovalParticipantSection
+  approvers: ApprovalParticipantSection
+}
+
+interface CandidateEntry {
+  strategy: number
+  param: string
 }
 
 type ModelQuickFilterFieldKey = 'key' | 'categoryName' | 'type' | 'deploymentState'
@@ -427,16 +689,15 @@ const {
 const loading = ref(true)
 const modelList = ref<ModelInfo[]>([])
 const categoryList = ref<CategoryVO[]>([])
-const isModelSorting = ref(false)
-const originalModelList = ref<ModelInfo[]>([])
-const tableRef = ref()
-let sortInstance: Sortable | null = null
 
 const MODEL_DISPLAY_NAME_MAP: Record<string, string> = {
   'DCC Controlled File Approval': 'DCC 受控文件审批',
   'Expense Dept Leader Approval': '费用部门负责人审批',
   'eDHR Approval V1': 'eDHR 审批 V1'
 }
+
+const REGISTRATION_CERTIFICATE_APPROVAL_PROCESS_KEY = 'dcc-registration-certificate-access'
+const REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE = 'dcc_registration_certificate_approver'
 
 const resolveModelDisplayName = (row?: Pick<ModelInfo, 'name'> | null) => {
   const modelName = row?.name?.trim()
@@ -521,16 +782,9 @@ const matchesQuickFilter = (row: ModelInfo) => {
 const filteredModelList = computed(() => modelList.value.filter((row) => matchesQuickFilter(row)))
 
 const pagedModelList = computed(() => {
-  if (isModelSorting.value) {
-    return filteredModelList.value
-  }
   const start = (queryParams.pageNo - 1) * queryParams.pageSize
   return filteredModelList.value.slice(start, start + queryParams.pageSize)
 })
-
-const isQuickFilterActive = computed(
-  () => Boolean(queryParams.quickFilter) || Boolean(queryParams.name?.trim())
-)
 
 const hasPermiUpdate = computed(() => checkPermi(['bpm:model:update']))
 const hasPermiDelete = computed(() => checkPermi(['bpm:model:delete']))
@@ -546,78 +800,8 @@ const hasPermiMore = computed(() =>
 )
 const hasPermiPdQuery = computed(() => checkPermi(['bpm:process-definition:query']))
 
-const destroySortInstance = () => {
-  if (!sortInstance) return
-  sortInstance.destroy()
-  sortInstance = null
-}
-
-const initSort = useDebounceFn(() => {
-  destroySortInstance()
-  const tableBody = document.querySelector('.bpm-model-unified-table .el-table__body-wrapper tbody')
-  if (!tableBody) return
-  sortInstance = Sortable.create(tableBody as HTMLElement, {
-    animation: 150,
-    draggable: '.el-table__row',
-    handle: '.drag-icon',
-    onEnd: ({ newDraggableIndex, oldDraggableIndex }) => {
-      if (
-        oldDraggableIndex === undefined ||
-        newDraggableIndex === undefined ||
-        oldDraggableIndex === newDraggableIndex
-      ) {
-        return
-      }
-      modelList.value.splice(newDraggableIndex, 0, modelList.value.splice(oldDraggableIndex, 1)[0])
-    }
-  })
-}, 200)
-
-const stopModelSort = () => {
-  destroySortInstance()
-  isModelSorting.value = false
-}
-
-const handlePagination = async () => {
-  if (isModelSorting.value) {
-    await nextTick()
-    initSort()
-  }
-}
-
-const handleModelSort = async () => {
-  if (isQuickFilterActive.value) {
-    message.warning('请先清空快速过滤后再排序模型')
-    return
-  }
-  originalModelList.value = cloneDeep(modelList.value)
-  queryParams.pageNo = 1
-  isModelSorting.value = true
-  await nextTick()
-  initSort()
-}
-
-const handleModelSortCancel = () => {
-  modelList.value = cloneDeep(originalModelList.value)
-  stopModelSort()
-}
-
-const handleModelSortSubmit = async () => {
-  const ids = modelList.value.map((item) => item.id)
-  await ModelApi.updateModelSortBatch(ids)
-  message.success('排序模型成功')
-  stopModelSort()
-  await getList()
-}
-
 const handleQuery = async () => {
-  stopModelSort()
   await modelQuickFilter.applyQuickFilter()
-}
-
-const resetQuery = async () => {
-  stopModelSort()
-  await modelQuickFilter.resetQuickFilter()
 }
 
 const getList = async () => {
@@ -636,28 +820,587 @@ const getList = async () => {
   }
 }
 
-const handleCommand = (command: string) => {
-  switch (command) {
-    case 'handleCategoryAdd':
-      handleCategoryAdd()
-      break
-    case 'openCategoryManager':
-      push({ name: 'ApprovalCenterBpmCategory' })
-      break
-    default:
-      break
-  }
-}
-
-const categoryFormRef = ref()
-const handleCategoryAdd = () => {
-  categoryFormRef.value.open('create')
-}
-
 const viewDetailVisible = ref(false)
 const modelDetailLoading = ref(false)
 const selectedModel = ref<ModelInfo | null>(null)
 const approvalRoleList = ref<RoleApi.RoleVO[]>([])
+const participantConfigVisible = ref(false)
+const participantConfigLoading = ref(false)
+const participantConfigSaving = ref(false)
+const participantConfigFormRef = ref()
+const participantConfigModel = ref<ModelInfo | null>(null)
+const participantConfigMode = ref<'create' | 'update'>('update')
+const participantUserList = ref<UserApi.UserVO[]>([])
+const participantRoleList = ref<RoleApi.RoleVO[]>([])
+const participantDeptList = ref<DeptApi.DeptVO[]>([])
+const participantDeptTree = ref<DeptApi.DeptVO[]>([])
+
+const PARTICIPANT_OBJECT_TYPE_OPTIONS: Array<{ label: string; value: ParticipantObjectType }> = [
+  { label: '用户', value: 'user' },
+  { label: '权限角色', value: 'role' },
+  { label: '部门', value: 'dept' },
+  { label: '发起对象直属主管', value: 'startUserLeader' }
+]
+
+const PARTICIPANT_SECTION_LABELS: Record<ParticipantSectionKey, string> = {
+  reviewers: '审核人',
+  approvers: '批准人'
+}
+
+const createParticipantObject = (objectType: ParticipantObjectType = 'user'): ApprovalParticipantObject => ({
+  id: `participant_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+  objectType,
+  objectIds: []
+})
+
+const createEmptyParticipantSection = (): ApprovalParticipantSection => ({
+  relation: 'or',
+  objects: []
+})
+
+const createParticipantSection = (): ApprovalParticipantSection => ({
+  relation: 'or',
+  objects: [createParticipantObject()]
+})
+
+const createParticipantConfigForm = (): ApprovalParticipantForm => ({
+  name: '',
+  reviewers: createParticipantSection(),
+  approvers: createEmptyParticipantSection()
+})
+
+const participantConfigForm = reactive<ApprovalParticipantForm>(createParticipantConfigForm())
+
+const resetParticipantConfigForm = () => {
+  const initialValue = createParticipantConfigForm()
+  participantConfigForm.name = initialValue.name
+  participantConfigForm.reviewers = initialValue.reviewers
+  participantConfigForm.approvers = initialValue.approvers
+}
+
+const participantConfigRules = {
+  name: [
+    {
+      validator: (_rule: unknown, value: string | undefined, callback: (error?: Error) => void) => {
+        if (participantConfigMode.value === 'create' && !value?.trim()) {
+          callback(new Error('请输入流程名字'))
+          return
+        }
+        callback()
+      },
+      trigger: 'blur'
+    }
+  ],
+  reviewers: [
+    {
+      required: true,
+      validator: (_rule: unknown, value: ApprovalParticipantSection, callback: (error?: Error) => void) => {
+        if (flattenParticipantObjects(value).length === 0) {
+          callback(new Error('请至少配置一个审核人'))
+          return
+        }
+        callback()
+      },
+      trigger: 'change'
+    }
+  ]
+}
+
+const addParticipantObject = (sectionKey: ParticipantSectionKey) => {
+  participantConfigForm[sectionKey].objects.push(createParticipantObject())
+}
+
+const removeParticipantObject = (sectionKey: ParticipantSectionKey, index: number) => {
+  const objects = participantConfigForm[sectionKey].objects
+  if (sectionKey === 'reviewers' && objects.length <= 1) return
+  objects.splice(index, 1)
+}
+
+const resetParticipantObject = (item: ApprovalParticipantObject) => {
+  item.objectIds = []
+}
+
+const loadParticipantConfigOptions = async () => {
+  const [users, roles, depts] = await Promise.all([
+    UserApi.getSimpleUserList(),
+    RoleApi.getSimpleRoleList(),
+    DeptApi.getSimpleDeptList()
+  ])
+  participantUserList.value = users
+  participantRoleList.value = roles
+  participantDeptList.value = depts
+  participantDeptTree.value = handleTree(depts)
+  approvalRoleList.value = roles
+}
+
+const parseModelSimpleModel = (simpleModel: unknown): SimpleModelNode | undefined => {
+  if (!simpleModel) return undefined
+  if (typeof simpleModel === 'string') {
+    return simpleModel.trim() ? JSON.parse(simpleModel) : undefined
+  }
+  return simpleModel as SimpleModelNode
+}
+
+const getParticipantTargetIds = (item: ApprovalParticipantObject) => {
+  if (item.objectType === 'startUserLeader') return [1]
+  return item.objectIds.filter((id) => id !== undefined && id !== null)
+}
+
+const toCandidateEntries = (item: ApprovalParticipantObject): CandidateEntry[] => {
+  const targetIds = getParticipantTargetIds(item)
+  if (targetIds.length === 0) return []
+  if (item.objectType === 'user') {
+    return targetIds.map((id) => ({ strategy: CandidateStrategy.USER, param: String(id) }))
+  }
+  if (item.objectType === 'role') {
+    return targetIds.map((id) => ({ strategy: CandidateStrategy.ROLE, param: String(id) }))
+  }
+  if (item.objectType === 'dept') {
+    return targetIds.map((id) => ({ strategy: CandidateStrategy.DEPT_MEMBER, param: String(id) }))
+  }
+  return [{ strategy: CandidateStrategy.START_USER_DEPT_LEADER, param: '1' }]
+}
+
+const flattenParticipantObjects = (section: ApprovalParticipantSection | undefined): CandidateEntry[] => {
+  if (!section) return []
+  return section.objects.flatMap((item) => toCandidateEntries(item))
+}
+
+const hasIncompleteParticipantObject = (section: ApprovalParticipantSection, allowEmptySection: boolean) => {
+  const sectionIsEmpty = flattenParticipantObjects(section).length === 0
+  return section.objects.some((item) => {
+    const targetIds = getParticipantTargetIds(item)
+    if (allowEmptySection && sectionIsEmpty && item.objectType !== 'startUserLeader' && targetIds.length === 0) {
+      return false
+    }
+    return targetIds.length === 0
+  })
+}
+
+const validateParticipantConfig = () => {
+  if (flattenParticipantObjects(participantConfigForm.reviewers).length === 0) {
+    message.warning('请至少配置一个审核人')
+    return false
+  }
+  if (hasIncompleteParticipantObject(participantConfigForm.reviewers, false)) {
+    message.warning('请完善审核对象')
+    return false
+  }
+  if (hasIncompleteParticipantObject(participantConfigForm.approvers, true)) {
+    message.warning('请完善批准对象')
+    return false
+  }
+  return true
+}
+
+const resolveParticipantEntryName = (entry: CandidateEntry) => {
+  if (entry.strategy === CandidateStrategy.USER) {
+    const user = participantUserList.value.find((item) => String(item.id) === entry.param)
+    return `用户：${user?.nickname || user?.username || `ID ${entry.param}`}`
+  }
+  if (entry.strategy === CandidateStrategy.ROLE) {
+    const role = participantRoleList.value.find((item) => String(item.id) === entry.param)
+    return `审批角色：${role?.name || `ID ${entry.param}`}`
+  }
+  if (entry.strategy === CandidateStrategy.DEPT_MEMBER) {
+    const dept = participantDeptList.value.find((item) => String(item.id) === entry.param)
+    return `部门：${dept?.name || `ID ${entry.param}`}`
+  }
+  return '发起对象直属主管'
+}
+
+const formatParticipantEntryText = (entries: CandidateEntry[]) => {
+  return entries.map((entry) => resolveParticipantEntryName(entry)).join('；')
+}
+
+const createSimpleModelNodeId = (prefix: string) =>
+  `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+
+const buildApprovalTaskNode = (
+  sectionKey: ParticipantSectionKey,
+  entries: CandidateEntry[],
+  nodeName = PARTICIPANT_SECTION_LABELS[sectionKey]
+): SimpleModelNode => {
+  const candidateStrategy = entries.length === 1 ? entries[0].strategy : CandidateStrategy.MIXED
+  const candidateParam = entries.length === 1 ? entries[0].param : JSON.stringify(entries)
+  return {
+    id: createSimpleModelNodeId('Activity'),
+    type: NodeType.USER_TASK_NODE,
+    name: nodeName,
+    showText: formatParticipantEntryText(entries),
+    approveType: ApproveType.USER,
+    candidateStrategy,
+    candidateParam,
+    approveMethod: ApproveMethodType.ANY_APPROVE,
+    approveRatio: 100,
+    rejectHandler: {
+      type: RejectHandlerType.FINISH_PROCESS
+    },
+    timeoutHandler: {
+      enable: false
+    },
+    assignEmptyHandler: {
+      type: AssignEmptyHandlerType.REJECT
+    },
+    assignStartUserHandlerType: AssignStartUserHandlerType.START_USER_AUDIT,
+    fieldsPermission: [],
+    buttonsSetting: DEFAULT_BUTTON_SETTING,
+    signEnable: false,
+    reasonRequire: false
+  }
+}
+
+const buildParticipantSectionNode = (
+  sectionKey: ParticipantSectionKey,
+  section: ApprovalParticipantSection
+): SimpleModelNode | undefined => {
+  const entries = flattenParticipantObjects(section)
+  if (entries.length === 0) return undefined
+  if (section.relation === 'or' || entries.length === 1) {
+    return buildApprovalTaskNode(sectionKey, entries)
+  }
+  return {
+    id: createSimpleModelNodeId('GateWay'),
+    type: NodeType.PARALLEL_BRANCH_NODE,
+    name: `${PARTICIPANT_SECTION_LABELS[sectionKey]}和关系`,
+    showText: `${PARTICIPANT_SECTION_LABELS[sectionKey]}：全部对象通过`,
+    conditionNodes: entries.map((entry, index) => ({
+      id: createSimpleModelNodeId('Flow'),
+      type: NodeType.CONDITION_NODE,
+      name: `${PARTICIPANT_SECTION_LABELS[sectionKey]}对象${index + 1}`,
+      showText: '无需配置条件同时执行',
+      childNode: buildApprovalTaskNode(sectionKey, [entry], PARTICIPANT_SECTION_LABELS[sectionKey])
+    }))
+  }
+}
+
+const buildApprovalParticipantSimpleModel = (): SimpleModelNode => {
+  const reviewerNode = buildParticipantSectionNode('reviewers', participantConfigForm.reviewers)
+  if (!reviewerNode) {
+    throw new Error('请至少配置一个审核人')
+  }
+  const approverNode = buildParticipantSectionNode('approvers', participantConfigForm.approvers)
+  reviewerNode.childNode = approverNode
+  return {
+    id: 'StartUserNode',
+    type: NodeType.START_USER_NODE,
+    name: '发起人',
+    showText: '全部人员可发起',
+    fieldsPermission: [],
+    buttonsSetting: START_USER_BUTTON_SETTING,
+    childNode: reviewerNode
+  }
+}
+
+const resolveParticipantConfigName = () => participantConfigForm.name?.trim() || ''
+
+const buildApprovalModelKey = (name: string) => {
+  const nameSeed = name
+    .trim()
+    .replace(/[^A-Za-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 24)
+    .toLowerCase()
+  const suffix = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+  return `approval_model_${nameSeed ? `${nameSeed}_` : ''}${suffix}`
+}
+
+const resolveObjectTypeByCandidateStrategy = (strategy?: number | string): ParticipantObjectType => {
+  const strategyText = String(strategy)
+  if (strategyText === String(CandidateStrategy.ROLE)) return 'role'
+  if (strategyText === String(CandidateStrategy.DEPT_MEMBER)) return 'dept'
+  if (strategyText === String(CandidateStrategy.START_USER_DEPT_LEADER)) return 'startUserLeader'
+  return 'user'
+}
+
+const parseMixedCandidateEntries = (candidateParam?: string): CandidateEntry[] => {
+  if (!candidateParam?.trim()) return []
+  const entries = JSON.parse(candidateParam)
+  if (!Array.isArray(entries)) {
+    throw new Error('混合审批对象参数必须是数组')
+  }
+  return entries.map((entry) => {
+    if (!entry?.strategy || !entry?.param) {
+      throw new Error('混合审批对象参数缺少类型或目标')
+    }
+    return { strategy: Number(entry.strategy), param: String(entry.param) }
+  })
+}
+
+const parseCandidateEntriesFromNode = (node: SimpleModelNode): CandidateEntry[] => {
+  if (String(node.candidateStrategy) === String(CandidateStrategy.MIXED)) {
+    return parseMixedCandidateEntries(node.candidateParam)
+  }
+  if (!node.candidateStrategy || !node.candidateParam) return []
+  return String(node.candidateParam)
+    .split(',')
+    .map((param) => param.trim())
+    .filter(Boolean)
+    .map((param) => ({ strategy: Number(node.candidateStrategy), param }))
+}
+
+const toParticipantObjects = (entries: CandidateEntry[]): ApprovalParticipantObject[] => {
+  const objects = entries.map((entry) => ({
+    id: `participant_${entry.strategy}_${entry.param}_${Math.random().toString(36).slice(2, 8)}`,
+    objectType: resolveObjectTypeByCandidateStrategy(entry.strategy),
+    objectIds:
+      String(entry.strategy) === String(CandidateStrategy.START_USER_DEPT_LEADER)
+        ? []
+        : [Number(entry.param)]
+  }))
+  return objects
+}
+
+const parseParticipantSectionFromNode = (node: SimpleModelNode | undefined): ApprovalParticipantSection => {
+  if (!node) return createEmptyParticipantSection()
+  if (node.type === NodeType.PARALLEL_BRANCH_NODE) {
+    const entries = (node.conditionNodes || []).flatMap((conditionNode) =>
+      parseCandidateEntriesFromNode(conditionNode.childNode || {})
+    )
+    return {
+      relation: 'and',
+      objects: toParticipantObjects(entries)
+    }
+  }
+  return {
+    relation: 'or',
+    objects: toParticipantObjects(parseCandidateEntriesFromNode(node))
+  }
+}
+
+const normalizeParticipantSectionForEdit = (
+  sectionKey: ParticipantSectionKey,
+  section: ApprovalParticipantSection | undefined
+): ApprovalParticipantSection => {
+  if (!section || (sectionKey === 'reviewers' && section.objects.length === 0)) {
+    return createParticipantSection()
+  }
+  return section
+}
+
+const parseSimpleParticipantConfig = (simpleModel?: SimpleModelNode): ApprovalParticipantForm | undefined => {
+  const firstNode = simpleModel?.type === NodeType.START_USER_NODE ? simpleModel.childNode : simpleModel
+  if (!firstNode) return undefined
+  return {
+    reviewers: parseParticipantSectionFromNode(firstNode),
+    approvers: parseParticipantSectionFromNode(firstNode.childNode)
+  }
+}
+
+const getBpmnCandidateValue = (element: Element, localName: string) => {
+  return (
+    getBpmnElementText(element, localName) ||
+    element.getAttribute(localName) ||
+    element.getAttribute(`flowable:${localName}`) ||
+    element.getAttribute(`activiti:${localName}`) ||
+    undefined
+  )
+}
+
+const parseBpmnApprovalTaskNodes = (bpmnXml?: string): SimpleModelNode[] => {
+  if (!bpmnXml?.trim()) return []
+  const xmlDoc = new DOMParser().parseFromString(bpmnXml, 'application/xml')
+  return Array.from(xmlDoc.getElementsByTagName('*'))
+    .filter((item) => item.localName === 'userTask')
+    .map((task) => ({
+      id: task.getAttribute('id') || undefined,
+      type: NodeType.USER_TASK_NODE,
+      name: task.getAttribute('name') || task.getAttribute('id') || '',
+      candidateStrategy: getBpmnCandidateValue(task, 'candidateStrategy'),
+      candidateParam: getBpmnCandidateValue(task, 'candidateParam')
+    }))
+    .filter((node) => parseCandidateEntriesFromNode(node).length > 0)
+}
+
+const parseBpmnParticipantConfig = (bpmnXml?: string): ApprovalParticipantForm | undefined => {
+  const taskNodes = parseBpmnApprovalTaskNodes(bpmnXml)
+  if (taskNodes.length === 0) return undefined
+  return {
+    reviewers: parseParticipantSectionFromNode(taskNodes[0]),
+    approvers: parseParticipantSectionFromNode(taskNodes[1])
+  }
+}
+
+const participantConfigHasEntries = (config: ApprovalParticipantForm | undefined) => {
+  if (!config) return false
+  return (
+    flattenParticipantObjects(config.reviewers).length > 0 ||
+    flattenParticipantObjects(config.approvers).length > 0
+  )
+}
+
+const resolveBusinessParticipantConfig = (model?: ModelInfo | null): ApprovalParticipantForm | undefined => {
+  if (!isRegistrationCertificateApprovalModel(model)) return undefined
+  const role = participantRoleList.value.find(
+    (item) => item.code === REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE
+  )
+  if (!role?.id) {
+    throw new Error(`注册证审批角色未配置：${REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE}`)
+  }
+  return {
+    reviewers: {
+      relation: 'or',
+      objects: [
+        {
+          id: `participant_role_${role.id}`,
+          objectType: 'role',
+          objectIds: [Number(role.id)]
+        }
+      ]
+    },
+    approvers: createEmptyParticipantSection()
+  }
+}
+
+const resolveCurrentParticipantConfig = (model?: ModelInfo | null): ApprovalParticipantForm | undefined => {
+  if (!model) return undefined
+  const simpleConfig = parseSimpleParticipantConfig(parseModelSimpleModel(model.simpleModel))
+  if (participantConfigHasEntries(simpleConfig)) return simpleConfig
+  const businessConfig = resolveBusinessParticipantConfig(model)
+  if (businessConfig) return businessConfig
+  return parseBpmnParticipantConfig(model.bpmnXml)
+}
+
+const hydrateParticipantConfig = (config?: ApprovalParticipantForm) => {
+  resetParticipantConfigForm()
+  participantConfigForm.reviewers = normalizeParticipantSectionForEdit('reviewers', config?.reviewers)
+  participantConfigForm.approvers = normalizeParticipantSectionForEdit('approvers', config?.approvers)
+}
+
+const participantConfigDialogTitle = computed(() => {
+  if (participantConfigMode.value === 'create') {
+    return '新建审批模型'
+  }
+  const modelName = resolveModelDisplayName(participantConfigModel.value)
+  return modelName ? `修改审批模型：${modelName}` : '修改审批模型'
+})
+
+const openCreateApprovalParticipantConfig = async () => {
+  participantConfigMode.value = 'create'
+  participantConfigModel.value = null
+  resetParticipantConfigForm()
+  participantConfigLoading.value = true
+  try {
+    await loadParticipantConfigOptions()
+    participantConfigVisible.value = true
+    await nextTick()
+    participantConfigFormRef.value?.clearValidate()
+  } catch (error) {
+    message.error('审批对象配置加载失败，请查看接口响应')
+    throw error
+  } finally {
+    participantConfigLoading.value = false
+  }
+}
+
+const openApprovalParticipantConfig = async (row: ModelInfo) => {
+  participantConfigMode.value = 'update'
+  participantConfigLoading.value = true
+  try {
+    const [modelDetail] = await Promise.all([
+      ModelApi.getModel(String(row.id)),
+      loadParticipantConfigOptions()
+    ])
+    const simpleModel = parseModelSimpleModel(modelDetail?.simpleModel)
+    participantConfigModel.value = {
+      ...row,
+      ...modelDetail,
+      simpleModel
+    }
+    hydrateParticipantConfig(resolveCurrentParticipantConfig(participantConfigModel.value))
+    participantConfigVisible.value = true
+    await nextTick()
+    participantConfigFormRef.value?.clearValidate()
+  } catch (error) {
+    message.error('审批对象配置加载失败，请查看接口响应')
+    throw error
+  } finally {
+    participantConfigLoading.value = false
+  }
+}
+
+const handleSaveParticipantConfig = async () => {
+  let formValid = false
+  try {
+    formValid = await participantConfigFormRef.value?.validate()
+  } catch {
+    formValid = false
+  }
+  if (!formValid || !validateParticipantConfig()) return
+  if (participantConfigMode.value === 'create') {
+    if (!userStore.getUser.id) {
+      const errorMessage = '当前用户信息未加载，不能新建审批模型'
+      message.error(errorMessage)
+      throw new Error(errorMessage)
+    }
+    participantConfigSaving.value = true
+    try {
+      await ModelApi.createModel({
+        name: resolveParticipantConfigName(),
+        key: buildApprovalModelKey(resolveParticipantConfigName()),
+        type: BpmModelType.SIMPLE,
+        formType: BpmModelFormType.NORMAL,
+        visible: true,
+        startUserIds: [],
+        startDeptIds: [],
+        managerUserIds: [userStore.getUser.id],
+        allowCancelRunningProcess: true,
+        allowWithdrawTask: false,
+        processIdRule: {
+          enable: false,
+          prefix: '',
+          infix: '',
+          postfix: '',
+          length: 5
+        },
+        autoApprovalType: BpmAutoApproveType.NONE,
+        titleSetting: {
+          enable: false,
+          title: ''
+        },
+        summarySetting: {
+          enable: false,
+          summary: []
+        },
+        printTemplateSetting: {
+          enable: false
+        },
+        simpleModel: buildApprovalParticipantSimpleModel()
+      })
+      message.success('审批模型已新建')
+      participantConfigVisible.value = false
+      await getList()
+    } catch (error) {
+      message.error('审批模型新建失败，请查看接口响应')
+      throw error
+    } finally {
+      participantConfigSaving.value = false
+    }
+    return
+  }
+  if (!participantConfigModel.value) {
+    const errorMessage = '审批模型未加载，不能保存'
+    message.error(errorMessage)
+    throw new Error(errorMessage)
+  }
+  participantConfigSaving.value = true
+  try {
+    await ModelApi.updateModel({
+      ...participantConfigModel.value,
+      type: BpmModelType.SIMPLE,
+      bpmnXml: undefined,
+      simpleModel: buildApprovalParticipantSimpleModel()
+    })
+    message.success('审批模型已保存')
+    participantConfigVisible.value = false
+    await getList()
+  } catch (error) {
+    message.error('审批模型保存失败，请查看接口响应')
+    throw error
+  } finally {
+    participantConfigSaving.value = false
+  }
+}
 
 const SIMPLE_NODE_TYPE = {
   START_USER: 10,
@@ -681,7 +1424,8 @@ const CANDIDATE_STRATEGY_LABELS: Record<string, string> = {
   '40': '用户组',
   '50': '表单内用户字段',
   '51': '表单内部门负责人',
-  '60': '流程表达式'
+  '60': '流程表达式',
+  '70': '混合审批对象'
 }
 
 const APPROVAL_ROUTE_TEMPLATE_FIELD_LABELS: Record<string, string> = {
@@ -761,6 +1505,15 @@ const resolveApprovalRoleName = (
   return matchedRole?.name || `未识别角色（ID：${roleIdText}）`
 }
 
+const resolveApprovalRoleNameByCode = (
+  roleCode: string,
+  roles: ReadonlyArray<RoleApi.RoleVO>
+) => {
+  const roleCodeText = roleCode.trim()
+  const matchedRole = roles.find((item) => item.code === roleCodeText)
+  return matchedRole?.name || `未识别角色（编码：${roleCodeText}）`
+}
+
 const formatApprovalRoleCandidateParam = (
   candidateParam: string | undefined,
   roles: ReadonlyArray<RoleApi.RoleVO>
@@ -780,6 +1533,13 @@ const formatCandidateRule = (
   roles: ReadonlyArray<RoleApi.RoleVO> = approvalRoleList.value
 ) => {
   const strategyKey = strategy === undefined || strategy === null ? '' : String(strategy)
+  if (strategyKey === String(CandidateStrategy.MIXED)) {
+    const mixedText = parseMixedCandidateEntries(candidateParam)
+      .map((entry) => formatCandidateRule(entry.strategy, entry.param, roles))
+      .filter(Boolean)
+      .join('；')
+    return mixedText || '混合审批对象：未配置'
+  }
   const strategyLabel = CANDIDATE_STRATEGY_LABELS[strategyKey]
   const paramText =
     strategyKey === '10'
@@ -793,15 +1553,58 @@ const formatCandidateRule = (
   return `${strategyLabel}：${paramText}`
 }
 
+const isApprovalRoleRuleText = (text: string) => text.startsWith('审批角色：')
+
 const formatParticipantNode = (nodeName?: string, ruleText?: string) => {
   const name = formatApprovalRouteTemplateText(nodeName) || '未命名节点'
   const text = formatApprovalRouteTemplateText(ruleText)
   if (!text || text === name) return `节点：${name}`
+  if (isApprovalRoleRuleText(text)) return `节点：${name}\n${text}`
   return `节点：${name}\n审批对象：${text}`
+}
+
+const formatApprovalRouteParticipant = (participantText: string, routeName?: string) => {
+  const approvalRouteName = routeName?.trim() || '未配置审批路线名称'
+  const approvalParticipantLine = participantText
+    .split('\n')
+    .map((item) => item.trim())
+    .find((item) => item.startsWith('审批角色：') || item.startsWith('审批对象：'))
+  return approvalParticipantLine
+    ? `审批路线：${approvalRouteName}\n${approvalParticipantLine}`
+    : `审批路线：${approvalRouteName}`
+}
+
+const formatBusinessApprovalRouteParticipant = (routeName: string, roleNames: string) => {
+  const approvalRouteName = routeName.trim() || '未配置审批路线名称'
+  return `审批路线：${approvalRouteName}\n审批角色：${roleNames}`
 }
 
 const selectParticipantSource = (primaryItems: string[], fallbackItems: string[]) => {
   return primaryItems.length > 0 ? primaryItems : fallbackItems
+}
+
+const selectBusinessParticipantSource = (
+  businessItems: string[] | undefined,
+  primaryItems: string[],
+  fallbackItems: string[]
+) => {
+  return businessItems !== undefined ? businessItems : selectParticipantSource(primaryItems, fallbackItems)
+}
+
+const isRegistrationCertificateApprovalModel = (model?: Pick<ModelInfo, 'key'> | null) => {
+  return model?.key === REGISTRATION_CERTIFICATE_APPROVAL_PROCESS_KEY
+}
+
+const resolveBusinessApprovalRouteParticipants = (model?: ModelInfo | null) => {
+  if (!isRegistrationCertificateApprovalModel(model)) return {}
+  const roleNames = resolveApprovalRoleNameByCode(
+    REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE,
+    approvalRoleList.value
+  )
+  return {
+    reviewers: [formatBusinessApprovalRouteParticipant(resolveModelDisplayName(model), roleNames)],
+    approvers: []
+  }
 }
 
 const classifyParticipantRole = (nodeName?: string, nodeType?: number) => {
@@ -877,59 +1680,59 @@ const modelViewParticipants = computed(() => {
   const model = selectedModel.value
   const simpleParticipants = collectSimpleModelParticipants(model?.simpleModel)
   const bpmnParticipants = parseBpmnUserTaskParticipants(model?.bpmnXml)
+  const approvalRouteName = resolveModelDisplayName(model)
+  const businessParticipants = resolveBusinessApprovalRouteParticipants(model)
   return {
     starter: formatStartParticipants(model),
     reviewer: formatParticipantList(
-      selectParticipantSource(simpleParticipants.reviewers, bpmnParticipants.reviewers),
+      selectBusinessParticipantSource(
+        businessParticipants.reviewers,
+        simpleParticipants.reviewers,
+        bpmnParticipants.reviewers
+      ),
       '未配置审核环节'
     ),
     approver: formatParticipantList(
-      selectParticipantSource(simpleParticipants.approvers, bpmnParticipants.approvers),
+      selectBusinessParticipantSource(
+        businessParticipants.approvers,
+        simpleParticipants.approvers,
+        bpmnParticipants.approvers
+      ).map((item) => formatApprovalRouteParticipant(item, approvalRouteName)),
       '未配置批准环节'
     )
   }
 })
 
-const modelApprovalRouteSteps = computed(() => [
-  {
-    key: 'starter',
-    label: '发起权限',
-    value: modelViewParticipants.value.starter
-  },
-  {
-    key: 'reviewer',
-    label: '审核环节',
-    value: modelViewParticipants.value.reviewer
-  },
-  {
-    key: 'approver',
-    label: '批准环节',
-    value: modelViewParticipants.value.approver
+const isUnconfiguredApprovalRouteStep = (step: { value: string }) => /^未配置.+环节$/.test(step.value)
+
+const modelApprovalRouteSteps = computed(() => {
+  const steps = [
+    {
+      key: 'starter',
+      label: '发起权限',
+      value: modelViewParticipants.value.starter
+    },
+    {
+      key: 'reviewer',
+      label: '审核环节',
+      value: modelViewParticipants.value.reviewer
+    },
+    {
+      key: 'approver',
+      label: '批准环节',
+      value: modelViewParticipants.value.approver
+    }
+  ]
+  if (isRegistrationCertificateApprovalModel(selectedModel.value)) {
+    return steps.filter((step) => step.key === 'starter' || !isUnconfiguredApprovalRouteStep(step))
   }
-])
+  return steps
+})
 
-const formatVisibleRange = (row?: ModelInfo | null) => {
-  const startUsers = row?.startUsers || []
-  const startDepts = row?.startDepts || []
-  if (startUsers.length === 0 && startDepts.length === 0) return '全部可见'
-  if (startUsers.length === 1) return startUsers[0].nickname
-  if (startDepts.length === 1) return startDepts[0].name
-  if (startDepts.length > 1) return `${startDepts[0].name}等 ${startDepts.length} 个部门可见`
-  return `${startUsers[0].nickname}等 ${startUsers.length} 人可见`
-}
-
-const formatModelFormInfo = (row?: ModelInfo | null) => {
-  if (!row) return '-'
-  if (row.formType === BpmModelFormType.NORMAL) return row.formName || '未命名表单'
-  if (row.formType === BpmModelFormType.CUSTOM)
-    return row.formCustomCreatePath || '未配置自定义表单'
-  return '暂无表单'
-}
-
-const formatModelDeployment = (row?: ModelInfo | null) => {
-  if (!row?.processDefinition) return '未部署'
-  return formatDate(new Date(row.processDefinition.deploymentTime))
-}
+const modelApprovalRouteDialogTitle = computed(() => {
+  const approvalRouteName = resolveModelDisplayName(selectedModel.value)
+  return approvalRouteName ? `审批路线：${approvalRouteName}` : '流程审批路线'
+})
 
 const openModelView = async (row: ModelInfo) => {
   modelDetailLoading.value = true
@@ -1116,9 +1919,6 @@ onMounted(() => {
   getList()
 })
 
-onBeforeUnmount(() => {
-  destroySortInstance()
-})
 </script>
 
 <style lang="scss" scoped>
@@ -1248,6 +2048,61 @@ onBeforeUnmount(() => {
   line-height: 20px;
   overflow-wrap: anywhere;
   white-space: pre-line;
+}
+
+.bpm-participant-config {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bpm-participant-config__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bpm-participant-config__row {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) 40px;
+  gap: 10px;
+  align-items: center;
+}
+
+.bpm-participant-config__type,
+.bpm-participant-config__target {
+  width: 100%;
+  min-width: 0;
+}
+
+.bpm-participant-config__target.el-tag {
+  min-height: 32px;
+  justify-content: flex-start;
+}
+
+.bpm-participant-config__empty {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .bpm-participant-config__toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .bpm-participant-config__row {
+    grid-template-columns: minmax(0, 1fr) 40px;
+  }
+
+  .bpm-participant-config__type {
+    grid-column: 1 / -1;
+  }
 }
 
 .bpm-model-name-cell {

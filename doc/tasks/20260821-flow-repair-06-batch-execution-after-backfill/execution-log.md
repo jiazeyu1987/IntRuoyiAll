@@ -1,0 +1,116 @@
+# Execution Log
+
+## User Intent
+
+本轮目标为完成流程6 task-owned 建批状态/任务门禁修复并进行主线定向验证；不修改流程4/7/9/10生产实现、数据库或服务，未运行写入型 E2E。
+
+## Evidence Reviewed
+
+- `AGENTS.md`、任务收尾/经验/生产角色/后端正式来源、前端和 E2E 规则。
+- 流程修复1、4、5、7、8、9、10、11 当前任务目录及其职责口径。
+- `MesPqcProductionReleaseServiceImpl#approve`、`MesProductionReleaseBatchExecutionPortImpl#openOrCreate`、`MesProEdhrBatchExecutionServiceImpl`。
+- 报告阶段初始化、管理者代表最终审批及四节点逻辑。
+
+## Audit Findings (not TDD evidence)
+
+BDD: M1 代码事实审计 -> Given 指定仓库和规则可读，When 检索建批、回填、材料和放行入口，Then 记录 PQC approve 先建批、入口前置不统一、旧批次迁移 blocker 和四节点实现。
+
+AUDIT: 观察到 PQC approve 顺序为 `openOrCreate -> dossier.write -> reportStage.initialize`；这是代码事实，不是 RED 测试结果。
+
+AUDIT: 手工、排产和申请入口各自建批，当前没有统一 completion/backfill receipt；旧批次缺有效关联时抛出 `LEGACY_BATCH_EXECUTION_MIGRATION_REQUIRED`。
+
+AUDIT: 当前 dossier 校验无条件要求损耗 evidence；与流程5的 `NO_LOSS` 语义不一致，列为实现 blocker。
+
+## M1 - Contract Repair
+
+BDD: M1 合同修订 -> Given 用户列出流程1/4/5/7/8/9/10/11职责和失败语义，When 修订五份文档，Then 字段、owner、幂等键、状态、错误码和依赖矩阵一致。
+
+DOC-STRUCTURE: `task.md`、`development-plan.md`、`test-plan.md`、`execution-log.md`、`verification-report.md` -> PASS（文档已写入任务目录）。
+
+## M2 - Transaction and Entry Design
+
+BDD: M2 两阶段一致性 -> Given Tx-A 回填原子提交，When Tx-B 建批失败，Then immutable receipt payload 保持不变，独立 BatchProvisioningRecord 进入 retryable/blocked 并可用同 receipt 重试，不标记 `BATCH_READY`。
+
+BDD: M2 Tx-A 成功建 receipt -> Given Tx-A 校验和三类回填均成功，When 本地事务提交，Then 流程4创建唯一不可变 `BACKFILL_SUCCEEDED` receipt，之后才允许流程6推进 `BATCH_*`。
+
+BDD: M2 payload/provisioning 分离 -> Given Tx-A 已提交 immutable receipt，When 流程6 Tx-B 建批或流程7 Tx-C 映射，Then 仅流程6的 `BatchProvisioningRecord` 写入 `batchExecutionId`/`BATCH_*`，流程7只写 Origin/TraceLink/Manifest，receipt payload 不变。
+
+BDD: M2 映射失败稳定码 -> Given Tx-B 已创建 batchExecutionId，When 流程7 Tx-C 映射失败或来源缺失，Then 对外统一返回 `TRACE_MAPPING_BLOCKED`，流程6不推进 `BATCH_READY`；这是后续实现测试计划，不是本次测试证据。
+
+BDD: M2 材料错误码稳定性 -> Given 流程8材料门禁或入口绕过校验失败，When 门禁返回错误，Then 只使用冻结的 `RELEASE_MATERIAL_GATE_REQUIRED`、`MATERIAL_NODE_MISSING`、`MATERIAL_UPLOAD_INCOMPLETE`、`MATERIAL_FILE_NOT_VERIFIED`、`MATERIAL_VERSION_STALE`、`MATERIAL_HASH_MISMATCH`、`MATERIAL_VERSION_CONFLICT`、`MATERIAL_MANIFEST_CHANGED`、`MATERIAL_SOURCE_SNAPSHOT_CHANGED`、`RELEASE_ENTRY_GATE_BYPASS`、`IDEMPOTENCY_CONFLICT`，不输出 `MATERIAL_GATE_NOT_HARD`；这是后续实现测试计划，不是本次测试证据。
+
+BDD: M2 Tx-A 失败不落 receipt -> Given Tx-A 任一校验或本地写入失败，When 完成命令执行，Then 所有回填回滚、无 `completionBackfillReceipt`/`BACKFILL_FAILED`，仅在回滚后追加失败尝试并返回 `BACKFILL_ATOMIC_ROLLBACK`；页面保持未完成且可重新发起。该行为是后续实现测试计划，不是本次测试证据。
+
+DOC-STRUCTURE: Tx-A/Tx-B、活跃订单/独立入口、四材料门禁、零损耗和历史迁移边界 -> PASS（设计已记录）。
+
+## M3 - Strict TDD Planning
+
+RED: 后续实现阶段的 `CompletionBackfillReceiptTest` 等命令 -> NOT RUN（本次禁止实现和测试；代码审计不能冒充 RED）。
+
+GREEN: 后续实现阶段的最小实现测试 -> NOT RUN（设计审阅不是生产 GREEN 证据）。
+
+REGRESSION: 后续实现阶段全链回归 -> NOT RUN（无服务、无写入型 E2E）。
+
+## M4 - Documentation Verification
+
+DOC-STRUCTURE: 五份文件存在、包含目标态/事实/根因/边界/接口/数据/状态/BDD/RED/GREEN/REGRESSION/blocker/迁移回滚/跨线程合同 -> PASS。
+
+## Change Boundary
+
+- 已选择性提交流程6自有 Java/测试及五份任务文档；未修改流程4/7/9/10生产实现、未改数据库、未启动服务、未运行写入型 E2E。
+
+## Remaining Blockers
+
+- 流程4/5/7需冻结并实现 receipt、零损耗事实和完整映射。
+- 流程8需确保四材料门禁不可被旧配置绕过。
+- 流程9需为各独立入口落地正式等价凭证。
+- 流程10/11需提供最终放行与总门禁实现证据；旧批次需先迁移或阻断。
+
+## Current Status
+
+in_progress（流程6局部实现、主线选择性融合和定向验证已完成；跨流程真实闭环、迁移和运行验证仍待完成）。
+
+## Coding Verification Update (2026-08-24)
+
+BDD: task-gate compatibility -> Given a task and route task list, When the two-argument resolver is invoked, Then it delegates to canonical gate evaluation without default success.
+
+RED: legacy Flow 6 suite -> FAIL, obsolete strict Mockito stub raised `UnnecessaryStubbingException`.
+
+GREEN: targeted Flow 6 suite -> PASS, 37 tests, 0 failures, 0 errors.
+
+GREEN: 24-module MES reactor compile -> PASS, exit code 0.
+
+GREEN: `git diff --check` and v6 branch-runtime guard -> PASS.
+
+Commit: `e539e8a2c`; verification evidence `fa2593258`; mainline integration `ecf8053f4`.
+
+GREEN: main `int_main` targeted Maven suite -> PASS, 37 tests, 0 failures, 0 errors, exit code 0.
+GREEN: main `int_main` 24-module MES reactor compile -> PASS, exit code 0.
+GREEN: main `git diff --check` and protected fast-forward containment -> PASS; `int_main` contains `ecf8053f4`.
+
+## 主流程合同同步记录（2026-08-22）
+
+DOC-STRUCTURE: 已将 Tx-A immutable receipt 与流程6 `BatchProvisioningRecord` 分离、Tx-C 流程7映射顺序及稳定错误码 `TRACE_MAPPING_BLOCKED`、流程8冻结材料错误码集合、Tx-A 失败不落 receipt、`MATERIALS_PENDING/MATERIALS_READY/MATERIALS_RECHECK_REQUIRED` 门禁、完整领料/损耗字段、活跃完成链幂等键、独立凭证字段与服务端有效期、建批重试白名单、历史 dry-run 分类和独立追溯 `NOT_APPLICABLE` 写回五份流程6文档 -> PASS（结构核验，不是代码 GREEN）。
+
+RED: 流程4/7/9正式接口、迁移和真实运行闭环 -> NOT RUN，依赖/环境前置未形成可执行证据。
+GREEN: 流程4/7/9跨流程生产闭环、材料/放行运行验证 -> NOT RUN。
+
+## Independent Receipt Verification Fix (2026-08-24)
+
+BDD: 独立入口正式验真 -> Given MANUAL、SCHEDULED 或 PQC_INDEPENDENT 请求携带 receiptId 和可能伪造的完整凭证对象，When Flow 6 `openOrCreate` 执行，Then 先以安全租户调用 Flow 9 `verify(receiptId, entryType, sourceSnapshotHash)`，再将 Flow 9 返回的已验真对象交给本地合同和 Tx-B；拒绝时不建批。
+
+RED: `mvn.cmd -Dflatten.skip=true -pl yudao-module-mes -am -Dtest=MesProductionReleaseBatchExecutionPortTest -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL；回归测试先因生产端没有四参构造器/Flow 9 验真接线而无法编译。
+
+GREEN: 隔离 worktree `D:\IntRuoyiWorktree\flow6-independent-receipt-15ea` 定向 suite -> PASS，39 tests, 0 failures, 0 errors；`MesProductionReleaseBatchExecutionPortTest` 新增正式返回对象 identity 断言。
+
+GREEN: 隔离 worktree 24-module MES reactor compile -> PASS，exit code 0。
+
+GREEN: `int_main` 定向 suite -> PASS，39 tests, 0 failures, 0 errors；`int_main` 24-module MES reactor compile -> PASS，exit code 0。
+
+GREEN: `git diff --check`、隔离 worktree branch-runtime-port-guard、提交 hook -> PASS。
+
+COMMIT: `90455bdba` (`fix(mes): verify independent batch receipt by id`)，仅包含 Flow 6 生产端口和对应测试；已推送 `origin/codex/flow6-independent-receipt-15ea`。
+
+MERGE: `int_main` 从 `15ea4349e` 以 `git merge --ff-only 90455bdba` 快进到 `90455bdba`；保留主线既有 5 个无关 dirty 文件，未清理、未覆盖。
+
+BLOCKER: 数据库 migration dry-run/apply/rollback、服务运行态、写入型 Playwright E2E，以及流程4 Tx-A、流程7 Tx-C、流程8材料和流程10放行的跨线程运行闭环仍未运行；不得以本次 39 个单元/契约测试替代。

@@ -13,6 +13,7 @@ public enum DccFileCategoryPermissionActionEnum implements ArrayValuable<String>
     VIEW("VIEW", "View"),
     UPLOAD("UPLOAD", "Upload"),
     DOWNLOAD("DOWNLOAD", "Download"),
+    PRINT("PRINT", "Print"),
     OBSOLETE("OBSOLETE", "Obsolete"),
     REVIEW("REVIEW", "Review"),
     APPROVE("APPROVE", "Approve"),

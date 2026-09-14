@@ -143,6 +143,50 @@ class DccControlledPreviewAccessServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void prepareAccess_allowsMissingFileNumberForPreviewMetadata() {
+        DccPreviewAccessResult result = previewAccessService.prepareAccess(new DccPreviewAccessRequest(
+                31L,
+                2001L,
+                1002L,
+                "V1.0",
+                null,
+                "PREVIEW",
+                "CONTROLLED_PREVIEW",
+                900L,
+                "U2001",
+                "Alice",
+                3001L,
+                "Quality",
+                "Test Tenant",
+                "TRACE_CODE_ONLY",
+                "10.0.0.8",
+                "JUnit",
+                "req-t04-blank-file-number"));
+
+        DccControlledFileWatermarkTraceDO trace = watermarkTraceMapper.selectById(result.watermarkTraceId());
+        assertNotNull(trace);
+        assertEquals(1002L, trace.getControlledFileId());
+        assertEquals("", trace.getFileNumber());
+        Map<String, Object> watermarkPayload = JsonUtils.parseObject(trace.getWatermarkPayloadJson(),
+                new TypeReference<>() {
+                });
+        assertEquals("", watermarkPayload.get("fileNumber"));
+
+        DccControlledFileAccessLogDO accessLog = accessLogMapper.selectOne(
+                new LambdaQueryWrapper<DccControlledFileAccessLogDO>()
+                        .eq(DccControlledFileAccessLogDO::getRequestId, "req-t04-blank-file-number"));
+        assertNotNull(accessLog);
+        assertEquals(result.accessEventId(), accessLog.getAccessEventId());
+        assertEquals(result.watermarkTraceCode(), accessLog.getWatermarkTraceCode());
+
+        DccViewerTokenPayload tokenPayload = viewerTokenService.verify(result.viewerToken(),
+                new DccViewerTokenExpectedContext(31L, 2001L, 1002L, "V1.0",
+                        result.accessEventId(), "CONTROLLED_PREVIEW", 900L,
+                        result.viewerTokenNonce(), result.viewerTokenId()));
+        assertEquals(1002L, tokenPayload.getFileId());
+    }
+
+    @Test
     void verifyViewerToken_rejectsCrossContextExpiredNonceAndSignature() {
         DccIssuedViewerToken issued = viewerTokenService.issue(new DccViewerTokenIssueCommand(
                 31L, 2001L, 1001L, "V1.0", 333L, "CONTROLLED_PREVIEW", 300L));

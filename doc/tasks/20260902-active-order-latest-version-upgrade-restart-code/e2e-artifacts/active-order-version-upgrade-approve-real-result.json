@@ -1,0 +1,49 @@
+{
+  "taskId": "20260902-active-order-latest-version-upgrade-restart-code",
+  "frontendUrl": "http://127.0.0.1:8093",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "sourceActiveOrderId": 45,
+  "processInstanceId": "7f9ca694-a6da-11f1-a6b9-00155d07b6dd",
+  "workOrderCode": "CODX-PQC-20260807-SP-WO-05",
+  "expectedTargetRouteVersionId": 742,
+  "expectedTargetRouteVersionNo": "V12",
+  "expectedTargetQaVersionId": 65,
+  "requests": [
+    {
+      "url": "http://127.0.0.1:8093/admin-api/approval-center/tasks/review",
+      "method": "POST",
+      "status": 200,
+      "businessCode": 0
+    },
+    {
+      "url": "http://127.0.0.1:8093/admin-api/mes/pro/process-pool/team-leader/active-order/list",
+      "method": "GET",
+      "status": 200,
+      "businessCode": 0
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "login": "PASS",
+  "approvalTodo": {
+    "sourceTaskId": "7fa50b21-a6da-11f1-a6b9-00155d07b6dd",
+    "processInstanceId": "7f9ca694-a6da-11f1-a6b9-00155d07b6dd",
+    "businessTitle": "活跃订单升级重启审核",
+    "currentNodeName": "活跃订单升级重启审核"
+  },
+  "review": {
+    "businessCode": 0,
+    "result": true
+  },
+  "replacementActiveOrder": {
+    "id": 1009200001,
+    "workOrderCode": "CODX-PQC-20260807-SP-WO-05",
+    "routeVersionId": 742,
+    "routeVersionNo": "V12",
+    "activeStatus": "ACTIVE",
+    "businessStatus": "ACTIVE"
+  },
+  "screenshot": "D:\\IntRuoyiWorktree\\20260902-active-order-latest-version-upgrade-restart-docs\\doc\\tasks\\20260902-active-order-latest-version-upgrade-restart-code\\e2e-artifacts\\active-order-version-upgrade-approve-real.png",
+  "status": "PASS"
+}

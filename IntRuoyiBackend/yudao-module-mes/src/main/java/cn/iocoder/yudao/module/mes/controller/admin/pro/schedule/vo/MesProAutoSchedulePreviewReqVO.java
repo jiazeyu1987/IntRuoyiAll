@@ -33,4 +33,7 @@ public class MesProAutoSchedulePreviewReqVO {
     @Schema(description = "发布/重排业务原因")
     private String reason;
 
+    @Schema(description = "已确认缺失 ERP 正式同步记录或正式 ID 的来源风险，仅 apply 生效")
+    private Boolean erpSourceRiskConfirmed;
+
 }

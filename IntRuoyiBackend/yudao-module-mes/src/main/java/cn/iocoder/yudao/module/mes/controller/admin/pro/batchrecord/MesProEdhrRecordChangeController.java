@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeApproveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchVoidApprovalResolutionReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchVoidApprovalResolutionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRequestReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRespVO;
@@ -46,6 +48,14 @@ public class MesProEdhrRecordChangeController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-change:void')")
     public CommonResult<EdhrRecordChangeRespVO> requestVoidBatchExecution(@Valid @RequestBody EdhrRecordChangeRequestReqVO reqVO) {
         return success(edhrRecordChangeService.requestVoidBatchExecution(reqVO));
+    }
+
+    @PostMapping("/void-batch-execution/approval-resolution")
+    @Operation(summary = "解析eDHR批次执行作废业务审批策略")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-change:void')")
+    public CommonResult<EdhrBatchVoidApprovalResolutionRespVO> resolveVoidBatchExecutionApproval(
+            @Valid @RequestBody EdhrBatchVoidApprovalResolutionReqVO reqVO) {
+        return success(edhrRecordChangeService.resolveVoidBatchExecutionApproval(reqVO));
     }
 
     @PostMapping("/void-batch-execution/withdraw")

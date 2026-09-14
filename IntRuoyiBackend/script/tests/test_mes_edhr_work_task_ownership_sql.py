@@ -3,6 +3,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SQL_PATH = REPO_ROOT / "sql/mysql/20260718_mes_edhr_work_task_ownership.sql"
+CANDIDATE_NULLABLE_SQL_PATH = (
+    REPO_ROOT / "sql/mysql/20260723_mes_edhr_assignment_rule_candidate_nullable.sql"
+)
 
 
 def test_work_task_ownership_migration_is_additive_and_idempotent() -> None:
@@ -52,3 +55,28 @@ def test_work_task_ownership_migration_does_not_grant_static_permissions() -> No
     }
     for fragment in forbidden_fragments:
         assert fragment not in sql
+
+
+def test_assignment_rule_candidate_nullable_migration_is_idempotent_and_scoped() -> None:
+    assert CANDIDATE_NULLABLE_SQL_PATH.exists(), "missing eDHR assignment rule candidate nullable migration"
+    sql = CANDIDATE_NULLABLE_SQL_PATH.read_text(encoding="utf-8")
+    upper_sql = sql.upper()
+
+    assert sql.startswith(
+        "-- release-migration: allowedEnvironments=test,backup,prod; "
+        "dependsOn=20260614_mes_edhr_work_task_candidate_pool.sql; type=schema; riskLevel=medium"
+    )
+    assert "ensure_mes_edhr_assignment_rule_candidate_nullable" in sql
+    assert "information_schema.COLUMNS" in sql
+    assert "TABLE_NAME = 'mes_pro_edhr_work_task_assignment_rule'" in sql
+    assert "COLUMN_NAME = 'assignee_user_id'" in sql
+    assert "IS_NULLABLE = 'NO'" in sql
+    assert (
+        "MODIFY COLUMN `assignee_user_id` bigint DEFAULT NULL COMMENT "
+        "'任务责任人用户ID；候选池规则可为空'"
+    ) in sql
+
+    assert "DROP TABLE" not in upper_sql
+    assert "TRUNCATE" not in upper_sql
+    assert "DELETE FROM" not in upper_sql
+    assert "INSERT INTO `SYSTEM_ROLE_MENU`" not in upper_sql

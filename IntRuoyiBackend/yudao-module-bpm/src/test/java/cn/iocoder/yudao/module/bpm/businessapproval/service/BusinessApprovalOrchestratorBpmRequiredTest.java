@@ -44,7 +44,7 @@ class BusinessApprovalOrchestratorBpmRequiredTest {
     }
 
     @Test
-    void submitBpmRequiredPolicyMergesDomainVariablesWithoutOverwritingPlatformVariables() {
+    void submitBpmRequiredPolicyAllowsBusinessTypeOverrideButKeepsTenantIdPlatformOwned() {
         RecordingExecutor executor = new RecordingExecutor("MES_ROUTE_VERSION_PUBLISH");
         RecordingBpmStarter bpmStarter = new RecordingBpmStarter("bpm-domain-variables");
         BusinessApprovalOrchestrator orchestrator = new BusinessApprovalOrchestrator(
@@ -68,7 +68,7 @@ class BusinessApprovalOrchestratorBpmRequiredTest {
 
         assertEquals(BusinessApprovalRequestStatus.PENDING_BPM, request.getStatus());
         assertEquals("122", String.valueOf(bpmStarter.getLastVariables().get("tenantId")));
-        assertEquals("MES_ROUTE_VERSION_PUBLISH", bpmStarter.getLastVariables().get("businessType"));
+        assertEquals("legacy-domain-business-type", bpmStarter.getLastVariables().get("businessType"));
         assertEquals(9001L, bpmStarter.getLastVariables().get("edhrExecutionId"));
         assertEquals("snapshot-hash-9001", bpmStarter.getLastVariables().get("approvalSnapshotHash"));
     }

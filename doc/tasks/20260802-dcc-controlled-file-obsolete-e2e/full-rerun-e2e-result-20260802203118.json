@@ -1,0 +1,19 @@
+{
+  "runId": "20260802203118",
+  "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802203118",
+  "fileName": "Codex DCC 升版发布全链路 20260802203118",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "browserUser": "wangsiyu",
+  "taskDir": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-revision-publish-real-e2e",
+  "chainScript": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-upload-revision-e2e\\dcc-upload-revision-e2e.cjs",
+  "chainResultPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-revision-publish-real-e2e\\chain-result.json",
+  "startedAt": "2026-08-02T12:31:18.770Z",
+  "phases": [],
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "finishedAt": "2026-08-02T12:32:47.268Z",
+  "status": "BLOCKED",
+  "blocker": "Command failed: D:\\Programs\\node.exe E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-upload-revision-e2e\\dcc-upload-revision-e2e.cjs"
+}

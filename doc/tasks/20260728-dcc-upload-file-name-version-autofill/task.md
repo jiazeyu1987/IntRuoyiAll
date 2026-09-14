@@ -1,0 +1,66 @@
+# DCC 上传文件名称下拉与版本自动生成
+
+## Task Goal
+
+在 DCC 上传/提交链路中，选择 DCC 项目与文件分类后，文件名称支持下拉选择当前系统内同项目、同分类的既有文件，也支持手动输入；手动输入时版本号默认 `V1.0`，下拉选择既有文件时版本号默认按主版本递增，例如 `V1.0 -> V2.0`；生效日期默认当天。
+
+## Scope
+
+- DCC 上传表单的文件名称输入体验、版本号默认值、生效日期默认值。
+- 必要的前端 API 调用与后端查询接口/服务能力。
+- 只围绕 DCC 项目代码与文件分类过滤既有文件，不引入产品主数据匹配或 fallback。
+
+## Non-Goals
+
+- 不改 MDM 产品主数据模块。
+- 不改展厅链路。
+- 不做临时编号、默认文件、模糊匹配或静默降级。
+
+## BDD Scenarios
+
+- BDD: 手动输入新文件名称 -> Given 用户已选择 DCC 项目和文件分类 / When 用户手动输入不存在于下拉列表的文件名称 / Then 版本号默认 `V1.0` 且生效日期默认当天。
+- BDD: 下拉选择既有文件名称 -> Given 用户已选择 DCC 项目和文件分类且系统存在该组合下的文件 / When 用户从文件名称下拉中选择既有文件 / Then 版本号默认当前版本主版本 +1，例如 `V1.0` 生成 `V2.0`，生效日期默认当天。
+- BDD: 查询范围隔离 -> Given 系统存在不同 DCC 项目或不同文件分类的同名文件 / When 用户打开文件名称下拉 / Then 只展示当前所选 DCC 项目和文件分类对应的文件。
+
+## Milestones
+
+- [x] 定位现有 DCC 上传表单、API、后端受控文件查询与测试结构。
+- [x] 补 RED 静态/单元测试，覆盖文件名称下拉、手输 `V1.0`、选择历史文件主版本 +1。
+- [x] 实现前端交互与必要后端查询能力。
+- [x] 运行 GREEN 与回归验证，记录 E2E 或阻塞原因。
+- [ ] 完成任务记录、经验沉淀、提交并推送。
+
+## Expected Verification
+
+- 前端目标静态/单元测试。
+- 后端目标 JUnit 或服务测试。
+- `pnpm ts:check`。
+- `mvn -pl yudao-module-dcc -am -DskipTests compile`。
+- 可行时用 Playwright 走真实 DCC 上传路径验证。
+
+## Current Status
+
+ready_for_closeout
+
+## Verification Summary
+
+- `pnpm e2e:dcc:upload-name-version-autofill:static`：PASS。
+- `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileUploadNameOptionQueryServiceTest,DccControlledFileUploadNameOptionApiTest" test`：PASS，5 tests。
+- `pnpm ts:check`：PASS。
+- `mvn -pl yudao-module-dcc -am "-DskipTests" compile`：PASS。
+- 真实页面只读 E2E：BLOCKED，当前默认管理员可登录并进入 DCC 上传页，但管理员只读样本无法提供一个后端 `upload-name-options` 可成功返回的 DCC 项目 + 文件分类组合；未使用 API-only 或假数据冒充通过。
+
+## Closeout Blockers
+
+- 当前 `int_main` 存在并行未推送基线提交与新的非本任务脏改动，不能安全提交/推送本任务收尾记录。
+- 本任务代码变更已被本地基线提交 `29fde23f` 收入；后续收尾需要在并行任务工作区边界稳定后再按项目规则提交任务文档并推送。
+
+## 设计约束检查
+
+- `是否引入 fallback/降级/吞异常`：否。
+- `是否从根因和长期维护角度解决`：是，直接按 DCC 项目 + 文件分类查询正式受控文件数据并驱动 UI 默认值。
+- `是否存在临时补丁或绕过`：否。
+
+## Workspace Notes
+
+- 开始时存在无关未跟踪目录 `doc/tasks/20260728-batch-exec-product-info-form-missing/`，本任务不触碰。

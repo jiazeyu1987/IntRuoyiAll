@@ -1,0 +1,319 @@
+{
+    "version":  1,
+    "contractVersion":  "2026-08-24-branch-runtime-v7",
+    "updatedAt":  "2026-08-24T18:48:36.0383409+08:00",
+    "worktrees":  [
+                      {
+                          "name":  "occupied-1",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-1",
+                          "branch":  "codex/occupied-1",
+                          "profile":  "int_main",
+                          "slot":  1,
+                          "frontendPort":  8082,
+                          "backendPort":  48082,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-2",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-2",
+                          "branch":  "codex/occupied-2",
+                          "profile":  "int_main",
+                          "slot":  2,
+                          "frontendPort":  8083,
+                          "backendPort":  48083,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-3",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-3",
+                          "branch":  "codex/occupied-3",
+                          "profile":  "int_main",
+                          "slot":  3,
+                          "frontendPort":  8084,
+                          "backendPort":  48084,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-4",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-4",
+                          "branch":  "codex/occupied-4",
+                          "profile":  "int_main",
+                          "slot":  4,
+                          "frontendPort":  8085,
+                          "backendPort":  48085,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-5",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-5",
+                          "branch":  "codex/occupied-5",
+                          "profile":  "int_main",
+                          "slot":  5,
+                          "frontendPort":  8086,
+                          "backendPort":  48086,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-6",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-6",
+                          "branch":  "codex/occupied-6",
+                          "profile":  "int_main",
+                          "slot":  6,
+                          "frontendPort":  8087,
+                          "backendPort":  48087,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-7",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-7",
+                          "branch":  "codex/occupied-7",
+                          "profile":  "int_main",
+                          "slot":  7,
+                          "frontendPort":  8088,
+                          "backendPort":  48088,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-8",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-8",
+                          "branch":  "codex/occupied-8",
+                          "profile":  "int_main",
+                          "slot":  8,
+                          "frontendPort":  8089,
+                          "backendPort":  48089,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-9",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-9",
+                          "branch":  "codex/occupied-9",
+                          "profile":  "int_main",
+                          "slot":  9,
+                          "frontendPort":  8090,
+                          "backendPort":  48090,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-10",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-10",
+                          "branch":  "codex/occupied-10",
+                          "profile":  "int_main",
+                          "slot":  10,
+                          "frontendPort":  8091,
+                          "backendPort":  48091,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-11",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-11",
+                          "branch":  "codex/occupied-11",
+                          "profile":  "int_main",
+                          "slot":  11,
+                          "frontendPort":  8092,
+                          "backendPort":  48092,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-12",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-12",
+                          "branch":  "codex/occupied-12",
+                          "profile":  "int_main",
+                          "slot":  12,
+                          "frontendPort":  8093,
+                          "backendPort":  48093,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-13",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-13",
+                          "branch":  "codex/occupied-13",
+                          "profile":  "int_main",
+                          "slot":  13,
+                          "frontendPort":  8094,
+                          "backendPort":  48094,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-14",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-14",
+                          "branch":  "codex/occupied-14",
+                          "profile":  "int_main",
+                          "slot":  14,
+                          "frontendPort":  8095,
+                          "backendPort":  48095,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-15",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-15",
+                          "branch":  "codex/occupied-15",
+                          "profile":  "int_main",
+                          "slot":  15,
+                          "frontendPort":  8096,
+                          "backendPort":  48096,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-16",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-16",
+                          "branch":  "codex/occupied-16",
+                          "profile":  "int_main",
+                          "slot":  16,
+                          "frontendPort":  8097,
+                          "backendPort":  48097,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-17",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-17",
+                          "branch":  "codex/occupied-17",
+                          "profile":  "int_main",
+                          "slot":  17,
+                          "frontendPort":  8098,
+                          "backendPort":  48098,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-18",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-18",
+                          "branch":  "codex/occupied-18",
+                          "profile":  "int_main",
+                          "slot":  18,
+                          "frontendPort":  8099,
+                          "backendPort":  48099,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-19",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-19",
+                          "branch":  "codex/occupied-19",
+                          "profile":  "int_main",
+                          "slot":  19,
+                          "frontendPort":  8100,
+                          "backendPort":  48100,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-20",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-20",
+                          "branch":  "codex/occupied-20",
+                          "profile":  "int_main",
+                          "slot":  20,
+                          "frontendPort":  8154,
+                          "backendPort":  48154,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-21",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-21",
+                          "branch":  "codex/occupied-21",
+                          "profile":  "int_main",
+                          "slot":  21,
+                          "frontendPort":  8155,
+                          "backendPort":  48155,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-22",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-22",
+                          "branch":  "codex/occupied-22",
+                          "profile":  "int_main",
+                          "slot":  22,
+                          "frontendPort":  8156,
+                          "backendPort":  48156,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-23",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-23",
+                          "branch":  "codex/occupied-23",
+                          "profile":  "int_main",
+                          "slot":  23,
+                          "frontendPort":  8157,
+                          "backendPort":  48157,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-24",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-24",
+                          "branch":  "codex/occupied-24",
+                          "profile":  "int_main",
+                          "slot":  24,
+                          "frontendPort":  8158,
+                          "backendPort":  48158,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-25",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-25",
+                          "branch":  "codex/occupied-25",
+                          "profile":  "int_main",
+                          "slot":  25,
+                          "frontendPort":  8159,
+                          "backendPort":  48159,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-26",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-26",
+                          "branch":  "codex/occupied-26",
+                          "profile":  "int_main",
+                          "slot":  26,
+                          "frontendPort":  8160,
+                          "backendPort":  48160,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-27",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-27",
+                          "branch":  "codex/occupied-27",
+                          "profile":  "int_main",
+                          "slot":  27,
+                          "frontendPort":  8161,
+                          "backendPort":  48161,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-28",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-28",
+                          "branch":  "codex/occupied-28",
+                          "profile":  "int_main",
+                          "slot":  28,
+                          "frontendPort":  8162,
+                          "backendPort":  48162,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-29",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-29",
+                          "branch":  "codex/occupied-29",
+                          "profile":  "int_main",
+                          "slot":  29,
+                          "frontendPort":  8163,
+                          "backendPort":  48163,
+                          "active":  true
+                      },
+                      {
+                          "name":  "occupied-30",
+                          "path":  "D:\\IntRuoyiWorktree\\occupied-30",
+                          "branch":  "codex/occupied-30",
+                          "profile":  "int_main",
+                          "slot":  30,
+                          "frontendPort":  8164,
+                          "backendPort":  48164,
+                          "active":  true
+                      },
+                      {
+                          "name":  "second-extension",
+                          "path":  "D:\\IntRuoyiWorktree\\second-extension",
+                          "branch":  "codex/second-extension",
+                          "profile":  "int_main",
+                          "slot":  31,
+                          "frontendPort":  8206,
+                          "backendPort":  48206,
+                          "active":  true,
+                          "createdAt":  "2026-08-24T18:48:36.0383409+08:00",
+                          "updatedAt":  "2026-08-24T18:48:36.0383409+08:00"
+                      }
+                  ]
+}

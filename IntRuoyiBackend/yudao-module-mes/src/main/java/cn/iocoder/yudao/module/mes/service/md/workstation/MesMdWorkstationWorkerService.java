@@ -53,6 +53,14 @@ public interface MesMdWorkstationWorkerService {
     List<MesMdWorkstationWorkerDO> getWorkstationWorkerListByWorkstationIds(Collection<Long> workstationIds);
 
     /**
+     * 按岗位编号获得人力资源列表
+     *
+     * @param postIds 岗位编号集合
+     * @return 人力资源列表
+     */
+    List<MesMdWorkstationWorkerDO> getWorkstationWorkerListByPostIds(Collection<Long> postIds);
+
+    /**
      * 按工作站编号删除人力资源（级联删除）
      *
      * @param workstationId 工作站编号

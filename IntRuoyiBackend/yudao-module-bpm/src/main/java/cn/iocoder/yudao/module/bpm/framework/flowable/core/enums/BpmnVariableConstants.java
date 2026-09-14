@@ -49,6 +49,12 @@ public class BpmnVariableConstants {
      * @see ProcessInstance#getProcessVariables()
      */
     public static final String PROCESS_INSTANCE_VARIABLE_LAST_APPROVER_USER_ID = "PROCESS_LAST_APPROVER_USER_ID";
+    /**
+     * 流程实例的变量 - 调用方已显式指定流程实例名称
+     *
+     * @see ProcessInstance#getProcessVariables()
+     */
+    public static final String PROCESS_INSTANCE_VARIABLE_EXPLICIT_NAME = "PROCESS_EXPLICIT_NAME";
 
     /**
      * 流程实例的变量 - 用于判断流程实例变量节点是否驳回：格式 RETURN_FLAG_{节点 id}

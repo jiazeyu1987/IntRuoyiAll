@@ -63,6 +63,7 @@ class MesProEdhrProcessFormPermissionRuleControllerContractTest {
         assertNotNull(MesProEdhrProcessFormPermissionRuleSaveReqVO.class.getDeclaredMethod("getSignatureRules"));
         assertNotNull(MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.class.getDeclaredMethod("getBatchRecordReportId"));
         assertNotNull(MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.class.getDeclaredMethod("getFillRule"));
+        assertNotNull(MesProEdhrBatchRecordFormPermissionRuleSaveReqVO.class.getDeclaredMethod("getFillAssignments"));
 
         assertNotNull(MesProEdhrProcessFormPermissionRuleSaveReqVO.CandidateRule.class.getDeclaredMethod("getCandidateSourceType"));
         assertNotNull(MesProEdhrProcessFormPermissionRuleSaveReqVO.CandidateRule.class.getDeclaredMethod("getCandidateSourceIds"));
@@ -87,6 +88,9 @@ class MesProEdhrProcessFormPermissionRuleControllerContractTest {
                 () -> MesProEdhrProcessFormPermissionRuleRespVO.class.getDeclaredMethod("getEquipmentFillRule"));
         assertThrows(NoSuchMethodException.class,
                 () -> MesProEdhrProcessFormPermissionRuleRespVO.class.getDeclaredMethod("getQualityFillRule"));
+        assertNotNull(MesProEdhrProcessFormPermissionRuleRespVO.class.getDeclaredMethod("getFillAssignments"));
+        assertNotNull(MesProEdhrProcessFormPermissionRuleRespVO.FillAssignment.class.getDeclaredMethod("getScopeKey"));
+        assertNotNull(MesProEdhrProcessFormPermissionRuleRespVO.FillAssignment.class.getDeclaredMethod("getCandidateUsers"));
         assertNotNull(MesProEdhrProcessFormPermissionRuleRespVO.CandidateRule.class.getDeclaredMethod("getCandidateUsers"));
         assertNotNull(MesProEdhrProcessFormPermissionRuleRespVO.class.getDeclaredMethod("getAffectedRouteBindingCount"));
     }

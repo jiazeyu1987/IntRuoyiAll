@@ -4,17 +4,40 @@ export interface DccProductCatalogPageReqVO extends PageParam {
   keyword?: string
   categoryLevel1?: string
   categoryLevel2?: string
+  productSequence?: string
+  product?: string
   productStatus?: string
   dataSource?: string
+  productCode?: string
+  projectName?: string
+  projectCode?: string
+  registrationCertificateName?: string
+  registrationCertificateNumber?: string
+  certificateHolder?: string
+  registrationPlace?: string
+  effectiveDate?: string
+  expiryDate?: string
+  classification?: string
+  registrationInfoLink?: string
+  remark?: string
+  projectCodeNotBlank?: boolean
+  sortField?: string
+  sortOrder?: 'asc' | 'desc'
 }
 
 export interface DccProductCatalogRespVO {
+  id: number
   dataSource: string
   categoryLevel1?: string | null
   categoryLevel2?: string | null
   productSequence?: string | null
   product?: string | null
   productCode?: string | null
+  projectName?: string | null
+  projectCode?: string | null
+  projectCodeId?: number | string | null
+  registrationCertificateId?: number | string | null
+  batchRecordTotalRecognitionJson?: string | null
   registrationCertificateName?: string | null
   registrationCertificateNumber?: string | null
   certificateHolder?: string | null
@@ -28,6 +51,14 @@ export interface DccProductCatalogRespVO {
   originalRowNo: number
 }
 
+export interface DccProductCatalogTreeNode extends DccProductCatalogRespVO {
+  treeNodeId: string
+  nodeType: 'categoryLevel1' | 'categoryLevel2' | 'product' | 'detail'
+  treeLevel: number
+  treeLabel: string
+  children?: DccProductCatalogTreeNode[]
+}
+
 export interface DccProductCatalogSaveReqVO {
   dataSource: string
   categoryLevel1?: string | null
@@ -35,6 +66,8 @@ export interface DccProductCatalogSaveReqVO {
   productSequence?: string | null
   product: string
   productCode?: string | null
+  projectName?: string | null
+  projectCode?: string | null
   registrationCertificateName?: string | null
   registrationCertificateNumber?: string | null
   certificateHolder?: string | null
@@ -49,22 +82,6 @@ export interface DccProductCatalogSaveReqVO {
 
 export interface DccProductCatalogUpdateReqVO extends DccProductCatalogSaveReqVO {
   originalRowNo: number
-}
-
-export interface DccProductCatalogRegistrationExpiryCompareReqVO {
-  rows: Array<{
-    dataSource: string
-    originalRowNo: number
-  }>
-}
-
-export interface DccProductCatalogRegistrationExpiryCompareRespVO {
-  dataSource: string
-  originalRowNo: number
-  status: 'MATCH' | 'MISMATCH' | 'FETCH_FAILED' | 'NO_LINK' | 'UNSUPPORTED'
-  localExpiryDate?: string | null
-  remoteExpiryDate?: string | null
-  message?: string | null
 }
 
 export const getProductCatalogPage = async (
@@ -93,10 +110,4 @@ export const deleteProductCatalog = async (
     url: '/dcc/product-catalog/delete',
     params: { dataSource, originalRowNo }
   })
-}
-
-export const compareRegistrationExpiry = async (
-  data: DccProductCatalogRegistrationExpiryCompareReqVO
-): Promise<DccProductCatalogRegistrationExpiryCompareRespVO[]> => {
-  return await request.post({ url: '/dcc/product-catalog/registration-expiry/compare', data })
 }

@@ -380,7 +380,7 @@ const handleDelete = async (ids: number[]) => {
 const handleSyncKingdeePurchaseOrders = async () => {
   kingdeeSyncLoading.value = true
   try {
-    await ErpKingdeeSyncApi.runIncrementalSyncJob('kingdeePurchaseOrderSyncJob')
+    await ErpKingdeeSyncApi.runIncrementalSync('PURCHASE_ORDER')
     message.success('采购订单增量同步任务已提交')
     await getList()
   } finally {

@@ -90,15 +90,15 @@
                     <strong>{{ row.processInstanceId || '--' }}</strong>
                   </div>
                   <div class="edhr-signature-evidence__item">
-                    <span>系统签名时间</span>
+                    <span>正式签名时间</span>
                     <strong>{{ formatSignatureSignedAt(row.signedAt) || '--' }}</strong>
                   </div>
                   <div class="edhr-signature-evidence__item">
-                    <span>选择签名时间</span>
+                    <span>业务发生时间</span>
                     <strong>{{ formatSignatureSignedAt(row.selectedSignedAt) || '--' }}</strong>
                   </div>
                   <div class="edhr-signature-evidence__item">
-                    <span>显示签名时间</span>
+                    <span>历史显示时间证据</span>
                     <strong>{{ formatSignatureSignedAt(row.signatureDisplayAt) || '--' }}</strong>
                   </div>
                   <div class="edhr-signature-evidence__item">
@@ -206,15 +206,9 @@
               <div>
                 {{
                   formatSignatureSignedAt(
-                    row.signatureDisplayAt || row.selectedSignedAt || row.signedAt
+                    row.signedAt
                   ) || '--'
                 }}
-              </div>
-              <div
-                v-if="row.signedAt && row.signatureDisplayAt && row.signedAt !== row.signatureDisplayAt"
-                class="edhr-signature-muted"
-              >
-                系统：{{ formatSignatureSignedAt(row.signedAt) }}
               </div>
             </template>
           </el-table-column>
@@ -242,8 +236,8 @@ import {
   type EdhrSignatureActionType,
   type EdhrSignatureSummaryVO
 } from '@/api/mes/pro/edhr/signatures'
-import { formatDate } from '@/utils/formatTime'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProFeedbackEdhrSignatures' })
 
@@ -283,7 +277,7 @@ const SIGNATURE_TIME_MODE_LABELS: Record<
   string
 > = {
   SERVER_TIME: '服务端时间',
-  USER_SELECTED: '手动选择时间'
+  USER_SELECTED: '历史手动时间（已停用）'
 }
 const signatureDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'evidenceExpand', label: '审计证据', width: 40, hideable: false, business: false },
@@ -380,17 +374,7 @@ const formatSnapshotValue = (value?: string | number | null) => {
   return text || '旧版证据未记录'
 }
 
-const formatSignatureSignedAt = (signedAt?: string | number | Date) => {
-  if (!signedAt) return ''
-  const parsedDate =
-    typeof signedAt === 'number' || /^\d+$/.test(String(signedAt))
-      ? new Date(Number(signedAt))
-      : new Date(signedAt)
-  if (Number.isNaN(parsedDate.getTime())) {
-    throw new Error(`签名时间不可解析：${String(signedAt)}`)
-  }
-  return formatDate(parsedDate, 'YYYY年M月D日 HH:mm:ss')
-}
+const formatSignatureSignedAt = (signedAt?: string | number | Date) => formatEdhrDateTime(signedAt, '')
 
 const getList = async () => {
   loading.value = true

@@ -29,7 +29,17 @@
       />
     </el-select>
     <el-date-picker
-      v-if="selectedDefinition?.type === 'dateRange'"
+      v-if="selectedDefinition?.type === 'date'"
+      :model-value="state.value"
+      class="table-quick-filter__value table-quick-filter__value--single-date"
+      type="date"
+      value-format="YYYY-MM-DD"
+      :placeholder="selectedDefinition.placeholder || '请选择日期'"
+      @update:model-value="updateValue"
+      @keyup.enter="onQuery"
+    />
+    <el-date-picker
+      v-else-if="selectedDefinition?.type === 'dateRange'"
       :model-value="state.value"
       class="table-quick-filter__value table-quick-filter__value--date"
       type="daterange"
@@ -63,8 +73,10 @@
       class="table-quick-filter__value"
       clearable
       :fetch-suggestions="selectedDefinition.fetchSuggestions"
-      :trigger-on-focus="false"
+      :trigger-on-focus="selectedDefinition.triggerOnFocus === true"
+      :popper-class="selectedDefinition.popperClass || 'table-quick-filter-autocomplete-popper'"
       :placeholder="selectedDefinition.placeholder || '请输入关键字'"
+      :title="getValueTitle(state.value)"
       @update:model-value="updateValue"
       @keyup.enter="onQuery"
       @select="handleAutocompleteSelect"
@@ -75,6 +87,7 @@
       class="table-quick-filter__value"
       clearable
       :placeholder="selectedDefinition?.placeholder || '请输入过滤值'"
+      :title="getValueTitle(state.value)"
       @update:model-value="updateValue"
       @keyup.enter="onQuery"
     />
@@ -130,6 +143,15 @@ const OPERATOR_LABELS: Record<TableQuickFilterOperator, string> = {
 
 const getOperatorLabel = (operator: TableQuickFilterOperator) => OPERATOR_LABELS[operator] || operator
 
+const getValueTitle = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean).join(' - ')
+  }
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+    ? String(value)
+    : undefined
+}
+
 const emitState = (patch: Partial<typeof props.state>) => {
   emit('update:state', {
     ...props.state,
@@ -178,18 +200,52 @@ const onQuery = () => {
 }
 
 .table-quick-filter__field {
-  width: 150px;
+  flex: 0 0 120px;
+  min-width: 120px;
+  width: 120px;
 }
 
 .table-quick-filter__operator {
-  width: 96px;
+  flex: 0 0 92px;
+  min-width: 92px;
+  width: 92px;
 }
 
 .table-quick-filter__value {
-  width: 220px;
+  flex: 0 0 clamp(280px, 32vw, 420px);
+  min-width: 280px;
+  width: clamp(280px, 32vw, 420px);
 }
 
 .table-quick-filter__value--date {
+  flex-basis: 260px;
+  min-width: 260px;
   width: 260px;
+}
+
+.table-quick-filter__value--single-date {
+  flex-basis: 180px;
+  min-width: 180px;
+  width: 180px;
+}
+</style>
+
+<style>
+.table-quick-filter-autocomplete-popper {
+  min-width: 320px;
+  max-width: min(560px, calc(100vw - 32px));
+}
+
+.table-quick-filter-autocomplete-popper .el-autocomplete-suggestion__wrap {
+  max-height: 320px;
+}
+
+.table-quick-filter-autocomplete-popper .el-autocomplete-suggestion__list li {
+  height: auto;
+  min-height: 34px;
+  line-height: 20px;
+  padding: 7px 12px;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 </style>

@@ -18,8 +18,18 @@ assertIncludes(
 )
 assertIncludes(
   dialog,
+  'height: calc(100vh - 84px);',
+  '填写配置编辑器必须占满全屏弹窗正文高度，不再留下底部空白区域。'
+)
+assertIncludes(
+  dialog,
+  'flex: 1;',
+  '规则编辑工作区必须用 flex 填充剩余高度，让三栏主区域延伸到底部。'
+)
+assertNotIncludes(
+  dialog,
   'height: clamp(520px, calc(100vh - 220px), 880px);',
-  '规则编辑工作区高度必须跟随视口，避免仍停留在旧黄框高度。'
+  '保存区已移入顶部后，工作区不得继续按旧页脚预留底部空白。'
 )
 assertIncludes(
   dialog,
@@ -40,6 +50,16 @@ assertIncludes(
   dialog,
   'batch-record-cell-rules-editor__side-panel',
   '扩大弹框后仍必须保留右侧规则编辑面板。'
+)
+assertIncludes(
+  dialog,
+  'data-fill-config-actions="primary"',
+  '截图蓝框位置必须承载关闭、重新读取和保存填写配置操作。'
+)
+assertNotIncludes(
+  dialog,
+  '<template #footer>',
+  '关闭、重新读取和保存按钮不得继续停留在弹窗底部红框。'
 )
 assertNotIncludes(
   dialog,

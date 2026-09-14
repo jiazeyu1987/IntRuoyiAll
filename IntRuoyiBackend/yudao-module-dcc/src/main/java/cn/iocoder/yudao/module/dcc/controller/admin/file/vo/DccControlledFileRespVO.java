@@ -12,11 +12,19 @@ public class DccControlledFileRespVO {
     private Long id;
     private Long masterId;
     private Long categoryId;
+    private String businessSourceType;
+    private Long registrationCertificateId;
+    private Long registrationCertificateVersionId;
+    private Long registrationCertificateBusinessFileId;
     private Long directoryId;
+    private String directoryPath;
     private String title;
     private String fileName;
     private String contentType;
     private String previewKind;
+    private String previewUnavailableReason;
+    private Boolean publishedArtifactAvailable;
+    private Boolean stampedArtifactAvailable;
     private String fileNumber;
     private Long productMasterId;
     private String productCode;
@@ -35,6 +43,13 @@ public class DccControlledFileRespVO {
     private Boolean needTraining;
     private String processType;
     private String versionNo;
+    private String revisionCode;
+    private Integer iterationNo;
+    private Long predecessorControlledFileId;
+    private Long revisionBaseActiveControlledFileId;
+    private String sourceSha256;
+    private String previousSourceSha256;
+    private String changeDescription;
     private String currentActiveVersionNo;
     private LocalDate effectiveDate;
     private String remark;
@@ -53,8 +68,14 @@ public class DccControlledFileRespVO {
     private Long supersededByFileId;
     private String rejectReason;
     private String finalizationError;
+    private Boolean checkedOut;
+    private Long checkedOutBy;
+    private String checkedOutByName;
+    private LocalDateTime checkedOutTime;
+    private String checkedOutReason;
     private Boolean canPreview;
     private Boolean canDownload;
+    private Boolean canPrint;
     private DccControlledFileAccessExplanationRespVO accessExplanation;
     private Boolean systemRecordDownloadOpen;
     private Boolean modifying;
@@ -69,4 +90,5 @@ public class DccControlledFileRespVO {
     private List<DccControlledFileDistributionStatusRespVO> distributionStatuses;
     private List<DccControlledFileTrainingStatusRespVO> trainingStatuses;
     private List<DccControlledFileSignatureSummaryRespVO> signatureSummaries;
+    private List<DccControlledFileRelatedFileRespVO> relatedFiles;
 }

@@ -1,0 +1,25 @@
+package cn.iocoder.yudao.module.mes.service.pro.frontline;
+
+import java.util.List;
+
+public interface MesFrontlineDeviceAccountContextService {
+
+    Long resolveResponsibleLeaderUserId(Long loginUserId);
+
+    List<MesFrontlineRouteProcessCandidate> listSwitchableProcesses(Long loginUserId);
+
+    default List<MesFrontlineEmployeeCandidate> listEmployeeCandidates(Long loginUserId, Long routeId,
+                                                                       Long routeProcessId, Long processId) {
+        return listEmployeeCandidates(loginUserId, null, routeId, routeProcessId, processId);
+    }
+
+    List<MesFrontlineEmployeeCandidate> listEmployeeCandidates(Long loginUserId, Long activeOrderId, Long routeId,
+                                                               Long routeProcessId, Long processId);
+
+    MesFrontlineRouteProcessCandidate requireAuthorizedProcess(Long loginUserId, Long routeId,
+                                                               Long routeProcessId, Long processId);
+
+    MesFrontlineEmployeeCandidate requireTeamEmployee(Long loginUserId, Long routeId, Long routeProcessId,
+                                                      Long processId, Long actualEmployeeId);
+
+}

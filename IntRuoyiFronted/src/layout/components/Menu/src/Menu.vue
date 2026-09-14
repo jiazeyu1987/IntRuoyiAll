@@ -203,7 +203,16 @@ $prefix-cls: #{$namespace}-menu;
       }
     }
 
-    // 设置子菜单悬停的高亮和背景色
+    // 统一菜单字体
+    .#{$elNamespace}-sub-menu__title,
+    .#{$elNamespace}-menu-item,
+    .#{$prefix-cls}__title {
+      font-family: var(--app-fixed-tab-font-family);
+      font-synthesis-weight: none;
+      font-weight: var(--app-fixed-tab-font-weight);
+    }
+
+    // hover 背景只作用于完整菜单行，避免标题子元素覆盖选中背景
     .#{$elNamespace}-sub-menu__title,
     .#{$elNamespace}-menu-item {
       &:hover {
@@ -347,7 +356,16 @@ $prefix-cls: #{$namespace}-menu-popper;
     }
   }
 
-  // 设置子菜单悬停的高亮和背景色
+  // 统一菜单字体
+  .el-sub-menu__title,
+  .el-menu-item,
+  .v-menu__title {
+    font-family: var(--app-fixed-tab-font-family);
+    font-synthesis-weight: none;
+    font-weight: var(--app-fixed-tab-font-weight);
+  }
+
+  // hover 背景只作用于完整菜单行，避免标题子元素覆盖选中背景
   .el-sub-menu__title,
   .el-menu-item {
     &:hover {

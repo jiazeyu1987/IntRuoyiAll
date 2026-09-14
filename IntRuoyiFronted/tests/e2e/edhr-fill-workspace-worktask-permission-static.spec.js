@@ -16,7 +16,7 @@ const executionPage = fs.readFileSync(executionPagePath, 'utf8')
 const cellLinkApi = fs.readFileSync(cellLinkApiPath, 'utf8')
 
 assert(
-  /getPrefill:\s*async\s*\(\s*targetExecutionId:\s*number,\s*workTaskId\?:\s*number\s*\)/.test(cellLinkApi),
+  /getPrefill:\s*async\s*\(\s*targetExecutionId:\s*(?:number|EdhrRouteId),\s*workTaskId\?:\s*(?:number|EdhrRouteId)\s*\)/.test(cellLinkApi),
   'BatchRecordCellLinkApi.getPrefill 必须接收可选 workTaskId，避免填写任务打开时误走配置查询权限。'
 )
 
@@ -26,8 +26,8 @@ assert(
 )
 
 assert(
-  /BatchRecordCellLinkApi\.getPrefill\(currentExecutionId,\s*workTaskId\.value\)/.test(executionPage),
-  'eDHR 填写页加载跨表单带入时必须携带当前 workTaskId。'
+  !/BatchRecordCellLinkApi\.getPrefill\(/.test(executionPage),
+  'eDHR 填写页不应再调用跨表单预填接口；单元格链接值必须由后端自动落库后随执行详情返回。'
 )
 
 assert(

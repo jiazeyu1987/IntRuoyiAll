@@ -1,0 +1,36 @@
+# Execution Log
+
+- USER: 用户截图反馈“减小每个单元格的字体大小，减小为当前的1/2”。
+- RULES: 已读取 `frontend-feature-delivery` 技能、`references/frontend-contract.md`、`docs/task-closeout-rules.md`、`docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`、`task-closeout-cleanup` 与 `project-experience-consolidation` 技能。
+- PREFLIGHT: `git status --short --branch --untracked-files=all` -> 工作区存在并发改动；基线提交 `81bcc617 chore: baseline dirty workspace before assist font sizing` 已保存追加需求前脏工作区。
+- EXPERIENCE: 已查 `docs/frontend-development.md`、`docs/e2e-rules.md` 与 `docs/*memory*.md`；现有 eDHR 辅助模式和 Element Plus 显示门禁覆盖本次改动，无需新增长期经验文档。
+- BDD: 辅助网格单元格字号减半 -> Given 用户打开 eDHR 填写辅助模式并查看辅助网格单元格 / When 单元格展示字段名、输入内容、单位或校验提示 / Then 单元格内文字字号均缩小为当前的 1/2，字段值、校验、保存和提交逻辑不变。
+- RED: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> FAIL，预期原因：当前样式缺少辅助网格字段名/输入/单位/校验字号减半规则。
+- GREEN: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- VALIDATION: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-assist-grid-preview-font-half/frontend-feature-evidence.md` -> PASS。
+- CHECK: `git diff --check -- <owned files>` -> PASS；仅 CRLF 提示，无 whitespace error。
+- CLEANUP: `task_closeout.py --task-id 20260729-assist-grid-preview-font-half --mode preview` -> ready，delete none，blocked none。
+- CLEANUP: `task_closeout.py --task-id 20260729-assist-grid-preview-font-half --mode apply` -> applied，deleted_paths none。
+- FINAL: completed -> 本任务实现、验证和 cleanup 完成；并发任务改动保持未暂存，提交时仅选择性暂存本任务文件。
+- USER: 用户在“标题 15px、输入/单位 14px”与“全部减半”冲突确认后回复“继续”，按最新用户口径恢复辅助网格单元格统一 1/2 字号。
+- BASELINE: `1668f535 chore: baseline concurrent workspace before assist font reset`，保存继续前并发脏工作区，避免混入本轮字号修正。
+- BDD: 辅助网格并发放大规则恢复减半 -> Given 辅助网格样式被后续并发任务改为标题 `15px`、输入提示和单位 `14px` / When 用户继续要求每个单元格字体减小为当前的 1/2 / Then 标题恢复为 `7.5px`，输入提示和单位恢复为 `7px`，校验提示保持 `6px`，业务保存、提交和映射逻辑不变。
+- RED: `@'...减半断言读取 HEAD:ExecutionPage.vue...'@ | node -` -> FAIL，预期原因：HEAD 中辅助网格标题仍为 `15px`，不满足 `7.5px` 减半合同；首次 `node -e` 因 PowerShell `${}` 解析失败，未作为产品 RED 证据。
+- GREEN: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- STATUS: implementation verified -> 当前任务状态更新为 `ready_for_closeout`；同文件存在并发“提交失败原因”改动，提交时仅选择性暂存字号 CSS hunks。
+- VALIDATION: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-assist-grid-preview-font-half/frontend-feature-evidence.md` -> PASS。
+- CHECK: `git diff --check -- <assist-grid task docs>` -> PASS；仅 CRLF 提示，无 whitespace error。`ExecutionPage.vue` 存在并发“提交失败原因”改动和全文件 CRLF diff 噪声，未纳入本任务收尾提交。
+- EXPERIENCE: 已执行 project-experience-consolidation 判断；现有 `docs/frontend-development.md#前端静态契约隔离门禁`、`#Element Plus 选择框显示门禁` 与同文件并行改动门禁覆盖本轮重复风险，无需新增或修改长期经验文档。
+- CLEANUP: `task_closeout.py --task-id 20260729-assist-grid-preview-font-half --mode preview` -> ready，keep `task.md` / `execution-log.md` / `verification-report.md` / `frontend-feature-evidence.md`，delete none，blocked none，warnings none。
+- CLEANUP: `task_closeout.py --task-id 20260729-assist-grid-preview-font-half --mode apply` -> applied，deleted_paths none。
+- FINAL: completed -> 本轮恢复减半口径、验证和 cleanup 完成；源码字号实现已在 `14f6f29b chore: baseline concurrent assist font reset` 中保存，本次收尾只提交任务证据。

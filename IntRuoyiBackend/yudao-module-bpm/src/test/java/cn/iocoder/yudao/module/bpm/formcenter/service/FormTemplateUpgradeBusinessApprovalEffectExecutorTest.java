@@ -74,14 +74,14 @@ class FormTemplateUpgradeBusinessApprovalEffectExecutorTest extends BaseMockitoU
     }
 
     @Test
-    void executeDirectIsRejectedBecauseUpgradeMustGoThroughBpmApproval() {
+    void executeDirectPublishesDraftVersionWithoutStartingBpmApproval() {
         mockVersion(FormTemplateStatus.DRAFT);
+        when(templateVersionMapper.updateById((FormTemplateVersionDO) any())).thenReturn(1);
 
-        BusinessApprovalException ex = assertThrows(BusinessApprovalException.class,
-                () -> executor.executeDirect(context(), request(null)));
+        BusinessApprovalEffectResult result = executor.executeDirect(context(), request(null));
 
-        assertEquals(BusinessApprovalErrorCode.BUSINESS_APPROVAL_MODE_INVALID, ex.getErrorCode());
-        verify(templateVersionMapper, never()).updateById((FormTemplateVersionDO) any());
+        assertEquals(FormTemplateStatus.PUBLISHED.name(), result.getResultState());
+        assertUpdatedStatus(FormTemplateStatus.PUBLISHED);
     }
 
     @Test

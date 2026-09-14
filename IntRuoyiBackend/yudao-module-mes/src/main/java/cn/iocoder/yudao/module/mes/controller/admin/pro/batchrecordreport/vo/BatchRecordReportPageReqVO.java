@@ -30,6 +30,9 @@ public class BatchRecordReportPageReqVO extends PageParam {
     @Schema(description = "表单槽位类型：MAIN/LOSS_REPORT/PROCESS_INSPECTION/PARAMETER_RECORD")
     private String formSlotType;
 
+    @Schema(description = "是否只查询最新批记录版本的表单")
+    private Boolean latestVersionOnly;
+
     @Schema(description = "识别路线关键字")
     private String routeKey;
 }

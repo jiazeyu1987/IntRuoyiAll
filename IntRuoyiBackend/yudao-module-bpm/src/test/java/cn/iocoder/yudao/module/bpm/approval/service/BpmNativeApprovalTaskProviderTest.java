@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.bpm.approval.service;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType;
@@ -10,12 +11,19 @@ import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskApproveR
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRejectReqVO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.task.BpmProcessInstanceCopyDO;
+import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceCopyService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.permission.RoleApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
 import org.flowable.task.api.history.HistoricTaskInstance;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -24,16 +32,23 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -46,8 +61,29 @@ class BpmNativeApprovalTaskProviderTest {
     private BpmProcessInstanceCopyService copyService;
     @Mock
     private BpmTaskService taskService;
+    @Mock
+    private org.flowable.engine.TaskService flowableTaskService;
+    @Mock
+    private PermissionApi permissionApi;
+    @Mock
+    private RoleApi roleApi;
     @InjectMocks
     private BpmNativeApprovalTaskProvider provider;
+
+    @BeforeEach
+    void stubRuntimeProcessInstancesForExistingScenarios() {
+        lenient().when(processInstanceService.getProcessInstanceMap(any())).thenAnswer(invocation -> {
+            Set<String> ids = invocation.getArgument(0);
+            Map<String, ProcessInstance> processInstances = new java.util.LinkedHashMap<>();
+            ids.forEach(id -> processInstances.put(id, mock(ProcessInstance.class)));
+            return processInstances;
+        });
+    }
+
+    @AfterEach
+    void clearTenantContext() {
+        TenantContextHolder.clear();
+    }
 
     @Test
     void pageTodoMapsNativeBpmTodoTasksToUnifiedSummary() {
@@ -72,6 +108,8 @@ class BpmNativeApprovalTaskProviderTest {
         assertEquals("通用审批", summary.getBusinessTitle());
         assertEquals("TODO", summary.getBusinessStatus());
         assertEquals(910272L, summary.getAssigneeUserId());
+        assertNull(summary.getAssigneeRoleCode());
+        assertNull(summary.getAssigneeRoleName());
         assertEquals(Boolean.TRUE, summary.getRequiresSignature());
         assertEquals("/bpm/process-instance/detail", summary.getDetailRoute());
         assertEquals("pi-100", summary.getDetailQuery().get("id"));
@@ -83,6 +121,275 @@ class BpmNativeApprovalTaskProviderTest {
         ArgumentCaptor<BpmTaskPageReqVO> captor = ArgumentCaptor.forClass(BpmTaskPageReqVO.class);
         verify(taskService).getTaskTodoPage(eq(100L), captor.capture());
         assertEquals("通用", captor.getValue().getName());
+    }
+
+    @Test
+    void pageTodoFindsAssignedTaskWhenKeywordIsProcessInstanceId() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-access");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-access");
+        when(task.getAssignee()).thenReturn("149");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(taskService.getTaskTodoPage(eq(149L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(PageResult.empty());
+        when(taskService.getRunningTaskListByProcessInstanceId("pi-regcert-access", true, null))
+                .thenReturn(List.of(task));
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(149L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "pi-regcert-access", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("BPM:BPM_TASK_TODO:task-regcert-access", summary.getId());
+        assertEquals("task-regcert-access", summary.getSourceTaskId());
+        assertEquals("pi-regcert-access", summary.getBusinessKey());
+        assertEquals("pi-regcert-access", summary.getProcessInstanceId());
+        assertEquals(149L, summary.getAssigneeUserId());
+        assertTrue(summary.getAvailableActions().contains("APPROVE"));
+    }
+
+    @Test
+    void pageTodoShowsRegistrationCertificateTaskToEverySelectedCandidate() {
+        Task task = mock(Task.class);
+        Map<String, Object> variables = Map.of(
+                "registrationCertificateAccessRequestId", 256L,
+                "requestId", 256L,
+                "certificateId", 990819129L,
+                "certificateNo", "国械注准20223030034",
+                "requestType", "UPLOAD_CERTIFICATE",
+                "requestOperation", "CHANGE_CERTIFICATE",
+                BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                Map.of("REG_CERT_ACCESS_APPROVAL", List.of(1035L, 1490L)));
+        when(task.getId()).thenReturn("task-regcert-change");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("REG_CERT_ACCESS_APPROVAL");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-change");
+        when(task.getAssignee()).thenReturn("1035");
+        when(task.getCreateTime()).thenReturn(new Date(1788512400000L));
+        when(task.getProcessVariables()).thenReturn(variables);
+        when(taskService.getTaskTodoPage(eq(1490L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(PageResult.empty());
+        when(taskService.getTaskTodoPage(eq(null), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+        when(permissionApi.hasAnyRoles(1490L, "dcc_registration_certificate_approver")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(1490L, "dcc:registration-certificate:upload:approve")).thenReturn(true);
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(1490L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "国械注准20223030034", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("BPM:BPM_TASK_TODO:task-regcert-change", summary.getId());
+        assertEquals("注册证变更审批 国械注准20223030034", summary.getBusinessTitle());
+        assertEquals(1035L, summary.getAssigneeUserId());
+    }
+
+    @Test
+    void pageTodoScansEnoughRegistrationCertificateCandidateTasksWhenKeywordTargetsOlderDownloadRequest() {
+        List<Task> unrelated = new ArrayList<>();
+        for (int i = 0; i < 250; i += 1) {
+            Task task = mock(Task.class);
+            when(task.getProcessVariables()).thenReturn(Map.of(
+                    "registrationCertificateAccessRequestId", 6000L + i,
+                    "requestId", 6000L + i,
+                    "certificateId", 990819900L + i,
+                    "requestType", "UPLOAD_CERTIFICATE",
+                    "requestOperation", "RENEWAL_CERTIFICATE",
+                    BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                    Map.of("REG_CERT_ACCESS_APPROVAL", List.of(1490L))));
+            unrelated.add(task);
+        }
+        Task target = mock(Task.class);
+        when(target.getId()).thenReturn("task-download-300");
+        when(target.getName()).thenReturn("Registration certificate access approval");
+        when(target.getTaskDefinitionKey()).thenReturn("REG_CERT_ACCESS_APPROVAL");
+        when(target.getProcessInstanceId()).thenReturn("pi-download-300");
+        when(target.getAssignee()).thenReturn("1");
+        when(target.getCreateTime()).thenReturn(new Date(1788590000000L));
+        when(target.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 300L,
+                "requestId", 300L,
+                "certificateId", 990819129L,
+                "requestType", "DOWNLOAD_FILE",
+                "requestKey", "DCC-REG-CERT-ACCESS-SUBMIT-300",
+                BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                Map.of("REG_CERT_ACCESS_APPROVAL", List.of(1L, 1490L))));
+        List<Task> allTasks = new ArrayList<>(unrelated);
+        allTasks.add(target);
+        when(taskService.getTaskTodoPage(eq(1490L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(PageResult.empty());
+        when(taskService.getTaskTodoPage(eq(null), any(BpmTaskPageReqVO.class)))
+                .thenAnswer(invocation -> {
+                    BpmTaskPageReqVO pageReqVO = invocation.getArgument(1);
+                    assertTrue(pageReqVO.getPageSize() >= 1000);
+                    return new PageResult<>(allTasks, (long) allTasks.size());
+                });
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+        when(permissionApi.hasAnyRoles(1490L, "dcc_registration_certificate_approver")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(1490L, "dcc:registration-certificate:access-request:approve"))
+                .thenReturn(true);
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(1490L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "300", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("BPM:BPM_TASK_TODO:task-download-300", summary.getId());
+        assertEquals("注册证下载审批 DCC-REG-CERT-ACCESS-SUBMIT-300", summary.getBusinessTitle());
+    }
+
+    @Test
+    void pageTodoFindsAssignedRegistrationCertificateUploadTaskWhenTaskNameMissesKeyword() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-upload-assigned-generic-name");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("REG_CERT_ACCESS_APPROVAL");
+        when(task.getProcessInstanceId()).thenReturn("pi-upload-assigned-generic-name");
+        when(task.getAssignee()).thenReturn("100");
+        when(task.getTenantId()).thenReturn("1");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(PageResult.empty());
+        Map<String, Object> variables = Map.of(
+                "registrationCertificateAccessRequestId", 153L,
+                "requestId", 153L,
+                "certificateId", 990819199L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                "requestOperation", "UPLOAD_CERTIFICATE",
+                "certificateNo", "E2E-UPLOAD-ASSIGNED-GENERIC",
+                "classification", "II",
+                "productName", "注册证上传E2E产品-本人待办",
+                "ownerCompanyName", "上海七木医疗器械有限公司",
+                BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                Map.of("REG_CERT_ACCESS_APPROVAL", List.of(100L)));
+        when(task.getProcessVariables()).thenReturn(variables);
+        when(taskService.getTaskTodoPage(eq(null), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessVariables()).thenReturn(variables);
+        when(processInstanceService.getProcessInstanceMap(Set.of("pi-upload-assigned-generic-name")))
+                .thenReturn(Map.of("pi-upload-assigned-generic-name", processInstance));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+        when(permissionApi.hasAnyRoles(100L, "dcc_registration_certificate_approver")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(100L, "dcc:registration-certificate:upload:approve")).thenReturn(true);
+
+        TenantContextHolder.setTenantId(1L);
+        try {
+            PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                    ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "E2E-UPLOAD-ASSIGNED-GENERIC", 1, 10));
+
+            assertEquals(1L, page.getTotal());
+            ApprovalTaskSummary summary = page.getList().get(0);
+            assertEquals("task-upload-assigned-generic-name", summary.getSourceTaskId());
+            assertEquals(100L, summary.getAssigneeUserId());
+            assertEquals("注册证上传审批 E2E-UPLOAD-ASSIGNED-GENERIC", summary.getBusinessTitle());
+            assertTrue(summary.getAvailableActions().contains("APPROVE"));
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @Test
+    void pageTodoFindsClaimableRegistrationCertificateUploadTaskFromProcessVariablesWithoutFlowableVariablePredicate() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-upload-process-vars");
+        when(task.getName()).thenReturn("注册证上传审批");
+        when(task.getTaskDefinitionKey()).thenReturn("REG_CERT_ACCESS_APPROVAL");
+        when(task.getProcessInstanceId()).thenReturn("pi-upload-process-vars");
+        when(task.getAssignee()).thenReturn("200");
+        when(task.getTenantId()).thenReturn(null);
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(PageResult.empty());
+        Map<String, Object> variables = Map.ofEntries(
+                Map.entry("tenantId", "1"),
+                Map.entry("registrationCertificateAccessRequestId", 152L),
+                Map.entry("requestId", 152L),
+                Map.entry("certificateId", 990819198L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestOperation", "UPLOAD_CERTIFICATE"),
+                Map.entry("certificateNo", "E2E-UPLOAD-PROCESS-VARS"),
+                Map.entry("classification", "II"),
+                Map.entry("productName", "注册证上传E2E产品-进程变量"),
+                Map.entry("ownerCompanyName", "上海七木医疗器械有限公司"),
+                Map.entry(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                        Map.of("REG_CERT_ACCESS_APPROVAL", List.of(100L, 200L))));
+        when(task.getProcessVariables()).thenReturn(variables);
+        when(taskService.getTaskTodoPage(eq(null), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessVariables()).thenReturn(variables);
+        when(processInstanceService.getProcessInstanceMap(Set.of("pi-upload-process-vars")))
+                .thenReturn(Map.of("pi-upload-process-vars", processInstance));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+        when(permissionApi.hasAnyRoles(100L, "dcc_registration_certificate_approver")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(100L, "dcc:registration-certificate:upload:approve")).thenReturn(true);
+
+        TenantContextHolder.setTenantId(1L);
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "E2E-UPLOAD-PROCESS-VARS", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        assertEquals("注册证上传审批 E2E-UPLOAD-PROCESS-VARS", page.getList().get(0).getBusinessTitle());
+    }
+
+    @Test
+    void pageTodoFindsAssignedRegistrationCertificateDownloadTaskWhenTaskNameMissesCertificateNo() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-download-assigned-generic-name");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("REG_CERT_ACCESS_APPROVAL");
+        when(task.getProcessInstanceId()).thenReturn("pi-download-assigned-generic-name");
+        when(task.getAssignee()).thenReturn("100");
+        when(task.getTenantId()).thenReturn("1");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(PageResult.empty());
+        Map<String, Object> variables = Map.of(
+                "registrationCertificateAccessRequestId", 376L,
+                "requestId", 376L,
+                "certificateId", 990819316L,
+                "ownerCompanyId", 990819002L,
+                "requestType", "DOWNLOAD_FILE",
+                "requestKey", "DCC-REG-CERT-ACCESS-SUBMIT-6ff46c58",
+                "certificateNo", "E2E-UPLOAD-DOWNLOAD-GENERIC",
+                BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                Map.of("REG_CERT_ACCESS_APPROVAL", List.of(100L)));
+        when(task.getProcessVariables()).thenReturn(variables);
+        when(taskService.getTaskTodoPage(eq(null), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessVariables()).thenReturn(variables);
+        when(processInstanceService.getProcessInstanceMap(Set.of("pi-download-assigned-generic-name")))
+                .thenReturn(Map.of("pi-download-assigned-generic-name", processInstance));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+        when(permissionApi.hasAnyRoles(100L, "dcc_registration_certificate_approver")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(100L, "dcc:registration-certificate:access-request:approve"))
+                .thenReturn(true);
+
+        TenantContextHolder.setTenantId(1L);
+        try {
+            PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                    ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "E2E-UPLOAD-DOWNLOAD-GENERIC", 1, 10));
+
+            assertEquals(1L, page.getTotal());
+            ApprovalTaskSummary summary = page.getList().get(0);
+            assertEquals("task-download-assigned-generic-name", summary.getSourceTaskId());
+            assertEquals(100L, summary.getAssigneeUserId());
+            assertEquals("注册证下载审批 E2E-UPLOAD-DOWNLOAD-GENERIC DCC-REG-CERT-ACCESS-SUBMIT-6ff46c58",
+                    summary.getBusinessTitle());
+            assertTrue(summary.getAvailableActions().contains("APPROVE"));
+        } finally {
+            TenantContextHolder.clear();
+        }
     }
 
     @Test
@@ -107,6 +414,328 @@ class BpmNativeApprovalTaskProviderTest {
         ApprovalTaskSummary summary = page.getList().get(0);
         assertEquals("批记录升版 球囊扩张压力泵 V4.0", summary.getBusinessTitle());
         assertEquals("批记录升版审核", summary.getCurrentNodeName());
+    }
+
+    @Test
+    void pageTodoUsesEdhrExecutionVariablesForReadableBusinessSummary() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-edhr-execution");
+        when(task.getName()).thenReturn("eDHR Approval V1");
+        when(task.getTaskDefinitionKey()).thenReturn("approveNode");
+        when(task.getProcessInstanceId()).thenReturn("pi-edhr-execution");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.of(
+                "edhrExecutionId", 7001L,
+                "edhrExecutionCode", "EDHR-20260830-001",
+                "workOrderId", 6001L,
+                "workOrderCode", "WO-20260830-001",
+                "batchCode", "BATCH-20260830-001",
+                "processName", "组装",
+                "workstationName", "组装工位A"));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "EDHR", 1, 10)).getList().get(0);
+
+        assertEquals("电子批记录审核 EDHR-20260830-001 工单 WO-20260830-001 批次 BATCH-20260830-001 工序 组装",
+                summary.getBusinessTitle());
+        assertEquals("EDHR-20260830-001", summary.getBusinessCode());
+        assertEquals(List.of("工单：WO-20260830-001", "批次：BATCH-20260830-001", "工序：组装", "工作站：组装工位A"),
+                summary.getBusinessContextTags());
+        assertEquals("电子批记录审核", summary.getCurrentNodeName());
+    }
+
+    @Test
+    void pageTodoUsesRegistrationCertificateAccessVariablesForReadableBusinessSummary() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-access-summary");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-access-summary");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8801L),
+                Map.entry("requestId", 8801L),
+                Map.entry("certificateId", 7701L),
+                Map.entry("ownerCompanyId", 6601L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestOperation", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestKey", "REG-UPLOAD-20260830-001"),
+                Map.entry("certificateNo", "国械注准20263000001"),
+                Map.entry("classification", "III类"),
+                Map.entry("productName", "一次性使用无菌导管"),
+                Map.entry("ownerCompanyName", "示例医疗器械有限公司")));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "REG-UPLOAD", 1, 10)).getList().get(0);
+
+        assertEquals("注册证上传审批 国械注准20263000001", summary.getBusinessTitle());
+        assertNull(summary.getBusinessCode());
+        assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
+        assertEquals(List.of("注册证编号：国械注准20263000001", "分类：III类", "产品：一次性使用无菌导管",
+                        "所属公司名称：示例医疗器械有限公司"),
+                summary.getBusinessContextTags());
+        assertEquals("注册证访问审批", summary.getCurrentNodeName());
+        assertEquals("dcc_registration_certificate_approver", summary.getAssigneeRoleCode());
+        assertEquals("注册部经理", summary.getAssigneeRoleName());
+        assertEquals("/mdm/registration-certificate/detail/7701", summary.getDecisionDetailRoute());
+        assertEquals("8801", summary.getDecisionDetailQuery().get("requestId"));
+        assertEquals("pi-regcert-access-summary", summary.getDecisionDetailQuery().get("processInstanceId"));
+    }
+
+    @Test
+    void pageTodoUsesRenewalOperationForRegistrationCertificateApprovalTitle() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-renewal-summary");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-renewal-summary");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8802L),
+                Map.entry("requestId", 8802L),
+                Map.entry("certificateId", 7702L),
+                Map.entry("ownerCompanyId", 6601L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestOperation", "RENEWAL_CERTIFICATE"),
+                Map.entry("requestKey", "DCC-REG-CERT-RENEWAL-20260831-001"),
+                Map.entry("certificateNo", "国械注准20263000002"),
+                Map.entry("classification", "II类"),
+                Map.entry("productName", "球囊扩张导管"),
+                Map.entry("ownerCompanyName", "示例医疗器械有限公司")));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "RENEWAL", 1, 10)).getList().get(0);
+
+        assertEquals("注册证延续审批 国械注准20263000002", summary.getBusinessTitle());
+        assertNull(summary.getBusinessCode());
+        assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
+        assertEquals(List.of("注册证编号：国械注准20263000002", "分类：II类", "产品：球囊扩张导管",
+                        "所属公司名称：示例医疗器械有限公司"),
+                summary.getBusinessContextTags());
+        assertEquals("dcc_registration_certificate_approver", summary.getAssigneeRoleCode());
+        assertEquals("注册部经理", summary.getAssigneeRoleName());
+        assertEquals("/mdm/registration-certificate/detail/7702", summary.getDecisionDetailRoute());
+        assertEquals("8802", summary.getDecisionDetailQuery().get("requestId"));
+        assertEquals("pi-regcert-renewal-summary", summary.getDecisionDetailQuery().get("processInstanceId"));
+    }
+
+    @Test
+    void pageTodoUsesChangeOperationForRegistrationCertificateApprovalTitle() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-change-summary");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-change-summary");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8805L),
+                Map.entry("requestId", 8805L),
+                Map.entry("certificateId", 7705L),
+                Map.entry("ownerCompanyId", 6601L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestOperation", "CHANGE_CERTIFICATE"),
+                Map.entry("requestKey", "DCC-REG-CERT-CHANGE-20260902-001"),
+                Map.entry("productName", "球囊扩张导管变更后")));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "CHANGE", 1, 10)).getList().get(0);
+
+        assertEquals("注册证变更审批", summary.getBusinessTitle());
+        assertNull(summary.getBusinessCode());
+        assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
+        assertEquals(List.of("产品：球囊扩张导管变更后"), summary.getBusinessContextTags());
+        assertEquals("dcc_registration_certificate_approver", summary.getAssigneeRoleCode());
+        assertEquals("注册部经理", summary.getAssigneeRoleName());
+        assertEquals("/mdm/registration-certificate/detail/7705", summary.getDecisionDetailRoute());
+        assertEquals("8805", summary.getDecisionDetailQuery().get("requestId"));
+        assertEquals("pi-regcert-change-summary", summary.getDecisionDetailQuery().get("processInstanceId"));
+    }
+
+    @Test
+    void pageTodoUsesRegistrationCertificateDetailOperationForUploadAndRenewalSummary() {
+        Task uploadTask = mock(Task.class);
+        when(uploadTask.getId()).thenReturn("task-regcert-upload-detail-operation");
+        when(uploadTask.getName()).thenReturn("Registration certificate access approval");
+        when(uploadTask.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(uploadTask.getProcessInstanceId()).thenReturn("pi-regcert-upload-detail-operation");
+        when(uploadTask.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(uploadTask.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8810L),
+                Map.entry("requestId", 8810L),
+                Map.entry("certificateId", 7710L),
+                Map.entry("ownerCompanyId", 6610L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("operation", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestKey", "DCC-REG-CERT-UPLOAD-REAL-001"),
+                Map.entry("certificateNo", "国械注准20263000010"),
+                Map.entry("classification", "二类"),
+                Map.entry("productName", "按压式球囊扩充压力泵"),
+                Map.entry("ownerCompanyName", "上海七木医疗器械有限公司")));
+
+        Task renewalTask = mock(Task.class);
+        when(renewalTask.getId()).thenReturn("task-regcert-renewal-detail-operation");
+        when(renewalTask.getName()).thenReturn("Registration certificate access approval");
+        when(renewalTask.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(renewalTask.getProcessInstanceId()).thenReturn("pi-regcert-renewal-detail-operation");
+        when(renewalTask.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(renewalTask.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8811L),
+                Map.entry("requestId", 8811L),
+                Map.entry("certificateId", 7711L),
+                Map.entry("ownerCompanyId", 6610L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("operation", "RENEWAL_CERTIFICATE"),
+                Map.entry("requestKey", "DCC-REG-CERT-RENEWAL-REAL-001"),
+                Map.entry("certificateNo", "国械注准20263000011"),
+                Map.entry("classification", "三类"),
+                Map.entry("productName", "按压式球囊扩充压力泵"),
+                Map.entry("ownerCompanyName", "上海七木医疗器械有限公司")));
+
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(uploadTask, renewalTask), 2L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "REAL", 1, 10));
+
+        assertEquals(2L, page.getTotal());
+        ApprovalTaskSummary uploadSummary = page.getList().get(0);
+        assertEquals("注册证上传审批 国械注准20263000010", uploadSummary.getBusinessTitle());
+        assertNull(uploadSummary.getBusinessCode());
+        assertEquals(Boolean.TRUE, uploadSummary.getBusinessIdentifierHidden());
+        assertEquals(List.of("注册证编号：国械注准20263000010", "分类：二类", "产品：按压式球囊扩充压力泵",
+                        "所属公司名称：上海七木医疗器械有限公司"),
+                uploadSummary.getBusinessContextTags());
+
+        ApprovalTaskSummary renewalSummary = page.getList().get(1);
+        assertEquals("注册证延续审批 国械注准20263000011", renewalSummary.getBusinessTitle());
+        assertNull(renewalSummary.getBusinessCode());
+        assertEquals(Boolean.TRUE, renewalSummary.getBusinessIdentifierHidden());
+        assertEquals(List.of("注册证编号：国械注准20263000011", "分类：三类", "产品：按压式球囊扩充压力泵",
+                        "所属公司名称：上海七木医疗器械有限公司"),
+                renewalSummary.getBusinessContextTags());
+    }
+
+    @Test
+    void pageTodoUsesProcessVariablesWhenRegistrationCertificateTaskHasNoLocalVariables() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-runtime-vars");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-runtime-vars");
+        when(task.getAssignee()).thenReturn("100");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+
+        Map<String, Object> processVariables = Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8820L),
+                Map.entry("requestId", 8820L),
+                Map.entry("certificateId", 7720L),
+                Map.entry("ownerCompanyId", 6620L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestOperation", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestKey", "DCC-REG-CERT-UPLOAD-RUNTIME-001"),
+                Map.entry("certificateNo", "国械注准20263000020"),
+                Map.entry("classification", "二类"),
+                Map.entry("productName", "按压式球囊扩充压力泵"),
+                Map.entry("ownerCompanyName", "上海七木医疗器械有限公司"));
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getStartUserId()).thenReturn("100");
+        when(processInstance.getProcessVariables()).thenReturn(processVariables);
+
+        org.mockito.Mockito.doReturn(Map.of("pi-regcert-runtime-vars", processInstance))
+                .when(processInstanceService)
+                .getProcessInstanceMap(anySet());
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "RUNTIME", 1, 10)).getList().get(0);
+
+        assertEquals("注册证上传审批 国械注准20263000020", summary.getBusinessTitle());
+        assertNull(summary.getBusinessCode());
+        assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
+        assertEquals(List.of("注册证编号：国械注准20263000020", "分类：二类", "产品：按压式球囊扩充压力泵",
+                        "所属公司名称：上海七木医疗器械有限公司"),
+                summary.getBusinessContextTags());
+        assertEquals("dcc_registration_certificate_approver", summary.getAssigneeRoleCode());
+        assertEquals("注册部经理", summary.getAssigneeRoleName());
+        assertEquals("/mdm/registration-certificate/detail/7720", summary.getDecisionDetailRoute());
+        assertEquals("8820", summary.getDecisionDetailQuery().get("requestId"));
+        assertEquals("pi-regcert-runtime-vars", summary.getDecisionDetailQuery().get("processInstanceId"));
+    }
+
+    @Test
+    void pageTodoHidesMissingRegistrationCertificateSummaryTags() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-summary-missing");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-summary-missing");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8803L),
+                Map.entry("requestId", 8803L),
+                Map.entry("certificateId", 7703L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestOperation", "RENEWAL_CERTIFICATE"),
+                Map.entry("productName", "球囊扩张导管")));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, null, 1, 10)).getList().get(0);
+
+        assertEquals("注册证延续审批", summary.getBusinessTitle());
+        assertNull(summary.getBusinessCode());
+        assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
+        assertEquals(List.of("产品：球囊扩张导管"), summary.getBusinessContextTags());
+    }
+
+    @Test
+    void pageTodoDoesNotFailWhenRegistrationCertificateOperationIsMissing() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-operation-missing");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-operation-missing");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8804L),
+                Map.entry("requestId", 8804L),
+                Map.entry("certificateId", 7704L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("productName", "球囊扩张导管")));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, null, 1, 10)).getList().get(0);
+
+        assertEquals("注册证审批", summary.getBusinessTitle());
+        assertNull(summary.getBusinessCode());
+        assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
+        assertEquals(List.of("产品：球囊扩张导管"), summary.getBusinessContextTags());
     }
 
     @Test
@@ -201,6 +830,12 @@ class BpmNativeApprovalTaskProviderTest {
         ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "作废", 1, 10)).getList().get(0);
 
+        assertEquals("电子批记录批次作废 EDHRB-1783609501380 批次 BATCH-VOID-001 工单 WO-20260717",
+                summary.getBusinessTitle());
+        assertEquals("EDHRB-1783609501380", summary.getBusinessCode());
+        assertEquals(List.of("工单：WO-20260717", "批次：BATCH-VOID-001", "原因：质量复核要求作废"),
+                summary.getBusinessContextTags());
+        assertEquals("电子批记录批次作废审核", summary.getCurrentNodeName());
         assertEquals("/mes/pro/feedback/edhr-change", summary.getDecisionDetailRoute());
         assertEquals("EDHR_BATCH_EXECUTION_VOID", summary.getDecisionDetailQuery().get("businessType"));
         assertEquals("VOID", summary.getDecisionDetailQuery().get("changeType"));
@@ -239,6 +874,115 @@ class BpmNativeApprovalTaskProviderTest {
     }
 
     @Test
+    void reviewClaimsRegistrationUploadTaskWhenLoginUserIsSelectedCandidateAndHasApproverRoleAndPermission() {
+        Task task = mock(Task.class);
+        when(task.getAssignee()).thenReturn("200");
+        when(task.getProcessInstanceId()).thenReturn("pi-upload-approve");
+        when(taskService.getTask("task-upload-approve")).thenReturn(task);
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 150L,
+                "requestId", 150L,
+                "certificateId", 990819196L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                Map.of("REG_CERT_ACCESS_APPROVAL", List.of(100L, 200L))));
+        when(processInstanceService.getProcessInstance("pi-upload-approve")).thenReturn(processInstance);
+        when(permissionApi.hasAnyRoles(100L, "dcc_registration_certificate_approver")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(100L, "dcc:registration-certificate:upload:approve")).thenReturn(true);
+
+        provider.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.BPM,
+                "BPM_TASK_TODO", "task-upload-approve", "pi-upload-approve", "pi-upload-approve",
+                ApprovalTaskReviewResult.APPROVE, null, "secret", false)
+                .setSignatureImageFileUrl("http://127.0.0.1:9000/yudao/signature/user-100.png"));
+
+        verify(flowableTaskService).setAssignee("task-upload-approve", "100");
+        ArgumentCaptor<BpmTaskApproveReqVO> captor = ArgumentCaptor.forClass(BpmTaskApproveReqVO.class);
+        verify(taskService).approveTask(eq(100L), captor.capture());
+        assertEquals("task-upload-approve", captor.getValue().getId());
+    }
+
+    @Test
+    void reviewClaimsRegistrationDownloadTaskWhenLoginUserIsSelectedCandidateAndHasAccessApprovalPermission() {
+        Task task = mock(Task.class);
+        when(task.getAssignee()).thenReturn("200");
+        when(task.getProcessInstanceId()).thenReturn("pi-download-approve");
+        when(taskService.getTask("task-download-approve")).thenReturn(task);
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 300L,
+                "requestId", 300L,
+                "certificateId", 990819129L,
+                "requestType", "DOWNLOAD_FILE",
+                BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                Map.of("REG_CERT_ACCESS_APPROVAL", List.of(100L, 200L))));
+        when(processInstanceService.getProcessInstance("pi-download-approve")).thenReturn(processInstance);
+        when(permissionApi.hasAnyRoles(100L, "dcc_registration_certificate_approver")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(100L, "dcc:registration-certificate:access-request:approve"))
+                .thenReturn(true);
+
+        provider.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.BPM,
+                "BPM_TASK_TODO", "task-download-approve", "pi-download-approve", "pi-download-approve",
+                ApprovalTaskReviewResult.APPROVE, null, "secret", false)
+                .setSignatureImageFileUrl("http://127.0.0.1:9000/yudao/signature/user-100.png"));
+
+        verify(flowableTaskService).setAssignee("task-download-approve", "100");
+        ArgumentCaptor<BpmTaskApproveReqVO> captor = ArgumentCaptor.forClass(BpmTaskApproveReqVO.class);
+        verify(taskService).approveTask(eq(100L), captor.capture());
+        assertEquals("task-download-approve", captor.getValue().getId());
+    }
+
+    @Test
+    void reviewDoesNotClaimRegistrationUploadTaskWhenLoginUserIsNotSelectedCandidate() {
+        Task task = mock(Task.class);
+        when(task.getAssignee()).thenReturn("200");
+        when(task.getProcessInstanceId()).thenReturn("pi-upload-approve");
+        when(taskService.getTask("task-upload-approve")).thenReturn(task);
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 150L,
+                "requestId", 150L,
+                "certificateId", 990819196L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                Map.of("REG_CERT_ACCESS_APPROVAL", List.of(200L))));
+        when(processInstanceService.getProcessInstance("pi-upload-approve")).thenReturn(processInstance);
+
+        provider.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.BPM,
+                "BPM_TASK_TODO", "task-upload-approve", "pi-upload-approve", "pi-upload-approve",
+                ApprovalTaskReviewResult.APPROVE, null, "secret", false)
+                .setSignatureImageFileUrl("http://127.0.0.1:9000/yudao/signature/user-100.png"));
+
+        verify(flowableTaskService, never()).setAssignee("task-upload-approve", "100");
+        verify(taskService).approveTask(eq(100L), any(BpmTaskApproveReqVO.class));
+    }
+
+    @Test
+    void reviewDoesNotClaimRegistrationUploadTaskWithoutApproverRole() {
+        Task task = mock(Task.class);
+        when(task.getAssignee()).thenReturn("200");
+        when(task.getProcessInstanceId()).thenReturn("pi-upload-approve");
+        when(taskService.getTask("task-upload-approve")).thenReturn(task);
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 150L,
+                "certificateId", 990819196L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                Map.of("REG_CERT_ACCESS_APPROVAL", List.of(100L))));
+        when(processInstanceService.getProcessInstance("pi-upload-approve")).thenReturn(processInstance);
+        when(permissionApi.hasAnyRoles(100L, "dcc_registration_certificate_approver")).thenReturn(false);
+
+        provider.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.BPM,
+                "BPM_TASK_TODO", "task-upload-approve", "pi-upload-approve", "pi-upload-approve",
+                ApprovalTaskReviewResult.APPROVE, null, "secret", false)
+                .setSignatureImageFileUrl("http://127.0.0.1:9000/yudao/signature/user-100.png"));
+
+        verify(flowableTaskService, never()).setAssignee("task-upload-approve", "100");
+        verify(taskService).approveTask(eq(100L), any(BpmTaskApproveReqVO.class));
+    }
+
+    @Test
     void reviewRejectsNativeBpmTodoTaskThroughTaskService() {
         provider.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.BPM,
                 "BPM_TASK_TODO", "task-reject-100", "pi-reject-100", "pi-reject-100",
@@ -260,8 +1004,14 @@ class BpmNativeApprovalTaskProviderTest {
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
         when(task.getEndTime()).thenReturn(new Date(1782180300000L));
         when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 3, "TASK_REASON", "资料不完整"));
+        HistoricProcessInstance instance = mock(HistoricProcessInstance.class);
+        when(instance.getId()).thenReturn("pi-done-100");
+        when(instance.getName()).thenReturn("已办审批");
+        when(instance.getProcessVariables()).thenReturn(Map.of());
         when(taskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(processInstanceService.getHistoricProcessInstances(Set.of("pi-done-100")))
+                .thenReturn(List.of(instance));
 
         PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.DONE, ApprovalModuleCode.BPM, "已办", 1, 10));
@@ -281,6 +1031,112 @@ class BpmNativeApprovalTaskProviderTest {
         ArgumentCaptor<BpmTaskPageReqVO> captor = ArgumentCaptor.forClass(BpmTaskPageReqVO.class);
         verify(taskService).getTaskDonePage(eq(100L), captor.capture());
         assertEquals("已办", captor.getValue().getName());
+    }
+
+    @Test
+    void pageDoneKeepsLegacyHistoricTaskWhenTaskStatusIsMissing() {
+        HistoricTaskInstance task = mock(HistoricTaskInstance.class);
+        when(task.getId()).thenReturn("task-done-legacy");
+        when(task.getName()).thenReturn("历史已办审批");
+        when(task.getTaskDefinitionKey()).thenReturn("legacyApprovalTask");
+        when(task.getProcessInstanceId()).thenReturn("pi-done-legacy");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getEndTime()).thenReturn(new Date(1782180300000L));
+        when(task.getTaskLocalVariables()).thenReturn(Map.of());
+        HistoricProcessInstance instance = mock(HistoricProcessInstance.class);
+        when(instance.getId()).thenReturn("pi-done-legacy");
+        when(instance.getName()).thenReturn("历史已办审批");
+        when(instance.getProcessVariables()).thenReturn(Map.of());
+        when(taskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(processInstanceService.getHistoricProcessInstances(Set.of("pi-done-legacy")))
+                .thenReturn(List.of(instance));
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.DONE, ApprovalModuleCode.BPM, null, 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("BPM:BPM_TASK_DONE:task-done-legacy", summary.getId());
+        assertEquals("DONE", summary.getBusinessStatus());
+        assertNull(summary.getApprovalResult());
+        assertNull(summary.getApprovalRemark());
+        assertEquals("pi-done-legacy", summary.getDetailQuery().get("id"));
+    }
+
+    private static RoleRespDTO registrationManagerRole() {
+        RoleRespDTO role = new RoleRespDTO();
+        role.setId(990819191L);
+        role.setCode("dcc_registration_certificate_approver");
+        role.setName("注册部经理");
+        role.setStatus(0);
+        return role;
+    }
+
+    @Test
+    void pageDoneUsesHistoricProcessVariablesForReadableBusinessSummary() {
+        HistoricTaskInstance task = mock(HistoricTaskInstance.class);
+        when(task.getId()).thenReturn("task-done-regcert");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-done-regcert");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getEndTime()).thenReturn(new Date(1782180300000L));
+        when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 2));
+
+        HistoricProcessInstance instance = mock(HistoricProcessInstance.class);
+        when(instance.getId()).thenReturn("pi-done-regcert");
+        when(instance.getName()).thenReturn("Registration certificate access workflow");
+        when(instance.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 8802L,
+                "requestType", "DOWNLOAD_FILE",
+                "requestKey", "REG-DOWNLOAD-20260831-001",
+                "certificateId", 7702L,
+                "ownerCompanyId", 6602L));
+        when(taskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(processInstanceService.getHistoricProcessInstances(Set.of("pi-done-regcert")))
+                .thenReturn(List.of(instance));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.DONE, ApprovalModuleCode.BPM, null, 1, 10)).getList().get(0);
+
+        assertEquals("注册证下载审批 REG-DOWNLOAD-20260831-001", summary.getBusinessTitle());
+        assertEquals("REG-DOWNLOAD-20260831-001", summary.getBusinessCode());
+        assertEquals(List.of("申请类型：注册证下载", "申请编号：8802", "注册证：7702", "所属公司：6602"),
+                summary.getBusinessContextTags());
+        assertEquals("注册证访问审批", summary.getCurrentNodeName());
+    }
+
+    @Test
+    void pageDoneReturnsEmptyWithoutHistoricProcessLookup() {
+        when(taskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(PageResult.empty());
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.DONE, ApprovalModuleCode.BPM, null, 1, 10));
+
+        assertTrue(page.getList().isEmpty());
+        assertEquals(0L, page.getTotal());
+        verify(processInstanceService, never()).getHistoricProcessInstances(any());
+    }
+
+    @Test
+    void pageDoneFailsWhenHistoricProcessInstanceIsMissing() {
+        HistoricTaskInstance task = mock(HistoricTaskInstance.class);
+        when(task.getProcessInstanceId()).thenReturn("pi-done-missing");
+        when(taskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(processInstanceService.getHistoricProcessInstances(Set.of("pi-done-missing")))
+                .thenReturn(List.of());
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> provider.page(ApprovalTaskQueryContext.of(100L,
+                        ApprovalTaskViewType.DONE, ApprovalModuleCode.BPM, null, 1, 10)));
+
+        assertEquals("APPROVAL_PROCESS_INSTANCE_REQUIRED: BPM done pi-done-missing", exception.getMessage());
     }
 
     @Test
@@ -328,6 +1184,32 @@ class BpmNativeApprovalTaskProviderTest {
                 ArgumentCaptor.forClass(BpmProcessInstancePageReqVO.class);
         verify(processInstanceService).getProcessInstancePage(eq(100L), captor.capture());
         assertEquals("流程", captor.getValue().getName());
+    }
+
+    @Test
+    void pageMyInitiatedUsesProcessVariablesForReadableBusinessSummary() {
+        HistoricProcessInstance instance = mock(HistoricProcessInstance.class);
+        when(instance.getId()).thenReturn("pi-initiated-route");
+        when(instance.getName()).thenReturn("MES route version publish workflow");
+        when(instance.getBusinessKey()).thenReturn("route-version-501");
+        when(instance.getStartUserId()).thenReturn("100");
+        when(instance.getStartTime()).thenReturn(new Date(1782180000000L));
+        when(instance.getProcessVariables()).thenReturn(Map.of(
+                "businessType", "MES_ROUTE_VERSION_PUBLISH",
+                "routeId", 901L,
+                "routeCode", "ROUTE-20260831-001",
+                "routeName", "球囊扩张压力泵生产路线",
+                "routeVersionNo", "V31"));
+        when(processInstanceService.getProcessInstancePage(eq(100L), any(BpmProcessInstancePageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(instance), 1L));
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.MY_INITIATED, ApprovalModuleCode.BPM, null, 1, 10)).getList().get(0);
+
+        assertEquals("工艺路线发布 球囊扩张压力泵生产路线 V31", summary.getBusinessTitle());
+        assertEquals("ROUTE-20260831-001", summary.getBusinessCode());
+        assertEquals(List.of("路线编号：ROUTE-20260831-001", "路线名称：球囊扩张压力泵生产路线", "版本：V31"),
+                summary.getBusinessContextTags());
     }
 
     @Test

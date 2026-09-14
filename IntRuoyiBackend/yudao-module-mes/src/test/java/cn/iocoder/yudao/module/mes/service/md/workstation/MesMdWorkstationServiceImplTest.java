@@ -26,6 +26,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
@@ -96,6 +97,34 @@ class MesMdWorkstationServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void createWorkstation_withoutWarehouseHierarchy_keepsFieldsEmpty() {
+        MesMdWorkstationSaveReqVO reqVO = new MesMdWorkstationSaveReqVO();
+        reqVO.setCode("WS-NO-WAREHOUSE-01");
+        reqVO.setName("无仓储配置工作站");
+        reqVO.setWorkshopId(10L);
+        reqVO.setProcessId(20L);
+        reqVO.setShiftHours(new BigDecimal("8"));
+        reqVO.setStatus(CommonStatusEnum.ENABLE.getStatus());
+
+        when(workshopService.getWorkshop(10L)).thenReturn(MesMdWorkshopDO.builder().id(10L).build());
+        doNothing().when(processService).validateProcessExistsAndEnable(20L);
+        when(warehouseService.ensureWarehouseByCode(MesWmWarehouseDO.WIP_VIRTUAL_WAREHOUSE))
+                .thenReturn(MesWmWarehouseDO.builder().id(30L).build());
+        when(locationService.getWarehouseLocationByCode(MesWmWarehouseLocationDO.WIP_VIRTUAL_LOCATION))
+                .thenReturn(MesWmWarehouseLocationDO.builder().id(31L).warehouseId(30L).build());
+        when(areaService.getWarehouseAreaByCode(MesWmWarehouseAreaDO.WIP_VIRTUAL_AREA))
+                .thenReturn(MesWmWarehouseAreaDO.builder().id(32L).locationId(31L).build());
+
+        Long id = workstationService.createWorkstation(reqVO);
+
+        MesMdWorkstationDO workstation = workstationMapper.selectById(id);
+        assertNotNull(workstation);
+        assertNull(workstation.getWarehouseId());
+        assertNull(workstation.getLocationId());
+        assertNull(workstation.getAreaId());
+    }
+
+    @Test
     void updateWorkstation_persistShiftHours() {
         MesMdWorkstationDO existing = MesMdWorkstationDO.builder()
                 .code("WS-CAP-02")
@@ -138,6 +167,47 @@ class MesMdWorkstationServiceImplTest extends BaseDbUnitTest {
 
         MesMdWorkstationDO workstation = workstationMapper.selectById(existing.getId());
         assertEquals(0, workstation.getShiftHours().compareTo(new BigDecimal("6.5")));
+    }
+
+    @Test
+    void updateWorkstation_withClearedWarehouseHierarchy_persistsNulls() {
+        MesMdWorkstationDO existing = MesMdWorkstationDO.builder()
+                .code("WS-CLEAR-WAREHOUSE-01")
+                .name("清空仓储配置工作站")
+                .workshopId(10L)
+                .processId(20L)
+                .warehouseId(30L)
+                .locationId(31L)
+                .areaId(32L)
+                .shiftHours(new BigDecimal("8"))
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        workstationMapper.insert(existing);
+
+        MesMdWorkstationSaveReqVO reqVO = new MesMdWorkstationSaveReqVO();
+        reqVO.setId(existing.getId());
+        reqVO.setCode(existing.getCode());
+        reqVO.setName(existing.getName());
+        reqVO.setWorkshopId(10L);
+        reqVO.setProcessId(20L);
+        reqVO.setShiftHours(new BigDecimal("8"));
+        reqVO.setStatus(CommonStatusEnum.ENABLE.getStatus());
+
+        when(workshopService.getWorkshop(10L)).thenReturn(MesMdWorkshopDO.builder().id(10L).build());
+        doNothing().when(processService).validateProcessExistsAndEnable(20L);
+        when(warehouseService.ensureWarehouseByCode(MesWmWarehouseDO.WIP_VIRTUAL_WAREHOUSE))
+                .thenReturn(MesWmWarehouseDO.builder().id(40L).build());
+        when(locationService.getWarehouseLocationByCode(MesWmWarehouseLocationDO.WIP_VIRTUAL_LOCATION))
+                .thenReturn(MesWmWarehouseLocationDO.builder().id(41L).warehouseId(40L).build());
+        when(areaService.getWarehouseAreaByCode(MesWmWarehouseAreaDO.WIP_VIRTUAL_AREA))
+                .thenReturn(MesWmWarehouseAreaDO.builder().id(42L).locationId(41L).build());
+
+        workstationService.updateWorkstation(reqVO);
+
+        MesMdWorkstationDO workstation = workstationMapper.selectById(existing.getId());
+        assertNull(workstation.getWarehouseId());
+        assertNull(workstation.getLocationId());
+        assertNull(workstation.getAreaId());
     }
 
     @Test

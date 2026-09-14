@@ -182,7 +182,7 @@
             type="warning"
             :loading="runningHandlerName === row.handlerName"
             @click="runSyncJob(row)"
-            v-hasPermi="['infra:job:trigger']"
+            v-hasPermi="['erp:kingdee-sync:query']"
           >
             增量同步
           </el-button>
@@ -243,9 +243,20 @@ const { push } = useRouter()
 const syncTypes = [
   { type: 'PRODUCT', label: 'ERP 商品', handlerName: 'kingdeeProductItemSyncJob' },
   { type: 'STOCK', label: 'ERP 库存', handlerName: 'kingdeeStockSyncJob' },
+  { type: 'STOCK_MOVE', label: '金蝶调拨单', handlerName: 'kingdeeStockMoveSyncJob' },
   { type: 'PURCHASE_ORDER', label: '采购订单', handlerName: 'kingdeePurchaseOrderSyncJob' },
   { type: 'SALE_ORDER', label: '销售订单', handlerName: 'kingdeeSaleOrderSyncJob' },
   { type: 'PRODUCTION_ORDER', label: '生产工单', handlerName: 'kingdeeProductionOrderSyncJob' },
+  {
+    type: 'PRODUCTION_PICK_LIST',
+    label: '生产领料单列表',
+    handlerName: 'kingdeeProductionPickListSyncJob'
+  },
+  {
+    type: 'PRODUCTION_REPLENISHMENT_LIST',
+    label: '生产补料单列表',
+    handlerName: 'kingdeeProductionReplenishmentListSyncJob'
+  },
   {
     type: 'PRODUCTION_MATERIAL_LIST',
     label: '生产用料清单',
@@ -420,10 +431,10 @@ const openJobLogPage = (handlerName: string) => {
   push({ name: 'InfraJobLog', query: { handlerName } })
 }
 
-const runSyncJob = async (row: { handlerName: string; label: string }) => {
+const runSyncJob = async (row: { type: string; handlerName: string; label: string }) => {
   runningHandlerName.value = row.handlerName
   try {
-    await ErpKingdeeSyncApi.runIncrementalSyncJob(row.handlerName)
+    await ErpKingdeeSyncApi.runIncrementalSync(row.type)
     if (row.handlerName === 'kingdeeProductionOrderSyncJob' && lastProductionOrderClosure.value) {
       lastProductionOrderClosure.value = {
         ...lastProductionOrderClosure.value,

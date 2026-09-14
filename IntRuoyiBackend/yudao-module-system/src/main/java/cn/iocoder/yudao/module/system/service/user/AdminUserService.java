@@ -10,11 +10,13 @@ import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserImportEx
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserDingTalkImportExcelVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserDingTalkImportRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserImportRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserLifecycleDeactivateReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserSaveReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import jakarta.validation.Valid;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -59,6 +61,37 @@ public interface AdminUserService {
     void updateUserLogin(Long id, String loginIp);
 
     /**
+     * 记录用户登录失败
+     *
+     * @param id 用户编号
+     */
+    void recordUserLoginFailure(Long id);
+
+    /**
+     * 清空用户登录失败信息
+     *
+     * @param id 用户编号
+     */
+    void resetUserLoginFailure(Long id);
+
+    /**
+     * 管理员解锁用户登录/签名失败锁定。
+     *
+     * @param id 用户编号
+     * @param reason 解锁原因
+     */
+    void resetUserLoginFailure(Long id, String reason);
+
+    /**
+     * 使用当前实名账号的密码执行正式电子签名重新认证。
+     *
+     * @param id 当前登录用户编号
+     * @param rawPassword 本人密码明文，仅允许停留在调用栈中
+     * @return 重新认证通过的用户
+     */
+    AdminUserDO reauthenticateForSignature(Long id, String rawPassword);
+
+    /**
      * 修改用户个人信息
      *
      * @param id 用户编号
@@ -89,6 +122,22 @@ public interface AdminUserService {
      * @param status 状态
      */
     void updateUserStatus(Long id, Integer status);
+
+    /**
+     * 登记离职/转岗单据，并按生效时间联动停用用户。
+     *
+     * @param reqVO 离职/转岗单据信息
+     */
+    void recordUserLifecycleDeactivation(@Valid UserLifecycleDeactivateReqVO reqVO);
+
+    /**
+     * 处理到期的离职/转岗账号停用。
+     *
+     * @param now 当前时间
+     * @param limit 单次处理上限
+     * @return 处理数量
+     */
+    int processDueLifecycleDeactivations(LocalDateTime now, int limit);
 
     /**
      * 删除用户
@@ -189,6 +238,13 @@ public interface AdminUserService {
      * @return 用户列表
      */
     List<AdminUserDO> getUserListByNickname(String nickname);
+
+    /**
+     * 获得存量通用账户用户列表
+     *
+     * @return 用户列表
+     */
+    List<AdminUserDO> getGenericAccountUserList();
 
     /**
      * 批量导入用户

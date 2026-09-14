@@ -27,10 +27,17 @@ assert.ok(source.includes('preflightStale'), '修改范围或参数后必须识�
 assert.ok(source.includes('JSON.stringify(lastPreflightRequest.value) !== JSON.stringify(currentRequest)'), '预检上下文必须按范围、起排时间和产能模式比对')
 assert.ok(source.includes('preflightResult.value = null'), '切换重排范围时必须清空旧预检结果')
 assert.ok(source.includes('runPreflightForRequest(applyRequest)'), '应用重排确认时必须按当前开始日期重新执行排产前检查')
-assert.ok(source.includes("throw new Error('排产前检查存在阻断问题，不能应用重排')"), '应用重排前必须阻断本次预检发现的阻断问题')
 assert.ok(
-  source.includes('重排预览存在阻断问题，请先处理下方问题列表后再应用重排。'),
-  '重排预览阻断提示必须引导用户按问题列表处理'
+  source.includes("throw new Error('排产前检查存在无法归因到工单的阻断问题，不能应用重排')"),
+  '应用重排前必须阻断无法归因到工单的预检阻断问题'
+)
+assert.ok(
+  !source.includes("throw new Error('排产前检查存在阻断问题，不能应用重排')"),
+  '应用重排前不得因可归因到工单的局部阻断中止整批重排'
+)
+assert.ok(
+  source.includes('重排预览存在部分工单阻断；确认后将仅应用其余可排工单。'),
+  '重排预览局部阻断提示必须说明会部分应用其余可排工单'
 )
 assert.ok(
   !source.includes('重排预览存在阻断问题，需先补齐缺失班次后再提交审批。'),

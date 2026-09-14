@@ -1,0 +1,156 @@
+{
+  "file": {
+    "id": "2054545668044070281",
+    "title": "Codex DCC 培训阅读确认 20260802093955",
+    "status": "ACTIVE",
+    "masterId": "2054545668044062890",
+    "versionNo": "V1.0",
+    "changeType": "NEW",
+    "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+    "approvedTime": "2026-08-02 19:39:32",
+    "needTraining": 1,
+    "publishedTime": "2026-08-02 19:39:32",
+    "stampedFileId": "9198354916366",
+    "publishedFileId": "9198354916366",
+    "processInstanceId": "24aa2cd4-8e56-11f1-ada6-00155d2984a0"
+  },
+  "master": {
+    "id": "2054545668044062890",
+    "status": "ACTIVE_CHAIN",
+    "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+    "currentActiveControlledFileId": "2054545668044070281"
+  },
+  "checkedAt": "2026-08-02 19:40:12",
+  "trainings": [
+    {
+      "id": "108",
+      "status": "ACKNOWLEDGED",
+      "departmentId": "339",
+      "departmentName": "生产计划"
+    },
+    {
+      "id": "109",
+      "status": "ACKNOWLEDGED",
+      "departmentId": "253",
+      "departmentName": "质量体系部"
+    }
+  ],
+  "progressRows": [
+    {
+      "id": "1028",
+      "userId": "885",
+      "nickname": "陈晨",
+      "username": "chenchen",
+      "lastViewedAt": "2026-08-02 19:27:54",
+      "firstViewedAt": "2026-08-02 18:52:37",
+      "acknowledgedAt": "2026-08-02 19:25:34",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 748
+    },
+    {
+      "id": "1029",
+      "userId": "937",
+      "nickname": "孙荣荣",
+      "username": "sunrongrong",
+      "lastViewedAt": "2026-08-02 19:27:55",
+      "firstViewedAt": "2026-08-02 18:55:03",
+      "acknowledgedAt": "2026-08-02 19:25:54",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 725
+    },
+    {
+      "id": "1030",
+      "userId": "957",
+      "nickname": "刘儒",
+      "username": "liuru",
+      "lastViewedAt": "2026-08-02 19:27:55",
+      "firstViewedAt": "2026-08-02 18:55:03",
+      "acknowledgedAt": "2026-08-02 19:26:54",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 663
+    },
+    {
+      "id": "1031",
+      "userId": "1074",
+      "nickname": "赵杰",
+      "username": "zhaojie",
+      "lastViewedAt": "2026-08-02 19:24:11",
+      "firstViewedAt": "2026-08-02 18:23:00",
+      "acknowledgedAt": "2026-08-02 19:23:42",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 628
+    },
+    {
+      "id": "1032",
+      "userId": "1194",
+      "nickname": "薛建霞",
+      "username": "xuejianxia",
+      "lastViewedAt": "2026-08-02 19:27:55",
+      "firstViewedAt": "2026-08-02 18:55:03",
+      "acknowledgedAt": "2026-08-02 19:25:44",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 709
+    },
+    {
+      "id": "1033",
+      "userId": "1354",
+      "nickname": "滕伟华",
+      "username": "tengweihua",
+      "lastViewedAt": "2026-08-02 19:27:55",
+      "firstViewedAt": "2026-08-02 18:55:03",
+      "acknowledgedAt": "2026-08-02 19:26:54",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 666
+    },
+    {
+      "id": "1034",
+      "userId": "1453",
+      "nickname": "石海松",
+      "username": "shihaisong",
+      "lastViewedAt": "2026-08-02 19:27:55",
+      "firstViewedAt": "2026-08-02 18:55:03",
+      "acknowledgedAt": "2026-08-02 19:27:44",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 616
+    },
+    {
+      "id": "1035",
+      "userId": "1499",
+      "nickname": "马玲玲",
+      "username": "malingling",
+      "lastViewedAt": "2026-08-02 19:27:56",
+      "firstViewedAt": "2026-08-02 18:55:03",
+      "acknowledgedAt": "2026-08-02 19:26:54",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 666
+    },
+    {
+      "id": "1036",
+      "userId": "424",
+      "nickname": "赵明玉",
+      "username": "zhaomingyu",
+      "lastViewedAt": "2026-08-02 18:38:06",
+      "firstViewedAt": "2026-08-02 18:23:00",
+      "acknowledgedAt": "2026-08-02 18:37:37",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 625
+    }
+  ],
+  "wangsiyuRole": true,
+  "distributeRole": {
+    "id": "910431",
+    "code": "dcc_distribute_e2e",
+    "name": "DCC Distribute E2E",
+    "status": 0,
+    "tenantId": "1"
+  },
+  "distributeRule": {
+    "id": "2623",
+    "active": 1,
+    "scopeType": "GLOBAL",
+    "subjectId": "910431",
+    "actionType": "DISTRIBUTE",
+    "categoryId": "906104",
+    "subjectType": "ROLE"
+  }
+}

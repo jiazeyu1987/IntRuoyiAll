@@ -8,6 +8,7 @@ import lombok.Getter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -34,7 +35,7 @@ public enum RuntimeControlOperationAction {
             "script/deploy/publish-int-ruoyi.ps1",
             reqVO -> deployReleaseArguments("prod", reqVO, true)),
 
-    PROMOTE_BACKUP("promote-backup", "上线备份服务器", "backup", true,
+    PROMOTE_BACKUP("promote-backup", "上线审查服", "backup", true,
             "script/deploy/publish-int-ruoyi.ps1",
             reqVO -> deployReleaseArguments("backup", reqVO, true)),
 
@@ -93,6 +94,9 @@ public enum RuntimeControlOperationAction {
     public List<String> buildArguments(RuntimeControlActionReqVO reqVO, String operatorName,
                                        RuntimeControlProperties properties) {
         boolean linuxBackup = isBackupAction() && properties.getBackupOps().isLinuxLocal();
+        if (linuxBackup && this == BACKUP_NOW && StrUtil.isNotBlank(reqVO.getBackupKind())) {
+            throw new IllegalArgumentException("backupKind FULL/INCREMENTAL is not supported by linux-local in the minimal release");
+        }
         List<String> args = linuxBackup ? linuxBackupArguments(action, reqVO, properties)
                 : new ArrayList<>(argumentsBuilder.apply(reqVO));
         if (deploysReleasePackage()) {
@@ -152,8 +156,9 @@ public enum RuntimeControlOperationAction {
                     "selectedRecoverySetCandidateId",
                     StrUtil.blankToDefault(reqVO.getSelectedRecoverySetCandidateId(), ""),
                     "recoverySetId", StrUtil.blankToDefault(reqVO.getRecoverySetId(), ""));
-            case BACKUP_NOW -> Map.of("targetEnvironment",
-                    StrUtil.blankToDefault(reqVO.getTargetEnvironment(), ""));
+            case BACKUP_NOW -> Map.of(
+                    "targetEnvironment", StrUtil.blankToDefault(reqVO.getTargetEnvironment(), ""),
+                    "backupKind", StrUtil.blankToDefault(reqVO.getBackupKind(), ""));
             case ROLLBACK_APP -> Map.of("selectedImageCandidateId", StrUtil.blankToDefault(reqVO.getSelectedImageCandidateId(), ""),
                     "selectedImageTag", StrUtil.blankToDefault(reqVO.getSelectedImageTag(), ""),
                     "targetEnvironment", StrUtil.blankToDefault(reqVO.getTargetEnvironment(), ""));
@@ -373,8 +378,18 @@ public enum RuntimeControlOperationAction {
         args.add(mode);
         args.add("-NonInteractive");
         if ("backup-now".equals(mode)) {
+            String backupKind = StrUtil.trimToEmpty(reqVO.getBackupKind()).toUpperCase(Locale.ROOT);
+            if (!List.of("FULL", "INCREMENTAL").contains(backupKind)) {
+                throw new IllegalArgumentException("backupKind must be FULL or INCREMENTAL");
+            }
             args.add("-TargetEnvironment");
             args.add(StrUtil.trim(reqVO.getTargetEnvironment()));
+            args.add("-BackupKind");
+            args.add(backupKind);
+            if ("prod".equals(StrUtil.trim(reqVO.getTargetEnvironment()))) {
+                args.add("-ProductionBackupConfirmText");
+                args.add("PROD-BACKUP-172.30.30.57");
+            }
         }
         if ("rollback-app".equals(mode)) {
             args.add("-TargetEnvironment");

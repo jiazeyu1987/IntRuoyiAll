@@ -7,6 +7,7 @@ export interface BatchRecordCellLinkFormVO {
   formSlotType?: string
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
+  routeProcessId?: number
   sourceTableIndex?: number
   tableTitle?: string
   reportId: string
@@ -18,6 +19,9 @@ export interface BatchRecordCellLinkCellVO {
   rowIndex: number
   columnIndex: number
   cellKey: string
+  sourceType?: string
+  sourceFieldCode?: string
+  sourceFieldName?: string
   label?: string
   valueType?: string
   componentFlag?: string
@@ -33,13 +37,17 @@ export interface BatchRecordCellLinkRuleVO {
   scopeType?: string
   scopeId?: number
   routeId?: number
+  routeProcessId?: number
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
+  sourceType?: string
   sourceReportId: string
   sourceReportName?: string
   sourceRowIndex: number
   sourceColumnIndex: number
   sourceCellKey?: string
+  sourceFieldCode?: string
+  sourceFieldName?: string
   sourceLabel?: string
   sourceValueType?: string
   targetReportId: string
@@ -49,6 +57,7 @@ export interface BatchRecordCellLinkRuleVO {
   targetCellKey?: string
   targetLabel?: string
   targetValueType?: string
+  aggregationStrategy?: string
   overwritePolicy?: string
   templateSnapshotHash?: string
   ruleVersion?: number
@@ -56,16 +65,112 @@ export interface BatchRecordCellLinkRuleVO {
   remark?: string
 }
 
+
+export interface BatchRecordRepeatRowGroupRecordVO {
+  recordSequence: number
+  startRowIndex: number
+  endRowIndex: number
+  recordKey?: string
+}
+
+export interface BatchRecordRepeatRowGroupMappingVO {
+  sourceType: string
+  sourceFieldCode: string
+  sourceFieldName?: string
+  sourceValueType?: string
+  templateTargetRowIndex: number
+  templateTargetColumnIndex: number
+  templateTargetCellKey?: string
+  targetValueType?: string
+  projectionTargetCellKey?: string
+}
+
+export interface BatchRecordRepeatRowGroupVO {
+  id?: number
+  scopeType?: string
+  scopeId?: number
+  routeId?: number
+  batchRecordDefinitionId?: number
+  batchRecordVersionId?: number
+  routeProcessId: number
+  targetReportId: string
+  targetReportName?: string
+  templateStartRowIndex: number
+  templateEndRowIndex: number
+  repeatAreaStartRowIndex: number
+  repeatAreaEndRowIndex: number
+  sourceType?: string
+  records: BatchRecordRepeatRowGroupRecordVO[]
+  mappings: BatchRecordRepeatRowGroupMappingVO[]
+  configVersion?: number
+  templateSnapshotHash?: string
+  enabled?: boolean
+  remark?: string
+}
+
+export interface BatchRecordRepeatRowGroupSaveReqVO {
+  scopeType?: string
+  scopeId?: number
+  routeId?: number
+  batchRecordDefinitionId?: number
+  batchRecordVersionId?: number
+  routeProcessId: number
+  targetReportId: string
+  templateStartRowIndex: number
+  templateEndRowIndex: number
+  repeatAreaStartRowIndex: number
+  repeatAreaEndRowIndex: number
+  records: BatchRecordRepeatRowGroupRecordVO[]
+  mappings: BatchRecordRepeatRowGroupMappingVO[]
+  enabled?: boolean
+  remark?: string
+}
+
+export type BatchRecordRepeatRowGroupSaveRespVO = BatchRecordRepeatRowGroupVO
 export interface BatchRecordCellLinkWorkbenchContextVO {
   scopeType: string
   scopeId: number
   routeId?: number
+  dccProjectCodeId?: number
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
   forms: BatchRecordCellLinkFormVO[]
+  routeProcesses?: BatchRecordCellLinkRouteProcessVO[]
+  pqcProcesses?: BatchRecordCellLinkPqcProcessVO[]
+  sourceFields?: BatchRecordCellLinkSourceFieldVO[]
   defaultSourceReportId?: string
   defaultTargetReportId?: string
   rules: BatchRecordCellLinkRuleVO[]
+  repeatRowGroups?: BatchRecordRepeatRowGroupVO[]
+}
+
+export interface BatchRecordCellLinkPqcProcessVO {
+  id: number
+  processCode?: string
+  processName?: string
+  sort?: number
+}
+
+export interface BatchRecordCellLinkRouteProcessVO {
+  id: number
+  processId?: number
+  processCode?: string
+  processName: string
+  sort?: number
+  batchRecordReportId?: string
+}
+
+export interface BatchRecordCellLinkSourceFieldVO {
+  sourceType: string
+  fieldCode: string
+  fieldName: string
+  valueType?: string
+  sourceCellKey?: string
+  routeProcessId?: number
+  qaProcessId?: number
+  deviceId?: number
+  deviceCode?: string
+  deviceName?: string
 }
 
 export interface BatchRecordCellLinkFormCellsVO {
@@ -82,15 +187,18 @@ export interface BatchRecordCellLinkRulesSaveReqVO {
   scopeType?: string
   scopeId?: number
   routeId?: number
+  routeProcessId?: number
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
   rules: BatchRecordCellLinkRuleVO[]
+  repeatRowGroups?: BatchRecordRepeatRowGroupVO[]
 }
 
 export interface BatchRecordCellLinkRulesSaveRespVO {
   savedCount: number
   ruleVersion: number
   rules: BatchRecordCellLinkRuleVO[]
+  repeatRowGroups?: BatchRecordRepeatRowGroupVO[]
 }
 
 export interface BatchRecordCellLinkPrefillItemVO {
@@ -99,9 +207,12 @@ export interface BatchRecordCellLinkPrefillItemVO {
   targetColumnIndex: number
   value?: unknown
   sourceExecutionId?: number
+  sourceType?: string
   sourceReportId?: string
   sourceReportName?: string
   sourceCellKey?: string
+  sourceFieldCode?: string
+  sourceFieldName?: string
   sourceLabel?: string
   ruleId?: number
   ruleVersion?: number
@@ -121,6 +232,11 @@ export const BatchRecordCellLinkApi = {
     definitionId?: number
     versionId?: number
     sourceReportId?: string
+    templateId?: number
+    versionNo?: string
+    routeProcessId?: number
+    qaProcessId?: number
+    dccProjectCodeId?: number
   }) => {
     return await request.get<BatchRecordCellLinkWorkbenchContextVO>({
       url: '/mes/pro/batch-record-cell-link/workbench-context',
@@ -138,6 +254,13 @@ export const BatchRecordCellLinkApi = {
   saveRules: async (data: BatchRecordCellLinkRulesSaveReqVO) => {
     return await request.post<BatchRecordCellLinkRulesSaveRespVO>({
       url: '/mes/pro/batch-record-cell-link/rules/save',
+      data
+    })
+  },
+
+  saveRepeatRowGroup: async (data: BatchRecordRepeatRowGroupSaveReqVO) => {
+    return await request.post<BatchRecordRepeatRowGroupSaveRespVO>({
+      url: '/mes/pro/batch-record-cell-link/repeat-row-group/save',
       data
     })
   },

@@ -1,0 +1,93 @@
+# 执行日志
+
+## 用户意图
+
+- 2026-08-10：用户要求“提交推送当前代码”。
+- 授权范围：当前 `E:\IntRuoyi` 仓库 `int_main` 分支中的现有代码及配套测试、SQL、规则和任务记录；不包含被忽略的构建产物或损坏的 `target_corrupt_*` 目录。
+
+## 前置检查
+
+- 已读取 `docs\task-closeout-rules.md`、`docs\powershell-memory.md`、`docs\powershell-encoding.md`、`docs\worktree-restrictions.md`、`docs\branch-runtime-ports.md` 和 `docs\experience-index.md`。
+- Git 根目录：`E:/IntRuoyi`。
+- 当前分支：`int_main`。
+- 远端：`origin` 指向 `https://github.com/jiazeyu1987/IntRuoyiAll.git`。
+- 初始状态：本地分支领先 `origin/int_main` 4 个提交，并存在 57 个已跟踪改动和 104 个未跟踪文件。
+- Git 状态扫描对被忽略的 `IntRuoyiBackend/yudao-module-mes/target_corrupt_m4_20260802_1327` 损坏目录产生 Windows 文件系统警告；该目录不在待提交清单中，不执行删除或修复。
+
+## 里程碑记录
+
+- M1 仓库确认：完成。
+- M2 待提交内容审查：完成。
+- M3 提交前验证：完成。
+
+## 命令意图
+
+- `git status --short --branch`：盘点当前分支、领先状态和全部待提交改动。
+- `git branch --show-current` / `git remote -v`：确认提交和推送目标。
+- 后续命令将记录实际退出码和验证摘要，不记录凭据。
+
+## 提交前验证
+
+- 当前正式代码候选首次盘点为 68 个文件；暂存后复扫发现并行保存的 2 个后端测试文件，审计后纳入当前快照，最终暂存 70 个文件。
+- 暂存范围：仅 `IntRuoyiBackend/` 与 `IntRuoyiFronted/` 下正式源码、测试、SQL 和可执行测试脚本；未暂存 `AGENTS.md`、`docs/`、其它任务目录和编译产物。
+- `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main/int_main` 使用前端 8081、后端 48081。
+- 首次 `git diff --cached --check` -> FAIL，2 个新增文件末尾存在多余空行；仅移除对应空行后复验 PASS。
+- 暂存统计：70 files changed，3454 insertions，240 deletions。
+- 暂存审计：越界路径 0、临时/运行态路径 0、强特征凭据 0、冲突标记 0、UTF-8 解码失败 0、超过 50 MB 文件 0。
+- 待推送历史大文件门禁：1149 个对象、822 个 blob，最大 blob 1,448,982 字节，超过 100 MB 的 blob 为 0。
+- `git ls-remote origin HEAD` 首次因 TLS unexpected EOF 失败；确认 GitHub 443 可达、Windows 代理 `127.0.0.1:7890` 已启用且监听后，使用一次性同端口代理复验 PASS，未修改 Git 配置或 remote。
+- 已知产品状态：工作区包含其它 `in_progress`、`ready_for_closeout` 和 `blocked` 任务记录；本次提交仅保存用户明确要求的当前正式代码快照，不把缺少真实 E2E 夹具或真实金蝶只读凭据等阻塞记录成 PASS。
+
+## 阻塞项
+
+- 当前无阻塞项。
+
+## 提交与并发处理
+
+- First commit attempt: `git commit -m "chore: checkpoint current frontend backend code round 2"` 卡住，后续确认该本任务自有 `git commit` 进程超过 7 分钟无 CPU、I/O 或锁文件变化；终止该精确进程树后，确认活动 Git 进程归零、`.git/index.lock` 为 0 字节且超过 60 秒，按门禁删除该精确锁文件并恢复索引。
+- Concurrent Git operation: 另一个任务在同一主工作区执行 `git stash push -u -m "premerge dcc-project-code-assignment-scope overlap"`，本任务等待并确认它完成，不删除其锁、不终止其进程、不弹出其 stash。
+- Concurrent merge: 同一并发任务随后执行 `git merge --ff-only codex/20260810-dcc-project-code-assignment-scope` 并把 `f6a981349`、`994f781b6` 合入 `int_main`；本任务重新核对 HEAD 后继续。
+- CODE COMMIT: `61ba202942b4399fa274a0a4fe0b488fb4a030e1 chore: checkpoint current frontend backend code round 2` -> PASS，hooks 中分支运行端口守卫通过。
+- Post-commit scan: 前后端 tracked/untracked 代码残余再次出现 8 个文件，归因于并发任务/延迟保存；按用户“当前代码”要求单独审计。
+- GREEN: residual code audit -> PASS，8 个前后端源码/测试文件无强特征凭据、无冲突标记、无超过 50 MB 文件，`git diff --cached --check` 通过。
+- CODE COMMIT: `e3b8691b03eee9be07297c8b54bf4363c2b01332 chore: checkpoint residual frontend backend code` -> PASS，8 files changed，131 insertions，43 deletions，hooks 中分支运行端口守卫通过。
+- Final code scan: `git diff --name-only HEAD -- IntRuoyiBackend IntRuoyiFronted` -> 0；`git ls-files --others --exclude-standard -- IntRuoyiFronted` -> 0；`git ls-files --others --exclude-standard -- IntRuoyiBackend ':(exclude)IntRuoyiBackend/yudao-module-mes/target_corrupt_m4_20260802_1327/**'` -> 0。
+- Experience consolidation: 已读取 `project-experience-consolidation`；现有 `docs/powershell-memory.md#Git index.lock 陈旧锁恢复门禁` 与 `docs/powershell-memory.md#Maven 目标目录文件系统异常门禁` 已覆盖本次主要复用经验，未创建新的长期经验文档。
+
+## 收尾准备
+
+- 当前状态更新为 `ready_for_closeout`，准备运行 task-closeout-cleanup preview/apply。
+- CLEANUP PREVIEW: `task_closeout.py --task-id 20260810-commit-push-current-code-round2 --mode preview` -> READY；keep 为 `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为空。
+- CLEANUP APPLY: `task_closeout.py --task-id 20260810-commit-push-current-code-round2 --mode apply` -> APPLIED；当前为主工作区，未删除文件，不涉及 worktree 合并或移除。
+- CLOSEOUT RECORD COMMIT: `80920c42b docs: record current code push round 2 closeout` -> PASS，提交三份核心任务记录。
+- Pre-push code scan: cleanup 记录提交后又发现 5 个并发保存的前后端文件；按门禁停止推送并单独审计。
+- GREEN: late code audit -> PASS，5 个文件无强特征凭据、无冲突标记、无超过 50 MB 文件，`git diff --cached --check` 通过。
+- CODE COMMIT: `052c73596 chore: checkpoint late frontend backend changes` -> PASS，5 files changed，74 insertions，82 deletions。
+- Final code rescan: 前后端 tracked 代码残余 0、untracked frontend 0、untracked backend 0。
+- Pre-push code scan: 收尾检查点提交后又发现 1 个 `MesReportAllocationCommandService.java` 晚到改动；按门禁停止推送并单独审计。
+- GREEN: final backend audit -> PASS，强特征凭据、冲突标记、大文件和 `git diff --cached --check` 均通过。
+- CODE COMMIT: `4e97a301bd611ae19cae1d428ee34b55f42a901f chore: checkpoint final backend change` -> PASS。
+- FINAL PRE-PUSH GATES: 前后端 tracked/untracked 代码残余 0，暂存区 0；分支运行端口守卫 PASS；待推送历史 1524 个对象、924 个 blob，最大 blob 1,448,982 字节，超过 100 MB 为 0。
+- PUSH: `git -c http.https://github.com.proxy=http://127.0.0.1:7890 push origin int_main` -> PASS；`git ls-remote --heads origin int_main`、本地 HEAD、`origin/int_main` 均为 `4e97a301bd611ae19cae1d428ee34b55f42a901f`。
+- POST-PUSH CODE RESCAN: 前后端 tracked 代码残余 0、untracked frontend 0、untracked backend 0。
+- Final status: `completed`；准备提交并推送本次最终完成记录。
+- Final-record pre-push scan: 创建最终完成记录提交后，同一 `MesReportAllocationCommandService.java` 又出现 12 insertions / 7 deletions 的真实并发改动，按门禁再次停止推送。
+- Stability check: 对该文件间隔 8 秒计算 SHA-256，两次均为 `FE63AE4807E106C90E4FAC54D802E1635440FB84D560F2A4A68286EB79A6F3CE`，最后写入时间未变化，确认当前内容稳定。
+- GREEN: stabilized backend audit -> PASS，强特征凭据、冲突标记、大文件和 `git diff --cached --check` 均通过。
+- CODE COMMIT: `3c941091fccfe7b0cf19a31aeabcad5763c6e6df chore: checkpoint stabilized backend change` -> PASS。
+- FINAL RECORD COMMIT: `5e5a7ad88e130e1580b79df4dcb55ff966700e37 docs: finalize current code push round 2 records` -> PASS。
+- FINAL PUSH: `git -c http.https://github.com.proxy=http://127.0.0.1:7890 push origin int_main` -> PASS，`4e97a301b..5e5a7ad88 int_main -> int_main`。
+- FINAL REMOTE CHECK: 首次独立 `ls-remote` 因瞬时 TLS EOF 失败；同一已验证代理重试成功，远端 `int_main`、本地 HEAD、`origin/int_main` 均为 `5e5a7ad88e130e1580b79df4dcb55ff966700e37`，ahead/behind 为 `0/0`。
+- Post-final remote check: 又发现 2 个后端 release writer 实现文件的并发真实改动；对两文件间隔 8 秒计算 SHA-256，哈希和最后写入时间均稳定。
+- GREEN: release writer audit -> PASS，2 个文件无强特征凭据、无冲突标记、无超过 50 MB 文件，`git diff --cached --check` 通过。
+- CODE COMMIT: `4c3bdc02b73c915845ded19a93da582dad87405d chore: checkpoint release writer changes` -> PASS，2 files changed，66 insertions，6 deletions。
+- PUSH: `3c45f6aaf..4c3bdc02b int_main -> int_main` -> PASS；本地 HEAD 与 `origin/int_main` 均为 `4c3bdc02b73c915845ded19a93da582dad87405d`，ahead/behind 为 `0/0`。
+- COORDINATION PAUSE: 收到 QA 规程下拉排序任务通知后，暂停 `int_main` 的提交、合并、`update-ref` 和推送；本任务未干预其原子快进与收尾。
+- COORDINATION RESUME: QA 任务解除协调后刷新主线，确认 `int_main` HEAD 为 `2e1924ae0`，包含 QA 功能融合与收尾提交；当时 `origin/int_main` 仍为 `4c3bdc02b`，本地 ahead 10。
+- FINAL CODE RESIDUAL CHECK: `git diff --name-status HEAD -- IntRuoyiBackend IntRuoyiFronted` 及两个目录的精确 untracked 扫描 -> PASS，前后端 tracked/untracked 残余均为 0。
+- OWNERSHIP CHECK: 本任务仅保留三份收尾记录待提交；`AGENTS.md`、`docs/**` 及其它 `doc/tasks/**` 改动均属于其它任务，本任务不暂存、不修改、不清理。
+- FINAL STAGE CHECK: 精确暂存本任务三份收尾记录；`git diff --cached --name-status` 仅包含 `task.md`、`execution-log.md`、`verification-report.md`，`git diff --cached --check` 通过。
+- FINAL PORT GUARD: `scripts\\preflight\\branch-runtime-port-guard.ps1` -> PASS，`int_main/int_main` 端口契约为前端 `8081`、后端 `48081`。
+- FINAL CLOSEOUT COMMIT: `a00db7a2da3e49952c878f0cc48881f544af427f docs: resume current code push after QA integration` -> PASS。
+- FINAL PUSH: 首次推送因 GitHub TLS EOF 失败，远端未更新；同一已验证代理的 `ls-remote` 随后通过，原命令重试成功，`4c3bdc02b..a00db7a2d int_main -> int_main`。
+- FINAL REMOTE CHECK: GitHub `refs/heads/int_main`、本地 HEAD 与 `origin/int_main` 均为 `a00db7a2da3e49952c878f0cc48881f544af427f`，ahead/behind 为 `0/0`；前后端 tracked/untracked 残余和本任务文档残余均为 0。

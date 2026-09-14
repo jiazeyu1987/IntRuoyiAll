@@ -1,0 +1,251 @@
+{
+  "checkedAt": "2026-08-02T11:44:54.178Z",
+  "scope": "read-only DB verification for allowed-category DCC distribution/recovery E2E",
+  "fileNumber": "CODX-DCC-DIST-900347-DIST90034720260802185602",
+  "categoryId": "900347",
+  "files": [
+    {
+      "id": "2054545668044070292",
+      "tenant_id": "122",
+      "file_number": "CODX-DCC-DIST-900347-DIST90034720260802185602",
+      "version_no": "V1.0",
+      "change_type": "NEW",
+      "status": "ACTIVE",
+      "category_id": "900347",
+      "category_name": "Codex Local DCC Category",
+      "master_id": "2054545668044062901",
+      "superseded_by": null,
+      "process_instance_id": "cd97857a-8e60-11f1-93ff-00155d2984a0",
+      "approved_time": "2026-08-02 19:34:11",
+      "published_time": "2026-08-02 19:34:11"
+    },
+    {
+      "id": "2054545668044070295",
+      "tenant_id": "122",
+      "file_number": "CODX-DCC-DIST-900347-DIST90034720260802185602",
+      "version_no": "V2.0",
+      "change_type": "REVISION",
+      "status": "READY_TO_PUBLISH",
+      "category_id": "900347",
+      "category_name": "Codex Local DCC Category",
+      "master_id": "2054545668044062901",
+      "superseded_by": null,
+      "process_instance_id": "2fa0c60f-8e66-11f1-93ff-00155d2984a0",
+      "approved_time": "2026-08-02 19:35:54",
+      "published_time": null
+    }
+  ],
+  "distributions": [
+    {
+      "id": "4334",
+      "controlled_file_id": "2054545668044070292",
+      "version_no": "V1.0",
+      "file_status": "ACTIVE",
+      "distribution_medium": "PAPER",
+      "status": "PENDING",
+      "department_id": "910984",
+      "acknowledged_by": null,
+      "acknowledged_by_username": null,
+      "acknowledged_at": null,
+      "recovered_by": null,
+      "recovered_by_username": null,
+      "recovered_at": null,
+      "create_time": "2026-08-02 18:58:17"
+    },
+    {
+      "id": "4337",
+      "controlled_file_id": "2054545668044070295",
+      "version_no": "V2.0",
+      "file_status": "READY_TO_PUBLISH",
+      "distribution_medium": "PAPER",
+      "status": "PENDING",
+      "department_id": "910984",
+      "acknowledged_by": null,
+      "acknowledged_by_username": null,
+      "acknowledged_at": null,
+      "recovered_by": null,
+      "recovered_by_username": null,
+      "recovered_at": null,
+      "create_time": "2026-08-02 19:35:54"
+    }
+  ],
+  "recipients": [],
+  "categoryPermissionRules": [
+    {
+      "id": "2544",
+      "category_id": "900347",
+      "action_type": "APPROVE",
+      "subject_type": "USER",
+      "subject_id": "914520",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "256",
+      "category_id": "900347",
+      "action_type": "APPROVE",
+      "subject_type": "USER",
+      "subject_id": "113",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "2532",
+      "category_id": "900347",
+      "action_type": "DISTRIBUTE",
+      "subject_type": "USER",
+      "subject_id": "113",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "2533",
+      "category_id": "900347",
+      "action_type": "DISTRIBUTE",
+      "subject_type": "USER",
+      "subject_id": "914520",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "2534",
+      "category_id": "900347",
+      "action_type": "DOWNLOAD",
+      "subject_type": "USER",
+      "subject_id": "113",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "2617",
+      "category_id": "900347",
+      "action_type": "DOWNLOAD",
+      "subject_type": "USER",
+      "subject_id": "912399",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "2535",
+      "category_id": "900347",
+      "action_type": "OBSOLETE",
+      "subject_type": "USER",
+      "subject_id": "914520",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "2612",
+      "category_id": "900347",
+      "action_type": "OBSOLETE",
+      "subject_type": "USER",
+      "subject_id": "912399",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "2613",
+      "category_id": "900347",
+      "action_type": "OBSOLETE",
+      "subject_type": "USER",
+      "subject_id": "914515",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "2614",
+      "category_id": "900347",
+      "action_type": "OBSOLETE",
+      "subject_type": "USER",
+      "subject_id": "912703",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "255",
+      "category_id": "900347",
+      "action_type": "REVIEW",
+      "subject_type": "USER",
+      "subject_id": "113",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "2536",
+      "category_id": "900347",
+      "action_type": "UPLOAD",
+      "subject_type": "USER",
+      "subject_id": "113",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "2538",
+      "category_id": "900347",
+      "action_type": "UPLOAD",
+      "subject_type": "USER",
+      "subject_id": "914520",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "2537",
+      "category_id": "900347",
+      "action_type": "VIEW",
+      "subject_type": "USER",
+      "subject_id": "113",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "2615",
+      "category_id": "900347",
+      "action_type": "VIEW",
+      "subject_type": "USER",
+      "subject_id": "912703",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    },
+    {
+      "id": "2616",
+      "category_id": "900347",
+      "action_type": "VIEW",
+      "subject_type": "USER",
+      "subject_id": "912399",
+      "scope_type": "GLOBAL",
+      "active": "1",
+      "deleted": "0"
+    }
+  ],
+  "businessApprovalPolicies": [],
+  "businessApprovalRequests": [],
+  "findings": {
+    "categoryHasDistributeRule": true,
+    "v1Status": "ACTIVE",
+    "v2Status": "READY_TO_PUBLISH",
+    "publishPolicyMatchedByServiceQuery": false,
+    "publishPolicyCountForReadyToPublish": 0,
+    "distributionRecordIds": [
+      "4334",
+      "4337"
+    ],
+    "recoveryRecordIds": [],
+    "publishBusinessRequests": 0,
+    "blockReason": "No PUBLISHED bpm_business_approval_policy for DCC/CONTROLLED_FILE/PUBLISH/READY_TO_PUBLISH in this tenant."
+  }
+}

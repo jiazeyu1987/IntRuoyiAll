@@ -48,6 +48,7 @@ import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeRemoteRootDis
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -59,6 +60,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -247,6 +249,19 @@ public class RuntimeControlController {
     @PreAuthorize("@ss.hasPermission('infra:runtime-control:query')")
     public CommonResult<RuntimeControlInspectionRunRespVO> getInspectionRun(@PathVariable("id") Long id) {
         return success(runtimeOpsInspectionService.getInspectionRun(id));
+    }
+
+    @GetMapping("/inspection-runs/{id}/time-evidence.zip")
+    @Operation(summary = "导出指定巡检的时间戳证据")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:query')")
+    public void exportInspectionTimeEvidence(@PathVariable("id") Long id,
+                                             HttpServletResponse response) throws IOException {
+        byte[] content = runtimeOpsInspectionService.exportTimeEvidence(id);
+        response.setContentType("application/zip");
+        response.setHeader("Content-Disposition",
+                "attachment; filename=trusted-time-evidence-" + id + ".zip");
+        response.setContentLength(content.length);
+        response.getOutputStream().write(content);
     }
 
     @GetMapping("/business-health")

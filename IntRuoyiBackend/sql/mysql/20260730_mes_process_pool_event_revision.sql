@@ -1,0 +1,55 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260730_mes_process_pool_fifo_allocation; type=schema; riskLevel=medium
+-- F6: MES process pool original event revision and field-level diff.
+
+CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_event_revision` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '原始记录修改版本ID',
+    `event_id` bigint NOT NULL COMMENT '工序池提交事件ID',
+    `pool_id` bigint NOT NULL COMMENT '工序池ID',
+    `work_order_id` bigint NOT NULL COMMENT '生产工单ID',
+    `route_id` bigint NOT NULL COMMENT '工艺路线ID',
+    `route_process_id` bigint NOT NULL COMMENT '路线工序ID',
+    `process_id` bigint NOT NULL COMMENT '工序ID',
+    `before_payload` json NOT NULL COMMENT '修改前原始 payload',
+    `after_payload` json NOT NULL COMMENT '修改后原始 payload',
+    `change_reason` varchar(500) NOT NULL COMMENT '修改原因',
+    `revision_signature_id` bigint NOT NULL COMMENT '重新电子签名ID',
+    `revision_signature_user_id` bigint NOT NULL COMMENT '重新电子签名用户ID',
+    `revision_signature_snapshot` json DEFAULT NULL COMMENT '重新电子签名快照',
+    `modified_by_user_id` bigint NOT NULL COMMENT '修改人用户ID',
+    `server_revision_time` datetime NOT NULL COMMENT '服务端修改时间',
+    `revision_status` varchar(32) NOT NULL DEFAULT 'EFFECTIVE' COMMENT '修改版本状态',
+    `creator` varchar(64) DEFAULT '' COMMENT '创建者',
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updater` varchar(64) DEFAULT '' COMMENT '更新者',
+    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+    `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_mes_process_pool_event_revision_signature` (`tenant_id`, `revision_signature_id`, `deleted`),
+    KEY `idx_mes_process_pool_event_revision_event` (`tenant_id`, `event_id`, `server_revision_time`),
+    KEY `idx_mes_process_pool_event_revision_pool` (`tenant_id`, `pool_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='MES 工序池原始记录修改版本';
+
+CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_event_revision_diff` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '原始记录修改字段差异ID',
+    `revision_id` bigint NOT NULL COMMENT '原始记录修改版本ID',
+    `event_id` bigint NOT NULL COMMENT '工序池提交事件ID',
+    `field_code` varchar(128) NOT NULL COMMENT '模板字段编码',
+    `field_name` varchar(128) NOT NULL COMMENT '模板字段名称',
+    `before_value` text DEFAULT NULL COMMENT '修改前字段值',
+    `after_value` text DEFAULT NULL COMMENT '修改后字段值',
+    `affects_quantity_fragment` bit(1) NOT NULL COMMENT '是否影响数量片段/FIFO',
+    `source_quantity_fragment_id` bigint DEFAULT NULL COMMENT '来源数量片段ID',
+    `original_field_code` varchar(64) NOT NULL COMMENT '原始字段枚举编码',
+    `original_field_name` varchar(128) NOT NULL COMMENT '原始字段名称',
+    `creator` varchar(64) DEFAULT '' COMMENT '创建者',
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updater` varchar(64) DEFAULT '' COMMENT '更新者',
+    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+    `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+    PRIMARY KEY (`id`),
+    KEY `idx_mes_process_pool_event_revision_diff_revision` (`tenant_id`, `revision_id`),
+    KEY `idx_mes_process_pool_event_revision_diff_event` (`tenant_id`, `event_id`),
+    KEY `idx_mes_process_pool_event_revision_diff_fragment` (`tenant_id`, `source_quantity_fragment_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='MES 工序池原始记录修改字段差异';

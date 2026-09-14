@@ -15,7 +15,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProce
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionOrderSyncRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMachineMapper;
@@ -32,6 +34,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessCon
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionOrderSyncRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
@@ -112,6 +115,8 @@ class MesProScheduleOrderAdmissionTest {
     private MesDvMachineryProcessMapper machineryProcessMapper;
     @Mock
     private MesProProcessMapper processMapper;
+    @Mock
+    private MesKingdeeProductionOrderSyncRecordMapper syncRecordMapper;
 
     @org.junit.jupiter.api.BeforeEach
     void setUpProcessIdentity() {
@@ -126,6 +131,16 @@ class MesProScheduleOrderAdmissionTest {
                         .id(invocation.getArgument(0))
                         .routeId(invocation.getArgument(1))
                         .build());
+        org.mockito.Mockito.lenient().when(syncRecordMapper.selectByWorkOrderId(
+                        org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(invocation -> {
+                    Long workOrderId = invocation.getArgument(0);
+                    return MesKingdeeProductionOrderSyncRecordDO.builder()
+                            .workOrderId(workOrderId)
+                            .sourceFid("FID-" + workOrderId)
+                            .sourceBillNo("ERP-MO-" + workOrderId)
+                            .build();
+                });
     }
 
     private Map<Long, Long> identityMap(java.util.Collection<Long> processIds) {
@@ -236,6 +251,7 @@ class MesProScheduleOrderAdmissionTest {
                         .routeProcessId(302L)
                         .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
                         .enabled(Boolean.TRUE)
+                        .productionQuantityFactor(BigDecimal.ONE)
                         .build()));
         when(routeScheduleConfigMapper.selectListByRouteVersionId(702L)).thenReturn(List.of(
                 MesProRouteScheduleConfigDO.builder()
@@ -246,7 +262,8 @@ class MesProScheduleOrderAdmissionTest {
                         .hourlyCapacity(new BigDecimal("8.000000"))
                         .build()));
         when(processMapper.selectBatchIds(List.of(42L))).thenReturn(Collections.emptyList());
-        when(workstationMapper.selectListByProcessIds(List.of(42L))).thenReturn(Collections.emptyList());
+        when(workstationMapper.selectListByProcessIds(
+                List.of(42L), CommonStatusEnum.ENABLE.getStatus())).thenReturn(Collections.emptyList());
         doAnswer(invocation -> {
             MesProScheduleOrderDO scheduleOrder = invocation.getArgument(0);
             scheduleOrder.setId(902L);
@@ -387,7 +404,8 @@ class MesProScheduleOrderAdmissionTest {
                         .routeProcessId(306L)
                         .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
                         .build()));
-        when(workstationMapper.selectListByProcessIds(List.of(46L))).thenReturn(Collections.emptyList());
+        when(workstationMapper.selectListByProcessIds(
+                List.of(46L), CommonStatusEnum.ENABLE.getStatus())).thenReturn(Collections.emptyList());
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> scheduleOrderService.createFromWorkOrder(reqVO));
@@ -443,7 +461,8 @@ class MesProScheduleOrderAdmissionTest {
                         .routeProcessId(307L)
                         .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
                         .build()));
-        when(workstationMapper.selectListByProcessIds(List.of(47L))).thenReturn(Collections.emptyList());
+        when(workstationMapper.selectListByProcessIds(
+                List.of(47L), CommonStatusEnum.ENABLE.getStatus())).thenReturn(Collections.emptyList());
 
         MesProScheduleOrderAdmissionDiffPageRespVO result = scheduleOrderService.getAdmissionDiff(reqVO);
 
@@ -454,7 +473,7 @@ class MesProScheduleOrderAdmissionTest {
     }
 
     @Test
-    void createFromWorkOrder_shouldUseDefaultShiftHoursWhenMissing() {
+    void createFromWorkOrder_shouldUseDefaultShiftHoursWhenWorkstationShiftHoursMissing() {
         MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder()
                 .id(105L)
                 .code("ERP-MO-006")
@@ -492,6 +511,7 @@ class MesProScheduleOrderAdmissionTest {
                         .routeProcessId(305L)
                         .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
                         .enabled(Boolean.TRUE)
+                        .productionQuantityFactor(BigDecimal.ONE)
                         .build()));
         when(routeScheduleConfigMapper.selectListByRouteVersionId(705L)).thenReturn(List.of(
                 MesProRouteScheduleConfigDO.builder()
@@ -501,12 +521,14 @@ class MesProScheduleOrderAdmissionTest {
                         .capacityMode(MesProScheduleCapacityModeEnum.FINITE_HOURLY.getMode())
                         .hourlyCapacity(new BigDecimal("12.000000"))
                         .build()));
-        when(workstationMapper.selectListByProcessIds(List.of(45L))).thenReturn(List.of(
+        when(workstationMapper.selectListByProcessIds(
+                List.of(45L), CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of(
                 cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO.builder()
                         .id(505L)
                         .processId(45L)
                         .code("WS-505")
                         .name("设备工位")
+                        .singleStandardHourlyCapacity(new BigDecimal("12.000000"))
                         .build()));
         when(workstationMachineMapper.selectListByWorkstationIds(List.of(505L))).thenReturn(List.of());
         when(workstationWorkerMapper.selectListByWorkstationIds(List.of(505L))).thenReturn(List.of(
@@ -516,14 +538,25 @@ class MesProScheduleOrderAdmissionTest {
                         .quantity(1)
                         .build()));
         when(machineryProcessMapper.selectListByMachineryIds(java.util.Set.of())).thenReturn(List.of());
+        when(routeProcessFlowEdgeMapper.selectListByRouteId(35L)).thenReturn(List.of());
+        when(processMapper.selectBatchIds(List.of(45L))).thenReturn(List.of(
+                MesProProcessDO.builder().id(45L).code("B045").name("设备工序").build()));
+        doAnswer(invocation -> {
+            MesProScheduleOrderDO scheduleOrder = invocation.getArgument(0);
+            scheduleOrder.setId(905L);
+            return 1;
+        }).when(scheduleOrderMapper).insert(any(MesProScheduleOrderDO.class));
 
-        scheduleOrderService.createFromWorkOrder(reqVO);
+        Long scheduleOrderId = scheduleOrderService.createFromWorkOrder(reqVO);
 
+        assertEquals(905L, scheduleOrderId);
         ArgumentCaptor<MesProScheduleOrderProcessDO> processCaptor =
                 ArgumentCaptor.forClass(MesProScheduleOrderProcessDO.class);
         verify(scheduleOrderProcessMapper).insert(processCaptor.capture());
-        assertEquals(0, processCaptor.getValue().getShiftHours().compareTo(new BigDecimal("10.5")));
-        assertEquals(0, processCaptor.getValue().getShiftCapacityTotal().compareTo(new BigDecimal("126.0000000")));
+        MesProScheduleOrderProcessDO snapshot = processCaptor.getValue();
+        assertEquals(0, snapshot.getShiftHours().compareTo(new BigDecimal("10.5")));
+        assertEquals(0, snapshot.getHourlyCapacityTotal().compareTo(new BigDecimal("12.000000")));
+        assertEquals(0, snapshot.getShiftCapacityTotal().compareTo(new BigDecimal("126.0000000")));
     }
 
 }

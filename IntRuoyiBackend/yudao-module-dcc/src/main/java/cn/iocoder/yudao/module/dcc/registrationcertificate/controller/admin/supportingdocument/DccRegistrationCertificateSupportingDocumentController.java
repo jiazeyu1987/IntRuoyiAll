@@ -1,0 +1,63 @@
+package cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.supportingdocument;
+
+import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.common.util.monitor.TracerUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.supportingdocument.vo.DccRegistrationCertificateSupportingDocumentUploadReqVO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.supportingdocument.DccRegistrationCertificateSupportingDocumentCommand;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.supportingdocument.DccRegistrationCertificateSupportingDocumentResult;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.supportingdocument.DccRegistrationCertificateSupportingDocumentService;
+import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
+
+@Tag(name = "管理后台 - 国内注册证支持文件")
+@RestController
+@RequestMapping("/dcc/registration-certificates/{certificateId}/supporting-documents")
+@Validated
+public class DccRegistrationCertificateSupportingDocumentController {
+
+    private final DccRegistrationCertificateSupportingDocumentService supportingDocumentService;
+
+    public DccRegistrationCertificateSupportingDocumentController(
+            DccRegistrationCertificateSupportingDocumentService supportingDocumentService) {
+        this.supportingDocumentService = supportingDocumentService;
+    }
+
+    @PostMapping
+    @Operation(summary = "上传注册证支持文件")
+    @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:supporting-document:upload')")
+    public CommonResult<DccRegistrationCertificateSupportingDocumentResult> upload(
+            @PathVariable("certificateId") @Positive Long certificateId,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody DccRegistrationCertificateSupportingDocumentUploadReqVO reqVO,
+            HttpServletRequest request) {
+        String requestTraceId = DccRequestAuditContext.from(request, TracerUtils.getTraceId()).requestId();
+        return success(supportingDocumentService.upload(toCommand(
+                certificateId, idempotencyKey, reqVO.getVersionId(), reqVO.getBusinessFileId(),
+                reqVO.getDocumentType(), requestTraceId)));
+    }
+
+    private DccRegistrationCertificateSupportingDocumentCommand toCommand(
+            Long certificateId, String idempotencyKey, Long versionId, Long businessFileId,
+            String documentType, String requestTraceId) {
+        return new DccRegistrationCertificateSupportingDocumentCommand(
+                TenantContextHolder.getRequiredTenantId(), getLoginUserId(), idempotencyKey,
+                requestTraceId, certificateId, versionId, businessFileId,
+                null, null, documentType, null);
+    }
+}

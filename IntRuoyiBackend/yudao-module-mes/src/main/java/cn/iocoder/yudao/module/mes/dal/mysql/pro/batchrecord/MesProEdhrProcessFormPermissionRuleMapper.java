@@ -22,6 +22,7 @@ public interface MesProEdhrProcessFormPermissionRuleMapper
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getRouteProcessId, routeProcessId)
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getBatchRecordReportId, batchRecordReportId)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getRuleType)
+                .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getScopeKey)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getSignatureCellKey)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getId));
     }
@@ -32,6 +33,7 @@ public interface MesProEdhrProcessFormPermissionRuleMapper
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getRouteProcessId, routeProcessId)
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getBatchRecordReportId, batchRecordReportId)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getRuleType)
+                .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getScopeKey)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getSignatureCellKey)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getId), batchRecordVersionId));
     }
@@ -93,6 +95,7 @@ public interface MesProEdhrProcessFormPermissionRuleMapper
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getRuleType, "FILL")
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getEnabled, true)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getRouteProcessId)
+                .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getScopeKey)
                 .orderByDesc(MesProEdhrProcessFormPermissionRuleDO::getId));
     }
 
@@ -137,6 +140,18 @@ public interface MesProEdhrProcessFormPermissionRuleMapper
                                                      @Param("batchRecordReportId") String batchRecordReportId,
                                                      @Param("batchRecordVersionId") Long batchRecordVersionId);
 
+    @Delete("""
+            DELETE FROM mes_pro_edhr_process_form_permission_rule
+            WHERE batch_record_report_id = #{batchRecordReportId}
+              AND batch_record_version_id = #{batchRecordVersionId}
+              AND route_process_id <> #{formLevelRouteProcessId}
+              AND rule_type IN ('FILL', 'EQUIPMENT_FILL', 'QUALITY_FILL')
+            """)
+    int physicalDeleteRouteFillRulesByReportAndVersion(
+            @Param("batchRecordReportId") String batchRecordReportId,
+            @Param("batchRecordVersionId") Long batchRecordVersionId,
+            @Param("formLevelRouteProcessId") Long formLevelRouteProcessId);
+
     default Long countByBatchRecordVersionId(Long batchRecordVersionId) {
         return selectCount(MesProEdhrProcessFormPermissionRuleDO::getBatchRecordVersionId, batchRecordVersionId);
     }
@@ -159,6 +174,7 @@ public interface MesProEdhrProcessFormPermissionRuleMapper
                 .in(MesProEdhrProcessFormPermissionRuleDO::getRuleType, PROCESS_FORM_FILL_RULE_TYPES)
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getEnabled, true)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getRuleType)
+                .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getScopeKey)
                 .orderByDesc(MesProEdhrProcessFormPermissionRuleDO::getId), batchRecordVersionId));
     }
 

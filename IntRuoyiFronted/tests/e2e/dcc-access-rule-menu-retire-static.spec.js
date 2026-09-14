@@ -19,9 +19,9 @@ const accessRulePage = readSource('src/views/dcc/controlled-file/access-rules/in
 const categoriesPage = readSource('src/views/dcc/controlled-file/categories/index.vue')
 const directoriesPage = readSource('src/views/dcc/controlled-file/directories/index.vue')
 const controlCenterE2e = readSource('tests/e2e/dcc-control-center-buttons-real-flow.e2e.js')
-const schema = readWorkspaceSource('ruoyi-vue-pro/sql/mysql/20260513_dcc_base_schema.sql')
-const renameSql = readWorkspaceSource('ruoyi-vue-pro/sql/mysql/20260626_dcc_permission_menu_rename.sql')
-const retireSql = readWorkspaceSource('ruoyi-vue-pro/sql/mysql/20260626_dcc_access_rule_menu_retire.sql')
+const schema = readWorkspaceSource('IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql')
+const renameSql = readWorkspaceSource('IntRuoyiBackend/sql/mysql/20260626_dcc_permission_menu_rename.sql')
+const retireSql = readWorkspaceSource('IntRuoyiBackend/sql/mysql/20260626_dcc_access_rule_menu_retire.sql')
 
 assert.equal(
   packageJson.scripts?.['e2e:dcc:access-rule-menu-retire:static'],

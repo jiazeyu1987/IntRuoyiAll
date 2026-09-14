@@ -7,31 +7,48 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadPreviewReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadRespVO;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFilePreviewKindEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryLifecycleStageEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.service.audit.DccAccessBoundaryLogCreateCommand;
 import cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditService;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadSizePolicyService;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketCreateCommand;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketCreated;
+import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketPreflightCommand;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Objects;
+
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CATEGORY_DISABLED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ONLYOFFICE_PREVIEW_CONFIG_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_PURPOSE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_PREVIEW_SINGLE_FILE_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_SESSION_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_UPLOAD_SIZE_EXCEEDED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_UPLOAD_SIZE_POLICY_MISSING;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_LIFECYCLE_STAGE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
 
 @Service
 public class DccControlledFileUploadServiceImpl implements DccControlledFileUploadService {
@@ -55,7 +72,11 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     @Resource
     private DccControlledFileAccessAuditService accessAuditService;
     @Resource
+    private DccFileCategoryMapper categoryMapper;
+    @Resource
     private DccControlledFileCategoryPermissionSupport permissionSupport;
+    @Resource
+    private BusinessFileAccessService businessFileAccessService;
 
     @Override
     public DccControlledFileUploadRespVO uploadPreviewFile(Long userId, DccControlledFileUploadPreviewReqVO reqVO,
@@ -67,36 +88,36 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             file = validatePreviewFile(reqVO);
             validatePreviewSession(reqVO.getSessionId());
             purpose = validatePreviewPurposeName(reqVO.getPurpose(), file.getOriginalFilename());
-            validateCategoryUploadPermission(reqVO.getCategoryId(), userId);
+            validatePreviewCategory(userId, reqVO.getCategoryId());
             uploadSizePolicyService.validateUploadSize(reqVO.getCategoryId(),
                     purpose, file.getSize(), null);
             byte[] content = IoUtil.readBytes(file.getInputStream());
             validatePreviewPurposeContent(purpose, file.getOriginalFilename(), content);
-            String url = fileService.createFile(content, file.getOriginalFilename(), ORIGINAL_DIRECTORY, file.getContentType());
-            FileDO storedFile = fileMapper.selectFirstOne(FileDO::getUrl, url);
-            if (storedFile == null) {
-                throw exception(CONTROLLED_FILE_NOT_EXISTS);
-            }
             String requestId = auditContext.requireRequestId("upload preview");
-            DccUploadTicketCreated uploadTicket = uploadTicketService.createTicket(new DccUploadTicketCreateCommand(
-                    userId, reqVO.getCategoryId(), reqVO.getSessionId(),
-                    purpose, storedFile.getId(),
-                    storedFile.getName(), file.getContentType(), file.getSize(), content, requestId));
-            DccControlledFileUploadRespVO respVO = new DccControlledFileUploadRespVO();
-            respVO.setUploadTicket(uploadTicket.uploadTicket());
-            respVO.setSessionId(uploadTicket.sessionId());
-            respVO.setPurpose(uploadTicket.purpose());
-            respVO.setStatus(uploadTicket.status());
-            respVO.setExpireTime(uploadTicket.expireTime());
-            respVO.setRequestId(requestId);
-            respVO.setFileName(storedFile.getName());
-            respVO.setContentType(file.getContentType());
-            DccControlledFilePreviewKindEnum previewKind =
-                    DccControlledFilePreviewKindEnum.resolve(storedFile.getName(), file.getContentType());
-            respVO.setPreviewKind(previewKind.getCode());
-            applyOfficePreview(storedFile, previewKind, respVO);
-            respVO.setFileSize(file.getSize());
-            respVO.setWatermark(watermarkService.build(userId, "preview", storedFile.getName()));
+            DccUploadTicketCreated uploadTicket = uploadTicketService.reuseActiveTicketOrReject(
+                    new DccUploadTicketPreflightCommand(userId, reqVO.getCategoryId(), reqVO.getSessionId(), purpose,
+                            content));
+            FileDO storedFile;
+            if (uploadTicket == null) {
+                storedFile = storePreviewFile(content, file);
+                try {
+                    uploadTicket = uploadTicketService.createTicket(new DccUploadTicketCreateCommand(
+                            userId, reqVO.getCategoryId(), reqVO.getSessionId(),
+                            purpose, storedFile.getId(),
+                            storedFile.getName(), file.getContentType(), file.getSize(), content, requestId));
+                } catch (Exception ex) {
+                    fileService.deleteFile(storedFile.getId());
+                    throw ex;
+                }
+                if (uploadTicket.storageFileId() != null
+                        && !Objects.equals(uploadTicket.storageFileId(), storedFile.getId())) {
+                    fileService.deleteFile(storedFile.getId());
+                    storedFile = requireStoredFile(uploadTicket.storageFileId());
+                }
+            } else {
+                storedFile = requireStoredFile(uploadTicket.storageFileId());
+            }
+            DccControlledFileUploadRespVO respVO = buildUploadResponse(userId, requestId, uploadTicket, storedFile);
             uploadCompleted = true;
             recordUploadBoundary(userId, purpose, "SUCCESS", null, null, auditContext);
             return respVO;
@@ -111,14 +132,27 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     @Override
     public DccControlledFileBinary readUploadPreviewOnlyOfficeFile(Long fileId, String token) throws Exception {
         requireOnlyOfficeConfigured();
-        onlyOfficePreviewTokenService.verify(token,
-                DccOnlyOfficePreviewTokenService.RESOURCE_UPLOAD_PREVIEW, fileId);
-        FileDO storedFile = fileMapper.selectById(fileId);
-        if (storedFile == null) {
-            throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        DccOnlyOfficePreviewTokenService.PreviewTokenPayload payload =
+                onlyOfficePreviewTokenService.verifyBusinessFileToken(token,
+                        DccOnlyOfficePreviewTokenService.AUDIENCE_UPLOAD_PREVIEW, fileId);
+        Long oldTenantId = TenantContextHolder.getTenantId();
+        boolean oldIgnore = TenantContextHolder.isIgnore();
+        if (!oldIgnore && oldTenantId != null && !Objects.equals(oldTenantId, payload.getTenantId())) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
-        byte[] content = fileService.getFileContent(storedFile.getConfigId(), storedFile.getPath());
-        return new DccControlledFileBinary(storedFile.getName(), storedFile.getType(), content, null);
+        try {
+            TenantContextHolder.setTenantId(payload.getTenantId());
+            TenantContextHolder.setIgnore(false);
+            assertUploadPreviewBusinessAccess(payload);
+            FileDO storedFile = fileMapper.selectById(fileId);
+            if (storedFile == null) {
+                throw exception(CONTROLLED_FILE_NOT_EXISTS);
+            }
+            byte[] content = fileService.getFileContent(storedFile.getConfigId(), storedFile.getPath());
+            return new DccControlledFileBinary(storedFile.getName(), storedFile.getType(), content, null);
+        } finally {
+            restoreTenantContext(oldTenantId, oldIgnore);
+        }
     }
 
     private MultipartFile validatePreviewFile(DccControlledFileUploadPreviewReqVO reqVO) {
@@ -149,13 +183,74 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     }
 
     private void validatePreviewPurposeContent(String purpose, String fileName, byte[] content) {
+        if (DccControlledFileUploadTypePolicy.isSourcePurpose(purpose)
+                && DccControlledFileUploadTypePolicy.isPdfName(fileName)
+                && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
+            throw exception(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
+        }
         if (DccControlledFileUploadTypePolicy.isDrawingPdfPurpose(purpose)
                 && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
             throw exception(CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID);
         }
     }
 
-    private void applyOfficePreview(FileDO storedFile,
+    private void validatePreviewCategory(Long userId, Long categoryId) {
+        DccFileCategoryDO category = categoryId == null ? null : categoryMapper.selectById(categoryId);
+        if (category == null) {
+            throw exception(FILE_CATEGORY_NOT_EXISTS);
+        }
+        if (!Boolean.TRUE.equals(category.getActive())) {
+            throw exception(CONTROLLED_FILE_CATEGORY_DISABLED);
+        }
+        String lifecycleStage = StrUtil.trimToNull(category.getLifecycleStage());
+        if (!DccFileCategoryLifecycleStageEnum.isValid(lifecycleStage)) {
+            throw exception(FILE_CATEGORY_LIFECYCLE_STAGE_INVALID, lifecycleStage);
+        }
+        if (!permissionSupport.hasCategoryPermission(categoryId, userId,
+                DccFileCategoryPermissionActionEnum.UPLOAD)) {
+            throw exception(DCC_PROJECT_ACCESS_DENIED);
+        }
+    }
+
+    private FileDO storePreviewFile(byte[] content, MultipartFile file) {
+        Long storedFileId = fileService.createFileAndReturnId(content, file.getOriginalFilename(),
+                ORIGINAL_DIRECTORY, file.getContentType());
+        return requireStoredFile(storedFileId);
+    }
+
+    private FileDO requireStoredFile(Long storedFileId) {
+        if (storedFileId == null) {
+            throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        }
+        FileDO storedFile = fileMapper.selectById(storedFileId);
+        if (storedFile == null) {
+            throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        }
+        return storedFile;
+    }
+
+    private DccControlledFileUploadRespVO buildUploadResponse(Long userId, String requestId,
+                                                              DccUploadTicketCreated uploadTicket,
+                                                              FileDO storedFile) {
+        DccControlledFileUploadRespVO respVO = new DccControlledFileUploadRespVO();
+        respVO.setUploadTicket(uploadTicket.uploadTicket());
+        respVO.setSessionId(uploadTicket.sessionId());
+        respVO.setPurpose(uploadTicket.purpose());
+        respVO.setStatus(uploadTicket.status());
+        respVO.setExpireTime(uploadTicket.expireTime());
+        respVO.setRequestId(requestId);
+        respVO.setFileName(storedFile.getName());
+        respVO.setContentType(storedFile.getType());
+        DccControlledFilePreviewKindEnum previewKind =
+                DccControlledFilePreviewKindEnum.resolve(storedFile.getName(), storedFile.getType());
+        respVO.setPreviewKind(previewKind.getCode());
+        applyOfficePreview(userId, requestId, storedFile, previewKind, respVO);
+        respVO.setFileSize(uploadTicket.fileSize());
+        respVO.setWatermark(watermarkService.build(userId, "preview", storedFile.getName()));
+        return respVO;
+    }
+
+    private void applyOfficePreview(Long userId, String requestId, FileDO storedFile,
                                     DccControlledFilePreviewKindEnum previewKind,
                                     DccControlledFileUploadRespVO respVO) {
         if (previewKind != DccControlledFilePreviewKindEnum.OFFICE) {
@@ -166,17 +261,60 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             return;
         }
         respVO.setOnlyofficeBaseUrl(trimTrailingSlash(onlyOfficePreviewProperties.getBaseUrl()));
+        BusinessFileAccessReference reference = requireUploadPreviewBusinessReference(
+                userId, requestId, storedFile.getId());
+        DccOnlyOfficePreviewTokenService.IssuedPreviewToken issuedToken =
+                onlyOfficePreviewTokenService.issueBusinessFile(
+                        DccOnlyOfficePreviewTokenService.AUDIENCE_UPLOAD_PREVIEW,
+                        BusinessFileAccessOperation.ONLYOFFICE_PREVIEW,
+                        storedFile.getId(), TenantContextHolder.getRequiredTenantId(), userId, null,
+                        reference, onlyOfficePreviewProperties.getTokenExpireSeconds().longValue());
+        respVO.setOnlyofficeDocumentUrl(trimTrailingSlash(onlyOfficePreviewProperties.getPublicFileBaseUrl())
+                + "/admin-api/dcc/controlled-files/upload-preview/" + storedFile.getId()
+                + "/onlyoffice-file?token=" + issuedToken.token());
+    }
+
+    private void assertUploadPreviewBusinessAccess(
+            DccOnlyOfficePreviewTokenService.PreviewTokenPayload payload) {
+        try {
+            BusinessFileAccessOperation operation = BusinessFileAccessOperation.valueOf(payload.getOperation());
+            if (operation != BusinessFileAccessOperation.ONLYOFFICE_PREVIEW
+                    && operation != BusinessFileAccessOperation.CONVERT) {
+                throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+            }
+            businessFileAccessService.assertAllowed(BusinessFileAccessRequest.tokenCallback(
+                    operation, payload.getInfraFileId(), payload.getTenantId(), payload.getUserId(),
+                    payload.getServiceIdentity(), payload.getTokenId(), payload.toBusinessFileReference(),
+                    null, null));
+        } catch (BusinessFileAccessDeniedException ex) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+    }
+
+    private BusinessFileAccessReference requireUploadPreviewBusinessReference(Long userId, String requestId,
+                                                                                Long infraFileId) {
+        try {
+            return businessFileAccessService.assertAllowed(new BusinessFileAccessRequest(
+                            BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, infraFileId,
+                            TenantContextHolder.getRequiredTenantId(), userId, null, requestId,
+                            null, null, null))
+                    .orElseThrow(() -> exception(CONTROLLED_FILE_ACCESS_DENIED));
+        } catch (BusinessFileAccessDeniedException ex) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+    }
+
+    private void restoreTenantContext(Long tenantId, boolean ignore) {
+        TenantContextHolder.clear();
+        if (tenantId != null) {
+            TenantContextHolder.setTenantId(tenantId);
+        }
+        TenantContextHolder.setIgnore(ignore);
     }
 
     private void validatePreviewSession(String sessionId) {
         if (StrUtil.isBlank(sessionId)) {
             throw exception(CONTROLLED_FILE_UPLOAD_SESSION_INVALID);
-        }
-    }
-
-    private void validateCategoryUploadPermission(Long categoryId, Long userId) {
-        if (!permissionSupport.hasCategoryPermission(categoryId, userId, DccFileCategoryPermissionActionEnum.UPLOAD)) {
-            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
     }
 
@@ -217,6 +355,18 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             }
             if (matches(code, CONTROLLED_FILE_UPLOAD_SESSION_INVALID)) {
                 return "CONTROLLED_FILE_UPLOAD_SESSION_INVALID";
+            }
+            if (matches(code, FILE_CATEGORY_NOT_EXISTS)) {
+                return "FILE_CATEGORY_NOT_EXISTS";
+            }
+            if (matches(code, CONTROLLED_FILE_CATEGORY_DISABLED)) {
+                return "CONTROLLED_FILE_CATEGORY_DISABLED";
+            }
+            if (matches(code, FILE_CATEGORY_LIFECYCLE_STAGE_INVALID)) {
+                return "FILE_CATEGORY_LIFECYCLE_STAGE_INVALID";
+            }
+            if (matches(code, CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT)) {
+                return "CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT";
             }
             return "SERVICE_EXCEPTION_" + code;
         }

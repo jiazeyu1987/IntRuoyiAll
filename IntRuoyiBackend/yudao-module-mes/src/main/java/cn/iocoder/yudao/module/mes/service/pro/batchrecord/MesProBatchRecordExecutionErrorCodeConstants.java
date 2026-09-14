@@ -114,4 +114,6 @@ public interface MesProBatchRecordExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_259, "eDHR 表单写入任务无效：{}");
     ErrorCode PRO_BATCH_RECORD_EXECUTION_SHARED_CONTEXT_REQUIRED =
             new ErrorCode(1_040_750_264, "批次共享表单执行上下文缺失");
+    ErrorCode PRO_BATCH_RECORD_EXECUTION_TASK_CONTEXT_INVALID =
+            new ErrorCode(1_040_750_265, "eDHR 批记录任务上下文与当前批次或冻结版本不匹配");
 }

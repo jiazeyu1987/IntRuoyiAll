@@ -43,6 +43,11 @@ def test_local_restart_script_is_component_scoped_and_fail_fast():
     assert "$FrontendPort = [int]$PortContext.FrontendPort" in script
     assert "$BackendPort = [int]$PortContext.BackendPort" in script
     assert '"--server.port=$BackendPort"' in script
+    assert "$backendLogDir = Join-Path $RuntimeDir 'logs'" in script
+    assert "$backendLogFile = Join-Path $backendLogDir 'yudao-server.log'" in script
+    assert "New-Item -ItemType Directory -Force -Path $backendLogDir" in script
+    assert '"--logging.file.name=$backendLogFile"' in script
+    assert '"--yudao.runtime-control.storage-guard.log-dir=$backendLogDir"' in script
     assert "-pl yudao-server -am -DskipTests package" in script
     assert "backend-runtime-control-$timestamp.jar" in script
     assert "frontend-runtime-control-$timestamp.out.log" in script
@@ -78,6 +83,34 @@ def test_local_restart_script_is_component_scoped_and_fail_fast():
     assert "`$env:DCC_SIGNATURE_EVIDENCE_KEY_VERSION = '$DccSignatureEvidenceKeyVersion'" in script
 
 
+def test_local_restart_applies_profile_page_schema_dependencies_before_backend_start():
+    script = read_script("restart-int-ruoyi-local.ps1")
+
+    assert "20260814_mes_production_release_flow.sql" in script
+    assert "pqc_release_application_scope_id" in script
+    assert "uk_mes_edhr_work_task_release_application" in script
+    assert "20260815_system_notify_message_business_key.sql" in script
+    assert "system_notify_message" in script
+    assert "business_key" in script
+    assert "uk_system_notify_message_tenant_business_key" in script
+
+    backend_block = script[script.index("function Start-Backend"):script.index("function Start-Website")]
+    assert backend_block.index("Ensure-RequiredLocalMySqlSchema") < backend_block.index(
+        "Stop-MatchingProcesses 'backend' $RuntimeDir"
+    )
+
+
+def test_local_restart_applies_profile_workbench_schedule_order_schema_dependency():
+    script = read_script("restart-int-ruoyi-local.ps1")
+
+    assert "20260822_mes_edhr_release_final_state_trace.sql" in script
+    assert "mes_pro_work_order" in script
+    assert "mes_pro_process_pool_active_order" in script
+    assert "release_decision_id" in script
+    assert "released_by" in script
+    assert "released_at" in script
+
+
 def test_local_restart_script_defaults_to_int_main_without_global_worktree_pair_sync():
     script = read_script("restart-int-ruoyi-local.ps1")
 
@@ -94,6 +127,18 @@ def test_local_restart_backend_uses_java_argument_array_instead_of_powershell_li
     assert "--spring.datasource.dynamic.datasource.master.url=jdbc:mysql://${LocalDockerRuntimeHost}:23306/ruoyi-vue-pro?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true" in script
 
 
+def test_local_restart_backend_does_not_pass_dcc_download_encryption_to_java():
+    script = read_script("restart-int-ruoyi-local.ps1")
+    backend_block = script[script.index("function Start-Backend"):script.index("function Start-Website")]
+    removed_secret_prefix = "DCC_DOWNLOAD_" + "ENCRYPTION"
+    removed_class_prefix = "DccDownload" + "Encryption"
+    removed_property_prefix = "yudao.dcc.download." + "encryption"
+
+    assert removed_secret_prefix not in script
+    assert removed_class_prefix not in script
+    assert removed_property_prefix not in backend_block
+
+
 def test_local_restart_backend_routes_mysql_and_redis_through_unshadowed_docker_loopback():
     script = read_script("restart-int-ruoyi-local.ps1")
 
@@ -107,6 +152,23 @@ def test_local_restart_backend_routes_mysql_and_redis_through_unshadowed_docker_
     assert "--spring.datasource.dynamic.datasource.slave.password=123456" in script
     assert "--spring.data.redis.host=$LocalDockerRuntimeHost" in script
     assert "LOCAL_DOCKER_PORT_SHADOWED" in script
+
+
+def test_local_restart_backend_defaults_to_tokenless_codex_runner_mode():
+    script = read_script("restart-int-ruoyi-local.ps1")
+
+    assert "$CodexTestRunnerTokenFile" not in script
+    assert "function Initialize-CodexTestRunnerToken" not in script
+    assert "[Security.Cryptography.RandomNumberGenerator]::Create()" not in script
+    assert "Codex Runner token file is empty" not in script
+
+    backend_block = script[script.index("function Start-Backend"):script.index("function Start-Website")]
+    assert "$runnerToken = Initialize-CodexTestRunnerToken" not in backend_block
+    assert "'CODEX_TEST_RUNNER_TOKEN'," not in backend_block
+    assert "Remove-Item -Path 'Env:\\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue" in backend_block
+    assert backend_block.index(
+        "Remove-Item -Path 'Env:\\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue"
+    ) < backend_block.index("& java @backendArgs")
 
 
 def test_local_restart_backend_protects_showroom_default_file_config_from_e2e_mutation():

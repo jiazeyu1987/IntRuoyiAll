@@ -1,7 +1,9 @@
 package cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.KeySequence;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
@@ -40,6 +42,9 @@ public class MesProEdhrWorkTaskDO extends BaseDO {
 
     private Long businessScopeId;
 
+    @TableField(insertStrategy = FieldStrategy.NEVER, updateStrategy = FieldStrategy.NEVER)
+    private Long pqcReleaseApplicationScopeId;
+
     private Long executionId;
 
     private Long sourceExecutionId;
@@ -75,6 +80,8 @@ public class MesProEdhrWorkTaskDO extends BaseDO {
     private String responsibilitySourceVersion;
 
     private String responsibilitySourceDigest;
+
+    private String responsibilityScopeJson;
 
     private Boolean ownershipLocked;
 

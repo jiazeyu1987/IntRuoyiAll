@@ -26,6 +26,8 @@ public class MesProBatchRecordReportDO extends BaseDO {
 
     private String productName;
 
+    private String projectCode;
+
     private String formSlotType;
 
     private String routeKey;

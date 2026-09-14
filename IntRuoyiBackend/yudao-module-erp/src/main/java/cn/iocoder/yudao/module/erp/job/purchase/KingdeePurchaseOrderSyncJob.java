@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeePurchaseOrder
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRuntimeService;
+import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeFullSyncHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Component("kingdeePurchaseOrderSyncJob")
 @RequiredArgsConstructor
-public class KingdeePurchaseOrderSyncJob implements JobHandler {
+public class KingdeePurchaseOrderSyncJob implements JobHandler, ErpKingdeeFullSyncHandler {
 
     private final ErpKingdeePurchaseOrderSyncService purchaseOrderSyncService;
     private final ErpKingdeeSyncRuntimeService syncRuntimeService;
@@ -25,6 +26,9 @@ public class KingdeePurchaseOrderSyncJob implements JobHandler {
     @Override
     @TenantJob
     public String execute(String param) {
+        if (ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM.equals(param)) {
+            return executeFullSync();
+        }
         LocalDateTime windowEnd = LocalDateTime.now();
         AtomicReference<ErpKingdeePurchaseOrderSyncResult> resultReference = new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
@@ -41,6 +45,25 @@ public class KingdeePurchaseOrderSyncJob implements JobHandler {
         ErpKingdeePurchaseOrderSyncResult result = resultReference.get();
         return String.format("ERP purchase order sync: created=%d, updated=%d, skipped=%d",
                 result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount());
+    }
+
+    @Override
+    public String executeFullSync() {
+        LocalDateTime windowEnd = LocalDateTime.now();
+        AtomicReference<ErpKingdeePurchaseOrderSyncResult> resultReference = new AtomicReference<>();
+        syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
+                .syncType(ErpKingdeeSyncTypeEnum.PURCHASE_ORDER)
+                .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                .windowEnd(windowEnd)
+                .build(), context -> {
+            ErpKingdeePurchaseOrderSyncResult result = purchaseOrderSyncService.syncPurchaseOrdersFullSkipExisting();
+            resultReference.set(result);
+            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(),
+                    result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount(), 0);
+        });
+        ErpKingdeePurchaseOrderSyncResult result = resultReference.get();
+        return String.format("ERP purchase order full sync: created=%d, skipped=%d",
+                result.getCreatedCount(), result.getSkippedCount());
     }
 
 }

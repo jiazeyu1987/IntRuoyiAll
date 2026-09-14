@@ -1,0 +1,66 @@
+{
+  "startedAt": "2026-08-02T10:06:20.169Z",
+  "fileNumber": "CODX-DCC-ORIG-20260802090903",
+  "events": [],
+  "targetNetworkFailures": [
+    {
+      "label": "browser",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "browser",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/get-permission-info",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "browser",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "browser",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "browser",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "browser",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "browserUrl": "http://127.0.0.1:8081/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802090903&pageNo=1&pageSize=20",
+  "rowText": "Codex DCC 原版上传链路 20260802090903\n\t\nCODX-DCC-ORIG-20260802090903\n\t\n预览\n下载",
+  "previewButtonCount": 1,
+  "fileNumberDetailLinkCount": 1,
+  "viewerUrl": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070270?viewer=1&from=browser&returnTo=/dcc/controlled-file/browser?pageNo=1%26pageSize=20%26scope=global%26keyword=CODX-DCC-ORIG-20260802090903",
+  "counts": {
+    "[data-testid=\"dcc-controlled-preview-layout\"]": 1,
+    ".detail-viewer-page": 1,
+    ".protected-viewer-shell": 1,
+    ".onlyoffice-viewer-shell": 0,
+    "[data-testid=\"dcc-controlled-preview-detail-pane\"]": 1,
+    ".app-container": 0,
+    ".app-main": 0,
+    ".el-alert": 0,
+    ".el-loading-mask": 0
+  },
+  "bodyText": "瑛泰管理系统\n个人中心\n0\n审批中心\n10\n电子签名\n文控中心\n文档目录\n文控权限\n上传审批\n文件上传\n受控浏览\n文控日志\n基础数据\n系统管理\n版本信息未生成\n文控中心\n/\n受控浏览\n请输入菜单内容\n王思雨\n受控文件详情\n返回\n只读预览态\n当前有效版 / ACTIVE / V1.0\n下载当前受控副本\nCodex DCC 原版上传链路 20260802090903\n当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。\n受控预览\n禁止截图/外传\n100% / 0°\n放大\n缩小\n旋转\n复原\n受控预览\n禁止截图/外传\nWM-20260802-3097656770F8 | wangsiyu | 2026-08-02 18:06:43\n第 1 / 1 页\n审批\n分发\n版本\n修改\n文件类别\t过程检验规程\n受控目录\t4.Ohter\n文件名称\tCodex DCC 原版上传链路 20260802090903\n产品编号\tHGGW\n产品名称\t\n一次性使用亲水涂层导丝\n识别基础信息\n\nDCC基础条目\t\n一次性使用亲水涂层导丝 / HGGW\n\n文件类别 I\t技术文档\n文件类别 II\t设计和开发输出阶段\n文件类别 III\t来料/过程/成品检验规范\n文件类别 IV\t-\n文件类别 V\t-\n培训要求\t无需培训\n现行版本\tV1.0\n流程实例\td4ad53a3-8e51-11f1-ada6-00155d2984a0\n提交人\t彭云凤 (pengyunfeng)\n提交时间\t2026-08-02 17:09:13\n发布时间\t2026-08-02 17:09:42\n流程定义\tdcc-controlled-file-approval\n提交备注\t新建 E2E 20260802090903\nCopyright ©2026 瑛泰管理系统",
+  "title": "瑛泰管理系统 - 受控文件详情",
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-original-release-e2e-current\\controlled-viewer-diagnostic-20260802090903-final-resume.png",
+  "status": "DONE",
+  "finishedAt": "2026-08-02T10:06:54.766Z"
+}

@@ -1,0 +1,15 @@
+{
+  "startedAt": "2026-08-02T16:15:31.704Z",
+  "options": [],
+  "responses": [
+    {
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/dcc/project-codes/page?pageNo=1&pageSize=50&status=ENABLE",
+      "text": "{\"code\":0,\"msg\":\"\",\"data\":{\"total\":119,\"list\":[{\"id\":129,\"docControlNo\":\"1\",\"projectName\":\"按压式球囊扩充压力泵\",\"projectCode\":\"IDI\",\"category\":\"输注类\",\"commissionedProduction\":null,\"projectLeader\":\"杨欣成\",\"projectEngineer\":\"徐育胜\",\"storageLocation\":\"√\",\"priority\":\"B\",\"status\":\"ENABLE\",\"associatedFileCount\":43,\"createTime\":1781781164000,\"updateTime\":1781781164000},{\"id\":151,\"docControlNo\":\"2\",\"projectName\":\"数显球囊扩张压力泵\",\"projectCode\":\"IDE\",\"category\":\"有源类\",\"commissionedProduction\":null,\"projectLeader\":\"吕中钊\",\"projectEngineer\":\"李猛\",\"storageLocation\":\"√\",\"priority\":\"B\",\"status\":\"ENABLE\",\"associatedFileCount\":44,\"createTime\":1781781164000,\"updateTime\":1781781164000},{\"id\":210,\"docControlNo\":\"3\",\"projectName\":\"数显球囊扩张压力泵（FDA)\",\"projectCode\":\"IDE(FDA)\",\"category\":\"球囊类\",\"commissionedProduction\":null,\"projectLeader\":\"吕中钊\",\"projectEngineer\":\"李猛\",\"storageLocation\":\"√\",\"priority\":\"B\",\"status\":\"ENABLE\",\"associatedFileCount\":0,\"createTime\":1781781164000,\"updateTime\":1781781164000},{\"id\":209,\"docControlNo\":\"4\",\"projectName\":\"数显球囊扩张压力泵（CE)\",\"projectCode\":\"IDE(CE)\",\"category\":\"球囊类\",\"commissionedProduction\":null,\"projectLeader\":\"吕中钊\",\"projectEngineer\":\"李猛\",\"storageLocation\":\"√\",\"priority\":\"B\",\"status\":\"ENABLE\",\"associatedFileCount\":0,\"createTime\":1781781164000,\"updateTime\":1781781164000},{\"id\":166,\"docControlNo\":\"5\",\"projectName\":\"一次性使用有创血压传感器\",\"projectCode\":\"IBPTR\",\"category\":null,\"commissionedProduction\":null,\"projectLeader\":\"吕中钊\",\"projectEngineer\":\"李猛\",\"storageLocation\":\"√\",\"priority\":\"C\",\"status\":\"ENABLE\",\"associatedFileCount\":78,\"createTime\":1781781164000,\"updateTime\":1781781164000},{\"id\":142,\"docControlNo\":\"6\",\"projectName\":\"气囊式止血带\",\"projectCode\":\"PBAP\",\"category\":\"输注类\",\"commissionedProduction\":null,\"projectLeader\":\"杨欣成\",\"projectEngineer\":\"李小奇\",\"storageLocation\":\"√\",\"priority\":\"B\",\"status\":\"ENABLE\",\"associatedFileCount\":34,\"createTime\":1781781164000,\"updateTime\":1781781164000},{\"id\":229,\"docControlNo\":\"7\",\"projectName\":\"指引导丝\",\"projectCode\":\"CEMGW\",\"category\":\"导丝类\",\"commissionedProduction\":null,\""
+    }
+  ],
+  "errors": [
+    "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('DCC项目').first() to be visible\u001b[22m\n\u001b[2m    63 × locator resolved to hidden <span data-v-c3357e93=\"\" class=\"v-menu__title approval-menu-title__text min-w-0 overflow-hidden overflow-ellipsis whitespace-nowrap\">DCC项目代码</span>\u001b[22m\n"
+  ],
+  "url": "http://127.0.0.1:8081/dcc/controlled-file/upload"
+}

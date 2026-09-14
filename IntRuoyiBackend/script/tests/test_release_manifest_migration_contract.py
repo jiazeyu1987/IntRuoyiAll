@@ -73,6 +73,26 @@ def test_migration_manifest_rejects_missing_dependency(tmp_path: Path) -> None:
         build_migration_manifest(sql_root)
 
 
+@pytest.mark.parametrize("migration_type", ["preflight", "backfill", "postflight", "rollback-dry-run"])
+def test_migration_manifest_accepts_gated_migration_phase_types(
+    tmp_path: Path,
+    migration_type: str,
+) -> None:
+    sql_root = tmp_path / "sql" / "mysql"
+    sql_root.mkdir(parents=True)
+    write_sql(
+        sql_root,
+        f"20260814_c015_{migration_type}.sql",
+        "-- release-migration: allowedEnvironments=test,backup,prod; "
+        f"dependsOn=; type={migration_type}; riskLevel=high\n"
+        "SELECT 1;\n",
+    )
+
+    entries = build_migration_manifest(sql_root)
+
+    assert entries[0]["type"] == migration_type
+
+
 def test_publish_release_manifest_writes_structured_migration_fields() -> None:
     script = (REPO_ROOT / "script" / "deploy" / "publish-int-ruoyi.ps1").read_text(encoding="utf-8")
 

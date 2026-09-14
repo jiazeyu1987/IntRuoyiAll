@@ -1,0 +1,27 @@
+{
+  "status": "FAIL",
+  "baseUrl": "http://127.0.0.1:8081",
+  "tenantUser": "芋道源码/admin",
+  "startDate": "2026-08-06",
+  "selectedRows": [
+    "E2E-SYNC-NOPD-20260708094004 总量 26 0.00% - - - 100 吹球囊成型 0.00% 2026-08-04 17:57:38 查看 调整 交期 冻结 完成",
+    "SMART-SCHED-20260619T103607080085020-MO 总量 260 0.00% - - - 100 吹球囊成型 0.00% 2026-08-04 17:57:38 查看 调整 交期 冻结 完成",
+    "SMART-SCHED-20260619T114409114550113-MO 总量 260 0.00% - - - 100 吹球囊成型 0.00% 2026-08-04 17:57:39 查看 调整 交期 冻结 完成",
+    "SMART-SCHED-20260619T131801886377743-MO 总量 260 0.00% - - - 100 吹球囊成型 0.00% 2026-08-04 17:57:39 查看 调整 交期 冻结 完成",
+    "SMART-SCHED-20260630-RERUN6-MO 总量 230 0.00% - - - 100 吹球囊成型 0.00% 2026-08-04 17:59:00 查看 调整 交期 冻结 完成",
+    "881MO093613 总量 26000 19.48% 2026-06-20 15:59:00 2026-07-28 08:00:00 2026-08-20 09:49:00 1 吹球囊成型 0.00% 2026-07-07 16:31:31 查看 调整 交期 冻结 完成",
+    "881MO093616 总量 26000 3.85% 2026-06-16 16:25:00 2026-07-09 08:00:00 2026-08-17 15:39:00 3 吹球囊成型 0.00% 2026-07-07 16:31:30 查看 调整 交期 冻结 完成",
+    "881MO093615 总量 26000 17.94% 2026-06-22 22:45:00 2026-07-08 08:00:00 2026-08-26 18:57:00 100 吹球囊成型 0.00% 2026-07-07 16:31:29 查看 调整 交期 冻结 完成",
+    "881MO098538 总量 26000 0.00% 2026-06-16 11:51:00 2026-08-05 15:08:00 2026-09-07 18:57:00 100 吹球囊成型 0.00% 2026-07-07 16:31:31 查看 调整 交期 冻结 完成",
+    "CODEX-FACTOR-20260708093210 总量 2600 0.00% - 2026-08-04 11:34:00 2026-08-18 08:58:00 100 吹球囊成型 0.00% 2026-07-10 16:20:27 查看 调整 交期 冻结 完成",
+    "TESTERP6E90C3FBF0E4 总量 9683 0.00% - 2026-08-05 08:00:00 2026-08-06 13:25:00 100 吹球囊成型 0.00% 2026-08-04 17:57:38 查看 调整 交期 冻结 完成",
+    "881MO093617 总量 26000 0.29% 2026-06-16 14:21:00 2026-08-05 18:42:00 2026-09-17 18:57:00 200 吹球囊成型 0.00% 2026-07-07 16:31:30 查看 调整 交期 冻结 完成"
+  ],
+  "targetRequests": [],
+  "targetResponses": [],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "progressSnapshots": [],
+  "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.el-dialog:visible').filter({ hasText: '开始重排日期' }).last().getByRole('button', { name: /确认应用重排/ }).first()\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" data-v-34d48a9f=\"\" aria-disabled=\"false\" class=\"el-button el-button--warning\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not stable\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not stable\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    57 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - <th scope=\"col\" aria-label=\"Saturday\">Sat</th> from <div id=\"el-popper-container-9907\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\n    at clickFirstVisible (E:\\IntRuoyi\\IntRuoyiFronted\\tests\\e2e\\mes-pro-schedule-order-full-select-replan-admin-real.e2e.js:49:18)\n    at async run (E:\\IntRuoyi\\IntRuoyiFronted\\tests\\e2e\\mes-pro-schedule-order-full-select-replan-admin-real.e2e.js:268:5)",
+  "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260804-mes-partial-replan-blockers\\artifacts\\full-select-replan-admin-e2e-2026-08-05T02-17-23-371Z.png"
+}

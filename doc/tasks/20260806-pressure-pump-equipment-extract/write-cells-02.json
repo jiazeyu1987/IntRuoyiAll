@@ -1,0 +1,562 @@
+[
+  {
+    "command": "set",
+    "path": "/Sheet1/A6",
+    "props": {
+      "value": "清洁",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B6",
+    "props": {
+      "value": "未见设备编码字段",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C6",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D6",
+    "props": {
+      "value": "清洁介质",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E6",
+    "props": {
+      "value": "75%酒精",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F6",
+    "props": {
+      "value": "擦拭工具",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G6",
+    "props": {
+      "value": "清洁、不掉绒的无尘布",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H6",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I6",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J6",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K6",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L6",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M6",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N6",
+    "props": {
+      "value": "源文档未见设备编码字段，按清洁操作要求提取。",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A7",
+    "props": {
+      "value": "组装Ⅰ",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B7",
+    "props": {
+      "value": "撤压机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C7",
+    "props": {
+      "value": "C01017",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D7",
+    "props": {
+      "value": "撤压机气压",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E7",
+    "props": {
+      "value": "2ATM",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F7",
+    "props": {
+      "value": "缸径",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G7",
+    "props": {
+      "value": "20MM",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H7",
+    "props": {
+      "value": "撤压检测压力",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I7",
+    "props": {
+      "value": "20-25ATM",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J7",
+    "props": {
+      "value": "耐压检测压力",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K7",
+    "props": {
+      "value": "30ATM",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L7",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M7",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N7",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A8",
+    "props": {
+      "value": "光固Ⅰ",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B8",
+    "props": {
+      "value": "光固机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C8",
+    "props": {
+      "value": "A05075 / A05059",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D8",
+    "props": {
+      "value": "紫外灯数量",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E8",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F8",
+    "props": {
+      "value": "能量范围mJ/cm2",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G8",
+    "props": {
+      "value": "800-1000",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H8",
+    "props": {
+      "value": "传送带速度",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I8",
+    "props": {
+      "value": "10-30",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J8",
+    "props": {
+      "value": "运行次数",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K8",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L8",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M8",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N8",
+    "props": {
+      "value": "源文本复选框字符直接解析存在形态差异，仅提取设备编码。",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A9",
+    "props": {
+      "value": "硅化Ⅰ",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B9",
+    "props": {
+      "value": "硅油喷雾阀系统",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C9",
+    "props": {
+      "value": "B09026",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D9",
+    "props": {
+      "value": "硅油压力Kpa",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E9",
+    "props": {
+      "value": "20",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F9",
+    "props": {
+      "value": "硅油量刻度",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G9",
+    "props": {
+      "value": "10-11",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H9",
+    "props": {
+      "value": "硅化时间ms",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I9",
+    "props": {
+      "value": "55±5",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J9",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K9",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L9",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M9",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N9",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A10",
+    "props": {
+      "value": "硅化Ⅱ",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B10",
+    "props": {
+      "value": "未见设备编码字段",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C10",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D10",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E10",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F10",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G10",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H10",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I10",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J10",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K10",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L10",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M10",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N10",
+    "props": {
+      "value": "源文档未见设备参数表。",
+      "type": "string"
+    }
+  }
+]

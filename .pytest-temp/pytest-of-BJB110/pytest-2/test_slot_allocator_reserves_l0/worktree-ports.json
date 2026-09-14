@@ -1,0 +1,29 @@
+{
+    "version":  1,
+    "contractVersion":  "2026-08-24-branch-runtime-v7",
+    "updatedAt":  "2026-08-24T18:48:32.2726180+08:00",
+    "worktrees":  [
+                      {
+                          "name":  "existing-slot",
+                          "path":  "D:\\IntRuoyiWorktree\\existing-slot",
+                          "branch":  "codex/existing-slot",
+                          "profile":  "int_main",
+                          "slot":  1,
+                          "frontendPort":  8082,
+                          "backendPort":  48082,
+                          "active":  true
+                      },
+                      {
+                          "name":  "allocated-slot",
+                          "path":  "D:\\IntRuoyiWorktree\\allocated-slot",
+                          "branch":  "codex/allocated-slot",
+                          "profile":  "int_main",
+                          "slot":  2,
+                          "frontendPort":  8083,
+                          "backendPort":  48083,
+                          "active":  true,
+                          "createdAt":  "2026-08-24T18:48:32.2726180+08:00",
+                          "updatedAt":  "2026-08-24T18:48:32.2726180+08:00"
+                      }
+                  ]
+}

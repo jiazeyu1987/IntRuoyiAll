@@ -1,5 +1,9 @@
 import request from '@/config/axios'
 
+interface DccDistributionTaskRequestOptions {
+  ignoreErrorMessage?: boolean
+}
+
 export interface DistributionTaskVO {
   recipientId: number
   distributionId: number
@@ -13,9 +17,9 @@ export interface DistributionTaskVO {
   userId: number
   departmentId?: number
   distributionMedium: string
-  readAt?: string
-  acknowledgedAt?: string
-  publishedTime?: string
+  readAt?: number
+  acknowledgedAt?: number
+  publishedTime?: number
   status: 'READY_TO_ACKNOWLEDGE'
 }
 
@@ -25,7 +29,8 @@ export interface DistributionTaskPageReqVO extends PageParam {
 }
 
 export const getMyDistributionTaskPage = async (
-  params: DistributionTaskPageReqVO
+  params: DistributionTaskPageReqVO,
+  options: DccDistributionTaskRequestOptions = {}
 ): Promise<PageResult<DistributionTaskVO[]>> => {
-  return await request.get({ url: '/dcc/distribution-tasks/my-page', params })
+  return await request.get({ url: '/dcc/distribution-tasks/my-page', params, ...options })
 }

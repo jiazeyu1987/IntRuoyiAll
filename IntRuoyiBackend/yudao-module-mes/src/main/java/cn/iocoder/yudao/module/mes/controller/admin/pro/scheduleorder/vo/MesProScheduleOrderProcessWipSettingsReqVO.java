@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Schema(description = "管理后台 - MES 排产工单工序在制设置保存 Request VO")
@@ -23,6 +24,9 @@ public class MesProScheduleOrderProcessWipSettingsReqVO {
 
     @Schema(description = "开排日期")
     private LocalDate plannedStartDate;
+
+    @Schema(description = "手工调整后的班次产能")
+    private BigDecimal shiftCapacityTotal;
 
     @Schema(description = "操作原因", requiredMode = Schema.RequiredMode.REQUIRED)
     private String reason;

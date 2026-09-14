@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductShowroomWorkbookRowDTO;
 import cn.iocoder.yudao.module.mdm.controller.admin.product.vo.MdmProductImportExcelVO;
+import cn.iocoder.yudao.module.mdm.controller.admin.product.vo.MdmProductSaveReqVO;
 import cn.iocoder.yudao.module.mdm.dal.dataobject.product.MdmProductDO;
 import cn.iocoder.yudao.module.mdm.service.product.MdmProductService;
 import jakarta.annotation.Resource;
@@ -34,6 +35,11 @@ public class MdmProductApiImpl implements MdmProductApi {
     @Override
     public MdmProductRespDTO getEnabledDccProductByDccProductCode(String dccProductCode) {
         return toRespDTO(productService.getEnabledDccProductByDccProductCode(dccProductCode));
+    }
+
+    @Override
+    public Long createProduct(MdmProductSaveReqVO reqVO) {
+        return productService.createProduct(reqVO);
     }
 
     @Override

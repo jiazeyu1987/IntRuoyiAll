@@ -2,15 +2,22 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrFormFillLogDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrFormFillLogItemRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrFormFillLogPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrFormFillLogPageRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProProductionReportRevisionLogDetailRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProProductionReportRevisionLogPageReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProProductionReportRevisionLogPageRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrFormFillLogService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolProductionReportRevisionLogBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolProductionReportRevisionLogService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.MockedStatic;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,6 +30,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,6 +39,8 @@ class MesProEdhrFormFillLogControllerTest {
 
     @Mock
     private MesProEdhrFormFillLogService formFillLogService;
+    @Mock
+    private MesProcessPoolProductionReportRevisionLogService productionReportRevisionLogService;
 
     @InjectMocks
     private MesProEdhrFormFillLogController controller;
@@ -101,12 +111,86 @@ class MesProEdhrFormFillLogControllerTest {
     }
 
     @Test
+    void getProductionReportRevisionPage_usesCurrentUserScopeAndReturnsReadableRows() {
+        MesProProductionReportRevisionLogPageReqVO reqVO = new MesProProductionReportRevisionLogPageReqVO()
+                .setWorkOrderCode("WO-001");
+        MesProcessPoolProductionReportRevisionLogBO row = MesProcessPoolProductionReportRevisionLogBO.builder()
+                .revisionId(701L)
+                .eventId(176L)
+                .workOrderCode("WO-001")
+                .processName("组装")
+                .actualEmployeeName("张三")
+                .modifiedByName("王组长")
+                .modifiedAt(LocalDateTime.of(2026, 8, 7, 9, 30))
+                .changeReason("录入时数量填错")
+                .signatureConfirmed(Boolean.TRUE)
+                .fieldCount(1)
+                .changeSummary("完成数量")
+                .build();
+        when(productionReportRevisionLogService.getProductionReportRevisionPage(reqVO, 3001L))
+                .thenReturn(new PageResult<>(List.of(row), 1L));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
+
+            CommonResult<PageResult<MesProProductionReportRevisionLogPageRespVO>> response =
+                    controller.getProductionReportRevisionPage(reqVO);
+
+            assertEquals(1L, response.getData().getTotal());
+            assertEquals("WO-001", response.getData().getList().get(0).getWorkOrderCode());
+            assertEquals("完成数量", response.getData().getList().get(0).getChangeSummary());
+        }
+        verify(productionReportRevisionLogService).getProductionReportRevisionPage(reqVO, 3001L);
+    }
+
+    @Test
+    void getProductionReportRevisionDetail_usesCurrentUserScopeAndReturnsFieldChanges() {
+        MesProcessPoolProductionReportRevisionLogBO detail = MesProcessPoolProductionReportRevisionLogBO.builder()
+                .revisionId(701L)
+                .eventId(176L)
+                .workOrderCode("WO-001")
+                .processName("组装")
+                .actualEmployeeName("张三")
+                .modifiedByName("王组长")
+                .modifiedAt(LocalDateTime.of(2026, 8, 7, 9, 30))
+                .changeReason("录入时数量填错")
+                .signatureConfirmed(Boolean.TRUE)
+                .fieldCount(1)
+                .changeSummary("完成数量")
+                .changes(List.of(MesProcessPoolProductionReportRevisionLogBO.FieldChange.builder()
+                        .fieldName("完成数量")
+                        .beforeValue("4")
+                        .afterValue("6")
+                        .build()))
+                .build();
+        when(productionReportRevisionLogService.getProductionReportRevisionDetail(701L, 3001L))
+                .thenReturn(detail);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
+
+            CommonResult<MesProProductionReportRevisionLogDetailRespVO> response =
+                    controller.getProductionReportRevisionDetail(701L);
+
+            assertEquals(701L, response.getData().getRevisionId());
+            assertEquals("完成数量", response.getData().getChanges().get(0).getFieldName());
+            assertEquals("6", response.getData().getChanges().get(0).getAfterValue());
+        }
+        verify(productionReportRevisionLogService).getProductionReportRevisionDetail(701L, 3001L);
+    }
+
+    @Test
     void mappingsAndPermissions_matchFormFillLogReadOnlyContract() throws Exception {
         assertNull(MesProEdhrFormFillLogController.class.getAnnotation(TenantIgnore.class));
         assertMethod("getPage", new Class[]{MesProEdhrFormFillLogPageReqVO.class},
                 "/page", "mes:pro-edhr-form-fill-log:query");
         assertMethod("getDetail", new Class[]{Long.class},
                 "/detail", "mes:pro-edhr-form-fill-log:query");
+        assertMethod("getProductionReportRevisionPage",
+                new Class[]{MesProProductionReportRevisionLogPageReqVO.class},
+                "/production-report-revision/page", "mes:pro-edhr-form-fill-log:query");
+        assertMethod("getProductionReportRevisionDetail", new Class[]{Long.class},
+                "/production-report-revision/detail", "mes:pro-edhr-form-fill-log:query");
     }
 
     private static void assertMethod(String methodName, Class<?>[] parameterTypes,

@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProS
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderBatchReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderCreateFromWorkOrderReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderCreateFromWorkOrdersReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDeleteReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDeleteImpactRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPreflightReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPreflightRespVO;
@@ -25,6 +27,7 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Map;
 import java.util.List;
+import java.util.Set;
 
 /**
  * MES 排产工单 Service 接口
@@ -83,7 +86,12 @@ public interface MesProScheduleOrderService {
     /**
      * 批量删除排产工单。
      */
-    void deleteScheduleOrders(@Valid MesProScheduleOrderBatchReqVO reqVO);
+    void deleteScheduleOrders(@Valid MesProScheduleOrderDeleteReqVO reqVO);
+
+    /**
+     * 预览删除对排产任务和生产事实的影响。
+     */
+    MesProScheduleOrderDeleteImpactRespVO getDeleteImpact(Long id);
 
     /**
      * 获得排产工单。
@@ -136,9 +144,19 @@ public interface MesProScheduleOrderService {
     List<MesProScheduleOrderProcessWipRespVO> getProcessWipStatistics();
 
     /**
+     * 获得最近一次成功排产涉及的排产工单编号集合。
+     */
+    Set<Long> getLatestSuccessfulApplyScheduleOrderIds();
+
+    /**
      * 保存当前工序在制夜班与开排日期设置。
      */
     void saveProcessWipSettings(@Valid MesProScheduleOrderProcessWipSettingsReqVO reqVO);
+
+    /**
+     * 统一班次小时变化后，刷新当前在制工序里已保存的工作台产能快照。
+     */
+    void refreshProcessWipCapacitySnapshotsForShiftHours(BigDecimal shiftHours);
 
     /**
      * 获得排产工单操作追溯。

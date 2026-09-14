@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderOperationLogDO;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -26,6 +27,17 @@ public interface MesProScheduleOrderOperationLogMapper extends BaseMapperX<MesPr
                 .orderByDesc(MesProScheduleOrderOperationLogDO::getCreateTime)
                 .orderByDesc(MesProScheduleOrderOperationLogDO::getId)
                 .last("LIMIT 1"));
+    }
+
+    default List<MesProScheduleOrderOperationLogDO> selectListByOperationTypeAndAfterSnapshotJson(
+            String operationType, String afterSnapshotJson) {
+        if (operationType == null || afterSnapshotJson == null || afterSnapshotJson.isBlank()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProScheduleOrderOperationLogDO>()
+                .eq(MesProScheduleOrderOperationLogDO::getOperationType, operationType)
+                .eq(MesProScheduleOrderOperationLogDO::getAfterSnapshotJson, afterSnapshotJson)
+                .orderByAsc(MesProScheduleOrderOperationLogDO::getId));
     }
 
 }

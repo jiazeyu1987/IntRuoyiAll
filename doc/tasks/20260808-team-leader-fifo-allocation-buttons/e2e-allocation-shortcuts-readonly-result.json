@@ -1,0 +1,223 @@
+{
+  "status": "PASS",
+  "frontendUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "steps": [
+    "真实登录成功",
+    "生产组长工作台真实页面可见",
+    "通过真实页面筛选提交日期 2026-08-07",
+    "打开真实待复核报工的分配弹框",
+    "最大/一半按钮可见且点击后数量保持正整数显示（订单=编码 未返回订单编号 / 产品 未返回产品 / 数量 未返回数量, max=4, half=4）"
+  ],
+  "diagnostics": {
+    "reportRowCount": 5,
+    "allocationButtonCount": 5,
+    "reviewButtonCount": 5,
+    "firstReportRowText": "2026-08-07 13:30:38\n\t\n刘悦悦\n\t\n清洗工序\n\t\n4 件\n\t\n0 件\n\t\n损耗原因：0 件\n\t\n球囊成型机 / #41\n\t\n参数\n--\n\t\n详情\n复核\n修改\n分配"
+  },
+  "dateScan": {
+    "status": "FOUND_PENDING",
+    "selectedDate": "2026-08-07",
+    "selectedProbe": {
+      "submitDate": "2026-08-07",
+      "httpStatus": 200,
+      "ok": true,
+      "code": 0,
+      "total": 5,
+      "pendingCount": 5,
+      "reviewStatuses": [
+        "PENDING"
+      ],
+      "firstRow": {
+        "id": 176,
+        "submittedAt": 1786080638000,
+        "workOrderCode": "RRM-20260801-PP-MO-001",
+        "processName": "清洗工序",
+        "submissionReviewStatus": "PENDING"
+      }
+    },
+    "probes": [
+      {
+        "submitDate": "2026-08-08",
+        "httpStatus": 200,
+        "ok": true,
+        "code": 0,
+        "total": 0,
+        "pendingCount": 0,
+        "reviewStatuses": []
+      },
+      {
+        "submitDate": "2026-08-07",
+        "httpStatus": 200,
+        "ok": true,
+        "code": 0,
+        "total": 5,
+        "pendingCount": 5,
+        "reviewStatuses": [
+          "PENDING"
+        ],
+        "firstRow": {
+          "id": 176,
+          "submittedAt": 1786080638000,
+          "workOrderCode": "RRM-20260801-PP-MO-001",
+          "processName": "清洗工序",
+          "submissionReviewStatus": "PENDING"
+        }
+      }
+    ]
+  },
+  "submissionPageResponses": [
+    {
+      "submitDate": "2026-08-08",
+      "leaderType": "PRODUCTION",
+      "httpStatus": 200,
+      "code": 0,
+      "total": 0
+    },
+    {
+      "submitDate": "2026-08-08",
+      "leaderType": "PRODUCTION",
+      "httpStatus": 200,
+      "code": 0,
+      "total": 0
+    },
+    {
+      "submitDate": "2026-08-07",
+      "leaderType": "PRODUCTION",
+      "httpStatus": 200,
+      "code": 0,
+      "total": 5
+    },
+    {
+      "submitDate": "2026-08-07",
+      "leaderType": "PRODUCTION",
+      "httpStatus": 200,
+      "code": 0,
+      "total": 5
+    }
+  ],
+  "networkProblems": [
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/system/user-table-column-config/get",
+      "search": "?tableKey=mes.processPool.teamLeader.submissions.productionHistory",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/mes/pro/process-pool/team-leader/submission/page",
+      "search": "?pageNo=1&pageSize=20&leaderType=PRODUCTION&submitDate=2026-08-08",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/mes/pro/process-pool/team-leader/process-config/list",
+      "search": "",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/mes/pro/process-pool/team-leader/employee-profile/list",
+      "search": "",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/mes/pro/edhr-work-task/my-page",
+      "search": "?pageNo=1&pageSize=1&status=TODO",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/mes/pro/process-pool/team-leader/team-device/list",
+      "search": "?enabled=true",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/showroom/assignment/page",
+      "search": "?status=OPEN&assigneeUserId=1&pageNo=1&pageSize=20",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/mes/pro/process-pool/team-leader/active-order/list",
+      "search": "",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/approval-center/tasks/page",
+      "search": "?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/dcc/training-tasks/my-page",
+      "search": "?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/mes/pro/work-order/page",
+      "search": "?pageNo=1&pageSize=1&status=1&type=1&temporaryFrozen=false",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/mes/pro/process-pool/team-leader/responsible-routes",
+      "search": "",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/system/user-table-column-config/get",
+      "search": "?tableKey=mes.processPool.teamLeader.submissions.production",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/system/notify-message/get-unread-count",
+      "search": "",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/system/user-table-column-config/get",
+      "search": "?tableKey=mes.processPool.teamLeader.submissions.pqc.history",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/dcc/training-tasks/my-page",
+      "search": "?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "type": "requestfailed",
+      "method": "GET",
+      "path": "/admin-api/system/user-table-column-config/get",
+      "search": "?tableKey=mes.processPool.teamLeader.submissions.pqc",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "targetWriteRequestCount": 0,
+  "pageErrors": [],
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260808-team-leader-fifo-allocation-buttons\\e2e-allocation-shortcuts-readonly.png"
+}

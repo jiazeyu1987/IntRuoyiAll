@@ -1,23 +1,28 @@
 package cn.iocoder.yudao.module.bpm.approval.service.signature;
 
-import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewContext;
-import cn.iocoder.yudao.module.bpm.dal.dataobject.signature.BpmApprovalSignatureRecordDO;
-import cn.iocoder.yudao.module.bpm.dal.mysql.signature.BpmApprovalSignatureRecordMapper;
+import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
 
 @Service
 public class ApprovalSignatureRecordServiceImpl implements ApprovalSignatureRecordService {
 
-    private final BpmApprovalSignatureRecordMapper signatureRecordMapper;
+    static final String MODULE_CODE = "BPM";
+    static final String SUBJECT_TYPE = "BPM_APPROVAL_TASK";
+
+    private final ElectronicSignatureService electronicSignatureService;
     private final ApprovalSignatureImageSnapshotProvider signatureImageSnapshotProvider;
 
-    public ApprovalSignatureRecordServiceImpl(BpmApprovalSignatureRecordMapper signatureRecordMapper,
+    public ApprovalSignatureRecordServiceImpl(ElectronicSignatureService electronicSignatureService,
                                               ApprovalSignatureImageSnapshotProvider signatureImageSnapshotProvider) {
-        this.signatureRecordMapper = signatureRecordMapper;
+        this.electronicSignatureService = electronicSignatureService;
         this.signatureImageSnapshotProvider = signatureImageSnapshotProvider;
     }
 
@@ -29,6 +34,13 @@ public class ApprovalSignatureRecordServiceImpl implements ApprovalSignatureReco
         if (context.getSourceTaskType() == null || context.getSourceTaskType().isBlank()) {
             throw new NullPointerException("APPROVAL_SOURCE_TASK_TYPE_REQUIRED");
         }
+        if (context.getSourceTaskId() == null || context.getSourceTaskId().isBlank()) {
+            throw new NullPointerException("APPROVAL_SOURCE_TASK_ID_REQUIRED");
+        }
+        if (isOrderedBpmApproval(context)
+                && (context.getProcessInstanceId() == null || context.getProcessInstanceId().isBlank())) {
+            throw new NullPointerException("APPROVAL_PROCESS_INSTANCE_REQUIRED");
+        }
         if (context.getLoginUserId() == null) {
             throw new NullPointerException("APPROVAL_LOGIN_USER_REQUIRED");
         }
@@ -38,34 +50,27 @@ public class ApprovalSignatureRecordServiceImpl implements ApprovalSignatureReco
         ApprovalSignatureImageSnapshot imageSnapshot =
                 signatureImageSnapshotProvider.requireActiveSnapshot(context.getLoginUserId());
         String signatureImageFileUrl = requireText(imageSnapshot.getFileUrl(), "APPROVAL_SIGNATURE_IMAGE_URL_REQUIRED");
-        BpmApprovalSignatureRecordDO record = BpmApprovalSignatureRecordDO.builder()
-                .tenantId(TenantContextHolder.getRequiredTenantId())
-                .moduleCode(context.getModuleCode().name())
-                .sourceTaskType(context.getSourceTaskType().trim())
-                .sourceTaskId(trimToNull(context.getSourceTaskId()))
-                .businessKey(trimToNull(context.getBusinessKey()))
-                .processInstanceId(trimToNull(context.getProcessInstanceId()))
-                .signerUserId(context.getLoginUserId())
-                .reviewResult(context.getResult().name())
-                .reason(trimToNull(context.getReason()))
-                .passwordVerified(Boolean.TRUE)
-                .signedAt(LocalDateTime.now())
-                .signatureImageId(imageSnapshot.getImageId())
-                .signatureImageVersionNo(imageSnapshot.getVersionNo())
-                .signatureImageFileId(imageSnapshot.getFileId())
-                .signatureImageFileUrl(signatureImageFileUrl)
-                .signatureImageSha256(imageSnapshot.getSha256())
-                .signatureImageContentType(imageSnapshot.getContentType())
-                .signatureImageFileSize(imageSnapshot.getFileSize())
-                .signatureImageStatusSnapshot(imageSnapshot.getImageStatus())
-                .signatureImageVerifiedStatus(imageSnapshot.getVerifiedStatus())
-                .build();
-        signatureRecordMapper.insert(record);
+        String subjectId = BpmApprovalSignatureSubjectAdapter.encodeSubjectId(context, imageSnapshot);
+        String subjectVersion = BpmApprovalSignatureSubjectAdapter.subjectVersion(subjectId);
+        ElectronicSignatureResult signature = electronicSignatureService.sign(new ElectronicSignatureCommand(
+                MODULE_CODE,
+                context.getResult().name(),
+                SUBJECT_TYPE,
+                subjectId,
+                subjectVersion,
+                context.getSignaturePassword().trim(),
+                trimToNull(context.getReason()) == null ? context.getResult().name() : context.getReason().trim(),
+                idempotencyKey(context, imageSnapshot),
+                null,
+                null));
         signatureImageSnapshotProvider.markReferenced(imageSnapshot.getImageId());
         return ApprovalSignatureRecordResult.builder()
-                .recordId(record.getId())
+                .recordId(signature.signatureId())
+                .unifiedSignatureId(signature.signatureId())
                 .signatureImageId(imageSnapshot.getImageId())
                 .signatureImageFileUrl(signatureImageFileUrl)
+                .subjectId(subjectId)
+                .evidenceHash(signature.evidenceHash())
                 .build();
     }
 
@@ -76,11 +81,57 @@ public class ApprovalSignatureRecordServiceImpl implements ApprovalSignatureReco
         return value.trim();
     }
 
+    private static boolean isOrderedBpmApproval(ApprovalTaskReviewContext context) {
+        return MODULE_CODE.equals(context.getModuleCode().name())
+                && "BPM_TASK_TODO".equals(trimToNull(context.getSourceTaskType()));
+    }
+
     private static String requireText(String value, String message) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(message);
         }
         return value.trim();
+    }
+
+    private static String idempotencyKey(ApprovalTaskReviewContext context, ApprovalSignatureImageSnapshot imageSnapshot) {
+        return "BPM|" + context.getModuleCode().name()
+                + "|" + trimToNull(context.getSourceTaskType())
+                + "|" + trimToNull(context.getSourceTaskId())
+                + "|" + trimToNull(context.getBusinessKey())
+                + "|" + trimToNull(context.getProcessInstanceId())
+                + "|" + context.getLoginUserId()
+                + "|" + context.getResult().name()
+                + "|" + trimToNull(context.getReason())
+                + "|" + imageSnapshot.getImageId()
+                + "|" + imageSnapshot.getVersionNo()
+                + "|" + sha256(signatureImagePayload(imageSnapshot));
+    }
+
+    static String signatureImagePayload(ApprovalSignatureImageSnapshot imageSnapshot) {
+        return String.join("|",
+                String.valueOf(imageSnapshot.getImageId()),
+                String.valueOf(imageSnapshot.getVersionNo()),
+                String.valueOf(imageSnapshot.getFileId()),
+                requireText(imageSnapshot.getFileUrl(), "APPROVAL_SIGNATURE_IMAGE_URL_REQUIRED"),
+                trimToNull(imageSnapshot.getSha256()),
+                trimToNull(imageSnapshot.getContentType()),
+                String.valueOf(imageSnapshot.getFileSize()),
+                trimToNull(imageSnapshot.getImageStatus()),
+                trimToNull(imageSnapshot.getVerifiedStatus()));
+    }
+
+    static String sha256(String payload) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = digest.digest(payload.getBytes(StandardCharsets.UTF_8));
+            StringBuilder builder = new StringBuilder(bytes.length * 2);
+            for (byte value : bytes) {
+                builder.append(String.format("%02x", value));
+            }
+            return builder.toString();
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 algorithm is unavailable", ex);
+        }
     }
 
 }

@@ -9,7 +9,7 @@ export interface DccFileTypeTaxonomyVO {
   active: boolean
   sort: number
   remark?: string
-  createTime?: Date | string
+  createTime?: number
   children?: DccFileTypeTaxonomyVO[]
 }
 
@@ -20,6 +20,10 @@ export type DccFileTypeTaxonomySaveReqVO = Pick<
 
 export const getFileTypeTaxonomyList = async (): Promise<DccFileTypeTaxonomyVO[]> => {
   return await request.get({ url: '/dcc/file-type-taxonomies' })
+}
+
+export const getFileTypeTaxonomyUploadOptions = async (): Promise<DccFileTypeTaxonomyVO[]> => {
+  return await request.get({ url: '/dcc/file-type-taxonomies/upload-options' })
 }
 
 export const createFileTypeTaxonomy = async (data: DccFileTypeTaxonomySaveReqVO): Promise<number> => {

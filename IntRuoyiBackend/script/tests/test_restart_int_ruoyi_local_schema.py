@@ -14,6 +14,66 @@ def test_local_restart_applies_mes_route_use_config_enabled_migration() -> None:
     assert "COLUMN_NAME = 'enabled'" in text or "column_name = 'enabled'" in text
 
 
+def test_local_restart_applies_system_user_lifecycle_deactivation_migration() -> None:
+    script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
+    text = script_path.read_text(encoding="utf-8")
+
+    assert "20260830_system_user_lifecycle_deactivation.sql" in text
+    assert "System user lifecycle deactivation schema" in text
+    assert "TABLE_NAME = 'system_users'" in text
+    assert "'lifecycle_document_type'" in text
+    assert "'lifecycle_document_no'" in text
+    assert "'lifecycle_document_time'" in text
+    assert "'lifecycle_effective_time'" in text
+    assert "'lifecycle_deactivated_time'" in text
+    assert "INDEX_NAME = 'idx_system_users_lifecycle_due'" in text
+    assert "handler_name = 'userLifecycleDeactivateJob'" in text
+
+
+def test_local_restart_applies_batch_record_cell_link_structured_source_widths_migration() -> None:
+    script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
+    text = script_path.read_text(encoding="utf-8")
+
+    assert "20260830_mes_batch_record_cell_link_structured_source_widths.sql" in text
+    assert "MES batch record cell link structured source widths" in text
+    assert "TABLE_NAME = 'mes_pro_batch_record_cell_link_rule'" in text
+    assert "COLUMN_NAME = 'source_cell_key'" in text
+    assert "COLUMN_NAME = 'source_field_code'" in text
+    assert "COLUMN_NAME = 'source_field_name'" in text
+    assert "CHARACTER_MAXIMUM_LENGTH >= 128" in text
+    assert "CHARACTER_MAXIMUM_LENGTH >= 1024" in text
+    assert "CHARACTER_MAXIMUM_LENGTH >= 255" in text
+
+
+def test_local_restart_applies_idi_device_parameter_rules_migration() -> None:
+    script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
+    text = script_path.read_text(encoding="utf-8")
+
+    assert "20260830_mes_process_pool_idi_device_parameter_rules.sql" in text
+    assert "MES process pool IDI device parameter rules" in text
+    assert "RT000028-IDI" in text
+    assert "_utf8mb4 0xe68c89e58e8be5bc8fe79083e59b8ae689a9e58585e58e8be58a9be6b3b5" in text
+    assert "project.`project_name` = '按压式球囊扩充压力泵'" not in text
+    assert "B09393" in text
+    assert "COUNT(DISTINCT target_rule.`parameter_code`)" in text
+    for parameter_code in (
+        "IDIJSON_01_B09393_01",
+        "IDIJSON_01_B09393_02",
+        "IDIJSON_01_B09393_03",
+        "IDIJSON_01_B09393_04",
+        "IDIJSON_01_B09393_05",
+    ):
+        assert f"'{parameter_code}'" in text
+    for legacy_code in (
+        "ROUGH_WASH_COUNT",
+        "ROUGH_WASH_MEDIUM",
+        "ROUGH_WASH_POWER",
+        "ROUGH_WASH_ROOM_TEMPERATURE",
+        "ROUGH_WASH_TIME",
+    ):
+        assert f"'{legacy_code}'" not in text
+
+
 def test_local_restart_accepts_completed_route_flow_unification() -> None:
     script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
     text = script_path.read_text(encoding="utf-8")
@@ -146,6 +206,20 @@ def test_local_restart_applies_dcc_access_rule_manual_binding_migration() -> Non
     assert "COLUMN_NAME = 'access_rule_manually_bound'" in text
 
 
+def test_local_restart_applies_business_approval_policy_form_slots_schema_migration() -> None:
+    script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
+    text = script_path.read_text(encoding="utf-8")
+
+    assert "20260721_form_action_policy_approval_mode.sql" in text
+    assert "Business approval policy form slots schema" in text
+    assert "TABLE_NAME = 'bpm_business_approval_policy'" in text
+    assert "'form_policy_type'" in text
+    assert "'form_slots_json'" in text
+    assert text.index("20260721_form_action_policy_approval_mode.sql") < text.index(
+        "20260721_mes_route_version_publish_business_approval_policy_seed.sql"
+    )
+
+
 def test_local_restart_repairs_system_nas_menu_titles() -> None:
     script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
     text = script_path.read_text(encoding="utf-8")
@@ -202,14 +276,20 @@ def test_local_restart_writes_mysql_stdin_as_utf8_bytes() -> None:
     assert "$process.StandardInput.Write($InputText)" not in block
 
 
-def test_local_restart_reads_persistent_dcc_download_encryption_env() -> None:
+def test_local_restart_does_not_read_persistent_download_encryption_environment() -> None:
     script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
     text = script_path.read_text(encoding="utf-8")
+    removed_secret_prefix = "DCC_DOWNLOAD_" + "ENCRYPTION"
+    removed_class_prefix = "DccDownload" + "Encryption"
+    removed_property_prefix = "yudao.dcc.download." + "encryption"
 
-    assert "function Import-PersistentEnvironmentVariable" in text
-    assert "[System.EnvironmentVariableTarget]::User" in text
-    assert "[System.EnvironmentVariableTarget]::Machine" in text
-    assert "Import-PersistentEnvironmentVariable $Name" in text
+    assert removed_secret_prefix not in text
+    assert removed_class_prefix not in text
+    assert removed_property_prefix not in text
+    assert "function Import-PersistentEnvironmentVariable" not in text
+    assert "[System.EnvironmentVariableTarget]::User" not in text
+    assert "[System.EnvironmentVariableTarget]::Machine" not in text
+    assert "Import-PersistentEnvironmentVariable $Name" not in text
 
 
 def test_local_restart_uses_spring_boot_executable_backend_jar() -> None:

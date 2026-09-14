@@ -5,7 +5,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.protection.DccControlledFileDo
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * DCC controlled file encrypted download record mapper.
+ * DCC controlled file download audit record mapper.
  */
 @Mapper
 public interface DccControlledFileDownloadRecordMapper extends BaseMapperX<DccControlledFileDownloadRecordDO> {

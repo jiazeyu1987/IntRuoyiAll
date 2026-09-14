@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -73,5 +74,9 @@ public class MesProSchedulerWorkbenchPolicySettingsRespVO {
     @NotNull(message = "默认单人产能不能为空")
     @DecimalMin(value = "0", inclusive = false, message = "默认单人产能必须大于 0")
     private BigDecimal defaultWorkerSingleHourlyCapacity;
+
+    @Schema(description = "人工产能参数适用范围说明", accessMode = Schema.AccessMode.READ_ONLY)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String workerCapacityApplicabilityText;
 
 }

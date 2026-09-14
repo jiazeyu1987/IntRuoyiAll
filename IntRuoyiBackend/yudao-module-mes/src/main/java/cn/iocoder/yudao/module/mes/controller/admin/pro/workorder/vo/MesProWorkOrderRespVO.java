@@ -41,6 +41,10 @@ public class MesProWorkOrderRespVO {
     @Schema(description = "来源单据编号", example = "SO-001")
     private String orderSourceCode;
 
+    @Schema(description = "需求单据", example = "SO-001")
+    @ExcelProperty("需求单据")
+    private String demandBillNo;
+
     @Schema(description = "产品编号", example = "100")
     private Long productId;
 
@@ -125,6 +129,10 @@ public class MesProWorkOrderRespVO {
     @Schema(description = "图号", example = "255ACSXXXX")
     @ExcelProperty("图号")
     private String drawingNumber;
+
+    @Schema(description = "REF.NO.", example = "REF-2026-001")
+    @ExcelProperty("REF.NO.")
+    private String refNo;
 
     @Schema(description = "排产状态", example = "未排产")
     @ExcelProperty("排产状态")

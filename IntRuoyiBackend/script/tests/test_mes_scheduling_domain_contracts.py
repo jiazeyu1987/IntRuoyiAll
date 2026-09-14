@@ -70,6 +70,22 @@ ROUTE_CONFIG_SERVICE = (
     / "route"
     / "MesProRouteScheduleConfigServiceImpl.java"
 )
+ROUTE_SERVICE = (
+    REPO_ROOT
+    / "yudao-module-mes"
+    / "src"
+    / "main"
+    / "java"
+    / "cn"
+    / "iocoder"
+    / "yudao"
+    / "module"
+    / "mes"
+    / "service"
+    / "pro"
+    / "route"
+    / "MesProRouteServiceImpl.java"
+)
 
 
 def read_text(path: Path) -> str:
@@ -93,9 +109,13 @@ def test_mes_scheduling_domain_contract_doc_declares_risk_guardrails() -> None:
         "算法变更门禁",
         "工序身份变更门禁",
         "日历产能变更门禁",
+        "排程日历用料映射告警门禁",
+        "工作台最近一次排产口径门禁",
         "报工联动变更门禁",
         "应用重排必须重新计算",
         "禁止用 processId 跨路线合并",
+        "生产用料清单子项未映射本地物料",
+        "MATERIAL_DEMAND / WARNING",
         "默认值必须明确是业务默认还是历史兼容",
     ]
 
@@ -140,13 +160,14 @@ def test_mes_scheduling_core_keeps_source_guardrail_patterns() -> None:
     auto_schedule_and_components_text = auto_schedule_text + "\n" + topology_text
     schedule_order_text = read_text(SCHEDULE_ORDER_SERVICE)
     route_config_text = read_text(ROUTE_CONFIG_SERVICE)
+    route_guardrail_text = route_config_text + "\n" + read_text(ROUTE_SERVICE)
 
     auto_schedule_snippets = [
         "scheduleApplyGuard.validateCalendarContextTokenProvided(reqVO.getCalendarContextToken());",
         "scheduleApplyGuard.validateCalendarContextToken(reqVO.getCalendarContextToken(),",
         "buildLinkPlans(computation);",
         "predecessorRouteProcessId",
-        "dependencyAvailableFrom",
+        "dependencyReleasedAt",
         "routeProcessAvailabilityKey(routeProcess, scheduleOrderProcess)",
         "return RouteProcessIdentity.availabilityKey(routeProcessId);",
         "return RouteProcessIdentity.legacyAvailabilityKey(routeId, processId);",
@@ -161,6 +182,9 @@ def test_mes_scheduling_core_keeps_source_guardrail_patterns() -> None:
         "selectByRouteVersionIdAndRouteProcessId(routeVersionId, routeProcessId)",
         "isDefaultScheduleConfig(scheduleConfig)",
         "isDefaultScheduleProcess(process)",
+        "private List<MesProScheduleOrderDO> selectLatestProcessWipScheduleOrders()",
+        "getLatestSuccessfulApplyScheduleOrderIds()",
+        "filter(order -> latestApplyScheduleOrderIds.contains(order.getId()))",
     ]
     route_config_snippets = [
         "config.setItemId(null);",
@@ -173,4 +197,4 @@ def test_mes_scheduling_core_keeps_source_guardrail_patterns() -> None:
     for snippet in schedule_order_snippets:
         assert snippet in schedule_order_text
     for snippet in route_config_snippets:
-        assert snippet in route_config_text
+        assert snippet in route_guardrail_text

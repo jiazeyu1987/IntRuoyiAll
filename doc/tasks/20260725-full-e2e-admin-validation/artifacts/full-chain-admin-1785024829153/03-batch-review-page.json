@@ -1,0 +1,8 @@
+{
+  "stepId": "03-batch-review-page",
+  "url": "http://localhost:8081/mes/pro/feedback/edhr-batch-execution/review?id=900000000846",
+  "capturedAt": "2026-07-26T00:21:07.301Z",
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260725-full-e2e-admin-validation\\artifacts\\full-chain-admin-1785024829153\\03-batch-review-page.png",
+  "batchExecutionId": 900000000846,
+  "assertion": "批次复盘页可见 eDHR 批次复盘和特殊节点追溯入口"
+}

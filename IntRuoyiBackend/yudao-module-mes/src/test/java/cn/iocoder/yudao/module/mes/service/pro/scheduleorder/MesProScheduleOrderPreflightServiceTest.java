@@ -180,6 +180,8 @@ class MesProScheduleOrderPreflightServiceTest {
         when(syncRecordMapper.selectByWorkOrderId(201L)).thenReturn(MesKingdeeProductionOrderSyncRecordDO.builder()
                 .id(901L)
                 .workOrderId(201L)
+                .sourceFid("FID-201")
+                .sourceBillNo("BILL-201")
                 .build());
 
         MesProScheduleOrderPreflightReqVO reqVO = new MesProScheduleOrderPreflightReqVO();
@@ -226,6 +228,8 @@ class MesProScheduleOrderPreflightServiceTest {
         when(syncRecordMapper.selectByWorkOrderId(202L)).thenReturn(MesKingdeeProductionOrderSyncRecordDO.builder()
                 .id(902L)
                 .workOrderId(202L)
+                .sourceFid("FID-202")
+                .sourceBillNo("BILL-202")
                 .build());
 
         MesProScheduleOrderPreflightReqVO reqVO = new MesProScheduleOrderPreflightReqVO();

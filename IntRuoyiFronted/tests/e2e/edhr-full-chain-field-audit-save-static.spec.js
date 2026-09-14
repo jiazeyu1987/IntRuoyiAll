@@ -8,19 +8,19 @@ const page = fs.readFileSync(pagePath, 'utf8')
 const script = fs.readFileSync(scriptPath, 'utf8')
 
 assert(
-  page.includes('@click="handleSaveFieldAuditChanges"') && page.includes('确认保存'),
-  '字段审计弹窗必须通过“确认保存”按钮触发真实保存函数。'
+  page.includes('@click="handleSaveFieldAuditChanges"') && !page.includes('openFieldAuditSignatureDialog'),
+  '字段审计保存必须由保存按钮直接触发真实保存函数，不得先打开保存确认或签名弹框。'
 )
 
 assert(
-  script.includes("dialog.getByPlaceholder('请输入当前账号密码')") &&
-    script.includes('/确\\s*认\\s*保\\s*存/'),
-  '完整链路脚本必须按字段审计弹窗的真实密码输入框和确认保存按钮操作。'
+  !script.includes("dialog.getByPlaceholder('请输入当前账号密码')") &&
+    !script.includes('/确\\s*认\\s*保\\s*存/'),
+  '完整链路脚本的字段审计保存不得输入签名密码或点击确认保存。'
 )
 
 assert(
-  /const saveResponsePromise = waitForApiResponse\(page, ENDPOINTS\.fieldAuditSave, '字段审计保存', 'PUT'\)[\s\S]*await confirmButton\.click\(\)/.test(script),
-  '完整链路脚本必须在点击字段审计确认保存按钮时等待真实保存接口响应。'
+  /const saveResponsePromise = waitForApiResponse\(page, ENDPOINTS\.fieldAuditSave, '字段审计保存', 'PUT'\)[\s\S]*await saveButton\.click\(\)/.test(script),
+  '完整链路脚本必须在点击保存按钮时等待真实保存接口响应。'
 )
 
 console.log('PASS: eDHR full-chain field audit save static contract')

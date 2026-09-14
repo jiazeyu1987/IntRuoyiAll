@@ -199,7 +199,11 @@ export enum CandidateStrategy {
   /**
    * 流程表达式
    */
-  EXPRESSION = 60
+  EXPRESSION = 60,
+  /**
+   * 混合审批对象
+   */
+  MIXED = 70
 }
 
 // 多人审批方式类型枚举 （ 用于审批节点 ）

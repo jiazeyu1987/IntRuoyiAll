@@ -44,6 +44,7 @@ class Sheet1MachineryProcessExcelParserTest {
             header.createCell(7).setCellValue("人工");
 
             Row deviceRow = sheet.createRow(1);
+            deviceRow.createCell(0).setCellValue("球囊产线");
             deviceRow.createCell(2).setCellValue("A03190");
             deviceRow.createCell(3).setCellValue("吹球囊成型");
             deviceRow.createCell(4).setCellValue("球囊成型机");

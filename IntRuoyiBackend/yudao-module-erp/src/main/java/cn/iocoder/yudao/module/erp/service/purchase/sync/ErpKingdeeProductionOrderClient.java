@@ -9,7 +9,7 @@ public interface ErpKingdeeProductionOrderClient {
 
     List<ErpKingdeeProductionOrder> fetchProductionOrders(ErpKingdeeProperties properties);
 
-    List<ErpKingdeeProductionOrder> fetchUnfinishedProductionOrders(ErpKingdeeProperties properties,
+    List<ErpKingdeeProductionOrder> fetchProductionOrdersByBillDateRange(ErpKingdeeProperties properties,
                                                                      LocalDate fromDate,
                                                                      LocalDate toDate);
 

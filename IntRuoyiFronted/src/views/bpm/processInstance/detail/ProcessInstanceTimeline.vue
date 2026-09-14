@@ -11,7 +11,8 @@
     >
       <template #dot>
         <div
-          class="position-absolute left--10px top--6px rounded-full border border-solid border-#dedede w-30px h-30px flex justify-center items-center bg-#3f73f7 p-5px"
+          class="position-absolute left--10px top--6px rounded-full border border-solid border-#dedede w-30px h-30px flex justify-center items-center p-5px"
+          :style="{ backgroundColor: getApprovalNodeDotColor(activity.status) }"
         >
           <img class="w-full h-full" :src="getApprovalNodeImg(activity.nodeType)" alt="" />
           <div
@@ -28,8 +29,15 @@
       <div class="flex flex-col items-start gap2" :id="`activity-task-${activity.id}-${index}`">
         <!-- 第一行：节点名称、时间 -->
         <div class="flex w-full">
-          <div class="font-bold">
-            {{ resolveDccTimelineActivityName(activity.id, activity.name) }}
+          <div
+            class="font-bold"
+            :style="
+              isCurrentApprovalNodeStatus(activity.status)
+                ? { color: APPROVAL_ACTIVE_COLOR }
+                : undefined
+            "
+          >
+            {{ resolveProcessNodeDisplayName(activity.id, activity.name) }}
             <span v-if="activity.status === TaskStatusEnum.SKIP">【跳过】</span>
           </div>
           <!-- 信息：时间 -->
@@ -55,6 +63,7 @@
         <div
           class="flex flex-wrap gap2 items-center"
           v-if="
+            !resolveActivityReviewerLabel(activity) &&
             isEmpty(activity.tasks) &&
             ((CandidateStrategy.START_USER_SELECT === activity.candidateStrategy &&
               isEmpty(activity.candidateUsers)) ||
@@ -84,40 +93,47 @@
           </div>
         </div>
         <div v-else class="flex items-center flex-wrap mt-1 gap2">
+          <div
+            v-if="!hasActivityTasks(activity) && resolveActivityReviewerLabel(activity)"
+            class="bg-gray-100 h-35px rounded-3xl flex items-center pr-8px dark:color-gray-600 position-relative"
+          >
+            <el-avatar class="!m-5px" :size="28">
+              {{ resolveReviewerLabelInitial(resolveActivityReviewerLabel(activity)) }}
+            </el-avatar>
+            {{ resolveActivityReviewerLabel(activity) }}
+
+            <!-- 信息：任务 ICON -->
+            <div
+              v-if="props.showStatusIcon"
+              class="position-absolute top-20px left-24px rounded-full flex items-center p-1px border-2 border-white border-solid"
+              :style="{ backgroundColor: statusIconMap2['-1']?.color }"
+            >
+              <Icon :size="11" :icon="statusIconMap2['-1']?.icon" color="#FFFFFF" />
+            </div>
+          </div>
           <!-- 情况一：遍历每个审批节点下的【进行中】task 任务 -->
           <div v-for="(task, idx) in activity.tasks" :key="idx" class="flex flex-col pr-2 gap2">
             <div
               class="position-relative flex flex-wrap gap2"
-              v-if="task.assigneeUser || task.ownerUser"
+              v-if="resolveTaskReviewerLabel(task, activity)"
             >
               <!-- 信息：头像昵称 -->
               <div
                 class="bg-gray-100 h-35px rounded-3xl flex items-center pr-8px dark:color-gray-600 position-relative"
               >
-                <template v-if="task.assigneeUser?.avatar || task.assigneeUser?.nickname">
+                <template v-if="resolveTaskReviewerAvatar(task, activity)">
                   <el-avatar
                     class="!m-5px"
                     :size="28"
-                    v-if="task.assigneeUser?.avatar"
-                    :src="task.assigneeUser?.avatar"
+                    :src="resolveTaskReviewerAvatar(task, activity)"
                   />
-                  <el-avatar class="!m-5px" :size="28" v-else>
-                    {{ task.assigneeUser?.nickname.substring(0, 1) }}
-                  </el-avatar>
-                  {{ task.assigneeUser?.nickname }}
                 </template>
-                <template v-else-if="task.ownerUser?.avatar || task.ownerUser?.nickname">
-                  <el-avatar
-                    class="!m-5px"
-                    :size="28"
-                    v-if="task.ownerUser?.avatar"
-                    :src="task.ownerUser?.avatar"
-                  />
-                  <el-avatar class="!m-5px" :size="28" v-else>
-                    {{ task.ownerUser?.nickname.substring(0, 1) }}
+                <template v-else>
+                  <el-avatar class="!m-5px" :size="28">
+                    {{ resolveReviewerLabelInitial(resolveTaskReviewerLabel(task, activity)) }}
                   </el-avatar>
-                  {{ task.ownerUser?.nickname }}
                 </template>
+                {{ resolveTaskReviewerLabel(task, activity) }}
                 <!-- 信息：任务 ICON -->
                 <div
                   v-if="props.showStatusIcon && onlyStatusIconShow.includes(task.status)"
@@ -153,26 +169,28 @@
             </teleport>
           </div>
           <!-- 情况二：遍历每个审批节点下的【候选的】task 任务。例如说，1）依次审批，2）未来的审批任务等 -->
-          <div
-            v-for="(user, idx1) in activity.candidateUsers"
-            :key="idx1"
-            class="bg-gray-100 h-35px rounded-3xl flex items-center pr-8px dark:color-gray-600 position-relative"
-          >
-            <el-avatar class="!m-5px" :size="28" v-if="user.avatar" :src="user.avatar" />
-            <el-avatar class="!m-5px" :size="28" v-else>
-              {{ user.nickname.substring(0, 1) }}
-            </el-avatar>
-            {{ user.nickname }}
-
-            <!-- 信息：任务 ICON -->
+          <template v-if="!resolveActivityReviewerLabel(activity)">
             <div
-              v-if="props.showStatusIcon"
-              class="position-absolute top-20px left-24px rounded-full flex items-center p-1px border-2 border-white border-solid"
-              :style="{ backgroundColor: statusIconMap2['-1']?.color }"
+              v-for="(user, idx1) in activity.candidateUsers"
+              :key="idx1"
+              class="bg-gray-100 h-35px rounded-3xl flex items-center pr-8px dark:color-gray-600 position-relative"
             >
-              <Icon :size="11" :icon="statusIconMap2['-1']?.icon" color="#FFFFFF" />
+              <el-avatar class="!m-5px" :size="28" v-if="user.avatar" :src="user.avatar" />
+              <el-avatar class="!m-5px" :size="28" v-else>
+                {{ user.nickname.substring(0, 1) }}
+              </el-avatar>
+              {{ user.nickname }}
+
+              <!-- 信息：任务 ICON -->
+              <div
+                v-if="props.showStatusIcon"
+                class="position-absolute top-20px left-24px rounded-full flex items-center p-1px border-2 border-white border-solid"
+                :style="{ backgroundColor: statusIconMap2['-1']?.color }"
+              >
+                <Icon :size="11" :icon="statusIconMap2['-1']?.icon" color="#FFFFFF" />
+              </div>
             </div>
-          </div>
+          </template>
         </div>
       </div>
     </el-timeline-item>
@@ -189,7 +207,7 @@ import { TaskStatusEnum } from '@/api/bpm/task'
 import { NodeType, CandidateStrategy } from '@/components/SimpleProcessDesignerV2/src/consts'
 import { isEmpty } from '@/utils/is'
 import { Check, Close, Loading, Clock, Minus, Delete, ArrowDown } from '@element-plus/icons-vue'
-import { resolveDccTimelineActivityName } from '@/views/dcc/controlled-file/shared/stage-name'
+import { resolveProcessNodeDisplayName } from './display-name'
 import starterSvg from '@/assets/svgs/bpm/starter.svg'
 import auditorSvg from '@/assets/svgs/bpm/auditor.svg'
 import copySvg from '@/assets/svgs/bpm/copy.svg'
@@ -212,6 +230,16 @@ const props = withDefaults(
   }
 )
 const { push } = useRouter() // 路由
+const APPROVAL_ACTIVE_COLOR = '#00b32a'
+const APPROVAL_NODE_DEFAULT_COLOR = '#3f73f7'
+
+const isCurrentApprovalNodeStatus = (taskStatus: number) =>
+  [TaskStatusEnum.WAIT, TaskStatusEnum.RUNNING, TaskStatusEnum.APPROVING].includes(
+    taskStatus as TaskStatusEnum
+  )
+
+const getApprovalNodeDotColor = (taskStatus: number) =>
+  isCurrentApprovalNodeStatus(taskStatus) ? APPROVAL_ACTIVE_COLOR : APPROVAL_NODE_DEFAULT_COLOR
 
 // 审批节点
 const statusIconMap2 = {
@@ -222,7 +250,7 @@ const statusIconMap2 = {
   // 待审批
   '0': { color: '#00b32a', icon: 'ep:loading' },
   // 审批中
-  '1': { color: '#448ef7', icon: 'ep:loading' },
+  '1': { color: APPROVAL_ACTIVE_COLOR, icon: 'ep:loading' },
   // 审批通过
   '2': { color: '#00b32a', icon: 'ep:circle-check-filled' },
   // 审批不通过
@@ -244,7 +272,7 @@ const statusIconMap = {
   '-1': { color: '#909398', icon: Clock },
   '0': { color: '#00b32a', icon: Clock },
   // 审批中
-  '1': { color: '#448ef7', icon: Loading },
+  '1': { color: APPROVAL_ACTIVE_COLOR, icon: Loading },
   // 审批通过
   '2': { color: '#00b32a', icon: Check },
   // 审批不通过
@@ -316,6 +344,44 @@ const getApprovalNodeTime = (node: ProcessInstanceApi.ApprovalNodeInfo) => {
   if (node.startTime) {
     return `${formatDate(node.startTime)}`
   }
+}
+
+const resolveApprovalRoleLabel = (roleName?: string | null) =>
+  roleName ? `审批角色：${roleName}` : ''
+
+const getUserDisplayName = (user?: ProcessInstanceApi.User | null) => {
+  if (!user) {
+    return ''
+  }
+  return user.nickname || (user.id ? `用户#${user.id}` : '')
+}
+
+const resolveReviewerLabelInitial = (label: string) => {
+  const normalized = String(label || '').trim()
+  return normalized ? normalized.substring(0, 1) : '审'
+}
+
+const hasActivityTasks = (activity: ProcessInstanceApi.ApprovalNodeInfo) => !isEmpty(activity.tasks)
+
+const resolveActivityReviewerLabel = (activity: ProcessInstanceApi.ApprovalNodeInfo) =>
+  resolveApprovalRoleLabel(activity.assigneeRoleName)
+
+const resolveTaskReviewerLabel = (
+  task: ProcessInstanceApi.ApprovalTaskInfo,
+  activity: ProcessInstanceApi.ApprovalNodeInfo
+) =>
+  resolveApprovalRoleLabel(task.assigneeRoleName || activity.assigneeRoleName) ||
+  getUserDisplayName(task.assigneeUser) ||
+  getUserDisplayName(task.ownerUser)
+
+const resolveTaskReviewerAvatar = (
+  task: ProcessInstanceApi.ApprovalTaskInfo,
+  activity: ProcessInstanceApi.ApprovalNodeInfo
+) => {
+  if (resolveApprovalRoleLabel(task.assigneeRoleName || activity.assigneeRoleName)) {
+    return ''
+  }
+  return task.assigneeUser?.avatar || task.ownerUser?.avatar || ''
 }
 
 // 选择自定义审批人

@@ -44,9 +44,13 @@ assert.ok(
   '完整重排在无阻断时必须调用直接应用接口。'
 )
 assert.ok(
-  source.includes('排产前检查存在阻断问题，不能应用重排') &&
-    source.includes('重排预览存在阻断问题，不能应用重排'),
-  '完整重排必须在检查或预览存在阻断时停止直接应用。'
+  source.includes('排产前检查存在无法归因到工单的阻断问题，不能应用重排') &&
+    source.includes('重排预览存在无法归因到工单的阻断问题，不能应用重排'),
+  '完整重排必须在检查或预览存在无法归因阻断时停止直接应用。'
+)
+assert.ok(
+  source.includes('await confirmSkippedSelectedReplanRows(freshPreview)'),
+  '完整重排存在可归因局部阻断时必须先确认跳过问题工单再应用其余工单。'
 )
 
 console.log('PASS: MES schedule order replan single action static contract')

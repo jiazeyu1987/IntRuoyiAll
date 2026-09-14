@@ -6,7 +6,7 @@ const root = path.resolve(process.cwd())
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 
 const routes = read('src/router/modules/remaining.ts')
-const workflowMenuSql = read('../ruoyi-vue-pro/sql/mysql/20260714_approval_center_workflow_menu_consolidation.sql')
+const workflowMenuSql = read('../IntRuoyiBackend/sql/mysql/20260714_approval_center_workflow_menu_consolidation.sql')
 const page = read('src/views/approval-center/index.vue')
 const tabMenu = read('src/layout/components/TabMenu/src/TabMenu.vue')
 const tagsViewStore = read('src/store/modules/tagsView.ts')
@@ -30,11 +30,12 @@ assert.match(routes, /tagsViewKey:\s*'\/approval-center'/, 'approval center chil
 assert.match(routes, /tagsViewTitle:\s*'审批中心'/, 'approval center child routes must render unified tags view title')
 
 const expectedApprovalChildOrder = [
-  "title: '流程管理'",
   "title: '待办'",
   "title: '已办'",
   "title: '我发起的'",
-  "title: '抄送我的'"
+  "title: '抄送我的'",
+  "title: '流程模型'",
+  "title: 'OA 示例'"
 ]
 let previousApprovalChildIndex = -1
 for (const childTitle of expectedApprovalChildOrder) {
@@ -43,15 +44,41 @@ for (const childTitle of expectedApprovalChildOrder) {
   previousApprovalChildIndex = currentIndex
 }
 
-for (const [routePath, activePath, routeTitle, componentName] of [
-  ['model', 'manager/model', '流程模型', 'ApprovalCenterBpmModel'],
-  ['form', 'manager/form', '流程表单', 'ApprovalCenterBpmForm'],
-  ['category', 'manager/category', '流程分类', 'ApprovalCenterBpmCategory'],
-  ['user-group', 'manager/user-group', '用户分组', 'ApprovalCenterBpmUserGroup'],
-  ['process-expression', 'manager/process-expression', '流程表达式', 'ApprovalCenterBpmProcessExpression']
+assert.match(
+  routes,
+  /name:\s*'ApprovalCenterWorkflowManagement'[\s\S]{0,180}alwaysShow:\s*false/,
+  'approval center workflow management parent must not render as a visible submenu shell'
+)
+
+for (const [routePath, activePath, routeTitle, componentName, shouldHide] of [
+  ['model', 'manager/model', '流程模型', 'ApprovalCenterBpmModel', false],
+  ['form', 'manager/form', '流程表单', 'ApprovalCenterBpmForm', true],
+  ['category', 'manager/category', '流程分类', 'ApprovalCenterBpmCategory', true],
+  [
+    'business-approval-policy',
+    'manager/business-approval-policy',
+    '业务审批策略',
+    'ApprovalCenterBpmBusinessApprovalPolicy',
+    true
+  ],
+  ['user-group', 'manager/user-group', '用户分组', 'ApprovalCenterBpmUserGroup', true],
+  ['process-expression', 'manager/process-expression', '流程表达式', 'ApprovalCenterBpmProcessExpression', true]
 ]) {
   assert.match(routes, new RegExp(`path:\\s*'${routePath}'[\\s\\S]{0,260}name:\\s*'${componentName}'[\\s\\S]{0,260}title:\\s*'${routeTitle}'`), `approval center workflow management route ${routePath} must exist`)
   assert.match(routes, new RegExp(`path:\\s*'${routePath}'[\\s\\S]{0,360}activeMenu:\\s*'/approval-center/${activePath}'`), `approval center workflow management route ${routePath} must highlight its new menu path`)
+  if (shouldHide) {
+    assert.match(
+      routes,
+      new RegExp(`path:\\s*'${routePath}'[\\s\\S]{0,220}hidden:\\s*true`),
+      `approval center workflow management route ${routePath} must be hidden from the side menu`
+    )
+  } else {
+    assert.doesNotMatch(
+      routes,
+      new RegExp(`path:\\s*'${routePath}'[\\s\\S]{0,220}hidden:\\s*true`),
+      `approval center workflow management route ${routePath} must stay visible as the single menu item`
+    )
+  }
 }
 
 assert.match(routes, /path:\s*'oa'[\s\S]{0,260}title:\s*'OA 示例'/, 'approval center may keep OA example route for deep-link compatibility')

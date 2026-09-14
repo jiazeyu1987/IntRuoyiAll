@@ -1,0 +1,97 @@
+{
+  "status": "PASS",
+  "project": "工艺路线",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "baseUrl": "http://127.0.0.1:8082",
+  "backendUrl": "http://127.0.0.1:48082",
+  "checkedAt": "2026-07-26T16:33:04.410Z",
+  "requestedCaseCount": 4,
+  "cases": [
+    {
+      "id": 18,
+      "name": "工艺路线基础信息与工序维护闭环",
+      "project": "工艺路线",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE",
+      "existedBefore": false
+    },
+    {
+      "id": 19,
+      "name": "工艺路线复制与产品绑定闭环",
+      "project": "工艺路线",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE",
+      "existedBefore": false
+    },
+    {
+      "id": 20,
+      "name": "工艺路线候选版本编辑发布闭环",
+      "project": "工艺路线",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE",
+      "existedBefore": false
+    },
+    {
+      "id": 21,
+      "name": "工艺路线状态切换与删除约束闭环",
+      "project": "工艺路线",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE",
+      "existedBefore": false
+    }
+  ],
+  "existingBefore": [],
+  "missingBefore": [
+    "工艺路线基础信息与工序维护闭环",
+    "工艺路线复制与产品绑定闭环",
+    "工艺路线候选版本编辑发布闭环",
+    "工艺路线状态切换与删除约束闭环"
+  ],
+  "verified": [
+    {
+      "id": 18,
+      "name": "工艺路线基础信息与工序维护闭环",
+      "project": "工艺路线",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE"
+    },
+    {
+      "id": 19,
+      "name": "工艺路线复制与产品绑定闭环",
+      "project": "工艺路线",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE"
+    },
+    {
+      "id": 20,
+      "name": "工艺路线候选版本编辑发布闭环",
+      "project": "工艺路线",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE"
+    },
+    {
+      "id": 21,
+      "name": "工艺路线状态切换与删除约束闭环",
+      "project": "工艺路线",
+      "checkpointCount": 4,
+      "defaultExecutionMode": "SEQUENTIAL",
+      "parallelSafe": false,
+      "status": "ENABLE"
+    }
+  ]
+}

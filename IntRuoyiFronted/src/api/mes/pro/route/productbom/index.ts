@@ -1,10 +1,11 @@
 import request from '@/config/axios'
+import type { MesRouteId } from '@/api/mes/pro/route'
 
 // MES 工艺路线产品 BOM VO
 export interface ProRouteProductBomVO {
   id?: number // 编号
   routeId: number // 工艺路线编号
-  routeVersionId?: number // 工艺路线版本编号
+  routeVersionId?: MesRouteId // 工艺路线版本编号
   processId: number // 工序编号
   productId: number // 产品物料编号
   itemId: number // BOM 物料编号
@@ -44,7 +45,7 @@ export const ProRouteProductBomApi = {
   },
 
   // 删除工艺路线产品 BOM
-  deleteRouteProductBom: async (id: number, routeVersionId: number) => {
+  deleteRouteProductBom: async (id: number, routeVersionId: MesRouteId) => {
     return await request.delete({ url: `/mes/pro/route-product-bom/delete`, params: { id, routeVersionId } })
   }
 }

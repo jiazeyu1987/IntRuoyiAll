@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "contractVersion": "2026-08-24-branch-runtime-v7",
+  "worktrees": [
+    {
+      "name": "slot-owner-a",
+      "path": "D:\\IntRuoyiWorktree\\slot-owner-a",
+      "branch": "codex/slot-owner-a",
+      "profile": "int_main",
+      "slot": 2,
+      "frontendPort": 8083,
+      "backendPort": 48083,
+      "active": true
+    },
+    {
+      "name": "slot-owner-b",
+      "path": "D:\\IntRuoyiWorktree\\slot-owner-b",
+      "branch": "codex/slot-owner-b",
+      "profile": "int_main",
+      "slot": 2,
+      "frontendPort": 8083,
+      "backendPort": 48083,
+      "active": true
+    }
+  ]
+}

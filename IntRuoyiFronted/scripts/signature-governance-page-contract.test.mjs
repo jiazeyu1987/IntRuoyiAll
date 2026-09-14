@@ -196,7 +196,13 @@ test('signature governance merge removes stale dynamic overview menu child', () 
     permissionSource,
     /filterSignatureGovernanceDynamicChildren\(\s*staticRoute,\s*dynamicRoute\.children\s*\|\|\s*\[\]\s*\)/s
   )
-  assert.match(permissionSource, /resolveHiddenShellRedirect\(\s*staticRoute,\s*dynamicRoute,\s*mergedRoute\.redirect\s*\)/)
+  assert.match(permissionSource, /SIGNATURE_MY_SIGNATURE_ROUTE_PATH\s*=\s*'my-signature'/)
+  assert.match(permissionSource, /resolveSignatureGovernanceRedirect/)
+  assert.match(permissionSource, /resolveHiddenShellRedirect\(\s*staticRoute,\s*dynamicRoute,\s*mergedRoute\.redirect,\s*dynamicChildren\s*\)/)
+  assert.match(
+    hiddenShellSource,
+    /const appendUncoveredHiddenStaticChildren = !isSignatureGovernanceShellRoute\(staticRoute\)/
+  )
   assert.doesNotMatch(hiddenShellSource, /const dynamicChildren\s*=\s*dynamicRoute\.children\s*\|\|\s*\[\]/)
 })
 

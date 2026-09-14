@@ -12,16 +12,21 @@ import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureImageServi
 import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureImageSnapshot;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
+import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.stereotype.Service;
 
+import javax.imageio.ImageIO;
 import java.awt.Color;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -35,6 +40,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.SIGNATURE_GOVERNANCE_RECORD_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.SIGNATURE_GOVERNANCE_RECORD_PDF_EXPORT_FAILED;
 
+@Slf4j
 @Service
 public class SignatureGovernanceRecordServiceImpl implements SignatureGovernanceRecordService {
 
@@ -172,8 +178,7 @@ public class SignatureGovernanceRecordServiceImpl implements SignatureGovernance
         if (imageContent == null || imageContent.length == 0) {
             throw exception(SIGNATURE_GOVERNANCE_RECORD_PDF_EXPORT_FAILED, "签名图片内容为空");
         }
-        PDImageXObject image = PDImageXObject.createFromByteArray(document, imageContent,
-                "signature-image-" + value(signatureImage.getFileId()));
+        PDImageXObject image = createSignatureImage(document, imageContent, signatureImage);
         float blockX = PDF_MARGIN;
         float blockWidth = PDRectangle.A4.getWidth() - PDF_MARGIN * 2;
         float blockHeight = 238F;
@@ -195,21 +200,37 @@ public class SignatureGovernanceRecordServiceImpl implements SignatureGovernance
         float contentX = blockX + 112F;
         writeColoredLine(contentStream, font, 13F, contentX, y - 58F, "签署人：",
                 new Color(39, 42, 45));
-        drawSignatureImage(contentStream, image, contentX, y - 106F, 160F, 42F);
-
         float detailX = contentX + 8F;
         writeColoredLine(contentStream, font, 16F, blockX + 58F, y - 28F, "签名",
                 new Color(102, 97, 104));
-        writeColoredLine(contentStream, font, 13.5F, detailX, y - 118F,
-                "签名人：" + value(record.getSignerName()), Color.BLACK);
-        writeColoredLine(contentStream, font, 12.8F, detailX, y - 138F,
-                "签名原因：" + displaySignatureReason(record), Color.BLACK);
-        writeColoredLine(contentStream, font, 12.8F, detailX, y - 158F,
-                "签名时间：" + formatTime(record.getSignedAt()), Color.BLACK);
-        float hashY = writeColoredLine(contentStream, font, 10.5F, contentX, y - 178F,
-                "签名图片哈希：", Color.BLACK);
-        writeWrappedColoredLines(contentStream, font, 10.5F, contentX, hashY,
-                value(signatureImage.getSha256()), blockX + blockWidth - contentX - 18F, Color.BLACK);
+        if (image != null) {
+            drawSignatureImage(contentStream, image, contentX, y - 106F, 160F, 42F);
+            writeColoredLine(contentStream, font, 13.5F, detailX, y - 118F,
+                    "签名人：" + value(record.getSignerName()), Color.BLACK);
+            writeColoredLine(contentStream, font, 12.8F, detailX, y - 138F,
+                    "签名原因：" + displaySignatureReason(record), Color.BLACK);
+            writeColoredLine(contentStream, font, 12.8F, detailX, y - 158F,
+                    "签名时间：" + formatTime(record.getSignedAt()), Color.BLACK);
+            float hashY = writeColoredLine(contentStream, font, 10.5F, contentX, y - 178F,
+                    "签名图片哈希：", Color.BLACK);
+            writeWrappedColoredLines(contentStream, font, 10.5F, contentX, hashY,
+                    value(signatureImage.getSha256()), blockX + blockWidth - contentX - 18F, Color.BLACK);
+        } else {
+            writeColoredLine(contentStream, font, 11.5F, contentX, y - 78F,
+                    "历史签名图片不可渲染", new Color(183, 28, 28));
+            writeColoredLine(contentStream, font, 10.5F, contentX, y - 98F,
+                    "图片文件编号：" + value(signatureImage.getFileId()), Color.BLACK);
+            float hashY = writeColoredLine(contentStream, font, 10.5F, contentX, y - 116F,
+                    "图片 SHA-256：", Color.BLACK);
+            writeWrappedColoredLines(contentStream, font, 10.5F, contentX, hashY,
+                    value(signatureImage.getSha256()), blockX + blockWidth - contentX - 18F, Color.BLACK);
+            writeColoredLine(contentStream, font, 13.5F, detailX, y - 154F,
+                    "签名人：" + value(record.getSignerName()), Color.BLACK);
+            writeColoredLine(contentStream, font, 12.8F, detailX, y - 174F,
+                    "签名原因：" + displaySignatureReason(record), Color.BLACK);
+            writeColoredLine(contentStream, font, 12.8F, detailX, y - 194F,
+                    "签名时间：" + formatTime(record.getSignedAt()), Color.BLACK);
+        }
 
         float metaY = blockBottom - 18F;
         metaY = writeLine(contentStream, font, PDF_BODY_FONT_SIZE, PDF_MARGIN, metaY,
@@ -217,6 +238,25 @@ public class SignatureGovernanceRecordServiceImpl implements SignatureGovernance
         metaY = writeLine(contentStream, font, PDF_BODY_FONT_SIZE, PDF_MARGIN, metaY,
                 "签名编号：" + value(record.getGlobalId()));
         return metaY - 10F;
+    }
+
+    private PDImageXObject createSignatureImage(PDDocument document, byte[] imageContent,
+                                                DccElectronicSignatureImageSnapshot signatureImage) {
+        try {
+            BufferedImage bufferedImage = ImageIO.read(new ByteArrayInputStream(imageContent));
+            if (bufferedImage == null || bufferedImage.getWidth() <= 0 || bufferedImage.getHeight() <= 0) {
+                log.warn("[createSignatureImage][historical signature image cannot be rendered, fileId({}), sha256({})]",
+                        signatureImage.getFileId(), signatureImage.getSha256());
+                return null;
+            }
+            return LosslessFactory.createFromImage(document, bufferedImage);
+        } catch (IOException | RuntimeException ex) {
+            log.warn("[createSignatureImage][historical signature image cannot be rendered, fileId({}), "
+                            + "sha256({}), errorType({}), errorMessage({})]",
+                    signatureImage.getFileId(), signatureImage.getSha256(),
+                    ex.getClass().getSimpleName(), ex.getMessage());
+            return null;
+        }
     }
 
     private void drawSignatureImage(PDPageContentStream contentStream, PDImageXObject image,

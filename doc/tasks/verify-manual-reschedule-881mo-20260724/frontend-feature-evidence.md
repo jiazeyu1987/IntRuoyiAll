@@ -28,13 +28,20 @@
 - RED: `node tests/e2e/mes-replan-product-code-current-selection-static.spec.js` -> FAIL, expected reason: apply success did not update `lastReplanParticipatingScheduleOrderIds`.
 - GREEN: `node tests/e2e/mes-replan-product-code-current-selection-static.spec.js` -> PASS.
 - GREEN: `pnpm ts:check:schedule` -> PASS.
+- GREEN: `node doc/tasks/verify-manual-reschedule-881mo-20260724/manual-reschedule-repair-verify.e2e.cjs` -> PASS, real UI flow verified a/b/c/d at 2026-07-24 17:32.
 
 ## UX Checks
 
 - Responsive: existing table layout and product code classes are unchanged.
 - Accessibility: no interactive control or accessible label changes.
 - Loading/error/empty/permission: existing loading, error, empty, and permission paths are unchanged; participant state changes only after success.
-- E2E: rerun real UI flow for the two authorized source work orders and verify all four user goals.
+- E2E: reran real UI flow for the two authorized source work orders; only `881MO093613` and `881MO093615` product codes used the orange scheduled class/color, latest success time matched `2026-07-24 17:32`, and the production gantt contained only those two work orders.
+
+## Verification
+
+- `node tests/e2e/mes-replan-product-code-current-selection-static.spec.js` -> PASS.
+- `pnpm ts:check:schedule` -> PASS.
+- `node doc/tasks/verify-manual-reschedule-881mo-20260724/manual-reschedule-repair-verify.e2e.cjs` -> PASS.
 
 ## Blockers And Follow-up
 

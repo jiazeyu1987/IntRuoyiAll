@@ -15,6 +15,7 @@ public class DccControlledFileUploadRespVO {
     private String contentType;
     private String previewKind;
     private String onlyofficeBaseUrl;
+    private String onlyofficeDocumentUrl;
     private String previewUnavailableReason;
     private Long fileSize;
     private DccControlledPreviewWatermarkRespVO watermark;

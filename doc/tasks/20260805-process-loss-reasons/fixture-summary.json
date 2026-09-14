@@ -1,0 +1,83 @@
+{
+  "taskId": "20260805-process-loss-reasons",
+  "generatedAt": "2026-08-05T15:03:38",
+  "db": {
+    "host": "127.0.0.1",
+    "port": 23306,
+    "database": "ruoyi-vue-pro",
+    "user": "root",
+    "password": "redacted"
+  },
+  "schemaOperations": [],
+  "fixture": {
+    "tenantId": 122,
+    "tenantPackageId": 113,
+    "prefix": "ACD04-20260805",
+    "users": {
+      "leaderA": {
+        "id": 914525,
+        "username": "acd04lead1"
+      },
+      "leaderB": {
+        "id": 914526,
+        "username": "acd04lead2"
+      },
+      "worker": {
+        "id": 914527,
+        "username": "acd04worker"
+      }
+    },
+    "roles": {
+      "leaderRoleId": 910436,
+      "workerRoleId": 910437
+    },
+    "postId": 23,
+    "route": {
+      "authorizedRouteId": 980089,
+      "authorizedRouteVersionId": 620,
+      "unauthorizedRouteId": 980090,
+      "unauthorizedRouteVersionId": 621
+    },
+    "processes": {
+      "processAId": 980008,
+      "processBId": 980009,
+      "unauthorizedProcessId": 980010
+    },
+    "routeProcesses": {
+      "routeProcessAId": 980628,
+      "routeProcessBId": 980629,
+      "unauthorizedRouteProcessId": 980630
+    },
+    "workstations": {
+      "workstationAId": 980005,
+      "workstationBId": 980006,
+      "unauthorizedWorkstationId": 980007
+    },
+    "employeeProfileId": 980015,
+    "employeeBindingIds": [
+      12,
+      13
+    ],
+    "itemId": 980007,
+    "workOrderId": 980020,
+    "taskId": 981938,
+    "lossReasons": {
+      "enabledReasonId": 9,
+      "disabledReasonId": 10,
+      "crossProcessReasonId": 11
+    },
+    "frontendUrl": "http://127.0.0.1:8093",
+    "backendUrl": "http://127.0.0.1:48093",
+    "password": "not-recorded; use local tenant admin-compatible test password via environment only"
+  },
+  "cleanupScope": {
+    "tenantId": 122,
+    "exactPrefix": "ACD04-20260805",
+    "ownedUsernames": [
+      "acd04lead1",
+      "acd04lead2",
+      "acd04worker"
+    ],
+    "ownedCreator": "codex-acd04"
+  }
+}

@@ -59,11 +59,3 @@
 ## Known Blockers
 
 - Port separation does not isolate shared MySQL, Redis, MQ, or scheduled jobs. Parallel runtime data isolation remains a separate environment task.
-
-## Reusable Startup Checks
-
-- 启动脚本依赖规范的 Git worktree 名称、前后端配对路径和已生成的端口注册表；直接复制或改名目录时，先确认脚本解析到的实际路径。
-- 启动后端前先检查 Docker 容器的 bind mount 源文件是否仍存在；容器存在不代表可以启动，过期挂载会在应用启动前直接阻断数据库。
-- 复用已有 MySQL 数据卷重建容器时，必须保留数据字典初始化时使用的 MySQL 参数；当前本机库要求 `lower_case_table_names=1`，否则会在 Data Dictionary 初始化阶段失败。
-- `application-local.yaml` 中的示例数据源不等同于当前运行时数据源；启动失败时先核对实际监听端口、容器状态和凭据来源，不要静默切换到另一个数据库。
-- 前端 Vite 可以在后端未就绪时监听端口，但代理请求会失败；前端 HTTP 200 不代表前后端联调已完成。

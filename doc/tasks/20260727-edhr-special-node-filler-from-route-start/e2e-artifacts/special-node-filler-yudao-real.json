@@ -1,0 +1,167 @@
+{
+  "status": "PASS",
+  "generatedAt": "2026-07-27T07:43:05.276Z",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "baseUrl": "http://localhost:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "candidate": {
+    "detail": {
+      "id": 900000000878,
+      "batchExecutionCode": "EDHRB-1785132995811",
+      "workOrderCode": "881MO090889",
+      "batchCode": "CODEX-SPECIAL-FILLER-1785132990967",
+      "status": 0,
+      "routeId": 922119,
+      "routeVersionId": 361,
+      "routeVersionNo": "V15",
+      "routeCode": "RT000028",
+      "routeName": "球囊扩张压力泵"
+    },
+    "comparisons": [
+      {
+        "code": "INCOMING_INSPECTION_REPORT",
+        "label": "来料检报告",
+        "defaultRoleName": "来料检报告上传1",
+        "taskId": 6707,
+        "taskStatus": 0,
+        "taskUserIds": [
+          1,
+          149
+        ],
+        "taskDisplayNames": [
+          "瑛泰管理员",
+          "黎敏"
+        ],
+        "ownerSourceType": "ROLE",
+        "ownerSourceIds": [
+          910410
+        ],
+        "ownerAssignedUserIds": [
+          1,
+          149
+        ],
+        "ownerAssignedUserNames": [
+          "瑛泰管理员（admin）",
+          "黎敏（limin）"
+        ],
+        "match": true
+      },
+      {
+        "code": "STERILIZATION_REPORT",
+        "label": "灭菌报告",
+        "defaultRoleName": "灭菌报告上传1",
+        "taskId": 6714,
+        "taskStatus": 0,
+        "taskUserIds": [
+          1,
+          149,
+          150,
+          151
+        ],
+        "taskDisplayNames": [
+          "瑛泰管理员",
+          "黎敏",
+          "白艳萍",
+          "彭云凤"
+        ],
+        "ownerSourceType": "ROLE",
+        "ownerSourceIds": [
+          910411
+        ],
+        "ownerAssignedUserIds": [
+          1,
+          149,
+          150,
+          151
+        ],
+        "ownerAssignedUserNames": [
+          "瑛泰管理员（admin）",
+          "黎敏（limin）",
+          "白艳萍（baiyanping）",
+          "彭云凤（pengyunfeng）"
+        ],
+        "match": true
+      },
+      {
+        "code": "FINISHED_PRODUCT_INSPECTION_REPORT",
+        "label": "成品检报告",
+        "defaultRoleName": "成品检报告上传1",
+        "taskId": 6715,
+        "taskStatus": 0,
+        "taskUserIds": [
+          1,
+          149,
+          150
+        ],
+        "taskDisplayNames": [
+          "瑛泰管理员",
+          "黎敏",
+          "白艳萍"
+        ],
+        "ownerSourceType": "ROLE",
+        "ownerSourceIds": [
+          910412
+        ],
+        "ownerAssignedUserIds": [
+          1,
+          149,
+          150
+        ],
+        "ownerAssignedUserNames": [
+          "瑛泰管理员（admin）",
+          "黎敏（limin）",
+          "白艳萍（baiyanping）"
+        ],
+        "match": true
+      },
+      {
+        "code": "FINISHED_PRODUCT_INSPECTION_RECORD",
+        "label": "成品检记录",
+        "defaultRoleName": "成品检记录上传1",
+        "taskId": 6716,
+        "taskStatus": 0,
+        "taskUserIds": [
+          1,
+          149,
+          150,
+          151
+        ],
+        "taskDisplayNames": [
+          "瑛泰管理员",
+          "黎敏",
+          "白艳萍",
+          "彭云凤"
+        ],
+        "ownerSourceType": "ROLE",
+        "ownerSourceIds": [
+          910413
+        ],
+        "ownerAssignedUserIds": [
+          1,
+          149,
+          150,
+          151
+        ],
+        "ownerAssignedUserNames": [
+          "瑛泰管理员（admin）",
+          "黎敏（limin）",
+          "白艳萍（baiyanping）",
+          "彭云凤（pengyunfeng）"
+        ],
+        "match": true
+      }
+    ],
+    "scanned": [
+      {
+        "pageNo": 1,
+        "rowCount": 10
+      }
+    ]
+  },
+  "createdBatch": null,
+  "routeSetup": null,
+  "screenshotFile": "E:\\IntRuoyi\\doc\\tasks\\20260727-edhr-special-node-filler-from-route-start\\e2e-artifacts\\special-node-filler-yudao-real.png",
+  "allowedMesWriteRequests": [],
+  "unexpectedMesWriteRequests": []
+}

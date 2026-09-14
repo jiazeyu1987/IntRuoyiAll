@@ -96,7 +96,7 @@ class MesProWorkOrderControllerTest {
         assertEquals(0, response.getCode()); assertNotNull(response.getData());
     }
 
-    @Test void syncKingdeeWorkOrders_usesRuntimeWatermarkWindow() {
+    @Test void syncKingdeeWorkOrders_forcesInitialWindowForManualFullSync() {
         MesKingdeeProductionOrderSyncResult syncResult = new MesKingdeeProductionOrderSyncResult(); syncResult.addCreated(501L);
         when(kingdeeProductionOrderSyncService.syncWorkOrders(any(ErpKingdeeSyncContext.class))).thenReturn(syncResult);
         when(kingdeeSyncRuntimeService.executeSync(any(ErpKingdeeSyncCommand.class), any(ErpKingdeeSyncTask.class))).thenAnswer(invocation -> {
@@ -110,6 +110,7 @@ class MesProWorkOrderControllerTest {
         verify(kingdeeSyncRuntimeService).executeSync(commandCaptor.capture(), any(ErpKingdeeSyncTask.class));
         assertEquals(ErpKingdeeSyncTypeEnum.PRODUCTION_ORDER, commandCaptor.getValue().getSyncType());
         assertEquals(ErpKingdeeSyncTriggerTypeEnum.MANUAL, commandCaptor.getValue().getTriggerType());
+        assertTrue(commandCaptor.getValue().isForceInitialWindowStart());
         assertNotNull(commandCaptor.getValue().getInitialWindowStart());
         assertNotNull(commandCaptor.getValue().getWindowEnd());
     }
@@ -119,6 +120,8 @@ class MesProWorkOrderControllerTest {
                 .id(1001L)
                 .code("WO-1001")
                 .name("导管工单")
+                .demandBillNo("SO-1001")
+                .materialSpecification("泵体 20ml")
                 .quantity(new BigDecimal("10"))
                 .quantityProduced(BigDecimal.ZERO)
                 .quantityChanged(BigDecimal.ZERO)
@@ -129,6 +132,7 @@ class MesProWorkOrderControllerTest {
                 .auxiliaryCode("K20260113")
                 .businessStatus("424")
                 .drawingNumber("255ACSXXXX")
+                .refNo("REF-2026-001")
                 .scheduleStatus("未排产")
                 .plannedStartTime(LocalDateTime.of(2026, 3, 25, 0, 0))
                 .plannedEndTime(LocalDateTime.of(2026, 3, 26, 0, 0))
@@ -156,12 +160,15 @@ class MesProWorkOrderControllerTest {
         MesProWorkOrderRespVO row = response.getData().getList().get(0);
         assertEquals(2L, row.getProductionMaterialListCount());
         assertEquals("PPBOM-001、PPBOM-002", row.getProductionMaterialListSummary());
+        assertEquals("SO-1001", row.getDemandBillNo());
+        assertEquals("泵体 20ml", row.getProductSpecification());
         assertEquals("组装车间", row.getWorkshopName());
         assertEquals("BOM-2026-01", row.getBomVersion());
         assertEquals("直接领料", row.getPickMode());
         assertEquals("K20260113", row.getAuxiliaryCode());
         assertEquals("424", row.getBusinessStatus());
         assertEquals("255ACSXXXX", row.getDrawingNumber());
+        assertEquals("REF-2026-001", row.getRefNo());
         assertEquals("未排产", row.getScheduleStatus());
         assertEquals(LocalDateTime.of(2026, 3, 25, 0, 0), row.getPlannedStartTime());
         assertEquals(LocalDateTime.of(2026, 3, 26, 0, 0), row.getPlannedEndTime());

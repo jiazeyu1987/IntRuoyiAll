@@ -286,7 +286,7 @@ import {
   type EdhrFlowInterventionRespVO
 } from '@/api/mes/pro/edhr/flowIntervention'
 import * as UserApi from '@/api/system/user'
-import { formatDate } from '@/utils/formatTime'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProEdhrFlowIntervention' })
 
@@ -666,14 +666,7 @@ const resolveTargetUserLabel = (user: UserApi.UserVO) => {
 }
 
 const formatDateTime = (value?: string | number) => {
-  if (!value) {
-    return '--'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return '时间格式异常'
-  }
-  return formatDate(date, 'YYYY-MM-DD HH:mm')
+  return formatEdhrDateTime(value)
 }
 
 onMounted(() => {

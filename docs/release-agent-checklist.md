@@ -8,7 +8,7 @@
 - 发布到测试服
 - `mark-tested`
 - 发布到正式服
-- 发布到备份服
+- 发布到审查服
 - 发布失败后的重试
 
 本文面向 Codex 执行，不替代正式规则。正式边界仍以以下文档为准：
@@ -29,9 +29,9 @@ Codex 必须把完整发布任务视为以下严格顺序：
 5. `promote-prod`
 6. 正式服运行态验证
 7. `promote-backup`
-8. 备份服运行态验证
+8. 审查服运行态验证
 
-以上八步仅适用于用户明确授权的完整发布。仅测试服任务必须以 `docs/test-release-preflight.md` 为范围权威，在第 3 步测试服运行态验证通过后停止；不得执行 `mark-tested`、`promote-prod`、`promote-backup` 或任何正式服、备份服动作。
+以上八步仅适用于用户明确授权的完整发布。仅测试服任务必须以 `docs/test-release-preflight.md` 为范围权威，在第 3 步测试服运行态验证通过后停止；不得执行 `mark-tested`、`promote-prod`、`promote-backup` 或任何正式服、审查服动作。
 
 任何一步失败，都必须先记录真实证据，再修复，再从合适步骤重新执行；不得把不同 releaseTag 的成功结果拼接成一次完成。
 
@@ -60,7 +60,7 @@ Codex 必须把完整发布任务视为以下严格顺序：
 
 - 没有任务目录。
 - 没有 experience-preflight 记录。
-- 正式服或备份服操作缺少当前任务授权。
+- 正式服或审查服操作缺少当前任务授权。
 
 ## 1. 构建前检查
 
@@ -105,7 +105,7 @@ Codex 必须把完整发布任务视为以下严格顺序：
 - Trigger: 完整三环境 code-only 发布在 clean release worktree 中执行 `build-release`、`publish-test`、`promote-prod` 或 `promote-backup`。
 - Preflight check: `build-release` 前必须同时跑迁移元数据全量门禁、近期 SQL 静态测试、MES companion contract 编译门禁、前端 API export 静态门禁、`pnpm build:test`、Docker CLI/BuildKit 健康检查；required SQL 静态测试必须覆盖结构化 `release-migration`、`dependsOn` 无 `.sql` 后缀、单值 `type`、字符串 collation、动态角色 ID、DCC `OBSOLETE_CHAIN`、`content_key` CAST collation、`system_tenant_package.menu_ids` 扩容顺序。
 - Blocker: 出现 `missing release-migration metadata`、`unknown release-migration metadata key`、`dependsOn missing migration`、`invalid type`、MES/前端 companion export 编译失败、MySQL `ERROR 1267`、`ERROR 1644`、`dcc master points to obsolete revision`、`ERROR 1406 Data too long for column 'menu_ids'`，或 Docker build 日志长时间不推进且 Docker CLI/BuildKit 同步异常。
-- Verification: 失败时先冻结 operation JSON、脱敏日志、preview 参数、manifest 状态、远端关键输出和失败时间；修复后必须用新的 releaseTag 重新 `build-release`，并在同一 releaseTag 上完成测试服、正式服、备份服运行态验证。
+- Verification: 失败时先冻结 operation JSON、脱敏日志、preview 参数、manifest 状态、远端关键输出和失败时间；修复后必须用新的 releaseTag 重新 `build-release`，并在同一 releaseTag 上完成测试服、正式服、审查服运行态验证。
 - Forbidden action: 不得手工改测试库/正式库/备份库、手工更新发布锁或迁移状态、跳过 SQL/编译/BuildKit 门禁、复用失败 releaseTag，或拼接不同 releaseTag 的环境结果。
 - Evidence: `doc/tasks/20260719-current-head-codeonly-three-env/execution-log.md`；最终 releaseTag `release-20260719-intmain-codeonly-three-env-r260719k-r1`。
 
@@ -234,11 +234,11 @@ Codex 必须把完整发布任务视为以下严格顺序：
 - operation 未成功
 - `/mnt/nas`、数据盘、MinIO、挂载状态异常
 
-## 6. 备份服发布与验证
+## 6. 审查服发布与验证
 
 ### 必做动作
 
-- 预览备份服发布命令，逐项核对：
+- 预览审查服发布命令，逐项核对：
   - `-Environment backup`
   - `-ServerHost 172.30.30.59`
   - `-RemoteReleaseRoot /mnt/intruoyi-data/intruoyi-releases`
@@ -247,7 +247,7 @@ Codex 必须把完整发布任务视为以下严格顺序：
   - `-RemoteDataDiskDevice /dev/mapper/cl-home`
   - `-RemoteMinioContainer intruoyi-minio`
 - 执行 `promote-backup`
-- 只读核对备份服：
+- 只读核对审查服：
   - `.env IMAGE_TAG`
   - backend/frontend 实际镜像 tag
   - 数据盘挂载
@@ -266,8 +266,8 @@ Codex 必须把完整发布任务视为以下严格顺序：
 
 ### 阻塞条件
 
-- 备份服未显式使用 `/mnt/intruoyi-data`
-- 备份服误继承 Docker 根目录路径或正式服参数
+- 审查服未显式使用 `/mnt/intruoyi-data`
+- 审查服误继承 Docker 根目录路径或正式服参数
 - operation 未成功
 
 ## 7. 失败时的排查优先级
@@ -277,7 +277,7 @@ Codex 必须按这个顺序排查：
 1. migration / manifest / required SQL 契约
 2. 维护仓发布脚本与业务仓产物契约
 3. 运行控制台当前加载版本
-4. 测试服 / 正式服 / 备份服环境状态
+4. 测试服 / 正式服 / 审查服环境状态
 
 禁止在第 1、2 层未排干净前，直接把问题归因到服务器。
 
@@ -293,7 +293,7 @@ Codex 必须按这个顺序排查：
 
 - 修复任何发布 blocker 后，必须重新执行 `build-release` 并生成新的 `releaseTag`。
 - 禁止用旧失败包继续 `publish-test`、`mark-tested`、`promote-prod` 或 `promote-backup`。
-- 禁止拼接不同 `releaseTag` 的测试服、正式服、备份服结果。
+- 禁止拼接不同 `releaseTag` 的测试服、正式服、审查服结果。
 - `build-release` 成功后必须复核 manifest 中 backend/frontend `commit` 与 `dirty=false`。
 
 ### 测试服参数
@@ -301,9 +301,9 @@ Codex 必须按这个顺序排查：
 - `publish-test` 预览必须显式核对测试服真实参数：
   - `ServerHost=172.30.30.58`
   - `RemoteAppDir=/opt/intruoyi/runtime`
-  - Docker root 不得误套备份服路径
+  - Docker root 不得误套审查服路径
   - 数据盘设备、MinIO 容器名必须与 `server-access.md` 一致
-- 如果预览中出现备份服或正式服参数，必须先修正维护控制台配置、脚本或文档，不得继续真实发布。
+- 如果预览中出现审查服或正式服参数，必须先修正维护控制台配置、脚本或文档，不得继续真实发布。
 
 ### required SQL 与真实库基线
 
@@ -367,7 +367,7 @@ Codex 只有在以下条件同时成立时，才能判定完整发布完成：
 
 - 同一 `releaseTag` 已走完 `build-release -> publish-test -> mark-tested -> promote-prod -> promote-backup`
 - 五个 operation 都有明确结果证据
-- 测试服、正式服、备份服三环境都已验证：
+- 测试服、正式服、审查服三环境都已验证：
   - `.env IMAGE_TAG`
   - backend/frontend 实际镜像 tag
   - backend health=`UP`

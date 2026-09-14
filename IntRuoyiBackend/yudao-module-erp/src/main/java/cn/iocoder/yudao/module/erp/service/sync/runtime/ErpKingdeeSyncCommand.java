@@ -13,8 +13,8 @@ public class ErpKingdeeSyncCommand {
 
     private ErpKingdeeSyncTypeEnum syncType;
     private ErpKingdeeSyncTriggerTypeEnum triggerType;
-    private LocalDateTime initialWindowStart;
     private boolean forceInitialWindowStart;
+    private LocalDateTime initialWindowStart;
     private LocalDateTime windowEnd;
 
 }

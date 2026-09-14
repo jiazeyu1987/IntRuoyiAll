@@ -95,7 +95,7 @@ import {
   uploadDccElectronicSignatureImage,
   type DccElectronicSignatureImageVO
 } from '@/api/dcc/controlledFile/signatures'
-import { formatDate } from '@/utils/formatTime'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import { formatDccHashShort } from '@/views/dcc/controlled-file/shared/signature-evidence'
 
 defineOptions({ name: 'SignatureGovernanceMySignaturePane' })
@@ -127,10 +127,7 @@ const signatureImagePreviewList = computed(() =>
 )
 
 const formatSignatureImageDateTime = (value?: string | number | Date | null) => {
-  if (value === undefined || value === null || value === '') return '-'
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) return '时间格式错误'
-  return formatDate(date, 'YYYY年MM月DD日 HH:mm:ss')
+  return formatDateTimeValue(value, '-', '时间格式错误')
 }
 
 const resolveSignatureImageErrorMessage = (error: unknown, defaultMessage: string) => {

@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.Collections;
 import java.util.Collection;
@@ -27,6 +28,15 @@ public interface MesProEdhrBatchExecutionTaskMapper extends BaseMapperX<MesProEd
 
     @Select("SELECT * FROM mes_pro_edhr_batch_execution_task WHERE id = #{id} FOR UPDATE")
     MesProEdhrBatchExecutionTaskDO selectByIdForUpdate(@Param("id") Long id);
+
+    @Update("""
+            UPDATE mes_pro_edhr_batch_execution_task
+            SET special_payload_json = #{payloadJson}
+            WHERE id = #{id}
+              AND status = 40
+            """)
+    int updateReleaseReportCompletionPayload(@Param("id") Long id,
+                                             @Param("payloadJson") String payloadJson);
 
     default MesProEdhrBatchExecutionTaskDO selectByExecutionId(Long executionId) {
         if (executionId == null) {

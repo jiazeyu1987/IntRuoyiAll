@@ -1,0 +1,12 @@
+超声波清洗机	B09393	有	1	1	0	tenant=122, id=196, name=超声波清洗机, status=生产中
+超声波清洗机	B09353	有	1	1	0	tenant=122, id=197, name=超声波清洗机, status=生产中
+箱型干燥机	B04091	没有	0	0	0	
+撤压机	C01017	没有	0	0	0	
+光固机	A05075	没有	0	0	0	
+光固机	A05059	有	1	1	0	tenant=122, id=202, name=光固机, status=生产中
+硅油喷雾阀系统	B09026	有	1	1	0	tenant=122, id=203, name=喷套筒, status=生产中
+高压机小气压检测	G01143	有	1	1	0	tenant=122, id=207, name=小气压检测, status=生产中
+封口热合机	A05199	有	1	1	0	tenant=122, id=208, name=封口热合机, status=生产中
+封口热合机	A05203	有	1	1	0	tenant=122, id=209, name=封口热合机, status=生产中
+热合机	A05048	有	1	1	0	tenant=122, id=210, name=封口热合机, status=生产中
+自动热合机	A03274	有	1	1	0	tenant=122, id=211, name=封口热合机, status=生产中

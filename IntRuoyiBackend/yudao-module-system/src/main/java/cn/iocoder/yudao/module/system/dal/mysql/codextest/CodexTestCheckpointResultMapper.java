@@ -43,4 +43,14 @@ public interface CodexTestCheckpointResultMapper extends BaseMapperX<CodexTestCh
                 .set(CodexTestCheckpointResultDO::getCompletedAt, completedAt));
     }
 
+    default int blockNotRunByExecutionCaseIds(Collection<Long> executionCaseIds, String reason,
+                                               LocalDateTime completedAt) {
+        return update(null, new LambdaUpdateWrapper<CodexTestCheckpointResultDO>()
+                .in(CodexTestCheckpointResultDO::getExecutionCaseId, executionCaseIds)
+                .eq(CodexTestCheckpointResultDO::getStatus, "NOT_RUN")
+                .set(CodexTestCheckpointResultDO::getStatus, "BLOCKED")
+                .set(CodexTestCheckpointResultDO::getMismatchDescription, reason)
+                .set(CodexTestCheckpointResultDO::getCompletedAt, completedAt));
+    }
+
 }

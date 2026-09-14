@@ -31,6 +31,8 @@ import { defineComponent } from 'vue'
 
     noTagsView: true          如果设置为true，则不会出现在tag中(默认 false)
 
+    hideFooter: true          如果设置为true，则当前页面隐藏底部版权区(默认 false)
+
     activeMenu: '/home'  显示高亮的路由路径
 
     followAuth: '/home'  跟随哪个路由进行权限过滤
@@ -47,12 +49,14 @@ declare module 'vue-router' {
     tagsViewKey?: string
     tagsViewTitle?: string
     tagsViewKeyMode?: 'fullPath' | 'path'
+    keepAliveName?: string
     icon?: string
     noCache?: boolean
     breadcrumb?: boolean
     affix?: boolean
     activeMenu?: string
     noTagsView?: boolean
+    hideFooter?: boolean
     followAuth?: string
     canTo?: boolean
     approvalTodoBadge?: boolean

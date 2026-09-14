@@ -20,8 +20,8 @@ assertIncludes(
 )
 assertIncludes(
   templatePage,
-  "returnLabel: '返回模板说明'",
-  'eDHR 模板说明页进入模拟填写时必须透传对应返回文案'
+  "returnLabel: '返回'",
+  'eDHR 模板说明页进入模拟填写时必须透传标准返回文案'
 )
 
 assertIncludes(
@@ -31,8 +31,8 @@ assertIncludes(
 )
 assertIncludes(
   batchRecordPage,
-  "returnLabel: '返回批记录表单'",
-  '电子批记录页进入模拟填写时必须透传对应返回文案'
+  "returnLabel: '返回'",
+  '电子批记录页进入模拟填写时必须透传标准返回文案'
 )
 
 assertIncludes(
@@ -48,14 +48,11 @@ assertIncludes(
 )
 assertIncludes(
   simulatePage,
-  "const returnLabel = computed(() => String(route.query.returnLabel || '').trim())",
-  '模拟填写页必须读取来源文案 returnLabel 查询参数'
+  '<Icon icon="ep:arrow-left" class="mr-5px" />',
+  '模拟填写页返回按钮必须使用统一左箭头图标'
 )
-assertIncludes(
-  simulatePage,
-  "const backButtonLabel = computed(() => returnLabel.value || '返回')",
-  '模拟填写页必须根据来源文案生成返回按钮文案'
-)
+assert.ok(!simulatePage.includes('returnLabel.value'), '模拟填写页不应再按来源文案覆盖返回按钮')
+assert.ok(!simulatePage.includes('backButtonLabel'), '模拟填写页不应再保留动态返回按钮文案')
 assertIncludes(
   simulatePage,
   'const router = useRouter()',

@@ -1,0 +1,178 @@
+{
+  "status": "PASS",
+  "tenantName": "芋道源码",
+  "actorUsername": "wangsiyu",
+  "fileNumber": "CODX-DCC-DIST-906104-DISTTENANT120260802195305",
+  "categoryCode": "DCC_OTHER_TEMPLATE_900250",
+  "categoryName": "其他",
+  "v1ControlledFileId": "2054545668044070297",
+  "v2ControlledFileId": "2054545668044070302",
+  "baseUrl": "http://127.0.0.1:8081",
+  "startedAt": "2026-08-03T03:24:58.756Z",
+  "pagePaths": [
+    {
+      "label": "distribution-rules-tab",
+      "url": "http://127.0.0.1:8081/dcc/controlled-file/categories?tab=distribution-rules"
+    },
+    {
+      "label": "v2-distribution-trace",
+      "url": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070302?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser"
+    },
+    {
+      "label": "v1-recovery-trace",
+      "url": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070297?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser"
+    },
+    {
+      "label": "controlled-browser",
+      "url": "http://127.0.0.1:8081/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-DIST-906104-DISTTENANT120260802195305&pageNo=1&pageSize=20"
+    }
+  ],
+  "distributionRulePage": {
+    "url": "http://127.0.0.1:8081/dcc/controlled-file/categories?tab=distribution-rules",
+    "rowText": "DCC_OTHER_TEMPLATE_900250 其他 必须 质量体系部（公盘目录） 启用 1 条 编辑 预览",
+    "apiSnapshots": [
+      {
+        "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories/907207/distribution-rules",
+        "data": []
+      },
+      {
+        "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories/907236/distribution-rules",
+        "data": []
+      },
+      {
+        "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories/907210/distribution-rules",
+        "data": []
+      },
+      {
+        "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories/907209/distribution-rules",
+        "data": []
+      },
+      {
+        "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories/906104/distribution-rules",
+        "data": [
+          {
+            "id": 106,
+            "categoryId": 906104,
+            "departmentId": 253,
+            "distributionMedium": "PUBLIC_FOLDER",
+            "active": true
+          }
+        ]
+      }
+    ]
+  },
+  "detailPages": {
+    "v2-distribution-trace": {
+      "controlledFileId": "2054545668044070302",
+      "url": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070302?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser",
+      "sectionText": "部门 接收人 分发摘要 回收摘要 操作 质量体系部 潘海涛 (panhaitao) 已确认 纸质发放 发放：王思雨 (wangsiyu) 时间：2026-08-02 23:30:04 回收：- 时间：- 确认回收"
+    },
+    "v1-recovery-trace": {
+      "controlledFileId": "2054545668044070297",
+      "url": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070297?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser",
+      "sectionText": "部门 接收人 分发摘要 回收摘要 操作 质量体系部 潘海涛 (panhaitao) 已回收 纸质发放 发放：王思雨 (wangsiyu) 时间：2026-08-02 21:25:23 回收：王思雨 (wangsiyu) 时间：2026-08-02 23:30:08 -"
+    }
+  },
+  "browserVerification": {
+    "url": "http://127.0.0.1:8081/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-DIST-906104-DISTTENANT120260802195305&pageNo=1&pageSize=20",
+    "total": 1,
+    "rows": [
+      {
+        "id": "2054545668044070302",
+        "fileNumber": "CODX-DCC-DIST-906104-DISTTENANT120260802195305",
+        "versionNo": "V2.0",
+        "status": "ACTIVE"
+      }
+    ],
+    "v1Visible": false,
+    "v2Visible": true
+  },
+  "readonlyDb": {
+    "files": [
+      {
+        "id": "2054545668044070297",
+        "status": "SUPERSEDED",
+        "masterId": "2054545668044062904",
+        "versionNo": "V1.0"
+      },
+      {
+        "id": "2054545668044070302",
+        "status": "ACTIVE",
+        "masterId": "2054545668044062904",
+        "versionNo": "V2.0"
+      }
+    ],
+    "master": {
+      "id": "2054545668044062904",
+      "status": "ACTIVE_CHAIN",
+      "currentActiveControlledFileId": "2054545668044070302"
+    },
+    "category": {
+      "id": "906104",
+      "code": "DCC_OTHER_TEMPLATE_900250",
+      "name": "其他",
+      "distributionRequired": 1
+    },
+    "fileNumber": "CODX-DCC-DIST-906104-DISTTENANT120260802195305",
+    "distributions": [
+      {
+        "id": "4341",
+        "status": "RECOVERED",
+        "versionNo": "V1.0",
+        "fileStatus": "SUPERSEDED",
+        "recipients": [
+          {
+            "userId": "173",
+            "username": "panhaitao",
+            "recipientId": "46820",
+            "acknowledgedAt": null
+          }
+        ],
+        "recoveredAt": "2026-08-02 23:30:08",
+        "recoveredBy": "910250",
+        "departmentId": 253,
+        "acknowledgedAt": "2026-08-02 21:25:23",
+        "acknowledgedBy": "910250",
+        "controlledFileId": "2054545668044070297",
+        "distributionMedium": "PAPER",
+        "recoveredByUsername": "wangsiyu",
+        "acknowledgedByUsername": "wangsiyu"
+      },
+      {
+        "id": "4344",
+        "status": "ACKNOWLEDGED",
+        "versionNo": "V2.0",
+        "fileStatus": "ACTIVE",
+        "recipients": [
+          {
+            "userId": "173",
+            "username": "panhaitao",
+            "recipientId": "46865",
+            "acknowledgedAt": null
+          }
+        ],
+        "recoveredAt": null,
+        "recoveredBy": null,
+        "departmentId": 253,
+        "acknowledgedAt": "2026-08-02 23:30:04",
+        "acknowledgedBy": "910250",
+        "controlledFileId": "2054545668044070302",
+        "distributionMedium": "PAPER",
+        "recoveredByUsername": null,
+        "acknowledgedByUsername": "wangsiyu"
+      }
+    ],
+    "distributionRules": [
+      {
+        "id": "106",
+        "active": 1,
+        "departmentId": "253",
+        "distributionMedium": "PUBLIC_FOLDER"
+      }
+    ]
+  },
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "finishedAt": "2026-08-03T03:25:46.140Z"
+}

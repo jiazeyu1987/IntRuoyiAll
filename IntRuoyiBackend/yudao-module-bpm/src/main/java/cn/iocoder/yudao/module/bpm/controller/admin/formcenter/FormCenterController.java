@@ -38,6 +38,46 @@ public class FormCenterController {
         return success(formCenterRuntimeService.getTemplatePool(reqVO));
     }
 
+    @GetMapping("/templates/{templateId}/versions/{versionNo}")
+    @Operation(summary = "查询指定表单模板版本")
+    @PreAuthorize("@ss.hasPermission('form:template:query')")
+    public CommonResult<FormCenterTemplateRespVO> getTemplateVersion(
+            @PathVariable("templateId") Long templateId,
+            @PathVariable("versionNo") String versionNo) {
+        return success(formCenterRuntimeService.getTemplateVersion(templateId, versionNo));
+    }
+
+    @GetMapping("/templates/{templateId}/versions/{versionNo}/designer-path")
+    @Operation(summary = "获取表单模板 Jimu 预览路径")
+    @PreAuthorize("@ss.hasPermission('form:template:query')")
+    public CommonResult<FormCenterTemplateDesignerPathRespVO> getTemplateDesignerPath(
+            @PathVariable("templateId") Long templateId,
+            @PathVariable("versionNo") String versionNo) {
+        FormCenterTemplateDesignerPathRespVO response = new FormCenterTemplateDesignerPathRespVO();
+        response.setPath(formCenterRuntimeService.getTemplateDesignerPath(templateId, versionNo));
+        return success(response);
+    }
+
+    @GetMapping("/templates/{templateId}/versions/{versionNo}/edit-path")
+    @Operation(summary = "获取表单模板 Jimu 编辑路径")
+    @PreAuthorize("@ss.hasPermission('form:template:update')")
+    public CommonResult<FormCenterTemplateDesignerPathRespVO> getTemplateEditPath(
+            @PathVariable("templateId") Long templateId,
+            @PathVariable("versionNo") String versionNo) {
+        FormCenterTemplateDesignerPathRespVO response = new FormCenterTemplateDesignerPathRespVO();
+        response.setPath(formCenterRuntimeService.getTemplateEditPath(templateId, versionNo));
+        return success(response);
+    }
+
+    @PostMapping("/templates/{templateId}/versions/{versionNo}/editable-draft")
+    @Operation(summary = "获取表单模板可编辑草稿版本")
+    @PreAuthorize("@ss.hasPermission('form:template:update')")
+    public CommonResult<FormTemplateEditableDraftRespVO> ensureTemplateEditableDraft(
+            @PathVariable("templateId") Long templateId,
+            @PathVariable("versionNo") String versionNo) {
+        return success(formCenterRuntimeService.ensureTemplateEditableDraft(templateId, versionNo));
+    }
+
     @GetMapping("/policies")
     @Operation(summary = "查询表单策略")
     @PreAuthorize("@ss.hasPermission('form:policy:query')")
@@ -75,6 +115,14 @@ public class FormCenterController {
         return success(formCenterRuntimeService.importDoc(reqVO, WebFrameworkUtils.getLoginUserId()));
     }
 
+    @PostMapping("/parser/production-batch-record/json")
+    @Operation(summary = "解析生产批记录 Word 为 JSON")
+    @PreAuthorize("@ss.hasPermission('form:parser:production-batch-record')")
+    public CommonResult<FormCenterTemplateParseJsonRespVO> parseProductionBatchRecordJson(
+            @Valid FormCenterTemplateParseJsonReqVO reqVO) {
+        return success(formCenterRuntimeService.parseProductionBatchRecordJson(reqVO));
+    }
+
     @PutMapping("/templates/{templateId}/versions/{versionNo}/jimu-schema")
     @Operation(summary = "保存模板 Jimu 调整结果")
     @PreAuthorize("@ss.hasPermission('form:template:update')")
@@ -82,6 +130,15 @@ public class FormCenterController {
             @PathVariable("versionNo") String versionNo, @Valid @RequestBody FormCenterTemplateJimuSchemaReqVO reqVO) {
         formCenterRuntimeService.saveJimuSchema(templateId, versionNo, reqVO);
         return success(true);
+    }
+
+    @PostMapping("/templates/{templateId}/versions/{versionNo}/fill-rule-auto-detect")
+    @Operation(summary = "使用代码规则识别模板填写配置")
+    @PreAuthorize("@ss.hasPermission('form:template:update')")
+    public CommonResult<FormTemplateFillRuleAutoDetectRespVO> autoDetectTemplateFillRules(
+            @PathVariable("templateId") Long templateId,
+            @PathVariable("versionNo") String versionNo) {
+        return success(formCenterRuntimeService.autoDetectTemplateFillRules(templateId, versionNo));
     }
 
     @PostMapping("/templates/{templateId}/versions/{versionNo}/publish")

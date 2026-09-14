@@ -17,6 +17,20 @@
           />
         </el-select>
       </el-form-item>
+      <el-form-item
+        label="变更原因"
+        prop="reason"
+        :rules="[{ required: true, message: '请输入数据权限变更原因', trigger: 'blur' }]"
+      >
+        <el-input
+          v-model="formData.reason"
+          type="textarea"
+          :rows="3"
+          maxlength="500"
+          show-word-limit
+          placeholder="请输入本次数据权限变更原因"
+        />
+      </el-form-item>
     </el-form>
     <el-form-item
       v-if="formData.dataScope === SystemDataScopeEnum.DEPT_CUSTOM"
@@ -81,6 +95,7 @@ interface RoleDataPermissionFormData {
   code: string
   dataScope?: number
   dataScopeDeptIds: number[]
+  reason: string
 }
 
 const createDefaultFormData = (): RoleDataPermissionFormData => ({
@@ -88,7 +103,8 @@ const createDefaultFormData = (): RoleDataPermissionFormData => ({
   name: '',
   code: '',
   dataScope: undefined,
-  dataScopeDeptIds: []
+  dataScopeDeptIds: [],
+  reason: ''
 })
 
 const dialogVisible = ref(false) // 弹窗的是否展示
@@ -123,6 +139,9 @@ defineExpose({ open }) // 提供 open 方法，用于打开弹窗
 /** 提交表单 */
 const emit = defineEmits(['success']) // 定义 success 事件，用于操作成功后的回调
 const submitForm = async () => {
+  if (!formRef) return
+  const valid = await formRef.value.validate()
+  if (!valid) return
   formLoading.value = true
   try {
     const data = {
@@ -131,7 +150,9 @@ const submitForm = async () => {
       dataScopeDeptIds:
         formData.dataScope !== SystemDataScopeEnum.DEPT_CUSTOM
           ? []
-          : treeRef.value.getCheckedKeys(false)
+          : treeRef.value.getCheckedKeys(false),
+      reason: formData.reason.trim(),
+      idempotencyKey: createPermissionAuditIdempotencyKey()
     } as PermissionApi.PermissionAssignRoleDataScopeReqVO
     await PermissionApi.assignRoleDataScope(data)
     message.success(t('common.updateSuccess'))
@@ -169,5 +190,12 @@ const handleCheckedTreeExpand = () => {
     }
     nodes[node].expanded = deptExpand.value
   }
+}
+
+const createPermissionAuditIdempotencyKey = () => {
+  if (typeof crypto !== 'object' || typeof crypto.randomUUID !== 'function') {
+    throw new Error('当前浏览器不支持 crypto.randomUUID，无法生成权限审计幂等键')
+  }
+  return `SYSTEM-PERM-DATA-SCOPE-${formData.id}-${crypto.randomUUID()}`
 }
 </script>

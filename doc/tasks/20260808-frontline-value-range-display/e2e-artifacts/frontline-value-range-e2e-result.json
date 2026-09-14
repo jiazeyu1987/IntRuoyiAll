@@ -1,0 +1,187 @@
+{
+  "status": "BLOCKED",
+  "startedAt": "2026-08-08T04:15:02.274Z",
+  "frontendUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "route": "/mes/pro/feedback/edhr-batch-production-fill",
+  "userLabel": "芋道源码/admin",
+  "browserExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "pageErrors": [],
+  "consoleErrors": [],
+  "requestFailures": [],
+  "localHttpErrors": [],
+  "nonGetMesRequests": [],
+  "formalWriteRequests": [],
+  "finishedAt": "2026-08-08T04:15:09.228Z",
+  "error": "E2E BLOCKED: 当前设备账号可见的前三个设备中没有带正式上下限的数值参数",
+  "inspectedProcesses": [
+    {
+      "routeId": 922119,
+      "routeProcessId": 980661,
+      "processId": 922985,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 922119,
+      "routeProcessId": 980662,
+      "processId": 922986,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 922119,
+      "routeProcessId": 980663,
+      "processId": 922987,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 922119,
+      "routeProcessId": 980664,
+      "processId": 922988,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 922119,
+      "routeProcessId": 980665,
+      "processId": 922989,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 922119,
+      "routeProcessId": 980666,
+      "processId": 922990,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 922119,
+      "routeProcessId": 980667,
+      "processId": 922991,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 922119,
+      "routeProcessId": 980668,
+      "processId": 922992,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 922119,
+      "routeProcessId": 980669,
+      "processId": 922993,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 922119,
+      "routeProcessId": 980670,
+      "processId": 922994,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 922119,
+      "routeProcessId": 980671,
+      "processId": 922995,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 922119,
+      "routeProcessId": 980672,
+      "processId": 922996,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 922119,
+      "routeProcessId": 980673,
+      "processId": 922997,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 922119,
+      "routeProcessId": 980674,
+      "processId": 922998,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=922119\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980631,
+      "processId": 922985,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980632,
+      "processId": 922986,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980633,
+      "processId": 922987,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980634,
+      "processId": 922988,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980635,
+      "processId": 922989,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980636,
+      "processId": 922990,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980637,
+      "processId": 922991,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980638,
+      "processId": 922992,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980639,
+      "processId": 922993,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980640,
+      "processId": 922994,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980641,
+      "processId": 922995,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980642,
+      "processId": 922996,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980643,
+      "processId": 922997,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    },
+    {
+      "routeId": 980091,
+      "routeProcessId": 980644,
+      "processId": 922998,
+      "runtimeConfigError": "page.evaluate: Error: /mes/pro/feedback/frontline/device-account/runtime-config business 1040760109: 一线提交身份上下文缺少必填字段：productionSubmitContext.activeOrder routeId=980091\n    at eval (eval at evaluate (:302:30), <anonymous>:35:15)\n    at async <anonymous>:328:30"
+    }
+  ]
+}

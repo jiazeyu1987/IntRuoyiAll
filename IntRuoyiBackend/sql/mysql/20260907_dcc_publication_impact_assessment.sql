@@ -1,0 +1,67 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260907_dcc_publication_followup; type=schema; riskLevel=medium
+-- Versioned impact-assessment tasks and immutable audit for new publication batches only.
+
+SET NAMES utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_impact_task` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `batch_id` BIGINT NOT NULL COMMENT '发布后续批次 ID',
+  `publication_relation_snapshot_id` BIGINT NOT NULL COMMENT '相关 Master 冻结快照 ID',
+  `published_controlled_file_id` BIGINT NOT NULL COMMENT '触发评估的发布版本 ID',
+  `related_master_id` BIGINT NOT NULL COMMENT '相关文件 Master ID',
+  `related_active_controlled_file_id` BIGINT NULL COMMENT '发布时相关正式版本 ID',
+  `related_file_number_snapshot` VARCHAR(128) NULL COMMENT '相关文件编号快照',
+  `related_file_name_snapshot` VARCHAR(512) NULL COMMENT '相关文件名称快照',
+  `related_version_no_snapshot` VARCHAR(64) NULL COMMENT '相关正式版本号快照',
+  `assignee_user_id` BIGINT NULL COMMENT '当前负责人用户 ID',
+  `assignee_user_name_snapshot` VARCHAR(128) NULL COMMENT '当前负责人名称快照',
+  `task_status` VARCHAR(32) NOT NULL COMMENT 'PENDING/UNASSIGNED/IN_REVIEW/COMPLETED',
+  `decision` VARCHAR(32) NULL COMMENT 'NO_REVISION_REQUIRED/REVISION_REQUIRED',
+  `decision_reason` VARCHAR(1000) NULL COMMENT '评估原因',
+  `decided_by` BIGINT NULL COMMENT '决定人',
+  `decided_at` DATETIME NULL COMMENT '决定时间',
+  `revision_tracking_status` VARCHAR(32) NOT NULL COMMENT 'NOT_APPLICABLE/NOT_STARTED/REVISION_LINKED/RESOLVED',
+  `linked_revision_controlled_file_id` BIGINT NULL COMMENT '显式关联的大版本 ID',
+  `linked_revision_version_snapshot` VARCHAR(64) NULL COMMENT '显式关联的大版本号',
+  `resolved_at` DATETIME NULL COMMENT '关联大版本发布时间',
+  `row_version` INT NOT NULL DEFAULT 0 COMMENT 'CAS 版本',
+  `creation_token` VARCHAR(36) NOT NULL COMMENT '并发幂等创建令牌',
+  `tenant_id` BIGINT NOT NULL DEFAULT 0 COMMENT '租户编号',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `creator` VARCHAR(64) NULL COMMENT '创建者',
+  `updater` VARCHAR(64) NULL COMMENT '更新者',
+  `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '是否删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_pub_impact_master` (`tenant_id`, `batch_id`, `related_master_id`, `deleted`),
+  UNIQUE KEY `uk_dcc_pub_impact_relation` (`tenant_id`, `publication_relation_snapshot_id`, `deleted`),
+  KEY `idx_dcc_pub_impact_assignee` (`tenant_id`, `assignee_user_id`, `task_status`, `deleted`),
+  KEY `idx_dcc_pub_impact_linked_revision` (`tenant_id`, `linked_revision_controlled_file_id`, `revision_tracking_status`, `deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC 发布关联文件影响评估任务';
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_impact_audit` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `task_id` BIGINT NOT NULL COMMENT '影响评估任务 ID',
+  `batch_id` BIGINT NOT NULL COMMENT '发布后续批次 ID',
+  `action_type` VARCHAR(32) NOT NULL COMMENT 'MATERIALIZE/START/DECIDE/REASSIGN/REOPEN/LINK_REVISION/RESOLVE_REVISION',
+  `actor_id` BIGINT NULL COMMENT '操作人；系统物化和解决可为空',
+  `reason` VARCHAR(1000) NULL COMMENT '操作原因',
+  `status_before` VARCHAR(32) NULL COMMENT '操作前任务状态',
+  `status_after` VARCHAR(32) NOT NULL COMMENT '操作后任务状态',
+  `assignee_before` BIGINT NULL COMMENT '操作前负责人',
+  `assignee_after` BIGINT NULL COMMENT '操作后负责人',
+  `decision_snapshot` VARCHAR(32) NULL COMMENT '本次决定或被重开的旧决定',
+  `linked_revision_controlled_file_id` BIGINT NULL COMMENT '本次关联或解决的大版本 ID',
+  `row_version_before` INT NOT NULL COMMENT '操作前 CAS 版本',
+  `row_version_after` INT NOT NULL COMMENT '操作后 CAS 版本',
+  `occurred_at` DATETIME NOT NULL COMMENT '发生时间',
+  `tenant_id` BIGINT NOT NULL DEFAULT 0 COMMENT '租户编号',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `creator` VARCHAR(64) NULL COMMENT '创建者',
+  `updater` VARCHAR(64) NULL COMMENT '更新者',
+  `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '是否删除',
+  PRIMARY KEY (`id`),
+  KEY `idx_dcc_pub_impact_audit_task` (`tenant_id`, `task_id`, `id`, `deleted`),
+  KEY `idx_dcc_pub_impact_audit_batch` (`tenant_id`, `batch_id`, `id`, `deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC 发布影响评估不可变审计';

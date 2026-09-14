@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo;
 
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistResult;
+
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -58,4 +60,6 @@ public class MesProBatchRecordExecutionOpenOrCreateByContextRespVO {
     private String activeContextKey;
 
     private Boolean created;
+
+    private BatchRecordCellLinkAutoPersistResult cellLinkAutoPersist;
 }

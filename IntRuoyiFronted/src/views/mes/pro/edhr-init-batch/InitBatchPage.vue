@@ -74,7 +74,9 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="最后预检" prop="lastPrecheckAt" width="180" />
+          <el-table-column label="最后预检" prop="lastPrecheckAt" width="180">
+            <template #default="{ row }">{{ formatDateTimeValue(row.lastPrecheckAt, '-') }}</template>
+          </el-table-column>
           <el-table-column label="操作" width="260" fixed="right">
             <template #default="{ row }">
               <div class="edhr-init-batch__row-actions">
@@ -263,6 +265,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   EdhrInitBatchApi,
   type EdhrInitBatchCreateReqVO,

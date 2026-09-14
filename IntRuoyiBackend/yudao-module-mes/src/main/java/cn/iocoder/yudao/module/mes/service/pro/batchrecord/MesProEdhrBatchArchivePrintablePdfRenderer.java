@@ -5,20 +5,37 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
+import org.apache.pdfbox.pdmodel.PDDocumentInformation;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDMetadata;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
+import org.apache.pdfbox.pdmodel.graphics.color.PDOutputIntent;
+import org.apache.xmpbox.XMPMetadata;
+import org.apache.xmpbox.schema.AdobePDFSchema;
+import org.apache.xmpbox.schema.DublinCoreSchema;
+import org.apache.xmpbox.schema.PDFAIdentificationSchema;
+import org.apache.xmpbox.schema.XMPBasicSchema;
+import org.apache.xmpbox.type.BadFieldValueException;
+import org.apache.xmpbox.xml.XmpSerializer;
 
 import java.awt.Color;
+import java.awt.color.ColorSpace;
+import java.awt.color.ICC_Profile;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Comparator;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -29,6 +46,8 @@ import java.util.Set;
 
 final class MesProEdhrBatchArchivePrintablePdfRenderer {
 
+    private static final String OFFICIAL_SIGNATURE_TIME_ZONE =
+            MesProBatchRecordExecutionSignatureService.DEFAULT_SIGNATURE_TIME_ZONE;
     private static final PDRectangle PAGE_SIZE = PDRectangle.A4;
     private static final float MARGIN = 36F;
     private static final float TITLE_FONT_SIZE = 16F;
@@ -41,8 +60,9 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
     private static final float CELL_PADDING = 3.5F;
     private static final float DEFAULT_COLUMN_WIDTH = 160F;
     private static final float DEFAULT_ROW_HEIGHT = 30F;
-    private static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter DATABASE_TIME_SECONDS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter DATABASE_TIME_MINUTES = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final Color BORDER_COLOR = new Color(31, 41, 55);
     private static final Color STATIC_BG = new Color(243, 244, 246);
     private static final Color FILLABLE_BG = Color.WHITE;
@@ -53,6 +73,11 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
     private static final Color FILLABLE_TEXT = new Color(15, 118, 110);
     private static final Color MUTED_TEXT = new Color(107, 114, 128);
     private static final Color RULE_TEXT = new Color(180, 83, 9);
+    private static final String PDF_A_PROFILE = "PDF/A-1b";
+    private static final String PDF_CREATOR = "IntRuoyi MES";
+    private static final String PDF_PRODUCER = "IntRuoyi MES PDFBox 2.0.32";
+    private static final String SRGB_PROFILE_NAME = "sRGB IEC61966-2.1";
+    private static final ZoneId ARCHIVE_ZONE = ZoneId.of("Asia/Shanghai");
 
     private MesProEdhrBatchArchivePrintablePdfRenderer() {
     }
@@ -71,6 +96,7 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
             }
             PDType0Font font = PDType0Font.load(document, fontFile);
             PDType0Font symbolFont = PDType0Font.load(document, symbolFontFile);
+            configurePdfA1b(document, manifest);
             PdfCanvas canvas = new PdfCanvas(document, font, symbolFont);
             canvas.writeTitle("打印版 eDHR 已填表单归档");
             writeBatchSummary(canvas, manifest);
@@ -83,6 +109,81 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to render printable eDHR batch archive PDF", ex);
         }
+    }
+
+    private static void configurePdfA1b(PDDocument document, JSONObject manifest) throws IOException {
+        String batchCode = StrUtil.blankToDefault(manifest.getString("batchCode"), "UNKNOWN");
+        String title = "eDHR 批次最终归档 - " + batchCode;
+        String subject = "电子批记录长期归档";
+        String keywords = "eDHR,PDF/A-1b," + batchCode;
+        Calendar generatedAt = resolveGeneratedAt(manifest.getString("generatedAt"));
+
+        document.setVersion(1.4F);
+        PDDocumentInformation information = document.getDocumentInformation();
+        information.setTitle(title);
+        information.setAuthor(PDF_CREATOR);
+        information.setSubject(subject);
+        information.setKeywords(keywords);
+        information.setCreator(PDF_CREATOR);
+        information.setProducer(PDF_PRODUCER);
+        information.setCreationDate(generatedAt);
+        information.setModificationDate(generatedAt);
+
+        XMPMetadata xmp = XMPMetadata.createXMPMetadata();
+        DublinCoreSchema dublinCore = xmp.createAndAddDublinCoreSchema();
+        dublinCore.setTitle(title);
+        dublinCore.addCreator(PDF_CREATOR);
+        dublinCore.setDescription(subject);
+        dublinCore.setFormat("application/pdf");
+
+        AdobePDFSchema adobePdf = xmp.createAndAddAdobePDFSchema();
+        adobePdf.setProducer(PDF_PRODUCER);
+        adobePdf.setKeywords(keywords);
+        adobePdf.setPDFVersion("1.4");
+
+        XMPBasicSchema basic = xmp.createAndAddXMPBasicSchema();
+        basic.setCreatorTool(PDF_CREATOR);
+        basic.setCreateDate(generatedAt);
+        basic.setModifyDate(generatedAt);
+        basic.setMetadataDate(generatedAt);
+
+        PDFAIdentificationSchema identification = xmp.createAndAddPFAIdentificationSchema();
+        identification.setPart(1);
+        try {
+            identification.setConformance("B");
+        } catch (BadFieldValueException ex) {
+            throw new IOException("Failed to configure PDF/A-1b conformance metadata", ex);
+        }
+
+        ByteArrayOutputStream xmpBytes = new ByteArrayOutputStream();
+        try {
+            new XmpSerializer().serialize(xmp, xmpBytes, true);
+        } catch (javax.xml.transform.TransformerException ex) {
+            throw new IOException("Failed to serialize PDF/A metadata", ex);
+        }
+        PDMetadata metadata = new PDMetadata(document);
+        metadata.importXMPMetadata(xmpBytes.toByteArray());
+
+        PDDocumentCatalog catalog = document.getDocumentCatalog();
+        catalog.setMetadata(metadata);
+        catalog.setLanguage("zh-CN");
+        byte[] profileBytes = ICC_Profile.getInstance(ColorSpace.CS_sRGB).getData();
+        try (ByteArrayInputStream profileStream = new ByteArrayInputStream(profileBytes)) {
+            PDOutputIntent outputIntent = new PDOutputIntent(document, profileStream);
+            outputIntent.setInfo(SRGB_PROFILE_NAME);
+            outputIntent.setOutputCondition(SRGB_PROFILE_NAME);
+            outputIntent.setOutputConditionIdentifier(SRGB_PROFILE_NAME);
+            outputIntent.setRegistryName("http://www.color.org");
+            catalog.addOutputIntent(outputIntent);
+        }
+    }
+
+    private static Calendar resolveGeneratedAt(String raw) {
+        LocalDateTime parsed = parseDateTime(raw);
+        if (parsed == null) {
+            throw new IllegalStateException("EDHR batch archive generatedAt is invalid for " + PDF_A_PROFILE);
+        }
+        return GregorianCalendar.from(parsed.atZone(ARCHIVE_ZONE));
     }
 
     private static void writeBatchSummary(PdfCanvas canvas, JSONObject manifest) throws IOException {
@@ -134,13 +235,19 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
         }
         canvas.writeSubTitle("签名记录");
         for (JSONObject signature : signatures) {
-            String line = String.join(" | ",
-                    "动作=" + value(signature.get("actionType")),
-                    "签名人=" + value(signature.get("actorName")),
-                    "签名时间=" + formatDateTime(firstNonBlank(
-                            signature.getString("signatureDisplayAt"),
-                            signature.getString("selectedSignedAt"),
-                            signature.getString("signedAt"))));
+            List<String> parts = new ArrayList<>();
+            parts.add("签署含义=" + value(resolveSignaturePurpose(signature)));
+            parts.add("签名人=" + value(resolveSignatureActorName(signature)));
+            parts.add("签名时间=" + formatSignatureDateTime(signature));
+            String recordHash = resolveSignatureRecordHash(signature);
+            if (StrUtil.isNotBlank(recordHash)) {
+                parts.add("记录哈希=" + recordHash);
+            }
+            String timeAuditHash = StrUtil.trim(signature.getString("selectedTimeAuditHash"));
+            if (StrUtil.isNotBlank(timeAuditHash)) {
+                parts.add("时间哈希=" + timeAuditHash);
+            }
+            String line = String.join(" | ", parts);
             canvas.writeParagraph(line);
         }
     }
@@ -148,19 +255,16 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
     private static void renderFormTable(PdfCanvas canvas, JSONObject form) throws IOException {
         JSONObject layout = resolveLayout(form);
         if (layout == null) {
-            canvas.writeParagraph("缺少模板布局，无法按原模板打印该表单。");
-            return;
+            throw missingPrintableLayout(form, "layout");
         }
         JSONObject rows = layout.getJSONObject("rows");
         if (rows == null || rows.isEmpty()) {
-            canvas.writeParagraph("缺少模板行定义，无法按原模板打印该表单。");
-            return;
+            throw missingPrintableLayout(form, "rows");
         }
         List<Integer> rowIndexes = sortedIndexes(rows.keySet());
         List<Integer> columnIndexes = collectColumnIndexes(layout);
         if (columnIndexes.isEmpty()) {
-            canvas.writeParagraph("缺少模板列定义，无法按原模板打印该表单。");
-            return;
+            throw missingPrintableLayout(form, "columns");
         }
         Map<Integer, Float> columnWidthMap = resolveColumnWidths(layout, columnIndexes, canvas.availableWidth());
         Map<String, JSONObject> cellValueMap = parseCellValueMap(form.getString("cellValuesJson"));
@@ -207,6 +311,11 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
         }
     }
 
+    private static IllegalStateException missingPrintableLayout(JSONObject form, String part) {
+        return new IllegalStateException("EDHR batch archive printable layout is missing " + part
+                + ": executionCode=" + StrUtil.blankToDefault(form.getString("executionCode"), "UNKNOWN"));
+    }
+
     private static void writeSpecialNodes(PdfCanvas canvas, List<JSONObject> nodes) throws IOException {
         canvas.newPage();
         canvas.writeSectionTitle("特殊节点附录");
@@ -243,11 +352,45 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
     private static void writeEvidenceAppendix(PdfCanvas canvas, JSONObject manifest) throws IOException {
         canvas.newPage();
         canvas.writeSectionTitle("归档证据附录");
+        writeReleaseApprovalAppendix(canvas, manifest);
         writeAttachmentAppendix(canvas, manifest);
         writeDossierAppendix(canvas, manifest);
         writeChangeEventAppendix(canvas, manifest);
         writeDomainTraceAppendix(canvas, manifest);
         canvas.writeKeyValue("归档哈希", manifest.getString("aggregateHash"));
+    }
+
+    private static void writeReleaseApprovalAppendix(PdfCanvas canvas, JSONObject manifest) throws IOException {
+        JSONObject release = manifest.getJSONObject("releaseTransactionSnapshot");
+        if (release == null || release.isEmpty()) {
+            return;
+        }
+        canvas.writeSubTitle("放行审核与批准");
+        canvas.writeKeyValue("放行单号", release.getString("releaseCode"));
+        canvas.writeKeyValue("放行状态", release.getString("releaseStatus"));
+        canvas.writeKeyValue("预检时间", formatDateTime(release.getString("lastPrecheckAt")));
+        canvas.writeKeyValue("审核人/提交人", value(release.get("submittedByName")));
+        canvas.writeKeyValue("审核时间", formatDateTime(release.getString("submittedAt")));
+        canvas.writeKeyValue("批准人", value(release.get("approvedByName")));
+        canvas.writeKeyValue("批准时间", formatDateTime(release.getString("approvedAt")));
+        canvas.writeKeyValue("审批意见", release.getString("approvalOpinion"));
+        canvas.writeKeyValue("签名证据哈希", release.getString("approvalSignoffEvidenceHash"));
+
+        List<JSONObject> events = jsonArrayObjects(manifest, "releaseEvents");
+        if (events.isEmpty()) {
+            return;
+        }
+        canvas.writeSubTitle("放行事件");
+        for (JSONObject event : events) {
+            canvas.writeParagraph(String.join(" | ",
+                    "事件=" + value(event.get("eventType")),
+                    "状态=" + joinNonBlank(value(event.get("fromStatus")), value(event.get("toStatus"))),
+                    "操作人=" + value(event.get("actorUserId")),
+                    "原因=" + value(firstNonBlank(event.get("reason"), event.get("opinion"))),
+                    "证据=" + value(firstNonBlank(event.get("evidenceHash"), event.get("signoffEvidenceHash"))),
+                    "时间=" + formatDateTime(event.getString("occurredAt"))));
+        }
+        canvas.writeBlankLine();
     }
 
     private static void writeAttachmentAppendix(PdfCanvas canvas, JSONObject manifest) throws IOException {
@@ -584,13 +727,78 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
         if (signatureRecord == null) {
             return "未签名";
         }
-        String actor = StrUtil.blankToDefault(signatureRecord.getString("actorName"),
-                signatureRecord.getString("actorId"));
-        String signedAt = formatDateTime(firstNonBlank(
-                signatureRecord.getString("signatureDisplayAt"),
-                signatureRecord.getString("selectedSignedAt"),
-                signatureRecord.getString("signedAt")));
-        return actor + "\n" + signedAt;
+        List<String> lines = new ArrayList<>();
+        lines.add("签名人:" + value(resolveSignatureActorName(signatureRecord)));
+        lines.add("含义:" + value(resolveSignaturePurpose(signatureRecord)));
+        lines.add("时间:" + formatSignatureDateTime(signatureRecord));
+        String recordHash = resolveSignatureRecordHash(signatureRecord);
+        if (StrUtil.isNotBlank(recordHash)) {
+            lines.add("记录哈希:" + recordHash);
+        }
+        return String.join("\n", lines);
+    }
+
+    private static String resolveSignatureActorName(JSONObject signatureRecord) {
+        String actorName = firstNonBlank(
+                signatureRecord.getString("actorName"),
+                signatureRecord.getString("actorNicknameSnapshot"),
+                null);
+        if (StrUtil.isBlank(actorName)) {
+            throw new IllegalStateException("EDHR batch archive signature actor name is required, actionType="
+                    + value(signatureRecord.getString("actionType")));
+        }
+        return actorName;
+    }
+
+    private static String resolveSignaturePurpose(JSONObject signatureRecord) {
+        String purpose = StrUtil.blankToDefault(
+                StrUtil.trim(signatureRecord.getString("signaturePurpose")),
+                signatureMeaning(signatureRecord.getString("actionType")));
+        if (StrUtil.isBlank(purpose)) {
+            throw new IllegalStateException("EDHR batch archive signature purpose is required, actionType="
+                    + value(signatureRecord.getString("actionType")));
+        }
+        return purpose;
+    }
+
+    private static String resolveSignatureRecordHash(JSONObject signatureRecord) {
+        String recordHash = firstNonBlank(
+                signatureRecord.getString("recordHashSnapshot"),
+                signatureRecord.getString("aggregateHash"),
+                firstNonBlank(
+                        signatureRecord.getString("fieldAuditHeadHash"),
+                        signatureRecord.getString("cellValuesHash"),
+                        null));
+        if (StrUtil.isBlank(recordHash)) {
+            throw new IllegalStateException("EDHR batch archive signature record hash is required, actionType="
+                    + value(signatureRecord.getString("actionType")));
+        }
+        return recordHash;
+    }
+
+    private static String formatSignatureDateTime(JSONObject signatureRecord) {
+        String formatted = formatDateTime(signatureRecord.getString("signedAt"));
+        if ("--".equals(formatted)) {
+            throw new IllegalStateException("EDHR batch archive signature time is required, actionType="
+                    + value(signatureRecord.getString("actionType")));
+        }
+        return formatted + " (" + OFFICIAL_SIGNATURE_TIME_ZONE + ")";
+    }
+
+    private static String signatureMeaning(String actionType) {
+        return switch (String.valueOf(actionType)) {
+            case MesProBatchRecordExecutionSignatureService.ACTION_FIELD_CHANGE -> "字段变更";
+            case MesProBatchRecordExecutionSignatureService.ACTION_FORM_REVIEW -> "表单复核";
+            case MesProBatchRecordExecutionSignatureService.ACTION_SUBMIT -> "提交审批";
+            case MesProBatchRecordExecutionSignatureService.ACTION_APPROVE -> "最终批准";
+            case MesProBatchRecordExecutionSignatureService.ACTION_REVIEW_APPROVE -> "审核签名";
+            case MesProBatchRecordExecutionSignatureService.ACTION_REJECT -> "审批驳回";
+            case MesProBatchRecordExecutionSignatureService.ACTION_ARCHIVE_SEAL -> "归档封存";
+            case MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT -> "一线生产报工提交";
+            case MesProBatchRecordExecutionSignatureService.ACTION_PQC_SUBMIT -> "PQC检验提交";
+            case MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW -> "组长复核";
+            default -> null;
+        };
     }
 
     private static Map<String, JSONObject> parseCellValueMap(String cellValuesJson) {
@@ -669,8 +877,10 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
                 records.add(record);
             }
         }
-        records.sort(Comparator.comparing(MesProEdhrBatchArchivePrintablePdfRenderer::signatureSortTime,
-                Comparator.nullsLast(LocalDateTime::compareTo)));
+        records.sort(Comparator
+                .comparing(MesProEdhrBatchArchivePrintablePdfRenderer::signatureSortTime)
+                .thenComparing(MesProEdhrBatchArchivePrintablePdfRenderer::signatureSortId,
+                        Comparator.nullsFirst(Long::compareTo)));
         for (JSONObject record : records) {
             String actionType = StrUtil.blankToDefault(record.getString("actionType"), "");
             if (StrUtil.isNotBlank(actionType)) {
@@ -681,10 +891,16 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
     }
 
     private static LocalDateTime signatureSortTime(JSONObject record) {
-        return parseDateTime(firstNonBlank(
-                record.getString("signatureDisplayAt"),
-                record.getString("selectedSignedAt"),
-                record.getString("signedAt")));
+        LocalDateTime signedAt = parseDateTime(record.getString("signedAt"));
+        if (signedAt == null) {
+            throw new IllegalStateException("EDHR batch archive signature time is required, actionType="
+                    + value(record.getString("actionType")));
+        }
+        return signedAt;
+    }
+
+    private static Long signatureSortId(JSONObject record) {
+        return record.getLong("id");
     }
 
     private static String formatAttachmentRule(JSONObject field) {
@@ -856,7 +1072,7 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
                 return LocalDateTime.parse(raw, DATABASE_TIME_SECONDS);
             } catch (RuntimeException ignored) {
                 try {
-                    return LocalDateTime.parse(raw, DISPLAY_TIME);
+                    return LocalDateTime.parse(raw, DATABASE_TIME_MINUTES);
                 } catch (RuntimeException ignoredAgain) {
                     return null;
                 }

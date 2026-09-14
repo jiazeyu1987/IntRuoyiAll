@@ -39,6 +39,7 @@
                   :rowspan="cell.rowSpan"
                   :colspan="cell.colSpan"
                   :class="cell.classNames"
+                  :style="cell.cellStyle"
                 >
                   <span
                     v-if="cell.ruleBadge && !cell.fillablePlaceholder && cell.checkboxState === null"
@@ -107,6 +108,7 @@
                 :rowspan="cell.rowSpan"
                 :colspan="cell.colSpan"
                 :class="cell.classNames"
+                :style="cell.cellStyle"
               >
                 <span
                   v-if="cell.ruleBadge && !cell.fillablePlaceholder && cell.checkboxState === null"
@@ -170,15 +172,20 @@ import type {
 import type { BatchRecordReportCellValueType } from '@/api/mes/pro/batchrecordreport'
 import {
   cellRuleDefaultComponentMap,
+  cleanedSelectOptions,
   resolveTemplateRuleState,
   resolveTemplateRuleTooltip,
   resolveTemplateRuleTypeBadge,
+  resolveTemplateCellCssStyle,
   templateSimulationComponentMap,
+  type TemplateRawStyle,
   type TemplateEditableCellContext,
   type TemplateRuleState,
   type TemplateRuleTypeBadge,
   type TemplateSimulationComponentKind
 } from '@/views/mes/pro/batchrecord-shared/batchRecordTemplateRules'
+import { formatEdhrDateTime, toEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
+import { selectLatestSignature } from '@/views/mes/pro/edhr/signatureSelection'
 import EdhrTemplateFitViewport from './EdhrTemplateFitViewport.vue'
 
 defineOptions({ name: 'EdhrExecutionReadonlyForm' })
@@ -187,6 +194,9 @@ type RawLayoutCell = {
   text?: unknown
   value?: unknown
   merge?: unknown
+  style?: unknown
+  edhrDiagonalSlash?: boolean
+  edhrDiagonalSlashDirection?: 'TL2BR' | 'TR2BL' | 'BOTH'
   fillForm?: Record<string, unknown>
   edhrCellRule?: Record<string, unknown>
   edhrSignature?: RawSignatureCellMarker
@@ -207,6 +217,7 @@ type RawLayoutRow = {
 type RawLayout = {
   rows?: Record<string, RawLayoutRow>
   cols?: Record<string, { width?: unknown }>
+  styles?: TemplateRawStyle[]
   merges?: unknown[]
 }
 
@@ -231,6 +242,16 @@ type CellValue = {
   unit?: unknown
 }
 
+type ParseState<T> = {
+  value?: T
+  error: string
+}
+
+type CellValueMapState = {
+  map: Map<string, CellValue>
+  error: string
+}
+
 type RenderedColumn = {
   columnIndex: number
   widthPercent: number
@@ -244,6 +265,7 @@ type RenderedCell = {
   rowSpan: number
   colSpan: number
   classNames: Record<string, boolean>
+  cellStyle: Record<string, string>
   attachmentRuleText?: string
   fillablePlaceholder?: string
   placeholderIsTypeSymbol?: boolean
@@ -270,7 +292,6 @@ const props = defineProps<{
   embedded?: boolean
 }>()
 
-const parseError = ref('')
 const fitMode = computed(() => props.fitMode || 'width')
 
 const parseJson = <T,>(raw: string | undefined, label: string): T | undefined => {
@@ -283,40 +304,75 @@ const parseJson = <T,>(raw: string | undefined, label: string): T | undefined =>
   }
 }
 
-const snapshot = computed(() => {
-  return parseJson<SnapshotPayload>(props.formViewModel?.executionSnapshotJson, '执行快照')
-})
+const parseStateError = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message.trim() ? error.message : fallback
 
-const sheetLayout = computed(() => {
-  return parseJson<RawLayout>(props.formViewModel?.sheetLayoutJson, '模板布局')
-})
-
-const layout = computed(() => {
-  parseError.value = ''
+const snapshotState = computed<ParseState<SnapshotPayload>>(() => {
   try {
-    const snapshotLayout = snapshot.value?.layout
-    const directLayout = sheetLayout.value
-    const candidate = hasRenderableRows(snapshotLayout) ? snapshotLayout : directLayout
-    if (!hasRenderableRows(candidate)) {
-      parseError.value = '缺少电子批记录模板布局，无法按原模板展示填写结果。'
-      return undefined
+    return {
+      value: parseJson<SnapshotPayload>(props.formViewModel?.executionSnapshotJson, '执行快照'),
+      error: ''
     }
-    return candidate
   } catch (error) {
-    parseError.value = error instanceof Error ? error.message : '电子批记录模板解析失败。'
-    return undefined
+    return {
+      value: undefined,
+      error: parseStateError(error, '执行快照解析失败。')
+    }
   }
 })
+
+const snapshot = computed(() => snapshotState.value.value)
+
+const sheetLayoutState = computed<ParseState<RawLayout>>(() => {
+  try {
+    return {
+      value: parseJson<RawLayout>(props.formViewModel?.sheetLayoutJson, '模板布局'),
+      error: ''
+    }
+  } catch (error) {
+    return {
+      value: undefined,
+      error: parseStateError(error, '模板布局解析失败。')
+    }
+  }
+})
+
+const sheetLayout = computed(() => sheetLayoutState.value.value)
+
+const layoutState = computed<ParseState<RawLayout>>(() => {
+  const upstreamError = snapshotState.value.error || sheetLayoutState.value.error
+  if (upstreamError) {
+    return {
+      value: undefined,
+      error: upstreamError
+    }
+  }
+  const snapshotLayout = snapshot.value?.layout
+  const directLayout = sheetLayout.value
+  const candidate = hasRenderableRows(snapshotLayout) ? snapshotLayout : directLayout
+  if (!hasRenderableRows(candidate)) {
+    return {
+      value: undefined,
+      error: '缺少电子批记录模板布局，无法按原模板展示填写结果。'
+    }
+  }
+  return {
+    value: candidate,
+    error: ''
+  }
+})
+
+const layout = computed(() => layoutState.value.value)
 
 const hasRenderableRows = (candidate: RawLayout | undefined): candidate is RawLayout => {
   return Boolean(candidate?.rows && Object.keys(candidate.rows).length > 0)
 }
 
-const cellValueMap = computed(() => {
+const cellValueMapState = computed<CellValueMapState>(() => {
   try {
     const parsed = parseJson<CellValue[]>(props.formViewModel?.cellValuesJson, '单元格值')
     const map = new Map<string, CellValue>()
-    if (!parsed) return map
+    if (!parsed) return { map, error: '' }
     if (!Array.isArray(parsed)) {
       throw new Error('单元格值必须是数组。')
     }
@@ -326,14 +382,19 @@ const cellValueMap = computed(() => {
       if (!Number.isInteger(rowIndex) || !Number.isInteger(columnIndex)) return
       map.set(`${rowIndex}:${columnIndex}`, item)
     })
-    return map
+    return { map, error: '' }
   } catch (error) {
-    if (!parseError.value) {
-      parseError.value = error instanceof Error ? error.message : '单元格值解析失败。'
+    return {
+      map: new Map<string, CellValue>(),
+      error: parseStateError(error, '单元格值解析失败。')
     }
-    return new Map<string, unknown>()
   }
 })
+
+const cellValueMap = computed(() => cellValueMapState.value.map)
+const parseError = computed(
+  () => layoutState.value.error || cellValueMapState.value.error
+)
 
 const signatureCellMarkers = computed(() => {
   const markers = new Map<string, EdhrSignatureCellMarker>()
@@ -456,6 +517,7 @@ const renderedRows = computed<RenderedRow[]>(() => {
         ruleBadge,
         ruleState,
         ruleTooltip: ruleContext ? resolveTemplateRuleTooltip(ruleContext) : '',
+        cellStyle: resolveTemplateCellCssStyle(rawCell, layout.value?.styles),
         classNames: {
           'edhr-template-sheet__cell': true,
           'is-fillable': Boolean(rawCell?.fillForm || rawCell?.edhrCellRule),
@@ -470,7 +532,9 @@ const renderedRows = computed<RenderedRow[]>(() => {
           'is-signature-signed': Boolean(signatureMarker && findSignatureRecord(signatureMarker)),
           'is-signature-pending': Boolean(signatureMarker && !findSignatureRecord(signatureMarker)),
           'is-checkbox-cell': checkboxState !== null,
-          'is-attachment-rule-cell': Boolean(attachmentRuleText)
+          'is-attachment-rule-cell': Boolean(attachmentRuleText),
+          'is-diagonal-slash': Boolean(rawCell?.edhrDiagonalSlash),
+          'is-diagonal-slash-tl2br': rawCell?.edhrDiagonalSlashDirection === 'TL2BR'
         }
       })
     })
@@ -503,11 +567,20 @@ const normalizeReadonlyRuleValueType = (
 ): BatchRecordReportCellValueType => {
   if (signatureMarker?.enabled) return 'SIGNATURE'
   const lowerComponent = componentFlag.toLowerCase()
+  const compactComponent = lowerComponent.replace(/[\s_-]+/g, '')
   if (lowerComponent.includes('checkbox') || lowerComponent.includes('boolean')) return 'BOOLEAN'
-  if (lowerComponent.includes('datetime')) return 'DATETIME'
-  if (lowerComponent.includes('date')) return 'DATE'
-  if (lowerComponent.includes('number')) return 'NUMBER'
-  if (lowerComponent.includes('signature')) return 'SIGNATURE'
+  if (lowerComponent.includes('datetime') || lowerComponent.includes('日期时间')) return 'DATETIME'
+  if (lowerComponent.includes('date') || lowerComponent.includes('日期')) return 'DATE'
+  if (lowerComponent.includes('时间')) return 'DATETIME'
+  if (lowerComponent.includes('number') || lowerComponent.includes('数字')) return 'NUMBER'
+  if (
+    lowerComponent.includes('signature') ||
+    lowerComponent.includes('sign') ||
+    lowerComponent.includes('电子签名') ||
+    lowerComponent.includes('签名') ||
+    lowerComponent.includes('签字') ||
+    compactComponent.includes('electronicsignature')
+  ) return 'SIGNATURE'
   const normalized = String(rawValue || '').trim().toUpperCase()
   if (normalizedCellRuleValueTypes.has(normalized)) {
     return normalized as BatchRecordReportCellValueType
@@ -519,18 +592,61 @@ const resolveReadonlyComponentKind = (
   valueType: BatchRecordReportCellValueType,
   componentFlag: string,
   signatureMarker: EdhrSignatureCellMarker | RawSignatureCellMarker | undefined,
-  attachmentRuleText: string | undefined
+  attachmentRuleText: string | undefined,
+  options: TemplateEditableCellContext['options'] = []
 ): TemplateSimulationComponentKind => {
   if (signatureMarker?.enabled || valueType === 'SIGNATURE') return 'signature'
   const lowerComponent = componentFlag.toLowerCase()
+  const compactComponent = lowerComponent.replace(/[\s_-]+/g, '')
+  if (
+    lowerComponent.includes('signature') ||
+    lowerComponent.includes('sign') ||
+    lowerComponent.includes('电子签名') ||
+    lowerComponent.includes('签名') ||
+    lowerComponent.includes('签字') ||
+    compactComponent.includes('electronicsignature')
+  ) {
+    return 'signature'
+  }
   if (
     attachmentRuleText ||
     lowerComponent.includes('upload-file') ||
     lowerComponent.includes('upload-image') ||
     lowerComponent.includes('upload-images') ||
-    lowerComponent.includes('attachment')
+    lowerComponent.includes('attachment') ||
+    compactComponent.includes('uploadfile') ||
+    lowerComponent.includes('附件') ||
+    lowerComponent.includes('文件') ||
+    lowerComponent.includes('图片')
   ) {
     return 'attachment'
+  }
+  if (
+    lowerComponent.includes('radio-group') ||
+    lowerComponent.includes('radio') ||
+    lowerComponent.includes('option-group') ||
+    lowerComponent.includes('single-choice') ||
+    lowerComponent.includes('checkbox-group') ||
+    compactComponent.includes('radiogroup') ||
+    compactComponent.includes('optiongroup') ||
+    compactComponent.includes('singlechoice') ||
+    lowerComponent.includes('单选')
+  ) {
+    return 'radio'
+  }
+  if (lowerComponent.includes('number') || lowerComponent.includes('数字')) return 'number'
+  if (lowerComponent.includes('datetime') || lowerComponent.includes('date-time') || lowerComponent.includes('日期时间')) {
+    return 'datetime'
+  }
+  if (lowerComponent.includes('date') || lowerComponent.includes('日期')) return 'date'
+  if (lowerComponent.includes('时间')) return 'datetime'
+  if (
+    valueType === 'STRING' &&
+    (lowerComponent.includes('select') ||
+      lowerComponent.includes('dropdown') ||
+      Boolean(options?.length))
+  ) {
+    return 'select'
   }
   if (lowerComponent.includes('checkbox') || lowerComponent.includes('boolean')) return 'checkbox'
   return templateSimulationComponentMap[valueType] || 'text'
@@ -561,16 +677,29 @@ const resolveReadonlyRuleContext = (
     signatureMarker
   )
   const componentFlag = rawComponentFlag || cellRuleDefaultComponentMap[valueType]
-  const constraints = rule.constraints && typeof rule.constraints === 'object'
-    ? (rule.constraints as Record<string, unknown>)
-    : {}
+  const fillFormConstraints =
+    fillForm.constraints && typeof fillForm.constraints === 'object'
+      ? (fillForm.constraints as Record<string, unknown>)
+      : {}
+  const ruleConstraints =
+    rule.constraints && typeof rule.constraints === 'object'
+      ? (rule.constraints as Record<string, unknown>)
+      : {}
+  const constraints = { ...fillFormConstraints, ...ruleConstraints }
+  const options = cleanedSelectOptions(constraints.options || fillForm.options || rule.options)
 
   return {
     fieldIdentity: identity,
     rowIndex,
     columnIndex,
     valueType,
-    componentKind: resolveReadonlyComponentKind(valueType, componentFlag, signatureMarker, attachmentRuleText),
+    componentKind: resolveReadonlyComponentKind(
+      valueType,
+      componentFlag,
+      signatureMarker,
+      attachmentRuleText,
+      options
+    ),
     componentFlag,
     label:
       readString(rule.label) ||
@@ -581,7 +710,8 @@ const resolveReadonlyRuleContext = (
     source: readString(rule.source) || readString(fillForm.source),
     reviewed: readBoolean(rule.reviewed) || readBoolean(fillForm.reviewed),
     unit: readString(rule.unit) || readString(fillForm.unit) || readString(filledValue?.unit) || undefined,
-    format: readString(constraints.format) || readString(fillForm.format) || undefined
+    format: readString(constraints.format) || readString(fillForm.format) || undefined,
+    options
   }
 }
 
@@ -634,10 +764,12 @@ const resolveReadonlyCheckboxLabelText = (
   columnIndex: number,
   cell: RawLayoutCell | undefined
 ) => {
-  if (!cell?.fillForm) return ''
+  if (!cell?.fillForm && !cell?.edhrCellRule) return ''
   void rowIndex
   void columnIndex
-  return normalizeReadonlyCheckboxLabelText(cell?.fillForm?.labelText)
+  return normalizeReadonlyCheckboxLabelText(
+    cell?.fillForm?.labelText || cell?.fillForm?.label || cell?.edhrCellRule?.label
+  )
 }
 
 const resolveCellText = (rowIndex: number, columnIndex: number, cell: RawLayoutCell | undefined) => {
@@ -718,24 +850,18 @@ const resolveSignatureText = (marker: EdhrSignatureCellMarker | RawSignatureCell
 
 const findSignatureRecord = (marker: EdhrSignatureCellMarker | RawSignatureCellMarker | undefined) => {
   if (!marker?.actionType) return undefined
-  const matched = [...(props.signatureRecords || [])]
-    .filter((record) => record.actionType === marker.actionType)
-    .sort((left, right) => toTime(left.signedAt) - toTime(right.signedAt))
-  return matched[matched.length - 1]
+  const matched = (props.signatureRecords || []).filter(
+    (record) => record.actionType === marker.actionType
+  )
+  return selectLatestSignature(matched, (record) => toTime(record.signedAt))
 }
 
 const formatSignatureTime = (value: string | undefined) => {
-  if (!value) return '--'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const pad = (item: number) => String(item).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  return formatEdhrDateTime(value)
 }
 
 const toTime = (value: string | undefined) => {
-  if (!value) return 0
-  const time = new Date(value).getTime()
-  return Number.isNaN(time) ? 0 : time
+  return toEdhrDateTime(value)?.getTime() ?? Number.NaN
 }
 
 const stringifyValue = (value: unknown) => {
@@ -835,8 +961,26 @@ const isSectionTitle = (cell: RawLayoutCell | undefined, merge: { rowSpan: numbe
 }
 
 .edhr-template-sheet__cell.is-static {
-  background: #f3f4f6;
-  font-weight: 600;
+  background: #fff;
+  font-weight: inherit;
+}
+
+.edhr-template-sheet__cell.is-diagonal-slash {
+  background: #fff;
+}
+
+.edhr-template-sheet__cell.is-diagonal-slash::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #1f2937;
+  clip-path: polygon(calc(100% - 1px) 0, 100% 0, 1px 100%, 0 100%);
+  pointer-events: none;
+  content: '';
+}
+
+.edhr-template-sheet__cell.is-diagonal-slash-tl2br::after {
+  clip-path: polygon(0 0, 1px 0, 100% calc(100% - 1px), 100% 100%);
 }
 
 .edhr-template-sheet__cell.is-fillable {
@@ -851,7 +995,7 @@ const isSectionTitle = (cell: RawLayoutCell | undefined, merge: { rowSpan: numbe
 }
 
 .edhr-template-sheet__cell.is-section-title {
-  background: #e5e7eb;
+  background: #fff;
   font-weight: 700;
 }
 

@@ -9,60 +9,72 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 const syncApi = read('src/api/erp/sync/index.ts')
 
 assert(
-  syncApi.includes('runIncrementalSyncJob'),
-  'ERP sync API must expose runIncrementalSyncJob for all manual table sync buttons.'
+  syncApi.includes('runIncrementalSync'),
+  'ERP sync API must expose runIncrementalSync for all manual table sync buttons.'
 )
 assert(
-  syncApi.includes("import * as JobApi from '@/api/infra/job'") &&
-    syncApi.includes('JobApi.getJobPage') &&
-    syncApi.includes('JobApi.runJob'),
-  'Manual incremental sync must reuse the existing job trigger path.'
+  syncApi.includes("'/erp/kingdee-sync/incremental-sync'"),
+  'Manual incremental sync must use the tenant-scoped ERP API.'
+)
+assert(
+  !syncApi.includes('JobApi.getJobPage') && !syncApi.includes('JobApi.runJob'),
+  'Manual incremental sync must not bypass tenant scope through the generic job API.'
 )
 
 const pages = [
   {
     file: 'src/views/erp/product/product/index.vue',
-    handler: 'kingdeeProductItemSyncJob',
+    syncType: 'PRODUCT',
     forbidden: ['ProductApi.syncKingdeeProducts()']
   },
   {
     file: 'src/views/erp/purchase/order/index.vue',
-    handler: 'kingdeePurchaseOrderSyncJob',
+    syncType: 'PURCHASE_ORDER',
     forbidden: ['PurchaseOrderApi.syncKingdeePurchaseOrders()']
   },
   {
     file: 'src/views/erp/sale/order/index.vue',
-    handler: 'kingdeeSaleOrderSyncJob',
+    syncType: 'SALE_ORDER',
     forbidden: ['SaleOrderApi.syncKingdeeSaleOrders()']
   },
   {
     file: 'src/views/erp/stock/stock/index.vue',
-    handler: 'kingdeeStockSyncJob',
+    syncType: 'STOCK',
     forbidden: ['StockApi.syncKingdeeStocks()']
   },
   {
     file: 'src/views/mes/pro/workorder/index.vue',
-    handler: 'kingdeeProductionOrderSyncJob',
+    syncType: 'PRODUCTION_ORDER',
     forbidden: ['ProWorkOrderApi.syncKingdeeWorkOrders()']
   },
   {
     file: 'src/views/mes/md/item/index.vue',
-    handler: 'kingdeeProductItemSyncJob',
+    syncType: 'PRODUCT',
     forbidden: ['MdItemApi.syncKingdeeItems()']
   },
   {
     file: 'src/views/erp/production/material-list/index.vue',
-    handler: 'kingdeeProductionMaterialListSyncJob',
+    syncType: 'PRODUCTION_MATERIAL_LIST',
     forbidden: ['syncProductionMaterialList()', '/erp/production-material-list/sync-kingdee']
   },
   {
     file: 'src/views/erp/production/bom-list/index.vue',
-    handler: 'kingdeeBomSyncJob',
+    syncType: 'BOM',
     forbidden: []
   },
   {
     file: 'src/views/erp/production/inventory-list/index.vue',
-    handler: 'kingdeeStockSyncJob',
+    syncType: 'STOCK',
+    forbidden: []
+  },
+  {
+    file: 'src/views/erp/production/pick-list/index.vue',
+    syncType: 'PRODUCTION_PICK_LIST',
+    forbidden: []
+  },
+  {
+    file: 'src/views/erp/stock/kingdeeStockMove/index.vue',
+    syncType: 'STOCK_MOVE',
     forbidden: []
   }
 ]
@@ -71,17 +83,16 @@ for (const page of pages) {
   const source = read(page.file)
   assert(source.includes('增量同步'), `${page.file} must expose a visible 增量同步 button.`)
   assert(
-    source.includes('ErpKingdeeSyncApi.runIncrementalSyncJob'),
-    `${page.file} must trigger manual sync through ErpKingdeeSyncApi.runIncrementalSyncJob.`
+    source.includes(`ErpKingdeeSyncApi.runIncrementalSync('${page.syncType}')`),
+    `${page.file} must trigger manual sync through the tenant-scoped ERP API.`
   )
-  assert(source.includes(page.handler), `${page.file} must trigger ${page.handler}.`)
   for (const forbidden of page.forbidden) {
     assert(!source.includes(forbidden), `${page.file} must not call full-sync path ${forbidden}.`)
   }
 }
 
 const syncPage = read('src/views/erp/sync/index.vue')
-assert(syncPage.includes('ErpKingdeeSyncApi.runIncrementalSyncJob'), 'ERP sync dashboard must run incremental jobs.')
+assert(syncPage.includes('ErpKingdeeSyncApi.runIncrementalSync(row.type)'), 'ERP sync dashboard must run incremental jobs.')
 assert(!syncPage.includes('runProductionMaterialListBackfill'), 'ERP sync dashboard must not keep PML backfill handler.')
 assert(!syncPage.includes('syncProductionMaterialList()'), 'ERP sync dashboard must not call PML full backfill API.')
 

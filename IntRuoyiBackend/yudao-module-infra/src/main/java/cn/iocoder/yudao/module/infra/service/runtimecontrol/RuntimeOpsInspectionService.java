@@ -7,4 +7,6 @@ public interface RuntimeOpsInspectionService {
     RuntimeControlInspectionRunRespVO runInspection();
 
     RuntimeControlInspectionRunRespVO getInspectionRun(Long id);
+
+    byte[] exportTimeEvidence(Long id);
 }

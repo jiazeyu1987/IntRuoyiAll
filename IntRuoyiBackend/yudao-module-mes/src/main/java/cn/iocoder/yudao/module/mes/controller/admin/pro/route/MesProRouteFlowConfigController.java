@@ -1,8 +1,17 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.route;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerInitReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteDeviceParameterRuleSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteDeviceParameterRuleDeleteReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowConfigSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteProcessDeviceParameterRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderProductionLineRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderSaveReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFlowConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -12,6 +21,7 @@ import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -59,6 +69,93 @@ public class MesProRouteFlowConfigController {
     public CommonResult<Boolean> saveRouteFlowBatchRecordConfig(@Valid @RequestBody MesProRouteFlowConfigSaveReqVO saveReqVO) {
         saveReqVO.setUseType("BATCH");
         routeFlowConfigService.saveRouteFlowConfig(saveReqVO);
+        return success(true);
+    }
+
+    @GetMapping("/process-device-parameters")
+    @Operation(summary = "获得工艺路线工序设备参数配置")
+    @Parameter(name = "routeProcessId", description = "路线工序编号", required = true)
+    @Parameter(name = "routeVersionId", description = "路线版本编号", required = true)
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-route:query', 'mes:pro-route:batch-record-config:query')")
+    public CommonResult<MesProRouteProcessDeviceParameterRespVO> getRouteProcessDeviceParameterConfig(
+            @RequestParam("routeVersionId") Long routeVersionId,
+            @RequestParam("routeProcessId") Long routeProcessId) {
+        return success(routeFlowConfigService.getRouteProcessDeviceParameterConfig(routeVersionId, routeProcessId));
+    }
+
+    @PostMapping("/process-device-parameter-rule/save")
+    @Operation(summary = "保存工艺路线工序设备参数规则")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:update')")
+    public CommonResult<MesProRouteProcessDeviceParameterRespVO> saveRouteProcessDeviceParameterRule(
+            @Valid @RequestBody MesProRouteDeviceParameterRuleSaveReqVO saveReqVO) {
+        return success(routeFlowConfigService.saveRouteProcessDeviceParameterRule(saveReqVO));
+    }
+
+    @DeleteMapping("/process-device-parameter-rule/delete")
+    @Operation(summary = "删除工艺路线候选版本工序设备参数规则")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:update')")
+    public CommonResult<MesProRouteProcessDeviceParameterRespVO> deleteRouteProcessDeviceParameterRule(
+            @Valid @RequestBody MesProRouteDeviceParameterRuleDeleteReqVO deleteReqVO) {
+        return success(routeFlowConfigService.deleteRouteProcessDeviceParameterRule(deleteReqVO));
+    }
+
+    @GetMapping("/batch-record-attachment-owners")
+    @Operation(summary = "获得工艺路线批记录附件负责人配置")
+    @Parameter(name = "routeId", description = "工艺路线编号", required = true)
+    @Parameter(name = "routeVersionId", description = "候选路线版本编号")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:batch-record-config:query')")
+    public CommonResult<List<MesProRouteBatchRecordAttachmentOwnerRespVO>> getBatchRecordAttachmentOwners(
+            @RequestParam("routeId") Long routeId,
+            @RequestParam(value = "routeVersionId", required = false) Long routeVersionId) {
+        return success(routeFlowConfigService.getBatchRecordAttachmentOwners(routeId, routeVersionId));
+    }
+
+    @PostMapping("/batch-record-attachment-owners/init-defaults")
+    @Operation(summary = "初始化工艺路线批记录附件负责人默认角色")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:batch-record-config:update')")
+    public CommonResult<List<MesProRouteBatchRecordAttachmentOwnerRespVO>> initBatchRecordAttachmentOwners(
+            @Valid @RequestBody MesProRouteBatchRecordAttachmentOwnerInitReqVO initReqVO) {
+        return success(routeFlowConfigService.initializeBatchRecordAttachmentOwners(initReqVO));
+    }
+
+    @PostMapping("/batch-record-attachment-owners/save")
+    @Operation(summary = "保存工艺路线批记录附件负责人配置")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:batch-record-config:update')")
+    public CommonResult<Boolean> saveBatchRecordAttachmentOwners(
+            @Valid @RequestBody MesProRouteBatchRecordAttachmentOwnerSaveReqVO saveReqVO) {
+        routeFlowConfigService.saveBatchRecordAttachmentOwners(saveReqVO);
+        return success(true);
+    }
+
+    @GetMapping("/route-start-production-leader-production-lines")
+    @Operation(summary = "获得工艺路线工序开始生产组长可负责范围")
+    @Parameter(name = "routeId", description = "工艺路线编号", required = true)
+    @Parameter(name = "routeVersionId", description = "候选路线版本编号")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:batch-record-config:query')")
+    public CommonResult<List<MesProRouteStartProductionLeaderProductionLineRespVO>>
+    getRouteStartProductionLeaderProductionLines(
+            @RequestParam("routeId") Long routeId,
+            @RequestParam(value = "routeVersionId", required = false) Long routeVersionId) {
+        return success(routeFlowConfigService.getRouteStartProductionLeaderProductionLines(routeId, routeVersionId));
+    }
+
+    @GetMapping("/route-start-production-leaders")
+    @Operation(summary = "获得工艺路线工序开始生产组长配置")
+    @Parameter(name = "routeId", description = "工艺路线编号", required = true)
+    @Parameter(name = "routeVersionId", description = "候选路线版本编号")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:batch-record-config:query')")
+    public CommonResult<List<MesProRouteStartProductionLeaderRespVO>> getRouteStartProductionLeaders(
+            @RequestParam("routeId") Long routeId,
+            @RequestParam(value = "routeVersionId", required = false) Long routeVersionId) {
+        return success(routeFlowConfigService.getRouteStartProductionLeaders(routeId, routeVersionId));
+    }
+
+    @PostMapping("/route-start-production-leaders/save")
+    @Operation(summary = "保存工艺路线工序开始生产组长配置")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:batch-record-config:update')")
+    public CommonResult<Boolean> saveRouteStartProductionLeaders(
+            @Valid @RequestBody MesProRouteStartProductionLeaderSaveReqVO saveReqVO) {
+        routeFlowConfigService.saveRouteStartProductionLeaders(saveReqVO);
         return success(true);
     }
 

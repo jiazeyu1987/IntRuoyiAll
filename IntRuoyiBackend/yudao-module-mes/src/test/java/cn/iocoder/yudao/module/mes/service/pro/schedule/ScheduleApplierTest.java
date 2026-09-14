@@ -358,21 +358,19 @@ class ScheduleApplierTest {
     }
 
     @Test
-    void createEdhrBatchExecutionsAfterScheduleCompletion_shouldReturnWarningAndSkipCreationWhenPrerequisiteMissing() {
+    void createEdhrBatchExecutionsAfterScheduleCompletion_shouldReturnWarningWhenPrerequisiteMissing() {
         EdhrScheduleCompletionCreateCommand command = buildEdhrCompletionCommand();
         when(edhrBatchExecutionService.getScheduleCompletionMissingItems(command))
-                .thenReturn(List.of("批次号", "批记录模板"));
+                .thenReturn(List.of("首任务责任来源/候选池"));
 
         List<ScheduleIssueDraft> issues =
                 scheduleApplier.createEdhrBatchExecutionsAfterScheduleCompletion(List.of(command));
 
         assertEquals(1, issues.size());
-        MesProScheduleIssueDO issue = issues.get(0).toDO(null);
-        assertEquals("EDHR_BATCH_CREATION", issue.getIssueType());
-        assertEquals("WARNING", issue.getSeverity());
-        assertEquals(100L, issue.getWorkOrderId());
-        assertTrue(issue.getMessage().contains("批次号"));
-        assertTrue(issue.getMessage().contains("批记录模板"));
+        assertEquals("EDHR_BATCH_CREATION", issues.get(0).issueType);
+        assertEquals("WARNING", issues.get(0).severity);
+        assertEquals(100L, issues.get(0).workOrderId);
+        assertTrue(issues.get(0).message.contains("首任务责任来源/候选池"));
         verify(edhrBatchExecutionService, never()).openOrCreateFromScheduleCompletion(command);
     }
 

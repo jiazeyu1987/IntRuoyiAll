@@ -6,10 +6,10 @@ const { chromium } = require('playwright')
 const BASE_URL = (process.env.DCC_UPLOAD_TAXONOMY_E2E_BASE_URL || 'http://localhost:8081').replace(/\/+$/, '')
 const TEST_TENANT = '测试租户'
 const TEST_USERNAME = 'aoteman'
-const TEST_PASSWORD = process.env.DCC_UPLOAD_TAXONOMY_E2E_TEST_PASSWORD || '111111'
+const TEST_PASSWORD = process.env.DCC_UPLOAD_TAXONOMY_E2E_TEST_PASSWORD
 const ADMIN_TENANT = '芋道源码'
 const ADMIN_USERNAME = 'admin'
-const ADMIN_PASSWORD = process.env.DCC_UPLOAD_TAXONOMY_E2E_ADMIN_PASSWORD || 'admin123'
+const ADMIN_PASSWORD = process.env.DCC_UPLOAD_TAXONOMY_E2E_ADMIN_PASSWORD
 const SOURCE_FILE =
   process.env.DCC_UPLOAD_TAXONOMY_E2E_SOURCE_FILE ||
   'D:\\ProjectPackage\\Int\\IntAuth\\fronted\\node_modules\\mammoth\\test\\test-data\\empty.docx'
@@ -67,6 +67,10 @@ function runId() {
 function assertPrerequisites() {
   assert.match(new URL(BASE_URL).hostname, /^(localhost|127\.0\.0\.1)$/, 'E2E must target local frontend')
   assert.ok(fs.existsSync(SOURCE_FILE), `source file missing: ${SOURCE_FILE}`)
+  assert.ok(TEST_PASSWORD, 'DCC_UPLOAD_TAXONOMY_E2E_TEST_PASSWORD is required')
+  if (process.env.DCC_UPLOAD_TAXONOMY_E2E_SKIP_ADMIN_READONLY !== '1') {
+    assert.ok(ADMIN_PASSWORD, 'DCC_UPLOAD_TAXONOMY_E2E_ADMIN_PASSWORD is required when admin readonly probe is enabled')
+  }
 }
 
 async function settle(page) {
@@ -81,19 +85,11 @@ async function login(page, tenant, username, password) {
 
   const tenantInput = form.locator('.el-select input[role="combobox"], input.el-select__input').first()
   if (await tenantInput.count()) {
-    const tenantIdResponsePromise = page.waitForResponse(
-      (response) =>
-        response.url().includes('/system/tenant/get-id-by-name') &&
-        decodeURIComponent(response.url()).includes(tenant),
-      { timeout: 10000 }
-    ).catch(() => undefined)
+    await tenantInput.click()
     await tenantInput.fill(tenant)
-    await page.locator('.el-select-dropdown__item:visible').filter({ hasText: tenant }).first().click()
-    const tenantIdResponse = await tenantIdResponsePromise
-    if (tenantIdResponse) {
-      const tenantIdPayload = await tenantIdResponse.json()
-      assert.ok([0, 200].includes(tenantIdPayload.code), `tenant lookup business code ${tenantIdPayload.code}: ${tenantIdPayload.msg || ''}`)
-    }
+    const option = page.locator('.el-select-dropdown:visible .el-select-dropdown__item').filter({ hasText: tenant }).first()
+    await option.waitFor({ state: 'visible', timeout: 30000 })
+    await option.click()
     await form.getByText(tenant, { exact: false }).first().waitFor({ state: 'visible', timeout: 10000 })
   } else {
     await form.locator('input.el-input__inner').nth(0).fill(tenant)
@@ -102,15 +98,16 @@ async function login(page, tenant, username, password) {
   await form.locator('input[type="password"]').first().fill(password)
 
   const loginResponsePromise = page.waitForResponse(
-    (response) => response.url().includes('/system/auth/login') && response.request().method() === 'POST',
+    (response) =>
+      response.url().includes('/admin-api/system/auth/login') &&
+      response.request().method() === 'POST',
     { timeout: 60000 }
   )
-  await form.getByRole('button', { name: '登录' }).click()
+  await form.getByRole('button', { name: /^登录$/ }).click()
   const loginResponse = await loginResponsePromise
   const loginPayload = await loginResponse.json()
   assert.equal(loginResponse.ok(), true, `login HTTP ${loginResponse.status()}`)
   assert.ok([0, 200].includes(loginPayload.code), `login business code ${loginPayload.code}: ${loginPayload.msg || ''}`)
-  await page.waitForURL((current) => !current.pathname.includes('/login'), { timeout: 60000, waitUntil: 'commit' })
 }
 
 function formItem(page, label) {
@@ -305,6 +302,70 @@ async function apiGet(page, url) {
   return result.payload.data
 }
 
+async function apiWrite(page, method, url, body) {
+  const result = await page.evaluate(async ({ method, url, body }) => {
+    const readWsCache = (key) => {
+      const raw = window.localStorage.getItem(key)
+      if (!raw) return undefined
+      let current = raw
+      for (let index = 0; index < 8; index += 1) {
+        if (typeof current === 'string') {
+          const trimmed = current.trim()
+          if (!trimmed) return undefined
+          try {
+            current = JSON.parse(trimmed)
+            continue
+          } catch {
+            return trimmed.replace(/^"(.*)"$/, '$1')
+          }
+        }
+        if (current && typeof current === 'object') {
+          if (Object.prototype.hasOwnProperty.call(current, 'accessToken')) {
+            current = current.accessToken
+            continue
+          }
+          if (Object.prototype.hasOwnProperty.call(current, 'v')) {
+            current = current.v
+            continue
+          }
+          if (Object.prototype.hasOwnProperty.call(current, 'value')) {
+            current = current.value
+            continue
+          }
+        }
+        return current
+      }
+      return current
+    }
+    const accessToken = readWsCache('ACCESS_TOKEN')
+    const tenantId = readWsCache('tenantId')
+    if (!accessToken || !tenantId) {
+      throw new Error('missing authenticated browser cache')
+    }
+    const headers = {
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      'tenant-id': String(tenantId)
+    }
+    const options = {
+      method,
+      headers
+    }
+    if (typeof body !== 'undefined') {
+      headers['Content-Type'] = 'application/json'
+      options.body = JSON.stringify(body)
+    }
+    const response = await fetch(`/admin-api${url}`, options)
+    return { ok: response.ok, status: response.status, payload: await response.json() }
+  }, { method, url, body })
+  assert.equal(result.ok, true, `${method} ${url} HTTP ${result.status}`)
+  assert.ok(
+    [0, 200].includes(result.payload.code),
+    `${method} ${url} business code ${result.payload.code}: ${result.payload.msg || ''}`
+  )
+  return result.payload.data
+}
+
 function normalizeTaxonomyName(value) {
   return String(value || '').trim()
 }
@@ -362,7 +423,6 @@ async function testTenantUploadFlow(page) {
   const fileName = `项目分类上传E2E-${stamp}.docx`
   await fillInputByLabel(page, '文件名称', fileName)
   await fillInputByLabel(page, '文件编号', fileNumber)
-  await page.locator('.el-radio-button__inner').filter({ hasText: '新建' }).first().click()
   await fillInputByLabel(page, '版本号', 'V1.0')
   await fillInputByLabel(page, '生效日期', todayString())
   await fillTextareaByLabel(page, '提交备注', `Codex DCC upload project taxonomy E2E ${stamp}`)
@@ -389,14 +449,25 @@ async function testTenantUploadFlow(page) {
 
   const detail = await apiGet(page, `/dcc/controlled-files/${controlledFileId}`)
   assert.equal(detail.dccProjectCodeId, TEST_PROJECT.id, 'detail project id must match upload selection')
+  assert.equal(detail.productMasterId ?? null, null, 'detail productMasterId must be null for new DCC writes')
+  assert.equal(detail.productCode, TEST_PROJECT.code, 'detail productCode must come from DCC project code')
   assert.equal(detail.fileTypeTaxonomyId, testTaxonomy.id, 'detail taxonomy id must match upload selection')
   assert.equal(detail.fileTypeLevel1, testTaxonomy.path[0])
   assert.equal(detail.fileTypeLevel2, testTaxonomy.path[1])
   assert.equal(detail.fileTypeLevel3, testTaxonomy.path[2])
 
   assert.equal(submitRequest.dccProjectCodeId, TEST_PROJECT.id, 'submit payload must include selected project')
+  assert.equal(submitRequest.productMasterId ?? null, null, 'submit payload must explicitly clear productMasterId')
+  assert.equal(submitRequest.productCode, TEST_PROJECT.code, 'submit payload must sync DCC project code for display')
   assert.equal(submitRequest.fileTypeTaxonomyId, testTaxonomy.id, 'submit payload must include selected taxonomy')
   assert.equal(submitRequest.revisionTargetControlledFileId ?? null, null, 'new upload must not carry stale revision target')
+
+  const cleanup = {
+    withdraw: await apiWrite(page, 'POST', `/dcc/controlled-files/${controlledFileId}/withdraw`, {
+      reason: `Codex cleanup ${stamp}`
+    }),
+    deleteWithdrawnFlow: await apiWrite(page, 'DELETE', `/dcc/controlled-files/${controlledFileId}/withdrawn-flow`)
+  }
 
   return {
     controlledFileId,
@@ -406,12 +477,15 @@ async function testTenantUploadFlow(page) {
     submitRequest,
     detail: {
       dccProjectCodeId: detail.dccProjectCodeId,
+      productMasterId: detail.productMasterId ?? null,
+      productCode: detail.productCode,
       fileTypeTaxonomyId: detail.fileTypeTaxonomyId,
       fileTypeLevel1: detail.fileTypeLevel1,
       fileTypeLevel2: detail.fileTypeLevel2,
       fileTypeLevel3: detail.fileTypeLevel3,
       selectedTaxonomyPath: testTaxonomy.path
-    }
+    },
+    cleanup
   }
 }
 
@@ -424,7 +498,10 @@ async function testTenantUploadFlow(page) {
     const readonlyPage = await readonlyContext.newPage()
     readonlyPage.setDefaultTimeout(60000)
     readonlyPage.setDefaultNavigationTimeout(60000)
-    const readonlyCandidate = await readonlyRevisionCandidateFlow(readonlyPage)
+    const readonlyCandidate =
+      process.env.DCC_UPLOAD_TAXONOMY_E2E_SKIP_ADMIN_READONLY === '1'
+        ? { skipped: true, reason: 'task only requires test-tenant DCC project-code write path' }
+        : await readonlyRevisionCandidateFlow(readonlyPage)
     await readonlyContext.close()
 
     const uploadContext = await browser.newContext({ viewport: { width: 1440, height: 960 }, locale: 'zh-CN' })

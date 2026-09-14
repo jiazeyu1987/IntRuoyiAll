@@ -29,7 +29,7 @@ const metadataDialogSource = readFromFrontend(
   'src/views/dcc/controlled-file/shared/ControlledFileMetadataDialog.vue'
 )
 const workflowSource = readFromFrontend('src/api/dcc/controlledFile/workflow.ts')
-const migrationSource = readFromWorkspace('ruoyi-vue-pro/sql/mysql/20260719_dcc_file_type_taxonomy.sql')
+const migrationSource = readFromWorkspace('IntRuoyiBackend/sql/mysql/20260719_dcc_file_type_taxonomy.sql')
 
 for (const marker of [
   '/dcc/file-type-taxonomies',

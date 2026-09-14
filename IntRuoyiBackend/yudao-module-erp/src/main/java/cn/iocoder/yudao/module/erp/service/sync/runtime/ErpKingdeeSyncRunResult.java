@@ -1,22 +1,22 @@
 package cn.iocoder.yudao.module.erp.service.sync.runtime;
 
 import lombok.Builder;
-import lombok.Getter;
+import lombok.Value;
 
 import java.time.LocalDateTime;
 
-@Getter
+@Value
 @Builder
 public class ErpKingdeeSyncRunResult {
 
-    private final LocalDateTime watermarkTime;
-    private final Integer createdCount;
-    private final Integer updatedCount;
-    private final Integer skippedCount;
-    private final Integer failedCount;
+    LocalDateTime watermarkTime;
+    int createdCount;
+    int updatedCount;
+    int skippedCount;
+    int failedCount;
 
-    public static ErpKingdeeSyncRunResult success(LocalDateTime watermarkTime, Integer createdCount,
-                                                  Integer updatedCount, Integer skippedCount, Integer failedCount) {
+    public static ErpKingdeeSyncRunResult success(LocalDateTime watermarkTime, int createdCount, int updatedCount,
+                                                  int skippedCount, int failedCount) {
         return ErpKingdeeSyncRunResult.builder()
                 .watermarkTime(watermarkTime)
                 .createdCount(createdCount)

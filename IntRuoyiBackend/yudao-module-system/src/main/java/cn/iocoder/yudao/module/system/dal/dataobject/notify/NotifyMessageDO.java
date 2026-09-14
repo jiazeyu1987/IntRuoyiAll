@@ -35,6 +35,10 @@ public class NotifyMessageDO extends BaseDO {
     @TableId
     private Long id;
     /**
+     * 租户编号
+     */
+    private Long tenantId;
+    /**
      * 用户编号
      *
      * 关联 MemberUserDO 的 id 字段、或者 AdminUserDO 的 id 字段
@@ -46,6 +50,11 @@ public class NotifyMessageDO extends BaseDO {
      * 枚举 {@link UserTypeEnum}
      */
     private Integer userType;
+
+    /**
+     * Stable idempotency key, unique within one tenant when present.
+     */
+    private String businessKey;
 
     // ========= 模板相关字段 =========
 

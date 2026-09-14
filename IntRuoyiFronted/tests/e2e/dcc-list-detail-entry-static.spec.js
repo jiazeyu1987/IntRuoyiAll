@@ -29,7 +29,7 @@ assert.equal(
 
 const browserActionColumn = extractBetween(
   browserPage,
-  '<el-table-column label="操作"',
+  "v-if=\"isDccBrowserColumnVisible('operation')\"",
   '</el-table-column>',
   'browser action column'
 )

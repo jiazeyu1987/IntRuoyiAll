@@ -51,6 +51,15 @@
     />
 
     <el-alert
+      class="mb-16px"
+      data-testid="dcc-training-rule-permission-precheck"
+      type="info"
+      :closable="false"
+      title="发布前权限预检"
+      description="培训对象必须拥有 dcc:controlled-file:training:mine 菜单权限；若对象缺少该权限，发布后会生成任务但无法进入我的培训完成阅读确认。"
+    />
+
+    <el-alert
       v-if="errorMessage"
       class="mb-16px"
       type="error"

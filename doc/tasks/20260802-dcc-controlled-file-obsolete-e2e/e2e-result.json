@@ -1,0 +1,569 @@
+{
+  "status": "BLOCKED",
+  "startedAt": "2026-08-02T10:44:06.344Z",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "target": {
+    "tenantName": "测试租户",
+    "username": "zhangjiayi",
+    "expectedUserId": "912703",
+    "fileId": "2054545668044070227",
+    "fileNumber": "CODEX-DCC-DEPT-20260720122914",
+    "reason": "DCC obsolete E2E policy preflight 20260802104406"
+  },
+  "phases": [
+    {
+      "phase": "login",
+      "tenantName": "测试租户",
+      "username": "zhangjiayi"
+    },
+    {
+      "phase": "controlled-browser-search-visible",
+      "fileId": "2054545668044070227",
+      "fileNumber": "CODEX-DCC-DEPT-20260720122914"
+    },
+    {
+      "phase": "obsolete-dialog-opened",
+      "fileId": "2054545668044070227",
+      "fileNumber": "CODEX-DCC-DEPT-20260720122914"
+    }
+  ],
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [
+    {
+      "label": "obsolete-policy-preflight",
+      "text": "_ctx.getVersionChangeReasonText is not a function"
+    },
+    {
+      "label": "obsolete-policy-preflight",
+      "text": "_ctx.getVersionChangeReasonText is not a function"
+    },
+    {
+      "label": "obsolete-policy-preflight",
+      "text": "_ctx.getVersionChangeReasonText is not a function"
+    },
+    {
+      "label": "obsolete-policy-preflight",
+      "text": "_ctx.getVersionChangeReasonText is not a function"
+    }
+  ],
+  "before": {
+    "file": {
+      "id": "2054545668044070227",
+      "title": "部门下发范围E2E-20260720122914",
+      "status": "ACTIVE",
+      "fileName": "部门下发范围E2E-20260720122914",
+      "masterId": "2054545668044062848",
+      "versionNo": "V1.0",
+      "categoryId": "900347",
+      "fileNumber": "CODEX-DCC-DEPT-20260720122914",
+      "obsoletedBy": null,
+      "categoryName": "Codex Local DCC Category",
+      "obsoletedTime": null,
+      "obsoleteReason": null
+    },
+    "master": {
+      "id": "2054545668044062848",
+      "status": "ACTIVE_CHAIN",
+      "fileNumber": "CODEX-DCC-DEPT-20260720122914",
+      "currentActiveControlledFileId": "2054545668044070227"
+    },
+    "activeObsoleteActions": 0,
+    "obsoletePermissionUsers": [
+      {
+        "userId": "912399",
+        "username": "limin",
+        "superAdminRoleCount": 0
+      },
+      {
+        "userId": "912703",
+        "username": "zhangjiayi",
+        "superAdminRoleCount": 0
+      },
+      {
+        "userId": "914515",
+        "username": "wangsiyu",
+        "superAdminRoleCount": 0
+      },
+      {
+        "userId": "914520",
+        "username": "aoteman",
+        "superAdminRoleCount": 1
+      }
+    ],
+    "obsoletePolicyCandidates": [
+      {
+        "id": "10",
+        "status": "DISABLED",
+        "tenantId": "122",
+        "policyType": "PACKAGE",
+        "approvalMode": "BPM_REQUIRED",
+        "bpmProcessKey": "dcc-controlled-file-obsolete-approval",
+        "effectExecutorCode": "DCC_OBSOLETE"
+      },
+      {
+        "id": "17",
+        "status": "PUBLISHED",
+        "tenantId": "122",
+        "policyType": "PACKAGE",
+        "approvalMode": "DIRECT",
+        "bpmProcessKey": "dcc-controlled-file-obsolete-approval",
+        "effectExecutorCode": "DCC_OBSOLETE"
+      }
+    ],
+    "businessApprovalPolicyCandidates": []
+  },
+  "loginForm": {
+    "tenantLabelText": "测试租户",
+    "tenantTarget": "测试租户",
+    "usernameInputValue": "zhangjiayi"
+  },
+  "permissionInfo": {
+    "userId": 912703,
+    "username": "zhangjiayi",
+    "nickname": "张嘉忆",
+    "roleCodes": [
+      "mes_workshop_director",
+      "dcc_e2e_approver"
+    ],
+    "hasDccQueryPermission": true
+  },
+  "loginResponse": {
+    "code": 0,
+    "hasAccessToken": true,
+    "hasRefreshToken": true,
+    "tenantIdHeader": "122"
+  },
+  "detailApi": {
+    "id": "2054545668044070227",
+    "masterId": "2054545668044062848",
+    "categoryId": 900347,
+    "directoryId": 905456,
+    "title": "部门下发范围E2E-20260720122914",
+    "fileName": "部门下发范围E2E-20260720122914",
+    "contentType": "application/pdf",
+    "previewKind": "PDF",
+    "fileNumber": "CODEX-DCC-DEPT-20260720122914",
+    "sourceFileId": 9198354916305,
+    "originalFileId": 9198354916305,
+    "publishedFileId": 9198354916306,
+    "stampedFileId": 9198354916306,
+    "productMasterId": null,
+    "productCode": null,
+    "productName": null,
+    "dccProjectCodeId": 1,
+    "projectCodeRecognitionType": null,
+    "projectCodeRecognitionText": null,
+    "projectCodeRecognizedBy": null,
+    "projectCodeRecognizedTime": null,
+    "fileTypeTaxonomyId": 3,
+    "fileTypeLevel1": "Codex分类20260719075725L1",
+    "fileTypeLevel2": "Codex分类20260719075725L2",
+    "fileTypeLevel3": "Codex分类20260719075725L3",
+    "fileTypeLevel4": null,
+    "fileTypeLevel5": null,
+    "needTraining": false,
+    "processType": "CONTROLLED_FILE",
+    "versionNo": "V1.0",
+    "currentActiveVersionNo": "V1.0",
+    "effectiveDate": [
+      2026,
+      7,
+      20
+    ],
+    "remark": "Codex E2E department distribution 20260720122914",
+    "status": "ACTIVE",
+    "requesterId": 914520,
+    "processInstanceId": "a97ba92e-8436-11f1-8af1-00155d44772c",
+    "processDefinitionKey": "dcc-controlled-file-approval",
+    "submittedTime": 1784550573000,
+    "approvedTime": 1784552990000,
+    "publishedTime": 1784552990000,
+    "rejectedTime": null,
+    "stampedTime": 1784552990000,
+    "obsoletedBy": null,
+    "obsoletedTime": null,
+    "obsoleteReason": null,
+    "supersededByFileId": null,
+    "rejectReason": null,
+    "finalizationError": "",
+    "canPreview": true,
+    "canDownload": false,
+    "accessExplanation": {
+      "detailSource": "CURRENT_VIEW_MATRIX",
+      "detailReason": "当前查看矩阵参与人",
+      "detailDeniedReason": null,
+      "publishedPreviewSource": "CURRENT_VIEW_MATRIX",
+      "publishedPreviewReason": "当前查看矩阵参与人",
+      "pendingPreviewSource": null,
+      "pendingPreviewReason": null,
+      "downloadSource": "DOWNLOAD_POLICY",
+      "downloadReason": null,
+      "downloadDeniedReason": "CATEGORY_DOWNLOAD_DENIED"
+    },
+    "systemRecordDownloadOpen": false,
+    "modifying": true,
+    "canObsolete": true,
+    "canPublish": false,
+    "canManualRelease": false,
+    "actionProjection": {
+      "actionLocked": false,
+      "actionLockReason": null,
+      "allowedActions": [
+        "VIEW",
+        "PREVIEW",
+        "OBSOLETE"
+      ],
+      "canWithdraw": false,
+      "pendingRequestId": null,
+      "pendingVersionNo": null
+    },
+    "hasPendingTrainingAcknowledgement": false,
+    "externalReview": null,
+    "routeSnapshots": [
+      {
+        "id": "2054545668077598799",
+        "routeVersionNo": 2,
+        "stageNo": 1,
+        "stageCode": "DOC_CONTROL_REVIEW",
+        "stageName": "Doc Control Review",
+        "stageOrder": 1,
+        "candidateSourceType": "USER",
+        "candidateSourceId": 914520,
+        "candidateSourceIds": null,
+        "approveMethod": "ANY",
+        "approveRatio": null,
+        "requireAllApprovals": false,
+        "resolvedUserIds": [
+          914520
+        ]
+      },
+      {
+        "id": "2054545668077598800",
+        "routeVersionNo": 2,
+        "stageNo": 2,
+        "stageCode": "MATRIX_REVIEW",
+        "stageName": "Matrix Review",
+        "stageOrder": 2,
+        "candidateSourceType": "USER",
+        "candidateSourceId": 914520,
+        "candidateSourceIds": null,
+        "approveMethod": "ALL",
+        "approveRatio": 100,
+        "requireAllApprovals": true,
+        "resolvedUserIds": [
+          914520
+        ]
+      },
+      {
+        "id": "2054545668077598801",
+        "routeVersionNo": 2,
+        "stageNo": 3,
+        "stageCode": "MATRIX_APPROVAL",
+        "stageName": "Matrix Approval",
+        "stageOrder": 3,
+        "candidateSourceType": "USER",
+        "candidateSourceId": 914520,
+        "candidateSourceIds": null,
+        "approveMethod": "ANY",
+        "approveRatio": null,
+        "requireAllApprovals": false,
+        "resolvedUserIds": [
+          914520
+        ]
+      },
+      {
+        "id": "2054545668077598802",
+        "routeVersionNo": 2,
+        "stageNo": 4,
+        "stageCode": "DOC_CONTROL_APPROVAL",
+        "stageName": "Doc Control Approval",
+        "stageOrder": 4,
+        "candidateSourceType": "USER",
+        "candidateSourceId": 914520,
+        "candidateSourceIds": null,
+        "approveMethod": "ANY",
+        "approveRatio": null,
+        "requireAllApprovals": false,
+        "resolvedUserIds": [
+          914520
+        ]
+      }
+    ],
+    "versionHistory": [
+      {
+        "id": "2054545668044070227",
+        "title": "部门下发范围E2E-20260720122914",
+        "fileNumber": "CODEX-DCC-DEPT-20260720122914",
+        "versionNo": "V1.0",
+        "status": "ACTIVE",
+        "effectiveDate": [
+          2026,
+          7,
+          20
+        ],
+        "publishedTime": 1784552990000,
+        "obsoletedTime": null,
+        "supersededByFileId": null,
+        "remark": "Codex E2E department distribution 20260720122914",
+        "canPreview": true,
+        "canDownload": false
+      },
+      {
+        "id": "2054545668044070236",
+        "title": "部门下发范围E2E-20260720122914",
+        "fileNumber": "CODEX-DCC-DEPT-20260720122914",
+        "versionNo": "V1.1",
+        "status": "PENDING_DOC_CONTROL_REVIEW",
+        "effectiveDate": [
+          2026,
+          7,
+          22
+        ],
+        "publishedTime": null,
+        "obsoletedTime": null,
+        "supersededByFileId": null,
+        "remark": "Codex DCC auto change type REVISION E2E 20260722190159",
+        "canPreview": false,
+        "canDownload": false
+      }
+    ],
+    "distributionStatuses": [
+      {
+        "id": 4294,
+        "departmentId": 910984,
+        "distributionMedium": "PUBLIC_FOLDER",
+        "status": "READ",
+        "acknowledgedBy": null,
+        "acknowledgedAt": null,
+        "recoveredBy": null,
+        "recoveredAt": null,
+        "recipientUserIds": [
+          914520
+        ],
+        "recipients": [
+          {
+            "id": 46361,
+            "userId": 914520,
+            "readAt": 1784552087000,
+            "acknowledgedAt": null,
+            "ackComment": null
+          }
+        ]
+      }
+    ],
+    "trainingStatuses": [
+      {
+        "id": 105,
+        "departmentId": 910984,
+        "status": "ACKNOWLEDGED",
+        "assignments": [
+          {
+            "id": 1021,
+            "userId": 914520,
+            "status": "ACKNOWLEDGED",
+            "acknowledgedAt": 1784552986000,
+            "accumulatedViewSeconds": 655,
+            "requiredViewSeconds": 600,
+            "eligibleToAcknowledge": false
+          }
+        ]
+      }
+    ],
+    "signatureSummaries": [
+      {
+        "id": 755,
+        "taskId": "a97c4580-8436-11f1-8af1-00155d44772c",
+        "actorId": 914520,
+        "actionType": "APPROVE",
+        "taskActionResult": "APPROVED",
+        "revisionId": "2054545668044070227",
+        "versionNo": "V1.0",
+        "meaningCode": "DOC_CONTROL_REVIEW_APPROVE",
+        "controlledCopyHashStatus": "NOT_APPLICABLE",
+        "evidenceStatus": "VALID",
+        "evidenceHashShort": "d9c1118a42a8",
+        "actorUsernameSnapshot": "aoteman",
+        "actorNicknameSnapshot": "??1",
+        "actorDeptIdSnapshot": 910984,
+        "actorDeptNameSnapshot": "Codex DCC E2E Training Dept",
+        "actorPostNamesSnapshot": "eDHR真实E2E岗位",
+        "actorRoleNamesSnapshot": "SRM管理员、企宣、工艺路线版本管理员、批次执行作废管理员、排产员、文控、文控、文控下载、普通角色、超级管理员",
+        "signaturePurpose": "DOC_CONTROL_REVIEW_APPROVE",
+        "authorizationBasis": "DCC电子签名授权启用；系统角色/岗位快照已记录",
+        "authenticationMethod": "PASSWORD",
+        "recordVersionSnapshot": "V1.0",
+        "recordHashSnapshot": "15f29a190f1d7465eb7ab46afa6ae42a5e2fe9d026c71ae33e5892ef5b7fa6bc",
+        "clientIpSnapshot": "127.0.0.1",
+        "userAgentSnapshot": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36",
+        "snapshotStatus": "CAPTURED",
+        "signatureMode": "PASSWORD",
+        "comment": "Codex E2E approve stage 1",
+        "signedAt": 1784550580000
+      },
+      {
+        "id": 756,
+        "taskId": "adcdc571-8436-11f1-8af1-00155d44772c",
+        "actorId": 914520,
+        "actionType": "APPROVE",
+        "taskActionResult": "APPROVED",
+        "revisionId": "2054545668044070227",
+        "versionNo": "V1.0",
+        "meaningCode": "MATRIX_REVIEW_APPROVE",
+        "controlledCopyHashStatus": "NOT_APPLICABLE",
+        "evidenceStatus": "VALID",
+        "evidenceHashShort": "f38f9a105577",
+        "actorUsernameSnapshot": "aoteman",
+        "actorNicknameSnapshot": "??1",
+        "actorDeptIdSnapshot": 910984,
+        "actorDeptNameSnapshot": "Codex DCC E2E Training Dept",
+        "actorPostNamesSnapshot": "eDHR真实E2E岗位",
+        "actorRoleNamesSnapshot": "SRM管理员、企宣、工艺路线版本管理员、批次执行作废管理员、排产员、文控、文控、文控下载、普通角色、超级管理员",
+        "signaturePurpose": "MATRIX_REVIEW_APPROVE",
+        "authorizationBasis": "DCC电子签名授权启用；系统角色/岗位快照已记录",
+        "authenticationMethod": "PASSWORD",
+        "recordVersionSnapshot": "V1.0",
+        "recordHashSnapshot": "15f29a190f1d7465eb7ab46afa6ae42a5e2fe9d026c71ae33e5892ef5b7fa6bc",
+        "clientIpSnapshot": "127.0.0.1",
+        "userAgentSnapshot": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36",
+        "snapshotStatus": "CAPTURED",
+        "signatureMode": "PASSWORD",
+        "comment": "Codex E2E approve stage 2",
+        "signedAt": 1784550587000
+      },
+      {
+        "id": 757,
+        "taskId": "b1ba4101-8436-11f1-8af1-00155d44772c",
+        "actorId": 914520,
+        "actionType": "APPROVE",
+        "taskActionResult": "APPROVED",
+        "revisionId": "2054545668044070227",
+        "versionNo": "V1.0",
+        "meaningCode": "MATRIX_APPROVAL_APPROVE",
+        "controlledCopyHashStatus": "NOT_APPLICABLE",
+        "evidenceStatus": "VALID",
+        "evidenceHashShort": "28cf1487a7a4",
+        "actorUsernameSnapshot": "aoteman",
+        "actorNicknameSnapshot": "??1",
+        "actorDeptIdSnapshot": 910984,
+        "actorDeptNameSnapshot": "Codex DCC E2E Training Dept",
+        "actorPostNamesSnapshot": "eDHR真实E2E岗位",
+        "actorRoleNamesSnapshot": "SRM管理员、企宣、工艺路线版本管理员、批次执行作废管理员、排产员、文控、文控、文控下载、普通角色、超级管理员",
+        "signaturePurpose": "MATRIX_APPROVAL_APPROVE",
+        "authorizationBasis": "DCC电子签名授权启用；系统角色/岗位快照已记录",
+        "authenticationMethod": "PASSWORD",
+        "recordVersionSnapshot": "V1.0",
+        "recordHashSnapshot": "15f29a190f1d7465eb7ab46afa6ae42a5e2fe9d026c71ae33e5892ef5b7fa6bc",
+        "clientIpSnapshot": "127.0.0.1",
+        "userAgentSnapshot": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36",
+        "snapshotStatus": "CAPTURED",
+        "signatureMode": "PASSWORD",
+        "comment": "Codex E2E approve stage 3",
+        "signedAt": 1784550593000
+      },
+      {
+        "id": 758,
+        "taskId": "b55b83b7-8436-11f1-8af1-00155d44772c",
+        "actorId": 914520,
+        "actionType": "APPROVE",
+        "taskActionResult": "APPROVED",
+        "revisionId": "2054545668044070227",
+        "versionNo": "V1.0",
+        "meaningCode": "DOC_CONTROL_APPROVAL_APPROVE",
+        "controlledCopyHashStatus": "NOT_APPLICABLE",
+        "evidenceStatus": "VALID",
+        "evidenceHashShort": "87cfa5013612",
+        "actorUsernameSnapshot": "aoteman",
+        "actorNicknameSnapshot": "??1",
+        "actorDeptIdSnapshot": 910984,
+        "actorDeptNameSnapshot": "Codex DCC E2E Training Dept",
+        "actorPostNamesSnapshot": "eDHR真实E2E岗位",
+        "actorRoleNamesSnapshot": "SRM管理员、企宣、工艺路线版本管理员、批次执行作废管理员、排产员、文控、文控、文控下载、普通角色、超级管理员",
+        "signaturePurpose": "DOC_CONTROL_APPROVAL_APPROVE",
+        "authorizationBasis": "DCC电子签名授权启用；系统角色/岗位快照已记录",
+        "authenticationMethod": "PASSWORD",
+        "recordVersionSnapshot": "V1.0",
+        "recordHashSnapshot": "15f29a190f1d7465eb7ab46afa6ae42a5e2fe9d026c71ae33e5892ef5b7fa6bc",
+        "clientIpSnapshot": "127.0.0.1",
+        "userAgentSnapshot": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36",
+        "snapshotStatus": "CAPTURED",
+        "signatureMode": "PASSWORD",
+        "comment": "Codex E2E approve stage 4",
+        "signedAt": 1784550602000
+      }
+    ]
+  },
+  "resolveError": {
+    "code": 1009015002,
+    "msg": "No published business approval policy matched action OBSOLETE"
+  },
+  "blocker": "No published bpm_business_approval_policy matched DCC CONTROLLED_FILE OBSOLETE for the ACTIVE task-owned file; stopped before create/submit because the required approval/signature policy is missing in the runtime policy table.",
+  "after": {
+    "file": {
+      "id": "2054545668044070227",
+      "title": "部门下发范围E2E-20260720122914",
+      "status": "ACTIVE",
+      "fileName": "部门下发范围E2E-20260720122914",
+      "masterId": "2054545668044062848",
+      "versionNo": "V1.0",
+      "categoryId": "900347",
+      "fileNumber": "CODEX-DCC-DEPT-20260720122914",
+      "obsoletedBy": null,
+      "categoryName": "Codex Local DCC Category",
+      "obsoletedTime": null,
+      "obsoleteReason": null
+    },
+    "master": {
+      "id": "2054545668044062848",
+      "status": "ACTIVE_CHAIN",
+      "fileNumber": "CODEX-DCC-DEPT-20260720122914",
+      "currentActiveControlledFileId": "2054545668044070227"
+    },
+    "activeObsoleteActions": 0,
+    "obsoletePermissionUsers": [
+      {
+        "userId": "912399",
+        "username": "limin",
+        "superAdminRoleCount": 0
+      },
+      {
+        "userId": "912703",
+        "username": "zhangjiayi",
+        "superAdminRoleCount": 0
+      },
+      {
+        "userId": "914515",
+        "username": "wangsiyu",
+        "superAdminRoleCount": 0
+      },
+      {
+        "userId": "914520",
+        "username": "aoteman",
+        "superAdminRoleCount": 1
+      }
+    ],
+    "obsoletePolicyCandidates": [
+      {
+        "id": "10",
+        "status": "DISABLED",
+        "tenantId": "122",
+        "policyType": "PACKAGE",
+        "approvalMode": "BPM_REQUIRED",
+        "bpmProcessKey": "dcc-controlled-file-obsolete-approval",
+        "effectExecutorCode": "DCC_OBSOLETE"
+      },
+      {
+        "id": "17",
+        "status": "PUBLISHED",
+        "tenantId": "122",
+        "policyType": "PACKAGE",
+        "approvalMode": "DIRECT",
+        "bpmProcessKey": "dcc-controlled-file-obsolete-approval",
+        "effectExecutorCode": "DCC_OBSOLETE"
+      }
+    ],
+    "businessApprovalPolicyCandidates": []
+  },
+  "finishedAt": "2026-08-02T10:44:22.543Z"
+}

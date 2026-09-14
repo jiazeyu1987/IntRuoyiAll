@@ -1,0 +1,852 @@
+{
+  "summary": {
+    "totalBlocks": 84,
+    "totalFiles": 67,
+    "showQuickFilterFalse": 10,
+    "explicitOrDynamicMultiFilter": 2,
+    "defaultConditionTabByTemplateBridge": 73,
+    "generatedAt": "2026-08-05T02:15:19.612Z"
+  },
+  "rows": [
+    {
+      "file": "views/approval-center/index.vue",
+      "tableKey": "approvalCenterTableKey",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/bpm/businessApprovalPolicy/index.vue",
+      "tableKey": "bpm.business-approval-policy.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/bpm/category/index.vue",
+      "tableKey": "bpm.category.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/bpm/form/index.vue",
+      "tableKey": "bpm.form.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/bpm/group/index.vue",
+      "tableKey": "bpm.user-group.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/bpm/model/index.vue",
+      "tableKey": "bpm.model.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/bpm/processExpression/index.vue",
+      "tableKey": "bpm.process-expression.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue",
+      "tableKey": "dcc.productCatalog.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue",
+      "tableKey": "dcc.projectCode.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/basic-data/file-type-taxonomy/index.vue",
+      "tableKey": "dcc.fileTypeTaxonomy.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/browser/index.vue",
+      "tableKey": "DCC_BROWSER_COLUMN_TABLE_KEY",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": true,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/categories/components/CategoryDistributionRulesTab.vue",
+      "tableKey": "dcc.controlledFile.permission.distributionRules",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/categories/components/CategoryReviewMatrixTable.vue",
+      "tableKey": "dcc.controlledFile.permission.reviewMatrix",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/categories/components/CategoryTrainingRulesTab.vue",
+      "tableKey": "dcc.controlledFile.permission.trainingRules",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/categories/components/CategoryViewMatrixTable.vue",
+      "tableKey": "dcc.controlledFile.permission.viewMatrix",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/categories/index.vue",
+      "tableKey": "dcc.controlledFile.permission.categories",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/components/DirectoryAuthorizationTabPanel.vue",
+      "tableKey": "dcc.controlledFile.permission.directoryAuthorization",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/detail/index.vue",
+      "tableKey": "dcc.controlledFile.detail.routeSnapshot",
+      "showQuickFilterFalse": true,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/detail/index.vue",
+      "tableKey": "dcc.controlledFile.detail.versionHistory",
+      "showQuickFilterFalse": true,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/detail/index.vue",
+      "tableKey": "dcc.controlledFile.detail.distributionStatus",
+      "showQuickFilterFalse": true,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/detail/index.vue",
+      "tableKey": "dcc.controlledFile.detail.controlledPrintRecords",
+      "showQuickFilterFalse": true,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/detail/index.vue",
+      "tableKey": "dcc.controlledFile.detail.trainingStatus",
+      "showQuickFilterFalse": true,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/detail/index.vue",
+      "tableKey": "dcc.controlledFile.detail.signatureTrace",
+      "showQuickFilterFalse": true,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/dcc/controlled-file/logs/index.vue",
+      "tableKey": "dcc.controlledFile.logs",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/dcc/controlled-file/routes/index.vue",
+      "tableKey": "dcc.controlledFile.routes.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/dcc/controlled-file/routes/index.vue",
+      "tableKey": "dcc.controlledFile.routes.preview",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/dcc/controlled-file/signatures/index.vue",
+      "tableKey": "dcc.electronicSignature.records",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/dcc/controlled-file/signatures/index.vue",
+      "tableKey": "dcc.electronicSignature.authorizations",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/dcc/controlled-file/signatures/index.vue",
+      "tableKey": "dcc.electronicSignature.authorizationAudit",
+      "showQuickFilterFalse": true,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/dcc/controlled-file/training/mine/index.vue",
+      "tableKey": "dcc.controlledFile.trainingMine.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/form-center/effect/index.vue",
+      "tableKey": "form.center.effect",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/form-center/template/index.vue",
+      "tableKey": "form.center.template",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mdm/product/index.vue",
+      "tableKey": "mdm.product.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/dv/checkplan/index.vue",
+      "tableKey": "mes.dv.checkPlan.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/dv/checkrecord/index.vue",
+      "tableKey": "mes.dv.checkRecord.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/dv/machinery/index.vue",
+      "tableKey": "mes.dv.machinery.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/dv/machinery/type/index.vue",
+      "tableKey": "mes.dv.machineryType.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/dv/maintenrecord/index.vue",
+      "tableKey": "mes.dv.maintenRecord.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/dv/repair/index.vue",
+      "tableKey": "mes.dv.repair.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/dv/subject/index.vue",
+      "tableKey": "mes.dv.subject.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/md/workstation/index.vue",
+      "tableKey": "mes.md.workstation.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/batchrecordformlist/index.vue",
+      "tableKey": "mes.pro.edhrBatch.recordFormList",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/edhr/components/DomainTraceListPane.vue",
+      "tableKey": "mes.pro.edhr.traceDrawer.domainTrace",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": true,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/edhr/components/OperationAuditListPane.vue",
+      "tableKey": "mes.pro.edhr.operationAudit",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": true,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/edhr/components/ReleaseEventListPane.vue",
+      "tableKey": "mes.pro.edhr.traceDrawer.releaseEvents",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/edhr/form-trace/FormTraceAuditTab.vue",
+      "tableKey": "mes.pro.edhr.formTrace.audit",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/edhr/form-trace/FormTraceChangeTab.vue",
+      "tableKey": "mes.pro.edhr.formTrace.change",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/edhr/form-trace/FormTraceReleaseTab.vue",
+      "tableKey": "releaseTraceTableKey",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/edhr/FormFillLogPage.vue",
+      "tableKey": "mes.pro.edhr.formFillLog.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/edhr/SignaturePage.vue",
+      "tableKey": "mes.pro.edhr.signature.history",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/mes/pro/edhr-batch/BatchExecutionListPage.vue",
+      "tableKey": "mes.pro.edhrBatch.execution.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/feedback/index.vue",
+      "tableKey": "mes.pro.feedback.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/mes-process/index.vue",
+      "tableKey": "mes.pro.mesProcess.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/mes/pro/process/index.vue",
+      "tableKey": "mes.pro.process.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/route/index.vue",
+      "tableKey": "ROUTE_LIST_TABLE_KEY",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": true,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/route/RouteProductList.vue",
+      "tableKey": "mes.pro.route.product",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/scheduleorder/components/ScheduleOrderMainList.vue",
+      "tableKey": "mes.pro.scheduleOrder.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": true,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": true,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/scheduleorder/index.vue",
+      "tableKey": "mes.pro.scheduleOrder.admissionDiff",
+      "showQuickFilterFalse": true,
+      "showMultiFilter": true,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": true,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/scheduleorder/index.vue",
+      "tableKey": "mes.pro.scheduleOrder.operationLog",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/mes/pro/scheduleorder/index.vue",
+      "tableKey": "mes.pro.scheduleOrder.processRoute",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/scheduleorder/index.vue",
+      "tableKey": "mes.pro.scheduleOrder.dailyCompare",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/mes/pro/scheduler-workbench/components/ProcessWipTable.vue",
+      "tableKey": "mes.pro.schedulerWorkbench.processWip",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/mes/pro/scheduler-workbench/index.vue",
+      "tableKey": "mes.pro.schedulerWorkbench.routeActiveOrders",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/mes/pro/scheduler-workbench/index.vue",
+      "tableKey": "mes.pro.schedulerWorkbench.replan.orders",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/mes/pro/scheduler-workbench/index.vue",
+      "tableKey": "mes.pro.schedulerWorkbench.replan.workOrders",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/mes/pro/scheduler-workbench/index.vue",
+      "tableKey": "mes.pro.schedulerWorkbench.replan.processes",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/mes/pro/scheduler-workbench/index.vue",
+      "tableKey": "mes.pro.schedulerWorkbench.replan.protectedTasks",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/mes/pro/scheduler-workbench/index.vue",
+      "tableKey": "mes.pro.schedulerWorkbench.replan.materials",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/mes/pro/scheduler-workbench/index.vue",
+      "tableKey": "mes.pro.schedulerWorkbench.replan.issues",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/mes/pro/workorder/index.vue",
+      "tableKey": "mes.pro.workorder.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": true,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/Profile/components/ProfileWorkbench.vue",
+      "tableKey": "profile.workbench.todo",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/signature-governance/components/CsvPackageGovernanceListPane.vue",
+      "tableKey": "signature.governance.csvPackage.list",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": true,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/signature-governance/components/PeriodicReviewGovernanceListPane.vue",
+      "tableKey": "signature.governance.periodicReview.list",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": true,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/signature-governance/components/PolicyGovernanceListPane.vue",
+      "tableKey": "signature.governance.policy.list",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/signature-governance/components/RetentionGovernanceListPane.vue",
+      "tableKey": "signature.governance.retention.list",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": true,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/signature-governance/components/SignatureGovernanceBlockerList.vue",
+      "tableKey": "tableKey",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/signature-governance/components/SignatureGovernancePolicyModuleList.vue",
+      "tableKey": "tableKey",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": false
+    },
+    {
+      "file": "views/signature-governance/components/SignatureGovernanceRecordsPane.vue",
+      "tableKey": "signature.governance.records",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/system/backup-plan/index.vue",
+      "tableKey": "system.backup-plan.history",
+      "showQuickFilterFalse": true,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/system/codex-test-management/index.vue",
+      "tableKey": "system.codexTestManagement.cases",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": true,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/system/codex-test-record/index.vue",
+      "tableKey": "system.codex-test.records",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/system/notify/my/components/MyNotifyMessageList.vue",
+      "tableKey": "system.notify.my-message",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/system/user/components/UserSelectDialogV2.vue",
+      "tableKey": "system.user.selectDialog",
+      "showQuickFilterFalse": true,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": true,
+      "hasActionsSlot": true
+    },
+    {
+      "file": "views/system/user/index.vue",
+      "tableKey": "system.user.main",
+      "showQuickFilterFalse": false,
+      "showMultiFilter": false,
+      "hasQuickFilterState": true,
+      "hasMultiFilterState": false,
+      "hasExtraFiltersSlot": false,
+      "hasActionsSlot": true
+    }
+  ]
+}

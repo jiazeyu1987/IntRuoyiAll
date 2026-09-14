@@ -42,6 +42,12 @@ assert.match(
   'designer edit row-height adaptation must wait for the painted canvas to stabilize before reloading row heights'
 )
 
+assert.match(
+  iframeSource,
+  /if\s*\(isDesignerEditCanvasPainted\(frameWindow\)\)\s*\{[\s\S]{0,260}loading\.value\s*=\s*false[\s\S]{0,260}await delay\(DESIGNER_EDIT_PAINT_STABLE_DELAY_MS\)/,
+  'designer edit mode must release the outer loading mask as soon as the JMReport canvas is painted'
+)
+
 assert.doesNotMatch(
   iframeSource,
   /MutationObserver/,
@@ -58,6 +64,24 @@ assert.match(
   designerWrapperSource,
   /reportMode\.value === 'edit'[\s\S]*\?[\s\S]*'jmreport-designer-edit'/,
   'Batch record template edit mode must pass jmreport-designer-edit to IFrame'
+)
+
+assert.match(
+  designerWrapperSource,
+  /const isDesignerPath = \(path: string\) => path\.includes\('\/jmreport\/index\/'\)/,
+  'DesignerWrapper edit mode must identify JMReport designer paths explicitly'
+)
+
+assert.match(
+  designerWrapperSource,
+  /ensureSameOriginDesignerEditSupport\(\)[\s\S]*src\.value = appendToken\(normalizeDesignerPath\(data\.path\), false\)/,
+  'DesignerWrapper edit mode must use the same-origin /jmreport proxy before applying iframe edit adaptation'
+)
+
+assert.doesNotMatch(
+  designerWrapperSource,
+  /if \(reportMode\.value === 'edit'\) \{[\s\S]*?src\.value = appendToken\(data\.path\)[\s\S]*?\} else \{/,
+  'DesignerWrapper edit mode must not load JMReport edit iframe from the backend port directly'
 )
 
 assert.doesNotMatch(

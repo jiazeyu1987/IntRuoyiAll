@@ -77,8 +77,8 @@ public class MesProRouteProcessServiceImpl implements MesProRouteProcessService 
         MesProRouteProcessDO routeProcess = BeanUtils.toBean(createReqVO, MesProRouteProcessDO.class);
         routeProcessMapper.insert(routeProcess);
 
-        routeService.maintainRouteVersionAfterProcessChange(createReqVO.getRouteId());
         routeService.ensureDefaultScheduleArtifacts(createReqVO.getRouteId(), routeProcess.getId());
+        routeService.maintainRouteVersionAfterProcessChange(createReqVO.getRouteId());
         return routeProcess.getId();
     }
 

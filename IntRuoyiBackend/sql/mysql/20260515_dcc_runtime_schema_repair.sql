@@ -46,6 +46,11 @@ CALL ensure_dcc_column(
   'training_required',
   'ALTER TABLE `dcc_file_category` ADD COLUMN `training_required` tinyint NOT NULL DEFAULT 0 AFTER `distribution_required`'
 );
+CALL ensure_dcc_column(
+  'dcc_registration_certificate_version',
+  'remark',
+  'ALTER TABLE `dcc_registration_certificate_version` ADD COLUMN `remark` varchar(1024) DEFAULT NULL COMMENT ''Draft remark'' AFTER `base_snapshot_id`'
+);
 
 UPDATE `dcc_file_category`
 SET `lifecycle_stage` = CASE
@@ -462,7 +467,17 @@ SET `master_id` = COALESCE(NULLIF(`master_id`, 0), `id`),
     `source_file_id` = COALESCE(`source_file_id`, `original_file_id`),
     `published_file_id` = COALESCE(`published_file_id`, NULLIF(`stamped_file_id`, 0)),
     `file_name` = COALESCE(NULLIF(`file_name`, ''), NULLIF(`title`, ''), CONCAT('DCC-FILE-', `id`)),
-    `file_number` = COALESCE(NULLIF(`file_number`, ''), NULLIF(`title`, ''), CONCAT('DCC-FILE-', `id`)),
+    `file_number` = COALESCE(
+        CASE
+            WHEN CHAR_LENGTH(NULLIF(`file_number`, '')) <= 64 THEN NULLIF(`file_number`, '')
+            ELSE NULL
+        END,
+        CASE
+            WHEN CHAR_LENGTH(NULLIF(`title`, '')) <= 64 THEN NULLIF(`title`, '')
+            ELSE NULL
+        END,
+        CONCAT('DCC-FILE-', `id`)
+    ),
     `submitter_id` = COALESCE(`submitter_id`, `requester_id`),
     `published_time` = COALESCE(`published_time`, `stamped_time`, `approved_time`)
 WHERE `deleted` = 0;

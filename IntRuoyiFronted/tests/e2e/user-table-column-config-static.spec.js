@@ -129,6 +129,20 @@ assertContains(
   /finalizeManagedColumnResize/,
   'global enhancer must finalize managed table column width persistence after drag end'
 )
+const tableObserverSource = globalEnhancerSource.slice(
+  globalEnhancerSource.indexOf('const attachTableObserver'),
+  globalEnhancerSource.indexOf('const isHeaderResizeGesture')
+)
+assertContains(
+  tableObserverSource,
+  /observe\(table\.tableEl,\s*\{\s*childList:\s*true,\s*subtree:\s*true\s*\}\)/s,
+  'global enhancer table observer must watch structural child changes'
+)
+assert.doesNotMatch(
+  tableObserverSource,
+  /attributes:\s*true|attributeFilter/,
+  'global enhancer table observer must not observe style/class attributes that applyTableState rewrites'
+)
 assertContains(
   globalEnhancerSource,
   /window\.addEventListener\('mouseup', finalizeManagedColumnResize/,
@@ -188,7 +202,7 @@ const representativePages = [
   },
   {
     file: 'src/views/dcc/controlled-file/browser/index.vue',
-    tableKey: 'dcc.controlledFile.browser.adminStyle',
+    tableKey: 'dcc.controlledFile.browser.compactActionsV2',
     requiredColumns: ['fileName', 'fileNumber', 'directory', 'productName']
   },
   {
@@ -206,7 +220,7 @@ for (const page of representativePages) {
       'mes.pro.scheduleOrder.main',
       'mes.pro.workorder.main',
       'mes.pro.edhrBatch.execution.main',
-      'dcc.controlledFile.browser.adminStyle'
+      'dcc.controlledFile.browser.compactActionsV2'
     ].includes(page.tableKey)
   ) {
     assertContains(source, /UnifiedListTemplate/, `${page.file} must render UserTableColumnSettings through UnifiedListTemplate`)

@@ -11,16 +11,18 @@ export interface UploadFormDraft {
   directoryId: number | null
   fileName: string
   fileNumber: string
-  productMasterId: number | null
+  productMasterId: null
   productCode: string
   dccProjectCodeId: number | null
   fileTypeTaxonomyId: number | null
   revisionTargetControlledFileId: number | null
+  revisionSourceControlledFileId: number | null
+  relatedControlledFileIds: number[]
   needTraining: boolean
-  selectedSignoffUserIds?: number[]
+  selectedSignoffUserIds: number[]
   processType: 'CONTROLLED_FILE' | 'EXTERNAL_REVIEW'
   changeType: ControlledFileChangeType
-  versionNo: string
+  versionNo?: string
   effectiveDate: string
   remark?: string
 }
@@ -46,7 +48,7 @@ export interface UploadSubmitFailureFeedback {
 }
 
 export interface UploadSubmitFieldErrors {
-  versionNo: string
+  versionNo?: string
 }
 
 interface UploadSubmitterServiceDeps {
@@ -59,15 +61,34 @@ interface UploadSubmitterServiceDeps {
 }
 
 const trimText = (value: string | null | undefined) => value?.trim() ?? ''
-const VERSION_ERROR_PATTERN = /(版本|version)/i
+const FILE_VERSION_FIELD_ERROR_PATTERN = /(版本|version|文件编号|file\s*number|编号|logical\s*document\s*chain)/i
+const FILE_NUMBER_CHAIN_CONFLICT_RAW_MESSAGE =
+  'Controlled file number conflicts with the existing logical document chain'
+const FILE_NUMBER_CHAIN_CONFLICT_MESSAGE =
+  '该文件编号存在版本链冲突，当前不可提交，请选择正确历史文件或联系管理员处理。'
+const VERSION_INVALID_ERROR_CODE = 'CONTROLLED_FILE_VERSION_INVALID'
+const VERSION_INVALID_MESSAGE = '版本号格式不正确，请使用 V1.0、V2.0 或 1.0 这类数字版本。'
 const PRODUCT_CODE_PATTERN = /^[A-Za-z0-9]{14}$/
 const DRAWING_SOURCE_EXT_PATTERN = /\.(dwg|sldprt|sldasm|slddrw)$/i
 const PRODUCT_BOUND_CATEGORY_PREFIXES = ['DCC_FVM_DHF_', 'DCC_FVM_DMR_']
+
+export const isFileNumberChainConflictMessage = (message: string | null | undefined) => {
+  const normalizedMessage = trimText(message).toLowerCase()
+  return Boolean(
+    normalizedMessage &&
+      (normalizedMessage === FILE_NUMBER_CHAIN_CONFLICT_MESSAGE.toLowerCase() ||
+        normalizedMessage.includes(FILE_NUMBER_CHAIN_CONFLICT_RAW_MESSAGE.toLowerCase()) ||
+        normalizedMessage.includes('controlled_file_file_number_conflict') ||
+        normalizedMessage.includes('logical document chain'))
+  )
+}
+
 export const EDITABLE_SOURCE_EXTENSIONS = [
   'doc',
   'docx',
   'xls',
   'xlsx',
+  'pdf',
   'dwg',
   'sldprt',
   'sldasm',
@@ -75,8 +96,8 @@ export const EDITABLE_SOURCE_EXTENSIONS = [
 ] as const
 export const EDITABLE_SOURCE_ACCEPT = EDITABLE_SOURCE_EXTENSIONS.map((item) => `.${item}`).join(',')
 export const EDITABLE_SOURCE_MESSAGE =
-  '仅支持 doc、docx、xls、xlsx、dwg、sldprt、sldasm、slddrw 等可编辑源文件'
-const EDITABLE_SOURCE_EXT_PATTERN = /\.(doc|docx|xls|xlsx|dwg|sldprt|sldasm|slddrw)$/i
+  '仅支持 doc、docx、xls、xlsx、pdf、dwg、sldprt、sldasm、slddrw 等源文件'
+const EDITABLE_SOURCE_EXT_PATTERN = /\.(doc|docx|xls|xlsx|pdf|dwg|sldprt|sldasm|slddrw)$/i
 
 export const validateSingleUploadFileSelection = (
   files: ReadonlyArray<UploadSelectionCandidate>
@@ -100,7 +121,7 @@ export const validateControlledFileSelection = (
   if (!EDITABLE_SOURCE_EXT_PATTERN.test(trimText(files[0]?.name))) {
     return {
       valid: false,
-      message: '仅支持 doc、docx、xls、xlsx、dwg、sldprt、sldasm、slddrw 等可编辑源文件'
+      message: EDITABLE_SOURCE_MESSAGE
     }
   }
 
@@ -124,27 +145,17 @@ export const validateProductCode = (value: string | undefined): UploadSelectionV
   return { valid: true }
 }
 
-export const validateProductMasterSelection = (
-  productMasterId: number | null | undefined,
+export const validateDccProjectProductCode = (
   productCode: string | undefined,
   productRequired = false
 ): UploadSelectionValidation => {
-  if (!productMasterId) {
-    if (productRequired) {
-      return {
-        valid: false,
-        message: '请选择产品主数据'
-      }
-    }
-    if (!trimText(productCode)) {
-      return { valid: true }
-    }
+  if (productRequired && !trimText(productCode)) {
     return {
       valid: false,
-      message: '请选择产品主数据或清空产品编号'
+      message: '请选择包含项目代码的 DCC 项目'
     }
   }
-  return validateProductCode(productCode)
+  return { valid: true }
 }
 
 export const isDccProductRequiredForCategoryCode = (categoryCode?: string | null) => {
@@ -188,24 +199,122 @@ export const formatPreviewFileSize = (fileSize: number | null | undefined) => {
   return `${(fileSize / 1024 / 1024).toFixed(2)} MB`
 }
 
+const normalizeKnownUploadErrorMessage = (message: string, fallback: string) => {
+  const rawMessage = trimText(message)
+  if (!rawMessage || rawMessage === 'error') {
+    return fallback
+  }
+  const normalizedMessage = rawMessage.toLowerCase()
+  if (isFileNumberChainConflictMessage(rawMessage)) {
+    return FILE_NUMBER_CHAIN_CONFLICT_MESSAGE
+  }
+  if (
+    normalizedMessage.includes(VERSION_INVALID_ERROR_CODE.toLowerCase()) ||
+    normalizedMessage.includes('controlled file version format is invalid') ||
+    /version\s*format\s*is\s*invalid|invalid\s*version|版本号.*(无效|非法|格式)/i.test(rawMessage)
+  ) {
+    return VERSION_INVALID_MESSAGE
+  }
+  return rawMessage
+}
+
 export const resolveUploadErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message && error.message !== 'error') {
-    return error.message
+    return normalizeKnownUploadErrorMessage(error.message, fallback)
   }
   if (typeof error === 'string' && error && error !== 'error') {
-    return error
+    return normalizeKnownUploadErrorMessage(error, fallback)
   }
   return fallback
+}
+
+const readErrorField = (source: unknown, key: string): unknown => {
+  if (!source || typeof source !== 'object') {
+    return undefined
+  }
+  return (source as Record<string, unknown>)[key]
+}
+
+const resolveNestedUploadErrorText = (error: unknown): string => {
+  const candidates = [
+    error,
+    readErrorField(error, 'response'),
+    readErrorField(readErrorField(error, 'response'), 'data'),
+    readErrorField(error, 'data')
+  ]
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue
+    }
+    if (typeof candidate === 'string' && candidate.trim() && candidate !== 'error') {
+      return candidate.trim()
+    }
+    if (candidate instanceof Error && candidate.message && candidate.message !== 'error') {
+      return candidate.message.trim()
+    }
+    for (const key of ['msg', 'message', 'error', 'detail']) {
+      const value = readErrorField(candidate, key)
+      if (typeof value === 'string' && value.trim() && value !== 'error') {
+        return value.trim()
+      }
+    }
+  }
+  return ''
+}
+
+const appendUploadPreviewErrorDetail = (message: string, detail: string) => {
+  const normalizedDetail = detail.trim()
+  if (!normalizedDetail || normalizedDetail === message || normalizedDetail.includes(message)) {
+    return message
+  }
+  return `${message} 原始错误：${normalizedDetail}`
+}
+
+export const resolveUploadPreviewErrorMessage = (error: unknown, fallback: string) => {
+  const rawMessage = resolveNestedUploadErrorText(error) || resolveUploadErrorMessage(error, fallback)
+  const normalized = rawMessage.toLowerCase()
+  if (
+    /minio|object\s*storage|对象存储|文件存储|bucket|s3|oss|putobject|getobject|connection refused|econnrefused|9000/.test(
+      normalized
+    )
+  ) {
+    return appendUploadPreviewErrorDetail(
+      '文件存储服务不可用：请联系平台/运维检查 MinIO 或对象存储服务，本次预览不会继续。',
+      rawMessage
+    )
+  }
+  if (/unsupported|format|extension|mime|content\s*type|文件格式|格式不支持|不支持的文件|扩展名/.test(normalized)) {
+    return appendUploadPreviewErrorDetail(
+      '文件格式不受支持：请按页面允许的 Office、图纸源文件或 PDF 格式重新选择文件。',
+      rawMessage
+    )
+  }
+  if (/403|forbidden|permission|access denied|无权限|没有该操作权限|不可访问/.test(normalized)) {
+    return appendUploadPreviewErrorDetail(
+      '当前账号缺少受控文件提交权限：请联系管理员补齐受控文件提交权限后再上传。',
+      rawMessage
+    )
+  }
+  if (/duplicate|exists|already exists|唯一|重复|已存在|file\s*number|文件编号/.test(normalized)) {
+    return appendUploadPreviewErrorDetail(
+      '文件编号已存在：请先调整文件编号或改走升版流程，再提交审批。',
+      rawMessage
+    )
+  }
+  return rawMessage || fallback
 }
 
 export const buildSubmitFailureFeedback = (
   error: unknown,
   fallback: string
 ): UploadSubmitFailureFeedback => {
-  const message = resolveUploadErrorMessage(error, fallback)
+  const message = normalizeKnownUploadErrorMessage(
+    resolveNestedUploadErrorText(error) || resolveUploadErrorMessage(error, fallback),
+    fallback
+  )
   return {
     message,
-    versionFieldError: VERSION_ERROR_PATTERN.test(message) ? message : ''
+    versionFieldError: FILE_VERSION_FIELD_ERROR_PATTERN.test(message) ? message : ''
   }
 }
 
@@ -228,22 +337,25 @@ export const buildSubmitPayload = (
   categoryId: draft.categoryId as number,
   directoryId: draft.directoryId as number,
   sessionId: previewFile.sessionId,
+  idempotencyKey: previewFile.sessionId,
   originalUploadTicket: previewFile.uploadTicket,
   sourceUploadTicket: previewFile.uploadTicket,
   sourceFileName: previewFile.fileName,
   drawingPdfUploadTicket: drawingPdfUpload?.uploadTicket,
   fileName: trimText(draft.fileName),
   fileNumber: trimText(draft.fileNumber),
-  productMasterId: draft.productMasterId ?? undefined,
+  productMasterId: null,
   productCode: trimText(draft.productCode) || undefined,
   dccProjectCodeId: draft.dccProjectCodeId ?? undefined,
   fileTypeTaxonomyId: draft.fileTypeTaxonomyId ?? undefined,
   revisionTargetControlledFileId: draft.revisionTargetControlledFileId ?? undefined,
+  revisionSourceControlledFileId: draft.revisionSourceControlledFileId ?? undefined,
+  relatedControlledFileIds: [...(draft.relatedControlledFileIds ?? [])],
   needTraining: Boolean(draft.needTraining),
   selectedSignoffUserIds: draft.selectedSignoffUserIds ?? [],
   processType: draft.processType,
   changeType: draft.changeType,
-  versionNo: trimText(draft.versionNo),
+  versionNo: trimText(draft.versionNo) || undefined,
   effectiveDate: draft.effectiveDate,
   remark: trimText(draft.remark) || undefined
 })

@@ -1,0 +1,47 @@
+{
+  "projectName": "球囊扩张压力泵",
+  "preflight": {
+    "routeKey": "B",
+    "batchRecordName": "数显球囊扩张压力泵（FDA)",
+    "batchRecordDefinitionId": null,
+    "currentBatchRecordVersionId": null,
+    "currentBatchRecordVersionNo": null,
+    "currentBatchRecordVersionStatus": null,
+    "latestBatchRecordVersionId": null,
+    "latestBatchRecordVersionNo": null,
+    "latestBatchRecordVersionStatus": null,
+    "currentBatchRecordHasMainReports": false,
+    "routeGovernanceStatus": "CREATE_REQUIRED",
+    "routeUpgradeRequired": false,
+    "duplicateRoutes": [],
+    "currentRouteId": null,
+    "currentRouteCode": null,
+    "currentRouteName": null,
+    "currentRouteVersionId": null,
+    "currentRouteVersionNo": null,
+    "currentRouteVersionActive": null,
+    "hasHistoricalReferences": false,
+    "referenceBlockers": [],
+    "allowedActions": [
+      "REBUILD_V1"
+    ],
+    "recommendedAction": "REBUILD_V1",
+    "nextVersionNo": "V1.0",
+    "routeProductOptions": [
+      {
+        "optionKey": "PRODUCT_NAME:数显球囊扩张压力泵（FDA)",
+        "routeProductId": null,
+        "routeId": null,
+        "routeCode": null,
+        "routeName": null,
+        "routeVersionId": null,
+        "routeVersionNo": null,
+        "productId": null,
+        "productCode": null,
+        "productName": "数显球囊扩张压力泵（FDA)",
+        "existing": false
+      }
+    ]
+  },
+  "dialogText": "导入 Word\n表单类型\n批记录\n产品名称\n数显球囊扩张压力泵（FDA)\nWord 文件\n选择文件\n已选择 Word 文件：批记录压力泵.doc\n预检完成\n导入内容\n最新批记录版本\n无\n当前工艺流程版本\n无\n导入动作\n重建 V1.0\n升版导入 V1.0\n批记录表单\n工艺流程\n数显球囊扩张压力泵（FDA)\n当前版本 无\n取消\n确定"
+}

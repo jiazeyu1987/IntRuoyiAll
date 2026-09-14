@@ -171,6 +171,7 @@
             label="发生时间"
             prop="occurredAt"
             :width="getOperationAuditColumnWidthString('occurredAt', 180)"
+            :formatter="edhrDateTimeFormatter"
             v-bind="sortColumnAttrs('occurredAt')"
           />
           <el-table-column
@@ -213,7 +214,7 @@
           <el-descriptions-item label="操作者">
             {{ detail.actorUsername || detail.actorUserId || '--' }}
           </el-descriptions-item>
-          <el-descriptions-item label="发生时间">{{ detail.occurredAt || '--' }}</el-descriptions-item>
+          <el-descriptions-item label="发生时间">{{ formatEdhrDateTime(detail.occurredAt) }}</el-descriptions-item>
           <el-descriptions-item label="失败码">{{ detail.failureCode || '--' }}</el-descriptions-item>
           <el-descriptions-item label="失败说明">{{ detail.failureMessage || '--' }}</el-descriptions-item>
         </el-descriptions>
@@ -270,6 +271,7 @@ import {
   resolveOperationAuditResultTagType as resolveResultTagType,
   resolveOperationTypeLabel
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
+import { edhrDateTimeFormatter, formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 
 defineOptions({ name: 'MesProEdhrOperationAuditListPane' })
@@ -282,11 +284,13 @@ const props = withDefaults(
     showObjectFilters?: boolean
     autoLoad?: boolean
     pageSize?: number
+    hideRecordbookMode?: boolean
   }>(),
   {
     showObjectFilters: true,
     autoLoad: true,
-    pageSize: 10
+    pageSize: 10,
+    hideRecordbookMode: false
   }
 )
 
@@ -302,10 +306,15 @@ const detailVisible = ref(false)
 const detail = ref<EdhrOperationAuditRespVO>()
 const detailError = ref('')
 
-const recordCategoryOptions: Array<{ label: string; value: EdhrRecordCategory }> = [
+const baseRecordCategoryOptions: Array<{ label: string; value: EdhrRecordCategory }> = [
   { label: '批记录表', value: 'BATCH_RECORD' },
   { label: '内部记录表', value: 'INTERNAL_RECORD' }
 ]
+const recordCategoryOptions = computed(() =>
+  props.hideRecordbookMode
+    ? baseRecordCategoryOptions.filter((option) => option.value !== 'INTERNAL_RECORD')
+    : baseRecordCategoryOptions
+)
 
 const parsePositiveQueryNumber = (value: unknown) => {
   const rawValue = Array.isArray(value) ? value[0] : value
@@ -380,7 +389,7 @@ const operationAuditQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     label: '记录类型',
     type: 'select',
     queryParamKey: 'recordCategory',
-    options: recordCategoryOptions
+    options: recordCategoryOptions.value
   },
   { key: 'actorUserId', label: '操作者ID', type: 'text', queryParamKey: 'actorUserId', placeholder: '请输入操作者ID' }
 ]
@@ -431,7 +440,10 @@ const buildQuery = () => {
     routeId: parsePositiveRouteQueryId(queryParams.routeId) || undefined,
     routeProcessId: parsePositiveRouteQueryId(queryParams.routeProcessId) || undefined,
     reportId: queryParams.reportId.trim() || undefined,
-    recordCategory: queryParams.recordCategory,
+    recordCategory:
+      props.hideRecordbookMode && queryParams.recordCategory === 'INTERNAL_RECORD'
+        ? undefined
+        : queryParams.recordCategory,
     operationType: queryParams.operationType.trim() || undefined,
     actorUserId: parsePositiveQueryNumber(queryParams.actorUserId),
     permissionDecision: queryParams.permissionDecision,
@@ -507,9 +519,12 @@ const resetQuery = async () => {
 }
 
 watch(
-  () => [props.objectType, props.objectId, props.batchExecutionId, props.autoLoad],
+  () => [props.objectType, props.objectId, props.batchExecutionId, props.autoLoad, props.hideRecordbookMode],
   async () => {
     syncExternalContext()
+    if (props.hideRecordbookMode && queryParams.recordCategory === 'INTERNAL_RECORD') {
+      queryParams.recordCategory = undefined
+    }
     if (props.autoLoad && hasObjectContext.value) {
       queryParams.pageNo = 1
       await getList()

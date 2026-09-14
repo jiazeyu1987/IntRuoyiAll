@@ -30,7 +30,10 @@ for (const required of [
   /const BROWSER_SEARCH_SCOPE_CURRENT = 'current'/,
   /const BROWSER_SEARCH_SCOPE_GLOBAL = 'global'/,
   /const searchScope = ref<BrowserSearchScope>\(BROWSER_SEARCH_SCOPE_CURRENT\)/,
-  /<el-input[\s\S]*v-model="queryParams\.keyword"[\s\S]*placeholder="搜索文件名称\/编号"[\s\S]*@keyup\.enter="handleQuery"/,
+  /<UnifiedListTemplate[\s\S]*:filter-definitions="dccBrowserQuickFilterDefinitions"[\s\S]*@quick-filter-query="dccBrowserQuickFilter\.applyQuickFilter"/,
+  /key: 'keyword'[\s\S]*queryParamKey: 'keyword'[\s\S]*placeholder: '请输入文件名称\/编号'/,
+  /key: 'status'[\s\S]*queryParamKey: 'status'[\s\S]*options: BROWSER_STATUS_FILTER_OPTIONS/,
+  /key: 'categoryId'[\s\S]*queryParamKey: 'categoryId'/,
   /<el-segmented[\s\S]*v-model="searchScope"[\s\S]*:options="browserSearchScopeOptions"/,
   /label: '当前目录'/,
   /label: '全域'/
@@ -50,7 +53,7 @@ for (const required of [
   /keyword/,
   /scope/,
   /buildBrowserReturnPath/,
-  /buildControlledFileViewerPath\(id, 'browser', buildBrowserReturnPath\(\)\)/
+  /buildControlledFileViewerPath\(normalizedId, 'browser', buildBrowserReturnPath\(\)\)/
 ]) {
   assert.match(browserPage, required, `browser page must persist and reuse list state: ${required}`)
 }
@@ -72,7 +75,12 @@ assert.match(
 )
 assert.match(
   browserPage,
-  /isGlobalSearch[\s\S]*全部有权限目录/,
+  /browserSearchScopeOptions[\s\S]*label: '全域'[\s\S]*value: BROWSER_SEARCH_SCOPE_GLOBAL/,
+  'global search must remain an explicit user-selectable scope'
+)
+assert.match(
+  browserPage,
+  /if \(isGlobalSearch\.value\) \{[\s\S]*return '全域受控浏览'/,
   'global search must be explicit in UI state and copy'
 )
 
@@ -96,8 +104,20 @@ assert.match(
   'copy failure must show an explicit clipboard/browser permission error'
 )
 assert.match(browserPage, /throw error/, 'copy failure must surface the real browser error')
+const searchFilterStart = browserPage.indexOf('const dccBrowserQuickFilterDefinitions =')
+const searchFilterEnd = browserPage.indexOf('const canEditMetadata =', searchFilterStart)
+const searchReloadStart = browserPage.indexOf('const reloadBrowserListAndCommitState =')
+const searchReloadEnd = browserPage.indexOf('const dccBrowserQuickFilter =', searchReloadStart)
+assert.notEqual(searchFilterStart, -1, 'browser page must define unified search filters')
+assert.notEqual(searchFilterEnd, -1, 'browser page must close unified search filters before permissions')
+assert.notEqual(searchReloadStart, -1, 'browser page must define the state-committing search reload')
+assert.notEqual(searchReloadEnd, -1, 'browser page must close search reload before initializing the hook')
+const browserSearchImplementation = [
+  browserPage.slice(searchFilterStart, searchFilterEnd),
+  browserPage.slice(searchReloadStart, searchReloadEnd)
+].join('\n')
 assert.doesNotMatch(
-  browserPage,
+  browserSearchImplementation,
   /mock|placeholder data|默认成功|静默|吞异常|fallback|降级/i,
   'browser search usability change must not introduce mock, fallback, downgrade, silent errors, or default success'
 )

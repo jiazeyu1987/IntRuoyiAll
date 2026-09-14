@@ -1,0 +1,286 @@
+{
+  "status": "passed",
+  "migrationCount": 19,
+  "migrations": [
+    {
+      "migrationId": "20260520_dcc_signature_menu_restore",
+      "file": "sql/mysql/20260520_dcc_signature_menu_restore.sql",
+      "sha256": "49e1979df49ae49161cf9388694c3084ad00b63e693dea439428333421657649",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "low"
+    },
+    {
+      "migrationId": "20260526_edhr_approval_archive_schema_contract",
+      "file": "sql/mysql/20260526_edhr_approval_archive_schema_contract.sql",
+      "sha256": "dd935447ac56cef5714b95e1650b054d1dc6a28e643b387709ea7b86da6d1f0a",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260528_signature_governance_menu",
+      "file": "sql/mysql/20260528_signature_governance_menu.sql",
+      "sha256": "cf852ad9c17e10efd98bbf95ad7b6b9c3349af7a16d4e2ecf6079e2c268aaac9",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "low"
+    },
+    {
+      "migrationId": "20260612_mes_edhr_multi_batch_route",
+      "file": "sql/mysql/20260612_mes_edhr_multi_batch_route.sql",
+      "sha256": "5152d81e8446b1e08039153e63dfdaa5e5f73fe7d56d22af638cdb5173535ace",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260612_mes_edhr_record_change_menu",
+      "file": "sql/mysql/20260612_mes_edhr_record_change_menu.sql",
+      "sha256": "e56522dd3740e8907a696d46b112840051b697b3a561cf2021209b05c9befbd5",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "low"
+    },
+    {
+      "migrationId": "20260615_mes_edhr_tail_four_goals",
+      "file": "sql/mysql/20260615_mes_edhr_tail_four_goals.sql",
+      "sha256": "8acf760b57d6266e05af3b1910cbb88b64b2c6c1dc54834a521a8d64327e0e00",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260612_mes_edhr_multi_batch_route"
+      ],
+      "riskLevel": "high"
+    },
+    {
+      "migrationId": "20260618_mes_edhr_release_precheck_engine",
+      "file": "sql/mysql/20260618_mes_edhr_release_precheck_engine.sql",
+      "sha256": "c31cb787930f91026555a5208d28e3dc7b5546ece8176846cd40bb16f0e00517",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260615_mes_edhr_tail_four_goals"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260618_mes_edhr_release_transaction_lifecycle",
+      "file": "sql/mysql/20260618_mes_edhr_release_transaction_lifecycle.sql",
+      "sha256": "9c39b53bee4d9556515f47beee28dfe5e61e2b44db7b735709fa774c430b3472",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260618_mes_edhr_release_precheck_engine"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260624_unified_approval_phase5_retire_legacy_menus",
+      "file": "sql/mysql/20260624_unified_approval_phase5_retire_legacy_menus.sql",
+      "sha256": "1f64604b2dd6a6dc51f81d4238e766863c8581575388ec1f7b0d3e7abe00e527",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "low"
+    },
+    {
+      "migrationId": "20260624_unified_electronic_signature_menu",
+      "file": "sql/mysql/20260624_unified_electronic_signature_menu.sql",
+      "sha256": "06cb3e2249579e5df5366d2f83dec455a3821dcf7dc2de2f68beae7b71c1912d",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260520_dcc_signature_menu_restore",
+        "20260526_edhr_approval_archive_schema_contract",
+        "20260528_signature_governance_menu"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260630_approval_center_role_visibility",
+      "file": "sql/mysql/20260630_approval_center_role_visibility.sql",
+      "sha256": "542ea1f308b15a9cb98ebc8e8e2a1f6f7a0c8a6ce3401196aa81d2760cf45f03",
+      "type": "data",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260702_mes_edhr_seven_visible_tabs",
+      "file": "sql/mysql/20260702_mes_edhr_seven_visible_tabs.sql",
+      "sha256": "a1efeeef9d234e3dc5d3cf619ff82afe838f323e06e8c53f745eddf1b51a7988",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260624_unified_approval_phase5_retire_legacy_menus",
+        "20260624_unified_electronic_signature_menu",
+        "20260630_approval_center_role_visibility"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260713_mes_edhr_form_fill_log_menu",
+      "file": "sql/mysql/20260713_mes_edhr_form_fill_log_menu.sql",
+      "sha256": "3b65a48c6ed655289d46a40f8552993c71c74f7246f18ff50733461b017b3024",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260702_mes_edhr_seven_visible_tabs"
+      ],
+      "riskLevel": "low"
+    },
+    {
+      "migrationId": "20260714_mes_edhr_form_trace_menu",
+      "file": "sql/mysql/20260714_mes_edhr_form_trace_menu.sql",
+      "sha256": "b161cc0ce5bae44db346184f960849c4e0e7dadb32ca9a1ebd4aa2597b490a01",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260714_mes_edhr_release_trace_menu",
+        "20260618_mes_edhr_release_precheck_engine",
+        "20260618_mes_edhr_release_transaction_lifecycle"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260714_mes_edhr_release_trace_menu",
+      "file": "sql/mysql/20260714_mes_edhr_release_trace_menu.sql",
+      "sha256": "65beda684a5028364bd26b9d1fcae73c86c58d20243615b1c4a5bdd9e8d47959",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260702_mes_edhr_seven_visible_tabs"
+      ],
+      "riskLevel": "low"
+    },
+    {
+      "migrationId": "20260715_mes_edhr_form_trace_change_menu",
+      "file": "sql/mysql/20260715_mes_edhr_form_trace_change_menu.sql",
+      "sha256": "7e43c9d7559efbae56db93ef2a7a8b25bef9999f53fded3f09362900ec989708",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260714_mes_edhr_form_trace_menu",
+        "20260612_mes_edhr_record_change_menu"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260715_mes_edhr_template_config_menu_removal",
+      "file": "sql/mysql/20260715_mes_edhr_template_config_menu_removal.sql",
+      "sha256": "b2f4e9ae3242a7ff8d0787e51dae11725de8a09ed475740ab53a0c34ac6243b7",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260714_mes_edhr_form_trace_menu",
+        "20260715_mes_edhr_form_trace_change_menu",
+        "20260713_mes_edhr_form_fill_log_menu"
+      ],
+      "riskLevel": "low"
+    },
+    {
+      "migrationId": "20260804_mes_edhr_qa_menu",
+      "file": "sql/mysql/20260804_mes_edhr_qa_menu.sql",
+      "sha256": "90ee6cac1d1adb20c5350ddc0d9d959eed7a809016815ee4dc11182cb3b28a27",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260715_mes_edhr_template_config_menu_removal"
+      ],
+      "riskLevel": "low"
+    },
+    {
+      "migrationId": "20260805_mes_edhr_frontline_pqc_menu",
+      "file": "sql/mysql/20260805_mes_edhr_frontline_pqc_menu.sql",
+      "sha256": "14472dcadfb04f35b7d7cce14c8b4c2db5df5ad020dd71df8d11fba641106e56",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260804_mes_edhr_qa_menu"
+      ],
+      "riskLevel": "low"
+    }
+  ]
+}

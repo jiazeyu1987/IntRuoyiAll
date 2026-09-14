@@ -24,7 +24,9 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 
 import static cn.iocoder.yudao.framework.apilog.core.enums.OperateTypeEnum.EXPORT;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.WM_TRANSFER_MANUAL_OPERATION_FORBIDDEN;
 
 @Tag(name = "管理后台 - MES 转移单")
 @RestController
@@ -39,15 +41,14 @@ public class MesWmTransferController {
     @Operation(summary = "创建转移单")
     @PreAuthorize("@ss.hasPermission('mes:wm-transfer:create')")
     public CommonResult<Long> createTransfer(@Valid @RequestBody MesWmTransferSaveReqVO createReqVO) {
-        return success(transferService.createTransfer(createReqVO));
+        throw manualOperationForbidden();
     }
 
     @PutMapping("/update")
     @Operation(summary = "修改转移单")
     @PreAuthorize("@ss.hasPermission('mes:wm-transfer:update')")
     public CommonResult<Boolean> updateTransfer(@Valid @RequestBody MesWmTransferSaveReqVO updateReqVO) {
-        transferService.updateTransfer(updateReqVO);
-        return success(true);
+        throw manualOperationForbidden();
     }
 
     @DeleteMapping("/delete")
@@ -55,8 +56,7 @@ public class MesWmTransferController {
     @Parameter(name = "id", description = "编号", required = true)
     @PreAuthorize("@ss.hasPermission('mes:wm-transfer:delete')")
     public CommonResult<Boolean> deleteTransfer(@RequestParam("id") Long id) {
-        transferService.deleteTransfer(id);
-        return success(true);
+        throw manualOperationForbidden();
     }
 
     @GetMapping("/get")
@@ -94,8 +94,7 @@ public class MesWmTransferController {
     @Parameter(name = "id", description = "编号", required = true)
     @PreAuthorize("@ss.hasPermission('mes:wm-transfer:update')")
     public CommonResult<Boolean> submitTransfer(@RequestParam("id") Long id) {
-        transferService.submitTransfer(id);
-        return success(true);
+        throw manualOperationForbidden();
     }
 
     @PutMapping("/confirm")
@@ -103,8 +102,7 @@ public class MesWmTransferController {
     @Parameter(name = "id", description = "编号", required = true)
     @PreAuthorize("@ss.hasPermission('mes:wm-transfer:update')")
     public CommonResult<Boolean> confirmTransfer(@RequestParam("id") Long id) {
-        transferService.confirmTransfer(id);
-        return success(true);
+        throw manualOperationForbidden();
     }
 
     @PutMapping("/stock")
@@ -112,8 +110,7 @@ public class MesWmTransferController {
     @Parameter(name = "id", description = "编号", required = true)
     @PreAuthorize("@ss.hasPermission('mes:wm-transfer:update')")
     public CommonResult<Boolean> stockTransfer(@RequestParam("id") Long id) {
-        transferService.stockTransfer(id);
-        return success(true);
+        throw manualOperationForbidden();
     }
 
     @PutMapping("/finish")
@@ -121,8 +118,7 @@ public class MesWmTransferController {
     @Parameter(name = "id", description = "编号", required = true)
     @PreAuthorize("@ss.hasPermission('mes:wm-transfer:finish')")
     public CommonResult<Boolean> finishTransfer(@RequestParam("id") Long id) {
-        transferService.finishTransfer(id);
-        return success(true);
+        throw manualOperationForbidden();
     }
 
     @PutMapping("/cancel")
@@ -130,8 +126,11 @@ public class MesWmTransferController {
     @Parameter(name = "id", description = "编号", required = true)
     @PreAuthorize("@ss.hasPermission('mes:wm-transfer:update')")
     public CommonResult<Boolean> cancelTransfer(@RequestParam("id") Long id) {
-        transferService.cancelTransfer(id);
-        return success(true);
+        throw manualOperationForbidden();
+    }
+
+    private RuntimeException manualOperationForbidden() {
+        return exception(WM_TRANSFER_MANUAL_OPERATION_FORBIDDEN);
     }
 
 }

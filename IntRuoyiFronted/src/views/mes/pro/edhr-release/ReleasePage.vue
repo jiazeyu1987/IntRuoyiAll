@@ -93,9 +93,18 @@
               <div class="edhr-release-page__muted">批准：{{ formatDateTime(row.approvedAt) }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="追溯" width="160" fixed="right">
+          <el-table-column label="追溯" width="220" fixed="right">
             <template #default="{ row }">
               <div class="edhr-release-page__actions">
+                <el-button
+                  v-hasPermi="['mes:pro-edhr-nonconformance-review:create']"
+                  link
+                  type="danger"
+                  :disabled="!row.batchExecutionId"
+                  @click="openNonconformanceReviewEntry(row)"
+                >
+                  不合格审查
+                </el-button>
                 <el-button link type="primary" :disabled="!row.releaseTransactionId" @click="openCheckItems(row)">
                   检查项
                 </el-button>
@@ -224,7 +233,7 @@ import {
   type EdhrReleaseRowVO,
   type EdhrReleaseStatus
 } from '@/api/mes/pro/edhr/release'
-import { formatDate } from '@/utils/formatTime'
+import { SOURCE_TYPE_PQC_RELEASE } from '@/api/mes/pro/edhr/nonconformanceReview'
 import {
   resolveReleaseCheckCategoryLabel,
   resolveReleaseCheckCodeLabel,
@@ -235,10 +244,12 @@ import {
   resolveReleaseStatusLabel,
   resolveReleaseTagType
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProEdhrReleasePage' })
 
 const message = useMessage()
+const router = useRouter()
 
 const loading = ref(false)
 const checkItemLoading = ref(false)
@@ -268,7 +279,7 @@ const queryParams = reactive({
 const checkItemQuery = reactive<EdhrReleaseCheckItemPageReqVO>({
   pageNo: 1,
   pageSize: 10,
-  releaseTransactionId: 0,
+  releaseTransactionId: '',
   itemStatus: 'OPEN' as const,
   checkResult: ''
 })
@@ -276,7 +287,7 @@ const checkItemQuery = reactive<EdhrReleaseCheckItemPageReqVO>({
 const eventQuery = reactive<EdhrReleaseEventPageReqVO>({
   pageNo: 1,
   pageSize: 10,
-  releaseTransactionId: 0,
+  releaseTransactionId: '',
   eventType: ''
 })
 
@@ -345,6 +356,21 @@ const openCheckItems = async (row: EdhrReleaseRowVO) => {
   await getCheckItems()
 }
 
+const openNonconformanceReviewEntry = (row: EdhrReleaseRowVO) => {
+  if (!row.batchExecutionId) {
+    actionError.value = '缺少批次执行ID，无法发起不合格审查。'
+    return
+  }
+  router.push({
+    name: 'MesProFeedbackEdhrNonconformanceReview',
+    query: {
+      sourceType: SOURCE_TYPE_PQC_RELEASE,
+      sourceId: row.releaseTransactionId ? String(row.releaseTransactionId) : undefined,
+      batchExecutionId: String(row.batchExecutionId)
+    }
+  })
+}
+
 const getCheckItems = async () => {
   if (!checkItemQuery.releaseTransactionId) {
     checkItems.value = []
@@ -402,14 +428,7 @@ const loadEventList = async () => {
 }
 
 const formatDateTime = (value?: string | number) => {
-  if (!value) {
-    return '--'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return '时间格式异常'
-  }
-  return formatDate(date, 'YYYY-MM-DD HH:mm')
+  return formatEdhrDateTime(value)
 }
 
 onMounted(() => {

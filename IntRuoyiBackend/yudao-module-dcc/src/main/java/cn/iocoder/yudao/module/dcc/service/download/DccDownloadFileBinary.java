@@ -6,9 +6,6 @@ public record DccDownloadFileBinary(
         byte[] bytes,
         String downloadRequestId,
         String accessEventCode,
-        String encryptionPolicyVersion,
-        String artifactId,
-        String plainSha256,
-        String cipherSha256
+        String plainSha256
 ) {
 }

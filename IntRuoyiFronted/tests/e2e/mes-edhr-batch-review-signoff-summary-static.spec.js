@@ -14,11 +14,11 @@ assert(railStart >= 0 && railEnd > railStart, '页面必须保留右侧一级操
 const railSource = pageSource.slice(railStart, railEnd)
 const topPreviewSource = pageSource.slice(0, railStart)
 
-assert(pageSource.includes('primaryFormFillMetaItems'), '页面必须聚合填写元信息')
-assert(railSource.includes('primaryFormFillMetaItems'), '填写元信息必须放在右侧黄框一级区域')
+assert(!pageSource.includes('primaryFormFillMetaItems'), 'Page must not aggregate right red-box fill metadata')
+assert(!railSource.includes('primaryFormFillMetaItems'), 'Right rail must not keep red-box fill metadata')
 assert(
   !topPreviewSource.includes('class="edhr-batch-detail__primary-fill-meta"'),
-  '顶部红框位置不得继续展示填写元信息'
+  'Top preview must not render fill metadata'
 )
 assert(pageSource.includes("['FIELD_CHANGE', 'SUBMIT']"), '填写必须聚合 FIELD_CHANGE + SUBMIT')
 assert(
@@ -26,8 +26,8 @@ assert(
   '签核时间必须优先使用 signatureDisplayAt、selectedSignedAt，再使用 signedAt'
 )
 assert(
-  pageSource.includes('resolvePrimaryFormFillersText') && pageSource.includes('resolvePrimaryFormSubmitTimesText'),
-  '右侧一级区域必须分别展示所有填写人和表单提交时间'
+  !pageSource.includes('resolvePrimaryFormFillersText') && !pageSource.includes('resolvePrimaryFormSubmitTimesText'),
+  'Independent filler and submitted-at metadata calculators must not remain'
 )
 assert(
   !pageSource.includes('<el-popover'),

@@ -1,0 +1,32 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8081",
+  "route": "/mes/pro/schedule-order",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "admittedWorkOrderCode": "RRM-20260801-PP-MO-001",
+  "initialRequest": {
+    "admissionStatus": "READY_TO_ADMIT",
+    "total": 84
+  },
+  "hiddenRequest": {
+    "admissionStatus": "READY_TO_ADMIT",
+    "workOrderCode": "RRM-20260801-PP-MO-001",
+    "total": 0
+  },
+  "shownRequest": {
+    "admissionStatus": null,
+    "workOrderCode": "RRM-20260801-PP-MO-001",
+    "total": 1
+  },
+  "hiddenAgainRequest": {
+    "admissionStatus": "READY_TO_ADMIT",
+    "workOrderCode": "RRM-20260801-PP-MO-001",
+    "total": 0
+  },
+  "visibleAfterHide": 0,
+  "targetWriteCount": 0,
+  "targetBadResponseCount": 0,
+  "pageErrorCount": 0,
+  "consoleErrorCount": 0
+}

@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.schedule;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoScheduleApplyRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoScheduleReplanPreviewRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoScheduleReplanReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoScheduleSummaryRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
@@ -39,6 +40,12 @@ public class MesProNightlyReplanServiceImpl implements MesProNightlyReplanServic
         reqVO.setPreserveManualLockedTasks(Boolean.TRUE);
         reqVO.setReason("夜间自动重排");
 
+        MesProAutoScheduleReplanPreviewRespVO previewRespVO = autoScheduleService.replanPreview(reqVO);
+        if (previewRespVO == null || previewRespVO.getCalendarContextToken() == null
+                || previewRespVO.getCalendarContextToken().isBlank()) {
+            throw new IllegalStateException("夜间自动重排预览缺少日历上下文令牌");
+        }
+        reqVO.setCalendarContextToken(previewRespVO.getCalendarContextToken());
         MesProAutoScheduleApplyRespVO applyRespVO = autoScheduleService.replanApplyForNightly(reqVO);
         MesProAutoScheduleSummaryRespVO summary = applyRespVO.getSummary();
         if (summary != null) {

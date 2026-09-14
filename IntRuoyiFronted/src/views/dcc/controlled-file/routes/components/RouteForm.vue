@@ -37,7 +37,12 @@
         <el-input v-model="formData.remark" type="textarea" :rows="2" placeholder="请输入路线说明" />
       </el-form-item>
       <div class="mb-12px flex items-center justify-between">
-        <div class="text-13px font-600">审批节点</div>
+        <div>
+          <div class="text-13px font-600">审批节点</div>
+          <div class="mt-2px text-12px text-gray-500">
+            固定四阶段审批策略：会签审核全部通过 100%，其余阶段任意通过，四个阶段均为必经。
+          </div>
+        </div>
         <el-button type="primary" plain @click="addNode">
           <Icon icon="ep:plus" class="mr-5px" />
           新增节点
@@ -100,32 +105,21 @@
             </el-select>
           </template>
         </el-table-column>
-        <el-table-column label="审批方式" width="140">
+        <el-table-column label="审批方式" width="150">
           <template #default="{ row }">
-            <el-select v-model="row.approveMethod" class="w-full" @change="handleApproveMethodChange(row)">
-              <el-option
-                v-for="item in ROUTE_APPROVE_METHOD_OPTIONS"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
+            <el-tag effect="plain">{{ getFixedRouteApprovalPolicy(row.stageNo)?.label || '不支持的固定阶段' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="通过比例" width="110">
           <template #default="{ row }">
-            <el-input-number
-              v-model="row.approveRatio"
-              :min="0"
-              :max="100"
-              :disabled="row.approveMethod !== 'ALL'"
-              class="w-full"
-            />
+            {{ getFixedRouteApprovalPolicy(row.stageNo)?.ratioLabel || '-' }}
           </template>
         </el-table-column>
         <el-table-column label="必经" align="center" width="80">
           <template #default="{ row }">
-            <el-switch v-model="row.required" />
+            <el-tag type="success" effect="plain">
+              {{ getFixedRouteApprovalPolicy(row.stageNo)?.requiredLabel || '固定必经' }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="排序" width="90">
@@ -152,18 +146,71 @@ import type { FormRules } from 'element-plus'
 import {
   saveApprovalRoute,
   type ControlledFileApprovalRouteNodeVO,
+  type ControlledFileApprovalRouteSaveReqVO,
   type ControlledFileApprovalRouteVO
 } from '@/api/dcc/controlledFile/approvalRoutes'
 import type { ControlledFileApprovalPositionVO } from '@/api/dcc/controlledFile/approvalPositions'
 import type { ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
 import type { UserVO } from '@/api/system/user'
 import {
-  ROUTE_APPROVE_METHOD_OPTIONS,
   ROUTE_CANDIDATE_SOURCE_OPTIONS
 } from '../../shared/options'
 import { formatDccSimpleUserLabel } from '../../shared/utils'
+import { formatDateTimeValue } from '@/utils/formatTime'
 
 defineOptions({ name: 'DccControlledFileRouteForm' })
+
+type ControlledFileApprovalRouteFormVO = Omit<ControlledFileApprovalRouteVO, 'effectiveTime'> & {
+  effectiveTime: string
+}
+
+type FixedRouteApprovalPolicy = {
+  approveMethod: 'ANY' | 'ALL'
+  approveRatio?: number | null
+  required: boolean
+  label: string
+  ratioLabel: string
+  requiredLabel: string
+}
+
+const FIXED_ROUTE_APPROVAL_POLICY: Record<number, FixedRouteApprovalPolicy> = {
+  1: {
+    approveMethod: 'ANY',
+    approveRatio: null,
+    required: true,
+    label: '任意通过',
+    ratioLabel: '-',
+    requiredLabel: '必经'
+  },
+  2: {
+    approveMethod: 'ALL',
+    approveRatio: 100,
+    required: true,
+    label: '全部通过',
+    ratioLabel: '100%',
+    requiredLabel: '必经'
+  },
+  3: {
+    approveMethod: 'ANY',
+    approveRatio: null,
+    required: true,
+    label: '任意通过',
+    ratioLabel: '-',
+    requiredLabel: '必经'
+  },
+  4: {
+    approveMethod: 'ANY',
+    approveRatio: null,
+    required: true,
+    label: '任意通过',
+    ratioLabel: '-',
+    requiredLabel: '必经'
+  }
+}
+
+const getFixedRouteApprovalPolicy = (stageNo?: number) =>
+  stageNo == null ? undefined : FIXED_ROUTE_APPROVAL_POLICY[stageNo]
+const EXPECTED_FIXED_ROUTE_STAGE_NOS = [1, 2, 3, 4]
 
 const { t } = useI18n()
 const message = useMessage()
@@ -175,7 +222,7 @@ const categories = ref<Array<ControlledFileCategoryVO & { id: number }>>([])
 const editingRoute = ref(false)
 const users = ref<UserVO[]>([])
 const positions = ref<ControlledFileApprovalPositionVO[]>([])
-const formData = ref<ControlledFileApprovalRouteVO>({
+const formData = ref<ControlledFileApprovalRouteFormVO>({
   categoryId: undefined,
   effectiveTime: '',
   remark: '',
@@ -197,9 +244,9 @@ const createDefaultNode = (index: number): ControlledFileApprovalRouteNodeVO => 
   candidateSourceType: 'POSITION',
   candidateSourceId: 0,
   candidateSourceIds: [],
-  approveMethod: 'ANY',
-  approveRatio: undefined,
-  required: true,
+  approveMethod: getFixedRouteApprovalPolicy(index + 1)?.approveMethod || 'ANY',
+  approveRatio: getFixedRouteApprovalPolicy(index + 1)?.approveRatio ?? undefined,
+  required: getFixedRouteApprovalPolicy(index + 1)?.required ?? true,
   sort: index + 1
 })
 
@@ -231,6 +278,7 @@ const open = (payload: {
     formData.value = {
       ...JSON.parse(JSON.stringify(payload.route)),
       categoryId: routeCategory?.id ?? payload.route.categoryId,
+      effectiveTime: formatDateTimeValue(payload.route.effectiveTime, ''),
       nodes: payload.route.nodes.map((item) => ({
         ...JSON.parse(JSON.stringify(item)),
         candidateSourceIds: item.candidateSourceIds ?? (item.candidateSourceId ? [item.candidateSourceId] : [])
@@ -272,8 +320,38 @@ const handleSourceTypeChange = (row: ControlledFileApprovalRouteNodeVO) => {
   row.candidateSourceIds = []
 }
 
-const handleApproveMethodChange = (row: ControlledFileApprovalRouteNodeVO) => {
-  row.approveRatio = row.approveMethod === 'ALL' ? 100 : undefined
+const normalizeRouteNodeFixedApprovalPolicy = (item: ControlledFileApprovalRouteNodeVO) => {
+  const fixedPolicy = getFixedRouteApprovalPolicy(item.stageNo)
+  if (!fixedPolicy || !item.candidateSourceId) {
+    return undefined
+  }
+  return {
+    stageNo: item.stageNo,
+    stageName: item.stageName,
+    candidateSourceType: item.candidateSourceType,
+    candidateSourceId: item.candidateSourceId as number,
+    approveMethod: fixedPolicy.approveMethod,
+    approveRatio: fixedPolicy.approveRatio ?? undefined,
+    required: fixedPolicy.required,
+    sort: item.sort
+  }
+}
+
+const validateFixedRouteStageUniqueness = (nodes: ControlledFileApprovalRouteSaveReqVO['nodes']) => {
+  const expectedStageNos = new Set<number>(EXPECTED_FIXED_ROUTE_STAGE_NOS)
+  const seenStageNos = new Set<number>()
+  if (nodes.length !== expectedStageNos.size) {
+    message.warning('固定四阶段审批路线要求每个阶段恰好一条')
+    return false
+  }
+  for (const node of nodes) {
+    if (!expectedStageNos.has(node.stageNo) || seenStageNos.has(node.stageNo)) {
+      message.warning('固定四阶段审批路线要求每个阶段恰好一条')
+      return false
+    }
+    seenStageNos.add(node.stageNo)
+  }
+  return true
 }
 
 const submitForm = async () => {
@@ -301,21 +379,28 @@ const submitForm = async () => {
     message.warning('请完善审批节点后再保存')
     return
   }
+  const fixedNodes: ControlledFileApprovalRouteSaveReqVO['nodes'] = []
+  for (const item of formData.value.nodes) {
+    const fixedNode = normalizeRouteNodeFixedApprovalPolicy(item)
+    if (!fixedNode) {
+      message.warning('审批路线仅支持固定四阶段审批策略')
+      return
+    }
+    fixedNodes.push(fixedNode)
+  }
+  if (fixedNodes.length !== formData.value.nodes.length) {
+    message.warning('审批路线仅支持固定四阶段审批策略')
+    return
+  }
+  if (!validateFixedRouteStageUniqueness(fixedNodes)) {
+    return
+  }
   formLoading.value = true
   try {
     await saveApprovalRoute(formData.value.categoryId, {
       effectiveTime: formData.value.effectiveTime,
       remark: formData.value.remark,
-      nodes: formData.value.nodes.map((item) => ({
-        stageNo: item.stageNo,
-        stageName: item.stageName,
-        candidateSourceType: item.candidateSourceType,
-        candidateSourceId: item.candidateSourceId as number,
-        approveMethod: item.approveMethod,
-        approveRatio: item.approveRatio ?? undefined,
-        required: item.required,
-        sort: item.sort
-      }))
+      nodes: fixedNodes
     })
     message.success(t('common.updateSuccess'))
     dialogVisible.value = false

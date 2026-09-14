@@ -22,6 +22,7 @@ public class MesProBatchRecordDomainTraceDetailRespVO {
     private String attachmentChainStatus;
     private String attachmentChainHeadHash;
     private List<AttachmentSummary> attachmentSummaries;
+    private List<NonconformanceReviewTrace> nonconformanceReviews;
     private List<Blocker> blockers;
     private List<Item> items;
 
@@ -81,5 +82,31 @@ public class MesProBatchRecordDomainTraceDetailRespVO {
         private LocalDateTime operatedAt;
         private String reasonCategory;
         private String reasonText;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class NonconformanceReviewTrace {
+
+        private Long id;
+        private String reviewCode;
+        private String sourceType;
+        private Long sourceId;
+        private Long batchExecutionId;
+        private String batchExecutionCode;
+        private String workOrderCode;
+        private String batchCode;
+        private String reviewStatus;
+        private String nonconformanceReason;
+        private String reviewMaterialUrl;
+        private String reviewOpinion;
+        private String qaSignature;
+        private Long qaUserId;
+        private String disposition;
+        private LocalDateTime frozenAt;
+        private LocalDateTime closedAt;
+        private LocalDateTime unfrozenAt;
+        private LocalDateTime voidedAt;
+        private String traceSnapshotJson;
     }
 }

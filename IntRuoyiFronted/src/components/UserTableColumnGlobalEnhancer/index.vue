@@ -290,7 +290,7 @@ const attachTableObserver = (table: EnhancedTable) => {
     })
     applyTableState(table)
   })
-  table.observer.observe(table.tableEl, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] })
+  table.observer.observe(table.tableEl, { childList: true, subtree: true })
 }
 
 const isHeaderResizeGesture = (target: EventTarget | null) => {

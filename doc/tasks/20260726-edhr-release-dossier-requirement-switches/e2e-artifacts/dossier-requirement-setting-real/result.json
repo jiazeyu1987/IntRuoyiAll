@@ -1,0 +1,72 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "identity": "芋道源码/admin",
+  "steps": [
+    {
+      "step": "profile-config-visible",
+      "status": "PASS"
+    },
+    {
+      "step": "toggle-incoming-inspection-report",
+      "status": "PASS",
+      "toggleStep": {
+        "field": "incomingInspectionReportRequired",
+        "label": "来料检报告",
+        "changed": true,
+        "value": true,
+        "requestPayload": {
+          "incomingInspectionReportRequired": true,
+          "sterilizationReportRequired": false,
+          "finishedProductInspectionReportRequired": false,
+          "finishedProductInspectionRecordRequired": false
+        },
+        "responseHash": "68b914ccdc54f2520fa9d822c5a9527bc9d0bbc20ed2b3aed6d7cdd29e9845cf"
+      }
+    },
+    {
+      "step": "api-verify-changed-state",
+      "status": "PASS"
+    }
+  ],
+  "originalSetting": {
+    "incomingInspectionReportRequired": false,
+    "sterilizationReportRequired": false,
+    "finishedProductInspectionReportRequired": false,
+    "finishedProductInspectionRecordRequired": false
+  },
+  "originalHash": "e43c17ab3f5c6bafccfd28cb634968663d14b047ea19bf9c50316271d4b3f268",
+  "changedSetting": {
+    "incomingInspectionReportRequired": true,
+    "sterilizationReportRequired": false,
+    "finishedProductInspectionReportRequired": false,
+    "finishedProductInspectionRecordRequired": false
+  },
+  "changedHash": "68b914ccdc54f2520fa9d822c5a9527bc9d0bbc20ed2b3aed6d7cdd29e9845cf",
+  "restore": {
+    "method": "UI",
+    "steps": [
+      {
+        "field": "incomingInspectionReportRequired",
+        "label": "来料检报告",
+        "changed": true,
+        "value": false,
+        "requestPayload": {
+          "incomingInspectionReportRequired": false,
+          "sterilizationReportRequired": false,
+          "finishedProductInspectionReportRequired": false,
+          "finishedProductInspectionRecordRequired": false
+        },
+        "responseHash": "e43c17ab3f5c6bafccfd28cb634968663d14b047ea19bf9c50316271d4b3f268"
+      }
+    ],
+    "restored": {
+      "incomingInspectionReportRequired": false,
+      "sterilizationReportRequired": false,
+      "finishedProductInspectionReportRequired": false,
+      "finishedProductInspectionRecordRequired": false
+    },
+    "restoredHash": "e43c17ab3f5c6bafccfd28cb634968663d14b047ea19bf9c50316271d4b3f268"
+  }
+}

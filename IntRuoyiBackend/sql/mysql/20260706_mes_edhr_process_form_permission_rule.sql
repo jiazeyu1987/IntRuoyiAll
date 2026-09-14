@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS `mes_pro_edhr_process_form_permission_rule` (
   `batch_record_definition_id` bigint DEFAULT NULL COMMENT '批记录定义ID',
   `batch_record_version_id` bigint DEFAULT NULL COMMENT '批记录版本ID',
   `rule_type` varchar(32) NOT NULL COMMENT '规则类型：FILL/SIGNATURE',
+  `scope_key` varchar(64) NOT NULL DEFAULT 'ALL' COMMENT '责任范围标识，ALL 或辅助行 rowKey',
   `signature_cell_key` varchar(128) NOT NULL DEFAULT '' COMMENT '签名单元格 Key，填写规则为空',
   `signature_role` varchar(32) DEFAULT NULL COMMENT '签名角色：APPROVAL/APPROVE/REVIEW',
   `candidate_source_type` varchar(32) NOT NULL COMMENT '候选来源类型：USER/USERS/ROLE/DEPT/DEPT_LEADER',
@@ -15,6 +16,7 @@ CREATE TABLE IF NOT EXISTS `mes_pro_edhr_process_form_permission_rule` (
   `completion_policy` varchar(32) NOT NULL COMMENT '完成策略：ANY_ONE/ALL',
   `due_minutes` int NOT NULL COMMENT '处理时限，单位分钟',
   `enabled` bit(1) NOT NULL DEFAULT b'1' COMMENT '是否启用',
+  `fillable_scope_json` json DEFAULT NULL COMMENT '精确可填写范围 JSON',
   `remark` varchar(500) DEFAULT NULL COMMENT '备注',
   `creator` varchar(64) DEFAULT '' COMMENT '创建者',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -23,7 +25,7 @@ CREATE TABLE IF NOT EXISTS `mes_pro_edhr_process_form_permission_rule` (
   `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
   `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_mes_pro_edhr_process_form_rule` (`tenant_id`, `route_process_id`, `batch_record_report_id`, `batch_record_version_id`, `rule_type`, `signature_cell_key`, `deleted`),
+  UNIQUE KEY `uk_mes_pro_edhr_process_form_rule` (`tenant_id`, `route_process_id`, `batch_record_report_id`, `batch_record_version_id`, `rule_type`, `scope_key`, `signature_cell_key`, `deleted`),
   KEY `idx_mes_pro_edhr_process_form_rule_route_report` (`tenant_id`, `route_process_id`, `batch_record_report_id`, `batch_record_version_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='eDHR 工序表单权限规则';
 

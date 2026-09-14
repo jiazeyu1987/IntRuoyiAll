@@ -79,6 +79,11 @@ assert.match(
 )
 assert.match(badgeStore, /throw error/, 'badge store must rethrow load failures instead of swallowing them')
 assert.doesNotMatch(badgeStore, /mock|fallback|降级|吞异常/i, 'badge store must not use mock or fallback counts')
+assert.match(
+  badgeStore,
+  /getHasVisibleTodoBadge:\s*\(state\)\s*=>\s*state\.loaded\s*&&\s*state\.todoTotal\s*>\s*0/,
+  'badge store must expose a positive-count visibility getter so zero does not render'
+)
 
 for (const [source, label] of [
   [menuTitle, 'left menu title renderer'],

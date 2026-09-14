@@ -6,7 +6,7 @@ const repoRoot = path.resolve(__dirname, '..', '..')
 const source = fs.readFileSync(path.join(repoRoot, 'src/views/bpm/model/index.vue'), 'utf8')
 
 const viewDialogMatch = source.match(
-  /<Dialog\s+title="流程审批路线"[\s\S]*?<\/Dialog>\s*<Dialog\s+title="表单详情"/
+  /<Dialog\s+:title="modelApprovalRouteDialogTitle"\s+v-model="viewDetailVisible"[\s\S]*?<\/Dialog>\s*<Dialog\s+title="表单详情"/
 )
 
 assert.ok(viewDialogMatch, 'BPM model page must keep the read-only model view dialog')
@@ -132,7 +132,25 @@ assert.match(
 assert.match(
   source,
   /审批对象：\$\{text\}/,
-  'approval route participant entries must label approval objects for human readability'
+  'approval route participant entries must label non-role approval objects for human readability'
+)
+
+assert.match(
+  source,
+  /const\s+isApprovalRoleRuleText\s*=/,
+  'approval route must identify role candidate text before wrapping participant labels'
+)
+
+assert.match(
+  source,
+  /if\s*\(isApprovalRoleRuleText\(text\)\)\s*return\s*`节点：\$\{name\}\\n\$\{text\}`/,
+  'role candidate entries must display as 审批角色：角色名 instead of 审批对象：审批角色：角色名'
+)
+
+assert.match(
+  source,
+  /const\s+approvalParticipantLine\s*=[\s\S]*?startsWith\('审批角色：'\)[\s\S]*?startsWith\('审批对象：'\)/,
+  'approval route participant wrapper must preserve role candidate lines and non-role approval-object lines'
 )
 
 assert.match(
@@ -163,6 +181,42 @@ assert.match(
   source,
   /const\s+resolveApprovalRoleName\s*=/,
   'approval route must have a dedicated role-name resolver'
+)
+
+assert.match(
+  source,
+  /const\s+REGISTRATION_CERTIFICATE_APPROVAL_PROCESS_KEY\s*=\s*'dcc-registration-certificate-access'/,
+  'registration certificate approval route display must be keyed by the stable process key'
+)
+
+assert.match(
+  source,
+  /const\s+REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE\s*=\s*'dcc_registration_certificate_approver'/,
+  'registration certificate approval route display must use the formal registration manager role code'
+)
+
+assert.match(
+  source,
+  /const\s+resolveApprovalRoleNameByCode\s*=/,
+  'approval route must resolve business-owned approver role names by formal role code'
+)
+
+assert.match(
+  source,
+  /未识别角色（编码：/,
+  'unmatched business role codes must be explicit instead of hiding the missing role'
+)
+
+assert.match(
+  source,
+  /const\s+resolveBusinessApprovalRouteParticipants\s*=/,
+  'approval route must expose business-owned participant summaries when a flow has business-side assignee resolution'
+)
+
+assert.match(
+  source,
+  /审批角色：\$\{roleNames\}/,
+  'registration certificate route must display the resolved registration manager as an approval role'
 )
 
 assert.match(
@@ -213,8 +267,20 @@ assert.match(
 
 assert.match(
   source,
+  /const\s+businessParticipants\s*=\s*resolveBusinessApprovalRouteParticipants\(model\)/,
+  'participant summary must apply business-owned approval route participants before falling back to raw BPMN strategy text'
+)
+
+assert.match(
+  source,
   /const\s+modelApprovalRouteSteps\s*=\s*computed\(/,
   'view dialog must derive vertical approval route steps from participant summary'
+)
+
+assert.match(
+  source,
+  /isRegistrationCertificateApprovalModel\(selectedModel\.value\)[\s\S]*?filter\(\(step\)\s*=>\s*step\.key\s*===\s*'starter'\s*\|\|\s*!isUnconfiguredApprovalRouteStep\(step\)\)/,
+  'single-node registration certificate route must hide empty generic audit or approval buckets'
 )
 
 assert.match(

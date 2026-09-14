@@ -24,6 +24,10 @@ public interface MesMdWorkstationWorkerMapper extends BaseMapperX<MesMdWorkstati
         return selectList(MesMdWorkstationWorkerDO::getWorkstationId, workstationIds);
     }
 
+    default List<MesMdWorkstationWorkerDO> selectListByPostIds(Collection<Long> postIds) {
+        return selectList(MesMdWorkstationWorkerDO::getPostId, postIds);
+    }
+
     default MesMdWorkstationWorkerDO selectByWorkstationIdAndPostId(Long workstationId, Long postId) {
         return selectOne(new LambdaQueryWrapper<MesMdWorkstationWorkerDO>()
                 .eq(MesMdWorkstationWorkerDO::getWorkstationId, workstationId)

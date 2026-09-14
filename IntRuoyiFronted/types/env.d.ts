@@ -15,8 +15,6 @@ interface ImportMetaEnv {
   readonly VITE_APP_CAPTCHA_ENABLE: string
   readonly VITE_APP_TENANT_ENABLE: string
   readonly VITE_APP_DEFAULT_LOGIN_TENANT: string
-  readonly VITE_APP_DEFAULT_LOGIN_USERNAME: string
-  readonly VITE_APP_DEFAULT_LOGIN_PASSWORD: string
   readonly VITE_APP_DOCALERT_ENABLE: string
   readonly VITE_BASE_URL: string
   readonly VITE_API_URL: string
@@ -26,6 +24,8 @@ interface ImportMetaEnv {
   readonly VITE_SOURCEMAP: string
   readonly VITE_OUT_DIR: string
   readonly VITE_GOVIEW_URL: string
+  readonly VITE_INVOICE_VOUCHER_PRINT_ASSISTANT_URL: string
+  readonly VITE_FENBEITONG_ASSISTANT_URL: string
   // API 加解密相关配置
   readonly VITE_APP_API_ENCRYPT_ENABLE: string
   readonly VITE_APP_API_ENCRYPT_HEADER: string

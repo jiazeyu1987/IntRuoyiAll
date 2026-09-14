@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.pojo.QuickFilter;
 import cn.iocoder.yudao.framework.common.validation.InEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderCompletionFilterEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
@@ -33,11 +34,23 @@ public class MesProScheduleOrderPageReqVO extends PageParam {
     @Schema(description = "产品编号", example = "200")
     private Long productId;
 
+    @Schema(description = "物料编码", example = "A05075")
+    private String productCode;
+
+    @Schema(description = "物料名称", example = "压力泵")
+    private String productName;
+
     @Schema(description = "当前工序编号", example = "300")
     private Long currentProcessId;
 
+    @Schema(description = "当前工序关键词", example = "粗洗")
+    private String currentProcessKeyword;
+
     @Schema(description = "状态", example = "0")
     private Integer status;
+
+    @Schema(description = "是否已撤出排产体系；不传时只查询未撤出工单", example = "false")
+    private Boolean removedFromSchedule;
 
     @Schema(description = "完成筛选", example = "INCOMPLETE")
     @InEnum(value = MesProScheduleOrderCompletionFilterEnum.class, message = "完成筛选必须是 {value}")
@@ -52,6 +65,14 @@ public class MesProScheduleOrderPageReqVO extends PageParam {
 
     @Schema(description = "导出列")
     private List<String> exportColumns;
+
+    @Schema(description = "排序字段", example = "priorityNo")
+    @Pattern(regexp = "priorityNo", message = "排序字段必须是 priorityNo")
+    private String sortField;
+
+    @Schema(description = "排序方向", example = "asc")
+    @Pattern(regexp = "asc|desc", message = "排序方向必须是 asc 或 desc")
+    private String sortOrder;
 
     @Schema(description = "快速过滤")
     private QuickFilter quickFilter;

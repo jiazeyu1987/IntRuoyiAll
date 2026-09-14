@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import jakarta.annotation.Resource;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.security.MessageDigest;
@@ -23,6 +24,7 @@ import java.util.UUID;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_SESSION_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_TICKET_INVALID;
 
 @Service
@@ -31,6 +33,7 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
     public static final String STATUS_AVAILABLE = "AVAILABLE";
     public static final String STATUS_BOUND = "BOUND";
     public static final String CLEANUP_ACTIVE = "ACTIVE";
+    public static final String CLEANUP_CLEANING = "CLEANING";
     public static final String CLEANUP_BOUND = "BOUND";
     public static final String CLEANUP_CLEANED = "CLEANED";
     public static final String CLEANUP_REASON_EXPIRED_UNBOUND = "EXPIRED_UNBOUND";
@@ -51,24 +54,54 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
         validateCreateCommand(command);
         String purpose = normalizePurpose(command.purpose());
         String sessionId = normalizeSession(command.sessionId());
+        String contentSha256 = sha256Hex(command.content());
+        DccUploadTicketCreated existing = resolveReusableActiveTicket(command.userId(), command.categoryId(), sessionId, purpose,
+                contentSha256);
+        if (existing != null) {
+            return existing;
+        }
         String uploadTicket = newTicket();
         LocalDateTime expireTime = LocalDateTime.now().plusMinutes(TICKET_TTL_MINUTES);
-        temporaryFileMapper.insert(DccControlledFileTemporaryFileDO.builder()
-                .uploadTicket(uploadTicket)
-                .sessionId(sessionId)
-                .purpose(purpose)
-                .uploaderId(command.userId())
-                .originalFileName(StrUtil.trim(command.originalFileName()))
-                .contentType(StrUtil.trimToNull(command.contentType()))
-                .fileSize(command.fileSize())
-                .fileSha256(sha256Hex(command.content()))
-                .storageFileId(command.storageFileId())
-                .status(STATUS_AVAILABLE)
-                .expireTime(expireTime)
-                .cleanupStatus(CLEANUP_ACTIVE)
-                .requestId(StrUtil.trimToNull(command.requestId()))
-                .build());
-        return new DccUploadTicketCreated(uploadTicket, sessionId, purpose, STATUS_AVAILABLE, expireTime);
+        try {
+            temporaryFileMapper.insert(DccControlledFileTemporaryFileDO.builder()
+                    .uploadTicket(uploadTicket)
+                    .sessionId(sessionId)
+                    .purpose(purpose)
+                    .categoryId(command.categoryId())
+                    .uploaderId(command.userId())
+                    .originalFileName(StrUtil.trim(command.originalFileName()))
+                    .contentType(StrUtil.trimToNull(command.contentType()))
+                    .fileSize(command.fileSize())
+                    .fileSha256(contentSha256)
+                    .storageFileId(command.storageFileId())
+                    .status(STATUS_AVAILABLE)
+                    .expireTime(expireTime)
+                    .cleanupStatus(CLEANUP_ACTIVE)
+                    .requestId(StrUtil.trimToNull(command.requestId()))
+                    .build());
+        } catch (DuplicateKeyException ex) {
+            DccUploadTicketCreated winner = resolveReusableActiveTicket(command.userId(), command.categoryId(), sessionId, purpose,
+                    contentSha256);
+            if (winner != null) {
+                return winner;
+            }
+            throw exception(CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT);
+        }
+        return new DccUploadTicketCreated(uploadTicket, sessionId, purpose, STATUS_AVAILABLE, expireTime,
+                command.storageFileId(), StrUtil.trim(command.originalFileName()), StrUtil.trimToNull(command.contentType()),
+                command.fileSize());
+    }
+
+    @Override
+    public DccUploadTicketCreated reuseActiveTicketOrReject(DccUploadTicketPreflightCommand command) {
+        requireTenantContext();
+        if (command == null || command.userId() == null || command.categoryId() == null || command.content() == null) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        String purpose = normalizePurpose(command.purpose());
+        String sessionId = normalizeSession(command.sessionId());
+        return resolveReusableActiveTicket(command.userId(), command.categoryId(), sessionId, purpose,
+                sha256Hex(command.content()));
     }
 
     @Override
@@ -87,13 +120,14 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
     public void markBound(DccUploadTicketMarkBoundCommand command) {
         requireTenantContext();
         DccControlledFileTemporaryFileDO temporaryFile = requireBindableTemporaryFile(new DccUploadTicketResolveCommand(
-                command.uploadTicket(), command.userId(), command.sessionId(), command.purpose()));
+                command.uploadTicket(), command.userId(), command.categoryId(), command.sessionId(), command.purpose()));
         if (command.controlledFileId() == null) {
             throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
         }
         int updated = temporaryFileMapper.update(null, new UpdateWrapper<DccControlledFileTemporaryFileDO>()
                 .eq("id", temporaryFile.getId())
                 .eq("status", STATUS_AVAILABLE)
+                .eq("cleanup_status", CLEANUP_ACTIVE)
                 .isNull("bound_controlled_file_id")
                 .set("status", STATUS_BOUND)
                 .set("bound_controlled_file_id", command.controlledFileId())
@@ -116,7 +150,7 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
         List<DccControlledFileTemporaryFileDO> temporaryFiles = temporaryFileMapper.selectList(
                 new LambdaQueryWrapperX<DccControlledFileTemporaryFileDO>()
                         .eq(DccControlledFileTemporaryFileDO::getStatus, STATUS_AVAILABLE)
-                        .eq(DccControlledFileTemporaryFileDO::getCleanupStatus, CLEANUP_ACTIVE)
+                        .in(DccControlledFileTemporaryFileDO::getCleanupStatus, List.of(CLEANUP_ACTIVE, CLEANUP_CLEANING))
                         .isNull(DccControlledFileTemporaryFileDO::getBoundControlledFileId)
                         .isNotNull(DccControlledFileTemporaryFileDO::getStorageFileId)
                         .le(DccControlledFileTemporaryFileDO::getExpireTime, cleanupTime)
@@ -127,8 +161,9 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
             if (!isExpiredUnboundCleanupCandidate(temporaryFile, cleanupTime)) {
                 continue;
             }
-            cleanTemporaryFile(temporaryFile, cleanupTime, CLEANUP_REASON_EXPIRED_UNBOUND, true);
-            cleaned++;
+            if (cleanTemporaryFile(temporaryFile, cleanupTime, CLEANUP_REASON_EXPIRED_UNBOUND, true)) {
+                cleaned++;
+            }
         }
         return cleaned;
     }
@@ -148,7 +183,7 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
                         .eq(DccControlledFileTemporaryFileDO::getUploaderId, userId)
                         .eq(DccControlledFileTemporaryFileDO::getSessionId, normalizedSessionId)
                         .eq(DccControlledFileTemporaryFileDO::getStatus, STATUS_AVAILABLE)
-                        .eq(DccControlledFileTemporaryFileDO::getCleanupStatus, CLEANUP_ACTIVE)
+                        .in(DccControlledFileTemporaryFileDO::getCleanupStatus, List.of(CLEANUP_ACTIVE, CLEANUP_CLEANING))
                         .isNull(DccControlledFileTemporaryFileDO::getBoundControlledFileId)
                         .isNotNull(DccControlledFileTemporaryFileDO::getStorageFileId)
                         .orderByAsc(DccControlledFileTemporaryFileDO::getCreateTime));
@@ -157,10 +192,63 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
             if (!isSessionCleanupCandidate(temporaryFile, userId, normalizedSessionId)) {
                 continue;
             }
-            cleanTemporaryFile(temporaryFile, cleanupTime, normalizedReason, false);
-            cleaned++;
+            if (cleanTemporaryFile(temporaryFile, cleanupTime, normalizedReason, false)) {
+                cleaned++;
+            }
         }
         return cleaned;
+    }
+
+    @Override
+    public DccUploadTicketBoundFile resolveBoundFile(DccUploadTicketResolveCommand command, Long controlledFileId) {
+        requireTenantContext();
+        if (command == null || StrUtil.isBlank(command.uploadTicket()) || controlledFileId == null) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        DccControlledFileTemporaryFileDO bound = temporaryFileMapper.selectOne(
+                DccControlledFileTemporaryFileDO::getUploadTicket, StrUtil.trim(command.uploadTicket()));
+        if (bound == null || !Objects.equals(command.userId(), bound.getUploaderId())
+                || !Objects.equals(command.categoryId(), bound.getCategoryId())
+                || !StrUtil.equals(normalizeSession(command.sessionId()), bound.getSessionId())
+                || !StrUtil.equals(normalizePurpose(command.purpose()), bound.getPurpose())
+                || !STATUS_BOUND.equals(bound.getStatus()) || !CLEANUP_BOUND.equals(bound.getCleanupStatus())
+                || !Objects.equals(controlledFileId, bound.getBoundControlledFileId())
+                || bound.getStorageFileId() == null) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        FileDO storage = fileMapper.selectById(bound.getStorageFileId());
+        if (storage == null) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        return new DccUploadTicketBoundFile(bound.getUploadTicket(), bound.getStorageFileId(),
+                storage.getName(), storage.getType(), bound.getFileSize());
+    }
+
+    @Override
+    public int cleanupTemporaryFileByTicket(Long userId, String sessionId, String uploadTicket,
+                                            LocalDateTime cleanupTime, String cleanupReason) throws Exception {
+        requireTenantContext();
+        requirePositiveUser(userId);
+        String normalizedSessionId = normalizeSession(sessionId);
+        String normalizedTicket = StrUtil.trim(uploadTicket);
+        String normalizedReason = normalizeCleanupReason(cleanupReason);
+        if (StrUtil.isBlank(normalizedTicket)) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        if (cleanupTime == null) {
+            throw new IllegalArgumentException("DCC upload temporary cleanup time must not be null");
+        }
+        DccControlledFileTemporaryFileDO temporaryFile = temporaryFileMapper.selectOne(
+                DccControlledFileTemporaryFileDO::getUploadTicket, normalizedTicket);
+        if (temporaryFile == null
+                || !Objects.equals(userId, temporaryFile.getUploaderId())
+                || !StrUtil.equals(normalizedSessionId, temporaryFile.getSessionId())) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        if (!isSessionCleanupCandidate(temporaryFile, userId, normalizedSessionId)) {
+            return 0;
+        }
+        return cleanTemporaryFile(temporaryFile, cleanupTime, normalizedReason, false) ? 1 : 0;
     }
 
     @Override
@@ -188,25 +276,60 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
                 temporaryFile.getCleanupReason(), temporaryFile.getCleanupTime());
     }
 
-    private void cleanTemporaryFile(DccControlledFileTemporaryFileDO temporaryFile, LocalDateTime cleanupTime,
-                                    String cleanupReason, boolean requireExpired) throws Exception {
+    private boolean cleanTemporaryFile(DccControlledFileTemporaryFileDO temporaryFile, LocalDateTime cleanupTime,
+                                       String cleanupReason, boolean requireExpired) throws Exception {
+        if (CLEANUP_ACTIVE.equals(temporaryFile.getCleanupStatus())
+                && !claimTemporaryFileCleanup(temporaryFile, cleanupTime, cleanupReason, requireExpired)) {
+            return false;
+        }
+        if (isReferencedByActiveDccArtifact(temporaryFile.getStorageFileId())
+                || fileMapper.selectById(temporaryFile.getStorageFileId()) == null) {
+            markTemporaryFileCleaned(temporaryFile, cleanupTime, cleanupReason);
+            return true;
+        }
         fileService.deleteFile(temporaryFile.getStorageFileId());
-        UpdateWrapper<DccControlledFileTemporaryFileDO> wrapper = new UpdateWrapper<DccControlledFileTemporaryFileDO>()
-                .eq("id", temporaryFile.getId())
-                .eq("status", STATUS_AVAILABLE)
+        markTemporaryFileCleaned(temporaryFile, cleanupTime, cleanupReason);
+        return true;
+    }
+
+    private boolean claimTemporaryFileCleanup(DccControlledFileTemporaryFileDO temporaryFile, LocalDateTime cleanupTime,
+                                              String cleanupReason, boolean requireExpired) {
+        UpdateWrapper<DccControlledFileTemporaryFileDO> wrapper = baseCleanupWrapper(temporaryFile)
                 .eq("cleanup_status", CLEANUP_ACTIVE)
-                .eq("storage_file_id", temporaryFile.getStorageFileId())
-                .isNull("bound_controlled_file_id")
-                .set("cleanup_status", CLEANUP_CLEANED)
+                .set("cleanup_status", CLEANUP_CLEANING)
                 .set("cleanup_reason", cleanupReason)
                 .set("cleanup_time", cleanupTime);
         if (requireExpired) {
             wrapper.le("expire_time", cleanupTime);
         }
-        int updated = temporaryFileMapper.update(null, wrapper);
+        return temporaryFileMapper.update(null, wrapper) == 1;
+    }
+
+    private void markTemporaryFileCleaned(DccControlledFileTemporaryFileDO temporaryFile, LocalDateTime cleanupTime,
+                                          String cleanupReason) {
+        int updated = temporaryFileMapper.update(null, baseCleanupWrapper(temporaryFile)
+                .eq("cleanup_status", CLEANUP_CLEANING)
+                .set("cleanup_status", CLEANUP_CLEANED)
+                .set("cleanup_reason", cleanupReason)
+                .set("cleanup_time", cleanupTime));
         if (updated != 1) {
             throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
         }
+    }
+
+    private UpdateWrapper<DccControlledFileTemporaryFileDO> baseCleanupWrapper(
+            DccControlledFileTemporaryFileDO temporaryFile) {
+        return new UpdateWrapper<DccControlledFileTemporaryFileDO>()
+                .eq("id", temporaryFile.getId())
+                .eq("status", STATUS_AVAILABLE)
+                .eq("storage_file_id", temporaryFile.getStorageFileId())
+                .isNull("bound_controlled_file_id");
+    }
+
+    private boolean isReferencedByActiveDccArtifact(Long storageFileId) {
+        return storageFileId != null
+                && temporaryFileMapper.countActiveDccStorageReferencesByStorageFileId(
+                TenantContextHolder.getRequiredTenantId(), storageFileId) > 0;
     }
 
     private DccControlledFileTemporaryFileDO requireBindableTemporaryFile(DccUploadTicketResolveCommand command) {
@@ -219,9 +342,11 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
                 DccControlledFileTemporaryFileDO::getUploadTicket, StrUtil.trim(command.uploadTicket()));
         if (temporaryFile == null
                 || !Objects.equals(command.userId(), temporaryFile.getUploaderId())
+                || !Objects.equals(command.categoryId(), temporaryFile.getCategoryId())
                 || !StrUtil.equals(sessionId, temporaryFile.getSessionId())
                 || !StrUtil.equals(purpose, temporaryFile.getPurpose())
                 || !STATUS_AVAILABLE.equals(temporaryFile.getStatus())
+                || !CLEANUP_ACTIVE.equals(temporaryFile.getCleanupStatus())
                 || temporaryFile.getBoundControlledFileId() != null
                 || temporaryFile.getExpireTime() == null
                 || !temporaryFile.getExpireTime().isAfter(LocalDateTime.now())
@@ -236,7 +361,7 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
         return temporaryFile != null
                 && temporaryFile.getId() != null
                 && STATUS_AVAILABLE.equals(temporaryFile.getStatus())
-                && CLEANUP_ACTIVE.equals(temporaryFile.getCleanupStatus())
+                && isCleanupRetryable(temporaryFile.getCleanupStatus())
                 && temporaryFile.getBoundControlledFileId() == null
                 && temporaryFile.getStorageFileId() != null
                 && temporaryFile.getExpireTime() != null
@@ -250,9 +375,13 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
                 && Objects.equals(userId, temporaryFile.getUploaderId())
                 && StrUtil.equals(sessionId, temporaryFile.getSessionId())
                 && STATUS_AVAILABLE.equals(temporaryFile.getStatus())
-                && CLEANUP_ACTIVE.equals(temporaryFile.getCleanupStatus())
+                && isCleanupRetryable(temporaryFile.getCleanupStatus())
                 && temporaryFile.getBoundControlledFileId() == null
                 && temporaryFile.getStorageFileId() != null;
+    }
+
+    private boolean isCleanupRetryable(String cleanupStatus) {
+        return CLEANUP_ACTIVE.equals(cleanupStatus) || CLEANUP_CLEANING.equals(cleanupStatus);
     }
 
     private boolean isBindableNow(DccControlledFileTemporaryFileDO temporaryFile) {
@@ -263,6 +392,46 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
                 && temporaryFile.getStorageFileId() != null
                 && temporaryFile.getExpireTime() != null
                 && temporaryFile.getExpireTime().isAfter(LocalDateTime.now());
+    }
+
+    private DccUploadTicketCreated resolveReusableActiveTicket(Long userId, Long categoryId, String sessionId, String purpose,
+                                                               String contentSha256) {
+        List<DccControlledFileTemporaryFileDO> activeSlots = findActiveUploadSlotRows(userId, categoryId, sessionId, purpose);
+        if (activeSlots == null || activeSlots.isEmpty()) {
+            return null;
+        }
+        if (activeSlots.size() != 1) {
+            throw exception(CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT);
+        }
+        DccControlledFileTemporaryFileDO activeSlot = activeSlots.get(0);
+        if (!CLEANUP_ACTIVE.equals(activeSlot.getCleanupStatus())
+                || activeSlot.getExpireTime() == null
+                || !activeSlot.getExpireTime().isAfter(LocalDateTime.now())) {
+            throw exception(CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT);
+        }
+        if (!StrUtil.equals(contentSha256, activeSlot.getFileSha256())) {
+            throw exception(CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT);
+        }
+        FileDO storageFile = fileMapper.selectById(activeSlot.getStorageFileId());
+        if (storageFile == null) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        return new DccUploadTicketCreated(activeSlot.getUploadTicket(), activeSlot.getSessionId(),
+                activeSlot.getPurpose(), activeSlot.getStatus(), activeSlot.getExpireTime(),
+                activeSlot.getStorageFileId(), storageFile.getName(), storageFile.getType(), activeSlot.getFileSize());
+    }
+
+    private List<DccControlledFileTemporaryFileDO> findActiveUploadSlotRows(Long userId, Long categoryId, String sessionId,
+                                                                           String purpose) {
+        return temporaryFileMapper.selectList(new LambdaQueryWrapperX<DccControlledFileTemporaryFileDO>()
+                .eq(DccControlledFileTemporaryFileDO::getUploaderId, userId)
+                .eq(DccControlledFileTemporaryFileDO::getCategoryId, categoryId)
+                .eq(DccControlledFileTemporaryFileDO::getSessionId, sessionId)
+                .eq(DccControlledFileTemporaryFileDO::getPurpose, purpose)
+                .eq(DccControlledFileTemporaryFileDO::getStatus, STATUS_AVAILABLE)
+                .in(DccControlledFileTemporaryFileDO::getCleanupStatus, List.of(CLEANUP_ACTIVE, CLEANUP_CLEANING))
+                .isNull(DccControlledFileTemporaryFileDO::getBoundControlledFileId)
+                .isNotNull(DccControlledFileTemporaryFileDO::getStorageFileId));
     }
 
     private void requireTenantContext() {
@@ -276,6 +445,7 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
     private void validateCreateCommand(DccUploadTicketCreateCommand command) {
         if (command == null
                 || command.userId() == null
+                || command.categoryId() == null
                 || command.storageFileId() == null
                 || command.fileSize() == null
                 || command.fileSize() < 0

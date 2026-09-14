@@ -1,0 +1,7 @@
+{
+  "status": "FAIL",
+  "fileId": "2054545668044070298",
+  "fileNumber": "CODX-DCC-TRAIN-RERUN-20260802195426",
+  "finishedAt": "2026-08-02T12:34:42.716Z",
+  "error": "page.waitForResponse: Timeout 30000ms exceeded while waiting for event \"response\"\n    at waitApi ([stdin]:23:82)\n    at login ([stdin]:25:417)\n    at async openSession ([stdin]:26:387)\n    at async [stdin]:32:141"
+}

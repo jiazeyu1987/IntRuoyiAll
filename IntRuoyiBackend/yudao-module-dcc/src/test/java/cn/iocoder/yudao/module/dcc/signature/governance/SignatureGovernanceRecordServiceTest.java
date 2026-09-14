@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.controller.admin.signature.governance.vo.SignatureGovernanceRecordPageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.signature.governance.vo.SignatureGovernanceRecordRespVO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.signature.governance.SignatureGovernanceRecordMapper;
 import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureImageService;
@@ -225,6 +226,48 @@ class SignatureGovernanceRecordServiceTest extends BaseMockitoUnitTest {
         assertEquals(8101L, snapshotCaptor.getValue().getFileId());
         assertEquals("image-sha256", snapshotCaptor.getValue().getSha256());
         verify(signatureImageService, never()).requireActiveSnapshot(101L);
+    }
+
+    @Test
+    void exportRecordPdfMarksUndecodableHistoricalImageInsteadOfFailing() throws Exception {
+        SignatureGovernanceRecordRespVO row = new SignatureGovernanceRecordRespVO();
+        row.setGlobalId("FILE-982");
+        row.setSourceCode("FILE");
+        row.setSourceLabel("文件");
+        row.setSourceTable("dcc_controlled_file_signature");
+        row.setSourceRecordId(982L);
+        row.setBusinessRecordCode("DCC-HISTORICAL-001");
+        row.setBusinessRecordName("历史签名归档文件");
+        row.setSignerUserId(101L);
+        row.setSignerName("历史签名人");
+        row.setActionCode("APPROVE");
+        row.setActionLabel("审批通过");
+        row.setSignedAt(LocalDateTime.of(2026, 8, 2, 22, 28, 37));
+        row.setEvidenceStatus("VALID");
+        row.setEvidenceHash("evidence-hash");
+        DccControlledFileSignatureDO signature = new DccControlledFileSignatureDO();
+        signature.setId(982L);
+        when(recordMapper.selectSignatureRecordByGlobalId("FILE-982")).thenReturn(row);
+        when(dccSignatureMapper.selectById(982L)).thenReturn(signature);
+        when(signatureImageService.verifySignatureSnapshot(signature))
+                .thenReturn(DccElectronicSignatureImageSnapshot.builder()
+                        .imageId(9101L)
+                        .versionNo(1)
+                        .fileId(8101L)
+                        .contentType("image/png")
+                        .sha256("historical-image-sha256")
+                        .imageStatus("ACTIVE")
+                        .verifiedStatus("VALID")
+                        .content("not-a-decodable-image".getBytes(StandardCharsets.UTF_8))
+                        .build());
+
+        SignatureGovernanceRecordPdfArtifact artifact = newService().exportRecordPdf("FILE-982");
+
+        String text = extractPdfText(artifact.content());
+        assertTrue(text.contains("历史签名图片不可渲染"));
+        assertTrue(text.contains("图片文件编号：8101"));
+        assertTrue(text.contains("historical-image-sha256"));
+        assertTrue(text.contains("evidence-hash"));
     }
 
     @Test

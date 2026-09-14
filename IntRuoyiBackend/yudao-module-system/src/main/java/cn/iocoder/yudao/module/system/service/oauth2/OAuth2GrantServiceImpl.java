@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2CodeDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.system.service.auth.AdminAuthService;
+import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.Resource;
@@ -30,6 +31,8 @@ public class OAuth2GrantServiceImpl implements OAuth2GrantService {
     private OAuth2CodeService oauth2CodeService;
     @Resource
     private AdminAuthService adminAuthService;
+    @Resource
+    private AdminUserService userService;
 
     @Override
     public OAuth2AccessTokenDO grantImplicit(Long userId, Integer userType,
@@ -74,6 +77,7 @@ public class OAuth2GrantServiceImpl implements OAuth2GrantService {
         // 使用账号 + 密码进行登录
         AdminUserDO user = adminAuthService.authenticate(username, password);
         Assert.notNull(user, "用户不能为空！"); // 防御性编程
+        userService.resetUserLoginFailure(user.getId());
 
         // 创建访问令牌
         return oauth2TokenService.createAccessToken(user.getId(), UserTypeEnum.ADMIN.getValue(), clientId, scopes);

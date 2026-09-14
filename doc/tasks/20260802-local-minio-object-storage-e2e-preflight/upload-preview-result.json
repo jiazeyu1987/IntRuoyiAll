@@ -1,0 +1,26 @@
+{
+  "runId": "20260802090735",
+  "fileNumber": "CODX-MINIO-PRE-20260802090735",
+  "fileName": "Codex MinIO upload-preview 20260802090735",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "sourceFilePath": "E:\\IntRuoyi\\resource\\批记录节点-解析样本.docx",
+  "expectedFileName": "批记录节点-解析样本.docx",
+  "username": "pengyunfeng",
+  "tenant": "芋道源码",
+  "startedAt": "2026-08-02T09:07:35.170Z",
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "phases": [
+    {
+      "phase": "upload-preview",
+      "previewFileName": "批记录节点-解析样本.docx",
+      "previewKind": "OFFICE",
+      "tempFileId": null
+    }
+  ],
+  "fileSize": 37680,
+  "status": "PASS",
+  "finishedAt": "2026-08-02T09:07:45.181Z"
+}

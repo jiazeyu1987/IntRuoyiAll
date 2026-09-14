@@ -5,7 +5,7 @@ assertApprovalCenterStandardListContract({
   routeName: 'ApprovalCenterTodo',
   routeTitle: '待办',
   viewType: 'TODO',
-  tableKey: 'approval.center.todo',
+  tableKey: 'approval.center.todo.applicant.v1',
   expectsReviewAction: true
 })
 

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.LocalDateTime;
 
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.ExecutionArchiveRendererSupport.RENDER_SOURCE_VERSION;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.ExecutionArchiveRendererSupport.RenderData;
@@ -27,6 +28,8 @@ public class ExcelExecutionArchiveRenderer implements MesProBatchRecordExecution
 
     private static final String ARTIFACT_TYPE = "EXCEL";
     private static final String CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    private static final String OFFICIAL_SIGNATURE_TIME_ZONE =
+            MesProBatchRecordExecutionSignatureService.DEFAULT_SIGNATURE_TIME_ZONE;
 
     @Override
     public String getArtifactType() {
@@ -86,8 +89,9 @@ public class ExcelExecutionArchiveRenderer implements MesProBatchRecordExecution
     private void writeSignatures(Sheet sheet, RenderData data) {
         Row header = sheet.createRow(0);
         writeCells(header, "ID", "Execution ID", "Actor ID", "Action Type", "Signature Mode",
-                "Password Verified", "Signed At", "Selected Signed At", "Display Signed At",
-                "Signature Time Mode", "Selected Time Zone", "Selected Time Reason", "Selected Time Audit Hash",
+                "Password Verified", "Signed At", "Business Occurred At",
+                "Official Signed At (" + OFFICIAL_SIGNATURE_TIME_ZONE + ")",
+                "Signature Time Mode", "Business Time Zone", "Business Time Reason", "Business Time Audit Hash",
                 "Comment");
         int rowIndex = 1;
         for (MesProBatchRecordExecutionSignatureDO signature : data.signatures()) {
@@ -99,9 +103,9 @@ public class ExcelExecutionArchiveRenderer implements MesProBatchRecordExecution
                     signature.getActionType(),
                     signature.getSignatureMode(),
                     signature.getPasswordVerified(),
-                    signature.getSignedAt(),
+                    officialSignedAt(signature),
                     signature.getSelectedSignedAt(),
-                    signature.getSignatureDisplayAt(),
+                    officialSignedAt(signature),
                     signature.getSignatureTimeMode(),
                     signature.getSelectedTimeZone(),
                     signature.getSelectedTimeReason(),
@@ -109,6 +113,14 @@ public class ExcelExecutionArchiveRenderer implements MesProBatchRecordExecution
                     signature.getComment());
         }
         autosize(sheet, 14);
+    }
+
+    private LocalDateTime officialSignedAt(MesProBatchRecordExecutionSignatureDO signature) {
+        if (signature.getSignedAt() == null) {
+            throw new IllegalStateException("EDHR archive official signature time is required, signatureId="
+                    + value(signature.getId()));
+        }
+        return signature.getSignedAt();
     }
 
     private void writeManifest(Sheet sheet, RenderData data) {

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper">
+
+    <sql id="ProductionReportRevisionFromAndFilters">
+        FROM mes_pro_process_pool_event_revision report_revision
+        INNER JOIN mes_pro_process_pool_event pool_event
+          ON pool_event.id = report_revision.event_id
+         AND pool_event.tenant_id = report_revision.tenant_id
+         AND pool_event.deleted = 0
+         AND pool_event.event_type = 'PRODUCTION_SUBMIT'
+        LEFT JOIN mes_pro_work_order work_order
+          ON work_order.id = pool_event.work_order_id
+         AND work_order.tenant_id = pool_event.tenant_id
+         AND work_order.deleted = 0
+        LEFT JOIN mes_pro_process process
+          ON process.id = pool_event.process_id
+         AND process.tenant_id = pool_event.tenant_id
+         AND process.deleted = 0
+        LEFT JOIN system_users actual_employee
+          ON actual_employee.id = pool_event.actual_employee_id
+         AND actual_employee.tenant_id = pool_event.tenant_id
+         AND actual_employee.deleted = 0
+        LEFT JOIN system_users modified_user
+          ON modified_user.id = report_revision.modified_by_user_id
+         AND modified_user.tenant_id = report_revision.tenant_id
+         AND modified_user.deleted = 0
+        WHERE report_revision.deleted = 0
+          AND report_revision.revision_status = 'EFFECTIVE'
+          AND pool_event.actual_employee_id IN
+          <foreach collection="employeeUserIds" item="employeeUserId" open="(" separator="," close=")">
+              #{employeeUserId}
+          </foreach>
+        <if test="reqVO.workOrderCode != null and reqVO.workOrderCode != ''">
+          AND work_order.code LIKE CONCAT('%', #{reqVO.workOrderCode}, '%')
+        </if>
+        <if test="reqVO.processKeyword != null and reqVO.processKeyword != ''">
+          AND (
+              process.code LIKE CONCAT('%', #{reqVO.processKeyword}, '%')
+              OR process.name LIKE CONCAT('%', #{reqVO.processKeyword}, '%')
+          )
+        </if>
+        <if test="reqVO.actualEmployeeName != null and reqVO.actualEmployeeName != ''">
+          AND actual_employee.nickname LIKE CONCAT('%', #{reqVO.actualEmployeeName}, '%')
+        </if>
+        <if test="reqVO.modifiedByName != null and reqVO.modifiedByName != ''">
+          AND modified_user.nickname LIKE CONCAT('%', #{reqVO.modifiedByName}, '%')
+        </if>
+        <if test="reqVO.modifiedAtStart != null">
+          AND report_revision.server_revision_time <![CDATA[>=]]> #{reqVO.modifiedAtStart}
+        </if>
+        <if test="reqVO.modifiedAtEnd != null">
+          AND report_revision.server_revision_time <![CDATA[<=]]> #{reqVO.modifiedAtEnd}
+        </if>
+    </sql>
+
+    <select id="selectProductionReportRevisionLogCount" resultType="java.lang.Long">
+        SELECT COUNT(1)
+        <include refid="ProductionReportRevisionFromAndFilters"/>
+    </select>
+
+    <select id="selectProductionReportRevisionLogPage"
+            resultType="cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO">
+        SELECT report_revision.*
+        <include refid="ProductionReportRevisionFromAndFilters"/>
+        ORDER BY report_revision.server_revision_time DESC, report_revision.id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+</mapper>

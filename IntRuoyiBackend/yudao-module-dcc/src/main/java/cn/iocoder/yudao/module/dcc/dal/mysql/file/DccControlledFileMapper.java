@@ -6,13 +6,16 @@ import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.QuickFilterUtils;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCandidatePageReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
+import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.Collection;
 import java.util.List;
@@ -23,6 +26,165 @@ import java.util.Map;
  */
 @Mapper
 public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO> {
+
+    default DccControlledFileDO selectBySubmitIdempotency(Long tenantId, Long submitterId, String idempotencyKey) {
+        return selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<DccControlledFileDO>()
+                .eq(DccControlledFileDO::getTenantId, tenantId)
+                .eq(DccControlledFileDO::getSubmitterId, submitterId)
+                .eq(DccControlledFileDO::getSubmitIdempotencyKey, idempotencyKey));
+    }
+
+    @Select("""
+            SELECT *
+            FROM dcc_controlled_file
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND deleted = 0
+            LIMIT 1
+            FOR UPDATE
+            """)
+    DccControlledFileDO selectByIdAndTenantForUpdate(@Param("tenantId") Long tenantId,
+                                                      @Param("controlledFileId") Long controlledFileId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET status = 'READY_TO_PUBLISH', approved_time = #{approvedTime},
+                updater = #{actorId}, update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND process_instance_id = #{processInstanceId}
+              AND process_definition_key = #{processDefinitionKey}
+              AND status = #{expectedStatus}
+              AND deleted = 0
+            """)
+    int markReadyToPublishAfterApproval(@Param("tenantId") Long tenantId,
+                                        @Param("controlledFileId") Long controlledFileId,
+                                        @Param("processInstanceId") String processInstanceId,
+                                        @Param("processDefinitionKey") String processDefinitionKey,
+                                        @Param("expectedStatus") String expectedStatus,
+                                        @Param("approvedTime") java.time.LocalDateTime approvedTime,
+                                        @Param("actorId") Long actorId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET status = #{targetStatus}, finalization_error = NULL,
+                updater = #{actorId}, update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND status = #{expectedStatus}
+              AND deleted = 0
+            """)
+    int transitionStatus(@Param("tenantId") Long tenantId,
+                         @Param("controlledFileId") Long controlledFileId,
+                         @Param("expectedStatus") String expectedStatus,
+                         @Param("targetStatus") String targetStatus,
+                         @Param("actorId") Long actorId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET status = 'FINALIZATION_FAILED', finalization_error = #{reason},
+                updater = #{actorId}, update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND status = #{expectedStatus}
+              AND deleted = 0
+            """)
+    int markFinalizationFailedWhenStatus(@Param("tenantId") Long tenantId,
+                                         @Param("controlledFileId") Long controlledFileId,
+                                         @Param("expectedStatus") String expectedStatus,
+                                         @Param("reason") String reason,
+                                         @Param("actorId") Long actorId);
+
+    @Select("""
+            SELECT *
+            FROM dcc_controlled_file
+            WHERE tenant_id = #{tenantId}
+              AND submitter_id = #{submitterId}
+              AND submit_idempotency_key = #{idempotencyKey}
+              AND deleted = b'0'
+            LIMIT 1
+            FOR UPDATE
+            """)
+    DccControlledFileDO selectBySubmitIdempotencyForUpdate(@Param("tenantId") Long tenantId,
+                                                            @Param("submitterId") Long submitterId,
+                                                            @Param("idempotencyKey") String idempotencyKey);
+
+    default DccControlledFileDO selectByCreationIdempotency(Long tenantId, Long requesterId, String idempotencyKey) {
+        return selectOne(new LambdaQueryWrapper<DccControlledFileDO>()
+                .eq(DccControlledFileDO::getTenantId, tenantId)
+                .eq(DccControlledFileDO::getRequesterId, requesterId)
+                .eq(DccControlledFileDO::getCreationIdempotencyKey, idempotencyKey));
+    }
+
+    @Select("""
+            SELECT * FROM dcc_controlled_file
+            WHERE tenant_id = #{tenantId}
+              AND requester_id = #{requesterId}
+              AND creation_idempotency_key = #{idempotencyKey}
+              AND deleted = b'0'
+            LIMIT 1 FOR UPDATE
+            """)
+    DccControlledFileDO selectByCreationIdempotencyForUpdate(@Param("tenantId") Long tenantId,
+                                                              @Param("requesterId") Long requesterId,
+                                                              @Param("idempotencyKey") String idempotencyKey);
+
+    default List<DccControlledFileDO> selectActiveByLegacyProjectAndFileNumber(Long projectCodeId,
+                                                                                String fileNumber) {
+        return selectList(new LambdaQueryWrapper<DccControlledFileDO>()
+                .eq(DccControlledFileDO::getDccProjectCodeId, projectCodeId)
+                .eq(DccControlledFileDO::getFileNumber, fileNumber)
+                .eq(DccControlledFileDO::getStatus, DccControlledFileStatusEnum.ACTIVE.getStatus()));
+    }
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET checked_out_by = #{actorId},
+                checked_out_time = CURRENT_TIMESTAMP,
+                checked_out_reason = #{reason},
+                updater = #{actorId},
+                update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND deleted = 0
+              AND checked_out_by IS NULL
+              AND status IN ('WORKING', 'REJECTED', 'ACTIVE', 'PENDING_APPLICANT_REWORK')
+            """)
+    int checkoutByIdAndTenantWhenAvailable(@Param("tenantId") Long tenantId,
+                                           @Param("controlledFileId") Long controlledFileId,
+                                           @Param("actorId") Long actorId,
+                                           @Param("reason") String reason);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET checked_out_by = NULL,
+                checked_out_time = NULL,
+                checked_out_reason = NULL,
+                updater = #{actorId},
+                update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND deleted = 0
+              AND checked_out_by = #{actorId}
+            """)
+    int checkinByIdAndTenantWhenOwner(@Param("tenantId") Long tenantId,
+                                      @Param("controlledFileId") Long controlledFileId,
+                                      @Param("actorId") Long actorId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET checked_out_by = NULL,
+                checked_out_time = NULL,
+                checked_out_reason = NULL,
+                updater = #{actorId},
+                update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND deleted = 0
+              AND checked_out_by = #{actorId}
+            """)
+    int cancelCheckoutByIdAndTenantWhenOwner(@Param("tenantId") Long tenantId,
+                                             @Param("controlledFileId") Long controlledFileId,
+                                             @Param("actorId") Long actorId);
 
     @Select("""
             SELECT id,
@@ -118,6 +280,66 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
                 .last("LIMIT 1"));
     }
 
+    default List<DccControlledFileDO> selectCurrentApprovedFilesByIds(Collection<Long> fileIds) {
+        if (fileIds == null || fileIds.isEmpty()) {
+            return List.of();
+        }
+        return selectCurrentApprovedFilesByIds0(fileIds);
+    }
+
+    @Select("""
+            <script>
+            SELECT controlled_file.*
+            FROM dcc_controlled_file controlled_file
+            WHERE controlled_file.deleted = 0
+              AND controlled_file.master_id IS NOT NULL
+              AND controlled_file.status IN ('ACTIVE', 'APPROVED')
+              AND controlled_file.id IN
+              <foreach collection="fileIds" item="fileId" open="(" separator="," close=")">
+                  #{fileId}
+              </foreach>
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM dcc_controlled_file newer_file
+                  WHERE newer_file.deleted = 0
+                    AND newer_file.master_id = controlled_file.master_id
+                    AND newer_file.status IN ('ACTIVE', 'APPROVED')
+                    AND newer_file.id &gt; controlled_file.id
+              )
+            ORDER BY controlled_file.id
+            </script>
+            """)
+    List<DccControlledFileDO> selectCurrentApprovedFilesByIds0(@Param("fileIds") Collection<Long> fileIds);
+
+    default PageResult<DccControlledFileDO> selectAssignmentCandidatePage(
+            DccProjectCodeAssignmentCandidatePageReqVO reqVO) {
+        String keyword = StrUtil.trimToNull(reqVO.getKeyword());
+        LambdaQueryWrapperX<DccControlledFileDO> query = new LambdaQueryWrapperX<DccControlledFileDO>()
+                .in(DccControlledFileDO::getStatus, List.of(
+                        DccControlledFileStatusEnum.ACTIVE.getStatus(),
+                        DccControlledFileStatusEnum.APPROVED.getStatus(),
+                        DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus()));
+        query.isNotNull(DccControlledFileDO::getMasterId);
+        if (keyword != null) {
+            query.and(wrapper -> wrapper.like(DccControlledFileDO::getFileName, keyword)
+                    .or().like(DccControlledFileDO::getTitle, keyword)
+                    .or().like(DccControlledFileDO::getFileNumber, keyword));
+        }
+        query.apply("""
+                NOT EXISTS (
+                    SELECT 1
+                    FROM dcc_controlled_file newer_file
+                    WHERE newer_file.deleted = 0
+                      AND newer_file.master_id = dcc_controlled_file.master_id
+                      AND newer_file.status IN ('ACTIVE', 'APPROVED', 'PENDING_DOC_CONTROL_REVIEW')
+                      AND newer_file.id > dcc_controlled_file.id
+                )
+                """);
+        query.orderByDesc(DccControlledFileDO::getCreateTime)
+                .orderByDesc(DccControlledFileDO::getId);
+        return selectPage(reqVO, query);
+    }
+
     default long selectCountByReferencedFileId(Long fileId) {
         if (fileId == null) {
             return 0L;
@@ -135,6 +357,189 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
                         .or()
                         .eq(DccControlledFileDO::getStampedFileId, fileId)));
     }
+
+    @Select("""
+            SELECT COUNT(1)
+            FROM dcc_controlled_file
+            WHERE tenant_id = #{tenantId}
+              AND source_file_id = #{sourceFileId}
+            """)
+    long countAllBySourceFileId(@Param("tenantId") Long tenantId,
+                                @Param("sourceFileId") Long sourceFileId);
+
+    @Select("""
+            SELECT controlled_file.*
+            FROM dcc_controlled_file controlled_file
+            LEFT JOIN dcc_controlled_file_source_ownership source_owner
+              ON source_owner.tenant_id = controlled_file.tenant_id
+             AND source_owner.controlled_file_id = controlled_file.id
+             AND source_owner.deleted = 0
+            LEFT JOIN dcc_controlled_file_source_migration source_migration
+              ON source_migration.tenant_id = controlled_file.tenant_id
+             AND source_migration.controlled_file_id = controlled_file.id
+             AND source_migration.deleted = 0
+            WHERE controlled_file.tenant_id = #{tenantId}
+              AND controlled_file.source_file_id IS NOT NULL
+              AND source_owner.id IS NULL
+            ORDER BY CASE WHEN source_migration.migration_status = 'FAILED' THEN 1 ELSE 0 END,
+                     controlled_file.source_file_id,
+                     controlled_file.id
+            LIMIT #{limit}
+            """)
+    List<DccControlledFileDO> selectUnownedSourceReferences(@Param("tenantId") Long tenantId,
+                                                            @Param("limit") int limit);
+
+    @Select("""
+            SELECT controlled_file.*
+            FROM dcc_controlled_file controlled_file
+            LEFT JOIN dcc_controlled_file_source_ownership source_owner
+              ON source_owner.tenant_id = controlled_file.tenant_id
+             AND source_owner.controlled_file_id = controlled_file.id
+             AND source_owner.deleted = 0
+            LEFT JOIN dcc_controlled_file_source_migration source_migration
+              ON source_migration.tenant_id = controlled_file.tenant_id
+             AND source_migration.controlled_file_id = controlled_file.id
+             AND source_migration.deleted = 0
+            WHERE controlled_file.tenant_id = #{tenantId}
+              AND controlled_file.id <= #{snapshotMaxControlledFileId}
+              AND controlled_file.deleted = 0
+              AND controlled_file.source_file_id IS NOT NULL
+              AND source_owner.id IS NULL
+            ORDER BY CASE WHEN source_migration.migration_status = 'FAILED' THEN 1 ELSE 0 END,
+                     controlled_file.source_file_id,
+                     controlled_file.id
+            LIMIT #{limit}
+            """)
+    List<DccControlledFileDO> selectEffectiveUnownedSourceReferences(
+            @Param("tenantId") Long tenantId,
+            @Param("snapshotMaxControlledFileId") Long snapshotMaxControlledFileId,
+            @Param("limit") int limit);
+
+    @TenantIgnore
+    @Select("""
+            SELECT COALESCE(MAX(id), 0)
+            FROM dcc_controlled_file
+            """)
+    Long selectGlobalMaxControlledFileId();
+
+    @TenantIgnore
+    @Select("""
+            SELECT controlled_file.*
+            FROM dcc_controlled_file controlled_file
+            LEFT JOIN dcc_controlled_file_source_ownership source_owner
+              ON source_owner.tenant_id = controlled_file.tenant_id
+             AND source_owner.controlled_file_id = controlled_file.id
+             AND source_owner.deleted = 0
+            LEFT JOIN dcc_controlled_file_source_global_claim global_claim
+              ON global_claim.source_file_id = controlled_file.source_file_id
+             AND global_claim.deleted = 0
+            WHERE controlled_file.tenant_id = #{tenantId}
+              AND controlled_file.id <= #{snapshotMaxControlledFileId}
+              AND controlled_file.id > #{startAfterControlledFileId}
+              AND controlled_file.deleted = 0
+              AND (controlled_file.source_file_id IS NULL
+                OR source_owner.id IS NULL
+                OR NOT (source_owner.source_file_id <=> controlled_file.source_file_id)
+                OR source_owner.source_sha256 IS NULL
+                OR CHAR_LENGTH(source_owner.source_sha256) <> 64
+                OR global_claim.id IS NULL
+                OR NOT (global_claim.tenant_id <=> controlled_file.tenant_id)
+                OR NOT (global_claim.controlled_file_id <=> controlled_file.id))
+            ORDER BY controlled_file.id
+            LIMIT #{limit}
+            """)
+    List<DccControlledFileDO> selectEffectiveSourceGovernanceCandidates(
+            @Param("tenantId") Long tenantId,
+            @Param("snapshotMaxControlledFileId") Long snapshotMaxControlledFileId,
+            @Param("startAfterControlledFileId") Long startAfterControlledFileId,
+            @Param("limit") int limit);
+
+    @TenantIgnore
+    @Select("""
+            SELECT id AS controlled_file_id,
+                   tenant_id,
+                   source_file_id
+            FROM dcc_controlled_file
+            WHERE source_file_id = #{sourceFileId}
+              AND id <= #{snapshotMaxControlledFileId}
+              AND deleted = 0
+            ORDER BY tenant_id, id
+            """)
+    List<GlobalSourceReference> selectGlobalEffectiveSourceReferences(
+            @Param("sourceFileId") Long sourceFileId,
+            @Param("snapshotMaxControlledFileId") Long snapshotMaxControlledFileId);
+
+    @Select("""
+            SELECT *
+            FROM dcc_controlled_file
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+            LIMIT 1
+            """)
+    DccControlledFileDO selectByIdAndTenantIncludingDeleted(@Param("tenantId") Long tenantId,
+                                                             @Param("controlledFileId") Long controlledFileId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET source_file_id = #{isolatedSourceFileId},
+                updater = #{actorId},
+                update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND source_file_id = #{legacySourceFileId}
+            """)
+    int updateSourceFileIdIncludingDeleted(@Param("tenantId") Long tenantId,
+                                            @Param("controlledFileId") Long controlledFileId,
+                                            @Param("legacySourceFileId") Long legacySourceFileId,
+                                            @Param("isolatedSourceFileId") Long isolatedSourceFileId,
+                                            @Param("actorId") Long actorId);
+
+    @Select("""
+            SELECT COUNT(1)
+            FROM dcc_controlled_file
+            WHERE tenant_id = #{tenantId}
+              AND source_file_id IS NOT NULL
+            """)
+    long countAllSourceReferences(@Param("tenantId") Long tenantId);
+
+    @Select("""
+            SELECT COUNT(1)
+            FROM dcc_controlled_file controlled_file
+            LEFT JOIN dcc_controlled_file_source_ownership source_owner
+              ON source_owner.tenant_id = controlled_file.tenant_id
+             AND source_owner.controlled_file_id = controlled_file.id
+             AND source_owner.deleted = 0
+            WHERE controlled_file.tenant_id = #{tenantId}
+              AND controlled_file.source_file_id IS NOT NULL
+              AND source_owner.id IS NULL
+            """)
+    long countUnownedSourceReferences(@Param("tenantId") Long tenantId);
+
+    @Select("""
+            SELECT COUNT(1)
+            FROM (
+                SELECT source_file_id
+                FROM dcc_controlled_file
+                WHERE tenant_id = #{tenantId}
+                  AND source_file_id IS NOT NULL
+                GROUP BY source_file_id
+                HAVING COUNT(1) > 1
+            ) shared_source
+            """)
+    long countSharedSourceGroups(@Param("tenantId") Long tenantId);
+
+    @Select("""
+            SELECT COALESCE(SUM(shared_source.reference_count), 0)
+            FROM (
+                SELECT COUNT(1) AS reference_count
+                FROM dcc_controlled_file
+                WHERE tenant_id = #{tenantId}
+                  AND source_file_id IS NOT NULL
+                GROUP BY source_file_id
+                HAVING COUNT(1) > 1
+            ) shared_source
+            """)
+    long countSharedSourceRecords(@Param("tenantId") Long tenantId);
 
     @Select("""
             <script>
@@ -228,6 +633,36 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
 
         public void setFileCount(Long fileCount) {
             this.fileCount = fileCount;
+        }
+    }
+
+    class GlobalSourceReference {
+        private Long controlledFileId;
+        private Long tenantId;
+        private Long sourceFileId;
+
+        public Long getControlledFileId() {
+            return controlledFileId;
+        }
+
+        public void setControlledFileId(Long controlledFileId) {
+            this.controlledFileId = controlledFileId;
+        }
+
+        public Long getTenantId() {
+            return tenantId;
+        }
+
+        public void setTenantId(Long tenantId) {
+            this.tenantId = tenantId;
+        }
+
+        public Long getSourceFileId() {
+            return sourceFileId;
+        }
+
+        public void setSourceFileId(Long sourceFileId) {
+            this.sourceFileId = sourceFileId;
         }
     }
 

@@ -83,6 +83,15 @@ public class MesProFeedbackSaveReqVO {
     @Schema(description = "其他废品数量", example = "0")
     private BigDecimal otherScrapQuantity;
 
+    @Schema(description = "损耗原因 ID", example = "8301")
+    private Long lossReasonId;
+
+    @Schema(description = "损耗原因编码快照", example = "LOSS-001")
+    private String lossReasonCodeSnapshot;
+
+    @Schema(description = "损耗原因名称快照", example = "正常损耗")
+    private String lossReasonNameSnapshot;
+
     @Schema(description = "报工人编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "1")
     @NotNull(message = "报工人不能为空")
     private Long feedbackUserId;

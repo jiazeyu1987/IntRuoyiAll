@@ -81,7 +81,7 @@ const formData = ref({
   enabled: undefined,
   avatar: undefined,
   video: undefined,
-  memo: undefined,
+  memo: undefined
 })
 const formRules = reactive({
   name: [{ required: true, message: '名字不能为空', trigger: 'blur' }],
@@ -91,7 +91,7 @@ const formRules = reactive({
   enabled: [{ required: true, message: '是否有效不能为空', trigger: 'blur' }],
   avatar: [{ required: true, message: '头像不能为空', trigger: 'blur' }],
   video: [{ required: true, message: '附件不能为空', trigger: 'blur' }],
-  memo: [{ required: true, message: '备注不能为空', trigger: 'blur' }],
+  memo: [{ required: true, message: '备注不能为空', trigger: 'blur' }]
 })
 const formRef = ref() // 表单 Ref
 
@@ -148,7 +148,7 @@ const resetForm = () => {
     enabled: undefined,
     avatar: undefined,
     video: undefined,
-    memo: undefined,
+    memo: undefined
   }
   formRef.value?.resetFields()
 }

@@ -1,4 +1,10 @@
-import { ProRouteApi, type ProRouteVO, type ProRouteVersionVO } from '@/api/mes/pro/route'
+import {
+  ProRouteApi,
+  type MesRouteId,
+  type ProRouteVO,
+  type ProRouteVersionVO
+} from '@/api/mes/pro/route'
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 
 const DRAFT_ROUTE_VERSION_STATUS = 'DRAFT'
 const PENDING_APPROVAL_ROUTE_VERSION_STATUS = 'PENDING_APPROVAL'
@@ -14,7 +20,7 @@ type RouteCandidateSuccess = (message: string) => void
 type RouteCandidateEditQuery = Record<string, string | string[] | undefined>
 
 export type EnsureSameSourceDraftCandidateOptions = {
-  routeId: number
+  routeId: MesRouteId
   actionName: string
   changeReason: string
   confirm?: RouteCandidateConfirm
@@ -141,7 +147,7 @@ export const ensureSameSourceDraftCandidateForProductionConfig = async (
   options: EnsureSameSourceDraftCandidateOptions
 ): Promise<EnsureSameSourceDraftCandidateResult | undefined> => {
   const { routeId, actionName } = options
-  if (!Number.isFinite(routeId) || routeId <= 0) {
+  if (!parsePositiveRouteQueryId(routeId)) {
     throw new Error(`${actionName}失败：缺少有效路线编号，无法进入候选版本。`)
   }
   const [routeInfo, routeVersions] = await Promise.all([

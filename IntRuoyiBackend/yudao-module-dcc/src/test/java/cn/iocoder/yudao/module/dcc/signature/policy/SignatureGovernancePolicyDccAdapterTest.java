@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.signature.policy;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.service.file.DccSignatureVerificationService;
+import cn.iocoder.yudao.module.dcc.service.file.DccUnifiedSignatureResult;
 import cn.iocoder.yudao.module.dcc.signature.core.SignatureGovernanceModuleCode;
 import cn.iocoder.yudao.module.dcc.signature.service.adapter.DccSignatureGovernanceAdapter;
 import cn.iocoder.yudao.module.dcc.signature.service.adapter.SignatureGovernanceAdapterProjection;
@@ -84,9 +85,10 @@ class SignatureGovernancePolicyDccAdapterTest {
         private String comment;
 
         @Override
-        public void verifyPasswordAndCreateSignature(Long actorId, Long controlledFileId, String taskId,
-                                                     String stageCode, String actionType, String password,
-                                                     String comment) {
+        public DccUnifiedSignatureResult verifyPasswordAndCreateSignature(Long actorId, Long controlledFileId,
+                                                                          String taskId, String stageCode,
+                                                                          String actionType, String password,
+                                                                          String comment) {
             this.calls++;
             this.actorId = actorId;
             this.controlledFileId = controlledFileId;
@@ -95,6 +97,7 @@ class SignatureGovernancePolicyDccAdapterTest {
             this.actionType = actionType;
             this.password = password;
             this.comment = comment;
+            return DccUnifiedSignatureResult.builder().signatureId(8001L).build();
         }
     }
 }

@@ -1,0 +1,816 @@
+[
+  {
+    "command": "set",
+    "path": "/Sheet1/A1",
+    "props": {
+      "value": "来源设备",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B1",
+    "props": {
+      "value": "设备编码",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C1",
+    "props": {
+      "value": "台账匹配",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D1",
+    "props": {
+      "value": "未删除记录数",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E1",
+    "props": {
+      "value": "总记录数",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F1",
+    "props": {
+      "value": "已删除记录数",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G1",
+    "props": {
+      "value": "未删除记录详情",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A2",
+    "props": {
+      "value": "超声波清洗机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B2",
+    "props": {
+      "value": "B09393",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C2",
+    "props": {
+      "value": "有",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D2",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E2",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F2",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G2",
+    "props": {
+      "value": "tenant=122, id=196, name=超声波清洗机, status=生产中",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A3",
+    "props": {
+      "value": "超声波清洗机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B3",
+    "props": {
+      "value": "B09353",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C3",
+    "props": {
+      "value": "有",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D3",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E3",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F3",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G3",
+    "props": {
+      "value": "tenant=122, id=197, name=超声波清洗机, status=生产中",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A4",
+    "props": {
+      "value": "箱型干燥机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B4",
+    "props": {
+      "value": "B04091",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C4",
+    "props": {
+      "value": "没有",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D4",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E4",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F4",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G4",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A5",
+    "props": {
+      "value": "撤压机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B5",
+    "props": {
+      "value": "C01017",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C5",
+    "props": {
+      "value": "没有",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D5",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E5",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F5",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G5",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A6",
+    "props": {
+      "value": "光固机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B6",
+    "props": {
+      "value": "A05075",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C6",
+    "props": {
+      "value": "没有",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D6",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E6",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F6",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G6",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A7",
+    "props": {
+      "value": "光固机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B7",
+    "props": {
+      "value": "A05059",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C7",
+    "props": {
+      "value": "有",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D7",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E7",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F7",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G7",
+    "props": {
+      "value": "tenant=122, id=202, name=光固机, status=生产中",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A8",
+    "props": {
+      "value": "硅油喷雾阀系统",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B8",
+    "props": {
+      "value": "B09026",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C8",
+    "props": {
+      "value": "有",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D8",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E8",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F8",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G8",
+    "props": {
+      "value": "tenant=122, id=203, name=喷套筒, status=生产中",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A9",
+    "props": {
+      "value": "高压机小气压检测",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B9",
+    "props": {
+      "value": "G01143",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C9",
+    "props": {
+      "value": "有",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D9",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E9",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F9",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G9",
+    "props": {
+      "value": "tenant=122, id=207, name=小气压检测, status=生产中",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A10",
+    "props": {
+      "value": "封口热合机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B10",
+    "props": {
+      "value": "A05199",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C10",
+    "props": {
+      "value": "有",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D10",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E10",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F10",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G10",
+    "props": {
+      "value": "tenant=122, id=208, name=封口热合机, status=生产中",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A11",
+    "props": {
+      "value": "封口热合机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B11",
+    "props": {
+      "value": "A05203",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C11",
+    "props": {
+      "value": "有",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D11",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E11",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F11",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G11",
+    "props": {
+      "value": "tenant=122, id=209, name=封口热合机, status=生产中",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A12",
+    "props": {
+      "value": "热合机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B12",
+    "props": {
+      "value": "A05048",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C12",
+    "props": {
+      "value": "有",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D12",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E12",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F12",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G12",
+    "props": {
+      "value": "tenant=122, id=210, name=封口热合机, status=生产中",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A13",
+    "props": {
+      "value": "自动热合机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B13",
+    "props": {
+      "value": "A03274",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C13",
+    "props": {
+      "value": "有",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D13",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E13",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F13",
+    "props": {
+      "value": "0",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G13",
+    "props": {
+      "value": "tenant=122, id=211, name=封口热合机, status=生产中",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1",
+    "props": {
+      "name": "设备台账匹配"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/设备台账匹配",
+    "props": {
+      "freeze": "A2",
+      "orientation": "landscape",
+      "fitToPage": "1x0"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/设备台账匹配/col[A]",
+    "props": {
+      "width": 22
+    }
+  },
+  {
+    "command": "set",
+    "path": "/设备台账匹配/col[B]",
+    "props": {
+      "width": 14
+    }
+  },
+  {
+    "command": "set",
+    "path": "/设备台账匹配/col[C]",
+    "props": {
+      "width": 14
+    }
+  },
+  {
+    "command": "set",
+    "path": "/设备台账匹配/col[D]",
+    "props": {
+      "width": 14
+    }
+  },
+  {
+    "command": "set",
+    "path": "/设备台账匹配/col[E]",
+    "props": {
+      "width": 12
+    }
+  },
+  {
+    "command": "set",
+    "path": "/设备台账匹配/col[F]",
+    "props": {
+      "width": 14
+    }
+  },
+  {
+    "command": "set",
+    "path": "/设备台账匹配/col[G]",
+    "props": {
+      "width": 76
+    }
+  }
+]

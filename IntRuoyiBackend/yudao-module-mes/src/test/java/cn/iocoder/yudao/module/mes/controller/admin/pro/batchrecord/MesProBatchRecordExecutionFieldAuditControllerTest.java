@@ -119,6 +119,31 @@ class MesProBatchRecordExecutionFieldAuditControllerTest {
     }
 
     @Test
+    void saveChanges_acceptsDraftSaveWithoutSignature() {
+        when(fieldAuditService.saveChanges(any())).thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult()
+                .setFieldAuditRevision(7L)
+                .setFieldAuditHeadHash("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+                .setCellValuesHash("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+                .setAuditBatchId(1001L)
+                .setSignatureId(2002L)
+                .setChangedAt(LocalDateTime.of(2026, 5, 26, 12, 0))
+                .setHashVerification(MesProBatchRecordExecutionFieldAuditHashVerification.valid(
+                        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        1L, 2L)));
+
+        MesProBatchRecordExecutionFieldAuditSaveChangesReqVO reqVO = saveRequest("NUMBER", 37.5, "37.5")
+                .setSignature(null);
+
+        controller.saveChanges(reqVO);
+
+        ArgumentCaptor<cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSaveChangesCommand> captor =
+                ArgumentCaptor.forClass(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
+        verify(fieldAuditService).saveChanges(captor.capture());
+        assertNull(captor.getValue().getSignature());
+    }
+
+    @Test
     void saveChanges_delegatesAttachmentChangesWithoutOrdinaryFieldChanges() {
         when(fieldAuditService.saveChanges(any())).thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult()
                 .setFieldAuditRevision(6L)

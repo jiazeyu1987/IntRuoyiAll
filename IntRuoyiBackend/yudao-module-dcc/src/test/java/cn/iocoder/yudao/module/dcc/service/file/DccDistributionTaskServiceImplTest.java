@@ -22,6 +22,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -124,5 +125,33 @@ class DccDistributionTaskServiceImplTest extends BaseMockitoUnitTest {
                 () -> distributionTaskService.getMyDistributionTaskPage(99L, reqVO));
         assertEquals("DCC distribution recipient 501 references missing distribution 301", ex.getMessage());
         verify(distributionMapper).selectById(301L);
+    }
+
+    @Test
+    void getMyDistributionTaskPage_missingControlledFile_skipsStaleRecipient() {
+        DccDistributionTaskPageReqVO reqVO = new DccDistributionTaskPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        reqVO.setStatus("READY_TO_ACKNOWLEDGE");
+        when(distributionRecipientMapper.selectListByUserId(99L)).thenReturn(List.of(
+                DccControlledFileDistributionRecipientDO.builder()
+                        .id(501L)
+                        .distributionId(301L)
+                        .userId(99L)
+                        .build()));
+        when(distributionMapper.selectById(301L)).thenReturn(DccControlledFileDistributionDO.builder()
+                .id(301L)
+                .controlledFileId(900L)
+                .departmentId(300L)
+                .distributionMedium(DccDistributionMediumEnum.PUBLIC_FOLDER.getCode())
+                .status(DccControlledFileDistributionStatusEnum.SENT.getCode())
+                .build());
+        when(controlledFileMapper.selectById(900L)).thenReturn(null);
+
+        PageResult<DccDistributionTaskRespVO> page =
+                distributionTaskService.getMyDistributionTaskPage(99L, reqVO);
+
+        assertEquals(0L, page.getTotal());
+        assertTrue(page.getList().isEmpty());
     }
 }

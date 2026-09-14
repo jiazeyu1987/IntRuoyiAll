@@ -19,6 +19,12 @@ public interface CodexTestRunnerSessionMapper extends BaseMapperX<CodexTestRunne
                 .orderByDesc(CodexTestRunnerSessionDO::getLastHeartbeatTime));
     }
 
+    default List<CodexTestRunnerSessionDO> selectLatestSessions(int limit) {
+        return selectList(new LambdaQueryWrapperX<CodexTestRunnerSessionDO>()
+                .orderByDesc(CodexTestRunnerSessionDO::getLastHeartbeatTime)
+                .last("LIMIT " + limit));
+    }
+
     default int heartbeat(Long id, LocalDateTime heartbeatTime, Integer runningCount) {
         return update(null, new LambdaUpdateWrapper<CodexTestRunnerSessionDO>()
                 .eq(CodexTestRunnerSessionDO::getId, id)

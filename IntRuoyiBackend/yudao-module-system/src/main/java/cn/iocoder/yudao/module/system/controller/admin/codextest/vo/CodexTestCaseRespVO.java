@@ -12,8 +12,12 @@ public class CodexTestCaseRespVO {
 
     private Long id;
     private String name;
+    private String project;
+    private String nodeChainName;
+    private Integer nodeChainSort;
     private String methodText;
     private String testDataText;
+    private String analysisMode;
     private String defaultExecutionMode;
     private Boolean parallelSafe;
     private String status;

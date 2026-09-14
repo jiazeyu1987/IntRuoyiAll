@@ -1,10 +1,7 @@
 <template>
   <ContentWrap>
     <div class="edhr-batch-history">
-      <el-tabs model-value="history" class="edhr-batch-history__tabs" @tab-change="handleTabChange">
-        <el-tab-pane label="批次执行" name="execution" />
-        <el-tab-pane label="历史批记录" name="history" />
-      </el-tabs>
+      <EdhrBatchRecordTabs active-tab="history" />
 
       <el-form :inline="true" :model="queryParams" class="edhr-batch-history__toolbar" @submit.prevent>
         <el-form-item label="批次执行">
@@ -97,7 +94,16 @@
                   {{ selectedBatch.productName || selectedBatch.productCode || '--' }}
                 </div>
               </div>
-              <el-tag type="success">{{ resolveBatchStatusLabel(selectedBatch.status) }}</el-tag>
+              <div class="edhr-batch-history__archive-actions">
+                <el-tag type="success">{{ resolveBatchStatusLabel(selectedBatch.status) }}</el-tag>
+                <el-button
+                  v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
+                  :loading="archiveActionLoading"
+                  @click="handlePrintArchive"
+                >
+                  打印
+                </el-button>
+              </div>
             </section>
 
             <el-descriptions :column="4" border class="edhr-batch-history__summary-table">
@@ -402,6 +408,8 @@ import {
   EDHR_BATCH_STATUS_ARCHIVED,
   getEdhrBatchExecutionPage,
   getEdhrBatchReviewTimeline,
+  getLatestEdhrBatchArchive,
+  printEdhrBatchArchive,
   type EdhrBatchExecutionReviewBatchEvent,
   type EdhrBatchExecutionRespVO,
   type EdhrBatchExecutionDossierItemRespVO,
@@ -411,6 +419,7 @@ import {
   type EdhrBatchReviewTimelineRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
 import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'
+import EdhrBatchRecordTabs from './EdhrBatchRecordTabs.vue'
 import {
   resolveExecutionStatusTagType,
   resolveExecutionStatusText,
@@ -420,11 +429,13 @@ import {
 defineOptions({ name: 'MesProEdhrBatchHistory' })
 
 const router = useRouter()
+const message = useMessage()
 
 const loading = ref(false)
 const timelineLoading = ref(false)
 const loadError = ref('')
 const timelineError = ref('')
+const archiveActionLoading = ref(false)
 const batchList = ref<EdhrBatchExecutionRespVO[]>([])
 const total = ref(0)
 const selectedBatchId = ref<number>()
@@ -880,9 +891,22 @@ const resetQuery = () => {
   getBatchList()
 }
 
-const handleTabChange = async (name: string | number) => {
-  if (name === 'execution') {
-    await router.push({ path: '/mes/pro/feedback/edhr-batch-execution' })
+const requireSelectedBatch = () => {
+  const batch = selectedBatch.value
+  if (!batch?.id) throw new Error('请选择一条已归档批记录。')
+  return batch
+}
+
+const handlePrintArchive = async () => {
+  archiveActionLoading.value = true
+  try {
+    const batch = requireSelectedBatch()
+    const archive = await getLatestEdhrBatchArchive(batch.id)
+    await printEdhrBatchArchive(archive.id, archive.fileName)
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '打印版 PDF 打印入口打开失败。'))
+  } finally {
+    archiveActionLoading.value = false
   }
 }
 

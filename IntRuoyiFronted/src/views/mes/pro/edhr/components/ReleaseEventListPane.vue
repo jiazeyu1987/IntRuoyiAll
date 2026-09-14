@@ -130,11 +130,11 @@ import {
 } from '@/api/mes/pro/edhr/release'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
-import { formatDate } from '@/utils/formatTime'
 import {
   resolveReleaseEventLabel,
   resolveReleaseStatusLabel
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProEdhrReleaseEventListPane' })
 
@@ -205,18 +205,15 @@ const releaseEventQuickFilter = useTableQuickFilter(
   getList
 )
 
-const parsePositiveNumber = (value: unknown) => {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+const parsePositiveJsonLong = (value: unknown) => {
+  const normalized = typeof value === 'string' ? value.trim() : String(value || '').trim()
+  return /^[1-9]\d*$/.test(normalized) ? normalized : undefined
 }
 
-const currentReleaseTransactionId = computed(() => parsePositiveNumber(props.releaseTransactionId))
+const currentReleaseTransactionId = computed(() => parsePositiveJsonLong(props.releaseTransactionId))
 
 const formatDateTime = (value?: string | number) => {
-  if (!value) return '--'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '时间格式异常'
-  return formatDate(date, 'YYYY-MM-DD HH:mm:ss')
+  return formatEdhrDateTime(value)
 }
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {

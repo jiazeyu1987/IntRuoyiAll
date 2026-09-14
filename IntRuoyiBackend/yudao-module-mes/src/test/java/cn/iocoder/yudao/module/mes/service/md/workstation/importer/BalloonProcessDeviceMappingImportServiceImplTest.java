@@ -27,6 +27,7 @@ import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationServic
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationToolService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationWorkerService;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.mes.service.wm.barcode.MesWmBarcodeService;
 import cn.iocoder.yudao.module.mes.service.wm.warehouse.MesWmWarehouseAreaService;
 import cn.iocoder.yudao.module.mes.service.wm.warehouse.MesWmWarehouseLocationService;
@@ -95,6 +96,8 @@ class BalloonProcessDeviceMappingImportServiceImplTest extends BaseDbUnitTest {
     private MesWmBarcodeService barcodeService;
     @MockitoBean
     private MesProProcessService processService;
+    @MockitoBean
+    private MesProRouteProcessService routeProcessService;
 
     @Test
     void importMapping_reusesExistingWorkstation_createsMissingWorkstation_and_replacesBindingsOnly() throws Exception {
@@ -145,9 +148,15 @@ class BalloonProcessDeviceMappingImportServiceImplTest extends BaseDbUnitTest {
 
         MesMdWorkstationDO reused = workstationMapper.selectByCode("WS-P001");
         assertEquals(0, reused.getSingleStandardHourlyCapacity().compareTo(new BigDecimal("12.50")));
+        assertEquals(840001L, reused.getWarehouseId());
+        assertEquals(840002L, reused.getLocationId());
+        assertEquals(840003L, reused.getAreaId());
         assertEquals(0, workstationWorkerMapper.selectListByWorkstationId(reused.getId()).size());
         MesMdWorkstationDO manual = workstationMapper.selectByCode("WS-P003");
         assertEquals(0, manual.getSingleStandardHourlyCapacity().compareTo(new BigDecimal("70.48")));
+        assertEquals(840001L, manual.getWarehouseId());
+        assertEquals(840002L, manual.getLocationId());
+        assertEquals(840003L, manual.getAreaId());
         assertEquals(0, workstationMachineMapper.selectListByWorkstationId(manual.getId()).size());
         List<MesMdWorkstationWorkerDO> manualWorkers = workstationWorkerMapper.selectListByWorkstationId(manual.getId());
         assertEquals(1, manualWorkers.size());
@@ -293,6 +302,12 @@ class BalloonProcessDeviceMappingImportServiceImplTest extends BaseDbUnitTest {
         when(areaService.getWarehouseAreaByCode(MesWmWarehouseAreaDO.WIP_VIRTUAL_AREA))
                 .thenReturn(MesWmWarehouseAreaDO.builder().id(840003L).locationId(840002L)
                         .code(MesWmWarehouseAreaDO.WIP_VIRTUAL_AREA).build());
+        when(warehouseService.validateWarehouseExists(840001L))
+                .thenReturn(MesWmWarehouseDO.builder().id(840001L).build());
+        when(locationService.validateWarehouseLocationExists(840002L))
+                .thenReturn(MesWmWarehouseLocationDO.builder().id(840002L).warehouseId(840001L).build());
+        when(areaService.validateWarehouseAreaExists(840003L))
+                .thenReturn(MesWmWarehouseAreaDO.builder().id(840003L).locationId(840002L).build());
     }
 
     private MockMultipartFile buildWorkbook(boolean capacityConflictOnly, boolean quantityConflict) throws Exception {

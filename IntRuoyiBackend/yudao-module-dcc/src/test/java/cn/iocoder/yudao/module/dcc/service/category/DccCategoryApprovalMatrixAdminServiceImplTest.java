@@ -297,6 +297,60 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getActiveMatrixPositionIdsByCategoryIds_readsLatestActiveRoutePositionNodes() {
+        DccFileCategoryDO category = createCategory("INTAUTH-26", "技术调研报告");
+        DccApprovalPositionDO docControl = createPosition("POS-DOC-PROJECTION", "文控");
+        DccApprovalPositionDO writerLeader = createPosition("POS-WRITER-LEADER", "编制人直接主管");
+        DccApprovalPositionDO qms = createPosition("POS-QMS-PROJECTION", "QMS");
+        DccApprovalPositionDO documentAdmin = createPosition("POS-DOC-ADMIN", "文档管理员");
+        DccApprovalPositionDO deptOwner = createPosition("POS-DEPT-OWNER-PROJECTION", "编制部门负责人");
+        DccApprovalPositionDO delegate = createPosition("POS-AUTH-REP-PROJECTION", "授权代表");
+        DccCategoryApprovalRouteDO oldRoute = DccCategoryApprovalRouteDO.builder()
+                .id(randomLongId())
+                .categoryId(category.getId())
+                .versionNo(1)
+                .active(Boolean.TRUE)
+                .effectiveTime(LocalDateTime.of(2026, 5, 1, 8, 0))
+                .remark("old")
+                .build();
+        routeMapper.insert(oldRoute);
+        routeNodeMapper.insert(createRouteNode(oldRoute.getId(), 2, "MATRIX_REVIEW", "审核会签",
+                writerLeader.getId(), List.of(writerLeader.getId()), "ALL", true));
+        DccCategoryApprovalRouteDO latestRoute = DccCategoryApprovalRouteDO.builder()
+                .id(randomLongId())
+                .categoryId(category.getId())
+                .versionNo(2)
+                .active(Boolean.TRUE)
+                .effectiveTime(LocalDateTime.of(2026, 5, 2, 8, 0))
+                .remark("latest")
+                .build();
+        routeMapper.insert(latestRoute);
+        routeNodeMapper.insert(createRouteNode(latestRoute.getId(), 1, "DOC_CONTROL_REVIEW", "文控审核",
+                docControl.getId(), List.of(docControl.getId()), "ANY", false));
+        insertRouteNodeWithSort(latestRoute.getId(), 2, "MATRIX_REVIEW", "审核会签",
+                writerLeader.getId(), List.of(writerLeader.getId()), "ALL", true, 1);
+        insertRouteNodeWithSort(latestRoute.getId(), 2, "MATRIX_REVIEW", "审核会签",
+                qms.getId(), List.of(qms.getId()), "ALL", true, 2);
+        insertRouteNodeWithSort(latestRoute.getId(), 2, "MATRIX_REVIEW", "审核会签",
+                documentAdmin.getId(), List.of(documentAdmin.getId()), "ALL", true, 3);
+        insertRouteNodeWithSort(latestRoute.getId(), 3, "MATRIX_APPROVAL", "批准",
+                deptOwner.getId(), List.of(deptOwner.getId()), "ANY", false, 1);
+        insertRouteNodeWithSort(latestRoute.getId(), 3, "MATRIX_APPROVAL", "批准",
+                delegate.getId(), List.of(delegate.getId()), "ANY", false, 2);
+        routeNodeMapper.insert(createRouteNode(latestRoute.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
+                docControl.getId(), List.of(docControl.getId()), "ANY", false));
+
+        var result = matrixAdminService.getActiveMatrixPositionIdsByCategoryIds(
+                List.of(category.getId(), randomLongId()));
+
+        assertEquals(List.of(writerLeader.getId(), qms.getId(), documentAdmin.getId()),
+                result.get(category.getId()).signoffPositionIds());
+        assertEquals(List.of(deptOwner.getId(), delegate.getId()),
+                result.get(category.getId()).approvalPositionIds());
+        assertEquals(1, result.size());
+    }
+
+    @Test
     void getApprovalMatrix_normalizesLegacyCandidateSourceIdsIntoRuleRows() {
         DccFileCategoryDO category = createCategory("INTAUTH-4B", "旧矩阵值回填");
         DccApprovalPositionDO docControl = createPosition("POS-DOC-LEGACY", "文控");
@@ -921,5 +975,14 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
                 .required(Boolean.TRUE)
                 .sort(stageNo)
                 .build();
+    }
+
+    private void insertRouteNodeWithSort(Long routeId, int stageNo, String stageCode, String stageName,
+                                         Long candidateSourceId, List<Long> candidateSourceIds,
+                                         String approveMethod, boolean requireAllApprovals, int sort) {
+        DccCategoryApprovalRouteNodeDO node = createRouteNode(routeId, stageNo, stageCode, stageName,
+                candidateSourceId, candidateSourceIds, approveMethod, requireAllApprovals);
+        node.setSort(sort);
+        routeNodeMapper.insert(node);
     }
 }

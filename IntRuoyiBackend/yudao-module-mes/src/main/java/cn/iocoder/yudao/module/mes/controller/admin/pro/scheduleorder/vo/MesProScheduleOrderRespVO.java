@@ -26,6 +26,9 @@ public class MesProScheduleOrderRespVO {
     @Schema(description = "ERP 工单编码", example = "881MO090880")
     private String erpWorkOrderCode;
 
+    @Schema(description = "来源生产工单状态", example = "1")
+    private Integer sourceWorkOrderStatus;
+
     @Schema(description = "生产用料清单数量", example = "2")
     private Integer productionMaterialListCount;
 
@@ -87,6 +90,12 @@ public class MesProScheduleOrderRespVO {
     @Schema(description = "风险状态", example = "0")
     private Integer riskStatus;
 
+    @Schema(description = "未解决阻断问题数量", example = "1")
+    private Integer blockingIssueCount;
+
+    @Schema(description = "最新阻断原因", example = "工单未配置工艺路线")
+    private String latestBlockingIssueMessage;
+
     @Schema(description = "是否冻结", example = "false")
     private Boolean frozen;
 
@@ -110,6 +119,24 @@ public class MesProScheduleOrderRespVO {
 
     @Schema(description = "人工完成原因")
     private String manualFinishedReason;
+
+    @Schema(description = "是否已撤出排产体系", example = "false")
+    private Boolean removedFromSchedule;
+
+    @Schema(description = "撤出排产时间")
+    private LocalDateTime removedFromScheduleTime;
+
+    @Schema(description = "撤出排产操作人", example = "1")
+    private Long removedFromScheduleBy;
+
+    @Schema(description = "撤出排产原因")
+    private String removedFromScheduleReason;
+
+    @Schema(description = "撤出时状态", example = "2")
+    private Integer removedFromScheduleStatus;
+
+    @Schema(description = "是否因存在生产事实禁止重新入池", example = "true")
+    private Boolean reentryBlocked;
 
     @Schema(description = "最晚开工时间")
     private LocalDateTime latestStartTime;
@@ -161,5 +188,8 @@ public class MesProScheduleOrderRespVO {
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
+
+    @Schema(description = "最后更新时间")
+    private LocalDateTime updateTime;
 
 }

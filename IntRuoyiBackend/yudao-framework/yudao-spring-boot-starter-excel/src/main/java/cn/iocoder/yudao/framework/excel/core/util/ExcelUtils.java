@@ -5,11 +5,16 @@ import cn.idev.excel.converters.longconverter.LongStringConverter;
 import cn.iocoder.yudao.framework.common.util.http.HttpUtils;
 import cn.iocoder.yudao.framework.excel.core.handler.ColumnWidthMatchStyleStrategy;
 import cn.iocoder.yudao.framework.excel.core.handler.SelectSheetWriteHandler;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -19,6 +24,9 @@ import java.util.Set;
  * @author 瑛泰源码
  */
 public class ExcelUtils {
+
+    private static final Validator EXCEL_ROW_VALIDATOR = Validation.buildDefaultValidatorFactory().getValidator();
+    private static final String EXPORT_RECORD_COUNT_HEADER = "X-Excel-Export-Record-Count";
 
     /**
      * 将列表以 Excel 响应给前端
@@ -33,6 +41,7 @@ public class ExcelUtils {
      */
     public static <T> void write(HttpServletResponse response, String filename, String sheetName,
                                  Class<T> head, List<T> data) throws IOException {
+        validateWriteArguments(response, filename, sheetName, head, data);
         // 输出 Excel
         FastExcelFactory.write(response.getOutputStream(), head)
                 .autoCloseStream(false) // 不要自动关闭，交给 Servlet 自己处理
@@ -42,6 +51,7 @@ public class ExcelUtils {
                 .sheet(sheetName).doWrite(data);
         // 设置 header 和 contentType。写在最后的原因是，避免报错时，响应 contentType 已经被修改了
         response.addHeader("Content-Disposition", "attachment;filename=" + HttpUtils.encodeUtf8(filename));
+        response.addHeader(EXPORT_RECORD_COUNT_HEADER, String.valueOf(data.size()));
         response.setContentType("application/vnd.ms-excel;charset=UTF-8");
     }
 
@@ -50,6 +60,10 @@ public class ExcelUtils {
      */
     public static <T> void write(HttpServletResponse response, String filename, String sheetName,
                                  Class<T> head, List<T> data, Set<Integer> includeColumnIndexes) throws IOException {
+        validateWriteArguments(response, filename, sheetName, head, data);
+        if (includeColumnIndexes == null || includeColumnIndexes.isEmpty()) {
+            throw new IllegalArgumentException("Excel export include columns are required");
+        }
         FastExcelFactory.write(response.getOutputStream(), head)
                 .autoCloseStream(false)
                 .includeColumnIndexes(includeColumnIndexes)
@@ -58,22 +72,57 @@ public class ExcelUtils {
                 .registerConverter(new LongStringConverter())
                 .sheet(sheetName).doWrite(data);
         response.addHeader("Content-Disposition", "attachment;filename=" + HttpUtils.encodeUtf8(filename));
+        response.addHeader(EXPORT_RECORD_COUNT_HEADER, String.valueOf(data.size()));
         response.setContentType("application/vnd.ms-excel;charset=UTF-8");
     }
 
     public static <T> List<T> read(MultipartFile file, Class<T> head) throws IOException {
         // 参考 https://t.zsxq.com/zM77F 帖子，增加 try 处理，兼容 windows 场景
         try (InputStream inputStream = file.getInputStream()) {
-            return FastExcelFactory.read(inputStream, head, null)
+            return validateImportedRows(FastExcelFactory.read(inputStream, head, null)
                     .autoCloseStream(false) // 不要自动关闭，交给 Servlet 自己处理
-                    .doReadAllSync();
+                    .doReadAllSync(), head);
         }
     }
 
     public static <T> List<T> read(InputStream inputStream, Class<T> head) {
-        return FastExcelFactory.read(inputStream, head, null)
+        return validateImportedRows(FastExcelFactory.read(inputStream, head, null)
                 .autoCloseStream(false)
-                .doReadAllSync();
+                .doReadAllSync(), head);
+    }
+
+    private static <T> void validateWriteArguments(HttpServletResponse response, String filename, String sheetName,
+                                                   Class<T> head, List<T> data) {
+        if (response == null || head == null || filename == null || filename.isBlank()
+                || sheetName == null || sheetName.isBlank() || data == null) {
+            throw new IllegalArgumentException("Excel export arguments are required");
+        }
+        for (int i = 0; i < data.size(); i++) {
+            if (data.get(i) == null) {
+                throw new IllegalArgumentException("Excel export row " + (i + 1) + " is required");
+            }
+        }
+    }
+
+    private static <T> List<T> validateImportedRows(List<T> rows, Class<T> head) {
+        if (head == null) {
+            throw new IllegalArgumentException("Excel import head class is required");
+        }
+        if (rows == null || rows.isEmpty()) {
+            throw new IllegalArgumentException("Excel import data rows are required");
+        }
+        for (int i = 0; i < rows.size(); i++) {
+            T row = rows.get(i);
+            if (row == null) {
+                throw new IllegalArgumentException("Excel import row " + (i + 2) + " is required");
+            }
+            Set<ConstraintViolation<T>> violations = EXCEL_ROW_VALIDATOR.validate(row);
+            if (!violations.isEmpty()) {
+                throw new ConstraintViolationException("Excel import row " + (i + 2) + " validation failed",
+                        new HashSet<>(violations));
+            }
+        }
+        return rows;
     }
 
 }

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -105,5 +106,20 @@ public class MesProWorkOrderMapperTest extends BaseDbUnitTest {
         assertEquals(2, result.getTotal());
         assertEquals(List.of("WO-BALLOON-SAME-NAME", "WO-BALLOON-SELECTED"),
                 result.getList().stream().map(MesProWorkOrderDO::getCode).toList());
+    }
+
+    @Test
+    void testSelectCandidatesByKeyword_doesNotTruncateBeforeEligibilityEvaluation() {
+        List<String> expectedCodes = new ArrayList<>();
+        for (int index = 1; index <= 24; index++) {
+            String code = "881MO-SEARCH-" + index;
+            expectedCodes.add(code);
+            workOrderMapper.insert(createWorkOrder(workOrder -> workOrder.setCode(code)));
+        }
+
+        List<MesProWorkOrderDO> result = workOrderMapper.selectCandidatesByKeyword("88", List.of());
+
+        assertEquals(24, result.size());
+        assertTrue(result.stream().map(MesProWorkOrderDO::getCode).toList().containsAll(expectedCodes));
     }
 }

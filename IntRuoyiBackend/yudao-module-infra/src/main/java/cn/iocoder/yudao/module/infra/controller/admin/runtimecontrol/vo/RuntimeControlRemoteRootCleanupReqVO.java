@@ -16,6 +16,6 @@ public class RuntimeControlRemoteRootCleanupReqVO {
     @NotBlank(message = "清理原因不能为空")
     private String reason;
 
-    @Schema(description = "高危清理确认文本，正式服或备用服务器必须为 PROD")
+    @Schema(description = "高危清理确认文本，正式服或审查服务器必须为 PROD")
     private String prodConfirmText;
 }

@@ -8,43 +8,36 @@ const apiPath = path.resolve(__dirname, '../../src/api/mes/pro/batchrecordreport
 const pageSource = fs.readFileSync(pagePath, 'utf8')
 const apiSource = fs.readFileSync(apiPath, 'utf8')
 
-const requiredPageSnippets = [
-  ['bound error detection', 'isRouteProcessBoundDeleteError(error)'],
+const removedPageSnippets = [
+  ['batch delete button label', '批量删除'],
+  ['batch delete click binding', '@click="handleBatchDelete"'],
+  ['selection column', 'type="selection"'],
+  ['selection state handler', '@selection-change="handleSelectionChange"'],
   ['batch unbind confirmation title', '批量解绑后删除'],
   ['user-facing unbind explanation', '选中的批记录表单中存在已绑定工艺路线工序的报表，是否批量解绑后删除？'],
   ['force delete invocation', 'await deleteSelectedReports(candidates, true)'],
   ['force delete success message', '已批量解绑并删除'],
-  ['cancel keeps bound forms without deleting', "confirmError === 'cancel' || confirmError === 'close') return"]
+  ['batch delete handler', 'const handleBatchDelete = async'],
+  ['batch delete selected rows state', 'selectedRows'],
+  ['batch delete loading state', 'batchDeleteLoading'],
+  ['bound error detection helper', 'isRouteProcessBoundDeleteError']
 ]
 
-const requiredApiSnippets = [
+for (const [label, snippet] of removedPageSnippets) {
+  assert.ok(!pageSource.includes(snippet), `Batch-record form list must remove obsolete batch-delete UI: ${label}`)
+}
+
+const retainedApiSnippets = [
   ['forceUnbind batch request field', 'forceUnbind?: boolean'],
-  ['batch delete request body', 'data'],
   ['route process unbind response field', 'unboundRouteProcessCount?: number'],
   ['route flow config unbind response field', 'unboundRouteFlowProcessConfigCount?: number'],
   ['route flow binding delete response field', 'deletedRouteFlowBindingCount?: number']
 ]
 
-for (const [label, snippet] of requiredPageSnippets) {
-  assert.ok(pageSource.includes(snippet), `Missing batch-record delete UI contract: ${label}`)
+for (const [label, snippet] of retainedApiSnippets) {
+  assert.ok(apiSource.includes(snippet), `Batch delete API contract should remain available for backend compatibility: ${label}`)
 }
 
-for (const [label, snippet] of requiredApiSnippets) {
-  assert.ok(apiSource.includes(snippet), `Missing batch-record delete API contract: ${label}`)
-}
+assert.ok(!pageSource.includes('catch {}'), 'Delete flows must not silently swallow errors.')
 
-const skippedBoundBranchIndex = pageSource.indexOf('isRouteProcessBoundDeleteError(error)')
-const forceDeleteCallIndex = pageSource.indexOf(
-  'await deleteSelectedReports(candidates, true)',
-  skippedBoundBranchIndex + 1
-)
-
-assert.ok(forceDeleteCallIndex > skippedBoundBranchIndex, 'Force delete call must run after bound-template detection.')
-assert.ok(
-  skippedBoundBranchIndex < forceDeleteCallIndex,
-  'Force delete must only run after detecting skipped bound templates and second confirmation.'
-)
-
-assert.ok(!pageSource.includes('catch {}'), 'Delete flow must not silently swallow errors.')
-
-console.log('PASS: batch-record force unbind delete static contract')
+console.log('PASS: batch-record batch delete removal static contract')

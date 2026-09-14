@@ -10,7 +10,7 @@ export interface ControlledFileDirectoryVO {
   hasChildren?: boolean
   directoryPath?: string
   remark?: string
-  createTime?: Date | string
+  createTime?: number
   children?: ControlledFileDirectoryVO[]
 }
 

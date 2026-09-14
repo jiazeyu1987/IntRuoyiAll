@@ -40,7 +40,25 @@ public class MesKingdeeBomListServiceImpl implements MesKingdeeBomListService {
     public int syncAll() {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         List<ErpKingdeeBomLine> lines = bomClient.fetchBomLines(properties);
-        return syncLines(lines);
+        return syncLines(lines, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesKingdeeBomListSyncResult syncAllSkipExisting() {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        List<ErpKingdeeBomLine> lines = bomClient.fetchBomLines(properties);
+        MesKingdeeBomListSyncResult result = new MesKingdeeBomListSyncResult();
+        LocalDateTime now = LocalDateTime.now();
+        for (int i = 0; i < lines.size(); i++) {
+            if (upsert(lines.get(i), i + 1, now, true)) {
+                result.addCreated();
+            } else {
+                result.addSkipped();
+            }
+        }
+        return result;
     }
 
     @Override
@@ -51,18 +69,18 @@ public class MesKingdeeBomListServiceImpl implements MesKingdeeBomListService {
         }
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         List<ErpKingdeeBomLine> lines = bomClient.fetchBomLinesModifiedBetween(properties, windowStart, windowEnd);
-        return syncLines(lines);
+        return syncLines(lines, false);
     }
 
-    private int syncLines(List<ErpKingdeeBomLine> lines) {
+    private int syncLines(List<ErpKingdeeBomLine> lines, boolean skipExisting) {
         LocalDateTime now = LocalDateTime.now();
         for (int i = 0; i < lines.size(); i++) {
-            upsert(lines.get(i), i + 1, now);
+            upsert(lines.get(i), i + 1, now, skipExisting);
         }
         return lines.size();
     }
 
-    private void upsert(ErpKingdeeBomLine line, int lineNo, LocalDateTime now) {
+    private boolean upsert(ErpKingdeeBomLine line, int lineNo, LocalDateTime now, boolean skipExisting) {
         String lineKey = line.getChildMaterialNumber() + "|" + line.getNumerator() + "|" + line.getDenominator();
         MesKingdeeBomListDO existing = bomListMapper.selectBySourceLine(line.getFid(), lineKey);
         MesKingdeeBomListDO row = MesKingdeeBomListDO.builder()
@@ -89,10 +107,14 @@ public class MesKingdeeBomListServiceImpl implements MesKingdeeBomListService {
                 .build();
         if (existing == null) {
             bomListMapper.insert(row);
-            return;
+            return true;
+        }
+        if (skipExisting) {
+            return false;
         }
         row.setId(existing.getId());
         bomListMapper.updateById(row);
+        return true;
     }
 
 }

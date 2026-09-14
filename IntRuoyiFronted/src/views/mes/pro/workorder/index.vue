@@ -118,6 +118,19 @@
         ></el-table-column
       >
       <el-table-column
+        v-if="isWorkOrderColumnVisible('demandBillNo')"
+        label="需求单据"
+        align="center"
+        prop="demandBillNo"
+        min-width="220"
+          v-bind="sortColumnAttrs('demandBillNo')"
+        ><template #default="scope">
+          <div class="work-order-key-cell">
+            <span class="work-order-key-text">{{ scope.row.demandBillNo }}</span>
+          </div></template
+        ></el-table-column
+      >
+      <el-table-column
         v-if="isWorkOrderColumnVisible('productSpecification')"
         label="规格型号"
         align="center"
@@ -165,6 +178,7 @@
       />
       <el-table-column v-if="isWorkOrderColumnVisible('businessStatus')" label="业务状态" align="center" prop="businessStatus" :width="getWorkOrderColumnWidthString('businessStatus', 100)" v-bind="sortColumnAttrs('businessStatus')" />
       <el-table-column v-if="isWorkOrderColumnVisible('drawingNumber')" label="图号" align="center" prop="drawingNumber" :width="getWorkOrderColumnWidthString('drawingNumber', 140)" v-bind="sortColumnAttrs('drawingNumber')" />
+      <el-table-column v-if="isWorkOrderColumnVisible('refNo')" label="REF.NO." align="center" prop="refNo" :width="getWorkOrderColumnWidthString('refNo', 140)" v-bind="sortColumnAttrs('refNo')" />
       <el-table-column v-if="isWorkOrderColumnVisible('auxiliaryCode')" label="备注1助记码" align="center" prop="auxiliaryCode" :width="getWorkOrderColumnWidthString('auxiliaryCode', 140)" v-bind="sortColumnAttrs('auxiliaryCode')" />
       <el-table-column v-if="isWorkOrderColumnVisible('scheduleStatus')" label="排产状态" align="center" prop="scheduleStatus" :width="getWorkOrderColumnWidthString('scheduleStatus', 110)" v-bind="sortColumnAttrs('scheduleStatus')" />
       <el-table-column v-if="isWorkOrderColumnVisible('quantityProduced')" label="已生产数量" align="center" prop="quantityProduced" :width="getWorkOrderColumnWidthString('quantityProduced', 110)" v-bind="sortColumnAttrs('quantityProduced')" />
@@ -265,6 +279,7 @@ const workOrderDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'code', label: '工单编号', width: 340 },
   { key: 'productCode', label: '产品编码', width: 260 },
   { key: 'productName', label: '产品名称', minWidth: 340 },
+  { key: 'demandBillNo', label: '需求单据', minWidth: 220 },
   { key: 'productSpecification', label: '规格型号', minWidth: 360 },
   { key: 'quantity', label: '计划数量', width: 180 },
   { key: 'batchCode', label: '批次号', width: 160 },
@@ -273,6 +288,7 @@ const workOrderDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'plannedEndTime', label: '计划完工时间', width: 180 },
   { key: 'businessStatus', label: '业务状态', width: 100 },
   { key: 'drawingNumber', label: '图号', width: 140 },
+  { key: 'refNo', label: 'REF.NO.', width: 140 },
   { key: 'auxiliaryCode', label: '备注1助记码', width: 140 },
   { key: 'scheduleStatus', label: '排产状态', width: 110 },
   { key: 'quantityProduced', label: '已生产数量', width: 110 },
@@ -381,6 +397,7 @@ const workOrderQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     placeholder: '请输入产品编码',
     fetchSuggestions: queryProductCodeSuggestions
   },
+  { key: 'demandBillNo', label: '需求单据', type: 'text', placeholder: '请输入需求单据' },
   { key: 'productSpecification', label: '规格型号', type: 'text', placeholder: '请输入规格型号' },
   { key: 'requestDate', label: '需求日期', type: 'dateRange' }
 ]
@@ -423,7 +440,7 @@ const loadListFromRoute = async () => {
 const handleSyncKingdeeWorkOrders = async () => {
   kingdeeSyncLoading.value = true
   try {
-    await ErpKingdeeSyncApi.runIncrementalSyncJob('kingdeeProductionOrderSyncJob')
+    await ErpKingdeeSyncApi.runIncrementalSync('PRODUCTION_ORDER')
     message.success('生产工单增量同步任务已提交')
     await getList()
   } finally {
