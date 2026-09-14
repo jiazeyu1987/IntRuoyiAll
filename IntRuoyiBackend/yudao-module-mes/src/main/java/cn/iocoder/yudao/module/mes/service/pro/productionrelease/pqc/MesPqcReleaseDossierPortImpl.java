@@ -286,9 +286,10 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                 lossReportWriter.write(plan.getLossReportPlan(), batchExecutionId);
         requireFormalWrite(plan, batchExecutionId, batchWrite, inspectionWrite, lossWrite);
         return new MesPqcReleaseDossierWriteResult()
-                .setBatchRecordEvidenceIds(List.copyOf(batchWrite.getBatchRecordExecutionIds()))
-                .setProcessInspectionEvidenceIds(List.copyOf(inspectionWrite.getBatchRecordExecutionIds()))
-                .setLossReportEvidenceIds(List.copyOf(lossWrite.getBatchRecordExecutionIds()))
+                .setBatchRecordEvidenceIds(copy(batchWrite.getBatchRecordExecutionIds()))
+                .setProcessInspectionEvidenceIds(copy(inspectionWrite.getBatchRecordExecutionIds()))
+                .setProcessInspectionFormCenterInstanceIds(copy(inspectionWrite.getFormCenterInstanceIds()))
+                .setLossReportEvidenceIds(copy(lossWrite.getBatchRecordExecutionIds()))
                 .setLossReportStatus(lossWrite.getLossReportStatus())
                 .setHasActualLoss(lossWrite.getHasActualLoss())
                 .setLossQuantity(lossWrite.getLossQuantity())
@@ -430,9 +431,18 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                 inspectionWrite.getBlockers());
         requireNoWriteBlockers(batchExecutionId, MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED,
                 lossWrite.getBlockers());
-        if (empty(batchWrite.getBatchRecordExecutionIds()) || empty(inspectionWrite.getBatchRecordExecutionIds())) {
+        if (empty(batchWrite.getBatchRecordExecutionIds())) {
             throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, null, null,
-                    "writer did not return batch-record and process-inspection evidence sets");
+                    "writer did not return batch-record evidence sets");
+        }
+        if (empty(inspectionWrite.getBatchRecordExecutionIds())
+                && empty(inspectionWrite.getFormCenterInstanceIds())) {
+            throw blocker(MesReleaseFlowBlockerType.PROCESS_INSPECTION_SOURCE_REQUIRED, null, null,
+                    "writer did not return process-inspection evidence sets");
+        }
+        if (empty(inspectionWrite.getFieldAuditIds()) || empty(inspectionWrite.getFieldAuditHeadHashes())) {
+            throw blocker(MesReleaseFlowBlockerType.PROCESS_INSPECTION_SOURCE_REQUIRED, null, null,
+                    "writer did not return process-inspection field audit evidence");
         }
         boolean successLoss = "SUCCESS".equals(lossWrite.getLossReportStatus())
                 && Boolean.TRUE.equals(lossWrite.getHasActualLoss())
@@ -460,6 +470,10 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
 
     private boolean empty(List<?> values) {
         return values == null || values.isEmpty();
+    }
+
+    private <T> List<T> copy(List<T> values) {
+        return values == null ? List.of() : List.copyOf(values);
     }
 
     private <T> List<T> list(List<T> values) {

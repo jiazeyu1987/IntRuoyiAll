@@ -34,15 +34,16 @@ class MesProductionReleaseControllerJsonTest {
                 .setBatchExecutionId(9007199254740995L)
                 .setBatchRecordEvidenceIds(List.of(9007199254740996L))
                 .setProcessInspectionEvidenceIds(List.of(9007199254740997L))
-                .setLossReportEvidenceIds(List.of(9007199254740998L))
+                .setProcessInspectionFormCenterInstanceIds(List.of(9007199254740998L))
+                .setLossReportEvidenceIds(List.of(9007199254740999L))
                 .setReportUploadTasks(List.of(new MesProductionReleaseReportUploadTaskRespVO()
                         .setNodeType("INCOMING_INSPECTION_REPORT")
-                        .setBatchTaskId(9007199254740999L)
-                        .setWorkTaskId(9007199254741000L)
-                        .setCandidateUserIds(List.of(9007199254741001L))
+                        .setBatchTaskId(9007199254741000L)
+                        .setWorkTaskId(9007199254741001L)
+                        .setCandidateUserIds(List.of(9007199254741002L))
                         .setStatus("TODO")))
                 .setVersion(2)
-                .setDecidedBy(9007199254741002L);
+                .setDecidedBy(9007199254741003L);
 
         JsonNode json = new ObjectMapper().readTree(new ObjectMapper().writeValueAsString(response));
 
@@ -51,6 +52,7 @@ class MesProductionReleaseControllerJsonTest {
         }
         assertTrue(json.get("batchRecordEvidenceIds").get(0).isTextual());
         assertTrue(json.get("processInspectionEvidenceIds").get(0).isTextual());
+        assertTrue(json.get("processInspectionFormCenterInstanceIds").get(0).isTextual());
         assertTrue(json.get("lossReportEvidenceIds").get(0).isTextual());
         assertTrue(json.get("reportUploadTasks").get(0).get("batchTaskId").isTextual());
         assertTrue(json.get("reportUploadTasks").get(0).get("workTaskId").isTextual());

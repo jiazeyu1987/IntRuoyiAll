@@ -33,6 +33,9 @@ public class MesPqcProductionReleaseDecisionRespVO {
     private List<Long> processInspectionEvidenceIds;
 
     @JsonSerialize(contentUsing = ToStringSerializer.class)
+    private List<Long> processInspectionFormCenterInstanceIds;
+
+    @JsonSerialize(contentUsing = ToStringSerializer.class)
     private List<Long> lossReportEvidenceIds;
 
     private List<MesProductionReleaseReportUploadTaskRespVO> reportUploadTasks;
