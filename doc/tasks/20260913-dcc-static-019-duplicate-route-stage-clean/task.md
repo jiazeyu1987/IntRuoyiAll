@@ -17,7 +17,7 @@
 - [x] M3：先新增能暴露重复 `stageCode` 保存通过的 RED 回归测试或静态合同。
 - [x] M4：做最小修复，前后端保存边界均明确拒绝重复固定环节。
 - [x] M5：运行定向单元/合同测试、必要编译/类型检查和 `git diff --check`，记录 GREEN 与剩余风险。
-- [x] M6：按 closeout 规则进入 `ready_for_closeout` 并执行 cleanup preview；用户已授权 Git 提交/推送，已创建任务分支、登记运行槽位并提交实现；因主工作区存在并行脏改动，cleanup apply、ff-only 合入和 worktree 删除仍记录为 `blocked`。
+- [x] M6：按 closeout 规则执行收尾复核；用户已授权 Git 提交/推送，已创建任务分支、登记运行槽位、提交实现，并把最新本地 `int_main` 合入任务分支；因主工作区再次出现并行未合并冲突，local cleanup apply / worktree 删除仍记录为 `blocked`。
 
 ## BDD Scenarios
 
@@ -51,7 +51,7 @@ And 预览、快照和流程授权使用同一组四个固定阶段及其候选�
 - 固定路线按四个正式阶段建模；重复 `stageCode` 必须 fail fast。
 - 若发现运行侧仍存在重复 Map 静默丢弃风险，应改为显式拒绝重复，而不是合并或猜测优先级。
 - 前端校验只是用户体验边界；后端保存校验必须作为权威边界。
-- 本线程已于 2026-09-14 获得 Git commit/push 授权；若主工作区存在并行脏改动导致 cleanup apply/ff-only 合入无法安全执行，最终记录为 `blocked` 而非 `completed`。
+- 本线程已于 2026-09-14 获得 Git commit/push/合入 `int_main` 授权；若主工作区存在并行未合并冲突导致 cleanup apply/worktree 删除无法安全执行，最终记录为 `blocked` 而非 `completed`。
 
 ## Cleanup Keep
 
@@ -64,8 +64,9 @@ And 预览、快照和流程授权使用同一组四个固定阶段及其候选�
 - 后端保存与预览对重复固定阶段抛出 `APPROVAL_ROUTE_FIXED_STAGE_INVALID`；运行态重复 `stageCode` 抛出 `CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH`。
 - 前端固定路线提交前检查四个阶段各恰好一条；前端静态合同、后端定向 Maven 测试、类型检查和 diff 检查均通过。
 - 用户授权后创建分支 `codex/dcc-static-019-duplicate-route-stage-clean`，登记 `int_main` slot 17（前端 8098 / 后端 48098），实现提交在 rebase 到最新本地 `int_main` 后为 `34b5585ed`。
+- 2026-09-14 继续融合：主工作区资源改动独立基线提交为 `02e0e32a6`；任务分支合入最新本地 `int_main` 的提交为 `5c93f7b34`，当前任务分支相对本地 `int_main` 为 `0 5`，可作为远端快进融合候选。
 - 详见 `execution-log.md` 与 `verification-report.md`。
 
 ## Current Status
 
-blocked - 实现与定向验证已完成并提交到任务分支；用户要求合并到 `int_main` 时，主工作区 `E:\IntRuoyi` 仍存在并行脏改动，按 closeout 规则暂不能执行 cleanup apply、ff-only 合入或删除当前 worktree。
+blocked - 实现与定向验证已完成并提交到任务分支；任务分支已吸收最新本地 `int_main`，但主工作区 `E:\IntRuoyi` 又出现并行未合并冲突，按 closeout 规则暂不能执行 local cleanup apply 或删除当前 worktree；将改走非强制远端快进融合门禁。

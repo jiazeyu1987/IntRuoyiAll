@@ -88,3 +88,17 @@
 - Final GREEN after second rebase: `pnpm ts:check` -> PASS。
 - Final GREEN after second rebase: `mvn -pl yudao-module-dcc -am "-Dtest=DccApprovalRouteAdminServiceImplTest,DccControlledFileApprovalRouteAssigneeResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，27 tests, failures 0, errors 0。
 - Final merge blocker check: `git -C E:\IntRuoyi status --short --branch --untracked-files=all` -> `int_main...origin/int_main [ahead 13]` with dirty files `IntRuoyiFronted/scripts/dcc-frontend-api-fail-closed-contract.test.mjs` and `IntRuoyiFronted/tests/e2e/dcc-controlled-file-protection.contract.test.js`; per cleanup rules, main worktree is still not a clean merge target.
+
+## Submit And Fuse Resume 2026-09-14
+
+- User request: 用户要求“提交并融合进int_main”。
+- Preflight reread: `AGENTS.md`, `docs/task-closeout-rules.md`, `docs/worktree-restrictions.md`, `docs/branch-runtime-ports.md`, `task-closeout-cleanup` skill and `project-experience-consolidation` skill -> PASS.
+- Current task branch status before resume: `git status --short --branch --untracked-files=all` -> clean, `codex/dcc-static-019-duplicate-route-stage-clean...origin/codex/dcc-static-019-duplicate-route-stage-clean [ahead 8, behind 4]`.
+- Guard: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `codex/dcc-static-019-duplicate-route-stage-clean/int_main: frontend 8098, backend 48098`.
+- Main worktree baseline: `git -C E:\IntRuoyi status --short --branch --untracked-files=all` initially showed only resource presentation rename/update dirty state; user had authorized commit/merge, so it was committed separately as `02e0e32a6 chore: baseline int_main resource update before DCC static 019 fusion`.
+- Branch sync: `git merge --no-ff int_main -m "merge: bring int_main into DCC static 019 branch"` -> PASS, commit `5c93f7b34`; `git rev-list --left-right --count int_main...HEAD` -> `0 5`.
+- Experience consolidation: existing `docs/worktree-memory.md#并行主工作区远端快进融合门禁` already covers this repeated dirty-main merge path; no new long-term experience document was required.
+- New local closeout blocker: after branch sync, `git -C E:\IntRuoyi status --short --branch --untracked-files=all` showed unrelated MES dirty files and one unmerged conflict `UU IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolPqcInspectionCorrectionServiceTest.java`; per project rules this task must not resolve, stash, reset or baseline-commit another task's unresolved conflict.
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-dcc-static-019-duplicate-route-stage-clean --mode preview` -> BLOCKED only by `Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`; keep task.md, execution-log.md and verification-report.md; delete none.
+- Evidence validator: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260913-dcc-static-019-duplicate-route-stage-clean\verification-report.md` -> PASS, `Bug regression evidence is valid.`
+- Fusion path decision: because local main worktree is not a clean merge target, continue only if `origin/int_main` is an ancestor of the task branch and verification passes, then use a non-force fast-forward push `git push origin HEAD:int_main`; otherwise remain blocked.
