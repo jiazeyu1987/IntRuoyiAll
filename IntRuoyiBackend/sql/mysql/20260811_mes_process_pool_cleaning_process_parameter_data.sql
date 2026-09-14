@@ -7,6 +7,8 @@ DROP PROCEDURE IF EXISTS preflight_mes_pp_cleaning_process_parameter_data;
 DELIMITER $$
 CREATE PROCEDURE preflight_mes_pp_cleaning_process_parameter_data()
 BEGIN
+  DECLARE v_cleaning_rule_candidate_count BIGINT DEFAULT 0;
+
   IF (
     SELECT COUNT(*)
     FROM information_schema.tables
@@ -33,42 +35,37 @@ BEGIN
       SET MESSAGE_TEXT = 'Missing typed device parameter rule columns';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1
-    FROM mes_pro_process_pool_device_parameter_rule rule
-    JOIN mes_pro_route_process route_process
-      ON route_process.id = rule.route_process_id
-     AND route_process.tenant_id = rule.tenant_id
-     AND route_process.process_id = rule.process_id
-     AND route_process.deleted = b'0'
-    JOIN mes_pro_process process
-      ON process.id = rule.process_id
-     AND process.tenant_id = rule.tenant_id
-     AND process.deleted = b'0'
-    JOIN mes_pro_process_pool_team_device device
-      ON device.id = rule.device_id
-     AND device.tenant_id = rule.tenant_id
-     AND device.deleted = b'0'
-    WHERE rule.deleted = b'0'
-      AND process.`name` = '清洗工序'
-      AND device.device_name LIKE '%超声波清洗机%'
-      AND (
-        rule.parameter_code IN (
-          'CLEANING_COUNT',
-          'CLEANING_MEDIUM',
-          'CLEANING_POWER',
-          'CLEANING_ROOM_TEMPERATURE',
-          'CLEANING_TIME'
-        )
-        OR rule.parameter_name IN ('清洗次数', '清洗介质', '清洗功率', '室温', '清洗温度', '清洗时间')
-        OR rule.standard_text = '室温'
+  SELECT COUNT(*) INTO v_cleaning_rule_candidate_count
+  FROM mes_pro_process_pool_device_parameter_rule rule
+  JOIN mes_pro_route_process route_process
+    ON route_process.id = rule.route_process_id
+   AND route_process.tenant_id = rule.tenant_id
+   AND route_process.process_id = rule.process_id
+   AND route_process.deleted = b'0'
+  JOIN mes_pro_process process
+    ON process.id = rule.process_id
+   AND process.tenant_id = rule.tenant_id
+   AND process.deleted = b'0'
+  JOIN mes_pro_process_pool_team_device device
+    ON device.id = rule.device_id
+   AND device.tenant_id = rule.tenant_id
+   AND device.deleted = b'0'
+  WHERE rule.deleted = b'0'
+    AND process.`name` = '清洗工序'
+    AND device.device_name LIKE '%超声波清洗机%'
+    AND (
+      rule.parameter_code IN (
+        'CLEANING_COUNT',
+        'CLEANING_MEDIUM',
+        'CLEANING_POWER',
+        'CLEANING_ROOM_TEMPERATURE',
+        'CLEANING_TIME'
       )
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'No active cleaning process ultrasonic cleaner parameter rules found';
-  END IF;
+      OR rule.parameter_name IN ('清洗次数', '清洗介质', '清洗功率', '室温', '清洗温度', '清洗时间')
+      OR rule.standard_text = '室温'
+    );
 
-  IF EXISTS (
+  IF v_cleaning_rule_candidate_count > 0 AND EXISTS (
     SELECT 1
     FROM (
       SELECT
@@ -135,7 +132,7 @@ BEGIN
       SET MESSAGE_TEXT = 'Duplicate cleaning process parameter rules would collide after normalization';
   END IF;
 
-  IF EXISTS (
+  IF v_cleaning_rule_candidate_count > 0 AND EXISTS (
     SELECT 1
     FROM (
       SELECT
