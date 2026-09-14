@@ -36,7 +36,7 @@ BDD: DCC-STATIC-027 rename file number identity still works -> Given 已发布�
 
 completed
 
-实现、验证、分支推送和本地 `int_main` fast-forward 合并已完成。最终合并提交为 `73ea976ab`；任务分支与 `int_main` 已包含同一任务内容。主工作区原有并行改动已原样恢复，未纳入本任务提交。
+实现、验证、分支推送、本地 `int_main` fast-forward 合并和授权后的 `origin/int_main` 推送均已完成。最终任务合并提交为 `73ea976ab`；`int_main` 已推送到 `bc640fd96`。主工作区原有并行改动已原样保留，未纳入本任务提交。
 
 ## Verification Summary
 

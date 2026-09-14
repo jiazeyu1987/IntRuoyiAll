@@ -61,4 +61,4 @@ STATIC: `git diff --check` -> PASS, no whitespace errors; only touched Java file
 - worktree 删除：未执行；当前 Codex 任务仍使用该 worktree，保留已验证工作区。
 - 任务状态：`completed`。
 - E2E、服务启动/重启、数据库写入、远程服务器操作：未执行。
-- `int_main` 推送：未执行；本地 `int_main` 原本已包含其他未推送任务提交，推送会扩大本任务范围。任务分支已按授权推送到 `origin`。
+- `int_main` 推送：PASS；2026-09-14 获得用户“提交并融合进int_main”授权后，已在 `E:\IntRuoyi` 执行 `git fetch origin int_main`、`scripts\preflight\branch-runtime-port-guard.ps1`、`git push origin int_main`，`origin/int_main` 从 `49a6ec8b2` 更新到 `bc640fd96`。

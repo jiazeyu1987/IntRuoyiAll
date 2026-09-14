@@ -44,4 +44,4 @@ BDD: DCC-STATIC-027 rename file number identity still works -> Given 已发布�
 
 ## Blockers
 
-提交/推送授权 blocker 已解除。实现提交已从 `4cd77e18a` rebase 为 `207600902`，收尾记录提交已从 `d0feb6002` rebase 为 `6d337c286`，最终收尾记录提交为 `73ea976ab`。任务分支已 fast-forward 合并到本地 `int_main`；主工作区原有并行改动已恢复且未混入本任务。任务状态为 `completed`。`int_main` 未推送，因为其原本已包含其他未推送任务提交；本任务分支已推送到 `origin`。
+提交/推送授权 blocker 已解除。实现提交已从 `4cd77e18a` rebase 为 `207600902`，收尾记录提交已从 `d0feb6002` rebase 为 `6d337c286`，最终任务合并提交为 `73ea976ab`。任务分支已 fast-forward 合并到本地 `int_main`；主工作区原有并行改动已保留且未混入本任务。2026-09-14 获得用户授权后，`int_main` 已通过端口矩阵守卫并推送到 `origin/int_main` = `bc640fd96`。任务状态为 `completed`。
