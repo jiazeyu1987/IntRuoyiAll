@@ -46,5 +46,34 @@ def test_manifest_hash_columns_match_legacy_task_text_collation() -> None:
         "submitted_content_hash char(64) character set utf8mb4 collate utf8mb4_unicode_ci default null"
         in text
     )
-    assert "task.inspection_rule_key <> candidate.expected_rule_key" in text
-    assert "not (task.submitted_content_hash <=> manifest.submitted_content_hash)" in text
+
+
+def test_text_comparisons_pin_legacy_task_collation() -> None:
+    text = _compact(_sql_text())
+
+    unsafe_patterns = [
+        "sha2(manifest.canonical_payload_json, 256) <> manifest.submitted_content_hash",
+        "sha2(manifest.canonical_payload_json, 256) = manifest.submitted_content_hash",
+        "task.inspection_rule_key <> candidate.expected_rule_key",
+        "json_unquote(json_extract( manifest.canonical_payload_json, '$.inspectionrulekey')) <> rule_candidate.expected_rule_key",
+        "piece.piece_detail_sha256 <> manifest.piece_detail_sha256",
+        "task.submitted_content_hash <> manifest.submitted_content_hash",
+        "task.submitted_content_hash <=> manifest.submitted_content_hash",
+        "task.submitted_content_hash <=> submission.submitted_content_hash",
+    ]
+
+    for pattern in unsafe_patterns:
+        assert pattern not in text, f"unsafe implicit text-collation comparison remains: {pattern}"
+
+    assert (
+        "sha2(manifest.canonical_payload_json, 256) collate utf8mb4_unicode_ci "
+        "<> manifest.submitted_content_hash collate utf8mb4_unicode_ci"
+    ) in text
+    assert (
+        "task.inspection_rule_key collate utf8mb4_unicode_ci "
+        "<> candidate.expected_rule_key collate utf8mb4_unicode_ci"
+    ) in text
+    assert (
+        "task.submitted_content_hash collate utf8mb4_unicode_ci "
+        "<=> manifest.submitted_content_hash collate utf8mb4_unicode_ci"
+    ) in text

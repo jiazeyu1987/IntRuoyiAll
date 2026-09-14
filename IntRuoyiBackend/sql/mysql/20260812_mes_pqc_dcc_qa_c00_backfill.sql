@@ -331,7 +331,8 @@ BEGIN
          'submittedContentHash must equal the SHA-256 of the exact canonicalPayloadJson text'
     FROM c00_backfill_approved_task_submission manifest
    WHERE manifest.canonical_payload_json IS NOT NULL
-     AND SHA2(manifest.canonical_payload_json, 256) <> manifest.submitted_content_hash;
+     AND SHA2(manifest.canonical_payload_json, 256) COLLATE utf8mb4_unicode_ci
+         <> manifest.submitted_content_hash COLLATE utf8mb4_unicode_ci;
 
   INSERT INTO c00_backfill_blocker_report
   SELECT 'task_submission_manifest_duplicate_event', submitted_event_id,
@@ -555,7 +556,8 @@ BEGIN
      AND candidate.task_id = task.id
    WHERE candidate.expected_rule_key IS NULL
       OR (task.inspection_rule_key IS NOT NULL
-          AND task.inspection_rule_key <> candidate.expected_rule_key);
+          AND task.inspection_rule_key COLLATE utf8mb4_unicode_ci
+              <> candidate.expected_rule_key COLLATE utf8mb4_unicode_ci);
 
   DROP TEMPORARY TABLE IF EXISTS c00_backfill_task_event_evidence;
   CREATE TEMPORARY TABLE c00_backfill_task_event_evidence AS
@@ -649,7 +651,8 @@ BEGIN
            '$.scrapQuantity',
            '$.nonconformanceDescription',
            '$.itemResults') = 1
-     AND SHA2(manifest.canonical_payload_json, 256) = manifest.submitted_content_hash;
+     AND SHA2(manifest.canonical_payload_json, 256) COLLATE utf8mb4_unicode_ci
+         = manifest.submitted_content_hash COLLATE utf8mb4_unicode_ci;
 
   DROP TEMPORARY TABLE IF EXISTS c00_backfill_canonical_item;
   CREATE TEMPORARY TABLE c00_backfill_canonical_item (
@@ -780,8 +783,8 @@ BEGIN
       OR CAST(JSON_UNQUOTE(JSON_EXTRACT(
            manifest.canonical_payload_json, '$.pqcTaskId')) AS UNSIGNED) <> task.id
       OR JSON_UNQUOTE(JSON_EXTRACT(
-           manifest.canonical_payload_json, '$.inspectionRuleKey'))
-           <> rule_candidate.expected_rule_key
+           manifest.canonical_payload_json, '$.inspectionRuleKey')) COLLATE utf8mb4_unicode_ci
+           <> rule_candidate.expected_rule_key COLLATE utf8mb4_unicode_ci
       OR CAST(JSON_UNQUOTE(JSON_EXTRACT(
            manifest.canonical_payload_json, '$.actualEmployeeId')) AS UNSIGNED)
            <> event.actual_employee_id
@@ -796,13 +799,14 @@ BEGIN
            WHEN event.raw_payload IS NOT NULL AND JSON_VALID(event.raw_payload) = 1 THEN
              NOT (
                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(
-                 manifest.canonical_payload_json, '$.scrapQuantity')), 'null')
-               <=> NULLIF(JSON_UNQUOTE(JSON_EXTRACT(event.raw_payload, '$.scrapQuantity')), 'null'))
+                 manifest.canonical_payload_json, '$.scrapQuantity')), 'null') COLLATE utf8mb4_unicode_ci
+               <=> NULLIF(JSON_UNQUOTE(JSON_EXTRACT(
+                 event.raw_payload, '$.scrapQuantity')), 'null') COLLATE utf8mb4_unicode_ci)
              OR NOT (
                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(
-                 manifest.canonical_payload_json, '$.nonconformanceDescription')), 'null')
+                 manifest.canonical_payload_json, '$.nonconformanceDescription')), 'null') COLLATE utf8mb4_unicode_ci
                <=> NULLIF(JSON_UNQUOTE(JSON_EXTRACT(
-                 event.raw_payload, '$.nonconformanceDescription')), 'null'))
+                 event.raw_payload, '$.nonconformanceDescription')), 'null') COLLATE utf8mb4_unicode_ci)
            ELSE TRUE
          END;
 
@@ -986,11 +990,13 @@ BEGIN
       OR event.actual_employee_id <> pqc_record.actual_employee_id
       OR event.server_submit_time <> pqc_record.server_submit_time
       OR piece.piece_detail_count <> manifest.piece_detail_count
-      OR piece.piece_detail_sha256 <> manifest.piece_detail_sha256
+      OR piece.piece_detail_sha256 COLLATE utf8mb4_unicode_ci
+          <> manifest.piece_detail_sha256 COLLATE utf8mb4_unicode_ci
       OR (task.submitted_event_id IS NOT NULL
           AND task.submitted_event_id <> manifest.submitted_event_id)
       OR (task.submitted_content_hash IS NOT NULL
-          AND task.submitted_content_hash <> manifest.submitted_content_hash);
+          AND task.submitted_content_hash COLLATE utf8mb4_unicode_ci
+              <> manifest.submitted_content_hash COLLATE utf8mb4_unicode_ci);
 
   INSERT INTO c00_backfill_blocker_report
   SELECT 'existing_task_submission_identity_invalid', evidence.task_id,
@@ -1052,7 +1058,8 @@ BEGIN
       ON manifest.tenant_id = task.tenant_id
      AND manifest.task_id = task.id
    WHERE task.task_status IN ('SUBMITTED', 'CONFIRMED')
-     AND (NOT (task.submitted_content_hash <=> manifest.submitted_content_hash)
+     AND (NOT (task.submitted_content_hash COLLATE utf8mb4_unicode_ci
+               <=> manifest.submitted_content_hash COLLATE utf8mb4_unicode_ci)
           OR NOT (task.submitted_event_id <=> manifest.submitted_event_id));
 
   SELECT * FROM c00_backfill_blocker_report ORDER BY blocker_scope, source_id;
@@ -1156,7 +1163,8 @@ BEGIN
             AND rule_candidate.expected_rule_key IS NOT NULL)
         OR (task.task_status IN ('SUBMITTED', 'CONFIRMED')
             AND submission.task_id IS NOT NULL
-            AND (NOT (task.submitted_content_hash <=> submission.submitted_content_hash)
+            AND (NOT (task.submitted_content_hash COLLATE utf8mb4_unicode_ci
+                      <=> submission.submitted_content_hash COLLATE utf8mb4_unicode_ci)
                  OR NOT (task.submitted_event_id <=> submission.submitted_event_id)));
 
     DROP TEMPORARY TABLE IF EXISTS c00_backfill_apply_report;
@@ -1287,7 +1295,8 @@ BEGIN
          task.submitted_event_id = manifest.submitted_event_id,
          task.updater = 'C00_BACKFILL'
    WHERE task.task_status IN ('SUBMITTED', 'CONFIRMED')
-     AND (NOT (task.submitted_content_hash <=> manifest.submitted_content_hash)
+     AND (NOT (task.submitted_content_hash COLLATE utf8mb4_unicode_ci
+               <=> manifest.submitted_content_hash COLLATE utf8mb4_unicode_ci)
           OR NOT (task.submitted_event_id <=> manifest.submitted_event_id));
     SET v_task_submission_update_count = ROW_COUNT();
 

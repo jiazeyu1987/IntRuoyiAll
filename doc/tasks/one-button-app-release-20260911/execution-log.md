@@ -84,3 +84,12 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 - GREEN: test-server-readonly-preflight -> PASS，新版 UV1/UV2 target preflight 在测试服均返回 `TARGET_PREFLIGHT_PASS`；诊断查询显示 UV1 `uv1_source_rule_scopes=0`、UV2 `uv2_a05075_binding_count=0`。
 - IMPLEMENTATION: UV1/UV2 迁移移除“来源配置为 0 时直接 SIGNAL”的硬阻断，保留存在候选来源时的冲突校验；两个 target preflight 改为 CTE 读取候选数量、目标设备/绑定/规则冲突并允许空来源基线 no-op。
 - RESULT: R40 已在测试服版本切换前失败并释放 lock，失败点为旧包内 UV1 SQL；R40 判废不复用。下一轮必须使用新 releaseTag `release-20260914-one-button-app-r41`，source freeze 固定维护仓当前 clean HEAD 与本应用修复提交后的 clean HEAD。
+
+## P3 C00 legacy collation continuation
+
+- BDD: C00 回填兼容旧表排序规则 -> Given 测试服旧业务表 `mes_pqc_inspection_task` 的文本列使用 `utf8mb4_unicode_ci` 且会与 MySQL 8 默认 `utf8mb4_0900_ai_ci` 派生文本比较 / When `20260812_mes_pqc_dcc_qa_c00_backfill.sql` 随 without-data/app-release 执行 / Then 所有规则键、hash、JSON 文本比较必须显式 `COLLATE utf8mb4_unicode_ci`，不得在版本切换前因隐式 collation 冲突失败。
+- RED: `python -X utf8 -m pytest -q script\tests\test_mes_pqc_dcc_qa_c00_backfill_sql.py --basetemp .tmp-r43-c00-collation-red` -> FAIL，新增合同发现 `SHA2(manifest.canonical_payload_json, 256) <> manifest.submitted_content_hash` 等隐式文本比较仍存在。
+- GREEN: `python -X utf8 -m pytest -q script\tests\test_mes_pqc_dcc_qa_c00_backfill_sql.py --basetemp .tmp-r43-c00-collation-green` -> PASS，3 passed。
+- REGRESSION: `python -X utf8 -m pytest -q script\tests\test_mes_pqc_dcc_qa_c00_backfill_sql.py script\tests\test_release_target_preflight_files.py script\tests\test_release_preflight_plan.py --basetemp .tmp-r43-c00-collation-regression` -> PASS，27 passed。
+- IMPLEMENTATION: C00 回填 SQL 对 `SHA2(...)`、`inspection_rule_key`、`submitted_content_hash`、`piece_detail_sha256`、`JSON_UNQUOTE(...inspectionRuleKey)`、`scrapQuantity` 与 `nonconformanceDescription` 文本比较显式固定到 `utf8mb4_unicode_ci`；无 fallback、无跳过迁移、无目标数据修改脚本。
+- RESULT: R43 已在测试服版本切换前失败并释放 lock，失败点仍为 C00 回填旧表/派生文本排序规则冲突；R43 判废不复用。下一轮必须使用新 releaseTag `release-20260915-one-button-app-r44`，source freeze 固定维护仓记录本次失败后的 clean HEAD 与本应用修复提交后的 clean HEAD。
