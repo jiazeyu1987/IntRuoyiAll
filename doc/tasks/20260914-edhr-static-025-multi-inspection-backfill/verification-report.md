@@ -74,6 +74,6 @@
 
 - Implementation and verification are complete.
 - 2026-09-14 user authorized local commit and fusion into `int_main`.
-- Task branch was committed and rebased to the current local `int_main` lineage; final implementation commit after rebase is `48def6c82d4b2de113f41eabf3bae4a2239c473d`.
-- Local fusion into `int_main` is blocked because `E:\IntRuoyi` is currently `ahead 1, behind 7` and has staged parallel task record `doc/tasks/20260914-edhr-static-017-pqc-correction-quantity-limit/execution-log.md`. The current task must not submit, pull over, or rewrite that parallel state.
+- Task branch was committed and rebased over the latest stable local `int_main` snapshot reached during this turn; implementation commit after the last successful rebase is `98e18bc83`.
+- Local fusion into `int_main` is blocked because `E:\IntRuoyi` is currently `ahead 8, behind 1` and has dirty parallel task record `doc/tasks/20260914-edhr-static-012-route-rename-archive/task.md`. The current task must not submit, pull over, or rewrite that parallel state.
 - Final project closeout still cannot be marked `completed` until the main worktree is clean, local fast-forward fusion succeeds, and git push is explicitly authorized and succeeds, because `docs/task-closeout-rules.md` requires push before completed status.
