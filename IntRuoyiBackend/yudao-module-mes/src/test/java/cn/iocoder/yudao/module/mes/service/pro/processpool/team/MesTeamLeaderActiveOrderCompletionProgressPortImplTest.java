@@ -46,14 +46,17 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
     @Test
     void readsLockedFormalSourcesAndReturnsDualHundred() {
         MesProcessPoolActiveOrderDO order = order();
-        when(snapshotMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(snapshot(101L, 10)));
+        when(snapshotMapper.selectListByActiveOrderIdForUpdate(10L))
+                .thenReturn(List.of(snapshotWithOutputMaterials(101L, 10, 501L)));
         when(allocationMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 MesProcessPoolReportAllocationDO.builder().id(201L).activeOrderId(10L).workOrderId(30L)
-                        .routeProcessId(101L).processId(1L).allocatedQuantity(BigDecimal.TEN).build()));
+                        .routeProcessId(101L).processId(1L).eventId(401L).allocatedQuantity(BigDecimal.TEN).build()));
         when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 MesPqcInspectionTaskDO.builder().id(301L).activeOrderId(10L).workOrderId(30L)
                         .routeId(40L).routeVersionId(41L).routeProcessId(101L).processId(1L)
                         .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED).build()));
+        when(eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(30L, 40L)).thenReturn(List.of(
+                productionSubmit(401L, 101L, "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":10}]}")));
 
         MesTeamLeaderActiveOrderCompletionProgress progress = port.read(20L, order);
 
@@ -67,14 +70,17 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
     @Test
     void incompleteProductionCannotPassGate() {
         MesProcessPoolActiveOrderDO order = order();
-        when(snapshotMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(snapshot(101L, 10)));
+        when(snapshotMapper.selectListByActiveOrderIdForUpdate(10L))
+                .thenReturn(List.of(snapshotWithOutputMaterials(101L, 10, 501L)));
         when(allocationMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 MesProcessPoolReportAllocationDO.builder().id(201L).activeOrderId(10L).workOrderId(30L)
-                        .routeProcessId(101L).processId(1L).allocatedQuantity(BigDecimal.ONE).build()));
+                        .routeProcessId(101L).processId(1L).eventId(401L).allocatedQuantity(BigDecimal.ONE).build()));
         when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 MesPqcInspectionTaskDO.builder().id(301L).activeOrderId(10L).workOrderId(30L)
                         .routeId(40L).routeVersionId(41L).routeProcessId(101L).processId(1L)
                         .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED).build()));
+        when(eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(30L, 40L)).thenReturn(List.of(
+                productionSubmit(401L, 101L, "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":1}]}")));
 
         assertEquals(false, port.read(20L, order).isDoubleComplete());
     }
@@ -86,7 +92,11 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
                 .thenReturn(List.of(snapshotWithOutputMaterials(101L, 100, 501L, 502L)));
         when(allocationMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 MesProcessPoolReportAllocationDO.builder().id(201L).activeOrderId(10L).workOrderId(30L)
-                        .routeProcessId(101L).processId(1L).allocatedQuantity(BigDecimal.valueOf(100)).build()));
+                        .routeProcessId(101L).processId(1L).eventId(401L)
+                        .allocatedQuantity(BigDecimal.valueOf(50)).build(),
+                MesProcessPoolReportAllocationDO.builder().id(202L).activeOrderId(10L).workOrderId(30L)
+                        .routeProcessId(101L).processId(1L).eventId(402L)
+                        .allocatedQuantity(BigDecimal.valueOf(50)).build()));
         when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(301L, 101L)));
         when(eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(30L, 40L)).thenReturn(List.of(
                 productionSubmit(401L, 101L, "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":50}]}"),
@@ -105,7 +115,17 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
                 .thenReturn(List.of(snapshotWithOutputMaterials(101L, 100, 501L, 502L)));
         when(allocationMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 MesProcessPoolReportAllocationDO.builder().id(201L).activeOrderId(10L).workOrderId(30L)
-                        .routeProcessId(101L).processId(1L).allocatedQuantity(BigDecimal.valueOf(100)).build()));
+                        .routeProcessId(101L).processId(1L).eventId(401L)
+                        .allocatedQuantity(BigDecimal.valueOf(60)).build(),
+                MesProcessPoolReportAllocationDO.builder().id(202L).activeOrderId(10L).workOrderId(30L)
+                        .routeProcessId(101L).processId(1L).eventId(402L)
+                        .allocatedQuantity(BigDecimal.valueOf(100)).build()), List.of(
+                MesProcessPoolReportAllocationDO.builder().id(203L).activeOrderId(10L).workOrderId(30L)
+                        .routeProcessId(101L).processId(1L).eventId(403L)
+                        .allocatedQuantity(BigDecimal.valueOf(100)).build(),
+                MesProcessPoolReportAllocationDO.builder().id(204L).activeOrderId(10L).workOrderId(30L)
+                        .routeProcessId(101L).processId(1L).eventId(404L)
+                        .allocatedQuantity(BigDecimal.valueOf(100)).build()));
         when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(301L, 101L)));
         when(eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(30L, 40L)).thenReturn(List.of(
                 productionSubmit(401L, 101L, "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":60}]}"),
@@ -124,14 +144,17 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
     void pqcTasksMustExactlyMatchFrozenProcessSnapshots() {
         MesProcessPoolActiveOrderDO order = order();
         when(snapshotMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
-                snapshot(101L, 10), snapshot(102L, 10)));
+                snapshotWithOutputMaterials(101L, 10, 501L), snapshotWithOutputMaterials(102L, 10, 501L)));
         when(allocationMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 MesProcessPoolReportAllocationDO.builder().id(201L).activeOrderId(10L).workOrderId(30L)
-                        .routeProcessId(101L).processId(1L).allocatedQuantity(BigDecimal.TEN).build(),
+                        .routeProcessId(101L).processId(1L).eventId(401L).allocatedQuantity(BigDecimal.TEN).build(),
                 MesProcessPoolReportAllocationDO.builder().id(202L).activeOrderId(10L).workOrderId(30L)
-                        .routeProcessId(102L).processId(1L).allocatedQuantity(BigDecimal.TEN).build()));
+                        .routeProcessId(102L).processId(1L).eventId(402L).allocatedQuantity(BigDecimal.TEN).build()));
         when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 task(301L, 101L), task(302L, 999L)));
+        when(eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(30L, 40L)).thenReturn(List.of(
+                productionSubmit(401L, 101L, "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":10}]}"),
+                productionSubmit(402L, 102L, "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":10}]}")));
 
         assertThrows(RuntimeException.class, () -> port.read(20L, order));
     }

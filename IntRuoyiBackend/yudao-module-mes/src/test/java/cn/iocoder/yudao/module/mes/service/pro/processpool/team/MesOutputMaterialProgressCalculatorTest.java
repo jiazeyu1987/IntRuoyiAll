@@ -52,6 +52,48 @@ class MesOutputMaterialProgressCalculatorTest {
         assertEquals(BigDecimal.valueOf(40).setScale(6), progress);
     }
 
+    @Test
+    void multiOutputSplitAllocationsUseEachMaterialAllocationBeforeMinimumProgress() {
+        BigDecimal progress = MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
+                activeOrder(10L, 30L),
+                snapshot(10L, 30L, "{\"outputMaterialIds\":[501,502]}"),
+                List.of(
+                        productionSubmit(401L, 30L,
+                                "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":100}]}"),
+                        productionSubmit(402L, 30L,
+                                "{\"materialDetails\":[{\"materialId\":502,\"outputQuantity\":100}]}")),
+                List.of(
+                        allocation(201L, 10L, 30L, 401L, "80"),
+                        allocation(202L, 10L, 30L, 402L, "40")));
+
+        assertEquals(BigDecimal.valueOf(40).setScale(6), progress);
+    }
+
+    @Test
+    void splitAndCombinedOutputSubmissionsReturnSameConservativeProgress() {
+        BigDecimal splitProgress = MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
+                activeOrder(10L, 30L),
+                snapshot(10L, 30L, "{\"outputMaterialIds\":[501,502]}"),
+                List.of(
+                        productionSubmit(401L, 30L,
+                                "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":50}]}"),
+                        productionSubmit(402L, 30L,
+                                "{\"materialDetails\":[{\"materialId\":502,\"outputQuantity\":50}]}")),
+                List.of(
+                        allocation(201L, 10L, 30L, 401L, "50"),
+                        allocation(202L, 10L, 30L, 402L, "50")));
+        BigDecimal combinedProgress = MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
+                activeOrder(10L, 30L),
+                snapshot(10L, 30L, "{\"outputMaterialIds\":[501,502]}"),
+                List.of(productionSubmit(403L, 30L,
+                        "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":50},"
+                                + "{\"materialId\":502,\"outputQuantity\":50}]}")),
+                List.of(allocation(203L, 10L, 30L, 403L, "50")));
+
+        assertEquals(BigDecimal.valueOf(50).setScale(6), splitProgress);
+        assertEquals(splitProgress, combinedProgress);
+    }
+
     private MesProcessPoolActiveOrderDO activeOrder(Long activeOrderId, Long workOrderId) {
         return MesProcessPoolActiveOrderDO.builder()
                 .id(activeOrderId)
