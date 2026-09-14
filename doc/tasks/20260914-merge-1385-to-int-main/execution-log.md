@@ -31,3 +31,36 @@ BDD: Fusion reaches int_main only after verification -> Given the integration br
 - GREEN: dirty-patch-replay -> PASS, target tracked patch hash equals source tracked patch hash.
 - GREEN: git-diff-check -> PASS before batch commit.
 - GREEN: conflict-marker-scan -> PASS, no merge conflict markers under IntRuoyiBackend, IntRuoyiFronted, docs, or scripts.
+
+## 2026-09-14 Continuation
+
+- User authorized resolving blockers and merging. Resume status: in_progress.
+- GREEN: pnpm install --frozen-lockfile -> PASS. Dependency build scripts were ignored by pnpm policy; required check-in and type checks completed successfully without their execution.
+- GREEN: node src/views/dcc/controlled-file/browser/checkin-main-flow.spec.cjs -> PASS, 5 tests.
+- GREEN: pnpm ts:check -> PASS (tsconfig.relaxed.json, repository-defined type-check command).
+- GREEN: focused Maven DCC/MES selection (same ten named test classes, -pl yudao-module-dcc,yudao-module-mes -am) -> PASS, DCC 347 and MES 32 tests, BUILD SUCCESS.
+- GREEN: mvn.cmd -q -f IntRuoyiBackend/pom.xml -pl yudao-server -Dtest=UploadMultipartLimitConfigTest -Dsurefire.failIfNoSpecifiedTests=false test -> PASS, 4 tests.
+- GREEN: Python three-file tooling regression with --basetemp=doc/tasks/20260914-merge-1385-to-int-main/pytest-green-04 -> PASS, 156 tests.
+- GREEN: release_sql_discovery_excludes focused test with pytest-green-05 -> PASS, includes conflicting metadata rejection.
+- Experience consolidation: added the general forward/manual rollback discovery verification rule to existing docs/release-backup-restore.md; no new experience document.
+- RED: python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_publish_int_ruoyi_to_test_tooling.py -k release_sql_discovery_excludes -q --basetemp=doc/tasks/20260914-merge-1385-to-int-main/pytest-red-02 --tb=short -> FAIL, explicitly declared manual rollback was parsed as a forward migration.
+- BDD: Forward migration discovery excludes manual rollback -> Given a release SQL root with a forward migration and an explicitly declared manual rollback, When release scripts are collected, Then only the forward migration is packaged and forward files without metadata still fail.
+
+- Main baseline commits recorded: `36548b47c`, `90adf7d6e`; fusion rebased commit `8aebc6eed`.
+- BDD: Fixed approval route preview -> Given a valid four-stage route, When preview resolves users, Then all four nodes remain visible and the first node uses the correct user resolver.
+- BDD: Disabled selected signoff user -> Given a valid four-stage route and a disabled selected user, When submission validates signoff users, Then it rejects before record, snapshot, and BPM writes.
+- RED: focused Maven DCC/MES/server test selection -> FAIL, missing Collection import first; after import correction, 347 DCC tests ran with four workflow failures caused by obsolete route fixtures/assertions.
+- Corrected the four workflow tests to use the existing four-stage route contract; no production route behavior changed.
+- RED: node scripts/tests/start-branch-backend-dcc-encryption-static.spec.cjs -> FAIL, old negative local-profile assertion contradicted the runtime script.
+- GREEN: node scripts/tests/start-branch-backend-dcc-encryption-static.spec.cjs -> PASS after assertion correction (repo root).
+- GREEN: node scripts/dcc-frontend-api-fail-closed-contract.test.mjs -> PASS, 10 tests (frontend root; prior repo-root invocation failed on relative source paths).
+- GREEN: node tests/e2e/dcc-controlled-file-protection.contract.test.js -> PASS (frontend root; static contract, not real E2E).
+- GREEN: pwsh -NoProfile -File IntRuoyiBackend/script/tests/test_dcc_download_encryption_runtime_config.ps1 -> PASS.
+- RED: node src/views/dcc/controlled-file/browser/checkin-main-flow.spec.cjs -> FAIL, Cannot find module typescript in integration frontend.
+- RED: python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_publish_int_ruoyi_to_test_tooling.py IntRuoyiBackend/script/tests/test_restart_int_ruoyi_local_schema.py IntRuoyiBackend/script/tests/test_runtime_control_scripts.py -q -> FAIL, 152 passed, 1 failed Docker CMD assertion, 2 setup errors due default temporary directory access denial.
+- Corrected the Docker CMD assertion to include the existing INTRUOYI_EXTRA_ARGS argument.
+- RED: python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_publish_int_ruoyi_to_test_tooling.py IntRuoyiBackend/script/tests/test_restart_int_ruoyi_local_schema.py IntRuoyiBackend/script/tests/test_runtime_control_scripts.py -q --basetemp=doc/tasks/20260914-merge-1385-to-int-main/pytest-temp-01 --tb=short -> FAIL, 154 passed, 1 failed: manual rollback SQL is collected as a forward release migration and lacks release metadata. The expected missing BackendRuntimeBaseMode check is not reached.
+- BLOCKED: pnpm install --frozen-lockfile and focused Maven rerun were interrupted after required verification and main integration blockers were confirmed; neither is recorded as PASS. No newly completed Surefire reports were observed.
+- Main concurrently advanced to 7393f6731 and acquired unrelated dirty/untracked task and documentation files. No staging or modification of those files was performed in this continuation.
+- Applied project-experience-consolidation review: docs/worktree-memory.md already covers worktree dependency prerequisites and main drift/dirty merge gates. Reuse those rules; no duplicate long-term document was created.
+- Task remains blocked; no additional commit/push/merge, cleanup preview/apply, worktree removal, or slot release. Task-owned pytest output is listed for eventual closeout.
