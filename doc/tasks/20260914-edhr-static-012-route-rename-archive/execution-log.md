@@ -39,6 +39,6 @@ BDD: EDHR-STATIC-012 missing frozen route identity fails fast -> Given an active
 
 ## Blockers
 
-- Merge into `int_main` is blocked because branch `codex/20260914-edhr-static-012-route-rename-archive` was created from older HEAD `b4303b4` and cannot be fast-forward merged into current `int_main` `d9d94fe`.
+- Merge into `int_main` is blocked because branch `codex/20260914-edhr-static-012-route-rename-archive` was created from older HEAD `b4303b4` and cannot be fast-forward merged into current `int_main` `43071eb7e` as of 2026-09-14T09:17:44+08:00.
 - Merge into `int_main` is also blocked because main worktree `E:\IntRuoyi` has unrelated dirty changes.
 - Cleanup apply was not run because preview reported blockers.
