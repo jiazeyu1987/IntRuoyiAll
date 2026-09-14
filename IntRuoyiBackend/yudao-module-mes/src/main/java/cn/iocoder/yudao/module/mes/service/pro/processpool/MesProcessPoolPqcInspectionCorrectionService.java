@@ -106,6 +106,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         List<MesPqcInspectionPieceDetailDO> existingDetails = pieceDetailMapper.selectListByTaskId(task.getId());
         validateExistingDetails(task, existingDetails);
         List<MesPqcInspectionPieceDetailDO> updatedDetails = buildUpdatedDetails(command, task, existingDetails);
+        validateScrapQuantityAgainstPieceDetails(command, updatedDetails);
         String inspectionResult = resolveInspectionResult(command.getScrapQuantity(), updatedDetails);
         ObjectNode afterPayload = buildAfterPayload(event, task, command, updatedDetails, inspectionResult);
         List<MesProcessPoolEventRevisionFieldChangeBO> changes = buildChanges(
@@ -150,7 +151,8 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         if (command.getActualInspectionQuantity() == null || command.getActualInspectionQuantity() <= 0) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "actualInspectionQuantity");
         }
-        if (command.getScrapQuantity() == null || command.getScrapQuantity() < 0) {
+        if (command.getScrapQuantity() == null || command.getScrapQuantity() < 0
+                || command.getScrapQuantity() > command.getActualInspectionQuantity()) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "scrapQuantity");
         }
         if (CollUtil.isEmpty(command.getItemResults())) {
@@ -428,6 +430,20 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                 MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(detail.getJudgement()))
                 ? MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE
                 : MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS;
+    }
+
+    private void validateScrapQuantityAgainstPieceDetails(MesProcessPoolPqcInspectionCorrectionCommand command,
+                                                          List<MesPqcInspectionPieceDetailDO> details) {
+        long failedSampleCount = details.stream()
+                .filter(detail -> MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(
+                        detail.getJudgement()))
+                .map(MesPqcInspectionPieceDetailDO::getSampleNo)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count();
+        if (command.getScrapQuantity() < failedSampleCount) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "scrapQuantity");
+        }
     }
 
     private String resolvePieceJudgement(MesPqcInspectionPieceDetailDO detail, String value) {
