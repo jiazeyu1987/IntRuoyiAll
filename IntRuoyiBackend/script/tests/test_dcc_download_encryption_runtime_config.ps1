@@ -40,6 +40,18 @@ function Assert-NotMatch {
     }
 }
 
+function Assert-Match {
+    param(
+        [string]$Source,
+        [string]$Pattern,
+        [string]$Message
+    )
+
+    if ($Source -notmatch $Pattern) {
+        throw $Message
+    }
+}
+
 $removedDownloadSecretPrefix = (@('DCC_DOWNLOAD', 'ENCRYPTION') -join '_') + '_'
 $removedDownloadSecretNames = @(
     'CURRENT_KEY_VERSION',
@@ -66,5 +78,7 @@ foreach ($item in $sources) {
 Assert-NotMatch $sources[0].Source 'Require-EnvironmentVariable\s+\$requiredEnv' 'Local restart script must not require removed DCC direct-download secret env before backend startup.'
 Assert-NotMatch $sources[0].Source $removedDownloadArtifactArg 'Local restart script must not pass a removed DCC direct-download secret artifact directory to Java.'
 Assert-NotMatch $sources[1].Source $removedDownloadFallbackMarker 'Publish script must not keep hardcoded removed DCC direct-download secret fallback values.'
-
+Assert-NotMatch $sources[0].Source 'RequiredDccDownloadEncryption|DccDownloadEncryption|dccDownloadEncryption' 'Local restart script must not carry DCC download encryption environment plumbing.'
+Assert-NotMatch $sources[1].Source 'DCC_HARDCODED_DOWNLOAD_ENCRYPTION|DccDownloadEncryption|dccDownloadEncryption' 'Publish script must not carry DCC download encryption environment plumbing.'
+Assert-Match $sources[0].Source '&\s+java\s+@backendArgs' 'Local restart script must keep using Java argument array.'
 Write-Host 'DCC direct download runtime config tests passed'

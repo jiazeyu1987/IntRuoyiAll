@@ -111,6 +111,8 @@ class DccControlledFilePreviewProtectionTest extends BaseMockitoUnitTest {
     private BusinessFileAccessService businessFileAccessService;
     @Mock
     private PermissionApi permissionApi;
+    @Mock
+    private DccControlledFileAssignmentScopeService assignmentScopeService;
 
     @InjectMocks
     private DccControlledFileQueryServiceImpl queryService;
@@ -118,6 +120,7 @@ class DccControlledFilePreviewProtectionTest extends BaseMockitoUnitTest {
     @BeforeEach
     void setUpViewMatrixAccessDefault() {
         TenantContextHolder.setTenantId(TENANT_ID);
+        lenient().when(assignmentScopeService.isWithinAssignedFileScope(USER_ID, FILE_ID)).thenReturn(true);
         lenient().when(viewMatrixAccessService.canAccessCurrentViewMatrix(any(), any(DccControlledFileDO.class)))
                 .thenReturn(true);
         lenient().when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))

@@ -41,6 +41,9 @@ public final class DccFixedApprovalRoutePolicy {
     }
 
     public static void validateSaveNodes(List<DccApprovalRouteNodeSaveReqVO> nodes, ErrorCode errorCode) {
+        if (nodes == null || nodes.size() != FIXED_STAGE_NOS.size() || nodes.stream().anyMatch(Objects::isNull)) {
+            throw exception(errorCode);
+        }
         List<Integer> stageNos = nodes.stream()
                 .map(DccApprovalRouteNodeSaveReqVO::getStageNo)
                 .toList();
@@ -54,6 +57,9 @@ public final class DccFixedApprovalRoutePolicy {
     }
 
     public static void validateRouteNodes(List<DccCategoryApprovalRouteNodeDO> nodes, ErrorCode errorCode) {
+        if (nodes == null || nodes.size() != FIXED_STAGE_NOS.size() || nodes.stream().anyMatch(Objects::isNull)) {
+            throw exception(errorCode);
+        }
         List<Integer> stageNos = nodes.stream()
                 .map(DccCategoryApprovalRouteNodeDO::getStageNo)
                 .toList();

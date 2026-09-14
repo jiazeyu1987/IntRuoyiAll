@@ -33,7 +33,7 @@ docker run -it --rm --name yudao-maven \
 
 ## 构建启动服务
 
-启动前按 `docker.env` 填写数据库、Redis 和前端运行参数；DCC 受控文件下载直接返回授权后的原文件内容，不再需要下载加密密钥配置。
+启动前按 `docker.env` 填写数据库、Redis 和前端运行参数；DCC 下载按已授权的原文件直接返回，不再需要下载加密环境变量。
 
 ```shell
 docker compose --env-file docker.env up -d
@@ -41,7 +41,7 @@ docker compose --env-file docker.env up -d
 
 首次运行会自动构建容器。可以通过`docker compose build [service]`来手动构建所有或某个docker镜像
 
-`--env-file docker.env`不是可选参数。
+`--env-file docker.env`不是可选参数；基础数据库和 Redis 配置仍由该文件提供。
 
 ## 服务器的宿主机端口映射
 

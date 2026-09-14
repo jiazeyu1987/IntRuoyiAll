@@ -51,7 +51,7 @@ const removedDownloadLoaderMessage =
 const removedDownloadInjectionMessage =
   'Backend start script must not inject removed DCC direct-download secret values into Java process env.'
 
-assert.match(
+assert.doesNotMatch(
   script,
   /--spring\.profiles\.active=local/,
   'Backend start script must still start the local Spring profile.'
@@ -78,6 +78,17 @@ assert.doesNotMatch(
   script,
   removedDownloadEnvInjectionPattern,
   removedDownloadInjectionMessage
+)
+
+assert.doesNotMatch(
+  script,
+  /dccDownloadEncryption|RequiredDccDownloadEncryption|DownloadEncryption/i,
+  'Backend start script must not carry DCC download encryption environment plumbing.'
+)
+assert.match(
+  script,
+  /& java @javaArgs/,
+  'Backend start script must keep using the Java argument array for direct backend startup.'
 )
 
 console.log('PASS: start-branch-backend DCC direct download runtime contract')

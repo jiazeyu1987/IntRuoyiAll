@@ -294,6 +294,20 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void runtimePolicyRejectsDuplicateStageBeforeBuildingAssignees() {
+        List<DccCategoryApprovalRouteNodeDO> nodes = List.of(
+                createRouteNode(30L, 1, "DOC_CONTROL_REVIEW", "文控审核", "USER", 200L, "ANY", false, 1),
+                createRouteNode(30L, 2, "MATRIX_REVIEW", "审核一", "USER", 201L, "ALL", true, 2),
+                createRouteNode(30L, 2, "MATRIX_REVIEW", "审核二", "USER", 204L, "ALL", true, 3),
+                createRouteNode(30L, 3, "MATRIX_APPROVAL", "批准", "USER", 202L, "ANY", false, 4),
+                createRouteNode(30L, 4, "DOC_CONTROL_APPROVAL", "文控批准", "USER", 203L, "ANY", false, 5));
+
+        assertServiceException(() -> DccFixedApprovalRoutePolicy.validateRouteNodes(nodes,
+                        DccApprovalRouteAdminServiceImpl.APPROVAL_ROUTE_FIXED_STAGE_INVALID),
+                DccApprovalRouteAdminServiceImpl.APPROVAL_ROUTE_FIXED_STAGE_INVALID);
+    }
+
+    @Test
     void testSaveRoute_unsupportedFixedApprovalPolicy_throwsExplicitFailure() {
         DccFileCategoryDO category = createCategory("SOP");
 

@@ -453,11 +453,38 @@ class MesOrderReleaseCompletenessServiceTest {
     }
 
     @Test
-    void evaluateInventoryConsistencyBlocksWhenTraceSourceTypesDuplicate() {
+    void evaluateInventoryConsistencyAllowsDistinctTransferDetails() {
         MesProEdhrBatchExecutionDO batch = batch();
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
         List<MesProcessPoolActiveOrderTransferTraceDO> traces = new ArrayList<>(completeInventoryTraces());
         traces.add(trace(4L, MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_TRANSFER));
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
+                batch.getRouteVersionId())).thenReturn(activeOrder);
+        when(transferTraceMapper.selectListByActiveOrderIdAndSourceTypes(eq(activeOrder.getId()), any()))
+                .thenReturn(traces);
+        when(materialStockMapper.selectListByIds(List.of(501L, 502L, 503L, 504L)))
+                .thenReturn(List.of(stock(501L), stock(502L), stock(503L), stock(504L)));
+
+        MesOrderReleaseCompletenessCheck result = service.evaluateInventoryConsistency(batch);
+
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.checkResult());
+        assertTrue(result.failureReason().contains("追溯来源已接入"));
+    }
+
+    @Test
+    void evaluateInventoryConsistencyBlocksWhenTraceSourceIdentityDuplicate() {
+        MesProEdhrBatchExecutionDO batch = batch();
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
+        List<MesProcessPoolActiveOrderTransferTraceDO> traces = new ArrayList<>(completeInventoryTraces());
+        traces.add(trace(4L, MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_TRANSFER)
+                .setTransferId(1001L)
+                .setTransferLineId(2001L)
+                .setTransferDetailId(3001L)
+                .setMaterialStockId(501L)
+                .setBatchId(701L)
+                .setItemId(801L)
+                .setSourceObjectType("WM_TRANSFER_DETAIL")
+                .setSourceObjectId("3001"));
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
                 batch.getRouteVersionId())).thenReturn(activeOrder);
         when(transferTraceMapper.selectListByActiveOrderIdAndSourceTypes(eq(activeOrder.getId()), any()))
@@ -467,6 +494,7 @@ class MesOrderReleaseCompletenessServiceTest {
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, result.checkResult());
         assertTrue(result.failureReason().contains("重复库存追溯来源"));
+        assertTrue(result.failureReason().contains("transferDetailId=3001"));
         verify(materialStockMapper, never()).selectListByIds(any());
     }
 
@@ -688,14 +716,21 @@ class MesOrderReleaseCompletenessServiceTest {
                 .routeId(922119L)
                 .routeVersionId(922120L)
                 .sourceType(sourceType)
+                .direction("OUT")
+                .transferId(1000L + id)
+                .transferLineId(2000L + id)
+                .transferDetailId(3000L + id)
                 .materialStockId(500L + id)
                 .batchId(700L + id)
                 .itemId(800L + id)
                 .quantity(new BigDecimal("10.000000"))
-                .sourceObjectType(sourceType + "_SOURCE")
-                .sourceObjectId(String.valueOf(900L + id))
+                .sourceObjectType(MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_TRANSFER.equals(sourceType)
+                        ? "WM_TRANSFER_DETAIL" : sourceType + "_SOURCE")
+                .sourceObjectId(MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_TRANSFER.equals(sourceType)
+                        ? String.valueOf(3000L + id) : String.valueOf(900L + id))
                 .sourceObjectCode(sourceType + "-001")
                 .sourceStatus("4")
+                .idempotencyKey("trace-" + id)
                 .build();
     }
 

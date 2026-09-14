@@ -13,7 +13,7 @@ import lombok.ToString;
 import java.time.LocalDateTime;
 
 /**
- * DCC controlled file download record.
+ * DCC controlled file download audit record.
  */
 @TableName("dcc_controlled_file_download_record")
 @Data

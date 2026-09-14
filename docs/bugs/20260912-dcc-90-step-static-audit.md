@@ -1,5 +1,13 @@
 # DCC 90步全流程静态检查：逻辑缺陷记录
 
+## 补充逻辑审计（2026-09-13，既有27项之外）
+
+- 新确认6项：DCC-STATIC-028—033，P1 4项、P2 2项，均为OPEN_STATIC_CONFIRMED；尚未修复。
+- 覆盖培训预览与心跳、前端计时生命周期、检出/送审并发，以及主动撤回后的重提权限、版本身份和被引用历史删除。
+- 每项均与001—027的触发条件及根因作区分。本轮不重新变更001—027状态，旧索引状态的滞后以 `doc/tasks/20260913-dcc-27-bug-code-recheck/verification-report.md` 为前次复核依据。
+- 本轮仅静态代码与事务/异步交错推导，不执行产品测试、构建、E2E或数据库验证。并发结果未声称已在线上复现；随库表结构不代替实际部署检查。
+- 完整证据及排除项见 `doc/tasks/20260913-dcc-additional-logic-audit/verification-report.md`。
+
 ## 追加静态检查（2026-09-13，排除010）
 
 - 本轮重新核对第1—90步，明确排除DCC-STATIC-010；未重新判断或修改010的既有状态。
@@ -57,6 +65,12 @@
 | DCC-STATIC-025 | P2 | 36、52、77、88 | 大版本创建时的正式基线未继承到后续小版本，历史响应也未返回该字段 | OPEN_STATIC_CONFIRMED |
 | DCC-STATIC-026 | P1 | 68、69、70、76、78 | 发布重试再次失败后沿用同一事件键，后续重试无法恢复统一状态 | OPEN_STATIC_CONFIRMED |
 | DCC-STATIC-027 | P1 | 34、35、36、77、84、88、90 | 修改正式文件基础信息未同步逻辑身份，旧编号可命中新编号文件 | OPEN_STATIC_CONFIRMED |
+| DCC-STATIC-028 | P2 | 73、74、86 | 培训预览把旧累计时长写回，覆盖并发心跳新增的阅读秒数 | OPEN_STATIC_CONFIRMED |
+| DCC-STATIC-029 | P1 | 73、74、75、76 | 培训开始请求尚未返回时切走窗口，迟到响应仍启动后台计时 | OPEN_STATIC_CONFIRMED |
+| DCC-STATIC-030 | P2 | 51、52、54、55、56 | 检出在取得锁后仍使用旧状态，已送审版本可被错误标记为检出 | OPEN_STATIC_CONFIRMED |
+| DCC-STATIC-031 | P1 | 11、55、62、88 | 撤回后重新提交不复核正式项目权限，可绕过已撤销的编制授权 | OPEN_STATIC_CONFIRMED |
+| DCC-STATIC-032 | P1 | 52、56、62、88 | 返工成功重提后，仍可删除被新版本引用的旧退回版本 | OPEN_STATIC_CONFIRMED |
+| DCC-STATIC-033 | P1 | 48、54、56、62、88 | 撤回后重新提交复制相同版本号，生成两个不同ID的A/1 | OPEN_STATIC_CONFIRMED |
 
 ## 最终修复结果（2026-09-13）
 
@@ -433,3 +447,83 @@
 - **关系与边界**：当前代码的旧身份查找分支可能让NEW查询恢复命中，因此不声称NEW一定查不到。确认的是旧逻辑键错误命中及身份不一致；不将文控明确授权的基础信息修改本身判为越权。
 - **建议修复边界**：明确身份变更边界；若允许修改，在同一事务内校验新逻辑键唯一性并同步权威身份和相关投影，读取时拒绝不一致身份。
 - **BDD（后续修复验收，未执行）**：Given 新身份文件OLD已正式生效 When 文控合法更名为NEW并再次按OLD查询 Then 不得返回NEW为OLD的当前版本；NEW按同一权威身份查询且冲突校验一致。
+
+## 补充问题明细（028—033，既有27项之外）
+
+### DCC-STATIC-028 培训预览把旧累计时长写回，覆盖并发心跳新增的阅读秒数
+
+- **级别/状态**：P2 / OPEN_STATIC_CONFIRMED。
+- **涉及步骤**：73、74、86。
+- **触发条件**：用户已有活跃培训会话，另一个页面加载同一培训PDF；文件读取较慢，期间原会话继续上报心跳。
+- **预期行为**：预览读取只能更新访问事实，不得减少已累计阅读时长或覆盖并发心跳。
+- **实际逻辑**：readTrainingPreviewFile用普通SELECT读取progress，随后读取文件内容，最后调用updateProgressMetadata(progress,...,0)。该方法仍将旧对象中的accumulatedViewSeconds作为完整新值写入。心跳虽先锁进度行，无法保护预览在锁外提前读出的旧值。
+- **业务影响**：例如预览先读到100秒，心跳提交105秒，预览随后写回100秒。打开预览可使进度倒退；若确认同时发生，也可能出现已确认但记录时长不足的审计矛盾。
+- **代码证据**：`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingTaskServiceImpl.java:121`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingTaskServiceImpl.java:174`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingTaskServiceImpl.java:433`；`IntRuoyiFronted/src/views/dcc/controlled-file/training/task/index.vue:274`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/training/DccTrainingTaskController.java:59`。
+- **与既有问题的区别**：不同于012的“重开会话后覆盖补记时长”及024的“并发建立多个活跃会话”；本项来自另一个写入口readTrainingPreviewFile，现有会话锁与补记修复未覆盖它。
+- **建议修复边界**：预览更新只写预览时间等自身字段，或采用同一进度锁及当前值；不要用零增量调用把整个旧累计值写回。
+- **BDD（后续修复验收，未执行）**：Given 培训累计100秒且有活跃会话 When PDF预览读取期间心跳累计到105秒 Then 预览返回后累计仍至少105秒，不得回退。
+
+### DCC-STATIC-029 培训开始请求尚未返回时切走窗口，迟到响应仍启动后台计时
+
+- **级别/状态**：P1 / OPEN_STATIC_CONFIRMED。
+- **涉及步骤**：73、74、75、76。
+- **触发条件**：页面发出开始培训请求且响应较慢；用户在响应返回前切换窗口、隐藏标签或离开页面。
+- **预期行为**：不在前台或已卸载的页面不能启动计时；已发出的开始请求若迟到，应关闭对应会话。
+- **实际逻辑**：startSessionIfNeeded仅在await前检查可计时状态；响应后直接设置sessionActive=true并启动定时器。期间blur/pagehide调用stopSession时，sessionActive仍false，提前return；定时器只检查active标记与会话ID，不复核可见性/聚焦。onMounted还在等待开始完成后才注册关注状态监听。
+- **业务影响**：窗口失焦后仍可持续发送有效心跳并累计时长，返回页面即可用未实际前台阅读的时间满足600秒门禁。卸载期间迟到响应还可能遗留定时器。
+- **代码证据**：`IntRuoyiFronted/src/views/dcc/controlled-file/training/task/index.vue:259`；`IntRuoyiFronted/src/views/dcc/controlled-file/training/task/index.vue:287`；`IntRuoyiFronted/src/views/dcc/controlled-file/training/task/index.vue:315`；`IntRuoyiFronted/src/views/dcc/controlled-file/training/task/index.vue:339`；`IntRuoyiFronted/src/views/dcc/controlled-file/training/task/index.vue:384`；`IntRuoyiFronted/src/views/dcc/controlled-file/training/task/index.vue:403`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingTaskServiceImpl.java:174`。
+- **与既有问题的区别**：与024服务端多会话竞态不同：本项一个客户端、一个会话即可发生；服务端串行化开始请求不能修复前端await后的生命周期失效。
+- **建议修复边界**：为开始请求设置生命周期标识，响应后重新检查实际可见性、聚焦与挂载状态；无效响应主动停止其会话，每次心跳也确认可计时条件。
+- **BDD（后续修复验收，未执行）**：Given 开始会话请求未返回 When 用户切走窗口或卸载页面后响应才到达 Then 不建立后台心跳，已创建会话被停止，离开期间不计入阅读。
+
+### DCC-STATIC-030 检出在取得锁后仍使用旧状态，已送审版本可被错误标记为检出
+
+- **级别/状态**：P2 / OPEN_STATIC_CONFIRMED。
+- **涉及步骤**：51、52、54、55、56。
+- **触发条件**：同一工作版本的“提交审批”和“检出”并发；送审先取得Master锁，检出在其提交前读到WORKING，随后等待该锁。
+- **预期行为**：送审先成功时，后到的检出应基于当前状态拒绝；不能出现审批中版本仍被检出的状态。
+- **实际逻辑**：doCheckoutControlledFile先读取file，再锁Master；锁等待结束后仍使用原file判断isEditableWorkingVersion，没有当前读。checkoutByIdAndTenantWhenAvailable的SQL只检查tenant/id/deleted及checked_out_by为空，没有文件状态条件。
+- **业务影响**：送审提交PENDING后，等待中的检出仍可插入ACTIVE检出记录并更新checked_out_by，返回旧WORKING投影。随后检入按新PENDING状态被拒绝，用户拿到无法检入的编辑锁，审批与编辑状态互相矛盾。
+- **代码证据**：`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java:443`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java:449`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java:475`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java:640`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.java:139`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:476`。
+- **与既有问题的区别**：不同于015同人重复检出时基础版本ID不匹配；本项基础版本完全相同，错误来自加锁前读取状态与实际写入之间的并发窗口。
+- **建议修复边界**：统一检出与送审的锁范围，以锁定当前读重取版本状态，并在更新SQL中校验允许检出的状态；普通快照SELECT不能替代当前读。
+- **BDD（后续修复验收，未执行）**：Given 同一WORKING版本且没有检出锁 When 送审先持锁并提交、检出随后获得锁 Then 检出被拒绝，PENDING版本没有ACTIVE检出记录。
+
+### DCC-STATIC-031 撤回后重新提交不复核正式项目权限，可绕过已撤销的编制授权
+
+- **级别/状态**：P1 / OPEN_STATIC_CONFIRMED。
+- **涉及步骤**：11、55、62、88。
+- **触发条件**：原申请人已撤回文件，随后失去项目OWNER/EDIT，但保留菜单submit权限；项目仍启用、路线及其它提交资料有效，用户点击“重新提交”。
+- **预期行为**：新的送审动作必须重新核验当前项目编制资格；旧申请人身份不能代替已经撤销的正式授权。
+- **实际逻辑**：resubmit调用submitControlledFile(...,false)，false表示不要求上传票据。prepareSubmitContext把controlledUploadSubmit绑定到requireUploadTickets，并仅在其为true时检查项目OWNER/EDIT和类别UPLOAD。撤回操作校验只看requester、WITHDRAWN、旧流程ID和未重提标记；路线预检核验审批人员，不补项目授权。
+- **业务影响**：原申请人在正式项目授权失效后仍可从旧撤回入口创建新的审批流程。权限门禁错误地随文件票据需求一起跳过。
+- **代码证据**：`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java:672`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:1047`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:1869`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:830`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:1775`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRouteReadinessService.java:54`；`IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue:5258`。
+- **与既有问题的区别**：与008的检出/检入接口缺少权限校验不同：本项不经过检出或检入；根因是重提路径把业务授权绑定到是否重新上传文件。
+- **建议修复边界**：将项目/类别授权与上传票据校验分开，在撤回后重新提交的新业务动作中执行完整当前授权核验。
+- **BDD（后续修复验收，未执行）**：Given 原申请人有撤回记录但项目编制权限已撤销 When 保留submit菜单权限并点击重新提交 Then 明确拒绝，不能新增DCC版本、候选或BPM流程。
+
+### DCC-STATIC-032 返工成功重提后，仍可删除被新版本引用的旧退回版本
+
+- **级别/状态**：P1 / OPEN_STATIC_CONFIRMED。
+- **涉及步骤**：52、56、62、88。
+- **触发条件**：A/1退回申请人，检入A/2并成功重新送审；随后打开旧A/1详情，点击“删除流程”。
+- **预期行为**：作为后续版本来源的已检入历史版本必须保留可追溯性，删除入口应检查后续引用。
+- **实际逻辑**：返工收口把A/1设为WITHDRAWN，并在统一受控系统链接A/2，但没有设置DCC行的supersededByFileId。页面与删除守卫只凭该字段为空判断可删除，deleteWithdrawnControlledFile直接deleteById，不查询predecessor引用或统一后继。
+- **业务影响**：A/1被逻辑删除后从DCC历史查询中消失，A/2.predecessorControlledFileId仍指向它，来源链悬空；BPM历史和原件仍保留，但不能替代DCC版本详情和来源追溯。
+- **代码证据**：`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:662`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:1039`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:1869`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java:2288`；`IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue:3500`；`IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue:5242`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledContentAdapter.java:43`；`docs/product/dcc-windchill-version-phase1-prd.md:215`。
+- **与既有问题的区别**：010解决的是修正稿重新送审时旧流程/候选阻塞；本项发生在重提已成功之后，检查的是历史删除入口与跨版本引用保护，不否定010原触发条件已修复。
+- **建议修复边界**：删除动作检查正式版本来源、基线及统一后继引用，保护已被引用的版本；返工后继在各投影保持一致，避免仅靠一个未同步字段判断可删除。
+- **BDD（后续修复验收，未执行）**：Given A/2已从退回A/1生成并重新送审 When 原申请人尝试删除旧A/1 Then 删除被拒绝，A/2来源仍能查询到A/1及审批证据。
+
+### DCC-STATIC-033 撤回后重新提交复制相同版本号，生成两个不同ID的A/1
+
+- **级别/状态**：P1 / OPEN_STATIC_CONFIRMED。
+- **涉及步骤**：48、54、56、62、88。
+- **触发条件**：普通新建文件A/1送审后主动撤回，再从详情的“重新提交”入口办理；不存在其它正式版本或开放流程。
+- **预期行为**：同一逻辑文件的Revision/Iteration应具有唯一身份；新审批请求应按正式版本规则关联唯一版本，不能产生第二条同名A/1。
+- **实际逻辑**：toResubmitReqVO原样复制versionNo=A/1；requireUploadTickets=false使serverOwnedVersion=false，resolveServerVersionNo直接返回该版本号。NEW分支跳过validateVersionChain，insertControlledFile新建记录并解析为revision=A、iteration=1，旧WITHDRAWN行继续保留。随库表结构没有该组合的唯一约束。
+- **业务影响**：同一Master出现两条不同ID的A/1，一条撤回、一条待审；前端版本选择、历史追溯及按Iteration判断最新版本的逻辑失去唯一基础。现有重提测试只使用旧V1.0且模拟Mapper插入，未覆盖A/1身份唯一性。
+- **代码证据**：`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:1047`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:1916`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:1819`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:1938`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:2010`；`IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql:292`；`IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/create_tables.sql:381`；`docs/product/dcc-windchill-version-phase1-prd.md:89`。
+- **与既有问题的区别**：与010退回修改后A/2/A/3重新送审不同：本项是主动撤回后的专用resubmit入口，未经过新工作小版本生成；与031也不同，本项在权限完整时仍发生。
+- **建议修复边界**：让撤回后重提沿统一版本模型办理，确保同Master/Revision/Iteration只有一个版本身份，并补充该约束与重复重提验证。
+- **BDD（后续修复验收，未执行）**：Given 唯一A/1已撤回 When 点击重新提交并保留旧审批历史 Then 不得生成第二条同Master/A/1记录，新请求引用的版本身份明确且唯一。

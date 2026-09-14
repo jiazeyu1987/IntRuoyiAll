@@ -1246,6 +1246,20 @@ def test_publish_runtime_requires_viewer_token_and_onlyoffice_without_download_e
     text = read_publish_script()
     compose = (DEPLOY_ROOT / "int-ruoyi-test" / "docker-compose.yml").read_text(encoding="utf-8")
     status = (DEPLOY_ROOT / "show-int-ruoyi-remote-status.ps1").read_text(encoding="utf-8")
+    legacy_env_prefix = "DCC_DOWNLOAD_" + "ENCRYPTION"
+    legacy_spring_prefix = "yudao.dcc.download." + "encryption"
+    legacy_names = [
+        f"{legacy_env_prefix}_POLICY_VERSION",
+        f"{legacy_env_prefix}_KEY_ID",
+        f"{legacy_env_prefix}_BASE64_KEY",
+        f"{legacy_env_prefix}_ARTIFACT_DIRECTORY",
+        f"{legacy_env_prefix}_CURRENT_KEY_VERSION",
+        f"{legacy_env_prefix}_KEYRING",
+        f"{legacy_spring_prefix}.policy-version",
+        f"{legacy_spring_prefix}.key-id",
+        f"{legacy_spring_prefix}.base64-key",
+        f"{legacy_spring_prefix}.artifact-directory",
+    ]
 
     assert "[string]$DccViewerTokenHmacSecret = $env:DCC_VIEWER_TOKEN_HMAC_SECRET" in text
     assert "[string]$DccOnlyOfficeJwtSecret = $env:DCC_ONLYOFFICE_JWT_SECRET" in text
@@ -1267,6 +1281,9 @@ def test_publish_runtime_requires_viewer_token_and_onlyoffice_without_download_e
     assert "--yudao.dcc.preview.onlyoffice.public-file-base-url=${DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL}" in compose
     assert REMOVED_DCC_DOWNLOAD_SECRET_PREFIX not in compose
     assert REMOVED_DCC_DOWNLOAD_PROPERTY_PREFIX not in compose
+    for legacy_name in legacy_names:
+        assert legacy_name not in text
+        assert legacy_name not in compose
     assert "OnlyOffice" in status
 
 
@@ -1310,6 +1327,8 @@ def test_release_package_embeds_runtime_env_for_all_targets() -> None:
     assert "DCC_ONLYOFFICE_BASE_URL=$resolvedDccOnlyOfficeBaseUrl" in text
     assert "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL=$resolvedDccOnlyOfficePublicFileBaseUrl" in text
     assert REMOVED_DCC_DOWNLOAD_SECRET_PREFIX not in text
+    assert "DCC_HARDCODED_DOWNLOAD_" + "ENCRYPTION" not in text
+    assert "DccDownload" + "Encryption" not in text
 
 
 def test_onlyoffice_public_file_base_url_uses_compose_backend_service() -> None:

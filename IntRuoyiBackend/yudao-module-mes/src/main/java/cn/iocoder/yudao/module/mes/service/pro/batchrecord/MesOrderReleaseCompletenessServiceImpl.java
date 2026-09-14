@@ -252,21 +252,6 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
                 .map(MesProcessPoolActiveOrderTransferTraceDO::getSourceType)
                 .filter(Objects::nonNull)
                 .collect(java.util.stream.Collectors.toSet());
-        List<String> duplicateSourceTypes = traces.stream()
-                .map(MesProcessPoolActiveOrderTransferTraceDO::getSourceType)
-                .filter(Objects::nonNull)
-                .collect(java.util.stream.Collectors.groupingBy(type -> type, java.util.LinkedHashMap::new,
-                        java.util.stream.Collectors.counting()))
-                .entrySet().stream()
-                .filter(entry -> entry.getValue() != null && entry.getValue() > 1)
-                .map(Map.Entry::getKey)
-                .toList();
-        if (!duplicateSourceTypes.isEmpty()) {
-            return blocker(MesProEdhrReleaseServiceImpl.CHECK_INVENTORY_CONSISTENCY, "库存一致性检查",
-                    "INVENTORY", MODULE_WMS, "ACTIVE_ORDER_TRANSFER_TRACE", String.valueOf(activeOrder.getId()),
-                    String.valueOf(activeOrder.getId()), "存在重复库存追溯来源：" + duplicateSourceTypes,
-                    "去重并重新同步正式调拨、发货、补退料和批次追溯来源后重新预检");
-        }
         Set<String> missingSourceTypes = REQUIRED_INVENTORY_SOURCE_TYPES.stream()
                 .filter(type -> !existingSourceTypes.contains(type))
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
@@ -285,6 +270,13 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
                     "INVENTORY", MODULE_WMS, "ACTIVE_ORDER_TRANSFER_TRACE", String.valueOf(activeOrder.getId()),
                     String.valueOf(activeOrder.getId()), summarizeText("无效库存追溯来源", invalidTraceReasons),
                     "修正调拨/发货/补退料/批次追溯数量、来源状态和正式对象后重新预检");
+        }
+        List<String> duplicateSourceIdentities = duplicateInventoryTraceIdentities(traces);
+        if (!duplicateSourceIdentities.isEmpty()) {
+            return blocker(MesProEdhrReleaseServiceImpl.CHECK_INVENTORY_CONSISTENCY, "库存一致性检查",
+                    "INVENTORY", MODULE_WMS, "ACTIVE_ORDER_TRANSFER_TRACE", String.valueOf(activeOrder.getId()),
+                    String.valueOf(activeOrder.getId()), summarizeText("存在重复库存追溯来源", duplicateSourceIdentities),
+                    "按正式来源单据、来源行/明细、物料、批次和库存台账去重后重新预检");
         }
         List<Long> stockIds = traces.stream()
                 .map(MesProcessPoolActiveOrderTransferTraceDO::getMaterialStockId)
@@ -696,6 +688,30 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
         return result != null && PQC_INSPECTION_RESULTS.contains(result);
     }
 
+    private List<String> duplicateInventoryTraceIdentities(List<MesProcessPoolActiveOrderTransferTraceDO> traces) {
+        Map<String, Long> countsByIdentity = new LinkedHashMap<>();
+        for (MesProcessPoolActiveOrderTransferTraceDO trace : traces) {
+            countsByIdentity.merge(inventoryTraceIdentity(trace), 1L, Long::sum);
+        }
+        return countsByIdentity.entrySet().stream()
+                .filter(entry -> entry.getValue() != null && entry.getValue() > 1)
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    private String inventoryTraceIdentity(MesProcessPoolActiveOrderTransferTraceDO trace) {
+        return "sourceType=" + trace.getSourceType()
+                + ", direction=" + trace.getDirection()
+                + ", sourceObjectType=" + trace.getSourceObjectType()
+                + ", sourceObjectId=" + trace.getSourceObjectId()
+                + ", transferId=" + trace.getTransferId()
+                + ", transferLineId=" + trace.getTransferLineId()
+                + ", transferDetailId=" + trace.getTransferDetailId()
+                + ", materialStockId=" + trace.getMaterialStockId()
+                + ", itemId=" + trace.getItemId()
+                + ", batchId=" + trace.getBatchId();
+    }
+
     private record FormalScrapQuantityEvidence(Integer scrapQuantity, String invalidReason) {
     }
 
@@ -704,13 +720,21 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
             return "trace=null：正式追溯行缺失";
         }
         String traceLabel = "traceId=" + trace.getId() + ", sourceType=" + trace.getSourceType();
+        if (StrUtil.isBlank(trace.getSourceType()) || StrUtil.isBlank(trace.getDirection())) {
+            return traceLabel + "：来源类型或方向为空";
+        }
         if (trace.getQuantity() == null || trace.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
             return traceLabel + "：数量为空或非正";
         }
         if (trace.getMaterialStockId() == null || trace.getBatchId() == null || trace.getItemId() == null
-                || trace.getSourceObjectId() == null || trace.getSourceObjectType() == null
-                || trace.getSourceObjectCode() == null) {
+                || StrUtil.isBlank(trace.getSourceObjectId()) || StrUtil.isBlank(trace.getSourceObjectType())
+                || StrUtil.isBlank(trace.getSourceObjectCode())) {
             return traceLabel + "：正式库存/批次/来源对象不完整";
+        }
+        if (MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_TRANSFER.equals(trace.getSourceType())
+                && (trace.getTransferId() == null || trace.getTransferLineId() == null
+                || trace.getTransferDetailId() == null)) {
+            return traceLabel + "：正式调拨单据/行/明细身份不完整";
         }
         if (MOVEMENT_SOURCE_TYPES_REQUIRING_CLOSED_STATUS.contains(trace.getSourceType())
                 && !CLOSED_SOURCE_STATUSES.contains(trace.getSourceStatus())) {

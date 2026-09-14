@@ -36,7 +36,7 @@ login-access document immediately before the run, and do not commit them.
 Set each value to `true` only after the real prerequisite is confirmed.
 
 ```powershell
-$env:DCC_E2E_RG01_DIRECT_DOWNLOAD_READY='true'         # RG-01 direct download contract, success bytes, failure states
+$env:DCC_E2E_RG01_DIRECT_DOWNLOAD_READY='true'        # RG-01 direct download contract and source-read failure state
 $env:DCC_E2E_RG02_UPLOAD_POLICY_READY='true'           # RG-02 upload size values and samples
 $env:DCC_E2E_RG03_WATERMARK_TRACE_READY='true'         # RG-03 screenshot trace acceptance standard
 $env:DCC_E2E_RG04_TEST_TENANT_READY='true'             # RG-04 real test tenant accounts, samples, permissions
@@ -243,7 +243,7 @@ $env:DCC_E2E_TC010_DOWNLOAD_PATH='/dcc/controlled-file/detail/<real-downloadable
 $env:DCC_E2E_TC010_DOWNLOAD_TRIGGER_SELECTOR='<real-download-button-selector>'
 $env:DCC_E2E_TC010_DOWNLOAD_CONFIRM_SELECTOR='<real-download-confirm-button-selector>'
 $env:DCC_E2E_TC010_AUDIT_VERIFY_URL='<final-api-url-to-verify-download-success-audit>'
-$env:DCC_E2E_TC010_AUDIT_EXPECT_JSON_CONTAINS='DOWNLOAD||ALLOWED||CONTROLLED_DOWNLOAD||<real-controlled-file-id>'
+$env:DCC_E2E_TC010_AUDIT_EXPECT_JSON_CONTAINS='DOWNLOAD||ALLOWED||<real-controlled-file-id>||<user-id>'
 $env:DCC_E2E_TC010_AUDIT_EXPECT_FIELDS='actionType=DOWNLOAD||result=ALLOWED||sourceIp=*||userAgent=*||requestId=*'
 
 $env:DCC_E2E_TC011_DOWNLOAD_PATH='/dcc/controlled-file/detail/<real-source-read-failure-file-id>'

@@ -177,7 +177,7 @@ function testUploadLifecycleUsesRequestIdAndRealCategorySelectors() {
   const e2eScript = readUtf8(scriptPath)
   const workflowApi = readUtf8(workflowApiPath)
   assertContains(workflowApi, "export const DCC_REQUEST_ID_HEADER = 'X-DCC-Request-Id'")
-  assertContains(workflowApi, '[DCC_REQUEST_ID_HEADER]: requestId')
+  assert.match(workflowApi, /headers:\s*\{\s*[\s\S]*?\[DCC_REQUEST_ID_HEADER\]:\s*requestId\s*\}/)
   assertContains(workflowApi, '...(requestId ? { [DCC_REQUEST_ID_HEADER]: requestId } : {})')
   assertContains(workflowApi, 'DCC upload response request id mismatch')
   assertContains(e2eScript, 'resolveUploadRequestId')
@@ -317,6 +317,8 @@ function testDirectDownloadUsesResponseEvidenceHeadersInsteadOfManualPlainHash()
   assertContains(e2eScript, "response.headers['x-dcc-plain-sha256']")
   assertNotContains(e2eScript, "response.headers['x-dcc-" + "cipher-sha256']")
   assertContains(e2eScript, 'Downloaded file hash must match plaintext evidence')
+  assertNotContains(e2eScript, 'x-dcc-cipher-sha256')
+  assertNotContains(e2eScript, 'ENCRYPTION_POLICY_VERSION')
 }
 
 function testDownloadFailClosedUsesRealDownloadConfirmation() {
@@ -328,6 +330,7 @@ function testDownloadFailClosedUsesRealDownloadConfirmation() {
   assertContains(profile, 'DCC_E2E_TC011_DOWNLOAD_PATH')
   assertContains(profile, 'DCC_E2E_TC011_DOWNLOAD_CONFIRM_SELECTOR')
   assertContains(profile, 'SOURCE_READ_FAILED')
+  assertNotContains(profile, 'ENCRYPTION_CONTRACT_FAILED')
   assertContains(envExample, 'DCC_E2E_TC011_DOWNLOAD_CONFIRM_SELECTOR')
 }
 
@@ -404,6 +407,7 @@ function testFrontendFailClosedUsesRealBrokenArtifactAndUploadBoundary() {
   assertContains(envExample, 'real-upload-oversize-or-policy-route')
   assertContains(profile, 'DCC_E2E_TC014_DOWNLOAD_CONFIRM_SELECTOR')
   assertContains(profile, 'SOURCE_READ_FAILED')
+  assertNotContains(profile, 'ENCRYPTION_CONTRACT_FAILED')
 }
 
 function testDirectLinkBoundaryPreservesLoggedInPageForAuditVerification() {

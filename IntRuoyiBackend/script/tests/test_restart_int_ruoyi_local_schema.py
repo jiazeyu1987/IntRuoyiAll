@@ -288,6 +288,16 @@ def test_local_restart_does_not_read_persistent_dcc_download_encryption_env() ->
     assert removed_property_prefix not in text
 
 
+def test_local_restart_reads_persistent_runtime_environment() -> None:
+    script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
+    text = script_path.read_text(encoding="utf-8")
+
+    assert "function Import-PersistentEnvironmentVariable" in text
+    assert "[System.EnvironmentVariableTarget]::User" in text
+    assert "[System.EnvironmentVariableTarget]::Machine" in text
+    assert "Import-PersistentEnvironmentVariable $Name" in text
+
+
 def test_local_restart_uses_spring_boot_executable_backend_jar() -> None:
     script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
     text = script_path.read_text(encoding="utf-8")
