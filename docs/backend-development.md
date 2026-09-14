@@ -525,6 +525,7 @@
 - Loss-source seam: 损耗来源若要从生产填写链路之外接入，必须通过独立 reader/port 接口承接；现有 reader 接口可以作为正式接入口继续演进，不得把写损耗报表的 writer 直接耦合到固定生产 payload 形状。
 - Cross-stage evidence audit extension: 静态审计长业务链路时，必须同时追踪入口、事实写入、状态转换和下一阶段消费校验；“数量无变化”不能等同“首次复核已完成”，签名ID不能替代下游要求的完整签名快照，单笔来源合同必须与正式分次提交能力一致。部分物料提交需核对拆分前后进度守恒；通用/专用规程需按各自冻结身份贯穿回填。判定缺陷前检查相邻服务和既有测试中的明确例外，记录触发条件、代码位置及静态验证边界，不能把孤立方法或先前流程说明当成运行通过证据。多份冻结来源并存时还需检查解除顺序不影响最终状态。
 - Repair verification extension: 修复验收必须核对新增读取字段是否由正式生产方写入，不得只在测试夹具手工构造字段；新增业务检查调用旧服务时，应核对当前任务完整身份与多项目/多规程基数，不能把mock返回PASS当成实际判定正确。补签需覆盖“已有复核ID但签名不完整”，冻结恢复需覆盖同轮与后续多轮外部原因变化；修复原分支不等于上下游闭环通过。
+- Evidence carrier continuity extension: 新增动态表单、外部回执或其它证据载体时，必须贯通上层回执、空值门禁和追溯消费；传统 execution、FormCenter instance 等不同实体 ID 只能分别暴露和验证，不能互相补齐或混用。
 - 条件适用性检查：配置中存在“条件必填”“不适用”或NO_LOSS等决定时，需同时检查运行任务是否求值并保存适用性依据，以及待办、进度、放行、归档是否消费同一决定。仅保存条件JSON、或某个writer返回NOT_REQUIRED，不等于整个流程已正确跳过不适用记录；验收必须成对覆盖条件成立与不成立。
 - Process-inspection QA version extension: PQC 生产放行读取和写入过程检验时，遍历到的每个 PQC task 都必须按该 task 冻结的 `regulationVersionId`、规程 `ownerModule` 和正式来源证据校验；专用 `MES_QA` 任务校验 DCC 项目归属，通用 `MES_QA_COMMON` 任务校验通用规程版本来源，不得把活跃订单主字段里的专用 QA 版本套到所有任务。定向回归应同时覆盖专用与通用 QA task 一起进入 plan/write 闭环。
 - No-loss fact closure: 无损耗不是“没有损耗单”就算完成；每个工序必须能从正式生产反馈、生产提交事件、分配记录和生产组长 APPROVED 复核读取唯一闭环。生产提交必须指向 `MES_PRO_FEEDBACK`，raw payload 必须有结构化 `lossDetails`，无损耗时为 `[]`；分配记录的 `reviewId` 和 `confirmedAt` 必须对齐对应生产组长复核的 ID 与 `reviewedAt`，否则 Flow4 completion receipt 必须阻断为 `LOSS_CONDITION_FACTS`。
