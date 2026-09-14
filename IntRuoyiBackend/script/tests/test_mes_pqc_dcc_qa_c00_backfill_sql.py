@@ -77,3 +77,13 @@ def test_text_comparisons_pin_legacy_task_collation() -> None:
         "task.submitted_content_hash collate utf8mb4_unicode_ci "
         "<=> manifest.submitted_content_hash collate utf8mb4_unicode_ci"
     ) in text
+
+
+def test_route_dcc_plan_count_is_zero_safe_for_empty_target() -> None:
+    text = _compact(_sql_text())
+
+    assert (
+        "coalesce(sum(case when current_binding_id is null "
+        "or current_dcc_project_code_id <> dcc_project_code_id "
+        "then 1 else 0 end), 0)"
+    ) in text

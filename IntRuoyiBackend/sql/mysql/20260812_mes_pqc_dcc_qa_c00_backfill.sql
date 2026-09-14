@@ -1020,9 +1020,9 @@ BEGIN
   INSERT INTO c00_backfill_plan_report
   SELECT 'route_dcc_binding_upsert',
          COALESCE(MIN(input_manifest_sha256), SHA2('empty-route-dcc', 256)),
-         SUM(CASE WHEN current_binding_id IS NULL
-                        OR current_dcc_project_code_id <> dcc_project_code_id
-                  THEN 1 ELSE 0 END),
+         COALESCE(SUM(CASE WHEN current_binding_id IS NULL
+                                 OR current_dcc_project_code_id <> dcc_project_code_id
+                           THEN 1 ELSE 0 END), 0),
          NULL
     FROM c00_backfill_route_state;
 
