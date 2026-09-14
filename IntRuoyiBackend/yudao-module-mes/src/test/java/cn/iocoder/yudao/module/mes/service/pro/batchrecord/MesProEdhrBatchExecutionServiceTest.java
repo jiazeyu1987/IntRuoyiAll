@@ -1251,6 +1251,62 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void openOrCreateFromProductionRelease_usesFrozenRouteSnapshotIdentityAfterRouteRenameBeforeBatchCreation() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProRouteDO routeAtOrderFreeze = routeMapper.selectById(fixture.routeId());
+        String frozenRouteCode = routeAtOrderFreeze.getCode();
+        String frozenRouteName = routeAtOrderFreeze.getName();
+        String frozenSnapshotJson = routeVersionMapper.selectById(fixture.routeVersionId()).getRouteSnapshotJson();
+        routeAtOrderFreeze.setCode("ROUTE-CURRENT-RENAMED-" + Math.abs(randomLongId()));
+        routeAtOrderFreeze.setName("现行路线 V2 改名后");
+        routeMapper.updateById(routeAtOrderFreeze);
+
+        Long batchExecutionId = batchExecutionService.openOrCreateFromProductionRelease(
+                new MesProEdhrProductionReleaseBatchCommand()
+                        .setApplicationId(912012L)
+                        .setWorkOrderId(fixture.workOrderId())
+                        .setWorkOrderCode("WO-STATIC-012")
+                        .setBatchCode("BATCH-STATIC-012-REOPENED")
+                        .setRouteId(fixture.routeId())
+                        .setRouteVersionId(fixture.routeVersionId())
+                        .setActiveContextKey("PQC_RELEASE:STATIC-012-REOPENED")
+                        .setEntryType("ACTIVE_ORDER_PQC")
+                        .setEntryBusinessId("912012"));
+
+        MesProEdhrBatchExecutionDO persisted = batchExecutionMapper.selectById(batchExecutionId);
+        assertEquals(fixture.routeVersionId(), persisted.getRouteVersionId());
+        assertEquals(fixture.routeVersionNo(), persisted.getRouteVersionNo());
+        assertEquals(frozenSnapshotJson, persisted.getRouteSnapshotJson());
+        assertEquals(frozenRouteCode, persisted.getRouteCode());
+        assertEquals(frozenRouteName, persisted.getRouteName());
+        assertFalse(persisted.getRouteName().contains("V2"));
+
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batchExecutionId)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                .setAggregateHash("1212121212121212121212121212121212121212121212121212121212121212")
+                .setClosedAt(LocalDateTime.now()));
+        when(workTaskService.validateArchiveTask(9912L, batchExecutionId))
+                .thenReturn(new MesProEdhrWorkTaskDO()
+                        .setId(9912L)
+                        .setBatchExecutionId(batchExecutionId)
+                        .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE));
+
+        EdhrBatchExecutionArchiveRespVO archive = batchExecutionService.generateArchive(
+                new EdhrBatchExecutionArchiveGenerateReqVO()
+                        .setBatchExecutionId(batchExecutionId)
+                        .setArtifactType("BATCH_FINAL_PDF")
+                        .setWorkTaskId(9912L));
+
+        JSONObject manifest = JSON.parseObject(batchArchiveMapper.selectById(archive.getId()).getSourceManifestJson());
+        assertEquals(fixture.routeVersionId(), manifest.getLong("routeVersionId"));
+        assertEquals(fixture.routeVersionNo(), manifest.getString("routeVersionNo"));
+        assertEquals(frozenRouteCode, manifest.getString("routeCode"));
+        assertEquals(frozenRouteName, manifest.getString("routeName"));
+        assertFalse(manifest.toJSONString().contains("现行路线 V2 改名后"));
+    }
+
+    @Test
     void openOrCreate_buildsInitialTasksFromActiveRouteVersionSnapshotWhenLiveBatchConfigEmpty() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProRouteDO route = routeMapper.selectById(fixture.routeId());

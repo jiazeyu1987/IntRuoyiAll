@@ -204,6 +204,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_MISMATCH;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_VERSION_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_SCHEDULE_PREREQUISITE_MISSING;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID;
@@ -1163,11 +1164,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
         }
         MesProRouteVersionDO frozenRouteVersion = routeVersionMapper.selectById(command.getRouteVersionId());
-        if (frozenRouteVersion == null || !Objects.equals(route.getId(), frozenRouteVersion.getRouteId())
-                || StrUtil.isBlank(frozenRouteVersion.getVersionNo())
-                || StrUtil.isBlank(frozenRouteVersion.getRouteSnapshotJson())) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_VERSION_REQUIRED, route.getId());
-        }
+        FrozenRouteIdentity frozenRouteIdentity = requireFrozenRouteIdentity(frozenRouteVersion, command.getRouteId());
 
         String batchCode = StrUtil.trim(command.getBatchCode());
         MesProEdhrBatchExecutionDO batch = new MesProEdhrBatchExecutionDO()
@@ -1180,12 +1177,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setProductId(workOrder.getProductId())
                 .setProductCode(String.valueOf(workOrder.getProductId()))
                 .setProductName(workOrder.getName())
-                .setRouteId(route.getId())
-                .setRouteVersionId(frozenRouteVersion.getId())
-                .setRouteVersionNo(frozenRouteVersion.getVersionNo())
+                .setRouteId(frozenRouteIdentity.routeId())
+                .setRouteVersionId(frozenRouteIdentity.routeVersionId())
+                .setRouteVersionNo(frozenRouteIdentity.routeVersionNo())
                 .setRouteSnapshotJson(frozenRouteVersion.getRouteSnapshotJson())
-                .setRouteCode(route.getCode())
-                .setRouteName(route.getName())
+                .setRouteCode(frozenRouteIdentity.routeCode())
+                .setRouteName(frozenRouteIdentity.routeName())
                 .setStatus(BATCH_STATUS_CREATED)
                 .setProvisioningStatus(MesBatchProvisioningStatus.BATCH_PROVISIONING.name())
                 .setTaskApprovedCount(0)
@@ -1217,6 +1214,29 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 null, null, entryAuditMetadata(provisionCommand, provisioningRecord.getId()));
         publishBatchProvisioned(latest, provisionCommand, provisioningRecord.getId());
         return latest.getId();
+    }
+
+    private FrozenRouteIdentity requireFrozenRouteIdentity(MesProRouteVersionDO routeVersion, Long expectedRouteId) {
+        if (routeVersion == null || !Objects.equals(expectedRouteId, routeVersion.getRouteId())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_VERSION_REQUIRED, expectedRouteId);
+        }
+        if (StrUtil.isBlank(routeVersion.getVersionNo()) || StrUtil.isBlank(routeVersion.getRouteSnapshotJson())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
+        }
+        JSONObject routeSnapshot;
+        try {
+            routeSnapshot = JSON.parseObject(routeVersion.getRouteSnapshotJson());
+        } catch (RuntimeException ex) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
+        }
+        String routeCode = routeSnapshot == null ? null : routeSnapshot.getString("routeCode");
+        String routeName = routeSnapshot == null ? null : routeSnapshot.getString("routeName");
+        if (routeSnapshot == null || !Objects.equals(expectedRouteId, routeSnapshot.getLong("routeId"))
+                || StrUtil.isBlank(routeCode) || StrUtil.isBlank(routeName)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
+        }
+        return new FrozenRouteIdentity(routeVersion.getRouteId(), routeVersion.getId(),
+                routeVersion.getVersionNo(), routeCode, routeName);
     }
 
     @Override
@@ -8005,6 +8025,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         manifest.put("batchExecutionId", batch.getId());
         manifest.put("batchCode", batch.getBatchCode());
         manifest.put("routeId", batch.getRouteId());
+        manifest.put("routeVersionId", batch.getRouteVersionId());
+        manifest.put("routeVersionNo", batch.getRouteVersionNo());
         manifest.put("routeCode", batch.getRouteCode());
         manifest.put("routeName", batch.getRouteName());
         manifest.put("aggregateHash", batch.getAggregateHash());
@@ -8050,7 +8072,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private void requireArchiveFrozenRouteIdentity(MesProEdhrBatchExecutionDO batch) {
-        if (batch.getRouteId() == null || StrUtil.isBlank(batch.getRouteCode())
+        if (batch.getRouteId() == null || batch.getRouteVersionId() == null
+                || StrUtil.isBlank(batch.getRouteVersionNo()) || StrUtil.isBlank(batch.getRouteCode())
                 || StrUtil.isBlank(batch.getRouteName()) || StrUtil.isBlank(batch.getRouteSnapshotJson())) {
             throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
         }
@@ -8066,6 +8089,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 || !Objects.equals(batch.getRouteName(), routeSnapshot.getString("routeName"))) {
             throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
         }
+    }
+
+    private record FrozenRouteIdentity(Long routeId, Long routeVersionId, String routeVersionNo,
+                                       String routeCode, String routeName) {
     }
 
     private Map<String, Object> toArchiveReleaseTransactionManifest(MesProEdhrReleaseTransactionDO transaction) {
