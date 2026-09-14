@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureResult;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcProcessInspectionAggregationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationReleaseStateService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderScopeService;
@@ -23,11 +24,13 @@ import java.util.List;
 import java.util.Set;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -119,6 +122,27 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                 recordCaptor.getValue().getInspectionResult());
     }
 
+    @Test
+    void rejectsFrozenWorkOrderBeforeCorrectionWrites() {
+        Fixture fixture = new Fixture("BOOLEAN", null, null, null);
+        doThrow(new ServiceException(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED))
+                .when(fixture.nonconformanceReviewService).ensureWorkOrderNotFrozen(1001L, "PQC更正");
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> fixture.service.correct(fixture.command("不合格")));
+
+        assertEquals(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED.getCode(), error.getCode());
+        verify(fixture.nonconformanceReviewService).ensureWorkOrderNotFrozen(1001L, "PQC更正");
+        verify(fixture.signatureService, never()).recordFieldChangeSignature(any());
+        verify(fixture.revisionService, never()).updatePqcInspectionRecord(any());
+        verify(fixture.pqcRecordMapper, never()).selectByEventId(any());
+        verify(fixture.pieceDetailMapper, never()).deleteByTaskId(any());
+        verify(fixture.pieceDetailMapper, never()).insertBatch(any());
+        verify(fixture.taskMapper, never()).updateById(any(MesPqcInspectionTaskDO.class));
+        verify(fixture.pqcRecordMapper, never()).updateById(any(MesProProcessPoolPqcRecordDO.class));
+        verify(fixture.aggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
+    }
+
     private static void assertCorrection(String resultType, String requestedValue,
                                          BigDecimal lower, BigDecimal upper, Integer precision,
                                          String expectedJudgement, String expectedStoredValue) {
@@ -173,22 +197,29 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
         private static final long TASK_ID = 5101L;
         private static final long ACTOR_ID = 3001L;
 
+        private final MesProProcessPoolEventMapper eventMapper =
+                mock(MesProProcessPoolEventMapper.class);
+        private final MesPqcInspectionTaskMapper taskMapper =
+                mock(MesPqcInspectionTaskMapper.class);
         private final MesProProcessPoolPqcRecordMapper pqcRecordMapper =
                 mock(MesProProcessPoolPqcRecordMapper.class);
         private final MesPqcInspectionPieceDetailMapper pieceDetailMapper =
                 mock(MesPqcInspectionPieceDetailMapper.class);
         private final MesProcessPoolEventRevisionService revisionService =
                 mock(MesProcessPoolEventRevisionService.class);
-        private final MesProProcessPoolEventMapper eventMapper = mock(MesProProcessPoolEventMapper.class);
-        private final MesPqcInspectionTaskMapper taskMapper = mock(MesPqcInspectionTaskMapper.class);
         private final MesProBatchRecordExecutionSignatureService signatureService =
                 mock(MesProBatchRecordExecutionSignatureService.class);
-        private final MesTeamLeaderScopeService scopeService = mock(MesTeamLeaderScopeService.class);
-        private final MesReportAllocationReleaseStateService releaseStateService =
-                mock(MesReportAllocationReleaseStateService.class);
+        private final MesProEdhrNonconformanceReviewService nonconformanceReviewService =
+                mock(MesProEdhrNonconformanceReviewService.class);
+        private final MesPqcProcessInspectionAggregationService aggregationService =
+                mock(MesPqcProcessInspectionAggregationService.class);
         private final MesProcessPoolPqcInspectionCorrectionService service;
 
         private Fixture(String resultType, BigDecimal lower, BigDecimal upper, Integer precision) {
+            MesTeamLeaderScopeService scopeService = mock(MesTeamLeaderScopeService.class);
+            MesReportAllocationReleaseStateService releaseStateService =
+                    mock(MesReportAllocationReleaseStateService.class);
+
             when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(event());
             when(taskMapper.selectByIdForUpdate(TASK_ID)).thenReturn(task());
             when(releaseStateService.findReleasedActiveOrderIdsForUpdate(List.of(5001L))).thenReturn(Set.of());
@@ -203,7 +234,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
 
             service = new MesProcessPoolPqcInspectionCorrectionService(eventMapper, pqcRecordMapper,
                     taskMapper, pieceDetailMapper, revisionService, signatureService, scopeService,
-                    releaseStateService, mock(MesPqcProcessInspectionAggregationService.class));
+                    releaseStateService, aggregationService, nonconformanceReviewService);
         }
 
         private MesProcessPoolPqcInspectionCorrectionCommand command(String requestedValue) {

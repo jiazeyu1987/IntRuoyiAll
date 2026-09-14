@@ -3,8 +3,12 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackPayloadReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackMaterialDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolQuantityFragmentDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMaterialMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQuantityFragmentMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher;
@@ -43,9 +47,12 @@ public class MesProcessPoolProductionReportCorrectionService {
 
     private static final String FIELD_OUTPUT_QUANTITY = "OUTPUT_QUANTITY";
     private static final String FIELD_SCRAP_QUANTITY = "SCRAP_QUANTITY";
+    private static final String FEEDBACK_SOURCE_TYPE = "MES_PRO_FEEDBACK";
 
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProProcessPoolQuantityFragmentMapper fragmentMapper;
+    private final MesProFeedbackMapper feedbackMapper;
+    private final MesProFeedbackMaterialMapper feedbackMaterialMapper;
     private final MesProcessPoolEventRevisionService revisionService;
     private final MesProBatchRecordExecutionSignatureService signatureService;
     private final MesFrontlineLossReasonValidator lossReasonValidator;
@@ -55,6 +62,8 @@ public class MesProcessPoolProductionReportCorrectionService {
     public MesProcessPoolProductionReportCorrectionService(
             MesProProcessPoolEventMapper eventMapper,
             MesProProcessPoolQuantityFragmentMapper fragmentMapper,
+            MesProFeedbackMapper feedbackMapper,
+            MesProFeedbackMaterialMapper feedbackMaterialMapper,
             MesProcessPoolEventRevisionService revisionService,
             MesProBatchRecordExecutionSignatureService signatureService,
             MesFrontlineLossReasonValidator lossReasonValidator,
@@ -62,6 +71,8 @@ public class MesProcessPoolProductionReportCorrectionService {
             MesProductionReportManagementSummaryService reportManagementSummaryService) {
         this.eventMapper = eventMapper;
         this.fragmentMapper = fragmentMapper;
+        this.feedbackMapper = feedbackMapper;
+        this.feedbackMaterialMapper = feedbackMaterialMapper;
         this.revisionService = revisionService;
         this.signatureService = signatureService;
         this.lossReasonValidator = lossReasonValidator;
@@ -125,6 +136,7 @@ public class MesProcessPoolProductionReportCorrectionService {
                 .changedFields(changes)
                 .build());
 
+        syncFormalFeedbackSource(event, afterPayload);
         event.setRawPayload(afterPayloadJson)
                 .setReportOutputQuantity(command.getOutputQuantity());
         reportManagementSummaryService.refreshProductionEvent(event);
@@ -240,6 +252,10 @@ public class MesProcessPoolProductionReportCorrectionService {
         payload.set("lossReasonDetails", canonicalDetails.deepCopy());
         payload.put("lossQuantity", afterLoss);
         fieldValues.put(FIELD_SCRAP_QUANTITY, afterLoss);
+        boolean hasActualLoss = afterLoss.signum() > 0;
+        payload.put("hasActualLoss", hasActualLoss);
+        payload.put("zeroLossConfirmed", !hasActualLoss);
+        payload.put("lossDecision", hasActualLoss ? "REQUIRED" : "NO_LOSS");
         if (beforeLoss.compareTo(afterLoss) != 0) {
             changes.add(fieldChange(FIELD_SCRAP_QUANTITY, "损耗数量", beforeLoss, afterLoss,
                     false, null, MesProcessPoolFragmentOriginalField.LOSS_QUANTITY));
@@ -311,6 +327,136 @@ public class MesProcessPoolProductionReportCorrectionService {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "materialDetails.materialId");
         }
         payload.set("materialDetails", updated);
+    }
+
+    private void syncFormalFeedbackSource(MesProProcessPoolEventDO event, ObjectNode afterPayload) {
+        if (!FEEDBACK_SOURCE_TYPE.equals(event.getFeedbackSourceType())
+                || event.getFeedbackSourceId() == null || event.getFeedbackSourceId() <= 0) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "feedbackSource");
+        }
+        List<MesProFeedbackDO> formalFeedback =
+                feedbackMapper.selectListByIdsForUpdate(List.of(event.getFeedbackSourceId()));
+        if (formalFeedback == null || formalFeedback.size() != 1 || formalFeedback.get(0) == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "formalFeedback");
+        }
+        MesProFeedbackDO feedback = formalFeedback.get(0);
+        if (!Objects.equals(feedback.getId(), event.getFeedbackSourceId())
+                || !Objects.equals(feedback.getWorkOrderId(), event.getWorkOrderId())
+                || !Objects.equals(feedback.getRouteId(), event.getRouteId())
+                || !Objects.equals(feedback.getProcessId(), event.getProcessId())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "formalFeedback.identity");
+        }
+
+        BigDecimal outputQuantity = requireDecimal(afterPayload.get("outputQuantity"), "rawPayload.outputQuantity");
+        BigDecimal lossQuantity = requireDecimal(afterPayload.get("lossQuantity"), "rawPayload.lossQuantity");
+        if (outputQuantity.compareTo(BigDecimal.ZERO) <= 0 || lossQuantity.compareTo(BigDecimal.ZERO) < 0) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "formalFeedback.quantity");
+        }
+        BigDecimal feedbackQuantity = outputQuantity.add(lossQuantity);
+        BigDecimal qualifiedQuantity = outputQuantity;
+        LossReasonSync reason = lossQuantity.signum() == 0 ? null : firstLossReason(afterPayload);
+
+        int updated = feedbackMapper.updateCorrectedProductionReport(
+                feedback.getId(), feedbackQuantity, qualifiedQuantity, lossQuantity,
+                reason == null ? null : reason.reasonId(),
+                reason == null ? null : reason.reasonCode(),
+                reason == null ? null : reason.reasonName());
+        if (updated != 1) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "formalFeedback.update");
+        }
+        syncFormalMaterialFacts(feedback.getId(), afterPayload);
+    }
+
+    private void syncFormalMaterialFacts(Long feedbackId, ObjectNode afterPayload) {
+        ArrayNode materialDetails = optionalArray(afterPayload.get("materialDetails"));
+        if (materialDetails == null || materialDetails.isEmpty()) {
+            return;
+        }
+        List<MesProFeedbackMaterialDO> rows = feedbackMaterialMapper.selectListByFeedbackIdForUpdate(feedbackId);
+        Map<Long, MesProFeedbackMaterialDO> materialById = rows == null ? Map.of() : rows.stream()
+                .filter(Objects::nonNull)
+                .filter(row -> row.getMaterialId() != null)
+                .collect(Collectors.toMap(MesProFeedbackMaterialDO::getMaterialId,
+                        row -> row, (left, right) -> left, LinkedHashMap::new));
+        Set<Long> missingFormalMaterialIds = new LinkedHashSet<>();
+        for (JsonNode node : materialDetails) {
+            ObjectNode material = requireObject(node, "materialDetails[]");
+            Long materialId = requireLong(material.get("materialId"), "materialDetails.materialId");
+            MesProFeedbackMaterialDO row = materialById.remove(materialId);
+            if (row == null) {
+                missingFormalMaterialIds.add(materialId);
+                continue;
+            }
+            BigDecimal outputQuantity = requireDecimal(material.get("outputQuantity"),
+                    "materialDetails.outputQuantity");
+            BigDecimal lossQuantity = requireDecimal(material.get("lossQuantity"), "materialDetails.lossQuantity");
+            if (outputQuantity.compareTo(BigDecimal.ZERO) < 0 || lossQuantity.compareTo(BigDecimal.ZERO) < 0
+                    || lossQuantity.compareTo(outputQuantity) > 0) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "materialDetails.quantity");
+            }
+            int updated = feedbackMaterialMapper.updateCorrectedMaterialFact(
+                    row.getId(), outputQuantity, lossQuantity, materialLossDetailsJson(material, lossQuantity),
+                    jsonStringOrNull(material.get("selectedDevice")),
+                    jsonStringOrEmptyArray(material.get("deviceParameterReadings")));
+            if (updated != 1) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "formalMaterial.update");
+            }
+        }
+        if (!missingFormalMaterialIds.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                    "missingFormalMaterialIds=" + missingFormalMaterialIds);
+        }
+    }
+
+    private boolean hasMaterialFacts(ObjectNode payload) {
+        ArrayNode materialDetails = optionalArray(payload.get("materialDetails"));
+        return materialDetails != null && !materialDetails.isEmpty();
+    }
+
+    private LossReasonSync firstLossReason(ObjectNode payload) {
+        ArrayNode details = requireArray(payload.get("lossDetails"), "rawPayload.lossDetails");
+        if (details.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "lossDetails");
+        }
+        ObjectNode detail = requireObject(details.get(0), "lossDetails[]");
+        return new LossReasonSync(
+                requireLong(detail.get("reasonId"), "lossDetails.reasonId"),
+                requiredText(detail, "reasonCode", "lossDetails.reasonCode"),
+                requiredText(detail, "reasonName", "lossDetails.reasonName"));
+    }
+
+    private String materialLossDetailsJson(ObjectNode material, BigDecimal lossQuantity) {
+        JsonNode details = material.get("lossDetails");
+        if (details == null || details.isNull()) {
+            if (lossQuantity.signum() == 0) {
+                return "[]";
+            }
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "materialDetails.lossDetails");
+        }
+        ArrayNode array = requireArray(details, "materialDetails.lossDetails");
+        if (lossQuantity.signum() > 0 && array.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "materialDetails.lossDetails");
+        }
+        return JsonUtils.toJsonString(array);
+    }
+
+    private String jsonStringOrNull(JsonNode node) {
+        return node == null || node.isNull() ? null : JsonUtils.toJsonString(node);
+    }
+
+    private String jsonStringOrEmptyArray(JsonNode node) {
+        return node == null || node.isNull() ? "[]" : JsonUtils.toJsonString(node);
+    }
+
+    private String requiredText(ObjectNode node, String fieldName, String errorFieldName) {
+        String value = text(node, fieldName);
+        if (StrUtil.isBlank(value)) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, errorFieldName);
+        }
+        return value;
+    }
+
+    private record LossReasonSync(Long reasonId, String reasonCode, String reasonName) {
     }
 
     private String materialFieldName(ObjectNode material, String suffix) {
