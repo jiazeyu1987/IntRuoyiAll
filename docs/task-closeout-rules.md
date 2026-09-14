@@ -74,6 +74,13 @@
 - Blocker: evidence 文件还未通过 validator、validator 结果只存在于将被 cleanup 删除的文件、或 `verification-report.md` 未记录关键 PASS 命令时，不得执行 cleanup apply。
 - Verification: cleanup preview 显示临时 evidence 文件在 delete 列表，同时 `task.md`、`execution-log.md`、`verification-report.md` 在 keep 列表；apply 后保留报告仍包含 validator PASS 和核心验收结论。
 - Forbidden action: 禁止先删除 evidence 文件再补写验证结论；禁止把已被 cleanup 删除的临时 evidence 当作最终审计证据；禁止为了保留所有中间 evidence 而跳过 cleanup。
+## 跨电脑静态审计交接门禁
+
+- Trigger: 将代码审计、主流程与待修复项交给另一电脑或另一任务继续处理。
+- Preflight check: 单个正式交接文档应包含完整业务流程、稳定且不与历史缺陷混淆的编号、触发条件、代码依据、修复边界及逐项验收；代码位置使用仓库相对路径，并记录基线提交、方法锚点和需要时的源码指纹。
+- Evidence boundary: 明确区分目标范围、静态推导、真实复现及已验证修复；接收方代码不同或指纹变化时须重新复核，不能凭历史“已完成”或单个字符串判断关闭问题。文本指纹统一UTF-8并规范化换行，避免跨电脑CRLF差异产生误报。
+- Verification: 交付前核对原流程是否完整、问题编号是否连续、各项验收是否齐全、代码路径与锚点是否存在；交接文件不能依赖发送电脑的盘符、临时任务附件或聊天上下文，也不能携带账号密码、令牌等凭据。
+
 ## 禁止做法
 
 - 禁止跳过用户明确要求的脏工作区基线提交。
