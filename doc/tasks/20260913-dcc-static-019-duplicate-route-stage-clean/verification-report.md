@@ -56,8 +56,8 @@ GREEN: 修复后静态合同、27 项后端定向测试、路线摘要静态合�
 
 - 未执行真实页面 E2E、服务启动或数据库写入；这是本任务用户约束的验证边界，不是代码测试失败。
 - 用户授权后已创建具名任务分支并登记 runtime slot 17，detached HEAD blocker 已解除。
-- cleanup preview after authorization 保留三份任务记录、删除项为空；远端 `origin/int_main` 已通过非强制快进完成融合；cleanup apply / 本地 ff-only 合入 / worktree 删除仍 BLOCKED：主工作区 `E:\IntRuoyi` 当前 `int_main...origin/int_main [ahead 1, behind 7]`，且存在其它任务 dirty 文件，按 closeout 规则不能作为安全本地合入目标。
+- cleanup preview after authorization 保留三份任务记录、删除项为空；远端 `origin/int_main` 已通过非强制快进完成融合；cleanup apply / 本地 ff-only 合入 / worktree 删除仍 BLOCKED：主工作区 `E:\IntRuoyi` 的 `int_main` 在最终本地复核时仍有其它任务的本地 ahead 提交和未跟踪资源文件；cleanup preview 判定当前任务分支不能按脚本要求 fast-forward 合入本地 `int_main`。
 
 ## Closeout Blocker
 
-实现与验证已完成，用户授权后已创建任务分支、登记 runtime slot 并提交实现。用户要求合并到 `int_main` 后，任务分支已吸收最新远端主线并通过非强制推送融合进 `origin/int_main`。本地 `E:\IntRuoyi` 仍存在其它任务 dirty/ahead-behind 状态；cleanup apply 需要本地主工作区干净后才能执行本地 ff-only 合入和删除当前 worktree。因此本地 closeout 仍为 `blocked`，不能标记 `completed`。
+实现与验证已完成，用户授权后已创建任务分支、登记 runtime slot 并提交实现。用户要求合并到 `int_main` 后，任务分支已吸收最新远端主线并通过非强制推送融合进 `origin/int_main`。本地 `E:\IntRuoyi` 仍有其它任务的本地提交/未跟踪资源状态；cleanup apply 需要本地主工作区满足脚本的 fast-forward closeout 条件后才能执行本地合入和删除当前 worktree。因此本地 closeout 仍为 `blocked`，不能标记 `completed`。

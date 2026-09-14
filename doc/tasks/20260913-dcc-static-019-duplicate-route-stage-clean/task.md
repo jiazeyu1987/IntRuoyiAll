@@ -69,4 +69,4 @@ And 预览、快照和流程授权使用同一组四个固定阶段及其候选�
 
 ## Current Status
 
-blocked - 实现与定向验证已完成并通过非强制推送融合进 `origin/int_main`；本地 `E:\IntRuoyi` 仍存在其它任务的 dirty/ahead-behind 状态，按 closeout 规则暂不能执行 local cleanup apply 或删除当前 worktree。
+blocked - 实现与定向验证已完成并通过非强制推送融合进 `origin/int_main`；本地 `E:\IntRuoyi` 的 `int_main` 仍有其它任务的本地提交/未跟踪资源状态，task-closeout preview 判定当前任务分支不能按脚本要求 fast-forward 合入本地 `int_main`，因此暂不能执行 local cleanup apply 或删除当前 worktree。
