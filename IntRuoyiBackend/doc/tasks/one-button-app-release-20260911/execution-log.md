@@ -71,3 +71,21 @@ GREEN: `python -X utf8 -m pytest -q script\tests\test_mes_balloon_xlsx_route_000
 GREEN: remote-target-preflight-r28-fix -> PASS，只读执行 `20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup.preflight.sql` 到测试服业务库，返回 `TARGET_PREFLIGHT_PASS:20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup`；查询证据显示 `ROUTE-XLSX-00001=23`、`ROUTE-XLSX-00002=26`、总数 `49`、`B320 target=0`、`Z2620 target=1`。
 
 NOTE: 本修复只修改应用仓迁移 SQL、target preflight SQL 和对应静态合同测试；没有手工修改测试库业务数据，没有执行正式服、审查服或 MinIO 数据操作。R28 发布包已判废，下一轮必须使用新 releaseTag。
+
+## R42 C00 Backfill Collation Regression
+
+USER_AUTHORIZATION: 用户继续并明确授权；范围覆盖本机应用仓 SQL 修复、测试、任务分支提交，以及后续使用新 tag 重新生成 without-data/app-release 程序包并发布测试服；不覆盖正式服、审查服、`mark-tested`、`promote-prod`、`promote-backup`、MinIO 数据同步或全量数据库同步。
+
+RED: deploy-release-r42-c00-backfill-collation -> FAIL，测试服执行 required SQL `20260812_mes_pqc_dcc_qa_c00_backfill.sql` 时失败：`ERROR 1267 (HY000) at line 1353: Illegal mix of collations (utf8mb4_unicode_ci,IMPLICIT) and (utf8mb4_0900_ai_ci,IMPLICIT) for operation '<>'`。release operation lock 已释放为 FAILED，尚未切换测试服 `.env` 到 R42，未执行正式服或 MinIO 数据同步。
+
+ROOT_CAUSE: `c00_backfill_task_rule_candidate` 使用 `CREATE TEMPORARY TABLE ... AS SELECT CASE ...`，`expected_rule_key` 继承当前数据库默认 `utf8mb4_0900_ai_ci`；测试服旧表 `mes_pqc_inspection_task.inspection_rule_key/submitted_content_hash` 为 `utf8mb4_unicode_ci`。脚本在 `< >` 与 `<=>` 比较时形成两个隐式排序规则比较，导致部署期失败。
+
+BDD: C00 回填临时文本列必须匹配旧表排序规则 -> Given 测试服旧业务表文本列为 `utf8mb4_unicode_ci` 且数据库默认可能为 `utf8mb4_0900_ai_ci` / When C00 backfill 生成临时候选和 approved manifest 文本列 / Then 所有会与旧表文本列比较的临时列必须显式声明 `CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`，不得依赖数据库默认排序规则。
+
+RED: `python -X utf8 -m pytest -q script\tests\test_mes_pqc_dcc_qa_c00_backfill_sql.py --basetemp .tmp-r43-c00-collation-red` -> FAIL，2 failed；新增合同测试证明 `c00_backfill_task_rule_candidate` 仍为 CTAS 且 `piece_detail_sha256/submitted_content_hash` 未显式绑定旧表排序规则。
+
+GREEN: `python -X utf8 -m pytest -q script\tests\test_mes_pqc_dcc_qa_c00_backfill_sql.py --basetemp .tmp-r43-c00-collation-green` -> PASS，2 passed。实现将 `c00_backfill_task_rule_candidate` 改为显式建表后插入，并把 approved manifest hash 文本列固定为 `utf8mb4_unicode_ci`。
+
+REGRESSION: `python -X utf8 -m pytest -q script\tests\test_mes_pqc_dcc_qa_c00_backfill_sql.py script\tests\test_release_target_preflight_files.py script\tests\test_release_preflight_plan.py --basetemp .tmp-r43-c00-collation-regression` -> PASS，26 passed。
+
+NEXT: R42 判废不复用；提交应用仓修复后必须使用新 releaseTag `release-20260915-one-button-app-r43`，source freeze 固定维护仓当前 clean HEAD 与应用仓新提交，重新生成 without-data/app-release 程序包并发布测试服。

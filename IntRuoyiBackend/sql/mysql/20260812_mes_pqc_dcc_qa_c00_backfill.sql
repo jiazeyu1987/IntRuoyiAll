@@ -95,8 +95,8 @@ BEGIN
     pqc_record_id bigint DEFAULT NULL,
     signature_id bigint DEFAULT NULL,
     piece_detail_count bigint DEFAULT NULL,
-    piece_detail_sha256 char(64) DEFAULT NULL,
-    submitted_content_hash char(64) DEFAULT NULL,
+    piece_detail_sha256 char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    submitted_content_hash char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
     canonical_payload_json longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
     approved_by varchar(64) DEFAULT NULL,
     approved_at datetime DEFAULT NULL,
@@ -521,7 +521,15 @@ BEGIN
    WHERE candidate.active_order_id IS NULL;
 
   DROP TEMPORARY TABLE IF EXISTS c00_backfill_task_rule_candidate;
-  CREATE TEMPORARY TABLE c00_backfill_task_rule_candidate AS
+  CREATE TEMPORARY TABLE c00_backfill_task_rule_candidate (
+    tenant_id bigint NOT NULL,
+    task_id bigint NOT NULL,
+    expected_rule_key varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    PRIMARY KEY (tenant_id, task_id)
+  ) ENGINE=InnoDB;
+
+  INSERT INTO c00_backfill_task_rule_candidate
+    (tenant_id, task_id, expected_rule_key)
   SELECT task.tenant_id,
          task.id AS task_id,
          CASE
@@ -535,7 +543,7 @@ BEGIN
             AND task.shift_code = 'FINAL' AND task.round_no = 1 THEN 'FINAL'
            ELSE NULL
          END AS expected_rule_key
-    FROM mes_pqc_inspection_task task;
+     FROM mes_pqc_inspection_task task;
 
   INSERT INTO c00_backfill_blocker_report
   SELECT 'task_rule_key_ambiguous', task.id,
