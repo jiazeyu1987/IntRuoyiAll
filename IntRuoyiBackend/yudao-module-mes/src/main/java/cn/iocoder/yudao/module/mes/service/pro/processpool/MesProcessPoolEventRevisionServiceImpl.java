@@ -11,6 +11,10 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEv
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionDiffMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureResult;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -33,43 +37,49 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Validated
 public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEventRevisionService {
 
+    private static final String REVISION_REASON_CATEGORY = "PROCESS_POOL_EVENT_REVISION";
+
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProProcessPoolEventRevisionMapper revisionMapper;
     private final MesProProcessPoolEventRevisionDiffMapper revisionDiffMapper;
     private final MesProcessPoolFifoAllocationService fifoAllocationService;
     private final MesProcessPoolSubmissionReviewMapper submissionReviewMapper;
+    private final MesProBatchRecordExecutionSignatureService signatureService;
 
     public MesProcessPoolEventRevisionServiceImpl(MesProProcessPoolEventMapper eventMapper,
                                                   MesProProcessPoolEventRevisionMapper revisionMapper,
                                                   MesProProcessPoolEventRevisionDiffMapper revisionDiffMapper,
                                                   MesProcessPoolFifoAllocationService fifoAllocationService,
-                                                  MesProcessPoolSubmissionReviewMapper submissionReviewMapper) {
+                                                  MesProcessPoolSubmissionReviewMapper submissionReviewMapper,
+                                                  MesProBatchRecordExecutionSignatureService signatureService) {
         this.eventMapper = eventMapper;
         this.revisionMapper = revisionMapper;
         this.revisionDiffMapper = revisionDiffMapper;
         this.fifoAllocationService = fifoAllocationService;
         this.submissionReviewMapper = submissionReviewMapper;
+        this.signatureService = signatureService;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long updateOriginalRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
-        return updateRecord(reqBO, RevisionPolicy.REJECTED_REVIEW_REQUIRED);
+        return updateRecord(reqBO, RevisionPolicy.REJECTED_REVIEW_REQUIRED, true);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long updateProductionReportRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
-        return updateRecord(reqBO, RevisionPolicy.PRODUCTION_REPORT_CORRECTION);
+        return updateRecord(reqBO, RevisionPolicy.PRODUCTION_REPORT_CORRECTION, false);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long updatePqcInspectionRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
-        return updateRecord(reqBO, RevisionPolicy.PQC_INSPECTION_CORRECTION);
+        return updateRecord(reqBO, RevisionPolicy.PQC_INSPECTION_CORRECTION, false);
     }
 
-    private Long updateRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO, RevisionPolicy revisionPolicy) {
+    private Long updateRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO, RevisionPolicy revisionPolicy,
+                              boolean generateSignature) {
         validateRequest(reqBO);
         MesProProcessPoolEventDO event = eventMapper.selectByIdForUpdate(reqBO.getEventId());
         if (event == null) {
@@ -77,10 +87,12 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
         }
         validateJsonPayload(event.getRawPayload(), "rawPayload");
         validateRevisionPolicy(event, revisionPolicy);
-        validateSignature(reqBO, event);
         validateDiffAndFifoLocks(reqBO);
+        RevisionSignatureEvidence signature = generateSignature
+                ? recordRevisionSignature(reqBO, event)
+                : validateProvidedSignature(reqBO, event);
 
-        LocalDateTime serverRevisionTime = LocalDateTime.now();
+        LocalDateTime serverRevisionTime = signature.signedAt() == null ? LocalDateTime.now() : signature.signedAt();
         MesProProcessPoolEventRevisionDO revision = MesProProcessPoolEventRevisionDO.builder()
                 .eventId(event.getId())
                 .poolId(event.getPoolId())
@@ -91,10 +103,10 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
                 .beforePayload(event.getRawPayload())
                 .afterPayload(reqBO.getAfterPayload())
                 .changeReason(reqBO.getChangeReason().trim())
-                .revisionSignatureId(reqBO.getRevisionSignatureId())
-                .revisionSignatureUserId(reqBO.getRevisionSignatureUserId())
-                .revisionSignatureSnapshot(reqBO.getRevisionSignatureSnapshot())
-                .modifiedByUserId(reqBO.getModifiedByUserId())
+                .revisionSignatureId(signature.signatureId())
+                .revisionSignatureUserId(signature.actorId())
+                .revisionSignatureSnapshot(signature.snapshotJson())
+                .modifiedByUserId(signature.actorId())
                 .serverRevisionTime(serverRevisionTime)
                 .revisionStatus(MesProProcessPoolEventRevisionDO.STATUS_EFFECTIVE)
                 .build();
@@ -142,13 +154,6 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
         if (StrUtil.isBlank(reqBO.getChangeReason())) {
             throw exception(PRO_PROCESS_POOL_REVISION_CHANGE_REASON_REQUIRED);
         }
-        requirePositive(reqBO.getRevisionSignatureId(), "revisionSignatureId");
-        requirePositive(reqBO.getRevisionSignatureUserId(), "revisionSignatureUserId");
-        if (StrUtil.isBlank(reqBO.getRevisionSignatureSnapshot())) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "revisionSignatureSnapshot");
-        }
-        validateJsonPayload(reqBO.getRevisionSignatureSnapshot(), "revisionSignatureSnapshot");
-        requirePositive(reqBO.getModifiedByUserId(), "modifiedByUserId");
         if (CollUtil.isEmpty(reqBO.getChangedFields())) {
             throw exception(PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED);
         }
@@ -164,17 +169,74 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
         }
     }
 
-    private void validateSignature(MesProcessPoolEventRevisionUpdateReqBO reqBO, MesProProcessPoolEventDO event) {
+    private RevisionSignatureEvidence recordRevisionSignature(MesProcessPoolEventRevisionUpdateReqBO reqBO,
+                                                              MesProProcessPoolEventDO event) {
+        requirePositive(reqBO.getModifiedByUserId(), "modifiedByUserId");
+        if (StrUtil.isBlank(reqBO.getSignaturePassword())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "signaturePassword");
+        }
+        MesProBatchRecordExecutionFieldAuditSignatureResult signature =
+                signatureService.recordFieldChangeSignature(
+                        new MesProBatchRecordExecutionFieldAuditSignatureCommand()
+                                .setExecutionId(0L)
+                                .setPassword(reqBO.getSignaturePassword())
+                                .setReasonCategory(REVISION_REASON_CATEGORY)
+                                .setReasonText(reqBO.getChangeReason().trim())
+                                .setSignatureChallengeHash(revisionChallengeHash(event, reqBO)));
+        if (signature == null || signature.getSignatureId() == null || signature.getSignatureId() <= 0
+                || signature.getActorId() == null || signature.getActorId() <= 0
+                || signature.getSignedAt() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "revisionSignature");
+        }
+        if (!Objects.equals(signature.getActorId(), reqBO.getModifiedByUserId())) {
+            throw exception(PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH);
+        }
+        validateSignatureUniqueness(signature.getSignatureId(), event);
+        return new RevisionSignatureEvidence(signature.getSignatureId(), signature.getActorId(),
+                JsonUtils.toJsonString(signature), signature.getSignedAt());
+    }
+
+    private RevisionSignatureEvidence validateProvidedSignature(MesProcessPoolEventRevisionUpdateReqBO reqBO,
+                                                                MesProProcessPoolEventDO event) {
+        requirePositive(reqBO.getRevisionSignatureId(), "revisionSignatureId");
+        requirePositive(reqBO.getRevisionSignatureUserId(), "revisionSignatureUserId");
+        if (StrUtil.isBlank(reqBO.getRevisionSignatureSnapshot())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "revisionSignatureSnapshot");
+        }
+        validateJsonPayload(reqBO.getRevisionSignatureSnapshot(), "revisionSignatureSnapshot");
+        requirePositive(reqBO.getModifiedByUserId(), "modifiedByUserId");
         if (!Objects.equals(reqBO.getRevisionSignatureUserId(), reqBO.getModifiedByUserId())) {
             throw exception(PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH);
         }
-        if (Objects.equals(reqBO.getRevisionSignatureId(), event.getSignatureId())) {
+        validateSignatureUniqueness(reqBO.getRevisionSignatureId(), event);
+        return new RevisionSignatureEvidence(reqBO.getRevisionSignatureId(), reqBO.getRevisionSignatureUserId(),
+                reqBO.getRevisionSignatureSnapshot(), null);
+    }
+
+    private void validateSignatureUniqueness(Long signatureId, MesProProcessPoolEventDO event) {
+        if (Objects.equals(signatureId, event.getSignatureId())) {
             throw exception(PRO_PROCESS_POOL_REVISION_SIGNATURE_REUSED);
         }
-        if (eventMapper.selectBySignatureId(reqBO.getRevisionSignatureId()) != null
-                || revisionMapper.selectBySignatureId(reqBO.getRevisionSignatureId()) != null) {
-            throw exception(PRO_PROCESS_POOL_REVISION_SIGNATURE_DUPLICATE, reqBO.getRevisionSignatureId());
+        if (eventMapper.selectBySignatureId(signatureId) != null
+                || revisionMapper.selectBySignatureId(signatureId) != null) {
+            throw exception(PRO_PROCESS_POOL_REVISION_SIGNATURE_DUPLICATE, signatureId);
         }
+    }
+
+    private String revisionChallengeHash(MesProProcessPoolEventDO event, MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+        return MesProBatchRecordExecutionFieldAuditHasher.sha256(String.join("|",
+                REVISION_REASON_CATEGORY,
+                value(event.getTenantId()),
+                value(event.getId()),
+                value(event.getPoolId()),
+                value(event.getWorkOrderId()),
+                value(event.getRouteId()),
+                value(event.getRouteProcessId()),
+                value(event.getProcessId()),
+                value(event.getRawPayload()),
+                value(reqBO.getAfterPayload()),
+                value(reqBO.getChangeReason().trim()),
+                JsonUtils.toJsonString(reqBO.getChangedFields())));
     }
 
     private void validateDiffAndFifoLocks(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
@@ -241,6 +303,14 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
         } catch (RuntimeException ex) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, fieldName);
         }
+    }
+
+    private String value(Object value) {
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    private record RevisionSignatureEvidence(Long signatureId, Long actorId, String snapshotJson,
+                                             LocalDateTime signedAt) {
     }
 
     private enum RevisionPolicy {

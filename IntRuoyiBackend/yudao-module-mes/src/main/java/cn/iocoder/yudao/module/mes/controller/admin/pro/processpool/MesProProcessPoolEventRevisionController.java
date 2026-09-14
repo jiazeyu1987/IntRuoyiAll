@@ -52,7 +52,8 @@ public class MesProProcessPoolEventRevisionController {
     @Operation(summary = "修改工序池原始记录并重新电子签名")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool:event-revision:update')")
     public CommonResult<Long> updateOriginalRecord(@Valid @RequestBody ProcessPoolEventRevisionUpdateReqVO reqVO) {
-        return success(mesProcessPoolEventRevisionService.updateOriginalRecord(reqVO.toBO()));
+        return success(mesProcessPoolEventRevisionService.updateOriginalRecord(
+                reqVO.toBO().setModifiedByUserId(getLoginUserId())));
     }
 
     @PostMapping("/correct-production-report")

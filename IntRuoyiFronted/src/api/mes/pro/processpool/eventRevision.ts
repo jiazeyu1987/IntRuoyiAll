@@ -20,10 +20,7 @@ export interface ProcessPoolEventRevisionUpdateReqVO {
   eventId: number
   afterPayload: string
   changeReason: string
-  revisionSignatureId: number
-  revisionSignatureUserId: number
-  revisionSignatureSnapshot: string
-  modifiedByUserId: number
+  signaturePassword: string
   changedFields: ProcessPoolEventRevisionFieldChangeVO[]
 }
 

@@ -8,6 +8,35 @@ const timelineApiPath = path.join(root, 'src/api/mes/pro/processpool/index.ts')
 
 const eventRevisionApi = fs.readFileSync(eventRevisionApiPath, 'utf8')
 const timelineApi = fs.readFileSync(timelineApiPath, 'utf8')
+const eventRevisionPage = fs.readFileSync(
+  path.join(root, 'src/views/mes/pro/processpool/EventRevisionPage.vue'),
+  'utf8'
+)
+
+function blockBetween(source, startPattern, endPattern) {
+  const start = source.search(startPattern)
+  assert.notEqual(start, -1, `Missing start pattern: ${startPattern}`)
+  const rest = source.slice(start)
+  const end = rest.search(endPattern)
+  assert.notEqual(end, -1, `Missing end pattern: ${endPattern}`)
+  return rest.slice(0, end)
+}
+
+const updateReqInterface = blockBetween(
+  eventRevisionApi,
+  /export interface ProcessPoolEventRevisionUpdateReqVO/,
+  /export interface ProcessPoolProductionReportCorrectionLossDetailReqVO/
+)
+const fieldChangeInterface = blockBetween(
+  eventRevisionApi,
+  /export interface ProcessPoolEventRevisionFieldChangeVO/,
+  /export interface ProcessPoolEventRevisionUpdateReqVO/
+)
+const buildRequestPayload = blockBetween(
+  eventRevisionPage,
+  /const buildRequestPayload = \(\): ProcessPoolEventRevisionUpdateReqVO => \{/,
+  /const handleSubmit = async/
+)
 
 assert.match(
   eventRevisionApi,
@@ -18,15 +47,28 @@ for (const field of [
   'eventId',
   'afterPayload',
   'changeReason',
+  'signaturePassword',
+  'changedFields'
+]) {
+  assert.match(updateReqInterface, new RegExp(`${field}\\??:`), `F6 event revision wrapper must include ${field}.`)
+}
+for (const field of ['sourceQuantityFragmentId', 'originalField']) {
+  assert.match(fieldChangeInterface, new RegExp(`${field}\\??:`), `F6 event revision diff must include ${field}.`)
+}
+for (const forbidden of [
+  'modifiedByUserId',
   'revisionSignatureId',
   'revisionSignatureUserId',
   'revisionSignatureSnapshot',
-  'changedFields',
-  'sourceQuantityFragmentId',
-  'originalField'
+  'revisionSignatureSnapshotJson'
 ]) {
-  assert.match(eventRevisionApi, new RegExp(`${field}\\??:`), `F6 event revision wrapper must include ${field}.`)
+  assert.doesNotMatch(updateReqInterface, new RegExp(forbidden), `F6 request contract must not expose ${forbidden}.`)
+  assert.doesNotMatch(buildRequestPayload, new RegExp(forbidden), `F6 submit payload must not send ${forbidden}.`)
 }
+assert.match(eventRevisionPage, /v-model="revisionForm\.signaturePassword"/,
+  'F6 event revision page must ask only for the current account signature password.')
+assert.doesNotMatch(eventRevisionPage, /修改人用户ID|修改签名ID|签名员工用户ID|修改签名快照JSON/,
+  'F6 event revision page must not ask the user to type audit identity or signature evidence.')
 assert.match(
   eventRevisionApi,
   /export const updateProcessPoolOriginalRecord = async \(data: ProcessPoolEventRevisionUpdateReqVO\)/,

@@ -32,18 +32,27 @@ class MesProcessPoolEventRevisionControllerContractTest {
                 "Controller must delegate to MesProcessPoolEventRevisionService.");
         assertTrue(controller.contains("@Valid @RequestBody ProcessPoolEventRevisionUpdateReqVO reqVO"),
                 "Controller must validate the request body before calling service.");
+        assertTrue(controller.contains("reqVO.toBO().setModifiedByUserId(getLoginUserId())"),
+                "Controller must inject the authenticated user instead of accepting client-owned modifier identity.");
     }
 
     @Test
-    void requestVoContainsRequiredRevisionFieldsAndFifoDiffFields() throws IOException {
+    void requestVoOnlyAcceptsBusinessFieldsSignaturePasswordAndFifoDiffFields() throws IOException {
         String reqVO = Files.readString(REQ_VO);
 
         assertTrue(reqVO.contains("private Long eventId;"), "Request must include eventId.");
         assertTrue(reqVO.contains("private String afterPayload;"), "Request must include modified payload.");
         assertTrue(reqVO.contains("private String changeReason;"), "Request must include change reason.");
-        assertTrue(reqVO.contains("private Long revisionSignatureId;"), "Request must include new signature id.");
-        assertTrue(reqVO.contains("private Long revisionSignatureUserId;"), "Request must include signature user id.");
-        assertTrue(reqVO.contains("private String revisionSignatureSnapshot;"), "Request must include signature snapshot.");
+        assertTrue(reqVO.contains("private String signaturePassword;"),
+                "Request must include current user's signature password.");
+        assertFalse(reqVO.contains("private Long revisionSignatureId;"),
+                "Request must not accept client-owned signature id.");
+        assertFalse(reqVO.contains("private Long revisionSignatureUserId;"),
+                "Request must not accept client-owned signature user id.");
+        assertFalse(reqVO.contains("private String revisionSignatureSnapshot;"),
+                "Request must not accept client-owned signature snapshot.");
+        assertFalse(reqVO.contains("private Long modifiedByUserId;"),
+                "Request must not accept client-owned modifier identity.");
         assertTrue(reqVO.contains("private List<FieldChangeReqVO> changedFields;"), "Request must include field-level diff.");
         assertTrue(reqVO.contains("private Boolean affectsQuantityFragment;"), "Diff must flag FIFO-affecting fields.");
         assertTrue(reqVO.contains("private Long sourceQuantityFragmentId;"), "Diff must carry source fragment id.");
@@ -51,8 +60,12 @@ class MesProcessPoolEventRevisionControllerContractTest {
                 "Diff must carry original field enum for FIFO lock validation.");
         assertTrue(reqVO.contains("public MesProcessPoolEventRevisionUpdateReqBO toBO()"),
                 "Request VO must map to the service BO explicitly.");
+        assertTrue(reqVO.contains(".signaturePassword(signaturePassword)"),
+                "Request VO must pass only the signature password into the internal BO.");
         assertTrue(reqVO.contains("@NotBlank(message = \"修改原因不能为空\")"),
                 "Missing or blank change reason must fail fast at request validation.");
+        assertTrue(reqVO.contains("@NotBlank(message = \"电子签名密码不能为空\")"),
+                "Missing signature password must fail fast at request validation.");
         assertTrue(reqVO.contains("@NotEmpty(message = \"字段级修改明细不能为空\")"),
                 "Missing field diff must fail fast at request validation.");
     }
