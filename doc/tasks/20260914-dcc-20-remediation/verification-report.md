@@ -27,4 +27,4 @@ The 20-item remediation remains in progress. This report records the completed v
 Preserve task.md, execution-log.md, verification-report.md and formal source tests. Remove only the task-owned one-use merge-resolution script after validation. Retain build output and the user-approved excluded .runtime directory. No worktree or service cleanup required. Separate task-closeout-cleanup executable is unavailable in this checkout; file ownership was reviewed directly.
 
 ## Delivery
-Merge commit, push result and final ancestor/synchronization checks will be recorded in execution-log.md. Overall 20-item Current Status remains in_progress.
+Merge commit e2b7eac93 pushed successfully to origin/int_qms. Source main 70b53cf27 verified as an ancestor. New local object scan found no blobs over 100 MB. Overall 20-item Current Status remains in_progress; this integration does not close the full remediation task.

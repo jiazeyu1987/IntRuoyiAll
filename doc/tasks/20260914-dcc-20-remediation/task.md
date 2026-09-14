@@ -6,6 +6,9 @@
 ## Current Status
 in_progress
 
+## Latest main integration
+User-requested integration completed: remote int_main 70b53cf27 merged into int_qms as e2b7eac93 and pushed to origin/int_qms. Frontend build and 349 targeted backend tests plus 15 frontend checks passed. Checkout/checkin and project-template implementations are now available. The 20-item goal is not complete and must be audited against this integrated baseline.
+
 ## Milestones
 1. 核对当前实现、建立20项验收矩阵、保存既有脏改动基线。
 2. 按 BDD / RED / GREEN 修复批准生效、版本检入、权限及界面状态问题。
