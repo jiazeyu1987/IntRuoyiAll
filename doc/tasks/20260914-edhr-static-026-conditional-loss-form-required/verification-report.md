@@ -15,7 +15,7 @@ EDHR-STATIC-026 only. Verification is limited to static code logic checks and ne
 - PASS: detached HEAD was converted to task branch `codex/20260914-edhr-static-026-conditional-loss-form-required`.
 - PASS: branch runtime slot was registered for `int_main` profile as slot 21, frontend 8155, backend 48155.
 - PASS: branch runtime port guard passed for the task branch.
-- BLOCKED: final `int_main` fusion is still gated by unrelated dirty changes already present in the `int_main` worktree.
+- PASS: task branch implementation commit `7838ff738` was fused into `int_main` as commit `ded9c4a51`.
 
 ## Commands
 
@@ -31,11 +31,11 @@ EDHR-STATIC-026 only. Verification is limited to static code logic checks and ne
 - BRANCH: `git switch -c codex/20260914-edhr-static-026-conditional-loss-form-required` -> PASS.
 - RUNTIME SLOT: `powershell -ExecutionPolicy Bypass -File scripts/runtime/reserve-worktree-slot.ps1 -Name IntRuoyi -Path 'C:\Users\BJB110\.codex\worktrees\6330\IntRuoyi' -Branch 'codex/20260914-edhr-static-026-conditional-loss-form-required' -Profile int_main -WorktreeRoot 'C:\Users\BJB110\.codex\worktrees\6330' -AsJson` -> PASS, slot 21, frontend 8155, backend 48155.
 - GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProductionReleaseBusinessReadinessServiceTest#skipsNoLossConditionalLossFormWhenFormalCompletionOriginHasNoActualLoss+keepsConditionalLossFormRequiredWhenFormalCompletionOriginHasActualLoss+keepsUnconditionalLossFormRequiredEvenWhenFormalCompletionOriginHasNoActualLoss" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests, 0 failures, 0 errors.
-- STATIC: `powershell -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1` -> PASS.
+- STATIC: `powershell -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1` -> PASS.`r`n- COMMIT: `git commit -m "fix: skip no-loss conditional DHR loss form"` -> PASS, task branch commit `7838ff738`.`r`n- FUSION: `git cherry-pick -x 7838ff738` on `int_main` -> PASS, `int_main` commit `ded9c4a51`.`r`n- GREEN ON INT_MAIN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProductionReleaseBusinessReadinessServiceTest#skipsNoLossConditionalLossFormWhenFormalCompletionOriginHasNoActualLoss+keepsConditionalLossFormRequiredWhenFormalCompletionOriginHasActualLoss+keepsUnconditionalLossFormRequiredEvenWhenFormalCompletionOriginHasNoActualLoss" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests, 0 failures, 0 errors.`r`n- CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260914-edhr-static-026-conditional-loss-form-required --mode apply` -> PASS, deleted none.
 
 ## Risks And Blockers
 
 - Dirty worktree contains unrelated pre-existing changes; this task will not revert or commit them.
-- No Playwright/E2E, database write, service restart, remote server operation, git commit, or git push was performed.
-- Final `completed` task status is blocked until `int_main` fusion succeeds; the `int_main` worktree currently has unrelated dirty changes that must not be silently mixed with this task.
+- No Playwright/E2E, database write, service restart, or remote server operation was performed.
+- `int_main` fusion is complete; unrelated concurrent task changes remain outside EDHR-STATIC-026 scope and were not edited by this task.
 - Shared defect summary was not edited by scope; recommended update is recorded in `execution-log.md`.

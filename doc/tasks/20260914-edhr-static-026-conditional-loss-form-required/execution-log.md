@@ -26,10 +26,14 @@
 - Runtime slot: `powershell -ExecutionPolicy Bypass -File scripts/runtime/reserve-worktree-slot.ps1 -Name IntRuoyi -Path 'C:\Users\BJB110\.codex\worktrees\6330\IntRuoyi' -Branch 'codex/20260914-edhr-static-026-conditional-loss-form-required' -Profile int_main -WorktreeRoot 'C:\Users\BJB110\.codex\worktrees\6330' -AsJson` -> PASS，slot 21，frontend 8155，backend 48155。
 - GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProductionReleaseBusinessReadinessServiceTest#skipsNoLossConditionalLossFormWhenFormalCompletionOriginHasNoActualLoss+keepsConditionalLossFormRequiredWhenFormalCompletionOriginHasActualLoss+keepsUnconditionalLossFormRequiredEvenWhenFormalCompletionOriginHasNoActualLoss" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests, 0 failures, 0 errors.
 - GREEN: `powershell -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1` -> PASS, branch `codex/20260914-edhr-static-026-conditional-loss-form-required` / profile `int_main`, frontend 8155, backend 48155.
+- Commit: `git commit -m "fix: skip no-loss conditional DHR loss form"` -> PASS, task branch implementation commit `7838ff738`.
+- Fusion: `git cherry-pick -x 7838ff738` on `int_main` -> PASS, `int_main` commit `ded9c4a51`.
+- GREEN: on `int_main`, `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProductionReleaseBusinessReadinessServiceTest#skipsNoLossConditionalLossFormWhenFormalCompletionOriginHasNoActualLoss+keepsConditionalLossFormRequiredWhenFormalCompletionOriginHasActualLoss+keepsUnconditionalLossFormRequiredEvenWhenFormalCompletionOriginHasNoActualLoss" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests, 0 failures, 0 errors.
+- Cleanup preview/apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260914-edhr-static-026-conditional-loss-form-required --mode preview` -> PASS, keep task records, delete none; `--mode apply` -> PASS, deleted none.
 
 ## Current Work
 
 - RED: completed.
 - GREEN: completed.
 - Suggested shared defect summary update: mark EDHR-STATIC-026 as targeted fixed with non-E2E regression coverage, pending integrated real-order E2E after related main-flow blockers are addressed.
-- Blockers: `int_main` 主工作区存在其他未提交改动，融合前必须按 Git 门禁处理；cleanup apply 尚未运行。
+- Blockers: none for EDHR-STATIC-026 implementation and `int_main` fusion. `int_main` still contains unrelated concurrent task changes outside this task scope.
