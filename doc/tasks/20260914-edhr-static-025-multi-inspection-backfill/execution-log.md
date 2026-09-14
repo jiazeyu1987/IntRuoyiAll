@@ -76,3 +76,14 @@
 - Final local fusion blocker snapshot: `E:\IntRuoyi` is now `int_main...origin/int_main [ahead 8, behind 1]` with parallel dirty task record `M doc/tasks/20260914-edhr-static-012-route-rename-archive/task.md`; current task must not pull over, submit, or rewrite that parallel state.
 - Main worktree later became clean again at `6002b84fc`; task branch was rebased over it without conflicts. The rebase skipped already-applied upstream commits and left only task-owned commits ahead of `int_main`.
 - Ready for local fusion: after the final rebase, task implementation commit is `5a7e543c3` and task record commits are `15063dd47` / `51dc1b7b3` before this readiness correction.
+- Final merge preparation: task branch rebased once more after `53f969d59`; final task-owned commits merged into `int_main` were `105d1db6d` (implementation), `b04903de7`, `0bf761d86`, and `c94fc3a86`.
+- GREEN before merge: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` in `E:\IntRuoyi` -> PASS for `int_main/int_main`, frontend `8081`, backend `48081`.
+- MERGE: `git merge --ff-only codex/20260914-edhr-static-025-multi-inspection-backfill` in `E:\IntRuoyi` -> PASS, fast-forward `53f969d59..c94fc3a86`.
+- GREEN after merge on `int_main`: `node yudao-module-mes\src\test\js\mes-process-inspection-dynamic-template-static.spec.cjs` -> PASS.
+- GREEN after merge on `int_main`: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `int_main/int_main`, frontend `8081`, backend `48081`.
+- GREEN after merge on `int_main`: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest,MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest" test` -> PASS, Tests run: 24, Failures: 0, Errors: 0, Skipped: 0.
+- REMOTE: `git ls-remote origin refs/heads/int_main` -> `c94fc3a865b97a5d076666bd94721046663e475f`.
+- CLEANUP PREVIEW: `task_closeout.py --task-id 20260914-edhr-static-025-multi-inspection-backfill --mode preview` in task worktree -> READY, keep only `task.md`, `execution-log.md`, `verification-report.md`; delete `<none>`; blocked `<none>`.
+- CLEANUP APPLY: `task_closeout.py --task-id 20260914-edhr-static-025-multi-inspection-backfill --mode apply` removed Git worktree registration but Windows returned `Permission denied` deleting the physical directory because the command was running inside the target worktree.
+- MANUAL CLEANUP: from `E:\IntRuoyi`, verified target path had no `.git`, no Git worktree registration, no non-current matching process, and empty contents; deleted the empty residual directory with `[System.IO.Directory]::Delete(...)`; `Test-Path` returned `False`.
+- SLOT CLEANUP: under the same registry mutex pattern as `reserve-worktree-slot.ps1`, marked `D:\IntRuoyiWorktree\20260914-edhr-static-025-multi-inspection-backfill` slot `23` as `active=false` with `deletedAt`, `cleanupTask`, and purpose; registry validation passed.

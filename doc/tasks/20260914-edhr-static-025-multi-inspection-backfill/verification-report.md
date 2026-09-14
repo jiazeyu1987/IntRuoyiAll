@@ -59,7 +59,7 @@
 ## Verification
 
 - Non-E2E targeted verification completed.
-- No Playwright/E2E, database write, service start/stop/restart, remote server operation, or git push was performed.
+- No Playwright/E2E, database write, service start/stop/restart, or remote server operation was performed.
 - Changed paths:
   - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl.java`
   - `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest.java`
@@ -74,5 +74,7 @@
 
 - Implementation and verification are complete.
 - 2026-09-14 user authorized local commit and fusion into `int_main`.
-- Task branch was committed and rebased over the latest clean local `int_main` snapshot reached during this turn; implementation commit after the last successful rebase is `5a7e543c3`.
-- Local fast-forward fusion into `int_main` is ready; final project closeout still cannot be marked `completed` until git push is explicitly authorized and succeeds, because `docs/task-closeout-rules.md` requires push before completed status.
+- Task branch was committed, repeatedly rebased over moving `int_main`, and fast-forward merged into `int_main`; final implementation commit in the merged history is `105d1db6d`.
+- `int_main` post-merge verification passed: static contract PASS, branch runtime port guard PASS, and targeted Maven PASS with Tests run: 24, Failures: 0, Errors: 0, Skipped: 0.
+- Remote `refs/heads/int_main` was confirmed at merged hash `c94fc3a865b97a5d076666bd94721046663e475f`.
+- Task worktree cleanup completed after manual residual empty-directory removal; slot `23` was marked inactive in the runtime port registry.

@@ -655,3 +655,4 @@
 - Keywords: audit reason capacity, 审计原因长度, varchar(2000), Data truncation, 基础 schema 与增量迁移 -> `docs/database-rules.md#审计原因字段容量合同门禁`
 - Keywords: PowerShell Maven -D 参数, surefire.failIfNoSpecifiedTests, Unknown lifecycle phase, 单引号引用, 命令包装错误不算业务 RED -> `docs/powershell-memory.md#powershell-maven--d-参数引用门禁`
 - Keywords: detached HEAD, current_branch=None, task-closeout-cleanup preview blocked, cleanup apply 禁止, 分支无法解析不标 completed -> `docs/worktree-memory.md#detached-head-收尾分支门禁`
+- Keywords: cleanup apply Permission denied, Git 注册已移除, 空目录残留, Directory.Delete, slot inactive, worktree-ports registry mutex -> `docs/worktree-memory.md#git-注册已移除但空目录删除被当前进程占用`

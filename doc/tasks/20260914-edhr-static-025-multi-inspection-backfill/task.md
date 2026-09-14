@@ -11,20 +11,20 @@
 - [x] 写出可稳定复现首项锁定阻断后续项目的 RED 静态/定向测试。
 - [x] 实施最小代码修复，仅覆盖 EDHR-STATIC-025。
 - [x] 运行定向 GREEN 验证与静态合同检查。
-- [x] 更新验证报告，标记 ready_for_closeout；本轮已获本地提交并融合 `int_main` 授权，仍未执行未明确授权的 push。
+- [x] 更新验证报告，完成本地 fast-forward 融合、远端确认、任务 worktree 清理和最终 closeout 记录。
 
 ## Expected Verification
 
 - 新增或更新非 E2E 定向测试，覆盖同一动态表单内多项 PQC 检验先聚合再一次生效。
 - 验证已 EFFECTIVE / 锁定的 FormCenter 实例仍拒绝无关来源写入。
-- 运行目标静态合同测试、必要的后端/脚本定向命令、提交前端口门禁和本地 fast-forward 融合验证。
-- 不执行 Playwright/E2E、数据库写入、服务启动/停止/重启、远程服务器操作或未明确授权的 git push。
+- 运行目标静态合同测试、必要的后端/脚本定向命令、提交前端口门禁、本地 fast-forward 融合验证和远端 `int_main` 对齐确认。
+- 不执行 Playwright/E2E、数据库写入、服务启动/停止/重启或远程服务器操作。
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现、RED/GREEN、静态合同、任务分支提交和多轮 rebase 均已完成；2026-09-14 本轮用户授权“提交并融合进 int_main”。任务分支 `codex/20260914-edhr-static-025-multi-inspection-backfill` 已 rebase 到当前干净的本地 `int_main`，本地 fast-forward 融合门禁已具备；因本轮未明确授权 git push，融合后仍不得标记 completed。
+实现、RED/GREEN、静态合同、任务分支提交、多轮 rebase、本地 fast-forward 融合、`int_main` 主线程验证、任务 worktree 清理和 slot 23 释放均已完成。融合提交已进入 `int_main`，远端 `refs/heads/int_main` 已确认对齐到融合 hash `c94fc3a865b97a5d076666bd94721046663e475f`；本完成记录提交并推送后任务闭环。
 
 ## Design Constraints Check
 
