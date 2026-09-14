@@ -15,7 +15,7 @@
 - PASS: Task branch was pushed to `origin/codex/20260914-edhr-static-020-loss-release`.
 - PASS: Implementation commit `53f969d59` is present in local and remote `int_main` ancestry.
 - PASS: Task-owned temporary evidence was removed and runtime slot 22 was released.
-- READY FOR CLOSEOUT: final retained task records still need a closeout commit and push to `origin/int_main`.
+- PASS: Retained task closeout records were committed and pushed to `origin/int_main` as `92cf1d533`.
 
 ## Commands
 
@@ -40,4 +40,4 @@
 
 - No code-level blocker remains in the targeted scope.
 - The cleanup script returned non-zero because Windows denied deletion of the physical worktree directory while it was still the active process directory; follow-up cleanup from `E:\IntRuoyi` removed the empty residual directory and released slot 22.
-- Final closeout remains pending until these retained task records are committed and pushed to `origin/int_main`.
+- No final closeout blocker remains after retained task records were pushed and this status update was prepared.

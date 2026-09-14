@@ -15,7 +15,7 @@ Fix EDHR-STATIC-020 only: normal production reports with loss or scrap must not 
 - [x] Push the task branch to `origin`.
 - [x] Fast-forward the implementation into `int_main`.
 - [x] Clean task-owned temporary evidence and release the task worktree slot.
-- [ ] Push final task closeout records to `origin/int_main`.
+- [x] Push final task closeout records to `origin/int_main`.
 
 ## Expected Verification
 
@@ -37,4 +37,4 @@ Fix EDHR-STATIC-020 only: normal production reports with loss or scrap must not 
 
 ## Current Status
 
-ready_for_closeout - EDHR-STATIC-020 implementation is merged into local and remote `int_main` ancestry as `53f969d59`; task-owned temporary evidence was removed, the residual empty worktree directory was deleted, and runtime slot 22 was marked inactive. Final task closeout record commit and push are pending.
+completed - EDHR-STATIC-020 implementation is merged into local and remote `int_main` ancestry as `53f969d59`; retained task closeout records were pushed in commit `92cf1d533`; task-owned temporary evidence was removed, the residual empty worktree directory was deleted, and runtime slot 22 was marked inactive.

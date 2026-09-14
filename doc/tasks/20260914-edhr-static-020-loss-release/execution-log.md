@@ -49,4 +49,6 @@
 - `Test-Path D:\IntRuoyiWorktree\20260914-edhr-static-020-loss-release` -> False after follow-up cleanup.
 - Runtime registry entry for slot 22 is inactive.
 - `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS on `int_main`.
-- `origin/int_main` currently contains EDHR-STATIC-020 implementation commit `53f969d59` as an ancestor; final task record commit/push is pending.
+- `origin/int_main` contains EDHR-STATIC-020 implementation commit `53f969d59` as an ancestor.
+- Closeout evidence commit: `92cf1d533` (`docs(task): record EDHR static 020 closeout evidence`) -> pushed to `origin/int_main`.
+- Final status update: task marked `completed` after implementation, retained task records, cleanup evidence, and slot release were all recorded.
