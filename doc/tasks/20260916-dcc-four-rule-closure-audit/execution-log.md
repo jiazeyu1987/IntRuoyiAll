@@ -22,3 +22,7 @@
 ## 2026-09-16 closeout preparation
 - Re-read `docs/task-closeout-rules.md` before closeout. Local `task-closeout-cleanup` executable was not found under the workspace or user `.codex`; cleanup is performed by direct keep/delete review.
 - Cleanup review: keep list is this task's `task.md`, `execution-log.md`, and `verification-report.md`; no generated temporary scripts, screenshots, stdout/stderr logs, or task-local evidence files require deletion.
+## 2026-09-16 closeout
+- Implementation/audit commit: 7b2cf60e8 (fix: close DCC controlled-file rule gaps).
+- Direct cleanup review completed because no local task-closeout-cleanup executable exists; keep set is task.md, execution-log.md and verification-report.md; delete set is none; blockers none; warnings none.
+- Task status moved from ready_for_closeout to completed; pending closeout commit and push to origin/int_qms.
