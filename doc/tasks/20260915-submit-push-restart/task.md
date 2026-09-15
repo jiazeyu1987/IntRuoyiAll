@@ -17,7 +17,7 @@
 - 前端 8081、后端 48081 运行并通过检查
 
 ## Current Status
-in_progress
+completed
 
 ## 设计约束检查
 - 遵守 int_main 端口矩阵，禁止静默换端口。
