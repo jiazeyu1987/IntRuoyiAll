@@ -26,3 +26,5 @@
 - Implementation/audit commit: 7b2cf60e8 (fix: close DCC controlled-file rule gaps).
 - Direct cleanup review completed because no local task-closeout-cleanup executable exists; keep set is task.md, execution-log.md and verification-report.md; delete set is none; blockers none; warnings none.
 - Task status moved from ready_for_closeout to completed; pending closeout commit and push to origin/int_qms.
+- Closeout commit: 6efd6c575 (docs: close DCC four-rule closure audit).
+- Push verification: `git -c http.proxy= -c https.proxy= push origin int_qms` -> PASS; branch `int_qms` tracks `origin/int_qms` with no ahead count after push. Pending blob scan checked 32 blobs; maximum was 261,307 bytes, below GitHub's 100 MB limit.

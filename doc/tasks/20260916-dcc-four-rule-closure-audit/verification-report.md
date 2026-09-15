@@ -39,4 +39,4 @@ PASS in static/local regression scope. The current code no longer shows the four
 ## Closeout
 - Implementation/audit commit: 7b2cf60e8.
 - Cleanup: direct keep/delete review only; no generated temporary evidence files were present, and no cleanup script executable exists in this checkout/user profile.
-- Final status: completed; closeout commit and push verification are recorded in the execution log after Git push.
+- Final status: completed; closeout commit 6efd6c575 was pushed to origin/int_qms. Pending blob scan checked 32 blobs; largest pending blob was 261,307 bytes.
