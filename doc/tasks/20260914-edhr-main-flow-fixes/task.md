@@ -44,9 +44,8 @@ Directly fix the remaining eDHR main-flow blockers in the current `int_main` wor
 
 ## Current Status
 
-ready_for_closeout — user authorized task-owned commit/push; implementation verified and previous cleanup passed, Git integration now in progress.
+completed — all authorized ordinary-main-flow code fixes, targeted verification, task cleanup and Git integration passed. Implementation pushed to origin/int_main; unrelated work remains untouched. No real-browser E2E or deployment was performed.
 
-Previous targeted tests and cleanup remain historical evidence, not proof of the newly found paths. Current scope: propagate allocated source events through target-order completion/backfill/release; carry typed dynamic loss-form evidence through PQC release and downstream receipts. Preserve all existing uncommitted work. Git commit/push and E2E remain unauthorized.
 
 ## Follow-up Milestones
 
@@ -81,3 +80,14 @@ Previous targeted tests and cleanup remain historical evidence, not proof of the
 ## Final Closeout Gate
 
 Cleanup preview and apply PASS (ready/applied, int_main, linked=False, no blocked paths or warnings). Only task-local temporary logs were deleted; task.md, execution-log.md, verification-report.md and formal code/tests remain. Unrelated dirty files were untouched. Backend/frontend/bug evidence validators and diff whitespace check PASS. No remaining implementation or verification work in the authorized code-analysis scope. Awaiting user authorization to commit/push task-owned changes only; goal blocked threshold has not been met, so no goal status update is made this turn.
+
+## Authorized Final Closeout
+
+- User authorized task-only Git commit/push.
+- Implementation commit: db16e42776f392c40675f787ab73c4b9726c5e90 (98 files including 95 implementation/test/bug/experience files and 3 task records).
+- Implementation push to origin/int_main succeeded; ahead/behind 0/0.
+- Cleanup preview/apply after authorization both PASS, no deletion candidates/blockers/warnings, linked=False.
+- Backend/frontend/bug evidence validators and staged diff check PASS.
+- Final closeout commit contains only task.md, execution-log.md and verification-report.md, identified by message `docs(edhr): complete main-flow repair verification and closeout`; its hash is reported by Git/final response because a commit cannot contain its own hash.
+- Excluded and preserved docs/e2e-rules.md and docs/experience-index.md.
+- Earlier blocked/pending entries are chronological evidence, superseded by this completed status.

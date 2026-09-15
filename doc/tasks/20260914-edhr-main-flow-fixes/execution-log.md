@@ -246,3 +246,9 @@ Final cleanup: preview ready and apply applied, exit 0, no blocked/warning paths
 - docs/backend-development.md
 - docs/bugs/20260912-edhr-90-step-static-audit.md
 - docs/bugs/20260913-edhr-additional-logic-audit.md
+
+## Authorized closeout completed
+
+Implementation commit db16e42776f392c40675f787ab73c4b9726c5e90 pushed successfully to origin/int_main; Git ahead/behind verified 0/0. User's 授权 resolved the prior blocker. Cleanup preview/apply PASS (no candidates or blockers); all three core task records remain. Staged scope verified: 95 task-owned implementation/test/document files plus 3 task records. Unrelated docs/e2e-rules.md and docs/experience-index.md remain dirty and excluded. No repeat business tests required for this documentation/Git-only turn; previously verified production code was committed unchanged.
+
+Final record commit message: `docs(edhr): complete main-flow repair verification and closeout`, containing only these three task records; resulting hash is recorded in Git/final response. Task status completed after implementation push and cleanup. Authorized scope remains code-analysis/targeted regression, not browser E2E or deployment.
