@@ -15,7 +15,8 @@ def test_view_matrix_seed_declares_release_contract():
 
     assert sql.startswith(
         "-- release-migration: allowedEnvironments=test,backup,prod; "
-        "dependsOn=20260623_dcc_view_matrix_independent_source; type=seed; riskLevel=low\n"
+        "dependsOn=20260623_dcc_view_matrix_independent_source; type=seed; riskLevel=low; "
+        "applyOrder=20; sessionProfile=dcc-view-matrix-seed\n"
     )
 
 
@@ -46,7 +47,8 @@ def test_view_matrix_test_tenant_prereq_declares_release_contract():
 
     assert sql.startswith(
         "-- release-migration: allowedEnvironments=test; "
-        "dependsOn=20260623_dcc_view_matrix_independent_source; type=seed; riskLevel=low\n"
+        "dependsOn=20260623_dcc_view_matrix_independent_source; type=seed; riskLevel=low; "
+        "applyOrder=10\n"
     )
     assert "VIEW_MATRIX_TEST_TENANT_ONLY" in sql
     assert "@dcc_view_matrix_test_tenant_id := 122;" in sql

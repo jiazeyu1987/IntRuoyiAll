@@ -11,6 +11,8 @@ TARGET_PREFLIGHT_ROOT = SQL_ROOT / "target-preflight"
 EXPECTED_TARGET_PREFLIGHTS = {
     "20260526_dcc_other_template_category",
     "20260629_mes_smart_scheduling_role_scope",
+    "20260624_dcc_view_matrix_independent_seed",
+    "20260624_dcc_view_matrix_test_tenant_prereq",
     "20260709_mes_rt000006_batch_record_mapping",
     "20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup",
     "20260717_mes_balloon_excel_device_workstation_binding",
