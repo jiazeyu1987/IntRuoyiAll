@@ -26,6 +26,7 @@ import java.util.*;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.bpm.enums.ErrorCodeConstants.MODEL_DEPLOY_FAIL_TASK_CANDIDATE_NOT_CONFIG;
+import static cn.iocoder.yudao.module.bpm.enums.ErrorCodeConstants.TASK_DCC_CONFIRMED_CANDIDATE_INVALID;
 
 /**
  * {@link BpmTaskCandidateStrategy} 的调用者，用于调用对应的策略，实现任务的候选人的计算
@@ -106,6 +107,13 @@ public class BpmTaskCandidateInvoker {
             Integer strategy = BpmnModelUtils.parseCandidateStrategy(flowElement);
             String param = BpmnModelUtils.parseCandidateParam(flowElement);
             Set<Long> userIds = getCandidateStrategy(strategy).calculateUsersByTask(execution, param);
+            ProcessInstance processInstance = SpringUtil.getBean(BpmProcessInstanceService.class)
+                    .getProcessInstance(execution.getProcessInstanceId());
+            Assert.notNull(processInstance, "流程实例({}) 不存在", execution.getProcessInstanceId());
+            if ("dcc-controlled-file-approval".equals(processInstance.getProcessDefinitionKey())) {
+                requireConfirmedDccCandidates(userIds);
+                return new LinkedHashSet<>(userIds);
+            }
             // 1.2 移除被禁用的用户
             removeDisableUsers(userIds);
 
@@ -117,9 +125,6 @@ public class BpmTaskCandidateInvoker {
             }
 
             // 3. 移除发起人的用户
-            ProcessInstance processInstance = SpringUtil.getBean(BpmProcessInstanceService.class)
-                    .getProcessInstance(execution.getProcessInstanceId());
-            Assert.notNull(processInstance, "流程实例({}) 不存在", execution.getProcessInstanceId());
             removeStartUserIfSkip(userIds, flowElement, Long.valueOf(processInstance.getStartUserId()));
             return userIds;
         });
@@ -146,6 +151,11 @@ public class BpmTaskCandidateInvoker {
         String param = BpmnModelUtils.parseCandidateParam(flowElement);
         Set<Long> userIds = getCandidateStrategy(strategy).calculateUsersByActivity(bpmnModel, activityId, param,
                 startUserId, processDefinitionId, processVariables);
+        if (bpmnModel.getMainProcess() != null
+                && "dcc-controlled-file-approval".equals(bpmnModel.getMainProcess().getId())) {
+            requireConfirmedDccCandidates(userIds);
+            return new LinkedHashSet<>(userIds);
+        }
         // 1.2 移除被禁用的用户
         removeDisableUsers(userIds);
 
@@ -159,6 +169,16 @@ public class BpmTaskCandidateInvoker {
         // 3. 移除发起人的用户
         removeStartUserIfSkip(userIds, flowElement, startUserId);
         return userIds;
+    }
+
+    private void requireConfirmedDccCandidates(Set<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            throw exception(TASK_DCC_CONFIRMED_CANDIDATE_INVALID, "EMPTY");
+        }
+        Map<Long, AdminUserRespDTO> users = adminUserApi.getUserMap(userIds);
+        List<Long> invalid = userIds.stream().filter(id -> users.get(id) == null
+                || !CommonStatusEnum.ENABLE.getStatus().equals(users.get(id).getStatus())).toList();
+        if (!invalid.isEmpty()) throw exception(TASK_DCC_CONFIRMED_CANDIDATE_INVALID, invalid);
     }
 
     @VisibleForTesting

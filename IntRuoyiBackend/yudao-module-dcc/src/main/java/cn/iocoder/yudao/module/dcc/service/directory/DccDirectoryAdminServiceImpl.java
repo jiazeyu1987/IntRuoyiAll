@@ -402,7 +402,7 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
         }
         boolean mergedReadAllowed = Boolean.TRUE.equals(rule.getCanQuery()) || Boolean.TRUE.equals(rule.getCanPreview());
         rule.setCanQuery(mergedReadAllowed);
-        rule.setCanPreview(mergedReadAllowed);
+        rule.setCanPreview(Boolean.TRUE.equals(rule.getCanPreview()));
     }
 
     private DccFileDirectoryDO validateDirectoryExists(Long id) {

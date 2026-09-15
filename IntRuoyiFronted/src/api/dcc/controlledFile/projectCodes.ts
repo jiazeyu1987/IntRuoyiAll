@@ -99,6 +99,9 @@ export interface DccProjectFileTemplateItemRespVO {
   taxonomyPath: string
   fileName: string
   sortOrder: number
+  valid: boolean
+  validationCode?: number | null
+  validationMessage?: string | null
 }
 
 export interface DccProjectFileTemplateRespVO {
@@ -237,7 +240,13 @@ export const getProjectCodeControlledFilesPage = async (
 export const getProjectCodeFileTemplate = async (
   projectCodeId: number | string
 ): Promise<DccProjectFileTemplateRespVO> => {
-  return await request.get({ url: `/dcc/project-codes/${projectCodeId}/file-template` })
+  const result = await request.get<DccProjectFileTemplateRespVO>({ url: `/dcc/project-codes/${projectCodeId}/file-template` })
+  if (!Array.isArray(result.items) || result.items.some(item =>
+    typeof item.valid !== 'boolean' || (!item.valid && !item.validationMessage?.trim())
+  )) {
+    throw new Error('项目文件模板缺少有效性或失效原因，无法安全使用')
+  }
+  return result
 }
 
 export const replaceProjectCodeFileTemplate = async (

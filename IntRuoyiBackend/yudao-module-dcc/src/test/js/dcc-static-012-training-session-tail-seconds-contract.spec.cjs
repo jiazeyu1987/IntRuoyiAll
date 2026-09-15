@@ -25,11 +25,11 @@ const test = read('src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccTra
 
 const startViewSession = methodBody(service, 'public DccTrainingTaskRespVO startViewSession')
 const closeIndex = startViewSession.indexOf(
-  'closeOtherActiveSessions(progressId, userId, reqVO.getClientSessionId(), now);'
+  'closeOtherActiveSessions(progress, userId, reqVO.getClientSessionId(), now, true);'
 )
 assert.notEqual(closeIndex, -1, 'startViewSession must settle other active sessions before opening the new one')
 
-const reloadIndex = startViewSession.indexOf('progress = loadOwnedProgress(userId, progressId);', closeIndex)
+const reloadIndex = startViewSession.indexOf('progress = loadOwnedProgressForUpdate(userId, progressId);', closeIndex)
 assert.notEqual(
   reloadIndex,
   -1,
@@ -48,13 +48,13 @@ assert.notEqual(updateIndex, -1, 'startViewSession must update metadata using th
 const closeOtherSessions = methodBody(service, 'private void closeOtherActiveSessions')
 assert.match(
   closeOtherSessions,
-  /trainingProgressMapper\.selectById\(progressId\)[\s\S]*updateProgressMetadata\(progress, now, false, increment\)/,
+  /updateProgressMetadata\(progress, now, false, increment\)/,
   'closing stale sessions must add tail seconds to the current persisted progress'
 )
 
 assert.match(
   test,
-  /void startViewSession_preservesTailSecondsSettledFromPreviousSession\(\)/,
+  /void startViewSession_locksProgressAndCountsOnlyOnePreviousTail\(\)/,
   'training task regression test for tail-second preservation is missing'
 )
 assert.match(

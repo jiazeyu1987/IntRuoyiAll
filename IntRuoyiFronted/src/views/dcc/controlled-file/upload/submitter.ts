@@ -11,7 +11,7 @@ export interface UploadFormDraft {
   directoryId: number | null
   fileName: string
   fileNumber: string
-  productMasterId: null
+  productMasterId: number | null
   productCode: string
   dccProjectCodeId: number | null
   fileTypeTaxonomyId: number | null
@@ -68,6 +68,8 @@ const FILE_NUMBER_CHAIN_CONFLICT_MESSAGE =
   '该文件编号存在版本链冲突，当前不可提交，请选择正确历史文件或联系管理员处理。'
 const VERSION_INVALID_ERROR_CODE = 'CONTROLLED_FILE_VERSION_INVALID'
 const VERSION_INVALID_MESSAGE = '版本号格式不正确，请使用 V1.0、V2.0 或 1.0 这类数字版本。'
+const CONTROLLED_INITIAL_VERSION_INVALID_MESSAGE =
+  '初始版本号格式不正确，请使用 A/1、B/1 等“修订版/1”格式。'
 const PRODUCT_CODE_PATTERN = /^[A-Za-z0-9]{14}$/
 const DRAWING_SOURCE_EXT_PATTERN = /\.(dwg|sldprt|sldasm|slddrw)$/i
 const PRODUCT_BOUND_CATEGORY_PREFIXES = ['DCC_FVM_DHF_', 'DCC_FVM_DMR_']
@@ -199,7 +201,11 @@ export const formatPreviewFileSize = (fileSize: number | null | undefined) => {
   return `${(fileSize / 1024 / 1024).toFixed(2)} MB`
 }
 
-const normalizeKnownUploadErrorMessage = (message: string, fallback: string) => {
+const normalizeKnownUploadErrorMessage = (
+  message: string,
+  fallback: string,
+  processType?: UploadFormDraft['processType']
+) => {
   const rawMessage = trimText(message)
   if (!rawMessage || rawMessage === 'error') {
     return fallback
@@ -213,17 +219,23 @@ const normalizeKnownUploadErrorMessage = (message: string, fallback: string) => 
     normalizedMessage.includes('controlled file version format is invalid') ||
     /version\s*format\s*is\s*invalid|invalid\s*version|版本号.*(无效|非法|格式)/i.test(rawMessage)
   ) {
-    return VERSION_INVALID_MESSAGE
+    return processType === 'CONTROLLED_FILE'
+      ? CONTROLLED_INITIAL_VERSION_INVALID_MESSAGE
+      : VERSION_INVALID_MESSAGE
   }
   return rawMessage
 }
 
-export const resolveUploadErrorMessage = (error: unknown, fallback: string) => {
+export const resolveUploadErrorMessage = (
+  error: unknown,
+  fallback: string,
+  processType?: UploadFormDraft['processType']
+) => {
   if (error instanceof Error && error.message && error.message !== 'error') {
-    return normalizeKnownUploadErrorMessage(error.message, fallback)
+    return normalizeKnownUploadErrorMessage(error.message, fallback, processType)
   }
   if (typeof error === 'string' && error && error !== 'error') {
-    return normalizeKnownUploadErrorMessage(error, fallback)
+    return normalizeKnownUploadErrorMessage(error, fallback, processType)
   }
   return fallback
 }
@@ -306,11 +318,13 @@ export const resolveUploadPreviewErrorMessage = (error: unknown, fallback: strin
 
 export const buildSubmitFailureFeedback = (
   error: unknown,
-  fallback: string
+  fallback: string,
+  processType?: UploadFormDraft['processType']
 ): UploadSubmitFailureFeedback => {
   const message = normalizeKnownUploadErrorMessage(
-    resolveNestedUploadErrorText(error) || resolveUploadErrorMessage(error, fallback),
-    fallback
+    resolveNestedUploadErrorText(error) || resolveUploadErrorMessage(error, fallback, processType),
+    fallback,
+    processType
   )
   return {
     message,

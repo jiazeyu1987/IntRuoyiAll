@@ -2,14 +2,12 @@ package cn.iocoder.yudao.module.dcc.controller.admin.file;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
-import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccPublicationImpactCreateRevisionReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccPublicationImpactDecisionReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccPublicationImpactLinkRevisionReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccPublicationImpactReasonReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccPublicationImpactReassignReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccPublicationImpactVersionReqVO;
 import cn.iocoder.yudao.module.dcc.service.file.DccRelatedFileImpactAssessmentService;
-import cn.iocoder.yudao.module.dcc.service.file.DccImpactRevisionCommandService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -32,8 +30,6 @@ public class DccPublicationImpactAssessmentController {
 
     @Resource
     private DccRelatedFileImpactAssessmentService service;
-    @Resource
-    private DccImpactRevisionCommandService revisionCommandService;
 
     @PostMapping("/{id}/start")
     @Operation(summary = "开始处理关联文件影响评估")
@@ -91,16 +87,6 @@ public class DccPublicationImpactAssessmentController {
         service.linkExistingMajorRevision(SecurityFrameworkUtils.getLoginUserId(), id, reqVO.getExpectedVersion(),
                 reqVO.getRevisionControlledFileId(), reqVO.getReason());
         return success(true);
-    }
-
-    @PostMapping("/{id}/create-revision")
-    @Operation(summary = "通过现有受控文件流程创建并关联大版本")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
-    public CommonResult<Long> createRevision(@PathVariable("id") Long id,
-                                             @Valid @RequestBody DccPublicationImpactCreateRevisionReqVO reqVO) {
-        return success(revisionCommandService.createAndLinkMajorRevision(
-                SecurityFrameworkUtils.getLoginUserId(), id, reqVO.getExpectedVersion(),
-                reqVO.getSourceControlledFileId(), reqVO.getReason()));
     }
 
 }

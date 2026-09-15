@@ -69,20 +69,22 @@ assert.match(
 
 const frontendCanCreate = extractBetween(
   browserPage,
-  'const canCreateMajorRevision',
-  'const parseWindchillVersion',
-  'browser canCreateMajorRevision'
+  'const canMajorCheckin',
+  'const metadataExporting',
+  'browser canMajorCheckin'
 )
 assert.match(
   frontendCanCreate,
-  /isDccControlledFileActionAllowed\(file,\s*'MAJOR_REVISION'\)/,
-  'browser page must display the button from backend MAJOR_REVISION projection'
+  /isDccControlledFileActionAllowed\([^,]+,\s*'MAJOR_REVISION'\)/,
+  'checkin dialog must enable major selection from backend MAJOR_REVISION projection'
 )
 assert.doesNotMatch(
   frontendCanCreate,
   /requesterId|WORKING|status/,
-  'browser page must not guess major-revision eligibility from requester or WORKING status'
+  'checkin dialog must not guess major-revision eligibility from requester or WORKING status'
 )
+assert.doesNotMatch(browserPage, /dcc-controlled-browser-major-revision|handleCreateMajorRevision/,
+  'standalone major revision UI must be removed')
 
 for (const testName of [
   'getControlledFile_projectOwnerDifferentFromRequesterCanCreateMajorRevisionFromActiveVersion',

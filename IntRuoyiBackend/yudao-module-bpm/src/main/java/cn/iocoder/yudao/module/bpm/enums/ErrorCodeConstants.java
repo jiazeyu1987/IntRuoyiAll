@@ -67,6 +67,8 @@ public interface ErrorCodeConstants {
     ErrorCode TASK_WITHDRAW_FAIL_NEXT_TASK_NOT_ALLOW = new ErrorCode(1_009_005_020, "撤回失败，下一节点不满足撤回条件！");
     ErrorCode TASK_APPROVAL_REQUIRES_DCC_SIGNATURE = new ErrorCode(1_009_005_021, "DCC受控文件审批必须在DCC文控中心完成电子签名后提交");
     ErrorCode TASK_APPROVAL_REQUIRES_EDHR_SIGNATURE = new ErrorCode(1_009_005_022, "eDHR审批必须在eDHR审批页面完成电子签名后提交");
+    ErrorCode TASK_DCC_CONFIRMED_CANDIDATE_INVALID = new ErrorCode(1_009_005_023,
+            "DCC确认审批名单为空或人员已失效，不能缩减名单继续审批：{}");
 
     // ========== 统一审批中心 1-009-006-000 ==========
     ErrorCode APPROVAL_SIGNATURE_IMAGE_REQUIRED = new ErrorCode(1_009_006_001,

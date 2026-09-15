@@ -120,7 +120,8 @@ public class DccDirectoryAccessPermissionServiceImpl implements DccDirectoryAcce
     private boolean allows(DccDirectoryAccessRuleDO rule, DccAccessTypeEnum accessType) {
         boolean mergedReadAllowed = Boolean.TRUE.equals(rule.getCanQuery()) || Boolean.TRUE.equals(rule.getCanPreview());
         return switch (accessType) {
-            case QUERY, PREVIEW -> mergedReadAllowed;
+            case QUERY -> mergedReadAllowed;
+            case PREVIEW -> Boolean.TRUE.equals(rule.getCanPreview());
             case DOWNLOAD -> Boolean.TRUE.equals(rule.getCanDownload());
         };
     }

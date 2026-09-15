@@ -68,6 +68,22 @@ import static org.mockito.Mockito.when;
 @Import({DccDirectoryAdminServiceImpl.class, DccDirectoryNasTransferGuardService.class})
 class DccDirectoryAdminServiceImplTest extends BaseDbUnitTest {
 
+    @Test
+    void nameOnlyDirectoryGrantIsNotPromotedToContentWhenSavedOrRead() {
+        var directory = insertDirectory("NAME_ONLY", "Name only", null);
+        var request = new DccDirectoryAccessRuleSaveReqVO();
+        request.setSubjectType("USER");
+        request.setSubjectId(99L);
+        request.setCanQuery(true);
+        request.setCanPreview(false);
+        request.setCanDownload(false);
+        request.setActive(true);
+        directoryAdminService.replaceAccessRules(directory.getId(), List.of(request));
+        var rules = directoryAdminService.getAccessRules(directory.getId());
+        assertEquals(Boolean.TRUE, rules.get(0).getCanQuery());
+        assertEquals(Boolean.FALSE, rules.get(0).getCanPreview());
+    }
+
     @Resource
     private DccDirectoryAdminServiceImpl directoryAdminService;
     @Resource

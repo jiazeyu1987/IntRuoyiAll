@@ -32,6 +32,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -127,7 +128,7 @@ class DccProjectFileTemplateServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void getProjectTemplate_nonLeafSavedItemFailsFast() {
+    void getProjectTemplate_nonLeafSavedItemRemainsVisibleForRepair() {
         when(projectCodeMapper.selectById(100L)).thenReturn(projectCode());
         when(taxonomyAdminService.getTaxonomyList()).thenReturn(taxonomyRowsWithActiveChild());
         when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
@@ -137,7 +138,22 @@ class DccProjectFileTemplateServiceImplTest extends BaseMockitoUnitTest {
                         .id(900L).projectCodeId(100L).fileTypeTaxonomyId(103L)
                         .fileName("总装图").sortOrder(1).build()));
 
-        assertServiceException(() -> service.getProjectTemplate(100L),
+        var result = service.getProjectTemplate(100L);
+        assertEquals(1, result.getItems().size());
+        assertEquals(900L, result.getItems().get(0).getId());
+        assertEquals(Boolean.FALSE, result.getItems().get(0).getValid());
+        assertEquals(PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID.getCode(), result.getItems().get(0).getValidationCode());
+    }
+
+    @Test
+    void validateUploadSelection_rejectsConfiguredButNonLeafItem() {
+        when(templateItemMapper.selectListByProjectCodeId(100L)).thenReturn(List.of(
+                DccProjectFileTemplateItemDO.builder().id(900L).projectCodeId(100L)
+                        .fileTypeTaxonomyId(103L).fileName("总装图").sortOrder(1).build()));
+        lenient().when(taxonomyAdminService.getTaxonomyList()).thenReturn(taxonomyRowsWithActiveChild());
+        lenient().when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
+                .id(501L).active(true).fileTypeTaxonomyId(103L).build()));
+        assertServiceException(() -> service.validateUploadSelection(100L, 103L, "总装图"),
                 PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
     }
 
@@ -156,6 +172,11 @@ class DccProjectFileTemplateServiceImplTest extends BaseMockitoUnitTest {
         assertServiceException(() -> service.validateUploadSelection(100L, 103L, "总装图"),
                 PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
 
+        when(taxonomyAdminService.getTaxonomyList()).thenReturn(taxonomyRows());
+        when(taxonomyAdminService.resolveActivePath(103L)).thenReturn(
+                new DccFileTypeTaxonomyPath(103L, "技术文档", "设计阶段", "产品图纸", null, null));
+        when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
+                .id(501L).active(true).fileTypeTaxonomyId(103L).build()));
         service.validateUploadSelection(100L, 103L, "零件图");
     }
 

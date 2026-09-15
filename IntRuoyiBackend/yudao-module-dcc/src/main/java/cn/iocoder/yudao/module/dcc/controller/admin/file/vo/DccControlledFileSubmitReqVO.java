@@ -83,6 +83,7 @@ public class DccControlledFileSubmitReqVO {
     @NotNull(message = "directoryId is required")
     private Long directoryId;
 
+    @NotBlank(message = "versionNo is required")
     private String versionNo;
 
     @NotNull(message = "effectiveDate is required")

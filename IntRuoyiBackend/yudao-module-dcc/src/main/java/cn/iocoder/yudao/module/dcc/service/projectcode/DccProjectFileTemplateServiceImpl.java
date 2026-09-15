@@ -100,6 +100,8 @@ public class DccProjectFileTemplateServiceImpl implements DccProjectFileTemplate
         if (!matched) {
             throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
         }
+        List<DccFileTypeTaxonomyDO> rows = taxonomyAdminService.getTaxonomyList();
+        validateTemplateTaxonomy(fileTypeTaxonomyId, taxonomyMap(rows), activeCategoryCounts());
     }
 
     private DccProjectFileTemplateItemDO normalizeAndValidate(
@@ -114,17 +116,7 @@ public class DccProjectFileTemplateServiceImpl implements DccProjectFileTemplate
             throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
         }
         Long taxonomyId = requestedItem.getFileTypeTaxonomyId();
-        DccFileTypeTaxonomyDO taxonomy = taxonomyById.get(taxonomyId);
-        DccFileTypeTaxonomyPath path = taxonomyAdminService.resolveActivePath(taxonomyId);
-        if (taxonomy == null || !Boolean.TRUE.equals(taxonomy.getActive()) || StrUtil.isBlank(path.level3())) {
-            throw exception(PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
-        }
-        if (hasActiveChildTaxonomy(taxonomyId, taxonomyById)) {
-            throw exception(PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
-        }
-        if (!Objects.equals(activeCategoryCounts.get(taxonomyId), 1L)) {
-            throw exception(PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
-        }
+        validateTemplateTaxonomy(taxonomyId, taxonomyById, activeCategoryCounts);
         String fileName = StrUtil.trim(requestedItem.getFileName());
         String uniqueKey = taxonomyId + "\u0000" + fileName.toLowerCase(Locale.ROOT);
         if (!uniqueItems.add(uniqueKey)) {
@@ -143,15 +135,6 @@ public class DccProjectFileTemplateServiceImpl implements DccProjectFileTemplate
                                                        List<DccProjectFileTemplateItemDO> items) {
         Map<Long, DccFileTypeTaxonomyDO> taxonomyById = taxonomyMap(taxonomyRows);
         Map<Long, Long> activeCategoryCounts = activeCategoryCounts();
-        for (DccProjectFileTemplateItemDO item : items) {
-            Long taxonomyId = item.getFileTypeTaxonomyId();
-            if (hasActiveChildTaxonomy(taxonomyId, taxonomyById)) {
-                throw exception(PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
-            }
-            if (!Objects.equals(activeCategoryCounts.get(taxonomyId), 1L)) {
-                throw exception(PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
-            }
-        }
         DccProjectFileTemplateRespVO response = new DccProjectFileTemplateRespVO();
         response.setProjectCodeId(projectCodeId);
         response.setTaxonomyOptions(listTemplateTaxonomyOptions(
@@ -159,7 +142,7 @@ public class DccProjectFileTemplateServiceImpl implements DccProjectFileTemplate
                 .map(item -> BeanUtils.toBean(item, DccFileTypeTaxonomyRespVO.class))
                 .toList());
         response.setItems(items.stream()
-                .map(item -> toResponseItem(item, taxonomyById))
+                .map(item -> toResponseItem(item, taxonomyById, activeCategoryCounts))
                 .toList());
         return response;
     }
@@ -190,26 +173,49 @@ public class DccProjectFileTemplateServiceImpl implements DccProjectFileTemplate
 
     private DccProjectFileTemplateItemRespVO toResponseItem(
             DccProjectFileTemplateItemDO item,
-            Map<Long, DccFileTypeTaxonomyDO> taxonomyById) {
-        DccFileTypeTaxonomyPath path = taxonomyAdminService.resolveActivePath(item.getFileTypeTaxonomyId());
-        List<DccFileTypeTaxonomyDO> lineage = resolveLineage(item.getFileTypeTaxonomyId(), taxonomyById);
-        if (lineage.size() < 3 || StrUtil.isBlank(path.level3())) {
-            throw exception(PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
-        }
-        DccFileTypeTaxonomyDO stage = lineage.get(1);
-        DccFileTypeTaxonomyDO fileType = lineage.get(2);
+            Map<Long, DccFileTypeTaxonomyDO> taxonomyById, Map<Long, Long> activeCategoryCounts) {
         DccProjectFileTemplateItemRespVO response = new DccProjectFileTemplateItemRespVO();
         response.setId(item.getId());
         response.setProjectCodeId(item.getProjectCodeId());
         response.setFileTypeTaxonomyId(item.getFileTypeTaxonomyId());
-        response.setStageTaxonomyId(stage.getId());
-        response.setStageName(stage.getName());
-        response.setFileTypeNodeId(fileType.getId());
-        response.setFileTypeName(fileType.getName());
-        response.setTaxonomyPath(String.join(" / ", nonBlankPathParts(path)));
         response.setFileName(item.getFileName());
         response.setSortOrder(item.getSortOrder());
+        try {
+            DccFileTypeTaxonomyPath path = validateTemplateTaxonomy(item.getFileTypeTaxonomyId(),
+                    taxonomyById, activeCategoryCounts);
+            List<DccFileTypeTaxonomyDO> lineage = resolveLineage(item.getFileTypeTaxonomyId(), taxonomyById);
+            if (lineage.size() < 3) throw exception(PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
+            DccFileTypeTaxonomyDO stage = lineage.get(1);
+            DccFileTypeTaxonomyDO fileType = lineage.get(2);
+            response.setStageTaxonomyId(stage.getId());
+            response.setStageName(stage.getName());
+            response.setFileTypeNodeId(fileType.getId());
+            response.setFileTypeName(fileType.getName());
+            response.setTaxonomyPath(String.join(" / ", nonBlankPathParts(path)));
+            response.setValid(true);
+        } catch (cn.iocoder.yudao.framework.common.exception.ServiceException invalidConfiguration) {
+            // Administrative read preserves invalid rows for repair; upload and save use the strict validator.
+            response.setValid(false);
+            response.setValidationCode(invalidConfiguration.getCode());
+            response.setValidationMessage(invalidConfiguration.getMessage());
+        }
         return response;
+    }
+
+    private DccFileTypeTaxonomyPath validateTemplateTaxonomy(Long taxonomyId,
+            Map<Long, DccFileTypeTaxonomyDO> taxonomyById, Map<Long, Long> activeCategoryCounts) {
+        DccFileTypeTaxonomyDO taxonomy = taxonomyById.get(taxonomyId);
+        if (taxonomy == null || !Boolean.TRUE.equals(taxonomy.getActive())) {
+            throw exception(PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
+        }
+        DccFileTypeTaxonomyPath path = taxonomyAdminService.resolveActivePath(taxonomyId);
+        if (path == null || StrUtil.isBlank(path.level3()) || hasActiveChildTaxonomy(taxonomyId, taxonomyById)) {
+            throw exception(PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
+        }
+        if (!Objects.equals(activeCategoryCounts.get(taxonomyId), 1L)) {
+            throw exception(PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
+        }
+        return path;
     }
 
     private List<DccFileTypeTaxonomyDO> resolveLineage(

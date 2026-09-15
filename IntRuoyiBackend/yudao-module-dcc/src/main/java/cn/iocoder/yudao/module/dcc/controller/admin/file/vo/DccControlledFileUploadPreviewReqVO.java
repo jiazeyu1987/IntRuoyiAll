@@ -30,6 +30,12 @@ public class DccControlledFileUploadPreviewReqVO {
     @NotBlank(message = "purpose is required")
     private String purpose;
 
+    @Schema(description = "Exact controlled file version for APPROVAL_PDF")
+    private Long controlledFileId;
+
+    @Schema(description = "Current final approval task for APPROVAL_PDF")
+    private String taskId;
+
     @JsonIgnore
     @Schema(hidden = true)
     @AssertTrue(message = "exactly one file is required")

@@ -129,7 +129,10 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
         try {
             byte[] content = fileService.getFileContent(publishedFile.getConfigId(), publishedFile.getPath());
             LocalDateTime now = LocalDateTime.now();
-            updateProgressMetadata(progress, now, false, 0);
+            // Re-read under the row lock after the potentially slow binary read. A preview must
+            // never write an old accumulatedViewSeconds value over a concurrent heartbeat.
+            DccControlledFileTrainingProgressDO currentProgress = loadOwnedProgressForUpdate(userId, progressId);
+            updateProgressMetadata(currentProgress, now, false, 0);
             markDistributionRead(progress.getControlledFileId(), userId, now);
             recordAccess(progress.getControlledFileId(), userId, DccAccessTypeEnum.PREVIEW, true,
                     "TRAINING_OK", auditContext);
@@ -153,6 +156,8 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
         loadTrainingVisibleFile(progress.getControlledFileId());
         LocalDateTime now = LocalDateTime.now();
         closeOtherActiveSessions(progress, userId, reqVO.getClientSessionId(), now, true);
+        // The stale-session cleanup may have advanced accumulated view time; use the persisted row.
+        progress = loadOwnedProgressForUpdate(userId, progressId);
         DccControlledFileTrainingViewSessionDO existing =
                 trainingViewSessionMapper.selectActiveByProgressIdAndClientSessionId(progressId, reqVO.getClientSessionId());
         if (existing == null) {

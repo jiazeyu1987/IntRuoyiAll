@@ -44,6 +44,35 @@ import static org.mockito.Mockito.when;
 
 class DccUploadTicketServiceTest extends BaseMockitoUnitTest {
 
+    @Test
+    void cleanupTemporaryFileByTicket_rejectsBoundTicketWithoutDeletingHistory() throws Exception {
+        var bound = temporaryFile("UT-BOUND", 99L, "session-1", "SOURCE", "BOUND",
+                LocalDateTime.now().plusMinutes(20), 900L);
+        when(temporaryFileMapper.selectOne(
+                org.mockito.ArgumentMatchers.<SFunction<DccControlledFileTemporaryFileDO, ?>>any(), eq("UT-BOUND")))
+                .thenReturn(bound);
+        var failure = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> uploadTicketService.cleanupTemporaryFileByTicket(99L, "session-1", "UT-BOUND",
+                        LocalDateTime.now(), "USER_DISCARDED"));
+        assertEquals(CONTROLLED_FILE_UPLOAD_TICKET_INVALID.getCode(), failure.getCode());
+        verifyNoInteractions(fileService);
+        verify(temporaryFileMapper, never()).update(eq(null), any(UpdateWrapper.class));
+    }
+
+    @Test
+    void cleanupTemporaryFileByTicket_lostClaimCannotReportCleaned() throws Exception {
+        var available = temporaryFile("UT-RACE", 99L, "session-1", "SOURCE", "AVAILABLE",
+                LocalDateTime.now().plusMinutes(20), null);
+        when(temporaryFileMapper.selectOne(
+                org.mockito.ArgumentMatchers.<SFunction<DccControlledFileTemporaryFileDO, ?>>any(), eq("UT-RACE")))
+                .thenReturn(available);
+        when(temporaryFileMapper.update(eq(null), any(UpdateWrapper.class))).thenReturn(0);
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> uploadTicketService.cleanupTemporaryFileByTicket(99L, "session-1", "UT-RACE",
+                        LocalDateTime.now(), "USER_DISCARDED"));
+        verifyNoInteractions(fileService);
+    }
+
     @Mock
     private DccControlledFileTemporaryFileMapper temporaryFileMapper;
     @Mock
@@ -431,6 +460,18 @@ class DccUploadTicketServiceTest extends BaseMockitoUnitTest {
         assertTrue(updateCaptor.getAllValues().get(1).getParamNameValuePairs().containsValue("USER_DISCARDED"));
         assertTrue(updateCaptor.getAllValues().get(1).getParamNameValuePairs()
                 .containsValue(DccUploadTicketServiceImpl.CLEANUP_CLEANED));
+    }
+
+    @Test
+    void cleanupSessionTemporaryFiles_lostClaimCannotReportSuccessfulCleanup() {
+        LocalDateTime now = LocalDateTime.now();
+        DccControlledFileTemporaryFileDO candidate = temporaryFile("UT-1", 99L, "session-1",
+                "SOURCE", "AVAILABLE", now.plusMinutes(20), null);
+        when(temporaryFileMapper.selectList(any())).thenReturn(List.of(candidate));
+        when(temporaryFileMapper.update(eq(null), any(UpdateWrapper.class))).thenReturn(0);
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> uploadTicketService.cleanupSessionTemporaryFiles(99L, "session-1", now, "USER_DISCARDED"));
+        verifyNoInteractions(fileService);
     }
 
     @Test

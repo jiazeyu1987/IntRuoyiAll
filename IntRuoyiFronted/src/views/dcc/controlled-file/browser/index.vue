@@ -432,16 +432,6 @@
                   撤销检出
                 </el-button>
                 <el-button
-                  v-if="canCreateMajorRevision(getSelectedVersion(row))"
-                  data-testid="dcc-controlled-browser-major-revision"
-                  link
-                  type="primary"
-                  :loading="majorRevisionLoadingId === getSelectedVersion(row).id"
-                  @click="handleCreateMajorRevision(getSelectedVersion(row))"
-                >
-                  升大版本
-                </el-button>
-                <el-button
                   v-if="getBrowserRowActionState(getSelectedVersion(row)).canPreview"
                   link
                   type="primary"
@@ -953,12 +943,19 @@
 
   <el-dialog
     v-model="checkinDialogVisible"
-    title="检入新小版本"
+    title="检入新版本"
     width="560px"
     destroy-on-close
+    :before-close="beforeCloseCheckin"
     @closed="resetCheckinDialog"
   >
     <el-form label-position="top">
+      <el-form-item label="版本变更类型" required>
+        <el-radio-group v-model="checkinForm.versionChangeType" data-testid="dcc-controlled-browser-checkin-version-type">
+          <el-radio value="MINOR">小版本（同一修订版迭代）</el-radio>
+          <el-radio value="MAJOR" :disabled="!canMajorCheckin">大版本（下一修订版，需项目所有者）</el-radio>
+        </el-radio-group>
+      </el-form-item>
       <el-form-item label="修改后的源文件（可选）">
         <el-upload
           data-testid="dcc-controlled-browser-checkin-upload"
@@ -966,7 +963,7 @@
           :limit="1"
           :auto-upload="true"
           :http-request="uploadCheckinSource"
-          :on-remove="clearCheckinUpload"
+          :before-remove="clearCheckinUpload"
         >
           <el-button :loading="checkinUploadLoading">
             <Icon icon="ep:upload" class="mr-5px" />
@@ -987,7 +984,7 @@
           :auto-upload="true"
           accept=".pdf"
           :http-request="uploadCheckinDrawingPdf"
-          :on-remove="clearCheckinDrawingPdf"
+          :before-remove="discardCheckinDrawingPdf"
         >
           <el-button :loading="checkinDrawingPdfLoading">选择配套PDF</el-button>
         </el-upload>
@@ -1018,14 +1015,14 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="checkinDialogVisible = false">取消</el-button>
+      <el-button :loading="checkinCleanupLoading" @click="cancelCheckin">取消</el-button>
       <el-button
         data-testid="dcc-controlled-browser-checkin-submit"
         type="primary"
         :loading="checkinSubmitting"
         @click="submitCheckin"
       >
-        检入并生成小版本
+        {{ checkinForm.versionChangeType === 'MAJOR' ? '检入并生成大版本' : '检入并生成小版本' }}
       </el-button>
     </template>
   </el-dialog>
@@ -1064,7 +1061,7 @@ import {
   checkoutControlledFile,
   checkinControlledFile,
   cancelCheckoutControlledFile,
-  createControlledFileMajorRevision,
+  cleanupControlledFileUploadTicket,
   createControlledFileUploadSessionId,
   createControlledFileBatchRecognitionTask,
   exportControlledFileMetadataExcel,
@@ -1242,11 +1239,13 @@ const directories = ref<ControlledFileDirectoryNode[]>([])
 const categories = ref<ControlledFileCategoryVO[]>([])
 const downloadLoadingId = ref<number>()
 const checkoutLoadingId = ref<number | string>()
-const majorRevisionLoadingId = ref<number | string>()
 const submitApprovalLoadingId = ref<number | string>()
 const checkinDialogVisible = ref(false)
 const checkinSubmitting = ref(false)
 const checkinUploadLoading = ref(false)
+const checkinCleanupLoading = ref(false)
+const checkinSourceState = ref<'idle' | 'uploading' | 'ready' | 'failed'>('idle')
+let checkinSourceRequestSequence = 0
 const checkinDrawingPdfLoading = ref(false)
 const checkinDrawingPdfUpload = ref<ControlledFileUploadRespVO>()
 const checkinDrawingPdfFileList = ref<UploadUserFile[]>([])
@@ -1255,7 +1254,12 @@ const checkinTarget = ref<ControlledFileBrowserVersion>()
 const checkinUploadSessionId = ref(createControlledFileUploadSessionId())
 const checkinUpload = ref<ControlledFileUploadRespVO>()
 const checkinFileList = ref<UploadUserFile[]>([])
-const checkinForm = reactive({ changeDescription: '', remark: '' })
+const checkinForm = reactive<{ versionChangeType: 'MINOR' | 'MAJOR'; changeDescription: string; remark: string }>({
+  versionChangeType: 'MINOR', changeDescription: '', remark: ''
+})
+const canMajorCheckin = computed(() => Boolean(
+  checkinTarget.value && isDccControlledFileActionAllowed(checkinTarget.value, 'MAJOR_REVISION')
+))
 const metadataExporting = ref(false)
 const recognitionRecordExporting = ref(false)
 const recognitionMigrationExporting = ref(false)
@@ -1697,9 +1701,6 @@ const isCheckedOutByCurrentUser = (file: ControlledFileVO | ControlledFileBrowse
 const canEditVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
   Boolean(file.requesterId && String(file.requesterId) === String(userStore.getUser.id))
 
-const canCreateMajorRevision = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
-  Boolean(file.id && isDccControlledFileActionAllowed(file, 'MAJOR_REVISION'))
-
 const parseWindchillVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) => {
   const revisionCode = String(file.revisionCode || '').trim().toUpperCase()
   const iterationNo = Number(file.iterationNo)
@@ -1774,9 +1775,6 @@ const deleteBrowserMutationIdempotencyKey = (action: string, id: number | string
 
 const createWorkingIterationSubmitIdempotencyKey = (id: number | string) =>
   getOrCreateBrowserMutationIdempotencyKey('working-submit', id)
-
-const createMajorRevisionIdempotencyKey = (id: number | string) =>
-  getOrCreateBrowserMutationIdempotencyKey('major-revision', id)
 
 const handleSubmitWorkingIteration = async (
   file: ControlledFileVO | ControlledFileBrowserVersion
@@ -1874,6 +1872,10 @@ const handleCheckout = async (file: ControlledFileBrowserVersion) => {
 }
 
 const handleCheckin = (file: ControlledFileBrowserVersion) => {
+  if (checkinSubmitting.value || checkinCleanupLoading.value || checkinUploadLoading.value || checkinDrawingPdfLoading.value) {
+    message.warning('请先完成当前检入会话。')
+    return
+  }
   const id = file.id
   if (!isValidBrowserOptionId(id) || !isCheckedOutByCurrentUser(file)) return
   resetCheckinDialog()
@@ -1883,11 +1885,15 @@ const handleCheckin = (file: ControlledFileBrowserVersion) => {
 }
 
 const resetCheckinDialog = () => {
+  checkinSourceRequestSequence += 1
+  checkinSourceState.value = 'idle'
+  checkinUploadLoading.value = false
   checkinTarget.value = undefined
   checkinUpload.value = undefined
   checkinFileList.value = []
   checkinForm.changeDescription = ''
   checkinForm.remark = ''
+  checkinForm.versionChangeType = 'MINOR'
   checkinUploadSessionId.value = createControlledFileUploadSessionId()
   clearCheckinDrawingPdf()
 }
@@ -1899,9 +1905,62 @@ const clearCheckinDrawingPdf = () => {
   checkinDrawingPdfFileList.value = []
 }
 
-const clearCheckinUpload = () => {
-  checkinUpload.value = undefined
-  clearCheckinDrawingPdf()
+const cleanupCheckinTicket = async (upload?: ControlledFileUploadRespVO) => {
+  if (!upload) return
+  if (!upload.uploadTicket || !upload.sessionId) throw new Error('待删除文件缺少票据或所属会话，无法安全清理。')
+  const result = await cleanupControlledFileUploadTicket(upload.sessionId, upload.uploadTicket, upload.requestId)
+  if (result.cleanupStatus !== 'CLEANED' || result.bindable !== false) {
+    throw new Error('临时文件尚未确认清理，请重试。')
+  }
+}
+
+const clearCheckinUpload = async () => {
+  if (checkinSubmitting.value || checkinUploadLoading.value || checkinDrawingPdfLoading.value || checkinCleanupLoading.value) {
+    message.warning('请等待当前上传、检入或清理完成。')
+    return false
+  }
+  checkinCleanupLoading.value = true
+  try {
+    await cleanupCheckinTicket(checkinDrawingPdfUpload.value)
+    clearCheckinDrawingPdf()
+    await cleanupCheckinTicket(checkinUpload.value)
+    checkinSourceRequestSequence += 1
+    checkinSourceState.value = 'idle'
+    checkinUploadLoading.value = false
+    checkinUpload.value = undefined
+    return true
+  } catch (error) {
+    message.error(resolveBrowserErrorMessage(error, '临时文件清理失败，已保留票据，请重试。'))
+    return false
+  } finally {
+    checkinCleanupLoading.value = false
+  }
+}
+
+const discardCheckinDrawingPdf = async () => {
+  if (checkinSubmitting.value || checkinUploadLoading.value || checkinDrawingPdfLoading.value || checkinCleanupLoading.value) {
+    message.warning('请等待当前上传、检入或清理完成。')
+    return false
+  }
+  checkinCleanupLoading.value = true
+  try {
+    await cleanupCheckinTicket(checkinDrawingPdfUpload.value)
+    clearCheckinDrawingPdf()
+    return true
+  } catch (error) {
+    message.error(resolveBrowserErrorMessage(error, '配套PDF清理失败，已保留票据，请重试。'))
+    return false
+  } finally {
+    checkinCleanupLoading.value = false
+  }
+}
+
+const cancelCheckin = async () => {
+  if (await clearCheckinUpload()) checkinDialogVisible.value = false
+}
+
+const beforeCloseCheckin = async (done: () => void) => {
+  if (await clearCheckinUpload()) done()
 }
 
 const findBrowserRowForVersion = (versionId: number | string | undefined) => {
@@ -1921,24 +1980,38 @@ const uploadCheckinSource = async (options: UploadRequestOptions) => {
     options.onError(error as Parameters<UploadRequestOptions['onError']>[0])
     throw error
   }
+  const sessionId = checkinUploadSessionId.value
+  const requestSequence = ++checkinSourceRequestSequence
+  const isCurrentRequest = () => requestSequence === checkinSourceRequestSequence &&
+    sessionId === checkinUploadSessionId.value && target.id === checkinTarget.value?.id
+  checkinSourceState.value = 'uploading'
+  checkinUpload.value = undefined
   checkinUploadLoading.value = true
   clearCheckinDrawingPdf()
   try {
     const uploaded = await uploadControlledFilePreview(options.file, 'SOURCE', {
       categoryId: row.categoryId,
-      sessionId: checkinUploadSessionId.value
+      sessionId
     })
+    if (!isCurrentRequest()) {
+      options.onError(new Error('检入会话已改变，原上传不能用于当前版本。') as Parameters<UploadRequestOptions['onError']>[0])
+      return
+    }
     if (!uploaded.uploadTicket) {
       throw new Error('检入文件上传成功但未返回 uploadTicket。')
     }
     checkinUpload.value = uploaded
+    checkinSourceState.value = 'ready'
     options.onSuccess(uploaded)
   } catch (error) {
-    checkinUpload.value = undefined
+    if (isCurrentRequest()) {
+      checkinUpload.value = undefined
+      checkinSourceState.value = 'failed'
+      message.error(resolveBrowserErrorMessage(error, '检入文件上传失败，请稍后重试。'))
+    }
     options.onError(error as Parameters<UploadRequestOptions['onError']>[0])
-    message.error(resolveBrowserErrorMessage(error, '检入文件上传失败，请稍后重试。'))
   } finally {
-    checkinUploadLoading.value = false
+    if (isCurrentRequest()) checkinUploadLoading.value = false
   }
 }
 
@@ -1990,8 +2063,12 @@ const submitCheckin = async () => {
   const changeDescription = checkinForm.changeDescription.trim()
   const normalizedCheckinRemark = checkinForm.remark.trim()
   if (!target || !isValidBrowserOptionId(target.id)) return
-  if (checkinUploadLoading.value || checkinDrawingPdfLoading.value) {
+  if (checkinUploadLoading.value || checkinDrawingPdfLoading.value || checkinCleanupLoading.value) {
     message.warning('请等待文件上传完成。')
+    return
+  }
+  if (checkinSourceState.value === 'failed' || checkinSourceState.value === 'uploading') {
+    message.warning('已选择的新文件尚未上传成功，请重试或明确删除该文件后再检入。')
     return
   }
   if (!changeDescription) {
@@ -2001,6 +2078,14 @@ const submitCheckin = async () => {
   const hasCheckinUpload = Boolean(uploaded?.uploadTicket)
   const hasCheckinRemarkChange =
     Boolean(normalizedCheckinRemark) && normalizedCheckinRemark !== String(target.remark || '').trim()
+  const requiresFreshSource = checkinForm.versionChangeType === 'MAJOR'
+    || ['REJECTED', 'PENDING_APPLICANT_REWORK'].includes(String(target.status || ''))
+  if (requiresFreshSource && !hasCheckinUpload) {
+    message.warning(checkinForm.versionChangeType === 'MAJOR'
+      ? '大版本检入必须上传新的源文件'
+      : '审批驳回或返工后必须重新上传源文件，不能复用旧正文')
+    return
+  }
   if (!hasCheckinUpload && !hasCheckinRemarkChange) {
     message.warning('请上传修改后的源文件，或修改检入备注。')
     return
@@ -2015,6 +2100,7 @@ const submitCheckin = async () => {
   checkoutLoadingId.value = baseId
   try {
     const updatedFile = await checkinControlledFile(baseId, {
+      versionChangeType: checkinForm.versionChangeType,
       uploadTicket: hasCheckinUpload ? uploaded?.uploadTicket : undefined,
       drawingPdfUploadTicket: isDrawingSourceFile(uploaded?.fileName)
         ? checkinDrawingPdfUpload.value?.uploadTicket : undefined,
@@ -2080,31 +2166,6 @@ const handleCancelCheckout = async (file: ControlledFileBrowserVersion) => {
     message.error(resolveBrowserErrorMessage(error, '撤销检出失败，请稍后重试。'))
   } finally {
     if (checkoutLoadingId.value === id) checkoutLoadingId.value = undefined
-  }
-}
-
-const handleCreateMajorRevision = async (file: ControlledFileBrowserVersion) => {
-  if (!canCreateMajorRevision(file) || !isValidBrowserOptionId(file.id)) return
-  const { value: reason } = await ElMessageBox.prompt('请输入升大版本原因', '创建大版本', {
-    inputPlaceholder: '例如：工艺要求发生重大变化',
-    inputValidator: (value) => value.trim() ? true : '请输入升大版本原因',
-    confirmButtonText: '创建修订版',
-    cancelButtonText: '取消'
-  })
-  majorRevisionLoadingId.value = file.id
-  try {
-    const newId = await createControlledFileMajorRevision({
-      sourceControlledFileId: String(file.id),
-      reason: reason.trim(),
-      idempotencyKey: createMajorRevisionIdempotencyKey(file.id)
-    })
-    deleteBrowserMutationIdempotencyKey('major-revision', file.id)
-    await getList()
-    message.success(`大版本已创建，工作版本记录编号 ${newId}`)
-  } catch (error) {
-    message.error(resolveBrowserErrorMessage(error, '创建大版本失败，请稍后重试。'))
-  } finally {
-    if (majorRevisionLoadingId.value === file.id) majorRevisionLoadingId.value = undefined
   }
 }
 

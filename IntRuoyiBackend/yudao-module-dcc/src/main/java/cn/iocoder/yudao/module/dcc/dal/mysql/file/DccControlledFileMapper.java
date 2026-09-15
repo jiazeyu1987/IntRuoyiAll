@@ -27,6 +27,12 @@ import java.util.Map;
 @Mapper
 public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO> {
 
+    default List<DccControlledFileDO> selectListByPredecessorControlledFileId(Long predecessorId) {
+        return selectList(new LambdaQueryWrapper<DccControlledFileDO>()
+                .eq(DccControlledFileDO::getPredecessorControlledFileId, predecessorId)
+                .eq(DccControlledFileDO::getDeleted, false));
+    }
+
     default DccControlledFileDO selectBySubmitIdempotency(Long tenantId, Long submitterId, String idempotencyKey) {
         return selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<DccControlledFileDO>()
                 .eq(DccControlledFileDO::getTenantId, tenantId)
@@ -45,6 +51,19 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
             """)
     DccControlledFileDO selectByIdAndTenantForUpdate(@Param("tenantId") Long tenantId,
                                                       @Param("controlledFileId") Long controlledFileId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET status = #{change.status}, submitter_id = #{actorId},
+                submit_idempotency_key = #{change.submitIdempotencyKey},
+                submit_payload_hash = #{change.submitPayloadHash},
+                process_definition_key = #{change.processDefinitionKey}, submitted_time = #{change.submittedTime},
+                updater = #{actorId}, update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId} AND id = #{change.id} AND requester_id = #{actorId}
+              AND status = 'WORKING' AND checked_out_by IS NULL AND deleted = 0
+            """)
+    int claimWorkingIterationSubmission(@Param("tenantId") Long tenantId, @Param("actorId") Long actorId,
+                                        @Param("change") DccControlledFileDO change);
 
     @Update("""
             UPDATE dcc_controlled_file
@@ -265,6 +284,12 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
 
     default List<DccControlledFileDO> selectListByMasterId(Long masterId) {
         return selectList(DccControlledFileDO::getMasterId, masterId);
+    }
+
+    default List<DccControlledFileDO> selectListByMasterIdForUpdate(Long masterId) {
+        return selectList(new LambdaQueryWrapperX<DccControlledFileDO>()
+                .eq(DccControlledFileDO::getMasterId, masterId)
+                .orderByAsc(DccControlledFileDO::getId).last("FOR UPDATE"));
     }
 
     default DccControlledFileDO selectLatestApprovedByMasterId(Long masterId) {

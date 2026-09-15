@@ -83,7 +83,7 @@ class DccDirectoryAccessPermissionServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void getAuthorizedDirectoryIds_deptRuleMatchesUserDeptAncestorWithoutChildTraversal() {
+    void getAuthorizedDirectoryIds_nameOnlyDeptRuleDoesNotGrantContentPreview() {
         when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO()
                 .setId(99L)
                 .setDeptId(11L)
@@ -97,7 +97,7 @@ class DccDirectoryAccessPermissionServiceTest extends BaseMockitoUnitTest {
 
         Set<Long> actual = permissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW);
 
-        assertEquals(Set.of(2L), actual);
+        assertEquals(Set.of(), actual);
         verify(deptApi, never()).getChildDeptList(any());
     }
 

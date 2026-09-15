@@ -28,7 +28,7 @@ const normalizeAndValidate = extract(
 )
 assert.match(
   normalizeAndValidate,
-  /hasActiveChildTaxonomy\(taxonomyId,\s*taxonomyById\)[\s\S]{0,120}PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID/,
+  /validateTemplateTaxonomy\(taxonomyId,\s*taxonomyById,\s*activeCategoryCounts\)/,
   'saving a project file template must reject taxonomy nodes that still have active children'
 )
 
@@ -40,7 +40,7 @@ const buildResponse = extract(
 )
 assert.match(
   buildResponse,
-  /hasActiveChildTaxonomy\(taxonomyId,\s*taxonomyById\)[\s\S]{0,120}PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID/,
+  /toResponseItem\(item,\s*taxonomyById,\s*activeCategoryCounts\)/,
   'loading an already-saved non-leaf template item must fail fast instead of returning an unusable template'
 )
 
@@ -68,7 +68,7 @@ assert.match(
 )
 assert.match(
   templateServiceTest,
-  /getProjectTemplate_nonLeafSavedItemFailsFast/,
+  /getProjectTemplate_nonLeafSavedItemRemainsVisibleForRepair/,
   'JUnit regression must cover existing template data becoming invalid after taxonomy changes'
 )
 

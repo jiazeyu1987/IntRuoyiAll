@@ -81,6 +81,53 @@ import static org.mockito.Mockito.when;
 
 class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
 
+    @Mock
+    private DccControlledFileWorkflowService workflowService;
+
+    @Test
+    void approvalOnlyActorCanUseTemporaryStatusAndCleanupEndpoints() {
+        for (String name : new String[] {"getUploadTemporaryStatus", "cleanupUploadTemporarySession", "cleanupUploadTemporaryTicket"}) {
+            Method method = Arrays.stream(cn.iocoder.yudao.module.dcc.controller.admin.file.DccControlledFileController.class.getMethods())
+                    .filter(candidate -> candidate.getName().equals(name)).findFirst().orElseThrow();
+            String expression = method.getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class).value();
+            assertTrue(expression.contains("dcc:controlled-file:approve"), name + " must admit approval actors; service checks ticket ownership");
+        }
+    }
+
+    @Test
+    void approvalPdfUsesTaskAuthorizationWithoutCategoryUploadGrant() throws Exception {
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("APPROVAL_PDF",
+                new MockMultipartFile("files", "approval.pdf", "application/pdf", "%PDF-1.4".getBytes()));
+        reqVO.setControlledFileId(900L);
+        reqVO.setTaskId("task-4");
+        reqVO.setSessionId("dcc-approval:900:6:task-4:session-1");
+        lenient().when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
+                .thenReturn(false);
+        mockSizePolicy("APPROVAL_PDF", 8L);
+        when(fileService.createFileAndReturnId(any(), eq("approval.pdf"), eq("dcc/original"), eq("application/pdf")))
+                .thenReturn(102L);
+        when(fileMapper.selectById(102L)).thenReturn(storedFile(102L, "approval.pdf", "application/pdf"));
+        when(watermarkService.build(99L, "preview", "approval.pdf"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+        when(uploadTicketService.createTicket(any())).thenReturn(new DccUploadTicketCreated(
+                "UT-APPROVAL", reqVO.getSessionId(), "APPROVAL_PDF", "AVAILABLE",
+                LocalDateTime.now().plusHours(1), 102L, "approval.pdf", "application/pdf", 8L));
+        assertEquals("UT-APPROVAL", uploadService.uploadPreviewFile(99L, reqVO, auditContext("REQ-APPROVAL")).getUploadTicket());
+        verify(workflowService).validateApprovalPdfUpload(99L, 900L, "task-4", 10L, reqVO.getSessionId());
+        verify(permissionSupport, never()).hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD);
+    }
+
+    @Test
+    void deniedApprovalTaskCannotStoreOrCreateAnyTicket() {
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("APPROVAL_PDF",
+                new MockMultipartFile("files", "approval.pdf", "application/pdf", "%PDF-1.4".getBytes()));
+        org.mockito.Mockito.doThrow(new cn.iocoder.yudao.framework.common.exception.ServiceException(403, "task denied"))
+                .when(workflowService).validateApprovalPdfUpload(any(), any(), any(), any(), any());
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> uploadService.uploadPreviewFile(99L, reqVO, auditContext("REQ-DENIED")));
+        org.mockito.Mockito.verifyNoInteractions(fileService, uploadTicketService);
+    }
+
     private static final BusinessFileAccessReference TEMP_REFERENCE = new BusinessFileAccessReference(
             "dcc", "DCC_TEMPORARY_UPLOAD", 501L, "TEMP-501", 31L, null);
 

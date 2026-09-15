@@ -527,18 +527,17 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             throw exception(CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
         }
         Long tenantId = TenantContextHolder.getRequiredTenantId();
-        DccControlledFileDO file = controlledFileMapper.selectById(id);
-        if (file == null) {
-            throw exception(CONTROLLED_FILE_NOT_EXISTS);
-        }
+        DccControlledFileDO file = requireLockedLifecycleFile(tenantId, id);
         assertCanMutateControlledFile(userId, file);
+        boolean majorRevision = isMajorCheckin(reqVO);
+        if (majorRevision) projectAccessService.assertProjectOwner(userId, file.getDccProjectCodeId());
         DccControlledFileCheckoutDO checkout = file.getMasterId() == null ? null
                 : checkoutMapper.selectActiveByMasterId(tenantId, file.getMasterId());
         if (checkout == null) {
             DccControlledFileCheckoutDO latest = checkoutMapper.selectLatestByBaseIterationId(tenantId, id);
             if (latest != null && isSameCheckinReplay(latest, userId, id, reqVO)) {
                 DccControlledFileDO existing = latest.getCheckinIterationId() == null ? null
-                        : controlledFileMapper.selectById(latest.getCheckinIterationId());
+                        : controlledFileMapper.selectByIdAndTenantForUpdate(tenantId, latest.getCheckinIterationId());
                 if (existing != null && matchesCheckinReplayPayload(file, existing, latest, reqVO)) {
                     return toBrowserRespVO(userId, existing);
                 }
@@ -559,6 +558,12 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (!hasUpload && !hasMetadata) {
             throw exception(CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
         }
+        if (!hasUpload && (majorRevision
+                || DccControlledFileStatusEnum.REJECTED.getStatus().equals(file.getStatus())
+                || DccControlledFileStatusEnum.PENDING_APPLICANT_REWORK.getStatus().equals(file.getStatus()))) {
+            throw exception(CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
+        }
+        CheckinVersionSelection versionSelection = resolveCheckinVersion(file, majorRevision);
         DccControlledFilePreparedSource preparedSource = null;
         DccControlledFilePreparedSource preparedDrawingPdf = null;
         Long drawingPdfFileId;
@@ -590,9 +595,13 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     drawingPdfFileId = preparedDrawingPdf.sourceFileId();
                 }
             }
-            DccWindchillVersionNumber nextVersion = resolveNextIteration(file);
+            DccWindchillVersionNumber nextVersion = versionSelection.version();
             DccControlledFileDO next = copyForCheckin(file, userId, nextVersion, preparedSource,
                     baseHash, drawingPdfFileId, reqVO);
+            if (majorRevision) {
+                next.setChangeType("REVISION");
+                next.setRevisionBaseActiveControlledFileId(versionSelection.formalBaselineId());
+            }
             controlledFileMapper.insert(next);
             if (next.getId() == null) {
                 throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
@@ -638,10 +647,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             throw exception(CONTROLLED_FILE_CHECKOUT_REASON_REQUIRED);
         }
         Long tenantId = TenantContextHolder.getRequiredTenantId();
-        DccControlledFileDO file = controlledFileMapper.selectById(id);
-        if (file == null) {
-            throw exception(CONTROLLED_FILE_NOT_EXISTS);
-        }
+        DccControlledFileDO file = requireLockedLifecycleFile(tenantId, id);
         DccControlledFileCheckoutDO checkout = file.getMasterId() == null ? null
                 : checkoutMapper.selectActiveByMasterId(tenantId, file.getMasterId());
         if (checkout == null || !Objects.equals(checkout.getBaseIterationId(), id)) {
@@ -661,6 +667,20 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         file.setCheckedOutTime(null);
         file.setCheckedOutReason(null);
         return toBrowserRespVO(userId, file);
+    }
+
+    private DccControlledFileDO requireLockedLifecycleFile(Long tenantId, Long id) {
+        DccControlledFileDO initial = controlledFileMapper.selectById(id);
+        if (initial == null || initial.getMasterId() == null) {
+            throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        }
+        DccControlledFileMasterDO master = controlledFileMasterMapper.selectByIdForUpdate(initial.getMasterId());
+        if (master == null) throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+        DccControlledFileDO current = controlledFileMapper.selectByIdAndTenantForUpdate(tenantId, id);
+        if (current == null || !Objects.equals(master.getId(), current.getMasterId())) {
+            throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+        }
+        return current;
     }
 
     private DccControlledFileRespVO executeLifecycleAudit(Long userId, Long requestedFileId, String action,
@@ -739,6 +759,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                                                 DccControlledFileCheckinReqVO reqVO) {
         return existing != null
                 && Objects.equals(existing.getPredecessorControlledFileId(), latest.getBaseIterationId())
+                && matchesCheckinVersionChange(base, existing, reqVO)
                 && matchesCheckinDrawingReplay(base, existing, latest, reqVO)
                 && Objects.equals(normalizeCheckinReplayPayload(base, existing),
                 normalizeCheckinReplayPayload(base, reqVO));
@@ -753,8 +774,17 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                             base.getCategoryId(), reqVO.getSessionId(), "DRAWING_PDF"), existing.getId());
             return bound != null && Objects.equals(existing.getDrawingPdfFileId(), bound.storageFileId());
         }
-        Long expectedPdfId = StrUtil.isBlank(reqVO.getUploadTicket()) ? base.getDrawingPdfFileId() : null;
-        return Objects.equals(existing.getDrawingPdfFileId(), expectedPdfId);
+        if (StrUtil.isNotBlank(reqVO.getUploadTicket()) || base.getDrawingPdfFileId() == null) {
+            return existing.getDrawingPdfFileId() == null;
+        }
+        if (existing.getDrawingPdfFileId() == null
+                || Objects.equals(existing.getDrawingPdfFileId(), base.getDrawingPdfFileId())) {
+            return false;
+        }
+        DccControlledFilePreparedSource originalPdf = sourceOwnershipService.inspectSource(base.getDrawingPdfFileId());
+        DccControlledFilePreparedSource copiedPdf = sourceOwnershipService.inspectSource(existing.getDrawingPdfFileId());
+        return StrUtil.isNotBlank(originalPdf.sourceSha256())
+                && Objects.equals(originalPdf.sourceSha256(), copiedPdf.sourceSha256());
     }
 
     private Long resolveCheckinDrawingPdf(Long userId, DccControlledFileDO file,
@@ -815,6 +845,43 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private record CheckinReplayPayload(String changeDescription, String remark) {
     }
 
+    private boolean isMajorCheckin(DccControlledFileCheckinReqVO request) {
+        if ("MAJOR".equals(request.getVersionChangeType())) return true;
+        if ("MINOR".equals(request.getVersionChangeType())) return false;
+        throw exception(CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
+    }
+
+    private boolean matchesCheckinVersionChange(DccControlledFileDO base, DccControlledFileDO existing,
+                                                 DccControlledFileCheckinReqVO request) {
+        DccWindchillVersionNumber previous = DccWindchillVersionNumber.parse(base.getVersionNo());
+        DccWindchillVersionNumber next = DccWindchillVersionNumber.parse(existing.getVersionNo());
+        if (previous == null || next == null) return false;
+        return isMajorCheckin(request) ? next.compareRevisionTo(previous) > 0
+                : next.compareRevisionTo(previous) == 0 && next.iterationNo() > previous.iterationNo();
+    }
+
+    private CheckinVersionSelection resolveCheckinVersion(DccControlledFileDO file, boolean major) {
+        if (!major) return new CheckinVersionSelection(resolveNextIteration(file), file.getRevisionBaseActiveControlledFileId());
+        DccControlledFileMasterDO master = controlledFileMasterMapper.selectByIdForUpdate(file.getMasterId());
+        Long baselineId = master == null ? null : master.getCurrentActiveControlledFileId();
+        DccControlledFileDO baseline = baselineId == null ? null : controlledFileMapper.selectByIdAndTenantForUpdate(
+                TenantContextHolder.getRequiredTenantId(), baselineId);
+        if (baseline == null || !Objects.equals(baseline.getMasterId(), file.getMasterId())
+                || !DccControlledFileStatusEnum.ACTIVE.getStatus().equals(baseline.getStatus())) {
+            throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+        }
+        DccWindchillVersionNumber maximum = DccWindchillVersionNumber.parse(file.getVersionNo());
+        if (maximum == null) throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+        for (DccControlledFileDO version : controlledFileMapper.selectListByMasterIdForUpdate(file.getMasterId())) {
+            DccWindchillVersionNumber candidate = DccWindchillVersionNumber.parse(version.getVersionNo());
+            if (candidate == null) throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+            if (candidate.compareRevisionTo(maximum) > 0) maximum = candidate;
+        }
+        return new CheckinVersionSelection(maximum.nextRevision(), baselineId);
+    }
+
+    private record CheckinVersionSelection(DccWindchillVersionNumber version, Long formalBaselineId) { }
+
     private DccWindchillVersionNumber resolveNextIteration(DccControlledFileDO file) {
         DccWindchillVersionNumber current = DccWindchillVersionNumber.parse(file.getVersionNo());
         if (current == null && file.getRevisionCode() != null && file.getIterationNo() != null) {
@@ -824,7 +891,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
         }
         DccWindchillVersionNumber max = current;
-        List<DccControlledFileDO> chain = controlledFileMapper.selectListByMasterId(file.getMasterId());
+        List<DccControlledFileDO> chain = controlledFileMapper.selectListByMasterIdForUpdate(file.getMasterId());
         if (chain != null) {
             for (DccControlledFileDO history : chain) {
                 DccWindchillVersionNumber candidate = DccWindchillVersionNumber.parse(history.getVersionNo());
@@ -1490,6 +1557,13 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
     }
 
+    @Override
+    public boolean canViewFileName(Long userId, DccControlledFileDO file) {
+        return userId != null && file != null && isWithinAssignedFileScope(userId, file)
+                && canAccessQuery(userId, file, new DccControlledFilePageReqVO(),
+                directoryAccessPermissionService.hasDirectoryManagementPermission(userId));
+    }
+
     private boolean canAccessQuery(Long userId, DccControlledFileDO file, DccControlledFilePageReqVO reqVO,
                                    boolean hasDirectoryManagementPermission) {
         return canAccessQuery(userId, file, reqVO, hasDirectoryManagementPermission, null);
@@ -1507,13 +1581,22 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (canManageNonActiveLifecycle(userId, file)) {
             return true;
         }
-        if (!canAccessBrowseScope(userId, file, currentViewMatrixAccessByCategory)) {
+        if (!canAccessBrowseScope(userId, file, currentViewMatrixAccessByCategory)
+                && !(isWithinAssignedFileScope(userId, file)
+                && (hasAuthorizedDirectoryAccess(userId, file, DccAccessTypeEnum.QUERY)
+                    || hasAuthorizedDirectoryAccess(userId, file, DccAccessTypeEnum.PREVIEW)))) {
             return false;
         }
         return !DccControlledFileStatusEnum.OBSOLETE.getStatus().equals(file.getStatus()) || canSeeObsolete(userId, file);
     }
 
     private boolean canAccessDetail(Long userId, DccControlledFileDO file) {
+        return canAccessDetail(userId, file,
+                directoryAccessPermissionService.hasDirectoryManagementPermission(userId), null);
+    }
+
+    private boolean canAccessDetail(Long userId, DccControlledFileDO file,
+                                    boolean directoryManager, Map<Long, Boolean> viewMatrixCache) {
         if (hasCurrentRunningApprovalTask(userId, file)) {
             return true;
         }
@@ -1523,13 +1606,14 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (userId != null && userId.equals(file.getRequesterId())) {
             return true;
         }
-        if (directoryAccessPermissionService.hasDirectoryManagementPermission(userId)) {
+        if (directoryManager) {
             return !DccControlledFileStatusEnum.OBSOLETE.getStatus().equals(file.getStatus()) || canSeeObsolete(userId, file);
         }
         if (canManageNonActiveLifecycle(userId, file)) {
             return true;
         }
-        if (!canAccessBrowseScope(userId, file)) {
+        if (!canAccessBrowseScope(userId, file, viewMatrixCache)
+                && !hasAuthorizedDirectoryAccess(userId, file, DccAccessTypeEnum.PREVIEW)) {
             return false;
         }
         return !DccControlledFileStatusEnum.OBSOLETE.getStatus().equals(file.getStatus()) || canSeeObsolete(userId, file);
@@ -1561,6 +1645,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         }
         boolean allowed;
         if (accessType == DccAccessTypeEnum.PREVIEW) {
+            if (previewBinaryFileId != null && hasAuthorizedDirectoryAccess(userId, file, DccAccessTypeEnum.PREVIEW)) {
+                return true;
+            }
             if ((DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
                     || DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(file.getStatus()))
                     && file.getPublishedFileId() != null) {
@@ -2114,6 +2201,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private DccControlledFileRespVO toRespVO(Long userId, DccControlledFileDO file, boolean includeRouteSnapshots,
                                              boolean hasDirectoryManagementPermission,
                                              Map<Long, DccFileDirectoryDO> directoryMap) {
+        if (!canAccessDetail(userId, file, hasDirectoryManagementPermission, null)) {
+            return toNameOnlyResponseWithHistory(userId, file, hasDirectoryManagementPermission, List.of(), null);
+        }
         DccControlledFileRespVO respVO = new DccControlledFileRespVO();
         respVO.setId(file.getId());
         respVO.setMasterId(file.getMasterId());
@@ -2189,14 +2279,16 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setCanObsolete(DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
                 && permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
                 DccFileCategoryPermissionActionEnum.OBSOLETE));
-        respVO.setCanPublish(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
+        respVO.setCanPublish(!DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(file.getProcessType())
+                && DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
                 && permissionApi.hasAnyPermissions(userId, APPROVE_PERMISSION));
         respVO.setVersionHistory(buildVersionHistory(userId, file, chainFiles, hasDirectoryManagementPermission));
         respVO.setDistributionStatuses(buildDistributionStatuses(file.getId()));
         List<DccControlledFileTrainingStatusRespVO> trainingStatuses = buildTrainingStatuses(file.getId());
         respVO.setTrainingStatuses(trainingStatuses);
         respVO.setCanManualRelease(
-                DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus().equals(file.getStatus())
+                !DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(file.getProcessType())
+                        && DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus().equals(file.getStatus())
                         && permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
                         DccFileCategoryPermissionActionEnum.DISTRIBUTE)
                         && allTrainingStatusesAcknowledged(trainingStatuses));
@@ -2247,6 +2339,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                                                     List<String> blacklistedExtensionPatterns,
                                                     Map<Long, Boolean> currentViewMatrixAccessByCategory,
                                                     Map<Long, DccFileDirectoryDO> directoryMap) {
+        if (!canAccessDetail(userId, file, hasDirectoryManagementPermission, currentViewMatrixAccessByCategory)) {
+            return toNameOnlyResponseWithHistory(userId, file, hasDirectoryManagementPermission,
+                    blacklistedExtensionPatterns, currentViewMatrixAccessByCategory);
+        }
         DccControlledFileRespVO respVO = new DccControlledFileRespVO();
         respVO.setId(file.getId());
         respVO.setMasterId(file.getMasterId());
@@ -2302,7 +2398,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setCanObsolete(DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
                 && permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
                 DccFileCategoryPermissionActionEnum.OBSOLETE));
-        respVO.setCanPublish(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
+        respVO.setCanPublish(!DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(file.getProcessType())
+                && DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
                 && permissionApi.hasAnyPermissions(userId, APPROVE_PERMISSION));
         respVO.setCanManualRelease(Boolean.FALSE);
         respVO.setVersionHistory(buildVersionHistory(userId, file, chainFiles, hasDirectoryManagementPermission,
@@ -2311,6 +2408,44 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 respVO.getCanPrint(), respVO.getCanObsolete(), respVO.getCanPublish(), respVO.getCanManualRelease(),
                 respVO.getHasPendingTrainingAcknowledgement()));
         return respVO;
+    }
+
+    private DccControlledFileRespVO toNameOnlyResponseWithHistory(Long userId, DccControlledFileDO file,
+            boolean directoryManager, List<String> blacklistedExtensions, Map<Long, Boolean> viewMatrixCache) {
+        DccControlledFileRespVO response = toNameOnlyResponse(file);
+        List<DccControlledFileDO> chain = file.getMasterId() == null ? List.of()
+                : controlledFileMapper.selectListByMasterId(file.getMasterId()).stream()
+                .filter(history -> !isBlacklistedBrowserExtension(history, blacklistedExtensions)).toList();
+        response.setVersionHistory(buildVersionHistory(userId, file, chain, directoryManager, viewMatrixCache));
+        return response;
+    }
+
+    private DccControlledFileRespVO toNameOnlyResponse(DccControlledFileDO file) {
+        DccControlledFileRespVO response = new DccControlledFileRespVO();
+        response.setId(file.getId());
+        response.setMasterId(file.getMasterId());
+        response.setCategoryId(file.getCategoryId());
+        response.setDirectoryId(file.getDirectoryId());
+        response.setDccProjectCodeId(file.getDccProjectCodeId());
+        response.setTitle(file.getTitle());
+        response.setFileName(file.getFileName());
+        response.setFileNumber(file.getFileNumber());
+        response.setVersionNo(file.getVersionNo());
+        response.setStatus(file.getStatus());
+        response.setBusinessSourceType("DCC_CONTROLLED_FILE");
+        response.setCanPreview(false);
+        response.setCanDownload(false);
+        response.setCanPrint(false);
+        response.setCanPublish(false);
+        response.setCanManualRelease(false);
+        response.setCanObsolete(false);
+        response.setVersionHistory(List.of());
+        DccControlledFileActionProjectionRespVO actions = new DccControlledFileActionProjectionRespVO();
+        actions.setActionLocked(false);
+        actions.setAllowedActions(List.of());
+        actions.setCanWithdraw(false);
+        response.setActionProjection(actions);
+        return response;
     }
 
     private void fillCheckoutProjection(DccControlledFileRespVO respVO, DccControlledFileDO file) {
@@ -2360,9 +2495,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         boolean obsoleteApprovalPending = obsoleteFormPending != null;
         requirePendingRequestIdentity(file, pendingOpenCandidate);
 
-        if (active || superseded || working || readyToPublish) {
-            addBinaryActions(allowedActions, canPreview, canDownload);
-        }
+        addBinaryActions(allowedActions, canPreview, canDownload);
         if (active && Boolean.TRUE.equals(canPrint)) {
             allowedActions.add(ACTION_PRINT);
         }
@@ -2675,15 +2808,12 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (file.getMasterId() == null) {
             return List.of();
         }
-        boolean fullHistoryVisible = userId != null && userId.equals(file.getRequesterId())
-                || hasDirectoryManagementPermission
-                || isCurrentRouteSnapshotParticipant(userId, file)
-                || hasCurrentRunningApprovalTask(userId, file)
-                || hasHistoryManagementPermission(userId, file.getCategoryId());
         String currentActiveVersionNo = resolveCurrentActiveVersionNo(file, chainFiles);
         return chainFiles.stream()
-                .filter(history -> fullHistoryVisible
-                        || DccControlledFileStatusEnum.ACTIVE.getStatus().equals(history.getStatus()))
+                .filter(history -> hasCurrentRunningApprovalTask(userId, history)
+                        || isWithinAssignedFileScope(userId, history)
+                        && canAccessQuery(userId, history, new DccControlledFilePageReqVO(),
+                        hasDirectoryManagementPermission, currentViewMatrixAccessByCategory))
                 .filter(history -> !DccControlledFileStatusEnum.OBSOLETE.getStatus().equals(history.getStatus()) || canSeeObsolete(userId, history))
                 .sorted(Comparator.comparing((DccControlledFileDO history) -> parseSortableVersion(history.getVersionNo()),
                                 Comparator.nullsLast(DccControlledFileVersion::compareTo))
@@ -2698,6 +2828,16 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     respVO.setVersionNo(history.getVersionNo());
                     respVO.setRevisionCode(history.getRevisionCode());
                     respVO.setIterationNo(history.getIterationNo());
+                    respVO.setStatus(history.getStatus());
+                    respVO.setCurrentActiveVersionNo(currentActiveVersionNo);
+                    if (!canAccessDetail(userId, history, hasDirectoryManagementPermission,
+                            currentViewMatrixAccessByCategory)) {
+                        respVO.setCanPreview(false);
+                        respVO.setCanDownload(false);
+                        respVO.setCanPrint(false);
+                        respVO.setActionProjection(toNameOnlyResponse(history).getActionProjection());
+                        return respVO;
+                    }
                     respVO.setPredecessorControlledFileId(history.getPredecessorControlledFileId());
                     respVO.setRevisionBaseActiveControlledFileId(history.getRevisionBaseActiveControlledFileId());
                     respVO.setSourceSha256(history.getSourceSha256());
@@ -2726,6 +2866,15 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     respVO.setCanDownload(canReadBinary(userId, history, DccAccessTypeEnum.DOWNLOAD,
                             hasDirectoryManagementPermission));
                     fillCheckoutProjection(respVO, history);
+                    respVO.setCanPrint(canPrintControlledFile(userId, history));
+                    boolean canObsolete = DccControlledFileStatusEnum.ACTIVE.getStatus().equals(history.getStatus())
+                            && permissionSupport.hasCategoryPermission(history.getCategoryId(), userId,
+                            DccFileCategoryPermissionActionEnum.OBSOLETE);
+                    boolean canPublish = !DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(history.getProcessType())
+                            && DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(history.getStatus())
+                            && permissionApi.hasAnyPermissions(userId, APPROVE_PERMISSION);
+                    respVO.setActionProjection(buildActionProjection(userId, history, respVO.getCanPreview(),
+                            respVO.getCanDownload(), respVO.getCanPrint(), canObsolete, canPublish, false, false));
                     return respVO;
                 })
                 .toList();

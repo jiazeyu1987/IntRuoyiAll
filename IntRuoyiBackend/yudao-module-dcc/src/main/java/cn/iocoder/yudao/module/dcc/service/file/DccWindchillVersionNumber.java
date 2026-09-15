@@ -23,8 +23,15 @@ public record DccWindchillVersionNumber(String revisionCode, int iterationNo) {
         }
     }
 
-    public static String initialForNewFile(String ignoredClientVersion) {
-        return "A/1";
+    public static String initialForNewFile(String requestedVersion) {
+        if (requestedVersion == null || requestedVersion.isBlank()) {
+            return initial().display();
+        }
+        DccWindchillVersionNumber parsed = parse(requestedVersion);
+        if (parsed == null || parsed.iterationNo() != 1) {
+            throw new IllegalArgumentException("initial version must be a Windchill revision at iteration 1");
+        }
+        return parsed.display();
     }
 
     public static DccWindchillVersionNumber initial() {
@@ -44,6 +51,17 @@ public record DccWindchillVersionNumber(String revisionCode, int iterationNo) {
         } catch (NumberFormatException ex) {
             return null;
         }
+    }
+
+    public static DccWindchillVersionNumber parseStoredInitial(String raw) {
+        DccWindchillVersionNumber parsed = parse(raw);
+        if (parsed != null) {
+            return parsed;
+        }
+        if ("V1.0".equalsIgnoreCase(raw == null ? null : raw.trim())) {
+            return initial();
+        }
+        return null;
     }
 
     public DccWindchillVersionNumber nextIteration() {

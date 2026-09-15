@@ -58,6 +58,8 @@
               class="!w-560px"
               multiple
               filterable
+              remote
+              :remote-method="searchRelatedFiles"
               collapse-tags
               collapse-tags-tooltip
               :disabled="!formData.dccProjectCodeId"
@@ -71,6 +73,15 @@
                 :value="file.id"
               />
             </el-select>
+            <el-pagination
+              v-if="formData.dccProjectCodeId && relatedFileTotal > 50"
+              :current-page="relatedFilePageNo"
+              :page-size="50"
+              :total="relatedFileTotal"
+              layout="prev, pager, next"
+              :disabled="relatedFileOptionsLoading"
+              @current-change="changeRelatedFilePage"
+            />
             <div v-if="!formData.dccProjectCodeId" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
               选择 DCC 项目后可选择关联文件
             </div>
@@ -250,9 +261,6 @@
               </div>
             </template>
           </el-autocomplete>
-          <div v-if="selectedHistoryVersion" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-            已选择历史文件名称，系统将先匹配现行主档；匹配成功后按升版提交，当前版本号 {{ selectedHistoryVersion }}。
-          </div>
         </el-form-item>
         <el-form-item label="文件编号" prop="fileNumber">
           <el-input
@@ -282,9 +290,10 @@
               <div class="mt-4px text-[var(--el-text-color-secondary)]">
                 文件编号：{{ currentVersionInfo.fileNumber }}；状态：{{ currentVersionInfo.status || '-' }}
               </div>
-              <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                当前变更方式：{{ formData.changeType === 'REVISION' ? '升版' : '新建' }}
-              </div>
+              <el-alert
+                class="mt-8px" :closable="false" type="error" show-icon
+                title="该逻辑文件已存在；请到文件浏览中检出后再检入新版本。"
+              />
               <div class="mt-4px text-[var(--el-text-color-secondary)]">
                 产品：{{ currentVersionInfo.productName || currentVersionInfo.productCode || '-' }}；
                 修改中：{{ currentVersionInfo.modifying ? '是' : '否' }}
@@ -315,14 +324,6 @@
                 受控文件路径：{{ currentVersionInfo.stampedFilePath || currentVersionInfo.publishedFilePath || '-' }}
               </div>
             </template>
-            <template v-else-if="isRevisionUpload">
-              <el-alert
-                :closable="false"
-                title="已选择历史文件，但未找到该历史文件对应的现行主档，当前不能升版提交，也不会创建新的 master 主档。"
-                type="error"
-                show-icon
-              />
-            </template>
             <template v-else>
               未查询到同编号现行版本，将创建新的 master 主档，并按新建规则校验。
             </template>
@@ -333,7 +334,7 @@
             v-model="formData.productCode"
             class="!w-420px"
             readonly
-            placeholder="选择 DCC 项目后自动生成"
+            placeholder="选择项目后解析正式产品编号"
           />
           <div
             v-if="isProductRequiredForSelectedCategory"
@@ -344,11 +345,21 @@
             {{ productCodeBindingHintText }}
           </div>
           <div v-if="selectedProjectCode" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-            来源：DCC 项目代码 {{ selectedProjectCode.projectName }} / {{ selectedProjectCode.projectCode || '-' }}
+            {{ projectProductSource === 'PRODUCT_MASTER' ? '来源：关联产品主档' : '当前项目未关联产品主档' }}
+            · 项目：{{ selectedProjectCode.projectName }} / {{ selectedProjectCode.projectCode || '-' }}
           </div>
+          <div v-if="projectProductLoading" class="mt-6px text-12px">正在解析产品编号…</div>
+          <div v-if="projectProductError" class="mt-6px text-12px text-[var(--el-color-danger)]">{{ projectProductError }}</div>
         </el-form-item>
-        <el-form-item v-if="isExternalReview" label="版本号" prop="versionNo" :error="submitFieldErrors.versionNo">
-          <el-input v-model="formData.versionNo" class="!w-220px" placeholder="例如 V1.0" />
+        <el-form-item :label="isExternalReview ? '版本号' : '初始版本号'" prop="versionNo" :error="submitFieldErrors.versionNo">
+          <el-input
+            v-model="formData.versionNo"
+            class="!w-220px"
+            :placeholder="isExternalReview ? '例如 V1.0' : '例如 A/1、B/1'"
+          />
+          <div v-if="!isExternalReview" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
+            新文件须使用修订版/1格式；后续大小版本统一通过文件检出、检入生成。
+          </div>
         </el-form-item>
         <el-form-item label="生效日期" prop="effectiveDate">
           <el-date-picker
@@ -573,11 +584,11 @@ import {
   cleanupControlledFileUploadTicket,
   createControlledFileUploadSessionId,
   getControlledFileCurrentVersion,
-  getControlledFileUploadRevisionCandidates,
   getControlledFileUploadDirectoryTree,
   getControlledFileUploadNameOptions,
   checkControlledFileRouteReadiness,
   createWorkingControlledFile,
+  previewControlledFileProjectProduct,
   uploadControlledFilePreview,
   type ControlledFileCurrentVersionRespVO,
   type ControlledFileRouteReadinessVO,
@@ -599,7 +610,6 @@ import {
   createUploadSubmitterService,
   EDITABLE_SOURCE_MESSAGE,
   formatPreviewFileSize,
-  isFileNumberChainConflictMessage,
   resolveUploadErrorMessage,
   resolveUploadPreviewErrorMessage,
   isDccProductRequiredForCategoryCode,
@@ -634,12 +644,15 @@ const drawingPdfUploadRef = ref()
 const categories = ref<ControlledFileCategoryVO[]>([])
 const projectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const relatedFileOptions = ref<ControlledFileVO[]>([])
+const relatedFilePageNo = ref(1)
+const relatedFileTotal = ref(0)
+const relatedFileKeyword = ref('')
+let relatedFileRequestSequence = 0
 const fileTypeTaxonomies = ref<DccFileTypeTaxonomyVO[]>([])
 const projectFileTemplateItems = ref<DccProjectFileTemplateItemRespVO[]>([])
 const selectedProjectTemplateStageId = ref<number>()
 const selectedProjectTemplateTypeId = ref<number>()
 const selectedProjectTemplateItemId = ref<number>()
-const selectedRevisionCandidate = ref<ControlledFileVO>()
 const uploadNameOptions = ref<ControlledFileUploadNameOptionVO[]>([])
 const uploadDirectoryTree = ref<ControlledFileUploadDirectoryTreeVO>()
 const currentVersionInfo = ref<ControlledFileCurrentVersionRespVO>()
@@ -650,6 +663,11 @@ const drawingPdfUpload = ref<ControlledFileUploadRespVO>()
 const previewFileBlob = ref<File | null>(null)
 const uploadPreviewError = ref('')
 const submitLoading = ref(false)
+const projectProductLoading = ref(false)
+const projectProductError = ref('')
+const projectProductResolvedId = ref<number | null>(null)
+const projectProductSource = ref('')
+let projectProductRequestSequence = 0
 const uploadPreviewLoading = ref(false)
 const uploadDrawingPdfLoading = ref(false)
 const uploadNameOptionsLoading = ref(false)
@@ -660,7 +678,6 @@ const routeReadiness = ref<ControlledFileRouteReadinessVO>()
 const routeReadinessLoading = ref(false)
 const routeReadinessError = ref('')
 let routeReadinessRequestSeq = 0
-const revisionTargetLookupLoading = ref(false)
 const projectCodeOptionsLoading = ref(false)
 const relatedFileOptionsLoading = ref(false)
 const projectFileTemplateLoading = ref(false)
@@ -668,8 +685,6 @@ const projectCodeOptionsError = ref('')
 const relatedFileOptionsError = ref('')
 const projectFileTemplateError = ref('')
 const categoryOptionsError = ref('')
-const selectedHistoryVersion = ref('')
-const selectedHistoryFileName = ref('')
 const uploadSessionId = createControlledFileUploadSessionId()
 const uploadSubmitted = ref(false)
 const submitFieldErrors = reactive({
@@ -677,45 +692,17 @@ const submitFieldErrors = reactive({
 })
 
 const DEFAULT_MANUAL_VERSION_NO = 'V1.0'
+const DEFAULT_CONTROLLED_INITIAL_VERSION_NO = 'A/1'
 const VERSION_NO_FORMAT_MESSAGE = '版本号格式不正确，请使用 V1.0、V2.0 或 1.0 这类数字版本。'
+const CONTROLLED_INITIAL_VERSION_MESSAGE = '初始版本号格式不正确，请使用 A/1、B/1 等“修订版/1”格式。'
 const VERSION_NO_PATTERN = /^[Vv]?\d+(?:\.\d+)*$/
-const VERSION_NO_MAJOR_PATTERN = /^[Vv]?(\d+)/
 const WINDCHILL_VERSION_PATTERN = /^([A-Z]+)\/[1-9]\d*$/i
 const resolveTodayDate = () => formatToDate(new Date())
 const isVersionNoTextValid = (versionNo?: string | null) => VERSION_NO_PATTERN.test((versionNo || '').trim())
-const resolveNextMajorVersionNo = (currentVersionNo: string | null | undefined) => {
-  const normalizedVersionNo = (currentVersionNo || '').trim()
-  const windchillMatch = normalizedVersionNo.toUpperCase().match(WINDCHILL_VERSION_PATTERN)
-  if (windchillMatch) {
-    const revision = windchillMatch[1].split('')
-    let index = revision.length - 1
-    while (index >= 0 && revision[index] === 'Z') {
-      revision[index] = 'A'
-      index -= 1
-    }
-    if (index < 0) revision.unshift('A')
-    else revision[index] = String.fromCharCode(revision[index].charCodeAt(0) + 1)
-    return `${revision.join('')}/1`
-  }
-  if (!isVersionNoTextValid(normalizedVersionNo)) {
-    return ''
-  }
-  const matched = normalizedVersionNo.match(VERSION_NO_MAJOR_PATTERN)
-  if (!matched) {
-    return ''
-  }
-  const majorVersion = Number(matched[1])
-  if (!Number.isFinite(majorVersion)) {
-    return ''
-  }
-  const nextMajorVersion = majorVersion + 1
-  return `V${nextMajorVersion}.0`
-}
 
 const resolveProcessTypeByRoute = () =>
   route.path.includes('/external') ? 'EXTERNAL_REVIEW' : 'CONTROLLED_FILE'
 const isExternalReview = computed(() => resolveProcessTypeByRoute() === 'EXTERNAL_REVIEW')
-const isRevisionUpload = computed(() => !isExternalReview.value && formData.changeType === 'REVISION')
 const pageTitle = computed(() => (isExternalReview.value ? '外来文件评审' : '受控文件提交'))
 const submitButtonText = computed(() => (isExternalReview.value ? '提交评审' : '创建工作版本'))
 const formData = reactive<UploadFormDraft>({
@@ -734,7 +721,7 @@ const formData = reactive<UploadFormDraft>({
   selectedSignoffUserIds: [],
   processType: resolveProcessTypeByRoute(),
   changeType: 'NEW',
-  versionNo: isExternalReview.value ? DEFAULT_MANUAL_VERSION_NO : '',
+  versionNo: isExternalReview.value ? DEFAULT_MANUAL_VERSION_NO : DEFAULT_CONTROLLED_INITIAL_VERSION_NO,
   effectiveDate: resolveTodayDate(),
   remark: ''
 })
@@ -905,7 +892,7 @@ const isProductRequiredForSelectedCategory = computed(() =>
 const isRequiredProjectCodeBound = computed(() => Boolean(formData.productCode.trim()))
 const productCodeBindingHintText = computed(() => {
   if (isRequiredProjectCodeBound.value) {
-    return `已自动绑定 DCC 项目代码：${formData.productCode.trim()}`
+    return `已解析编号：${formData.productCode.trim()}`
   }
   return 'DHF/DMR 类别必须选择包含项目代码的 DCC 项目'
 })
@@ -1010,8 +997,8 @@ const formRules = reactive<FormRules>({
           callback(new Error('请输入版本号'))
           return
         }
-        if (!isVersionNoTextValid(versionNo)) {
-          callback(new Error(VERSION_NO_FORMAT_MESSAGE))
+        if (!isVersionNoFormatValid.value) {
+          callback(new Error(isExternalReview.value ? VERSION_NO_FORMAT_MESSAGE : CONTROLLED_INITIAL_VERSION_MESSAGE))
           return
         }
         callback()
@@ -1046,7 +1033,6 @@ const currentVersionProjectionBlockReason = computed(() => {
 
 let currentVersionLookupTimer: ReturnType<typeof setTimeout> | undefined
 let currentVersionLookupSeq = 0
-let revisionTargetLookupSeq = 0
 
 const clearCurrentVersionInfo = () => {
   currentVersionInfo.value = undefined
@@ -1060,15 +1046,14 @@ const ensureEffectiveDateDefault = () => {
 }
 
 const resetUploadNameLinkage = (clearVersionNo: boolean) => {
-  selectedHistoryFileName.value = ''
-  selectedHistoryVersion.value = ''
   formData.changeType = 'NEW'
-  clearRevisionTargetSelection()
+  formData.revisionTargetControlledFileId = null
+  formData.revisionSourceControlledFileId = null
   if (clearVersionNo) {
     if (isExternalReview.value) {
       formData.versionNo = DEFAULT_MANUAL_VERSION_NO
     } else {
-      formData.versionNo = ''
+      formData.versionNo = DEFAULT_CONTROLLED_INITIAL_VERSION_NO
     }
   }
   ensureEffectiveDateDefault()
@@ -1180,18 +1165,6 @@ const buildUploadPreviewContext = () => {
   }
 }
 
-const canRetryWorkingDraftCreationAfterCurrentVersionConflictMessage = (
-  errorMessage: string | null | undefined
-) =>
-  !isExternalReview.value &&
-  formData.changeType === 'NEW' &&
-  previewUpload.value?.sessionId === uploadSessionId &&
-  Boolean(previewUpload.value?.uploadTicket) &&
-  isFileNumberChainConflictMessage(errorMessage)
-
-const canRetryWorkingDraftCreationAfterCurrentVersionConflict = () =>
-  canRetryWorkingDraftCreationAfterCurrentVersionConflictMessage(currentVersionLookupError.value)
-
 const loadProjectCodeOptions = async (keyword = '') => {
   projectCodeOptionsLoading.value = true
   projectCodeOptionsError.value = ''
@@ -1244,7 +1217,7 @@ const loadProjectFileTemplate = async (projectCodeId: number) => {
   try {
     const template = await getProjectCodeFileTemplate(projectCodeId)
     if (formData.dccProjectCodeId !== projectCodeId) return
-    projectFileTemplateItems.value = template.items || []
+    projectFileTemplateItems.value = template.items.filter(item => item.valid === true)
     fileTypeTaxonomies.value = template.taxonomyOptions || []
     if (projectFileTemplateItems.value.length === 0) {
       projectFileTemplateError.value = '项目文件模板未配置，请先在项目代码详情中维护模板'
@@ -1265,86 +1238,30 @@ const loadProjectFileTemplate = async (projectCodeId: number) => {
   }
 }
 
-const clearRevisionTargetSelection = () => {
-  selectedRevisionCandidate.value = undefined
-  formData.revisionTargetControlledFileId = null
-  formData.revisionSourceControlledFileId = null
-}
-
-const normalizeHistoryFileName = (value?: string | null) => (value || '').trim()
-
-const applyResolvedRevisionTarget = (row: ControlledFileVO) => {
-  selectedRevisionCandidate.value = row
-  formData.revisionTargetControlledFileId = row.id
-  formData.revisionSourceControlledFileId = row.id
-  if (row.fileNumber) {
-    formData.fileNumber = row.fileNumber
-  }
-}
-
-const applyUploadNameOptionRevisionTarget = (item: UploadNameSuggestionItem) => {
-  if (!item.controlledFileId) {
-    return false
-  }
-  selectedRevisionCandidate.value = undefined
-  formData.revisionTargetControlledFileId = item.controlledFileId
-  formData.revisionSourceControlledFileId = item.controlledFileId
-  if (item.fileNumber) {
-    formData.fileNumber = item.fileNumber
-  }
-  return true
-}
-
-const resolveHistoryRevisionTarget = async (fileName: string) => {
-  const normalizedFileName = normalizeHistoryFileName(fileName)
-  const requestSeq = ++revisionTargetLookupSeq
-  clearRevisionTargetSelection()
-  if (
-    !normalizedFileName ||
-    !formData.dccProjectCodeId ||
-    !formData.fileTypeTaxonomyId ||
-    !isFileTypeTaxonomyDepthValid.value
-  ) {
-    return
-  }
-  revisionTargetLookupLoading.value = true
-  try {
-    const page = await getControlledFileUploadRevisionCandidates({
-      dccProjectCodeId: formData.dccProjectCodeId,
-      fileTypeTaxonomyId: formData.fileTypeTaxonomyId,
-      keyword: normalizedFileName,
-      pageNo: 1,
-      pageSize: 20
-    })
-    if (
-      requestSeq !== revisionTargetLookupSeq ||
-      formData.changeType !== 'REVISION' ||
-      normalizeHistoryFileName(formData.fileName) !== normalizedFileName ||
-      selectedHistoryFileName.value !== normalizedFileName
-    ) {
-      return
-    }
-    const exactMatch = (page.list || []).find(
-      (row) => normalizeHistoryFileName(row.fileName || row.title) === normalizedFileName
-    )
-    if (exactMatch?.id) {
-      applyResolvedRevisionTarget(exactMatch)
-    }
-  } catch (error) {
-    if (requestSeq === revisionTargetLookupSeq) {
-      clearRevisionTargetSelection()
-    }
-    message.error(resolveUploadErrorMessage(error, '历史文件升版目标解析失败，请查看错误提示后重试'))
-  } finally {
-    if (requestSeq === revisionTargetLookupSeq) {
-      revisionTargetLookupLoading.value = false
-    }
-  }
-}
-
-const applyDccProjectCodeProductNumber = () => {
+const applyDccProjectCodeProductNumber = async () => {
+  const requestSequence = ++projectProductRequestSequence
+  const projectCodeId = formData.dccProjectCodeId
   formData.productMasterId = null
-  formData.productCode = selectedProjectCode.value?.projectCode?.trim() || ''
+  formData.productCode = ''
+  projectProductError.value = ''
+  projectProductSource.value = ''
+  projectProductResolvedId.value = null
+  projectProductLoading.value = Boolean(projectCodeId)
+  if (!projectCodeId) return
+  const isCurrent = () => requestSequence === projectProductRequestSequence && formData.dccProjectCodeId === projectCodeId
+  try {
+    const product = await previewControlledFileProjectProduct(projectCodeId)
+    if (!isCurrent()) return
+    if (product.projectCodeId !== projectCodeId) throw new Error('产品编号响应与当前项目不一致')
+    formData.productMasterId = product.productMasterId
+    formData.productCode = product.productCode?.trim() || ''
+    projectProductSource.value = product.source
+    projectProductResolvedId.value = projectCodeId
+  } catch (error) {
+    if (isCurrent()) projectProductError.value = resolveUploadErrorMessage(error, '产品编号解析失败，请重新选择项目后重试')
+  } finally {
+    if (isCurrent()) projectProductLoading.value = false
+  }
 }
 
 const loadBaseData = async () => {
@@ -1414,6 +1331,10 @@ const ensureUploadNameOptionsLoaded = async () => {
 }
 
 const handleProjectCodeChange = async () => {
+  relatedFileRequestSequence += 1
+  relatedFileKeyword.value = ''
+  relatedFilePageNo.value = 1
+  relatedFileTotal.value = 0
   formData.relatedControlledFileIds = []
   relatedFileOptions.value = []
   relatedFileOptionsError.value = ''
@@ -1430,33 +1351,53 @@ const handleProjectCodeChange = async () => {
 const formatRelatedFileOptionLabel = (file: ControlledFileVO) =>
   [file.fileNumber, file.fileName || file.title, file.versionNo].filter(Boolean).join(' / ')
 
-const loadRelatedFileOptions = async (projectCodeId: number) => {
+const loadRelatedFileOptions = async (projectCodeId: number, pageNo = 1) => {
+  const sequence = ++relatedFileRequestSequence
+  const keyword = relatedFileKeyword.value.trim()
+  const isCurrent = () => sequence === relatedFileRequestSequence &&
+    formData.dccProjectCodeId === projectCodeId && relatedFileKeyword.value.trim() === keyword
   relatedFileOptionsLoading.value = true
   relatedFileOptionsError.value = ''
   try {
     const page = await getProjectCodeControlledFilesPage(projectCodeId, {
-      pageNo: 1,
-      pageSize: 200,
+      pageNo,
+      pageSize: 50,
+      keyword,
       status: 'ACTIVE'
     })
-    if (formData.dccProjectCodeId !== projectCodeId) {
+    if (!isCurrent()) {
       return
     }
-    relatedFileOptions.value = (page.list || []).filter(
+    const candidates = page.list.filter(
       (file) => file.businessSourceType === 'DCC_CONTROLLED_FILE' && file.status === 'ACTIVE'
     )
+    const selected = relatedFileOptions.value.filter(file => formData.relatedControlledFileIds.includes(file.id))
+    relatedFileOptions.value = Array.from(new Map([...selected, ...candidates].map(file => [file.id, file])).values())
+    relatedFilePageNo.value = pageNo
+    relatedFileTotal.value = page.total
   } catch (error) {
-    if (formData.dccProjectCodeId !== projectCodeId) {
+    if (!isCurrent()) {
+      console.warn('关联文件请求已被新查询取代', error)
       return
     }
-    relatedFileOptions.value = []
+    relatedFileOptions.value = relatedFileOptions.value.filter(file => formData.relatedControlledFileIds.includes(file.id))
+    relatedFileTotal.value = 0
     relatedFileOptionsError.value = resolveUploadErrorMessage(error, '关联文件候选加载失败，请稍后重试')
     message.error(relatedFileOptionsError.value)
   } finally {
-    if (formData.dccProjectCodeId === projectCodeId) {
+    if (isCurrent()) {
       relatedFileOptionsLoading.value = false
     }
   }
+}
+
+const searchRelatedFiles = async (keyword: string) => {
+  relatedFileKeyword.value = keyword
+  if (formData.dccProjectCodeId) await loadRelatedFileOptions(formData.dccProjectCodeId, 1)
+}
+
+const changeRelatedFilePage = async (page: number) => {
+  if (formData.dccProjectCodeId) await loadRelatedFileOptions(formData.dccProjectCodeId, page)
 }
 
 const handleFileTypeTaxonomyChange = async (preserveFileName: boolean = false) => {
@@ -1552,15 +1493,14 @@ const isRequestedVersionDuplicate = computed(() => {
   return Boolean(currentVersionInfo.value?.matched && currentVersionNo && requestedVersionNo && currentVersionNo === requestedVersionNo)
 })
 const isVersionNoFormatValid = computed(() => {
-  if (!isExternalReview.value) {
-    return true
-  }
   const versionNo = normalizePreflightVersionNo(formData.versionNo)
-  return Boolean(versionNo && isVersionNoTextValid(versionNo))
+  if (isExternalReview.value) return Boolean(versionNo && isVersionNoTextValid(versionNo))
+  const match = versionNo.match(WINDCHILL_VERSION_PATTERN)
+  return Boolean(match && versionNo.endsWith('/1'))
 })
 const versionFormatPreflightMessage = computed(() =>
-  isExternalReview.value && normalizePreflightVersionNo(formData.versionNo) && !isVersionNoFormatValid.value
-    ? VERSION_NO_FORMAT_MESSAGE
+  normalizePreflightVersionNo(formData.versionNo) && !isVersionNoFormatValid.value
+    ? (isExternalReview.value ? VERSION_NO_FORMAT_MESSAGE : CONTROLLED_INITIAL_VERSION_MESSAGE)
     : ''
 )
 const versionDuplicatePreflightMessage = computed(() => {
@@ -1573,24 +1513,11 @@ const versionDuplicatePreflightMessage = computed(() => {
   return `文件编号 ${formData.fileNumber.trim()} 的版本 ${normalizePreflightVersionNo(formData.versionNo)} 已存在，请调整升版版本号。`
 })
 
-const revisionTargetPreflightBlockReason = computed(() => {
-  if (!isRevisionUpload.value) {
-    return ''
-  }
-  if (revisionTargetLookupLoading.value || currentVersionLookupLoading.value) {
-    return '正在定位历史文件对应的现行主档，请等待校验完成。'
-  }
-  if (currentVersionLookupError.value) {
-    return currentVersionLookupError.value
-  }
-  if (!selectedHistoryFileName.value) {
-    return '请选择历史文件名称后再升版。'
-  }
-  if (!formData.revisionTargetControlledFileId || currentVersionInfo.value?.matched === false) {
-    return '已选择历史文件，但未找到该历史文件对应的现行主档，当前不能升版提交，也不会创建新的 master 主档。'
-  }
-  return ''
-})
+const existingUploadIdentityBlockReason = computed(() =>
+  !isExternalReview.value && currentVersionInfo.value?.matched
+    ? '该项目、文件分类和文件编号对应的逻辑文件已存在；请到文件浏览中检出后再检入新版本。'
+    : ''
+)
 
 const isEffectiveDateBeforeToday = computed(() =>
   Boolean(formData.effectiveDate && formData.effectiveDate < resolveTodayDate())
@@ -1629,14 +1556,11 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
   const hasDirectoryLanding = Boolean(selectedUploadDirectoryPath.value)
   const versionReady = Boolean(
     formData.fileNumber.trim() &&
-      (isExternalReview.value
-        ? isVersionNoFormatValid.value
-        : !normalizePreflightVersionNo(formData.versionNo) ||
-          WINDCHILL_VERSION_PATTERN.test(normalizePreflightVersionNo(formData.versionNo)))
+      isVersionNoFormatValid.value
   )
   const versionBlockingReason = versionFormatPreflightMessage.value ||
     currentVersionLookupError.value ||
-    revisionTargetPreflightBlockReason.value ||
+    existingUploadIdentityBlockReason.value ||
     (isRequestedVersionDuplicate.value ? versionDuplicatePreflightMessage.value : '') ||
     currentVersionProjectionBlockReason.value ||
     (currentVersionInfo.value?.modifying ? '同编号文件已有未完成流程，当前不可重复提交。' : '')
@@ -1755,9 +1679,7 @@ const refreshRouteReadiness = async () => {
   }
 }
 
-const loadCurrentVersionByFileNumber = async (options: {
-  suppressWorkingDraftRetryConflictMessage?: boolean
-} = {}) => {
+const loadCurrentVersionByFileNumber = async () => {
   const fileNumber = formData.fileNumber.trim()
   const requestSeq = ++currentVersionLookupSeq
   if (!fileNumber) {
@@ -1779,16 +1701,9 @@ const loadCurrentVersionByFileNumber = async (options: {
     currentVersionLookupError.value = ''
     if (info.matched) {
       if (!isExternalReview.value) {
-        formData.changeType = 'REVISION'
-        formData.revisionTargetControlledFileId = info.currentControlledFileId || null
-        formData.revisionSourceControlledFileId = info.currentControlledFileId || null
-        if (
-          info.currentVersionNo &&
-          (!formData.versionNo ||
-            normalizePreflightVersionNo(formData.versionNo) === normalizePreflightVersionNo(info.currentVersionNo))
-        ) {
-          formData.versionNo = resolveNextMajorVersionNo(info.currentVersionNo) || formData.versionNo
-        }
+        formData.changeType = 'NEW'
+        formData.revisionTargetControlledFileId = null
+        formData.revisionSourceControlledFileId = null
       }
       if (!formData.fileName && info.fileName) {
         formData.fileName = info.fileName
@@ -1800,14 +1715,7 @@ const loadCurrentVersionByFileNumber = async (options: {
       const errorMessage = resolveUploadErrorMessage(error, '现行版本信息查询失败，请查看错误提示后重试')
       currentVersionInfo.value = undefined
       currentVersionLookupError.value = errorMessage
-      if (
-        !(
-          options.suppressWorkingDraftRetryConflictMessage &&
-          canRetryWorkingDraftCreationAfterCurrentVersionConflictMessage(errorMessage)
-        )
-      ) {
-        message.error(errorMessage)
-      }
+      message.error(errorMessage)
     }
   } finally {
     if (requestSeq === currentVersionLookupSeq) {
@@ -1845,19 +1753,6 @@ const handleCategoryChange = async () => {
   }
 }
 
-const handleHistoryFileNameSelect = async (item: UploadNameSuggestionItem) => {
-  selectedHistoryFileName.value = item.value
-  selectedHistoryVersion.value = item.currentVersionNo?.trim() || ''
-  formData.fileName = item.value
-  formData.changeType = 'REVISION'
-  formData.versionNo = resolveNextMajorVersionNo(selectedHistoryVersion.value)
-  ensureEffectiveDateDefault()
-  clearSubmitFieldErrors(submitFieldErrors)
-  if (!applyUploadNameOptionRevisionTarget(item)) {
-    await resolveHistoryRevisionTarget(item.value)
-  }
-}
-
 const handleProjectTemplateFileSelect = async (item: UploadNameSuggestionItem) => {
   const templateItem = projectFileTemplateItems.value.find(
     (candidate) =>
@@ -1885,12 +1780,8 @@ const handleProjectTemplateFileSelect = async (item: UploadNameSuggestionItem) =
     (candidate) => candidate.fileName.trim() === templateItem.fileName
   )
   if (historyOption) {
-    await handleHistoryFileNameSelect({
-      value: historyOption.fileName,
-      currentVersionNo: historyOption.currentVersionNo,
-      controlledFileId: historyOption.controlledFileId,
-      fileNumber: historyOption.fileNumber
-    })
+    formData.fileNumber = historyOption.fileNumber?.trim() || formData.fileNumber
+    await loadCurrentVersionByFileNumber()
   } else {
     resetUploadNameLinkage(true)
     formData.fileName = templateItem.fileName
@@ -1913,12 +1804,10 @@ const handleFileNameInput = (value: string) => {
     }
   }
   if (!normalized) {
-    resetUploadNameLinkage(Boolean(selectedHistoryFileName.value || selectedHistoryVersion.value))
+    resetUploadNameLinkage(true)
     return
   }
-  if (!selectedHistoryFileName.value || normalized !== selectedHistoryFileName.value) {
-    resetUploadNameLinkage(Boolean(selectedHistoryFileName.value || selectedHistoryVersion.value))
-  }
+  resetUploadNameLinkage(false)
 }
 
 const handleFileNameClear = () => {
@@ -1929,7 +1818,7 @@ const handleFileNameClear = () => {
     formData.fileNumber = ''
     resetCategorySelectionForFileTypeTaxonomyChange()
   }
-  resetUploadNameLinkage(Boolean(selectedHistoryFileName.value || selectedHistoryVersion.value))
+  resetUploadNameLinkage(true)
   clearSubmitFieldErrors(submitFieldErrors)
 }
 
@@ -2055,6 +1944,10 @@ const handleDrawingPdfRemove: UploadProps['onRemove'] = () => {
 }
 
 const submitForm = async () => {
+  if (projectProductLoading.value || projectProductError.value || projectProductResolvedId.value !== formData.dccProjectCodeId) {
+    message.warning(projectProductError.value || '请等待当前项目的产品编号解析完成')
+    return
+  }
   clearSubmitFieldErrors(submitFieldErrors)
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) {
@@ -2064,17 +1957,15 @@ const submitForm = async () => {
     clearTimeout(currentVersionLookupTimer)
     currentVersionLookupTimer = undefined
   }
-  await loadCurrentVersionByFileNumber({ suppressWorkingDraftRetryConflictMessage: true })
+  await loadCurrentVersionByFileNumber()
   if (currentVersionLookupError.value) {
-    if (!canRetryWorkingDraftCreationAfterCurrentVersionConflict()) {
-      submitFieldErrors.versionNo = currentVersionLookupError.value
-      message.warning(currentVersionLookupError.value)
-      return
-    }
+    submitFieldErrors.versionNo = currentVersionLookupError.value
+    message.warning(currentVersionLookupError.value)
+    return
   }
-  if (revisionTargetPreflightBlockReason.value) {
-    submitFieldErrors.versionNo = revisionTargetPreflightBlockReason.value
-    message.warning(revisionTargetPreflightBlockReason.value)
+  if (existingUploadIdentityBlockReason.value) {
+    submitFieldErrors.versionNo = existingUploadIdentityBlockReason.value
+    message.warning(existingUploadIdentityBlockReason.value)
     return
   }
   if (currentVersionProjectionBlockReason.value) {
@@ -2122,7 +2013,7 @@ const submitForm = async () => {
   submitLoading.value = true
   try {
     await uploadSubmitterService.submit(
-      { ...formData, productMasterId: null },
+      { ...formData },
       previewUpload.value,
       drawingPdfUpload.value
     )
@@ -2130,7 +2021,11 @@ const submitForm = async () => {
     message.success(isExternalReview.value ? '外来文件评审已提交审批' : '工作版本已创建，请在文件浏览中提交审批')
     await router.push({ name: 'DccControlledFileBrowser' })
   } catch (error) {
-    const feedback = buildSubmitFailureFeedback(error, '受控文件提交失败，请查看错误提示后重试')
+    const feedback = buildSubmitFailureFeedback(
+      error,
+      '受控文件提交失败，请查看错误提示后重试',
+      formData.processType
+    )
     applySubmitFailureFeedback(submitFieldErrors, feedback)
     message.error(feedback.message)
   } finally {
@@ -2158,25 +2053,10 @@ watch(
   () => formData.fileNumber,
   () => {
     clearSubmitFieldErrors(submitFieldErrors)
-    if (
-      selectedRevisionCandidate.value &&
-      formData.fileNumber.trim() !== (selectedRevisionCandidate.value.fileNumber || '').trim()
-    ) {
-      clearRevisionTargetSelection()
-    }
     if (currentVersionLookupTimer) {
       clearTimeout(currentVersionLookupTimer)
     }
     currentVersionLookupTimer = setTimeout(loadCurrentVersionByFileNumber, 300)
-  }
-)
-
-watch(
-  () => formData.changeType,
-  (changeType) => {
-    if (changeType !== 'REVISION') {
-      clearRevisionTargetSelection()
-    }
   }
 )
 

@@ -7,7 +7,6 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePag
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRejectTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileReturnTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCurrentVersionRespVO;
-import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMajorRevisionReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
@@ -18,10 +17,15 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTra
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTransferTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileWithdrawReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccSignatureActionRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccProjectProductRespVO;
 
 import java.util.List;
 
 public interface DccControlledFileWorkflowService {
+
+    DccProjectProductRespVO previewProjectProduct(Long userId, Long projectCodeId);
+
+    void validateApprovalPdfUpload(Long userId, Long fileId, String taskId, Long categoryId, String sessionId);
 
     DccControlledFileRouteReadinessRespVO previewRoute(Long userId, Long categoryId,
                                                        List<Long> selectedSignoffUserIds);
@@ -35,13 +39,7 @@ public interface DccControlledFileWorkflowService {
 
     Long submitWorkingIteration(Long userId, Long iterationId, DccControlledFileSubmitIterationReqVO reqVO);
 
-    Long createMajorRevision(Long userId, DccControlledFileMajorRevisionReqVO reqVO);
-
     Long submitControlledFileWithoutApproval(Long userId, DccControlledFileSubmitReqVO reqVO);
-
-    PageResult<DccControlledFileRespVO> getUploadRevisionCandidates(Long userId, Long dccProjectCodeId,
-                                                                    Long fileTypeTaxonomyId, String keyword,
-                                                                    Integer pageNo, Integer pageSize);
 
     Long submitControlledFileWithoutApproval(Long userId, DccControlledFileSubmitReqVO reqVO,
                                              String approvalProcessInstanceId, String platformEventKey);

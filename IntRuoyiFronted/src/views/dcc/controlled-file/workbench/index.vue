@@ -301,18 +301,10 @@
           {{ revisionDialog.options.openMajorRevision.versionNo }} / {{ controlledFileStatusLabel(revisionDialog.options.openMajorRevision.status) }}
         </div>
       </template>
-      <el-form v-else label-position="top">
-        <el-form-item label="选择来源小版本" required>
-          <el-select v-model="revisionDialog.sourceControlledFileId" class="w-100%" placeholder="请选择 A/1、A/2 等来源版本">
-            <el-option
-              v-for="option in revisionDialog.options?.sourceIterations || []"
-              :key="option.controlledFileId"
-              :label="`${option.versionNo} / ${controlledFileStatusLabel(option.status)}`"
-              :value="option.controlledFileId"
-            />
-          </el-select>
-        </el-form-item>
-      </el-form>
+      <el-alert
+        v-else type="warning" :closable="false" show-icon
+        title="尚无开放大版本。请先到文件浏览中检出该文件，并在检入时选择“大版本”，再返回此处关联。"
+      />
       <el-form label-position="top">
         <el-form-item label="升版或关联原因" required>
           <el-input v-model="revisionDialog.reason" type="textarea" :rows="3" maxlength="1000" show-word-limit />
@@ -321,8 +313,11 @@
     </div>
     <template #footer>
       <el-button :disabled="revisionDialog.submitting" @click="revisionDialog.visible = false">取消</el-button>
-      <el-button type="primary" :loading="revisionDialog.submitting" :disabled="revisionDialog.loading" @click="submitImpactRevision">
-        {{ revisionDialog.options?.openMajorRevision ? '关联现有版本' : '创建大版本' }}
+      <el-button
+        type="primary" :loading="revisionDialog.submitting"
+        :disabled="revisionDialog.loading || !revisionDialog.options?.openMajorRevision" @click="submitImpactRevision"
+      >
+        关联现有版本
       </el-button>
     </template>
   </el-dialog>
@@ -342,7 +337,6 @@ import {
 import { getMyTrainingTaskPage, type TrainingTaskProgressVO } from '@/api/dcc/controlledFile/training'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import {
-  createImpactRevision,
   decideImpactTask,
   getImpactRevisionOptions,
   getMyImpactTaskPage,
@@ -425,10 +419,9 @@ const revisionDialog = reactive<{
   error: string
   task: DccPublicationImpactTaskVO | null
   options: DccPublicationImpactRevisionOptionsVO | null
-  sourceControlledFileId: string
   reason: string
 }>({ visible: false, loading: false, submitting: false, error: '', task: null,
-  options: null, sourceControlledFileId: '', reason: '' })
+  options: null, reason: '' })
 const message = useMessage()
 
 const DCC_APPROVAL_PROCESS_DEFINITION_KEYS = [
@@ -656,7 +649,6 @@ const openImpactRevisionDialog = async (row: DccPublicationImpactTaskVO) => {
   revisionDialog.error = ''
   revisionDialog.task = row
   revisionDialog.options = null
-  revisionDialog.sourceControlledFileId = ''
   revisionDialog.reason = ''
   impactActionTaskId.value = row.id
   try {
@@ -681,29 +673,20 @@ const submitImpactRevision = async () => {
     revisionDialog.error = '升版或关联原因不能为空'
     return
   }
-  if (!options.openMajorRevision && !revisionDialog.sourceControlledFileId) {
-    revisionDialog.error = '请选择来源小版本'
+  if (!options.openMajorRevision) {
+    revisionDialog.error = '请先通过检出、检入创建开放大版本，再关联本影响任务'
     return
   }
   revisionDialog.submitting = true
   revisionDialog.error = ''
   impactActionTaskId.value = task.id
   try {
-    if (options.openMajorRevision) {
-      await linkImpactRevision(task.id, {
-        expectedVersion: task.rowVersion,
-        revisionControlledFileId: options.openMajorRevision.controlledFileId,
-        reason
-      })
-      message.success('已关联现有开放大版本')
-    } else {
-      await createImpactRevision(task.id, {
-        expectedVersion: task.rowVersion,
-        sourceControlledFileId: revisionDialog.sourceControlledFileId,
-        reason
-      })
-      message.success('大版本已创建并关联')
-    }
+    await linkImpactRevision(task.id, {
+      expectedVersion: task.rowVersion,
+      revisionControlledFileId: options.openMajorRevision.controlledFileId,
+      reason
+    })
+    message.success('已关联现有开放大版本')
     revisionDialog.visible = false
     await loadImpactTasks()
   } catch (error) {

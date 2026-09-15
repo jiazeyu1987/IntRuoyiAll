@@ -194,6 +194,12 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
             }
             if (cleanTemporaryFile(temporaryFile, cleanupTime, normalizedReason, false)) {
                 cleaned++;
+            } else {
+                DccControlledFileTemporaryFileDO current = temporaryFileMapper.selectById(temporaryFile.getId());
+                if (current == null || !CLEANUP_CLEANED.equals(current.getCleanupStatus())
+                        || !STATUS_AVAILABLE.equals(current.getStatus()) || current.getBoundControlledFileId() != null) {
+                    throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+                }
             }
         }
         return cleaned;
@@ -245,10 +251,21 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
                 || !StrUtil.equals(normalizedSessionId, temporaryFile.getSessionId())) {
             throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
         }
-        if (!isSessionCleanupCandidate(temporaryFile, userId, normalizedSessionId)) {
+        if (CLEANUP_CLEANED.equals(temporaryFile.getCleanupStatus())
+                && STATUS_AVAILABLE.equals(temporaryFile.getStatus())
+                && temporaryFile.getBoundControlledFileId() == null) {
             return 0;
         }
-        return cleanTemporaryFile(temporaryFile, cleanupTime, normalizedReason, false) ? 1 : 0;
+        if (!isSessionCleanupCandidate(temporaryFile, userId, normalizedSessionId)) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        if (cleanTemporaryFile(temporaryFile, cleanupTime, normalizedReason, false)) return 1;
+        DccControlledFileTemporaryFileDO current = temporaryFileMapper.selectById(temporaryFile.getId());
+        if (current != null && CLEANUP_CLEANED.equals(current.getCleanupStatus())
+                && STATUS_AVAILABLE.equals(current.getStatus()) && current.getBoundControlledFileId() == null) {
+            return 0;
+        }
+        throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
     }
 
     @Override

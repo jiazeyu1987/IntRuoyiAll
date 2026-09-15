@@ -77,6 +77,8 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     private DccControlledFileCategoryPermissionSupport permissionSupport;
     @Resource
     private BusinessFileAccessService businessFileAccessService;
+    @Resource
+    private DccControlledFileWorkflowService workflowService;
 
     @Override
     public DccControlledFileUploadRespVO uploadPreviewFile(Long userId, DccControlledFileUploadPreviewReqVO reqVO,
@@ -88,7 +90,12 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             file = validatePreviewFile(reqVO);
             validatePreviewSession(reqVO.getSessionId());
             purpose = validatePreviewPurposeName(reqVO.getPurpose(), file.getOriginalFilename());
-            validatePreviewCategory(userId, reqVO.getCategoryId());
+            boolean approvalPdf = DccControlledFileUploadTypePolicy.PURPOSE_APPROVAL_PDF.equals(purpose);
+            validatePreviewCategory(userId, reqVO.getCategoryId(), !approvalPdf);
+            if (approvalPdf) {
+                workflowService.validateApprovalPdfUpload(userId, reqVO.getControlledFileId(), reqVO.getTaskId(),
+                        reqVO.getCategoryId(), reqVO.getSessionId());
+            }
             uploadSizePolicyService.validateUploadSize(reqVO.getCategoryId(),
                     purpose, file.getSize(), null);
             byte[] content = IoUtil.readBytes(file.getInputStream());
@@ -188,13 +195,14 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
                 && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
             throw exception(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
         }
-        if (DccControlledFileUploadTypePolicy.isDrawingPdfPurpose(purpose)
+        if ((DccControlledFileUploadTypePolicy.isDrawingPdfPurpose(purpose)
+                || DccControlledFileUploadTypePolicy.PURPOSE_APPROVAL_PDF.equals(purpose))
                 && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
             throw exception(CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID);
         }
     }
 
-    private void validatePreviewCategory(Long userId, Long categoryId) {
+    private void validatePreviewCategory(Long userId, Long categoryId, boolean requireUploadPermission) {
         DccFileCategoryDO category = categoryId == null ? null : categoryMapper.selectById(categoryId);
         if (category == null) {
             throw exception(FILE_CATEGORY_NOT_EXISTS);
@@ -206,7 +214,7 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
         if (!DccFileCategoryLifecycleStageEnum.isValid(lifecycleStage)) {
             throw exception(FILE_CATEGORY_LIFECYCLE_STAGE_INVALID, lifecycleStage);
         }
-        if (!permissionSupport.hasCategoryPermission(categoryId, userId,
+        if (requireUploadPermission && !permissionSupport.hasCategoryPermission(categoryId, userId,
                 DccFileCategoryPermissionActionEnum.UPLOAD)) {
             throw exception(DCC_PROJECT_ACCESS_DENIED);
         }

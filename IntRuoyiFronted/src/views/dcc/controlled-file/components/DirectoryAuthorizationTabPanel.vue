@@ -199,12 +199,18 @@
                     </div>
                     <div class="access-rule-permission-summary__toggles">
                       <span class="access-rule-permission-summary__toggle">
-                        <span class="access-rule-permission-summary__label">查看</span>
+                        <span class="access-rule-permission-summary__label">名称</span>
                         <el-switch
                           v-model="row.canQuery"
-                          aria-label="查看权限"
+                          aria-label="名称查看权限"
                           @change="handleQueryPermissionChange(row)"
                         />
+                      </span>
+                      <span class="access-rule-permission-summary__toggle">
+                        <span class="access-rule-permission-summary__label">内容</span>
+                        <el-switch
+                          v-model="row.canPreview" aria-label="内容查看权限"
+                          @change="handleContentPermissionChange(row)" />
                       </span>
                       <span class="access-rule-permission-summary__toggle">
                         <span class="access-rule-permission-summary__label">下载</span>
@@ -431,7 +437,7 @@ const mergeRuleReadPermission = (
   return {
     ...rule,
     canQuery: mergedReadAllowed,
-    canPreview: mergedReadAllowed
+    canPreview: Boolean(rule.canPreview)
   }
 }
 
@@ -579,7 +585,11 @@ const handleSubjectTypeChange = (row: ControlledFileDirectoryAccessRuleVO) => {
 }
 
 const handleQueryPermissionChange = (row: ControlledFileDirectoryAccessRuleVO) => {
-  row.canPreview = Boolean(row.canQuery)
+  if (!row.canQuery) row.canPreview = false
+}
+
+const handleContentPermissionChange = (row: ControlledFileDirectoryAccessRuleVO) => {
+  if (row.canPreview) row.canQuery = true
 }
 
 const findInvalidRuleIndex = () => {

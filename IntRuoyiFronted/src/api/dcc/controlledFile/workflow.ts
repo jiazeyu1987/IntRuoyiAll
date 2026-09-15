@@ -9,6 +9,17 @@ import type { FormInstanceVO } from '@/api/form-center/instance'
 
 export type ControlledFileChangeType = 'NEW' | 'REVISION' | 'OBSOLETE'
 
+export interface ControlledFileProjectProduct {
+  projectCodeId: number
+  productMasterId: number | null
+  productCode: string | null
+  productName: string | null
+  source: 'PRODUCT_MASTER' | 'PROJECT_CODE' | 'UNBOUND'
+}
+
+export const previewControlledFileProjectProduct = (projectCodeId: number): Promise<ControlledFileProjectProduct> =>
+  request.get({ url: '/dcc/controlled-files/project-product', params: { projectCodeId } })
+
 export const DCC_CONTROLLED_FILE_ACTIONS = [
   'VIEW',
   'PREVIEW',
@@ -148,6 +159,7 @@ export interface ControlledFileUploadRespVO {
 export type UploadPreviewPurpose =
   | 'SOURCE'
   | 'DRAWING_PDF'
+  | 'APPROVAL_PDF'
   | 'TRAINING_RECORD'
   | 'EXTERNAL_REVIEW_OUTPUT'
 
@@ -168,6 +180,8 @@ export interface ControlledFileUploadTemporaryStatusRespVO {
 export interface ControlledFileUploadPreviewContext {
   categoryId: number
   sessionId: string
+  controlledFileId?: number | string
+  taskId?: string
 }
 
 export interface ControlledFilePreviewMetadataVO {
@@ -404,6 +418,8 @@ export interface ControlledFileVersionHistoryVO {
   checkedOutByName?: string | null
   checkedOutTime?: number | null
   checkedOutReason?: string | null
+  canPrint?: boolean
+  actionProjection?: DccControlledFileActionProjectionVO | null
 }
 
 export interface ControlledFileDistributionStatusVO {
@@ -696,6 +712,7 @@ export interface ControlledFileCheckoutReqVO {
 }
 
 export interface ControlledFileCheckinReqVO {
+  versionChangeType: 'MINOR' | 'MAJOR'
   uploadTicket?: string
   drawingPdfUploadTicket?: string
   sessionId?: string
@@ -705,12 +722,6 @@ export interface ControlledFileCheckinReqVO {
 
 export interface ControlledFileCancelCheckoutReqVO {
   reason: string
-}
-
-export interface ControlledFileMajorRevisionReqVO {
-  sourceControlledFileId: number | string
-  reason: string
-  idempotencyKey: string
 }
 
 export interface ControlledFileRelatedFileVO {
@@ -1631,6 +1642,8 @@ export const uploadControlledFilePreview = async (
   formData.append('categoryId', String(context.categoryId))
   formData.append('sessionId', context.sessionId)
   formData.append('purpose', purpose)
+  if (context.controlledFileId != null) formData.append('controlledFileId', String(context.controlledFileId))
+  if (context.taskId) formData.append('taskId', context.taskId)
   const res = await request.upload({
     url: '/dcc/controlled-files/upload-preview',
     data: formData,
@@ -1734,19 +1747,6 @@ export const getControlledFileUploadDirectoryTree = async (
   })
 }
 
-export const getControlledFileUploadRevisionCandidates = async (params: {
-  dccProjectCodeId: number
-  fileTypeTaxonomyId: number
-  keyword?: string
-  pageNo?: number
-  pageSize?: number
-}): Promise<PageResult<ControlledFileVO[]>> => {
-  return await request.get({
-    url: '/dcc/controlled-files/upload-revision-candidates',
-    params
-  })
-}
-
 export const getControlledFileBrowserPage = async (
   params: ControlledFilePageReqVO
 ): Promise<PageResult<ControlledFileVO[]>> => {
@@ -1767,10 +1767,6 @@ export const cancelCheckoutControlledFile = async (
   id: number | string,
   data: ControlledFileCancelCheckoutReqVO
 ) => await request.post({ url: `/dcc/controlled-files/${id}/checkout/cancel`, data })
-
-export const createControlledFileMajorRevision = async (
-  data: ControlledFileMajorRevisionReqVO
-): Promise<number | string> => await request.post({ url: '/dcc/controlled-files/major-revision', data })
 
 export const getControlledFileBrowserExtensionBlacklist = async (): Promise<ControlledFileBrowserExtensionBlacklistRespVO> => {
   return await request.get({ url: '/dcc/controlled-files/browser-extension-blacklist' })
@@ -1975,13 +1971,6 @@ export const rejectExternalFileReviewTask = async (
   )
 }
 
-export const returnControlledFileTask = async (
-  id: number | string,
-  data: ControlledFileReturnTaskReqVO
-): Promise<boolean> => {
-  return await postControlledFileTaskAction<boolean>(`/dcc/controlled-files/${id}/return-task`, data)
-}
-
 export const returnExternalFileReviewTask = async (
   id: number | string,
   data: ControlledFileReturnTaskReqVO
@@ -1992,13 +1981,6 @@ export const returnExternalFileReviewTask = async (
   )
 }
 
-export const transferControlledFileTask = async (
-  id: number | string,
-  data: ControlledFileTransferTaskReqVO
-): Promise<boolean> => {
-  return await postControlledFileTaskAction<boolean>(`/dcc/controlled-files/${id}/transfer-task`, data)
-}
-
 export const transferExternalFileReviewTask = async (
   id: number | string,
   data: ControlledFileTransferTaskReqVO
@@ -2007,13 +1989,6 @@ export const transferExternalFileReviewTask = async (
     `/dcc/external-file-reviews/${id}/transfer-task`,
     data
   )
-}
-
-export const createControlledFileSignTask = async (
-  id: number | string,
-  data: ControlledFileCreateSignTaskReqVO
-): Promise<boolean> => {
-  return await postControlledFileTaskAction<boolean>(`/dcc/controlled-files/${id}/sign-task`, data)
 }
 
 export const createExternalFileReviewSignTask = async (

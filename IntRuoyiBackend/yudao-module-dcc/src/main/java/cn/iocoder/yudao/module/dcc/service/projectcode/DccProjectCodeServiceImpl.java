@@ -240,6 +240,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
         List<DccControlledFileRespVO> associatedRows = controlledFileMapper
                 .selectAssociatedFilesByProjectCodeId(id, null)
                 .stream()
+                .filter(file -> controlledFileQueryService.canViewFileName(userId, file))
                 .filter(file -> matchesAssociatedFileFilters(file, reqVO.getKeyword(), reqVO.getStatus()))
                 .map(this::toAssociatedControlledFileRespVO)
                 .collect(Collectors.toCollection(ArrayList::new));

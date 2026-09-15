@@ -418,6 +418,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
         DccControlledFileDO controlledFile = insertControlledFile(projectCode.getId(), "DCC-7001",
                 "controlled-file.pdf", null, null);
+        when(controlledFileQueryService.canViewFileName(eq(99L), any(DccControlledFileDO.class))).thenReturn(true);
         DccControlledFileRespVO registrationFile = new DccControlledFileRespVO();
         registrationFile.setId(8001L);
         registrationFile.setFileName("registration-certificate.pdf");
@@ -445,10 +446,24 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void associatedFilePageExcludesFilesWhoseNameIsNotAuthorized() {
+        var project = insertProjectCode("1", "项目权限测试", "CODE-PRIVATE");
+        insertControlledFile(project.getId(), "PRIVATE-1", "private.pdf", null, null);
+        var request = new DccProjectCodeControlledFilePageReqVO();
+        request.setPageNo(1);
+        request.setPageSize(20);
+        when(controlledFileQueryService.canViewFileName(eq(99L), any(DccControlledFileDO.class))).thenReturn(false);
+        var result = projectCodeService.getControlledFilePage(99L, project.getId(), request);
+        assertEquals(0L, result.getTotal());
+        assertEquals(List.of(), result.getList());
+    }
+
+    @Test
     void controlledFilePageShouldListPendingUploadedControlledFilesForUploadRelation() {
         DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
         DccControlledFileDO pendingFile = insertControlledFile(projectCode.getId(), "PENDING-001",
                 "待审批上传文件.pdf", null, null, DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus());
+        when(controlledFileQueryService.canViewFileName(eq(99L), any(DccControlledFileDO.class))).thenReturn(true);
 
         DccProjectCodeControlledFilePageReqVO reqVO = new DccProjectCodeControlledFilePageReqVO();
         reqVO.setPageNo(1);

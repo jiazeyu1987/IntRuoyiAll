@@ -188,6 +188,7 @@ class DccControlledFileTaskActionApiTest extends BaseMockitoUnitTest {
         }
     }
 
+    /* Retired DCC task mutation endpoints are intentionally absent from the controller.
     @Test
     void returnTask_delegatesToWorkflowService() {
         DccControlledFileReturnTaskReqVO reqVO = new DccControlledFileReturnTaskReqVO();
@@ -243,6 +244,7 @@ class DccControlledFileTaskActionApiTest extends BaseMockitoUnitTest {
         }
     }
 
+    */
     @Test
     void replayMessageJobs_delegatesToReplayService() {
         DccControlledFileMessageJobReplayReqVO reqVO = new DccControlledFileMessageJobReplayReqVO();

@@ -45,6 +45,8 @@ class DccControlledFileRelatedFileServiceTest extends BaseMockitoUnitTest {
 
     @Test
     void validateAndBindRelatedFiles_multipleSameProjectFilesCreatesExplicitRelations() {
+        when(controlledFileMapper.selectById(100L)).thenReturn(DccControlledFileDO.builder()
+                .id(100L).masterId(300L).dccProjectCodeId(20L).build());
         DccControlledFileDO first = relatedFile(201L, 301L, "DOC-201", "工艺文件", "V1.0");
         DccControlledFileDO second = relatedFile(202L, 302L, "DOC-202", "检验文件", "V2.0");
         when(controlledFileMapper.selectAssociatedFilesByProjectCodeId(20L, List.of(201L, 202L)))
@@ -61,6 +63,18 @@ class DccControlledFileRelatedFileServiceTest extends BaseMockitoUnitTest {
         assertEquals(List.of(201L, 202L), captor.getAllValues().stream()
                 .map(DccControlledFileRelatedFileDO::getRelatedControlledFileId).toList());
         assertEquals("UPLOAD", captor.getAllValues().get(0).getRelationSource());
+    }
+
+    @Test
+    void validateAndBindRelatedFiles_missingOwnerCannotCreateOrphanRelations() {
+        when(controlledFileMapper.selectAssociatedFilesByProjectCodeId(20L, List.of(201L)))
+                .thenReturn(List.of(relatedFile(201L, 301L, "DOC-201", "Target", "A/1")));
+        when(controlledFileMasterMapper.selectBatchIds(List.of(301L))).thenReturn(List.of(
+                DccControlledFileMasterDO.builder().id(301L).currentActiveControlledFileId(201L).build()));
+
+        assertThrows(ServiceException.class,
+                () -> service.validateAndBindRelatedFiles(100L, 20L, List.of(201L)));
+        verify(relatedFileMapper, never()).insert(any(DccControlledFileRelatedFileDO.class));
     }
 
     @Test
@@ -168,7 +182,7 @@ class DccControlledFileRelatedFileServiceTest extends BaseMockitoUnitTest {
     private DccControlledFileDO relatedFile(Long id, Long masterId, String fileNumber, String fileName,
                                              String versionNo) {
         return DccControlledFileDO.builder().id(id).masterId(masterId).fileNumber(fileNumber)
-                .fileName(fileName).versionNo(versionNo).status("ACTIVE").build();
+                .fileName(fileName).versionNo(versionNo).dccProjectCodeId(20L).status("ACTIVE").build();
     }
 
     private DccControlledFileRelatedFileDO relation(Long id, Long controlledFileId, Long relatedFileId,

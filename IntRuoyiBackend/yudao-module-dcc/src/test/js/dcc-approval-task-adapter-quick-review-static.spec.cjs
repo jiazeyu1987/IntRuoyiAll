@@ -57,7 +57,7 @@ assert.match(
 )
 assert.match(
   adapter,
-  /setPassword\(password\)[\s\S]*?setReason\(context\.getReason\(\)\)/,
+  /setPassword\(password\)[\s\S]*?setReason\(requireApprovalReason\(context\.getReason\(\)\)\)/,
   'DCC approve must carry the signature password and review reason to the workflow service.'
 )
 assert.match(

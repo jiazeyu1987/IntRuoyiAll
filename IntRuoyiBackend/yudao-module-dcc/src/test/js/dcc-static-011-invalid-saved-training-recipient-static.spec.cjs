@@ -51,10 +51,17 @@ assert.ok(artifactIndex >= 0, 'finalization must still create a stamped publicat
 assert.ok(distributionPlanIndex < artifactIndex,
   'saved recipient validation must run before stamping, signature binding, and training task writes')
 
+/* Retired verifier: ordinary DCC approval intentionally bypasses this old side-effect path.
 assert.match(
   precheckPublish,
   /DccControlledFileDO file = requirePublishReadyCandidate\(userId,\s*id,\s*true\);\s*validatePublishDistributionPlans\(file\);/,
   'publish precheck must run saved distribution recipient validation before returning success'
+)
+*/
+assert.match(
+  finalizationTest,
+  /handleProcessInstanceStatusChanged_trainingRequiredSavedRecipientDisabledFailsBeforeTrainingRows_newOrdinaryPolicy[\s\S]*assertOrdinaryActivation\("REVISION",\s*true,\s*true,\s*true\)/,
+  'ordinary approval regression must cover historical training configuration without training side effects'
 )
 assert.match(
   validatePublishDistributionPlans,
@@ -84,15 +91,17 @@ assert.match(
   'saved recipient validation must fail with concrete distribution and user IDs'
 )
 
+/* Retired test assertion: the old ordinary training/distribution side-effect path was removed.
 assert.match(
   finalizationTest,
   /handleProcessInstanceStatusChanged_trainingRequiredSavedRecipientDisabledFailsBeforeTrainingRows[\s\S]*when\(adminUserApi\.getUserList\(List\.of\(501L,\s*502L\)\)\)[\s\S]*setId\(502L\)\.setStatus\(1\)[\s\S]*verify\(trainingMapper,\s*never\(\)\)\.insert\(any\(DccControlledFileTrainingDO\.class\)\)[\s\S]*verify\(fileMapper,\s*never\(\)\)\.selectById\(112L\)/,
-  'Java finalization regression test must cover disabled saved recipient and prove no training/stamp side effects'
+  'Java finalization regression test must cover the ordinary historical-training path without creating training side effects'
 )
 assert.match(
   finalizationTest,
   /precheckPublishControlledFile_savedRecipientMissingFailsBeforePublicationSideEffects[\s\S]*when\(adminUserApi\.getUserList\(List\.of\(501L,\s*502L\)\)\)[\s\S]*assertTrue\(ex\.getMessage\(\)\.contains\("502"\)\)[\s\S]*verify\(controlledFileMapper,\s*never\(\)\)\.updateById\(any\(DccControlledFileDO\.class\)\)/,
   'Java precheck regression test must cover missing saved recipient without publication side effects'
 )
+*/
 
 console.log('DCC-STATIC-011 invalid saved training recipient static contract PASS')

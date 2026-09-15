@@ -163,6 +163,8 @@ const windowFocused = ref(window.document.hasFocus())
 
 let heartbeatTimer: number | undefined
 let activeClientSessionId = ''
+let mounted = false
+let startRequestSequence = 0
 
 const progressId = computed(() => String(route.params.progressId || ''))
 const deptNameMap = computed(() => new Map(departments.value.map((item) => [item.id, item.name])))
@@ -288,10 +290,25 @@ const startSessionIfNeeded = async () => {
   if (!isSessionCountable() || sessionActive.value) {
     return
   }
-  activeClientSessionId = crypto.randomUUID()
-  task.value = await startTrainingViewSession(progressId.value, {
-    clientSessionId: activeClientSessionId
+  const requestSequence = ++startRequestSequence
+  const requestedSessionId = crypto.randomUUID()
+  activeClientSessionId = requestedSessionId
+  const startedTask = await startTrainingViewSession(progressId.value, {
+    clientSessionId: requestedSessionId
   })
+  if (!mounted || requestSequence !== startRequestSequence ||
+      activeClientSessionId !== requestedSessionId || !isSessionCountable()) {
+    try {
+      await stopTrainingViewSessionKeepalive(progressId.value, { clientSessionId: requestedSessionId })
+    } catch (error) {
+      console.warn('DCC training session arrived after the page was no longer countable', error)
+    }
+    if (activeClientSessionId === requestedSessionId) {
+      activeClientSessionId = ''
+    }
+    return
+  }
+  task.value = startedTask
   sessionActive.value = true
   heartbeatTimer = window.setInterval(async () => {
     if (!sessionActive.value || !activeClientSessionId) {
@@ -313,6 +330,7 @@ const startSessionIfNeeded = async () => {
 }
 
 const stopSession = async (useKeepalive = false) => {
+  startRequestSequence += 1
   if (!sessionActive.value || !activeClientSessionId) {
     return
   }
@@ -382,6 +400,11 @@ const handleAcknowledge = async () => {
 }
 
 onMounted(async () => {
+  mounted = true
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('focus', handleWindowFocus)
+  window.addEventListener('blur', handleWindowBlur)
+  window.addEventListener('pagehide', handlePageHide)
   try {
     updateBrowserAttentionState()
     await loadBaseData()
@@ -394,13 +417,11 @@ onMounted(async () => {
       '培训任务加载失败，请查看错误提示后重试。'
     )
   }
-  document.addEventListener('visibilitychange', handleVisibilityChange)
-  window.addEventListener('focus', handleWindowFocus)
-  window.addEventListener('blur', handleWindowBlur)
-  window.addEventListener('pagehide', handlePageHide)
 })
 
 onBeforeUnmount(() => {
+  mounted = false
+  startRequestSequence += 1
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   window.removeEventListener('focus', handleWindowFocus)
   window.removeEventListener('blur', handleWindowBlur)

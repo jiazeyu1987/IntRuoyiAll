@@ -26,6 +26,8 @@ public interface DccControlledFileQueryService {
 
     DccControlledFileRespVO getControlledFile(Long userId, Long id);
 
+    boolean canViewFileName(Long userId, DccControlledFileDO file);
+
     DccControlledFileRespVO checkoutControlledFile(Long userId, Long id);
 
     DccControlledFileRespVO checkoutControlledFile(Long userId, Long id,

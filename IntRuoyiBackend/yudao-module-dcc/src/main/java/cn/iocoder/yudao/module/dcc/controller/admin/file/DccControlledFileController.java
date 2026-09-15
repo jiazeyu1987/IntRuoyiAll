@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.dcc.controller.admin.file;
 
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccProjectProductRespVO;
+
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
@@ -12,12 +14,10 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledPreview
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileApproveTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileBatchRecognitionCreateReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileBatchRecognitionTaskRespVO;
-import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCreateSignTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCurrentVersionRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCheckoutReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCheckinReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCancelCheckoutReqVO;
-import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMajorRevisionReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMetadataUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMessageJobReplayReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMetadataImportPreviewRespVO;
@@ -39,7 +39,6 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePro
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePublishReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRecognitionMigrationImportPreviewRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRejectTaskReqVO;
-import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileReturnTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRoutePreviewReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
@@ -58,7 +57,6 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSub
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitIterationReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessRespVO;
-import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTransferTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadDirectoryTreeRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadNameOptionRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadPreviewReqVO;
@@ -201,7 +199,7 @@ public class DccControlledFileController {
 
     @PostMapping("/upload-preview")
     @Operation(summary = "Upload one controlled file before submit")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') or (#reqVO.purpose == 'APPROVAL_PDF' and @ss.hasPermission('dcc:controlled-file:approve'))")
     public CommonResult<DccControlledFileUploadRespVO> uploadPreviewFile(@Valid DccControlledFileUploadPreviewReqVO reqVO,
                                                                          HttpServletRequest request)
             throws Exception {
@@ -209,9 +207,17 @@ public class DccControlledFileController {
                 DccRequestAuditContext.from(request, null)));
     }
 
+    @GetMapping("/project-product")
+    @Operation(summary = "解析上传项目的正式产品编号")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<DccProjectProductRespVO> previewProjectProduct(
+            @RequestParam("projectCodeId") Long projectCodeId) {
+        return success(workflowService.previewProjectProduct(getLoginUserId(), projectCodeId));
+    }
+
     @GetMapping("/upload-temporary/status")
     @Operation(summary = "Get current user temporary upload status by request id")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:submit','dcc:controlled-file:approve')")
     public CommonResult<DccControlledFileUploadTemporaryStatusRespVO> getUploadTemporaryStatus(
             @RequestParam("requestId") String requestId) {
         return success(toTemporaryStatusRespVO(
@@ -220,7 +226,7 @@ public class DccControlledFileController {
 
     @PostMapping("/upload-temporary/session-cleanup")
     @Operation(summary = "Clean current user's unbound temporary uploads for one upload session")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:submit','dcc:controlled-file:approve')")
     public CommonResult<DccControlledFileUploadTemporaryStatusRespVO> cleanupUploadTemporarySession(
             @Valid @RequestBody DccControlledFileUploadTemporaryCleanupReqVO reqVO,
             HttpServletRequest request) throws Exception {
@@ -246,7 +252,7 @@ public class DccControlledFileController {
 
     @PostMapping("/upload-temporary/ticket-cleanup")
     @Operation(summary = "Clean one current-user unbound temporary upload ticket")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:submit','dcc:controlled-file:approve')")
     public CommonResult<DccControlledFileUploadTemporaryStatusRespVO> cleanupUploadTemporaryTicket(
             @Valid @RequestBody DccControlledFileUploadTemporaryTicketCleanupReqVO reqVO,
             HttpServletRequest request) throws Exception {
@@ -323,19 +329,6 @@ public class DccControlledFileController {
         return success(queryService.getUploadDirectoryTree(categoryId));
     }
 
-    @GetMapping("/upload-revision-candidates")
-    @Operation(summary = "List active revision candidates by upload project and file type taxonomy")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
-    public CommonResult<PageResult<DccControlledFileRespVO>> getUploadRevisionCandidates(
-            @RequestParam("dccProjectCodeId") Long dccProjectCodeId,
-            @RequestParam("fileTypeTaxonomyId") Long fileTypeTaxonomyId,
-            @RequestParam(value = "keyword", required = false) String keyword,
-            @RequestParam(value = "pageNo", defaultValue = "1") Integer pageNo,
-            @RequestParam(value = "pageSize", defaultValue = "10") Integer pageSize) {
-        return success(workflowService.getUploadRevisionCandidates(getLoginUserId(), dccProjectCodeId,
-                fileTypeTaxonomyId, keyword, pageNo, pageSize));
-    }
-
     @PostMapping("/working")
     @Operation(summary = "Create a WORKING controlled file iteration without starting approval")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
@@ -349,14 +342,6 @@ public class DccControlledFileController {
     public CommonResult<Long> submitWorkingIteration(@PathVariable("id") Long id,
                                                       @Valid @RequestBody DccControlledFileSubmitIterationReqVO reqVO) {
         return success(workflowService.submitWorkingIteration(getLoginUserId(), id, reqVO));
-    }
-
-    @PostMapping("/major-revision")
-    @Operation(summary = "Create the next major revision from a selected iteration")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
-    public CommonResult<Long> createMajorRevision(
-            @Valid @RequestBody DccControlledFileMajorRevisionReqVO reqVO) {
-        return success(workflowService.createMajorRevision(getLoginUserId(), reqVO));
     }
 
     @PostMapping("/nas-transfer")
@@ -746,33 +731,6 @@ public class DccControlledFileController {
                 .header(org.springframework.http.HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
                         org.springframework.http.HttpHeaders.CONTENT_DISPOSITION)
                 .body(artifact.bytes());
-    }
-
-    @PostMapping("/{id:\\d+}/return-task")
-    @Operation(summary = "Return one DCC workflow task with password signature")
-    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:review','dcc:controlled-file:approve')")
-    public CommonResult<Boolean> returnTask(@PathVariable("id") Long id,
-                                            @Valid @RequestBody DccControlledFileReturnTaskReqVO reqVO) {
-        workflowService.returnTask(getLoginUserId(), id, reqVO);
-        return success(true);
-    }
-
-    @PostMapping("/{id:\\d+}/transfer-task")
-    @Operation(summary = "Transfer one DCC workflow task with password signature")
-    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:review','dcc:controlled-file:approve')")
-    public CommonResult<Boolean> transferTask(@PathVariable("id") Long id,
-                                              @Valid @RequestBody DccControlledFileTransferTaskReqVO reqVO) {
-        workflowService.transferTask(getLoginUserId(), id, reqVO);
-        return success(true);
-    }
-
-    @PostMapping("/{id:\\d+}/sign-task")
-    @Operation(summary = "Create DCC workflow sign task with password signature")
-    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:review','dcc:controlled-file:approve')")
-    public CommonResult<Boolean> createSignTask(@PathVariable("id") Long id,
-                                                @Valid @RequestBody DccControlledFileCreateSignTaskReqVO reqVO) {
-        workflowService.createSignTask(getLoginUserId(), id, reqVO);
-        return success(true);
     }
 
     @PostMapping("/{id:\\d+}/stamp-retry")

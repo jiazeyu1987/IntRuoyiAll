@@ -23,8 +23,5 @@ class DccImpactAssessmentArchitectureTest {
                     .filter(candidate -> candidate.getName().equals(methodName)).findFirst().orElseThrow();
             assertNotNull(method.getAnnotation(Transactional.class), methodName + " must be transactional");
         }
-        assertNotNull(DccImpactRevisionCommandService.class.getDeclaredMethod(
-                "createAndLinkMajorRevision", Long.class, Long.class, Integer.class, Long.class, String.class)
-                .getAnnotation(Transactional.class));
     }
 }

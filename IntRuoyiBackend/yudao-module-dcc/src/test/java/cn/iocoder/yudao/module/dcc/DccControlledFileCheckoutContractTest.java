@@ -24,8 +24,8 @@ class DccControlledFileCheckoutContractTest {
         assertTrue(controller.contains("queryService.checkoutControlledFile(getLoginUserId(), id, reqVO)"));
         assertTrue(controller.contains("queryService.checkinControlledFile(getLoginUserId(), id, reqVO)"));
         assertTrue(controller.contains("queryService.cancelCheckoutControlledFile(getLoginUserId(), id, reqVO)"));
-        assertTrue(controller.contains("/major-revision"));
-        assertTrue(controller.contains("workflowService.createMajorRevision(getLoginUserId(), reqVO)"));
+        assertFalse(controller.contains("/major-revision"));
+        assertFalse(controller.contains("upload-revision-candidates"));
     }
 
     @Test

@@ -1948,21 +1948,7 @@
           />
         </el-form-item>
         <template v-if="shouldCollectFourthNodeFiles">
-          <el-form-item label="存入路径确认" :error="actionDialog.fieldErrors.confirmedDirectoryId">
-            <el-tree-select
-              v-model="fourthNodeUpload.confirmedDirectoryId"
-              class="!w-full"
-              data-testid="dcc-doc-control-confirmed-directory"
-              :data="docControlDirectoryTreeOptions"
-              :props="docControlDirectoryTreeProps"
-              node-key="id"
-              filterable
-              default-expand-all
-              :loading="docControlDirectoryTreeLoading"
-              placeholder="请选择存入路径"
-              @change="clearActionDialogFieldError('confirmedDirectoryId')"
-            />
-          </el-form-item>
+          <el-alert title="最终批准后按正式默认目录自动存储并生效，无需选择分发部门或提交培训记录。" type="info" :closable="false" />
           <el-form-item label="盖章 PDF" :error="actionDialog.fieldErrors.stampedPdfUploadTicket">
             <div class="w-full">
               <el-upload
@@ -1986,57 +1972,6 @@
                 {{ fourthNodeUpload.stampedPdf.fileName }}
               </div>
             </div>
-          </el-form-item>
-          <el-form-item
-            label="文件下发范围"
-            :error="actionDialog.fieldErrors.selectedDistributionScopes"
-          >
-            <el-tree-select
-              v-model="selectedDistributionDepartmentIds"
-              class="!w-full"
-              data-testid="dcc-doc-control-distribution-departments"
-              :data="departmentTreeOptions"
-              :props="departmentTreeProps"
-              node-key="id"
-              multiple
-              show-checkbox
-              collapse-tags
-              collapse-tags-tooltip
-              filterable
-              default-expand-all
-              placeholder="请选择下发部门"
-            />
-            <el-table
-              v-if="fourthNodeUpload.selectedDistributionScopes.length"
-              class="mt-8px"
-              data-testid="dcc-doc-control-distribution-scopes"
-              :data="fourthNodeUpload.selectedDistributionScopes"
-              border
-              size="small"
-            >
-              <el-table-column label="部门" min-width="180">
-                <template #default="{ row }">
-                  {{ deptNameMap.get(row.departmentId) || `部门#${row.departmentId}` }}
-                </template>
-              </el-table-column>
-              <el-table-column label="下发介质" width="220">
-                <template #default="{ row }">
-                  <el-radio-group
-                    v-model="row.distributionMedium"
-                    size="small"
-                    @change="clearActionDialogFieldError('selectedDistributionScopes')"
-                  >
-                    <el-radio-button
-                      v-for="option in docControlDistributionMediumOptions"
-                      :key="option.value"
-                      :label="option.value"
-                    >
-                      {{ option.label }}
-                    </el-radio-button>
-                  </el-radio-group>
-                </template>
-              </el-table-column>
-            </el-table>
           </el-form-item>
         </template>
         <template v-if="shouldCollectExternalReviewConclusion">
@@ -2715,7 +2650,6 @@ import {
   cleanupControlledFileUploadSession,
   createControlledFilePrintRecord,
   createControlledFileUploadSessionId,
-  createControlledFileSignTask,
   createDistributionRecipientSignTask,
   createExternalFileReviewSignTask,
   deleteWithdrawnControlledFile,
@@ -2735,9 +2669,7 @@ import {
   rejectExternalFileReviewTask,
   retryControlledFileStamp,
   returnExternalFileReviewTask,
-  returnControlledFileTask,
   transferExternalFileReviewTask,
-  transferControlledFileTask,
   uploadControlledFileTrainingRecord,
   uploadControlledFilePreview,
   withdrawControlledFile,
@@ -4426,7 +4358,14 @@ const loadActivePublishAction = async (detail: ControlledFileVO) => {
   }
 }
 
-const loadData = async () => {
+let detailLoadSequence = 0
+
+const isCurrentDetailLoad = (sequence: number, requestedId: string, requestedRoute: string) =>
+  sequence === detailLoadSequence &&
+  requestedId === controlledFileId.value &&
+  requestedRoute === route.fullPath
+
+const loadData = async (sequence: number, requestedId: string, requestedRoute: string) => {
   const [
     detail,
     categoryList,
@@ -4448,6 +4387,9 @@ const loadData = async () => {
       ? Promise.resolve(null)
       : getActiveApprovalPrintTemplate()
   ])
+  if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) {
+    return false
+  }
   fileDetail.value = detail
   await loadActiveObsoleteAction(detail)
   await loadActivePublishAction(detail)
@@ -4472,6 +4414,7 @@ const loadData = async () => {
   )
   departmentList.value = departments
   deptNameMap.value = new Map(departments.map((item: DeptVO) => [item.id as number, item.name]))
+  return true
 }
 
 const loadDccSignatureEvidenceList = async () => {
@@ -4559,7 +4502,8 @@ const syncStageProgress = () => {
   })
 }
 
-const loadApprovalDetail = async () => {
+const loadApprovalDetail = async (sequence = detailLoadSequence, requestedId = controlledFileId.value,
+                                  requestedRoute = route.fullPath) => {
   const processInstanceId = String(route.query.processInstanceId || fileDetail.value?.processInstanceId || '')
   const taskId = String(route.query.taskId || '')
   if (isBrowserTraceabilityPage.value || !processInstanceId) {
@@ -4577,6 +4521,9 @@ const loadApprovalDetail = async () => {
         ? ProcessInstanceApi.getApprovalDetail({ processInstanceId, taskId })
         : Promise.resolve(null)
     ])
+    if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) {
+      return
+    }
     const normalizedTaskList = taskList as DccTaskLike[]
     approvalTaskList.value = normalizedTaskList
     approvalTodoTask.value = detail?.todoTask || findCurrentUserTodoTask(normalizedTaskList)
@@ -4587,11 +4534,19 @@ const loadApprovalDetail = async () => {
 }
 
 const reloadAll = async () => {
+  const sequence = ++detailLoadSequence
+  const requestedId = controlledFileId.value
+  const requestedRoute = route.fullPath
   try {
     accessExplanationError.value = ''
-    await loadData()
+    if (!await loadData(sequence, requestedId, requestedRoute)) {
+      return
+    }
     await loadDccSignatureEvidenceList()
-    await loadApprovalDetail()
+    await loadApprovalDetail(sequence, requestedId, requestedRoute)
+    if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) {
+      return
+    }
     await openControlledPrintDialogFromRoute()
   } catch (error) {
     await loadAccessExplanationOnly()
@@ -4884,9 +4839,22 @@ const handleApplicantTrainingRecordExceed: UploadProps['onExceed'] = () => {
 }
 
 const handleStampedPdfChange: UploadProps['onChange'] = async (file, uploadFiles) => {
-  if (!file.raw) {
+  if (!file.raw || fourthNodeUpload.stampedLoading) {
     return
   }
+  const controlledFileId = fileDetail.value?.id
+  const taskId = String(approvalTodoTask.value?.id || '')
+  if (!controlledFileId || !taskId) {
+    actionDialog.inlineError = '当前批准任务或文件版本缺失，请刷新后重试'
+    return
+  }
+  const sessionPrefix = `dcc-approval:${controlledFileId}:${taskId.length}:${taskId}:`
+  if (!fourthNodeUploadSessionId.value.startsWith(sessionPrefix)) {
+    fourthNodeUploadSessionId.value = sessionPrefix + fourthNodeUploadSessionId.value
+  }
+  const sessionId = fourthNodeUploadSessionId.value
+  const isCurrent = () => fileDetail.value?.id === controlledFileId &&
+    String(approvalTodoTask.value?.id || '') === taskId && fourthNodeUploadSessionId.value === sessionId
   if (!isPdfUploadFile({ name: file.name, raw: file.raw as File })) {
     actionDialog.fieldErrors.stampedPdfUploadTicket = '盖章 PDF 必须为 PDF 格式'
     stampedPdfUploadRef.value?.clearFiles()
@@ -4899,12 +4867,14 @@ const handleStampedPdfChange: UploadProps['onChange'] = async (file, uploadFiles
   fourthNodeUpload.stampedPdf = undefined
   fourthNodeUpload.stampedLoading = true
   try {
-    fourthNodeUpload.stampedPdf = await uploadControlledFilePreview(
+    const uploaded = await uploadControlledFilePreview(
       file.raw as File,
-      'DRAWING_PDF',
-      buildDetailUploadPreviewContext(fourthNodeUploadSessionId.value)
+      'APPROVAL_PDF',
+      { ...buildDetailUploadPreviewContext(sessionId), controlledFileId, taskId }
     )
+    if (isCurrent()) fourthNodeUpload.stampedPdf = uploaded
   } catch (error) {
+    if (!isCurrent()) return
     stampedPdfFileList.value = []
     fourthNodeUpload.stampedPdf = undefined
     actionDialog.inlineError = resolveReadSideErrorMessage(
@@ -4912,7 +4882,7 @@ const handleStampedPdfChange: UploadProps['onChange'] = async (file, uploadFiles
       '盖章 PDF 上传失败，请查看错误提示后重试。'
     )
   } finally {
-    fourthNodeUpload.stampedLoading = false
+    if (isCurrent()) fourthNodeUpload.stampedLoading = false
   }
 }
 
@@ -5062,12 +5032,7 @@ const refreshTaskActionReadiness = async () => {
     const readiness = await getControlledFileTaskActionReadiness(controlledFileId.value, {
       taskId,
       sessionId: fourthNodeUpload.stampedPdf?.sessionId,
-      stampedPdfUploadTicket: fourthNodeUpload.stampedPdf?.uploadTicket,
-      confirmedDirectoryId: fourthNodeUpload.confirmedDirectoryId,
-      selectedDistributionScopes: fourthNodeUpload.selectedDistributionScopes.map((scope) => ({
-        departmentId: scope.departmentId,
-        distributionMedium: scope.distributionMedium
-      }))
+      stampedPdfUploadTicket: fourthNodeUpload.stampedPdf?.uploadTicket
     })
     if (requestSeq !== taskActionReadinessRequestSeq) {
       return false
@@ -6235,14 +6200,6 @@ const openActionDialog = (mode: DccApprovalActionMode) => {
   if (mode === 'approve' && !isExternalReviewProcess.value) {
     void refreshTaskActionReadiness()
   }
-  if (mode === 'approve' && isFourthNodeApprovalTask.value && !isExternalReviewProcess.value) {
-    void loadDocControlDirectoryTree().catch((error) => {
-      const errorMessage = resolveReadSideErrorMessage(error, '存入路径加载失败，请处理后再继续。')
-      actionDialog.inlineError = errorMessage
-      actionDialog.fieldErrors.confirmedDirectoryId = errorMessage
-      message.error(errorMessage)
-    })
-  }
 }
 
 const closeActionDialog = async (submitted: boolean | MouseEvent = false) => {
@@ -6330,12 +6287,7 @@ const submitActionDialog = async () => {
         password: actionDialog.form.password,
         reason: actionDialog.form.reason,
         sessionId: fourthNodeUpload.stampedPdf?.sessionId,
-        stampedPdfUploadTicket: fourthNodeUpload.stampedPdf?.uploadTicket,
-        confirmedDirectoryId: fourthNodeUpload.confirmedDirectoryId,
-        selectedDistributionScopes: fourthNodeUpload.selectedDistributionScopes.map((scope) => ({
-          departmentId: scope.departmentId,
-          distributionMedium: scope.distributionMedium
-        }))
+        stampedPdfUploadTicket: fourthNodeUpload.stampedPdf?.uploadTicket
       },
       taskId: String(approvalTodoTask.value.id)
     })
@@ -6443,30 +6395,21 @@ const submitTaskActionDialog = async () => {
     const password = taskActionDialog.form.password
     const reason = taskActionDialog.form.reason.trim()
     if (taskActionDialog.mode === 'return') {
-      const submitReturnTask = isExternalReviewProcess.value
-        ? returnExternalFileReviewTask
-        : returnControlledFileTask
-      await submitReturnTask(controlledFileId.value, {
+      await returnExternalFileReviewTask(controlledFileId.value, {
         taskId,
         targetTaskDefinitionKey: taskActionDialog.form.targetTaskDefinitionKey,
         password,
         reason
       })
     } else if (taskActionDialog.mode === 'transfer') {
-      const submitTransferTask = isExternalReviewProcess.value
-        ? transferExternalFileReviewTask
-        : transferControlledFileTask
-      await submitTransferTask(controlledFileId.value, {
+      await transferExternalFileReviewTask(controlledFileId.value, {
         taskId,
         assigneeUserId: taskActionDialog.form.assigneeUserId as number,
         password,
         reason
       })
     } else {
-      const submitSignTask = isExternalReviewProcess.value
-        ? createExternalFileReviewSignTask
-        : createControlledFileSignTask
-      await submitSignTask(controlledFileId.value, {
+      await createExternalFileReviewSignTask(controlledFileId.value, {
         taskId,
         userIds: taskActionDialog.form.userIds,
         type: taskActionDialog.form.signType,

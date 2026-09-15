@@ -59,11 +59,16 @@ public class DccControlledFileRelatedFileServiceImpl implements DccControlledFil
                                 .distinct().toList()).stream()
                 .collect(Collectors.toMap(DccControlledFileMasterDO::getId, Function.identity()));
         DccControlledFileDO owner = controlledFileMapper.selectById(controlledFileId);
+        if (owner == null || owner.getMasterId() == null
+                || !Objects.equals(owner.getDccProjectCodeId(), projectCodeId)) {
+            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        }
         boolean containsInvalidCandidate = fileMap.values().stream()
                 .anyMatch(file -> !ACTIVE.getStatus().equals(file.getStatus()) || file.getMasterId() == null
                         || !Objects.equals(masterMap.get(file.getMasterId()) == null ? null
                                 : masterMap.get(file.getMasterId()).getCurrentActiveControlledFileId(), file.getId())
-                        || owner != null && Objects.equals(owner.getMasterId(), file.getMasterId()));
+                        || !Objects.equals(file.getDccProjectCodeId(), projectCodeId)
+                        || Objects.equals(owner.getMasterId(), file.getMasterId()));
         if (containsInvalidCandidate) {
             throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
         }

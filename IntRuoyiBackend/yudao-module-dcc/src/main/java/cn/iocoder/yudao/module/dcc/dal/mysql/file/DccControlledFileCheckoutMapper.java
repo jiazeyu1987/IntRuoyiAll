@@ -32,6 +32,7 @@ public interface DccControlledFileCheckoutMapper extends BaseMapperX<DccControll
               AND deleted = 0
             ORDER BY id DESC
             LIMIT 1
+            FOR UPDATE
             """)
     DccControlledFileCheckoutDO selectLatestByBaseIterationId(@Param("tenantId") Long tenantId,
                                                               @Param("baseIterationId") Long baseIterationId);
