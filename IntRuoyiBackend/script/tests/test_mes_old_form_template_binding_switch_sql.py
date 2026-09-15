@@ -27,6 +27,12 @@ def test_old_form_template_binding_switch_declares_contract_and_guards() -> None
     assert "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;" in sql
     assert "SET SESSION group_concat_max_len = 16777216;" in sql
     assert "SIGNAL SQLSTATE '45000'" in sql
+    assert "tmp_mes_old_form_template_recognized_fields" in sql
+    assert "tmp_mes_old_form_template_recognized_row_cells" in sql
+    assert "tmp_mes_old_form_template_visual_schema" in sql
+    assert "JSON_OBJECTAGG" in sql
+    assert "JSON_MERGE_PATCH" in sql
+    assert "recognized_schema_json" in sql
 
     for destructive in ("DROP TABLE", "TRUNCATE TABLE", "DELETE FROM"):
         assert destructive not in upper
@@ -57,6 +63,8 @@ def test_old_form_template_binding_switch_uses_version_identity_not_name_guessin
     assert ELECTRONIC_BATCH_RECORD_EXPR in sql
     assert "Source form template content is missing" in sql
     assert "Form template Jimu schema is invalid" in sql
+    assert "recognized_schema_json" in sql
+    assert "'sheetLayoutJson', CAST(JSON_OBJECT(" in sql
     assert "Target FORM_TEMPLATE report id conflicts" in sql
     assert "Target FORM_TEMPLATE sample key conflicts" in sql
 
@@ -80,7 +88,7 @@ def test_old_form_template_binding_switch_creates_new_center_records() -> None:
     assert "CREATE TEMPORARY TABLE `tmp_mes_old_form_template_snapshot_converted_reports` AS" in sql
     assert "CREATE TEMPORARY TABLE `tmp_mes_old_form_template_jimu_report_scope` AS" in sql
     assert "INSERT INTO `jimu_report`" in sql
-    assert "JSON_UNQUOTE(JSON_EXTRACT(tv.`jimu_schema_json`, '$.sheetLayoutJson'))" in sql
+    assert "JSON_UNQUOTE(JSON_EXTRACT(visual_schema.`schema_json`, '$.sheetLayoutJson'))" in sql
     assert "Form template designer json is invalid" in sql
     assert "GROUP_CONCAT(CAST(`report_json` AS CHAR CHARACTER SET utf8mb4) ORDER BY `binding_ord` SEPARATOR ',')" in sql
     assert "GROUP_CONCAT(CAST(`config_json` AS CHAR CHARACTER SET utf8mb4) ORDER BY `config_ord` SEPARATOR ',')" in sql

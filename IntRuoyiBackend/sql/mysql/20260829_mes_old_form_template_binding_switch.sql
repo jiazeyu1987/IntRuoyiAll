@@ -114,6 +114,93 @@ BEGIN
       SET MESSAGE_TEXT = 'mes_pro_route_version.route_snapshot_json is missing';
   END IF;
 
+  DROP TEMPORARY TABLE IF EXISTS `tmp_mes_old_form_template_recognized_fields`;
+  CREATE TEMPORARY TABLE `tmp_mes_old_form_template_recognized_fields` AS
+  SELECT
+    tv.`tenant_id`,
+    tv.`id` AS `template_version_id`,
+    fields.`field_ord`,
+    COALESCE(NULLIF(TRIM(fields.`label`), ''), NULLIF(TRIM(fields.`field_code`), '')) AS `label`
+  FROM `bpm_form_template_version` tv
+  JOIN JSON_TABLE(
+    CASE WHEN JSON_VALID(tv.`recognized_schema_json`) = 1 THEN tv.`recognized_schema_json` ELSE JSON_ARRAY() END,
+    '$[*]' COLUMNS (
+      `field_ord` FOR ORDINALITY,
+      `field_code` VARCHAR(128) PATH '$.fieldCode' NULL ON EMPTY,
+      `label` VARCHAR(255) PATH '$.label' NULL ON EMPTY
+    )
+  ) fields
+  WHERE tv.`deleted` = b'0'
+    AND JSON_VALID(tv.`recognized_schema_json`) = 1;
+
+  DROP TEMPORARY TABLE IF EXISTS `tmp_mes_old_form_template_recognized_row_cells`;
+  CREATE TEMPORARY TABLE `tmp_mes_old_form_template_recognized_row_cells` AS
+  SELECT
+    `tenant_id`,
+    `template_version_id`,
+    FLOOR((`field_ord` - 1) / 2) + 3 AS `row_index`,
+    JSON_OBJECTAGG(
+      CAST(CASE WHEN MOD(`field_ord` - 1, 2) = 0 THEN 0 ELSE 2 END AS CHAR),
+      JSON_OBJECT('text', COALESCE(`label`, ''))
+    ) AS `label_cells_json`,
+    JSON_OBJECTAGG(
+      CAST(CASE WHEN MOD(`field_ord` - 1, 2) = 0 THEN 1 ELSE 3 END AS CHAR),
+      JSON_OBJECT('text', '')
+    ) AS `value_cells_json`
+  FROM `tmp_mes_old_form_template_recognized_fields`
+  WHERE `label` IS NOT NULL
+  GROUP BY `tenant_id`, `template_version_id`, FLOOR((`field_ord` - 1) / 2) + 3;
+
+  DROP TEMPORARY TABLE IF EXISTS `tmp_mes_old_form_template_recognized_rows`;
+  CREATE TEMPORARY TABLE `tmp_mes_old_form_template_recognized_rows` AS
+  SELECT
+    `tenant_id`,
+    `template_version_id`,
+    JSON_OBJECTAGG(
+      CAST(`row_index` AS CHAR),
+      JSON_OBJECT(
+        'height', 36,
+        'cells', JSON_MERGE_PATCH(`label_cells_json`, `value_cells_json`)
+      )
+    ) AS `rows_json`
+  FROM `tmp_mes_old_form_template_recognized_row_cells`
+  GROUP BY `tenant_id`, `template_version_id`;
+
+  DROP TEMPORARY TABLE IF EXISTS `tmp_mes_old_form_template_visual_schema`;
+  CREATE TEMPORARY TABLE `tmp_mes_old_form_template_visual_schema` AS
+  SELECT
+    tv.`tenant_id`,
+    tv.`id` AS `template_version_id`,
+    CASE
+      WHEN JSON_VALID(tv.`jimu_schema_json`) = 1
+       AND JSON_EXTRACT(tv.`jimu_schema_json`, '$.sheetLayoutJson') IS NOT NULL
+        THEN tv.`jimu_schema_json`
+      WHEN recognized_rows.`rows_json` IS NOT NULL
+        THEN JSON_OBJECT(
+          'sheetLayoutJson', CAST(JSON_OBJECT(
+            'cols', JSON_OBJECT(
+              '0', JSON_OBJECT('width', 140),
+              '1', JSON_OBJECT('width', 220),
+              '2', JSON_OBJECT('width', 140),
+              '3', JSON_OBJECT('width', 220)
+            ),
+            'rows', recognized_rows.`rows_json`,
+            'styles', JSON_ARRAY(),
+            'merges', JSON_ARRAY()
+          ) AS CHAR),
+          'cellRules', JSON_ARRAY(),
+          'signatureCellMarkers', JSON_ARRAY(),
+          'assistRows', JSON_ARRAY(),
+          'fillAssignments', JSON_ARRAY()
+        )
+      ELSE NULL
+    END AS `schema_json`
+  FROM `bpm_form_template_version` tv
+  LEFT JOIN `tmp_mes_old_form_template_recognized_rows` recognized_rows
+    ON recognized_rows.`tenant_id` = tv.`tenant_id`
+   AND recognized_rows.`template_version_id` = tv.`id`
+  WHERE tv.`deleted` = b'0';
+
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_old_form_template_binding_scope`;
   CREATE TEMPORARY TABLE `tmp_mes_old_form_template_binding_scope` AS
   SELECT
@@ -133,7 +220,7 @@ BEGIN
     tv.`status` AS `template_version_status`,
     tv.`source_file_name`,
     tv.`source_file_content`,
-    tv.`jimu_schema_json`,
+    visual_schema.`schema_json` AS `jimu_schema_json`,
     LOWER(SHA2(FROM_BASE64(tv.`source_file_content`), 256)) COLLATE utf8mb4_unicode_ci AS `source_file_sha256`,
     CONCAT('FORMTPL:', tv.`id`) COLLATE utf8mb4_unicode_ci AS `report_id`,
     CONCAT('FORMTPL_', tv.`id`) COLLATE utf8mb4_unicode_ci AS `report_code`,
@@ -144,8 +231,11 @@ BEGIN
   LEFT JOIN `bpm_form_template_version` tv
     ON tv.`tenant_id` = rb.`tenant_id`
    AND tv.`template_id` = rb.`form_template_id`
-   AND tv.`id` = rb.`last_published_template_version_id`
-   AND tv.`deleted` = b'0'
+    AND tv.`id` = rb.`last_published_template_version_id`
+    AND tv.`deleted` = b'0'
+  LEFT JOIN `tmp_mes_old_form_template_visual_schema` visual_schema
+    ON visual_schema.`tenant_id` = rb.`tenant_id`
+   AND visual_schema.`template_version_id` = tv.`id`
   LEFT JOIN `jimu_report_category` cat
     ON CAST(cat.`tenant_id` AS UNSIGNED) = rb.`tenant_id`
    AND cat.`del_flag` = 0
@@ -638,9 +728,12 @@ BEGIN
     tv.`batch_record_report_id` AS `report_id`,
     tv.`batch_record_report_id` AS `report_code`,
     IFNULL(tv.`batch_record_report_name`, CONCAT(tv.`template_name`, ' ', tv.`version_no`)) AS `report_name`,
-    JSON_UNQUOTE(JSON_EXTRACT(tv.`jimu_schema_json`, '$.sheetLayoutJson')) AS `designer_json`,
+    JSON_UNQUOTE(JSON_EXTRACT(visual_schema.`schema_json`, '$.sheetLayoutJson')) AS `designer_json`,
     cat.`id` COLLATE utf8mb4_unicode_ci AS `report_category_id`
   FROM `bpm_form_template_version` tv
+  LEFT JOIN `tmp_mes_old_form_template_visual_schema` visual_schema
+    ON visual_schema.`tenant_id` = tv.`tenant_id`
+   AND visual_schema.`template_version_id` = tv.`id`
   JOIN `mes_pro_batch_record_report` r
     ON r.`report_id` = tv.`batch_record_report_id`
    AND r.`deleted` = b'0'

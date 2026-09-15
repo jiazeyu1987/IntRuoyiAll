@@ -196,6 +196,18 @@ def test_puhui_schedule_admin_preflight_accepts_root_smart_scheduling_menu() -> 
     assert "mes:pro-puhui-schedule:query" in text
 
 
+def test_old_form_template_binding_preflight_rejects_missing_jimu_layout_before_migration() -> None:
+    text = (TARGET_PREFLIGHT_ROOT / "20260829_mes_old_form_template_binding_switch.preflight.sql").read_text(encoding="utf-8")
+
+    assert "mes_pro_route_flow_process_batch_record" in text
+    assert "bpm_form_template_version" in text
+    assert "rb.form_template_id IS NOT NULL" in text
+    assert "rb.batch_record_report_id IS NULL" in text
+    assert "JSON_VALID(tv.jimu_schema_json)" in text
+    assert "$.sheetLayoutJson" in text
+    assert "tv.id IS NULL" in text
+
+
 def test_balloon_xlsx_cleanup_preflight_matches_current_or_legacy_target_contract() -> None:
     text = (TARGET_PREFLIGHT_ROOT / "20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup.preflight.sql").read_text(encoding="utf-8")
 

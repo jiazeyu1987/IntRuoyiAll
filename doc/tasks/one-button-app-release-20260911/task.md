@@ -36,6 +36,6 @@ P2-P5 不在本次执行范围，不实现完整状态机、持久化 workflow�
 
 ## Current Status
 
-in_progress
+blocked
 
-P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_plan.py` 尚未接受标准 `app-release` scope，多个 required SQL 对测试服真实数据状态存在硬编码或空基线缺口。本 worktree 已补齐 `app-release` 迁移预检合同、活跃路线菜单解析、璞慧排产管理员菜单父级兼容、清洗工序参数空规则 no-op、光固 I/II 空来源 no-op、C00 文本比较显式 collation、B04091/B09353 清洗温度空候选 no-op、IDI QA 旧源空基线 no-op，以及压力泵同名物料已绑定/`product_master_id IS NULL` 的 no-op 合同。R51 判废不复用，下一轮等待主线程使用新的应用提交继续生成 `release-20260915-one-button-app-r52` without-data/app-release 程序包。应用 worktree 仅执行本机测试和测试服只读诊断/预检；未在本应用 worktree 内执行正式服、审查服、MinIO 数据同步或全量数据库同步。
+P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_plan.py` 尚未接受标准 `app-release` scope，多个 required SQL 对测试服真实数据状态存在硬编码或空基线缺口。本 worktree 已补齐 `app-release` 迁移预检合同、活跃路线菜单解析、璞慧排产管理员菜单父级兼容、清洗工序参数空规则 no-op、光固 I/II 空来源 no-op、C00 文本比较显式 collation、B04091/B09353 清洗温度空候选 no-op、IDI QA 旧源空基线 no-op、压力泵同名物料已绑定/`product_master_id IS NULL` 的 no-op 合同，以及旧表单模板 Jimu 布局从正式识别字段构建的迁移合同。R53 在测试服版本切换前因历史模板缺少 `sheetLayoutJson` 阻断；修复尚未提交、隔离 MySQL 尚未验证，当前状态为 blocked，不得生成或发布新包。

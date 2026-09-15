@@ -103,3 +103,13 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 - GREEN: `python -X utf8 -m pytest -q script\tests\test_mes_pressure_pump_same_name_item_convergence_sql.py script\tests\test_release_target_preflight_files.py script\tests\test_release_preflight_plan.py --basetemp .tmp-r51-pressure-pump-green2` -> PASS，30 passed。
 - GREEN: test-server-readonly-preflight-pressure-pump -> PASS，使用新版 target preflight 在测试服只读事务中返回 `TARGET_PREFLIGHT_PASS:20260818_mes_pressure_pump_same_name_item_convergence`；未修改测试服业务数据。
 - RESULT: R51 已在测试服版本切换前失败并释放 lock，旧包判废不复用。下一轮必须使用新 releaseTag `release-20260915-one-button-app-r52`，source freeze 固定维护仓记录本次失败后的 clean HEAD 与本应用修复提交后的 clean HEAD。
+
+## P3 old form-template binding switch regression
+
+- BDD: 旧表单模板 Jimu 布局缺失时前置阻断 -> Given 测试服存在待迁移的 `form_template_id/last_published_template_version_id` 路线绑定，且旧模板版本的 `jimu_schema_json` 只有 `assistRows/fillAssignments`、没有 `sheetLayoutJson` / When app-release 执行 `20260829_mes_old_form_template_binding_switch.sql` / Then 迁移必须在版本切换前明确阻断，或使用正式识别字段转换出可审计 Jimu 布局；不得写入空布局、猜测模板内容或假绿。
+- RED: deploy-release-r53-old-form-template-jimu-schema -> FAIL，测试服 `20260829_mes_old_form_template_binding_switch.sql` 在版本切换前返回 `ERROR 1644 (45000): Form template Jimu schema is invalid`；只读诊断冻结 6 条待迁移绑定，模板版本 27/32 的 `jimu_schema_json` 合法但根键仅 `assistRows,fillAssignments`，`sheetLayoutJson` 缺失，未发生版本切换。
+- RED: 旧 target preflight 只检查 8 张依赖表，不检查待迁移模板布局，不能在部署前暴露同一数据缺口。
+- GREEN: `python -X utf8 -m pytest -q script/tests/test_mes_old_form_template_binding_switch_sql.py script/tests/test_release_target_preflight_files.py -k "old_form_template or target_preflight" --basetemp .tmp-r53-old-form-green2` -> PASS，11 tests；target preflight 增加旧绑定、模板版本、Jimu JSON/识别字段和布局合同检查。
+- GREEN: 测试服只读执行新版 `20260829_mes_old_form_template_binding_switch.preflight.sql` 返回 `TARGET_PREFLIGHT_PASS`，因为现有正式 `recognized_schema_json` 字段数组可由迁移侧构建布局；未修改测试服业务数据。
+- IMPLEMENTATION: `20260829_mes_old_form_template_binding_switch.sql` 新增基于 `recognized_schema_json` 的临时字段/行/视觉 schema 构建，并让 Jimu 报表阶段读取该同源 schema；非法 JSON、无可识别字段、缺少已发布版本和冲突仍 fail-fast。target preflight 同步覆盖完整字段数组与空/非法形态。
+- BLOCKER: 迁移 SQL 尚未在隔离 MySQL 或新的测试服 release 包中验证；当前 R53 包仍包含修复前版本，不能继续发布。需先提交应用修复并生成新的 releaseTag。
