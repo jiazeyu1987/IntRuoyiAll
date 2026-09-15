@@ -227,7 +227,13 @@ public class ReleaseWorkflowOrchestrator {
         if (current.operationId() != null && !current.state().isTerminal()) {
             RuntimeControlOperationRespVO operation = operationStore.findById(current.operationId());
             if (operation != null && "running".equals(operation.getStatus())) {
-                throw new IllegalStateException("RELEASE_WORKFLOW_OPERATION_CANCELLATION_UNAVAILABLE");
+                if (!runtimeControlService.cancelOperation(current.operationId())) {
+                    throw new IllegalStateException("RELEASE_WORKFLOW_OPERATION_TERMINATION_UNCONFIRMED");
+                }
+                RuntimeControlOperationRespVO terminated = operationStore.findById(current.operationId());
+                if (terminated != null && "running".equals(terminated.getStatus())) {
+                    throw new IllegalStateException("RELEASE_WORKFLOW_OPERATION_TERMINATION_UNCONFIRMED");
+                }
             }
         }
         ReleaseWorkflowRecord canceled = workflowService.cancel(workflowId);

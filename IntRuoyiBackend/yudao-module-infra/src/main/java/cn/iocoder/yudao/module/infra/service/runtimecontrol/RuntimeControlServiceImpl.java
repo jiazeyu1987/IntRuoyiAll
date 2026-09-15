@@ -42,6 +42,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_INVALID;
@@ -71,6 +72,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     private final NasBrowserService nasBrowserService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ExecutorService operationExecutor = Executors.newCachedThreadPool();
+    private final Set<String> canceledOperations = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     @Autowired
     public RuntimeControlServiceImpl(RuntimeControlProperties properties,
@@ -245,6 +247,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                 action.resolveScriptPath(properties), action.buildArguments(reqVO, operation.getRequestedBy(), properties));
         Path nasConfigPath = appendNasReleaseArguments(action, command, operation.getOperationId());
         appendBackendRuntimeBaseArguments(action, command, backendRuntimeBaseConfig);
+        commandExecutor.registerOperation(operation.getOperationId(), logPath);
         if (action.requiresDetachedLinuxLocalRunner(properties)) {
             operationExecutor.submit(() -> executeDetachedActionCommand(operation.getOperationId(), action, command, logPath,
                     nasConfigPath));
@@ -253,6 +256,31 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                     nasConfigPath));
         }
         return operation;
+    }
+
+    @Override
+    public boolean cancelOperation(String operationId) {
+        RuntimeControlOperationRespVO operation = operationStore.findById(operationId);
+        if (operation == null) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "operationId");
+        }
+        if (!"running".equals(operation.getStatus())) {
+            return true;
+        }
+        canceledOperations.add(operationId);
+        boolean terminated;
+        try {
+            terminated = commandExecutor.cancelOperation(operationId);
+        } catch (RuntimeException ex) {
+            canceledOperations.remove(operationId);
+            throw ex;
+        }
+        if (!terminated) {
+            canceledOperations.remove(operationId);
+            return false;
+        }
+        operationStore.updateStatus(operationId, "canceled", "Operation canceled after process termination");
+        return true;
     }
 
     @Override
@@ -700,6 +728,13 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             failure = ex;
         }
         failure = cleanupNasReleaseConfig(nasConfigPath, failure);
+        if (canceledOperations.contains(operationId)) {
+            if (failure != null) {
+                operationStore.updateStatus(operationId, "canceled", "Operation canceled after process termination");
+            }
+            canceledOperations.remove(operationId);
+            return;
+        }
         if (failure != null) {
             operationStore.updateStatus(operationId, "failed", StrUtil.blankToDefault(failure.getMessage(), "Operation failed"));
             throw failure;
@@ -716,6 +751,13 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             failure = ex;
         }
         failure = cleanupNasReleaseConfig(nasConfigPath, failure);
+        if (canceledOperations.contains(operationId)) {
+            if (failure != null) {
+                operationStore.updateStatus(operationId, "canceled", "Operation canceled after process termination");
+            }
+            canceledOperations.remove(operationId);
+            return;
+        }
         if (failure != null) {
             operationStore.updateStatus(operationId, "failed", StrUtil.blankToDefault(failure.getMessage(), "Operation failed"));
             throw failure;

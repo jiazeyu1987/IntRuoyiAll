@@ -2915,3 +2915,4 @@
 
 2026-09-15T13:20:00+08:00	one-button-app-release-20260911	RESULT	R55 测试服部署在版本切换前失败于 20260829 迁移：真实表 `mes_pro_batch_record_version` 缺少 `child_form_member_count/child_form_member_hash`，返回 MySQL ERROR 1054；operation lock 已释放为 FAILED，测试服 .env/实际镜像未切换。已完成本机 schema 核对与 RED/GREEN 静态合同，尚未提交/重建新包。
 2026-09-15T13:31:00+08:00	one-button-app-release-20260911	VERIFICATION	应用仓提交 3098b3319 修复批记录版本迁移列契约：删除未发布子表成员列，target preflight 核对正式 21 列；定向/相邻回归 30 PASS，migration policy 619 PASS，本机 Docker schema 构建与测试服只读 preflight PASS。R55 不复用，待新 tag 验证。
+2026-09-15T18:30:00+08:00	one-button-app-release-20260911	VERIFICATION	继续通用机制收敛：RuntimeControl 底层 operation/process/container 取消确认已接线，编排器在确认终止前不释放 lease；Maven 定向回归 79 PASS。迁移 manifest/preflight 已改为声明式 applyOrder/sessionProfile/approvedHook/resultAssertion，应用合同回归 25 PASS。未启动 R56、未发布、未修改服务器；后台阶段事件、heartbeat/recovery、隔离 rehearsal 仍为阻塞项。

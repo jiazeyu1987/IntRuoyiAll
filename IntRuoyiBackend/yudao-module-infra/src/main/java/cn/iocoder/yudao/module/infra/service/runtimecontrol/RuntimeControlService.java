@@ -19,6 +19,8 @@ public interface RuntimeControlService {
 
     RuntimeControlOperationRespVO executeAction(RuntimeControlActionReqVO reqVO, String requestedBy);
 
+    boolean cancelOperation(String operationId);
+
     RuntimeControlActionPreviewRespVO previewAction(RuntimeControlActionReqVO reqVO, String requestedBy);
 
     RuntimeControlLogRespVO getOperationLog(String operationId, Integer maxBytes);

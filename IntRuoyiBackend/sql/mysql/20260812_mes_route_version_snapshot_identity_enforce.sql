@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260812_mes_route_version_snapshot_identity; type=schema; riskLevel=high
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260812_mes_route_version_snapshot_identity; type=schema; riskLevel=high; approvedHook=route-snapshot-identity
 -- Run the MES route snapshot READINESS command immediately before this migration.
 -- The command strictly reparses and recomputes every stored snapshot across all tenants;
 -- this migration performs the final no-gap database check and never repairs data.

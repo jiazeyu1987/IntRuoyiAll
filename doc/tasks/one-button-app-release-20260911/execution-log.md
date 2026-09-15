@@ -147,4 +147,12 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 
 - BDD: 运行中取消 -> Given workflow 已绑定仍为 running 的底层 operation / When 用户请求取消 / Then 服务端必须先确认底层 operation 已终止或进入可核实安全状态，不能先释放 lease 或把页面状态写成 CANCELED。
 - RED: 旧 `ReleaseWorkflowOrchestrator.cancel` 无条件调用 workflow cancel 并释放 lease，未检查 operation 状态。
-- GREEN: 应用工作树新增运行中 operation 取消阻断检查与回归用例；`ReleaseWorkflowOrchestratorTest` 7 PASS。当前仍是 fail-closed 阻断，因为 RuntimeControlService 尚无底层 cancel/terminate API；后台实际终止接线仍待实现。
+- GREEN: 应用工作树新增运行中 operation 取消阻断检查与回归用例；`ReleaseWorkflowOrchestratorTest` 7 PASS。随后补齐 `RuntimeControlService.cancelOperation`、执行器 operation/process/container 注册与终止接线；编排器仅在底层终止可核实后释放 workflow lease，无法确认时 fail-closed。
+- REGRESSION: `mvn --% -f IntRuoyiBackend/pom.xml -pl yudao-module-infra -am -Dtest=ReleaseWorkflowOrchestratorTest,RuntimeControlServiceImplTest,RuntimeControlCommandExecutorImplTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，79 tests，0 failures。
+
+## Unified migration metadata contract slice
+
+- BDD: 新迁移声明参数与批准钩子 -> Given 迁移需要稳定的执行顺序、session preamble、结果断言或受批准的领域 hook / When release manifest 解析 SQL 元数据并生成 preflight / Then 通用引擎只读取声明字段，不按 migrationId 增加业务分支；未声明的参数不得被隐式注入。
+- RED: 旧 manifest/preflight contract 不接受 `applyOrder`、`sessionProfile`、`approvedHook`、`resultAssertion`；新增 parser/preflight contract 先失败。
+- GREEN: manifest parser 与 preflight plan 统一解析并传递四类元数据；3 个现有迁移仅通过 SQL 头部声明顺序/session profile/hook。`python -X utf8 -m pytest -q script\\tests\\test_release_preflight_plan.py script\\tests\\test_release_target_preflight_files.py --basetemp .tmp-metadata-app-green` -> PASS，25 tests；Maven runtime/cancel regression -> PASS，79 tests。
+- DESIGN: 无 fallback、无吞异常、无 migrationId 特例；统一元数据合同仅声明能力，实际隔离 rehearsal、阶段事件、后台 scheduler/recovery 与完整 publish-test 仍未闭环。

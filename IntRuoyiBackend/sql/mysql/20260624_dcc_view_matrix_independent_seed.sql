@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260623_dcc_view_matrix_independent_source; type=seed; riskLevel=low
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260623_dcc_view_matrix_independent_source; type=seed; riskLevel=low; applyOrder=20; sessionProfile=dcc-view-matrix-seed
 -- DCC independent view matrix seed generated from 电子文控系统推进计划及需求表.xlsx, sheet 文件查阅矩阵.
 -- This script is fail-fast by design. Set @dcc_view_matrix_seed_tenant_id before sourcing.
 -- Example: SET @dcc_view_matrix_seed_tenant_id := 122; SOURCE sql/mysql/20260624_dcc_view_matrix_independent_seed.sql;

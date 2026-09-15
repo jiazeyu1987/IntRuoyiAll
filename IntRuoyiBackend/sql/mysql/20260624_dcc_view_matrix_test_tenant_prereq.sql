@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test; dependsOn=20260623_dcc_view_matrix_independent_source; type=seed; riskLevel=low
+-- release-migration: allowedEnvironments=test; dependsOn=20260623_dcc_view_matrix_independent_source; type=seed; riskLevel=low; applyOrder=10
 -- DCC view matrix test-tenant prerequisite data for deploy-release.
 -- This migration is intentionally limited to tenant_id=122 and must never write other tenants.
 

@@ -42,4 +42,4 @@ P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_pl
 
 独立代码审查进一步确认六项通用机制尚未完成：来源选择没有绑定预期 maintenance/backend/frontend commits；schema rehearsal 排除 data 和 target-preflight 迁移；应用迁移测试入口固定单文件；阶段状态不是后台真实事件；取消/heartbeat/recovery 未接底层 operation/process；发布脚本仍含 migrationId 业务特例。审查同时纠正 R55 证据：未知列错误前已有 definition INSERT，不能宣称数据库完全零写入。当前阻塞在通用机制补齐和新 releaseTag 真实验证，不得直接生成 R56。
 
-已先补来源批准 commit 持久化及执行器参数绑定（应用提交 `e109b707c`），并在维护脚本中加入按冻结迁移差异自动发现测试、缺失即 `MIGRATION_TEST_MISSING` 的构建前门禁；相关 Java 10 tests、维护回归 37 tests 与脚本 AST 已通过。后台阶段事件、底层取消/恢复 scheduler、统一迁移隔离执行、版本化迁移参数/hooks 仍待完成。
+已先补来源批准 commit 持久化及执行器参数绑定（应用提交 `e109b707c`），并在维护脚本中加入按冻结迁移差异自动发现测试、缺失即 `MIGRATION_TEST_MISSING` 的构建前门禁；随后补齐运行中 operation 的底层取消/进程终止确认，以及统一迁移元数据（顺序、session profile、批准 hook、结果断言）合同。相关 Java 79 tests、应用迁移合同 25 tests、维护回归与脚本 AST 已通过。后台阶段事件、heartbeat/recovery scheduler、统一迁移隔离 rehearsal 与完整 publish-test 仍待完成。

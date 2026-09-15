@@ -16,6 +16,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -36,6 +38,9 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
     private RuntimeControlProperties properties;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Map<String, String> pendingOperationLogs = new ConcurrentHashMap<>();
+    private final Map<String, Process> activeProcesses = new ConcurrentHashMap<>();
+    private final Map<String, String> activeContainers = new ConcurrentHashMap<>();
 
     @Override
     public RuntimeControlStatusResult queryStatus(RuntimeControlCommand command) {
@@ -71,7 +76,37 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
 
     @Override
     public void executeOperation(RuntimeControlCommand command, Path logPath) {
-        execute(command, false, logPath, OPERATION_COMMAND_TIMEOUT);
+        String operationId = findPendingOperationId(logPath);
+        execute(command, false, logPath, OPERATION_COMMAND_TIMEOUT, operationId);
+    }
+
+    @Override
+    public void registerOperation(String operationId, Path logPath) {
+        if (StrUtil.isBlank(operationId) || logPath == null) {
+            throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "operation cancellation registration is invalid");
+        }
+        pendingOperationLogs.put(operationKey(logPath), operationId);
+    }
+
+    @Override
+    public boolean cancelOperation(String operationId) {
+        if (StrUtil.isBlank(operationId)) {
+            throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "operationId is required for cancellation");
+        }
+        Process process = activeProcesses.get(operationId);
+        if (process != null) {
+            if (process.isAlive()) {
+                terminateCommandProcess(process);
+            }
+            return !process.isAlive();
+        }
+        String containerId = activeContainers.get(operationId);
+        if (StrUtil.isNotBlank(containerId)) {
+            runCommand(List.of("docker", "rm", "--force", containerId), PROCESS_TERMINATION_TIMEOUT);
+            activeContainers.remove(operationId, containerId);
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -88,10 +123,17 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
         Path runnerScript = writeDetachedRunnerScript(operationId, logPath, commandLine, successSummary);
         List<String> dockerCommand = buildDetachedDockerCommand(operationId, runnerScript);
         String containerId = runCommand(dockerCommand, DETACHED_OPERATION_START_TIMEOUT).trim();
+        pendingOperationLogs.remove(operationKey(logPath));
+        activeContainers.put(operationId, containerId);
         appendDetachedRunnerStart(logPath, runnerScript, containerId);
     }
 
     private String execute(RuntimeControlCommand command, boolean captureOutput, Path logPath, Duration timeout) {
+        return execute(command, captureOutput, logPath, timeout, null);
+    }
+
+    private String execute(RuntimeControlCommand command, boolean captureOutput, Path logPath, Duration timeout,
+                           String operationId) {
         Path repoRoot = resolveRepoRoot();
         Path script = resolveScript(command.getScriptPath(), repoRoot);
         if (!Files.isRegularFile(script)) {
@@ -108,6 +150,9 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
         }
         try {
             Process process = processBuilder.start();
+            if (operationId != null) {
+                activeProcesses.put(operationId, process);
+            }
             boolean finished;
             try {
                 finished = process.waitFor(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
@@ -130,7 +175,24 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
             return captureOutput ? output : "";
         } catch (IOException ex) {
             throw exception(RUNTIME_CONTROL_COMMAND_FAILED, ex.getMessage());
+        } finally {
+            if (operationId != null) {
+                activeProcesses.remove(operationId);
+            }
         }
+    }
+
+    private String findPendingOperationId(Path logPath) {
+        if (logPath == null) {
+            return null;
+        }
+        String key = operationKey(logPath);
+        String operationId = pendingOperationLogs.remove(key);
+        return operationId;
+    }
+
+    private String operationKey(Path logPath) {
+        return logPath.toAbsolutePath().normalize().toString();
     }
 
     private Path writeDetachedRunnerScript(String operationId, Path logPath, List<String> commandLine,
