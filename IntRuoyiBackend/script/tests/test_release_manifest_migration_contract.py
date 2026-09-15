@@ -46,6 +46,10 @@ def test_migration_manifest_contains_structured_sql_metadata(tmp_path: Path) -> 
             "dependsOn": ["20260612_runtime_nightly_release_job"],
             "riskLevel": "medium",
             "requiresTargetPreflight": False,
+            "applyOrder": None,
+            "sessionProfile": "",
+            "approvedHook": "",
+            "resultAssertion": "",
         }
     ]
 

@@ -42,6 +42,26 @@ def test_view_matrix_seed_resolves_subjects_by_full_department_path():
     assert "parent_dept.name = subject.parent_dept_name" not in sql
 
 
+def test_view_matrix_seed_writes_lifecycle_stage_for_not_null_category_schema():
+    sql = read_sql()
+
+    assert "lifecycle_stage varchar(32) NOT NULL," in sql
+    assert "(category_code, file_name, matrix_group, matrix_sort, file_number_pattern, lifecycle_stage)" in sql
+    assert "('DCC_FVM_DHF_004', '项目立项书', 'DHF', 4, 'R&D-项目代码-xxx', 'PLAN')" in sql
+    assert "('DCC_FVM_DHF_001', '市场调研报告', 'DHF', 1, 'R&D-项目代码-xxx', 'INPUT')" in sql
+    assert "('DCC_FVM_DHF_012', '验证主计划', 'DHF', 12, '', 'VERIFICATION')" in sql
+    assert "('DCC_FVM_DHF_017', '运输包装验证方案/报告', 'DHF', 17, '', 'VALIDATION')" in sql
+    assert "('DCC_FVM_DHF_019', '设计转移方案/报告', 'DHF', 19, '', 'TRANSFER')" in sql
+    assert "('DCC_FVM_DMR_001', '产品技术要求', 'DMR', 1, 'DMR-项目代码-XXX', 'OUTPUT')" in sql
+    assert (
+        "INSERT INTO dcc_file_category\n"
+        "    (code, name, parent_id, active, sort, source, remark, description,\n"
+        "     lifecycle_stage, distribution_required, training_required, tenant_id"
+    ) in sql
+    assert "seed.lifecycle_stage," in sql
+    assert "category.lifecycle_stage = seed.lifecycle_stage," in sql
+
+
 def test_view_matrix_test_tenant_prereq_declares_release_contract():
     sql = PREREQ_MIGRATION.read_text(encoding="utf-8")
 
