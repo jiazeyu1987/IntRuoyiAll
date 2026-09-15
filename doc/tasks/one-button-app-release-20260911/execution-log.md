@@ -172,3 +172,16 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 - GREEN: 新增 `test_mes_route_version_snapshot_identity_enforce_sql.py` 覆盖该迁移的 release metadata、`route-snapshot-identity` approvedHook、blocker 为零后才 `ALTER ... NOT NULL`、以及禁止插入/更新/删除业务数据。
 - GREEN: `python -X utf8 -m pytest -q IntRuoyiBackend\script\tests\test_mes_route_version_snapshot_identity_enforce_sql.py IntRuoyiBackend\script\tests\test_mes_route_version_lifecycle_sql.py --basetemp .tmp-r56-route-snapshot-green` -> PASS，7 passed。
 - REGRESSION: `python -X utf8 -m pytest -q script\tests\test_release_target_preflight_files.py script\tests\test_release_preflight_plan.py --basetemp ..\.tmp-r56-preflight-regression2`（从 `IntRuoyiBackend` 根执行）-> PASS，25 passed；此前从应用根执行同一命令因 `ModuleNotFoundError: No module named 'script'` 收集失败，未作为产品缺陷。
+
+## P2/P3 scheduler heartbeat and Jimu target-preflight continuation
+
+- USER_AUTHORIZATION: 用户要求“你来修复”，并明确长期目标是通用、长期可用的按钮发布功能；本轮只修改应用 worktree 的发布 workflow 和 target preflight，不执行正式服、审查服、`mark-tested`、`promote-prod`、`promote-backup`、MinIO 数据同步或全量数据库同步。
+- STATUS: R61 本地目录只有 required-sql 与 build-preflight 证据，缺少 `manifest.json` 和镜像包；本机无 `release-20260915-one-button-app-r61` 的发布/Maven/Docker 进程。R61 判定为中断半成品，不复用、不发布。
+- BDD: 后台自动推进按钮 workflow -> Given 底层 release operation 已经从 `running` 变为 `succeeded` 或 `failed` / When scheduler 运行且操作者没有手动刷新页面 / Then workflow 必须自动 reconcile 到 READY/FAILED/TEST_DEPLOYED 等真实状态，不能依赖用户轮询触发阶段推进。
+- BDD: 长构建日志仍推进不得被 heartbeat 误判 -> Given workflow heartbeat 已超过阈值但底层 operation 仍为 `running` 且 operation log 有新的 mtime / When recovery scheduler 执行 / Then workflow heartbeat 使用日志 mtime 刷新，不取消底层进程；只有日志和 operation 均无可见推进时才 fail-closed recovery。
+- RED: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-infra "-Dtest=ReleaseWorkflowOrchestratorTest" test` -> FAIL，新增测试要求 `ReleaseWorkflowOrchestrator.reconcileActiveWorkflows(Instant)`，旧实现没有后台自动 reconcile 入口。
+- GREEN: scheduler-heartbeat-fix -> PASS。新增 `ReleaseWorkflowRecoveryScheduler`，每 30 秒先 `reconcileActiveWorkflows(now)` 再 `recoverStaleWorkflows(now)`；orchestrator 对终态 operation 自动推进 workflow，对 running operation 用日志最后修改时间刷新 heartbeat，对不可读取日志抛出 `RELEASE_WORKFLOW_OPERATION_LOG_INSPECTION_FAILED`，不吞异常。
+- GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-infra "-Dtest=ReleaseWorkflowOrchestratorTest,ReleaseWorkflowRecoverySchedulerTest,ReleaseWorkflowRecoveryTest,ReleaseWorkflowSourceBindingTest,ReleaseWorkflowStoreTest" test` -> PASS，19 tests，0 failures，0 errors。
+- BDD: R53 Jimu 目标语义必须前移 -> Given 旧表单模板迁移依赖 `jimu_schema_json` / `recognized_schema_json` 生成 Jimu layout / When target readonly preflight 运行 / Then 必须检查 `sheetLayoutJson` object、rows/cols、待迁移 binding 唯一性、已绑定报表存在性和 release migration 状态，不能只检查表/列存在。
+- GREEN: `python -X utf8 -m pytest -q script\tests\test_mes_old_form_template_binding_switch_sql.py script\tests\test_release_target_preflight_files.py --basetemp .tmp-current-jimu-preflight` -> PASS，12 tests。
+- NOTE: 本机安全策略拦截了递归删除 `.tmp-r61-jimu-preflight-regression` 的清理命令；提交时仅精确暂存源码、测试和任务记录，临时目录不纳入提交。

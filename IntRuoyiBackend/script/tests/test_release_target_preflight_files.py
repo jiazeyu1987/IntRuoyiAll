@@ -213,6 +213,32 @@ def test_old_form_template_binding_preflight_rejects_missing_jimu_layout_before_
     assert ") = 21" in text
 
 
+def test_old_form_template_binding_preflight_covers_runtime_jimu_semantics_and_idempotency() -> None:
+    """R53 proved table/column checks alone do not predict the migration's Jimu guard."""
+    text = (TARGET_PREFLIGHT_ROOT / "20260829_mes_old_form_template_binding_switch.preflight.sql").read_text(encoding="utf-8")
+
+    # The derived Jimu schema must be an object with an object-valued sheetLayoutJson,
+    # not merely valid JSON text. This is the exact semantic boundary that R53 missed.
+    assert "JSON_TYPE(JSON_EXTRACT(tv.jimu_schema_json, '$.sheetLayoutJson')) = 'OBJECT'" in text
+    assert "JSON_TYPE(JSON_EXTRACT(tv.jimu_schema_json, '$.sheetLayoutJson.rows')) = 'OBJECT'" in text
+    assert "JSON_TYPE(JSON_EXTRACT(tv.jimu_schema_json, '$.sheetLayoutJson.cols')) = 'OBJECT'" in text
+
+    # Empty source is a valid no-op, while partial/duplicate source and a completed
+    # migration with a missing target report must fail before required SQL runs.
+    assert "COUNT(DISTINCT rb.form_template_id)" in text or "COUNT(DISTINCT rb.form_template_id)" in text
+    assert "COUNT(DISTINCT rb.form_slot_type)" in text
+    assert "batch_record_report_id IS NOT NULL" in text
+    assert "mes_pro_batch_record_report" in text
+    assert "report_id" in text
+    assert "report_code" in text
+    assert "report_id IS NULL" in text
+
+    # Dependency ordering and repeat safety are part of the same target-bound plan,
+    # rather than an operator's manual CLI convention.
+    assert "infra_release_migration" in text
+    assert "SKIPPED_ALREADY_APPLIED" in text or "APPLIED" in text
+
+
 def test_balloon_xlsx_cleanup_preflight_matches_current_or_legacy_target_contract() -> None:
     text = (TARGET_PREFLIGHT_ROOT / "20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup.preflight.sql").read_text(encoding="utf-8")
 

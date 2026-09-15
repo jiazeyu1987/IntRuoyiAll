@@ -9,7 +9,13 @@ import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlServic
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -223,6 +229,42 @@ public class ReleaseWorkflowOrchestrator {
         return workflow;
     }
 
+    /**
+     * Background reconciliation for the button workflow.  User polling is not
+     * the authority for state progress: terminal low-level operations advance
+     * their workflow here, while running operations with fresh logs refresh the
+     * workflow heartbeat so long builds are not mistaken for dead attempts.
+     */
+    public synchronized List<ReleaseWorkflowRecord> reconcileActiveWorkflows(Instant now) {
+        List<ReleaseWorkflowRecord> changed = new ArrayList<>();
+        for (ReleaseWorkflowRecord workflow : workflowService.list()) {
+            if (workflow.state().isTerminal()
+                    || workflow.state() == ReleaseWorkflowRecord.State.RECOVERY_REQUIRED
+                    || workflow.operationId() == null) {
+                continue;
+            }
+            RuntimeControlOperationRespVO operation = operationStore.findById(workflow.operationId());
+            if (operation == null) {
+                continue;
+            }
+            if ("running".equals(operation.getStatus())) {
+                Instant progressAt = recentOperationLogProgressAt(operation.getOperationId(), now);
+                if (progressAt != null) {
+                    ReleaseWorkflowRecord current = workflowService.require(workflow.workflowId());
+                    if (!current.state().isTerminal()) {
+                        changed.add(workflowService.heartbeat(current.workflowId(), current.stateVersion(), progressAt));
+                    }
+                }
+                continue;
+            }
+            ReleaseWorkflowRecord reconciled = reconcile(workflow.workflowId());
+            if (reconciled.stateVersion() != workflow.stateVersion()) {
+                changed.add(reconciled);
+            }
+        }
+        return changed;
+    }
+
     public synchronized ReleaseWorkflowRecord cancel(String workflowId) {
         ReleaseWorkflowRecord current = workflowService.require(workflowId);
         if (current.operationId() != null && !current.state().isTerminal()) {
@@ -248,9 +290,10 @@ public class ReleaseWorkflowOrchestrator {
      * is not advanced while its operation remains running or cannot be
      * verified as terminated.
      */
-    public synchronized java.util.List<ReleaseWorkflowRecord> recoverStaleWorkflows(Instant now) {
-        java.util.List<ReleaseWorkflowRecord> stale = workflowService.list().stream()
+    public synchronized List<ReleaseWorkflowRecord> recoverStaleWorkflows(Instant now) {
+        List<ReleaseWorkflowRecord> stale = workflowService.list().stream()
                 .filter(record -> !record.state().isTerminal())
+                .filter(record -> record.state() != ReleaseWorkflowRecord.State.RECOVERY_REQUIRED)
                 .filter(record -> record.lastHeartbeatAt()
                         .plus(properties.getReleaseWorkflow().getHeartbeatTimeout()).isBefore(now))
                 .toList();
@@ -259,7 +302,19 @@ public class ReleaseWorkflowOrchestrator {
                 continue;
             }
             RuntimeControlOperationRespVO operation = operationStore.findById(workflow.operationId());
+            if (operation != null && !"running".equals(operation.getStatus())) {
+                reconcile(workflow.workflowId());
+                continue;
+            }
             if (operation != null && "running".equals(operation.getStatus())) {
+                Instant progressAt = recentOperationLogProgressAt(operation.getOperationId(), now);
+                if (progressAt != null) {
+                    ReleaseWorkflowRecord current = workflowService.require(workflow.workflowId());
+                    if (!current.state().isTerminal()) {
+                        workflowService.heartbeat(current.workflowId(), current.stateVersion(), progressAt);
+                    }
+                    continue;
+                }
                 if (!runtimeControlService.cancelOperation(workflow.operationId())) {
                     throw new IllegalStateException("RELEASE_WORKFLOW_OPERATION_TERMINATION_UNCONFIRMED");
                 }
@@ -270,6 +325,20 @@ public class ReleaseWorkflowOrchestrator {
             }
         }
         return workflowService.recoverStaleWorkflows(now);
+    }
+
+    private Instant recentOperationLogProgressAt(String operationId, Instant now) {
+        Path logPath = operationStore.getOperationLogPath(operationId);
+        try {
+            if (!Files.isRegularFile(logPath)) {
+                return null;
+            }
+            Duration timeout = properties.getReleaseWorkflow().getHeartbeatTimeout();
+            Instant lastModified = Files.getLastModifiedTime(logPath).toInstant();
+            return lastModified.plus(timeout).isBefore(now) ? null : lastModified;
+        } catch (IOException | SecurityException ex) {
+            throw new IllegalStateException("RELEASE_WORKFLOW_OPERATION_LOG_INSPECTION_FAILED", ex);
+        }
     }
 
     private ReleaseWorkflowRecord advanceSucceeded(ReleaseWorkflowRecord workflow,

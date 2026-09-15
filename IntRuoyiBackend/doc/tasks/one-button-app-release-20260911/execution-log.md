@@ -89,3 +89,21 @@ GREEN: `python -X utf8 -m pytest -q script\tests\test_mes_pqc_dcc_qa_c00_backfil
 REGRESSION: `python -X utf8 -m pytest -q script\tests\test_mes_pqc_dcc_qa_c00_backfill_sql.py script\tests\test_release_target_preflight_files.py script\tests\test_release_preflight_plan.py --basetemp .tmp-r43-c00-collation-regression` -> PASS，26 passed。
 
 NEXT: R42 判废不复用；提交应用仓修复后必须使用新 releaseTag `release-20260915-one-button-app-r43`，source freeze 固定维护仓当前 clean HEAD 与应用仓新提交，重新生成 without-data/app-release 程序包并发布测试服。
+
+## P2/P3 scheduler heartbeat and Jimu target-preflight continuation
+
+BDD: 后台自动推进按钮 workflow -> Given 底层 release operation 已经从 `running` 变为 `succeeded` 或 `failed` / When scheduler 运行且操作者没有手动刷新页面 / Then workflow 必须自动 reconcile 到 READY/FAILED/TEST_DEPLOYED 等真实状态，不能依赖用户轮询触发阶段推进。
+
+BDD: 长构建日志仍推进不得被 heartbeat 误判 -> Given workflow heartbeat 已超过阈值但底层 operation 仍为 `running` 且 operation log 有新的 mtime / When recovery scheduler 执行 / Then workflow heartbeat 使用日志 mtime 刷新，不取消底层进程；只有日志和 operation 均无可见推进时才 fail-closed recovery。
+
+RED: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-infra "-Dtest=ReleaseWorkflowOrchestratorTest" test` -> FAIL，新增测试要求 `ReleaseWorkflowOrchestrator.reconcileActiveWorkflows(Instant)`，旧实现没有后台自动 reconcile 入口。
+
+GREEN: scheduler-heartbeat-fix -> PASS。新增 `ReleaseWorkflowRecoveryScheduler`，每 30 秒先 `reconcileActiveWorkflows(now)` 再 `recoverStaleWorkflows(now)`；orchestrator 对终态 operation 自动推进 workflow，对 running operation 用日志最后修改时间刷新 heartbeat，对不可读取日志抛出 `RELEASE_WORKFLOW_OPERATION_LOG_INSPECTION_FAILED`，不吞异常。
+
+GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-infra "-Dtest=ReleaseWorkflowOrchestratorTest,ReleaseWorkflowRecoverySchedulerTest,ReleaseWorkflowRecoveryTest,ReleaseWorkflowSourceBindingTest,ReleaseWorkflowStoreTest" test` -> PASS，19 tests，0 failures，0 errors。
+
+BDD: R53 Jimu 目标语义必须前移 -> Given 旧表单模板迁移依赖 `jimu_schema_json` / `recognized_schema_json` 生成 Jimu layout / When target readonly preflight 运行 / Then 必须检查 `sheetLayoutJson` object、rows/cols、待迁移 binding 唯一性、已绑定报表存在性和 release migration 状态，不能只检查表/列存在。
+
+GREEN: `python -X utf8 -m pytest -q script\tests\test_mes_old_form_template_binding_switch_sql.py script\tests\test_release_target_preflight_files.py --basetemp .tmp-current-jimu-preflight` -> PASS，12 tests。
+
+STATUS: R61 本地目录只有 required-sql 与 build-preflight 证据，缺少 `manifest.json` 和镜像包；本机无 `release-20260915-one-button-app-r61` 的发布/Maven/Docker 进程。R61 判定为中断半成品，不复用、不发布。

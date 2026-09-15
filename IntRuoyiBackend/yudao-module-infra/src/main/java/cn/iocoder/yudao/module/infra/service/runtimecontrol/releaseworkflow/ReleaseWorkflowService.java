@@ -83,12 +83,19 @@ public class ReleaseWorkflowService {
     }
 
     public ReleaseWorkflowRecord heartbeat(String workflowId, long expectedStateVersion) {
+        return heartbeat(workflowId, expectedStateVersion, Instant.now());
+    }
+
+    public ReleaseWorkflowRecord heartbeat(String workflowId, long expectedStateVersion, Instant heartbeatAt) {
         ReleaseWorkflowRecord current = store.require(workflowId);
         if (current.stateVersion() != expectedStateVersion) {
             throw new ReleaseWorkflowStore.CasConflictException(workflowId, expectedStateVersion,
                     current.stateVersion());
         }
-        return store.touch(current, Instant.now(), VERIFIER_ACTOR);
+        if (heartbeatAt == null) {
+            throw new IllegalArgumentException("RELEASE_WORKFLOW_HEARTBEAT_AT_INVALID");
+        }
+        return store.touch(current, heartbeatAt, VERIFIER_ACTOR);
     }
 
     public ReleaseWorkflowRecord assignOperation(String workflowId, long expectedStateVersion,

@@ -43,3 +43,5 @@ P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_pl
 独立代码审查进一步确认六项通用机制尚未完成：来源选择没有绑定预期 maintenance/backend/frontend commits；schema rehearsal 排除 data 和 target-preflight 迁移；应用迁移测试入口固定单文件；阶段状态不是后台真实事件；取消/heartbeat/recovery 未接底层 operation/process；发布脚本仍含 migrationId 业务特例。审查同时纠正 R55 证据：未知列错误前已有 definition INSERT，不能宣称数据库完全零写入。当前阻塞在通用机制补齐和新 releaseTag 真实验证，不得直接生成 R56。
 
 已先补来源批准 commit 持久化及执行器参数绑定（应用提交 `e109b707c`），并在维护脚本中加入按冻结迁移差异自动发现测试、缺失即 `MIGRATION_TEST_MISSING` 的构建前门禁；随后补齐运行中 operation 的底层取消/进程终止确认，以及统一迁移元数据（顺序、session profile、批准 hook、结果断言）合同。相关 Java 79 tests、应用迁移合同 25 tests、维护回归与脚本 AST 已通过。后台阶段事件、heartbeat/recovery scheduler、统一迁移隔离 rehearsal 与完整 publish-test 仍待完成。
+
+本轮接手后确认主维护仓日志停在 `2026-09-15 21:21:57` 不是仍在运行，而是主工作区日志落后；维护 worktree 记录 R60 已在昂贵构建前失败，R61 仅生成 required-sql 与 preflight 证据、没有 `manifest.json` 或镜像包，且当前无 R61 发布/Maven/Docker 进程，按中断半成品判废。已补应用侧通用后台机制：scheduler 先自动 reconcile 已终态底层 operation，再只对日志无新推进且 heartbeat 超时的 workflow 触发 fail-closed recovery；运行中且日志有推进的长构建用日志 mtime 刷新 workflow 心跳，避免按钮页面卡在旧状态或误杀长任务。已同时补 R53 旧表单模板 target preflight 的 Jimu schema 语义与幂等覆盖。当前仍需提交本轮应用修复，再用新 releaseTag 重新 build-release -> publish-test 验证，不能复用 R61。

@@ -11,10 +11,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -87,6 +90,21 @@ class ReleaseWorkflowOrchestratorTest {
     }
 
     @Test
+    void schedulerReconcilesSucceededOperationWithoutUserPolling() {
+        RuntimeControlOperationRespVO operation = operation("running");
+        when(runtimeControlService.executeAction(any(), eq("operator"))).thenReturn(operation);
+        ReleaseWorkflowRecord started = orchestrator.startBuild("operator", "routine release", "approved-source");
+        operation.setStatus("succeeded");
+        operationStore.save(operation);
+        when(runtimeControlService.getReleasePackages()).thenReturn(List.of(packageFor(started.releaseTag())));
+
+        List<ReleaseWorkflowRecord> reconciled = orchestrator.reconcileActiveWorkflows(Instant.now());
+
+        assertEquals(1, reconciled.size());
+        assertEquals(ReleaseWorkflowRecord.State.READY, workflowService.require(started.workflowId()).state());
+    }
+
+    @Test
     void readyWorkflowDispatchesPublishTestWithSameServerGeneratedTag() {
         RuntimeControlOperationRespVO build = operation("running");
         RuntimeControlOperationRespVO publish = operation("running");
@@ -156,6 +174,33 @@ class ReleaseWorkflowOrchestratorTest {
 
         assertEquals(ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, recovered.state());
         verify(runtimeControlService).cancelOperation(operation.getOperationId());
+    }
+
+    @Test
+    void staleWorkflowWithFreshRunningOperationLogRefreshesHeartbeatInsteadOfCancelling() throws Exception {
+        properties.getReleaseWorkflow().setHeartbeatTimeout(Duration.ofSeconds(1));
+        RuntimeControlOperationRespVO operation = operation("running");
+        when(runtimeControlService.executeAction(any(), eq("operator"))).thenReturn(operation);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "long running build", "approved-source");
+        operationStore.save(operation);
+        workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                ReleaseWorkflowRecord.State.TESTING, "TESTING", true, false);
+        workflow = workflowService.require(workflow.workflowId());
+        workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                ReleaseWorkflowRecord.State.BUILDING, "BUILDING", true, false);
+        workflowService.overrideHeartbeatForTest(workflow.workflowId(), Instant.now().minusSeconds(10));
+        Instant observedProgress = Instant.now();
+        Path logPath = operationStore.getOperationLogPath(operation.getOperationId());
+        Files.createDirectories(logPath.getParent());
+        Files.writeString(logPath, "[INFO] frontend type check still running\n");
+        Files.setLastModifiedTime(logPath, FileTime.from(observedProgress));
+
+        orchestrator.recoverStaleWorkflows(observedProgress.plusMillis(500));
+
+        ReleaseWorkflowRecord current = workflowService.require(workflow.workflowId());
+        assertEquals(ReleaseWorkflowRecord.State.BUILDING, current.state());
+        assertFalse(current.lastHeartbeatAt().isBefore(observedProgress));
+        verify(runtimeControlService, times(0)).cancelOperation(operation.getOperationId());
     }
 
     @Test
