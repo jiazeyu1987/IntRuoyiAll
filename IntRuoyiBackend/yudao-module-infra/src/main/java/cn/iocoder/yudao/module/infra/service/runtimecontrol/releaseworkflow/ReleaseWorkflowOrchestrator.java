@@ -70,6 +70,10 @@ public class ReleaseWorkflowOrchestrator {
             request.setIncludeShowroomBuildPackage(false);
             request.setEnableSmartReleaseReport(false);
             request.setReleaseTag(workflow.releaseTag());
+            request.setExpectedMaintenanceCommit(workflow.maintenanceCommit());
+            request.setExpectedApplicationCommit(workflow.applicationCommit());
+            request.setExpectedFrontendCommit(workflow.frontendCommit());
+            request.setSourceSelectionId(workflow.sourceSelectionId());
             RuntimeControlOperationRespVO operation = runtimeControlService.executeAction(request, requestedBy);
             workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(),
                     operation.getOperationId());
@@ -219,6 +223,13 @@ public class ReleaseWorkflowOrchestrator {
     }
 
     public synchronized ReleaseWorkflowRecord cancel(String workflowId) {
+        ReleaseWorkflowRecord current = workflowService.require(workflowId);
+        if (current.operationId() != null && !current.state().isTerminal()) {
+            RuntimeControlOperationRespVO operation = operationStore.findById(current.operationId());
+            if (operation != null && "running".equals(operation.getStatus())) {
+                throw new IllegalStateException("RELEASE_WORKFLOW_OPERATION_CANCELLATION_UNAVAILABLE");
+            }
+        }
         ReleaseWorkflowRecord canceled = workflowService.cancel(workflowId);
         releaseLease(workflowId);
         return canceled;

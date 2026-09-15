@@ -63,6 +63,10 @@ class ReleaseWorkflowOrchestratorTest {
         assertEquals(ReleaseWorkflowContract.PUBLISH_SCOPE, request.getValue().getPublishScope());
         assertEquals(first.releaseTag(), request.getValue().getReleaseTag());
         assertFalse(Boolean.TRUE.equals(request.getValue().getIncludeShowroomBuildPackage()));
+        assertEquals("a".repeat(40), request.getValue().getExpectedMaintenanceCommit());
+        assertEquals("b".repeat(40), request.getValue().getExpectedApplicationCommit());
+        assertEquals("b".repeat(40), request.getValue().getExpectedFrontendCommit());
+        assertEquals("approved-source", request.getValue().getSourceSelectionId());
     }
 
     @Test
@@ -111,6 +115,20 @@ class ReleaseWorkflowOrchestratorTest {
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
                 () -> orchestrator.startBuild("operator", "routine release", "manual-path"));
         verify(runtimeControlService, times(0)).executeAction(any(), any());
+    }
+
+    @Test
+    void cancelWithRunningOperationMustBlockBeforeReleasingLease() {
+        RuntimeControlOperationRespVO operation = operation("running");
+        when(runtimeControlService.executeAction(any(), eq("operator"))).thenReturn(operation);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "running cancel", "approved-source");
+        operationStore.save(operation);
+
+        assertEquals("running", operationStore.findById(operation.getOperationId()).getStatus());
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> orchestrator.cancel(workflow.workflowId()));
+        assertEquals(ReleaseWorkflowRecord.State.PREFLIGHTING,
+                workflowService.require(workflow.workflowId()).state());
     }
 
     @Test

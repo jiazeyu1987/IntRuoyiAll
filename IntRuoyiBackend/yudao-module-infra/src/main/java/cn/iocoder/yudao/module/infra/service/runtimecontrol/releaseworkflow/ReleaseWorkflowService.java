@@ -46,6 +46,7 @@ public class ReleaseWorkflowService {
         String normalizedReason = validateReason(reason);
         String normalizedSourceSelectionId = requireText(sourceSelectionId, "sourceSelectionId");
         properties.getReleaseWorkflow().validate();
+        properties.getReleaseWorkflow().validateApprovedCommits();
         if (!properties.getReleaseWorkflow().getApprovedSourceSelectionId().equals(normalizedSourceSelectionId)) {
             throw new IllegalArgumentException("RELEASE_WORKFLOW_SOURCE_SELECTION_NOT_APPROVED");
         }
@@ -64,7 +65,10 @@ public class ReleaseWorkflowService {
                 now, token, properties.getReleaseWorkflow().getPresetId(),
                 properties.getReleaseWorkflow().getPresetVersion());
         ReleaseWorkflowRecord record = ReleaseWorkflowRecord.newWorkflow(identity.workflowId(), identity.releaseTag(),
-                now, identity.presetId(), identity.presetVersion())
+                now, identity.presetId(), identity.presetVersion(), normalizedSourceSelectionId,
+                properties.getReleaseWorkflow().getApprovedMaintenanceCommit(),
+                properties.getReleaseWorkflow().getApprovedApplicationCommit(),
+                properties.getReleaseWorkflow().getApprovedFrontendCommit())
                 .withRequestContext(redactActor(requestedBy), normalizedReason, normalizedSourceSelectionId);
         store.create(record);
         return record;

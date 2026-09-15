@@ -36,7 +36,10 @@ public record ReleaseWorkflowRecord(
         boolean zeroWriteEvidence,
         String requestedBy,
         String reason,
-        String sourceSelectionId) {
+        String sourceSelectionId,
+        String maintenanceCommit,
+        String applicationCommit,
+        String frontendCommit) {
 
     @JsonCreator
     public ReleaseWorkflowRecord(
@@ -63,7 +66,10 @@ public record ReleaseWorkflowRecord(
             @JsonProperty("zeroWriteEvidence") boolean zeroWriteEvidence,
             @JsonProperty("requestedBy") String requestedBy,
             @JsonProperty("reason") String reason,
-            @JsonProperty("sourceSelectionId") String sourceSelectionId) {
+            @JsonProperty("sourceSelectionId") String sourceSelectionId,
+            @JsonProperty("maintenanceCommit") String maintenanceCommit,
+            @JsonProperty("applicationCommit") String applicationCommit,
+            @JsonProperty("frontendCommit") String frontendCommit) {
         this.workflowId = requireText(workflowId, "workflowId");
         this.releaseTag = requireText(releaseTag, "releaseTag");
         this.publishScope = Objects.requireNonNull(publishScope, "publishScope");
@@ -100,16 +106,21 @@ public record ReleaseWorkflowRecord(
         this.requestedBy = trimToNull(requestedBy);
         this.reason = requireText(reason, "reason");
         this.sourceSelectionId = requireText(sourceSelectionId, "sourceSelectionId");
+        this.maintenanceCommit = requireCommit(maintenanceCommit, "maintenanceCommit");
+        this.applicationCommit = requireCommit(applicationCommit, "applicationCommit");
+        this.frontendCommit = requireCommit(frontendCommit, "frontendCommit");
     }
 
     public static ReleaseWorkflowRecord newWorkflow(String workflowId, String releaseTag,
                                                      Instant createdAt, String presetId,
-                                                     String presetVersion) {
+                                                     String presetVersion, String sourceSelectionId,
+                                                     String maintenanceCommit, String applicationCommit,
+                                                     String frontendCommit) {
         return new ReleaseWorkflowRecord(workflowId, releaseTag,
                 ReleaseWorkflowContract.PUBLISH_SCOPE, presetId, presetVersion,
                 State.SOURCE_FREEZING, 0, 1, null, null, null, false,
                 List.of(), null, null, null, null, createdAt, createdAt, createdAt, false, null,
-                "server-created", "approved-source");
+                "server-created", sourceSelectionId, maintenanceCommit, applicationCommit, frontendCommit);
     }
 
     public ReleaseWorkflowRecord withRequestContext(String requestedBy, String reason,
@@ -118,7 +129,7 @@ public record ReleaseWorkflowRecord(
                 state, stateVersion, attempt, operationId, errorCode, failedStage, retryable,
                 evidenceRefs, packageDigest, manifestDigest, testOperationId, testOperationEvidencePath,
                 createdAt, updatedAt, lastHeartbeatAt, zeroWriteEvidence,
-                requestedBy, reason, sourceSelectionId);
+                requestedBy, reason, sourceSelectionId, maintenanceCommit, applicationCommit, frontendCommit);
     }
 
     public enum State {
@@ -166,6 +177,13 @@ public record ReleaseWorkflowRecord(
             return null;
         }
         if (!value.matches("[0-9a-fA-F]{64}")) {
+            throw new IllegalArgumentException("RELEASE_WORKFLOW_" + name.toUpperCase() + "_INVALID");
+        }
+        return value.toLowerCase();
+    }
+
+    private static String requireCommit(String value, String name) {
+        if (value == null || !value.matches("[0-9a-fA-F]{40}")) {
             throw new IllegalArgumentException("RELEASE_WORKFLOW_" + name.toUpperCase() + "_INVALID");
         }
         return value.toLowerCase();

@@ -41,6 +41,18 @@ public class RuntimeControlActionReqVO {
     @Schema(description = "发布包编号", example = "20260528_220000")
     private String releaseTag;
 
+    @JsonIgnore
+    private String sourceSelectionId;
+
+    @JsonIgnore
+    private String expectedMaintenanceCommit;
+
+    @JsonIgnore
+    private String expectedApplicationCommit;
+
+    @JsonIgnore
+    private String expectedFrontendCommit;
+
     @Schema(description = "测试验证结论；标记测试通过必填")
     private String testConclusion;
 

@@ -23,7 +23,8 @@ class ReleaseWorkflowStoreTest {
         ReleaseWorkflowStore store = new ReleaseWorkflowStore(properties);
         ReleaseWorkflowRecord created = ReleaseWorkflowRecord.newWorkflow(
                 "rw-store-test", "release-store-test-app", Instant.parse("2026-09-12T00:00:00Z"),
-                "standard-app-release", "1");
+                "standard-app-release", "1", "approved-source", "a".repeat(40),
+                "b".repeat(40), "c".repeat(40));
 
         store.create(created);
         ReleaseWorkflowRecord saved = store.update(created, 0,
@@ -48,7 +49,8 @@ class ReleaseWorkflowStoreTest {
         ReleaseWorkflowStore store = new ReleaseWorkflowStore(properties);
         ReleaseWorkflowRecord created = ReleaseWorkflowRecord.newWorkflow(
                 "rw-corrupt-test", "release-corrupt-test-app", Instant.now(),
-                "standard-app-release", "1");
+                "standard-app-release", "1", "approved-source", "a".repeat(40),
+                "b".repeat(40), "c".repeat(40));
         store.create(created);
         Files.writeString(store.recordPath("rw-corrupt-test"), "{not-json", java.nio.charset.StandardCharsets.UTF_8);
 

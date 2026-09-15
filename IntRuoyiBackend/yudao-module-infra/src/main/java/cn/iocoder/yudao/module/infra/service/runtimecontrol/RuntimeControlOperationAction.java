@@ -238,6 +238,10 @@ public enum RuntimeControlOperationAction {
             args.add("-ReleaseTag");
             args.add(StrUtil.trim(reqVO.getReleaseTag()));
         }
+        addOptionalArgument(args, "-ExpectedMaintenanceCommit", reqVO.getExpectedMaintenanceCommit());
+        addOptionalArgument(args, "-ExpectedApplicationCommit", reqVO.getExpectedApplicationCommit());
+        addOptionalArgument(args, "-ExpectedFrontendCommit", reqVO.getExpectedFrontendCommit());
+        addOptionalArgument(args, "-SourceSelectionId", reqVO.getSourceSelectionId());
         args.add("-Component");
         args.add(Boolean.TRUE.equals(reqVO.getIncludeShowroomBuildPackage()) ? "full" : "intruoyi");
         if (Boolean.TRUE.equals(reqVO.getIncludeOnlyOffice())) {

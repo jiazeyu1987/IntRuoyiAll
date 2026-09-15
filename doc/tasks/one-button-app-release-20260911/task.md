@@ -36,6 +36,10 @@ P2-P5 不在本次执行范围，不实现完整状态机、持久化 workflow�
 
 ## Current Status
 
-in_progress
+blocked
 
-P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_plan.py` 尚未接受标准 `app-release` scope，多个 required SQL 对测试服真实数据状态存在硬编码或空基线缺口。本 worktree 已补齐 `app-release` 迁移预检合同、活跃路线菜单解析、璞慧排产管理员菜单父级兼容、清洗工序参数空规则 no-op、光固 I/II 空来源 no-op、C00 文本比较显式 collation、B04091/B09353 清洗温度空候选 no-op、IDI QA 旧源空基线 no-op、压力泵同名物料已绑定/`product_master_id IS NULL` 的 no-op 合同，以及旧表单模板 Jimu 布局从正式识别字段构建的迁移合同。R53 Jimu 布局修复已提交为 `c82ee4841` 并进入 R55 包；R55 随后暴露当前正式 `mes_pro_batch_record_version` 缺少 `child_form_member_count/child_form_member_hash` 的迁移 schema 缺口。现已按真实 21 列契约修复并提交为 `3098b3319`，静态 RED/GREEN 与测试服只读 preflight 已通过；需以新 releaseTag 重建验证，R55 不复用。
+P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_plan.py` 尚未接受标准 `app-release` scope，多个 required SQL 对测试服真实数据状态存在硬编码或空基线缺口。本 worktree 已补齐 `app-release` 迁移预检合同、活跃路线菜单解析、璞慧排产管理员菜单父级兼容、清洗工序参数空规则 no-op、光固 I/II 空来源 no-op、C00 文本比较显式 collation、B04091/B09353 清洗温度空候选 no-op、IDI QA 旧源空基线 no-op、压力泵同名物料已绑定/`product_master_id IS NULL` 的 no-op 合同，以及旧表单模板 Jimu 布局从正式识别字段构建的迁移合同。R53 Jimu 布局修复已提交为 `c82ee4841` 并进入 R55 包；R55 随后暴露当前正式 `mes_pro_batch_record_version` 缺少 `child_form_member_count/child_form_member_hash` 的迁移 schema 缺口。现已按真实 21 列契约修复并提交为 `3098b3319`，静态 RED/GREEN 与测试服只读 preflight 已通过；R55 不复用。
+
+独立代码审查进一步确认六项通用机制尚未完成：来源选择没有绑定预期 maintenance/backend/frontend commits；schema rehearsal 排除 data 和 target-preflight 迁移；应用迁移测试入口固定单文件；阶段状态不是后台真实事件；取消/heartbeat/recovery 未接底层 operation/process；发布脚本仍含 migrationId 业务特例。审查同时纠正 R55 证据：未知列错误前已有 definition INSERT，不能宣称数据库完全零写入。当前阻塞在通用机制补齐和新 releaseTag 真实验证，不得直接生成 R56。
+
+已先补来源批准 commit 持久化及执行器参数绑定（应用提交 `e109b707c`），并在维护脚本中加入按冻结迁移差异自动发现测试、缺失即 `MIGRATION_TEST_MISSING` 的构建前门禁；相关 Java 10 tests、维护回归 37 tests 与脚本 AST 已通过。后台阶段事件、底层取消/恢复 scheduler、统一迁移隔离执行、版本化迁移参数/hooks 仍待完成。
