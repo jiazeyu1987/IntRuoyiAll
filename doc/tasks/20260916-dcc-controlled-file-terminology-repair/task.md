@@ -4,7 +4,7 @@
 修复当前 DCC 受控文件代码中仍把业务对象描述为“工作稿”“工作版本”“现行版”的用户可见文案，统一使用“受控文件”，并把审批、生效、待提交等状态作为进度描述。
 
 ## Current Status
-ready_for_closeout
+completed
 
 ## Milestones
 1. 静态扫描受控文件前后端用户可见文案。

@@ -17,3 +17,8 @@
 - Closeout rule reread completed before commit/summary.
 - Cleanup tooling check: project and user `.codex` search plus `Get-Command task-closeout-cleanup*` found no runnable `task-closeout-cleanup`; no generated temp evidence exists under this task directory, so cleanup was handled by direct keep review only.
 - Status set to `ready_for_closeout`.
+
+## 2026-09-16 closeout
+- Implementation commit: `7430c6034` (`fix: align DCC controlled file terminology`).
+- Files committed in implementation: backend query message, controlled-file upload/browser/detail/shared frontend presentation files, terminology test, and task records.
+- Final status set to `completed`; preparing closeout commit and push to `origin/int_qms`.
