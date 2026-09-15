@@ -30,4 +30,5 @@ A historical preview-detail script was probed and found stale because it reads d
 ## Closeout
 - Implementation commit: `7430c6034`.
 - Cleanup: no runnable `task-closeout-cleanup` found; direct keep review retained task, log and verification report only.
-- Final status: completed, pending closeout commit/push at time of writing.
+- Closeout commit: `127d3bee7`; pushed to `origin/int_qms`.
+- Final status: completed; final `git status --short --branch` showed `## int_qms...origin/int_qms`.

@@ -22,3 +22,4 @@
 - Implementation commit: `7430c6034` (`fix: align DCC controlled file terminology`).
 - Files committed in implementation: backend query message, controlled-file upload/browser/detail/shared frontend presentation files, terminology test, and task records.
 - Final status set to `completed`; preparing closeout commit and push to `origin/int_qms`.
+- Closeout commit: `127d3bee7` (`docs: close DCC controlled file terminology repair`); pushed to `origin/int_qms` with final status clean.
