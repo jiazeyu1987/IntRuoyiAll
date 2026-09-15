@@ -114,7 +114,7 @@
       <el-descriptions-item label="培训要求">
         {{ file?.needTraining ? '需要培训' : '无需培训' }}
       </el-descriptions-item>
-      <el-descriptions-item label="现行版本">
+      <el-descriptions-item label="当前有效版本">
         {{ file?.currentActiveVersionNo || '-' }}
       </el-descriptions-item>
       <el-descriptions-item label="流程实例">

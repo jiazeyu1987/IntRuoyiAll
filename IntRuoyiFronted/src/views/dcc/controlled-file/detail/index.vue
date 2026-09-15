@@ -453,7 +453,7 @@
             class="mt-6px text-13px text-[var(--el-color-warning)]"
             data-testid="dcc-returned-applicant-rework-guide"
           >
-            有流程回退，需先到受控浏览检出并检入修正文档，生成新工作版本后再提交审批。
+            有流程回退，需先到受控浏览检出并检入修正文档，生成新的待提交受控文件版本后再提交审批。
           </div>
           <div class="mt-14px flex flex-wrap gap-8px">
             <el-button v-if="isReturnedApplicantTask" type="primary" @click="openReturnedApplicantReworkInBrowser">
@@ -653,7 +653,7 @@
           class="mt-6px text-13px text-[var(--el-color-warning)]"
           data-testid="dcc-returned-applicant-rework-guide"
         >
-          有流程回退，需先到受控浏览检出并检入修正文档，生成新工作版本后再提交审批。
+          有流程回退，需先到受控浏览检出并检入修正文档，生成新的待提交受控文件版本后再提交审批。
         </div>
         <div class="mt-14px flex flex-wrap gap-8px">
           <el-button v-if="isReturnedApplicantTask" type="primary" @click="openReturnedApplicantReworkInBrowser">

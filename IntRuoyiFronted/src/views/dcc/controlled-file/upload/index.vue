@@ -269,7 +269,7 @@
             placeholder="例如 SOP-001"
           />
         </el-form-item>
-        <el-form-item v-if="formData.fileNumber" label="现行版本">
+        <el-form-item v-if="formData.fileNumber" label="当前有效版本">
           <div
             data-testid="dcc-upload-current-version-panel"
             class="w-full rounded-8px border border-[var(--el-border-color-light)] bg-[#fafcff] px-12px py-10px text-13px"
@@ -325,7 +325,7 @@
               </div>
             </template>
             <template v-else>
-              未查询到同编号现行版本，将创建新的 master 主档，并按新建规则校验。
+              未查询到同编号当前有效版本，将创建新的受控文件主档，并按新建规则校验。
             </template>
           </div>
         </el-form-item>
@@ -704,7 +704,7 @@ const resolveProcessTypeByRoute = () =>
   route.path.includes('/external') ? 'EXTERNAL_REVIEW' : 'CONTROLLED_FILE'
 const isExternalReview = computed(() => resolveProcessTypeByRoute() === 'EXTERNAL_REVIEW')
 const pageTitle = computed(() => (isExternalReview.value ? '外来文件评审' : '受控文件提交'))
-const submitButtonText = computed(() => (isExternalReview.value ? '提交评审' : '创建工作版本'))
+const submitButtonText = computed(() => (isExternalReview.value ? '提交评审' : '创建受控文件'))
 const formData = reactive<UploadFormDraft>({
   categoryId: null,
   directoryId: null,
@@ -1569,9 +1569,9 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
     : versionBlockingReason
       ? versionBlockingReason
       : currentVersionInfo.value?.matched
-        ? `现行版本 ${currentVersionInfo.value.currentVersionNo || '-'}，本次提交版本 ${formData.versionNo || '-'}。`
+        ? `当前有效版本 ${currentVersionInfo.value.currentVersionNo || '-'}，本次提交版本 ${formData.versionNo || '-'}。`
         : versionReady
-          ? '未发现同编号现行版本，将按新建编号继续校验。'
+          ? '未发现同编号当前有效版本，将按新建编号继续校验。'
           : '请输入文件编号和版本号后检查是否重复。'
 
   return [
@@ -1712,7 +1712,7 @@ const loadCurrentVersionByFileNumber = async () => {
     }
   } catch (error) {
     if (requestSeq === currentVersionLookupSeq) {
-      const errorMessage = resolveUploadErrorMessage(error, '现行版本信息查询失败，请查看错误提示后重试')
+      const errorMessage = resolveUploadErrorMessage(error, '当前有效版本信息查询失败，请查看错误提示后重试')
       currentVersionInfo.value = undefined
       currentVersionLookupError.value = errorMessage
       message.error(errorMessage)
@@ -2018,7 +2018,7 @@ const submitForm = async () => {
       drawingPdfUpload.value
     )
     uploadSubmitted.value = true
-    message.success(isExternalReview.value ? '外来文件评审已提交审批' : '工作版本已创建，请在文件浏览中提交审批')
+    message.success(isExternalReview.value ? '外来文件评审已提交审批' : '受控文件已创建，请在文件浏览中提交审批')
     await router.push({ name: 'DccControlledFileBrowser' })
   } catch (error) {
     const feedback = buildSubmitFailureFeedback(

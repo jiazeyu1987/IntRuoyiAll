@@ -1783,7 +1783,7 @@ const handleSubmitWorkingIteration = async (
   if (!isValidBrowserOptionId(id)) return
   try {
     await ElMessageBox.confirm(
-      `确认将最新工作版本 ${file.versionNo || ''} 提交审批？提交后该版本将锁定。`,
+      `确认将最新待提交受控文件版本 ${file.versionNo || ''} 提交审批？提交后该版本将锁定。`,
       '提交审批',
       { confirmButtonText: '提交审批', cancelButtonText: '取消', type: 'warning' }
     )

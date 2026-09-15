@@ -107,7 +107,7 @@ const getPendingStageSummary = (
       }
     case 'ACTIVE':
       return {
-        nextStep: '可查看和下载现行版',
+        nextStep: '可查看和下载当前有效版本',
         responsibilityHint: '责任：使用部门'
       }
     case 'REJECTED':
@@ -132,7 +132,7 @@ const getPendingStageSummary = (
       }
     case 'SUPERSEDED':
       return {
-        nextStep: '已被替代，查看现行版',
+        nextStep: '已被替代，查看当前有效版本',
         responsibilityHint: '责任：查看最新版本'
       }
     case 'DRAFT':
@@ -199,7 +199,7 @@ const getControlledFileVersionChainText = (source: ControlledFileVersionSummaryS
   const versionCount = source.versionHistory?.length || 0
   if (source.modifying) {
     return source.currentActiveVersionNo && source.currentActiveVersionNo !== source.versionNo
-      ? `现行版：${source.currentActiveVersionNo}`
+      ? `当前有效版本：${source.currentActiveVersionNo}`
       : '当前版本正在修改'
   }
   if ((source.status as DccControlledFileStatus | undefined) === 'SUPERSEDED') {
@@ -211,13 +211,13 @@ const getControlledFileVersionChainText = (source: ControlledFileVersionSummaryS
     return '已作废，保留历史记录'
   }
   if (source.currentActiveVersionNo && source.currentActiveVersionNo !== source.versionNo) {
-    return `现行版：${source.currentActiveVersionNo}`
+    return `当前有效版本：${source.currentActiveVersionNo}`
   }
   if (versionCount > 1) {
     return `版本链 ${versionCount} 个版本`
   }
   if ((source.status as DccControlledFileStatus | undefined) === 'ACTIVE') {
-    return '现行版本'
+    return '当前有效版本'
   }
   return '单版本记录'
 }

@@ -3084,7 +3084,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             return "待发布盖章预览文件不存在或已被删除";
         }
         if (DccControlledFileStatusEnum.WORKING.getStatus().equals(file.getStatus())) {
-            return "工作稿源文件不存在或已被删除";
+            return "待提交受控文件源文件不存在或已被删除";
         }
         return isPendingPreviewStatus(file.getStatus())
                 || DccControlledFileStatusEnum.REJECTED.getStatus().equals(file.getStatus())

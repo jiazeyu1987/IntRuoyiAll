@@ -41,7 +41,7 @@ export const relationDirectionLabel = (code?: string | null) => label({
 }, code)
 
 export const controlledFileStatusLabel = (code?: string | null) => label({
-  ACTIVE: '当前有效', WORKING: '工作版本', REJECTED: '已驳回',
+  ACTIVE: '当前有效', WORKING: '待提交', REJECTED: '已驳回',
   PENDING_DOC_CONTROL_REVIEW: '待文控审核', PENDING_MATRIX_REVIEW: '待矩阵审核',
   PENDING_MATRIX_APPROVAL: '待矩阵批准', PENDING_DOC_CONTROL_APPROVAL: '待文控批准',
   PENDING_APPLICANT_REWORK: '待申请人返工', READY_TO_PUBLISH: '待发布',
