@@ -127,3 +127,12 @@ REGRESSION: `python -X utf8 -m pytest -q script\tests\test_release_manifest_migr
 COMMIT: app release tooling contract sync -> `27f2ceccec7e`。
 
 RESULT: R73 判废且不得复用；失败前未形成完整发布包、未上传 NAS、未写测试服。下一轮必须使用全新 releaseTag `release-20260916-one-button-app-r74`，source freeze 绑定应用仓 `27f2ceccec7e` 之后的 clean HEAD 与维护仓新记录提交后的 clean HEAD。
+
+## 2026-09-16 one-button app-release R74 planner ordering sync
+
+- RED: build-release-r74-schema-rehearsal-order -> FAIL，R74 在 schema rehearsal 中先执行 `20260624_dcc_view_matrix_independent_seed.sql`，随后才计划执行 `20260624_dcc_view_matrix_test_tenant_prereq.sql`，违反 `applyOrder=10/20` 的声明式顺序，未生成 READY 包、NAS 上传或测试服写入。
+- ROOT_CAUSE: 应用仓 `script/release/release_preflight_plan.py` 与维护仓 planner 同源缺口一致，依赖拓扑 ready queue 仅按 manifest 原始顺序取项，没有把 `applyOrder` 作为同层优先级；这会让按钮发布在 build preflight、schema rehearsal 与 deploy preflight 之间产生顺序语义漂移。
+- BDD: 应用仓 deploy preflight 与维护仓 build preflight 顺序一致 -> Given 迁移声明 `applyOrder` 且依赖关系不冲突 / When 应用仓生成 release preflight plan / Then planner items 必须按 `applyOrder` 排序，并且 dependsOn 始终优先于 applyOrder。
+- GREEN: app-planner-ordering-sync -> PASS。应用仓 `script/release/release_preflight_plan.py` 的 ready queue 优先键改为 `applyOrder -> originalOrder`，`script/tests/test_release_preflight_plan.py` 新增 applyOrder 排序与 dependsOn 优先回归。
+- REGRESSION: `python -X utf8 -m pytest -q script\tests\test_release_preflight_plan.py script\tests\test_dcc_view_matrix_independent_seed_sql.py script\tests\test_release_target_preflight_files.py --basetemp .tmp-r74-app-preflight-regression` -> PASS，35 passed；`python -X utf8 -m py_compile script\release\release_preflight_plan.py` 与 `git diff --check` -> PASS。
+- RESULT: 应用仓需提交本修复后供 R75 source freeze 使用；R74 已判废，不得复用或补包。

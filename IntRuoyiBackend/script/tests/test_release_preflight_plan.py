@@ -234,6 +234,41 @@ def test_preflight_preserves_manifest_order_when_dependencies_become_ready() -> 
     ]
 
 
+def test_preflight_orders_independent_items_by_declared_apply_order() -> None:
+    plan = build_preflight_plan(
+        [
+            migration(migrationId="view-matrix-seed", type="seed", applyOrder=20),
+            migration(migrationId="test-tenant-prereq", type="seed", applyOrder=10),
+            migration(migrationId="ordinary-schema"),
+        ],
+        {},
+        target_environment="test",
+        publish_scope="app-release",
+    )
+
+    assert plan["status"] == "passed"
+    assert [item["migrationId"] for item in plan["items"]] == [
+        "test-tenant-prereq",
+        "view-matrix-seed",
+        "ordinary-schema",
+    ]
+
+
+def test_preflight_dependency_order_overrides_apply_order() -> None:
+    plan = build_preflight_plan(
+        [
+            migration(migrationId="child", applyOrder=10, dependsOn=["parent"]),
+            migration(migrationId="parent", applyOrder=20),
+        ],
+        {},
+        target_environment="test",
+        publish_scope="app-release",
+    )
+
+    assert plan["status"] == "passed"
+    assert [item["migrationId"] for item in plan["items"]] == ["parent", "child"]
+
+
 def test_preflight_outputs_apply_when_safe() -> None:
     plan = build_preflight_plan([migration()], {}, target_environment="test", publish_scope="with-data")
 
