@@ -40,6 +40,18 @@ class MesOutputMaterialProgressCalculatorTest {
     }
 
     @Test
+    void crossWorkOrderAllocationUsesSourceEventAndTargetAllocation() {
+        BigDecimal progress = MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
+                activeOrder(11L, 31L),
+                snapshot(11L, 31L, "{\"outputMaterialIds\":[501]}"),
+                List.of(productionSubmit(401L, 30L,
+                        "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":100}]}")),
+                List.of(allocation(202L, 11L, 31L, 401L, "60")));
+
+        assertEquals(BigDecimal.valueOf(60).setScale(6), progress);
+    }
+
+    @Test
     void multiOutputMaterialsAreCappedByAllocationQuantityBeforeMinimumProgress() {
         BigDecimal progress = MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
                 activeOrder(10L, 30L),

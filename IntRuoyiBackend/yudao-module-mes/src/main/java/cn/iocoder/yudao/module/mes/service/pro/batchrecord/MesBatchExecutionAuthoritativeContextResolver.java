@@ -121,6 +121,7 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                         ? receipt.getLossReportStatus() : "NO_LOSS")
                 .setBatchRecordId(receipt.getBatchRecordId()).setProcessInspectionId(receipt.getProcessInspectionId())
                 .setHasActualLoss(receipt.getHasActualLoss()).setLossQuantity(receipt.getLossQuantity())
+                .setLossConditionFactsJson(receipt.getLossConditionFactsJson())
                 .setLossRecordId(receipt.getLossRecordId()).setLossReportStatus(receipt.getLossReportStatus())
                 .setLossDecision(Boolean.TRUE.equals(receipt.getHasActualLoss()) ? "ACTUAL_LOSS" : "NO_LOSS")
                 .setSourceVersion(String.valueOf(receipt.getCompletionVersion()))

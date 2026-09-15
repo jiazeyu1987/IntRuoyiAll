@@ -54,7 +54,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesTeamLeaderActiveOrderCompletionResult completeForRelease(
-            Long leaderUserId, Long activeOrderId, String releaseIdempotencyKey) {
+            Long leaderUserId, Long activeOrderId, String releaseIdempotencyKey, Boolean confirmNoReplenishmentInfo) {
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
         if (activeOrder == null) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
@@ -69,7 +69,16 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
                     || existing.getRequestIdempotencyKey().isBlank()) {
                 throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PERSISTENCE_FAILED, activeOrder.getId());
             }
+            Boolean recordedConfirmation = confirmNoReplenishmentInfo;
+            if (existing.getZeroLossConfirmationSnapshot() != null
+                    && !existing.getZeroLossConfirmationSnapshot().isBlank()) {
+                var confirmation = JsonUtils.parseObject(existing.getZeroLossConfirmationSnapshot(), java.util.Map.class);
+                if (Boolean.TRUE.equals(confirmation.get("confirmNoReplenishmentInfo"))) {
+                    recordedConfirmation = true;
+                }
+            }
             return complete(leaderUserId, new MesTeamLeaderActiveOrderCompletionCommand()
+                    .setConfirmNoReplenishmentInfo(recordedConfirmation)
                     .setActiveOrderId(activeOrder.getId())
                     .setExpectedVersion(existing.getExpectedVersion())
                     .setIdempotencyKey(existing.getRequestIdempotencyKey()));
@@ -79,6 +88,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
                     activeOrder.getId(), "RELEASE_IDEMPOTENCY_KEY_REQUIRED");
         }
         return complete(leaderUserId, new MesTeamLeaderActiveOrderCompletionCommand()
+                    .setConfirmNoReplenishmentInfo(confirmNoReplenishmentInfo)
                 .setActiveOrderId(activeOrder.getId())
                 .setExpectedVersion(activeOrder.getVersion())
                 .setIdempotencyKey(RELEASE_COMPLETION_KEY_PREFIX
@@ -99,7 +109,8 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         }
         pickListCompletionSourceService.freezeAll(activeOrder, leaderUserId, command.getIdempotencyKey());
         String requestPayloadHash = sha256(activeOrder.getId() + "|" + command.getExpectedVersion()
-                + "|" + command.getIdempotencyKey());
+                + "|" + command.getIdempotencyKey()
+                + (Boolean.TRUE.equals(command.getConfirmNoReplenishmentInfo()) ? "|true" : ""));
         MesProcessPoolActiveOrderCompletionReceiptDO existingByOrder =
                 receiptMapper.selectByActiveOrderIdForUpdate(activeOrder.getId());
         MesProcessPoolActiveOrderCompletionReceiptDO existingByKey =
@@ -220,7 +231,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
             if (!MesProcessPoolActiveOrderCompletionReceiptDO.LOSS_REPORT_STATUS_SUCCESS
                     .equals(draft.getLossReportStatus())
                     || draft.getLossQuantity().signum() <= 0
-                    || draft.getLossRecordId() == null) {
+                    || (draft.getLossSourceIdsJson() == null || draft.getLossSourceIdsJson().isBlank())) {
                 throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, activeOrderId,
                         "LOSS_RECORD_REQUIRED");
             }
@@ -269,7 +280,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
             }
             if (MesTeamLeaderActiveOrderCompletionLossCondition.REQUIRED.equals(condition.getStatus())) {
                 if (!condition.getHasActualLoss() || condition.getLossQuantity().signum() <= 0
-                        || condition.getLossRecordId() == null) {
+                        || (condition.getReplenishmentSources() == null || condition.getReplenishmentSources().isEmpty())) {
                     throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, activeOrderId,
                             "LOSS_CONDITION_REQUIRED_INVALID");
                 }
@@ -277,7 +288,6 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
                 totalLoss = totalLoss.add(condition.getLossQuantity());
             } else if (MesTeamLeaderActiveOrderCompletionLossCondition.NO_LOSS.equals(condition.getStatus())) {
                 if (condition.getHasActualLoss() || condition.getLossQuantity().signum() != 0
-                        || condition.getLossRecordId() != null
                         || condition.getZeroLossConfirmationSnapshot() == null
                         || condition.getZeroLossConfirmationSnapshot().isBlank()) {
                     throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, activeOrderId,

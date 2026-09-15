@@ -176,6 +176,9 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setProcessInspectionFormCenterInstanceIds(copy(
                         dossierWrite.getProcessInspectionFormCenterInstanceIds()))
                 .setLossReportEvidenceIds(copy(dossierWrite.getLossReportEvidenceIds()))
+                .setLossReportFormCenterInstanceIds(copy(dossierWrite.getLossReportFormCenterInstanceIds()))
+                .setLossReportFieldAuditIds(copy(dossierWrite.getLossReportFieldAuditIds()))
+                .setLossReportFieldAuditHeadHashes(copy(dossierWrite.getLossReportFieldAuditHeadHashes()))
                 .setLossReportStatus(dossierWrite.getLossReportStatus())
                 .setHasActualLoss(dossierWrite.getHasActualLoss())
                 .setLossQuantity(dossierWrite.getLossQuantity())
@@ -472,11 +475,13 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 && (("SUCCESS".equals(result.getLossReportStatus())
                 && Boolean.TRUE.equals(result.getHasActualLoss())
                 && result.getLossQuantity() != null && result.getLossQuantity().signum() > 0
-                && !empty(result.getLossReportEvidenceIds()))
+                && (!empty(result.getLossReportEvidenceIds()) || !empty(result.getLossReportFormCenterInstanceIds()))
+                && (empty(result.getLossReportFormCenterInstanceIds())
+                    || (!empty(result.getLossReportFieldAuditIds()) && !empty(result.getLossReportFieldAuditHeadHashes()))))
                 || ("NOT_REQUIRED".equals(result.getLossReportStatus())
                 && Boolean.FALSE.equals(result.getHasActualLoss())
                 && result.getLossQuantity() != null && result.getLossQuantity().signum() == 0
-                && empty(result.getLossReportEvidenceIds())));
+                && empty(result.getLossReportEvidenceIds()) && empty(result.getLossReportFormCenterInstanceIds())));
         if (result == null || empty(result.getBatchRecordEvidenceIds())) {
             throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application,
                     "RELEASE_DOSSIER", String.valueOf(application.getId()),
@@ -539,6 +544,9 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setProcessInspectionEvidenceIds(List.of())
                 .setProcessInspectionFormCenterInstanceIds(List.of())
                 .setLossReportEvidenceIds(List.of())
+                .setLossReportFormCenterInstanceIds(List.of())
+                .setLossReportFieldAuditIds(List.of())
+                .setLossReportFieldAuditHeadHashes(List.of())
                 .setReportUploadTasks(List.of())
                 .setSourceSnapshotHash(application.getSourceSnapshotHash());
     }

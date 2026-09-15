@@ -169,6 +169,13 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
 
     @BeforeEach
     void setUpProcessPoolConfigMappers() {
+        var generatedBindingId = new java.util.concurrent.atomic.AtomicLong(70000L);
+        lenient().when(routeFlowProcessBatchRecordMapper.insert(any(MesProRouteFlowProcessBatchRecordDO.class)))
+                .thenAnswer(invocation -> {
+                    MesProRouteFlowProcessBatchRecordDO binding = invocation.getArgument(0);
+                    binding.setId(generatedBindingId.incrementAndGet());
+                    return 1;
+                });
         lenient().when(defectReasonMapper.selectList(any())).thenReturn(List.of());
         lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of());
     }

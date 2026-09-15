@@ -915,6 +915,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         for (BatchTaskConfig taskConfig : taskConfigs) {
             MesProEdhrBatchExecutionTaskDO task = toTaskDO(batch.getId(), taskConfig,
                     provisionCommand.getSourceSnapshotHash());
+            applyFormalLossRequirement(task, provisionCommand);
             batchTaskMapper.insert(task);
             insertedTasks.add(task);
         }
@@ -1198,6 +1199,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         for (BatchTaskConfig taskConfig : taskConfigs) {
             MesProEdhrBatchExecutionTaskDO task = toTaskDO(batch.getId(), taskConfig,
                     provisionCommand.getSourceSnapshotHash());
+            applyFormalLossRequirement(task, provisionCommand);
             batchTaskMapper.insert(task);
             insertedTasks.add(task);
         }
@@ -1333,6 +1335,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         for (BatchTaskConfig taskConfig : taskConfigs) {
             MesProEdhrBatchExecutionTaskDO task = toTaskDO(newAttempt.getId(), taskConfig,
                     reexecuteProvisionCommand.getSourceSnapshotHash());
+            applyFormalLossRequirement(task, reexecuteProvisionCommand);
             batchTaskMapper.insert(task);
             insertedTasks.add(task);
         }
@@ -3021,6 +3024,44 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setBlockerMessage(null);
     }
 
+    private void applyFormalLossRequirement(MesProEdhrBatchExecutionTaskDO task,
+                                            MesBatchExecutionProvisionCommand command) {
+        if (MesProEdhrConditionalLossRequirement.isConditionalLoss(task)) {
+            Boolean actual = command.getCompletionBackfillReceipt() == null ? null
+                    : command.getCompletionBackfillReceipt().getHasActualLoss();
+            if (command.getCompletionBackfillReceipt() != null) {
+                if (StrUtil.isBlank(command.getCompletionBackfillReceipt().getLossConditionFactsJson())) {
+                    throw new IllegalStateException("正式完工回执缺少逐工序损耗条件");
+                }
+                var facts = JSON.parseArray(command.getCompletionBackfillReceipt().getLossConditionFactsJson(),
+                        cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionLossCondition.class);
+                var processFacts = facts.stream().filter(fact -> Objects.equals(task.getProcessId(), fact.getProcessId())
+                        && Objects.equals(task.getRouteProcessId(), fact.getRouteProcessId())).toList();
+                if (processFacts.isEmpty() || processFacts.stream().anyMatch(fact -> fact.getHasActualLoss() == null)) {
+                    throw new IllegalStateException("工序缺少正式完工损耗条件：" + task.getProcessId());
+                }
+                actual = processFacts.stream().anyMatch(fact -> Boolean.TRUE.equals(fact.getHasActualLoss()));
+            }
+            task.setRequiredFlag(MesProEdhrConditionalLossRequirement.required(task, actual));
+        }
+    }
+
+    private boolean isCurrentlyRequired(MesProEdhrBatchExecutionTaskDO task) {
+        if (!MesProEdhrConditionalLossRequirement.isConditionalLoss(task)) {
+            return !Boolean.FALSE.equals(task.getRequiredFlag());
+        }
+        if (Boolean.FALSE.equals(task.getRequiredFlag())) {
+            return MesProEdhrConditionalLossRequirement.required(task, false);
+        }
+        return MesProEdhrConditionalLossRequirement.required(task,
+                MesProEdhrConditionalLossRequirement.formalDecision(
+                        batchExecutionOriginMapper.selectListByBatchExecutionId(task.getBatchExecutionId())));
+    }
+
+    private boolean isLossNotApplicable(MesProEdhrBatchExecutionTaskDO task) {
+        return MesProEdhrConditionalLossRequirement.isConditionalLoss(task) && !isCurrentlyRequired(task);
+    }
+
     private boolean isRequiredRoutePolicy(String requiredPolicy) {
         return !"OPTIONAL".equals(StrUtil.trim(requiredPolicy));
     }
@@ -3069,7 +3110,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .map(MesProEdhrBatchExecutionTaskDO::getId)
                 .collect(Collectors.toSet());
         for (MesProEdhrBatchExecutionTaskDO task : insertedTasks) {
-            if (isDynamicRouteFormTask(task) && !sharedTaskIds.contains(task.getId())) {
+            if (!isLossNotApplicable(task) && isDynamicRouteFormTask(task) && !sharedTaskIds.contains(task.getId())) {
                 createFormCenterInstanceForTask(batch, task);
             }
         }
@@ -3082,7 +3123,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             List<MesProEdhrBatchExecutionTaskDO> tasks, boolean dynamicRouteFormOnly) {
         Map<String, List<MesProEdhrBatchExecutionTaskDO>> sharedTaskMap = new LinkedHashMap<>();
         for (MesProEdhrBatchExecutionTaskDO task : tasks) {
-            if (!isBatchSharedTask(task)) {
+            if (isLossNotApplicable(task) || !isBatchSharedTask(task)) {
                 continue;
             }
             if (dynamicRouteFormOnly != isDynamicRouteFormTask(task)) {
@@ -3374,7 +3415,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_BLOCKED);
         }
         if (Objects.equals(task.getStatus(), TASK_STATUS_BLOCKED)
-                || Boolean.FALSE.equals(task.getRequiredFlag())) {
+                || !isCurrentlyRequired(task)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_BLOCKED);
         }
         List<MesProEdhrBatchExecutionTaskDO> allTasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId());
@@ -6245,7 +6286,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         boolean anyStarted = false;
         boolean anyReworkRequired = false;
         for (MesProEdhrBatchExecutionTaskDO task : tasks) {
-            boolean requiredTask = !Boolean.FALSE.equals(task.getRequiredFlag());
+            boolean requiredTask = isCurrentlyRequired(task);
             if (requiredTask) {
                 requiredTotal++;
             }
@@ -6286,7 +6327,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_VOIDED)) {
             status = batch.getStatus();
         }
-        batch.setTaskTotal(tasks.size())
+        batch.setTaskTotal(requiredTotal)
                 .setTaskApprovedCount(approved)
                 .setBlockedCount(blocked)
                 .setStatus(status);
@@ -6399,7 +6440,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                      List<MesProEdhrBatchExecutionTaskDO> allTasks,
                                      Map<Long, Set<Long>> predecessorRouteProcessIdMap) {
         if (Objects.equals(task.getStatus(), TASK_STATUS_BLOCKED)
-                || (Boolean.FALSE.equals(task.getRequiredFlag()) && !isOptionalRouteFormTask(task))
+                || (!isCurrentlyRequired(task) && !isOptionalRouteFormTask(task))
                 || (isRouteForm(task) && StrUtil.isBlank(task.getBatchRecordReportId())
                 && !hasFormCenterRouteContext(task))) {
             return new TaskGate(false, StrUtil.blankToDefault(task.getBlockerMessage(), "批记录任务被阻塞"));
@@ -6416,7 +6457,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 List<MesProEdhrBatchExecutionTaskDO> previousSameProcessTasks = allTasks.stream()
                         .filter(candidate -> Objects.equals(candidate.getRouteProcessId(), task.getRouteProcessId()))
                         .filter(candidate -> !Objects.equals(candidate.getId(), task.getId()))
-                        .filter(candidate -> !Boolean.FALSE.equals(candidate.getRequiredFlag()))
+                        .filter(this::isCurrentlyRequired)
                         .filter(this::isRouteForm)
                         .filter(candidate -> compareBatchRecordOrder(candidate, task) < 0)
                         .toList();
@@ -6434,7 +6475,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         } else {
             previousProcessesApproved = allTasks.stream()
                     .filter(this::isRouteForm)
-                    .filter(candidate -> !Boolean.FALSE.equals(candidate.getRequiredFlag()))
+                    .filter(this::isCurrentlyRequired)
                     .filter(candidate -> isRouteFormBeforeOrAtSpecialNode(candidate, task))
                     .allMatch(this::isTaskApproved);
         }
@@ -6450,10 +6491,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                       List<MesProEdhrBatchExecutionTaskDO> allTasks) {
         List<MesProEdhrBatchExecutionTaskDO> predecessorTasks = allTasks.stream()
                 .filter(candidate -> Objects.equals(candidate.getRouteProcessId(), predecessorRouteProcessId))
-                .filter(candidate -> !Boolean.FALSE.equals(candidate.getRequiredFlag()))
+                .filter(this::isCurrentlyRequired)
                 .filter(this::isRouteForm)
                 .toList();
-        return !predecessorTasks.isEmpty() && predecessorTasks.stream().allMatch(this::isTaskApproved);
+        return allTasks.stream().anyMatch(candidate -> Objects.equals(candidate.getRouteProcessId(), predecessorRouteProcessId)
+                && isRouteForm(candidate)) && predecessorTasks.stream().allMatch(this::isTaskApproved);
     }
 
     private boolean isRouteFormBeforeOrAtSpecialNode(MesProEdhrBatchExecutionTaskDO routeFormTask,
@@ -6534,7 +6576,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             return blockers;
         }
         for (MesProEdhrBatchExecutionTaskDO task : tasks) {
-            if (Boolean.FALSE.equals(task.getRequiredFlag())) {
+            if (!isCurrentlyRequired(task)) {
                 continue;
             }
             if (Objects.equals(task.getStatus(), TASK_STATUS_BLOCKED)) {

@@ -606,6 +606,9 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         receipt.put("batchRecordEvidenceIds", List.of());
         receipt.put("processInspectionEvidenceIds", List.of());
         receipt.put("lossReportEvidenceIds", List.of());
+        receipt.put("lossReportFormCenterInstanceIds", List.of());
+        receipt.put("lossReportFieldAuditIds", List.of());
+        receipt.put("lossReportFieldAuditHeadHashes", List.of());
         receipt.put("reportUploadTasks", List.of());
         receipt.put("sourceSnapshotHash", application.getSourceSnapshotHash());
         receipt.put("version", application.getVersion() + 1);

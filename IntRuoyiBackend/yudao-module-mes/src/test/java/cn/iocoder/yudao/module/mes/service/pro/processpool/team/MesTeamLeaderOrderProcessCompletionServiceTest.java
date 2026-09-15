@@ -132,6 +132,22 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     }
 
     @Test
+    void recalculationKeepsLastEventWithinTheRemainingAllocatedSources() {
+        var trigger = event();
+        var remainingEvent = event().setId(1002L);
+        var line = allocation(9001L, "100").setEventId(1002L);
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("100")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(line));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("100"));
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, remainingEvent, List.of(line));
+        service.reconcileAffectedAllocations(trigger, List.of(line));
+        var captor = ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
+        verify(completionMapper).insert(captor.capture());
+        assertEquals(1002L, captor.getValue().getLastEventId());
+    }
+
+    @Test
     void shouldKeepOrderProcessInProgressBeforeTargetQuantityIsReached() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "79");

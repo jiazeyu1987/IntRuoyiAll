@@ -65,6 +65,10 @@ public interface FormCenterRuntimeService {
 
     FormInstanceRespVO submitInstance(Long instanceId, FormInstanceSubmitReqVO reqVO, Long userId);
 
+    /** Internal verified-source path; intentionally not exposed by any controller. */
+    FormInstanceRespVO submitVerifiedBackfillInstance(Long instanceId, FormInstanceSubmitReqVO reqVO,
+            Long actorUserId, String expectedExecutorCode, String evidenceHash);
+
     void reworkSubmitInstance(Long instanceId, FormInstanceSubmitReqVO reqVO, Long userId);
 
     void abandonInstance(Long instanceId, Long userId);

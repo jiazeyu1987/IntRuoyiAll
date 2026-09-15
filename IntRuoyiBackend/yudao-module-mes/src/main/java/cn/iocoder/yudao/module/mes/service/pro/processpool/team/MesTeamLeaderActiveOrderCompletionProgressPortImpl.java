@@ -53,9 +53,6 @@ public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
         List<MesProcessPoolReportAllocationDO> allocations =
                 allocationMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId());
         List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId());
-        List<MesProProcessPoolEventDO> productionEvents =
-                eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(activeOrder.getWorkOrderId(),
-                        activeOrder.getRouteId());
         if (snapshots == null || snapshots.isEmpty() || tasks == null || tasks.isEmpty()) {
             throw sourceMissing(activeOrder, "PRODUCTION_OR_PQC_SNAPSHOT");
         }
@@ -69,6 +66,11 @@ public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
                 throw sourceMissing(activeOrder, "REPORT_ALLOCATION");
             }
         }
+        List<Long> sourceEventIds = (allocations == null ? List.<MesProcessPoolReportAllocationDO>of() : allocations)
+                .stream().filter(allocation -> allocation.getAllocatedQuantity().signum() > 0)
+                .map(MesProcessPoolReportAllocationDO::getEventId).filter(Objects::nonNull).distinct().toList();
+        List<MesProProcessPoolEventDO> productionEvents = sourceEventIds.isEmpty() ? List.of()
+                : eventMapper.selectProductionSubmitsByIdsForUpdate(sourceEventIds);
         Map<String, MesProcessPoolActiveOrderProcessSnapshotDO> snapshotsByProcess = new HashMap<>();
         long productionComplete = 0;
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {

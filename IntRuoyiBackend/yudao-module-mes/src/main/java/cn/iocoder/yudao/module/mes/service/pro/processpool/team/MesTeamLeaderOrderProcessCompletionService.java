@@ -24,6 +24,7 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -134,8 +135,27 @@ public class MesTeamLeaderOrderProcessCompletionService {
                     .workOrderId(workOrderId)
                     .routeId(event.getRouteId())
                     .build();
-            List<MesProProcessPoolEventDO> productionEvents =
-                    eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(workOrderId, event.getRouteId());
+            List<MesProProcessPoolEventDO> productionEvents = new ArrayList<>(
+                    eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(workOrderId, event.getRouteId()));
+            List<Long> sourceEventIds = activeOrderSourceAllocations.stream()
+                    .map(MesProcessPoolReportAllocationDO::getEventId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            if (!sourceEventIds.isEmpty()) {
+                Map<Long, MesProProcessPoolEventDO> productionEventsById = productionEvents.stream()
+                        .filter(Objects::nonNull)
+                        .filter(productionEvent -> productionEvent.getId() != null)
+                        .collect(Collectors.toMap(MesProProcessPoolEventDO::getId, Function.identity(),
+                                (first, ignored) -> first, LinkedHashMap::new));
+                for (MesProProcessPoolEventDO sourceEvent :
+                        eventMapper.selectProductionSubmitsByIdsForUpdate(sourceEventIds)) {
+                    if (sourceEvent != null && sourceEvent.getId() != null) {
+                        productionEventsById.putIfAbsent(sourceEvent.getId(), sourceEvent);
+                    }
+                }
+                productionEvents = new ArrayList<>(productionEventsById.values());
+            }
             BigDecimal confirmedQuantity = MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
                     activeOrder, snapshot, productionEvents, activeOrderSourceAllocations);
             boolean quantityConflict = confirmedQuantity.compareTo(target.plannedQuantity()) > 0;
@@ -157,7 +177,7 @@ public class MesTeamLeaderOrderProcessCompletionService {
                     .setProcessId(key.processId())
                     .setTargetQuantity(target.plannedQuantity())
                     .setConfirmedQuantity(confirmedQuantity)
-                    .setLastEventId(event.getId())
+                    .setLastEventId(currentRepresentative.getEventId())
                     .setLastReviewId(currentRepresentative.getReviewId());
             if (confirmedQuantity.compareTo(target.plannedQuantity()) >= 0) {
                 requireSourceAllocations(activeOrderSourceAllocations);

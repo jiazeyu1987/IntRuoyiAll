@@ -119,6 +119,27 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     @Test
+    void noReplenishmentConfirmationIsPassedAndRecordedWithTheLeader() {
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+        var draft = port.prepare(20L, order(), command().setConfirmNoReplenishmentInfo(true));
+        verify(lossSourceReader).read(org.mockito.ArgumentMatchers.argThat(cmd ->
+                Boolean.TRUE.equals(cmd.getRequireNoReplenishmentConfirmation())
+                        && Boolean.TRUE.equals(cmd.getConfirmNoReplenishmentInfo())));
+        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"confirmedBy\":20"));
+        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"confirmNoReplenishmentInfo\":true"));
+    }
+
+    @Test
+    void missingReplenishmentPreservesTheConfirmationErrorAndWritesNothing() {
+        when(lossSourceReader.read(any())).thenReturn(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult()
+                .setProcessSources(List.of()).setBlockers(List.of(new MesTeamLeaderActiveOrderReleaseBlocker()
+                        .setBlockerType("NO_REPLENISHMENT_CONFIRMATION_REQUIRED"))));
+        var error = assertThrows(ServiceException.class, () -> port.prepare(20L, order(), command()));
+        assertTrue(error.getMessage().contains("NO_REPLENISHMENT_CONFIRMATION_REQUIRED"));
+        org.mockito.Mockito.verifyNoInteractions(backfillMapper);
+    }
+
+    @Test
     void positiveLossMaterializesLossRowAndFormalLossRecord() {
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ONE));
 
@@ -129,6 +150,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         assertTrue(draft.getHasActualLoss());
         assertEquals(BigDecimal.ONE, draft.getLossQuantity());
         assertEquals(1103L, draft.getLossRecordId());
+        assertEquals("[9101]", draft.getLossSourceIdsJson());
         ArgumentCaptor<MesProcessPoolActiveOrderCompletionBackfillDO> captor =
                 ArgumentCaptor.forClass(MesProcessPoolActiveOrderCompletionBackfillDO.class);
         verify(backfillMapper, org.mockito.Mockito.times(3)).insert(captor.capture());
@@ -275,6 +297,12 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 .setProcessSources(snapshots.stream().map(snapshot ->
                         new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource()
                                 .setSnapshot(snapshot).setFeedback(feedback).setEvent(event)
+                                .setFormalLossQuantity(loss).setHasActualLoss(loss.signum() > 0)
+                                .setZeroLossConfirmed(loss.signum() == 0).setLossDecision(loss.signum() > 0 ? "REQUIRED" : "NO_LOSS")
+                                .setReplenishmentSources(loss.signum() == 0 ? List.of() : List.of(
+                                        new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource()
+                                                .setHeaderId(91L).setItemId(9101L).setSourceBillNo("BL-91")
+                                                .setMaterialCode("MAT-1").setMaterialName("材料一").setActualQuantity(loss)))
                                 .setAllocation(allocation()).setReview(MesProcessPoolSubmissionReviewDO.builder()
                                         .id(601L).build()).setLossDetails(List.of())).toList());
     }

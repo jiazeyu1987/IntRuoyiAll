@@ -159,8 +159,13 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                         .setProductId(workOrder.getProductId())
                         .setBatchCode(workOrder.getBatchCode())
                         .setSourceSnapshotHash(sourceSeedHash)
+                        .setRequireNoReplenishmentConfirmation(true)
+                        .setConfirmNoReplenishmentInfo(command.getConfirmNoReplenishmentInfo())
                         .setProcessSnapshots(snapshots);
         MesTeamLeaderActiveOrderReleaseLossSourceReadResult lossSources = lossSourceReader.read(lossCommand);
+        if (lossSources != null && lossSources.getBlockers() != null && !lossSources.getBlockers().isEmpty()) {
+            throw sourceMissing(activeOrder, lossSources.getBlockers().get(0).getBlockerType());
+        }
         if (lossSources == null || lossSources.getBlockers() == null || !lossSources.getBlockers().isEmpty()
                 || !coversEveryProcessSnapshot(lossSources.getProcessSources(), snapshots)) {
             throw sourceMissing(activeOrder, "LOSS_CONDITION_FACTS");
@@ -174,8 +179,9 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         boolean hasActualLoss = conditions.stream().anyMatch(item -> Boolean.TRUE.equals(item.getHasActualLoss()));
         BigDecimal lossQuantity = conditions.stream().map(MesTeamLeaderActiveOrderCompletionLossCondition::getLossQuantity)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        Long lossRecordId = conditions.stream().map(MesTeamLeaderActiveOrderCompletionLossCondition::getLossRecordId)
-                .filter(Objects::nonNull).findFirst().orElse(null);
+        List<Long> replenishmentItemIds = conditions.stream().flatMap(item -> item.getReplenishmentSources().stream())
+                .map(MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource::getItemId)
+                .distinct().sorted().toList();
         String sourceSnapshotHash = sha256(sourceSeedHash + "|" + lossConditionFactsJson);
         String batchIdsJson = JsonUtils.toJsonString(batchSourceIds);
         String inspectionIdsJson = JsonUtils.toJsonString(inspectionSourceIds);
@@ -198,10 +204,11 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                         : MesProcessPoolActiveOrderCompletionReceiptDO.LOSS_REPORT_STATUS_NOT_REQUIRED)
                 .setHasActualLoss(hasActualLoss)
                 .setLossQuantity(lossQuantity)
-                .setLossRecordId(lossRecordId)
+                .setLossSourceIdsJson(JsonUtils.toJsonString(replenishmentItemIds))
                 .setZeroLossConfirmationSnapshot(hasActualLoss ? null
                         : JsonUtils.toJsonString(Map.of("activeOrderId", activeOrder.getId(),
-                        "sourceSnapshotHash", sourceSnapshotHash, "status", "NO_LOSS")))
+                        "sourceSnapshotHash", sourceSnapshotHash, "status", "NO_FORMAL_LOSS",
+                        "confirmedBy", leaderUserId, "confirmNoReplenishmentInfo", Boolean.TRUE.equals(command.getConfirmNoReplenishmentInfo()))))
                 .setLossConditionFactsJson(lossConditionFactsJson);
     }
 
@@ -221,10 +228,9 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                 materializedPayload(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_PROCESS_INSPECTION, draft),
                 draft.getMaterializedBy(), draft.getTenantId()));
         if (Boolean.TRUE.equals(draft.getHasActualLoss())) {
-            Long sourceLossRecordId = draft.getLossRecordId();
             Long formalLossRecordId = insert(activeOrderId, workOrderId,
                     MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_LOSS_REPORT,
-                    JsonUtils.toJsonString(List.of(sourceLossRecordId)), draft.getLossSourceHash(),
+                    draft.getLossSourceIdsJson(), draft.getLossSourceHash(),
                     draft.getLossConditionFactsJson(), draft.getMaterializedBy(), draft.getTenantId());
             draft.setLossRecordId(formalLossRecordId);
         }
@@ -299,14 +305,14 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
             }
             if (MesTeamLeaderActiveOrderCompletionLossCondition.REQUIRED.equals(condition.getStatus())) {
                 if (!Boolean.TRUE.equals(condition.getHasActualLoss())
-                        || condition.getLossQuantity().signum() <= 0 || condition.getLossRecordId() == null) {
+                        || condition.getLossQuantity().signum() <= 0 || (condition.getReplenishmentSources() == null || condition.getReplenishmentSources().isEmpty())) {
                     throw sourceMissingById(activeOrderId, "BACKFILL_WRITE_LOSS_CONDITION_REQUIRED_INVALID");
                 }
                 hasActualLoss = true;
                 totalLoss = totalLoss.add(condition.getLossQuantity());
             } else if (MesTeamLeaderActiveOrderCompletionLossCondition.NO_LOSS.equals(condition.getStatus())) {
                 if (Boolean.TRUE.equals(condition.getHasActualLoss())
-                        || condition.getLossQuantity().signum() != 0 || condition.getLossRecordId() != null
+                        || condition.getLossQuantity().signum() != 0
                         || StrUtil.isBlank(condition.getZeroLossConfirmationSnapshot())) {
                     throw sourceMissingById(activeOrderId, "BACKFILL_WRITE_LOSS_CONDITION_NO_LOSS_INVALID");
                 }
@@ -322,7 +328,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
             if (!MesProcessPoolActiveOrderCompletionReceiptDO.LOSS_REPORT_STATUS_SUCCESS
                     .equals(draft.getLossReportStatus())
                     || draft.getLossQuantity().signum() <= 0
-                    || draft.getLossRecordId() == null || StrUtil.isBlank(draft.getLossSourceHash())) {
+                    || StrUtil.isBlank(draft.getLossSourceIdsJson()) || StrUtil.isBlank(draft.getLossSourceHash())) {
                 throw sourceMissing(null, "BACKFILL_WRITE_LOSS_RECORD_REQUIRED");
             }
             return;
@@ -499,8 +505,11 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
     private MesTeamLeaderActiveOrderCompletionLossCondition toLossCondition(
             MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource source) {
         MesProFeedbackDO feedback = source.getFeedback();
-        BigDecimal quantity = feedback.getUnqualifiedQuantity() == null ? BigDecimal.ZERO
-                : feedback.getUnqualifiedQuantity();
+        BigDecimal quantity = source.getFormalLossQuantity();
+        if (quantity == null || quantity.signum() < 0 || source.getReplenishmentSources() == null
+                || (quantity.signum() == 0 && !Boolean.TRUE.equals(source.getZeroLossConfirmed()))) {
+            throw sourceMissing(null, "LOSS_REPLENISHMENT_FACT_REQUIRED");
+        }
         boolean actual = quantity.signum() > 0;
         Map<String, Object> lossSource = new LinkedHashMap<>();
         lossSource.put("event", source.getEvent());
@@ -508,16 +517,19 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         lossSource.put("allocation", source.getAllocation());
         lossSource.put("review", source.getReview());
         lossSource.put("lossDetails", source.getLossDetails());
+        lossSource.put("replenishmentSources", source.getReplenishmentSources());
+        lossSource.put("formalLossQuantity", quantity);
         String sourceHash = sha256(JsonUtils.toJsonString(lossSource));
         return new MesTeamLeaderActiveOrderCompletionLossCondition()
                 .setProcessId(source.getSnapshot().getProcessId())
+                .setRouteProcessId(source.getSnapshot().getRouteProcessId())
                 .setStatus(actual ? MesTeamLeaderActiveOrderCompletionLossCondition.REQUIRED
                         : MesTeamLeaderActiveOrderCompletionLossCondition.NO_LOSS)
                 .setHasActualLoss(actual).setLossQuantity(quantity)
-                .setLossRecordId(actual ? feedback.getId() : null)
+                .setReplenishmentSources(source.getReplenishmentSources())
                 .setZeroLossConfirmationSnapshot(actual ? null
                         : JsonUtils.toJsonString(Map.of("eventId", source.getEvent().getId(),
-                        "feedbackId", feedback.getId(), "status", "NO_LOSS")))
+                        "feedbackId", feedback.getId(), "status", "NO_FORMAL_LOSS", "confirmed", source.getZeroLossConfirmed())))
                 .setSourceHash(sourceHash);
     }
 

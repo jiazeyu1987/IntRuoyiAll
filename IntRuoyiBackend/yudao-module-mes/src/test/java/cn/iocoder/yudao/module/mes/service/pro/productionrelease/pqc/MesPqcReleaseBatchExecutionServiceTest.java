@@ -18,6 +18,7 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowIdempote
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -84,6 +85,63 @@ class MesPqcReleaseBatchExecutionServiceTest {
     @AfterEach
     void tearDown() {
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void dynamicLossPassesTheRealDossierPortAndPqcDecisionAndReplaysTypedEvidence() {
+        var batchWriter = org.mockito.Mockito.mock(MesTeamLeaderActiveOrderReleaseBatchRecordWriter.class);
+        var inspectionWriter = org.mockito.Mockito.mock(MesTeamLeaderActiveOrderReleaseProcessInspectionWriter.class);
+        var lossWriter = org.mockito.Mockito.mock(MesTeamLeaderActiveOrderReleaseLossReportWriter.class);
+        var realPort = org.mockito.Mockito.spy(new MesPqcReleaseDossierPortImpl(
+                null, null, null, null, null, null, null, null, null, null, batchWriter, inspectionWriter, lossWriter, null));
+        var plan = new MesPqcReleaseDossierPlan().setSourceSnapshotHash("source-hash")
+                .setBatchRecordPlan(new MesTeamLeaderActiveOrderReleaseBatchRecordPlan().setSourceObjectIds(List.of(1L)).setSourceValueHashes(List.of("batch")))
+                .setProcessInspectionPlan(new MesTeamLeaderActiveOrderReleaseProcessInspectionPlan().setSourceObjectIds(List.of(2L)).setSourceValueHashes(List.of("inspection")))
+                .setLossReportPlan(new MesTeamLeaderActiveOrderReleaseLossReportPlan().setSourceObjectIds(List.of(3L)).setSourceValueHashes(List.of("loss")));
+        org.mockito.Mockito.doReturn(plan).when(realPort).plan(any(), eq(PQC_USER_ID));
+        when(batchWriter.write(plan.getBatchRecordPlan(), BATCH_EXECUTION_ID)).thenReturn(
+                new MesTeamLeaderActiveOrderReleaseBatchRecordWriteResult().setDocumentType("BATCH_RECORD")
+                        .setBatchRecordExecutionIds(List.of(101L)).setSourceObjectIds(List.of(1L)).setSourceValueHashes(List.of("batch")).setBlockers(List.of()));
+        when(inspectionWriter.write(plan.getProcessInspectionPlan(), BATCH_EXECUTION_ID)).thenReturn(
+                new MesTeamLeaderActiveOrderReleaseProcessInspectionWriteResult().setDocumentType("PROCESS_INSPECTION")
+                        .setBatchRecordExecutionIds(List.of(201L)).setFormCenterInstanceIds(List.of())
+                        .setFieldAuditIds(List.of(202L)).setFieldAuditHeadHashes(List.of("inspection-audit"))
+                        .setSourceObjectIds(List.of(2L)).setSourceValueHashes(List.of("inspection")).setBlockers(List.of()));
+        when(lossWriter.write(plan.getLossReportPlan(), BATCH_EXECUTION_ID)).thenReturn(
+                new MesTeamLeaderActiveOrderReleaseLossReportWriteResult().setDocumentType("LOSS_REPORT")
+                        .setBatchRecordExecutionIds(List.of()).setFormCenterInstanceIds(List.of(301L))
+                        .setFieldAuditIds(List.of(302L)).setFieldAuditHeadHashes(List.of("loss-audit"))
+                        .setHasActualLoss(true).setLossReportStatus("SUCCESS").setLossQuantity(java.math.BigDecimal.ONE)
+                        .setSourceSnapshotHash("loss-source").setSourceObjectIds(List.of(3L)).setSourceValueHashes(List.of("loss")).setBlockers(List.of()));
+        service = new MesPqcProductionReleaseServiceImpl(applicationMapper, workTaskMapper, realPort,
+                batchExecutionPort, reportStageInitializer, auditRecorder, signatureService,
+                nonconformanceReviewService, nonconformanceReviewMapper,
+                Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
+        when(batchExecutionPort.openOrCreate(any())).thenReturn(BATCH_EXECUTION_ID);
+        when(reportStageInitializer.initializeRequiredReportStage(any())).thenReturn(
+                new MesProductionReleaseReportStageInitializationResult().setReportUploadTasks(reportTasks()).setReportSnapshotHash("report-hash"));
+        when(applicationMapper.approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
+                eq(PQC_USER_ID), any(), eq("report-hash"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcDecisionTask(eq(PQC_WORK_TASK_ID), any(), eq("APPROVE"))).thenReturn(1);
+        when(signatureService.recordPqcReleaseSignature(eq(PQC_USER_ID), eq(BATCH_EXECUTION_ID),
+                eq("signature-password"), eq("正式来源核对通过"))).thenReturn(9901L);
+        var command = approveCommand("dynamic-loss-flow").setApprovalOpinion("正式来源核对通过");
+        var result = service.approve(PQC_USER_ID, command);
+        assertEquals(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING, result.getStatus());
+        assertTrue(result.getLossReportEvidenceIds().isEmpty());
+        assertEquals(List.of(301L), result.getLossReportFormCenterInstanceIds());
+        assertEquals(List.of(302L), result.getLossReportFieldAuditIds());
+        assertEquals(4, result.getReportUploadTasks().size());
+        var persisted = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(applicationMapper).approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
+                eq(PQC_USER_ID), any(), eq("report-hash"), persisted.capture());
+        when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(application()
+                .setApplicationStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING).setVersion(VERSION + 1)
+                .setDossierSummaryJson(persisted.getValue()));
+        var replay = service.approve(PQC_USER_ID, command);
+        assertEquals(result.getLossReportFormCenterInstanceIds(), replay.getLossReportFormCenterInstanceIds());
+        assertEquals(result.getLossReportFieldAuditHeadHashes(), replay.getLossReportFieldAuditHeadHashes());
+        verify(lossWriter).write(plan.getLossReportPlan(), BATCH_EXECUTION_ID);
     }
 
     @Test

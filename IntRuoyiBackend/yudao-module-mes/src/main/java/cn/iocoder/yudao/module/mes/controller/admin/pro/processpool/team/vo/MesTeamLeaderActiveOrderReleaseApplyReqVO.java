@@ -17,6 +17,9 @@ public class MesTeamLeaderActiveOrderReleaseApplyReqVO {
     @NotNull
     private Long activeOrderId;
 
+    @Schema(description = "完工时未查到补料单，明确确认无补料信息")
+    private Boolean confirmNoReplenishmentInfo;
+
     @Schema(description = "请求幂等键", requiredMode = Schema.RequiredMode.REQUIRED,
             example = "active-order-release-8101-20260808120000")
     @NotBlank

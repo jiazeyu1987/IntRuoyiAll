@@ -363,7 +363,15 @@ class MesFrontlineRuntimeConfigServiceTest {
                         .setRouteId(ROUTE_ID)
                         .setRouteVersionId(627L)
                         .setRouteProcessId(frozenRouteProcessId)
-                        .setProcessId(PROCESS_ID));
+                        .setProcessId(PROCESS_ID)
+                        .setParameterSnapshotState(MesDeviceParameterSnapshotCodec.STATE_FROZEN)
+                        .setParameterSnapshotJson("[]")
+                        .setParameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256("[]"))
+                        .setDeviceSelectionSnapshotJson(MesDeviceSelectionSnapshotCodec.canonicalize(List.of(), PROCESS_ID))
+                        .setDeviceSelectionSnapshotSha256(MesDeviceSelectionSnapshotCodec.sha256(
+                                MesDeviceSelectionSnapshotCodec.canonicalize(List.of(), PROCESS_ID)))
+                        .setLossReasonSnapshotJson("[]")
+                        .setLossReasonSnapshotSha256(cn.hutool.crypto.digest.DigestUtil.sha256Hex("[]")));
         when(processMaterialService.listFrozenMaterials(activeOrderId, ROUTE_ID, frozenRouteProcessId, PROCESS_ID))
                 .thenReturn(List.of(
                         new MesFrontlineProcessMaterial(501L, "A001", "弹簧", null, BigDecimal.ONE),

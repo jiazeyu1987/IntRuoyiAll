@@ -33,7 +33,7 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
             return existing;
         }
         completionService.completeForRelease(
-                leaderUserId, command.getActiveOrderId(), releaseIdempotencyKey);
+                leaderUserId, command.getActiveOrderId(), releaseIdempotencyKey, command.getConfirmNoReplenishmentInfo());
         return generationService.generate(leaderUserId, command);
     }
 

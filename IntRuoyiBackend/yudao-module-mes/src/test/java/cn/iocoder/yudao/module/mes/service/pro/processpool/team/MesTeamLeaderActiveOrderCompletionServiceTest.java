@@ -154,10 +154,10 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
                 .setLossReportStatus("SUCCESS")
                 .setHasActualLoss(true)
                 .setLossQuantity(BigDecimal.ONE)
-                .setLossRecordId(44L)
+                .setLossRecordId(44L).setLossSourceIdsJson("[9101]")
                 .setZeroLossConfirmationSnapshot(null)
                 .setLossConditionFactsJson("[{\"processId\":1,\"status\":\"REQUIRED\","
-                        + "\"hasActualLoss\":true,\"lossQuantity\":1,\"lossRecordId\":44,"
+                        + "\"hasActualLoss\":true,\"lossQuantity\":1,\"replenishmentSources\":[{\"itemId\":9101}],"
                         + "\"sourceHash\":\"loss-source-1\"}]"));
         when(activeOrderMapper.markCompleted(10L, 2, 20L)).thenReturn(1);
         when(receiptMapper.insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class))).thenAnswer(invocation -> {
@@ -253,6 +253,25 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
     }
 
     @Test
+    void releaseRetryReusesPersistedNoReplenishmentConfirmation() {
+        var existing = MesProcessPoolActiveOrderCompletionReceiptDO.builder()
+                .id(99L).activeOrderId(10L).requestIdempotencyKey("original-completion-key")
+                .requestPayloadHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex("10|2|original-completion-key|true"))
+                .sourceSnapshotHash("source-hash").expectedVersion(2).completedVersion(3)
+                .zeroLossConfirmationSnapshot("{\"confirmNoReplenishmentInfo\":true,\"confirmedBy\":20}").build();
+        when(activeOrderMapper.selectByIdForUpdate(10L)).thenReturn(order().setVersion(3));
+        when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(existing);
+        when(receiptMapper.selectByIdempotencyKeyForUpdate("original-completion-key")).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(backfillPort.readSourceSnapshotHash(anyLong(), any(), any())).thenReturn("source-hash");
+
+        var result = service.completeForRelease(20L, 10L, "release-key", null);
+
+        assertEquals(99L, result.getCompletionReceiptId());
+        verify(backfillPort).readSourceSnapshotHash(anyLong(), any(),
+                org.mockito.ArgumentMatchers.argThat(cmd -> Boolean.TRUE.equals(cmd.getConfirmNoReplenishmentInfo())));
+    }
+
+    @Test
     void releaseCompletionReusesExistingReceiptIdentityAndRevalidatesCurrentSource() {
         MesProcessPoolActiveOrderDO order = order().setVersion(3);
         MesProcessPoolActiveOrderCompletionReceiptDO existing = MesProcessPoolActiveOrderCompletionReceiptDO.builder()
@@ -266,7 +285,7 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         when(backfillPort.readSourceSnapshotHash(anyLong(), any(), any())).thenReturn("source-hash");
 
         MesTeamLeaderActiveOrderCompletionResult result =
-                service.completeForRelease(20L, 10L, "release-key");
+                service.completeForRelease(20L, 10L, "release-key", null);
 
         assertEquals(99L, result.getCompletionReceiptId());
         verify(backfillPort).readSourceSnapshotHash(anyLong(), any(), any());

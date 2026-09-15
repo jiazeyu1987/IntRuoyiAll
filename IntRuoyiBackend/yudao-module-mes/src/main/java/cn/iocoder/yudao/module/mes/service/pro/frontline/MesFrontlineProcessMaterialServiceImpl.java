@@ -9,8 +9,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
-import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialBatchQueryService;
-import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialBatchEvidence;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -40,21 +38,18 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
     private final MesProRouteVersionMapper routeVersionMapper;
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesMdItemMapper itemMapper;
-    private final MesProFeedbackMaterialBatchQueryService batchQueryService;
 
     public MesFrontlineProcessMaterialServiceImpl(
             ActiveOrderSnapshotResolver activeOrderSnapshotResolver,
             MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
             MesProRouteVersionMapper routeVersionMapper,
             MesProWorkOrderMapper workOrderMapper,
-            MesMdItemMapper itemMapper,
-            MesProFeedbackMaterialBatchQueryService batchQueryService) {
+            MesMdItemMapper itemMapper) {
         this.activeOrderSnapshotResolver = activeOrderSnapshotResolver;
         this.processSnapshotMapper = processSnapshotMapper;
         this.routeVersionMapper = routeVersionMapper;
         this.workOrderMapper = workOrderMapper;
         this.itemMapper = itemMapper;
-        this.batchQueryService = batchQueryService;
     }
 
     @Override
@@ -240,22 +235,10 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
         if (code == null || name == null) {
             throw invalid("冻结工序报工物料缺少编码或名称：" + item.getId());
         }
-        MesProFeedbackMaterialBatchEvidence evidence = MesFrontlineProcessMaterial.ROLE_INPUT.equals(materialRole)
-                ? batchQueryService.resolveEvidence(workOrderId, code) : null;
-        if (MesFrontlineProcessMaterial.ROLE_INPUT.equals(materialRole)
-                && (evidence == null || evidence.batchCodes().isEmpty())) {
-            throw invalid("输入物料正式领料批号缺失：" + code);
-        }
+        // Production records the configured inputs. Formal quantities and lots are frozen at completion.
         return new MesFrontlineProcessMaterial(item.getId(), code, name,
-                normalize(item.getSpecification()), materialRole, null,
-                evidence == null ? List.of() : evidence.batchCodes(),
-                evidence == null ? null : evidence.requestedQuantity(),
-                evidence == null ? null : evidence.actualQuantity(),
-                evidence == null ? null : evidence.baseActualQuantity(),
-                evidence == null ? List.of() : evidence.pickListIds(),
-                evidence == null ? List.of() : evidence.pickListNos(),
-                evidence == null ? List.of() : evidence.pickListItemIds(),
-                evidence == null ? null : evidence.sourceSnapshotHash());
+                normalize(item.getSpecification()), materialRole, null, List.of(),
+                null, null, null, List.of(), List.of(), List.of(), null);
     }
 
     private static String normalize(String value) {

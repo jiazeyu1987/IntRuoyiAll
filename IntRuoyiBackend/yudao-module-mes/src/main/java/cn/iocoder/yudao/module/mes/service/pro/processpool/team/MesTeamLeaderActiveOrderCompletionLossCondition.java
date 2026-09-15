@@ -15,10 +15,11 @@ public class MesTeamLeaderActiveOrderCompletionLossCondition {
     public static final String BLOCKED = "BLOCKED";
 
     private Long processId;
+    private Long routeProcessId;
     private String status;
     private Boolean hasActualLoss;
     private BigDecimal lossQuantity;
-    private Long lossRecordId;
+    private java.util.List<MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource> replenishmentSources;
     private String zeroLossConfirmationSnapshot;
     private String sourceHash;
 }

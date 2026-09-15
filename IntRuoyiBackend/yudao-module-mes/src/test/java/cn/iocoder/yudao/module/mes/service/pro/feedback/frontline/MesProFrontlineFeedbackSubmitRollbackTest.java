@@ -69,6 +69,9 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
         MesProFrontlineFeedbackSubmitTestData.stubActiveOrderSnapshot(activeOrderSnapshotResolver);
         org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApply(any()))
                 .thenReturn(MesFrontlineParameterAuditResult.empty());
+        org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApplyMaterial(
+                        any(), any(), any(), any(), any()))
+                .thenReturn(MesFrontlineParameterAuditResult.empty());
         org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any()))
                 .thenReturn(4001L);
     }

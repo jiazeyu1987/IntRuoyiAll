@@ -204,6 +204,38 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     }
 
     @Test
+    void missingScrapEvidenceCannotBeAssumedZero() {
+        var source = source();
+        source.getPqcRecord().setRawPayload(null);
+        when(reader.read(any())).thenReturn(bundle(source));
+        assertEquals(List.of("PQC_QA_ITEM_MISMATCH"), blockerTypes(writer.plan(command())));
+    }
+
+    @Test
+    void overflowScrapQuantityCannotBecomeZero() {
+        var source = source();
+        source.getPqcRecord().setRawPayload("{\"scrapQuantity\":4294967296}");
+        when(reader.read(any())).thenReturn(bundle(source));
+        assertEquals(List.of("PQC_QA_ITEM_MISMATCH"), blockerTypes(writer.plan(command())));
+    }
+
+    @Test
+    void scrapQuantityRequiresFailedInspectionResultEvenWhenAllSamplesPass() {
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source();
+        source.getPqcRecord()
+                .setInspectionResult(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE)
+                .setRawPayload("{\"scrapQuantity\":1,\"pqcDraft\":{\"scrapQuantity\":1}}");
+        when(reader.read(any())).thenReturn(bundle(source));
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any())).thenReturn(List.of(binding()));
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport(any(), any(), any())).thenReturn(rules());
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command());
+
+        assertTrue(plan.getBlockers().isEmpty());
+        verify(executionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
     void booleanAggregateKeepsItsFormalMeasuredValueDuringSideEffectFreePlan() {
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source();
@@ -668,6 +700,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                         MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED)
                 .processInspectionReviewId(REVIEW_ID).build();
         record.setTenantId(TENANT_ID);
+        record.setRawPayload("{\"scrapQuantity\":0}");
         MesProcessPoolSubmissionReviewDO review = MesProcessPoolSubmissionReviewDO.builder()
                 .id(REVIEW_ID).eventId(EVENT_ID).leaderUserId(12001L).leaderType("PQC")
                 .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED).reviewedAt(REVIEWED_AT)

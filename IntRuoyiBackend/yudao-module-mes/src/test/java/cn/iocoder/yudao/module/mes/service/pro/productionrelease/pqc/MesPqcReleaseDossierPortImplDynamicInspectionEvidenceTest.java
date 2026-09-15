@@ -35,14 +35,89 @@ class MesPqcReleaseDossierPortImplDynamicInspectionEvidenceTest {
     private MesTeamLeaderActiveOrderReleaseProcessInspectionWriter processInspectionWriter;
     @Mock
     private MesTeamLeaderActiveOrderReleaseLossReportWriter lossReportWriter;
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper eventMapper;
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper allocationMapper;
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper reviewMapper;
 
     private MesPqcReleaseDossierPortImpl port;
 
     @BeforeEach
     void setUp() {
         port = new MesPqcReleaseDossierPortImpl(
-                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, eventMapper, allocationMapper, reviewMapper,
                 batchRecordWriter, processInspectionWriter, lossReportWriter, null);
+    }
+
+    @Test
+    void batchRecordSourcesFollowOnlyTheTargetOrdersAllocations() {
+        var application = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO
+                .builder().activeOrderId(10L).workOrderId(30L).routeId(40L).build();
+        var snapshot = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO
+                .builder().routeProcessId(101L).processId(201L).build();
+        var allocation = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO
+                .builder().id(501L).activeOrderId(10L).workOrderId(30L).routeProcessId(101L).processId(201L)
+                .eventId(401L).reviewId(601L).allocatedQuantity(new BigDecimal("60")).build();
+        var source = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO
+                .builder().id(401L).workOrderId(29L).routeId(40L).routeProcessId(101L).processId(201L).build();
+        when(allocationMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(allocation));
+        when(eventMapper.selectProductionSubmitsByIdsForUpdate(List.of(401L))).thenReturn(List.of(source));
+        when(reviewMapper.selectById(601L)).thenReturn(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO
+                        .builder().id(601L).eventId(401L).build());
+
+        List<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand.ProcessSource> result =
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(port, "loadBatchRecordSources",
+                        application, List.of(snapshot), List.of());
+
+        assertEquals(29L, result.get(0).getSourceEvents().get(0).getWorkOrderId());
+        assertEquals(List.of(allocation), result.get(0).getAllocations());
+        assertEquals(new BigDecimal("60"), result.get(0).getAllocations().get(0).getAllocatedQuantity());
+    }
+
+    @Test
+    void mixedLossEvidenceRetainsBothTypes() {
+        var plan = plan();
+        when(batchRecordWriter.write(plan.getBatchRecordPlan(), BATCH_EXECUTION_ID)).thenReturn(batchRecordWrite(List.of(11L)));
+        when(processInspectionWriter.write(plan.getProcessInspectionPlan(), BATCH_EXECUTION_ID)).thenReturn(processInspectionWrite(List.of(21L), List.of()));
+        when(lossReportWriter.write(plan.getLossReportPlan(), BATCH_EXECUTION_ID)).thenReturn(noLossWrite()
+                .setHasActualLoss(true).setLossReportStatus("SUCCESS").setLossQuantity(BigDecimal.TEN)
+                .setBatchRecordExecutionIds(List.of(31L)).setFormCenterInstanceIds(List.of(32L))
+                .setFieldAuditIds(List.of(33L, 34L)).setFieldAuditHeadHashes(List.of("traditional", "dynamic")));
+        var result = port.write(plan, BATCH_EXECUTION_ID);
+        assertEquals(List.of(31L), result.getLossReportEvidenceIds());
+        assertEquals(List.of(32L), result.getLossReportFormCenterInstanceIds());
+        assertEquals(List.of(33L, 34L), result.getLossReportFieldAuditIds());
+    }
+
+    @Test
+    void dynamicLossWithoutAuditCannotPassRelease() {
+        var plan = plan();
+        when(batchRecordWriter.write(plan.getBatchRecordPlan(), BATCH_EXECUTION_ID)).thenReturn(batchRecordWrite(List.of(11L)));
+        when(processInspectionWriter.write(plan.getProcessInspectionPlan(), BATCH_EXECUTION_ID)).thenReturn(processInspectionWrite(List.of(21L), List.of()));
+        when(lossReportWriter.write(plan.getLossReportPlan(), BATCH_EXECUTION_ID)).thenReturn(noLossWrite()
+                .setHasActualLoss(true).setLossReportStatus("SUCCESS").setLossQuantity(BigDecimal.ONE)
+                .setFormCenterInstanceIds(List.of(32L)));
+        var error = assertThrows(MesReleaseFlowBlockerException.class, () -> port.write(plan, BATCH_EXECUTION_ID));
+        assertEquals(MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED, error.getFailure().getBlockers().get(0).getBlockerType());
+    }
+
+    @Test
+    void dynamicLossEvidenceMustSurviveFormalDossierWrite() {
+        var plan = plan();
+        when(batchRecordWriter.write(plan.getBatchRecordPlan(), BATCH_EXECUTION_ID))
+                .thenReturn(batchRecordWrite(List.of(110001L)));
+        when(processInspectionWriter.write(plan.getProcessInspectionPlan(), BATCH_EXECUTION_ID))
+                .thenReturn(processInspectionWrite(List.of(), List.of(220001L)));
+        when(lossReportWriter.write(plan.getLossReportPlan(), BATCH_EXECUTION_ID))
+                .thenReturn(noLossWrite().setHasActualLoss(true).setLossReportStatus("SUCCESS")
+                        .setLossQuantity(BigDecimal.ONE).setFormCenterInstanceIds(List.of(330001L))
+                        .setFieldAuditIds(List.of(330002L)).setFieldAuditHeadHashes(List.of("loss-audit-head")));
+
+        var result = port.write(plan, BATCH_EXECUTION_ID);
+
+        assertEquals(List.of(), result.getLossReportEvidenceIds());
+        assertEquals(List.of(330001L), com.alibaba.fastjson.JSON.parseObject(
+                com.alibaba.fastjson.JSON.toJSONString(result)).getJSONArray("lossReportFormCenterInstanceIds").toJavaList(Long.class));
     }
 
     @Test

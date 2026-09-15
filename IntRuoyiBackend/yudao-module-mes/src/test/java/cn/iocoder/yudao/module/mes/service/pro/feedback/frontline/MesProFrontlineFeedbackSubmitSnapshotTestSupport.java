@@ -55,11 +55,8 @@ final class MesProFrontlineFeedbackSubmitSnapshotTestSupport {
     static void stubAuthorizationWithInputEvidence(MesFrontlineSubmitAuthorizationService authorizationService) {
         List<MesFrontlineProcessMaterial> materials = new java.util.ArrayList<>();
         materials.add(new MesFrontlineProcessMaterial(503L, "A003", "输入原料", null,
-                MesFrontlineProcessMaterial.ROLE_INPUT, null, List.of("LOT-001", "LOT-002"),
-                new java.math.BigDecimal("12"), new java.math.BigDecimal("10"),
-                new java.math.BigDecimal("10"), List.of(101L, 102L), List.of("SIM-SOUT-001", "SIM-SOUT-002"),
-                List.of(1001L, 1002L),
-                "input-source-hash"));
+                MesFrontlineProcessMaterial.ROLE_INPUT, null, List.of(),
+                null, null, null, List.of(), List.of(), List.of(), null));
         materials.add(new MesFrontlineProcessMaterial(501L, "A001", "弹簧", null,
                 java.math.BigDecimal.ONE));
         materials.add(new MesFrontlineProcessMaterial(502L, "A002", "杠杆", null,

@@ -744,6 +744,9 @@
             class="frontline-work-panel panel quantity-panel frontline-production-quantity-panel"
             aria-label="数量与不良"
           >
+            <p class="text-xs text-gray-500" data-frontline-input-batch-pending>
+              输入物料批号将在订单完成时回填。
+            </p>
             <div class="frontline-production-number-field field">
               <label class="field-label" for="frontlineProductionOutputQuantity">完成数量</label>
               <button

@@ -1,6 +1,8 @@
 # eDHR额外逻辑问题：既有14项之外
 
-## 当前结论与边界
+最新修复判定：见当前缺陷索引及文末“2026-09-14 后续调用链复核与修复（最新）”；此前OPEN统计为历史。026已恢复登记，补充编号现为015—032。新增主流程修复的当前证据见文末2026-09-15章节。
+
+## 历次审计范围与边界（历史）
 
 - 第一轮确认015—020六项；第二轮新增021、022；第三轮（2026-09-14）继续主流程审计，新增023—025，累计11项。
 - 级别：P1 10项、P2 1项；本轮已更新016当前源码层修复状态，其它条目保持原登记状态。第二轮另补充原012未闭环证据，不新增编号。
@@ -8,21 +10,28 @@
 - 证据来自当前工作区真实前端入口、Controller、Service及下游读取；未执行构建、业务测试、E2E、API或数据库操作。
 - 完整源码索引、指纹和文档验证见 `doc/tasks/20260913-edhr-additional-logic-audit/verification-report.md`。
 
-## 缺陷索引
+## 当前缺陷索引
 
 | 编号 | 级别 | 问题 | 状态 |
 |---|---|---|---|
-| EDHR-STATIC-015 | P1 | 生产更正只改事件，正式反馈表仍保留旧损耗事实 | OPEN_STATIC_CONFIRMED |
-| EDHR-STATIC-016 | P1 | PQC更正绕过不合格冻结，冻结期间仍能改检验事实 | FIXED_STATIC_VERIFIED |
-| EDHR-STATIC-017 | P2 | PQC更正允许损耗数量大于实际检验数量 | OPEN_STATIC_CONFIRMED |
-| EDHR-STATIC-018 | P1 | 普通订单备注中的模拟标记可把领料来源切换到另一订单 | OPEN_STATIC_CONFIRMED |
-| EDHR-STATIC-019 | P1 | 原始记录修订接口信任客户端签名和修改人身份 | OPEN_STATIC_CONFIRMED |
-| EDHR-STATIC-020 | P1 | 有损耗报工总量被要求等于合格分配量，正常损耗单无法放行 | OPEN_STATIC_CONFIRMED |
-| EDHR-STATIC-021 | P1 | 最终放行要求库存追溯，但正常领料链未生成所需来源 | OPEN_STATIC_CONFIRMED |
-| EDHR-STATIC-022 | P1 | 库存检查把同类型的不同合法明细判成重复来源 | OPEN_STATIC_CONFIRMED |
-| EDHR-STATIC-023 | P1 | 跨订单分配确认后按目标订单查原始报工，来源缺失导致回滚 | OPEN_STATIC_CONFIRMED |
-| EDHR-STATIC-024 | P1 | 动态过程检验已返回正式证据，PQC放行仍只认传统执行编号 | OPEN_STATIC_CONFIRMED |
-| EDHR-STATIC-025 | P1 | 同工序多项检验逐项写同一动态表单，首项生效后阻断后续项 | OPEN_STATIC_CONFIRMED |
+| EDHR-STATIC-015 | P1 | 生产更正只改事件，正式反馈表仍保留旧损耗事实 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-016 | P1 | PQC更正绕过不合格冻结，冻结期间仍能改检验事实 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-017 | P2 | PQC更正允许损耗数量大于实际检验数量 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-018 | P1 | 普通订单备注中的模拟标记可把领料来源切换到另一订单 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-019 | P1 | 原始记录修订接口信任客户端签名和修改人身份 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-020 | P1 | 有损耗报工总量被要求等于合格分配量，正常损耗单无法放行 | FIXED_TARGETED_REGRESSION_20260914 |
+| EDHR-STATIC-021 | P1 | 最终放行要求库存追溯，但正常领料链未生成所需来源 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-022 | P1 | 库存检查把同类型的不同合法明细判成重复来源 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-023 | P1 | 跨订单分配后的列表进度、完工及放行仍按目标工单查来源 | FIXED_FLOW_REGRESSION_20260914 |
+| EDHR-STATIC-024 | P1 | 动态过程检验已返回正式证据，PQC放行仍只认传统执行编号 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-025 | P1 | 同工序多项检验逐项写同一动态表单，首项生效后阻断后续项 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-026 | P1 | 条件必填只在最终检查求值，填写与进度未统一不适用状态 | FIXED_TARGETED_REGRESSION_20260914 |
+| EDHR-STATIC-027 | P1 | 动态损耗表已写入，但PQC放行仍强制要求传统损耗记录编号 | FIXED_FLOW_REGRESSION_20260914 |
+| EDHR-STATIC-028 | P1 | 一线生产提前要求领料批号，无法先生产再完工回填 | FIXED_TARGETED_REGRESSION_20260915 |
+| EDHR-STATIC-029 | P1 | 自动检验/损耗回填依赖人工待办及人工推进人，阻断生产放行和后续工序 | FIXED_TARGETED_REGRESSION_20260915 |
+| EDHR-STATIC-030 | P1 | 路线动态表单按创建人而非真实提交人完成待办 | FIXED_TARGETED_REGRESSION_20260915 |
+| EDHR-STATIC-031 | P1 | 放行报告待办阻断普通工序派发，与最终放行要求形成相互等待 | FIXED_TARGETED_REGRESSION_20260915 |
+| EDHR-STATIC-032 | P1 | 物料配置保存/一线读取与活跃订单冻结的来源不一致 | FIXED_TARGETED_REGRESSION_20260915 |
 
 ## EDHR-STATIC-015：生产更正后两套正式事实不一致
 
@@ -198,3 +207,85 @@
 - PQC记录没有独立inspectionQuantity列，数量保存在任务/JSON中，排除“更正漏改不存在数量列”的怀疑。
 - 既有008/013和其他14项问题不重复登记；相关仍待修复状态继续以原记录及独立复核报告为准。
 - 损耗writer对多个损耗原因的后续校验也应在修复020时覆盖，但本轮不把被020前置阻断覆盖的后续风险另计为一个已运行可达问题。
+
+## EDHR-STATIC-026：条件不适用表单的填写及进度未闭环
+
+此前第四轮已登记026，本次开始时列表和正文缺失，现恢复。最终readiness已按HAS_ACTUAL_LOSS过滤无损耗，但建批requiredFlag、填写同工序门禁和进度仍未统一；同工序含无损耗条件表时仍可能阻断后续填写。详见本次复核报告026章节及源码证据。部分修复，不算新增编号。
+
+## 2026-09-14 全部编号独立复核（修复前）
+
+- 按当前代码核对001—026：22项原缺陷修复点成立；020仅旧公式修复，最新补料单依据未实现；008、026部分修复；023仍未修复。
+- 仍需闭环：008、020、023、026；另需接入无补料信息弹框确认及后端确认事实。
+- 历史修复自述和结论保留，以当前索引及 `doc/tasks/20260914-edhr-bug-list-recheck/verification-report.md` 为本次结论。仅静态代码复核，未修改业务代码或运行业务测试/E2E。
+
+## 2026-09-14 主流程修复与回归（第一轮）
+
+- 在 `int_main` 修复剩余008、020、023、026及无补料确认链路；定向后端回归210项全部通过，前端类型检查和相关合同通过。
+- 008：报废数量大于零时检验判定一致；缺少正式报废数量或整数溢出明确阻断。
+- 020：正式损耗读取已审核生产补料单的实补数量；保留全部补料单号、分录、物料和批号。现场过程损耗保留作追溯，不再作为正式损耗数值及原因依据。
+- 无补料：完成时未查到补料单先返回确认要求；生产组长确认后允许完工，保存无正式损耗及确认人。取消不完工，重试沿用已保存确认；未审核、无效数量和匹配不唯一的单据不能被确认成无补料。
+- 023：分配确认时按分配记录读取来源事件，按目标订单分配数量计算进度，保留来源工单身份。
+- 026：逐路线工序的正式损耗条件随完工回执传入建批；不适用损耗表不创建填写实例/待办，不阻断前后工序，不计入必填进度，最终检查使用一致条件。
+- 扩展建批测试185项中有9项既有失败；用修改前服务代码隔离复跑仍是相同9项，未将其记为PASS或新业务缺陷。本次未执行真实订单E2E，不能据此宣称任意订单已经实测跑通。
+- 正式证据：`doc/tasks/20260914-edhr-main-flow-fixes/verification-report.md`。改动尚未Git提交/推送。
+
+## 2026-09-14 后续调用链复核与修复（最新）
+
+- 上轮023仅修复分配确认阶段，未覆盖列表、完工及资料读取，不能据210项测试直接关闭。本轮读取器均从目标订单当前分配回查原始事件，保留来源工单；批记录与损耗writer按来源事件验证反馈/签名，按目标分配验证数量归属。重新分配后最后事件也必须仍属于剩余来源。
+- 023代码边界：`MesTeamLeaderActiveOrderServiceImpl.loadActiveOrderProgress`、`MesTeamLeaderActiveOrderCompletionProgressPortImpl.read`、`MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl.read/validFormalJoin`、`MesPqcReleaseDossierPortImpl.loadBatchRecordSources`、`MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl.validEventContext`、`MesTeamLeaderOrderProcessCompletionService.reconcileAffectedAllocations`。
+- 验证：本轮133项定向回归与前端类型检查通过。活跃订单服务扩展测试有30项原有失败，隔离运行修改前服务复现相同30项；新跨订单列表测试仅旧代码失败。
+
+## EDHR-STATIC-027：动态损耗表证据未贯通PQC放行
+
+- 触发条件：本批存在正式补料损耗，LOSS_REPORT使用动态FormCenter表单，PQC批准生产放行。
+- 原因：损耗writer正确返回动态实例编号和字段审计，但资料汇总及PQC服务两层仍要求传统损耗execution编号非空；只修任一层仍会被下一层阻断。原024只覆盖过程检验，不覆盖此分支。
+- 影响：动态损耗已生效仍无法通过PQC批准，四份报告上传待办不能继续。
+- 修复：新增独立的`lossReportFormCenterInstanceIds`、`lossReportFieldAuditIds`及`lossReportFieldAuditHeadHashes`，贯穿资料回执、PQC校验、持久化决定、幂等回放和API。动态/传统损耗可分别或混合存在，不混用ID；无损耗状态不得携带动态损耗实例，正损耗必须有有效证据。
+- 代码边界：`MesPqcReleaseDossierPortImpl.write/requireFormalWrite`、`MesPqcProductionReleaseServiceImpl.approve/requireDossierWrite`及对应DTO/Controller。
+- BDD验收：Given正式补料和有效动态损耗表，When调用真实资料汇总及PQC批准服务，Then进入REPORT_UPLOAD_PENDING并保存四个上传任务回执；再次请求返回同一动态实例/审计证据。混合证据均保留，缺审计被拒绝。
+- 证据：`doc/tasks/20260914-edhr-main-flow-fixes/verification-report.md`的“Follow-up”章节；未执行真实页面E2E，未提交或推送Git。
+
+## 2026-09-15 普通订单主流程继续修复
+
+### EDHR-STATIC-028：领料证据被提前到生产录入阶段
+
+- 触发：生产、PQC开始时ERP领料单尚未同步，符合用户明确允许的正常顺序。
+- 原因：`MesFrontlineProcessMaterialServiceImpl.listFrozenMaterials`在加载输入物料时调用正式领料批号查询；无单或无批号直接阻断。签名提交把未知数量写为null后还会触发不可变Map拒绝null。
+- 修复边界：生产阶段只展示冻结物料配置，签名原始记录明确标记PENDING_COMPLETION；正式领料仍在完工事务发现、校验并保存。详情读取完工时保存的批号、数量及全部匹配单号，不重写已签名的原始生产记录。
+- 验证：生产无领料加载/提交的RED已复现；相关103项定向回归PASS。完工详情双来源批号测试RED复现后，快照读取及完工/回填28项回归PASS。
+
+### EDHR-STATIC-029：自动回填依赖人工待办
+
+- 触发：PQC生产放行自动填写多个工序的动态过程检验/损耗表；下游工序尚未生成FILL待办，或首工序损耗表负责人与PQC放行人不同。
+- 原因：自动writer走公开人工submit，效果执行器调用`completeRouteFormFillAndCreateNextFill`，强制存在人工FILL待办并按其候选人判断。
+- 修复：内部可信提交上下文仅供服务调用；校验DIRECT策略、检验/损耗槽位、当前PQC放行申请、批次/路线/版本/租户身份及冻结PQC候选人。自动回填可以完成尚无人工待办的证据；已存在待办记为AUTOMATIC_BACKFILL，并在同一事务保存操作者和证据摘要审计。
+- 后续推进：自动完成的检验待办退出人工推进人的判断，生产负责人提交主记录可派发下一工序；人工检验模式的人员限制保留。
+- 证据：双用例RED复现原自动待办问题；工序推进参数化用例只有自动场景RED。33项BPM及连接服务回归、24项工序推进回归PASS。没有执行真实页面E2E。
+
+### EDHR-STATIC-030：人工提交错误地采用表单创建人
+
+- 触发：动态路线表单由建批/PQC操作人创建，后续由配置的实际填写人提交。
+- 原因：效果执行器使用`instance.applicantUserId`作为完成人，真实请求用户没有进入效果调用。
+- 修复：公开submit将真实用户写入仅服务端创建的执行上下文；效果执行器用该用户做人工待办校验，保留原创建人历史事实。前端formData中的automaticBackfill/执行上下文字段不能获得内部自动权限。
+- 证据：真实提交人77/创建人99的RED复现；公开表单不可伪造自动权限、正确演员传递及实际人工权限拒绝测试PASS。
+
+- 核心任务记录：`doc/tasks/20260914-edhr-main-flow-fixes/`。整体目标仍为in_progress，以上定向通过不能替代从订单加入到历史追溯的完整核查。
+
+### EDHR-STATIC-031：放行报告与普通批记录相互等待
+
+- 原因：`createNextFillAfterBatchTask`将特殊报告节点当作下一项人工FILL候选，`hasUnsatisfiedSpecialBeforeNext`又把独立RELEASE_REPORT_NODE上传待办当作普通工序前置条件。报告最后一项提交要检查全部普通记录，正式报告完成接口也没有旧特殊节点恢复回调。
+- 修复：下一项人工填写只选ROUTE_FORM；已有正式RELEASE_REPORT_NODE任务的报告不阻断普通记录派发。其他模式的特殊节点顺序限制保留；最终放行仍检查报告及全部普通记录。
+- 证据：数据库回归复现“预期1条下一工序待办，实际0条”；修复后含前后工序、报告上传、PQC批准、管理者放行的87项回归PASS。
+
+### EDHR-STATIC-032：物料配置存在两个不一致读取口径
+
+- 页面正常输入输出物料编辑保存到`batchUseConfigs`，一线物料服务也读此字段。生产参数配置的前端类型和默认JSON只包含超量比例、损耗、设备和参数。
+- 活跃订单冻结与生产配置校验却要求`productionProcessConfigs.inputMaterialIds/outputMaterialIds`，导致用户用正常物料控件配置后仍需重复编辑隐藏JSON，或订单进度使用另一套输出物料。
+- 修复：订单从同一正式版本、同一routeProcessId的batchUseConfigs冻结输入输出物料；生产配置独立校验设备、损耗和参数，不再要求重复物料字段。缺少正式物料配置或输出集合仍阻断加入。
+- 验证：正常页面形状的快照、高级生产JSON不重复材料时，旧代码在validateOutputMaterialIds处RED；包含正常无领料单加入、路线配置、物料加载及进度计算的30项定向回归PASS。
+
+## 2026-09-15 本轮最终代码验证
+
+028—032已完成修复及对应定向回归。补充发布/最终放行70项、来源/QA发布42项、普通活跃订单最终放行1项通过；生产/PQC/复核/完工127项和放行阶段87项通过（测试集合有重叠，不累加为总数）。当前审查范围内未发现仍待修复的普通主流程代码卡点。
+
+结论为代码分析与定向回归通过，未执行真实订单浏览器E2E。正式任务完成仍待当前规则要求的Git集成授权；实现和验证证据见 `doc/tasks/20260914-edhr-main-flow-fixes/verification-report.md` 最终章节。

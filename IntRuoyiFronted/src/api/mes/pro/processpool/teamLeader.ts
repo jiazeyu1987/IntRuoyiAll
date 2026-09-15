@@ -674,6 +674,7 @@ export interface TeamLeaderActiveOrderReleaseApplyReqVO {
   activeOrderId: number
   idempotencyKey: string
   applyRemark?: string
+  confirmNoReplenishmentInfo?: boolean
 }
 
 export interface TeamLeaderActiveOrderReleaseBlockerRespVO {

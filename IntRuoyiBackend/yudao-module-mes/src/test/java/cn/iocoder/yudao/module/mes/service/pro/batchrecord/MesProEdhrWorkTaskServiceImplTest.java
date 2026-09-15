@@ -1242,21 +1242,29 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertNotNull(fills.get(0).getAssigneeUserId());
     }
 
-    @Test
-    void createNextFillAfterReview_allPrerequisitesMetCreatesNextFillOnce() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void createNextFillAfterReview_allPrerequisitesMetCreatesNextFillOnce(boolean pendingReleaseReport) {
         insertBatch(batchForInitialFill(3050L, 4150L));
         MesProEdhrBatchExecutionTaskDO currentTask = batchTask(3050L, 9150L, 5150L,
                 "REPORT-CURRENT", "ROUTE_FORM", "称量", 10)
                 .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED);
         MesProEdhrBatchExecutionTaskDO specialTask = batchTask(3050L, 9151L, null,
-                null, "STERILIZATION_REPORT", "灭菌报告", 15)
-                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_SKIPPED);
-        MesProEdhrBatchExecutionTaskDO nextTask = batchTask(3050L, 9152L, 5152L,
+                null, "INCOMING_INSPECTION_REPORT", "来料检验报告", 0)
+                .setStatus(pendingReleaseReport ? MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING
+                        : MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_SKIPPED);
+        MesProEdhrBatchExecutionTaskDO nextTask = batchTask(3050L, 9152L, (pendingReleaseReport ? 5153L : 5152L),
                 "REPORT-NEXT", "ROUTE_FORM", "包装", 20);
         batchTaskMapper.insert(currentTask);
         batchTaskMapper.insert(specialTask);
         batchTaskMapper.insert(nextTask);
-        insertAssignmentRule(5152L, MesProEdhrWorkTaskService.TASK_TYPE_FILL, 120);
+        if (pendingReleaseReport) {
+            var reportTodo = insertFillTask(8051L, specialTask.getId(), "independent-release-report")
+                    .setBatchExecutionId(3050L).setBusinessScopeType("RELEASE_REPORT_NODE")
+                    .setBusinessScopeId(specialTask.getId());
+            workTaskMapper.updateById(reportTodo);
+        }
+        insertAssignmentRule((pendingReleaseReport ? 5153L : 5152L), MesProEdhrWorkTaskService.TASK_TYPE_FILL, 120);
         MesProEdhrWorkTaskDO reviewTask = completedReviewTask(8050L, currentTask, 4150L);
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -2263,8 +2271,9 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals("MES_EDHR_FILLER_MINIMAL", captor.getValue().getPolicyCode());
     }
 
-    @Test
-    void completeFillAndCreateNextFill_doesNotAdvanceWhenInspectionFillerExistsAndActorIsOnlyMainFiller() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void completeFillAndCreateNextFill_respectsManualInspectionButAdvancesAfterAutomaticInspection(boolean automaticInspection) {
         insertBatch(batchForInitialFill(3075L, 4175L));
         MesProEdhrBatchExecutionTaskDO mainTask = batchTask(3075L, 9175L, 5175L,
                 "REPORT-MAIN-ADVANCE", "ROUTE_FORM", "灭菌主记录", 10)
@@ -2309,7 +2318,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                 .setAssigneeUserId(300L)
                 .setCandidateSourceType("USERS")
                 .setCandidateUserSnapshot("300,301")
-                .setStatus(MesProEdhrWorkTaskStatus.DONE);
+                .setStatus(MesProEdhrWorkTaskStatus.DONE)
+                .setReason(automaticInspection ? "AUTOMATIC_BACKFILL:生产放行正式证据自动回填" : "FORM_CENTER_SUBMIT:人工填写");
         workTaskMapper.updateById(inspectionFillTask);
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -2318,8 +2328,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         }
 
         assertEquals(MesProEdhrWorkTaskStatus.DONE, workTaskMapper.selectById(mainFillTask.getId()).getStatus());
-        assertTrue(workTaskMapper.selectList().stream()
-                .noneMatch(task -> MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(task.getTaskType())
+        assertEquals(automaticInspection, workTaskMapper.selectList().stream()
+                .anyMatch(task -> MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(task.getTaskType())
                         && nextTask.getId().equals(task.getBatchTaskId())));
     }
 

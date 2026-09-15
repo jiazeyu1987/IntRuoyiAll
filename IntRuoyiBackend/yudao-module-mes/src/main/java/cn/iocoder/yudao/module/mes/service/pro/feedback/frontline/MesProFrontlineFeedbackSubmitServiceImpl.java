@@ -415,13 +415,10 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             item.put("materialId", material.materialId());
             item.put("materialCode", material.materialCode());
             item.put("materialName", material.materialName());
-            item.put("batchCodes", material.batchCodes());
-            item.put("requestedQuantity", material.requestedQuantity());
-            item.put("actualQuantity", material.actualQuantity());
-            item.put("baseActualQuantity", material.baseActualQuantity());
-            item.put("sourcePickListIds", material.sourcePickListIds());
-            item.put("sourcePickListItemIds", material.sourcePickListItemIds());
-            item.put("sourceSnapshotHash", material.sourceSnapshotHash());
+            item.put("batchEvidenceStatus", "PENDING_COMPLETION");
+            item.put("batchCodes", List.of());
+            item.put("sourcePickListIds", List.of());
+            item.put("sourcePickListItemIds", List.of());
             return Map.copyOf(item);
         }).toList();
         Map<String, Object> rawPayload = new java.util.LinkedHashMap<>(reqVO.getRawPayload());

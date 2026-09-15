@@ -127,6 +127,18 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
     }
 
     @Test
+    void allocatedSourceOrderIsAcceptedWithoutRewritingItsIdentity() {
+        mockFormalPlanSources();
+        var command = command();
+        var event = command.getProcessSources().get(0).getSourceEvents().get(0);
+        event.setWorkOrderId(9000L);
+        var plan = writer.plan(command);
+        assertTrue(plan.getBlockers().isEmpty(), () -> plan.getBlockers().toString());
+        assertEquals(9000L, event.getWorkOrderId());
+        assertEquals(WORK_ORDER_ID, command.getWorkOrder().getId());
+    }
+
+    @Test
     void shouldReturnSignatureBlockerWithoutOpeningExecutionWhenProductionReviewSignatureIsMissing() {
         mockFormalPlanSources();
         MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand command = command();

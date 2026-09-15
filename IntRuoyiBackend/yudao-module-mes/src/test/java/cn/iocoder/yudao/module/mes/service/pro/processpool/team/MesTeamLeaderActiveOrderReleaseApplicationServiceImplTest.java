@@ -33,13 +33,13 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
     @Test
     void applyCompletesAndBackfillsActiveOrderBeforeGeneratingPqcReleaseApplication() {
         MesTeamLeaderActiveOrderReleaseApplyCommand command = new MesTeamLeaderActiveOrderReleaseApplyCommand()
-                .setActiveOrderId(10L)
+                .setActiveOrderId(10L).setConfirmNoReplenishmentInfo(true)
                 .setIdempotencyKey("release-key")
                 .setApplyRemark("生产组长申请放行");
         MesTeamLeaderActiveOrderReleaseApplicationResult expected =
                 new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L);
         when(generationService.replayExisting(20L, command)).thenReturn(null);
-        when(completionService.completeForRelease(20L, 10L, "release-key"))
+        when(completionService.completeForRelease(20L, 10L, "release-key", true))
                 .thenReturn(new MesTeamLeaderActiveOrderCompletionResult().setCompletionReceiptId(88L));
         when(generationService.generate(20L, command)).thenReturn(expected);
 
@@ -48,7 +48,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
         assertSame(expected, actual);
         InOrder order = inOrder(completionService, generationService);
         order.verify(generationService).replayExisting(20L, command);
-        order.verify(completionService).completeForRelease(20L, 10L, "release-key");
+        order.verify(completionService).completeForRelease(20L, 10L, "release-key", true);
         order.verify(generationService).generate(20L, command);
     }
 
@@ -65,7 +65,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
         MesTeamLeaderActiveOrderReleaseApplicationResult actual = service.apply(20L, command);
 
         assertSame(expected, actual);
-        verify(completionService, never()).completeForRelease(20L, 10L, "release-key");
+        verify(completionService, never()).completeForRelease(20L, 10L, "release-key", null);
         verify(generationService, never()).generate(20L, command);
     }
 
@@ -75,7 +75,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
                 .setActiveOrderId(10L)
                 .setIdempotencyKey("release-key");
         when(generationService.replayExisting(20L, command)).thenReturn(null);
-        when(completionService.completeForRelease(20L, 10L, "release-key"))
+        when(completionService.completeForRelease(20L, 10L, "release-key", null))
                 .thenThrow(new IllegalStateException("template rules are not confirmed"));
 
         assertThrows(IllegalStateException.class, () -> service.apply(20L, command));

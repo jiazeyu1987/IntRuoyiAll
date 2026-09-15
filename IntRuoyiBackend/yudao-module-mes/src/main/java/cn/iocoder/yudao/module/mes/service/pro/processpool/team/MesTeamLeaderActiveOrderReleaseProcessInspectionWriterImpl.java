@@ -487,13 +487,38 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 }
             }
         }
-        String expectedInspectionResult = source.getAggregateDetails().stream()
-                .allMatch(detail -> MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS
-                        .equals(detail.getJudgement()))
-                ? MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS
-                : MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE;
+        Integer scrapQuantity = formalScrapQuantity(source);
+        if (scrapQuantity == null) {
+            return source.getAggregateDetails().get(0).getItemCode();
+        }
+        String expectedInspectionResult = scrapQuantity > 0
+                || source.getAggregateDetails().stream().anyMatch(detail ->
+                !MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS.equals(detail.getJudgement()))
+                ? MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE
+                : MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS;
         return Objects.equals(expectedInspectionResult, source.getPqcRecord().getInspectionResult())
                 ? null : source.getAggregateDetails().get(0).getItemCode();
+    }
+
+    private Integer formalScrapQuantity(
+            MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source) {
+        String rawPayload = source.getPqcRecord() == null ? null : source.getPqcRecord().getRawPayload();
+        if (StrUtil.isBlank(rawPayload)) {
+            return null;
+        }
+        try {
+            JsonNode payload = JsonUtils.getObjectMapper().readTree(rawPayload);
+            JsonNode rawQuantity = payload == null ? null : payload.get("scrapQuantity");
+            if (rawQuantity == null || !rawQuantity.isIntegralNumber() || !rawQuantity.canConvertToInt()) {
+                return null;
+            }
+            int scrapQuantity = rawQuantity.intValue();
+            Integer actualQuantity = source.getTask() == null ? null : source.getTask().getActualInspectionQuantity();
+            return scrapQuantity < 0 || actualQuantity == null || scrapQuantity > actualQuantity
+                    ? null : scrapQuantity;
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private List<MesQaInspectionRegulationItemDO> taskScopedQaItems(
@@ -1213,6 +1238,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         List<MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.FieldWrite> fields =
                 combinedDynamicFields(inspections);
         return new MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand()
+                .setActorUserId(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId())
                 .setTenantId(plan.getCommand().getTenantId())
                 .setBatchExecutionId(batchExecutionId)
                 .setBatchTask(group.batchTask())

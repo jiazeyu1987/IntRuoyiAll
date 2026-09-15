@@ -592,7 +592,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                                       MesProProcessPoolEventDO event) {
         return event != null && event.getId() != null
                 && MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())
-                && Objects.equals(command.getWorkOrder().getId(), event.getWorkOrderId())
+                && event.getWorkOrderId() != null
                 && Objects.equals(snapshot.getRouteId(), event.getRouteId())
                 && Objects.equals(snapshot.getRouteProcessId(), event.getRouteProcessId())
                 && Objects.equals(snapshot.getProcessId(), event.getProcessId());

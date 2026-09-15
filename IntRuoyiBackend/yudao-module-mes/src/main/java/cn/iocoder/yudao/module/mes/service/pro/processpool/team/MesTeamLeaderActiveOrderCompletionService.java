@@ -6,5 +6,5 @@ public interface MesTeamLeaderActiveOrderCompletionService {
             Long leaderUserId, MesTeamLeaderActiveOrderCompletionCommand command);
 
     MesTeamLeaderActiveOrderCompletionResult completeForRelease(
-            Long leaderUserId, Long activeOrderId, String releaseIdempotencyKey);
+            Long leaderUserId, Long activeOrderId, String releaseIdempotencyKey, Boolean confirmNoReplenishmentInfo);
 }

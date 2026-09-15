@@ -320,6 +320,31 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
+    void activeOrderListProgressIncludesAllocatedSourceFromAnotherOrder() {
+        var order = MesProcessPoolActiveOrderDO.builder().id(8101L).workOrderId(9001L)
+                .routeId(7001L).routeVersionId(7002L).erpFixedQuantitySnapshot(new BigDecimal("60")).build();
+        var snapshot = MesProcessPoolActiveOrderProcessSnapshotDO.builder().activeOrderId(8101L)
+                .workOrderId(9001L).routeId(7001L).routeVersionId(7002L).routeProcessId(5001L).processId(6001L)
+                .plannedQuantitySnapshot(new BigDecimal("60")).overagePercentSnapshot(BigDecimal.ZERO)
+                .productionConfigSnapshotJson("{\"outputMaterialIds\":[501]}").build();
+        var allocation = MesProcessPoolReportAllocationDO.builder().id(7101L).activeOrderId(8101L)
+                .workOrderId(9001L).routeProcessId(5001L).processId(6001L).eventId(1001L)
+                .allocatedQuantity(new BigDecimal("60")).build();
+        var source = MesProProcessPoolEventDO.builder().id(1001L).workOrderId(9000L).routeId(7001L)
+                .routeProcessId(5001L).processId(6001L).eventType("PRODUCTION_SUBMIT")
+                .rawPayload("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":100}]}").build();
+        when(processSnapshotMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of(snapshot));
+        when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of(allocation));
+        lenient().when(processPoolEventMapper.selectBatchIds(List.of(1001L))).thenReturn(List.of(source));
+        java.util.Map<Long, ?> result = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                service, "loadActiveOrderProgress", List.of(order), java.util.Map.of());
+        Object progress = result.get(8101L);
+        org.junit.jupiter.api.Assertions.assertNotNull(progress);
+        BigDecimal percent = org.springframework.test.util.ReflectionTestUtils.invokeMethod(progress, "productionProgressPercent");
+        assertEquals(0, new BigDecimal("100").compareTo(percent));
+    }
+
+    @Test
     void removeActiveOrderShouldRejectOrdersAlreadyInReleaseFlow() {
         MesProcessPoolActiveOrderDO activeOrder = existingActiveOrder(8101L, "ACTIVE", 7);
         when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder);
@@ -838,7 +863,20 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Test
     void shouldAddWorkOrderToLeaderActivePoolWithoutPickList() {
         stubWorkOrderExists(confirmedWorkOrder());
-        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+        JSONObject formalSnapshot = JSON.parseObject(activeRouteSnapshotJson(2));
+        JSONObject formalConfigs = formalSnapshot.getJSONObject("configSnapshots");
+        formalConfigs.put("productionProcessConfigSchemaVersion", 1);
+        com.alibaba.fastjson.JSONArray batchConfigs = new com.alibaba.fastjson.JSONArray();
+        for (Object raw : formalConfigs.getJSONArray("productionProcessConfigs")) {
+            JSONObject productionConfig = (JSONObject) raw;
+            JSONObject materials = new JSONObject();
+            materials.put("routeProcessId", productionConfig.getLong("routeProcessId"));
+            materials.put("inputMaterialIds", productionConfig.remove("inputMaterialIds"));
+            materials.put("outputMaterialIds", productionConfig.remove("outputMaterialIds"));
+            batchConfigs.add(materials);
+        }
+        formalConfigs.put("batchUseConfigs", batchConfigs);
+        stubFormalRouteQaContext(1001L, 448L, formalSnapshot.toJSONString(),
                 publishedRegulation(9902L, 928609L, 6001L));
         when(activeOrderMapper.selectLastByLeaderForUpdate(3001L))
                 .thenReturn(MesProcessPoolActiveOrderDO.builder().id(8000L).sortOrder(40L).build());
@@ -856,6 +894,12 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertNull(result.getPickListId());
         assertNull(result.getSourceSnapshotHash());
         assertNull(result.getBindingVersion());
+        verify(processSnapshotMapper).insertBatch(argThat(snapshots -> snapshots.size() == 2
+                && snapshots.stream().allMatch(snapshot -> {
+                    JSONObject production = JSON.parseObject(snapshot.getProductionConfigSnapshotJson());
+                    return production.getJSONArray("inputMaterialIds").isEmpty()
+                            && production.getJSONArray("outputMaterialIds").toJavaList(Long.class).equals(List.of(1002L));
+                })));
         verify(pickListMapper, never()).selectById(any());
         verify(pickListItemMapper, never()).selectListByPickListIds(any());
         verify(pickListBindingMapper, never()).insert(any(MesProcessPoolActiveOrderPickListBindingDO.class));

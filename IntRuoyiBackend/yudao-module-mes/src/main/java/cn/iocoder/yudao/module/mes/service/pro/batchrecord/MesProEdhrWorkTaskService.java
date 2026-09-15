@@ -102,6 +102,9 @@ public interface MesProEdhrWorkTaskService {
 
     MesProEdhrWorkTaskDO completeRouteFormFillAndCreateNextFill(Long batchTaskId, Long actorUserId);
 
+    /** Internal completion of verified inspection/loss evidence during PQC production release. */
+    void completeVerifiedRouteFormBackfill(Long batchTaskId, Long actorUserId, String evidenceHash);
+
     MesProEdhrWorkTaskDO completeFillAndCreateNextFillAfterGoldenFingerSubmit(Long workTaskId, Long executionId);
 
     MesProEdhrWorkTaskDO completeOneReviewTask(Long workTaskId, Long executionId);

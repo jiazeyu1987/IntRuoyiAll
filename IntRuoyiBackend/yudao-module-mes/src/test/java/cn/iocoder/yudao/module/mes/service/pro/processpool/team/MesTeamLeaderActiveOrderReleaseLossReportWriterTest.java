@@ -103,6 +103,39 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
     }
 
     @Test
+    void replenishmentCreatesFormalLossEvenWhenProductionReportsNoLoss() {
+        mockSuccessfulPlan();
+        var sources = formalSources();
+        var feedback = sources.getProcessSources().get(0).getFeedback();
+        feedback.setQualifiedQuantity(feedback.getFeedbackQuantity());
+        feedback.setUnqualifiedQuantity(BigDecimal.ZERO);
+        feedback.setLaborScrapQuantity(BigDecimal.ZERO);
+        feedback.setMaterialScrapQuantity(BigDecimal.ZERO);
+        feedback.setOtherScrapQuantity(BigDecimal.ZERO);
+        when(sourceReader.read(any())).thenReturn(sources);
+        var plan = writer.plan(command());
+        assertTrue(plan.getBlockers().isEmpty(), () -> plan.getBlockers().toString());
+        assertEquals(new BigDecimal("2.500"), plan.getLossQuantity());
+        assertTrue(plan.getSourceObjectIds().containsAll(List.of(9301L, 8301L)));
+    }
+
+    @Test
+    void reusableProcessLossDoesNotRequireFormalLossDocumentAfterNoReplenishmentConfirmation() {
+        var sources = formalSources();
+        sources.getProcessSources().get(0).setFormalLossQuantity(BigDecimal.ZERO)
+                .setReplenishmentSources(List.of()).setHasActualLoss(false).setZeroLossConfirmed(true)
+                .setLossDecision("NO_LOSS").setLossDetails(List.of());
+        when(sourceReader.read(any())).thenReturn(sources);
+
+        var plan = writer.plan(command());
+
+        assertTrue(plan.getBlockers().isEmpty(), () -> plan.getBlockers().toString());
+        assertEquals("NO_LOSS", plan.getLossDecision());
+        assertEquals(BigDecimal.ZERO, plan.getLossQuantity());
+        org.mockito.Mockito.verifyNoInteractions(bindingMapper);
+    }
+
+    @Test
     void shouldWritePositiveFormalLossWhenQualifiedAllocationPlusLossExplainsTotal() {
         mockSuccessfulPlan();
         mockSuccessfulWrite();
@@ -196,7 +229,7 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
     }
 
     @Test
-    void shouldBlockWhenAnyLossDetailReasonDoesNotMatchTheFormalFeedbackSnapshot() {
+    void shouldBlockWhenLossDetailsDoNotMatchFormalReplenishmentLines() {
         MesTeamLeaderActiveOrderReleaseLossSourceReadResult sources = formalSources();
         sources.getProcessSources().get(0).setLossDetails(List.of(
                 new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.LossDetail()
@@ -236,7 +269,7 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
         feedback.setLossReasonNameSnapshot(null);
         sources.getProcessSources().get(0).getAllocation().setAllocatedQuantity(feedback.getFeedbackQuantity());
         sources.getProcessSources().get(0).setLossDetails(List.of());
-        sources.getProcessSources().get(0).setHasActualLoss(false)
+        sources.getProcessSources().get(0).setFormalLossQuantity(BigDecimal.ZERO).setReplenishmentSources(List.of()).setHasActualLoss(false)
                 .setZeroLossConfirmed(true)
                 .setLossDecision("NO_LOSS");
         when(sourceReader.read(any())).thenReturn(sources);
@@ -380,7 +413,7 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
                         && field.getDisplayValue().contains("30ATM")));
         assertTrue(captor.getValue().getFields().stream()
                 .anyMatch(field -> "lossDetailsSummary".equals(field.getSourceFieldCode())
-                        && field.getDisplayValue().contains("LOSS-001")
+                        && field.getDisplayValue().contains("REPLENISHMENT:MAT-1")
                         && field.getDisplayValue().contains("loss=2.5")
                         && field.getDisplayValue().contains("signatureId=1101")
                         && field.getDisplayValue().contains("signatureId=1201")));
@@ -484,13 +517,18 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
                         .setEvent(event())
                         .setAllocation(allocation())
                         .setReview(review())
+                        .setFormalLossQuantity(new BigDecimal("2.500"))
+                        .setReplenishmentSources(List.of(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource()
+                                .setHeaderId(9301L).setItemId(8301L).setSourceBillNo("BL-01")
+                                .setMaterialCode("MAT-1").setMaterialName("材料一").setLotNumber("LOT-1")
+                                .setActualQuantity(new BigDecimal("2.500"))))
                         .setHasActualLoss(true)
                         .setZeroLossConfirmed(false)
                         .setLossDecision("REQUIRED")
                         .setLossDetails(List.of(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.LossDetail()
                                 .setReasonId(8301L)
-                                .setReasonCode("LOSS-001")
-                                .setReasonName("正常损耗")
+                                .setReasonCode("REPLENISHMENT:MAT-1")
+                                .setReasonName("生产补料：材料一")
                                 .setQuantity(new BigDecimal("2.500"))))))
                 .setBlockers(List.of());
     }

@@ -91,6 +91,7 @@ public class MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortImpl
                 .setBatchRecordId(receipt.getBatchRecordId())
                 .setProcessInspectionId(receipt.getProcessInspectionId())
                 .setHasActualLoss(receipt.getHasActualLoss())
+                .setLossConditionFactsJson(receipt.getLossConditionFactsJson())
                 .setLossQuantity(receipt.getLossQuantity())
                 .setLossReportStatus(receipt.getLossReportStatus())
                 .setLossRecordId(receipt.getLossRecordId())

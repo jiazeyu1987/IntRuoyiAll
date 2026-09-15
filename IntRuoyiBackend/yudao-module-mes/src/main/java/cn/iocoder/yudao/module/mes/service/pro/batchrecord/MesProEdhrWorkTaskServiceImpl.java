@@ -27,6 +27,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBa
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
@@ -118,6 +119,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
+    @Resource
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
     @Resource
     private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
     @Resource
@@ -783,7 +786,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         List<MesProEdhrBatchExecutionTaskDO> batchTasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId());
         createCompanionFillTasksForActiveAnchors(batch, batchTasks);
         MesProEdhrBatchExecutionTaskDO firstTask = batchTasks.stream()
-                .filter(task -> !Boolean.FALSE.equals(task.getRequiredFlag()))
+                .filter(this::isCurrentlyRequired)
                 .filter(task -> Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING))
                 .filter(task -> task.getRouteProcessId() != null)
                 .min(Comparator.comparing(MesProEdhrBatchExecutionTaskDO::getRouteProcessSort)
@@ -1124,6 +1127,70 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void completeVerifiedRouteFormBackfill(Long batchTaskId, Long actorUserId, String evidenceHash) {
+        if (actorUserId == null || actorUserId <= 0 || evidenceHash == null
+                || !evidenceHash.matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("Missing automatic backfill actor or evidence hash");
+        }
+        MesProEdhrBatchExecutionTaskDO task = batchTaskMapper.selectByIdForUpdate(batchTaskId);
+        if (task == null || !"ROUTE_FORM".equals(task.getNodeType())
+                || !("PROCESS_INSPECTION".equals(task.getFormSlotType()) || "LOSS_REPORT".equals(task.getFormSlotType()))
+                || task.getFormCenterInstanceId() == null
+                || !(Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING)
+                || Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_DRAFT))) {
+            throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
+        }
+        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(task.getBatchExecutionId());
+        if (batch == null || !StrUtil.startWith(batch.getActiveContextKey(), "PQC_RELEASE:")) {
+            throw new IllegalArgumentException("Automatic backfill requires a PQC release batch");
+        }
+        Long applicationId = Long.valueOf(batch.getActiveContextKey().substring("PQC_RELEASE:".length()));
+        MesProcessPoolActiveOrderReleaseApplicationDO application = releaseApplicationMapper.selectByIdForUpdate(applicationId);
+        if (application == null || !"PQC_RELEASE_PENDING".equals(application.getApplicationStatus())
+                || !Objects.equals(batch.getWorkOrderId(), application.getWorkOrderId())
+                || !Objects.equals(batch.getRouteId(), application.getRouteId())
+                || !Objects.equals(batch.getRouteVersionId(), application.getRouteVersionId())
+                || !Objects.equals(batch.getTenantId(), application.getTenantId())
+                || (application.getBatchExecutionId() != null
+                && !Objects.equals(batch.getId(), application.getBatchExecutionId()))) {
+            throw new IllegalArgumentException("Automatic backfill does not match a pending PQC release application");
+        }
+        MesProEdhrWorkTaskDO pqcTask = workTaskMapper.selectById(application.getPqcReleaseWorkTaskId());
+        if (pqcTask == null || !"PQC_PRODUCTION_RELEASE".equals(pqcTask.getTaskType())
+                || !BUSINESS_SCOPE_TYPE_RELEASE_APPLICATION.equals(pqcTask.getBusinessScopeType())
+                || !Objects.equals(applicationId, pqcTask.getBusinessScopeId())
+                || !isActiveFillOrReworkStatus(pqcTask.getStatus())) {
+            throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
+        }
+        if (!isAssignedOrCandidate(pqcTask, actorUserId)) {
+            throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH);
+        }
+        // A companion todo may already exist for the first process. Downstream evidence has no manual todo yet.
+        MesProEdhrWorkTaskDO fillTask = workTaskMapper.selectActiveByBatchTaskAndType(batchTaskId, TASK_TYPE_FILL);
+        if (fillTask != null) {
+            completeTask(fillTask, "AUTOMATIC_BACKFILL", "生产放行正式证据自动回填");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        batchTaskMapper.updateById(new MesProEdhrBatchExecutionTaskDO().setId(batchTaskId)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
+                .setSubmittedAt(now).setApprovedAt(now)
+                .setOpenedAt(task.getOpenedAt() == null ? now : task.getOpenedAt())
+                .setOpenedBy(task.getOpenedBy() == null ? actorUserId : task.getOpenedBy()));
+        operationAuditService.recordInCallerTransaction(new MesProEdhrOperationAuditCommand()
+                .setRequestId("AUTO_BACKFILL:" + batchTaskId + ":" + evidenceHash)
+                .setObjectType("EDHR_ROUTE_FORM").setObjectId(String.valueOf(batchTaskId))
+                .setBatchExecutionId(batch.getId()).setWorkTaskId(pqcTask.getId())
+                .setRouteId(batch.getRouteId()).setRouteProcessId(task.getRouteProcessId())
+                .setOperationType("VERIFIED_BACKFILL").setActionName("生产放行正式证据自动回填")
+                .setActorUserId(actorUserId).setPermissionDecision("ALLOW").setResultStatus("SUCCESS")
+                .setAfterSummaryHash(evidenceHash)
+                .setMetadataJson(JSON.toJSONString(Map.of("applicationId", applicationId,
+                        "formCenterInstanceId", task.getFormCenterInstanceId(), "evidenceHash", evidenceHash))));
+        // Manual batch-record sequencing advances only when its responsible person completes the main form.
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesProEdhrWorkTaskDO completeOneReviewTask(Long workTaskId, Long executionId) {
         MesProEdhrWorkTaskDO reviewTask = validateWritableTask(workTaskId, executionId, TASK_TYPE_REVIEW);
         completeTask(reviewTask);
@@ -1427,7 +1494,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
         }
         MesProEdhrBatchExecutionTaskDO nextTask = batchTasks.stream()
-                .filter(task -> !Boolean.FALSE.equals(task.getRequiredFlag()))
+                .filter(this::isCurrentlyRequired)
+                .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(task.getNodeType()))
                 .filter(task -> Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING))
                 .filter(task -> task.getRouteProcessSort() == null || currentBatchTask.getRouteProcessSort() == null
                         || task.getRouteProcessSort() > currentBatchTask.getRouteProcessSort()
@@ -1573,6 +1641,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         workTaskMapper.selectList().stream()
                 .filter(task -> Objects.equals(task.getBatchExecutionId(), currentTask.getBatchExecutionId()))
                 .filter(this::isFillOrReworkTask)
+                .filter(task -> !(MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus())
+                        && StrUtil.startWith(task.getReason(), "AUTOMATIC_BACKFILL:")))
                 .filter(task -> currentProcessTasks.containsKey(task.getBatchTaskId()))
                 .forEach(task -> {
                     MesProEdhrBatchExecutionTaskDO batchTask = currentProcessTasks.get(task.getBatchTaskId());
@@ -1605,7 +1675,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             return false;
         }
         return batchTasks.stream()
-                .filter(task -> !Boolean.FALSE.equals(task.getRequiredFlag()))
+                .filter(this::isCurrentlyRequired)
                 .filter(task -> Objects.equals(task.getNodeType(), "ROUTE_FORM"))
                 .filter(task -> Objects.equals(task.getRouteProcessId(), currentTask.getRouteProcessId()))
                 .anyMatch(task -> !isApprovedOrSkipped(task));
@@ -1614,8 +1684,10 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     private boolean hasUnsatisfiedSpecialBeforeNext(MesProEdhrBatchExecutionTaskDO nextTask,
                                                     List<MesProEdhrBatchExecutionTaskDO> batchTasks) {
         return batchTasks.stream()
-                .filter(task -> !Boolean.FALSE.equals(task.getRequiredFlag()))
+                .filter(this::isCurrentlyRequired)
                 .filter(task -> !Objects.equals(task.getNodeType(), "ROUTE_FORM"))
+                // Post-PQC reports have their own upload stage; final release checks both stages together.
+                .filter(task -> workTaskMapper.selectReleaseReportByBatchTaskId(task.getId()) == null)
                 .filter(task -> task.getRouteProcessSort() == null || nextTask.getRouteProcessSort() == null
                         || task.getRouteProcessSort() <= nextTask.getRouteProcessSort())
                 .anyMatch(task -> !isApprovedOrSkipped(task));
@@ -1624,7 +1696,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     private MesProEdhrBatchExecutionTaskDO resolveSpecialNodeAdvanceAnchor(MesProEdhrBatchExecutionTaskDO specialTask,
                                                                            List<MesProEdhrBatchExecutionTaskDO> batchTasks) {
         return batchTasks.stream()
-                .filter(task -> !Boolean.FALSE.equals(task.getRequiredFlag()))
+                .filter(this::isCurrentlyRequired)
                 .filter(task -> Objects.equals(task.getNodeType(), "ROUTE_FORM"))
                 .filter(this::isApprovedOrSkipped)
                 .filter(task -> isBeforeBatchTask(task, specialTask))
@@ -1751,8 +1823,25 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         }
     }
 
+    private boolean isCurrentlyRequired(MesProEdhrBatchExecutionTaskDO task) {
+        if (!MesProEdhrConditionalLossRequirement.isConditionalLoss(task)) {
+            return !Boolean.FALSE.equals(task.getRequiredFlag());
+        }
+        if (Boolean.FALSE.equals(task.getRequiredFlag())) {
+            return MesProEdhrConditionalLossRequirement.required(task, false);
+        }
+        return MesProEdhrConditionalLossRequirement.required(task,
+                MesProEdhrConditionalLossRequirement.formalDecision(
+                        batchExecutionOriginMapper.selectListByBatchExecutionId(task.getBatchExecutionId())));
+    }
+
+    private boolean isLossNotApplicable(MesProEdhrBatchExecutionTaskDO task) {
+        return MesProEdhrConditionalLossRequirement.isConditionalLoss(task) && !isCurrentlyRequired(task);
+    }
+
     private void createFillTask(MesProEdhrBatchExecutionDO batch, MesProEdhrBatchExecutionTaskDO batchTask,
                                 Long sourceUserId, String requiredSignatureCellKey) {
+        if (isLossNotApplicable(batchTask)) return;
         MesProRouteProcessDO currentRouteProcess = resolveFrozenRouteProcess(batch == null ? null : batch.getRouteId(),
                 batchTask == null ? null : batchTask.getRouteProcessId(),
                 batchTask == null ? null : batchTask.getProcessId());
@@ -1806,6 +1895,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             return;
         }
         batchTaskMapper.selectListByBatchExecutionId(batch.getId()).stream()
+                .filter(task -> !isLossNotApplicable(task))
                 .filter(task -> !Objects.equals(task.getId(), anchorTask.getId()))
                 .filter(task -> Objects.equals(task.getRouteProcessId(), anchorTask.getRouteProcessId()))
                 .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(task.getNodeType()))

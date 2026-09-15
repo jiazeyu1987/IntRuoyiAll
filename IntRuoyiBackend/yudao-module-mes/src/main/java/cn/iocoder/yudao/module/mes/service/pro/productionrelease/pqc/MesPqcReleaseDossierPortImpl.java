@@ -290,6 +290,10 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                 .setProcessInspectionEvidenceIds(copy(inspectionWrite.getBatchRecordExecutionIds()))
                 .setProcessInspectionFormCenterInstanceIds(copy(inspectionWrite.getFormCenterInstanceIds()))
                 .setLossReportEvidenceIds(copy(lossWrite.getBatchRecordExecutionIds()))
+                .setLossReportFormCenterInstanceIds(copy(lossWrite.getFormCenterInstanceIds()))
+                .setLossReportFieldAuditIds(copy(lossWrite.getFieldAuditIds()))
+                .setLossReportFieldAuditHeadHashes(lossWrite.getFieldAuditHeadHashes() == null ? List.of()
+                        : List.copyOf(lossWrite.getFieldAuditHeadHashes()))
                 .setLossReportStatus(lossWrite.getLossReportStatus())
                 .setHasActualLoss(lossWrite.getHasActualLoss())
                 .setLossQuantity(lossWrite.getLossQuantity())
@@ -317,8 +321,24 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
             MesProcessPoolActiveOrderReleaseApplicationDO application,
             List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots,
             List<MesProcessPoolOrderProcessCompletionDO> completions) {
-        List<MesProProcessPoolEventDO> allEvents = list(eventMapper.selectProductionSubmitsByWorkOrderAndRoute(
-                application.getWorkOrderId(), application.getRouteId()));
+        List<MesProcessPoolReportAllocationDO> targetAllocations = allocationMapper
+                .selectListByActiveOrderIdForUpdate(application.getActiveOrderId());
+        if (targetAllocations == null || targetAllocations.stream().anyMatch(item -> item == null
+                || item.getEventId() == null || item.getReviewId() == null
+                || item.getAllocatedQuantity() == null || item.getAllocatedQuantity().signum() < 0
+                || !Objects.equals(application.getWorkOrderId(), item.getWorkOrderId())
+                || !Objects.equals(application.getActiveOrderId(), item.getActiveOrderId()))) {
+            throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application, null,
+                    "target active-order allocation evidence is incomplete");
+        }
+        targetAllocations = targetAllocations.stream().filter(item -> item.getAllocatedQuantity().signum() > 0).toList();
+        List<Long> sourceEventIds = targetAllocations.stream().map(MesProcessPoolReportAllocationDO::getEventId).distinct().toList();
+        List<MesProProcessPoolEventDO> allEvents = sourceEventIds.isEmpty() ? List.of()
+                : list(eventMapper.selectProductionSubmitsByIdsForUpdate(sourceEventIds));
+        if (!allEvents.stream().map(MesProProcessPoolEventDO::getId).toList().containsAll(sourceEventIds)) {
+            throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application, null,
+                    "allocated production source events are missing");
+        }
         List<MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand.ProcessSource> sources = new ArrayList<>();
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
             MesProcessPoolOrderProcessCompletionDO completion = completions.stream()
@@ -329,12 +349,12 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                     .filter(item -> Objects.equals(snapshot.getRouteProcessId(), item.getRouteProcessId())
                             && Objects.equals(snapshot.getProcessId(), item.getProcessId()))
                     .toList();
-            List<MesProcessPoolReportAllocationDO> allocations = events.stream()
-                    .flatMap(item -> list(allocationMapper.selectListByEventId(item.getId())).stream())
-                    .toList();
-            List<MesProcessPoolSubmissionReviewDO> reviews = events.stream()
-                    .flatMap(item -> list(reviewMapper.selectListByEventId(item.getId())).stream())
-                    .toList();
+            List<MesProcessPoolReportAllocationDO> allocations = targetAllocations.stream()
+                    .filter(item -> Objects.equals(snapshot.getRouteProcessId(), item.getRouteProcessId())
+                            && Objects.equals(snapshot.getProcessId(), item.getProcessId())).toList();
+            List<MesProcessPoolSubmissionReviewDO> reviews = allocations.stream()
+                    .map(MesProcessPoolReportAllocationDO::getReviewId).distinct()
+                    .map(reviewMapper::selectById).toList();
             sources.add(new MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand.ProcessSource()
                     .setSnapshot(snapshot)
                     .setCompletion(completion)
@@ -447,11 +467,12 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
         boolean successLoss = "SUCCESS".equals(lossWrite.getLossReportStatus())
                 && Boolean.TRUE.equals(lossWrite.getHasActualLoss())
                 && lossWrite.getLossQuantity() != null && lossWrite.getLossQuantity().signum() > 0
-                && !empty(lossWrite.getBatchRecordExecutionIds());
+                && (!empty(lossWrite.getBatchRecordExecutionIds()) || !empty(lossWrite.getFormCenterInstanceIds()))
+                && !empty(lossWrite.getFieldAuditIds()) && !empty(lossWrite.getFieldAuditHeadHashes());
         boolean notRequiredLoss = "NOT_REQUIRED".equals(lossWrite.getLossReportStatus())
                 && Boolean.FALSE.equals(lossWrite.getHasActualLoss())
                 && lossWrite.getLossQuantity() != null && lossWrite.getLossQuantity().signum() == 0
-                && empty(lossWrite.getBatchRecordExecutionIds());
+                && empty(lossWrite.getBatchRecordExecutionIds()) && empty(lossWrite.getFormCenterInstanceIds());
         if (!successLoss && !notRequiredLoss) {
             throw blocker(MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED, null, null,
                     "loss writer receipt must explicitly be SUCCESS or NOT_REQUIRED with matching quantity and evidence");

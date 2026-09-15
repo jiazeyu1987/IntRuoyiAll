@@ -3976,6 +3976,7 @@
 </template>
 
 <script setup lang="ts">
+import { applyWithNoReplenishmentConfirmation } from './activeOrderReplenishmentConfirmation'
 import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -9467,13 +9468,26 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
   releaseApplicationSubmittingId.value = row.id
   releaseApplicationBlockers.value = []
   releaseApplicationUncertainMessage.value = ''
-  let result: TeamLeaderActiveOrderReleaseApplyRespVO
+  let result: TeamLeaderActiveOrderReleaseApplyRespVO | undefined
   try {
-    result = await applyTeamLeaderActiveOrderRelease({
-      activeOrderId,
-      idempotencyKey,
-      applyRemark: '生产组长提交生产放行申请'
-    })
+    result = await applyWithNoReplenishmentConfirmation(
+      (confirmNoReplenishmentInfo) => applyTeamLeaderActiveOrderRelease({
+        activeOrderId,
+        idempotencyKey,
+        applyRemark: '生产组长提交生产放行申请',
+        confirmNoReplenishmentInfo
+      }),
+      () => ElMessageBox.confirm(
+        '完成时未查到生产补料单。确认后将按无正式损耗完成订单；取消则不完成。',
+        '确认无补料信息',
+        { type: 'warning', confirmButtonText: '确认无补料信息', cancelButtonText: '取消' }
+      ),
+      (error) => resolveErrorMessage(error, '生产完工失败')
+    )
+    if (!result) {
+      releaseApplicationSubmittingId.value = undefined
+      return
+    }
   } catch (writeError) {
     const failure = resolveActiveOrderReleaseFailure(writeError)
     if (failure) {

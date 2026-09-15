@@ -150,24 +150,8 @@ public class MesProductionReleaseBusinessReadinessService {
 
     private boolean routeFormRequiredForReadiness(MesProEdhrBatchExecutionTaskDO task,
                                                   List<MesProEdhrBatchExecutionOriginDO> origins) {
-        if (!REQUIRED_POLICY_CONDITIONAL_REQUIRED.equals(task.getRequiredPolicy())) {
-            return true;
-        }
-        if (!FORM_SLOT_TYPE_LOSS_REPORT.equals(task.getFormSlotType())) {
-            return true;
-        }
-        JSONObject condition = JSON.parseObject(task.getRequiredConditionJson());
-        if (condition == null || !CONDITION_TYPE_HAS_ACTUAL_LOSS.equals(condition.getString("type"))) {
-            throw new IllegalStateException("unsupported conditional route form condition: "
-                    + task.getRequiredConditionJson());
-        }
-        List<MesProEdhrBatchExecutionOriginDO> formalLossDecisions = origins.stream()
-                .filter(origin -> origin.getHasActualLoss() != null)
-                .toList();
-        if (formalLossDecisions.isEmpty()) {
-            return true;
-        }
-        return formalLossDecisions.stream().anyMatch(origin -> Boolean.TRUE.equals(origin.getHasActualLoss()));
+        return cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrConditionalLossRequirement.required(task,
+                cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrConditionalLossRequirement.formalDecision(origins));
     }
 
     private boolean ordinaryTaskFillEvidenceComplete(MesProEdhrBatchExecutionTaskDO task) {

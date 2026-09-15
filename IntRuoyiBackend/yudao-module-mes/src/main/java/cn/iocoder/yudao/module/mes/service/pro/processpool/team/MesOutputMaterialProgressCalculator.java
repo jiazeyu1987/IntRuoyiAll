@@ -130,7 +130,7 @@ final class MesOutputMaterialProgressCalculator {
     private static void validateProductionEventIdentity(MesProcessPoolActiveOrderDO activeOrder,
                                                        MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
                                                        MesProProcessPoolEventDO event) {
-        if (!Objects.equals(workOrderId(activeOrder), event.getWorkOrderId())
+        if (event.getWorkOrderId() == null
                 || !Objects.equals(routeId(activeOrder), event.getRouteId())
                 || !Objects.equals(snapshot.getRouteProcessId(), event.getRouteProcessId())
                 || !Objects.equals(snapshot.getProcessId(), event.getProcessId())

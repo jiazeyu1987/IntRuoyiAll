@@ -75,6 +75,9 @@ export interface MesPqcProductionReleaseDecisionRespVO {
   batchRecordEvidenceIds: string[]
   processInspectionEvidenceIds: string[]
   lossReportEvidenceIds: string[]
+  lossReportFormCenterInstanceIds: string[]
+  lossReportFieldAuditIds: string[]
+  lossReportFieldAuditHeadHashes: string[]
   reportUploadTasks: MesProductionReleaseReportUploadTaskRespVO[]
   sourceSnapshotHash: string
   reportSnapshotHash?: string

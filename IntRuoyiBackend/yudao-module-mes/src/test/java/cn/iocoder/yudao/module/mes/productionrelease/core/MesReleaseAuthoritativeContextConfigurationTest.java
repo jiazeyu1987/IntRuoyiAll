@@ -40,6 +40,7 @@ class MesReleaseAuthoritativeContextConfigurationTest {
             registerMock(context, MesProEdhrBatchExecutionOriginMapper.class);
             registerMock(context, MesProcessPoolActiveOrderMapper.class);
             registerMock(context, MesProcessPoolActiveOrderCompletionBackfillMapper.class);
+            registerMock(context, cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper.class);
             registerMock(context, MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort.class);
             registerMock(context, MesProEdhrBatchTraceabilityService.class);
             registerMock(context, MesIndependentBatchPrerequisiteReceiptService.class);

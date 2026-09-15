@@ -1,6 +1,10 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillMapper;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListDO;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListItemMapper;
@@ -54,6 +58,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     private final ErpKingdeeProductionReplenishmentListItemMapper replenishmentListItemMapper;
     private final ErpKingdeeProductionReplenishmentListMapper replenishmentListMapper;
     private final MesMdItemMapper itemMapper;
+    private final MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
 
     public MesTeamLeaderActiveOrderDetailServiceImpl(MesProcessPoolActiveOrderMapper activeOrderMapper,
                                                        MesProcessPoolActiveOrderDetailReadMapper detailReadMapper,
@@ -63,7 +68,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                                                        MesQaInspectionRegulationProcessMapper qaProcessMapper,
                                                        ErpKingdeeProductionReplenishmentListItemMapper replenishmentListItemMapper,
                                                        ErpKingdeeProductionReplenishmentListMapper replenishmentListMapper,
-                                                       MesMdItemMapper itemMapper) {
+                                                       MesMdItemMapper itemMapper,
+                                                       MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper) {
         this.activeOrderMapper = activeOrderMapper;
         this.detailReadMapper = detailReadMapper;
         this.processMaterialService = processMaterialService;
@@ -73,6 +79,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         this.replenishmentListItemMapper = replenishmentListItemMapper;
         this.replenishmentListMapper = replenishmentListMapper;
         this.itemMapper = itemMapper;
+        this.backfillMapper = backfillMapper;
     }
 
     @Override
@@ -120,16 +127,86 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
 
     private void attachInputMaterials(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId,
                                        Map<ProcessIdentity, ProcessAccumulator> accumulators) {
+        MesProcessPoolActiveOrderCompletionBackfillDO backfill = backfillMapper.selectByActiveOrderAndType(
+                activeOrderId, MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD);
+        JSONObject completedSources = readCompletedSources(activeOrder, backfill);
         for (ProcessAccumulator accumulator : accumulators.values()) {
             MesTeamLeaderActiveOrderDetail.ProcessDetail process = accumulator.process;
             List<MesTeamLeaderActiveOrderDetail.InputMaterialDetail> inputMaterials =
                     processMaterialService.listFrozenMaterials(activeOrderId, activeOrder.getRouteId(),
                                     process.getRouteProcessId(), process.getProcessId()).stream()
                             .filter(material -> MesFrontlineProcessMaterial.ROLE_INPUT.equals(material.materialRole()))
-                            .map(MesTeamLeaderActiveOrderDetailServiceImpl::toInputMaterialDetail)
+                            .map(material -> toCompletedInputMaterialDetail(material, completedSources, backfill))
                             .toList();
             accumulator.setInputMaterials(inputMaterials);
         }
+    }
+
+    private JSONObject readCompletedSources(MesProcessPoolActiveOrderDO order,
+                                             MesProcessPoolActiveOrderCompletionBackfillDO backfill) {
+        if (backfill == null) return null; // Completion has not materialized formal inputs yet.
+        JSONObject payload = JSON.parseObject(backfill.getPayloadJson());
+        if (!Objects.equals(order.getId(), backfill.getActiveOrderId())
+                || !Objects.equals(order.getWorkOrderId(), backfill.getWorkOrderId())
+                || !"SUCCESS".equals(backfill.getStatus()) || payload == null
+                || !"SUCCESS".equals(payload.getString("status"))
+                || !"BATCH_RECORD".equals(payload.getString("type"))
+                || trimToNull(backfill.getSourceSnapshotHash()) == null
+                || !Objects.equals(backfill.getSourceSnapshotHash(), payload.getString("sourceSnapshotHash"))) {
+            throw invalidCompletedInput("完工领料回填身份或状态不一致");
+        }
+        JSONObject sources = JSON.parseObject(payload.getString("formalSourceSnapshot"));
+        JSONObject orderBinding = sources == null ? null : sources.getJSONObject("activeOrderBinding");
+        if (orderBinding == null || !Objects.equals(order.getId(), orderBinding.getLong("id"))
+                || !Objects.equals(order.getWorkOrderId(), orderBinding.getLong("workOrderId"))
+                || sources.getJSONArray("pickListBindings") == null
+                || sources.getJSONObject("pickListBindingItems") == null) {
+            throw invalidCompletedInput("完工领料回填缺少正式来源");
+        }
+        return sources;
+    }
+
+    private MesTeamLeaderActiveOrderDetail.InputMaterialDetail toCompletedInputMaterialDetail(
+            MesFrontlineProcessMaterial material, JSONObject sources,
+            MesProcessPoolActiveOrderCompletionBackfillDO backfill) {
+        var detail = toInputMaterialDetail(material);
+        if (sources == null) return detail;
+        Set<String> batches = new java.util.TreeSet<>();
+        Set<Long> pickIds = new java.util.TreeSet<>();
+        Set<String> pickNos = new java.util.TreeSet<>();
+        Set<Long> itemIds = new java.util.TreeSet<>();
+        BigDecimal requested = BigDecimal.ZERO, actual = BigDecimal.ZERO, baseActual = BigDecimal.ZERO;
+        JSONObject rowsByBinding = sources.getJSONObject("pickListBindingItems");
+        for (Object rawHeader : sources.getJSONArray("pickListBindings")) {
+            JSONObject header = (JSONObject) rawHeader;
+            var rows = rowsByBinding.getJSONArray(header.getString("id"));
+            if (rows == null) throw invalidCompletedInput("完工领料回填缺少来源明细");
+            for (Object rawItem : rows) {
+                JSONObject item = (JSONObject) rawItem;
+                if (!Objects.equals(material.materialCode(), trimToNull(item.getString("materialNumber")))) continue;
+                String lot = trimToNull(item.getString("lotNumber"));
+                String billNo = trimToNull(header.getString("sourceBillNo"));
+                Long pickId = header.getLong("pickListId"), itemId = item.getLong("pickListItemId");
+                if (lot == null || billNo == null || pickId == null || itemId == null || !itemIds.add(itemId)) {
+                    throw invalidCompletedInput("完工输入物料批号或来源身份缺失、重复：" + material.materialCode());
+                }
+                batches.add(lot);
+                pickIds.add(pickId);
+                pickNos.add(billNo);
+                if (item.getBigDecimal("requestedQuantity") != null) requested = requested.add(item.getBigDecimal("requestedQuantity"));
+                if (item.getBigDecimal("actualQuantity") != null) actual = actual.add(item.getBigDecimal("actualQuantity"));
+                if (item.getBigDecimal("baseActualQuantity") != null) baseActual = baseActual.add(item.getBigDecimal("baseActualQuantity"));
+            }
+        }
+        if (batches.isEmpty()) throw invalidCompletedInput("完工领料回填未匹配输入物料：" + material.materialCode());
+        return detail.setBatchCodes(List.copyOf(batches)).setSourcePickListIds(List.copyOf(pickIds))
+                .setSourcePickListNos(List.copyOf(pickNos)).setSourcePickListItemIds(List.copyOf(itemIds))
+                .setRequestedQuantity(requested).setActualQuantity(actual).setBaseActualQuantity(baseActual)
+                .setSourceSnapshotHash(backfill.getSourceSnapshotHash());
+    }
+
+    private static RuntimeException invalidCompletedInput(String reason) {
+        return exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, reason);
     }
 
     private void attachSupplementMaterials(String workOrderCode, Long activeOrderId,

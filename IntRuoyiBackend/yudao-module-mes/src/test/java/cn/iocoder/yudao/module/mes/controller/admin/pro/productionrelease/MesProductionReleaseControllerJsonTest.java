@@ -36,6 +36,8 @@ class MesProductionReleaseControllerJsonTest {
                 .setProcessInspectionEvidenceIds(List.of(9007199254740997L))
                 .setProcessInspectionFormCenterInstanceIds(List.of(9007199254740998L))
                 .setLossReportEvidenceIds(List.of(9007199254740999L))
+                .setLossReportFormCenterInstanceIds(List.of(9007199254741010L))
+                .setLossReportFieldAuditIds(List.of(9007199254741011L))
                 .setReportUploadTasks(List.of(new MesProductionReleaseReportUploadTaskRespVO()
                         .setNodeType("INCOMING_INSPECTION_REPORT")
                         .setBatchTaskId(9007199254741000L)
@@ -54,6 +56,9 @@ class MesProductionReleaseControllerJsonTest {
         assertTrue(json.get("processInspectionEvidenceIds").get(0).isTextual());
         assertTrue(json.get("processInspectionFormCenterInstanceIds").get(0).isTextual());
         assertTrue(json.get("lossReportEvidenceIds").get(0).isTextual());
+        assertEquals("9007199254741010", json.get("lossReportFormCenterInstanceIds").get(0).asText());
+        assertTrue(json.get("lossReportFormCenterInstanceIds").get(0).isTextual());
+        assertTrue(json.get("lossReportFieldAuditIds").get(0).isTextual());
         assertTrue(json.get("reportUploadTasks").get(0).get("batchTaskId").isTextual());
         assertTrue(json.get("reportUploadTasks").get(0).get("workTaskId").isTextual());
         assertTrue(json.get("reportUploadTasks").get(0).get("candidateUserIds").get(0).isTextual());

@@ -496,6 +496,7 @@ public class MesProcessPoolTeamLeaderController {
             @Valid @RequestBody MesTeamLeaderActiveOrderCompletionReqVO reqVO) {
         MesTeamLeaderActiveOrderCompletionResult result = activeOrderCompletionService.complete(
                 SecurityFrameworkUtils.getLoginUserId(), new MesTeamLeaderActiveOrderCompletionCommand()
+                        .setConfirmNoReplenishmentInfo(reqVO.getConfirmNoReplenishmentInfo())
                         .setActiveOrderId(reqVO.getActiveOrderId())
                         .setExpectedVersion(reqVO.getExpectedVersion())
                         .setIdempotencyKey(reqVO.getIdempotencyKey()));
@@ -542,6 +543,7 @@ public class MesProcessPoolTeamLeaderController {
         MesTeamLeaderActiveOrderReleaseApplicationResult result = releaseApplicationService.apply(
                 SecurityFrameworkUtils.getLoginUserId(),
                 new MesTeamLeaderActiveOrderReleaseApplyCommand()
+                        .setConfirmNoReplenishmentInfo(reqVO.getConfirmNoReplenishmentInfo())
                         .setActiveOrderId(reqVO.getActiveOrderId())
                         .setIdempotencyKey(reqVO.getIdempotencyKey())
                         .setApplyRemark(reqVO.getApplyRemark()));

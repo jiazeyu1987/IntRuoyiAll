@@ -163,6 +163,18 @@ public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessP
                 .last("FOR UPDATE"));
     }
 
+    default List<MesProProcessPoolEventDO> selectProductionSubmitsByIdsForUpdate(Collection<Long> eventIds) {
+        if (eventIds == null || eventIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+                .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .in(MesProProcessPoolEventDO::getId, eventIds)
+                .orderByDesc(MesProProcessPoolEventDO::getServerSubmitTime)
+                .orderByDesc(MesProProcessPoolEventDO::getId)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProProcessPoolEventDO> selectPqcEventsForSubmit(MesProProcessPoolEventDO submitEvent) {
         if (submitEvent == null || submitEvent.getWorkOrderId() == null
                 || submitEvent.getRouteProcessId() == null || submitEvent.getProcessId() == null) {
