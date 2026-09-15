@@ -191,7 +191,7 @@ export const buildDccTaskHandlingHint = (
       }
     case 'PENDING_MANUAL_DISTRIBUTION':
       return {
-        handlingHint: '等待文控正式下发',
+        handlingHint: '等待文控下发',
         responsibilityHint: '责任：文控'
       }
     case 'TRAINING_IN_PROGRESS':
@@ -201,12 +201,12 @@ export const buildDccTaskHandlingHint = (
       }
     case 'FINALIZING':
       return {
-        handlingHint: '发布处理中',
-        responsibilityHint: '责任：系统发布任务'
+        handlingHint: '生效处理中',
+        responsibilityHint: '责任：系统生效任务'
       }
     case 'FINALIZATION_FAILED':
       return {
-        handlingHint: '发布失败，需文控处理',
+        handlingHint: '生效失败，需文控处理',
         responsibilityHint: '责任：文控'
       }
     case 'REJECTED':

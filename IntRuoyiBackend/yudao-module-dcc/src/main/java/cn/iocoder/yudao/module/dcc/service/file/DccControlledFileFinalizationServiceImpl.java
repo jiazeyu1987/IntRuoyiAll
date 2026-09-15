@@ -214,7 +214,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
     public void precheckPublishControlledFile(Long userId, Long id) {
         DccControlledFileDO target = controlledFileMapper.selectById(id);
         if (target == null) throw exception(CONTROLLED_FILE_NOT_EXISTS);
-        if (DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(target.getProcessType())) {
+        if (!isExternalReviewProcess(target)) {
             throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
         }
         DccControlledFileDO file = requirePublishReadyCandidate(userId, id, true);
@@ -396,6 +396,9 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
+        if (!isExternalReviewProcess(file)) {
+            throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
+        }
         if (!DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())) {
             throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
         }
@@ -413,6 +416,11 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             pendingActionGuard.assertNoPendingBusinessAction(file);
         }
         return file;
+    }
+
+    private boolean isExternalReviewProcess(DccControlledFileDO file) {
+        return file != null
+                && DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode().equals(file.getProcessType());
     }
 
     private void requirePublishPermission(Long userId, DccControlledFileDO file) {
@@ -794,13 +802,16 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         LinkedHashSet<Long> recipientUserIds = new LinkedHashSet<>();
         for (DccControlledFileDistributionRecipientDO recipient : recipients) {
             if (recipient == null || recipient.getUserId() == null) {
-                throw new IllegalStateException("Saved electronic distribution contains blank recipient: distributionId="
-                        + distribution.getId());
+                throw new ServiceException(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED.getCode(),
+                        "Saved electronic distribution contains blank recipient: distributionId="
+                                + distribution.getId());
             }
             recipientUserIds.add(recipient.getUserId());
         }
         if (recipientUserIds.isEmpty()) {
-            throw new IllegalStateException("Single-file electronic distribution requires recipients");
+            throw new ServiceException(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED.getCode(),
+                    "Single-file electronic distribution requires recipients: distributionId="
+                            + distribution.getId());
         }
         List<Long> orderedRecipientUserIds = List.copyOf(recipientUserIds);
         validateSavedElectronicDistributionRecipients(distribution.getId(), orderedRecipientUserIds);
@@ -824,8 +835,9 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
                 })
                 .toList();
         if (!invalidRecipientUserIds.isEmpty()) {
-            throw new IllegalStateException("Saved electronic distribution recipients are inactive or missing: distributionId="
-                    + distributionId + ", userIds=" + invalidRecipientUserIds);
+            throw new ServiceException(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED.getCode(),
+                    "Saved electronic distribution recipients are inactive or missing: distributionId="
+                            + distributionId + ", userIds=" + invalidRecipientUserIds);
         }
     }
 

@@ -172,13 +172,13 @@
 
     <ContentWrap class="dcc-workbench-panel dcc-workbench-panel--wide">
       <div class="dcc-workbench-panel__header">
-        <div class="dcc-workbench-panel__title">发布失败</div>
+        <div class="dcc-workbench-panel__title">生效失败</div>
         <el-button link type="primary" @click="openPath('/dcc/controlled-file/browser')">全部</el-button>
       </div>
       <el-table
         v-loading="loading"
         :data="finalizationFailedRows"
-        empty-text="暂无发布失败"
+        empty-text="暂无生效失败"
         size="small"
       >
         <el-table-column label="文件" min-width="260" prop="title" show-overflow-tooltip />

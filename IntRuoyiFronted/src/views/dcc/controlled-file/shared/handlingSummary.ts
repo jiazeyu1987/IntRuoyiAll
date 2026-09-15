@@ -85,13 +85,13 @@ const getPendingStageSummary = (
       }
     case 'READY_TO_PUBLISH':
       return {
-        nextStep: '等待提交发布申请',
-        responsibilityHint: '责任：文控'
+        nextStep: '等待生效处理',
+        responsibilityHint: '责任：文控或系统'
       }
     case 'FINALIZING':
       return {
-        nextStep: '发布处理中，等待系统完成',
-        responsibilityHint: '责任：系统发布任务'
+        nextStep: '生效处理中，等待系统完成',
+        responsibilityHint: '责任：系统生效任务'
       }
     case 'TRAINING_IN_PROGRESS':
       return {
@@ -142,10 +142,10 @@ const getPendingStageSummary = (
       }
     case 'FINALIZATION_FAILED':
       return {
-        nextStep: source.finalizationError ? '发布失败，需处理阻塞' : '发布失败，需重试或排查',
+        nextStep: source.finalizationError ? '生效失败，需处理阻塞' : '生效失败，需重试或排查',
         responsibilityHint: source.finalizationError
           ? `阻塞：${source.finalizationError}`
-          : '责任：系统发布任务'
+          : '责任：系统生效任务'
       }
     default:
       return {
@@ -175,7 +175,7 @@ const getControlledFileVersionTag = (source: ControlledFileVersionSummarySource)
     return { tagText: '修改中', tagType: 'warning' }
   }
   if (status === 'ACTIVE') {
-    return { tagText: '现行', tagType: 'success' }
+    return { tagText: '当前有效', tagType: 'success' }
   }
   if (status === 'SUPERSEDED') {
     return { tagText: '已替代', tagType: 'info' }

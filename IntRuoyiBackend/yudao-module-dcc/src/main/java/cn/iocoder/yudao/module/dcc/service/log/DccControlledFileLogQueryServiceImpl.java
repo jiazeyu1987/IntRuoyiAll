@@ -115,7 +115,7 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
             Map.entry("FINALIZING", "放行中"),
             Map.entry("TRAINING_IN_PROGRESS", "培训中"),
             Map.entry("PENDING_MANUAL_DISTRIBUTION", "待分发"),
-            Map.entry("ACTIVE", "现行"),
+            Map.entry("ACTIVE", "当前有效"),
             Map.entry("REJECTED", "已驳回"),
             Map.entry("WITHDRAWN", "已撤回"),
             Map.entry("OBSOLETE", "已作废"),

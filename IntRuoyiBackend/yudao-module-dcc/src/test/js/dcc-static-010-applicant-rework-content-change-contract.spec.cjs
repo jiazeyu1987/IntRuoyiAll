@@ -141,8 +141,8 @@ assert.match(
 )
 assert.match(
   detailPage,
-  /检出[\s\S]{0,120}检入[\s\S]{0,120}新工作版本/,
-  'returned applicant copy must direct the requester to checkout/checkin a new working version before resubmission'
+  /检出[\s\S]{0,120}检入[\s\S]{0,120}新的待提交受控文件版本/,
+  'returned applicant copy must direct the requester to checkout/checkin a new pending controlled-file version before resubmission'
 )
 
 console.log('DCC-STATIC-010 applicant rework content-change contract PASS')

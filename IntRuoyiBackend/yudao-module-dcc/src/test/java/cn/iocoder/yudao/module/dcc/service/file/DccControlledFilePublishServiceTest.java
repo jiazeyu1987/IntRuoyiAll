@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePub
 import cn.iocoder.yudao.module.dcc.controller.admin.file.DccControlledFileController;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileProcessTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
@@ -103,6 +104,7 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
                 .categoryId(18L)
                 .productCode("PRD-002")
                 .versionNo("V2.0")
+                .processType(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode())
                 .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus())
                 .build());
         FormInstanceRespVO draft = new FormInstanceRespVO();
@@ -169,7 +171,9 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
         reqVO.setReason("文控正式发布 B/1");
         reqVO.setIdempotencyKey("DCC-PUBLISH-920-DIRECT");
         DccControlledFileDO ready = DccControlledFileDO.builder().id(920L).categoryId(18L)
-                .versionNo("B/1").status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus()).build();
+                .versionNo("B/1")
+                .processType(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode())
+                .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus()).build();
         DccControlledFileDO active = DccControlledFileDO.builder().id(920L).categoryId(18L)
                 .versionNo("B/1").status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
         when(controlledFileMapper.selectById(920L)).thenReturn(ready, active);
@@ -198,7 +202,7 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void publishControlledFile_sameIdempotencyKeyReturnsCommittedActionBeforeReadyStatePrecheck() {
+    void publishControlledFile_sameIdempotencyKeyReturnsCommittedActionAfterBusinessPrecheck() {
         DccControlledFilePublishReqVO reqVO = new DccControlledFilePublishReqVO();
         reqVO.setReason("文控正式发布 B/1");
         reqVO.setIdempotencyKey("DCC-PUBLISH-920-REPLAY");
@@ -220,7 +224,28 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
         FormInstanceRespVO result = publishService.publishControlledFile(99L, 920L, reqVO);
 
         assertSame(existing, result);
-        verify(finalizationService, never()).precheckPublishControlledFile(any(), any());
+        verify(finalizationService).precheckPublishControlledFile(99L, 920L);
+        verify(formCenterRuntimeService, never()).createInstance(any(), any());
+        verify(formCenterRuntimeService, never()).submitInstance(any(), any(), any());
+        verify(gxpAuditService, never()).append(any());
+    }
+
+    @Test
+    void publishControlledFile_businessPrecheckRejectsBeforeIdempotentReplay() {
+        DccControlledFilePublishReqVO reqVO = new DccControlledFilePublishReqVO();
+        reqVO.setReason("文控正式生效 B/1");
+        reqVO.setIdempotencyKey("DCC-PUBLISH-920-ORDINARY-REPLAY");
+        when(controlledFileMapper.selectById(920L)).thenReturn(DccControlledFileDO.builder().id(920L)
+                .categoryId(18L).versionNo("B/1")
+                .processType(DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode())
+                .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus()).build());
+        doThrow(exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED))
+                .when(finalizationService).precheckPublishControlledFile(99L, 920L);
+
+        assertServiceException(() -> publishService.publishControlledFile(99L, 920L, reqVO),
+                CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
+
+        verify(formCenterRuntimeService, never()).findBusinessActionByIdempotency(any(), any());
         verify(formCenterRuntimeService, never()).createInstance(any(), any());
         verify(formCenterRuntimeService, never()).submitInstance(any(), any(), any());
         verify(gxpAuditService, never()).append(any());
@@ -248,7 +273,7 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
         assertThrows(IllegalArgumentException.class,
                 () -> publishService.publishControlledFile(99L, 920L, reqVO));
 
-        verify(finalizationService, never()).precheckPublishControlledFile(any(), any());
+        verify(finalizationService).precheckPublishControlledFile(99L, 920L);
         verify(formCenterRuntimeService, never()).createInstance(any(), any());
     }
 
@@ -277,6 +302,7 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
                     .businessContextJson(JsonUtils.toJsonString(oldContext)).build()));
             when(controlledFileMapper.selectById(920L)).thenReturn(DccControlledFileDO.builder()
                     .id(920L).categoryId(18L).versionNo("B/1")
+                    .processType(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode())
                     .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus()).build());
             DccControlledFilePublishReqVO reqVO = new DccControlledFilePublishReqVO();
             reqVO.setReason("更正后的发布原因");
@@ -308,6 +334,7 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
                 .categoryId(18L)
                 .productCode("PRD-002")
                 .versionNo("V2.0")
+                .processType(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode())
                 .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus())
                 .build());
         FormInstanceRespVO draft = new FormInstanceRespVO();
@@ -336,6 +363,7 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
                 .id(920L)
                 .categoryId(18L)
                 .versionNo("V2.0")
+                .processType(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode())
                 .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus())
                 .build();
         when(controlledFileMapper.selectById(920L)).thenReturn(file);

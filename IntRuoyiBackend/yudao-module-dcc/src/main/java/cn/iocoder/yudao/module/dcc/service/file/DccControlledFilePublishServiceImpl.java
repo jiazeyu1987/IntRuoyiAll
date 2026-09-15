@@ -47,6 +47,7 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
     @GxpWriteOperation(operationId = "dcc.controlled-file.publish")
     public FormInstanceRespVO publishControlledFile(Long userId, Long id, DccControlledFilePublishReqVO reqVO) {
         DccControlledFileDO file = requirePublishIdentity(id, reqVO);
+        finalizationService.precheckPublishControlledFile(userId, id);
         BusinessActionContextReqVO publishContext = buildPublishContext(file, reqVO);
         FormInstanceRespVO existing = formCenterRuntimeService.findBusinessActionByIdempotency(
                 publishContext, reqVO.getIdempotencyKey());
@@ -56,7 +57,6 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
                 return existing;
             }
         }
-        finalizationService.precheckPublishControlledFile(userId, id);
         Map<String, Object> formData = buildPublishFormData(file, reqVO);
         FormActionResolutionRespVO resolution = formCenterRuntimeService.resolveAction(publishContext);
         if (resolution == null || StrUtil.isBlank(resolution.getApprovalMode())) {

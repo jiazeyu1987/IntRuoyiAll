@@ -79,7 +79,7 @@ export const DCC_WORKBENCH_STATUS_SECTIONS: DccWorkbenchStatusSection[] = [
   },
   {
     key: 'finalizationFailedTotal',
-    label: '发布失败',
+    label: '生效失败',
     tone: 'danger',
     routePath: '/dcc/controlled-file/browser'
   }
@@ -108,7 +108,7 @@ const resolveWorkbenchFilePrimaryAction = (file: ControlledFileVO) => {
     return '下发'
   }
   if (isDccControlledFileActionAllowed(file, 'RETRY_FINALIZATION')) {
-    return '重试发布'
+    return '重试生效'
   }
   return '查看'
 }

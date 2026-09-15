@@ -87,8 +87,8 @@ assert.match(
 )
 assert.match(
   validateSavedRecipients,
-  /throw new IllegalStateException\("Saved electronic distribution recipients are inactive or missing: distributionId="\s*\+\s*distributionId\s*\+\s*", userIds="\s*\+\s*invalidRecipientUserIds\)/,
-  'saved recipient validation must fail with concrete distribution and user IDs'
+  /throw new ServiceException\(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED\.getCode\(\),\s*"Saved electronic distribution recipients are inactive or missing: distributionId="\s*\+\s*distributionId\s*\+\s*", userIds="\s*\+\s*invalidRecipientUserIds\)/,
+  'saved recipient validation must fail as a business error with concrete distribution and user IDs'
 )
 
 /* Retired test assertion: the old ordinary training/distribution side-effect path was removed.

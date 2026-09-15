@@ -61,7 +61,7 @@ public class DccPublicationFollowupController {
     }
 
     @PostMapping("/notification-deliveries/{deliveryId}/retry")
-    @Operation(summary = "重试发布通知")
+    @Operation(summary = "重试生效通知")
     @PreAuthorize("@ss.hasRole('doc_control') and @ss.hasPermission('dcc:controlled-file:approve') and @ss.hasPermission('dcc:controlled-file:publication-followup:manage')")
     public CommonResult<Boolean> retryNotification(@PathVariable Long deliveryId,
                                                     @Valid @RequestBody DccPublicationNotificationRetryReqVO reqVO) {

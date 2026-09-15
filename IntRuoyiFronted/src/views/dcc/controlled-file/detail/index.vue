@@ -92,7 +92,7 @@
               @click="handleManualRelease"
             >
               <Icon icon="ep:promotion" class="mr-5px" />
-              正式下发
+              下发
             </el-button>
             <el-button
               v-if="showDetailManagementActions && canSubmitPublishAction"
@@ -102,7 +102,7 @@
               @click="openPublishDialog"
             >
               <Icon icon="ep:promotion" class="mr-5px" />
-              发布申请
+              生效申请
             </el-button>
             <el-button v-if="showDetailManagementActions && detailActionState.canPreview" type="primary" plain @click="openPreview">
               <Icon icon="ep:view" class="mr-5px" />
@@ -153,7 +153,7 @@
                     v-if="detailActionState.canRetryFinalization && canRetryStampPermission"
                     command="retry-stamp"
                   >
-                    重试发布
+                    重试生效
                   </el-dropdown-item>
                   <el-dropdown-item v-if="canSubmitObsoleteAction" command="obsolete">
                     作废当前版本
@@ -273,7 +273,7 @@
             :loading="publishCancelLoading"
             @click="cancelActivePublishAction"
           >
-            撤回发布申请
+            撤回生效申请
           </el-button>
         </template>
       </el-alert>
@@ -284,7 +284,7 @@
         :closable="false"
         show-icon
         type="error"
-        title="发布动作状态加载失败"
+        title="生效动作状态加载失败"
         :description="activePublishActionError"
       />
       <el-alert
@@ -294,8 +294,8 @@
         :closable="false"
         show-icon
         type="warning"
-        title="待正式下发：当前账号缺少正式下发权限"
-        description="当前版本已进入待正式下发，但页面没有可用的正式下发动作。请为当前文控角色配置该文件类别的 DISTRIBUTE 分发规则和正式下发权限后再操作。"
+        title="待下发：当前账号缺少下发权限"
+        description="当前版本已进入待下发，但页面没有可用的下发动作。请为当前文控角色配置该文件类别的 DISTRIBUTE 分发规则和下发权限后再操作。"
       />
       <el-alert
         v-if="showDetailManagementActions && controlledPrintPermissionHintVisible"
@@ -2300,7 +2300,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="publishDialog.visible" title="提交发布申请" width="520px" destroy-on-close>
+    <el-dialog v-model="publishDialog.visible" title="提交生效处理申请" width="520px" destroy-on-close>
       <el-alert
         v-if="publishDialog.inlineError"
         :closable="false"
@@ -2310,11 +2310,11 @@
         :title="publishDialog.inlineError"
       />
       <el-form label-width="96px">
-        <el-form-item label="发布说明">
+        <el-form-item label="生效说明">
           <el-input
             v-model="publishDialog.reason"
             :autosize="{ minRows: 3, maxRows: 6 }"
-            placeholder="请输入发布说明"
+            placeholder="请输入生效说明"
             type="textarea"
           />
         </el-form-item>
@@ -2333,7 +2333,7 @@
       <template #footer>
         <el-button @click="closePublishDialog">取消</el-button>
         <el-button type="primary" :loading="publishDialog.submitting" @click="submitPublishDialog">
-          提交发布申请
+          提交生效申请
         </el-button>
       </template>
     </el-dialog>
@@ -3372,12 +3372,12 @@ const dccPublishActionProjection = computed(() => {
   const blockerMessage = buildDccActionProjectionMessage(
     activePublishAction.value,
     activePublishActionError.value,
-    '发布申请',
-    '后端动作投影未允许发布申请。'
+    '生效申请',
+    '后端动作投影未允许生效申请。'
   )
   return resolveControlledActionProjection({
     actionCode: 'DCC_PUBLISH',
-    actionLabel: '发布申请',
+    actionLabel: '生效申请',
     allowed: detailActionState.value.canPublish,
     locked: Boolean(activePublishActionError.value),
     pending: Boolean(activePublishAction.value),
@@ -3411,9 +3411,9 @@ const obsoleteActionLockDescription = computed(() => {
 })
 const publishActionLockTitle = computed(() => {
   if (activePublishAction.value) {
-    return '发布申请审批中'
+    return '生效申请审批中'
   }
-  return '发布动作暂不可用'
+  return '生效动作暂不可用'
 })
 const publishActionLockDescription = computed(() => {
   return dccPublishActionProjection.value.blockerMessage
@@ -3513,7 +3513,7 @@ const actionDialogSubmitFlowText = computed(() => {
   if (actionDialog.mode === 'reject') {
     return '提交后流转：当前节点驳回，流程回到发起人或按后端路线规则处理。'
   }
-  return `提交后流转：${currentStageLabel.value}按审批路线完成后继续流转；末级文控批准后进入“待文控发布”，由文控执行发布。如需培训和人工分发，须完成后才正式受控。`
+  return `提交后流转：${currentStageLabel.value}按审批路线完成后继续流转；末级文控批准后，系统校验盖章PDF和默认目录并直接生效。`
 })
 const getStageRouteSnapshot = (stage: DccTaskStageProgress) =>
   fileDetail.value?.routeSnapshots?.find(
@@ -3774,9 +3774,9 @@ const getVersionOperatorText = (version: ControlledFileVersionHistoryVO) => {
 const getVersionHashText = (version: ControlledFileVersionHistoryVO) =>
   `${shortVersionHash(version.previousSourceSha256)} -> ${shortVersionHash(version.sourceSha256)}`
 const getVersionApprovalResultText = (version: ControlledFileVersionHistoryVO) => {
-  if (version.finalizationError) return `发布失败：${version.finalizationError}`
+  if (version.finalizationError) return `生效失败：${version.finalizationError}`
   if (version.rejectReason) return `审批驳回：${version.rejectReason}`
-  if (version.publishedTime) return `已发布：${formatControlledFileDateTime(version.publishedTime)}`
+  if (version.publishedTime) return `已生效：${formatControlledFileDateTime(version.publishedTime)}`
   if (version.approvedTime) return `已批准：${formatControlledFileDateTime(version.approvedTime)}`
   return getDetailStatusLabel(version.status)
 }
@@ -5139,7 +5139,7 @@ const cancelActiveObsoleteAction = async () => {
     return
   }
   try {
-    await message.confirm('确认撤回当前作废申请吗？撤回后文件保持现行状态。')
+    await message.confirm('确认撤回当前作废申请吗？撤回后文件保持当前有效状态。')
     obsoleteCancelLoading.value = true
     await ProcessInstanceApi.cancelProcessInstanceByStartUser(
       activeAction.bpmProcessInstanceId,
@@ -5160,22 +5160,22 @@ const cancelActiveObsoleteAction = async () => {
 const cancelActivePublishAction = async () => {
   const activeAction = activePublishAction.value
   if (!activeAction?.bpmProcessInstanceId) {
-    message.warning('当前发布申请缺少 BPM 流程，无法撤回')
+    message.warning('当前生效申请缺少 BPM 流程，无法撤回')
     return
   }
   try {
-    await message.confirm('确认撤回当前发布申请吗？撤回后候选版本保持待发布。')
+    await message.confirm('确认撤回当前生效申请吗？撤回后候选版本保持待生效处理。')
     publishCancelLoading.value = true
     await ProcessInstanceApi.cancelProcessInstanceByStartUser(
       activeAction.bpmProcessInstanceId,
-      '提交人主动撤回发布申请'
+      '提交人主动撤回生效申请'
     )
-    message.success('发布申请已撤回')
+    message.success('生效申请已撤回')
     activePublishAction.value = null
     await reloadAll()
   } catch (error) {
     if (!isDialogCancelled(error)) {
-      message.error(resolveReadSideErrorMessage(error, '发布申请撤回失败，请查看错误提示后重试。'))
+      message.error(resolveReadSideErrorMessage(error, '生效申请撤回失败，请查看错误提示后重试。'))
     }
   } finally {
     publishCancelLoading.value = false
@@ -5238,14 +5238,14 @@ const handleResubmitWithdrawnFlow = async () => {
 
 const handleRetryStamp = async () => {
   try {
-    await message.confirm('确认重试当前受控文件的发布处理吗？')
+    await message.confirm('确认重试当前受控文件的生效处理吗？')
     retryStampLoading.value = true
     await retryControlledFileStamp(controlledFileId.value)
-    message.success('已重新发起发布处理')
+    message.success('已重新发起生效处理')
     await reloadAll()
   } catch (error) {
     if (!isDialogCancelled(error)) {
-      message.error(resolveReadSideErrorMessage(error, '重试发布失败，请查看错误提示后重试。'))
+      message.error(resolveReadSideErrorMessage(error, '重试生效失败，请查看错误提示后重试。'))
     }
   } finally {
     retryStampLoading.value = false
@@ -5352,7 +5352,7 @@ const closeObsoleteDialog = () => {
 
 const openPublishDialog = async () => {
   if (!canSubmitPublishAction.value) {
-    message.warning(publishActionLockDescription.value || '当前候选版本暂不能提交发布申请')
+    message.warning(publishActionLockDescription.value || '当前候选版本暂不能提交生效申请')
     return
   }
   publishDialog.visible = true
@@ -5367,7 +5367,7 @@ const openPublishDialog = async () => {
   } catch (error) {
     publishDialog.inlineError = resolveReadSideErrorMessage(
       error,
-      '发布审批人加载失败，请查看错误提示后重试。'
+      '生效处理审批人加载失败，请查看错误提示后重试。'
     )
   }
 }
@@ -5385,11 +5385,11 @@ const closePublishDialog = () => {
 const submitPublishDialog = async () => {
   const reason = publishDialog.reason.trim()
   if (!reason) {
-    publishDialog.inlineError = '请输入发布说明'
+    publishDialog.inlineError = '请输入生效说明'
     return
   }
   if (!canSubmitPublishAction.value) {
-    publishDialog.inlineError = publishActionLockDescription.value || '当前候选版本暂不能提交发布申请'
+    publishDialog.inlineError = publishActionLockDescription.value || '当前候选版本暂不能提交生效申请'
     return
   }
   for (const task of publishDialog.startUserSelectTasks) {
@@ -5413,15 +5413,15 @@ const submitPublishDialog = async () => {
     activePublishAction.value = instance
     message.success(
       instance.status === 'EFFECTIVE'
-        ? '当前版本已正式发布'
-        : '发布申请已提交，等待审批通过后生效'
+        ? '当前版本已正式生效'
+        : '生效申请已提交，等待审批通过后生效'
     )
     closePublishDialog()
     await reloadAll()
   } catch (error) {
     publishDialog.inlineError = resolveReadSideErrorMessage(
       error,
-      '发布申请提交失败，请查看错误提示后重试。'
+      '生效申请提交失败，请查看错误提示后重试。'
     )
   } finally {
     publishDialog.submitting = false
@@ -5446,14 +5446,14 @@ const handleAcknowledgeTraining = async () => {
 
 const handleManualRelease = async () => {
   try {
-    await message.confirm('确认完成培训放行并正式下发当前版本吗？')
+    await message.confirm('确认完成历史培训放行并下发当前版本吗？')
     manualReleaseLoading.value = true
     await manualReleaseControlledFile(controlledFileId.value)
-    message.success('当前版本已正式下发')
+    message.success('当前版本已下发')
     await reloadAll()
   } catch (error) {
     if (!isDialogCancelled(error)) {
-      message.error(resolveReadSideErrorMessage(error, '正式下发失败，请查看错误提示后重试。'))
+      message.error(resolveReadSideErrorMessage(error, '下发失败，请查看错误提示后重试。'))
     }
   } finally {
     manualReleaseLoading.value = false

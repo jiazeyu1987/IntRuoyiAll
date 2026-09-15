@@ -360,7 +360,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
                 }
                 throw exception(PUBLICATION_IMPACT_VERSION_CONFLICT);
             }
-            insertAudit(task, "RESOLVE_REVISION", null, "关联大版本已正式发布", task.getTaskStatus(),
+            insertAudit(task, "RESOLVE_REVISION", null, "关联大版本已正式生效", task.getTaskStatus(),
                     task.getAssigneeUserId(), task.getDecision(), publishedRevision.getId(),
                     task.getRowVersion(), task.getRowVersion() + 1);
         }

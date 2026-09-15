@@ -227,6 +227,7 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
 
     @Test
     void applyApprovedPublishControlledFile_childSnapshotFailureRollsBackWholePublicationTransaction() {
+        markCandidateAsExternalReviewPublish();
         assertFalse(Mockito.mockingDetails(transactionManager).isMock());
         assertFalse(Mockito.mockingDetails(controlledFileMapper).isMock());
         assertFalse(Mockito.mockingDetails(masterMapper).isMock());
@@ -259,6 +260,7 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
 
     @Test
     void applyApprovedPublishControlledFile_outerRollbackStillPersistsFinalizationFailure() {
+        markCandidateAsExternalReviewPublish();
         TransactionTemplate outer = new TransactionTemplate(transactionManager);
 
         assertThrows(UnexpectedRollbackException.class, () -> outer.executeWithoutResult(ignored ->
@@ -275,6 +277,7 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
 
     @Test
     void applyApprovedPublishControlledFile_resolveLostRaceStillCommitsActivePublication() {
+        markCandidateAsExternalReviewPublish();
         set(followupService, "visibilityUserMapper", visibilityUserMapper);
         DccPublicationImpactTaskMapper raceTaskMapper = mock(DccPublicationImpactTaskMapper.class);
         DccPublicationImpactTaskDO selected = linkedImpactTask("REVISION_LINKED", 3, 100L);
@@ -381,6 +384,10 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
                    50, 0, 'CONTROLLED_FILE', 'REVISION', 'B/1', 'B', 1, 'READY_TO_PUBLISH', 1, 1,
                    TIMESTAMP '2026-09-07 11:00:00', NULL, 1, 0)
                 """);
+    }
+
+    private void markCandidateAsExternalReviewPublish() {
+        jdbcTemplate.update("UPDATE dcc_controlled_file SET process_type = 'EXTERNAL_REVIEW' WHERE id = 100");
     }
 
     private DccPublicationImpactTaskDO linkedImpactTask(String trackingStatus, int version, Long linkedRevisionId) {

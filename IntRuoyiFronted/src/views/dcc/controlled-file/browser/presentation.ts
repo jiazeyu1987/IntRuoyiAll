@@ -93,6 +93,7 @@ export const getBrowserRowActionState = (row: BrowserRowReadableState) => {
     canPreview: isDccControlledFileActionAllowed(row, 'PREVIEW'),
     canDownload: isDccControlledFileActionAllowed(row, 'DOWNLOAD'),
     canPrint: isDccControlledFileActionAllowed(row, 'PRINT'),
+    canPublish: isDccControlledFileActionAllowed(row, 'PUBLISH'),
     projectionMissing: !hasProjection,
     actionReadonlyReason: hasProjection
       ? resolveDccActionProjectionReadonlyReason(row, '后端动作投影未放行浏览页操作。')

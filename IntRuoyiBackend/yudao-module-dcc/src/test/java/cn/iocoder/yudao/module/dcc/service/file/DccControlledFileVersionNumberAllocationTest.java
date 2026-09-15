@@ -15,7 +15,7 @@ class DccControlledFileVersionNumberAllocationTest {
 
     @Test
     void submitAndResubmit_shouldRunInsideTransactionForNativeMasterVersionChainGuard() throws NoSuchMethodException {
-        Method submit = DccControlledFileWorkflowServiceImpl.class.getMethod("submitControlledFile",
+        Method submit = DccControlledFileWorkflowServiceImpl.class.getMethod("createWorkingControlledFile",
                 Long.class, cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO.class);
         Method resubmit = DccControlledFileWorkflowServiceImpl.class.getMethod("resubmitWithdrawnControlledFile",
                 Long.class, Long.class);

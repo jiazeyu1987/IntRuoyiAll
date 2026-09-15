@@ -2279,7 +2279,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setCanObsolete(DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
                 && permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
                 DccFileCategoryPermissionActionEnum.OBSOLETE));
-        respVO.setCanPublish(!DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(file.getProcessType())
+        respVO.setCanPublish(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode().equals(file.getProcessType())
                 && DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
                 && permissionApi.hasAnyPermissions(userId, APPROVE_PERMISSION));
         respVO.setVersionHistory(buildVersionHistory(userId, file, chainFiles, hasDirectoryManagementPermission));
@@ -2398,7 +2398,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setCanObsolete(DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
                 && permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
                 DccFileCategoryPermissionActionEnum.OBSOLETE));
-        respVO.setCanPublish(!DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(file.getProcessType())
+        respVO.setCanPublish(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode().equals(file.getProcessType())
                 && DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
                 && permissionApi.hasAnyPermissions(userId, APPROVE_PERMISSION));
         respVO.setCanManualRelease(Boolean.FALSE);
@@ -2870,7 +2870,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     boolean canObsolete = DccControlledFileStatusEnum.ACTIVE.getStatus().equals(history.getStatus())
                             && permissionSupport.hasCategoryPermission(history.getCategoryId(), userId,
                             DccFileCategoryPermissionActionEnum.OBSOLETE);
-                    boolean canPublish = !DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(history.getProcessType())
+                    boolean canPublish = DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode().equals(history.getProcessType())
                             && DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(history.getStatus())
                             && permissionApi.hasAnyPermissions(userId, APPROVE_PERMISSION);
                     respVO.setActionProjection(buildActionProjection(userId, history, respVO.getCanPreview(),
@@ -3081,7 +3081,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
 
     private String buildPreviewArtifactMissingReason(DccControlledFileDO file) {
         if (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())) {
-            return "待发布盖章预览文件不存在或已被删除";
+            return "待生效盖章预览文件不存在或已被删除";
         }
         if (DccControlledFileStatusEnum.WORKING.getStatus().equals(file.getStatus())) {
             return "待提交受控文件源文件不存在或已被删除";

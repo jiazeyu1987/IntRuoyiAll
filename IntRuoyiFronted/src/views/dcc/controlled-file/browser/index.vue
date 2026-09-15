@@ -449,13 +449,13 @@
                   追溯
                 </el-button>
                 <el-button
-                  v-if="getSelectedVersion(row).status === 'READY_TO_PUBLISH'"
+                  v-if="getBrowserRowActionState(getSelectedVersion(row)).canPublish"
                   data-testid="dcc-controlled-browser-publish"
                   link
                   type="primary"
                   @click="openManagement(getSelectedVersion(row).id)"
                 >
-                  发布
+                  生效处理
                 </el-button>
                 <el-button
                   v-if="getSelectedVersion(row).status === 'FINALIZATION_FAILED'"
@@ -464,7 +464,7 @@
                   type="danger"
                   @click="openManagement(getSelectedVersion(row).id)"
                 >
-                  重试发布
+                  重试生效
                 </el-button>
                 <el-button
                   v-if="getSelectedVersion(row).id"

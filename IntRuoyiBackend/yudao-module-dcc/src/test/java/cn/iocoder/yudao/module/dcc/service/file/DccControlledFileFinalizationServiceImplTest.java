@@ -292,6 +292,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     @Test
     void ordinaryFileCannotStartAnIndependentPublishAction() {
         DccControlledFileDO file = buildReadyToPublishCandidate(991L, 791L, 18L, 191L);
+        file.setProcessType(DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode());
         when(controlledFileMapper.selectById(991L)).thenReturn(file);
         lenient().when(controlledFileMasterMapper.selectById(791L))
                 .thenReturn(DccControlledFileMasterDO.builder().id(791L).build());
@@ -301,6 +302,37 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         assertServiceException(() -> finalizationService.precheckPublishControlledFile(99L, 991L),
                 CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+    }
+
+    @Test
+    void missingProcessTypeCannotStartAnIndependentPublishAction() {
+        DccControlledFileDO file = buildReadyToPublishCandidate(992L, 792L, 18L, 192L);
+        file.setProcessType(null);
+        when(controlledFileMapper.selectById(992L)).thenReturn(file);
+
+        assertServiceException(() -> finalizationService.precheckPublishControlledFile(99L, 992L),
+                CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
+
+        verify(permissionApi, never()).hasAnyRoles(any(), any());
+        verify(permissionSupport, never()).hasCategoryPermission(any(), any(), any());
+        verify(pendingActionGuard, never()).assertNoPendingBusinessAction(any());
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+    }
+
+    @Test
+    void ordinaryFileCannotApplyApprovedPublishAction() {
+        DccControlledFileDO file = buildReadyToPublishCandidate(9921L, 7921L, 18L, 1921L);
+        file.setProcessType(DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode());
+        when(controlledFileMapper.selectById(9921L)).thenReturn(file);
+
+        assertServiceException(() -> finalizationService.applyApprovedPublishControlledFile(99L, 9921L,
+                "publish-effect-ordinary"), CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
+
+        verify(controlledFileMapper, never()).transitionStatus(any(), any(), any(), any(), any());
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+        verify(platformAdapter, never()).recordPublishFinalizationStarted(any(), any(), any());
+        verify(platformAdapter, never()).recordFinalized(any(), any(), any(), any());
+        verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
     }
 
     private void assertOrdinaryActivation(String changeType, boolean distribution, boolean training, boolean savedPlan) {
@@ -594,9 +626,12 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         lenient().when(adminUserApi.getUserList(List.of(501L, 502L))).thenReturn(List.of(
                 new AdminUserRespDTO().setId(501L).setStatus(0)));
 
-        assertServiceException(() -> finalizationService.precheckPublishControlledFile(99L, 925L),
-                CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
-        verify(pendingActionGuard, never()).assertNoPendingBusinessAction(file);
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> finalizationService.precheckPublishControlledFile(99L, 925L));
+        assertEquals(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED.getCode(), ex.getCode());
+        assertTrue(ex.getMessage().contains("distributionId=2205"));
+        assertTrue(ex.getMessage().contains("502"));
+        verify(pendingActionGuard).assertNoPendingBusinessAction(file);
         verify(trainingMapper, never()).insert(any(DccControlledFileTrainingDO.class));
         verify(messageJobMapper, never()).insert(any(DccControlledFileMessageJobDO.class));
         verify(fileMapper, never()).selectById(any());
@@ -1147,6 +1182,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         file.setStatus(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus());
         file.setPublishedFileId(sourceFileId);
         file.setStampedFileId(sourceFileId);
+        file.setProcessType(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode());
         return file;
     }
 

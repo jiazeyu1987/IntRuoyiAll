@@ -107,8 +107,8 @@ const DCC_DETAIL_PROJECTION_LABELS: Record<DccDetailProjectionAction, string> = 
   DOWNLOAD: '下载受控文件',
   PRINT: '受控打印',
   OBSOLETE: '作废当前版本',
-  PUBLISH: '发布申请',
-  MANUAL_RELEASE: '正式下发',
+  PUBLISH: '生效申请',
+  MANUAL_RELEASE: '下发',
   ACKNOWLEDGE_TRAINING: '确认培训'
 }
 
@@ -529,7 +529,7 @@ export const buildDetailLifecycleTimelineItems = (
   })
   appendLifecycleTimelineItem(items, {
     key: 'file-stamped',
-    categoryLabel: '发布',
+    categoryLabel: '生效',
     title: '受控副本生成',
     occurredAt: file.stampedTime,
     description: `${fileVersionText} 受控副本已生成。`,
@@ -537,10 +537,10 @@ export const buildDetailLifecycleTimelineItems = (
   })
   appendLifecycleTimelineItem(items, {
     key: 'file-published',
-    categoryLabel: '发布',
-    title: '正式发布',
+    categoryLabel: '生效',
+    title: '正式生效',
     occurredAt: file.publishedTime,
-    description: `${fileVersionText} 已发布。`,
+    description: `${fileVersionText} 已生效。`,
     tagType: 'success'
   })
   appendLifecycleTimelineItem(items, {

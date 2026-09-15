@@ -100,8 +100,9 @@ class DccWorkingIterationSubmissionServiceTest {
         DccControlledFileDO active = iteration(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
         DccControlledFileDO working = iteration(901L, "B/2", DccControlledFileStatusEnum.WORKING.getStatus());
         when(controlledFileMapper.selectById(901L)).thenReturn(working);
+        when(controlledFileMapper.selectByIdAndTenantForUpdate(1L, 901L)).thenReturn(working);
         when(masterMapper.selectByIdForUpdate(700L)).thenReturn(master());
-        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active, working));
+        when(controlledFileMapper.selectListByMasterIdForUpdate(700L)).thenReturn(List.of(active, working));
         when(categoryPermissionSupport.hasCategoryPermission(eq(10L), eq(99L), any())).thenReturn(true);
         when(checkoutMapper.selectActiveByMasterId(1L, 700L)).thenReturn(null);
         DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode node =
@@ -120,6 +121,7 @@ class DccWorkingIterationSubmissionServiceTest {
         when(routeAssigneeResolver.buildApproveUserSelectAssigneeMap(List.of(node))).thenReturn(Map.of());
         when(bpmProcessInstanceApi.createProcessInstance(eq(99L), any(BpmProcessInstanceCreateReqDTO.class)))
                 .thenReturn("proc-working-901");
+        when(controlledFileMapper.claimWorkingIterationSubmission(eq(1L), eq(99L), any(DccControlledFileDO.class))).thenReturn(1);
         when(controlledFileMapper.updateById(any(DccControlledFileDO.class))).thenReturn(1);
         DccControlledFileSubmitIterationReqVO request = new DccControlledFileSubmitIterationReqVO();
         request.setIdempotencyKey("submit-working-901");
@@ -130,11 +132,13 @@ class DccWorkingIterationSubmissionServiceTest {
         assertEquals(901L, result);
         verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
         verify(routeSnapshotMapper).insert(any(DccControlledFileRouteSnapshotDO.class));
-        ArgumentCaptor<DccControlledFileDO> updateCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
-        verify(controlledFileMapper, org.mockito.Mockito.times(2)).updateById(updateCaptor.capture());
+        ArgumentCaptor<DccControlledFileDO> claimCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).claimWorkingIterationSubmission(eq(1L), eq(99L), claimCaptor.capture());
         assertEquals(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus(),
-                updateCaptor.getAllValues().get(0).getStatus());
-        assertEquals("proc-working-901", updateCaptor.getAllValues().get(1).getProcessInstanceId());
+                claimCaptor.getValue().getStatus());
+        ArgumentCaptor<DccControlledFileDO> updateCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).updateById(updateCaptor.capture());
+        assertEquals("proc-working-901", updateCaptor.getValue().getProcessInstanceId());
         verify(platformAdapter).recordSubmitted(working, 99L, "proc-working-901");
     }
 
@@ -143,9 +147,10 @@ class DccWorkingIterationSubmissionServiceTest {
         DccControlledFileDO working = iteration(901L, "A/1", DccControlledFileStatusEnum.WORKING.getStatus());
         working.setChangeType(DccControlledFileChangeTypeEnum.NEW.getCode());
         when(controlledFileMapper.selectById(901L)).thenReturn(working);
+        when(controlledFileMapper.selectByIdAndTenantForUpdate(1L, 901L)).thenReturn(working);
         when(masterMapper.selectByIdForUpdate(700L)).thenReturn(
                 DccControlledFileMasterDO.builder().id(700L).build());
-        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(working));
+        when(controlledFileMapper.selectListByMasterIdForUpdate(700L)).thenReturn(List.of(working));
         when(categoryPermissionSupport.hasCategoryPermission(eq(10L), eq(99L), any())).thenReturn(true);
         when(checkoutMapper.selectActiveByMasterId(1L, 700L)).thenReturn(null);
         DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode node =
@@ -164,6 +169,7 @@ class DccWorkingIterationSubmissionServiceTest {
         when(routeAssigneeResolver.buildApproveUserSelectAssigneeMap(List.of(node))).thenReturn(Map.of());
         when(bpmProcessInstanceApi.createProcessInstance(eq(99L), any(BpmProcessInstanceCreateReqDTO.class)))
                 .thenReturn("proc-new-901");
+        when(controlledFileMapper.claimWorkingIterationSubmission(eq(1L), eq(99L), any(DccControlledFileDO.class))).thenReturn(1);
         when(controlledFileMapper.updateById(any(DccControlledFileDO.class))).thenReturn(1);
         DccControlledFileSubmitIterationReqVO request = new DccControlledFileSubmitIterationReqVO();
         request.setIdempotencyKey("submit-new-901");
@@ -179,8 +185,9 @@ class DccWorkingIterationSubmissionServiceTest {
         DccControlledFileDO older = iteration(901L, "B/1", DccControlledFileStatusEnum.WORKING.getStatus());
         DccControlledFileDO latest = iteration(902L, "B/2", DccControlledFileStatusEnum.WORKING.getStatus());
         when(controlledFileMapper.selectById(901L)).thenReturn(older);
+        when(controlledFileMapper.selectByIdAndTenantForUpdate(1L, 901L)).thenReturn(older);
         when(masterMapper.selectByIdForUpdate(700L)).thenReturn(master());
-        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(older, latest));
+        when(controlledFileMapper.selectListByMasterIdForUpdate(700L)).thenReturn(List.of(older, latest));
         DccControlledFileSubmitIterationReqVO request = new DccControlledFileSubmitIterationReqVO();
         request.setIdempotencyKey("submit-old-901");
 
@@ -197,8 +204,9 @@ class DccWorkingIterationSubmissionServiceTest {
         DccControlledFileDO staleWorking = iteration(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
         DccControlledFileDO currentActive = iteration(900L, "B/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
         when(controlledFileMapper.selectById(901L)).thenReturn(staleWorking);
+        when(controlledFileMapper.selectByIdAndTenantForUpdate(1L, 901L)).thenReturn(staleWorking);
         when(masterMapper.selectByIdForUpdate(700L)).thenReturn(master());
-        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(staleWorking, currentActive));
+        when(controlledFileMapper.selectListByMasterIdForUpdate(700L)).thenReturn(List.of(staleWorking, currentActive));
         DccControlledFileSubmitIterationReqVO request = new DccControlledFileSubmitIterationReqVO();
         request.setIdempotencyKey("submit-stale-revision-901");
 
@@ -216,8 +224,9 @@ class DccWorkingIterationSubmissionServiceTest {
         DccControlledFileDO working = iteration(901L, "B/2", DccControlledFileStatusEnum.WORKING.getStatus());
         DccControlledFileDO currentActive = iteration(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
         when(controlledFileMapper.selectById(901L)).thenReturn(working);
+        when(controlledFileMapper.selectByIdAndTenantForUpdate(1L, 901L)).thenReturn(working);
         when(masterMapper.selectByIdForUpdate(700L)).thenReturn(master());
-        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(currentActive, working));
+        when(controlledFileMapper.selectListByMasterIdForUpdate(700L)).thenReturn(List.of(currentActive, working));
         when(checkoutMapper.selectActiveByMasterId(1L, 700L)).thenReturn(
                 DccControlledFileCheckoutDO.builder().id(88L).masterId(700L).baseIterationId(901L)
                         .actorId(99L).status("ACTIVE").build());
@@ -236,6 +245,7 @@ class DccWorkingIterationSubmissionServiceTest {
     void submitWorkingIteration_byAnotherProjectEditor_isRejectedBeforeRouteResolution() {
         DccControlledFileDO working = iteration(901L, "B/1", DccControlledFileStatusEnum.WORKING.getStatus());
         when(controlledFileMapper.selectById(901L)).thenReturn(working);
+        when(controlledFileMapper.selectByIdAndTenantForUpdate(1L, 901L)).thenReturn(working);
         when(masterMapper.selectByIdForUpdate(700L)).thenReturn(master());
         DccControlledFileSubmitIterationReqVO request = new DccControlledFileSubmitIterationReqVO();
         request.setIdempotencyKey("submit-working-901-by-another-editor");
@@ -260,9 +270,10 @@ class DccWorkingIterationSubmissionServiceTest {
                 DccControlledFileStatusEnum.WORKING.getStatus());
         correctedA3.setPredecessorControlledFileId(901L);
         when(controlledFileMapper.selectById(902L)).thenReturn(correctedA3);
+        when(controlledFileMapper.selectByIdAndTenantForUpdate(1L, 902L)).thenReturn(correctedA3);
         when(masterMapper.selectByIdForUpdate(700L)).thenReturn(
                 DccControlledFileMasterDO.builder().id(700L).build());
-        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(
+        when(controlledFileMapper.selectListByMasterIdForUpdate(700L)).thenReturn(
                 List.of(returnedA1, correctedA2, correctedA3));
         when(categoryPermissionSupport.hasCategoryPermission(eq(10L), eq(99L), any())).thenReturn(true);
         when(checkoutMapper.selectActiveByMasterId(1L, 700L)).thenReturn(null);
@@ -282,6 +293,7 @@ class DccWorkingIterationSubmissionServiceTest {
         when(routeAssigneeResolver.buildApproveUserSelectAssigneeMap(List.of(node))).thenReturn(Map.of());
         when(bpmProcessInstanceApi.createProcessInstance(eq(99L), any(BpmProcessInstanceCreateReqDTO.class)))
                 .thenReturn("proc-corrected-a3");
+        when(controlledFileMapper.claimWorkingIterationSubmission(eq(1L), eq(99L), any(DccControlledFileDO.class))).thenReturn(1);
         when(controlledFileMapper.updateById(any(DccControlledFileDO.class))).thenReturn(1);
         DccControlledFileSubmitIterationReqVO request = new DccControlledFileSubmitIterationReqVO();
         request.setIdempotencyKey("submit-corrected-a3");
@@ -294,10 +306,14 @@ class DccWorkingIterationSubmissionServiceTest {
                 ArgumentCaptor.forClass(BpmProcessInstanceCancelReqVO.class);
         verify(bpmProcessInstanceService).cancelProcessInstanceByStartUser(eq(99L), cancelCaptor.capture());
         assertEquals("proc-returned-a1", cancelCaptor.getValue().getId());
+        ArgumentCaptor<DccControlledFileDO> claimCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).claimWorkingIterationSubmission(eq(1L), eq(99L), claimCaptor.capture());
+        assertEquals(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus(),
+                claimCaptor.getValue().getStatus());
         ArgumentCaptor<DccControlledFileDO> updateCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
-        verify(controlledFileMapper, org.mockito.Mockito.times(3)).updateById(updateCaptor.capture());
+        verify(controlledFileMapper, org.mockito.Mockito.times(2)).updateById(updateCaptor.capture());
         assertEquals(DccControlledFileStatusEnum.WITHDRAWN.getStatus(),
-                updateCaptor.getAllValues().get(2).getStatus());
+                updateCaptor.getAllValues().get(1).getStatus());
         InOrder platformOrder = inOrder(platformAdapter);
         platformOrder.verify(platformAdapter).recordWithdrawn(returnedA1, 99L, cancelCaptor.getValue().getReason());
         platformOrder.verify(platformAdapter).recordSubmitted(correctedA3, 99L, "proc-corrected-a3");

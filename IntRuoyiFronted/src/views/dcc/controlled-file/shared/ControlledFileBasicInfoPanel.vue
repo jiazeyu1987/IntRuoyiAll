@@ -138,7 +138,7 @@
       <el-descriptions-item v-if="file?.rejectReason" label="驳回原因" :span="column">
         {{ file.rejectReason }}
       </el-descriptions-item>
-      <el-descriptions-item v-if="file?.finalizationError" label="发布失败原因" :span="column">
+      <el-descriptions-item v-if="file?.finalizationError" label="生效失败原因" :span="column">
         {{ file.finalizationError }}
       </el-descriptions-item>
       <el-descriptions-item v-if="file?.obsoleteReason" label="作废原因" :span="column">
