@@ -216,13 +216,8 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         when(userService.getUserByUsername(eq(username))).thenReturn(user);
         when(userService.isPasswordMatch(eq(password), eq(user.getPassword()))).thenReturn(true);
 
-        assertServiceException(() -> authService.authenticate(username, password),
-                AUTH_LOGIN_PASSWORD_CHANGE_REQUIRED);
-        verify(loginLogService).createLoginLog(
-                argThat(o -> o.getLogType().equals(LoginLogTypeEnum.LOGIN_USERNAME.getType())
-                        && o.getResult().equals(LoginResultEnum.PASSWORD_CHANGE_REQUIRED.getResult())
-                        && o.getUserId().equals(user.getId()))
-        );
+        AdminUserDO loginUser = authService.authenticate(username, password);
+        assertPojoEquals(user, loginUser);
     }
 
     @Test
@@ -260,6 +255,26 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         verify(socialUserService).bindSocialUser(eq(new SocialUserBindReqDTO(
                 user.getId(), UserTypeEnum.ADMIN.getValue(),
                 reqVO.getSocialType(), reqVO.getSocialCode(), reqVO.getSocialState())));
+    }
+
+    @Test
+    public void testLogin_passwordChangeRequired_returnsTokenAndFlag() {
+        AuthLoginReqVO reqVO = randomPojo(AuthLoginReqVO.class, o ->
+                o.setUsername("reset_user").setPassword("reset_password"));
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(2L).setUsername("reset_user")
+                .setPassword("reset_password").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setPasswordCredentialStatus("RESET_REQUIRED").setPasswordUpdateTime(LocalDateTime.now()));
+        when(userService.getUserByUsername(eq("reset_user"))).thenReturn(user);
+        when(userService.isPasswordMatch(eq("reset_password"), eq(user.getPassword()))).thenReturn(true);
+        OAuth2AccessTokenDO token = randomPojo(OAuth2AccessTokenDO.class, o -> o.setUserId(2L)
+                .setUserType(UserTypeEnum.ADMIN.getValue()));
+        when(oauth2TokenService.createAccessToken(eq(2L), eq(UserTypeEnum.ADMIN.getValue()), eq("default"), isNull()))
+                .thenReturn(token);
+
+        AuthLoginRespVO response = authService.login(reqVO);
+
+        assertPojoEquals(token, response);
+        assertEquals(Boolean.TRUE, response.getPasswordChangeRequired());
     }
 
     @Test

@@ -252,6 +252,7 @@
 - Verification: 使用带 `-am` 的 reactor 命令复跑，确认目标测试进入 Surefire 且 PASS/FAIL 反映真实业务行为；任务日志记录原单模块失败原因和最终 reactor 验证命令。
 - Forbidden action: 禁止把本地 `.m2` 陈旧产物导致的编译失败误判为产品逻辑失败；禁止删除 `-am` 来节省时间后宣称目标 JUnit 已验证；禁止用旧 surefire 报告冒充当前命令结果。
 - Evidence: `doc\tasks\20260806-schedule-default-shift-hours\execution-log.md`，排产班次小时默认值修复中不带 `-am` 的单模块 Maven 因本地 `system` API 依赖陈旧在测试前失败，最终使用 `-pl yudao-module-mes -am` 的目标 JUnit 命令通过 4 个用例。
+- Evidence: `doc\tasks\20260915-mes-bpm-interface-compile-fix\execution-log.md`，MES clean testCompile 因未带 `-am` 无法解析同仓 BPM 的 `FormActionExecutionContext`，而 `-pl yudao-module-mes -am clean test-compile` 重建 BPM 后 562 个 MES 测试源文件全部通过；后续接口定向测试 20/20 与 BPM 上下文回归 1/1 通过。
 
 ### Pytest 任务自有 basetemp 门禁
 

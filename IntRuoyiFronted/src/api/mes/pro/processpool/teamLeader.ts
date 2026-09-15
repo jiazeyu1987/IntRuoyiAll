@@ -631,6 +631,9 @@ export interface TeamLeaderActiveOrderDetailRespVO {
 }
 
 export interface TeamLeaderActiveOrderRespVO {
+  readBlocked?: boolean
+  readBlockReason?: string
+
   id: number
   workOrderId: number
   workOrderCode?: string

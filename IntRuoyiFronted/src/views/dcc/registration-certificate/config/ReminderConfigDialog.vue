@@ -176,7 +176,10 @@ function normalizeUserId(userId: number | string) {
   return Number(userId)
 }
 
-function normalizeUserIds(userIds: Array<number | string>) {
+function normalizeUserIds(userIds: unknown) {
+  if (!Array.isArray(userIds)) {
+    throw new Error('注册证提醒配置返回格式无效：阈值收件人必须为数组。')
+  }
   return Array.from(new Set(userIds.map(normalizeUserId))).filter((userId) => Number.isFinite(userId))
 }
 

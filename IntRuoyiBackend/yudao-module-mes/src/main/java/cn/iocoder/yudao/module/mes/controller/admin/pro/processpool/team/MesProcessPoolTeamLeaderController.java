@@ -943,6 +943,8 @@ public class MesProcessPoolTeamLeaderController {
                 .setJoinedAt(activeOrder.getJoinedAt())
                 .setRemovedAt(activeOrder.getRemovedAt())
                 .setVersion(activeOrder.getVersion())
+                .setReadBlocked(activeOrder.getReadBlocked())
+                .setReadBlockReason(activeOrder.getReadBlockReason())
                 .setAbnormal(activeOrder.getAbnormal())
                 .setAbnormalReason(activeOrder.getAbnormalReason())
                 .setAbnormalReportedAt(activeOrder.getAbnormalReportedAt())

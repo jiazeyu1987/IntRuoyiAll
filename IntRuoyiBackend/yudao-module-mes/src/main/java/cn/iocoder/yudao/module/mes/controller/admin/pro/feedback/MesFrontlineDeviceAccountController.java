@@ -245,6 +245,8 @@ public class MesFrontlineDeviceAccountController {
     private static MesFrontlineActiveOrderRespVO toProductionActiveOrderRespVO(
             MesTeamLeaderActiveOrderRow activeOrder) {
         return new MesFrontlineActiveOrderRespVO()
+                .setReadBlocked(activeOrder.getReadBlocked())
+                .setReadBlockReason(activeOrder.getReadBlockReason())
                 .setActiveOrderId(activeOrder.getId())
                 .setWorkOrderId(activeOrder.getWorkOrderId())
                 .setWorkOrderCode(activeOrder.getWorkOrderCode())

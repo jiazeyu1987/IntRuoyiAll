@@ -111,6 +111,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mockStatic;
@@ -240,6 +241,30 @@ class MesProcessPoolTeamLeaderControllerTest {
                 cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonSaveReqBO.class);
         verify(defectReasonCatalogService).createReason(reasonCaptor.capture());
         assertEquals(3001L, reasonCaptor.getValue().getLeaderUserId());
+    }
+
+    @Test
+    void blockedOrderDiagnosisReachesBothWorkbenchAndFrontlineResponses() {
+        MesTeamLeaderActiveOrderRow blocked = new MesTeamLeaderActiveOrderRow()
+                .setId(8101L).setWorkOrderId(9001L).setReadBlocked(true)
+                .setReadBlockReason("PRODUCTION_OUTPUT_MATERIAL_IDS_REQUIRED")
+                .setAbnormal(true).setAbnormalReason("PRODUCTION_OUTPUT_MATERIAL_IDS_REQUIRED");
+        when(activeOrderService.listActiveOrders(3001L)).thenReturn(List.of(blocked));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
+            MesTeamLeaderActiveOrderRespVO response = controller.getActiveOrderList().getData().get(0);
+            assertTrue(response.getReadBlocked());
+            assertEquals(blocked.getReadBlockReason(), response.getReadBlockReason());
+            assertNull(response.getProductionProgressPercent());
+        }
+        cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineActiveOrderRespVO frontline =
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                        cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.MesFrontlineDeviceAccountController.class,
+                        "toProductionActiveOrderRespVO", blocked);
+        assertNotNull(frontline);
+        assertEquals(8101L, frontline.getActiveOrderId());
+        assertTrue(frontline.getReadBlocked());
+        assertEquals(blocked.getReadBlockReason(), frontline.getReadBlockReason());
     }
 
     @Test

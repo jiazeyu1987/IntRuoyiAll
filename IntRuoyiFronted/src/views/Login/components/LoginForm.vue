@@ -258,7 +258,11 @@ const handleLogin = async () => {
       window.location.href = window.location.href.replace('/login?redirect=', '')
     } else {
       try {
-        await push({ path: redirect.value || permissionStore.addRouters[0]?.path || '/srm/portal/application' })
+        await push(
+          res.passwordChangeRequired
+            ? { path: '/user/profile', query: { tab: 'resetPwd' } }
+            : { path: redirect.value || permissionStore.addRouters[0]?.path || '/srm/portal/application' }
+        )
       } catch (error) {
         loginErrorMessage.value = resolveLoginErrorMessage(error, 'permission')
         throw error

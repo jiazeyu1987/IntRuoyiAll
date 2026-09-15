@@ -124,6 +124,9 @@ const resolveProfileActiveTab = () => {
   if (route.query.tab === 'notifyMessage') {
     return 'notifyMessage'
   }
+  if (route.query.tab === 'resetPwd') {
+    return 'resetPwd'
+  }
   return 'workbench'
 }
 

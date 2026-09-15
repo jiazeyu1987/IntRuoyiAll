@@ -376,6 +376,9 @@ export interface FrontlinePqcInspectionItemVO {
 }
 
 export interface FrontlineActiveOrderVO {
+  readBlocked?: boolean
+  readBlockReason?: string
+
   activeOrderId: number
   routeVersionId: number
   workOrderId: number

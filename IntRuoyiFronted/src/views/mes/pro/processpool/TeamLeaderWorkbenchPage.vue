@@ -1580,17 +1580,25 @@
               {{ formatTraceQuantity(row.erpFixedQuantitySnapshot) }}
             </template>
           </el-table-column>
+          <el-table-column label="数据检查" min-width="260">
+            <template #default="{ row }">
+              <span v-if="row.readBlocked" data-active-order-read-error role="status">
+                数据异常：{{ row.readBlockReason }}
+              </span>
+              <span v-else>正常</span>
+            </template>
+          </el-table-column>
           <el-table-column label="生产进度" prop="productionProgressPercent" min-width="120">
             <template #default="{ row }">
               <span data-team-leader-active-order-production-progress>
-                {{ formatActiveOrderProgressPercent(row.productionProgressPercent) }}
+                {{ row.readBlocked ? '未知' : formatActiveOrderProgressPercent(row.productionProgressPercent) }}
               </span>
             </template>
           </el-table-column>
           <el-table-column label="检验进度" prop="inspectionProgressPercent" min-width="120">
             <template #default="{ row }">
               <span data-team-leader-active-order-inspection-progress>
-                {{ formatActiveOrderProgressPercent(row.inspectionProgressPercent) }}
+                {{ row.readBlocked ? '未知' : formatActiveOrderProgressPercent(row.inspectionProgressPercent) }}
               </span>
             </template>
           </el-table-column>
@@ -1653,6 +1661,7 @@
               <el-button
                 link
                 type="primary"
+                :disabled="row.readBlocked"
                 data-team-leader-active-order-detail
                 @click="openActiveOrderSubmissionDetail(row)"
               >
@@ -4772,7 +4781,7 @@ const pagedProductionPersonnelRows = computed(() => {
 })
 const activeOrderTotal = computed(() => activeOrderOptions.value.length)
 const allocatableActiveOrderOptions = computed(() =>
-  activeOrderOptions.value.filter((order) => normalizePositiveNumber(order.id))
+  activeOrderOptions.value.filter((order) => !order.readBlocked && normalizePositiveNumber(order.id))
 )
 const pagedActiveOrderRows = computed(() => {
   const pageNo = Math.max(1, Number(activeOrderQuery.pageNo) || 1)
@@ -5575,7 +5584,7 @@ const resolveActiveOrderRowClassName = ({ row }: { row: TeamLeaderActiveOrderRes
     : ''
 
 const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
-  if (row.abnormal) return false
+  if (row.readBlocked || row.abnormal) return false
   if (row.hasQuantityConflict || row.quantityConflict) return false
   if (row.releaseApplicationStatus) return false
   return (
@@ -5585,6 +5594,7 @@ const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const resolveActiveOrderReleaseApplyDisabledReason = (row: TeamLeaderActiveOrderRespVO) => {
+  if (row.readBlocked) return row.readBlockReason || '订单数据异常，暂不可申请放行'
   if (releaseApplicationLocks.get(row.id) === 'UNCERTAIN') {
     return '申请结果未确认，请人工核对后刷新页面'
   }

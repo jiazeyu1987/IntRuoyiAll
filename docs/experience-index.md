@@ -635,6 +635,7 @@
 - Keywords: 租户识别失败, 登录请求未发出, 登录接口失败, 权限信息请求超时, 同一业务账号重登 -> `docs/login-access.md#失败处理`
 - Keywords: int_main 融合后运行态核验, 新旧 jar, PID 归属, 48081, 独立启动日志, 主工作区 dirty 不清理并行文件 -> `docs/worktree-memory.md#运行时融合后的版本与端口交叉核验`
 - Keywords: 真实页面配置行缺失, 允许超量比例, 只读 E2E, 配置列表行数为 0, 禁止 API-only 补行, 无测试租户阻断 -> `docs/e2e-rules.md#真实页面配置行缺失的-e2e-阻断门禁`
+- Keywords: 长流程只读探针, 90步流程, 页面可达不等于业务闭环, 相邻业务词误判 PASS, 缺任务自有数据 BLOCKED, pageerror 不能忽略, 裸 403 404 正则误判单据号 -> `docs/e2e-rules.md#长流程只读探针状态归因门禁`
 - Keywords: E2E 环境变量名, 显式目标 env, WORK_TASK_ID, BATCH_EXECUTION_ID, BATCH_CODE, 旧目标键名, 缺少真实最终归档待办 E2E 前置条件, 下载字节数不等于文件有效, PDF/A 渲染检查 -> `docs/e2e-rules.md#e2e-显式目标环境变量门禁`
 - Keywords: 工艺路线设备参数面板, 待发布版本, 草稿版本, 当前生效版本只读, route-flow-device-parameter-panel-visible, 设备参数真实页面入口 -> `docs/e2e-rules.md#工艺路线草稿版本设备参数面板门禁`
 - Keywords: eDHR 批次创建入口, 批次入口缺少 entryType, Flow 9, entryBusinessId, sourceCredentialId, sourceContextHash, idempotencyKey, MANUAL 凭证, 独立前置凭证, 禁止固定 entryType, 正式入口来源, 手动重排, replanApply_shouldSkipEdhrBatchCreationAfterScheduleComplete, 排产完成创建 eDHR 批次缺少前置条件：首任务责任来源/候选池 -> `docs/backend-development.md#eDHR-批次创建入口必须与正式入口合同一致`

@@ -705,16 +705,19 @@
                 class="frontline-picker__option picker-option"
                 type="button"
                 :class="{ active: option.active }"
+                :disabled="option.activeOrder?.readBlocked"
+                :title="option.activeOrder?.readBlockReason"
                 @click="option.onClick"
               >
                 <span
                   v-if="activePicker === 'order' && option.activeOrder"
                   class="frontline-order-picker-option"
                 >
+                  <span v-if="option.activeOrder.readBlocked" role="status">数据异常：{{ option.activeOrder.readBlockReason }}</span>
                   <span class="frontline-order-picker-option__row">
                     <span>编码</span>
                     <strong class="frontline-order-picker-option__value is-code">
-                      {{ option.activeOrder.workOrderCode }}
+                      {{ option.activeOrder.workOrderCode || `订单ID：${option.activeOrder.workOrderId}` }}
                     </strong>
                   </span>
                   <span class="frontline-order-picker-option__row">
@@ -726,7 +729,7 @@
                   <span class="frontline-order-picker-option__row">
                     <span>数量</span>
                     <strong class="frontline-order-picker-option__value">
-                      {{ formatProductionQuantity(option.activeOrder.quantity) }}
+                      {{ option.activeOrder.readBlocked && option.activeOrder.quantity == null ? '未知' : formatProductionQuantity(option.activeOrder.quantity) }}
                     </strong>
                   </span>
                 </span>
@@ -1334,6 +1337,8 @@
             class="frontline-picker__option picker-option"
             type="button"
             :class="{ active: option.active }"
+                :disabled="option.activeOrder?.readBlocked"
+                :title="option.activeOrder?.readBlockReason"
             :data-pqc-order-option="activePicker === 'order' ? 'true' : undefined"
             :aria-label="option.activeOrder
               ? `编码 ${option.activeOrder.workOrderCode}，产品 ${option.activeOrder.productName}，数量 ${formatProductionQuantity(option.activeOrder.quantity)}`
@@ -1344,10 +1349,11 @@
               v-if="activePicker === 'order' && option.activeOrder"
               class="frontline-order-picker-option"
             >
+              <span v-if="option.activeOrder.readBlocked" role="status">数据异常：{{ option.activeOrder.readBlockReason }}</span>
               <span class="frontline-order-picker-option__row" data-pqc-order-option-code>
                 <span>编码</span>
                 <strong class="frontline-order-picker-option__value is-code">
-                  {{ option.activeOrder.workOrderCode }}
+                  {{ option.activeOrder.workOrderCode || `订单ID：${option.activeOrder.workOrderId}` }}
                 </strong>
               </span>
               <span class="frontline-order-picker-option__row" data-pqc-order-option-product>
@@ -1359,7 +1365,7 @@
               <span class="frontline-order-picker-option__row" data-pqc-order-option-quantity>
                 <span>数量</span>
                 <strong class="frontline-order-picker-option__value">
-                  {{ formatProductionQuantity(option.activeOrder.quantity) }}
+                  {{ option.activeOrder.readBlocked && option.activeOrder.quantity == null ? '未知' : formatProductionQuantity(option.activeOrder.quantity) }}
                 </strong>
               </span>
             </span>
@@ -4386,6 +4392,10 @@ const handleSelectActiveOrder = async (
   activeOrder: FrontlineActiveOrderVO,
   requestedProcessIdentity?: ProductionInitialProcessIdentity
 ) => {
+  if (activeOrder.readBlocked) {
+    message.error(activeOrder.readBlockReason || '订单数据异常，暂不可填写')
+    return
+  }
   if (!isPqcMode.value) {
     const selectionRequestId = ++activeOrderSelectionRequestId
     processSelectionRequestId += 1
@@ -6008,7 +6018,7 @@ const initializeProductionSelection = async () => {
       (!context.routeId || order.routeId === context.routeId)
     )
     : undefined
-  const initialActiveOrder = requestedActiveOrder || activeOrders[0]
+  const initialActiveOrder = requestedActiveOrder || activeOrders.find((order) => !order.readBlocked)
   if (initialActiveOrder) {
     const requestedProcessIdentity = requestedActiveOrder
       ? {
