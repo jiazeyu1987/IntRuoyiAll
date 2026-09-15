@@ -13,6 +13,8 @@ import org.mockito.ArgumentCaptor;
 
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -129,6 +131,31 @@ class ReleaseWorkflowOrchestratorTest {
                 () -> orchestrator.cancel(workflow.workflowId()));
         assertEquals(ReleaseWorkflowRecord.State.PREFLIGHTING,
                 workflowService.require(workflow.workflowId()).state());
+    }
+
+    @Test
+    void staleRunningOperationIsCancelledBeforeWorkflowRecovery() {
+        properties.getReleaseWorkflow().setHeartbeatTimeout(Duration.ofSeconds(1));
+        RuntimeControlOperationRespVO operation = operation("running");
+        when(runtimeControlService.executeAction(any(), eq("operator"))).thenReturn(operation);
+        when(runtimeControlService.cancelOperation(operation.getOperationId())).thenAnswer(invocation -> {
+            operation.setStatus("cancelled");
+            operationStore.save(operation);
+            return true;
+        });
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "stale build", "approved-source");
+        operationStore.save(operation);
+        workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                ReleaseWorkflowRecord.State.TESTING, "TESTING", true, false);
+        workflow = workflowService.require(workflow.workflowId());
+        workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                ReleaseWorkflowRecord.State.BUILDING, "BUILDING", true, false);
+        workflowService.overrideHeartbeatForTest(workflow.workflowId(), Instant.now().minusSeconds(10));
+
+        ReleaseWorkflowRecord recovered = orchestrator.recoverStaleWorkflows(Instant.now()).get(0);
+
+        assertEquals(ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, recovered.state());
+        verify(runtimeControlService).cancelOperation(operation.getOperationId());
     }
 
     @Test

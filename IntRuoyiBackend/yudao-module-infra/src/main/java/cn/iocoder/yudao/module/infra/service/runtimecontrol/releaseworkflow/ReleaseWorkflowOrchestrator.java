@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Map;
+import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Connects the durable workflow to the existing low-level release executor. */
@@ -239,6 +240,36 @@ public class ReleaseWorkflowOrchestrator {
         ReleaseWorkflowRecord canceled = workflowService.cancel(workflowId);
         releaseLease(workflowId);
         return canceled;
+    }
+
+    /**
+     * Reconciles heartbeat-expired workflows after first terminating any
+     * still-running low-level operation. Recovery is fail-closed: a workflow
+     * is not advanced while its operation remains running or cannot be
+     * verified as terminated.
+     */
+    public synchronized java.util.List<ReleaseWorkflowRecord> recoverStaleWorkflows(Instant now) {
+        java.util.List<ReleaseWorkflowRecord> stale = workflowService.list().stream()
+                .filter(record -> !record.state().isTerminal())
+                .filter(record -> record.lastHeartbeatAt()
+                        .plus(properties.getReleaseWorkflow().getHeartbeatTimeout()).isBefore(now))
+                .toList();
+        for (ReleaseWorkflowRecord workflow : stale) {
+            if (workflow.operationId() == null) {
+                continue;
+            }
+            RuntimeControlOperationRespVO operation = operationStore.findById(workflow.operationId());
+            if (operation != null && "running".equals(operation.getStatus())) {
+                if (!runtimeControlService.cancelOperation(workflow.operationId())) {
+                    throw new IllegalStateException("RELEASE_WORKFLOW_OPERATION_TERMINATION_UNCONFIRMED");
+                }
+                RuntimeControlOperationRespVO terminated = operationStore.findById(workflow.operationId());
+                if (terminated != null && "running".equals(terminated.getStatus())) {
+                    throw new IllegalStateException("RELEASE_WORKFLOW_OPERATION_TERMINATION_UNCONFIRMED");
+                }
+            }
+        }
+        return workflowService.recoverStaleWorkflows(now);
     }
 
     private ReleaseWorkflowRecord advanceSucceeded(ReleaseWorkflowRecord workflow,

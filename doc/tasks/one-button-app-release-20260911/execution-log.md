@@ -157,6 +157,14 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 - GREEN: manifest parser 与 preflight plan 统一解析并传递四类元数据；3 个现有迁移仅通过 SQL 头部声明顺序/session profile/hook。`python -X utf8 -m pytest -q script\\tests\\test_release_preflight_plan.py script\\tests\\test_release_target_preflight_files.py --basetemp .tmp-metadata-app-green` -> PASS，25 tests；Maven runtime/cancel regression -> PASS，79 tests。
 - DESIGN: 无 fallback、无吞异常、无 migrationId 特例；统一元数据合同仅声明能力，实际隔离 rehearsal、阶段事件、后台 scheduler/recovery 与完整 publish-test 仍未闭环。
 
+## P2 backend stale-operation recovery slice
+
+- BDD: 过期 workflow 回收 -> Given workflow 心跳已超时且已绑定仍为 `running` 的底层 operation / When 后台恢复入口执行 / Then 必须先调用底层取消并重新读取 operation 状态，只有确认不再运行后才允许 workflow 进入 `RECOVERY_REQUIRED`，无法确认时 fail-closed。
+- RED: `mvn --% -f IntRuoyiBackend/pom.xml -pl yudao-module-infra -am -Dtest=ReleaseWorkflowOrchestratorTest -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL，新增回归测试缺少 `ReleaseWorkflowOrchestrator.recoverStaleWorkflows(Instant)` 接线，证明编排层只有 `ReleaseWorkflowService.recoverStaleWorkflows`，不会终止仍运行的底层 operation。
+- GREEN: 新增 `ReleaseWorkflowOrchestrator.recoverStaleWorkflows(Instant)`：扫描超时 workflow，调用 `RuntimeControlService.cancelOperation`，重读 operation 并在仍为 `running` 时抛出 `RELEASE_WORKFLOW_OPERATION_TERMINATION_UNCONFIRMED`；确认终止后委托状态服务落 `RECOVERY_REQUIRED`。同一测试命令 -> PASS，8 tests，0 failures。
+- CLOSED: P2 本 bounded slice 已关闭“后台恢复绕过底层运行进程”的一致性缺口；取消/恢复仍保持 fail-closed，无远程服务器、数据库或 releaseTag 操作。
+- OPEN: scheduler/定时触发、阶段事件自动消费、统一迁移隔离执行及完整按钮 publish-test 仍未闭环，需后续 P2/P3 slice；本 slice 未声称完整发布验收通过。
+
 ## R56 migration test discovery fix
 
 - RED: build-release-r56-migration-test-discovery -> FAIL，维护仓 R56 构建在 Maven/前端静态合同后、后端打包/Docker/NAS/测试服写入前返回 `MIGRATION_TEST_MISSING: 20260812_mes_route_version_snapshot_identity_enforce`；R56 未形成包且不得复用。
