@@ -4,7 +4,7 @@
 基于当前 `int_qms` HEAD 独立复核 DCC-MAIN-01 至 DCC-MAIN-20 是否仍成立为已修复状态；不直接沿用上一任务结论。若发现测试或源码回退，修复后重新验证并记录证据。
 
 ## Current Status
-ready_for_closeout
+completed
 
 ## Milestones
 1. 读取仓库规则、确认分支、工作区和上一轮20项修复证据。
