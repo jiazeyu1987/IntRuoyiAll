@@ -136,6 +136,24 @@ def _metadata_fields(sql: str) -> dict[str, str]:
     return fields
 
 
+def _assert_outer_case_then_is_top_level(sql: str, path: Path) -> None:
+    if not re.match(r"^select\s+case\b", sql, re.IGNORECASE):
+        return
+
+    depth = 0
+    for match in re.finditer(r"\bthen\b|[()]", sql, re.IGNORECASE):
+        token = match.group(0).lower()
+        if token == "(":
+            depth += 1
+        elif token == ")":
+            depth -= 1
+            assert depth >= 0, f"{path.name} closes more parentheses than it opens before outer THEN"
+        elif token == "then" and depth == 0:
+            return
+
+    raise AssertionError(f"{path.name} must close all condition parentheses before outer THEN")
+
+
 def test_target_preflight_file_set_matches_release_plan() -> None:
     actual = {path.name.removesuffix(".preflight.sql") for path in TARGET_PREFLIGHT_ROOT.glob("*.preflight.sql")}
 
@@ -173,6 +191,7 @@ def test_target_preflights_are_read_only_single_statement_contracts() -> None:
         statements = [statement.strip() for statement in executable.split(";") if statement.strip()]
         assert len(statements) == 1
         assert re.match(r"^(?:select|with)\b", statements[0], re.IGNORECASE)
+        _assert_outer_case_then_is_top_level(statements[0], path)
 
 
 def test_mes_smart_scheduling_role_scope_preflight_matches_active_route_menu_contract() -> None:

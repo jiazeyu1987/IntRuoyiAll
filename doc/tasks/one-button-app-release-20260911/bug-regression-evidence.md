@@ -41,3 +41,46 @@ R55 测试服发布在版本切换前执行 `20260829_mes_old_form_template_bind
 ## Blockers and follow-up
 
 应用修复提交后必须重新执行 source freeze、build-release、NAS READY 完整性校验和同一 releaseTag 的 publish-test 运行态验证；正式服、mark-tested、promote-prod、promote-backup 均不在本次授权范围。
+
+# R63 target-preflight 括号闭合回归证据
+
+## Bug summary
+
+R63 `build-release` 在真实测试服目标只读 preflight 阶段失败，错误为 MySQL `ERROR 1064 (42000)`。预期行为是所有 target-preflight SQL 在昂贵打包前由通用合同发现外层 `SELECT CASE` 结构错误，并且新版 SQL 可在测试服只读执行。
+
+## Expected behavior
+
+`20260829_mes_old_form_template_binding_switch.preflight.sql` 必须保持只读、单语句、外层 `THEN` 处于括号深度 0，并在测试服返回 `TARGET_PREFLIGHT_PASS` 或明确业务 blocker，而不是 SQL 语法错误。
+
+## Reproduction
+
+- 真实路径：R63 `build-release` 执行目标只读 preflight。
+- 失败结果：`TARGET_PREFLIGHT_QUERY_FAILED: read-only target query failed: ERROR 1064 (42000)`；报告显示 `failedMigrationId=20260829_mes_old_form_template_binding_switch`，2/17 checks 后停止。
+- 静态回归：新增外层 CASE 括号闭合合同后，旧 SQL 在 `test_target_preflights_are_read_only_single_statement_contracts` 中失败。
+
+## Root cause
+
+第一个 `AND NOT EXISTS (` 在待迁移旧表单模板 Jimu 语义检查后少闭合一层右括号，导致后续兄弟级 `AND NOT EXISTS` 子句仍处于前一个子查询内部；MySQL 到外层 `THEN` 时发现条件表达式未闭合。
+
+## Regression test added
+
+`test_release_target_preflight_files.py` 新增 `_assert_outer_case_then_is_top_level`，对所有 target-preflight 的外层 `SELECT CASE` 执行通用括号深度检查，防止同类错误只在真实 MySQL 目标预检中暴露。
+
+## Minimal fix
+
+仅在 `20260829_mes_old_form_template_binding_switch.preflight.sql` 补齐缺失的右括号；未改变业务判断、未新增 fallback、未放宽 Jimu schema 语义、未修改测试服业务数据。
+
+## RED / GREEN evidence
+
+- RED: `python -X utf8 -m pytest -q script/tests/test_release_target_preflight_files.py::test_target_preflights_are_read_only_single_statement_contracts --basetemp .tmp-r63-preflight-parenthesis-red` -> FAIL，捕获缺失括号。
+- GREEN: `python -X utf8 -m pytest -q script/tests/test_release_target_preflight_files.py script/tests/test_mes_old_form_template_binding_switch_sql.py --basetemp .tmp-r63-preflight-parenthesis-green` -> PASS，12 tests。
+- GREEN: 测试服只读执行新版单文件 preflight -> `TARGET_PREFLIGHT_PASS:20260829_mes_old_form_template_binding_switch`。
+- GREEN: 完整目标只读 preflight -> `Target data preflight: passed; 17/17 checks`，报告 `target-data-preflight-after-fix.json`。
+
+## Risk and regression scope
+
+影响范围限定为 target-preflight 静态合同与一个 preflight SQL 的括号修复。R63 包半成品仍不可复用；必须用新应用 commit 和全新 releaseTag 重新构建并发布测试服验证。
+
+## Blockers and follow-up actions
+
+应用修复提交后，需要维护仓更新 source freeze 到新应用 commit，并执行全新 releaseTag 的 `build-release -> publish-test`。正式服、审查服、`mark-tested`、`promote-prod`、`promote-backup` 不在当前授权范围。

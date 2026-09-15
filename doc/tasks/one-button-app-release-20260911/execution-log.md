@@ -185,3 +185,13 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 - BDD: R53 Jimu 目标语义必须前移 -> Given 旧表单模板迁移依赖 `jimu_schema_json` / `recognized_schema_json` 生成 Jimu layout / When target readonly preflight 运行 / Then 必须检查 `sheetLayoutJson` object、rows/cols、待迁移 binding 唯一性、已绑定报表存在性和 release migration 状态，不能只检查表/列存在。
 - GREEN: `python -X utf8 -m pytest -q script\tests\test_mes_old_form_template_binding_switch_sql.py script\tests\test_release_target_preflight_files.py --basetemp .tmp-current-jimu-preflight` -> PASS，12 tests。
 - NOTE: 本机安全策略拦截了递归删除 `.tmp-r61-jimu-preflight-regression` 的清理命令；提交时仅精确暂存源码、测试和任务记录，临时目录不纳入提交。
+
+## R63 target-preflight syntax regression
+
+- RED: build-release-r63-target-preflight-syntax -> FAIL。维护仓 R63 在 Maven workflow 合同、前端静态合同、`pnpm ts:check`、129 个维护脚本回归、Docker、本地依赖和迁移账本门禁后，执行测试服目标只读 preflight 失败：`TARGET_PREFLIGHT_QUERY_FAILED: read-only target query failed: ERROR 1064 (42000)`；报告 `target-data-preflight.json` 显示 2/17 checks 后停在 `20260829_mes_old_form_template_binding_switch`，R63 仅留下本地 `required-sql/` 半成品，未打包、未上传 NAS、未写测试服。
+- ROOT_CAUSE: `20260829_mes_old_form_template_binding_switch.preflight.sql` 第一个 `AND NOT EXISTS (` 少闭合一层括号，后续兄弟级 preflight 子句被错误吞进该子查询，MySQL 在外层 `THEN` 前发现条件表达式未闭合并返回 1064。
+- BDD: target-preflight SQL 外层 CASE 结构必须可解析 -> Given 任一 target-preflight 使用 `SELECT CASE WHEN ... THEN ... ELSE ... END` / When 构建前只读门禁扫描 SQL / Then 外层 `THEN` 必须出现在括号深度 0，防止少闭合括号在真实 MySQL 才暴露。
+- RED: `python -X utf8 -m pytest -q script/tests/test_release_target_preflight_files.py::test_target_preflights_are_read_only_single_statement_contracts --basetemp .tmp-r63-preflight-parenthesis-red` -> FAIL，新增通用合同捕获 `20260829_mes_old_form_template_binding_switch.preflight.sql must close all condition parentheses before outer THEN`。
+- GREEN: target-preflight-parenthesis-fix -> PASS。最小修复仅补齐缺失右括号，并在 `test_release_target_preflight_files.py` 增加通用外层 CASE 括号闭合检查；`python -X utf8 -m pytest -q script/tests/test_release_target_preflight_files.py script/tests/test_mes_old_form_template_binding_switch_sql.py --basetemp .tmp-r63-preflight-parenthesis-green` -> 12 passed。
+- GREEN: live-readonly-target-preflight-after-fix -> PASS。测试服只读执行新版单文件 preflight 返回 `TARGET_PREFLIGHT_PASS:20260829_mes_old_form_template_binding_switch`；复用 R63 prospective manifest/build evidence 与新版 checks-root 运行完整 target data preflight 返回 `Target data preflight: passed; 17/17 checks`，输出 `target-data-preflight-after-fix.json`。未修改测试服业务数据。
+- RESULT: R63 已判废且不得复用；应用修复提交后，维护仓必须记录新应用 commit 并使用全新 releaseTag 重新执行 build-release -> publish-test。正式服、审查服、`mark-tested`、`promote-prod`、`promote-backup`、MinIO 数据同步和全量数据库复制仍不在授权范围。

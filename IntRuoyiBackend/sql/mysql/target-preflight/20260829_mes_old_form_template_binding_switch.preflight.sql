@@ -96,6 +96,7 @@ SELECT CASE
             ) fields
             WHERE COALESCE(NULLIF(TRIM(fields.label), ''), NULLIF(TRIM(fields.field_code), '')) IS NULL
         )
+        )
       )
   )
   AND NOT EXISTS (
