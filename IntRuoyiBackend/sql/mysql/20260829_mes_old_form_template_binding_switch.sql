@@ -391,9 +391,7 @@ BEGIN
       `create_time`,
       `updater`,
       `update_time`,
-      `deleted`,
-      `child_form_member_count`,
-      `child_form_member_hash`
+      `deleted`
     )
     SELECT DISTINCT
       s.`tenant_id`,
@@ -416,9 +414,7 @@ BEGIN
       NOW(),
       'codex',
       NOW(),
-      b'0',
-      0,
-      NULL
+      b'0'
     FROM `tmp_mes_old_form_template_binding_scope` s
     JOIN `mes_pro_batch_record_definition` d
       ON d.`tenant_id` = s.`tenant_id`

@@ -113,3 +113,14 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 - GREEN: 测试服只读执行新版 `20260829_mes_old_form_template_binding_switch.preflight.sql` 返回 `TARGET_PREFLIGHT_PASS`，因为现有正式 `recognized_schema_json` 字段数组可由迁移侧构建布局；未修改测试服业务数据。
 - IMPLEMENTATION: `20260829_mes_old_form_template_binding_switch.sql` 新增基于 `recognized_schema_json` 的临时字段/行/视觉 schema 构建，并让 Jimu 报表阶段读取该同源 schema；非法 JSON、无可识别字段、缺少已发布版本和冲突仍 fail-fast。target preflight 同步覆盖完整字段数组与空/非法形态。
 - BLOCKER: 迁移 SQL 尚未在隔离 MySQL 或新的测试服 release 包中验证；当前 R53 包仍包含修复前版本，不能继续发布。需先提交应用修复并生成新的 releaseTag。
+
+## P3 batch-record version schema contract regression
+
+- BDD: 迁移只能写入当前正式表结构 -> Given 目标库 `mes_pro_batch_record_version` 由 `20260708_mes_batch_record_version_phase_one` 创建且不存在 `child_form_member_count/child_form_member_hash` / When `20260829_mes_old_form_template_binding_switch.sql` 创建批记录版本 / Then SQL 只能使用真实存在的 21 个正式列，target preflight 必须在 DML 前检查列集合，不得依赖未发布分支字段。
+- RED: deploy-release-r55-batch-version-columns -> FAIL，测试服在版本切换前执行 `20260829_mes_old_form_template_binding_switch.sql` 返回 `ERROR 1054 (42S22) at line 1116: Unknown column 'child_form_member_count' in 'field list'`；operation lock 已释放为 FAILED，测试服 `.env` 与实际镜像未切换。
+- RED: `python -X utf8 -m pytest -q script/tests/test_mes_old_form_template_binding_switch_sql.py -k declares_contract --basetemp .tmp-r55-child-column-red` -> FAIL，新增合同证明迁移引用目标真实表不存在的 `child_form_member_count/child_form_member_hash`。
+- GREEN: `python -X utf8 -m pytest -q script/tests/test_mes_old_form_template_binding_switch_sql.py script/tests/test_release_target_preflight_files.py script/tests/test_release_preflight_plan.py --basetemp .tmp-r55-child-column-green` -> PASS，11+19 项目标合同通过；完整 migration policy gate 619 passed。
+- ROOT_CAUSE: `20260829` 迁移从未进入当前正式 schema/DO 的子表成员字段分支，却在 `mes_pro_batch_record_version` INSERT 列表中硬编码两个不存在的列；当前真实库 `DESCRIBE mes_pro_batch_record_version` 与 `MesProBatchRecordVersionDO` 均不含这两个字段。
+- FIX: 删除未发布字段引用和对应值，保留当前正式 21 列；target preflight 增加 `information_schema.columns` 21 列检查。未修改测试服数据库数据，未增加 fallback 或默认列。
+- GREEN: 本机 Docker MySQL 只读执行迁移新增 recognized-schema 临时构建片段返回模板版本 27/32 `schema_valid=1, layout_type=STRING`；测试服 target preflight 继续只读通过。完整 SQL 首次/重复执行仍需随新 release 包在测试服验证。
+- BLOCKER: R55 包包含修复前 SQL，按失败 tag 退休且不得复用；提交修复后必须生成新 releaseTag。

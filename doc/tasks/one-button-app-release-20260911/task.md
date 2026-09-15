@@ -36,6 +36,6 @@ P2-P5 不在本次执行范围，不实现完整状态机、持久化 workflow�
 
 ## Current Status
 
-blocked
+in_progress
 
-P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_plan.py` 尚未接受标准 `app-release` scope，多个 required SQL 对测试服真实数据状态存在硬编码或空基线缺口。本 worktree 已补齐 `app-release` 迁移预检合同、活跃路线菜单解析、璞慧排产管理员菜单父级兼容、清洗工序参数空规则 no-op、光固 I/II 空来源 no-op、C00 文本比较显式 collation、B04091/B09353 清洗温度空候选 no-op、IDI QA 旧源空基线 no-op、压力泵同名物料已绑定/`product_master_id IS NULL` 的 no-op 合同，以及旧表单模板 Jimu 布局从正式识别字段构建的迁移合同。R53 在测试服版本切换前因历史模板缺少 `sheetLayoutJson` 阻断；修复尚未提交、隔离 MySQL 尚未验证，当前状态为 blocked，不得生成或发布新包。
+P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_plan.py` 尚未接受标准 `app-release` scope，多个 required SQL 对测试服真实数据状态存在硬编码或空基线缺口。本 worktree 已补齐 `app-release` 迁移预检合同、活跃路线菜单解析、璞慧排产管理员菜单父级兼容、清洗工序参数空规则 no-op、光固 I/II 空来源 no-op、C00 文本比较显式 collation、B04091/B09353 清洗温度空候选 no-op、IDI QA 旧源空基线 no-op、压力泵同名物料已绑定/`product_master_id IS NULL` 的 no-op 合同，以及旧表单模板 Jimu 布局从正式识别字段构建的迁移合同。R53 Jimu 布局修复已提交为 `c82ee4841` 并进入 R55 包；R55 随后暴露当前正式 `mes_pro_batch_record_version` 缺少 `child_form_member_count/child_form_member_hash` 的迁移 schema 缺口。现已完成按真实 21 列契约修复、静态 RED/GREEN 与测试服只读 preflight；修复待提交并需以新 releaseTag 重建验证，R55 不复用。

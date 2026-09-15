@@ -33,6 +33,8 @@ def test_old_form_template_binding_switch_declares_contract_and_guards() -> None
     assert "JSON_OBJECTAGG" in sql
     assert "JSON_MERGE_PATCH" in sql
     assert "recognized_schema_json" in sql
+    assert "child_form_member_count" not in sql
+    assert "child_form_member_hash" not in sql
 
     for destructive in ("DROP TABLE", "TRUNCATE TABLE", "DELETE FROM"):
         assert destructive not in upper

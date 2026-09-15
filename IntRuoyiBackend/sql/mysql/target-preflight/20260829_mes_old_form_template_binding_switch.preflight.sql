@@ -15,6 +15,35 @@ SELECT CASE
         'mes_pro_route_version'
       )
   ) = 8
+  AND (
+    SELECT COUNT(*)
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'mes_pro_batch_record_version'
+      AND column_name IN (
+        'tenant_id',
+        'definition_id',
+        'version_no',
+        'status',
+        'source_version_id',
+        'source_file_name',
+        'source_file_sha256',
+        'route_id',
+        'source_route_id',
+        'approval_instance_id',
+        'submitted_by',
+        'submitted_at',
+        'approved_by',
+        'approved_at',
+        'reject_reason',
+        'remark',
+        'creator',
+        'create_time',
+        'updater',
+        'update_time',
+        'deleted'
+      )
+  ) = 21
   AND NOT EXISTS (
     SELECT 1
     FROM mes_pro_route_flow_process_batch_record rb

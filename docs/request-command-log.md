@@ -2912,3 +2912,5 @@
 
 2026-09-15T10:42:00+08:00	one-button-app-release-20260911	COMMAND_INTENT	继续测试服 app-release 发布链路；R53 在版本切换前暴露 20260829 旧表单模板 Jimu schema 缺少 sheetLayoutJson。仅允许本机应用迁移/静态测试、测试服只读预检与已授权测试服发布；禁止正式服、审查服、mark-tested、promote-prod、promote-backup、MinIO 数据同步和全量数据库复制。
 2026-09-15T10:55:00+08:00	one-button-app-release-20260911	RESULT	应用仓为 20260829 迁移补充 recognized_schema_json -> Jimu sheetLayoutJson 的正式转换，并增强 target preflight；定向/相邻回归 30 passed，完整 migration policy gate 619 passed，测试服只读 target preflight 返回 TARGET_PREFLIGHT_PASS。尚未提交或生成新发布包，待提交后使用新 releaseTag 继续。
+
+2026-09-15T13:20:00+08:00	one-button-app-release-20260911	RESULT	R55 测试服部署在版本切换前失败于 20260829 迁移：真实表 `mes_pro_batch_record_version` 缺少 `child_form_member_count/child_form_member_hash`，返回 MySQL ERROR 1054；operation lock 已释放为 FAILED，测试服 .env/实际镜像未切换。已完成本机 schema 核对与 RED/GREEN 静态合同，尚未提交/重建新包。

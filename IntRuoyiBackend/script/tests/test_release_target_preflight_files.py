@@ -206,6 +206,9 @@ def test_old_form_template_binding_preflight_rejects_missing_jimu_layout_before_
     assert "JSON_VALID(tv.jimu_schema_json)" in text
     assert "$.sheetLayoutJson" in text
     assert "tv.id IS NULL" in text
+    assert "information_schema.columns" in text
+    assert "source_file_sha256" in text
+    assert ") = 21" in text
 
 
 def test_balloon_xlsx_cleanup_preflight_matches_current_or_legacy_target_contract() -> None:
