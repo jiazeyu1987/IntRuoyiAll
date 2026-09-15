@@ -50,4 +50,4 @@ BDD: 正式批记录版本列契约 -> Given 目标库 `mes_pro_batch_record_ver
 
 ## Blockers
 
-R55 不得复用；修复提交和新 releaseTag publish-test 通过前，不能宣称迁移交付完成。
+R55 不得复用；修复已提交为 `3098b3319`，新 releaseTag publish-test 通过前，不能宣称迁移交付完成。

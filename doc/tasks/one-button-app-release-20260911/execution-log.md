@@ -123,4 +123,5 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 - ROOT_CAUSE: `20260829` 迁移从未进入当前正式 schema/DO 的子表成员字段分支，却在 `mes_pro_batch_record_version` INSERT 列表中硬编码两个不存在的列；当前真实库 `DESCRIBE mes_pro_batch_record_version` 与 `MesProBatchRecordVersionDO` 均不含这两个字段。
 - FIX: 删除未发布字段引用和对应值，保留当前正式 21 列；target preflight 增加 `information_schema.columns` 21 列检查。未修改测试服数据库数据，未增加 fallback 或默认列。
 - GREEN: 本机 Docker MySQL 只读执行迁移新增 recognized-schema 临时构建片段返回模板版本 27/32 `schema_valid=1, layout_type=STRING`；测试服 target preflight 继续只读通过。完整 SQL 首次/重复执行仍需随新 release 包在测试服验证。
-- BLOCKER: R55 包包含修复前 SQL，按失败 tag 退休且不得复用；提交修复后必须生成新 releaseTag。
+- COMMIT: app migration schema contract fix -> `3098b3319`，包含迁移、target preflight、回归测试和任务证据。
+- BLOCKER: R55 包包含修复前 SQL，按失败 tag 退休且不得复用；必须生成新 releaseTag 并完成测试服真实 publish-test 验证。
