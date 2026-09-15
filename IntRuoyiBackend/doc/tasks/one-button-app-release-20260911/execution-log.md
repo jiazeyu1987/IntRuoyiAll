@@ -107,3 +107,23 @@ BDD: R53 Jimu 目标语义必须前移 -> Given 旧表单模板迁移依赖 `jim
 GREEN: `python -X utf8 -m pytest -q script\tests\test_mes_old_form_template_binding_switch_sql.py script\tests\test_release_target_preflight_files.py --basetemp .tmp-current-jimu-preflight` -> PASS，12 tests。
 
 STATUS: R61 本地目录只有 required-sql 与 build-preflight 证据，缺少 `manifest.json` 和镜像包；本机无 `release-20260915-one-button-app-r61` 的发布/Maven/Docker 进程。R61 判定为中断半成品，不复用、不发布。
+
+## R73 Application Release Tooling Contract Sync
+
+USER_AUTHORIZATION: 用户要求继续修复，目标仍是通用、长期可用的一键按钮发布功能；范围覆盖本机应用仓脚本/测试修复、提交和后续新 releaseTag 测试服 app-release 发布验证，不覆盖正式服、审查服、`mark-tested`、`promote-prod`、`promote-backup`、MinIO 数据同步或全量数据库复制。
+
+BDD: 应用发布脚本必须跟随通用 migration metadata 合同 -> Given 应用仓 SQL 使用 `requiresTargetPreflight/applyOrder/sessionProfile/approvedHook/resultAssertion`、evidence-only 类型和 rollback-only 元数据 / When build-release 自动发现并执行应用仓发布合同测试 / Then 应用侧 `publish-int-ruoyi.ps1` 必须解析、校验并投影这些字段，且排除 rollback/evidence-only SQL，不得把旧脚本合同作为 required SQL 阻塞点。
+
+RED: r73-application-tooling-contract -> FAIL。R73 `build-release` 在昂贵 Maven package、Docker、NAS 上传或测试服写入前停止于应用仓自动发现测试：`test_publish_dockerfiles_point_at_current_workspace_artifacts` 仍断言旧 backend Dockerfile CMD，`test_build_release_backend_e2e_fails_fast_without_internal_backend_runtime_base_config` 因应用脚本不识别 `requiresTargetPreflight`、随后把 rollback-only SQL 当 required SQL 而提前失败。
+
+GREEN: r73-application-tooling-contract -> PASS。应用仓 `script/deploy/publish-int-ruoyi.ps1` 已同步通用 metadata 解析与 manifest 投影，支持 `requiresTargetPreflight/applyOrder/sessionProfile/approvedHook/resultAssertion`，并排除 rollback-only 与 evidence-only SQL；测试更新为当前 `INTRUOYI_EXTRA_ARGS` Docker runtime 合同。
+
+REGRESSION: `python -X utf8 -m pytest -q script\tests\test_publish_int_ruoyi_to_test_tooling.py::test_publish_dockerfiles_point_at_current_workspace_artifacts script\tests\test_publish_int_ruoyi_to_test_tooling.py::test_publish_script_accepts_release_migration_metadata_types_used_by_policy_gate script\tests\test_publish_int_ruoyi_to_test_tooling.py::test_publish_script_preserves_extended_release_migration_metadata_in_manifest script\tests\test_publish_int_ruoyi_to_test_tooling.py::test_publish_script_excludes_rollback_and_evidence_only_sql_from_required_migrations script\tests\test_publish_int_ruoyi_to_test_tooling.py::test_build_release_backend_e2e_fails_fast_without_internal_backend_runtime_base_config --basetemp .tmp-r73-app-tooling-green2` -> PASS，5 passed。
+
+REGRESSION: `python -X utf8 -m pytest -q script\tests\test_dcc_fvm_matrix_retain_other_completion_sql.py script\tests\test_dcc_view_matrix_independent_seed_sql.py script\tests\test_publish_int_ruoyi_to_test_tooling.py script\tests\test_release_target_preflight_files.py --basetemp .tmp-r73-app-tooling-regression` -> PASS，135 passed。
+
+REGRESSION: `python -X utf8 -m pytest -q script\tests\test_release_manifest_migration_contract.py script\tests\test_release_migration_policy_gate.py script\tests\test_release_preflight_plan.py script\tests\test_release_manifest_validator.py --basetemp .tmp-r73-app-release-regression` -> PASS，58 passed；PowerShell AST for `script\deploy\publish-int-ruoyi.ps1` -> PASS。
+
+COMMIT: app release tooling contract sync -> `27f2ceccec7e`。
+
+RESULT: R73 判废且不得复用；失败前未形成完整发布包、未上传 NAS、未写测试服。下一轮必须使用全新 releaseTag `release-20260916-one-button-app-r74`，source freeze 绑定应用仓 `27f2ceccec7e` 之后的 clean HEAD 与维护仓新记录提交后的 clean HEAD。
