@@ -156,3 +156,11 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 - RED: 旧 manifest/preflight contract 不接受 `applyOrder`、`sessionProfile`、`approvedHook`、`resultAssertion`；新增 parser/preflight contract 先失败。
 - GREEN: manifest parser 与 preflight plan 统一解析并传递四类元数据；3 个现有迁移仅通过 SQL 头部声明顺序/session profile/hook。`python -X utf8 -m pytest -q script\\tests\\test_release_preflight_plan.py script\\tests\\test_release_target_preflight_files.py --basetemp .tmp-metadata-app-green` -> PASS，25 tests；Maven runtime/cancel regression -> PASS，79 tests。
 - DESIGN: 无 fallback、无吞异常、无 migrationId 特例；统一元数据合同仅声明能力，实际隔离 rehearsal、阶段事件、后台 scheduler/recovery 与完整 publish-test 仍未闭环。
+
+## R56 migration test discovery fix
+
+- RED: build-release-r56-migration-test-discovery -> FAIL，维护仓 R56 构建在 Maven/前端静态合同后、后端打包/Docker/NAS/测试服写入前返回 `MIGRATION_TEST_MISSING: 20260812_mes_route_version_snapshot_identity_enforce`；R56 未形成包且不得复用。
+- BDD: 路线快照身份强制迁移必须有同名合同测试 -> Given 冻结提交修改 `20260812_mes_route_version_snapshot_identity_enforce.sql` / When release workflow 自动发现迁移测试 / Then `script/tests` 必须存在引用该 migrationId 的测试，覆盖 metadata、approvedHook、not-null 前置阻断和只收紧现有列。
+- GREEN: 新增 `test_mes_route_version_snapshot_identity_enforce_sql.py` 覆盖该迁移的 release metadata、`route-snapshot-identity` approvedHook、blocker 为零后才 `ALTER ... NOT NULL`、以及禁止插入/更新/删除业务数据。
+- GREEN: `python -X utf8 -m pytest -q IntRuoyiBackend\script\tests\test_mes_route_version_snapshot_identity_enforce_sql.py IntRuoyiBackend\script\tests\test_mes_route_version_lifecycle_sql.py --basetemp .tmp-r56-route-snapshot-green` -> PASS，7 passed。
+- REGRESSION: `python -X utf8 -m pytest -q script\tests\test_release_target_preflight_files.py script\tests\test_release_preflight_plan.py --basetemp ..\.tmp-r56-preflight-regression2`（从 `IntRuoyiBackend` 根执行）-> PASS，25 passed；此前从应用根执行同一命令因 `ModuleNotFoundError: No module named 'script'` 收集失败，未作为产品缺陷。
