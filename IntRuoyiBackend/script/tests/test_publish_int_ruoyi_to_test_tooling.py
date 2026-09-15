@@ -1494,6 +1494,14 @@ def test_publish_script_accepts_release_migration_metadata_types_used_by_policy_
     text = read_publish_script()
     type_parser_block = _extract_powershell_function(text, "Read-ReleaseMigrationMetadata")
 
+    assert "$releaseMigrationExecutableTypes = @('schema', 'data', 'menu', 'config', 'permission', 'seed')" in text
+    assert (
+        "$releaseMigrationEvidenceOnlyTypes = @('preflight', 'backfill', 'postflight', 'rollback-dry-run')"
+        in text
+    )
+    assert "$releaseMigrationAllowedTypes = @($releaseMigrationExecutableTypes + $releaseMigrationEvidenceOnlyTypes)" in text
+    assert "$values[0] -notin $releaseMigrationAllowedTypes" in type_parser_block
+
     for migration_type in [
         "schema",
         "data",
@@ -1506,7 +1514,45 @@ def test_publish_script_accepts_release_migration_metadata_types_used_by_policy_
         "postflight",
         "rollback-dry-run",
     ]:
-        assert f"'{migration_type}'" in type_parser_block
+        assert f"'{migration_type}'" in text
+
+
+def test_publish_script_preserves_extended_release_migration_metadata_in_manifest() -> None:
+    text = read_publish_script()
+    metadata_reader = _extract_powershell_function(text, "Read-ReleaseMigrationMetadata")
+    manifest_builder = _extract_powershell_function(text, "New-ReleaseRequiredSqlManifestEntries")
+
+    for key in [
+        "requiresTargetPreflight",
+        "applyOrder",
+        "sessionProfile",
+        "approvedHook",
+        "resultAssertion",
+    ]:
+        assert key in metadata_reader
+
+    assert "Invalid requiresTargetPreflight in release migration metadata" in metadata_reader
+    assert "Invalid applyOrder in release migration metadata" in metadata_reader
+    assert "Invalid sessionProfile in release migration metadata" in metadata_reader
+    assert "Invalid approvedHook in release migration metadata" in metadata_reader
+    assert "Invalid resultAssertion in release migration metadata" in metadata_reader
+    assert "requiresTargetPreflight = [bool]$metadata.requiresTargetPreflight" in manifest_builder
+    assert "applyOrder = $metadata.applyOrder" in manifest_builder
+    assert "sessionProfile = [string]$metadata.sessionProfile" in manifest_builder
+    assert "approvedHook = [string]$metadata.approvedHook" in manifest_builder
+    assert "resultAssertion = [string]$metadata.resultAssertion" in manifest_builder
+
+
+def test_publish_script_excludes_rollback_and_evidence_only_sql_from_required_migrations() -> None:
+    text = read_publish_script()
+    sql_collector = _extract_powershell_function(text, "Get-ReleaseDatabaseSqlScripts")
+
+    assert "function Test-ReleaseRollbackMigrationMetadata" in text
+    assert "'^\\s*--\\s*rollback-migration\\s*:'" in text
+    assert "Test-ReleaseRollbackMigrationMetadata -SqlPath $file.FullName" in sql_collector
+    assert "Excluding rollback-only release SQL from required migrations" in sql_collector
+    assert "[string]$metadata.type -in $releaseMigrationEvidenceOnlyTypes" in sql_collector
+    assert "Excluding evidence-only release SQL from required migrations" in sql_collector
 
 
 def test_publish_script_uses_release_repo_server_and_share_overrides() -> None:
@@ -1632,7 +1678,11 @@ def test_publish_dockerfiles_point_at_current_workspace_artifacts() -> None:
     assert "docker.io" not in backend_dockerfile
     assert "docker-compose-v2" not in backend_dockerfile
     assert "FROM maven:" not in backend_dockerfile
-    assert 'CMD ["sh", "-c", "exec java ${JAVA_OPTS} -jar app.jar ${ARGS}"]' in backend_dockerfile
+    assert 'ENV INTRUOYI_EXTRA_ARGS=""' in backend_dockerfile
+    assert (
+        'CMD ["sh", "-c", "exec java ${JAVA_OPTS} -jar app.jar ${ARGS} ${INTRUOYI_EXTRA_ARGS}"]'
+        in backend_dockerfile
+    )
     assert "FROM eclipse-temurin:21-jre-noble" in backend_base_dockerfile
     assert "ARG APT_MIRROR=http://mirrors.aliyun.com/ubuntu" in backend_base_dockerfile
     assert "security.ubuntu.com/ubuntu#${APT_MIRROR}" in backend_base_dockerfile

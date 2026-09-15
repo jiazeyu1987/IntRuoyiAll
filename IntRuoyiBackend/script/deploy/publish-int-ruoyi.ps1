@@ -92,6 +92,10 @@ if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction Sile
     $PSNativeCommandUseErrorActionPreference = $false
 }
 
+$releaseMigrationExecutableTypes = @('schema', 'data', 'menu', 'config', 'permission', 'seed')
+$releaseMigrationEvidenceOnlyTypes = @('preflight', 'backfill', 'postflight', 'rollback-dry-run')
+$releaseMigrationAllowedTypes = @($releaseMigrationExecutableTypes + $releaseMigrationEvidenceOnlyTypes)
+
 function Fail([string]$Message) {
     Write-Host "[FAIL] $Message" -ForegroundColor Red
     exit 1
@@ -3551,6 +3555,23 @@ function Get-ReleaseDependencyHash {
     }
 }
 
+function Test-ReleaseRollbackMigrationMetadata {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SqlPath
+    )
+
+    if (-not (Test-Path -LiteralPath $SqlPath -PathType Leaf)) {
+        Fail "Release migration SQL missing before rollback metadata read: $SqlPath"
+    }
+    $text = [System.IO.File]::ReadAllText($SqlPath, [System.Text.UTF8Encoding]::new($false))
+    return [regex]::IsMatch(
+        $text,
+        '^\s*--\s*rollback-migration\s*:',
+        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Multiline
+    )
+}
+
 function Read-ReleaseMigrationMetadata {
     param(
         [Parameter(Mandatory = $true)]
@@ -3575,6 +3596,11 @@ function Read-ReleaseMigrationMetadata {
         dependsOn = @()
         type = 'schema'
         riskLevel = 'medium'
+        requiresTargetPreflight = $false
+        applyOrder = $null
+        sessionProfile = ''
+        approvedHook = ''
+        resultAssertion = ''
     }
     foreach ($segment in ($match.Groups[1].Value -split ';')) {
         $trimmed = $segment.Trim()
@@ -3603,7 +3629,7 @@ function Read-ReleaseMigrationMetadata {
                 $metadata.dependsOn = @($values)
             }
             'type' {
-                if ($values.Count -ne 1 -or $values[0] -notin @('schema', 'data', 'menu', 'config', 'permission', 'seed', 'preflight', 'backfill', 'postflight', 'rollback-dry-run')) {
+                if ($values.Count -ne 1 -or $values[0] -notin $releaseMigrationAllowedTypes) {
                     Fail "Invalid type in release migration metadata: $SqlPath"
                 }
                 $metadata.type = [string]$values[0]
@@ -3613,6 +3639,36 @@ function Read-ReleaseMigrationMetadata {
                     Fail "Invalid riskLevel in release migration metadata: $SqlPath"
                 }
                 $metadata.riskLevel = [string]$values[0]
+            }
+            'requiresTargetPreflight' {
+                if ($values.Count -ne 1 -or $values[0].ToLowerInvariant() -notin @('true', 'false')) {
+                    Fail "Invalid requiresTargetPreflight in release migration metadata: $SqlPath"
+                }
+                $metadata.requiresTargetPreflight = $values[0].ToLowerInvariant() -eq 'true'
+            }
+            'applyOrder' {
+                if ($values.Count -ne 1 -or $values[0] -notmatch '^[0-9]+$') {
+                    Fail "Invalid applyOrder in release migration metadata: $SqlPath"
+                }
+                $metadata.applyOrder = [int]$values[0]
+            }
+            'sessionProfile' {
+                if ($values.Count -ne 1 -or $values[0] -notmatch '^[a-z0-9][a-z0-9._-]{0,63}$') {
+                    Fail "Invalid sessionProfile in release migration metadata: $SqlPath"
+                }
+                $metadata.sessionProfile = [string]$values[0]
+            }
+            'approvedHook' {
+                if ($values.Count -ne 1 -or $values[0] -notmatch '^[a-z0-9][a-z0-9._-]{0,63}$') {
+                    Fail "Invalid approvedHook in release migration metadata: $SqlPath"
+                }
+                $metadata.approvedHook = [string]$values[0]
+            }
+            'resultAssertion' {
+                if ($values.Count -ne 1 -or $values[0] -notmatch '^[a-z0-9][a-z0-9._-]{0,63}$') {
+                    Fail "Invalid resultAssertion in release migration metadata: $SqlPath"
+                }
+                $metadata.resultAssertion = [string]$values[0]
             }
             default {
                 Fail "Unknown release migration metadata key in ${SqlPath}: $key"
@@ -3643,6 +3699,11 @@ function New-ReleaseRequiredSqlManifestEntries {
             allowedEnvironments = @($metadata.allowedEnvironments)
             dependsOn = @($metadata.dependsOn)
             riskLevel = [string]$metadata.riskLevel
+            requiresTargetPreflight = [bool]$metadata.requiresTargetPreflight
+            applyOrder = $metadata.applyOrder
+            sessionProfile = [string]$metadata.sessionProfile
+            approvedHook = [string]$metadata.approvedHook
+            resultAssertion = [string]$metadata.resultAssertion
             sha256 = ConvertTo-ReleaseFileSha256Digest -Path $packageSqlPath
             requiredPreconditions = @(
                 [ordered]@{
@@ -4238,7 +4299,15 @@ function Get-ReleaseDatabaseSqlScripts {
                 Fail "Duplicate release database SQL file name: $($file.Name) in $($seenPackageFileNames[$file.Name]) and $($file.FullName)"
             }
             $seenPackageFileNames[$file.Name] = $file.FullName
+            if (Test-ReleaseRollbackMigrationMetadata -SqlPath $file.FullName) {
+                Info "Excluding rollback-only release SQL from required migrations: $($file.Name)"
+                continue
+            }
             $metadata = Read-ReleaseMigrationMetadata -SqlPath $file.FullName
+            if ([string]$metadata.type -in $releaseMigrationEvidenceOnlyTypes) {
+                Info "Excluding evidence-only release SQL from required migrations: $($file.Name) [$($metadata.type)]"
+                continue
+            }
             $entries += @{
                 Path = ($relativeRoot + '/' + $file.Name)
                 Environments = @($metadata.allowedEnvironments)
