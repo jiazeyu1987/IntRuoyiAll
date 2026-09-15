@@ -129,3 +129,12 @@
 - Static source sweep reviewed residual `return-task`/`transfer-task`/`sign-task` and `V1.0` occurrences. Ordinary DCC controller/API/page entry points are removed; remaining return/transfer/sign endpoints are external-review specific. Remaining `V1.0` values are external-review or NAS legacy paths, except submit failure wording, which was fixed to show `A/1` rules for ordinary controlled uploads and retain numeric version rules for external review.
 - `git diff --check` PASS with only CRLF conversion warnings reported by Git. No database write, runtime restart, real E2E, Git commit or push was performed in this continuation.
 - Completion audit: current objective's code/static portion is satisfied by current source and verification evidence. Repository task closeout is not complete because `docs/task-closeout-rules.md` requires commit/push before `completed`, and current `AGENTS.md` requires current-turn authorization for Git commit/push and E2E. No further code defect is currently identified under the 20-item static scope.
+
+## Final push result — 2026-09-15
+
+- Pre-push large-object scan: origin/int_qms..HEAD contained 79 blobs; max blob 273,856 bytes; PASS under GitHub 100 MB limit.
+- First push: FAILED because Git config used proxy 127.0.0.1:7892 and the local proxy port was not listening.
+- Proxy diagnostics: Test-NetConnection github.com:443 PASS; Windows ProxyEnable=0; repository proxy settings were not modified.
+- Retry: git -c http.proxy= -c https.proxy= push origin int_qms -> PASS, pushed e07813eea..08cc01a78.
+- Post-push status: ## int_qms...origin/int_qms, no ahead count.
+- Final status set to completed based on code/static/local regression closure plus successful commit/push. Real-page E2E was not requested or run in this turn.

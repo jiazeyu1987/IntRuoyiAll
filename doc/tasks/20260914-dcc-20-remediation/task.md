@@ -4,7 +4,7 @@
 在当前 int_qms 分支逐个修复用户提供的 DCC-MAIN-01 至 DCC-MAIN-20，修复后逐项静态代码分析，持续修正直到20项逻辑错误全部消除。以当前分支代码为准，不用 int_main 的历史核查替代当前证据。提交推送仅在当前轮明确授权时执行。
 
 ## Current Status
-ready_for_closeout
+completed
 
 ## Latest main integration
 User-requested integration completed: remote int_main 70b53cf27 merged into int_qms as e2b7eac93 and pushed to origin/int_qms. Frontend build and 349 targeted backend tests plus 15 frontend checks passed. Checkout/checkin and project-template implementations are now available. The 20-item goal is not complete and must be audited against this integrated baseline.
@@ -58,4 +58,4 @@ User-requested integration completed: remote int_main 70b53cf27 merged into int_
 - 无运行态验证证据时不得关闭条目。基线和本任务实现必须分开。
 
 ## Blockers
-用户已明确允许排除 .runtime/ 并继续，其文件保留磁盘；.runtime/ 已由 .gitignore 排除，未进入暂存区。经验索引指向的 D:/ProjectPackage/Int/IntPP/FRONTEND_STYLE.md 在本机不存在；不套用其他项目路径。20项代码修复、静态合同、后端定向回归、前端类型检查和前端构建已通过；实现提交 7e7f3a080 已完成。task-closeout-cleanup 可执行文件在当前检出中不存在，已按文件归属直接复核 keep/delete 边界；等待收尾提交和 git push origin int_qms 验证。
+无当前阻塞。用户已明确允许排除 .runtime/ 并继续，其文件保留磁盘；.runtime/ 已由 .gitignore 排除，未进入暂存区。20项代码修复、静态合同、后端定向回归、前端类型检查和前端构建已通过；实现提交 7e7f3a080、收尾提交 08cc01a78 已推送到 origin/int_qms。task-closeout-cleanup 可执行文件在当前检出中不存在，已按文件归属直接复核 keep/delete 边界；本轮未执行真实页面 E2E、数据库写入、服务重启或远端服务器操作。
