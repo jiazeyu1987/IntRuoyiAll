@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.dcc.service.file;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationNotificationDeliveryDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationNotificationAuditMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationNotificationDeliveryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationNotificationCandidateReasonMapper;
@@ -63,6 +64,7 @@ class DccPublicationNotificationTransactionIntegrationTest extends BaseDbUnitTes
     @Resource private DccPublicationVisibilityRuleSnapshotMapper visibilityRuleMapper;
     @Resource private DccPublicationVisibilityUserSnapshotMapper visibilityUserMapper;
     @Resource private DccPublicationRelationDirectionSnapshotMapper directionMapper;
+    @Resource private DccControlledFileMapper controlledFileMapper;
 
     @Test
     void beginAttempt_requiresNewCommitsEvenWhenCallingPublicationTransactionRollsBack() {
@@ -246,6 +248,17 @@ class DccPublicationNotificationTransactionIntegrationTest extends BaseDbUnitTes
                  WHERE id=20
                 """);
         jdbc.update("""
+                INSERT INTO dcc_controlled_file
+                  (id, master_id, category_id, directory_id, source_file_id, original_file_id,
+                   published_file_id, stamped_file_id, file_name, title, file_number, dcc_project_code_id,
+                   file_type_taxonomy_id, need_training, process_type, change_type, version_no, revision_code,
+                   iteration_no, status, submitter_id, requester_id, approved_time, published_time, tenant_id, deleted)
+                VALUES
+                  (9007199254740991, 120, 20, 30, 1201, 1201, 1201, 1201, '历史关联文件', '历史关联文件',
+                   'REL-120', 40, 50, 0, 'CONTROLLED_FILE', 'REVISION', 'B/2', 'B', 2, 'ACTIVE', 1, 1,
+                   TIMESTAMP '2026-09-07 09:30:00', TIMESTAMP '2026-09-07 10:30:00', 1, 0)
+                """);
+        jdbc.update("""
                 INSERT INTO dcc_publication_relation_direction_snapshot
                   (id, batch_id, relation_snapshot_id, direction, source_relation_id,
                    source_controlled_file_id, target_controlled_file_id, relation_source_snapshot,
@@ -292,6 +305,7 @@ class DccPublicationNotificationTransactionIntegrationTest extends BaseDbUnitTes
         DccControlledFileQueryService access = mock(DccControlledFileQueryService.class);
         DccPublicationFollowupQueryServiceImpl query = new DccPublicationFollowupQueryServiceImpl();
         setQueryField(query, "controlledFileQueryService", access);
+        setQueryField(query, "controlledFileMapper", controlledFileMapper);
         setQueryField(query, "batchMapper", batchMapper);
         setQueryField(query, "deliveryMapper", deliveryMapper);
         setQueryField(query, "candidateMapper", candidateMapper);
@@ -326,7 +340,7 @@ class DccPublicationNotificationTransactionIntegrationTest extends BaseDbUnitTes
             assertNull(result.getTimeline().get(3).getAssigneeBefore());
             assertNull(result.getTimeline().get(5).getAssigneeAfter());
             assertEquals("9007199254740991", result.getTimeline().get(6).getLinkedRevisionControlledFileId());
-            assertNull(result.getTimeline().get(6).getLinkedRevisionVersion());
+            assertEquals("B/2", result.getTimeline().get(6).getLinkedRevisionVersion());
             assertEquals("9007199254740993", result.getTimeline().get(7).getLinkedRevisionControlledFileId());
             assertEquals("C/1", result.getTimeline().get(7).getLinkedRevisionVersion());
             assertEquals("9007199254740993", result.getTimeline().get(8).getLinkedRevisionControlledFileId());

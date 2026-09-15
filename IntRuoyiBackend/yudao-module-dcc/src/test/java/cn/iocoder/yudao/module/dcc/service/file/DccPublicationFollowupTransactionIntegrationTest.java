@@ -16,6 +16,8 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMessageJobMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileObsoleteAuditMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRouteSnapshotMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingAssignmentMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingProgressMapper;
@@ -84,6 +86,8 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
     @Resource private DccPublicationRelationSnapshotMapper relationSnapshotMapper;
     @Resource private DccPublicationRelationDirectionSnapshotMapper relationDirectionMapper;
     @Resource private DccPublicationImpactAuditMapper impactAuditMapper;
+    @Resource private DccControlledFileSignatureMapper approvalSignatureMapper;
+    @Resource private DccControlledFileRouteSnapshotMapper routeSnapshotMapper;
 
     private DccControlledContentAdapter platformAdapter;
     private DccControlledFileFinalizationServiceImpl finalizationService;
@@ -140,6 +144,51 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
                 mock(DccControlledFileCategoryPermissionSupport.class);
         when(permissionSupport.hasCategoryPermission(20L, 9L,
                 DccFileCategoryPermissionActionEnum.APPROVE)).thenReturn(true);
+        DccElectronicSignatureManagementService signatureManagementService =
+                mock(DccElectronicSignatureManagementService.class);
+        when(signatureManagementService.verifySignatureEvidence(any())).thenAnswer(invocation -> {
+            var result = new cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccSignatureVerifyRespVO();
+            result.setSignatureId(invocation.getArgument(0));
+            result.setVerificationStatus("VALID");
+            return result;
+        });
+        DccControlledFileRouteSnapshotMapper completeRouteSnapshotMapper =
+                mock(DccControlledFileRouteSnapshotMapper.class);
+        DccControlledFileSignatureMapper completeApprovalSignatureMapper =
+                mock(DccControlledFileSignatureMapper.class);
+        when(completeRouteSnapshotMapper.selectListByControlledFileId(any())).thenAnswer(invocation -> {
+            Long fileId = invocation.getArgument(0);
+            List<String> stages = List.of("DOC_CONTROL_REVIEW", "MATRIX_REVIEW",
+                    "MATRIX_APPROVAL", "DOC_CONTROL_APPROVAL");
+            return stages.stream().map(stage ->
+                    cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRouteSnapshotDO.builder()
+                            .controlledFileId(fileId)
+                            .stageCode(stage)
+                            .resolvedUserIds("9")
+                            .approveMethod("MATRIX_REVIEW".equals(stage) ? "ALL" : "ANY")
+                            .requireAllApprovals("MATRIX_REVIEW".equals(stage))
+                            .build()).toList();
+        });
+        when(completeApprovalSignatureMapper.selectListByControlledFileId(any())).thenAnswer(invocation -> {
+            Long fileId = invocation.getArgument(0);
+            List<String> stages = List.of("DOC_CONTROL_REVIEW", "MATRIX_REVIEW",
+                    "MATRIX_APPROVAL", "DOC_CONTROL_APPROVAL");
+            return stages.stream().map(stage ->
+                    cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO.builder()
+                            .id((long) stages.indexOf(stage) + 1)
+                            .controlledFileId(fileId)
+                            .revisionId(fileId)
+                            .versionNo("B/1")
+                            .actorId(9L)
+                            .actionType("APPROVE")
+                            .meaningCode(stage + "_APPROVE")
+                            .passwordVerified(true)
+                            .signedAt(java.time.LocalDateTime.of(2026, 9, 7, 10, 59))
+                            .taskId(stage + "-task")
+                            .evidenceStatus("VALID")
+                            .evidenceHash("signed-evidence")
+                            .build()).toList();
+        });
         finalizationService = new DccControlledFileFinalizationServiceImpl();
         set(finalizationService, "transactionTemplate", new CapturingTransactionTemplate(
                 transactionManager, capturedTransactionFailure));
@@ -152,6 +201,8 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         set(finalizationService, "trainingProgressMapper", mock(DccControlledFileTrainingProgressMapper.class));
         set(finalizationService, "messageJobMapper", mock(DccControlledFileMessageJobMapper.class));
         set(finalizationService, "obsoleteAuditMapper", mock(DccControlledFileObsoleteAuditMapper.class));
+        set(finalizationService, "approvalSignatureMapper", completeApprovalSignatureMapper);
+        set(finalizationService, "routeSnapshotMapper", completeRouteSnapshotMapper);
         set(finalizationService, "categoryMapper", categoryMapper);
         set(finalizationService, "distributionRuleMapper", mock(DccFileCategoryDistributionRuleMapper.class));
         set(finalizationService, "trainingRuleMapper", mock(DccFileCategoryTrainingRuleMapper.class));
@@ -168,6 +219,7 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         set(finalizationService, "platformAdapter", platformAdapter);
         set(finalizationService, "pendingActionGuard", mock(DccControlledFilePendingActionGuard.class));
         set(finalizationService, "signatureBindingService", mock(DccControlledFileSignatureBindingService.class));
+        set(finalizationService, "signatureManagementService", signatureManagementService);
         set(finalizationService, "publicationFollowupService", followupService);
         set(finalizationService, "finalizationFailureService", new DccControlledFileFinalizationFailureService(
                 transactionManager, controlledFileMapper, platformAdapter));
@@ -265,7 +317,8 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
     }
 
     @Test
-    void approvalEventConditionalTransitionIsIdempotentAfterActivation() {
+    void approvalEventFinalizesAndReplayIsIdempotentAfterActivation() {
+        set(followupService, "visibilityUserMapper", visibilityUserMapper);
         jdbcTemplate.update("""
                 UPDATE dcc_controlled_file
                 SET status = 'PENDING_DOC_CONTROL_APPROVAL',
@@ -282,16 +335,19 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         event.setActorUserId(9L);
 
         finalizationService.handleProcessInstanceStatusChanged(event);
-        assertEquals(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus(), stringValue(
+        assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), stringValue(
                 "SELECT status FROM dcc_controlled_file WHERE id = 100"));
+        assertEquals(100L, longValue(
+                "SELECT current_active_controlled_file_id FROM dcc_controlled_file_master WHERE id = 10"));
 
         jdbcTemplate.update("UPDATE dcc_controlled_file SET status = 'ACTIVE' WHERE id = 100");
         finalizationService.handleProcessInstanceStatusChanged(event);
 
         assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), stringValue(
                 "SELECT status FROM dcc_controlled_file WHERE id = 100"));
-        verify(platformAdapter).recordApprovedReadyToPublish(any(),
+        verify(platformAdapter).recordFinalized(any(), any(),
                 org.mockito.ArgumentMatchers.eq(9L), org.mockito.ArgumentMatchers.eq("process-100"));
+        verify(platformAdapter, never()).recordApprovedReadyToPublish(any(), any(), any());
     }
 
     private void seedPublicationRows() {
