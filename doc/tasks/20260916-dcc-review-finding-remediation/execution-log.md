@@ -26,3 +26,7 @@
 ## Closeout Cleanup
 - task-closeout-cleanup tool lookup: BLOCKED locally; no `task_closeout.py` or `*task*closeout*` script exists under `C:\Users\D01020\.codex` or repository `scripts`.
 - Manual cleanup review: current task directory contains only `task.md`, `execution-log.md`, and `verification-report.md`; no temporary screenshots/logs/scripts need deletion.
+
+## Commit Records
+- Implementation commit: 9aae29b578876475f5edaa3a9e8f15e80c97471a
+- Implementation files: DccControlledFileMapper.java; DccControlledFileFinalizationServiceImpl.java; DccControlledFileQueryServiceImpl.java; DccControlledFileFinalizationServiceImplTest.java; DccControlledFileQueryServiceTest.java; dcc-static-014-browser-major-revision-owner-action-contract.spec.cjs; browser/index.vue; task records.
