@@ -52,6 +52,9 @@ public class MesQaCommonRegulationSetRespVO {
         private Integer sort;
         private String memberRole;
         private String remark;
+        private Boolean finalInspectionApplicable;
+        private String finalInspectionNotApplicableReason;
+        private List<MesQaInspectionRegulationPublishedVersionRespVO.InspectionTypeRule> inspectionTypeRules;
         private List<MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess> processes;
     }
 }

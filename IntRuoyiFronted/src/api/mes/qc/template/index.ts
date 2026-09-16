@@ -202,6 +202,9 @@ export interface QaCommonRegulationSetMemberVO {
   sort?: number
   memberRole?: string
   remark?: string
+  finalInspectionApplicable: boolean
+  finalInspectionNotApplicableReason?: string
+  inspectionTypeRules: QaInspectionRegulationInspectionTypeRuleVO[]
   processes: QaInspectionRegulationProcessVO[]
 }
 
@@ -253,6 +256,31 @@ export interface QaCommonRegulationSetVersionSaveReqVO {
   members: QaCommonRegulationSetVersionMemberSaveReqVO[]
 }
 
+export interface QaCommonRegulationSetItemsUpgradeMemberReqVO {
+  commonRegulationId: number
+  sourceCommonRegulationVersionId: number
+  commonDccProjectCodeId: number
+  commonRegulationCode: string
+  commonRegulationName: string
+  versionNo: string
+  sort?: number
+  memberRole?: string
+  remark?: string
+  finalInspectionApplicable: boolean
+  finalInspectionNotApplicableReason?: string
+  inspectionTypeRules: QaInspectionRegulationInspectionTypeRuleVO[]
+  processes: QaCommonRegulationSetItemsUpgradeProcessReqVO[]
+}
+
+export interface QaCommonRegulationSetItemsUpgradeReqVO {
+  setId: number
+  sourceSetVersionId: number
+  versionNo: string
+  effectiveDate?: string
+  remark?: string
+  members: QaCommonRegulationSetItemsUpgradeMemberReqVO[]
+}
+
 export interface QaCommonRegulationSetVersionOptionVO {
   commonRegulationSetId: number
   commonRegulationSetVersionId: number
@@ -290,6 +318,16 @@ export type QaInspectionRegulationSaveItemVO = Omit<
   QaInspectionRegulationItemVO,
   'equipmentOptions'
 >
+
+export interface QaCommonRegulationSetItemsUpgradeItemReqVO
+  extends QaInspectionRegulationSaveItemVO {
+  equipmentOptions: QaInspectionRegulationItemEquipmentVO[]
+}
+
+export interface QaCommonRegulationSetItemsUpgradeProcessReqVO
+  extends Omit<QaInspectionRegulationSaveProcessVO, 'items'> {
+  items: QaCommonRegulationSetItemsUpgradeItemReqVO[]
+}
 
 export interface QaInspectionRegulationSaveRespVO {
   dccProjectCodeId: number
@@ -534,6 +572,16 @@ export const QcTemplateApi = {
   ): Promise<QaCommonRegulationSetVersionVO> => {
     return await request.post({
       url: `/mes/qa/inspection-regulation/common-set-versions/save`,
+      data
+    })
+  },
+
+  // 保存通用检验规程套检验项目并升版
+  upgradeCommonRegulationSetItems: async (
+    data: QaCommonRegulationSetItemsUpgradeReqVO
+  ): Promise<QaCommonRegulationSetVersionVO> => {
+    return await request.post({
+      url: `/mes/qa/inspection-regulation/common-set-versions/upgrade-items`,
       data
     })
   },

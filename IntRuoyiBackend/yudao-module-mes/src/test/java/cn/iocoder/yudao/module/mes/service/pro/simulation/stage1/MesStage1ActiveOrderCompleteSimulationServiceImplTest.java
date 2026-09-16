@@ -9,6 +9,10 @@ import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProduc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionMaterialListDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderBomDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.batch.MesWmBatchDO;
@@ -43,6 +47,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationStateMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionMaterialListMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderBomMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.batch.MesWmBatchMapper;
@@ -54,7 +60,10 @@ import cn.iocoder.yudao.module.mes.dal.mysql.wm.warehouse.MesWmWarehouseAreaMapp
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.warehouse.MesWmWarehouseLocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.warehouse.MesWmWarehouseMapper;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotCodec;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceSelectionSnapshotCodec;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import cn.hutool.crypto.digest.DigestUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -73,6 +82,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -92,7 +102,11 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
     @Mock
     private MesProWorkOrderBomMapper workOrderBomMapper;
     @Mock
+    private MesKingdeeProductionMaterialListMapper productionMaterialListMapper;
+    @Mock
     private MesMdItemMapper itemMapper;
+    @Mock
+    private MesProRouteVersionMapper routeVersionMapper;
     @Mock
     private MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
     @Mock
@@ -204,19 +218,77 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
     }
 
     @Test
-    void missingFormalPickListsFailsWithoutProductOrBomInference() {
+    void missingFormalPickListsCreateExplicitSimulationFromWorkOrderBom() {
         TenantContextHolder.setTenantId(1L);
         MesProcessPoolActiveOrderDO simulatedTemplate = activeOrder(150L).setSimulated(Boolean.TRUE);
         when(bindingMapper.selectListByActiveOrderId(150L)).thenReturn(List.of());
         when(pickListItemMapper.selectListByProductionOrderNo("WO-001")).thenReturn(List.of());
-        ServiceException exception = assertThrows(ServiceException.class,
-                () -> ReflectionTestUtils.invokeMethod(service, "resolveTemplateBindings",
-                        simulatedTemplate, workOrder(), command(150L)));
+        when(workOrderBomMapper.selectListByWorkOrderId(9001L)).thenReturn(List.of(
+                MesProWorkOrderBomDO.builder().id(5001L).workOrderId(9001L).itemId(6001L)
+                        .quantity(new BigDecimal("12")).build()));
+        when(itemMapper.selectById(6001L)).thenReturn(MesMdItemDO.builder().id(6001L)
+                .code("MAT-SIM-001").name("模拟物料").specification("S1").build());
+        AtomicLong ids = new AtomicLong(9901L);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            invocation.getArgument(0, ErpKingdeeProductionPickListDO.class).setId(ids.getAndIncrement());
+            return 1;
+        }).when(pickListMapper).insert(any(ErpKingdeeProductionPickListDO.class));
+        org.mockito.Mockito.doAnswer(invocation -> 1)
+                .when(pickListItemMapper).insert(any(ErpKingdeeProductionPickListItemDO.class));
 
-        assertEquals(PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_SOURCE_REQUIRED.getCode(), exception.getCode());
-        verify(itemMapper, never()).selectById(any());
-        verify(pickListMapper, never()).insert((ErpKingdeeProductionPickListDO) any());
-        verify(pickListItemMapper, never()).insert((ErpKingdeeProductionPickListItemDO) any());
+        @SuppressWarnings("unchecked")
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings = ReflectionTestUtils.invokeMethod(
+                service, "resolveTemplateBindings", simulatedTemplate, workOrder(), command(150L));
+
+        assertEquals(1, bindings.size());
+        assertEquals(9901L, bindings.get(0).getPickListId());
+        assertTrue(Boolean.TRUE.equals(bindings.get(0).getSimulated()));
+        assertTrue(bindings.get(0).getSourceBillNo().startsWith("STAGE1-PL-"));
+        verify(pickListMapper).insert(any(ErpKingdeeProductionPickListDO.class));
+        verify(pickListItemMapper).insert(any(ErpKingdeeProductionPickListItemDO.class));
+    }
+
+    @Test
+    void missingFormalPickListsPreferRealProductionMaterialListBeforeBomSimulation() {
+        TenantContextHolder.setTenantId(1L);
+        MesProcessPoolActiveOrderDO simulatedTemplate = activeOrder(151L).setSimulated(Boolean.TRUE);
+        when(bindingMapper.selectListByActiveOrderId(151L)).thenReturn(List.of());
+        when(pickListItemMapper.selectListByProductionOrderNo("WO-001")).thenReturn(List.of());
+        when(productionMaterialListMapper.selectListByProductionOrderNo("WO-001")).thenReturn(List.of(
+                MesKingdeeProductionMaterialListDO.builder()
+                        .id(5101L)
+                        .sourceBillNo("PML-001")
+                        .sourceEntryId("PML-E1")
+                        .productionOrderNo("WO-001")
+                        .productionOrderLineNo(7)
+                        .childMaterialCode("MAT-PML-001")
+                        .childMaterialName("真实用料清单物料")
+                        .childMaterialSpecification("PML-S1")
+                        .childUnitName("个")
+                        .requiredQuantity(new BigDecimal("8"))
+                        .build()));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            invocation.getArgument(0, ErpKingdeeProductionPickListDO.class).setId(9902L);
+            return 1;
+        }).when(pickListMapper).insert(any(ErpKingdeeProductionPickListDO.class));
+        org.mockito.Mockito.doAnswer(invocation -> 1)
+                .when(pickListItemMapper).insert(any(ErpKingdeeProductionPickListItemDO.class));
+
+        @SuppressWarnings("unchecked")
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings = ReflectionTestUtils.invokeMethod(
+                service, "resolveTemplateBindings", simulatedTemplate, workOrder(), command(151L));
+
+        assertEquals(List.of(9902L), bindings.stream()
+                .map(MesProcessPoolActiveOrderPickListBindingDO::getPickListId).toList());
+        ArgumentCaptor<ErpKingdeeProductionPickListItemDO> itemCaptor =
+                ArgumentCaptor.forClass(ErpKingdeeProductionPickListItemDO.class);
+        verify(pickListItemMapper).insert(itemCaptor.capture());
+        assertEquals("MAT-PML-001", itemCaptor.getValue().getMaterialNumber());
+        assertEquals(new BigDecimal("8"), itemCaptor.getValue().getActualQuantity());
+        assertEquals(7, itemCaptor.getValue().getProductionOrderLineNo());
+        assertTrue(itemCaptor.getValue().getLotNumber().startsWith("STAGE1-LOT-"));
+        assertTrue(itemCaptor.getValue().getRawPayload().contains("PML-001"));
+        verify(workOrderBomMapper, never()).selectListByWorkOrderId(any());
     }
 
     @Test
@@ -241,6 +313,8 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
                 .materialName("正式物料")
                 .requestedQuantity(new BigDecimal("5"))
                 .actualQuantity(new BigDecimal("5"))
+                .baseActualQuantity(new BigDecimal("5"))
+                .lotNumber("LOT-001")
                 .productionOrderNo("WO-001")
                 .build();
         ErpKingdeeProductionPickListDO secondHeader = ErpKingdeeProductionPickListDO.builder()
@@ -250,7 +324,8 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
                 .id(9102L).productionPickListId(9002L).sourceFid("FID-9002")
                 .sourceEntryId("1").sourceLineKey("PICK-9002-LINE-1").sourceBillNo("PICK-9002")
                 .materialNumber("MAT-002").materialName("正式物料2").requestedQuantity(new BigDecimal("6"))
-                .actualQuantity(new BigDecimal("6")).productionOrderNo("WO-001").build();
+                .actualQuantity(new BigDecimal("6")).baseActualQuantity(new BigDecimal("6"))
+                .lotNumber("LOT-002").productionOrderNo("WO-001").build();
         when(pickListItemMapper.selectListByProductionOrderNo("WO-001")).thenReturn(List.of(item, secondItem));
         when(pickListMapper.selectById(9001L)).thenReturn(header);
         when(pickListMapper.selectById(9002L)).thenReturn(secondHeader);
@@ -269,28 +344,21 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
     }
 
     @Test
-    void simulatedTemplateWithoutBindingsResolvesFormalPickListsFromSourceActiveOrder() {
+    void simulatedTemplateWithoutBindingsUsesCurrentWorkOrderPickListsBeforeSourceActiveOrder() {
         TenantContextHolder.setTenantId(1L);
         MesProcessPoolActiveOrderDO copiedTemplate = activeOrder(396L)
                 .setSimulated(Boolean.TRUE);
         MesProWorkOrderDO copiedWorkOrder = workOrder()
                 .setCode("SIM-COPY-FORMAL-WO-001")
                 .setRemark("[MES_STAGE1_SIMULATION][simulationRunId=copy][actorUserId=3001][sourceActiveOrderId=1009200001]");
-        MesProcessPoolActiveOrderDO sourceActiveOrder = activeOrder(1009200001L)
-                .setWorkOrderId(9101L);
-        MesProWorkOrderDO sourceWorkOrder = workOrder()
-                .setId(9101L)
-                .setCode("FORMAL-WO-001");
         ErpKingdeeProductionPickListDO firstHeader = formalPickList(9001L, "FID-9001", "PICK-9001");
         ErpKingdeeProductionPickListDO secondHeader = formalPickList(9002L, "FID-9002", "PICK-9002");
         ErpKingdeeProductionPickListItemDO firstItem = formalPickListItem(9101L, 9001L)
-                .setProductionOrderNo("FORMAL-WO-001");
+                .setProductionOrderNo("SIM-COPY-FORMAL-WO-001");
         ErpKingdeeProductionPickListItemDO secondItem = formalPickListItem(9102L, 9002L)
-                .setProductionOrderNo("FORMAL-WO-001");
+                .setProductionOrderNo("SIM-COPY-FORMAL-WO-001");
         when(bindingMapper.selectListByActiveOrderId(396L)).thenReturn(List.of());
-        when(activeOrderMapper.selectById(1009200001L)).thenReturn(sourceActiveOrder);
-        when(workOrderMapper.selectById(9101L)).thenReturn(sourceWorkOrder);
-        when(pickListItemMapper.selectListByProductionOrderNo("FORMAL-WO-001"))
+        when(pickListItemMapper.selectListByProductionOrderNo("SIM-COPY-FORMAL-WO-001"))
                 .thenReturn(List.of(firstItem, secondItem));
         when(pickListMapper.selectById(9001L)).thenReturn(firstHeader);
         when(pickListMapper.selectById(9002L)).thenReturn(secondHeader);
@@ -301,8 +369,45 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
 
         assertEquals(List.of(9001L, 9002L), bindings.stream()
                 .map(MesProcessPoolActiveOrderPickListBindingDO::getPickListId).toList());
+        verify(pickListItemMapper, times(2)).selectListByProductionOrderNo("SIM-COPY-FORMAL-WO-001");
+        verify(pickListItemMapper, never()).selectListByProductionOrderNo("FORMAL-WO-001");
+        verify(activeOrderMapper, never()).selectById(1009200001L);
+    }
+
+    @Test
+    void simulatedTemplateWithoutCurrentSourcesFallsBackToSourceActiveOrderPickLists() {
+        TenantContextHolder.setTenantId(1L);
+        MesProcessPoolActiveOrderDO copiedTemplate = activeOrder(397L)
+                .setSimulated(Boolean.TRUE);
+        MesProWorkOrderDO copiedWorkOrder = workOrder()
+                .setCode("SIM-COPY-NO-CURRENT-SOURCE")
+                .setRemark("[MES_STAGE1_SIMULATION][simulationRunId=copy][actorUserId=3001][sourceActiveOrderId=1009200001]");
+        MesProcessPoolActiveOrderDO sourceActiveOrder = activeOrder(1009200001L)
+                .setWorkOrderId(9101L);
+        MesProWorkOrderDO sourceWorkOrder = workOrder()
+                .setId(9101L)
+                .setCode("FORMAL-WO-001");
+        ErpKingdeeProductionPickListDO firstHeader = formalPickList(9001L, "FID-9001", "PICK-9001");
+        ErpKingdeeProductionPickListItemDO firstItem = formalPickListItem(9101L, 9001L)
+                .setProductionOrderNo("FORMAL-WO-001");
+        when(bindingMapper.selectListByActiveOrderId(397L)).thenReturn(List.of());
+        when(pickListItemMapper.selectListByProductionOrderNo("SIM-COPY-NO-CURRENT-SOURCE"))
+                .thenReturn(List.of());
+        when(productionMaterialListMapper.selectListByProductionOrderNo("SIM-COPY-NO-CURRENT-SOURCE"))
+                .thenReturn(List.of());
+        when(activeOrderMapper.selectById(1009200001L)).thenReturn(sourceActiveOrder);
+        when(workOrderMapper.selectById(9101L)).thenReturn(sourceWorkOrder);
+        when(pickListItemMapper.selectListByProductionOrderNo("FORMAL-WO-001"))
+                .thenReturn(List.of(firstItem));
+        when(pickListMapper.selectById(9001L)).thenReturn(firstHeader);
+
+        @SuppressWarnings("unchecked")
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings = ReflectionTestUtils.invokeMethod(
+                service, "resolveTemplateBindings", copiedTemplate, copiedWorkOrder, command(397L));
+
+        assertEquals(List.of(9001L), bindings.stream()
+                .map(MesProcessPoolActiveOrderPickListBindingDO::getPickListId).toList());
         verify(pickListItemMapper).selectListByProductionOrderNo("FORMAL-WO-001");
-        verify(pickListItemMapper, never()).selectListByProductionOrderNo("SIM-COPY-FORMAL-WO-001");
     }
 
     @Test
@@ -334,9 +439,12 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
         TenantContextHolder.setTenantId(1L);
         MesProWorkOrderDO workOrder = workOrder();
         ErpKingdeeProductionPickListItemDO item = ErpKingdeeProductionPickListItemDO.builder()
-                .id(9101L).productionPickListId(9001L).productionOrderNo("WO-001").build();
+                .id(9101L).productionPickListId(9001L).productionOrderNo("WO-001")
+                .sourceFid("FID-9001").sourceEntryId("1").sourceLineKey("PICK-9001-LINE-1")
+                .sourceBillNo("PICK-9001").materialNumber("MAT-001").materialName("正式物料")
+                .requestedQuantity(BigDecimal.ONE).build();
         when(pickListItemMapper.selectListByProductionOrderNo("WO-001")).thenReturn(List.of(item));
-        when(pickListMapper.selectById(9001L)).thenReturn(null);
+        when(pickListMapper.selectById(9001L)).thenReturn(formalPickList(9001L, "FID-9001", "PICK-9001"));
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> ReflectionTestUtils.invokeMethod(service, "resolveTemplateBindings",
@@ -451,6 +559,57 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
         verify(pickListMapper).deleteById(9202L);
     }
 
+    @Test
+    void clonedLegacyProcessSnapshotsRebuildProductionConfigEnvelopeForResetOrder() {
+        TenantContextHolder.setTenantId(1L);
+        String parameterJson = "[]";
+        String deviceSelectionJson = "[]";
+        String lossReasonJson = "[]";
+        MesProcessPoolActiveOrderProcessSnapshotDO legacySnapshot =
+                new MesProcessPoolActiveOrderProcessSnapshotDO()
+                        .setId(5101L)
+                        .setActiveOrderId(328L)
+                        .setWorkOrderId(9001L)
+                        .setRouteId(922119L)
+                        .setRouteVersionId(448L)
+                        .setRouteProcessId(1001L)
+                        .setProcessId(201L)
+                        .setProcessCodeSnapshot("ROUGH_WASH")
+                        .setProcessNameSnapshot("粗洗工序")
+                        .setErpFixedQuantitySnapshot(new BigDecimal("100.000000"))
+                        .setProductionQuantityFactorSnapshot(new BigDecimal("1.000000"))
+                        .setPlannedQuantitySnapshot(new BigDecimal("100.000000"))
+                        .setParameterSnapshotJson(parameterJson)
+                        .setParameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256(parameterJson))
+                        .setParameterSnapshotState(MesDeviceParameterSnapshotCodec.STATE_FROZEN)
+                        .setDeviceSelectionSnapshotJson(deviceSelectionJson)
+                        .setDeviceSelectionSnapshotSha256(MesDeviceSelectionSnapshotCodec.sha256(deviceSelectionJson))
+                        .setLossReasonSnapshotJson(lossReasonJson)
+                        .setLossReasonSnapshotSha256(DigestUtil.sha256Hex(lossReasonJson))
+                        .setOveragePercentSnapshot(new BigDecimal("0.000000"));
+        when(snapshotMapper.selectListByActiveOrderIdForUpdate(328L)).thenReturn(List.of(legacySnapshot));
+        when(routeVersionMapper.selectById(448L)).thenReturn(routeVersion());
+
+        ReflectionTestUtils.invokeMethod(service, "cloneSnapshots", 328L,
+                activeOrder(901L).setWorkOrderId(9901L), "STAGE1-unit");
+
+        ArgumentCaptor<MesProcessPoolActiveOrderProcessSnapshotDO> snapshotCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolActiveOrderProcessSnapshotDO.class);
+        verify(snapshotMapper).insert(snapshotCaptor.capture());
+        MesProcessPoolActiveOrderProcessSnapshotDO cloned = snapshotCaptor.getValue();
+        assertEquals(901L, cloned.getActiveOrderId());
+        assertEquals(9901L, cloned.getWorkOrderId());
+        assertNotNull(cloned.getProductionConfigSnapshotJson());
+        assertEquals(DigestUtil.sha256Hex(cloned.getProductionConfigSnapshotJson()),
+                cloned.getProductionConfigSnapshotSha256());
+        assertEquals("STAGE1_TEMPLATE_PROCESS_SNAPSHOT", cloned.getProductionConfigMigrationSource());
+        assertNotNull(cloned.getProductionConfigMigratedAt());
+        assertTrue(cloned.getProductionConfigSnapshotJson().contains("\"routeProcessId\":1001"));
+        assertTrue(cloned.getProductionConfigSnapshotJson().contains("\"processId\":201"));
+        assertTrue(cloned.getProductionConfigSnapshotJson().contains("\"parameterRules\":[]"));
+        assertTrue(cloned.getProductionConfigSnapshotJson().contains("\"deviceSelectionGroups\":[]"));
+    }
+
     private static MesStage1ActiveOrderCompleteSimulationCommand command(Long activeOrderId) {
         return new MesStage1ActiveOrderCompleteSimulationCommand()
                 .setSimulationRunId("STAGE1-unit")
@@ -484,6 +643,32 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
         return workOrder;
     }
 
+    private static MesProRouteVersionDO routeVersion() {
+        return MesProRouteVersionDO.builder()
+                .id(448L)
+                .routeId(922119L)
+                .routeSnapshotJson("""
+                        {"configSnapshots":{
+                          "flowGraph":{"nodes":[{"routeProcessId":1001,"processId":201}]},
+                          "productionProcessConfigSchemaVersion":1,
+                          "productionProcessConfigs":[{
+                            "routeProcessId":1001,
+                            "processId":201,
+                            "overagePercent":0,
+                            "lossReasons":[],
+                            "deviceSelectionGroups":[],
+                            "parameterRules":[]
+                          }],
+                          "batchUseConfigs":[{
+                            "routeProcessId":1001,
+                            "inputMaterialIds":[],
+                            "outputMaterialIds":[]
+                          }]
+                        }}
+                        """)
+                .build();
+    }
+
     private static MesProcessPoolActiveOrderPickListBindingDO sourceBinding(Long pickListId,
                                                                               String sourceFid,
                                                                               String sourceBillNo) {
@@ -501,6 +686,7 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
                 .sourceFid("FID-" + pickListId).sourceEntryId("1")
                 .sourceLineKey("PICK-" + pickListId + "-LINE-1").sourceBillNo("PICK-" + pickListId)
                 .materialNumber("MAT-" + pickListId).materialName("正式物料").requestedQuantity(BigDecimal.ONE)
-                .actualQuantity(BigDecimal.ONE).build();
+                .actualQuantity(BigDecimal.ONE).baseActualQuantity(BigDecimal.ONE).lotNumber("LOT-" + pickListId)
+                .productionOrderNo("WO-001").build();
     }
 }

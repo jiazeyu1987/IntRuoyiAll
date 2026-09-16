@@ -41,6 +41,22 @@ const extractFunctionBlock = (source, name) => {
 }
 
 const snapshotAssertBlock = extractFunctionBlock(panel, 'assertProductionSubmitSnapshotContext')
+const formalContextBlock = panel.match(
+  /interface FrontlineFormalSubmitContext \{[\s\S]*?\n\}/
+)?.[0]
+assert.ok(formalContextBlock, 'formal submit context interface must exist.')
+assert.match(
+  formalContextBlock,
+  /productionConfigSnapshotJson\?:\s*string[\s\S]*productionConfigSnapshotSha256\?:\s*string/,
+  'formal submit context must carry the frozen production configuration snapshot from runtime config.'
+)
+
+const readContextBlock = extractFunctionBlock(panel, 'readFrontlineFormalSubmitContext')
+assert.match(
+  readContextBlock,
+  /productionConfigSnapshotJson:\s*serverContext\?\.productionConfigSnapshotJson[\s\S]*productionConfigSnapshotSha256:\s*serverContext\?\.productionConfigSnapshotSha256/,
+  'formal submit context must read the production configuration snapshot from the server-resolved runtime context.'
+)
 assert.match(
   snapshotAssertBlock,
   /const selectedProcess = deviceState\.selectedProcess[\s\S]*const selectedEmployee = deviceState\.selectedEmployee[\s\S]*const snapshotContext = deviceState\.runtimeConfig\?\.productionSubmitContext/,
@@ -71,6 +87,11 @@ assert.match(
   /selectedEmployee\.userId !== formalContext\.signatureEmployeeId[\s\S]*当前提交快照与所选员工不一致/,
   'submit snapshot validation must compare the submit signer against the selected employee snapshot.'
 )
+assert.match(
+  snapshotAssertBlock,
+  /snapshotContext\.parameterSnapshotState === 'FROZEN'[\s\S]*!formalContext\.productionConfigSnapshotJson[\s\S]*!formalContext\.productionConfigSnapshotSha256[\s\S]*当前提交快照缺少生产配置快照/,
+  'frozen active-order production submit must fail fast before submit when the production configuration snapshot is missing.'
+)
 
 const buildPayloadBlock = extractFunctionBlock(panel, 'buildFrontlineFormalSubmitPayload')
 assert.match(
@@ -92,6 +113,12 @@ assert.doesNotMatch(
   buildPayloadBlock,
   /ProFeedbackApi\.getFrontlineRuntimeConfig|switchFrontlineActualEmployee/,
   'formal submit must not refresh runtime config or switch employee while validating the snapshot.'
+)
+const structuredPayloadBlock = extractFunctionBlock(panel, 'buildProductionStructuredRawPayload')
+assert.match(
+  structuredPayloadBlock,
+  /productionSubmitContext:[\s\S]*activeOrderProcessSnapshotId:\s*formalContext\.activeOrderProcessSnapshotId[\s\S]*productionConfigSnapshotJson:\s*formalContext\.productionConfigSnapshotJson[\s\S]*productionConfigSnapshotSha256:\s*formalContext\.productionConfigSnapshotSha256/,
+  'raw submit payload must retain the production configuration snapshot used by the selected active-order process.'
 )
 assert.match(
   backendAuthorization,

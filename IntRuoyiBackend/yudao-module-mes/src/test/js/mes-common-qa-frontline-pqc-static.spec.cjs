@@ -56,7 +56,9 @@ assert(activeOrderService.includes('ActiveOrderQaVersionSource'),
   'Active order service must preserve per-source QA version provenance.');
 assert(activeOrderService.includes('for (ActiveOrderQaVersionSource source : qaSource.sources())'),
   'PQC task planning must iterate product QA and common QA sources.');
-assert(activeOrderService.includes('buildPqcTask(activeOrder, plan.qaProcess(), plan.version()'),
+assert(activeOrderService.includes('buildPqcTask(activeOrder, plan.qaProcess(), plan.regulation()')
+  && activeOrderService.includes('plan.version()')
+  && activeOrderService.includes('.regulationVersionId(version.getId())'),
   'Generated PQC tasks must store each task source version, not only the product QA version.');
 
 assert(frontlinePqcService.includes('resolveLockedQaSources'),
@@ -93,8 +95,14 @@ assert(/listEnabledEquipmentOptionsByProjectVersionAndItemCodes\(\s*regulationDc
 assert(frontendFeedbackApi.includes('regulationName?: string')
   && frontendFeedbackApi.includes('regulationSourceType?:'),
   'Frontline PQC API type must include regulation source display fields.');
-assert(/formatProcessLabel[\s\S]*regulationSourceType[\s\S]*通用包装/.test(frontendPqcPanel),
-  'Frontline PQC process label must visibly distinguish common packaging regulations.');
+const formatProcessLabelStart = frontendPqcPanel.indexOf('const formatProcessLabel');
+const formatEmployeeLabelStart = frontendPqcPanel.indexOf('const formatEmployeeLabel', formatProcessLabelStart);
+const formatProcessLabelBody = frontendPqcPanel.slice(formatProcessLabelStart, formatEmployeeLabelStart);
+assert(formatProcessLabelBody.includes('isFrontlinePqcProcess')
+  && formatProcessLabelBody.includes('qaProcessName')
+  && !formatProcessLabelBody.includes('通用包装')
+  && !formatProcessLabelBody.includes('sourceText'),
+  'Frontline PQC process label must use the process name without a common-packaging source suffix.');
 assert(preflight.includes("owner_module")
   && preflight.toLowerCase().includes("mes_qa"),
   'C015 preflight generated-column check must recognize owner-scoped product QA identity.');

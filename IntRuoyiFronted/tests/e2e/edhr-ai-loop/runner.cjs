@@ -3,7 +3,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const assert = require('node:assert/strict')
 const crypto = require('node:crypto')
-const { createRunId, buildManifest } = require('./manifest.cjs')
+const { createRunId, buildManifest, FIXED_TEMPLATE_WORK_ORDER_CODE } = require('./manifest.cjs')
 const { EXIT_CODES, writeRunReport, writeFailureArtifacts, classifyError } = require('./reporter.cjs')
 const { stageResults } = require('./stages.cjs')
 
@@ -83,10 +83,9 @@ function stageCandidateCodePaths(stage) {
 function targetRequestLabel(method, pathname) {
   const route = `${method} ${pathname}`
   if (route.includes('/system/auth/login')) return 'LOGIN'
-  if (route.includes('/create-ai-e2e-production-order')) return 'PREPARE_CREATE_ORDER'
   if (route.includes('/erp/kingdee-sync/incremental-sync')) return pathname.includes('/pick-list') ? 'PRODUCTION_PICK_LIST_SYNC' : 'ERP_PRODUCTION_ORDER_SYNC'
-  if (route.includes('/active-order/candidates')) return 'ACTIVE_ORDER_CANDIDATES'
-  if (route.includes('/active-order/add')) return 'ACTIVE_ORDER_ADD'
+  if (route.includes('/active-order/list')) return 'ACTIVE_ORDER_LIST'
+  if (route.includes('/active-order/simulation/copy-latest')) return 'SIMULATION_COPY_LATEST'
   if (route.includes('/active-order/release/apply')) return 'ACTIVE_ORDER_RELEASE_APPLY'
   if (route.includes('/frontline/submit')) return 'FRONTLINE_PRODUCTION_SUBMIT'
   if (route.includes('/device-account/pqc/submit')) return 'FRONTLINE_PQC_SUBMIT'
@@ -158,7 +157,7 @@ function trackTargetRequests(page) {
 
 const mode = arg('mode') || process.env.EDHR_AI_E2E_MODE || 'full'
 const runId = arg('run-id') || process.env.EDHR_AI_E2E_RUN_ID || createRunId()
-const templateWorkOrderCode = arg('template-work-order-code') || process.env.EDHR_AI_E2E_TEMPLATE_WORK_ORDER_CODE
+const templateWorkOrderCode = arg('template-work-order-code') || process.env.EDHR_AI_E2E_TEMPLATE_WORK_ORDER_CODE || FIXED_TEMPLATE_WORK_ORDER_CODE
 const frontendUrl = arg('base-url') || process.env.EDHR_AI_E2E_BASE_URL || 'http://127.0.0.1:8081'
 const reportRoot = path.resolve(arg('report-root') || process.env.EDHR_AI_E2E_REPORT_ROOT || 'test-results/edhr-ai-loop')
 const username = process.env.EDHR_E2E_USERNAME || 'admin'
@@ -245,17 +244,42 @@ async function runWithStage(stage, action, expected, fn) {
   }
 }
 
-function runPrefixForOrder(manifestOrder) {
-  return manifestOrder.workOrderCode.replace(/-O0[1-5]$/, '')
+function readApiDataList(body) {
+  if (Array.isArray(body?.data)) return body.data
+  if (Array.isArray(body?.data?.list)) return body.data.list
+  if (Array.isArray(body?.data?.records)) return body.data.records
+  return []
+}
+
+function findActiveOrderDataByCode(rows, workOrderCode) {
+  return rows.find((row) => String(row?.workOrderCode || '').trim() === workOrderCode)
+}
+
+function resolveActiveOrderQuantity(row, label) {
+  const value = Number(row?.erpFixedQuantitySnapshot ?? row?.quantity ?? row?.workOrderQuantity)
+  if (!Number.isFinite(value) || value <= 0) {
+    throw stageError({
+      stage: 'VERIFY_READY',
+      errorType: 'PRECONDITION_BLOCKED',
+      action: `${label}数量读取`,
+      message: `${label}缺少有效ERP生产数量`,
+      expected: { erpFixedQuantitySnapshot: 'positive number' },
+      actual: { row }
+    })
+  }
+  return value
+}
+
+async function parseActiveOrderListResponse(response, action) {
+  assert.equal(response.ok(), true, `${action}失败：HTTP ${response.status()}`)
+  const body = await response.json()
+  assert.equal(Number(body.code), 0, `${action}业务失败：${body.msg || 'unknown'}`)
+  return readApiDataList(body)
 }
 
 async function login(page) {
   await page.goto(`${frontendUrl}/login`, { waitUntil: 'commit', timeout: 60000 })
-  const tenant = page.locator('.login-form .el-select input:visible').first()
-  if (await tenant.count()) {
-    await tenant.click()
-    await page.getByText('芋道源码', { exact: true }).last().click()
-  }
+  await selectLoginTenant(page)
   await page.locator('.login-form input[placeholder="请输入用户名"]:visible').first().fill(username)
   await page.locator('.login-form input[type="password"]:visible').first().fill(password)
   const response = page.waitForResponse((r) => r.url().includes('/admin-api/system/auth/login') && r.request().method() === 'POST')
@@ -265,84 +289,36 @@ async function login(page) {
   await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 60000 })
 }
 
-async function createOrder(page, manifestOrder) {
-  await page.goto(`${frontendUrl}/mes/pro/work-order`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-  await page.locator('[data-edhr-ai-e2e-open-global]').waitFor({ state: 'visible', timeout: 30000 })
-  await page.locator('[data-edhr-ai-e2e-open-global]').click()
-  const dialog = page.getByRole('dialog', { name: '创建 AI E2E 测试生产订单' })
-  await dialog.locator('input[data-edhr-ai-e2e-run-id]').fill(runPrefixForOrder(manifestOrder))
-  await dialog.locator('[data-edhr-ai-e2e-slot]').click()
-  await page.getByRole('option', { name: manifestOrder.slot, exact: true }).click()
-  await dialog.locator('[data-edhr-ai-e2e-quantity] input').fill('100')
-  await dialog.locator('input[data-edhr-ai-e2e-batch-number]').fill(manifestOrder.batchCode)
-  const createResponse = page.waitForResponse((r) => r.url().includes('/create-ai-e2e-production-order') && r.request().method() === 'POST')
-  await dialog.locator('[data-edhr-ai-e2e-submit]').click()
-  const response = await createResponse
-  assert.equal(response.ok(), true, `创建 ${manifestOrder.slot} 失败：HTTP ${response.status()}`)
-  const body = await response.json()
-  assert.equal(Number(body.code), 0, `创建 ${manifestOrder.slot} 业务失败：${body.msg || 'unknown'}`)
-  assert.equal(body.data.erpBillNo, `${runPrefixForOrder(manifestOrder)}-${manifestOrder.slot}`)
-  return { ...body.data, slot: manifestOrder.slot }
-}
-
-async function openWorkOrderList(page, workOrderCode) {
-  const url = new URL(`${frontendUrl}/mes/pro/work-order`)
-  if (workOrderCode) url.searchParams.set('code', workOrderCode)
-  await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 60000 })
-  await page.locator('[data-user-table-key="mes.pro.workorder.main"]').first().waitFor({ state: 'visible', timeout: 30000 })
-}
-
-async function triggerProductionOrderSync(page) {
-  await openWorkOrderList(page)
-  const syncResponse = page.waitForResponse((r) => r.url().includes('/erp/kingdee-sync/incremental-sync') && r.request().method() === 'POST')
-  await page.locator('[data-work-order-sync-kingdee]').click()
-  const response = await syncResponse
-  assert.equal(response.ok(), true, `ERP生产订单同步提交失败：HTTP ${response.status()}`)
-  const body = await response.json()
-  assert.equal(Number(body.code), 0, `ERP生产订单同步提交业务失败：${body.msg || 'unknown'}`)
-  return body.data
-}
-
-async function findVisibleWorkOrderRow(page, workOrderCode) {
-  return page.locator('.el-table__row:visible').filter({
-    has: page.locator(`[data-work-order-code]:text-is("${workOrderCode}")`)
-  }).first()
-}
-
-async function waitForLocalWorkOrder(page, manifestOrder, timeoutMs = 120000) {
-  const startedAt = Date.now()
-  let lastError
-  while (Date.now() - startedAt < timeoutMs) {
-    try {
-      await openWorkOrderList(page, manifestOrder.workOrderCode)
-      const row = await findVisibleWorkOrderRow(page, manifestOrder.workOrderCode)
-      await row.waitFor({ state: 'visible', timeout: 8000 })
-      const quantityText = (await row.locator('[data-work-order-quantity]').first().innerText()).trim()
-      assert.equal(Number(quantityText.replace(/,/g, '')), manifestOrder.quantity, `本地工单数量不等于固定输入：${manifestOrder.workOrderCode}`)
-      return { slot: manifestOrder.slot, workOrderCode: manifestOrder.workOrderCode, quantity: manifestOrder.quantity }
-    } catch (error) {
-      lastError = error
-    }
-  }
-  throw stageError({
-    stage: 'VERIFY_READY',
-    errorType: 'PRECONDITION_BLOCKED',
-    action: 'VERIFY_READY本地生产工单同步',
-    message: `ERP订单已创建，但本地生产工单列表未在${timeoutMs / 1000}秒内出现：${manifestOrder.workOrderCode}`,
-    expected: { workOrderCode: manifestOrder.workOrderCode, quantity: manifestOrder.quantity, localWorkOrderVisible: true },
-    actual: { localWorkOrderVisible: false, lastError: lastError?.message }
-  })
+async function selectLoginTenant(page, tenantName = '芋道源码') {
+  const tenant = page.locator('.login-form .el-select input:visible').first()
+  await tenant.waitFor({ state: 'visible', timeout: 30000 })
+  await tenant.click()
+  await tenant.fill(tenantName)
+  const option = page.locator('.el-select-dropdown__item:visible').filter({ hasText: tenantName }).first()
+  await option.waitFor({ state: 'visible', timeout: 10000 })
+  await option.click()
 }
 
 async function openActiveOrderPool(page, workOrderCode) {
+  const listResponse = page.waitForResponse((r) =>
+    r.url().includes('/admin-api/mes/pro/process-pool/team-leader/active-order/list') &&
+    r.request().method() === 'GET',
+    { timeout: 60000 }
+  )
   await page.goto(`${frontendUrl}/mes/pro/process-pool/production-leader`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.getByRole('tab', { name: '活跃订单池' }).click()
   await page.locator('[data-team-leader-active-order-list]').waitFor({ state: 'visible', timeout: 30000 })
+  const rows = await parseActiveOrderListResponse(await listResponse, '活跃订单列表加载')
   if (workOrderCode) await filterActiveOrderPool(page, workOrderCode)
+  return rows
 }
 
 async function filterActiveOrderPool(page, workOrderCode) {
-  const filter = page.locator('[data-team-leader-active-order-work-order-filter] input').first()
+  const filter = page
+    .locator(
+      '[data-team-leader-active-order-work-order-filter] input, input[data-team-leader-active-order-work-order-filter], input[placeholder="筛选生产订单号"]'
+    )
+    .first()
   await filter.waitFor({ state: 'visible', timeout: 30000 })
   await filter.fill(workOrderCode)
   await page.locator('[data-team-leader-active-order-list]').waitFor({ state: 'visible', timeout: 30000 })
@@ -354,93 +330,181 @@ function activeOrderRow(page, workOrderCode) {
   }).first()
 }
 
-async function verifyReady(page, manifest, erpOrders) {
-  const selectedOrders = ordersForMode(manifest)
-  if (erpOrders.length !== selectedOrders.length) {
-    throw stageError({
-      stage: 'VERIFY_READY',
-      errorType: 'TEST_HARNESS_FAILURE',
-      action: 'VERIFY_READY准备订单数量检查',
-      message: 'ERP准备订单数量与当前运行模式不一致',
-      expected: { preparedOrderCount: selectedOrders.length, slots: selectedOrders.map((order) => order.slot) },
-      actual: { preparedOrderCount: erpOrders.length, slots: erpOrders.map((order) => order.slot) }
-    })
-  }
-  const syncReceipt = await triggerProductionOrderSync(page)
-  const localWorkOrders = []
-  for (const item of selectedOrders) localWorkOrders.push(await waitForLocalWorkOrder(page, item))
-  const alreadyActive = []
-  for (const item of selectedOrders) {
-    await openActiveOrderPool(page, item.workOrderCode)
-    if (await activeOrderRow(page, item.workOrderCode).count()) alreadyActive.push(item.workOrderCode)
-  }
-  if (alreadyActive.length) {
+async function verifyTemplateReady(page, manifest) {
+  const rows = await openActiveOrderPool(page, manifest.templateWorkOrderCode)
+  const source = findActiveOrderDataByCode(rows, manifest.templateWorkOrderCode)
+  if (!source) {
     throw stageError({
       stage: 'VERIFY_READY',
       errorType: 'PRECONDITION_BLOCKED',
-      action: 'VERIFY_READY活跃订单队列隔离',
-      message: `本轮订单在S01前已进入活跃订单池：${alreadyActive.join(', ')}`,
-      expected: { activeBeforeS01: [] },
-      actual: { activeBeforeS01: alreadyActive }
+      action: 'VERIFY_READY固定母单可见性',
+      message: `活跃订单池找不到固定母单：${manifest.templateWorkOrderCode}`,
+      expected: { sourceWorkOrderCode: manifest.templateWorkOrderCode, sourceVisible: true },
+      actual: { sourceVisible: false, visibleCodes: rows.map((row) => row.workOrderCode).slice(0, 20) }
     })
   }
-  return { syncReceipt, localWorkOrders, readyVerified: true }
+  const row = activeOrderRow(page, manifest.templateWorkOrderCode)
+  await row.waitFor({ state: 'visible', timeout: 30000 })
+  const sourceActiveOrderId = requirePositiveIdString(
+    await row.locator('[data-team-leader-active-order-id]').first().getAttribute('data-team-leader-active-order-id'),
+    '固定母单活跃订单ID'
+  )
+  const copyButton = row.locator('[data-team-leader-copy-latest-simulation-order]').first()
+  if (!(await copyButton.isVisible().catch(() => false))) {
+    throw stageError({
+      stage: 'VERIFY_READY',
+      errorType: 'PRECONDITION_BLOCKED',
+      action: 'VERIFY_READY复制测试单入口',
+      message: `固定母单缺少复制测试单按钮：${manifest.templateWorkOrderCode}`,
+      expected: { copyButtonVisible: true },
+      actual: { copyButtonVisible: false }
+    })
+  }
+  const sourceQuantity = resolveActiveOrderQuantity(source, '固定母单')
+  if (sourceQuantity !== manifest.expected.finishedQuantity) {
+    throw stageError({
+      stage: 'VERIFY_READY',
+      errorType: 'PRECONDITION_BLOCKED',
+      action: 'VERIFY_READY固定母单数量',
+      message: `固定母单数量不是预期值：${manifest.templateWorkOrderCode}`,
+      expected: { quantity: manifest.expected.finishedQuantity },
+      actual: { quantity: sourceQuantity }
+    })
+  }
+  return {
+    sourceWorkOrderCode: manifest.templateWorkOrderCode,
+    sourceActiveOrderId,
+    sourceQuantity,
+    copyButtonVisible: true,
+    readyVerified: true
+  }
 }
 
-async function selectActiveOrderCandidate(page, manifestOrder) {
-  const dialog = page.locator('[data-team-leader-active-order-add-dialog]').first()
-  await dialog.waitFor({ state: 'visible', timeout: 30000 })
-  const candidateResponse = page.waitForResponse((r) => r.url().includes('/active-order/candidates') && r.request().method() === 'GET')
-  await dialog.locator('[data-team-leader-active-order-candidate-select] input').fill(manifestOrder.workOrderCode)
-  const response = await candidateResponse
-  assert.equal(response.ok(), true, `活跃订单候选查询失败：HTTP ${response.status()}`)
-  const body = await response.json()
-  assert.equal(Number(body.code), 0, `活跃订单候选查询业务失败：${body.msg || 'unknown'}`)
-  const candidates = Array.isArray(body.data) ? body.data : []
-  const candidate = candidates.find((item) => item.workOrderCode === manifestOrder.workOrderCode)
-  if (!candidate) {
+async function copyTemplateActiveOrder(page, manifestOrder, manifest, ready) {
+  const rows = await openActiveOrderPool(page, manifest.templateWorkOrderCode)
+  const source = findActiveOrderDataByCode(rows, manifest.templateWorkOrderCode)
+  if (!source) {
     throw stageError({
-      stage: 'VERIFY_READY',
+      stage: 'S01',
       errorType: 'PRECONDITION_BLOCKED',
-      action: 'VERIFY_READY候选订单检查',
-      message: `本地工单已同步，但新增活跃订单候选中找不到：${manifestOrder.workOrderCode}`,
-      expected: { candidateVisible: true, candidateState: 'ADDABLE', workOrderCode: manifestOrder.workOrderCode },
-      actual: { candidateVisible: false, candidates: candidates.map((item) => item.workOrderCode).slice(0, 20) }
+      action: 'S01定位固定母单',
+      message: `复制前找不到固定母单：${manifest.templateWorkOrderCode}`,
+      expected: { sourceWorkOrderCode: manifest.templateWorkOrderCode, sourceVisible: true },
+      actual: { sourceVisible: false }
     })
   }
-  if (!candidate.eligible || candidate.candidateState !== 'ADDABLE') {
+  const sourceQuantity = resolveActiveOrderQuantity(source, '固定母单')
+  const row = activeOrderRow(page, manifest.templateWorkOrderCode)
+  await row.waitFor({ state: 'visible', timeout: 30000 })
+  const sourceActiveOrderId = requirePositiveIdString(
+    await row.locator('[data-team-leader-active-order-id]').first().getAttribute('data-team-leader-active-order-id'),
+    '固定母单活跃订单ID'
+  )
+  if (ready?.sourceActiveOrderId && ready.sourceActiveOrderId !== sourceActiveOrderId) {
     throw stageError({
-      stage: 'VERIFY_READY',
+      stage: 'S01',
       errorType: 'PRECONDITION_BLOCKED',
-      action: 'VERIFY_READY候选订单状态检查',
-      message: `新增活跃订单候选不是首次可加入状态：${manifestOrder.workOrderCode}`,
-      expected: { candidateState: 'ADDABLE', eligible: true },
-      actual: { candidateState: candidate.candidateState, eligible: candidate.eligible, reason: candidate.ineligibleReason }
+      action: 'S01固定母单身份一致性',
+      message: '固定母单活跃订单ID在VERIFY_READY和S01之间发生变化',
+      expected: { sourceActiveOrderId: ready.sourceActiveOrderId },
+      actual: { sourceActiveOrderId }
     })
   }
-  const option = page.locator('[data-team-leader-active-order-candidate-option]').filter({
-    hasText: manifestOrder.workOrderCode
-  }).first()
-  await option.waitFor({ state: 'visible', timeout: 30000 })
-  await option.click()
-  return candidate
-}
-
-async function joinActiveOrder(page, manifestOrder) {
-  await openActiveOrderPool(page, manifestOrder.workOrderCode)
-  await page.locator('[data-team-leader-open-active-order-dialog]').click()
-  await selectActiveOrderCandidate(page, manifestOrder)
-  const addResponse = page.waitForResponse((r) => r.url().includes('/active-order/add') && r.request().method() === 'POST')
-  await page.locator('[data-team-leader-active-order-add-submit]').click()
-  const response = await addResponse
-  assert.equal(response.ok(), true, `加入活跃订单失败：HTTP ${response.status()}`)
+  const copyButton = row.locator('[data-team-leader-copy-latest-simulation-order]').first()
+  await copyButton.waitFor({ state: 'visible', timeout: 30000 })
+  await copyButton.click()
+  const confirmDialog = page.locator('.el-message-box:visible').filter({ hasText: '确认复制测试单' }).first()
+  await confirmDialog.waitFor({ state: 'visible', timeout: 30000 })
+  const copyResponse = page.waitForResponse((r) =>
+    r.url().includes('/admin-api/mes/pro/process-pool/team-leader/active-order/simulation/copy-latest') &&
+    r.request().method() === 'POST'
+  )
+  const refreshedListResponse = page.waitForResponse((r) =>
+    r.url().includes('/admin-api/mes/pro/process-pool/team-leader/active-order/list') &&
+    r.request().method() === 'GET',
+    { timeout: 60000 }
+  ).catch(() => null)
+  await confirmDialog.getByRole('button', { name: '确认复制' }).click()
+  const response = await copyResponse
+  assert.equal(response.ok(), true, `复制测试单失败：HTTP ${response.status()}`)
   const body = await response.json()
-  assert.equal(Number(body.code), 0, `加入活跃订单业务失败：${body.msg || 'unknown'}`)
+  assert.equal(Number(body.code), 0, `复制测试单业务失败：${body.msg || 'unknown'}`)
   const receipt = body.data || {}
-  assert.equal(receipt.action, 'ADD', `S01必须是首次加入ADD，实际为${receipt.action}`)
-  const activeOrderId = requirePositiveIdString(receipt.activeOrderId, '加入活跃订单回执activeOrderId')
-  await activeOrderRow(page, manifestOrder.workOrderCode).waitFor({ state: 'visible', timeout: 30000 })
-  return { slot: manifestOrder.slot, workOrderCode: manifestOrder.workOrderCode, activeOrderId, action: receipt.action }
+  const copiedSimulationRunId = String(receipt.simulationRunId || '').trim()
+  assert.ok(copiedSimulationRunId, '复制测试单回执必须包含真实页面复制动作生成的simulationRunId')
+  assert.match(copiedSimulationRunId, /^SIMCOPY-\d+-[0-9a-fA-F-]{36}$/, `复制测试单回执simulationRunId必须来自真实页面复制动作，实际为${copiedSimulationRunId}`)
+  const copiedWorkOrderCode = String(receipt.workOrderCode || '').trim()
+  assert.ok(copiedWorkOrderCode.startsWith(manifestOrder.expectedWorkOrderCodePrefix), `复制测试单工单号必须以${manifestOrder.expectedWorkOrderCodePrefix}开头，实际为${copiedWorkOrderCode}`)
+  assert.notEqual(copiedWorkOrderCode, manifest.templateWorkOrderCode, '复制测试单不得复用固定母单工单号')
+  const refreshedRows = await refreshedListResponse.then((r) => r ? parseActiveOrderListResponse(r, '复制后活跃订单列表刷新') : [])
+  let copied = findActiveOrderDataByCode(refreshedRows, copiedWorkOrderCode)
+  if (!copied) {
+    copied = findActiveOrderDataByCode(await openActiveOrderPool(page, copiedWorkOrderCode), copiedWorkOrderCode)
+  } else {
+    await filterActiveOrderPool(page, copiedWorkOrderCode)
+  }
+  if (!copied) {
+    throw stageError({
+      stage: 'S01',
+      errorType: 'BUSINESS_ASSERTION',
+      action: 'S01复制后活跃订单可见性',
+      message: `复制接口返回成功，但活跃订单池找不到新测试单：${copiedWorkOrderCode}`,
+      expected: { copiedWorkOrderCode, copiedActiveOrderVisible: true },
+      actual: { copiedActiveOrderVisible: false }
+    })
+  }
+  const copiedQuantity = resolveActiveOrderQuantity(copied, '复制测试单')
+  if (copiedQuantity !== sourceQuantity) {
+    throw stageError({
+      stage: 'S01',
+      errorType: 'BUSINESS_ASSERTION',
+      action: 'S01复制数量一致性',
+      message: `复制测试单数量与固定母单不一致：${copiedWorkOrderCode}`,
+      expected: { sourceQuantity },
+      actual: { copiedQuantity }
+    })
+  }
+  await activeOrderRow(page, copiedWorkOrderCode).waitFor({ state: 'visible', timeout: 30000 })
+  return {
+    slot: manifestOrder.slot,
+    sourceWorkOrderCode: manifest.templateWorkOrderCode,
+    sourceActiveOrderId,
+    activeOrderId: requirePositiveIdString(receipt.activeOrderId, '复制测试单回执activeOrderId'),
+    workOrderId: requirePositiveIdString(receipt.workOrderId, '复制测试单回执workOrderId'),
+    workOrderCode: copiedWorkOrderCode,
+    workOrderName: receipt.workOrderName,
+    batchCode: copiedWorkOrderCode,
+    quantity: copiedQuantity,
+    routeId: requirePositiveIdString(receipt.routeId, '复制测试单回执routeId'),
+    routeVersionId: requirePositiveIdString(receipt.routeVersionId, '复制测试单回执routeVersionId'),
+    routeVersionNo: receipt.routeVersionNo,
+    qaRegulationVersionId: requirePositiveIdString(receipt.qaRegulationVersionId, '复制测试单回执qaRegulationVersionId'),
+    aiRunOrderSlotId: manifestOrder.simulationRunId,
+    simulationRunId: copiedSimulationRunId,
+    action: 'COPY_LATEST_VERSION'
+  }
+}
+
+function buildProductionSubmissionPlan(quantity) {
+  const total = Number(quantity)
+  if (!Number.isInteger(total) || total < 2) {
+    throw stageError({
+      stage: 'S02',
+      errorType: 'PRECONDITION_BLOCKED',
+      action: 'S02生成生产提交计划',
+      message: '复制测试单数量不足以拆分两次生产提交',
+      expected: { quantityAtLeast: 2 },
+      actual: { quantity }
+    })
+  }
+  const first = Math.max(1, Math.floor(total * 0.4))
+  const second = total - first
+  return [
+    { processIndex: 0, quantity: first },
+    { processIndex: 0, quantity: second },
+    { processIndex: 1, quantity: first },
+    { processIndex: 1, quantity: second }
+  ]
 }
 
 async function selectFrontlineProductionOrder(page, manifestOrder) {
@@ -565,12 +629,7 @@ async function reviewProductionReport(page, manifestOrder) {
 }
 
 async function submitProductionReports(page, manifestOrder, activeOrder) {
-  const plan = [
-    { processIndex: 0, quantity: 40 },
-    { processIndex: 0, quantity: 60 },
-    { processIndex: 1, quantity: 40 },
-    { processIndex: 1, quantity: 60 }
-  ]
+  const plan = buildProductionSubmissionPlan(manifestOrder.quantity)
   const submissions = []
   for (const step of plan) submissions.push(await submitOneProductionReport(page, manifestOrder, step))
   const reviews = []
@@ -1745,19 +1804,16 @@ async function main() {
   try {
     await runWithStage('S00', 'S00登录页与账号会话初始化',
       { loginPageLoaded: true, userAuthenticated: true, tenant: '芋道源码', username }, () => login(page))
-    const erpOrders = []
-    for (const item of selectedOrders) {
-      erpOrders.push(await runWithStage('PREPARE', 'PREPARE确定性ERP生产订单创建',
-        { workOrderCode: item.workOrderCode, batchCode: item.batchCode, quantity: item.quantity }, () => createOrder(page, item)))
-    }
-    const ready = await runWithStage('VERIFY_READY', 'VERIFY_READY本地工单同步与队列隔离',
-      { localWorkOrdersSynced: true, activeBeforeS01: [] }, () => verifyReady(page, manifest, erpOrders))
+    const ready = await runWithStage('VERIFY_READY', 'VERIFY_READY固定母单可复制',
+      { sourceWorkOrderCode: manifest.templateWorkOrderCode, sourceQuantity: manifest.expected.finishedQuantity, copyButtonVisible: true },
+      () => verifyTemplateReady(page, manifest))
     const activeOrders = []
     for (const item of selectedOrders) {
-      activeOrders.push(await runWithStage('S01', 'S01无领料单加入活跃订单',
-        { action: 'ADD', workOrderCode: item.workOrderCode }, () => joinActiveOrder(page, item)))
+      activeOrders.push(await runWithStage('S01', 'S01复制固定母单生成活跃测试订单',
+        { action: 'COPY_LATEST_VERSION', sourceWorkOrderCode: manifest.templateWorkOrderCode, expectedWorkOrderCodePrefix: item.expectedWorkOrderCodePrefix, aiRunOrderSlotId: item.simulationRunId, actualSimulationRunId: 'SIMCOPY-* from real page action' },
+        () => copyTemplateActiveOrder(page, item, manifest, ready)))
     }
-    const mainOrder = selectedOrders[0]
+    const mainOrder = activeOrders[0]
     const processExecution = await runWithStage('S02', 'S02/S03生产PQC交错执行',
       { productionFeedbackCount: 4, pqcSubmissionCount: 8, interleaved: true }, () => executeProductionAndPqcInterleaved(page, mainOrder, activeOrders[0]))
     const completion = await runWithStage('S04', 'S04领料晚到回填与完工申请',
@@ -1774,9 +1830,9 @@ async function main() {
     await targetRequests.flush()
     const result = { schemaVersion: 'AI_EDHR_E2E_RESULT_V1', runId, status: 'PASS', failedStage: null,
       errorType: null, action: 'S01-S08 eDHR主流程完成',
-      expected: { businessStages: ['S01', 'S02', 'S03', 'S04', 'S05', 'S06', 'S07', 'S08'], fullModeOrderSlots: ['O01'], s01Action: 'ADD', productionFeedbackCount: 4, pqcSubmissionCount: 8, pqcReviewCount: 8, pqcTaskCount: 16, pqcPieceResultCount: 40, releaseApplicationStatus: 'PQC_RELEASE_PENDING', pqcReleaseStatus: 'REPORT_UPLOAD_PENDING', reportUploadTaskCount: 4, reportUploadCompletedCount: 4, finalReleasePending: true, finalReleaseStatus: 'RELEASED', archiveStatus: 'SEALED', historyStatus: 40, expectedFormalLoss: 0 },
-      actual: { erpOrderCreateCompleted: true, preparedOrderSlots: erpOrders.map((order) => order.slot || order.erpBillNo), preparedOrderCount: erpOrders.length, localWorkOrdersSynced: true, readyVerified: ready.readyVerified, activeOrders, processExecution, production: processExecution.production, pqc: processExecution.pqc, completion, pqcRelease, reportUpload, finalRelease, archiveTrace },
-      message: 'S01已完成首次加入活跃订单；S02/S03已按固定计划交错完成一线生产、生产组长FIFO复核、一线PQC及PQC组长复核；S04已完成领料晚到回填与无补料确认；S05已完成PQC生产放行；S06已完成四份资料上传；S07已完成管理者代表最终放行；S08已完成最终归档并在历史追溯页验证归档版本、时间线和放行资料目录。',
+      expected: { businessStages: ['S01', 'S02', 'S03', 'S04', 'S05', 'S06', 'S07', 'S08'], fullModeOrderSlots: ['O01'], s01Action: 'COPY_LATEST_VERSION', sourceWorkOrderCode: manifest.templateWorkOrderCode, finishedQuantity: mainOrder.quantity, productionFeedbackCount: 4, pqcSubmissionCount: 8, pqcReviewCount: 8, pqcTaskCount: 16, pqcPieceResultCount: 40, releaseApplicationStatus: 'PQC_RELEASE_PENDING', pqcReleaseStatus: 'REPORT_UPLOAD_PENDING', reportUploadTaskCount: 4, reportUploadCompletedCount: 4, finalReleasePending: true, finalReleaseStatus: 'RELEASED', archiveStatus: 'SEALED', historyStatus: 40, expectedFormalLoss: 0 },
+      actual: { preparedBySimulationCopy: true, copiedOrderSlots: activeOrders.map((order) => order.slot), copiedOrderCount: activeOrders.length, readyVerified: ready.readyVerified, activeOrders, processExecution, production: processExecution.production, pqc: processExecution.pqc, completion, pqcRelease, reportUpload, finalRelease, archiveTrace },
+      message: 'S01已通过固定母单复制生成本轮测试活跃订单；S02/S03已按固定计划交错完成一线生产、生产组长FIFO复核、一线PQC及PQC组长复核；S04已完成领料晚到回填与无补料确认；S05已完成PQC生产放行；S06已完成四份资料上传；S07已完成管理者代表最终放行；S08已完成最终归档并在历史追溯页验证归档版本、时间线和放行资料目录。',
       pageUrl: page.url(), screenshot: null, trace: 'trace.zip', targetRequests, targetRequestEvidenceFlushed: true, candidateCodePaths: [],
       stages: stageResults(null, 'PASS'), erpOrders, ready, startedAt: JSON.parse(fs.readFileSync(path.join(runDir, 'result.json'), 'utf8')).startedAt,
       finishedAt: new Date().toISOString() }
@@ -1792,7 +1848,7 @@ async function main() {
     await targetRequests.flush()
     const blocked = ['INFRASTRUCTURE_BLOCKED', 'UI_ACTION_FAILED', 'TEST_HARNESS_FAILURE', 'PRECONDITION_BLOCKED'].includes(classification.errorType)
     const result = { schemaVersion: 'AI_EDHR_E2E_RESULT_V1', runId, status: blocked ? 'BLOCKED' : 'FAIL', failedStage,
-      errorType: classification.errorType, action: error.action || '确定性ERP订单准备',
+      errorType: classification.errorType, action: error.action || '固定母单复制准备',
       expected: error.expected || { templateWorkOrderCode, mode, fullModeOrderSlots: ordersForMode(manifest).map((order) => order.slot) },
       actual: error.actual || { message: error.message },
       message: error.message,
@@ -1813,6 +1869,7 @@ if (require.main === module) {
 }
 
 module.exports = { ordersForMode, stageCandidateCodePaths, trackTargetRequests }
+
 
 
 

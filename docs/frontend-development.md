@@ -43,9 +43,10 @@
 - Detail action state extension: 详情附件区的“申请下载”这类状态型动作，应直接调用正式申请接口并原地切换按钮状态；审批结果、撤销授权、grant 下载等治理控件只属于明确的审批/工作台入口；若产品要求去除独立治理入口，静态合同必须锁定对应页签、testid、handler 和 API import 在源码中均不存在，而不是只断言普通详情页不可见。刷新后状态必须来自后端只读投影（如当前用户待处理申请 ID），不得靠路由 `mode`、滚动到面板或前端临时缓存冒充持久状态。若同页同时存在内联按钮和流程/访问申请面板，静态合同必须覆盖所有可提交同一申请的入口；项目代码等可选业务事实不得在任一入口被重新变成前端必填。Evidence: 任务 `doc/tasks/20260903-registration-download-request-inline-ux/`、`doc/tasks/20260903-registration-download-request-project-scope/`、`doc/tasks/20260904-registration-download-flow-alignment/`。
 - Generated-detail entry extension: 列表动作如果会创建或切换到“生成对象”的详情页（如模拟、复制、派生版本），同一源行后续普通详情入口必须复用后端返回的生成对象 ID 或本页刚生成的映射；不得一个入口看生成对象、另一个入口又看源对象。静态合同必须同时锁定生成后自动跳转、列表行后续详情解析、刷新后持久字段复用和普通未生成行仍打开自身。Evidence: 任务 `doc/tasks/stage1-detail-entry-mismatch-20260905/`。
 - Stage1 clicked-order identity extension: 若用户口径明确为“点击哪条活跃订单就模拟/查看哪条活跃订单的数据”，Stage1 不属于“生成对象详情”入口；前端请求字段必须使用 `activeOrderId`，模拟成功后和普通详情入口都必须打开当前点击行自身，禁止读取 `stage1GeneratedActiveOrderId` 或维护源订单到 `STAGE1-WO-*` 的跳转映射。后端可清理历史内部承载对象，但响应给前端的 `activeOrderId` 必须是被点击活跃订单。Evidence: 任务 `doc/tasks/20260906-stage1-simulate-clicked-order-identity/`。
-- Detail source tab extension: 详情页新增正式来源类主 tab（如领料单、补料单、批号来源、生产工单）时，必须同时锁定后端 VO 字段、Controller 映射、前端 API 类型、可见 tab 标识和空态；若展示来源单据编号，编号必须来自正式返回的单据编号字段并可点击跳转到对应列表，目标列表要从 URL query 回填筛选条件，不能只显示不可追溯文本；若展示对象已由详情接口直接承载，可复用详情正式字段但必须用独立静态合同锁定主 tab、字段列和布局不横向溢出。静态合同脚本应使用脚本自身目录解析源码根，避免只能在某一个 cwd 下通过。Evidence: 任务 `doc/tasks/20260905-stage1-supplement-pick-list-tab/`、`doc/tasks/20260906-active-order-detail-ui-links/`、`doc/tasks/20260906-active-order-detail-work-order-tab/`。
+- Detail source tab extension: 详情页新增正式来源类主 tab（如领料单、补料单、批号来源、生产工单）时，必须同时锁定后端 VO 字段、Controller 映射、前端 API 类型、可见 tab 标识和空态；若展示来源单据编号，编号必须来自正式返回的单据编号字段并可点击跳转到对应列表，目标列表要从 URL query 回填筛选条件，不能只显示不可追溯文本；若展示对象已由详情接口直接承载，可复用详情正式字段但必须用独立静态合同锁定主 tab、字段列和布局不横向溢出。生产用料清单“实际用量”这类来自当前生产提交事实的展示字段，应从当前详情 `inputMaterialUsages[].actualQuantity` 和 `processes[].inputMaterials[].actualQuantity` 按物料编码聚合，重复物料只显示最大值；无工序输入配置时后端详情必须暴露订单级 `inputMaterialUsages`，不得从用料清单行自身空字段、应发数量、领料单或补料单推断。静态合同脚本应使用脚本自身目录解析源码根，避免只能在某一个 cwd 下通过。Evidence: 任务 `doc/tasks/20260905-stage1-supplement-pick-list-tab/`、`doc/tasks/20260906-active-order-detail-ui-links/`、`doc/tasks/20260906-active-order-detail-work-order-tab/`、`doc/tasks/20260916-production-material-actual-usage/`。
 - Detail generated-form extension: 详情页从正式提交事实生成只读表单时，入口必须绑定当前可见对象和当前分组身份，表单字段必须直接读取详情接口或原始提交 payload 的正式快照；一线生产的清场/物料/清洁等固定确认项应按业务项独立展示，不得把多个 checkbox 压成不可核对的一串文本，也不得用空值、默认是、设备参数规则或物料主数据推断提交事实。生产记录表单展示数量时必须统一为整数，损耗缺失按 0 展示，总数量按生产数量加损耗数量计算，不得显示横杠或三位小数。生产记录表单展示设备参数时，应按“输出物料 -> 设备 -> 参数”嵌套归属，每个设备独立显示设备名称、编号、计量状态和参数表；计量状态只能来自提交事实中的设备字段，缺失时显示未记录；输出物料没有正式设备身份时必须隐藏设备信息块，不得生成“未记录设备/暂无设备参数”伪设备分组；超出范围的提交值必须在对应参数值处标红，不得脱离物料做跨物料扁平汇总。Evidence: 任务 `doc/tasks/20260906-active-order-production-record-form-button/`、`doc/tasks/20260906-active-order-production-record-device-parameters/`、`doc/tasks/20260906-production-record-hide-empty-device-info/`、`doc/tasks/20260906-production-record-integer-quantities/`、`doc/tasks/20260906-stage1-device-clearance-status/`。
 - Detail generated-form summary extension: 详情页新增批记录“总表”或类似汇总 tab 时，应只聚合当前详情接口已承载的正式事实：产品/工单展示取当前详情工单字段，零配件批号取正式领料单输入物料集合，工序人员和日期取一线生产提交事实；业务来源未确认的字段必须显式留空并在任务文档记录，不得用产品 BOM、相邻字段、当前时间或默认文案推断。
+- Active-order work-order field extension: 活跃订单详情中“产品规格/型号规格/生产指令”等工单表头字段必须由生产工单字段透传；`productSpecification` 在该上下文表示生产工单 `material_specification`，生产指令读取生产工单指令字段，前端总表和生产/PQC 提交元信息应共用同一工单展示模型，不得从物料规格、提交 payload 或空白占位补齐。
 - Batch detail embedded submission-form extension: 批次执行详情页若要在生产表单或过程检验记录槽位嵌入一线提交详情，必须由批次执行正式来源关系向响应透传 `activeOrderId`，再按该活跃订单读取一线工序详情；不得按 `workOrderId`、`workOrderCode`、工序名称或数组位置反推来源。`MAIN` 槽位只展示生产提交表单，`PROCESS_INSPECTION` 槽位只展示 PQC 过程检验记录，页面级嵌入与 eDHR `cellValues`/归档物化是两层能力；若后续要求进入审核、归档或打印证据，必须另做后端物化并补独立验证。Evidence: 任务 `doc/tasks/20260907-batch-execution-inline-submission-forms/`。
 - Detail form signature link extension: 详情页只读表单展示电子签名时，单元格内应显示可核对的基础信息 `签名人（签名时间）`，点击跳转正式签名记录/治理入口并带可定位筛选；链接目标必须绑定签名行为记录 ID，不得跳人员档案。缺少签名 ID 时显示 `未签名` 并禁用点击；缺少签名人或签名时间时必须明确显示未记录，不能用提交人、审核人或当前时间伪造。PQC 聚合记录可能包含多条提交/复核签名，应在同一单元格内逐条显示。Evidence: 任务 `doc/tasks/20260907-submission-form-signature-link/`。
 
@@ -69,6 +70,7 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。任务 `doc/tasks/20260806-qa-id-balloon-pressure-pump-pdf-items/`，新增 `PQC-ID-001` 相邻产品模板后，旧 `PQC-IDI-001` 静态合同原本用 `const qaRegulationItems` 作远端结束锚点，误把新 17 行计入旧 22 行合同；最终将旧合同结束锚点收窄到 `const createBalloonPressurePumpQaRegulationItems`，并新增 ID 专用合同。任务 `doc/tasks/20260806-qa-idi-pressure-pump-screenshot-pages-verify/`，逐页截图对表时必须同时锁定源码顺序、PDF 页码、`itemName` 和 `sourceOriginalItem`，避免图 4 `整体粘结 / 外观` 被后续图 5 `气密性` 合并单元格分组污染。任务 `doc/tasks/20260807-team-leader-review-leader-name/`，`data-production-leader-module-tab-report\b` 会把 `data-production-leader-module-tab-report-history` 一并计入，因为 `-` 是非单词字符；静态合同统计 `data-*` 前缀时必须使用 `(?=[\s/>])`、负向断言或完整属性边界。
 - Evidence extension: 任务 `doc/tasks/20260830-nas-original-path-sync/`，NAS 未受控文件新增“按原路径同步”流程时，同页仍保留浏览器本地归类下载 `showDirectoryPicker`；静态合同必须抽取 `handleSyncNasOriginalPathFiles` 目标 handler 后再做负向断言，不能整页禁止 `showDirectoryPicker`。
+- Screenshot parity extension: 截图对齐任务应先以用户提供的目标截图和当前页面真实结构确定验收口径；相邻旧静态合同若要求截图中已不存在的页签、列名、函数参数或旧 DOM 文本，应记录为历史期望漂移并排除出当前完成门禁，不能为了让旧合同通过而恢复过期 UI 或改动无关业务。Evidence: `doc/tasks/20260916-common-qa-items-style-parity/verification-report.md`。
 - Field cardinality migration extension: 单选字段升级为多选字段时，前端静态合同必须同步从单值字段迁移到数组字段，并覆盖展示、编辑、提交载荷和历史快照解析四处边界；例如设备从 `selectedDevice` 升级为 `selectedDevices` 后，“修改报工内容”等回看/修改弹框不得仍按单设备平铺展示，需按物料和设备分组，设备参数必须按设备身份过滤展示，旧单设备字段只能作为历史快照读取来源，不能作为新提交合同。列表页遇到多物料、多设备、多参数这类一对多/多对多提交时，主表默认列应承载可读摘要和异常数量，完整明细放入展开行、抽屉或详情页，并用静态合同锁定主表不再横向平铺全部事实。若明细存在父子归属（如物料 -> 设备 -> 参数），展示也必须嵌套在父项下，设备行不能脱离物料另做跨物料汇总区块；每台设备宜独占一行承载设备名称、设备编号和本设备参数；参数为多个短字段时优先用中文分号串联成一行，避免逐参数换行导致列表被拉高，也避免用户误判设备属于哪个物料。
 
 ## 前端日期响应格式门禁
@@ -152,6 +154,10 @@
 - Duplicate-selection extension: 多行分配或绑定弹框不能让两个可编辑行选择同一正式业务对象。候选过滤负责即时阻止新重复，最终载荷校验负责拦截历史状态、并发刷新或异常赋值绕过；业务界面显示“订单编号”时，应以正式生产订单身份判重，而不是以可能因版本变化不同的活跃池记录 ID 判重。Evidence: 任务 `doc/tasks/20260813-team-leader-allocation-duplicate-order/`。
 
 - Upstream-driven candidate extension: 若下游候选由上游业务对象决定，初始化必须先确定路由上下文指定对象或正式列表首项，再从该上游对象的正式数据链派生下游候选；当活跃订单已经锁定工艺版本和工序快照时，必须按 `activeOrderId` 请求订单冻结工序，不得只用订单 `routeId` 过滤当前发布路线工序。切换上游对象时必须先清空旧工序、员工、运行配置和模板，并使迟到请求失效；运行配置与员工切换请求也必须携带当前活跃订单身份。禁止根据旧下游选择拒绝用户切换正式上游对象。验证必须用至少两个不同正式身份的可执行状态测试，证明旧订单展示旧版工序、新订单展示新版工序、切换后只保留新身份候选、旧上下文被清空、缺正式映射显性失败且迟到响应令牌失效。Evidence: 任务 `doc/tasks/20260813-frontline-order-driven-process/`、`doc/tasks/20260817-frontline-active-order-frozen-route-submit/`。
+
+- PQC common-regulation order extension: 一线 PQC 工序候选同时包含产品专用 QA 和通用包装规程时，前端投影不能只按原始 `qaProcessSort` 全量排序；必须按 `regulationSourceType` 保证 `PRODUCT_QA` 在前、`COMMON_PACKAGING` 在后，并把通用包装显示序号接在产品 QA 最大序号之后。通用包装源工序名只允许投影为业务显示名，例如 `初包装过程检验规程 -> 小包装`、`大中包装过程检验规程 -> 中大包装`，不得在工序按钮追加“通用检验规程”或来源后缀。验证必须用乱序网络响应静态合同证明刷新后仍显示 `1..N` 产品 QA，再显示 `N+1. 小包装`、`N+2. 中大包装`。Evidence: 任务 `doc/tasks/20260916-frontline-pqc-common-process-order/`。
+
+- Active-order PQC submission detail order extension: 生产组长详情页 `PQC提交` 的过程检验记录也必须以一线 PQC 选工序顺序为标准。前端只按详情接口返回的正式 `qaProcessSort` 聚合和排序工序，缺少排序、同一 `qaProcessId` 排序不一致或后端未输出正式工序身份时必须 fail fast；禁止退回数组插入顺序、提交时间、检验项目顺序或 `qaProcessId` 排序。静态合同必须同时锁定 API 类型、分组排序函数、缺失排序错误和相邻 `PQC提交` 表单渲染入口。Evidence: 任务 `doc/tasks/20260916-simulated-pqc-submit-process-order/`。
 
 - Async-candidate error extension: 上游对象变更触发的候选请求失败后，页面必须保留该正式请求错误；确认提交在候选仍 loading 时应明确阻止并提示等待，候选身份为空时不得先清空请求错误再改写成泛化的“请选择”校验。只有在候选请求成功或用户明确修改上游对象后，才允许清除旧错误。验证应先用静态合同证明“加载错误 -> 点击确认”仍保留原错误且不发送写请求，再覆盖唯一候选自动选择、多候选手动选择和正式空/错误状态。禁止用默认候选、空数组或提交校验文案掩盖上游请求失败。Evidence: 任务 `doc/tasks/20260825-edhr-batch-route-selection/`。
 
@@ -832,7 +838,7 @@
 - Forbidden action: 禁止用禁用按钮、吞异常、默认合格、减少样本数、API-only 写入、前端可选状态、签名后再报错、把所有任务过滤失败压缩成单一布尔空态，或把严格断言从提交链路移除来绕过页面中间态崩溃和正式载荷缺字段。
 - Evidence: 任务 `doc/tasks/20260807-frontline-pqc-formal-submit-write-e2e/`，PQC 草稿结果计算曾在“全部合格”过程中调用 submit-only 样本数量断言，导致正式提交前页面崩溃；修正为草稿读取当前选择值，提交时仍执行严格样本断言。任务 `doc/tasks/fix-selected-equipment-id/`，一线提交曾让 `itemResults.CODX-AO5-QA-FINAL.selectedEquipmentId` 缺失进入后端，修正为签名前逐项校验设备身份。任务 `doc/tasks/20260808-pqc-optional-equipment-items/`，QA 规程项目 `equipmentRequired=false` 且无设备选项时，一线 PQC 不应强制设备选择。任务 `doc/tasks/20260808-pqc-hide-equipment-cards/`，用户最终确认有设备检验方法需要显示“检验设备”和“设备编号”卡片，无设备检验方法隐藏这两张卡片且不显示“无需设备”占位。任务 `doc/tasks/20260808-frontline-pqc-hide-first-inspection-card/`，无正式 `FIRST` PQC 任务的工序不显示首检卡片，类型卡片改由当前工序正式 `pqcTaskOptions` 动态渲染。任务 `doc/tasks/20260915-frontline-pqc-inspection-button-cardinality/`，一线 PQC 右侧检验入口按正式 `inspectionRuleKey` 去重，最多显示首检、上午巡检、下午巡检、末检各一个。任务 `doc/tasks/20260817-frontline-pqc-specific-task-error/`，页面任务过滤曾只保留可执行布尔值，改为由空态和提交拦截共用正式任务失败诊断。任务 `doc/tasks/20260820-frontline-pqc-submit-all-methods/`，同一工序存在“外观/撤压/无跳压”等多个检验方法时，提交按钮必须一次提交当前工序全部方法，并按任务身份隔离每套数据。任务 `doc/tasks/20260820-frontline-pqc-default-sample-values/`，未切换的“撤压/无跳压”等合格/不合格检验方法提交前必须物化计划数量的默认 `合格` 样本，避免出现样本数量 0 与任务计划数量不一致。任务 `doc/tasks/20260820-frontline-pqc-default-sample-values-recheck/` 进一步锁定最终 payload 必须使用 exact 样本数组，删除 relaxed 样本 helper，避免样本被过滤为空后才由后端报数量不一致。
 
-- Snapshot submit extension: 一线生产最大化或其它快照切换场景的正式提交，提交 preflight 必须比较当前所选生产工序、运行配置快照、正式提交上下文和所选员工身份；服务端还必须在最大化 GET 时签发带有效期的快照编号与校验值，提交载荷必须原样携带，后端按当前租户和登录账号读取该快照并校验工序、工作站、员工、模板、设备、设备参数和损耗原因。提交阶段不得重新拉取 runtime-config、重新调用员工切换或实时读取上述配置来替代快照校验；快照缺失、过期、篡改或身份不一致必须明确拒绝。聚焦合同需同时断言前端携带服务端快照编号/校验值、后端授权不调用实时工序/员工/模板解析，并用单元测试证明参数与损耗原因校验不访问 Mapper。禁止只做前端对象比较却把后端继续实时查询称为“按快照提交”。Evidence: 任务 `doc/tasks/20260812-frontline-snapshot-submit-validation/`、`doc/tasks/20260812-frontline-fullscreen-first-switch-prewarm/`。
+- Snapshot submit extension: 一线生产最大化或其它快照切换场景的正式提交，提交 preflight 必须比较当前所选生产工序、运行配置快照、正式提交上下文和所选员工身份；服务端还必须在最大化 GET 时签发带有效期的快照编号与校验值，提交载荷必须原样携带，后端按当前租户和登录账号读取该快照并校验工序、工作站、员工、模板、设备、设备参数和损耗原因。显式选择活跃订单且冻结工序快照包含生产配置时，运行配置响应、前端类型、提交上下文和 rawPayload 审计事实必须同时携带 `productionConfigSnapshotJson/productionConfigSnapshotSha256`；缺失时应在签名前明确阻断，不能等后端提交后才暴露 `productionSubmitContext.productionConfigSnapshot`。提交阶段不得重新拉取 runtime-config、重新调用员工切换或实时读取上述配置来替代快照校验；快照缺失、过期、篡改或身份不一致必须明确拒绝。聚焦合同需同时断言前端携带服务端快照编号/校验值、生产配置快照、后端授权不调用实时工序/员工/模板解析，并用单元测试证明参数与损耗原因校验不访问 Mapper。禁止只做前端对象比较却把后端继续实时查询称为“按快照提交”。Evidence: 任务 `doc/tasks/20260812-frontline-snapshot-submit-validation/`、`doc/tasks/20260812-frontline-fullscreen-first-switch-prewarm/`、`doc/tasks/20260916-production-submit-config-snapshot-context/`。
 
 ## 动态菜单真实可见性缓存门禁
 
@@ -853,6 +859,15 @@
 - Verification: 静态合同至少覆盖组合表/版本表/成员表、前端 API 的组合 CRUD、页面可见“套列表/套版本/成员明细”、绑定请求传组合版本 ID、下游业务按成员集合展开；多文档组合还要覆盖“组成清单”“按来源查看”“合并后结果”和来源追溯列。真实 E2E 必须通过页面创建或读取两套以上组合版本，并证明切换后能看到每套的成员数量、成员来源和最终合并明细。
 - Forbidden action: 禁止用“当前已绑定某个成员版本”冒充套管理；禁止把多个成员拼进一个展示字符串但仍只持久化单版本；禁止在合并结果里丢失来源编号；禁止通过产品名称、代际或文件名推断套归属；禁止用 API-only 造数替代用户可见的套 CRUD。
 - Evidence: `doc/tasks/20260910-common-qa-regulation-set-management/verification-report.md`，通用检验规程从单规程版本绑定升级为“通用规程套 -> 套版本 -> 多个通用规程版本成员 -> 产品绑定套版本”，并补充前端套管理视图、标准列表、多 Word 文档组成、“按文档查看 / 合并后工序”双视角和静态/真实 E2E 合同；`doc/tasks/20260911-common-qa-independent-tab/verification-report.md` 将通用规程套提升为独立一级工作区，并把产品绑定控件收回 QA 总览。
+
+## 通用检验规程成员检验项目的设备编辑边界
+
+- Trigger: 通用检验规程套版本成员的“检验项目”列表、检验器具及设备、新增设备、保存并升版，同时页面还存在产品 QA 检验项目的独立设备自动保存入口。
+- Preflight check: 通用成员行的设备编辑必须使用正式设备台账候选，提供与产品 QA 列表一致的新增、选择、编号展示和删除交互；编辑结果先保留在通用套版本草稿中，构造专用的通用升版 item/process 载荷，并把 `equipmentOptions` 随成员版本快照提交。产品 QA 的 `QaInspectionRegulationSaveItemVO` 仍应排除 `equipmentOptions`，其设备绑定继续走独立自动保存接口，不能让通用编辑误写产品 QA 当前草稿。
+- Blocker: 通用列表仍只读、点击新增后设备未进入升版载荷、发布版本响应丢失设备选项、把通用编辑复用为产品 QA 自动保存，或通过空数组/第一台设备掩盖设备台账候选、重复设备和非法编号时必须停止。
+- Verification: 静态合同必须分别锁定通用设备列的新增/选择/删除、候选排重、通用升版载荷的 `equipmentOptions`，以及产品 QA 自动保存链路仍独立；再运行 `vue-tsc`、定向 ESLint 和相邻检验项目合同。真实页面验证应通过通用套版本编辑后保存并升版，回读成员版本设备名称和编号，同时确认产品 QA 草稿未被该次通用编辑修改。
+- Forbidden action: 禁止只改通用页面展示而不持久化，禁止把通用设备编辑发送到产品 QA 自动保存接口，禁止用设备名称或数组下标代替正式设备 ID，禁止用默认设备、静默丢失或兼容分支掩盖升版快照缺字段。
+- Evidence: `doc/tasks/20260916-common-qa-equipment-add/verification-report.md`。
 
 ## 前端行级异步结果归属门禁
 
@@ -959,6 +974,7 @@
 
 - Trigger: 同一版本化配置同时提供结构化编辑器和原始 JSON/高级编辑入口，任一入口保存后会改变同一候选快照哈希。
 - Preflight check: 两个入口必须共享同一服务器快照基线；结构化保存成功后同步刷新 JSON 草稿和基线。JSON 草稿存在未保存修改时，结构化保存或删除必须明确阻止，不能自动覆盖任一侧草稿。
+- Aggregate snapshot edit rule: 页面把多个版本成员的同一参数汇总展示成顶部控件时，控件必须绑定独立 draft/dirty 状态；用户未编辑该参数时保存载荷保留各成员原始快照，用户编辑后才统一覆盖本次版本化保存。禁止把汇总 computed 只读值伪装成可维护参数，也禁止编辑其它列表字段时顺手改写成员级差异。
 - Blocker: 结构化保存只刷新自身列表、JSON 草稿仍保留旧参数，保存失败后弹框关闭，或已本地显示错误又继续抛出未处理 Promise 导致全局“系统异常”时必须停止。
 - Verification: 静态合同覆盖草稿 dirty 判断、保存后基线同步、失败返回值控制弹框关闭和错误只显示一次；类型检查通过，并分别验证“结构化后保存 JSON”和“JSON 未保存时编辑结构化参数”两条路径。
 - Forbidden action: 禁止用后写覆盖解决双入口冲突，禁止保存失败后清空输入，禁止吞掉并发快照冲突。

@@ -3013,13 +3013,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             List<ActiveOrderQaVersionSource> sources = new ArrayList<>();
             for (MesQaCommonRegulationSetVersionMemberDO member : members) {
                 sources.add(requireCommonQaVersionSource(project, workOrder, contextId,
-                        member.getRegulationId(), member.getRegulationVersionId(), false));
+                        member.getRegulationId(), member.getRegulationVersionId(), false, true));
             }
             validateCommonQaSetRuleCoverage(sources, binding.getCommonRegulationSetVersionId(), contextId);
             return sources;
         }
         return List.of(requireCommonQaVersionSource(project, workOrder, contextId,
-                binding.getRegulationId(), binding.getRegulationVersionId(), true));
+                binding.getRegulationId(), binding.getRegulationVersionId(), true, false));
     }
 
     private void validateCommonQaSetRuleCoverage(List<ActiveOrderQaVersionSource> sources,
@@ -3047,7 +3047,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                                                     Long contextId,
                                                                     Long regulationId,
                                                                     Long regulationVersionId,
-                                                                    boolean requireEveryEnabledRuleCoverage) {
+                                                                    boolean requireEveryEnabledRuleCoverage,
+                                                                    boolean allowRetiredSnapshot) {
         if (regulationId == null || regulationVersionId == null) {
             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                     "产品通用检验规程绑定缺少规程版本，productId=" + workOrder.getProductId()
@@ -3059,8 +3060,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (regulation == null
                 || !Objects.equals(regulationVersionId, version == null ? null : version.getId())
                 || !Objects.equals(regulationId, version == null ? null : version.getRegulationId())
-                || !isPublishedQaVersion(regulation, version,
-                MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)) {
+                || !isFormalCommonQaVersion(regulation, version, allowRetiredSnapshot)) {
             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                     "产品通用检验规程绑定的版本不是正式通用规程版本，productId="
                             + workOrder.getProductId() + "，regulationVersionId="
@@ -3068,6 +3068,19 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
         return buildQaVersionSource(regulation, version, contextId, "通用包装 QA 规程",
                 requireEveryEnabledRuleCoverage);
+    }
+
+    private static boolean isFormalCommonQaVersion(MesQaInspectionRegulationDO regulation,
+                                                   MesQaInspectionRegulationVersionDO version,
+                                                   boolean allowRetiredSnapshot) {
+        if (regulation == null || version == null
+                || !Objects.equals(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON,
+                regulation.getOwnerModule())
+                || !Objects.equals(regulation.getId(), version.getRegulationId())) {
+            return false;
+        }
+        return Objects.equals("PUBLISHED", version.getLifecycleStatus())
+                || allowRetiredSnapshot && Objects.equals("RETIRED", version.getLifecycleStatus());
     }
 
     private ActiveOrderQaVersionSource buildQaVersionSource(MesQaInspectionRegulationDO regulation,

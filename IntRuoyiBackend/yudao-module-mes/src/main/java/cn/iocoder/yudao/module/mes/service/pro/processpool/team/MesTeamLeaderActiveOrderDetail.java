@@ -18,12 +18,14 @@ public class MesTeamLeaderActiveOrderDetail {
     private String workOrderCode;
     private String batchCode;
     private BigDecimal workOrderQuantity;
+    private String demandBillNo;
     private String drawingNumber;
     private String productCode;
     private String productName;
     private String productSpecification;
     private LocalDateTime workOrderCreateTime;
     private String routeName;
+    private List<InputMaterialDetail> inputMaterialUsages = List.of();
     private List<ProcessDetail> processes = List.of();
 
     @Data
@@ -156,6 +158,7 @@ public class MesTeamLeaderActiveOrderDetail {
         private Long qaProcessId;
         private String qaProcessCode;
         private String qaProcessName;
+        private Integer qaProcessSort;
         private String qaItemCode;
         private String inspectionRuleKey;
         private String inspectionType;

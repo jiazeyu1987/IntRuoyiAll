@@ -16,6 +16,7 @@ public class MesTeamLeaderActiveOrderDetailReadDO {
     private String workOrderCode;
     private String batchCode;
     private BigDecimal workOrderQuantity;
+    private String demandBillNo;
     private String drawingNumber;
     private String productCode;
     private String productName;

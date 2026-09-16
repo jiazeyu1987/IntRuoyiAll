@@ -14,23 +14,37 @@ const activeOrderEnd = source.indexOf('</ContentWrap>', activeOrderStart)
 assert.notEqual(activeOrderEnd, -1, 'Expected the active-order pool tab end.')
 const activeOrderBlock = source.slice(activeOrderStart, activeOrderEnd)
 
-const stage1Button = activeOrderBlock.match(
-  /data-team-leader-simulate-active-order-stage1[\s\S]*?<\/el-button>/
+const p1Button = activeOrderBlock.match(
+  /data-team-leader-simulate-active-order-stage1-p1[\s\S]*?<\/el-button>/
 )
-assert.ok(stage1Button, 'The active-order list must expose the Stage1 simulation button.')
+assert.ok(p1Button, 'The active-order list must expose the P1 Stage1 simulation button.')
 assert.match(
-  stage1Button[0],
+  p1Button[0],
   /@click="handleSimulateStage1\(row\)"/,
-  'The Stage1 simulation button must keep the independent Stage1 handler.'
+  'The P1 button must keep the independent Stage1 handler.'
 )
 assert.match(
-  stage1Button[0],
-  />\s*<Icon icon="ep:refresh" \/>\s*Stage1模拟\s*<\/el-button>/,
-  'The Stage1 simulation button must display Stage1模拟.'
+  p1Button[0],
+  />\s*<Icon icon="ep:refresh" \/>\s*P1双100\s*<\/el-button>/,
+  'The P1 button must display P1双100.'
+)
+const p2Button = activeOrderBlock.match(
+  /data-team-leader-generate-active-order-stage1-p2[\s\S]*?<\/el-button>/
+)
+assert.ok(p2Button, 'The active-order list must expose the P2 generated form button.')
+assert.match(
+  p2Button[0],
+  /@click="handleGenerateStage1Forms\(row\)"/,
+  'The P2 button must use the generated-form handler.'
+)
+assert.match(
+  p2Button[0],
+  />\s*<Icon icon="ep:document" \/>\s*P2生成\s*<\/el-button>/,
+  'The P2 button must display P2生成.'
 )
 assert.doesNotMatch(
   activeOrderBlock,
-  /data-team-leader-simulate-active-order-completion|handleSimulateActiveOrderCompletion|ep:magic-stick|>\s*模拟完成\s*<\/el-button>/,
+  /data-team-leader-simulate-active-order-completion|handleSimulateActiveOrderCompletion|ep:magic-stick|>\s*Stage1模拟\s*<\/el-button>|>\s*模拟完成\s*<\/el-button>/,
   'The active-order list must not render the generic magic-wand simulation button.'
 )
 

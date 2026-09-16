@@ -614,6 +614,7 @@ export interface TeamLeaderActiveOrderPqcSubmissionDetailRespVO {
   qaProcessId?: number
   qaProcessCode?: string
   qaProcessName?: string
+  qaProcessSort?: number
   qaItemCode?: string
   inspectionRuleKey?: string
   inspectionType?: string
@@ -653,6 +654,7 @@ export interface TeamLeaderActiveOrderDetailRespVO {
   workOrderId: number
   workOrderCode: string
   batchCode?: string
+  demandBillNo?: string
   productSpecification?: string
   workOrderQuantity?: number | string
   drawingNumber?: string
@@ -660,6 +662,7 @@ export interface TeamLeaderActiveOrderDetailRespVO {
   productName?: string
   workOrderCreateTime?: string | number
   routeName: string
+  inputMaterialUsages?: TeamLeaderActiveOrderInputMaterialDetailRespVO[]
   processes: TeamLeaderActiveOrderProcessDetailRespVO[]
 }
 

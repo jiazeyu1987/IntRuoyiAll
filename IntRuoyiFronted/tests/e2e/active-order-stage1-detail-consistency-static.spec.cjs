@@ -17,8 +17,19 @@ assert.match(
 )
 assert.match(
   page,
-  /const\s+activeOrderId\s*=\s*requirePositiveNumber\(row\.id[\s\S]*simulateStage1ActiveOrderCompletion\(\{[\s\S]*activeOrderId[\s\S]*navigateActiveOrderSubmissionDetail\(activeOrderId\)/,
-  'Stage1 模拟成功后的自动详情必须打开当前点击活跃订单。'
+  /const\s+handleSimulateStage1\s*=\s*async\s*\(row:[\s\S]*simulateStage1ActiveOrderCompletion\(\{[\s\S]*activeOrderId[\s\S]*await loadActiveOrders\(\)[\s\S]*\n}\n\nconst\s+handleGenerateStage1Forms/,
+  'P1 模拟成功后必须只刷新活跃订单列表。'
+)
+const p1Handler = page.match(/const\s+handleSimulateStage1\s*=\s*async\s*\(row:[\s\S]*?\n}\n\nconst\s+handleGenerateStage1Forms/)?.[0] || ''
+assert.doesNotMatch(
+  p1Handler,
+  /navigateActiveOrderSubmissionDetail/,
+  'P1 模拟成功后不得自动打开详情。'
+)
+assert.match(
+  page,
+  /const\s+handleGenerateStage1Forms\s*=\s*\(row:[\s\S]*const\s+activeOrderId\s*=\s*requirePositiveNumber\(row\.id[\s\S]*navigateActiveOrderSubmissionDetail\(activeOrderId\)/,
+  'P2 生成必须打开当前点击活跃订单详情。'
 )
 
 console.log('PASS: active-order Stage1 detail consistency static contract')

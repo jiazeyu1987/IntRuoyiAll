@@ -263,6 +263,7 @@ public class MesKingdeeProductionOrderCreateServiceImpl implements MesKingdeePro
                 .billNo(billNo)
                 .templateBillNo(kingdeeProperties.getProductionOrder().getTemplateBillNo())
                 .materialNumber(templateOrder.getMaterialNumber())
+                .productionOrgNumber(StrUtil.trimToNull(templateOrder.getProductionOrgNumber()))
                 .unitNumber(unitCode)
                 .useTemplateEntryUnit(unitCode == null ? Boolean.TRUE : null)
                 .quantity(quantity)

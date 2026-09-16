@@ -5,11 +5,15 @@ import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProduc
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDetailReadMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderEventPartyReadDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderDetailReadDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
@@ -43,6 +47,10 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
 
     @Mock
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
+    @Mock
+    private MesProcessPoolActiveOrderPickListBindingMapper bindingMapper;
+    @Mock
+    private MesProcessPoolActiveOrderPickListBindingItemMapper bindingItemMapper;
 
     @Test
     void completedDetailReadsBatchesFromCompletionSnapshot() {
@@ -75,6 +83,78 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         assertEquals(List.of(31L, 32L), material.getSourcePickListItemIds());
         assertEquals(new BigDecimal("9"), material.getActualQuantity());
         assertEquals("completion-hash", material.getSourceSnapshotHash());
+    }
+
+    @Test
+    void activeDetailReadsBatchesFromStage1BindingBeforeCompletionBackfill() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("ACTIVE").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of(
+                new MesFrontlineProcessMaterial(3101L, "MAT-A", "物料A", "S1", "INPUT", null,
+                        List.of(), null, null, null, List.of(), List.of(), List.of(), null)));
+        when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(null);
+        when(bindingMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesProcessPoolActiveOrderPickListBindingDO.builder()
+                        .id(7001L).activeOrderId(8101L).workOrderId(9001L).pickListId(8001L)
+                        .sourceBillNo("REAL-PICK-001").sourceSnapshotHash("binding-hash").build()));
+        when(bindingItemMapper.selectListByBindingId(7001L)).thenReturn(List.of(
+                MesProcessPoolActiveOrderPickListBindingItemDO.builder()
+                        .id(9101L).bindingId(7001L).pickListItemId(9201L).materialNumber("MAT-A")
+                        .lotNumber("LOT-REAL-001").requestedQuantity(new BigDecimal("6"))
+                        .actualQuantity(new BigDecimal("5")).baseActualQuantity(new BigDecimal("5")).build()));
+
+        var material = service.getDetail(3001L, 8101L).getProcesses().get(0).getInputMaterials().get(0);
+
+        assertEquals(List.of("LOT-REAL-001"), material.getBatchCodes());
+        assertEquals(List.of("REAL-PICK-001"), material.getSourcePickListNos());
+        assertEquals(List.of(8001L), material.getSourcePickListIds());
+        assertEquals(List.of(9201L), material.getSourcePickListItemIds());
+        assertEquals(new BigDecimal("5"), material.getActualQuantity());
+        assertEquals(new BigDecimal("6"), material.getRequestedQuantity());
+        assertEquals("binding-hash", material.getSourceSnapshotHash());
+    }
+
+    @Test
+    void activeDetailExposesOrderInputMaterialUsagesWhenProcessInputConfigIsEmpty() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("ACTIVE").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(null);
+        when(bindingMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesProcessPoolActiveOrderPickListBindingDO.builder()
+                        .id(7001L).activeOrderId(8101L).workOrderId(9001L).pickListId(8001L)
+                        .sourceBillNo("REAL-PICK-001").sourceSnapshotHash("binding-hash").build()));
+        when(bindingItemMapper.selectListByBindingId(7001L)).thenReturn(List.of(
+                MesProcessPoolActiveOrderPickListBindingItemDO.builder()
+                        .id(9101L).bindingId(7001L).pickListItemId(9201L).materialNumber("MAT-PML-001")
+                        .materialName("用料清单物料").materialSpecification("S1").lotNumber("LOT-LOW")
+                        .requestedQuantity(new BigDecimal("6")).actualQuantity(new BigDecimal("5"))
+                        .baseActualQuantity(new BigDecimal("5")).build(),
+                MesProcessPoolActiveOrderPickListBindingItemDO.builder()
+                        .id(9102L).bindingId(7001L).pickListItemId(9202L).materialNumber("MAT-PML-001")
+                        .materialName("用料清单物料").materialSpecification("S1").lotNumber("LOT-HIGH")
+                        .requestedQuantity(new BigDecimal("8")).actualQuantity(new BigDecimal("7"))
+                        .baseActualQuantity(new BigDecimal("7")).build()));
+
+        MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
+
+        assertEquals(0, detail.getProcesses().get(0).getInputMaterials().size());
+        assertEquals(1, detail.getInputMaterialUsages().size());
+        var usage = detail.getInputMaterialUsages().get(0);
+        assertEquals("MAT-PML-001", usage.getMaterialCode());
+        assertEquals("用料清单物料", usage.getMaterialName());
+        assertEquals(List.of("LOT-HIGH", "LOT-LOW"), usage.getBatchCodes());
+        assertEquals(new BigDecimal("8"), usage.getRequestedQuantity());
+        assertEquals(new BigDecimal("7"), usage.getActualQuantity());
+        assertEquals(new BigDecimal("7"), usage.getBaseActualQuantity());
+        assertEquals(List.of("REAL-PICK-001"), usage.getSourcePickListNos());
+        assertEquals(List.of(8001L), usage.getSourcePickListIds());
+        assertEquals(List.of(9201L, 9202L), usage.getSourcePickListItemIds());
+        assertEquals("binding-hash", usage.getSourceSnapshotHash());
     }
 
     @Mock
@@ -111,6 +191,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
                 .routeId(9201L)
+                .qaRegulationVersionId(5201L)
                 .activeStatus("ACTIVE")
                 .build());
         when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
@@ -151,6 +232,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 .workOrderId(9001L)
                 .routeId(9201L)
                 .routeVersionId(9301L)
+                .qaRegulationVersionId(5201L)
                 .activeStatus("ACTIVE")
                 .build());
         when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
@@ -187,6 +269,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                         .regulationVersionId(5201L)
                         .processCode("QA-粗洗")
                         .processName("粗洗检验")
+                        .sort(1)
                         .build()));
         when(detailReadMapper.selectEventPartiesByEventIds(List.of(7101L))).thenReturn(List.of(
                 new MesTeamLeaderActiveOrderEventPartyReadDO()
@@ -234,12 +317,128 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     }
 
     @Test
+    void shouldCollapseStage1PqcSubmissionCopiesAcrossProductionProcesses() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L)
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(9201L)
+                .routeVersionId(9301L)
+                .qaRegulationVersionId(5201L)
+                .activeStatus("ACTIVE")
+                .simulated(Boolean.TRUE)
+                .simulationStage("STAGE1")
+                .build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100.000000", null, null, null, null, null),
+                row(9102L, 5002L, 6002L, "精洗", "100.000000", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5002L, 6002L)).thenReturn(List.of());
+        when(pqcTaskMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesPqcInspectionTaskDO.builder()
+                        .id(4101L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .inspectionType("FIRST")
+                        .qaItemCode("WIDTH")
+                        .inspectionRuleKey("FIRST")
+                        .businessDate(LocalDate.of(2026, 8, 13))
+                        .shiftCode("FIRST")
+                        .roundNo(1)
+                        .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
+                        .actualInspectionQuantity(2)
+                        .qaProcessId(5101L)
+                        .regulationVersionId(5201L)
+                        .submittedEventId(7101L)
+                        .build(),
+                MesPqcInspectionTaskDO.builder()
+                        .id(4102L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5002L)
+                        .processId(6002L)
+                        .inspectionType("FIRST")
+                        .qaItemCode("WIDTH")
+                        .inspectionRuleKey("FIRST")
+                        .businessDate(LocalDate.of(2026, 8, 13))
+                        .shiftCode("FIRST")
+                        .roundNo(1)
+                        .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
+                        .actualInspectionQuantity(2)
+                        .qaProcessId(5101L)
+                        .regulationVersionId(5201L)
+                        .submittedEventId(7102L)
+                        .build()));
+        when(qaProcessMapper.selectBatchIds(List.of(5101L))).thenReturn(List.of(
+                MesQaInspectionRegulationProcessDO.builder()
+                        .id(5101L)
+                        .regulationVersionId(5201L)
+                        .processCode("PQC-通用")
+                        .processName("过程检验")
+                        .sort(1)
+                        .build()));
+        when(detailReadMapper.selectEventPartiesByEventIds(List.of(7101L, 7102L))).thenReturn(List.of(
+                new MesTeamLeaderActiveOrderEventPartyReadDO()
+                        .setEventId(7101L)
+                        .setProductionEventId(7001L)
+                        .setSubmitterName("PQC管理员")
+                        .setReviewerName("PQC管理员"),
+                new MesTeamLeaderActiveOrderEventPartyReadDO()
+                        .setEventId(7102L)
+                        .setProductionEventId(7002L)
+                        .setSubmitterName("PQC管理员")
+                        .setReviewerName("PQC管理员")));
+        when(pqcAggregateDetailMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesPqcProcessInspectionAggregateDetailDO.builder()
+                        .id(4201L)
+                        .pqcTaskId(4101L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .sampleNo(1)
+                        .itemCode("WIDTH")
+                        .itemName("宽度")
+                        .measuredValue("12.3")
+                        .itemResult("12.3")
+                        .judgement("PASS")
+                        .build(),
+                MesPqcProcessInspectionAggregateDetailDO.builder()
+                        .id(4202L)
+                        .pqcTaskId(4102L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5002L)
+                        .processId(6002L)
+                        .sampleNo(1)
+                        .itemCode("WIDTH")
+                        .itemName("宽度")
+                        .measuredValue("12.3")
+                        .itemResult("12.3")
+                        .judgement("PASS")
+                        .build()));
+
+        MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
+
+        int pqcSubmissionCount = detail.getProcesses().stream()
+                .mapToInt(process -> process.getPqcSubmissions().size())
+                .sum();
+        assertEquals(1, pqcSubmissionCount);
+        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail submission =
+                detail.getProcesses().get(0).getPqcSubmissions().get(0);
+        assertEquals(4101L, submission.getPqcTaskId());
+        assertEquals("FIRST", submission.getInspectionRuleKey());
+        assertEquals("WIDTH", submission.getQaItemCode());
+        assertEquals(List.of(7101L), submission.getSubmittedEventIds());
+        assertEquals(1, submission.getItems().size());
+    }
+
+    @Test
     void shouldExposeMaterialDeviceMeteringValidityFromOriginalPayload() {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L)
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
                 .routeId(9201L)
+                .qaRegulationVersionId(5201L)
                 .activeStatus("ACTIVE")
                 .build());
         MesTeamLeaderActiveOrderDetailReadDO productionRow = row(9101L, 5001L, 6001L, "粗洗",
@@ -315,6 +514,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
                 .routeId(9201L)
+                .qaRegulationVersionId(5201L)
                 .activeStatus("ACTIVE")
                 .build());
         when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
@@ -358,6 +558,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                         .regulationVersionId(5201L)
                         .processCode("QA-粗洗")
                         .processName("粗洗检验")
+                        .sort(1)
                         .build()));
         when(detailReadMapper.selectEventPartiesByEventIds(List.of(8869L, 8872L))).thenReturn(List.of(
                 new MesTeamLeaderActiveOrderEventPartyReadDO()
@@ -425,6 +626,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
                 .routeId(9201L)
+                .qaRegulationVersionId(5201L)
                 .activeStatus("ACTIVE")
                 .build());
         when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
@@ -470,6 +672,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                         .regulationVersionId(5201L)
                         .processCode("PQC-清洗")
                         .processName("清洗")
+                        .sort(1)
                         .build()));
         when(detailReadMapper.selectEventPartiesByEventIds(List.of(10287L, 10288L))).thenReturn(List.of(
                 new MesTeamLeaderActiveOrderEventPartyReadDO()
@@ -527,6 +730,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
                 .routeId(9201L)
+                .qaRegulationVersionId(5201L)
                 .activeStatus("ACTIVE")
                 .build());
         MesTeamLeaderActiveOrderDetailReadDO firstProduction = row(9101L, 5001L, 6001L, "清洗",
@@ -580,6 +784,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                         .regulationVersionId(5201L)
                         .processCode("PQC-清洗")
                         .processName("清洗")
+                        .sort(1)
                         .build()));
         when(detailReadMapper.selectEventPartiesByEventIds(List.of(7101L, 7102L))).thenReturn(List.of(
                 new MesTeamLeaderActiveOrderEventPartyReadDO()

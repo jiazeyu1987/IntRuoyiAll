@@ -1114,14 +1114,14 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .dccProjectCodeId(901L)
                 .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)
                 .lifecycleStatus("PUBLISHED")
-                .currentVersionId(9922L)
+                .currentVersionId(9923L)
                 .build());
         when(inspectionRegulationVersionMapper.selectById(9922L)).thenReturn(
                 MesQaInspectionRegulationVersionDO.builder()
                         .id(9922L)
                         .regulationId(9921L)
                         .versionNo("A/1")
-                        .lifecycleStatus("PUBLISHED")
+                        .lifecycleStatus("RETIRED")
                         .finalInspectionApplicable(Boolean.FALSE)
                         .finalInspectionNotApplicableReason("通用包装套不适用末检")
                         .inspectionTypeRulesJson(publishedRegulationVersion(false, "通用包装套不适用末检")

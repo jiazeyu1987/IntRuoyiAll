@@ -89,6 +89,7 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Launch template check: 若为了启动已验证的预构建 Jar 而复用 `restart-int-ruoyi-local.ps1` 中的 `$backendScript` here-string，必须在停止旧进程前解析并验证该 here-string 引用的全部外层参数默认值，包括 OnlyOffice 地址和 DCC 电子签名证据密钥配置；只抽取 here-string、未带入外层变量会把必需环境变量展开为空，导致新进程在 Spring Bean 初始化阶段 fail fast。预检至少应生成待启动脚本的脱敏结构摘要，并断言每个必需环境变量非空；不得输出密钥原值。若无法证明自定义启动器与标准脚本参数等价，应停止并扩展标准脚本的预构建 Jar 入口，不能先停旧服务再试错。
 - Child-process configuration boundary: 本地重启脚本生成 Java 子进程时，运行所需配置必须通过 `backendArgs` 或等价启动参数显式传递；只依赖父进程环境继承会把配置在 Spring Bean 初始化阶段丢失。仍必须显式传递 DCC 预览、OnlyOffice 和电子签名证据等现行必需配置；DCC 下载已改为授权后直接返回原文件字节，不再读取或注入旧下载密钥环境变量，也不再传递旧下载加密启动参数。静态脚本合同必须断言关键参数存在、下载加密配置不存在，并继续核对其他必需配置未丢失；不得用默认值、切换数据源或绕过校验掩盖真实缺失配置。
 - Cross-module API check: 若修复新增或改动跨模块 Java API 方法，热替换时必须成组核对并替换接口、调用方、实现类、服务接口、服务实现和 Mapper/DAO 等全部相关 class；只替换直接报错的调用方 class 会导致运行态继续走旧实现或启动后 `NoSuchMethodError`。替换包含匿名类、局部类、lambda 或编译器生成伴随类的实现时，必须同时替换同名前缀的 `$*.class`，并在启动前从内嵌模块核对这些 class 均存在，避免运行时 `NoClassDefFoundError`。若目标修复还改变 Controller 注解、`@RequestParam(required=false)`、VO 字段或路由声明，必须同时用 `javap -v`、登录态 API 和真实页面路径核对运行 Jar 内对应 Controller/VO class 已刷新；只替换 Service/依赖模块会出现页面 `keyword=` 通过但缺省参数或新注解仍按旧 class 失败。只看到运行 Jar 内存在同名 Controller class 不足以证明映射已刷新；当页面仍报 `请求地址不存在` 时，必须用 `javap -private -verbose` 比对方法列表和 `GetMapping` 常量，防止 `target/classes` 已更新但内嵌模块 jar 仍是旧方法集。
+- Scoped hotfix artifact boundary: 标准完整 package 被无关模块编译错误阻断、但用户已授权重启并且必须恢复 `48081` 目标业务时，可以生成明确标记的定向 hotfix 运行产物；前置必须同时满足：旧运行包登录态接口能复现目标业务错误、数据库/配置只读核验排除数据缺失、目标 class 已由定向 JUnit/静态合同验证、替换 class 成组完整、外层 Spring Boot nested module jar 仍为 `compress_type=0`、替换后内嵌 class SHA-256 与已验证 `target/classes` 一致、产物文件名和证据均标注 hotfix。该产物只能作为本机测试/恢复运行态证据，不能写成完整发布构建通过。
 - Blocker: 如果 PID 归属不明、Jar 来源不明、目标 Jar 哈希与隔离构建 Jar 不一致、运行 Jar 内嵌模块缺少本次关键 class、热替换内嵌 jar 被压缩写入、或主工作区源码混有其他任务改动，必须停止，不得从脏主工作区重新打包冒充本任务运行态。
 - Verification: 记录旧 PID、停止依据、新 PID、Jar SHA256、启动命令、`http://127.0.0.1:48081/actuator/health`、端口监听新 PID 命令行、登录态目标接口业务响应、必要 schema 字段核对、内嵌模块关键 class 检查结果、嵌套 jar 压缩方式（`compress_type=0`），并在 E2E 后记录真实数据库状态。若使用临时 detached worktree 构建 Jar，收尾必须用 `git worktree remove --force <path>` 删除并复核 `Test-Path=False`。
 - Route check: 目标接口需要登录时，未登录请求返回 `401` 只能证明安全过滤器生效，不能证明 MVC 路由已加载；必须使用本机登录态请求目标接口，业务码为 `0` 或预期业务错误，才可宣称新 Controller 已进入运行态。
@@ -288,6 +289,14 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Blocker: 标准脚本已停止旧后端且构建失败时，必须明确报告 48081 离线，并修复真实编译阻断后重跑同一标准脚本；不得声称旧后端仍在运行。
 - Verification: 最终必须同时看到完整 Reactor `BUILD SUCCESS`、脚本退出码 0、新运行 Jar/PID 归属和 `/actuator/health` 返回 `UP`。
 - Forbidden action: 禁止用旧 Jar、跳过测试编译、手工启动不等价参数或随机端口恢复来冒充标准重启成功。
+
+## 2026-09-16 标准 full 重启前端首屏延迟门禁
+
+- Trigger: `restart-int-ruoyi-local.ps1 -Component full` 返回成功后，`8081` 已监听但首次 `Invoke-WebRequest http://127.0.0.1:8081/` 超时。
+- Preflight check: 先核对 `8081` PID 启动时间、命令行是否来自当前仓库 `IntRuoyiFronted`、是否使用 `--mode env.local` 和 `--strictPort`；同时核对 `48081` 新 PID、运行 Jar、repo-root 参数和 health。
+- Blocker: 前端 PID 归属不明、端口不是固定 `8081`、命令行未使用 env.local strictPort、连续重试仍超时或返回 Vite 编译错误时，必须停止前端启动成功结论。
+- Verification: Vite 启动后允许一次首屏编译等待或重试；最终必须记录前端 HTTP `200`、后端 health `UP`、前后端 PID 均在用户本轮重启请求后启动，且运行路径属于当前 Git 仓库。
+- Forbidden action: 禁止只凭 `8081` Listen 宣称前端可用，也禁止把首次短超时直接当作前端失败后切换端口或跳过前端验证。
 
 ## 禁止做法
 

@@ -175,7 +175,9 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                 parameterSnapshot.sha256(),
                 parameterSnapshot.state(),
                 parameterSnapshot.deviceSelectionSnapshotJson(),
-                parameterSnapshot.deviceSelectionSnapshotSha256());
+                parameterSnapshot.deviceSelectionSnapshotSha256(),
+                parameterSnapshot.productionConfigSnapshotJson(),
+                parameterSnapshot.productionConfigSnapshotSha256());
     }
 
     private ParameterRuntimeSnapshot resolveParameterRuntimeSnapshot(
@@ -183,7 +185,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         if (activeOrderId == null) {
             return new ParameterRuntimeSnapshot(null, null,
                     MesDeviceParameterSnapshotCodec.SOURCE_CURRENT_ROUTE_PROCESS_AT_SUBMIT, null, null,
-                    List.of(), null, null);
+                    List.of(), null, null, null, null);
         }
         MesProcessPoolActiveOrderProcessSnapshotDO snapshot = processSnapshotMapper.selectByActiveOrderAndProcess(
                 activeOrderId, process.routeProcessId(), process.processId());
@@ -218,7 +220,8 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         }
         return new ParameterRuntimeSnapshot(snapshot.getId(), snapshot.getParameterSnapshotSha256(), state, rules,
                 selectionGroups, parseLossReasonSnapshot(snapshot), snapshot.getDeviceSelectionSnapshotJson(),
-                snapshot.getDeviceSelectionSnapshotSha256());
+                snapshot.getDeviceSelectionSnapshotSha256(), snapshot.getProductionConfigSnapshotJson(),
+                snapshot.getProductionConfigSnapshotSha256());
     }
 
     private static List<MesProcessPoolTeamProcessDeviceDO> toFrozenProcessDeviceBindings(
@@ -276,15 +279,15 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         try {
             JSONObject envelope = JSON.parseObject(envelopeJson);
             JSONArray lossReasons = JSON.parseArray(snapshot.getLossReasonSnapshotJson());
-            JSONArray parameterRules = JSON.parseArray(snapshot.getParameterSnapshotJson());
             JSONArray deviceGroups = JSON.parseArray(snapshot.getDeviceSelectionSnapshotJson());
             if (envelope == null
                     || !Objects.equals(process.routeProcessId(), envelope.getLong("routeProcessId"))
                     || !Objects.equals(process.processId(), envelope.getLong("processId"))
-                    || !Objects.equals(snapshot.getOveragePercentSnapshot(),
+                    || !compareProductionConfigOverage(snapshot.getOveragePercentSnapshot(),
                     envelope.getBigDecimal("overagePercent"))
                     || !Objects.equals(lossReasons, envelope.getJSONArray("lossReasons"))
-                    || !Objects.equals(parameterRules, envelope.getJSONArray("parameterRules"))
+                    || !productionParameterRulesMatch(snapshot.getParameterSnapshotJson(),
+                    envelope.getJSONArray("parameterRules"), process.routeProcessId(), process.processId())
                     || !Objects.equals(deviceGroups, envelope.getJSONArray("deviceSelectionGroups"))
                     || !Objects.equals(snapshot.getLossReasonSnapshotSha256(),
                     DigestUtil.sha256Hex(snapshot.getLossReasonSnapshotJson()))
@@ -298,6 +301,20 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED,
                     PRODUCTION_CONTEXT_PREFIX + "productionConfigSnapshot");
         }
+    }
+
+    private static boolean productionParameterRulesMatch(String parameterSnapshotJson, JSONArray envelopeParameterRules,
+                                                         Long routeProcessId, Long processId) {
+        if (parameterSnapshotJson == null || envelopeParameterRules == null) {
+            return false;
+        }
+        return MesDeviceParameterSnapshotCodec.matchesCanonicalSnapshot(parameterSnapshotJson,
+                envelopeParameterRules.toJSONString(), routeProcessId, processId);
+    }
+
+    private static boolean compareProductionConfigOverage(BigDecimal snapshotOverage, BigDecimal envelopeOverage) {
+        return snapshotOverage != null && envelopeOverage != null
+                && snapshotOverage.compareTo(envelopeOverage) == 0;
     }
 
     private static List<MesFrontlineDefectReasonOption> parseLossReasonSnapshot(
@@ -612,7 +629,9 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                                             List<MesFrontlineDeviceSelectionGroup> selectionGroups,
                                             List<MesFrontlineDefectReasonOption> lossReasons,
                                             String deviceSelectionSnapshotJson,
-                                            String deviceSelectionSnapshotSha256) {
+                                            String deviceSelectionSnapshotSha256,
+                                            String productionConfigSnapshotJson,
+                                            String productionConfigSnapshotSha256) {
     }
 
 }

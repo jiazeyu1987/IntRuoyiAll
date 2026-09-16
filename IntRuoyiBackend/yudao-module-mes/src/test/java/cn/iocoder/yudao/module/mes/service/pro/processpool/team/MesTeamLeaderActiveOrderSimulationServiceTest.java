@@ -163,15 +163,25 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
     }
 
     @Test
-    void simulateCompletionShouldUseFixedPqcTasksInsteadOfAllProductionProcesses() {
+    void simulateCompletionShouldSubmitEveryConfiguredPqcTask() {
         MesProcessPoolActiveOrderDO activeOrder = activeOrder();
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = List.of(
                 processSnapshot(5001L, 6001L),
                 processSnapshot(5002L, 6002L));
         MesPqcInspectionTaskDO pendingPqcTask = pqcTask(MesPqcInspectionTaskDO.TASK_STATUS_PENDING);
+        MesPqcInspectionTaskDO secondProcessPqcTask = pqcTask(MesPqcInspectionTaskDO.TASK_STATUS_PENDING)
+                .setId(8302L)
+                .setRouteProcessId(5002L)
+                .setProcessId(6002L);
         MesPqcInspectionTaskDO confirmedPqcTask = pqcTask(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
                 .setActualInspectionQuantity(1)
                 .setSubmittedEventId(8001L);
+        MesPqcInspectionTaskDO secondConfirmedPqcTask = pqcTask(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
+                .setId(8302L)
+                .setRouteProcessId(5002L)
+                .setProcessId(6002L)
+                .setActualInspectionQuantity(1)
+                .setSubmittedEventId(8002L);
         List<MesProcessPoolReportAllocationDO> completedAllocations = List.of(
                 allocation(7001L, 5001L, 6001L),
                 allocation(7002L, 5002L, 6002L));
@@ -200,7 +210,8 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
         when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(routeProcess(5001L, 6001L, 801L));
         when(routeProcessMapper.selectByIdIgnoreDeleted(5002L)).thenReturn(routeProcess(5002L, 6002L, 802L));
         when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(snapshots);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of(pendingPqcTask));
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L))
+                .thenReturn(List.of(pendingPqcTask, secondProcessPqcTask));
         when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L)))
                 .thenReturn(List.of(), completedAllocations, completedAllocations);
         when(feedbackMapper.insert(any(MesProFeedbackDO.class))).thenAnswer(invocation -> {
@@ -208,7 +219,7 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
             return 1;
         });
         when(signatureService.recordStage1SimulationSignature(any(), any(), any(), any(), any()))
-                .thenReturn(10001L, 10002L, 10003L, 10004L, 10005L, 10006L);
+                .thenReturn(10001L, 10002L, 10003L, 10004L, 10005L, 10006L, 10007L, 10008L);
         when(processPoolEventService.createEvent(any())).thenReturn(7001L, 7002L);
         when(reportAllocationMapper.selectListByEventIdForUpdate(7001L))
                 .thenReturn(List.of(allocation(7001L, 5001L, 6001L)));
@@ -228,22 +239,28 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 new MesPqcItemEquipmentOption("FIRST-001", 1701L, "PQC-DEVICE-001",
                         "第一台PQC设备", "PQC-NO-001", true, 1))));
         when(pqcPieceDetailMapper.selectListByTaskId(8301L)).thenReturn(List.of());
+        when(pqcPieceDetailMapper.selectListByTaskId(8302L)).thenReturn(List.of());
         when(pqcPieceDetailMapper.insertBatch(any(List.class))).thenReturn(Boolean.TRUE);
         when(pqcInspectionTaskMapper.updateSubmittedIfPending(8301L, 1, "SIMULATED:8301:1:scrapQuantity:1:inspectionResult:FAILURE",
                 MesPqcInspectionTaskDO.TASK_STATUS_PENDING, MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED))
                 .thenReturn(1);
-        when(processPoolEventService.createPqcInspectionEvent(any())).thenReturn(8001L);
+        when(pqcInspectionTaskMapper.updateSubmittedIfPending(8302L, 1, "SIMULATED:8302:1:scrapQuantity:1:inspectionResult:FAILURE",
+                MesPqcInspectionTaskDO.TASK_STATUS_PENDING, MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED))
+                .thenReturn(1);
+        when(processPoolEventService.createPqcInspectionEvent(any())).thenReturn(8001L, 8002L);
         when(pqcInspectionTaskMapper.updateSubmittedEventId(8301L, 8001L)).thenReturn(1);
+        when(pqcInspectionTaskMapper.updateSubmittedEventId(8302L, 8002L)).thenReturn(1);
         when(pqcInspectionTaskMapper.selectListByActiveOrderId(8101L))
-                .thenReturn(List.of(confirmedPqcTask), List.of(confirmedPqcTask));
+                .thenReturn(List.of(confirmedPqcTask, secondConfirmedPqcTask),
+                        List.of(confirmedPqcTask, secondConfirmedPqcTask));
 
         MesTeamLeaderActiveOrderSimulationResult result = service.simulateActiveOrderCompletion(3001L, 8101L);
 
         assertEquals(8101L, result.getActiveOrderId());
         assertEquals(2, result.getProductionSubmitCount());
         assertEquals(2, result.getProductionReviewCount());
-        assertEquals(1, result.getPqcSubmitCount());
-        assertEquals(1, result.getPqcReviewCount());
+        assertEquals(2, result.getPqcSubmitCount());
+        assertEquals(2, result.getPqcReviewCount());
         assertEquals(new BigDecimal("100.000000"), result.getProductionProgressPercent());
         assertEquals(new BigDecimal("100.000000"), result.getInspectionProgressPercent());
         org.mockito.Mockito.verify(reportAllocationCommandService).createInitialAllocation(
@@ -301,35 +318,47 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                         .contains("\"inMeteringValidityPeriod\":true")));
         ArgumentCaptor<MesProcessPoolCreatePqcInspectionReqDTO> pqcCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolCreatePqcInspectionReqDTO.class);
-        org.mockito.Mockito.verify(processPoolEventService).createPqcInspectionEvent(pqcCaptor.capture());
-        assertEquals(10005L, pqcCaptor.getValue().getSignatureId());
-        assertEquals(3001L, pqcCaptor.getValue().getDeviceAccountId());
-        assertEquals(1701L, pqcCaptor.getValue().getDeviceId());
-        assertEquals(801L, pqcCaptor.getValue().getWorkstationId());
-        assertTrue(pqcCaptor.getValue().getRawPayload().contains("\"selectedEquipment\""));
-        assertTrue(pqcCaptor.getValue().getRawPayload().contains("\"equipmentCode\":\"PQC-DEVICE-001\""));
+        org.mockito.Mockito.verify(processPoolEventService, org.mockito.Mockito.times(2))
+                .createPqcInspectionEvent(pqcCaptor.capture());
+        assertEquals(List.of(10005L, 10007L), pqcCaptor.getAllValues().stream()
+                .map(MesProcessPoolCreatePqcInspectionReqDTO::getSignatureId).toList());
+        assertEquals(List.of(3001L, 3001L), pqcCaptor.getAllValues().stream()
+                .map(MesProcessPoolCreatePqcInspectionReqDTO::getDeviceAccountId).toList());
+        assertEquals(List.of(1701L, 1701L), pqcCaptor.getAllValues().stream()
+                .map(MesProcessPoolCreatePqcInspectionReqDTO::getDeviceId).toList());
+        assertEquals(List.of(801L, 802L), pqcCaptor.getAllValues().stream()
+                .map(MesProcessPoolCreatePqcInspectionReqDTO::getWorkstationId).toList());
+        assertTrue(pqcCaptor.getAllValues().stream()
+                .allMatch(req -> req.getRawPayload().contains("\"selectedEquipment\"")));
+        assertTrue(pqcCaptor.getAllValues().stream()
+                .allMatch(req -> req.getRawPayload().contains("\"equipmentCode\":\"PQC-DEVICE-001\"")));
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<MesPqcInspectionPieceDetailDO>> pieceCaptor =
                 ArgumentCaptor.forClass((Class) List.class);
-        org.mockito.Mockito.verify(pqcPieceDetailMapper).insertBatch(pieceCaptor.capture());
-        assertEquals(1701L, pieceCaptor.getValue().get(0).getSelectedEquipmentId());
-        assertEquals("PQC-DEVICE-001", pieceCaptor.getValue().get(0).getSelectedEquipmentCode());
-        assertEquals("第一台PQC设备", pieceCaptor.getValue().get(0).getSelectedEquipmentName());
-        assertEquals("PQC-NO-001", pieceCaptor.getValue().get(0).getSelectedEquipmentNumber());
+        org.mockito.Mockito.verify(pqcPieceDetailMapper, org.mockito.Mockito.times(2))
+                .insertBatch(pieceCaptor.capture());
+        assertTrue(pieceCaptor.getAllValues().stream()
+                .allMatch(details -> Long.valueOf(1701L).equals(details.get(0).getSelectedEquipmentId())));
+        assertTrue(pieceCaptor.getAllValues().stream()
+                .allMatch(details -> "PQC-DEVICE-001".equals(details.get(0).getSelectedEquipmentCode())));
+        assertTrue(pieceCaptor.getAllValues().stream()
+                .allMatch(details -> "第一台PQC设备".equals(details.get(0).getSelectedEquipmentName())));
+        assertTrue(pieceCaptor.getAllValues().stream()
+                .allMatch(details -> "PQC-NO-001".equals(details.get(0).getSelectedEquipmentNumber())));
 
         ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviewCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
-        org.mockito.Mockito.verify(submissionReviewMapper, org.mockito.Mockito.times(3))
+        org.mockito.Mockito.verify(submissionReviewMapper, org.mockito.Mockito.times(4))
                 .insert(reviewCaptor.capture());
-        assertEquals(List.of(10002L, 10004L, 10006L), reviewCaptor.getAllValues().stream()
+        assertEquals(List.of(10002L, 10004L, 10006L, 10008L), reviewCaptor.getAllValues().stream()
                 .map(MesProcessPoolSubmissionReviewDO::getReviewSignatureId).toList());
         org.mockito.Mockito.verify(signatureService, org.mockito.Mockito.times(2))
                 .recordStage1SimulationSignature(3001L,
                         MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT, 8101L, null, null);
-        org.mockito.Mockito.verify(signatureService)
+        org.mockito.Mockito.verify(signatureService, org.mockito.Mockito.times(2))
                 .recordStage1SimulationSignature(3001L,
                         MesProBatchRecordExecutionSignatureService.ACTION_PQC_SUBMIT, 8101L, null, null);
-        org.mockito.Mockito.verify(signatureService, org.mockito.Mockito.times(3))
+        org.mockito.Mockito.verify(signatureService, org.mockito.Mockito.times(4))
                 .recordStage1SimulationSignature(any(),
                         org.mockito.Mockito.eq(MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW),
                         any(), any(), any());

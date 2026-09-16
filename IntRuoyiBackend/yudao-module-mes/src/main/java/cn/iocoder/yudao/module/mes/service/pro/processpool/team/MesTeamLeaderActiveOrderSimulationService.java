@@ -62,6 +62,7 @@ import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -277,6 +278,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 || task.getRegulationVersionId() == null
                 || StrUtil.isBlank(task.getQaItemCode())
                 || StrUtil.isBlank(task.getInspectionType())
+                || StrUtil.isBlank(task.getInspectionRuleKey())
                 || task.getBusinessDate() == null
                 || StrUtil.isBlank(task.getShiftCode())
                 || task.getRoundNo() == null
@@ -860,7 +862,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
                                                         String simulationRunId) {
         int submitCount = 0;
         int reviewCount = 0;
-        for (MesPqcInspectionTaskDO task : lockedTasks) {
+        List<MesPqcInspectionTaskDO> simulationTasks = deduplicatePqcSimulationTasks(activeOrder, lockedTasks);
+        for (MesPqcInspectionTaskDO task : simulationTasks) {
             if (MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())) {
                 normalizeConfirmedPqcSimulationSubmission(activeOrder, task, simulationStage, simulationRunId);
                 continue;
@@ -888,6 +891,49 @@ public class MesTeamLeaderActiveOrderSimulationService {
                     "活跃订单固定 PQC 任务确认后仍未完成，activeOrderId=" + activeOrder.getId());
         }
         return new PqcSimulationSummary(submitCount, reviewCount);
+    }
+
+    private List<MesPqcInspectionTaskDO> deduplicatePqcSimulationTasks(MesProcessPoolActiveOrderDO activeOrder,
+                                                                       List<MesPqcInspectionTaskDO> lockedTasks) {
+        Map<PqcSimulationTaskIdentity, MesPqcInspectionTaskDO> tasksByIdentity = new LinkedHashMap<>();
+        for (MesPqcInspectionTaskDO task : lockedTasks) {
+            PqcSimulationTaskIdentity identity = PqcSimulationTaskIdentity.of(task);
+            MesPqcInspectionTaskDO existing = tasksByIdentity.putIfAbsent(identity, task);
+            if (existing != null) {
+                validateDuplicatePqcSimulationTask(activeOrder, identity, existing, task);
+                if (pqcSimulationTaskStatusPriority(task) > pqcSimulationTaskStatusPriority(existing)) {
+                    tasksByIdentity.put(identity, task);
+                }
+            }
+        }
+        return new ArrayList<>(tasksByIdentity.values());
+    }
+
+    private static int pqcSimulationTaskStatusPriority(MesPqcInspectionTaskDO task) {
+        if (task == null) {
+            return 0;
+        }
+        if (MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())) {
+            return 3;
+        }
+        if (MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())) {
+            return 2;
+        }
+        if (MesPqcInspectionTaskDO.TASK_STATUS_PENDING.equals(task.getTaskStatus())) {
+            return 1;
+        }
+        return 0;
+    }
+
+    private void validateDuplicatePqcSimulationTask(MesProcessPoolActiveOrderDO activeOrder,
+                                                    PqcSimulationTaskIdentity identity,
+                                                    MesPqcInspectionTaskDO existing,
+                                                    MesPqcInspectionTaskDO duplicate) {
+        if (!Objects.equals(existing.getPlannedInspectionQuantity(), duplicate.getPlannedInspectionQuantity())) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "Stage1 PQC重复任务计划检验数量不一致，activeOrderId=" + activeOrder.getId()
+                            + "，identity=" + identity + "，taskId=" + duplicate.getId());
+        }
     }
 
     private void normalizeConfirmedPqcSimulationSubmission(MesProcessPoolActiveOrderDO activeOrder,
@@ -1339,14 +1385,15 @@ public class MesTeamLeaderActiveOrderSimulationService {
         if (pqcTasks == null || pqcTasks.isEmpty()) {
             return zeroProgressPercent();
         }
-        long confirmedTaskCount = 0;
+        Map<PqcSimulationTaskIdentity, Boolean> confirmedByIdentity = new LinkedHashMap<>();
         for (MesPqcInspectionTaskDO task : pqcTasks) {
             validatePqcTask(activeOrder, formalIdentitySet, task);
-            if (MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())) {
-                confirmedTaskCount++;
-            }
+            PqcSimulationTaskIdentity identity = PqcSimulationTaskIdentity.of(task);
+            boolean confirmed = MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus());
+            confirmedByIdentity.merge(identity, confirmed, Boolean::logicalOr);
         }
-        return toProgressPercent(confirmedTaskCount, pqcTasks.size());
+        long confirmedTaskCount = confirmedByIdentity.values().stream().filter(Boolean::booleanValue).count();
+        return toProgressPercent(confirmedTaskCount, confirmedByIdentity.size());
     }
 
     private Map<ProcessIdentity, BigDecimal> aggregateAllocatedByProcess(Long activeOrderId) {
@@ -1592,6 +1639,18 @@ public class MesTeamLeaderActiveOrderSimulationService {
 
     private record PqcPieceBuildResult(List<MesPqcInspectionPieceDetailDO> pieceDetails,
                                        PqcEquipment selectedEquipment) {
+    }
+
+    private record PqcSimulationTaskIdentity(Long regulationVersionId, Long qaProcessId, String qaItemCode,
+                                             String inspectionRuleKey, String inspectionType,
+                                             LocalDate businessDate, String shiftCode, Integer roundNo) {
+
+        private static PqcSimulationTaskIdentity of(MesPqcInspectionTaskDO task) {
+            return new PqcSimulationTaskIdentity(task.getRegulationVersionId(), task.getQaProcessId(),
+                    normalizeQaItemCode(task.getQaItemCode()), StrUtil.trimToEmpty(task.getInspectionRuleKey()),
+                    normalizeInspectionType(task.getInspectionType()), task.getBusinessDate(),
+                    StrUtil.trimToEmpty(task.getShiftCode()), task.getRoundNo());
+        }
     }
 
     private record PqcSimulationSummary(Integer pqcSubmitCount, Integer pqcReviewCount) {

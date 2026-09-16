@@ -1,0 +1,25 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const root = path.resolve(__dirname, '../../../..')
+const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8').replace(/\r\n/g, '\n')
+
+const context = read('yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineProductionSubmitContext.java')
+const runtime = read('yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineRuntimeConfigServiceImpl.java')
+const responseVo = read('yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/vo/frontline/MesFrontlineRuntimeConfigRespVO.java')
+const controller = read('yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/MesFrontlineDeviceAccountController.java')
+const api = fs.readFileSync(path.resolve(root, '../IntRuoyiFronted/src/api/mes/pro/feedback/index.ts'), 'utf8')
+  .replace(/\r\n/g, '\n')
+
+assert.match(context, /String productionConfigSnapshotJson,\n\s*String productionConfigSnapshotSha256\)/)
+assert.match(runtime, /productionConfigSnapshotJson\(\)/)
+assert.match(runtime, /productionConfigSnapshotSha256\(\)/)
+assert.match(responseVo, /private String productionConfigSnapshotJson;/)
+assert.match(responseVo, /private String productionConfigSnapshotSha256;/)
+assert.match(controller, /setProductionConfigSnapshotJson\(context\.productionConfigSnapshotJson\(\)\)/)
+assert.match(controller, /setProductionConfigSnapshotSha256\(context\.productionConfigSnapshotSha256\(\)\)/)
+assert.match(api, /productionConfigSnapshotJson\?: string/)
+assert.match(api, /productionConfigSnapshotSha256\?: string/)
+
+console.log('PASS: frontline production submit context exposes the frozen production configuration snapshot')

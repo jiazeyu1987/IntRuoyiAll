@@ -841,6 +841,7 @@
 
 - Trigger: 一线 PQC 活跃订单列表可见目标产品订单，但选择订单后检验项目区为空、检验方法按钮不渲染，或页面提示 `routeProjectItems`、`missingItemIds`、PQC 任务身份不一致、设备账号上下文不完整。
 - Preflight check: 活跃订单存在只证明候选入口，不证明该订单可执行 PQC。必须通过真实页面选择精确目标产品订单，等待 `/mes/pro/feedback/frontline/device-account/pqc/active-order/processes` 完成，核对业务码，并确认返回任务的 `activeOrderId`、`regulationVersionId`、`qaProcessId` 和规则身份完整；需要路线产品项目的场景还必须核对正式 `routeProjectItems` 已绑定到该 `routeId`。同产品存在多条任务自有订单时至少复验两条，区分单订单异常、共享路线绑定缺口和历史任务回填缺口。
+- Process picker screenshot check: 验证一线 PQC `选工序` 排序或截图前，必须先记录自然页面响应 `/pqc/active-orders` 的 HTTP、业务码和数组长度；若 `data.length=0`，结果只能是待检数据前置 BLOCKED，不能把空工序弹窗当成排序失败或通过。普通后台布局会压缩业务区高度，截图应使用足够桌面视口或真实全屏状态，并同时记录接口工序数组数量和 DOM 工序按钮数量。
 - Blocker: 页面返回 `routeProjectItems routeId=<id>，missingItemIds=[...]`、PQC 任务身份不一致且 `regulationVersionId`/`qaProcessId` 为空、目标订单和路线不一致、工序接口 HTTP 200 但业务码非 0、页面业务上下文拒绝、或检验方法入口未渲染时必须记录 BLOCKED；HTTP 200、活跃订单数量、其它产品订单可用或静态弹窗合同均不能替代目标订单真实路径。
 - Verification: 证据必须包含租户/账号标签、目标订单编码与产品名称、`activeOrderId`、`routeId`、`pqcTaskId`、`regulationVersionId`、`qaProcessId`、缺失项目 ID、工序请求 HTTP/业务码、页面错误文案、检验方法按钮/弹窗是否可见、目标业务写请求、`consoleErrors` 和 `pageErrors`。页面自动调用 `/pqc/switch-employee` 时，只有源码确认该服务不执行 Mapper/DAO 写入或事务持久化后，才可将其单独记录为上下文解析 POST；不得省略该请求或把它计成 PQC 正式提交。
 - Forbidden action: 禁止用 API/SQL 临时补 `routeProjectItems`、前端直塞工序/检验项目、跨产品或跨路线借用其它订单、忽略页面业务错误、只看 HTTP 200，或把上下文解析 POST 冒充正式提交成功。

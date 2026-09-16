@@ -41,12 +41,19 @@ assert.match(
 )
 for (const selector of [
   'data-qa-common-set-switch',
-  'data-qa-common-set-standard-list',
+  'data-qa-common-overview-summary',
+  'data-qa-common-overview-info',
+  'data-qa-common-overview-note',
   'data-qa-common-set-version-detail',
   'data-qa-common-set-member-detail',
   'data-qa-regulation-common-word-import'
 ]) {
   assert.ok(pageSource.includes(selector), `Independent common regulation page missing ${selector}`)
 }
+assert.doesNotMatch(
+  pageSource,
+  /data-qa-common-set-standard-list|table-key="mes\.qa\.common-regulation-set\.main"/,
+  'The independent common overview must not keep the old table-based set list.'
+)
 
 console.log('PASS independent common regulation tab static contract')

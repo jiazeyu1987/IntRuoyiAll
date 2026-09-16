@@ -435,6 +435,43 @@ assert.throws(
   'An invalid business date must fail explicitly with the task identity.'
 )
 
+const processForOrder = (qaProcessId, qaProcessSort, qaProcessName, regulationSourceType) => ({
+  ...processFixture,
+  qaProcessId,
+  qaProcessCode: `QA-${qaProcessId}`,
+  qaProcessName,
+  qaProcessSort,
+  regulationSourceType,
+  pqcTaskOptions: []
+})
+const mixedSourceProjectedProcesses = projectFrontlinePqcProcesses([
+  processForOrder(9001, 1, '清洗', 'PRODUCT_QA'),
+  processForOrder(9101, 1, '初包装过程检验规程', 'COMMON_PACKAGING'),
+  processForOrder(9102, 1, '大中包装过程检验规程', 'COMMON_PACKAGING'),
+  processForOrder(9002, 2, '清洁', 'PRODUCT_QA'),
+  processForOrder(9003, 3, '组装螺杆八组件', 'PRODUCT_QA'),
+  processForOrder(9004, 4, '光固外套四组件', 'PRODUCT_QA'),
+  processForOrder(9005, 5, '装配', 'PRODUCT_QA'),
+  processForOrder(9006, 6, '整体粘结', 'PRODUCT_QA')
+])
+assert.deepEqual(
+  mixedSourceProjectedProcesses.map(({ qaProcessSort, qaProcessName }) => [
+    qaProcessSort,
+    qaProcessName
+  ]),
+  [
+    [1, '清洗'],
+    [2, '清洁'],
+    [3, '组装螺杆八组件'],
+    [4, '光固外套四组件'],
+    [5, '装配'],
+    [6, '整体粘结'],
+    [7, '小包装'],
+    [8, '中大包装']
+  ],
+  'Frontend projection must keep common packaging regulations after product QA and display them as 7. 小包装 / 8. 中大包装.'
+)
+
 const verifyRealConsumerIdentityAndStaleIsolation = async () => {
   const pendingLoads = new Map()
   const employeeContext = loadTypeScriptModule(

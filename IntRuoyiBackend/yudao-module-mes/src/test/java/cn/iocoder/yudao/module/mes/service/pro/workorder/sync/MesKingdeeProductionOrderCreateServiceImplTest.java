@@ -228,6 +228,7 @@ class MesKingdeeProductionOrderCreateServiceImplTest {
         ErpKingdeeProductionOrder templateOrder = new ErpKingdeeProductionOrder();
         templateOrder.setBillNo("TEMPLATE-MO-001");
         templateOrder.setMaterialNumber("MAT-001");
+        templateOrder.setProductionOrgNumber("100");
         templateOrder.setUnitCode("kg");
         templateOrder.setSourceBillNo("SO-001");
         templateOrder.setPlannedStartDate(LocalDateTime.of(2026, 9, 16, 8, 0));
@@ -259,6 +260,7 @@ class MesKingdeeProductionOrderCreateServiceImplTest {
         verify(productionOrderClient).createAndSubmitProductionOrder(eq(kingdeeProperties), captor.capture());
         assertEquals("TEMPLATE-MO-001", captor.getValue().getTemplateBillNo());
         assertEquals("MAT-001", captor.getValue().getMaterialNumber());
+        assertEquals("100", captor.getValue().getProductionOrgNumber());
         assertEquals("kg", captor.getValue().getUnitNumber());
         assertEquals(new BigDecimal("100"), captor.getValue().getQuantity());
         assertEquals("SO-001", captor.getValue().getSourceBillNo());
@@ -271,6 +273,7 @@ class MesKingdeeProductionOrderCreateServiceImplTest {
         ErpKingdeeProductionOrder templateOrder = new ErpKingdeeProductionOrder();
         templateOrder.setBillNo("TEMPLATE-MO-001");
         templateOrder.setMaterialNumber("MAT-001");
+        templateOrder.setProductionOrgNumber("100");
         templateOrder.setSourceBillNo("SO-001");
         templateOrder.setPlannedStartDate(LocalDateTime.of(2026, 9, 16, 8, 0));
         templateOrder.setPlannedEndDate(LocalDateTime.of(2026, 9, 16, 18, 0));
@@ -301,6 +304,7 @@ class MesKingdeeProductionOrderCreateServiceImplTest {
         verify(productionOrderClient).createAndSubmitProductionOrder(eq(kingdeeProperties), captor.capture());
         assertEquals(null, captor.getValue().getUnitNumber());
         assertEquals(Boolean.TRUE, captor.getValue().getUseTemplateEntryUnit());
+        assertEquals("100", captor.getValue().getProductionOrgNumber());
         assertEquals("MAT-001", captor.getValue().getMaterialNumber());
         assertEquals(new BigDecimal("100"), captor.getValue().getQuantity());
         assertEquals("AI-EDHR-20260915T120000-A1B2-B01", captor.getValue().getBatchNumber());

@@ -20,12 +20,14 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
     private String workOrderCode;
     private String batchCode;
     private BigDecimal workOrderQuantity;
+    private String demandBillNo;
     private String drawingNumber;
     private String productCode;
     private String productName;
     private String productSpecification;
     private LocalDateTime workOrderCreateTime;
     private String routeName;
+    private List<InputMaterialDetail> inputMaterialUsages;
     private List<ProcessDetail> processes;
 
     @Data
@@ -158,6 +160,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private Long qaProcessId;
         private String qaProcessCode;
         private String qaProcessName;
+        private Integer qaProcessSort;
         private String qaItemCode;
         private String inspectionRuleKey;
         private String inspectionType;

@@ -1562,6 +1562,7 @@
         <el-table
           v-loading="activeOrderLoading"
           :data="pagedActiveOrderRows"
+          row-key="id"
           border
           stripe
           :row-class-name="resolveActiveOrderRowClassName"
@@ -1812,11 +1813,27 @@
                   activeOrderRebuildSubmittingId !== undefined ||
                   activeOrderSimulationSubmittingId !== undefined
                 "
-                data-team-leader-simulate-active-order-stage1
+                data-team-leader-simulate-active-order-stage1-p1
                 @click="handleSimulateStage1(row)"
               >
                 <Icon icon="ep:refresh" />
-                Stage1模拟
+                P1双100
+              </el-button>
+              <el-button
+                link
+                type="primary"
+                :disabled="
+                  maintenanceSubmitting ||
+                  activeOrderRebuildSubmittingId !== undefined ||
+                  activeOrderSimulationSubmittingId !== undefined ||
+                  !canGenerateStage1Forms(row)
+                "
+                :title="resolveStage1GenerateFormDisabledReason(row)"
+                data-team-leader-generate-active-order-stage1-p2
+                @click="handleGenerateStage1Forms(row)"
+              >
+                <Icon icon="ep:document" />
+                P2生成
               </el-button>
               <el-button
                 link
@@ -4099,6 +4116,7 @@ import {
   updateTeamEmployeeStatus as updateTeamEmployeeStatusRequest,
   updatePqcPersonnelStatus,
   type TeamFormalEmployeeCandidateRespVO,
+  type Stage1ActiveOrderCompleteSimulationRespVO,
   type TeamLeaderActiveOrderCandidateRespVO,
   type TeamLeaderActiveOrderCommitAction,
   type TeamLeaderActiveOrderDetailRespVO,
@@ -5597,6 +5615,18 @@ const isActiveOrderProgressComplete = (value: number | string | undefined) => {
   return Number.isFinite(parsed) && parsed >= 100
 }
 
+const assertStage1SimulationDouble100 = (result: Stage1ActiveOrderCompleteSimulationRespVO) => {
+  const productionComplete =
+    result.productionProgress100 && isActiveOrderProgressComplete(result.productionProgressPercent)
+  const inspectionComplete =
+    result.inspectionProgress100 && isActiveOrderProgressComplete(result.inspectionProgressPercent)
+  if (!productionComplete || !inspectionComplete) {
+    throw new Error(
+      `P1 未完成双100：生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}。请重置后重跑P1。`
+    )
+  }
+}
+
 const formatActiveOrderReleaseStatus = (status?: string) => {
   if (status === 'PQC_RELEASE_PENDING') return '待PQC放行'
   if (status === 'PQC_RELEASE_REJECTED') return 'PQC已拒绝'
@@ -5670,6 +5700,19 @@ const resolveActiveOrderReleaseApplyDisabledReason = (row: TeamLeaderActiveOrder
   if (!isActiveOrderProgressComplete(row.productionProgressPercent)) return '生产进度未达到100%'
   if (!isActiveOrderProgressComplete(row.inspectionProgressPercent)) return '检验进度未达到100%'
   return '提交生产放行申请'
+}
+
+const canGenerateStage1Forms = (row: TeamLeaderActiveOrderRespVO) =>
+  Boolean(row.simulated) &&
+  row.simulationStage === 'STAGE1' &&
+  isActiveOrderProgressComplete(row.productionProgressPercent) &&
+  isActiveOrderProgressComplete(row.inspectionProgressPercent)
+
+const resolveStage1GenerateFormDisabledReason = (row: TeamLeaderActiveOrderRespVO) => {
+  if (!row.simulated || row.simulationStage !== 'STAGE1') return '请先点击P1生成Stage1模拟数据'
+  if (!isActiveOrderProgressComplete(row.productionProgressPercent)) return '生产进度未达到100%'
+  if (!isActiveOrderProgressComplete(row.inspectionProgressPercent)) return '检验进度未达到100%'
+  return '生成批记录表单视图'
 }
 
 const formatTraceQuantity = (value: number | string | undefined) => {
@@ -9795,8 +9838,8 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
   let writeCompleted = false
   try {
     await ElMessageBox.confirm(
-      '系统将按当前点击的活跃订单，通过正式生产和PQC提交、复核链路形成生产进度和检验进度均为100%的事实。不会完工、回填、上传资料或放行。',
-      '确认模拟生产和PQC',
+      '系统将按当前点击的活跃订单，通过正式生产和PQC提交、复核链路形成生产进度和检验进度均为100%的事实。不会打开或生成批记录表单、完工、上传资料或放行。',
+      '确认P1双100',
       { type: 'warning', confirmButtonText: '开始模拟', cancelButtonText: '取消' }
     )
     const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
@@ -9804,20 +9847,29 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
       simulationRunId: `STAGE1-${Date.now()}`,
       activeOrderId
     })
+    assertStage1SimulationDouble100(result)
     writeCompleted = true
     ElMessage.success(
-      `Stage1 已完成：当前活跃订单 ${result.activeOrderId}，生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}。`
+      `P1 已完成：当前活跃订单 ${result.activeOrderId}，生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}。`
     )
     await loadActiveOrders()
-    navigateActiveOrderSubmissionDetail(activeOrderId)
   } catch (error) {
     if (error === 'cancel' || error === 'close') return
     ElMessage.error(
-      resolveErrorMessage(error, writeCompleted ? 'Stage1 已生成，但列表刷新失败' : 'Stage1 模拟失败')
+      resolveErrorMessage(error, writeCompleted ? 'P1 已完成，但列表刷新失败' : 'P1 模拟失败')
     )
   } finally {
     activeOrderSimulationSubmittingId.value = undefined
   }
+}
+
+const handleGenerateStage1Forms = (row: TeamLeaderActiveOrderRespVO) => {
+  if (!canGenerateStage1Forms(row)) {
+    ElMessage.warning(resolveStage1GenerateFormDisabledReason(row))
+    return
+  }
+  const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+  navigateActiveOrderSubmissionDetail(activeOrderId)
 }
 
 const handleSimulateStage2_5 = async (row: TeamLeaderActiveOrderRespVO) => {

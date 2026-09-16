@@ -306,11 +306,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                         routeDevicesByProcessIdentity));
             }
         }
-        processes.sort(Comparator
-                .comparing((MesFrontlinePqcProcessRespVO respVO) ->
-                        respVO.getQaProcessSort() == null ? Integer.MAX_VALUE : respVO.getQaProcessSort())
-                .thenComparing(MesFrontlinePqcProcessRespVO::getQaProcessId));
-        return processes;
+        return arrangePqcProcessDisplayOrder(processes);
     }
 
     private List<MesQaInspectionRegulationPublishedVersionRespVO> resolveLockedQaSources(
@@ -343,6 +339,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         Set<Long> commonRegulationVersionIds = activeOrderTasks.stream()
                 .filter(Objects::nonNull)
                 .filter(task -> !PQC_TASK_STATUS_CANCELLED.equals(task.getTaskStatus()))
+                .sorted(Comparator.comparing(MesPqcInspectionTaskDO::getId,
+                        Comparator.nullsLast(Long::compareTo)))
                 .map(MesPqcInspectionTaskDO::getRegulationVersionId)
                 .filter(Objects::nonNull)
                 .filter(versionId -> !Objects.equals(activeOrder.getQaRegulationVersionId(), versionId))
@@ -458,11 +456,12 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         respVO.setRegulationId(qaSource.getRegulationId());
         respVO.setRegulationCode(qaSource.getRegulationCode());
         respVO.setRegulationName(qaSource.getRegulationName());
-        respVO.setRegulationSourceType(resolveRegulationSourceType(activeOrder, qaSource));
+        String regulationSourceType = resolveRegulationSourceType(activeOrder, qaSource);
+        respVO.setRegulationSourceType(regulationSourceType);
         respVO.setRegulationVersionId(qaSource.getPublishedVersionId());
         respVO.setQaProcessId(qaProcess.getQaProcessId());
         respVO.setQaProcessCode(qaProcess.getProcessCode());
-        respVO.setQaProcessName(qaProcess.getProcessName());
+        respVO.setQaProcessName(resolveQaProcessDisplayName(regulationSourceType, qaProcess.getProcessName()));
         respVO.setQaProcessSort(qaProcess.getSort());
         respVO.setActiveOrderId(activeOrder.getId());
         respVO.setFinalInspectionApplicable(qaSource.getFinalInspectionApplicable());
@@ -1039,6 +1038,60 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 && Objects.equals(activeOrder.getQaRegulationVersionId(), qaSource.getPublishedVersionId())
                 ? REGULATION_SOURCE_TYPE_PRODUCT_QA
                 : REGULATION_SOURCE_TYPE_COMMON_PACKAGING;
+    }
+
+    private static List<MesFrontlinePqcProcessRespVO> arrangePqcProcessDisplayOrder(
+            List<MesFrontlinePqcProcessRespVO> processes) {
+        if (CollUtil.isEmpty(processes)) {
+            return processes;
+        }
+        List<MesFrontlinePqcProcessRespVO> productProcesses = new ArrayList<>();
+        List<MesFrontlinePqcProcessRespVO> commonPackagingProcesses = new ArrayList<>();
+        for (MesFrontlinePqcProcessRespVO process : processes) {
+            if (Objects.equals(REGULATION_SOURCE_TYPE_PRODUCT_QA, process.getRegulationSourceType())) {
+                productProcesses.add(process);
+                continue;
+            }
+            if (Objects.equals(REGULATION_SOURCE_TYPE_COMMON_PACKAGING, process.getRegulationSourceType())) {
+                commonPackagingProcesses.add(process);
+                continue;
+            }
+            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
+                    "pqcRegulationSourceType=" + process.getRegulationSourceType());
+        }
+        productProcesses.sort(Comparator
+                .comparing(MesFrontlinePqcProcessRespVO::getQaProcessSort,
+                        Comparator.nullsLast(Integer::compareTo))
+                .thenComparing(MesFrontlinePqcProcessRespVO::getQaProcessId,
+                        Comparator.nullsLast(Long::compareTo)));
+        Integer productMaxSort = productProcesses.stream()
+                .map(MesFrontlinePqcProcessRespVO::getQaProcessSort)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(0);
+        int nextSort = productMaxSort;
+        for (MesFrontlinePqcProcessRespVO process : commonPackagingProcesses) {
+            process.setQaProcessSort(++nextSort);
+        }
+        List<MesFrontlinePqcProcessRespVO> orderedProcesses = new ArrayList<>(
+                productProcesses.size() + commonPackagingProcesses.size());
+        orderedProcesses.addAll(productProcesses);
+        orderedProcesses.addAll(commonPackagingProcesses);
+        return orderedProcesses;
+    }
+
+    private static String resolveQaProcessDisplayName(String regulationSourceType, String processName) {
+        if (!Objects.equals(REGULATION_SOURCE_TYPE_COMMON_PACKAGING, regulationSourceType)) {
+            return processName;
+        }
+        String normalized = StrUtil.trim(processName);
+        if (Objects.equals("初包装", normalized) || Objects.equals("初包装过程检验规程", normalized)) {
+            return "小包装";
+        }
+        if (Objects.equals("大中包装", normalized) || Objects.equals("大中包装过程检验规程", normalized)) {
+            return "中大包装";
+        }
+        return processName;
     }
 
     private static MesFrontlinePqcProcessRespVO.PqcEquipmentOption toPqcEquipmentOptionRespVO(

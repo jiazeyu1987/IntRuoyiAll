@@ -759,9 +759,6 @@
             class="frontline-work-panel panel quantity-panel frontline-production-quantity-panel"
             aria-label="数量与不良"
           >
-            <p class="text-xs text-gray-500" data-frontline-input-batch-pending>
-              输入物料批号将在订单完成时回填。
-            </p>
             <div class="frontline-production-number-field field">
               <label class="field-label" for="frontlineProductionOutputQuantity">完成数量</label>
               <button
@@ -5045,6 +5042,8 @@ interface FrontlineFormalSubmitContext {
   activeOrderProcessSnapshotId?: number
   deviceSelectionSnapshotJson?: string
   deviceSelectionSnapshotSha256?: string
+  productionConfigSnapshotJson?: string
+  productionConfigSnapshotSha256?: string
 }
 
 const readFrontlineFormalSubmitContext = (): FrontlineFormalSubmitContext => {
@@ -5076,7 +5075,9 @@ const readFrontlineFormalSubmitContext = (): FrontlineFormalSubmitContext => {
     frontlineSessionSnapshotHash: deviceState.runtimeConfig?.frontlineSessionSnapshotHash,
     activeOrderProcessSnapshotId: serverContext?.activeOrderProcessSnapshotId,
     deviceSelectionSnapshotJson: serverContext?.deviceSelectionSnapshotJson,
-    deviceSelectionSnapshotSha256: serverContext?.deviceSelectionSnapshotSha256
+    deviceSelectionSnapshotSha256: serverContext?.deviceSelectionSnapshotSha256,
+    productionConfigSnapshotJson: serverContext?.productionConfigSnapshotJson,
+    productionConfigSnapshotSha256: serverContext?.productionConfigSnapshotSha256
   }
 }
 
@@ -5115,6 +5116,12 @@ const assertProductionSubmitSnapshotContext = (formalContext: FrontlineFormalSub
     (!snapshotContext.deviceSelectionSnapshotJson || !snapshotContext.deviceSelectionSnapshotSha256)
   ) {
     throw new Error('当前提交快照缺少设备选择快照，请重新进入工序。')
+  }
+  if (
+    snapshotContext.parameterSnapshotState === 'FROZEN' &&
+    (!formalContext.productionConfigSnapshotJson || !formalContext.productionConfigSnapshotSha256)
+  ) {
+    throw new Error('当前提交快照缺少生产配置快照，请重置活跃订单后重新进入工序。')
   }
 }
 
@@ -5612,6 +5619,11 @@ const buildProductionStructuredRawPayload = (
     routeProcessId: formalContext.routeProcessId,
     processId: formalContext.processId
   },
+  productionSubmitContext: {
+    activeOrderProcessSnapshotId: formalContext.activeOrderProcessSnapshotId,
+    productionConfigSnapshotJson: formalContext.productionConfigSnapshotJson,
+    productionConfigSnapshotSha256: formalContext.productionConfigSnapshotSha256
+  },
   materialDetails,
   lossDetails: buildProductionLossDetailsForSubmitScope(materialDetails),
   lossReasonDetails: buildProductionLossDetailsForSubmitScope(materialDetails),
@@ -5981,11 +5993,7 @@ const formatProcessLabel = (
   }
   if (isFrontlinePqcProcess(process)) {
     const sortText = process.qaProcessSort ? `${process.qaProcessSort}. ` : ''
-    const sourceText =
-      process.regulationSourceType === 'COMMON_PACKAGING'
-        ? `（通用包装${process.regulationName || process.regulationCode ? `：${process.regulationName || process.regulationCode}` : ''}）`
-        : ''
-    return `${sortText}${process.qaProcessName || process.qaProcessCode || process.qaProcessId}${sourceText}`
+    return `${sortText}${process.qaProcessName || process.qaProcessCode || process.qaProcessId}`
   }
   const sortText = process.sort ? `${process.sort}. ` : ''
   return `${sortText}${process.processName || process.processCode || process.processId}`

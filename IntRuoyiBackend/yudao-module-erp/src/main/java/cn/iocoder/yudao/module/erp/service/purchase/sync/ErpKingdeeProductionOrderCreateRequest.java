@@ -20,6 +20,8 @@ public class ErpKingdeeProductionOrderCreateRequest {
 
     private String materialNumber;
 
+    private String productionOrgNumber;
+
     private String unitNumber;
 
     /**

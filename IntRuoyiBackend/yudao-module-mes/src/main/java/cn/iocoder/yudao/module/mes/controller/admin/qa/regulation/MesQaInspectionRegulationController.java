@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.qa.regulation;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindingRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetItemsUpgradeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetVersionOptionRespVO;
@@ -188,6 +189,14 @@ public class MesQaInspectionRegulationController {
     public CommonResult<MesQaCommonRegulationSetRespVO.Version> saveCommonRegulationSetVersion(
             @Valid @RequestBody MesQaCommonRegulationSetVersionSaveReqVO reqVO) {
         return success(regulationService.saveCommonRegulationSetVersion(reqVO));
+    }
+
+    @PostMapping("/common-set-versions/upgrade-items")
+    @Operation(summary = "保存通用检验规程套检验项目并升版")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
+    public CommonResult<MesQaCommonRegulationSetRespVO.Version> upgradeCommonRegulationSetItems(
+            @Valid @RequestBody MesQaCommonRegulationSetItemsUpgradeReqVO reqVO) {
+        return success(regulationService.upgradeCommonRegulationSetItems(reqVO));
     }
 
     @DeleteMapping("/common-set-versions/delete")

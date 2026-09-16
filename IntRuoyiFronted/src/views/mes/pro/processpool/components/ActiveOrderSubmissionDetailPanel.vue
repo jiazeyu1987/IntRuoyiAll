@@ -74,7 +74,7 @@
                 </tr>
                 <tr>
                   <th>生产指令</th>
-                  <td>{{ blankSummaryField }}</td>
+                  <td>{{ activeOrderWorkOrderDisplay.demandBillNo }}</td>
                   <th>生产订单号</th>
                   <td>{{ activeOrderWorkOrderDisplay.workOrderCode }}</td>
                 </tr>
@@ -279,7 +279,7 @@
                   </div>
                   <div>
                     <span>产品规格</span>
-                    <strong>{{ detail.productSpecification || '未记录' }}</strong>
+                    <strong>{{ activeOrderProductSpecificationText }}</strong>
                   </div>
                   <div>
                     <span>生产订单</span>
@@ -512,7 +512,7 @@
               </div>
               <div>
                 <span>产品规格</span>
-                <strong>{{ detail.productSpecification || '未记录' }}</strong>
+                <strong>{{ activeOrderProductSpecificationText }}</strong>
               </div>
               <div>
                 <span>检验数量</span>
@@ -1068,7 +1068,7 @@
             </div>
             <div>
               <span>产品规格</span>
-              <strong>{{ detail.productSpecification || '未记录' }}</strong>
+              <strong>{{ activeOrderProductSpecificationText }}</strong>
             </div>
             <div>
               <span>生产订单</span>
@@ -1282,7 +1282,7 @@
             </div>
             <div>
               <span>产品规格</span>
-              <strong>{{ detail.productSpecification || '未记录' }}</strong>
+              <strong>{{ activeOrderProductSpecificationText }}</strong>
             </div>
             <div>
               <span>检验数量</span>
@@ -1585,6 +1585,7 @@ const activeOrderWorkOrderDisplay = computed(() => {
       batchCode: source.batchCode || '-',
       workOrderCode: source.code || '-',
       quantity: formatTraceQuantity(source.quantity),
+      demandBillNo: source.demandBillNo || '-',
       drawingNumber: source.drawingNumber || '-',
       productSpecification: source.productSpecification || '-',
       productCode: source.productCode || '-',
@@ -1598,6 +1599,7 @@ const activeOrderWorkOrderDisplay = computed(() => {
     batchCode: detail?.batchCode || '-',
     workOrderCode: detail?.workOrderCode || '-',
     quantity: formatTraceQuantity(detail?.workOrderQuantity),
+    demandBillNo: detail?.demandBillNo || '-',
     drawingNumber: detail?.drawingNumber || '-',
     productSpecification: detail?.productSpecification || '-',
     productCode: detail?.productCode || '-',
@@ -1606,6 +1608,11 @@ const activeOrderWorkOrderDisplay = computed(() => {
     workshopName: '',
     createTime: formatDateTime(detail?.workOrderCreateTime)
   }
+})
+
+const activeOrderProductSpecificationText = computed(() => {
+  const specification = activeOrderWorkOrderDisplay.value.productSpecification
+  return specification === '-' ? '未记录' : specification
 })
 
 interface ProductionMaterialListDocument {
@@ -1641,11 +1648,47 @@ const readProductionMaterialListText = (
   return ''
 }
 
-const formatProductionMaterialListQuantity = (value: number | string | undefined) => {
+const formatProductionMaterialListQuantity = (value: number | string | undefined | null) => {
   if (value === undefined || value === null || value === '') return ''
   const parsed = Number(value)
   return Number.isFinite(parsed) ? String(Math.round(parsed)) : String(value)
 }
+
+const normalizeProductionMaterialCode = (value: string | number | undefined | null) => {
+  if (value === undefined || value === null) return ''
+  return String(value).trim()
+}
+
+const parseProductionMaterialListQuantity = (value: number | string | undefined | null) => {
+  if (value === undefined || value === null || value === '') return undefined
+  const parsed = Number(String(value).replace(/,/g, '').trim())
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+const productionMaterialListActualUsageByCode = computed(() => {
+  const usageByCode = new Map<string, number>()
+  for (const material of props.detail?.inputMaterialUsages ?? []) {
+    const materialCode = normalizeProductionMaterialCode(material.materialCode)
+    const actualQuantity = parseProductionMaterialListQuantity(material.actualQuantity)
+    if (!materialCode || actualQuantity === undefined) continue
+    const existingQuantity = usageByCode.get(materialCode)
+    if (existingQuantity === undefined || actualQuantity > existingQuantity) {
+      usageByCode.set(materialCode, actualQuantity)
+    }
+  }
+  for (const process of props.detail?.processes ?? []) {
+    for (const material of process.inputMaterials ?? []) {
+      const materialCode = normalizeProductionMaterialCode(material.materialCode)
+      const actualQuantity = parseProductionMaterialListQuantity(material.actualQuantity)
+      if (!materialCode || actualQuantity === undefined) continue
+      const existingQuantity = usageByCode.get(materialCode)
+      if (existingQuantity === undefined || actualQuantity > existingQuantity) {
+        usageByCode.set(materialCode, actualQuantity)
+      }
+    }
+  }
+  return usageByCode
+})
 
 const formatDate = (value?: string | number | Date) => {
   const text = formatDateTime(value)
@@ -1658,7 +1701,7 @@ const resolveProductionMaterialListDrawingNo = (row: ErpProductionMaterialListVO
 
 const resolveProductionMaterialListActualUsage = (row: ErpProductionMaterialListVO) =>
   formatProductionMaterialListQuantity(
-    readProductionMaterialListText(row, ['actualQuantity', 'actualUsageQuantity', 'actualUsage'])
+    productionMaterialListActualUsageByCode.value.get(normalizeProductionMaterialCode(row.childMaterialCode))
   )
 
 const resolveProductionMaterialListWarehouse = (row: ErpProductionMaterialListVO) =>
@@ -2475,6 +2518,7 @@ interface ActiveOrderDetailPqcProcessGroup {
   qaProcessId: number
   qaProcessCode?: string
   qaProcessName: string
+  qaProcessSort: number
   submissions: TeamLeaderActiveOrderPqcSubmissionDetailRespVO[]
 }
 
@@ -2483,6 +2527,11 @@ const resolveActiveOrderPqcProcessTabName = (
   index: number
 ) => `pqc-process-${pqcProcess.qaProcessId}-${index}`
 
+const compareActiveOrderPqcProcessGroups = (
+  left: ActiveOrderDetailPqcProcessGroup,
+  right: ActiveOrderDetailPqcProcessGroup
+) => left.qaProcessSort - right.qaProcessSort || left.qaProcessId - right.qaProcessId
+
 const pqcProcessGroups = computed<ActiveOrderDetailPqcProcessGroup[]>(() => {
   const detailResult = props.detail
   if (!detailResult?.processes?.length) return []
@@ -2490,12 +2539,19 @@ const pqcProcessGroups = computed<ActiveOrderDetailPqcProcessGroup[]>(() => {
   for (const process of detailResult.processes) {
     for (const submission of process.pqcSubmissions ?? []) {
       const qaProcessId = Number(submission.qaProcessId)
+      const qaProcessSort = Number(submission.qaProcessSort)
       const qaProcessName = normalizeActiveOrderPqcText(submission.qaProcessName)
       if (!Number.isFinite(qaProcessId) || qaProcessId <= 0 || !qaProcessName) {
         throw new Error('PQC提交缺少正式检验工序身份，无法按PQC工序展示')
       }
+      if (!Number.isFinite(qaProcessSort) || qaProcessSort <= 0) {
+        throw new Error('PQC提交缺少正式检验工序排序，无法按一线PQC顺序展示')
+      }
       const existed = groupsByQaProcessId.get(qaProcessId)
       if (existed) {
+        if (existed.qaProcessSort !== qaProcessSort) {
+          throw new Error('PQC提交检验工序排序不一致，无法按一线PQC顺序展示')
+        }
         existed.submissions.push(submission)
         continue
       }
@@ -2504,11 +2560,12 @@ const pqcProcessGroups = computed<ActiveOrderDetailPqcProcessGroup[]>(() => {
         qaProcessId,
         qaProcessCode: submission.qaProcessCode,
         qaProcessName,
+        qaProcessSort,
         submissions: [submission]
       })
     }
   }
-  return Array.from(groupsByQaProcessId.values())
+  return Array.from(groupsByQaProcessId.values()).sort(compareActiveOrderPqcProcessGroups)
 })
 
 type ActiveOrderDetailPickListMaterialRow = TeamLeaderActiveOrderInputMaterialDetailRespVO & {

@@ -28,8 +28,8 @@ assert.match(
 assert.doesNotMatch(page, /data-team-leader-active-order-detail-dialog|activeOrderDetailVisible/, '工作台不得继续渲染活跃订单详情弹窗。')
 assert.match(
   page,
-  /navigateActiveOrderSubmissionDetail\(activeOrderId\)/,
-  'Stage1 模拟完成后的自动跳转必须打开当前点击活跃订单。'
+  /const\s+handleGenerateStage1Forms\s*=\s*\(row:[\s\S]*navigateActiveOrderSubmissionDetail\(activeOrderId\)/,
+  'P2 生成必须打开当前点击活跃订单详情。'
 )
 assert.match(
   routes,
@@ -40,11 +40,11 @@ assert.match(detailPage, /data-team-leader-active-order-detail-page[\s\S]*Active
 assert.ok(detailPage.includes('getTeamLeaderActiveOrderDetail(requireActiveOrderId())'), '详情页面必须由正式请求驱动。')
 assert.match(
   detailPanel,
-  /v-for="\(process, processIndex\) in detail\.processes"[\s\S]*应提数量[\s\S]*已提交[\s\S]*提交记录/,
-  '详情必须以生产工序为分组并显示应提数量、已提交合计和提交次数。'
+  /v-for="\(process, processIndex\) in visibleProductionProcesses"[\s\S]*team-leader-workbench__production-record-form[\s\S]*暂无可生成的生产提交记录/,
+  '详情必须以可见生产工序为分组并显示生产记录表单与空态。'
 )
-for (const label of ['完成数量', '设备', '提交人', '审核人', '提交时间']) {
-  assert.match(detailPanel, new RegExp(`label="${label}"`), `每次正式生产提交明细必须显示${label}。`)
+for (const label of ['生产数量', '设备名称', '操作人', '复核人', '提交时间']) {
+  assert.match(detailPanel, new RegExp(label), `每次正式生产提交明细必须显示${label}。`)
 }
 assert.match(
   detailPanel,
@@ -56,12 +56,12 @@ assert.match(
   /formatProductionInputMaterialPickListEvidence[\s\S]*sourcePickListNos/,
   '输入物料批次号展示必须同时保留命中的领料单业务编号，不能只展示批号。'
 )
-assert.match(detailPanel, /row\.reviewerName\s*\|\|\s*'未审核'/, '没有正式审核记录的提交必须明确显示未审核。')
-assert.match(detailPanel, /暂无一线生产提交/, '没有生产提交的工序必须保留并显示明确空态。')
+assert.match(detailPanel, /const reviewerName = submission\.reviewerName \|\| '未审核'/, '没有正式审核记录的提交必须明确显示未审核。')
+assert.match(detailPanel, /暂无可生成的生产提交记录/, '没有生产提交的工序必须保留并显示明确空态。')
 assert.match(detailPanel, /暂无一线PQC提交/, '没有 PQC 提交时必须显示明确空态。')
 assert.match(
   detailPanel,
-  /resolvePqcInspectionTypeText\(pqcSubmission\)[\s\S]*PATROL_AM[\s\S]*上午巡检[\s\S]*PATROL_PM[\s\S]*下午巡检/,
+  /const\s+resolvePqcInspectionTypeText[\s\S]*PATROL_AM[\s\S]*上午巡检[\s\S]*PATROL_PM[\s\S]*下午巡检/,
   'PQC 巡检标题必须按正式 inspectionRuleKey 显示上午巡检/下午巡检。'
 )
 assert.doesNotMatch(

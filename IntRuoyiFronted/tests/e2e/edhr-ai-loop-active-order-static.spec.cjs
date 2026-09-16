@@ -15,10 +15,6 @@ const runner = fs.readFileSync(
   'utf8'
 )
 
-assert.match(workOrderPage, /data-work-order-sync-kingdee/, 'work-order sync button needs a stable selector')
-assert.match(workOrderPage, /data-work-order-code/, 'work-order code cell needs a stable selector')
-assert.match(workOrderPage, /data-work-order-quantity/, 'work-order quantity cell needs a stable selector')
-
 assert.match(
   teamLeaderPage,
   /data-team-leader-active-order-work-order-filter/,
@@ -27,32 +23,17 @@ assert.match(
 assert.match(
   teamLeaderPage,
   /data-team-leader-active-order-candidate-select/,
-  'active-order candidate select needs a stable selector'
+  'legacy active-order candidate select can remain for manual operations'
 )
 assert.match(
   teamLeaderPage,
-  /data-team-leader-active-order-candidate-option/,
-  'active-order candidate option needs a stable selector'
-)
-assert.match(
-  teamLeaderPage,
-  /data-team-leader-active-order-candidate-code/,
-  'active-order candidate option must expose the work-order code'
-)
-assert.match(
-  teamLeaderPage,
-  /data-team-leader-active-order-candidate-state/,
-  'active-order candidate option must expose the candidate state'
-)
-assert.match(
-  teamLeaderPage,
-  /data-team-leader-active-order-add-submit/,
-  'active-order add submit button needs a stable selector'
+  /data-team-leader-copy-latest-simulation-order/,
+  'active-order row needs a copy-test-order button for repeatable AI E2E'
 )
 assert.match(
   runner,
   /async function filterActiveOrderPool\(page, workOrderCode\)/,
-  'runner must filter active-order pool by this run work-order code before row assertions'
+  'runner must filter active-order pool by fixed source and copied work-order code before row assertions'
 )
 assert.match(
   runner,
@@ -60,4 +41,16 @@ assert.match(
   'runner must use the visible active-order work-order filter'
 )
 
+assert.match(
+  runner,
+  /async function copyTemplateActiveOrder\(page, manifestOrder, manifest, ready\)/,
+  'runner must copy the fixed source active order instead of adding generated ERP orders'
+)
+assert.doesNotMatch(
+  runner,
+  /active-order\/add/,
+  'runner must not use the legacy active-order add endpoint for AI loop setup'
+)
+
 console.log('PASS: eDHR AI loop active-order page selectors')
+

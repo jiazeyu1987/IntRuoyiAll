@@ -8,34 +8,33 @@ const page = fs.readFileSync(
 )
 
 assert(
-  page.includes('data-qa-common-set-document-composition') &&
-    page.includes(':data="selectedCommonRegulationSetVersionDocuments"') &&
-    page.includes('文档组成') &&
-    page.includes('formatCommonRegulationSetDocumentSource'),
-  'RED: a common regulation set version must expose a document-composition table, not only a generic member list'
-)
-
-assert(
-  page.includes('data-qa-common-set-document-detail-tabs') &&
-    page.includes('name="byDocument"') &&
-    page.includes('name="mergedProcesses"') &&
-    page.includes('commonRegulationSetDetailActiveTab'),
-  'RED: the details area must provide by-document and merged-process views'
-)
-
-assert(
-  page.includes('data-qa-common-set-document-card') &&
+  page.includes('data-qa-common-set-document-maintain') &&
     page.includes('selectedCommonRegulationSetVersionDocuments') &&
-    page.includes('formatCommonRegulationSetDocumentTitle'),
-  'RED: by-document view must group processes and inspection items under each source Word regulation'
+    page.includes('commonRegulationItemsSummaryText') &&
+    page.includes('formatCommonRegulationSetDocumentSource'),
+  'RED: common items must keep the formal document-composition source and maintenance entry'
 )
 
 assert(
-  page.includes('data-qa-common-set-merged-process-table') &&
-    page.includes(':data="selectedCommonRegulationSetMergedRows"') &&
-    page.includes('来源文档') &&
-    page.includes('selectedCommonRegulationSetMergedRows'),
-  'RED: merged-process view must list the final PQC sequence with each row linked to its source document'
+  page.includes('data-qa-common-items-table') &&
+    page.includes('commonRegulationItems') &&
+    page.includes('sourceDocumentTitle') &&
+    page.includes('sourceFileName'),
+  'RED: the details area must merge document members into the QA-style item table while retaining source provenance'
 )
 
-console.log('GREEN: common regulation set multi-document display contract is present')
+assert(
+  page.includes('data-qa-common-items-parameters') &&
+    page.includes('selectedCommonRegulationSetVersionDocuments.length') &&
+    page.includes('commonRegulationItems.length'),
+  'RED: common item parameters must still show the selected version document and item counts'
+)
+
+assert(
+  page.includes('createCommonRegulationItemSourceNote') &&
+    page.includes('formatCommonRegulationSetDocumentTitle(document)') &&
+    page.includes('formatCommonRegulationSetDocumentSource(document)'),
+  'RED: each merged item row must carry a formal document source note'
+)
+
+console.log('GREEN: common regulation set multi-document source contract is present')

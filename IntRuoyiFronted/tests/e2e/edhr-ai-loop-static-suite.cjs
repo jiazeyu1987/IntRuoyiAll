@@ -7,7 +7,7 @@ const specs = [
   'tests/e2e/edhr-ai-loop-contract.spec.cjs',
   'tests/e2e/edhr-ai-loop-runner-static.spec.cjs',
   'tests/e2e/edhr-ai-loop-active-order-static.spec.cjs',
-  'tests/e2e/edhr-ai-loop-deterministic-order-static.spec.cjs',
+  'tests/e2e/edhr-ai-loop-fixed-template-copy-static.spec.cjs',
   'tests/e2e/edhr-ai-loop-interleaving-static.spec.cjs',
   'tests/e2e/edhr-ai-loop-production-s02-static.spec.cjs',
   'tests/e2e/edhr-ai-loop-pqc-s03-static.spec.cjs',

@@ -116,5 +116,7 @@ public class MesFrontlineRuntimeConfigRespVO {
         private String parameterSnapshotState;
         private String deviceSelectionSnapshotJson;
         private String deviceSelectionSnapshotSha256;
+        private String productionConfigSnapshotJson;
+        private String productionConfigSnapshotSha256;
     }
 }

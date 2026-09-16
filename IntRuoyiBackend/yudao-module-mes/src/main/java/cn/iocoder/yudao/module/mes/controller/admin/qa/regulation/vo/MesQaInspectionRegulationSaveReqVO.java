@@ -100,5 +100,17 @@ public class MesQaInspectionRegulationSaveReqVO {
         private String sourceOriginalItem;
         private String sourceOriginalExcerpt;
         private String sourceOriginalMethod;
+        @Valid
+        private List<EquipmentOption> equipmentOptions;
+    }
+
+    @Data
+    public static class EquipmentOption {
+        private Long equipmentId;
+        private String equipmentCode;
+        private String equipmentName;
+        private String equipmentNumber;
+        private Boolean defaultFlag;
+        private Integer sort;
     }
 }
