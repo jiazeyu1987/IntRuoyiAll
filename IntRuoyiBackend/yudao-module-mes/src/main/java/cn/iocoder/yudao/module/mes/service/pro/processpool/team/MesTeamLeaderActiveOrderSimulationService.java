@@ -1641,15 +1641,16 @@ public class MesTeamLeaderActiveOrderSimulationService {
                                        PqcEquipment selectedEquipment) {
     }
 
-    private record PqcSimulationTaskIdentity(Long regulationVersionId, Long qaProcessId, String qaItemCode,
+    private record PqcSimulationTaskIdentity(Long routeProcessId, Long processId,
+                                             Long regulationVersionId, Long qaProcessId, String qaItemCode,
                                              String inspectionRuleKey, String inspectionType,
                                              LocalDate businessDate, String shiftCode, Integer roundNo) {
 
         private static PqcSimulationTaskIdentity of(MesPqcInspectionTaskDO task) {
-            return new PqcSimulationTaskIdentity(task.getRegulationVersionId(), task.getQaProcessId(),
-                    normalizeQaItemCode(task.getQaItemCode()), StrUtil.trimToEmpty(task.getInspectionRuleKey()),
-                    normalizeInspectionType(task.getInspectionType()), task.getBusinessDate(),
-                    StrUtil.trimToEmpty(task.getShiftCode()), task.getRoundNo());
+            return new PqcSimulationTaskIdentity(task.getRouteProcessId(), task.getProcessId(),
+                    task.getRegulationVersionId(), task.getQaProcessId(), normalizeQaItemCode(task.getQaItemCode()),
+                    StrUtil.trimToEmpty(task.getInspectionRuleKey()), normalizeInspectionType(task.getInspectionType()),
+                    task.getBusinessDate(), StrUtil.trimToEmpty(task.getShiftCode()), task.getRoundNo());
         }
     }
 
