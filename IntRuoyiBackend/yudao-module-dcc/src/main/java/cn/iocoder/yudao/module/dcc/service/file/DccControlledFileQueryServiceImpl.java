@@ -157,6 +157,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ONLYOFFICE_PREVIEW_CONFIG_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_VIEWER_TOKEN_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_WORKFLOW_IN_PROGRESS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_AUDIT_RECORD_FAILED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REUSED;
@@ -407,7 +408,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                         currentViewMatrixAccessByCategory)
                         : activeAssignedControlledFileIds.isEmpty()
                         ? canAccessQuery(userId, file, reqVO, false, currentViewMatrixAccessByCategory)
-                        : isActiveAssignedControlledFile(file, activeAssignedControlledFileIds))
+                        : isActiveAssignedControlledFile(file, activeAssignedControlledFileIds)
+                        && canAccessQuery(userId, file, reqVO, hasDirectoryManagementPermission,
+                        currentViewMatrixAccessByCategory))
                 .filter(file -> !isBlacklistedBrowserExtension(file, blacklistedExtensionPatterns))
                 .toList();
         visibleFiles = aggregateLatestVisibleFiles(visibleFiles);
@@ -464,13 +467,13 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             throw exception(CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED);
         }
         file = controlledFileMapper.selectByIdAndTenantForUpdate(tenantId, id);
-        if (file == null || !Objects.equals(master.getId(), file.getMasterId())
-                || !Objects.equals(userId, file.getRequesterId())) {
+        if (file == null || !Objects.equals(master.getId(), file.getMasterId())) {
             throw exception(CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED);
         }
-        if (!isEditableWorkingVersion(file, master)) {
+        if (!canCheckoutLockedVersion(userId, file, master)) {
             throw exception(CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED);
         }
+        rejectWhenMasterHasOtherUnfinishedWorkflow(master.getId(), file.getId());
         assertCanMutateControlledFile(userId, file);
         DccControlledFileCheckoutDO active = checkoutMapper.selectActiveByMasterId(tenantId, master.getId());
         if (active != null) {
@@ -714,10 +717,56 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 || DccControlledFileStatusEnum.PENDING_APPLICANT_REWORK.getStatus().equals(status)) {
             return true;
         }
-        if (DccControlledFileStatusEnum.ACTIVE.getStatus().equals(status)) {
+        if (DccControlledFileStatusEnum.ACTIVE.getStatus().equals(status)
+                || DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(status)) {
             return true;
         }
         return false;
+    }
+
+    private boolean canCheckoutLockedVersion(Long userId, DccControlledFileDO file, DccControlledFileMasterDO master) {
+        if (!isEditableWorkingVersion(file, master)) {
+            return false;
+        }
+        if (Objects.equals(userId, file.getRequesterId())) {
+            return true;
+        }
+        return isPublishedRevisionBaseline(file) && canCreateMajorRevision(userId, file);
+    }
+
+    private boolean isPublishedRevisionBaseline(DccControlledFileDO file) {
+        if (file == null) {
+            return false;
+        }
+        return DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
+                || DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(file.getStatus());
+    }
+
+    private void rejectWhenMasterHasOtherUnfinishedWorkflow(Long masterId, Long currentFileId) {
+        List<DccControlledFileDO> masterVersions = controlledFileMapper.selectListByMasterIdForUpdate(masterId);
+        if (masterVersions == null) {
+            return;
+        }
+        boolean hasOtherUnfinishedWorkflow = masterVersions.stream()
+                .filter(Objects::nonNull)
+                .filter(item -> !Objects.equals(item.getId(), currentFileId))
+                .anyMatch(this::isUnfinishedWorkflowVersion);
+        if (hasOtherUnfinishedWorkflow) {
+            throw exception(CONTROLLED_FILE_WORKFLOW_IN_PROGRESS);
+        }
+    }
+
+    private boolean isUnfinishedWorkflowVersion(DccControlledFileDO file) {
+        if (file == null || StrUtil.isBlank(file.getStatus())
+                || DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())) {
+            return false;
+        }
+        return !Set.of(
+                DccControlledFileStatusEnum.REJECTED.getStatus(),
+                DccControlledFileStatusEnum.WITHDRAWN.getStatus(),
+                DccControlledFileStatusEnum.OBSOLETE.getStatus(),
+                DccControlledFileStatusEnum.SUPERSEDED.getStatus()
+        ).contains(file.getStatus());
     }
 
     private String resolveSourceSha256(DccControlledFileDO file) {
@@ -955,7 +1004,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (!canAccessQuery(userId, file, new DccControlledFilePageReqVO(), hasDirectoryManagementPermission)) {
             throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
-        if (!Objects.equals(userId, file.getRequesterId())) {
+        if (!Objects.equals(userId, file.getRequesterId()) && !isPublishedRevisionBaseline(file)) {
             throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
         return file;

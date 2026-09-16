@@ -404,7 +404,7 @@
                   提交审批
                 </el-button>
                 <el-button
-                  v-if="!getSelectedVersion(row).checkedOutBy && canEditVersion(getSelectedVersion(row))"
+                  v-if="!getSelectedVersion(row).checkedOutBy && canCheckoutVersion(getSelectedVersion(row))"
                   data-testid="dcc-controlled-browser-checkout"
                   link
                   type="primary"
@@ -1700,6 +1700,9 @@ const isCheckedOutByCurrentUser = (file: ControlledFileVO | ControlledFileBrowse
 
 const canEditVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
   Boolean(file.requesterId && String(file.requesterId) === String(userStore.getUser.id))
+
+const canCheckoutVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
+  Boolean(canEditVersion(file) || isDccControlledFileActionAllowed(file, 'MAJOR_REVISION'))
 
 const parseWindchillVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) => {
   const revisionCode = String(file.revisionCode || '').trim().toUpperCase()

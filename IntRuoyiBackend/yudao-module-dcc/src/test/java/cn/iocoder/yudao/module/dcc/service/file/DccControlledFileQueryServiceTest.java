@@ -133,6 +133,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DOWNLOAD_WARNING_UNCONFIRMED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_CHECKED_OUT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_WORKFLOW_IN_PROGRESS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_AUDIT_RECORD_FAILED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REUSED;
@@ -284,6 +285,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         ReflectionTestUtils.setField(assignmentScopeService, "assignmentFileMapper", projectCodeAssignmentFileMapper);
         ReflectionTestUtils.setField(assignmentScopeService, "distributionRecipientMapper", distributionRecipientMapper);
         ReflectionTestUtils.setField(queryService, "assignmentScopeService", assignmentScopeService);
+        lenient().when(distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(anyLong(), anyLong()))
+                .thenReturn(List.of());
         lenient().when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY))
                 .thenReturn(Set.of(20L));
         lenient().when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW))
@@ -467,6 +470,63 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals("更新操作说明", result.getCheckedOutReason());
         verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
         verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
+    }
+
+    @Test
+    void checkoutActiveVersion_whenMasterHasUnfinishedIteration_isRejectedBeforeCreatingLock() {
+        DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        DccControlledFileDO working = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
+        DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
+                .id(700L).currentActiveControlledFileId(900L).build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
+        when(controlledFileMapper.selectListByMasterIdForUpdate(700L)).thenReturn(List.of(active, working));
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        DccControlledFileCheckoutReqVO request = new DccControlledFileCheckoutReqVO();
+        request.setReason("再次检出旧正式版");
+
+        assertServiceException(() -> queryService.checkoutControlledFile(99L, 900L, request),
+                CONTROLLED_FILE_WORKFLOW_IN_PROGRESS);
+
+        verify(sourceOwnershipMapper, never()).selectByControlledFileId(anyLong(), anyLong());
+        verify(checkoutMapper, never()).insert(any(DccControlledFileCheckoutDO.class));
+        verify(controlledFileMapper, never()).checkoutByIdAndTenantWhenAvailable(anyLong(), anyLong(),
+                anyLong(), anyString());
+    }
+
+    @Test
+    void checkoutActiveVersion_projectOwnerDifferentFromRequesterCanCreateMajorRevisionLock() {
+        DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        active.setRequesterId(99L);
+        DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
+                .id(700L).currentActiveControlledFileId(900L).build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
+        when(controlledFileMapper.selectListByMasterIdForUpdate(700L)).thenReturn(List.of(active));
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(1074L)).thenReturn(true);
+        when(projectAccessService.hasProjectOwner(1074L, 300L)).thenReturn(true);
+        when(permissionSupport.hasCategoryPermission(10L, 1074L, DccFileCategoryPermissionActionEnum.UPLOAD))
+                .thenReturn(true);
+        when(sourceOwnershipMapper.selectByControlledFileId(31L, 900L)).thenReturn(
+                DccControlledFileSourceOwnershipDO.builder().sourceSha256("old-sha").build());
+        when(checkoutMapper.insert(any(DccControlledFileCheckoutDO.class))).thenAnswer(invocation -> {
+            DccControlledFileCheckoutDO checkout = invocation.getArgument(0);
+            checkout.setId(1002L);
+            return 1;
+        });
+        when(controlledFileMapper.checkoutByIdAndTenantWhenAvailable(31L, 900L, 1074L, "项目负责人升大版"))
+                .thenReturn(1);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        DccControlledFileCheckoutReqVO request = new DccControlledFileCheckoutReqVO();
+        request.setReason("项目负责人升大版");
+
+        DccControlledFileRespVO result = queryService.checkoutControlledFile(1074L, 900L, request);
+
+        assertEquals(1074L, result.getCheckedOutBy());
+        verify(projectAccessService, atLeastOnce()).hasProjectOwner(1074L, 300L);
+        verify(permissionSupport).hasCategoryPermission(10L, 1074L, DccFileCategoryPermissionActionEnum.UPLOAD);
+        verify(checkoutMapper).insert(any(DccControlledFileCheckoutDO.class));
     }
 
     @Test
@@ -3941,7 +4001,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void getControlledFileBrowserPage_activeProjectCodeAssignmentRestrictsCandidatesAndShowsAssignedRows() {
+    void getControlledFileBrowserPage_activeProjectCodeAssignmentDoesNotBypassViewAuthorization() {
         DccControlledFilePageReqVO reqVO = new DccControlledFilePageReqVO();
         reqVO.setPageNo(1);
         reqVO.setPageSize(10);
@@ -3961,6 +4021,10 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .effectiveDate(LocalDate.of(2026, 7, 13))
                 .build();
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(false);
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY))
+                .thenReturn(Set.of());
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW))
+                .thenReturn(Set.of());
         when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
         when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
                 .thenReturn(List.of(981L));
@@ -3972,8 +4036,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
 
         PageResult<DccControlledFileRespVO> result = queryService.getControlledFileBrowserPage(99L, reqVO);
 
-        assertEquals(1L, result.getTotal());
-        assertEquals(List.of(981L), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
+        assertEquals(0L, result.getTotal());
+        assertEquals(List.of(), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
         verify(controlledFileMapper, never()).selectBrowserSummaryList(any(DccControlledFilePageReqVO.class));
         verify(controlledFileMapper).selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), isNull(), eq(Set.of(981L)));
     }

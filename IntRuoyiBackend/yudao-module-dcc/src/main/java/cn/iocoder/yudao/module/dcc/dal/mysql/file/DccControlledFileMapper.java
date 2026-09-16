@@ -86,6 +86,25 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
 
     @Update("""
             UPDATE dcc_controlled_file
+            SET status = 'REJECTED', rejected_time = #{rejectedTime}, reject_reason = #{rejectReason},
+                updater = #{actorId}, update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND process_instance_id = #{processInstanceId}
+              AND process_definition_key = 'dcc-controlled-file-approval'
+              AND status = #{expectedStatus}
+              AND deleted = 0
+            """)
+    int markRejectedAfterApprovalEvent(@Param("tenantId") Long tenantId,
+                                       @Param("controlledFileId") Long controlledFileId,
+                                       @Param("processInstanceId") String processInstanceId,
+                                       @Param("expectedStatus") String expectedStatus,
+                                       @Param("rejectedTime") java.time.LocalDateTime rejectedTime,
+                                       @Param("rejectReason") String rejectReason,
+                                       @Param("actorId") Long actorId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
             SET status = #{targetStatus}, finalization_error = NULL,
                 updater = #{actorId}, update_time = CURRENT_TIMESTAMP
             WHERE tenant_id = #{tenantId}
@@ -166,7 +185,7 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
               AND id = #{controlledFileId}
               AND deleted = 0
               AND checked_out_by IS NULL
-              AND status IN ('WORKING', 'REJECTED', 'ACTIVE', 'PENDING_APPLICANT_REWORK')
+              AND status IN ('WORKING', 'REJECTED', 'ACTIVE', 'SUPERSEDED', 'PENDING_APPLICANT_REWORK')
             """)
     int checkoutByIdAndTenantWhenAvailable(@Param("tenantId") Long tenantId,
                                            @Param("controlledFileId") Long controlledFileId,

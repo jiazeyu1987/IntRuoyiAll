@@ -83,6 +83,27 @@ assert.doesNotMatch(
   /requesterId|WORKING|status/,
   'checkin dialog must not guess major-revision eligibility from requester or WORKING status'
 )
+assert.match(
+  browserPage,
+  /v-if="!getSelectedVersion\(row\)\.checkedOutBy && canCheckoutVersion\(getSelectedVersion\(row\)\)"/,
+  'checkout button must delegate visibility to canCheckoutVersion'
+)
+const frontendCanCheckout = extractBetween(
+  browserPage,
+  'const canCheckoutVersion',
+  'const parseWindchillVersion',
+  'browser canCheckoutVersion'
+)
+assert.match(
+  frontendCanCheckout,
+  /isDccControlledFileActionAllowed\([^,]+,\s*'MAJOR_REVISION'\)/,
+  'checkout button must expose project OWNER major-revision checkout from backend MAJOR_REVISION projection'
+)
+assert.match(
+  frontendCanCheckout,
+  /canEditVersion\(file\)/,
+  'checkout button must keep requester-owned working iteration checkout visibility'
+)
 assert.doesNotMatch(browserPage, /dcc-controlled-browser-major-revision|handleCreateMajorRevision/,
   'standalone major revision UI must be removed')
 

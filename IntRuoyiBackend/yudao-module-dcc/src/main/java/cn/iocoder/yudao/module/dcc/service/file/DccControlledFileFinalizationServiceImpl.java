@@ -95,6 +95,17 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus(),
             DccControlledFileStatusEnum.APPROVING.getStatus()
     );
+    private static final Set<String> REJECT_REPLAY_IGNORED_STATUSES = Set.of(
+            DccControlledFileStatusEnum.REJECTED.getStatus(),
+            DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus(),
+            DccControlledFileStatusEnum.FINALIZING.getStatus(),
+            DccControlledFileStatusEnum.TRAINING_IN_PROGRESS.getStatus(),
+            DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus(),
+            DccControlledFileStatusEnum.ACTIVE.getStatus(),
+            DccControlledFileStatusEnum.SUPERSEDED.getStatus(),
+            DccControlledFileStatusEnum.OBSOLETE.getStatus(),
+            DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus()
+    );
 
     @Resource
     private TransactionTemplate transactionTemplate;
@@ -176,13 +187,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             return;
         }
         if (BpmProcessInstanceStatusEnum.REJECT.getStatus().equals(event.getStatus())) {
-            controlledFileMapper.updateById(DccControlledFileDO.builder()
-                    .id(fileId)
-                    .status(DccControlledFileStatusEnum.REJECTED.getStatus())
-                    .rejectedTime(LocalDateTime.now())
-                    .rejectReason(event.getReason())
-                    .build());
-            platformAdapter.recordRejected(file, event.getActorUserId(), event.getReason(), event.getId());
+            markRejectedAfterApprovalEvent(file, event);
             return;
         }
         if (BpmProcessInstanceStatusEnum.CANCEL.getStatus().equals(event.getStatus())
@@ -357,6 +362,44 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             scheduleFailureAfterRollback(initial, expectedStatus, event.getActorUserId(), reason, event.getId());
             throw toFinalizationException(reason, failure);
         }
+    }
+
+    private void markRejectedAfterApprovalEvent(DccControlledFileDO initial, BpmProcessInstanceStatusEvent event) {
+        validateApprovalEventIdentity(initial, event);
+        if (shouldIgnoreRejectReplay(initial.getStatus())) {
+            return;
+        }
+        if (!WITHDRAW_EVENT_STATUSES.contains(initial.getStatus())) {
+            throw new IllegalStateException("DCC reject cannot transition status " + initial.getStatus());
+        }
+        transactionTemplate.executeWithoutResult(ignored -> {
+            Long tenantId = TenantContextHolder.getRequiredTenantId();
+            DccControlledFileDO file = controlledFileMapper.selectByIdAndTenantForUpdate(tenantId, initial.getId());
+            if (file == null) {
+                throw exception(CONTROLLED_FILE_NOT_EXISTS);
+            }
+            validateApprovalEventIdentity(file, event);
+            if (shouldIgnoreRejectReplay(file.getStatus())) {
+                return;
+            }
+            if (!WITHDRAW_EVENT_STATUSES.contains(file.getStatus())) {
+                throw new IllegalStateException("DCC reject cannot transition status " + file.getStatus());
+            }
+            LocalDateTime rejectedTime = LocalDateTime.now();
+            int updated = controlledFileMapper.markRejectedAfterApprovalEvent(tenantId, file.getId(), event.getId(),
+                    file.getStatus(), rejectedTime, event.getReason(), event.getActorUserId());
+            if (updated != 1) {
+                throw new IllegalStateException("DCC reject lost its status CAS");
+            }
+            file.setStatus(DccControlledFileStatusEnum.REJECTED.getStatus());
+            file.setRejectedTime(rejectedTime);
+            file.setRejectReason(event.getReason());
+            platformAdapter.recordRejected(file, event.getActorUserId(), event.getReason(), event.getId());
+        });
+    }
+
+    private boolean shouldIgnoreRejectReplay(String status) {
+        return REJECT_REPLAY_IGNORED_STATUSES.contains(status);
     }
 
     private void verifyApprovalSignatureEvidence(DccControlledFileDO file,

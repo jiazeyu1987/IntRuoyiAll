@@ -461,6 +461,20 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void handleProcessInstanceStatusChanged_replayedRejectDoesNotDowngradeActiveFile() {
+        DccControlledFileDO file = buildRevisionApprovalCandidate(914L, 714L, 18L, 114L);
+        file.setStatus(DccControlledFileStatusEnum.ACTIVE.getStatus());
+        file.setProcessInstanceId("process-914");
+        when(controlledFileMapper.selectById(914L)).thenReturn(file);
+
+        finalizationService.handleProcessInstanceStatusChanged(rejectEvent(914L));
+
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+        verify(controlledFileMapper, never()).markRejectedAfterApprovalEvent(any(), any(), any(), any(), any(), any(), any());
+        verify(platformAdapter, never()).recordRejected(any(), any(), any(), any());
+    }
+
+    @Test
     void handleProcessInstanceStatusChanged_mismatchedProcessInstanceFailsBeforeStatusChange() {
         DccControlledFileDO file = buildRevisionApprovalCandidate(913L, 713L, 18L, 113L);
         file.setProcessInstanceId("different-process");
@@ -471,6 +485,37 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
 
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
         verify(platformAdapter, never()).recordApprovedReadyToPublish(any(), any(), any());
+    }
+
+    @Test
+    void handleProcessInstanceStatusChanged_mismatchedRejectProcessFailsBeforeStatusChange() {
+        DccControlledFileDO file = buildRevisionApprovalCandidate(915L, 715L, 18L, 115L);
+        file.setProcessInstanceId("different-process");
+        when(controlledFileMapper.selectById(915L)).thenReturn(file);
+
+        assertThrows(IllegalStateException.class,
+                () -> finalizationService.handleProcessInstanceStatusChanged(rejectEvent(915L)));
+
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+        verify(controlledFileMapper, never()).markRejectedAfterApprovalEvent(any(), any(), any(), any(), any(), any(), any());
+        verify(platformAdapter, never()).recordRejected(any(), any(), any(), any());
+    }
+
+    @Test
+    void handleProcessInstanceStatusChanged_rejectUsesConditionalApprovalStatusTransition() {
+        DccControlledFileDO file = buildRevisionApprovalCandidate(916L, 716L, 18L, 116L);
+        when(controlledFileMapper.selectById(916L)).thenReturn(file);
+        when(controlledFileMapper.markRejectedAfterApprovalEvent(any(), eq(916L), eq("process-916"),
+                eq(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus()), any(), eq("资料不通过"),
+                eq(99L))).thenReturn(1);
+
+        finalizationService.handleProcessInstanceStatusChanged(rejectEvent(916L));
+
+        verify(controlledFileMapper).markRejectedAfterApprovalEvent(any(), eq(916L), eq("process-916"),
+                eq(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus()), any(), eq("资料不通过"),
+                eq(99L));
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+        verify(platformAdapter).recordRejected(file, 99L, "资料不通过", "process-916");
     }
 
     @Test
@@ -1204,6 +1249,17 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         event.setBusinessKey(String.valueOf(fileId));
         event.setStatus(BpmProcessInstanceStatusEnum.APPROVE.getStatus());
         event.setActorUserId(99L);
+        return event;
+    }
+
+    private static BpmProcessInstanceStatusEvent rejectEvent(Long fileId) {
+        BpmProcessInstanceStatusEvent event = new BpmProcessInstanceStatusEvent(new Object());
+        event.setId("process-" + fileId);
+        event.setProcessDefinitionKey(DccControlledFileWorkflowServiceImpl.BPM_PROCESS_DEFINITION_KEY);
+        event.setBusinessKey(String.valueOf(fileId));
+        event.setStatus(BpmProcessInstanceStatusEnum.REJECT.getStatus());
+        event.setActorUserId(99L);
+        event.setReason("资料不通过");
         return event;
     }
 }
