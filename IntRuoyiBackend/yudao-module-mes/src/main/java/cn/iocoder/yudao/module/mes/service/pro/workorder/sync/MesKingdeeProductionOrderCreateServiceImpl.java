@@ -204,8 +204,9 @@ public class MesKingdeeProductionOrderCreateServiceImpl implements MesKingdeePro
         }
         requireText(templateOrder.getMaterialNumber(), "ERP生产订单模板物料编码");
         requireNoSingleQuote(templateOrder.getMaterialNumber(), "ERP生产订单模板物料编码");
-        requireText(templateOrder.getUnitCode(), "ERP生产订单模板计量单位编码");
-        requireNoSingleQuote(templateOrder.getUnitCode(), "ERP生产订单模板计量单位编码");
+        if (StrUtil.isNotBlank(templateOrder.getUnitCode())) {
+            requireNoSingleQuote(templateOrder.getUnitCode(), "ERP生产订单模板计量单位编码");
+        }
         if (templateOrder.getPlannedStartDate() == null || templateOrder.getPlannedEndDate() == null) {
             throw exception(PRO_WORK_ORDER_CREATE_ERP_DATA_MISSING, "ERP生产订单模板计划日期");
         }
@@ -257,11 +258,13 @@ public class MesKingdeeProductionOrderCreateServiceImpl implements MesKingdeePro
                                                                       String billNo,
                                                                       BigDecimal quantity,
                                                                       String batchNumber) {
+        String unitCode = StrUtil.isBlank(templateOrder.getUnitCode()) ? null : templateOrder.getUnitCode().trim();
         return ErpKingdeeProductionOrderCreateRequest.builder()
                 .billNo(billNo)
                 .templateBillNo(kingdeeProperties.getProductionOrder().getTemplateBillNo())
                 .materialNumber(templateOrder.getMaterialNumber())
-                .unitNumber(templateOrder.getUnitCode())
+                .unitNumber(unitCode)
+                .useTemplateEntryUnit(unitCode == null ? Boolean.TRUE : null)
                 .quantity(quantity)
                 .plannedStartDate(templateOrder.getPlannedStartDate())
                 .plannedFinishDate(templateOrder.getPlannedEndDate())

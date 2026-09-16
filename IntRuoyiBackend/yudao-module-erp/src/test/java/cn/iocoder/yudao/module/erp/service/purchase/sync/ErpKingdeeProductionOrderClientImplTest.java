@@ -372,6 +372,76 @@ class ErpKingdeeProductionOrderClientImplTest {
     }
 
     @Test
+    void createAndSubmitProductionOrder_usesTemplateEntryUnitWhenRequested() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionOrderClientImpl client = new ErpKingdeeProductionOrderClientImpl(restTemplate);
+        ErpKingdeeProperties properties = buildProperties("https://k3.example.com");
+        properties.getProductionOrder().setTemplateBillNo("TEMPLATE-MO-001");
+
+        expectLogin(server);
+        expectNoDuplicate(server);
+        expectTemplate(server);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Save.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andExpect(content().string(containsString("PRD_MO")))
+                .andExpect(content().string(containsString("WO-001")))
+                .andExpect(content().string(containsString("MAT-001")))
+                .andExpect(content().string(containsString("kg")))
+                .andRespond(withSuccess("""
+                        {"Result":{"ResponseStatus":{"IsSuccess":true,"SuccessEntitys":[{"Id":310119,"Number":"WO-001"}]}}}
+                        """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Submit.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andExpect(content().string(containsString("PRD_MO")))
+                .andRespond(withSuccess("""
+                        {"Result":{"ResponseStatus":{"IsSuccess":true,"SuccessEntitys":[{"Id":310119,"Number":"WO-001"}]}}}
+                        """, MediaType.APPLICATION_JSON));
+
+        ErpKingdeeProductionOrderCreateRequest request = buildCreateRequest();
+        request.setUnitNumber(null);
+        request.setUseTemplateEntryUnit(Boolean.TRUE);
+
+        ErpKingdeeProductionOrderCreateResult result =
+                client.createAndSubmitProductionOrder(properties, request);
+
+        assertEquals("310119", result.getErpFid());
+        assertEquals("WO-001", result.getErpBillNo());
+        server.verify();
+    }
+
+    @Test
+    void createAndSubmitProductionOrder_rejectsMissingTemplateEntryUnitWhenRequested() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionOrderClientImpl client = new ErpKingdeeProductionOrderClientImpl(restTemplate);
+        ErpKingdeeProperties properties = buildProperties("https://k3.example.com");
+        properties.getProductionOrder().setTemplateBillNo("TEMPLATE-MO-001");
+
+        expectLogin(server);
+        expectNoDuplicate(server);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.View.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andExpect(content().string(containsString("PRD_MO")))
+                .andRespond(withSuccess("""
+                        {"Result":{"ResponseStatus":{"IsSuccess":true},"Result":{
+                          "FID":999,
+                          "FBillNo":"TEMPLATE-MO-001",
+                          "FTreeEntity":[{"FMaterialId":{"FNumber":"OLD-MAT"},"FQty":1}]
+                        }}}
+                        """, MediaType.APPLICATION_JSON));
+        ErpKingdeeProductionOrderCreateRequest request = buildCreateRequest();
+        request.setUnitNumber(null);
+        request.setUseTemplateEntryUnit(Boolean.TRUE);
+
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> client.createAndSubmitProductionOrder(properties, request));
+
+        assertThat(exception.getMessage()).contains("template FUnitId");
+        server.verify();
+    }
+
+    @Test
     void createAndSubmitProductionOrder_throwsWithSavedFidWhenSubmitFails() {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();

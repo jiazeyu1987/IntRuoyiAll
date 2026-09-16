@@ -267,6 +267,47 @@ class MesKingdeeProductionOrderCreateServiceImplTest {
     }
 
     @Test
+    void createDeterministicProductionOrderFromConfiguredTemplate_usesTemplateEntryUnitWhenQueryUnitCodeIsBlank() {
+        ErpKingdeeProductionOrder templateOrder = new ErpKingdeeProductionOrder();
+        templateOrder.setBillNo("TEMPLATE-MO-001");
+        templateOrder.setMaterialNumber("MAT-001");
+        templateOrder.setSourceBillNo("SO-001");
+        templateOrder.setPlannedStartDate(LocalDateTime.of(2026, 9, 16, 8, 0));
+        templateOrder.setPlannedEndDate(LocalDateTime.of(2026, 9, 16, 18, 0));
+        when(kingdeeConfigService.getEffectiveProperties()).thenReturn(kingdeeProperties);
+        when(productionOrderClient.getProductionOrderByBillNo(kingdeeProperties, "TEMPLATE-MO-001"))
+                .thenReturn(templateOrder);
+        when(productionOrderClient.getProductionOrderByBillNo(kingdeeProperties, "AI-EDHR-20260915T120000-A1B2-O01"))
+                .thenReturn(null);
+        when(productionOrderClient.createAndSubmitProductionOrder(eq(kingdeeProperties), any()))
+                .thenAnswer(invocation -> {
+                    ErpKingdeeProductionOrderCreateRequest request = invocation.getArgument(1);
+                    return ErpKingdeeProductionOrderCreateResult.builder()
+                            .erpFid("FID-001").erpBillNo(request.getBillNo()).saved(true).submitted(true).build();
+                });
+        MesKingdeeProductionOrderDeterministicCreateCommand command =
+                new MesKingdeeProductionOrderDeterministicCreateCommand()
+                        .setRunId("AI-EDHR-20260915T120000-A1B2")
+                        .setSlot("O01")
+                        .setQuantity(new BigDecimal("100"))
+                        .setBatchNumber("AI-EDHR-20260915T120000-A1B2-B01");
+
+        MesKingdeeProductionOrderCreateResult result =
+                createService.createAndSubmitProductionOrder(command);
+
+        assertEquals("AI-EDHR-20260915T120000-A1B2-O01", result.getErpBillNo());
+        ArgumentCaptor<ErpKingdeeProductionOrderCreateRequest> captor =
+                ArgumentCaptor.forClass(ErpKingdeeProductionOrderCreateRequest.class);
+        verify(productionOrderClient).createAndSubmitProductionOrder(eq(kingdeeProperties), captor.capture());
+        assertEquals(null, captor.getValue().getUnitNumber());
+        assertEquals(Boolean.TRUE, captor.getValue().getUseTemplateEntryUnit());
+        assertEquals("MAT-001", captor.getValue().getMaterialNumber());
+        assertEquals(new BigDecimal("100"), captor.getValue().getQuantity());
+        assertEquals("AI-EDHR-20260915T120000-A1B2-B01", captor.getValue().getBatchNumber());
+        verifyNoInteractions(workOrderService, itemService, unitMeasureService, syncRecordMapper);
+    }
+
+    @Test
     void createDeterministicProductionOrder_rejectsInvalidSlotBeforeExternalWrite() {
         MesKingdeeProductionOrderDeterministicCreateCommand command =
                 new MesKingdeeProductionOrderDeterministicCreateCommand()

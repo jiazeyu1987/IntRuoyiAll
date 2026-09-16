@@ -662,3 +662,4 @@
 - Keywords: AI E2E, configured template, 模板编码, runner S00, 固定输入输出, PRECONDITION_BLOCKED -> `docs/e2e-rules.md#固定输入输出的业务链验收`
 - Keywords: AI E2E, eDHR主链, 生产PQC交错, 全部生产后补PQC, INTERLEAVED_MAIN_CHAIN_PLAN, S02, S03 -> `docs/e2e-rules.md#固定输入输出的业务链验收`
 - Keywords: AI E2E, targetRequests, targetRequestEvidenceFlushed, targetRequest label, httpStatus, businessCode, parseError, Playwright response异步解析, 失败报告缺最后请求, flushTargetRequests -> `docs/e2e-rules.md#固定输入输出的业务链验收`
+- Keywords: AI E2E, eDHR PREPARE, ERP生产订单模板, unitCode, FUnitId, ExecuteBillQuery, View模板分录, 1040502016 -> `docs/e2e-rules.md#固定输入输出的业务链验收`

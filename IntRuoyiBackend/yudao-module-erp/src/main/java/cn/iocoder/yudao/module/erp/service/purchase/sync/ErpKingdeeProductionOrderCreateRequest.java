@@ -22,6 +22,11 @@ public class ErpKingdeeProductionOrderCreateRequest {
 
     private String unitNumber;
 
+    /**
+     * Explicitly read the unit from the selected template entry when unitNumber is blank.
+     */
+    private Boolean useTemplateEntryUnit;
+
     private BigDecimal quantity;
 
     private LocalDateTime plannedStartDate;

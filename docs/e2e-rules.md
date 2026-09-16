@@ -41,6 +41,7 @@
 - Minimal full run：AI修复后的`full`主链默认只准备并消耗O01；O02—O05用于regression/repeatability或边界场景。不得让每次主链回归无谓创建全矩阵数据，避免长期循环耗尽输入或污染队列。
 - Static contract drift：业务阶段从BLOCKED推进为已实现时，必须同步更新总runner合同、阶段状态断言和聚合静态套件；不得让过期静态断言继续要求停在旧阶段。
 - Configured template runner：若真实页面和后端已提供全局配置模板入口，runner不得再强制每轮传入模板业务编码；Manifest应区分`EXPLICIT_CODE`与`CONFIGURED_TEMPLATE`，配置模板缺失只能作为`PRECONDITION_BLOCKED`输出，不能在S00用过期静态前置条件提前终止。
+- Configured template unit source：AI-loop PREPARE不得为ERP生产订单模板补造计量单位；若ExecuteBillQuery返回的模板`unitCode`为空，应由真实创建路径读取金蝶View模板分录`FUnitId`作为单位来源，View也缺单位时必须明确失败并在报告记录业务码、消息和候选代码路径。
 - Production/PQC interleaving：eDHR主链runner必须用固定交错计划执行生产提交、生产复核、PQC提交和PQC复核；静态合同不得固化“全部生产完成后再补做全部PQC”的错误顺序。
 - S04 traceability oracle：领料单按业务时机晚于一线生产/PQC进入系统时，runner必须先在同步领料单前从活跃订单详情或同等真实页面证明输入物料尚未回填正式领料单号/批号，再在完工申请后读取同一区域的领料单号和批号可见证据；只检查`sourceSnapshotHash`、申请回执或列表状态，不足以证明领料已按业务时机回填到输入物料。若当前准备入口不控制ERP领料单编号，不得构造`${runId}-PLxx`这类固定领料单号；应校验页面真实回填的正式领料单号非空、批号非空，并把同步前/同步后的实际值写入报告。
 

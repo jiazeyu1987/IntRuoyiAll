@@ -101,7 +101,7 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
             "FWorkShopID", "FWorkshopID", "FOwnerTypeId", "FOwnerId", "FBusinessType",
             "FOrgId", "FUseOrgId");
     private static final List<String> ENTRY_TEMPLATE_FIELDS = List.of(
-            "FStockUnitID", "FBaseUnitId", "FBaseUnitID", "FBomId", "FRoutingId",
+            "FUnitId", "FStockUnitID", "FBaseUnitId", "FBaseUnitID", "FBomId", "FRoutingId",
             "FWorkShopID", "FWorkshopID", "FOwnerTypeId", "FOwnerId", "FLot",
             "FAuxPropId");
     private static final List<String> ENTRY_KEYS = List.of("FTreeEntity", "FEntity", "FMoEntry");
@@ -370,7 +370,11 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
             copyFields(templateEntry, entry, ENTRY_TEMPLATE_FIELDS);
         }
         entry.put("FMaterialId", numberRef(request.getMaterialNumber()));
-        entry.put("FUnitId", numberRef(request.getUnitNumber()));
+        if (StrUtil.isNotBlank(request.getUnitNumber())) {
+            entry.put("FUnitId", numberRef(request.getUnitNumber()));
+        } else if (Boolean.TRUE.equals(request.getUseTemplateEntryUnit())) {
+            requireNumberReference(entry, "FUnitId", "template FUnitId");
+        }
         entry.put("FQty", request.getQuantity());
         entry.put("FPlanStartDate", formatDateTime(request.getPlannedStartDate()));
         entry.put("FPlanFinishDate", formatDateTime(request.getPlannedFinishDate()));
@@ -568,7 +572,13 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         requireNoSingleQuote(requireNotBlank(request.getBillNo(), "billNo"), "billNo");
         requireNoSingleQuote(requireNotBlank(request.getTemplateBillNo(), "templateBillNo"), "templateBillNo");
         requireNoSingleQuote(requireNotBlank(request.getMaterialNumber(), "materialNumber"), "materialNumber");
-        requireNoSingleQuote(requireNotBlank(request.getUnitNumber(), "unitNumber"), "unitNumber");
+        if (StrUtil.isBlank(request.getUnitNumber())) {
+            if (!Boolean.TRUE.equals(request.getUseTemplateEntryUnit())) {
+                throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "unitNumber is blank");
+            }
+        } else {
+            requireNoSingleQuote(request.getUnitNumber(), "unitNumber");
+        }
         if (StrUtil.isNotBlank(request.getSourceBillNo())) {
             requireNoSingleQuote(request.getSourceBillNo(), "sourceBillNo");
         }
@@ -603,6 +613,17 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         Map<String, Object> value = new LinkedHashMap<>();
         value.put("FNumber", number);
         return value;
+    }
+
+    private void requireNumberReference(Map<String, Object> entry, String fieldName, String label) {
+        Object value = entry.get(fieldName);
+        if (!(value instanceof Map<?, ?> numberRef)) {
+            throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, label + " is blank");
+        }
+        Object number = numberRef.get("FNumber");
+        if (number == null || StrUtil.isBlank(String.valueOf(number))) {
+            throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, label + " is blank");
+        }
     }
 
     private String resolveEntryKey(JsonNode templateModel) {
