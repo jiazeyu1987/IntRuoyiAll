@@ -65,6 +65,9 @@ public class RuntimeControlActionReqVO {
     @Schema(description = "测试验证结论；标记测试通过必填")
     private String testConclusion;
 
+    @Schema(description = "测试验收结果；标记测试通过固定为 PASS")
+    private String testResult;
+
     @Schema(description = "测试服数据库快应用 SQL 文件路径", example = "D:/tmp/test-db-hotfix.sql")
     private String sqlPath;
 

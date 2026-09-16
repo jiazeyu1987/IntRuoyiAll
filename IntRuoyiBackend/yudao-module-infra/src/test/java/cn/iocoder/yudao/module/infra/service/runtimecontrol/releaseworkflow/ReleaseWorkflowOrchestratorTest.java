@@ -222,6 +222,57 @@ class ReleaseWorkflowOrchestratorTest {
     }
 
     @Test
+    void recoveryRequiredBuildWithObservedStageLogStaysReadable() throws Exception {
+        RuntimeControlOperationRespVO operation = operation("running");
+        stubWorkflowOperations(operation);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "recovering build", "approved-source");
+        Path logPath = operationStore.getOperationLogPath(operation.getOperationId());
+        Files.createDirectories(logPath.getParent());
+        Files.writeString(logPath, """
+                RELEASE_WORKFLOW_STAGE=TESTING evidence=standard-release-contract-tests
+                RELEASE_WORKFLOW_STAGE=BUILDING evidence=application-artifact-build
+                """, StandardCharsets.UTF_8);
+        workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, "BUILD_DISPATCH", false, false);
+
+        ReleaseWorkflowRecord reconciled = orchestrator.reconcile(workflow.workflowId());
+
+        assertEquals(ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, reconciled.state());
+        assertEquals(workflow.stateVersion(), reconciled.stateVersion());
+    }
+
+    @Test
+    void cancelDuringTestDeploymentKeepsTestLeaseIsolatedForRecovery() {
+        RuntimeControlOperationRespVO build = operation("running");
+        RuntimeControlOperationRespVO publish = operation("running");
+        publish.setOperationId(UUID.randomUUID().toString());
+        publish.setAction("publish-test");
+        publish.setEnvironment("test");
+        stubWorkflowOperations(build, publish);
+        when(runtimeControlService.cancelOperation(any())).thenAnswer(invocation -> {
+            publish.setStatus("canceled");
+            operationStore.save(publish);
+            return true;
+        });
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "cancel write stage", "approved-source");
+        writeSuccessfulBuildStages(build.getOperationId());
+        build.setStatus("succeeded");
+        operationStore.save(build);
+        when(runtimeControlService.getReleasePackages()).thenReturn(List.of(packageFor(workflow.releaseTag())));
+        workflow = orchestrator.reconcile(workflow.workflowId());
+        workflow = orchestrator.startTestPublish(workflow.workflowId(), "operator", "publish test");
+        operationStore.save(publish);
+
+        ReleaseWorkflowRecord canceled = orchestrator.cancel(workflow.workflowId());
+        ReleaseWorkflowService.OptionalLease nextTestLease =
+                workflowService.acquireEnvironmentLease("test", "next-workflow");
+
+        assertEquals(ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, canceled.state());
+        assertFalse(nextTestLease.acquired());
+        nextTestLease.close();
+    }
+
+    @Test
     void staleWorkflowWithFreshRunningOperationLogRefreshesHeartbeatInsteadOfCancelling() throws Exception {
         properties.getReleaseWorkflow().setHeartbeatTimeout(Duration.ofSeconds(1));
         RuntimeControlOperationRespVO operation = operation("running");
@@ -292,7 +343,7 @@ class ReleaseWorkflowOrchestratorTest {
         workflow = orchestrator.reconcile(workflow.workflowId());
 
         ReleaseWorkflowRecord accepting = orchestrator.acceptTest(
-                workflow.workflowId(), "operator", "browser acceptance passed");
+                workflow.workflowId(), "operator", "PASS", "browser acceptance passed");
         assertEquals(ReleaseWorkflowRecord.State.TEST_DEPLOYED, accepting.state());
         mark.setStatus("succeeded");
         operationStore.save(mark);
@@ -306,6 +357,8 @@ class ReleaseWorkflowOrchestratorTest {
         assertEquals(publishOperationId, markRequest.getTestOperationId());
         assertEquals(operationStore.getOperationPath(publishOperationId).toString(),
                 markRequest.getTestOperationEvidencePath());
+        assertEquals("PASS", markRequest.getTestResult());
+        assertEquals("browser acceptance passed", markRequest.getTestConclusion());
         assertEquals(null, markRequest.getSelectedRecoverySetCandidateId());
     }
 
@@ -331,7 +384,7 @@ class ReleaseWorkflowOrchestratorTest {
         publish.setStatus("succeeded");
         operationStore.save(publish);
         workflow = orchestrator.reconcile(workflow.workflowId());
-        orchestrator.acceptTest(workflow.workflowId(), "operator", "browser acceptance passed");
+        orchestrator.acceptTest(workflow.workflowId(), "operator", "PASS", "browser acceptance passed");
         mark.setStatus("succeeded");
         operationStore.save(mark);
         orchestrator.reconcile(workflow.workflowId());
@@ -340,6 +393,36 @@ class ReleaseWorkflowOrchestratorTest {
 
         assertTrue(nextTestLease.acquired());
         nextTestLease.close();
+    }
+
+    @Test
+    void failedTestAcceptanceFailsWorkflowWithoutWritingTestedAttestation() {
+        RuntimeControlOperationRespVO build = operation("running");
+        RuntimeControlOperationRespVO publish = operation("running");
+        publish.setOperationId(UUID.randomUUID().toString());
+        publish.setAction("publish-test");
+        publish.setEnvironment("test");
+        stubWorkflowOperations(build, publish);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "acceptance fail", "approved-source");
+        writeSuccessfulBuildStages(build.getOperationId());
+        build.setStatus("succeeded");
+        operationStore.save(build);
+        when(runtimeControlService.getReleasePackages()).thenReturn(List.of(packageFor(workflow.releaseTag())));
+        workflow = orchestrator.reconcile(workflow.workflowId());
+        workflow = orchestrator.startTestPublish(workflow.workflowId(), "operator", "publish test");
+        publish.setStatus("succeeded");
+        operationStore.save(publish);
+        workflow = orchestrator.reconcile(workflow.workflowId());
+
+        ReleaseWorkflowRecord failed = orchestrator.acceptTest(
+                workflow.workflowId(), "operator", "FAIL", "login verification failed");
+
+        assertEquals(ReleaseWorkflowRecord.State.FAILED, failed.state());
+        assertEquals("TEST_ACCEPTANCE", failed.failedStage());
+        ArgumentCaptor<RuntimeControlActionReqVO> request = ArgumentCaptor.forClass(RuntimeControlActionReqVO.class);
+        verify(runtimeControlService, times(2)).executeAction(request.capture(), eq("operator"));
+        assertTrue(request.getAllValues().stream()
+                .noneMatch(item -> "mark-release-tested".equals(item.getAction())));
     }
 
     @Test

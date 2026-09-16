@@ -196,7 +196,7 @@ public class RuntimeControlController {
             @PathVariable("workflowId") String workflowId,
             @Valid @RequestBody RuntimeControlReleaseWorkflowTestAcceptanceReqVO reqVO) {
         return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowOrchestrator.acceptTest(
-                workflowId, requireLoginUserId(), reqVO.getConclusion())));
+                workflowId, requireLoginUserId(), reqVO.getResult(), reqVO.getConclusion())));
     }
 
     @PostMapping("/release-workflows/{workflowId}/production-authorization")

@@ -6,6 +6,7 @@ export type RuntimeControlSiteMessageStatus = 'SENT' | 'FAILED' | 'BLOCKED'
 export type RuntimeControlCandidateStatus = 'AVAILABLE' | 'BLOCKED'
 export type RuntimeControlAppReleaseScope = 'app-release'
 export type RuntimeControlPublishScope = RuntimeControlAppReleaseScope
+export type RuntimeControlReleaseWorkflowTestAcceptanceResult = 'PASS' | 'FAIL'
 export type RuntimeControlReleaseWorkflowState =
   | 'SOURCE_FREEZING'
   | 'PREFLIGHTING'
@@ -74,6 +75,7 @@ export interface RuntimeControlActionReqVO {
   includeShowroomBuildPackage?: boolean
   enableSmartReleaseReport?: boolean
   releaseTag?: string
+  testResult?: 'PASS'
   testConclusion?: string
   sqlPath?: string
   selectedImageCandidateId?: string
@@ -90,6 +92,7 @@ export interface RuntimeControlReleaseWorkflowActionReqVO {
 }
 
 export interface RuntimeControlReleaseWorkflowTestAcceptanceReqVO {
+  result: RuntimeControlReleaseWorkflowTestAcceptanceResult
   conclusion: string
 }
 

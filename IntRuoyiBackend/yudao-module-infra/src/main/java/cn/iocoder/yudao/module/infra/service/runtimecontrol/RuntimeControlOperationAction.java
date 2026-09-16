@@ -121,6 +121,12 @@ public enum RuntimeControlOperationAction {
             args.add("-OperatorName");
             args.add(StrUtil.trim(operatorName));
         }
+        if (this == MARK_RELEASE_TESTED) {
+            args.add("-TestResult");
+            args.add(StrUtil.trim(reqVO.getTestResult()));
+            args.add("-OperatorName");
+            args.add(StrUtil.trim(operatorName));
+        }
         return args;
     }
 
@@ -155,6 +161,7 @@ public enum RuntimeControlOperationAction {
             case APPLY_TEST_DB_SQL -> Map.of("sqlPath", StrUtil.blankToDefault(reqVO.getSqlPath(), ""));
             case MARK_RELEASE_TESTED -> Map.of(
                     "releaseTag", StrUtil.blankToDefault(reqVO.getReleaseTag(), ""),
+                    "testResult", StrUtil.blankToDefault(reqVO.getTestResult(), ""),
                     "testConclusion", StrUtil.blankToDefault(reqVO.getTestConclusion(), ""),
                     "testOperationId", StrUtil.blankToDefault(reqVO.getTestOperationId(), ""));
             case BACKUP_NOW -> Map.of(

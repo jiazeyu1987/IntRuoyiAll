@@ -148,7 +148,9 @@ public class ReleaseWorkflowOrchestrator {
     }
 
     public synchronized ReleaseWorkflowRecord acceptTest(String workflowId, String requestedBy,
-                                                         String conclusion) {
+                                                         String result, String conclusion) {
+        ReleaseWorkflowTestResult testResult = ReleaseWorkflowTestResult.fromApi(result);
+        String normalizedConclusion = requireAcceptanceConclusion(conclusion);
         ReleaseWorkflowRecord workflow = reconcile(workflowId);
         if (workflow.state() != ReleaseWorkflowRecord.State.TEST_DEPLOYED) {
             throw new IllegalStateException("RELEASE_WORKFLOW_TEST_NOT_DEPLOYED");
@@ -156,6 +158,13 @@ public class ReleaseWorkflowOrchestrator {
         String publishTestOperationId = workflow.testOperationId();
         if (publishTestOperationId == null || workflow.testOperationEvidencePath() == null) {
             throw new IllegalStateException("RELEASE_WORKFLOW_TEST_OPERATION_EVIDENCE_MISSING");
+        }
+        if (testResult == ReleaseWorkflowTestResult.FAIL) {
+            ReleaseWorkflowRecord failed = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                    ReleaseWorkflowRecord.State.FAILED, "TEST_ACCEPTANCE", false, false,
+                    List.of("workflow/test-acceptance-failed.json"));
+            releaseLeasesForState(failed);
+            return failed;
         }
         ReleaseWorkflowService.OptionalLease lease = workflowService.acquireEnvironmentLease("test",
                 workflow.workflowId());
@@ -172,7 +181,8 @@ public class ReleaseWorkflowOrchestrator {
             request.setAction("mark-release-tested");
             request.setReason("记录程序包测试验收");
             request.setReleaseTag(workflow.releaseTag());
-            request.setTestConclusion(conclusion);
+            request.setTestResult(testResult.name());
+            request.setTestConclusion(normalizedConclusion);
             request.setTestOperationId(publishTestOperationId);
             request.setTestOperationEvidencePath(workflow.testOperationEvidencePath());
             attachWorkflowContext(request, workflow, operationId);
@@ -258,7 +268,8 @@ public class ReleaseWorkflowOrchestrator {
 
     public synchronized ReleaseWorkflowRecord reconcile(String workflowId) {
         ReleaseWorkflowRecord workflow = workflowService.require(workflowId);
-        if (workflow.operationId() == null || workflow.state().isTerminal()) {
+        if (workflow.operationId() == null || workflow.state().isTerminal()
+                || workflow.state() == ReleaseWorkflowRecord.State.RECOVERY_REQUIRED) {
             return workflow;
         }
         RuntimeControlOperationRespVO operation = operationStore.findById(workflow.operationId());
@@ -335,7 +346,7 @@ public class ReleaseWorkflowOrchestrator {
             }
         }
         ReleaseWorkflowRecord canceled = workflowService.cancel(workflowId);
-        releaseAllLeases(workflowId);
+        releaseLeasesForState(canceled);
         return canceled;
     }
 
@@ -449,6 +460,11 @@ public class ReleaseWorkflowOrchestrator {
         if (!"build-release".equals(operation.getAction())) {
             return workflow;
         }
+        if (workflow.state() != ReleaseWorkflowRecord.State.PREFLIGHTING
+                && workflow.state() != ReleaseWorkflowRecord.State.TESTING
+                && workflow.state() != ReleaseWorkflowRecord.State.BUILDING) {
+            return workflow;
+        }
         for (ObservedWorkflowStage marker : readObservedBuildStages(operation.getOperationId())) {
             if (isObservedStageAlreadyApplied(workflow.state(), marker.state())) {
                 continue;
@@ -519,6 +535,13 @@ public class ReleaseWorkflowOrchestrator {
 
     private String newOperationId() {
         return UUID.randomUUID().toString();
+    }
+
+    private static String requireAcceptanceConclusion(String conclusion) {
+        if (conclusion == null || conclusion.isBlank() || !conclusion.equals(conclusion.trim())) {
+            throw new IllegalArgumentException("RELEASE_WORKFLOW_TEST_CONCLUSION_INVALID");
+        }
+        return conclusion;
     }
 
     private void requireOperationBinding(String expectedOperationId, RuntimeControlOperationRespVO operation) {

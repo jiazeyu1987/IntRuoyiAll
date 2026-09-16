@@ -40,6 +40,13 @@ assert.match(source, /createRuntimeControlReleaseWorkflow/)
 assert.match(source, /getRuntimeControlReleaseWorkflows/)
 assert.match(source, /publishRuntimeControlReleaseWorkflowToTest/)
 assert.match(source, /acceptRuntimeControlReleaseWorkflowTest/)
+assert.match(source, /export type RuntimeControlReleaseWorkflowTestAcceptanceResult\s*=\s*'PASS'\s*\|\s*'FAIL'/)
+assert.match(source, /RuntimeControlReleaseWorkflowTestAcceptanceReqVO\s*\{[\s\S]*result\s*:\s*RuntimeControlReleaseWorkflowTestAcceptanceResult[\s\S]*conclusion\s*:\s*string[\s\S]*\}/)
+assert.match(
+  source,
+  /RuntimeControlActionReqVO\s*\{[\s\S]*testResult\?\s*:\s*'PASS'[\s\S]*testConclusion\?\s*:\s*string/,
+  'legacy mark-tested operation request must carry the structured PASS result'
+)
 assert.match(source, /authorizeRuntimeControlReleaseWorkflowProduction/)
 assert.match(source, /promoteRuntimeControlReleaseWorkflowProduction/)
 assert.match(source, /\/infra\/runtime-control\/release-workflows/)
@@ -62,6 +69,31 @@ assert.match(
   page,
   /<el-select[\s\S]*selectedReleaseWorkflowId/,
   'one-button release UI must expose a workflow/package selector'
+)
+assert.match(
+  page,
+  /acceptReleaseWorkflowTest\('PASS'\)/,
+  'one-button release UI must expose an explicit PASS acceptance action'
+)
+assert.match(
+  page,
+  /acceptReleaseWorkflowTest\('FAIL'\)/,
+  'one-button release UI must expose an explicit FAIL acceptance action'
+)
+assert.match(
+  page,
+  /result,\s*conclusion:\s*promptResult\.value\.trim\(\)/,
+  'test acceptance payload must submit structured result and typed conclusion'
+)
+assert.match(
+  page,
+  /testResult:\s*operationDialog\.action === 'mark-release-tested' \? 'PASS' : undefined/,
+  'legacy mark-tested operation payload must submit PASS explicitly'
+)
+assert.doesNotMatch(
+  page,
+  /const conclusion = releaseWorkflowReason\.value\.trim\(\)[\s\S]*acceptRuntimeControlReleaseWorkflowTest/,
+  'test acceptance must not reuse the generic release reason as the validation conclusion'
 )
 
 console.log('runtime-control one-button P1 static contract passed')

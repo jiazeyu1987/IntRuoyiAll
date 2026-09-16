@@ -920,7 +920,14 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             throw exception(RUNTIME_CONTROL_PROD_GUARD_REQUIRED);
         }
         if (action == RuntimeControlOperationAction.MARK_RELEASE_TESTED) {
-            reqVO.setReleaseTag(resolveCurrentReleaseTag("test"));
+            String testResult = StrUtil.trimToEmpty(reqVO.getTestResult()).toUpperCase(Locale.ROOT);
+            if (StrUtil.isBlank(testResult)) {
+                throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testResult");
+            }
+            if (!"PASS".equals(testResult)) {
+                throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "testResult");
+            }
+            reqVO.setTestResult(testResult);
             if (StrUtil.isBlank(reqVO.getTestConclusion())) {
                 throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testConclusion");
             }
@@ -931,6 +938,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             if (StrUtil.isBlank(reqVO.getTestOperationEvidencePath())) {
                 throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testOperationEvidencePath");
             }
+            reqVO.setReleaseTag(resolveCurrentReleaseTag("test"));
         }
         if (action.requiresPublishScope()) {
             if (StrUtil.isBlank(reqVO.getPublishScope())) {

@@ -49,3 +49,9 @@ P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_pl
 2026-09-16 静态审查进一步判定当前按钮调用链不能放行：`app-release` scope 与底层 action 断裂，按钮仍调用应用仓旧脚本，旧 `/actions` 可绕过 workflow 授权，稳定等待态会被心跳误杀，测试验收 lease 会泄漏，底层进程先于 workflow 绑定启动，阶段失败显示不真实，前端固定操作排序第一条 workflow。当前切片先修这些通用按钮机制；在修复和 RED/GREEN 回归通过前暂停 R80 publish-test，不继续生成或发布新的 releaseTag。
 
 静态审查纠偏切片已完成本机 RED/GREEN：后端 `RuntimeControlServiceImplTest,ReleaseWorkflowOrchestratorTest` 80 tests PASS，前端静态合同 PASS，`pnpm ts:check` PASS。当前已固定 `app-release`、维护仓发布脚本、workflow 上下文授权、派发前 operation 绑定、稳定等待态 heartbeat、按环境 lease 生命周期和前端显式 workflow 选择；R80 仍按不可复用处理，下一步需提交应用修复后用全新 releaseTag 重新 build-release -> publish-test 验证。
+
+2026-09-16 17:40 静态复查后进入 R1-R5 纠偏切片：修复来源 tuple 去重、超时恢复后 build lease 释放、派发后未知状态隔离、正式发布只读准入前置、以及 build-release 真实阶段/失败定位。修复前不生成或发布新的 releaseTag；仍不执行正式服、审查服、`mark-tested`、`promote-prod`、`promote-backup`、MinIO 数据同步或全量数据库复制。
+
+R1-R5 纠偏切片已完成本机 GREEN：ReleaseWorkflow 定向 clean JUnit 21 tests PASS，ReleaseWorkflow/RuntimeControl 周边回归 58 tests PASS，前端 `pnpm ts:check` PASS。当前代码只完成本机通用按钮机制修复；R81 仍绑定旧应用提交，不作为发布成功证据。下一步需先分别提交应用仓和维护仓修复，再用全新 releaseTag 从同一组新提交重新 build-release -> publish-test 验证。
+
+S1-S4 纠偏切片已完成本机 GREEN：恢复态列表/详情只读返回，取消写阶段保持隔离租约，测试验收显式 PASS/FAIL 分支，`mark-tested` 使用服务端认证操作者；维护脚本同步显式 `TestResult=PASS` 凭证合同；通用直接 mark-tested 前端 payload 也已固定传 `testResult=PASS`。应用后端 102 tests、前端静态合同、`pnpm ts:check` 与维护脚本 86 tests 均通过。下一步提交两仓修复后使用全新 releaseTag 重建并继续测试服 publish-test 与运行态/按钮验收。

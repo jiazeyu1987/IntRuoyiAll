@@ -902,6 +902,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("mark-release-tested");
         reqVO.setReason("测试服验证通过");
+        reqVO.setTestResult("PASS");
         reqVO.setTestConclusion("回归通过，允许上线正式服");
         reqVO.setTestOperationId("op-publish-test-success");
         reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
@@ -915,14 +916,19 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
 
         assertEquals("mark-release-tested", result.getAction());
         assertEquals("20260528_220000", result.getParameters().get("releaseTag"));
+        assertEquals("PASS", result.getParameters().get("testResult"));
         assertEquals("回归通过，允许上线正式服", result.getParameters().get("testConclusion"));
         verify(commandExecutor, timeout(1000)).executeOperation(argThat(command ->
                 "ops/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
                         && command.getWorkingDirectory() != null
                         && command.getArguments().contains("-Mode")
                         && command.getArguments().contains("mark-tested")
+                        && command.getArguments().contains("-TestResult")
+                        && command.getArguments().contains("PASS")
                         && command.getArguments().contains("-ReleaseTag")
                         && command.getArguments().contains("20260528_220000")
+                        && command.getArguments().contains("-OperatorName")
+                        && command.getArguments().contains("1001")
                         && command.getArguments().contains("-TestConclusion")
                         && command.getArguments().contains("回归通过，允许上线正式服")
                         && command.getArguments().contains("-TestOperationId")
@@ -938,12 +944,36 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("mark-release-tested");
         reqVO.setReason("测试服验证通过");
+        reqVO.setTestResult("PASS");
         reqVO.setTestConclusion("回归通过，允许上线正式服");
+        reqVO.setTestOperationId("op-publish-test-success");
+        reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
+        withWorkflowContext(reqVO);
         doReturn(RuntimeControlStatusResult.running("HTTP 200", "running"))
                 .when(commandExecutor).queryStatus(any());
 
         assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
                 ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testCurrentReleaseTag");
+
+        verify(commandExecutor, never()).executeOperation(any(), any());
+    }
+
+    @Test
+    void executeMarkReleaseTestedShouldRequireExplicitPassResult() {
+        RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
+        reqVO.setAction("mark-release-tested");
+        reqVO.setReason("测试服验证通过");
+        reqVO.setTestConclusion("回归通过，允许上线正式服");
+        reqVO.setTestOperationId("op-publish-test-success");
+        reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
+        withWorkflowContext(reqVO);
+
+        assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
+                ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testResult");
+
+        reqVO.setTestResult("FAIL");
+        assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
+                ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "testResult");
 
         verify(commandExecutor, never()).executeOperation(any(), any());
     }

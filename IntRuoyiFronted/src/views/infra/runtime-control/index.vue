@@ -112,16 +112,29 @@
         <span v-if="activeReleaseWorkflow.evidenceRefs?.length">
           证据：{{ activeReleaseWorkflow.evidenceRefs.join('、') }}
         </span>
-        <el-button
+        <div
           v-if="activeReleaseWorkflow.state === 'TEST_DEPLOYED'"
-          link
-          type="primary"
-          :loading="releaseWorkflowSubmitting === 'test'"
-          @click="acceptReleaseWorkflowTest"
+          class="release-workflow-acceptance"
         >
-          <Icon icon="ep:circle-check" class="mr-5px" />
-          记录测试验收
-        </el-button>
+          <el-button
+            link
+            type="primary"
+            :loading="releaseWorkflowSubmitting === 'test'"
+            @click="acceptReleaseWorkflowTest('PASS')"
+          >
+            <Icon icon="ep:circle-check" class="mr-5px" />
+            测试通过
+          </el-button>
+          <el-button
+            link
+            type="danger"
+            :loading="releaseWorkflowSubmitting === 'test'"
+            @click="acceptReleaseWorkflowTest('FAIL')"
+          >
+            <Icon icon="ep:circle-close" class="mr-5px" />
+            测试不通过
+          </el-button>
+        </div>
       </div>
     </section>
 
@@ -1331,23 +1344,36 @@ const requestProdReleaseWorkflow = async () => {
   }
 }
 
-const acceptReleaseWorkflowTest = async () => {
+const releaseWorkflowTestResultText = (
+  result: RuntimeControlApi.RuntimeControlReleaseWorkflowTestAcceptanceResult
+) => (result === 'PASS' ? '测试通过' : '测试不通过')
+
+const acceptReleaseWorkflowTest = async (
+  result: RuntimeControlApi.RuntimeControlReleaseWorkflowTestAcceptanceResult
+) => {
   const workflow = activeReleaseWorkflow.value
   if (!workflow || workflow.state !== 'TEST_DEPLOYED') return
-  const conclusion = releaseWorkflowReason.value.trim()
-  if (!conclusion) {
-    reportActionError(new Error('请填写测试验收结论'))
-    return
-  }
-  releaseWorkflowSubmitting.value = 'test'
   try {
+    const promptResult = await ElMessageBox.prompt(
+      `测试服 / ${workflow.releaseTag} / ${releaseWorkflowTestResultText(result)}`,
+      releaseWorkflowTestResultText(result),
+      {
+        confirmButtonText: '提交验收',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputPlaceholder: result === 'PASS' ? '填写通过依据' : '填写未通过原因',
+        inputValidator: (value) => Boolean(value?.trim()) || '请填写测试验收结论'
+      }
+    )
+    releaseWorkflowSubmitting.value = 'test'
     const updated = await RuntimeControlApi.acceptRuntimeControlReleaseWorkflowTest(workflow.workflowId, {
-      conclusion
+      result,
+      conclusion: promptResult.value.trim()
     })
     upsertReleaseWorkflow(updated)
-    message.success('测试验收记录已提交')
+    message.success(`${releaseWorkflowTestResultText(result)}记录已提交`)
   } catch (error) {
-    reportActionError(error)
+    if (error !== 'cancel' && error !== 'close') reportActionError(error)
   } finally {
     releaseWorkflowSubmitting.value = ''
   }
@@ -2079,7 +2105,10 @@ const submitOperation = async () => {
   }
 }
 
-const buildOperationActionRequest = (reason: string, releaseTag: string) => ({
+const buildOperationActionRequest = (
+  reason: string,
+  releaseTag: string
+): RuntimeControlApi.RuntimeControlActionReqVO => ({
   action: operationDialog.action,
   reason,
   prodConfirmText: operationDialog.prodConfirmText,
@@ -2098,6 +2127,7 @@ const buildOperationActionRequest = (reason: string, releaseTag: string) => ({
     : undefined,
   releaseTag: operationUsesReleaseTag(operationDialog.action) && releaseTag ? releaseTag : undefined,
   sqlPath: operationDialog.action === 'apply-test-db-sql' ? operationDialog.sqlPath.trim() : undefined,
+  testResult: operationDialog.action === 'mark-release-tested' ? 'PASS' : undefined,
   testConclusion:
     operationDialog.action === 'mark-release-tested'
       ? operationDialog.testConclusion.trim()
@@ -2479,6 +2509,12 @@ watch(
 .release-workflow-details {
   padding-top: 8px;
   border-top: 1px solid #edf1f6;
+}
+
+.release-workflow-acceptance {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .release-workflow-details__error {

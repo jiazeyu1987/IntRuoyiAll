@@ -7,6 +7,9 @@ import lombok.Data;
 @Data
 public class RuntimeControlReleaseWorkflowTestAcceptanceReqVO {
 
+    @NotBlank(message = "测试验收结果不能为空")
+    private String result;
+
     @NotBlank(message = "测试验收结论不能为空")
     private String conclusion;
 

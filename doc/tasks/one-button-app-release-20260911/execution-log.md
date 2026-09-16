@@ -214,3 +214,41 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 - GREEN: `corepack pnpm run ts:check` -> PASS，vue-tsc 无错误输出。
 - GREEN: `rg -n "script/deploy/publish-int-ruoyi.ps1|code-only|with-data|releaseWorkflows\.value\[0\]" <runtime-control source/test roots>` -> PASS，无命中；旧脚本路径、旧 scope 和排序第一条 workflow 操作已从目标源码清除。
 - RESULT: 静态审查 F1/F2/F3/F4/F5/F6/F8 已按通用按钮机制修复并回归；F7 阶段失败显示通过“派发前持久化目标执行态 + 稳定等待态不再误杀”收敛到真实 operation 绑定，但完整发布运行态仍需在新应用提交、新 releaseTag 的 build-release -> publish-test 中继续验证。R80 不复用；下一轮必须使用新应用 commit 和全新 releaseTag。
+
+## Release button latest static-review R1-R5 corrective slice（2026-09-16 17:40）
+
+- USER_REQUEST: 用户提供最新复查结论，当前应用提交 `c3220239de7f06a6c2eabc31c9b840d9a599d768` 仍 FAIL；本轮按复查报告修复 R1-R5，不执行真实发布、服务器写入、数据库写入或 E2E。
+- GREEN: experience-preflight -> PASS；命中按钮化 `app-release` workflow 门禁和 deploy action 参数契约，当前两个发布 worktree clean，应用 HEAD 与复查提交一致；稳定状态/租约/恢复/阶段证据缺口必须通过 BDD + RED/GREEN 修复。
+- BDD: R1 来源 tuple 去重 -> Given 已存在 READY/TESTED workflow A / When 服务端批准 maintenance/application/frontend commits 或 preset 更新但 sourceSelectionId/reason 相同 / Then “生成程序安装包”必须创建新 workflow B，不能返回旧 releaseTag。
+- BDD: R2 超时恢复释放已确认终态 lease -> Given build workflow 心跳超时且底层 operation 已被确认停止 / When recovery 将非写阶段标成 FAILED / Then build lease 必须释放，后续新 build 可获取 build lock；RECOVERY_REQUIRED 仍保留隔离。
+- BDD: R3 派发后异常进入隔离 -> Given RuntimeControlService 已启动底层 operation / When 随后 operation 绑定核验或 workflow 状态回读异常 / Then workflow 不得提前 FAILED 或释放 lease，必须保持执行隔离并进入可恢复状态。
+- BDD: R4 正式发布只读准入前置 -> Given workflow 已 TESTED 但 productionWriteEnabled=false 或确认文本无效 / When 点击正式发布 / Then 在占用 prod lease、推进 PROD_PREVIEW/PROMOTING_PROD 或消费授权前拒绝，并保留 TESTED。
+- BDD: R5 build-release 真实阶段定位 -> Given build-release operation log 已输出 preflight/test/build 阶段标记或失败 / When scheduler/reconcile 运行 / Then workflow 根据真实日志事件推进到 TESTING/BUILDING/READY 或以真实阶段失败，不得在整体 succeeded 后补写虚假阶段。
+- RED: `mvn -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-infra '-Dtest=ReleaseWorkflowOrchestratorTest,ReleaseWorkflowSourceBindingTest' test` -> FAIL，新增/补齐回归暴露 6 个旧行为：同 reason/sourceSelection 复用旧 workflow、stale PREFLIGHTING 失败后 build lease 未释放、派发后 operationId mismatch 被提前 FAILED 并释放 test lease、productionWriteEnabled=false 时 TESTED 包被置 FAILED、运行中阶段标记不推进、失败阶段仍显示 PREFLIGHTING。
+- GREEN: `mvn -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-infra '-Dtest=ReleaseWorkflowOrchestratorTest,ReleaseWorkflowSourceBindingTest' clean test` -> PASS，21 tests，0 failures，0 errors。
+- GREEN: `mvn -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-infra '-Dtest=ReleaseWorkflow*Test,RuntimeControlCanonicalContractTest,RuntimeControlCommandExecutorImplTest,RuntimeControlHighRiskActionContractTest' test` -> PASS，58 tests，0 failures，0 errors。
+- GREEN: `corepack pnpm run ts:check` -> PASS，前端当前按钮页类型检查无错误。
+- RESULT: R1-R5 已按通用按钮发布机制修复：workflow 去重绑定完整批准来源 tuple/preset/scope；已确认终止的 stale workflow 释放对应 lease；派发后异常进入 `RECOVERY_REQUIRED` 并保留隔离锁；正式发布写开关/PROD 确认在占用 prod lease、消费 grant、推进状态和启动底层进程前只读校验；build-release 阶段由脚本输出的 `RELEASE_WORKFLOW_STAGE=TESTING/BUILDING` 事件驱动，失败阶段取最后真实阶段。未执行真实发布、服务器写入、数据库写入、E2E、正式服或审查服。
+
+## 2026-09-17 Release Button S1-S4 Corrective Validation
+
+- USER_REQUEST: 用户要求继续修复最新静态复查 S1-S4，修完后通过发布按钮执行一次测试服发布并处理发布后问题；本轮授权覆盖本机修复、验证、提交和测试服 `build-release -> publish-test`，不覆盖正式服、审查服、`mark-tested`、`promote-prod`、`promote-backup`、MinIO 数据同步或全量数据库复制。
+- WORKTREE: 应用修复继续在 `D:\IntRuoyiWorktree\r260911-release-button\a` / branch `codex/one-button-app-release-20260911`；截至本记录，代码尚未融合到 `E:\IntRuoyi` 的 `int_main`。
+- BDD: recovery workflow is read-only -> Given workflow 为 `RECOVERY_REQUIRED` 且 operation log 含 TESTING/BUILDING markers / When 列表或详情 reconcile / Then 直接返回恢复态，不推进阶段、不抛 `RELEASE_WORKFLOW_STAGE_SEQUENCE_INVALID`。
+- BDD: canceled write stage retains isolation -> Given `TEST_DEPLOYING` 拥有 test lease / When operation 已确认终止后取消 / Then workflow 进入 `RECOVERY_REQUIRED` 且同环境下一 workflow 获取 test lease 失败。
+- BDD: test acceptance branches explicitly -> Given `TEST_DEPLOYED` / When 提交 `PASS` / Then 派发 `mark-release-tested`；When 提交 `FAIL` / Then workflow 进入 `FAILED` 且不派发成功凭证写入。
+- BDD: TestedBy is authenticated -> Given `PASS` 验收 / When 服务端派发 `mark-release-tested` / Then `RuntimeControlOperationAction` 显式传入 `-OperatorName <requestedBy>` 和 `-TestResult PASS`，不使用客户端或机器账户兜底。
+- GREEN: `mvn.cmd -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-infra '-Dtest=ReleaseWorkflowOrchestratorTest,ReleaseWorkflowSourceBindingTest,ReleaseWorkflowAuthorizationTest,ReleaseWorkflowRecoveryTest,ReleaseWorkflowStoreTest,RuntimeControlServiceImplTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` -> PASS，102 tests，0 failures/errors/skips。
+- GREEN: `node D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiFronted\tests\e2e\runtime-control-one-button-static.spec.cjs` -> PASS，确认显式 workflow 选择与 PASS/FAIL 验收 payload 静态合同。
+- GREEN: `corepack pnpm run ts:check` from `D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiFronted` -> PASS。
+- GREEN: `git diff --check` from app worktree -> PASS（仅 CRLF 提示）。
+- RESULT: S1-S4 应用侧修复验证通过；R81 判废不复用，下一步提交应用修复并由维护仓用全新 releaseTag 重建后测试服发布。
+
+## 2026-09-17 Direct mark-tested structured result patch
+
+- OBSERVATION: 旧的通用“标记测试通过”操作仍可由授权操作者使用；后端新增显式 `testResult=PASS` 校验后，前端直接操作 payload 也必须携带该字段，不能只修 workflow 验收路径。
+- BDD: direct mark-tested operation keeps structured PASS contract -> Given the generic mark-tested operation is available / When the frontend submits or previews it / Then `RuntimeControlActionReqVO` includes `testResult=PASS` and backend forwards authenticated `OperatorName` to the script.
+- GREEN: `node D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiFronted\tests\e2e\runtime-control-one-button-static.spec.cjs` -> PASS，确认 workflow 验收与直接 mark-tested payload 均有结构化结果。
+- GREEN: `corepack pnpm run ts:check` from `D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiFronted` -> PASS。
+- GREEN: `git diff --check` from app worktree -> PASS（仅 CRLF 提示）。
+- RESULT: S1-S4 之外的同源合法入口已补齐，避免后端 PASS 门禁把直接 mark-tested 入口误挡。
