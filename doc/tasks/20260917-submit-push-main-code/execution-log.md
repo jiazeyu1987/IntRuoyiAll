@@ -23,6 +23,9 @@
 - `task-closeout-cleanup preview`：PASS，keep 为 `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为 none。
 - `task-closeout-cleanup apply`：PASS，linked worktree=false，未删除任何文件。
 - 当前任务记录位于 ignored 路径，按门禁使用 `git add -f` 精确暂存核心任务记录。
+- `git commit -m "docs(task): record mainline submit push closeout"`：PASS，提交 `f9b62637d`。
+- `git push origin int_main`：PASS，远端 `origin/int_main` 从 `7a058f17f` 更新到 `f9b62637d`。
+- `git status --short --branch`：PASS，显示 `## int_main...origin/int_main`，本地不再 ahead。
 
 ## Blockers
 

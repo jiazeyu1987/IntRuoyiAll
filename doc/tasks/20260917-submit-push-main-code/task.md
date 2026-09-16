@@ -10,7 +10,7 @@
 - [x] 检查当前分支、远端、工作区状态和提交范围。
 - [x] 运行提交/推送前置门禁。
 - [x] 按规则提交当前脏工作区基线。
-- [ ] 推送当前分支到 `origin` 并验证本地不再领先远端。
+- [x] 推送当前分支到 `origin` 并验证本地不再领先远端。
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Design Constraints Check
 

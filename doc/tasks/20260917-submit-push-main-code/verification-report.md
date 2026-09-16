@@ -12,8 +12,10 @@
 - `git commit -m "chore: baseline follow-up mainline changes"`：PASS，提交 `da5470688`。
 - `git status --short --branch`：补充基线提交后主干相对 `origin/int_main` 领先 4 个提交，仅剩当前任务目录因 `.gitignore` 被忽略，等待收尾提交。
 - `task-closeout-cleanup preview/apply`：PASS，保留核心任务记录，delete/blocked/warnings 均为 none。
+- `git commit -m "docs(task): record mainline submit push closeout"`：PASS，提交 `f9b62637d`。
+- `git push origin int_main`：PASS，远端 `origin/int_main` 已更新到 `f9b62637d`。
+- `git status --short --branch`：PASS，显示 `## int_main...origin/int_main`，本地不再 ahead。
 
 ## Result
 
-- PASS：提交前置门禁与基线提交已完成。
-- PENDING：收尾记录提交、推送和最终远端同步验证。
+- PASS：主干提交、收尾清理、推送和本地/远端同步验证已完成。
