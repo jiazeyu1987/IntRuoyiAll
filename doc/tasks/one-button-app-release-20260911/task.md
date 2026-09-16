@@ -36,7 +36,7 @@ P2-P5 不在本次执行范围，不实现完整状态机、持久化 workflow�
 
 ## Current Status
 
-blocked
+in_progress
 
 P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_plan.py` 尚未接受标准 `app-release` scope，多个 required SQL 对测试服真实数据状态存在硬编码或空基线缺口。本 worktree 已补齐 `app-release` 迁移预检合同、活跃路线菜单解析、璞慧排产管理员菜单父级兼容、清洗工序参数空规则 no-op、光固 I/II 空来源 no-op、C00 文本比较显式 collation、B04091/B09353 清洗温度空候选 no-op、IDI QA 旧源空基线 no-op、压力泵同名物料已绑定/`product_master_id IS NULL` 的 no-op 合同，以及旧表单模板 Jimu 布局从正式识别字段构建的迁移合同。R53 Jimu 布局修复已提交为 `c82ee4841` 并进入 R55 包；R55 随后暴露当前正式 `mes_pro_batch_record_version` 缺少 `child_form_member_count/child_form_member_hash` 的迁移 schema 缺口。现已按真实 21 列契约修复并提交为 `3098b3319`，静态 RED/GREEN 与测试服只读 preflight 已通过；R55 不复用。
 
@@ -45,3 +45,7 @@ P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_pl
 已先补来源批准 commit 持久化及执行器参数绑定（应用提交 `e109b707c`），并在维护脚本中加入按冻结迁移差异自动发现测试、缺失即 `MIGRATION_TEST_MISSING` 的构建前门禁；随后补齐运行中 operation 的底层取消/进程终止确认，以及统一迁移元数据（顺序、session profile、批准 hook、结果断言）合同。相关 Java 79 tests、应用迁移合同 25 tests、维护回归与脚本 AST 已通过。后台阶段事件、heartbeat/recovery scheduler、统一迁移隔离 rehearsal 与完整 publish-test 仍待完成。
 
 本轮接手后确认主维护仓日志停在 `2026-09-15 21:21:57` 不是仍在运行，而是主工作区日志落后；维护 worktree 记录 R60 已在昂贵构建前失败，R61/R62 仅生成 required-sql 或局部 preflight 证据、没有 `manifest.json` 或镜像包，且当前无对应发布/Maven/Docker 进程，按中断半成品判废。已补应用侧通用后台机制：scheduler 先自动 reconcile 已终态底层 operation，再只对日志无新推进且 heartbeat 超时的 workflow 触发 fail-closed recovery；运行中且日志有推进的长构建用日志 mtime 刷新 workflow 心跳，避免按钮页面卡在旧状态或误杀长任务。R63 进一步暴露 `20260829_mes_old_form_template_binding_switch.preflight.sql` 第一个 `NOT EXISTS` 少闭合一层括号，导致目标只读 preflight 2/17 后 MySQL 1064；现已增加所有 target-preflight 外层 `SELECT CASE` 的括号闭合通用合同，并修复该 SQL。定向回归 12 PASS，测试服只读单文件和完整 17/17 target preflight PASS。下一步提交应用修复，再用全新 releaseTag 重新 build-release -> publish-test 验证，不能复用 R61/R62/R63。
+
+2026-09-16 静态审查进一步判定当前按钮调用链不能放行：`app-release` scope 与底层 action 断裂，按钮仍调用应用仓旧脚本，旧 `/actions` 可绕过 workflow 授权，稳定等待态会被心跳误杀，测试验收 lease 会泄漏，底层进程先于 workflow 绑定启动，阶段失败显示不真实，前端固定操作排序第一条 workflow。当前切片先修这些通用按钮机制；在修复和 RED/GREEN 回归通过前暂停 R80 publish-test，不继续生成或发布新的 releaseTag。
+
+静态审查纠偏切片已完成本机 RED/GREEN：后端 `RuntimeControlServiceImplTest,ReleaseWorkflowOrchestratorTest` 80 tests PASS，前端静态合同 PASS，`pnpm ts:check` PASS。当前已固定 `app-release`、维护仓发布脚本、workflow 上下文授权、派发前 operation 绑定、稳定等待态 heartbeat、按环境 lease 生命周期和前端显式 workflow 选择；R80 仍按不可复用处理，下一步需提交应用修复后用全新 releaseTag 重新 build-release -> publish-test 验证。

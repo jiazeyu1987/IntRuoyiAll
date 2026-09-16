@@ -195,3 +195,22 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 - GREEN: target-preflight-parenthesis-fix -> PASS。最小修复仅补齐缺失右括号，并在 `test_release_target_preflight_files.py` 增加通用外层 CASE 括号闭合检查；`python -X utf8 -m pytest -q script/tests/test_release_target_preflight_files.py script/tests/test_mes_old_form_template_binding_switch_sql.py --basetemp .tmp-r63-preflight-parenthesis-green` -> 12 passed。
 - GREEN: live-readonly-target-preflight-after-fix -> PASS。测试服只读执行新版单文件 preflight 返回 `TARGET_PREFLIGHT_PASS:20260829_mes_old_form_template_binding_switch`；复用 R63 prospective manifest/build evidence 与新版 checks-root 运行完整 target data preflight 返回 `Target data preflight: passed; 17/17 checks`，输出 `target-data-preflight-after-fix.json`。未修改测试服业务数据。
 - RESULT: R63 已判废且不得复用；应用修复提交后，维护仓必须记录新应用 commit 并使用全新 releaseTag 重新执行 build-release -> publish-test。正式服、审查服、`mark-tested`、`promote-prod`、`promote-backup`、MinIO 数据同步和全量数据库复制仍不在授权范围。
+
+## Release button static-review corrective slice（2026-09-16）
+
+- REVIEW: static-code-review -> FAIL。审查根为应用 worktree `8ef8b1a5f0ddbdacd53c2a4bcdb3e94839c98936` 与维护 worktree `a2c73110a90eb7344c6ae5f4eceb1085954426ca`；发现 F1-F8：`app-release` scope 与低层 action 断裂、按钮仍指旧脚本、旧 `/actions` 可绕过 workflow 授权、READY/TEST_DEPLOYED/TESTED 等稳定等待态会被心跳误杀、测试验收后 test lease 泄漏、底层进程先于 workflow 绑定启动、失败阶段显示不真实、前端只能操作排序第一条 workflow。
+- STATUS: R80 source freeze 暂停；在按钮链路静态 FAIL 未修复前，不继续测试服 publish-test，不执行正式服、审查服、`mark-tested`、`promote-prod`、`promote-backup`、MinIO 数据同步或全量数据库复制。
+- BDD: 统一 app-release 调用合同 -> Given 用户点击“生成程序安装包” / When workflow orchestrator 下发 build-release / Then RuntimeControlService 和 RuntimeControlOperationAction 必须接受且只接受 `app-release`，调用维护仓 `ops/deploy/publish-int-ruoyi.ps1`，传入维护仓根、应用后端根、应用前端根和固定 expected commits，不得转换成 `code-only/with-data` 或调用应用仓旧脚本。
+- BDD: 低层发布动作只能来自 workflow 上下文 -> Given 调用方拥有 `infra:runtime-control:operate` / When 直接 POST `/infra/runtime-control/actions` 执行 build/publish/mark/promote 发布动作 / Then 服务端必须因缺少 workflowId/stateVersion/preassignedOperationId 拒绝，不能绕过 productionWriteEnabled、一次性授权和 workflow CAS。
+- BDD: 先绑定 workflow 再启动底层进程 -> Given workflow 需要派发 build/test/prod operation / When 底层 RuntimeControlService 开始执行 / Then workflow 必须已持久化 operationId 和执行态；若持久化失败不得启动后台进程，也不得释放可重入 lease。
+- BDD: 稳定等待态不参与 heartbeat 超时 -> Given workflow 已处于 READY、TEST_DEPLOYED 或 TESTED 并等待人工下一步 / When 超过默认 15 分钟 / Then recovery scheduler 不得把它标记为 FAILED；heartbeat 只约束有活动底层进程的执行态。
+- BDD: 测试验收完成释放 test lease -> Given workflow 已 TEST_DEPLOYED 并执行 mark-release-tested 成功 / When reconcile 推进到 TESTED / Then test 环境 lease 必须释放，后续其它 workflow 可获取 test lease；prod lease 不得覆盖 test lease 引用。
+- BDD: 页面显式选择发布工作流 -> Given 存在多个 READY/TESTED/FAILED workflow / When 操作者刷新页面或执行发布/验收/晋级 / Then 前端必须使用用户显式选择的 workflowId，不得固定操作 `releaseWorkflows[0]` 或因 mtime 排序漂移改变目标。
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-infra -am "-Dtest=RuntimeControlServiceImplTest,ReleaseWorkflowOrchestratorTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，新增后端合同先暴露缺失字段和断裂合同：`RuntimeControlActionReqVO` 缺少 workflow operation 绑定字段、`RuntimeControlCommand` 缺少 workingDirectory、release workflow 配置缺少维护仓/应用仓根，低层 action 不能绑定 `app-release`。
+- RED: `node tests/e2e/runtime-control-one-button-static.spec.cjs` -> FAIL，新增前端静态合同捕获页面仍固定使用 `releaseWorkflows.value[0]`，无法显式选择目标 workflow。
+- GREEN: release-button-static-review-fix -> PASS。RuntimeControl 发布动作仅接受 `app-release`，默认脚本和运行时配置统一到维护仓 `ops/deploy/publish-int-ruoyi.ps1`；旧 `/actions` 发布类动作必须携带 `releaseWorkflowId/stateVersion/preassignedOperationId`；orchestrator 在派发底层进程前先持久化 operationId 与状态；READY/TEST_DEPLOYED/TESTED 不参与 heartbeat 超时回收；test/prod lease 按 workflowId+environment 隔离并在 TESTED 后释放；前端新增 workflow selector 并移除旧 `code-only/with-data` scope 文案。
+- GREEN: `node tests/e2e/runtime-control-one-button-static.spec.cjs` -> PASS，`runtime-control one-button P1 static contract passed`。
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-infra -am "-Dtest=RuntimeControlServiceImplTest,ReleaseWorkflowOrchestratorTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，80 tests，0 failures，0 errors。
+- GREEN: `corepack pnpm run ts:check` -> PASS，vue-tsc 无错误输出。
+- GREEN: `rg -n "script/deploy/publish-int-ruoyi.ps1|code-only|with-data|releaseWorkflows\.value\[0\]" <runtime-control source/test roots>` -> PASS，无命中；旧脚本路径、旧 scope 和排序第一条 workflow 操作已从目标源码清除。
+- RESULT: 静态审查 F1/F2/F3/F4/F5/F6/F8 已按通用按钮机制修复并回归；F7 阶段失败显示通过“派发前持久化目标执行态 + 稳定等待态不再误杀”收敛到真实 operation 绑定，但完整发布运行态仍需在新应用提交、新 releaseTag 的 build-release -> publish-test 中继续验证。R80 不复用；下一轮必须使用新应用 commit 和全新 releaseTag。

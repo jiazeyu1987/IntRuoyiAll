@@ -156,6 +156,10 @@ public record ReleaseWorkflowRecord(
             return this == BUILDING || this == TEST_DEPLOYING || this == PROMOTING_PROD
                     || this == RECOVERY_REQUIRED;
         }
+
+        public boolean isHeartbeatMonitored() {
+            return !isTerminal() && this != READY && this != TEST_DEPLOYED && this != TESTED;
+        }
     }
 
     private static String requireText(String value, String name) {

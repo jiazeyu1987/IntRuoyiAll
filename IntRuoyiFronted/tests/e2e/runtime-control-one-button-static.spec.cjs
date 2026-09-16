@@ -30,6 +30,8 @@ for (const forbidden of [
 
 assert.match(source, /export type RuntimeControlAppReleaseScope\s*=\s*'app-release'/)
 assert.doesNotMatch(source, /RuntimeControlAppReleaseScope\s*=.*with-data/)
+assert.doesNotMatch(source, /'code-only'\s*\|\s*'with-data'/)
+assert.doesNotMatch(page, /code-only|with-data/)
 
 for (const label of ['生成程序安装包', '发布测试服', '晋级正式服', '程序包（不含数据）']) {
   assert.match(page, new RegExp(label), `one-button release UI must render ${label}`)
@@ -45,6 +47,21 @@ assert.doesNotMatch(
   page.match(/const operationActions\s*=\s*\[([\s\S]*?)\n\]/)?.[1] || '',
   /build-release|publish-test|mark-release-tested|promote-prod/,
   'legacy release operations must not remain in the visible generic toolbar'
+)
+assert.doesNotMatch(
+  page,
+  /releaseWorkflows\.value\s*\[\s*0\s*\]/,
+  'one-button release UI must not operate whichever workflow happens to sort first'
+)
+assert.match(
+  page,
+  /selectedReleaseWorkflowId/,
+  'one-button release UI must persist an explicit operator-selected workflowId'
+)
+assert.match(
+  page,
+  /<el-select[\s\S]*selectedReleaseWorkflowId/,
+  'one-button release UI must expose a workflow/package selector'
 )
 
 console.log('runtime-control one-button P1 static contract passed')

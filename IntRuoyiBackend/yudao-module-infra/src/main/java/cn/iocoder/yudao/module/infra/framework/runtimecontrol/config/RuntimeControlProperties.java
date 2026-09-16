@@ -356,6 +356,9 @@ public class RuntimeControlProperties implements InitializingBean {
         private String approvedMaintenanceCommit = "";
         private String approvedApplicationCommit = "";
         private String approvedFrontendCommit = "";
+        private String maintenanceRepoRoot = "D:/ProjectPackage/Int/IntRuoyiMaintance";
+        private String applicationRepoRoot = "E:/IntRuoyi";
+        private String publishScriptPath = "ops/deploy/publish-int-ruoyi.ps1";
         private String presetId = "preset-app-release";
         private String presetVersion = "1";
         private Duration heartbeatTimeout = Duration.ofMinutes(15);
@@ -371,6 +374,9 @@ public class RuntimeControlProperties implements InitializingBean {
             validateOptionalCommit(approvedMaintenanceCommit, "approved-maintenance-commit");
             validateOptionalCommit(approvedApplicationCommit, "approved-application-commit");
             validateOptionalCommit(approvedFrontendCommit, "approved-frontend-commit");
+            validatePathLikeText(maintenanceRepoRoot, "maintenance-repo-root");
+            validatePathLikeText(applicationRepoRoot, "application-repo-root");
+            validatePathLikeText(publishScriptPath, "publish-script-path");
             if (presetId == null || !presetId.matches("[a-z0-9][a-z0-9.-]{2,63}")) {
                 throw new IllegalArgumentException("yudao.runtime-control.release-workflow.preset-id is invalid");
             }
@@ -399,6 +405,12 @@ public class RuntimeControlProperties implements InitializingBean {
 
         private static void validateOptionalCommit(String commit, String name) {
             if (commit != null && !commit.isBlank() && !commit.matches("[0-9a-fA-F]{40}")) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow." + name + " is invalid");
+            }
+        }
+
+        private static void validatePathLikeText(String value, String name) {
+            if (value == null || value.isBlank() || value.contains("\n") || value.contains("\r")) {
                 throw new IllegalArgumentException("yudao.runtime-control.release-workflow." + name + " is invalid");
             }
         }

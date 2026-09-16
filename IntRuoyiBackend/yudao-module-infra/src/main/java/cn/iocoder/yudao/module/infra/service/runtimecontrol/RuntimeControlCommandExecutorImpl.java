@@ -111,8 +111,8 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
 
     @Override
     public void executeDetachedOperation(RuntimeControlCommand command, Path logPath, String operationId,
-                                         String successSummary) {
-        Path repoRoot = resolveRepoRoot();
+                                          String successSummary) {
+        Path repoRoot = resolveWorkingDirectory(command);
         Path script = resolveScript(command.getScriptPath(), repoRoot);
         if (!Files.isRegularFile(script)) {
             throw exception(RUNTIME_CONTROL_SCRIPT_NOT_EXISTS, script.toString());
@@ -135,6 +135,7 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
     private String execute(RuntimeControlCommand command, boolean captureOutput, Path logPath, Duration timeout,
                            String operationId) {
         Path repoRoot = resolveRepoRoot();
+        repoRoot = resolveWorkingDirectory(command, repoRoot);
         Path script = resolveScript(command.getScriptPath(), repoRoot);
         if (!Files.isRegularFile(script)) {
             throw exception(RUNTIME_CONTROL_SCRIPT_NOT_EXISTS, script.toString());
@@ -529,11 +530,12 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
                     # Runtime Control Operation
                     environment=%s
                     component=%s
+                    workingDirectory=%s
                     script=%s
                     command=%s
 
-                    """.formatted(command.getEnvironment(), command.getComponent(), command.getScriptPath(),
-                    String.join(" ", commandLine));
+                    """.formatted(command.getEnvironment(), command.getComponent(), resolveWorkingDirectoryText(command),
+                    command.getScriptPath(), String.join(" ", commandLine));
             Files.writeString(logPath, header, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
         } catch (IOException ex) {
@@ -583,6 +585,34 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
             throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "repoRoot directory not found: " + repoRoot);
         }
         return repoRoot;
+    }
+
+    private Path resolveWorkingDirectory(RuntimeControlCommand command) {
+        return resolveWorkingDirectory(command, resolveRepoRoot());
+    }
+
+    private Path resolveWorkingDirectory(RuntimeControlCommand command, Path defaultRoot) {
+        if (command == null || StrUtil.isBlank(command.getWorkingDirectory())) {
+            return defaultRoot;
+        }
+        Path workingDirectory;
+        try {
+            workingDirectory = Path.of(command.getWorkingDirectory()).toAbsolutePath().normalize();
+        } catch (InvalidPathException ex) {
+            throw exception(RUNTIME_CONTROL_COMMAND_FAILED,
+                    "workingDirectory invalid: " + command.getWorkingDirectory() + ", " + ex.getMessage());
+        }
+        if (!Files.isDirectory(workingDirectory)) {
+            throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "workingDirectory directory not found: " + workingDirectory);
+        }
+        return workingDirectory;
+    }
+
+    private String resolveWorkingDirectoryText(RuntimeControlCommand command) {
+        if (command == null || StrUtil.isBlank(command.getWorkingDirectory())) {
+            return "<repoRoot>";
+        }
+        return command.getWorkingDirectory();
     }
 
     private Path resolveScript(String scriptPath, Path repoRoot) {

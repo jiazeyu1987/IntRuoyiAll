@@ -49,6 +49,21 @@
           maxlength="120"
           show-word-limit
         />
+        <el-select
+          v-model="selectedReleaseWorkflowId"
+          class="release-workflow-selector"
+          aria-label="选择程序发布工作流"
+          placeholder="选择程序发布工作流"
+          clearable
+          filterable
+        >
+          <el-option
+            v-for="workflow in releaseWorkflows"
+            :key="workflow.workflowId"
+            :label="releaseWorkflowOptionLabel(workflow)"
+            :value="workflow.workflowId"
+          />
+        </el-select>
         <el-button
           type="primary"
           :loading="releaseWorkflowSubmitting === 'build'"
@@ -590,10 +605,7 @@
         </el-form-item>
         <el-form-item v-if="operationSupportsPublishScope(operationDialog.action)" label="发布范围" required>
           <div class="publish-scope-field">
-            <el-radio-group v-model="operationDialog.publishScope">
-              <el-radio-button label="code-only">只发代码</el-radio-button>
-              <el-radio-button label="with-data">带数据发布</el-radio-button>
-            </el-radio-group>
+            <el-tag type="info" effect="plain">程序包（不含数据）</el-tag>
             <el-checkbox v-model="operationDialog.includeOnlyOffice">发布 OnlyOffice</el-checkbox>
             <el-checkbox
               v-model="operationDialog.includeShowroomBuildPackage"
@@ -601,9 +613,6 @@
             >
               发布展厅构筑包
             </el-checkbox>
-            <div v-if="operationDialog.publishScope === 'with-data'" class="publish-scope-hint">
-              带数据发布会覆盖目标环境数据库和文件对象
-            </div>
           </div>
         </el-form-item>
         <el-form-item v-if="operationSupportsSmartReleaseReport(operationDialog.action)" label="Smart Release">
@@ -849,7 +858,13 @@ const restoreCandidates = ref<RuntimeControlApi.RuntimeControlRestoreCandidateVO
 const releasePackages = ref<RuntimeControlApi.RuntimeControlReleasePackageVO[]>([])
 const releaseStatus = ref<RuntimeControlApi.RuntimeControlReleaseStatusVO>()
 const releaseWorkflows = ref<RuntimeControlApi.RuntimeControlReleaseWorkflowVO[]>([])
-const activeReleaseWorkflow = computed(() => releaseWorkflows.value[0])
+const selectedReleaseWorkflowId = ref('')
+const activeReleaseWorkflow = computed(() => {
+  if (selectedReleaseWorkflowId.value) {
+    return releaseWorkflows.value.find((item) => item.workflowId === selectedReleaseWorkflowId.value)
+  }
+  return undefined
+})
 const releaseWorkflowReason = ref('本次程序发布')
 const releaseWorkflowLoading = ref(false)
 const releaseWorkflowSubmitting = ref<'' | 'build' | 'test' | 'prod'>('')
@@ -978,7 +993,7 @@ const operationDialog = reactive<{
   title: '',
   action: '',
   label: '',
-  publishScope: 'code-only',
+  publishScope: 'app-release',
   includeOnlyOffice: false,
   includeShowroomBuildPackage: false,
   enableSmartReleaseReport: false,
@@ -1078,6 +1093,10 @@ const releaseWorkflowStateText = (state: RuntimeControlApi.RuntimeControlRelease
     RECOVERY_REQUIRED: '需要恢复确认'
   }
   return labels[state] || state
+}
+
+const releaseWorkflowOptionLabel = (workflow: RuntimeControlApi.RuntimeControlReleaseWorkflowVO) => {
+  return `${workflow.releaseTag} / ${releaseWorkflowStateText(workflow.state)} / ${workflow.workflowId}`
 }
 
 const operationBlockReason = computed(() => {
@@ -1217,13 +1236,25 @@ const loadFoolproofData = async () => {
 const loadReleaseWorkflows = async () => {
   releaseWorkflowLoading.value = true
   try {
-    releaseWorkflows.value = await RuntimeControlApi.getRuntimeControlReleaseWorkflows()
+    const workflows = await RuntimeControlApi.getRuntimeControlReleaseWorkflows()
+    releaseWorkflows.value = workflows
+    if (!workflows.some((item) => item.workflowId === selectedReleaseWorkflowId.value)) {
+      selectedReleaseWorkflowId.value = workflows[0]?.workflowId || ''
+    }
   } catch (error) {
     releaseWorkflows.value = []
+    selectedReleaseWorkflowId.value = ''
     throw error
   } finally {
     releaseWorkflowLoading.value = false
   }
+}
+
+const upsertReleaseWorkflow = (workflow: RuntimeControlApi.RuntimeControlReleaseWorkflowVO) => {
+  releaseWorkflows.value = [workflow, ...releaseWorkflows.value.filter(
+    (item) => item.workflowId !== workflow.workflowId
+  )]
+  selectedReleaseWorkflowId.value = workflow.workflowId
 }
 
 const createReleaseWorkflow = async () => {
@@ -1239,9 +1270,7 @@ const createReleaseWorkflow = async () => {
       reason,
       sourceSelectionId: 'approved-source'
     })
-    releaseWorkflows.value = [workflow, ...releaseWorkflows.value.filter(
-      (item) => item.workflowId !== workflow.workflowId
-    )]
+    upsertReleaseWorkflow(workflow)
     message.success(`已创建程序发布工作流：${workflow.releaseTag}`)
   } catch (error) {
     reportActionError(error)
@@ -1258,9 +1287,7 @@ const requestTestReleaseWorkflow = async () => {
     const updated = await RuntimeControlApi.publishRuntimeControlReleaseWorkflowToTest(workflow.workflowId, {
       reason: releaseWorkflowReason.value.trim() || '发布已验证程序包到测试服'
     })
-    releaseWorkflows.value = [updated, ...releaseWorkflows.value.filter(
-      (item) => item.workflowId !== updated.workflowId
-    )]
+    upsertReleaseWorkflow(updated)
     message.success(`测试服发布已启动：${updated.releaseTag}`)
   } catch (error) {
     reportActionError(error)
@@ -1295,9 +1322,7 @@ const requestProdReleaseWorkflow = async () => {
         prodConfirmText: result.value
       }
     )
-    releaseWorkflows.value = [updated, ...releaseWorkflows.value.filter(
-      (item) => item.workflowId !== updated.workflowId
-    )]
+    upsertReleaseWorkflow(updated)
     message.success(`正式服晋级已启动：${updated.releaseTag}`)
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') reportActionError(error)
@@ -1319,9 +1344,7 @@ const acceptReleaseWorkflowTest = async () => {
     const updated = await RuntimeControlApi.acceptRuntimeControlReleaseWorkflowTest(workflow.workflowId, {
       conclusion
     })
-    releaseWorkflows.value = [updated, ...releaseWorkflows.value.filter(
-      (item) => item.workflowId !== updated.workflowId
-    )]
+    upsertReleaseWorkflow(updated)
     message.success('测试验收记录已提交')
   } catch (error) {
     reportActionError(error)
@@ -1892,8 +1915,8 @@ function operationActionLabel(action: string) {
 
 const operationPublishScopeText = (operation: RuntimeControlOperationVO) => {
   const publishScope = operation.parameters?.publishScope
-  if (publishScope === 'code-only') return '只发代码'
-  if (publishScope === 'with-data') return '带数据发布'
+  if (publishScope === 'app-release') return '程序包（不含数据）'
+  if (publishScope) return publishScope
   return '-'
 }
 
@@ -1930,7 +1953,7 @@ const openOperation = async (actionValue: string) => {
   operationDialog.title = action.label
   operationDialog.action = action.action
   operationDialog.label = action.label
-  operationDialog.publishScope = 'code-only'
+  operationDialog.publishScope = 'app-release'
   operationDialog.includeOnlyOffice = false
   operationDialog.includeShowroomBuildPackage = false
   operationDialog.enableSmartReleaseReport = false

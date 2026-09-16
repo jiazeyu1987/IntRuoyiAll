@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -67,8 +68,12 @@ public class ReleaseWorkflowOrchestrator {
             lease.close();
             throw new WorkflowLeaseConflictException("build");
         }
-        activeLeases.put(workflow.workflowId(), lease);
+        activeLeases.put(leaseKey(workflow.workflowId(), "build"), lease);
         try {
+            String operationId = newOperationId();
+            workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(), operationId);
+            workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                    ReleaseWorkflowRecord.State.PREFLIGHTING, "PREFLIGHTING", true, true);
             RuntimeControlActionReqVO request = new RuntimeControlActionReqVO();
             request.setAction("build-release");
             request.setReason(reason);
@@ -81,13 +86,12 @@ public class ReleaseWorkflowOrchestrator {
             request.setExpectedApplicationCommit(workflow.applicationCommit());
             request.setExpectedFrontendCommit(workflow.frontendCommit());
             request.setSourceSelectionId(workflow.sourceSelectionId());
+            attachWorkflowContext(request, workflow, operationId);
             RuntimeControlOperationRespVO operation = runtimeControlService.executeAction(request, requestedBy);
-            workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(),
-                    operation.getOperationId());
-            return workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
-                    ReleaseWorkflowRecord.State.PREFLIGHTING, "PREFLIGHTING", true, true);
+            requireOperationBinding(operationId, operation);
+            return workflowService.require(workflow.workflowId());
         } catch (RuntimeException ex) {
-            releaseLease(workflow.workflowId());
+            releaseLease(workflow.workflowId(), "build");
             ReleaseWorkflowRecord current = workflowService.require(workflow.workflowId());
             if (!current.state().isTerminal()) {
                 workflowService.verifyAdvance(current.workflowId(), current.stateVersion(),
@@ -109,19 +113,23 @@ public class ReleaseWorkflowOrchestrator {
             lease.close();
             throw new WorkflowLeaseConflictException("test");
         }
-        activeLeases.put(workflow.workflowId(), lease);
+        activeLeases.put(leaseKey(workflow.workflowId(), "test"), lease);
         try {
+            String operationId = newOperationId();
+            workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(), operationId);
+            workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                    ReleaseWorkflowRecord.State.TEST_DEPLOYING, "TEST_DEPLOYING", true, false);
             RuntimeControlActionReqVO request = new RuntimeControlActionReqVO();
             request.setAction("publish-test");
             request.setReason(reason);
             request.setReleaseTag(workflow.releaseTag());
+            attachWorkflowContext(request, workflow, operationId);
             RuntimeControlOperationRespVO operation = runtimeControlService.executeAction(request, requestedBy);
-            workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(),
-                    operation.getOperationId());
-            return workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
-                    ReleaseWorkflowRecord.State.TEST_DEPLOYING, "TEST_DEPLOYING", true, false);
+            requireOperationBinding(operationId, operation);
+            return workflowService.require(workflow.workflowId());
         } catch (RuntimeException ex) {
-            releaseLease(workflow.workflowId());
+            releaseLease(workflow.workflowId(), "test");
+            failIfActive(workflow.workflowId(), "TEST_DEPLOYING", false);
             throw ex;
         }
     }
@@ -142,8 +150,10 @@ public class ReleaseWorkflowOrchestrator {
             lease.close();
             throw new WorkflowLeaseConflictException("test");
         }
-        activeLeases.put(workflow.workflowId(), lease);
+        activeLeases.put(leaseKey(workflow.workflowId(), "test"), lease);
         try {
+            String operationId = newOperationId();
+            workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(), operationId);
             RuntimeControlActionReqVO request = new RuntimeControlActionReqVO();
             request.setAction("mark-release-tested");
             request.setReason("记录程序包测试验收");
@@ -151,11 +161,13 @@ public class ReleaseWorkflowOrchestrator {
             request.setTestConclusion(conclusion);
             request.setTestOperationId(publishTestOperationId);
             request.setTestOperationEvidencePath(workflow.testOperationEvidencePath());
+            attachWorkflowContext(request, workflow, operationId);
             RuntimeControlOperationRespVO operation = runtimeControlService.executeAction(request, requestedBy);
-            return workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(),
-                    operation.getOperationId());
+            requireOperationBinding(operationId, operation);
+            return workflowService.require(workflow.workflowId());
         } catch (RuntimeException ex) {
-            releaseLease(workflow.workflowId());
+            releaseLease(workflow.workflowId(), "test");
+            failIfActive(workflow.workflowId(), "TEST_ACCEPTANCE", true);
             throw ex;
         }
     }
@@ -178,13 +190,24 @@ public class ReleaseWorkflowOrchestrator {
             lease.close();
             throw new WorkflowLeaseConflictException("prod");
         }
-        activeLeases.put(workflow.workflowId(), lease);
+        activeLeases.put(leaseKey(workflow.workflowId(), "prod"), lease);
         try {
             ReleaseWorkflowAuthorizationService.WorkflowTuple tuple =
                     new ReleaseWorkflowAuthorizationService.WorkflowTuple(
                             workflow.workflowId(), workflow.releaseTag(), workflow.packageDigest(),
                             workflow.manifestDigest(), "prod", workflow.presetId(), workflow.presetVersion(),
                             workflow.publishScope(), workflow.state());
+            ReleaseWorkflowAuthorizationService.Validation validation =
+                    authorizationService.preview(authorizationGrantId, tuple, java.time.Instant.now());
+            if (!validation.valid()) {
+                throw new ReleaseWorkflowAuthorizationService.AuthorizationException(validation.errorCode());
+            }
+            String operationId = newOperationId();
+            workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                    ReleaseWorkflowRecord.State.PROD_PREVIEW, "PROD_PREVIEW", true, true);
+            workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(), operationId);
+            workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                    ReleaseWorkflowRecord.State.PROMOTING_PROD, "PROMOTING_PROD", true, false);
             authorizationService.execute(authorizationGrantId, tuple, prodConfirmText, java.time.Instant.now());
             RuntimeControlActionReqVO request = new RuntimeControlActionReqVO();
             request.setAction("promote-prod");
@@ -193,15 +216,13 @@ public class ReleaseWorkflowOrchestrator {
             request.setReleaseTag(workflow.releaseTag());
             request.setTestOperationId(workflow.testOperationId());
             request.setTestOperationEvidencePath(workflow.testOperationEvidencePath());
+            attachWorkflowContext(request, workflow, operationId);
             RuntimeControlOperationRespVO operation = runtimeControlService.executeAction(request, requestedBy);
-            workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
-                    ReleaseWorkflowRecord.State.PROD_PREVIEW, "PROD_PREVIEW", true, true);
-            workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(),
-                    operation.getOperationId());
-            return workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
-                    ReleaseWorkflowRecord.State.PROMOTING_PROD, "PROMOTING_PROD", true, false);
+            requireOperationBinding(operationId, operation);
+            return workflowService.require(workflow.workflowId());
         } catch (RuntimeException ex) {
-            releaseLease(workflow.workflowId());
+            releaseLease(workflow.workflowId(), "prod");
+            failIfActive(workflow.workflowId(), "PROMOTING_PROD", false);
             throw ex;
         }
     }
@@ -222,9 +243,13 @@ public class ReleaseWorkflowOrchestrator {
                     ReleaseWorkflowRecord.State.FAILED, workflow.state().name(), false,
                     !workflow.state().isWriteStage());
         }
-        if (workflow.state().isTerminal() || workflow.state() == ReleaseWorkflowRecord.State.READY
-                || workflow.state() == ReleaseWorkflowRecord.State.TEST_DEPLOYED) {
-            releaseLease(workflowId);
+        if (workflow.state().isTerminal()) {
+            releaseAllLeases(workflowId);
+        } else if (workflow.state() == ReleaseWorkflowRecord.State.READY) {
+            releaseLease(workflowId, "build");
+        } else if (workflow.state() == ReleaseWorkflowRecord.State.TEST_DEPLOYED
+                || workflow.state() == ReleaseWorkflowRecord.State.TESTED) {
+            releaseLease(workflowId, "test");
         }
         return workflow;
     }
@@ -280,7 +305,7 @@ public class ReleaseWorkflowOrchestrator {
             }
         }
         ReleaseWorkflowRecord canceled = workflowService.cancel(workflowId);
-        releaseLease(workflowId);
+        releaseAllLeases(workflowId);
         return canceled;
     }
 
@@ -292,7 +317,7 @@ public class ReleaseWorkflowOrchestrator {
      */
     public synchronized List<ReleaseWorkflowRecord> recoverStaleWorkflows(Instant now) {
         List<ReleaseWorkflowRecord> stale = workflowService.list().stream()
-                .filter(record -> !record.state().isTerminal())
+                .filter(record -> record.state().isHeartbeatMonitored())
                 .filter(record -> record.state() != ReleaseWorkflowRecord.State.RECOVERY_REQUIRED)
                 .filter(record -> record.lastHeartbeatAt()
                         .plus(properties.getReleaseWorkflow().getHeartbeatTimeout()).isBefore(now))
@@ -379,11 +404,51 @@ public class ReleaseWorkflowOrchestrator {
         return workflow;
     }
 
-    private void releaseLease(String workflowId) {
-        ReleaseWorkflowService.OptionalLease lease = activeLeases.remove(workflowId);
+    private void attachWorkflowContext(RuntimeControlActionReqVO request, ReleaseWorkflowRecord workflow,
+                                       String operationId) {
+        request.setReleaseWorkflowId(workflow.workflowId());
+        request.setReleaseWorkflowExpectedStateVersion(workflow.stateVersion());
+        request.setPreassignedOperationId(operationId);
+    }
+
+    private String newOperationId() {
+        return UUID.randomUUID().toString();
+    }
+
+    private void requireOperationBinding(String expectedOperationId, RuntimeControlOperationRespVO operation) {
+        if (operation == null || !expectedOperationId.equals(operation.getOperationId())) {
+            throw new IllegalStateException("RELEASE_WORKFLOW_OPERATION_ID_MISMATCH");
+        }
+    }
+
+    private void failIfActive(String workflowId, String stage, boolean zeroWriteEvidence) {
+        ReleaseWorkflowRecord current = workflowService.require(workflowId);
+        if (!current.state().isTerminal()) {
+            try {
+                workflowService.verifyAdvance(current.workflowId(), current.stateVersion(),
+                        ReleaseWorkflowRecord.State.FAILED, stage, false, zeroWriteEvidence);
+            } catch (ReleaseWorkflowService.InvalidTransitionException ignored) {
+                // Original dispatch/auth exception is rethrown by the caller.  If the workflow
+                // was still in a stable wait state, there is no failed running stage to persist.
+            }
+        }
+    }
+
+    private void releaseLease(String workflowId, String environment) {
+        ReleaseWorkflowService.OptionalLease lease = activeLeases.remove(leaseKey(workflowId, environment));
         if (lease != null) {
             lease.close();
         }
+    }
+
+    private void releaseAllLeases(String workflowId) {
+        releaseLease(workflowId, "build");
+        releaseLease(workflowId, "test");
+        releaseLease(workflowId, "prod");
+    }
+
+    private String leaseKey(String workflowId, String environment) {
+        return workflowId + ":" + environment;
     }
 
     private static void requireTestedArtifactBinding(ReleaseWorkflowRecord workflow) {

@@ -209,7 +209,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             throw exception(RUNTIME_CONTROL_INVALID_ACTION, reqVO.getAction());
         }
         RuntimeControlOperationRespVO operation = new RuntimeControlOperationRespVO();
-        operation.setOperationId(UUID.randomUUID().toString());
+        operation.setOperationId(resolveOperationId(reqVO));
         operation.setRequestedBy(operator);
         operation.setRequestedAt(LocalDateTime.now());
         operation.setEnvironment(action.resolveEnvironment(reqVO));
@@ -245,6 +245,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
 
         RuntimeControlCommand command = new RuntimeControlCommand(operation.getEnvironment(), "ops",
                 action.resolveScriptPath(properties), action.buildArguments(reqVO, operation.getRequestedBy(), properties));
+        bindReleaseWorkflowToolchain(action, command);
         Path nasConfigPath = appendNasReleaseArguments(action, command, operation.getOperationId());
         appendBackendRuntimeBaseArguments(action, command, backendRuntimeBaseConfig);
         commandExecutor.registerOperation(operation.getOperationId(), logPath);
@@ -293,6 +294,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         RuntimeControlReleasePackageConfig backendRuntimeBaseConfig = validateActionGuard(action, reqVO);
         RuntimeControlCommand command = new RuntimeControlCommand(action.resolveEnvironment(reqVO), "ops",
                 action.resolveScriptPath(properties), action.buildArguments(reqVO, operator, properties));
+        bindReleaseWorkflowToolchain(action, command);
         appendNasReleasePreviewArguments(action, command);
         appendBackendRuntimeBaseArguments(action, command, backendRuntimeBaseConfig);
 
@@ -366,7 +368,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     }
 
     private void appendBackendRuntimeBaseArguments(RuntimeControlOperationAction action, RuntimeControlCommand command,
-                                                   RuntimeControlReleasePackageConfig releasePackage) {
+                                                    RuntimeControlReleasePackageConfig releasePackage) {
         if (action != RuntimeControlOperationAction.BUILD_RELEASE) {
             return;
         }
@@ -385,6 +387,31 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                 releasePackage.backendRuntimeBaseDigest());
         appendRequiredArgument(command.getArguments(), "-BackendRuntimeBaseVersion",
                 releasePackage.backendRuntimeBaseVersion());
+    }
+
+    private void bindReleaseWorkflowToolchain(RuntimeControlOperationAction action, RuntimeControlCommand command) {
+        if (!action.requiresReleaseWorkflowContext()) {
+            return;
+        }
+        RuntimeControlProperties.ReleaseWorkflow releaseWorkflow = properties.getReleaseWorkflow();
+        command.setWorkingDirectory(StrUtil.trim(releaseWorkflow.getMaintenanceRepoRoot()));
+        if (action == RuntimeControlOperationAction.BUILD_RELEASE) {
+            appendRequiredArgument(command.getArguments(), "-BackendRepoRoot",
+                    appendConfiguredPath(releaseWorkflow.getApplicationRepoRoot(), "IntRuoyiBackend"));
+            appendRequiredArgument(command.getArguments(), "-FrontendRepoRoot",
+                    appendConfiguredPath(releaseWorkflow.getApplicationRepoRoot(), "IntRuoyiFronted"));
+        }
+    }
+
+    private String appendConfiguredPath(String root, String child) {
+        if (StrUtil.isBlank(root)) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "releaseWorkflow.applicationRepoRoot");
+        }
+        try {
+            return Path.of(StrUtil.trim(root)).resolve(child).normalize().toString().replace('\\', '/');
+        } catch (InvalidPathException ex) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseWorkflow.applicationRepoRoot");
+        }
     }
 
     private void appendRequiredArgument(List<String> arguments, String name, String value) {
@@ -880,7 +907,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     }
 
     private RuntimeControlReleasePackageConfig validateActionGuard(RuntimeControlOperationAction action,
-                                                                   RuntimeControlActionReqVO reqVO) {
+                                                                    RuntimeControlActionReqVO reqVO) {
         RuntimeControlReleasePackageConfig backendRuntimeBaseConfig = null;
         if (StrUtil.isBlank(reqVO.getReason())) {
             throw exception(RUNTIME_CONTROL_PROD_GUARD_REQUIRED);
@@ -931,6 +958,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         if (!action.requiresPublishScope() && reqVO.getIncludeShowroomBuildPackage() != null) {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "includeShowroomBuildPackage");
         }
+        validateReleaseWorkflowContext(action, reqVO);
         if (action.requiresReleaseTag()) {
             validateReleaseTag(reqVO.getReleaseTag());
         } else if (StrUtil.isNotBlank(reqVO.getReleaseTag())) {
@@ -986,6 +1014,36 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             bindRecoverySetCandidate(reqVO);
         }
         return backendRuntimeBaseConfig;
+    }
+
+    private String resolveOperationId(RuntimeControlActionReqVO reqVO) {
+        String preassigned = StrUtil.trimToNull(reqVO.getPreassignedOperationId());
+        if (preassigned == null) {
+            return UUID.randomUUID().toString();
+        }
+        if (!preassigned.matches("(?:op-)?[a-z0-9-]{8,64}")) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "preassignedOperationId");
+        }
+        return preassigned;
+    }
+
+    private void validateReleaseWorkflowContext(RuntimeControlOperationAction action, RuntimeControlActionReqVO reqVO) {
+        if (!action.requiresReleaseWorkflowContext()) {
+            return;
+        }
+        if (StrUtil.isBlank(reqVO.getReleaseWorkflowId())
+                || reqVO.getReleaseWorkflowExpectedStateVersion() == null
+                || StrUtil.isBlank(reqVO.getPreassignedOperationId())) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "releaseWorkflowContext");
+        }
+        if (!StrUtil.trim(reqVO.getReleaseWorkflowId()).matches("rw-[a-z0-9]{8,32}")
+                && !StrUtil.trim(reqVO.getReleaseWorkflowId()).matches("wf-[a-z0-9-]{6,64}")) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseWorkflowId");
+        }
+        if (reqVO.getReleaseWorkflowExpectedStateVersion() < 0) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseWorkflowExpectedStateVersion");
+        }
+        resolveOperationId(reqVO);
     }
 
     private void validateApplyTestDbSqlTargetConfig() {

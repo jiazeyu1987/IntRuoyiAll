@@ -19,9 +19,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -54,8 +56,12 @@ class ReleaseWorkflowOrchestratorTest {
 
     @Test
     void buildButtonDispatchesOneServerOwnedAppReleaseOperation() {
-        RuntimeControlOperationRespVO operation = operation("running");
-        when(runtimeControlService.executeAction(any(), eq("operator"))).thenReturn(operation);
+        when(runtimeControlService.executeAction(any(), eq("operator"))).thenAnswer(invocation -> {
+            RuntimeControlActionReqVO request = invocation.getArgument(0);
+            RuntimeControlOperationRespVO operation = operation("running");
+            operation.setOperationId(request.getPreassignedOperationId());
+            return operation;
+        });
 
         ReleaseWorkflowRecord first = orchestrator.startBuild("operator", "routine release", "approved-source");
         ReleaseWorkflowRecord duplicate = orchestrator.startBuild("operator", "routine release", "approved-source");
@@ -72,12 +78,33 @@ class ReleaseWorkflowOrchestratorTest {
         assertEquals("b".repeat(40), request.getValue().getExpectedApplicationCommit());
         assertEquals("b".repeat(40), request.getValue().getExpectedFrontendCommit());
         assertEquals("approved-source", request.getValue().getSourceSelectionId());
+        assertEquals(first.workflowId(), request.getValue().getReleaseWorkflowId());
+        assertEquals(first.operationId(), request.getValue().getPreassignedOperationId());
+        assertTrue(request.getValue().getReleaseWorkflowExpectedStateVersion() >= 0);
+    }
+
+    @Test
+    void buildOperationIsDurablyBoundBeforeLowLevelDispatch() {
+        when(runtimeControlService.executeAction(any(), eq("operator"))).thenAnswer(invocation -> {
+            RuntimeControlActionReqVO request = invocation.getArgument(0);
+            ReleaseWorkflowRecord persisted = workflowService.require(request.getReleaseWorkflowId());
+            assertEquals(request.getPreassignedOperationId(), persisted.operationId());
+            assertEquals(ReleaseWorkflowRecord.State.PREFLIGHTING, persisted.state());
+            RuntimeControlOperationRespVO operation = operation("running");
+            operation.setOperationId(request.getPreassignedOperationId());
+            return operation;
+        });
+
+        ReleaseWorkflowRecord started = orchestrator.startBuild("operator", "routine release", "approved-source");
+
+        assertEquals(ReleaseWorkflowRecord.State.PREFLIGHTING, started.state());
+        verify(runtimeControlService, times(1)).executeAction(any(), eq("operator"));
     }
 
     @Test
     void successfulBuildOperationAdvancesPersistedWorkflowToReady() {
         RuntimeControlOperationRespVO operation = operation("running");
-        when(runtimeControlService.executeAction(any(), eq("operator"))).thenReturn(operation);
+        stubWorkflowOperations(operation);
         ReleaseWorkflowRecord started = orchestrator.startBuild("operator", "routine release", "approved-source");
         operation.setStatus("succeeded");
         operationStore.save(operation);
@@ -92,7 +119,7 @@ class ReleaseWorkflowOrchestratorTest {
     @Test
     void schedulerReconcilesSucceededOperationWithoutUserPolling() {
         RuntimeControlOperationRespVO operation = operation("running");
-        when(runtimeControlService.executeAction(any(), eq("operator"))).thenReturn(operation);
+        stubWorkflowOperations(operation);
         ReleaseWorkflowRecord started = orchestrator.startBuild("operator", "routine release", "approved-source");
         operation.setStatus("succeeded");
         operationStore.save(operation);
@@ -111,7 +138,7 @@ class ReleaseWorkflowOrchestratorTest {
         publish.setOperationId(UUID.randomUUID().toString());
         publish.setAction("publish-test");
         publish.setEnvironment("test");
-        when(runtimeControlService.executeAction(any(), eq("operator"))).thenReturn(build, publish);
+        stubWorkflowOperations(build, publish);
         ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "routine release", "approved-source");
         build.setStatus("succeeded");
         operationStore.save(build);
@@ -128,6 +155,8 @@ class ReleaseWorkflowOrchestratorTest {
         assertEquals("publish-test", publishRequest.getAction());
         assertEquals(workflow.releaseTag(), publishRequest.getReleaseTag());
         assertEquals(null, publishRequest.getPublishScope());
+        assertEquals(workflow.workflowId(), publishRequest.getReleaseWorkflowId());
+        assertEquals(publish.getOperationId(), publishRequest.getPreassignedOperationId());
     }
 
     @Test
@@ -140,7 +169,7 @@ class ReleaseWorkflowOrchestratorTest {
     @Test
     void cancelWithRunningOperationMustBlockBeforeReleasingLease() {
         RuntimeControlOperationRespVO operation = operation("running");
-        when(runtimeControlService.executeAction(any(), eq("operator"))).thenReturn(operation);
+        stubWorkflowOperations(operation);
         ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "running cancel", "approved-source");
         operationStore.save(operation);
 
@@ -155,8 +184,8 @@ class ReleaseWorkflowOrchestratorTest {
     void staleRunningOperationIsCancelledBeforeWorkflowRecovery() {
         properties.getReleaseWorkflow().setHeartbeatTimeout(Duration.ofSeconds(1));
         RuntimeControlOperationRespVO operation = operation("running");
-        when(runtimeControlService.executeAction(any(), eq("operator"))).thenReturn(operation);
-        when(runtimeControlService.cancelOperation(operation.getOperationId())).thenAnswer(invocation -> {
+        stubWorkflowOperations(operation);
+        when(runtimeControlService.cancelOperation(any())).thenAnswer(invocation -> {
             operation.setStatus("cancelled");
             operationStore.save(operation);
             return true;
@@ -180,7 +209,7 @@ class ReleaseWorkflowOrchestratorTest {
     void staleWorkflowWithFreshRunningOperationLogRefreshesHeartbeatInsteadOfCancelling() throws Exception {
         properties.getReleaseWorkflow().setHeartbeatTimeout(Duration.ofSeconds(1));
         RuntimeControlOperationRespVO operation = operation("running");
-        when(runtimeControlService.executeAction(any(), eq("operator"))).thenReturn(operation);
+        stubWorkflowOperations(operation);
         ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "long running build", "approved-source");
         operationStore.save(operation);
         workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
@@ -204,6 +233,24 @@ class ReleaseWorkflowOrchestratorTest {
     }
 
     @Test
+    void readyWorkflowDoesNotFailOnlyBecauseHumanWaitedLongerThanHeartbeatTimeout() {
+        properties.getReleaseWorkflow().setHeartbeatTimeout(Duration.ofSeconds(1));
+        RuntimeControlOperationRespVO operation = operation("running");
+        stubWorkflowOperations(operation);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "human wait after build", "approved-source");
+        operation.setStatus("succeeded");
+        operationStore.save(operation);
+        when(runtimeControlService.getReleasePackages()).thenReturn(List.of(packageFor(workflow.releaseTag())));
+        workflow = orchestrator.reconcile(workflow.workflowId());
+        workflowService.overrideHeartbeatForTest(workflow.workflowId(), Instant.now().minusSeconds(30));
+
+        List<ReleaseWorkflowRecord> recovered = orchestrator.recoverStaleWorkflows(Instant.now());
+
+        assertEquals(List.of(), recovered);
+        assertEquals(ReleaseWorkflowRecord.State.READY, workflowService.require(workflow.workflowId()).state());
+    }
+
+    @Test
     void testAcceptanceWritesNoDataAttestationAndAdvancesAfterSuccess() {
         RuntimeControlOperationRespVO build = operation("running");
         RuntimeControlOperationRespVO publish = operation("running");
@@ -214,7 +261,7 @@ class ReleaseWorkflowOrchestratorTest {
         mark.setOperationId(UUID.randomUUID().toString());
         mark.setAction("mark-release-tested");
         mark.setEnvironment("test");
-        when(runtimeControlService.executeAction(any(), eq("operator"))).thenReturn(build, publish, mark);
+        stubWorkflowOperations(build, publish, mark);
         ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "routine release", "approved-source");
         build.setStatus("succeeded");
         operationStore.save(build);
@@ -245,6 +292,38 @@ class ReleaseWorkflowOrchestratorTest {
     }
 
     @Test
+    void testAcceptanceSuccessReleasesTestLeaseForNextWorkflow() {
+        RuntimeControlOperationRespVO build = operation("running");
+        RuntimeControlOperationRespVO publish = operation("running");
+        publish.setOperationId(UUID.randomUUID().toString());
+        publish.setAction("publish-test");
+        publish.setEnvironment("test");
+        RuntimeControlOperationRespVO mark = operation("running");
+        mark.setOperationId(UUID.randomUUID().toString());
+        mark.setAction("mark-release-tested");
+        mark.setEnvironment("test");
+        stubWorkflowOperations(build, publish, mark);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "lease release first", "approved-source");
+        build.setStatus("succeeded");
+        operationStore.save(build);
+        when(runtimeControlService.getReleasePackages()).thenReturn(java.util.List.of(packageFor(workflow.releaseTag())));
+        workflow = orchestrator.reconcile(workflow.workflowId());
+        workflow = orchestrator.startTestPublish(workflow.workflowId(), "operator", "publish test");
+        publish.setStatus("succeeded");
+        operationStore.save(publish);
+        workflow = orchestrator.reconcile(workflow.workflowId());
+        orchestrator.acceptTest(workflow.workflowId(), "operator", "browser acceptance passed");
+        mark.setStatus("succeeded");
+        operationStore.save(mark);
+        orchestrator.reconcile(workflow.workflowId());
+
+        ReleaseWorkflowService.OptionalLease nextTestLease = workflowService.acquireEnvironmentLease("test", "next-workflow");
+
+        assertTrue(nextTestLease.acquired());
+        nextTestLease.close();
+    }
+
+    @Test
     void productionPromotionConsumesBoundGrantAndDispatchesSameArtifactOnce() {
         properties.getReleaseWorkflow().setProductionWriteEnabled(true);
         properties.getEnvironments().get("prod").setAccessEnabled(true);
@@ -253,7 +332,7 @@ class ReleaseWorkflowOrchestratorTest {
         RuntimeControlOperationRespVO promote = operation("running");
         promote.setAction("promote-prod");
         promote.setEnvironment("prod");
-        when(runtimeControlService.executeAction(any(), eq("operator"))).thenReturn(promote);
+        stubWorkflowOperations(promote);
 
         ReleaseWorkflowRecord promoting = orchestrator.startProductionPromotion(workflow.workflowId(), "operator",
                 "approved production release", grant.grantId(), "PROD");
@@ -267,6 +346,31 @@ class ReleaseWorkflowOrchestratorTest {
                 () -> orchestrator.startProductionPromotion(workflow.workflowId(), "operator",
                         "duplicate production release", grant.grantId(), "PROD"));
         verify(runtimeControlService, times(1)).executeAction(any(), eq("operator"));
+    }
+
+    private void stubWorkflowOperations(RuntimeControlOperationRespVO... operations) {
+        AtomicInteger index = new AtomicInteger();
+        when(runtimeControlService.executeAction(any(), eq("operator"))).thenAnswer(invocation -> {
+            RuntimeControlActionReqVO request = invocation.getArgument(0);
+            int current = index.getAndIncrement();
+            if (current >= operations.length) {
+                throw new AssertionError("unexpected workflow operation dispatch: " + request.getAction());
+            }
+            RuntimeControlOperationRespVO operation = operations[current];
+            operation.setOperationId(request.getPreassignedOperationId());
+            operation.setAction(request.getAction());
+            operation.setEnvironment(operationEnvironment(request.getAction()));
+            return operation;
+        });
+    }
+
+    private String operationEnvironment(String action) {
+        return switch (action) {
+            case "build-release" -> "release";
+            case "publish-test", "mark-release-tested" -> "test";
+            case "promote-prod" -> "prod";
+            default -> throw new AssertionError("unexpected release workflow action: " + action);
+        };
     }
 
     private RuntimeControlOperationRespVO operation(String status) {

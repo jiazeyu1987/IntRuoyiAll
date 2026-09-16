@@ -65,6 +65,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     private RuntimeControlProperties properties;
     private RuntimeControlServiceImpl runtimeControlService;
     private TestReleasePackageConfigService releasePackageConfigService;
+    private final AtomicInteger workflowContextSequence = new AtomicInteger();
 
     @BeforeEach
     void setUp() {
@@ -497,10 +498,11 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("with-data");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setIncludeOnlyOffice(true);
         reqVO.setIncludeShowroomBuildPackage(true);
+        withWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -509,19 +511,23 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("release", result.getEnvironment());
         assertEquals("ops", result.getComponent());
         assertEquals("running", result.getStatus());
-        assertEquals("with-data", result.getParameters().get("publishScope"));
+        assertEquals("app-release", result.getParameters().get("publishScope"));
         assertEquals("true", result.getParameters().get("includeOnlyOffice"));
         assertEquals("true", result.getParameters().get("includeShowroomBuildPackage"));
         assertEquals("20260528_220000", result.getParameters().get("releaseTag"));
         verify(nasSettingsService).getRequiredNasConfig();
         verify(commandExecutor, timeout(1000)).executeOperation(argThat(command -> "release".equals(command.getEnvironment())
                 && "ops".equals(command.getComponent())
-                && "script/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                && "ops/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                && command.getWorkingDirectory() != null
                 && command.getArguments().contains("-Mode")
                 && command.getArguments().contains("build-release")
                 && command.getArguments().contains("-ReleaseTag")
                 && command.getArguments().contains("20260528_220000")
                 && containsArgumentPair(command.getArguments(), "-Component", "full")
+                && containsArgumentPair(command.getArguments(), "-PublishScope", "app-release")
+                && command.getArguments().contains("-SkipDatabaseSync")
+                && command.getArguments().contains("-SkipMinioSync")
                 && command.getArguments().contains("-IncludeOnlyOffice")
                 && command.getArguments().contains("-NasConfigPath")
                 && command.getArguments().contains("-NasServer")
@@ -540,6 +546,63 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void executeWorkflowBuildReleaseShouldUseAppReleaseMaintenanceToolchain() throws Exception {
+        stubNasReleaseConfig();
+        configureBackendRuntimeBase();
+        properties.getReleaseWorkflow().setMaintenanceRepoRoot("D:/ProjectPackage/Int/IntRuoyiMaintance");
+        properties.getReleaseWorkflow().setApplicationRepoRoot("E:/IntRuoyi");
+        RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
+        reqVO.setAction("build-release");
+        reqVO.setReason("构建按钮程序安装包");
+        reqVO.setPublishScope("app-release");
+        reqVO.setReleaseTag("release-20260916-one-button-app-red");
+        reqVO.setIncludeOnlyOffice(false);
+        reqVO.setIncludeShowroomBuildPackage(false);
+        reqVO.setReleaseWorkflowId("wf-static-review-red");
+        reqVO.setReleaseWorkflowExpectedStateVersion(1L);
+        reqVO.setPreassignedOperationId("op-static-review-red");
+        reqVO.setExpectedMaintenanceCommit("a".repeat(40));
+        reqVO.setExpectedApplicationCommit("b".repeat(40));
+        reqVO.setExpectedFrontendCommit("b".repeat(40));
+        reqVO.setSourceSelectionId("approved-source");
+
+        RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
+
+        assertEquals("op-static-review-red", result.getOperationId());
+        assertEquals("app-release", result.getParameters().get("publishScope"));
+        verify(commandExecutor, timeout(1000)).executeOperation(argThat(command -> "release".equals(command.getEnvironment())
+                && "ops".equals(command.getComponent())
+                && "ops/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                && "D:/ProjectPackage/Int/IntRuoyiMaintance".equals(command.getWorkingDirectory())
+                && containsArgumentPair(command.getArguments(), "-PublishScope", "app-release")
+                && command.getArguments().contains("-SkipDatabaseSync")
+                && command.getArguments().contains("-SkipMinioSync")
+                && containsArgumentPair(command.getArguments(), "-BackendRepoRoot", "E:/IntRuoyi/IntRuoyiBackend")
+                && containsArgumentPair(command.getArguments(), "-FrontendRepoRoot", "E:/IntRuoyi/IntRuoyiFronted")
+                && containsArgumentPair(command.getArguments(), "-ExpectedMaintenanceCommit", "a".repeat(40))
+                && containsArgumentPair(command.getArguments(), "-ExpectedApplicationCommit", "b".repeat(40))
+                && containsArgumentPair(command.getArguments(), "-ExpectedFrontendCommit", "b".repeat(40))
+                && containsArgumentPair(command.getArguments(), "-SourceSelectionId", "approved-source")), any());
+        waitOperationStatus(result.getOperationId(), "succeeded");
+    }
+
+    @Test
+    void directReleaseActionShouldRequireWorkflowContextBeforeDispatch() {
+        configureBackendRuntimeBase();
+        RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
+        reqVO.setAction("build-release");
+        reqVO.setReason("外部直调发布动作");
+        reqVO.setPublishScope("app-release");
+        reqVO.setReleaseTag("release-20260916-direct-blocked");
+        reqVO.setIncludeOnlyOffice(false);
+        reqVO.setIncludeShowroomBuildPackage(false);
+
+        assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
+                ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "releaseWorkflowContext");
+        verify(commandExecutor, never()).executeOperation(any(), any());
+    }
+
+    @Test
     void executeBuildReleaseShouldPassBackendRuntimeBaseConfigFromDatabase() throws Exception {
         stubNasReleaseConfig();
         configureBackendRuntimeBase();
@@ -552,10 +615,11 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220002");
         reqVO.setIncludeOnlyOffice(false);
         reqVO.setIncludeShowroomBuildPackage(false);
+        withWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -582,11 +646,12 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("Smart Release report-only 构建报告");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220005");
         reqVO.setIncludeOnlyOffice(false);
         reqVO.setIncludeShowroomBuildPackage(false);
         reqVO.setEnableSmartReleaseReport(true);
+        withWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -613,12 +678,13 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("Smart Release report-only 部署预检");
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setEnableSmartReleaseReport(true);
+        withWorkflowContext(reqVO);
 
         var result = runtimeControlService.previewAction(reqVO, "1001");
 
         assertEquals("publish-test", result.getAction());
         assertEquals("test", result.getEnvironment());
-        assertEquals("script/deploy/publish-int-ruoyi.ps1", result.getScriptPath());
+        assertEquals("ops/deploy/publish-int-ruoyi.ps1", result.getScriptPath());
         assertEquals(true, result.getEnableSmartReleaseReport());
         assertTrue(result.getArguments().contains("-EnableSmartReleaseReport"));
         assertTrue(containsArgumentPair(result.getArguments(), "-ServerHost",
@@ -639,7 +705,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220004");
         reqVO.setIncludeOnlyOffice(false);
         reqVO.setIncludeShowroomBuildPackage(false);
@@ -654,7 +720,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220003");
         reqVO.setIncludeOnlyOffice(false);
         reqVO.setIncludeShowroomBuildPackage(false);
@@ -670,7 +736,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setIncludeShowroomBuildPackage(false);
 
@@ -684,7 +750,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setIncludeOnlyOffice(false);
 
@@ -700,10 +766,11 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220001");
         reqVO.setIncludeOnlyOffice(false);
         reqVO.setIncludeShowroomBuildPackage(false);
+        withWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -727,6 +794,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setAction("publish-test");
         reqVO.setReason("发布测试服验证");
         reqVO.setReleaseTag("20260528_220000");
+        withWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -739,7 +807,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("20260528_220000", result.getParameters().get("releaseTag"));
         verify(commandExecutor, timeout(1000)).executeOperation(argThat(command -> "test".equals(command.getEnvironment())
                 && "ops".equals(command.getComponent())
-                && "script/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                && "ops/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                && command.getWorkingDirectory() != null
                 && command.getArguments().contains("-Mode")
                 && command.getArguments().contains("deploy-release")
                 && command.getArguments().contains("-Environment")
@@ -769,6 +838,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("publish-test");
         reqVO.setReason("发布测试服验证");
+        withWorkflowContext(reqVO);
 
         assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
                 ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "releaseTag");
@@ -819,6 +889,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setAction("publish-test");
         reqVO.setReason("发布测试服验证");
         reqVO.setReleaseTag("20260528_220000");
+        withWorkflowContext(reqVO);
         reqVO.setSqlPath("D:/tmp/quick.sql");
 
         assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
@@ -834,6 +905,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setTestConclusion("回归通过，允许上线正式服");
         reqVO.setTestOperationId("op-publish-test-success");
         reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
+        withWorkflowContext(reqVO);
         RuntimeControlStatusResult testStatus = RuntimeControlStatusResult.running("HTTP 200", "running");
         testStatus.setCurrentReleaseTag("20260528_220000");
         doReturn(testStatus).when(commandExecutor).queryStatus(argThat(command -> "test".equals(command.getEnvironment())
@@ -845,7 +917,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("20260528_220000", result.getParameters().get("releaseTag"));
         assertEquals("回归通过，允许上线正式服", result.getParameters().get("testConclusion"));
         verify(commandExecutor, timeout(1000)).executeOperation(argThat(command ->
-                "script/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                "ops/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                        && command.getWorkingDirectory() != null
                         && command.getArguments().contains("-Mode")
                         && command.getArguments().contains("mark-tested")
                         && command.getArguments().contains("-ReleaseTag")
@@ -892,6 +965,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setTestOperationId("op-publish-test-success");
         reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
+        withWorkflowContext(reqVO);
+        withWorkflowContext(reqVO);
 
         assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
                 ErrorCodeConstants.RUNTIME_CONTROL_PROD_GUARD_REQUIRED);
@@ -911,6 +986,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setTestOperationId("op-publish-test-success");
         reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
+        withWorkflowContext(reqVO);
+        withWorkflowContext(reqVO);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -941,6 +1018,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setTestOperationId("op-publish-test-success");
         reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
+        withWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -948,7 +1026,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("prod", result.getEnvironment());
         assertEquals("20260528_220000", result.getParameters().get("releaseTag"));
         verify(commandExecutor, timeout(1000)).executeOperation(argThat(command ->
-                "script/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                "ops/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                        && command.getWorkingDirectory() != null
                         && command.getArguments().contains("-Mode")
                         && command.getArguments().contains("deploy-release")
                         && command.getArguments().contains("-Environment")
@@ -979,6 +1058,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setTestOperationId("op-publish-test-success");
         reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
+        withWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -986,7 +1066,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("backup", result.getEnvironment());
         assertEquals("20260528_220000", result.getParameters().get("releaseTag"));
         verify(commandExecutor, timeout(1000)).executeOperation(argThat(command ->
-                "script/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                "ops/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                        && command.getWorkingDirectory() != null
                         && command.getArguments().contains("-Mode")
                         && command.getArguments().contains("deploy-release")
                         && command.getArguments().contains("-Environment")
@@ -1033,6 +1114,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setTestOperationId("op-publish-test-success");
         reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
+        withWorkflowContext(reqVO);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1052,6 +1134,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setTestOperationId("op-publish-test-success");
         reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
+        withWorkflowContext(reqVO);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1076,6 +1159,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setAction("promote-prod");
         reqVO.setReason("上线正式服");
         reqVO.setProdConfirmText("PROD");
+        withWorkflowContext(reqVO);
 
         assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
                 ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "releaseTag");
@@ -1088,7 +1172,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("立即备份");
         reqVO.setTargetEnvironment("prod");
         reqVO.setProdConfirmText("PROD");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("invalid-scope");
 
         assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
                 ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "publishScope");
@@ -1129,6 +1213,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setAction("publish-test");
         reqVO.setReason("发布测试服验证");
         reqVO.setReleaseTag("20260528_220000");
+        withWorkflowContext(reqVO);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1152,6 +1237,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setAction("publish-test");
         reqVO.setReason("发布测试服验证");
         reqVO.setReleaseTag(releaseTag);
+        withWorkflowContext(reqVO);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1179,6 +1265,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setTestOperationId("op-publish-test-success");
         reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
+        withWorkflowContext(reqVO);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1603,10 +1690,11 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220001");
         reqVO.setIncludeOnlyOffice(false);
         reqVO.setIncludeShowroomBuildPackage(false);
+        withWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO operation = runtimeControlService.executeAction(reqVO, "1001");
         waitOperationStatus(operation.getOperationId(), "succeeded");
@@ -1679,6 +1767,14 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     private static boolean containsArgumentPair(List<String> args, String name, String value) {
         int index = args.indexOf(name);
         return index >= 0 && index + 1 < args.size() && value.equals(args.get(index + 1));
+    }
+
+    private RuntimeControlActionReqVO withWorkflowContext(RuntimeControlActionReqVO reqVO) {
+        int sequence = workflowContextSequence.incrementAndGet();
+        reqVO.setReleaseWorkflowId("wf-test-context-" + sequence);
+        reqVO.setReleaseWorkflowExpectedStateVersion((long) sequence);
+        reqVO.setPreassignedOperationId("op-workflow-test-" + sequence);
+        return reqVO;
     }
 
     private static Object readProperty(Object target, String getter) {

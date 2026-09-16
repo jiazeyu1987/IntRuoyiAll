@@ -26,7 +26,7 @@ public class RuntimeControlActionReqVO {
     @Schema(description = "备份类型：FULL/INCREMENTAL，仅 backup-now 使用", example = "FULL")
     private String backupKind;
 
-    @Schema(description = "发布范围：code-only 只发布代码，with-data 同步数据库和文件对象", example = "code-only")
+    @Schema(description = "发布范围：固定 app-release，仅发布程序包且不包含数据库或对象存储数据", example = "app-release")
     private String publishScope;
 
     @Schema(description = "构建发布包时是否包含 OnlyOffice；构建发布包必填", example = "false")
@@ -52,6 +52,15 @@ public class RuntimeControlActionReqVO {
 
     @JsonIgnore
     private String expectedFrontendCommit;
+
+    @JsonIgnore
+    private String releaseWorkflowId;
+
+    @JsonIgnore
+    private Long releaseWorkflowExpectedStateVersion;
+
+    @JsonIgnore
+    private String preassignedOperationId;
 
     @Schema(description = "测试验证结论；标记测试通过必填")
     private String testConclusion;

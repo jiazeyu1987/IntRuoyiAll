@@ -168,7 +168,7 @@ public class ReleaseWorkflowService {
     public List<ReleaseWorkflowRecord> recoverStaleWorkflows(Instant now) {
         Duration timeout = properties.getReleaseWorkflow().getHeartbeatTimeout();
         return store.list().stream()
-                .filter(record -> !record.state().isTerminal())
+                .filter(record -> record.state().isHeartbeatMonitored())
                 .filter(record -> record.lastHeartbeatAt().plus(timeout).isBefore(now))
                 .map(record -> recoverStale(record, now))
                 .toList();

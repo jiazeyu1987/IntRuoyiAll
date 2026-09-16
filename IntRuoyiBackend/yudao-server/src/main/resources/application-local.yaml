@@ -418,6 +418,10 @@ yudao:
       backend-runtime-base-image: ${INTRUOYI_BACKEND_RUNTIME_BASE_IMAGE:}
       backend-runtime-base-digest: ${INTRUOYI_BACKEND_RUNTIME_BASE_DIGEST:}
       backend-runtime-base-version: ${INTRUOYI_BACKEND_RUNTIME_BASE_VERSION:}
+    release-workflow:
+      maintenance-repo-root: ${INTRUOYI_RELEASE_WORKFLOW_MAINTENANCE_REPO_ROOT:D:/ProjectPackage/Int/IntRuoyiMaintance}
+      application-repo-root: ${INTRUOYI_RELEASE_WORKFLOW_APPLICATION_REPO_ROOT:E:/IntRuoyi}
+      publish-script-path: ${INTRUOYI_RELEASE_WORKFLOW_PUBLISH_SCRIPT_PATH:ops/deploy/publish-int-ruoyi.ps1}
 
 justauth:
   enabled: true

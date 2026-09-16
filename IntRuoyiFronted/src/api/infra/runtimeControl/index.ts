@@ -4,8 +4,8 @@ export type RuntimeControlDateTime = string | number | number[]
 export type RuntimeOpsInspectionStatus = 'PASS' | 'WARN' | 'BLOCKED' | 'NO_GO'
 export type RuntimeControlSiteMessageStatus = 'SENT' | 'FAILED' | 'BLOCKED'
 export type RuntimeControlCandidateStatus = 'AVAILABLE' | 'BLOCKED'
-export type RuntimeControlPublishScope = 'code-only' | 'with-data'
 export type RuntimeControlAppReleaseScope = 'app-release'
+export type RuntimeControlPublishScope = RuntimeControlAppReleaseScope
 export type RuntimeControlReleaseWorkflowState =
   | 'SOURCE_FREEZING'
   | 'PREFLIGHTING'
