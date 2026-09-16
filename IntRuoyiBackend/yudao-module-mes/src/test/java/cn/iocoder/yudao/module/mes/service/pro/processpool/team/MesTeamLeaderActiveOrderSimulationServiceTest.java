@@ -15,7 +15,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
@@ -30,7 +32,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
@@ -80,6 +84,10 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
     @Mock
     private MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
     @Mock
+    private MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
+    @Mock
+    private MesQaInspectionRegulationMapper inspectionRegulationMapper;
+    @Mock
     private MesPqcItemEquipmentConfigService pqcItemEquipmentConfigService;
     @Mock
     private MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper;
@@ -120,7 +128,8 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderSimulationService(activeOrderMapper, processSnapshotMapper,
                 routeVersionMapper, reportAllocationMapper, submissionReviewMapper, pqcInspectionTaskMapper,
-                inspectionRegulationItemMapper, pqcItemEquipmentConfigService, pqcPieceDetailMapper,
+                inspectionRegulationItemMapper, inspectionRegulationVersionMapper, inspectionRegulationMapper,
+                pqcItemEquipmentConfigService, pqcPieceDetailMapper,
                 feedbackMapper, itemMapper, materialBatchQueryService, processDeviceMapper, deviceMapper,
                 parameterRuleMapper,
                 routeProcessMapper,
@@ -211,6 +220,7 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
             return 1;
         });
         when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(List.of(inspectionItem()));
+        givenQaVersionDcc(9902L, 8802L, 6601L);
         when(pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
                 6601L, 9902L, List.of("FIRST-001"))).thenReturn(Map.of("FIRST-001", List.of(
                 new MesPqcItemEquipmentOption("FIRST-001", 1702L, "PQC-DEVICE-002",
@@ -219,7 +229,7 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                         "第一台PQC设备", "PQC-NO-001", true, 1))));
         when(pqcPieceDetailMapper.selectListByTaskId(8301L)).thenReturn(List.of());
         when(pqcPieceDetailMapper.insertBatch(any(List.class))).thenReturn(Boolean.TRUE);
-        when(pqcInspectionTaskMapper.updateSubmittedIfPending(8301L, 1, "SIMULATED:8301:1",
+        when(pqcInspectionTaskMapper.updateSubmittedIfPending(8301L, 1, "SIMULATED:8301:1:scrapQuantity:1:inspectionResult:FAILURE",
                 MesPqcInspectionTaskDO.TASK_STATUS_PENDING, MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED))
                 .thenReturn(1);
         when(processPoolEventService.createPqcInspectionEvent(any())).thenReturn(8001L);
@@ -385,13 +395,14 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
             return 1;
         });
         when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(List.of(inspectionItem()));
+        givenQaVersionDcc(9902L, 8802L, 6601L);
         when(pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
                 6601L, 9902L, List.of("FIRST-001"))).thenReturn(Map.of("FIRST-001", List.of(
                 new MesPqcItemEquipmentOption("FIRST-001", 1701L, "PQC-DEVICE-001",
                         "第一台PQC设备", "PQC-NO-001", true, 1))));
         when(pqcPieceDetailMapper.selectListByTaskId(8301L)).thenReturn(List.of());
         when(pqcPieceDetailMapper.insertBatch(any(List.class))).thenReturn(Boolean.TRUE);
-        when(pqcInspectionTaskMapper.updateSubmittedIfPending(8301L, 1, "SIMULATED:8301:1",
+        when(pqcInspectionTaskMapper.updateSubmittedIfPending(8301L, 1, "SIMULATED:8301:1:scrapQuantity:1:inspectionResult:FAILURE",
                 MesPqcInspectionTaskDO.TASK_STATUS_PENDING, MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED))
                 .thenReturn(1);
         when(processPoolEventService.createPqcInspectionEvent(any())).thenReturn(8001L);
@@ -428,6 +439,35 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .recordStage1SimulationSignature(any(),
                         org.mockito.Mockito.eq(MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW),
                         any(), any(), any());
+    }
+
+    @Test
+    void stage1PqcEquipmentShouldUseTaskSourceDccInsteadOfActiveOrderDcc() {
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder().setDccProjectCodeId(129L);
+        MesPqcInspectionTaskDO commonTask = pqcTask(MesPqcInspectionTaskDO.TASK_STATUS_PENDING)
+                .setDccProjectCodeId(147L)
+                .setQaRegulationId(8803L)
+                .setRegulationVersionId(9903L)
+                .setQaItemCode("COMMON-001");
+        MesQaInspectionRegulationItemDO commonItem = inspectionItem()
+                .setRegulationVersionId(9903L)
+                .setItemCode("COMMON-001");
+
+        givenQaVersionDcc(9903L, 8803L, 147L);
+        when(pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+                147L, 9903L, List.of("COMMON-001"))).thenReturn(Map.of("COMMON-001", List.of(
+                new MesPqcItemEquipmentOption("COMMON-001", 2701L, "PQC-COMMON-001",
+                        "通用PQC设备", "PQC-COMMON-NO-001", true, 1))));
+        when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(routeProcess(5001L, 6001L, 801L));
+
+        Object selectedEquipment = org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                "resolveDefaultPqcEquipment", activeOrder, commonTask, commonItem);
+
+        assertTrue(String.valueOf(selectedEquipment).contains("PQC-COMMON-001"));
+        org.mockito.Mockito.verify(pqcItemEquipmentConfigService)
+                .listEnabledEquipmentOptionsByProjectVersionAndItemCodes(147L, 9903L, List.of("COMMON-001"));
+        org.mockito.Mockito.verify(pqcItemEquipmentConfigService, never())
+                .listEnabledEquipmentOptionsByProjectVersionAndItemCodes(129L, 9903L, List.of("COMMON-001"));
     }
 
     @Test
@@ -554,6 +594,19 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .standardUpperLimit(BigDecimal.ONE)
                 .standardPrecision(1)
                 .build();
+    }
+
+    private void givenQaVersionDcc(Long versionId, Long regulationId, Long dccProjectCodeId) {
+        when(inspectionRegulationVersionMapper.selectById(versionId)).thenReturn(
+                MesQaInspectionRegulationVersionDO.builder()
+                        .id(versionId)
+                        .regulationId(regulationId)
+                        .build());
+        when(inspectionRegulationMapper.selectById(regulationId)).thenReturn(
+                MesQaInspectionRegulationDO.builder()
+                        .id(regulationId)
+                        .dccProjectCodeId(dccProjectCodeId)
+                        .build());
     }
 
 }

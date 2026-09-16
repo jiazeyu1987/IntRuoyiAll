@@ -74,6 +74,81 @@ public class MesKingdeeProductionOrderCreateServiceImpl implements MesKingdeePro
                 .build();
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesKingdeeProductionOrderCreateResult createAndSubmitProductionOrder(
+            Long workOrderId, MesKingdeeProductionOrderDeterministicCreateCommand command) {
+        validateDeterministicCommand(command);
+        kingdeeConfigService.assertExternalWriteEnabled();
+        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderExists(workOrderId);
+        validateWorkOrderEligible(workOrder);
+        MesMdItemDO product = validateProduct(workOrder);
+        MesMdUnitMeasureDO unitMeasure = validateUnitMeasure(product);
+        ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
+        kingdeeProperties.validateProductionOrderCreateConfig();
+        String testBillNo = command.getRunId().trim() + "-" + command.getSlot().trim();
+        ErpKingdeeProductionOrder existingOrder =
+                productionOrderClient.getProductionOrderByBillNo(kingdeeProperties, testBillNo);
+        if (existingOrder != null) {
+            throw exception(PRO_WORK_ORDER_CREATE_ERP_DUPLICATE, testBillNo);
+        }
+        ErpKingdeeProductionOrderCreateResult erpResult = productionOrderClient.createAndSubmitProductionOrder(
+                kingdeeProperties, buildCreateRequest(kingdeeProperties, workOrder, product, unitMeasure,
+                        testBillNo, command.getQuantity(), command.getBatchNumber()));
+        return MesKingdeeProductionOrderCreateResult.builder()
+                .workOrderId(workOrderId)
+                .erpFid(erpResult.getErpFid())
+                .erpBillNo(erpResult.getErpBillNo())
+                .saved(erpResult.getSaved())
+                .submitted(erpResult.getSubmitted())
+                .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesKingdeeProductionOrderCreateResult createAndSubmitProductionOrder(
+            MesKingdeeProductionOrderDeterministicCreateCommand command) {
+        validateDeterministicCommand(command);
+        kingdeeConfigService.assertExternalWriteEnabled();
+        ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
+        kingdeeProperties.validateProductionOrderCreateConfig();
+        String templateBillNo = kingdeeProperties.getProductionOrder().getTemplateBillNo().trim();
+        ErpKingdeeProductionOrder templateOrder =
+                productionOrderClient.getProductionOrderByBillNo(kingdeeProperties, templateBillNo);
+        validateTemplateProductionOrder(templateOrder, templateBillNo);
+        String testBillNo = command.getRunId().trim() + "-" + command.getSlot().trim();
+        ErpKingdeeProductionOrder existingOrder =
+                productionOrderClient.getProductionOrderByBillNo(kingdeeProperties, testBillNo);
+        if (existingOrder != null) {
+            throw exception(PRO_WORK_ORDER_CREATE_ERP_DUPLICATE, testBillNo);
+        }
+        ErpKingdeeProductionOrderCreateResult erpResult = productionOrderClient.createAndSubmitProductionOrder(
+                kingdeeProperties, buildCreateRequest(kingdeeProperties, templateOrder, testBillNo,
+                        command.getQuantity(), command.getBatchNumber()));
+        return MesKingdeeProductionOrderCreateResult.builder()
+                .erpFid(erpResult.getErpFid())
+                .erpBillNo(erpResult.getErpBillNo())
+                .saved(erpResult.getSaved())
+                .submitted(erpResult.getSubmitted())
+                .build();
+    }
+
+    private void validateDeterministicCommand(MesKingdeeProductionOrderDeterministicCreateCommand command) {
+        if (command == null || StrUtil.isBlank(command.getRunId()) || StrUtil.isBlank(command.getSlot())
+                || StrUtil.isBlank(command.getBatchNumber()) || command.getQuantity() == null
+                || command.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw exception(PRO_WORK_ORDER_CREATE_ERP_DATA_MISSING,
+                    "AI E2E runId、slot、batchNumber和正数quantity均不能为空");
+        }
+        String slot = command.getSlot().trim();
+        if (!slot.matches("O0[1-5]")) {
+            throw exception(PRO_WORK_ORDER_CREATE_ERP_DATA_MISSING, "AI E2E slot必须为O01至O05");
+        }
+        requireNoSingleQuote(command.getRunId().trim(), "AI E2E runId");
+        requireNoSingleQuote(slot, "AI E2E slot");
+        requireNoSingleQuote(command.getBatchNumber().trim(), "AI E2E batchNumber");
+    }
+
     private void validateWorkOrderEligible(MesProWorkOrderDO workOrder) {
         if (!MesProWorkOrderStatusEnum.CONFIRMED.getStatus().equals(workOrder.getStatus())) {
             throw exception(PRO_WORK_ORDER_CREATE_ERP_STATUS_INVALID, "仅已确认工单允许创建 ERP 生产订单");
@@ -123,6 +198,22 @@ public class MesKingdeeProductionOrderCreateServiceImpl implements MesKingdeePro
         return unitMeasure;
     }
 
+    private void validateTemplateProductionOrder(ErpKingdeeProductionOrder templateOrder, String templateBillNo) {
+        if (templateOrder == null) {
+            throw exception(PRO_WORK_ORDER_CREATE_ERP_DATA_MISSING, "ERP生产订单模板：" + templateBillNo);
+        }
+        requireText(templateOrder.getMaterialNumber(), "ERP生产订单模板物料编码");
+        requireNoSingleQuote(templateOrder.getMaterialNumber(), "ERP生产订单模板物料编码");
+        requireText(templateOrder.getUnitCode(), "ERP生产订单模板计量单位编码");
+        requireNoSingleQuote(templateOrder.getUnitCode(), "ERP生产订单模板计量单位编码");
+        if (templateOrder.getPlannedStartDate() == null || templateOrder.getPlannedEndDate() == null) {
+            throw exception(PRO_WORK_ORDER_CREATE_ERP_DATA_MISSING, "ERP生产订单模板计划日期");
+        }
+        if (StrUtil.isNotBlank(templateOrder.getSourceBillNo())) {
+            requireNoSingleQuote(templateOrder.getSourceBillNo(), "ERP生产订单模板来源单据编号");
+        }
+    }
+
     String generateTestBillNo(MesProWorkOrderDO workOrder) {
         String suffix = IdUtil.fastSimpleUUID().substring(0, 12).toUpperCase(Locale.ROOT);
         return "TESTERP" + suffix;
@@ -138,6 +229,16 @@ public class MesKingdeeProductionOrderCreateServiceImpl implements MesKingdeePro
                                                                       MesMdUnitMeasureDO unitMeasure,
                                                                       String billNo,
                                                                       BigDecimal quantity) {
+        return buildCreateRequest(kingdeeProperties, workOrder, product, unitMeasure, billNo, quantity, null);
+    }
+
+    private ErpKingdeeProductionOrderCreateRequest buildCreateRequest(ErpKingdeeProperties kingdeeProperties,
+                                                                      MesProWorkOrderDO workOrder,
+                                                                      MesMdItemDO product,
+                                                                      MesMdUnitMeasureDO unitMeasure,
+                                                                      String billNo,
+                                                                      BigDecimal quantity,
+                                                                      String batchNumber) {
         return ErpKingdeeProductionOrderCreateRequest.builder()
                 .billNo(billNo)
                 .templateBillNo(kingdeeProperties.getProductionOrder().getTemplateBillNo())
@@ -147,6 +248,25 @@ public class MesKingdeeProductionOrderCreateServiceImpl implements MesKingdeePro
                 .plannedStartDate(workOrder.getRequestDate())
                 .plannedFinishDate(workOrder.getRequestDate())
                 .sourceBillNo(workOrder.getOrderSourceCode())
+                .batchNumber(batchNumber)
+                .build();
+    }
+
+    private ErpKingdeeProductionOrderCreateRequest buildCreateRequest(ErpKingdeeProperties kingdeeProperties,
+                                                                      ErpKingdeeProductionOrder templateOrder,
+                                                                      String billNo,
+                                                                      BigDecimal quantity,
+                                                                      String batchNumber) {
+        return ErpKingdeeProductionOrderCreateRequest.builder()
+                .billNo(billNo)
+                .templateBillNo(kingdeeProperties.getProductionOrder().getTemplateBillNo())
+                .materialNumber(templateOrder.getMaterialNumber())
+                .unitNumber(templateOrder.getUnitCode())
+                .quantity(quantity)
+                .plannedStartDate(templateOrder.getPlannedStartDate())
+                .plannedFinishDate(templateOrder.getPlannedEndDate())
+                .sourceBillNo(templateOrder.getSourceBillNo())
+                .batchNumber(batchNumber)
                 .build();
     }
 

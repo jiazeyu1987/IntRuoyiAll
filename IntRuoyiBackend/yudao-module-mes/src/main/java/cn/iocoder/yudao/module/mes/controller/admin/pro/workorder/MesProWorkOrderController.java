@@ -108,6 +108,31 @@ public class MesProWorkOrderController {
     public CommonResult<MesKingdeeProductionOrderSyncRespVO> syncKingdeeWorkOrders() { LocalDateTime windowEnd = LocalDateTime.now(); AtomicReference<MesKingdeeProductionOrderSyncResult> resultReference = new AtomicReference<>(); kingdeeSyncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder().syncType(ErpKingdeeSyncTypeEnum.PRODUCTION_ORDER).triggerType(ErpKingdeeSyncTriggerTypeEnum.MANUAL).forceInitialWindowStart(true).initialWindowStart(windowEnd.toLocalDate().minusYears(1).atStartOfDay()).windowEnd(windowEnd).build(), context -> { MesKingdeeProductionOrderSyncResult result = kingdeeProductionOrderSyncService.syncWorkOrders(context); resultReference.set(result); return ErpKingdeeSyncRunResult.success(windowEnd, result.getCreatedCount(), result.getUpdatedCount() + result.getFinishedCount() + result.getCanceledCount(), result.getSkippedCount(), 0); }); return success(BeanUtils.toBean(resultReference.get(), MesKingdeeProductionOrderSyncRespVO.class)); }
     @PostMapping("/{id}/create-kingdee-production-order") @Operation(summary = "Create test Kingdee production order for one work order") @Parameter(name = "id", description = "Work order ID", required = true) @PreAuthorize("@ss.hasPermission('mes:pro-work-order:create-erp')")
     public CommonResult<MesKingdeeProductionOrderCreateRespVO> createKingdeeProductionOrder(@PathVariable("id") Long id) { MesKingdeeProductionOrderCreateResult result = kingdeeProductionOrderCreateService.createAndSubmitProductionOrder(id); return success(BeanUtils.toBean(result, MesKingdeeProductionOrderCreateRespVO.class)); }
+    @PostMapping("/{id}/create-ai-e2e-production-order") @Operation(summary = "Create deterministic AI E2E Kingdee production order") @Parameter(name = "id", description = "Template work order ID", required = true) @PreAuthorize("@ss.hasPermission('mes:pro-work-order:create-erp')")
+    public CommonResult<MesKingdeeProductionOrderCreateRespVO> createAiE2eProductionOrder(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody MesKingdeeProductionOrderDeterministicCreateReqVO reqVO) {
+        MesKingdeeProductionOrderDeterministicCreateCommand command = new MesKingdeeProductionOrderDeterministicCreateCommand()
+                .setRunId(reqVO.getRunId())
+                .setSlot(reqVO.getSlot())
+                .setQuantity(reqVO.getQuantity())
+                .setBatchNumber(reqVO.getBatchNumber());
+        MesKingdeeProductionOrderCreateResult result =
+                kingdeeProductionOrderCreateService.createAndSubmitProductionOrder(id, command);
+        return success(BeanUtils.toBean(result, MesKingdeeProductionOrderCreateRespVO.class));
+    }
+    @PostMapping("/create-ai-e2e-production-order") @Operation(summary = "Create deterministic AI E2E Kingdee production order from configured template") @PreAuthorize("@ss.hasPermission('mes:pro-work-order:create-erp')")
+    public CommonResult<MesKingdeeProductionOrderCreateRespVO> createAiE2eProductionOrderFromConfiguredTemplate(
+            @Valid @RequestBody MesKingdeeProductionOrderDeterministicCreateReqVO reqVO) {
+        MesKingdeeProductionOrderDeterministicCreateCommand command = new MesKingdeeProductionOrderDeterministicCreateCommand()
+                .setRunId(reqVO.getRunId())
+                .setSlot(reqVO.getSlot())
+                .setQuantity(reqVO.getQuantity())
+                .setBatchNumber(reqVO.getBatchNumber());
+        MesKingdeeProductionOrderCreateResult result =
+                kingdeeProductionOrderCreateService.createAndSubmitProductionOrder(command);
+        return success(BeanUtils.toBean(result, MesKingdeeProductionOrderCreateRespVO.class));
+    }
     @PostMapping("/{id}/sync-erp-bom") @Operation(summary = "Sync ERP BOM for one work order") @Parameter(name = "id", description = "Work order ID", required = true) @PreAuthorize("@ss.hasPermission('mes:pro-work-order:update')")
     public CommonResult<MesKingdeeWorkOrderBomSyncRespVO> syncErpBom(@PathVariable("id") Long id) { MesKingdeeWorkOrderBomSyncResult result = kingdeeWorkOrderBomSyncService.syncErpBom(id); return success(BeanUtils.toBean(result, MesKingdeeWorkOrderBomSyncRespVO.class)); }
 

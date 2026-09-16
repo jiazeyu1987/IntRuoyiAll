@@ -178,6 +178,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     @Mock private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Mock private MesWmProductIssueMapper productIssueMapper;
     @Mock private MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
+    @Mock private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
 
     private MesTeamLeaderActiveOrderService service;
 
@@ -200,7 +201,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
                 reportAllocationOrderChangeService,
                 pickListBindingMapper, pickListBindingItemMapper, workOrderBomMapper,
-                batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper);
+                batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper,
+                routeStartAuthorizationService);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(reportAllocationMapper.selectListByActiveOrderIds(any())).thenReturn(List.of());
         lenient().when(routeDccProjectBindingMapper.selectCurrentByRouteId(922119L))

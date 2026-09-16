@@ -739,7 +739,10 @@
             :min-width="getSubmissionColumnMinWidthString('workOrder', 160)"
           >
             <template #default="{ row }">
-              <span :data-pqc-leader-work-order="activeLeaderTab === 'PQC' ? '' : undefined">
+              <span
+                data-team-leader-submission-work-order-code
+                :data-pqc-leader-work-order="activeLeaderTab === 'PQC' ? '' : undefined"
+              >
                 {{ row.workOrderCode || row.workOrderName || '--' }}
               </span>
             </template>
@@ -1512,8 +1515,28 @@
       :total="activeOrderTotal"
       v-model:page="activeOrderQuery.pageNo"
       v-model:limit="activeOrderQuery.pageSize"
-    >
+      >
       <template #actions>
+        <el-input
+          v-model="activeOrderWorkOrderKeyword"
+          class="team-leader-workbench__active-order-filter"
+          clearable
+          placeholder="筛选生产订单号"
+          data-team-leader-active-order-work-order-filter
+          @input="handleActiveOrderWorkOrderKeywordChange"
+          @clear="handleActiveOrderWorkOrderKeywordChange"
+        />
+        <el-button
+          v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
+          type="warning"
+          :loading="activeOrderTestResetSubmitting"
+          :disabled="maintenanceSubmitting || activeOrderSimulationSubmittingId !== undefined"
+          data-team-leader-reset-fixed-active-order
+          @click="handleResetFixedSimulationActiveOrder"
+        >
+          <Icon icon="ep:refresh-right" class="mr-5px" />
+          重置指定测试订单
+        </el-button>
         <el-button
           type="primary"
           data-team-leader-open-active-order-dialog
@@ -1521,6 +1544,18 @@
         >
           <Icon icon="ep:plus" class="mr-5px" />
           新增活跃订单
+        </el-button>
+        <el-button
+          v-if="isProductionLeader"
+          v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
+          type="danger"
+          plain
+          :loading="teamLeaderDataCleanupSubmitting"
+          :disabled="maintenanceSubmitting || activeOrderSimulationSubmittingId !== undefined"
+          data-team-leader-data-cleanup
+          @click="handleTeamLeaderDataCleanup"
+        >
+          一键清理生产数据
         </el-button>
       </template>
       <template #table>
@@ -1608,6 +1643,7 @@
                 :type="formatActiveOrderReleaseStatusTag(row.releaseApplicationStatus)"
                 effect="plain"
                 :title="row.releaseSourceSnapshotHash || undefined"
+                data-team-leader-active-order-release-status
               >
                 {{ formatActiveOrderReleaseStatus(row.releaseApplicationStatus) }}
               </el-tag>
@@ -1971,6 +2007,7 @@
             remote
             clearable
             reserve-keyword
+            data-team-leader-active-order-candidate-select
             :teleported="false"
             :remote-method="searchActiveOrderCandidates"
             :loading="activeOrderCandidateLoading"
@@ -1990,6 +2027,9 @@
               <div
                 class="team-leader-workbench__active-order-candidate"
                 :class="{ 'is-eligible': candidate.eligible, 'is-blocked': !candidate.eligible }"
+                data-team-leader-active-order-candidate-option
+                :data-team-leader-active-order-candidate-code="candidate.workOrderCode"
+                :data-team-leader-active-order-candidate-state="candidate.candidateState"
               >
                 <span class="team-leader-workbench__active-order-candidate-code">
                   {{ candidate.workOrderCode }}
@@ -2043,7 +2083,12 @@
         <el-button :disabled="maintenanceSubmitting" @click="activeOrderAddDialogVisible = false">
           取消
         </el-button>
-        <el-button type="primary" :loading="maintenanceSubmitting" @click="submitAddActiveOrder">
+        <el-button
+          type="primary"
+          :loading="maintenanceSubmitting"
+          data-team-leader-active-order-add-submit
+          @click="submitAddActiveOrder"
+        >
           {{ activeOrderSubmitLabel }}
         </el-button>
       </template>
@@ -3345,10 +3390,11 @@
     :title="reviewDialogTitle"
     width="min(1120px, calc(100vw - 32px))"
     class="team-leader-workbench__review-dialog"
+    data-team-leader-review-dialog
   >
     <el-form :model="reviewForm" label-width="92px">
       <el-form-item v-if="reviewDialogMode === 'REVIEW'" label="判定结果">
-        <el-select v-model="reviewForm.reviewStatus">
+        <el-select v-model="reviewForm.reviewStatus" data-team-leader-review-status>
           <el-option label="正确" value="APPROVED" />
           <el-option label="不正确" value="REJECTED" />
         </el-select>
@@ -3377,6 +3423,7 @@
           show-password
           autocomplete="new-password"
           placeholder="请输入当前登录密码完成电子签名"
+          data-team-leader-review-signature-password
         />
       </el-form-item>
     </el-form>
@@ -3590,7 +3637,7 @@
     </div>
     <template #footer>
       <el-button @click="reviewVisible = false">取消</el-button>
-      <el-button type="primary" :loading="reviewSubmitting" @click="submitReview">{{
+      <el-button type="primary" :loading="reviewSubmitting" data-team-leader-review-submit @click="submitReview">{{
         reviewDialogSubmitText
       }}</el-button>
     </template>
@@ -4031,6 +4078,9 @@ import {
   submitTeamLeaderActiveOrderVersionUpgrade,
   copyLatestTeamLeaderSimulationActiveOrder,
   cleanupLatestTeamLeaderSimulationActiveOrder,
+  resetFixedSimulationActiveOrder,
+  previewTeamLeaderDataCleanup,
+  executeTeamLeaderDataCleanup,
   simulateStage1ActiveOrderCompletion,
   simulateStage2_5BackfillBatchExecution,
   simulateTeamLeaderActiveOrderCompletion,
@@ -4356,6 +4406,8 @@ const activeOrderMoveDirection = ref<'UP' | 'DOWN'>()
 const activeOrderRebuildSubmittingId = ref<number>()
 const activeOrderVersionUpgradeSubmittingId = ref<number>()
 const activeOrderSimulationSubmittingId = ref<number>()
+const activeOrderTestResetSubmitting = ref(false)
+const teamLeaderDataCleanupSubmitting = ref(false)
 const correctionSubmitting = ref(false)
 const detailVisible = ref(false)
 const reviewVisible = ref(false)
@@ -4500,6 +4552,7 @@ const activeOrderQuery = reactive({
 const activeOrderFilterDefinitions: any[] = []
 const activeOrderQuickFilterState = reactive({})
 const activeOrderOperatorOptions: any[] = []
+const activeOrderWorkOrderKeyword = ref('')
 const activeOrderColumns: any[] = [
   { key: 'id', label: '活跃池ID', visible: true },
   { key: 'workOrderCode', label: '生产订单号', visible: true },
@@ -4779,7 +4832,17 @@ const pagedProductionPersonnelRows = computed(() => {
   const start = (pageNo - 1) * pageSize
   return productionPersonnelRows.value.slice(start, start + pageSize)
 })
-const activeOrderTotal = computed(() => activeOrderOptions.value.length)
+const normalizedActiveOrderWorkOrderKeyword = computed(() =>
+  activeOrderWorkOrderKeyword.value.trim().toLowerCase()
+)
+const filteredActiveOrderRows = computed(() => {
+  const keyword = normalizedActiveOrderWorkOrderKeyword.value
+  if (!keyword) return activeOrderOptions.value
+  return activeOrderOptions.value.filter((order) =>
+    String(order.workOrderCode || '').toLowerCase().includes(keyword)
+  )
+})
+const activeOrderTotal = computed(() => filteredActiveOrderRows.value.length)
 const allocatableActiveOrderOptions = computed(() =>
   activeOrderOptions.value.filter((order) => !order.readBlocked && normalizePositiveNumber(order.id))
 )
@@ -4787,7 +4850,7 @@ const pagedActiveOrderRows = computed(() => {
   const pageNo = Math.max(1, Number(activeOrderQuery.pageNo) || 1)
   const pageSize = Math.max(1, Number(activeOrderQuery.pageSize) || 10)
   const start = (pageNo - 1) * pageSize
-  return activeOrderOptions.value.slice(start, start + pageSize)
+  return filteredActiveOrderRows.value.slice(start, start + pageSize)
 })
 const isFirstActiveOrder = (row: TeamLeaderActiveOrderRespVO) =>
   activeOrderOptions.value[0]?.id === row.id
@@ -5975,7 +6038,7 @@ const loadActiveOrders = async () => {
     activeOrderOptions.value = await getTeamLeaderActiveOrderList()
     const maxPage = Math.max(
       1,
-      Math.ceil(activeOrderOptions.value.length / activeOrderQuery.pageSize)
+      Math.ceil(filteredActiveOrderRows.value.length / activeOrderQuery.pageSize)
     )
     if (activeOrderQuery.pageNo > maxPage) {
       activeOrderQuery.pageNo = maxPage
@@ -9851,6 +9914,77 @@ const handleRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
   }
 }
 
+const handleResetFixedSimulationActiveOrder = async () => {
+  const targetCode = 'SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891'
+  try {
+    await ElMessageBox.confirm(
+      `确认重置测试订单 ${targetCode}？系统将先删除该订单及其报工管理、报工历史、批次执行、历史追溯等全部关联测试数据，再按正式流程重新加入活跃订单池。此操作不可恢复。`,
+      '重置指定测试订单',
+      { type: 'warning', confirmButtonText: '确认重置', cancelButtonText: '取消' }
+    )
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, '重置确认弹窗打开失败'))
+    return
+  }
+  activeOrderTestResetSubmitting.value = true
+  let writeCompleted = false
+  try {
+    const result = await resetFixedSimulationActiveOrder()
+    writeCompleted = true
+    ElMessage.success(
+      `测试订单已重置并重新加入：${result.workOrderCode}（活跃订单 ${result.activeOrderId}）`
+    )
+    await loadActiveOrders()
+  } catch (error) {
+    ElMessage.error(
+      resolveErrorMessage(error, writeCompleted ? '测试订单已重置，但列表刷新失败' : '测试订单重置失败')
+    )
+  } finally {
+    activeOrderTestResetSubmitting.value = false
+  }
+}
+
+const handleActiveOrderWorkOrderKeywordChange = () => {
+  activeOrderQuery.pageNo = 1
+}
+
+const handleTeamLeaderDataCleanup = async () => {
+  teamLeaderDataCleanupSubmitting.value = true
+  try {
+    const preview = await previewTeamLeaderDataCleanup()
+    if (
+      !preview.activeOrderCount &&
+      !preview.reportEventCount &&
+      !preview.batchExecutionCount &&
+      !preview.releaseApplicationCount &&
+      !preview.releaseTransactionCount
+    ) {
+      ElMessage.info('当前生产组长范围内没有可清理的数据')
+      return
+    }
+    await ElMessageBox.confirm(
+      `将清理当前生产组长范围内的全部数据：活跃订单 ${preview.activeOrderCount} 条、生产放行申请 ${preview.releaseApplicationCount} 条、生产放行事务 ${preview.releaseTransactionCount} 条、报工管理/历史 ${preview.reportEventCount} 条、批次执行 ${preview.batchExecutionCount} 条。系统会自动解析全部目标订单，不需要逐单上传订单号。此操作不可恢复，是否继续？`,
+      '一键清理生产数据',
+      { type: 'warning', confirmButtonText: '确认清理', cancelButtonText: '取消' }
+    )
+    const result = await executeTeamLeaderDataCleanup({
+      orderIds: preview.orderIds.map((id) => Number(id)),
+      orderVersions: preview.orderVersions,
+      confirm: true
+    })
+    ElMessage.success(
+      `清理完成：活跃订单 ${result.activeOrderCount} 条，生产放行 ${result.releaseApplicationCount} 条，报工 ${result.reportEventCount} 条，批次执行 ${result.batchExecutionCount} 条`
+    )
+    await Promise.all([getSubmissionList(), loadActiveOrders()])
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, '一键清理生产数据失败'))
+  } finally {
+    teamLeaderDataCleanupSubmitting.value = false
+  }
+}
+
 const submitTeamDevice = async () => {
   maintenanceSubmitting.value = true
   try {
@@ -10095,6 +10229,10 @@ onMounted(() => {
 
 .team-leader-workbench__personnel-actions--dialog {
   margin-bottom: 0;
+}
+
+.team-leader-workbench__active-order-filter {
+  width: 260px;
 }
 
 .team-leader-workbench__personnel-name.is-disabled {

@@ -226,6 +226,8 @@ class MesTeamLeaderActiveOrderServiceTest {
     private MesWmProductIssueMapper productIssueMapper;
     @Mock
     private MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
+    @Mock
+    private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
 
     private MesTeamLeaderActiveOrderService service;
 
@@ -246,7 +248,8 @@ class MesTeamLeaderActiveOrderServiceTest {
                 pqcInspectionTaskMapper, abnormalStateService,
                 releaseApplicationMapper, dccProjectCodeMapper, reportAllocationOrderChangeService,
                 pickListBindingMapper, pickListBindingItemMapper,
-                workOrderBomMapper, batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper);
+                workOrderBomMapper, batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper,
+                routeStartAuthorizationService);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(itemMapper.selectById(anyLong())).thenAnswer(invocation -> MesMdItemDO.builder()
                 .id(invocation.getArgument(0, Long.class))
@@ -863,20 +866,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Test
     void shouldAddWorkOrderToLeaderActivePoolWithoutPickList() {
         stubWorkOrderExists(confirmedWorkOrder());
-        JSONObject formalSnapshot = JSON.parseObject(activeRouteSnapshotJson(2));
-        JSONObject formalConfigs = formalSnapshot.getJSONObject("configSnapshots");
-        formalConfigs.put("productionProcessConfigSchemaVersion", 1);
-        com.alibaba.fastjson.JSONArray batchConfigs = new com.alibaba.fastjson.JSONArray();
-        for (Object raw : formalConfigs.getJSONArray("productionProcessConfigs")) {
-            JSONObject productionConfig = (JSONObject) raw;
-            JSONObject materials = new JSONObject();
-            materials.put("routeProcessId", productionConfig.getLong("routeProcessId"));
-            materials.put("inputMaterialIds", productionConfig.remove("inputMaterialIds"));
-            materials.put("outputMaterialIds", productionConfig.remove("outputMaterialIds"));
-            batchConfigs.add(materials);
-        }
-        formalConfigs.put("batchUseConfigs", batchConfigs);
-        stubFormalRouteQaContext(1001L, 448L, formalSnapshot.toJSONString(),
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
                 publishedRegulation(9902L, 928609L, 6001L));
         when(activeOrderMapper.selectLastByLeaderForUpdate(3001L))
                 .thenReturn(MesProcessPoolActiveOrderDO.builder().id(8000L).sortOrder(40L).build());
@@ -1223,7 +1213,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldGenerateItemScopedPqcTasksForSameQaProcessRuleWhenItemsDiffer() {
+    void shouldGenerateProcessScopedPqcTasksForSameQaProcessRuleWhenItemsDiffer() {
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
                 publishedRegulation(9902L, 928609L, 6001L));
@@ -1232,9 +1222,9 @@ class MesTeamLeaderActiveOrderServiceTest {
         when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9902L))).thenReturn(List.of(
                 qaProcess(9902L, 19902L, "QA-P1", "清洗", 1)));
         when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(List.of(
-                pqcItem(9902L, 19902L, "FIRST", 2, null)
+                pqcItem(9902L, 19902L, "FIRST", 5, null)
                         .setItemCode("FIRST-A").setItemName("外观"),
-                pqcItem(9902L, 19902L, "FIRST", 7, null)
+                pqcItem(9902L, 19902L, "FIRST", 5, null)
                         .setItemCode("FIRST-B").setItemName("尺寸"),
                 pqcItem(9902L, 19902L, "PATROL", null, new BigDecimal("5.000000"))
                         .setItemCode("PATROL-C").setItemName("巡检压力")));
@@ -1244,28 +1234,16 @@ class MesTeamLeaderActiveOrderServiceTest {
 
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(3)).insert(taskCaptor.capture());
         List<MesPqcInspectionTaskDO> tasks = taskCaptor.getAllValues();
-        assertEquals(List.of("FIRST-A", "FIRST-B"),
-                tasks.stream()
-                        .filter(task -> "FIRST".equals(task.getInspectionRuleKey()))
-                        .map(MesPqcInspectionTaskDO::getQaItemCode)
-                        .sorted()
-                        .toList());
-        assertEquals(Map.of("FIRST-A", 2, "FIRST-B", 7),
-                tasks.stream()
-                        .filter(task -> "FIRST".equals(task.getInspectionRuleKey()))
-                        .collect(java.util.stream.Collectors.toMap(MesPqcInspectionTaskDO::getQaItemCode,
-                                MesPqcInspectionTaskDO::getPlannedInspectionQuantity)));
-        assertEquals(List.of("PATROL-C", "PATROL-C"),
-                tasks.stream()
-                        .filter(task -> task.getInspectionRuleKey().startsWith("PATROL"))
-                        .map(MesPqcInspectionTaskDO::getQaItemCode)
-                        .sorted()
-                        .toList());
         assertEquals(Set.of("FIRST", "PATROL_AM", "PATROL_PM"),
                 tasks.stream().map(MesPqcInspectionTaskDO::getInspectionRuleKey)
                         .collect(java.util.stream.Collectors.toSet()));
+        assertTrue(tasks.stream().allMatch(task -> "".equals(task.getQaItemCode())));
+        assertEquals(Map.of("FIRST", 5, "PATROL_AM", 10, "PATROL_PM", 10),
+                tasks.stream().collect(java.util.stream.Collectors.toMap(
+                        MesPqcInspectionTaskDO::getInspectionRuleKey,
+                        MesPqcInspectionTaskDO::getPlannedInspectionQuantity)));
     }
 
     @Test
@@ -1297,11 +1275,11 @@ class MesTeamLeaderActiveOrderServiceTest {
                         .collect(java.util.stream.Collectors.toSet()));
         assertTrue(taskCaptor.getAllValues().stream()
                 .filter(task -> task.getInspectionRuleKey().startsWith("PATROL"))
-                .allMatch(task -> "PQC-IDI-001-I001".equals(task.getQaItemCode())));
+                .allMatch(task -> "".equals(task.getQaItemCode())));
     }
 
     @Test
-    void shouldGenerateFinalPqcTasksPerQaItemWhenSameQaProcessHasMultipleFinalItems() {
+    void shouldGenerateFinalPqcTasksPerProcessRuleWhenSameQaProcessHasMultipleFinalItems() {
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
                 publishedRegulation(9902L, 928609L, 6001L));
@@ -1324,17 +1302,12 @@ class MesTeamLeaderActiveOrderServiceTest {
 
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(5)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
         List<MesPqcInspectionTaskDO> tasks = taskCaptor.getAllValues();
-        assertEquals(List.of("FINAL-D", "FINAL-E"),
-                tasks.stream()
-                        .filter(task -> "FINAL".equals(task.getInspectionRuleKey()))
-                        .map(MesPqcInspectionTaskDO::getQaItemCode)
-                        .sorted()
-                        .toList());
         assertEquals(Set.of("FIRST", "PATROL_AM", "PATROL_PM", "FINAL"),
                 tasks.stream().map(MesPqcInspectionTaskDO::getInspectionRuleKey)
                         .collect(java.util.stream.Collectors.toSet()));
+        assertTrue(tasks.stream().allMatch(task -> "".equals(task.getQaItemCode())));
     }
 
     @Test
@@ -2573,6 +2546,14 @@ class MesTeamLeaderActiveOrderServiceTest {
                         "enabled": true,
                         "productionQuantityFactor": 1.000000
                       }
+                    ],
+                    "productionProcessConfigSchemaVersion": 1,
+                    "productionProcessConfigs": [
+                      {"routeProcessId":928609,"processId":6001,"overagePercent":10,
+                       "lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}
+                    ],
+                    "batchUseConfigs": [
+                      {"routeProcessId":928609,"inputMaterialIds":[],"outputMaterialIds":[1002]}
                     ]
                   }
                 }
@@ -2596,6 +2577,14 @@ class MesTeamLeaderActiveOrderServiceTest {
                         "useType": "SCHEDULE",
                         "enabled": true
                       }
+                    ],
+                    "productionProcessConfigSchemaVersion": 1,
+                    "productionProcessConfigs": [
+                      {"routeProcessId":928609,"processId":6001,"overagePercent":10,
+                       "lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}
+                    ],
+                    "batchUseConfigs": [
+                      {"routeProcessId":928609,"inputMaterialIds":[],"outputMaterialIds":[1002]}
                     ]
                   }
                 }
@@ -2670,7 +2659,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .routeProcessId(928601L)
                 .processId(6001L)
                 .qaProcessId(19902L)
-                .qaItemCode(inspectionType + "-001")
+                .qaItemCode("")
                 .regulationVersionId(9902L)
                 .inspectionType(inspectionType)
                 .inspectionRuleKey(inspectionRuleKey)
@@ -2968,8 +2957,12 @@ class MesTeamLeaderActiveOrderServiceTest {
         String productionConfigs = source.stream()
                 .map(regulation -> "{\"routeProcessId\":" + regulation.getRouteProcessId()
                         + ",\"processId\":" + regulation.getProcessId()
-                        + ",\"overagePercent\":10,\"inputMaterialIds\":[],\"outputMaterialIds\":[1002],\"lossReasons\":[],"
+                        + ",\"overagePercent\":10,\"lossReasons\":[],"
                         + "\"deviceSelectionGroups\":[],\"parameterRules\":[]}")
+                .collect(java.util.stream.Collectors.joining(","));
+        String batchUseConfigs = source.stream()
+                .map(regulation -> "{\"routeProcessId\":" + regulation.getRouteProcessId()
+                        + ",\"inputMaterialIds\":[],\"outputMaterialIds\":[1002]}")
                 .collect(java.util.stream.Collectors.joining(","));
         return """
                 {
@@ -2978,10 +2971,12 @@ class MesTeamLeaderActiveOrderServiceTest {
                       "nodes": [%s]
                     },
                     "scheduleUseConfigs": [%s],
-                    "productionProcessConfigs": [%s]
+                    "productionProcessConfigSchemaVersion": 1,
+                    "productionProcessConfigs": [%s],
+                    "batchUseConfigs": [%s]
                   }
                 }
-                """.formatted(nodes, configs, productionConfigs);
+                """.formatted(nodes, configs, productionConfigs, batchUseConfigs);
     }
 
     private static String activeRouteSnapshotJson(int processCount) {
@@ -2999,8 +2994,12 @@ class MesTeamLeaderActiveOrderServiceTest {
         String productionConfigs = java.util.stream.IntStream.rangeClosed(1, processCount)
                 .mapToObj(index -> "{\"routeProcessId\":" + (928600L + index)
                         + ",\"processId\":" + (6000L + index)
-                        + ",\"overagePercent\":10,\"inputMaterialIds\":[],\"outputMaterialIds\":[1002],\"lossReasons\":[],"
+                        + ",\"overagePercent\":10,\"lossReasons\":[],"
                         + "\"deviceSelectionGroups\":[],\"parameterRules\":[]}")
+                .collect(java.util.stream.Collectors.joining(","));
+        String batchUseConfigs = java.util.stream.IntStream.rangeClosed(1, processCount)
+                .mapToObj(index -> "{\"routeProcessId\":" + (928600L + index)
+                        + ",\"inputMaterialIds\":[],\"outputMaterialIds\":[1002]}")
                 .collect(java.util.stream.Collectors.joining(","));
         return """
                 {
@@ -3009,10 +3008,12 @@ class MesTeamLeaderActiveOrderServiceTest {
                       "nodes": [%s]
                     },
                     "scheduleUseConfigs": [%s],
-                    "productionProcessConfigs": [%s]
+                    "productionProcessConfigSchemaVersion": 1,
+                    "productionProcessConfigs": [%s],
+                    "batchUseConfigs": [%s]
                   }
                 }
-                """.formatted(nodes, configs, productionConfigs);
+                """.formatted(nodes, configs, productionConfigs, batchUseConfigs);
     }
 
     private static String activeRouteSnapshotJsonWithRouteIdentity(int processCount) {

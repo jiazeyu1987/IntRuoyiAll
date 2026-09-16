@@ -1,6 +1,6 @@
 <template>
   <ContentWrap class="edhr-batch-detail__content-wrap">
-    <div v-loading="loading" class="edhr-batch-detail">
+    <div v-loading="loading" class="edhr-batch-detail" data-edhr-batch-detail-page>
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
       <el-alert
         v-if="releaseActionError"
@@ -635,6 +635,7 @@
                     v-if="action.permission"
                     v-hasPermi="action.permission"
                     type="button"
+                    :data-edhr-release-action="action.key"
                     class="edhr-batch-detail__release-image-action"
                     :class="[
                       `is-${action.key}`,
@@ -1108,7 +1109,12 @@
       </template>
     </Dialog>
 
-    <Dialog title="完成特殊节点" v-model="specialNodeCompleteDialogVisible" width="520px">
+    <Dialog
+      title="完成特殊节点"
+      v-model="specialNodeCompleteDialogVisible"
+      width="520px"
+      data-production-release-report-complete-dialog
+    >
       <el-alert
         v-if="specialNodeCompleteError"
         :title="specialNodeCompleteError"
@@ -1132,6 +1138,7 @@
         <el-form-item v-if="isSterilizationNode(currentSpecialNode)" label="灭菌批次" required>
           <el-input
             v-model="specialNodeCompleteForm.sterilizationBatchNo"
+            data-production-release-sterilization-batch
             placeholder="请输入灭菌批次"
             @keyup.enter="submitSpecialNodeComplete"
           />
@@ -1160,6 +1167,7 @@
         <el-button
           type="primary"
           :loading="specialNodeCompleteLoading"
+          data-production-release-report-complete-confirm
           @click="submitSpecialNodeComplete"
         >
           {{ isProductionReleaseReportNode(currentSpecialNode) ? '完成报告' : '确 认' }}
@@ -1167,10 +1175,18 @@
       </template>
     </Dialog>
 
-    <el-drawer v-model="archivePrintDrawerVisible" title="归档打印" size="520px">
+    <el-drawer
+      v-model="archivePrintDrawerVisible"
+      title="归档打印"
+      size="520px"
+      data-edhr-archive-drawer
+    >
       <el-descriptions v-if="latestBatchArchive" :column="1" border class="mb-16px">
         <el-descriptions-item label="归档版本">
-          V{{ latestBatchArchive.archiveVersion || '--' }}
+          <span data-edhr-archive-version>V{{ latestBatchArchive.archiveVersion || '--' }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="归档状态">
+          <span data-edhr-archive-status>{{ latestBatchArchive.archiveStatus || '--' }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="长期归档格式">
           <el-tag v-if="latestBatchArchivePdfAValid" type="success">
@@ -1188,6 +1204,7 @@
           type="primary"
           :loading="archiveGenerationLoading"
           :disabled="isViewedReleaseStageReadonly || !canGenerateArchive || archiveGenerationLoading"
+          data-edhr-archive-generate
           @click="handleGenerateArchive"
           >生成归档</el-button
         >
@@ -1195,12 +1212,14 @@
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:create']"
           :loading="archiveGenerationLoading"
           :disabled="isViewedReleaseStageReadonly || !canGenerateArchive || archiveGenerationLoading"
+          data-edhr-archive-regenerate
           @click="handleGenerateArchive"
           >重新生成</el-button
         >
         <el-button
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
           :disabled="isViewedReleaseStageReadonly || archiveGenerationLoading || !latestBatchArchive?.id"
+          data-edhr-archive-print
           @click="handlePrintArchive"
         >
           打印

@@ -313,11 +313,17 @@
                       <template #default="{ row }">{{ row.materialSpecification || '未记录' }}</template>
                     </el-table-column>
                     <el-table-column label="批号" width="170">
-                      <template #default="{ row }">{{ formatActiveOrderBatchCodes(row.batchCodes) }}</template>
+                      <template #default="{ row }">
+                        <span data-active-order-production-record-input-material-batch>
+                          {{ formatActiveOrderBatchCodes(row.batchCodes) }}
+                        </span>
+                      </template>
                     </el-table-column>
                     <el-table-column label="领料单号" width="190">
                       <template #default="{ row }">
-                        {{ formatProductionInputMaterialPickListEvidence(row) }}
+                        <span data-active-order-production-record-input-material-pick-list>
+                          {{ formatProductionInputMaterialPickListEvidence(row) }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="实发数量" width="105">
@@ -1096,11 +1102,17 @@
                 <template #default="{ row }">{{ row.materialSpecification || '未记录' }}</template>
               </el-table-column>
               <el-table-column label="批号" width="170">
-                <template #default="{ row }">{{ formatActiveOrderBatchCodes(row.batchCodes) }}</template>
+                <template #default="{ row }">
+                  <span data-active-order-production-record-input-material-batch>
+                    {{ formatActiveOrderBatchCodes(row.batchCodes) }}
+                  </span>
+                </template>
               </el-table-column>
               <el-table-column label="领料单号" width="190">
                 <template #default="{ row }">
-                  {{ formatProductionInputMaterialPickListEvidence(row) }}
+                  <span data-active-order-production-record-input-material-pick-list>
+                    {{ formatProductionInputMaterialPickListEvidence(row) }}
+                  </span>
                 </template>
               </el-table-column>
               <el-table-column label="实发数量" width="105">

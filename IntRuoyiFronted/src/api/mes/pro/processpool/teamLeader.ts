@@ -268,6 +268,39 @@ export interface TeamLeaderActiveOrderSimulationCopyRespVO {
   simulationRunId: string
 }
 
+export interface TeamLeaderActiveOrderTestResetRespVO {
+  workOrderCode: string
+  workOrderId: number
+  previousActiveOrderCount: number
+  activeOrderId: number
+  action: TeamLeaderActiveOrderCommitAction
+  deletedEventCount: number
+  deletedBatchExecutionCount: number
+  deletedRecordExecutionCount: number
+}
+
+export interface TeamLeaderDataCleanupPreviewRespVO {
+  leaderUserId: number | string
+  orderIds: Array<number | string>
+  orderVersions: number[]
+  workOrderIds: Array<number | string>
+  batchExecutionIds: Array<number | string>
+  activeOrderCount: number
+  reportEventCount: number
+  batchExecutionCount: number
+  releaseApplicationCount: number
+  releaseTransactionCount: number
+}
+
+export interface TeamLeaderDataCleanupResultRespVO {
+  activeOrderCount: number
+  reportEventCount: number
+  batchExecutionCount: number
+  batchRecordExecutionCount: number
+  releaseApplicationCount: number
+  releaseTransactionCount: number
+}
+
 export interface Stage2_5BackfillBatchExecutionSimulationReqVO {
   simulationRunId: string
   activeOrderId: number
@@ -1089,6 +1122,32 @@ export const cleanupLatestTeamLeaderSimulationActiveOrder = async (activeOrderId
   return await request.post<boolean>({
     url: '/mes/pro/process-pool/team-leader/active-order/simulation/copy-latest/cleanup',
     data: { activeOrderId },
+    ignoreErrorMessage: true
+  })
+}
+
+export const resetFixedSimulationActiveOrder = async () => {
+  return await request.post<TeamLeaderActiveOrderTestResetRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/simulation/test-reset',
+    ignoreErrorMessage: true
+  })
+}
+
+export const previewTeamLeaderDataCleanup = async () => {
+  return await request.get<TeamLeaderDataCleanupPreviewRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/data-cleanup/preview',
+    ignoreErrorMessage: true
+  })
+}
+
+export const executeTeamLeaderDataCleanup = async (data: {
+  orderIds: Array<number | string>
+  orderVersions: number[]
+  confirm: boolean
+}) => {
+  return await request.post<TeamLeaderDataCleanupResultRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/data-cleanup/execute',
+    data,
     ignoreErrorMessage: true
   })
 }

@@ -32,14 +32,18 @@ final class MesOutputMaterialProgressCalculator {
             List<MesProProcessPoolEventDO> productionEvents,
             Collection<MesProcessPoolReportAllocationDO> currentAllocations) {
         List<Long> outputMaterialIds = parseRequiredOutputMaterialIds(activeOrder, snapshot);
-        Map<Long, BigDecimal> quantitiesByMaterial = new LinkedHashMap<>();
-        outputMaterialIds.forEach(materialId -> quantitiesByMaterial.put(materialId, zero(snapshot)));
-
         Map<Long, BigDecimal> currentAllocationQuantityByEventId =
                 currentAllocationQuantityByEventId(activeOrder, snapshot, currentAllocations);
         if (currentAllocationQuantityByEventId.isEmpty()) {
             return zero(snapshot);
         }
+        if (outputMaterialIds.isEmpty()) {
+            return calculateFormalAllocationProgressWithoutOutputMaterials(activeOrder, snapshot,
+                    productionEvents, currentAllocationQuantityByEventId);
+        }
+
+        Map<Long, BigDecimal> quantitiesByMaterial = new LinkedHashMap<>();
+        outputMaterialIds.forEach(materialId -> quantitiesByMaterial.put(materialId, zero(snapshot)));
         Set<Long> matchedEventIds = new LinkedHashSet<>();
         for (MesProProcessPoolEventDO event : productionEvents == null
                 ? List.<MesProProcessPoolEventDO>of() : productionEvents) {
@@ -69,6 +73,30 @@ final class MesOutputMaterialProgressCalculator {
                 .min(BigDecimal::compareTo)
                 .orElse(zero(snapshot))
                 .setScale(scale(snapshot), RoundingMode.HALF_UP);
+    }
+
+    private static BigDecimal calculateFormalAllocationProgressWithoutOutputMaterials(
+            MesProcessPoolActiveOrderDO activeOrder,
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+            List<MesProProcessPoolEventDO> productionEvents,
+            Map<Long, BigDecimal> currentAllocationQuantityByEventId) {
+        Set<Long> matchedEventIds = new LinkedHashSet<>();
+        BigDecimal progress = zero(snapshot);
+        for (MesProProcessPoolEventDO event : productionEvents == null
+                ? List.<MesProProcessPoolEventDO>of() : productionEvents) {
+            BigDecimal allocatedQuantity = event == null || event.getId() == null
+                    ? null : currentAllocationQuantityByEventId.get(event.getId());
+            if (allocatedQuantity == null) {
+                continue;
+            }
+            validateProductionEventIdentity(activeOrder, snapshot, event);
+            matchedEventIds.add(event.getId());
+            progress = progress.add(allocatedQuantity);
+        }
+        if (!matchedEventIds.containsAll(currentAllocationQuantityByEventId.keySet())) {
+            throw sourceMissing(activeOrder, "PRODUCTION_EVENT_FOR_CURRENT_ALLOCATION");
+        }
+        return progress.setScale(scale(snapshot), RoundingMode.HALF_UP);
     }
 
     private static Map<Long, BigDecimal> currentAllocationQuantityByEventId(
@@ -114,7 +142,7 @@ final class MesOutputMaterialProgressCalculator {
             throw sourceMissing(activeOrder, "PRODUCTION_CONFIG_SNAPSHOT_JSON");
         }
         JSONArray rawIds = config == null ? null : config.getJSONArray("outputMaterialIds");
-        if (rawIds == null || rawIds.isEmpty()) {
+        if (rawIds == null) {
             throw sourceMissing(activeOrder, "PRODUCTION_OUTPUT_MATERIAL_IDS_REQUIRED");
         }
         Set<Long> normalized = new LinkedHashSet<>();

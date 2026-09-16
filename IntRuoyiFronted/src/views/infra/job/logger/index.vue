@@ -141,7 +141,7 @@ const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
   jobId: query.id,
-  handlerName: undefined,
+  handlerName: query.handlerName,
   beginTime: undefined,
   endTime: undefined,
   status: undefined

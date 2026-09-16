@@ -69,19 +69,7 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
             "FBomId.FNumber",
             "FMaterialId.F_PAEZ_TUHAO",
             "FMaterialId.F_PAEZ_REFNO");
-    private static final String BILL_LOOKUP_FIELD_KEYS = String.join(",",
-            "FID",
-            "FBillNo",
-            "FDocumentStatus",
-            "FDate",
-            "FMaterialId.FNumber",
-            "FMaterialId.FName",
-            "FMaterialId.FSpecification",
-            "FQty",
-            "FPlanStartDate",
-            "FPlanFinishDate",
-            "FSrcBillNo",
-            "FStatus");
+
     private static final String INCREMENTAL_FIELD_KEYS = FIELD_KEYS + ",FModifyDate";
     private static final int INDEX_FID = 0;
     private static final int INDEX_BILL_NO = 1;
@@ -194,7 +182,7 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         requireNoSingleQuote(requireNotBlank(billNo, "billNo"), "billNo");
         String cookieHeader = login(properties);
         JsonNode rows = executeBillQuery(properties, cookieHeader,
-                buildBillNoFilterString(billNo), 0, 2, BILL_LOOKUP_FIELD_KEYS);
+                buildBillNoFilterString(billNo), 0, 2, FIELD_KEYS);
         if (!rows.isArray()) {
             throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_MO response is not an array");
         }
@@ -751,5 +739,4 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
             throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, fieldName + " is not a datetime");
         }
     }
-
 }

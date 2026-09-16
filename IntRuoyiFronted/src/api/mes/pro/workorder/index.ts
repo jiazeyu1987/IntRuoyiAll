@@ -83,6 +83,13 @@ export interface KingdeeProductionOrderCreateRespVO {
   submitted: boolean
 }
 
+export interface DeterministicAiE2eProductionOrderCreateReqVO {
+  runId: string
+  slot: string
+  quantity: number
+  batchNumber: string
+}
+
 export interface ProWorkOrderKingdeeSyncStatusVO {
   syncType: string
   autoSyncConfigured: boolean
@@ -168,6 +175,15 @@ export const ProWorkOrderApi = {
   ): Promise<KingdeeProductionOrderCreateRespVO> => {
     return await request.post({
       url: `/mes/pro/work-order/${workOrderId}/create-kingdee-production-order`
+    })
+  },
+
+  createAiE2eProductionOrder: async (
+    data: DeterministicAiE2eProductionOrderCreateReqVO
+  ): Promise<KingdeeProductionOrderCreateRespVO> => {
+    return await request.post({
+      url: `/mes/pro/work-order/create-ai-e2e-production-order`,
+      data
     })
   },
 

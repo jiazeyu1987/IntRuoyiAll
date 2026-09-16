@@ -13,28 +13,33 @@ const feedbackApiSource = read(path.join(frontendRoot, 'src/api/mes/pro/feedback
 
 assert.match(
   feedbackApiSource,
-  /pqcTaskOptions\?: FrontlinePqcTaskOptionVO\[\]/,
-  'PQC process API type must expose FIRST/PATROL task options for switching.'
+  /pqcTaskOptions: FrontlinePqcTaskOptionVO\[\]/,
+  'PQC process API type must expose formal task options for switching.'
 )
 assert.match(
   viewSource,
-  /type InspectionType = 'FIRST' \| 'PATROL'/,
-  'One-line PQC page must only expose FIRST and PATROL inspection types.'
+  /type InspectionType = 'FIRST' \| 'PATROL' \| 'FINAL'/,
+  'One-line PQC page must support configured FIRST/PATROL/FINAL inspection types.'
+)
+assert.match(
+  viewSource,
+  /const PQC_INSPECTION_RULE_LABELS: Record<FrontlinePqcInspectionRuleKey, string> = \{[\s\S]*FINAL:\s*(?:'末检'|PQC_INSPECTION_TYPE_LABELS\.FINAL)/,
+  'PQC page must render FINAL when a formal final-inspection task exists.'
 )
 assert.doesNotMatch(
   viewSource,
   /@click="selectPqcInspectionType\('FINAL'\)"/,
-  'One-line PQC page must not render a FINAL inspection button.'
+  'One-line PQC page must not hard-code a FINAL button outside formal task options.'
 )
 assert.doesNotMatch(
   viewSource,
   /isFinalInspectionSelectable|finalInspectionApplicable === true/,
-  'One-line PQC page must not gate first/patrol submission on final-inspection applicability.'
+  'One-line PQC page must not gate task visibility on a frontend final-inspection fallback.'
 )
 assert.match(
   viewSource,
-  /findPqcTaskOption[\s\S]*inspectionType[\s\S]*applyPqcTaskOptionToSelectedProcess/,
-  'Selecting FIRST or PATROL must apply the matching task option snapshot.'
+  /@click="selectPqcInspectionTaskOption\(tab\.value\)"[\s\S]*const selectPqcInspectionTaskOption = async \(pqcTaskId: number\)[\s\S]*applyPqcTaskOptionToSelectedProcess\(option\)/,
+  'Selecting a configured inspection button must apply the matching task option snapshot.'
 )
 
-console.log('PASS: frontline PQC first/patrol flow excludes final inspection switch')
+console.log('PASS: frontline PQC final inspection displays only from formal task options')

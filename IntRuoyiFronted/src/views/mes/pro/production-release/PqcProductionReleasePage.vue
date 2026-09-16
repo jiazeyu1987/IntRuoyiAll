@@ -18,13 +18,25 @@
 
       <el-form :inline="true" :model="queryParams" class="pqc-release-page__filters">
         <el-form-item label="工单号">
-          <el-input v-model="queryParams.workOrderCode" clearable class="!w-200px" />
+          <el-input
+            v-model="queryParams.workOrderCode"
+            clearable
+            class="!w-200px"
+            data-pqc-production-release-work-order-filter
+          />
         </el-form-item>
         <el-form-item label="批次号">
           <el-input v-model="queryParams.batchCode" clearable class="!w-200px" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :icon="Search" @click="handleQuery">查询</el-button>
+          <el-button
+            type="primary"
+            :icon="Search"
+            data-pqc-production-release-query
+            @click="handleQuery"
+          >
+            查询
+          </el-button>
           <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
         </el-form-item>
       </el-form>
@@ -41,7 +53,9 @@
       >
         <el-table-column label="生产对象" min-width="240">
           <template #default="{ row }">
-            <div class="pqc-release-page__primary">{{ row.workOrderCode || '--' }}</div>
+            <div class="pqc-release-page__primary" data-pqc-production-release-work-order-code>
+              {{ row.workOrderCode || '--' }}
+            </div>
             <div class="pqc-release-page__secondary">批次：{{ row.batchCode || '--' }}</div>
           </template>
         </el-table-column>
@@ -149,13 +163,26 @@
           show-icon
         />
 
-        <el-result
-          v-if="releaseResult"
-          icon="success"
-          title="生产放行完成"
-          :sub-title="`批次执行 ${releaseResult.batchExecutionId || '--'} 已创建，后续进入资料上传。`"
-        >
+        <el-result v-if="releaseResult" icon="success" title="生产放行完成">
+          <template #sub-title>
+            <span data-pqc-production-release-batch-execution-id>
+              批次执行 {{ releaseResult.batchExecutionId || '--' }} 已创建，后续进入资料上传。
+            </span>
+          </template>
           <template #extra>
+            <el-table
+              v-if="releaseResult.reportUploadTasks?.length"
+              :data="releaseResult.reportUploadTasks"
+              size="small"
+              border
+              data-pqc-production-release-report-task-list
+            >
+              <el-table-column label="报告任务" min-width="170">
+                <template #default="{ row }">{{ row.nodeType }}</template>
+              </el-table-column>
+              <el-table-column prop="workTaskId" label="工作待办" min-width="150" />
+              <el-table-column prop="status" label="状态" width="110" />
+            </el-table>
             <el-button
               v-if="releaseResult.batchExecutionId"
               type="primary"
@@ -171,6 +198,7 @@
             <el-input
               v-model="releaseForm.signaturePassword"
               type="password"
+              data-pqc-production-release-signature-password
               show-password
               autocomplete="current-password"
               placeholder="请输入当前账号电子签名密码"
@@ -181,6 +209,7 @@
             <el-input
               v-model="releaseForm.approvalOpinion"
               type="textarea"
+              data-pqc-production-release-approval-opinion
               :rows="3"
               maxlength="500"
               show-word-limit
@@ -197,6 +226,7 @@
           type="primary"
           :loading="releaseSubmitting"
           :disabled="releaseOutcomeUncertain"
+          data-pqc-production-release-confirm
           @click="submitRelease"
         >
           确认放行

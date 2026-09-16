@@ -176,7 +176,9 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(header(HttpHeaders.COOKIE, containsString("kdservice-sessionid=abc")))
                 .andExpect(content().string(containsString("PRD_MO")))
                 .andExpect(content().string(containsString("FBillNo+%3D+%27WO-001%27")))
-                .andExpect(content().string(containsString("FieldKeys%22%3A%22FID%2CFBillNo%2CFDocumentStatus%2CFDate%2CFMaterialId.FNumber%2CFMaterialId.FName%2CFMaterialId.FSpecification%2CFQty%2CFPlanStartDate%2CFPlanFinishDate%2CFSrcBillNo%2CFStatus%22")))
+                .andExpect(content().string(containsString("FUnitId.FNumber")))
+                .andExpect(content().string(containsString("FUnitId.FName")))
+                .andExpect(content().string(containsString("FLot.FNumber")))
                 .andExpect(content().string(containsString("FDocumentStatus+%3C%3E+%27Z%27")))
                 .andRespond(withSuccess("""
                         [[310119,"WO-001","A","2026-06-12T08:00:00","MAT-001","ABS","TR558A",12,"2026-06-12T08:00:00","2026-06-12T08:00:00","SO-001","1","kg","千克","BATCH-WO-001","","","","","","",""]]
@@ -187,6 +189,8 @@ class ErpKingdeeProductionOrderClientImplTest {
         assertEquals("310119", order.getFid());
         assertEquals("WO-001", order.getBillNo());
         assertEquals("MAT-001", order.getMaterialNumber());
+        assertEquals("kg", order.getUnitCode());
+        assertEquals("千克", order.getUnitName());
         assertEquals("BATCH-WO-001", order.getBatchNumber());
         server.verify();
     }

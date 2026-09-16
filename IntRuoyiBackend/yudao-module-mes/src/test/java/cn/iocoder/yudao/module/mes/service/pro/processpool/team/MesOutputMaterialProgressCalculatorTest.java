@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
@@ -9,7 +10,9 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.List;
 
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MesOutputMaterialProgressCalculatorTest {
 
@@ -104,6 +107,31 @@ class MesOutputMaterialProgressCalculatorTest {
 
         assertEquals(BigDecimal.valueOf(50).setScale(6), splitProgress);
         assertEquals(splitProgress, combinedProgress);
+    }
+
+    @Test
+    void emptyOutputMaterialIdsUseFormalAllocationProgressWithoutMaterialDetails() {
+        BigDecimal progress = MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
+                activeOrder(10L, 30L),
+                snapshot(10L, 30L, "{\"outputMaterialIds\":[]}"),
+                List.of(productionSubmit(401L, 30L, "{}")),
+                List.of(allocation(201L, 10L, 30L, 401L, "40")));
+
+        assertEquals(BigDecimal.valueOf(40).setScale(6), progress);
+    }
+
+    @Test
+    void missingOutputMaterialIdsStillFailsFast() {
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
+                        activeOrder(10L, 30L),
+                        snapshot(10L, 30L, "{\"inputMaterialIds\":[]}"),
+                        List.of(productionSubmit(401L, 30L, "{}")),
+                        List.of(allocation(201L, 10L, 30L, 401L, "40"))));
+
+        assertEquals(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING.getCode(), ex.getCode());
+        assertEquals("活跃订单完成缺少正式三类回填来源：activeOrderId=10，blocker=PRODUCTION_OUTPUT_MATERIAL_IDS_REQUIRED",
+                ex.getMessage());
     }
 
     private MesProcessPoolActiveOrderDO activeOrder(Long activeOrderId, Long workOrderId) {

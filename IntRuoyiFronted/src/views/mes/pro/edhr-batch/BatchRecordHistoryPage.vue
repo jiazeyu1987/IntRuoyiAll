@@ -1,6 +1,6 @@
 <template>
   <ContentWrap>
-    <div class="edhr-batch-history">
+    <div class="edhr-batch-history" data-edhr-batch-history-page>
       <EdhrBatchRecordTabs active-tab="history" />
 
       <el-form :inline="true" :model="queryParams" class="edhr-batch-history__toolbar" @submit.prevent>
@@ -13,10 +13,22 @@
           />
         </el-form-item>
         <el-form-item label="工单号">
-          <el-input v-model="queryParams.workOrderCode" clearable class="!w-170px" @keyup.enter="handleQuery" />
+          <el-input
+            v-model="queryParams.workOrderCode"
+            clearable
+            class="!w-170px"
+            data-edhr-history-work-order-filter
+            @keyup.enter="handleQuery"
+          />
         </el-form-item>
         <el-form-item label="批次号">
-          <el-input v-model="queryParams.batchCode" clearable class="!w-160px" @keyup.enter="handleQuery" />
+          <el-input
+            v-model="queryParams.batchCode"
+            clearable
+            class="!w-160px"
+            data-edhr-history-batch-code-filter
+            @keyup.enter="handleQuery"
+          />
         </el-form-item>
         <el-form-item label="产品">
           <el-input v-model="queryParams.productCode" clearable class="!w-150px" @keyup.enter="handleQuery" />
@@ -36,7 +48,7 @@
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleQuery">查询</el-button>
+          <el-button type="primary" data-edhr-history-query @click="handleQuery">查询</el-button>
           <el-button @click="resetQuery">重置</el-button>
         </el-form-item>
       </el-form>
@@ -54,21 +66,37 @@
           </div>
 
           <el-empty v-if="!loading && !batchList.length" description="暂无已归档批记录" />
-          <div v-else v-loading="loading" class="edhr-batch-history__batch-list" aria-label="历史批记录列表">
+          <div
+            v-else
+            v-loading="loading"
+            class="edhr-batch-history__batch-list"
+            aria-label="历史批记录列表"
+            data-edhr-history-batch-list
+          >
             <button
               v-for="batch in batchList"
               :key="batch.id"
               type="button"
+              data-edhr-history-batch-item
+              :data-edhr-history-batch-execution-id="batch.id"
               class="edhr-batch-history__batch-item"
               :class="{ 'is-active': batch.id === selectedBatchId }"
               @click="selectBatch(batch)"
             >
-              <span class="edhr-batch-history__batch-code">{{ batch.batchExecutionCode || batch.id }}</span>
-              <span class="edhr-batch-history__batch-line">工单 {{ batch.workOrderCode || '--' }}</span>
-              <span class="edhr-batch-history__batch-line">批次 {{ batch.batchCode || '--' }}</span>
+              <span class="edhr-batch-history__batch-code" data-edhr-history-batch-execution-code>
+                {{ batch.batchExecutionCode || batch.id }}
+              </span>
+              <span class="edhr-batch-history__batch-line">
+                工单 <span data-edhr-history-work-order-code>{{ batch.workOrderCode || '--' }}</span>
+              </span>
+              <span class="edhr-batch-history__batch-line">
+                批次 <span data-edhr-history-batch-code>{{ batch.batchCode || '--' }}</span>
+              </span>
               <span class="edhr-batch-history__batch-meta">
                 <span>{{ batch.routeCode || batch.routeName || '--' }}</span>
-                <el-tag size="small" type="success">{{ resolveBatchStatusLabel(batch.status) }}</el-tag>
+                <el-tag size="small" type="success" data-edhr-history-batch-status>
+                  {{ resolveBatchStatusLabel(batch.status) }}
+                </el-tag>
               </span>
             </button>
           </div>
@@ -141,7 +169,7 @@
                   class="edhr-batch-history__source-item"
                 >
                   <span>{{ item.label }}</span>
-                  <strong>{{ item.count }}</strong>
+                  <strong :data-edhr-history-source-count="item.label">{{ item.count }}</strong>
                 </div>
               </div>
 
@@ -157,7 +185,11 @@
                   :type="item.type"
                   placement="top"
                 >
-                  <article class="edhr-batch-history__timeline-card">
+                  <article
+                    class="edhr-batch-history__timeline-card"
+                    data-edhr-history-timeline-item
+                    :data-edhr-history-timeline-source="item.source"
+                  >
                     <div class="edhr-batch-history__timeline-title">
                       <el-tag size="small" :type="item.type">{{ item.source }}</el-tag>
                       <span>{{ item.title }}</span>
@@ -181,6 +213,7 @@
                   v-for="item in dossierItems"
                   :key="item.id || `${item.itemType}-${item.itemKey}`"
                   class="edhr-batch-history__dossier-item"
+                  data-edhr-history-dossier-item
                 >
                   <div class="edhr-batch-history__dossier-item-head">
                     <div>
@@ -250,6 +283,7 @@
                     :key="String(execution.executionId)"
                     type="button"
                     class="edhr-batch-history__process-item"
+                    data-edhr-history-process-item
                     :class="{ 'is-active': String(execution.executionId) === selectedExecutionId }"
                     @click="selectExecution(execution)"
                   >
@@ -350,6 +384,7 @@
                           v-for="attachment in selectedExecution.attachmentSummaries"
                           :key="attachment.id || `${attachment.fieldPath}-${attachment.attachmentHash}`"
                           class="edhr-batch-history__attachment-item"
+                          data-edhr-history-attachment-item
                         >
                           <div class="edhr-batch-history__attachment-item-head">
                             <div class="edhr-batch-history__attachment-name">

@@ -20,7 +20,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
@@ -36,7 +38,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
@@ -103,6 +107,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private final MesProcessPoolSubmissionReviewMapper submissionReviewMapper;
     private final MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
     private final MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
+    private final MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
+    private final MesQaInspectionRegulationMapper inspectionRegulationMapper;
     private final MesPqcItemEquipmentConfigService pqcItemEquipmentConfigService;
     private final MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper;
     private final MesProFeedbackMapper feedbackMapper;
@@ -129,6 +135,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
             MesProcessPoolSubmissionReviewMapper submissionReviewMapper,
             MesPqcInspectionTaskMapper pqcInspectionTaskMapper,
             MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper,
+            MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper,
+            MesQaInspectionRegulationMapper inspectionRegulationMapper,
             MesPqcItemEquipmentConfigService pqcItemEquipmentConfigService,
             MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper,
             MesProFeedbackMapper feedbackMapper,
@@ -153,6 +161,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
         this.submissionReviewMapper = submissionReviewMapper;
         this.pqcInspectionTaskMapper = pqcInspectionTaskMapper;
         this.inspectionRegulationItemMapper = inspectionRegulationItemMapper;
+        this.inspectionRegulationVersionMapper = inspectionRegulationVersionMapper;
+        this.inspectionRegulationMapper = inspectionRegulationMapper;
         this.pqcItemEquipmentConfigService = pqcItemEquipmentConfigService;
         this.pqcPieceDetailMapper = pqcPieceDetailMapper;
         this.feedbackMapper = feedbackMapper;
@@ -1105,13 +1115,10 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private PqcEquipment resolveDefaultPqcEquipment(MesProcessPoolActiveOrderDO activeOrder,
                                                     MesPqcInspectionTaskDO task,
                                                     MesQaInspectionRegulationItemDO item) {
-        if (activeOrder.getDccProjectCodeId() == null || activeOrder.getDccProjectCodeId() <= 0) {
-            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                    "PQC任务缺少项目编码，无法读取正式检验设备配置，taskId=" + task.getId());
-        }
+        Long dccProjectCodeId = resolvePqcTaskDccProjectCodeId(task);
         String itemCode = item.getItemCode().trim();
         List<MesPqcItemEquipmentOption> options = pqcItemEquipmentConfigService
-                .listEnabledEquipmentOptionsByProjectVersionAndItemCodes(activeOrder.getDccProjectCodeId(),
+                .listEnabledEquipmentOptionsByProjectVersionAndItemCodes(dccProjectCodeId,
                         task.getRegulationVersionId(), List.of(itemCode))
                 .getOrDefault(itemCode, List.of()).stream()
                 .sorted(Comparator.comparing((MesPqcItemEquipmentOption option) ->
@@ -1137,6 +1144,36 @@ public class MesTeamLeaderActiveOrderSimulationService {
         return new PqcEquipment(selected.equipmentId(), selected.equipmentCode().trim(),
                 selected.equipmentName().trim(), selected.equipmentNumber().trim(),
                 requirePqcWorkstation(activeOrder, task));
+    }
+
+    private Long resolvePqcTaskDccProjectCodeId(MesPqcInspectionTaskDO task) {
+        MesQaInspectionRegulationVersionDO version =
+                inspectionRegulationVersionMapper.selectById(task.getRegulationVersionId());
+        if (version == null || !Objects.equals(task.getRegulationVersionId(), version.getId())
+                || version.getRegulationId() == null) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "PQC任务锁定QA规程版本不存在，taskId=" + task.getId()
+                            + "，regulationVersionId=" + task.getRegulationVersionId());
+        }
+        MesQaInspectionRegulationDO regulation = inspectionRegulationMapper.selectById(version.getRegulationId());
+        if (regulation == null || regulation.getDccProjectCodeId() == null
+                || regulation.getDccProjectCodeId() <= 0) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "PQC任务锁定QA规程缺少DCC项目代码，taskId=" + task.getId()
+                            + "，regulationId=" + version.getRegulationId());
+        }
+        if (task.getQaRegulationId() != null && !Objects.equals(task.getQaRegulationId(), regulation.getId())) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "PQC任务QA规程身份与锁定版本不一致，taskId=" + task.getId()
+                            + "，regulationVersionId=" + task.getRegulationVersionId());
+        }
+        if (task.getDccProjectCodeId() != null && task.getDccProjectCodeId() > 0
+                && !Objects.equals(task.getDccProjectCodeId(), regulation.getDccProjectCodeId())) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "PQC任务DCC项目代码与锁定版本不一致，taskId=" + task.getId()
+                            + "，regulationVersionId=" + task.getRegulationVersionId());
+        }
+        return regulation.getDccProjectCodeId();
     }
 
     private Long requirePqcWorkstation(MesProcessPoolActiveOrderDO activeOrder, MesPqcInspectionTaskDO task) {

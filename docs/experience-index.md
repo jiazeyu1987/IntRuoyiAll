@@ -66,7 +66,7 @@
 - Keywords: 排产员工作台产能覆盖, 班次产能编辑, 手工调整产能, process-wip-settings, MANUAL_OVERRIDE, 小时产量覆盖值, 班次小时重算, refreshScheduleOrderProcessesFromRouteConfig, 重排刷新路线配置覆盖工作台产能 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#工作台产能覆盖门禁`
 - Keywords: 排产员工作台最近一次排产口径, process-wip-statistics, 最近只排5个订单但显示9个订单在做, AUTO_APPLY, REPLAN_APPLY, afterSnapshotJson.scheduleOrderIds, operation_log.schedule_order_id 不补范围, 历史排产工单混入, process-wip-settings, 班次小时刷新不更新历史工单 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#工作台最近一次排产口径门禁`
 - Keywords: 重复任务记录, duplicate task, 多次继续, resume 误捡 in_progress, pending 验证证据, 主任务证据, 重复任务同步收口 -> `docs/task-closeout-rules.md#重复任务记录收口门禁`
-- Keywords: 活跃订单多张领料单, 完工时查询领料单, 一线输入批号共享正式领料单校验, 输入物料只读批号, 输出物料填写数量, 一对多领料来源, 部分绑定补齐, pick-list binding, pickListSources, sourceFid, sourceLineKey, ERP来源唯一键, 复制来源身份, 第二张领料单唯一键冲突, 来源证据ID, 物化回填ID, 全量来源清理 -> `docs/backend-development.md#关联从一对一扩展为一对多门禁` and `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
+- Keywords: 活跃订单多张领料单, 完工时查询领料单, 领料同步前未回填, 完工后输入物料回填, 一线输入批号共享正式领料单校验, 输入物料只读批号, 输出物料填写数量, 一对多领料来源, 部分绑定补齐, pick-list binding, pickListSources, sourceFid, sourceLineKey, ERP来源唯一键, 复制来源身份, 第二张领料单唯一键冲突, 来源证据ID, 物化回填ID, 全量来源清理 -> `docs/backend-development.md#关联从一对一扩展为一对多门禁` and `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: EDHR-STATIC-018, 订单备注不能改变领料来源, sourceActiveOrderId, workOrder.remark, 自由文本备注, 正式领料resolver, 批号来源按当前工单编号, 跨订单来源必须受控关系 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 
 任务启动顺序固定为：先创建或识别 `doc/tasks/<task-id>/` 并写入最小 `task.md`（目标、里程碑、预期验证、当前状态），再读本文件并只打开命中的经验文档，随后把适用门禁补入任务文档；不要全量阅读所有经验。唯一例外：PowerShell / Windows shell 任务可先执行只读 UTF-8 bootstrap 读取适用规则，bootstrap 完成后必须立即创建或更新任务文档。
@@ -244,7 +244,7 @@
 - Keywords: 一线生产 Playwright 选择员工, runtime-config 响应, 默认员工 switch-employee, 目标员工 switch-employee, picker 自动关闭定位竞争, 不能用提交按钮判断初始化完成 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁`
 - Keywords: 一线PQC工序选择不丝滑, PQC 工序 picker 即时关闭, 选工序点击卡片直接退出弹框, 不用点返回, selectFrontlinePqcProcess 前 closePicker, 默认员工切换前 closePicker -> `docs/frontend-development.md#前端选择弹框即时反馈门禁`
 - Keywords: 一线PQC人员和任务切换, 请先完成PQC人员和任务切换, 切换检验项目, 切换检验类型, 切换轮次, current login employee switch, loadingTemplate 禁用提交, pqcTaskId 重绑 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁`
-- Keywords: 一线PQC无首检, PQC 首检卡片, 无 FIRST 任务不显示首检, disabled 首检按钮, pqcInspectionTypeTabs, pqcTaskOptions 动态渲染, inspectionType FIRST PATROL -> `docs/frontend-development.md#前端提交前严格验证与草稿态计算隔离门禁`
+- Keywords: 一线PQC无首检, PQC 首检卡片, 无 FIRST 任务不显示首检, disabled 首检按钮, PQC检验按钮重复, 首检上午巡检下午巡检末检各一个, inspectionRuleKey 去重, PATROL_AM, PATROL_PM, pqcInspectionTypeTabs, pqcTaskOptions 动态渲染, inspectionType FIRST PATROL FINAL -> `docs/frontend-development.md#前端提交前严格验证与草稿态计算隔离门禁`
 - Keywords: 一线PQC暂无待执行任务, PQC任务未生成, PQC任务明细缺失, PENDING任务字段无效, PQC任务状态不可执行, 任务过滤失败原因, taskSummary totalCount, pqcTaskOptions, 页面空态提交拦截共用诊断 -> `docs/frontend-development.md#前端提交前严格验证与草稿态计算隔离门禁`
 - Keywords: QA 适用检验类型, applicableInspectionTypes, 上午巡检, 下午巡检, 首件数量, 首检数量, 按检验项目配置, 同工序不同检验项目允许不同, 跨工序允许不同, firstInspectionQuantity, 抽样方案, 检验器具及设备, inspectionTool, samplingPlanText, 原文独立持久化, 历史原文不可反推, 工序列表优先, 详情提交严格校验, 列表返回 null, equipmentOptions 不得替代原文, AQL, patrolInspectionRatio, 百分比原值, plannedQuantity ratio 除以 100, 末检项目级统一开关, FINAL 序列化 -> `docs/backend-development.md#qa-首检数量和巡检比例按检验项目配置末检适用性项目级统一`
 - Keywords: QA 测试重置, test-reset, 重复导入同版本 QA Word, 已发布版本测试覆盖, 测试阶段清理, 二次确认, mes:qc-template:update, 活跃订单引用拒绝, PQC 任务引用拒绝, 不放宽同版本已发布拒绝, 不自动发布, 事务删除规程树 -> `docs/backend-development.md#qa-测试重置入口必须显式隔离正式生命周期`
@@ -659,3 +659,6 @@
 - Keywords: PowerShell Maven -D 参数, surefire.failIfNoSpecifiedTests, Unknown lifecycle phase, 单引号引用, 命令包装错误不算业务 RED -> `docs/powershell-memory.md#powershell-maven--d-参数引用门禁`
 - Keywords: detached HEAD, current_branch=None, task-closeout-cleanup preview blocked, cleanup apply 禁止, 分支无法解析不标 completed -> `docs/worktree-memory.md#detached-head-收尾分支门禁`
 - Keywords: cleanup apply Permission denied, Git 注册已移除, 空目录残留, Directory.Delete, slot inactive, worktree-ports registry mutex -> `docs/worktree-memory.md#git-注册已移除但空目录删除被当前进程占用`
+- Keywords: AI E2E, configured template, 模板编码, runner S00, 固定输入输出, PRECONDITION_BLOCKED -> `docs/e2e-rules.md#固定输入输出的业务链验收`
+- Keywords: AI E2E, eDHR主链, 生产PQC交错, 全部生产后补PQC, INTERLEAVED_MAIN_CHAIN_PLAN, S02, S03 -> `docs/e2e-rules.md#固定输入输出的业务链验收`
+- Keywords: AI E2E, targetRequests, targetRequestEvidenceFlushed, targetRequest label, httpStatus, businessCode, parseError, Playwright response异步解析, 失败报告缺最后请求, flushTargetRequests -> `docs/e2e-rules.md#固定输入输出的业务链验收`

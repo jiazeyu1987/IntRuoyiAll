@@ -1,0 +1,233 @@
+{
+  "schemaVersion": "AI_EDHR_E2E_RESULT_V1",
+  "runId": "AI-EDHR-20260915T224541-B65F",
+  "status": "FAIL",
+  "failedStage": "PREPARE",
+  "action": "PREPARE确定性ERP生产订单创建",
+  "expected": {
+    "workOrderCode": "AI-EDHR-20260915T224541-B65F-O01",
+    "batchCode": "AI-EDHR-20260915T224541-B65F-B01",
+    "quantity": 100
+  },
+  "actual": {
+    "message": "创建 O01 业务失败：当前生产工单创建 ERP 生产订单缺少必要数据：ERP生产订单模板计量单位编码\n\n1040502016 !== 0\n"
+  },
+  "errorType": "BUSINESS_ASSERTION",
+  "pageUrl": "http://127.0.0.1:8081/mes/pro/work-order",
+  "screenshot": "PREPARE.png",
+  "trace": "trace.zip",
+  "targetRequests": [
+    {
+      "method": "GET",
+      "url": "/admin-api/system/tenant/get-by-website",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/system/tenant/get-by-website",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/system/tenant/get-id-by-name",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/system/tenant/get-id-by-name",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "POST",
+      "url": "/admin-api/system/auth/login",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "POST",
+      "url": "/admin-api/system/auth/login",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/system/dict-data/simple-list",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/system/dict-data/simple-list",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/system/auth/get-permission-info",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/system/auth/get-permission-info",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/mes/pro/edhr-work-task/my-page",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/dcc/distribution-tasks/my-page",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/dcc/training-tasks/my-page",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/dcc/training-tasks/my-page",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/mes/pro/work-order/page",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/approval-center/tasks/page",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/system/auth/get-permission-info",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/mes/pro/edhr-work-task/my-page",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/dcc/training-tasks/my-page",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/dcc/training-tasks/my-page",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/dcc/distribution-tasks/my-page",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/mes/pro/work-order/page",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/system/user-table-column-config/get",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/showroom/assignment/page",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/system/notify-message/get-unread-count",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/approval-center/tasks/page",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "GET",
+      "url": "/admin-api/mes/pro/work-order/page",
+      "status": 200,
+      "code": 0
+    },
+    {
+      "method": "POST",
+      "url": "/admin-api/mes/pro/work-order/create-ai-e2e-production-order",
+      "status": 200,
+      "code": 1040502016,
+      "msg": "当前生产工单创建 ERP 生产订单缺少必要数据：ERP生产订单模板计量单位编码"
+    }
+  ],
+  "candidateCodePaths": [
+    "IntRuoyiFronted/tests/e2e/edhr-ai-loop/runner.cjs",
+    "IntRuoyiFronted/tests/e2e/edhr-ai-loop/reporter.cjs"
+  ],
+  "stages": [
+    {
+      "stage": "S01",
+      "name": "无领料单加入活跃订单",
+      "status": "BLOCKED"
+    },
+    {
+      "stage": "S02",
+      "name": "一线生产及生产复核",
+      "status": "BLOCKED"
+    },
+    {
+      "stage": "S03",
+      "name": "一线PQC及PQC复核",
+      "status": "BLOCKED"
+    },
+    {
+      "stage": "S04",
+      "name": "领料晚到及无补料确认完成",
+      "status": "BLOCKED"
+    },
+    {
+      "stage": "S05",
+      "name": "PQC生产放行及正式表单衔接",
+      "status": "BLOCKED"
+    },
+    {
+      "stage": "S06",
+      "name": "四份资料齐套",
+      "status": "BLOCKED"
+    },
+    {
+      "stage": "S07",
+      "name": "负责人最终放行",
+      "status": "BLOCKED"
+    },
+    {
+      "stage": "S08",
+      "name": "归档及历史追溯",
+      "status": "BLOCKED"
+    }
+  ],
+  "startedAt": "2026-09-15T22:45:41.628Z",
+  "finishedAt": "2026-09-15T22:46:15.696Z",
+  "message": "创建 O01 业务失败：当前生产工单创建 ERP 生产订单缺少必要数据：ERP生产订单模板计量单位编码\n\n1040502016 !== 0\n"
+}

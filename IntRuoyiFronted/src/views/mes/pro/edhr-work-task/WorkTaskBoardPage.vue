@@ -1,6 +1,6 @@
 <template>
   <ContentWrap>
-    <div class="edhr-work-task-page">
+    <div class="edhr-work-task-page" data-edhr-work-task-page>
       <div class="edhr-work-task-page__summary">
         <div class="edhr-work-task-page__metric">
           <span>待处理</span>
@@ -48,7 +48,12 @@
           </el-select>
         </el-form-item>
         <el-form-item label="工单">
-          <el-input v-model="queryParams.workOrderCode" clearable class="!w-170px" />
+          <el-input
+            v-model="queryParams.workOrderCode"
+            clearable
+            class="!w-170px"
+            data-edhr-work-task-work-order-filter
+          />
         </el-form-item>
         <el-form-item label="批次">
           <el-input v-model="queryParams.batchCode" clearable class="!w-150px" />
@@ -57,7 +62,7 @@
           <el-input v-model="queryParams.processName" clearable class="!w-150px" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleQuery">查询</el-button>
+          <el-button type="primary" data-edhr-work-task-query @click="handleQuery">查询</el-button>
           <el-button @click="resetQuery">重置</el-button>
           <el-button
             v-hasPermi="['mes:pro-edhr-work-task-rule:update']"
@@ -144,18 +149,23 @@
         </el-table-column>
         <el-table-column label="任务" min-width="210">
           <template #default="{ row }">
-            <div class="edhr-work-task-page__task-title">
+            <div
+              class="edhr-work-task-page__task-title"
+              :data-edhr-work-task-row-type="row.taskType"
+            >
               <el-tag :type="resolveTaskTypeTag(row.taskType)">{{
                 resolveTaskTypeLabel(row.taskType)
               }}</el-tag>
-              <span>{{ row.taskCode || row.id }}</span>
+              <span data-edhr-work-task-code>{{ row.taskCode || row.id }}</span>
             </div>
             <div class="edhr-work-task-page__muted">{{ resolveStatusLabel(row.status) }}</div>
           </template>
         </el-table-column>
         <el-table-column label="生产上下文" min-width="260">
           <template #default="{ row }">
-            <div class="edhr-work-task-page__strong">{{ row.workOrderCode || '--' }}</div>
+            <div class="edhr-work-task-page__strong" data-edhr-work-task-row-work-order>
+              {{ row.workOrderCode || '--' }}
+            </div>
             <div class="edhr-work-task-page__muted">批次：{{ row.batchCode || '--' }}</div>
             <div class="edhr-work-task-page__muted">工序：{{ row.processName || '--' }}</div>
           </template>
@@ -233,6 +243,11 @@
                 v-else
                 link
                 type="primary"
+                :data-edhr-work-task-open="row.id"
+                :data-edhr-work-task-open-type="row.taskType"
+                :data-edhr-archive-task-open="
+                  row.taskType === EDHR_WORK_TASK_TYPE_ARCHIVE ? row.id : undefined
+                "
                 :disabled="row.status === EDHR_WORK_TASK_STATUS_DONE"
                 @click="openTask(row)"
               >
@@ -378,6 +393,7 @@
         v-model="managerReleaseDialogVisible"
         title="管理者代表最终放行"
         width="720px"
+        data-manager-release-dialog
         @closed="resetManagerReleaseDialog"
       >
         <div v-loading="managerReleaseLoading" class="edhr-work-task-page__pqc-dialog">
@@ -411,7 +427,9 @@
               {{ managerReleaseReceipt?.version ?? managerReleaseTask.version }}
             </el-descriptions-item>
             <el-descriptions-item label="状态">
-              {{ resolveManagerReleaseStatusLabel(managerReleaseReceipt?.releaseStatus) }}
+              <span data-manager-release-status>
+                {{ resolveManagerReleaseStatusLabel(managerReleaseReceipt?.releaseStatus) }}
+              </span>
             </el-descriptions-item>
           </el-descriptions>
 
@@ -426,6 +444,7 @@
               <el-input
                 v-model="managerReleaseForm.signaturePassword"
                 type="password"
+                data-manager-release-signature-password
                 show-password
                 autocomplete="current-password"
                 placeholder="请输入当前账号电子签名密码"
@@ -435,6 +454,7 @@
               <el-input
                 v-model="managerReleaseForm.approvalOpinion"
                 type="textarea"
+                data-manager-release-approval-opinion
                 :rows="3"
                 maxlength="500"
                 show-word-limit
@@ -473,6 +493,7 @@
               Boolean(managerReleaseUncertainMessage) ||
               Boolean(managerReleaseBlockers.length)
             "
+            data-manager-release-confirm
             @click="submitManagerReleaseApproval"
           >
             确认最终放行

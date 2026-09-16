@@ -190,6 +190,97 @@ class MesKingdeeProductionOrderCreateServiceImplTest {
     }
 
     @Test
+    void createDeterministicProductionOrder_usesRunIdSlotAndFixedQuantity() {
+        MesProWorkOrderDO workOrder = buildQualifiedWorkOrder();
+        when(workOrderService.validateWorkOrderExists(100L)).thenReturn(workOrder);
+        when(itemService.getItem(20L)).thenReturn(new MesMdItemDO().setId(20L).setCode("MAT-001").setUnitMeasureId(30L));
+        when(unitMeasureService.getUnitMeasure(30L)).thenReturn(new MesMdUnitMeasureDO().setId(30L).setCode("kg"));
+        when(kingdeeConfigService.getEffectiveProperties()).thenReturn(kingdeeProperties);
+        when(productionOrderClient.getProductionOrderByBillNo(kingdeeProperties, "AI-EDHR-20260915T120000-A1B2-O01"))
+                .thenReturn(null);
+        when(productionOrderClient.createAndSubmitProductionOrder(eq(kingdeeProperties), any()))
+                .thenAnswer(invocation -> {
+                    ErpKingdeeProductionOrderCreateRequest request = invocation.getArgument(1);
+                    return ErpKingdeeProductionOrderCreateResult.builder()
+                            .erpFid("FID-001").erpBillNo(request.getBillNo()).saved(true).submitted(true).build();
+                });
+
+        MesKingdeeProductionOrderDeterministicCreateCommand command =
+                new MesKingdeeProductionOrderDeterministicCreateCommand()
+                        .setRunId("AI-EDHR-20260915T120000-A1B2")
+                        .setSlot("O01")
+                        .setQuantity(new BigDecimal("100"))
+                        .setBatchNumber("AI-EDHR-20260915T120000-A1B2-B01");
+
+        MesKingdeeProductionOrderCreateResult result =
+                createService.createAndSubmitProductionOrder(100L, command);
+
+        assertEquals("AI-EDHR-20260915T120000-A1B2-O01", result.getErpBillNo());
+        ArgumentCaptor<ErpKingdeeProductionOrderCreateRequest> captor =
+                ArgumentCaptor.forClass(ErpKingdeeProductionOrderCreateRequest.class);
+        verify(productionOrderClient).createAndSubmitProductionOrder(eq(kingdeeProperties), captor.capture());
+        assertEquals(new BigDecimal("100"), captor.getValue().getQuantity());
+        assertEquals("AI-EDHR-20260915T120000-A1B2-B01", captor.getValue().getBatchNumber());
+    }
+
+    @Test
+    void createDeterministicProductionOrderFromConfiguredTemplate_doesNotRequireLocalTemplateWorkOrder() {
+        ErpKingdeeProductionOrder templateOrder = new ErpKingdeeProductionOrder();
+        templateOrder.setBillNo("TEMPLATE-MO-001");
+        templateOrder.setMaterialNumber("MAT-001");
+        templateOrder.setUnitCode("kg");
+        templateOrder.setSourceBillNo("SO-001");
+        templateOrder.setPlannedStartDate(LocalDateTime.of(2026, 9, 16, 8, 0));
+        templateOrder.setPlannedEndDate(LocalDateTime.of(2026, 9, 16, 18, 0));
+        when(kingdeeConfigService.getEffectiveProperties()).thenReturn(kingdeeProperties);
+        when(productionOrderClient.getProductionOrderByBillNo(kingdeeProperties, "TEMPLATE-MO-001"))
+                .thenReturn(templateOrder);
+        when(productionOrderClient.getProductionOrderByBillNo(kingdeeProperties, "AI-EDHR-20260915T120000-A1B2-O01"))
+                .thenReturn(null);
+        when(productionOrderClient.createAndSubmitProductionOrder(eq(kingdeeProperties), any()))
+                .thenAnswer(invocation -> {
+                    ErpKingdeeProductionOrderCreateRequest request = invocation.getArgument(1);
+                    return ErpKingdeeProductionOrderCreateResult.builder()
+                            .erpFid("FID-001").erpBillNo(request.getBillNo()).saved(true).submitted(true).build();
+                });
+        MesKingdeeProductionOrderDeterministicCreateCommand command =
+                new MesKingdeeProductionOrderDeterministicCreateCommand()
+                        .setRunId("AI-EDHR-20260915T120000-A1B2")
+                        .setSlot("O01")
+                        .setQuantity(new BigDecimal("100"))
+                        .setBatchNumber("AI-EDHR-20260915T120000-A1B2-B01");
+
+        MesKingdeeProductionOrderCreateResult result =
+                createService.createAndSubmitProductionOrder(command);
+
+        assertEquals("AI-EDHR-20260915T120000-A1B2-O01", result.getErpBillNo());
+        ArgumentCaptor<ErpKingdeeProductionOrderCreateRequest> captor =
+                ArgumentCaptor.forClass(ErpKingdeeProductionOrderCreateRequest.class);
+        verify(productionOrderClient).createAndSubmitProductionOrder(eq(kingdeeProperties), captor.capture());
+        assertEquals("TEMPLATE-MO-001", captor.getValue().getTemplateBillNo());
+        assertEquals("MAT-001", captor.getValue().getMaterialNumber());
+        assertEquals("kg", captor.getValue().getUnitNumber());
+        assertEquals(new BigDecimal("100"), captor.getValue().getQuantity());
+        assertEquals("SO-001", captor.getValue().getSourceBillNo());
+        assertEquals("AI-EDHR-20260915T120000-A1B2-B01", captor.getValue().getBatchNumber());
+        verifyNoInteractions(workOrderService, itemService, unitMeasureService, syncRecordMapper);
+    }
+
+    @Test
+    void createDeterministicProductionOrder_rejectsInvalidSlotBeforeExternalWrite() {
+        MesKingdeeProductionOrderDeterministicCreateCommand command =
+                new MesKingdeeProductionOrderDeterministicCreateCommand()
+                        .setRunId("AI-EDHR-20260915T120000-A1B2")
+                        .setSlot("O99")
+                        .setQuantity(new BigDecimal("100"))
+                        .setBatchNumber("AI-EDHR-20260915T120000-A1B2-B99");
+
+        assertThrows(RuntimeException.class,
+                () -> createService.createAndSubmitProductionOrder(100L, command));
+        verifyNoInteractions(workOrderService, itemService, unitMeasureService, productionOrderClient);
+    }
+
+    @Test
     void createAndSubmitProductionOrder_doesNotWriteLocalRecordWhenSubmitFailsAfterSave() {
         MesProWorkOrderDO workOrder = buildQualifiedWorkOrder();
         MesKingdeeProductionOrderCreateServiceImpl service = spy(createService);

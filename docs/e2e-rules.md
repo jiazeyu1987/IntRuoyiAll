@@ -33,10 +33,23 @@
 
 ## 固定输入输出的业务链验收
 
+- AI 循环执行：固定业务模板和期望值，运行时为每轮生成唯一 `runId`、不可变 Manifest 及全新订单/批次/任务/单据/附件；失败轮次保留只读证据，修复后必须从 PREPARE 以新 `runId` 重跑，不能在失败对象上复位续跑。
+- 错误分流：`PRECONDITION_BLOCKED`、`UI_ACTION_FAILED`、`INFRASTRUCTURE_BLOCKED`、`TEST_HARNESS_FAILURE` 先修复前置、环境、页面入口或脚本实现；只有 `BUSINESS_ASSERTION`、`IDEMPOTENCY_FAILURE`、`TRACEABILITY_FAILURE` 才进入产品代码修复循环。AI 不得因实际值变化改写验收期望。
+- 同一物理对象的重复请求只用于幂等性验证；完整主流程必须使用新业务对象重新执行。报告需绑定 runId、阶段、期望/实际值、截图、trace、页面请求证据和候选代码路径。
+- 页面请求证据flush：AI循环runner若异步监听Playwright `response`并解析业务码，写入PASS/FAIL/BLOCKED报告前必须等待所有目标响应解析完成，并在结果中记录`targetRequestEvidenceFlushed=true`；`targetRequests`每项必须包含稳定`label`、`method`、`url`、`httpStatus`和`businessCode`，JSON解析失败必须显式记录`parseError`，不得让最后一次关键写请求或业务码因异步未完成而从失败报告中丢失。
+- Stage boundary：`PREPARE`/`VERIFY_READY`是前置阶段，不能编号成业务S01或计入业务PASS。脚本只完成准备时，业务S01—后续阶段必须为BLOCKED，并用`TEST_HARNESS_FAILURE`或前置阻塞说明原因。
+- Minimal full run：AI修复后的`full`主链默认只准备并消耗O01；O02—O05用于regression/repeatability或边界场景。不得让每次主链回归无谓创建全矩阵数据，避免长期循环耗尽输入或污染队列。
+- Static contract drift：业务阶段从BLOCKED推进为已实现时，必须同步更新总runner合同、阶段状态断言和聚合静态套件；不得让过期静态断言继续要求停在旧阶段。
+- Configured template runner：若真实页面和后端已提供全局配置模板入口，runner不得再强制每轮传入模板业务编码；Manifest应区分`EXPLICIT_CODE`与`CONFIGURED_TEMPLATE`，配置模板缺失只能作为`PRECONDITION_BLOCKED`输出，不能在S00用过期静态前置条件提前终止。
+- Production/PQC interleaving：eDHR主链runner必须用固定交错计划执行生产提交、生产复核、PQC提交和PQC复核；静态合同不得固化“全部生产完成后再补做全部PQC”的错误顺序。
+- S04 traceability oracle：领料单按业务时机晚于一线生产/PQC进入系统时，runner必须先在同步领料单前从活跃订单详情或同等真实页面证明输入物料尚未回填正式领料单号/批号，再在完工申请后读取同一区域的领料单号和批号可见证据；只检查`sourceSnapshotHash`、申请回执或列表状态，不足以证明领料已按业务时机回填到输入物料。若当前准备入口不控制ERP领料单编号，不得构造`${runId}-PLxx`这类固定领料单号；应校验页面真实回填的正式领料单号非空、批号非空，并把同步前/同步后的实际值写入报告。
+
 - Trigger：将长业务流程拆成多个E2E场景，要求用固定输入及期望输出判定通过。
 - Preflight check：执行前冻结产品/版本、数量、账号角色、正式单据和源文件内容；数据尚未准备时明确标为规划输入，不能声称已经存在。每个场景必须列出具体操作及输出数量、状态、来源关系，不能根据运行结果临时改变期望。
 - Assertion rule：业务数值和来源代码精确比较；系统生成的ID、时间和归档文件哈希按身份关联、先后顺序及内容校验，不把动态值假定为常量。源文件应在上传前固定实际哈希，归档校验其原附件和来源引用。
 - Chain rule：至少一条完整订单使用同一份真实数据连续推进，上一步结果作为下阶段依据；生产与过程检验按真实时机交错，不能为了场景编号等全部生产完成后才补做所有检验。独立重跑后段必须从真实前置构建，不得API/DB改状态。
+- Fixture lifecycle：可重复业务场景由每轮前置prepare及READY核验保障，默认取得本轮独立的正式数据和实际作用域，不依赖上轮后置移出/恢复/清理成功。固定业务内容与数量，身份按本轮清单关联；首次创建不得以恢复分支替代。只改显示编号而仍共用被全量扫描的负责人队列或其他共享数量来源，不算隔离。
+- Cleanup independence：应设置故意中断且不清理旧轮的用例，证明新轮仍可独立准备足量新输入并得到固定结果。后置数据维护独立记录，不作为下轮启动条件；当前prepare不足或隔离未成立时准确BLOCKED，不缩小样本、借旧单或模拟成功。此规则针对可隔离的测试数据，不豁免共享全局开关等测试的恢复责任；相关测试需独立环境或其专门门禁。
 - Verification：正常链、拒绝门禁和数量/来源边界分组记录；拒绝用例同时验证业务结果未产生。输入准备缺失记BLOCKED，上游失败后的依赖场景记BLOCKED；计划校验或历史片段脚本不能替代本次真实E2E结果。
 
 ## 定时任务通知类 E2E 门禁

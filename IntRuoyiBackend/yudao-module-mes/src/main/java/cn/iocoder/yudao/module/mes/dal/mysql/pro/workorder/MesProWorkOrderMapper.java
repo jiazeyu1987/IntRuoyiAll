@@ -33,6 +33,16 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
                 .last("FOR UPDATE"));
     }
 
+    default MesProWorkOrderDO selectByTenantIdAndCodeForUpdate(Long tenantId, String code) {
+        if (tenantId == null || code == null || code.isBlank()) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProWorkOrderDO>()
+                .eq(MesProWorkOrderDO::getTenantId, tenantId)
+                .eq(MesProWorkOrderDO::getCode, code)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProWorkOrderDO> selectListAll() {
         return selectList(new LambdaQueryWrapperX<MesProWorkOrderDO>()
                 .orderByAsc(MesProWorkOrderDO::getId));

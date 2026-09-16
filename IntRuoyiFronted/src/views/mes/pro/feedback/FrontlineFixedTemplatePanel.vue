@@ -132,6 +132,7 @@
                 <input
                   :value="pqcPieceDraftValues[pieceIndex - 1]"
                   type="number"
+                  data-pqc-piece-number-input
                   :step="activePqcInspectionItem.step"
                   :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}`"
                   @input="updatePqcPieceDraftValue(pieceIndex - 1, $event)"
@@ -160,8 +161,13 @@
             </article>
           </div>
           <footer class="frontline-pqc-piece-actions">
-            <button type="button" @click="closePqcPieceInspection(false)">返回</button>
-            <button type="button" class="primary" @click="closePqcPieceInspection(true)">
+            <button type="button" data-pqc-piece-return @click="closePqcPieceInspection(false)">返回</button>
+            <button
+              type="button"
+              class="primary"
+              data-pqc-piece-confirm
+              @click="closePqcPieceInspection(true)"
+            >
               完成
             </button>
           </footer>
@@ -352,6 +358,7 @@
                   v-if="activePqcTabItem.type === 'choice'"
                   type="button"
                   class="pass"
+                  data-pqc-bulk-pass
                   :class="{ active: isPqcBulkChoiceActive(activePqcTabItem.key, '合格') }"
                   @click="applyPqcBulkChoice(activePqcTabItem.key, '合格')"
                 >
@@ -361,6 +368,7 @@
                   v-if="activePqcTabItem.type === 'choice'"
                   type="button"
                   class="fail"
+                  data-pqc-bulk-fail
                   :class="{ active: isPqcBulkChoiceActive(activePqcTabItem.key, '不合格') }"
                   @click="applyPqcBulkChoice(activePqcTabItem.key, '不合格')"
                 >
@@ -431,24 +439,15 @@
           <div class="frontline-pqc-type-tabs">
             <button
               v-for="tab in pqcInspectionTypeTabs"
-              :key="tab.type"
+              :key="tab.ruleKey"
               type="button"
+              :data-pqc-inspection-rule-tab="tab.ruleKey"
               :data-pqc-inspection-type-tab="tab.type"
-              :class="{ active: pqcDraft.inspectionType === tab.type }"
-              @click="selectPqcInspectionType(tab.type)"
+              :data-pqc-task-option="String(tab.value)"
+              :class="{ active: activePqcTaskOption?.inspectionRuleKey === tab.ruleKey }"
+              @click="selectPqcInspectionTaskOption(tab.value)"
             >
               {{ tab.label }}
-            </button>
-          </div>
-          <div class="frontline-pqc-round-tabs">
-            <button
-              v-for="round in pqcVisibleRounds"
-              :key="round.value"
-              type="button"
-              :class="{ active: activePqcTaskOption?.pqcTaskId === round.value }"
-              @click="selectPqcInspectionTaskOption(round.value)"
-            >
-              {{ round.label }}
             </button>
           </div>
           <div class="frontline-pqc-form-area">
@@ -467,6 +466,7 @@
                 type="number"
                 min="0"
                 inputmode="numeric"
+                data-pqc-inspection-quantity
                 @input="updatePqcQuantity('inspectionQuantity', $event)"
               />
               <button
@@ -493,6 +493,7 @@
                 type="number"
                 min="0"
                 inputmode="numeric"
+                data-pqc-scrap-quantity
                 @input="updatePqcQuantity('scrapQuantity', $event)"
               />
               <button
@@ -519,6 +520,7 @@
             class="frontline-pqc-submit-button"
             type="button"
             :disabled="isPqcSubmitBlocked"
+            data-pqc-submit-open-signature
             @click="handleValidate"
           >
             {{ payloadLoading ? '提交中' : '提交' }}
@@ -543,13 +545,19 @@
             v-model="pqcSignaturePassword"
             type="password"
             autocomplete="current-password"
+            data-pqc-signature-password
             @keyup.enter="handleConfirmPqcSubmit"
           />
           <div>
             <button type="button" :disabled="payloadLoading" @click="closePqcSignatureDialog">
               取消
             </button>
-            <button type="button" :disabled="payloadLoading" @click="handleConfirmPqcSubmit">
+            <button
+              type="button"
+              :disabled="payloadLoading"
+              data-pqc-submit-confirm-accept
+              @click="handleConfirmPqcSubmit"
+            >
               {{ payloadLoading ? '签名提交中' : '确认签名并提交' }}
             </button>
           </div>
@@ -616,6 +624,7 @@
             <button
               class="frontline-production-process-current"
               type="button"
+              data-frontline-production-process-current
               :disabled="isProductionProcessNavigationBlocked"
               @click="openPicker('process')"
             >
@@ -707,6 +716,9 @@
                 :class="{ active: option.active }"
                 :disabled="option.activeOrder?.readBlocked"
                 :title="option.activeOrder?.readBlockReason"
+                :data-frontline-production-order-option="!isPqcMode && activePicker === 'order' ? 'true' : undefined"
+                :data-frontline-production-process-option="!isPqcMode && activePicker === 'process' ? option.key : undefined"
+                :data-frontline-production-employee-option="!isPqcMode && activePicker === 'employee' ? option.key : undefined"
                 @click="option.onClick"
               >
                 <span
@@ -716,7 +728,7 @@
                   <span v-if="option.activeOrder.readBlocked" role="status">数据异常：{{ option.activeOrder.readBlockReason }}</span>
                   <span class="frontline-order-picker-option__row">
                     <span>编码</span>
-                    <strong class="frontline-order-picker-option__value is-code">
+                    <strong class="frontline-order-picker-option__value is-code" data-frontline-production-order-option-code>
                       {{ option.activeOrder.workOrderCode || `订单ID：${option.activeOrder.workOrderId}` }}
                     </strong>
                   </span>
@@ -764,6 +776,7 @@
               <input
                 class="value-box"
                 id="frontlineProductionOutputQuantity"
+                data-production-output-quantity
                 :value="productionDraft.outputQuantity ?? ''"
                 inputmode="numeric"
                 :disabled="payloadLoading"
@@ -786,6 +799,7 @@
               <input
                 class="value-box"
                 id="frontlineProductionScrapQuantity"
+                data-production-scrap-quantity
                 :value="productionScrapQuantity"
                 inputmode="numeric"
                 readonly
@@ -1158,6 +1172,7 @@
             <button
               class="frontline-production-submit-button submit-btn"
               type="button"
+              data-production-submit-open-confirmation
               :disabled="isSubmitBlocked"
               @click="handleValidate"
             >
@@ -1340,6 +1355,7 @@
                 :disabled="option.activeOrder?.readBlocked"
                 :title="option.activeOrder?.readBlockReason"
             :data-pqc-order-option="activePicker === 'order' ? 'true' : undefined"
+            :data-pqc-process-option="activePicker === 'process' ? option.key : undefined"
             :aria-label="option.activeOrder
               ? `编码 ${option.activeOrder.workOrderCode}，产品 ${option.activeOrder.productName}，数量 ${formatProductionQuantity(option.activeOrder.quantity)}`
               : option.label"
@@ -1402,6 +1418,7 @@ import {
   type FrontlinePqcItemResultSubmitReqVO,
   type FrontlinePqcInspectionSubmitReqVO,
   type FrontlinePqcInspectionSubmitRespVO,
+  type FrontlinePqcInspectionRuleKey,
   type FrontlinePqcResultType,
   type FrontlinePqcTaskSummaryState,
   type FrontlinePqcTaskStatus,
@@ -1485,6 +1502,27 @@ const PQC_INSPECTION_TYPE_LABELS: Record<InspectionType, string> = {
   FIRST: '首检',
   PATROL: '巡检',
   FINAL: '末检'
+}
+
+const PQC_INSPECTION_RULE_ORDER: readonly FrontlinePqcInspectionRuleKey[] = [
+  'FIRST',
+  'PATROL_AM',
+  'PATROL_PM',
+  'FINAL'
+]
+
+const PQC_INSPECTION_RULE_TYPES: Record<FrontlinePqcInspectionRuleKey, InspectionType> = {
+  FIRST: 'FIRST',
+  PATROL_AM: 'PATROL',
+  PATROL_PM: 'PATROL',
+  FINAL: 'FINAL'
+}
+
+const PQC_INSPECTION_RULE_LABELS: Record<FrontlinePqcInspectionRuleKey, string> = {
+  FIRST: PQC_INSPECTION_TYPE_LABELS.FIRST,
+  PATROL_AM: '上午巡检',
+  PATROL_PM: '下午巡检',
+  FINAL: PQC_INSPECTION_TYPE_LABELS.FINAL
 }
 
 const FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS: readonly ProductionClearanceConfirmationItem[] = [
@@ -1976,15 +2014,43 @@ const getPqcTaskOptionsForInspectionItem = (
   itemKey?: PqcInspectionItemKey
 ) => getPqcTaskOptions(process).filter((option) => pqcTaskOptionIncludesItem(option, itemKey))
 
+const getUniquePqcTaskOptionsByRule = (options: PqcTaskOptionSnapshot[]) => {
+  const orderedOptions: PqcTaskOptionSnapshot[] = []
+  const seenTaskIds = new Set<number>()
+  for (const ruleKey of PQC_INSPECTION_RULE_ORDER) {
+    const option = options.find((option) => option.inspectionRuleKey === ruleKey)
+    if (!option || seenTaskIds.has(option.pqcTaskId)) {
+      continue
+    }
+    seenTaskIds.add(option.pqcTaskId)
+    orderedOptions.push(option)
+  }
+  return orderedOptions
+}
+
 const preferPqcTaskOption = (
   options: PqcTaskOptionSnapshot[],
-  preferredInspectionType?: InspectionType
+  preferredInspectionType?: InspectionType,
+  preferredInspectionRuleKey?: FrontlinePqcInspectionRuleKey
 ) => {
-  const orderedTypes: InspectionType[] = preferredInspectionType
-    ? [preferredInspectionType, 'FIRST', 'PATROL', 'FINAL']
-    : ['FIRST', 'PATROL', 'FINAL']
-  for (const inspectionType of orderedTypes) {
-    const option = options.find((candidate) => candidate.inspectionType === inspectionType)
+  const preferredRuleOption = preferredInspectionRuleKey
+    ? options.find((candidate) => candidate.inspectionRuleKey === preferredInspectionRuleKey)
+    : undefined
+  if (preferredRuleOption) {
+    return preferredRuleOption
+  }
+  const orderedRuleKeys = preferredInspectionType
+    ? [
+      ...PQC_INSPECTION_RULE_ORDER.filter(
+        (ruleKey) => PQC_INSPECTION_RULE_TYPES[ruleKey] === preferredInspectionType
+      ),
+      ...PQC_INSPECTION_RULE_ORDER.filter(
+        (ruleKey) => PQC_INSPECTION_RULE_TYPES[ruleKey] !== preferredInspectionType
+      )
+    ]
+    : PQC_INSPECTION_RULE_ORDER
+  for (const ruleKey of orderedRuleKeys) {
+    const option = options.find((candidate) => candidate.inspectionRuleKey === ruleKey)
     if (option) {
       return option
     }
@@ -2011,24 +2077,19 @@ const getSelectedPqcTaskOption = (process: FrontlinePqcProcessVO) => {
   return selectedTask || getDefaultPqcTaskOption(process)
 }
 
-const pqcInspectionTypeTabs = computed<{ type: InspectionType; label: string }[]>(() => {
+const pqcInspectionTypeTabs = computed<{ ruleKey: FrontlinePqcInspectionRuleKey; type: InspectionType; value: number; label: string }[]>(() => {
   const process = deviceState.selectedProcess
   if (!isFrontlinePqcProcess(process)) {
     return []
   }
-  const seenTypes = new Set<InspectionType>()
-  return getPqcTaskOptionsForInspectionItem(process, activePqcTabKey.value)
-    .reduce<{ type: InspectionType; label: string }[]>((tabs, option) => {
-      if (seenTypes.has(option.inspectionType)) {
-        return tabs
-      }
-      seenTypes.add(option.inspectionType)
-      tabs.push({
-        type: option.inspectionType,
-        label: PQC_INSPECTION_TYPE_LABELS[option.inspectionType]
-      })
-      return tabs
-    }, [])
+  return getUniquePqcTaskOptionsByRule(
+    getPqcTaskOptionsForInspectionItem(process, activePqcTabKey.value)
+  ).map((option) => ({
+    ruleKey: option.inspectionRuleKey,
+    type: option.inspectionType,
+    value: option.pqcTaskId,
+    label: PQC_INSPECTION_RULE_LABELS[option.inspectionRuleKey]
+  }))
 })
 
 const activePqcTaskOption = computed<PqcTaskOptionSnapshot | undefined>(() => {
@@ -2107,21 +2168,6 @@ const activePqcMethodItem = computed(() =>
     ? pqcTaskInspectionItemMap.value[activePqcMethodKey.value]
     : undefined
 )
-
-const pqcVisibleRounds = computed(() => {
-  if (!isFrontlinePqcProcess(deviceState.selectedProcess) || !pqcDraft.inspectionType) {
-    return []
-  }
-  return getPqcTaskOptions(deviceState.selectedProcess)
-    .filter((option) =>
-      option.inspectionType === pqcDraft.inspectionType &&
-      pqcTaskOptionIncludesItem(option, activePqcTabKey.value)
-    )
-    .map((option) => ({
-      value: option.pqcTaskId,
-      label: formatPqcTaskOptionLabel(option)
-    }))
-})
 
 const templateModeMismatch = computed(() =>
   Boolean(employeeTemplateCode.value && employeeTemplateCode.value !== expectedTemplateCode.value)
@@ -3255,23 +3301,8 @@ const resolvePqcInspectionType = (inspectionType?: string): InspectionType => {
   throw new Error(`PQC任务检验类型${inspectionType || '空'}无效。`)
 }
 
-const findPqcTaskOption = (
-  process: FrontlinePqcProcessVO,
-  inspectionType: InspectionType,
-  itemKey?: PqcInspectionItemKey
-) => getPqcTaskOptionsForInspectionItem(process, itemKey)
-  .find((option) => option.inspectionType === inspectionType)
-
 const formatPqcTaskOptionLabel = (option: PqcTaskOptionSnapshot) =>
-  option.inspectionRuleKey === 'PATROL_AM'
-    ? '上午巡检'
-    : option.inspectionRuleKey === 'PATROL_PM'
-      ? '下午巡检'
-      : option.inspectionType === 'FIRST'
-    ? '首检'
-    : option.inspectionType === 'FINAL'
-      ? '末检'
-      : `第 ${option.roundNo} 次`
+  PQC_INSPECTION_RULE_LABELS[option.inspectionRuleKey]
 
 const applyPqcTaskOptionToDraft = (option: PqcTaskOptionSnapshot) => {
   const storedDraft = getPqcTaskDraft(option)
@@ -3642,7 +3673,8 @@ const selectPqcInspectionTab = async (itemKey: PqcInspectionItemKey) => {
   }
   const option = preferPqcTaskOption(
     getPqcTaskOptionsForInspectionItem(process, itemKey),
-    pqcDraft.inspectionType
+    pqcDraft.inspectionType,
+    activePqcTaskOption.value?.inspectionRuleKey
   )
   if (!option) {
     showFrontlineError('当前检验方法暂无待执行PQC任务。')
@@ -3979,26 +4011,6 @@ const stepPqcPieceValue = (index: number, delta: number) => {
 
 const updatePqcPieceDraftValue = (index: number, event: Event) => {
   pqcPieceDraftValues.value[index] = (event.target as HTMLInputElement).value
-}
-
-const selectPqcInspectionType = async (inspectionType: InspectionType) => {
-  const process = deviceState.selectedProcess
-  if (!isFrontlinePqcProcess(process)) {
-    showFrontlineError('请先选择PQC工序。')
-    return
-  }
-  const itemKey = activePqcTabKey.value
-  const option = findPqcTaskOption(process, inspectionType, itemKey)
-  if (!option) {
-    showFrontlineError(`当前检验方法缺少${PQC_INSPECTION_TYPE_LABELS[inspectionType]}PQC任务。`)
-    return
-  }
-  if (activePqcTaskOption.value?.pqcTaskId === option.pqcTaskId) {
-    return
-  }
-  applyPqcTaskOptionToSelectedProcess(option)
-  selectedPqcInspectionKey.value = itemKey
-  await switchPqcCurrentLoginEmployeeForActiveTask()
 }
 
 const selectPqcInspectionTaskOption = async (pqcTaskId: number) => {
@@ -8177,7 +8189,7 @@ onUnmounted(() => {
 .frontline-pqc-fill-panel {
   grid-column: 2;
   grid-row: 1 / 3;
-  grid-template-rows: auto auto minmax(min-content, 1fr);
+  grid-template-rows: auto minmax(min-content, 1fr);
   align-content: stretch;
   gap: 16px;
   overflow-x: hidden;
@@ -8185,8 +8197,7 @@ onUnmounted(() => {
   padding: 22px;
 }
 
-.frontline-pqc-type-tabs,
-.frontline-pqc-round-tabs {
+.frontline-pqc-type-tabs {
   display: grid;
   gap: 14px;
   min-width: 0;
@@ -8209,22 +8220,13 @@ onUnmounted(() => {
 }
 
 .frontline-pqc-type-tabs {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
   gap: 10px;
 
   button {
     font-size: 32px;
-  }
-}
-
-.frontline-pqc-round-tabs {
-  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
-  align-items: stretch;
-
-  button {
     min-height: 64px;
     padding: 8px 12px;
-    font-size: 28px;
     line-height: 1.15;
     white-space: normal;
     overflow-wrap: anywhere;
@@ -9058,7 +9060,6 @@ onUnmounted(() => {
 
   .frontline-pqc-choice-actions,
   .frontline-pqc-type-tabs,
-  .frontline-pqc-round-tabs,
   .frontline-pqc-number-field,
   .frontline-pqc-submit-bar {
     grid-template-columns: 1fr !important;
