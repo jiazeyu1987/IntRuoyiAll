@@ -53,3 +53,14 @@ This change affects test fixtures/resources only. It does not perform server wri
 ## Blockers
 
 - None for this local verification unblocker.
+
+## R79 Route Snapshot Runner Exit-Code Contract
+
+- Bug summary and expected behavior: route-snapshot backfill 已生成 `status=READY`、`blockerCount=0` 报告时，发布 runner 必须返回命令的 READY 结果；容器内无关的 Spring `ExitCodeGenerator` 不得把成功命令改成失败。
+- Reproduction command or path: R79 测试服 `publish-test` 在版本切换前失败；远端报告为 `READY`，但 SSH runner exit 为 1，operation lock 为 `FAILED`，测试服 `.env`/实际镜像仍保持旧版本。
+- Root cause: `MesProRouteVersionSnapshotMigrationRunner` 使用 `SpringApplication.exit(applicationContext, () -> EXIT_READY)`；Spring 聚合了无关的非零 `ExitCodeGenerator`，覆盖了命令结果。
+- Regression test added or updated: `MesProRouteVersionSnapshotMigrationCommandTest.runner_shouldNotLetSpringExitCodeOverrideReadyCommandResult`，并扩展非 READY runner 测试断言退出码。
+- RED command and expected failure: `deploy-release-r79-route-snapshot-runner-exit-code` -> FAIL；READY 报告与非零 SSH 退出不一致，说明 runner 退出码契约被覆盖。
+- GREEN command and passing result: `mvn -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-mes clean test "-Dtest=MesProRouteVersionSnapshotMigrationCommandTest"` -> PASS，6 tests，0 failures，0 errors。
+- Risk and regression scope: 仅修复 CLI runner 的退出码来源；不改变迁移 SQL、目标数据、发布脚本非零门禁或任何降级路径。
+- Blockers and follow-up actions: R79 不复用；提交后必须以全新 R80 重建不可变包并重新执行测试服 publish-test。正式服、审查服、mark-tested、promote-prod、promote-backup、MinIO 同步和全量数据库复制仍不在范围。

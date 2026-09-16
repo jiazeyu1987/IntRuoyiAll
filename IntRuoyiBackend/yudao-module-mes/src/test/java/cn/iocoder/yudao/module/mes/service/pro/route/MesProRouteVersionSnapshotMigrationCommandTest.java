@@ -4,12 +4,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.DefaultApplicationArguments;
+import org.springframework.boot.ExitCodeGenerator;
 import org.springframework.context.ConfigurableApplicationContext;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -81,13 +83,38 @@ class MesProRouteVersionSnapshotMigrationCommandTest {
                 mock(MesProRouteVersionSnapshotMigrationCommand.class);
         when(command.run(MesProRouteVersionSnapshotMigrationCommand.MODE_READINESS,
                 tempDir.resolve("blocked.json"))).thenReturn(MesProRouteVersionSnapshotMigrationCommand.EXIT_BLOCKED);
+        AtomicInteger capturedExitCode = new AtomicInteger(-1);
         MesProRouteVersionSnapshotMigrationRunner runner = new MesProRouteVersionSnapshotMigrationRunner(
                 command, mock(ConfigurableApplicationContext.class),
                 MesProRouteVersionSnapshotMigrationCommand.MODE_READINESS,
-                tempDir.resolve("blocked.json").toString());
+                tempDir.resolve("blocked.json").toString(),
+                capturedExitCode::set);
 
         assertThrows(IllegalStateException.class,
                 () -> runner.run(new DefaultApplicationArguments(new String[0])));
+        assertEquals(MesProRouteVersionSnapshotMigrationCommand.EXIT_BLOCKED, capturedExitCode.get());
+    }
+
+    @Test
+    void runner_shouldNotLetSpringExitCodeOverrideReadyCommandResult() throws Exception {
+        MesProRouteVersionSnapshotMigrationCommand command =
+                mock(MesProRouteVersionSnapshotMigrationCommand.class);
+        when(command.run(MesProRouteVersionSnapshotMigrationCommand.MODE_BACKFILL,
+                tempDir.resolve("ready.json"))).thenReturn(MesProRouteVersionSnapshotMigrationCommand.EXIT_READY);
+        ConfigurableApplicationContext context = mock(ConfigurableApplicationContext.class);
+        when(context.getBeansOfType(ExitCodeGenerator.class))
+                .thenReturn(Map.of("nonCommandExitCode", () -> 1));
+        AtomicInteger capturedExitCode = new AtomicInteger(-1);
+        MesProRouteVersionSnapshotMigrationRunner runner = new MesProRouteVersionSnapshotMigrationRunner(
+                command,
+                context,
+                MesProRouteVersionSnapshotMigrationCommand.MODE_BACKFILL,
+                tempDir.resolve("ready.json").toString(),
+                capturedExitCode::set);
+
+        runner.run(new DefaultApplicationArguments(new String[0]));
+
+        assertEquals(MesProRouteVersionSnapshotMigrationCommand.EXIT_READY, capturedExitCode.get());
     }
 
     @Test

@@ -136,3 +136,12 @@ RESULT: R73 判废且不得复用；失败前未形成完整发布包、未上�
 - GREEN: app-planner-ordering-sync -> PASS。应用仓 `script/release/release_preflight_plan.py` 的 ready queue 优先键改为 `applyOrder -> originalOrder`，`script/tests/test_release_preflight_plan.py` 新增 applyOrder 排序与 dependsOn 优先回归。
 - REGRESSION: `python -X utf8 -m pytest -q script\tests\test_release_preflight_plan.py script\tests\test_dcc_view_matrix_independent_seed_sql.py script\tests\test_release_target_preflight_files.py --basetemp .tmp-r74-app-preflight-regression` -> PASS，35 passed；`python -X utf8 -m py_compile script\release\release_preflight_plan.py` 与 `git diff --check` -> PASS。
 - RESULT: 应用仓需提交本修复后供 R75 source freeze 使用；R74 已判废，不得复用或补包。
+
+## 2026-09-16 one-button app-release R79 route-snapshot runner exit-code contract
+
+- BDD: 路线快照 hook 的进程结果必须只由命令结果决定 -> Given route-snapshot backfill 命令返回 `EXIT_READY` 且 Spring 容器存在无关的非零 `ExitCodeGenerator` / When 发布 hook 启动 runner / Then runner 必须把命令结果 `EXIT_READY` 传给进程退出消费者，不能由 Spring 的聚合退出码覆盖；命令返回非 READY 时仍必须非零失败并暴露报告路径。
+- RED: `deploy-release-r79-route-snapshot-runner-exit-code` -> FAIL。真实测试服证据显示 `/var/lib/docker/intruoyi-releases/release-20260916-one-button-app-r79/runtime-reports/route-snapshot-identity-backfill.json` 为 `status=READY`、`blockerCount=0`，但 route runner SSH 返回 exit 1，operation lock=FAILED；版本切换前 `.env` 和实际 backend/frontend 镜像仍为旧 tag。
+- ROOT_CAUSE: `MesProRouteVersionSnapshotMigrationRunner` 调用 `SpringApplication.exit(applicationContext, () -> EXIT_READY)`，Spring 会聚合容器中无关的 `ExitCodeGenerator`，使 READY 命令结果被覆盖为 1。该问题不是目标数据缺失，也不能通过放宽发布脚本的非零检查掩盖。
+- GREEN: `mvn -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-mes clean test "-Dtest=MesProRouteVersionSnapshotMigrationCommandTest"` -> PASS，6 tests，0 failures，0 errors；实现直接把 `command.run(...)` 的结果传给 `processExit`，非 READY 继续抛出明确异常。
+- REGRESSION: 新增无关 `ExitCodeGenerator` 场景回归，确保 READY 结果不被 Spring 聚合退出码改写；未引入 fallback、未吞异常、未放宽 deploy hook 检查。
+- RESULT: R79 判废且不得复用；应用修复提交后使用全新 `release-20260916-one-button-app-r80`，source freeze 必须绑定新的应用提交与维护仓记录提交，继续执行测试服 `app-release/without-data` publish-test。
