@@ -54,6 +54,7 @@ public class ReleaseWorkflowService {
                 .filter(record -> !record.state().isTerminal())
                 .filter(record -> normalizedReason.equals(record.reason()))
                 .filter(record -> normalizedSourceSelectionId.equals(record.sourceSelectionId()))
+                .filter(this::hasCurrentApprovedSourceTuple)
                 .findFirst()
                 .orElse(null);
         if (existing != null) {
@@ -72,6 +73,16 @@ public class ReleaseWorkflowService {
                 .withRequestContext(redactActor(requestedBy), normalizedReason, normalizedSourceSelectionId);
         store.create(record);
         return record;
+    }
+
+    private boolean hasCurrentApprovedSourceTuple(ReleaseWorkflowRecord record) {
+        RuntimeControlProperties.ReleaseWorkflow workflow = properties.getReleaseWorkflow();
+        return workflow.getPresetId().equals(record.presetId())
+                && workflow.getPresetVersion().equals(record.presetVersion())
+                && ReleaseWorkflowContract.PUBLISH_SCOPE.equals(record.publishScope())
+                && workflow.getApprovedMaintenanceCommit().equals(record.maintenanceCommit())
+                && workflow.getApprovedApplicationCommit().equals(record.applicationCommit())
+                && workflow.getApprovedFrontendCommit().equals(record.frontendCommit());
     }
 
     public ReleaseWorkflowRecord require(String workflowId) {
@@ -129,6 +140,15 @@ public class ReleaseWorkflowService {
                                                ReleaseWorkflowRecord.State targetState,
                                                String stage, boolean success,
                                                boolean zeroWriteEvidence) {
+        return verifyAdvance(workflowId, expectedStateVersion, targetState, stage, success,
+                zeroWriteEvidence, null);
+    }
+
+    public ReleaseWorkflowRecord verifyAdvance(String workflowId, long expectedStateVersion,
+                                               ReleaseWorkflowRecord.State targetState,
+                                               String stage, boolean success,
+                                               boolean zeroWriteEvidence,
+                                               List<String> evidenceRefs) {
         ReleaseWorkflowRecord current = store.require(workflowId);
         if (current.stateVersion() != expectedStateVersion) {
             throw new ReleaseWorkflowStore.CasConflictException(workflowId, expectedStateVersion,
@@ -139,8 +159,11 @@ public class ReleaseWorkflowService {
         String errorCode = success ? null : "RELEASE_WORKFLOW_" + normalizedStage.toUpperCase().replace('-', '_') + "_FAILED";
         String failedStage = success ? null : normalizedStage;
         boolean retryable = success ? false : targetState != ReleaseWorkflowRecord.State.RECOVERY_REQUIRED;
+        List<String> normalizedEvidenceRefs = evidenceRefs == null || evidenceRefs.isEmpty()
+                ? List.of("workflow/" + normalizedStage + ".json")
+                : List.copyOf(evidenceRefs);
         return store.update(current, expectedStateVersion, targetState, VERIFIER_ACTOR,
-                errorCode, failedStage, retryable, List.of("workflow/" + normalizedStage + ".json"),
+                errorCode, failedStage, retryable, normalizedEvidenceRefs,
                 zeroWriteEvidence);
     }
 
@@ -222,10 +245,10 @@ public class ReleaseWorkflowService {
                         ReleaseWorkflowRecord.State.CANCELED));
         result.put(ReleaseWorkflowRecord.State.PREFLIGHTING,
                 EnumSet.of(ReleaseWorkflowRecord.State.TESTING, ReleaseWorkflowRecord.State.FAILED,
-                        ReleaseWorkflowRecord.State.CANCELED));
+                        ReleaseWorkflowRecord.State.CANCELED, ReleaseWorkflowRecord.State.RECOVERY_REQUIRED));
         result.put(ReleaseWorkflowRecord.State.TESTING,
                 EnumSet.of(ReleaseWorkflowRecord.State.BUILDING, ReleaseWorkflowRecord.State.FAILED,
-                        ReleaseWorkflowRecord.State.CANCELED));
+                        ReleaseWorkflowRecord.State.CANCELED, ReleaseWorkflowRecord.State.RECOVERY_REQUIRED));
         result.put(ReleaseWorkflowRecord.State.BUILDING,
                 EnumSet.of(ReleaseWorkflowRecord.State.READY, ReleaseWorkflowRecord.State.FAILED,
                         ReleaseWorkflowRecord.State.RECOVERY_REQUIRED));
@@ -235,7 +258,8 @@ public class ReleaseWorkflowService {
                 EnumSet.of(ReleaseWorkflowRecord.State.TEST_DEPLOYED, ReleaseWorkflowRecord.State.FAILED,
                         ReleaseWorkflowRecord.State.RECOVERY_REQUIRED));
         result.put(ReleaseWorkflowRecord.State.TEST_DEPLOYED,
-                EnumSet.of(ReleaseWorkflowRecord.State.TESTED, ReleaseWorkflowRecord.State.FAILED));
+                EnumSet.of(ReleaseWorkflowRecord.State.TESTED, ReleaseWorkflowRecord.State.FAILED,
+                        ReleaseWorkflowRecord.State.RECOVERY_REQUIRED));
         result.put(ReleaseWorkflowRecord.State.TESTED,
                 EnumSet.of(ReleaseWorkflowRecord.State.PROD_PREVIEW));
         result.put(ReleaseWorkflowRecord.State.PROD_PREVIEW,

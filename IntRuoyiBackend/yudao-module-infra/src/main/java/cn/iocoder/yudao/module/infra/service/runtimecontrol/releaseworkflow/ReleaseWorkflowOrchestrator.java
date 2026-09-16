@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -69,6 +70,7 @@ public class ReleaseWorkflowOrchestrator {
             throw new WorkflowLeaseConflictException("build");
         }
         activeLeases.put(leaseKey(workflow.workflowId(), "build"), lease);
+        boolean dispatched = false;
         try {
             String operationId = newOperationId();
             workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(), operationId);
@@ -88,14 +90,19 @@ public class ReleaseWorkflowOrchestrator {
             request.setSourceSelectionId(workflow.sourceSelectionId());
             attachWorkflowContext(request, workflow, operationId);
             RuntimeControlOperationRespVO operation = runtimeControlService.executeAction(request, requestedBy);
+            dispatched = true;
             requireOperationBinding(operationId, operation);
             return workflowService.require(workflow.workflowId());
         } catch (RuntimeException ex) {
-            releaseLease(workflow.workflowId(), "build");
-            ReleaseWorkflowRecord current = workflowService.require(workflow.workflowId());
-            if (!current.state().isTerminal()) {
-                workflowService.verifyAdvance(current.workflowId(), current.stateVersion(),
-                        ReleaseWorkflowRecord.State.FAILED, "SOURCE_FREEZING", false, true);
+            if (dispatched) {
+                isolateAfterDispatchFailure(workflow.workflowId(), "BUILD_DISPATCH", ex);
+            } else {
+                releaseLease(workflow.workflowId(), "build");
+                ReleaseWorkflowRecord current = workflowService.require(workflow.workflowId());
+                if (!current.state().isTerminal()) {
+                    workflowService.verifyAdvance(current.workflowId(), current.stateVersion(),
+                            ReleaseWorkflowRecord.State.FAILED, "SOURCE_FREEZING", false, true);
+                }
             }
             throw ex;
         }
@@ -114,6 +121,7 @@ public class ReleaseWorkflowOrchestrator {
             throw new WorkflowLeaseConflictException("test");
         }
         activeLeases.put(leaseKey(workflow.workflowId(), "test"), lease);
+        boolean dispatched = false;
         try {
             String operationId = newOperationId();
             workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(), operationId);
@@ -125,11 +133,16 @@ public class ReleaseWorkflowOrchestrator {
             request.setReleaseTag(workflow.releaseTag());
             attachWorkflowContext(request, workflow, operationId);
             RuntimeControlOperationRespVO operation = runtimeControlService.executeAction(request, requestedBy);
+            dispatched = true;
             requireOperationBinding(operationId, operation);
             return workflowService.require(workflow.workflowId());
         } catch (RuntimeException ex) {
-            releaseLease(workflow.workflowId(), "test");
-            failIfActive(workflow.workflowId(), "TEST_DEPLOYING", false);
+            if (dispatched) {
+                isolateAfterDispatchFailure(workflow.workflowId(), "TEST_DEPLOYING_DISPATCH", ex);
+            } else {
+                releaseLease(workflow.workflowId(), "test");
+                failIfActive(workflow.workflowId(), "TEST_DEPLOYING", false, ex);
+            }
             throw ex;
         }
     }
@@ -151,6 +164,7 @@ public class ReleaseWorkflowOrchestrator {
             throw new WorkflowLeaseConflictException("test");
         }
         activeLeases.put(leaseKey(workflow.workflowId(), "test"), lease);
+        boolean dispatched = false;
         try {
             String operationId = newOperationId();
             workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(), operationId);
@@ -163,11 +177,16 @@ public class ReleaseWorkflowOrchestrator {
             request.setTestOperationEvidencePath(workflow.testOperationEvidencePath());
             attachWorkflowContext(request, workflow, operationId);
             RuntimeControlOperationRespVO operation = runtimeControlService.executeAction(request, requestedBy);
+            dispatched = true;
             requireOperationBinding(operationId, operation);
             return workflowService.require(workflow.workflowId());
         } catch (RuntimeException ex) {
-            releaseLease(workflow.workflowId(), "test");
-            failIfActive(workflow.workflowId(), "TEST_ACCEPTANCE", true);
+            if (dispatched) {
+                isolateAfterDispatchFailure(workflow.workflowId(), "TEST_ACCEPTANCE_DISPATCH", ex);
+            } else {
+                releaseLease(workflow.workflowId(), "test");
+                failIfActive(workflow.workflowId(), "TEST_ACCEPTANCE", true, ex);
+            }
             throw ex;
         }
     }
@@ -184,6 +203,13 @@ public class ReleaseWorkflowOrchestrator {
                                                                        String prodConfirmText) {
         ReleaseWorkflowRecord workflow = reconcile(workflowId);
         requireTestedArtifactBinding(workflow);
+        ReleaseWorkflowAuthorizationService.WorkflowTuple tuple = productionWorkflowTuple(workflow);
+        ReleaseWorkflowAuthorizationService.Validation preflight =
+                authorizationService.previewExecution(authorizationGrantId, tuple, prodConfirmText,
+                        java.time.Instant.now());
+        if (!preflight.valid()) {
+            throw new ReleaseWorkflowAuthorizationService.AuthorizationException(preflight.errorCode());
+        }
         ReleaseWorkflowService.OptionalLease lease = workflowService.acquireEnvironmentLease("prod",
                 workflow.workflowId());
         if (!lease.acquired()) {
@@ -191,12 +217,9 @@ public class ReleaseWorkflowOrchestrator {
             throw new WorkflowLeaseConflictException("prod");
         }
         activeLeases.put(leaseKey(workflow.workflowId(), "prod"), lease);
+        boolean dispatched = false;
+        boolean executionCommitted = false;
         try {
-            ReleaseWorkflowAuthorizationService.WorkflowTuple tuple =
-                    new ReleaseWorkflowAuthorizationService.WorkflowTuple(
-                            workflow.workflowId(), workflow.releaseTag(), workflow.packageDigest(),
-                            workflow.manifestDigest(), "prod", workflow.presetId(), workflow.presetVersion(),
-                            workflow.publishScope(), workflow.state());
             ReleaseWorkflowAuthorizationService.Validation validation =
                     authorizationService.preview(authorizationGrantId, tuple, java.time.Instant.now());
             if (!validation.valid()) {
@@ -209,6 +232,7 @@ public class ReleaseWorkflowOrchestrator {
             workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
                     ReleaseWorkflowRecord.State.PROMOTING_PROD, "PROMOTING_PROD", true, false);
             authorizationService.execute(authorizationGrantId, tuple, prodConfirmText, java.time.Instant.now());
+            executionCommitted = true;
             RuntimeControlActionReqVO request = new RuntimeControlActionReqVO();
             request.setAction("promote-prod");
             request.setReason(reason);
@@ -218,11 +242,16 @@ public class ReleaseWorkflowOrchestrator {
             request.setTestOperationEvidencePath(workflow.testOperationEvidencePath());
             attachWorkflowContext(request, workflow, operationId);
             RuntimeControlOperationRespVO operation = runtimeControlService.executeAction(request, requestedBy);
+            dispatched = true;
             requireOperationBinding(operationId, operation);
             return workflowService.require(workflow.workflowId());
         } catch (RuntimeException ex) {
-            releaseLease(workflow.workflowId(), "prod");
-            failIfActive(workflow.workflowId(), "PROMOTING_PROD", false);
+            if (dispatched || executionCommitted) {
+                isolateAfterDispatchFailure(workflow.workflowId(), "PROMOTING_PROD_EXECUTION_COMMITTED", ex);
+            } else {
+                releaseLease(workflow.workflowId(), "prod");
+                failIfActive(workflow.workflowId(), "PROMOTING_PROD", false, ex);
+            }
             throw ex;
         }
     }
@@ -233,6 +262,9 @@ public class ReleaseWorkflowOrchestrator {
             return workflow;
         }
         RuntimeControlOperationRespVO operation = operationStore.findById(workflow.operationId());
+        if (operation != null) {
+            workflow = advanceObservedBuildStages(workflow, operation);
+        }
         if (operation == null || "running".equals(operation.getStatus())) {
             return workflow;
         }
@@ -243,14 +275,7 @@ public class ReleaseWorkflowOrchestrator {
                     ReleaseWorkflowRecord.State.FAILED, workflow.state().name(), false,
                     !workflow.state().isWriteStage());
         }
-        if (workflow.state().isTerminal()) {
-            releaseAllLeases(workflowId);
-        } else if (workflow.state() == ReleaseWorkflowRecord.State.READY) {
-            releaseLease(workflowId, "build");
-        } else if (workflow.state() == ReleaseWorkflowRecord.State.TEST_DEPLOYED
-                || workflow.state() == ReleaseWorkflowRecord.State.TESTED) {
-            releaseLease(workflowId, "test");
-        }
+        releaseLeasesForState(workflow);
         return workflow;
     }
 
@@ -273,6 +298,11 @@ public class ReleaseWorkflowOrchestrator {
                 continue;
             }
             if ("running".equals(operation.getStatus())) {
+                ReleaseWorkflowRecord observed = advanceObservedBuildStages(workflow, operation);
+                if (observed.stateVersion() != workflow.stateVersion()) {
+                    changed.add(observed);
+                    continue;
+                }
                 Instant progressAt = recentOperationLogProgressAt(operation.getOperationId(), now);
                 if (progressAt != null) {
                     ReleaseWorkflowRecord current = workflowService.require(workflow.workflowId());
@@ -336,7 +366,10 @@ public class ReleaseWorkflowOrchestrator {
                 if (progressAt != null) {
                     ReleaseWorkflowRecord current = workflowService.require(workflow.workflowId());
                     if (!current.state().isTerminal()) {
-                        workflowService.heartbeat(current.workflowId(), current.stateVersion(), progressAt);
+                        ReleaseWorkflowRecord observed = advanceObservedBuildStages(current, operation);
+                        if (observed.stateVersion() == current.stateVersion()) {
+                            workflowService.heartbeat(current.workflowId(), current.stateVersion(), progressAt);
+                        }
                     }
                     continue;
                 }
@@ -349,7 +382,9 @@ public class ReleaseWorkflowOrchestrator {
                 }
             }
         }
-        return workflowService.recoverStaleWorkflows(now);
+        List<ReleaseWorkflowRecord> recovered = workflowService.recoverStaleWorkflows(now);
+        recovered.forEach(this::releaseLeasesForState);
+        return recovered;
     }
 
     private Instant recentOperationLogProgressAt(String operationId, Instant now) {
@@ -368,8 +403,17 @@ public class ReleaseWorkflowOrchestrator {
 
     private ReleaseWorkflowRecord advanceSucceeded(ReleaseWorkflowRecord workflow,
                                                    RuntimeControlOperationRespVO operation) {
-        if (workflow.state() == ReleaseWorkflowRecord.State.PREFLIGHTING
-                && "build-release".equals(operation.getAction())) {
+        if ("build-release".equals(operation.getAction())
+                && (workflow.state() == ReleaseWorkflowRecord.State.PREFLIGHTING
+                || workflow.state() == ReleaseWorkflowRecord.State.TESTING
+                || workflow.state() == ReleaseWorkflowRecord.State.BUILDING)) {
+            workflow = advanceObservedBuildStages(workflow, operation);
+            if (workflow.state() != ReleaseWorkflowRecord.State.BUILDING) {
+                return workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                        ReleaseWorkflowRecord.State.FAILED, workflow.state().name(), false,
+                        !workflow.state().isWriteStage(),
+                        List.of("operation/" + operation.getOperationId() + ": RELEASE_WORKFLOW_STAGE_MISSING"));
+            }
             String releaseTag = workflow.releaseTag();
             RuntimeControlReleasePackageRespVO releasePackage = runtimeControlService.getReleasePackages().stream()
                     .filter(item -> releaseTag.equals(item.getReleaseTag()))
@@ -377,10 +421,6 @@ public class ReleaseWorkflowOrchestrator {
                     .orElseThrow(() -> new IllegalStateException("RELEASE_PACKAGE_EVIDENCE_MISSING"));
             workflow = workflowService.bindArtifacts(workflow.workflowId(), workflow.stateVersion(),
                     releasePackage.getPackageDigest(), releasePackage.getManifestDigest());
-            workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
-                    ReleaseWorkflowRecord.State.TESTING, "TESTING", true, true);
-            workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
-                    ReleaseWorkflowRecord.State.BUILDING, "BUILDING", true, true);
             return workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
                     ReleaseWorkflowRecord.State.READY, "READY", true, true);
         }
@@ -404,8 +444,74 @@ public class ReleaseWorkflowOrchestrator {
         return workflow;
     }
 
+    private ReleaseWorkflowRecord advanceObservedBuildStages(ReleaseWorkflowRecord workflow,
+                                                             RuntimeControlOperationRespVO operation) {
+        if (!"build-release".equals(operation.getAction())) {
+            return workflow;
+        }
+        for (ObservedWorkflowStage marker : readObservedBuildStages(operation.getOperationId())) {
+            if (isObservedStageAlreadyApplied(workflow.state(), marker.state())) {
+                continue;
+            }
+            if (!isNextObservedStage(workflow.state(), marker.state())) {
+                throw new IllegalStateException("RELEASE_WORKFLOW_STAGE_SEQUENCE_INVALID: "
+                        + workflow.state() + " -> " + marker.state());
+            }
+            workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                    marker.state(), marker.state().name(), true, true,
+                    List.of(marker.evidenceRef()));
+        }
+        return workflow;
+    }
+
+    private List<ObservedWorkflowStage> readObservedBuildStages(String operationId) {
+        Path logPath = operationStore.getOperationLogPath(operationId);
+        if (!Files.isRegularFile(logPath)) {
+            return List.of();
+        }
+        try {
+            List<ObservedWorkflowStage> result = new ArrayList<>();
+            for (String line : Files.readAllLines(logPath, StandardCharsets.UTF_8)) {
+                String marker = line.trim();
+                if (!marker.startsWith("RELEASE_WORKFLOW_STAGE=")) {
+                    continue;
+                }
+                String value = marker.substring("RELEASE_WORKFLOW_STAGE=".length()).split("\\s+", 2)[0];
+                ReleaseWorkflowRecord.State state = ReleaseWorkflowRecord.State.valueOf(value);
+                if (state != ReleaseWorkflowRecord.State.TESTING
+                        && state != ReleaseWorkflowRecord.State.BUILDING) {
+                    throw new IllegalStateException("RELEASE_WORKFLOW_STAGE_UNSUPPORTED: " + value);
+                }
+                result.add(new ObservedWorkflowStage(state, "operation/" + operationId + ": " + marker));
+            }
+            return result;
+        } catch (IOException | IllegalArgumentException | SecurityException ex) {
+            throw new IllegalStateException("RELEASE_WORKFLOW_STAGE_LOG_INVALID", ex);
+        }
+    }
+
+    private boolean isObservedStageAlreadyApplied(ReleaseWorkflowRecord.State current,
+                                                  ReleaseWorkflowRecord.State observed) {
+        return buildStageOrder(current) >= buildStageOrder(observed);
+    }
+
+    private boolean isNextObservedStage(ReleaseWorkflowRecord.State current,
+                                        ReleaseWorkflowRecord.State observed) {
+        return buildStageOrder(observed) == buildStageOrder(current) + 1;
+    }
+
+    private int buildStageOrder(ReleaseWorkflowRecord.State state) {
+        return switch (state) {
+            case PREFLIGHTING -> 0;
+            case TESTING -> 1;
+            case BUILDING, READY, TEST_DEPLOYING, TEST_DEPLOYED, TESTED, PROD_PREVIEW,
+                    PROMOTING_PROD, COMPLETED -> 2;
+            default -> -1;
+        };
+    }
+
     private void attachWorkflowContext(RuntimeControlActionReqVO request, ReleaseWorkflowRecord workflow,
-                                       String operationId) {
+                                        String operationId) {
         request.setReleaseWorkflowId(workflow.workflowId());
         request.setReleaseWorkflowExpectedStateVersion(workflow.stateVersion());
         request.setPreassignedOperationId(operationId);
@@ -421,16 +527,42 @@ public class ReleaseWorkflowOrchestrator {
         }
     }
 
-    private void failIfActive(String workflowId, String stage, boolean zeroWriteEvidence) {
+    private void failIfActive(String workflowId, String stage, boolean zeroWriteEvidence, RuntimeException cause) {
         ReleaseWorkflowRecord current = workflowService.require(workflowId);
         if (!current.state().isTerminal()) {
             try {
                 workflowService.verifyAdvance(current.workflowId(), current.stateVersion(),
                         ReleaseWorkflowRecord.State.FAILED, stage, false, zeroWriteEvidence);
-            } catch (ReleaseWorkflowService.InvalidTransitionException ignored) {
-                // Original dispatch/auth exception is rethrown by the caller.  If the workflow
-                // was still in a stable wait state, there is no failed running stage to persist.
+            } catch (ReleaseWorkflowService.InvalidTransitionException transitionFailure) {
+                if (cause != null) {
+                    cause.addSuppressed(transitionFailure);
+                } else {
+                    throw transitionFailure;
+                }
             }
+        }
+    }
+
+    private void isolateAfterDispatchFailure(String workflowId, String stage, RuntimeException cause) {
+        try {
+            ReleaseWorkflowRecord current = workflowService.require(workflowId);
+            if (!current.state().isTerminal() && current.state() != ReleaseWorkflowRecord.State.RECOVERY_REQUIRED) {
+                workflowService.verifyAdvance(current.workflowId(), current.stateVersion(),
+                        ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, stage, false, false);
+            }
+        } catch (RuntimeException recoveryFailure) {
+            cause.addSuppressed(recoveryFailure);
+        }
+    }
+
+    private void releaseLeasesForState(ReleaseWorkflowRecord workflow) {
+        if (workflow.state().isTerminal()) {
+            releaseAllLeases(workflow.workflowId());
+        } else if (workflow.state() == ReleaseWorkflowRecord.State.READY) {
+            releaseLease(workflow.workflowId(), "build");
+        } else if (workflow.state() == ReleaseWorkflowRecord.State.TEST_DEPLOYED
+                || workflow.state() == ReleaseWorkflowRecord.State.TESTED) {
+            releaseLease(workflow.workflowId(), "test");
         }
     }
 
@@ -451,6 +583,13 @@ public class ReleaseWorkflowOrchestrator {
         return workflowId + ":" + environment;
     }
 
+    private ReleaseWorkflowAuthorizationService.WorkflowTuple productionWorkflowTuple(ReleaseWorkflowRecord workflow) {
+        return new ReleaseWorkflowAuthorizationService.WorkflowTuple(
+                workflow.workflowId(), workflow.releaseTag(), workflow.packageDigest(),
+                workflow.manifestDigest(), "prod", workflow.presetId(), workflow.presetVersion(),
+                workflow.publishScope(), workflow.state());
+    }
+
     private static void requireTestedArtifactBinding(ReleaseWorkflowRecord workflow) {
         if (workflow.state() != ReleaseWorkflowRecord.State.TESTED) {
             throw new IllegalStateException("RELEASE_WORKFLOW_NOT_TESTED");
@@ -466,4 +605,6 @@ public class ReleaseWorkflowOrchestrator {
             super("RELEASE_WORKFLOW_LEASE_CONFLICT: " + environment);
         }
     }
+
+    private record ObservedWorkflowStage(ReleaseWorkflowRecord.State state, String evidenceRef) { }
 }

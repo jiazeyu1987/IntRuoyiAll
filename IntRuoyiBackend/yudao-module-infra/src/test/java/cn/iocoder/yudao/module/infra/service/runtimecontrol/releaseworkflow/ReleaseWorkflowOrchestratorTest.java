@@ -11,8 +11,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.time.Duration;
@@ -23,10 +25,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -102,10 +107,15 @@ class ReleaseWorkflowOrchestratorTest {
     }
 
     @Test
-    void successfulBuildOperationAdvancesPersistedWorkflowToReady() {
+    void successfulBuildOperationAdvancesPersistedWorkflowToReady() throws Exception {
         RuntimeControlOperationRespVO operation = operation("running");
         stubWorkflowOperations(operation);
         ReleaseWorkflowRecord started = orchestrator.startBuild("operator", "routine release", "approved-source");
+        writeOperationLog(operation.getOperationId(), """
+                RELEASE_WORKFLOW_STAGE=TESTING evidence=standard-release-contract-tests
+                RELEASE_WORKFLOW_STAGE=BUILDING evidence=application-artifact-build
+                [INFO] Release package built: release-test
+                """);
         operation.setStatus("succeeded");
         operationStore.save(operation);
         when(runtimeControlService.getReleasePackages()).thenReturn(java.util.List.of(packageFor(started.releaseTag())));
@@ -117,10 +127,15 @@ class ReleaseWorkflowOrchestratorTest {
     }
 
     @Test
-    void schedulerReconcilesSucceededOperationWithoutUserPolling() {
+    void schedulerReconcilesSucceededOperationWithoutUserPolling() throws Exception {
         RuntimeControlOperationRespVO operation = operation("running");
         stubWorkflowOperations(operation);
         ReleaseWorkflowRecord started = orchestrator.startBuild("operator", "routine release", "approved-source");
+        writeOperationLog(operation.getOperationId(), """
+                RELEASE_WORKFLOW_STAGE=TESTING evidence=standard-release-contract-tests
+                RELEASE_WORKFLOW_STAGE=BUILDING evidence=application-artifact-build
+                [INFO] Release package built: release-test
+                """);
         operation.setStatus("succeeded");
         operationStore.save(operation);
         when(runtimeControlService.getReleasePackages()).thenReturn(List.of(packageFor(started.releaseTag())));
@@ -140,6 +155,7 @@ class ReleaseWorkflowOrchestratorTest {
         publish.setEnvironment("test");
         stubWorkflowOperations(build, publish);
         ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "routine release", "approved-source");
+        writeSuccessfulBuildStages(build.getOperationId());
         build.setStatus("succeeded");
         operationStore.save(build);
         when(runtimeControlService.getReleasePackages()).thenReturn(java.util.List.of(packageFor(workflow.releaseTag())));
@@ -238,6 +254,7 @@ class ReleaseWorkflowOrchestratorTest {
         RuntimeControlOperationRespVO operation = operation("running");
         stubWorkflowOperations(operation);
         ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "human wait after build", "approved-source");
+        writeSuccessfulBuildStages(operation.getOperationId());
         operation.setStatus("succeeded");
         operationStore.save(operation);
         when(runtimeControlService.getReleasePackages()).thenReturn(List.of(packageFor(workflow.releaseTag())));
@@ -263,6 +280,7 @@ class ReleaseWorkflowOrchestratorTest {
         mark.setEnvironment("test");
         stubWorkflowOperations(build, publish, mark);
         ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "routine release", "approved-source");
+        writeSuccessfulBuildStages(build.getOperationId());
         build.setStatus("succeeded");
         operationStore.save(build);
         when(runtimeControlService.getReleasePackages()).thenReturn(java.util.List.of(packageFor(workflow.releaseTag())));
@@ -304,6 +322,7 @@ class ReleaseWorkflowOrchestratorTest {
         mark.setEnvironment("test");
         stubWorkflowOperations(build, publish, mark);
         ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "lease release first", "approved-source");
+        writeSuccessfulBuildStages(build.getOperationId());
         build.setStatus("succeeded");
         operationStore.save(build);
         when(runtimeControlService.getReleasePackages()).thenReturn(java.util.List.of(packageFor(workflow.releaseTag())));
@@ -348,6 +367,155 @@ class ReleaseWorkflowOrchestratorTest {
         verify(runtimeControlService, times(1)).executeAction(any(), eq("operator"));
     }
 
+    @Test
+    void consumedProductionAuthorizationDispatchFailureKeepsWorkflowIsolated() {
+        properties.getReleaseWorkflow().setProductionWriteEnabled(true);
+        properties.getEnvironments().get("prod").setAccessEnabled(true);
+        ReleaseWorkflowRecord workflow = testedWorkflow();
+        ReleaseAuthorizationGrant grant = orchestrator.authorizeProduction(workflow.workflowId(), "approver");
+        when(runtimeControlService.executeAction(any(), eq("operator")))
+                .thenThrow(new IllegalStateException("operation binding store unavailable"));
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> orchestrator.startProductionPromotion(workflow.workflowId(), "operator",
+                        "approved production release", grant.grantId(), "PROD"));
+        ReleaseWorkflowRecord isolated = workflowService.require(workflow.workflowId());
+        ReleaseWorkflowService.OptionalLease prodLease =
+                workflowService.acquireEnvironmentLease("prod", "next-workflow");
+
+        assertEquals(ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, isolated.state());
+        assertNotNull(new ReleaseWorkflowAuthorizationService(properties).require(grant.grantId()).consumedAt());
+        assertFalse(prodLease.acquired());
+        prodLease.close();
+    }
+
+    @Test
+    void stalePreflightFailureReleasesBuildLeaseForNextWorkflow() {
+        properties.getReleaseWorkflow().setHeartbeatTimeout(Duration.ofSeconds(1));
+        RuntimeControlOperationRespVO operation = operation("running");
+        stubWorkflowOperations(operation);
+        when(runtimeControlService.cancelOperation(any())).thenAnswer(invocation -> {
+            operation.setStatus("canceled");
+            operationStore.save(operation);
+            return true;
+        });
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "stale preflight", "approved-source");
+        operationStore.save(operation);
+        workflowService.overrideHeartbeatForTest(workflow.workflowId(), Instant.now().minusSeconds(10));
+
+        ReleaseWorkflowRecord recovered = orchestrator.recoverStaleWorkflows(Instant.now()).get(0);
+        ReleaseWorkflowService.OptionalLease nextBuildLease =
+                workflowService.acquireEnvironmentLease("build", "next-workflow");
+
+        assertEquals(ReleaseWorkflowRecord.State.FAILED, recovered.state());
+        assertTrue(nextBuildLease.acquired());
+        nextBuildLease.close();
+    }
+
+    @Test
+    void postDispatchBindingMismatchKeepsTestWorkflowIsolated() {
+        RuntimeControlOperationRespVO build = operation("running");
+        RuntimeControlOperationRespVO publish = operation("running");
+        publish.setOperationId(UUID.randomUUID().toString());
+        publish.setAction("publish-test");
+        publish.setEnvironment("test");
+        AtomicInteger index = new AtomicInteger();
+        when(runtimeControlService.executeAction(any(), eq("operator"))).thenAnswer(invocation -> {
+            RuntimeControlActionReqVO request = invocation.getArgument(0);
+            if (index.getAndIncrement() == 0) {
+                build.setOperationId(request.getPreassignedOperationId());
+                build.setAction(request.getAction());
+                build.setEnvironment(operationEnvironment(request.getAction()));
+                return build;
+            }
+            return publish;
+        });
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "dispatch mismatch", "approved-source");
+        writeOperationLog(build.getOperationId(), """
+                RELEASE_WORKFLOW_STAGE=TESTING evidence=standard-release-contract-tests
+                RELEASE_WORKFLOW_STAGE=BUILDING evidence=application-artifact-build
+                [INFO] Release package built: release-test
+                """);
+        build.setStatus("succeeded");
+        operationStore.save(build);
+        when(runtimeControlService.getReleasePackages()).thenReturn(List.of(packageFor(workflow.releaseTag())));
+        workflow = orchestrator.reconcile(workflow.workflowId());
+        String readyWorkflowId = workflow.workflowId();
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> orchestrator.startTestPublish(readyWorkflowId, "operator", "publish test"));
+        ReleaseWorkflowRecord isolated = workflowService.require(readyWorkflowId);
+        ReleaseWorkflowService.OptionalLease nextTestLease =
+                workflowService.acquireEnvironmentLease("test", "next-workflow");
+
+        assertEquals(ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, isolated.state());
+        assertFalse(nextTestLease.acquired());
+        nextTestLease.close();
+    }
+
+    @Test
+    void productionWriteDisabledRejectsBeforeStateChangeOrDispatch() {
+        properties.getEnvironments().get("prod").setAccessEnabled(true);
+        ReleaseWorkflowRecord workflow = testedWorkflow();
+        ReleaseAuthorizationGrant grant = orchestrator.authorizeProduction(workflow.workflowId(), "approver");
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                ReleaseWorkflowAuthorizationService.AuthorizationException.class,
+                () -> orchestrator.startProductionPromotion(workflow.workflowId(), "operator",
+                        "approved production release", grant.grantId(), "PROD"));
+        ReleaseWorkflowService.OptionalLease prodLease =
+                workflowService.acquireEnvironmentLease("prod", "next-workflow");
+
+        assertEquals(ReleaseWorkflowRecord.State.TESTED,
+                workflowService.require(workflow.workflowId()).state());
+        assertNull(new ReleaseWorkflowAuthorizationService(properties).require(grant.grantId()).consumedAt());
+        assertTrue(prodLease.acquired());
+        prodLease.close();
+        verify(runtimeControlService, never()).executeAction(any(), any());
+    }
+
+    @Test
+    void buildLogStageMarkersAdvanceRunningWorkflowBeforeOperationCompletes() throws Exception {
+        RuntimeControlOperationRespVO operation = operation("running");
+        stubWorkflowOperations(operation);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "stage markers", "approved-source");
+        operationStore.save(operation);
+        Path logPath = operationStore.getOperationLogPath(operation.getOperationId());
+        Files.createDirectories(logPath.getParent());
+        Files.writeString(logPath, "RELEASE_WORKFLOW_STAGE=TESTING evidence=standard-release-contract-tests\n",
+                StandardCharsets.UTF_8);
+
+        ReleaseWorkflowRecord testing = orchestrator.reconcile(workflow.workflowId());
+        Files.writeString(logPath, "RELEASE_WORKFLOW_STAGE=BUILDING evidence=application-artifact-build\n",
+                StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+        ReleaseWorkflowRecord building = orchestrator.reconcile(workflow.workflowId());
+
+        assertEquals(ReleaseWorkflowRecord.State.TESTING, testing.state());
+        assertEquals(ReleaseWorkflowRecord.State.BUILDING, building.state());
+        assertTrue(building.evidenceRefs().stream().anyMatch(ref -> ref.contains("RELEASE_WORKFLOW_STAGE=BUILDING")));
+    }
+
+    @Test
+    void failedBuildUsesLastObservedBuildStage() throws Exception {
+        RuntimeControlOperationRespVO operation = operation("running");
+        stubWorkflowOperations(operation);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "failed build stage", "approved-source");
+        operationStore.save(operation);
+        Path logPath = operationStore.getOperationLogPath(operation.getOperationId());
+        Files.createDirectories(logPath.getParent());
+        Files.writeString(logPath, """
+                RELEASE_WORKFLOW_STAGE=TESTING evidence=standard-release-contract-tests
+                RELEASE_WORKFLOW_STAGE=BUILDING evidence=application-artifact-build
+                """, StandardCharsets.UTF_8);
+        operation.setStatus("failed");
+        operationStore.save(operation);
+
+        ReleaseWorkflowRecord failed = orchestrator.reconcile(workflow.workflowId());
+
+        assertEquals(ReleaseWorkflowRecord.State.FAILED, failed.state());
+        assertEquals("BUILDING", failed.failedStage());
+    }
+
     private void stubWorkflowOperations(RuntimeControlOperationRespVO... operations) {
         AtomicInteger index = new AtomicInteger();
         when(runtimeControlService.executeAction(any(), eq("operator"))).thenAnswer(invocation -> {
@@ -371,6 +539,25 @@ class ReleaseWorkflowOrchestratorTest {
             case "promote-prod" -> "prod";
             default -> throw new AssertionError("unexpected release workflow action: " + action);
         };
+    }
+
+
+    private void writeOperationLog(String operationId, String content) {
+        try {
+            Path logPath = operationStore.getOperationLogPath(operationId);
+            Files.createDirectories(logPath.getParent());
+            Files.writeString(logPath, content, StandardCharsets.UTF_8);
+        } catch (java.io.IOException ex) {
+            throw new AssertionError(ex);
+        }
+    }
+
+    private void writeSuccessfulBuildStages(String operationId) {
+        writeOperationLog(operationId, """
+                RELEASE_WORKFLOW_STAGE=TESTING evidence=standard-release-contract-tests
+                RELEASE_WORKFLOW_STAGE=BUILDING evidence=application-artifact-build
+                [INFO] Release package built: release-test
+                """);
     }
 
     private RuntimeControlOperationRespVO operation(String status) {

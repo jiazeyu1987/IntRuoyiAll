@@ -77,6 +77,12 @@ public class ReleaseWorkflowAuthorizationService {
         return validate(grant, workflow, now, false, null);
     }
 
+    public synchronized Validation previewExecution(String grantId, WorkflowTuple workflow,
+                                                     String prodConfirmText, Instant now) {
+        ReleaseAuthorizationGrant grant = require(grantId);
+        return validate(grant, workflow, now, true, prodConfirmText);
+    }
+
     public synchronized ReleaseAuthorizationGrant execute(String grantId, WorkflowTuple workflow,
                                                            String prodConfirmText, Instant now) {
         Object jvmLock = JVM_GRANT_LOCKS.computeIfAbsent(grantId, ignored -> new Object());
