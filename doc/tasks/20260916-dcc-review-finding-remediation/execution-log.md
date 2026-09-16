@@ -30,3 +30,9 @@
 ## Commit Records
 - Implementation commit: 9aae29b578876475f5edaa3a9e8f15e80c97471a
 - Implementation files: DccControlledFileMapper.java; DccControlledFileFinalizationServiceImpl.java; DccControlledFileQueryServiceImpl.java; DccControlledFileFinalizationServiceImplTest.java; DccControlledFileQueryServiceTest.java; dcc-static-014-browser-major-revision-owner-action-contract.spec.cjs; browser/index.vue; task records.
+
+## Push Records
+- Closeout commit before final push record: 5af6aeff4b014a34f0dfe018990033c37c8ccc4f.
+- Initial push attempt failed because repository-local Git proxy `http://127.0.0.1:7892` was unavailable. No remote state changed in that failed attempt.
+- Push retry used command-local proxy override only: `git -c http.proxy= -c https.proxy= push origin int_qms` -> PASS.
+- Remote verification used command-local proxy override: `git -c http.proxy= -c https.proxy= ls-remote origin refs/heads/int_qms` -> `5af6aeff4b014a34f0dfe018990033c37c8ccc4f`.
