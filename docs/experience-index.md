@@ -4,6 +4,7 @@
 
 - Keywords: DCC 90步静态检查, 新项目授权入口, 产品建档续办, 模板分类与上传不一致, 检入丢关联, 审批预览旧原件, 影响评估小版本跟踪 -> `docs/bugs/20260912-dcc-90-step-static-audit.md`；检查顺序 -> `docs/backend-development.md#dcc-跨版本静态检查顺序`
 - Keywords: DCC 路线配置未执行, 重复审批环节丢人, 路线未来生效, CAD配套PDF, 仅元数据检入, 重放文本碰撞, 培训并发计时, 发布连续重试, Master逻辑身份漂移, 大版本正式基线 -> `docs/backend-development.md#dcc-跨版本静态检查顺序`；追加静态证据 -> `doc/tasks/20260913-dcc-90-step-followup-audit/verification-report.md`
+- Keywords: DCC 大版本通知门禁, 可配置大版本身份, majorIdentitySegmentCount, A/1 A/2 小版本, A/1 B/1 大版本, A/1/1 A/1/2 小版本, 关联新版通知只走大版本, DccControlledFileVersionPolicy -> `docs/backend-development.md#dcc-windchill-版本链路后端门禁` and `docs/backend-development.md#发布后续账本与业务可见快照门禁`
 
 - Keywords: DCC 上传异常误报成功, 根行唯一冲突, 幂等赢家, 盖章重试权限, 转办加签资格, 培训并发确认卡死, 停用培训人员, 通知 afterCommit 独立事务, 通知重复重放 -> `docs/backend-development.md#dcc-失败重试和并发收口门禁`
 - Keywords: CSV 验证最小包, 计算机化系统验证, GAMP 分类, IQ OQ PQ, URS FS 风险评估, CSV 追溯矩阵, 供应商评估, 周期回顾, 验证报告审批, 中文 Word 交付包, CSV 签字矩阵, 00A 正式递交说明与签字责任矩阵, 正式送审分册包, 药监现场核查 CSV 包, 药监审核老师不代替企业内部批准签字, official-submission-package, 5.1 5.16 -> `docs/csv-validation/README.md`

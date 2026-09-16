@@ -66,6 +66,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
     @Resource private DccControlledFileMasterMapper controlledFileMasterMapper;
     @Resource private DccPublicationFollowupStatusService followupStatusService;
     @Resource private DccProjectAccessService projectAccessService;
+    @Resource private DccControlledFileVersionPolicy versionPolicy = DccControlledFileVersionPolicy.defaultPolicy();
 
     @Transactional(rollbackFor = Exception.class)
     @Override
@@ -298,22 +299,21 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
             }
             return new DccPublicationImpactRevisionOptions(List.of(), toRevisionOption(open.get(0), false));
         }
-        String revisionCode = DccWindchillVersionNumber.parse(active.getVersionNo()) == null
-                ? active.getRevisionCode() : DccWindchillVersionNumber.parse(active.getVersionNo()).revisionCode();
-        if (revisionCode == null) {
+        DccControlledFileVersionPolicy.VersionNumber activeVersion = versionPolicy.parseStored(active);
+        if (activeVersion == null) {
             throw exception(PUBLICATION_IMPACT_REVISION_INVALID);
         }
+        String revisionCode = activeVersion.majorIdentity();
         List<DccPublicationImpactRevisionOption> sources = chain.stream()
                 .filter(file -> Objects.equals(file.getMasterId(), task.getRelatedMasterId()))
                 .filter(file -> Objects.equals(file.getDccProjectCodeId(), active.getDccProjectCodeId()))
                 .filter(file -> List.of(DccControlledFileStatusEnum.ACTIVE.getStatus(), "WORKING",
                         DccControlledFileStatusEnum.REJECTED.getStatus()).contains(file.getStatus()))
                 .filter(file -> {
-                    DccWindchillVersionNumber version = DccWindchillVersionNumber.parse(file.getVersionNo());
-                    return version != null && revisionCode.equals(version.revisionCode());
+                    DccControlledFileVersionPolicy.VersionNumber version = versionPolicy.parseStored(file);
+                    return version != null && revisionCode.equals(version.majorIdentity());
                 })
-                .sorted(java.util.Comparator.comparingInt(file ->
-                        DccWindchillVersionNumber.parse(file.getVersionNo()).iterationNo()))
+                .sorted(java.util.Comparator.comparing(file -> versionPolicy.requireStored(file)))
                 .map(file -> toRevisionOption(file, Objects.equals(file.getId(), active.getId())))
                 .toList();
         if (sources.isEmpty()) {
@@ -368,11 +368,8 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
     }
 
     private String resolveRevisionCode(DccControlledFileDO revision) {
-        DccWindchillVersionNumber version = DccWindchillVersionNumber.parse(revision.getVersionNo());
-        if (version != null) {
-            return version.revisionCode();
-        }
-        return StrUtil.trimToNull(revision.getRevisionCode());
+        DccControlledFileVersionPolicy.VersionNumber version = versionPolicy.parseStored(revision);
+        return version == null ? null : version.majorIdentity();
     }
 
     private boolean isLegitimateResolveRace(Long tenantId, DccPublicationImpactTaskDO selected,

@@ -82,6 +82,7 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
     @Resource private DeptApi deptApi;
     @Resource private DccRelatedFileImpactAssessmentService impactAssessmentService;
     @Resource private DccPublicationNotificationService publicationNotificationService;
+    @Resource private DccControlledFileVersionPolicy versionPolicy = DccControlledFileVersionPolicy.defaultPolicy();
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -90,6 +91,9 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         if (publishedFile.getTenantId() != null && !tenantId.equals(publishedFile.getTenantId())) {
             throw new IllegalStateException("Published controlled file tenant does not match current tenant");
+        }
+        if (!isMajorRevisionChange(publishedFile, previousActiveFile)) {
+            return;
         }
         LocalDateTime frozenAt = publishedFile.getPublishedTime().withNano(0);
         String creationToken = UUID.randomUUID().toString();
@@ -489,6 +493,15 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
                 || StrUtil.isBlank(file.getFileName()) || StrUtil.isBlank(file.getVersionNo())
                 || file.getPublishedTime() == null) {
             throw new IllegalArgumentException("Published controlled file identity is incomplete");
+        }
+    }
+
+    private boolean isMajorRevisionChange(DccControlledFileDO publishedFile,
+                                          DccControlledFileDO previousActiveFile) {
+        try {
+            return versionPolicy.isMajorVersionChange(publishedFile, previousActiveFile);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException("Cannot determine major revision change for publication follow-up", ex);
         }
     }
 

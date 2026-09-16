@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Set;
@@ -151,7 +152,7 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
                 dept(10L, "质量部"), dept(11L, "生产部"), dept(12L, "研发一部"),
                 dept(13L, "研发二部")));
 
-        service.recordPublishedRevision(published, DccControlledFileDO.builder().id(99L).build());
+        service.recordPublishedRevision(published, activeA2());
 
         ArgumentCaptor<DccPublicationFollowupBatchDO> batchCaptor =
                 ArgumentCaptor.forClass(DccPublicationFollowupBatchDO.class);
@@ -212,8 +213,8 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
         when(adminUserApi.getUserList(Set.of(1L))).thenReturn(List.of(user(1L, "责任人", 10L)));
         when(deptApi.getDeptList(Set.of(10L))).thenReturn(List.of(dept(10L, "质量部")));
 
-        service.recordPublishedRevision(published, null);
-        service.recordPublishedRevision(published, null);
+        service.recordPublishedRevision(published, activeA2());
+        service.recordPublishedRevision(published, activeA2());
 
         verify(viewMatrixRuleMapper, times(1)).selectActiveListByCategoryId(20L);
         verify(visibilityRuleMapper, times(1)).insert(any(DccPublicationVisibilityRuleSnapshotDO.class));
@@ -235,7 +236,7 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
         storedBatch.set(conflicting);
 
         IllegalStateException error = assertThrows(IllegalStateException.class,
-                () -> service.recordPublishedRevision(published, DccControlledFileDO.builder().id(99L).build()));
+                () -> service.recordPublishedRevision(published, activeA2()));
 
         assertTrue(error.getMessage().contains("identity conflict"));
         verifyNoInteractions(visibilityRuleMapper, visibilityUserMapper, candidateMapper, candidateReasonMapper,
@@ -250,7 +251,7 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
                 .when(visibilityRuleMapper).insert(any(DccPublicationVisibilityRuleSnapshotDO.class));
 
         IllegalStateException error = assertThrows(IllegalStateException.class,
-                () -> service.recordPublishedRevision(published, null));
+                () -> service.recordPublishedRevision(published, activeA2()));
 
         assertEquals("snapshot insert failed", error.getMessage());
         verifyNoInteractions(candidateMapper, candidateReasonMapper, relationSnapshotMapper, relationDirectionMapper);
@@ -270,7 +271,7 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
                 .when(impactAssessmentService).materializeForPublicationBatch(900L);
 
         IllegalStateException error = assertThrows(IllegalStateException.class,
-                () -> service.recordPublishedRevision(published, null));
+                () -> service.recordPublishedRevision(published, activeA2()));
 
         assertEquals("impact materialization failed", error.getMessage());
         verifyNoInteractions(candidateMapper, candidateReasonMapper);
@@ -284,7 +285,7 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
                 .when(batchMapper).insertOrKeepExisting(any(DccPublicationFollowupBatchDO.class));
 
         IllegalStateException error = assertThrows(IllegalStateException.class,
-                () -> service.recordPublishedRevision(published, null));
+                () -> service.recordPublishedRevision(published, activeA2()));
 
         assertEquals("batch insert failed", error.getMessage());
         verifyNoInteractions(visibilityRuleMapper, visibilityUserMapper, candidateMapper, candidateReasonMapper,
@@ -292,22 +293,54 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void recordPublishedRevision_publishedB2StillCreatesFollowupBatch() {
-        DccControlledFileDO publishedB2 = publishedB1();
-        publishedB2.setVersionNo("B/2");
-        publishedB2.setIterationNo(2);
-        when(viewMatrixRuleMapper.selectActiveListByCategoryId(20L)).thenReturn(List.of());
-        when(distributionMapper.selectListByControlledFileId(100L)).thenReturn(List.of());
-        when(relatedFileService.listForwardRelations(100L)).thenReturn(List.of());
-        when(relatedFileService.listReverseCurrentActiveRelations(1L, 10L)).thenReturn(List.of());
-        when(assignmentScopeService.filterBusinessVisibleUserIds(Set.of(1L), 100L)).thenReturn(Set.of(1L));
-        when(adminUserApi.getUserList(Set.of(1L))).thenReturn(List.of(user(1L, "责任人", 10L)));
-        when(deptApi.getDeptList(Set.of(10L))).thenReturn(List.of(dept(10L, "质量部")));
+    void recordPublishedRevision_minorIterationDoesNotCreateFollowupBatch() {
+        DccControlledFileDO publishedA2 = publishedB1();
+        publishedA2.setVersionNo("A/2");
+        publishedA2.setRevisionCode("A");
+        publishedA2.setIterationNo(2);
 
-        service.recordPublishedRevision(publishedB2, null);
+        service.recordPublishedRevision(publishedA2, activeA1());
 
-        verify(batchMapper).insertOrKeepExisting(any(DccPublicationFollowupBatchDO.class));
-        verify(visibilityRuleMapper).insert(any(DccPublicationVisibilityRuleSnapshotDO.class));
+        verifyNoInteractions(batchMapper, visibilityRuleMapper, visibilityUserMapper, candidateMapper,
+                candidateReasonMapper, relationSnapshotMapper, relationDirectionMapper,
+                viewMatrixRuleMapper, viewMatrixAccessService, assignmentScopeService,
+                distributionMapper, distributionRecipientMapper, relatedFileService, masterMapper,
+                controlledFileMapper, adminUserApi, deptApi, impactAssessmentService,
+                publicationNotificationService);
+    }
+
+    @Test
+    void recordPublishedRevision_configuredTwoSegmentMajorIdentityTreatsThirdSegmentAsMinor() {
+        DccControlledFileVersionPolicyProperties properties = new DccControlledFileVersionPolicyProperties();
+        properties.setMajorIdentitySegmentCount(2);
+        ReflectionTestUtils.setField(service, "versionPolicy", new DccControlledFileVersionPolicy(properties));
+        DccControlledFileDO publishedA12 = publishedB1();
+        publishedA12.setVersionNo("A/1/2");
+        publishedA12.setRevisionCode("A/1");
+        publishedA12.setIterationNo(2);
+        DccControlledFileDO previousA11 = DccControlledFileDO.builder()
+                .id(98L).masterId(10L).versionNo("A/1/1").revisionCode("A/1").iterationNo(1).build();
+
+        service.recordPublishedRevision(publishedA12, previousA11);
+
+        verifyNoInteractions(batchMapper, visibilityRuleMapper, visibilityUserMapper, candidateMapper,
+                candidateReasonMapper, relationSnapshotMapper, relationDirectionMapper,
+                viewMatrixRuleMapper, viewMatrixAccessService, assignmentScopeService,
+                distributionMapper, distributionRecipientMapper, relatedFileService, masterMapper,
+                controlledFileMapper, adminUserApi, deptApi, impactAssessmentService,
+                publicationNotificationService);
+    }
+
+    @Test
+    void recordPublishedRevision_firstPublicationDoesNotCreateFollowupBatch() {
+        service.recordPublishedRevision(publishedB1(), null);
+
+        verifyNoInteractions(batchMapper, visibilityRuleMapper, visibilityUserMapper, candidateMapper,
+                candidateReasonMapper, relationSnapshotMapper, relationDirectionMapper,
+                viewMatrixRuleMapper, viewMatrixAccessService, assignmentScopeService,
+                distributionMapper, distributionRecipientMapper, relatedFileService, masterMapper,
+                controlledFileMapper, adminUserApi, deptApi, impactAssessmentService,
+                publicationNotificationService);
     }
 
     @Test
@@ -343,6 +376,16 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
                 .fileTypeTaxonomyId(50L).fileNumber("DOC-100").fileName("设计规范")
                 .versionNo("B/1").revisionCode("B").iterationNo(1).requesterId(1L)
                 .publishedTime(java.time.LocalDateTime.of(2026, 9, 7, 11, 0)).build();
+    }
+
+    private DccControlledFileDO activeA1() {
+        return DccControlledFileDO.builder()
+                .id(98L).masterId(10L).versionNo("A/1").revisionCode("A").iterationNo(1).build();
+    }
+
+    private DccControlledFileDO activeA2() {
+        return DccControlledFileDO.builder()
+                .id(99L).masterId(10L).versionNo("A/2").revisionCode("A").iterationNo(2).build();
     }
 
     private DccControlledFileRelatedFileDO relation(Long id, Long sourceFileId, Long targetFileId,

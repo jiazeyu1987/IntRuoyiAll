@@ -237,6 +237,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     @Resource
     private DccControlledFileRelatedFileService relatedFileService;
     @Resource
+    private DccControlledFileVersionPolicy versionPolicy = DccControlledFileVersionPolicy.defaultPolicy();
+    @Resource
     private DccControlledContentAdapter platformAdapter;
     @Resource
     private MdmProductApi mdmProductApi;
@@ -628,14 +630,14 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 || DccControlledFileChangeTypeEnum.REVISION.getCode().equals(file.getChangeType()))) {
             throw exception(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED);
         }
-        DccWindchillVersionNumber targetVersion = resolveWindchillVersion(file);
+        DccControlledFileVersionPolicy.VersionNumber targetVersion = resolveConfiguredVersion(file);
         List<DccControlledFileDO> masterVersions = controlledFileMapper.selectListByMasterIdForUpdate(file.getMasterId())
                 .stream()
                 .filter(Objects::nonNull)
                 .toList();
         DccControlledFileDO latest = masterVersions.stream()
-                .filter(item -> Objects.equals(targetVersion.revisionCode(), resolveWindchillVersion(item).revisionCode()))
-                .max(Comparator.comparingInt(item -> resolveWindchillVersion(item).iterationNo()))
+                .filter(item -> targetVersion.sameMajorIdentity(resolveConfiguredVersion(item)))
+                .max(Comparator.comparing(item -> resolveConfiguredVersion(item)))
                 .orElse(null);
         if (latest == null || !Objects.equals(latest.getId(), file.getId())) {
             throw exception(CONTROLLED_FILE_ITERATION_NOT_LATEST);
@@ -704,10 +706,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 || !Objects.equals(file.getRequesterId(), predecessor.getRequesterId())) {
             return false;
         }
-        DccWindchillVersionNumber fileVersion = resolveWindchillVersion(file);
-        DccWindchillVersionNumber predecessorVersion = resolveWindchillVersion(predecessor);
-        return Objects.equals(fileVersion.revisionCode(), predecessorVersion.revisionCode())
-                && fileVersion.iterationNo() > predecessorVersion.iterationNo();
+        DccControlledFileVersionPolicy.VersionNumber fileVersion = resolveConfiguredVersion(file);
+        DccControlledFileVersionPolicy.VersionNumber predecessorVersion = resolveConfiguredVersion(predecessor);
+        return fileVersion.sameMajorIdentity(predecessorVersion) && fileVersion.compareTo(predecessorVersion) > 0;
     }
 
     private boolean isSameWorkingCorrectionInReworkChain(DccControlledFileDO file,
@@ -717,10 +718,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 || !Objects.equals(file.getRequesterId(), candidate.getRequesterId())) {
             return false;
         }
-        DccWindchillVersionNumber fileVersion = resolveWindchillVersion(file);
-        DccWindchillVersionNumber candidateVersion = resolveWindchillVersion(candidate);
-        return Objects.equals(fileVersion.revisionCode(), candidateVersion.revisionCode())
-                && fileVersion.iterationNo() > candidateVersion.iterationNo();
+        DccControlledFileVersionPolicy.VersionNumber fileVersion = resolveConfiguredVersion(file);
+        DccControlledFileVersionPolicy.VersionNumber candidateVersion = resolveConfiguredVersion(candidate);
+        return fileVersion.sameMajorIdentity(candidateVersion) && fileVersion.compareTo(candidateVersion) > 0;
     }
 
     private void closeApplicantReworkPredecessorForResubmission(Long userId,
@@ -748,7 +748,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     }
 
     private void assertIterationAdvancesCurrentActive(DccControlledFileMasterDO master,
-                                                      DccWindchillVersionNumber targetVersion,
+                                                      DccControlledFileVersionPolicy.VersionNumber targetVersion,
                                                       List<DccControlledFileDO> masterVersions) {
         Long currentActiveId = master == null ? null : master.getCurrentActiveControlledFileId();
         if (currentActiveId == null) {
@@ -758,19 +758,14 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .filter(item -> Objects.equals(item.getId(), currentActiveId))
                 .findFirst()
                 .orElseThrow(() -> exception(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED));
-        DccWindchillVersionNumber currentVersion = resolveWindchillVersion(currentActive);
-        int revisionCompare = targetVersion.compareRevisionTo(currentVersion);
-        if (revisionCompare < 0
-                || (revisionCompare == 0 && targetVersion.iterationNo() <= currentVersion.iterationNo())) {
+        DccControlledFileVersionPolicy.VersionNumber currentVersion = resolveConfiguredVersion(currentActive);
+        if (targetVersion.compareTo(currentVersion) <= 0) {
             throw exception(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED);
         }
     }
 
-    private DccWindchillVersionNumber resolveWindchillVersion(DccControlledFileDO file) {
-        DccWindchillVersionNumber version = DccWindchillVersionNumber.parse(file.getVersionNo());
-        if (version == null && file.getRevisionCode() != null && file.getIterationNo() != null) {
-            version = new DccWindchillVersionNumber(file.getRevisionCode(), file.getIterationNo());
-        }
+    private DccControlledFileVersionPolicy.VersionNumber resolveConfiguredVersion(DccControlledFileDO file) {
+        DccControlledFileVersionPolicy.VersionNumber version = versionPolicy.parseStored(file);
         if (version == null) {
             throw exception(CONTROLLED_FILE_VERSION_INVALID);
         }
@@ -1862,7 +1857,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     }
 
     private DccControlledFileSubmitReqVO toResubmitReqVO(DccControlledFileDO file) {
-        DccWindchillVersionNumber withdrawnVersion = DccWindchillVersionNumber.parseStoredInitial(file.getVersionNo());
+        DccControlledFileVersionPolicy.VersionNumber withdrawnVersion = versionPolicy.parseStoredInitial(file);
         if (withdrawnVersion == null) {
             throw exception(CONTROLLED_FILE_VERSION_INVALID);
         }
@@ -1881,7 +1876,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         reqVO.setNeedTraining(file.getNeedTraining());
         reqVO.setProcessType(file.getProcessType());
         reqVO.setChangeType(file.getChangeType());
-        reqVO.setVersionNo(withdrawnVersion.nextIteration().display());
+        reqVO.setVersionNo(withdrawnVersion.nextMinor().display());
         reqVO.setRevisionSourceControlledFileId(file.getId());
         reqVO.setRevisionSourceReason("主动撤回后重新提交");
         reqVO.setEffectiveDate(file.getEffectiveDate());
@@ -1896,7 +1891,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         DccControlledFilePreparedSource preparedSource = sourceOwnershipService.prepareSubmissionSource(
                 context.submitFiles().sourceFileId(), context.submitFiles().ticketBindings().isEmpty());
         String generatedVersionNo = resolveServerVersionNo(context);
-        DccWindchillVersionNumber windchillVersion = DccWindchillVersionNumber.parse(generatedVersionNo);
+        DccControlledFileVersionPolicy.VersionNumber configuredVersion = versionPolicy.parse(generatedVersionNo);
         DccControlledFileDO file = DccControlledFileDO.builder()
                 .masterId(context.master().getId())
                 .categoryId(context.category().getId())
@@ -1921,8 +1916,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .processType(processType)
                 .changeType(context.changeType().getCode())
                 .versionNo(generatedVersionNo)
-                .revisionCode(windchillVersion == null ? null : windchillVersion.revisionCode())
-                .iterationNo(windchillVersion == null ? null : windchillVersion.iterationNo())
+                .revisionCode(configuredVersion == null ? null : configuredVersion.majorIdentity())
+                .iterationNo(configuredVersion == null ? null : configuredVersion.iterationNo())
                 .predecessorControlledFileId(context.reqVO().getRevisionSourceControlledFileId())
                 .revisionBaseActiveControlledFileId(context.changeType() == DccControlledFileChangeTypeEnum.REVISION
                         ? context.revisionBaseActiveControlledFileId() : null)
@@ -1964,7 +1959,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     private String resolveServerVersionNo(PreparedSubmitContext context) {
         if (context.changeType() == DccControlledFileChangeTypeEnum.NEW && context.serverOwnedVersion()) {
             try {
-                return DccWindchillVersionNumber.initialForNewFile(context.reqVO().getVersionNo());
+                return versionPolicy.initialForNewFile(context.reqVO().getVersionNo());
             } catch (IllegalArgumentException ex) {
                 throw exception(CONTROLLED_FILE_VERSION_INVALID);
             }
@@ -1972,16 +1967,16 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         if (context.changeType() == DccControlledFileChangeTypeEnum.REVISION
                 && context.reqVO().getRevisionSourceControlledFileId() != null) {
             List<DccControlledFileDO> chain = controlledFileMapper.selectListByMasterId(context.master().getId());
-            DccWindchillVersionNumber max = DccWindchillVersionNumber.initial();
+            DccControlledFileVersionPolicy.VersionNumber max = versionPolicy.initial();
             if (chain != null) {
                 for (DccControlledFileDO item : chain) {
-                    DccWindchillVersionNumber candidate = DccWindchillVersionNumber.parse(item.getVersionNo());
-                    if (candidate != null && candidate.compareRevisionTo(max) > 0) {
+                    DccControlledFileVersionPolicy.VersionNumber candidate = versionPolicy.parseStored(item);
+                    if (candidate != null && candidate.compareMajorIdentityTo(max) > 0) {
                         max = candidate;
                     }
                 }
             }
-            return max.nextRevision().display();
+            return max.nextMajor().display();
         }
         return context.reqVO().getVersionNo();
     }

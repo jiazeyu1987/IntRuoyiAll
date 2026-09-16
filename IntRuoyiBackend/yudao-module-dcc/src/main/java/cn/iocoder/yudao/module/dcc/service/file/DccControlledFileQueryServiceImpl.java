@@ -233,6 +233,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     @Resource
     private DccControlledFileRelatedFileService relatedFileService;
     @Resource
+    private DccControlledFileVersionPolicy versionPolicy = DccControlledFileVersionPolicy.defaultPolicy();
+    @Resource
     private DccExternalFileReviewMapper externalReviewMapper;
     @Resource
     private DccControlledFileAccessLogMapper accessLogMapper;
@@ -595,7 +597,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     drawingPdfFileId = preparedDrawingPdf.sourceFileId();
                 }
             }
-            DccWindchillVersionNumber nextVersion = versionSelection.version();
+            DccControlledFileVersionPolicy.VersionNumber nextVersion = versionSelection.version();
             DccControlledFileDO next = copyForCheckin(file, userId, nextVersion, preparedSource,
                     baseHash, drawingPdfFileId, reqVO);
             if (majorRevision) {
@@ -853,15 +855,15 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
 
     private boolean matchesCheckinVersionChange(DccControlledFileDO base, DccControlledFileDO existing,
                                                  DccControlledFileCheckinReqVO request) {
-        DccWindchillVersionNumber previous = DccWindchillVersionNumber.parse(base.getVersionNo());
-        DccWindchillVersionNumber next = DccWindchillVersionNumber.parse(existing.getVersionNo());
-        if (previous == null || next == null) return false;
-        return isMajorCheckin(request) ? next.compareRevisionTo(previous) > 0
-                : next.compareRevisionTo(previous) == 0 && next.iterationNo() > previous.iterationNo();
+        return versionPolicy.matchesVersionChange(base, existing, isMajorCheckin(request));
     }
 
     private CheckinVersionSelection resolveCheckinVersion(DccControlledFileDO file, boolean major) {
-        if (!major) return new CheckinVersionSelection(resolveNextIteration(file), file.getRevisionBaseActiveControlledFileId());
+        List<DccControlledFileDO> chain = controlledFileMapper.selectListByMasterIdForUpdate(file.getMasterId());
+        if (!major) {
+            return new CheckinVersionSelection(versionPolicy.nextMinor(file, chain),
+                    file.getRevisionBaseActiveControlledFileId());
+        }
         DccControlledFileMasterDO master = controlledFileMasterMapper.selectByIdForUpdate(file.getMasterId());
         Long baselineId = master == null ? null : master.getCurrentActiveControlledFileId();
         DccControlledFileDO baseline = baselineId == null ? null : controlledFileMapper.selectByIdAndTenantForUpdate(
@@ -870,45 +872,18 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 || !DccControlledFileStatusEnum.ACTIVE.getStatus().equals(baseline.getStatus())) {
             throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
         }
-        DccWindchillVersionNumber maximum = DccWindchillVersionNumber.parse(file.getVersionNo());
-        if (maximum == null) throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
-        for (DccControlledFileDO version : controlledFileMapper.selectListByMasterIdForUpdate(file.getMasterId())) {
-            DccWindchillVersionNumber candidate = DccWindchillVersionNumber.parse(version.getVersionNo());
-            if (candidate == null) throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
-            if (candidate.compareRevisionTo(maximum) > 0) maximum = candidate;
-        }
-        return new CheckinVersionSelection(maximum.nextRevision(), baselineId);
-    }
-
-    private record CheckinVersionSelection(DccWindchillVersionNumber version, Long formalBaselineId) { }
-
-    private DccWindchillVersionNumber resolveNextIteration(DccControlledFileDO file) {
-        DccWindchillVersionNumber current = DccWindchillVersionNumber.parse(file.getVersionNo());
-        if (current == null && file.getRevisionCode() != null && file.getIterationNo() != null) {
-            current = new DccWindchillVersionNumber(file.getRevisionCode(), file.getIterationNo());
-        }
-        if (current == null) {
+        try {
+            return new CheckinVersionSelection(versionPolicy.nextMajor(file, chain), baselineId);
+        } catch (IllegalArgumentException ex) {
             throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
         }
-        DccWindchillVersionNumber max = current;
-        List<DccControlledFileDO> chain = controlledFileMapper.selectListByMasterIdForUpdate(file.getMasterId());
-        if (chain != null) {
-            for (DccControlledFileDO history : chain) {
-                DccWindchillVersionNumber candidate = DccWindchillVersionNumber.parse(history.getVersionNo());
-                if (candidate == null && history.getRevisionCode() != null && history.getIterationNo() != null) {
-                    candidate = new DccWindchillVersionNumber(history.getRevisionCode(), history.getIterationNo());
-                }
-                if (candidate != null && candidate.revisionCode().equals(current.revisionCode())
-                        && candidate.iterationNo() > max.iterationNo()) {
-                    max = candidate;
-                }
-            }
-        }
-        return max.nextIteration();
     }
 
+    private record CheckinVersionSelection(DccControlledFileVersionPolicy.VersionNumber version,
+                                           Long formalBaselineId) { }
+
     private DccControlledFileDO copyForCheckin(DccControlledFileDO file, Long userId,
-                                               DccWindchillVersionNumber version,
+                                               DccControlledFileVersionPolicy.VersionNumber version,
                                                DccControlledFilePreparedSource preparedSource,
                                                String previousHash,
                                                Long drawingPdfFileId,
@@ -938,7 +913,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 .processType(file.getProcessType())
                 .changeType(file.getChangeType())
                 .versionNo(version.display())
-                .revisionCode(version.revisionCode())
+                .revisionCode(version.majorIdentity())
                 .iterationNo(version.iterationNo())
                 .predecessorControlledFileId(file.getId())
                 .revisionBaseActiveControlledFileId(file.getRevisionBaseActiveControlledFileId())
@@ -2134,8 +2109,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (parsed != null) {
             return parsed;
         }
-        return DccWindchillVersionNumber.parse(versionNo) == null ? null
-                : DccControlledFileVersion.parse(versionNo);
+        return null;
     }
 
     private String buildDirectoryPath(Long directoryId, Map<Long, DccFileDirectoryDO> directoryMap) {
