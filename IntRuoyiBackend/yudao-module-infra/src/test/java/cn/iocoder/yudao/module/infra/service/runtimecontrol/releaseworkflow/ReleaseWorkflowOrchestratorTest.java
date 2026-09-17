@@ -579,6 +579,48 @@ class ReleaseWorkflowOrchestratorTest {
     }
 
     @Test
+    void failedBuildWithInvalidUtf8LogBecomesExplicitFailureAndReleasesLease() throws Exception {
+        RuntimeControlOperationRespVO operation = operation("running");
+        stubWorkflowOperations(operation);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "invalid log", "approved-source");
+        Path logPath = operationStore.getOperationLogPath(operation.getOperationId());
+        Files.createDirectories(logPath.getParent());
+        Files.write(logPath, new byte[]{(byte) 0xd6, (byte) 0xd0});
+        operation.setStatus("failed");
+        operationStore.save(operation);
+
+        ReleaseWorkflowRecord failed = orchestrator.reconcile(workflow.workflowId());
+
+        assertEquals(ReleaseWorkflowRecord.State.FAILED, failed.state());
+        assertEquals("LOG_DECODING", failed.failedStage());
+        ReleaseWorkflowService.OptionalLease lease = workflowService.acquireEnvironmentLease("build", "next-build");
+        assertTrue(lease.acquired());
+        lease.close();
+        assertEquals(failed, orchestrator.reconcile(workflow.workflowId()));
+    }
+
+    @Test
+    void invalidUtf8CannotAdvanceRunningOrSuccessfulBuild() throws Exception {
+        RuntimeControlOperationRespVO operation = operation("running");
+        stubWorkflowOperations(operation);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "invalid active log", "approved-source");
+        Path logPath = operationStore.getOperationLogPath(operation.getOperationId());
+        Files.createDirectories(logPath.getParent());
+        Files.write(logPath, new byte[]{(byte) 0xd6, (byte) 0xd0});
+        for (String status : List.of("running", "succeeded")) {
+            operation.setStatus(status);
+            operationStore.save(operation);
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                    () -> orchestrator.reconcile(workflow.workflowId()));
+            assertEquals(ReleaseWorkflowRecord.State.PREFLIGHTING,
+                    workflowService.require(workflow.workflowId()).state());
+        }
+        ReleaseWorkflowService.OptionalLease lease = workflowService.acquireEnvironmentLease("build", "other-build");
+        assertFalse(lease.acquired());
+        lease.close();
+    }
+
+    @Test
     void failedBuildUsesLastObservedBuildStage() throws Exception {
         RuntimeControlOperationRespVO operation = operation("running");
         stubWorkflowOperations(operation);

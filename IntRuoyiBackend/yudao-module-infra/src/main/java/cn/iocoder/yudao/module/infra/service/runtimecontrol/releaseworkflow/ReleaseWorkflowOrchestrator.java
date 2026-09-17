@@ -274,7 +274,20 @@ public class ReleaseWorkflowOrchestrator {
         }
         RuntimeControlOperationRespVO operation = operationStore.findById(workflow.operationId());
         if (operation != null) {
-            workflow = advanceObservedBuildStages(workflow, operation);
+            try {
+                workflow = advanceObservedBuildStages(workflow, operation);
+            } catch (IllegalStateException ex) {
+                if (!(ex.getCause() instanceof java.nio.charset.CharacterCodingException)
+                        || !"RELEASE_WORKFLOW_STAGE_LOG_INVALID".equals(ex.getMessage())
+                        || !("failed".equals(operation.getStatus()) || "blocked".equals(operation.getStatus()))) {
+                    throw ex;
+                }
+                ReleaseWorkflowRecord failed = workflowService.verifyAdvance(workflow.workflowId(),
+                        workflow.stateVersion(), ReleaseWorkflowRecord.State.FAILED, "LOG_DECODING", false, true,
+                        List.of("operation/" + operation.getOperationId() + ": RELEASE_WORKFLOW_STAGE_LOG_INVALID"));
+                releaseLeasesForState(failed);
+                return failed;
+            }
         }
         if (operation == null || "running".equals(operation.getStatus())) {
             return workflow;
