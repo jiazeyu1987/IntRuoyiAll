@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -93,6 +94,10 @@ public class ReleaseWorkflowService {
         return store.list();
     }
 
+    public List<ReleaseWorkflowEvent> readJournal(String workflowId) {
+        return store.readJournal(workflowId);
+    }
+
     public ReleaseWorkflowRecord heartbeat(String workflowId, long expectedStateVersion) {
         return heartbeat(workflowId, expectedStateVersion, Instant.now());
     }
@@ -165,6 +170,44 @@ public class ReleaseWorkflowService {
         return store.update(current, expectedStateVersion, targetState, VERIFIER_ACTOR,
                 errorCode, failedStage, retryable, normalizedEvidenceRefs,
                 zeroWriteEvidence);
+    }
+
+    public ReleaseWorkflowRecord failTestAcceptance(String workflowId, long expectedStateVersion,
+                                                     ReleaseWorkflowTestResult testResult,
+                                                     String conclusion, String acceptedBy) {
+        if (testResult != ReleaseWorkflowTestResult.FAIL) {
+            throw new IllegalArgumentException("RELEASE_WORKFLOW_TEST_RESULT_INVALID");
+        }
+        ReleaseWorkflowRecord current = store.require(workflowId);
+        if (current.stateVersion() != expectedStateVersion) {
+            throw new ReleaseWorkflowStore.CasConflictException(workflowId, expectedStateVersion,
+                    current.stateVersion());
+        }
+        validateTransition(current.state(), ReleaseWorkflowRecord.State.FAILED);
+        Instant acceptedAt = Instant.now();
+        String actor = redactActor(acceptedBy);
+        Map<String, String> details = new LinkedHashMap<>();
+        details.put("testResult", testResult.name());
+        details.put("conclusion", requireText(conclusion, "testConclusion"));
+        details.put("acceptedBy", actor);
+        details.put("acceptedAt", acceptedAt.toString());
+        details.put("workflowId", current.workflowId());
+        details.put("releaseTag", current.releaseTag());
+        if (current.packageDigest() != null) {
+            details.put("packageDigest", current.packageDigest());
+        }
+        if (current.manifestDigest() != null) {
+            details.put("manifestDigest", current.manifestDigest());
+        }
+        if (current.testOperationId() != null) {
+            details.put("publishTestOperationId", current.testOperationId());
+        }
+        if (current.testOperationEvidencePath() != null) {
+            details.put("publishTestOperationEvidencePath", current.testOperationEvidencePath());
+        }
+        return store.update(current, expectedStateVersion, ReleaseWorkflowRecord.State.FAILED,
+                actor, "RELEASE_WORKFLOW_TEST_ACCEPTANCE_FAILED", "TEST_ACCEPTANCE",
+                false, List.of("workflow/journal:test-acceptance-failed"), false, details);
     }
 
     /** Deliberately rejects any client-provided state transition. */

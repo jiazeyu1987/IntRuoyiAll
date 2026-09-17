@@ -437,6 +437,82 @@ class ReleaseWorkflowOrchestratorTest {
     }
 
     @Test
+    void failAcceptanceCannotOverrideRunningPassAcceptanceOrReleaseLease() {
+        RuntimeControlOperationRespVO build = operation("running");
+        RuntimeControlOperationRespVO publish = operation("running");
+        publish.setOperationId(UUID.randomUUID().toString());
+        publish.setAction("publish-test");
+        publish.setEnvironment("test");
+        RuntimeControlOperationRespVO mark = operation("running");
+        mark.setOperationId(UUID.randomUUID().toString());
+        mark.setAction("mark-release-tested");
+        mark.setEnvironment("test");
+        stubWorkflowOperations(build, publish, mark);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "acceptance in progress", "approved-source");
+        writeSuccessfulBuildStages(build.getOperationId());
+        build.setStatus("succeeded");
+        operationStore.save(build);
+        when(runtimeControlService.getReleasePackage(workflow.releaseTag()))
+                .thenReturn(Optional.of(packageFor(workflow.releaseTag())));
+        workflow = orchestrator.reconcile(workflow.workflowId());
+        workflow = orchestrator.startTestPublish(workflow.workflowId(), "operator", "publish test");
+        publish.setStatus("succeeded");
+        operationStore.save(publish);
+        workflow = orchestrator.reconcile(workflow.workflowId());
+        orchestrator.acceptTest(workflow.workflowId(), "operator", "PASS", "browser acceptance passed");
+        operationStore.save(mark);
+        String workflowId = workflow.workflowId();
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> orchestrator.acceptTest(workflowId, "auditor", "FAIL", "login still failing"));
+        ReleaseWorkflowRecord current = workflowService.require(workflowId);
+        ReleaseWorkflowService.OptionalLease nextTestLease =
+                workflowService.acquireEnvironmentLease("test", "next-workflow");
+
+        assertEquals(ReleaseWorkflowRecord.State.TEST_DEPLOYED, current.state());
+        assertEquals(mark.getOperationId(), current.operationId());
+        assertFalse(nextTestLease.acquired());
+        nextTestLease.close();
+    }
+
+    @Test
+    void failedTestAcceptancePersistsStructuredAuditEvent() {
+        RuntimeControlOperationRespVO build = operation("running");
+        RuntimeControlOperationRespVO publish = operation("running");
+        publish.setOperationId(UUID.randomUUID().toString());
+        publish.setAction("publish-test");
+        publish.setEnvironment("test");
+        stubWorkflowOperations(build, publish);
+        ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "acceptance audit", "approved-source");
+        writeSuccessfulBuildStages(build.getOperationId());
+        build.setStatus("succeeded");
+        operationStore.save(build);
+        when(runtimeControlService.getReleasePackage(workflow.releaseTag()))
+                .thenReturn(Optional.of(packageFor(workflow.releaseTag())));
+        workflow = orchestrator.reconcile(workflow.workflowId());
+        workflow = orchestrator.startTestPublish(workflow.workflowId(), "operator", "publish test");
+        publish.setStatus("succeeded");
+        operationStore.save(publish);
+        workflow = orchestrator.reconcile(workflow.workflowId());
+
+        ReleaseWorkflowRecord failed = orchestrator.acceptTest(
+                workflow.workflowId(), "qa.lead", "FAIL", "login verification failed");
+        List<ReleaseWorkflowEvent> events = workflowService.readJournal(workflow.workflowId());
+        ReleaseWorkflowEvent event = events.get(events.size() - 1);
+
+        assertEquals(ReleaseWorkflowRecord.State.FAILED, failed.state());
+        assertEquals("qa.lead", event.actor());
+        assertEquals("FAIL", event.details().get("testResult"));
+        assertEquals("login verification failed", event.details().get("conclusion"));
+        assertEquals("qa.lead", event.details().get("acceptedBy"));
+        assertEquals(workflow.workflowId(), event.details().get("workflowId"));
+        assertEquals(workflow.releaseTag(), event.details().get("releaseTag"));
+        assertEquals(workflow.packageDigest(), event.details().get("packageDigest"));
+        assertEquals(workflow.manifestDigest(), event.details().get("manifestDigest"));
+        assertNotNull(event.details().get("acceptedAt"));
+    }
+
+    @Test
     void productionPromotionConsumesBoundGrantAndDispatchesSameArtifactOnce() {
         properties.getReleaseWorkflow().setProductionWriteEnabled(true);
         properties.getEnvironments().get("prod").setAccessEnabled(true);

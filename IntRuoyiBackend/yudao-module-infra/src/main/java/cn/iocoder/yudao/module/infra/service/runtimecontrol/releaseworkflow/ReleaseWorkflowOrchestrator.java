@@ -159,10 +159,12 @@ public class ReleaseWorkflowOrchestrator {
         if (publishTestOperationId == null || workflow.testOperationEvidencePath() == null) {
             throw new IllegalStateException("RELEASE_WORKFLOW_TEST_OPERATION_EVIDENCE_MISSING");
         }
+        if (hasRunningTestAcceptanceOperation(workflow)) {
+            throw new IllegalStateException("RELEASE_WORKFLOW_TEST_ACCEPTANCE_IN_PROGRESS");
+        }
         if (testResult == ReleaseWorkflowTestResult.FAIL) {
-            ReleaseWorkflowRecord failed = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
-                    ReleaseWorkflowRecord.State.FAILED, "TEST_ACCEPTANCE", false, false,
-                    List.of("workflow/test-acceptance-failed.json"));
+            ReleaseWorkflowRecord failed = workflowService.failTestAcceptance(workflow.workflowId(),
+                    workflow.stateVersion(), testResult, normalizedConclusion, requestedBy);
             releaseLeasesForState(failed);
             return failed;
         }
@@ -559,6 +561,16 @@ public class ReleaseWorkflowOrchestrator {
         if (operation == null || !expectedOperationId.equals(operation.getOperationId())) {
             throw new IllegalStateException("RELEASE_WORKFLOW_OPERATION_ID_MISMATCH");
         }
+    }
+
+    private boolean hasRunningTestAcceptanceOperation(ReleaseWorkflowRecord workflow) {
+        if (workflow.operationId() == null) {
+            return false;
+        }
+        RuntimeControlOperationRespVO operation = operationStore.findById(workflow.operationId());
+        return operation != null
+                && "running".equals(operation.getStatus())
+                && "mark-release-tested".equals(operation.getAction());
     }
 
     private void failIfActive(String workflowId, String stage, boolean zeroWriteEvidence, RuntimeException cause) {

@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
 /** Atomic file-backed workflow and append-only event journal store. */
@@ -39,7 +40,7 @@ public class ReleaseWorkflowStore {
             }
             ReleaseWorkflowEvent created = new ReleaseWorkflowEvent(
                     1, record.workflowId(), null, record.state(), record.stateVersion(),
-                    "server", null, null, false, List.of(), record.createdAt());
+                    "server", null, null, false, List.of(), Map.of(), record.createdAt());
             writeAtomic(path, new WorkflowEnvelope(record, List.of(created)));
         } catch (DuplicateWorkflowException ex) {
             throw ex;
@@ -92,6 +93,20 @@ public class ReleaseWorkflowStore {
                                                       boolean retryable,
                                                       List<String> evidenceRefs,
                                                       boolean zeroWriteEvidence) {
+        return update(expected, expectedStateVersion, targetState, actor, errorCode, failedStage,
+                retryable, evidenceRefs, zeroWriteEvidence, Map.of());
+    }
+
+    public synchronized ReleaseWorkflowRecord update(ReleaseWorkflowRecord expected,
+                                                      long expectedStateVersion,
+                                                      ReleaseWorkflowRecord.State targetState,
+                                                      String actor,
+                                                      String errorCode,
+                                                      String failedStage,
+                                                      boolean retryable,
+                                                      List<String> evidenceRefs,
+                                                      boolean zeroWriteEvidence,
+                                                      Map<String, String> details) {
         WorkflowEnvelope envelope = readEnvelope(expected.workflowId());
         ReleaseWorkflowRecord current = requireVersion(expected, expectedStateVersion, envelope.record());
         if (current.state().isTerminal()) {
@@ -108,7 +123,7 @@ public class ReleaseWorkflowStore {
                 zeroWriteEvidence, current.requestedBy(), current.reason(), current.sourceSelectionId(),
                 current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit());
         return persistEvent(envelope, updated, current.state(), targetState, actor, errorCode,
-                failedStage, retryable, updated.evidenceRefs(), now);
+                failedStage, retryable, updated.evidenceRefs(), details, now);
     }
 
     public synchronized ReleaseWorkflowRecord assignOperation(ReleaseWorkflowRecord expected,
@@ -134,7 +149,7 @@ public class ReleaseWorkflowStore {
                 current.requestedBy(), current.reason(), current.sourceSelectionId(),
                 current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit());
         return persistEvent(envelope, updated, current.state(), current.state(), actor, null,
-                null, false, List.of(), now);
+                null, false, List.of(), Map.of(), now);
     }
 
     public synchronized ReleaseWorkflowRecord touch(ReleaseWorkflowRecord expected, Instant heartbeatAt,
@@ -155,7 +170,7 @@ public class ReleaseWorkflowStore {
                 current.zeroWriteEvidence(), current.requestedBy(), current.reason(), current.sourceSelectionId(),
                 current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit());
         return persistEvent(envelope, updated, current.state(), current.state(), actor, null,
-                null, false, List.of(), now);
+                null, false, List.of(), Map.of(), now);
     }
 
     public synchronized ReleaseWorkflowRecord bindArtifacts(ReleaseWorkflowRecord expected,
@@ -177,7 +192,7 @@ public class ReleaseWorkflowStore {
                 current.zeroWriteEvidence(), current.requestedBy(), current.reason(), current.sourceSelectionId(),
                 current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit());
         return persistEvent(envelope, updated, current.state(), current.state(), actor, null,
-                null, false, List.of("manifest.json"), now);
+                null, false, List.of("manifest.json"), Map.of(), now);
     }
 
     public synchronized ReleaseWorkflowRecord bindTestOperation(ReleaseWorkflowRecord expected,
@@ -196,7 +211,7 @@ public class ReleaseWorkflowStore {
                 current.zeroWriteEvidence(), current.requestedBy(), current.reason(), current.sourceSelectionId(),
                 current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit());
         return persistEvent(envelope, updated, current.state(), current.state(), actor, null,
-                null, false, List.of(testOperationEvidencePath), now);
+                null, false, List.of(testOperationEvidencePath), Map.of(), now);
     }
 
     public synchronized List<ReleaseWorkflowEvent> readJournal(String workflowId) {
@@ -216,10 +231,12 @@ public class ReleaseWorkflowStore {
                                                String failedStage,
                                                boolean retryable,
                                                List<String> evidenceRefs,
+                                               Map<String, String> details,
                                                Instant occurredAt) {
         List<ReleaseWorkflowEvent> events = new ArrayList<>(envelope.events());
         events.add(new ReleaseWorkflowEvent(events.size() + 1L, updated.workflowId(), from, to,
-                updated.stateVersion(), actor, errorCode, failedStage, retryable, evidenceRefs, occurredAt));
+                updated.stateVersion(), actor, errorCode, failedStage, retryable, evidenceRefs,
+                details == null ? Map.of() : Map.copyOf(details), occurredAt));
         try {
             writeAtomic(recordPath(updated.workflowId()), new WorkflowEnvelope(updated, events));
             return updated;

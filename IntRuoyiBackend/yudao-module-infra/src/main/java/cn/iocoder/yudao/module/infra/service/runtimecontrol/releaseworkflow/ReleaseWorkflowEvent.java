@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 public record ReleaseWorkflowEvent(
         long sequence,
@@ -17,6 +18,7 @@ public record ReleaseWorkflowEvent(
         String failedStage,
         boolean retryable,
         List<String> evidenceRefs,
+        Map<String, String> details,
         Instant occurredAt) {
 
     @JsonCreator
@@ -31,6 +33,7 @@ public record ReleaseWorkflowEvent(
             @JsonProperty("failedStage") String failedStage,
             @JsonProperty("retryable") boolean retryable,
             @JsonProperty("evidenceRefs") List<String> evidenceRefs,
+            @JsonProperty("details") Map<String, String> details,
             @JsonProperty("occurredAt") Instant occurredAt) {
         this.sequence = sequence;
         this.workflowId = workflowId;
@@ -42,6 +45,7 @@ public record ReleaseWorkflowEvent(
         this.failedStage = failedStage;
         this.retryable = retryable;
         this.evidenceRefs = evidenceRefs == null ? List.of() : List.copyOf(evidenceRefs);
+        this.details = details == null ? Map.of() : Map.copyOf(details);
         this.occurredAt = occurredAt;
     }
 }
