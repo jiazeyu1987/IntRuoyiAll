@@ -126,3 +126,17 @@ def test_old_form_template_binding_switch_marks_legacy_versions_bound() -> None:
     assert "Old form template route snapshot bindings remain after switch" in sql
     assert "Route snapshot JSON is invalid and contains old form template binding" in sql
     assert "Migrated route bindings missing target report metadata" in sql
+
+
+def test_route_snapshot_binding_resolves_explicit_legacy_template_version_identity() -> None:
+    sql = read_sql()
+
+    # Route snapshots from the legacy runtime can persist formTemplateId in
+    # lastPublishedTemplateVersionId.  The migration must normalize only that
+    # explicit legacy shape and only when one published version is unambiguous.
+    assert "tmp_mes_old_form_template_snapshot_unique_published_versions" in sql
+    assert "HAVING COUNT(*) = 1" in sql
+    assert "item.`old_template_version_id` = item.`form_template_id`" in sql
+    assert "resolved_template_version_id" in sql
+    assert "Route snapshot old form template version is ambiguous" in sql
+    assert "Route snapshot old form template binding is missing target report metadata" in sql

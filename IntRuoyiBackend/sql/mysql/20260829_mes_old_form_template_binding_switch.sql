@@ -885,6 +885,37 @@ BEGIN
     )
   ) cfg;
 
+  /*
+   * Legacy route snapshots from the old runtime occasionally persisted the
+   * form template id in lastPublishedTemplateVersionId. Resolve that shape
+   * only when the same tenant/template has exactly one published version;
+   * direct version identity always wins and ambiguous data remains a hard
+   * migration error.
+   */
+  DROP TEMPORARY TABLE IF EXISTS `tmp_mes_old_form_template_snapshot_published_version_counts`;
+  CREATE TEMPORARY TABLE `tmp_mes_old_form_template_snapshot_published_version_counts` AS
+  SELECT
+    tv.`tenant_id`,
+    tv.`template_id`,
+    COUNT(*) AS `published_version_count`,
+    MIN(tv.`id`) AS `resolved_template_version_id`
+  FROM `bpm_form_template_version` tv
+  WHERE tv.`deleted` = b'0'
+    AND tv.`status` = 'PUBLISHED'
+  GROUP BY tv.`tenant_id`, tv.`template_id`;
+
+  DROP TEMPORARY TABLE IF EXISTS `tmp_mes_old_form_template_snapshot_unique_published_versions`;
+  CREATE TEMPORARY TABLE `tmp_mes_old_form_template_snapshot_unique_published_versions` AS
+  SELECT
+    tv.`tenant_id`,
+    tv.`template_id`,
+    MIN(tv.`id`) AS `resolved_template_version_id`
+  FROM `bpm_form_template_version` tv
+  WHERE tv.`deleted` = b'0'
+    AND tv.`status` = 'PUBLISHED'
+  GROUP BY tv.`tenant_id`, tv.`template_id`
+  HAVING COUNT(*) = 1;
+
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_old_form_template_snapshot_form_items`;
   CREATE TEMPORARY TABLE `tmp_mes_old_form_template_snapshot_form_items` AS
   SELECT
@@ -895,6 +926,13 @@ BEGIN
     item.`binding_json`,
     item.`form_template_id`,
     item.`old_template_version_id`,
+    CASE
+      WHEN direct_tv.`id` IS NOT NULL THEN direct_tv.`id`
+      WHEN item.`old_template_version_id` = item.`form_template_id`
+       AND unique_published.`resolved_template_version_id` IS NOT NULL
+        THEN unique_published.`resolved_template_version_id`
+      ELSE NULL
+    END AS `resolved_template_version_id`,
     tv.`batch_record_report_id`,
     r.`report_code`,
     r.`report_name`,
@@ -909,10 +947,25 @@ BEGIN
       `old_template_version_id` BIGINT PATH '$.lastPublishedTemplateVersionId' NULL ON EMPTY
     )
   ) item
+  LEFT JOIN `bpm_form_template_version` direct_tv
+    ON direct_tv.`tenant_id` = cfg.`tenant_id`
+   AND direct_tv.`template_id` = item.`form_template_id`
+   AND direct_tv.`id` = item.`old_template_version_id`
+   AND direct_tv.`deleted` = b'0'
+  LEFT JOIN `tmp_mes_old_form_template_snapshot_unique_published_versions` unique_published
+    ON unique_published.`tenant_id` = cfg.`tenant_id`
+   AND unique_published.`template_id` = item.`form_template_id`
+   AND item.`old_template_version_id` = item.`form_template_id`
   LEFT JOIN `bpm_form_template_version` tv
     ON tv.`tenant_id` = cfg.`tenant_id`
    AND tv.`template_id` = item.`form_template_id`
-   AND tv.`id` = item.`old_template_version_id`
+   AND tv.`id` = CASE
+      WHEN direct_tv.`id` IS NOT NULL THEN direct_tv.`id`
+      WHEN item.`old_template_version_id` = item.`form_template_id`
+       AND unique_published.`resolved_template_version_id` IS NOT NULL
+        THEN unique_published.`resolved_template_version_id`
+      ELSE NULL
+    END
    AND tv.`deleted` = b'0'
   LEFT JOIN `mes_pro_batch_record_report` r
     ON r.`report_id` = tv.`batch_record_report_id`
@@ -925,8 +978,23 @@ BEGIN
   IF v_snapshot_scope_count > 0 THEN
     IF EXISTS (
       SELECT 1
+      FROM `tmp_mes_old_form_template_snapshot_form_items` item
+      JOIN `tmp_mes_old_form_template_snapshot_published_version_counts` counts
+        ON counts.`tenant_id` = item.`tenant_id`
+       AND counts.`template_id` = item.`form_template_id`
+      WHERE item.`old_template_version_id` = item.`form_template_id`
+        AND item.`resolved_template_version_id` IS NULL
+        AND counts.`published_version_count` > 1
+    ) THEN
+      SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Route snapshot old form template version is ambiguous';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
       FROM `tmp_mes_old_form_template_snapshot_form_items`
       WHERE `old_template_version_id` IS NULL
+         OR `resolved_template_version_id` IS NULL
          OR `batch_record_report_id` IS NULL
          OR `report_code` IS NULL
          OR `report_name` IS NULL

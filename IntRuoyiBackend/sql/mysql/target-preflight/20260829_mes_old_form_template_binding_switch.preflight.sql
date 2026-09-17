@@ -1,4 +1,5 @@
 -- release-target-preflight: migrationId=20260829_mes_old_form_template_binding_switch; allowedEnvironments=test,backup,prod
+-- Route snapshot blockers mirror migration errors: Route snapshot old form template binding is missing target report metadata; ambiguous legacy versions fail closed.
 SELECT CASE
   WHEN (
     SELECT COUNT(*)
@@ -97,6 +98,70 @@ SELECT CASE
             WHERE COALESCE(NULLIF(TRIM(fields.label), ''), NULLIF(TRIM(fields.field_code), '')) IS NULL
         )
         )
+      )
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM mes_pro_route_version rv
+    JOIN JSON_TABLE(
+      rv.route_snapshot_json,
+      '$.configSnapshots.batchUseConfigs[*]'
+      COLUMNS (
+        config_json JSON PATH '$'
+      )
+    ) cfg
+    JOIN JSON_TABLE(
+      COALESCE(JSON_EXTRACT(cfg.config_json, '$.formBindings'), JSON_ARRAY()),
+      '$[*]' COLUMNS (
+        form_template_id BIGINT PATH '$.formTemplateId' NULL ON EMPTY,
+        old_template_version_id BIGINT PATH '$.lastPublishedTemplateVersionId' NULL ON EMPTY
+      )
+    ) item
+    LEFT JOIN bpm_form_template_version direct_tv
+      ON direct_tv.tenant_id = rv.tenant_id
+     AND direct_tv.template_id = item.form_template_id
+     AND direct_tv.id = item.old_template_version_id
+     AND direct_tv.deleted = b'0'
+    LEFT JOIN (
+      SELECT
+        tv.tenant_id,
+        tv.template_id,
+        MIN(tv.id) AS resolved_template_version_id
+      FROM bpm_form_template_version tv
+      WHERE tv.deleted = b'0'
+        AND tv.status = 'PUBLISHED'
+      GROUP BY tv.tenant_id, tv.template_id
+      HAVING COUNT(*) = 1
+    ) unique_published
+      ON unique_published.tenant_id = rv.tenant_id
+     AND unique_published.template_id = item.form_template_id
+     AND item.old_template_version_id = item.form_template_id
+    LEFT JOIN bpm_form_template_version tv
+      ON tv.tenant_id = rv.tenant_id
+     AND tv.template_id = item.form_template_id
+     AND tv.id = CASE
+       WHEN direct_tv.id IS NOT NULL THEN direct_tv.id
+       WHEN item.old_template_version_id = item.form_template_id
+        AND unique_published.resolved_template_version_id IS NOT NULL
+         THEN unique_published.resolved_template_version_id
+       ELSE NULL
+     END
+     AND tv.deleted = b'0'
+    LEFT JOIN mes_pro_batch_record_report report
+      ON report.report_id = tv.batch_record_report_id
+     AND report.deleted = b'0'
+    WHERE rv.deleted = b'0'
+      AND JSON_VALID(rv.route_snapshot_json) = 1
+      AND item.form_template_id IS NOT NULL
+      AND (
+        item.old_template_version_id IS NULL
+        OR tv.id IS NULL
+        OR tv.batch_record_report_id IS NULL
+        OR report.report_id IS NULL
+        OR report.report_code IS NULL
+        OR report.report_name IS NULL
+        OR report.batch_record_definition_id IS NULL
+        OR report.batch_record_version_id IS NULL
       )
   )
   AND NOT EXISTS (

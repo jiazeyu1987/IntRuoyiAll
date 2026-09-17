@@ -258,6 +258,21 @@ def test_old_form_template_binding_preflight_covers_runtime_jimu_semantics_and_i
     assert "SKIPPED_ALREADY_APPLIED" in text or "APPLIED" in text
 
 
+def test_old_form_template_binding_preflight_covers_route_snapshot_legacy_version_resolution() -> None:
+    text = (TARGET_PREFLIGHT_ROOT / "20260829_mes_old_form_template_binding_switch.preflight.sql").read_text(encoding="utf-8")
+
+    # The migration consumes route_snapshot_json.formBindings as well as the
+    # normalized route-flow table.  The preflight must reject the same missing
+    # metadata and allow only the explicit, uniquely published legacy mapping.
+    assert "mes_pro_route_version" in text
+    assert "$.configSnapshots.batchUseConfigs[*]" in text
+    assert "$.formBindings" in text
+    assert "lastPublishedTemplateVersionId" in text
+    assert "COUNT(*) = 1" in text
+    assert "item.old_template_version_id = item.form_template_id" in text
+    assert "Route snapshot old form template binding is missing target report metadata" in text
+
+
 def test_balloon_xlsx_cleanup_preflight_matches_current_or_legacy_target_contract() -> None:
     text = (TARGET_PREFLIGHT_ROOT / "20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup.preflight.sql").read_text(encoding="utf-8")
 
