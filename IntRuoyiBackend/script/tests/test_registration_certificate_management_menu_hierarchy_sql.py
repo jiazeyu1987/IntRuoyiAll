@@ -23,7 +23,7 @@ def test_registration_certificate_management_hierarchy_declares_release_and_fail
     assert "START TRANSACTION;" in text
     assert "SIGNAL SQLSTATE '45000'" in text
     assert "Registration certificate management target menu contract mismatch" in text
-    assert "Registration certificate management retired menu contract mismatch" in text
+    assert "Registration certificate management retired menu final contract mismatch" in text
     assert "Invalid system_tenant_package.menu_ids JSON" in text
 
     for forbidden in [
@@ -88,3 +88,34 @@ def test_registration_certificate_management_hierarchy_removes_missing_page_menu
     assert "SET `menu`.`deleted` = b'1'" in text
     assert "Registration certificate management retired menu final contract mismatch" in text
     assert "Registration certificate management retired package final contract mismatch" in text
+
+
+def test_registration_certificate_management_hierarchy_retires_only_exact_legacy_menu_identities() -> None:
+    text = read_sql()
+
+    assert (
+        "INSERT IGNORE INTO `tmp_registration_certificate_management_retired_menu` (`menu_id`) VALUES\n"
+        "    (605071320), (605071321);"
+    ) not in text
+    assert "Registration certificate management retired menu contract mismatch: enterprise company scope" not in text
+    assert "Registration certificate management retired menu contract mismatch: historical import" not in text
+
+    for identity in [
+        "`id` = 605071320",
+        "`name` = '企业公司范围'",
+        "`permission` = 'mdm:company-scope:query'",
+        "`component` = 'mdm/company-scope/index'",
+        "`component_name` = 'MdmCompanyScope'",
+        "`id` = 605071321",
+        "`name` = '注册证历史导入'",
+        "`permission` = 'dcc:registration-certificate:historical-import'",
+        "`component` = 'dcc/registration-certificate/historical-import/index'",
+        "`component_name` = 'DccRegistrationCertificateHistoricalImport'",
+    ]:
+        assert identity in text
+
+    assert text.count(
+        "INSERT IGNORE INTO `tmp_registration_certificate_management_retired_menu` (`menu_id`)\n"
+        "  SELECT `id`\n"
+        "    FROM `system_menu`"
+    ) == 2

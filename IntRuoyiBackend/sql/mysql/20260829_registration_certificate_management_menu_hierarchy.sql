@@ -115,40 +115,6 @@ BEGIN
       SET MESSAGE_TEXT = 'Associated company page menu contract mismatch';
   END IF;
 
-  IF EXISTS (
-      SELECT 1
-        FROM `system_menu`
-       WHERE `id` = 605071320
-         AND `deleted` = b'0'
-         AND NOT (
-           `name` = '企业公司范围'
-           AND `permission` = 'mdm:company-scope:query'
-           AND `type` = 2
-           AND `component` = 'mdm/company-scope/index'
-           AND `component_name` = 'MdmCompanyScope'
-         )
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Registration certificate management retired menu contract mismatch: enterprise company scope';
-  END IF;
-
-  IF EXISTS (
-      SELECT 1
-        FROM `system_menu`
-       WHERE `id` = 605071321
-         AND `deleted` = b'0'
-         AND NOT (
-           `name` = '注册证历史导入'
-           AND `permission` = 'dcc:registration-certificate:historical-import'
-           AND `type` = 2
-           AND `component` = 'dcc/registration-certificate/historical-import/index'
-           AND `component_name` = 'DccRegistrationCertificateHistoricalImport'
-         )
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Registration certificate management retired menu contract mismatch: historical import';
-  END IF;
-
   IF NOT EXISTS (
       SELECT 1
         FROM `system_menu`
@@ -268,8 +234,25 @@ BEGIN
     `menu_id` BIGINT NOT NULL PRIMARY KEY
   );
 
-  INSERT IGNORE INTO `tmp_registration_certificate_management_retired_menu` (`menu_id`) VALUES
-    (605071320), (605071321);
+  INSERT IGNORE INTO `tmp_registration_certificate_management_retired_menu` (`menu_id`)
+  SELECT `id`
+    FROM `system_menu`
+   WHERE `id` = 605071320
+     AND `name` = '企业公司范围'
+     AND `permission` = 'mdm:company-scope:query'
+     AND `type` = 2
+     AND `component` = 'mdm/company-scope/index'
+     AND `component_name` = 'MdmCompanyScope';
+
+  INSERT IGNORE INTO `tmp_registration_certificate_management_retired_menu` (`menu_id`)
+  SELECT `id`
+    FROM `system_menu`
+   WHERE `id` = 605071321
+     AND `name` = '注册证历史导入'
+     AND `permission` = 'dcc:registration-certificate:historical-import'
+     AND `type` = 2
+     AND `component` = 'dcc/registration-certificate/historical-import/index'
+     AND `component_name` = 'DccRegistrationCertificateHistoricalImport';
 
   DROP TEMPORARY TABLE IF EXISTS `tmp_registration_certificate_management_retired_candidate_menu`;
   CREATE TEMPORARY TABLE `tmp_registration_certificate_management_retired_candidate_menu` (
