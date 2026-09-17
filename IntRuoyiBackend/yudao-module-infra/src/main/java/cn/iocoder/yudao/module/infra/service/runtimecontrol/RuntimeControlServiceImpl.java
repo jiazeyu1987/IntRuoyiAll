@@ -426,7 +426,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         if (nasSettingsService == null) {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "nasSettingsService");
         }
-        NasConnectionConfig config = nasSettingsService.getRequiredNasConfig();
+        NasConnectionConfig config = releaseNasConfig();
         Path configPath = Path.of(properties.getStateDir()).normalize()
                 .resolve("nas-release-config")
                 .resolve(operationId + ".json");

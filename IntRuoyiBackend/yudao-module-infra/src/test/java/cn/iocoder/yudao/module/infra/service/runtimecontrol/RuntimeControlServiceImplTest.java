@@ -492,6 +492,40 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void executeBuildReleaseShouldSnapshotDedicatedReleaseNasDestination() throws Exception {
+        configureBackendRuntimeBase();
+        properties.getReleasePackage().setNasServer("release-nas");
+        properties.getReleasePackage().setNasShare("release-artifacts");
+        doReturn(new NasConnectionConfig("business-nas", 445, "business-files", "domain", "nas-user", "nas-secret"))
+                .when(nasSettingsService).getRequiredNasConfig();
+        java.util.concurrent.atomic.AtomicReference<String> snapshot = new java.util.concurrent.atomic.AtomicReference<>();
+        doAnswer(invocation -> {
+            RuntimeControlCommand command = invocation.getArgument(0);
+            int index = command.getArguments().indexOf("-NasConfigPath");
+            snapshot.set(Files.readString(Path.of(command.getArguments().get(index + 1)), StandardCharsets.UTF_8));
+            return null;
+        }).when(commandExecutor).executeOperation(any(), any());
+        RuntimeControlActionReqVO request = new RuntimeControlActionReqVO();
+        request.setAction("build-release");
+        request.setReason("dedicated release repository regression");
+        request.setPublishScope("app-release");
+        request.setReleaseTag("release-nas-binding-test");
+        request.setIncludeOnlyOffice(false);
+        request.setIncludeShowroomBuildPackage(false);
+        withWorkflowContext(request);
+
+        RuntimeControlOperationRespVO operation = runtimeControlService.executeAction(request, "1001");
+        waitOperationStatus(operation.getOperationId(), "succeeded");
+        cn.hutool.json.JSONObject config = cn.hutool.json.JSONUtil.parseObj(snapshot.get());
+        assertEquals("release-nas", config.getStr("server"));
+        assertEquals("release-artifacts", config.getStr("share"));
+        assertEquals("nas-user", config.getStr("username"));
+        assertEquals("nas-secret", config.getStr("password"));
+        assertEquals("domain", config.getStr("domain"));
+        assertEquals("445", config.getStr("port"));
+    }
+
+    @Test
     void executeBuildReleaseShouldUseNasConfigSnapshotAndPersistAudit() throws Exception {
         stubNasReleaseConfig();
         configureBackendRuntimeBase();
