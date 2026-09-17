@@ -1,4 +1,6 @@
 # 项目经验索引
+
+- NAS 发布快照 / releaseNasConfig / 业务共享误用 / Backup 访问被拒绝：`docs/release-backup-restore.md#发布仓库读写身份一致性门禁`。
 - Keywords: CSV 验证最小包, 计算机化系统验证, GAMP 分类, IQ OQ PQ, URS FS 风险评估, CSV 追溯矩阵, 供应商评估, 周期回顾, 验证报告审批, 中文 Word 交付包, CSV 签字矩阵, 00A 正式递交说明与签字责任矩阵, 正式送审分册包, 药监现场核查 CSV 包, 药监审核老师不代替企业内部批准签字, official-submission-package, 5.1 5.16 -> `docs/csv-validation/README.md`
 - Keywords: 表单解析 JSON 下载, parse-only, 上传 Word 下载 JSON, 不创建模板版本, 不触发表单模板升版审批, 禁止调用 import-doc, recognizedSchemaJson, jimuSchemaJson, FormTemplateRecognizer never insert -> `docs/system/shared-word-template-parser-design.md#parse-only-json-export-boundary`
 - Keywords: 表单解析多页签, QA 检验规程 JSON, 生产批记录隔离, 一线 PQC 预览, 独立状态, 独立解析接口, 页面查询权限, 按钮可见, 禁止跨页签覆盖 -> `docs/system/shared-word-template-parser-design.md#多业务文档解析页签隔离经验`

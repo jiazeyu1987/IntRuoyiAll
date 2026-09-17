@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeC
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlRestartReqVO;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface RuntimeControlService {
 
@@ -28,6 +29,8 @@ public interface RuntimeControlService {
     List<RuntimeControlOperationRespVO> getOperations();
 
     List<RuntimeControlReleasePackageRespVO> getReleasePackages();
+
+    Optional<RuntimeControlReleasePackageRespVO> getReleasePackage(String releaseTag);
 
     RuntimeControlReleaseStatusRespVO getReleaseStatus();
 }

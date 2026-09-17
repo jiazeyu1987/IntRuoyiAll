@@ -1,5 +1,11 @@
 # 请求与命令记录
 
+## 2026-09-17 发布按钮测试服发布续接
+- 请求：用户指定管理员验证并明确要求发布到测试服。
+- 命令意图：恢复任务自有 8256/48256 运行态；新建已提交源码隔离 worktree；通过真实页面读取发布配置、生成安装包并部署测试服；凭据只通过进程传入，不保存到证据。
+- 已验证：管理员真实登录修复分支成功，backend health=UP、frontend HTTP 200；基础镜像 tar SHA-256 与配置一致；测试服旧运行版本为 release-20260911-verified-branch-app-r260908c-r44，health=UP、frontend HTTP 200。
+- 当前进度：新 worktree 前端依赖安装中，尚未派发构建或部署；不把前置验证当作发布完成。
+
 ## 2026-07-24 查看测试服务器状态
 
 - 用户需求：查看测试服务器的状态。
@@ -2931,3 +2937,4 @@
 2026-09-17T01:00:00+08:00	20260916-release-button-remediation	COMMAND_INTENT	先按 BDD/TDD 修复 S1-S4：恢复态只读、写阶段取消保留租约、测试验收显式 PASS/FAIL、服务端可信 TestedBy；随后仅从新的目标提交临时发布 worktree 通过真实按钮执行测试服 build-release -> publish-test，禁止正式服、mark-tested、promote-prod、promote-backup。
 2026-09-17T01:45:50+08:00	20260916-release-button-remediation	RESULT	PASS: 应用 worktree `D:\IntRuoyiWorktree\r260911-release-button\a` 的 S1-S4 修复验证通过；ReleaseWorkflow/RuntimeControl 定向 JUnit 102 tests PASS，前端静态合同 PASS，`pnpm ts:check` PASS，`git diff --check` PASS。代码尚未融合到主干，下一步提交两仓修复并使用全新 releaseTag 执行测试服按钮发布。
 2026-09-17T02:08:18+08:00	20260916-release-button-remediation	RESULT	PASS: 补齐直接 `mark-release-tested` 前端 payload 的 `testResult=PASS` 合同；前端静态合同 PASS，`pnpm ts:check` PASS，应用仓 `git diff --check` PASS。后端 102 tests 与维护仓 86 tests 保持 GREEN。
+2026-09-17T15:32:54+08:00	20260916-release-button-remediation	RESULT	PASS: 修复 canonical manifest 读包与发布工作流精确 tag 绑定；RED 先证明缺少 `getReleasePackage(String)`，GREEN 后 `RuntimeControlServiceImplTest,ReleaseWorkflowOrchestratorTest` 95 tests PASS。旧 `release-20260917-054714-aadedeeb968b-app` 构建/NAS 成功但不作为最终测试服交付包；下一步用包含本次修复的新提交重新 build-release -> publish-test。

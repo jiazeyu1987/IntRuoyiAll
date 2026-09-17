@@ -439,9 +439,7 @@ public class ReleaseWorkflowOrchestrator {
                         List.of("operation/" + operation.getOperationId() + ": RELEASE_WORKFLOW_STAGE_MISSING"));
             }
             String releaseTag = workflow.releaseTag();
-            RuntimeControlReleasePackageRespVO releasePackage = runtimeControlService.getReleasePackages().stream()
-                    .filter(item -> releaseTag.equals(item.getReleaseTag()))
-                    .findFirst()
+            RuntimeControlReleasePackageRespVO releasePackage = runtimeControlService.getReleasePackage(releaseTag)
                     .orElseThrow(() -> new IllegalStateException("RELEASE_PACKAGE_EVIDENCE_MISSING"));
             workflow = workflowService.bindArtifacts(workflow.workflowId(), workflow.stateVersion(),
                     releasePackage.getPackageDigest(), releasePackage.getManifestDigest());

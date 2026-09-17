@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -57,6 +58,7 @@ class ReleaseWorkflowOrchestratorTest {
         orchestrator = new ReleaseWorkflowOrchestrator(properties,
                 workflowService, operationStore, runtimeControlService);
         when(runtimeControlService.getReleasePackages()).thenAnswer(ignored -> java.util.List.of());
+        when(runtimeControlService.getReleasePackage(any())).thenReturn(Optional.empty());
     }
 
     @Test
@@ -115,15 +117,17 @@ class ReleaseWorkflowOrchestratorTest {
                 RELEASE_WORKFLOW_STAGE=TESTING evidence=standard-release-contract-tests
                 RELEASE_WORKFLOW_STAGE=BUILDING evidence=application-artifact-build
                 [INFO] Release package built: release-test
-                """);
+        """);
         operation.setStatus("succeeded");
         operationStore.save(operation);
-        when(runtimeControlService.getReleasePackages()).thenReturn(java.util.List.of(packageFor(started.releaseTag())));
+        when(runtimeControlService.getReleasePackage(started.releaseTag()))
+                .thenReturn(Optional.of(packageFor(started.releaseTag())));
 
         ReleaseWorkflowRecord reconciled = orchestrator.reconcile(started.workflowId());
 
         assertEquals(ReleaseWorkflowRecord.State.READY, reconciled.state());
         assertEquals(operation.getOperationId(), reconciled.operationId());
+        verify(runtimeControlService, never()).getReleasePackages();
     }
 
     @Test
@@ -138,7 +142,8 @@ class ReleaseWorkflowOrchestratorTest {
                 """);
         operation.setStatus("succeeded");
         operationStore.save(operation);
-        when(runtimeControlService.getReleasePackages()).thenReturn(List.of(packageFor(started.releaseTag())));
+        when(runtimeControlService.getReleasePackage(started.releaseTag()))
+                .thenReturn(Optional.of(packageFor(started.releaseTag())));
 
         List<ReleaseWorkflowRecord> reconciled = orchestrator.reconcileActiveWorkflows(Instant.now());
 
@@ -158,7 +163,8 @@ class ReleaseWorkflowOrchestratorTest {
         writeSuccessfulBuildStages(build.getOperationId());
         build.setStatus("succeeded");
         operationStore.save(build);
-        when(runtimeControlService.getReleasePackages()).thenReturn(java.util.List.of(packageFor(workflow.releaseTag())));
+        when(runtimeControlService.getReleasePackage(workflow.releaseTag()))
+                .thenReturn(Optional.of(packageFor(workflow.releaseTag())));
         workflow = orchestrator.reconcile(workflow.workflowId());
 
         ReleaseWorkflowRecord deploying = orchestrator.startTestPublish(
@@ -258,7 +264,8 @@ class ReleaseWorkflowOrchestratorTest {
         writeSuccessfulBuildStages(build.getOperationId());
         build.setStatus("succeeded");
         operationStore.save(build);
-        when(runtimeControlService.getReleasePackages()).thenReturn(List.of(packageFor(workflow.releaseTag())));
+        when(runtimeControlService.getReleasePackage(workflow.releaseTag()))
+                .thenReturn(Optional.of(packageFor(workflow.releaseTag())));
         workflow = orchestrator.reconcile(workflow.workflowId());
         workflow = orchestrator.startTestPublish(workflow.workflowId(), "operator", "publish test");
         operationStore.save(publish);
@@ -308,7 +315,8 @@ class ReleaseWorkflowOrchestratorTest {
         writeSuccessfulBuildStages(operation.getOperationId());
         operation.setStatus("succeeded");
         operationStore.save(operation);
-        when(runtimeControlService.getReleasePackages()).thenReturn(List.of(packageFor(workflow.releaseTag())));
+        when(runtimeControlService.getReleasePackage(workflow.releaseTag()))
+                .thenReturn(Optional.of(packageFor(workflow.releaseTag())));
         workflow = orchestrator.reconcile(workflow.workflowId());
         workflowService.overrideHeartbeatForTest(workflow.workflowId(), Instant.now().minusSeconds(30));
 
@@ -334,7 +342,8 @@ class ReleaseWorkflowOrchestratorTest {
         writeSuccessfulBuildStages(build.getOperationId());
         build.setStatus("succeeded");
         operationStore.save(build);
-        when(runtimeControlService.getReleasePackages()).thenReturn(java.util.List.of(packageFor(workflow.releaseTag())));
+        when(runtimeControlService.getReleasePackage(workflow.releaseTag()))
+                .thenReturn(Optional.of(packageFor(workflow.releaseTag())));
         workflow = orchestrator.reconcile(workflow.workflowId());
         workflow = orchestrator.startTestPublish(workflow.workflowId(), "operator", "publish test");
         String publishOperationId = workflow.operationId();
@@ -378,7 +387,8 @@ class ReleaseWorkflowOrchestratorTest {
         writeSuccessfulBuildStages(build.getOperationId());
         build.setStatus("succeeded");
         operationStore.save(build);
-        when(runtimeControlService.getReleasePackages()).thenReturn(java.util.List.of(packageFor(workflow.releaseTag())));
+        when(runtimeControlService.getReleasePackage(workflow.releaseTag()))
+                .thenReturn(Optional.of(packageFor(workflow.releaseTag())));
         workflow = orchestrator.reconcile(workflow.workflowId());
         workflow = orchestrator.startTestPublish(workflow.workflowId(), "operator", "publish test");
         publish.setStatus("succeeded");
@@ -407,7 +417,8 @@ class ReleaseWorkflowOrchestratorTest {
         writeSuccessfulBuildStages(build.getOperationId());
         build.setStatus("succeeded");
         operationStore.save(build);
-        when(runtimeControlService.getReleasePackages()).thenReturn(List.of(packageFor(workflow.releaseTag())));
+        when(runtimeControlService.getReleasePackage(workflow.releaseTag()))
+                .thenReturn(Optional.of(packageFor(workflow.releaseTag())));
         workflow = orchestrator.reconcile(workflow.workflowId());
         workflow = orchestrator.startTestPublish(workflow.workflowId(), "operator", "publish test");
         publish.setStatus("succeeded");
@@ -521,7 +532,8 @@ class ReleaseWorkflowOrchestratorTest {
                 """);
         build.setStatus("succeeded");
         operationStore.save(build);
-        when(runtimeControlService.getReleasePackages()).thenReturn(List.of(packageFor(workflow.releaseTag())));
+        when(runtimeControlService.getReleasePackage(workflow.releaseTag()))
+                .thenReturn(Optional.of(packageFor(workflow.releaseTag())));
         workflow = orchestrator.reconcile(workflow.workflowId());
         String readyWorkflowId = workflow.workflowId();
 

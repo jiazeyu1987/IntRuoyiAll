@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -311,6 +312,43 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
 
         RuntimeControlStatusRespVO full = result.getStatuses().get("test").get("intruoyi-full");
         assertEquals("26-05-29_21-05-42", full.getCurrentReleaseTag());
+    }
+
+    @Test
+    void getReleasePackagesShouldReadCanonicalComponentsWithoutLegacyShowroomFlag() {
+        stubNasReleaseConfig();
+        String tag = "release-canonical-components";
+        String path = "Backup/ReleasePackage/" + tag;
+        doReturn(nasList("Backup/ReleasePackage", new FileNasListRespVO.Item()
+                .setName(tag).setPath(path).setDir(true).setSize(0L)))
+                .when(nasBrowserService).listFiles(any(NasConnectionConfig.class), eq("Backup/ReleasePackage"));
+        stubReleasePackageManifest(path, tag, true);
+        NasFileReadResult original = nasBrowserService.readFile(new NasConnectionConfig("server", 445, "share", "", "user", "secret"), path + "/manifest.json");
+        cn.hutool.json.JSONObject manifest = cn.hutool.json.JSONUtil.parseObj(new String(original.bytes(), StandardCharsets.UTF_8));
+        manifest.remove("includeShowroomBuildPackage");
+        manifest.set("components", List.of("backend", "admin-frontend", "packaging-manifest"));
+        doReturn(new NasFileReadResult("manifest.json", path + "/manifest.json", "application/json",
+                manifest.toString().getBytes(StandardCharsets.UTF_8)))
+                .when(nasBrowserService).readFile(any(NasConnectionConfig.class), eq(path + "/manifest.json"));
+        List<RuntimeControlReleasePackageRespVO> packages = runtimeControlService.getReleasePackages();
+        assertEquals(1, packages.size());
+        assertEquals(false, packages.get(0).getIncludeShowroomBuildPackage());
+    }
+
+    @Test
+    void getReleasePackageShouldReadExactDirectoryWithoutScanningRepositoryRoot() {
+        stubNasReleaseConfig();
+        String tag = "release-exact-components";
+        String path = "Backup/ReleasePackage/" + tag;
+        stubReleasePackageManifest(path, tag, true);
+
+        Optional<RuntimeControlReleasePackageRespVO> releasePackage = runtimeControlService.getReleasePackage(tag);
+
+        assertTrue(releasePackage.isPresent());
+        assertEquals(tag, releasePackage.get().getReleaseTag());
+        assertEquals("AVAILABLE", releasePackage.get().getStatus());
+        verify(nasBrowserService, never()).listFiles(any(NasConnectionConfig.class), eq("Backup/ReleasePackage"));
+        verify(nasBrowserService).listFiles(any(NasConnectionConfig.class), eq(path));
     }
 
     @Test
@@ -1293,9 +1331,6 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         stubNasReleaseConfig();
         String releaseTag = "20260528_220000";
         String packagePath = "Backup/ReleasePackage/" + releaseTag;
-        doReturn(nasList("Backup/ReleasePackage",
-                new FileNasListRespVO.Item().setName(releaseTag).setPath(packagePath).setDir(true).setSize(0L)))
-                .when(nasBrowserService).listFiles(any(NasConnectionConfig.class), eq("Backup/ReleasePackage"));
         stubReleasePackageManifestWithoutComponent(packagePath, releaseTag);
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("publish-test");
@@ -1865,9 +1900,6 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     private void stubReleasePackageList(String releaseTag, boolean checksumPresent, boolean tested,
                                         RuntimeControlRestoreCandidateRespVO recoverySet) {
         String packagePath = "Backup/ReleasePackage/" + releaseTag;
-        doReturn(nasList("Backup/ReleasePackage",
-                new FileNasListRespVO.Item().setName(releaseTag).setPath(packagePath).setDir(true).setSize(0L)))
-                .when(nasBrowserService).listFiles(any(NasConnectionConfig.class), eq("Backup/ReleasePackage"));
         stubReleasePackageManifest(packagePath, releaseTag, checksumPresent, tested, recoverySet);
     }
 
@@ -1890,7 +1922,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
                 .when(nasBrowserService).listFiles(any(NasConnectionConfig.class), eq(packagePath));
         doReturn(new NasFileReadResult("manifest.json", manifestPath, "application/json",
                 """
-                        {"releaseTag":"%s","packageId":"%s","createdAt":"2026-05-29T21:05:42Z","publishScope":"app-release","packageDigest":"%s","component":"intruoyi","includeShowroomBuildPackage":false,"onlyOfficeIncluded":true,"sourceRoots":[{"rootRole":"maintenance","normalizedRoot":"d:/release/m","approvedCommit":"%s","commit":"%s","dirty":false},{"rootRole":"application","normalizedRoot":"d:/release/a","approvedCommit":"%s","commit":"%s","dirty":false}],"sourceRoles":[{"sourceRole":"maintenance","rootRole":"maintenance","relativePath":".","commit":"%s"},{"sourceRole":"backend","rootRole":"application","relativePath":"IntRuoyiBackend","commit":"%s"},{"sourceRole":"frontend","rootRole":"application","relativePath":"IntRuoyiFronted","commit":"%s"}],"artifacts":[%s]}
+                        {"releaseTag":"%s","packageId":"%s","createdAt":"2026-05-29T21:05:42Z","publishScope":"app-release","packageDigest":"%s","component":"intruoyi","components":["backend","admin-frontend","onlyoffice","packaging-manifest"],"onlyOfficeIncluded":true,"sourceRoots":[{"rootRole":"maintenance","normalizedRoot":"d:/release/m","approvedCommit":"%s","commit":"%s","dirty":false},{"rootRole":"application","normalizedRoot":"d:/release/a","approvedCommit":"%s","commit":"%s","dirty":false}],"sourceRoles":[{"sourceRole":"maintenance","rootRole":"maintenance","relativePath":".","commit":"%s"},{"sourceRole":"backend","rootRole":"application","relativePath":"IntRuoyiBackend","commit":"%s"},{"sourceRole":"frontend","rootRole":"application","relativePath":"IntRuoyiFronted","commit":"%s"}],"artifacts":[%s]}
                         """.formatted(releaseTag, releaseTag,
                         "c".repeat(64), "a".repeat(40), "a".repeat(40), "b".repeat(40), "b".repeat(40),
                         "a".repeat(40), "b".repeat(40), "b".repeat(40),
@@ -1919,7 +1951,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
                 .when(nasBrowserService).listFiles(any(NasConnectionConfig.class), eq(packagePath));
         doReturn(new NasFileReadResult("manifest.json", manifestPath, "application/json",
                 """
-                        {"releaseTag":"%s","packageId":"%s","createdAt":"2026-05-29T21:05:42Z","publishScope":"app-release","packageDigest":"%s","includeShowroomBuildPackage":false,"onlyOfficeIncluded":true,"sourceRoots":[],"sourceRoles":[],"artifacts":[{"path":"intruoyi-images.tar","sha256":"abc"}]}
+                        {"releaseTag":"%s","packageId":"%s","createdAt":"2026-05-29T21:05:42Z","publishScope":"app-release","packageDigest":"%s","components":["backend","admin-frontend","onlyoffice","packaging-manifest"],"onlyOfficeIncluded":true,"sourceRoots":[],"sourceRoles":[],"artifacts":[{"path":"intruoyi-images.tar","sha256":"abc"}]}
                         """.formatted(releaseTag, releaseTag, "c".repeat(64)).getBytes(StandardCharsets.UTF_8)))
                 .when(nasBrowserService).readFile(any(NasConnectionConfig.class), eq(manifestPath));
     }

@@ -38,6 +38,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -510,6 +511,32 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     }
 
     @Override
+    public Optional<RuntimeControlReleasePackageRespVO> getReleasePackage(String releaseTag) {
+        if (nasSettingsService == null || nasBrowserService == null) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "nas release package dependencies");
+        }
+        String directoryName = StrUtil.trim(releaseTag);
+        if (StrUtil.isBlank(directoryName)) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "releaseTag");
+        }
+        if (StrUtil.containsAny(directoryName, "/", "\\")) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseTag");
+        }
+        NasConnectionConfig nasConfig = releaseNasConfig();
+        String packagePath = releasePackagesRoot() + "/" + directoryName;
+        FileNasListRespVO.Item item = new FileNasListRespVO.Item()
+                .setName(directoryName)
+                .setPath(packagePath)
+                .setDir(true)
+                .setSize(0L);
+        RuntimeControlReleasePackageRespVO releasePackage = buildReleasePackageResponse(item, nasConfig);
+        if (!RELEASE_PACKAGE_STATUS_AVAILABLE.equals(releasePackage.getStatus())) {
+            return Optional.empty();
+        }
+        return Optional.of(releasePackage);
+    }
+
+    @Override
     public RuntimeControlReleaseStatusRespVO getReleaseStatus() {
         RuntimeControlOverviewRespVO overview = getOverview();
         List<RuntimeControlReleasePackageRespVO> packages = getReleasePackages();
@@ -584,7 +611,23 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             respVO.setSourceRoles(readSourceRoles(manifest.get("sourceRoles")));
             String component = text(manifest, "component");
             respVO.setComponent(component);
-            Boolean includeShowroomBuildPackage = booleanValue(manifest, "includeShowroomBuildPackage");
+            JsonNode components = manifest.get("components");
+            Boolean includeShowroomBuildPackage = null;
+            if (components != null && components.isArray()) {
+                boolean validComponents = true;
+                boolean includesWebsite = false;
+                for (JsonNode entry : components) {
+                    if (!entry.isTextual() || !List.of("backend", "admin-frontend", "website",
+                            "database-contract", "required-sql", "runtime-env", "onlyoffice",
+                            "packaging-manifest").contains(entry.asText())) {
+                        validComponents = false;
+                    }
+                    includesWebsite |= "website".equals(entry.asText());
+                }
+                if (validComponents) {
+                    includeShowroomBuildPackage = includesWebsite;
+                }
+            }
             respVO.setIncludeShowroomBuildPackage(includeShowroomBuildPackage);
             if (StrUtil.isBlank(component)) {
                 blockedReasons.add("manifest.json 缺少 component");
@@ -592,7 +635,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                 blockedReasons.add("manifest.json component 非法");
             }
             if (includeShowroomBuildPackage == null) {
-                blockedReasons.add("manifest.json 缺少 includeShowroomBuildPackage");
+                blockedReasons.add("manifest.json components 缺失或非法");
             }
             Boolean onlyOfficeIncluded = booleanValue(manifest, "onlyOfficeIncluded");
             respVO.setOnlyOfficeIncluded(onlyOfficeIncluded);
@@ -1131,10 +1174,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                 && action != RuntimeControlOperationAction.PROMOTE_BACKUP) {
             return null;
         }
-        RuntimeControlReleasePackageRespVO releasePackage = getReleasePackages().stream()
-                .filter(item -> releaseTag.equals(item.getReleaseTag())
-                        || releaseTag.equals(item.getPackageDirectoryName()))
-                .findFirst()
+        RuntimeControlReleasePackageRespVO releasePackage = getReleasePackage(releaseTag)
                 .orElseThrow(() -> exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
                         "releaseTag 发布包缺少 manifest/checksum 或不存在：" + releaseTag));
         if ((action == RuntimeControlOperationAction.PROMOTE_PROD

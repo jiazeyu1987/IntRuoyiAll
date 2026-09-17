@@ -2,6 +2,16 @@
 
 ## 触发场景
 
+### 发布仓库读写身份一致性门禁
+
+- Trigger: 发布包列表可用，但按钮上传写入业务文件共享、NAS Backup 目录创建被拒绝，或发布配置快照与命令参数不一致。
+- Preflight check: 候选包读取和执行器 NAS 快照必须调用同一个发布配置解析器；server/share 使用 release-package 配置，不能直接复制业务 NAS 的目标共享。发布前使用正式身份核对发布根的访问和写入条件。
+- Blocker: 快照 server/share 与候选包目标不一致、目录不可读/不可写、或凭据缺失时停止构建和发布。
+- Verification: 用不同业务/发布 NAS server/share 的定向测试验证实际执行器快照；真实权限探针只能在批准的发布根下创建唯一任务文件并立即清理。
+- Forbidden action: 禁止扩大业务文件共享权限、改全局业务 NAS 配置、把密码写到日志、复用失败 releaseTag 或用 CLI 另一套配置冒充按钮成功。
+- Evidence: doc/tasks/20260916-release-button-remediation/execution-log.md。
+- 阶段检查：构建前比对配置及访问权限；上传前复核同一配置快照；上传后核对原子 READY 与 manifest 哈希。推荐命令为 RuntimeControlServiceImplTest 定向回归和真实按钮验证；配置漂移必须 Fail Fast，记录脱敏目标、operationId、RED/GREEN 和探针清理结果。
+
 - 构建发布、测试服发布、正式服发布、审查服发布、备份、恢复、回滚或发布排障前，必须先读取本文件。
 - 远端服务器操作还必须读取 `docs/server-access.md`。
 - worktree 发布隔离还必须读取 `docs/worktree-restrictions.md`。
