@@ -445,7 +445,7 @@
             <el-upload
               ref="uploadRef"
               action="#"
-              accept=".doc,.docx,.xls,.xlsx,.pdf,.dwg,.sldprt,.sldasm,.slddrw"
+              accept=".pdf,application/pdf"
               :auto-upload="false"
               :limit="1"
               :file-list="fileList"
@@ -460,7 +460,7 @@
               </el-button>
               <template #tip>
                 <div class="mt-8px text-12px text-[var(--el-text-color-secondary)]">
-                  {{ EDITABLE_SOURCE_MESSAGE }}；图纸源文件需同步上传 PDF。
+                  必须上传不可编辑 PDF，在线浏览固定使用该版本。
                 </div>
               </template>
             </el-upload>
@@ -495,6 +495,43 @@
                 :title="previewUpload?.fileName || previewFileBlob?.name || '受控文件预览'"
                 :watermark="previewUpload?.watermark || null"
               />
+            </div>
+          </div>
+        </el-form-item>
+        <el-form-item label="可编辑版本">
+          <div class="w-full">
+            <el-upload
+              ref="editableUploadRef"
+              action="#"
+              :accept="EDITABLE_SOURCE_ACCEPT"
+              :auto-upload="false"
+              :limit="1"
+              :file-list="editableFileList"
+              :on-change="handleEditableFileChange"
+              :before-remove="handleBeforeEditableFileRemove"
+              :on-remove="handleEditableFileRemove"
+              :on-exceed="handleFileExceed"
+            >
+              <el-button plain :loading="editableUploadLoading">
+                <Icon icon="ep:edit" class="mr-5px" />
+                选择可编辑文件
+              </el-button>
+              <template #tip>
+                <div class="mt-8px text-12px text-[var(--el-text-color-secondary)]">
+                  非必填；仅拥有可编辑版本下载权限的用户可获取。
+                </div>
+              </template>
+            </el-upload>
+            <div
+              v-if="editableUpload"
+              class="mt-12px rounded-8px border border-[var(--el-border-color-light)] bg-[#fafcff] px-12px py-10px text-13px"
+            >
+              <div class="font-600 text-[var(--el-text-color-primary)]">
+                可编辑文件：{{ editableUpload.fileName }}
+              </div>
+              <div class="mt-4px text-[var(--el-text-color-secondary)]">
+                {{ editableUpload.contentType }} · {{ formatPreviewFileSize(editableUpload.fileSize) }}
+              </div>
             </div>
           </div>
         </el-form-item>
@@ -597,7 +634,7 @@ import {
   buildSubmitFailureFeedback,
   clearSubmitFieldErrors,
   createUploadSubmitterService,
-  EDITABLE_SOURCE_MESSAGE,
+  EDITABLE_SOURCE_ACCEPT,
   formatPreviewFileSize,
   isFileNumberChainConflictMessage,
   resolveUploadErrorMessage,
@@ -630,6 +667,7 @@ interface UploadNameSuggestionItem {
 
 const formRef = ref()
 const uploadRef = ref()
+const editableUploadRef = ref()
 const drawingPdfUploadRef = ref()
 const categories = ref<ControlledFileCategoryVO[]>([])
 const projectCodeOptions = ref<DccProjectCodeRespVO[]>([])
@@ -644,13 +682,16 @@ const uploadNameOptions = ref<ControlledFileUploadNameOptionVO[]>([])
 const uploadDirectoryTree = ref<ControlledFileUploadDirectoryTreeVO>()
 const currentVersionInfo = ref<ControlledFileCurrentVersionRespVO>()
 const fileList = ref<UploadUserFile[]>([])
+const editableFileList = ref<UploadUserFile[]>([])
 const drawingPdfFileList = ref<UploadUserFile[]>([])
 const previewUpload = ref<ControlledFileUploadRespVO>()
+const editableUpload = ref<ControlledFileUploadRespVO>()
 const drawingPdfUpload = ref<ControlledFileUploadRespVO>()
 const previewFileBlob = ref<File | null>(null)
 const uploadPreviewError = ref('')
 const submitLoading = ref(false)
 const uploadPreviewLoading = ref(false)
+const editableUploadLoading = ref(false)
 const uploadDrawingPdfLoading = ref(false)
 const uploadNameOptionsLoading = ref(false)
 const uploadNameOptionsLoadedKey = ref('')
@@ -826,10 +867,6 @@ const selectedFileTypeTaxonomyPath = computed(() => {
   }
   return fileTypeTaxonomyPathMap.value.get(Number(formData.fileTypeTaxonomyId))
 })
-
-const selectedFileTypeTaxonomyPathLabel = computed(
-  () => selectedFileTypeTaxonomyPath.value?.names.join(' / ') || ''
-)
 
 const selectedFileTypeTaxonomyLeafName = computed(() => {
   const names = selectedFileTypeTaxonomyPath.value?.names || []
@@ -1097,6 +1134,11 @@ const resetSelectedPreview = () => {
   uploadPreviewError.value = ''
 }
 
+const resetEditableUpload = () => {
+  editableUpload.value = undefined
+  editableFileList.value = []
+}
+
 const resetDrawingPdfUpload = () => {
   drawingPdfUpload.value = undefined
   drawingPdfFileList.value = []
@@ -1123,10 +1165,10 @@ const syncAutoCategoryFromSelectedFileTypeTaxonomy = async () => {
 }
 
 const hasTemporaryUploadState = () =>
-  Boolean(previewUpload.value?.uploadTicket || drawingPdfUpload.value?.uploadTicket)
+  Boolean(previewUpload.value?.uploadTicket || editableUpload.value?.uploadTicket || drawingPdfUpload.value?.uploadTicket)
 
 const resolveCurrentUploadCleanupRequestId = () =>
-  previewUpload.value?.requestId || drawingPdfUpload.value?.requestId
+  previewUpload.value?.requestId || editableUpload.value?.requestId || drawingPdfUpload.value?.requestId
 
 const cleanupCurrentUploadSession = async (showSuccess = false) => {
   if (uploadSubmitted.value || !hasTemporaryUploadState()) {
@@ -1938,14 +1980,13 @@ const handleFileExceed: UploadProps['onExceed'] = () => {
 }
 
 const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
-  const validation = validateControlledFileSelection(
-    uploadFiles.map((item) => ({
-      name: item.name,
-      type: item.raw?.type
-    }))
-  )
+  const validation = validateSingleUploadFileSelection(uploadFiles.map((item) => ({
+    name: item.name,
+    type: item.raw?.type
+  })))
+  const isPdf = file.raw && (file.raw.type === 'application/pdf' || /\.pdf$/i.test(file.name))
 
-  if (!validation.valid) {
+  if (!validation.valid || !isPdf) {
     const errorMessage = validation.message || '文件校验失败'
     uploadRef.value?.clearFiles()
     resetSelectedPreview()
@@ -1967,7 +2008,7 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
   try {
     previewUpload.value = await uploadSubmitterService.uploadPreview(
       file.raw as File,
-      'SOURCE',
+      'READ_ONLY_VIEW',
       buildUploadPreviewContext()
     )
   } catch (error) {
@@ -1978,6 +2019,46 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
   } finally {
     uploadPreviewLoading.value = false
   }
+}
+
+const handleEditableFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
+  const validation = validateControlledFileSelection(uploadFiles.map((item) => ({
+    name: item.name,
+    type: item.raw?.type
+  })))
+  if (!validation.valid || !file.raw) {
+    const errorMessage = validation.message || '可编辑文件校验失败'
+    editableUploadRef.value?.clearFiles()
+    resetEditableUpload()
+    message.error(errorMessage)
+    return
+  }
+  if (!(await cleanupTemporaryUploadTicket(editableUpload.value))) {
+    editableUploadRef.value?.clearFiles()
+    return
+  }
+  editableFileList.value = uploadFiles.slice(-1)
+  editableUpload.value = undefined
+  editableUploadLoading.value = true
+  try {
+    editableUpload.value = await uploadSubmitterService.uploadPreview(
+      file.raw as File,
+      'EDITABLE_SOURCE',
+      buildUploadPreviewContext()
+    )
+  } catch (error) {
+    editableUpload.value = undefined
+    message.error(resolveUploadPreviewErrorMessage(error, '可编辑文件上传失败，请查看错误提示后重试'))
+  } finally {
+    editableUploadLoading.value = false
+  }
+}
+
+const handleBeforeEditableFileRemove: UploadProps['beforeRemove'] = async () =>
+  await cleanupTemporaryUploadTicket(editableUpload.value, true)
+
+const handleEditableFileRemove: UploadProps['onRemove'] = () => {
+  resetEditableUpload()
 }
 
 const handleBeforeFileRemove: UploadProps['beforeRemove'] = async () => {
@@ -2103,7 +2184,7 @@ const submitForm = async () => {
     return
   }
   if (!previewUpload.value) {
-    message.warning('请先选择并完成文件预览上传')
+    message.warning('请先选择并完成不可编辑 PDF 上传')
     return
   }
   const productCodeValidation = validateDccProjectProductCode(
@@ -2124,6 +2205,7 @@ const submitForm = async () => {
     await uploadSubmitterService.submit(
       { ...formData, productMasterId: null },
       previewUpload.value,
+      editableUpload.value,
       drawingPdfUpload.value
     )
     uploadSubmitted.value = true

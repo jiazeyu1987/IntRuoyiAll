@@ -75,6 +75,8 @@ public class DccControlledFileRespVO {
     private String checkedOutReason;
     private Boolean canPreview;
     private Boolean canDownload;
+    private Boolean canDownloadReadOnly;
+    private Boolean canDownloadEditable;
     private Boolean canPrint;
     private DccControlledFileAccessExplanationRespVO accessExplanation;
     private Boolean systemRecordDownloadOpen;

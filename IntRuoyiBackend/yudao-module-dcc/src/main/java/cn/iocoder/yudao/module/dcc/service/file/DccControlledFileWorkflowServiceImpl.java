@@ -1602,12 +1602,17 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         DccControlledFileChangeTypeEnum changeType = validateChangeType(reqVO.getChangeType());
         boolean explicitRevisionSource = changeType == DccControlledFileChangeTypeEnum.REVISION
                 && reqVO.getRevisionSourceControlledFileId() != null;
+        boolean ordinaryDualVersionUpload = !"EXTERNAL_REVIEW".equalsIgnoreCase(reqVO.getProcessType())
+                && !explicitRevisionSource;
         boolean hasUploadTicket = hasAnyUploadTicket(reqVO);
         if (requireUploadTickets && !explicitRevisionSource && hasAnyRawFileId(reqVO)) {
             throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
         }
         if ((requireUploadTickets && !explicitRevisionSource) || hasUploadTicket) {
-            if (StrUtil.isBlank(reqVO.getSessionId()) || StrUtil.isBlank(reqVO.getOriginalUploadTicket())) {
+            if (ordinaryDualVersionUpload && StrUtil.isBlank(reqVO.getReadOnlyUploadTicket())) {
+                throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+            }
+            if (!ordinaryDualVersionUpload && StrUtil.isBlank(reqVO.getOriginalUploadTicket())) {
                 throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
             }
         } else if (!explicitRevisionSource && reqVO.getOriginalFileId() == null) {
@@ -1705,7 +1710,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     }
 
     private boolean hasAnyUploadTicket(DccControlledFileSubmitReqVO reqVO) {
-        return reqVO != null && (StrUtil.isNotBlank(reqVO.getOriginalUploadTicket())
+        return reqVO != null && (StrUtil.isNotBlank(reqVO.getReadOnlyUploadTicket())
+                || StrUtil.isNotBlank(reqVO.getEditableUploadTicket())
+                || StrUtil.isNotBlank(reqVO.getOriginalUploadTicket())
                 || StrUtil.isNotBlank(reqVO.getSourceUploadTicket())
                 || StrUtil.isNotBlank(reqVO.getDrawingPdfUploadTicket()));
     }
@@ -1713,26 +1720,49 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     private boolean hasAnyRawFileId(DccControlledFileSubmitReqVO reqVO) {
         return reqVO != null && (reqVO.getOriginalFileId() != null
                 || reqVO.getSourceFileId() != null
+                || reqVO.getReadOnlyFileId() != null
+                || reqVO.getEditableFileId() != null
                 || reqVO.getDrawingPdfFileId() != null);
     }
 
     private ResolvedSubmitFiles resolveSubmitFiles(Long userId, DccControlledFileSubmitReqVO reqVO,
                                                    boolean requireUploadTickets) {
         if (requireUploadTickets || hasAnyUploadTicket(reqVO)) {
-            if (StrUtil.isBlank(reqVO.getSessionId()) || StrUtil.isBlank(reqVO.getOriginalUploadTicket())) {
+            boolean ordinaryDualVersionUpload = !"EXTERNAL_REVIEW".equalsIgnoreCase(reqVO.getProcessType());
+            if (StrUtil.isBlank(reqVO.getSessionId())
+                    || (ordinaryDualVersionUpload
+                    ? StrUtil.isBlank(reqVO.getReadOnlyUploadTicket())
+                    : StrUtil.isBlank(reqVO.getOriginalUploadTicket()))) {
                 throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
             }
             List<SubmitTicketBinding> bindings = new ArrayList<>();
-            DccUploadTicketBoundFile original = resolveUploadTicket(userId, reqVO.getCategoryId(), reqVO.getSessionId(),
+            DccUploadTicketBoundFile readOnly = ordinaryDualVersionUpload
+                    ? resolveUploadTicket(userId, reqVO.getCategoryId(), reqVO.getSessionId(),
+                    reqVO.getReadOnlyUploadTicket(), DccControlledFileUploadTypePolicy.PURPOSE_READ_ONLY_VIEW)
+                    : resolveUploadTicket(userId, reqVO.getCategoryId(), reqVO.getSessionId(),
                     reqVO.getOriginalUploadTicket(), DccControlledFileUploadTypePolicy.PURPOSE_SOURCE);
-            bindings.add(new SubmitTicketBinding(reqVO.getOriginalUploadTicket(),
-                    DccControlledFileUploadTypePolicy.PURPOSE_SOURCE));
-            DccUploadTicketBoundFile source = original;
-            if (StrUtil.isNotBlank(reqVO.getSourceUploadTicket())) {
-                source = resolveUploadTicket(userId, reqVO.getCategoryId(), reqVO.getSessionId(), reqVO.getSourceUploadTicket(),
+            String readOnlyTicket = ordinaryDualVersionUpload
+                    ? reqVO.getReadOnlyUploadTicket() : reqVO.getOriginalUploadTicket();
+            bindings.add(new SubmitTicketBinding(readOnlyTicket,
+                    ordinaryDualVersionUpload ? DccControlledFileUploadTypePolicy.PURPOSE_READ_ONLY_VIEW
+                            : DccControlledFileUploadTypePolicy.PURPOSE_SOURCE));
+            DccUploadTicketBoundFile editable = null;
+            if (ordinaryDualVersionUpload && StrUtil.isNotBlank(reqVO.getEditableUploadTicket())) {
+                editable = resolveUploadTicket(userId, reqVO.getCategoryId(), reqVO.getSessionId(),
+                        reqVO.getEditableUploadTicket(), DccControlledFileUploadTypePolicy.PURPOSE_EDITABLE_SOURCE);
+                bindings.add(new SubmitTicketBinding(reqVO.getEditableUploadTicket(),
+                        DccControlledFileUploadTypePolicy.PURPOSE_EDITABLE_SOURCE));
+            } else if (!ordinaryDualVersionUpload && StrUtil.isNotBlank(reqVO.getSourceUploadTicket())) {
+                editable = resolveUploadTicket(userId, reqVO.getCategoryId(), reqVO.getSessionId(), reqVO.getSourceUploadTicket(),
                         DccControlledFileUploadTypePolicy.PURPOSE_SOURCE);
                 bindings.add(new SubmitTicketBinding(reqVO.getSourceUploadTicket(),
                         DccControlledFileUploadTypePolicy.PURPOSE_SOURCE));
+            }
+            DccUploadTicketBoundFile source = editable == null ? readOnly : editable;
+            if (!ordinaryDualVersionUpload && StrUtil.isNotBlank(reqVO.getSourceUploadTicket())
+                    && editable == null) {
+                source = resolveUploadTicket(userId, reqVO.getCategoryId(), reqVO.getSessionId(), reqVO.getSourceUploadTicket(),
+                        DccControlledFileUploadTypePolicy.PURPOSE_SOURCE);
             }
             DccUploadTicketBoundFile drawingPdf = null;
             if (StrUtil.isNotBlank(reqVO.getDrawingPdfUploadTicket())) {
@@ -1741,11 +1771,17 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 bindings.add(new SubmitTicketBinding(reqVO.getDrawingPdfUploadTicket(),
                         DccControlledFileUploadTypePolicy.PURPOSE_DRAWING_PDF));
             }
-            return new ResolvedSubmitFiles(original.storageFileId(), source.storageFileId(),
-                    drawingPdf == null ? null : drawingPdf.storageFileId(), bindings);
+            Long readOnlyFileId = ordinaryDualVersionUpload ? readOnly.storageFileId() : null;
+            Long editableFileId = ordinaryDualVersionUpload && editable != null ? editable.storageFileId() : null;
+            return new ResolvedSubmitFiles(readOnly.storageFileId(), source.storageFileId(), readOnlyFileId,
+                    editableFileId, drawingPdf == null ? null : drawingPdf.storageFileId(), bindings);
         }
-        Long sourceFileId = reqVO.getSourceFileId() == null ? reqVO.getOriginalFileId() : reqVO.getSourceFileId();
-        return new ResolvedSubmitFiles(reqVO.getOriginalFileId(), sourceFileId, reqVO.getDrawingPdfFileId(), List.of());
+        Long readOnlyFileId = reqVO.getReadOnlyFileId() == null ? reqVO.getOriginalFileId() : reqVO.getReadOnlyFileId();
+        Long editableFileId = reqVO.getEditableFileId();
+        Long sourceFileId = reqVO.getSourceFileId() != null ? reqVO.getSourceFileId()
+                : (editableFileId == null ? readOnlyFileId : editableFileId);
+        return new ResolvedSubmitFiles(reqVO.getOriginalFileId(), sourceFileId, readOnlyFileId, editableFileId,
+                reqVO.getDrawingPdfFileId(), List.of());
     }
 
     private DccUploadTicketBoundFile resolveUploadTicket(Long userId, Long categoryId, String sessionId,
@@ -1919,6 +1955,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         reqVO.setDirectoryId(file.getDirectoryId());
         reqVO.setOriginalFileId(file.getOriginalFileId());
         reqVO.setSourceFileId(file.getSourceFileId());
+        reqVO.setReadOnlyFileId(file.getReadOnlyFileId());
+        reqVO.setEditableFileId(file.getEditableFileId());
         reqVO.setDrawingPdfFileId(file.getDrawingPdfFileId());
         reqVO.setFileName(file.getFileName());
         reqVO.setFileNumber(file.getFileNumber());
@@ -1949,6 +1987,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .directoryId(context.selectedDirectoryId())
                 .sourceFileId(preparedSource.sourceFileId())
                 .originalFileId(context.submitFiles().originalFileId())
+                .readOnlyFileId(context.submitFiles().readOnlyFileId())
+                .editableFileId(context.submitFiles().editableFileId())
                 .drawingPdfFileId(context.submitFiles().drawingPdfFileId())
                 .fileName(context.reqVO().getFileName())
                 .title(context.reqVO().getFileName())
@@ -2309,6 +2349,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             return submitFiles;
         }
         return new ResolvedSubmitFiles(resolveOriginalFileId(currentActiveFile), submitFiles.sourceFileId(),
+                submitFiles.readOnlyFileId(), submitFiles.editableFileId(),
                 submitFiles.drawingPdfFileId(), submitFiles.ticketBindings());
     }
 
@@ -2505,6 +2546,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
 
     private record ResolvedSubmitFiles(Long originalFileId,
                                        Long sourceFileId,
+                                       Long readOnlyFileId,
+                                       Long editableFileId,
                                        Long drawingPdfFileId,
                                        List<SubmitTicketBinding> ticketBindings) {
     }
