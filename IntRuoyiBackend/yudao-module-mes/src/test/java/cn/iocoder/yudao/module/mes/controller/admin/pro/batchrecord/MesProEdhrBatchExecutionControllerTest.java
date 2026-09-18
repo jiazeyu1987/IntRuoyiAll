@@ -13,11 +13,13 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrLocalStateSampleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrLocalStateSampleRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchActiveOrderDetailService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchWorkbenchService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrLocalStateSampleService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrRehearsalReadinessCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrRehearsalReadinessResult;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrRehearsalReadinessService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -44,6 +46,8 @@ class MesProEdhrBatchExecutionControllerTest {
 
     @Mock
     private MesProEdhrBatchExecutionService batchExecutionService;
+    @Mock
+    private MesProEdhrBatchActiveOrderDetailService batchActiveOrderDetailService;
     @Mock
     private MesProEdhrBatchWorkbenchService batchWorkbenchService;
     @Mock
@@ -105,6 +109,17 @@ class MesProEdhrBatchExecutionControllerTest {
     }
 
     @Test
+    void activeOrderDetail_delegatesToBatchScopedDetailService() {
+        MesTeamLeaderActiveOrderDetail detail = new MesTeamLeaderActiveOrderDetail()
+                .setActiveOrderId(300L);
+        when(batchActiveOrderDetailService.getDetail(100L)).thenReturn(detail);
+
+        assertEquals(300L, controller.getActiveOrderDetail(100L).getData().getActiveOrderId());
+
+        verify(batchActiveOrderDetailService).getDetail(100L);
+    }
+
+    @Test
     void contractMappings_matchBatchExecutionEndpointsAndPermissions() throws Exception {
         Method page = MesProEdhrBatchExecutionController.class.getDeclaredMethod("getPage",
                 EdhrBatchExecutionPageReqVO.class);
@@ -115,6 +130,15 @@ class MesProEdhrBatchExecutionControllerTest {
         Method get = MesProEdhrBatchExecutionController.class.getDeclaredMethod("get", Long.class);
         assertArrayEquals(new String[]{"/get"}, get.getAnnotation(GetMapping.class).value());
         assertEquals("id", get.getParameters()[0].getAnnotation(RequestParam.class).value());
+
+        Method activeOrderDetail = MesProEdhrBatchExecutionController.class.getDeclaredMethod(
+                "getActiveOrderDetail", Long.class);
+        assertArrayEquals(new String[]{"/active-order-detail"},
+                activeOrderDetail.getAnnotation(GetMapping.class).value());
+        assertEquals("batchExecutionId",
+                activeOrderDetail.getParameters()[0].getAnnotation(RequestParam.class).value());
+        assertEquals("@ss.hasPermission('mes:pro-edhr-batch-execution:query')",
+                activeOrderDetail.getAnnotation(PreAuthorize.class).value());
 
         Method workbench = MesProEdhrBatchExecutionController.class.getDeclaredMethod("getWorkbench", Long.class);
         assertArrayEquals(new String[]{"/workbench"}, workbench.getAnnotation(GetMapping.class).value());

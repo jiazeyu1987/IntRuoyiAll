@@ -5,6 +5,7 @@ const root = path.resolve(__dirname, '../../..')
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8')
 
 const completion = read('src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderCompletionServiceImpl.java')
+const activeOrderDetail = read('src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderDetailServiceImpl.java')
 const resolver = read('src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderPickListCompletionSourceService.java')
 const formalResolver = read('src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesFormalProductionPickListSourceResolver.java')
 const batchQuery = read('src/main/java/cn/iocoder/yudao/module/mes/service/pro/feedback/frontline/MesProFeedbackMaterialBatchQueryServiceImpl.java')
@@ -56,10 +57,10 @@ forbid(batchQuery, /bindingMapper|bindingItemMapper|\.insert\(|\.update|\.delete
   'frontline batch query must remain read-only and never write bindings')
 requireMatch(processMaterials, /INPUT_MATERIAL_IDS_KEY[\s\S]*OUTPUT_MATERIAL_IDS_KEY[\s\S]*parseRoleMaterialIds/,
   'frozen process materials must parse explicit input and output material ids')
-requireMatch(processMaterials, /ROLE_INPUT\.equals\(materialRole\)[\s\S]*batchQueryService\.resolveEvidence/,
-  'only input materials may resolve formal pick-list evidence')
-requireMatch(processMaterials, /ROLE_OUTPUT\.equals\(materialRole\)\)\s*\?\s*batchQueryService\.resolveEvidence|ROLE_INPUT\.equals\(materialRole\)\s*\?\s*batchQueryService\.resolveEvidence/,
-  'output materials must not query input batch evidence')
+requireMatch(activeOrderDetail, /ROLE_INPUT\.equals\(material\.materialRole\(\)\)[\s\S]*toCompletedInputMaterialDetail/,
+  'only input materials may resolve P2 formal pick-list evidence')
+forbid(activeOrderDetail, /ROLE_OUTPUT\.equals\(material\.materialRole\(\)\)[\s\S]*toCompletedInputMaterialDetail/,
+  'output materials must not query P2 input batch evidence')
 requireMatch(runtimeConfig, /ROLE_INPUT\.equals\(material\.materialRole\(\)\)[\s\S]*ROLE_OUTPUT\.equals\(material\.materialRole\(\)\)/,
   'runtime config must separate input evidence from output tabs')
 requireMatch(frontlineSubmit, /inputMaterialDetails[\s\S]*sourcePickListIds[\s\S]*sourceSnapshotHash|sourcePickListIds[\s\S]*inputMaterialDetails/,

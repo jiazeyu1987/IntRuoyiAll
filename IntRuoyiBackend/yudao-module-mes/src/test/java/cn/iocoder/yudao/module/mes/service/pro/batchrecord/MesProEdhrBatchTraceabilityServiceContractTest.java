@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import cn.hutool.crypto.digest.DigestUtil;
 
@@ -22,6 +24,16 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityErrorCodeConstants.FLOW8_TRACE_LINK_ORIGIN_MISMATCH;
 
 class MesProEdhrBatchTraceabilityServiceContractTest {
+
+    @Test
+    void captureBlockerMessageIncludesTheSpecificValidationScope() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
+                        + "MesProEdhrBatchTraceabilityServiceImpl.java"));
+
+        assertTrue(source.contains("validation.blockerCode() + \":\" + validation.blockerScope()"),
+                "capture failure must preserve the validator scope for diagnosis");
+    }
 
     @Test
     void sameSnapshotFromSameOriginIsIdempotent() {

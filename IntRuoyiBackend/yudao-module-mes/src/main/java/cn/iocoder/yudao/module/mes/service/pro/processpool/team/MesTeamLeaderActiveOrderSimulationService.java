@@ -94,6 +94,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private static final String SIMULATION_TEMPLATE_TYPE_PRODUCTION = "SIMULATED_PRODUCTION_SUBMIT";
     private static final String SIMULATION_TEMPLATE_TYPE_PQC = "SIMULATED_PQC_INSPECTION";
     private static final String SIMULATION_SOURCE_TYPE = "MES_ACTIVE_ORDER_SIMULATION";
+    private static final String SIMULATION_STAGE_STAGE1 = "STAGE1";
     private static final String INSPECTION_TYPE_PATROL = "PATROL";
     private static final String JUDGEMENT_PASS = "SUCCESS";
     private static final String DEVICE_STATUS_ENABLED = "ENABLED";
@@ -881,7 +882,11 @@ public class MesTeamLeaderActiveOrderSimulationService {
             MesProcessPoolSubmissionReviewDO review = insertApprovedReview(eventId, leaderUserId,
                     MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, "模拟PQC组长复核",
                     simulationStage, simulationRunId);
-            pqcProcessInspectionAggregationService.aggregateApprovedPqcSubmission(eventId, review.getId());
+            if (isStage1Simulation(simulationStage)) {
+                confirmPqcTaskAfterApprovedReview(task, eventId);
+            } else {
+                pqcProcessInspectionAggregationService.aggregateApprovedPqcSubmission(eventId, review.getId());
+            }
             reviewCount++;
         }
         BigDecimal inspectionProgressPercent = calculateInspectionProgressPercent(activeOrder, formalIdentitySet,
@@ -891,6 +896,20 @@ public class MesTeamLeaderActiveOrderSimulationService {
                     "活跃订单固定 PQC 任务确认后仍未完成，activeOrderId=" + activeOrder.getId());
         }
         return new PqcSimulationSummary(submitCount, reviewCount);
+    }
+
+    private void confirmPqcTaskAfterApprovedReview(MesPqcInspectionTaskDO task, Long eventId) {
+        int updated = pqcInspectionTaskMapper.updateConfirmedIfSubmitted(task.getId(),
+                MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED,
+                MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED);
+        if (updated != 1) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcTask.confirmedAfterReview.eventId=" + eventId);
+        }
+        task.setTaskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED);
+    }
+
+    private static boolean isStage1Simulation(String simulationStage) {
+        return SIMULATION_STAGE_STAGE1.equals(simulationStage);
     }
 
     private List<MesPqcInspectionTaskDO> deduplicatePqcSimulationTasks(MesProcessPoolActiveOrderDO activeOrder,

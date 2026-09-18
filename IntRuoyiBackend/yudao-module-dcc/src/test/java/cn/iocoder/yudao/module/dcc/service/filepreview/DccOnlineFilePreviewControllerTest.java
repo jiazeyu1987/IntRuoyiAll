@@ -115,6 +115,8 @@ class DccOnlineFilePreviewControllerTest extends BaseMockitoUnitTest {
         assertTrue(value.contains("dcc:controlled-file:query"), value);
         assertTrue(value.contains("mes:pro-edhr-batch-execution:query"), value);
         assertTrue(value.contains("mes:pro-edhr-batch-execution:update"), value);
+        assertTrue(value.contains("mes:pro-process-pool-team-leader:query"), value);
+        assertTrue(value.contains("mes:pro-production-release:query"), value);
     }
 
     private MockHttpServletRequest auditRequest() {

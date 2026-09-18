@@ -36,6 +36,9 @@ public class CodexCliChatModel implements ChatModel {
     private final Long timeoutMs;
     private final String workingDirectory;
     private final String model;
+    private final boolean mcpServerEnabled;
+    private final String mcpServerName;
+    private final String mcpServerUrl;
     private final ChatOptions defaultOptions;
 
     public CodexCliChatModel(YudaoAiProperties.CodexCli properties) {
@@ -50,6 +53,10 @@ public class CodexCliChatModel implements ChatModel {
                 ? properties.getWorkingDirectory()
                 : System.getProperty("user.dir");
         this.model = properties != null ? properties.getModel() : null;
+        this.mcpServerEnabled = properties != null && properties.isMcpServerEnabled();
+        this.mcpServerName = properties != null && StrUtil.isNotBlank(properties.getMcpServerName())
+                ? properties.getMcpServerName() : "intruoyi";
+        this.mcpServerUrl = properties != null ? properties.getMcpServerUrl() : null;
         this.defaultOptions = OpenAiChatOptions.builder().model(MODEL_DEFAULT).build();
     }
 
@@ -67,6 +74,22 @@ public class CodexCliChatModel implements ChatModel {
     @Override
     public ChatOptions getDefaultOptions() {
         return defaultOptions;
+    }
+
+    public boolean isMcpConfigured() {
+        return mcpServerEnabled && StrUtil.isNotBlank(mcpServerName) && StrUtil.isNotBlank(mcpServerUrl);
+    }
+
+    public boolean isMcpServerEnabled() {
+        return mcpServerEnabled;
+    }
+
+    public String getMcpServerName() {
+        return mcpServerName;
+    }
+
+    public String getMcpServerUrl() {
+        return mcpServerUrl;
     }
 
     static String buildPromptText(Prompt prompt) {
@@ -140,7 +163,7 @@ public class CodexCliChatModel implements ChatModel {
         }
     }
 
-    private List<String> buildCommand(Path outputFile) {
+    List<String> buildCommand(Path outputFile) {
         List<String> commandLine = new ArrayList<>();
         commandLine.add(command);
         commandLine.add("exec");
@@ -154,11 +177,19 @@ public class CodexCliChatModel implements ChatModel {
             commandLine.add("-m");
             commandLine.add(model);
         }
+        if (isMcpConfigured()) {
+            commandLine.add("-c");
+            commandLine.add("mcp_servers." + mcpServerName + ".url=\"" + escapeTomlString(mcpServerUrl) + "\"");
+        }
         if (StrUtil.isNotBlank(workingDirectory)) {
             commandLine.add("-C");
             commandLine.add(workingDirectory);
         }
         return commandLine;
+    }
+
+    private static String escapeTomlString(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private static String resolveRole(Message message) {

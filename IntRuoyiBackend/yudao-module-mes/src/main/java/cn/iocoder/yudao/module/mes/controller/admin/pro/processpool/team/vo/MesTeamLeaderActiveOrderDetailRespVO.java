@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -29,6 +30,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
     private String routeName;
     private List<InputMaterialDetail> inputMaterialUsages;
     private List<ProcessDetail> processes;
+    private PqcProductionReleaseSummary pqcProductionRelease;
 
     @Data
     @Accessors(chain = true)
@@ -164,17 +166,21 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private String qaItemCode;
         private String inspectionRuleKey;
         private String inspectionType;
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
         private LocalDate businessDate;
         private String shiftCode;
         private Integer roundNo;
         private Integer actualInspectionQuantity;
         private Integer scrapQuantity;
+        private Integer submittedInspectionQuantity;
+        private Integer submittedScrapQuantity;
         private String taskStatus;
         private String submitterName;
         private String reviewerName;
         private List<SignatureDetail> submitterSignatures;
         private List<SignatureDetail> reviewerSignatures;
-        private List<PqcSubmissionItemDetail> items;
+        private List<PqcSubmissionItemDetail> submittedItems;
+        private List<PqcSubmissionItemDetail> processInspectionItems;
     }
 
     @Data
@@ -184,6 +190,14 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private String signerName;
         private LocalDateTime signedAt;
         private String role;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class PqcProductionReleaseSummary {
+        private String status;
+        private String statusLabel;
+        private SignatureDetail signature;
     }
 
     @Data

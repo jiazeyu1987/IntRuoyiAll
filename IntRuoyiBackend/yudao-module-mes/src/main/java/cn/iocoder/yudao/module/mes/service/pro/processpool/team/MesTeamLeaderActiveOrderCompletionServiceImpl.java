@@ -35,6 +35,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
     private final MesTeamLeaderActiveOrderCompletionBackfillPort backfillPort;
     private final MesTeamLeaderActiveOrderPickListCompletionSourceService pickListCompletionSourceService;
     private final MesActiveOrderTransferTraceService activeOrderTransferTraceService;
+    private final MesPqcProcessInspectionAggregationService processInspectionAggregationService;
 
     public MesTeamLeaderActiveOrderCompletionServiceImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -42,13 +43,15 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
             MesTeamLeaderActiveOrderCompletionProgressPort progressPort,
             MesTeamLeaderActiveOrderCompletionBackfillPort backfillPort,
             MesTeamLeaderActiveOrderPickListCompletionSourceService pickListCompletionSourceService,
-            MesActiveOrderTransferTraceService activeOrderTransferTraceService) {
+            MesActiveOrderTransferTraceService activeOrderTransferTraceService,
+            MesPqcProcessInspectionAggregationService processInspectionAggregationService) {
         this.activeOrderMapper = activeOrderMapper;
         this.receiptMapper = receiptMapper;
         this.progressPort = progressPort;
         this.backfillPort = backfillPort;
         this.pickListCompletionSourceService = pickListCompletionSourceService;
         this.activeOrderTransferTraceService = activeOrderTransferTraceService;
+        this.processInspectionAggregationService = processInspectionAggregationService;
     }
 
     @Override
@@ -144,6 +147,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PROGRESS_NOT_COMPLETE, activeOrder.getId());
         }
 
+        processInspectionAggregationService.aggregateApprovedPqcSubmissionsForActiveOrder(activeOrder.getId());
         MesTeamLeaderActiveOrderCompletionBackfillDraft draft = backfillPort.prepare(leaderUserId, activeOrder, command);
         if (draft == null || draft.getSourceSnapshotHash() == null || draft.getSourceSnapshotHash().isBlank()) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, activeOrder.getId(), "SOURCE_SNAPSHOT_HASH");

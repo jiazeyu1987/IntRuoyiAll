@@ -11,6 +11,7 @@ DELETE FROM "mes_pro_process_pool_pqc_record";
 DELETE FROM "mes_pro_process_pool_quantity_fragment";
 DELETE FROM "mes_pro_process_pool_event";
 DELETE FROM "mes_pro_process_pool";
+DELETE FROM "mes_pro_process_pool_active_order_dossier_file";
 DELETE FROM "mes_pro_batch_record_execution_field_audit_item";
 DELETE FROM "mes_pro_batch_record_execution_attachment";
 DELETE FROM "mes_pro_batch_record_execution_field_audit_batch";

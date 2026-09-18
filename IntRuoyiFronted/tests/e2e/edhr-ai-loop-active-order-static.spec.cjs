@@ -27,8 +27,8 @@ assert.match(
 )
 assert.match(
   teamLeaderPage,
-  /data-team-leader-copy-latest-simulation-order/,
-  'active-order row needs a copy-test-order button for repeatable AI E2E'
+  /data-team-leader-reset-fixed-active-order/,
+  'active-order toolbar needs the reset-fixed-test-order button for repeatable AI E2E'
 )
 assert.match(
   runner,
@@ -43,8 +43,8 @@ assert.match(
 
 assert.match(
   runner,
-  /async function copyTemplateActiveOrder\(page, manifestOrder, manifest, ready\)/,
-  'runner must copy the fixed source active order instead of adding generated ERP orders'
+  /async function resetFixedTestActiveOrder\(page, manifestOrder, manifest\)/,
+  'runner must reset the fixed test order instead of copying a source order or adding generated ERP orders'
 )
 assert.doesNotMatch(
   runner,

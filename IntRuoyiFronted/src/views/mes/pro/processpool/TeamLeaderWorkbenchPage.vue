@@ -1720,8 +1720,8 @@
               <el-button
                 link
                 type="warning"
-                :disabled="row.abnormal || activeOrderSimulationSubmittingId !== undefined"
-                :loading="abnormalSubmitting && abnormalForm.workOrderId === row.workOrderId"
+                :disabled="row.abnormal || row.readBlocked || activeOrderSimulationSubmittingId !== undefined"
+                :loading="abnormalSubmitting && abnormalForm.activeOrderId === row.id"
                 :title="
                   row.abnormal ? row.abnormalReason || '该订单已报异常' : '针对该活跃订单报异常'
                 "
@@ -1834,6 +1834,19 @@
               >
                 <Icon icon="ep:document" />
                 P2生成
+              </el-button>
+              <el-button
+                v-hasPermi="['mes:pro-process-pool-team-leader:release-apply']"
+                link
+                type="primary"
+                :loading="releaseApplicationSubmittingId === row.id"
+                :disabled="maintenanceSubmitting || activeOrderSimulationSubmittingId !== undefined || releaseApplicationSubmittingId !== undefined || !canApplyActiveOrderRelease(row)"
+                title="将P2生成的记录推送给PQC生产放行"
+                data-team-leader-push-pqc-stage3
+                @click="handlePushGeneratedPqcRelease(row)"
+              >
+                <Icon icon="ep:promotion" />
+                P3推送放行
               </el-button>
               <el-button
                 link
@@ -2125,8 +2138,8 @@
         :rules="abnormalRules"
         label-width="100px"
       >
-        <el-form-item label="生产订单ID">
-          <el-input :model-value="abnormalForm.workOrderId" disabled />
+        <el-form-item label="活跃订单ID">
+          <el-input :model-value="abnormalForm.activeOrderId" disabled />
         </el-form-item>
         <el-form-item label="异常原因" prop="abnormalDescription">
           <el-input
@@ -4067,6 +4080,7 @@ import {
 import {
   addTeamLeaderActiveOrder,
   applyTeamLeaderActiveOrderRelease,
+  pushGeneratedTeamLeaderActiveOrderRelease,
   confirmTeamLeaderReportAllocation,
   createTemporaryTeamEmployee,
   createTeamDevice,
@@ -5428,7 +5442,7 @@ const correctionChangePreview = computed<ProductionReportCorrectionPreviewItem[]
 })
 
 const abnormalForm = reactive({
-  workOrderId: 0,
+  activeOrderId: 0,
   abnormalDescription: ''
 })
 
@@ -5712,7 +5726,7 @@ const resolveStage1GenerateFormDisabledReason = (row: TeamLeaderActiveOrderRespV
   if (!row.simulated || row.simulationStage !== 'STAGE1') return '请先点击P1生成Stage1模拟数据'
   if (!isActiveOrderProgressComplete(row.productionProgressPercent)) return '生产进度未达到100%'
   if (!isActiveOrderProgressComplete(row.inspectionProgressPercent)) return '检验进度未达到100%'
-  return '生成批记录表单视图'
+  return '生成批记录和过程检验记录'
 }
 
 const formatTraceQuantity = (value: number | string | undefined) => {
@@ -9243,7 +9257,7 @@ const submitCorrection = async () => {
 }
 
 const resetAbnormalForm = () => {
-  abnormalForm.workOrderId = 0
+  abnormalForm.activeOrderId = 0
   abnormalForm.abnormalDescription = ''
   abnormalFormRef.value?.clearValidate?.()
 }
@@ -9254,18 +9268,28 @@ const openAbnormalDialog = (row: TeamLeaderActiveOrderRespVO) => {
     return
   }
   resetAbnormalForm()
-  abnormalForm.workOrderId = row.workOrderId
+  abnormalForm.activeOrderId = requirePositiveNumber(row.id, '活跃订单ID不能为空')
   abnormalDialogVisible.value = true
 }
 
 const submitAbnormal = async () => {
   const valid = await abnormalFormRef.value?.validate?.()
   if (valid === false) return
-  requirePositiveNumber(abnormalForm.workOrderId, '生产订单ID不能为空')
+  const activeOrderId = requirePositiveNumber(abnormalForm.activeOrderId, '活跃订单ID不能为空')
   abnormalSubmitting.value = true
   try {
+    await loadActiveOrders()
+    const currentActiveOrder = activeOrderOptions.value.find(
+      (order) => Number(order.id) === activeOrderId
+    )
+    if (!currentActiveOrder) {
+      throw new Error('当前活跃订单已不在实时活跃列表中，请刷新后重试')
+    }
+    if (currentActiveOrder.readBlocked) {
+      throw new Error(currentActiveOrder.readBlockReason || '当前活跃订单数据异常，请刷新后重试')
+    }
     await markAndReportWorkOrderAbnormal({
-      workOrderId: abnormalForm.workOrderId,
+      activeOrderId,
       abnormalDescription: abnormalForm.abnormalDescription.trim()
     })
     await loadActiveOrders()
@@ -9863,13 +9887,38 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
   }
 }
 
-const handleGenerateStage1Forms = (row: TeamLeaderActiveOrderRespVO) => {
+const handleGenerateStage1Forms = async (row: TeamLeaderActiveOrderRespVO) => {
   if (!canGenerateStage1Forms(row)) {
     ElMessage.warning(resolveStage1GenerateFormDisabledReason(row))
     return
   }
+  if (!row.version && row.version !== 0) {
+    ElMessage.error('活跃订单版本缺失，无法安全执行P2生成')
+    return
+  }
   const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
-  navigateActiveOrderSubmissionDetail(activeOrderId)
+  activeOrderSimulationSubmittingId.value = row.id
+  let writeCompleted = false
+  try {
+    await ElMessageBox.confirm(
+      '本次将基于P1已形成的生产、PQC提交，以及正式物料单据和工单，回填批记录和过程检验记录。不会重新模拟生产或PQC数据。',
+      '确认P2生成',
+      { type: 'warning', confirmButtonText: '开始生成', cancelButtonText: '取消' }
+    )
+    await simulateStage2_5BackfillBatchExecution({
+      simulationRunId: 'STAGE2_5-' + Date.now(),
+      activeOrderId,
+      expectedVersion: row.version
+    })
+    writeCompleted = true
+    ElMessage.success('P2 生成完成')
+    await loadActiveOrders()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, writeCompleted ? 'P2 已生成，但列表刷新失败' : 'P2 生成失败'))
+  } finally {
+    activeOrderSimulationSubmittingId.value = undefined
+  }
 }
 
 const handleSimulateStage2_5 = async (row: TeamLeaderActiveOrderRespVO) => {
@@ -9896,6 +9945,39 @@ const handleSimulateStage2_5 = async (row: TeamLeaderActiveOrderRespVO) => {
     ElMessage.error(resolveErrorMessage(error, '模拟完工失败'))
   } finally {
     activeOrderSimulationSubmittingId.value = undefined
+  }
+}
+
+const handlePushGeneratedPqcRelease = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (!canApplyActiveOrderRelease(row)) {
+    ElMessage.warning(resolveActiveOrderReleaseApplyDisabledReason(row))
+    return
+  }
+  releaseApplicationSubmittingId.value = row.id
+  let writeCompleted = false
+  try {
+    await ElMessageBox.confirm(
+      '将P2已生成的批记录和过程检验记录提交至PQC生产放行。',
+      '确认P3推送',
+      { type: 'warning', confirmButtonText: '推送PQC', cancelButtonText: '取消' }
+    )
+    const result = await pushGeneratedTeamLeaderActiveOrderRelease({
+      activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空'),
+      idempotencyKey: getOrCreateActiveOrderReleaseIdempotencyKey(row),
+      applyRemark: 'P3推送P2生成记录至PQC生产放行'
+    })
+    writeCompleted = true
+    assertActiveOrderReleaseApplicationReceipt(result, row.id, true)
+    releaseApplicationLocks.set(row.id, 'CONFIRMED')
+    ElMessage.success('P3已推送，待PQC生产放行')
+    await loadActiveOrders()
+    releaseApplicationIdempotencyKeys.delete(row.id)
+    releaseApplicationLocks.delete(row.id)
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, writeCompleted ? 'P3已推送，但回执或列表刷新失败' : 'P3推送失败'))
+  } finally {
+    releaseApplicationSubmittingId.value = undefined
   }
 }
 
@@ -9967,18 +10049,6 @@ const handleRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const handleResetFixedSimulationActiveOrder = async () => {
-  const targetCode = 'SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891'
-  try {
-    await ElMessageBox.confirm(
-      `确认重置测试订单 ${targetCode}？系统将先删除该订单及其报工管理、报工历史、批次执行、历史追溯等全部关联测试数据，再按正式流程重新加入活跃订单池。此操作不可恢复。`,
-      '重置指定测试订单',
-      { type: 'warning', confirmButtonText: '确认重置', cancelButtonText: '取消' }
-    )
-  } catch (error) {
-    if (error === 'cancel' || error === 'close') return
-    ElMessage.error(resolveErrorMessage(error, '重置确认弹窗打开失败'))
-    return
-  }
   activeOrderTestResetSubmitting.value = true
   let writeCompleted = false
   try {

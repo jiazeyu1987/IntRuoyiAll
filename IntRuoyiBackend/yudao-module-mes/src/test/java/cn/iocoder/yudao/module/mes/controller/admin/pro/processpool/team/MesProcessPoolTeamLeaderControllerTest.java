@@ -205,7 +205,7 @@ class MesProcessPoolTeamLeaderControllerTest {
         when(abnormalReportService.markAndReport(org.mockito.ArgumentMatchers.any())).thenReturn(8101L);
 
         MesWorkOrderAbnormalReportReqVO reqVO = new MesWorkOrderAbnormalReportReqVO()
-                .setWorkOrderId(5001L)
+                .setActiveOrderId(7001L)
                 .setAbnormalDescription("设备停机，影响工单交付");
 
         CommonResult<Long> response;
@@ -218,7 +218,7 @@ class MesProcessPoolTeamLeaderControllerTest {
         ArgumentCaptor<MesWorkOrderAbnormalReportReqBO> captor =
                 ArgumentCaptor.forClass(MesWorkOrderAbnormalReportReqBO.class);
         verify(abnormalReportService).markAndReport(captor.capture());
-        assertEquals(5001L, captor.getValue().getWorkOrderId());
+        assertEquals(7001L, captor.getValue().getActiveOrderId());
         assertEquals(3001L, captor.getValue().getMarkerUserId());
         assertEquals("设备停机，影响工单交付", captor.getValue().getAbnormalDescription());
     }
@@ -821,6 +821,8 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEndpoint("markAndReportWorkOrderAbnormal", new Class[]{MesWorkOrderAbnormalReportReqVO.class},
                 PostMapping.class, new String[]{"/work-order/abnormal/report"},
                 "mes:pro-process-pool-team-leader:abnormal");
+        assertNotNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "activeOrderId"));
+        assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "workOrderId"));
         assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "routeProcessId"));
         assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "processId"));
         assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "sourceEventId"));

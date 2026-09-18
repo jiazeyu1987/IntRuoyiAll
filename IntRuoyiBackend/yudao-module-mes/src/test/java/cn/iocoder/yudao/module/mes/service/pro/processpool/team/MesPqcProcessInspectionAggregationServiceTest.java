@@ -7,11 +7,14 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,13 +52,37 @@ class MesPqcProcessInspectionAggregationServiceTest {
     private MesPqcInspectionPieceDetailMapper pieceDetailMapper;
     @Mock
     private MesPqcProcessInspectionAggregateDetailMapper aggregateDetailMapper;
+    @Mock
+    private MesProcessPoolSubmissionReviewMapper reviewMapper;
 
     private MesPqcProcessInspectionAggregationService service;
 
     @BeforeEach
     void setUp() {
         service = new MesPqcProcessInspectionAggregationServiceImpl(pqcRecordMapper, eventMapper, pqcTaskMapper,
-                pieceDetailMapper, aggregateDetailMapper);
+                pieceDetailMapper, aggregateDetailMapper, reviewMapper);
+    }
+
+    @Test
+    void shouldAggregateApprovedPqcSubmissionsForActiveOrderDuringP2Only() {
+        MesPqcInspectionTaskDO confirmedTask = submittedTask()
+                .setTaskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
+                .setSubmittedEventId(1001L);
+        when(pqcTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of(confirmedTask));
+        when(pqcRecordMapper.selectByEventId(1001L)).thenReturn(pendingRecord(), pendingRecord());
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(approvedPqcReview());
+        when(eventMapper.selectById(1001L)).thenReturn(pqcEvent());
+        when(pqcTaskMapper.selectById(8001L)).thenReturn(confirmedTask);
+        when(pieceDetailMapper.selectListByTaskId(8001L)).thenReturn(pieceDetails());
+        when(aggregateDetailMapper.insertBatch(any())).thenReturn(true);
+        when(pqcRecordMapper.updateProcessInspectionAggregatedIfPending(eq(100L), eq(1001L), eq(7001L),
+                org.mockito.ArgumentMatchers.any(LocalDateTime.class))).thenReturn(1);
+
+        service.aggregateApprovedPqcSubmissionsForActiveOrder(8101L);
+
+        verify(reviewMapper).selectLatestByEventIdForUpdate(1001L);
+        verify(aggregateDetailMapper).insertBatch(any());
+        verify(pqcTaskMapper, never()).updateConfirmedIfSubmitted(any(), any(), any());
     }
 
     @Test
@@ -318,6 +345,15 @@ class MesPqcProcessInspectionAggregationServiceTest {
                         .measuredValue("0.73")
                         .judgement(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
                         .build(), 100L));
+    }
+
+    private static MesProcessPoolSubmissionReviewDO approvedPqcReview() {
+        return MesProcessPoolSubmissionReviewDO.builder()
+                .id(7001L)
+                .eventId(1001L)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
+                .build();
     }
 
     private static <T extends TenantBaseDO> T withTenant(T object, Long tenantId) {

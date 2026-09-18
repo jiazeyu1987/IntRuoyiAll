@@ -30,7 +30,7 @@ class MesStage2_5ReceiptHandoffContractTest {
         assertFalse(source.contains("simulateActiveOrderCompletion(validated.getActorUserId(), activeOrder.getId(),"));
         assertTrue(source.contains("activeOrderCompletionService.complete(validated.getActorUserId(),"));
         assertFalse(source.contains("MesProcessPoolActiveOrderDO activeOrder = createFixture"));
-        assertFalse(source.contains("setCompletionBackfillReceipt(receipt)"));
+        assertTrue(source.contains("setCompletionBackfillReceipt(receipt)"));
         assertTrue(source.contains("setSourceContextHash(receipt.getSourceSnapshotHash())"));
         assertFalse(source.contains("setSourceContextHash(receipt.getSourceContextHash())"));
         assertTrue(source.contains("backfillReceipt.getBatchRecordId()"));
@@ -187,9 +187,13 @@ class MesStage2_5ReceiptHandoffContractTest {
                 "src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage1/"
                         + "MesStage1ActiveOrderCompleteSimulationServiceImpl.java"), StandardCharsets.UTF_8);
         String stage25 = Files.readString(IMPLEMENTATION, StandardCharsets.UTF_8);
-        assertTrue(stage1.contains("like(MesProWorkOrderDO::getRemark, \"][actorUserId=\" + actorUserId + \"]\")"));
-        assertTrue(stage25.contains("cleanupOwnedBatches(validated.getActorUserId())"));
-        assertTrue(stage25.contains("like(MesProEdhrBatchExecutionDO::getRemark, \"][actorUserId=\" + actorUserId + \"]\")"));
+        assertTrue(stage1.contains("like(MesProWorkOrderDO::getRemark")
+                && stage1.contains("\"][actorUserId=\" + actorUserId + \"]\""));
+        assertTrue(stage25.contains("private String cleanupOwnedRuns(Long actorUserId)"));
+        assertTrue(stage25.contains("private void cleanupOwnedBatches(Long actorUserId)"));
+        assertTrue(stage25.contains("cleanupBatchExecutions(workOrder.getId(), actorUserId)"));
+        assertTrue(stage25.contains("like(MesProEdhrBatchExecutionDO::getRemark")
+                && stage25.contains("\"][actorUserId=\" + actorUserId + \"]\""));
     }
 
     @Test

@@ -53,6 +53,6 @@ assert.match(api, /resetFixedSimulationActiveOrder/)
 assert.match(api, /active-order\/simulation\/test-reset/)
 assert.match(workbench, /data-team-leader-reset-fixed-active-order/)
 assert.match(workbench, /重置指定测试订单/)
-assert.match(workbench, /SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891/)
+assert.doesNotMatch(workbench.split("const handleResetFixedSimulationActiveOrder = async () => {")[1].split("const handleActiveOrderWorkOrderKeywordChange")[0], /ElMessageBox/)
 
 console.log('mes-active-order-test-reset-static: PASS')

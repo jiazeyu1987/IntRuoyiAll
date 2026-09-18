@@ -38,6 +38,7 @@
 - Keywords: EDHR-STATIC-005, PQC生产放行, 过程检验回填, 专用QA, 通用QA, PQC task冻结版本, regulationVersionId, OWNER_MODULE_MES_QA_COMMON -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: PQC生产放行不合格评审, 工单冻结, temporary_frozen, previousWorkOrderTemporaryFrozen, 返工恢复冻结, 作废保持冻结, 让步继续签字, 生产报工冻结门禁, 领料出库冻结门禁, 申请待办原子终结 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: PQC生产放行列表按钮灰色, approvalReady, approvalBlockerReason, approvalBlockerSuggestion, service item 到 Controller response VO 映射, 列表状态正常但操作不可用, 禁止前端默认放行 -> `docs/backend-development.md#controller-列表响应必须完整透传服务层就绪投影`
+- Keywords: PQC生产放行详情, 总表已生产放行, 生产放行人员电子签名, signatureId, PQC_RELEASE, ACTION_PQC_RELEASE, batchExecutionId, 签名动作校验, 详情签名投影 -> `docs/backend-development.md#pqc-生产放行详情签名投影必须读取正式放行回执`
 
 - Keywords: 租户级 PQC 检验设备配置、QA 项目切换、dccProjectCodeId、item-equipment/items、历史 QA 脏数据、同名检验项目、项目范围先过滤 -> `docs/backend-development.md#项目范围设备候选必须先过滤正式项目身份`
 - Keywords: 工艺路线过程检验映射, PQC_AGGREGATE_DETAIL, routeProcessId, PROCESS_INSPECTION, formTemplateId, lastPublishedTemplateVersionId, QA工序缺失, 清洗冒充粗洗, 表单槽位正常入口 -> `docs/e2e-rules.md#工艺路线过程检验映射正式来源门禁`
@@ -370,6 +371,7 @@
 - Keywords: 放行负责人, 工序结束放行责任人, releaseOwnerLabel, RELEASE_APPROVE, CLOSE 关闭负责人不能放行, stageOwnerRole 执行人兜底, 角色成员均可放行 -> `docs/backend-development.md#edhr-放行负责人来源门禁`
 - Keywords: 活跃订单申请放行, 活跃订单完工, 活跃订单完成, 生产放行, 管理者代表, xujianhai, active-order/release/apply, MesTeamLeaderActiveOrderReleaseApplicationService, 批记录回填, 过程检验单回填, 损耗单回填, 三类统一回填, 同一节点回填, 无损耗不写损耗单, 回填后创建批次执行, 来料检文件, 灭菌文件, 成品检文件, 三类文件上传后放行, 正式批记录数据, 正式过程检验单, 正式损耗单, 放行资料, 双100%, 生产进度100, 检验进度100, RELEASE_APPROVE, RECORD_CATEGORY_BATCH_RECORD, LOSS_REPORT, PQC 汇集明细, 过程检验设备快照, 放行不反查QA版本设备, 放行不反查当前最新设备配置, 生产工单领料单对应, formBindings 禁止, 默认 MAIN 禁止, submitForApproval, 多阶段接口合同, 状态所有者, 迁移审计编码, 同步内部端口, 结构化 blocker, CommonResult data, Long ID 字符串, 提供方消费方合同测试, 共享迁移单一所有者, expectedVersion 聚合归属, 工作待办版本禁止, 业务作用域条件生成列唯一索引, EDHR-STATIC-007, 放行申请存在即锁定生产写入, businessStatus非ACTIVE拒绝, assertActiveOrderOpenForProduction, assertActiveOrdersOpenForProduction -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: 活跃订单详情资料硬切换, 批次执行表替代, 放弃批次执行真相源, 生产放行详情档案, 放行资料来源哈希, 幂等回放, 放行中禁止重建, 放行中禁止移除, 放行中禁止版本升级, 冻结审批候选快照, PQC 管理生产放行, 管理者代表上市放行, 追溯读取详情档案 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
+- Keywords: 批次执行列表详情, 历史追溯详情, 追溯抽屉, batchExecutionId, activeOrderId, 批次执行正式来源关系, 批次执行查询权限, 生产组长详情权限解耦, 共享活跃订单详情投影, 来源关系不一致 fail fast -> `docs/frontend-development.md#前端入口态与详情状态判定门禁` and `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: 活跃订单放行 A6, 三类传统 batchRecordReportId, batch_record_report_id 非空数, MAIN PROCESS_INSPECTION LOSS_REPORT 完整组合, form_template_id 不可替代, 多角色登录凭据, 签名口令未证明, fixture 前置阻塞 -> `docs/e2e-rules.md#写入型-e2e-任务自有模拟环境门禁` and `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: 放行阻塞异常被全局异常处理器改写为 HTTP 500, 控制器级 ExceptionHandler, 结构化 blocker data, 实际 HTTP 回归 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: 一线 PQC 活跃订单可见但不可执行, routeProjectItems, missingItemIds, 设备账号上下文不完整, active-order/processes HTTP 200 页面拒绝, 检验方法按钮不渲染, pqc/switch-employee 非持久化上下文 POST -> `docs/e2e-rules.md#一线-pqc-活跃订单路线产品项目上下文门禁`
@@ -498,6 +500,7 @@
 - Keywords: 测试管理测试节点闭环, 自然语言测试方法, 业务可读目标, 固定样本, 前置复位, 清理恢复, 重复执行, 批记录节点, 批记录测试页签业务描述, 不出现程序细节, 业务环节, 业务说明, 测试项名称加载旧说明, 固定列表内部词扫描, 历史按钮状态颜色, 测试成功绿色, 测试失败红色, ready 统一变绿禁止 -> `docs/e2e-rules.md#测试管理测试节点闭环门禁`
 - Keywords: 测试管理 系统异常, codex-test-case/page code 500, system_codex_test_case.project, node_chain_name, node_chain_sort, node_chain_execution, 20260726_system_codex_test_case_project.sql, 20260727_system_codex_test_node_chain.sql, Codex 测试项分页缺字段 -> `docs/database-rules.md#测试管理-schema-迁移门禁`
 - Keywords: ERROR 1267, Illegal mix of collations, 临时表排序规则, 数据修复字符串比较, 存储过程局部字符串变量, collation_connection, BINARY 精确比较, system_codex_test_case, utf8mb4_0900_ai_ci, 中文测试项种子 -> `docs/database-rules.md#数据修复字符串比较排序规则门禁`
+- Keywords: system_menu.permission, 菜单权限迁移, eDHR批次执行, admin菜单不可见, 临时表permission列, utf8mb4_general_ci, utf8mb4_unicode_ci, ERROR 1267 -> `docs/database-rules.md#数据修复字符串比较排序规则门禁`
 - Keywords: utf8mb4_unicode_ci, 中英文括号判等, 物料名称字面修正, BINARY 精确比较, HEX 文本验收, 生产领料单物料名 -> `docs/database-rules.md#数据修复字符串比较排序规则门禁`
 - Keywords: ERROR 1059, Identifier name is too long, MySQL 标识符, 存储过程名称, CREATE PROCEDURE, CALL PROCEDURE, DROP PROCEDURE, 64 字符, 过程名长度, seed migration -> `docs/database-rules.md#mysql-存储过程标识符长度门禁`
 - Keywords: 20260726_system_codex_smart_scheduling_test_items, tmp_codex_smart_scheduling_case_seed, tmp_codex_smart_scheduling_checkpoint_seed, ensure_system_codex_smart_scheduling_test_items, utf8mb4_general_ci vs utf8mb4_0900_ai_ci -> `docs/database-rules.md#数据修复字符串比较排序规则门禁`
@@ -654,6 +657,7 @@
 - Keywords: Maven 目标单测, 同模块编译失败, 未跟踪 Java 文件, 无关源文件阻塞, LambdaUpdateWrapperX, 缺失符号, git status 归属确认, 不用 Maven excludes, 外部编译阻塞解除后复跑 -> `docs/backend-development.md#2026-09-03-maven-目标单测外部源文件编译阻塞门禁`
 - Keywords: 一线下拉其他, 其他手动输入, allow-create 不足, 下拉占位值禁止提交, 手工值回显, 返回正式候选 -> `docs/frontend-development.md#一线下拉框其他手工值必须形成正式提交事实`
 - Keywords: PQC 手工检验设备, PQC设备可选, 空设备快照, equipmentRequired不代表提交必选, 空设备ID, 手工设备快照, 禁止伪造设备ID, 正式设备严格匹配, selectedEquipmentNumber -> `docs/backend-development.md#pqc-手工检验设备必须使用可审计快照而非伪造设备身份`
+- Keywords: 活跃订单PQC提交双层Tab, 原始提交, 过程检验记录, submittedItems, processInspectionItems, PQC首次提交快照, revision beforePayload, event rawPayload, pqcItemDetails, itemResults, 原始提交多样本聚合一行, 检测数量13只显示一条检验项目, 禁止用聚合明细兜底原始提交 -> `docs/backend-development.md#pqc-过程检验汇集必须形成最终确认明细` and `docs/frontend-development.md#前端选择弹框即时反馈门禁`
 
 - 一对一关联扩展为一对多时的调用点审计、并发幂等与全量清理：`backend-development.md` 的“关联从一对一扩展为一对多门禁”。
 - Keywords: GxP审计追踪, 统一审计内核, signature.gxp, GxpAuditTrailService.append, append-only, 只追加账本, 审计失败业务回滚, before/after, 状态信封, 变更原因, 电子签名绑定, 非签名业务不得伪造signatureRecordId, DCC发布审批发起, 业务审批发起证据边界, 对象hash链, 每日清单, 自包含法规归档包, 仅归档包恢复, 周期审查实际执行, 全写边界覆盖, sourceLocator 精确到类方法, 登记悬空失败, 数据库特权审计外送, 未封存水位, WORM回执, API访问日志不能替代审计, 新写入口CI门禁, 统一内部审计接口不是统一远程业务接口, PASS FOR DESIGN, PASS FOR SOFTWARE, PASS FOR OPERATIONAL COMPLIANCE -> `docs/backend-development.md#GxP-业务写入统一审计接入门禁`
@@ -670,3 +674,4 @@
 - Keywords: AI E2E, eDHR主链, 生产PQC交错, 全部生产后补PQC, INTERLEAVED_MAIN_CHAIN_PLAN, S02, S03 -> `docs/e2e-rules.md#固定输入输出的业务链验收`
 - Keywords: AI E2E, targetRequests, targetRequestEvidenceFlushed, targetRequest label, httpStatus, businessCode, parseError, Playwright response异步解析, 失败报告缺最后请求, flushTargetRequests -> `docs/e2e-rules.md#固定输入输出的业务链验收`
 - Keywords: AI E2E, eDHR PREPARE, ERP生产订单模板, unitCode, FUnitId, ExecuteBillQuery, View模板分录, 1040502016 -> `docs/e2e-rules.md#固定输入输出的业务链验收`
+- Keywords: Codex Web, IntRuoyi MCP, Streamable HTTP, 只读工具注册, 示例 CRUD 工具禁止暴露, MCP endpoint 未配置 fail-fast -> `docs/integrations/external-platform-readiness.md#MCP-Tool-Exposure-Boundary`

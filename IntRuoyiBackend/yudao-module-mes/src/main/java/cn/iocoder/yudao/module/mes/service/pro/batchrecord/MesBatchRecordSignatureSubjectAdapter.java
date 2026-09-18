@@ -15,8 +15,8 @@ import java.util.Set;
 @Component
 public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatureSubjectAdapter {
 
-    static final String MODULE_CODE = "MES";
-    static final String SUBJECT_TYPE = "MES_BATCH_RECORD";
+    public static final String MODULE_CODE = "MES";
+    public static final String SUBJECT_TYPE = "MES_BATCH_RECORD";
     static final String POLICY_VERSION = "mes-batch-record-signature-v1";
 
     @Override
@@ -76,12 +76,12 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                 decoded.bpmTaskDefinitionKey(), nodeOrder(decoded.bpmTaskDefinitionKey()));
     }
 
-    static String encodeSubjectId(Long executionId, String actionType, String processInstanceId, String bpmTaskId,
-                                  String bpmTaskDefinitionKey, String bpmTaskName, String signatureCellKey,
-                                  Integer signatureRowIndex, Integer signatureColumnIndex, String reviewSourceType,
-                                  Long reviewSourceId, String reviewSourceName, String approvalResult,
-                                  Long fieldAuditRevision, String fieldAuditHeadHash, String cellValuesHash,
-                                  String signatureChallengeHash) {
+    public static String encodeSubjectId(Long executionId, String actionType, String processInstanceId, String bpmTaskId,
+                                         String bpmTaskDefinitionKey, String bpmTaskName, String signatureCellKey,
+                                         Integer signatureRowIndex, Integer signatureColumnIndex, String reviewSourceType,
+                                         Long reviewSourceId, String reviewSourceName, String approvalResult,
+                                         Long fieldAuditRevision, String fieldAuditHeadHash, String cellValuesHash,
+                                         String signatureChallengeHash) {
         String payload = String.join("\n",
                 value(executionId), value(actionType), value(processInstanceId), value(bpmTaskId),
                 value(bpmTaskDefinitionKey), value(bpmTaskName), value(signatureCellKey), value(signatureRowIndex),

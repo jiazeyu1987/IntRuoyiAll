@@ -11,9 +11,9 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class MesWorkOrderAbnormalReportReqVO {
 
-    @Schema(description = "生产工单编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "30001")
+    @Schema(description = "班组活跃订单编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "8101")
     @NotNull
-    private Long workOrderId;
+    private Long activeOrderId;
 
     @Schema(description = "异常原因", requiredMode = Schema.RequiredMode.REQUIRED, example = "设备停机，影响生产")
     @NotBlank

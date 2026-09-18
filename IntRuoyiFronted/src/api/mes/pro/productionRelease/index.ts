@@ -1,4 +1,13 @@
 import request from '@/config/axios'
+import type { TeamLeaderActiveOrderDetailRespVO } from '@/api/mes/pro/processpool/teamLeader'
+import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-list'
+
+export const getPqcProductionReleaseOrderDetail = async (applicationId: string) => {
+  return await request.get<{
+    detail: TeamLeaderActiveOrderDetailRespVO
+    productionMaterialLists: ErpProductionMaterialListVO[]
+  }>({ url: '/mes/pro/production-release/pqc/order-detail', params: { applicationId } })
+}
 
 export const PQC_RELEASE_VIEW_PENDING = 'PENDING' as const
 export const PQC_RELEASE_VIEW_RELEASED = 'RELEASED' as const

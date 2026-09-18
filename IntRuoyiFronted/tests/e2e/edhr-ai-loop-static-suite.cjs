@@ -3,6 +3,11 @@ const { spawnSync } = require('node:child_process')
 const path = require('node:path')
 
 const specs = [
+  'tests/e2e/edhr-ai-loop-production-identity.spec.cjs',
+  'tests/e2e/edhr-ai-loop-initialization-static.spec.cjs',
+  'tests/e2e/edhr-ai-loop-through-s03-static.spec.cjs',
+  'tests/e2e/edhr-ai-loop-orchestration.spec.cjs',
+  'tests/e2e/edhr-ai-loop-dynamic-coverage.spec.cjs',
   'tests/e2e/edhr-ai-loop-stages-static.spec.cjs',
   'tests/e2e/edhr-ai-loop-contract.spec.cjs',
   'tests/e2e/edhr-ai-loop-runner-static.spec.cjs',

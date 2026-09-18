@@ -93,7 +93,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
         var inspectionWriter = org.mockito.Mockito.mock(MesTeamLeaderActiveOrderReleaseProcessInspectionWriter.class);
         var lossWriter = org.mockito.Mockito.mock(MesTeamLeaderActiveOrderReleaseLossReportWriter.class);
         var realPort = org.mockito.Mockito.spy(new MesPqcReleaseDossierPortImpl(
-                null, null, null, null, null, null, null, null, null, null, batchWriter, inspectionWriter, lossWriter, null));
+                null, null, null, null, null, null, null, null, null, null, batchWriter, inspectionWriter, lossWriter, null, null));
         var plan = new MesPqcReleaseDossierPlan().setSourceSnapshotHash("source-hash")
                 .setBatchRecordPlan(new MesTeamLeaderActiveOrderReleaseBatchRecordPlan().setSourceObjectIds(List.of(1L)).setSourceValueHashes(List.of("batch")))
                 .setProcessInspectionPlan(new MesTeamLeaderActiveOrderReleaseProcessInspectionPlan().setSourceObjectIds(List.of(2L)).setSourceValueHashes(List.of("inspection")))

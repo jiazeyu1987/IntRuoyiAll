@@ -1,6 +1,19 @@
 <template>
   <ContentWrap>
-    <div class="pqc-release-page" data-pqc-production-release-page>
+    <section v-if="detailVisible" data-pqc-production-release-order-detail>
+      <el-button :icon="ArrowLeft" data-pqc-production-release-detail-back @click="detailVisible = false">
+        返回
+      </el-button>
+      <ActiveOrderSubmissionDetailPanel
+        :detail="orderDetail?.detail"
+        :production-material-lists="orderDetail?.productionMaterialLists || []"
+        :loading="detailLoading"
+        :error="detailError"
+        :pqc-release-application-id="detailRow?.applicationId"
+        @retry="retryOrderDetail"
+      />
+    </section>
+    <div v-show="!detailVisible" class="pqc-release-page" data-pqc-production-release-page>
       <div class="pqc-release-page__header">
         <div>
           <h2>PQC生产放行</h2>
@@ -91,6 +104,16 @@
         <el-table-column label="操作" width="230" fixed="right">
           <template #default="{ row }">
             <div class="pqc-release-page__actions">
+              <el-button
+                link
+                type="primary"
+                :disabled="!hasActiveOrderDetail(row)"
+                :title="hasActiveOrderDetail(row) ? '查看订单详情' : '缺少正式活跃订单来源，无法查看详情'"
+                data-pqc-production-release-detail
+                @click="openActiveOrderDetail(row)"
+              >
+                详情
+              </el-button>
               <template v-if="activeView === PQC_RELEASE_VIEW_PENDING">
                 <el-button
                   v-hasPermi="['mes:pro-production-release:pqc-approve']"
@@ -114,14 +137,6 @@
                   不合格审查
                 </el-button>
               </template>
-              <el-button
-                v-else-if="row.batchExecutionId"
-                link
-                type="primary"
-                @click="openBatchRecord(row.batchExecutionId)"
-              >
-                查看批记录
-              </el-button>
             </div>
           </template>
         </el-table-column>
@@ -169,28 +184,6 @@
               批次执行 {{ releaseResult.batchExecutionId || '--' }} 已创建，后续进入资料上传。
             </span>
           </template>
-          <template #extra>
-            <el-table
-              v-if="releaseResult.reportUploadTasks?.length"
-              :data="releaseResult.reportUploadTasks"
-              size="small"
-              border
-              data-pqc-production-release-report-task-list
-            >
-              <el-table-column label="报告任务" min-width="170">
-                <template #default="{ row }">{{ row.nodeType }}</template>
-              </el-table-column>
-              <el-table-column prop="workTaskId" label="工作待办" min-width="150" />
-              <el-table-column prop="status" label="状态" width="110" />
-            </el-table>
-            <el-button
-              v-if="releaseResult.batchExecutionId"
-              type="primary"
-              @click="openBatchRecord(releaseResult.batchExecutionId)"
-            >
-              查看批记录
-            </el-button>
-          </template>
         </el-result>
 
         <el-form v-else label-width="118px" class="pqc-release-dialog__form">
@@ -237,7 +230,8 @@
 </template>
 
 <script setup lang="ts">
-import { Refresh, RefreshLeft, Search } from '@element-plus/icons-vue'
+import { ArrowLeft, Refresh, RefreshLeft, Search } from '@element-plus/icons-vue'
+import ActiveOrderSubmissionDetailPanel from '../processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import {
   PQC_RELEASE_VIEW_CONCESSION_RELEASED,
   PQC_RELEASE_VIEW_PENDING,
@@ -246,6 +240,7 @@ import {
   PQC_RELEASE_VIEW_VOIDED,
   approvePqcProductionRelease,
   getPqcProductionRelease,
+  getPqcProductionReleaseOrderDetail,
   getPqcProductionReleasePage,
   type MesPqcProductionReleaseDecisionRespVO,
   type MesPqcProductionReleasePageItemRespVO,
@@ -262,6 +257,12 @@ const loading = ref(false)
 const loadError = ref('')
 const list = ref<MesPqcProductionReleasePageItemRespVO[]>([])
 const total = ref(0)
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const detailError = ref('')
+const detailRow = ref<MesPqcProductionReleasePageItemRespVO>()
+const orderDetail = ref<Awaited<ReturnType<typeof getPqcProductionReleaseOrderDetail>>>()
+let detailRequestSequence = 0
 const activeView = ref<MesPqcProductionReleaseViewStatus>(PQC_RELEASE_VIEW_PENDING)
 const releaseDialogVisible = ref(false)
 const releaseSubmitting = ref(false)
@@ -346,7 +347,7 @@ const resolveStatusLabel = (row: MesPqcProductionReleasePageItemRespVO) => {
   }
   return {
     [PQC_RELEASE_VIEW_PENDING]: '待放行',
-    [PQC_RELEASE_VIEW_RELEASED]: '已放行',
+    [PQC_RELEASE_VIEW_RELEASED]: '已生产放行',
     [PQC_RELEASE_VIEW_VOIDED]: '已作废',
     [PQC_RELEASE_VIEW_REWORKED]: '已返工',
     [PQC_RELEASE_VIEW_CONCESSION_RELEASED]: '已让步放行'
@@ -520,8 +521,35 @@ const openNonconformanceReview = (row: MesPqcProductionReleasePageItemRespVO) =>
   })
 }
 
-const openBatchRecord = (batchExecutionId: string) => {
-  router.push({ name: 'MesProEdhrBatchExecutionDetail', query: { id: batchExecutionId } })
+const hasActiveOrderDetail = (row: MesPqcProductionReleasePageItemRespVO) =>
+  /^[1-9]\d*$/.test(String(row.activeOrderId)) &&
+  Number.isSafeInteger(Number(row.activeOrderId))
+
+const openActiveOrderDetail = async (row: MesPqcProductionReleasePageItemRespVO) => {
+  if (!hasActiveOrderDetail(row)) {
+    message.error('缺少正式活跃订单来源，无法查看详情')
+    return
+  }
+  const sequence = ++detailRequestSequence
+  detailRow.value = row
+  detailVisible.value = true
+  detailLoading.value = true
+  detailError.value = ''
+  orderDetail.value = undefined
+  try {
+    const result = await getPqcProductionReleaseOrderDetail(row.applicationId)
+    if (sequence !== detailRequestSequence) return
+    orderDetail.value = result
+  } catch (error) {
+    if (sequence !== detailRequestSequence) return
+    detailError.value = resolveErrorMessage(error, '订单详情加载失败')
+  } finally {
+    if (sequence === detailRequestSequence) detailLoading.value = false
+  }
+}
+
+const retryOrderDetail = () => {
+  if (detailRow.value) void openActiveOrderDetail(detailRow.value)
 }
 
 onMounted(getList)

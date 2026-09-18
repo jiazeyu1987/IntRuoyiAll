@@ -9,8 +9,10 @@ const panel = fs.readFileSync(
 )
 
 const pqcTabStart = panel.indexOf('label="PQC提交"')
-const nextTabStart = panel.indexOf('<el-tab-pane', pqcTabStart + 1)
+const processRecordTabStart = panel.indexOf('label="过程检验记录"', pqcTabStart)
+const nextTabStart = panel.indexOf('</el-tab-pane>', processRecordTabStart)
 assert.ok(pqcTabStart > 0, 'PQC提交页签必须存在。')
+assert.ok(processRecordTabStart > pqcTabStart, 'PQC提交必须包含过程检验记录内层页签。')
 assert.ok(nextTabStart > pqcTabStart, '必须能定位 PQC提交页签边界。')
 const pqcTabBlock = panel.slice(pqcTabStart, nextTabStart)
 

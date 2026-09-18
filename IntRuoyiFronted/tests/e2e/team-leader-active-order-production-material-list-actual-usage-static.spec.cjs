@@ -15,8 +15,8 @@ assert.ok(resolverStart > usageMapStart, '实际用量 resolver 必须消费生�
 
 const usageMapBlock = panel.slice(usageMapStart, resolverStart)
 assert.match(usageMapBlock, /computed\(\(\)\s*=>/, '生产输入物料实际用量映射必须是响应式 computed。')
-assert.match(usageMapBlock, /props\.detail\?\.inputMaterialUsages/, '实际用量必须优先从当前活跃订单详情的订单级输入物料来源读取。')
-assert.match(usageMapBlock, /props\.detail\?\.processes/, '实际用量必须兼容当前活跃订单详情的工序输入物料集合。')
+assert.doesNotMatch(usageMapBlock, /props\.detail\?\.inputMaterialUsages/, '实际用量不得用订单级领料数量替代生产输入数量。')
+assert.match(usageMapBlock, /props\.detail\?\.processes/, '实际用量必须读取生产提交的工序输入物料集合。')
 assert.match(usageMapBlock, /process\.inputMaterials/, '实际用量必须读取生产输入物料集合。')
 assert.match(usageMapBlock, /material\.materialCode/, '实际用量必须按物料编码匹配生产用料清单子项。')
 assert.match(usageMapBlock, /material\.actualQuantity/, '实际用量必须使用生产输入物料 actualQuantity。')

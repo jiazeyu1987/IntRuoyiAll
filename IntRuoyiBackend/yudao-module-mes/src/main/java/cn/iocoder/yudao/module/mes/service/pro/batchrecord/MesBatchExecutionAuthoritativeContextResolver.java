@@ -325,7 +325,7 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                         ? witnessHash : receiptSource ? witnessHash : calculatedHash)
                 .setPayloadHash(witnessHash).setSignature(witnessHash)
                 .setSourceObjectType(type).setSourceObjectId(String.valueOf(id)).setSnapshotJson(snapshotJson)
-                .setSourceIdentityKey(type + ":" + type + ":" + id + ":::").setRelationStatus(relationStatus);
+                .setSourceIdentityKey(type + ":" + type + ":" + id + "::").setRelationStatus(relationStatus);
     }
 
     private String traceSourceBundleHash(List<MesBatchExecutionSourceEvidence> evidence) {
@@ -390,7 +390,7 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                     .setSourceObjectType(sourceObjectType)
                     .setSourceObjectId(sourceObjectId).setSnapshotJson(snapshotJson)
                     .setSourceIdentityKey(item.getSourceType() + ":" + sourceObjectType + ":"
-                            + sourceObjectId + ":::")
+                            + sourceObjectId + "::")
                     .setRelationStatus(item.getRelationStatus())
                     .setRelationReason(item.getRelationReason());
         }).toList();

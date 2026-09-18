@@ -5827,7 +5827,7 @@ const applyProcessToContext = (
 }
 
 const hydrateContextFromRoute = () => {
-  context.workOrderId = firstRouteQueryNumber(['workOrderId', 'productionOrderId', 'orderId'])
+  context.workOrderId = undefined
   context.routeId = firstRouteQueryNumber(['routeId']) ?? context.routeId
   context.routeProcessId = firstRouteQueryNumber(['routeProcessId']) ?? context.routeProcessId
   context.processId = firstRouteQueryNumber(['processId']) ?? context.processId
@@ -6032,21 +6032,13 @@ const formatTemplateName = (templateCode?: FrontlineTemplateCode) => {
 
 const initializeProductionSelection = async () => {
   const activeOrders = await loadFrontlineProductionActiveOrders(deviceState)
-  const requestedActiveOrder = context.workOrderId
-    ? activeOrders.find((order) =>
-      order.workOrderId === context.workOrderId &&
-      (!context.routeId || order.routeId === context.routeId)
-    )
-    : undefined
-  const initialActiveOrder = requestedActiveOrder || activeOrders.find((order) => !order.readBlocked)
+  const initialActiveOrder = activeOrders.find((order) => !order.readBlocked)
   if (initialActiveOrder) {
-    const requestedProcessIdentity = requestedActiveOrder
-      ? {
-          routeId: requestedActiveOrder.routeId,
-          routeProcessId: context.routeProcessId,
-          processId: context.processId
-        }
-      : undefined
+    const requestedProcessIdentity = {
+      routeId: initialActiveOrder.routeId,
+      routeProcessId: context.routeProcessId,
+      processId: context.processId
+    }
     await handleSelectActiveOrder(initialActiveOrder, requestedProcessIdentity)
   }
 }
@@ -6070,13 +6062,7 @@ onMounted(async () => {
     if (isPqcMode.value) {
       catalog.value = await catalogRequest
       const activeOrders = await loadFrontlinePqcActiveOrders(deviceState)
-      const requestedActiveOrder = context.workOrderId
-        ? activeOrders.find((order) =>
-          order.workOrderId === context.workOrderId &&
-          (!context.routeId || order.routeId === context.routeId)
-        )
-        : undefined
-      const initialActiveOrder = requestedActiveOrder || activeOrders[0]
+      const initialActiveOrder = activeOrders[0]
       if (initialActiveOrder) {
         await handleSelectActiveOrder(initialActiveOrder)
       }

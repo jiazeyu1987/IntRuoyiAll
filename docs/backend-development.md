@@ -522,12 +522,22 @@
 - Verification: 后端静态/单元回归覆盖真分页、候选与状态下推、最新评审租户隔离和不调用完整 readiness；前端静态合同覆盖请求序号保护、错误展示和按钮禁用条件；运行态授权后补数据库执行计划和真实页面耗时。
 - Evidence: `doc/tasks/20260912-pqc-production-release-page-performance/verification-report.md`。
 
+### PQC 生产放行详情签名投影必须读取正式放行回执
+
+- Trigger: PQC 生产放行历史详情、批记录“总表”显示“已生产放行”、生产放行人员电子签名、`signatureId`、`PQC_RELEASE`、`batchExecutionId`。
+- Preflight check: 详情服务必须先通过正式 PQC 授权服务取得放行决策，再用决策中的 `signatureId` 读取统一电子签名证据；签名证据必须属于 `MES_BATCH_RECORD` 的 `PQC_RELEASE` 动作，subject 必须由放行申请的 `batchExecutionId` 和 `PQC_RELEASE_APPLICATION` 来源构成，且统一签名验真结果必须为 `VALID`；前端只消费后端摘要的状态文案、签名人和签名时间。
+- Blocker: 用申请人、当前登录人、提交人、复核人或当前时间推断签名，直接把申请状态拼成已放行，签名 ID 缺失、统一电子签名证据不存在、动作不匹配、验真失败或批次执行 subject 归属不一致时，必须停止并明确失败。
+- Verification: 后端单测覆盖已放行决策返回正式签名人/时间、签名记录缺失和身份不匹配；前端静态契约覆盖总表“已生产放行”展示、正式签名字段和签名记录入口。
+- Forbidden action: 禁止在前端按列表行字段或当前用户补齐签名，禁止把任意电子签名记录或其它阶段签名投影为生产放行签名，禁止缺失签名时返回默认成功或占位签名。
+- Evidence: `doc/tasks/20260917-pqc-release-summary-signature/verification-report.md`。
+
 ### 活跃订单申请放行资料必须只使用正式来源
 
 - Trigger: 生产组长活跃订单“完成/完工/申请生产放行”、`active-order/release/apply`、生产进度 100%、检验进度 100%、批记录回填、过程检验单回填、损耗单回填、批次执行创建、来料检文件、灭菌文件、成品检文件、管理者代表批记录放行。
 - Preflight check: 后端必须作为权威门禁核对当前用户生产组长负责范围、活跃订单生产进度和检验进度均为 100%、发布态路线快照、逐工序正式 BATCH 批记录绑定、过程检验汇集确认明细、生产工单与领料单正式对应、损耗事实、管理者代表新权限角色和申请幂等键。一线生产、一线 PQC 签名提交以及生产组长、PQC 组长复核都只形成正式来源事实，不得触发最终表单回填；只有活跃订单点击完成时，才在同一业务节点统一执行批记录回填、过程检验单回填和损耗单回填。批记录来源只能来自工序设置逐工序 BATCH 绑定、`RECORD_CATEGORY_BATCH_RECORD`、一线生产事实、生产工单和领料单；过程检验来源只能来自已确认的 PQC 汇集明细，过程检验设备字段只能使用提交/汇集明细中的 `selectedEquipmentId/Code/Name/Number` 快照；正式损耗以生产补料单为依据，完工时按正式生产补料单回填损耗信息；生产过程损耗可能再利用，生产报工损耗及PQC报废记录保留为过程追溯，不得直接作为最终正式损耗或以其数量触发正式损耗单。完成时未查到生产补料单，应弹框确认无补料信息；用户确认后允许完成并记录为无正式损耗，取消确认则暂不完成。不得未经用户确认直接判无正式损耗；确认无正式损耗时不生成空损耗单或零损耗报告。三类回填成功后才允许创建或复用批次执行，并把一线生产、生产工单、领料单、一线 PQC 和损耗来源映射到批次执行及对应资料。批次执行创建后必须完成来料检、灭菌、成品检三类文件上传；若当前系统把成品检拆成“成品检报告/成品检记录”两个节点，则两个节点都属于成品检文件齐套要求。三类文件全部上传成功后，才允许创建或通过管理者代表批记录放行；管理者代表角色首版授权 `xujianhai`。
 - Active order add rule: 生产组长加入活跃订单时，生产工单是唯一硬前置；领料单或其它单据存在时只能作为附加来源，不得成为必填门禁。没有领料单时，后端仍应返回可追溯的活跃订单上下文，只是不绑定领料单来源。
 - Active order detail hard-switch extension: 当生产放行决定改由活跃订单详情资料承载时，放行申请、PQC 管理生产放行、资料上传、管理者代表上市放行和追溯必须统一读取同一份详情侧权威档案及其来源哈希；批次执行表只能作为历史展示或下游派生结果，不得再作为放行资料真相源。正式切换时必须补齐幂等回放、活跃订单破坏性操作锁、冻结审批候选快照和前端重建提示合同，避免重试哈希冲突、放行中版本漂移或角色调整造成待办无人处理。申请入口的幂等回放必须早于完工回填/批记录物化；只在下游生成服务回放不够，因为外层重试可能先重新读取当前来源并触发回填哈希冲突。
+- Batch trace permission extension: 批次执行列表、历史追溯和追溯抽屉读取活跃订单详情时，后端必须先按 `batchExecutionId` 读取批次执行正式来源关系，校验 `activeOrderId` 与工单身份一致，再复用共享详情投影；接口权限应使用批次执行查询权限，不得让调用方直接依赖生产组长详情权限。正式来源缺失或关系不一致必须 fail fast，禁止按工单号、批次号或当前登录人推断来源。
 - Production source lock extension: 活跃订单业务状态不再为 `ACTIVE`，或已经存在任意生产放行申请时，生产来源边界即视为锁定；一线生产提交授权、初始分配、分配保存和生产提交驳回/重算等写入口必须在写生产事实、分配、签名、复核或派生资料前 fail fast。禁止等待后续来源哈希冲突、PQC 放行终态或批次执行创建后再阻断，也禁止用活跃状态仍为 `ACTIVE` 解释继续写入。
 - ERP source timing extension: 外部单据允许晚于现场提交同步时，先核对用户指定的权威发现时点。生产录入可记录明确的待完工回填状态；不得在加载配置时提前要求完成阶段的领料证据，也不得伪造批号。完工阶段仍须按正式订单身份发现全部已审核来源、校验并冻结；完工详情读冻结证据，已签名原始记录保持提交当时事实。
 - Loss-source seam: 损耗来源若要从生产填写链路之外接入，必须通过独立 reader/port 接口承接；现有 reader 接口可以作为正式接入口继续演进，不得把写损耗报表的 writer 直接耦合到固定生产 payload 形状。
@@ -774,13 +784,15 @@
 ### PQC 过程检验汇集必须形成最终确认明细
 
 - Identity extension: 同名检验项目可能在不同QA版本使用不同编号。租户级设备配置和一线运行态必须以当前订单冻结QA版本实际返回的检验项目编号核对；配置页项目编号与当前订单项目编号不一致时，必须按配置缺失处理，不得按名称、QA版本或其它编号回退匹配。
+- Original submit snapshot extension: 活跃订单详情、追溯或审计页面同时展示“PQC原始提交”和“过程检验记录”时，必须把两类事实显式拆开。原始提交只能读取首次 PQC 提交快照：若事件存在有效修正，取最早有效 revision 的 `beforePayload`；否则取提交事件 `rawPayload`；解析顺序固定为 `pqcItemDetails` 后 `itemResults`。过程检验记录只能读取已确认汇集明细，例如 `mes_pqc_process_inspection_aggregate_detail`。缺提交事件、非 PQC 事件、空 payload、payload 缺可解析明细、缺正式 QA 工序身份或排序时必须 fail fast；禁止用过程检验聚合明细、当前修正后值、页面表格、数组顺序或检验项目名称补齐原始提交值。
+- Snapshot header and sample judgement extension: 原始提交的检验数量、损耗数量与明细必须来自同一次快照，不能把当前任务/事件数量配到历史样本上。压缩快照中首样本判定不能复制给不同测量值；须用快照结果类型和标准判定不同样本，缺必要标准明确失败，禁止读取当前规程推算历史结论。回归至少覆盖首样本通过而末样本失败、修正数量与原数量不同、无修订直接读取原事件。面向日期字符串的响应 LocalDate 应显式固定序列化格式，并在开启时间戳序列化的 mapper 下验证。
 
 - Trigger: AC-M21、过程检验记录汇集、一线 PQC 提交、PQC 组长复核通过、`productionSubmitEventId`、`qaProcessId`、`aggregateApprovedPqcSubmission`、`processInspectionAggregationStatus`、`mes_pqc_process_inspection_aggregate_detail`、`mes_pqc_inspection_task.task_status`。
 - Preflight check: 修改一线 PQC 提交或汇集链路前先核对 `mes_pro_process_pool_event`、`mes_pro_process_pool_pqc_record`、`mes_pqc_inspection_task`、`mes_pqc_inspection_piece_detail` 和汇集明细表的租户、事件、任务、轮次、规程版本、逐件明细来源。一线 PQC 的正式绑定对象只有活跃订单、当前 PQC 任务、QA 工序/规程和结构化逐件明细；检验设备配置只来自当前租户级 `itemCode` 设备配置，QA 版本只提供检验项目、检验标准、抽样规则等任务事实；`productionSubmitEventId` 不是 PQC 提交身份，PQC 事件和记录允许为空，不能从同一订单同一工序的生产报工反查、选择或绑定唯一事件。过程检验动态 FormCenter 模板身份必须来自当前路线工序正式绑定的 `formTemplateId + lastPublishedTemplateVersionId + lastPublishedTemplateVersionNo`，并校验已发布模板版本的 `templateId` 与绑定一致；不得把“过程检验记录”或某个具体模板 ID（例如 28）写成业务判定。汇集只能读取正式 `SUBMITTED` 任务和结构化逐件明细，并在同一事务中 CAS 标记记录已汇集、确认任务为 `CONFIRMED`、写入结构化汇集明细；活跃订单检验进度来自这条 PQC 任务确认和汇集事实，不依赖生产报工事件或当前设备配置。
 - Blocker: PQC 提交要求存在、唯一解析或自动绑定生产报工事件，因同工序有多条或零条生产报工拒绝 PQC 提交，PQC 幂等查询遗漏正式 `qaProcessId` 身份，设备默认回填未证明所选设备仍属于当前租户级 `itemCode` 配置，过程检验动态模板写死为某个 templateId 或只按模板名称判定，或者只能证明状态标记而没有结构化明细、仍从 raw payload 汇集、未校验租户/事件/任务一致性、未排除旧修订/未确认任务/重复汇集、任务确认与明细插入不在同一事务时必须停止。
 - Verification: 后端回归必须覆盖无生产报工、同订单同工序多条生产报工时的一线 PQC 提交均不绑定生产报工事件，提交载荷 `productionSubmitEventId` 为空且不查询生产报工；还必须覆盖 PQC 事件幂等查询使用 `qaProcessId`、默认设备回填按实际检验员 + `itemCode` 且命中当前租户级启用配置、非固定 templateId 的过程检验动态模板解析、成功汇集明细字段、重复汇集 CAS、跨租户拒绝、无逐件明细拒绝、任务确认 CAS 失败回滚，并配合 schema 测试验证唯一键 `tenant_id + event_id + source_piece_detail_id + deleted`。
 - Forbidden action: 禁止将生产报工存在性、唯一性、事件 ID、报工状态或报工进度作为一线 PQC 提交、PQC 组长复核或活跃订单检验进度的前置；禁止把 QA 版本设备配置作为一线设备选择、默认回填或放行设备字段的权威来源；禁止把过程检验表单模板 ID、模板名称或当前截图当作固定判定；禁止用前端展示、状态字段、默认空明细、raw payload、API-only 截图或吞唯一键异常替代正式结构化汇集事实。
-- Evidence: `doc/tasks/20260805-ac-m21-process-inspection-aggregation-fix/verification-report.md`；`doc/tasks/20260820-frontline-pqc-decouple-production-submit/verification-report.md`；`doc/tasks/20260820-frontline-pqc-process-inspection-route-binding/verification-report.md`；`doc/tasks/20260820-frontline-pqc-inspection-equipment-selection/verification-report.md`。
+- Evidence: `doc/tasks/20260805-ac-m21-process-inspection-aggregation-fix/verification-report.md`；`doc/tasks/20260820-frontline-pqc-decouple-production-submit/verification-report.md`；`doc/tasks/20260820-frontline-pqc-process-inspection-route-binding/verification-report.md`；`doc/tasks/20260820-frontline-pqc-inspection-equipment-selection/verification-report.md`；`doc/tasks/20260917-active-order-pqc-submit-tabs/verification-report.md`。
 
 ### 项目范围设备候选必须先过滤正式项目身份
 

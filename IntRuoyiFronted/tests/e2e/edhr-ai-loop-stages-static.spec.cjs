@@ -4,7 +4,7 @@ assert.deepEqual(STAGES.map((stage) => stage.id), ['S01', 'S02', 'S03', 'S04', '
 assert.deepEqual(
   STAGES.map((stage) => stage.name),
   [
-    '复制固定母单生成活跃测试订单',
+    '重置指定测试订单生成活跃测试订单',
     '一线生产及生产复核',
     '一线PQC及PQC复核',
     '领料晚到及无补料确认完成',

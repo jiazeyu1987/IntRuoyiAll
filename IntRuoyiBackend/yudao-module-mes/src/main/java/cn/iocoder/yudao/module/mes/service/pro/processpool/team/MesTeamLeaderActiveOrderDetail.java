@@ -27,6 +27,7 @@ public class MesTeamLeaderActiveOrderDetail {
     private String routeName;
     private List<InputMaterialDetail> inputMaterialUsages = List.of();
     private List<ProcessDetail> processes = List.of();
+    private PqcProductionReleaseSummary pqcProductionRelease;
 
     @Data
     @Accessors(chain = true)
@@ -167,12 +168,15 @@ public class MesTeamLeaderActiveOrderDetail {
         private Integer roundNo;
         private Integer actualInspectionQuantity;
         private Integer scrapQuantity;
+        private Integer submittedInspectionQuantity;
+        private Integer submittedScrapQuantity;
         private String taskStatus;
         private String submitterName;
         private String reviewerName;
         private List<SignatureDetail> submitterSignatures = List.of();
         private List<SignatureDetail> reviewerSignatures = List.of();
-        private List<PqcSubmissionItemDetail> items = List.of();
+        private List<PqcSubmissionItemDetail> submittedItems = List.of();
+        private List<PqcSubmissionItemDetail> processInspectionItems = List.of();
     }
 
     @Data
@@ -182,6 +186,14 @@ public class MesTeamLeaderActiveOrderDetail {
         private String signerName;
         private LocalDateTime signedAt;
         private String role;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class PqcProductionReleaseSummary {
+        private String status;
+        private String statusLabel;
+        private SignatureDetail signature;
     }
 
     @Data

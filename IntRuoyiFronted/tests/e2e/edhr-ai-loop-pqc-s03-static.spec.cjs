@@ -46,7 +46,7 @@ for (const selector of [
   assert.match(teamLeaderPage, new RegExp(selector), `PQC leader review page missing ${selector}`)
 }
 
-assert.match(runner, /async function submitPqcInspections\(page, manifestOrder, production\)/)
+assert.match(runner, /async function discoverPendingPqcTasksForOrder\(/)
 assert.match(runner, /async function submitOnePqcInspectionRound\(/)
 assert.match(runner, /async function reviewPqcInspectionSubmission\(/)
 assert.match(runner, /\/mes\/pro\/feedback\/edhr-batch-pqc-fill/)
@@ -60,8 +60,6 @@ assert.match(runner, /\/mes\/pro\/feedback\/frontline\/device-account\/pqc\/subm
 assert.match(runner, /\/mes\/pro\/process-pool\/pqc-leader/)
 assert.match(runner, /data-pqc-leader-work-order/)
 assert.match(runner, /\/mes\/pro\/process-pool\/team-leader\/submission\/review/)
-assert.match(runner, /pqcSubmissionCount:\s*8/, 'S03 should submit 8 visible rounds in the fixed main chain')
-assert.match(runner, /pqcReviewCount:\s*8/, 'S03 should review 8 submitted PQC events in the fixed main chain')
 assert.match(runner, /async function submitOnePqcInspectionForProcess\(page, manifestOrder, step\)/, 'runner must be able to submit each PQC round in the interleaved chain')
 assert.match(runner, /processExecution\.pqc/, 'runner must carry S03 output from the interleaved chain into the final report')
 assert.match(runner, /const completion = await runWithStage\('S04',[\s\S]*completeActiveOrderAndApplyRelease\(page, mainOrder\)/, 'runner must continue from S03 into S04 instead of stopping after PQC review')
@@ -71,3 +69,7 @@ assert.doesNotMatch(runner, /page\.request\.(post|get|put|delete)/)
 assert.doesNotMatch(runner, /fetch\(/)
 
 console.log('PASS: eDHR AI loop S03 PQC submission and review static contract')
+
+assert.match(runner, /Promise.all\(step.tasks.map/, 'must collect every grouped task receipt')
+assert.match(runner, /submission.pqcEventId/, 'review exact submitted event')
+assert.doesNotMatch(runner, /pqcSubmissionCount:\s*8|pqcReviewCount:\s*8/)

@@ -1,5 +1,5 @@
 const STAGES = Object.freeze([
-  Object.freeze({ id: 'S01', name: '复制固定母单生成活跃测试订单' }),
+  Object.freeze({ id: 'S01', name: '重置指定测试订单生成活跃测试订单' }),
   Object.freeze({ id: 'S02', name: '一线生产及生产复核' }),
   Object.freeze({ id: 'S03', name: '一线PQC及PQC复核' }),
   Object.freeze({ id: 'S04', name: '领料晚到及无补料确认完成' }),

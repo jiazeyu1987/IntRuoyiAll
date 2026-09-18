@@ -45,7 +45,7 @@ class MesPqcReleaseDossierPortImplDynamicInspectionEvidenceTest {
     void setUp() {
         port = new MesPqcReleaseDossierPortImpl(
                 null, null, null, null, null, null, null, eventMapper, allocationMapper, reviewMapper,
-                batchRecordWriter, processInspectionWriter, lossReportWriter, null);
+                batchRecordWriter, processInspectionWriter, lossReportWriter, null, null);
     }
 
     @Test

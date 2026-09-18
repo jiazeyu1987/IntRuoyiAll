@@ -279,9 +279,6 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                 .selectByIdForUpdate(validated.getActiveOrderId());
         requireTemplate(templateActiveOrder, validated.getActorUserId());
         MesProWorkOrderDO templateWorkOrder = requireWorkOrder(templateActiveOrder.getWorkOrderId());
-        List<MesProcessPoolActiveOrderPickListBindingDO> sourceBindings = ensureActiveOrderPickListBindings(
-                templateActiveOrder, templateWorkOrder, validated);
-        ensureFormalProductIssue(templateActiveOrder, templateWorkOrder, validated);
 
         MesTeamLeaderActiveOrderSimulationResult simulation = activeOrderSimulationService
                 .simulateActiveOrderCompletion(validated.getActorUserId(), templateActiveOrder.getId(), STAGE,
@@ -304,18 +301,17 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         templateActiveOrder.setSimulated(Boolean.TRUE);
         templateActiveOrder.setSimulationStage(STAGE);
         templateActiveOrder.setSimulationRunId(validated.getSimulationRunId());
+        assertNoDownstreamSideEffects(templateActiveOrder);
         String cleanedRunId = cleanupOwnedRuns(validated.getActorUserId(), validated.getSimulationRunId());
-        List<MesProcessPoolActiveOrderPickListBindingDO> activeOrderBindings = requireBindings(templateActiveOrder);
-        Map<String, Object> snapshot = buildSnapshot(templateActiveOrder, sourceBindings, activeOrderBindings,
+        Map<String, Object> snapshot = buildSnapshot(templateActiveOrder, List.of(), List.of(),
                 validated, simulation, persistedProgress);
         return new MesStage1ActiveOrderCompleteSimulationResult()
                 .setSimulationRunId(validated.getSimulationRunId())
                 .setCleanedSimulationRunId(cleanedRunId)
                 .setActiveOrderId(templateActiveOrder.getId())
                 .setWorkOrderId(templateWorkOrder.getId())
-                .setPickListId(activeOrderBindings.get(0).getPickListId())
-                .setPickListIds(activeOrderBindings.stream()
-                        .map(MesProcessPoolActiveOrderPickListBindingDO::getPickListId).toList())
+                .setPickListId(null)
+                .setPickListIds(List.of())
                 .setProductionSubmitCount(simulation.getProductionSubmitCount())
                 .setProductionReviewCount(simulation.getProductionReviewCount())
                 .setPqcSubmitCount(simulation.getPqcSubmitCount())
@@ -1320,8 +1316,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                 requireMarker(piece, runId, "pqcPiece");
             }
         }
-        for (var aggregate : aggregateMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId())) {
-            requireMarker(aggregate, runId, "pqcAggregate");
+        if (!aggregateMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId()).isEmpty()) {
+            throw new IllegalStateException("STAGE1_PROCESS_INSPECTION_AGGREGATE_SIDE_EFFECT");
         }
         if (eventIds.isEmpty()) {
             throw new IllegalStateException("STAGE1_PRODUCTION_EVENT_MISSING");
@@ -1368,6 +1364,9 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         }
         if (!releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(activeOrder.getId())).isEmpty()) {
             throw new IllegalStateException("STAGE1_RELEASE_SIDE_EFFECT");
+        }
+        if (!aggregateMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId()).isEmpty()) {
+            throw new IllegalStateException("STAGE1_PROCESS_INSPECTION_AGGREGATE_SIDE_EFFECT");
         }
         List<MesProEdhrBatchExecutionDO> batches = batchExecutionMapper.selectList(
                 new LambdaQueryWrapper<MesProEdhrBatchExecutionDO>()

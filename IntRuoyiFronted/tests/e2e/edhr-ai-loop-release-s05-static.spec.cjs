@@ -26,11 +26,12 @@ for (const selector of [
   'data-pqc-production-release-signature-password',
   'data-pqc-production-release-approval-opinion',
   'data-pqc-production-release-confirm',
-  'data-pqc-production-release-batch-execution-id',
-  'data-pqc-production-release-report-task-list'
+  'data-pqc-production-release-batch-execution-id'
 ]) {
   assert.match(pqcReleasePage, new RegExp(selector), `PQC production release page missing ${selector}`)
 }
+assert.doesNotMatch(pqcReleasePage, /data-pqc-production-release-report-task-list/)
+assert.doesNotMatch(pqcReleasePage, />\s*查看批记录\s*</)
 
 assert.match(runner, /async function approvePqcProductionReleaseS05\(page, manifestOrder, completion\)/)
 assert.match(runner, /\/mes\/pro\/feedback\/edhr-work-task/)

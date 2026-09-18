@@ -195,8 +195,11 @@ assert.doesNotMatch(workbench, /生产和检验进度均为100%/,
   'Stage1 success message must not hardcode 100%; it must display persisted response progress');
 assert.match(workbench, /formatActiveOrderProgressPercent\(result\.productionProgressPercent\)[\s\S]*formatActiveOrderProgressPercent\(result\.inspectionProgressPercent\)/,
   'Stage1 success message must display the recomputed persisted progress values');
-assert.match(workbench, /const activeOrderId = requirePositiveNumber\(row\.id[\s\S]*simulateStage1ActiveOrderCompletion\(\{[\s\S]*activeOrderId[\s\S]*navigateActiveOrderSubmissionDetail\(activeOrderId\)/,
-  'Stage1 completion must open the clicked active order detail so production and PQC submissions are read from the order that the user clicked');
+const p1Handler = workbench.match(/const\s+handleSimulateStage1\s*=\s*async\s*\(row:[\s\S]*?\r?\n}\r?\n\r?\nconst\s+handleGenerateStage1Forms/)?.[0] || '';
+assert.match(p1Handler, /const activeOrderId = requirePositiveNumber\(row\.id[\s\S]*simulateStage1ActiveOrderCompletion\(\{[\s\S]*activeOrderId[\s\S]*await loadActiveOrders\(\)/,
+  'P1 completion must refresh the clicked active order state without opening P2 batch-record detail');
+assert.doesNotMatch(p1Handler, /navigateActiveOrderSubmissionDetail|router\.push/,
+  'P1 must not navigate to generated details or batch-record pages before P2 runs');
 assert.doesNotMatch(workbench, /stage1GeneratedDetailTargets|resolveStage1GeneratedDetailTarget/,
   'Stage1 detail routing must not redirect the clicked source order to a generated active order');
 

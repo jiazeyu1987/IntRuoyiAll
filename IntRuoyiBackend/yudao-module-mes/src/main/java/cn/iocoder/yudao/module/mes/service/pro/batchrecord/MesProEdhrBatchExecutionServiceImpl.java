@@ -929,7 +929,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         recordOperationAudit("BATCH_EXECUTION", String.valueOf(latest.getId()), "OPEN",
                 "创建并打开 eDHR 批次", latest.getId(), null, null, latest.getRouteId(), null,
                 null, null, "mes:pro-edhr-batch-execution:create", "ALLOW",
-                "SUCCESS", null, null, entryAuditMetadata(provisionCommand, provisioningRecord.getId()));
+                "SUCCESS", null, null, entryAuditMetadata(provisionCommand, provisioningRecord.getId()), true);
         publishBatchProvisioned(latest, provisionCommand, provisioningRecord.getId());
         return result;
     }
@@ -993,7 +993,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setBindingVersion(command.getBindingVersion()).setBatchPickListRelationId(command.getBatchPickListRelationId())
                 .setPickListHeaderSnapshotHash(command.getPickListHeaderSnapshotHash())
                 .setPickListLineSnapshotHash(command.getPickListLineSnapshotHash())
-                .setSourceEvidence(command.getSourceEvidence());
+                .setSourceEvidence(command.getSourceEvidence())
+                .setCompletionBackfillReceipt(command.getCompletionBackfillReceipt());
     }
 
     private void applyAuthoritativeContext(MesProEdhrProductionReleaseBatchCommand request,
@@ -1213,7 +1214,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 "BATCH_EXECUTION_CREATED_FROM_RELEASE", "PQC 批准后创建申请唯一批次", latest.getId(),
                 null, null, latest.getRouteId(), null, null, null,
                 "mes:pro-production-release:pqc-approve", "ALLOW", "SUCCESS",
-                null, null, entryAuditMetadata(provisionCommand, provisioningRecord.getId()));
+                null, null, entryAuditMetadata(provisionCommand, provisioningRecord.getId()), true);
         publishBatchProvisioned(latest, provisionCommand, provisioningRecord.getId());
         return latest.getId();
     }
@@ -1364,7 +1365,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         recordOperationAudit("BATCH_EXECUTION", String.valueOf(latest.getId()), CHANGE_TYPE_REEXECUTE,
                 "质量拒收后同生产批号新执行尝试", latest.getId(), null, null, latest.getRouteId(), null,
                 null, null, "mes:pro-edhr-batch-execution:create", "ALLOW",
-                "SUCCESS", null, null, reexecuteAudit.toJSONString());
+                "SUCCESS", null, null, reexecuteAudit.toJSONString(), true);
         publishBatchProvisioned(latest, reexecuteProvisionCommand, provisioningRecord.getId());
         return result;
     }
@@ -8991,7 +8992,18 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                       Long routeProcessId, String reportId, String recordCategory,
                                       String permissionCode, String permissionDecision, String resultStatus,
                                       String beforeSummaryHash, String afterSummaryHash, String metadataJson) {
-        operationAuditService.record(new MesProEdhrOperationAuditCommand()
+        recordOperationAudit(objectType, objectId, operationType, actionName, batchExecutionId, executionId,
+                workTaskId, routeId, routeProcessId, reportId, recordCategory, permissionCode,
+                permissionDecision, resultStatus, beforeSummaryHash, afterSummaryHash, metadataJson, false);
+    }
+
+    private void recordOperationAudit(String objectType, String objectId, String operationType, String actionName,
+                                      Long batchExecutionId, Long executionId, Long workTaskId, Long routeId,
+                                      Long routeProcessId, String reportId, String recordCategory,
+                                      String permissionCode, String permissionDecision, String resultStatus,
+                                      String beforeSummaryHash, String afterSummaryHash, String metadataJson,
+                                      boolean callerTransaction) {
+        MesProEdhrOperationAuditCommand command = new MesProEdhrOperationAuditCommand()
                 .setRequestId("EDHR-AUD-" + java.util.UUID.randomUUID())
                 .setObjectType(objectType)
                 .setObjectId(objectId)
@@ -9011,7 +9023,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setResultStatus(resultStatus)
                 .setBeforeSummaryHash(beforeSummaryHash)
                 .setAfterSummaryHash(afterSummaryHash)
-                .setMetadataJson(metadataJson));
+                .setMetadataJson(metadataJson);
+        if (callerTransaction) {
+            operationAuditService.recordInCallerTransaction(command);
+        } else {
+            operationAuditService.record(command);
+        }
     }
 
     private MesProEdhrBatchProvisioningRecordDO createProvisioningRecord(
@@ -9112,7 +9129,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             provisionEvidence.put("sourceSnapshotHash", command.getSourceSnapshotHash());
             provisionEvidence.put("witnessHash", command.getSourceSnapshotHash());
             provisionEvidence.put("sourceIdentityKey", "BATCH_PROVISION_RECEIPT:BATCH_PROVISIONING_RECORD:"
-                    + provisioningReceiptId + ":::");
+                    + provisioningReceiptId + "::");
             provisionEvidence.put("relationStatus", "BOUND");
             provisionEvidence.put("snapshotJson", JSON.toJSONString(Map.of(
                     "sourceType", "BATCH_PROVISION_RECEIPT",
@@ -9129,7 +9146,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                          MesBatchExecutionProvisionCommand command,
                                          Long provisioningReceiptId) {
         if (batch == null || batch.getId() == null || command == null
-                || applicationEventPublisher == null || provisioningReceiptId == null) {
+                || applicationEventPublisher == null
+                || provisioningReceiptId == null) {
             throw new IllegalStateException("FLOW7_PROVISIONED_EVENT_PUBLISHER_NOT_READY");
         }
         String witness = command.getIdempotencyKey();
@@ -9137,7 +9155,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .substring(0, 32);
         String sourceCredentialHash = command.getIndependentReceipt() == null
                 ? command.getCompletionBackfillReceiptHash() : command.getIndependentReceipt().getReceiptHash();
-        applicationEventPublisher.publishEvent(new MesProEdhrBatchProvisionedEvent()
+        MesProEdhrBatchProvisionedEvent event = new MesProEdhrBatchProvisionedEvent()
                 .setTenantId(TenantContextHolder.getRequiredTenantId())
                 .setBatchExecutionId(batch.getId()).setProvisioningReceiptId(provisioningReceiptId)
                 .setEventId("FLOW7-TXC-" + batch.getId() + "-" + suffix)
@@ -9148,7 +9166,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setExpectedSourceVersion(command.getSourceVersion())
                 .setExpectedSourceCredentialId(command.getSourceCredentialId())
                 .setExpectedSourceCredentialHash(sourceCredentialHash)
-                .setCapturedBy(currentUserId()));
+                .setCapturedBy(currentUserId());
+        applicationEventPublisher.publishEvent(event);
     }
 
     private record SpecialNodeAttachmentOwnerConfig(String attachmentCode,

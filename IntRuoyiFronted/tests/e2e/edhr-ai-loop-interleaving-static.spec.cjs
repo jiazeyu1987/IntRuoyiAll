@@ -12,12 +12,12 @@ assert.match(
 )
 assert.match(
   runner,
-  /INTERLEAVED_MAIN_CHAIN_PLAN/,
-  'runner must keep a fixed interleaving plan instead of deriving order from runtime data'
+  /baseline.productionProcesses/,
+  'runner must cover the frozen production processes'
 )
 assert.match(
   runner,
-  /kind:\s*'PRODUCTION'[\s\S]*kind:\s*'PQC'/,
+  /await reviewProductionReport[\s\S]*await executePending\(step\)/,
   'interleaving plan must alternate production and PQC actions'
 )
 assert.match(
@@ -34,3 +34,7 @@ assert.doesNotMatch(
 console.log('PASS: eDHR AI loop production/PQC interleaving static contract')
 
 
+
+assert.doesNotMatch(runner, /INTERLEAVED_MAIN_CHAIN_PLAN|PQC_ROUND_PLAN|buildProductionSubmissionPlan/)
+assert.match(runner, /await executePending\(null\)/)
+assert.match(runner, /async function completeActiveOrderAndApplyRelease\(page, manifestOrder\) \{\s*await verifyExecutionProgress/)

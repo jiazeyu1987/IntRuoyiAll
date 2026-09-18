@@ -434,6 +434,9 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
         when(pqcInspectionTaskMapper.updateSubmittedIfPending(8301L, 1, "SIMULATED:8301:1:scrapQuantity:1:inspectionResult:FAILURE",
                 MesPqcInspectionTaskDO.TASK_STATUS_PENDING, MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED))
                 .thenReturn(1);
+        when(pqcInspectionTaskMapper.updateConfirmedIfSubmitted(8301L,
+                MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED,
+                MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)).thenReturn(1);
         when(processPoolEventService.createPqcInspectionEvent(any())).thenReturn(8001L);
         when(pqcInspectionTaskMapper.updateSubmittedEventId(8301L, 8001L)).thenReturn(1);
         MesPqcInspectionTaskDO confirmedPqcTask = pqcTask(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
@@ -442,7 +445,7 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
         when(pqcInspectionTaskMapper.selectListByActiveOrderId(8101L))
                 .thenReturn(List.of(confirmedPqcTask), List.of(confirmedPqcTask));
 
-        service.simulateActiveOrderCompletion(3001L, 8101L);
+        service.simulateActiveOrderCompletion(3001L, 8101L, "STAGE1", "STAGE1-unit");
 
         ArgumentCaptor<MesProcessPoolCreateEventReqDTO> productionCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolCreateEventReqDTO.class);
@@ -460,14 +463,21 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .map(MesProcessPoolSubmissionReviewDO::getReviewSignatureId).toList());
         org.mockito.Mockito.verify(signatureService)
                 .recordStage1SimulationSignature(3001L,
-                        MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT, 8101L, null, null);
+                        MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT, 8101L,
+                        "STAGE1", "STAGE1-unit");
         org.mockito.Mockito.verify(signatureService)
                 .recordStage1SimulationSignature(3001L,
-                        MesProBatchRecordExecutionSignatureService.ACTION_PQC_SUBMIT, 8101L, null, null);
+                        MesProBatchRecordExecutionSignatureService.ACTION_PQC_SUBMIT, 8101L,
+                        "STAGE1", "STAGE1-unit");
         org.mockito.Mockito.verify(signatureService, org.mockito.Mockito.times(2))
                 .recordStage1SimulationSignature(any(),
                         org.mockito.Mockito.eq(MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW),
-                        any(), any(), any());
+                        any(), org.mockito.Mockito.eq("STAGE1"), org.mockito.Mockito.eq("STAGE1-unit"));
+        org.mockito.Mockito.verify(pqcInspectionTaskMapper).updateConfirmedIfSubmitted(8301L,
+                MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED,
+                MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED);
+        org.mockito.Mockito.verify(pqcProcessInspectionAggregationService, never())
+                .aggregateApprovedPqcSubmission(any(), any());
     }
 
     @Test

@@ -182,7 +182,7 @@ function writeFailureArtifacts({
     schemaVersion: 'AI_EDHR_E2E_RUN_V1',
     runId,
     mode,
-    templateWorkOrderCode: null,
+    resetWorkOrderCode: null,
     createdAt: new Date().toISOString(),
     orders: [],
     expected: {}

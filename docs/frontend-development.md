@@ -47,7 +47,7 @@
 - Detail generated-form extension: 详情页从正式提交事实生成只读表单时，入口必须绑定当前可见对象和当前分组身份，表单字段必须直接读取详情接口或原始提交 payload 的正式快照；一线生产的清场/物料/清洁等固定确认项应按业务项独立展示，不得把多个 checkbox 压成不可核对的一串文本，也不得用空值、默认是、设备参数规则或物料主数据推断提交事实。生产记录表单展示数量时必须统一为整数，损耗缺失按 0 展示，总数量按生产数量加损耗数量计算，不得显示横杠或三位小数。生产记录表单展示设备参数时，应按“输出物料 -> 设备 -> 参数”嵌套归属，每个设备独立显示设备名称、编号、计量状态和参数表；计量状态只能来自提交事实中的设备字段，缺失时显示未记录；输出物料没有正式设备身份时必须隐藏设备信息块，不得生成“未记录设备/暂无设备参数”伪设备分组；超出范围的提交值必须在对应参数值处标红，不得脱离物料做跨物料扁平汇总。Evidence: 任务 `doc/tasks/20260906-active-order-production-record-form-button/`、`doc/tasks/20260906-active-order-production-record-device-parameters/`、`doc/tasks/20260906-production-record-hide-empty-device-info/`、`doc/tasks/20260906-production-record-integer-quantities/`、`doc/tasks/20260906-stage1-device-clearance-status/`。
 - Detail generated-form summary extension: 详情页新增批记录“总表”或类似汇总 tab 时，应只聚合当前详情接口已承载的正式事实：产品/工单展示取当前详情工单字段，零配件批号取正式领料单输入物料集合，工序人员和日期取一线生产提交事实；业务来源未确认的字段必须显式留空并在任务文档记录，不得用产品 BOM、相邻字段、当前时间或默认文案推断。
 - Active-order work-order field extension: 活跃订单详情中“产品规格/型号规格/生产指令”等工单表头字段必须由生产工单字段透传；`productSpecification` 在该上下文表示生产工单 `material_specification`，生产指令读取生产工单指令字段，前端总表和生产/PQC 提交元信息应共用同一工单展示模型，不得从物料规格、提交 payload 或空白占位补齐。
-- Batch detail embedded submission-form extension: 批次执行详情页若要在生产表单或过程检验记录槽位嵌入一线提交详情，必须由批次执行正式来源关系向响应透传 `activeOrderId`，再按该活跃订单读取一线工序详情；不得按 `workOrderId`、`workOrderCode`、工序名称或数组位置反推来源。`MAIN` 槽位只展示生产提交表单，`PROCESS_INSPECTION` 槽位只展示 PQC 过程检验记录，页面级嵌入与 eDHR `cellValues`/归档物化是两层能力；若后续要求进入审核、归档或打印证据，必须另做后端物化并补独立验证。Evidence: 任务 `doc/tasks/20260907-batch-execution-inline-submission-forms/`。
+- Batch detail embedded submission-form extension: 批次执行详情页若要在生产表单或过程检验记录槽位嵌入一线提交详情，必须由批次执行正式来源关系向响应透传 `activeOrderId`，再按该活跃订单读取一线工序详情；不得按 `workOrderId`、`workOrderCode`、工序名称或数组位置反推来源。`MAIN` 槽位只展示生产提交表单，`PROCESS_INSPECTION` 槽位只展示 PQC 过程检验记录，页面级嵌入与 eDHR `cellValues`/归档物化是两层能力；若后续要求进入审核、归档或打印证据，必须另做后端物化并补独立验证。批次执行列表、历史追溯列表和追溯抽屉若展示同一份活跃订单详情，必须统一走批次执行作用域的只读详情入口，由 `batchExecutionId` 解析正式 `activeOrderId`；不得直接调用生产组长详情接口，避免跨角色历史查看被权限阻断。Evidence: 任务 `doc/tasks/20260907-batch-execution-inline-submission-forms/`、`doc/tasks/20260917-batch-execution-detail-forms-source/`。
 - Detail form signature link extension: 详情页只读表单展示电子签名时，单元格内应显示可核对的基础信息 `签名人（签名时间）`，点击跳转正式签名记录/治理入口并带可定位筛选；链接目标必须绑定签名行为记录 ID，不得跳人员档案。缺少签名 ID 时显示 `未签名` 并禁用点击；缺少签名人或签名时间时必须明确显示未记录，不能用提交人、审核人或当前时间伪造。PQC 聚合记录可能包含多条提交/复核签名，应在同一单元格内逐条显示。Evidence: 任务 `doc/tasks/20260907-submission-form-signature-link/`。
 
 ## 前端源码目录与 .gitignore 门禁
@@ -155,9 +155,11 @@
 
 - Upstream-driven candidate extension: 若下游候选由上游业务对象决定，初始化必须先确定路由上下文指定对象或正式列表首项，再从该上游对象的正式数据链派生下游候选；当活跃订单已经锁定工艺版本和工序快照时，必须按 `activeOrderId` 请求订单冻结工序，不得只用订单 `routeId` 过滤当前发布路线工序。切换上游对象时必须先清空旧工序、员工、运行配置和模板，并使迟到请求失效；运行配置与员工切换请求也必须携带当前活跃订单身份。禁止根据旧下游选择拒绝用户切换正式上游对象。验证必须用至少两个不同正式身份的可执行状态测试，证明旧订单展示旧版工序、新订单展示新版工序、切换后只保留新身份候选、旧上下文被清空、缺正式映射显性失败且迟到响应令牌失效。Evidence: 任务 `doc/tasks/20260813-frontline-order-driven-process/`、`doc/tasks/20260817-frontline-active-order-frozen-route-submit/`。
 
+- Frontline active-order startup extension: 一线生产的生产填写模式和 PQC 填写模式启动时必须忽略路由中的 `workOrderId/productionOrderId/orderId`，先刷新各自实时活跃订单列表，再由列表中的当前可填写/待检活跃订单行决定后续工序、人员和提交上下文；禁止按 URL 工单号预选、报“指定工单不在列表”后继续、回退到 URL 工单、或把 URL 工单 ID 当作 `activeOrderId` 请求冻结工序。冻结工序/PQC 工序请求只能使用实时列表选中行的 `activeOrderId`。Evidence: 任务 `doc/tasks/20260917-active-order-abnormal-realtime-lookup/`。
+
 - PQC common-regulation order extension: 一线 PQC 工序候选同时包含产品专用 QA 和通用包装规程时，前端投影不能只按原始 `qaProcessSort` 全量排序；必须按 `regulationSourceType` 保证 `PRODUCT_QA` 在前、`COMMON_PACKAGING` 在后，并把通用包装显示序号接在产品 QA 最大序号之后。通用包装源工序名只允许投影为业务显示名，例如 `初包装过程检验规程 -> 小包装`、`大中包装过程检验规程 -> 中大包装`，不得在工序按钮追加“通用检验规程”或来源后缀。验证必须用乱序网络响应静态合同证明刷新后仍显示 `1..N` 产品 QA，再显示 `N+1. 小包装`、`N+2. 中大包装`。Evidence: 任务 `doc/tasks/20260916-frontline-pqc-common-process-order/`。
 
-- Active-order PQC submission detail order extension: 生产组长详情页 `PQC提交` 的过程检验记录也必须以一线 PQC 选工序顺序为标准。前端只按详情接口返回的正式 `qaProcessSort` 聚合和排序工序，缺少排序、同一 `qaProcessId` 排序不一致或后端未输出正式工序身份时必须 fail fast；禁止退回数组插入顺序、提交时间、检验项目顺序或 `qaProcessId` 排序。静态合同必须同时锁定 API 类型、分组排序函数、缺失排序错误和相邻 `PQC提交` 表单渲染入口。Evidence: 任务 `doc/tasks/20260916-simulated-pqc-submit-process-order/`。
+- Active-order PQC submission detail order extension: 生产组长详情页 `PQC提交` 的过程检验记录也必须以一线 PQC 选工序顺序为标准。前端只按详情接口返回的正式 `qaProcessSort` 聚合和排序工序，缺少排序、同一 `qaProcessId` 排序不一致或后端未输出正式工序身份时必须 fail fast；禁止退回数组插入顺序、提交时间、检验项目顺序或 `qaProcessId` 排序。若同一主 tab 同时展示原始提交和过程检验记录，必须在 `PQC提交` 下拆成内层 `原始提交` 与 `过程检验记录`：`原始提交` 只读取 `submittedItems` 并按正式 PQC 检验工序再分 tab，且同一检验项目的多样本提交值要聚合为一行，显示检测数量与检测结果汇总，不能把 13 件样本渲染成 13 条重复检验项目行；`过程检验记录` 只读取 `processInspectionItems` 并保留汇总/表格视图。禁止继续使用含义模糊的 `items`、把聚合记录当作首次提交、或在前端用修正后当前值覆盖原始快照。静态合同必须同时锁定 API 类型、分组排序函数、缺失排序错误、双层 tab、字段分离、原始提交按正式检验项目聚合和相邻 `PQC提交` 表单渲染入口。Evidence: 任务 `doc/tasks/20260916-simulated-pqc-submit-process-order/`；任务 `doc/tasks/20260917-active-order-pqc-submit-tabs/verification-report.md`；任务 `doc/tasks/20260917-active-order-pqc-original-aggregate-row/verification-report.md`。
 
 - Async-candidate error extension: 上游对象变更触发的候选请求失败后，页面必须保留该正式请求错误；确认提交在候选仍 loading 时应明确阻止并提示等待，候选身份为空时不得先清空请求错误再改写成泛化的“请选择”校验。只有在候选请求成功或用户明确修改上游对象后，才允许清除旧错误。验证应先用静态合同证明“加载错误 -> 点击确认”仍保留原错误且不发送写请求，再覆盖唯一候选自动选择、多候选手动选择和正式空/错误状态。禁止用默认候选、空数组或提交校验文案掩盖上游请求失败。Evidence: 任务 `doc/tasks/20260825-edhr-batch-route-selection/`。
 
@@ -984,3 +986,7 @@
 - Measurement default rule: 合格/不合格类项目可以按明确业务规则物化默认“合格”，数值型逐件检验不得把标准下限、上限或目标值冒充实际测量值；未填写的数值样本必须保持为空并在提交前阻止。
 - Mutation context rule: 版本化配置的异步写响应写回前必须校验请求发起时的版本和工序仍为当前上下文。若旧工序写入已改变全局候选快照哈希，同版本当前工序及完整配置缓存必须重新加载，不能只丢弃旧响应后继续使用旧哈希。
 - Successful-memory rule: “记住上次提交”只能更新本次正式提交载荷中出现的业务对象；未填写、未提交的物料页签草稿不得覆盖其上一次成功提交记忆。
+
+## 单击操作与 E2E 响应监听一致性
+- 页面操作由二次确认改为单击执行时，应同步删除 E2E 的弹窗等待和确认点击；请求响应监听必须在实际触发写入的点击之前注册。
+- 取消操作前确认不等于取消操作后结果断言；仍检查成功响应、列表业务结果和失败提示。静态合同通过不能代替真实页面验收。

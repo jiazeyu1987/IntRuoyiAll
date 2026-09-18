@@ -269,7 +269,7 @@ public class MesProcessPoolTeamLeaderController {
     public CommonResult<Long> markAndReportWorkOrderAbnormal(@Valid @RequestBody MesWorkOrderAbnormalReportReqVO reqVO) {
         return success(abnormalReportService.markAndReport(
                 cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesWorkOrderAbnormalReportReqBO.builder()
-                .workOrderId(reqVO.getWorkOrderId())
+                .activeOrderId(reqVO.getActiveOrderId())
                 .markerUserId(SecurityFrameworkUtils.getLoginUserId())
                 .abnormalDescription(reqVO.getAbnormalDescription())
                 .build()));
@@ -614,6 +614,19 @@ public class MesProcessPoolTeamLeaderController {
                         .setIdempotencyKey(reqVO.getIdempotencyKey())
                         .setApplyRemark(reqVO.getApplyRemark()));
         return success(toActiveOrderReleaseApplyRespVO(result));
+    }
+
+    @PostMapping("/active-order/release/push-generated")
+    @Operation(summary = "P3推送P2生成记录至PQC生产放行")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:release-apply')")
+    public CommonResult<MesTeamLeaderActiveOrderReleaseApplyRespVO> pushGeneratedActiveOrderRelease(
+            @Valid @RequestBody MesTeamLeaderActiveOrderReleaseApplyReqVO reqVO) {
+        return success(toActiveOrderReleaseApplyRespVO(releaseApplicationService.applyGenerated(
+                SecurityFrameworkUtils.getLoginUserId(),
+                new MesTeamLeaderActiveOrderReleaseApplyCommand()
+                        .setActiveOrderId(reqVO.getActiveOrderId())
+                        .setIdempotencyKey(reqVO.getIdempotencyKey())
+                        .setApplyRemark(reqVO.getApplyRemark()))));
     }
 
     @GetMapping("/active-order/release/get")
@@ -1045,7 +1058,7 @@ public class MesProcessPoolTeamLeaderController {
                 .toList();
     }
 
-    private static MesTeamLeaderActiveOrderDetailRespVO toActiveOrderDetailRespVO(
+    public static MesTeamLeaderActiveOrderDetailRespVO toActiveOrderDetailRespVO(
             MesTeamLeaderActiveOrderDetail detail) {
         return new MesTeamLeaderActiveOrderDetailRespVO()
                 .setActiveOrderId(detail.getActiveOrderId())
@@ -1066,7 +1079,9 @@ public class MesProcessPoolTeamLeaderController {
                         .toList())
                 .setProcesses(detail.getProcesses().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderProcessDetailRespVO)
-                        .toList());
+                        .toList())
+                .setPqcProductionRelease(toActiveOrderPqcProductionReleaseSummaryRespVO(
+                        detail.getPqcProductionRelease()));
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.ProcessDetail toActiveOrderProcessDetailRespVO(
@@ -1231,6 +1246,8 @@ public class MesProcessPoolTeamLeaderController {
                 .setRoundNo(submission.getRoundNo())
                 .setActualInspectionQuantity(submission.getActualInspectionQuantity())
                 .setScrapQuantity(submission.getScrapQuantity())
+                .setSubmittedInspectionQuantity(submission.getSubmittedInspectionQuantity())
+                .setSubmittedScrapQuantity(submission.getSubmittedScrapQuantity())
                 .setTaskStatus(submission.getTaskStatus())
                 .setSubmitterName(submission.getSubmitterName())
                 .setReviewerName(submission.getReviewerName())
@@ -1240,7 +1257,10 @@ public class MesProcessPoolTeamLeaderController {
                 .setReviewerSignatures(submission.getReviewerSignatures().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderSignatureDetailRespVO)
                         .toList())
-                .setItems(submission.getItems().stream()
+                .setSubmittedItems(submission.getSubmittedItems().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderPqcSubmissionItemDetailRespVO)
+                        .toList())
+                .setProcessInspectionItems(submission.getProcessInspectionItems().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderPqcSubmissionItemDetailRespVO)
                         .toList());
     }
@@ -1255,6 +1275,18 @@ public class MesProcessPoolTeamLeaderController {
                 .setSignerName(signature.getSignerName())
                 .setSignedAt(signature.getSignedAt())
                 .setRole(signature.getRole());
+    }
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.PqcProductionReleaseSummary
+    toActiveOrderPqcProductionReleaseSummaryRespVO(
+            MesTeamLeaderActiveOrderDetail.PqcProductionReleaseSummary summary) {
+        if (summary == null) {
+            return null;
+        }
+        return new MesTeamLeaderActiveOrderDetailRespVO.PqcProductionReleaseSummary()
+                .setStatus(summary.getStatus())
+                .setStatusLabel(summary.getStatusLabel())
+                .setSignature(toActiveOrderSignatureDetailRespVO(summary.getSignature()));
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.PqcSubmissionItemDetail toActiveOrderPqcSubmissionItemDetailRespVO(

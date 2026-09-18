@@ -1,15 +1,21 @@
 package cn.iocoder.yudao.module.mes.service.pro.simulation.stage1;
 
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListDO;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListItemMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionMaterialListDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderBomDO;
@@ -59,6 +65,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueMa
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.warehouse.MesWmWarehouseAreaMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.warehouse.MesWmWarehouseLocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.warehouse.MesWmWarehouseMapper;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotCodec;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceSelectionSnapshotCodec;
@@ -74,6 +81,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -119,6 +127,10 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
     private ErpKingdeeProductionPickListMapper pickListMapper;
     @Mock
     private ErpKingdeeProductionPickListItemMapper pickListItemMapper;
+    @Mock
+    private ErpKingdeeProductionReplenishmentListMapper replenishmentListMapper;
+    @Mock
+    private ErpKingdeeProductionReplenishmentListItemMapper replenishmentListItemMapper;
     @Mock
     private MesProProcessPoolEventMapper eventMapper;
     @Mock
@@ -182,6 +194,56 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
     @AfterEach
     void clearTenant() {
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void publicStage1AllowsExistingFormalMaterialSourcesWithoutMaterializingP2() {
+        TenantContextHolder.setTenantId(1L);
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(328L);
+        MesProWorkOrderDO workOrder = workOrder();
+        MesProcessPoolActiveOrderProcessSnapshotDO snapshot = processSnapshot();
+        MesPqcInspectionTaskDO confirmedTask = confirmedPqcTask();
+        MesProcessPoolReportAllocationDO allocation = MesProcessPoolReportAllocationDO.builder()
+                .id(81001L)
+                .activeOrderId(328L)
+                .workOrderId(9001L)
+                .routeProcessId(1001L)
+                .processId(201L)
+                .allocatedQuantity(new BigDecimal("100.000000"))
+                .build();
+        when(activeOrderMapper.selectByIdForUpdate(328L)).thenReturn(activeOrder);
+        when(workOrderMapper.selectById(9001L)).thenReturn(workOrder);
+        when(activeOrderSimulationService.simulateActiveOrderCompletion(3001L, 328L, "STAGE1", "STAGE1-unit"))
+                .thenReturn(new MesTeamLeaderActiveOrderSimulationResult()
+                        .setActiveOrderId(328L)
+                        .setProductionSubmitCount(1)
+                        .setProductionReviewCount(1)
+                        .setPqcSubmitCount(1)
+                        .setPqcReviewCount(1)
+                        .setProductionProgressPercent(BigDecimal.valueOf(100))
+                        .setInspectionProgressPercent(BigDecimal.valueOf(100)));
+        when(snapshotMapper.selectListByActiveOrderIdForUpdate(328L)).thenReturn(List.of(snapshot));
+        when(allocationMapper.selectListByActiveOrderIds(List.of(328L))).thenReturn(List.of(allocation));
+        when(pqcTaskMapper.selectListByActiveOrderId(328L)).thenReturn(List.of(confirmedTask));
+        when(activeOrderMapper.updateSimulationMetadata(328L, Boolean.TRUE, "STAGE1", "STAGE1-unit"))
+                .thenReturn(1);
+        when(completionBackfillMapper.selectListByActiveOrderIdForUpdate(328L)).thenReturn(List.of());
+        when(completionReceiptMapper.selectByActiveOrderIdForUpdate(328L)).thenReturn(null);
+        when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(328L))).thenReturn(List.of());
+        when(aggregateMapper.selectListByActiveOrderIdForUpdate(328L)).thenReturn(List.of());
+        when(batchExecutionMapper.selectList(any(Wrapper.class))).thenReturn(List.of());
+        when(workOrderMapper.selectList(any())).thenReturn(List.of());
+
+        MesStage1ActiveOrderCompleteSimulationResult result = service.simulate(command(328L));
+
+        assertEquals(0, BigDecimal.valueOf(100).compareTo(result.getProductionProgressPercent()));
+        assertEquals(0, BigDecimal.valueOf(100).compareTo(result.getInspectionProgressPercent()));
+        assertEquals(List.of(), result.getPickListIds());
+        verify(productIssueMapper, never()).selectListByWorkOrderIdForUpdate(9001L);
+        verify(bindingMapper, never()).selectListByActiveOrderId(328L);
+        verify(productIssueMapper, never()).insert(any(MesWmProductIssueDO.class));
+        verify(bindingMapper, never()).insert(any(MesProcessPoolActiveOrderPickListBindingDO.class));
+        verify(completionBackfillMapper, never()).insert(any(MesProcessPoolActiveOrderCompletionBackfillDO.class));
     }
 
     @Test
@@ -641,6 +703,43 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
                 .build();
         workOrder.setTenantId(1L);
         return workOrder;
+    }
+
+    private static MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot() {
+        MesProcessPoolActiveOrderProcessSnapshotDO snapshot = new MesProcessPoolActiveOrderProcessSnapshotDO()
+                .setId(5101L)
+                .setActiveOrderId(328L)
+                .setWorkOrderId(9001L)
+                .setRouteId(922119L)
+                .setRouteVersionId(448L)
+                .setRouteProcessId(1001L)
+                .setProcessId(201L)
+                .setPlannedQuantitySnapshot(new BigDecimal("100.000000"));
+        snapshot.setTenantId(1L);
+        return snapshot;
+    }
+
+    private static MesPqcInspectionTaskDO confirmedPqcTask() {
+        MesPqcInspectionTaskDO task = MesPqcInspectionTaskDO.builder()
+                .id(6101L)
+                .activeOrderId(328L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .routeProcessId(1001L)
+                .processId(201L)
+                .regulationVersionId(7101L)
+                .qaProcessId(7201L)
+                .qaItemCode("QA-ITEM-001")
+                .inspectionRuleKey("FIRST")
+                .inspectionType("FIRST")
+                .businessDate(LocalDate.of(2026, 9, 17))
+                .shiftCode("DAY")
+                .roundNo(1)
+                .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
+                .build();
+        task.setTenantId(1L);
+        return task;
     }
 
     private static MesProRouteVersionDO routeVersion() {

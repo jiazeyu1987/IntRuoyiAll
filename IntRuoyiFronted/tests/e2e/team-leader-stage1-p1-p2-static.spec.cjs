@@ -35,7 +35,7 @@ assert.match(p2Button[0], /@click="handleGenerateStage1Forms\(row\)"/, 'P2 must 
 assert.match(p2Button[0], /!canGenerateStage1Forms\(row\)/, 'P2 must be gated by Stage1 double-100 readiness.')
 assert.match(p2Button[0], />\s*<Icon icon="ep:document" \/>\s*P2生成\s*<\/el-button>/, 'P2 label must be P2生成.')
 
-const p1Handler = page.match(/const\s+handleSimulateStage1\s*=\s*async\s*\(row:[\s\S]*?\n}\n\nconst\s+handleGenerateStage1Forms/)
+const p1Handler = page.match(/const\s+handleSimulateStage1\s*=\s*async\s*\(row:[\s\S]*?\r?\n}\r?\n\r?\nconst\s+handleGenerateStage1Forms/)
 assert.ok(p1Handler, 'Expected P1 handler before P2 handler.')
 assert.match(
   p1Handler[0],
@@ -53,14 +53,20 @@ assert.doesNotMatch(
   'P1 must not auto-open the generated form detail.'
 )
 
-const p2Handler = page.match(/const\s+handleGenerateStage1Forms\s*=\s*\(row:[\s\S]*?\n}\n\nconst\s+handleSimulateStage2_5/)
+const p2Handler = page.match(/const\s+handleGenerateStage1Forms\s*=\s*async\s*\(row:[\s\S]*?\r?\n}\r?\n\r?\nconst\s+handleSimulateStage2_5/)
 assert.ok(p2Handler, 'Expected P2 handler before Stage2.5 handler.')
-assert.match(p2Handler[0], /canGenerateStage1Forms\(row\)/, 'P2 must re-check readiness before navigation.')
-assert.match(p2Handler[0], /navigateActiveOrderSubmissionDetail\(activeOrderId\)/, 'P2 must open the current active-order detail.')
+assert.match(p2Handler[0], /canGenerateStage1Forms\(row\)/, 'P2 must re-check readiness before generation.')
+assert.match(
+  p2Handler[0],
+  /const\s+activeOrderId\s*=\s*requirePositiveNumber\(row\.id[\s\S]*simulateStage2_5BackfillBatchExecution\(\{[\s\S]*activeOrderId[\s\S]*expectedVersion:\s*row\.version[\s\S]*\}/,
+  'P2 must call the formal Stage2.5 backfill API with the clicked active order and version.'
+)
+assert.doesNotMatch(p2Handler[0], /router\.push|router\.replace|navigateActiveOrderSubmissionDetail/, 'P2 must stay on the current list.')
+assert.match(p2Handler[0], /await loadActiveOrders\(\)/, 'P2 must refresh the current list after generation.')
 assert.doesNotMatch(
   p2Handler[0],
-  /simulateStage1ActiveOrderCompletion|simulateStage2_5BackfillBatchExecution|submitActiveOrderReleaseApplication/,
-  'P2 must not re-simulate, complete, or push release.'
+  /simulateStage1ActiveOrderCompletion|submitActiveOrderReleaseApplication/,
+  'P2 must not rerun P1 or push release.'
 )
 
 assert.match(

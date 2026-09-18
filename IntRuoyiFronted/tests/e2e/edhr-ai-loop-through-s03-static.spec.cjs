@@ -1,0 +1,7 @@
+const fs = require('node:fs')
+const assert = require('node:assert/strict')
+const source = fs.readFileSync('tests/e2e/edhr-ai-loop/runner.cjs', 'utf8')
+assert.match(source, /process.argv.includes\('--through-s03'\)/)
+assert.match(source, /if \(throughS03\) \{[\s\S]*scope: 'S01-S03'[\s\S]*return\s*\}\s*const completion =/)
+assert.match(source, /\['S01', 'S02', 'S03'\].includes\(stage.stage\)/)
+console.log('PASS: stop after S03 before any completion action')

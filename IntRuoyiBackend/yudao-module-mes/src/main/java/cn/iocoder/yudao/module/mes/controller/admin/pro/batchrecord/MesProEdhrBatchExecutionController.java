@@ -34,6 +34,9 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrLocal
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrLocalStateSampleRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrStage4DossierUploadSimulationReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrStage5FinalReleaseSimulationReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.MesProcessPoolTeamLeaderController;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderDetailRespVO;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchActiveOrderDetailService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceSourcePrecheckCommand;
@@ -82,6 +85,8 @@ public class MesProEdhrBatchExecutionController {
     @Resource
     private MesProEdhrBatchExecutionService batchExecutionService;
     @Resource
+    private MesProEdhrBatchActiveOrderDetailService batchActiveOrderDetailService;
+    @Resource
     private MesProEdhrBatchTraceabilityService batchTraceabilityService;
     @Resource
     private MesProEdhrBatchTraceTxCProducer batchTraceTxCProducer;
@@ -108,6 +113,14 @@ public class MesProEdhrBatchExecutionController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
     public CommonResult<EdhrBatchExecutionRespVO> get(@RequestParam("id") Long id) {
         return success(batchExecutionService.get(id));
+    }
+
+    @GetMapping("/active-order-detail")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
+    public CommonResult<MesTeamLeaderActiveOrderDetailRespVO> getActiveOrderDetail(
+            @RequestParam("batchExecutionId") Long batchExecutionId) {
+        return success(MesProcessPoolTeamLeaderController.toActiveOrderDetailRespVO(
+                batchActiveOrderDetailService.getDetail(batchExecutionId)));
     }
 
     @GetMapping("/workbench")

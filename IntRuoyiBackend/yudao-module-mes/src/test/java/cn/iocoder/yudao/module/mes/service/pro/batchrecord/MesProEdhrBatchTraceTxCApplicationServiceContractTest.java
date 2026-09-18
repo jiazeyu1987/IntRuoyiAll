@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -75,6 +76,20 @@ class MesProEdhrBatchTraceTxCApplicationServiceContractTest {
                         + "MesProEdhrBatchTraceTxCProducer.java"));
 
         assertTrue(source.contains("MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(entryType)"));
+    }
+
+    @Test
+    void flow7TraceMappingMustRunAfterP2ProvisionTransactionCommits() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
+                        + "MesProEdhrBatchExecutionServiceImpl.java"));
+
+        assertFalse(source.contains("MesProEdhrBatchTraceTxCApplicationService batchTraceTxCApplicationService"),
+                "P2不能把Flow7应用服务注入到批次创建事务中同步执行");
+        assertFalse(source.contains("batchTraceTxCApplicationService.handle(event)"),
+                "Flow7来源映射失败不能回滚P2已经完成的正式批记录回填");
+        assertTrue(source.contains("applicationEventPublisher.publishEvent(event)"),
+                "P2必须在正式批次事务边界发布Flow7事件，由提交后的监听器处理");
     }
 
     @Test

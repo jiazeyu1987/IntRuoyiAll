@@ -3,9 +3,10 @@ const fs = require('node:fs')
 const path = require('node:path')
 const assert = require('node:assert/strict')
 const crypto = require('node:crypto')
-const { createRunId, buildManifest, FIXED_TEMPLATE_WORK_ORDER_CODE } = require('./manifest.cjs')
+const { createRunId, buildManifest, FIXED_RESET_WORK_ORDER_CODE } = require('./manifest.cjs')
 const { EXIT_CODES, writeRunReport, writeFailureArtifacts, classifyError } = require('./reporter.cjs')
 const { stageResults } = require('./stages.cjs')
+const { freezeExecutionBaseline, assertCoverage, assertDouble100, resolveProductionIdentity } = require('./coverage.cjs')
 
 function arg(name) {
   const index = process.argv.indexOf(`--${name}`)
@@ -13,10 +14,7 @@ function arg(name) {
 }
 
 function ordersForMode(manifest) {
-  if (manifest.mode === 'full') {
-    return manifest.orders.filter((order) => order.slot === 'O01')
-  }
-  return manifest.orders
+  return manifest.orders.filter((order) => order.slot === 'O01')
 }
 
 function stageCandidateCodePaths(stage) {
@@ -85,7 +83,7 @@ function targetRequestLabel(method, pathname) {
   if (route.includes('/system/auth/login')) return 'LOGIN'
   if (route.includes('/erp/kingdee-sync/incremental-sync')) return pathname.includes('/pick-list') ? 'PRODUCTION_PICK_LIST_SYNC' : 'ERP_PRODUCTION_ORDER_SYNC'
   if (route.includes('/active-order/list')) return 'ACTIVE_ORDER_LIST'
-  if (route.includes('/active-order/simulation/copy-latest')) return 'SIMULATION_COPY_LATEST'
+  if (route.includes('/active-order/simulation/test-reset')) return 'SIMULATION_TEST_RESET'
   if (route.includes('/active-order/release/apply')) return 'ACTIVE_ORDER_RELEASE_APPLY'
   if (route.includes('/frontline/submit')) return 'FRONTLINE_PRODUCTION_SUBMIT'
   if (route.includes('/device-account/pqc/submit')) return 'FRONTLINE_PQC_SUBMIT'
@@ -156,38 +154,17 @@ function trackTargetRequests(page) {
 }
 
 const mode = arg('mode') || process.env.EDHR_AI_E2E_MODE || 'full'
+const onlyS01 = process.argv.includes('--only-s01')
+const throughS03 = process.argv.includes('--through-s03')
 const runId = arg('run-id') || process.env.EDHR_AI_E2E_RUN_ID || createRunId()
-const templateWorkOrderCode = arg('template-work-order-code') || process.env.EDHR_AI_E2E_TEMPLATE_WORK_ORDER_CODE || FIXED_TEMPLATE_WORK_ORDER_CODE
+const resetWorkOrderCode = arg('reset-work-order-code') || process.env.EDHR_AI_E2E_RESET_WORK_ORDER_CODE || FIXED_RESET_WORK_ORDER_CODE
 const frontendUrl = arg('base-url') || process.env.EDHR_AI_E2E_BASE_URL || 'http://127.0.0.1:8081'
 const reportRoot = path.resolve(arg('report-root') || process.env.EDHR_AI_E2E_REPORT_ROOT || 'test-results/edhr-ai-loop')
 const username = process.env.EDHR_E2E_USERNAME || 'admin'
 const password = process.env.EDHR_E2E_PASSWORD || 'admin123'
 const signaturePassword = process.env.EDHR_E2E_SIGNATURE_PASSWORD || password
+let productionIdentity
 const headed = process.argv.includes('--headed')
-const pqcNumericValues = Object.freeze([
-  Number(process.env.EDHR_AI_E2E_PQC_GENERIC_VALUE || 10),
-  Number(process.env.EDHR_AI_E2E_PQC_SPECIAL_VALUE || 20)
-])
-const PQC_ROUND_PLAN = Object.freeze([
-  Object.freeze({ ruleKey: 'FIRST', type: 'FIRST', quantity: 2 }),
-  Object.freeze({ ruleKey: 'PATROL_AM', type: 'PATROL', quantity: 3 }),
-  Object.freeze({ ruleKey: 'PATROL_PM', type: 'PATROL', quantity: 3 }),
-  Object.freeze({ ruleKey: 'FINAL', type: 'FINAL', quantity: 2 })
-])
-const INTERLEAVED_MAIN_CHAIN_PLAN = Object.freeze([
-  Object.freeze({ kind: 'PRODUCTION', processIndex: 0, quantity: 40 }),
-  Object.freeze({ kind: 'PQC', processIndex: 0, ruleKey: 'FIRST' }),
-  Object.freeze({ kind: 'PQC', processIndex: 0, ruleKey: 'PATROL_AM' }),
-  Object.freeze({ kind: 'PRODUCTION', processIndex: 0, quantity: 60 }),
-  Object.freeze({ kind: 'PQC', processIndex: 0, ruleKey: 'PATROL_PM' }),
-  Object.freeze({ kind: 'PQC', processIndex: 0, ruleKey: 'FINAL' }),
-  Object.freeze({ kind: 'PRODUCTION', processIndex: 1, quantity: 40 }),
-  Object.freeze({ kind: 'PQC', processIndex: 1, ruleKey: 'FIRST' }),
-  Object.freeze({ kind: 'PQC', processIndex: 1, ruleKey: 'PATROL_AM' }),
-  Object.freeze({ kind: 'PRODUCTION', processIndex: 1, quantity: 60 }),
-  Object.freeze({ kind: 'PQC', processIndex: 1, ruleKey: 'PATROL_PM' }),
-  Object.freeze({ kind: 'PQC', processIndex: 1, ruleKey: 'FINAL' })
-])
 const REPORT_UPLOAD_PLAN = Object.freeze([
   Object.freeze({ nodeType: 'INCOMING_INSPECTION_REPORT', label: '来料检验报告', fileName: '01-incoming.pdf' }),
   Object.freeze({ nodeType: 'STERILIZATION_REPORT', label: '灭菌报告', fileName: '02-sterilization.pdf' }),
@@ -199,8 +176,8 @@ function exitWithFailure(error, stage = 'S00', type = 'PRECONDITION_BLOCKED') {
   const message = error instanceof Error ? error.message : String(error)
   const { runDir } = writeFailureArtifacts({ rootDir: reportRoot, runId, mode, failedStage: stage,
     errorType: type, action: 'AI E2E前置检查', message, pageUrl: frontendUrl,
-    expected: { configuredTemplateOrTemplateCode: true },
-    actual: { templateWorkOrderCodeProvided: Boolean(templateWorkOrderCode), mode },
+    expected: { configuredResetWorkOrderCode: true },
+    actual: { resetWorkOrderCodeProvided: Boolean(resetWorkOrderCode), mode },
     candidateCodePaths: stageCandidateCodePaths(stage),
     stages: stageResults(stage, 'BLOCKED') })
   console.error(JSON.stringify({ status: 'BLOCKED', runId, failedStage: stage, errorType: type, message, runDir }, null, 2))
@@ -330,93 +307,13 @@ function activeOrderRow(page, workOrderCode) {
   }).first()
 }
 
-async function verifyTemplateReady(page, manifest) {
-  const rows = await openActiveOrderPool(page, manifest.templateWorkOrderCode)
-  const source = findActiveOrderDataByCode(rows, manifest.templateWorkOrderCode)
-  if (!source) {
-    throw stageError({
-      stage: 'VERIFY_READY',
-      errorType: 'PRECONDITION_BLOCKED',
-      action: 'VERIFY_READY固定母单可见性',
-      message: `活跃订单池找不到固定母单：${manifest.templateWorkOrderCode}`,
-      expected: { sourceWorkOrderCode: manifest.templateWorkOrderCode, sourceVisible: true },
-      actual: { sourceVisible: false, visibleCodes: rows.map((row) => row.workOrderCode).slice(0, 20) }
-    })
-  }
-  const row = activeOrderRow(page, manifest.templateWorkOrderCode)
-  await row.waitFor({ state: 'visible', timeout: 30000 })
-  const sourceActiveOrderId = requirePositiveIdString(
-    await row.locator('[data-team-leader-active-order-id]').first().getAttribute('data-team-leader-active-order-id'),
-    '固定母单活跃订单ID'
-  )
-  const copyButton = row.locator('[data-team-leader-copy-latest-simulation-order]').first()
-  if (!(await copyButton.isVisible().catch(() => false))) {
-    throw stageError({
-      stage: 'VERIFY_READY',
-      errorType: 'PRECONDITION_BLOCKED',
-      action: 'VERIFY_READY复制测试单入口',
-      message: `固定母单缺少复制测试单按钮：${manifest.templateWorkOrderCode}`,
-      expected: { copyButtonVisible: true },
-      actual: { copyButtonVisible: false }
-    })
-  }
-  const sourceQuantity = resolveActiveOrderQuantity(source, '固定母单')
-  if (sourceQuantity !== manifest.expected.finishedQuantity) {
-    throw stageError({
-      stage: 'VERIFY_READY',
-      errorType: 'PRECONDITION_BLOCKED',
-      action: 'VERIFY_READY固定母单数量',
-      message: `固定母单数量不是预期值：${manifest.templateWorkOrderCode}`,
-      expected: { quantity: manifest.expected.finishedQuantity },
-      actual: { quantity: sourceQuantity }
-    })
-  }
-  return {
-    sourceWorkOrderCode: manifest.templateWorkOrderCode,
-    sourceActiveOrderId,
-    sourceQuantity,
-    copyButtonVisible: true,
-    readyVerified: true
-  }
-}
-
-async function copyTemplateActiveOrder(page, manifestOrder, manifest, ready) {
-  const rows = await openActiveOrderPool(page, manifest.templateWorkOrderCode)
-  const source = findActiveOrderDataByCode(rows, manifest.templateWorkOrderCode)
-  if (!source) {
-    throw stageError({
-      stage: 'S01',
-      errorType: 'PRECONDITION_BLOCKED',
-      action: 'S01定位固定母单',
-      message: `复制前找不到固定母单：${manifest.templateWorkOrderCode}`,
-      expected: { sourceWorkOrderCode: manifest.templateWorkOrderCode, sourceVisible: true },
-      actual: { sourceVisible: false }
-    })
-  }
-  const sourceQuantity = resolveActiveOrderQuantity(source, '固定母单')
-  const row = activeOrderRow(page, manifest.templateWorkOrderCode)
-  await row.waitFor({ state: 'visible', timeout: 30000 })
-  const sourceActiveOrderId = requirePositiveIdString(
-    await row.locator('[data-team-leader-active-order-id]').first().getAttribute('data-team-leader-active-order-id'),
-    '固定母单活跃订单ID'
-  )
-  if (ready?.sourceActiveOrderId && ready.sourceActiveOrderId !== sourceActiveOrderId) {
-    throw stageError({
-      stage: 'S01',
-      errorType: 'PRECONDITION_BLOCKED',
-      action: 'S01固定母单身份一致性',
-      message: '固定母单活跃订单ID在VERIFY_READY和S01之间发生变化',
-      expected: { sourceActiveOrderId: ready.sourceActiveOrderId },
-      actual: { sourceActiveOrderId }
-    })
-  }
-  const copyButton = row.locator('[data-team-leader-copy-latest-simulation-order]').first()
-  await copyButton.waitFor({ state: 'visible', timeout: 30000 })
-  await copyButton.click()
-  const confirmDialog = page.locator('.el-message-box:visible').filter({ hasText: '确认复制测试单' }).first()
-  await confirmDialog.waitFor({ state: 'visible', timeout: 30000 })
-  const copyResponse = page.waitForResponse((r) =>
-    r.url().includes('/admin-api/mes/pro/process-pool/team-leader/active-order/simulation/copy-latest') &&
+async function resetFixedTestActiveOrder(page, manifestOrder, manifest) {
+  // 1. 进入活跃订单池。
+  await openActiveOrderPool(page, manifest.resetWorkOrderCode)
+  const resetButton = page.locator('[data-team-leader-reset-fixed-active-order]').first()
+  // 2. 点击重置按钮，由系统删除旧执行数据并创建新活跃订单。
+  const resetResponse = page.waitForResponse((r) =>
+    r.url().includes('/admin-api/mes/pro/process-pool/team-leader/active-order/simulation/test-reset') &&
     r.request().method() === 'POST'
   )
   const refreshedListResponse = page.waitForResponse((r) =>
@@ -424,92 +321,73 @@ async function copyTemplateActiveOrder(page, manifestOrder, manifest, ready) {
     r.request().method() === 'GET',
     { timeout: 60000 }
   ).catch(() => null)
-  await confirmDialog.getByRole('button', { name: '确认复制' }).click()
-  const response = await copyResponse
-  assert.equal(response.ok(), true, `复制测试单失败：HTTP ${response.status()}`)
+  await resetButton.click()
+  // 3. 检查重置成功、订单可见、数量为10。
+  const response = await resetResponse
+  assert.equal(response.ok(), true, `重置指定测试订单失败：HTTP ${response.status()}`)
   const body = await response.json()
-  assert.equal(Number(body.code), 0, `复制测试单业务失败：${body.msg || 'unknown'}`)
+  assert.equal(Number(body.code), 0, `重置指定测试订单业务失败：${body.msg || 'unknown'}`)
   const receipt = body.data || {}
-  const copiedSimulationRunId = String(receipt.simulationRunId || '').trim()
-  assert.ok(copiedSimulationRunId, '复制测试单回执必须包含真实页面复制动作生成的simulationRunId')
-  assert.match(copiedSimulationRunId, /^SIMCOPY-\d+-[0-9a-fA-F-]{36}$/, `复制测试单回执simulationRunId必须来自真实页面复制动作，实际为${copiedSimulationRunId}`)
-  const copiedWorkOrderCode = String(receipt.workOrderCode || '').trim()
-  assert.ok(copiedWorkOrderCode.startsWith(manifestOrder.expectedWorkOrderCodePrefix), `复制测试单工单号必须以${manifestOrder.expectedWorkOrderCodePrefix}开头，实际为${copiedWorkOrderCode}`)
-  assert.notEqual(copiedWorkOrderCode, manifest.templateWorkOrderCode, '复制测试单不得复用固定母单工单号')
-  const refreshedRows = await refreshedListResponse.then((r) => r ? parseActiveOrderListResponse(r, '复制后活跃订单列表刷新') : [])
-  let copied = findActiveOrderDataByCode(refreshedRows, copiedWorkOrderCode)
-  if (!copied) {
-    copied = findActiveOrderDataByCode(await openActiveOrderPool(page, copiedWorkOrderCode), copiedWorkOrderCode)
+  const resetOrderCode = String(receipt.workOrderCode || '').trim()
+  assert.equal(resetOrderCode, manifest.resetWorkOrderCode, `重置回执必须返回指定测试订单号：${manifest.resetWorkOrderCode}`)
+  const refreshedRows = await refreshedListResponse.then((r) => r ? parseActiveOrderListResponse(r, '重置后活跃订单列表刷新') : [])
+  let resetOrder = findActiveOrderDataByCode(refreshedRows, resetOrderCode)
+  if (!resetOrder) {
+    resetOrder = findActiveOrderDataByCode(await openActiveOrderPool(page, resetOrderCode), resetOrderCode)
   } else {
-    await filterActiveOrderPool(page, copiedWorkOrderCode)
+    await filterActiveOrderPool(page, resetOrderCode)
   }
-  if (!copied) {
+  if (!resetOrder) {
     throw stageError({
       stage: 'S01',
       errorType: 'BUSINESS_ASSERTION',
-      action: 'S01复制后活跃订单可见性',
-      message: `复制接口返回成功，但活跃订单池找不到新测试单：${copiedWorkOrderCode}`,
-      expected: { copiedWorkOrderCode, copiedActiveOrderVisible: true },
-      actual: { copiedActiveOrderVisible: false }
+      action: 'S01重置后活跃订单可见性',
+      message: `重置接口返回成功，但活跃订单池找不到指定测试订单：${resetOrderCode}`,
+      expected: { resetWorkOrderCode: resetOrderCode, activeOrderVisible: true },
+      actual: { activeOrderVisible: false }
     })
   }
-  const copiedQuantity = resolveActiveOrderQuantity(copied, '复制测试单')
-  if (copiedQuantity !== sourceQuantity) {
+  const resetQuantity = resolveActiveOrderQuantity(resetOrder, '重置测试订单')
+  if (resetQuantity !== manifest.expected.finishedQuantity) {
     throw stageError({
       stage: 'S01',
       errorType: 'BUSINESS_ASSERTION',
-      action: 'S01复制数量一致性',
-      message: `复制测试单数量与固定母单不一致：${copiedWorkOrderCode}`,
-      expected: { sourceQuantity },
-      actual: { copiedQuantity }
+      action: 'S01重置测试订单数量',
+      message: `重置测试订单数量不是预期值：${resetOrderCode}`,
+      expected: { quantity: manifest.expected.finishedQuantity },
+      actual: { quantity: resetQuantity }
     })
   }
-  await activeOrderRow(page, copiedWorkOrderCode).waitFor({ state: 'visible', timeout: 30000 })
+  await activeOrderRow(page, resetOrderCode).waitFor({ state: 'visible', timeout: 30000 })
+  // 4. 保存新订单信息，供后续阶段使用。
   return {
     slot: manifestOrder.slot,
-    sourceWorkOrderCode: manifest.templateWorkOrderCode,
-    sourceActiveOrderId,
-    activeOrderId: requirePositiveIdString(receipt.activeOrderId, '复制测试单回执activeOrderId'),
-    workOrderId: requirePositiveIdString(receipt.workOrderId, '复制测试单回执workOrderId'),
-    workOrderCode: copiedWorkOrderCode,
-    workOrderName: receipt.workOrderName,
-    batchCode: copiedWorkOrderCode,
-    quantity: copiedQuantity,
-    routeId: requirePositiveIdString(receipt.routeId, '复制测试单回执routeId'),
-    routeVersionId: requirePositiveIdString(receipt.routeVersionId, '复制测试单回执routeVersionId'),
-    routeVersionNo: receipt.routeVersionNo,
-    qaRegulationVersionId: requirePositiveIdString(receipt.qaRegulationVersionId, '复制测试单回执qaRegulationVersionId'),
+    resetWorkOrderCode: manifest.resetWorkOrderCode,
+    activeOrderId: requirePositiveIdString(receipt.activeOrderId, '重置测试单回执activeOrderId'),
+    workOrderId: requirePositiveIdString(receipt.workOrderId, '重置测试单回执workOrderId'),
+    workOrderCode: resetOrderCode,
+    workOrderName: receipt.workOrderName || resetOrder.workOrderName || resetOrder.productName,
+    batchCode: String(resetOrder.batchCode || receipt.batchCode || resetOrderCode).trim(),
+    quantity: resetQuantity,
+    routeId: resetOrder.routeId == null ? null : requirePositiveIdString(resetOrder.routeId, '重置测试单列表routeId'),
+    routeVersionId: resetOrder.routeVersionId == null ? null : requirePositiveIdString(resetOrder.routeVersionId, '重置测试单列表routeVersionId'),
+    routeVersionNo: resetOrder.routeVersionNo,
     aiRunOrderSlotId: manifestOrder.simulationRunId,
-    simulationRunId: copiedSimulationRunId,
-    action: 'COPY_LATEST_VERSION'
+    simulationRunId: manifestOrder.simulationRunId,
+    resetReceiptAction: receipt.action,
+    previousActiveOrderCount: receipt.previousActiveOrderCount,
+    deletedEventCount: receipt.deletedEventCount,
+    deletedBatchExecutionCount: receipt.deletedBatchExecutionCount,
+    deletedRecordExecutionCount: receipt.deletedRecordExecutionCount,
+    action: 'RESET_FIXED_TEST_ORDER'
   }
-}
-
-function buildProductionSubmissionPlan(quantity) {
-  const total = Number(quantity)
-  if (!Number.isInteger(total) || total < 2) {
-    throw stageError({
-      stage: 'S02',
-      errorType: 'PRECONDITION_BLOCKED',
-      action: 'S02生成生产提交计划',
-      message: '复制测试单数量不足以拆分两次生产提交',
-      expected: { quantityAtLeast: 2 },
-      actual: { quantity }
-    })
-  }
-  const first = Math.max(1, Math.floor(total * 0.4))
-  const second = total - first
-  return [
-    { processIndex: 0, quantity: first },
-    { processIndex: 0, quantity: second },
-    { processIndex: 1, quantity: first },
-    { processIndex: 1, quantity: second }
-  ]
 }
 
 async function selectFrontlineProductionOrder(page, manifestOrder) {
   await page.goto(`${frontendUrl}/mes/pro/feedback/edhr-batch-production-fill`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.locator('[data-frontline-production-stage]').waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('[data-frontline-production-material-tab]').first().waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('[data-frontline-production-process-current]:not(:disabled)').waitFor({ state: 'visible', timeout: 30000 })
   await page.locator('[data-frontline-production-active-order-card]').click()
   await page.locator('[data-frontline-production-order-search-input]').fill(manifestOrder.workOrderCode)
   const option = page.locator('[data-frontline-production-order-option]').filter({
@@ -520,38 +398,41 @@ async function selectFrontlineProductionOrder(page, manifestOrder) {
   await page.locator('[data-frontline-production-order-code]').filter({ hasText: manifestOrder.workOrderCode }).waitFor({ state: 'visible', timeout: 30000 })
 }
 
-async function selectFrontlineProductionProcess(page, processIndex) {
+async function selectFrontlineProductionProcess(page, processKey) {
   await page.locator('[data-frontline-production-process-current]').click()
-  const option = page.locator('[data-frontline-production-process-option]').nth(processIndex)
+  const option = page.locator(`[data-frontline-production-process-option="${processKey}"]`)
   await option.waitFor({ state: 'visible', timeout: 30000 })
   const label = (await option.innerText()).trim()
   await option.click()
   await page.locator('[data-frontline-production-process-current]').filter({ hasText: label }).waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('[data-frontline-production-process-current]:not(:disabled)').waitFor({ state: 'visible', timeout: 30000 })
   return label
 }
 
 async function selectFrontlineProductionEmployee(page) {
   const employeeCard = page.locator('[data-frontline-production-employee-card]')
   await employeeCard.click()
-  const option = page.locator('[data-frontline-production-employee-option]').first()
+  const option = page.locator(`[data-frontline-production-employee-option="${productionIdentity.employeeId}"]`)
   await option.waitFor({ state: 'visible', timeout: 30000 })
   const label = (await option.innerText()).trim()
   await option.click()
   return label
 }
 
-async function fillProductionQuantityForAllMaterials(page, quantity) {
+async function fillProductionQuantityForAllMaterials(page, quantity, quantityMode) {
   const materialTabs = page.locator('[data-frontline-production-material-tab]')
   const tabCount = await materialTabs.count()
-  if (tabCount > 0) {
-    for (let index = 0; index < tabCount; index += 1) {
-      await materialTabs.nth(index).click()
-      await page.locator('[data-production-output-quantity]').fill(String(quantity))
-    }
-    return { materialTabCount: tabCount }
+  if (quantityMode === 'PROCESS_QUANTITY') {
+    assert.equal(tabCount, 0, '工序数量模式不应出现物料页签')
+    await page.locator('[data-production-output-quantity]').fill(String(quantity))
+    return { materialTabCount: 0 }
   }
-  await page.locator('[data-production-output-quantity]').fill(String(quantity))
-  return { materialTabCount: 0 }
+  assert.ok(tabCount > 0, '当前工序未显示输出物料页签')
+  for (let index = 0; index < tabCount; index += 1) {
+    await materialTabs.nth(index).click()
+    await page.locator('[data-production-output-quantity]').fill(String(quantity))
+  }
+  return { materialTabCount: tabCount }
 }
 
 async function confirmClearanceChecks(page) {
@@ -566,14 +447,15 @@ async function confirmClearanceChecks(page) {
 
 async function submitOneProductionReport(page, manifestOrder, step) {
   await selectFrontlineProductionOrder(page, manifestOrder)
-  const processLabel = await selectFrontlineProductionProcess(page, step.processIndex)
+  const processLabel = await selectFrontlineProductionProcess(page, step.processKey)
+  assert.deepEqual((await page.locator('[data-frontline-production-material-tab]').allTextContents()).map(text => text.trim()), step.outputMaterials, '输出物料与冻结基线不一致')
   const employeeLabel = await selectFrontlineProductionEmployee(page)
-  const quantityScope = await fillProductionQuantityForAllMaterials(page, step.quantity)
+  const quantityScope = await fillProductionQuantityForAllMaterials(page, step.quantity, step.quantityMode)
   const clearance = await confirmClearanceChecks(page)
   await page.locator('[data-production-submit-open-confirmation]').click()
   const dialog = page.locator('[data-production-submit-confirmation-dialog]')
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
-  await dialog.locator('[data-production-submit-signature-password]').fill(signaturePassword)
+  await dialog.locator('[data-production-submit-signature-password]').fill(productionIdentity.signaturePassword)
   const submitResponse = page.waitForResponse((r) => r.url().includes('/mes/pro/feedback/frontline/submit') && r.request().method() === 'POST')
   await dialog.locator('[data-production-submit-confirm-accept]').click()
   const response = await submitResponse
@@ -584,6 +466,7 @@ async function submitOneProductionReport(page, manifestOrder, step) {
   await page.locator('[data-production-submit-success-continue]').click()
   return {
     processIndex: step.processIndex,
+    routeProcessId: step.routeProcessId,
     processLabel,
     employeeLabel,
     quantity: step.quantity,
@@ -600,14 +483,14 @@ async function openProductionReportWorkbench(page) {
   await page.locator('[data-user-table-key="mes.processPool.teamLeader.submissions"]').waitFor({ state: 'visible', timeout: 30000 })
 }
 
-async function reviewProductionReport(page, manifestOrder) {
+async function reviewProductionReport(page, manifestOrder, submission) {
   await openProductionReportWorkbench(page)
   const row = page.locator('.el-table__row:visible').filter({
     has: page.locator(`[data-team-leader-submission-work-order-code]:text-is("${manifestOrder.workOrderCode}")`)
-  }).first()
+  }).filter({ has: page.locator(`[data-production-report-allocation-event-id="${requirePositiveIdString(submission.processPoolEventId, '生产提交事件')}"]`) })
   await row.waitFor({ state: 'visible', timeout: 30000 })
-  const reviewButton = row.locator('[data-team-leader-review-event-id]').first()
-  const eventId = await reviewButton.getAttribute('data-team-leader-review-event-id')
+  const reviewButton = row.locator('[data-production-report-allocation-event-id]').first()
+  const eventId = await reviewButton.getAttribute('data-production-report-allocation-event-id')
   await reviewButton.click()
   const dialog = page.locator('[data-team-leader-review-dialog]')
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
@@ -628,53 +511,30 @@ async function reviewProductionReport(page, manifestOrder) {
   return { eventId: requirePositiveIdString(eventId, '生产报工复核eventId'), reviewStatus: 'APPROVED', allocationMode: 'FIFO' }
 }
 
-async function submitProductionReports(page, manifestOrder, activeOrder) {
-  const plan = buildProductionSubmissionPlan(manifestOrder.quantity)
-  const submissions = []
-  for (const step of plan) submissions.push(await submitOneProductionReport(page, manifestOrder, step))
-  const reviews = []
-  for (const ignored of submissions) reviews.push(await reviewProductionReport(page, manifestOrder))
-  return { activeOrderId: activeOrder.activeOrderId, expectedSubmissionCount: 4, submissions, reviews }
-}
-
-
 async function selectFrontlinePqcOrder(page, manifestOrder) {
   await page.goto(`${frontendUrl}/mes/pro/feedback/edhr-batch-pqc-fill`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.locator('[data-frontline-pqc-operator]').waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('[data-pqc-inspection-tab]').first().waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('[data-pqc-process-current]:not(:disabled)').waitFor({ state: 'visible', timeout: 30000 })
   await page.locator('[data-pqc-order-summary-card]').click()
   await page.locator('[data-pqc-order-search-input]').fill(manifestOrder.workOrderCode)
   const option = page.locator('[data-pqc-order-option]').filter({
-    has: page.locator(`[data-pqc-order-option-code]:text-is("${manifestOrder.workOrderCode}")`)
+    has: page.locator(`[data-pqc-order-option-code] strong:text-is("${manifestOrder.workOrderCode}")`)
   }).first()
   await option.waitFor({ state: 'visible', timeout: 30000 })
   await option.click()
   await page.locator('[data-pqc-order-code]').filter({ hasText: manifestOrder.workOrderCode }).waitFor({ state: 'visible', timeout: 30000 })
 }
 
-async function selectFrontlinePqcProcess(page, processIndex) {
+async function selectFrontlinePqcProcess(page, processKey) {
   await page.locator('[data-pqc-process-current]').click()
-  const option = page.locator('[data-pqc-process-option]').nth(processIndex)
+  const option = page.locator(`[data-pqc-process-option="${processKey}"]`)
   await option.waitFor({ state: 'visible', timeout: 30000 })
   const label = (await option.innerText()).trim()
   await option.click()
   await page.locator('[data-pqc-process-current]').filter({ hasText: label }).waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('[data-pqc-process-current]:not(:disabled)').waitFor({ state: 'visible', timeout: 30000 })
   return label
-}
-
-async function selectPqcInspectionRule(page, round) {
-  const ruleTab = page.locator(`[data-pqc-inspection-rule-tab="${round.ruleKey}"]`).first()
-  if (!(await ruleTab.count())) {
-    throw stageError({
-      stage: 'S03',
-      errorType: 'PRECONDITION_BLOCKED',
-      action: 'S03选择PQC检验规则',
-      message: `当前PQC工序缺少待执行检验任务：${round.ruleKey}`,
-      expected: { ruleKey: round.ruleKey, taskStatus: 'PENDING' },
-      actual: { ruleTabVisible: false }
-    })
-  }
-  await ruleTab.click()
-  await page.locator('[data-pqc-task-option]').filter({ hasText: await ruleTab.innerText() }).first().waitFor({ state: 'visible', timeout: 30000 })
 }
 
 async function fillPqcQuantity(page, quantity) {
@@ -687,31 +547,26 @@ async function selectFirstPqcEquipmentWhenAvailable(page) {
   const count = await selects.count()
   for (let index = 0; index < count; index += 1) {
     const select = selects.nth(index)
-    if (!(await select.isVisible().catch(() => false))) continue
-    const currentValue = await select.inputValue().catch(() => '')
+    if (!(await select.isVisible())) continue
+    const currentValue = await select.inputValue()
     if (currentValue) continue
     const optionValue = await select.locator('option').evaluateAll((options) => {
       const option = options.find((item) => item.value && item.value !== '__OTHER__')
       return option ? option.value : ''
     })
-    if (optionValue) await select.selectOption(optionValue)
+    assert.ok(optionValue, '检验设备控件缺少有效设备')
+    await select.selectOption(optionValue)
   }
-}
-
-function resolvePqcNumericValue(itemLabel, index) {
-  const label = String(itemLabel || '')
-  if (/专用|special|Q1|20/.test(label)) return pqcNumericValues[1]
-  if (/通用|generic|G1|10/.test(label)) return pqcNumericValues[0]
-  return pqcNumericValues[Math.min(index, pqcNumericValues.length - 1)]
 }
 
 async function fillActivePqcInspectionItem(page, itemValue) {
   await selectFirstPqcEquipmentWhenAvailable(page)
   const bulkPass = page.locator('[data-pqc-bulk-pass]').first()
-  if (await bulkPass.isVisible().catch(() => false)) {
+  if (await bulkPass.isVisible()) {
     await bulkPass.click()
     return { inputMode: 'choice', value: '合格' }
   }
+  assert.ok(Number.isFinite(itemValue), '数值检验项目缺少固定合格值')
   await page.locator('[data-pqc-piece-open-button]').click()
   const modal = page.locator('[data-pqc-piece-modal]')
   await modal.waitFor({ state: 'visible', timeout: 30000 })
@@ -735,59 +590,54 @@ async function fillActivePqcInspectionItem(page, itemValue) {
   return { inputMode: 'numeric', value: itemValue, sampleCount: inputCount }
 }
 
-async function fillPqcInspectionItems(page) {
-  const itemTabs = page.locator('[data-pqc-inspection-tab]')
-  const itemCount = await itemTabs.count()
-  if (!itemCount) {
-    throw stageError({
-      stage: 'S03',
-      errorType: 'PRECONDITION_BLOCKED',
-      action: 'S03填写PQC检验项目',
-      message: '当前PQC任务缺少检验项目页签',
-      expected: { inspectionItemCountAtLeast: 1 },
-      actual: { inspectionItemCount: 0 }
-    })
-  }
+async function fillPqcInspectionItems(page, step) {
   const items = []
-  for (let index = 0; index < itemCount; index += 1) {
-    const tab = itemTabs.nth(index)
-    const itemLabel = (await tab.innerText()).trim()
-    await tab.click()
-    await page.locator('[data-pqc-active-inspection-panel]').waitFor({ state: 'visible', timeout: 30000 })
-    const value = resolvePqcNumericValue(itemLabel, index)
-    const filled = await fillActivePqcInspectionItem(page, value)
-    items.push({ itemIndex: index, itemLabel, ...filled })
+  for (const task of step.tasks) {
+    for (const item of task.inspectionItems) {
+      const tab = page.locator('[data-pqc-inspection-tab]').filter({ has: page.getByText(item.itemName.trim(), { exact: true }) })
+      await tab.click()
+      const taskTab = page.locator(`[data-pqc-task-option="${task.pqcTaskId}"]`)
+      await taskTab.waitFor({ state: 'visible' })
+      assert.equal(await taskTab.getAttribute('data-pqc-inspection-rule-tab'), task.ruleKey)
+      await taskTab.click()
+      await fillPqcQuantity(page, task.quantity)
+      await page.locator('[data-pqc-active-inspection-panel]').waitFor({ state: 'visible' })
+      const numeric = ['NUMBER', 'NUMERIC'].includes(String(item.resultType).toUpperCase())
+      let value
+      if (numeric) {
+        const lower = item.standardLowerLimit == null ? null : Number(item.standardLowerLimit)
+        const upper = item.standardUpperLimit == null ? null : Number(item.standardUpperLimit)
+        assert.ok((lower !== null && Number.isFinite(lower)) || (upper !== null && Number.isFinite(upper)), `数值项目无可判定合格值: ${item.itemCode}`)
+        value = lower !== null ? lower : upper
+        assert.ok(upper === null || value <= upper, `检验上下限矛盾: ${item.itemCode}`)
+      }
+      const filled = await fillActivePqcInspectionItem(page, value)
+      if (numeric) assert.equal(filled.sampleCount, Number(task.quantity), '逐件输入数量必须等于冻结应检数量')
+      items.push({ pqcTaskId: task.pqcTaskId, itemCode: item.itemCode, ...filled })
+    }
   }
   return items
 }
 
 async function submitOnePqcInspectionRound(page, manifestOrder, step) {
-  await selectPqcInspectionRule(page, step)
-  await fillPqcQuantity(page, step.quantity)
-  const items = await fillPqcInspectionItems(page)
+  const items = await fillPqcInspectionItems(page, step)
   await page.locator('[data-pqc-submit-open-signature]').click()
   const dialog = page.locator('[data-pqc-signature-dialog]')
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
   await dialog.locator('[data-pqc-signature-password]').fill(signaturePassword)
-  const submitResponse = page.waitForResponse((r) => r.url().includes('/mes/pro/feedback/frontline/device-account/pqc/submit') && r.request().method() === 'POST')
-  await dialog.locator('[data-pqc-submit-confirm-accept]').click()
-  const response = await submitResponse
-  assert.equal(response.ok(), true, `一线PQC提交失败：HTTP ${response.status()}`)
-  const body = await response.json()
-  assert.equal(Number(body.code), 0, `一线PQC提交业务失败：${body.msg || 'unknown'}`)
+  // Each task produces its own request and review event; collect all, not only the first response.
+  const receipts = Promise.all(step.tasks.map(async task => {
+    const response = await page.waitForResponse(r => r.url().includes('/mes/pro/feedback/frontline/device-account/pqc/submit') &&
+      r.request().method() === 'POST' && String(r.request().postDataJSON().pqcTaskId) === task.pqcTaskId)
+    const data = await readPageResponse(response, `PQC提交 ${task.pqcTaskId}`)
+    assert.equal(String(data.pqcTaskId), task.pqcTaskId)
+    assert.equal(data.inspectionResult, 'SUCCESS', `PQC检验不合格: ${task.pqcTaskId}`)
+    return { ...data, processKey: step.processKey, processLabel: step.processLabel, ruleKey: task.ruleKey,
+      quantity: task.quantity, items: items.filter(item => item.pqcTaskId === task.pqcTaskId), workOrderCode: manifestOrder.workOrderCode }
+  }))
+  const [submissions] = await Promise.all([receipts, dialog.locator('[data-pqc-submit-confirm-accept]').click()])
   await dialog.waitFor({ state: 'hidden', timeout: 30000 })
-  return {
-    workOrderCode: manifestOrder.workOrderCode,
-    processIndex: step.processIndex,
-    processLabel: step.processLabel,
-    ruleKey: step.ruleKey,
-    inspectionType: step.type,
-    quantity: step.quantity,
-    items,
-    pqcTaskId: body.data?.pqcTaskId,
-    pqcEventId: body.data?.pqcEventId,
-    pqcRecordId: body.data?.pqcRecordId
-  }
+  return submissions
 }
 
 async function openPqcReviewWorkbench(page) {
@@ -798,13 +648,13 @@ async function openPqcReviewWorkbench(page) {
   await page.locator('[data-user-table-key="mes.processPool.teamLeader.submissions"]').waitFor({ state: 'visible', timeout: 30000 })
 }
 
-async function reviewPqcInspectionSubmission(page, manifestOrder) {
+async function reviewPqcInspectionSubmission(page, manifestOrder, submission) {
   await openPqcReviewWorkbench(page)
   const row = page.locator('.el-table__row:visible').filter({
     has: page.locator(`[data-pqc-leader-work-order]:text-is("${manifestOrder.workOrderCode}")`)
   }).filter({
-    has: page.locator('[data-team-leader-review-event-id]')
-  }).first()
+    has: page.locator(`[data-team-leader-review-event-id="${requirePositiveIdString(submission.pqcEventId, 'PQC提交事件')}"]`)
+  })
   await row.waitFor({ state: 'visible', timeout: 30000 })
   const reviewButton = row.locator('[data-team-leader-review-event-id]').first()
   const eventId = await reviewButton.getAttribute('data-team-leader-review-event-id')
@@ -822,115 +672,170 @@ async function reviewPqcInspectionSubmission(page, manifestOrder) {
   return { eventId: requirePositiveIdString(eventId, 'PQC组长复核eventId'), reviewStatus: 'APPROVED' }
 }
 
-async function submitPqcInspections(page, manifestOrder, production) {
-  await selectFrontlinePqcOrder(page, manifestOrder)
-  const submissions = []
-  for (const processIndex of [0, 1]) {
-    const processLabel = await selectFrontlinePqcProcess(page, processIndex)
-    for (const round of PQC_ROUND_PLAN) {
-      submissions.push(await submitOnePqcInspectionRound(page, manifestOrder, {
-        ...round,
-        processIndex,
-        processLabel
-      }))
-    }
-  }
-  const reviews = []
-  for (const ignored of submissions) reviews.push(await reviewPqcInspectionSubmission(page, manifestOrder))
-  return {
-    activeOrderId: production.activeOrderId,
-    pqcSubmissionCount: 8,
-    pqcReviewCount: 8,
-    expectedTaskCount: 16,
-    expectedPieceResultCount: 40,
-    submissions,
-    reviews
-  }
+async function readPageResponse(response, label) {
+  assert.equal(response.ok(), true, `${label}: HTTP ${response.status()}`)
+  const body = await response.json()
+  assert.equal(Number(body.code), 0, `${label}: ${body.msg}`)
+  assert.ok(body.data != null, `${label}: missing data`)
+  return body.data
 }
 
-function pqcRoundByKey(ruleKey) {
-  const round = PQC_ROUND_PLAN.find((item) => item.ruleKey === ruleKey)
-  assert.ok(round, `固定PQC轮次不存在：${ruleKey}`)
-  return round
+async function readOrderDetailFromPage(page, order) {
+  await openActiveOrderPool(page, order.workOrderCode)
+  const response = page.waitForResponse(r => r.url().includes('/team-leader/active-order/detail?') &&
+    new URL(r.url()).searchParams.get('activeOrderId') === String(order.activeOrderId))
+  await activeOrderRow(page, order.workOrderCode).locator('[data-team-leader-active-order-detail]').click()
+  const detail = await readPageResponse(await response, '活跃订单详情')
+  await page.locator('[data-team-leader-active-order-detail-page]').waitFor({ state: 'visible' })
+  assert.equal(String(detail.activeOrderId), String(order.activeOrderId))
+  assert.equal(detail.workOrderCode, order.workOrderCode)
+  return detail
+}
+
+async function readPqcProcessesFromPage(page, order) {
+  const response = page.waitForResponse(r => r.url().includes('/pqc/active-order/processes?') &&
+    new URL(r.url()).searchParams.get('activeOrderId') === String(order.activeOrderId))
+  await selectFrontlinePqcOrder(page, order)
+  const processes = await readPageResponse(await response, 'PQC工序')
+  assert.ok(Array.isArray(processes), 'PQC processes must be array')
+  for (const process of processes) assert.equal(String(process.activeOrderId), String(order.activeOrderId))
+  return processes
+}
+
+function pqcInspectionContract(items) {
+  // Last-used device is execution history, not the frozen acceptance standard.
+  return items.map(({ lastSelectedEquipmentId, lastSelectedEquipmentNumber, ...contract }) => contract)
+}
+
+async function freezeActiveOrderExecutionBaseline(page, order) {
+  const detail = await readOrderDetailFromPage(page, order)
+  const runtimeConfigurations = new Map()
+  const captures = []
+  const captureRuntime = response => {
+    if (!response.url().includes('/device-account/runtime-config')) return
+    // Retain errors for the synchronous verification below, avoiding unhandled rejections.
+    captures.push(readPageResponse(response, '生产运行配置').then(data => {
+      runtimeConfigurations.set(String(data.routeProcessId), data)
+      return { data }
+    }, error => ({ error })))
+  }
+  page.on('response', captureRuntime)
+  const productionProcesses = []
+  try {
+  await selectFrontlineProductionOrder(page, order)
+  for (const process of detail.processes) {
+    const processKey = `MES-${order.activeOrderId}-${order.routeId}-${process.routeProcessId}-${process.processId}`
+    const processLabel = await selectFrontlineProductionProcess(page, processKey)
+    await page.locator('[data-production-output-quantity]').waitFor({ state: 'visible' })
+    const outputMaterials = await page.locator('[data-frontline-production-material-tab]').allTextContents()
+    for (const capture of await Promise.all(captures)) if (capture.error) throw capture.error
+    const runtime = runtimeConfigurations.get(String(process.routeProcessId))
+    assert.ok(runtime, `未捕获工序正式运行配置: ${processKey}`)
+    assert.ok(Array.isArray(runtime.materials), '正式运行配置缺少materials')
+    assert.equal(runtime.materials.length, outputMaterials.length, '正式物料与页面页签数量不一致')
+    const quantityMode = runtime.materials.length === 0 ? 'PROCESS_QUANTITY' : 'MATERIAL_QUANTITY'
+    productionProcesses.push({ processKey, processLabel, routeProcessId: String(process.routeProcessId),
+      processId: String(process.processId), targetQuantity: process.requiredQuantity,
+      outputMaterials: outputMaterials.map(text => text.trim()), quantityMode })
+  }
+  } finally { page.off('response', captureRuntime) }
+  const processes = await readPqcProcessesFromPage(page, order)
+  const pqcProcesses = []
+  for (const process of processes) {
+    const processKey = `QA-${process.regulationVersionId}-${process.qaProcessId}`
+    const processLabel = await selectFrontlinePqcProcess(page, processKey)
+    pqcProcesses.push({ processKey, processLabel, tasks: process.pqcTaskOptions.map(task => ({
+      pqcTaskId: String(task.pqcTaskId), ruleKey: task.inspectionRuleKey, type: task.inspectionType,
+      businessDate: task.businessDate, shiftCode: task.shiftCode, roundNo: task.roundNo,
+      quantity: task.plannedInspectionQuantity, ruleSort: task.ruleSort, taskStatus: task.taskStatus, inspectionItems: pqcInspectionContract(task.inspectionItems)
+    })) })
+  }
+  return freezeExecutionBaseline(order, productionProcesses, pqcProcesses)
+}
+
+async function discoverPendingPqcTasksForOrder(page, order, baseline, productionProcess) {
+  const processes = await readPqcProcessesFromPage(page, order)
+  const pendingIds = []
+  const eligibleKeys = new Set()
+  for (const process of processes) {
+    const processKey = `QA-${process.regulationVersionId}-${process.qaProcessId}`
+    for (const task of process.pqcTaskOptions) {
+      const frozen = baseline.pqcTasks.find(t => t.pqcTaskId === String(task.pqcTaskId))
+      assert.ok(frozen, `发现未冻结PQC任务: ${task.pqcTaskId}`)
+      assert.equal(frozen.processKey, processKey, 'PQC工序身份变化')
+      assert.equal(Number(task.plannedInspectionQuantity), Number(frozen.quantity), '应检数量变化')
+      assert.deepEqual(pqcInspectionContract(task.inspectionItems), frozen.inspectionItems, '检验项目或标准变化')
+      assert.equal(task.inspectionRuleKey, frozen.ruleKey, '检验类型变化')
+      assert.deepEqual([task.businessDate, task.shiftCode, task.roundNo], [frozen.businessDate, frozen.shiftCode, frozen.roundNo], '检验轮次变化')
+      if (task.taskStatus === 'PENDING') pendingIds.push(String(task.pqcTaskId))
+    }
+    if (!productionProcess || process.productionSubmitCandidates.some(candidate =>
+      String(candidate.routeProcessId) === String(productionProcess.routeProcessId))) eligibleKeys.add(processKey)
+  }
+  return baseline.pqcGroups.filter(group => eligibleKeys.has(group.processKey) && group.tasks.some(t => pendingIds.includes(t.pqcTaskId)))
 }
 
 async function submitOnePqcInspectionForProcess(page, manifestOrder, step) {
   await selectFrontlinePqcOrder(page, manifestOrder)
-  const processLabel = await selectFrontlinePqcProcess(page, step.processIndex)
-  return submitOnePqcInspectionRound(page, manifestOrder, {
-    ...pqcRoundByKey(step.ruleKey),
-    processIndex: step.processIndex,
-    processLabel
-  })
+  const processLabel = await selectFrontlinePqcProcess(page, step.processKey)
+  return submitOnePqcInspectionRound(page, manifestOrder, { ...step, processLabel })
 }
 
 async function executeProductionAndPqcInterleaved(page, manifestOrder, activeOrder) {
-  const production = {
-    activeOrderId: activeOrder.activeOrderId,
-    expectedSubmissionCount: 4,
-    submissions: [],
-    reviews: []
-  }
-  const pqc = {
-    activeOrderId: activeOrder.activeOrderId,
-    pqcSubmissionCount: 8,
-    pqcReviewCount: 8,
-    expectedTaskCount: 16,
-    expectedPieceResultCount: 40,
-    submissions: [],
-    reviews: []
-  }
+  const baseline = activeOrder.executionBaseline
+  assert.ok(baseline, '本轮执行基线未冻结')
+  const production = { activeOrderId: activeOrder.activeOrderId, expectedSubmissionCount: baseline.expected.productionFeedbackCount, submissions: [], reviews: [] }
+  const pqc = { activeOrderId: activeOrder.activeOrderId, expectedTaskCount: baseline.expected.pqcTaskCount, submissions: [], reviews: [] }
   const executedSteps = []
-  for (const step of INTERLEAVED_MAIN_CHAIN_PLAN) {
-    if (step.kind === 'PRODUCTION') {
+  const executePending = async (process) => {
+    const groups = await runWithStage('S03', '发现待检任务', { workOrderCode: manifestOrder.workOrderCode, process },
+      () => discoverPendingPqcTasksForOrder(page, manifestOrder, baseline, process))
+    for (const step of groups) {
+      await runWithStage('S03', 'PQC填写及复核', { workOrderCode: manifestOrder.workOrderCode, ...step }, async () => {
+        assert.ok(step.tasks.every(task => !pqc.submissions.some(s => String(s.pqcTaskId) === task.pqcTaskId)), '已提交任务仍待检/部分提交，禁止重复写入')
+        const submissions = await submitOnePqcInspectionForProcess(page, manifestOrder, step)
+        for (const submission of submissions) {
+          pqc.submissions.push(submission)
+          pqc.reviews.push(await reviewPqcInspectionSubmission(page, manifestOrder, submission))
+        }
+        executedSteps.push({ kind: 'PQC', processKey: step.processKey, taskIds: step.tasks.map(t => t.pqcTaskId) })
+      })
+    }
+  }
+  for (const step of baseline.productionProcesses) {
+    await runWithStage('S02', '生产填写及FIFO复核', { workOrderCode: manifestOrder.workOrderCode, ...step }, async () => {
       const submission = await submitOneProductionReport(page, manifestOrder, step)
-      const review = await reviewProductionReport(page, manifestOrder)
       production.submissions.push(submission)
-      production.reviews.push(review)
-      executedSteps.push({
-        kind: step.kind,
-        processIndex: step.processIndex,
-        quantity: step.quantity,
-        submissionId: submission.feedbackId,
-        reviewEventId: review.eventId
-      })
-      continue
-    }
-    if (step.kind === 'PQC') {
-      const submission = await submitOnePqcInspectionForProcess(page, manifestOrder, step)
-      const review = await reviewPqcInspectionSubmission(page, manifestOrder)
-      pqc.submissions.push(submission)
-      pqc.reviews.push(review)
-      executedSteps.push({
-        kind: step.kind,
-        processIndex: step.processIndex,
-        ruleKey: step.ruleKey,
-        pqcTaskId: submission.pqcTaskId,
-        reviewEventId: review.eventId
-      })
-      continue
-    }
-    throw stageError({
-      stage: 'S02',
-      errorType: 'TEST_HARNESS_FAILURE',
-      action: 'S02/S03固定交错计划',
-      message: `未知交错计划动作：${step.kind}`,
-      expected: { allowedKinds: ['PRODUCTION', 'PQC'] },
-      actual: { step }
+      production.reviews.push(await reviewProductionReport(page, manifestOrder, submission))
+      executedSteps.push({ kind: 'PRODUCTION', routeProcessId: step.routeProcessId, quantity: step.quantity })
     })
+    await executePending(step)
   }
-  assert.equal(production.submissions.length, 4, '固定主链必须提交4笔生产记录')
-  assert.equal(production.reviews.length, 4, '固定主链必须复核4笔生产记录')
-  assert.equal(pqc.submissions.length, 8, '固定主链必须提交8笔PQC记录')
-  assert.equal(pqc.reviews.length, 8, '固定主链必须复核8笔PQC记录')
-  return {
-    activeOrderId: activeOrder.activeOrderId,
-    interleavedStepCount: INTERLEAVED_MAIN_CHAIN_PLAN.length,
-    plan: INTERLEAVED_MAIN_CHAIN_PLAN.map((step) => ({ ...step })),
-    executedSteps,
-    production,
-    pqc
+  await executePending(null) // 全订单尾扫，包含独立QA工序与延后可执行任务。
+  await runWithStage('S03', '冻结任务覆盖核验', baseline.expected, async () => {
+    assertCoverage(baseline, production.submissions.map(s => s.routeProcessId), pqc.submissions.map(s => s.pqcTaskId))
+    assert.equal(production.reviews.length, baseline.expected.productionReviewCount)
+    assert.equal(pqc.reviews.length, baseline.expected.pqcReviewCount)
+  })
+  const progress = await verifyExecutionProgress(page, manifestOrder)
+  return { progress, activeOrderId: activeOrder.activeOrderId, interleavedStepCount: executedSteps.length, executedSteps, production,
+    pqc: { ...pqc, pqcSubmissionCount: pqc.submissions.length, pqcReviewCount: pqc.reviews.length } }
+}
+
+async function verifyExecutionProgress(page, order) {
+  const rows = await openActiveOrderPool(page, order.workOrderCode)
+  const raw = findActiveOrderDataByCode(rows, order.workOrderCode)
+  const status = await readActiveOrderProgressAndStatus(activeOrderRow(page, order.workOrderCode))
+  try {
+    assertDouble100(status)
+    assert.equal(Number(raw?.productionProgressPercent), 100, '生产原始进度未到100，禁止使用页面四舍五入值')
+    assert.equal(Number(raw?.inspectionProgressPercent), 100, '检验原始进度未到100，禁止使用页面四舍五入值')
+  } catch (error) {
+    const detail = await readOrderDetailFromPage(page, order)
+    throw stageError({ stage: 'S04', errorType: 'BUSINESS_ASSERTION', action: 'S04_PRECHECK', message: error.message,
+      expected: order.executionBaseline.expected, actual: { workOrderCode: order.workOrderCode, activeOrderId: order.activeOrderId, ...status, rawProgress: { production: raw?.productionProgressPercent, inspection: raw?.inspectionProgressPercent }, processes: detail.processes } })
   }
+  return status
 }
 
 function isProductionPickListSyncResponse(response) {
@@ -979,7 +884,7 @@ async function readActiveOrderProgressAndStatus(row) {
 }
 
 function requireReleaseReadyProgress(status, manifestOrder, action) {
-  if (!/100/.test(status.productionProgressText) || !/100/.test(status.inspectionProgressText)) {
+  if (!/^100(?:\.0+)?\s*%$/.test(status.productionProgressText.trim()) || !/^100(?:\.0+)?\s*%$/.test(status.inspectionProgressText.trim())) {
     throw stageError({
       stage: 'S04',
       errorType: 'PRECONDITION_BLOCKED',
@@ -1170,6 +1075,7 @@ async function verifyCompletionInputMaterialBackfill(page, manifestOrder) {
 }
 
 async function completeActiveOrderAndApplyRelease(page, manifestOrder) {
+  await verifyExecutionProgress(page, manifestOrder)
   const prePickListInputMaterialBackfill = await verifyNoInputMaterialBackfillBeforePickList(page, manifestOrder)
   const pickListSync = await triggerProductionPickListSync(page, manifestOrder)
   const cancelProbe = await applyActiveOrderReleaseAndCancelNoReplenishment(page, manifestOrder)
@@ -1787,7 +1693,11 @@ async function archiveAndVerifyHistoryS08(page, manifestOrder, finalRelease) {
   }
 }
 async function main() {
-  const manifest = buildManifest({ runId, mode, templateWorkOrderCode })
+  if (!onlyS01) {
+    try { productionIdentity = resolveProductionIdentity(process.env) }
+    catch (error) { exitWithFailure(error, 'S00', 'PRECONDITION_BLOCKED'); return }
+  }
+  let manifest = buildManifest({ runId, mode, resetWorkOrderCode })
   const selectedOrders = ordersForMode(manifest)
   const runDir = writeRunReport({ rootDir: reportRoot, manifest, result: {
     schemaVersion: 'AI_EDHR_E2E_RESULT_V1', runId, status: 'RUNNING', failedStage: null,
@@ -1804,18 +1714,57 @@ async function main() {
   try {
     await runWithStage('S00', 'S00登录页与账号会话初始化',
       { loginPageLoaded: true, userAuthenticated: true, tenant: '芋道源码', username }, () => login(page))
-    const ready = await runWithStage('VERIFY_READY', 'VERIFY_READY固定母单可复制',
-      { sourceWorkOrderCode: manifest.templateWorkOrderCode, sourceQuantity: manifest.expected.finishedQuantity, copyButtonVisible: true },
-      () => verifyTemplateReady(page, manifest))
     const activeOrders = []
     for (const item of selectedOrders) {
-      activeOrders.push(await runWithStage('S01', 'S01复制固定母单生成活跃测试订单',
-        { action: 'COPY_LATEST_VERSION', sourceWorkOrderCode: manifest.templateWorkOrderCode, expectedWorkOrderCodePrefix: item.expectedWorkOrderCodePrefix, aiRunOrderSlotId: item.simulationRunId, actualSimulationRunId: 'SIMCOPY-* from real page action' },
-        () => copyTemplateActiveOrder(page, item, manifest, ready)))
+      activeOrders.push(await runWithStage('S01', 'S01重置指定测试订单生成活跃测试订单',
+        { action: 'RESET_FIXED_TEST_ORDER', resetWorkOrderCode: manifest.resetWorkOrderCode, aiRunOrderSlotId: item.simulationRunId },
+        () => resetFixedTestActiveOrder(page, item, manifest)))
     }
     const mainOrder = activeOrders[0]
+    if (onlyS01) {
+      await page.screenshot({ path: path.join(runDir, 'S01.png'), fullPage: true })
+      await context.tracing.stop({ path: path.join(runDir, 'trace.zip') })
+      await targetRequests.flush()
+      const result = {
+        schemaVersion: 'AI_EDHR_E2E_RESULT_V1', runId, status: 'PASS', failedStage: null,
+        errorType: null, action: 'E2E01四步验证', message: 'E2E01通过；E2E02至08未执行',
+        expected: { workOrderCode: manifest.resetWorkOrderCode, quantity: 10 },
+        actual: { activeOrders }, pageUrl: page.url(), screenshot: 'S01.png', trace: 'trace.zip',
+        targetRequests, targetRequestEvidenceFlushed: true, candidateCodePaths: [],
+        stages: stageResults(null, 'NOT_RUN').map((stage) =>
+          stage.stage === 'S01' ? { ...stage, status: 'PASS' } : stage),
+        startedAt: JSON.parse(fs.readFileSync(path.join(runDir, 'result.json'), 'utf8')).startedAt,
+        finishedAt: new Date().toISOString()
+      }
+      writeRunReport({ rootDir: reportRoot, manifest, result })
+      console.log(JSON.stringify({ status: 'PASS', runId, runDir, scope: 'S01', activeOrders }, null, 2))
+      return
+    }
+    const executionBaseline = await runWithStage('S01', '冻结全部生产工序及PQC任务', { activeOrderId: mainOrder.activeOrderId }, () => freezeActiveOrderExecutionBaseline(page, mainOrder))
+    mainOrder.executionBaseline = executionBaseline
+    manifest = Object.freeze({ ...manifest, executionBaseline, expected: Object.freeze({ ...manifest.expected, ...executionBaseline.expected }) })
+    fs.writeFileSync(path.join(runDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
     const processExecution = await runWithStage('S02', 'S02/S03生产PQC交错执行',
-      { productionFeedbackCount: 4, pqcSubmissionCount: 8, interleaved: true }, () => executeProductionAndPqcInterleaved(page, mainOrder, activeOrders[0]))
+      { ...executionBaseline.expected, interleaved: true }, () => executeProductionAndPqcInterleaved(page, mainOrder, activeOrders[0]))
+    if (throughS03) {
+      await page.screenshot({ path: path.join(runDir, 'S03.png'), fullPage: true })
+      await context.tracing.stop({ path: path.join(runDir, 'trace.zip') })
+      await targetRequests.flush()
+      const result = {
+        schemaVersion: 'AI_EDHR_E2E_RESULT_V1', runId, status: 'PASS', failedStage: null,
+        errorType: null, action: 'E2E01—03真实页面验证', message: 'E2E01—03通过；E2E04—08未执行',
+        expected: executionBaseline.expected, actual: { activeOrders, processExecution },
+        pageUrl: page.url(), screenshot: 'S03.png', trace: 'trace.zip',
+        targetRequests, targetRequestEvidenceFlushed: true, candidateCodePaths: [],
+        stages: stageResults(null, 'NOT_RUN').map(stage =>
+          ['S01', 'S02', 'S03'].includes(stage.stage) ? { ...stage, status: 'PASS' } : stage),
+        startedAt: JSON.parse(fs.readFileSync(path.join(runDir, 'result.json'), 'utf8')).startedAt,
+        finishedAt: new Date().toISOString()
+      }
+      writeRunReport({ rootDir: reportRoot, manifest, result })
+      console.log(JSON.stringify({ status: 'PASS', runId, runDir, scope: 'S01-S03', expected: executionBaseline.expected }, null, 2))
+      return
+    }
     const completion = await runWithStage('S04', 'S04领料晚到回填与完工申请',
       { releaseApplicationStatus: 'PQC_RELEASE_PENDING', inputMaterialPickListVisible: true, inputMaterialBatchVisible: true }, () => completeActiveOrderAndApplyRelease(page, mainOrder))
     const pqcRelease = await runWithStage('S05', 'S05PQC生产放行',
@@ -1830,11 +1779,11 @@ async function main() {
     await targetRequests.flush()
     const result = { schemaVersion: 'AI_EDHR_E2E_RESULT_V1', runId, status: 'PASS', failedStage: null,
       errorType: null, action: 'S01-S08 eDHR主流程完成',
-      expected: { businessStages: ['S01', 'S02', 'S03', 'S04', 'S05', 'S06', 'S07', 'S08'], fullModeOrderSlots: ['O01'], s01Action: 'COPY_LATEST_VERSION', sourceWorkOrderCode: manifest.templateWorkOrderCode, finishedQuantity: mainOrder.quantity, productionFeedbackCount: 4, pqcSubmissionCount: 8, pqcReviewCount: 8, pqcTaskCount: 16, pqcPieceResultCount: 40, releaseApplicationStatus: 'PQC_RELEASE_PENDING', pqcReleaseStatus: 'REPORT_UPLOAD_PENDING', reportUploadTaskCount: 4, reportUploadCompletedCount: 4, finalReleasePending: true, finalReleaseStatus: 'RELEASED', archiveStatus: 'SEALED', historyStatus: 40, expectedFormalLoss: 0 },
-      actual: { preparedBySimulationCopy: true, copiedOrderSlots: activeOrders.map((order) => order.slot), copiedOrderCount: activeOrders.length, readyVerified: ready.readyVerified, activeOrders, processExecution, production: processExecution.production, pqc: processExecution.pqc, completion, pqcRelease, reportUpload, finalRelease, archiveTrace },
-      message: 'S01已通过固定母单复制生成本轮测试活跃订单；S02/S03已按固定计划交错完成一线生产、生产组长FIFO复核、一线PQC及PQC组长复核；S04已完成领料晚到回填与无补料确认；S05已完成PQC生产放行；S06已完成四份资料上传；S07已完成管理者代表最终放行；S08已完成最终归档并在历史追溯页验证归档版本、时间线和放行资料目录。',
+      expected: { businessStages: ['S01', 'S02', 'S03', 'S04', 'S05', 'S06', 'S07', 'S08'], fullModeOrderSlots: ['O01'], s01Action: 'RESET_FIXED_TEST_ORDER', resetWorkOrderCode: manifest.resetWorkOrderCode, finishedQuantity: mainOrder.quantity, ...executionBaseline.expected, releaseApplicationStatus: 'PQC_RELEASE_PENDING', pqcReleaseStatus: 'REPORT_UPLOAD_PENDING', reportUploadTaskCount: 4, reportUploadCompletedCount: 4, finalReleasePending: true, finalReleaseStatus: 'RELEASED', archiveStatus: 'SEALED', historyStatus: 40, expectedFormalLoss: 0 },
+      actual: { preparedByFixedReset: true, resetOrderSlots: activeOrders.map((order) => order.slot), resetOrderCount: activeOrders.length, activeOrders, processExecution, production: processExecution.production, pqc: processExecution.pqc, completion, pqcRelease, reportUpload, finalRelease, archiveTrace },
+      message: 'S01已通过重置指定测试订单生成本轮活跃测试订单；S02/S03已按冻结的全部工序及检验任务交错完成一线生产、生产组长FIFO复核、一线PQC及PQC组长复核；S04已完成领料晚到回填与无补料确认；S05已完成PQC生产放行；S06已完成四份资料上传；S07已完成管理者代表最终放行；S08已完成最终归档并在历史追溯页验证归档版本、时间线和放行资料目录。',
       pageUrl: page.url(), screenshot: null, trace: 'trace.zip', targetRequests, targetRequestEvidenceFlushed: true, candidateCodePaths: [],
-      stages: stageResults(null, 'PASS'), erpOrders, ready, startedAt: JSON.parse(fs.readFileSync(path.join(runDir, 'result.json'), 'utf8')).startedAt,
+      stages: stageResults(null, 'PASS'), startedAt: JSON.parse(fs.readFileSync(path.join(runDir, 'result.json'), 'utf8')).startedAt,
       finishedAt: new Date().toISOString() }
     writeRunReport({ rootDir: reportRoot, manifest, result })
     console.log(JSON.stringify({ status: 'PASS', runId, runDir, failedStage: null }, null, 2))
@@ -1848,9 +1797,9 @@ async function main() {
     await targetRequests.flush()
     const blocked = ['INFRASTRUCTURE_BLOCKED', 'UI_ACTION_FAILED', 'TEST_HARNESS_FAILURE', 'PRECONDITION_BLOCKED'].includes(classification.errorType)
     const result = { schemaVersion: 'AI_EDHR_E2E_RESULT_V1', runId, status: blocked ? 'BLOCKED' : 'FAIL', failedStage,
-      errorType: classification.errorType, action: error.action || '固定母单复制准备',
-      expected: error.expected || { templateWorkOrderCode, mode, fullModeOrderSlots: ordersForMode(manifest).map((order) => order.slot) },
-      actual: error.actual || { message: error.message },
+      errorType: classification.errorType, action: error.action || '指定测试订单重置准备',
+      expected: error.expected || { resetWorkOrderCode, mode, selectedOrderSlots: ordersForMode(manifest).map((order) => order.slot) },
+      actual: { runId, activeOrderId: manifest.executionBaseline?.activeOrderId, workOrderCode: manifest.executionBaseline?.workOrderCode, ...(error.actual || { message: error.message }) },
       message: error.message,
       pageUrl: page.url(), screenshot: path.basename(screenshot), trace: 'trace.zip',
       targetRequests, targetRequestEvidenceFlushed: true, candidateCodePaths: stageCandidateCodePaths(failedStage),

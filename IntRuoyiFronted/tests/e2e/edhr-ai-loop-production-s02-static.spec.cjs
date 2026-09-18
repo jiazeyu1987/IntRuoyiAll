@@ -36,7 +36,7 @@ for (const selector of [
   assert.match(teamLeaderPage, new RegExp(selector), `team leader review page missing ${selector}`)
 }
 
-assert.match(runner, /async function submitProductionReports\(page, manifestOrder, activeOrder\)/)
+assert.match(runner, /for \(const step of baseline.productionProcesses\)/)
 assert.match(runner, /async function submitOneProductionReport\(/)
 assert.match(runner, /async function reviewProductionReport\(/)
 assert.match(runner, /\/mes\/pro\/feedback\/edhr-batch-production-fill/)
@@ -55,3 +55,5 @@ assert.doesNotMatch(runner, /page\.request\.(post|get|put|delete)/)
 assert.doesNotMatch(runner, /fetch\(/)
 
 console.log('PASS: eDHR AI loop S02 production submission and review static contract')
+
+assert.match(runner, /data-production-report-allocation-event-id/)

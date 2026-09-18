@@ -26,6 +26,7 @@ import cn.iocoder.yudao.module.ai.enums.model.AiPlatformEnum;
 import cn.iocoder.yudao.module.ai.framework.ai.core.webserch.AiWebSearchClient;
 import cn.iocoder.yudao.module.ai.framework.ai.core.webserch.AiWebSearchRequest;
 import cn.iocoder.yudao.module.ai.framework.ai.core.webserch.AiWebSearchResponse;
+import cn.iocoder.yudao.module.ai.framework.ai.core.model.codexcli.CodexCliChatModel;
 import cn.iocoder.yudao.module.ai.service.knowledge.AiKnowledgeDocumentService;
 import cn.iocoder.yudao.module.ai.service.knowledge.AiKnowledgeSegmentService;
 import cn.iocoder.yudao.module.ai.service.knowledge.bo.AiKnowledgeSegmentSearchReqBO;
@@ -149,6 +150,7 @@ public class AiChatMessageServiceImpl implements AiChatMessageService {
         // 1.2 校验模型
         AiModelDO model = modalService.validateModel(conversation.getModelId());
         ChatModel chatModel = modalService.getChatModel(model.getId());
+        validateCodexMcpIfRequested(sendReqVO, chatModel);
 
         // 2.1 知识库召回
         List<AiKnowledgeSegmentSearchRespBO> knowledgeSegments = recallKnowledgeSegment(
@@ -206,6 +208,7 @@ public class AiChatMessageServiceImpl implements AiChatMessageService {
         // 1.2 校验模型
         AiModelDO model = modalService.validateModel(conversation.getModelId());
         StreamingChatModel chatModel = modalService.getChatModel(model.getId());
+        validateCodexMcpIfRequested(sendReqVO, chatModel);
 
         // 2.1 知识库找回
         List<AiKnowledgeSegmentSearchRespBO> knowledgeSegments = recallKnowledgeSegment(
@@ -427,6 +430,15 @@ public class AiChatMessageServiceImpl implements AiChatMessageService {
             });
         }
         return toolCallbacks;
+    }
+
+    private void validateCodexMcpIfRequested(AiChatMessageSendReqVO sendReqVO, Object chatModel) {
+        if (!Boolean.TRUE.equals(sendReqVO.getUseIntRuoyiMcp())) {
+            return;
+        }
+        if (!(chatModel instanceof CodexCliChatModel codexCliChatModel) || !codexCliChatModel.isMcpConfigured()) {
+            throw exception(ErrorCodeConstants.CODEX_WEB_MCP_NOT_CONFIGURED);
+        }
     }
 
     /**

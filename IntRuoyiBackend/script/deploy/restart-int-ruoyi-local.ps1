@@ -676,6 +676,31 @@ THEN 1 ELSE 0 END;
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260822_mes_edhr_release_final_state_trace.sql'
     },
     [PSCustomObject]@{
+        Name = 'MES eDHR batch traceability capacity schema'
+        ProbeSql = @'
+SELECT CASE WHEN
+  EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_edhr_batch_execution_origin'
+      AND COLUMN_NAME = 'batch_provision_status'
+      AND DATA_TYPE = 'varchar'
+      AND CHARACTER_MAXIMUM_LENGTH >= 32
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_edhr_batch_trace_outbox_event'
+      AND COLUMN_NAME = 'reason'
+      AND DATA_TYPE = 'longtext'
+  )
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260917_mes_edhr_batch_traceability_capacity.sql'
+    },
+    [PSCustomObject]@{
         Name = 'System user lifecycle deactivation schema'
         ProbeSql = @'
 SELECT CASE WHEN

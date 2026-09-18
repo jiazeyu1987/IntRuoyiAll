@@ -116,38 +116,6 @@
               </template>
             </el-table-column>
             <el-table-column
-              v-if="isEdhrBatchExecutionColumnVisible('currentProcess')"
-              label="当前工序"
-              prop="currentProcess"
-              :min-width="getEdhrBatchExecutionColumnMinWidthString('currentProcess', 140)"
-              v-bind="sortColumnAttrs('currentProcess')"
-            >
-              <template #default="{ row }">
-                <el-button
-                  v-if="row.currentProcessName || row.currentProcessCode"
-                  link
-                  type="primary"
-                  @click="openDetail(row, 'process')"
-                >
-                  {{ row.currentProcessName || row.currentProcessCode }}
-                </el-button>
-                <span v-else>--</span>
-              </template>
-            </el-table-column>
-            <el-table-column
-              v-if="isEdhrBatchExecutionColumnVisible('currentFillers')"
-              label="当前填写人"
-              prop="currentFillers"
-              :min-width="getEdhrBatchExecutionColumnMinWidthString('currentFillers', 220)"
-              v-bind="sortColumnAttrs('currentFillers')"
-            >
-              <template #default="{ row }">
-                <div class="edhr-batch-page__filler-cell">
-                  {{ resolveCurrentProcessFillerNames(row) }}
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column
               v-if="isEdhrBatchExecutionColumnVisible('product')"
               label="产品"
               prop="product"
@@ -183,20 +151,6 @@
                   <el-tag :type="resolveBatchStatusType(row.status)">{{ resolveBatchStatusLabel(row.status) }}</el-tag>
                   <el-tag v-if="isPendingVoidBatch(row)" type="warning">作废申请中</el-tag>
                   <div class="edhr-batch-page__muted">{{ row.mainStageLabel || resolveBatchMainStageLabel(row) }}</div>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column
-              v-if="isEdhrBatchExecutionColumnVisible('progress')"
-              label="完成进度"
-              prop="progress"
-              :width="getEdhrBatchExecutionColumnWidthString('progress', 150)"
-              v-bind="sortColumnAttrs('progress')"
-            >
-              <template #default="{ row }">
-                <div class="edhr-batch-page__progress">
-                  <span>{{ resolveBatchRequiredProgress(row) }}%</span>
-                  <el-progress :percentage="resolveBatchRequiredProgress(row)" :show-text="false" :stroke-width="6" />
                 </div>
               </template>
             </el-table-column>
@@ -744,7 +698,6 @@ import { requestVoidBatchExecution, resolveVoidBatchExecutionApproval } from '@/
 import { CandidateStrategy, NodeId } from '@/components/SimpleProcessDesignerV2/src/consts'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { MesProWorkOrderStatusEnum } from '@/views/mes/utils/constants'
-import { resolveBatchRequiredProgress } from './progress'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import EdhrBatchRecordTabs from './EdhrBatchRecordTabs.vue'
@@ -766,7 +719,6 @@ const userStore = useUserStore()
 const GOLDEN_FINGER_PERMISSION = 'mes:pro-batch-record-execution:golden-finger'
 const hasGoldenFingerPermission = computed(() => userStore.permissions.has(GOLDEN_FINGER_PERMISSION))
 const hasGoldenFingerActionBypass = computed(() => hasGoldenFingerPermission.value)
-type EdhrBatchExecutionDetailFocus = 'process'
 const EDHR_BATCH_EXECUTION_TRACE_ONLY_STATUSES = [
   EDHR_BATCH_STATUS_ARCHIVED,
   EDHR_BATCH_STATUS_REJECTED
@@ -780,12 +732,9 @@ type BatchVoidOperationState =
 const edhrBatchExecutionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'batchExecutionCode', label: '批次执行编码', minWidth: 190 },
   { key: 'workOrderCode', label: '工单', minWidth: 150 },
-  { key: 'currentProcess', label: '当前工序', minWidth: 140 },
-  { key: 'currentFillers', label: '当前填写人', minWidth: 220 },
   { key: 'product', label: '产品', minWidth: 170 },
   { key: 'route', label: '路线', minWidth: 170 },
   { key: 'status', label: '状态', width: 110 },
-  { key: 'progress', label: '完成进度', width: 150 },
   { key: 'blockedCount', label: '阻塞数', width: 90 },
   { key: 'updateTime', label: '最后更新时间', width: 180 },
   { key: 'operation', label: '操作', width: 180, hideable: false, business: false }
@@ -1322,22 +1271,6 @@ const resolveBatchStatusType = (status?: number | string | null) => {
   return 'info'
 }
 
-const resolveCurrentProcessFillerNames = (row: EdhrBatchExecutionRespVO) => {
-  const seenNames = new Set<string>()
-  const names = [
-    ...(row.currentProcessProductionFillers || []),
-    ...(row.currentProcessEquipmentFillers || []),
-    ...(row.currentProcessQualityFillers || [])
-  ].reduce<string[]>((result, user) => {
-    const name = user.displayName?.trim()
-    if (!name || seenNames.has(name)) return result
-    seenNames.add(name)
-    result.push(name)
-    return result
-  }, [])
-  return names.length ? names.join('、') : '--'
-}
-
 const getList = async () => {
   loading.value = true
   loadError.value = ''
@@ -1567,13 +1500,8 @@ const resolveReadinessUserLabel = (user: UserApi.UserVO) => {
   return [user.username, user.nickname, `ID ${user.id}`].filter(Boolean).join(' / ')
 }
 
-const openDetail = async (row: EdhrBatchExecutionRespVO, focus?: EdhrBatchExecutionDetailFocus) => {
+const openDetail = async (row: EdhrBatchExecutionRespVO) => {
   const query: Record<string, string> = { id: String(row.id) }
-  if (focus) query.focus = focus
-  if (focus === 'process') {
-    if (row.currentProcessCode) query.processCode = row.currentProcessCode
-    if (row.currentProcessName) query.processName = row.currentProcessName
-  }
   await router.push({ path: '/mes/pro/feedback/edhr-batch-execution/detail', query })
 }
 
@@ -1749,14 +1677,6 @@ onMounted(() => {
 
 .edhr-batch-page__list-alert {
   margin-bottom: 12px;
-}
-
-.edhr-batch-page__progress {
-  display: grid;
-  grid-template-columns: 44px 1fr;
-  align-items: center;
-  gap: 8px;
-  font-variant-numeric: tabular-nums;
 }
 
 .edhr-batch-page__stage-cell {

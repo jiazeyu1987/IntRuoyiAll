@@ -28,8 +28,8 @@ assert.match(
 assert.doesNotMatch(page, /data-team-leader-active-order-detail-dialog|activeOrderDetailVisible/, '工作台不得继续渲染活跃订单详情弹窗。')
 assert.match(
   page,
-  /const\s+handleGenerateStage1Forms\s*=\s*\(row:[\s\S]*navigateActiveOrderSubmissionDetail\(activeOrderId\)/,
-  'P2 生成必须打开当前点击活跃订单详情。'
+  /const\s+handleGenerateStage1Forms\s*=\s*async\s*\(row:[\s\S]*const\s+activeOrderId\s*=\s*requirePositiveNumber\(row\.id[\s\S]*simulateStage2_5BackfillBatchExecution\(\{[\s\S]*activeOrderId[\s\S]*expectedVersion:\s*row\.version[\s\S]*await loadActiveOrders\(\)/,
+  'P2 生成必须执行正式回填并刷新列表。'
 )
 assert.match(
   routes,
