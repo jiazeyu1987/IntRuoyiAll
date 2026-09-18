@@ -58,6 +58,7 @@ public class MesProBatchRecordExecutionSignatureService {
     public static final String ACTION_BATCH_VOID_REQUEST = "BATCH_VOID_REQUEST";
     public static final String ACTION_BATCH_CLOSE = "BATCH_CLOSE";
     public static final String ACTION_QUALITY_REJECT = "QUALITY_REJECT";
+    public static final String ACTION_NONCONFORMANCE_REJECT = "NONCONFORMANCE_REJECT";
     public static final String ACTION_SPECIAL_NODE_SKIP = "SPECIAL_NODE_SKIP";
     public static final String ACTION_ROUTE_FORM_OPTIONAL_SKIP = "ROUTE_FORM_OPTIONAL_SKIP";
     public static final String ACTION_QA_DISPOSITION = "QA_DISPOSITION";
@@ -846,6 +847,7 @@ public class MesProBatchRecordExecutionSignatureService {
             case ACTION_PQC_SUBMIT -> "PQC检验提交";
             case ACTION_PQC_RELEASE -> "PQC生产放行";
             case ACTION_TEAM_LEADER_REVIEW -> "组长复核";
+            case ACTION_NONCONFORMANCE_REJECT -> "发起eDHR不合格评审";
             case ACTION_QA_DISPOSITION -> "QA不合格评审处置";
             default -> actionType;
         };

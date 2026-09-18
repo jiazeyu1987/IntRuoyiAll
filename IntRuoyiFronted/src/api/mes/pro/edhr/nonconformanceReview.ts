@@ -34,6 +34,12 @@ export interface EdhrNonconformanceReviewCreateReqVO {
   remark?: string
 }
 
+export interface EdhrBatchExecutionRejectReqVO {
+  batchExecutionId: EdhrRouteId
+  nonconformanceReason: string
+  signaturePassword: string
+}
+
 export interface EdhrNonconformanceReviewDisposeReqVO {
   id: EdhrRouteId
   disposition: EdhrNonconformanceReviewDisposition
@@ -84,6 +90,15 @@ export interface EdhrNonconformanceReviewRespVO {
 export const createNonconformanceReview = async (data: EdhrNonconformanceReviewCreateReqVO) => {
   return await request.post<EdhrNonconformanceReviewRespVO>({
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/create`,
+    data
+  })
+}
+
+export const rejectEdhrBatchExecutionToNonconformanceReview = async (
+  data: EdhrBatchExecutionRejectReqVO
+) => {
+  return await request.post<EdhrNonconformanceReviewRespVO>({
+    url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/reject-batch`,
     data
   })
 }

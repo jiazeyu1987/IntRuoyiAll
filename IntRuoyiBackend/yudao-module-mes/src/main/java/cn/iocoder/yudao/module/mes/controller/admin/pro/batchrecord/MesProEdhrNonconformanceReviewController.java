@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchExecutionRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewDisposeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewPageReqVO;
@@ -39,6 +40,14 @@ public class MesProEdhrNonconformanceReviewController {
     public CommonResult<MesProEdhrNonconformanceReviewRespVO> create(
             @Valid @RequestBody MesProEdhrNonconformanceReviewCreateReqVO reqVO) {
         return success(nonconformanceReviewService.create(reqVO));
+    }
+
+    @PostMapping("/reject-batch")
+    @Operation(summary = "上市放行负责人驳回批次并发起不合格评审")
+    @PreAuthorize("@ss.hasPermission('mes:pro-production-release:pqc-reject')")
+    public CommonResult<MesProEdhrNonconformanceReviewRespVO> rejectBatch(
+            @Valid @RequestBody MesProEdhrBatchExecutionRejectReqVO reqVO) {
+        return success(nonconformanceReviewService.rejectBatch(reqVO));
     }
 
     @PostMapping("/dispose")

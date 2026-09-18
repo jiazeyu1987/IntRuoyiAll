@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchExecutionRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewDisposeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO;
@@ -33,11 +34,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -198,6 +202,71 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         assertEquals(false, reviewCaptor.getValue().getPreviousWorkOrderTemporaryFrozen());
         verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3002L), true);
         verify(batchExecutionMapper).updateById(any(MesProEdhrBatchExecutionDO.class));
+    }
+
+
+    @Test
+    void releaseOwnerRejectCreatesSignedPendingReviewAndFreezesBatch() {
+        when(batchExecutionMapper.selectByIdForUpdate(9002L)).thenReturn(new MesProEdhrBatchExecutionDO()
+                .setId(9002L)
+                .setBatchExecutionCode("BE-9002")
+                .setWorkOrderId(3008L)
+                .setWorkOrderCode("WO-008")
+                .setBatchCode("BATCH-008")
+                .setStatus(20));
+        when(workOrderMapper.selectByIdForUpdate(3008L)).thenReturn(
+                new MesProWorkOrderDO().setId(3008L).setTemporaryFrozen(false));
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3008L), true)).thenReturn(1);
+        when(signatureService.recordBatchActionSignature(isNull(), eq(9002L), eq("release-password"),
+                eq("末检结果不合格"), eq(MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REJECT),
+                eq("eDHR不合格评审发起"), any())).thenReturn(9202L);
+        when(reviewMapper.insert(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(invocation -> {
+            invocation.<MesProEdhrNonconformanceReviewDO>getArgument(0).setId(1202L);
+            return 1;
+        });
+
+        MesProEdhrNonconformanceReviewRespVO result = service.rejectBatch(
+                new MesProEdhrBatchExecutionRejectReqVO()
+                        .setBatchExecutionId(9002L)
+                        .setNonconformanceReason("末检结果不合格")
+                        .setSignaturePassword("release-password"));
+
+        assertEquals(1202L, result.getId());
+        assertEquals("PQC_RELEASE", result.getSourceType());
+        assertEquals(9002L, result.getBatchExecutionId());
+        assertEquals("pending_review", result.getReviewStatus());
+        ArgumentCaptor<MesProEdhrNonconformanceReviewDO> reviewCaptor =
+                ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
+        verify(reviewMapper).insert(reviewCaptor.capture());
+        assertTrue(reviewCaptor.getValue().getRemark().contains("9202"));
+        verify(signatureService).recordBatchActionSignature(isNull(), eq(9002L), eq("release-password"),
+                eq("末检结果不合格"), eq(MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REJECT),
+                eq("eDHR不合格评审发起"), any());
+        verify(batchExecutionMapper).updateById(argThat((MesProEdhrBatchExecutionDO batch) ->
+                batch.getId().equals(9002L) && batch.getStatus().equals(15)));
+        verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3008L), true);
+    }
+
+    @Test
+    void releaseOwnerRejectWithInvalidSignatureDoesNotCreateReviewOrFreezeBatch() {
+        when(batchExecutionMapper.selectByIdForUpdate(9003L)).thenReturn(new MesProEdhrBatchExecutionDO()
+                .setId(9003L)
+                .setWorkOrderId(3009L)
+                .setStatus(20));
+        when(signatureService.recordBatchActionSignature(isNull(), eq(9003L), eq("wrong-password"),
+                eq("末检结果不合格"), eq(MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REJECT),
+                eq("eDHR不合格评审发起"), any()))
+                .thenThrow(exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID));
+
+        assertThrows(ServiceException.class, () -> service.rejectBatch(
+                new MesProEdhrBatchExecutionRejectReqVO()
+                        .setBatchExecutionId(9003L)
+                        .setNonconformanceReason("末检结果不合格")
+                        .setSignaturePassword("wrong-password")));
+
+        verify(reviewMapper, never()).insert(any(MesProEdhrNonconformanceReviewDO.class));
+        verify(batchExecutionMapper, never()).updateById(any(MesProEdhrBatchExecutionDO.class));
+        verify(workOrderMapper, never()).updateTemporaryFrozenByIds(any(), any());
     }
 
     @Test
