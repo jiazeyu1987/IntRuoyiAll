@@ -8,9 +8,10 @@ SET NAMES utf8mb4;
 DROP PROCEDURE IF EXISTS ensure_dcc_reg_cert_notification_role_scope_backfill_20260830;
 DELIMITER $$
 CREATE PROCEDURE ensure_dcc_reg_cert_notification_role_scope_backfill_20260830()
-BEGIN
+backfill: BEGIN
   DECLARE job_count INT DEFAULT 0;
   DECLARE configured_role_count INT DEFAULT 0;
+  DECLARE company_count INT DEFAULT 0;
   DECLARE expected_count INT DEFAULT 0;
   DECLARE inserted_count INT DEFAULT 0;
 
@@ -65,22 +66,6 @@ BEGIN
       SET MESSAGE_TEXT = 'Missing registration certificate notification role scope source';
   END IF;
 
-  IF EXISTS (
-      SELECT 1
-        FROM `infra_job` AS `job`
-       WHERE `job`.`handler_name` = 'registrationCertificateReminderDailyJob'
-         AND `job`.`deleted` = b'0'
-         AND (
-           `job`.`handler_param` IS NULL
-           OR TRIM(`job`.`handler_param`) = ''
-           OR JSON_VALID(`job`.`handler_param`) = 0
-           OR COALESCE(JSON_TYPE(JSON_EXTRACT(`job`.`handler_param`, '$.roleIds')), '') <> 'ARRAY'
-         )
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Missing registration certificate notification role scope source';
-  END IF;
-
   DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_notification_role_ids;
   CREATE TEMPORARY TABLE tmp_dcc_reg_cert_notification_role_ids (
     `role_id` bigint NOT NULL,
@@ -109,6 +94,69 @@ BEGIN
     PRIMARY KEY (`tenant_id`, `role_id`, `company_id`)
   ) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+  IF EXISTS (
+      SELECT 1
+        FROM `dcc_registration_certificate` AS `certificate`
+        LEFT JOIN `mdm_enterprise` AS `enterprise`
+          ON `enterprise`.`id` = `certificate`.`owner_company_id`
+         AND `enterprise`.`tenant_id` = `certificate`.`tenant_id`
+         AND `enterprise`.`deleted` = b'0'
+         AND `enterprise`.`type` = 'OWNED_COMPANY'
+         AND `enterprise`.`status` = 'ENABLE'
+       WHERE `certificate`.`deleted` = b'0'
+         AND `certificate`.`status` = 'ACTIVE'
+         AND `certificate`.`owner_company_id` IS NOT NULL
+         AND `certificate`.`owner_company_id` > 0
+         AND `enterprise`.`id` IS NULL
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Missing registration certificate notification role scope source';
+  END IF;
+
+  INSERT IGNORE INTO tmp_dcc_reg_cert_notification_companies (`tenant_id`, `company_id`)
+  SELECT DISTINCT
+         `certificate`.`tenant_id`,
+         `certificate`.`owner_company_id`
+    FROM `dcc_registration_certificate` AS `certificate`
+    JOIN `mdm_enterprise` AS `enterprise`
+      ON `enterprise`.`id` = `certificate`.`owner_company_id`
+     AND `enterprise`.`tenant_id` = `certificate`.`tenant_id`
+     AND `enterprise`.`deleted` = b'0'
+     AND `enterprise`.`type` = 'OWNED_COMPANY'
+     AND `enterprise`.`status` = 'ENABLE'
+   WHERE `certificate`.`deleted` = b'0'
+     AND `certificate`.`status` = 'ACTIVE'
+     AND `certificate`.`owner_company_id` IS NOT NULL
+     AND `certificate`.`owner_company_id` > 0;
+
+  SELECT COUNT(*)
+    INTO company_count
+    FROM tmp_dcc_reg_cert_notification_companies;
+
+  IF company_count = 0 THEN
+    DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_notification_role_ids;
+    DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_notification_roles;
+    DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_notification_companies;
+    DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_notification_pending_scopes;
+    LEAVE backfill;
+  END IF;
+
+  IF EXISTS (
+      SELECT 1
+        FROM `infra_job` AS `job`
+       WHERE `job`.`handler_name` = 'registrationCertificateReminderDailyJob'
+         AND `job`.`deleted` = b'0'
+         AND (
+           `job`.`handler_param` IS NULL
+           OR TRIM(`job`.`handler_param`) = ''
+           OR JSON_VALID(`job`.`handler_param`) = 0
+           OR COALESCE(JSON_TYPE(JSON_EXTRACT(`job`.`handler_param`, '$.roleIds')), '') <> 'ARRAY'
+         )
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Missing registration certificate notification role scope source';
+  END IF;
+
   INSERT IGNORE INTO tmp_dcc_reg_cert_notification_role_ids (`role_id`)
   SELECT DISTINCT `role_param`.`role_id`
     FROM `infra_job` AS `job`
@@ -117,7 +165,7 @@ BEGIN
            '$.roleIds[*]' COLUMNS (
              `role_id` bigint PATH '$'
            )
-         ) AS `role_param`
+        ) AS `role_param`
    WHERE `job`.`handler_name` = 'registrationCertificateReminderDailyJob'
      AND `job`.`deleted` = b'0';
 
@@ -157,41 +205,6 @@ BEGIN
       ON `configured`.`role_id` = `role`.`id`
    WHERE `role`.`deleted` = b'0'
      AND `role`.`status` = 0;
-
-  IF EXISTS (
-      SELECT 1
-        FROM `dcc_registration_certificate` AS `certificate`
-        LEFT JOIN `mdm_enterprise` AS `enterprise`
-          ON `enterprise`.`id` = `certificate`.`owner_company_id`
-         AND `enterprise`.`tenant_id` = `certificate`.`tenant_id`
-         AND `enterprise`.`deleted` = b'0'
-         AND `enterprise`.`type` = 'OWNED_COMPANY'
-         AND `enterprise`.`status` = 'ENABLE'
-       WHERE `certificate`.`deleted` = b'0'
-         AND `certificate`.`status` = 'ACTIVE'
-         AND `certificate`.`owner_company_id` IS NOT NULL
-         AND `certificate`.`owner_company_id` > 0
-         AND `enterprise`.`id` IS NULL
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Missing registration certificate notification role scope source';
-  END IF;
-
-  INSERT IGNORE INTO tmp_dcc_reg_cert_notification_companies (`tenant_id`, `company_id`)
-  SELECT DISTINCT
-         `certificate`.`tenant_id`,
-         `certificate`.`owner_company_id`
-    FROM `dcc_registration_certificate` AS `certificate`
-    JOIN `mdm_enterprise` AS `enterprise`
-      ON `enterprise`.`id` = `certificate`.`owner_company_id`
-     AND `enterprise`.`tenant_id` = `certificate`.`tenant_id`
-     AND `enterprise`.`deleted` = b'0'
-     AND `enterprise`.`type` = 'OWNED_COMPANY'
-     AND `enterprise`.`status` = 'ENABLE'
-   WHERE `certificate`.`deleted` = b'0'
-     AND `certificate`.`status` = 'ACTIVE'
-     AND `certificate`.`owner_company_id` IS NOT NULL
-     AND `certificate`.`owner_company_id` > 0;
 
   IF EXISTS (
       SELECT 1

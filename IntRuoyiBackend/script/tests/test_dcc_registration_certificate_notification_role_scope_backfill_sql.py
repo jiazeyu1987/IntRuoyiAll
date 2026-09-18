@@ -47,6 +47,31 @@ def test_notification_role_scope_backfill_uses_configured_roles_and_current_cert
     assert "910231" not in text
 
 
+def test_notification_role_scope_backfill_noops_before_legacy_role_param_when_no_active_companies() -> None:
+    text = read_sql()
+
+    company_insert = text.index("INSERT IGNORE INTO tmp_dcc_reg_cert_notification_companies")
+    no_company_guard = text.index("IF company_count = 0 THEN")
+    legacy_role_param_guard = text.index("COALESCE(JSON_TYPE(JSON_EXTRACT(`job`.`handler_param`, '$.roleIds')), '') <> 'ARRAY'")
+
+    assert company_insert < no_company_guard < legacy_role_param_guard
+    assert "LEAVE backfill;" in text
+
+
+def test_notification_role_scope_backfill_preflight_matches_runtime_prerequisites() -> None:
+    preflight_path = SQL_PATH.parent / "target-preflight" / (
+        "20260830_dcc_registration_certificate_notification_role_scope_backfill.preflight.sql"
+    )
+    text = preflight_path.read_text(encoding="utf-8")
+
+    assert "registrationCertificateReminderDailyJob" in text
+    assert "JSON_VALID(`job`.`handler_param`) = 1" in text
+    assert "$.roleIds" in text
+    assert "`certificate`.`status` = 'ACTIVE'" in text
+    assert "`enterprise`.`type` = 'OWNED_COMPANY'" in text
+    assert "TARGET_PREFLIGHT_BLOCKED:20260830_dcc_registration_certificate_notification_role_scope_backfill" in text
+
+
 def test_notification_role_scope_backfill_is_non_destructive_and_does_not_authorize_users() -> None:
     upper = read_sql().upper()
 
