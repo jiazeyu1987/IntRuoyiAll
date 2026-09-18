@@ -220,7 +220,12 @@ assertIncludes(parseHandler, 'parseProductionBatchRecordTotalRecognitionJson')
 assertIncludes(parseHandler, 'parseTotalRecognitionJson(totalRecognitionJson)')
 assertIncludes(parseHandler, 'editableRecognitionJson.value')
 assertIncludes(parseHandler, 'previewRecognitionJson.value')
-assertIncludes(parseHandler, 'download.json')
+assertNotIncludes(
+  parseHandler,
+  'download.json',
+  'Word 解析完成后不得自动下载 JSON，只有用户点击“下载当前JSON”时才允许下载'
+)
+assertIncludes(parseHandler, "message.success('解析完成')")
 
 const applyHandler = extractFunction(parserPage, 'handleApplyEditedJson')
 assertIncludes(applyHandler, 'parseTotalRecognitionJson(editableRecognitionJson.value)')

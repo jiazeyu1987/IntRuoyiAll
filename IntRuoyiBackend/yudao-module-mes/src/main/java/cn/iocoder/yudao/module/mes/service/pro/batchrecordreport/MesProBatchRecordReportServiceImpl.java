@@ -25,6 +25,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.Bat
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportSignatureCellMarkerVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportSignatureCellMarkersReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportSignatureCellMarkersRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionCreateReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordDefinitionDO;
@@ -52,6 +53,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionWorkflowService;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -162,6 +164,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     private MesProBatchRecordVersionBusinessApprovalEffectExecutor batchRecordVersionApprovalEffectExecutor;
     @Resource
     private MesProBatchRecordRecognitionDeviceSyncService recognitionDeviceSyncService;
+    @Resource
+    private MesProRouteVersionWorkflowService routeVersionWorkflowService;
     @Autowired(required = false)
     private List<MesProBatchRecordRouteRecognizer> routeRecognizers = List.of();
 
@@ -184,6 +188,78 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         validateTotalRecognitionJsonIntegrity(totalRecognitionJson);
         updateProjectCodeTotalRecognitionJson(dccProjectCodeId, totalRecognitionJson);
         recognitionDeviceSyncService.sync(dccProjectCodeId, totalRecognitionJson);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProBatchRecordTotalRecognitionPublishResult publishTotalRecognitionJson(Long dccProjectCodeId,
+                                                                                      String totalRecognitionJson) {
+        DccProjectCodeDO projectCode = requireEnabledProjectCodeForPublish(dccProjectCodeId);
+        JSONObject root = parseTotalRecognitionJsonForPublish(totalRecognitionJson);
+        validatePublishProcessNames(root);
+        String canonicalJson = root.toJSONString();
+        updateProjectCodeTotalRecognitionJson(dccProjectCodeId, canonicalJson);
+
+        List<MesRouteDccProjectBindingDO> currentBindings =
+                routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(dccProjectCodeId);
+        List<Long> routeIds = currentBindings.stream()
+                .map(MesRouteDccProjectBindingDO::getRouteId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (routeIds.size() > 1) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_DUPLICATE,
+                    projectCode.getProjectName(), routeIds);
+        }
+
+        MesProRouteDO route;
+        MesProRouteVersionDO activeVersion;
+        String action;
+        if (routeIds.isEmpty()) {
+            MesProBatchRecordRouteGenerationResult generatedRoute =
+                    routeGenerationService.generateRouteOnlyForUploadedWord(
+                            StrUtil.blankToDefault(StrUtil.trim(projectCode.getProjectName()),
+                                    StrUtil.blankToDefault(StrUtil.trim(projectCode.getProjectCode()), "生产批记录")),
+                            buildRouteParsedTablesFromTotalRecognitionJson(root),
+                            List.of(projectCode.getProjectName()),
+                            null, null, false, null, dccProjectCodeId);
+            route = routeMapper.selectById(generatedRoute.routeId());
+            activeVersion = routeVersionMapper.selectActiveByRouteId(generatedRoute.routeId());
+            action = "CREATED_ROUTE";
+        } else {
+            Long routeId = routeIds.get(0);
+            route = routeMapper.selectById(routeId);
+            if (route == null) {
+                throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMPORT_INTEGRITY_INVALID,
+                        "DCC项目代码绑定的工艺路线不存在：" + routeId);
+            }
+            activeVersion = routeVersionMapper.selectActiveByRouteId(routeId);
+            action = "UPDATED_ROUTE";
+        }
+        if (activeVersion == null) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMPORT_INTEGRITY_INVALID,
+                    "工艺路线缺少正式版本：" + (route == null ? null : route.getId()));
+        }
+        MesProRouteVersionDO candidateVersion = createPublishCandidate(route, activeVersion);
+        recognitionDeviceSyncService.sync(dccProjectCodeId, canonicalJson);
+        candidateVersion = routeVersionMapper.selectOpenCandidateByRouteId(route.getId());
+        return MesProBatchRecordTotalRecognitionPublishResult.builder()
+                .action(action)
+                .dccProjectCodeId(projectCode.getId())
+                .projectCode(projectCode.getProjectCode())
+                .projectName(projectCode.getProjectName())
+                .routeId(route.getId())
+                .routeCode(route.getCode())
+                .routeName(route.getName())
+                .routeVersionId(activeVersion.getId())
+                .routeVersionNo(activeVersion.getVersionNo())
+                .routeCandidateVersionId(candidateVersion == null ? null : candidateVersion.getId())
+                .routeCandidateVersionNo(candidateVersion == null ? null : candidateVersion.getVersionNo())
+                .processCount(countPublishProcesses(root))
+                .updatedProcessCount(countPublishProcesses(root))
+                .recognitionJsonSha256(sha256(canonicalJson.getBytes(StandardCharsets.UTF_8)))
+                .updateTime(LocalDateTime.now())
+                .build();
     }
 
     @Override
@@ -1004,6 +1080,87 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMPORT_INTEGRITY_INVALID,
                     "DCC项目代码总识别JSON更新影响行数异常：" + updated);
         }
+    }
+
+    private DccProjectCodeDO requireEnabledProjectCodeForPublish(Long dccProjectCodeId) {
+        if (dccProjectCodeId == null || dccProjectCodeId <= 0) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_DCC_PROJECT_CODE_REQUIRED);
+        }
+        DccProjectCodeDO projectCode = dccProjectCodeMapper.selectById(dccProjectCodeId);
+        if (projectCode == null || !DccProjectCodeStatusConstants.ENABLE.equals(projectCode.getStatus())
+                || StrUtil.isBlank(projectCode.getProjectName())) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_DCC_PROJECT_CODE_REQUIRED);
+        }
+        return projectCode;
+    }
+
+    private JSONObject parseTotalRecognitionJsonForPublish(String totalRecognitionJson) {
+        validateTotalRecognitionJsonIntegrity(totalRecognitionJson);
+        try {
+            return JSON.parseObject(totalRecognitionJson);
+        } catch (Exception ex) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TOTAL_RECOGNITION_JSON_INVALID,
+                    ex.getMessage());
+        }
+    }
+
+    private void validatePublishProcessNames(JSONObject root) {
+        JSONArray processes = root.getJSONArray("processes");
+        Set<String> processNames = new LinkedHashSet<>();
+        for (int index = 0; index < processes.size(); index++) {
+            Object rawProcess = processes.get(index);
+            if (!(rawProcess instanceof JSONObject process)) {
+                throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TOTAL_RECOGNITION_JSON_INVALID,
+                        "processes[" + index + "] 不是对象");
+            }
+            String processName = StrUtil.trimToNull(process.getString("name"));
+            if (processName == null) {
+                throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TOTAL_RECOGNITION_JSON_INVALID,
+                        "processes[" + index + "] 缺少工序名称");
+            }
+            if (!processNames.add(processName)) {
+                throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TOTAL_RECOGNITION_JSON_INVALID,
+                        "工序名称重复：" + processName);
+            }
+        }
+    }
+
+    private List<MesProBatchRecordParsedTable> buildRouteParsedTablesFromTotalRecognitionJson(JSONObject root) {
+        JSONArray processes = root.getJSONArray("processes");
+        List<MesProBatchRecordParsedTable> parsedTables = new ArrayList<>(processes.size() + 1);
+        parsedTables.add(buildPublishRouteTable(0, "产品信息"));
+        for (int index = 0; index < processes.size(); index++) {
+            JSONObject process = processes.getJSONObject(index);
+            parsedTables.add(buildPublishRouteTable(index + 1, StrUtil.trim(process.getString("name"))));
+        }
+        return parsedTables;
+    }
+
+    private MesProBatchRecordParsedTable buildPublishRouteTable(int sourceTableIndex, String tableTitle) {
+        return MesProBatchRecordParsedTable.builder()
+                .sourceTableIndex(sourceTableIndex)
+                .tableTitle(tableTitle)
+                .rowCount(1)
+                .columnCount(1)
+                .rows(List.of(List.of(MesProBatchRecordParsedCell.builder()
+                        .text(tableTitle)
+                        .columnIndex(0)
+                        .build())))
+                .build();
+    }
+
+    private MesProRouteVersionDO createPublishCandidate(MesProRouteDO route, MesProRouteVersionDO activeVersion) {
+        MesProRouteVersionCreateReqVO reqVO = new MesProRouteVersionCreateReqVO();
+        reqVO.setRouteId(route.getId());
+        reqVO.setSourceRouteVersionId(activeVersion.getId());
+        reqVO.setChangeReason("生产批记录 JSON 发布");
+        reqVO.setMigrateLegacyProductionConfig(false);
+        return routeVersionWorkflowService.createCandidate(reqVO);
+    }
+
+    private int countPublishProcesses(JSONObject root) {
+        JSONArray processes = root.getJSONArray("processes");
+        return processes == null ? 0 : processes.size();
     }
 
     private void activateInitialVersionWithoutApproval(MesProBatchRecordVersionDO version) {

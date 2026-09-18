@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -128,6 +129,44 @@ class MesProBatchRecordTotalRecognitionExtractorTest {
                 .withTotalRecognitionJson("{\"schemaVersion\":1}");
 
         assertEquals("{\"schemaVersion\":1}", result.totalRecognitionJson());
+    }
+
+    @Test
+    void extractAllowsMissingProductNameWhenProcessDataIsRecognized() {
+        MesProBatchRecordParsedTable processTable = MesProBatchRecordParsedTable.builder()
+                .sourceTableIndex(1)
+                .tableTitle("粗洗工序生产记录")
+                .rows(List.of(List.of(MesProBatchRecordParsedCell.builder()
+                        .text("☑关键/特殊工序")
+                        .columnIndex(0)
+                        .build())))
+                .build();
+
+        MesProBatchRecordTotalRecognitionExtractor.RecognitionResult actual =
+                new MesProBatchRecordTotalRecognitionExtractor().extract(
+                        "RE-PP-IDML-01（A 0）生产记录.doc",
+                        List.of(processTable));
+
+        assertEquals("", actual.product().name());
+        assertEquals("IDML-01", actual.product().code());
+        assertEquals(List.of("粗洗工序"), actual.processes().stream()
+                .map(MesProBatchRecordTotalRecognitionExtractor.ProcessRecognition::name)
+                .toList());
+    }
+
+    @Test
+    void heatSealEquipmentAndParametersShareTheSameDomain() throws Exception {
+        MesProBatchRecordTotalRecognitionExtractor extractor =
+                new MesProBatchRecordTotalRecognitionExtractor();
+        Method equipmentDomain = MesProBatchRecordTotalRecognitionExtractor.class
+                .getDeclaredMethod("equipmentDomain", String.class);
+        Method parameterDomain = MesProBatchRecordTotalRecognitionExtractor.class
+                .getDeclaredMethod("parameterDomain", String.class);
+        equipmentDomain.setAccessible(true);
+        parameterDomain.setAccessible(true);
+
+        assertEquals("热合", equipmentDomain.invoke(extractor, "封口热合机"));
+        assertEquals("热合", parameterDomain.invoke(extractor, "热合温度℃"));
     }
 
     private static void assertJsonSemanticallyEquals(JsonNode expected, JsonNode actual, String path) {

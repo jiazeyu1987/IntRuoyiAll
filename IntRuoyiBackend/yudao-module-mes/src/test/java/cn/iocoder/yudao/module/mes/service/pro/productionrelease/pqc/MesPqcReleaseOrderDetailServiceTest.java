@@ -89,8 +89,9 @@ class MesPqcReleaseOrderDetailServiceTest {
                 .workOrderId(11L)
                 .leaderUserId(99L)
                 .build());
-        when(signatures.getById(66L))
-                .thenReturn(signatureEvidence(66L, 77L, "release-subject-88", signedAt));
+        when(signatures.listBySubject(anyString(), anyString(), anyString()))
+                .thenAnswer(invocation -> List.of(signatureEvidence(66L, 77L,
+                        invocation.getArgument(2), signedAt)));
         when(signatures.verifyEvidence(66L)).thenReturn(
                 new ElectronicSignatureVerificationDTO(66L, "VALID", "content-hash", "content-hash",
                         "evidence-hash", "evidence-hash", "SHA-256", "v1"));
@@ -140,8 +141,9 @@ class MesPqcReleaseOrderDetailServiceTest {
                 .workOrderId(11L)
                 .leaderUserId(99L)
                 .build());
-        when(signatures.getById(9001L))
-                .thenReturn(signatureEvidence(9001L, 1L, "release-subject-900000001059", signedAt));
+        when(signatures.listBySubject(anyString(), anyString(), anyString()))
+                .thenAnswer(invocation -> List.of(signatureEvidence(9001L, 1L,
+                        invocation.getArgument(2), signedAt)));
         when(signatures.verifyEvidence(9001L)).thenReturn(
                 new ElectronicSignatureVerificationDTO(9001L, "VALID", "content-hash", "content-hash",
                         "evidence-hash", "evidence-hash", "SHA-256", "v1"));
@@ -185,7 +187,8 @@ class MesPqcReleaseOrderDetailServiceTest {
                 .workOrderId(11L)
                 .leaderUserId(99L)
                 .build());
-        when(signatures.getById(66L)).thenReturn(null);
+        when(signatures.listBySubject(anyString(), anyString(), anyString()))
+                .thenReturn(List.of());
         var result = new MesTeamLeaderActiveOrderDetail();
         result.setWorkOrderCode("WO-11");
         when(detail.getDetail(99L, 10L)).thenReturn(result);

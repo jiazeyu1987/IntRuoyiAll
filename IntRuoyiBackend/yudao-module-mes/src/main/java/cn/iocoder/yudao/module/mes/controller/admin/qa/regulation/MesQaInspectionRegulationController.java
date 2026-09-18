@@ -11,6 +11,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommon
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationVersionOptionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationProjectStatusRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationImportRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationJsonPublishReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationJsonPublishRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationParseRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationResetRespVO;
@@ -20,6 +22,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspec
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationParseService;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationWordImportService;
+import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationJsonPublishService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -55,6 +58,9 @@ public class MesQaInspectionRegulationController {
     @Resource
     private MesQaInspectionRegulationParseService parseService;
 
+    @Resource
+    private MesQaInspectionRegulationJsonPublishService jsonPublishService;
+
     @PostMapping("/draft")
     @Operation(summary = "保存 QA 检验规程草稿")
     @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
@@ -82,6 +88,14 @@ public class MesQaInspectionRegulationController {
     public CommonResult<MesQaInspectionRegulationParseRespVO> parseQaInspectionRegulationJson(
             @RequestParam("file") MultipartFile file) {
         return success(parseService.parseWord(file));
+    }
+
+    @PostMapping("/form-parser-json/publish")
+    @Operation(summary = "发布表单解析 QA 检验规程 JSON")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
+    public CommonResult<MesQaInspectionRegulationJsonPublishRespVO> publishFormParserJson(
+            @Valid @RequestBody MesQaInspectionRegulationJsonPublishReqVO reqVO) {
+        return success(jsonPublishService.publishFormParserJson(reqVO));
     }
 
     @PostMapping("/test-reset")

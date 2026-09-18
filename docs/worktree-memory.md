@@ -7,7 +7,7 @@
 - Blocker: `pnpm install --frozen-lockfile` 失败、锁文件缺失、依赖脚本需要额外 approval 但目标检查依赖该脚本产物，或类型检查仍失败且无法区分是否当前任务引入时，必须停止并记录影响；不得改用 API-only、跳过类型检查或把缺依赖写成代码通过。
 - Verification: 记录依赖安装命令退出码、`pnpm ts:check` 退出码、是否存在 build-script approval 警告及其影响；合并前再次确认 `node_modules` 为 ignored 产物且未进入提交清单。
 - Forbidden action: 禁止提交 `node_modules`、禁止静默降级到只跑 `node --check` 替代类型检查、禁止把主工作区已有依赖目录复制到附加 worktree。
-- Evidence: `doc/tasks/20260909-form-parser-json-editor-frontline-preview/execution-log.md`，`jiexi123` 新 worktree 首次 `pnpm ts:check` 失败于 `cross-env` 缺失，按锁文件执行 `pnpm install --frozen-lockfile` 后类型检查通过且 lockfile 未变。
+- Evidence: `doc/tasks/20260909-form-parser-json-editor-frontline-preview/execution-log.md`，`jiexi123` 新 worktree 首次 `pnpm ts:check` 失败于 `cross-env` 缺失，按锁文件执行 `pnpm install --frozen-lockfile` 后类型检查通过且 lockfile 未变；`doc/tasks/20260918-production-batch-record-json-publish-implementation/verification-report.md`，`20260918_gongyiluxian` worktree 首次因缺少 `node_modules/cross-env` 未进入 TypeScript 分析，按锁文件安装依赖后复跑进入类型分析，但暴露既有 `BatchExecutionListPage.vue` 导入缺失错误，任务按类型门禁阻塞记录而未静默降级。
 
 ## 同类需求 Worktree 复用门禁
 
@@ -439,6 +439,7 @@
 - 经验规则：融合前重新执行 `git log --left-right --cherry-pick int_main...<branch>`；若出现 `<` 侧提交，先在附加 worktree 再 rebase 到当前 `int_main` 并重跑目标验证。即使分支已可 fast-forward，主工作区仍需 clean 后才能运行 closeout apply。
 - 阻断处理：主工作区 dirty 属于其它任务时，只记录文件清单和阻断原因，不做 stash、restore、clean、reset，也不手工绕过 closeout guard。
 - 验证方式：记录最终分支领先提交数、任务提交 hash、目标静态/单测结果、`git diff --check` 和 closeout preview 输出。
+- Evidence: `doc/tasks/20260918-production-batch-record-json-publish-implementation/verification-report.md`，`20260918_gongyiluxian` closeout preview 保留任务证据但阻塞于 `E:\IntRuoyi` 主 worktree dirty，未执行 cleanup apply、commit、merge 或 worktree remove。
 
 ### Worktree 绝对路径补丁门禁
 
