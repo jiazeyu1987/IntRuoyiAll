@@ -37,8 +37,9 @@
 - Keywords: EDHR-STATIC-026, CONDITIONAL_REQUIRED, requiredConditionJson, HAS_ACTUAL_LOSS, 条件必填, 不适用, NO_LOSS, DHR 完整性检查, 损耗表无损耗不阻断, hasActualLoss -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: EDHR-STATIC-005, PQC生产放行, 过程检验回填, 专用QA, 通用QA, PQC task冻结版本, regulationVersionId, OWNER_MODULE_MES_QA_COMMON -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: PQC生产放行不合格评审, 工单冻结, temporary_frozen, previousWorkOrderTemporaryFrozen, 返工恢复冻结, 作废保持冻结, 让步继续签字, 生产报工冻结门禁, 领料出库冻结门禁, 申请待办原子终结 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
+- Keywords: 上市放行负责人驳回, mes:pro-production-release:pqc-reject, 电子签名先认证后冻结, PQC_RELEASE 不合格评审, admin 精确绑定 MES_PQC_RELEASE_OWNER -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: PQC生产放行列表按钮灰色, approvalReady, approvalBlockerReason, approvalBlockerSuggestion, service item 到 Controller response VO 映射, 列表状态正常但操作不可用, 禁止前端默认放行 -> `docs/backend-development.md#controller-列表响应必须完整透传服务层就绪投影`
-- Keywords: PQC生产放行详情, 总表已生产放行, 生产放行人员电子签名, signatureId, PQC_RELEASE, ACTION_PQC_RELEASE, batchExecutionId, 签名动作校验, 详情签名投影 -> `docs/backend-development.md#pqc-生产放行详情签名投影必须读取正式放行回执`
+- Keywords: PQC生产放行详情, 总表已生产放行, 生产放行人员电子签名, signatureId, PQC_RELEASE, ACTION_PQC_RELEASE, batchExecutionId, 签名动作校验, 详情签名投影, verifyEvidence, canonical_content_json, MySQL JSON格式化, 系统异常 -> `docs/backend-development.md#pqc-生产放行详情签名投影必须读取正式放行回执`
 
 - Keywords: 租户级 PQC 检验设备配置、QA 项目切换、dccProjectCodeId、item-equipment/items、历史 QA 脏数据、同名检验项目、项目范围先过滤 -> `docs/backend-development.md#项目范围设备候选必须先过滤正式项目身份`
 - Keywords: 工艺路线过程检验映射, PQC_AGGREGATE_DETAIL, routeProcessId, PROCESS_INSPECTION, formTemplateId, lastPublishedTemplateVersionId, QA工序缺失, 清洗冒充粗洗, 表单槽位正常入口 -> `docs/e2e-rules.md#工艺路线过程检验映射正式来源门禁`
@@ -654,7 +655,7 @@
 - Keywords: 已选物料回显丢失, 远程搜索候选替换, selectedFrontlineReportMaterialOptions, 已选详情独立状态, options 不得作为唯一回显来源, 批记录物料标签稳定显示 -> `docs/frontend-development.md#已选项回显状态必须与搜索候选状态隔离`
 - Keywords: 批记录物料发布丢失, frontlineReportMaterialIds, batchUseConfigs, 发布刷新快照, 路线候选版本, routeProcessId, 旧BATCH工序配置表, 精确保留候选字段, 正式批记录表单绑定重建, 不得用BOM或formBindings补齐 -> `docs/backend-development.md#当前配置与发布快照边界`
 - Keywords: GeneratedKeyHolder, RETURN_GENERATED_KEYS, JDBC 自增主键, GENERATED_KEY, H2 多列 generated keys, 注册证变更历史冲突 -> `docs/backend-development.md#2026-09-02-jdbc-generatedkeyholder-自增主键读取门禁`
-- Keywords: Maven 目标单测, 同模块编译失败, 未跟踪 Java 文件, 无关源文件阻塞, LambdaUpdateWrapperX, 缺失符号, git status 归属确认, 不用 Maven excludes, 外部编译阻塞解除后复跑 -> `docs/backend-development.md#2026-09-03-maven-目标单测外部源文件编译阻塞门禁`
+- Keywords: Maven 目标单测, 同模块编译失败, 未跟踪 Java 文件, 无关源文件阻塞, LambdaUpdateWrapperX, 缺失符号, git status 归属确认, 不用 Maven excludes, 接口新增方法, unavailable port, 公共测试构造器, 旧单测门禁迁移, 外部编译阻塞解除后复跑 -> `docs/backend-development.md#2026-09-03-maven-目标单测外部源文件编译阻塞门禁`
 - Keywords: 一线下拉其他, 其他手动输入, allow-create 不足, 下拉占位值禁止提交, 手工值回显, 返回正式候选 -> `docs/frontend-development.md#一线下拉框其他手工值必须形成正式提交事实`
 - Keywords: PQC 手工检验设备, PQC设备可选, 空设备快照, equipmentRequired不代表提交必选, 空设备ID, 手工设备快照, 禁止伪造设备ID, 正式设备严格匹配, selectedEquipmentNumber -> `docs/backend-development.md#pqc-手工检验设备必须使用可审计快照而非伪造设备身份`
 - Keywords: 活跃订单PQC提交双层Tab, 原始提交, 过程检验记录, submittedItems, processInspectionItems, PQC首次提交快照, revision beforePayload, event rawPayload, pqcItemDetails, itemResults, 原始提交多样本聚合一行, 检测数量13只显示一条检验项目, 禁止用聚合明细兜底原始提交 -> `docs/backend-development.md#pqc-过程检验汇集必须形成最终确认明细` and `docs/frontend-development.md#前端选择弹框即时反馈门禁`

@@ -49,6 +49,13 @@ public class MesReleaseFinalizationCommand {
     @JsonIgnore
     private MesReleaseMaterialGateReceipt materialGateReceipt;
 
+    /**
+     * Only the server-created manager signature path may disable the material-upload gate.
+     * HTTP finalization callers cannot set this field because it is ignored by Jackson.
+     */
+    @JsonIgnore
+    private boolean materialGateRequired = true;
+
     public boolean isIndependentOrigin() {
         return origin == MesReleaseOrigin.MANUAL
                 || origin == MesReleaseOrigin.SCHEDULED

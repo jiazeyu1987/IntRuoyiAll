@@ -19,18 +19,28 @@ public final class MesReleaseFinalizationValidator {
             MesReleaseFinalizationCommand command,
             MesReleaseFinalizationEvidence evidence,
             Clock clock) {
+        validate(command, evidence, clock, true);
+    }
+
+    public static void validate(
+            MesReleaseFinalizationCommand command,
+            MesReleaseFinalizationEvidence evidence,
+            Clock clock,
+            boolean materialGateRequired) {
         validateCommon(command);
-        MesReleaseMaterialGateReceipt gate = evidence == null ? null : evidence.getMaterialGateReceipt();
-        require(command.getMaterialGateReceiptId() != null
-                        && gate != null
-                        && command.getMaterialGateReceiptId().equals(gate.getReceiptId())
-                        && gate.isCompleteFor(command.getBatchExecutionId())
-                        && (command.getMaterialGateManifestHash() == null
-                        || command.getMaterialGateManifestHash().equals(gate.getManifestHash()))
-                        && (command.getMaterialGateSourceSnapshotHash() == null
-                        || command.getMaterialGateSourceSnapshotHash().equals(gate.getSourceSnapshotHash())),
-                MesReleaseFlowBlockerType.REPORT_SNAPSHOT_CHANGED,
-                "flow 8 MATERIALS_READY receipt and manifest must come from the authoritative owner");
+        if (materialGateRequired) {
+            MesReleaseMaterialGateReceipt gate = evidence == null ? null : evidence.getMaterialGateReceipt();
+            require(command.getMaterialGateReceiptId() != null
+                            && gate != null
+                            && command.getMaterialGateReceiptId().equals(gate.getReceiptId())
+                            && gate.isCompleteFor(command.getBatchExecutionId())
+                            && (command.getMaterialGateManifestHash() == null
+                            || command.getMaterialGateManifestHash().equals(gate.getManifestHash()))
+                            && (command.getMaterialGateSourceSnapshotHash() == null
+                            || command.getMaterialGateSourceSnapshotHash().equals(gate.getSourceSnapshotHash())),
+                    MesReleaseFlowBlockerType.REPORT_SNAPSHOT_CHANGED,
+                    "flow 8 MATERIALS_READY receipt and manifest must come from the authoritative owner");
+        }
 
         if (command.getOrigin() == MesReleaseOrigin.ACTIVE_ORDER) {
             CompletionBackfillReceipt receipt = evidence == null ? null : evidence.getCompletionBackfillReceipt();
@@ -146,10 +156,9 @@ public final class MesReleaseFinalizationValidator {
                 "source snapshot hash is required");
         require(command.getIdempotencyKey() != null && !command.getIdempotencyKey().isBlank(),
                 MesReleaseFlowBlockerType.IDEMPOTENCY_KEY_INVALID, "idempotencyKey is required");
-        require(command.getActorUserId() != null && command.getWorkTaskId() != null
-                        && command.getExpectedVersion() != null,
+        require(command.getActorUserId() != null && command.getExpectedVersion() != null,
                 MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
-                "actorUserId, workTaskId and expectedVersion are required for signed finalization");
+                "actorUserId and expectedVersion are required for signed finalization");
         require(command.getSignoffEvidenceHash() != null && !command.getSignoffEvidenceHash().isBlank(),
                 MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                 "verified signoff evidence hash is required");

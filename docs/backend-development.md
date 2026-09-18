@@ -108,6 +108,14 @@
 - Forbidden action: 禁止写后修正、禁止把日志菜单名称当权限来源、禁止引入 fallback 让普通用户先保存再清理。
 - Evidence: `doc/tasks/20260827-login-security-controls/verification-report.md`
 
+## 前端按钮权限必须与后端写入口和菜单种子同步
+
+- Trigger: 新增或调整需要权限控制的按钮、上传入口、隐藏路由 Tab、菜单按钮权限、admin 可见性或租户套餐授权。
+- Preflight check: 同一权限码必须同时核对前端 `v-hasPermi`、后端 `@PreAuthorize`、`system_menu` 按钮权限、目标角色 `system_role_menu`、相关租户套餐 `menu_ids`，以及跳转后的目标页面是否仍需要旧权限才能完成同一业务动作。
+- Blocker: 只隐藏前端按钮但后端写入口仍不认新权限、只给菜单授权但目标 Tab 内上传控件仍被旧权限隐藏、只给 admin 超级角色而租户套餐缺菜单、或新增权限顺手扩大删除/审批等相邻能力时必须停止。
+- Verification: 静态合同至少覆盖按钮权限、跳转参数、目标页 Tab 定位、后端写入口权限、菜单迁移和角色/套餐授权；涉及真实上传时再补真实前端 E2E。
+- Forbidden action: 禁止把 admin 的通配权限当作普通角色授权验证，禁止只改前端 `v-hasPermi` 冒充后端授权已完成，禁止用新增上传权限开放删除能力。
+
 ## 临时角色授权闭环门禁
 
 - Trigger: 临时权限、临时角色、紧急授权、限时授权、`PermissionService.hasAnyPermissions`、`system_user_role`、权限使用审计。
@@ -526,6 +534,7 @@
 
 - Trigger: PQC 生产放行历史详情、批记录“总表”显示“已生产放行”、生产放行人员电子签名、`signatureId`、`PQC_RELEASE`、`batchExecutionId`。
 - Preflight check: 详情服务必须先通过正式 PQC 授权服务取得放行决策，再用决策中的 `signatureId` 读取统一电子签名证据；签名证据必须属于 `MES_BATCH_RECORD` 的 `PQC_RELEASE` 动作，subject 必须由放行申请的 `batchExecutionId` 和 `PQC_RELEASE_APPLICATION` 来源构成，且统一签名验真结果必须为 `VALID`；前端只消费后端摘要的状态文案、签名人和签名时间。
+- Signature JSON check: 若统一签名记录存在但 `verifyEvidence` 报哈希不一致，先检查数据库 JSON 字段是否改变了 `canonical_content_json` 的文本格式或键顺序。允许的修复是用正式签名主体适配器重放服务端规范内容，并要求数据库 JSON 与重放 JSON 语义一致后再按原始 `content_hash` 验证证据哈希；语义不一致必须继续判 `MISMATCH`，不得把 `verification_status=VALID` 当作默认成功。
 - Blocker: 用申请人、当前登录人、提交人、复核人或当前时间推断签名，直接把申请状态拼成已放行，签名 ID 缺失、统一电子签名证据不存在、动作不匹配、验真失败或批次执行 subject 归属不一致时，必须停止并明确失败。
 - Verification: 后端单测覆盖已放行决策返回正式签名人/时间、签名记录缺失和身份不匹配；前端静态契约覆盖总表“已生产放行”展示、正式签名字段和签名记录入口。
 - Forbidden action: 禁止在前端按列表行字段或当前用户补齐签名，禁止把任意电子签名记录或其它阶段签名投影为生产放行签名，禁止缺失签名时返回默认成功或占位签名。
@@ -550,6 +559,7 @@
 - Process-inspection QA version extension: PQC 生产放行读取和写入过程检验时，遍历到的每个 PQC task 都必须按该 task 冻结的 `regulationVersionId`、规程 `ownerModule` 和正式来源证据校验；专用 `MES_QA` 任务校验 DCC 项目归属，通用 `MES_QA_COMMON` 任务校验通用规程版本来源，不得把活跃订单主字段里的专用 QA 版本套到所有任务。定向回归应同时覆盖专用与通用 QA task 一起进入 plan/write 闭环。
 - No-loss fact closure: 无损耗不是“没有损耗单”就算完成；每个工序必须能从正式生产反馈、生产提交事件、分配记录和生产组长 APPROVED 复核读取唯一闭环。生产提交必须指向 `MES_PRO_FEEDBACK`，raw payload 必须有结构化 `lossDetails`，无损耗时为 `[]`；分配记录的 `reviewId` 和 `confirmedAt` 必须对齐对应生产组长复核的 ID 与 `reviewedAt`，否则 Flow4 completion receipt 必须阻断为 `LOSS_CONDITION_FACTS`。
 - Nonconformance freeze extension: PQC 放行申请发起不合格评审时，必须在同一事务锁定申请和正式生产工单，保存工单冻结前 `temporary_frozen` 快照后再冻结。所有新增生产报工以及领料出库提交、拣货、完成入口都必须锁定工单并检查正式冻结状态，不能只在 PQC 放行按钮处检查评审单。让步放行和返工按快照恢复原冻结状态，作废保持冻结；返工和作废还必须用版本 CAS 终结放行申请并完成 PQC 待办，让步放行继续保留 PQC 电子签名节点。若历史待处置评审缺少可审计的冻结前快照，迁移必须 fail fast，禁止推断为未冻结或直接解冻。
+- Release-owner rejection extension: 上市放行负责人从 eDHR 批次入口发起驳回时，前端按钮只能由专用 `mes:pro-production-release:pqc-reject` 权限控制，后端接口必须再次执行同一权限校验；电子签名密码必须在创建不合格评审单、冻结批次和冻结工单之前完成正式重新认证。签名成功后只能进入既有 `PQC_RELEASE` 不合格评审流程，不能直接写质量终态；签名失败必须零写入。角色迁移必须按精确租户、用户名和角色 code 幂等绑定，不能通过扩大管理员角色或授予 QA 处置权限实现。
 - PQC 过程检验回填版本边界扩展：组合 QA 或通用包装 QA 场景下，活跃订单完成节点的过程检验 reader/writer 必须逐条读取 PQC task 自身冻结的 `regulationVersionId`、`qaProcessId`、`qaItemCode` 和 `inspectionType`，再校验对应汇集明细；不得用活跃订单冻结的产品 QA 版本要求单个 item-scoped task 覆盖整套 QA 版本的所有项目。产品专属 `MES_QA` 任务仍须匹配活跃订单冻结 DCC/QA 身份，通用 `MES_QA_COMMON` 任务必须保留可验证来源证据。
 - Simulation preflight extension: 多阶段放行模拟在创建任务自有工单、生产/PQC 事实或库存前，必须只读确认目标产品正式路线的批记录版本已批准，所有需要批记录的 `MAIN` 绑定均有正式 definition/version ID 和启用字段映射，实际生成 PQC 任务的工序均有正式过程检验绑定；预检失败时直接返回 blocker，禁止先执行整套业务写入后才发现版本 `PRECHECK_FAILED`，也禁止由模拟服务修补路线主数据。
 - Blocker: 进度不足、非当前组长负责范围、一线生产或 PQC 复核事实缺失、一线输入批号与完工冻结领料单口径不一致、生产工单与领料单未正式对应、完成节点前已写入最终批记录/过程检验单/损耗单、回填前已创建正式批次执行、缺正式批记录绑定、过程检验槽位只有动态表单模板而无传统 `batchRecordReportId`、PQC 汇集未确认或无结构化明细、过程检验设备字段反查 QA 版本设备或当前最新租户设备配置、有损耗但损耗单正式映射未证明、无损耗却生成损耗单、来料检/灭菌/成品检文件任一未上传成功、缺管理者代表角色或 `xujianhai` 授权、幂等冲突、eDHR 批次或放行事务无法持久化时必须返回 blocker 或 fail fast，不得创建不完整资料或提前放行。
@@ -1076,6 +1086,7 @@
 
 - Trigger: 目标 Maven 单测在进入测试前因同模块 Java 编译错误失败，且报错文件不属于当前任务已授权修改范围。
 - Preflight check: 先用 `git status --short` 和 `rg --files` 确认报错文件归属、是否未跟踪、缺失符号是否真实存在；只把任务自有文件纳入修复范围。
+- Interface-contract extension: 新增端口、接口或门禁参数时，同模块目标 Maven 会先编译所有生产源；必须同步默认/不可用实现、测试替身和公共测试构造器。若业务门禁从旧凭证改为新凭证，先迁移旧单测的请求构造与断言语义，再判断剩余失败是否是真实回归。
 - Blocker: 无关未跟踪或并行任务源文件参与同模块编译并导致失败时，必须记录具体文件、缺失符号和 Maven 命令；不得宣称目标单测通过。
 - Verification: 外部编译阻塞解除后，使用原目标 Maven 命令复跑并取得明确 `BUILD SUCCESS` 与测试计数，才可把该测试标为 GREEN。
 - Forbidden action: 禁止用 Maven excludes、跳过编译、删除/改写无关未跟踪文件、或把单个已通过测试结果冒充整个目标服务测试通过。

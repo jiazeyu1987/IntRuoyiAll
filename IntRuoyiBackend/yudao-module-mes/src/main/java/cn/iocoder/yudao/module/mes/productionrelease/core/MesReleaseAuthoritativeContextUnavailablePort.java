@@ -23,4 +23,9 @@ public class MesReleaseAuthoritativeContextUnavailablePort implements MesRelease
                                         + "must be loaded from their state owners")
                                 .setSuggestion("wire the persistent owner adapters before enabling finalization"))));
     }
+
+    @Override
+    public MesReleaseFinalizationEvidence requireWithoutMaterialGate(MesReleaseFinalizationCommand command) {
+        return require(command);
+    }
 }

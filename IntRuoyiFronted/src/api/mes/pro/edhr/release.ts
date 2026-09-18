@@ -115,10 +115,11 @@ export interface EdhrReleaseSubmitReqVO {
 
 export interface EdhrReleaseApproveReqVO {
   releaseTransactionId: string
-  workTaskId: string
-  expectedVersion: number
+  workTaskId?: string
+  expectedVersion?: number
   idempotencyKey: string
-  signoffEvidenceHash: string
+  signoffEvidenceHash?: string
+  password: string
   approvalOpinion?: string
 }
 

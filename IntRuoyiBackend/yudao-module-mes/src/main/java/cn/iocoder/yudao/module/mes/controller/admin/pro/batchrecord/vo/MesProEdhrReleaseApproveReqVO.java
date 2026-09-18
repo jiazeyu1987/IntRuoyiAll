@@ -23,8 +23,10 @@ public class MesProEdhrReleaseApproveReqVO {
     @NotBlank(message = "批准幂等键不能为空")
     private String idempotencyKey;
 
-    @NotBlank(message = "签核证据不能为空")
     private String signoffEvidenceHash;
+
+    @NotBlank(message = "负责人电子密码不能为空")
+    private String password;
 
     private String signoffSubjectId;
 

@@ -74,7 +74,6 @@ import java.util.Set;
 
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomLongId;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_PRECHECK_REQUIRED;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_SIGNOFF_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_PASSWORD_FAILED;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -696,7 +695,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void approveRejectsUnverifiableSignoffEvidenceHash() {
+    void approveDoesNotRequireApprovalCenterSignatureEvidenceWhenPasswordIsVerified() {
         MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-APPROVE-FAKE-SIGNOFF");
         MesProEdhrReleaseRespVO precheck = insertPendingApprovalRelease(batch);
         MesProEdhrWorkTaskDO approvalTask = releaseApprovalTask(precheck.getReleaseTransactionId(), 7901L);
@@ -705,18 +704,20 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         when(approvalSignatureRecordMapper.selectList(any())).thenReturn(List.of());
         clearInvocations(operationAuditService);
 
+        MesProEdhrReleaseRespVO approved;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
-            ServiceException exception = assertThrows(ServiceException.class,
-                    () -> releaseService.approve(approvalRequest(precheck, batch, approvalTask,
-                            "approve-fake-signoff", "f".repeat(64), "伪造签名证据")));
-            assertEquals(1_040_750_433, exception.getCode());
+            approved = releaseService.approve(approvalRequest(precheck, batch, approvalTask,
+                    "approve-fake-signoff", "f".repeat(64), "负责人电子密码放行"));
         }
 
-        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL,
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, approved.getReleaseStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED,
                 releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
-        verify(workTaskService, never()).completeReleaseApprovalTask(any(), any(), any(), any());
-        verify(operationAuditService, never()).record(any());
+        verify(approvalSignatureRecordMapper, never()).selectList(any());
+        verify(workTaskService).completeReleaseApprovalTask(approvalTask.getId(),
+                precheck.getReleaseTransactionId(), "APPROVE", "负责人电子密码放行");
+        verify(operationAuditService).record(any());
     }
 
     @Test
@@ -742,22 +743,23 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void approveFailsWithSignoffBlockerWhenApprovalTaskAdapterReturnsNoTask() {
+    void approveDoesNotRequireApprovalTaskWhenPasswordIsVerified() {
         MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-APPROVE-NO-TASK");
         MesProEdhrReleaseRespVO precheck = insertPendingApprovalRelease(batch);
         MesProEdhrWorkTaskDO requestedTask = releaseApprovalTask(precheck.getReleaseTransactionId(), 7903L);
         when(workTaskService.validateReleaseApprovalTask(any(), any())).thenReturn(null);
 
+        MesProEdhrReleaseRespVO approved;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
-            ServiceException exception = assertThrows(ServiceException.class,
-                    () -> releaseService.approve(approvalRequest(precheck, batch, requestedTask,
-                            "approve-no-task", "a".repeat(64), "审批任务缺失")));
-            assertEquals(PRO_EDHR_RELEASE_SIGNOFF_REQUIRED.getCode(), exception.getCode());
+            approved = releaseService.approve(approvalRequest(precheck, batch, requestedTask,
+                    "approve-no-task", "a".repeat(64), "负责人电子密码放行"));
         }
 
-        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL,
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, approved.getReleaseStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED,
                 releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
+        verify(workTaskService).validateReleaseApprovalTask(requestedTask.getId(), precheck.getReleaseTransactionId());
         verify(workTaskService, never()).completeReleaseApprovalTask(any(), any(), any(), any());
     }
 
@@ -1336,6 +1338,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .setWorkTaskId(approvalTask.getId())
                 .setExpectedVersion(releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getVersion())
                 .setIdempotencyKey(idempotencyKey)
+                .setPassword("owner-sign-secret")
                 .setSignoffEvidenceHash(signoffEvidenceHash)
                 .setApprovalOpinion(opinion);
     }

@@ -80,6 +80,16 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
 
     @Override
     public MesReleaseFinalizationEvidence require(MesReleaseFinalizationCommand command) {
+        return requireInternal(command, command == null || command.isMaterialGateRequired());
+    }
+
+    @Override
+    public MesReleaseFinalizationEvidence requireWithoutMaterialGate(MesReleaseFinalizationCommand command) {
+        return requireInternal(command, false);
+    }
+
+    private MesReleaseFinalizationEvidence requireInternal(
+            MesReleaseFinalizationCommand command, boolean materialGateRequired) {
         if (command == null || command.getReleaseTransactionId() == null) {
             throw blocker(null, "releaseTransactionId is required");
         }
@@ -150,8 +160,10 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(batchExecutionId));
         requireTracePrecheck(source, origin, batchExecutionId, application);
 
-        MesReleaseMaterialGateReceipt gateReceipt = loadMaterialGateReceipt(
-                tenantId, batchExecutionId, command.getMaterialGateReceiptId(), source.getSourceSnapshotHash(), application);
+        MesReleaseMaterialGateReceipt gateReceipt = materialGateRequired
+                ? loadMaterialGateReceipt(tenantId, batchExecutionId, command.getMaterialGateReceiptId(),
+                source.getSourceSnapshotHash(), application)
+                : null;
         MesReleaseFinalizationEvidence evidence = new MesReleaseFinalizationEvidence()
                 .setMaterialGateReceipt(gateReceipt);
         if ("ACTIVE_ORDER_COMPLETION".equals(persistedEntryType)) {
@@ -261,12 +273,14 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 value -> command.setDualProgressCompleted(value), "dualProgressCompleted");
         setOrRequire(command.getThreeBackfillsSucceeded(), true, application,
                 value -> command.setThreeBackfillsSucceeded(value), "threeBackfillsSucceeded");
-        setOrRequire(command.getMaterialGateReceiptId(), gate.getReceiptId(), application,
-                value -> command.setMaterialGateReceiptId(value), "materialGateReceiptId");
-        setOrRequire(command.getMaterialGateManifestHash(), gate.getManifestHash(), application,
-                value -> command.setMaterialGateManifestHash(value), "materialGateManifestHash");
-        setOrRequire(command.getMaterialGateSourceSnapshotHash(), gate.getSourceSnapshotHash(), application,
-                value -> command.setMaterialGateSourceSnapshotHash(value), "materialGateSourceSnapshotHash");
+        if (gate != null) {
+            setOrRequire(command.getMaterialGateReceiptId(), gate.getReceiptId(), application,
+                    value -> command.setMaterialGateReceiptId(value), "materialGateReceiptId");
+            setOrRequire(command.getMaterialGateManifestHash(), gate.getManifestHash(), application,
+                    value -> command.setMaterialGateManifestHash(value), "materialGateManifestHash");
+            setOrRequire(command.getMaterialGateSourceSnapshotHash(), gate.getSourceSnapshotHash(), application,
+                    value -> command.setMaterialGateSourceSnapshotHash(value), "materialGateSourceSnapshotHash");
+        }
         setOrRequire(command.getExpectedVersion(), transaction.getVersion(), application,
                 value -> command.setExpectedVersion(value), "expectedVersion");
     }
@@ -293,12 +307,14 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 value -> command.setSourceSnapshotHash(value), "sourceSnapshotHash");
         setOrRequire(command.getIndependentPrerequisiteReceiptId(), receipt.getReceiptId(), application,
                 value -> command.setIndependentPrerequisiteReceiptId(value), "independentPrerequisiteReceiptId");
-        setOrRequire(command.getMaterialGateReceiptId(), gate.getReceiptId(), application,
-                value -> command.setMaterialGateReceiptId(value), "materialGateReceiptId");
-        setOrRequire(command.getMaterialGateManifestHash(), gate.getManifestHash(), application,
-                value -> command.setMaterialGateManifestHash(value), "materialGateManifestHash");
-        setOrRequire(command.getMaterialGateSourceSnapshotHash(), gate.getSourceSnapshotHash(), application,
-                value -> command.setMaterialGateSourceSnapshotHash(value), "materialGateSourceSnapshotHash");
+        if (gate != null) {
+            setOrRequire(command.getMaterialGateReceiptId(), gate.getReceiptId(), application,
+                    value -> command.setMaterialGateReceiptId(value), "materialGateReceiptId");
+            setOrRequire(command.getMaterialGateManifestHash(), gate.getManifestHash(), application,
+                    value -> command.setMaterialGateManifestHash(value), "materialGateManifestHash");
+            setOrRequire(command.getMaterialGateSourceSnapshotHash(), gate.getSourceSnapshotHash(), application,
+                    value -> command.setMaterialGateSourceSnapshotHash(value), "materialGateSourceSnapshotHash");
+        }
         setOrRequire(command.getExpectedVersion(), transaction.getVersion(), application,
                 value -> command.setExpectedVersion(value), "expectedVersion");
     }

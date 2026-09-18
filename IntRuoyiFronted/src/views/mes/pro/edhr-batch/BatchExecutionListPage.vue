@@ -156,12 +156,20 @@
             </el-table-column>
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('blockedCount')" label="阻塞数" prop="blockedCount" :width="getEdhrBatchExecutionColumnWidthString('blockedCount', 90)" align="center" v-bind="sortColumnAttrs('blockedCount')" />
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('updateTime')" label="最后更新时间" prop="updateTime" :width="getEdhrBatchExecutionColumnWidthString('updateTime', 180)" :formatter="edhrDateTimeFormatter" v-bind="sortColumnAttrs('updateTime')" />
-            <el-table-column v-if="isEdhrBatchExecutionColumnVisible('operation')" label="操作" prop="operation" :width="getEdhrBatchExecutionColumnWidthString('operation', 180)" fixed="right">
+            <el-table-column v-if="isEdhrBatchExecutionColumnVisible('operation')" label="操作" prop="operation" :width="getEdhrBatchExecutionColumnWidthString('operation', 240)" fixed="right">
               <template #default="{ row }">
                 <div
                   v-if="resolveBatchVoidOperationState(row) === 'pending-withdrawable'"
                   class="edhr-batch-page__actions"
                 >
+                  <el-button
+                    link
+                    type="primary"
+                    data-edhr-batch-execution-source-detail
+                    @click="openSourceDetail(row)"
+                  >
+                    详情
+                  </el-button>
                   <el-button
                     v-hasPermi="['mes:pro-edhr-change:void']"
                     link
@@ -175,22 +183,78 @@
                   v-else-if="resolveBatchVoidOperationState(row) === 'pending-readonly'"
                   class="edhr-batch-page__actions"
                 >
+                  <el-button
+                    link
+                    type="primary"
+                    data-edhr-batch-execution-source-detail
+                    @click="openSourceDetail(row)"
+                  >
+                    详情
+                  </el-button>
                   <span class="edhr-batch-page__muted">作废申请中</span>
                 </div>
                 <div
                   v-else-if="resolveBatchVoidOperationState(row) === 'voided'"
                   class="edhr-batch-page__actions"
                 >
-                  <el-button link type="primary" @click="openDetail(row)">编辑</el-button>
+                  <el-button
+                    link
+                    type="primary"
+                    data-edhr-batch-execution-source-detail
+                    @click="openSourceDetail(row)"
+                  >
+                    详情
+                  </el-button>
+                  <el-button
+                    v-hasPermi="['mes:pro-production-release:pqc-reject']"
+                    link
+                    type="warning"
+                    data-edhr-batch-action="reject"
+                    @click="handleRejectClick(row)"
+                  >
+                    驳回
+                  </el-button>
                 </div>
                 <div
                   v-else-if="resolveBatchVoidOperationState(row) === 'release-locked'"
                   class="edhr-batch-page__actions"
                 >
-                  <el-button link type="primary" @click="openDetail(row)">编辑</el-button>
+                  <el-button
+                    link
+                    type="primary"
+                    data-edhr-batch-execution-source-detail
+                    @click="openSourceDetail(row)"
+                  >
+                    详情
+                  </el-button>
+                  <el-button
+                    v-hasPermi="['mes:pro-production-release:pqc-reject']"
+                    link
+                    type="warning"
+                    data-edhr-batch-action="reject"
+                    @click="handleRejectClick(row)"
+                  >
+                    驳回
+                  </el-button>
                 </div>
                 <div v-else class="edhr-batch-page__actions">
-                  <el-button link type="primary" @click="openDetail(row)">编辑</el-button>
+                  <el-button
+                    link
+                    type="primary"
+                    data-edhr-batch-execution-source-detail
+                    @click="openSourceDetail(row)"
+                  >
+                    详情
+                  </el-button>
+                  <el-button
+                    v-hasPermi="['mes:pro-production-release:pqc-reject']"
+                    link
+                    type="warning"
+                    data-edhr-batch-action="reject"
+                    @click="handleRejectClick(row)"
+                  >
+                    驳回
+                  </el-button>
                   <el-button
                     v-hasPermi="['mes:pro-edhr-change:void']"
                     link
@@ -198,6 +262,24 @@
                     @click="openVoidDialog(row)"
                   >
                     作废
+                  </el-button>
+                  <el-button
+                    v-hasPermi="['mes:pro-edhr-release:approve']"
+                    link
+                    type="primary"
+                    data-edhr-batch-action="release"
+                    @click="openReleaseDialog(row)"
+                  >
+                    上市放行
+                  </el-button>
+                  <el-button
+                    v-hasPermi="['mes:pro-edhr-batch-execution:upload']"
+                    link
+                    type="primary"
+                    data-edhr-batch-action="upload"
+                    @click="openActiveOrderOtherUploadTab(row)"
+                  >
+                    上传
                   </el-button>
                 </div>
               </template>
@@ -297,6 +379,118 @@
       <template #footer>
         <el-button @click="createDialogVisible = false">取 消</el-button>
         <el-button type="primary" :loading="createLoading" @click="submitOpenOrCreate">确 认</el-button>
+      </template>
+    </Dialog>
+
+    <Dialog title="上市放行确认" v-model="releaseDialogVisible" width="560px">
+      <el-alert
+        v-if="releaseError"
+        :title="releaseError"
+        type="error"
+        :closable="false"
+        show-icon
+        class="edhr-batch-page__dialog-alert"
+      />
+      <el-descriptions v-if="selectedReleaseBatch" :column="1" border>
+        <el-descriptions-item label="批次执行编码">
+          {{ selectedReleaseBatch.batchExecutionCode || selectedReleaseBatch.id }}
+        </el-descriptions-item>
+        <el-descriptions-item label="工单号">
+          {{ selectedReleaseBatch.workOrderCode || '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="批次号">
+          {{ selectedReleaseBatch.batchCode || '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="当前状态">
+          {{ resolveBatchStatusLabel(selectedReleaseBatch.status) }}
+        </el-descriptions-item>
+      </el-descriptions>
+      <el-alert
+        v-if="releaseContextLoading"
+        title="正在加载该批次的放行事务..."
+        type="info"
+        :closable="false"
+        show-icon
+        class="mt-12px"
+      />
+      <el-form v-else label-width="120px" class="mt-12px">
+        <el-form-item label="电子签名密码" required>
+          <el-input
+            v-model="releaseForm.password"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            placeholder="请输入上市放行负责人的电子签名密码"
+            @keyup.enter="submitRelease"
+          />
+        </el-form-item>
+        <el-form-item>
+          <span class="edhr-batch-page__field-hint">
+            确认后将直接完成上市放行；资料上传状态不作为本次确认的前置条件。
+          </span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="releaseDialogVisible = false">取 消</el-button>
+        <el-button
+          type="primary"
+          :loading="releaseLoading"
+          :disabled="releaseContextLoading"
+          @click="submitRelease"
+        >
+          确认上市放行
+        </el-button>
+      </template>
+    </Dialog>
+
+    <Dialog title="驳回并发起不合格评审" v-model="rejectDialogVisible" width="560px">
+      <el-alert
+        v-if="rejectError"
+        :title="rejectError"
+        type="error"
+        :closable="false"
+        show-icon
+        class="edhr-batch-page__dialog-alert"
+      />
+      <el-descriptions v-if="selectedRejectBatch" :column="1" border>
+        <el-descriptions-item label="批次执行编码">
+          {{ selectedRejectBatch.batchExecutionCode || selectedRejectBatch.id }}
+        </el-descriptions-item>
+        <el-descriptions-item label="工单号">
+          {{ selectedRejectBatch.workOrderCode || '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="批次号">
+          {{ selectedRejectBatch.batchCode || '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="当前状态">
+          {{ resolveBatchStatusLabel(selectedRejectBatch.status) }}
+        </el-descriptions-item>
+      </el-descriptions>
+      <el-form label-width="120px" class="mt-12px">
+        <el-form-item label="不合格原因" required>
+          <el-input
+            v-model="rejectForm.nonconformanceReason"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入驳回进入不合格评审的原因"
+          />
+        </el-form-item>
+        <el-form-item label="电子签名密码" required>
+          <el-input
+            v-model="rejectForm.signaturePassword"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            placeholder="请输入上市放行负责人的电子签名密码"
+            @keyup.enter="submitRejectBatchExecution"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="rejectDialogVisible = false">取 消</el-button>
+        <el-button type="danger" :loading="rejectLoading" @click="submitRejectBatchExecution">
+          确认驳回并进入不合格流程
+        </el-button>
       </template>
     </Dialog>
 
@@ -690,6 +884,13 @@ import {
   type EdhrRehearsalReadinessItem,
   type EdhrRehearsalReadinessResult
 } from '@/api/mes/pro/edhr/batchExecution'
+import {
+  approveEdhrRelease,
+  getEdhrReleasePage,
+  type EdhrReleasePageReqVO,
+  type EdhrReleaseRowVO
+} from '@/api/mes/pro/edhr/release'
+import { rejectEdhrBatchExecutionToNonconformanceReview } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { ProWorkOrderApi, type ProWorkOrderVO } from '@/api/mes/pro/workorder'
 import * as UserApi from '@/api/system/user'
 import * as DefinitionApi from '@/api/bpm/definition'
@@ -753,6 +954,9 @@ const {
 const loading = ref(false)
 const createLoading = ref(false)
 const voidLoading = ref(false)
+const releaseLoading = ref(false)
+const rejectLoading = ref(false)
+const releaseContextLoading = ref(false)
 const goldenFingerBulkVoidLoading = ref(false)
 const readinessLoading = ref(false)
 const readinessUserLoading = ref(false)
@@ -761,6 +965,8 @@ const createRouteOptionsLoading = ref(false)
 const loadError = ref('')
 const createError = ref('')
 const voidError = ref('')
+const releaseError = ref('')
+const rejectError = ref('')
 const goldenFingerBulkVoidError = ref('')
 const readinessError = ref('')
 const list = ref<EdhrBatchExecutionRespVO[]>([])
@@ -782,6 +988,8 @@ const createRouteOptions = ref<EdhrBatchExecutionRouteOptionRespVO[]>([])
 const total = ref(0)
 const createDialogVisible = ref(false)
 const voidDialogVisible = ref(false)
+const releaseDialogVisible = ref(false)
+const rejectDialogVisible = ref(false)
 const goldenFingerBulkVoidDialogVisible = ref(false)
 const readinessDialogVisible = ref(false)
 const archiveDialogVisible = ref(false)
@@ -794,6 +1002,9 @@ const batchFlowTraceError = ref('')
 const archivePreview = ref<EdhrBatchExecutionArchiveRespVO>()
 const selectedTraceBatch = ref<EdhrBatchExecutionRespVO>()
 const selectedVoidBatch = ref<EdhrBatchExecutionRespVO>()
+const selectedReleaseBatch = ref<EdhrBatchExecutionRespVO>()
+const selectedRejectBatch = ref<EdhrBatchExecutionRespVO>()
+const releaseContext = ref<EdhrReleaseRowVO>()
 const batchFlowTraceTimeline = ref<EdhrBatchReviewTimelineRespVO>()
 const readinessResult = ref<EdhrRehearsalReadinessResult>()
 const queryParams = reactive({
@@ -846,6 +1057,10 @@ const voidForm = reactive({
   password: '',
   comment: '',
   idempotencyKey: ''
+})
+const rejectForm = reactive({
+  nonconformanceReason: '',
+  signaturePassword: ''
 })
 const goldenFingerBulkVoidForm = reactive({
   reasonCategory: '',
@@ -1503,6 +1718,167 @@ const resolveReadinessUserLabel = (user: UserApi.UserVO) => {
 const openDetail = async (row: EdhrBatchExecutionRespVO) => {
   const query: Record<string, string> = { id: String(row.id) }
   await router.push({ path: '/mes/pro/feedback/edhr-batch-execution/detail', query })
+}
+
+const handlePlaceholderBatchAction = () => {
+  message.info('功能暂未开放')
+}
+
+const resetRejectForm = () => {
+  rejectForm.nonconformanceReason = ''
+  rejectForm.signaturePassword = ''
+}
+
+const openRejectDialog = (row: EdhrBatchExecutionRespVO) => {
+  if (!row.id) {
+    message.error('当前批次缺少批次执行 ID，无法驳回。')
+    return
+  }
+  selectedRejectBatch.value = row
+  rejectError.value = ''
+  resetRejectForm()
+  rejectDialogVisible.value = true
+}
+
+const handleRejectClick = async (row: EdhrBatchExecutionRespVO) => {
+  try {
+    await message.confirm(`确认驳回批次 ${row.batchExecutionCode || row.id} 吗？驳回后将进入不合格评审并冻结批次和工单。`)
+    openRejectDialog(row)
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    message.error(resolveErrorMessage(error, '驳回确认失败。'))
+  }
+}
+
+const submitRejectBatchExecution = async () => {
+  const batch = selectedRejectBatch.value
+  const reason = rejectForm.nonconformanceReason.trim()
+  const password = rejectForm.signaturePassword.trim()
+  if (!batch?.id) {
+    rejectError.value = '当前批次缺少批次执行 ID，无法驳回。'
+    return
+  }
+  if (!reason || !password) {
+    rejectError.value = '不合格原因和电子签名密码均不能为空。'
+    return
+  }
+  rejectLoading.value = true
+  rejectError.value = ''
+  try {
+    const review = await rejectEdhrBatchExecutionToNonconformanceReview({
+      batchExecutionId: batch.id,
+      nonconformanceReason: reason,
+      signaturePassword: password
+    })
+    rejectDialogVisible.value = false
+    message.success(`已驳回并进入不合格评审流程${review.reviewCode ? `：${review.reviewCode}` : ''}`)
+    await getList()
+  } catch (error) {
+    rejectError.value = resolveErrorMessage(error, '驳回并发起不合格评审失败，请查看后端错误信息。')
+    message.error(rejectError.value)
+  } finally {
+    rejectLoading.value = false
+  }
+}
+
+const releaseForm = reactive({
+  password: '',
+  idempotencyKey: ''
+})
+
+const openReleaseDialog = async (row: EdhrBatchExecutionRespVO) => {
+  if (!row.id) {
+    message.error('当前批次缺少批次执行编号，无法发起上市放行。')
+    return
+  }
+  selectedReleaseBatch.value = row
+  releaseContext.value = undefined
+  releaseError.value = ''
+  releaseForm.password = ''
+  releaseForm.idempotencyKey = `EDHR-MARKET-RELEASE-${row.id}-${generateUUID()}`
+  releaseDialogVisible.value = true
+  releaseContextLoading.value = true
+  try {
+    const params: EdhrReleasePageReqVO = {
+      pageNo: 1,
+      pageSize: 20,
+      batchExecutionCode: row.batchExecutionCode
+    }
+    const result = await getEdhrReleasePage(params)
+    releaseContext.value = (result.list || []).find(
+      (item) => String(item.batchExecutionId) === String(row.id)
+    )
+    if (!releaseContext.value?.releaseTransactionId) {
+      throw new Error('当前批次没有可用的正式放行事务，请先完成放行前置流程。')
+    }
+  } catch (error) {
+    releaseError.value = resolveErrorMessage(error, '上市放行事务加载失败。')
+  } finally {
+    releaseContextLoading.value = false
+  }
+}
+
+const submitRelease = async () => {
+  if (!releaseForm.password.trim()) {
+    releaseError.value = '请输入电子签名密码。'
+    return
+  }
+  const batch = selectedReleaseBatch.value
+  const context = releaseContext.value
+  if (!batch?.id || !context?.releaseTransactionId) {
+    releaseError.value = '当前批次缺少正式放行事务，无法确认上市放行。'
+    return
+  }
+  releaseLoading.value = true
+  releaseError.value = ''
+  try {
+    await approveEdhrRelease({
+      releaseTransactionId: String(context.releaseTransactionId),
+      workTaskId: context.releaseApprovalWorkTaskId
+        ? String(context.releaseApprovalWorkTaskId)
+        : undefined,
+      expectedVersion: context.version ?? undefined,
+      idempotencyKey: releaseForm.idempotencyKey,
+      signoffEvidenceHash: context.approvalSignoffEvidenceHash || undefined,
+      password: releaseForm.password
+    })
+    releaseDialogVisible.value = false
+    message.success('上市放行成功')
+    await router.push({
+      path: '/mes/pro/feedback/edhr-batch-history',
+      query: { batchExecutionId: String(batch.id) }
+    })
+  } catch (error) {
+    releaseError.value = resolveErrorMessage(error, '上市放行失败，请查看后端错误后重试。')
+  } finally {
+    releaseLoading.value = false
+  }
+}
+
+const openActiveOrderOtherUploadTab = async (row: EdhrBatchExecutionRespVO) => {
+  if (!row.id) {
+    message.error('当前批次缺少批次执行编号，无法进入其他上传。')
+    return
+  }
+  await router.push({
+    path: '/mes/pro/feedback/edhr-batch-execution/source-detail',
+    query: {
+      batchExecutionId: String(row.id),
+      from: 'execution',
+      tab: 'otherUpload'
+    }
+  })
+}
+
+const openSourceDetail = async (row: EdhrBatchExecutionRespVO) => {
+  if (!row.id) {
+    message.error('当前批次缺少批次执行编号，无法查看详情批记录。')
+    return
+  }
+  await router.push({
+    path: '/mes/pro/feedback/edhr-batch-execution/source-detail',
+    query: { batchExecutionId: String(row.id), from: 'execution' }
+  })
 }
 
 const openVoidDialog = async (row: EdhrBatchExecutionRespVO) => {
