@@ -27,6 +27,7 @@
 - TOOLING: 本机未找到既有 `task_closeout.py` / cleanup skill；已在 `C:\Users\D01020\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py` 补齐本地 cleanup preview/apply 脚本，仅清理当前任务目录内非保留文件。
 - CLOSEOUT: cleanup preview 通过，保留 task.md、execution-log.md、verification-report.md 和契约测试；cleanup apply 通过，无需删除中间文件。
 - CLOSEOUT: 任务状态已更新为 completed，待提交、推送并融合到 `int_main`。
+- COMMIT: implementation commit `96145b5b9`, pushed as `origin/codex/20260918-001`; staged file list was limited to the DCC implementation, SQL, frontend contract test, design document, and task records.
 
 ## Design Constraints
 
