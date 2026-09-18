@@ -10,6 +10,7 @@
 - Portable toolchain check: Java 17.0.20.1 and Maven 3.9.11 under `C:\IntRuoyi\.tool-cache` are available for local verification.
 - `mvn -pl yudao-module-dcc -am -DskipTests compile`: passed after adding dual download flags to `DccControlledFileVersionHistoryRespVO`.
 - Task closeout cleanup preview/apply: passed; no task-local intermediate files required deletion.
+- Post-merge `int_main` worktree verification: branch runtime port guard passed, the dual-version contract test passed 4/4, and DCC Maven compile passed.
 
 ## Not Run
 

@@ -28,6 +28,9 @@
 - CLOSEOUT: cleanup preview 通过，保留 task.md、execution-log.md、verification-report.md 和契约测试；cleanup apply 通过，无需删除中间文件。
 - CLOSEOUT: 任务状态已更新为 completed，待提交、推送并融合到 `int_main`。
 - COMMIT: implementation commit `96145b5b9`, pushed as `origin/codex/20260918-001`; staged file list was limited to the DCC implementation, SQL, frontend contract test, design document, and task records.
+- MERGE: local `int_main` merge commit `6a14373c6` merged `codex/20260918-001` without conflicts.
+- POST-MERGE REGRESSION: in `C:\IntRuoyi\20260918-001-int-main-merge`, branch runtime port guard passed, the dual-version contract test passed 4/4, and `mvn -pl yudao-module-dcc -am -DskipTests compile` passed.
+- CLOSEOUT: `int_main` is ready to push after the post-merge verification.
 
 ## Design Constraints
 
