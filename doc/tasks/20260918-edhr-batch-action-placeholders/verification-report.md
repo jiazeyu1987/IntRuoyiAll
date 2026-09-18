@@ -26,4 +26,6 @@
 ## Notes
 
 - 真实 Playwright E2E 未执行：项目规则要求仅在用户当轮明确要求时执行，本轮未要求真实页面验收。
-- 本轮未执行 Git commit/push：项目规则禁止未经当轮明确授权提交或推送。
+- task-closeout-cleanup preview/apply 已通过，仅删除本任务临时 `bug-regression-evidence.md`。
+- 本地实现提交已完成：`fbf46743a`。
+- 本轮未执行 Git push：用户仅补充授权提交，本轮未明确要求推送远端。

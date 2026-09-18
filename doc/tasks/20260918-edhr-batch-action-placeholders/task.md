@@ -41,6 +41,8 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现和必需验证已通过。真实 Playwright E2E 未执行；本轮未执行 Git commit/push，因为用户未授权。
+实现、必需验证、task-closeout-cleanup preview/apply 和本地实现提交均已完成。真实 Playwright E2E 未执行；本轮未推送远端。
+
+Implementation commit: `fbf46743a`.

@@ -44,8 +44,16 @@ GREEN: `git diff --check` -> PASS，仅 CRLF warning，无 whitespace error。
 
 验证报告见 `doc/tasks/20260918-edhr-batch-action-placeholders/verification-report.md`。
 
+## Closeout
+
+GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260918-edhr-batch-action-placeholders --mode preview` -> PASS，仅计划删除本任务临时 `bug-regression-evidence.md`。
+
+GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260918-edhr-batch-action-placeholders --mode apply` -> PASS，已删除本任务临时 `bug-regression-evidence.md`，保留核心任务记录。
+
+GREEN: `git commit -m "feat: add edhr release signature approval"` -> PASS，implementation commit `fbf46743a`。
+
 ## Blockers
 
 真实 E2E 未执行：项目规则要求仅在用户当轮明确要求时执行，本轮未要求真实页面验收。
 
-本轮未执行 Git commit/push：项目规则禁止未经当轮明确授权提交或推送。
+本轮未执行 Git push：用户仅补充授权提交，本轮未明确要求推送远端。
