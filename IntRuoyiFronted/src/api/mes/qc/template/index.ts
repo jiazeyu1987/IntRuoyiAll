@@ -45,6 +45,21 @@ export interface QaInspectionRegulationParseVO {
   processes: QaInspectionRegulationParsedProcessVO[]
 }
 
+export interface QaInspectionRegulationJsonPublishReqVO {
+  dccProjectCodeId: number
+  recognitionJson: QaInspectionRegulationParseVO
+}
+
+export interface QaInspectionRegulationJsonPublishRespVO {
+  dccProjectCodeId: number
+  regulationId: number
+  publishedVersionId: number
+  versionNo: string
+  route: 'CREATE' | 'UPDATE'
+  processCount: number
+  itemCount: number
+}
+
 export interface QaInspectionRegulationInspectionTypeRuleVO {
   key: QaInspectionRegulationInspectionRuleKey
   inspectionType: 'FIRST' | 'PATROL' | 'FINAL'
@@ -431,6 +446,15 @@ export const QcTemplateApi = {
       timeout: 300000
     })
     return result.data
+  },
+
+  publishQaInspectionRegulationJson: async (
+    data: QaInspectionRegulationJsonPublishReqVO
+  ): Promise<QaInspectionRegulationJsonPublishRespVO> => {
+    return await request.post({
+      url: `/mes/qa/inspection-regulation/form-parser-json/publish`,
+      data
+    })
   },
 
   // 保存正式 QA 检验规程草稿

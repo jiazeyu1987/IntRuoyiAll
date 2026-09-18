@@ -18,6 +18,12 @@ public interface MesProBatchRecordReportService {
      */
     void importTotalRecognitionJson(Long dccProjectCodeId, MultipartFile file);
 
+    /**
+     * 发布当前生产批记录总识别 JSON 到 DCC 项目代码绑定的工艺路线候选版本。
+     */
+    MesProBatchRecordTotalRecognitionPublishResult publishTotalRecognitionJson(Long dccProjectCodeId,
+                                                                               String totalRecognitionJson);
+
     MesProBatchRecordImportResult importPilotDoc(MultipartFile file);
 
     String parseProductionBatchRecordTotalRecognitionJson(MultipartFile file);

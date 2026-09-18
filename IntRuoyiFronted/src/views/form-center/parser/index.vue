@@ -49,6 +49,14 @@
             </el-button>
           </template>
         </el-upload>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--neutral"
+          :disabled="productionLoading || qaRegulationLoading"
+          @click="handleUnsupportedParseType('过程检验记录')"
+        >
+          <Icon icon="ep:document-checked" />
+          过程检验记录
+        </el-button>
       </div>
     </div>
 
@@ -67,8 +75,8 @@
             <div class="form-parser-panel-subtitle">{{ lastDownloadName }}</div>
           </div>
           <div class="form-parser-panel-actions">
-            <el-button @click="handlePublishPlaceholder">
-              <Icon icon="ep:upload" />
+            <el-button @click="handleOpenProductionPublishDialog">
+              <Icon icon="ep:promotion" />
               发布
             </el-button>
             <el-button type="primary" @click="handleApplyEditedJson">
@@ -440,13 +448,99 @@
         <QaInspectionRegulationParserPanel ref="qaRegulationParserRef" />
       </el-tab-pane>
     </el-tabs>
+
+    <el-dialog
+      v-model="publishDialogVisible"
+      class="form-parser-publish-dialog"
+      title="选择 DCC 项目代码"
+      width="560px"
+    >
+      <el-alert
+        class="form-parser-publish-alert"
+        :closable="false"
+        show-icon
+        title="发布会使用当前左侧编辑器中的 JSON，不会下载 JSON 文件。"
+        type="info"
+      />
+      <el-form label-width="110px">
+        <el-form-item label="项目代码" required>
+          <el-select
+            v-model="publishSelectedDccProjectCodeId"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            :loading="publishProjectCodeLoading"
+            placeholder="请输入项目名称、项目代码或文控编号"
+            :remote-method="loadPublishProjectCodes"
+            @visible-change="(visible) => visible && loadPublishProjectCodes()"
+          >
+            <el-option
+              v-for="projectCode in publishProjectCodeOptions"
+              :key="projectCode.id"
+              :label="formatPublishProjectCodeOption(projectCode)"
+              :value="projectCode.id"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <el-alert
+        v-if="publishErrorMessage"
+        class="form-parser-publish-alert"
+        :closable="false"
+        show-icon
+        :title="publishErrorMessage"
+        type="error"
+      />
+      <el-descriptions
+        v-if="publishResult"
+        border
+        class="form-parser-publish-result"
+        :column="1"
+        title="发布结果"
+      >
+        <el-descriptions-item label="动作">
+          {{ formatPublishAction(publishResult.action) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="项目代码">
+          {{ publishResult.projectName }} / {{ publishResult.projectCode }}
+        </el-descriptions-item>
+        <el-descriptions-item label="工艺路线">
+          {{ publishResult.routeName }} / {{ publishResult.routeCode }} / {{ publishResult.routeId }}
+        </el-descriptions-item>
+        <el-descriptions-item label="候选版本">
+          {{ publishResult.routeCandidateVersionNo || publishResult.routeVersionNo || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="工序数量">
+          {{ publishResult.processCount }}
+        </el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button :disabled="publishSubmitting" @click="publishDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="publishSubmitting"
+          @click="handleConfirmProductionPublish"
+        >
+          确认发布
+        </el-button>
+      </template>
+    </el-dialog>
   </ContentWrap>
 </template>
 
 <script setup lang="ts">
 import type { UploadFile, UploadFiles, UploadInstance, UploadUserFile } from 'element-plus'
 import download from '@/utils/download'
-import { BatchRecordReportApi } from '@/api/mes/pro/batchrecordreport'
+import {
+  BatchRecordReportApi,
+  type BatchRecordTotalRecognitionPublishResultVO
+} from '@/api/mes/pro/batchrecordreport'
+import {
+  DCC_PROJECT_CODE_STATUS_ENABLE,
+  getProjectCodePage,
+  type DccProjectCodeRespVO
+} from '@/api/dcc/controlledFile/projectCodes'
 import QaInspectionRegulationParserPanel from './components/QaInspectionRegulationParserPanel.vue'
 
 defineOptions({ name: 'FormCenterParser' })
@@ -552,6 +646,13 @@ const selectedPreviewDeviceKeys = ref<string[]>([])
 const selectedPreviewDeviceKey = ref('')
 const productionQuantity = ref<number | undefined>()
 const lossQuantity = ref(0)
+const publishDialogVisible = ref(false)
+const publishProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
+const publishProjectCodeLoading = ref(false)
+const publishSelectedDccProjectCodeId = ref<number>()
+const publishSubmitting = ref(false)
+const publishErrorMessage = ref('')
+const publishResult = ref<BatchRecordTotalRecognitionPublishResultVO>()
 const parameterPreviewValues = reactive<Record<string, unknown>>({})
 const checklistStates = reactive({
   clearance: true,
@@ -633,6 +734,10 @@ const handleQaInspectionRegulation = () => {
   activeParserResultTab.value = 'qa-inspection-regulation'
 }
 
+const handleUnsupportedParseType = (label: string) => {
+  message.warning(`${label}解析暂未开放`)
+}
+
 const handleExceed = (_files: File[], uploadFiles: UploadUserFile[]) => {
   uploadFiles.splice(0, uploadFiles.length)
   message.error('最多只能上传一个 doc/docx 文件')
@@ -701,14 +806,13 @@ const parseAndDownloadProductionBatchRecord = async (file: File) => {
     resetJsonSearchPosition()
     previewRecognitionJson.value = mapping
     initializePreviewState(mapping)
-    const downloadName = buildJsonDownloadName(file.name)
     lastResult.value = {
       parseTypeName: '生产批记录',
       sourceFileName: file.name,
       mapping
     }
-    lastDownloadName.value = downloadName
-    message.success('解析完成，可在结果区查看或手动下载 JSON')
+    lastDownloadName.value = buildJsonDownloadName(file.name)
+    message.success('解析完成')
   } catch (error) {
     message.error(resolveParseErrorMessage(error, '解析失败，请检查 Word 文件内容'))
     throw error
@@ -717,10 +821,6 @@ const parseAndDownloadProductionBatchRecord = async (file: File) => {
     uploadRef.value?.clearFiles()
     fileList.value = []
   }
-}
-
-const handlePublishPlaceholder = () => {
-  message.info('发布功能待实现')
 }
 
 const handleApplyEditedJson = () => {
@@ -741,6 +841,73 @@ const handleApplyEditedJson = () => {
   }
 }
 
+const handleOpenProductionPublishDialog = async () => {
+  if (!editableRecognitionJson.value.trim()) {
+    message.error('没有可发布的生产批记录 JSON')
+    return
+  }
+  try {
+    parseTotalRecognitionJson(editableRecognitionJson.value)
+  } catch (error) {
+    message.error(resolveParseErrorMessage(error, 'JSON 校验失败，不能发布'))
+    return
+  }
+  publishDialogVisible.value = true
+  publishSelectedDccProjectCodeId.value = undefined
+  publishErrorMessage.value = ''
+  publishResult.value = undefined
+  await loadPublishProjectCodes()
+}
+
+const loadPublishProjectCodes = async (keyword = '') => {
+  publishProjectCodeLoading.value = true
+  try {
+    const page = await getProjectCodePage({
+      pageNo: 1,
+      pageSize: 50,
+      keyword: keyword.trim() || undefined,
+      status: DCC_PROJECT_CODE_STATUS_ENABLE
+    })
+    publishProjectCodeOptions.value = page.list || []
+  } catch (error) {
+    publishProjectCodeOptions.value = []
+    publishErrorMessage.value = resolveParseErrorMessage(error, 'DCC 项目代码加载失败')
+    message.error(publishErrorMessage.value)
+  } finally {
+    publishProjectCodeLoading.value = false
+  }
+}
+
+const handleConfirmProductionPublish = async () => {
+  if (!publishSelectedDccProjectCodeId.value) {
+    message.warning('请选择 DCC 项目代码')
+    return
+  }
+  let parsedJson: BatchRecordTotalRecognitionJson
+  try {
+    parsedJson = parseTotalRecognitionJson(editableRecognitionJson.value)
+  } catch (error) {
+    publishErrorMessage.value = resolveParseErrorMessage(error, 'JSON 校验失败，不能发布')
+    message.error(publishErrorMessage.value)
+    return
+  }
+  publishSubmitting.value = true
+  publishErrorMessage.value = ''
+  try {
+    const result = await BatchRecordReportApi.publishTotalRecognitionJson({
+      dccProjectCodeId: publishSelectedDccProjectCodeId.value,
+      recognitionJson: parsedJson as unknown as Record<string, unknown>
+    })
+    publishResult.value = result
+    message.success(`发布成功：${formatPublishAction(result.action)}`)
+  } catch (error) {
+    publishErrorMessage.value = resolveParseErrorMessage(error, '生产批记录发布失败')
+    message.error(publishErrorMessage.value)
+  } finally {
+    publishSubmitting.value = false
+  }
+}
+
 const downloadCurrentRecognitionJson = () => {
   if (!previewRecognitionJson.value) {
     message.error('没有可下载的 JSON')
@@ -750,6 +917,24 @@ const downloadCurrentRecognitionJson = () => {
     type: 'application/json;charset=utf-8'
   })
   download.json(jsonBlob, lastDownloadName.value || buildJsonDownloadName(lastResult.value?.sourceFileName))
+}
+
+const formatPublishProjectCodeOption = (projectCode: DccProjectCodeRespVO) => {
+  return [
+    projectCode.projectName,
+    projectCode.projectCode,
+    projectCode.docControlNo
+  ].filter(Boolean).join(' / ')
+}
+
+const formatPublishAction = (action?: string) => {
+  if (action === 'CREATED_ROUTE') {
+    return '已创建工艺路线'
+  }
+  if (action === 'UPDATED_ROUTE') {
+    return '已更新工艺路线候选'
+  }
+  return action || '-'
 }
 
 const goPreviousProcess = () => {
@@ -996,9 +1181,6 @@ const parseTotalRecognitionJson = (totalRecognitionJson: string): BatchRecordTot
 const validateTotalRecognitionJson = (parsed: unknown): BatchRecordTotalRecognitionJson => {
   if (!isRecordValue(parsed)) {
     throw new Error('生产批记录 JSON 结构无效')
-  }
-  if (!isRecordValue(parsed.product)) {
-    throw new Error('生产批记录 JSON 缺少 product')
   }
   if (typeof parsed.schemaVersion !== 'number') {
     throw new Error('生产批记录 JSON 缺少 schemaVersion')

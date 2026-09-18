@@ -62,6 +62,15 @@
 - Forbidden action: 禁止让前端或 ChatGPT 网页传任意 host/path/命令；禁止把 `.bat` 控制台成功等同于网页接口契约成功；禁止缺少 `BackupKind` 时默认全量或增量；禁止未演练包直接覆盖测试服；禁止用历史备份报告、旧任务证据或静态配置冒充当前实时恢复就绪。
 - Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260918-test-backup-restore-design\verification-report.md` 与 `docs/recovery/backup-disaster-recovery.md`。
 
+### 大数据量备份恢复首版里程碑顺序门禁
+
+- Trigger: 规划或评审几百 GB 数据量的备份恢复首版，尤其出现“先做按钮、增量后续再做”“全量成功即可上线”或“整链恢复后续优化”等拆分方案。
+- Preflight check: 先完成数据、对象、数据库、配置、秘密引用、外部依赖、owner、RTO/RPO、容量和停写窗口盘点；在实际数据规模上选定并实测数据库全量主方案；确认恢复控制平面不依赖被恢复的业务后端；定义 `FULL -> INCREMENTAL -> chain restore` 的统一恢复点和对象删除 tombstone 契约。
+- Blocker: 只有文件生成没有全量隔离恢复、只有数据库增量没有对象增删改、增量链缺 parent/base/position、恢复控制平面随业务后端一起不可用、数据库主方案未按实际规模验证、或只能依赖用户电脑中转几百 GB 数据时，不能进入按钮化放行。
+- Verification: M2 记录实际规模 FULL 和隔离全量恢复；M3 连续生成至少三个真实增量并恢复中间点和最新点，验证数据库与对象新增/修改/删除，并注入中间增量损坏确认精确阻断；M4 区分恢复演练和覆盖恢复；M5 完成支持矩阵与换机/不兼容验证；M6 完成一个完整调度周期、保留模拟、最长链恢复和故障注入。
+- Forbidden action: 禁止把真实增量、整链恢复、跨存储一致性和大数据容量验证推迟到按钮上线后；禁止用小样本成功外推几百 GB；禁止把“增量包小”当成“恢复只需传增量”；禁止把升级、降级、换机承诺写成任意环境自动兼容。
+- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260918-backup-restore-milestone-review\verification-report.md`。
+
 ### 本机数据迁移包恢复门禁
 
 - Trigger: 用户要求把当前电脑的本机 IntRuoyi 数据打包给另一台电脑、保持两台开发电脑数据一致、或生成给 Codex 使用的恢复 README。

@@ -131,6 +131,29 @@ export interface BatchRecordVersionApprovalResultVO {
   processedResult?: string
 }
 
+export interface BatchRecordTotalRecognitionPublishReqVO {
+  dccProjectCodeId: number
+  recognitionJson: Record<string, unknown>
+}
+
+export interface BatchRecordTotalRecognitionPublishResultVO {
+  action: 'CREATED_ROUTE' | 'UPDATED_ROUTE'
+  dccProjectCodeId: number
+  projectCode?: string
+  projectName?: string
+  routeId?: number
+  routeCode?: string
+  routeName?: string
+  routeVersionId?: number
+  routeVersionNo?: string
+  routeCandidateVersionId?: number
+  routeCandidateVersionNo?: string
+  processCount: number
+  updatedProcessCount: number
+  recognitionJsonSha256: string
+  updateTime: string
+}
+
 export type BatchRecordFormSlotType = 'MAIN' | 'FORM' | 'LOSS_REPORT' | 'PROCESS_INSPECTION' | 'PARAMETER_RECORD'
 
 export interface BatchRecordReportDeleteAllRespVO {
@@ -288,6 +311,14 @@ export const BatchRecordReportApi = {
       timeout: WORD_IMPORT_REQUEST_TIMEOUT
     })
     return result.data
+  },
+
+  publishTotalRecognitionJson: async (data: BatchRecordTotalRecognitionPublishReqVO) => {
+    return await request.post<BatchRecordTotalRecognitionPublishResultVO>({
+      url: '/mes/pro/batch-record-report/total-recognition-json/publish',
+      data,
+      timeout: WORD_IMPORT_REQUEST_TIMEOUT
+    })
   },
 
   importImage: async (data: FormData) => {

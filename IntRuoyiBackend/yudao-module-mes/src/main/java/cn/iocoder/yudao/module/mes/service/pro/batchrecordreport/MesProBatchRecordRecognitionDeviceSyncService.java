@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -54,8 +55,9 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
 
     public void sync(Long dccProjectCodeId, String totalRecognitionJson) {
         JSONObject root = JSON.parseObject(totalRecognitionJson);
-        if (root == null || root.getIntValue("schemaVersion") != 3 || root.getJSONArray("processes") == null) {
-            throw new IllegalArgumentException("批记录总识别 JSON 必须是 schemaVersion=3 且包含 processes");
+        Integer schemaVersion = root == null ? null : root.getInteger("schemaVersion");
+        if (root == null || !List.of(2, 3).contains(schemaVersion) || root.getJSONArray("processes") == null) {
+            throw new IllegalArgumentException("批记录总识别 JSON 必须是 schemaVersion=2/3 且包含 processes");
         }
         Long routeId = requireSingleRoute(dccProjectCodeId);
         MesProRouteVersionDO candidate = routeVersionMapper.selectOpenCandidateByRouteId(routeId);
@@ -68,37 +70,46 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
                 .map(MesProRouteProcessDO::getProcessId).distinct().toList());
         JSONArray productionConfigs = readExistingProductionConfigs(candidate);
         Map<Long, JSONObject> existingConfigsByRouteProcessId = productionConfigsByRouteProcessId(productionConfigs);
-        Map<Long, JSONObject> importedByRouteProcessId = new LinkedHashMap<>();
-        for (Object rawProcess : root.getJSONArray("processes")) {
-            JSONObject process = asObject(rawProcess, "processes[]");
-            Long routeProcessId = requireLong(process, "routeProcessId");
-            MesProRouteProcessDO routeProcess = routeProcesses.get(routeProcessId);
-            if (routeProcess == null) {
-                throw new IllegalArgumentException("JSON 路线工序未绑定当前路线：routeProcessId=" + routeProcessId);
-            }
-            if (importedByRouteProcessId.put(routeProcessId, process) != null) {
-                throw new IllegalArgumentException("JSON 路线工序重复：routeProcessId=" + routeProcessId);
-            }
-        }
-        if (!importedByRouteProcessId.keySet().equals(routeProcesses.keySet())) {
-            Set<Long> missing = new HashSet<>(routeProcesses.keySet());
-            missing.removeAll(importedByRouteProcessId.keySet());
-            Set<Long> extra = new HashSet<>(importedByRouteProcessId.keySet());
-            extra.removeAll(routeProcesses.keySet());
-            throw new IllegalArgumentException("JSON 必须覆盖当前路线全部工序且恰好一次：missing="
-                    + missing + ", extra=" + extra);
-        }
+        Map<Long, JSONObject> importedByRouteProcessId = recognitionProcessesByRouteProcessId(
+                root.getJSONArray("processes"), routeProcesses, processNames);
         Map<Long, JSONObject> configsByRouteProcessId = new LinkedHashMap<>();
         for (Map.Entry<Long, MesProRouteProcessDO> entry : routeProcesses.entrySet()) {
             MesProRouteProcessDO routeProcess = entry.getValue();
             JSONObject process = importedByRouteProcessId.get(entry.getKey());
+            JSONObject existingConfig = existingConfigsByRouteProcessId.get(routeProcess.getId());
+            if (process == null && existingConfig != null) {
+                configsByRouteProcessId.put(routeProcess.getId(), new JSONObject(existingConfig));
+                continue;
+            }
             configsByRouteProcessId.put(routeProcess.getId(), buildProductionProcessConfig(
-                    routeProcess, processNames.get(routeProcess.getProcessId()), process.getJSONArray("equipmentGroups"),
-                    existingConfigsByRouteProcessId.get(routeProcess.getId())));
+                    routeProcess, processNames.get(routeProcess.getProcessId()),
+                    process == null ? null : process.getJSONArray("equipmentGroups"), existingConfig));
         }
         candidateConfigService.saveConfigSnapshots(candidate.getId(), candidate.getRouteSnapshotSha256(), Map.of(
                 PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY, 1,
                 PRODUCTION_PROCESS_CONFIGS_KEY, new JSONArray(new ArrayList<>(configsByRouteProcessId.values()))));
+    }
+
+    private Map<Long, JSONObject> recognitionProcessesByRouteProcessId(JSONArray processes,
+                                                                       Map<Long, MesProRouteProcessDO> routeProcesses,
+                                                                       Map<Long, String> processNames) {
+        Map<Long, JSONObject> result = new LinkedHashMap<>();
+        for (Object rawProcess : processes) {
+            JSONObject process = asObject(rawProcess, "processes[]");
+            Long routeProcessId = process.getLong("routeProcessId");
+            if (routeProcessId == null) {
+                routeProcessId = resolveProcessByName(requireText(process, "name"), routeProcesses, processNames);
+            } else if (routeProcessId <= 0) {
+                throw new IllegalArgumentException("JSON 缺少正整数字段：routeProcessId");
+            }
+            if (!routeProcesses.containsKey(routeProcessId)) {
+                throw new IllegalArgumentException("JSON 路线工序未绑定当前路线：routeProcessId=" + routeProcessId);
+            }
+            if (result.put(routeProcessId, process) != null) {
+                throw new IllegalArgumentException("JSON 路线工序重复：routeProcessId=" + routeProcessId);
+            }
+        }
+        return result;
     }
 
     private JSONArray readExistingProductionConfigs(MesProRouteVersionDO candidate) {
@@ -141,18 +152,23 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
             for (int groupIndex = 0; groupIndex < equipmentGroups.size(); groupIndex++) {
                 JSONObject group = asObject(equipmentGroups.get(groupIndex), "equipmentGroups[]");
                 String selectionMode = requireSelectionMode(group);
-                String groupKey = requireText(group, "deviceGroupKey");
+                Integer groupSort = optionalPositiveInteger(group, "sort", groupIndex + 1);
+                String groupKey = optionalText(group, "deviceGroupKey");
+                if (groupKey == null) {
+                    groupKey = buildDeviceGroupKey(processName, groupSort);
+                }
                 if (!groupKeys.add(groupKey)) {
                     throw new IllegalArgumentException("JSON 设备组键重复：" + groupKey);
                 }
-                Integer groupSort = requireInteger(group, "sort");
                 JSONArray deviceIds = new JSONArray();
                 List<JSONObject> parameters = arrayObjects(group.getJSONArray("parameters"), "parameters");
                 for (JSONObject equipment : arrayObjects(group.getJSONArray("equipmentOptions"), "equipmentOptions")) {
                     Long deviceId = requireExistingDeviceId(equipment);
                     deviceIds.add(deviceId);
-                    for (JSONObject parameter : parameters) {
-                        parameterRules.add(toParameterRuleSnapshot(routeProcess, deviceId, parameter));
+                    for (int parameterIndex = 0; parameterIndex < parameters.size(); parameterIndex++) {
+                        JSONObject parameter = parameters.get(parameterIndex);
+                        parameterRules.add(toParameterRuleSnapshot(routeProcess, deviceId, parameter,
+                                processName, groupSort, parameterIndex + 1));
                     }
                 }
                 JSONObject selectionGroup = new JSONObject(true);
@@ -166,6 +182,23 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
         config.put("deviceSelectionGroups", deviceSelectionGroups);
         config.put("parameterRules", parameterRules);
         return config;
+    }
+
+    private Long resolveProcessByName(String processName, Map<Long, MesProRouteProcessDO> routeProcesses,
+                                      Map<Long, String> processNames) {
+        String normalizedName = processName.trim();
+        List<Long> matches = new ArrayList<>();
+        for (MesProRouteProcessDO routeProcess : routeProcesses.values()) {
+            String routeProcessName = processNames.get(routeProcess.getProcessId());
+            if (routeProcessName != null && normalizedName.equals(routeProcessName.trim())) {
+                matches.add(routeProcess.getId());
+            }
+        }
+        if (matches.size() != 1) {
+            throw new IllegalArgumentException("JSON 工序名称必须匹配当前路线唯一工序：" + processName
+                    + "，当前数量=" + matches.size());
+        }
+        return matches.get(0);
     }
 
     private Long requireExistingDeviceId(JSONObject equipment) {
@@ -184,7 +217,8 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
     }
 
     private JSONObject toParameterRuleSnapshot(MesProRouteProcessDO routeProcess, Long deviceId,
-                                               JSONObject parameter) {
+                                               JSONObject parameter, String processName, Integer groupSort,
+                                               Integer parameterSort) {
         String name = requireText(parameter, "name");
         String referenceValue = requireText(parameter, "referenceValue");
         JSONObject ui = asObject(parameter.get("ui"), "parameters[].ui");
@@ -193,11 +227,13 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
         rule.put("routeProcessId", routeProcess.getId());
         rule.put("processId", routeProcess.getProcessId());
         rule.put("deviceId", deviceId);
-        rule.put("parameterCode", requireText(parameter, "parameterCode"));
+        String parameterCode = optionalText(parameter, "parameterCode");
+        rule.put("parameterCode", parameterCode == null
+                ? buildParameterCode(processName, groupSort, parameterSort, name) : parameterCode);
         rule.put("parameterName", ui.getString("displayName") == null ? name : ui.getString("displayName"));
         rule.put("unit", ui.getString("unit"));
         rule.put("standardText", referenceValue);
-        rule.put("sort", requireInteger(parameter, "sort"));
+        rule.put("sort", optionalPositiveInteger(parameter, "sort", parameterSort));
         if ("number".equals(control)) {
             BigDecimal defaultValue = decimal(ui, "defaultValue", true);
             BigDecimal lowerLimit = decimal(ui, "min", false);
@@ -318,6 +354,30 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
         Integer number = value.getInteger(field);
         if (number == null || number <= 0) throw new IllegalArgumentException("JSON 缺少正整数字段：" + field);
         return number;
+    }
+
+    private static String optionalText(JSONObject value, String field) {
+        String text = value.getString(field);
+        return text == null || text.isBlank() ? null : text.trim();
+    }
+
+    private static Integer optionalPositiveInteger(JSONObject value, String field, Integer defaultValue) {
+        Integer number = value.getInteger(field);
+        if (number == null) return defaultValue;
+        if (number <= 0) throw new IllegalArgumentException("JSON 正整数字段无效：" + field);
+        return number;
+    }
+
+    private static String buildDeviceGroupKey(String processName, int groupSort) {
+        return "BRP_G" + groupSort + "_" + stableCode(processName);
+    }
+
+    private static String buildParameterCode(String processName, int groupSort, int parameterSort, String name) {
+        return "BRP_G" + groupSort + "_P" + parameterSort + "_" + stableCode(processName + "|" + name);
+    }
+
+    private static String stableCode(String value) {
+        return Integer.toUnsignedString(String.valueOf(value).hashCode(), 36).toUpperCase(Locale.ROOT);
     }
 
     private static String requireSelectionMode(JSONObject group) {

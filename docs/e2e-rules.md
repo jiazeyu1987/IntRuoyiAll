@@ -102,7 +102,7 @@
 - Blocker: 运行 Jar 来源不明、关键类缺失、内嵌模块不是同一提交、哈希或压缩方式不符、替换后 health 未恢复，或定向组合产物被用作完整发布构建通过证据时必须停止。
 - Verification: 证据包含提交、运行 Jar 路径与哈希、关键类清单、替换模块哈希、端口 PID 和 health；完整构建若失败，必须单独记录失败模块与错误数量，定向 E2E 只能证明目标模块运行行为，不能证明发布构建通过。
 - Forbidden action: 禁止在未核对运行 Jar 内容时宣称当前代码 E2E 通过；禁止把旧 Jar、脏主工作区临时编译物、跨提交模块或静默拼装产物冒充当前运行态。
-- Evidence: `doc/tasks/20260811-dcc-critical-remediation-int-main-admin-e2e/verification-report.md`。
+- Evidence: `doc/tasks/20260811-dcc-critical-remediation-int-main-admin-e2e/verification-report.md`；`doc/tasks/20260918-production-batch-record-json-publish-implementation/verification-report.md`，`20260918_gongyiluxian` 真实页面 E2E 前按分支标准脚本启动后端时，Maven `yudao-module-mes:testCompile` 被既有 `MesPqcReleaseOrderDetailServiceTest` 编译错误阻断，`yudao-server` 未打包/启动，因此 E2E 结论保持 BLOCKED，禁止复用旧运行态、API-only 或 mock 替代真实前端路径。
 
 ### PDF 预览非空渲染门禁
 
