@@ -2061,20 +2061,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'pro/feedback/edhr-label',
-        component: () => import('@/views/mes/pro/edhr-label-print/LabelPrintQueuePage.vue'),
-        name: 'MesProFeedbackEdhrLabel',
-        meta: {
-          noCache: true,
-          hidden: true,
-          canTo: true,
-          icon: '',
-          title: 'eDHR标签管理',
-          activeMenu: '/mes/pro/feedback/edhr-label',
-          permission: ['mes:pro-edhr-label:query']
-        }
-      },
-      {
         path: 'pro/feedback/edhr-unified-change',
         component: () => import('@/views/mes/pro/edhr-unified-change/UnifiedChangePage.vue'),
         name: 'MesProFeedbackEdhrUnifiedChange',

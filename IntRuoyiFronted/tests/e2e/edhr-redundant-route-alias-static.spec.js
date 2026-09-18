@@ -21,20 +21,20 @@ const assertSingleComponentRoute = (component) => {
 
 assertRouteExists('pro/feedback/edhr-work-task')
 assertRouteExists('pro/feedback/edhr-signatures')
-assertRouteExists('pro/feedback/edhr-label')
 assertRouteExists('pro/feedback/edhr-form')
 
 assertRouteAbsent('pro/edhr-work-task')
 assertRouteAbsent('pro/feedback/edhr-signature')
 assertRouteAbsent('pro/edhr-recordbook')
 assertRouteAbsent('pro/feedback/edhr-recordbook')
+assertRouteAbsent('pro/feedback/edhr-label')
 assertRouteAbsent('pro/feedback/edhr-print-task')
+assertRouteAbsent('pro/feedback/edhr-print-policy')
 assertRouteAbsent('pro/feedback/edhr-form-template')
 assertRouteAbsent('pro/feedback/edhr-form-instance')
 
 assertSingleComponentRoute('@/views/mes/pro/edhr-work-task/WorkTaskBoardPage.vue')
 assertSingleComponentRoute('@/views/mes/pro/edhr/SignaturePage.vue')
-assertSingleComponentRoute('@/views/mes/pro/edhr-label-print/LabelPrintQueuePage.vue')
 assertSingleComponentRoute('@/views/mes/pro/edhr-form/FormPage.vue')
 
 console.log('EDHR_REDUNDANT_ROUTE_ALIAS_STATIC_PASS=1')

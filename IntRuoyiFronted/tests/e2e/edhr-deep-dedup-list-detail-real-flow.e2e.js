@@ -96,7 +96,9 @@ async function main() {
       const paths = [
         '/mes/pro/edhr-work-task',
         '/mes/pro/feedback/edhr-signature',
+        '/mes/pro/feedback/edhr-label',
         '/mes/pro/feedback/edhr-print-task',
+        '/mes/pro/feedback/edhr-print-policy',
         '/mes/pro/feedback/edhr-form-template',
         '/mes/pro/feedback/edhr-form-instance'
       ]

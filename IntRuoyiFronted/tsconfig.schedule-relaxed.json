@@ -35,7 +35,6 @@
     "src/views/mes/pro/edhr-flow-intervention/**/*.vue",
     "src/views/mes/pro/edhr-form/**/*.vue",
     "src/views/mes/pro/edhr-init-batch/**/*.vue",
-    "src/views/mes/pro/edhr-label-print/**/*.vue",
     "src/views/mes/pro/edhr-oq-pq/**/*.vue",
     "src/views/mes/pro/edhr-recordbook/**/*.vue",
     "src/views/mes/pro/edhr-release/**/*.vue",

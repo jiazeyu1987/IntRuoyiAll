@@ -160,13 +160,6 @@ const sourceExpectations = [
     ]
   },
   {
-    file: 'src/views/mes/pro/edhr-label-print/LabelPrintQueuePage.vue',
-    required: [
-      'prop="generatedAt" width="180" :formatter="edhrDateTimeFormatter"',
-      'prop="requestedAt" width="180" :formatter="edhrDateTimeFormatter"'
-    ]
-  },
-  {
     file: 'src/views/mes/pro/edhr-report/ReportPage.vue',
     required: [
       'prop="occurredAt" width="180" :formatter="edhrDateTimeFormatter"',

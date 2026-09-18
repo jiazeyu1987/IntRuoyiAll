@@ -36,7 +36,6 @@ export const RELEASE_COVERAGE_EXCLUDED_EDHR_SOURCE_FILES = Object.freeze([
   'src/api/mes/pro/edhr/form.ts',
   'src/api/mes/pro/edhr/formFillLog.ts',
   'src/api/mes/pro/edhr/initBatch.ts',
-  'src/api/mes/pro/edhr/labelPrint.ts',
   'src/api/mes/pro/edhr/operationAudit.ts',
   'src/api/mes/pro/edhr/oqPq.ts',
   'src/api/mes/pro/edhr/permission.ts',
