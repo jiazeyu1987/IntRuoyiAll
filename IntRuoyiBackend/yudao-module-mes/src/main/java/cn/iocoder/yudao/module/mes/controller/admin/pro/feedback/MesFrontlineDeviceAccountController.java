@@ -245,6 +245,8 @@ public class MesFrontlineDeviceAccountController {
     private static MesFrontlineActiveOrderRespVO toProductionActiveOrderRespVO(
             MesTeamLeaderActiveOrderRow activeOrder) {
         return new MesFrontlineActiveOrderRespVO()
+                .setReadBlocked(activeOrder.getReadBlocked())
+                .setReadBlockReason(activeOrder.getReadBlockReason())
                 .setActiveOrderId(activeOrder.getId())
                 .setWorkOrderId(activeOrder.getWorkOrderId())
                 .setWorkOrderCode(activeOrder.getWorkOrderCode())
@@ -531,6 +533,8 @@ public class MesFrontlineDeviceAccountController {
         item.setParameterSnapshotState(context.parameterSnapshotState());
         item.setDeviceSelectionSnapshotJson(context.deviceSelectionSnapshotJson());
         item.setDeviceSelectionSnapshotSha256(context.deviceSelectionSnapshotSha256());
+        item.setProductionConfigSnapshotJson(context.productionConfigSnapshotJson());
+        item.setProductionConfigSnapshotSha256(context.productionConfigSnapshotSha256());
         return item;
     }
 

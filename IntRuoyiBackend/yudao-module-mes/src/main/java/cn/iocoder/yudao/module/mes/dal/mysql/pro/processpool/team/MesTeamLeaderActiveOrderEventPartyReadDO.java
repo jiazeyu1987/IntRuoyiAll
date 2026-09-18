@@ -17,4 +17,5 @@ public class MesTeamLeaderActiveOrderEventPartyReadDO {
     private Long reviewerSignatureId;
     private LocalDateTime reviewerSignedAt;
     private Integer scrapQuantity;
+    private Long productionEventId;
 }

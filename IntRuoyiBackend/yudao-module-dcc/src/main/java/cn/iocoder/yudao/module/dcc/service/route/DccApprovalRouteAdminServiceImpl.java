@@ -23,7 +23,6 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.position.DccPositionAssignmentMappe
 import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteNodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccApprovalModeEnum;
-import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
 import cn.iocoder.yudao.module.dcc.service.position.DccApprovalPositionRuntimeResolver;
 import cn.iocoder.yudao.module.dcc.service.file.DccApprovalParticipantPostValidator;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
@@ -33,6 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -40,8 +40,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.function.Function;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.APPROVAL_ROUTE_NODE_EMPTY;
@@ -54,7 +54,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW
 public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminService {
 
     static final ErrorCode APPROVAL_ROUTE_FIXED_STAGE_INVALID =
-            new ErrorCode(1_080_000_103, "审批路线必须完整覆盖文控审核、会签审核、会签批准、文控批准四个固定阶段");
+            new ErrorCode(1_080_000_103, "审批路线必须使用固定四阶段审批策略：文控审核任意通过、会签审核全部通过100%、会签批准任意通过、文控批准任意通过，且四阶段均为必经");
 
     @Resource
     private DccFileCategoryMapper categoryMapper;
@@ -72,13 +72,6 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
     private DccApprovalPositionRuntimeResolver positionRuntimeResolver;
     @Resource
     private DccApprovalParticipantPostValidator approvalParticipantPostValidator;
-
-    private static final Map<Integer, FixedStageDefinition> FIXED_STAGE_MAP = List.of(
-            new FixedStageDefinition(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), 1, false),
-            new FixedStageDefinition(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), 2, true),
-            new FixedStageDefinition(3, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), 3, false),
-            new FixedStageDefinition(4, DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode(), 4, false)
-    ).stream().collect(Collectors.toMap(FixedStageDefinition::stageNo, Function.identity()));
 
     @Override
     public PageResult<DccApprovalRouteRespVO> getRoutePage(DccApprovalRoutePageReqVO reqVO) {
@@ -118,6 +111,7 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
         }
         validateFixedStages(reqVO.getNodes());
         Integer maxVersion = routeMapper.selectMaxVersionNoIncludingDeleted(categoryId);
+        LocalDateTime now = LocalDateTime.now();
         DccCategoryApprovalRouteDO route = DccCategoryApprovalRouteDO.builder()
                 .categoryId(categoryId)
                 .versionNo(maxVersion + 1)
@@ -127,13 +121,17 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
                 .build();
         routeMapper.insert(route);
 
-        List<DccCategoryApprovalRouteDO> oldRoutes = routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId, categoryId);
-        oldRoutes.stream()
-                .filter(item -> !item.getId().equals(route.getId()) && Boolean.TRUE.equals(item.getActive()))
-                .forEach(item -> routeMapper.updateById(DccCategoryApprovalRouteDO.builder()
-                        .id(item.getId())
-                        .active(Boolean.FALSE)
-                        .build()));
+        if (isEffectiveAt(reqVO.getEffectiveTime(), now)) {
+            List<DccCategoryApprovalRouteDO> oldRoutes = routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId, categoryId);
+            oldRoutes.stream()
+                    .filter(item -> !item.getId().equals(route.getId()))
+                    .filter(item -> Boolean.TRUE.equals(item.getActive()))
+                    .filter(item -> isEffectiveAt(item.getEffectiveTime(), now))
+                    .forEach(item -> routeMapper.updateById(DccCategoryApprovalRouteDO.builder()
+                            .id(item.getId())
+                            .active(Boolean.FALSE)
+                            .build()));
+        }
 
         CollectionUtils.convertList(reqVO.getNodes(), nodeReq -> toRouteNode(route.getId(), nodeReq))
                 .forEach(routeNodeMapper::insert);
@@ -154,10 +152,10 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
     @Override
     public List<DccApprovalRoutePreviewRespVO> previewRoute(DccApprovalRoutePreviewReqVO reqVO) {
         validateCategoryExists(reqVO.getCategoryId());
-        DccCategoryApprovalRouteDO route = routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId, reqVO.getCategoryId()).stream()
-                .filter(item -> Boolean.TRUE.equals(item.getActive()))
-                .max(Comparator.comparing(DccCategoryApprovalRouteDO::getVersionNo))
-                .orElseThrow(() -> exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.APPROVAL_ROUTE_NOT_EXISTS));
+        DccCategoryApprovalRouteDO route = routeMapper.selectLatestActiveByCategoryId(reqVO.getCategoryId());
+        if (route == null) {
+            throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.APPROVAL_ROUTE_NOT_EXISTS);
+        }
         List<DccCategoryApprovalRouteNodeDO> nodes = routeNodeMapper.selectList(DccCategoryApprovalRouteNodeDO::getRouteId, route.getId()).stream()
                 .sorted(Comparator.comparing(DccCategoryApprovalRouteNodeDO::getStageOrder, Comparator.nullsLast(Integer::compareTo))
                         .thenComparing(DccCategoryApprovalRouteNodeDO::getSort)
@@ -349,7 +347,8 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
     }
 
     private DccCategoryApprovalRouteNodeDO toRouteNode(Long routeId, DccApprovalRouteNodeSaveReqVO reqVO) {
-        FixedStageDefinition stageDefinition = getFixedStage(reqVO.getStageNo());
+        DccFixedApprovalRoutePolicy.FixedStageDefinition stageDefinition =
+                DccFixedApprovalRoutePolicy.requireStage(reqVO.getStageNo(), APPROVAL_ROUTE_FIXED_STAGE_INVALID);
         return DccCategoryApprovalRouteNodeDO.builder()
                 .routeId(routeId)
                 .stageNo(reqVO.getStageNo())
@@ -359,10 +358,10 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
                 .candidateSourceType(reqVO.getCandidateSourceType())
                 .candidateSourceId(reqVO.getCandidateSourceId())
                 .candidateSourceIds(String.valueOf(reqVO.getCandidateSourceId()))
-                .approveMethod(reqVO.getApproveMethod())
-                .approveRatio(reqVO.getApproveRatio())
+                .approveMethod(stageDefinition.approveMethod())
+                .approveRatio(stageDefinition.approveRatio())
                 .requireAllApprovals(stageDefinition.requireAllApprovals())
-                .required(reqVO.getRequired())
+                .required(stageDefinition.required())
                 .sort(reqVO.getSort())
                 .build();
     }
@@ -375,24 +374,12 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
         return category;
     }
 
-    private void validateFixedStages(List<DccApprovalRouteNodeSaveReqVO> nodes) {
-        List<Integer> stageNos = nodes.stream()
-                .map(DccApprovalRouteNodeSaveReqVO::getStageNo)
-                .distinct()
-                .sorted()
-                .toList();
-        if (!stageNos.equals(List.of(1, 2, 3, 4))) {
-            throw exception(APPROVAL_ROUTE_FIXED_STAGE_INVALID);
-        }
-        nodes.forEach(node -> getFixedStage(node.getStageNo()));
+    private boolean isEffectiveAt(LocalDateTime effectiveTime, LocalDateTime selectionTime) {
+        return effectiveTime == null || !effectiveTime.isAfter(selectionTime);
     }
 
-    private FixedStageDefinition getFixedStage(Integer stageNo) {
-        FixedStageDefinition stageDefinition = FIXED_STAGE_MAP.get(stageNo);
-        if (stageDefinition == null) {
-            throw exception(APPROVAL_ROUTE_FIXED_STAGE_INVALID);
-        }
-        return stageDefinition;
+    private void validateFixedStages(List<DccApprovalRouteNodeSaveReqVO> nodes) {
+        DccFixedApprovalRoutePolicy.validateSaveNodes(nodes, APPROVAL_ROUTE_FIXED_STAGE_INVALID);
     }
 
     private List<Long> resolveAssignmentUsers(DccPositionAssignmentDO assignment) {
@@ -418,7 +405,4 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
         return candidateSourceId == null ? List.of() : List.of(candidateSourceId);
     }
 
-    private record FixedStageDefinition(Integer stageNo, String stageCode, Integer stageOrder,
-                                        boolean requireAllApprovals) {
-    }
 }

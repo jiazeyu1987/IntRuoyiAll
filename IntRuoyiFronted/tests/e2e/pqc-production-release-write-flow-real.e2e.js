@@ -260,7 +260,7 @@ const createTemplateActiveOrder = async (page) => {
 
 const createStage1Sample = async (page) => {
   await openProductionLeaderActiveOrders(page)
-  const buttons = page.locator('[data-team-leader-simulate-active-order-stage1]')
+  const buttons = page.locator('[data-team-leader-simulate-active-order-stage1-p1]')
   await buttons
     .first()
     .waitFor({ state: 'visible', timeout: 15000 })
@@ -268,7 +268,7 @@ const createStage1Sample = async (page) => {
   if ((await buttons.count()) === 0) {
     await createTemplateActiveOrder(page)
   }
-  const refreshedButtons = page.locator('[data-team-leader-simulate-active-order-stage1]')
+  const refreshedButtons = page.locator('[data-team-leader-simulate-active-order-stage1-p1]')
   let button
   for (let index = 0; index < (await refreshedButtons.count()); index += 1) {
     const candidate = refreshedButtons.nth(index)
@@ -277,7 +277,7 @@ const createStage1Sample = async (page) => {
       break
     }
   }
-  assert.ok(button, '没有可用的 Stage1 模拟模板订单')
+  assert.ok(button, '没有可用的 P1 双100模板订单')
   const data = await waitBusinessWrite(
     page,
     '/mes/pro/process-pool/team-leader/active-order/simulation/stage1',

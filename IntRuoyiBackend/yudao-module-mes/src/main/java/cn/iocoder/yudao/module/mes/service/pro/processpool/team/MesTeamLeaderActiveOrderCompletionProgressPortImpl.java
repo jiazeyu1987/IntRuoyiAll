@@ -1,9 +1,11 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
@@ -27,14 +29,17 @@ public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
     private final MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
     private final MesProcessPoolReportAllocationMapper allocationMapper;
     private final MesPqcInspectionTaskMapper pqcTaskMapper;
+    private final MesProProcessPoolEventMapper eventMapper;
 
     public MesTeamLeaderActiveOrderCompletionProgressPortImpl(
             MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper,
             MesProcessPoolReportAllocationMapper allocationMapper,
-            MesPqcInspectionTaskMapper pqcTaskMapper) {
+            MesPqcInspectionTaskMapper pqcTaskMapper,
+            MesProProcessPoolEventMapper eventMapper) {
         this.snapshotMapper = snapshotMapper;
         this.allocationMapper = allocationMapper;
         this.pqcTaskMapper = pqcTaskMapper;
+        this.eventMapper = eventMapper;
     }
 
     @Override
@@ -52,7 +57,6 @@ public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
             throw sourceMissing(activeOrder, "PRODUCTION_OR_PQC_SNAPSHOT");
         }
 
-        Map<String, BigDecimal> allocatedByProcess = new HashMap<>();
         for (MesProcessPoolReportAllocationDO allocation : allocations == null ? List.<MesProcessPoolReportAllocationDO>of() : allocations) {
             if (allocation == null || !Objects.equals(activeOrder.getId(), allocation.getActiveOrderId())
                     || !Objects.equals(activeOrder.getWorkOrderId(), allocation.getWorkOrderId())
@@ -61,9 +65,12 @@ public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
                     || allocation.getAllocatedQuantity().signum() < 0) {
                 throw sourceMissing(activeOrder, "REPORT_ALLOCATION");
             }
-            allocatedByProcess.merge(key(allocation.getRouteProcessId(), allocation.getProcessId()),
-                    allocation.getAllocatedQuantity(), BigDecimal::add);
         }
+        List<Long> sourceEventIds = (allocations == null ? List.<MesProcessPoolReportAllocationDO>of() : allocations)
+                .stream().filter(allocation -> allocation.getAllocatedQuantity().signum() > 0)
+                .map(MesProcessPoolReportAllocationDO::getEventId).filter(Objects::nonNull).distinct().toList();
+        List<MesProProcessPoolEventDO> productionEvents = sourceEventIds.isEmpty() ? List.of()
+                : eventMapper.selectProductionSubmitsByIdsForUpdate(sourceEventIds);
         Map<String, MesProcessPoolActiveOrderProcessSnapshotDO> snapshotsByProcess = new HashMap<>();
         long productionComplete = 0;
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
@@ -75,9 +82,10 @@ public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
             if (snapshotsByProcess.put(key(snapshot.getRouteProcessId(), snapshot.getProcessId()), snapshot) != null) {
                 throw sourceMissing(activeOrder, "PROCESS_SNAPSHOT_DUPLICATE");
             }
-            BigDecimal allocated = allocatedByProcess.getOrDefault(
-                    key(snapshot.getRouteProcessId(), snapshot.getProcessId()), BigDecimal.ZERO);
-            if (allocated.compareTo(snapshot.getPlannedQuantitySnapshot()) >= 0) {
+            BigDecimal conservativeProgress =
+                    MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(activeOrder, snapshot,
+                            productionEvents, allocations);
+            if (conservativeProgress.compareTo(snapshot.getPlannedQuantitySnapshot()) >= 0) {
                 productionComplete++;
             }
         }

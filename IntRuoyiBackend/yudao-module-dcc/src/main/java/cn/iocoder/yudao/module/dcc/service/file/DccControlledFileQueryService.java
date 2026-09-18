@@ -56,6 +56,12 @@ public interface DccControlledFileQueryService {
     DccDownloadFileBinary readDownloadFile(Long userId, Long id, Boolean nonControlledWarningConfirmed,
                                            String downloadRequestId, DccRequestAuditContext auditContext);
 
+    DccDownloadFileBinary readReadOnlyDownloadFile(Long userId, Long id, Boolean nonControlledWarningConfirmed,
+                                                   String downloadRequestId, DccRequestAuditContext auditContext);
+
+    DccDownloadFileBinary readEditableDownloadFile(Long userId, Long id, Boolean nonControlledWarningConfirmed,
+                                                   String downloadRequestId, DccRequestAuditContext auditContext);
+
     DccControlledFileBinary readOnlyOfficePreviewFile(Long id, String token,
                                                       DccRequestAuditContext auditContext) throws Exception;
 

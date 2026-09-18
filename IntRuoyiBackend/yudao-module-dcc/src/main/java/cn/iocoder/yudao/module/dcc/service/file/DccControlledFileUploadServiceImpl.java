@@ -175,8 +175,13 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             throw exception(CONTROLLED_FILE_UPLOAD_PURPOSE_INVALID);
         }
         String normalizedPurpose = DccControlledFileUploadTypePolicy.normalizePurpose(purpose);
-        if (DccControlledFileUploadTypePolicy.isSourcePurpose(normalizedPurpose)
+        if ((DccControlledFileUploadTypePolicy.isSourcePurpose(normalizedPurpose)
+                || DccControlledFileUploadTypePolicy.isEditableSourcePurpose(normalizedPurpose))
                 && !DccControlledFileUploadTypePolicy.isAllowedEditableSourceName(fileName)) {
+            throw exception(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
+        }
+        if (DccControlledFileUploadTypePolicy.isReadOnlyViewPurpose(normalizedPurpose)
+                && !DccControlledFileUploadTypePolicy.isPdfName(fileName)) {
             throw exception(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
         }
         return normalizedPurpose;
@@ -185,6 +190,10 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     private void validatePreviewPurposeContent(String purpose, String fileName, byte[] content) {
         if (DccControlledFileUploadTypePolicy.isSourcePurpose(purpose)
                 && DccControlledFileUploadTypePolicy.isPdfName(fileName)
+                && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
+            throw exception(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
+        }
+        if (DccControlledFileUploadTypePolicy.isReadOnlyViewPurpose(purpose)
                 && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
             throw exception(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
         }

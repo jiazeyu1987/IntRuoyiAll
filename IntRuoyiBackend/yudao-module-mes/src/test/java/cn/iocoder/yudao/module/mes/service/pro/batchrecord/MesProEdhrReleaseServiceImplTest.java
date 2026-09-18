@@ -83,6 +83,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
@@ -145,6 +146,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     private MesProEdhrFourMaterialGateService fourMaterialGateService;
     @MockitoBean
     private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @MockitoBean
+    private MesProEdhrBatchTraceabilityService batchTraceabilityService;
 
     @BeforeEach
     void setUpDossierRequirementDefaults() {
@@ -837,6 +840,62 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
 
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, approved.getReleaseStatus());
         assertEquals(batch.getId(), approved.getBatchExecutionId());
+    }
+
+    @Test
+    void managedActiveOrderApprovalClosesBatchAndAppendsDecisionToItsOrigin() {
+        var batch = insertReadyToCloseBatch("BATCH-MANAGED-ACTIVE-ORDER");
+        var precheck = insertPendingApprovalRelease(batch);
+        var task = releaseApprovalTask(precheck.getReleaseTransactionId(), 7981L);
+        var request = approvalRequest(precheck, batch, task, "managed-active", "verified-signoff", "上市放行")
+                .setReleaseApplicationId(5081L).setActiveOrderId(8081L)
+                .setOrigin(MesReleaseOrigin.ACTIVE_ORDER).setEntryType("ACTIVE_ORDER_COMPLETION")
+                .setActiveOrderExpectedVersion(5).setDualProgressCompleted(true).setThreeBackfillsSucceeded(true)
+                .setCompletionBackfillReceiptId("completion-81").setCompletionEventId("completion-event-81")
+                .setPickListBindingId("6081").setPickListId(7081L);
+        var pickSource = new MesBatchExecutionPickListSource().setPickListBindingId(6081L).setPickListId(7081L)
+                .setBindingVersion(1L).setSourceSnapshotHash("pick-snapshot-81");
+        org.mockito.Mockito.doAnswer(invocation -> {
+            MesReleaseFinalizationCommand command = invocation.getArgument(0);
+            command.setPickListSources(List.of(pickSource));
+            return new MesReleaseFinalizationEvidence().setMaterialGateReceipt(command.getMaterialGateReceipt())
+                    .setCompletionBackfillReceipt(new CompletionBackfillReceipt().setReceiptId("completion-81")
+                            .setTenantId(1L).setActiveOrderId(8081L).setWorkOrderId(batch.getWorkOrderId())
+                            .setPickListSources(List.of(pickSource)).setSourceSnapshotHash(command.getSourceSnapshotHash())
+                            .setCompletionVersion(1).setCompletionTransactionId("completion-tx-81")
+                            .setCompletionEventId("completion-event-81").setBatchRecordId(81L).setProcessInspectionId(82L)
+                            .setBatchRecordSourceIds(List.of(81L)).setProcessInspectionSourceIds(List.of(82L))
+                            .setHasActualLoss(false).setLossDecision("NO_LOSS").setLossReportStatus("NOT_REQUIRED")
+                            .setReceiptHash("completion-hash-81").setIdempotencyKey("completion-idem-81")
+                            .setAuditEventId("completion-audit-81").setStatus("BACKFILL_SUCCEEDED")
+                            .setIssuedAt(LocalDateTime.now()));
+        }).when(authoritativeContextPort).require(any());
+        when(managerApprovalService.isManagedReleaseTransaction(precheck.getReleaseTransactionId())).thenReturn(true);
+        var prepared = new cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerApprovalResult()
+                .setBatchExecution(batch).setReleaseTransaction(releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()));
+        when(managerApprovalService.prepareForFinalization(any(), any())).thenReturn(prepared);
+        when(managerApprovalService.completeAfterFinalization(any(), any(), any(), any())).thenReturn(prepared);
+        when(batchTraceabilityService.getTraceability(batch.getId())).thenReturn(
+                new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceabilityRespVO()
+                        .setOrigins(List.of(new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceabilityRespVO.Origin()
+                                .setId(9081L).setActiveOrderId(8081L).setWorkOrderId(batch.getWorkOrderId())
+                                .setSourceSnapshotHash(request.getSourceSnapshotHash()))));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            releaseService.approve(request);
+        }
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED,
+                batchExecutionMapper.selectById(batch.getId()).getStatus());
+        var released = releaseTransactionMapper.selectById(precheck.getReleaseTransactionId());
+        assertEquals("RELEASED", released.getReleaseStatus());
+        assertNotNull(released.getReleaseDecisionId());
+        verify(workTaskService).createArchiveTaskAfterBatchClose(any());
+        verify(batchTraceabilityService).appendReleaseDecision(argThat(command ->
+                command.getOriginId().equals(9081L) && command.getReleaseApplicationId().equals(5081L)
+                        && command.getReleaseDecisionId().equals(released.getReleaseDecisionId())));
+        verify(upstreamStatePort).closeAfterRelease(argThat(command ->
+                command.getActiveOrderId().equals(8081L) && command.getActiveOrderExpectedVersion().equals(5)
+                        && command.getReleaseDecisionId().equals(released.getReleaseDecisionId())));
     }
 
     @Test

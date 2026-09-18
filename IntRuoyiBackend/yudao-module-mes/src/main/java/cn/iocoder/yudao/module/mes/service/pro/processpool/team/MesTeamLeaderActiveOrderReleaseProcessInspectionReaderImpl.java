@@ -98,7 +98,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
         MesProProcessPoolEventDO event = eventId == null ? null : eventMapper.selectById(eventId);
         MesProProcessPoolPqcRecordDO record = eventId == null ? null : pqcRecordMapper.selectByEventId(eventId);
         MesProcessPoolSubmissionReviewDO review = reviewId == null ? null : reviewMapper.selectById(reviewId);
-        PublishedQa publishedQa = selectLockedQa(lockedDccQa);
+        PublishedQa publishedQa = selectLockedQa(task, lockedDccQa);
         MesQaInspectionRegulationDO regulation = publishedQa.regulation();
         MesQaInspectionRegulationVersionDO version = publishedQa.version();
         List<MesQaInspectionRegulationItemDO> items = version == null ? List.of()
@@ -141,23 +141,17 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
                 snapshot.qaRegulationId(), snapshot.qaRegulationVersionId());
     }
 
-    private PublishedQa selectLockedQa(LockedDccQa lockedDccQa) {
+    private PublishedQa selectLockedQa(MesPqcInspectionTaskDO task, LockedDccQa lockedDccQa) {
         DccProjectCodeDO dccProject = lockedDccQa.project();
-        MesQaInspectionRegulationDO regulation = regulationMapper.selectById(lockedDccQa.qaRegulationId());
-        if (regulation == null || regulation.getId() == null
-                || !Objects.equals(dccProject.getId(), regulation.getDccProjectCodeId())
-                || !MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA.equals(regulation.getOwnerModule())
-                || !"PUBLISHED".equals(regulation.getLifecycleStatus())) {
-            throw new IllegalStateException("活跃订单冻结 QA 规程身份无效，qaRegulationId="
-                    + lockedDccQa.qaRegulationId());
-        }
         MesQaInspectionRegulationVersionDO version = regulationVersionMapper
-                .selectById(lockedDccQa.qaRegulationVersionId());
-        if (version == null || version.getId() == null || version.getPublishedAt() == null
-                || !Objects.equals(regulation.getId(), version.getRegulationId())
-                || !Set.of("PUBLISHED", "RETIRED").contains(version.getLifecycleStatus())) {
-            throw new IllegalStateException("活跃订单冻结 QA 版本身份无效，qaRegulationVersionId="
-                    + lockedDccQa.qaRegulationVersionId());
+                .selectById(task == null ? null : task.getRegulationVersionId());
+        MesQaInspectionRegulationDO regulation = version == null || version.getRegulationId() == null
+                ? null : regulationMapper.selectById(version.getRegulationId());
+        if (!isValidTaskFrozenQa(task, lockedDccQa, regulation, version)) {
+            return invalidQa("PQC_QA_REGULATION_REQUIRED",
+                    "PQC task 冻结 QA 版本身份无效，pqcTaskId=" + (task == null ? null : task.getId())
+                            + "，taskRegulationVersionId="
+                            + (task == null ? null : task.getRegulationVersionId()));
         }
         MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution provenance =
                 qaProvenancePort.verify(dccProject, regulation, version);
@@ -170,6 +164,34 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
                     .setBlockerMessage("QA 规程缺少可验证的 DCC 项目直接归属关系");
         }
         return new PublishedQa(null, null, provenance);
+    }
+
+    private boolean isValidTaskFrozenQa(MesPqcInspectionTaskDO task,
+                                        LockedDccQa lockedDccQa,
+                                        MesQaInspectionRegulationDO regulation,
+                                        MesQaInspectionRegulationVersionDO version) {
+        if (task == null || task.getRegulationVersionId() == null
+                || regulation == null || regulation.getId() == null
+                || version == null || version.getId() == null || version.getPublishedAt() == null
+                || !Objects.equals(task.getRegulationVersionId(), version.getId())
+                || !Objects.equals(regulation.getId(), version.getRegulationId())
+                || !Set.of("PUBLISHED", "RETIRED").contains(version.getLifecycleStatus())
+                || !"PUBLISHED".equals(regulation.getLifecycleStatus())) {
+            return false;
+        }
+        if (MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA.equals(regulation.getOwnerModule())) {
+            return Objects.equals(lockedDccQa.project().getId(), regulation.getDccProjectCodeId())
+                    && Objects.equals(lockedDccQa.qaRegulationId(), regulation.getId())
+                    && Objects.equals(lockedDccQa.qaRegulationVersionId(), version.getId());
+        }
+        return MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON.equals(regulation.getOwnerModule());
+    }
+
+    private PublishedQa invalidQa(String blockerType, String blockerMessage) {
+        return new PublishedQa(null, null,
+                new MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution()
+                        .setBlockerType(blockerType)
+                        .setBlockerMessage(blockerMessage));
     }
 
     private <T> Long uniqueId(List<T> values, Function<T, Long> extractor) {

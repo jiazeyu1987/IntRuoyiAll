@@ -68,20 +68,10 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
             "FWorkShopID.FName",
             "FBomId.FNumber",
             "FMaterialId.F_PAEZ_TUHAO",
-            "FMaterialId.F_PAEZ_REFNO");
-    private static final String BILL_LOOKUP_FIELD_KEYS = String.join(",",
-            "FID",
-            "FBillNo",
-            "FDocumentStatus",
-            "FDate",
-            "FMaterialId.FNumber",
-            "FMaterialId.FName",
-            "FMaterialId.FSpecification",
-            "FQty",
-            "FPlanStartDate",
-            "FPlanFinishDate",
-            "FSrcBillNo",
-            "FStatus");
+            "FMaterialId.F_PAEZ_REFNO",
+            "FPrdOrgId.FNumber",
+            "FPrdOrgId.FName");
+
     private static final String INCREMENTAL_FIELD_KEYS = FIELD_KEYS + ",FModifyDate";
     private static final int INDEX_FID = 0;
     private static final int INDEX_BILL_NO = 1;
@@ -102,7 +92,9 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
     private static final int INDEX_BOM_VERSION = 16;
     private static final int INDEX_DRAWING_NUMBER = 17;
     private static final int INDEX_REF_NO = 18;
-    private static final int INDEX_SOURCE_MODIFY_TIME = 19;
+    private static final int INDEX_PRODUCTION_ORG_NUMBER = 19;
+    private static final int INDEX_PRODUCTION_ORG_NAME = 20;
+    private static final int INDEX_SOURCE_MODIFY_TIME = 21;
     private static final int MIN_REQUIRED_FIELD_COUNT = 12;
     private static final int PAGE_LIMIT = 1000;
     private static final int BILL_NO_QUERY_BATCH_SIZE = 50;
@@ -113,11 +105,10 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
             "FWorkShopID", "FWorkshopID", "FOwnerTypeId", "FOwnerId", "FBusinessType",
             "FOrgId", "FUseOrgId");
     private static final List<String> ENTRY_TEMPLATE_FIELDS = List.of(
-            "FStockUnitID", "FBaseUnitId", "FBaseUnitID", "FBomId", "FRoutingId",
-            "FWorkShopID", "FWorkshopID", "FOwnerTypeId", "FOwnerId", "FLot",
+            "FMaterialId", "FUnitId", "FStockUnitID", "FBaseUnitId", "FBaseUnitID", "FBomId", "FRoutingId",
+            "FPrdOrgId", "FWorkShopID", "FWorkshopID", "FOwnerTypeId", "FOwnerId", "FLot",
             "FAuxPropId");
     private static final List<String> ENTRY_KEYS = List.of("FTreeEntity", "FEntity", "FMoEntry");
-
     @Qualifier("erpKingdeeRestTemplate")
     private final RestTemplate restTemplate;
 
@@ -194,7 +185,7 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         requireNoSingleQuote(requireNotBlank(billNo, "billNo"), "billNo");
         String cookieHeader = login(properties);
         JsonNode rows = executeBillQuery(properties, cookieHeader,
-                buildBillNoFilterString(billNo), 0, 2, BILL_LOOKUP_FIELD_KEYS);
+                buildBillNoFilterString(billNo), 0, 2, FIELD_KEYS);
         if (!rows.isArray()) {
             throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_MO response is not an array");
         }
@@ -222,9 +213,10 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         }
 
         JsonNode templateModel = viewTemplate(properties, cookieHeader, request.getTemplateBillNo());
+        Map<String, Object> savePayload = buildSavePayload(templateModel, request);
         JsonNode saveResponse = postDynamicFormData(properties, cookieHeader, SAVE_SERVICE,
-                buildSavePayload(templateModel, request), "PRD_MO Save response");
-        ErpKingdeeProductionOrderCreateResult savedResult = parseSaveResult(saveResponse, request.getBillNo());
+                savePayload, "PRD_MO Save response");
+        ErpKingdeeProductionOrderCreateResult savedResult = parseSaveResult(saveResponse, request.getBillNo(), savePayload);
         try {
             submitProductionOrder(properties, cookieHeader, savedResult);
         } catch (RuntimeException ex) {
@@ -357,32 +349,51 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
                                                  ErpKingdeeProductionOrderCreateRequest request) {
         Map<String, Object> model = new LinkedHashMap<>();
         copyFields(templateModel, model, HEADER_TEMPLATE_FIELDS);
+        if (!hasNumberReference(model, "FPrdOrgId") && StrUtil.isNotBlank(request.getProductionOrgNumber())) {
+            model.put("FPrdOrgId", numberRef(request.getProductionOrgNumber()));
+        }
+        requireNumberReference(model, "FPrdOrgId", "template FPrdOrgId");
+        String productionOrgNumber = String.valueOf(numberReference(model.get("FPrdOrgId")));
         model.put("FBillNo", request.getBillNo());
         model.put("FDate", formatDateTime(request.getPlannedStartDate()));
 
         String entryKey = resolveEntryKey(templateModel);
-        Map<String, Object> entry = buildEntry(templateModel.path(entryKey), request);
+        Map<String, Object> entry = buildEntry(templateModel.path(entryKey), request, productionOrgNumber);
         model.put(entryKey, List.of(entry));
 
         Map<String, Object> save = new LinkedHashMap<>();
-        save.put("NeedUpDateFields", new ArrayList<>());
+        save.put("NeedUpDateFields", buildNeedUpdateFields(entryKey, entry));
         save.put("NeedReturnFields", List.of("FID", "FBillNo"));
         save.put("IsDeleteEntry", true);
         save.put("IsVerifyBaseDataField", true);
+        save.put("NumberSearch", true);
         save.put("Model", model);
         return save;
     }
 
     private Map<String, Object> buildEntry(JsonNode templateEntries,
-                                           ErpKingdeeProductionOrderCreateRequest request) {
+                                           ErpKingdeeProductionOrderCreateRequest request,
+                                           String productionOrgNumber) {
         Map<String, Object> entry = new LinkedHashMap<>();
         JsonNode templateEntry = templateEntries.isArray() && !templateEntries.isEmpty()
                 ? templateEntries.get(0) : null;
         if (templateEntry != null && templateEntry.isObject()) {
+            copyFields(templateEntry, entry, List.of("FPrdOrgId"));
+        }
+        if (!hasNumberReference(entry, "FPrdOrgId")) {
+            entry.put("FPrdOrgId", numberRef(productionOrgNumber));
+        }
+        if (templateEntry != null && templateEntry.isObject()) {
             copyFields(templateEntry, entry, ENTRY_TEMPLATE_FIELDS);
         }
-        entry.put("FMaterialId", numberRef(request.getMaterialNumber()));
-        entry.put("FUnitId", numberRef(request.getUnitNumber()));
+        if (!sameNumberReference(entry.get("FMaterialId"), request.getMaterialNumber())) {
+            entry.put("FMaterialId", numberRef(request.getMaterialNumber()));
+        }
+        if (StrUtil.isNotBlank(request.getUnitNumber())) {
+            entry.put("FUnitId", numberRef(request.getUnitNumber()));
+        } else if (Boolean.TRUE.equals(request.getUseTemplateEntryUnit())) {
+            requireNumberReference(entry, "FUnitId", "template FUnitId");
+        }
         entry.put("FQty", request.getQuantity());
         entry.put("FPlanStartDate", formatDateTime(request.getPlannedStartDate()));
         entry.put("FPlanFinishDate", formatDateTime(request.getPlannedFinishDate()));
@@ -394,6 +405,36 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         }
         return entry;
     }
+
+    private List<String> buildNeedUpdateFields(String entryKey, Map<String, Object> entry) {
+        Set<String> fields = new LinkedHashSet<>();
+        fields.add("FPrdOrgId");
+        if (entry.containsKey("FMaterialId")) {
+            fields.add("FMaterialId");
+        }
+        if (entry.containsKey("FUnitId")) {
+            fields.add("FUnitId");
+        }
+        if (entry.containsKey("FQty")) {
+            fields.add("FQty");
+        }
+        if (entry.containsKey("FPlanStartDate")) {
+            fields.add("FPlanStartDate");
+        }
+        if (entry.containsKey("FPlanFinishDate")) {
+            fields.add("FPlanFinishDate");
+        }
+        if (entry.containsKey("FSrcBillNo")) {
+            fields.add("FSrcBillNo");
+        }
+        if (entry.containsKey("FLot")) {
+            fields.add("FLot");
+        }
+        fields.add("FBillNo");
+        fields.add("FDate");
+        return new ArrayList<>(fields);
+    }
+
 
     private void submitProductionOrder(ErpKingdeeProperties properties,
                                        String cookieHeader,
@@ -410,11 +451,13 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         }
     }
 
-    private ErpKingdeeProductionOrderCreateResult parseSaveResult(JsonNode response, String requestBillNo) {
+    private ErpKingdeeProductionOrderCreateResult parseSaveResult(JsonNode response, String requestBillNo,
+                                                                  Map<String, Object> savePayload) {
         JsonNode status = responseStatus(response, "PRD_MO Save");
         if (!status.path("IsSuccess").asBoolean(false)) {
             throw exception(KINGDEE_PRODUCTION_ORDER_REQUEST_FAIL,
-                    "PRD_MO Save failed: " + responseErrors(status));
+                    "PRD_MO Save failed: " + responseErrors(status)
+                            + "; PRD_MO Save payload summary: " + summarizeSavePayload(savePayload));
         }
         JsonNode successEntities = status.path("SuccessEntitys");
         if (!successEntities.isArray() || successEntities.isEmpty()) {
@@ -434,6 +477,50 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
                 .saved(Boolean.TRUE)
                 .submitted(Boolean.FALSE)
                 .build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private String summarizeSavePayload(Map<String, Object> savePayload) {
+        Object needUpdateFields = savePayload.get("NeedUpDateFields");
+        Object modelObject = savePayload.get("Model");
+        if (!(modelObject instanceof Map<?, ?> model)) {
+            return "model=missing";
+        }
+        Object productionOrgNumber = numberReference(model.get("FPrdOrgId"));
+        String entryKey = ENTRY_KEYS.stream()
+                .filter(model::containsKey)
+                .findFirst()
+                .orElse("FTreeEntity");
+        Object entryObject = null;
+        Object entriesObject = model.get(entryKey);
+        if (entriesObject instanceof List<?> entries && !entries.isEmpty()) {
+            entryObject = entries.get(0);
+        }
+        Object materialNumber = null;
+        Object unitNumber = null;
+        Object batchNumber = null;
+        Object entryProductionOrgNumber = null;
+        if (entryObject instanceof Map<?, ?> entry) {
+            entryProductionOrgNumber = numberReference(entry.get("FPrdOrgId"));
+            materialNumber = numberReference(entry.get("FMaterialId"));
+            unitNumber = numberReference(entry.get("FUnitId"));
+            batchNumber = numberReference(entry.get("FLot"));
+        }
+        return "needUpdateFields=" + needUpdateFields
+                + ", productionOrgNumber=" + productionOrgNumber
+                + ", entryProductionOrgNumber=" + entryProductionOrgNumber
+                + ", materialNumber=" + materialNumber
+                + ", unitNumber=" + unitNumber
+                + ", batchNumber=" + batchNumber
+                + ", entryKey=" + entryKey
+                + ", billNo=" + model.get("FBillNo");
+    }
+
+    private Object numberReference(Object value) {
+        if (!(value instanceof Map<?, ?> numberRef)) {
+            return null;
+        }
+        return numberRef.get("FNumber");
     }
 
     private JsonNode postJsonData(ErpKingdeeProperties properties,
@@ -541,6 +628,8 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         order.setBomVersion(optionalText(row, INDEX_BOM_VERSION));
         order.setDrawingNumber(optionalText(row, INDEX_DRAWING_NUMBER));
         order.setRefNo(optionalText(row, INDEX_REF_NO));
+        order.setProductionOrgNumber(optionalText(row, INDEX_PRODUCTION_ORG_NUMBER));
+        order.setProductionOrgName(optionalText(row, INDEX_PRODUCTION_ORG_NAME));
         if (row.size() > INDEX_SOURCE_MODIFY_TIME) {
             order.setSourceModifyTime(parseDateTime(optionalText(row, INDEX_SOURCE_MODIFY_TIME), "FModifyDate"));
         }
@@ -580,7 +669,16 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         requireNoSingleQuote(requireNotBlank(request.getBillNo(), "billNo"), "billNo");
         requireNoSingleQuote(requireNotBlank(request.getTemplateBillNo(), "templateBillNo"), "templateBillNo");
         requireNoSingleQuote(requireNotBlank(request.getMaterialNumber(), "materialNumber"), "materialNumber");
-        requireNoSingleQuote(requireNotBlank(request.getUnitNumber(), "unitNumber"), "unitNumber");
+        if (StrUtil.isNotBlank(request.getProductionOrgNumber())) {
+            requireNoSingleQuote(request.getProductionOrgNumber(), "productionOrgNumber");
+        }
+        if (StrUtil.isBlank(request.getUnitNumber())) {
+            if (!Boolean.TRUE.equals(request.getUseTemplateEntryUnit())) {
+                throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "unitNumber is blank");
+            }
+        } else {
+            requireNoSingleQuote(request.getUnitNumber(), "unitNumber");
+        }
         if (StrUtil.isNotBlank(request.getSourceBillNo())) {
             requireNoSingleQuote(request.getSourceBillNo(), "sourceBillNo");
         }
@@ -615,6 +713,31 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         Map<String, Object> value = new LinkedHashMap<>();
         value.put("FNumber", number);
         return value;
+    }
+
+    private boolean hasNumberReference(Map<String, Object> entry, String fieldName) {
+        Object value = entry.get(fieldName);
+        if (!(value instanceof Map<?, ?> numberRef)) {
+            return false;
+        }
+        Object number = numberRef.get("FNumber");
+        return number != null && StrUtil.isNotBlank(String.valueOf(number));
+    }
+
+    private boolean sameNumberReference(Object value, String expectedNumber) {
+        Object actualNumber = numberReference(value);
+        return actualNumber != null && StrUtil.equals(String.valueOf(actualNumber), expectedNumber);
+    }
+
+    private void requireNumberReference(Map<String, Object> entry, String fieldName, String label) {
+        Object value = entry.get(fieldName);
+        if (!(value instanceof Map<?, ?> numberRef)) {
+            throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, label + " is blank");
+        }
+        Object number = numberRef.get("FNumber");
+        if (number == null || StrUtil.isBlank(String.valueOf(number))) {
+            throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, label + " is blank");
+        }
     }
 
     private String resolveEntryKey(JsonNode templateModel) {
@@ -751,5 +874,5 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
             throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, fieldName + " is not a datetime");
         }
     }
-
 }
+

@@ -33,6 +33,10 @@ public class ApprovalTaskReviewContext {
 
     private String signatureImageFileUrl;
 
+    private String signatureSubjectId;
+
+    private String signatureEvidenceHash;
+
     private boolean globalView;
 
     public static ApprovalTaskReviewContext of(Long loginUserId, ApprovalModuleCode moduleCode,

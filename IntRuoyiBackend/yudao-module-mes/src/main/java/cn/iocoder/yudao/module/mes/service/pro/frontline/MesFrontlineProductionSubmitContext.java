@@ -22,7 +22,23 @@ public record MesFrontlineProductionSubmitContext(Long workOrderId,
                                                   String parameterSnapshotSha256,
                                                   String parameterSnapshotState,
                                                   String deviceSelectionSnapshotJson,
-                                                  String deviceSelectionSnapshotSha256) {
+                                                  String deviceSelectionSnapshotSha256,
+                                                  String productionConfigSnapshotJson,
+                                                  String productionConfigSnapshotSha256) {
+
+    public MesFrontlineProductionSubmitContext(Long workOrderId, String workOrderCode, String workOrderName,
+                                               Long taskId, Long routeId, Long routeProcessId, Long processId,
+                                               Long workstationId, Long itemId, Long approveUserId,
+                                               Long recordbookId, BigDecimal scheduledQuantity,
+                                               LocalDateTime expireDate, Long activeOrderProcessSnapshotId,
+                                               String parameterSnapshotSha256, String parameterSnapshotState,
+                                               String deviceSelectionSnapshotJson,
+                                               String deviceSelectionSnapshotSha256) {
+        this(workOrderId, workOrderCode, workOrderName, taskId, routeId, routeProcessId, processId,
+                workstationId, itemId, approveUserId, recordbookId, scheduledQuantity, expireDate,
+                activeOrderProcessSnapshotId, parameterSnapshotSha256, parameterSnapshotState,
+                deviceSelectionSnapshotJson, deviceSelectionSnapshotSha256, null, null);
+    }
 
     public MesFrontlineProductionSubmitContext(Long workOrderId, String workOrderCode, String workOrderName,
                                                Long taskId, Long routeId, Long routeProcessId, Long processId,
@@ -32,6 +48,6 @@ public record MesFrontlineProductionSubmitContext(Long workOrderId,
         this(workOrderId, workOrderCode, workOrderName, taskId, routeId, routeProcessId, processId,
                 workstationId, itemId, approveUserId, recordbookId, scheduledQuantity, expireDate,
                 null, null, MesDeviceParameterSnapshotCodec.SOURCE_CURRENT_ROUTE_PROCESS_AT_SUBMIT,
-                null, null);
+                null, null, null, null);
     }
 }

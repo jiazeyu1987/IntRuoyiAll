@@ -1,7 +1,9 @@
 package cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc;
 
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchProvisioningRecordDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchProvisioningRecordMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
@@ -12,6 +14,8 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrProductionR
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptService;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,8 +35,10 @@ import static org.mockito.Mockito.when;
 class MesProductionReleaseBatchExecutionPortTest {
 
     @Mock private MesProEdhrBatchExecutionMapper batchExecutionMapper;
+    @Mock private MesProEdhrBatchProvisioningRecordMapper provisioningRecordMapper;
     @Mock private MesProEdhrBatchExecutionService batchExecutionService;
     @Mock private MesIndependentBatchPrerequisiteReceiptService independentReceiptService;
+    @Mock private MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
 
     private MesProductionReleaseBatchExecutionPort port;
 
@@ -40,7 +46,7 @@ class MesProductionReleaseBatchExecutionPortTest {
     void setUp() {
         TenantContextHolder.setTenantId(1L);
         port = new MesProductionReleaseBatchExecutionPortImpl(
-                batchExecutionMapper, batchExecutionService);
+                batchExecutionMapper, provisioningRecordMapper, batchExecutionService, completionReceiptPort);
     }
 
     @AfterEach
@@ -51,18 +57,36 @@ class MesProductionReleaseBatchExecutionPortTest {
     @Test
     void createsBatchWithApplicationUniqueContextAndFrozenRouteVersion() {
         when(batchExecutionService.openOrCreateFromProductionRelease(any())).thenReturn(901L);
+        when(completionReceiptPort.getByActiveOrderId(701L, 1L)).thenReturn(receipt());
 
         assertEquals(901L, port.openOrCreate(command()));
         verify(batchExecutionService).openOrCreateFromProductionRelease(
                 org.mockito.ArgumentMatchers.argThat(item ->
                         "PQC_RELEASE:701".equals(item.getActiveContextKey())
                                 && Long.valueOf(402L).equals(item.getRouteVersionId())));
+        verify(completionReceiptPort).getByActiveOrderId(701L, 1L);
     }
 
     @Test
-    void legacyContextCannotBeReused() {
+    void p2CompletionBatchExecutionCanBeReusedWhenProvisioningRecordMatchesReceipt() {
+        when(completionReceiptPort.getByActiveOrderId(701L, 1L)).thenReturn(receipt());
         when(batchExecutionMapper.selectByContext(301L, "BATCH-001", 401L))
-                .thenReturn(new MesProEdhrBatchExecutionDO().setId(999L).setActiveContextKey("301|401|BATCH-001"));
+                .thenReturn(batch(999L));
+        when(provisioningRecordMapper.selectByBatchExecutionId(1L, 999L))
+                .thenReturn(provisioningRecord(999L));
+
+        assertEquals(999L, port.openOrCreate(command()));
+
+        verify(batchExecutionService, never()).openOrCreateFromProductionRelease(any());
+    }
+
+    @Test
+    void legacyContextCannotBeReusedWhenItDoesNotMatchP2CompletionReceipt() {
+        when(completionReceiptPort.getByActiveOrderId(701L, 1L)).thenReturn(receipt());
+        when(batchExecutionMapper.selectByContext(301L, "BATCH-001", 401L))
+                .thenReturn(batch(999L));
+        when(provisioningRecordMapper.selectByBatchExecutionId(1L, 999L))
+                .thenReturn(provisioningRecord(999L).setSourceCredentialId("89"));
 
         MesReleaseFlowBlockerException failure = assertThrows(
                 MesReleaseFlowBlockerException.class, () -> port.openOrCreate(command()));
@@ -100,7 +124,7 @@ class MesProductionReleaseBatchExecutionPortTest {
                 .setSourceSnapshotHash("snapshot-702")
                 .setTenantId(1L);
         MesProductionReleaseBatchExecutionPort isolatedPort = new MesProductionReleaseBatchExecutionPortImpl(
-                batchExecutionMapper, batchExecutionService);
+                batchExecutionMapper, provisioningRecordMapper, batchExecutionService, completionReceiptPort);
 
         assertEquals(902L, isolatedPort.openOrCreate(command));
         verify(independentReceiptService, never()).verify(any(), org.mockito.ArgumentMatchers.eq(1L));
@@ -189,5 +213,37 @@ class MesProductionReleaseBatchExecutionPortTest {
         return new MesBatchExecutionSourceEvidence().setSourceType(type).setSourceId(id)
                 .setSourceVersion("source-v1").setSourceSnapshotHash(type + "-snapshot")
                 .setPayloadHash(type + "-payload").setSignature(type + "-signature");
+    }
+
+    private MesFlow6CompletionBackfillReceipt receipt() {
+        return new MesFlow6CompletionBackfillReceipt().setReceiptId(88L).setActiveOrderId(701L)
+                .setWorkOrderId(301L).setBatchCode("BATCH-001").setRouteId(401L).setRouteVersionId(402L)
+                .setTenantId(1L).setSourceSnapshotHash("source-701").setReceiptHash("receipt-hash-701")
+                .setCompletionTransactionId("completion-tx-701").setExpectedActiveOrderVersion(4L)
+                .setCompletionVersion(1).setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
+                .setBatchRecordStatus("SUCCESS").setProcessInspectionStatus("SUCCESS")
+                .setBatchRecordId(601L).setProcessInspectionId(602L);
+    }
+
+    private MesProEdhrBatchExecutionDO batch(Long id) {
+        return new MesProEdhrBatchExecutionDO()
+                .setId(id)
+                .setTenantId(1L)
+                .setWorkOrderId(301L)
+                .setBatchCode("BATCH-001")
+                .setRouteId(401L)
+                .setRouteVersionId(402L)
+                .setActiveContextKey("301|401|BATCH-001");
+    }
+
+    private MesProEdhrBatchProvisioningRecordDO provisioningRecord(Long batchExecutionId) {
+        return new MesProEdhrBatchProvisioningRecordDO()
+                .setTenantId(1L)
+                .setBatchExecutionId(batchExecutionId)
+                .setEntryType("ACTIVE_ORDER_COMPLETION")
+                .setEntryBusinessId("completion-tx-701")
+                .setSourceCredentialId("88")
+                .setSourceCredentialHash("receipt-hash-701")
+                .setSourceSnapshotHash("source-701");
     }
 }

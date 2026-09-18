@@ -206,7 +206,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     @Test
-    void shouldPersistServerManagedInputMaterialEvidenceWithoutRequiringInputQuantity() {
+    void shouldSubmitPendingInputMaterialsBeforeCompletionBatchBackfill() {
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorizationWithInputEvidence(
                 submitAuthorizationService);
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
@@ -231,9 +231,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertEquals(1, inputs.size());
             java.util.Map<?, ?> input = (java.util.Map<?, ?>) inputs.get(0);
             assertEquals(503L, input.get("materialId"));
-            assertEquals(List.of("LOT-001", "LOT-002"), input.get("batchCodes"));
-            assertEquals(List.of(101L, 102L), input.get("sourcePickListIds"));
-            assertEquals("input-source-hash", input.get("sourceSnapshotHash"));
+            assertEquals(List.of(), input.get("batchCodes"));
+            assertEquals(List.of(), input.get("sourcePickListIds"));
+            assertEquals("PENDING_COMPLETION", input.get("batchEvidenceStatus"));
             return true;
         }));
     }

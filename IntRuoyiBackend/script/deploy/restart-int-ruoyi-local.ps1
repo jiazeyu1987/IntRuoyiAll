@@ -676,6 +676,31 @@ THEN 1 ELSE 0 END;
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260822_mes_edhr_release_final_state_trace.sql'
     },
     [PSCustomObject]@{
+        Name = 'MES eDHR batch traceability capacity schema'
+        ProbeSql = @'
+SELECT CASE WHEN
+  EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_edhr_batch_execution_origin'
+      AND COLUMN_NAME = 'batch_provision_status'
+      AND DATA_TYPE = 'varchar'
+      AND CHARACTER_MAXIMUM_LENGTH >= 32
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_edhr_batch_trace_outbox_event'
+      AND COLUMN_NAME = 'reason'
+      AND DATA_TYPE = 'longtext'
+  )
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260917_mes_edhr_batch_traceability_capacity.sql'
+    },
+    [PSCustomObject]@{
         Name = 'System user lifecycle deactivation schema'
         ProbeSql = @'
 SELECT CASE WHEN
@@ -851,13 +876,6 @@ THEN 1 ELSE 0 END;
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260830_mes_process_pool_idi_device_parameter_rules.sql'
     }
 )
-$RequiredDccDownloadEncryptionEnv = @(
-    'DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION',
-    'DCC_DOWNLOAD_ENCRYPTION_KEY_ID',
-    'DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY',
-    'DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY'
-)
-
 function Fail([string]$Message) {
     Update-OperationRecord -Status 'failed' -Summary $Message
     Write-Host "[FAIL] $Message" -ForegroundColor Red
@@ -895,28 +913,6 @@ function Require-Command([string]$Name) {
             Fail 'Missing pnpm command'
         }
         Fail "Missing $Name command"
-    }
-}
-
-function Import-PersistentEnvironmentVariable([string]$Name) {
-    foreach ($target in @(
-        [System.EnvironmentVariableTarget]::Process,
-        [System.EnvironmentVariableTarget]::User,
-        [System.EnvironmentVariableTarget]::Machine
-    )) {
-        $value = [Environment]::GetEnvironmentVariable($Name, $target)
-        if ([string]::IsNullOrWhiteSpace($value)) {
-            continue
-        }
-        [Environment]::SetEnvironmentVariable($Name, $value, [System.EnvironmentVariableTarget]::Process)
-        return $true
-    }
-    return $false
-}
-
-function Require-EnvironmentVariable([string]$Name) {
-    if (-not (Import-PersistentEnvironmentVariable $Name)) {
-        Fail "Missing $Name; DCC controlled download encryption is fail-fast and requires explicit runtime configuration."
     }
 }
 
@@ -1236,10 +1232,6 @@ pnpm dev -- --strictPort
 function Start-Backend {
     Require-Command 'java'
     Require-Command 'mvn'
-    foreach ($requiredEnv in $RequiredDccDownloadEncryptionEnv) {
-        Require-EnvironmentVariable $requiredEnv
-    }
-    $DccDownloadEncryptionArtifactDirectory = [Environment]::GetEnvironmentVariable('DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY')
     if (-not (Test-Path -LiteralPath (Join-Path $BackendDir 'pom.xml'))) {
         Fail "Missing backend workspace: $BackendDir"
     }
@@ -1292,7 +1284,6 @@ Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
   "--spring.datasource.dynamic.datasource.slave.password=123456"
   "--spring.data.redis.host=$LocalDockerRuntimeHost"
   "--spring.data.redis.port=26379"
-  "--yudao.dcc.download.encryption.artifact-directory=$DccDownloadEncryptionArtifactDirectory"
   "--logging.file.name=$backendLogFile"
   "--yudao.runtime-control.repo-root=$RepoRoot"
   "--yudao.runtime-control.state-dir=$RuntimeControlStateDir"

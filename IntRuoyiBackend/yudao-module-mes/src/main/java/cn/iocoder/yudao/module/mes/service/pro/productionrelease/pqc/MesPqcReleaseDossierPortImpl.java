@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
@@ -33,6 +34,8 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseBatchRecordWriteResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseBatchRecordWriter;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseBlocker;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseLossReportPlan;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseLossReportPlanCommand;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseLossReportWriteResult;
@@ -65,6 +68,7 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
     private final MesTeamLeaderActiveOrderReleaseProcessInspectionWriter processInspectionWriter;
     private final MesTeamLeaderActiveOrderReleaseLossReportWriter lossReportWriter;
     private final MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher;
+    private final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
 
     public MesPqcReleaseDossierPortImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -80,7 +84,8 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
             MesTeamLeaderActiveOrderReleaseBatchRecordWriter batchRecordWriter,
             MesTeamLeaderActiveOrderReleaseProcessInspectionWriter processInspectionWriter,
             MesTeamLeaderActiveOrderReleaseLossReportWriter lossReportWriter,
-            MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher) {
+            MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher,
+            MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort) {
         this.activeOrderMapper = activeOrderMapper;
         this.pickListBindingMapper = pickListBindingMapper;
         this.workOrderMapper = workOrderMapper;
@@ -95,6 +100,7 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
         this.processInspectionWriter = processInspectionWriter;
         this.lossReportWriter = lossReportWriter;
         this.sourceSnapshotHasher = sourceSnapshotHasher;
+        this.completionReceiptPort = completionReceiptPort;
     }
 
     @Override
@@ -150,50 +156,12 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
             throw blocker(MesReleaseFlowBlockerType.FROZEN_ROUTE_SOURCE_REQUIRED, application, null,
                     "authoritative production or inspection sources changed after SP-1");
         }
-
-        MesTeamLeaderActiveOrderReleaseBatchRecordPlan batchPlan = batchRecordWriter.plan(
-                new MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand()
-                        .setTenantId(tenantId)
-                        .setActiveOrderId(application.getActiveOrderId())
-                        .setPickListBindingIds(pickListBindings.stream()
-                                .map(MesProcessPoolActiveOrderPickListBindingDO::getId).toList())
-                        .setWorkOrderId(application.getWorkOrderId())
-                        .setRouteId(application.getRouteId())
-                        .setRouteVersionId(application.getRouteVersionId())
-                        .setDccProjectCodeId(activeOrder.getDccProjectCodeId())
-                        .setProductId(application.getProductId())
-                        .setBatchCode(application.getBatchCode())
-                        .setApplicantUserId(actorUserId)
-                        .setWorkOrder(workOrder)
-                        .setSourceSnapshotHash(currentSourceHash)
-                        .setProcessSources(loadBatchRecordSources(application, snapshots, completions)));
-        MesTeamLeaderActiveOrderReleaseProcessInspectionPlan inspectionPlan = processInspectionWriter.plan(
-                new MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand()
-                        .setTenantId(tenantId)
-                        .setActiveOrderId(application.getActiveOrderId())
-                        .setWorkOrderId(application.getWorkOrderId())
-                        .setProductId(application.getProductId())
-                        .setRouteId(application.getRouteId())
-                        .setRouteVersionId(application.getRouteVersionId())
-                        .setBatchCode(application.getBatchCode())
-                        .setSourceSnapshotHash(currentSourceHash));
-        MesTeamLeaderActiveOrderReleaseLossReportPlan lossPlan = lossReportWriter.plan(
-                new MesTeamLeaderActiveOrderReleaseLossReportPlanCommand()
-                        .setTenantId(tenantId)
-                        .setActiveOrderId(application.getActiveOrderId())
-                        .setWorkOrderId(application.getWorkOrderId())
-                        .setRouteId(application.getRouteId())
-                        .setRouteVersionId(application.getRouteVersionId())
-                        .setProductId(application.getProductId())
-                        .setBatchCode(application.getBatchCode())
-                        .setSourceSnapshotHash(currentSourceHash)
-                        .setProcessSnapshots(snapshots));
-        requireFormalPlan(application, batchPlan, inspectionPlan, lossPlan);
+        MesFlow6CompletionBackfillReceipt completionBackfillReceipt =
+                requireCompletionBackfillDossier(application, tenantId);
         return new MesPqcReleaseDossierPlan()
                 .setSourceSnapshotHash(currentSourceHash)
-                .setBatchRecordPlan(batchPlan)
-                .setProcessInspectionPlan(inspectionPlan)
-                .setLossReportPlan(lossPlan);
+                .setCompletionBackfillDossier(true)
+                .setCompletionBackfillReceipt(completionBackfillReceipt);
     }
 
     @Override
@@ -278,6 +246,9 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
 
     @Override
     public MesPqcReleaseDossierWriteResult write(MesPqcReleaseDossierPlan plan, Long batchExecutionId) {
+        if (Boolean.TRUE.equals(plan.getCompletionBackfillDossier())) {
+            return writeCompletionBackfillDossier(plan);
+        }
         MesTeamLeaderActiveOrderReleaseBatchRecordWriteResult batchWrite =
                 batchRecordWriter.write(plan.getBatchRecordPlan(), batchExecutionId);
         MesTeamLeaderActiveOrderReleaseProcessInspectionWriteResult inspectionWrite =
@@ -286,9 +257,14 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                 lossReportWriter.write(plan.getLossReportPlan(), batchExecutionId);
         requireFormalWrite(plan, batchExecutionId, batchWrite, inspectionWrite, lossWrite);
         return new MesPqcReleaseDossierWriteResult()
-                .setBatchRecordEvidenceIds(List.copyOf(batchWrite.getBatchRecordExecutionIds()))
-                .setProcessInspectionEvidenceIds(List.copyOf(inspectionWrite.getBatchRecordExecutionIds()))
-                .setLossReportEvidenceIds(List.copyOf(lossWrite.getBatchRecordExecutionIds()))
+                .setBatchRecordEvidenceIds(copy(batchWrite.getBatchRecordExecutionIds()))
+                .setProcessInspectionEvidenceIds(copy(inspectionWrite.getBatchRecordExecutionIds()))
+                .setProcessInspectionFormCenterInstanceIds(copy(inspectionWrite.getFormCenterInstanceIds()))
+                .setLossReportEvidenceIds(copy(lossWrite.getBatchRecordExecutionIds()))
+                .setLossReportFormCenterInstanceIds(copy(lossWrite.getFormCenterInstanceIds()))
+                .setLossReportFieldAuditIds(copy(lossWrite.getFieldAuditIds()))
+                .setLossReportFieldAuditHeadHashes(lossWrite.getFieldAuditHeadHashes() == null ? List.of()
+                        : List.copyOf(lossWrite.getFieldAuditHeadHashes()))
                 .setLossReportStatus(lossWrite.getLossReportStatus())
                 .setHasActualLoss(lossWrite.getHasActualLoss())
                 .setLossQuantity(lossWrite.getLossQuantity())
@@ -312,12 +288,107 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
         }
     }
 
+    private MesFlow6CompletionBackfillReceipt requireCompletionBackfillDossier(
+            MesProcessPoolActiveOrderReleaseApplicationDO application, Long tenantId) {
+        if (completionReceiptPort == null) {
+            throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application, null,
+                    "P2 completion/backfill receipt reader is not configured");
+        }
+        MesFlow6CompletionBackfillReceipt receipt =
+                completionReceiptPort.getByActiveOrderId(application.getActiveOrderId(), tenantId);
+        if (!validCompletionBackfillDossier(application, tenantId, receipt)) {
+            throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application, null,
+                    "P2 completion/backfill receipt does not match this release application");
+        }
+        return receipt;
+    }
+
+    private boolean validCompletionBackfillDossier(
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            Long tenantId,
+            MesFlow6CompletionBackfillReceipt receipt) {
+        if (receipt == null
+                || !Objects.equals(tenantId, receipt.getTenantId())
+                || !Objects.equals(application.getActiveOrderId(), receipt.getActiveOrderId())
+                || !Objects.equals(application.getWorkOrderId(), receipt.getWorkOrderId())
+                || !Objects.equals(application.getRouteId(), receipt.getRouteId())
+                || !Objects.equals(application.getRouteVersionId(), receipt.getRouteVersionId())
+                || !Objects.equals(application.getBatchCode(), receipt.getBatchCode())
+                || !MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED.equals(receipt.getStatus())
+                || !MesProcessPoolActiveOrderCompletionReceiptDO.BACKFILL_STATUS_SUCCESS
+                .equals(receipt.getBatchRecordStatus())
+                || !MesProcessPoolActiveOrderCompletionReceiptDO.BACKFILL_STATUS_SUCCESS
+                .equals(receipt.getProcessInspectionStatus())
+                || receipt.getBatchRecordId() == null
+                || receipt.getProcessInspectionId() == null
+                || StrUtil.isBlank(receipt.getSourceSnapshotHash())
+                || StrUtil.isBlank(receipt.getFormalSourceSnapshotJson())
+                || StrUtil.isBlank(receipt.getSignatureSnapshotJson())
+                || StrUtil.isBlank(receipt.getBatchRecordSourceIdsJson())
+                || StrUtil.isBlank(receipt.getProcessInspectionSourceIdsJson())
+                || receipt.getHasActualLoss() == null
+                || receipt.getLossQuantity() == null
+                || receipt.getLossQuantity().signum() < 0) {
+            return false;
+        }
+        if (Boolean.TRUE.equals(receipt.getHasActualLoss())) {
+            return MesProcessPoolActiveOrderCompletionReceiptDO.LOSS_REPORT_STATUS_SUCCESS
+                    .equals(receipt.getLossReportStatus())
+                    && receipt.getLossQuantity().signum() > 0
+                    && receipt.getLossRecordId() != null;
+        }
+        return MesProcessPoolActiveOrderCompletionReceiptDO.LOSS_REPORT_STATUS_NOT_REQUIRED
+                .equals(receipt.getLossReportStatus())
+                && receipt.getLossQuantity().signum() == 0
+                && receipt.getLossRecordId() == null
+                && StrUtil.isNotBlank(receipt.getZeroLossConfirmationSnapshot());
+    }
+
+    private MesPqcReleaseDossierWriteResult writeCompletionBackfillDossier(MesPqcReleaseDossierPlan plan) {
+        MesFlow6CompletionBackfillReceipt receipt = plan.getCompletionBackfillReceipt();
+        if (receipt == null) {
+            throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, null, null,
+                    "P2 completion/backfill receipt is missing from the release dossier plan");
+        }
+        return new MesPqcReleaseDossierWriteResult()
+                .setBatchRecordEvidenceIds(List.of(receipt.getBatchRecordId()))
+                .setProcessInspectionEvidenceIds(List.of(receipt.getProcessInspectionId()))
+                .setProcessInspectionFormCenterInstanceIds(List.of())
+                .setLossReportEvidenceIds(Boolean.TRUE.equals(receipt.getHasActualLoss())
+                        ? List.of(receipt.getLossRecordId()) : List.of())
+                .setLossReportFormCenterInstanceIds(List.of())
+                .setLossReportFieldAuditIds(List.of())
+                .setLossReportFieldAuditHeadHashes(List.of())
+                .setLossReportStatus(Boolean.TRUE.equals(receipt.getHasActualLoss())
+                        ? MesProcessPoolActiveOrderCompletionReceiptDO.LOSS_REPORT_STATUS_SUCCESS
+                        : MesProcessPoolActiveOrderCompletionReceiptDO.LOSS_REPORT_STATUS_NOT_REQUIRED)
+                .setHasActualLoss(receipt.getHasActualLoss())
+                .setLossQuantity(receipt.getLossQuantity())
+                .setSourceSnapshotHash(plan.getSourceSnapshotHash());
+    }
+
     private List<MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand.ProcessSource> loadBatchRecordSources(
             MesProcessPoolActiveOrderReleaseApplicationDO application,
             List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots,
             List<MesProcessPoolOrderProcessCompletionDO> completions) {
-        List<MesProProcessPoolEventDO> allEvents = list(eventMapper.selectProductionSubmitsByWorkOrderAndRoute(
-                application.getWorkOrderId(), application.getRouteId()));
+        List<MesProcessPoolReportAllocationDO> targetAllocations = allocationMapper
+                .selectListByActiveOrderIdForUpdate(application.getActiveOrderId());
+        if (targetAllocations == null || targetAllocations.stream().anyMatch(item -> item == null
+                || item.getEventId() == null || item.getReviewId() == null
+                || item.getAllocatedQuantity() == null || item.getAllocatedQuantity().signum() < 0
+                || !Objects.equals(application.getWorkOrderId(), item.getWorkOrderId())
+                || !Objects.equals(application.getActiveOrderId(), item.getActiveOrderId()))) {
+            throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application, null,
+                    "target active-order allocation evidence is incomplete");
+        }
+        targetAllocations = targetAllocations.stream().filter(item -> item.getAllocatedQuantity().signum() > 0).toList();
+        List<Long> sourceEventIds = targetAllocations.stream().map(MesProcessPoolReportAllocationDO::getEventId).distinct().toList();
+        List<MesProProcessPoolEventDO> allEvents = sourceEventIds.isEmpty() ? List.of()
+                : list(eventMapper.selectProductionSubmitsByIdsForUpdate(sourceEventIds));
+        if (!allEvents.stream().map(MesProProcessPoolEventDO::getId).toList().containsAll(sourceEventIds)) {
+            throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application, null,
+                    "allocated production source events are missing");
+        }
         List<MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand.ProcessSource> sources = new ArrayList<>();
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
             MesProcessPoolOrderProcessCompletionDO completion = completions.stream()
@@ -328,12 +399,12 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                     .filter(item -> Objects.equals(snapshot.getRouteProcessId(), item.getRouteProcessId())
                             && Objects.equals(snapshot.getProcessId(), item.getProcessId()))
                     .toList();
-            List<MesProcessPoolReportAllocationDO> allocations = events.stream()
-                    .flatMap(item -> list(allocationMapper.selectListByEventId(item.getId())).stream())
-                    .toList();
-            List<MesProcessPoolSubmissionReviewDO> reviews = events.stream()
-                    .flatMap(item -> list(reviewMapper.selectListByEventId(item.getId())).stream())
-                    .toList();
+            List<MesProcessPoolReportAllocationDO> allocations = targetAllocations.stream()
+                    .filter(item -> Objects.equals(snapshot.getRouteProcessId(), item.getRouteProcessId())
+                            && Objects.equals(snapshot.getProcessId(), item.getProcessId())).toList();
+            List<MesProcessPoolSubmissionReviewDO> reviews = allocations.stream()
+                    .map(MesProcessPoolReportAllocationDO::getReviewId).distinct()
+                    .map(reviewMapper::selectById).toList();
             sources.add(new MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand.ProcessSource()
                     .setSnapshot(snapshot)
                     .setCompletion(completion)
@@ -430,18 +501,28 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                 inspectionWrite.getBlockers());
         requireNoWriteBlockers(batchExecutionId, MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED,
                 lossWrite.getBlockers());
-        if (empty(batchWrite.getBatchRecordExecutionIds()) || empty(inspectionWrite.getBatchRecordExecutionIds())) {
+        if (empty(batchWrite.getBatchRecordExecutionIds())) {
             throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, null, null,
-                    "writer did not return batch-record and process-inspection evidence sets");
+                    "writer did not return batch-record evidence sets");
+        }
+        if (empty(inspectionWrite.getBatchRecordExecutionIds())
+                && empty(inspectionWrite.getFormCenterInstanceIds())) {
+            throw blocker(MesReleaseFlowBlockerType.PROCESS_INSPECTION_SOURCE_REQUIRED, null, null,
+                    "writer did not return process-inspection evidence sets");
+        }
+        if (empty(inspectionWrite.getFieldAuditIds()) || empty(inspectionWrite.getFieldAuditHeadHashes())) {
+            throw blocker(MesReleaseFlowBlockerType.PROCESS_INSPECTION_SOURCE_REQUIRED, null, null,
+                    "writer did not return process-inspection field audit evidence");
         }
         boolean successLoss = "SUCCESS".equals(lossWrite.getLossReportStatus())
                 && Boolean.TRUE.equals(lossWrite.getHasActualLoss())
                 && lossWrite.getLossQuantity() != null && lossWrite.getLossQuantity().signum() > 0
-                && !empty(lossWrite.getBatchRecordExecutionIds());
+                && (!empty(lossWrite.getBatchRecordExecutionIds()) || !empty(lossWrite.getFormCenterInstanceIds()))
+                && !empty(lossWrite.getFieldAuditIds()) && !empty(lossWrite.getFieldAuditHeadHashes());
         boolean notRequiredLoss = "NOT_REQUIRED".equals(lossWrite.getLossReportStatus())
                 && Boolean.FALSE.equals(lossWrite.getHasActualLoss())
                 && lossWrite.getLossQuantity() != null && lossWrite.getLossQuantity().signum() == 0
-                && empty(lossWrite.getBatchRecordExecutionIds());
+                && empty(lossWrite.getBatchRecordExecutionIds()) && empty(lossWrite.getFormCenterInstanceIds());
         if (!successLoss && !notRequiredLoss) {
             throw blocker(MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED, null, null,
                     "loss writer receipt must explicitly be SUCCESS or NOT_REQUIRED with matching quantity and evidence");
@@ -460,6 +541,10 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
 
     private boolean empty(List<?> values) {
         return values == null || values.isEmpty();
+    }
+
+    private <T> List<T> copy(List<T> values) {
+        return values == null ? List.of() : List.copyOf(values);
     }
 
     private <T> List<T> list(List<T> values) {

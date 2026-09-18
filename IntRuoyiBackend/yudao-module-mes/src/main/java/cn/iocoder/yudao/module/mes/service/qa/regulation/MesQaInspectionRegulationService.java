@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.qa.regulation;
 
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindingRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetItemsUpgradeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetVersionOptionRespVO;
@@ -45,6 +46,9 @@ public interface MesQaInspectionRegulationService {
 
     MesQaCommonRegulationSetRespVO.Version saveCommonRegulationSetVersion(
             MesQaCommonRegulationSetVersionSaveReqVO reqVO);
+
+    MesQaCommonRegulationSetRespVO.Version upgradeCommonRegulationSetItems(
+            MesQaCommonRegulationSetItemsUpgradeReqVO reqVO);
 
     void deleteCommonRegulationSetVersion(Long setVersionId);
 

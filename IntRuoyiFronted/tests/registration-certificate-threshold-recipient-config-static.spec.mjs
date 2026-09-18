@@ -22,6 +22,8 @@ test('registration certificate page configures all fixed expiry thresholds with 
   assert.match(dialog, /2 个月/)
   assert.match(dialog, /1 个月/)
   assert.match(dialog, /normalizeUserIds\(\s*config\.thresholdRecipientUserIds\[key\] \|\| \[\]\s*\)/)
+  assert.match(dialog, /if \(!Array\.isArray\(userIds\)\)/)
+  assert.match(dialog, /阈值收件人必须为数组/)
   assert.match(dialog, /getSimpleUserList/)
   assert.match(dialog, /users\.filter\(\(user\) => user\.disabled !== true\)/)
   assert.doesNotMatch(dialog, /user\.status === 0/)
@@ -33,6 +35,15 @@ test('registration certificate page configures all fixed expiry thresholds with 
   assert.match(dialog, /normalizeUserId\(candidate\.id\) === normalizeUserId\(userId\)/)
   assert.doesNotMatch(dialog, /recipient-candidate-dialog/)
   assert.match(api, /thresholdRecipientUserIds/)
+})
+
+test('profile config rejects malformed threshold recipient response before spreading values', async () => {
+  const profileConfigPath = resolve('src/views/Profile/components/RegistrationCertificateConfig.vue')
+  const profileConfig = await readFile(profileConfigPath, 'utf8')
+
+  assert.match(profileConfig, /for \(const key of \['T_30', 'T_8', 'T_2', 'T_1'\]/)
+  assert.match(profileConfig, /Array\.isArray\(data\.thresholdRecipientUserIds\[key\]\)/)
+  assert.match(profileConfig, /收件人必须为数组/)
 })
 
 test('user selector can hide selected names from input and resolve string long ids', async () => {

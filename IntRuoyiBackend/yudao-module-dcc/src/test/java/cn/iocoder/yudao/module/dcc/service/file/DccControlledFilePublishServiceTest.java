@@ -1,12 +1,21 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.BusinessActionContextReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceCreateReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceRespVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceSubmitReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormActionResolutionRespVO;
 import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
+import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeServiceImpl;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormCenterErrorCode;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormCenterException;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.businessapproval.BusinessApprovalPolicyDO;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
+import cn.iocoder.yudao.module.bpm.dal.mysql.businessapproval.BusinessApprovalPolicyMapper;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePublishReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.DccControlledFileController;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
@@ -21,6 +30,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.lang.reflect.Method;
 
@@ -32,6 +42,7 @@ import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServic
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PUBLISH_NOT_ALLOWED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -41,6 +52,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
 
@@ -181,6 +195,107 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
         ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
         verify(gxpAuditService).append(auditCaptor.capture());
         assertEquals("ACTIVE", auditCaptor.getValue().getAfterState().getState());
+    }
+
+    @Test
+    void publishControlledFile_sameIdempotencyKeyReturnsCommittedActionBeforeReadyStatePrecheck() {
+        DccControlledFilePublishReqVO reqVO = new DccControlledFilePublishReqVO();
+        reqVO.setReason("文控正式发布 B/1");
+        reqVO.setIdempotencyKey("DCC-PUBLISH-920-REPLAY");
+        DccControlledFileDO active = DccControlledFileDO.builder().id(920L).categoryId(18L)
+                .versionNo("B/1").status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
+        when(controlledFileMapper.selectById(920L)).thenReturn(active);
+        BusinessActionContextReqVO existingContext = new BusinessActionContextReqVO();
+        existingContext.setObjectId("920");
+        existingContext.setObjectVersion("B/1");
+        existingContext.setActionCode("PUBLISH");
+        existingContext.setReason("文控正式发布 B/1");
+        FormInstanceRespVO existing = new FormInstanceRespVO();
+        existing.setId(58L);
+        existing.setStatus("EFFECTIVE");
+        existing.setContext(existingContext);
+        when(formCenterRuntimeService.findBusinessActionByIdempotency(
+                any(BusinessActionContextReqVO.class), eq("DCC-PUBLISH-920-REPLAY"))).thenReturn(existing);
+
+        FormInstanceRespVO result = publishService.publishControlledFile(99L, 920L, reqVO);
+
+        assertSame(existing, result);
+        verify(finalizationService, never()).precheckPublishControlledFile(any(), any());
+        verify(formCenterRuntimeService, never()).createInstance(any(), any());
+        verify(formCenterRuntimeService, never()).submitInstance(any(), any(), any());
+        verify(gxpAuditService, never()).append(any());
+    }
+
+    @Test
+    void publishControlledFile_reusedIdempotencyKeyWithDifferentReasonIsRejected() {
+        DccControlledFilePublishReqVO reqVO = new DccControlledFilePublishReqVO();
+        reqVO.setReason("更改后的发布原因");
+        reqVO.setIdempotencyKey("DCC-PUBLISH-920-CONFLICT");
+        when(controlledFileMapper.selectById(920L)).thenReturn(DccControlledFileDO.builder().id(920L)
+                .categoryId(18L).versionNo("B/1").status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build());
+        BusinessActionContextReqVO existingContext = new BusinessActionContextReqVO();
+        existingContext.setObjectId("920");
+        existingContext.setObjectVersion("B/1");
+        existingContext.setActionCode("PUBLISH");
+        existingContext.setReason("原发布原因");
+        FormInstanceRespVO existing = new FormInstanceRespVO();
+        existing.setId(59L);
+        existing.setStatus("EFFECTIVE");
+        existing.setContext(existingContext);
+        when(formCenterRuntimeService.findBusinessActionByIdempotency(
+                any(BusinessActionContextReqVO.class), eq("DCC-PUBLISH-920-CONFLICT"))).thenReturn(existing);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> publishService.publishControlledFile(99L, 920L, reqVO));
+
+        verify(finalizationService, never()).precheckPublishControlledFile(any(), any());
+        verify(formCenterRuntimeService, never()).createInstance(any(), any());
+    }
+
+    @Test
+    void publishControlledFile_differentKeyCannotSubmitExistingFormCenterDraft() {
+        TenantContextHolder.setTenantId(122L);
+        try {
+            FormActionInstanceMapper actionMapper = mock(FormActionInstanceMapper.class);
+            BusinessApprovalPolicyMapper policyMapper = mock(BusinessApprovalPolicyMapper.class);
+            FormCenterRuntimeServiceImpl runtime = spy(new FormCenterRuntimeServiceImpl());
+            ReflectionTestUtils.setField(runtime, "actionInstanceMapper", actionMapper);
+            ReflectionTestUtils.setField(runtime, "businessApprovalPolicyMapper", policyMapper);
+            ReflectionTestUtils.setField(publishService, "formCenterRuntimeService", runtime);
+            when(policyMapper.selectPublishedByAction(122L, "DCC", "DCC", "CONTROLLED_FILE",
+                    "PUBLISH", "READY_TO_PUBLISH")).thenReturn(List.of(BusinessApprovalPolicyDO.builder()
+                    .id(7L).tenantId(122L).dataDomain("DCC").systemCode("DCC")
+                    .objectType("CONTROLLED_FILE").actionCode("PUBLISH").objectState("READY_TO_PUBLISH")
+                    .policyMode("BPM_REQUIRED").processDefinitionKey("dcc-controlled-file-publish")
+                    .status("PUBLISHED").build()));
+            BusinessActionContextReqVO oldContext = new BusinessActionContextReqVO();
+            oldContext.setReason("旧发布原因");
+            when(actionMapper.selectSameBusinessAction(122L, "DCC", "CONTROLLED_FILE", "920", "B/1",
+                    "PUBLISH")).thenReturn(List.of(FormActionInstanceDO.builder()
+                    .id(58L).instanceCode("FCI-122-58").tenantId(122L).applicantUserId(99L)
+                    .status("DRAFT").idempotencyKey("DCC-PUBLISH-920-K1")
+                    .businessContextJson(JsonUtils.toJsonString(oldContext)).build()));
+            when(controlledFileMapper.selectById(920L)).thenReturn(DccControlledFileDO.builder()
+                    .id(920L).categoryId(18L).versionNo("B/1")
+                    .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus()).build());
+            DccControlledFilePublishReqVO reqVO = new DccControlledFilePublishReqVO();
+            reqVO.setReason("更正后的发布原因");
+            reqVO.setIdempotencyKey("DCC-PUBLISH-920-K2");
+
+            FormCenterException exception = assertThrows(FormCenterException.class,
+                    () -> publishService.publishControlledFile(99L, 920L, reqVO));
+
+            assertEquals(FormCenterErrorCode.FORM_ACTION_IDEMPOTENCY_CONFLICT, exception.getErrorCode());
+            verify(actionMapper).selectByBusinessActionAndIdempotency(122L, "DCC", "CONTROLLED_FILE",
+                    "920", "B/1", "PUBLISH", "DCC-PUBLISH-920-K2");
+            verify(runtime, never()).submitInstance(any(), any(), any());
+            verify(actionMapper, never()).insert(any(FormActionInstanceDO.class));
+            verify(actionMapper, never()).updateById(any(FormActionInstanceDO.class));
+            verify(finalizationService, never()).applyApprovedPublishControlledFile(any(), any(), any());
+            verifyNoInteractions(approvalRouteAssigneeResolver, gxpAuditService);
+        } finally {
+            TenantContextHolder.clear();
+        }
     }
 
     @Test

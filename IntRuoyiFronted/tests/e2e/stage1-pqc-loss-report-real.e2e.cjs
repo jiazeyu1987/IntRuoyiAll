@@ -104,13 +104,25 @@ const targetRow = (page) =>
 const clickStage1Simulation = async (page) => {
   const row = targetRow(page)
   await row.waitFor({ state: 'visible', timeout: 60000 })
-  const button = row.locator('[data-team-leader-simulate-active-order-stage1]').first()
+  const button = row.locator('[data-team-leader-simulate-active-order-stage1-p1]').first()
   await button.waitFor({ state: 'visible', timeout: 30000 })
-  assert.equal(await button.isEnabled(), true, '目标订单 Stage1 模拟按钮不可用')
+  assert.equal(await button.isEnabled(), true, '目标订单 P1 双100按钮不可用')
   await button.click()
   await firstVisible(page.getByRole('button', { name: '开始模拟' }), '开始模拟').then((item) =>
     item.click()
   )
+  await row
+    .locator('[data-team-leader-active-order-production-progress]')
+    .filter({ hasText: '100' })
+    .waitFor({ timeout: 90000 })
+  await row
+    .locator('[data-team-leader-active-order-inspection-progress]')
+    .filter({ hasText: '100' })
+    .waitFor({ timeout: 90000 })
+  const generateButton = row.locator('[data-team-leader-generate-active-order-stage1-p2]').first()
+  await generateButton.waitFor({ state: 'visible', timeout: 30000 })
+  assert.equal(await generateButton.isEnabled(), true, '目标订单 P2 生成按钮不可用')
+  await generateButton.click()
   await page.waitForURL((url) => url.pathname.includes('/submission-detail'), { timeout: 180000 })
   evidence.detailUrl = page.url()
   persist()

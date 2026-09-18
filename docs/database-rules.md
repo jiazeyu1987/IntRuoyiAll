@@ -58,6 +58,15 @@
 - Forbidden action: 禁止用缓存、前端去重、减少页大小、延长超时、返回默认状态或把历史数量写成猜测值掩盖读模型根因；禁止在未执行正式迁移和重启新后端时宣称运行态接口已经加速。
 - Evidence: `doc/tasks/20260813-production-leader-report-management-performance/verification-report.md`。
 
+### PQC 生产放行列表查询性能门禁
+
+- Trigger: PQC 生产放行待放行列表刷新、`/mes/pro/production-release/pqc/page`、生产放行历史评审和 `approvalReady` 展示。
+- Preflight check: 列表必须把租户、冻结候选、五类 viewStatus、筛选条件和 pageNo/pageSize 下推到数据库；最新不合格评审按 `source_id + tenant_id + MAX(id)` 只取一条。列表读取不得执行完整 dossier 资料规划或写路径锁查询，正式 approve 仍必须保留完整资料、冻结、签名和 CAS 门禁。
+- Blocker: 先全量加载申请再内存分页、按页逐行执行完整 dossier readiness、评审历史全量传输后 Java 去重、跨租户 source_id 串状态、或通过移除列表预检而弱化正式放行门禁时必须停止。
+- Verification: 静态合同和 Mapper/服务测试断言 SQL 真分页、五状态与旧状态机一致、候选快照空格语义一致、最新评审与租户过滤完整、列表不调用 dossier readiness；部署迁移并重启新后端后，再用真实页面记录首屏请求数和接口 TTFB。
+- Forbidden action: 禁止用延长超时、减少 pageSize、前端伪造 `approvalReady`、缓存旧状态、API-only 或 mock 数据掩盖列表查询慢；禁止把列表预览结果当作正式放行授权。
+- Evidence: `doc/tasks/20260912-pqc-production-release-page-performance/execution-log.md`。
+
 ### 只读资源池引用完整性门禁
 
 - Trigger: 资源池、MES 工序、工艺路线资源、报工映射等只读列表复用关系表组装跨主数据读模型，出现 `Missing route`、`Missing item`、`Missing process`、`Missing machinery` 或页面 `系统异常`。
@@ -80,11 +89,11 @@
 ### 数据修复字符串比较排序规则门禁
 
 - Trigger: 数据修复、测试项种子、菜单/权限补齐等 SQL 使用临时表、字面量、用户变量或存储过程局部字符串变量与真实表字符列做 `JOIN`、`=`、`NOT EXISTS` 比较，尤其包含中文名称、权限字符串、表单名称、测试项名称。
-- Preflight check: 写入前用 `information_schema.COLUMNS` 核对目标字符列 `COLLATION_NAME`，并核对连接 `collation_connection`；临时表字符串列必须声明与目标列一致的 `CHARACTER SET` 和 `COLLATE`。存储过程局部字符串变量会继承创建过程时的连接排序规则，与表列比较时必须显式统一 `COLLATE`，或在要求大小写、字节、中英文标点完全一致的冻结身份校验中对两侧使用 `BINARY` 精确比较，避免 `utf8mb4_unicode_ci` 将中英文括号等字符判等导致 UPDATE 被跳过。
+- Preflight check: 写入前用 `information_schema.COLUMNS` 核对目标字符列 `COLLATION_NAME`，并核对连接 `collation_connection`；临时表字符串列必须声明与目标列一致的 `CHARACTER SET` 和 `COLLATE`。菜单/权限迁移中若临时表保存 `permission`、`path`、`component` 等字符串并与 `system_menu` 比较，必须按目标列显式声明，不能依赖数据库默认 collation。存储过程局部字符串变量会继承创建过程时的连接排序规则，与表列比较时必须显式统一 `COLLATE`，或在要求大小写、字节、中英文标点完全一致的冻结身份校验中对两侧使用 `BINARY` 精确比较，避免 `utf8mb4_unicode_ci` 将中英文括号等字符判等导致 UPDATE 被跳过。
 - Blocker: MySQL 报 `ERROR 1267 Illegal mix of collations`，或发现临时字符串列与目标字符列排序规则不一致时必须停止并回滚当前事务；MySQL 报 `ERROR 1137 Can't reopen table` 时也必须停止，不能把已提交前后的汇总 SELECT 当作成功证据。
 - Verification: 重试前先确认失败事务未提交；修复后记录命中行数、目标行数、字段排序规则和关键文本扫描结果；涉及物料名、菜单名、表单名等字面修正时，最终验收必须使用 `BINARY` 比较或 `HEX()` 证明目标文本字面一致；同一事务内需要多次统计同一临时表时，先 `SELECT COUNT(*) INTO` 过程变量，或拆成多条不重复打开同一临时表的语句。
 - Forbidden action: 禁止修改数据库默认排序规则、手改真实表排序规则、扩大 `WHERE` 范围、拆掉精确租户/删除标记条件，或把失败事务当作成功继续执行。
-- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用；`doc/tasks/20260811-dcc-qa-backend-persistence/execution-log.md`，压力泵 QA 种子首次因临时工序表与正式表排序规则不一致而整事务回滚，显式统一为 `utf8mb4_unicode_ci` 后幂等迁移通过；`doc/tasks/20260817-generate-current-active-order-pqc-tasks/execution-log.md`，PQC 数据修复存储过程的局部字符串变量继承 `utf8mb4_general_ci`，与 `utf8mb4_unicode_ci` 表列比较触发 `ERROR 1267`，回滚确认后改为两侧 `BINARY` 精确身份比较并通过；`doc/tasks/20260903-align-pick-list-input-materials/verification-report.md`，领料单物料名修正时 `utf8mb4_unicode_ci` 将中英文括号判等，改用 `BINARY` 后完成字面修正与验收。
+- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用；`doc/tasks/20260811-dcc-qa-backend-persistence/execution-log.md`，压力泵 QA 种子首次因临时工序表与正式表排序规则不一致而整事务回滚，显式统一为 `utf8mb4_unicode_ci` 后幂等迁移通过；`doc/tasks/20260817-generate-current-active-order-pqc-tasks/execution-log.md`，PQC 数据修复存储过程的局部字符串变量继承 `utf8mb4_general_ci`，与 `utf8mb4_unicode_ci` 表列比较触发 `ERROR 1267`，回滚确认后改为两侧 `BINARY` 精确身份比较并通过；`doc/tasks/20260903-align-pick-list-input-materials/verification-report.md`，领料单物料名修正时 `utf8mb4_unicode_ci` 将中英文括号判等，改用 `BINARY` 后完成字面修正与验收；`doc/tasks/20260917-admin-edhr-batch-execution-visible/verification-report.md`，eDHR 菜单权限修复迁移中临时 `permission` 列默认 `utf8mb4_general_ci`，与 `system_menu.permission` 的 `utf8mb4_unicode_ci` 比较触发 `ERROR 1267`，显式声明临时列为 `utf8mb4_unicode_ci` 后通过。
 
 ### MySQL 存储过程标识符长度门禁
 
@@ -152,9 +161,9 @@
 ### DCC 项目代码 MDM 产品建档绑定门禁
 
 - Trigger: DCC 产品立项、产品建档申请、`dcc_product_onboarding_request`、`dcc_project_code.product_master_id`、MDM 产品绑定、受控文件提交需要按项目代码带出产品主数据。
-- Preflight check: 修改 schema、服务或页面前，必须同时核对 DCC 项目代码表、MDM 产品主数据、建档申请状态机、受控文件提交来源和 DCC 测试 fixture；审批通过生成项目代码时，`productMasterId` 必须来自启用 MDM 产品或审批阶段正式创建的 MDM 产品；审批阶段重复项目代码校验必须排除当前待审批申请自身，但继续拦截其它待审批申请和已存在项目代码。
+- Preflight check: 修改 schema、服务或页面前，必须同时核对 DCC 项目代码表、MDM 产品主数据、建档申请状态机、受控文件提交来源和 DCC 测试 fixture；建档申请创建后必须有按待审批状态查询和恢复原申请 ID 的正式入口，不得只依赖弹窗临时状态；审批通过生成项目代码时，`productMasterId` 必须来自启用 MDM 产品或审批阶段正式创建的 MDM 产品；审批阶段重复项目代码校验必须排除当前待审批申请自身，但继续拦截其它待审批申请和已存在项目代码。
 - Blocker: 缺申请表、缺项目代码 MDM 绑定字段、目标项目代码已存在、其它待审批申请重复、审批把当前申请自身误判为重复、MDM 产品禁用或缺正式 DCC 产品编号、受控文件提交只能从前端 payload/项目名/空值推断产品时必须停止。
-- Verification: 至少运行产品建档服务测试、受控文件提交 MDM 绑定测试、聚焦 schema 测试、前端静态契约和 backend/database/frontend evidence validator；审批重复校验回归必须覆盖“当前待审批申请自身不算重复”；真实写入 E2E 只有在确认本机运行态、测试租户/账号和可清理任务数据后执行。
+- Verification: 至少运行产品建档服务测试、受控文件提交 MDM 绑定测试、聚焦 schema 测试、前端静态契约和 backend/database/frontend evidence validator；产品建档恢复回归必须覆盖关闭弹窗或刷新后通过待审批列表找回原申请 ID；审批重复校验回归必须覆盖“当前待审批申请自身不算重复”；真实写入 E2E 只有在确认本机运行态、测试租户/账号和可清理任务数据后执行。
 - Forbidden action: 禁止用 DCC 产品目录、`formBindings`、默认项目代码、前端文案、空 `productMasterId`、直接 SQL 补字段、API-only 审批或 mock MDM 产品替代正式建档审批和 MDM 主数据绑定。
 - Evidence: `doc/tasks/20260803-dcc-product-onboarding-flow/verification-report.md`。
 
@@ -257,6 +266,14 @@
 - Verification: 必须通过正式 `active-order/remove` 业务链逐条移除，并复核目标 `active_status/business_status=REMOVED`、`removed_at` 非空、版本递增、目标 `CURRENT` 分配为 0、`REMOVE_ACTIVE_ORDER/SUCCESS` 审计覆盖全部目标、非目标活跃订单主键集合不变，以及最终登录态列表不再返回目标订单。
 - Forbidden action: 禁止物理删除活跃订单，禁止直接 SQL 只改 `active_status` / `business_status`，禁止删除历史分配来伪造失效，禁止用近似产品名扩大范围，禁止把列表接口失败或空响应当作删除成功。
 - Evidence: `doc/tasks/20260811-delete-active-pressure-pump-orders/verification-report.md`。
+
+### 生产组长多页签一键清理门禁
+
+- Trigger: 生产组长工作台新增一键清理，范围同时包含活跃订单、报工管理/历史和批次执行及其子表。
+- Preflight check: 先在当前租户锁定生产组长的 ACTIVE 订单及乐观锁版本，按正式关联键展开历史订单、报工事件、反馈、PQC、批次执行、批记录和 eDHR 子表；必须检查其它组长共享工单、放行申请、放行事务和批次终态。若用户明确声明本轮目标是清理测试数据并清空活跃订单池，共享工单不能要求用户逐单上传，应按 `work_order_id` 把同租户其它生产组长的 ACTIVE/REMOVED 活跃订单自动纳入同一清理闭包；预检结果应携带稳定 ID 与版本，执行时重新锁定并逐项比对。
+- Blocker: 范围版本变化、共享工单未完整纳入闭包、生产放行链路存在但未进入同一测试清理范围、已发布/归档/拒收/作废等不可逆正式终态、缺少租户上下文或任一依赖表无法解析时必须失败并回滚；不得把批量清理降级为模糊名称匹配、直接改状态或物理删除活跃订单主记录。
+- Verification: 成功路径必须复用正式 active-order/remove 业务链逐条移除并保留 `REMOVE_ACTIVE_ORDER` 审计，再按租户和稳定关联 ID 清理报工运行事实、PQC/生产放行运行申请与事务、批次子表，最后写入汇总清理审计；失败路径断言零部分写入，非闭包活跃订单、非目标工单和生命周期审计事实保持不变。
+- Forbidden action: 禁止在没有预检快照、二次确认、回滚边界和页面成功/失败反馈时提供“一键删除”；禁止用 API-only 或直接 SQL 冒充真实页面动作；禁止删除 WORM/append-only 追溯、字段审计、归档审计等不可逆审计事实来换取空列表。
 
 ### 工艺路线跨租户导入导出数据包完整性门禁
 

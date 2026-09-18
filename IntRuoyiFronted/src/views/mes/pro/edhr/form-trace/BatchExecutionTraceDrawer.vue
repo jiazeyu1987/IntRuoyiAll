@@ -44,13 +44,13 @@
 
     <el-skeleton v-if="loading" :rows="8" animated />
     <el-tabs v-else v-model="activeTab" class="edhr-form-trace-batch-trace__tabs">
-      <el-tab-pane label="批记录表单" name="recordForm">
+      <el-tab-pane label="正式批记录" name="recordForm">
         <section class="edhr-form-trace-batch-trace__section">
           <div class="edhr-form-trace-batch-trace__section-head">
             <div>
-              <div class="edhr-form-trace-batch-trace__section-title">批记录表单详情</div>
+              <div class="edhr-form-trace-batch-trace__section-title">正式批记录详情</div>
               <div class="edhr-form-trace-batch-trace__muted">
-                使用归档时固化的执行快照、模板布局和单元格值，以批次执行填写页同款表格只读展示。
+                使用P2形成的正式eDHR表单快照。
               </div>
             </div>
             <el-tag type="success">只读追溯</el-tag>
@@ -97,7 +97,7 @@
             <div class="edhr-form-trace-batch-trace__record-preview">
               <el-empty
                 v-if="!selectedRecordExecution"
-                description="请选择左侧工序查看批记录表单"
+                description="请选择左侧工序查看正式批记录"
               />
               <article v-else class="edhr-form-trace-batch-trace__record-card">
                 <div class="edhr-form-trace-batch-trace__record-header">
@@ -116,22 +116,63 @@
                   </el-tag>
                 </div>
 
-                <div class="edhr-form-trace-batch-trace__snapshot-source">
-                  <el-tag
-                    v-for="item in selectedRecordSnapshotEvidenceItems"
-                    :key="item.label"
-                    :type="item.available ? 'success' : 'danger'"
-                    effect="plain"
-                  >
-                    {{ item.label }}{{ item.available ? '已固化' : '缺失' }}
-                  </el-tag>
-                </div>
+                <section
+                  class="edhr-form-trace-batch-trace__formal-record"
+                  aria-label="正式批记录"
+                  data-edhr-formal-batch-record
+                >
+                  <EdhrExecutionReadonlyForm
+                    v-if="selectedRecordExecution.formViewModel"
+                    :form-view-model="selectedRecordExecution.formViewModel"
+                    :signature-records="selectedRecordExecution.signatureRecords"
+                    fit-to-viewport
+                  />
+                  <el-empty
+                    v-else
+                    description="当前正式批记录缺少已填写的正式表单快照"
+                    :image-size="56"
+                  />
+                </section>
 
-                <EdhrExecutionReadonlyForm
-                  embedded
-                  :form-view-model="selectedRecordExecution.formViewModel"
-                  :signature-records="selectedRecordExecution.signatureRecords"
-                />
+                <section
+                  class="edhr-form-trace-batch-trace__source-detail-record"
+                  aria-label="详情批记录"
+                  data-edhr-source-detail-record
+                >
+                  <div class="edhr-form-trace-batch-trace__source-detail-head">
+                    <div>
+                      <div class="edhr-form-trace-batch-trace__record-title">详情批记录</div>
+                      <div class="edhr-form-trace-batch-trace__muted">
+                        正式批记录来源详情
+                      </div>
+                    </div>
+                    <el-tag type="info" effect="plain">来源详情</el-tag>
+                  </div>
+                  <div class="edhr-form-trace-batch-trace__snapshot-source">
+                    <el-tag type="success" effect="plain">
+                      活跃订单 {{ batchExecutionDetail?.activeOrderId || '--' }}
+                    </el-tag>
+                  </div>
+
+                  <ActiveOrderSubmissionDetailPanel
+                    v-if="!selectedRecordSubmissionFormError"
+                    embedded
+                    :detail="activeOrderDetail"
+                    :loading="activeOrderDetailLoading"
+                    :error="activeOrderDetailError"
+                    :display-mode="selectedRecordSubmissionFormMode"
+                    :record-scope="'FORMAL_BATCH_SOURCE_DETAIL'"
+                    :production-route-process-id="selectedRecordExecution.routeProcessId"
+                    @retry="reloadTraceActiveOrderDetail"
+                  />
+                  <el-alert
+                    v-else
+                    :title="selectedRecordSubmissionFormError"
+                    type="error"
+                    :closable="false"
+                    show-icon
+                  />
+                </section>
 
                 <section
                   class="edhr-form-trace-batch-trace__attachment-section"
@@ -309,13 +350,18 @@ import SignaturePage from '@/views/mes/pro/edhr/SignaturePage.vue'
 import OperationAuditListPane from '@/views/mes/pro/edhr/components/OperationAuditListPane.vue'
 import ReleaseEventListPane from '@/views/mes/pro/edhr/components/ReleaseEventListPane.vue'
 import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'
+import ActiveOrderSubmissionDetailPanel from '@/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import {
+  getEdhrBatchActiveOrderDetail,
+  getEdhrBatchExecution,
   getEdhrBatchReviewTimeline,
   type EdhrBatchExecutionArchiveRespVO,
+  type EdhrBatchExecutionRespVO,
   type EdhrBatchExecutionReviewAttachmentSummary,
   type EdhrBatchExecutionReviewExecutionRespVO,
   type EdhrBatchReviewTimelineRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
+import type { TeamLeaderActiveOrderDetailRespVO } from '@/api/mes/pro/processpool/teamLeader'
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import {
   resolveExecutionStatusTagType,
@@ -360,6 +406,11 @@ const drawerVisible = computed({
 const loading = ref(false)
 const loadError = ref('')
 const timeline = ref<EdhrBatchReviewTimelineRespVO>()
+const batchExecutionDetail = ref<EdhrBatchExecutionRespVO>()
+const activeOrderDetail = ref<TeamLeaderActiveOrderDetailRespVO>()
+const activeOrderDetailLoading = ref(false)
+const activeOrderDetailError = ref('')
+let activeOrderDetailRequestSerial = 0
 const isValidPdfAArchive = (archive: EdhrBatchExecutionArchiveRespVO) =>
   archive.pdfaValidationStatus === 'VALID' && Boolean(archive.pdfaProfile)
 const latestBatchArchive = computed(() => timeline.value?.archiveVersions?.[0])
@@ -457,13 +508,16 @@ const selectedRecordExecution = computed(() =>
   )
 )
 
-const selectedRecordSnapshotEvidenceItems = computed(() => {
-  const formViewModel = selectedRecordExecution.value?.formViewModel
-  return [
-    { label: '执行快照', available: Boolean(formViewModel?.executionSnapshotJson) },
-    { label: '模板布局', available: Boolean(formViewModel?.sheetLayoutJson) },
-    { label: '单元格值', available: Boolean(formViewModel?.cellValuesJson) }
-  ]
+const selectedRecordSubmissionFormMode = computed<'production' | 'pqc' | undefined>(() => {
+  if (selectedRecordExecution.value?.formSlotType === 'MAIN') return 'production'
+  if (selectedRecordExecution.value?.formSlotType === 'PROCESS_INSPECTION') return 'pqc'
+  return undefined
+})
+
+const selectedRecordSubmissionFormError = computed(() => {
+  if (!selectedRecordExecution.value) return ''
+  if (selectedRecordSubmissionFormMode.value) return ''
+  return '当前批次执行工序缺少详情批记录的工序槽位类型，无法展示来源详情。'
 })
 
 const selectedSignatureExecutionCode = computed(
@@ -524,19 +578,63 @@ const syncSelectedExecutions = () => {
   }
 }
 
+const loadTraceActiveOrderDetail = async (batch: EdhrBatchExecutionRespVO | undefined) => {
+  const requestSerial = ++activeOrderDetailRequestSerial
+  activeOrderDetail.value = undefined
+  activeOrderDetailError.value = ''
+  if (!batch?.activeOrderId) {
+    activeOrderDetailLoading.value = false
+    activeOrderDetailError.value = '批次执行缺少正式活跃订单来源，无法展示详情批记录。'
+    return
+  }
+  activeOrderDetailLoading.value = true
+  try {
+    const detail = await getEdhrBatchActiveOrderDetail(batch.id)
+    if (requestSerial !== activeOrderDetailRequestSerial) return
+    if (!detail.processes?.length) {
+      throw new Error('活跃订单缺少正式工序目标，无法展示详情批记录。')
+    }
+    activeOrderDetail.value = detail
+  } catch (error) {
+    if (requestSerial !== activeOrderDetailRequestSerial) return
+    activeOrderDetail.value = undefined
+    activeOrderDetailError.value = resolveErrorMessage(error, '活跃订单详情批记录加载失败。')
+  } finally {
+    if (requestSerial === activeOrderDetailRequestSerial) {
+      activeOrderDetailLoading.value = false
+    }
+  }
+}
+
+const reloadTraceActiveOrderDetail = () => {
+  void loadTraceActiveOrderDetail(batchExecutionDetail.value)
+}
+
 const loadTimeline = async () => {
   const batchExecutionId = traceBatchExecutionId.value
   timeline.value = undefined
+  batchExecutionDetail.value = undefined
+  activeOrderDetail.value = undefined
+  activeOrderDetailError.value = ''
   loadError.value = ''
   if (!batchExecutionId) {
+    activeOrderDetailLoading.value = false
     syncSelectedExecutions()
     return
   }
   loading.value = true
   try {
-    timeline.value = await getEdhrBatchReviewTimeline(batchExecutionId)
+    const [nextTimeline, nextBatch] = await Promise.all([
+      getEdhrBatchReviewTimeline(batchExecutionId),
+      getEdhrBatchExecution(batchExecutionId)
+    ])
+    timeline.value = nextTimeline
+    batchExecutionDetail.value = nextBatch
+    await loadTraceActiveOrderDetail(nextBatch)
   } catch (error) {
     selectedRecordExecutionId.value = ''
+    activeOrderDetail.value = undefined
+    activeOrderDetailError.value = ''
     loadError.value = resolveErrorMessage(error, '批次执行追溯时间线加载失败，请联系管理员。')
   } finally {
     loading.value = false
@@ -690,6 +788,29 @@ watch([executionEntries, recordExecutionReviews], syncSelectedExecutions)
   background: #ffffff;
   border: 1px solid #dbe3ef;
   border-radius: 10px;
+}
+
+.edhr-form-trace-batch-trace__formal-record,
+.edhr-form-trace-batch-trace__source-detail-record {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.edhr-form-trace-batch-trace__source-detail-record {
+  background: #f8fafc;
+}
+
+.edhr-form-trace-batch-trace__source-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .edhr-form-trace-batch-trace__record-header,

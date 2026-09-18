@@ -22,4 +22,15 @@ public interface DccProjectAccessRuleMapper extends BaseMapperX<DccProjectAccess
                 .orderByDesc(DccProjectAccessRuleDO::getId));
     }
 
+    default List<DccProjectAccessRuleDO> selectListByProjectCodeId(Long projectCodeId) {
+        return selectList(new LambdaQueryWrapperX<DccProjectAccessRuleDO>()
+                .eq(DccProjectAccessRuleDO::getDccProjectCodeId, projectCodeId)
+                .orderByDesc(DccProjectAccessRuleDO::getId));
+    }
+
+    default void deleteByProjectCodeId(Long projectCodeId) {
+        delete(new LambdaQueryWrapperX<DccProjectAccessRuleDO>()
+                .eq(DccProjectAccessRuleDO::getDccProjectCodeId, projectCodeId));
+    }
+
 }

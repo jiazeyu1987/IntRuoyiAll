@@ -169,6 +169,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PENDING_VOID_ACTION_LOCKED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_SCHEDULE_PREREQUISITE_MISSING;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID;
@@ -924,7 +925,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void getDetail_recoversMissingRouteTasksFromCurrentBatchConfigWhenFrozenSnapshotIncomplete() {
+    void getDetail_blocksMissingRouteTasksWhenFrozenSnapshotIncomplete() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
         MesProRouteDO route = routeMapper.selectById(fixture.routeId());
@@ -953,24 +954,23 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
         EdhrBatchExecutionRespVO detail = batchExecutionService.get(legacyBatch.getId());
 
-        assertEquals(6, detail.getTaskTotal());
-        assertEquals(List.of(fixture.reportId1(), fixture.reportId2()), routeTasks(detail).stream()
-                .map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportId)
-                .toList());
+        assertEquals(Boolean.FALSE, detail.getCanClose());
+        assertEquals(Boolean.FALSE, detail.getCanArchive());
+        assertTrue(detail.getTasks().isEmpty());
+        assertTrue(detail.getCloseBlockers().stream()
+                .anyMatch(blocker -> blocker.contains(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED.getMsg())));
         List<MesProEdhrBatchExecutionTaskDO> persistedRouteTasks =
                 batchTaskMapper.selectListByBatchExecutionId(legacyBatch.getId()).stream()
                         .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(task.getNodeType()))
                         .sorted(Comparator.comparing(MesProEdhrBatchExecutionTaskDO::getRouteProcessSort)
                                 .thenComparing(MesProEdhrBatchExecutionTaskDO::getBatchRecordSort))
                         .toList();
-        assertEquals(List.of(fixture.reportId1(), fixture.reportId2()), persistedRouteTasks.stream()
-                .map(MesProEdhrBatchExecutionTaskDO::getBatchRecordReportId)
-                .toList());
-        verify(workTaskService).createInitialFillTask(argThat(batch -> Objects.equals(batch.getId(), legacyBatch.getId())));
+        assertTrue(persistedRouteTasks.isEmpty());
+        verify(workTaskService, never()).createInitialFillTask(argThat(batch -> Objects.equals(batch.getId(), legacyBatch.getId())));
     }
 
     @Test
-    void getReviewTimeline_recoversMissingRouteTasksFromCurrentBatchConfigWhenFrozenSnapshotIncomplete() {
+    void getReviewTimeline_blocksMissingRouteTasksWhenFrozenSnapshotIncomplete() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
         MesProRouteDO route = routeMapper.selectById(fixture.routeId());
@@ -997,19 +997,16 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         batchExecutionMapper.insert(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
 
-        EdhrBatchExecutionReviewTimelineRespVO timeline = batchExecutionService.getReviewTimeline(legacyBatch.getId());
-
-        assertEquals(6, timeline.getTaskEvents().size());
+        assertServiceException(() -> batchExecutionService.getReviewTimeline(legacyBatch.getId()),
+                PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         List<MesProEdhrBatchExecutionTaskDO> persistedRouteTasks =
                 batchTaskMapper.selectListByBatchExecutionId(legacyBatch.getId()).stream()
                         .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(task.getNodeType()))
                         .sorted(Comparator.comparing(MesProEdhrBatchExecutionTaskDO::getRouteProcessSort)
                                 .thenComparing(MesProEdhrBatchExecutionTaskDO::getBatchRecordSort))
                         .toList();
-        assertEquals(List.of(fixture.reportId1(), fixture.reportId2()), persistedRouteTasks.stream()
-                .map(MesProEdhrBatchExecutionTaskDO::getBatchRecordReportId)
-                .toList());
-        verify(workTaskService).createInitialFillTask(argThat(batch -> Objects.equals(batch.getId(), legacyBatch.getId())));
+        assertTrue(persistedRouteTasks.isEmpty());
+        verify(workTaskService, never()).createInitialFillTask(argThat(batch -> Objects.equals(batch.getId(), legacyBatch.getId())));
     }
 
     @Test
@@ -1251,6 +1248,62 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(fixture.routeVersionNo(), persisted.getRouteVersionNo());
         assertNotNull(persisted.getRouteSnapshotJson());
         assertTrue(persisted.getRouteSnapshotJson().contains("ROUTE-"));
+    }
+
+    @Test
+    void openOrCreateFromProductionRelease_usesFrozenRouteSnapshotIdentityAfterRouteRenameBeforeBatchCreation() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProRouteDO routeAtOrderFreeze = routeMapper.selectById(fixture.routeId());
+        String frozenRouteCode = routeAtOrderFreeze.getCode();
+        String frozenRouteName = routeAtOrderFreeze.getName();
+        String frozenSnapshotJson = routeVersionMapper.selectById(fixture.routeVersionId()).getRouteSnapshotJson();
+        routeAtOrderFreeze.setCode("ROUTE-CURRENT-RENAMED-" + Math.abs(randomLongId()));
+        routeAtOrderFreeze.setName("现行路线 V2 改名后");
+        routeMapper.updateById(routeAtOrderFreeze);
+
+        Long batchExecutionId = batchExecutionService.openOrCreateFromProductionRelease(
+                new MesProEdhrProductionReleaseBatchCommand()
+                        .setApplicationId(912012L)
+                        .setWorkOrderId(fixture.workOrderId())
+                        .setWorkOrderCode("WO-STATIC-012")
+                        .setBatchCode("BATCH-STATIC-012-REOPENED")
+                        .setRouteId(fixture.routeId())
+                        .setRouteVersionId(fixture.routeVersionId())
+                        .setActiveContextKey("PQC_RELEASE:STATIC-012-REOPENED")
+                        .setEntryType("ACTIVE_ORDER_PQC")
+                        .setEntryBusinessId("912012"));
+
+        MesProEdhrBatchExecutionDO persisted = batchExecutionMapper.selectById(batchExecutionId);
+        assertEquals(fixture.routeVersionId(), persisted.getRouteVersionId());
+        assertEquals(fixture.routeVersionNo(), persisted.getRouteVersionNo());
+        assertEquals(frozenSnapshotJson, persisted.getRouteSnapshotJson());
+        assertEquals(frozenRouteCode, persisted.getRouteCode());
+        assertEquals(frozenRouteName, persisted.getRouteName());
+        assertFalse(persisted.getRouteName().contains("V2"));
+
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batchExecutionId)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                .setAggregateHash("1212121212121212121212121212121212121212121212121212121212121212")
+                .setClosedAt(LocalDateTime.now()));
+        when(workTaskService.validateArchiveTask(9912L, batchExecutionId))
+                .thenReturn(new MesProEdhrWorkTaskDO()
+                        .setId(9912L)
+                        .setBatchExecutionId(batchExecutionId)
+                        .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE));
+
+        EdhrBatchExecutionArchiveRespVO archive = batchExecutionService.generateArchive(
+                new EdhrBatchExecutionArchiveGenerateReqVO()
+                        .setBatchExecutionId(batchExecutionId)
+                        .setArtifactType("BATCH_FINAL_PDF")
+                        .setWorkTaskId(9912L));
+
+        JSONObject manifest = JSON.parseObject(batchArchiveMapper.selectById(archive.getId()).getSourceManifestJson());
+        assertEquals(fixture.routeVersionId(), manifest.getLong("routeVersionId"));
+        assertEquals(fixture.routeVersionNo(), manifest.getString("routeVersionNo"));
+        assertEquals(frozenRouteCode, manifest.getString("routeCode"));
+        assertEquals(frozenRouteName, manifest.getString("routeName"));
+        assertFalse(manifest.toJSONString().contains("现行路线 V2 改名后"));
     }
 
     @Test
@@ -2458,6 +2511,166 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         }
         verify(fileService, times(1))
                 .createFileAndReturnId(content, "incoming.pdf", directory, "application/pdf");
+    }
+
+    @Test
+    void productionReleaseReportPrepareRejectsFrozenBatchBeforeFileStorage() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(
+                new EdhrBatchExecutionOpenOrCreateReqVO()
+                        .setWorkOrderId(fixture.workOrderId())
+                        .setBatchCode("BATCH-RELEASE-REPORT-FROZEN")
+                        .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO reportTask = batch.getTasks().stream()
+                .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT
+                        .equals(task.getNodeType()))
+                .findFirst()
+                .orElseThrow();
+        workTaskMapper.insert(new MesProEdhrWorkTaskDO()
+                .setTaskCode("PRR-FROZEN-" + reportTask.getId())
+                .setTaskType("FILL")
+                .setBatchExecutionId(batch.getId())
+                .setBatchTaskId(reportTask.getId())
+                .setBusinessScopeType("RELEASE_REPORT_NODE")
+                .setBusinessScopeId(reportTask.getId())
+                .setAssigneeUserId(188L)
+                .setCandidateUserSnapshot("188")
+                .setActionUrl("/mes/production-release/report?applicationId=7002")
+                .setStatus(MesProEdhrWorkTaskStatus.TODO));
+        doThrow(new ServiceException(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID))
+                .when(nonconformanceReviewService).ensureBatchNotFrozen(eq(batch.getId()), eq("eDHR批次操作"));
+        byte[] content = "frozen release report attachment".getBytes(StandardCharsets.UTF_8);
+        clearInvocations(fileService);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
+            assertServiceException(() -> batchExecutionService.prepareProductionReleaseReportAttachmentUpload(
+                            new MesProEdhrSpecialNodeAttachmentPrepareUploadCommand()
+                                    .setTaskId(reportTask.getId())
+                                    .setIdempotencyKey("report-prepare-frozen-9308")
+                                    .setFileName("frozen.pdf")
+                                    .setContentType("application/pdf")
+                                    .setContent(content),
+                            188L),
+                    PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+        }
+
+        verify(nonconformanceReviewService).ensureBatchNotFrozen(eq(batch.getId()), eq("eDHR批次操作"));
+        verify(fileService, never()).createFileAndReturnId(any(), any(), any(), any());
+        assertNull(batchTaskMapper.selectById(reportTask.getId()).getSpecialPayloadJson());
+    }
+
+    @Test
+    void productionReleaseReportCompletionRejectsFrozenBatchBeforeFileMetadataReadEvenForGoldenFinger() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(
+                new EdhrBatchExecutionOpenOrCreateReqVO()
+                        .setWorkOrderId(fixture.workOrderId())
+                        .setBatchCode("BATCH-RELEASE-REPORT-FROZEN-COMPLETE")
+                        .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO reportTask = batch.getTasks().stream()
+                .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT
+                        .equals(task.getNodeType()))
+                .findFirst()
+                .orElseThrow();
+        workTaskMapper.insert(new MesProEdhrWorkTaskDO()
+                .setTaskCode("PRR-FROZEN-COMPLETE-" + reportTask.getId())
+                .setTaskType("FILL")
+                .setBatchExecutionId(batch.getId())
+                .setBatchTaskId(reportTask.getId())
+                .setBusinessScopeType("RELEASE_REPORT_NODE")
+                .setBusinessScopeId(reportTask.getId())
+                .setAssigneeUserId(188L)
+                .setCandidateUserSnapshot("188")
+                .setActionUrl("/mes/production-release/report?applicationId=7002")
+                .setStatus(MesProEdhrWorkTaskStatus.TODO));
+        when(goldenFingerPermissionService.hasGoldenFingerPermission(188L)).thenReturn(true);
+        doThrow(new ServiceException(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID))
+                .when(nonconformanceReviewService).ensureBatchNotFrozen(eq(batch.getId()), eq("eDHR批次操作"));
+        String sha256 = "abababababababababababababababababababababababababababababababab";
+        MesProEdhrSpecialNodeAttachment attachment = new MesProEdhrSpecialNodeAttachment()
+                .setUploadToken("EDHR_SPECIAL_NODE_ATTACHMENT:" + reportTask.getId() + ":9308:" + sha256)
+                .setFileId(9308L)
+                .setFileUrl("http://127.0.0.1:9000/yudao/edhr/special/frozen.pdf")
+                .setStorageConfigId(28L)
+                .setStoragePath("edhr/special/frozen.pdf")
+                .setFileName("frozen.pdf")
+                .setContentType("application/pdf")
+                .setFileSize(2048L)
+                .setSha256(sha256)
+                .setStorageRetentionJson("{\"fileId\":9308,\"storageConfigId\":28,\"storagePath\":\"edhr/special/frozen.pdf\",\"sha256\":\""
+                        + sha256 + "\"}")
+                .setStorageRetentionHash("retention-hash");
+        clearInvocations(fileService);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
+            assertServiceException(() -> batchExecutionService.completeProductionReleaseReportNode(
+                            reportTask.getId(), 188L, null, List.of(attachment)),
+                    PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+        }
+
+        verify(nonconformanceReviewService).ensureBatchNotFrozen(eq(batch.getId()), eq("eDHR批次操作"));
+        verify(fileService, never()).getFile(any());
+        assertNull(batchTaskMapper.selectById(reportTask.getId()).getSpecialPayloadJson());
+    }
+
+    @Test
+    void savePendingSpecialNodeAttachmentsRejectsFrozenBatchBeforeBookingPendingFiles() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-SPECIAL-SAVE-FROZEN")
+                .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO incoming = batch.getTasks().stream()
+                .filter(task -> "INCOMING_INSPECTION_REPORT".equals(task.getNodeType()))
+                .findFirst()
+                .orElseThrow();
+        markBatchOwner(batch.getId(), 188L);
+        byte[] content = "pending incoming before frozen save".getBytes(StandardCharsets.UTF_8);
+        String directory = "edhr/special-nodes/" + batch.getId() + "/" + incoming.getId() + "/attachments";
+        when(fileService.createFileAndReturnId(content, "incoming-frozen-save.pdf",
+                directory, "application/pdf")).thenReturn(9311L);
+        when(fileService.getFile(9311L)).thenReturn(FileDO.builder()
+                .id(9311L)
+                .configId(28L)
+                .name("incoming-frozen-save.pdf")
+                .path(directory + "/incoming-frozen-save.pdf")
+                .url("http://127.0.0.1:9000/yudao/" + directory + "/incoming-frozen-save.pdf")
+                .type("application/pdf")
+                .size((long) content.length)
+                .build());
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
+            batchExecutionService.prepareSpecialNodeAttachmentUpload(
+                    new MesProEdhrSpecialNodeAttachmentPrepareUploadCommand()
+                            .setTaskId(incoming.getId())
+                            .setFileName("incoming-frozen-save.pdf")
+                            .setContentType("application/pdf")
+                            .setContent(content));
+        }
+        clearInvocations(nonconformanceReviewService, fileService);
+        doThrow(new ServiceException(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID))
+                .when(nonconformanceReviewService).ensureBatchNotFrozen(eq(batch.getId()), eq("eDHR批次操作"));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
+            assertServiceException(() -> batchExecutionService.savePendingSpecialNodeAttachments(
+                            batch.getId(), "保存待提交特殊节点附件"),
+                    PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+        }
+
+        verify(nonconformanceReviewService).ensureBatchNotFrozen(eq(batch.getId()), eq("eDHR批次操作"));
+        verify(fileService, never()).getFile(any());
+        List<MesProBatchRecordExecutionAttachmentDO> records = attachmentMapper.selectListByBatchTaskId(incoming.getId());
+        assertEquals(1, records.stream()
+                .filter(record -> "PENDING".equals(record.getAttachmentAction()))
+                .count());
+        assertEquals(0, records.stream()
+                .filter(record -> "ADD".equals(record.getAttachmentAction()))
+                .count());
+        assertNull(batchTaskMapper.selectById(incoming.getId()).getSpecialPayloadJson());
     }
 
     @Test
@@ -6344,6 +6557,93 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 any(StorageRetentionPolicy.class));
         verify(fileService).getFileContentWithStorageRetention(eq(storedArchive.getFileId()),
                 any(StorageRetentionPolicy.class));
+    }
+
+    @Test
+    void generateArchive_usesFrozenBatchRouteIdentityAfterCurrentRouteRenameAndDelete() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-ARCHIVE-HISTORICAL-ROUTE")
+                .setRouteId(fixture.routeId()));
+        MesProEdhrBatchExecutionDO persistedBatch = batchExecutionMapper.selectById(batch.getId());
+        String frozenRouteCode = persistedBatch.getRouteCode();
+        String frozenRouteName = persistedBatch.getRouteName();
+        MesProRouteDO currentRoute = routeMapper.selectById(fixture.routeId());
+        currentRoute.setCode("ROUTE-CURRENT-RENAMED-" + Math.abs(randomLongId()));
+        currentRoute.setName("现行路线改名后");
+        routeMapper.updateById(currentRoute);
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                .setAggregateHash("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+                .setClosedAt(LocalDateTime.now()));
+        when(workTaskService.validateArchiveTask(9907L, batch.getId()))
+                .thenReturn(new MesProEdhrWorkTaskDO()
+                        .setId(9907L)
+                        .setBatchExecutionId(batch.getId())
+                        .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE));
+
+        EdhrBatchExecutionArchiveRespVO renamedArchive = batchExecutionService.generateArchive(
+                new EdhrBatchExecutionArchiveGenerateReqVO()
+                        .setBatchExecutionId(batch.getId())
+                        .setArtifactType("BATCH_FINAL_PDF")
+                        .setWorkTaskId(9907L));
+
+        JSONObject renamedManifest = JSON.parseObject(
+                batchArchiveMapper.selectById(renamedArchive.getId()).getSourceManifestJson());
+        assertEquals(frozenRouteCode, renamedManifest.getString("routeCode"));
+        assertEquals(frozenRouteName, renamedManifest.getString("routeName"));
+        assertFalse(renamedManifest.toJSONString().contains("现行路线改名后"));
+
+        routeMapper.deleteById(fixture.routeId());
+        when(workTaskService.validateArchiveTask(9908L, batch.getId()))
+                .thenReturn(new MesProEdhrWorkTaskDO()
+                        .setId(9908L)
+                        .setBatchExecutionId(batch.getId())
+                        .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE));
+
+        EdhrBatchExecutionArchiveRespVO deletedRouteArchive = batchExecutionService.generateArchive(
+                new EdhrBatchExecutionArchiveGenerateReqVO()
+                        .setBatchExecutionId(batch.getId())
+                        .setArtifactType("BATCH_FINAL_PDF")
+                        .setWorkTaskId(9908L));
+
+        JSONObject deletedRouteManifest = JSON.parseObject(
+                batchArchiveMapper.selectById(deletedRouteArchive.getId()).getSourceManifestJson());
+        assertEquals(frozenRouteCode, deletedRouteManifest.getString("routeCode"));
+        assertEquals(frozenRouteName, deletedRouteManifest.getString("routeName"));
+    }
+
+    @Test
+    void generateArchive_requiresFrozenRouteIdentityAndSnapshot() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-ARCHIVE-FROZEN-SNAPSHOT")
+                .setRouteId(fixture.routeId()));
+        skipAllSpecialNodes(batch);
+        completeFinalInspectionDossier(batch.getId());
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                .setAggregateHash("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+                .setRouteSnapshotJson(incompleteFrozenBatchTaskConfigSnapshotJson())
+                .setClosedAt(LocalDateTime.now()));
+        when(workTaskService.validateArchiveTask(9903L, batch.getId()))
+                .thenReturn(new MesProEdhrWorkTaskDO()
+                        .setId(9903L)
+                        .setBatchExecutionId(batch.getId())
+                        .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE));
+
+        assertServiceException(() -> batchExecutionService.generateArchive(new EdhrBatchExecutionArchiveGenerateReqVO()
+                        .setBatchExecutionId(batch.getId())
+                        .setArtifactType("BATCH_FINAL_PDF")
+                        .setWorkTaskId(9903L)),
+                PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
+
+        assertTrue(batchArchiveMapper.selectListByBatchExecutionId(batch.getId()).isEmpty());
+        verify(workTaskService, never()).completeArchiveTask(9903L, batch.getId());
     }
 
     @Test

@@ -31,6 +31,20 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReadResult {
         private Boolean hasActualLoss;
         private Boolean zeroLossConfirmed;
         private String lossDecision;
+        private BigDecimal formalLossQuantity;
+        private List<ReplenishmentSource> replenishmentSources;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class ReplenishmentSource {
+        private Long headerId;
+        private Long itemId;
+        private String sourceBillNo;
+        private String materialCode;
+        private String materialName;
+        private String lotNumber;
+        private BigDecimal actualQuantity;
     }
 
     @Data

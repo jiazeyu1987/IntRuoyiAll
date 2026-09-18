@@ -304,7 +304,22 @@
     "e2e:dcc:loss-order-form-center:static": "node tests/e2e/dcc-loss-order-form-center-chain-static.spec.js",
     "e2e:dcc:loss-order-form-center:check": "node tests/e2e/dcc-loss-order-form-center-chain-static.spec.js",
     "e2e:dcc:loss-order-form-center": "node ../scripts/dcc-loss-order-form-center-e2e-chain.mjs",
-    "e2e:role-matrix-route-config-separation:static": "node tests/e2e/role-matrix-route-config-separation-static.spec.cjs"
+    "e2e:role-matrix-route-config-separation:static": "node tests/e2e/role-matrix-route-config-separation-static.spec.cjs",
+    "e2e:edhr:ai-loop:contract": "node tests/e2e/edhr-ai-loop-contract.spec.cjs",
+    "e2e:edhr:ai-loop:runner:static": "node tests/e2e/edhr-ai-loop-runner-static.spec.cjs",
+    "e2e:edhr:ai-loop:stages:static": "node tests/e2e/edhr-ai-loop-stages-static.spec.cjs",
+    "e2e:edhr:ai-loop:static": "node tests/e2e/edhr-ai-loop-static-suite.cjs",
+    "e2e:edhr:ai-loop": "node tests/e2e/edhr-ai-loop/runner.cjs",
+    "e2e:edhr:ai-loop:report-schema": "node tests/e2e/edhr-ai-loop-report-schema-static.spec.cjs",
+    "e2e:edhr:ai-loop:active-order:static": "node tests/e2e/edhr-ai-loop-active-order-static.spec.cjs",
+    "e2e:infra:job-log-route-query:static": "node tests/e2e/infra-job-log-route-query-static.spec.cjs",
+    "e2e:edhr:ai-loop:production-s02:static": "node tests/e2e/edhr-ai-loop-production-s02-static.spec.cjs",
+    "e2e:edhr:ai-loop:pqc-s03:static": "node tests/e2e/edhr-ai-loop-pqc-s03-static.spec.cjs",
+    "e2e:edhr:ai-loop:completion-s04:static": "node tests/e2e/edhr-ai-loop-completion-s04-static.spec.cjs",
+    "e2e:edhr:ai-loop:release-s05:static": "node tests/e2e/edhr-ai-loop-release-s05-static.spec.cjs",
+    "e2e:edhr:ai-loop:report-upload-s06:static": "node tests/e2e/edhr-ai-loop-report-upload-s06-static.spec.cjs",
+    "e2e:edhr:ai-loop:final-release-s07:static": "node tests/e2e/edhr-ai-loop-final-release-s07-static.spec.cjs",
+    "e2e:edhr:ai-loop:archive-s08:static": "node tests/e2e/edhr-ai-loop-archive-s08-static.spec.cjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "2.3.2",

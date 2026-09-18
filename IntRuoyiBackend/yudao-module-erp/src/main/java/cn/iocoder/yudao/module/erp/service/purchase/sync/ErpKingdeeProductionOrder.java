@@ -16,6 +16,8 @@ public class ErpKingdeeProductionOrder {
     private String materialNumber;
     private String materialName;
     private String materialSpecification;
+    private String productionOrgNumber;
+    private String productionOrgName;
     private String unitCode;
     private String unitName;
     private BigDecimal quantity;

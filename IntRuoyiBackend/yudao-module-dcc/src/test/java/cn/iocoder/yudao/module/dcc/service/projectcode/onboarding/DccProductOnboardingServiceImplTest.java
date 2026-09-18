@@ -15,6 +15,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 
+import java.util.List;
+
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PRODUCT_ONBOARDING_DUPLICATE_PROJECT_CODE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PRODUCT_ONBOARDING_MDM_PRODUCT_INVALID;
@@ -83,6 +85,19 @@ class DccProductOnboardingServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void createRequest_shouldRejectExistingPendingRequestBeforeWritingRequest() {
+        DccProductOnboardingCreateReqVO reqVO = validCreateReq();
+        when(requestMapper.selectPendingByProjectNameAndProjectCode("新产品 DCC 项目", "DCC-NEW-001"))
+                .thenReturn(pendingRequest());
+
+        assertServiceException(() -> onboardingService.createRequest(88L, reqVO),
+                PRODUCT_ONBOARDING_DUPLICATE_PROJECT_CODE);
+
+        verify(requestMapper, never()).insert(any(DccProductOnboardingRequestDO.class));
+        verify(projectCodeMapper, never()).insert(any(DccProjectCodeDO.class));
+    }
+
+    @Test
     void approveRequest_shouldCreateEnabledProjectCodeAndBindMdmProduct() {
         DccProductOnboardingRequestDO pending = pendingRequest();
         when(requestMapper.selectById(100L)).thenReturn(pending);
@@ -140,6 +155,23 @@ class DccProductOnboardingServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(3000L, approved.getGeneratedProjectCodeId());
         verify(projectCodeMapper).insert(any(DccProjectCodeDO.class));
         verify(requestMapper).updateById(any(DccProductOnboardingRequestDO.class));
+    }
+
+    @Test
+    void getPendingRequests_shouldReturnPendingRequestsForRecovery() {
+        DccProductOnboardingRequestDO pending = pendingRequest();
+        DccProductOnboardingRequestDO anotherPending = pendingRequest();
+        anotherPending.setId(101L);
+        anotherPending.setProjectName("另一个 DCC 项目");
+        anotherPending.setProjectCode("DCC-NEW-002");
+        when(requestMapper.selectPendingList()).thenReturn(List.of(pending, anotherPending));
+
+        List<DccProductOnboardingRequestDO> pendingRequests = onboardingService.getPendingRequests();
+
+        assertEquals(2, pendingRequests.size());
+        assertEquals(100L, pendingRequests.get(0).getId());
+        assertEquals(101L, pendingRequests.get(1).getId());
+        verify(requestMapper).selectPendingList();
     }
 
     @Test

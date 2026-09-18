@@ -19,6 +19,11 @@ class DccAtomicPublishReplacementTest {
         assertTrue(finalization.contains("supersedePreviousActiveRevision"));
         assertTrue(finalization.contains("currentActiveControlledFileId(file.getId())"));
         assertTrue(finalization.contains("SUPERSEDED"));
-        assertTrue(finalization.contains("markFinalizationFailed"));
+        assertTrue(finalization.contains("finalizationFailureService.recordFailure"));
+        String failurePersistence = Files.readString(Path.of("src", "main", "java", "cn", "iocoder", "yudao", "module",
+                        "dcc", "service", "file", "DccControlledFileFinalizationFailureService.java"),
+                StandardCharsets.UTF_8);
+        assertTrue(failurePersistence.contains("PROPAGATION_REQUIRES_NEW"));
+        assertTrue(failurePersistence.contains("markFinalizationFailedWhenStatus"));
     }
 }

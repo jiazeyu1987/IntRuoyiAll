@@ -1,6 +1,6 @@
 <template>
   <ContentWrap>
-    <div class="edhr-work-task-page">
+    <div class="edhr-work-task-page" data-edhr-work-task-page>
       <div class="edhr-work-task-page__summary">
         <div class="edhr-work-task-page__metric">
           <span>待处理</span>
@@ -48,7 +48,12 @@
           </el-select>
         </el-form-item>
         <el-form-item label="工单">
-          <el-input v-model="queryParams.workOrderCode" clearable class="!w-170px" />
+          <el-input
+            v-model="queryParams.workOrderCode"
+            clearable
+            class="!w-170px"
+            data-edhr-work-task-work-order-filter
+          />
         </el-form-item>
         <el-form-item label="批次">
           <el-input v-model="queryParams.batchCode" clearable class="!w-150px" />
@@ -57,7 +62,7 @@
           <el-input v-model="queryParams.processName" clearable class="!w-150px" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleQuery">查询</el-button>
+          <el-button type="primary" data-edhr-work-task-query @click="handleQuery">查询</el-button>
           <el-button @click="resetQuery">重置</el-button>
           <el-button
             v-hasPermi="['mes:pro-edhr-work-task-rule:update']"
@@ -144,18 +149,23 @@
         </el-table-column>
         <el-table-column label="任务" min-width="210">
           <template #default="{ row }">
-            <div class="edhr-work-task-page__task-title">
+            <div
+              class="edhr-work-task-page__task-title"
+              :data-edhr-work-task-row-type="row.taskType"
+            >
               <el-tag :type="resolveTaskTypeTag(row.taskType)">{{
                 resolveTaskTypeLabel(row.taskType)
               }}</el-tag>
-              <span>{{ row.taskCode || row.id }}</span>
+              <span data-edhr-work-task-code>{{ row.taskCode || row.id }}</span>
             </div>
             <div class="edhr-work-task-page__muted">{{ resolveStatusLabel(row.status) }}</div>
           </template>
         </el-table-column>
         <el-table-column label="生产上下文" min-width="260">
           <template #default="{ row }">
-            <div class="edhr-work-task-page__strong">{{ row.workOrderCode || '--' }}</div>
+            <div class="edhr-work-task-page__strong" data-edhr-work-task-row-work-order>
+              {{ row.workOrderCode || '--' }}
+            </div>
             <div class="edhr-work-task-page__muted">批次：{{ row.batchCode || '--' }}</div>
             <div class="edhr-work-task-page__muted">工序：{{ row.processName || '--' }}</div>
           </template>
@@ -233,6 +243,11 @@
                 v-else
                 link
                 type="primary"
+                :data-edhr-work-task-open="row.id"
+                :data-edhr-work-task-open-type="row.taskType"
+                :data-edhr-archive-task-open="
+                  row.taskType === EDHR_WORK_TASK_TYPE_ARCHIVE ? row.id : undefined
+                "
                 :disabled="row.status === EDHR_WORK_TASK_STATUS_DONE"
                 @click="openTask(row)"
               >
@@ -378,6 +393,7 @@
         v-model="managerReleaseDialogVisible"
         title="管理者代表最终放行"
         width="720px"
+        data-manager-release-dialog
         @closed="resetManagerReleaseDialog"
       >
         <div v-loading="managerReleaseLoading" class="edhr-work-task-page__pqc-dialog">
@@ -411,7 +427,9 @@
               {{ managerReleaseReceipt?.version ?? managerReleaseTask.version }}
             </el-descriptions-item>
             <el-descriptions-item label="状态">
-              {{ resolveManagerReleaseStatusLabel(managerReleaseReceipt?.releaseStatus) }}
+              <span data-manager-release-status>
+                {{ resolveManagerReleaseStatusLabel(managerReleaseReceipt?.releaseStatus) }}
+              </span>
             </el-descriptions-item>
           </el-descriptions>
 
@@ -422,17 +440,21 @@
             :rules="managerReleaseRules"
             label-width="112px"
           >
-            <el-form-item label="签核证据" prop="signoffEvidenceHash">
+            <el-form-item label="电子签名密码" prop="signaturePassword">
               <el-input
-                v-model="managerReleaseForm.signoffEvidenceHash"
-                maxlength="128"
-                placeholder="请输入正式电子签名证据哈希"
+                v-model="managerReleaseForm.signaturePassword"
+                type="password"
+                data-manager-release-signature-password
+                show-password
+                autocomplete="current-password"
+                placeholder="请输入当前账号电子签名密码"
               />
             </el-form-item>
             <el-form-item label="审批意见" prop="approvalOpinion">
               <el-input
                 v-model="managerReleaseForm.approvalOpinion"
                 type="textarea"
+                data-manager-release-approval-opinion
                 :rows="3"
                 maxlength="500"
                 show-word-limit
@@ -471,6 +493,7 @@
               Boolean(managerReleaseUncertainMessage) ||
               Boolean(managerReleaseBlockers.length)
             "
+            data-manager-release-confirm
             @click="submitManagerReleaseApproval"
           >
             确认最终放行
@@ -494,10 +517,10 @@
               @change="loadArchiveRuleByRoute"
             >
               <el-option
-                v-for="route in routeOptions"
-                :key="route.id"
-                :label="`${route.code} ${route.name}`"
-                :value="route.id"
+                v-for="routeOption in routeOptions"
+                :key="routeOption.id"
+                :label="`${routeOption.code} ${routeOption.name}`"
+                :value="routeOption.id"
               />
             </el-select>
           </el-form-item>
@@ -594,10 +617,10 @@ import {
   type MesProductionReleaseFailureRespVO
 } from '@/api/mes/pro/productionRelease'
 import {
-  approveEdhrRelease,
   getEdhrRelease,
   type EdhrReleaseRowVO
 } from '@/api/mes/pro/edhr/release'
+import { reviewApprovalTask } from '@/api/approval-center'
 import { getEdhrStage5ReleaseSnapshot } from '@/api/mes/pro/edhr/batchExecution'
 import { ProRouteApi, type ProRouteVO } from '@/api/mes/pro/route'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
@@ -634,7 +657,6 @@ const managerReleaseReceipt = ref<EdhrReleaseRowVO | null>(null)
 const managerReleaseSnapshot = ref<Record<string, unknown> | null>(null)
 const managerReleaseBlockers = ref<MesProductionReleaseBlockerRespVO[]>([])
 const managerReleaseUncertainMessage = ref('')
-const managerReleaseIdempotencyKey = ref('')
 const managerReleaseLockedTransactionIds = reactive(new Set<string>())
 const managerReleaseFormRef = ref<FormInstance>()
 const archiveRuleDialogVisible = ref(false)
@@ -677,14 +699,12 @@ const pqcDecisionRules: FormRules<typeof pqcDecisionForm> = {
   approvalOpinion: [{ max: 500, message: '审批意见不能超过500个字符', trigger: 'blur' }]
 }
 const managerReleaseForm = reactive({
-  signoffEvidenceHash: '',
+  signaturePassword: '',
   approvalOpinion: ''
 })
-const STAGE5_SIMULATION_SIGNOFF_STORAGE_KEY = 'mes:stage5-final-release:signoff-evidence-hash'
 const managerReleaseRules: FormRules<typeof managerReleaseForm> = {
-  signoffEvidenceHash: [
-    { required: true, message: '请输入正式电子签名证据哈希', trigger: 'blur' },
-    { max: 128, message: '签核证据哈希不能超过128个字符', trigger: 'blur' }
+  signaturePassword: [
+    { required: true, message: '请输入电子签名密码', trigger: 'blur' }
   ],
   approvalOpinion: [{ max: 500, message: '审批意见不能超过500个字符', trigger: 'blur' }]
 }
@@ -784,13 +804,6 @@ const createPqcDecisionIdempotencyKey = (action: 'APPROVE' | 'REJECT', applicati
     throw new Error('当前浏览器不支持安全请求标识，无法提交PQC决定。')
   }
   return `pqc-${action.toLowerCase()}-${applicationId}-${globalThis.crypto.randomUUID()}`
-}
-
-const createManagerReleaseIdempotencyKey = (releaseTransactionId: string) => {
-  if (!globalThis.crypto || typeof globalThis.crypto.randomUUID !== 'function') {
-    throw new Error('当前浏览器不支持安全请求标识，无法提交最终放行。')
-  }
-  return `manager-release-${releaseTransactionId}-${globalThis.crypto.randomUUID()}`
 }
 
 const resolvePqcProductionReleaseFailure = (
@@ -1445,6 +1458,7 @@ const submitPqcProductionReleaseDecision = async () => {
 }
 
 const resetManagerReleaseDialog = () => {
+  managerReleaseForm.signaturePassword = ''
   managerReleaseLoading.value = false
   managerReleaseSubmitting.value = false
   managerReleaseTask.value = null
@@ -1452,8 +1466,6 @@ const resetManagerReleaseDialog = () => {
   managerReleaseSnapshot.value = null
   managerReleaseBlockers.value = []
   managerReleaseUncertainMessage.value = ''
-  managerReleaseIdempotencyKey.value = ''
-  managerReleaseForm.signoffEvidenceHash = ''
   managerReleaseForm.approvalOpinion = ''
   managerReleaseFormRef.value?.clearValidate()
 }
@@ -1486,8 +1498,7 @@ const assertManagerReleaseReceiptMatchesTask = (
 
 const assertManagerReleaseApprovalResult = (
   receipt: EdhrReleaseRowVO,
-  row: EdhrWorkTaskRespVO,
-  signoffEvidenceHash?: string
+  row: EdhrWorkTaskRespVO
 ) => {
   assertManagerReleaseReceiptMatchesTask(receipt, row)
   if (receipt.releaseStatus !== 'RELEASED') {
@@ -1498,9 +1509,6 @@ const assertManagerReleaseApprovalResult = (
   if (!receipt.approvedAt || !receipt.approvedBy) {
     throw new Error('最终放行回执缺少审批人或审批时间。')
   }
-  if (signoffEvidenceHash && receipt.approvalSignoffEvidenceHash !== signoffEvidenceHash) {
-    throw new Error('最终放行回执的签核证据与本次提交不一致。')
-  }
 }
 
 const openManagerReleaseDialog = async (row: EdhrWorkTaskRespVO) => {
@@ -1509,17 +1517,6 @@ const openManagerReleaseDialog = async (row: EdhrWorkTaskRespVO) => {
   managerReleaseDialogVisible.value = true
   managerReleaseLoading.value = true
   try {
-    const simulationRunId =
-      typeof route.query.simulationRunId === 'string' ? route.query.simulationRunId.trim() : ''
-    if (simulationRunId) {
-      const signoffEvidenceHash = window.localStorage
-        .getItem(`${STAGE5_SIMULATION_SIGNOFF_STORAGE_KEY}:${simulationRunId}`)
-        ?.trim()
-      if (!signoffEvidenceHash) {
-        throw new Error('Stage5模拟缺少管理者电子签名证据哈希，无法提交正式放行。')
-      }
-      managerReleaseForm.signoffEvidenceHash = signoffEvidenceHash
-    }
     if (!canHandleManagerRelease(row)) {
       throw new Error(resolveInactionReasonLabel(row))
     }
@@ -1560,10 +1557,9 @@ const recoverUncertainManagerReleaseApproval = async (
     if (receipt.releaseStatus !== 'RELEASED') {
       throw new Error(`权威回执仍为${resolveManagerReleaseStatusLabel(receipt.releaseStatus)}。`)
     }
-    assertManagerReleaseApprovalResult(receipt, row, managerReleaseForm.signoffEvidenceHash.trim())
+    assertManagerReleaseApprovalResult(receipt, row)
     await loadStage5ReleaseSnapshot(receipt)
     managerReleaseReceipt.value = receipt
-    managerReleaseIdempotencyKey.value = ''
     message.warning('最终放行响应异常，但权威回执已确认事务为已放行。')
     return true
   } catch (confirmationError) {
@@ -1615,25 +1611,23 @@ const submitManagerReleaseApproval = async () => {
   }
   await managerReleaseFormRef.value?.validate()
   const context = requireManagerReleaseTaskContext(row)
-  const expectedVersion = requireNonNegativeVersion(currentReceipt.version, '最终放行权威版本')
-  if (!managerReleaseIdempotencyKey.value) {
-    managerReleaseIdempotencyKey.value = createManagerReleaseIdempotencyKey(
-      context.releaseTransactionId
-    )
-  }
   managerReleaseSubmitting.value = true
   managerReleaseBlockers.value = []
   let result: EdhrReleaseRowVO
   try {
-    result = await approveEdhrRelease({
-      releaseTransactionId: context.releaseTransactionId,
-      workTaskId: context.workTaskId,
-      expectedVersion,
-      idempotencyKey: managerReleaseIdempotencyKey.value,
-      signoffEvidenceHash: managerReleaseForm.signoffEvidenceHash.trim(),
-      approvalOpinion: managerReleaseForm.approvalOpinion.trim() || undefined
+    await reviewApprovalTask({
+      moduleCode: 'EDHR',
+      sourceTaskType: 'EDHR_WORK_TASK',
+      sourceTaskId: context.workTaskId,
+      businessKey: context.workTaskId,
+      result: 'APPROVE',
+      signaturePassword: managerReleaseForm.signaturePassword,
+      reason: managerReleaseForm.approvalOpinion.trim()
     })
+    managerReleaseForm.signaturePassword = ''
+    result = await getEdhrRelease(context.releaseTransactionId)
   } catch (writeError) {
+    managerReleaseForm.signaturePassword = ''
     const failure = resolvePqcProductionReleaseFailure(writeError)
     if (failure) {
       managerReleaseBlockers.value = failure.blockers
@@ -1646,7 +1640,7 @@ const submitManagerReleaseApproval = async () => {
   }
 
   try {
-    assertManagerReleaseApprovalResult(result, row, managerReleaseForm.signoffEvidenceHash.trim())
+    assertManagerReleaseApprovalResult(result, row)
   } catch (receiptError) {
     if (await recoverUncertainManagerReleaseApproval(row, receiptError)) {
       await refreshManagerReleaseListAfterSuccess()
@@ -1656,7 +1650,6 @@ const submitManagerReleaseApproval = async () => {
   }
 
   managerReleaseReceipt.value = result
-  managerReleaseIdempotencyKey.value = ''
   try {
     await loadStage5ReleaseSnapshot(result)
   } catch (snapshotError) {

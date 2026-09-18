@@ -3,6 +3,9 @@ package cn.iocoder.yudao.module.mes.service.pro.simulation.stage1;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListDO;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListDO;
@@ -29,6 +32,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionMaterialListDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderBomDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.batch.MesWmBatchDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.materialstock.MesWmMaterialStockDO;
@@ -63,6 +69,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationStateMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionMaterialListMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderBomMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.batch.MesWmBatchMapper;
@@ -79,6 +87,10 @@ import cn.iocoder.yudao.module.mes.enums.wm.MesWmProductIssueStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFormalProductionPickListSourceResolver;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotCodec;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotRule;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceSelectionSnapshotCodec;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteCandidateConfigServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import cn.hutool.core.util.IdUtil;
@@ -88,6 +100,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -113,6 +126,9 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     private static final String PLACEHOLDER_MATERIAL_CODE = "/";
     private static final String PQC_SOURCE = "MES_PQC_INSPECTION_TASK";
     private static final String PRODUCTION_SOURCE = "MES_PRO_FEEDBACK";
+    private static final String PRODUCTION_PROCESS_CONFIGS_KEY = "productionProcessConfigs";
+    private static final String PRODUCTION_CONFIG_MIGRATION_SOURCE_STAGE1_TEMPLATE =
+            "STAGE1_TEMPLATE_PROCESS_SNAPSHOT";
     private static final BigDecimal PERCENT_DIVISOR = BigDecimal.valueOf(100);
     private static final int PROGRESS_PERCENT_SCALE = 6;
 
@@ -120,7 +136,9 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProWorkOrderService workOrderService;
     private final MesProWorkOrderBomMapper workOrderBomMapper;
+    private final MesKingdeeProductionMaterialListMapper productionMaterialListMapper;
     private final MesMdItemMapper itemMapper;
+    private final MesProRouteVersionMapper routeVersionMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
     private final MesPqcInspectionTaskMapper pqcTaskMapper;
     private final MesProcessPoolActiveOrderPickListBindingMapper bindingMapper;
@@ -163,7 +181,9 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
             MesProWorkOrderMapper workOrderMapper,
             MesProWorkOrderService workOrderService,
             MesProWorkOrderBomMapper workOrderBomMapper,
+            MesKingdeeProductionMaterialListMapper productionMaterialListMapper,
             MesMdItemMapper itemMapper,
+            MesProRouteVersionMapper routeVersionMapper,
             MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper,
             MesPqcInspectionTaskMapper pqcTaskMapper,
             MesProcessPoolActiveOrderPickListBindingMapper bindingMapper,
@@ -204,7 +224,9 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         this.workOrderMapper = workOrderMapper;
         this.workOrderService = workOrderService;
         this.workOrderBomMapper = workOrderBomMapper;
+        this.productionMaterialListMapper = productionMaterialListMapper;
         this.itemMapper = itemMapper;
+        this.routeVersionMapper = routeVersionMapper;
         this.snapshotMapper = snapshotMapper;
         this.pqcTaskMapper = pqcTaskMapper;
         this.bindingMapper = bindingMapper;
@@ -257,9 +279,6 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                 .selectByIdForUpdate(validated.getActiveOrderId());
         requireTemplate(templateActiveOrder, validated.getActorUserId());
         MesProWorkOrderDO templateWorkOrder = requireWorkOrder(templateActiveOrder.getWorkOrderId());
-        List<MesProcessPoolActiveOrderPickListBindingDO> sourceBindings = ensureActiveOrderPickListBindings(
-                templateActiveOrder, templateWorkOrder, validated);
-        ensureFormalProductIssue(templateActiveOrder, templateWorkOrder, validated);
 
         MesTeamLeaderActiveOrderSimulationResult simulation = activeOrderSimulationService
                 .simulateActiveOrderCompletion(validated.getActorUserId(), templateActiveOrder.getId(), STAGE,
@@ -282,18 +301,17 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         templateActiveOrder.setSimulated(Boolean.TRUE);
         templateActiveOrder.setSimulationStage(STAGE);
         templateActiveOrder.setSimulationRunId(validated.getSimulationRunId());
+        assertNoDownstreamSideEffects(templateActiveOrder);
         String cleanedRunId = cleanupOwnedRuns(validated.getActorUserId(), validated.getSimulationRunId());
-        List<MesProcessPoolActiveOrderPickListBindingDO> activeOrderBindings = requireBindings(templateActiveOrder);
-        Map<String, Object> snapshot = buildSnapshot(templateActiveOrder, sourceBindings, activeOrderBindings,
+        Map<String, Object> snapshot = buildSnapshot(templateActiveOrder, List.of(), List.of(),
                 validated, simulation, persistedProgress);
         return new MesStage1ActiveOrderCompleteSimulationResult()
                 .setSimulationRunId(validated.getSimulationRunId())
                 .setCleanedSimulationRunId(cleanedRunId)
                 .setActiveOrderId(templateActiveOrder.getId())
                 .setWorkOrderId(templateWorkOrder.getId())
-                .setPickListId(activeOrderBindings.get(0).getPickListId())
-                .setPickListIds(activeOrderBindings.stream()
-                        .map(MesProcessPoolActiveOrderPickListBindingDO::getPickListId).toList())
+                .setPickListId(null)
+                .setPickListIds(List.of())
                 .setProductionSubmitCount(simulation.getProductionSubmitCount())
                 .setProductionReviewCount(simulation.getProductionReviewCount())
                 .setPqcSubmitCount(simulation.getPqcSubmitCount())
@@ -390,14 +408,220 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                     || row.getPlannedQuantitySnapshot().signum() <= 0) {
                 throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_INVALID");
             }
-            snapshotMapper.insert(BeanUtils.toBean(row, MesProcessPoolActiveOrderProcessSnapshotDO.class)
+            MesProcessPoolActiveOrderProcessSnapshotDO targetSnapshot =
+                    BeanUtils.toBean(row, MesProcessPoolActiveOrderProcessSnapshotDO.class)
                     .setId(null)
                     .setActiveOrderId(target.getId())
                     .setWorkOrderId(target.getWorkOrderId())
                     .setSimulated(Boolean.TRUE)
                     .setSimulationStage(STAGE)
-                    .setSimulationRunId(runId));
+                    .setSimulationRunId(runId);
+            ensureProductionConfigSnapshot(targetSnapshot);
+            snapshotMapper.insert(targetSnapshot);
         }
+    }
+
+    private void ensureProductionConfigSnapshot(MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
+        if (hasCompleteProductionConfigSnapshot(snapshot)) {
+            return;
+        }
+        rebuildProductionConfigSnapshot(snapshot);
+    }
+
+    private boolean hasCompleteProductionConfigSnapshot(MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
+        if (snapshot == null || !hasAnyProductionConfigSnapshot(snapshot)) {
+            return false;
+        }
+        if (blank(snapshot.getProductionConfigSnapshotJson())
+                || blank(snapshot.getProductionConfigSnapshotSha256())
+                || blank(snapshot.getProductionConfigMigrationSource())
+                || snapshot.getProductionConfigMigratedAt() == null
+                || snapshot.getOveragePercentSnapshot() == null
+                || blank(snapshot.getLossReasonSnapshotJson())
+                || blank(snapshot.getLossReasonSnapshotSha256())
+                || blank(snapshot.getParameterSnapshotJson())
+                || blank(snapshot.getParameterSnapshotSha256())
+                || blank(snapshot.getDeviceSelectionSnapshotJson())
+                || blank(snapshot.getDeviceSelectionSnapshotSha256())) {
+            throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+        }
+        JSONObject envelope;
+        JSONArray lossReasons;
+        JSONArray deviceGroups;
+        try {
+            envelope = JSON.parseObject(snapshot.getProductionConfigSnapshotJson());
+            lossReasons = JSON.parseArray(snapshot.getLossReasonSnapshotJson());
+            deviceGroups = JSON.parseArray(snapshot.getDeviceSelectionSnapshotJson());
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED", ex);
+        }
+        boolean complete = envelope != null
+                && Objects.equals(snapshot.getRouteProcessId(), envelope.getLong("routeProcessId"))
+                && Objects.equals(snapshot.getProcessId(), envelope.getLong("processId"))
+                && sameDecimal(snapshot.getOveragePercentSnapshot(), envelope.getBigDecimal("overagePercent"))
+                && Objects.equals(lossReasons, envelope.getJSONArray("lossReasons"))
+                && productionParameterRulesMatch(snapshot.getParameterSnapshotJson(),
+                        envelope.getJSONArray("parameterRules"), snapshot.getRouteProcessId(), snapshot.getProcessId())
+                && Objects.equals(deviceGroups, envelope.getJSONArray("deviceSelectionGroups"))
+                && Objects.equals(snapshot.getProductionConfigSnapshotSha256(),
+                        DigestUtil.sha256Hex(snapshot.getProductionConfigSnapshotJson()))
+                && Objects.equals(snapshot.getLossReasonSnapshotSha256(),
+                        DigestUtil.sha256Hex(snapshot.getLossReasonSnapshotJson()))
+                && Objects.equals(snapshot.getParameterSnapshotSha256(),
+                        MesDeviceParameterSnapshotCodec.sha256(snapshot.getParameterSnapshotJson()))
+                && Objects.equals(snapshot.getDeviceSelectionSnapshotSha256(),
+                        MesDeviceSelectionSnapshotCodec.sha256(snapshot.getDeviceSelectionSnapshotJson()));
+        if (!complete) {
+            throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+        }
+        return true;
+    }
+
+    private static boolean productionParameterRulesMatch(String parameterSnapshotJson, JSONArray envelopeParameterRules,
+                                                         Long routeProcessId, Long processId) {
+        if (parameterSnapshotJson == null || envelopeParameterRules == null) {
+            return false;
+        }
+        return MesDeviceParameterSnapshotCodec.matchesCanonicalSnapshot(parameterSnapshotJson,
+                envelopeParameterRules.toJSONString(), routeProcessId, processId);
+    }
+
+    private boolean hasAnyProductionConfigSnapshot(MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
+        return snapshot != null
+                && (!blank(snapshot.getProductionConfigSnapshotJson())
+                        || !blank(snapshot.getProductionConfigSnapshotSha256())
+                        || !blank(snapshot.getProductionConfigMigrationSource())
+                        || snapshot.getProductionConfigMigratedAt() != null);
+    }
+
+    private static boolean sameDecimal(BigDecimal left, BigDecimal right) {
+        return left != null && right != null && left.compareTo(right) == 0;
+    }
+
+    private void rebuildProductionConfigSnapshot(MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
+        if (snapshot == null || snapshot.getRouteVersionId() == null
+                || snapshot.getRouteProcessId() == null || snapshot.getProcessId() == null) {
+            throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+        }
+        MesProRouteVersionDO routeVersion = routeVersionMapper.selectById(snapshot.getRouteVersionId());
+        JSONObject productionConfig = requireRouteProductionProcessConfig(routeVersion, snapshot);
+        JSONObject materialConfig = requireRouteMaterialConfig(routeVersion, snapshot);
+        String lossReasonJson = canonicalProductionArray(productionConfig.getJSONArray("lossReasons"));
+        String parameterJson = MesDeviceParameterSnapshotCodec.canonicalizeSnapshotRules(
+                JsonUtils.parseArray(productionConfig.getJSONArray("parameterRules").toJSONString(),
+                        MesDeviceParameterSnapshotRule.class),
+                snapshot.getRouteProcessId(), snapshot.getProcessId());
+        String deviceSelectionJson = canonicalProductionArray(productionConfig.getJSONArray("deviceSelectionGroups"));
+        String inputMaterialIdsJson = requireMaterialIds(snapshot, materialConfig.getJSONArray("inputMaterialIds"));
+        String outputMaterialIdsJson = requireMaterialIds(snapshot, materialConfig.getJSONArray("outputMaterialIds"));
+        JSONObject envelope = new JSONObject(true);
+        envelope.put("routeProcessId", snapshot.getRouteProcessId());
+        envelope.put("processId", snapshot.getProcessId());
+        envelope.put("overagePercent", productionConfig.getBigDecimal("overagePercent"));
+        envelope.put("inputMaterialIds", JSON.parseArray(inputMaterialIdsJson));
+        envelope.put("outputMaterialIds", JSON.parseArray(outputMaterialIdsJson));
+        envelope.put("lossReasons", JSON.parseArray(lossReasonJson));
+        envelope.put("deviceSelectionGroups", JSON.parseArray(deviceSelectionJson));
+        envelope.put("parameterRules", JSON.parseArray(parameterJson));
+        String envelopeJson = JSON.toJSONString(envelope);
+        snapshot.setLossReasonSnapshotJson(lossReasonJson)
+                .setLossReasonSnapshotSha256(DigestUtil.sha256Hex(lossReasonJson))
+                .setOveragePercentSnapshot(productionConfig.getBigDecimal("overagePercent"))
+                .setParameterSnapshotJson(parameterJson)
+                .setParameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256(parameterJson))
+                .setDeviceSelectionSnapshotJson(deviceSelectionJson)
+                .setDeviceSelectionSnapshotSha256(MesDeviceSelectionSnapshotCodec.sha256(deviceSelectionJson))
+                .setProductionConfigSnapshotJson(envelopeJson)
+                .setProductionConfigSnapshotSha256(DigestUtil.sha256Hex(envelopeJson))
+                .setProductionConfigMigrationSource(PRODUCTION_CONFIG_MIGRATION_SOURCE_STAGE1_TEMPLATE)
+                .setProductionConfigMigratedAt(LocalDateTime.now());
+    }
+
+    private JSONObject requireRouteProductionProcessConfig(MesProRouteVersionDO routeVersion,
+                                                           MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
+        if (routeVersion == null || blank(routeVersion.getRouteSnapshotJson())) {
+            throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+        }
+        JSONObject routeSnapshot = JSON.parseObject(routeVersion.getRouteSnapshotJson());
+        JSONObject configSnapshots = routeSnapshot == null ? null : routeSnapshot.getJSONObject("configSnapshots");
+        if (configSnapshots != null) {
+            MesProRouteCandidateConfigServiceImpl.validateProductionProcessConfigs(
+                    routeVersion.getId(), configSnapshots);
+        }
+        JSONArray productionConfigs = configSnapshots == null
+                ? null : configSnapshots.getJSONArray(PRODUCTION_PROCESS_CONFIGS_KEY);
+        if (productionConfigs == null) {
+            throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+        }
+        for (int index = 0; index < productionConfigs.size(); index++) {
+            JSONObject config = productionConfigs.getJSONObject(index);
+            if (config != null
+                    && Objects.equals(config.getLong("routeProcessId"), snapshot.getRouteProcessId())
+                    && Objects.equals(config.getLong("processId"), snapshot.getProcessId())) {
+                if (config.getBigDecimal("overagePercent") == null
+                        || config.getJSONArray("lossReasons") == null
+                        || config.getJSONArray("deviceSelectionGroups") == null
+                        || config.getJSONArray("parameterRules") == null) {
+                    throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+                }
+                return config;
+            }
+        }
+        throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+    }
+
+    private JSONObject requireRouteMaterialConfig(MesProRouteVersionDO routeVersion,
+                                                  MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
+        if (routeVersion == null || blank(routeVersion.getRouteSnapshotJson())) {
+            throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+        }
+        JSONObject routeSnapshot = JSON.parseObject(routeVersion.getRouteSnapshotJson());
+        JSONObject configSnapshots = routeSnapshot == null ? null : routeSnapshot.getJSONObject("configSnapshots");
+        JSONArray materialConfigs = configSnapshots == null ? null : configSnapshots.getJSONArray("batchUseConfigs");
+        if (materialConfigs == null) {
+            throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+        }
+        JSONObject matched = null;
+        for (Object raw : materialConfigs) {
+            if (!(raw instanceof JSONObject config)) {
+                throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+            }
+            if (!Objects.equals(snapshot.getRouteProcessId(), config.getLong("routeProcessId"))) {
+                continue;
+            }
+            if (matched != null || config.getJSONArray("inputMaterialIds") == null
+                    || config.getJSONArray("outputMaterialIds") == null) {
+                throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+            }
+            matched = config;
+        }
+        if (matched == null) {
+            throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+        }
+        return matched;
+    }
+
+    private String canonicalProductionArray(JSONArray array) {
+        return JSON.toJSONString(array == null ? new JSONArray() : array);
+    }
+
+    private String requireMaterialIds(MesProcessPoolActiveOrderProcessSnapshotDO snapshot, JSONArray materialIdArray) {
+        if (materialIdArray == null) {
+            throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+        }
+        Set<Long> normalizedMaterialIds = new LinkedHashSet<>();
+        for (Object rawMaterialId : materialIdArray) {
+            Long materialId;
+            try {
+                materialId = rawMaterialId == null ? null : Long.valueOf(String.valueOf(rawMaterialId));
+            } catch (NumberFormatException ex) {
+                throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED", ex);
+            }
+            if (materialId == null || materialId <= 0 || !normalizedMaterialIds.add(materialId)) {
+                throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_PRODUCTION_CONFIG_REQUIRED");
+            }
+        }
+        return JSON.toJSONString(normalizedMaterialIds);
     }
 
     private void clonePqcTasks(Long templateActiveOrderId, MesProcessPoolActiveOrderDO target, String runId) {
@@ -530,6 +754,9 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         if (activeOrder == null || !Boolean.TRUE.equals(activeOrder.getSimulated())) {
             return workOrder;
         }
+        if (hasCurrentProductionSourceForWorkOrder(workOrder)) {
+            return workOrder;
+        }
         Long sourceActiveOrderId = sourceActiveOrderIdFromMarker(workOrder == null ? null : workOrder.getRemark());
         if (sourceActiveOrderId == null) {
             return workOrder;
@@ -545,6 +772,20 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
             throw exception(PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_SOURCE_REQUIRED);
         }
         return sourceWorkOrder;
+    }
+
+    private boolean hasCurrentProductionSourceForWorkOrder(MesProWorkOrderDO workOrder) {
+        if (workOrder == null || blank(workOrder.getCode())) {
+            return false;
+        }
+        List<ErpKingdeeProductionPickListItemDO> pickListItems = pickListItemMapper
+                .selectListByProductionOrderNo(workOrder.getCode());
+        if (pickListItems != null && !pickListItems.isEmpty()) {
+            return true;
+        }
+        List<MesKingdeeProductionMaterialListDO> materialListRows =
+                productionMaterialListMapper.selectListByProductionOrderNo(workOrder.getCode());
+        return materialListRows != null && !materialListRows.isEmpty();
     }
 
     private Long resolveFormalPickListSourceActiveOrderId(
@@ -635,7 +876,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         List<ErpKingdeeProductionPickListItemDO> sourceItems = pickListItemMapper
                 .selectListByProductionOrderNo(workOrder.getCode());
         if (sourceItems == null || sourceItems.isEmpty()) {
-            throw exception(PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_SOURCE_REQUIRED);
+            return createSimulatedPickListFromAvailableSources(workOrder, command);
         }
         List<Long> pickListIds = sourceItems.stream()
                 .map(ErpKingdeeProductionPickListItemDO::getProductionPickListId)
@@ -652,10 +893,11 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                     .filter(item -> Objects.equals(pickListId, item.getProductionPickListId()))
                     .toList();
             if (header == null || blank(header.getSourceFid()) || blank(header.getSourceBillNo())
-                    || blank(header.getDocumentStatus()) || items == null || items.isEmpty()) {
+                    || !"C".equalsIgnoreCase(header.getDocumentStatus()) || items == null || items.isEmpty()) {
                 throw exception(PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_SOURCE_REQUIRED);
             }
-            String snapshotHash = hash(items);
+            items = orderedFormalPickListItems(items);
+            String snapshotHash = MesFormalProductionPickListSourceResolver.snapshotHash(header, items);
             MesProcessPoolActiveOrderPickListBindingDO binding = MesProcessPoolActiveOrderPickListBindingDO.builder()
                     .pickListId(header.getId()).sourceFid(header.getSourceFid()).sourceBillNo(header.getSourceBillNo())
                     .sourceDocumentStatus(header.getDocumentStatus()).sourceModifyTime(header.getSourceModifyTime())
@@ -666,6 +908,160 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
             bindings.add(binding);
         }
         return bindings;
+    }
+
+    private List<MesProcessPoolActiveOrderPickListBindingDO> createSimulatedPickListFromAvailableSources(
+            MesProWorkOrderDO workOrder, MesStage1ActiveOrderCompleteSimulationCommand command) {
+        List<MesKingdeeProductionMaterialListDO> materialListRows =
+                productionMaterialListMapper.selectListByProductionOrderNo(workOrder.getCode());
+        if (materialListRows != null && !materialListRows.isEmpty()) {
+            return createSimulatedPickListFromProductionMaterialList(workOrder, materialListRows, command);
+        }
+        return createSimulatedPickListFromWorkOrderBom(workOrder, command);
+    }
+
+    private List<MesProcessPoolActiveOrderPickListBindingDO> createSimulatedPickListFromProductionMaterialList(
+            MesProWorkOrderDO workOrder, List<MesKingdeeProductionMaterialListDO> materialListRows,
+            MesStage1ActiveOrderCompleteSimulationCommand command) {
+        return createSimulatedPickList(workOrder, command, "MES_STAGE1_SIMULATED_PICK_LIST_FROM_MATERIAL_LIST",
+                materialListRows.stream()
+                        .map(row -> toSimulatedPickListSeed(workOrder, row))
+                        .toList());
+    }
+
+    private SimulatedPickListSeed toSimulatedPickListSeed(
+            MesProWorkOrderDO workOrder, MesKingdeeProductionMaterialListDO row) {
+        if (row == null || row.getId() == null
+                || !Objects.equals(workOrder.getCode(), row.getProductionOrderNo())
+                || blank(row.getSourceBillNo()) || blank(row.getSourceEntryId())
+                || blank(row.getChildMaterialCode()) || blank(row.getChildMaterialName())
+                || row.getRequiredQuantity() == null || row.getRequiredQuantity().signum() <= 0) {
+            throw exception(PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_SOURCE_REQUIRED);
+        }
+        return new SimulatedPickListSeed(row.getId(), "PML", row.getChildMaterialCode(),
+                row.getChildMaterialName(), row.getChildMaterialSpecification(), row.getChildUnitName(),
+                row.getRequiredQuantity(), row.getProductionOrderLineNo(), row.getSourceModifyTime(),
+                Map.of(
+                        "productionMaterialListId", String.valueOf(row.getId()),
+                        "productionMaterialListSourceBillNo", row.getSourceBillNo(),
+                        "productionMaterialListSourceEntryId", row.getSourceEntryId()));
+    }
+
+    private List<MesProcessPoolActiveOrderPickListBindingDO> createSimulatedPickListFromWorkOrderBom(
+            MesProWorkOrderDO workOrder, MesStage1ActiveOrderCompleteSimulationCommand command) {
+        List<MesProWorkOrderBomDO> bomRows = workOrderBomMapper.selectListByWorkOrderId(workOrder.getId());
+        if (bomRows == null || bomRows.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_SOURCE_REQUIRED);
+        }
+        return createSimulatedPickList(workOrder, command, "MES_STAGE1_SIMULATED_PICK_LIST_FROM_WORK_ORDER_BOM",
+                bomRows.stream()
+                        .filter(Objects::nonNull)
+                        .sorted(Comparator.comparing(MesProWorkOrderBomDO::getId, Comparator.nullsLast(Long::compareTo)))
+                        .map(bom -> toSimulatedPickListSeed(bom))
+                        .toList());
+    }
+
+    private SimulatedPickListSeed toSimulatedPickListSeed(MesProWorkOrderBomDO bom) {
+        if (bom.getId() == null || bom.getItemId() == null
+                || bom.getQuantity() == null || bom.getQuantity().signum() <= 0) {
+            throw exception(PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_SOURCE_REQUIRED);
+        }
+        MesMdItemDO material = itemMapper.selectById(bom.getItemId());
+        if (material == null || !Objects.equals(material.getId(), bom.getItemId())
+                || blank(material.getCode()) || blank(material.getName())) {
+            throw exception(PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_SOURCE_REQUIRED);
+        }
+        return new SimulatedPickListSeed(bom.getId(), "BOM", material.getCode(), material.getName(),
+                material.getSpecification(), null, bom.getQuantity(), null, null,
+                Map.of(
+                        "workOrderBomId", String.valueOf(bom.getId()),
+                        "materialId", String.valueOf(material.getId())));
+    }
+
+    private List<MesProcessPoolActiveOrderPickListBindingDO> createSimulatedPickList(
+            MesProWorkOrderDO workOrder, MesStage1ActiveOrderCompleteSimulationCommand command,
+            String simulationSource, List<SimulatedPickListSeed> seeds) {
+        if (seeds == null || seeds.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_SOURCE_REQUIRED);
+        }
+        String safe = shortRunId(command.getSimulationRunId());
+        String sourceFid = "STAGE1-" + safe + "-PL-" + workOrder.getId() + "-FID";
+        String sourceBillNo = "STAGE1-PL-" + safe + "-" + workOrder.getId();
+        LocalDateTime now = LocalDateTime.now();
+        ErpKingdeeProductionPickListDO header = ErpKingdeeProductionPickListDO.builder()
+                .id(IdUtil.getSnowflake().nextId())
+                .sourceFormId("PRD_PickMtrl")
+                .sourceFid(sourceFid)
+                .sourceBillNo(sourceBillNo)
+                .billDate(now)
+                .documentStatus("C")
+                .description("Stage1模拟领料来源")
+                .lastSyncTime(now)
+                .rawPayload(JsonUtils.toJsonString(Map.of(
+                        "simulated", true, "simulationStage", STAGE,
+                        "simulationRunId", command.getSimulationRunId(),
+                        "source", simulationSource,
+                        "workOrderId", String.valueOf(workOrder.getId()),
+                        "workOrderCode", workOrder.getCode())))
+                .build();
+        header.setTenantId(TenantContextHolder.getRequiredTenantId());
+        pickListMapper.insert(header);
+        List<ErpKingdeeProductionPickListItemDO> items = new ArrayList<>();
+        int lineNo = 1;
+        for (SimulatedPickListSeed seed : seeds) {
+            String sourceEntryId = "STAGE1-" + safe + "-" + seed.sourceType() + "-ENTRY-" + seed.sourceId();
+            Map<String, Object> itemPayload = new LinkedHashMap<>();
+            itemPayload.put("simulated", true);
+            itemPayload.put("simulationStage", STAGE);
+            itemPayload.put("simulationRunId", command.getSimulationRunId());
+            itemPayload.put("source", simulationSource);
+            itemPayload.putAll(seed.trace());
+            ErpKingdeeProductionPickListItemDO item = ErpKingdeeProductionPickListItemDO.builder()
+                    .id(IdUtil.getSnowflake().nextId())
+                    .productionPickListId(header.getId())
+                    .sourceFormId("PRD_PickMtrl")
+                    .sourceFid(sourceFid)
+                    .sourceEntryId(sourceEntryId)
+                    .sourceLineKey("STAGE1-" + safe + "-PL-" + workOrder.getId() + "-LINE-" + seed.sourceId())
+                    .sourceBillNo(sourceBillNo)
+                    .materialNumber(seed.materialNumber())
+                    .materialName(seed.materialName())
+                    .materialSpecification(seed.materialSpecification())
+                    .unitName(seed.unitName())
+                    .requestedQuantity(seed.quantity())
+                    .actualQuantity(seed.quantity())
+                    .baseActualQuantity(seed.quantity())
+                    .lotNumber("STAGE1-LOT-" + safe + "-" + lineNo)
+                    .productionOrderNo(workOrder.getCode())
+                    .productionOrderLineNo(seed.productionOrderLineNo() == null
+                            ? lineNo : seed.productionOrderLineNo())
+                    .sourceModifyTime(seed.sourceModifyTime() == null ? now : seed.sourceModifyTime())
+                    .lastSyncTime(now)
+                    .rawPayload(JsonUtils.toJsonString(itemPayload))
+                    .build();
+            item.setTenantId(TenantContextHolder.getRequiredTenantId());
+            pickListItemMapper.insert(item);
+            items.add(item);
+            lineNo++;
+        }
+        items = orderedFormalPickListItems(items);
+        String snapshotHash = MesFormalProductionPickListSourceResolver.snapshotHash(header, items);
+        MesProcessPoolActiveOrderPickListBindingDO binding = MesProcessPoolActiveOrderPickListBindingDO.builder()
+                .pickListId(header.getId())
+                .sourceFid(header.getSourceFid())
+                .sourceBillNo(header.getSourceBillNo())
+                .sourceDocumentStatus(header.getDocumentStatus())
+                .sourceModifyTime(header.getSourceModifyTime())
+                .sourceSnapshotHash(snapshotHash)
+                .bindingStatus("BOUND")
+                .bindingVersion(1)
+                .requestPayloadHash(hash(workOrder.getCode() + "|" + header.getId() + "|" + snapshotHash))
+                .simulated(Boolean.TRUE)
+                .simulationStage(STAGE)
+                .simulationRunId(command.getSimulationRunId())
+                .build();
+        binding.setTenantId(TenantContextHolder.getRequiredTenantId());
+        return List.of(binding);
     }
 
     private ErpKingdeeProductionPickListDO clonePickList(
@@ -779,7 +1175,12 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
             List<ErpKingdeeProductionPickListItemDO> items) {
         if (items == null || items.isEmpty()
                 || items.stream().anyMatch(item -> item == null
-                || item.getId() == null || item.getSourceEntryId() == null)) {
+                || item.getId() == null || item.getProductionPickListId() == null
+                || blank(item.getSourceFid()) || blank(item.getSourceEntryId())
+                || blank(item.getSourceLineKey()) || blank(item.getSourceBillNo())
+                || blank(item.getMaterialNumber()) || blank(item.getMaterialName())
+                || item.getActualQuantity() == null || blank(item.getLotNumber())
+                || blank(item.getProductionOrderNo()))) {
             throw exception(PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_SOURCE_REQUIRED);
         }
         return items.stream()
@@ -915,8 +1316,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                 requireMarker(piece, runId, "pqcPiece");
             }
         }
-        for (var aggregate : aggregateMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId())) {
-            requireMarker(aggregate, runId, "pqcAggregate");
+        if (!aggregateMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId()).isEmpty()) {
+            throw new IllegalStateException("STAGE1_PROCESS_INSPECTION_AGGREGATE_SIDE_EFFECT");
         }
         if (eventIds.isEmpty()) {
             throw new IllegalStateException("STAGE1_PRODUCTION_EVENT_MISSING");
@@ -963,6 +1364,9 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         }
         if (!releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(activeOrder.getId())).isEmpty()) {
             throw new IllegalStateException("STAGE1_RELEASE_SIDE_EFFECT");
+        }
+        if (!aggregateMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId()).isEmpty()) {
+            throw new IllegalStateException("STAGE1_PROCESS_INSPECTION_AGGREGATE_SIDE_EFFECT");
         }
         List<MesProEdhrBatchExecutionDO> batches = batchExecutionMapper.selectList(
                 new LambdaQueryWrapper<MesProEdhrBatchExecutionDO>()
@@ -1069,18 +1473,45 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                         .compareTo(entry.getValue()) >= 0)
                 .count();
         List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectListByActiveOrderId(activeOrder.getId());
-        BigDecimal inspectionProgressPercent;
-        if (tasks == null || tasks.isEmpty()) {
-            inspectionProgressPercent = zeroProgressPercent();
-        } else {
-            long confirmedTaskCount = tasks.stream()
-                    .filter(task -> MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus()))
-                    .count();
-            inspectionProgressPercent = toProgressPercent(confirmedTaskCount, tasks.size());
-        }
+        BigDecimal inspectionProgressPercent = calculateStage1InspectionProgressPercent(activeOrder.getId(), tasks);
         return new Stage1Progress(
                 toProgressPercent(completedProductionProcessCount, targetQuantityByProcess.size()),
                 inspectionProgressPercent);
+    }
+
+    private BigDecimal calculateStage1InspectionProgressPercent(Long activeOrderId,
+                                                                List<MesPqcInspectionTaskDO> tasks) {
+        if (tasks == null || tasks.isEmpty()) {
+            return zeroProgressPercent();
+        }
+        Map<PqcStage1ProgressIdentity, Boolean> confirmedByIdentity = new LinkedHashMap<>();
+        for (MesPqcInspectionTaskDO task : tasks) {
+            validateStage1PqcProgressTask(activeOrderId, task);
+            PqcStage1ProgressIdentity identity = PqcStage1ProgressIdentity.of(task);
+            boolean confirmed = MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus());
+            confirmedByIdentity.merge(identity, confirmed, Boolean::logicalOr);
+        }
+        long confirmedTaskCount = confirmedByIdentity.values().stream().filter(Boolean::booleanValue).count();
+        return toProgressPercent(confirmedTaskCount, confirmedByIdentity.size());
+    }
+
+    private void validateStage1PqcProgressTask(Long activeOrderId, MesPqcInspectionTaskDO task) {
+        if (task == null
+                || task.getRouteProcessId() == null
+                || task.getProcessId() == null
+                || task.getRegulationVersionId() == null
+                || task.getQaProcessId() == null
+                || blank(task.getQaItemCode())
+                || blank(task.getInspectionRuleKey())
+                || blank(task.getInspectionType())
+                || task.getBusinessDate() == null
+                || blank(task.getShiftCode())
+                || task.getRoundNo() == null) {
+            throw new IllegalStateException("STAGE1_PQC_PROGRESS_FACT_INVALID");
+        }
+        if (!Objects.equals(activeOrderId, task.getActiveOrderId())) {
+            throw new IllegalStateException("STAGE1_PQC_PROGRESS_FACT_INVALID");
+        }
     }
 
     private void requireTemplate(MesProcessPoolActiveOrderDO activeOrder, Long actorUserId) {
@@ -1694,6 +2125,31 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
 
     private boolean zero(BigDecimal value) {
         return value != null && value.signum() == 0;
+    }
+
+    private static String normalizeStage1PqcInspectionType(String inspectionType) {
+        String text = inspectionType == null ? null : inspectionType.trim();
+        return text != null && text.startsWith("PATROL") ? "PATROL" : text;
+    }
+
+    private record SimulatedPickListSeed(Long sourceId, String sourceType, String materialNumber,
+                                         String materialName, String materialSpecification, String unitName,
+                                         BigDecimal quantity, Integer productionOrderLineNo,
+                                         LocalDateTime sourceModifyTime, Map<String, Object> trace) {
+    }
+
+    private record PqcStage1ProgressIdentity(Long routeProcessId, Long processId,
+                                             Long regulationVersionId, Long qaProcessId, String qaItemCode,
+                                             String inspectionRuleKey, String inspectionType,
+                                             LocalDate businessDate, String shiftCode, Integer roundNo) {
+
+        private static PqcStage1ProgressIdentity of(MesPqcInspectionTaskDO task) {
+            return new PqcStage1ProgressIdentity(task.getRouteProcessId(), task.getProcessId(),
+                    task.getRegulationVersionId(), task.getQaProcessId(), task.getQaItemCode().trim(),
+                    task.getInspectionRuleKey().trim(),
+                    normalizeStage1PqcInspectionType(task.getInspectionType()), task.getBusinessDate(),
+                    task.getShiftCode().trim(), task.getRoundNo());
+        }
     }
 
     private record Stage1Progress(BigDecimal productionProgressPercent, BigDecimal inspectionProgressPercent) {

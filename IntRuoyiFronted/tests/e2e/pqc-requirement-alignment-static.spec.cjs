@@ -19,7 +19,7 @@ const blockBetween = (source, startToken, endToken) => {
 assert.match(
   apiSource,
   /export interface FrontlinePqcTaskOptionVO \{[\s\S]*pqcTaskId: number[\s\S]*qaItemCode\?: string \| null[\s\S]*inspectionType: FrontlinePqcInspectionType[\s\S]*plannedInspectionQuantity: number[\s\S]*inspectionItems: FrontlinePqcInspectionItemVO\[\]/,
-  'PQC process response must expose selectable FIRST/PATROL task snapshots.'
+  'PQC process response must expose selectable FIRST/PATROL_AM/PATROL_PM/FINAL task snapshots.'
 )
 assert.match(
   apiSource,
@@ -57,7 +57,7 @@ assert.match(
 const taskItemMappingBlock = blockBetween(
   panelSource,
   'const pqcTaskInspectionItems = computed<PqcInspectionItem[]>',
-  'const pqcInspectionItemMap'
+  'const pqcTaskInspectionItemMap'
 )
 assert.match(
   taskItemMappingBlock,
@@ -68,12 +68,17 @@ assert.match(
 const typeTabsBlock = blockBetween(
   panelSource,
   '<div class="frontline-pqc-type-tabs">',
-  '<div class="frontline-pqc-round-tabs">'
+  '<div class="frontline-pqc-form-area">'
 )
 assert.match(
   typeTabsBlock,
   /v-for="tab in pqcInspectionTypeTabs"/,
-  'PQC type tabs must be rendered from available formal task types.'
+  'PQC type tabs must be rendered from available formal task rules.'
+)
+assert.match(
+  typeTabsBlock,
+  /:key="tab\.ruleKey"[\s\S]*:data-pqc-inspection-rule-tab="tab\.ruleKey"[\s\S]*@click="selectPqcInspectionTaskOption\(tab\.value\)"/,
+  'PQC task tabs must use rule identity while preserving the formal selected task id.'
 )
 assert.doesNotMatch(
   typeTabsBlock,
@@ -81,31 +86,26 @@ assert.doesNotMatch(
   'PQC type tabs must not add a second disabled-state restriction for unavailable formal tasks.'
 )
 
-const selectTypeBlock = blockBetween(
+const selectTaskBlock = blockBetween(
   panelSource,
-  'const selectPqcInspectionType = (inspectionType: InspectionType) => {',
+  'const selectPqcInspectionTaskOption = async (pqcTaskId: number) => {',
   'const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {'
 )
 assert.match(
-  selectTypeBlock,
+  selectTaskBlock,
   /applyPqcTaskOptionToSelectedProcess\(option\)/,
-  'Selecting FIRST/PATROL must apply the matching PQC task snapshot to the current process.'
+  'Selecting FIRST/PATROL_AM/PATROL_PM/FINAL must apply the matching PQC task snapshot to the current process.'
 )
 assert.doesNotMatch(
-  selectTypeBlock,
+  selectTaskBlock,
   /PQC检验类型来自任务快照，不能在前端切换/,
-  'Frontend must no longer hard-block switching between available FIRST/PATROL task snapshots.'
+  'Frontend must no longer hard-block switching between available PQC task snapshots.'
 )
 
-const roundTabsBlock = blockBetween(
-  panelSource,
-  '<div class="frontline-pqc-round-tabs"',
-  '<div class="frontline-pqc-form-area">'
-)
 assert.match(
-  roundTabsBlock,
-  /@click="selectPqcInspectionTaskOption\(round\.value\)"/,
-  'PQC round selection must apply the matching task snapshot instead of only mutating patrolRound.'
+  panelSource,
+  /const getUniquePqcTaskOptionsByRule = \([\s\S]*PQC_INSPECTION_RULE_ORDER[\s\S]*option\.inspectionRuleKey === ruleKey[\s\S]*return orderedOptions/,
+  'PQC task selection grid must deduplicate item-level tasks by formal rule key.'
 )
 
 console.log('PASS: PQC requirement alignment static contract')

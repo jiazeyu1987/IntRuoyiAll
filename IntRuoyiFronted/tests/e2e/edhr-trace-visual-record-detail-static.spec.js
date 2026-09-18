@@ -12,10 +12,10 @@ const batchDetail = read('src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.
 const batchGraph = read('src/views/mes/pro/edhr-batch/BatchPageGraphPage.vue')
 const router = read('src/router/modules/remaining.ts')
 
-assert.doesNotMatch(
+assert.match(
   batchTabs,
-  /label="历史批记录"|name="history"|edhr-batch-history/,
-  'eDHR 批记录页签不能再展示或跳转独立“历史批记录”。'
+  /label="历史追溯"\s+name="history"|edhr-batch-history/,
+  '批记录页签必须保留历史追溯入口。'
 )
 
 assert.doesNotMatch(
@@ -30,10 +30,10 @@ assert.doesNotMatch(
   '批记录页面关系图不能再展示“历史批记录”节点。'
 )
 
-assert.doesNotMatch(
+assert.match(
   router,
-  /path:\s*'pro\/feedback\/edhr-batch-history'|name:\s*'MesProEdhrBatchHistory'|title:\s*'历史批记录'/,
-  '路由配置不能再暴露独立历史批记录页面入口。'
+  /path:\s*'pro\/feedback\/edhr-batch-history'|name:\s*'MesProEdhrBatchHistory'/,
+  '路由配置必须保留历史追溯页面入口。'
 )
 
 const changeDetailDialog = changeTab.match(
@@ -60,8 +60,18 @@ assert.match(
 
 assert.match(
   traceDrawer,
-  /import EdhrExecutionReadonlyForm from '@\/views\/mes\/pro\/edhr\/components\/EdhrExecutionReadonlyForm\.vue'/,
-  '表单追溯详情必须复用批次执行同款只读可视化表单组件。'
+  /import ActiveOrderSubmissionDetailPanel from '@\/views\/mes\/pro\/processpool\/components\/ActiveOrderSubmissionDetailPanel\.vue'/,
+  '表单追溯详情必须复用活跃订单详情面板。'
+)
+assert.match(
+  traceDrawer,
+  /getEdhrBatchExecution\(batchExecutionId\)/,
+  '表单追溯详情必须先读取批次正式来源。'
+)
+assert.match(
+  traceDrawer,
+  /getEdhrBatchActiveOrderDetail\(batch\.id\)/,
+  '表单追溯详情必须按批次执行正式来源加载详情单据。'
 )
 
 assert.match(
@@ -82,14 +92,14 @@ assert.match(
 
 assert.match(
   recordFormTab,
-  /<EdhrExecutionReadonlyForm[\s\S]*:form-view-model="selectedRecordExecution\.formViewModel"[\s\S]*:signature-records="selectedRecordExecution\.signatureRecords"/,
-  '批记录表单页签必须把 review-timeline 中的快照 formViewModel 和签名记录传给只读表单。'
+  /<ActiveOrderSubmissionDetailPanel[\s\S]*:detail="activeOrderDetail"[\s\S]*:display-mode="selectedRecordSubmissionFormMode"/,
+  '批记录表单页签必须展示正式活跃订单详情单据。'
 )
 
-assert.match(
+assert.doesNotMatch(
   traceDrawer,
-  /executionSnapshotJson|sheetLayoutJson|cellValuesJson/,
-  '表单追溯可视化详情必须显式依赖持久化执行快照、模板布局和单元格值，而不是当前 BATCH 配置。'
+  /EdhrExecutionReadonlyForm|selectedRecordExecution\.formViewModel|executionSnapshotJson|sheetLayoutJson|cellValuesJson/,
+  '表单追溯详情不得继续使用旧 eDHR 快照表单来源。'
 )
 
 assert.doesNotMatch(

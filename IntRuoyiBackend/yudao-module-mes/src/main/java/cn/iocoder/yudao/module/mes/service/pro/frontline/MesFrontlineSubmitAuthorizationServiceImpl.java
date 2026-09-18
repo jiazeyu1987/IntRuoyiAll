@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationReleaseStateService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,15 +24,18 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     private final MesFrontlineSessionSnapshotService sessionSnapshotService;
+    private final MesReportAllocationReleaseStateService releaseStateService;
 
     public MesFrontlineSubmitAuthorizationServiceImpl(MesFrontlineDeviceAccountContextService contextService,
                                                       MesProcessPoolActiveOrderMapper activeOrderMapper,
                                                       MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
-                                                      MesFrontlineSessionSnapshotService sessionSnapshotService) {
+                                                      MesFrontlineSessionSnapshotService sessionSnapshotService,
+                                                      MesReportAllocationReleaseStateService releaseStateService) {
         this.contextService = contextService;
         this.activeOrderMapper = activeOrderMapper;
         this.processSnapshotMapper = processSnapshotMapper;
         this.sessionSnapshotService = sessionSnapshotService;
+        this.releaseStateService = releaseStateService;
     }
 
     @Override
@@ -50,7 +54,19 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
                 || !Objects.equals(routeId, activeOrder.getRouteId())) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrder");
         }
+        assertActiveOrderOpenForProduction(activeOrder);
         requireFrozenActiveOrderProcess(activeOrder, routeProcessId, processId);
+    }
+
+    private void assertActiveOrderOpenForProduction(MesProcessPoolActiveOrderDO activeOrder) {
+        if (!"ACTIVE".equals(activeOrder.getBusinessStatus())) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED,
+                    "activeOrder.businessStatus=" + activeOrder.getBusinessStatus());
+        }
+        if (releaseStateService.isReleaseApplicationLockedForUpdate(activeOrder.getId())) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED,
+                    "activeOrder.releaseApplicationLocked=" + activeOrder.getId());
+        }
     }
 
     private void requireFrozenActiveOrderProcess(MesProcessPoolActiveOrderDO activeOrder,

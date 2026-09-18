@@ -25,22 +25,12 @@
             </el-form-item>
           </el-col>
           <el-col :xs="24" :md="12">
-            <el-form-item label="修改人用户ID">
-              <el-input-number v-model="revisionForm.modifiedByUserId" :min="1" :controls="false" class="process-pool-write__number" />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :md="12">
-            <el-form-item label="修改签名ID">
-              <el-input-number v-model="revisionForm.revisionSignatureId" :min="1" :controls="false" class="process-pool-write__number" />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :md="12">
-            <el-form-item label="签名员工用户ID">
-              <el-input-number
-                v-model="revisionForm.revisionSignatureUserId"
-                :min="1"
-                :controls="false"
-                class="process-pool-write__number"
+            <el-form-item label="电子签名密码">
+              <el-input
+                v-model="revisionForm.signaturePassword"
+                type="password"
+                show-password
+                autocomplete="current-password"
               />
             </el-form-item>
           </el-col>
@@ -52,15 +42,6 @@
 
         <el-form-item label="修改后payload JSON">
           <el-input v-model="revisionForm.afterPayloadJson" type="textarea" :rows="8" resize="vertical" />
-        </el-form-item>
-
-        <el-form-item label="修改签名快照JSON">
-          <el-input
-            v-model="revisionForm.revisionSignatureSnapshotJson"
-            type="textarea"
-            :rows="5"
-            resize="vertical"
-          />
         </el-form-item>
 
         <el-form-item label="字段变更JSON">
@@ -90,12 +71,9 @@ defineOptions({ name: 'MesProProcessPoolEventRevision' })
 
 const revisionForm = reactive({
   eventId: undefined as number | undefined,
-  modifiedByUserId: undefined as number | undefined,
-  revisionSignatureId: undefined as number | undefined,
-  revisionSignatureUserId: undefined as number | undefined,
+  signaturePassword: '',
   changeReason: '',
   afterPayloadJson: '{\n  "outputQuantity": 100,\n  "lossQuantity": 0\n}',
-  revisionSignatureSnapshotJson: '{\n  "signType": "REVISION",\n  "signedAt": "2026-07-30T00:00:00+08:00"\n}',
   changedFieldsJson:
     '[\n' +
     '  {\n' +
@@ -142,7 +120,6 @@ const requirePositiveNumber = (value: number | undefined, label: string) => {
 
 const buildRequestPayload = (): ProcessPoolEventRevisionUpdateReqVO => {
   parseJsonField<Record<string, unknown>>(revisionForm.afterPayloadJson, '修改后payload JSON')
-  parseJsonField<Record<string, unknown>>(revisionForm.revisionSignatureSnapshotJson, '修改签名快照JSON')
   const changedFields = parseJsonField<ProcessPoolEventRevisionFieldChangeVO[]>(
     revisionForm.changedFieldsJson,
     '字段变更JSON'
@@ -156,15 +133,15 @@ const buildRequestPayload = (): ProcessPoolEventRevisionUpdateReqVO => {
   if (!revisionForm.changeReason.trim()) {
     throw new Error('变更原因不能为空')
   }
+  if (!revisionForm.signaturePassword.trim()) {
+    throw new Error('电子签名密码不能为空')
+  }
 
   return {
     eventId: requirePositiveNumber(revisionForm.eventId, '工序池提交事件ID'),
     afterPayload: revisionForm.afterPayloadJson.trim(),
     changeReason: revisionForm.changeReason.trim(),
-    revisionSignatureId: requirePositiveNumber(revisionForm.revisionSignatureId, '修改签名ID'),
-    revisionSignatureUserId: requirePositiveNumber(revisionForm.revisionSignatureUserId, '签名员工用户ID'),
-    revisionSignatureSnapshot: revisionForm.revisionSignatureSnapshotJson.trim(),
-    modifiedByUserId: requirePositiveNumber(revisionForm.modifiedByUserId, '修改人用户ID'),
+    signaturePassword: revisionForm.signaturePassword.trim(),
     changedFields
   }
 }

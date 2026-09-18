@@ -43,7 +43,8 @@ const requestType = api.slice(
   api.indexOf('export interface WorkOrderAbnormalReportReqVO'),
   api.indexOf('export interface TeamDefectReasonSaveReqVO')
 )
-assert(/workOrderId:\s*number/.test(requestType), '前端异常上报请求必须包含 workOrderId。')
+assert(/activeOrderId:\s*number/.test(requestType), '前端异常上报请求必须包含 activeOrderId。')
+assert(!/workOrderId:\s*number/.test(requestType), '前端异常上报请求不得再提交 workOrderId。')
 assert(/abnormalDescription:\s*string/.test(requestType), '前端异常上报请求必须包含 abnormalDescription。')
 for (const field of removedFields) {
   assert(!requestType.includes(field), `前端异常上报请求不得包含 ${field}。`)
@@ -54,15 +55,34 @@ const submitEnd = page.indexOf('const openActiveOrderDialog', submitStart)
 assert(submitStart >= 0 && submitEnd > submitStart, '必须能定位异常上报提交函数。')
 const submitBlock = page.slice(submitStart, submitEnd)
 assert(
-  /markAndReportWorkOrderAbnormal\(\{\s*workOrderId:\s*abnormalForm\.workOrderId,\s*abnormalDescription:\s*abnormalForm\.abnormalDescription\.trim\(\)\s*\}\)/.test(submitBlock),
-  '异常上报提交 payload 必须锁定当前行生产订单且只包含异常原因。'
+  submitBlock.includes('const activeOrderId = requirePositiveNumber(abnormalForm.activeOrderId'),
+  '异常上报提交前必须从当前行锁定活跃订单 ID。'
 )
-assert(submitBlock.includes('await loadActiveOrders()'), '异常上报成功后必须刷新活跃订单异常状态。')
+const firstRefreshIndex = submitBlock.indexOf('await loadActiveOrders()')
+const submitApiIndex = submitBlock.indexOf('await markAndReportWorkOrderAbnormal')
+const lastRefreshIndex = submitBlock.lastIndexOf('await loadActiveOrders()')
+assert(
+  firstRefreshIndex >= 0 && submitApiIndex > firstRefreshIndex,
+  '异常上报提交前必须先实时刷新活跃订单列表。'
+)
+assert(
+  submitBlock.includes('activeOrderOptions.value.find') &&
+    submitBlock.includes('Number(order.id) === activeOrderId'),
+  '异常上报提交前必须确认当前活跃订单仍在实时列表中。'
+)
+assert(
+  /markAndReportWorkOrderAbnormal\(\{\s*activeOrderId,\s*abnormalDescription:\s*abnormalForm\.abnormalDescription\.trim\(\)\s*\}\)/.test(submitBlock),
+  '异常上报提交 payload 必须只包含活跃订单编号和异常原因。'
+)
+assert(lastRefreshIndex > submitApiIndex, '异常上报成功后必须刷新活跃订单异常状态。')
 for (const field of removedFields) {
   assert(!submitBlock.includes(field), `异常上报提交函数不得包含 ${field}。`)
 }
 
-assert(reqVO.includes('private Long workOrderId;'), '后端异常上报 VO 必须保留 workOrderId。')
+assert(reqVO.includes('private Long activeOrderId;'), '后端异常上报 VO 必须保留 activeOrderId。')
+assert(!reqVO.includes('private Long workOrderId;'), '后端异常上报 VO 不得再暴露 workOrderId。')
+assert(reqBO.includes('private Long activeOrderId;'), '后端异常上报 BO 必须保留 activeOrderId。')
+assert(!reqBO.includes('private Long workOrderId;'), '后端异常上报 BO 不得再暴露 workOrderId。')
 assert(reqVO.includes('private String abnormalDescription;'), '后端异常上报 VO 必须保留 abnormalDescription。')
 for (const field of removedFields) {
   assert(!reqVO.includes(field), `后端异常上报 VO 不得暴露 ${field}。`)
@@ -73,7 +93,8 @@ const controllerStart = controller.indexOf('public CommonResult<Long> markAndRep
 const controllerEnd = controller.indexOf('@PostMapping("/defect-reason/create")', controllerStart)
 assert(controllerStart >= 0 && controllerEnd > controllerStart, '必须能定位异常上报 Controller 方法。')
 const controllerBlock = controller.slice(controllerStart, controllerEnd)
-assert(controllerBlock.includes('.workOrderId(reqVO.getWorkOrderId())'), 'Controller 必须传递 workOrderId。')
+assert(controllerBlock.includes('.activeOrderId(reqVO.getActiveOrderId())'), 'Controller 必须传递 activeOrderId。')
+assert(!controllerBlock.includes('.workOrderId(reqVO.getWorkOrderId())'), 'Controller 不得再传递 workOrderId。')
 assert(controllerBlock.includes('.abnormalDescription(reqVO.getAbnormalDescription())'), 'Controller 必须传递异常原因。')
 for (const field of ['getRouteProcessId', 'getProcessId', 'getSourceEventId', 'getAbnormalReasonCode']) {
   assert(!controllerBlock.includes(field), `Controller 异常上报方法不得读取 ${field}。`)
@@ -83,8 +104,10 @@ const validateStart = service.indexOf('private void validateReq')
 const validateEnd = service.indexOf('private static boolean isBlank', validateStart)
 assert(validateStart >= 0 && validateEnd > validateStart, '必须能定位异常上报服务校验。')
 const validateBlock = service.slice(validateStart, validateEnd)
-assert(validateBlock.includes('reqBO.getWorkOrderId() == null'), '服务校验必须要求 workOrderId。')
+assert(validateBlock.includes('reqBO.getActiveOrderId() == null'), '服务校验必须要求 activeOrderId。')
 assert(validateBlock.includes('isBlank(reqBO.getAbnormalDescription())'), '服务校验必须要求异常原因。')
 assert(!validateBlock.includes('getAbnormalReasonCode'), '服务校验不得要求异常原因编码。')
+assert(service.includes('selectByIdForUpdate(reqBO.getActiveOrderId())'), '服务必须按活跃订单 ID 加锁查询。')
+assert(!service.includes('selectActiveByLeaderAndWorkOrderForUpdate'), '服务不得再用生产订单 ID 反查活跃订单。')
 
 console.log('work-order abnormal row action contract passed')

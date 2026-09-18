@@ -204,6 +204,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_MISMATCH;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_VERSION_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_SCHEDULE_PREREQUISITE_MISSING;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID;
@@ -914,6 +915,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         for (BatchTaskConfig taskConfig : taskConfigs) {
             MesProEdhrBatchExecutionTaskDO task = toTaskDO(batch.getId(), taskConfig,
                     provisionCommand.getSourceSnapshotHash());
+            applyFormalLossRequirement(task, provisionCommand);
             batchTaskMapper.insert(task);
             insertedTasks.add(task);
         }
@@ -927,7 +929,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         recordOperationAudit("BATCH_EXECUTION", String.valueOf(latest.getId()), "OPEN",
                 "创建并打开 eDHR 批次", latest.getId(), null, null, latest.getRouteId(), null,
                 null, null, "mes:pro-edhr-batch-execution:create", "ALLOW",
-                "SUCCESS", null, null, entryAuditMetadata(provisionCommand, provisioningRecord.getId()));
+                "SUCCESS", null, null, entryAuditMetadata(provisionCommand, provisioningRecord.getId()), true);
         publishBatchProvisioned(latest, provisionCommand, provisioningRecord.getId());
         return result;
     }
@@ -991,7 +993,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setBindingVersion(command.getBindingVersion()).setBatchPickListRelationId(command.getBatchPickListRelationId())
                 .setPickListHeaderSnapshotHash(command.getPickListHeaderSnapshotHash())
                 .setPickListLineSnapshotHash(command.getPickListLineSnapshotHash())
-                .setSourceEvidence(command.getSourceEvidence());
+                .setSourceEvidence(command.getSourceEvidence())
+                .setCompletionBackfillReceipt(command.getCompletionBackfillReceipt());
     }
 
     private void applyAuthoritativeContext(MesProEdhrProductionReleaseBatchCommand request,
@@ -1163,11 +1166,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
         }
         MesProRouteVersionDO frozenRouteVersion = routeVersionMapper.selectById(command.getRouteVersionId());
-        if (frozenRouteVersion == null || !Objects.equals(route.getId(), frozenRouteVersion.getRouteId())
-                || StrUtil.isBlank(frozenRouteVersion.getVersionNo())
-                || StrUtil.isBlank(frozenRouteVersion.getRouteSnapshotJson())) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_VERSION_REQUIRED, route.getId());
-        }
+        FrozenRouteIdentity frozenRouteIdentity = requireFrozenRouteIdentity(frozenRouteVersion, command.getRouteId());
 
         String batchCode = StrUtil.trim(command.getBatchCode());
         MesProEdhrBatchExecutionDO batch = new MesProEdhrBatchExecutionDO()
@@ -1180,12 +1179,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setProductId(workOrder.getProductId())
                 .setProductCode(String.valueOf(workOrder.getProductId()))
                 .setProductName(workOrder.getName())
-                .setRouteId(route.getId())
-                .setRouteVersionId(frozenRouteVersion.getId())
-                .setRouteVersionNo(frozenRouteVersion.getVersionNo())
+                .setRouteId(frozenRouteIdentity.routeId())
+                .setRouteVersionId(frozenRouteIdentity.routeVersionId())
+                .setRouteVersionNo(frozenRouteIdentity.routeVersionNo())
                 .setRouteSnapshotJson(frozenRouteVersion.getRouteSnapshotJson())
-                .setRouteCode(route.getCode())
-                .setRouteName(route.getName())
+                .setRouteCode(frozenRouteIdentity.routeCode())
+                .setRouteName(frozenRouteIdentity.routeName())
                 .setStatus(BATCH_STATUS_CREATED)
                 .setProvisioningStatus(MesBatchProvisioningStatus.BATCH_PROVISIONING.name())
                 .setTaskApprovedCount(0)
@@ -1201,6 +1200,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         for (BatchTaskConfig taskConfig : taskConfigs) {
             MesProEdhrBatchExecutionTaskDO task = toTaskDO(batch.getId(), taskConfig,
                     provisionCommand.getSourceSnapshotHash());
+            applyFormalLossRequirement(task, provisionCommand);
             batchTaskMapper.insert(task);
             insertedTasks.add(task);
         }
@@ -1214,9 +1214,32 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 "BATCH_EXECUTION_CREATED_FROM_RELEASE", "PQC 批准后创建申请唯一批次", latest.getId(),
                 null, null, latest.getRouteId(), null, null, null,
                 "mes:pro-production-release:pqc-approve", "ALLOW", "SUCCESS",
-                null, null, entryAuditMetadata(provisionCommand, provisioningRecord.getId()));
+                null, null, entryAuditMetadata(provisionCommand, provisioningRecord.getId()), true);
         publishBatchProvisioned(latest, provisionCommand, provisioningRecord.getId());
         return latest.getId();
+    }
+
+    private FrozenRouteIdentity requireFrozenRouteIdentity(MesProRouteVersionDO routeVersion, Long expectedRouteId) {
+        if (routeVersion == null || !Objects.equals(expectedRouteId, routeVersion.getRouteId())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_VERSION_REQUIRED, expectedRouteId);
+        }
+        if (StrUtil.isBlank(routeVersion.getVersionNo()) || StrUtil.isBlank(routeVersion.getRouteSnapshotJson())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
+        }
+        JSONObject routeSnapshot;
+        try {
+            routeSnapshot = JSON.parseObject(routeVersion.getRouteSnapshotJson());
+        } catch (RuntimeException ex) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
+        }
+        String routeCode = routeSnapshot == null ? null : routeSnapshot.getString("routeCode");
+        String routeName = routeSnapshot == null ? null : routeSnapshot.getString("routeName");
+        if (routeSnapshot == null || !Objects.equals(expectedRouteId, routeSnapshot.getLong("routeId"))
+                || StrUtil.isBlank(routeCode) || StrUtil.isBlank(routeName)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
+        }
+        return new FrozenRouteIdentity(routeVersion.getRouteId(), routeVersion.getId(),
+                routeVersion.getVersionNo(), routeCode, routeName);
     }
 
     @Override
@@ -1313,6 +1336,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         for (BatchTaskConfig taskConfig : taskConfigs) {
             MesProEdhrBatchExecutionTaskDO task = toTaskDO(newAttempt.getId(), taskConfig,
                     reexecuteProvisionCommand.getSourceSnapshotHash());
+            applyFormalLossRequirement(task, reexecuteProvisionCommand);
             batchTaskMapper.insert(task);
             insertedTasks.add(task);
         }
@@ -1341,7 +1365,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         recordOperationAudit("BATCH_EXECUTION", String.valueOf(latest.getId()), CHANGE_TYPE_REEXECUTE,
                 "质量拒收后同生产批号新执行尝试", latest.getId(), null, null, latest.getRouteId(), null,
                 null, null, "mes:pro-edhr-batch-execution:create", "ALLOW",
-                "SUCCESS", null, null, reexecuteAudit.toJSONString());
+                "SUCCESS", null, null, reexecuteAudit.toJSONString(), true);
         publishBatchProvisioned(latest, reexecuteProvisionCommand, provisioningRecord.getId());
         return result;
     }
@@ -2020,6 +2044,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             Long taskId, Long actorUserId, String sterilizationBatchNo,
             List<MesProEdhrSpecialNodeAttachment> attachments) {
         MesProEdhrBatchExecutionTaskDO task = validateTaskForSpecialAction(taskId);
+        validateBatchForSpecialAttachmentSave(task.getBatchExecutionId());
         MesProEdhrWorkTaskDO workTask = workTaskMapper.selectReleaseReportByBatchTaskId(taskId);
         if (workTask == null || !Objects.equals(actorUserId, currentUserId())
                 || !isAssignedOrCandidate(workTask, actorUserId)) {
@@ -2065,6 +2090,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw productionReleaseReportBlocker(task, MesReleaseFlowBlockerType.REPORT_NODE_NOT_PROCESSABLE,
                     "release report node was completed concurrently");
         }
+        syncBatchStatus(validateBatchExists(task.getBatchExecutionId()));
         recordOperationAudit("BATCH_EXECUTION_TASK", String.valueOf(task.getId()), "COMPLETE_RELEASE_REPORT",
                 "完成生产放行报告节点", task.getBatchExecutionId(), task.getExecutionId(), task.getId(),
                 null, task.getRouteProcessId(), task.getBatchRecordReportId(), task.getRecordCategory(),
@@ -2852,6 +2878,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     private MesProEdhrBatchExecutionDO validateBatchForSpecialAttachmentSave(Long batchExecutionId) {
         MesProEdhrBatchExecutionDO batch = validateBatchExists(batchExecutionId);
+        validateBatchNotFrozenForSpecialAttachmentSave(batch);
         if (Objects.equals(batch.getStatus(), BATCH_STATUS_ARCHIVED)
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_REJECTED)
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_VOIDED)) {
@@ -2864,6 +2891,16 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
         return batch;
+    }
+
+    private void validateBatchNotFrozenForSpecialAttachmentSave(MesProEdhrBatchExecutionDO batch) {
+        if (batch == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+        }
+        nonconformanceReviewService.ensureBatchNotFrozen(batch.getId(), "eDHR批次操作");
+        if (Objects.equals(batch.getStatus(), BATCH_STATUS_FROZEN)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+        }
     }
 
     private MesProEdhrBatchExecutionTaskDO validateSpecialNodeTaskBeforeRelease(Long taskId) {
@@ -2988,6 +3025,44 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setBlockerMessage(null);
     }
 
+    private void applyFormalLossRequirement(MesProEdhrBatchExecutionTaskDO task,
+                                            MesBatchExecutionProvisionCommand command) {
+        if (MesProEdhrConditionalLossRequirement.isConditionalLoss(task)) {
+            Boolean actual = command.getCompletionBackfillReceipt() == null ? null
+                    : command.getCompletionBackfillReceipt().getHasActualLoss();
+            if (command.getCompletionBackfillReceipt() != null) {
+                if (StrUtil.isBlank(command.getCompletionBackfillReceipt().getLossConditionFactsJson())) {
+                    throw new IllegalStateException("正式完工回执缺少逐工序损耗条件");
+                }
+                var facts = JSON.parseArray(command.getCompletionBackfillReceipt().getLossConditionFactsJson(),
+                        cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionLossCondition.class);
+                var processFacts = facts.stream().filter(fact -> Objects.equals(task.getProcessId(), fact.getProcessId())
+                        && Objects.equals(task.getRouteProcessId(), fact.getRouteProcessId())).toList();
+                if (processFacts.isEmpty() || processFacts.stream().anyMatch(fact -> fact.getHasActualLoss() == null)) {
+                    throw new IllegalStateException("工序缺少正式完工损耗条件：" + task.getProcessId());
+                }
+                actual = processFacts.stream().anyMatch(fact -> Boolean.TRUE.equals(fact.getHasActualLoss()));
+            }
+            task.setRequiredFlag(MesProEdhrConditionalLossRequirement.required(task, actual));
+        }
+    }
+
+    private boolean isCurrentlyRequired(MesProEdhrBatchExecutionTaskDO task) {
+        if (!MesProEdhrConditionalLossRequirement.isConditionalLoss(task)) {
+            return !Boolean.FALSE.equals(task.getRequiredFlag());
+        }
+        if (Boolean.FALSE.equals(task.getRequiredFlag())) {
+            return MesProEdhrConditionalLossRequirement.required(task, false);
+        }
+        return MesProEdhrConditionalLossRequirement.required(task,
+                MesProEdhrConditionalLossRequirement.formalDecision(
+                        batchExecutionOriginMapper.selectListByBatchExecutionId(task.getBatchExecutionId())));
+    }
+
+    private boolean isLossNotApplicable(MesProEdhrBatchExecutionTaskDO task) {
+        return MesProEdhrConditionalLossRequirement.isConditionalLoss(task) && !isCurrentlyRequired(task);
+    }
+
     private boolean isRequiredRoutePolicy(String requiredPolicy) {
         return !"OPTIONAL".equals(StrUtil.trim(requiredPolicy));
     }
@@ -3036,7 +3111,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .map(MesProEdhrBatchExecutionTaskDO::getId)
                 .collect(Collectors.toSet());
         for (MesProEdhrBatchExecutionTaskDO task : insertedTasks) {
-            if (isDynamicRouteFormTask(task) && !sharedTaskIds.contains(task.getId())) {
+            if (!isLossNotApplicable(task) && isDynamicRouteFormTask(task) && !sharedTaskIds.contains(task.getId())) {
                 createFormCenterInstanceForTask(batch, task);
             }
         }
@@ -3049,7 +3124,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             List<MesProEdhrBatchExecutionTaskDO> tasks, boolean dynamicRouteFormOnly) {
         Map<String, List<MesProEdhrBatchExecutionTaskDO>> sharedTaskMap = new LinkedHashMap<>();
         for (MesProEdhrBatchExecutionTaskDO task : tasks) {
-            if (!isBatchSharedTask(task)) {
+            if (isLossNotApplicable(task) || !isBatchSharedTask(task)) {
                 continue;
             }
             if (dynamicRouteFormOnly != isDynamicRouteFormTask(task)) {
@@ -3341,7 +3416,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_BLOCKED);
         }
         if (Objects.equals(task.getStatus(), TASK_STATUS_BLOCKED)
-                || Boolean.FALSE.equals(task.getRequiredFlag())) {
+                || !isCurrentlyRequired(task)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_BLOCKED);
         }
         List<MesProEdhrBatchExecutionTaskDO> allTasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId());
@@ -6212,7 +6287,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         boolean anyStarted = false;
         boolean anyReworkRequired = false;
         for (MesProEdhrBatchExecutionTaskDO task : tasks) {
-            boolean requiredTask = !Boolean.FALSE.equals(task.getRequiredFlag());
+            boolean requiredTask = isCurrentlyRequired(task);
             if (requiredTask) {
                 requiredTotal++;
             }
@@ -6253,7 +6328,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_VOIDED)) {
             status = batch.getStatus();
         }
-        batch.setTaskTotal(tasks.size())
+        batch.setTaskTotal(requiredTotal)
                 .setTaskApprovedCount(approved)
                 .setBlockedCount(blocked)
                 .setStatus(status);
@@ -6366,7 +6441,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                      List<MesProEdhrBatchExecutionTaskDO> allTasks,
                                      Map<Long, Set<Long>> predecessorRouteProcessIdMap) {
         if (Objects.equals(task.getStatus(), TASK_STATUS_BLOCKED)
-                || (Boolean.FALSE.equals(task.getRequiredFlag()) && !isOptionalRouteFormTask(task))
+                || (!isCurrentlyRequired(task) && !isOptionalRouteFormTask(task))
                 || (isRouteForm(task) && StrUtil.isBlank(task.getBatchRecordReportId())
                 && !hasFormCenterRouteContext(task))) {
             return new TaskGate(false, StrUtil.blankToDefault(task.getBlockerMessage(), "批记录任务被阻塞"));
@@ -6383,7 +6458,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 List<MesProEdhrBatchExecutionTaskDO> previousSameProcessTasks = allTasks.stream()
                         .filter(candidate -> Objects.equals(candidate.getRouteProcessId(), task.getRouteProcessId()))
                         .filter(candidate -> !Objects.equals(candidate.getId(), task.getId()))
-                        .filter(candidate -> !Boolean.FALSE.equals(candidate.getRequiredFlag()))
+                        .filter(this::isCurrentlyRequired)
                         .filter(this::isRouteForm)
                         .filter(candidate -> compareBatchRecordOrder(candidate, task) < 0)
                         .toList();
@@ -6401,7 +6476,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         } else {
             previousProcessesApproved = allTasks.stream()
                     .filter(this::isRouteForm)
-                    .filter(candidate -> !Boolean.FALSE.equals(candidate.getRequiredFlag()))
+                    .filter(this::isCurrentlyRequired)
                     .filter(candidate -> isRouteFormBeforeOrAtSpecialNode(candidate, task))
                     .allMatch(this::isTaskApproved);
         }
@@ -6417,10 +6492,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                       List<MesProEdhrBatchExecutionTaskDO> allTasks) {
         List<MesProEdhrBatchExecutionTaskDO> predecessorTasks = allTasks.stream()
                 .filter(candidate -> Objects.equals(candidate.getRouteProcessId(), predecessorRouteProcessId))
-                .filter(candidate -> !Boolean.FALSE.equals(candidate.getRequiredFlag()))
+                .filter(this::isCurrentlyRequired)
                 .filter(this::isRouteForm)
                 .toList();
-        return !predecessorTasks.isEmpty() && predecessorTasks.stream().allMatch(this::isTaskApproved);
+        return allTasks.stream().anyMatch(candidate -> Objects.equals(candidate.getRouteProcessId(), predecessorRouteProcessId)
+                && isRouteForm(candidate)) && predecessorTasks.stream().allMatch(this::isTaskApproved);
     }
 
     private boolean isRouteFormBeforeOrAtSpecialNode(MesProEdhrBatchExecutionTaskDO routeFormTask,
@@ -6501,7 +6577,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             return blockers;
         }
         for (MesProEdhrBatchExecutionTaskDO task : tasks) {
-            if (Boolean.FALSE.equals(task.getRequiredFlag())) {
+            if (!isCurrentlyRequired(task)) {
                 continue;
             }
             if (Objects.equals(task.getStatus(), TASK_STATUS_BLOCKED)) {
@@ -7981,8 +8057,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private String buildArchiveManifest(MesProEdhrBatchExecutionDO batch, LocalDateTime generatedAt) {
+        requireArchiveFrozenRouteIdentity(batch);
         Map<String, Object> manifest = new LinkedHashMap<>();
-        MesProRouteDO route = batch.getRouteId() == null ? null : routeMapper.selectById(batch.getRouteId());
         List<MesProEdhrBatchExecutionTaskDO> tasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId()).stream()
                 .sorted(this::compareRouteProcessOrder)
                 .toList();
@@ -7992,8 +8068,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         manifest.put("batchExecutionId", batch.getId());
         manifest.put("batchCode", batch.getBatchCode());
         manifest.put("routeId", batch.getRouteId());
-        manifest.put("routeCode", route == null ? null : route.getCode());
-        manifest.put("routeName", route == null ? null : route.getName());
+        manifest.put("routeVersionId", batch.getRouteVersionId());
+        manifest.put("routeVersionNo", batch.getRouteVersionNo());
+        manifest.put("routeCode", batch.getRouteCode());
+        manifest.put("routeName", batch.getRouteName());
         manifest.put("aggregateHash", batch.getAggregateHash());
         manifest.put("generatedAt", generatedAt.toString());
         manifest.put("releaseTransactionSnapshot", toArchiveReleaseTransactionManifest(releaseTransaction));
@@ -8034,6 +8112,30 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 })
                 .toList());
         return JSON.toJSONString(manifest);
+    }
+
+    private void requireArchiveFrozenRouteIdentity(MesProEdhrBatchExecutionDO batch) {
+        if (batch.getRouteId() == null || batch.getRouteVersionId() == null
+                || StrUtil.isBlank(batch.getRouteVersionNo()) || StrUtil.isBlank(batch.getRouteCode())
+                || StrUtil.isBlank(batch.getRouteName()) || StrUtil.isBlank(batch.getRouteSnapshotJson())) {
+            throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
+        }
+        JSONObject routeSnapshot;
+        try {
+            routeSnapshot = JSON.parseObject(batch.getRouteSnapshotJson());
+        } catch (RuntimeException ex) {
+            throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
+        }
+        if (routeSnapshot == null
+                || !Objects.equals(batch.getRouteId(), routeSnapshot.getLong("routeId"))
+                || !Objects.equals(batch.getRouteCode(), routeSnapshot.getString("routeCode"))
+                || !Objects.equals(batch.getRouteName(), routeSnapshot.getString("routeName"))) {
+            throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
+        }
+    }
+
+    private record FrozenRouteIdentity(Long routeId, Long routeVersionId, String routeVersionNo,
+                                       String routeCode, String routeName) {
     }
 
     private Map<String, Object> toArchiveReleaseTransactionManifest(MesProEdhrReleaseTransactionDO transaction) {
@@ -8890,7 +8992,18 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                       Long routeProcessId, String reportId, String recordCategory,
                                       String permissionCode, String permissionDecision, String resultStatus,
                                       String beforeSummaryHash, String afterSummaryHash, String metadataJson) {
-        operationAuditService.record(new MesProEdhrOperationAuditCommand()
+        recordOperationAudit(objectType, objectId, operationType, actionName, batchExecutionId, executionId,
+                workTaskId, routeId, routeProcessId, reportId, recordCategory, permissionCode,
+                permissionDecision, resultStatus, beforeSummaryHash, afterSummaryHash, metadataJson, false);
+    }
+
+    private void recordOperationAudit(String objectType, String objectId, String operationType, String actionName,
+                                      Long batchExecutionId, Long executionId, Long workTaskId, Long routeId,
+                                      Long routeProcessId, String reportId, String recordCategory,
+                                      String permissionCode, String permissionDecision, String resultStatus,
+                                      String beforeSummaryHash, String afterSummaryHash, String metadataJson,
+                                      boolean callerTransaction) {
+        MesProEdhrOperationAuditCommand command = new MesProEdhrOperationAuditCommand()
                 .setRequestId("EDHR-AUD-" + java.util.UUID.randomUUID())
                 .setObjectType(objectType)
                 .setObjectId(objectId)
@@ -8910,7 +9023,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setResultStatus(resultStatus)
                 .setBeforeSummaryHash(beforeSummaryHash)
                 .setAfterSummaryHash(afterSummaryHash)
-                .setMetadataJson(metadataJson));
+                .setMetadataJson(metadataJson);
+        if (callerTransaction) {
+            operationAuditService.recordInCallerTransaction(command);
+        } else {
+            operationAuditService.record(command);
+        }
     }
 
     private MesProEdhrBatchProvisioningRecordDO createProvisioningRecord(
@@ -9011,7 +9129,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             provisionEvidence.put("sourceSnapshotHash", command.getSourceSnapshotHash());
             provisionEvidence.put("witnessHash", command.getSourceSnapshotHash());
             provisionEvidence.put("sourceIdentityKey", "BATCH_PROVISION_RECEIPT:BATCH_PROVISIONING_RECORD:"
-                    + provisioningReceiptId + ":::");
+                    + provisioningReceiptId + "::");
             provisionEvidence.put("relationStatus", "BOUND");
             provisionEvidence.put("snapshotJson", JSON.toJSONString(Map.of(
                     "sourceType", "BATCH_PROVISION_RECEIPT",
@@ -9028,7 +9146,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                          MesBatchExecutionProvisionCommand command,
                                          Long provisioningReceiptId) {
         if (batch == null || batch.getId() == null || command == null
-                || applicationEventPublisher == null || provisioningReceiptId == null) {
+                || applicationEventPublisher == null
+                || provisioningReceiptId == null) {
             throw new IllegalStateException("FLOW7_PROVISIONED_EVENT_PUBLISHER_NOT_READY");
         }
         String witness = command.getIdempotencyKey();
@@ -9036,7 +9155,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .substring(0, 32);
         String sourceCredentialHash = command.getIndependentReceipt() == null
                 ? command.getCompletionBackfillReceiptHash() : command.getIndependentReceipt().getReceiptHash();
-        applicationEventPublisher.publishEvent(new MesProEdhrBatchProvisionedEvent()
+        MesProEdhrBatchProvisionedEvent event = new MesProEdhrBatchProvisionedEvent()
                 .setTenantId(TenantContextHolder.getRequiredTenantId())
                 .setBatchExecutionId(batch.getId()).setProvisioningReceiptId(provisioningReceiptId)
                 .setEventId("FLOW7-TXC-" + batch.getId() + "-" + suffix)
@@ -9047,7 +9166,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setExpectedSourceVersion(command.getSourceVersion())
                 .setExpectedSourceCredentialId(command.getSourceCredentialId())
                 .setExpectedSourceCredentialHash(sourceCredentialHash)
-                .setCapturedBy(currentUserId()));
+                .setCapturedBy(currentUserId());
+        applicationEventPublisher.publishEvent(event);
     }
 
     private record SpecialNodeAttachmentOwnerConfig(String attachmentCode,

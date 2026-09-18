@@ -20,7 +20,7 @@ assert.match(
 assert.match(
   pageSource,
   /getPqcTaskOptionsForInspectionItem\(process, itemKey\)[\s\S]*applyPqcTaskOptionToSelectedProcess\(option\)[\s\S]*selectedPqcInspectionKey\.value = itemKey/,
-  'Switching method tabs must keep FIRST/PATROL/FINAL inside the selected QA inspection item.'
+  'Switching method tabs must keep FIRST/PATROL_AM/PATROL_PM/FINAL inside the selected QA inspection item.'
 )
 assert.match(
   pageSource,
@@ -39,13 +39,18 @@ assert.doesNotMatch(
 )
 assert.match(
   pageSource,
-  /\.frontline-pqc-fill-panel\s*\{[\s\S]*grid-template-rows:\s*auto auto minmax\(min-content, 1fr\)[\s\S]*overflow-y:\s*auto/,
+  /\.frontline-pqc-fill-panel\s*\{[\s\S]*grid-template-rows:\s*auto minmax\(min-content, 1fr\)[\s\S]*overflow-y:\s*auto/,
   'The PQC panel must grow or scroll when item-level task buttons wrap.'
 )
 assert.match(
   pageSource,
-  /\.frontline-pqc-round-tabs\s*\{[\s\S]*grid-template-columns:\s*repeat\(auto-fit, minmax\(136px, 1fr\)\)[\s\S]*white-space:\s*normal[\s\S]*overflow-wrap:\s*anywhere/,
-  'Item-level task buttons must use a readable wrapping grid.'
+  /const getUniquePqcTaskOptionsByRule = \([\s\S]*PQC_INSPECTION_RULE_ORDER[\s\S]*option\.inspectionRuleKey === ruleKey[\s\S]*return orderedOptions/,
+  'Item-level task buttons must be deduplicated by formal rule key.'
+)
+assert.match(
+  pageSource,
+  /\.frontline-pqc-type-tabs\s*\{[\s\S]*grid-template-columns:\s*repeat\(auto-fit, minmax\(136px, 1fr\)\)[\s\S]*white-space:\s*normal[\s\S]*overflow-wrap:\s*anywhere/,
+  'The single PQC task button grid must stay readable when all four configured rules are visible.'
 )
 
 console.log('frontline-pqc-item-level-sampling-static: PASS')

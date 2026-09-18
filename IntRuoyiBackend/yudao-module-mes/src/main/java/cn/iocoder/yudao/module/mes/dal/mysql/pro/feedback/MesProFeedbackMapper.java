@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -60,6 +61,26 @@ public interface MesProFeedbackMapper extends BaseMapperX<MesProFeedbackDO> {
                 .in(MesProFeedbackDO::getId, ids)
                 .orderByAsc(MesProFeedbackDO::getId)
                 .last("FOR UPDATE"));
+    }
+
+    default int updateCorrectedProductionReport(Long id,
+                                                BigDecimal feedbackQuantity,
+                                                BigDecimal qualifiedQuantity,
+                                                BigDecimal lossQuantity,
+                                                Long lossReasonId,
+                                                String lossReasonCodeSnapshot,
+                                                String lossReasonNameSnapshot) {
+        return update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<MesProFeedbackDO>()
+                .eq(MesProFeedbackDO::getId, id)
+                .set(MesProFeedbackDO::getFeedbackQuantity, feedbackQuantity)
+                .set(MesProFeedbackDO::getQualifiedQuantity, qualifiedQuantity)
+                .set(MesProFeedbackDO::getUnqualifiedQuantity, lossQuantity)
+                .set(MesProFeedbackDO::getLaborScrapQuantity, lossQuantity)
+                .set(MesProFeedbackDO::getMaterialScrapQuantity, BigDecimal.ZERO)
+                .set(MesProFeedbackDO::getOtherScrapQuantity, BigDecimal.ZERO)
+                .set(MesProFeedbackDO::getLossReasonId, lossReasonId)
+                .set(MesProFeedbackDO::getLossReasonCodeSnapshot, lossReasonCodeSnapshot)
+                .set(MesProFeedbackDO::getLossReasonNameSnapshot, lossReasonNameSnapshot));
     }
 
     default List<MesProFeedbackDO> selectListBySourceImportRecordId(Long sourceImportRecordId) {

@@ -14,6 +14,11 @@ import java.util.List;
 @Accessors(chain = true)
 public class MesTeamLeaderActiveOrderRow {
 
+    /** 当前记录数据不可用于业务操作；保留身份和诊断供处理。 */
+    private Boolean readBlocked;
+    private String readBlockReason;
+
+
     private Long id;
     private Long leaderUserId;
     private Long workOrderId;

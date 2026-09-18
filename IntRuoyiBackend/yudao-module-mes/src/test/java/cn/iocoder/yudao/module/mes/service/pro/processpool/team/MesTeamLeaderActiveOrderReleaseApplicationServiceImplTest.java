@@ -21,25 +21,64 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
     private MesTeamLeaderActiveOrderCompletionService completionService;
     @Mock
     private MesTeamLeaderActiveOrderReleaseGenerationService generationService;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper receiptMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper batchMapper;
 
     private MesTeamLeaderActiveOrderReleaseApplicationServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(
-                generationService, completionService);
+                generationService, completionService, receiptMapper, batchMapper);
+    }
+
+    @Test
+    void pushGeneratedRejectsMissingP2WithoutBackfill() {
+        var command = new MesTeamLeaderActiveOrderReleaseApplyCommand().setActiveOrderId(10L).setIdempotencyKey("P3-10");
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.applyGenerated(20L, command));
+        org.mockito.Mockito.verifyNoInteractions(completionService);
+        verify(generationService, never()).generate(20L, command);
+    }
+
+    @Test
+    void pushGeneratedUsesPersistedP2WithoutBackfill() {
+        var command = new MesTeamLeaderActiveOrderReleaseApplyCommand().setActiveOrderId(10L).setIdempotencyKey("P3-10");
+        var receipt = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO.builder()
+                .id(88L).activeOrderId(10L).leaderUserId(20L).workOrderId(90L).batchCode("B90").routeId(30L)
+                .receiptStatus("BACKFILL_SUCCEEDED").batchRecordStatus("SUCCESS").processInspectionStatus("SUCCESS")
+                .batchRecordId(91L).processInspectionId(92L).build();
+        when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(receipt);
+        when(batchMapper.selectByContext(90L, "B90", 30L)).thenReturn(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO.builder().id(93L).status(0).build());
+        var expected = new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L);
+        when(generationService.generate(20L, command)).thenReturn(expected);
+        assertSame(expected, service.applyGenerated(20L, command));
+        org.mockito.Mockito.verifyNoInteractions(completionService);
+    }
+
+    @Test
+    void pushGeneratedReplaysWithoutGeneratingAgain() {
+        var command = new MesTeamLeaderActiveOrderReleaseApplyCommand().setActiveOrderId(10L).setIdempotencyKey("P3-10");
+        var expected = new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L);
+        when(generationService.replayExisting(20L, command)).thenReturn(expected);
+        assertSame(expected, service.applyGenerated(20L, command));
+        org.mockito.Mockito.verifyNoInteractions(completionService, receiptMapper, batchMapper);
+        verify(generationService, never()).generate(20L, command);
     }
 
     @Test
     void applyCompletesAndBackfillsActiveOrderBeforeGeneratingPqcReleaseApplication() {
         MesTeamLeaderActiveOrderReleaseApplyCommand command = new MesTeamLeaderActiveOrderReleaseApplyCommand()
-                .setActiveOrderId(10L)
+                .setActiveOrderId(10L).setConfirmNoReplenishmentInfo(true)
                 .setIdempotencyKey("release-key")
                 .setApplyRemark("生产组长申请放行");
         MesTeamLeaderActiveOrderReleaseApplicationResult expected =
                 new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L);
         when(generationService.replayExisting(20L, command)).thenReturn(null);
-        when(completionService.completeForRelease(20L, 10L, "release-key"))
+        when(completionService.completeForRelease(20L, 10L, "release-key", true))
                 .thenReturn(new MesTeamLeaderActiveOrderCompletionResult().setCompletionReceiptId(88L));
         when(generationService.generate(20L, command)).thenReturn(expected);
 
@@ -48,7 +87,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
         assertSame(expected, actual);
         InOrder order = inOrder(completionService, generationService);
         order.verify(generationService).replayExisting(20L, command);
-        order.verify(completionService).completeForRelease(20L, 10L, "release-key");
+        order.verify(completionService).completeForRelease(20L, 10L, "release-key", true);
         order.verify(generationService).generate(20L, command);
     }
 
@@ -65,7 +104,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
         MesTeamLeaderActiveOrderReleaseApplicationResult actual = service.apply(20L, command);
 
         assertSame(expected, actual);
-        verify(completionService, never()).completeForRelease(20L, 10L, "release-key");
+        verify(completionService, never()).completeForRelease(20L, 10L, "release-key", null);
         verify(generationService, never()).generate(20L, command);
     }
 
@@ -75,7 +114,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
                 .setActiveOrderId(10L)
                 .setIdempotencyKey("release-key");
         when(generationService.replayExisting(20L, command)).thenReturn(null);
-        when(completionService.completeForRelease(20L, 10L, "release-key"))
+        when(completionService.completeForRelease(20L, 10L, "release-key", null))
                 .thenThrow(new IllegalStateException("template rules are not confirmed"));
 
         assertThrows(IllegalStateException.class, () -> service.apply(20L, command));

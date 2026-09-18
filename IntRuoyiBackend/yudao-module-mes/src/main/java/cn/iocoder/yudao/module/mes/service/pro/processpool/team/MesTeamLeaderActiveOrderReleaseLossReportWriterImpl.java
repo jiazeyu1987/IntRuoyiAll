@@ -169,7 +169,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                 continue;
             }
             BigDecimal processLossQuantity = entry.getValue().stream()
-                    .map(source -> source.getFeedback().getUnqualifiedQuantity())
+                    .map(MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource::getFormalLossQuantity)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             boolean processHasActualLoss = processLossQuantity.signum() > 0;
             decisions.add(new MesTeamLeaderActiveOrderReleaseLossReportPlan.ProcessLossDecision()
@@ -446,22 +446,22 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                     "请由正式填写人和生产组长完成电子签名"));
             return;
         }
-        if (!validNonNegativeQuantities(feedback)
-                || !decimalEquals(feedback.getFeedbackQuantity(),
-                feedback.getQualifiedQuantity().add(feedback.getUnqualifiedQuantity()))
-                || !decimalEquals(feedback.getFeedbackQuantity(), allocation.getAllocatedQuantity())) {
+        if (!validQuantityReconciliation(feedback, allocation)) {
             blockers.add(blocker("LOSS_SOURCE_REQUIRED", snapshot, null, "PRODUCTION_FEEDBACK", feedback.getId(),
                     "lossQuantity", null,
                     "报工总量、合格量、损耗总量和当前活跃订单分配数量不一致",
                     "请修复正式生产反馈数量后重新申请"));
             return;
         }
-        BigDecimal categoryTotal = feedback.getLaborScrapQuantity()
-                .add(feedback.getMaterialScrapQuantity()).add(feedback.getOtherScrapQuantity());
-        if (!decimalEquals(feedback.getUnqualifiedQuantity(), categoryTotal)) {
-            blockers.add(blocker("LOSS_SOURCE_REQUIRED", snapshot, null, "PRODUCTION_FEEDBACK", feedback.getId(),
-                    "lossQuantity", null, "损耗分类数量之和与损耗总量不一致",
-                    "请修复人工、物料和其它损耗分类数量"));
+        if (!nonNegative(source.getFormalLossQuantity()) || source.getReplenishmentSources() == null
+                || source.getReplenishmentSources().stream().anyMatch(item -> item == null
+                || item.getHeaderId() == null || item.getItemId() == null || StrUtil.isBlank(item.getSourceBillNo())
+                || StrUtil.isBlank(item.getMaterialCode()) || !nonNegative(item.getActualQuantity()))
+                || !decimalEquals(source.getFormalLossQuantity(), source.getReplenishmentSources().stream()
+                .map(MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource::getActualQuantity)
+                .reduce(BigDecimal.ZERO, BigDecimal::add))) {
+            blockers.add(blocker("LOSS_REPLENISHMENT_SOURCE_INVALID", snapshot, null, "REPLENISHMENT", null,
+                    "lossQuantity", null, "正式补料来源或实补数量不完整、不一致", "请核对正式生产补料单"));
             return;
         }
         if (source.getHasActualLoss() == null || source.getZeroLossConfirmed() == null
@@ -472,7 +472,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                     "请通过正式生产反馈重新提交损耗事实"));
             return;
         }
-        boolean quantityPositive = feedback.getUnqualifiedQuantity().signum() > 0;
+        boolean quantityPositive = source.getFormalLossQuantity().signum() > 0;
         if (!Objects.equals(quantityPositive, source.getHasActualLoss())
                 || (quantityPositive && (Boolean.TRUE.equals(source.getZeroLossConfirmed())
                 || !"REQUIRED".equals(source.getLossDecision())))
@@ -501,15 +501,16 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                 .map(MesTeamLeaderActiveOrderReleaseLossSourceReadResult.LossDetail::getQuantity)
                 .reduce(BigDecimal.ZERO, BigDecimal::add) : BigDecimal.valueOf(-1);
         boolean allReasonsMatched = detailShapeValid && details.stream().allMatch(detail ->
-                Objects.equals(feedback.getLossReasonId(), detail.getReasonId())
-                        && Objects.equals(feedback.getLossReasonCodeSnapshot(), detail.getReasonCode())
-                        && Objects.equals(feedback.getLossReasonNameSnapshot(), detail.getReasonName()));
-        if (!detailShapeValid || !decimalEquals(feedback.getUnqualifiedQuantity(), detailTotal)
-                || !allReasonsMatched) {
+                source.getReplenishmentSources().stream().anyMatch(item ->
+                        Objects.equals(item.getItemId(), detail.getReasonId())
+                                && Objects.equals("REPLENISHMENT:" + item.getMaterialCode(), detail.getReasonCode())
+                                && Objects.equals("生产补料：" + item.getMaterialName(), detail.getReasonName())
+                                && decimalEquals(item.getActualQuantity(), detail.getQuantity())));
+        if (!detailShapeValid || !decimalEquals(source.getFormalLossQuantity(), detailTotal) || !allReasonsMatched) {
             blockers.add(blocker("LOSS_SOURCE_REQUIRED", snapshot, null, "PRODUCTION_EVENT", event.getId(),
                     "lossDetails", null,
-                    "结构化损耗明细、损耗总量或反馈原因快照不一致",
-                    "请通过正式生产反馈重新保存结构化 lossDetails"));
+                    "补料明细与正式补料数量不一致",
+                    "请核对正式生产补料单明细"));
         }
     }
 
@@ -526,14 +527,15 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                 && Objects.equals(command.getRouteId(), snapshot.getRouteId())
                 && Objects.equals(command.getRouteVersionId(), snapshot.getRouteVersionId())
                 && feedback != null && feedback.getId() != null
-                && Objects.equals(command.getWorkOrderId(), feedback.getWorkOrderId())
+                && event != null && event.getWorkOrderId() != null
+                && Objects.equals(event.getWorkOrderId(), feedback.getWorkOrderId())
                 && Objects.equals(command.getRouteId(), feedback.getRouteId())
                 && Objects.equals(snapshot.getProcessId(), feedback.getProcessId())
                 && event != null && event.getId() != null
                 && MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())
                 && FEEDBACK_SOURCE_TYPE.equals(event.getFeedbackSourceType())
                 && Objects.equals(feedback.getId(), event.getFeedbackSourceId())
-                && Objects.equals(command.getWorkOrderId(), event.getWorkOrderId())
+                && event.getWorkOrderId() != null
                 && Objects.equals(command.getRouteId(), event.getRouteId())
                 && Objects.equals(snapshot.getRouteProcessId(), event.getRouteProcessId())
                 && Objects.equals(snapshot.getProcessId(), event.getProcessId())
@@ -575,6 +577,15 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                 && nonNegative(feedback.getLaborScrapQuantity())
                 && nonNegative(feedback.getMaterialScrapQuantity())
                 && nonNegative(feedback.getOtherScrapQuantity());
+    }
+
+    private boolean validQuantityReconciliation(MesProFeedbackDO feedback,
+                                                MesProcessPoolReportAllocationDO allocation) {
+        if (!validNonNegativeQuantities(feedback) || !nonNegative(allocation.getAllocatedQuantity())) {
+            return false;
+        }
+        BigDecimal lossQuantity = feedback.getUnqualifiedQuantity();
+        return decimalEquals(feedback.getFeedbackQuantity(), feedback.getQualifiedQuantity().add(lossQuantity));
     }
 
     private MesProRouteFlowProcessBatchRecordDO formalBinding(
@@ -794,10 +805,10 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
             values.add(switch (field) {
                 case "outputQuantity" -> feedback.getFeedbackQuantity();
                 case "qualifiedQuantity" -> feedback.getQualifiedQuantity();
-                case "lossQuantity" -> feedback.getUnqualifiedQuantity();
-                case "laborScrapQuantity" -> feedback.getLaborScrapQuantity();
-                case "materialScrapQuantity" -> feedback.getMaterialScrapQuantity();
-                case "otherScrapQuantity" -> feedback.getOtherScrapQuantity();
+                case "lossQuantity" -> source.getFormalLossQuantity();
+                case "laborScrapQuantity" -> BigDecimal.ZERO;
+                case "materialScrapQuantity" -> source.getFormalLossQuantity();
+                case "otherScrapQuantity" -> BigDecimal.ZERO;
                 case "fillerUserId" -> event.getSignatureUserId();
                 case "fillerSignedAt" -> event.getServerSubmitTime();
                 case "reviewerUserId" -> review.getReviewSignatureUserId();
@@ -862,10 +873,10 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
             total = total.add(switch (field) {
                 case "outputQuantity" -> source.getFeedback().getFeedbackQuantity();
                 case "qualifiedQuantity" -> source.getFeedback().getQualifiedQuantity();
-                case "lossQuantity" -> source.getFeedback().getUnqualifiedQuantity();
-                case "laborScrapQuantity" -> source.getFeedback().getLaborScrapQuantity();
-                case "materialScrapQuantity" -> source.getFeedback().getMaterialScrapQuantity();
-                case "otherScrapQuantity" -> source.getFeedback().getOtherScrapQuantity();
+                case "lossQuantity" -> source.getFormalLossQuantity();
+                case "laborScrapQuantity" -> BigDecimal.ZERO;
+                case "materialScrapQuantity" -> source.getFormalLossQuantity();
+                case "otherScrapQuantity" -> BigDecimal.ZERO;
                 default -> throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
                         "损耗单摘要字段不受支持，field=" + field);
             });
@@ -958,7 +969,12 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
         List<String> hashes = new ArrayList<>();
         for (MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource source : sources) {
             String feedbackHash = hashFeedback(source.getFeedback());
-            String detailsHash = sha256("LOSS_DETAILS_V1|" + canonicalLossDetails(List.of(source)));
+            String detailsHash = sha256("LOSS_REPLENISHMENT_V1|"
+                    + JsonUtils.toJsonString(source.getReplenishmentSources()) + "|" + canonicalLossDetails(List.of(source)));
+            source.getReplenishmentSources().forEach(item -> {
+                sourceObjectIds.add(item.getHeaderId());
+                sourceObjectIds.add(item.getItemId());
+            });
             String eventHash = hashEvent(source.getEvent(), detailsHash);
             String allocationHash = hashAllocation(source.getAllocation());
             String reviewHash = hashReview(source.getReview());
@@ -999,7 +1015,12 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
             List<MesTeamLeaderActiveOrderReleaseSignatureEvidence> signatures) {
         for (MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource source : sources) {
             String feedbackHash = hashFeedback(source.getFeedback());
-            String detailsHash = sha256("LOSS_DETAILS_V1|" + canonicalLossDetails(List.of(source)));
+            String detailsHash = sha256("LOSS_REPLENISHMENT_V1|"
+                    + JsonUtils.toJsonString(source.getReplenishmentSources()) + "|" + canonicalLossDetails(List.of(source)));
+            source.getReplenishmentSources().forEach(item -> {
+                sourceObjectIds.add(item.getHeaderId());
+                sourceObjectIds.add(item.getItemId());
+            });
             String eventHash = hashEvent(source.getEvent(), detailsHash);
             String allocationHash = hashAllocation(source.getAllocation());
             String reviewHash = hashReview(source.getReview());
@@ -1407,6 +1428,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                         })
                         .toList();
         return new MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort.WriteCommand()
+                .setActorUserId(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId())
                 .setTenantId(plan.getCommand().getTenantId())
                 .setBatchExecutionId(batchExecutionId)
                 .setBatchTask(batchTask)

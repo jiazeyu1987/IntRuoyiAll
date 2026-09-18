@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.BusinessActionContextReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceDraftReqVO;
@@ -26,6 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -88,11 +90,11 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
             FormInstanceDraftReqVO request = invocation.getArgument(1);
             written.set(new LinkedHashMap<>(request.getFormData()));
             return null;
-        }).when(runtimeService).saveDraft(eq(9801L), any(), eq(149L));
+        }).when(runtimeService).saveDraft(eq(9801L), any(), eq(177L));
         FormInstanceRespVO submitted = new FormInstanceRespVO();
         submitted.setId(9801L);
         submitted.setStatus("EFFECTIVE");
-        when(runtimeService.submitInstance(eq(9801L), any(FormInstanceSubmitReqVO.class), eq(149L)))
+        when(runtimeService.submitVerifiedBackfillInstance(eq(9801L), any(FormInstanceSubmitReqVO.class), eq(177L), eq("MES_EDHR_ROUTE_FORM_FILL"), any(String.class)))
                 .thenReturn(submitted);
         when(runtimeService.getInstanceSnapshots(9801L)).thenAnswer(invocation -> {
             FormInstanceSnapshotRespVO snapshot = new FormInstanceSnapshotRespVO();
@@ -108,7 +110,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
                 field(rules.get(1), "fieldReviewedAt", "2026-08-10 10:11:12", "field-hash-2"));
         MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand command =
                 new MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand()
-                        .setTenantId(1L).setBatchExecutionId(901L).setBatchTask(task).setBinding(binding)
+                        .setActorUserId(177L).setTenantId(1L).setBatchExecutionId(901L).setBatchTask(task).setBinding(binding)
                         .setTarget(target).setFields(fields).setSourceSnapshotHash("source-snapshot")
                         .setEvidenceHash("inspection-evidence")
                         .setSignatureEvidence(List.of(
@@ -128,8 +130,60 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
         assertFalse(JsonUtils.toJsonString(written.get()).contains("rawPayload"));
         ArgumentCaptor<FormInstanceSubmitReqVO> submitCaptor =
                 ArgumentCaptor.forClass(FormInstanceSubmitReqVO.class);
-        verify(runtimeService).submitInstance(eq(9801L), submitCaptor.capture(), eq(149L));
+        verify(runtimeService).submitVerifiedBackfillInstance(eq(9801L), submitCaptor.capture(), eq(177L), eq("MES_EDHR_ROUTE_FORM_FILL"), any(String.class));
         assertEquals(written.get(), submitCaptor.getValue().getFormData());
+    }
+
+    @Test
+    void effectiveInstanceRejectsDifferentFormalSourceWithoutDraftOrSubmit() {
+        MesProRouteFlowProcessBatchRecordDO binding = binding();
+        List<MesProBatchRecordCellLinkRuleDO> rules = List.of(
+                rule(11L, "PQC|PRESSURE|1|measuredValue", "measuredValue", 3, 1, "NUMBER"),
+                rule(12L, "PQC|reviewedAt", "reviewedAt", 3, 3, "DATETIME"));
+        when(templateVersionMapper.selectById(2801L)).thenReturn(template());
+        MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.TargetResolution target =
+                port.resolveTarget(binding, rules, "ID");
+        MesProEdhrBatchExecutionTaskDO task = task();
+        BusinessActionContextReqVO context = new BusinessActionContextReqVO();
+        context.setTenantId(1L);
+        context.setSystemCode("MES");
+        context.setObjectType("EDHR_ROUTE_FORM");
+        context.setObjectId(String.valueOf(task.getId()));
+        context.setObjectVersion("632");
+        context.setActionCode("EDHR_RF_632_PI_9901");
+        context.setDataDomain("MES");
+        context.setObjectState("ACTIVE");
+        Map<String, Object> formData = new LinkedHashMap<>();
+        formData.put("fieldMeasured", "10.5");
+        formData.put("fieldReviewedAt", "2026-08-10 10:11:12");
+        formData.put("_processInspectionReleaseAudit",
+                Map.of("fieldAuditHeadHash", "old-audit-head", "sourceSnapshotHash", "old-source"));
+        FormActionInstanceDO instance = FormActionInstanceDO.builder()
+                .id(9801L).tenantId(1L).applicantUserId(149L).status("EFFECTIVE")
+                .systemCode("MES").objectType("EDHR_ROUTE_FORM").objectId(String.valueOf(task.getId()))
+                .objectVersion("632").actionCode("EDHR_RF_632_PI_9901")
+                .businessContextJson(JsonUtils.toJsonString(context))
+                .formDataJson(JsonUtils.toJsonString(formData))
+                .build();
+        when(instanceMapper.selectById(9801L)).thenReturn(instance);
+        List<MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.FieldWrite> fields = List.of(
+                field(rules.get(0), "fieldMeasured", "10.5", "new-field-hash-1"),
+                field(rules.get(1), "fieldReviewedAt", "2026-08-10 10:11:12", "new-field-hash-2"));
+        MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand command =
+                new MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand()
+                        .setActorUserId(177L).setTenantId(1L).setBatchExecutionId(901L).setBatchTask(task).setBinding(binding)
+                        .setTarget(target).setFields(fields).setSourceSnapshotHash("new-source")
+                        .setEvidenceHash("new-evidence")
+                        .setSignatureEvidence(List.of(
+                                new MesTeamLeaderActiveOrderReleaseProcessInspectionWriteResult.SignatureEvidence()
+                                        .setRole("FILLER").setSourceType("PQC_SUBMIT").setSourceId(602L)
+                                        .setSignatureId(1101L).setUserId(149L).setEvidenceHash("signature-hash")));
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> port.write(command));
+
+        assertTrue(exception.getMessage().contains("已生效过程检验 FormCenter instance 与本次正式来源不一致"));
+        verify(runtimeService, never()).saveDraft(any(), any(), any());
+        verify(runtimeService, never()).submitVerifiedBackfillInstance(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -174,7 +228,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
         assertEquals("PROCESS_INSPECTION_DYNAMIC_FORM_TEMPLATE_REQUIRED", target.getBlockerType());
         verify(instanceMapper, never()).selectById(any());
         verify(runtimeService, never()).saveDraft(any(), any(), any());
-        verify(runtimeService, never()).submitInstance(any(), any(), any());
+        verify(runtimeService, never()).submitVerifiedBackfillInstance(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -193,7 +247,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
         assertTrue(target.getBlockerMessage().contains("actual=[IDPR]"));
         verify(instanceMapper, never()).selectById(any());
         verify(runtimeService, never()).saveDraft(any(), any(), any());
-        verify(runtimeService, never()).submitInstance(any(), any(), any());
+        verify(runtimeService, never()).submitVerifiedBackfillInstance(any(), any(), any(), any(), any());
     }
 
     private static MesProRouteFlowProcessBatchRecordDO binding() {

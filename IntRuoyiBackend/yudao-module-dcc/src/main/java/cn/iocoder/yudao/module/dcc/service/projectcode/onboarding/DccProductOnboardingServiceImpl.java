@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PRODUCT_ONBOARDING_DUPLICATE_PROJECT_CODE;
@@ -66,6 +67,11 @@ public class DccProductOnboardingServiceImpl implements DccProductOnboardingServ
                 .build();
         requestMapper.insert(request);
         return request.getId();
+    }
+
+    @Override
+    public List<DccProductOnboardingRequestDO> getPendingRequests() {
+        return requestMapper.selectPendingList();
     }
 
     @Override

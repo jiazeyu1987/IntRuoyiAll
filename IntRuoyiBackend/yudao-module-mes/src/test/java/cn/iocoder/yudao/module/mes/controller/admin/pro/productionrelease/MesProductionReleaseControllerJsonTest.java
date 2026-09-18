@@ -2,8 +2,10 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseApproveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseDecisionRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleasePageItemRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesProductionReleaseReportUploadTaskRespVO;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleasePageItem;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validation;
@@ -32,15 +34,18 @@ class MesProductionReleaseControllerJsonTest {
                 .setBatchExecutionId(9007199254740995L)
                 .setBatchRecordEvidenceIds(List.of(9007199254740996L))
                 .setProcessInspectionEvidenceIds(List.of(9007199254740997L))
-                .setLossReportEvidenceIds(List.of(9007199254740998L))
+                .setProcessInspectionFormCenterInstanceIds(List.of(9007199254740998L))
+                .setLossReportEvidenceIds(List.of(9007199254740999L))
+                .setLossReportFormCenterInstanceIds(List.of(9007199254741010L))
+                .setLossReportFieldAuditIds(List.of(9007199254741011L))
                 .setReportUploadTasks(List.of(new MesProductionReleaseReportUploadTaskRespVO()
                         .setNodeType("INCOMING_INSPECTION_REPORT")
-                        .setBatchTaskId(9007199254740999L)
-                        .setWorkTaskId(9007199254741000L)
-                        .setCandidateUserIds(List.of(9007199254741001L))
+                        .setBatchTaskId(9007199254741000L)
+                        .setWorkTaskId(9007199254741001L)
+                        .setCandidateUserIds(List.of(9007199254741002L))
                         .setStatus("TODO")))
                 .setVersion(2)
-                .setDecidedBy(9007199254741002L);
+                .setDecidedBy(9007199254741003L);
 
         JsonNode json = new ObjectMapper().readTree(new ObjectMapper().writeValueAsString(response));
 
@@ -49,7 +54,11 @@ class MesProductionReleaseControllerJsonTest {
         }
         assertTrue(json.get("batchRecordEvidenceIds").get(0).isTextual());
         assertTrue(json.get("processInspectionEvidenceIds").get(0).isTextual());
+        assertTrue(json.get("processInspectionFormCenterInstanceIds").get(0).isTextual());
         assertTrue(json.get("lossReportEvidenceIds").get(0).isTextual());
+        assertEquals("9007199254741010", json.get("lossReportFormCenterInstanceIds").get(0).asText());
+        assertTrue(json.get("lossReportFormCenterInstanceIds").get(0).isTextual());
+        assertTrue(json.get("lossReportFieldAuditIds").get(0).isTextual());
         assertTrue(json.get("reportUploadTasks").get(0).get("batchTaskId").isTextual());
         assertTrue(json.get("reportUploadTasks").get(0).get("workTaskId").isTextual());
         assertTrue(json.get("reportUploadTasks").get(0).get("candidateUserIds").get(0).isTextual());
@@ -98,5 +107,29 @@ class MesProductionReleaseControllerJsonTest {
                 reject.getAnnotation(PreAuthorize.class).value());
         assertEquals("@ss.hasPermission('mes:pro-production-release:query')",
                 get.getAnnotation(PreAuthorize.class).value());
+    }
+
+    @Test
+    void pageItemResponsePreservesApprovalReadinessProjection() throws Exception {
+        MesPqcProductionReleasePageItem item = new MesPqcProductionReleasePageItem()
+                .setApplicationId(53L)
+                .setPqcReleaseWorkTaskId(2443L)
+                .setVersion(1)
+                .setViewStatus("PENDING")
+                .setApplicationStatus("PQC_RELEASE_PENDING")
+                .setApprovalReady(false)
+                .setApprovalBlockerReason("批记录尚未完成")
+                .setApprovalBlockerSuggestion("完成批记录后再放行");
+
+        Method mapper = MesProductionReleaseController.class.getDeclaredMethod(
+                "toPageItemResp", MesPqcProductionReleasePageItem.class);
+        mapper.setAccessible(true);
+        MesPqcProductionReleasePageItemRespVO response =
+                (MesPqcProductionReleasePageItemRespVO) mapper.invoke(
+                        new MesProductionReleaseController(null), item);
+
+        assertEquals(item.getApprovalReady(), response.getApprovalReady());
+        assertEquals(item.getApprovalBlockerReason(), response.getApprovalBlockerReason());
+        assertEquals(item.getApprovalBlockerSuggestion(), response.getApprovalBlockerSuggestion());
     }
 }

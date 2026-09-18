@@ -200,6 +200,31 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
     }
 
     @Override
+    public DccUploadTicketBoundFile resolveBoundFile(DccUploadTicketResolveCommand command, Long controlledFileId) {
+        requireTenantContext();
+        if (command == null || StrUtil.isBlank(command.uploadTicket()) || controlledFileId == null) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        DccControlledFileTemporaryFileDO bound = temporaryFileMapper.selectOne(
+                DccControlledFileTemporaryFileDO::getUploadTicket, StrUtil.trim(command.uploadTicket()));
+        if (bound == null || !Objects.equals(command.userId(), bound.getUploaderId())
+                || !Objects.equals(command.categoryId(), bound.getCategoryId())
+                || !StrUtil.equals(normalizeSession(command.sessionId()), bound.getSessionId())
+                || !StrUtil.equals(normalizePurpose(command.purpose()), bound.getPurpose())
+                || !STATUS_BOUND.equals(bound.getStatus()) || !CLEANUP_BOUND.equals(bound.getCleanupStatus())
+                || !Objects.equals(controlledFileId, bound.getBoundControlledFileId())
+                || bound.getStorageFileId() == null) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        FileDO storage = fileMapper.selectById(bound.getStorageFileId());
+        if (storage == null) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        return new DccUploadTicketBoundFile(bound.getUploadTicket(), bound.getStorageFileId(),
+                storage.getName(), storage.getType(), bound.getFileSize());
+    }
+
+    @Override
     public int cleanupTemporaryFileByTicket(Long userId, String sessionId, String uploadTicket,
                                             LocalDateTime cleanupTime, String cleanupReason) throws Exception {
         requireTenantContext();

@@ -17,6 +17,9 @@ public class MesTeamLeaderActiveOrderCompletionReqVO {
     @NotNull
     private Long activeOrderId;
 
+    @Schema(description = "完工时未查到补料单，明确确认无补料信息")
+    private Boolean confirmNoReplenishmentInfo;
+
     @Schema(description = "客户端持有的活跃订单版本", requiredMode = Schema.RequiredMode.REQUIRED, example = "3")
     @NotNull
     private Integer expectedVersion;

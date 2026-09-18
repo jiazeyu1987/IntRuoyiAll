@@ -33,7 +33,8 @@ for (const marker of [
   "v-hasPermi=\"['mes:pro-edhr-release:approve']\"",
   'openManagerReleaseDialog',
   'submitManagerReleaseApproval',
-  'approveEdhrRelease',
+  'reviewApprovalTask',
+  'managerReleaseForm.signaturePassword',
   'recoverUncertainManagerReleaseApproval',
   'getEdhrRelease'
 ]) {
@@ -42,8 +43,8 @@ for (const marker of [
 
 assert.match(
   boardPage,
-  /approveEdhrRelease\(\{[\s\S]*?releaseTransactionId:[\s\S]*?workTaskId:[\s\S]*?expectedVersion,[\s\S]*?idempotencyKey:[\s\S]*?signoffEvidenceHash:/,
-  'Manager approval must submit the frozen task, optimistic version, idempotency key and signoff evidence'
+  /reviewApprovalTask\(\{[\s\S]*?sourceTaskType: 'EDHR_WORK_TASK',[\s\S]*?sourceTaskId: context\.workTaskId,[\s\S]*?signaturePassword: managerReleaseForm\.signaturePassword/,
+  'Manager approval must submit the frozen work task through the password signature workflow'
 )
 assert.match(
   boardPage,

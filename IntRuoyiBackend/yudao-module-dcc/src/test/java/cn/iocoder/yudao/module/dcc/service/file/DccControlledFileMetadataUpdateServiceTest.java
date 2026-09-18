@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMetadataUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccCategoryDirectoryBindingDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
@@ -20,6 +21,8 @@ import cn.iocoder.yudao.module.dcc.service.projectcode.assignment.DccProjectCode
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignment.DccProjectCodeAssignmentService;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignmentaudit.DccProjectCodeMetadataChangeAuditService;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -37,6 +40,8 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -71,26 +76,32 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     @InjectMocks
     private DccControlledFileMetadataUpdateServiceImpl metadataUpdateService;
 
+    @BeforeEach
+    void setTenantContext() {
+        TenantContextHolder.setTenantId(1L);
+    }
+
+    @AfterEach
+    void clearTenantContext() {
+        TenantContextHolder.clear();
+    }
+
     @Test
     void updateMetadata_docControlUpdatesFieldsMaintainsMasterAndDoesNotTouchWorkflow() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         DccControlledFileDO file = activeFile();
         mockDocControl();
         mockTargetCategoryAndDirectory();
+        mockMasterIdentityUpdateSuccess();
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
         when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
         when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
 
         metadataUpdateService.updateMetadata(99L, 900L, reqVO);
 
-        ArgumentCaptor<DccControlledFileMasterDO> masterCaptor = ArgumentCaptor.forClass(DccControlledFileMasterDO.class);
-        verify(controlledFileMasterMapper).updateById(masterCaptor.capture());
-        assertEquals(700L, masterCaptor.getValue().getId());
-        assertEquals(11L, masterCaptor.getValue().getCategoryId());
-        assertEquals(31L, masterCaptor.getValue().getDirectoryId());
-        assertEquals("NEW-SOP", masterCaptor.getValue().getFileName());
-        assertEquals("DOC-NEW", masterCaptor.getValue().getFileNumber());
-        assertEquals(900L, masterCaptor.getValue().getCurrentActiveControlledFileId());
+        verify(controlledFileMasterMapper).updateMetadataIdentity(
+                eq(700L), eq(11L), eq(31L), eq("NEW-SOP"), eq("DOC-NEW"),
+                eq(3000L), isNull(), eq("DOC-NEW"), eq(900L), eq("99"));
 
         ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
         verify(controlledFileMapper).updateById(fileCaptor.capture());
@@ -117,6 +128,57 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void updateMetadata_identityChangeSyncsMasterLogicalKey() {
+        DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
+        reqVO.setFileTypeTaxonomyId(8801L);
+        DccControlledFileDO file = activeFile();
+        mockDocControl();
+        mockTargetCategoryAndDirectory();
+        mockMasterIdentityUpdateSuccess();
+        when(fileTypeTaxonomyAdminService.resolveActivePath(8801L)).thenReturn(new DccFileTypeTaxonomyPath(
+                8801L, "技术文档", "设计和开发策划阶段", "项目策划书", "草案", "归档件"));
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+
+        metadataUpdateService.updateMetadata(99L, 900L, reqVO);
+
+        verify(controlledFileMasterMapper).selectByNewLogicalIdentity(1L, 3000L, 8801L, "DOC-NEW");
+        verify(controlledFileMasterMapper).updateMetadataIdentity(
+                eq(700L), eq(11L), eq(31L), eq("NEW-SOP"), eq("DOC-NEW"),
+                eq(3000L), eq(8801L), eq("DOC-NEW"), eq(900L), eq("99"));
+    }
+
+    @Test
+    void updateMetadata_conflictingLogicalIdentityFailsBeforeWriting() {
+        DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
+        reqVO.setFileTypeTaxonomyId(8801L);
+        DccControlledFileDO file = activeFile();
+        mockDocControl();
+        mockTargetCategoryAndDirectory();
+        when(fileTypeTaxonomyAdminService.resolveActivePath(8801L)).thenReturn(new DccFileTypeTaxonomyPath(
+                8801L, "技术文档", "设计和开发策划阶段", "项目策划书", "草案", "归档件"));
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        when(controlledFileMasterMapper.selectByNewLogicalIdentity(1L, 3000L, 8801L, "DOC-NEW"))
+                .thenReturn(DccControlledFileMasterDO.builder()
+                        .id(800L)
+                        .dccProjectCodeId(3000L)
+                        .fileTypeTaxonomyLeafId(8801L)
+                        .normalizedFileNumber("DOC-NEW")
+                        .currentActiveControlledFileId(901L)
+                        .build());
+
+        assertServiceException(() -> metadataUpdateService.updateMetadata(99L, 900L, reqVO),
+                CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+
+        verify(controlledFileMasterMapper, never()).updateMetadataIdentity(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+    }
+
+    @Test
     void updateMetadata_withConfiguredFileTypeTaxonomyWritesResolvedFiveLevelPath() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         reqVO.setFileTypeTaxonomyId(8801L);
@@ -128,6 +190,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         DccControlledFileDO file = activeFile();
         mockDocControl();
         mockTargetCategoryAndDirectory();
+        mockMasterIdentityUpdateSuccess();
         when(fileTypeTaxonomyAdminService.resolveActivePath(8801L)).thenReturn(new DccFileTypeTaxonomyPath(
                 8801L, "技术文档", "设计和开发策划阶段", "项目策划书", "草案", "归档件"));
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
@@ -164,6 +227,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
                         .status("ENABLE")
                         .build());
         mockTargetCategoryAndDirectory();
+        mockMasterIdentityUpdateSuccess();
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
         when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
         when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
@@ -214,7 +278,8 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
 
         verify(pendingActionGuard).assertNoPendingBusinessAction(file);
         verify(controlledFileMasterMapper, never()).selectById(700L);
-        verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
+        verify(controlledFileMasterMapper, never()).updateMetadataIdentity(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
         verify(metadataChangeAuditService, never()).recordMetadataChange(any());
     }
@@ -257,15 +322,16 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         DccControlledFileDO file = activeFile();
         mockDocControl();
         mockTargetCategoryAndDirectory();
+        mockMasterIdentityUpdateSuccess();
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
         when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
         when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
 
         metadataUpdateService.updateMetadata(99L, 900L, reqVO);
 
-        ArgumentCaptor<DccControlledFileMasterDO> masterCaptor = ArgumentCaptor.forClass(DccControlledFileMasterDO.class);
-        verify(controlledFileMasterMapper).updateById(masterCaptor.capture());
-        assertEquals("", masterCaptor.getValue().getFileNumber());
+        verify(controlledFileMasterMapper).updateMetadataIdentity(
+                eq(700L), eq(11L), eq(31L), eq("NEW-SOP"), eq(""),
+                eq(3000L), isNull(), isNull(), eq(900L), eq("99"));
 
         ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
         verify(controlledFileMapper).updateById(fileCaptor.capture());
@@ -282,7 +348,8 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         assertServiceException(() -> metadataUpdateService.updateMetadata(99L, 900L, updateReq()),
                 CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED);
 
-        verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
+        verify(controlledFileMasterMapper, never()).updateMetadataIdentity(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
         verify(metadataChangeAuditService, never()).recordMetadataChange(any());
     }
@@ -297,7 +364,8 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         assertServiceException(() -> metadataUpdateService.updateMetadata(99L, 900L, updateReq()),
                 CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED);
 
-        verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
+        verify(controlledFileMasterMapper, never()).updateMetadataIdentity(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
         verify(metadataChangeAuditService, never()).recordMetadataChange(any());
     }
@@ -336,6 +404,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         reqVO.setProductCode("client-value-is-ignored");
         reqVO.setProductName("client-name-is-ignored");
         mockTargetCategoryAndDirectory();
+        mockMasterIdentityUpdateSuccess();
         when(controlledFileMapper.selectById(900L)).thenReturn(activeFile());
         when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
         when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(activeFile()));
@@ -380,12 +449,13 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         when(categoryMapper.selectById(11L)).thenReturn(DccFileCategoryDO.builder().id(11L).active(Boolean.TRUE).build());
         when(categoryDirectoryBindingMapper.selectActiveByCategoryId(11L)).thenReturn(null);
         when(directoryMapper.selectEnabledList()).thenReturn(List.of(unclassifiedDirectory(910000L)));
+        mockMasterIdentityUpdateSuccess();
 
         metadataUpdateService.updateMetadata(99L, 900L, reqVO);
 
-        ArgumentCaptor<DccControlledFileMasterDO> masterCaptor = ArgumentCaptor.forClass(DccControlledFileMasterDO.class);
-        verify(controlledFileMasterMapper).updateById(masterCaptor.capture());
-        assertEquals(910000L, masterCaptor.getValue().getDirectoryId());
+        verify(controlledFileMasterMapper).updateMetadataIdentity(
+                eq(700L), eq(11L), eq(910000L), eq("NEW-SOP"), eq("DOC-NEW"),
+                eq(3000L), isNull(), eq("DOC-NEW"), eq(900L), eq("99"));
 
         ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
         verify(controlledFileMapper).updateById(fileCaptor.capture());
@@ -436,6 +506,12 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         when(directoryMapper.selectEnabledList()).thenReturn(List.of(
                 directory(30L, null),
                 directory(31L, 30L)));
+    }
+
+    private void mockMasterIdentityUpdateSuccess() {
+        when(controlledFileMasterMapper.updateMetadataIdentity(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(1);
     }
 
     private DccControlledFileDO activeFile() {

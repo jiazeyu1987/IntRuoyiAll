@@ -50,7 +50,8 @@ public class DccOnlineFilePreviewController {
     @GetMapping("/files/{fileId}/preview-metadata")
     @Operation(summary = "Get unified online file preview metadata")
     @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:query', "
-            + "'mes:pro-edhr-batch-execution:query', 'mes:pro-edhr-batch-execution:update')")
+            + "'mes:pro-edhr-batch-execution:query', 'mes:pro-edhr-batch-execution:update', "
+            + "'mes:pro-process-pool-team-leader:query', 'mes:pro-production-release:query')")
     public CommonResult<DccControlledFilePreviewMetadataRespVO> getPreviewMetadata(
             @PathVariable("fileId") Long fileId,
             HttpServletRequest request) {
@@ -61,7 +62,8 @@ public class DccOnlineFilePreviewController {
     @GetMapping("/files/{fileId}/preview")
     @Operation(summary = "Preview one unified online file")
     @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:query', "
-            + "'mes:pro-edhr-batch-execution:query', 'mes:pro-edhr-batch-execution:update')")
+            + "'mes:pro-edhr-batch-execution:query', 'mes:pro-edhr-batch-execution:update', "
+            + "'mes:pro-process-pool-team-leader:query', 'mes:pro-production-release:query')")
     public ResponseEntity<byte[]> previewFile(@PathVariable("fileId") Long fileId,
                                               @RequestHeader(VIEWER_TOKEN_HEADER) String viewerToken,
                                               @RequestHeader(ACCESS_EVENT_CODE_HEADER) String accessEventCode,

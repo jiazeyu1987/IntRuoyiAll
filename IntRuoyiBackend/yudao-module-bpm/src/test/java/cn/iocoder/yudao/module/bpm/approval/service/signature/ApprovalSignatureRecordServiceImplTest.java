@@ -53,6 +53,8 @@ class ApprovalSignatureRecordServiceImplTest {
         assertTrue(command.idempotencyKey().startsWith("BPM|BPM|BPM_TASK_TODO|task-100|pi-100|pi-100|100|APPROVE|"));
         assertEquals(810001L, result.getRecordId());
         assertEquals(810001L, result.getUnifiedSignatureId());
+        assertEquals(command.subjectId(), result.getSubjectId());
+        assertEquals(signatureResult(810001L).evidenceHash(), result.getEvidenceHash());
         assertEquals(9101L, result.getSignatureImageId());
         assertEquals("/admin-api/infra/file/28/get/dcc/signature-images/signature.png",
                 result.getSignatureImageFileUrl());

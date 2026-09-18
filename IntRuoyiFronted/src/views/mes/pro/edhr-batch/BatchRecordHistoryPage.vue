@@ -1,6 +1,6 @@
 <template>
   <ContentWrap>
-    <div class="edhr-batch-history">
+    <div class="edhr-batch-history" data-edhr-batch-history-page>
       <EdhrBatchRecordTabs active-tab="history" />
 
       <el-form :inline="true" :model="queryParams" class="edhr-batch-history__toolbar" @submit.prevent>
@@ -13,10 +13,22 @@
           />
         </el-form-item>
         <el-form-item label="工单号">
-          <el-input v-model="queryParams.workOrderCode" clearable class="!w-170px" @keyup.enter="handleQuery" />
+          <el-input
+            v-model="queryParams.workOrderCode"
+            clearable
+            class="!w-170px"
+            data-edhr-history-work-order-filter
+            @keyup.enter="handleQuery"
+          />
         </el-form-item>
         <el-form-item label="批次号">
-          <el-input v-model="queryParams.batchCode" clearable class="!w-160px" @keyup.enter="handleQuery" />
+          <el-input
+            v-model="queryParams.batchCode"
+            clearable
+            class="!w-160px"
+            data-edhr-history-batch-code-filter
+            @keyup.enter="handleQuery"
+          />
         </el-form-item>
         <el-form-item label="产品">
           <el-input v-model="queryParams.productCode" clearable class="!w-150px" @keyup.enter="handleQuery" />
@@ -36,7 +48,7 @@
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleQuery">查询</el-button>
+          <el-button type="primary" data-edhr-history-query @click="handleQuery">查询</el-button>
           <el-button @click="resetQuery">重置</el-button>
         </el-form-item>
       </el-form>
@@ -54,21 +66,37 @@
           </div>
 
           <el-empty v-if="!loading && !batchList.length" description="暂无已归档批记录" />
-          <div v-else v-loading="loading" class="edhr-batch-history__batch-list" aria-label="历史批记录列表">
+          <div
+            v-else
+            v-loading="loading"
+            class="edhr-batch-history__batch-list"
+            aria-label="历史批记录列表"
+            data-edhr-history-batch-list
+          >
             <button
               v-for="batch in batchList"
               :key="batch.id"
               type="button"
+              data-edhr-history-batch-item
+              :data-edhr-history-batch-execution-id="batch.id"
               class="edhr-batch-history__batch-item"
               :class="{ 'is-active': batch.id === selectedBatchId }"
               @click="selectBatch(batch)"
             >
-              <span class="edhr-batch-history__batch-code">{{ batch.batchExecutionCode || batch.id }}</span>
-              <span class="edhr-batch-history__batch-line">工单 {{ batch.workOrderCode || '--' }}</span>
-              <span class="edhr-batch-history__batch-line">批次 {{ batch.batchCode || '--' }}</span>
+              <span class="edhr-batch-history__batch-code" data-edhr-history-batch-execution-code>
+                {{ batch.batchExecutionCode || batch.id }}
+              </span>
+              <span class="edhr-batch-history__batch-line">
+                工单 <span data-edhr-history-work-order-code>{{ batch.workOrderCode || '--' }}</span>
+              </span>
+              <span class="edhr-batch-history__batch-line">
+                批次 <span data-edhr-history-batch-code>{{ batch.batchCode || '--' }}</span>
+              </span>
               <span class="edhr-batch-history__batch-meta">
                 <span>{{ batch.routeCode || batch.routeName || '--' }}</span>
-                <el-tag size="small" type="success">{{ resolveBatchStatusLabel(batch.status) }}</el-tag>
+                <el-tag size="small" type="success" data-edhr-history-batch-status>
+                  {{ resolveBatchStatusLabel(batch.status) }}
+                </el-tag>
               </span>
             </button>
           </div>
@@ -141,7 +169,7 @@
                   class="edhr-batch-history__source-item"
                 >
                   <span>{{ item.label }}</span>
-                  <strong>{{ item.count }}</strong>
+                  <strong :data-edhr-history-source-count="item.label">{{ item.count }}</strong>
                 </div>
               </div>
 
@@ -157,7 +185,11 @@
                   :type="item.type"
                   placement="top"
                 >
-                  <article class="edhr-batch-history__timeline-card">
+                  <article
+                    class="edhr-batch-history__timeline-card"
+                    data-edhr-history-timeline-item
+                    :data-edhr-history-timeline-source="item.source"
+                  >
                     <div class="edhr-batch-history__timeline-title">
                       <el-tag size="small" :type="item.type">{{ item.source }}</el-tag>
                       <span>{{ item.title }}</span>
@@ -181,6 +213,7 @@
                   v-for="item in dossierItems"
                   :key="item.id || `${item.itemType}-${item.itemKey}`"
                   class="edhr-batch-history__dossier-item"
+                  data-edhr-history-dossier-item
                 >
                   <div class="edhr-batch-history__dossier-item-head">
                     <div>
@@ -250,6 +283,7 @@
                     :key="String(execution.executionId)"
                     type="button"
                     class="edhr-batch-history__process-item"
+                    data-edhr-history-process-item
                     :class="{ 'is-active': String(execution.executionId) === selectedExecutionId }"
                     @click="selectExecution(execution)"
                   >
@@ -321,10 +355,66 @@
                       </el-tag>
                     </div>
 
-                    <EdhrExecutionReadonlyForm
-                      :form-view-model="selectedExecution.formViewModel"
-                      :signature-records="selectedExecution.signatureRecords"
-                    />
+                    <section
+                      class="edhr-batch-history__formal-record"
+                      aria-label="正式批记录"
+                      data-edhr-formal-batch-record
+                    >
+                      <div class="edhr-batch-history__record-section-head">
+                        <div>
+                          <div class="edhr-batch-history__section-title">正式批记录</div>
+                          <div class="edhr-batch-history__section-subtitle">
+                            P2形成的正式eDHR批记录
+                          </div>
+                        </div>
+                        <el-tag type="success" effect="plain">正式记录</el-tag>
+                      </div>
+                      <EdhrExecutionReadonlyForm
+                        v-if="selectedExecution.formViewModel"
+                        :form-view-model="selectedExecution.formViewModel"
+                        :signature-records="selectedExecution.signatureRecords"
+                        fit-to-viewport
+                      />
+                      <el-empty
+                        v-else
+                        description="当前正式批记录缺少已填写的正式表单快照"
+                        :image-size="56"
+                      />
+                    </section>
+
+                    <section
+                      class="edhr-batch-history__source-detail-record"
+                      aria-label="详情批记录"
+                      data-edhr-source-detail-record
+                    >
+                      <div class="edhr-batch-history__record-section-head">
+                        <div>
+                          <div class="edhr-batch-history__section-title">详情批记录</div>
+                          <div class="edhr-batch-history__section-subtitle">
+                            正式批记录来源详情
+                          </div>
+                        </div>
+                        <el-tag type="info" effect="plain">来源详情</el-tag>
+                      </div>
+                      <ActiveOrderSubmissionDetailPanel
+                        v-if="!selectedSubmissionFormError"
+                        :detail="activeOrderDetail"
+                        :loading="activeOrderDetailLoading"
+                        :error="activeOrderDetailError"
+                        embedded
+                        :display-mode="selectedSubmissionFormMode"
+                        :record-scope="'FORMAL_BATCH_SOURCE_DETAIL'"
+                        :production-route-process-id="selectedExecution.routeProcessId"
+                        @retry="reloadActiveOrderDetail"
+                      />
+                      <el-alert
+                        v-else
+                        :title="selectedSubmissionFormError"
+                        type="error"
+                        :closable="false"
+                        show-icon
+                      />
+                    </section>
 
                     <section class="edhr-batch-history__attachment-section" aria-labelledby="history-attachment-title">
                       <div class="edhr-batch-history__attachment-head">
@@ -350,6 +440,7 @@
                           v-for="attachment in selectedExecution.attachmentSummaries"
                           :key="attachment.id || `${attachment.fieldPath}-${attachment.attachmentHash}`"
                           class="edhr-batch-history__attachment-item"
+                          data-edhr-history-attachment-item
                         >
                           <div class="edhr-batch-history__attachment-item-head">
                             <div class="edhr-batch-history__attachment-name">
@@ -406,6 +497,7 @@ import dayjs from 'dayjs'
 import {
   EDHR_BATCH_TASK_STATUS_SKIPPED,
   EDHR_BATCH_STATUS_ARCHIVED,
+  getEdhrBatchActiveOrderDetail,
   getEdhrBatchExecutionPage,
   getEdhrBatchReviewTimeline,
   getLatestEdhrBatchArchive,
@@ -418,6 +510,8 @@ import {
   type EdhrBatchExecutionReviewExecutionRespVO,
   type EdhrBatchReviewTimelineRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
+import type { TeamLeaderActiveOrderDetailRespVO } from '@/api/mes/pro/processpool/teamLeader'
+import ActiveOrderSubmissionDetailPanel from '@/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'
 import EdhrBatchRecordTabs from './EdhrBatchRecordTabs.vue'
 import {
@@ -441,6 +535,10 @@ const total = ref(0)
 const selectedBatchId = ref<number>()
 const selectedExecutionId = ref('')
 const timeline = ref<EdhrBatchReviewTimelineRespVO>()
+const activeOrderDetail = ref<TeamLeaderActiveOrderDetailRespVO>()
+const activeOrderDetailLoading = ref(false)
+const activeOrderDetailError = ref('')
+let activeOrderDetailRequestSerial = 0
 
 const queryParams = reactive({
   pageNo: 1,
@@ -473,6 +571,18 @@ const dossierItems = computed<EdhrBatchExecutionDossierItemRespVO[]>(() =>
 const selectedExecution = computed(() =>
   executionReviews.value.find((execution) => String(execution.executionId) === selectedExecutionId.value)
 )
+
+const selectedSubmissionFormMode = computed<'production' | 'pqc' | undefined>(() => {
+  if (selectedExecution.value?.formSlotType === 'MAIN') return 'production'
+  if (selectedExecution.value?.formSlotType === 'PROCESS_INSPECTION') return 'pqc'
+  return undefined
+})
+
+const selectedSubmissionFormError = computed(() => {
+  if (!selectedExecution.value) return ''
+  if (selectedSubmissionFormMode.value) return ''
+  return '当前批次执行工序缺少详情批记录的工序槽位类型，无法展示来源详情。'
+})
 
 type TimelineItemType = 'primary' | 'success' | 'warning' | 'danger' | 'info'
 
@@ -835,12 +945,44 @@ const loadTimeline = async (batchExecutionId: number, preferredExecutionId = sel
   }
 }
 
+const loadActiveOrderDetail = async (batch: EdhrBatchExecutionRespVO | undefined) => {
+  const requestSerial = ++activeOrderDetailRequestSerial
+  activeOrderDetail.value = undefined
+  activeOrderDetailError.value = ''
+  if (!batch?.activeOrderId) {
+    activeOrderDetailLoading.value = false
+    activeOrderDetailError.value = '批次执行缺少正式活跃订单来源，无法展示详情批记录。'
+    return
+  }
+  activeOrderDetailLoading.value = true
+  try {
+    const detail = await getEdhrBatchActiveOrderDetail(batch.id)
+    if (requestSerial !== activeOrderDetailRequestSerial) return
+    if (!detail.processes?.length) {
+      throw new Error('活跃订单缺少正式工序目标，无法展示详情批记录。')
+    }
+    activeOrderDetail.value = detail
+  } catch (error) {
+    if (requestSerial !== activeOrderDetailRequestSerial) return
+    activeOrderDetail.value = undefined
+    activeOrderDetailError.value = resolveErrorMessage(error, '活跃订单详情批记录加载失败。')
+  } finally {
+    if (requestSerial === activeOrderDetailRequestSerial) {
+      activeOrderDetailLoading.value = false
+    }
+  }
+}
+
+const reloadActiveOrderDetail = () => {
+  void loadActiveOrderDetail(selectedBatch.value)
+}
+
 const selectBatch = async (batch: EdhrBatchExecutionRespVO) => {
   if (selectedBatchId.value === batch.id) return
   selectedBatchId.value = batch.id
   selectedExecutionId.value = ''
   timeline.value = undefined
-  await loadTimeline(batch.id, '')
+  await Promise.all([loadTimeline(batch.id, ''), loadActiveOrderDetail(batch)])
 }
 
 const getBatchList = async () => {
@@ -855,11 +997,14 @@ const getBatchList = async () => {
     const nextBatch = batchList.value.find((batch) => batch.id === previousBatchId) || batchList.value[0]
     if (nextBatch) {
       selectedBatchId.value = nextBatch.id
-      await loadTimeline(nextBatch.id)
+      await Promise.all([loadTimeline(nextBatch.id), loadActiveOrderDetail(nextBatch)])
     } else {
       selectedBatchId.value = undefined
       selectedExecutionId.value = ''
       timeline.value = undefined
+      activeOrderDetail.value = undefined
+      activeOrderDetailError.value = ''
+      activeOrderDetailLoading.value = false
     }
   } catch (error) {
     batchList.value = []
@@ -867,6 +1012,9 @@ const getBatchList = async () => {
     selectedBatchId.value = undefined
     selectedExecutionId.value = ''
     timeline.value = undefined
+    activeOrderDetail.value = undefined
+    activeOrderDetailError.value = ''
+    activeOrderDetailLoading.value = false
     loadError.value = resolveErrorMessage(error, '历史批记录列表加载失败。')
   } finally {
     loading.value = false
@@ -1260,6 +1408,29 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.edhr-batch-history__formal-record,
+.edhr-batch-history__source-detail-record {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #dbe3ef;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.edhr-batch-history__source-detail-record {
+  background: #f8fafc;
+}
+
+.edhr-batch-history__record-section-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
 }
 
 .edhr-batch-history__execution-summary {

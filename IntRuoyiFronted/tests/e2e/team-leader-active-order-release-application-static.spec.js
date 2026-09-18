@@ -27,12 +27,13 @@ const applyRequest = extractInterface(api, 'TeamLeaderActiveOrderReleaseApplyReq
 const requestFields = [...applyRequest.matchAll(/^\s*(\w+)\??\s*:/gm)].map((match) => match[1])
 assert.deepStrictEqual(
   requestFields,
-  ['activeOrderId', 'idempotencyKey', 'applyRemark'],
-  'release apply request must contain exactly the three M0 fields.'
+  ['activeOrderId', 'idempotencyKey', 'applyRemark', 'confirmNoReplenishmentInfo'],
+  'release apply request contains the original identity fields and explicit no-replenishment confirmation.'
 )
 assert.match(applyRequest, /activeOrderId:\s*number/)
 assert.match(applyRequest, /idempotencyKey:\s*string/)
 assert.match(applyRequest, /applyRemark\?:\s*string/)
+assert.match(applyRequest, /confirmNoReplenishmentInfo\?:\s*boolean/)
 assert.doesNotMatch(
   api,
   /clientRequestId/,

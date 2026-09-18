@@ -1,5 +1,5 @@
 param(
-  [switch]$ConfirmRg01EncryptedDownload,
+  [switch]$ConfirmRg01DirectDownload,
   [switch]$ConfirmRg02UploadPolicy,
   [switch]$ConfirmRg03WatermarkTrace,
   [switch]$ConfirmRg04TestTenant,
@@ -76,7 +76,7 @@ Set-DccE2EEnv 'DCC_E2E_AUDITOR_USERNAME' 'aoteman'
 Set-DccE2EEnv 'DCC_E2E_ORDINARY_USERNAME' 'codexe2ereset'
 Set-DccE2EEnv 'DCC_E2E_POLICY_USERNAME' 'showroomviewer'
 
-Set-DccE2EGate $ConfirmRg01EncryptedDownload.IsPresent 'DCC_E2E_RG01_ENCRYPTION_READY'
+Set-DccE2EGate $ConfirmRg01DirectDownload.IsPresent 'DCC_E2E_RG01_DIRECT_DOWNLOAD_READY'
 Set-DccE2EGate $ConfirmRg02UploadPolicy.IsPresent 'DCC_E2E_RG02_UPLOAD_POLICY_READY'
 Set-DccE2EGate $ConfirmRg03WatermarkTrace.IsPresent 'DCC_E2E_RG03_WATERMARK_TRACE_READY'
 Set-DccE2EGate $ConfirmRg04TestTenant.IsPresent 'DCC_E2E_RG04_TEST_TENANT_READY'
@@ -204,7 +204,6 @@ Set-DccE2EEnv 'DCC_E2E_TC009_AUDIT_EXPECT_JSON_CONTAINS' 'TEMP_FILE||CLEANED||UP
 Set-DccE2EEnv 'DCC_E2E_TC010_DOWNLOAD_PATH' '/dcc/controlled-file/detail/2054545668044046252'
 Set-DccE2EEnv 'DCC_E2E_TC010_DOWNLOAD_TRIGGER_SELECTOR' ('button:has-text("' + (U '4E0B 8F7D 53D7 63A7 6587 4EF6') + '")')
 Set-DccE2EEnv 'DCC_E2E_TC010_DOWNLOAD_CONFIRM_SELECTOR' ('button:has-text("' + (U '786E 8BA4 4E0B 8F7D') + '")')
-Set-DccE2EEnv 'DCC_E2E_TC010_EXPECT_ENCRYPTION_POLICY_VERSION' 'test-20260530-dcc-p7'
 Set-DccE2EEnv 'DCC_E2E_TC010_AUDIT_VERIFY_URL' '/admin-api/dcc/controlled-file-audits/page?pageNo=1&pageSize=10&controlledFileId=2054545668044046252&userId=113&actionType=DOWNLOAD&result=ALLOWED'
 Set-DccE2EEnv 'DCC_E2E_TC010_AUDIT_EXPECT_JSON_CONTAINS' 'DOWNLOAD||ALLOWED||CONTROLLED_DOWNLOAD||2054545668044046252||113'
 Set-DccE2EEnv 'DCC_E2E_TC010_AUDIT_EXPECT_FIELDS' 'actionType=DOWNLOAD||result=ALLOWED||sourceIp=*||userAgent=*||requestId=*'
@@ -213,9 +212,9 @@ Set-DccE2EEnv 'DCC_E2E_TC011_DOWNLOAD_PATH' '/dcc/controlled-file/detail/2054545
 Set-DccE2EEnv 'DCC_E2E_TC011_DOWNLOAD_TRIGGER_SELECTOR' ('button:has-text("' + (U '4E0B 8F7D 53D7 63A7 6587 4EF6') + '")')
 Set-DccE2EEnv 'DCC_E2E_TC011_DOWNLOAD_CONFIRM_SELECTOR' ('button:has-text("' + (U '786E 8BA4 4E0B 8F7D') + '")')
 Set-DccE2EEnv 'DCC_E2E_TC011_ERROR_SELECTOR' '.el-message--error'
-Set-DccE2EEnv 'DCC_E2E_TC011_AUDIT_VERIFY_URL' '/admin-api/dcc/controlled-file-audits/page?pageNo=1&pageSize=10&controlledFileId=2054545668044046236&userId=113&actionType=DOWNLOAD&result=DENIED&failureCode=ENCRYPTION_CONTRACT_FAILED'
-Set-DccE2EEnv 'DCC_E2E_TC011_AUDIT_EXPECT_JSON_CONTAINS' 'DOWNLOAD||DENIED||CONTROLLED_DOWNLOAD||ENCRYPTION_CONTRACT_FAILED||2054545668044046236||113'
-Set-DccE2EEnv 'DCC_E2E_TC011_AUDIT_EXPECT_FIELDS' 'actionType=DOWNLOAD||result=DENIED||failureCode=ENCRYPTION_CONTRACT_FAILED||reason=ENCRYPTION_CONTRACT_FAILED||sourceIp=*||userAgent=*||requestId=*'
+Set-DccE2EEnv 'DCC_E2E_TC011_AUDIT_VERIFY_URL' '/admin-api/dcc/controlled-file-audits/page?pageNo=1&pageSize=10&controlledFileId=2054545668044046236&userId=113&actionType=DOWNLOAD&result=DENIED&failureCode=SOURCE_READ_FAILED'
+Set-DccE2EEnv 'DCC_E2E_TC011_AUDIT_EXPECT_JSON_CONTAINS' 'DOWNLOAD||DENIED||CONTROLLED_DOWNLOAD||SOURCE_READ_FAILED||2054545668044046236||113'
+Set-DccE2EEnv 'DCC_E2E_TC011_AUDIT_EXPECT_FIELDS' 'actionType=DOWNLOAD||result=DENIED||failureCode=SOURCE_READ_FAILED||reason=SOURCE_READ_FAILED||sourceIp=*||userAgent=*||requestId=*'
 
 Set-DccE2EEnv 'DCC_E2E_TC012_PREFIX_DENIED_PATH' '/dcc/controlled-file/detail/2054545668044046234'
 Set-DccE2EEnv 'DCC_E2E_TC012_PREFIX_DENIED_ABSENT_SELECTOR' ('button:has-text("' + (U '4E0B 8F7D 53D7 63A7 6587 4EF6') + '")')
@@ -269,9 +268,9 @@ Set-DccE2EEnv 'DCC_E2E_TC014_DOWNLOAD_FAILURE_PATH' '/dcc/controlled-file/detail
 Set-DccE2EEnv 'DCC_E2E_TC014_DOWNLOAD_TRIGGER_SELECTOR' ('button:has-text("' + (U '4E0B 8F7D 53D7 63A7 6587 4EF6') + '")')
 Set-DccE2EEnv 'DCC_E2E_TC014_DOWNLOAD_CONFIRM_SELECTOR' ('button:has-text("' + (U '786E 8BA4 4E0B 8F7D') + '")')
 Set-DccE2EEnv 'DCC_E2E_TC014_DOWNLOAD_ERROR_SELECTOR' '.el-message--error'
-Set-DccE2EEnv 'DCC_E2E_TC014_DOWNLOAD_AUDIT_VERIFY_URL' '/admin-api/dcc/controlled-file-audits/page?pageNo=1&pageSize=10&controlledFileId=2054545668044046236&userId=113&actionType=DOWNLOAD&result=DENIED&failureCode=ENCRYPTION_CONTRACT_FAILED'
-Set-DccE2EEnv 'DCC_E2E_TC014_DOWNLOAD_AUDIT_EXPECT_JSON_CONTAINS' 'DOWNLOAD||DENIED||CONTROLLED_DOWNLOAD||ENCRYPTION_CONTRACT_FAILED||2054545668044046236||113'
-Set-DccE2EEnv 'DCC_E2E_TC014_DOWNLOAD_AUDIT_EXPECT_FIELDS' 'actionType=DOWNLOAD||result=DENIED||failureCode=ENCRYPTION_CONTRACT_FAILED||reason=ENCRYPTION_CONTRACT_FAILED||sourceIp=*||userAgent=*||requestId=*'
+Set-DccE2EEnv 'DCC_E2E_TC014_DOWNLOAD_AUDIT_VERIFY_URL' '/admin-api/dcc/controlled-file-audits/page?pageNo=1&pageSize=10&controlledFileId=2054545668044046236&userId=113&actionType=DOWNLOAD&result=DENIED&failureCode=SOURCE_READ_FAILED'
+Set-DccE2EEnv 'DCC_E2E_TC014_DOWNLOAD_AUDIT_EXPECT_JSON_CONTAINS' 'DOWNLOAD||DENIED||CONTROLLED_DOWNLOAD||SOURCE_READ_FAILED||2054545668044046236||113'
+Set-DccE2EEnv 'DCC_E2E_TC014_DOWNLOAD_AUDIT_EXPECT_FIELDS' 'actionType=DOWNLOAD||result=DENIED||failureCode=SOURCE_READ_FAILED||reason=SOURCE_READ_FAILED||sourceIp=*||userAgent=*||requestId=*'
 
 Set-DccE2EEnv 'DCC_E2E_TC015_SCREENSHOT_PATHS' '/dcc/controlled-file/logs||/dcc/controlled-file/upload||/dcc/controlled-file/detail/2054545668044046252?viewer=1&from=detail'
 Set-DccE2EEnv 'DCC_E2E_TC015_READY_SELECTORS' (('text=' + (U '6587 63A7 65E5 5FD7')) + '||' + ('text=' + (U '53D7 63A7 6587 4EF6 63D0 4EA4')) + '||.protected-viewer-shell')

@@ -33,7 +33,15 @@ public class MesPqcProductionReleaseDecisionRespVO {
     private List<Long> processInspectionEvidenceIds;
 
     @JsonSerialize(contentUsing = ToStringSerializer.class)
+    private List<Long> processInspectionFormCenterInstanceIds;
+
+    @JsonSerialize(contentUsing = ToStringSerializer.class)
     private List<Long> lossReportEvidenceIds;
+    @JsonSerialize(contentUsing = ToStringSerializer.class)
+    private List<Long> lossReportFormCenterInstanceIds;
+    @JsonSerialize(contentUsing = ToStringSerializer.class)
+    private List<Long> lossReportFieldAuditIds;
+    private List<String> lossReportFieldAuditHeadHashes;
 
     private List<MesProductionReleaseReportUploadTaskRespVO> reportUploadTasks;
     private String sourceSnapshotHash;

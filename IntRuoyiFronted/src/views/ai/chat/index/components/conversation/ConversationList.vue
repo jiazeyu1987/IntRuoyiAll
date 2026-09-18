@@ -154,6 +154,7 @@ const loadingTime = ref<any>() // 加载中定时器
 // 定义组件 props
 const props = defineProps<{
   activeId?: number | string | null
+  createConversation?: () => Promise<number>
 }>()
 
 // 定义钩子
@@ -269,9 +270,9 @@ const getConversationGroupByCreateTime = async (list: ChatConversationVO[]) => {
 /** 新建对话 */
 const createConversation = async () => {
   // 1. 新建对话
-  const conversationId = await ChatConversationApi.createChatConversationMy(
-    {} as unknown as ChatConversationVO
-  )
+  const conversationId = props.createConversation
+    ? await props.createConversation()
+    : await ChatConversationApi.createChatConversationMy({} as unknown as ChatConversationVO)
   // 2. 获取对话内容
   await getChatConversationList()
   // 3. 选中对话

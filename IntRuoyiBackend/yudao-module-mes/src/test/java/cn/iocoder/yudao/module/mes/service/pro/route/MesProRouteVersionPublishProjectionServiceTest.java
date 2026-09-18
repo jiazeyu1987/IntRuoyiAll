@@ -105,6 +105,7 @@ class MesProRouteVersionPublishProjectionServiceTest {
     @BeforeEach
     void setUpIds() {
         AtomicLong routeProcessIds = new AtomicLong(3000L);
+        AtomicLong routeBindingIds = new AtomicLong(6000L);
         lenient().when(defectReasonMapper.selectList(any())).thenReturn(List.of());
         lenient().when(parameterRuleMapper.selectList(any())).thenReturn(List.of());
         lenient().when(routeProcessMapper.insert(any(MesProRouteProcessDO.class))).thenAnswer(invocation -> {
@@ -120,6 +121,11 @@ class MesProRouteVersionPublishProjectionServiceTest {
         lenient().when(routeFlowProcessConfigMapper.insert(any(MesProRouteFlowProcessConfigDO.class))).thenAnswer(invocation -> {
             MesProRouteFlowProcessConfigDO row = invocation.getArgument(0);
             row.setId(5001L);
+            return 1;
+        });
+        lenient().when(routeFlowProcessBatchRecordMapper.insert(any(MesProRouteFlowProcessBatchRecordDO.class))).thenAnswer(invocation -> {
+            MesProRouteFlowProcessBatchRecordDO row = invocation.getArgument(0);
+            row.setId(routeBindingIds.incrementAndGet());
             return 1;
         });
     }
@@ -540,6 +546,7 @@ class MesProRouteVersionPublishProjectionServiceTest {
         assertEquals(501L, productCaptor.getValue().getItemId());
 
         verify(routeFlowConfigMapper).deleteByRouteIdAndUseType(9001L, "BATCH");
+        verify(routeFlowProcessBatchRecordMapper, never()).deleteByRouteIdAndUseType(9001L, "BATCH");
         ArgumentCaptor<MesProRouteFlowProcessConfigDO> processConfigCaptor =
                 ArgumentCaptor.forClass(MesProRouteFlowProcessConfigDO.class);
         verify(routeFlowProcessConfigMapper).insert(processConfigCaptor.capture());
@@ -880,7 +887,7 @@ class MesProRouteVersionPublishProjectionServiceTest {
 
         verify(routeFlowConfigMapper).deleteByRouteIdAndUseType(9201L, "SCHEDULE");
         verify(routeFlowProcessConfigMapper).deleteByRouteIdAndUseType(9201L, "SCHEDULE");
-        verify(routeFlowProcessBatchRecordMapper).deleteByRouteIdAndUseType(9201L, "SCHEDULE");
+        verify(routeFlowProcessBatchRecordMapper, never()).deleteByRouteIdAndUseType(9201L, "SCHEDULE");
 
         ArgumentCaptor<MesProRouteFlowConfigDO> flowConfigCaptor =
                 ArgumentCaptor.forClass(MesProRouteFlowConfigDO.class);

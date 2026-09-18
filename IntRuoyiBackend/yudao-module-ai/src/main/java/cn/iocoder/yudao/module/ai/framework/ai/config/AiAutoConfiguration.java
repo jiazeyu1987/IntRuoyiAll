@@ -17,7 +17,7 @@ import cn.iocoder.yudao.module.ai.framework.ai.core.model.suno.api.SunoApi;
 import cn.iocoder.yudao.module.ai.framework.ai.core.model.xinghuo.XingHuoChatModel;
 import cn.iocoder.yudao.module.ai.framework.ai.core.webserch.AiWebSearchClient;
 import cn.iocoder.yudao.module.ai.framework.ai.core.webserch.bocha.AiBoChaWebSearchClient;
-import cn.iocoder.yudao.module.ai.tool.method.PersonService;
+import cn.iocoder.yudao.module.ai.tool.IntruoyiMcpReadOnlyTools;
 import io.micrometer.observation.ObservationRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
@@ -323,8 +323,8 @@ public class AiAutoConfiguration {
      * 参考自 <a href="https://docs.spring.io/spring-ai/reference/api/mcp/mcp-client-boot-starter-docs.html">MCP Server Boot Starter</>
      */
     @Bean
-    public List<ToolCallback> toolCallbacks(PersonService personService) {
-        return List.of(ToolCallbacks.from(personService));
+    public List<ToolCallback> toolCallbacks(IntruoyiMcpReadOnlyTools intruoyiMcpReadOnlyTools) {
+        return List.of(ToolCallbacks.from(intruoyiMcpReadOnlyTools));
     }
 
 }

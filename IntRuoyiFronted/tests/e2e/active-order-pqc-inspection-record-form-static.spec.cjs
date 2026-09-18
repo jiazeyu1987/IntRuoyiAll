@@ -8,15 +8,22 @@ const panel = fs.readFileSync(
   'utf8'
 )
 
-assert.match(
-  panel,
-  /<el-tab-pane label="PQC提交" name="pqcSubmissions">[\s\S]*class="team-leader-workbench__pqc-inspection-record-form"/,
+const pqcTabStart = panel.indexOf('label="PQC提交"')
+const processRecordTabStart = panel.indexOf('label="过程检验记录"', pqcTabStart)
+const nextTabStart = panel.indexOf('</el-tab-pane>', processRecordTabStart)
+assert.ok(pqcTabStart > 0, 'PQC提交页签必须存在。')
+assert.ok(processRecordTabStart > pqcTabStart, 'PQC提交必须包含过程检验记录内层页签。')
+assert.ok(nextTabStart > pqcTabStart, '必须能定位 PQC提交页签边界。')
+const pqcTabBlock = panel.slice(pqcTabStart, nextTabStart)
+
+assert.ok(
+  pqcTabBlock.includes('name="pqcSubmissions"') &&
+    pqcTabBlock.includes('class="team-leader-workbench__pqc-inspection-record-form"'),
   'PQC提交页签必须直接内嵌过程检验记录表单。'
 )
 
-assert.doesNotMatch(
-  panel,
-  /<el-tab-pane label="PQC提交" name="pqcSubmissions">[\s\S]*data-active-order-pqc-inspection-record-form-button[\s\S]*<el-tab-pane[\s\S]*label="领料单"/,
+assert.ok(
+  !pqcTabBlock.includes('data-active-order-pqc-inspection-record-form-button'),
   'PQC提交页签不得再显示过程检验记录表单按钮。'
 )
 

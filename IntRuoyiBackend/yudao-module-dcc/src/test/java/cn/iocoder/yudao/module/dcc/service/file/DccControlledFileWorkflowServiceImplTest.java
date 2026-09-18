@@ -26,6 +26,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCur
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMajorRevisionReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRoutePreviewRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitIterationReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTrainingRecordReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessReqVO;
@@ -51,6 +52,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccCategoryDirectoryBindin
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryPermissionRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccFileDirectoryMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileCheckoutMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionRecipientMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
@@ -180,6 +182,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileMapper controlledFileMapper;
     @Mock
+    private DccControlledFileCheckoutMapper checkoutMapper;
+    @Mock
     private DccFileDirectoryMapper directoryMapper;
     @Mock
     private DccControlledFileMasterMapper controlledFileMasterMapper;
@@ -286,7 +290,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         lenient().when(adminUserApi.getUserList(any())).thenAnswer(invocation -> {
             Collection<Long> userIds = invocation.getArgument(0);
             return userIds.stream()
-                    .map(userId -> new AdminUserRespDTO().setId(userId).setNickname("用户" + userId)
+                    .map(userId -> new AdminUserRespDTO().setId(userId).setStatus(0).setNickname("用户" + userId)
                             .setPostIds(java.util.Set.of(10_000L + userId)))
                     .toList();
         });
@@ -394,12 +398,12 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 DccPositionAssignmentDO.builder().id(64L).positionId(52L).assignmentType("POST").systemPostId(504L).active(Boolean.TRUE).build()));
         when(positionAssignmentMapper.selectActiveListByPositionId(53L)).thenReturn(List.of(
                 DccPositionAssignmentDO.builder().id(65L).positionId(53L).assignmentType("POST").systemPostId(505L).active(Boolean.TRUE).build()));
-        when(adminUserApi.getUserListByPostIds(List.of(500L))).thenReturn(List.of(new AdminUserRespDTO().setId(200L)));
-        when(adminUserApi.getUserListByPostIds(List.of(501L))).thenReturn(List.of(new AdminUserRespDTO().setId(201L)));
-        when(adminUserApi.getUserListByPostIds(List.of(502L))).thenReturn(List.of(new AdminUserRespDTO().setId(202L)));
-        when(adminUserApi.getUserListByPostIds(List.of(503L))).thenReturn(List.of(new AdminUserRespDTO().setId(203L)));
-        when(adminUserApi.getUserListByPostIds(List.of(504L))).thenReturn(List.of(new AdminUserRespDTO().setId(204L)));
-        when(adminUserApi.getUserListByPostIds(List.of(505L))).thenReturn(List.of(new AdminUserRespDTO().setId(205L)));
+        when(adminUserApi.getUserListByPostIds(List.of(500L))).thenReturn(List.of(new AdminUserRespDTO().setId(200L).setStatus(0)));
+        when(adminUserApi.getUserListByPostIds(List.of(501L))).thenReturn(List.of(new AdminUserRespDTO().setId(201L).setStatus(0)));
+        when(adminUserApi.getUserListByPostIds(List.of(502L))).thenReturn(List.of(new AdminUserRespDTO().setId(202L).setStatus(0)));
+        when(adminUserApi.getUserListByPostIds(List.of(503L))).thenReturn(List.of(new AdminUserRespDTO().setId(203L).setStatus(0)));
+        when(adminUserApi.getUserListByPostIds(List.of(504L))).thenReturn(List.of(new AdminUserRespDTO().setId(204L).setStatus(0)));
+        when(adminUserApi.getUserListByPostIds(List.of(505L))).thenReturn(List.of(new AdminUserRespDTO().setId(205L).setStatus(0)));
         doAnswer(invocation -> {
             DccControlledFileMasterDO master = invocation.getArgument(0);
             master.setId(700L);
@@ -587,7 +591,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void submitControlledFile_databaseRaceReplaysCommittedWinner() {
+    void submitControlledFile_businessFailureMustNotReplayAnotherRecord() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("A/1");
         String payloadHash = cn.hutool.crypto.digest.DigestUtil.sha256Hex(
                 cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(reqVO));
@@ -597,10 +601,159 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectBySubmitIdempotencyForUpdate(1L, 99L, "dcc-submit-test-1"))
                 .thenReturn(DccControlledFileDO.builder().id(921L).submitPayloadHash(payloadHash).build());
 
-        assertEquals(921L, workflowService.submitControlledFile(99L, reqVO));
+        assertServiceException(() -> workflowService.submitControlledFile(99L, reqVO),
+                PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
 
         verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
         verify(bpmProcessInstanceApi, never()).createProcessInstance(any(), any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"relation", "ticket", "relation-duplicate"})
+    void createWorkingControlledFile_postInsertFailureMustNotReplayItsOwnRow(String failurePoint) {
+        DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO(null);
+        mockCommonSubmitDependencies();
+        java.util.concurrent.atomic.AtomicReference<DccControlledFileDO> inserted =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        doAnswer(invocation -> {
+            DccControlledFileDO file = invocation.getArgument(0);
+            file.setId(920L);
+            inserted.set(file);
+            return 1;
+        }).when(controlledFileMapper).insert(any(DccControlledFileDO.class));
+        when(controlledFileMapper.selectByCreationIdempotencyForUpdate(1L, 99L, "dcc-submit-test-1"))
+                .thenAnswer(ignored -> inserted.get());
+        RuntimeException failure = "relation-duplicate".equals(failurePoint)
+                ? new org.springframework.dao.DuplicateKeyException("related file uniqueness violated")
+                : new IllegalStateException("binding rejected");
+        if ("ticket".equals(failurePoint)) {
+            doThrow(failure).when(uploadTicketService).markBound(any());
+        } else {
+            doThrow(failure).when(relatedFileService).validateAndBindRelatedFiles(eq(920L), eq(3000L), any());
+        }
+
+        assertSame(failure, assertThrows(RuntimeException.class,
+                () -> workflowService.createWorkingControlledFile(99L, reqVO)));
+        verify(bpmProcessInstanceApi, never()).createProcessInstance(any(), any());
+    }
+
+    @Test
+    void createWorkingControlledFile_rootInsertRaceReturnsCommittedWinnerWithoutBindingAgain() {
+        DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO(null);
+        String hash = cn.hutool.crypto.digest.DigestUtil.sha256Hex("CREATE_WORKING:WORKING_CREATE:"
+                + cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(reqVO));
+        mockCommonSubmitDependencies();
+        doThrow(new org.springframework.dao.DuplicateKeyException("creation idempotency key"))
+                .when(controlledFileMapper).insert(any(DccControlledFileDO.class));
+        when(controlledFileMapper.selectByCreationIdempotencyForUpdate(1L, 99L, "dcc-submit-test-1"))
+                .thenReturn(DccControlledFileDO.builder().id(920L).creationPayloadHash(hash).build());
+
+        assertEquals(920L, workflowService.createWorkingControlledFile(99L, reqVO));
+        verify(relatedFileService, never()).validateAndBindRelatedFiles(any(), any(), any());
+        verify(uploadTicketService, never()).markBound(any());
+    }
+
+    @Test
+    void submitWorkingIteration_repeatedCheckinsCloseReturnedAncestorAndUnifiedCandidateBeforeNewSubmission() {
+        mockCommonSubmitDependencies();
+        mockFourStageRoute();
+        when(permissionApi.hasAnyPermissions(eq(200L), any(String[].class))).thenReturn(true);
+        DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
+                .id(700L).categoryId(10L).directoryId(21L).fileName("SOP-001").fileNumber("SOP-001")
+                .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode()).build();
+        DccControlledFileDO returnedA1 = DccControlledFileDO.builder()
+                .id(900L).masterId(700L).categoryId(10L).directoryId(21L)
+                .fileName("SOP-001").fileNumber("SOP-001").versionNo("A/1").revisionCode("A").iterationNo(1)
+                .dccProjectCodeId(3000L).fileTypeTaxonomyId(8803L).requesterId(99L)
+                .changeType(DccControlledFileChangeTypeEnum.NEW.getCode())
+                .status(DccControlledFileStatusEnum.PENDING_APPLICANT_REWORK.getStatus())
+                .processInstanceId("proc-returned-a1").build();
+        DccControlledFileDO firstCheckinA2 = DccControlledFileDO.builder()
+                .id(901L).masterId(700L).categoryId(10L).directoryId(21L)
+                .fileName("SOP-001").fileNumber("SOP-001").versionNo("A/2").revisionCode("A").iterationNo(2)
+                .dccProjectCodeId(3000L).fileTypeTaxonomyId(8803L).requesterId(99L)
+                .changeType(DccControlledFileChangeTypeEnum.NEW.getCode())
+                .status(DccControlledFileStatusEnum.WORKING.getStatus())
+                .predecessorControlledFileId(900L).build();
+        DccControlledFileDO secondCheckinA3 = DccControlledFileDO.builder()
+                .id(902L).masterId(700L).categoryId(10L).directoryId(21L)
+                .fileName("SOP-001").fileNumber("SOP-001").versionNo("A/3").revisionCode("A").iterationNo(3)
+                .dccProjectCodeId(3000L).fileTypeTaxonomyId(8803L).requesterId(99L)
+                .changeType(DccControlledFileChangeTypeEnum.NEW.getCode())
+                .status(DccControlledFileStatusEnum.WORKING.getStatus())
+                .predecessorControlledFileId(901L).build();
+        when(controlledFileMapper.selectById(902L)).thenReturn(secondCheckinA3);
+        when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(returnedA1, firstCheckinA2, secondCheckinA3));
+        when(controlledFileMapper.updateById(any(DccControlledFileDO.class))).thenReturn(1);
+        when(bpmProcessInstanceApi.createProcessInstance(eq(99L), any(BpmProcessInstanceCreateReqDTO.class)))
+                .thenReturn("proc-new-a3");
+        DccControlledFileSubmitIterationReqVO reqVO = new DccControlledFileSubmitIterationReqVO();
+        reqVO.setIdempotencyKey("submit-a3-after-rework");
+
+        Long result = workflowService.submitWorkingIteration(99L, 902L, reqVO);
+
+        assertEquals(902L, result);
+        ArgumentCaptor<BpmProcessInstanceCancelReqVO> cancelCaptor =
+                ArgumentCaptor.forClass(BpmProcessInstanceCancelReqVO.class);
+        verify(bpmProcessInstanceService).cancelProcessInstanceByStartUser(eq(99L), cancelCaptor.capture());
+        assertEquals("proc-returned-a1", cancelCaptor.getValue().getId());
+        assertTrue(cancelCaptor.getValue().getReason().contains("A/3"));
+        ArgumentCaptor<DccControlledFileDO> updateCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper, org.mockito.Mockito.times(3)).updateById(updateCaptor.capture());
+        assertTrue(updateCaptor.getAllValues().stream().anyMatch(update -> Long.valueOf(900L).equals(update.getId())
+                && DccControlledFileStatusEnum.WITHDRAWN.getStatus().equals(update.getStatus())
+                && update.getRejectReason().contains("A/3")));
+        org.mockito.InOrder platformOrder = org.mockito.Mockito.inOrder(platformAdapter);
+        platformOrder.verify(platformAdapter).recordWithdrawn(
+                org.mockito.ArgumentMatchers.argThat(file -> Long.valueOf(900L).equals(file.getId())),
+                eq(99L), org.mockito.ArgumentMatchers.contains("A/3"));
+        platformOrder.verify(platformAdapter).recordSubmitted(
+                org.mockito.ArgumentMatchers.argThat(file -> Long.valueOf(902L).equals(file.getId())
+                        && "proc-new-a3".equals(file.getProcessInstanceId())),
+                eq(99L), eq("proc-new-a3"));
+        platformOrder.verify(platformAdapter).recordResubmitted(
+                org.mockito.ArgumentMatchers.argThat(file -> Long.valueOf(900L).equals(file.getId())),
+                eq(902L));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"transfer,permission", "transfer,authorization", "transfer,image",
+            "sign,permission", "sign,authorization", "sign,image"})
+    void taskRecipientWithoutRequiredQualificationMustNotChangeTask(String action, String missing) {
+        mockTaskActionContext(900L, 99L, "task-2", "approveTask",
+                DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW,
+                DccControlledFileStageCodeEnum.MATRIX_REVIEW, Boolean.FALSE);
+        if ("permission".equals(missing)) {
+            when(permissionApi.hasAnyPermissions(eq(101L), any(String[].class))).thenReturn(false);
+        } else if ("authorization".equals(missing)) {
+            when(signatureAuthorizationService.getAuthorizationMap(List.of(101L))).thenReturn(Map.of(101L, false));
+        } else {
+            when(signatureImageService.requireActiveSnapshot(101L)).thenReturn(null);
+        }
+        Runnable actionCall;
+        if ("transfer".equals(action)) {
+            DccControlledFileTransferTaskReqVO req = new DccControlledFileTransferTaskReqVO();
+            req.setTaskId("task-2");
+            req.setAssigneeUserId(101L);
+            req.setPassword("test-password");
+            req.setReason("任务转交");
+            actionCall = () -> workflowService.transferTask(99L, 900L, req);
+        } else {
+            DccControlledFileCreateSignTaskReqVO req = new DccControlledFileCreateSignTaskReqVO();
+            req.setTaskId("task-2");
+            req.setUserIds(new java.util.LinkedHashSet<>(List.of(101L)));
+            req.setType("before");
+            req.setPassword("test-password");
+            req.setReason("增加审核人");
+            actionCall = () -> workflowService.createSignTask(99L, 900L, req);
+        }
+
+        assertThrows(ServiceException.class, actionCall::run);
+        verify(signatureVerificationService, never()).verifyPasswordAndCreateSignature(any(), any(), any(), any(), any(), any(), any());
+        verify(bpmTaskService, never()).transferTask(any(), any());
+        verify(bpmTaskService, never()).createSignTask(any(), any());
+        verify(routeSnapshotMapper, never()).updateById(any(DccControlledFileRouteSnapshotDO.class));
     }
 
     @Test
@@ -633,7 +786,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     @Test
     void createMajorRevision_fromSelectedA2_generatesB1AndPreservesFormalBaseline() {
         mockCommonSubmitDependencies();
-        mockSingleStageRoute();
+        mockFourStageRoute();
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
                 .id(700L).categoryId(10L).directoryId(21L).fileName("SOP-001").fileNumber("SOP-001")
                 .currentActiveControlledFileId(900L).status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode()).build();
@@ -707,7 +860,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     @Test
     void createMajorRevision_projectOwnerDifferentFromRequesterIsAllowed() {
         mockCommonSubmitDependencies();
-        mockSingleStageRoute();
+        mockFourStageRoute();
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
                 .id(700L).categoryId(10L).directoryId(21L).fileName("SOP-001").fileNumber("SOP-001")
                 .currentActiveControlledFileId(900L).status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode()).build();
@@ -746,7 +899,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     @Test
     void createMajorRevision_fromSelectedB2_generatesC1() {
         mockCommonSubmitDependencies();
-        mockSingleStageRoute();
+        mockFourStageRoute();
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
                 .id(700L).categoryId(10L).directoryId(21L).fileName("SOP-001").fileNumber("SOP-001")
                 .currentActiveControlledFileId(900L)
@@ -904,6 +1057,54 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(700L, result.getMasterId());
         assertEquals(800L, result.getCurrentControlledFileId());
         assertEquals("A/1", result.getCurrentVersionNo());
+    }
+
+    @Test
+    void getCurrentVersionByFileNumber_rejectsMasterActiveFileIdentityMismatch() {
+        DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
+                .id(700L)
+                .categoryId(10L)
+                .directoryId(21L)
+                .fileName("SOP-001")
+                .fileNumber("DOC-OLD")
+                .dccProjectCodeId(3000L)
+                .fileTypeTaxonomyLeafId(8803L)
+                .normalizedFileNumber("DOC-OLD")
+                .currentActiveControlledFileId(800L)
+                .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode())
+                .build();
+        DccControlledFileDO activeFile = DccControlledFileDO.builder()
+                .id(800L)
+                .masterId(700L)
+                .categoryId(10L)
+                .directoryId(21L)
+                .fileName("SOP-001")
+                .fileNumber("DOC-NEW")
+                .versionNo("A/1")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .dccProjectCodeId(3000L)
+                .fileTypeTaxonomyId(8803L)
+                .sourceFileId(100L)
+                .originalFileId(100L)
+                .build();
+        when(projectCodeMapper.selectById(3000L)).thenReturn(DccProjectCodeDO.builder()
+                .id(3000L).status(DccProjectCodeStatusConstants.ENABLE).build());
+        when(fileTypeTaxonomyAdminService.resolveActivePath(8803L)).thenReturn(defaultTaxonomyPath());
+        when(fileTypeTaxonomyAdminService.listActiveDescendantIds(8803L)).thenReturn(List.of(8803L));
+        when(fileTypeTaxonomyAdminService.listActiveDescendantPaths(8803L)).thenReturn(List.of(defaultTaxonomyPath()));
+        when(controlledFileMasterMapper.selectListByLogicalIdentity(3000L, 8803L, "DOC-OLD"))
+                .thenReturn(List.of(master));
+        when(controlledFileMapper.selectById(800L)).thenReturn(activeFile);
+        when(fileMapper.selectById(100L)).thenReturn(FileDO.builder()
+                .id(100L).name("DOC-NEW.docx").path("dcc/source/DOC-NEW.docx").build());
+        DccControlledFileRespVO detail = new DccControlledFileRespVO();
+        detail.setActionProjection(new DccControlledFileActionProjectionRespVO());
+        when(queryService.getControlledFile(99L, 800L)).thenReturn(detail);
+
+        assertServiceException(() -> workflowService.getCurrentVersionByFileNumber(99L, "DOC-OLD", 3000L, 8803L),
+                CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+
+        verify(queryService, never()).getControlledFile(any(), any());
     }
 
     @Test
@@ -1065,7 +1266,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectAssociatedFilesByProjectCodeId(3000L, List.of(801L)))
                 .thenReturn(List.of(source));
         when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active, source));
-        mockSingleStageRoute();
+        mockFourStageRoute();
         doAnswer(invocation -> {
             DccControlledFileDO file = invocation.getArgument(0);
             file.setId(911L);
@@ -1243,7 +1444,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(fileTypeTaxonomyAdminService.resolveActiveIdByPath("一级", "二级", "三级", null, null))
                 .thenReturn(8803L);
         lenient().when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(legacyActiveFile));
-        mockSingleStageRoute();
+        mockFourStageRoute();
         doAnswer(invocation -> {
             DccControlledFileDO file = invocation.getArgument(0);
             file.setId(911L);
@@ -1312,7 +1513,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .thenReturn(List.of(activeFile));
         when(controlledFileMapper.selectAssociatedFilesByProjectCodeId(3000L, List.of(800L)))
                 .thenReturn(List.of(activeFile));
-        mockSingleStageRoute();
+        mockFourStageRoute();
         doAnswer(invocation -> {
             DccControlledFileDO file = invocation.getArgument(0);
             file.setId(912L);
@@ -1375,11 +1576,11 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .name("SOP-source.docx")
                 .type("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 .build());
-        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
+        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(fullApprovalRoute(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "POSITION", 50L)));
         when(positionAssignmentMapper.selectActiveListByPositionId(50L)).thenReturn(List.of(
                 DccPositionAssignmentDO.builder().id(60L).positionId(50L).assignmentType("POST").systemPostId(500L).active(Boolean.TRUE).build()));
-        when(adminUserApi.getUserListByPostIds(List.of(500L))).thenReturn(List.of(new AdminUserRespDTO().setId(200L)));
+        when(adminUserApi.getUserListByPostIds(List.of(500L))).thenReturn(List.of(new AdminUserRespDTO().setId(200L).setStatus(0)));
         doAnswer(invocation -> {
             DccControlledFileMasterDO master = invocation.getArgument(0);
             master.setId(700L);
@@ -1424,10 +1625,10 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 DccPositionAssignmentDO.builder().id(62L).positionId(52L).assignmentType("POST").systemPostId(502L).active(Boolean.TRUE).build()));
         when(positionAssignmentMapper.selectActiveListByPositionId(53L)).thenReturn(List.of(
                 DccPositionAssignmentDO.builder().id(63L).positionId(53L).assignmentType("POST").systemPostId(503L).active(Boolean.TRUE).build()));
-        when(adminUserApi.getUserListByPostIds(List.of(500L))).thenReturn(List.of(new AdminUserRespDTO().setId(200L)));
-        when(adminUserApi.getUserListByPostIds(List.of(501L))).thenReturn(List.of(new AdminUserRespDTO().setId(201L)));
-        when(adminUserApi.getUserListByPostIds(List.of(502L))).thenReturn(List.of(new AdminUserRespDTO().setId(203L)));
-        when(adminUserApi.getUserListByPostIds(List.of(503L))).thenReturn(List.of(new AdminUserRespDTO().setId(205L)));
+        when(adminUserApi.getUserListByPostIds(List.of(500L))).thenReturn(List.of(new AdminUserRespDTO().setId(200L).setStatus(0)));
+        when(adminUserApi.getUserListByPostIds(List.of(501L))).thenReturn(List.of(new AdminUserRespDTO().setId(201L).setStatus(0)));
+        when(adminUserApi.getUserListByPostIds(List.of(502L))).thenReturn(List.of(new AdminUserRespDTO().setId(203L).setStatus(0)));
+        when(adminUserApi.getUserListByPostIds(List.of(503L))).thenReturn(List.of(new AdminUserRespDTO().setId(205L).setStatus(0)));
         doAnswer(invocation -> {
             DccControlledFileMasterDO master = invocation.getArgument(0);
             master.setId(700L);
@@ -1452,13 +1653,15 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         mockCommonSubmitDependencies();
         when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "POSITION", 50L),
-                routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "Matrix Review", "POSITION", 51L)));
+                routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "Matrix Review", "POSITION", 51L),
+                routeNode(3, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "Matrix Approval", "USER", 200L),
+                routeNode(4, DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode(), "Doc Control Approval", "USER", 200L)));
         when(positionAssignmentMapper.selectActiveListByPositionId(50L)).thenReturn(List.of(
                 DccPositionAssignmentDO.builder().id(60L).positionId(50L).assignmentType("POST").systemPostId(500L).active(Boolean.TRUE).build()));
         when(positionAssignmentMapper.selectActiveListByPositionId(51L)).thenReturn(List.of(
                 DccPositionAssignmentDO.builder().id(61L).positionId(51L).assignmentType("POST").systemPostId(501L).active(Boolean.TRUE).build()));
-        when(adminUserApi.getUserListByPostIds(List.of(500L))).thenReturn(List.of(new AdminUserRespDTO().setId(200L)));
-        when(adminUserApi.getUserListByPostIds(List.of(501L))).thenReturn(List.of(new AdminUserRespDTO().setId(201L)));
+        when(adminUserApi.getUserListByPostIds(List.of(500L))).thenReturn(List.of(new AdminUserRespDTO().setId(200L).setStatus(0)));
+        when(adminUserApi.getUserListByPostIds(List.of(501L))).thenReturn(List.of(new AdminUserRespDTO().setId(201L).setStatus(0)));
         doAnswer(invocation -> {
             Collection<Long> userIds = invocation.getArgument(0);
             if (userIds.contains(301L)) {
@@ -1478,7 +1681,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     void submitControlledFile_routeBecomesNotReadyRejectsBeforeFormalRecordTicketBindAndBpm() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.0");
         mockCommonSubmitDependencies();
-        mockSingleStageRoute();
+        mockFourStageRoute();
         when(permissionApi.hasAnyPermissions(200L, "dcc:controlled-file:review")).thenReturn(false);
 
         ServiceException ex = assertThrows(ServiceException.class,
@@ -1543,7 +1746,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .fileTypeTaxonomyId(8803L).build());
         reqVO.setProductMasterId(5000L);
         reqVO.setProductCode("not-authoritative");
-        mockSingleStageRoute();
+        mockFourStageRoute();
         doAnswer(invocation -> {
             DccControlledFileDO file = invocation.getArgument(0);
             file.setId(907L);
@@ -1569,7 +1772,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
                 .id(10L).code("DCC_FVM_DHF_005").name("项目策划书").active(Boolean.TRUE).source("LOCAL")
                 .fileTypeTaxonomyId(8803L).build());
-        mockSingleStageRoute();
+        mockFourStageRoute();
         doAnswer(invocation -> {
             DccControlledFileDO file = invocation.getArgument(0);
             file.setId(906L);
@@ -1604,7 +1807,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .nameCn("MDM正式产品")
                 .status("ENABLE")
                 .build());
-        mockSingleStageRoute();
+        mockFourStageRoute();
         doAnswer(invocation -> {
             DccControlledFileDO file = invocation.getArgument(0);
             file.setId(908L);
@@ -2037,7 +2240,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(directoryMapper.selectEnabledList()).thenReturn(List.of(directory(20L, null, "叶子目录")));
         lenient().when(routeMapper.selectLatestActiveByCategoryId(10L)).thenReturn(
                 DccCategoryApprovalRouteDO.builder().id(30L).categoryId(10L).versionNo(2).active(Boolean.TRUE).effectiveTime(LocalDateTime.now()).build());
-        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
+        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(fullApprovalRoute(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "USER", 200L)));
         when(fileMapper.selectById(100L)).thenReturn(FileDO.builder()
                 .id(100L).name("SOP-001.docx")
@@ -2071,7 +2274,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(directoryMapper.selectEnabledList()).thenReturn(List.of(
                 directory(900L, 0L, "未分类", "UNCLASSIFIED"),
                 directory(30L, null, "其他根目录")));
-        mockSingleStageRoute();
+        mockFourStageRoute();
         doAnswer(invocation -> {
             DccControlledFileDO file = invocation.getArgument(0);
             file.setId(900L);
@@ -2121,7 +2324,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     void submitControlledFile_positionHasNoResolvedUsers_throwsApproverMissing() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("1.0");
         mockCommonSubmitDependencies();
-        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
+        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(fullApprovalRoute(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "POSITION", 50L)));
         when(positionAssignmentMapper.selectActiveListByPositionId(50L)).thenReturn(List.of());
 
@@ -2134,7 +2337,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     void submitControlledFile_userCandidateInvalid_throwsBeforeInsertSnapshotAndBpm() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("1.0");
         mockCommonSubmitDependencies();
-        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
+        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(fullApprovalRoute(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(),
                         "Doc Control Review", "USER", 200L)));
         doAnswer(invocation -> {
@@ -2156,7 +2359,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     void submitControlledFile_positionDirectUserInvalid_throwsBeforeInsertSnapshotAndBpm() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("1.0");
         mockCommonSubmitDependencies();
-        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
+        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(fullApprovalRoute(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(),
                         "Doc Control Review", "POSITION", 50L)));
         when(positionAssignmentMapper.selectActiveListByPositionId(50L)).thenReturn(List.of(
@@ -2217,7 +2420,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setChangeType(DccControlledFileChangeTypeEnum.REVISION.getCode());
         reqVO.setRevisionTargetControlledFileId(800L);
         mockCommonSubmitDependencies();
-        lenient().when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
+        lenient().when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(fullApprovalRoute(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "USER", 200L)));
         when(controlledFileMasterMapper.selectListByFileNumber("SOP-001"))
                 .thenReturn(List.of(DccControlledFileMasterDO.builder()
@@ -2244,7 +2447,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     void submitControlledFile_fileNumberConflict_throws() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("1.1");
         mockCommonSubmitDependencies();
-        lenient().when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
+        lenient().when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(fullApprovalRoute(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "USER", 200L)));
         when(controlledFileMasterMapper.selectByNewLogicalIdentity(1L, 3000L, 8803L, "SOP-001"))
                 .thenReturn(DccControlledFileMasterDO.builder()
@@ -2261,14 +2464,14 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .id(10L).active(Boolean.TRUE).source("LOCAL").build());
         when(routeMapper.selectLatestActiveByCategoryId(10L)).thenReturn(
                 DccCategoryApprovalRouteDO.builder().id(30L).categoryId(10L).versionNo(2).active(Boolean.TRUE).build());
-        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
+        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(fullApprovalRoute(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "USER", 200L)));
 
         DccControlledFileRouteReadinessRespVO readiness = workflowService.previewRoute(99L, 10L, List.of());
         List<DccControlledFileRoutePreviewRespVO> respVOS = readiness.getNodes();
 
         assertTrue(readiness.getReady());
-        assertEquals(1, respVOS.size());
+        assertEquals(4, respVOS.size());
         assertEquals(1, respVOS.get(0).getStageNo());
         assertEquals(DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), respVOS.get(0).getStageCode());
         assertEquals(List.of(200L), respVOS.get(0).getResolvedUserIds());
@@ -2282,7 +2485,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .id(10L).active(Boolean.TRUE).source("LOCAL").build());
         when(routeMapper.selectLatestActiveByCategoryId(10L)).thenReturn(
                 DccCategoryApprovalRouteDO.builder().id(30L).categoryId(10L).versionNo(2).active(Boolean.TRUE).build());
-        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
+        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(fullApprovalRoute(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "POSITION", 50L)));
         when(positionAssignmentMapper.selectActiveListByPositionId(50L)).thenReturn(List.of());
 
@@ -2296,14 +2499,14 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .id(10L).active(Boolean.TRUE).source("LOCAL").build());
         when(routeMapper.selectLatestActiveByCategoryId(10L)).thenReturn(
                 DccCategoryApprovalRouteDO.builder().id(30L).categoryId(10L).versionNo(2).active(Boolean.TRUE).build());
-        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
+        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(fullApprovalRoute(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "POSITION", 50L)));
         when(positionRuntimeResolver.isUploaderDerivedPosition(50L)).thenReturn(Boolean.TRUE);
         when(positionRuntimeResolver.resolveUserIds(50L, 99L, false)).thenReturn(List.of(300L));
 
         List<DccControlledFileRoutePreviewRespVO> respVOS = workflowService.previewRoute(99L, 10L, List.of()).getNodes();
 
-        assertEquals(1, respVOS.size());
+        assertEquals(4, respVOS.size());
         assertEquals(List.of(300L), respVOS.get(0).getResolvedUserIds());
     }
 
@@ -2313,7 +2516,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .id(10L).active(Boolean.TRUE).source("LOCAL").build());
         when(routeMapper.selectLatestActiveByCategoryId(10L)).thenReturn(
                 DccCategoryApprovalRouteDO.builder().id(30L).categoryId(10L).versionNo(2).active(Boolean.TRUE).build());
-        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
+        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(fullApprovalRoute(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "POSITION", 900334L)));
         when(positionRuntimeResolver.isUploaderDerivedPosition(900334L)).thenReturn(Boolean.FALSE);
         when(positionAssignmentMapper.selectActiveListByPositionId(900334L)).thenReturn(List.of(
@@ -2322,7 +2525,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
 
         List<DccControlledFileRoutePreviewRespVO> respVOS = workflowService.previewRoute(99L, 10L, List.of()).getNodes();
 
-        assertEquals(1, respVOS.size());
+        assertEquals(4, respVOS.size());
         assertEquals(List.of(301L), respVOS.get(0).getResolvedUserIds());
         verify(positionRuntimeResolver, never()).resolveUserIds(900334L, 99L, false);
     }
@@ -2504,11 +2707,11 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                         .fileNumber("SOP-001")
                         .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode())
                         .build()));
-        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
+        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(fullApprovalRoute(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "POSITION", 50L)));
         when(positionAssignmentMapper.selectActiveListByPositionId(50L)).thenReturn(List.of(
                 DccPositionAssignmentDO.builder().id(60L).positionId(50L).assignmentType("POST").systemPostId(500L).active(Boolean.TRUE).build()));
-        when(adminUserApi.getUserListByPostIds(List.of(500L))).thenReturn(List.of(new AdminUserRespDTO().setId(200L)));
+        when(adminUserApi.getUserListByPostIds(List.of(500L))).thenReturn(List.of(new AdminUserRespDTO().setId(200L).setStatus(0)));
         doAnswer(invocation -> {
             DccControlledFileDO file = invocation.getArgument(0);
             file.setId(901L);
@@ -3457,8 +3660,9 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .thenReturn(List.of(currentTask))
                 .thenReturn(List.of());
         when(adminUserApi.getUserListByDeptIds(List.of(300L))).thenReturn(List.of(
-                new AdminUserRespDTO().setId(120L).setDeptId(300L),
-                new AdminUserRespDTO().setId(121L).setDeptId(300L)));
+                new AdminUserRespDTO().setId(120L).setStatus(0).setDeptId(300L),
+                new AdminUserRespDTO().setId(121L).setStatus(0).setDeptId(300L),
+                new AdminUserRespDTO().setId(122L).setStatus(1).setDeptId(300L)));
         doAnswer(invocation -> {
             DccControlledFileDistributionDO distribution = invocation.getArgument(0);
             distribution.setId(880L);
@@ -3503,10 +3707,10 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .thenReturn(List.of(currentTask))
                 .thenReturn(List.of());
         when(adminUserApi.getUserListByDeptIds(List.of(300L))).thenReturn(List.of(
-                new AdminUserRespDTO().setId(120L).setDeptId(300L),
-                new AdminUserRespDTO().setId(121L).setDeptId(300L)));
+                new AdminUserRespDTO().setId(120L).setStatus(0).setDeptId(300L),
+                new AdminUserRespDTO().setId(121L).setStatus(0).setDeptId(300L)));
         when(adminUserApi.getUserListByDeptIds(List.of(301L))).thenReturn(List.of(
-                new AdminUserRespDTO().setId(122L).setDeptId(301L)));
+                new AdminUserRespDTO().setId(122L).setStatus(0).setDeptId(301L)));
         doAnswer(invocation -> {
             DccControlledFileDistributionDO distribution = invocation.getArgument(0);
             distribution.setId(distribution.getDepartmentId() + 500L);
@@ -3603,7 +3807,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .thenReturn(List.of(currentTask))
                 .thenReturn(List.of());
         when(adminUserApi.getUserListByDeptIds(List.of(300L))).thenReturn(List.of(
-                new AdminUserRespDTO().setId(120L).setDeptId(300L)));
+                new AdminUserRespDTO().setId(120L).setStatus(0).setDeptId(300L)));
         doAnswer(invocation -> {
             DccControlledFileDistributionDO distribution = invocation.getArgument(0);
             distribution.setId(distribution.getDepartmentId() + 500L);
@@ -4024,15 +4228,22 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         }).when(controlledFileMasterMapper).insert(any(DccControlledFileMasterDO.class));
     }
 
-    private void mockSingleStageRoute() {
-        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
+    private List<DccCategoryApprovalRouteNodeDO> fullApprovalRoute(DccCategoryApprovalRouteNodeDO first) {
+        return List.of(first,
+                routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "审核会签", "USER", 200L),
+                routeNode(3, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "批准", "USER", 200L),
+                routeNode(4, DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode(), "文控批准", "USER", 200L));
+    }
+
+    private void mockFourStageRoute() {
+        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(fullApprovalRoute(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(),
                         "Doc Control Review", "POSITION", 50L)));
         when(positionAssignmentMapper.selectActiveListByPositionId(50L)).thenReturn(List.of(
                 DccPositionAssignmentDO.builder().id(60L).positionId(50L).assignmentType("POST")
                         .systemPostId(500L).active(Boolean.TRUE).build()));
         when(adminUserApi.getUserListByPostIds(List.of(500L))).thenReturn(List.of(
-                new AdminUserRespDTO().setId(200L)));
+                new AdminUserRespDTO().setId(200L).setStatus(0)));
     }
 
     private void useStampedPdfTicket(DccControlledFileApproveTaskReqVO reqVO) {
@@ -4048,7 +4259,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setSelectedDistributionScopes(List.of(
                 distributionScope(300L, DccDistributionMediumEnum.PUBLIC_FOLDER.getCode())));
         when(adminUserApi.getUserListByDeptIds(List.of(300L))).thenReturn(List.of(
-                new AdminUserRespDTO().setId(120L).setDeptId(300L)));
+                new AdminUserRespDTO().setId(120L).setStatus(0).setDeptId(300L)));
     }
 
     private void useConfirmedDirectory(DccControlledFileApproveTaskReqVO reqVO) {
@@ -4154,9 +4365,9 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .candidateSourceType(candidateSourceType)
                 .candidateSourceId(candidateSourceId)
                 .candidateSourceIds(String.valueOf(candidateSourceId))
-                .approveMethod("ALL")
-                .approveRatio(100)
-                .requireAllApprovals(Boolean.FALSE)
+                .approveMethod(stageNo == 2 ? "ALL" : "ANY")
+                .approveRatio(stageNo == 2 ? 100 : null)
+                .requireAllApprovals(stageNo == 2)
                 .required(Boolean.TRUE)
                 .sort(stageNo)
                 .build();

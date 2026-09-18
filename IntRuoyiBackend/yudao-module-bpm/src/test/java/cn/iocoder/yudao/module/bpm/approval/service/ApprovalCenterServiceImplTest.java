@@ -388,6 +388,8 @@ class ApprovalCenterServiceImplTest {
             events.add("signature");
             return ApprovalSignatureRecordResult.builder()
                     .signatureImageFileUrl("http://127.0.0.1:9000/yudao/signature/user-100.png")
+                    .subjectId("subject-9001")
+                    .evidenceHash("evidence-9001")
                     .build();
         }).when(signatureRecordService).recordReviewSignature(any());
         ApprovalTaskProvider provider = reviewProvider(ApprovalModuleCode.MES_FEEDBACK, loginUserId -> true,
@@ -428,9 +430,13 @@ class ApprovalCenterServiceImplTest {
     @Test
     void reviewTaskPropagatesSignatureImageSnapshotToProviderContext() {
         String signatureImageFileUrl = "http://127.0.0.1:9000/yudao/signature/user-100.png";
+        String signatureSubjectId = "subject-task-approve-101";
+        String signatureEvidenceHash = "evidence-task-approve-101";
         when(signatureRecordService.recordReviewSignature(any())).thenReturn(
                 ApprovalSignatureRecordResult.builder()
                         .signatureImageFileUrl(signatureImageFileUrl)
+                        .subjectId(signatureSubjectId)
+                        .evidenceHash(signatureEvidenceHash)
                         .build());
         AtomicReference<ApprovalTaskReviewContext> captured = new AtomicReference<>();
         ApprovalTaskProvider provider = reviewProvider(ApprovalModuleCode.BPM, loginUserId -> true, captured::set);
@@ -448,6 +454,8 @@ class ApprovalCenterServiceImplTest {
                 .setSignaturePassword("secret"));
 
         assertEquals(signatureImageFileUrl, captured.get().getSignatureImageFileUrl());
+        assertEquals(signatureSubjectId, captured.get().getSignatureSubjectId());
+        assertEquals(signatureEvidenceHash, captured.get().getSignatureEvidenceHash());
     }
 
     @Test

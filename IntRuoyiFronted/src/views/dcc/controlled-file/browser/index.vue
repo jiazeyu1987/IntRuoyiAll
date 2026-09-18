@@ -485,13 +485,24 @@
                   签核
                 </el-button>
                 <el-button
-                  v-if="getBrowserRowActionState(getSelectedVersion(row)).canDownload"
+                  v-if="getBrowserRowActionState(getSelectedVersion(row)).canDownloadReadOnly"
+                  v-hasPermi="['dcc:controlled-file:download-read-only']"
                   link
                   type="primary"
                   :loading="downloadLoadingId === getSelectedVersion(row).id"
-                  @click="openDownload(getSelectedVersion(row).id)"
+                  @click="openDownload(getSelectedVersion(row).id, 'read-only')"
                 >
-                  下载
+                  下载不可编辑版
+                </el-button>
+                <el-button
+                  v-if="getBrowserRowActionState(getSelectedVersion(row)).canDownloadEditable"
+                  v-hasPermi="['dcc:controlled-file:download-editable']"
+                  link
+                  type="primary"
+                  :loading="downloadLoadingId === getSelectedVersion(row).id"
+                  @click="openDownload(getSelectedVersion(row).id, 'editable')"
+                >
+                  下载可编辑版
                 </el-button>
                 <el-button
                   v-if="getBrowserRowActionState(getSelectedVersion(row)).canPrint"
@@ -954,12 +965,12 @@
   <el-dialog
     v-model="checkinDialogVisible"
     title="检入新小版本"
-    width="520px"
+    width="560px"
     destroy-on-close
     @closed="resetCheckinDialog"
   >
     <el-form label-position="top">
-      <el-form-item label="修改后的源文件" required>
+      <el-form-item label="修改后的源文件（可选）">
         <el-upload
           data-testid="dcc-controlled-browser-checkin-upload"
           v-model:file-list="checkinFileList"
@@ -976,6 +987,24 @@
         <div v-if="checkinUpload" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
           已上传：{{ checkinUpload.fileName }}
         </div>
+        <div class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
+          源文件或备注至少一项真实变化即可检入；未上传新源文件时，备注需与当前版本不同。
+        </div>
+      </el-form-item>
+      <el-form-item v-if="isDrawingSourceFile(checkinUpload?.fileName)" label="当前图纸配套PDF" required>
+        <el-upload
+          v-model:file-list="checkinDrawingPdfFileList"
+          :limit="1"
+          :auto-upload="true"
+          accept=".pdf"
+          :http-request="uploadCheckinDrawingPdf"
+          :on-remove="clearCheckinDrawingPdf"
+        >
+          <el-button :loading="checkinDrawingPdfLoading">选择配套PDF</el-button>
+        </el-upload>
+        <div class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
+          请上传与本次修改后图纸一致的PDF，用于审核预览。
+        </div>
       </el-form-item>
       <el-form-item label="修改说明" required>
         <el-input
@@ -985,6 +1014,17 @@
           :rows="3"
           maxlength="1000"
           show-word-limit
+        />
+      </el-form-item>
+      <el-form-item label="检入备注">
+        <el-input
+          v-model="checkinForm.remark"
+          data-testid="dcc-controlled-browser-checkin-remark"
+          type="textarea"
+          :rows="3"
+          maxlength="1000"
+          show-word-limit
+          placeholder="请输入本次检入后的文件备注"
         />
       </el-form-item>
     </el-form>
@@ -1020,6 +1060,7 @@ import {
   type UploadUserFile
 } from 'element-plus'
 import { useClipboard } from '@vueuse/core'
+import { isDrawingSourceFile, validateDrawingPdfUpload } from '../upload/submitter'
 import download from '@/utils/download'
 import { getFileCategoryList, type ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
 import {
@@ -1048,7 +1089,7 @@ import {
   previewControlledFileMetadataImport,
   saveControlledFileBrowserExtensionBlacklist,
   submitControlledFileWorkingIteration,
-  triggerControlledFileDownload,
+  triggerControlledFileVariantDownload,
   uploadControlledFilePreview,
   type ControlledFileBatchRecognitionCreateReqVO,
   type ControlledFileBatchRecognitionTaskRespVO,
@@ -1072,6 +1113,7 @@ import { useUserStore } from '@/store/modules/user'
 import { openControlledFileTraceability } from '../shared/viewer-navigation'
 import {
   hasDccControlledFileActionProjection,
+  isDccControlledFileActionAllowed,
   isDccControlledFileActionUnlocked
 } from '../shared/lifecycle'
 import { buildControlledFileViewerPath } from '../view/presentation'
@@ -1214,11 +1256,15 @@ const submitApprovalLoadingId = ref<number | string>()
 const checkinDialogVisible = ref(false)
 const checkinSubmitting = ref(false)
 const checkinUploadLoading = ref(false)
+const checkinDrawingPdfLoading = ref(false)
+const checkinDrawingPdfUpload = ref<ControlledFileUploadRespVO>()
+const checkinDrawingPdfFileList = ref<UploadUserFile[]>([])
+let checkinDrawingPdfRequestSequence = 0
 const checkinTarget = ref<ControlledFileBrowserVersion>()
 const checkinUploadSessionId = ref(createControlledFileUploadSessionId())
 const checkinUpload = ref<ControlledFileUploadRespVO>()
 const checkinFileList = ref<UploadUserFile[]>([])
-const checkinForm = reactive({ changeDescription: '' })
+const checkinForm = reactive({ changeDescription: '', remark: '' })
 const metadataExporting = ref(false)
 const recognitionRecordExporting = ref(false)
 const recognitionMigrationExporting = ref(false)
@@ -1263,6 +1309,8 @@ type ControlledFileBrowserVersion = ControlledFileVersionHistoryVO &
     | 'actionProjection'
     | 'canPreview'
     | 'canDownload'
+    | 'canDownloadReadOnly'
+    | 'canDownloadEditable'
     | 'canPrint'
     | 'publishedArtifactAvailable'
     | 'stampedArtifactAvailable'
@@ -1514,6 +1562,8 @@ const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowser
   directoryId: row.directoryId,
   canPreview: row.canPreview,
   canDownload: row.canDownload,
+  canDownloadReadOnly: row.canDownloadReadOnly,
+  canDownloadEditable: row.canDownloadEditable,
   canPrint: row.canPrint,
   modifying: row.modifying,
   actionProjection: row.actionProjection,
@@ -1540,6 +1590,8 @@ const hydrateCurrentBrowserVersionActionState = (
     requesterId: version.requesterId ?? row.requesterId,
     canPreview: version.canPreview ?? row.canPreview,
     canDownload: version.canDownload ?? row.canDownload,
+    canDownloadReadOnly: version.canDownloadReadOnly ?? row.canDownloadReadOnly,
+    canDownloadEditable: version.canDownloadEditable ?? row.canDownloadEditable,
     canPrint: version.canPrint ?? row.canPrint,
     actionProjection: version.actionProjection ?? row.actionProjection,
     checkedOut: version.checkedOut ?? row.checkedOut,
@@ -1659,7 +1711,7 @@ const canEditVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =
   Boolean(file.requesterId && String(file.requesterId) === String(userStore.getUser.id))
 
 const canCreateMajorRevision = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
-  Boolean(file.id && file.status === 'WORKING' && canEditVersion(file))
+  Boolean(file.id && isDccControlledFileActionAllowed(file, 'MAJOR_REVISION'))
 
 const parseWindchillVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) => {
   const revisionCode = String(file.revisionCode || '').trim().toUpperCase()
@@ -1703,6 +1755,7 @@ const canSubmitLatestWorkingIteration = (
 ) => Boolean(
   file.id &&
   file.status === 'WORKING' &&
+  canEditVersion(file) &&
   isLatestWorkingIteration(row, file) &&
   !file.checkedOut &&
   !file.checkedOutBy
@@ -1838,6 +1891,7 @@ const handleCheckin = (file: ControlledFileBrowserVersion) => {
   if (!isValidBrowserOptionId(id) || !isCheckedOutByCurrentUser(file)) return
   resetCheckinDialog()
   checkinTarget.value = file
+  checkinForm.remark = String(file.remark || '')
   checkinDialogVisible.value = true
 }
 
@@ -1846,11 +1900,21 @@ const resetCheckinDialog = () => {
   checkinUpload.value = undefined
   checkinFileList.value = []
   checkinForm.changeDescription = ''
+  checkinForm.remark = ''
   checkinUploadSessionId.value = createControlledFileUploadSessionId()
+  clearCheckinDrawingPdf()
+}
+
+const clearCheckinDrawingPdf = () => {
+  checkinDrawingPdfRequestSequence += 1
+  checkinDrawingPdfLoading.value = false
+  checkinDrawingPdfUpload.value = undefined
+  checkinDrawingPdfFileList.value = []
 }
 
 const clearCheckinUpload = () => {
   checkinUpload.value = undefined
+  clearCheckinDrawingPdf()
 }
 
 const findBrowserRowForVersion = (versionId: number | string | undefined) => {
@@ -1871,6 +1935,7 @@ const uploadCheckinSource = async (options: UploadRequestOptions) => {
     throw error
   }
   checkinUploadLoading.value = true
+  clearCheckinDrawingPdf()
   try {
     const uploaded = await uploadControlledFilePreview(options.file, 'SOURCE', {
       categoryId: row.categoryId,
@@ -1890,17 +1955,72 @@ const uploadCheckinSource = async (options: UploadRequestOptions) => {
   }
 }
 
+const uploadCheckinDrawingPdf = async (options: UploadRequestOptions) => {
+  const target = checkinTarget.value
+  const row = findBrowserRowForVersion(target?.id)
+  const sourceTicket = checkinUpload.value?.uploadTicket
+  const sessionId = checkinUploadSessionId.value
+  if (!target || !row?.categoryId || !sourceTicket || !isDrawingSourceFile(checkinUpload.value?.fileName)) {
+    const error = new Error('请先上传本次修改后的图纸源文件。')
+    options.onError(error as Parameters<UploadRequestOptions['onError']>[0])
+    message.warning(error.message)
+    return
+  }
+  const requestSequence = ++checkinDrawingPdfRequestSequence
+  const isCurrentRequest = () =>
+    requestSequence === checkinDrawingPdfRequestSequence &&
+    sessionId === checkinUploadSessionId.value &&
+    sourceTicket === checkinUpload.value?.uploadTicket
+  checkinDrawingPdfLoading.value = true
+  try {
+    const uploaded = await uploadControlledFilePreview(options.file, 'DRAWING_PDF', {
+      categoryId: row.categoryId,
+      sessionId
+    })
+    if (!isCurrentRequest()) {
+      options.onError(new Error('图纸源文件已变更，请重新上传对应的PDF。') as Parameters<UploadRequestOptions['onError']>[0])
+      return
+    }
+    if (!uploaded.uploadTicket) {
+      throw new Error('配套PDF上传未返回有效凭据。')
+    }
+    checkinDrawingPdfUpload.value = uploaded
+    options.onSuccess(uploaded)
+  } catch (error) {
+    options.onError(error as Parameters<UploadRequestOptions['onError']>[0])
+    if (isCurrentRequest()) {
+      checkinDrawingPdfUpload.value = undefined
+      message.error(resolveBrowserErrorMessage(error, '配套PDF上传失败，请重新上传。'))
+    }
+  } finally {
+    if (isCurrentRequest()) checkinDrawingPdfLoading.value = false
+  }
+}
+
 const submitCheckin = async () => {
   const target = checkinTarget.value
   const uploaded = checkinUpload.value
   const changeDescription = checkinForm.changeDescription.trim()
+  const normalizedCheckinRemark = checkinForm.remark.trim()
   if (!target || !isValidBrowserOptionId(target.id)) return
-  if (!uploaded?.uploadTicket) {
-    message.warning('请先上传修改后的源文件。')
+  if (checkinUploadLoading.value || checkinDrawingPdfLoading.value) {
+    message.warning('请等待文件上传完成。')
     return
   }
   if (!changeDescription) {
     message.warning('请输入修改说明。')
+    return
+  }
+  const hasCheckinUpload = Boolean(uploaded?.uploadTicket)
+  const hasCheckinRemarkChange =
+    Boolean(normalizedCheckinRemark) && normalizedCheckinRemark !== String(target.remark || '').trim()
+  if (!hasCheckinUpload && !hasCheckinRemarkChange) {
+    message.warning('请上传修改后的源文件，或修改检入备注。')
+    return
+  }
+  const drawingValidation = validateDrawingPdfUpload(uploaded, checkinDrawingPdfUpload.value)
+  if (!drawingValidation.valid) {
+    message.warning(drawingValidation.message || '图纸 PDF 校验失败。')
     return
   }
   const baseId = target.id
@@ -1908,9 +2028,12 @@ const submitCheckin = async () => {
   checkoutLoadingId.value = baseId
   try {
     const updatedFile = await checkinControlledFile(baseId, {
-      uploadTicket: uploaded.uploadTicket,
-      sessionId: checkinUploadSessionId.value,
-      changeDescription
+      uploadTicket: hasCheckinUpload ? uploaded?.uploadTicket : undefined,
+      drawingPdfUploadTicket: isDrawingSourceFile(uploaded?.fileName || '')
+        ? checkinDrawingPdfUpload.value?.uploadTicket : undefined,
+      sessionId: hasCheckinUpload ? checkinUploadSessionId.value : undefined,
+      changeDescription,
+      remark: normalizedCheckinRemark
     })
     checkinDialogVisible.value = false
     await getList()
@@ -1941,6 +2064,8 @@ const mergeCheckinResult = (updatedFile: ControlledFileVO, baseId: number | stri
     fileNumber: updatedFile.fileNumber || targetRow.fileNumber || '',
     versionNo: updatedFile.versionNo,
     status: updatedFile.status,
+    canDownloadReadOnly: updatedFile.canDownloadReadOnly,
+    canDownloadEditable: updatedFile.canDownloadEditable,
     currentActiveVersionNo: targetRow.currentActiveVersionNo,
     checkedOut: updatedFile.checkedOut,
     checkedOutBy: updatedFile.checkedOutBy,
@@ -3355,11 +3480,11 @@ const copyFileNumber = async (fileNumber?: string) => {
   }
 }
 
-const openDownload = async (id: number | string) => {
+const openDownload = async (id: number | string, variant: 'read-only' | 'editable') => {
   const normalizedId = Number(id)
   downloadLoadingId.value = Number.isFinite(normalizedId) ? normalizedId : undefined
   try {
-    await triggerControlledFileDownload(id)
+    await triggerControlledFileVariantDownload(id, variant)
   } catch (error) {
     message.error(resolveBrowserErrorMessage(error, '下载失败，请查看错误提示后重试。'))
   } finally {

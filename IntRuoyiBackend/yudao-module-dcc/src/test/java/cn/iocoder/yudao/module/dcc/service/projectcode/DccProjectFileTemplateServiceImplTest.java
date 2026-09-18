@@ -28,6 +28,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_CATEGORY_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_NOT_CONFIGURED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_SELECTION_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -114,6 +115,33 @@ class DccProjectFileTemplateServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void replaceProjectTemplate_nonLeafTaxonomyFailsBeforeMutation() {
+        mockNonLeafTemplateDependencies();
+
+        assertServiceException(() -> service.replaceProjectTemplate(100L,
+                        saveRequest(item(103L, "总装图", 1))),
+                PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
+
+        verify(templateItemMapper, never()).deleteByProjectCodeId(100L);
+        verify(templateItemMapper, never()).insert(any(DccProjectFileTemplateItemDO.class));
+    }
+
+    @Test
+    void getProjectTemplate_nonLeafSavedItemFailsFast() {
+        when(projectCodeMapper.selectById(100L)).thenReturn(projectCode());
+        when(taxonomyAdminService.getTaxonomyList()).thenReturn(taxonomyRowsWithActiveChild());
+        when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
+                .id(501L).name("产品图纸").active(true).fileTypeTaxonomyId(103L).build()));
+        when(templateItemMapper.selectListByProjectCodeId(100L)).thenReturn(List.of(
+                DccProjectFileTemplateItemDO.builder()
+                        .id(900L).projectCodeId(100L).fileTypeTaxonomyId(103L)
+                        .fileName("总装图").sortOrder(1).build()));
+
+        assertServiceException(() -> service.getProjectTemplate(100L),
+                PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
+    }
+
+    @Test
     void validateUploadSelection_requiresConfiguredExactProjectCombination() {
         when(templateItemMapper.selectListByProjectCodeId(100L)).thenReturn(List.of());
 
@@ -145,6 +173,15 @@ class DccProjectFileTemplateServiceImplTest extends BaseMockitoUnitTest {
                 .id(501L).name("产品图纸").active(true).fileTypeTaxonomyId(103L).build()));
     }
 
+    private void mockNonLeafTemplateDependencies() {
+        when(projectCodeMapper.selectByIdForUpdate(100L)).thenReturn(projectCode());
+        when(taxonomyAdminService.getTaxonomyList()).thenReturn(taxonomyRowsWithActiveChild());
+        when(taxonomyAdminService.resolveActivePath(103L)).thenReturn(
+                new DccFileTypeTaxonomyPath(103L, "技术文档", "设计阶段", "产品图纸", null, null));
+        when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
+                .id(501L).name("产品图纸").active(true).fileTypeTaxonomyId(103L).build()));
+    }
+
     private static List<DccFileTypeTaxonomyDO> taxonomyRows() {
         return List.of(
                 DccFileTypeTaxonomyDO.builder().id(101L).parentId(0L).levelNo(1)
@@ -153,6 +190,18 @@ class DccProjectFileTemplateServiceImplTest extends BaseMockitoUnitTest {
                         .code("DESIGN").name("设计阶段").active(true).sort(1).build(),
                 DccFileTypeTaxonomyDO.builder().id(103L).parentId(102L).levelNo(3)
                         .code("DRAWING").name("产品图纸").active(true).sort(1).build());
+    }
+
+    private static List<DccFileTypeTaxonomyDO> taxonomyRowsWithActiveChild() {
+        return List.of(
+                DccFileTypeTaxonomyDO.builder().id(101L).parentId(0L).levelNo(1)
+                        .code("TECH").name("技术文档").active(true).sort(1).build(),
+                DccFileTypeTaxonomyDO.builder().id(102L).parentId(101L).levelNo(2)
+                        .code("DESIGN").name("设计阶段").active(true).sort(1).build(),
+                DccFileTypeTaxonomyDO.builder().id(103L).parentId(102L).levelNo(3)
+                        .code("DRAWING").name("产品图纸").active(true).sort(1).build(),
+                DccFileTypeTaxonomyDO.builder().id(104L).parentId(103L).levelNo(4)
+                        .code("ASSEMBLY").name("总装图").active(true).sort(1).build());
     }
 
     private static DccProjectFileTemplateItemSaveReqVO item(Long taxonomyId, String fileName, int sortOrder) {

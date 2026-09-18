@@ -21,6 +21,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillDraft {
     private String batchRecordSourceIdsJson;
     private String processInspectionSourceIdsJson;
     private String lossSourceHash;
+    private String lossSourceIdsJson;
     private String batchRecordStatus;
     private String processInspectionStatus;
     private Long batchRecordId;

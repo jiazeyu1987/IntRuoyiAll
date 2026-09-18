@@ -220,11 +220,11 @@
 ### PowerShell Maven -D 参数引号门禁
 
 - Trigger: 在 PowerShell 中运行 Maven 且参数包含带点属性名或方法选择符的 `-D`，例如 `-Dsurefire.failIfNoSpecifiedTests=false`、`-Dtest=ClassName#methodName`。
-- Preflight check: 将每个 Maven `-D...` 参数整体加引号，单引号或双引号均可，例如 `'-Dtest=CodexTestCaseServiceImplTest'`、`"-Dtest=MesTeamLeaderActiveOrderSimulationServiceTest#numericSimulationParameterTextShouldUseGeneratedValueInsteadOfStandardRange"` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'`；多模块目标测试继续保留 `-pl <module> -am`。
+- Preflight check: 将每个 Maven `-D...` 参数整体加引号，单引号或双引号均可，例如 `'-Dtest=CodexTestCaseServiceImplTest'`、`"-Dtest=MesTeamLeaderActiveOrderSimulationServiceTest#numericSimulationParameterTextShouldUseGeneratedValueInsteadOfStandardRange"` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'`；多模块目标测试继续保留 `-pl <module> -am`。不要把 PowerShell `--%` 与带引号的 `'-D...'` 同用，否则引号会原样传给 Maven 并触发 `Unknown lifecycle phase "'-D...'"`。
 - Blocker: Maven 报 `Unknown lifecycle phase ".<property>=..."`、未进入期望 Surefire 目标测试，或未加引号命令疑似造成 testCompile 误报时，必须先按 PowerShell 参数解析问题复跑，不得直接归因于 Java 代码、Mapper 缺失或业务逻辑。
 - Verification: 复跑加引号后的 Maven 命令，记录原失败与复跑 PASS、Surefire 实际执行的测试类/方法数量、Failures/Errors/Skipped 摘要；若上游 reactor 模块不含目标测试类，同时记录 `surefire.failIfNoSpecifiedTests=false` 的依据。
 - Forbidden action: 禁止把 PowerShell 参数拆分或 `#` 注释截断误判为产品编译失败；禁止移除 `-am`、跳过目标 JUnit 或改成更宽测试作为绕过。
-- Evidence: `doc\tasks\20260726-codex-test-case-project-column\execution-log.md`，目标 JUnit 首次因 PowerShell 拆分 `-Dsurefire.failIfNoSpecifiedTests=false` 失败，整体加引号后通过；`doc\tasks\20260726-work-order-field-cell-link\execution-log.md`，目标 MES JUnit 需同时整体加引号 `"-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`，并保留 `-am` 编译依赖模块源码；`doc\tasks\20260830-system-user-generic-account-governance\execution-log.md`，System 用户服务目标测试首次因未引用 `-Dsurefire.failIfNoSpecifiedTests=false` 被拆成 Maven lifecycle phase，改用单引号包裹 `'-Dtest=AdminUserServiceImplTest'` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'` 后进入真实 RED/GREEN；`doc/tasks/20260906-mes-testcompile-replenishment-mapper-blocker/execution-log.md`，Stage1 参数定向 Java 测试中未加引号的 `-Dtest=...#...` 造成误判，加引号后目标测试执行 1 个用例并 PASS。
+- Evidence: `doc\tasks\20260726-codex-test-case-project-column\execution-log.md`，目标 JUnit 首次因 PowerShell 拆分 `-Dsurefire.failIfNoSpecifiedTests=false` 失败，整体加引号后通过；`doc\tasks\20260726-work-order-field-cell-link\execution-log.md`，目标 MES JUnit 需同时整体加引号 `"-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`，并保留 `-am` 编译依赖模块源码；`doc\tasks\20260830-system-user-generic-account-governance\execution-log.md`，System 用户服务目标测试首次因未引用 `-Dsurefire.failIfNoSpecifiedTests=false` 被拆成 Maven lifecycle phase，改用单引号包裹 `'-Dtest=AdminUserServiceImplTest'` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'` 后进入真实 RED/GREEN；`doc/tasks/20260906-mes-testcompile-replenishment-mapper-blocker/execution-log.md`，Stage1 参数定向 Java 测试中未加引号的 `-Dtest=...#...` 造成误判，加引号后目标测试执行 1 个用例并 PASS；`doc/tasks/bulk-clear-production-test-data/execution-log.md`，MES 编译命令中 `--%` 与 `'-DskipTests'` 同用导致 Maven 把带引号参数当 lifecycle phase，移除 `--%` 后同命令 compile PASS。
 
 ### Maven 编译结论与行为测试失败分层门禁
 
@@ -252,6 +252,23 @@
 - Verification: 使用带 `-am` 的 reactor 命令复跑，确认目标测试进入 Surefire 且 PASS/FAIL 反映真实业务行为；任务日志记录原单模块失败原因和最终 reactor 验证命令。
 - Forbidden action: 禁止把本地 `.m2` 陈旧产物导致的编译失败误判为产品逻辑失败；禁止删除 `-am` 来节省时间后宣称目标 JUnit 已验证；禁止用旧 surefire 报告冒充当前命令结果。
 - Evidence: `doc\tasks\20260806-schedule-default-shift-hours\execution-log.md`，排产班次小时默认值修复中不带 `-am` 的单模块 Maven 因本地 `system` API 依赖陈旧在测试前失败，最终使用 `-pl yudao-module-mes -am` 的目标 JUnit 命令通过 4 个用例。
+- Evidence: `doc\tasks\20260915-mes-bpm-interface-compile-fix\execution-log.md`，MES clean testCompile 因未带 `-am` 无法解析同仓 BPM 的 `FormActionExecutionContext`，而 `-pl yudao-module-mes -am clean test-compile` 重建 BPM 后 562 个 MES 测试源文件全部通过；后续接口定向测试 20/20 与 BPM 上下文回归 1/1 通过。
+
+### Pytest 任务自有 basetemp 门禁
+
+- Trigger: Windows 上 `pytest` 使用默认 `%TEMP%\pytest-of-<user>` 时 setup 阶段报 `PermissionError: [WinError 5]`，但测试本身尚未执行失败。
+- Preflight check: 先确认失败发生在 pytest 临时目录创建阶段；复跑同一测试集时可使用当前任务自有目录 `--basetemp .pytest-tmp\<task-id>`，并把首次环境失败和复跑命令都写入任务日志。
+- Blocker: 指定 basetemp 后仍失败、失败进入业务断言、或临时目录不属于当前任务可清理范围时，不得写成 GREEN。
+- Verification: 记录同一测试集的最终 `passed` 数量，并在 cleanup candidates 中列出任务自有 `.pytest-tmp`。
+- Forbidden action: 禁止把默认临时目录权限错误写成产品回归失败；禁止改用更少测试或删除系统临时目录来绕过。
+
+### yudao-server reactor unpack 测试门禁
+
+- Trigger: `mvn -pl yudao-server -am ... test` 在 `maven-dependency-plugin:unpack` 阶段报 `Artifact has not been packaged yet`，且目标测试只是 server 模块自身静态/配置测试。
+- Preflight check: 先确认同一命令已经让受影响兄弟模块到达 Surefire 并通过；再单独运行 `mvn -pl yudao-server "-Dtest=<目标类>" "-Dsurefire.failIfNoSpecifiedTests=false" test`，让 yudao-server 使用已存在的正式 report jar 进入自身 Surefire。
+- Blocker: 单独 server 命令仍无法进入 Surefire、目标测试依赖当前兄弟模块未安装的新接口、或失败来自业务断言时，不得把 reactor unpack 阻断降级为 PASS。
+- Verification: 任务日志同时记录 reactor 命令的 DCC/MES Surefire 结果、unpack 阻断摘要、单独 server 目标测试计数和最终结果。
+- Forbidden action: 禁止跳过 yudao-server 目标测试、关闭插件执行或把 `-am` reactor unpack 的生命周期阻断写成业务失败。
 
 ### Maven 同模块 target/classes 陈旧门禁
 
@@ -343,3 +360,12 @@
 - Verification: 若三者已经一致且 ancestry 通过，再运行 scripts\preflight\branch-runtime-port-guard.ps1，记录最终 HEAD、guard 输出和任务状态更新；如果仍需删除 stale lock，必须重新满足零字节、超过 60 秒且无活动 Git 进程的原门禁。
 - Forbidden action: 禁止重启后跳过实际 HEAD 复核，禁止对可能已经完成的 fast-forward 再次合并、rebase、reset 或清理锁文件，禁止把旧 blocker 继续写成当前阻断。
 - Evidence: doc/tasks/20260816-registration-certificate-full-business-delivery/execution-log.md，T10-C 首次融合被外部 Git index.lock 阻塞；重启后只读复核发现 int_main、集成分支和 HEAD 已同为目标提交，随后只更新收尾记录并运行端口 guard。
+
+### PowerShell Maven -D 参数引用门禁
+
+- Trigger: PowerShell 中运行 Maven 定向测试，参数包含 `-Dtest=...`、`-Dsurefire.failIfNoSpecifiedTests=false` 等带点号的系统属性。
+- Preflight check: 用单引号包裹每个 `-D...` 参数，例如 `'-Dtest=FooTest'` 和 `'-Dsurefire.failIfNoSpecifiedTests=false'`，避免 PowerShell 把点号属性截断后让 Maven 收到伪 lifecycle phase。
+- Blocker: Maven 报 `Unknown lifecycle phase ".failIfNoSpecifiedTests=false"` 或类似属性残片时，应记录为命令包装错误并立即用引用后的同一目标命令重跑；不得写成业务 RED/GREEN。
+- Verification: 复跑引用后的标准 Maven 命令，必须到达 Surefire 并记录测试计数。
+- Forbidden action: 禁止把未引用 `-D` 导致的 Maven 参数解析失败当作产品测试失败，禁止改 POM 或测试名绕过参数问题。
+- Evidence: `doc/tasks/20260914-edhr-static-021-inventory-evidence-chain/execution-log.md`，EDHR-STATIC-021 首次未引用 `-Dsurefire.failIfNoSpecifiedTests=false` 被 PowerShell 截断，随后用单引号包裹 `-Dtest` 与 `-Dsurefire...` 后目标 Maven 进入 Surefire 并通过 19 个测试。

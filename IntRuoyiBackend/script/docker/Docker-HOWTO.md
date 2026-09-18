@@ -33,14 +33,7 @@ docker run -it --rm --name yudao-maven \
 
 ## 构建启动服务
 
-启动前必须在 `docker.env` 中显式填写 DCC 受控下载加密配置：
-
-- `DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION`
-- `DCC_DOWNLOAD_ENCRYPTION_KEY_ID`
-- `DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY`，Base64 解码后必须是 16、24 或 32 字节 AES key
-- `DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY`
-
-这些配置没有默认值；缺失时 compose 会失败，不会启动一个无法受控加密下载的后端。
+启动前按 `docker.env` 填写数据库、Redis 和前端运行参数；DCC 下载按已授权的原文件直接返回，不再需要下载加密环境变量。
 
 ```shell
 docker compose --env-file docker.env up -d
@@ -48,8 +41,7 @@ docker compose --env-file docker.env up -d
 
 首次运行会自动构建容器。可以通过`docker compose build [service]`来手动构建所有或某个docker镜像
 
-`--env-file docker.env`不是可选参数；DCC 受控下载加密必须显式配置。
-`docker.env is required` for DCC controlled download encryption.
+`--env-file docker.env`不是可选参数；基础数据库和 Redis 配置仍由该文件提供。
 
 ## 服务器的宿主机端口映射
 

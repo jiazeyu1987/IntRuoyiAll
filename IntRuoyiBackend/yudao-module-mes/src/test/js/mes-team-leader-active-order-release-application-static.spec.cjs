@@ -167,12 +167,14 @@ assert(
 
 assert(
   batchRecordWriterSource.includes('MesProRouteFlowProcessBatchRecordMapper') &&
-    batchRecordWriterSource.includes('selectListByRouteProcessIdsAndUseType') &&
+    batchRecordWriterSource.includes('selectVersionedProductionReportBindings') &&
+    batchRecordWriterSource.includes('routeVersionSnapshotResolver.resolveVersion(command.getRouteVersionId())') &&
     batchRecordWriterSource.includes('RECORD_CATEGORY_BATCH_RECORD') &&
-    batchRecordWriterSource.includes('PROCESS_POOL_REPORT') &&
+    batchRecordWriterSource.includes('batchUseConfigs') &&
+    !batchRecordWriterSource.includes('routeFlowProcessBatchRecordMapper.selectListByRouteProcessIdsAndUseType') &&
     !batchRecordWriterSource.includes('formBindings') &&
     !batchRecordWriterSource.includes('SLOT_TYPE_MAIN'),
-  'Formal batch-record dossier checks must use per-process batch record bindings, never formBindings or default MAIN slots.'
+  'Formal batch-record dossier checks must use the frozen route-version batch record bindings, never current master data, formBindings or default MAIN slots.'
 )
 
 assert(
@@ -204,7 +206,7 @@ const pqcAuthorizationBlock = sliceBetween(
 const pqcPageBlock = sliceBetween(
   pqcReleaseSource,
   'public PageResult<MesPqcProductionReleasePageItem> getPqcReleasePage',
-  'private void applyApprovalReadiness'
+  'private void requireApproveCommand'
 )
 const managerCandidateBlock = sliceBetween(
   managerReleaseSource,
@@ -234,7 +236,8 @@ const reportPayloadHashBlock = sliceBetween(
 assert(
   pqcAuthorizationBlock.includes('containsCandidate(workTask.getCandidateUserSnapshot(), actorUserId)') &&
     !pqcAuthorizationBlock.includes('candidateResolver.resolveRequiredCandidates') &&
-    pqcPageBlock.includes('containsCandidate(task.getCandidateUserSnapshot(), actorUserId)') &&
+    pqcPageBlock.includes('applicationMapper.selectPqcReleasePage') &&
+    pqcPageBlock.includes('actorUserId') &&
     !pqcPageBlock.includes('candidateResolver.resolveRequiredCandidates') &&
     !pqcPageBlock.includes('PQC_RELEASE_ROLE_REQUIRED') &&
     managerCandidateBlock.includes('containsCandidate(workTask.getCandidateUserSnapshot(), actorUserId)') &&

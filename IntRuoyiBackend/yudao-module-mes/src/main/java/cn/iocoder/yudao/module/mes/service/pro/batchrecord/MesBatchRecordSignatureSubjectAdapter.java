@@ -15,8 +15,8 @@ import java.util.Set;
 @Component
 public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatureSubjectAdapter {
 
-    static final String MODULE_CODE = "MES";
-    static final String SUBJECT_TYPE = "MES_BATCH_RECORD";
+    public static final String MODULE_CODE = "MES";
+    public static final String SUBJECT_TYPE = "MES_BATCH_RECORD";
     static final String POLICY_VERSION = "mes-batch-record-signature-v1";
 
     @Override
@@ -42,7 +42,8 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                 action(MesProBatchRecordExecutionSignatureService.ACTION_BATCH_CLOSE, "关闭eDHR批次"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_QUALITY_REJECT, "质量终态拒收eDHR批次"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_SPECIAL_NODE_SKIP, "跳过eDHR特殊工序"),
-                action(MesProBatchRecordExecutionSignatureService.ACTION_ROUTE_FORM_OPTIONAL_SKIP, "跳过eDHR可选路线表单")
+                action(MesProBatchRecordExecutionSignatureService.ACTION_ROUTE_FORM_OPTIONAL_SKIP, "跳过eDHR可选路线表单"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_QA_DISPOSITION, "QA不合格评审处置")
         );
     }
 
@@ -75,12 +76,12 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                 decoded.bpmTaskDefinitionKey(), nodeOrder(decoded.bpmTaskDefinitionKey()));
     }
 
-    static String encodeSubjectId(Long executionId, String actionType, String processInstanceId, String bpmTaskId,
-                                  String bpmTaskDefinitionKey, String bpmTaskName, String signatureCellKey,
-                                  Integer signatureRowIndex, Integer signatureColumnIndex, String reviewSourceType,
-                                  Long reviewSourceId, String reviewSourceName, String approvalResult,
-                                  Long fieldAuditRevision, String fieldAuditHeadHash, String cellValuesHash,
-                                  String signatureChallengeHash) {
+    public static String encodeSubjectId(Long executionId, String actionType, String processInstanceId, String bpmTaskId,
+                                         String bpmTaskDefinitionKey, String bpmTaskName, String signatureCellKey,
+                                         Integer signatureRowIndex, Integer signatureColumnIndex, String reviewSourceType,
+                                         Long reviewSourceId, String reviewSourceName, String approvalResult,
+                                         Long fieldAuditRevision, String fieldAuditHeadHash, String cellValuesHash,
+                                         String signatureChallengeHash) {
         String payload = String.join("\n",
                 value(executionId), value(actionType), value(processInstanceId), value(bpmTaskId),
                 value(bpmTaskDefinitionKey), value(bpmTaskName), value(signatureCellKey), value(signatureRowIndex),

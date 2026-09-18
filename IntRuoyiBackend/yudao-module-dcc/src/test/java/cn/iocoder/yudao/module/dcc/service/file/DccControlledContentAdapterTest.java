@@ -17,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -137,6 +138,21 @@ class DccControlledContentAdapterTest {
                 DccControlledFileStatusEnum.FINALIZING.getStatus(), ControlledContentTransitionAction.RETRY_FINALIZATION,
                 501L, "dcc controlled file finalization retried", "process-1",
                 "dcc-finalization-retry:2002:retry-finalization");
+    }
+
+    @Test
+    void nextFinalizationRetryEventKey_shouldUseNextRetryTransitionCount() {
+        DccControlledFileDO candidate = finalizingFile(2002L);
+        candidate.setStatus(DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus());
+        when(lifecycleCoreService.countVersionRefTransitions(dccKey(), 2002L,
+                ControlledContentTransitionAction.RETRY_FINALIZATION)).thenReturn(1L);
+
+        String eventKey = adapter.nextFinalizationRetryEventKey(candidate);
+
+        assertEquals("dcc-finalization-retry:2002:attempt-2", eventKey);
+        verify(lifecycleCoreService).countVersionRefTransitions(dccKey(), 2002L,
+                ControlledContentTransitionAction.RETRY_FINALIZATION);
+        verifyNoMoreInteractions(lifecycleCoreService);
     }
 
     @Test

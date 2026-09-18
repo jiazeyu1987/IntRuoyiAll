@@ -121,6 +121,7 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                         ? receipt.getLossReportStatus() : "NO_LOSS")
                 .setBatchRecordId(receipt.getBatchRecordId()).setProcessInspectionId(receipt.getProcessInspectionId())
                 .setHasActualLoss(receipt.getHasActualLoss()).setLossQuantity(receipt.getLossQuantity())
+                .setLossConditionFactsJson(receipt.getLossConditionFactsJson())
                 .setLossRecordId(receipt.getLossRecordId()).setLossReportStatus(receipt.getLossReportStatus())
                 .setLossDecision(Boolean.TRUE.equals(receipt.getHasActualLoss()) ? "ACTUAL_LOSS" : "NO_LOSS")
                 .setSourceVersion(String.valueOf(receipt.getCompletionVersion()))
@@ -324,7 +325,7 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                         ? witnessHash : receiptSource ? witnessHash : calculatedHash)
                 .setPayloadHash(witnessHash).setSignature(witnessHash)
                 .setSourceObjectType(type).setSourceObjectId(String.valueOf(id)).setSnapshotJson(snapshotJson)
-                .setSourceIdentityKey(type + ":" + type + ":" + id + ":::").setRelationStatus(relationStatus);
+                .setSourceIdentityKey(type + ":" + type + ":" + id + "::").setRelationStatus(relationStatus);
     }
 
     private String traceSourceBundleHash(List<MesBatchExecutionSourceEvidence> evidence) {
@@ -389,7 +390,7 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                     .setSourceObjectType(sourceObjectType)
                     .setSourceObjectId(sourceObjectId).setSnapshotJson(snapshotJson)
                     .setSourceIdentityKey(item.getSourceType() + ":" + sourceObjectType + ":"
-                            + sourceObjectId + ":::")
+                            + sourceObjectId + "::")
                     .setRelationStatus(item.getRelationStatus())
                     .setRelationReason(item.getRelationReason());
         }).toList();

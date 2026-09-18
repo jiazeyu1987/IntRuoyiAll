@@ -1,0 +1,60 @@
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
+const assert = require('node:assert/strict')
+const { createRunId, buildManifest, FIXED_RESET_WORK_ORDER_CODE, FIXED_RESET_QUANTITY } = require('./edhr-ai-loop/manifest.cjs')
+const { EXIT_CODES, REQUIRED_RESULT_FIELDS, writeRunReport, writeFailureArtifacts } = require('./edhr-ai-loop/reporter.cjs')
+const { ordersForMode } = require('./edhr-ai-loop/runner.cjs')
+
+const repoRoot = path.resolve(__dirname, '../../..')
+const fixturePath = path.join(repoRoot, 'doc/tasks/20260915-edhr-fixed-io-e2e-plan/fixtures.json')
+const fixtures = JSON.parse(fs.readFileSync(fixturePath, 'utf8'))
+
+const runId = createRunId(new Date('2026-09-15T04:00:00.000Z'), 'A1B2')
+assert.equal(runId, 'AI-EDHR-20260915T040000-A1B2')
+const fixedResetManifest = buildManifest({ runId, mode: 'full' })
+assert.equal(fixedResetManifest.resetWorkOrderCode, FIXED_RESET_WORK_ORDER_CODE)
+assert.equal(fixedResetManifest.resetSource, 'FIXED_ACTIVE_ORDER_RESET')
+assert.equal(fixedResetManifest.orders[0].resetWorkOrderCode, FIXED_RESET_WORK_ORDER_CODE)
+assert.equal(fixedResetManifest.orders[0].workOrderCode, null)
+assert.equal(fixedResetManifest.orders[0].batchCode, null)
+assert.equal(fixedResetManifest.orders[0].simulationRunId, `${runId}-O01`)
+const manifest = buildManifest({ runId, mode: 'full', resetWorkOrderCode: 'SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891' })
+assert.equal(manifest.resetSource, 'EXPLICIT_CODE')
+assert.equal(manifest.orders.length, 5)
+assert.equal(manifest.orders[0].resetWorkOrderCode, 'SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891')
+assert.equal(manifest.orders[0].quantity, FIXED_RESET_QUANTITY)
+assert.equal(manifest.expected.pqcTaskCount, undefined, 'task counts must be frozen after S01')
+assert.deepEqual(ordersForMode(manifest).map((order) => order.slot), ['O01'])
+assert.deepEqual(ordersForMode(buildManifest({ runId, mode: 'regression', resetWorkOrderCode: 'SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891' })).map((order) => order.slot), ['O01'])
+assert.deepEqual(ordersForMode(buildManifest({ runId, mode: 'repeatability', resetWorkOrderCode: 'SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891' })).map((order) => order.slot), ['O01'])
+assert.ok(fixtures.repeatability.aiLoop.reportErrorTypes.includes('TEST_HARNESS_FAILURE'))
+assert.notEqual(createRunId(new Date('2026-09-15T04:00:01.000Z'), 'A1B3'), runId)
+assert.throws(() => buildManifest({ runId: 'bad', mode: 'full', resetWorkOrderCode: 'X' }))
+
+const output = fs.mkdtempSync(path.join(os.tmpdir(), 'edhr-ai-loop-'))
+const result = { schemaVersion: 'AI_EDHR_E2E_RESULT_V1', runId, status: 'FAIL', failedStage: 'S04',
+  action: '完成订单', expected: { lot: 'LOT-A01' }, actual: { lot: null },
+  errorType: 'TRACEABILITY_FAILURE', pageUrl: '/mes/pro/process-pool', screenshot: 'S04.png',
+  trace: 'trace.zip', targetRequests: [], candidateCodePaths: [], startedAt: '2026-09-15T04:00:00Z',
+  finishedAt: '2026-09-15T04:01:00Z' }
+const runDir = writeRunReport({ rootDir: output, manifest, result })
+const savedResult = JSON.parse(fs.readFileSync(path.join(runDir, 'result.json'), 'utf8'))
+for (const field of REQUIRED_RESULT_FIELDS) assert.ok(Object.prototype.hasOwnProperty.call(savedResult, field), `missing result field: ${field}`)
+assert.equal(savedResult.runId, result.runId)
+assert.equal(savedResult.failedStage, 'S04')
+assert.equal(savedResult.errorType, 'TRACEABILITY_FAILURE')
+assert.deepEqual(savedResult.expected, result.expected)
+assert.deepEqual(savedResult.actual, result.actual)
+assert.deepEqual(savedResult.targetRequests, [])
+assert.deepEqual(savedResult.candidateCodePaths, [])
+const failure = writeFailureArtifacts({ rootDir: output, runId: createRunId(new Date('2026-09-15T04:00:02.000Z'), 'A1B4'),
+  mode: 'full', failedStage: 'S02', errorType: 'PRECONDITION_BLOCKED', action: '前置阻塞',
+  message: '缺少固定重置测试订单', pageUrl: '/login', stages: [{ stage: 'S01', status: 'PASS' }] })
+const failureResult = JSON.parse(fs.readFileSync(path.join(failure.runDir, 'result.json'), 'utf8'))
+for (const field of REQUIRED_RESULT_FIELDS) assert.ok(Object.prototype.hasOwnProperty.call(failureResult, field), `missing failure result field: ${field}`)
+assert.equal(failureResult.stages[0].stage, 'S01')
+assert.equal(EXIT_CODES.BUSINESS_FAILURE, 10)
+assert.equal(EXIT_CODES.PRECONDITION_BLOCKED, 20)
+
+console.log('PASS: eDHR AI loop manifest and report contract')

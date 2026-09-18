@@ -57,11 +57,17 @@ public interface FormCenterRuntimeService {
 
     FormInstanceRespVO findActiveBusinessAction(BusinessActionContextReqVO reqVO);
 
+    FormInstanceRespVO findBusinessActionByIdempotency(BusinessActionContextReqVO reqVO, String idempotencyKey);
+
     FormInstanceRespVO createInstance(FormInstanceCreateReqVO reqVO, Long userId);
 
     void saveDraft(Long instanceId, FormInstanceDraftReqVO reqVO, Long userId);
 
     FormInstanceRespVO submitInstance(Long instanceId, FormInstanceSubmitReqVO reqVO, Long userId);
+
+    /** Internal verified-source path; intentionally not exposed by any controller. */
+    FormInstanceRespVO submitVerifiedBackfillInstance(Long instanceId, FormInstanceSubmitReqVO reqVO,
+            Long actorUserId, String expectedExecutorCode, String evidenceHash);
 
     void reworkSubmitInstance(Long instanceId, FormInstanceSubmitReqVO reqVO, Long userId);
 

@@ -145,6 +145,14 @@ const assertConfigShape = (data: DccRegistrationCertificateReminderConfigRespVO)
   if (typeof data.thresholdDaysJson !== 'string' || !data.thresholdDaysJson.trim()) {
     throw new Error('注册证提醒配置返回格式无效：缺少阈值规则。')
   }
+  if (!data.thresholdRecipientUserIds || typeof data.thresholdRecipientUserIds !== 'object') {
+    throw new Error('注册证提醒配置返回格式无效：缺少阈值收件人。')
+  }
+  for (const key of ['T_30', 'T_8', 'T_2', 'T_1'] as const) {
+    if (!Array.isArray(data.thresholdRecipientUserIds[key])) {
+      throw new Error(`注册证提醒配置返回格式无效：${key} 收件人必须为数组。`)
+    }
+  }
 }
 
 const applyConfig = (data: DccRegistrationCertificateReminderConfigRespVO) => {

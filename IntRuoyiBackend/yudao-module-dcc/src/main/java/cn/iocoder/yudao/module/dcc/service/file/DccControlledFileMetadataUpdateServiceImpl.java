@@ -22,6 +22,7 @@ import cn.iocoder.yudao.module.dcc.service.projectcode.assignment.DccProjectCode
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignment.DccProjectCodeAssignmentService;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignmentaudit.DccProjectCodeMetadataChangeAuditService;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignmentaudit.DccProjectCodeMetadataChangeCommand;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -106,14 +108,20 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
         validateNoTargetChainConflict(master, file, metadata, selectedDirectoryId);
         validateChainContainsFile(chainFiles, file);
 
-        controlledFileMasterMapper.updateById(DccControlledFileMasterDO.builder()
-                .id(master.getId())
-                .categoryId(metadata.categoryId())
-                .directoryId(selectedDirectoryId)
-                .fileName(metadata.fileName())
-                .fileNumber(metadata.fileNumber())
-                .currentActiveControlledFileId(resolveCurrentActiveControlledFileId(master, file))
-                .build());
+        int masterUpdated = controlledFileMasterMapper.updateMetadataIdentity(
+                master.getId(),
+                metadata.categoryId(),
+                selectedDirectoryId,
+                metadata.fileName(),
+                metadata.fileNumber(),
+                metadata.dccProjectCodeId(),
+                metadata.fileTypeTaxonomyId(),
+                metadata.normalizedFileNumber(),
+                resolveCurrentActiveControlledFileId(master, file),
+                userId == null ? null : String.valueOf(userId));
+        if (masterUpdated != 1) {
+            throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+        }
         DccControlledFileDO afterFile = DccControlledFileDO.builder()
                 .id(file.getId())
                 .masterId(master.getId())
@@ -154,7 +162,7 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
                 || reqVO.getNeedTraining() == null || StrUtil.isBlank(reqVO.getFileName())) {
             throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
         }
-        String fileNumber = StrUtil.trimToEmpty(reqVO.getFileNumber());
+        String fileNumber = normalizeMetadataFileNumber(reqVO.getFileNumber());
         DccProjectCodeDO projectCode = resolveEnabledProjectCode(reqVO.getDccProjectCodeId());
         ResolvedFileTypeTaxonomy fileTypeTaxonomy = resolveFileTypeTaxonomy(reqVO);
         FileTypeLevels fileTypeLevels = fileTypeTaxonomy.levels();
@@ -164,6 +172,7 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
                 StrUtil.trim(reqVO.getFileName()),
                 StrUtil.trim(projectCode.getProjectCode()),
                 fileNumber,
+                StrUtil.blankToDefault(fileNumber, null),
                 reqVO.getCategoryId(),
                 reqVO.getDirectoryId(),
                 projectCode.getId(),
@@ -257,8 +266,26 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
 
     private void validateNoTargetChainConflict(DccControlledFileMasterDO currentMaster, DccControlledFileDO file,
                                                NormalizedMetadata metadata, Long selectedDirectoryId) {
+        validateNoTargetLogicalIdentityConflict(currentMaster, metadata);
         DccControlledFileMasterDO targetMaster = controlledFileMasterMapper.selectByCategoryIdAndDirectoryIdAndFileName(
                 metadata.categoryId(), selectedDirectoryId, metadata.fileName());
+        if (targetMaster == null || Objects.equals(targetMaster.getId(), currentMaster.getId())) {
+            return;
+        }
+        throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+    }
+
+    private void validateNoTargetLogicalIdentityConflict(DccControlledFileMasterDO currentMaster,
+                                                         NormalizedMetadata metadata) {
+        if (metadata.dccProjectCodeId() == null || metadata.fileTypeTaxonomyId() == null
+                || StrUtil.isBlank(metadata.normalizedFileNumber())) {
+            return;
+        }
+        DccControlledFileMasterDO targetMaster = controlledFileMasterMapper.selectByNewLogicalIdentity(
+                TenantContextHolder.getRequiredTenantId(),
+                metadata.dccProjectCodeId(),
+                metadata.fileTypeTaxonomyId(),
+                metadata.normalizedFileNumber());
         if (targetMaster == null || Objects.equals(targetMaster.getId(), currentMaster.getId())) {
             return;
         }
@@ -297,8 +324,17 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
         }
     }
 
+    private String normalizeMetadataFileNumber(String fileNumber) {
+        String normalized = StrUtil.trim(fileNumber);
+        if (StrUtil.isBlank(normalized)) {
+            return "";
+        }
+        return normalized.toUpperCase(Locale.ROOT);
+    }
+
     private record NormalizedMetadata(Long productMasterId, String productName, String fileName, String productCode,
-                                      String fileNumber, Long categoryId, Long directoryId, Long dccProjectCodeId,
+                                      String fileNumber, String normalizedFileNumber, Long categoryId, Long directoryId,
+                                      Long dccProjectCodeId,
                                       Boolean needTraining, Long fileTypeTaxonomyId, String fileTypeLevel1,
                                       String fileTypeLevel2, String fileTypeLevel3, String fileTypeLevel4,
                                       String fileTypeLevel5) {

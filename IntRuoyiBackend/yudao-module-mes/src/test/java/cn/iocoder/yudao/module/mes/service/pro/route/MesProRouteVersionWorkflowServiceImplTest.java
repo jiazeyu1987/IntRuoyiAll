@@ -40,7 +40,7 @@ class MesProRouteVersionWorkflowServiceImplTest {
     void submitCandidate_shouldRecordControlledContentWhileNativeCandidateIsStillDraft() {
         MesProRouteVersionDO active = activeVersion();
         MesProRouteVersionDO candidate = draftCandidate(active);
-        when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
+        when(routeVersionMapper.selectByIdForUpdate(candidate.getId())).thenReturn(candidate);
         when(routeVersionMapper.countOpenCandidatesByRouteId(candidate.getRouteId())).thenReturn(1L);
         when(routeVersionMapper.selectActiveByRouteId(candidate.getRouteId())).thenReturn(active);
         doAnswer(invocation -> {
@@ -92,8 +92,13 @@ class MesProRouteVersionWorkflowServiceImplTest {
     }
 
     private String completeRouteSnapshot() {
-        return "{\"routeId\":9001,\"routeCode\":\"ROUTE-XLSX-00001\",\"routeName\":\"route\","
-                + "\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":922483}]},"
-                + "\"products\":[],\"scheduleConfigs\":[],\"batchUseConfigs\":[],\"scheduleUseConfigs\":[]}}";
+        return """
+                {"routeId":9001,"routeCode":"ROUTE-XLSX-00001","routeName":"route",
+                 "configSnapshots":{"flowGraph":{"nodes":[{"routeProcessId":922483,"processId":201}]},
+                 "products":[],"scheduleConfigs":[],"batchUseConfigs":[],"scheduleUseConfigs":[],
+                 "productionProcessConfigSchemaVersion":1,
+                 "productionProcessConfigs":[{"routeProcessId":922483,"processId":201,
+                   "overagePercent":0,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}]}}
+                """;
     }
 }

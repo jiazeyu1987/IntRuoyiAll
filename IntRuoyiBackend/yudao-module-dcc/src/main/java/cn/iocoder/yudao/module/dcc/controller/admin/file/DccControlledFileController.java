@@ -458,7 +458,7 @@ public class DccControlledFileController {
 
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "Get controlled file detail")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
     public CommonResult<DccControlledFileRespVO> getControlledFile(@PathVariable("id") Long id) {
         return success(queryService.getControlledFile(getLoginUserId(), id));
     }
@@ -779,7 +779,7 @@ public class DccControlledFileController {
     @Operation(summary = "Retry controlled file finalization")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:stamp:retry')")
     public CommonResult<Boolean> retryControlledFileStamp(@PathVariable("id") Long id) {
-        finalizationService.retryStamp(id);
+        finalizationService.retryStamp(getLoginUserId(), id);
         return success(true);
     }
 
@@ -872,7 +872,7 @@ public class DccControlledFileController {
 
     @GetMapping("/{id:\\d+}/download")
     @Operation(summary = "Download controlled file")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:download-read-only')")
     public ResponseEntity<byte[]> downloadControlledFile(@PathVariable("id") Long id,
                                                           @RequestParam("nonControlledWarningConfirmed")
                                                           Boolean nonControlledWarningConfirmed,
@@ -882,8 +882,56 @@ public class DccControlledFileController {
         if (StrUtil.isBlank(downloadRequestId)) {
             throw exception(DCC_DOWNLOAD_REQUEST_ID_REQUIRED);
         }
-        var binary = queryService.readDownloadFile(getLoginUserId(), id, nonControlledWarningConfirmed,
+        var binary = queryService.readReadOnlyDownloadFile(getLoginUserId(), id, nonControlledWarningConfirmed,
                 StrUtil.trim(downloadRequestId), auditContext(request, StrUtil.trim(downloadRequestId)));
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType(binary.contentType()))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        org.springframework.http.ContentDisposition.attachment()
+                                .filename(binary.fileName(), StandardCharsets.UTF_8)
+                                .build()
+                                .toString())
+                .header(org.springframework.http.HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
+                        org.springframework.http.HttpHeaders.CONTENT_DISPOSITION + ","
+                                + ACCESS_EVENT_CODE_HEADER + "," + DOWNLOAD_REQUEST_ID_HEADER + ","
+                                + DOWNLOAD_PLAIN_SHA256_HEADER)
+                .header(ACCESS_EVENT_CODE_HEADER, binary.accessEventCode())
+                .header(DOWNLOAD_REQUEST_ID_HEADER, binary.downloadRequestId())
+                .header(DOWNLOAD_PLAIN_SHA256_HEADER, binary.plainSha256())
+                .body(binary.bytes());
+    }
+
+    @GetMapping("/{id:\\d+}/download/read-only")
+    @Operation(summary = "Download the non-editable controlled file version")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:download-read-only')")
+    public ResponseEntity<byte[]> downloadReadOnlyControlledFile(@PathVariable("id") Long id,
+                                                                  @RequestParam("nonControlledWarningConfirmed") Boolean confirmed,
+                                                                  @RequestParam("downloadRequestId") String requestId,
+                                                                  HttpServletRequest request) {
+        return downloadVariant(id, confirmed, requestId, request, false);
+    }
+
+    @GetMapping("/{id:\\d+}/download/editable")
+    @Operation(summary = "Download the editable controlled file version")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:download-editable')")
+    public ResponseEntity<byte[]> downloadEditableControlledFile(@PathVariable("id") Long id,
+                                                                  @RequestParam("nonControlledWarningConfirmed") Boolean confirmed,
+                                                                  @RequestParam("downloadRequestId") String requestId,
+                                                                  HttpServletRequest request) {
+        return downloadVariant(id, confirmed, requestId, request, true);
+    }
+
+    private ResponseEntity<byte[]> downloadVariant(Long id, Boolean confirmed, String requestId,
+                                                   HttpServletRequest request, boolean editable) {
+        if (StrUtil.isBlank(requestId)) {
+            throw exception(DCC_DOWNLOAD_REQUEST_ID_REQUIRED);
+        }
+        String normalizedRequestId = StrUtil.trim(requestId);
+        var binary = editable
+                ? queryService.readEditableDownloadFile(getLoginUserId(), id, confirmed, normalizedRequestId,
+                auditContext(request, normalizedRequestId))
+                : queryService.readReadOnlyDownloadFile(getLoginUserId(), id, confirmed, normalizedRequestId,
+                auditContext(request, normalizedRequestId));
         return ResponseEntity.ok()
                 .contentType(org.springframework.http.MediaType.parseMediaType(binary.contentType()))
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,

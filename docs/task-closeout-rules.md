@@ -39,6 +39,7 @@
 - 运行 task-closeout-cleanup preview，确认 keep/delete/blocked/warnings。
 - preview 无异常后运行 apply。
 - apply 通过后再标记 `completed`。
+- 若用户当轮明确禁止 Git 提交/推送，而项目规则仍要求提交推送才能完成，则实现与验证完成后记录为 `blocked`；cleanup preview 可作为清理证据，cleanup apply 若因 `blocked` 状态拒绝执行必须如实记录为 BLOCKED，禁止写成 PASS。
 - 默认保留 `task.md`、`execution-log.md`、`verification-report.md`。
 
 ## 重复任务记录收口门禁
@@ -56,6 +57,7 @@
 - Blocker: 范围变更未写入任务文档、取消项与保留项边界不清、取消的是仍能证明当前行为安全性的唯一测试、或任务代码改动超出定向验证覆盖范围时，必须停止补齐验证设计。
 - Verification: 收尾前复查任务文档的 Expected Verification 与实际执行记录一致；若不跑旧全量命令，必须在验证报告记录其已被用户明确移出当前完成门禁。
 - Forbidden action: 禁止用户已缩小范围后继续把旧全量命令当作完成阻塞；禁止用范围变更掩盖当前开发文档或测试计划内的定向失败；禁止把“未运行全量”写成已通过。
+- 文档审核补充：口径纠正后，必须同时核对旧测试是否仍强制已取消行为、页面显示条件是否阻断新行为，以及E2E是否遗漏实际状态推进步骤。将静态发现、实际RED/GREEN、历史运行证据与本轮验证分开记录；搜索命中不能记作RED，文档校验通过不能记作业务验收通过。
 
 
 ## 任务验证脚本保留门禁
@@ -73,6 +75,13 @@
 - Blocker: evidence 文件还未通过 validator、validator 结果只存在于将被 cleanup 删除的文件、或 `verification-report.md` 未记录关键 PASS 命令时，不得执行 cleanup apply。
 - Verification: cleanup preview 显示临时 evidence 文件在 delete 列表，同时 `task.md`、`execution-log.md`、`verification-report.md` 在 keep 列表；apply 后保留报告仍包含 validator PASS 和核心验收结论。
 - Forbidden action: 禁止先删除 evidence 文件再补写验证结论；禁止把已被 cleanup 删除的临时 evidence 当作最终审计证据；禁止为了保留所有中间 evidence 而跳过 cleanup。
+## 跨电脑静态审计交接门禁
+
+- Trigger: 将代码审计、主流程与待修复项交给另一电脑或另一任务继续处理。
+- Preflight check: 单个正式交接文档应包含完整业务流程、稳定且不与历史缺陷混淆的编号、触发条件、代码依据、修复边界及逐项验收；代码位置使用仓库相对路径，并记录基线提交、方法锚点和需要时的源码指纹。
+- Evidence boundary: 明确区分目标范围、静态推导、真实复现及已验证修复；接收方代码不同或指纹变化时须重新复核，不能凭历史“已完成”或单个字符串判断关闭问题。文本指纹统一UTF-8并规范化换行，避免跨电脑CRLF差异产生误报。
+- Verification: 交付前核对原流程是否完整、问题编号是否连续、各项验收是否齐全、代码路径与锚点是否存在；交接文件不能依赖发送电脑的盘符、临时任务附件或聊天上下文，也不能携带账号密码、令牌等凭据。
+
 ## 禁止做法
 
 - 禁止跳过用户明确要求的脏工作区基线提交。

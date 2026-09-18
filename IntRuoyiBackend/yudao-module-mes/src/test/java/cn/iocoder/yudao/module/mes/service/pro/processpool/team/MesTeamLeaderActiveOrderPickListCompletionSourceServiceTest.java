@@ -7,7 +7,6 @@ import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProduc
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
@@ -31,7 +30,6 @@ import static org.mockito.Mockito.when;
 class MesTeamLeaderActiveOrderPickListCompletionSourceServiceTest {
 
     @Mock private MesProWorkOrderMapper workOrderMapper;
-    @Mock private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock private ErpKingdeeProductionPickListMapper pickListMapper;
     @Mock private ErpKingdeeProductionPickListItemMapper pickListItemMapper;
     @Mock private MesProcessPoolActiveOrderPickListBindingMapper bindingMapper;
@@ -41,8 +39,7 @@ class MesTeamLeaderActiveOrderPickListCompletionSourceServiceTest {
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderActiveOrderPickListCompletionSourceService(
-                new MesFormalProductionPickListSourceResolver(workOrderMapper, activeOrderMapper,
-                        pickListMapper, pickListItemMapper),
+                new MesFormalProductionPickListSourceResolver(workOrderMapper, pickListMapper, pickListItemMapper),
                 bindingMapper, bindingItemMapper);
         org.mockito.Mockito.lenient().when(workOrderMapper.selectById(30L)).thenReturn(
                 cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder()

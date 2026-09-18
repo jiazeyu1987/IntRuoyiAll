@@ -2,11 +2,14 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
@@ -22,7 +25,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -47,13 +52,18 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     private MesProScheduleOrderMapper scheduleOrderMapper;
     @Mock
     private MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
+    @Mock
+    private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    @Mock
+    private MesProProcessPoolEventMapper eventMapper;
 
     private MesTeamLeaderOrderProcessCompletionService service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderOrderProcessCompletionService(allocationMapper, workOrderMapper,
-                completionMapper, orderProcessTargetService, scheduleOrderMapper, scheduleOrderProcessMapper);
+                completionMapper, orderProcessTargetService, scheduleOrderMapper, scheduleOrderProcessMapper,
+                processSnapshotMapper, eventMapper);
     }
 
     @Test
@@ -63,12 +73,17 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 LocalDateTime.of(2026, 8, 1, 9, 1));
         MesProcessPoolReportAllocationDO priorLine = allocation(9001L, "120", 7100L, 1000L, 7000L,
                 LocalDateTime.of(2026, 8, 1, 8, 31));
+        List<MesProcessPoolReportAllocationDO> sourceAllocations = List.of(priorLine, confirmedLine);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(priorLine, confirmedLine));
+                .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", List.of(
+                productionSubmit(1000L, 9001L, 5001L, "120"),
+                productionSubmit(1001L, 9001L, 5001L, "80")));
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
 
         service.applyConfirmedAllocations(event, List.of(confirmedLine));
 
@@ -94,12 +109,15 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     void shouldCompleteSharedAllocationWithoutTriggeringLegacyBatchRecordBackfill() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "200");
+        List<MesProcessPoolReportAllocationDO> sourceAllocations = List.of(confirmedLine);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(confirmedLine));
+                .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "200");
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
 
         service.reconcileAffectedAllocations(event, List.of(confirmedLine));
 
@@ -114,15 +132,35 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     }
 
     @Test
+    void recalculationKeepsLastEventWithinTheRemainingAllocatedSources() {
+        var trigger = event();
+        var remainingEvent = event().setId(1002L);
+        var line = allocation(9001L, "100").setEventId(1002L);
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("100")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(line));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("100"));
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, remainingEvent, List.of(line));
+        service.reconcileAffectedAllocations(trigger, List.of(line));
+        var captor = ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
+        verify(completionMapper).insert(captor.capture());
+        assertEquals(1002L, captor.getValue().getLastEventId());
+    }
+
+    @Test
     void shouldKeepOrderProcessInProgressBeforeTargetQuantityIsReached() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "79");
+        MesProcessPoolReportAllocationDO priorLine = allocation(9001L, "120");
+        List<MesProcessPoolReportAllocationDO> sourceAllocations = List.of(priorLine, confirmedLine);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(allocation(9001L, "120"), confirmedLine));
+                .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "199");
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
 
         service.applyConfirmedAllocations(event, List.of(confirmedLine));
 
@@ -144,12 +182,15 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     void shouldPersistCompletionFromActiveOrderSnapshotWhenScheduleOrderNoLongerExists() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "100");
+        List<MesProcessPoolReportAllocationDO> sourceAllocations = List.of(confirmedLine);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(confirmedLine));
+                .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "100");
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
 
         service.applyConfirmedAllocations(event, List.of(confirmedLine));
 
@@ -167,12 +208,15 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     void shouldUpdateFormalScheduleProgressByProcessTargetWithoutChangingErpQuantity() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "300");
+        List<MesProcessPoolReportAllocationDO> sourceAllocations = List.of(confirmedLine);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("300")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(confirmedLine));
+                .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("900"));
+        stubProcessProgress("900", "300");
         stubFormalSchedule("300", "900");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
 
         service.applyConfirmedAllocations(event, List.of(confirmedLine));
 
@@ -187,13 +231,16 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     void shouldRejectDuplicateFormalScheduleProcessesForSameWorkOrderAndRouteProcess() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "300");
+        List<MesProcessPoolReportAllocationDO> sourceAllocations = List.of(confirmedLine);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("300")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(confirmedLine));
+                .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("900"));
+        stubProcessProgress("900", "300");
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of(scheduleOrder("300")));
         when(scheduleOrderProcessMapper.selectListByScheduleOrderId(7701L))
                 .thenReturn(List.of(scheduleProcess("300"), scheduleProcess("300")));
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> service.applyConfirmedAllocations(event, List.of(confirmedLine)));
@@ -216,13 +263,16 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .setCompletedAt(LocalDateTime.of(2026, 8, 1, 9, 2))
                 .setBackfillStatus(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS)
                 .setBackfillExecutionId(8801L);
+        List<MesProcessPoolReportAllocationDO> sourceAllocations = List.of(allocation(9001L, "200"));
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(allocation(9001L, "200")));
+                .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "200");
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L))
                 .thenReturn(existingCompletion);
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
 
         service.applyConfirmedAllocations(event, List.of(confirmedLine));
 
@@ -240,12 +290,16 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     void shouldPreserveConfirmedOverageAndCapFormalScheduleProgressAtTarget() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "20");
+        MesProcessPoolReportAllocationDO priorLine = allocation(9001L, "190");
+        List<MesProcessPoolReportAllocationDO> sourceAllocations = List.of(priorLine, confirmedLine);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(allocation(9001L, "190"), confirmedLine));
+                .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "210");
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
 
         service.applyConfirmedAllocations(event, List.of(confirmedLine));
 
@@ -273,6 +327,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 LocalDateTime.of(2026, 8, 1, 9, 30));
         MesProcessPoolReportAllocationDO correctedLine = allocation(9001L, "200", 7301L, 1001L, 7002L,
                 LocalDateTime.of(2026, 8, 1, 10, 0));
+        List<MesProcessPoolReportAllocationDO> sourceAllocations = List.of(correctedLine);
         MesProcessPoolOrderProcessCompletionDO existingCompletion = new MesProcessPoolOrderProcessCompletionDO()
                 .setId(7701L)
                 .setWorkOrderId(9001L)
@@ -287,11 +342,13 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .setLastReviewId(7001L);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(correctedLine));
+                .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "200");
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L))
                 .thenReturn(existingCompletion);
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
 
         service.reconcileAffectedAllocations(event, List.of(supersededOverage, correctedLine));
 
@@ -313,6 +370,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 LocalDateTime.of(2026, 8, 1, 9, 30));
         MesProcessPoolReportAllocationDO correctedLine = allocation(9001L, "200", 7301L, 1001L, 7002L,
                 LocalDateTime.of(2026, 8, 1, 10, 0));
+        List<MesProcessPoolReportAllocationDO> sourceAllocations = List.of(correctedLine);
         MesProcessPoolOrderProcessCompletionDO existingCompletion = new MesProcessPoolOrderProcessCompletionDO()
                 .setId(7701L)
                 .setWorkOrderId(9001L)
@@ -328,11 +386,13 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .setLastReviewId(7001L);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(correctedLine));
+                .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "200");
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L))
                 .thenReturn(existingCompletion);
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
 
         service.reconcileAffectedAllocations(event, List.of(supersededOverage, correctedLine));
 
@@ -352,12 +412,15 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO frontlineAllocation = allocation(9001L, "10")
                 .setAllocationMode(MesProcessPoolReportAllocationDO.MODE_FRONTLINE_SELECTED);
+        List<MesProcessPoolReportAllocationDO> sourceAllocations = List.of(frontlineAllocation);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("6")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(frontlineAllocation));
+                .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("6"));
+        stubProcessProgress("6", "10");
         stubFormalSchedule("6", "6");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
 
         service.reconcileAffectedAllocations(event, List.of(frontlineAllocation));
 
@@ -381,12 +444,17 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     void shouldReachPerProcessSnapshotTargetWithoutLegacyBackfill() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "300");
+        MesProcessPoolReportAllocationDO firstLine = allocation(9001L, "300");
+        MesProcessPoolReportAllocationDO secondLine = allocation(9001L, "300");
+        List<MesProcessPoolReportAllocationDO> sourceAllocations = List.of(firstLine, secondLine, confirmedLine);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("300")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(allocation(9001L, "300"), allocation(9001L, "300"), confirmedLine));
+                .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("900"));
+        stubProcessProgress("900", "900");
         stubFormalSchedule("300", "900");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
 
         service.applyConfirmedAllocations(event, List.of(confirmedLine));
 
@@ -407,22 +475,29 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO removedA = allocation(8101L, 9001L, 5101L, "100", 7101L);
         MesProcessPoolReportAllocationDO currentC = allocation(8103L, 9003L, 5301L, "100", 7103L);
+        List<MesProcessPoolReportAllocationDO> removedSourceAllocations = List.of();
+        List<MesProcessPoolReportAllocationDO> currentSourceAllocations = List.of(currentC);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L, 9003L))).thenReturn(List.of(
                 workOrder(9001L, "A", "300"), workOrder(9003L, "C", "300")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5101L, 6001L))
-                .thenReturn(List.of());
+                .thenReturn(removedSourceAllocations);
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9003L), 5301L, 6001L))
-                .thenReturn(List.of(currentC));
+                .thenReturn(currentSourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5101L, 6001L))
                 .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("300"),
                         BigDecimal.ONE, new BigDecimal("300")));
         when(orderProcessTargetService.requireTarget(8103L, 9003L, 5301L, 6001L))
                 .thenReturn(new MesTeamLeaderOrderProcessTarget(5301L, 6001L, new BigDecimal("300"),
                         BigDecimal.ONE, new BigDecimal("300")));
+        stubProcessProgress(8101L, 9001L, 5101L, "300", List.of());
+        stubProcessProgress(8103L, 9003L, 5301L, "300",
+                List.of(productionSubmit(1001L, 9003L, 5301L, "100")));
         stubFormalSchedule(9001L, 7701L, 8801L, 5101L, "300");
         stubFormalSchedule(9003L, 7703L, 8803L, 5301L, "300");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5101L, 6001L)).thenReturn(null);
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9003L, 5301L, 6001L)).thenReturn(null);
+        stubSingleOutputProgress(8101L, 9001L, 5101L, 6001L, event, removedSourceAllocations);
+        stubSingleOutputProgress(8103L, 9003L, 5301L, 6001L, event, currentSourceAllocations);
 
         service.reconcileAffectedAllocations(event, List.of(removedA, currentC));
 
@@ -443,6 +518,48 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 new BigDecimal("300.000000"), new BigDecimal("0.000000"));
         verify(scheduleOrderProcessMapper).updateProgress(8803L, new BigDecimal("100.000000"),
                 new BigDecimal("200.000000"), new BigDecimal("33.333333"));
+    }
+
+    private void stubSingleOutputProgress(Long activeOrderId, Long workOrderId, Long routeProcessId,
+                                          Long processId, MesProProcessPoolEventDO triggerEvent,
+                                          List<MesProcessPoolReportAllocationDO> sourceAllocations) {
+        when(processSnapshotMapper.selectByActiveOrderAndProcess(activeOrderId, routeProcessId, processId))
+                .thenReturn(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(activeOrderId)
+                        .workOrderId(workOrderId)
+                        .routeId(triggerEvent.getRouteId())
+                        .routeProcessId(routeProcessId)
+                        .processId(processId)
+                        .plannedQuantitySnapshot(BigDecimal.ONE)
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[501]}")
+                        .build());
+        when(eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(workOrderId, triggerEvent.getRouteId()))
+                .thenReturn(productionEventsForSingleOutput(workOrderId, routeProcessId, processId,
+                        triggerEvent, sourceAllocations == null ? List.of() : sourceAllocations));
+    }
+
+    private static List<MesProProcessPoolEventDO> productionEventsForSingleOutput(Long workOrderId,
+                                                                                  Long routeProcessId,
+                                                                                  Long processId,
+                                                                                  MesProProcessPoolEventDO triggerEvent,
+                                                                                  List<MesProcessPoolReportAllocationDO> sourceAllocations) {
+        Map<Long, BigDecimal> quantityByEventId = new LinkedHashMap<>();
+        for (MesProcessPoolReportAllocationDO allocation : sourceAllocations) {
+            quantityByEventId.merge(allocation.getEventId(), allocation.getAllocatedQuantity(), BigDecimal::add);
+        }
+        return quantityByEventId.entrySet().stream()
+                .map(entry -> MesProProcessPoolEventDO.builder()
+                        .id(entry.getKey())
+                        .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                        .workOrderId(workOrderId)
+                        .routeId(triggerEvent.getRouteId())
+                        .routeProcessId(routeProcessId)
+                        .processId(processId)
+                        .rawPayload("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":"
+                                + entry.getValue().stripTrailingZeros().toPlainString() + "}]}")
+                        .serverSubmitTime(triggerEvent.getServerSubmitTime())
+                        .build())
+                .toList();
     }
 
     private static MesProProcessPoolEventDO event() {
@@ -524,6 +641,50 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                         .routeProcessId(routeProcessId).processId(6001L).enabled(Boolean.TRUE)
                         .plannedQuantity(new BigDecimal(plannedQuantity)).reportedQuantity(BigDecimal.ZERO)
                         .remainingQuantity(new BigDecimal(plannedQuantity)).build()));
+    }
+
+    private void stubProcessProgress(String plannedQuantity, String outputQuantity) {
+        stubProcessProgress(plannedQuantity,
+                List.of(productionSubmit(1001L, 9001L, 5001L, outputQuantity)));
+    }
+
+    private void stubProcessProgress(String plannedQuantity, List<MesProProcessPoolEventDO> productionEvents) {
+        stubProcessProgress(8101L, 9001L, 5001L, plannedQuantity, productionEvents);
+    }
+
+    private void stubProcessProgress(Long activeOrderId, Long workOrderId, Long routeProcessId,
+                                     String plannedQuantity, List<MesProProcessPoolEventDO> productionEvents) {
+        when(processSnapshotMapper.selectByActiveOrderAndProcess(activeOrderId, routeProcessId, 6001L))
+                .thenReturn(snapshot(activeOrderId, workOrderId, routeProcessId, plannedQuantity));
+        when(eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(workOrderId, 7001L))
+                .thenReturn(productionEvents);
+    }
+
+    private static MesProcessPoolActiveOrderProcessSnapshotDO snapshot(Long activeOrderId, Long workOrderId,
+                                                                       Long routeProcessId, String plannedQuantity) {
+        return MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                .activeOrderId(activeOrderId)
+                .workOrderId(workOrderId)
+                .routeId(7001L)
+                .routeProcessId(routeProcessId)
+                .processId(6001L)
+                .plannedQuantitySnapshot(new BigDecimal(plannedQuantity))
+                .productionConfigSnapshotJson("{\"outputMaterialIds\":[501]}")
+                .build();
+    }
+
+    private static MesProProcessPoolEventDO productionSubmit(Long eventId, Long workOrderId, Long routeProcessId,
+                                                            String outputQuantity) {
+        return MesProProcessPoolEventDO.builder()
+                .id(eventId)
+                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .workOrderId(workOrderId)
+                .routeId(7001L)
+                .routeProcessId(routeProcessId)
+                .processId(6001L)
+                .rawPayload("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":"
+                        + outputQuantity + "}]}")
+                .build();
     }
 
     private static MesProScheduleOrderDO scheduleOrder(String quantity) {

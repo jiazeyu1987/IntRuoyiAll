@@ -2,6 +2,7 @@ import request from '@/config/axios'
 import { downloadByData } from '@/utils/filt'
 import type { TableQuickFilterValue } from '@/hooks/web/useTableQuickFilter'
 import type { FormRecognizedFieldVO } from '@/api/form-center/template'
+import type { TeamLeaderActiveOrderDetailRespVO } from '@/api/mes/pro/processpool/teamLeader'
 
 export const EDHR_BATCH_ARCHIVE_ARTIFACT_FINAL_PDF = 'BATCH_FINAL_PDF'
 export const EDHR_BATCH_STATUS_CREATED = 0
@@ -827,6 +828,13 @@ export const getEdhrBatchExecutionPage = async (params: EdhrBatchExecutionPageRe
 export const getEdhrBatchExecution = async (id: EdhrRouteId) => {
   return await request.get<EdhrBatchExecutionRespVO>({
     url: `${BATCH_EXECUTION_BASE_URL}/get?id=${id}`
+  })
+}
+
+export const getEdhrBatchActiveOrderDetail = async (batchExecutionId: EdhrRouteId) => {
+  return await request.get<TeamLeaderActiveOrderDetailRespVO>({
+    url: `${BATCH_EXECUTION_BASE_URL}/active-order-detail`,
+    params: { batchExecutionId }
   })
 }
 

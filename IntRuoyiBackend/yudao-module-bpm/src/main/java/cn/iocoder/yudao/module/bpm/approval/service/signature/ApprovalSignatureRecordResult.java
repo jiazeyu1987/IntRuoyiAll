@@ -15,4 +15,8 @@ public class ApprovalSignatureRecordResult {
 
     String signatureImageFileUrl;
 
+    String subjectId;
+
+    String evidenceHash;
+
 }

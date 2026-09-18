@@ -1,11 +1,15 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
@@ -20,6 +24,7 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -46,19 +51,25 @@ public class MesTeamLeaderOrderProcessCompletionService {
     private final MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
     private final MesProScheduleOrderMapper scheduleOrderMapper;
     private final MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
+    private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    private final MesProProcessPoolEventMapper eventMapper;
 
     public MesTeamLeaderOrderProcessCompletionService(MesProcessPoolReportAllocationMapper allocationMapper,
                                                       MesProWorkOrderMapper workOrderMapper,
                                                       MesProcessPoolOrderProcessCompletionMapper completionMapper,
                                                       MesTeamLeaderOrderProcessTargetService orderProcessTargetService,
                                                       MesProScheduleOrderMapper scheduleOrderMapper,
-                                                      MesProScheduleOrderProcessMapper scheduleOrderProcessMapper) {
+                                                      MesProScheduleOrderProcessMapper scheduleOrderProcessMapper,
+                                                      MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
+                                                      MesProProcessPoolEventMapper eventMapper) {
         this.allocationMapper = allocationMapper;
         this.workOrderMapper = workOrderMapper;
         this.completionMapper = completionMapper;
         this.orderProcessTargetService = orderProcessTargetService;
         this.scheduleOrderMapper = scheduleOrderMapper;
         this.scheduleOrderProcessMapper = scheduleOrderProcessMapper;
+        this.processSnapshotMapper = processSnapshotMapper;
+        this.eventMapper = eventMapper;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -78,7 +89,8 @@ public class MesTeamLeaderOrderProcessCompletionService {
     private void reconcileAffectedAllocations(MesProProcessPoolEventDO event,
                                               Collection<MesProcessPoolReportAllocationDO> affectedAllocations,
                                               boolean allowAdjustableOverage) {
-        if (event == null || event.getId() == null || event.getRouteProcessId() == null || event.getProcessId() == null
+        if (event == null || event.getId() == null || event.getRouteId() == null
+                || event.getRouteProcessId() == null || event.getProcessId() == null
                 || affectedAllocations == null || affectedAllocations.isEmpty()
                 || affectedAllocations.stream().anyMatch(allocation -> allocation == null
                 || allocation.getWorkOrderId() == null || allocation.getActiveOrderId() == null
@@ -106,10 +118,46 @@ public class MesTeamLeaderOrderProcessCompletionService {
                             key.processId()));
             MesProcessPoolReportAllocationDO currentRepresentative = sourceAllocations.isEmpty()
                     ? representativeAllocation : sourceAllocations.get(sourceAllocations.size() - 1);
-            BigDecimal confirmedQuantity = sourceAllocations.stream().map(this::requireAllocatedQuantity)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            List<MesProcessPoolReportAllocationDO> activeOrderSourceAllocations = sourceAllocations.stream()
+                    .filter(allocation -> Objects.equals(currentRepresentative.getActiveOrderId(),
+                            allocation.getActiveOrderId()))
+                    .toList();
             MesTeamLeaderOrderProcessTarget target = orderProcessTargetService.requireTarget(
                     currentRepresentative.getActiveOrderId(), workOrderId, key.routeProcessId(), key.processId());
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot = processSnapshotMapper
+                    .selectByActiveOrderAndProcess(currentRepresentative.getActiveOrderId(), key.routeProcessId(),
+                            key.processId());
+            if (snapshot == null || !Objects.equals(workOrderId, snapshot.getWorkOrderId())) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, currentRepresentative.getActiveOrderId());
+            }
+            MesProcessPoolActiveOrderDO activeOrder = MesProcessPoolActiveOrderDO.builder()
+                    .id(currentRepresentative.getActiveOrderId())
+                    .workOrderId(workOrderId)
+                    .routeId(event.getRouteId())
+                    .build();
+            List<MesProProcessPoolEventDO> productionEvents = new ArrayList<>(
+                    eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(workOrderId, event.getRouteId()));
+            List<Long> sourceEventIds = activeOrderSourceAllocations.stream()
+                    .map(MesProcessPoolReportAllocationDO::getEventId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            if (!sourceEventIds.isEmpty()) {
+                Map<Long, MesProProcessPoolEventDO> productionEventsById = productionEvents.stream()
+                        .filter(Objects::nonNull)
+                        .filter(productionEvent -> productionEvent.getId() != null)
+                        .collect(Collectors.toMap(MesProProcessPoolEventDO::getId, Function.identity(),
+                                (first, ignored) -> first, LinkedHashMap::new));
+                for (MesProProcessPoolEventDO sourceEvent :
+                        eventMapper.selectProductionSubmitsByIdsForUpdate(sourceEventIds)) {
+                    if (sourceEvent != null && sourceEvent.getId() != null) {
+                        productionEventsById.putIfAbsent(sourceEvent.getId(), sourceEvent);
+                    }
+                }
+                productionEvents = new ArrayList<>(productionEventsById.values());
+            }
+            BigDecimal confirmedQuantity = MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
+                    activeOrder, snapshot, productionEvents, activeOrderSourceAllocations);
             boolean quantityConflict = confirmedQuantity.compareTo(target.plannedQuantity()) > 0;
             if (quantityConflict && !allowAdjustableOverage) {
                 throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH, workOrderId);
@@ -129,18 +177,18 @@ public class MesTeamLeaderOrderProcessCompletionService {
                     .setProcessId(key.processId())
                     .setTargetQuantity(target.plannedQuantity())
                     .setConfirmedQuantity(confirmedQuantity)
-                    .setLastEventId(event.getId())
+                    .setLastEventId(currentRepresentative.getEventId())
                     .setLastReviewId(currentRepresentative.getReviewId());
             if (confirmedQuantity.compareTo(target.plannedQuantity()) >= 0) {
-                requireSourceAllocations(sourceAllocations);
-                applyPendingSourceTrace(key, completion, sourceAllocations);
+                requireSourceAllocations(activeOrderSourceAllocations);
+                applyPendingSourceTrace(key, completion, activeOrderSourceAllocations);
                 completion.setCompletionStatus(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED)
                         .setCompletedAt(LocalDateTime.now())
                         .setBackfillStatus(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_NOT_REQUIRED)
                         .setBackfillExecutionId(null)
                         .setBackfillError(null);
             } else {
-                applyPendingSourceTrace(key, completion, sourceAllocations);
+                applyPendingSourceTrace(key, completion, activeOrderSourceAllocations);
                 completion.setCompletionStatus(MesProcessPoolOrderProcessCompletionDO.STATUS_IN_PROGRESS)
                         .setCompletedAt(null)
                         .setBackfillStatus(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_NOT_REQUIRED)

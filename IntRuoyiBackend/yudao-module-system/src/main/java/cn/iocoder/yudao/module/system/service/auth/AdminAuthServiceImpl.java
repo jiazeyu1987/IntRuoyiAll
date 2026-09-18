@@ -110,11 +110,6 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.BAD_CREDENTIALS);
             throw exception(AUTH_LOGIN_BAD_CREDENTIALS);
         }
-        if (Objects.equals(user.getPasswordCredentialStatus(), "INITIAL")
-                || Objects.equals(user.getPasswordCredentialStatus(), "RESET_REQUIRED")) {
-            createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.PASSWORD_CHANGE_REQUIRED);
-            throw exception(AUTH_LOGIN_PASSWORD_CHANGE_REQUIRED);
-        }
         if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now())) {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.PASSWORD_EXPIRED);
             throw exception(AUTH_LOGIN_PASSWORD_EXPIRED);
@@ -134,7 +129,10 @@ public class AdminAuthServiceImpl implements AdminAuthService {
                     reqVO.getSocialType(), reqVO.getSocialCode(), reqVO.getSocialState()));
         }
         // 创建 Token 令牌，记录登录日志
-        return createTokenAfterLoginSuccess(user.getId(), reqVO.getUsername(), LoginLogTypeEnum.LOGIN_USERNAME);
+        AuthLoginRespVO response = createTokenAfterLoginSuccess(user.getId(), reqVO.getUsername(), LoginLogTypeEnum.LOGIN_USERNAME);
+        response.setPasswordChangeRequired(Objects.equals(user.getPasswordCredentialStatus(), "INITIAL")
+                || Objects.equals(user.getPasswordCredentialStatus(), "RESET_REQUIRED"));
+        return response;
     }
 
     @Override

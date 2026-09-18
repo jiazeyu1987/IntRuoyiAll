@@ -116,6 +116,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
     @Mock private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Mock private MesWmProductIssueMapper productIssueMapper;
     @Mock private MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
+    @Mock private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
 
     private MesTeamLeaderActiveOrderService service;
 
@@ -138,7 +139,8 @@ class MesTeamLeaderActiveOrderManualSortTest {
                 abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
                 reportAllocationOrderChangeService,
                 pickListBindingMapper, pickListBindingItemMapper, workOrderBomMapper,
-                batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper);
+                batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper,
+                routeStartAuthorizationService);
     }
 
     @Test

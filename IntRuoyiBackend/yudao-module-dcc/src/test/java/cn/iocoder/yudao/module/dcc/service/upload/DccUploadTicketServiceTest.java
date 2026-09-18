@@ -133,6 +133,31 @@ class DccUploadTicketServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void resolveBoundFileReturnsOnlyArtifactAlreadyBoundToRequestedVersion() {
+        DccControlledFileTemporaryFileDO bound = temporaryFile("UT-PDF", 99L, "session-1",
+                "DRAWING_PDF", "BOUND", LocalDateTime.now().minusDays(1), 901L);
+        bound.setCleanupStatus("BOUND");
+        when(temporaryFileMapper.selectOne(org.mockito.ArgumentMatchers.<SFunction<DccControlledFileTemporaryFileDO, ?>>any(),
+                eq("UT-PDF"))).thenReturn(bound);
+        when(fileMapper.selectById(700L)).thenReturn(storageFile());
+
+        DccUploadTicketBoundFile resolved = uploadTicketService.resolveBoundFile(
+                new DccUploadTicketResolveCommand("UT-PDF", 99L, 10L, "session-1", "DRAWING_PDF"), 901L);
+
+        assertEquals(700L, resolved.storageFileId());
+        verify(temporaryFileMapper, never()).update(eq(null), any(UpdateWrapper.class));
+        assertServiceException(() -> uploadTicketService.resolveBoundFile(
+                        new DccUploadTicketResolveCommand("UT-PDF", 100L, 10L, "session-1", "DRAWING_PDF"), 901L),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        assertServiceException(() -> uploadTicketService.resolveBoundFile(
+                        new DccUploadTicketResolveCommand("UT-PDF", 99L, 10L, "session-1", "DRAWING_PDF"), 902L),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        assertServiceException(() -> uploadTicketService.resolveBoundFile(
+                        new DccUploadTicketResolveCommand("UT-PDF", 99L, 10L, "other-session", "DRAWING_PDF"), 901L),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+    }
+
+    @Test
     void resolveForBinding_rejectsTicketAlreadyClaimedByCleanup() {
         DccControlledFileTemporaryFileDO temporaryFile = temporaryFile("UT-1", 99L, "session-1",
                 "SOURCE", "AVAILABLE", LocalDateTime.now().plusMinutes(20), null);

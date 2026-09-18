@@ -185,11 +185,29 @@ public class ControlledContentLifecycleCoreService {
                 key.getContentKey(), nativeVersionId);
     }
 
+    @Transactional(readOnly = true)
+    public long countVersionRefTransitions(ControlledContentKey key, Long nativeVersionId,
+                                           ControlledContentTransitionAction action) {
+        requireKey(key);
+        if (nativeVersionId == null) {
+            throw new IllegalArgumentException("nativeVersionId must not be null");
+        }
+        if (action == null) {
+            throw new IllegalArgumentException("action must not be null");
+        }
+        ControlledContentVersionRefDO ref = requireRefByNativeVersion(key, nativeVersionId);
+        Long count = transitionAuditMapper.countByVersionRefIdAndAction(ref.getId(), action.name());
+        if (count == null) {
+            throw new IllegalStateException("controlled content transition count is missing");
+        }
+        return count;
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public ControlledContentVersionRefDO transitionVersionRef(ControlledContentKey key, Long nativeVersionId,
                                                              ControlledContentCanonicalStatus toStatus,
-                                                              String domainToStatus,
-                                                              ControlledContentTransitionAction action,
+                                                             String domainToStatus,
+                                                             ControlledContentTransitionAction action,
                                                               Long actorId, String reason,
                                                               String approvalProcessInstanceId) {
         requireKey(key);

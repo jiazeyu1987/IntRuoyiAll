@@ -143,8 +143,8 @@ assert(
     frontend.includes('label="PQC提交"'),
   'active order detail first-level tabs must separate production and PQC'
 )
-const activeOrderPqcTabStart = frontend.indexOf('<el-tab-pane label="PQC提交" name="pqcSubmissions">')
-const activeOrderPqcTabEnd = frontend.indexOf('</el-tab-pane>', activeOrderPqcTabStart)
+const activeOrderPqcTabStart = frontend.indexOf('label="PQC提交"')
+const activeOrderPqcTabEnd = frontend.indexOf('label="领料单"', activeOrderPqcTabStart)
 const activeOrderPqcTab = frontend.slice(activeOrderPqcTabStart, activeOrderPqcTabEnd)
 assert(
   activeOrderPqcTabStart >= 0 &&
@@ -153,12 +153,16 @@ assert(
   'active order detail PQC tab must not show the standard column'
 )
 assert(
-  activeOrderPqcTab.includes(':data="buildActiveOrderPqcItemRows(pqcSubmission)"'),
-  'active order detail PQC table must aggregate same inspection item samples into one visible row'
+  frontend.includes('buildActiveOrderPqcSubmittedItemRows(submission)') &&
+    frontend.includes('buildActiveOrderPqcProcessInspectionItemRows(submission)') &&
+    frontend.includes('submission.submittedItems ?? []') &&
+    frontend.includes('submission.processInspectionItems ?? []'),
+  'active order detail PQC tables must separate original submitted items from current process inspection items'
 )
 assert(
-  !activeOrderPqcTab.includes(':data="pqcSubmission.items"'),
-  'active order detail PQC table must not render one row per raw sample item'
+  !activeOrderPqcTab.includes(':data="pqcSubmission.items"') &&
+    !frontend.includes('submission.items ?? []'),
+  'active order detail PQC table must not use ambiguous submission.items'
 )
 assert(
   frontend.includes('interface ActiveOrderPqcItemAggregateRow') &&
@@ -168,8 +172,8 @@ assert(
   'active order detail PQC aggregation helpers must summarize sample count, item results, and judgement'
 )
 assert(
-  frontend.includes('formatActiveOrderPqcEventIds(pqcSubmission)') &&
-    frontend.includes('pqcSubmission.submittedEventIds?.length'),
+  frontend.includes('formatPqcSubmissionEventIds(submission)') &&
+    frontend.includes('submission.submittedEventIds?.length'),
   'active order detail PQC tab must show merged submitted event id lists'
 )
 assert(

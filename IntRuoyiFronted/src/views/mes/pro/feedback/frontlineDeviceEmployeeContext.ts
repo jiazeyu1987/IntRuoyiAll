@@ -202,7 +202,7 @@ export const loadFrontlineProductionActiveOrders = async (state: FrontlineDevice
     if (
       state.selectedActiveOrder &&
       !activeOrders.some((activeOrder) =>
-        isSameFrontlineActiveOrder(activeOrder, state.selectedActiveOrder)
+        !activeOrder.readBlocked && isSameFrontlineActiveOrder(activeOrder, state.selectedActiveOrder)
       )
     ) {
       state.selectedActiveOrder = undefined
@@ -355,6 +355,11 @@ export const selectFrontlineProductionActiveOrder = async (
   state: FrontlineDeviceEmployeeState,
   activeOrder: FrontlineActiveOrderVO
 ) => {
+  if (activeOrder.readBlocked) {
+    const error = new Error(activeOrder.readBlockReason || '订单数据异常，暂不可填写')
+    state.lastError = error.message
+    throw error
+  }
   const requestToken = ++state.productionActiveOrderSelectionRequestToken
   state.processSelectionRequestToken += 1
   state.employeeSwitchRequestToken += 1

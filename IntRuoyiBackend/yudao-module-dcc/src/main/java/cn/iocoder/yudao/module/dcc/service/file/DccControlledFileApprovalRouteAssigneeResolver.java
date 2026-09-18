@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteNodeM
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.dcc.service.position.DccApprovalPositionRuntimeResolver;
+import cn.iocoder.yudao.module.dcc.service.route.DccFixedApprovalRoutePolicy;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
@@ -24,10 +25,12 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_CONFIGURED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW_APPROVER_NOT_FOUND;
 
 @Service
@@ -79,6 +82,7 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
         if (routeNodes.isEmpty()) {
             throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
         }
+        DccFixedApprovalRoutePolicy.validateRouteNodes(routeNodes, CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
         List<ResolvedRouteNode> resolvedNodes = routeNodes.stream()
                 .map(routeNode -> resolveRouteNode(routeNode, submitterUserId, requireConfiguredPosts))
                 .toList();
@@ -89,17 +93,24 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
     }
 
     public Map<String, List<Long>> buildStartUserSelectAssigneeMap(List<ResolvedRouteNode> nodes) {
-        return nodes.stream()
-                .filter(node -> DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(node.stageCode()))
-                .collect(Collectors.toMap(ResolvedRouteNode::stageCode,
-                        ResolvedRouteNode::resolvedUserIds, (left, right) -> left, HashMap::new));
+        return buildUniqueStageAssigneeMap(nodes,
+                node -> DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(node.stageCode()));
     }
 
     public Map<String, List<Long>> buildApproveUserSelectAssigneeMap(List<ResolvedRouteNode> nodes) {
-        return nodes.stream()
-                .filter(node -> !DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(node.stageCode()))
-                .collect(Collectors.toMap(ResolvedRouteNode::stageCode,
-                        ResolvedRouteNode::resolvedUserIds, (left, right) -> left, HashMap::new));
+        return buildUniqueStageAssigneeMap(nodes,
+                node -> !DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(node.stageCode()));
+    }
+
+    private Map<String, List<Long>> buildUniqueStageAssigneeMap(List<ResolvedRouteNode> nodes,
+                                                                Predicate<ResolvedRouteNode> nodeFilter) {
+        Map<String, List<Long>> assigneeMap = new HashMap<>();
+        nodes.stream().filter(nodeFilter).forEach(node -> {
+            if (assigneeMap.putIfAbsent(node.stageCode(), node.resolvedUserIds()) != null) {
+                throw exception(CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+            }
+        });
+        return assigneeMap;
     }
 
     private ResolvedRouteNode resolveRouteNode(DccCategoryApprovalRouteNodeDO routeNode, Long submitterUserId,

@@ -35,6 +35,29 @@ const signatureGovernanceView = () => import('@/views/signature-governance/index
  **/
 const remainingRouter: AppRouteRecordRaw[] = [
   {
+    path: '/ai/codex',
+    component: Layout,
+    name: 'AiCodexWebCompatibility',
+    meta: {
+      hidden: true
+    },
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/ai/codex/index.vue'),
+        name: 'AiCodexWeb',
+        meta: {
+          hidden: true,
+          canTo: true,
+          noCache: false,
+          title: 'Codex Web',
+          icon: 'tabler:ai',
+          activeMenu: '/ai/chat'
+        }
+      }
+    ]
+  },
+  {
     path: '/redirect',
     component: Layout,
     name: 'Redirect',

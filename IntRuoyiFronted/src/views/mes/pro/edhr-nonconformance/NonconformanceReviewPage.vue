@@ -118,8 +118,14 @@
                     placeholder="请输入评审意见"
                   />
                 </el-form-item>
-                <el-form-item label="QA签名" required>
-                  <el-input v-model="disposeForm.qaSignature" placeholder="请输入QA签名" />
+                <el-form-item label="电子签名密码" required>
+                  <el-input
+                    v-model="disposeForm.signaturePassword"
+                    type="password"
+                    show-password
+                    autocomplete="new-password"
+                    placeholder="请输入本人电子签名密码"
+                  />
                 </el-form-item>
                 <el-form-item>
                   <div class="edhr-ncr__buttons">
@@ -243,7 +249,7 @@ const entryForm = reactive({
 const disposeForm = reactive({
   reviewMaterialUrl: '',
   reviewOpinion: '',
-  qaSignature: ''
+  signaturePassword: ''
 })
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
@@ -279,7 +285,7 @@ const resolveDispositionNote = (disposition?: string) => {
 const resetDisposeForm = () => {
   disposeForm.reviewMaterialUrl = ''
   disposeForm.reviewOpinion = ''
-  disposeForm.qaSignature = ''
+  disposeForm.signaturePassword = ''
 }
 
 const loadPendingReviews = async () => {
@@ -320,7 +326,7 @@ const selectReview = (review: EdhrNonconformanceReviewRespVO) => {
 const fillDisposeForm = (review: EdhrNonconformanceReviewRespVO) => {
   disposeForm.reviewMaterialUrl = review.reviewMaterialUrl || ''
   disposeForm.reviewOpinion = review.reviewOpinion || ''
-  disposeForm.qaSignature = review.qaSignature || ''
+  disposeForm.signaturePassword = ''
 }
 
 const submitCreateReview = async () => {
@@ -369,9 +375,9 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
   if (
     !disposeForm.reviewMaterialUrl ||
     !disposeForm.reviewOpinion.trim() ||
-    !disposeForm.qaSignature.trim()
+    !disposeForm.signaturePassword.trim()
   ) {
-    message.error('评审材料、评审意见和 QA签名均不能为空。')
+    message.error('评审材料、评审意见和电子签名密码均不能为空。')
     return
   }
   disposeLoading.value = true
@@ -382,7 +388,7 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
       disposition,
       reviewMaterialUrl: disposeForm.reviewMaterialUrl,
       reviewOpinion: disposeForm.reviewOpinion.trim(),
-      qaSignature: disposeForm.qaSignature.trim()
+      signaturePassword: disposeForm.signaturePassword.trim()
     })
     selectedReview.value = review
     message.success(`已${resolveDispositionLabel(disposition)}`)

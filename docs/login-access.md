@@ -51,6 +51,7 @@
 
 - Trigger: 远端账号能进入业务页面、列表也能正常加载，但删除、审批、发布、导出等危险按钮不可见。
 - Preflight check: 先从前端 `v-hasPermi` / `checkPermi` 取得精确 permission，再核对按钮额外的行状态条件；随后用目标账号 fresh 登录，检查 `/admin-api/system/auth/get-permission-info` 的 `permissions`，并只读核对该账号全部有效角色、`system_role_menu`、`system_menu` 和正式角色白名单。
+- 经验规则：若目标权限菜单已存在但按钮仍不可见，必须额外检查目标角色的 `system_role_menu` 是否存在同一 `role_id + menu_id + tenant_id` 的软删除记录（`deleted=1`）；在用户明确授权的测试数据范围内，应恢复该精确绑定并让账号重新登录刷新权限缓存，不得新建重复绑定或扩大到管理员角色。
 - Blocker: 目标账号登录权限响应不含精确 permission，或正式角色白名单明确排除该危险权限时，按钮隐藏属于授权边界；若业务确认该角色应具备此能力，必须单独走正式权限变更，不得直接归因于前端缓存。
 - Verification: 记录目标账号/租户标签、页面 URL、列表是否正常加载、精确 permission 是否存在、按钮可见数量、活动角色及角色菜单绑定；前端和后端必须使用同一 permission，且不能通过实际执行危险操作来证明按钮权限。
 - Forbidden action: 禁止改前端去掉权限指令、给账号临时绑定管理员角色、复用其它账号 token、清空全库权限缓存、点击最终删除/发布/审批确认，或仅凭“页面可进入”推断账号拥有按钮权限。
@@ -104,6 +105,7 @@
 - Preflight check: 先确认 ERP 角色、菜单权限和入口路径，再确认前端不会直接把 iframe 指向助手首页；前端必须先向 ERP 后端申请短期票据，助手只能通过 `/auth/callback` 校验票据并换取助手会话，首页和业务 API 直连必须拒绝。
 - Granular permission check: 外部助手包含查询、配置、保存等不同能力时，签票端必须按登录用户正式权限生成精确权限集合，助手服务端必须逐 API 校验该集合；iframe 内隐藏按钮只能改善体验，不能替代服务端拒绝。新 ERP 票据到达 `/auth/callback` 时必须重新验票并建立新会话，不能因为浏览器已有助手 Cookie 就复用旧用户会话；只允许同一票据在很短时间内为浏览器重复导航复用同一结果。
 - Session transport check: 助手 Cookie 只用于受控页面和静态资源加载；业务 API 必须要求前端显式携带助手会话头，不能仅凭同主机 Cookie 放行，避免其它同站点页面借浏览器 Cookie 触发配置或写操作。健康检查只开放无业务数据的固定探活端点。
+- Cross-tab session check: 外部助手工作台通过 `target="_blank"` 打开日志中心、查询页等同源页面时，不能依赖原标签页 `sessionStorage`（其按标签页隔离）；入口必须把短期助手会话显式传给目标页，由目标页初始化后立即用 `history.replaceState` 清理地址栏，并继续通过业务 API 会话头访问，不能改用 Cookie-only 放行。
 - Runtime readiness: 外部助手由 ERP 页面承载时，进入页签先通过 ERP 后端探测助手是否在线；在线才申请票据并加载 iframe，未在线且配置可启动时显示明确的“启动助手”动作，由 ERP 后端启动配置的助手程序并等待健康探测成功后再进入，不能把连接拒绝页直接展示给业务用户。状态查询和启动接口必须继续使用同一业务权限保护。
 - Port contract: 发票凭证打印助手使用独立固定端口 `18733`，分贝通费用报销助手使用独立固定端口 `18734`；均不得占用 ERP 前端 `8081` 或通过环境变量静默改成其它端口。测试服务器和正式服务器是不同机器时可以复用各自固定端口；助手和 ERP 后端都必须在启动阶段拒绝端口漂移。
 - ERP config bridge: 发票凭证打印助手的金蝶连接信息必须由 ERP 后端在短期票据校验成功后返回当前生效配置快照，字段至少覆盖基础地址、账套 ID、用户名、密码、应用 ID、SimPas 签名数据、SimPas 签名时间戳和 LCID；助手只能把该快照写入授权会话专用配置文件并传给查询/生成/上传脚本，不得依赖独立部署的全局 `.env.kingdee` 或 `KINGDEE_ENV_PATH`。SimPas 的 `signeddata` 只能作为签名数据使用，禁止当作 `appSecret`。容器只保留 `KINGDEE_RUNTIME_DIR` 作为会话配置文件目录。若测试服仍报 `ERP配置文件不存在：/opt/invoice-voucher-print-assistant/runtime/.env.kingdee`，先判定远端助手包或运行进程仍是旧版本，必须重新部署并重启新版助手，不能通过补一个全局 `.env.kingdee` 掩盖链路未刷新。

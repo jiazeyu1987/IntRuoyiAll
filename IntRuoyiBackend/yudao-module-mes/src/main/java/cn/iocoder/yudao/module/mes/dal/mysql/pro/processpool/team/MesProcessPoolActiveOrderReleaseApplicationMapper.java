@@ -1,8 +1,12 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team;
 
+import cn.iocoder.yudao.framework.common.pojo.PageParam;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -284,6 +288,91 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                 .likeIfPresent(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchCode, batchCode)
                 .orderByDesc(MesProcessPoolActiveOrderReleaseApplicationDO::getId));
     }
+
+    default PageResult<MesProcessPoolActiveOrderReleaseApplicationDO> selectPqcReleasePage(
+            PageParam pageParam, Long tenantId, Long actorUserId, String viewStatus,
+            String workOrderCode, String batchCode) {
+        if (pageParam == null || tenantId == null || actorUserId == null || viewStatus == null) {
+            throw new IllegalArgumentException("PQC release page query is incomplete");
+        }
+        IPage<MesProcessPoolActiveOrderReleaseApplicationDO> page =
+                new Page<>(pageParam.getPageNo(), pageParam.getPageSize());
+        selectPqcReleasePage(page, tenantId, actorUserId, viewStatus, workOrderCode, batchCode);
+        return new PageResult<>(page.getRecords(), page.getTotal());
+    }
+
+    /**
+     * PQC release list query. The candidate, derived view status and pagination are all pushed into SQL so the
+     * service does not load the tenant's complete release history before slicing the requested page.
+     */
+    @org.apache.ibatis.annotations.Select({
+            "<script>",
+            "SELECT a.id, a.active_order_id, a.work_order_id, a.work_order_code, a.route_id, a.route_version_id,",
+            "       a.product_id, a.batch_code, a.batch_execution_id, a.release_transaction_id,",
+            "       a.release_approval_work_task_id, a.pqc_release_work_task_id, a.pqc_decision, a.pqc_decided_by,",
+            "       a.pqc_decided_at, a.pqc_reject_reason, a.application_status, a.source_snapshot_hash,",
+            "       a.report_snapshot_hash, a.version, a.applied_by, a.applied_at, a.last_precheck_at, a.remark,",
+            "       a.creator, a.create_time, a.updater, a.update_time, a.deleted, a.tenant_id",
+            "FROM mes_pro_process_pool_active_order_release_application a",
+            "INNER JOIN mes_pro_edhr_work_task t",
+            "        ON t.id = a.pqc_release_work_task_id",
+            "       AND t.tenant_id = #{tenantId}",
+            "       AND t.deleted = b'0'",
+            "       AND t.task_type = 'PQC_PRODUCTION_RELEASE'",
+            "       AND t.business_scope_type = 'RELEASE_APPLICATION'",
+            "       AND t.business_scope_id = a.id",
+            "LEFT JOIN (",
+            "       SELECT r1.id, r1.source_id, r1.review_status, r1.disposition,",
+            "              r1.nonconformance_reason, r1.closed_at",
+            "       FROM mes_pro_edhr_nonconformance_review r1",
+            "       INNER JOIN (",
+            "              SELECT source_id, MAX(id) AS id",
+            "              FROM mes_pro_edhr_nonconformance_review",
+            "              WHERE source_type = 'PQC_RELEASE' AND deleted = b'0' AND tenant_id = #{tenantId}",
+            "              GROUP BY source_id",
+            "       ) latest ON latest.source_id = r1.source_id AND latest.id = r1.id",
+            "       WHERE r1.source_type = 'PQC_RELEASE' AND r1.deleted = b'0' AND r1.tenant_id = #{tenantId}",
+            ") r ON r.source_id = a.id",
+            "WHERE a.tenant_id = #{tenantId} AND a.deleted = b'0'",
+            "  AND CONCAT(',', REPLACE(COALESCE(t.candidate_user_snapshot, ''), ' ', ''), ',')",
+            "      LIKE CONCAT('%,', #{actorUserId}, ',%')",
+            "<if test='workOrderCode != null and workOrderCode != \"\"'>",
+            "  AND a.work_order_code LIKE CONCAT('%', #{workOrderCode}, '%')",
+            "</if>",
+            "<if test='batchCode != null and batchCode != \"\"'>",
+            "  AND a.batch_code LIKE CONCAT('%', #{batchCode}, '%')",
+            "</if>",
+            "<choose>",
+            "  <when test='viewStatus == \"PENDING\"'>",
+            "    AND a.application_status = 'PQC_RELEASE_PENDING'",
+            "    AND (r.id IS NULL OR r.review_status &lt;&gt; 'closed'",
+            "         OR (r.review_status = 'closed' AND r.disposition = 'concession_release'))",
+            "  </when>",
+            "  <when test='viewStatus == \"RELEASED\"'>",
+            "    AND a.application_status IN ('REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING', 'RELEASED')",
+            "    AND (r.id IS NULL OR r.review_status &lt;&gt; 'closed')",
+            "  </when>",
+            "  <when test='viewStatus == \"VOIDED\"'>",
+            "    AND r.review_status = 'closed' AND r.disposition = 'void'",
+            "  </when>",
+            "  <when test='viewStatus == \"REWORKED\"'>",
+            "    AND r.review_status = 'closed' AND r.disposition = 'rework'",
+            "  </when>",
+            "  <when test='viewStatus == \"CONCESSION_RELEASED\"'>",
+            "    AND a.application_status IN ('REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING', 'RELEASED')",
+            "    AND r.review_status = 'closed' AND r.disposition = 'concession_release'",
+            "  </when>",
+            "</choose>",
+            "ORDER BY a.id DESC",
+            "</script>"
+    })
+    IPage<MesProcessPoolActiveOrderReleaseApplicationDO> selectPqcReleasePage(
+            IPage<MesProcessPoolActiveOrderReleaseApplicationDO> page,
+            @Param("tenantId") Long tenantId,
+            @Param("actorUserId") Long actorUserId,
+            @Param("viewStatus") String viewStatus,
+            @Param("workOrderCode") String workOrderCode,
+            @Param("batchCode") String batchCode);
 
     default int deleteByActiveOrderId(Long activeOrderId) {
         return activeOrderId == null ? 0 : physicalDeleteByActiveOrderId(activeOrderId);

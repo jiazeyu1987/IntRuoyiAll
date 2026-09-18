@@ -189,6 +189,8 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         assertTrue(error.getMessage().contains("injected child snapshot insert failure"), error.getMessage());
         assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), stringValue(
                 "SELECT status FROM dcc_controlled_file WHERE id = 99"));
+        assertEquals(DccControlledFileStatusEnum.WORKING.getStatus(), stringValue(
+                "SELECT status FROM dcc_controlled_file WHERE id = 98"));
         assertEquals(DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus(), stringValue(
                 "SELECT status FROM dcc_controlled_file WHERE id = 100"));
         assertEquals(99L, longValue(
@@ -227,8 +229,8 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         DccPublicationImpactTaskDO reopened = linkedImpactTask("NOT_APPLICABLE", 4, null);
         reopened.setTaskStatus("PENDING");
         reopened.setDecision(null);
-        when(raceTaskMapper.selectListByLinkedRevisionId(1L, 100L)).thenReturn(List.of(selected));
-        when(raceTaskMapper.resolveRevision(1L, 10L, 3, 100L)).thenReturn(0);
+        when(raceTaskMapper.selectListByLinkedRevisionChain(1L, 10L, "B")).thenReturn(List.of(selected));
+        when(raceTaskMapper.resolveRevision(1L, 10L, 3, 100L, "B/1")).thenReturn(0);
         when(raceTaskMapper.selectByIdAndTenantForUpdate(1L, 10L)).thenReturn(reopened);
         DccRelatedFileImpactAssessmentServiceImpl impactService =
                 new DccRelatedFileImpactAssessmentServiceImpl();
@@ -246,8 +248,14 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
 
         assertEquals(DccControlledFileStatusEnum.SUPERSEDED.getStatus(), stringValue(
                 "SELECT status FROM dcc_controlled_file WHERE id = 99"));
+        assertEquals(DccControlledFileStatusEnum.SUPERSEDED.getStatus(), stringValue(
+                "SELECT status FROM dcc_controlled_file WHERE id = 98"));
+        assertEquals(100L, longValue(
+                "SELECT superseded_by_file_id FROM dcc_controlled_file WHERE id = 98"));
         assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), stringValue(
                 "SELECT status FROM dcc_controlled_file WHERE id = 100"));
+        assertEquals(java.time.LocalDateTime.of(2026, 9, 7, 11, 0), jdbcTemplate.queryForObject(
+                "SELECT approved_time FROM dcc_controlled_file WHERE id = 100", java.time.LocalDateTime.class));
         assertEquals(100L, longValue(
                 "SELECT current_active_controlled_file_id FROM dcc_controlled_file_master WHERE id = 10"));
         assertEquals(1L, longValue("SELECT COUNT(*) FROM dcc_publication_followup_batch"));
@@ -305,14 +313,17 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
                   (id, master_id, category_id, directory_id, source_file_id, original_file_id,
                    published_file_id, stamped_file_id, file_name, title, file_number, dcc_project_code_id,
                    file_type_taxonomy_id, need_training, process_type, change_type, version_no, revision_code,
-                   iteration_no, status, submitter_id, requester_id, published_time, tenant_id, deleted)
+                   iteration_no, status, submitter_id, requester_id, approved_time, published_time, tenant_id, deleted)
                 VALUES
+                  (98, 10, 20, 30, 1002, 1000, NULL, NULL, '事务文件', '事务文件', 'TX-100', 40,
+                   50, 0, 'CONTROLLED_FILE', 'REVISION', 'A/2', 'A', 2, 'WORKING', 1, 1,
+                   NULL, NULL, 1, 0),
                   (99, 10, 20, 30, 1000, 1000, 1000, 1000, '事务文件', '事务文件', 'TX-100', 40,
                    50, 0, 'CONTROLLED_FILE', 'NEW', 'A/1', 'A', 1, 'ACTIVE', 1, 1,
-                   TIMESTAMP '2026-09-07 10:00:00', 1, 0),
+                   TIMESTAMP '2026-09-07 09:00:00', TIMESTAMP '2026-09-07 10:00:00', 1, 0),
                   (100, 10, 20, 30, 1001, 1001, 1001, 1001, '事务文件', '事务文件', 'TX-100', 40,
                    50, 0, 'CONTROLLED_FILE', 'REVISION', 'B/1', 'B', 1, 'READY_TO_PUBLISH', 1, 1,
-                   NULL, 1, 0)
+                   TIMESTAMP '2026-09-07 11:00:00', NULL, 1, 0)
                 """);
     }
 

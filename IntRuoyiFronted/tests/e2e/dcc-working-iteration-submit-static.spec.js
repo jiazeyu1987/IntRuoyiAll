@@ -38,6 +38,11 @@ assert.match(
 )
 assert.match(
   page,
+  /const canSubmitLatestWorkingIteration = \([\s\S]*?canEditVersion\(file\)[\s\S]*?\)/,
+  'only the requester who owns the working iteration may see the submit-for-approval action'
+)
+assert.match(
+  page,
   /deleteBrowserMutationIdempotencyKey\('major-revision', file\.id\)/,
   'successful major revision creation must release its cached idempotency key after the server has accepted it'
 )

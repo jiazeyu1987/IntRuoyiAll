@@ -10,6 +10,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEv
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureResult;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,21 +44,25 @@ class MesProcessPoolEventRevisionServiceTest {
     private MesProcessPoolFifoAllocationService fifoAllocationService;
     @Mock
     private MesProcessPoolSubmissionReviewMapper submissionReviewMapper;
+    @Mock
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesProcessPoolEventRevisionService service;
 
     @BeforeEach
     void setUp() {
         service = new MesProcessPoolEventRevisionServiceImpl(eventMapper, revisionMapper,
-                revisionDiffMapper, fifoAllocationService, submissionReviewMapper);
+                revisionDiffMapper, fifoAllocationService, submissionReviewMapper, signatureService);
     }
 
     @Test
     void updateUnallocatedEventCreatesFieldDiffAndSignatureLog() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
         when(submissionReviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(rejectedReview());
-        when(eventMapper.selectBySignatureId(9002L)).thenReturn(null);
-        when(revisionMapper.selectBySignatureId(9002L)).thenReturn(null);
+        when(signatureService.recordFieldChangeSignature(any(MesProBatchRecordExecutionFieldAuditSignatureCommand.class)))
+                .thenReturn(generatedSignature());
+        when(eventMapper.selectBySignatureId(9902L)).thenReturn(null);
+        when(revisionMapper.selectBySignatureId(9902L)).thenReturn(null);
         when(revisionMapper.insert(any(MesProProcessPoolEventRevisionDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProProcessPoolEventRevisionDO.class).setId(7001L);
             return 1;
@@ -72,11 +79,23 @@ class MesProcessPoolEventRevisionServiceTest {
         assertEquals("{\"outputQuantity\":10,\"equipmentPressure\":\"20\"}", revision.getBeforePayload());
         assertEquals("{\"outputQuantity\":12,\"equipmentPressure\":\"22\"}", revision.getAfterPayload());
         assertEquals("录入时压力参数少填 2", revision.getChangeReason());
-        assertEquals(9002L, revision.getRevisionSignatureId());
+        assertEquals(9902L, revision.getRevisionSignatureId());
         assertEquals(2001L, revision.getRevisionSignatureUserId());
         assertEquals(2001L, revision.getModifiedByUserId());
+        assertEquals(LocalDateTime.of(2026, 8, 4, 9, 15), revision.getServerRevisionTime());
+        assertEquals(true, revision.getRevisionSignatureSnapshot().contains("\"signatureId\":9902"));
         assertEquals(MesProProcessPoolEventRevisionDO.STATUS_EFFECTIVE, revision.getRevisionStatus());
         assertNotNull(revision.getServerRevisionTime());
+
+        ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSignatureCommand> signatureCaptor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSignatureCommand.class);
+        verify(signatureService).recordFieldChangeSignature(signatureCaptor.capture());
+        MesProBatchRecordExecutionFieldAuditSignatureCommand signatureCommand = signatureCaptor.getValue();
+        assertEquals(0L, signatureCommand.getExecutionId());
+        assertEquals("signature-pass", signatureCommand.getPassword());
+        assertEquals("PROCESS_POOL_EVENT_REVISION", signatureCommand.getReasonCategory());
+        assertEquals("录入时压力参数少填 2", signatureCommand.getReasonText());
+        assertNotNull(signatureCommand.getSignatureChallengeHash());
 
         ArgumentCaptor<MesProProcessPoolEventRevisionDiffDO> diffCaptor =
                 ArgumentCaptor.forClass(MesProProcessPoolEventRevisionDiffDO.class);
@@ -100,14 +119,15 @@ class MesProcessPoolEventRevisionServiceTest {
     }
 
     @Test
-    void rejectsUpdateWithoutNewSignature() {
-        MesProcessPoolEventRevisionUpdateReqBO req = updateReq().setRevisionSignatureId(9001L);
+    void rejectsUpdateWithoutSignaturePassword() {
+        MesProcessPoolEventRevisionUpdateReqBO req = updateReq().setSignaturePassword("   ");
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
         when(submissionReviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(rejectedReview());
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(req));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_SIGNATURE_REUSED.getCode(), ex.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
+        verify(signatureService, never()).recordFieldChangeSignature(any());
         verify(revisionMapper, never()).insert(any(MesProProcessPoolEventRevisionDO.class));
         verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
     }
@@ -127,8 +147,10 @@ class MesProcessPoolEventRevisionServiceTest {
     void rejectsUpdateWhenRevisionSignatureAlreadyUsed() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
         when(submissionReviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(rejectedReview());
-        when(eventMapper.selectBySignatureId(9002L)).thenReturn(null);
-        when(revisionMapper.selectBySignatureId(9002L)).thenReturn(new MesProProcessPoolEventRevisionDO());
+        when(signatureService.recordFieldChangeSignature(any(MesProBatchRecordExecutionFieldAuditSignatureCommand.class)))
+                .thenReturn(generatedSignature());
+        when(eventMapper.selectBySignatureId(9902L)).thenReturn(null);
+        when(revisionMapper.selectBySignatureId(9902L)).thenReturn(new MesProProcessPoolEventRevisionDO());
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(updateReq()));
 
@@ -138,12 +160,15 @@ class MesProcessPoolEventRevisionServiceTest {
     }
 
     @Test
-    void rejectsUpdateWithoutRevisionSignatureSnapshot() {
-        MesProcessPoolEventRevisionUpdateReqBO req = updateReq().setRevisionSignatureSnapshot("   ");
+    void rejectsUpdateWhenGeneratedSignatureActorDiffersFromAuthenticatedModifier() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
+        when(submissionReviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(rejectedReview());
+        when(signatureService.recordFieldChangeSignature(any(MesProBatchRecordExecutionFieldAuditSignatureCommand.class)))
+                .thenReturn(generatedSignature().setActorId(2002L));
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(req));
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(updateReq()));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH.getCode(), ex.getCode());
         verify(revisionMapper, never()).insert(any(MesProProcessPoolEventRevisionDO.class));
         verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
     }
@@ -187,12 +212,11 @@ class MesProcessPoolEventRevisionServiceTest {
         req.getChangedFields().get(0).setAffectsQuantityFragment(null);
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
         when(submissionReviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(rejectedReview());
-        when(eventMapper.selectBySignatureId(9002L)).thenReturn(null);
-        when(revisionMapper.selectBySignatureId(9002L)).thenReturn(null);
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(req));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED.getCode(), ex.getCode());
+        verify(signatureService, never()).recordFieldChangeSignature(any());
         verify(revisionMapper, never()).insert(any(MesProProcessPoolEventRevisionDO.class));
         verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
     }
@@ -246,6 +270,7 @@ class MesProcessPoolEventRevisionServiceTest {
                 .revisionSignatureUserId(2001L)
                 .revisionSignatureSnapshot("{\"signedBy\":\"张可莹\"}")
                 .modifiedByUserId(2001L)
+                .signaturePassword("signature-pass")
                 .changedFields(List.of(MesProcessPoolEventRevisionFieldChangeBO.builder()
                         .fieldCode("equipmentPressure")
                         .fieldName("设备压力")
@@ -255,6 +280,14 @@ class MesProcessPoolEventRevisionServiceTest {
                         .originalField(MesProcessPoolFragmentOriginalField.REMARK)
                         .build()))
                 .build();
+    }
+
+    static MesProBatchRecordExecutionFieldAuditSignatureResult generatedSignature() {
+        return new MesProBatchRecordExecutionFieldAuditSignatureResult()
+                .setSignatureId(9902L)
+                .setActorId(2001L)
+                .setActorName("张可莹")
+                .setSignedAt(LocalDateTime.of(2026, 8, 4, 9, 15));
     }
 
     static MesProcessPoolSubmissionReviewDO rejectedReview() {

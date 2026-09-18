@@ -50,9 +50,18 @@
           plain
           @click="handleSyncKingdeeWorkOrders"
           :loading="kingdeeSyncLoading"
+          data-work-order-sync-kingdee
           v-hasPermi="['mes:pro-work-order:create']"
           ><Icon icon="ep:refresh" class="mr-5px" /> 增量同步</el-button
         >
+        <el-button
+          v-if="isAdminUser"
+          type="primary"
+          plain
+          @click="openAiE2eDialog"
+          data-edhr-ai-e2e-open-global
+          v-hasPermi="['mes:pro-work-order:create-erp']"
+        >AI E2E固定订单</el-button>
         <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -85,6 +94,7 @@
               link
               type="primary"
               class="work-order-key-text"
+              data-work-order-code
               @click="openForm('detail', scope.row.id)"
               >{{ scope.row.code }}</el-button
             >
@@ -152,7 +162,7 @@
           v-bind="sortColumnAttrs('quantity')"
         ><template #default="scope">
           <div class="work-order-key-cell work-order-key-cell--number">
-            <span class="work-order-key-text">{{ scope.row.quantity }}</span>
+            <span class="work-order-key-text" data-work-order-quantity>{{ scope.row.quantity }}</span>
           </div></template
         ></el-table-column
       >
@@ -231,6 +241,13 @@
           <el-button
             link
             type="primary"
+            @click="openAiE2eDialog(scope.row)"
+            data-edhr-ai-e2e-open
+            v-hasPermi="['mes:pro-work-order:create-erp']"
+          >AI E2E</el-button>
+          <el-button
+            link
+            type="primary"
             @click="handleOpenBatchRecord(scope.row)"
             v-hasPermi="['mes:pro-edhr-batch-execution:create']"
           >
@@ -244,6 +261,30 @@
   </ContentWrap>
 
   <WorkOrderForm ref="formRef" @success="getList" />
+
+  <el-dialog v-model="aiE2eDialog.visible" title="创建 AI E2E 测试生产订单" width="520px">
+    <el-form label-width="110px">
+      <el-form-item label="运行编号">
+        <el-input data-edhr-ai-e2e-run-id v-model="aiE2eDialog.runId" placeholder="AI-EDHR-20260915T120000-A1B2" />
+      </el-form-item>
+      <el-form-item label="订单槽位">
+        <el-select data-edhr-ai-e2e-slot v-model="aiE2eDialog.slot" style="width: 100%">
+          <el-option v-for="slot in ['O01', 'O02', 'O03', 'O04', 'O05']" :key="slot" :label="slot" :value="slot" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="固定数量">
+        <el-input-number data-edhr-ai-e2e-quantity v-model="aiE2eDialog.quantity" :min="100" :max="100" :step="1" controls-position="right" />
+        <span class="ml-8px">100件</span>
+      </el-form-item>
+      <el-form-item label="生产批号">
+        <el-input data-edhr-ai-e2e-batch-number v-model="aiE2eDialog.batchNumber" :placeholder="`${aiE2eDialog.runId}-B01`" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="aiE2eDialog.visible = false">取消</el-button>
+      <el-button data-edhr-ai-e2e-submit type="primary" :loading="aiE2eDialog.loading" @click="submitAiE2eOrder">创建</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -328,6 +369,15 @@ const queryParams = reactive({
 const exportLoading = ref(false) // 导出的加载中
 const kingdeeSyncLoading = ref(false) // 金蝶同步加载中
 const erpCreateLoadingId = ref<number | null>(null) // 行级创建 ERP 订单加载中
+const aiE2eDialog = reactive({
+  visible: false,
+  loading: false,
+  workOrderId: 0,
+  runId: '',
+  slot: 'O01',
+  quantity: 100,
+  batchNumber: ''
+})
 const openedRouteDetailId = ref('')
 const formRef = ref<any>()
 const { isExpandAll, refreshTable } = useTreeTableExpand(true)
@@ -456,6 +506,34 @@ const handleCreateKingdeeProductionOrder = async (row: WorkOrderTreeRow) => {
     await getList()
   } finally {
     erpCreateLoadingId.value = null
+  }
+}
+const openAiE2eDialog = (_row?: WorkOrderTreeRow) => {
+  aiE2eDialog.workOrderId = undefined
+  aiE2eDialog.runId = `AI-EDHR-${new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+  aiE2eDialog.slot = 'O01'
+  aiE2eDialog.quantity = 100
+  aiE2eDialog.batchNumber = `${aiE2eDialog.runId}-B01`
+  aiE2eDialog.visible = true
+}
+const submitAiE2eOrder = async () => {
+  if (!aiE2eDialog.runId.trim() || !aiE2eDialog.batchNumber.trim()) {
+    await message.error('运行编号、订单槽位和生产批号不能为空')
+    return
+  }
+  aiE2eDialog.loading = true
+  try {
+    const result = await ProWorkOrderApi.createAiE2eProductionOrder({
+      runId: aiE2eDialog.runId.trim(),
+      slot: aiE2eDialog.slot,
+      quantity: 100,
+      batchNumber: aiE2eDialog.batchNumber.trim()
+    })
+    message.success(`AI E2E订单已创建，ERP单号：${result.erpBillNo}`)
+    aiE2eDialog.visible = false
+    await getList()
+  } finally {
+    aiE2eDialog.loading = false
   }
 }
 const handleOpenProductionMaterialList = async (row: WorkOrderTreeRow) => {

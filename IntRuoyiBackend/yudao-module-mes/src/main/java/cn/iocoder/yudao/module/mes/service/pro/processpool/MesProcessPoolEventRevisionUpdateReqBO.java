@@ -22,5 +22,6 @@ public class MesProcessPoolEventRevisionUpdateReqBO {
     private Long revisionSignatureUserId;
     private String revisionSignatureSnapshot;
     private Long modifiedByUserId;
+    private String signaturePassword;
     private List<MesProcessPoolEventRevisionFieldChangeBO> changedFields;
 }

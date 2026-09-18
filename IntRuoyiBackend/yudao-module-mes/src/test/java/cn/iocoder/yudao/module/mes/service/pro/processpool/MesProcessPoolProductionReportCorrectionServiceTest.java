@@ -1,8 +1,12 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackMaterialDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolQuantityFragmentDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMaterialMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQuantityFragmentMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
@@ -27,7 +31,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,6 +45,10 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     private MesProProcessPoolEventMapper eventMapper;
     @Mock
     private MesProProcessPoolQuantityFragmentMapper fragmentMapper;
+    @Mock
+    private MesProFeedbackMapper feedbackMapper;
+    @Mock
+    private MesProFeedbackMaterialMapper feedbackMaterialMapper;
     @Mock
     private MesProcessPoolEventRevisionService revisionService;
     @Mock
@@ -54,8 +65,19 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     @BeforeEach
     void setUp() {
         service = new MesProcessPoolProductionReportCorrectionService(
-                eventMapper, fragmentMapper, revisionService, signatureService, lossReasonValidator, scopeService,
-                reportManagementSummaryService);
+                eventMapper, fragmentMapper, feedbackMapper, feedbackMaterialMapper, revisionService,
+                signatureService, lossReasonValidator, scopeService, reportManagementSummaryService);
+        lenient().when(feedbackMapper.selectListByIdsForUpdate(List.of(5101L))).thenReturn(List.of(formalFeedback()));
+        lenient().when(feedbackMapper.updateCorrectedProductionReport(
+                nullable(Long.class), nullable(BigDecimal.class), nullable(BigDecimal.class),
+                nullable(BigDecimal.class), nullable(Long.class), nullable(String.class), nullable(String.class)))
+                .thenReturn(1);
+        lenient().when(feedbackMaterialMapper.selectListByFeedbackIdForUpdate(5101L))
+                .thenReturn(List.of(formalMaterial(6101L, 3401L), formalMaterial(6102L, 4801L)));
+        lenient().when(feedbackMaterialMapper.updateCorrectedMaterialFact(
+                nullable(Long.class), nullable(BigDecimal.class), nullable(BigDecimal.class),
+                nullable(String.class), nullable(String.class), nullable(String.class)))
+                .thenReturn(1);
     }
 
     @Test
@@ -97,6 +119,48 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         verify(fragmentMapper).updateById(fragmentCaptor.capture());
         assertEquals(new BigDecimal("6"), fragmentCaptor.getValue().getTotalQuantity());
         assertEquals(new BigDecimal("6"), fragmentCaptor.getValue().getAvailableQuantity());
+    }
+
+    @Test
+    void signedLossCorrectionSynchronizesFormalFeedbackAndMaterialFacts() {
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(eventWithZeroLossMaterialFacts());
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(lossReasonValidator.requireEnabledLossReason(928611L, 8301L, new BigDecimal("2")))
+                .thenReturn(new cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesFrontlineLossReasonSnapshot(
+                        8301L, "LOSS-01", "正常损耗"));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenReturn(708L);
+        MesProcessPoolProductionReportCorrectionCommand command = command()
+                .setOutputQuantity(new BigDecimal("4"))
+                .setLossDetails(List.of(new MesProcessPoolProductionReportCorrectionCommand.LossDetailCommand()
+                        .setReasonId(8301L)
+                        .setQuantity(new BigDecimal("2"))))
+                .setMaterialDetails(List.of(new MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand()
+                        .setMaterialId(3401L)
+                        .setOutputQuantity(new BigDecimal("4"))
+                        .setLossQuantity(new BigDecimal("2"))
+                        .setLossDetails(List.of(new MesProcessPoolProductionReportCorrectionCommand.LossDetailCommand()
+                                .setReasonId(8301L)
+                                .setQuantity(new BigDecimal("2"))))));
+
+        assertEquals(708L, service.correct(command));
+
+        ArgumentCaptor<MesProcessPoolEventRevisionUpdateReqBO> revisionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(revisionService).updateProductionReportRecord(revisionCaptor.capture());
+        MesProcessPoolEventRevisionUpdateReqBO revision = revisionCaptor.getValue();
+        org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"lossQuantity\":2"));
+        org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"hasActualLoss\":true"));
+        org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"zeroLossConfirmed\":false"));
+        org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"lossDecision\":\"REQUIRED\""));
+        org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload()
+                .contains("\"materialId\":3401,\"materialCode\":\"A001.02.034.202\",\"materialName\":\"弹簧\",\"outputQuantity\":4,\"lossQuantity\":2"));
+        verify(feedbackMapper).selectListByIdsForUpdate(List.of(5101L));
+        verify(feedbackMapper).updateCorrectedProductionReport(5101L, new BigDecimal("6"),
+                new BigDecimal("4"), new BigDecimal("2"), 8301L, "LOSS-01", "正常损耗");
+        verify(feedbackMaterialMapper).selectListByFeedbackIdForUpdate(5101L);
+        verify(feedbackMaterialMapper).updateCorrectedMaterialFact(6101L, new BigDecimal("4"),
+                new BigDecimal("2"), "[{\"reasonId\":8301,\"quantity\":2}]", null, "[]");
     }
 
     @Test
@@ -315,11 +379,18 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         when(revisionService.updateProductionReportRecord(any())).thenReturn(707L);
         MesProcessPoolProductionReportCorrectionCommand command = command()
                 .setOutputQuantity(new BigDecimal("4"))
+                .setLossDetails(List.of(new MesProcessPoolProductionReportCorrectionCommand.LossDetailCommand()
+                        .setReasonId(8301L)
+                        .setQuantity(new BigDecimal("1"))))
                 .setMaterialDetails(List.of(
                         new MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand()
                                 .setMaterialId(3401L)
                                 .setOutputQuantity(new BigDecimal("3"))
-                                .setLossQuantity(new BigDecimal("1")),
+                                .setLossQuantity(new BigDecimal("1"))
+                                .setLossDetails(List.of(new MesProcessPoolProductionReportCorrectionCommand
+                                        .LossDetailCommand()
+                                        .setReasonId(8301L)
+                                        .setQuantity(new BigDecimal("1")))),
                         new MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand()
                                 .setMaterialId(4801L)
                                 .setOutputQuantity(new BigDecimal("1"))
@@ -365,6 +436,8 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                 .routeProcessId(928611L)
                 .processId(922987L)
                 .actualEmployeeId(964L)
+                .feedbackSourceType("MES_PRO_FEEDBACK")
+                .feedbackSourceId(5101L)
                 .rawPayload("{\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
                         + "\"outputQuantity\":4,\"lossQuantity\":0,\"lossDetails\":[],"
                         + "\"lossReasonDetails\":[],\"deviceParameterReadings\":[]}")
@@ -420,6 +493,42 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                 + "\"parameterCode\":\"medium\",\"parameterName\":\"清洗介质\",\"unit\":\"\","
                 + "\"value\":\"自来水\",\"textValue\":\"自来水\",\"valueType\":\"SELECT\","
                 + "\"optionValues\":[\"自来水\",\"纯化水\"],\"parameterStatus\":\"NORMAL\"}]}");
+    }
+
+    private static MesProProcessPoolEventDO eventWithZeroLossMaterialFacts() {
+        return event().setRawPayload("{\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
+                + "\"outputQuantity\":4,\"lossQuantity\":0,"
+                + "\"materialDetails\":[{\"materialId\":3401,\"materialCode\":\"A001.02.034.202\","
+                + "\"materialName\":\"弹簧\",\"outputQuantity\":4,\"lossQuantity\":0,"
+                + "\"lossDetails\":[],\"deviceParameterReadings\":[]}],"
+                + "\"lossDetails\":[],\"lossReasonDetails\":[],\"deviceParameterReadings\":[]}");
+    }
+
+    private static MesProFeedbackDO formalFeedback() {
+        return MesProFeedbackDO.builder()
+                .id(5101L)
+                .workOrderId(980008L)
+                .routeId(922119L)
+                .processId(922987L)
+                .feedbackQuantity(new BigDecimal("4"))
+                .qualifiedQuantity(new BigDecimal("4"))
+                .unqualifiedQuantity(BigDecimal.ZERO)
+                .laborScrapQuantity(BigDecimal.ZERO)
+                .materialScrapQuantity(BigDecimal.ZERO)
+                .otherScrapQuantity(BigDecimal.ZERO)
+                .build();
+    }
+
+    private static MesProFeedbackMaterialDO formalMaterial(Long id, Long materialId) {
+        return MesProFeedbackMaterialDO.builder()
+                .id(id)
+                .feedbackId(5101L)
+                .materialId(materialId)
+                .outputQuantity(new BigDecimal("4"))
+                .lossQuantity(BigDecimal.ZERO)
+                .lossDetailsJson("[]")
+                .deviceParameterReadingsJson("[]")
+                .build();
     }
 
     private static MesProProcessPoolQuantityFragmentDO fragment() {

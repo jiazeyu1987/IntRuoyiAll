@@ -376,6 +376,9 @@ export interface FrontlinePqcInspectionItemVO {
 }
 
 export interface FrontlineActiveOrderVO {
+  readBlocked?: boolean
+  readBlockReason?: string
+
   activeOrderId: number
   routeVersionId: number
   workOrderId: number
@@ -569,6 +572,8 @@ export interface FrontlineProductionSubmitContextVO {
   parameterSnapshotState: 'FROZEN' | 'MISSING_LEGACY' | 'CURRENT_ROUTE_PROCESS_AT_SUBMIT'
   deviceSelectionSnapshotJson?: string
   deviceSelectionSnapshotSha256?: string
+  productionConfigSnapshotJson?: string
+  productionConfigSnapshotSha256?: string
 }
 
 export interface FrontlineRuntimeConfigVO {

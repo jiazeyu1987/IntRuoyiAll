@@ -30,7 +30,7 @@ export interface TeamLeaderSubmissionReviewReqVO {
 }
 
 export interface WorkOrderAbnormalReportReqVO {
-  workOrderId: number
+  activeOrderId: number
   abnormalDescription: string
 }
 
@@ -268,6 +268,39 @@ export interface TeamLeaderActiveOrderSimulationCopyRespVO {
   simulationRunId: string
 }
 
+export interface TeamLeaderActiveOrderTestResetRespVO {
+  workOrderCode: string
+  workOrderId: number
+  previousActiveOrderCount: number
+  activeOrderId: number
+  action: TeamLeaderActiveOrderCommitAction
+  deletedEventCount: number
+  deletedBatchExecutionCount: number
+  deletedRecordExecutionCount: number
+}
+
+export interface TeamLeaderDataCleanupPreviewRespVO {
+  leaderUserId: number | string
+  orderIds: Array<number | string>
+  orderVersions: number[]
+  workOrderIds: Array<number | string>
+  batchExecutionIds: Array<number | string>
+  activeOrderCount: number
+  reportEventCount: number
+  batchExecutionCount: number
+  releaseApplicationCount: number
+  releaseTransactionCount: number
+}
+
+export interface TeamLeaderDataCleanupResultRespVO {
+  activeOrderCount: number
+  reportEventCount: number
+  batchExecutionCount: number
+  batchRecordExecutionCount: number
+  releaseApplicationCount: number
+  releaseTransactionCount: number
+}
+
 export interface Stage2_5BackfillBatchExecutionSimulationReqVO {
   simulationRunId: string
   activeOrderId: number
@@ -324,7 +357,8 @@ export interface Stage1ActiveOrderCompleteSimulationRespVO {
   cleanedSimulationRunId?: string
   activeOrderId: number
   workOrderId: number
-  pickListId: number
+  pickListId: number | null
+  pickListIds: number[]
   productionSubmitCount: number
   productionReviewCount: number
   pqcSubmitCount: number
@@ -500,6 +534,12 @@ export interface TeamLeaderActiveOrderSignatureDetailRespVO {
   role: string
 }
 
+export interface TeamLeaderActiveOrderPqcProductionReleaseSummaryRespVO {
+  status: string
+  statusLabel: string
+  signature?: TeamLeaderActiveOrderSignatureDetailRespVO
+}
+
 export interface TeamLeaderActiveOrderSubmissionMaterialDetailRespVO {
   materialId: number
   materialCode: string
@@ -575,9 +615,13 @@ export interface TeamLeaderActiveOrderPqcSubmissionDetailRespVO {
   pqcTaskIds?: number[]
   submittedEventId?: number
   submittedEventIds?: number[]
+  productionEventId?: number | string
+  productionEventIds?: Array<number | string>
+  productionSubmitterSignatures?: TeamLeaderActiveOrderSignatureDetailRespVO[]
   qaProcessId?: number
   qaProcessCode?: string
   qaProcessName?: string
+  qaProcessSort?: number
   qaItemCode?: string
   inspectionRuleKey?: string
   inspectionType?: string
@@ -586,12 +630,15 @@ export interface TeamLeaderActiveOrderPqcSubmissionDetailRespVO {
   roundNo?: number
   actualInspectionQuantity?: number
   scrapQuantity?: number
+  submittedInspectionQuantity: number
+  submittedScrapQuantity: number
   taskStatus?: string
   submitterName?: string
   reviewerName?: string
   submitterSignatures?: TeamLeaderActiveOrderSignatureDetailRespVO[]
   reviewerSignatures?: TeamLeaderActiveOrderSignatureDetailRespVO[]
-  items: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
+  submittedItems: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
+  processInspectionItems: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
 }
 
 export interface TeamLeaderActiveOrderProcessDetailRespVO {
@@ -617,6 +664,7 @@ export interface TeamLeaderActiveOrderDetailRespVO {
   workOrderId: number
   workOrderCode: string
   batchCode?: string
+  demandBillNo?: string
   productSpecification?: string
   workOrderQuantity?: number | string
   drawingNumber?: string
@@ -624,10 +672,55 @@ export interface TeamLeaderActiveOrderDetailRespVO {
   productName?: string
   workOrderCreateTime?: string | number
   routeName: string
+  inputMaterialUsages?: TeamLeaderActiveOrderInputMaterialDetailRespVO[]
   processes: TeamLeaderActiveOrderProcessDetailRespVO[]
+  pqcProductionRelease?: TeamLeaderActiveOrderPqcProductionReleaseSummaryRespVO
+}
+
+export interface ActiveOrderDossierFileItemVO {
+  attachmentId: number
+  fileId: number
+  fileName: string
+  fileUrl?: string
+  contentType?: string
+  fileSize?: number
+  sha256?: string
+  operatorId?: number
+  operatorName?: string
+  operatedAt?: string | number
+}
+
+export interface ActiveOrderDossierFileCategoryVO {
+  key: string
+  label: string
+  files: ActiveOrderDossierFileItemVO[]
+}
+
+export interface ActiveOrderDossierFilesRespVO {
+  activeOrderId: number
+  applicationId?: number
+  categories: ActiveOrderDossierFileCategoryVO[]
+}
+
+export interface ActiveOrderDossierFilesReqVO {
+  activeOrderId: number
+  applicationId?: number | string
+}
+
+export interface ActiveOrderDossierFileUploadReqVO extends ActiveOrderDossierFilesReqVO {
+  categoryKey: string
+  file: File | Blob
+}
+
+export interface ActiveOrderDossierFileDeleteReqVO extends ActiveOrderDossierFilesReqVO {
+  categoryKey: string
+  attachmentId: number | string
 }
 
 export interface TeamLeaderActiveOrderRespVO {
+  readBlocked?: boolean
+  readBlockReason?: string
+
   id: number
   workOrderId: number
   workOrderCode?: string
@@ -671,6 +764,7 @@ export interface TeamLeaderActiveOrderReleaseApplyReqVO {
   activeOrderId: number
   idempotencyKey: string
   applyRemark?: string
+  confirmNoReplenishmentInfo?: boolean
 }
 
 export interface TeamLeaderActiveOrderReleaseBlockerRespVO {
@@ -837,7 +931,7 @@ export interface TeamLeaderReportAllocationConfirmReqVO {
   expectedVersion?: number
   idempotencyKey?: string
   reviewRemark?: string
-  signaturePassword?: string
+  signaturePassword: string
   allocations: TeamLeaderReportAllocationLine[]
 }
 
@@ -937,6 +1031,48 @@ export const getTeamLeaderActiveOrderDetail = async (activeOrderId: number) => {
   return await request.get<TeamLeaderActiveOrderDetailRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/detail',
     params: { activeOrderId }
+  })
+}
+
+export const getActiveOrderDossierFiles = async (params: ActiveOrderDossierFilesReqVO) => {
+  return await request.get<ActiveOrderDossierFilesRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/dossier-files',
+    params,
+    ignoreErrorMessage: true
+  })
+}
+
+interface ActiveOrderDossierFileUploadApiResp {
+  data: ActiveOrderDossierFileItemVO
+}
+
+export const uploadActiveOrderDossierFile = async (
+  data: ActiveOrderDossierFileUploadReqVO,
+  onUploadProgress?: Function
+) => {
+  const formData = new FormData()
+  formData.append('activeOrderId', String(data.activeOrderId))
+  if (data.applicationId !== undefined && data.applicationId !== null && String(data.applicationId)) {
+    formData.append('applicationId', String(data.applicationId))
+  }
+  formData.append('categoryKey', data.categoryKey)
+  formData.append('file', data.file)
+  const response = await request.upload<ActiveOrderDossierFileUploadApiResp>({
+    url: '/mes/pro/process-pool/team-leader/active-order/dossier-files/upload',
+    data: formData,
+    onUploadProgress
+  })
+  if (!response.data) {
+    throw new Error('资料文件上传响应缺少 data，不能确认文件已入账。')
+  }
+  return response.data
+}
+
+export const deleteActiveOrderDossierFile = async (data: ActiveOrderDossierFileDeleteReqVO) => {
+  return await request.post<boolean>({
+    url: '/mes/pro/process-pool/team-leader/active-order/dossier-files/delete',
+    data,
+    ignoreErrorMessage: true
   })
 }
 
@@ -1082,6 +1218,42 @@ export const cleanupLatestTeamLeaderSimulationActiveOrder = async (activeOrderId
   return await request.post<boolean>({
     url: '/mes/pro/process-pool/team-leader/active-order/simulation/copy-latest/cleanup',
     data: { activeOrderId },
+    ignoreErrorMessage: true
+  })
+}
+
+export const pushGeneratedTeamLeaderActiveOrderRelease = async (
+  data: TeamLeaderActiveOrderReleaseApplyReqVO
+) => {
+  return await request.post<TeamLeaderActiveOrderReleaseApplyRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/release/push-generated',
+    data,
+    ignoreErrorMessage: true
+  })
+}
+
+export const resetFixedSimulationActiveOrder = async () => {
+  return await request.post<TeamLeaderActiveOrderTestResetRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/simulation/test-reset',
+    ignoreErrorMessage: true
+  })
+}
+
+export const previewTeamLeaderDataCleanup = async () => {
+  return await request.get<TeamLeaderDataCleanupPreviewRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/data-cleanup/preview',
+    ignoreErrorMessage: true
+  })
+}
+
+export const executeTeamLeaderDataCleanup = async (data: {
+  orderIds: Array<number | string>
+  orderVersions: number[]
+  confirm: boolean
+}) => {
+  return await request.post<TeamLeaderDataCleanupResultRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/data-cleanup/execute',
+    data,
     ignoreErrorMessage: true
   })
 }
@@ -1253,6 +1425,7 @@ export const previewTeamLeaderReportFifoAllocation = async (
 export const confirmTeamLeaderReportAllocation = async (
   data: TeamLeaderReportAllocationConfirmReqVO
 ) => {
+  requireReviewSignaturePayload(data)
   return await request.post<TeamLeaderReportAllocationSnapshotRespVO>({
     url: '/mes/pro/process-pool/team-leader/submission/allocation/confirm',
     data

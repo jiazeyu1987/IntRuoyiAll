@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
@@ -32,6 +33,7 @@ import org.springframework.validation.annotation.Validated;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -75,6 +77,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     private MesProEdhrWorkTaskMapper workTaskMapper;
     @Resource
     private MesProWorkOrderMapper workOrderMapper;
+    @Resource
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -111,6 +115,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 : application != null ? application.getWorkOrderId() : pqcSubmissionEvent.getWorkOrderId();
         MesProWorkOrderDO workOrder = lockWorkOrder(workOrderId);
         LocalDateTime now = now();
+        Boolean previousWorkOrderTemporaryFrozen = captureWorkOrderExternalFreezeAtReviewStart(workOrder, now);
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
                 .reviewCode(buildReviewCode(batch == null ? reqVO.getSourceId() : batch.getId(), now))
                 .sourceType(sourceType)
@@ -123,7 +128,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 .batchCode(batch != null ? batch.getBatchCode()
                         : application != null ? application.getBatchCode() : workOrder.getBatchCode())
                 .previousBatchStatus(batch == null ? null : batch.getStatus())
-                .previousWorkOrderTemporaryFrozen(workOrder == null ? null : workOrder.getTemporaryFrozen())
+                .previousWorkOrderTemporaryFrozen(previousWorkOrderTemporaryFrozen)
                 .reviewStatus(STATUS_PENDING_REVIEW)
                 .nonconformanceReason(reason)
                 .frozenAt(now)
@@ -147,7 +152,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         String disposition = requireDisposition(reqVO.getDisposition());
         String reviewMaterialUrl = requireText(reqVO.getReviewMaterialUrl());
         String reviewOpinion = requireText(reqVO.getReviewOpinion());
-        String qaSignature = requireText(reqVO.getQaSignature());
+        String signaturePassword = requireText(reqVO.getSignaturePassword());
         MesProEdhrNonconformanceReviewDO review = requirePendingReviewForUpdate(reqVO.getId());
         MesProEdhrBatchExecutionDO batch = review.getBatchExecutionId() == null
                 ? null : requireBatchExecution(review.getBatchExecutionId());
@@ -167,6 +172,13 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         Integer nextBatchStatus = batch == null ? null : DISPOSITION_VOID.equals(disposition)
                 ? MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED : review.getPreviousBatchStatus();
         Long qaUserId = SecurityFrameworkUtils.getLoginUserId();
+        String qaDispositionAggregateHash = buildQaDispositionAggregateHash(review, disposition, reviewMaterialUrl,
+                reviewOpinion, qaUserId);
+        Long qaDispositionSignatureId = recordQaDispositionSignature(qaUserId, review.getId(),
+                signaturePassword, reviewOpinion, qaDispositionAggregateHash);
+        String qaSignature = "QA电子签名#" + qaDispositionSignatureId;
+        String qaSignatureSnapshotJson = buildQaSignatureSnapshotJson(review, qaUserId, qaDispositionSignatureId,
+                disposition, now, qaDispositionAggregateHash);
         MesProEdhrNonconformanceReviewDO update = new MesProEdhrNonconformanceReviewDO()
                 .setId(review.getId())
                 .setReviewStatus(STATUS_CLOSED)
@@ -178,7 +190,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 .setClosedAt(now)
                 .setUnfrozenAt(DISPOSITION_VOID.equals(disposition) ? null : now)
                 .setVoidedAt(DISPOSITION_VOID.equals(disposition) ? now : null);
-        update.setTraceSnapshotJson(buildTraceSnapshotJson(review, update, nextBatchStatus));
+        update.setTraceSnapshotJson(buildTraceSnapshotJson(review, update, nextBatchStatus, qaSignatureSnapshotJson));
         reviewMapper.updateById(update);
         if (batch != null) {
             batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
@@ -186,9 +198,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                     .setStatus(nextBatchStatus));
         }
         if (workOrder != null) {
-            boolean keepFrozen = DISPOSITION_VOID.equals(disposition);
-            requireWorkOrderUpdate(workOrder.getId(), keepFrozen
-                    ? true : review.getPreviousWorkOrderTemporaryFrozen());
+            requireWorkOrderUpdate(workOrder.getId(), recomputeWorkOrderTemporaryFreeze(workOrder, review, disposition, now));
         }
         if (application != null && (DISPOSITION_REWORK.equals(disposition) || DISPOSITION_VOID.equals(disposition))) {
             MesProEdhrWorkTaskDO task = requirePqcTaskForUpdate(application);
@@ -337,6 +347,127 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         return workOrder;
     }
 
+    private Boolean captureWorkOrderExternalFreezeAtReviewStart(MesProWorkOrderDO workOrder, LocalDateTime frozenAt) {
+        if (workOrder == null) {
+            return null;
+        }
+        if (!Boolean.TRUE.equals(workOrder.getTemporaryFrozen())) {
+            return Boolean.FALSE;
+        }
+        List<MesProEdhrNonconformanceReviewDO> lifecycleReviews =
+                reviewMapper.selectFreezeLifecycleByWorkOrderId(workOrder.getId());
+        boolean alreadyFrozenByReview = lifecycleReviews.stream().anyMatch(this::isReviewFreezeBlocking);
+        if (!alreadyFrozenByReview) {
+            return Boolean.TRUE;
+        }
+        return hasExternalFreezeInLifecycle(lifecycleReviews, new FreezeWindow(null, frozenAt,
+                LocalDateTime.MAX, false), true);
+    }
+
+    private boolean recomputeWorkOrderTemporaryFreeze(MesProWorkOrderDO workOrder,
+                                                     MesProEdhrNonconformanceReviewDO closingReview,
+                                                     String disposition,
+                                                     LocalDateTime closedAt) {
+        if (DISPOSITION_VOID.equals(disposition)) {
+            return true;
+        }
+        List<MesProEdhrNonconformanceReviewDO> lifecycleReviews =
+                reviewMapper.selectFreezeLifecycleByWorkOrderId(closingReview.getWorkOrderId());
+        if (lifecycleReviews.stream()
+                .anyMatch(review -> !Objects.equals(review.getId(), closingReview.getId())
+                        && isReviewFreezeBlocking(review))) {
+            return true;
+        }
+        if (!Boolean.TRUE.equals(workOrder.getTemporaryFrozen())) {
+            return false;
+        }
+        return hasExternalFreezeInLifecycle(lifecycleReviews,
+                toFreezeWindow(closingReview, closingReview.getId(), disposition, closedAt, false), false);
+    }
+
+    private boolean hasExternalFreezeInLifecycle(List<MesProEdhrNonconformanceReviewDO> reviews,
+                                                 FreezeWindow anchor,
+                                                 boolean extendBlockingWindows) {
+        List<FreezeWindow> windows = new ArrayList<>();
+        boolean anchorIncluded = false;
+        for (MesProEdhrNonconformanceReviewDO review : reviews) {
+            if (Objects.equals(review.getId(), anchor.id)) {
+                windows.add(anchor);
+                anchorIncluded = true;
+                continue;
+            }
+            FreezeWindow window = toFreezeWindow(review, anchor.id, null, null, extendBlockingWindows);
+            windows.add(window);
+        }
+        if (!anchorIncluded) {
+            windows.add(anchor);
+        }
+        LocalDateTime cycleStart = anchor.start;
+        LocalDateTime cycleEnd = anchor.end;
+        boolean changed;
+        do {
+            changed = false;
+            for (FreezeWindow window : windows) {
+                if (!overlaps(window, cycleStart, cycleEnd)) {
+                    continue;
+                }
+                if (window.start.isBefore(cycleStart)) {
+                    cycleStart = window.start;
+                    changed = true;
+                }
+                if (window.end.isAfter(cycleEnd)) {
+                    cycleEnd = window.end;
+                    changed = true;
+                }
+            }
+        } while (changed);
+        for (FreezeWindow window : windows) {
+            if (window.start.equals(cycleStart) && overlaps(window, cycleStart, cycleEnd)
+                    && window.previousExternalFreeze) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private FreezeWindow toFreezeWindow(MesProEdhrNonconformanceReviewDO review,
+                                        Long closingReviewId,
+                                        String closingDisposition,
+                                        LocalDateTime closingAt,
+                                        boolean extendBlockingWindows) {
+        LocalDateTime start = requireFreezeWindowStart(review);
+        LocalDateTime end;
+        if (Objects.equals(review.getId(), closingReviewId) && closingAt != null) {
+            end = DISPOSITION_VOID.equals(closingDisposition) ? LocalDateTime.MAX : closingAt;
+        } else if (extendBlockingWindows && isReviewFreezeBlocking(review)) {
+            end = LocalDateTime.MAX;
+        } else if (review.getClosedAt() != null) {
+            end = review.getClosedAt();
+        } else if (isReviewFreezeBlocking(review)) {
+            end = LocalDateTime.MAX;
+        } else {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_WORK_ORDER_STATE_REQUIRED);
+        }
+        return new FreezeWindow(review.getId(), start, end,
+                Boolean.TRUE.equals(review.getPreviousWorkOrderTemporaryFrozen()));
+    }
+
+    private LocalDateTime requireFreezeWindowStart(MesProEdhrNonconformanceReviewDO review) {
+        if (review.getFrozenAt() == null) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_WORK_ORDER_STATE_REQUIRED);
+        }
+        return review.getFrozenAt();
+    }
+
+    private boolean overlaps(FreezeWindow window, LocalDateTime start, LocalDateTime end) {
+        return !window.start.isAfter(end) && !window.end.isBefore(start);
+    }
+
+    private boolean isReviewFreezeBlocking(MesProEdhrNonconformanceReviewDO review) {
+        return STATUS_PENDING_REVIEW.equals(review.getReviewStatus())
+                || DISPOSITION_VOID.equals(review.getDisposition());
+    }
+
     private void requireWorkOrderUpdate(Long workOrderId, Boolean temporaryFrozen) {
         if (workOrderMapper.updateTemporaryFrozenByIds(List.of(workOrderId), temporaryFrozen) != 1) {
             throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_NOT_EXISTS);
@@ -383,13 +514,56 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         return text;
     }
 
+    private Long recordQaDispositionSignature(Long qaUserId, Long reviewId, String signaturePassword,
+                                              String reviewOpinion, String qaDispositionAggregateHash) {
+        return signatureService.recordQaDispositionSignature(qaUserId, reviewId, signaturePassword, reviewOpinion,
+                qaDispositionAggregateHash);
+    }
+
+    private String buildQaDispositionAggregateHash(MesProEdhrNonconformanceReviewDO review,
+                                                   String disposition,
+                                                   String reviewMaterialUrl,
+                                                   String reviewOpinion,
+                                                   Long qaUserId) {
+        JSONObject payload = new JSONObject(true);
+        payload.put("reviewId", review.getId());
+        payload.put("reviewCode", review.getReviewCode());
+        payload.put("sourceType", review.getSourceType());
+        payload.put("sourceId", review.getSourceId());
+        payload.put("batchExecutionId", review.getBatchExecutionId());
+        payload.put("workOrderId", review.getWorkOrderId());
+        payload.put("disposition", disposition);
+        payload.put("reviewMaterialUrl", reviewMaterialUrl);
+        payload.put("reviewOpinion", reviewOpinion);
+        payload.put("qaUserId", qaUserId);
+        return DigestUtil.sha256Hex(JSON.toJSONString(payload));
+    }
+
+    private String buildQaSignatureSnapshotJson(MesProEdhrNonconformanceReviewDO review,
+                                                Long qaUserId,
+                                                Long qaDispositionSignatureId,
+                                                String disposition,
+                                                LocalDateTime signedAt,
+                                                String qaDispositionAggregateHash) {
+        JSONObject qaSignatureSnapshot = new JSONObject(true);
+        qaSignatureSnapshot.put("reviewId", review.getId());
+        qaSignatureSnapshot.put("qaUserId", qaUserId);
+        qaSignatureSnapshot.put("signatureId", qaDispositionSignatureId);
+        qaSignatureSnapshot.put("actionType", MesProBatchRecordExecutionSignatureService.ACTION_QA_DISPOSITION);
+        qaSignatureSnapshot.put("disposition", disposition);
+        qaSignatureSnapshot.put("signedAt", signedAt);
+        qaSignatureSnapshot.put("aggregateHash", qaDispositionAggregateHash);
+        return JSON.toJSONString(qaSignatureSnapshot);
+    }
+
     private String buildReviewCode(Long batchExecutionId, LocalDateTime occurredAt) {
         return "EDHR-NCR-" + REVIEW_CODE_FORMATTER.format(occurredAt) + "-" + batchExecutionId;
     }
 
     private String buildTraceSnapshotJson(MesProEdhrNonconformanceReviewDO review,
-                                          MesProEdhrNonconformanceReviewDO update,
-                                          Integer nextBatchStatus) {
+                                           MesProEdhrNonconformanceReviewDO update,
+                                           Integer nextBatchStatus,
+                                           String qaSignatureSnapshotJson) {
         JSONObject snapshot = new JSONObject(true);
         snapshot.put("reviewId", review.getId());
         snapshot.put("reviewCode", review.getReviewCode());
@@ -403,6 +577,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         snapshot.put("reviewMaterialUrl", update.getReviewMaterialUrl());
         snapshot.put("reviewOpinion", update.getReviewOpinion());
         snapshot.put("qaSignature", update.getQaSignature());
+        snapshot.put("qaSignatureSnapshotJson", JSON.parseObject(qaSignatureSnapshotJson));
         snapshot.put("qaUserId", update.getQaUserId());
         snapshot.put("disposition", update.getDisposition());
         snapshot.put("previousBatchStatus", review.getPreviousBatchStatus());
@@ -431,6 +606,9 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         receipt.put("batchRecordEvidenceIds", List.of());
         receipt.put("processInspectionEvidenceIds", List.of());
         receipt.put("lossReportEvidenceIds", List.of());
+        receipt.put("lossReportFormCenterInstanceIds", List.of());
+        receipt.put("lossReportFieldAuditIds", List.of());
+        receipt.put("lossReportFieldAuditHeadHashes", List.of());
         receipt.put("reportUploadTasks", List.of());
         receipt.put("sourceSnapshotHash", application.getSourceSnapshotHash());
         receipt.put("version", application.getVersion() + 1);
@@ -445,5 +623,20 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
 
     private LocalDateTime now() {
         return LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+    }
+
+    private static final class FreezeWindow {
+
+        private final Long id;
+        private final LocalDateTime start;
+        private final LocalDateTime end;
+        private final boolean previousExternalFreeze;
+
+        private FreezeWindow(Long id, LocalDateTime start, LocalDateTime end, boolean previousExternalFreeze) {
+            this.id = id;
+            this.start = start;
+            this.end = end;
+            this.previousExternalFreeze = previousExternalFreeze;
+        }
     }
 }

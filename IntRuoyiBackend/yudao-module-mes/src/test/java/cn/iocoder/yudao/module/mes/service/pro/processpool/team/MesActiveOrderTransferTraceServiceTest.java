@@ -5,10 +5,15 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.transfer.MesWmTransferDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.transfer.MesWmTransferDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.transfer.MesWmTransferLineDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDetailDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderTransferTraceMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueDetailMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.transfer.MesWmTransferDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.transfer.MesWmTransferLineMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.transfer.MesWmTransferMapper;
+import cn.iocoder.yudao.module.mes.enums.wm.MesWmProductIssueStatusEnum;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -39,13 +45,17 @@ class MesActiveOrderTransferTraceServiceTest {
     private MesWmTransferLineMapper transferLineMapper;
     @Mock
     private MesWmTransferDetailMapper transferDetailMapper;
+    @Mock
+    private MesWmProductIssueMapper productIssueMapper;
+    @Mock
+    private MesWmProductIssueDetailMapper productIssueDetailMapper;
 
     private MesActiveOrderTransferTraceService service;
 
     @BeforeEach
     void setUp() {
         service = new MesActiveOrderTransferTraceServiceImpl(transferTraceMapper, transferMapper,
-                transferLineMapper, transferDetailMapper);
+                transferLineMapper, transferDetailMapper, productIssueMapper, productIssueDetailMapper);
     }
 
     @Test
@@ -167,6 +177,61 @@ class MesActiveOrderTransferTraceServiceTest {
         assertEquals("active-order-8101-transfer-5001-line-5002-detail-5003", inserted.getIdempotencyKey());
     }
 
+    @Test
+    void shouldRecordFormalProductIssueTransferShipmentAndBatchTraceForActiveOrderCompletion() {
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder();
+        when(productIssueMapper.selectListByWorkOrderIdForUpdate(9001L)).thenReturn(List.of(productIssue()));
+        when(productIssueDetailMapper.selectListByIssueIdForUpdate(6101L)).thenReturn(List.of(productIssueDetail()));
+        when(transferTraceMapper.selectByIdempotencyKey(
+                "active-order-8101-product-issue-6101-detail-6201-TRANSFER")).thenReturn(null);
+        when(transferTraceMapper.selectByIdempotencyKey(
+                "active-order-8101-product-issue-6101-detail-6201-SHIPMENT")).thenReturn(null);
+        when(transferTraceMapper.selectByIdempotencyKey(
+                "active-order-8101-product-issue-6101-detail-6201-BATCH_TRACE")).thenReturn(null);
+
+        List<MesProcessPoolActiveOrderTransferTraceDO> traces =
+                service.recordProductIssueInventoryTracesForActiveOrder(activeOrder);
+
+        assertEquals(3, traces.size());
+        ArgumentCaptor<MesProcessPoolActiveOrderTransferTraceDO> captor =
+                ArgumentCaptor.forClass(MesProcessPoolActiveOrderTransferTraceDO.class);
+        verify(transferTraceMapper, times(3)).insert(captor.capture());
+        List<MesProcessPoolActiveOrderTransferTraceDO> inserted = captor.getAllValues();
+        assertEquals(MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_TRANSFER, inserted.get(0).getSourceType());
+        assertEquals(MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_SHIPMENT, inserted.get(1).getSourceType());
+        assertEquals(MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_BATCH_TRACE, inserted.get(2).getSourceType());
+        assertEquals("OUT", inserted.get(0).getDirection());
+        assertEquals("OUT", inserted.get(1).getDirection());
+        assertEquals("TRACE", inserted.get(2).getDirection());
+        for (MesProcessPoolActiveOrderTransferTraceDO trace : inserted) {
+            assertEquals(8101L, trace.getActiveOrderId());
+            assertEquals(9001L, trace.getWorkOrderId());
+            assertEquals(922119L, trace.getRouteId());
+            assertEquals(448L, trace.getRouteVersionId());
+            assertEquals(6001L, trace.getMaterialStockId());
+            assertEquals(7001L, trace.getBatchId());
+            assertEquals(8001L, trace.getItemId());
+            assertEquals(0, new BigDecimal("15.000000").compareTo(trace.getQuantity()));
+            assertEquals("WM_PRODUCT_ISSUE_DETAIL", trace.getSourceObjectType());
+            assertEquals("6201", trace.getSourceObjectId());
+            assertEquals("ISSUE-9001", trace.getSourceObjectCode());
+            assertEquals("4", trace.getSourceStatus());
+            assertEquals(LocalDateTime.of(2026, 8, 3, 11, 20), trace.getSourceOccurredAt());
+        }
+    }
+
+    @Test
+    void shouldFailFastWhenFormalProductIssueDetailLacksBatchSource() {
+        MesWmProductIssueDetailDO invalid = productIssueDetail().setBatchId(null);
+        when(productIssueMapper.selectListByWorkOrderIdForUpdate(9001L)).thenReturn(List.of(productIssue()));
+        when(productIssueDetailMapper.selectListByIssueIdForUpdate(6101L)).thenReturn(List.of(invalid));
+
+        assertThrows(RuntimeException.class,
+                () -> service.recordProductIssueInventoryTracesForActiveOrder(activeOrder()));
+
+        verify(transferTraceMapper, never()).insert(any(MesProcessPoolActiveOrderTransferTraceDO.class));
+    }
+
     private static MesProcessPoolActiveOrderTransferTraceDO trace() {
         return MesProcessPoolActiveOrderTransferTraceDO.builder()
                 .activeOrderId(8101L)
@@ -189,6 +254,38 @@ class MesActiveOrderTransferTraceServiceTest {
                 .sourceOccurredAt(LocalDateTime.of(2026, 8, 3, 10, 15))
                 .idempotencyKey("transfer-9001-line-2-batch-3")
                 .sourceSnapshotJson("{\"transferNo\":\"TR-9001\"}")
+                .build();
+    }
+
+    private static MesProcessPoolActiveOrderDO activeOrder() {
+        return MesProcessPoolActiveOrderDO.builder()
+                .id(8101L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .build();
+    }
+
+    private static MesWmProductIssueDO productIssue() {
+        return MesWmProductIssueDO.builder()
+                .id(6101L)
+                .code("ISSUE-9001")
+                .workOrderId(9001L)
+                .status(MesWmProductIssueStatusEnum.FINISHED.getStatus())
+                .issueDate(LocalDateTime.of(2026, 8, 3, 11, 20))
+                .build();
+    }
+
+    private static MesWmProductIssueDetailDO productIssueDetail() {
+        return MesWmProductIssueDetailDO.builder()
+                .id(6201L)
+                .issueId(6101L)
+                .lineId(6301L)
+                .materialStockId(6001L)
+                .itemId(8001L)
+                .batchId(7001L)
+                .batchCode("LOT-A")
+                .quantity(new BigDecimal("15.000000"))
                 .build();
     }
 }

@@ -42,13 +42,19 @@ class DccTrainingAssignmentAckServiceTest extends BaseMockitoUnitTest {
     @InjectMocks
     private DccTrainingAssignmentAckServiceImpl ackService;
 
+    @org.junit.jupiter.api.BeforeEach
+    void setTenant() { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L); }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
+
     @Test
     void acknowledgeTraining_marksAssignmentsAndTrainingComplete() {
-        when(controlledFileMapper.selectById(900L)).thenReturn(DccControlledFileDO.builder()
+        when(controlledFileMapper.selectByIdAndTenantForUpdate(1L, 900L)).thenReturn(DccControlledFileDO.builder()
                 .id(900L)
                 .status(DccControlledFileStatusEnum.TRAINING_IN_PROGRESS.getStatus())
                 .build());
-        when(trainingMapper.selectListByControlledFileId(900L))
+        when(trainingMapper.selectListByControlledFileIdForUpdate(900L))
                 .thenReturn(List.of(
                         DccControlledFileTrainingDO.builder()
                                 .id(301L)
@@ -61,7 +67,7 @@ class DccTrainingAssignmentAckServiceTest extends BaseMockitoUnitTest {
                                 .controlledFileId(900L)
                                 .status(DccControlledFileTrainingStatusEnum.ACKNOWLEDGED.getCode())
                                 .build()));
-        when(trainingAssignmentMapper.selectListByTrainingId(301L)).thenReturn(List.of(
+        when(trainingAssignmentMapper.selectListByTrainingIdForUpdate(301L)).thenReturn(List.of(
                 DccControlledFileTrainingAssignmentDO.builder()
                         .id(401L)
                         .trainingId(301L)
@@ -102,13 +108,13 @@ class DccTrainingAssignmentAckServiceTest extends BaseMockitoUnitTest {
 
     @Test
     void acknowledgeTraining_withoutPendingAssignment_throws() {
-        when(controlledFileMapper.selectById(901L)).thenReturn(DccControlledFileDO.builder()
+        when(controlledFileMapper.selectByIdAndTenantForUpdate(1L, 901L)).thenReturn(DccControlledFileDO.builder()
                 .id(901L)
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .build());
-        when(trainingMapper.selectListByControlledFileId(901L)).thenReturn(List.of(
+        when(trainingMapper.selectListByControlledFileIdForUpdate(901L)).thenReturn(List.of(
                 DccControlledFileTrainingDO.builder().id(302L).controlledFileId(901L).build()));
-        when(trainingAssignmentMapper.selectListByTrainingId(302L)).thenReturn(List.of(
+        when(trainingAssignmentMapper.selectListByTrainingIdForUpdate(302L)).thenReturn(List.of(
                 DccControlledFileTrainingAssignmentDO.builder()
                         .id(402L)
                         .trainingId(302L)
@@ -131,7 +137,7 @@ class DccTrainingAssignmentAckServiceTest extends BaseMockitoUnitTest {
 
     @Test
     void acknowledgeTraining_beforeRequiredViewSeconds_throws() {
-        when(controlledFileMapper.selectById(902L)).thenReturn(DccControlledFileDO.builder()
+        when(controlledFileMapper.selectByIdAndTenantForUpdate(1L, 902L)).thenReturn(DccControlledFileDO.builder()
                 .id(902L)
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .build());

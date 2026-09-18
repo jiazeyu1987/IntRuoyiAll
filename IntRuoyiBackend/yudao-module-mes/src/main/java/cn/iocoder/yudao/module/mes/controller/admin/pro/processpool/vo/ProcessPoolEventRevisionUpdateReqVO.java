@@ -32,21 +32,9 @@ public class ProcessPoolEventRevisionUpdateReqVO {
     @NotBlank(message = "修改原因不能为空")
     private String changeReason;
 
-    @Schema(description = "重新电子签名ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "9002")
-    @NotNull(message = "重新电子签名不能为空")
-    private Long revisionSignatureId;
-
-    @Schema(description = "重新电子签名用户ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "2001")
-    @NotNull(message = "重新电子签名用户不能为空")
-    private Long revisionSignatureUserId;
-
-    @Schema(description = "重新电子签名快照", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "重新电子签名快照不能为空")
-    private String revisionSignatureSnapshot;
-
-    @Schema(description = "修改人用户ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "2001")
-    @NotNull(message = "修改人不能为空")
-    private Long modifiedByUserId;
+    @Schema(description = "当前登录人的电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "电子签名密码不能为空")
+    private String signaturePassword;
 
     @Schema(description = "字段级修改明细", requiredMode = Schema.RequiredMode.REQUIRED)
     @Valid
@@ -58,10 +46,7 @@ public class ProcessPoolEventRevisionUpdateReqVO {
                 .eventId(eventId)
                 .afterPayload(afterPayload)
                 .changeReason(changeReason)
-                .revisionSignatureId(revisionSignatureId)
-                .revisionSignatureUserId(revisionSignatureUserId)
-                .revisionSignatureSnapshot(revisionSignatureSnapshot)
-                .modifiedByUserId(modifiedByUserId)
+                .signaturePassword(signaturePassword)
                 .changedFields(changedFields.stream()
                         .map(FieldChangeReqVO::toBO)
                         .toList())

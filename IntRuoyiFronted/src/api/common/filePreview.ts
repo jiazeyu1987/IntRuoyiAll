@@ -30,6 +30,10 @@ export type OnlineFilePreviewSource =
       fileId: number | string
     }
   | {
+      type: 'MES_ACTIVE_ORDER_DOSSIER_FILE'
+      fileId: number | string
+    }
+  | {
       type: 'DCC_REGISTRATION_CERTIFICATE'
       businessFileId: number | string
     }
@@ -45,6 +49,13 @@ export const buildEdhrSpecialNodeAttachmentPreviewSource = (
   fileId: number | string
 ): OnlineFilePreviewSource => ({
   type: 'EDHR_SPECIAL_NODE_ATTACHMENT',
+  fileId
+})
+
+export const buildMesActiveOrderDossierFilePreviewSource = (
+  fileId: number | string
+): OnlineFilePreviewSource => ({
+  type: 'MES_ACTIVE_ORDER_DOSSIER_FILE',
   fileId
 })
 

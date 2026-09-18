@@ -71,6 +71,18 @@ const VERSION_INVALID_MESSAGE = '版本号格式不正确，请使用 V1.0、V2.
 const PRODUCT_CODE_PATTERN = /^[A-Za-z0-9]{14}$/
 const DRAWING_SOURCE_EXT_PATTERN = /\.(dwg|sldprt|sldasm|slddrw)$/i
 const PRODUCT_BOUND_CATEGORY_PREFIXES = ['DCC_FVM_DHF_', 'DCC_FVM_DMR_']
+
+export const isFileNumberChainConflictMessage = (message: string | null | undefined) => {
+  const normalizedMessage = trimText(message).toLowerCase()
+  return Boolean(
+    normalizedMessage &&
+      (normalizedMessage === FILE_NUMBER_CHAIN_CONFLICT_MESSAGE.toLowerCase() ||
+        normalizedMessage.includes(FILE_NUMBER_CHAIN_CONFLICT_RAW_MESSAGE.toLowerCase()) ||
+        normalizedMessage.includes('controlled_file_file_number_conflict') ||
+        normalizedMessage.includes('logical document chain'))
+  )
+}
+
 export const EDITABLE_SOURCE_EXTENSIONS = [
   'doc',
   'docx',
@@ -193,11 +205,7 @@ const normalizeKnownUploadErrorMessage = (message: string, fallback: string) => 
     return fallback
   }
   const normalizedMessage = rawMessage.toLowerCase()
-  if (
-    normalizedMessage.includes(FILE_NUMBER_CHAIN_CONFLICT_RAW_MESSAGE.toLowerCase()) ||
-    normalizedMessage.includes('controlled_file_file_number_conflict') ||
-    normalizedMessage.includes('logical document chain')
-  ) {
+  if (isFileNumberChainConflictMessage(rawMessage)) {
     return FILE_NUMBER_CHAIN_CONFLICT_MESSAGE
   }
   if (
@@ -323,16 +331,17 @@ export const clearSubmitFieldErrors = (fieldErrors: UploadSubmitFieldErrors) => 
 
 export const buildSubmitPayload = (
   draft: UploadFormDraft,
-  previewFile: ControlledFileUploadRespVO,
+  readOnlyFile: ControlledFileUploadRespVO,
+  editableFile?: ControlledFileUploadRespVO,
   drawingPdfUpload?: ControlledFileUploadRespVO
 ): ControlledFileSubmitReqVO => ({
   categoryId: draft.categoryId as number,
   directoryId: draft.directoryId as number,
-  sessionId: previewFile.sessionId,
-  idempotencyKey: previewFile.sessionId,
-  originalUploadTicket: previewFile.uploadTicket,
-  sourceUploadTicket: previewFile.uploadTicket,
-  sourceFileName: previewFile.fileName,
+  sessionId: readOnlyFile.sessionId,
+  idempotencyKey: readOnlyFile.sessionId,
+  readOnlyUploadTicket: readOnlyFile.uploadTicket,
+  editableUploadTicket: editableFile?.uploadTicket,
+  sourceFileName: editableFile?.fileName || readOnlyFile.fileName,
   drawingPdfUploadTicket: drawingPdfUpload?.uploadTicket,
   fileName: trimText(draft.fileName),
   fileNumber: trimText(draft.fileNumber),
@@ -359,10 +368,11 @@ export const createUploadSubmitterService = (deps: UploadSubmitterServiceDeps) =
     },
     async submit(
       draft: UploadFormDraft,
-      previewFile: ControlledFileUploadRespVO,
+      readOnlyFile: ControlledFileUploadRespVO,
+      editableFile?: ControlledFileUploadRespVO,
       drawingPdfUpload?: ControlledFileUploadRespVO
     ) {
-      return await deps.submit(buildSubmitPayload(draft, previewFile, drawingPdfUpload))
+      return await deps.submit(buildSubmitPayload(draft, readOnlyFile, editableFile, drawingPdfUpload))
     }
   }
 }

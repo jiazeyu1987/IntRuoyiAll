@@ -413,9 +413,12 @@ class MesProRouteVersionLifecycleServiceTest {
                     "products": [],
                     "scheduleConfigs": [],
                     "batchUseConfigs": [],
-                    "scheduleUseConfigs": []
+                    "scheduleUseConfigs": [],
+                    "productionProcessConfigSchemaVersion": 1,
+                    "productionProcessConfigs": [{"routeProcessId": %d, "processId": 20,
+                      "overagePercent": 0, "lossReasons": [], "deviceSelectionGroups": [], "parameterRules": []}]
                   }
                 }
-                """.formatted(routeId, routeCode, routeName, routeProcessId);
+                """.formatted(routeId, routeCode, routeName, routeProcessId, routeProcessId);
     }
 }

@@ -65,35 +65,7 @@ public class MesProductionReleaseController {
                         .setExpectedVersion(reqVO.getExpectedVersion())
                         .setIdempotencyKey(reqVO.getIdempotencyKey())
                         .setApprovalOpinion(reqVO.getApprovalOpinion())
-                        .setSignaturePassword(reqVO.getSignaturePassword())
-                        .setEntryType(reqVO.getEntryType())
-                        .setEntryBusinessId(reqVO.getEntryBusinessId())
-                        .setSourceCredentialType(reqVO.getSourceCredentialType())
-                        .setSourceCredentialId(reqVO.getSourceCredentialId())
-                        .setSourceRelationId(reqVO.getSourceRelationId())
-                        .setSourceContextHash(reqVO.getSourceContextHash())
-                        .setTenantId(reqVO.getTenantId())
-                        .setActiveOrderId(reqVO.getActiveOrderId())
-                        .setWorkOrderCode(reqVO.getWorkOrderCode())
-                        .setPickListBindingId(reqVO.getPickListBindingId())
-                        .setPickListId(reqVO.getPickListId())
-                        .setBindingVersion(reqVO.getBindingVersion())
-                        .setBatchPickListRelationId(reqVO.getBatchPickListRelationId())
-                        .setSourceSnapshotHash(reqVO.getSourceSnapshotHash())
-                        .setExpectedSourceVersion(reqVO.getExpectedSourceVersion())
-                        .setPayloadHash(reqVO.getPayloadHash())
-                        .setCompletionTransactionId(reqVO.getCompletionTransactionId())
-                        .setExpectedActiveOrderVersion(reqVO.getExpectedActiveOrderVersion())
-                        .setCompletionVersion(reqVO.getCompletionVersion())
-                        .setSourceVersion(reqVO.getSourceVersion())
-                        .setSourceBundleHash(reqVO.getSourceBundleHash())
-                        .setCompletionBackfillReceiptId(reqVO.getCompletionBackfillReceiptId())
-                        .setCompletionBackfillReceiptHash(reqVO.getCompletionBackfillReceiptHash())
-                        .setPickListHeaderSnapshotHash(reqVO.getPickListHeaderSnapshotHash())
-                        .setPickListLineSnapshotHash(reqVO.getPickListLineSnapshotHash())
-                        .setSourceEvidence(reqVO.getSourceEvidence())
-                        .setCompletionBackfillReceipt(reqVO.getCompletionBackfillReceipt())
-                        .setIndependentReceipt(reqVO.getIndependentReceipt()))));
+                        .setSignaturePassword(reqVO.getSignaturePassword()))));
     }
 
     @PostMapping("/pqc/reject")
@@ -156,7 +128,10 @@ public class MesProductionReleaseController {
                 .setNonconformanceReviewId(item.getNonconformanceReviewId())
                 .setNonconformanceDisposition(item.getNonconformanceDisposition())
                 .setNonconformanceReason(item.getNonconformanceReason())
-                .setNonconformanceClosedAt(item.getNonconformanceClosedAt());
+                .setNonconformanceClosedAt(item.getNonconformanceClosedAt())
+                .setApprovalReady(item.getApprovalReady())
+                .setApprovalBlockerReason(item.getApprovalBlockerReason())
+                .setApprovalBlockerSuggestion(item.getApprovalBlockerSuggestion());
     }
 
     private MesPqcProductionReleaseDecisionRespVO toResp(MesPqcProductionReleaseDecisionResult result) {
@@ -170,7 +145,11 @@ public class MesProductionReleaseController {
                 .setSignatureId(result.getSignatureId())
                 .setBatchRecordEvidenceIds(result.getBatchRecordEvidenceIds())
                 .setProcessInspectionEvidenceIds(result.getProcessInspectionEvidenceIds())
+                .setProcessInspectionFormCenterInstanceIds(result.getProcessInspectionFormCenterInstanceIds())
                 .setLossReportEvidenceIds(result.getLossReportEvidenceIds())
+                .setLossReportFormCenterInstanceIds(result.getLossReportFormCenterInstanceIds())
+                .setLossReportFieldAuditIds(result.getLossReportFieldAuditIds())
+                .setLossReportFieldAuditHeadHashes(result.getLossReportFieldAuditHeadHashes())
                 .setReportUploadTasks(result.getReportUploadTasks().stream()
                         .map(item -> new MesProductionReleaseReportUploadTaskRespVO()
                                 .setNodeType(item.getNodeType())

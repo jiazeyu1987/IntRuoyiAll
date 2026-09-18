@@ -184,6 +184,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         }
     }
 
+
     private static void validateDeviceConfiguration(Long routeVersionId, JSONObject config) {
         Set<Long> deviceIds = new LinkedHashSet<>();
         Set<String> groupKeys = new LinkedHashSet<>();

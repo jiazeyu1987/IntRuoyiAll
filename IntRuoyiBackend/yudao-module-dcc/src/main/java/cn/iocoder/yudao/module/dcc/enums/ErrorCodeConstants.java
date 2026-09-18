@@ -138,12 +138,9 @@ public interface ErrorCodeConstants {
     ErrorCode CONTROLLED_FILE_UPLOAD_SESSION_INVALID = new ErrorCode(1_080_000_116, "DCC upload session is invalid");
     ErrorCode CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT = new ErrorCode(1_080_000_198,
             "DCC upload slot already contains different content");
-    ErrorCode DCC_DOWNLOAD_ENCRYPTION_CONTRACT_MISSING = new ErrorCode(1_080_000_117, "DCC download encryption contract is missing");
-    ErrorCode DCC_DOWNLOAD_ENCRYPTION_EVIDENCE_INVALID = new ErrorCode(1_080_000_118, "DCC download encryption evidence is invalid");
     ErrorCode DCC_DOWNLOAD_REQUEST_ID_REQUIRED = new ErrorCode(1_080_000_119, "DCC download request id is required");
     ErrorCode DCC_DOWNLOAD_REQUEST_ID_REUSED = new ErrorCode(1_080_000_120, "DCC download request id has already been used");
     ErrorCode DCC_DOWNLOAD_AUDIT_RECORD_FAILED = new ErrorCode(1_080_000_121, "DCC download audit record failed");
-    ErrorCode DCC_DOWNLOAD_ENCRYPTION_CONFIG_MISSING = new ErrorCode(1_080_000_122, "DCC download encryption config is missing or invalid: {}");
     ErrorCode FILE_DIRECTORY_DELETE_NAS_TRANSFER_ACTIVE = new ErrorCode(1_080_000_123,
             "Controlled file directory deletion blocked because NAS transfer task is still active");
     ErrorCode CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED = new ErrorCode(1_080_000_124,
@@ -592,5 +589,7 @@ public interface ErrorCodeConstants {
             "Only an unlocked WORKING controlled file iteration can be submitted");
     ErrorCode CONTROLLED_FILE_ITERATION_NOT_LATEST = new ErrorCode(1_080_000_345,
             "Only the latest WORKING controlled file iteration can be submitted");
+    ErrorCode DCC_PROJECT_ACCESS_RULE_INVALID = new ErrorCode(1_080_000_346,
+            "DCC project access rules are invalid: include at least one active OWNER and non-blank change reason");
 
 }

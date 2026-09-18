@@ -25,7 +25,7 @@ const onMountedBlock = sliceBetween(panel, 'onMounted(async () => {', 'onUnmount
 const initializeProductionSelectionBlock = sliceBetween(
   panel,
   'const initializeProductionSelection = async () => {',
-  'const resolveErrorMessage'
+  'onMounted(async () => {'
 )
 const pqcStartupBlock = sliceBetween(
   onMountedBlock,
@@ -39,8 +39,13 @@ assert.match(
 )
 assert.match(
   initializeProductionSelectionBlock,
-  /loadFrontlineProductionActiveOrders\(deviceState\)[\s\S]*requestedActiveOrder\s*\|\|\s*activeOrders\[0\][\s\S]*await handleSelectActiveOrder\(initialActiveOrder,\s*requestedProcessIdentity\)/,
-  'Production mode must select the requested or first active order before refreshing its route processes.'
+  /loadFrontlineProductionActiveOrders\(deviceState\)[\s\S]*const\s+initialActiveOrder\s*=\s*activeOrders\.find\(\(order\) => !order\.readBlocked\)[\s\S]*await handleSelectActiveOrder\(initialActiveOrder,\s*requestedProcessIdentity\)/,
+  'Production mode must select the current selectable realtime active order before refreshing its route processes.'
+)
+assert.doesNotMatch(
+  initializeProductionSelectionBlock,
+  /requestedActiveOrder|context\.workOrderId|order\.workOrderId\s*===/,
+  'Production mode must ignore URL workOrderId during startup.'
 )
 assert.doesNotMatch(
   initializeProductionSelectionBlock,

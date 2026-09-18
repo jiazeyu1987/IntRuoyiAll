@@ -241,6 +241,8 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `directory_id` bigint NOT NULL,
   `source_file_id` bigint NOT NULL,
   `original_file_id` bigint NOT NULL,
+  `read_only_file_id` bigint DEFAULT NULL COMMENT '不可编辑浏览版本文件 ID',
+  `editable_file_id` bigint DEFAULT NULL COMMENT '可编辑源文件 ID',
   `drawing_pdf_file_id` bigint DEFAULT NULL,
   `training_record_file_id` bigint DEFAULT NULL,
   `published_file_id` bigint DEFAULT NULL,
@@ -903,16 +905,11 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_download_record` (
   `file_version_no` varchar(64) NOT NULL,
   `user_id` bigint NOT NULL,
   `policy_version` varchar(64) NOT NULL,
-  `encryption_status` varchar(32) NOT NULL,
-  `encryption_policy_version` varchar(64) DEFAULT NULL,
-  `artifact_id` varchar(128) DEFAULT NULL,
-  `cipher_file_ref` varchar(255) DEFAULT NULL,
+  `download_status` varchar(32) NOT NULL,
   `plain_sha256` varchar(128) DEFAULT NULL,
-  `cipher_sha256` varchar(128) DEFAULT NULL,
   `failure_code` varchar(64) DEFAULT NULL,
   `failure_reason` varchar(500) DEFAULT NULL,
   `requested_at` datetime NOT NULL,
-  `encrypted_at` datetime DEFAULT NULL,
   `returned_at` datetime DEFAULT NULL,
   `tenant_id` bigint NOT NULL DEFAULT 0,
   `create_time` datetime DEFAULT NULL,
@@ -925,7 +922,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_download_record` (
   KEY `idx_dcc_protection_download_event` (`access_event_id`),
   KEY `idx_dcc_protection_download_file` (`controlled_file_id`, `file_version_no`),
   KEY `idx_dcc_protection_download_user_time` (`user_id`, `requested_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC controlled file encrypted download record';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC controlled file download record';
 
 CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -1338,6 +1335,15 @@ INSERT INTO `system_menu`
 SELECT 6811, 'DCC受控下载', 'dcc:controlled-file:download', 3, 2, 6807, '', '', '', '', 0, b'1', b'1', b'1', '1', NOW(), '1', NOW(), b'0'
 WHERE NOT EXISTS (SELECT 1 FROM `system_menu` WHERE `permission` = 'dcc:controlled-file:download');
 
+INSERT INTO `system_menu`
+(`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)
+SELECT 6831, 'DCC不可编辑版本下载', 'dcc:controlled-file:download-read-only', 3, 2, 6807, '', '', '', '', 0, b'1', b'1', b'1', '1', NOW(), '1', NOW(), b'0'
+WHERE NOT EXISTS (SELECT 1 FROM `system_menu` WHERE `permission` = 'dcc:controlled-file:download-read-only');
+
+INSERT INTO `system_menu`
+(`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)
+SELECT 6832, 'DCC可编辑版本下载', 'dcc:controlled-file:download-editable', 3, 3, 6807, '', '', '', '', 0, b'1', b'1', b'1', '1', NOW(), '1', NOW(), b'0'
+WHERE NOT EXISTS (SELECT 1 FROM `system_menu` WHERE `permission` = 'dcc:controlled-file:download-editable');
 INSERT INTO `system_menu`
 (`name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)
 SELECT 'DCC受控打印', 'dcc:controlled-file:print', 3, 4, 6807, '', '', '', '', 0, b'1', b'1', b'1', '1', NOW(), '1', NOW(), b'0'

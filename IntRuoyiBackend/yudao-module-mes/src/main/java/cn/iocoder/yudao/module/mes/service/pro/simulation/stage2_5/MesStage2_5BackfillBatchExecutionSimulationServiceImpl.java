@@ -53,6 +53,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderBomMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderTypeEnum;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionPickListSource;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionSourceEvidence;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesCompletionBackfillReceipt;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
@@ -201,13 +202,11 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                         command == null ? null : command.getActorUserId());
         requireTenant();
 
-        String cleanedRunId = cleanupOwnedRuns(validated.getActorUserId());
-        cleanupOwnedBatches(validated.getActorUserId());
+        String cleanedRunId = null;
         MesProcessPoolActiveOrderDO template = activeOrderMapper
                 .selectByIdForUpdate(validated.getActiveOrderId());
         requireOwnedActiveOrder(template, validated);
         MesProWorkOrderDO templateWorkOrder = requireWorkOrder(template);
-        MesProcessPoolActiveOrderPickListBindingDO templateBinding = requireBinding(template);
         MesProEdhrBatchExecutionDO existingBatch = selectExistingBatchBeforeCompletion(template, templateWorkOrder);
         if (existingBatch != null) {
             return existingBatchResult(validated, existingBatch, cleanedRunId);
@@ -223,17 +222,17 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         MesProcessPoolActiveOrderCompletionReceiptDO receipt = completionReceiptMapper
                 .selectByIdAndTenantId(completion.getCompletionReceiptId(), TenantContextHolder.getTenantId());
         MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder);
-        MesProcessPoolActiveOrderPickListBindingDO binding = requireBinding(activeOrder);
-        List<MesProcessPoolActiveOrderPickListBindingItemDO> bindingItems = bindingItemMapper
-                .selectListByBindingId(binding.getId());
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings = requireBindings(activeOrder);
+        List<MesProcessPoolActiveOrderPickListBindingItemDO> bindingItems = bindings.stream()
+                .flatMap(binding -> bindingItemMapper.selectListByBindingId(binding.getId()).stream()).toList();
         MesCompletionBackfillReceipt backfillReceipt = buildBackfillReceipt(
-                activeOrder, workOrder, binding, bindingItems, receipt);
+                activeOrder, workOrder, bindings, bindingItems, receipt);
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(buildBatchRequest(
-                validated, activeOrder, workOrder, binding, backfillReceipt));
+                validated, activeOrder, workOrder, bindings.get(0), backfillReceipt));
         if (batch == null || batch.getId() == null) {
             throw new IllegalStateException("BATCH_EXECUTION_CREATE_OR_OPEN_FAILED");
         }
-        Map<String, Object> snapshot = buildSnapshot(validated, activeOrder, workOrder, binding,
+        Map<String, Object> snapshot = buildSnapshot(validated, activeOrder, workOrder, bindings,
                 bindingItems, receipt, batch, backfillReceipt);
         MesStage4DossierUploadSimulationContractValidator.validateInput(snapshot);
         return new MesStage2_5BackfillBatchExecutionSimulationResult()
@@ -687,25 +686,29 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         return workOrder;
     }
 
-    private MesProcessPoolActiveOrderPickListBindingDO requireBinding(
+    private List<MesProcessPoolActiveOrderPickListBindingDO> requireBindings(
             MesProcessPoolActiveOrderDO activeOrder) {
         List<MesProcessPoolActiveOrderPickListBindingDO> bindings = bindingMapper
                 .selectListByActiveOrderId(activeOrder.getId());
-        MesProcessPoolActiveOrderPickListBindingDO binding = bindings.stream()
-                .filter(item -> Objects.equals(item.getSimulationStage(), activeOrder.getSimulationStage()))
-                .filter(item -> Objects.equals(item.getSimulationRunId(), activeOrder.getSimulationRunId()))
-                .findFirst().orElse(null);
-        if (binding == null || binding.getId() == null || binding.getPickListId() == null
-                || binding.getBindingVersion() == null || blank(binding.getSourceSnapshotHash())) {
-            throw new IllegalStateException("STAGE2_5_FIXTURE_INVALID");
+        if (bindings == null || bindings.isEmpty()) {
+            throw new IllegalStateException("STAGE2_5_FORMAL_PICK_LIST_BINDINGS_MISSING");
         }
-        return binding;
+        for (MesProcessPoolActiveOrderPickListBindingDO binding : bindings) {
+            if (binding == null || binding.getId() == null || binding.getPickListId() == null
+                    || !Objects.equals(binding.getActiveOrderId(), activeOrder.getId())
+                    || !Objects.equals(binding.getWorkOrderId(), activeOrder.getWorkOrderId())
+                    || !"BOUND".equals(binding.getBindingStatus())
+                    || binding.getBindingVersion() == null || blank(binding.getSourceSnapshotHash())) {
+                throw new IllegalStateException("STAGE2_5_FORMAL_PICK_LIST_BINDING_INVALID");
+            }
+        }
+        return List.copyOf(bindings);
     }
 
     private MesCompletionBackfillReceipt buildBackfillReceipt(
             MesProcessPoolActiveOrderDO activeOrder,
             MesProWorkOrderDO workOrder,
-            MesProcessPoolActiveOrderPickListBindingDO binding,
+            List<MesProcessPoolActiveOrderPickListBindingDO> bindings,
             List<MesProcessPoolActiveOrderPickListBindingItemDO> bindingItems,
             MesProcessPoolActiveOrderCompletionReceiptDO receipt) {
         if (receipt == null || !MesProcessPoolActiveOrderCompletionReceiptDO.RECEIPT_STATUS_BACKFILL_SUCCEEDED
@@ -717,14 +720,16 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         if (productionIds.isEmpty() || inspectionIds.isEmpty()) {
             throw new IllegalStateException("ACTIVE_ORDER_COMPLETION_BACKFILL_NOT_IMPLEMENTED");
         }
+        MesProcessPoolActiveOrderPickListBindingDO binding = bindings.get(0);
+        List<MesBatchExecutionPickListSource> pickListSources = pickListSources(bindings);
         String lineHash = hash(bindingItems);
         String sourceVersion = "completion-" + receipt.getCompletedVersion()
-                + "|pick-binding-" + binding.getBindingVersion();
+                + "|pick-bindings-" + hash(pickListSources);
         String sourceContextHash = hash(List.of(activeOrder.getTenantId(), activeOrder.getId(),
                 workOrder.getId(), receipt.getBatchCode(), receipt.getRouteId(),
-                receipt.getRouteVersionId(), binding.getId(), binding.getBindingVersion()));
+                receipt.getRouteVersionId(), pickListSources));
         String sourceBundleHash = hash(List.of(receipt.getFormalSourceSnapshotJson(),
-                receipt.getSignatureSnapshotJson(), binding.getSourceSnapshotHash(), lineHash));
+                receipt.getSignatureSnapshotJson(), pickListSources, lineHash));
         boolean hasLoss = Boolean.TRUE.equals(receipt.getHasActualLoss());
         String lossDecision = hasLoss ? "REQUIRED" : "NO_LOSS";
         String lossSourceId = hasLoss ? String.valueOf(receipt.getLossRecordId())
@@ -753,6 +758,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                 .setSourceVersion(sourceVersion)
                 .setPickListBindingId(binding.getId())
                 .setPickListId(binding.getPickListId())
+                .setPickListSources(pickListSources)
                 .setBatchPickListRelationId(binding.getId())
                 .setSourceContextHash(sourceContextHash)
                 .setSourceSnapshotHash(receipt.getSourceSnapshotHash())
@@ -781,6 +787,17 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                 .setAuditEventId("ACTIVE_ORDER_COMPLETION_RECEIPT:" + receipt.getId())
                 .setIdempotencyKey(receipt.getRequestIdempotencyKey())
                 .setSourceEvidence(evidence);
+    }
+
+    private List<MesBatchExecutionPickListSource> pickListSources(
+            List<MesProcessPoolActiveOrderPickListBindingDO> bindings) {
+        return bindings.stream()
+                .map(binding -> new MesBatchExecutionPickListSource()
+                        .setPickListBindingId(binding.getId())
+                        .setPickListId(binding.getPickListId())
+                        .setBindingVersion(binding.getBindingVersion().longValue())
+                        .setSourceSnapshotHash(binding.getSourceSnapshotHash()))
+                .toList();
     }
 
     private MesBatchExecutionSourceEvidence evidence(String type, String sourceId,
@@ -819,6 +836,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                 .setActiveOrderId(activeOrder.getId())
                 .setPickListBindingId(binding.getId())
                 .setPickListId(binding.getPickListId())
+                .setPickListSources(receipt.getPickListSources())
                 .setBindingVersion(receipt.getBindingVersion())
                 .setBatchPickListRelationId(receipt.getBatchPickListRelationId())
                 .setSourceSnapshotHash(receipt.getSourceSnapshotHash())
@@ -832,6 +850,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                 .setPickListHeaderSnapshotHash(receipt.getPickListHeaderSnapshotHash())
                 .setPickListLineSnapshotHash(receipt.getPickListLineSnapshotHash())
                 .setSourceEvidence(receipt.getSourceEvidence())
+                .setCompletionBackfillReceipt(receipt)
                 .setIdempotencyKey(batchIdempotencyKey)
                 .setExpectedSourceVersion(receipt.getSourceVersion())
                 .setPayloadHash(receipt.getPayloadHash());
@@ -841,7 +860,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
             MesStage2_5BackfillBatchExecutionSimulationCommand command,
             MesProcessPoolActiveOrderDO activeOrder,
             MesProWorkOrderDO workOrder,
-            MesProcessPoolActiveOrderPickListBindingDO binding,
+            List<MesProcessPoolActiveOrderPickListBindingDO> bindings,
             List<MesProcessPoolActiveOrderPickListBindingItemDO> bindingItems,
             MesProcessPoolActiveOrderCompletionReceiptDO receipt,
             EdhrBatchExecutionRespVO batch,
@@ -865,13 +884,19 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         snapshot.put("routeVersionId", String.valueOf(activeOrder.getRouteVersionId()));
         snapshot.put("routeVersionNo", batch.getRouteVersionNo());
         Map<String, Object> materialIssueSource = new LinkedHashMap<>();
-        materialIssueSource.put("bindingId", String.valueOf(binding.getId()));
-        materialIssueSource.put("pickListId", String.valueOf(binding.getPickListId()));
-        materialIssueSource.put("sourceFid", binding.getSourceFid());
-        materialIssueSource.put("sourceBillNo", binding.getSourceBillNo());
-        materialIssueSource.put("sourceSnapshotHash", binding.getSourceSnapshotHash());
-        materialIssueSource.put("bindingVersion", binding.getBindingVersion());
-        materialIssueSource.put("items", bindingItems.stream().map(this::toMaterialIssueItem).toList());
+        materialIssueSource.put("sources", bindings.stream().map(binding -> {
+            Map<String, Object> source = new LinkedHashMap<>();
+            source.put("bindingId", String.valueOf(binding.getId()));
+            source.put("pickListId", String.valueOf(binding.getPickListId()));
+            source.put("sourceFid", binding.getSourceFid());
+            source.put("sourceBillNo", binding.getSourceBillNo());
+            source.put("sourceSnapshotHash", binding.getSourceSnapshotHash());
+            source.put("bindingVersion", binding.getBindingVersion());
+            source.put("items", bindingItems.stream()
+                    .filter(item -> Objects.equals(item.getBindingId(), binding.getId()))
+                    .map(this::toMaterialIssueItem).toList());
+            return source;
+        }).toList());
         snapshot.put("materialIssueSource", materialIssueSource);
         snapshot.put("batchRecordLinks", linkList(List.of(requiredEvidenceId(
                 backfillReceipt.getBatchRecordId(), "batchRecordId")),

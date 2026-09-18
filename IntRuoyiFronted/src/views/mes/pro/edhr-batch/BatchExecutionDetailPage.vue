@@ -1,6 +1,6 @@
 <template>
   <ContentWrap class="edhr-batch-detail__content-wrap">
-    <div v-loading="loading" class="edhr-batch-detail">
+    <div v-loading="loading" class="edhr-batch-detail" data-edhr-batch-detail-page>
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
       <el-alert
         v-if="releaseActionError"
@@ -230,7 +230,7 @@
                 'is-recordbook': currentProcessFillCarrier === 'RECORDBOOK'
               }"
             >
-              <div class="edhr-batch-detail__preview-context" aria-label="当前批记录上下文">
+              <div class="edhr-batch-detail__preview-context" aria-label="当前正式批记录上下文">
                 <span :title="detail?.workOrderCode || ''">{{
                   detail?.workOrderCode || '--'
                 }}</span>
@@ -238,7 +238,7 @@
                   resolveCurrentBatchRecordNo()
                 }}</span>
               </div>
-              <div class="edhr-batch-detail__preview-actions" aria-label="批记录操作">
+              <div class="edhr-batch-detail__preview-actions" aria-label="正式批记录操作">
                 <button
                   type="button"
                   class="edhr-batch-detail__preview-route-link"
@@ -287,7 +287,7 @@
                       aria-label="选择批记录填写"
                       @click.stop="selectFillCarrier('FORM')"
                     >
-                      批记录
+                      正式批记录
                     </button>
                     <button
                       v-if="isRecordbookEnabledForCurrentTask"
@@ -497,7 +497,11 @@
               </section>
             </div>
             <div v-else class="edhr-batch-detail__review-card">
-              <div class="edhr-batch-detail__form-surface" aria-label="已填写批记录">
+              <div
+                class="edhr-batch-detail__form-surface"
+                aria-label="已填写正式批记录"
+                data-edhr-formal-batch-record
+              >
                 <section
                   v-if="effectiveDetailPreviewAssistMode"
                   class="edhr-batch-detail__assist-preview"
@@ -565,17 +569,6 @@
                     :image-size="52"
                   />
                 </section>
-                <component
-                  v-else-if="selectedInlineSubmissionFormMode"
-                  :is="ActiveOrderSubmissionDetailPanel"
-                  :detail="inlineActiveOrderSubmissionDetail"
-                  :loading="inlineActiveOrderSubmissionDetailLoading"
-                  :error="inlineActiveOrderSubmissionDetailError"
-                  embedded
-                  :display-mode="selectedInlineSubmissionFormMode"
-                  :production-route-process-id="selectedInlineProductionRouteProcessId"
-                  @retry="reloadInlineActiveOrderSubmissionDetail"
-                />
                 <EdhrExecutionReadonlyForm
                   v-else-if="selectedPreviewFormViewModel"
                   :form-view-model="selectedPreviewFormViewModel"
@@ -590,8 +583,33 @@
                   :closable="false"
                   show-icon
                 />
-                <el-empty v-else description="当前节点没有可预览的批记录表单" />
+                <el-empty v-else description="当前节点没有可预览的正式批记录表单" />
               </div>
+              <section
+                v-if="selectedInlineSubmissionFormMode"
+                class="edhr-batch-detail__source-detail-record"
+                aria-label="详情批记录"
+                data-edhr-source-detail-record
+              >
+                <div class="edhr-batch-detail__source-detail-record-head">
+                  <div>
+                    <div class="edhr-batch-detail__section-title">详情批记录</div>
+                    <div class="edhr-batch-detail__muted">正式批记录来源详情</div>
+                  </div>
+                  <el-tag type="info" effect="plain">来源详情</el-tag>
+                </div>
+                <component
+                  :is="ActiveOrderSubmissionDetailPanel"
+                  :detail="inlineActiveOrderSubmissionDetail"
+                  :loading="inlineActiveOrderSubmissionDetailLoading"
+                  :error="inlineActiveOrderSubmissionDetailError"
+                  embedded
+                  :display-mode="selectedInlineSubmissionFormMode"
+                  :record-scope="'FORMAL_BATCH_SOURCE_DETAIL'"
+                  :production-route-process-id="selectedInlineProductionRouteProcessId"
+                  @retry="reloadInlineActiveOrderSubmissionDetail"
+                />
+              </section>
             </div>
           </div>
 
@@ -635,6 +653,7 @@
                     v-if="action.permission"
                     v-hasPermi="action.permission"
                     type="button"
+                    :data-edhr-release-action="action.key"
                     class="edhr-batch-detail__release-image-action"
                     :class="[
                       `is-${action.key}`,
@@ -1108,7 +1127,12 @@
       </template>
     </Dialog>
 
-    <Dialog title="完成特殊节点" v-model="specialNodeCompleteDialogVisible" width="520px">
+    <Dialog
+      title="完成特殊节点"
+      v-model="specialNodeCompleteDialogVisible"
+      width="520px"
+      data-production-release-report-complete-dialog
+    >
       <el-alert
         v-if="specialNodeCompleteError"
         :title="specialNodeCompleteError"
@@ -1132,6 +1156,7 @@
         <el-form-item v-if="isSterilizationNode(currentSpecialNode)" label="灭菌批次" required>
           <el-input
             v-model="specialNodeCompleteForm.sterilizationBatchNo"
+            data-production-release-sterilization-batch
             placeholder="请输入灭菌批次"
             @keyup.enter="submitSpecialNodeComplete"
           />
@@ -1160,6 +1185,7 @@
         <el-button
           type="primary"
           :loading="specialNodeCompleteLoading"
+          data-production-release-report-complete-confirm
           @click="submitSpecialNodeComplete"
         >
           {{ isProductionReleaseReportNode(currentSpecialNode) ? '完成报告' : '确 认' }}
@@ -1167,10 +1193,18 @@
       </template>
     </Dialog>
 
-    <el-drawer v-model="archivePrintDrawerVisible" title="归档打印" size="520px">
+    <el-drawer
+      v-model="archivePrintDrawerVisible"
+      title="归档打印"
+      size="520px"
+      data-edhr-archive-drawer
+    >
       <el-descriptions v-if="latestBatchArchive" :column="1" border class="mb-16px">
         <el-descriptions-item label="归档版本">
-          V{{ latestBatchArchive.archiveVersion || '--' }}
+          <span data-edhr-archive-version>V{{ latestBatchArchive.archiveVersion || '--' }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="归档状态">
+          <span data-edhr-archive-status>{{ latestBatchArchive.archiveStatus || '--' }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="长期归档格式">
           <el-tag v-if="latestBatchArchivePdfAValid" type="success">
@@ -1188,6 +1222,7 @@
           type="primary"
           :loading="archiveGenerationLoading"
           :disabled="isViewedReleaseStageReadonly || !canGenerateArchive || archiveGenerationLoading"
+          data-edhr-archive-generate
           @click="handleGenerateArchive"
           >生成归档</el-button
         >
@@ -1195,12 +1230,14 @@
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:create']"
           :loading="archiveGenerationLoading"
           :disabled="isViewedReleaseStageReadonly || !canGenerateArchive || archiveGenerationLoading"
+          data-edhr-archive-regenerate
           @click="handleGenerateArchive"
           >重新生成</el-button
         >
         <el-button
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
           :disabled="isViewedReleaseStageReadonly || archiveGenerationLoading || !latestBatchArchive?.id"
+          data-edhr-archive-print
           @click="handlePrintArchive"
         >
           打印
@@ -1462,6 +1499,7 @@ import {
   completeEdhrBatchSpecialNode,
   completeEdhrProductionReleaseReportNode,
   generateEdhrBatchArchive,
+  getEdhrBatchActiveOrderDetail,
   getLatestEdhrBatchArchive,
   getEdhrBatchExecution,
   getEdhrBatchReviewTimeline,
@@ -1507,7 +1545,6 @@ import {
   type EdhrReleaseCheckItemVO
 } from '@/api/mes/pro/edhr/release'
 import {
-  getTeamLeaderActiveOrderDetail,
   simulateStage6IdiData,
   type TeamLeaderActiveOrderDetailRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
@@ -4481,7 +4518,7 @@ const loadInlineActiveOrderSubmissionDetail = async (
   }
   inlineActiveOrderSubmissionDetailLoading.value = true
   try {
-    const nextDetail = await getTeamLeaderActiveOrderDetail(batch.activeOrderId)
+    const nextDetail = await getEdhrBatchActiveOrderDetail(batch.id)
     if (isStaleBatchDetailRequest(requestSerial)) return
     if (!nextDetail.processes?.length) {
       throw new Error('活跃订单缺少正式工序目标，无法展示一线提交表单')
@@ -7302,6 +7339,27 @@ watch(
   max-width: 100%;
   min-width: 0;
   min-height: 0;
+}
+
+.edhr-batch-detail__source-detail-record {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+}
+
+.edhr-batch-detail__source-detail-record-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .edhr-batch-detail__release-stage-next {

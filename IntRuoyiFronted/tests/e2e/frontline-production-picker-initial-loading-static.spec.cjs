@@ -43,7 +43,7 @@ assert.match(pickerStatusBlock, /暂无可用工序/)
 assert.match(pickerStatusBlock, /当前工序暂无可选员工/)
 
 const productionInitializationStart = panel.indexOf('const initializeProductionSelection = async')
-const productionInitializationEnd = panel.indexOf('\nconst resolveErrorMessage', productionInitializationStart)
+const productionInitializationEnd = panel.indexOf('\nonMounted(async () => {', productionInitializationStart)
 assert.ok(productionInitializationStart >= 0 && productionInitializationEnd > productionInitializationStart)
 const productionInitialization = panel.slice(
   productionInitializationStart,
@@ -51,8 +51,13 @@ const productionInitialization = panel.slice(
 )
 assert.match(
   productionInitialization,
-  /loadFrontlineProductionActiveOrders\(deviceState\)[\s\S]*requestedActiveOrder\s*\|\|\s*activeOrders\[0\][\s\S]*await handleSelectActiveOrder\(initialActiveOrder,\s*requestedProcessIdentity\)/,
-  'production initialization must select the requested or first order and let the order workflow refresh formal processes.'
+  /loadFrontlineProductionActiveOrders\(deviceState\)[\s\S]*const\s+initialActiveOrder\s*=\s*activeOrders\.find\(\(order\) => !order\.readBlocked\)[\s\S]*await handleSelectActiveOrder\(initialActiveOrder,\s*requestedProcessIdentity\)/,
+  'production initialization must select the current selectable realtime order and let the order workflow refresh formal processes.'
+)
+assert.doesNotMatch(
+  productionInitialization,
+  /requestedActiveOrder|context\.workOrderId|order\.workOrderId\s*===/,
+  'production initialization must not use URL workOrderId.'
 )
 assert.doesNotMatch(
   productionInitialization,

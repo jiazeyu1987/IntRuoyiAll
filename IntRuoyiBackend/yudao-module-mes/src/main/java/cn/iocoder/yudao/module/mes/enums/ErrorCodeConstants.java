@@ -1154,6 +1154,14 @@ public interface ErrorCodeConstants {
             "设备参数上下限无效，下限不能大于上限：{}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS = new ErrorCode(1_040_760_306,
             "班组活跃订单不存在：{}");
+    ErrorCode PRO_PROCESS_POOL_DATA_CLEANUP_CONFIRM_REQUIRED = new ErrorCode(1_040_760_398,
+            "必须先完成数据清理预检并确认清理范围");
+    ErrorCode PRO_PROCESS_POOL_DATA_CLEANUP_SCOPE_CHANGED = new ErrorCode(1_040_760_399,
+            "数据清理范围已变化，请重新预检");
+    ErrorCode PRO_PROCESS_POOL_DATA_CLEANUP_BLOCKED = new ErrorCode(1_040_760_400,
+            "数据清理被正式业务锁定：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_DOSSIER_FILE_BLOCKED = new ErrorCode(1_040_760_409,
+            "活跃订单资料文件读取受阻：{}");
     ErrorCode PRO_PROCESS_POOL_PICK_LIST_REQUIRED = new ErrorCode(1_040_760_360, "正式领料单不能为空");
     ErrorCode PRO_PROCESS_POOL_PICK_LIST_NOT_EXISTS = new ErrorCode(1_040_760_361, "正式领料单不存在：{}");
     ErrorCode PRO_PROCESS_POOL_PICK_LIST_NOT_APPROVED = new ErrorCode(1_040_760_362, "领料单未审核：{}");
@@ -1225,6 +1233,8 @@ public interface ErrorCodeConstants {
             "报工确认 PQC 合格可分配数量不足，eventId={}，confirmQuantity={}，qualifiedQuantity={}，consumedQuantity={}，allocatableQuantity={}");
     ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS = new ErrorCode(1_040_760_329,
             "工序池提交事件已存在复核终态，禁止重复确认或退回：eventId={}，status={}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_SIGNATURE_REQUIRED = new ErrorCode(1_040_760_330,
+            "生产组长复核必须提供本人电子签名密码：eventId={}");
     ErrorCode PRO_PROCESS_POOL_PQC_RECORD_REQUIRED = new ErrorCode(1_040_760_331,
             "PQC 提交事件缺少可汇集的正式检验记录：eventId={}");
     ErrorCode PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED = new ErrorCode(1_040_760_332,

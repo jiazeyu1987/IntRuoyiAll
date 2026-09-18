@@ -39,6 +39,7 @@ public class MesReleaseFinalizationCommand {
     private Long workTaskId;
     private Integer expectedVersion;
     private String signoffEvidenceHash;
+    private String signoffSubjectId;
     private String approvalOpinion;
     private String decisionReason;
     /** HTTP callers may submit only receipt identifiers; authoritative payloads come from the owner port. */

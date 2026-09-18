@@ -28,6 +28,7 @@ import static cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum.ACTI
 public class DccControlledFileRelatedFileServiceImpl implements DccControlledFileRelatedFileService {
 
     private static final String RELATION_SOURCE_UPLOAD = "UPLOAD";
+    private static final String RELATION_SOURCE_CHECKIN_INHERITED = "CHECKIN_INHERITED";
 
     @Resource
     private DccControlledFileRelatedFileMapper relatedFileMapper;
@@ -96,6 +97,32 @@ public class DccControlledFileRelatedFileServiceImpl implements DccControlledFil
         return relations.stream()
                 .map(relation -> toRespVO(relation, currentFileMap.get(relation.getRelatedControlledFileId())))
                 .toList();
+    }
+
+    @Override
+    public void inheritRelatedFiles(Long sourceControlledFileId, Long targetControlledFileId) {
+        if (sourceControlledFileId == null || targetControlledFileId == null
+                || Objects.equals(sourceControlledFileId, targetControlledFileId)) {
+            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        }
+        DccControlledFileDO target = controlledFileMapper.selectById(targetControlledFileId);
+        if (target == null) {
+            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        }
+        List<DccControlledFileRelatedFileDO> sourceRelations =
+                relatedFileMapper.selectListByControlledFileId(sourceControlledFileId);
+        for (DccControlledFileRelatedFileDO sourceRelation : sourceRelations) {
+            relatedFileMapper.insert(DccControlledFileRelatedFileDO.builder()
+                    .controlledFileId(targetControlledFileId)
+                    .relatedControlledFileId(sourceRelation.getRelatedControlledFileId())
+                    .projectCodeId(target.getDccProjectCodeId())
+                    .relatedMasterId(sourceRelation.getRelatedMasterId())
+                    .relatedFileNumberSnapshot(sourceRelation.getRelatedFileNumberSnapshot())
+                    .relatedFileNameSnapshot(sourceRelation.getRelatedFileNameSnapshot())
+                    .relatedVersionNoSnapshot(sourceRelation.getRelatedVersionNoSnapshot())
+                    .relationSource(RELATION_SOURCE_CHECKIN_INHERITED)
+                    .build());
+        }
     }
 
     @Override

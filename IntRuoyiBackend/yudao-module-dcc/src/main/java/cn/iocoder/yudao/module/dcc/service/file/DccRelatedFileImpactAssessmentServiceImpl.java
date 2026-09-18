@@ -334,9 +334,16 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
                 .equals(publishedRevision.getStatus())) {
             return;
         }
+        if (publishedRevision.getMasterId() == null) {
+            throw new IllegalStateException("Published revision master id is missing");
+        }
+        String revisionCode = resolveRevisionCode(publishedRevision);
+        if (StrUtil.isBlank(revisionCode)) {
+            throw new IllegalStateException("Published revision code is missing");
+        }
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         List<DccPublicationImpactTaskDO> tasks = Objects.requireNonNull(
-                taskMapper.selectListByLinkedRevisionId(tenantId, publishedRevision.getId()),
+                taskMapper.selectListByLinkedRevisionChain(tenantId, publishedRevision.getMasterId(), revisionCode),
                 "linked publication impact tasks must not be null");
         java.util.Set<Long> affectedBatchIds = new java.util.LinkedHashSet<>();
         for (DccPublicationImpactTaskDO task : tasks) {
@@ -346,7 +353,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
                 throw new IllegalStateException("Linked impact task master does not match published revision");
             }
             int updated = taskMapper.resolveRevision(tenantId, task.getId(), task.getRowVersion(),
-                    publishedRevision.getId());
+                    publishedRevision.getId(), publishedRevision.getVersionNo());
             if (updated != 1) {
                 if (isLegitimateResolveRace(tenantId, task, publishedRevision)) {
                     continue;
@@ -358,6 +365,14 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
                     task.getRowVersion(), task.getRowVersion() + 1);
         }
         affectedBatchIds.forEach(batchId -> followupStatusService.refreshBatchStatus(tenantId, batchId));
+    }
+
+    private String resolveRevisionCode(DccControlledFileDO revision) {
+        DccWindchillVersionNumber version = DccWindchillVersionNumber.parse(revision.getVersionNo());
+        if (version != null) {
+            return version.revisionCode();
+        }
+        return StrUtil.trimToNull(revision.getRevisionCode());
     }
 
     private boolean isLegitimateResolveRace(Long tenantId, DccPublicationImpactTaskDO selected,

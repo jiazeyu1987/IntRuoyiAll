@@ -110,6 +110,31 @@ class DccControlledFileRelatedFileServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void inheritRelatedFiles_copiesSourceRelationsToCheckinIterationWithoutChangingSource() {
+        DccControlledFileRelatedFileDO sourceRelation = relation(1L, 100L, 201L,
+                "DOC-201", "关联文件", "A/1");
+        sourceRelation.setRelatedMasterId(301L);
+        when(controlledFileMapper.selectById(101L)).thenReturn(DccControlledFileDO.builder()
+                .id(101L).dccProjectCodeId(20L).build());
+        when(relatedFileMapper.selectListByControlledFileId(100L)).thenReturn(List.of(sourceRelation));
+
+        service.inheritRelatedFiles(100L, 101L);
+
+        ArgumentCaptor<DccControlledFileRelatedFileDO> captor =
+                ArgumentCaptor.forClass(DccControlledFileRelatedFileDO.class);
+        verify(relatedFileMapper).insert(captor.capture());
+        DccControlledFileRelatedFileDO inherited = captor.getValue();
+        assertEquals(101L, inherited.getControlledFileId());
+        assertEquals(201L, inherited.getRelatedControlledFileId());
+        assertEquals(301L, inherited.getRelatedMasterId());
+        assertEquals("DOC-201", inherited.getRelatedFileNumberSnapshot());
+        assertEquals("关联文件", inherited.getRelatedFileNameSnapshot());
+        assertEquals("A/1", inherited.getRelatedVersionNoSnapshot());
+        assertEquals("CHECKIN_INHERITED", inherited.getRelationSource());
+        assertEquals(100L, sourceRelation.getControlledFileId());
+    }
+
+    @Test
     void resolveCurrentActiveRelatedFileIds_replacesSupersededSnapshotWithMasterCurrentActiveIteration() {
         DccControlledFileRelatedFileDO relation = relation(1L, 100L, 201L,
                 "DOC-201", "关联文件", "A/1");

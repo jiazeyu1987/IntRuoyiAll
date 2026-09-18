@@ -179,8 +179,26 @@ const activeTaxonomyRows = computed(() =>
     .filter((row) => row.id && row.active)
     .map((row) => ({ ...row, children: undefined }))
 )
+const selectableTaxonomyIds = computed(() => {
+  const parentIds = new Set(
+    activeTaxonomyRows.value
+      .map((row) => row.parentId)
+      .filter((id): id is number => Boolean(id))
+  )
+  return new Set(
+    activeTaxonomyRows.value
+      .filter((row) => row.id && !parentIds.has(row.id) && (taxonomyPathDepthMap.value.get(row.id) || 0) >= 3)
+      .map((row) => row.id as number)
+  )
+})
 const taxonomyTreeOptions = computed(
-  () => handleTree(activeTaxonomyRows.value.map((row) => ({ ...row }))) as DccFileTypeTaxonomyVO[]
+  () =>
+    handleTree(
+      activeTaxonomyRows.value.map((row) => ({
+        ...row,
+        disabled: !row.id || !selectableTaxonomyIds.value.has(row.id)
+      }))
+    ) as DccFileTypeTaxonomyVO[]
 )
 const taxonomyPathDepthMap = computed(() => {
   const depthMap = new Map<number, number>()
@@ -271,6 +289,9 @@ const validateRows = () => {
       valid = false
     } else if ((taxonomyPathDepthMap.value.get(row.fileTypeTaxonomyId) || 0) < 3) {
       errors[index].fileTypeTaxonomyId = '文件分类至少选择到第三级'
+      valid = false
+    } else if (!selectableTaxonomyIds.value.has(row.fileTypeTaxonomyId)) {
+      errors[index].fileTypeTaxonomyId = '请选择没有启用子分类的末级文件分类'
       valid = false
     }
     const fileName = row.fileName.trim()

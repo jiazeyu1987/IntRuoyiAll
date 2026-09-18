@@ -69,6 +69,8 @@ public class ApprovalSignatureRecordServiceImpl implements ApprovalSignatureReco
                 .unifiedSignatureId(signature.signatureId())
                 .signatureImageId(imageSnapshot.getImageId())
                 .signatureImageFileUrl(signatureImageFileUrl)
+                .subjectId(subjectId)
+                .evidenceHash(signature.evidenceHash())
                 .build();
     }
 

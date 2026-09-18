@@ -7,6 +7,8 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
@@ -46,6 +48,8 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(containsString("FBomId.FNumber")))
                 .andExpect(content().string(containsString("FMaterialId.F_PAEZ_TUHAO")))
                 .andExpect(content().string(containsString("FMaterialId.F_PAEZ_REFNO")))
+                .andExpect(content().string(containsString("FPrdOrgId.FNumber")))
+                .andExpect(content().string(containsString("FPrdOrgId.FName")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("F_PAEZ_Remark1"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FBizStatus"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("F_PAEZ_PaiChanStatus"))))
@@ -56,7 +60,7 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(containsString("FDate+%3C%3D+%272026-06-10%27")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FStatus+%3C%3E+%275%27"))))
                 .andRespond(withSuccess("""
-                        [[310119,"881MO091049","A","2026-03-25T00:00:00","A001.01.053.001","ABS","TR558A",1.0,"2026-03-25T00:00:00","2026-03-25T00:00:00"," ","1","kg","千克","BATCH-001","组装车间","BOM-2026-01","255ACSXXXX","REF-2026-001"]]
+                        [[310119,"881MO091049","A","2026-03-25T00:00:00","A001.01.053.001","ABS","TR558A",1.0,"2026-03-25T00:00:00","2026-03-25T00:00:00"," ","1","kg","千克","BATCH-001","组装车间","BOM-2026-01","255ACSXXXX","REF-2026-001","100","生产组织"]]
                         """, MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeProductionOrder> orders = client.fetchProductionOrdersByBillDateRange(
@@ -76,6 +80,8 @@ class ErpKingdeeProductionOrderClientImplTest {
         assertNull(orders.get(0).getBusinessStatus());
         assertEquals("255ACSXXXX", orders.get(0).getDrawingNumber());
         assertEquals("REF-2026-001", orders.get(0).getRefNo());
+        assertEquals("100", orders.get(0).getProductionOrgNumber());
+        assertEquals("生产组织", orders.get(0).getProductionOrgName());
         assertNull(orders.get(0).getScheduleStatus());
         server.verify();
     }
@@ -150,7 +156,7 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(containsString("FBillNo+%3C%3E+%27%27")))
                 .andExpect(content().string(containsString("FMaterialId.FNumber+%3C%3E+%27%27")))
                 .andRespond(withSuccess("""
-                        [[310121,"123123123","C","2026-03-19T00:00:00","A001.01.053.001","ABS","TR558A-MNP-1",12.0,"","","","2","Pcs","Pcs","","","","DRAWING-001","REF-001","2026-06-12T08:30:00"]]
+                        [[310121,"123123123","C","2026-03-19T00:00:00","A001.01.053.001","ABS","TR558A-MNP-1",12.0,"","","","2","Pcs","Pcs","","","","DRAWING-001","REF-001","100","生产组织","2026-06-12T08:30:00"]]
                         """, MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeProductionOrder> orders = client.fetchProductionOrdersModifiedBetween(properties,
@@ -176,10 +182,13 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(header(HttpHeaders.COOKIE, containsString("kdservice-sessionid=abc")))
                 .andExpect(content().string(containsString("PRD_MO")))
                 .andExpect(content().string(containsString("FBillNo+%3D+%27WO-001%27")))
-                .andExpect(content().string(containsString("FieldKeys%22%3A%22FID%2CFBillNo%2CFDocumentStatus%2CFDate%2CFMaterialId.FNumber%2CFMaterialId.FName%2CFMaterialId.FSpecification%2CFQty%2CFPlanStartDate%2CFPlanFinishDate%2CFSrcBillNo%2CFStatus%22")))
+                .andExpect(content().string(containsString("FUnitId.FNumber")))
+                .andExpect(content().string(containsString("FUnitId.FName")))
+                .andExpect(content().string(containsString("FLot.FNumber")))
+                .andExpect(content().string(containsString("FPrdOrgId.FNumber")))
                 .andExpect(content().string(containsString("FDocumentStatus+%3C%3E+%27Z%27")))
                 .andRespond(withSuccess("""
-                        [[310119,"WO-001","A","2026-06-12T08:00:00","MAT-001","ABS","TR558A",12,"2026-06-12T08:00:00","2026-06-12T08:00:00","SO-001","1","kg","千克","BATCH-WO-001","","","","","","",""]]
+                        [[310119,"WO-001","A","2026-06-12T08:00:00","MAT-001","ABS","TR558A",12,"2026-06-12T08:00:00","2026-06-12T08:00:00","SO-001","1","kg","千克","BATCH-WO-001","","","","","100","生产组织"]]
                         """, MediaType.APPLICATION_JSON));
 
         ErpKingdeeProductionOrder order = client.getProductionOrderByBillNo(properties, "WO-001");
@@ -187,7 +196,10 @@ class ErpKingdeeProductionOrderClientImplTest {
         assertEquals("310119", order.getFid());
         assertEquals("WO-001", order.getBillNo());
         assertEquals("MAT-001", order.getMaterialNumber());
+        assertEquals("kg", order.getUnitCode());
+        assertEquals("千克", order.getUnitName());
         assertEquals("BATCH-WO-001", order.getBatchNumber());
+        assertEquals("100", order.getProductionOrgNumber());
         server.verify();
     }
 
@@ -303,6 +315,23 @@ class ErpKingdeeProductionOrderClientImplTest {
         server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Save.common.kdsvc"))
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
                 .andExpect(content().string(containsString("PRD_MO")))
+                .andExpect(content().string(containsString("%22NumberSearch%22%3Atrue")))
+                .andExpect(request -> {
+                    String decodedBody = URLDecoder.decode(
+                            ((org.springframework.mock.http.client.MockClientHttpRequest) request)
+                                    .getBodyAsString(StandardCharsets.UTF_8),
+                            StandardCharsets.UTF_8);
+                    int entryOrgIndex = decodedBody.indexOf("\"FTreeEntity\":[{\"FPrdOrgId\"");
+                    int entryMaterialIndex = decodedBody.indexOf("\"FMaterialId\"", entryOrgIndex);
+                    assertThat(decodedBody)
+                            .contains("\"NeedUpDateFields\":[]")
+                            .contains("\"FTreeEntity\":[{")
+                            .contains("\"FPrdOrgId\":{\"FNumber\":\"100\"}")
+                            .contains("\"FMaterialId\":{\"FNumber\":\"MAT-001\"}")
+                            .contains("\"FUnitId\":{\"FNumber\":\"kg\"}");
+                    assertThat(entryOrgIndex).isGreaterThanOrEqualTo(0);
+                    assertThat(entryMaterialIndex).isGreaterThan(entryOrgIndex);
+                })
                 .andExpect(content().string(containsString("WO-001")))
                 .andExpect(content().string(containsString("MAT-001")))
                 .andExpect(content().string(containsString("BATCH-WO-001")))
@@ -325,6 +354,107 @@ class ErpKingdeeProductionOrderClientImplTest {
         assertEquals("WO-001", result.getErpBillNo());
         assertEquals(Boolean.TRUE, result.getSaved());
         assertEquals(Boolean.TRUE, result.getSubmitted());
+        server.verify();
+    }
+
+    @Test
+    void createAndSubmitProductionOrder_usesRequestProductionOrgWhenViewTemplateOmitsPrdOrg() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionOrderClientImpl client = new ErpKingdeeProductionOrderClientImpl(restTemplate);
+        ErpKingdeeProperties properties = buildProperties("https://k3.example.com");
+        properties.getProductionOrder().setTemplateBillNo("TEMPLATE-MO-001");
+
+        expectLogin(server);
+        expectNoDuplicate(server);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.View.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andExpect(content().string(containsString("PRD_MO")))
+                .andExpect(content().string(containsString("TEMPLATE-MO-001")))
+                .andRespond(withSuccess("""
+                        {"Result":{"ResponseStatus":{"IsSuccess":true},"Result":{
+                          "FID":999,
+                          "FBillNo":"TEMPLATE-MO-001",
+                          "FBillType":{"FNumber":"SCDD01_SYS"},
+                          "FTreeEntity":[{"FMaterialId":{"FNumber":"OLD-MAT"},"FUnitId":{"FNumber":"kg"},"FQty":1}]
+                        }}}
+                        """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Save.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andExpect(content().string(containsString("%22FPrdOrgId%22%3A%7B%22FNumber%22%3A%22100%22%7D")))
+                .andExpect(content().string(containsString("%22NeedUpDateFields%22%3A%5B%5D")))
+                .andRespond(withSuccess("""
+                        {"Result":{"ResponseStatus":{"IsSuccess":true,"SuccessEntitys":[{"Id":310119,"Number":"WO-001"}]}}}
+                        """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Submit.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andRespond(withSuccess("""
+                        {"Result":{"ResponseStatus":{"IsSuccess":true,"SuccessEntitys":[{"Id":310119,"Number":"WO-001"}]}}}
+                        """, MediaType.APPLICATION_JSON));
+
+        ErpKingdeeProductionOrderCreateRequest request = buildCreateRequest();
+        request.setProductionOrgNumber("100");
+        ErpKingdeeProductionOrderCreateResult result =
+                client.createAndSubmitProductionOrder(properties, request);
+
+        assertEquals("310119", result.getErpFid());
+        assertEquals("WO-001", result.getErpBillNo());
+        server.verify();
+    }
+
+    @Test
+    void createAndSubmitProductionOrder_preservesTemplateViewOrgAndMaterialWhenRequestMatchesTemplate() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionOrderClientImpl client = new ErpKingdeeProductionOrderClientImpl(restTemplate);
+        ErpKingdeeProperties properties = buildProperties("https://k3.example.com");
+        properties.getProductionOrder().setTemplateBillNo("TEMPLATE-MO-001");
+
+        expectLogin(server);
+        expectNoDuplicate(server);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.View.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andRespond(withSuccess("""
+                        {"Result":{"ResponseStatus":{"IsSuccess":true},"Result":{
+                          "FID":999,
+                          "FBillNo":"TEMPLATE-MO-001",
+                          "FBillType":{"FNumber":"SCDD01_SYS"},
+                          "FPrdOrgId":{"FNumber":"100","FName":"正式生产组织"},
+                          "FTreeEntity":[{
+                            "FMaterialId":{"FNumber":"MAT-001","FName":"正式模板物料"},
+                            "FUnitId":{"FNumber":"kg"},
+                            "FQty":1
+                          }]
+                        }}}
+                        """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Save.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andExpect(request -> {
+                    String decodedBody = URLDecoder.decode(
+                            ((org.springframework.mock.http.client.MockClientHttpRequest) request)
+                                    .getBodyAsString(StandardCharsets.UTF_8),
+                            StandardCharsets.UTF_8);
+                    assertThat(decodedBody)
+                            .contains("\"FPrdOrgId\":{\"FNumber\":\"100\",\"FName\":\"正式生产组织\"}")
+                            .contains("\"FMaterialId\":{\"FNumber\":\"MAT-001\",\"FName\":\"正式模板物料\"}")
+                            .doesNotContain("\"FPrdOrgId\":{\"FNumber\":\"881\"}");
+                })
+                .andRespond(withSuccess("""
+                        {"Result":{"ResponseStatus":{"IsSuccess":true,"SuccessEntitys":[{"Id":310119,"Number":"WO-001"}]}}}
+                        """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Submit.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andRespond(withSuccess("""
+                        {"Result":{"ResponseStatus":{"IsSuccess":true,"SuccessEntitys":[{"Id":310119,"Number":"WO-001"}]}}}
+                        """, MediaType.APPLICATION_JSON));
+
+        ErpKingdeeProductionOrderCreateRequest request = buildCreateRequest();
+        request.setProductionOrgNumber("881");
+        ErpKingdeeProductionOrderCreateResult result =
+                client.createAndSubmitProductionOrder(properties, request);
+
+        assertEquals("310119", result.getErpFid());
+        assertEquals("WO-001", result.getErpBillNo());
         server.verify();
     }
 
@@ -364,6 +494,107 @@ class ErpKingdeeProductionOrderClientImplTest {
 
         assertEquals("310119", result.getErpFid());
         assertEquals("WO-001", result.getErpBillNo());
+        server.verify();
+    }
+
+    @Test
+    void createAndSubmitProductionOrder_usesTemplateEntryUnitWhenRequested() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionOrderClientImpl client = new ErpKingdeeProductionOrderClientImpl(restTemplate);
+        ErpKingdeeProperties properties = buildProperties("https://k3.example.com");
+        properties.getProductionOrder().setTemplateBillNo("TEMPLATE-MO-001");
+
+        expectLogin(server);
+        expectNoDuplicate(server);
+        expectTemplate(server);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Save.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andExpect(content().string(containsString("PRD_MO")))
+                .andExpect(content().string(containsString("WO-001")))
+                .andExpect(content().string(containsString("MAT-001")))
+                .andExpect(content().string(containsString("kg")))
+                .andRespond(withSuccess("""
+                        {"Result":{"ResponseStatus":{"IsSuccess":true,"SuccessEntitys":[{"Id":310119,"Number":"WO-001"}]}}}
+                        """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Submit.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andExpect(content().string(containsString("PRD_MO")))
+                .andRespond(withSuccess("""
+                        {"Result":{"ResponseStatus":{"IsSuccess":true,"SuccessEntitys":[{"Id":310119,"Number":"WO-001"}]}}}
+                        """, MediaType.APPLICATION_JSON));
+
+        ErpKingdeeProductionOrderCreateRequest request = buildCreateRequest();
+        request.setUnitNumber(null);
+        request.setUseTemplateEntryUnit(Boolean.TRUE);
+
+        ErpKingdeeProductionOrderCreateResult result =
+                client.createAndSubmitProductionOrder(properties, request);
+
+        assertEquals("310119", result.getErpFid());
+        assertEquals("WO-001", result.getErpBillNo());
+        server.verify();
+    }
+
+    @Test
+    void createAndSubmitProductionOrder_rejectsMissingTemplateEntryUnitWhenRequested() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionOrderClientImpl client = new ErpKingdeeProductionOrderClientImpl(restTemplate);
+        ErpKingdeeProperties properties = buildProperties("https://k3.example.com");
+        properties.getProductionOrder().setTemplateBillNo("TEMPLATE-MO-001");
+
+        expectLogin(server);
+        expectNoDuplicate(server);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.View.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andExpect(content().string(containsString("PRD_MO")))
+                .andRespond(withSuccess("""
+                        {"Result":{"ResponseStatus":{"IsSuccess":true},"Result":{
+                          "FID":999,
+                          "FBillNo":"TEMPLATE-MO-001",
+                          "FPrdOrgId":{"FNumber":"100"},
+                          "FTreeEntity":[{"FMaterialId":{"FNumber":"OLD-MAT"},"FQty":1}]
+                        }}}
+                        """, MediaType.APPLICATION_JSON));
+        ErpKingdeeProductionOrderCreateRequest request = buildCreateRequest();
+        request.setUnitNumber(null);
+        request.setUseTemplateEntryUnit(Boolean.TRUE);
+
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> client.createAndSubmitProductionOrder(properties, request));
+
+        assertThat(exception.getMessage()).contains("template FUnitId");
+        server.verify();
+    }
+
+    @Test
+    void createAndSubmitProductionOrder_includesSavePayloadSummaryWhenSaveFails() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionOrderClientImpl client = new ErpKingdeeProductionOrderClientImpl(restTemplate);
+        ErpKingdeeProperties properties = buildProperties("https://k3.example.com");
+        properties.getProductionOrder().setTemplateBillNo("TEMPLATE-MO-001");
+
+        expectLogin(server);
+        expectNoDuplicate(server);
+        expectTemplate(server);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Save.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andRespond(withSuccess("""
+                        {"Result":{"ResponseStatus":{"IsSuccess":false,"Errors":[{"Message":"请先录入生产组织(FPrdOrgId)的内容（物料编码(FMaterialId)）！"}]}}}
+                        """, MediaType.APPLICATION_JSON));
+
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> client.createAndSubmitProductionOrder(properties, buildCreateRequest()));
+
+        assertThat(exception.getMessage())
+                .contains("PRD_MO Save payload summary")
+                .contains("needUpdateFields=[]")
+                .contains("entryFieldOrder=[FPrdOrgId, FMaterialId")
+                .contains("productionOrgNumber=100")
+                .contains("materialNumber=MAT-001")
+                .contains("entryKey=FTreeEntity");
         server.verify();
     }
 
@@ -456,3 +687,4 @@ class ErpKingdeeProductionOrderClientImplTest {
     }
 
 }
+

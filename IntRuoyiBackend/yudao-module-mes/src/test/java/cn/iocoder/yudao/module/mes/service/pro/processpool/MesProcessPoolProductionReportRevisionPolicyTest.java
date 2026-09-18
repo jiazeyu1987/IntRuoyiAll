@@ -2,11 +2,11 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool;
 
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionDiffMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,13 +31,16 @@ class MesProcessPoolProductionReportRevisionPolicyTest {
     private MesProcessPoolFifoAllocationService fifoAllocationService;
     @Mock
     private MesProcessPoolSubmissionReviewMapper reviewMapper;
+    @Mock
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesProcessPoolEventRevisionService service;
 
     @BeforeEach
     void setUp() {
         service = new MesProcessPoolEventRevisionServiceImpl(
-                eventMapper, revisionMapper, revisionDiffMapper, fifoAllocationService, reviewMapper);
+                eventMapper, revisionMapper, revisionDiffMapper, fifoAllocationService, reviewMapper,
+                signatureService);
     }
 
     @Test
@@ -45,7 +48,6 @@ class MesProcessPoolProductionReportRevisionPolicyTest {
         MesProProcessPoolEventDO event = MesProcessPoolEventRevisionServiceTest.event()
                 .setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT);
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
-        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(null);
         when(eventMapper.selectBySignatureId(9002L)).thenReturn(null);
         when(revisionMapper.selectBySignatureId(9002L)).thenReturn(null);
         when(revisionMapper.insert(any(MesProProcessPoolEventRevisionDO.class))).thenAnswer(invocation -> {
@@ -64,11 +66,6 @@ class MesProcessPoolProductionReportRevisionPolicyTest {
         MesProProcessPoolEventDO event = MesProcessPoolEventRevisionServiceTest.event()
                 .setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT);
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
-        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(
-                MesProcessPoolSubmissionReviewDO.builder()
-                        .eventId(1001L)
-                        .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
-                        .build());
         when(eventMapper.selectBySignatureId(9002L)).thenReturn(null);
         when(revisionMapper.selectBySignatureId(9002L)).thenReturn(null);
         when(revisionMapper.insert(any(MesProProcessPoolEventRevisionDO.class))).thenAnswer(invocation -> {

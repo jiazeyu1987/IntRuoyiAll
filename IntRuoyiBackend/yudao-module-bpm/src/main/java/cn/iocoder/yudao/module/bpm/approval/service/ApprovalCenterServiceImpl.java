@@ -151,6 +151,10 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
                 Objects.requireNonNull(signatureRecordService.recordReviewSignature(reviewContext),
                         "APPROVAL_SIGNATURE_RECORD_RESULT_REQUIRED");
         reviewContext.setSignatureImageFileUrl(requireSignatureImageFileUrl(signatureRecord));
+        reviewContext.setSignatureSubjectId(requireText(signatureRecord.getSubjectId(),
+                "APPROVAL_SIGNATURE_SUBJECT_REQUIRED"));
+        reviewContext.setSignatureEvidenceHash(requireText(signatureRecord.getEvidenceHash(),
+                "APPROVAL_SIGNATURE_EVIDENCE_REQUIRED"));
         provider.review(reviewContext);
     }
 

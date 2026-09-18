@@ -84,6 +84,32 @@ public interface DccControlledFileMasterMapper extends BaseMapperX<DccControlled
             """)
     DccControlledFileMasterDO selectByIdForUpdate(@Param("id") Long id);
 
+    @Update("""
+            UPDATE dcc_controlled_file_master
+            SET category_id = #{categoryId},
+                directory_id = #{directoryId},
+                file_name = #{fileName},
+                file_number = #{fileNumber},
+                dcc_project_code_id = #{dccProjectCodeId},
+                file_type_taxonomy_leaf_id = #{fileTypeTaxonomyLeafId},
+                normalized_file_number = #{normalizedFileNumber},
+                current_active_controlled_file_id = #{currentActiveControlledFileId},
+                updater = #{updater},
+                update_time = CURRENT_TIMESTAMP
+            WHERE id = #{id}
+              AND deleted = b'0'
+            """)
+    int updateMetadataIdentity(@Param("id") Long id,
+                               @Param("categoryId") Long categoryId,
+                               @Param("directoryId") Long directoryId,
+                               @Param("fileName") String fileName,
+                               @Param("fileNumber") String fileNumber,
+                               @Param("dccProjectCodeId") Long dccProjectCodeId,
+                               @Param("fileTypeTaxonomyLeafId") Long fileTypeTaxonomyLeafId,
+                               @Param("normalizedFileNumber") String normalizedFileNumber,
+                               @Param("currentActiveControlledFileId") Long currentActiveControlledFileId,
+                               @Param("updater") String updater);
+
     @Select("""
             SELECT id,
                    category_id,

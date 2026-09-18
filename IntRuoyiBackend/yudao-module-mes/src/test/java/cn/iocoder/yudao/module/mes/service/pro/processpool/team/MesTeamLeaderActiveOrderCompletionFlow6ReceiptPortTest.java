@@ -78,6 +78,18 @@ class MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest {
     }
 
     @Test
+    void activeOrderLookupUsesTheLockedOwnerQuery() {
+        MesProcessPoolActiveOrderCompletionReceiptDO receipt = validReceipt();
+        receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
+        when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(receipt);
+
+        MesFlow6CompletionBackfillReceipt handoff = port.getByActiveOrderId(10L, 7L);
+
+        assertEquals(99L, handoff.getReceiptId());
+        org.mockito.Mockito.verify(receiptMapper).selectByActiveOrderIdForUpdate(10L);
+    }
+
+    @Test
     void receiptHashMustSurviveDatabaseDatetimePrecision() {
         MesProcessPoolActiveOrderCompletionReceiptDO receipt = validReceipt()
                 .setCompletedAt(LocalDateTime.of(2026, 8, 23, 10, 0, 0, 123_456_789));

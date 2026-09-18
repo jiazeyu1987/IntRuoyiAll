@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureResult;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.PqcResultValueValidator;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcProcessInspectionAggregationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationReleaseStateService;
@@ -59,6 +60,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
     private final MesTeamLeaderScopeService scopeService;
     private final MesReportAllocationReleaseStateService releaseStateService;
     private final MesPqcProcessInspectionAggregationService aggregationService;
+    private final MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     public MesProcessPoolPqcInspectionCorrectionService(
             MesProProcessPoolEventMapper eventMapper,
@@ -69,7 +71,8 @@ public class MesProcessPoolPqcInspectionCorrectionService {
             MesProBatchRecordExecutionSignatureService signatureService,
             MesTeamLeaderScopeService scopeService,
             MesReportAllocationReleaseStateService releaseStateService,
-            MesPqcProcessInspectionAggregationService aggregationService) {
+            MesPqcProcessInspectionAggregationService aggregationService,
+            MesProEdhrNonconformanceReviewService nonconformanceReviewService) {
         this.eventMapper = eventMapper;
         this.pqcRecordMapper = pqcRecordMapper;
         this.pqcTaskMapper = pqcTaskMapper;
@@ -79,6 +82,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         this.scopeService = scopeService;
         this.releaseStateService = releaseStateService;
         this.aggregationService = aggregationService;
+        this.nonconformanceReviewService = nonconformanceReviewService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -93,6 +97,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                 MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, event.getActualEmployeeId());
         MesPqcInspectionTaskDO task = pqcTaskMapper.selectByIdForUpdate(event.getFeedbackSourceId());
         validateTask(event, task);
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(task.getWorkOrderId(), "PQC检验更正");
         if (releaseStateService.findReleasedActiveOrderIdsForUpdate(List.of(task.getActiveOrderId()))
                 .contains(task.getActiveOrderId())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "releasedPqcInspectionForm");
@@ -106,6 +111,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         List<MesPqcInspectionPieceDetailDO> existingDetails = pieceDetailMapper.selectListByTaskId(task.getId());
         validateExistingDetails(task, existingDetails);
         List<MesPqcInspectionPieceDetailDO> updatedDetails = buildUpdatedDetails(command, task, existingDetails);
+        validateScrapQuantityAgainstPieceDetails(command, updatedDetails);
         String inspectionResult = resolveInspectionResult(command.getScrapQuantity(), updatedDetails);
         ObjectNode afterPayload = buildAfterPayload(event, task, command, updatedDetails, inspectionResult);
         List<MesProcessPoolEventRevisionFieldChangeBO> changes = buildChanges(
@@ -150,7 +156,8 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         if (command.getActualInspectionQuantity() == null || command.getActualInspectionQuantity() <= 0) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "actualInspectionQuantity");
         }
-        if (command.getScrapQuantity() == null || command.getScrapQuantity() < 0) {
+        if (command.getScrapQuantity() == null || command.getScrapQuantity() < 0
+                || command.getScrapQuantity() > command.getActualInspectionQuantity()) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "scrapQuantity");
         }
         if (CollUtil.isEmpty(command.getItemResults())) {
@@ -177,6 +184,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
     private void validateTask(MesProProcessPoolEventDO event, MesPqcInspectionTaskDO task) {
         if (task == null
                 || task.getActiveOrderId() == null
+                || task.getWorkOrderId() == null
                 || !Objects.equals(event.getTenantId(), task.getTenantId())
                 || !Objects.equals(event.getFeedbackSourceId(), task.getId())
                 || !Objects.equals(event.getWorkOrderId(), task.getWorkOrderId())
@@ -428,6 +436,20 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                 MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(detail.getJudgement()))
                 ? MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE
                 : MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS;
+    }
+
+    private void validateScrapQuantityAgainstPieceDetails(MesProcessPoolPqcInspectionCorrectionCommand command,
+                                                          List<MesPqcInspectionPieceDetailDO> details) {
+        long failedSampleCount = details.stream()
+                .filter(detail -> MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(
+                        detail.getJudgement()))
+                .map(MesPqcInspectionPieceDetailDO::getSampleNo)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count();
+        if (command.getScrapQuantity() < failedSampleCount) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "scrapQuantity");
+        }
     }
 
     private String resolvePieceJudgement(MesPqcInspectionPieceDetailDO detail, String value) {

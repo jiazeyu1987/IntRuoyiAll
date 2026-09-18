@@ -29,14 +29,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionReleaseService {
@@ -144,34 +141,11 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setBatchCode(application.getBatchCode())
                 .setRouteId(application.getRouteId())
                 .setRouteVersionId(application.getRouteVersionId())
-                .setEntryType(command.getEntryType())
-                .setEntryBusinessId(command.getEntryBusinessId())
-                .setSourceCredentialType(command.getSourceCredentialType())
-                .setSourceCredentialId(command.getSourceCredentialId())
-                .setSourceRelationId(command.getSourceRelationId())
-                .setSourceContextHash(command.getSourceContextHash())
-                .setTenantId(command.getTenantId())
+                .setEntryType("ACTIVE_ORDER_PQC")
+                .setEntryBusinessId(String.valueOf(application.getId()))
                 .setActiveOrderId(application.getActiveOrderId())
-                .setPickListBindingId(command.getPickListBindingId())
-                .setPickListId(command.getPickListId())
-                .setBindingVersion(command.getBindingVersion())
-                .setBatchPickListRelationId(command.getBatchPickListRelationId())
-                .setSourceSnapshotHash(command.getSourceSnapshotHash())
                 .setIdempotencyKey(command.getIdempotencyKey())
-                .setExpectedSourceVersion(command.getExpectedSourceVersion())
-                .setPayloadHash(command.getPayloadHash())
-                .setCompletionTransactionId(command.getCompletionTransactionId())
-                .setExpectedActiveOrderVersion(command.getExpectedActiveOrderVersion())
-                .setCompletionVersion(command.getCompletionVersion())
-                .setSourceVersion(command.getSourceVersion())
-                .setSourceBundleHash(command.getSourceBundleHash())
-                .setCompletionBackfillReceiptId(command.getCompletionBackfillReceiptId())
-                .setCompletionBackfillReceiptHash(command.getCompletionBackfillReceiptHash())
-                .setPickListHeaderSnapshotHash(command.getPickListHeaderSnapshotHash())
-                .setPickListLineSnapshotHash(command.getPickListLineSnapshotHash())
-                .setSourceEvidence(command.getSourceEvidence())
-                .setCompletionBackfillReceipt(command.getCompletionBackfillReceipt())
-                .setIndependentReceipt(command.getIndependentReceipt()));
+                );
         if (batchExecutionId == null || batchExecutionId <= 0) {
             throw blocker(MesReleaseFlowBlockerType.LEGACY_BATCH_EXECUTION_MIGRATION_REQUIRED, application,
                     "BATCH_EXECUTION", null, "production release batch execution was not created",
@@ -199,7 +173,12 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setSignatureId(signatureId)
                 .setBatchRecordEvidenceIds(copy(dossierWrite.getBatchRecordEvidenceIds()))
                 .setProcessInspectionEvidenceIds(copy(dossierWrite.getProcessInspectionEvidenceIds()))
+                .setProcessInspectionFormCenterInstanceIds(copy(
+                        dossierWrite.getProcessInspectionFormCenterInstanceIds()))
                 .setLossReportEvidenceIds(copy(dossierWrite.getLossReportEvidenceIds()))
+                .setLossReportFormCenterInstanceIds(copy(dossierWrite.getLossReportFormCenterInstanceIds()))
+                .setLossReportFieldAuditIds(copy(dossierWrite.getLossReportFieldAuditIds()))
+                .setLossReportFieldAuditHeadHashes(copy(dossierWrite.getLossReportFieldAuditHeadHashes()))
                 .setLossReportStatus(dossierWrite.getLossReportStatus())
                 .setHasActualLoss(dossierWrite.getHasActualLoss())
                 .setLossQuantity(dossierWrite.getLossQuantity())
@@ -293,74 +272,34 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     public PageResult<MesPqcProductionReleasePageItem> getPqcReleasePage(
             Long actorUserId, MesPqcProductionReleasePageQuery query) {
         requirePqcPageQuery(actorUserId, query);
-        List<MesProcessPoolActiveOrderReleaseApplicationDO> applications =
-                applicationMapper.selectListForPqcReleasePage(
+        cn.iocoder.yudao.framework.common.pojo.PageParam pageParam =
+                new cn.iocoder.yudao.framework.common.pojo.PageParam();
+        pageParam.setPageNo(query.getPageNo());
+        pageParam.setPageSize(query.getPageSize());
+        PageResult<MesProcessPoolActiveOrderReleaseApplicationDO> applicationPage =
+                applicationMapper.selectPqcReleasePage(
+                        pageParam, TenantContextHolder.getTenantId(), actorUserId, query.getViewStatus(),
                         StrUtil.trim(query.getWorkOrderCode()), StrUtil.trim(query.getBatchCode()));
-        if (applications.isEmpty()) {
-            return new PageResult<>(List.of(), 0L);
+        if (applicationPage == null) {
+            throw new IllegalStateException("PQC release page query returned no page result");
         }
-        Set<Long> workTaskIds = applications.stream()
-                .map(MesProcessPoolActiveOrderReleaseApplicationDO::getPqcReleaseWorkTaskId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        if (workTaskIds.isEmpty()) {
-            return new PageResult<>(List.of(), 0L);
+        List<MesProcessPoolActiveOrderReleaseApplicationDO> applications = applicationPage.getList();
+        if (applications == null || applications.isEmpty()) {
+            return new PageResult<>(List.of(), applicationPage.getTotal());
         }
-        Map<Long, MesProEdhrWorkTaskDO> tasksById = workTaskMapper.selectByIds(workTaskIds)
-                .stream().collect(Collectors.toMap(MesProEdhrWorkTaskDO::getId, item -> item));
-        Map<Long, MesProEdhrNonconformanceReviewDO> reviewsByApplicationId = new HashMap<>();
+        Map<Long, MesProEdhrNonconformanceReviewDO> reviewsByApplicationId = new java.util.HashMap<>();
         nonconformanceReviewMapper.selectLatestBySourceIds(
                         MesProEdhrNonconformanceReviewService.SOURCE_TYPE_PQC_RELEASE,
-                        applications.stream().map(MesProcessPoolActiveOrderReleaseApplicationDO::getId).toList())
+                        applications.stream().map(MesProcessPoolActiveOrderReleaseApplicationDO::getId).toList(),
+                        TenantContextHolder.getTenantId())
                 .forEach(review -> reviewsByApplicationId.putIfAbsent(review.getSourceId(), review));
 
-        List<MesPqcProductionReleasePageItem> visibleRows = new ArrayList<>();
+        List<MesPqcProductionReleasePageItem> pageRows = new java.util.ArrayList<>();
         for (MesProcessPoolActiveOrderReleaseApplicationDO application : applications) {
-            MesProEdhrWorkTaskDO task = tasksById.get(application.getPqcReleaseWorkTaskId());
-            if (task == null || !containsCandidate(task.getCandidateUserSnapshot(), actorUserId)) {
-                continue;
-            }
             MesProEdhrNonconformanceReviewDO review = reviewsByApplicationId.get(application.getId());
-            String viewStatus = resolveViewStatus(application, review);
-            if (Objects.equals(query.getViewStatus(), viewStatus)) {
-                visibleRows.add(toPageItem(application, review, viewStatus));
-            }
+            pageRows.add(toPageItem(application, review, query.getViewStatus()));
         }
-        int pageNo = Math.max(1, query.getPageNo());
-        int pageSize = Math.max(1, query.getPageSize());
-        int fromIndex = Math.min(visibleRows.size(), (pageNo - 1) * pageSize);
-        int toIndex = Math.min(visibleRows.size(), fromIndex + pageSize);
-        List<MesPqcProductionReleasePageItem> pageRows = new ArrayList<>(
-                visibleRows.subList(fromIndex, toIndex));
-        if (VIEW_STATUS_PENDING.equals(query.getViewStatus())) {
-            Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> applicationsById = applications.stream()
-                    .collect(Collectors.toMap(MesProcessPoolActiveOrderReleaseApplicationDO::getId, item -> item));
-            pageRows.forEach(item -> applyApprovalReadiness(
-                    item, applicationsById.get(item.getApplicationId()), actorUserId));
-        }
-        return new PageResult<>(pageRows, (long) visibleRows.size());
-    }
-
-    private void applyApprovalReadiness(
-            MesPqcProductionReleasePageItem item,
-            MesProcessPoolActiveOrderReleaseApplicationDO application,
-            Long actorUserId) {
-        if (Boolean.TRUE.equals(item.getUnderReview())) {
-            item.setApprovalReady(false)
-                    .setApprovalBlockerReason("不合格审查尚未处置")
-                    .setApprovalBlockerSuggestion("等待 QA 完成评审处置后再放行");
-            return;
-        }
-        MesPqcReleaseDossierReadiness readiness = dossierPort.readiness(application, actorUserId);
-        if (readiness == null) {
-            throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application,
-                    "RELEASE_DOSSIER", String.valueOf(application.getId()),
-                    "release dossier readiness result is missing",
-                    "repair the formal dossier preflight before querying PQC release records");
-        }
-        item.setApprovalReady(readiness.isReady())
-                .setApprovalBlockerReason(readiness.getBlockerReason())
-                .setApprovalBlockerSuggestion(readiness.getBlockerSuggestion());
+        return new PageResult<>(pageRows, applicationPage.getTotal());
     }
 
     private void requireApproveCommand(Long actorUserId, MesPqcProductionReleaseApproveCommand command) {
@@ -389,7 +328,8 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     private void ensureNoClosedNonconformanceOutcome(
             MesProcessPoolActiveOrderReleaseApplicationDO application) {
         List<MesProEdhrNonconformanceReviewDO> reviews = nonconformanceReviewMapper.selectLatestBySourceIds(
-                MesProEdhrNonconformanceReviewService.SOURCE_TYPE_PQC_RELEASE, List.of(application.getId()));
+                MesProEdhrNonconformanceReviewService.SOURCE_TYPE_PQC_RELEASE, List.of(application.getId()),
+                TenantContextHolder.getTenantId());
         if (!reviews.isEmpty() && MesProEdhrNonconformanceReviewService.STATUS_CLOSED
                 .equals(reviews.get(0).getReviewStatus())
                 && !MesProEdhrNonconformanceReviewService.DISPOSITION_CONCESSION_RELEASE
@@ -399,31 +339,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                     "nonconformance review already produced a terminal PQC disposition",
                     "view the disposition in the matching production release status tab");
         }
-    }
-
-    private String resolveViewStatus(MesProcessPoolActiveOrderReleaseApplicationDO application,
-                                     MesProEdhrNonconformanceReviewDO review) {
-        if (review != null && MesProEdhrNonconformanceReviewService.STATUS_CLOSED.equals(review.getReviewStatus())) {
-            return switch (StrUtil.nullToEmpty(review.getDisposition())) {
-                case MesProEdhrNonconformanceReviewService.DISPOSITION_VOID -> VIEW_STATUS_VOIDED;
-                case MesProEdhrNonconformanceReviewService.DISPOSITION_REWORK -> VIEW_STATUS_REWORKED;
-                case MesProEdhrNonconformanceReviewService.DISPOSITION_CONCESSION_RELEASE ->
-                        isReleasedApplication(application)
-                                ? VIEW_STATUS_CONCESSION_RELEASED : VIEW_STATUS_PENDING;
-                default -> null;
-            };
-        }
-        if (isReleasedApplication(application)) {
-            return VIEW_STATUS_RELEASED;
-        }
-        return MesReleaseFlowStatus.PQC_RELEASE_PENDING.equals(application.getApplicationStatus())
-                ? VIEW_STATUS_PENDING : null;
-    }
-
-    private boolean isReleasedApplication(MesProcessPoolActiveOrderReleaseApplicationDO application) {
-        return Set.of(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING,
-                MesReleaseFlowStatus.MANAGER_RELEASE_PENDING,
-                MesReleaseFlowStatus.RELEASED).contains(application.getApplicationStatus());
     }
 
     private MesPqcProductionReleasePageItem toPageItem(
@@ -560,17 +475,31 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 && (("SUCCESS".equals(result.getLossReportStatus())
                 && Boolean.TRUE.equals(result.getHasActualLoss())
                 && result.getLossQuantity() != null && result.getLossQuantity().signum() > 0
-                && !empty(result.getLossReportEvidenceIds()))
+                && (!empty(result.getLossReportEvidenceIds()) || !empty(result.getLossReportFormCenterInstanceIds()))
+                && (empty(result.getLossReportFormCenterInstanceIds())
+                    || (!empty(result.getLossReportFieldAuditIds()) && !empty(result.getLossReportFieldAuditHeadHashes()))))
                 || ("NOT_REQUIRED".equals(result.getLossReportStatus())
                 && Boolean.FALSE.equals(result.getHasActualLoss())
                 && result.getLossQuantity() != null && result.getLossQuantity().signum() == 0
-                && empty(result.getLossReportEvidenceIds())));
-        if (result == null || empty(result.getBatchRecordEvidenceIds())
-                || empty(result.getProcessInspectionEvidenceIds()) || !validLossReceipt) {
+                && empty(result.getLossReportEvidenceIds()) && empty(result.getLossReportFormCenterInstanceIds())));
+        if (result == null || empty(result.getBatchRecordEvidenceIds())) {
             throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application,
                     "RELEASE_DOSSIER", String.valueOf(application.getId()),
-                    "all three formal document mappings must return persistent evidence identifiers",
-                    "repair the batch-record, process-inspection and loss-report mappings before retrying");
+                    "formal batch-record mapping must return persistent evidence identifiers",
+                    "repair the batch-record mapping before retrying");
+        }
+        if (empty(result.getProcessInspectionEvidenceIds())
+                && empty(result.getProcessInspectionFormCenterInstanceIds())) {
+            throw blocker(MesReleaseFlowBlockerType.PROCESS_INSPECTION_SOURCE_REQUIRED, application,
+                    "RELEASE_DOSSIER", String.valueOf(application.getId()),
+                    "formal process-inspection mapping must return persistent evidence identifiers",
+                    "repair the process-inspection mapping before retrying");
+        }
+        if (!validLossReceipt) {
+            throw blocker(MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED, application,
+                    "RELEASE_DOSSIER", String.valueOf(application.getId()),
+                    "formal loss-report mapping must return a consistent status and evidence receipt",
+                    "repair the loss-report mapping before retrying");
         }
         return result;
     }
@@ -613,7 +542,11 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setPqcReleaseWorkTaskId(workTask == null ? application.getPqcReleaseWorkTaskId() : workTask.getId())
                 .setBatchRecordEvidenceIds(List.of())
                 .setProcessInspectionEvidenceIds(List.of())
+                .setProcessInspectionFormCenterInstanceIds(List.of())
                 .setLossReportEvidenceIds(List.of())
+                .setLossReportFormCenterInstanceIds(List.of())
+                .setLossReportFieldAuditIds(List.of())
+                .setLossReportFieldAuditHeadHashes(List.of())
                 .setReportUploadTasks(List.of())
                 .setSourceSnapshotHash(application.getSourceSnapshotHash());
     }

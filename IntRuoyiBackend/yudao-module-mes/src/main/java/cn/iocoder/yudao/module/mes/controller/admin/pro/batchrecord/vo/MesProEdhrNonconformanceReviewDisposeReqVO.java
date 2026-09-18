@@ -25,7 +25,7 @@ public class MesProEdhrNonconformanceReviewDisposeReqVO {
     @NotBlank(message = "评审意见不能为空")
     private String reviewOpinion;
 
-    @Schema(description = "QA签名", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "QA签名不能为空")
-    private String qaSignature;
+    @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "电子签名密码不能为空")
+    private String signaturePassword;
 }

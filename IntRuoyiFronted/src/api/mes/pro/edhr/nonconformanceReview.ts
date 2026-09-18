@@ -39,7 +39,7 @@ export interface EdhrNonconformanceReviewDisposeReqVO {
   disposition: EdhrNonconformanceReviewDisposition
   reviewMaterialUrl: string
   reviewOpinion: string
-  qaSignature: string
+  signaturePassword: string
 }
 
 export interface EdhrNonconformanceReviewPageReqVO extends PageParam {

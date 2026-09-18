@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -38,6 +39,7 @@ import static org.mockito.Mockito.when;
 class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
 
     private static final long ACTIVE_ORDER_ID = 101L;
+    private static final long WORK_ORDER_ID = 100L;
     private static final long PRODUCT_ID = 102L;
     private static final long ROUTE_ID = 103L;
     private static final long ROUTE_VERSION_ID = 104L;
@@ -46,7 +48,14 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
     private static final long TASK_ID = 107L;
     private static final long EVENT_ID = 108L;
     private static final long REVIEW_ID = 109L;
+    private static final long REGULATION_ID = 202L;
     private static final long REGULATION_VERSION_ID = 110L;
+    private static final long COMMON_TASK_ID = 207L;
+    private static final long COMMON_EVENT_ID = 208L;
+    private static final long COMMON_REVIEW_ID = 209L;
+    private static final long COMMON_REGULATION_ID = 302L;
+    private static final long COMMON_REGULATION_VERSION_ID = 310L;
+    private static final long COMMON_QA_PROCESS_ID = 211L;
 
     private MesPqcInspectionTaskMapper taskMapper;
     private MesPqcProcessInspectionAggregateDetailMapper aggregateMapper;
@@ -75,8 +84,8 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
         activeOrderSnapshotResolver = mock(ActiveOrderSnapshotResolver.class);
         qaProvenancePort = mock(MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.class);
         when(activeOrderSnapshotResolver.requireEffective(ACTIVE_ORDER_ID)).thenReturn(
-                new ActiveOrderSnapshotResolver.ActiveOrderSnapshot(ACTIVE_ORDER_ID, 100L, ROUTE_ID,
-                        ROUTE_VERSION_ID, 205L, 202L, REGULATION_VERSION_ID));
+                new ActiveOrderSnapshotResolver.ActiveOrderSnapshot(ACTIVE_ORDER_ID, WORK_ORDER_ID, ROUTE_ID,
+                        ROUTE_VERSION_ID, 205L, REGULATION_ID, REGULATION_VERSION_ID));
         DccProjectCodeDO defaultProject = DccProjectCodeDO.builder().id(205L).productMasterId(11L)
                 .projectCode("BOUND-ID").projectName("正式绑定项目").status("ENABLE").build();
         MesQaInspectionRegulationDO defaultRegulation = new MesQaInspectionRegulationDO()
@@ -145,6 +154,60 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
     }
 
     @Test
+    void readsDedicatedAndCommonQaSourcesWithAggregateEventsByTaskFrozenVersion() {
+        MesPqcInspectionTaskDO dedicatedTask = task();
+        MesPqcInspectionTaskDO commonTask = task(COMMON_TASK_ID, COMMON_REGULATION_VERSION_ID);
+        MesPqcProcessInspectionAggregateDetailDO dedicatedAggregate = aggregate(dedicatedTask, EVENT_ID, REVIEW_ID);
+        MesPqcProcessInspectionAggregateDetailDO commonAggregate = aggregate(commonTask, COMMON_EVENT_ID,
+                COMMON_REVIEW_ID);
+        MesQaInspectionRegulationDO commonRegulation = new MesQaInspectionRegulationDO()
+                .setId(COMMON_REGULATION_ID)
+                .setOwnerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)
+                .setLifecycleStatus("PUBLISHED")
+                .setCurrentVersionId(COMMON_REGULATION_VERSION_ID);
+        MesQaInspectionRegulationVersionDO commonVersion = new MesQaInspectionRegulationVersionDO()
+                .setId(COMMON_REGULATION_VERSION_ID)
+                .setRegulationId(COMMON_REGULATION_ID)
+                .setLifecycleStatus("PUBLISHED")
+                .setPublishedAt(LocalDateTime.of(2026, 8, 9, 11, 0));
+        MesQaInspectionRegulationItemDO dedicatedItem = new MesQaInspectionRegulationItemDO().setId(203L);
+        MesQaInspectionRegulationItemDO commonItem = new MesQaInspectionRegulationItemDO().setId(303L);
+        when(taskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(dedicatedTask, commonTask));
+        when(aggregateMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID))
+                .thenReturn(List.of(dedicatedAggregate, commonAggregate));
+        when(eventMapper.selectById(EVENT_ID)).thenReturn(new MesProProcessPoolEventDO().setId(EVENT_ID));
+        when(eventMapper.selectById(COMMON_EVENT_ID)).thenReturn(new MesProProcessPoolEventDO().setId(COMMON_EVENT_ID));
+        when(recordMapper.selectByEventId(EVENT_ID)).thenReturn(new MesProProcessPoolPqcRecordDO().setId(201L));
+        when(recordMapper.selectByEventId(COMMON_EVENT_ID))
+                .thenReturn(new MesProProcessPoolPqcRecordDO().setId(301L));
+        when(reviewMapper.selectById(REVIEW_ID)).thenReturn(new MesProcessPoolSubmissionReviewDO().setId(REVIEW_ID));
+        when(reviewMapper.selectById(COMMON_REVIEW_ID))
+                .thenReturn(new MesProcessPoolSubmissionReviewDO().setId(COMMON_REVIEW_ID));
+        when(versionMapper.selectById(COMMON_REGULATION_VERSION_ID)).thenReturn(commonVersion);
+        when(regulationMapper.selectById(COMMON_REGULATION_ID)).thenReturn(commonRegulation);
+        when(itemMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of(dedicatedItem));
+        when(itemMapper.selectListByVersionId(COMMON_REGULATION_VERSION_ID)).thenReturn(List.of(commonItem));
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.SourceBundle result = reader.read(command());
+
+        assertEquals(2, result.getSources().size());
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource dedicated = result.getSources().get(0);
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource common = result.getSources().get(1);
+        assertEquals(TASK_ID, dedicated.getTask().getId());
+        assertEquals(REGULATION_VERSION_ID, dedicated.getRegulationVersion().getId());
+        assertEquals(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA, dedicated.getRegulation().getOwnerModule());
+        assertEquals(COMMON_TASK_ID, common.getTask().getId());
+        assertEquals(COMMON_REGULATION_VERSION_ID, common.getRegulationVersion().getId());
+        assertEquals(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON,
+                common.getRegulation().getOwnerModule());
+        assertEquals(List.of(commonItem), common.getRegulationItems());
+        assertTrue(common.getQaDccProvenance().isVerifiedFor(common.getDccProject(), common.getRegulation(),
+                common.getRegulationVersion()));
+        verify(versionMapper).selectById(COMMON_REGULATION_VERSION_ID);
+        verify(regulationMapper).selectById(COMMON_REGULATION_ID);
+    }
+
+    @Test
     void dccOwnedQaWithoutVerifiedDirectProvenanceIsNotExposedAsFormalQa() {
         MesPqcInspectionTaskDO task = task();
         MesQaInspectionRegulationDO regulation = new MesQaInspectionRegulationDO()
@@ -173,6 +236,53 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
         assertNull(source.getRegulationVersion());
         assertEquals("PQC_DCC_QA_PROVENANCE_REQUIRED", source.getQaDccProvenance().getBlockerType());
         verify(itemMapper, never()).selectListByVersionId(any());
+    }
+
+    @Test
+    void readsDedicatedAndCommonQaTasksByEachTaskFrozenRegulationVersion() {
+        MesPqcInspectionTaskDO dedicatedTask = task();
+        MesPqcInspectionTaskDO commonTask = task()
+                .setId(COMMON_TASK_ID)
+                .setQaProcessId(COMMON_QA_PROCESS_ID)
+                .setQaItemCode("SEAL")
+                .setRegulationVersionId(COMMON_REGULATION_VERSION_ID);
+        MesQaInspectionRegulationDO commonRegulation = new MesQaInspectionRegulationDO()
+                .setId(COMMON_REGULATION_ID)
+                .setOwnerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)
+                .setRegulationCode("COMMON-PACK")
+                .setRegulationName("通用包装检验规程")
+                .setLifecycleStatus("PUBLISHED")
+                .setCurrentVersionId(COMMON_REGULATION_VERSION_ID);
+        MesQaInspectionRegulationVersionDO commonVersion = new MesQaInspectionRegulationVersionDO()
+                .setId(COMMON_REGULATION_VERSION_ID)
+                .setRegulationId(COMMON_REGULATION_ID)
+                .setLifecycleStatus("PUBLISHED")
+                .setPublishedAt(LocalDateTime.of(2026, 8, 9, 11, 0))
+                .setSnapshotJson("common-version-snapshot");
+        MesQaInspectionRegulationItemDO dedicatedItem = new MesQaInspectionRegulationItemDO()
+                .setId(301L).setRegulationVersionId(REGULATION_VERSION_ID)
+                .setQaProcessId(8001L).setInspectionType("PQC").setItemCode("PRESSURE");
+        MesQaInspectionRegulationItemDO commonItem = new MesQaInspectionRegulationItemDO()
+                .setId(302L).setRegulationVersionId(COMMON_REGULATION_VERSION_ID)
+                .setQaProcessId(COMMON_QA_PROCESS_ID).setInspectionType("PQC").setItemCode("SEAL");
+        when(taskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(dedicatedTask, commonTask));
+        when(aggregateMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of());
+        when(versionMapper.selectById(COMMON_REGULATION_VERSION_ID)).thenReturn(commonVersion);
+        when(regulationMapper.selectById(COMMON_REGULATION_ID)).thenReturn(commonRegulation);
+        when(itemMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of(dedicatedItem));
+        when(itemMapper.selectListByVersionId(COMMON_REGULATION_VERSION_ID)).thenReturn(List.of(commonItem));
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.SourceBundle result = reader.read(command());
+
+        assertEquals(List.of(REGULATION_VERSION_ID, COMMON_REGULATION_VERSION_ID), result.getSources().stream()
+                .map(source -> source.getRegulationVersion().getId()).toList());
+        assertEquals(List.of(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA,
+                MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON), result.getSources().stream()
+                .map(source -> source.getRegulation().getOwnerModule()).toList());
+        assertEquals(List.of(List.of("PRESSURE"), List.of("SEAL")), result.getSources().stream()
+                .map(source -> source.getRegulationItems().stream()
+                        .map(MesQaInspectionRegulationItemDO::getItemCode).toList())
+                .toList());
     }
 
     @Test
@@ -225,19 +335,35 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
     }
 
     private MesPqcInspectionTaskDO task() {
+        return task(TASK_ID, REGULATION_VERSION_ID);
+    }
+
+    private MesPqcInspectionTaskDO task(long taskId, long regulationVersionId) {
         return new MesPqcInspectionTaskDO()
-                .setId(TASK_ID)
+                .setId(taskId)
                 .setActiveOrderId(ACTIVE_ORDER_ID)
+                .setWorkOrderId(WORK_ORDER_ID)
+                .setRouteId(ROUTE_ID)
+                .setRouteVersionId(ROUTE_VERSION_ID)
                 .setRouteProcessId(ROUTE_PROCESS_ID)
-                .setProcessId(PROCESS_ID);
+                .setProcessId(PROCESS_ID)
+                .setQaProcessId(8001L)
+                .setQaItemCode("PRESSURE")
+                .setRegulationVersionId(regulationVersionId)
+                .setInspectionType("PQC");
     }
 
     private MesPqcProcessInspectionAggregateDetailDO aggregate(long eventId) {
+        return aggregate(task(), eventId, REVIEW_ID);
+    }
+
+    private MesPqcProcessInspectionAggregateDetailDO aggregate(MesPqcInspectionTaskDO task, long eventId,
+                                                               long reviewId) {
         return new MesPqcProcessInspectionAggregateDetailDO()
                 .setId(eventId + 1000)
-                .setPqcTaskId(TASK_ID)
+                .setPqcTaskId(task.getId())
                 .setEventId(eventId)
-                .setReviewId(REVIEW_ID);
+                .setReviewId(reviewId);
     }
 
     private MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution verifiedProvenance(

@@ -308,6 +308,93 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
+    void listProcessesPlacesCommonPackagingAfterAllProductQaProcesses() {
+        long commonDccProjectId = 6002L;
+        long commonRegulationId = 7002L;
+        long commonVersionId = 8002L;
+        long secondCommonDccProjectId = 6003L;
+        long secondCommonRegulationId = 7003L;
+        long secondCommonVersionId = 8003L;
+        long firstCommonQaProcessId = 1002L;
+        long secondCommonQaProcessId = 1003L;
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
+                LocalDateTime.of(2026, 9, 16, 8, 0));
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder);
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID));
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route());
+        when(regulationService.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, REGULATION_VERSION_ID))
+                .thenReturn(lockedQaAggregate("PUBLISHED",
+                        qaPublishedProcess(9001L, "PRODUCT-QA-001", "清洗", 1,
+                                qaPublishedItem("PRODUCT-001", List.of("FIRST"))),
+                        qaPublishedProcess(9002L, "PRODUCT-QA-002", "清洁", 2,
+                                qaPublishedItem("PRODUCT-002", List.of("FIRST"))),
+                        qaPublishedProcess(9003L, "PRODUCT-QA-003", "组装螺杆八组件", 3,
+                                qaPublishedItem("PRODUCT-003", List.of("FIRST"))),
+                        qaPublishedProcess(9004L, "PRODUCT-QA-004", "光固外套四组件", 4,
+                                qaPublishedItem("PRODUCT-004", List.of("FIRST"))),
+                        qaPublishedProcess(9005L, "PRODUCT-QA-005", "装配", 5,
+                                qaPublishedItem("PRODUCT-005", List.of("FIRST"))),
+                        qaPublishedProcess(9006L, "PRODUCT-QA-006", "整体粘结", 6,
+                                qaPublishedItem("PRODUCT-006", List.of("FIRST")))));
+        when(versionMapper.selectById(commonVersionId)).thenReturn(MesQaInspectionRegulationVersionDO.builder()
+                .id(commonVersionId).regulationId(commonRegulationId).lifecycleStatus("PUBLISHED").build());
+        when(regulationMapper.selectById(commonRegulationId)).thenReturn(MesQaInspectionRegulationDO.builder()
+                .id(commonRegulationId).dccProjectCodeId(commonDccProjectId)
+                .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON).build());
+        when(versionMapper.selectById(secondCommonVersionId)).thenReturn(MesQaInspectionRegulationVersionDO.builder()
+                .id(secondCommonVersionId).regulationId(secondCommonRegulationId).lifecycleStatus("PUBLISHED").build());
+        when(regulationMapper.selectById(secondCommonRegulationId)).thenReturn(MesQaInspectionRegulationDO.builder()
+                .id(secondCommonRegulationId).dccProjectCodeId(secondCommonDccProjectId)
+                .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON).build());
+        when(regulationService.getLockedCommonVersionForOrder(commonRegulationId, commonVersionId))
+                .thenReturn(lockedQaAggregate(commonDccProjectId, commonRegulationId, commonVersionId,
+                        "PUBLISHED", qaPublishedProcess(firstCommonQaProcessId, "COMMON-PACK-001",
+                                "初包装过程检验规程", 1,
+                                qaPublishedItem("COMMON-001", List.of("PATROL")))));
+        when(regulationService.getLockedCommonVersionForOrder(secondCommonRegulationId, secondCommonVersionId))
+                .thenReturn(lockedQaAggregate(secondCommonDccProjectId, secondCommonRegulationId,
+                        secondCommonVersionId, "PUBLISHED", qaPublishedProcess(secondCommonQaProcessId,
+                                "COMMON-PACK-002", "大中包装过程检验规程", 1,
+                                qaPublishedItem("COMMON-002", List.of("FIRST")))));
+        when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                pendingTaskForSource(9101L, REGULATION_VERSION_ID, 9001L,
+                        "PRODUCT-001", "FIRST", "FIRST", "FIRST"),
+                pendingTaskForSource(9102L, REGULATION_VERSION_ID, 9002L,
+                        "PRODUCT-002", "FIRST", "FIRST", "FIRST"),
+                pendingTaskForSource(9103L, REGULATION_VERSION_ID, 9003L,
+                        "PRODUCT-003", "FIRST", "FIRST", "FIRST"),
+                pendingTaskForSource(9104L, REGULATION_VERSION_ID, 9004L,
+                        "PRODUCT-004", "FIRST", "FIRST", "FIRST"),
+                pendingTaskForSource(9105L, REGULATION_VERSION_ID, 9005L,
+                        "PRODUCT-005", "FIRST", "FIRST", "FIRST"),
+                pendingTaskForSource(9106L, REGULATION_VERSION_ID, 9006L,
+                        "PRODUCT-006", "FIRST", "FIRST", "FIRST"),
+                pendingTaskForSource(9107L, commonVersionId, firstCommonQaProcessId,
+                        "COMMON-001", "PATROL", "PATROL_AM", "AM"),
+                pendingTaskForSource(9108L, secondCommonVersionId, secondCommonQaProcessId,
+                        "COMMON-002", "FIRST", "FIRST", "FIRST")));
+        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                processSnapshot(30001L, 40001L)));
+        when(processPoolEventMapper.selectProductionSubmitsByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(List.of());
+
+        List<MesFrontlinePqcProcessRespVO> result = service.listProcessesByActiveOrder(ACTIVE_ORDER_ID);
+
+        assertEquals(8, result.size());
+        assertEquals(List.of(1, 2, 3, 4, 5, 6, 7, 8), result.stream()
+                .map(MesFrontlinePqcProcessRespVO::getQaProcessSort).toList());
+        assertEquals(List.of("PRODUCT_QA", "PRODUCT_QA", "PRODUCT_QA", "PRODUCT_QA", "PRODUCT_QA",
+                "PRODUCT_QA", "COMMON_PACKAGING", "COMMON_PACKAGING"), result.stream()
+                .map(MesFrontlinePqcProcessRespVO::getRegulationSourceType).toList());
+        assertEquals(List.of(9001L, 9002L, 9003L, 9004L, 9005L, 9006L,
+                firstCommonQaProcessId, secondCommonQaProcessId), result.stream()
+                .map(MesFrontlinePqcProcessRespVO::getQaProcessId).toList());
+        assertEquals(List.of("清洗", "清洁", "组装螺杆八组件", "光固外套四组件", "装配", "整体粘结",
+                "小包装", "中大包装"), result.stream()
+                .map(MesFrontlinePqcProcessRespVO::getQaProcessName).toList());
+    }
+
+    @Test
     void listProcessesAppliesLastSelectedEquipmentForActualEmployeeAndItem() {
         long loginUserId = 3001L;
         long actualEmployeeId = 3002L;

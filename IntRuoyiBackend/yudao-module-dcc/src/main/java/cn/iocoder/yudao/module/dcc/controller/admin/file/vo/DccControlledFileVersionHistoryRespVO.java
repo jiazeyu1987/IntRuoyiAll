@@ -38,6 +38,8 @@ public class DccControlledFileVersionHistoryRespVO {
     private Boolean canPreview;
     private String previewUnavailableReason;
     private Boolean canDownload;
+    private Boolean canDownloadReadOnly;
+    private Boolean canDownloadEditable;
     private Boolean checkedOut;
     private Long checkedOutBy;
     private String checkedOutByName;

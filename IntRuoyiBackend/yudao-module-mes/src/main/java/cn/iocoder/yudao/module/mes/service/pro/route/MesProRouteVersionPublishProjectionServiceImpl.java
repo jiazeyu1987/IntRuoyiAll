@@ -649,7 +649,8 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                                    RouteProcessProjection routeProcesses) {
         routeFlowConfigMapper.deleteByRouteIdAndUseType(routeId, useType);
         routeFlowProcessConfigMapper.deleteByRouteIdAndUseType(routeId, useType);
-        routeFlowProcessBatchRecordMapper.deleteByRouteIdAndUseType(routeId, useType);
+        // Historical route-version batch-record bindings stay queryable by ID for frozen active orders.
+        // Current route reads are scoped through the newly projected process config rows.
         if (configs == null || configs.isEmpty()) {
             return;
         }
@@ -715,7 +716,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
             String candidateSourceNames = resolveProjectedCandidateSourceNames(binding);
             Integer reportSort = resolveAvailableProjectedReportSort(
                     resolveProjectedReportSort(binding), occupiedReportSorts);
-            routeFlowProcessBatchRecordMapper.insert(MesProRouteFlowProcessBatchRecordDO.builder()
+            MesProRouteFlowProcessBatchRecordDO projectedBinding = MesProRouteFlowProcessBatchRecordDO.builder()
                     .routeFlowProcessConfigId(processConfig.getId())
                     .routeId(routeId)
                     .routeProcessId(routeProcess.getId())
@@ -747,7 +748,12 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                     .candidateSourceNames(candidateSourceNames)
                     .reportSort(reportSort)
                     .remark(binding.getString("remark"))
-                    .build());
+                    .build();
+            if (routeFlowProcessBatchRecordMapper.insert(projectedBinding) != 1
+                    || projectedBinding.getId() == null || projectedBinding.getId() <= 0) {
+                throw new IllegalStateException("projected form binding identity is required");
+            }
+            binding.put("routeBindingId", projectedBinding.getId());
             syncRouteFormPolicy(routeVersionId, formBindingKey, formTemplateId, requiredPolicy);
             syncRouteFormFillRule(routeVersionId, routeProcess.getId(), formBindingKey,
                     candidateSourceType, candidateSourceIds);
@@ -777,7 +783,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
             String validationProfile = resolveProjectedValidationProfile(report, recordCategory);
             PublishedBatchRecordPermission permission = resolvePublishedBatchRecordPermission(
                     routeId, routeProcess, config, report, batchRecordReportId, routeProcesses);
-            routeFlowProcessBatchRecordMapper.insert(MesProRouteFlowProcessBatchRecordDO.builder()
+            MesProRouteFlowProcessBatchRecordDO projectedBinding = MesProRouteFlowProcessBatchRecordDO.builder()
                     .routeFlowProcessConfigId(processConfig.getId())
                     .routeId(routeId)
                     .routeProcessId(routeProcess.getId())
@@ -800,7 +806,12 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                     .slotConfigSnapshotHash(permission.slotConfigSnapshotHash())
                     .reportSort(reportSort)
                     .remark(report.getString("remark"))
-                    .build());
+                    .build();
+            if (routeFlowProcessBatchRecordMapper.insert(projectedBinding) != 1
+                    || projectedBinding.getId() == null || projectedBinding.getId() <= 0) {
+                throw new IllegalStateException("projected batch record binding identity is required");
+            }
+            report.put("routeBindingId", projectedBinding.getId());
         }
         return mainBatchRecordReportId;
     }

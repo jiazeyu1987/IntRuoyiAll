@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationReleaseStateService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,13 +29,15 @@ class MesFrontlineSubmitAuthorizationTest {
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock
     private MesFrontlineSessionSnapshotService sessionSnapshotService;
+    @Mock
+    private MesReportAllocationReleaseStateService releaseStateService;
 
     private MesFrontlineSubmitAuthorizationServiceImpl submitAuthorizationService;
 
     @BeforeEach
     void setUp() {
         submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(
-                contextService, activeOrderMapper, processSnapshotMapper, sessionSnapshotService);
+                contextService, activeOrderMapper, processSnapshotMapper, sessionSnapshotService, releaseStateService);
     }
 
     @Test
@@ -104,7 +107,7 @@ class MesFrontlineSubmitAuthorizationTest {
         when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
         when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(
                 MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
-                        .routeId(21L).routeVersionId(61L).activeStatus("ACTIVE").build());
+                        .routeId(21L).routeVersionId(61L).activeStatus("ACTIVE").businessStatus("ACTIVE").build());
         when(processSnapshotMapper.selectByActiveOrderAndProcess(81L, 71L, 31L)).thenReturn(
                 activeOrderProcessSnapshot(81L, 41L, 21L, 61L, 71L, 31L));
 
@@ -117,7 +120,7 @@ class MesFrontlineSubmitAuthorizationTest {
         when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
         when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(
                 MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
-                        .routeId(21L).routeVersionId(61L).activeStatus("ACTIVE").build());
+                        .routeId(21L).routeVersionId(61L).activeStatus("ACTIVE").businessStatus("ACTIVE").build());
 
         assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
                 9001L, 81L, 41L, 21L, 9908090160L, 31L));
@@ -129,6 +132,31 @@ class MesFrontlineSubmitAuthorizationTest {
         when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(
                 MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
                         .routeId(21L).activeStatus("REMOVED").build());
+
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
+                9001L, 81L, 41L, 21L, 71L, 31L));
+    }
+
+    @Test
+    void shouldRejectCompletedActiveOrderBeforeProductionSubmit() {
+        when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
+        when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(
+                MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
+                        .routeId(21L).routeVersionId(61L).activeStatus("ACTIVE")
+                        .businessStatus("COMPLETED").build());
+
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
+                9001L, 81L, 41L, 21L, 71L, 31L));
+    }
+
+    @Test
+    void shouldRejectReleaseApplicationLockedActiveOrderBeforeProductionSubmit() {
+        when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
+        when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(
+                MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
+                        .routeId(21L).routeVersionId(61L).activeStatus("ACTIVE")
+                        .businessStatus("ACTIVE").build());
+        when(releaseStateService.isReleaseApplicationLockedForUpdate(81L)).thenReturn(true);
 
         assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
                 9001L, 81L, 41L, 21L, 71L, 31L));
@@ -148,11 +176,11 @@ class MesFrontlineSubmitAuthorizationTest {
         when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
         when(activeOrderMapper.selectByIdForUpdate(81L))
                 .thenReturn(MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3002L).workOrderId(41L)
-                        .routeId(21L).activeStatus("ACTIVE").build())
+                        .routeId(21L).activeStatus("ACTIVE").businessStatus("ACTIVE").build())
                 .thenReturn(MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(42L)
-                        .routeId(21L).activeStatus("ACTIVE").build())
+                        .routeId(21L).activeStatus("ACTIVE").businessStatus("ACTIVE").build())
                 .thenReturn(MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
-                        .routeId(22L).activeStatus("ACTIVE").build());
+                        .routeId(22L).activeStatus("ACTIVE").businessStatus("ACTIVE").build());
 
         assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
                 9001L, 81L, 41L, 21L, 71L, 31L));

@@ -10,7 +10,7 @@ const viewPath = path.join(
 const source = fs.readFileSync(viewPath, 'utf8').replace(/\r\n/g, '\n')
 
 const typeTabsStart = source.indexOf('class="frontline-pqc-type-tabs"')
-const typeTabsEnd = source.indexOf('class="frontline-pqc-round-tabs"', typeTabsStart)
+const typeTabsEnd = source.indexOf('class="frontline-pqc-form-area"', typeTabsStart)
 assert.ok(typeTabsStart >= 0 && typeTabsEnd > typeTabsStart, 'PQC inspection type tab block must exist.')
 
 const typeTabsBlock = source.slice(typeTabsStart, typeTabsEnd)
@@ -22,8 +22,13 @@ assert.match(
 )
 assert.match(
   typeTabsBlock,
-  /:key="tab\.type"/,
-  'PQC inspection type cards must use the formal inspection type as their stable key.'
+  /:key="tab\.ruleKey"/,
+  'PQC inspection type cards must use the formal inspection rule as their stable key.'
+)
+assert.match(
+  typeTabsBlock,
+  /:data-pqc-inspection-rule-tab="tab\.ruleKey"/,
+  'PQC inspection type cards must expose a stable per-rule DOM anchor.'
 )
 assert.match(
   typeTabsBlock,
@@ -32,13 +37,13 @@ assert.match(
 )
 assert.match(
   typeTabsBlock,
-  /:class="\{ active: pqcDraft\.inspectionType === tab\.type \}"/,
-  'PQC inspection type active state must follow the selected formal task type.'
+  /:class="\{ active: activePqcTaskOption\?\.inspectionRuleKey === tab\.ruleKey \}"/,
+  'PQC inspection type active state must follow the selected formal task rule.'
 )
 assert.match(
   typeTabsBlock,
-  /@click="selectPqcInspectionType\(tab\.type\)"/,
-  'PQC inspection type card clicks must select the formal task type from the current process.'
+  /@click="selectPqcInspectionTaskOption\(tab\.value\)"/,
+  'PQC inspection type card clicks must select the formal task snapshot from the current process.'
 )
 assert.match(
   typeTabsBlock,
@@ -63,8 +68,8 @@ assert.match(
 )
 assert.match(
   source,
-  /const pqcInspectionTypeTabs = computed<\{ type: InspectionType; label: string \}\[\]>\(\(\) => \{[\s\S]*getPqcTaskOptionsForInspectionItem\(process, activePqcTabKey\.value\)[\s\S]*seenTypes\.has\(option\.inspectionType\)[\s\S]*PQC_INSPECTION_TYPE_LABELS\[option\.inspectionType\]/,
-  'PQC visible type cards must be deduplicated from the selected method formal pqcTaskOptions.'
+  /const pqcInspectionTypeTabs = computed<\{ ruleKey: FrontlinePqcInspectionRuleKey; type: InspectionType; value: number; label: string \}\[\]>\(\(\) => \{[\s\S]*getUniquePqcTaskOptionsByRule\(\s*getPqcTaskOptionsForInspectionItem\(process, activePqcTabKey\.value\)[\s\S]*ruleKey: option\.inspectionRuleKey/,
+  'PQC visible type cards must be deduplicated from the selected method formal pqcTaskOptions by rule key.'
 )
 assert.doesNotMatch(
   source,

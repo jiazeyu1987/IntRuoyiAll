@@ -8,6 +8,8 @@ public interface MesTeamLeaderActiveOrderService {
 
     MesTeamLeaderActiveOrderAddResult addActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO);
 
+    MesTeamLeaderActiveOrderTestResetResult resetFixedSimulationActiveOrder(Long leaderUserId);
+
     MesTeamLeaderActiveOrderSimulationCopyResult copyLatestSimulationActiveOrder(
             Long leaderUserId, Long sourceActiveOrderId, String simulationRunId);
 
@@ -18,6 +20,11 @@ public interface MesTeamLeaderActiveOrderService {
     MesTeamLeaderActiveOrderRebuildResult rebuildActiveOrder(MesTeamLeaderActiveOrderRebuildReqBO reqBO);
 
     void removeActiveOrder(MesTeamLeaderActiveOrderRemoveReqBO reqBO);
+
+    MesTeamLeaderDataCleanupPreview previewDataCleanup(Long leaderUserId);
+
+    MesTeamLeaderDataCleanupResult executeDataCleanup(Long leaderUserId,
+                                                       MesTeamLeaderDataCleanupPreview expectedScope);
 
     void moveActiveOrder(MesTeamLeaderActiveOrderMoveReqBO reqBO);
 

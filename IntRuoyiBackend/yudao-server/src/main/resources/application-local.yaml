@@ -325,12 +325,6 @@ yudao:
       timeout-seconds: ${DCC_PROJECT_CODE_CODEX_TIMEOUT_SECONDS:120}
       version: ${DCC_PROJECT_CODE_RECOGNITION_VERSION}
       worker-count: ${DCC_PROJECT_CODE_RECOGNITION_WORKER_COUNT:1}
-    download:
-      encryption:
-        policy-version: ${DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION}
-        key-id: ${DCC_DOWNLOAD_ENCRYPTION_KEY_ID}
-        base64-key: ${DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY}
-        artifact-directory: ${DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY}
   form-center:
     fill-rule-ai:
       codex-cli-command: ${FORM_CENTER_FILL_RULE_AI_CODEX_CLI_COMMAND:cmd.exe /c codex.cmd}
