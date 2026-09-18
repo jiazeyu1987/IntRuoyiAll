@@ -18,6 +18,8 @@ BDD: 幂等重试不重复写入 -> Given 重复提交同一幂等键 When 再�
 
 BDD: admin 精确绑定管理者代表 -> Given 目标租户存在用户名为 `admin` 的用户和 `MES_MANAGEMENT_REPRESENTATIVE` 角色 When 权限迁移执行 Then 仅该租户该用户绑定目标角色且角色具备查询和最终放行权限。
 
+BDD: 真实前端上市放行 E2E -> Given 真实前端 `http://127.0.0.1:8081` 和真实后端 `http://127.0.0.1:48081` 运行的是包含本任务实现的版本，且测试账号 `芋道源码/admin` 拥有管理者代表权限和电子密码 When 使用 Playwright 登录、进入 eDHR 批次执行列表、点击“上市放行”、输入电子密码并确认 Then 页面通过正式接口完成放行并跳转历史追溯列表。
+
 ## TDD Evidence
 
 RED: `node tests/e2e/edhr-batch-action-placeholders-static.spec.cjs` -> FAIL，expected reason: 前端仍将“上市放行”作为占位按钮，缺少权限控制、二次确认密码弹窗、正式 API 调用和成功路由。
@@ -43,6 +45,20 @@ GREEN: `git diff --check` -> PASS，仅 CRLF warning，无 whitespace error。
 ## Verification
 
 验证报告见 `doc/tasks/20260918-edhr-batch-action-placeholders/verification-report.md`。
+
+## Real E2E Verification
+
+PRECHECK: `http://127.0.0.1:8081`、`http://127.0.0.1:48081/actuator/health` -> PASS，现有前后端端口可访问。
+
+PRECHECK: 从当前实现提交构建并加载后端运行时 -> PASS，目标请求类包含 `password`，权威上下文包含 `requireWithoutMaterialGate`。
+
+E2E: `admin` 登录 `http://127.0.0.1:8081/login?redirect=/mes/pro/feedback/edhr-batch-execution` -> PASS，真实前端登录并进入批次执行列表。
+
+E2E: 管理者代表显示上市放行 -> PASS，真实页面显示 `上市放行` 按钮，批次为 `EDHRB-1789703187501`。
+
+E2E: 上市放行二次确认 -> PASS，真实点击按钮打开弹窗，展示批次信息和电子签名密码输入框。
+
+E2E: 完成上市放行 -> BLOCKED，当前真实测试批次状态为“冻结中”，后端返回“当前批次没有可用的正式放行事务”，因此前端不会调用最终放行接口；需要先通过真实前端完成该批次正式放行事务前置流程，才能继续验证密码认证、`RELEASED` 和历史追溯跳转。
 
 ## Closeout
 

@@ -53,6 +53,15 @@
 - Forbidden action: 禁止把每日全量改名为增量，禁止只停前端冒充无写入窗口，禁止用 API-only/mock 代替恢复演练，禁止为了赶时间省略载荷校验，禁止生成空 ZIP、默认 PASS、明文 secret 或把完整长期归档平台预埋成首版 fallback。
 - Evidence: `docs/changes/20260907-backup-minimal-closure.md` 与 `doc/tasks/20260907-backup-full-incremental-recovery-plan/minimal-development-plan.md`。
 
+### 按钮化备份恢复入口门禁
+
+- Trigger: 设计或实现 ChatGPT 网页、管理后台或运行控制台中的“立即备份”“选择备份包恢复”“恢复演练”“恢复数据”按钮。
+- Preflight check: 先确认唯一执行源是后端 operation gateway / runtime-control / `E:\IntRuoyi\IntRuoyiBackend\script\backup-ops`，不得直接绑定浏览器、ChatGPT 网页或 `.bat` 入口执行 SSH/shell。`backup-now` 请求必须显式传入 `FULL` 或 `INCREMENTAL`；`restore-data` 必须由服务端恢复候选解析 `selectedBackupId`，并在 preview 中核对 manifest、checksums、rehearsalStatus、runtime `IMAGE_TAG`、schema 指纹、DB/MinIO/DCC/Redis policy、目标 host 和容量。现状介绍必须区分静态已知配置与实时恢复就绪状态。
+- Blocker: `BackupKind` 缺失、恢复候选不是服务端签发、备份包未 `COMPLETE`、checksum/DCC manifest 缺失、演练未 `PASSED`、当前目标 fingerprint 不兼容、外部 writer 未隔离、pre-restore snapshot 不可创建、或只读实时 preflight 未执行时，不得启用恢复数据按钮或宣称当前测试服可恢复。
+- Verification: 记录按钮请求体、operationId、targetEnvironment、backupKind、candidateId、backupId、preview blockers、互斥锁状态、manifest/checksum/rehearsal/restore report、backend health、frontend HTTP、登录、样本文件 hash 和关键业务路径验证结果。静态设计任务只能标注“方案已形成”，不能标注“恢复演练成功”。
+- Forbidden action: 禁止让前端或 ChatGPT 网页传任意 host/path/命令；禁止把 `.bat` 控制台成功等同于网页接口契约成功；禁止缺少 `BackupKind` 时默认全量或增量；禁止未演练包直接覆盖测试服；禁止用历史备份报告、旧任务证据或静态配置冒充当前实时恢复就绪。
+- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260918-test-backup-restore-design\verification-report.md` 与 `docs/recovery/backup-disaster-recovery.md`。
+
 ### 本机数据迁移包恢复门禁
 
 - Trigger: 用户要求把当前电脑的本机 IntRuoyi 数据打包给另一台电脑、保持两台开发电脑数据一致、或生成给 Codex 使用的恢复 README。

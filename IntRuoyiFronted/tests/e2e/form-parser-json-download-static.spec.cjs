@@ -47,13 +47,11 @@ assertIncludes(parserPage, "name: 'FormCenterParser'")
 assertIncludes(parserPage, '表单解析')
 assertIncludes(parserPage, '生产批记录')
 assertIncludes(parserPage, 'QA检验规程')
-assertIncludes(parserPage, '过程检验记录')
 assertIncludes(parserPage, 'handleProductionBatchRecord')
-assertIncludes(parserPage, 'handleUnsupportedParseType')
 assertIncludes(parserPage, 'accept=".doc,.docx"')
 assertIncludes(parserPage, 'BatchRecordReportApi')
 assertIncludes(parserPage, 'parseProductionBatchRecordTotalRecognitionJson')
-assertIncludes(parserPage, 'download.json')
+assertIncludes(parserPage, 'downloadCurrentRecognitionJson')
 assertIncludes(parserPage, "application/json;charset=utf-8")
 assertIncludes(parserPage, "'.json'")
 assertIncludes(parserPage, 'JSON.stringify')
@@ -220,7 +218,16 @@ assertIncludes(parseHandler, 'parseProductionBatchRecordTotalRecognitionJson')
 assertIncludes(parseHandler, 'parseTotalRecognitionJson(totalRecognitionJson)')
 assertIncludes(parseHandler, 'editableRecognitionJson.value')
 assertIncludes(parseHandler, 'previewRecognitionJson.value')
-assertIncludes(parseHandler, 'download.json')
+assertNotIncludes(
+  parseHandler,
+  'download.json',
+  '生产批记录解析流程不得自动下载 JSON，下载只能由显式按钮触发'
+)
+assertNotIncludes(
+  parseHandler,
+  '已下载 JSON 文件',
+  '生产批记录解析成功提示不得声称已自动下载 JSON'
+)
 
 const applyHandler = extractFunction(parserPage, 'handleApplyEditedJson')
 assertIncludes(applyHandler, 'parseTotalRecognitionJson(editableRecognitionJson.value)')
@@ -269,7 +276,6 @@ assertIncludes(toggleDevice, 'selectedPreviewDeviceKey.value = device.key')
 const parserButtons = parserPage.match(/<el-button[\s\S]*?<\/el-button>/g) || []
 const productionButton = parserButtons.find((button) => button.includes('生产批记录'))
 const qaButton = parserButtons.find((button) => button.includes('QA检验规程'))
-const processButton = parserButtons.find((button) => button.includes('过程检验记录'))
 if (!productionButton || !productionButton.includes('handleProductionBatchRecord')) {
   throw new Error('生产批记录按钮必须打开 Word 上传解析流程')
 }
@@ -278,9 +284,6 @@ if (!qaButton || !qaButton.includes('handleQaInspectionRegulation')) {
 }
 if (qaButton.includes('handleProductionBatchRecord')) {
   throw new Error('QA检验规程按钮不得调用生产批记录解析流程')
-}
-if (!processButton || !processButton.includes('handleUnsupportedParseType')) {
-  throw new Error('过程检验记录按钮当前只能提示未实现')
 }
 
 const sql = assertFile('../IntRuoyiBackend/sql/mysql/20260908_bpm_form_parser_menu.sql')

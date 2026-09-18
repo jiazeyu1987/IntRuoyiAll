@@ -25,7 +25,9 @@
 
 ## Notes
 
-- 真实 Playwright E2E 未执行：项目规则要求仅在用户当轮明确要求时执行，本轮未要求真实页面验收。
+- 真实 Playwright E2E：已执行登录、权限按钮显示和二次确认。目标批次 `EDHRB-1789703187501` 当前为“冻结中”，没有正式放行事务，前端按正式门禁阻止调用最终放行接口；因此密码认证成功、`RELEASED` 和历史追溯跳转尚未能在真实数据上完成。
+- E2E 证据截图：`output/playwright/edhr-after-login.png`、`output/playwright/edhr-release-confirm.png`、`output/playwright/edhr-release-result.png`、`output/playwright/edhr-work-task.png`。
+- 后端运行时已切换为包含本任务实现的构建产物；本次阻塞来自测试数据的正式放行事务缺失，不是旧编译产物。
 - task-closeout-cleanup preview/apply 已通过，仅删除本任务临时 `bug-regression-evidence.md`。
 - 本地实现提交已完成：`fbf46743a`。
 - 本轮未执行 Git push：用户仅补充授权提交，本轮未明确要求推送远端。

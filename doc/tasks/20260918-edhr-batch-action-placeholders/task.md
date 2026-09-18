@@ -28,6 +28,7 @@
 - `mvn -pl yudao-module-mes -am '-Dtest=MesProEdhrReleaseServiceImplTest,MesReleaseFinalizationValidatorTest,MesReleaseAuthoritativeContextPortImplTest' '-Dsurefire.failIfNoSpecifiedTests=false' test`
 - `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm exec vue-tsc --noEmit --pretty false -p tsconfig.relaxed.json`
 - `git diff --check`
+- 用户当轮明确要求后，使用 Playwright 执行真实前端 E2E 放行路径验证。
 
 ## Design Constraints
 
@@ -37,12 +38,12 @@
 - 相同幂等键重试必须按既有规则返回，不重复关闭批次或重复写入放行事件。
 - `admin` 授权必须按 `tenant_id + username = 'admin'` 精确绑定，不使用宽泛用户名或默认 `tenant_admin` 推断。
 - 不覆盖工作区中其他任务已有改动。
-- 不执行真实 E2E：项目规则要求仅在用户当轮明确要求时执行，本轮未要求真实页面验收。
+- 真实 E2E 仅在用户当轮明确要求时执行，且必须通过真实前端页面完成被验收业务动作。
 
 ## Current Status
 
-completed
+blocked
 
-实现、必需验证、task-closeout-cleanup preview/apply 和本地实现提交均已完成。真实 Playwright E2E 未执行；本轮未推送远端。
+实现、必需验证、task-closeout-cleanup preview/apply 和本地实现提交均已完成。用户已在 2026-09-18 明确要求进行真实 Playwright E2E 验证；真实登录、权限按钮和二次确认已通过，但目标批次缺少正式放行事务，无法继续执行最终放行。需要先准备满足正式放行事务门禁的真实测试批次。本轮未推送远端。
 
 Implementation commit: `fbf46743a`.

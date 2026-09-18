@@ -722,6 +722,14 @@
 - Forbidden action: 禁止用表头全选、数组下标、API-only、直接 SQL 或坐标猜测绕过可见业务行定位。
 - Evidence: `doc/tasks/verify-manual-reschedule-881mo-20260724/execution-log.md`，2026-07-24 手动重排修复验证。
 
+### 异步配置表格回显门禁
+
+- Trigger: 页面根据异步读取的 Job、配置或权限状态回显 `el-table` 行选择。
+- Preflight check: 区分“状态已读取”和“表格已可选择”两个时机；`loading`、行选择禁用或程序化 `selection-change` 期间，不得让空选择覆盖已读取的目标集合。
+- Blocker: 保存接口成功但刷新后勾选数为 0、控制台出现程序化空选择、或只增加固定等待时间仍无法稳定回显时，必须检查加载状态与选择事件的时序。
+- Verification: 真实 Playwright 通过页面保存后刷新，断言开关状态、目标业务行集合、非目标行集合和控制台/pageerror；修复后再次通过页面恢复共享配置。
+- Forbidden action: 禁止用 API-only、直接改库、固定延时或隐藏 DOM 状态冒充表格回显通过。
+
 ### MES 手动重排全选应用完成门禁
 
 - Trigger: Playwright 验证 `排产工单`、`手动重排`、`开始重排`、`确认应用重排`、全选排产工单、自动重排局部阻断、进度停在 `90%` 或“存在未参与排产的工单”。

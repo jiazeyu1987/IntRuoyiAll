@@ -26,7 +26,7 @@ public class MesActiveOrderDossierFileController {
     private final MesActiveOrderDossierFileService dossierFileService;
 
     @GetMapping
-    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:query', 'mes:pro-production-release:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:query', 'mes:pro-production-release:query', 'mes:pro-edhr-batch-execution:upload')")
     public CommonResult<MesActiveOrderDossierFileService.Result> list(
             @RequestParam("activeOrderId") Long activeOrderId,
             @RequestParam(value = "applicationId", required = false) Long applicationId) {
@@ -35,7 +35,7 @@ public class MesActiveOrderDossierFileController {
     }
 
     @PostMapping("/upload")
-    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:maintain', 'mes:pro-production-release:pqc-approve')")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:maintain', 'mes:pro-production-release:pqc-approve', 'mes:pro-edhr-batch-execution:upload')")
     public CommonResult<MesActiveOrderDossierFileService.FileItem> upload(
             @RequestParam("activeOrderId") Long activeOrderId,
             @RequestParam(value = "applicationId", required = false) Long applicationId,

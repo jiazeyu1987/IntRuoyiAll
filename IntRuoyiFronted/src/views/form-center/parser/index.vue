@@ -49,14 +49,6 @@
             </el-button>
           </template>
         </el-upload>
-        <el-button
-          class="scheme-d-btn scheme-d-btn--neutral"
-          :disabled="productionLoading || qaRegulationLoading"
-          @click="handleUnsupportedParseType('过程检验记录')"
-        >
-          <Icon icon="ep:document-checked" />
-          过程检验记录
-        </el-button>
       </div>
     </div>
 
@@ -75,6 +67,10 @@
             <div class="form-parser-panel-subtitle">{{ lastDownloadName }}</div>
           </div>
           <div class="form-parser-panel-actions">
+            <el-button @click="handlePublishPlaceholder">
+              <Icon icon="ep:upload" />
+              发布
+            </el-button>
             <el-button type="primary" @click="handleApplyEditedJson">
               <Icon icon="ep:check" />
               应用
@@ -637,10 +633,6 @@ const handleQaInspectionRegulation = () => {
   activeParserResultTab.value = 'qa-inspection-regulation'
 }
 
-const handleUnsupportedParseType = (label: string) => {
-  message.warning(`${label}解析暂未开放`)
-}
-
 const handleExceed = (_files: File[], uploadFiles: UploadUserFile[]) => {
   uploadFiles.splice(0, uploadFiles.length)
   message.error('最多只能上传一个 doc/docx 文件')
@@ -710,17 +702,13 @@ const parseAndDownloadProductionBatchRecord = async (file: File) => {
     previewRecognitionJson.value = mapping
     initializePreviewState(mapping)
     const downloadName = buildJsonDownloadName(file.name)
-    const jsonBlob = new Blob([JSON.stringify(mapping, null, 2)], {
-      type: 'application/json;charset=utf-8'
-    })
-    download.json(jsonBlob, downloadName)
     lastResult.value = {
       parseTypeName: '生产批记录',
       sourceFileName: file.name,
       mapping
     }
     lastDownloadName.value = downloadName
-    message.success('解析完成，已下载 JSON 文件')
+    message.success('解析完成，可在结果区查看或手动下载 JSON')
   } catch (error) {
     message.error(resolveParseErrorMessage(error, '解析失败，请检查 Word 文件内容'))
     throw error
@@ -729,6 +717,10 @@ const parseAndDownloadProductionBatchRecord = async (file: File) => {
     uploadRef.value?.clearFiles()
     fileList.value = []
   }
+}
+
+const handlePublishPlaceholder = () => {
+  message.info('发布功能待实现')
 }
 
 const handleApplyEditedJson = () => {

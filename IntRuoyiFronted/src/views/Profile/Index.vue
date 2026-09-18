@@ -132,7 +132,7 @@ const resolveProfileActiveTab = () => {
 
 const activeName = ref(resolveProfileActiveTab())
 const resolveFirstConfigName = () => {
-  if (hasGoldenFingerPermission.value) return 'recordbook'
+  if (hasGoldenFingerPermission.value) return 'erpTableSync'
   if (hasRegistrationCertificateConfigPermission.value) return 'registrationCertificate'
   return ''
 }

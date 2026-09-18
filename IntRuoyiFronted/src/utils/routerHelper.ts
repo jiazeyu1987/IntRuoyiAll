@@ -57,6 +57,7 @@ const MES_PRO_SCHEDULE_ORDER_ROUTE_PATHS = new Set([
 ])
 const MES_FEEDBACK_ROUTE_COMPONENTS = new Set(['mes/pro/feedback', 'mes/pro/feedback/index'])
 const MES_FEEDBACK_ROUTE_PATHS = new Set(['mes/pro/feedback', 'pro/feedback'])
+const FORM_CENTER_PARSER_ROUTE_COMPONENT = 'form-center/parser/index'
 const APPROVAL_CENTER_REDIRECT_SHELL_ROUTE_COMPONENTS = new Set([
   'mes/pro/edhr/ApprovalPage',
   'dcc/controlled-file/approval-tasks',
@@ -134,6 +135,9 @@ const applyRouteMetaOverrides = (
     MES_PRO_SCHEDULE_ORDER_ROUTE_PATHS.has(routePath) ||
     MES_PRO_SCHEDULE_ORDER_ROUTE_COMPONENTS.has(componentPath)
   ) {
+    meta.hideFooter = true
+  }
+  if (FORM_CENTER_PARSER_ROUTE_COMPONENT === componentPath) {
     meta.hideFooter = true
   }
 }

@@ -1197,7 +1197,8 @@
                 :http-request="(options) => uploadDossierFile(category.key, options)"
                 v-hasPermi="[
                   'mes:pro-process-pool-team-leader:maintain',
-                  'mes:pro-production-release:pqc-approve'
+                  'mes:pro-production-release:pqc-approve',
+                  'mes:pro-edhr-batch-execution:upload'
                 ]"
                 data-active-order-dossier-file-upload
               >
@@ -1754,6 +1755,7 @@ const props = defineProps<{
   recordScope?: 'DETAIL_RECORD' | 'FORMAL_BATCH_SOURCE_DETAIL'
   productionRouteProcessId?: number | string
   pqcReleaseApplicationId?: number | string
+  initialActiveTab?: string
 }>()
 
 defineEmits<{
@@ -1797,6 +1799,15 @@ const dossierFileTabDefinitions = [
   { key: 'OTHER_FILE', label: '其他文件' }
 ]
 type UploadError = Parameters<UploadRequestOptions['onError']>[0]
+
+const resolveInitialActiveTab = () => {
+  const requestedTab = props.initialActiveTab?.trim()
+  if (!requestedTab) return ''
+  const allowedDossierTabNames = dossierFileTabDefinitions.map((category) =>
+    buildDossierFileTabName(category.key)
+  )
+  return allowedDossierTabNames.includes(requestedTab) ? requestedTab : ''
+}
 
 const formatDateTime = (value?: string | number | Date) => formatDateTimeValue(value)
 
@@ -3410,11 +3421,12 @@ const deleteDossierFile = async (categoryKey: string, file: ActiveOrderDossierFi
 const resetTabs = async () => {
   await nextTick()
   const firstProcess = visibleProductionProcesses.value[0]
-  activeTab.value = showSummaryTab.value
+  const requestedTab = resolveInitialActiveTab()
+  activeTab.value = requestedTab || (showSummaryTab.value
     ? 'summary'
     : displayMode.value === 'pqc'
       ? 'pqcSubmissions'
-      : 'productionSubmissions'
+      : 'productionSubmissions')
   pqcInnerActiveTab.value = 'originalSubmissions'
   productionActiveTab.value = firstProcess ? activeOrderDetailProcessTabName(firstProcess, 0) : ''
   const firstPqcProcess = pqcProcessGroups.value[0]
@@ -3424,7 +3436,7 @@ const resetTabs = async () => {
 }
 
 watch(
-  () => [props.detail, props.displayMode, props.productionRouteProcessId],
+  () => [props.detail, props.displayMode, props.productionRouteProcessId, props.initialActiveTab],
   () => {
     void resetTabs()
   },

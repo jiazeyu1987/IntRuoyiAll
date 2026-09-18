@@ -216,6 +216,24 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testQueryEvidence_acceptsDatabaseJsonFormattingWhenSemanticsMatch() {
+        ElectronicSignatureCommand command = buildCommand("idem-json-format", "V1", "审批通过");
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+            ElectronicSignatureResult signed = signatureService.sign(command);
+            signatureRecordMapper.updateById(new ElectronicSignatureRecordDO()
+                    .setId(signed.signatureId())
+                    .setCanonicalContentJson("{\"version\": \"V1\", \"name\": \"record\"}"));
+
+            ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signed.signatureId());
+            assertEquals("VALID", verification.verificationStatus());
+            assertEquals(verification.storedContentHash(), verification.calculatedContentHash());
+            assertEquals(verification.storedEvidenceHash(), verification.calculatedEvidenceHash());
+        }
+    }
+
+    @Test
     public void testQueryEvidence_detectsContentTamperingWithoutRewritingHistory() {
         ElectronicSignatureCommand command = buildCommand("idem-007", "V1", "审批通过");
 

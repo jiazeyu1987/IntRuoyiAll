@@ -4,7 +4,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailService;
@@ -87,8 +86,7 @@ public class MesPqcReleaseOrderDetailService {
         if (decision.getSignatureId() == null) {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ID_MISSING");
         }
-        ElectronicSignatureEvidenceDTO signature = requireUnifiedPqcReleaseSignature(
-                decision.getSignatureId(), application.getBatchExecutionId());
+        ElectronicSignatureEvidenceDTO signature = requireUnifiedPqcReleaseSignature(decision.getSignatureId());
         AdminUserDO signer = adminUserService.getUser(signature.actorId());
         if (signer == null || StrUtil.isBlank(signer.getNickname())) {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ACTOR_MISSING");
@@ -103,30 +101,18 @@ public class MesPqcReleaseOrderDetailService {
                         .setRole(MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE)));
     }
 
-    private ElectronicSignatureEvidenceDTO requireUnifiedPqcReleaseSignature(Long signatureId, Long batchExecutionId) {
+    private ElectronicSignatureEvidenceDTO requireUnifiedPqcReleaseSignature(Long signatureId) {
         if (signatureId == null) {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ID_MISSING");
         }
-        if (batchExecutionId == null || batchExecutionId <= 0) {
-            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_EXECUTION_MISMATCH");
+        ElectronicSignatureEvidenceDTO signature = signatureQueryService.getById(signatureId);
+        if (signature == null) {
+            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_RECORD_MISSING");
         }
-        String subjectId = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(batchExecutionId,
-                MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
-                null, null, null, null, null, null, null,
-                "PQC_RELEASE_APPLICATION", null, "PQC生产放行",
-                MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
-                null, null, null, null);
-        ElectronicSignatureEvidenceDTO signature = signatureQueryService
-                .listBySubject(MesBatchRecordSignatureSubjectAdapter.MODULE_CODE,
-                        MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE, subjectId)
-                .stream()
-                .filter(item -> Objects.equals(item.id(), signatureId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("PQC_RELEASE_SIGNATURE_RECORD_MISSING"));
         if (!Objects.equals(signature.actionCode(), MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE)
-                || !Objects.equals(signature.moduleCode(), MesBatchRecordSignatureSubjectAdapter.MODULE_CODE)
-                || !Objects.equals(signature.subjectType(), MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE)
-                || !Objects.equals(signature.subjectId(), subjectId)
+                || StrUtil.isBlank(signature.moduleCode())
+                || StrUtil.isBlank(signature.subjectType())
+                || StrUtil.isBlank(signature.subjectId())
                 || !Objects.equals(signature.verificationStatus(), "VALID")
                 || !Objects.equals(signature.authenticationMethod(), "SESSION_PLUS_PASSWORD")
                 || signature.actorId() == null

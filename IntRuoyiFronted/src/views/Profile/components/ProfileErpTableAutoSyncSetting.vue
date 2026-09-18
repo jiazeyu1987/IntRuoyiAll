@@ -418,7 +418,14 @@ const syncSelectedRows = async () => {
 }
 
 const handleSyncTableSelectionChange = (rows: ProfileErpSyncTableRow[]) => {
-  if (syncingTableSelection.value) return
+  if (
+    syncingTableSelection.value ||
+    loading.value ||
+    jobLoading.value ||
+    saving.value
+  ) {
+    return
+  }
   selectedSyncTypes.value = rows.map((row) => row.syncType)
 }
 
@@ -459,6 +466,7 @@ const loadJobs = async () => {
         .find((time) => time) || DEFAULT_DAILY_START_TIME
   } finally {
     jobLoading.value = false
+    await syncSelectedRows()
   }
 }
 
@@ -544,6 +552,7 @@ const loadData = async () => {
     ElMessage.error(loadError.value)
   } finally {
     loading.value = false
+    await syncSelectedRows()
   }
 }
 
@@ -580,6 +589,38 @@ const refreshJobsBeforeMutation = async () => {
   return entries
 }
 
+const updateJobForAutoSync = async (
+  item: ProfileErpSyncType,
+  job: JobApi.JobVO,
+  selectedSyncTypeSet: Set<string>
+) => {
+  const targetStatus =
+    form.enabled && selectedSyncTypeSet.has(item.syncType)
+      ? InfraJobStatusEnum.NORMAL
+      : InfraJobStatusEnum.STOP
+
+  if (targetStatus === InfraJobStatusEnum.NORMAL) {
+    if (job.status !== targetStatus) {
+      await JobApi.updateJobStatus(job.id, targetStatus)
+    }
+    await JobApi.updateJob({
+      ...job,
+      status: targetStatus,
+      cronExpression: dailyCronExpression.value
+    })
+    return
+  }
+
+  if (job.status === InfraJobStatusEnum.NORMAL) {
+    await JobApi.updateJob({
+      ...job,
+      status: targetStatus,
+      cronExpression: dailyCronExpression.value
+    })
+    await JobApi.updateJobStatus(job.id, targetStatus)
+  }
+}
+
 const handleSave = async () => {
   if (!dailyCronExpression.value) {
     ElMessage.error('请选择有效的每日开始时间')
@@ -594,19 +635,7 @@ const handleSave = async () => {
     const selectedSyncTypeSet = new Set(selectedSyncTypes.value)
     const jobEntries = await refreshJobsBeforeMutation()
     await Promise.all(
-      jobEntries.map(async ([item, job]) => {
-        await JobApi.updateJob({
-          ...job,
-          cronExpression: dailyCronExpression.value
-        })
-        const targetStatus =
-          form.enabled && selectedSyncTypeSet.has(item.syncType)
-            ? InfraJobStatusEnum.NORMAL
-            : InfraJobStatusEnum.STOP
-        if (job.status !== targetStatus) {
-          await JobApi.updateJobStatus(job.id, targetStatus)
-        }
-      })
+      jobEntries.map(([item, job]) => updateJobForAutoSync(item, job, selectedSyncTypeSet))
     )
     ElMessage.success(
       `ERP表格自动同步配置已保存：${form.enabled ? selectedSyncTypeSet.size : 0}/${syncTypes.length}`

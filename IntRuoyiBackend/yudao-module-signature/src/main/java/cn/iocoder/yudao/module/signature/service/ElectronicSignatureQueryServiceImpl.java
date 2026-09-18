@@ -2,12 +2,16 @@ package cn.iocoder.yudao.module.signature.service;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.signature.api.ElectronicSignatureSubjectAdapter;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureEvidenceDTO;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO;
+import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand;
+import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectSnapshot;
 import cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO;
 import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.alibaba.fastjson.JSON;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +20,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.signature.enums.SignatureErrorCodeConstants.ESIGN_COMMAND_INVALID;
@@ -30,6 +35,20 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
 
     @Resource
     private ElectronicSignatureRecordMapper signatureRecordMapper;
+    @Resource
+    private List<ElectronicSignatureSubjectAdapter> subjectAdapters;
+
+    @Override
+    public ElectronicSignatureEvidenceDTO getById(Long signatureId) {
+        if (signatureId == null || signatureId <= 0) {
+            throw exception(ESIGN_COMMAND_INVALID, "签名编号必须为正整数");
+        }
+        ElectronicSignatureRecordDO record = signatureRecordMapper.selectById(signatureId);
+        if (record == null || !Objects.equals(record.getTenantId(), TenantContextHolder.getRequiredTenantId())) {
+            return null;
+        }
+        return toEvidence(record);
+    }
 
     @Override
     public List<ElectronicSignatureEvidenceDTO> listBySubject(String moduleCode, String subjectType, String subjectId) {
@@ -57,7 +76,7 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
         if (record == null || !Objects.equals(record.getTenantId(), TenantContextHolder.getRequiredTenantId())) {
             throw exception(ESIGN_COMMAND_INVALID, "签名记录不存在");
         }
-        String calculatedContentHash = hash(record.getCanonicalContentJson());
+        String calculatedContentHash = resolveContentHash(record);
         String calculatedEvidenceHash = hash(evidencePayload(record, calculatedContentHash));
         String status = Objects.equals(record.getContentHash(), calculatedContentHash)
                 && Objects.equals(record.getEvidenceHash(), calculatedEvidenceHash)
@@ -65,6 +84,47 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
         return new ElectronicSignatureVerificationDTO(record.getId(), status, record.getContentHash(),
                 calculatedContentHash, record.getEvidenceHash(), calculatedEvidenceHash, record.getAlgorithm(),
                 record.getKeyVersion());
+    }
+
+    private String resolveContentHash(ElectronicSignatureRecordDO record) {
+        String directHash = hash(record.getCanonicalContentJson());
+        if (Objects.equals(record.getContentHash(), directHash)) {
+            return directHash;
+        }
+        Optional<SignatureSubjectSnapshot> snapshot = replaySubjectSnapshot(record);
+        if (snapshot.isEmpty() || !jsonSemanticallyEquals(record.getCanonicalContentJson(),
+                snapshot.get().canonicalContentJson())) {
+            return directHash;
+        }
+        String replayedHash = hash(snapshot.get().canonicalContentJson());
+        return Objects.equals(record.getContentHash(), replayedHash) ? replayedHash : directHash;
+    }
+
+    private Optional<SignatureSubjectSnapshot> replaySubjectSnapshot(ElectronicSignatureRecordDO record) {
+        if (subjectAdapters == null || subjectAdapters.isEmpty()) {
+            return Optional.empty();
+        }
+        return subjectAdapters.stream()
+                .filter(adapter -> Objects.equals(adapter.moduleCode(), record.getModuleCode()))
+                .findFirst()
+                .map(adapter -> adapter.loadAndAuthorize(new SignatureSubjectCommand(
+                        record.getActorId(), record.getModuleCode(), record.getActionCode(),
+                        record.getSubjectType(), record.getSubjectId(), record.getSubjectVersion(),
+                        record.getReason())));
+    }
+
+    private boolean jsonSemanticallyEquals(String left, String right) {
+        if (Objects.equals(left, right)) {
+            return true;
+        }
+        if (StrUtil.hasBlank(left, right)) {
+            return false;
+        }
+        try {
+            return Objects.equals(JSON.parse(left), JSON.parse(right));
+        } catch (RuntimeException ex) {
+            return false;
+        }
     }
 
     private ElectronicSignatureEvidenceDTO toEvidence(ElectronicSignatureRecordDO record) {

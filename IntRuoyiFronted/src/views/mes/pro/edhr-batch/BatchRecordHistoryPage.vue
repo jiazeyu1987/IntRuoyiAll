@@ -73,15 +73,17 @@
             aria-label="历史批记录列表"
             data-edhr-history-batch-list
           >
-            <button
+            <div
               v-for="batch in batchList"
               :key="batch.id"
-              type="button"
               data-edhr-history-batch-item
               :data-edhr-history-batch-execution-id="batch.id"
               class="edhr-batch-history__batch-item"
               :class="{ 'is-active': batch.id === selectedBatchId }"
+              role="button"
+              tabindex="0"
               @click="selectBatch(batch)"
+              @keydown.enter="selectBatch(batch)"
             >
               <span class="edhr-batch-history__batch-code" data-edhr-history-batch-execution-code>
                 {{ batch.batchExecutionCode || batch.id }}
@@ -98,7 +100,15 @@
                   {{ resolveBatchStatusLabel(batch.status) }}
                 </el-tag>
               </span>
-            </button>
+              <el-button
+                link
+                type="primary"
+                data-edhr-history-source-detail
+                @click.stop="openSourceDetail(batch)"
+              >
+                详情
+              </el-button>
+            </div>
           </div>
 
           <Pagination
@@ -983,6 +993,17 @@ const selectBatch = async (batch: EdhrBatchExecutionRespVO) => {
   selectedExecutionId.value = ''
   timeline.value = undefined
   await Promise.all([loadTimeline(batch.id, ''), loadActiveOrderDetail(batch)])
+}
+
+const openSourceDetail = async (batch: EdhrBatchExecutionRespVO) => {
+  if (!batch.id) {
+    message.error('当前历史批次缺少批次执行编号，无法查看详情批记录。')
+    return
+  }
+  await router.push({
+    path: '/mes/pro/feedback/edhr-batch-execution/source-detail',
+    query: { batchExecutionId: String(batch.id), from: 'history' }
+  })
 }
 
 const getBatchList = async () => {

@@ -24,6 +24,20 @@ const runPageReqVo = readWorkspace(
 const runMapper = readWorkspace(
   'IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/dal/mysql/sync/ErpKingdeeSyncRunMapper.java'
 )
+const firstConfigNameBlock = profileIndex.match(
+  /const resolveFirstConfigName = \(\) => \{[\s\S]*?\r?\n\}/
+)
+assert.ok(firstConfigNameBlock, '配置子 Tab 默认选择函数必须存在。')
+assert.match(
+  firstConfigNameBlock[0],
+  /if \(hasGoldenFingerPermission\.value\) return 'erpTableSync'/,
+  '进入配置页且未指定子 Tab 时，必须默认打开 ERP 表格自动同步。'
+)
+assert.doesNotMatch(
+  firstConfigNameBlock[0],
+  /if \(hasGoldenFingerPermission\.value\) return 'recordbook'/,
+  '配置页默认子 Tab 不得继续优先打开 eDHR 记录本。'
+)
 
 assert.match(
   profileIndex,

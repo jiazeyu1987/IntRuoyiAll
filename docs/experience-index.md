@@ -473,6 +473,7 @@
 - Keywords: health UP 但 API 挂起, Logback OutputStreamAppender lock, stdout stderr 未消费, SQL DEBUG, MyBatis mapper debug, logging.file.name, output/runtime logs, task-closeout 日志锁, 共享后端活动连接 -> `docs/local-runtime.md#2026-07-27-本地后端标准输出阻塞与日志目录门禁`
 - Keywords: target Jar 运行中被 Maven 覆盖, NoClassDefFoundError, ChainedPersistenceExceptionTranslator, ExceptionUtil, RequestUtil, JimuReportDao_update.sql, TemplateLoaderUtils, 稳定运行 Jar 副本 -> `docs/local-runtime.md#2026-07-27-本地后端运行-jar-不可变门禁`
 - Keywords: Element Plus el-table, 表格行复选框, 表头全选误点, indeterminate checkbox, Playwright body-wrapper row selection, 手动重排选中集合断言 -> `docs/e2e-rules.md#element-plus-表格选择门禁`
+- Keywords: 异步配置表格回显, Job 状态加载, selection-change 空数组覆盖, loading 期间程序化选择, 保存后刷新勾选丢失 -> `docs/e2e-rules.md#异步配置表格回显门禁`
 - Keywords: Element Plus el-table row-key, 筛选后查看旧记录, 按钮绑定旧行, fixed 隐藏重复行, tr.el-table__row:visible, 详情 ID 与可见行不一致, FINALIZATION_FAILED 重试入口 -> `docs/e2e-rules.md#动态表格稳定行身份门禁`
 - Keywords: DCC upload-preview 元数据存在对象缺失, MinIO 对象键可读, SHA-256, Object Lock bucket 不支持, retention legal hold 失败, FINALIZATION_FAILED 对象恢复重试 -> `docs/local-runtime.md#2026-08-02-dcc-上传预览本机-minio-前置门禁`
 - Keywords: 手动重排全选, 确认应用重排, 重排进度 90%, 未参与排产的工单, replan apply 未发出, preflight preview apply 三段请求, confirmDialogVisible false, dateDialogVisible false, 排产完成创建 eDHR 批次缺少前置条件：首任务责任来源/候选池, getScheduleCompletionMissingItems, openOrCreateFromScheduleCompletion -> `docs/e2e-rules.md#mes-手动重排全选应用完成门禁`
