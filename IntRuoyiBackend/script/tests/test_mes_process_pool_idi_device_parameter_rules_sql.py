@@ -33,7 +33,10 @@ def test_migration_locks_idi_project_by_business_identity() -> None:
     normalized = " ".join(sql.split())
 
     assert "project.`project_code` = 'IDI'" in normalized
-    assert "project.`project_name` = '按压式球囊扩充压力泵'" in normalized
+    assert (
+        "project.`project_name` = _utf8mb4 "
+        "0xe68c89e58e8be5bc8fe79083e59b8ae689a9e58585e58e8be58a9be6b3b5"
+    ) in normalized
     assert "target_route.`code` = 'RT000028-IDI'" in normalized
     assert "source_route.`code` = 'RT000028'" in normalized
     assert re.search(r"dcc_project_code_id`?\s*=\s*129", normalized, re.IGNORECASE) is None
@@ -47,27 +50,36 @@ def test_migration_fails_fast_when_source_or_target_is_not_unique() -> None:
         "Expected one active IDI DCC project code",
         "Expected one active IDI target route binding",
         "Expected one active pressure-pump source route",
-        "IDI target device binding has no source parameter rules",
-        "IDI source parameter rules are not unique",
+        "IDI target route canonical parameter rules are missing",
+        "IDI target route canonical parameter anchor is missing",
+        "IDI target route canonical parameter rules are duplicated",
     ):
         assert expected in sql
     assert normalized.count("SIGNAL SQLSTATE '45000'") >= 5
 
 
-def test_migration_copies_source_rules_to_the_current_target_route_process() -> None:
+def test_migration_validates_current_target_route_rules_without_copying_source_rules() -> None:
     sql = read_migration()
     normalized = " ".join(sql.split())
 
-    assert re.search(
-        r"INSERT\s+INTO\s+`mes_pro_process_pool_device_parameter_rule`",
-        normalized,
-        re.IGNORECASE,
-    )
     assert "target_route_process.`id`" in normalized
     assert "target_route_process.`process_id`" in normalized
     assert "target_device.`id`" in normalized
-    assert "source_route_process.`process_id` = target_route_process.`process_id`" in normalized
-    assert "source_rule.`leader_user_id` = target_binding.`leader_user_id`" in normalized
-    assert "source_rule.`device_id` = target_device.`id`" in normalized
-    assert "existing_rule.`route_process_id` = target_route_process.`id`" in normalized
-    assert "existing_rule.`parameter_code` = source_rule.`parameter_code`" in normalized
+    assert "target_rule.`leader_user_id` = target_binding.`leader_user_id`" in normalized
+    assert "target_rule.`device_id` = target_device.`id`" in normalized
+    assert "target_rule.`route_process_id` = target_route_process.`id`" in normalized
+    assert "target_rule.`parameter_code`" in normalized
+    assert "INSERT INTO `mes_pro_process_pool_device_parameter_rule`" not in normalized
+    assert "source_rule" not in normalized
+
+
+def test_migration_requires_formal_idi_target_rules_without_source_process_inference() -> None:
+    sql = read_migration()
+    normalized = " ".join(sql.split())
+
+    assert "IDI target route canonical parameter rules are missing" in sql
+    assert "IDI target route canonical parameter rules are duplicated" in sql
+    assert "target_rule.`parameter_code`" in normalized
+    assert "IDIJSON_01_B09393_01" in sql
+    assert "source_route_process.`process_id` = target_route_process.`process_id`" not in normalized
+    assert "INSERT INTO `mes_pro_process_pool_device_parameter_rule`" not in normalized
