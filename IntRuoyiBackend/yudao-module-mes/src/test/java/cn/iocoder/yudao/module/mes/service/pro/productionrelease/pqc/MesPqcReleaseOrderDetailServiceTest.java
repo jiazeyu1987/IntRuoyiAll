@@ -89,9 +89,9 @@ class MesPqcReleaseOrderDetailServiceTest {
                 .workOrderId(11L)
                 .leaderUserId(99L)
                 .build());
-        when(signatures.listBySubject(anyString(), anyString(), anyString()))
-                .thenAnswer(invocation -> List.of(signatureEvidence(66L, 77L,
-                        invocation.getArgument(2), signedAt)));
+        when(signatures.listBySubject(eq(MesBatchRecordSignatureSubjectAdapter.MODULE_CODE),
+                eq(MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE), anyString()))
+                .thenReturn(List.of(signatureEvidence(66L, 77L, subjectId(88L), signedAt)));
         when(signatures.verifyEvidence(66L)).thenReturn(
                 new ElectronicSignatureVerificationDTO(66L, "VALID", "content-hash", "content-hash",
                         "evidence-hash", "evidence-hash", "SHA-256", "v1"));
@@ -141,9 +141,9 @@ class MesPqcReleaseOrderDetailServiceTest {
                 .workOrderId(11L)
                 .leaderUserId(99L)
                 .build());
-        when(signatures.listBySubject(anyString(), anyString(), anyString()))
-                .thenAnswer(invocation -> List.of(signatureEvidence(9001L, 1L,
-                        invocation.getArgument(2), signedAt)));
+        when(signatures.listBySubject(eq(MesBatchRecordSignatureSubjectAdapter.MODULE_CODE),
+                eq(MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE), anyString()))
+                .thenReturn(List.of(signatureEvidence(9001L, 1L, subjectId(900000001059L), signedAt)));
         when(signatures.verifyEvidence(9001L)).thenReturn(
                 new ElectronicSignatureVerificationDTO(9001L, "VALID", "content-hash", "content-hash",
                         "evidence-hash", "evidence-hash", "SHA-256", "v1"));
@@ -187,7 +187,8 @@ class MesPqcReleaseOrderDetailServiceTest {
                 .workOrderId(11L)
                 .leaderUserId(99L)
                 .build());
-        when(signatures.listBySubject(anyString(), anyString(), anyString()))
+        when(signatures.listBySubject(eq(MesBatchRecordSignatureSubjectAdapter.MODULE_CODE),
+                eq(MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE), anyString()))
                 .thenReturn(List.of());
         var result = new MesTeamLeaderActiveOrderDetail();
         result.setWorkOrderCode("WO-11");
@@ -229,4 +230,14 @@ class MesPqcReleaseOrderDetailServiceTest {
                 null,
                 null);
     }
+
+    private static String subjectId(Long batchExecutionId) {
+        return MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(batchExecutionId,
+                MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
+                null, null, null, null, null, null, null,
+                "PQC_RELEASE_APPLICATION", null, "PQC生产放行",
+                MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
+                null, null, null, null);
+    }
 }
+

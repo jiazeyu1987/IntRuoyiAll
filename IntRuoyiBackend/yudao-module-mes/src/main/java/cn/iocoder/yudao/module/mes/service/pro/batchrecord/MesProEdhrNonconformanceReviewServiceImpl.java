@@ -5,6 +5,7 @@ import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchExecutionRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewDisposeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewPageReqVO;
@@ -143,6 +144,24 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         if (workOrder != null) {
             requireWorkOrderUpdate(workOrder.getId(), true);
         }
+        return toResp(review);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrNonconformanceReviewRespVO rejectBatch(MesProEdhrBatchExecutionRejectReqVO reqVO) {
+        String reason = requireText(reqVO.getNonconformanceReason());
+        String signaturePassword = requireText(reqVO.getSignaturePassword());
+        MesProEdhrBatchExecutionDO batch = requireBatchExecutionForUpdate(reqVO.getBatchExecutionId());
+        validateBatchCanStartReview(batch);
+        Long releaseOwnerUserId = SecurityFrameworkUtils.getLoginUserId();
+        String aggregateHash = buildReleaseOwnerRejectAggregateHash(batch, reason, releaseOwnerUserId);
+        Long signatureId = signatureService.recordBatchActionSignature(
+                releaseOwnerUserId, batch.getId(), signaturePassword, reason,
+                MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REJECT,
+                "eDHR不合格评审发起", aggregateHash);
+        MesProEdhrNonconformanceReviewDO review = createBatchReview(
+                batch, SOURCE_TYPE_PQC_RELEASE, null, reason, "上市放行负责人电子签名#" + signatureId);
         return toResp(review);
     }
 
@@ -313,6 +332,62 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
         }
         return batch;
+    }
+
+    private MesProEdhrBatchExecutionDO requireBatchExecutionForUpdate(Long batchExecutionId) {
+        MesProEdhrBatchExecutionDO batch = batchExecutionId == null
+                ? null : batchExecutionMapper.selectByIdForUpdate(batchExecutionId);
+        if (batch == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        }
+        return batch;
+    }
+
+    private void validateBatchCanStartReview(MesProEdhrBatchExecutionDO batch) {
+        if (reviewMapper.selectPendingByBatchExecutionId(batch.getId()) != null) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_PENDING_EXISTS);
+        }
+        if (Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED)
+                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED)
+                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED)
+                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+        }
+    }
+
+    private MesProEdhrNonconformanceReviewDO createBatchReview(MesProEdhrBatchExecutionDO batch,
+                                                               String sourceType,
+                                                               Long sourceId,
+                                                               String reason,
+                                                               String remark) {
+        MesProWorkOrderDO workOrder = lockWorkOrder(batch.getWorkOrderId());
+        LocalDateTime now = now();
+        Boolean previousWorkOrderTemporaryFrozen = captureWorkOrderExternalFreezeAtReviewStart(workOrder, now);
+        MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
+                .reviewCode(buildReviewCode(batch.getId(), now))
+                .sourceType(sourceType)
+                .sourceId(sourceId)
+                .batchExecutionId(batch.getId())
+                .batchExecutionCode(batch.getBatchExecutionCode())
+                .workOrderId(batch.getWorkOrderId())
+                .workOrderCode(batch.getWorkOrderCode())
+                .batchCode(batch.getBatchCode())
+                .previousBatchStatus(batch.getStatus())
+                .previousWorkOrderTemporaryFrozen(previousWorkOrderTemporaryFrozen)
+                .reviewStatus(STATUS_PENDING_REVIEW)
+                .nonconformanceReason(reason)
+                .frozenAt(now)
+                .remark(StrUtil.trim(remark))
+                .build();
+        reviewMapper.insert(review);
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN));
+        if (workOrder != null) {
+            requireWorkOrderUpdate(workOrder.getId(), true);
+        }
+        return review;
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO requirePqcReleaseApplicationForUpdate(Long applicationId) {
@@ -536,6 +611,22 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         payload.put("reviewMaterialUrl", reviewMaterialUrl);
         payload.put("reviewOpinion", reviewOpinion);
         payload.put("qaUserId", qaUserId);
+        return DigestUtil.sha256Hex(JSON.toJSONString(payload));
+    }
+
+    private String buildReleaseOwnerRejectAggregateHash(MesProEdhrBatchExecutionDO batch,
+                                                        String reason,
+                                                        Long releaseOwnerUserId) {
+        JSONObject payload = new JSONObject(true);
+        payload.put("batchExecutionId", batch.getId());
+        payload.put("batchExecutionCode", batch.getBatchExecutionCode());
+        payload.put("workOrderId", batch.getWorkOrderId());
+        payload.put("workOrderCode", batch.getWorkOrderCode());
+        payload.put("batchCode", batch.getBatchCode());
+        payload.put("previousBatchStatus", batch.getStatus());
+        payload.put("sourceType", SOURCE_TYPE_PQC_RELEASE);
+        payload.put("nonconformanceReason", reason);
+        payload.put("releaseOwnerUserId", releaseOwnerUserId);
         return DigestUtil.sha256Hex(JSON.toJSONString(payload));
     }
 

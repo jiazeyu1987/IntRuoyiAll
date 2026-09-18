@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
@@ -23,6 +24,10 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
 
     @Update("UPDATE mes_pro_edhr_batch_execution SET active_context_key = NULL WHERE id = #{id}")
     void clearActiveContextKey(@Param("id") Long id);
+
+    @Select("SELECT * FROM mes_pro_edhr_batch_execution WHERE id = #{id} "
+            + "AND deleted = b'0' FOR UPDATE")
+    MesProEdhrBatchExecutionDO selectByIdForUpdate(@Param("id") Long id);
 
     @Update("UPDATE mes_pro_edhr_batch_execution SET provisioning_status = #{status} "
             + "WHERE tenant_id = #{tenantId} AND id = #{id}")
