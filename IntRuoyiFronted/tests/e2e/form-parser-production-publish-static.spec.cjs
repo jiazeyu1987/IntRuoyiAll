@@ -94,9 +94,11 @@ assertNotIncludes(publishHandler, 'download.json', 'publishing must not synthesi
 const applyHandler = extractFunction(parserPage, 'handleApplyEditedJson')
 assertNotIncludes(applyHandler, 'publishTotalRecognitionJson', '应用按钮不得发布路线')
 
-assertIncludes(qaPanel, 'handleQaPublishPlaceholder')
-assertIncludes(qaPanel, '发布功能待实现')
+assertIncludes(qaPanel, 'openQaPublishDialog')
+assertIncludes(qaPanel, 'publishQaInspectionRegulationJson')
+assertNotIncludes(qaPanel, 'handleQaPublishPlaceholder')
+assertNotIncludes(qaPanel, '发布功能待实现')
 assertNotIncludes(qaPanel, 'publishTotalRecognitionJson')
-assertNotIncludes(qaPanel, 'getProjectCodePage')
+assertIncludes(qaPanel, 'getProjectCodePage')
 
 console.log('form parser production publish static contract passed')
