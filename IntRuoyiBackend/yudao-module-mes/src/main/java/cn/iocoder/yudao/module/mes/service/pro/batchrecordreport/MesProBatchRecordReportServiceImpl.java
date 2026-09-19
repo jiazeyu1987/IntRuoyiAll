@@ -54,6 +54,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionWorkflowService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteControlledContentAdapter;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -166,6 +167,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     private MesProBatchRecordRecognitionDeviceSyncService recognitionDeviceSyncService;
     @Resource
     private MesProRouteVersionWorkflowService routeVersionWorkflowService;
+    @Resource
+    private MesProRouteControlledContentAdapter routeControlledContentAdapter;
     @Autowired(required = false)
     private List<MesProBatchRecordRouteRecognizer> routeRecognizers = List.of();
 
@@ -225,6 +228,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                             null, null, false, null, dccProjectCodeId);
             route = routeMapper.selectById(generatedRoute.routeId());
             activeVersion = routeVersionMapper.selectActiveByRouteId(generatedRoute.routeId());
+            recognitionDeviceSyncService.initializeActiveVersionProductionConfigs(dccProjectCodeId, canonicalJson);
+            activeVersion = routeVersionMapper.selectActiveByRouteId(generatedRoute.routeId());
             action = "CREATED_ROUTE";
         } else {
             Long routeId = routeIds.get(0);
@@ -240,6 +245,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMPORT_INTEGRITY_INVALID,
                     "工艺路线缺少正式版本：" + (route == null ? null : route.getId()));
         }
+        routeControlledContentAdapter.recordActiveRegisteredIfMissing(activeVersion, null,
+                "生产批记录 JSON 发布前补齐路线正式版本受控内容引用");
         MesProRouteVersionDO candidateVersion = createPublishCandidate(route, activeVersion);
         recognitionDeviceSyncService.sync(dccProjectCodeId, canonicalJson);
         candidateVersion = routeVersionMapper.selectOpenCandidateByRouteId(route.getId());

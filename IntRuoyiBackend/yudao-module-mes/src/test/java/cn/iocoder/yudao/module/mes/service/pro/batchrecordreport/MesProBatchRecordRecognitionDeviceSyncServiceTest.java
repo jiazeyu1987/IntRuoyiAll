@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteCandidateConfigService;
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -20,10 +21,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,6 +39,51 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
     private MesProRouteVersionMapper routeVersionMapper;
     @Mock
     private MesProRouteCandidateConfigService candidateConfigService;
+
+    @Test
+    void initializeActiveVersionProductionConfigsWritesCompleteProductionSnapshot() {
+        MesProBatchRecordRecognitionDeviceSyncService service =
+                new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
+                        processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
+        when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(9001L))
+                .thenReturn(List.of(MesRouteDccProjectBindingDO.builder().routeId(1001L).build()));
+        MesProProcessDO process = new MesProProcessDO();
+        process.setId(3001L);
+        process.setName("清洗工序");
+        when(processMapper.selectById(3001L)).thenReturn(process);
+        MesProRouteVersionDO activeVersion = MesProRouteVersionDO.builder()
+                .id(4001L)
+                .routeId(1001L)
+                .active(Boolean.TRUE)
+                .routeSnapshotJson("""
+                        {"routeId":1001,"routeCode":"R-1001","routeName":"测试路线",
+                         "configSnapshots":{"flowGraph":{"nodes":[
+                           {"routeProcessId":2001,"processId":3001,"sort":1}
+                         ]},"batchUseConfigs":[]}}
+                        """)
+                .build();
+        when(routeVersionMapper.selectActiveByRouteId(1001L)).thenReturn(activeVersion);
+
+        service.initializeActiveVersionProductionConfigs(9001L, """
+                {"schemaVersion":3,"processes":[
+                  {"routeProcessId":2001,"equipmentGroups":[]}
+                ]}
+                """);
+
+        ArgumentCaptor<MesProRouteVersionDO> versionCaptor =
+                ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).updateById(versionCaptor.capture());
+        JSONObject snapshot = JSONObject.parseObject(versionCaptor.getValue().getRouteSnapshotJson());
+        JSONObject configSnapshots = snapshot.getJSONObject("configSnapshots");
+        assertEquals(1, configSnapshots.getIntValue("productionProcessConfigSchemaVersion"));
+        assertEquals(1, configSnapshots.getJSONArray("productionProcessConfigs").size());
+        assertEquals(2001L, configSnapshots.getJSONArray("productionProcessConfigs")
+                .getJSONObject(0).getLongValue("routeProcessId"));
+        assertEquals(0, configSnapshots.getJSONArray("productionProcessConfigs")
+                .getJSONObject(0).getJSONArray("deviceSelectionGroups").size());
+        assertEquals(0, configSnapshots.getJSONArray("productionProcessConfigs")
+                .getJSONObject(0).getJSONArray("parameterRules").size());
+    }
 
     @Test
     void syncWritesRecognitionDevicesToCandidateRouteProductionConfig() {
@@ -99,21 +143,75 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
     }
 
     @Test
-    void syncRejectsLegacySchemaVersionTwoBecauseItHasNoFormalRouteProcessIdentity() {
+    void syncResolvesSchemaVersionTwoProcessByName() {
         MesProBatchRecordRecognitionDeviceSyncService service =
                 new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
                         processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
+        when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(9001L))
+                .thenReturn(List.of(MesRouteDccProjectBindingDO.builder().routeId(1001L).build()));
+        MesProProcessDO process = new MesProProcessDO();
+        process.setId(3001L);
+        process.setName("清洗工序");
+        when(processMapper.selectById(3001L)).thenReturn(process);
+        when(routeVersionMapper.selectOpenCandidateByRouteId(1001L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(4001L)
+                .routeId(1001L)
+                .lifecycleStatus("DRAFT")
+                .routeSnapshotSha256("candidate-hash")
+                .routeSnapshotJson("{\"routeId\":1001,\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":2001,\"processId\":3001,\"sort\":1}]},\"productionProcessConfigs\":[]}}")
+                .build());
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.sync(9001L, """
+        service.sync(9001L, """
                 {"schemaVersion":2,"processes":[{"name":"清洗工序","equipmentGroups":[]}]}
-                """));
+                """);
 
-        assertTrue(ex.getMessage().contains("schemaVersion=3"));
-        verify(candidateConfigService, never()).saveConfigSnapshots(any(), any());
+        verify(candidateConfigService).saveConfigSnapshots(
+                org.mockito.ArgumentMatchers.eq(4001L),
+                org.mockito.ArgumentMatchers.eq("candidate-hash"),
+                any());
     }
 
     @Test
-    void syncRejectsWhenRecognitionDoesNotCoverEveryRouteProcess() {
+    void syncSkipsMissingDeviceAndLeavesProcessAvailableForManualBinding() {
+        MesProBatchRecordRecognitionDeviceSyncService service =
+                new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
+                        processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
+        when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(9001L))
+                .thenReturn(List.of(MesRouteDccProjectBindingDO.builder().routeId(1001L).build()));
+        MesProProcessDO process = new MesProProcessDO();
+        process.setId(3001L);
+        process.setName("清洗工序");
+        when(processMapper.selectById(3001L)).thenReturn(process);
+        when(routeVersionMapper.selectOpenCandidateByRouteId(1001L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(4001L)
+                .routeId(1001L)
+                .lifecycleStatus("DRAFT")
+                .routeSnapshotSha256("candidate-hash")
+                .routeSnapshotJson("{\"routeId\":1001,\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":2001,\"processId\":3001,\"sort\":1}]},\"productionProcessConfigs\":[]}}")
+                .build());
+        when(deviceMapper.selectList(any())).thenReturn(List.of());
+
+        service.sync(9001L, """
+                {"schemaVersion":3,"processes":[{"routeProcessId":2001,"equipmentGroups":[{
+                  "selectionMode":"SINGLE",
+                  "equipmentOptions":[{"code":"A05008","name":"待维护设备"}],
+                  "parameters":[]
+                }]}]}
+                """);
+
+        ArgumentCaptor<Map<String, Object>> configCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(candidateConfigService).saveConfigSnapshots(
+                org.mockito.ArgumentMatchers.eq(4001L),
+                org.mockito.ArgumentMatchers.eq("candidate-hash"),
+                configCaptor.capture());
+        JSONArray productionConfigs = (JSONArray) configCaptor.getValue().get("productionProcessConfigs");
+        JSONObject processConfig = productionConfigs.getJSONObject(0);
+        assertEquals(0, processConfig.getJSONArray("deviceSelectionGroups").size());
+        assertEquals(0, processConfig.getJSONArray("parameterRules").size());
+    }
+
+    @Test
+    void syncPreservesExistingConfigForProcessNotMentionedByJson() {
         MesProBatchRecordRecognitionDeviceSyncService service =
                 new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
                         processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
@@ -131,15 +229,32 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
                 .id(4001L)
                 .routeId(1001L)
                 .lifecycleStatus("DRAFT")
-                .routeSnapshotJson("{\"routeId\":1001,\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":2001,\"processId\":3001,\"sort\":1},{\"routeProcessId\":2002,\"processId\":3002,\"sort\":2}]},\"productionProcessConfigs\":[]}}")
+                .routeSnapshotSha256("candidate-hash")
+                .routeSnapshotJson("""
+                        {"routeId":1001,"configSnapshots":{
+                          "flowGraph":{"nodes":[
+                            {"routeProcessId":2001,"processId":3001,"sort":1},
+                            {"routeProcessId":2002,"processId":3002,"sort":2}
+                          ]},
+                          "productionProcessConfigs":[
+                            {"routeProcessId":2002,"processId":3002,"sort":2,"processName":"烘干工序",
+                             "overagePercent":5,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}
+                          ]}}
+                        """)
                 .build());
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.sync(9001L, """
+        service.sync(9001L, """
                 {"schemaVersion":3,"processes":[{"routeProcessId":2001,"equipmentGroups":[]}]}
-                """));
+                """);
 
-        assertTrue(ex.getMessage().contains("必须覆盖当前路线全部工序"));
-        verify(candidateConfigService, never()).saveConfigSnapshots(any(), any());
+        ArgumentCaptor<Map<String, Object>> configCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(candidateConfigService).saveConfigSnapshots(
+                org.mockito.ArgumentMatchers.eq(4001L),
+                org.mockito.ArgumentMatchers.eq("candidate-hash"),
+                configCaptor.capture());
+        JSONArray productionConfigs = (JSONArray) configCaptor.getValue().get("productionProcessConfigs");
+        assertEquals(2, productionConfigs.size());
+        assertEquals(5, productionConfigs.getJSONObject(1).getIntValue("overagePercent"));
     }
 
     @Test

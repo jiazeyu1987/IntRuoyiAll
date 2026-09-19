@@ -9,7 +9,7 @@
           <div class="qa-parser-panel-subtitle">{{ qaLastDownloadName }}</div>
         </div>
         <div class="qa-parser-panel-actions">
-          <el-button @click="openQaPublishDialog">
+          <el-button @click="handleQaPublishPlaceholder">
             <Icon icon="ep:promotion" />
             发布
           </el-button>
@@ -249,53 +249,10 @@
     </div>
   </el-dialog>
 
-  <el-dialog
-    v-model="qaPublishDialogVisible"
-    title="发布 QA 检验规程"
-    width="620px"
-    append-to-body
-  >
-    <el-form label-width="120px">
-      <el-form-item label="绑定项目代码" required>
-        <el-select
-          v-model="qaPublishProjectCodeId"
-          v-loading="qaPublishProjectCodeLoading"
-          filterable
-          clearable
-          placeholder="请选择启用的 DCC 项目代码"
-          style="width: 100%"
-        >
-          <el-option
-            v-for="project in qaPublishProjectCodes"
-            :key="project.id"
-            :label="`${project.projectCode} / ${project.projectName}`"
-            :value="project.id"
-          />
-        </el-select>
-      </el-form-item>
-      <el-alert
-        title="发布将读取当前编辑器中的 QA JSON，并生成新的 QA 发布版本；不会下载 JSON 文件。"
-        type="info"
-        :closable="false"
-        show-icon
-      />
-    </el-form>
-    <template #footer>
-      <el-button @click="qaPublishDialogVisible = false">取消</el-button>
-      <el-button type="primary" :loading="qaPublishSubmitting" @click="confirmQaPublish">
-        确认发布
-      </el-button>
-    </template>
-  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import download from '@/utils/download'
-import {
-  DCC_PROJECT_CODE_STATUS_ENABLE,
-  getProjectCodePage,
-  type DccProjectCodeRespVO
-} from '@/api/dcc/controlledFile/projectCodes'
 import {
   QcTemplateApi,
   type QaInspectionRegulationParseVO,
@@ -326,11 +283,6 @@ const qaInspectionQuantity = ref(1)
 const qaItemResults = reactive<Record<string, QaPreviewResult | undefined>>({})
 const qaFactDialogVisible = ref(false)
 const qaFactDialogType = ref<QaFactDialogType>('standard')
-const qaPublishDialogVisible = ref(false)
-const qaPublishProjectCodeId = ref<number>()
-const qaPublishProjectCodes = ref<DccProjectCodeRespVO[]>([])
-const qaPublishProjectCodeLoading = ref(false)
-const qaPublishSubmitting = ref(false)
 
 const qaCurrentProcess = computed(() =>
   qaPreviewJson.value?.processes[qaCurrentProcessIndex.value]
@@ -413,75 +365,8 @@ const applyQaEditedJson = () => {
   }
 }
 
-const openQaPublishDialog = async () => {
-  if (!qaEditableJson.value.trim()) {
-    message.error('没有可发布的 QA JSON')
-    return
-  }
-  try {
-    validateQaRecognitionJson(JSON.parse(qaEditableJson.value) as unknown)
-  } catch (error) {
-    message.error(resolveQaParseErrorMessage(error, 'QA JSON 校验失败'))
-    return
-  }
-  qaPublishProjectCodeId.value = undefined
-  qaPublishDialogVisible.value = true
-  qaPublishProjectCodeLoading.value = true
-  try {
-    const pageSize = 200
-    const allProjects: DccProjectCodeRespVO[] = []
-    let pageNo = 1
-    let total = 0
-    do {
-      const result = await getProjectCodePage({
-        pageNo,
-        pageSize,
-        status: DCC_PROJECT_CODE_STATUS_ENABLE
-      })
-      allProjects.push(...(result.list || []))
-      total = result.total || allProjects.length
-      pageNo += 1
-    } while (allProjects.length < total)
-    qaPublishProjectCodes.value = allProjects
-    if (!qaPublishProjectCodes.value.length) {
-      message.error('没有可绑定的启用 DCC 项目代码')
-    }
-  } catch (error) {
-    message.error(resolveQaParseErrorMessage(error, 'DCC 项目代码加载失败'))
-  } finally {
-    qaPublishProjectCodeLoading.value = false
-  }
-}
-
-const confirmQaPublish = async () => {
-  if (!qaPublishProjectCodeId.value) {
-    message.error('请选择绑定的 DCC 项目代码')
-    return
-  }
-  let recognitionJson: QaInspectionRegulationParseVO
-  try {
-    recognitionJson = validateQaRecognitionJson(
-      JSON.parse(qaEditableJson.value) as unknown
-    )
-  } catch (error) {
-    message.error(resolveQaParseErrorMessage(error, 'QA JSON 校验失败'))
-    return
-  }
-  qaPublishSubmitting.value = true
-  try {
-    const result = await QcTemplateApi.publishQaInspectionRegulationJson({
-      dccProjectCodeId: qaPublishProjectCodeId.value,
-      recognitionJson
-    })
-    qaPublishDialogVisible.value = false
-    message.success(
-      `QA 检验规程${result.route === 'CREATE' ? '创建并' : '更新并'}发布完成：${result.versionNo}`
-    )
-  } catch (error) {
-    message.error(resolveQaParseErrorMessage(error, 'QA 检验规程发布失败'))
-  } finally {
-    qaPublishSubmitting.value = false
-  }
+const handleQaPublishPlaceholder = () => {
+  message.info('QA检验规程发布功能待实现')
 }
 
 const downloadQaCurrentJson = () => {
