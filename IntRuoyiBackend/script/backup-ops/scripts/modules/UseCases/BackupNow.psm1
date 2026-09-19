@@ -94,10 +94,13 @@ function Invoke-BackupNowUseCase {
                 -LogSession $logSession
         }
 
-        Show-BackupOpsProgress -Current 1 -Total 7 -Message '校验 NAS 挂载...'
+        Show-BackupOpsProgress -Current 1 -Total 8 -Message '校验 NAS 挂载...'
         $null = Assert-BackupOpsRemoteNasMounted -Config $Config -LogSession $logSession
 
-        Show-BackupOpsProgress -Current 2 -Total 7 -Message '创建备份工作目录...'
+        Show-BackupOpsProgress -Current 2 -Total 8 -Message '删除上一次测试服备份数据...'
+        $null = Invoke-BackupOpsRemoteRepositoryReset -Config $Config -LogSession $logSession
+
+        Show-BackupOpsProgress -Current 3 -Total 8 -Message '创建备份工作目录...'
         $workspace = New-BackupOpsBackupWorkspace -Config $Config -Action 'backup-now' -BackupType 'manual'
         $workspace.ImageTag = Get-BackupOpsCurrentImageTag -Config $Config -LogSession $logSession
         $resultContext.backupId = $workspace.BackupId

@@ -26,7 +26,7 @@ import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.RUNTIME_CON
 public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandExecutor {
 
     private static final Duration RESTART_COMMAND_TIMEOUT = Duration.ofMinutes(5);
-    private static final Duration OPERATION_COMMAND_TIMEOUT = Duration.ofHours(2);
+    private static final Duration OPERATION_COMMAND_TIMEOUT = Duration.ofHours(12);
     private static final Duration DETACHED_OPERATION_START_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration PROCESS_TERMINATION_TIMEOUT = Duration.ofSeconds(10);
     private static final boolean WINDOWS = System.getProperty("os.name")
