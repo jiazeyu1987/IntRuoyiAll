@@ -1081,7 +1081,10 @@ public class MesProcessPoolTeamLeaderController {
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderProcessDetailRespVO)
                         .toList())
                 .setPqcProductionRelease(toActiveOrderPqcProductionReleaseSummaryRespVO(
-                        detail.getPqcProductionRelease()));
+                        detail.getPqcProductionRelease()))
+                .setOperationFacts(detail.getOperationFacts().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderOperationFactRespVO)
+                        .toList());
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.ProcessDetail toActiveOrderProcessDetailRespVO(
@@ -1278,7 +1281,7 @@ public class MesProcessPoolTeamLeaderController {
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.PqcProductionReleaseSummary
-    toActiveOrderPqcProductionReleaseSummaryRespVO(
+            toActiveOrderPqcProductionReleaseSummaryRespVO(
             MesTeamLeaderActiveOrderDetail.PqcProductionReleaseSummary summary) {
         if (summary == null) {
             return null;
@@ -1287,6 +1290,22 @@ public class MesProcessPoolTeamLeaderController {
                 .setStatus(summary.getStatus())
                 .setStatusLabel(summary.getStatusLabel())
                 .setSignature(toActiveOrderSignatureDetailRespVO(summary.getSignature()));
+    }
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.OperationFact toActiveOrderOperationFactRespVO(
+            MesTeamLeaderActiveOrderDetail.OperationFact fact) {
+        return new MesTeamLeaderActiveOrderDetailRespVO.OperationFact()
+                .setId(fact.getId())
+                .setOperationType(fact.getOperationType())
+                .setOperationName(fact.getOperationName())
+                .setSourceType(fact.getSourceType())
+                .setSourceId(fact.getSourceId())
+                .setActorUserId(fact.getActorUserId())
+                .setActorName(fact.getActorName())
+                .setSignatureId(fact.getSignatureId())
+                .setResultStatus(fact.getResultStatus())
+                .setOccurredAt(fact.getOccurredAt())
+                .setSourceSnapshotHash(fact.getSourceSnapshotHash());
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.PqcSubmissionItemDetail toActiveOrderPqcSubmissionItemDetailRespVO(
@@ -1315,6 +1334,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setBatchCode(result.getBatchCode())
                 .setRouteId(result.getRouteId())
                 .setRouteVersionId(result.getRouteVersionId())
+                .setBatchExecutionId(result.getBatchExecutionId())
                 .setPqcReleaseWorkTaskId(result.getPqcReleaseWorkTaskId())
                 .setStatus(result.getStatus())
                 .setSourceSnapshotHash(result.getSourceSnapshotHash())

@@ -675,6 +675,21 @@ export interface TeamLeaderActiveOrderDetailRespVO {
   inputMaterialUsages?: TeamLeaderActiveOrderInputMaterialDetailRespVO[]
   processes: TeamLeaderActiveOrderProcessDetailRespVO[]
   pqcProductionRelease?: TeamLeaderActiveOrderPqcProductionReleaseSummaryRespVO
+  operationFacts?: TeamLeaderActiveOrderOperationFactRespVO[]
+}
+
+export interface TeamLeaderActiveOrderOperationFactRespVO {
+  id: number
+  operationType: string
+  operationName?: string
+  sourceType: string
+  sourceId: string
+  actorUserId: number
+  actorName: string
+  signatureId?: number
+  resultStatus: string
+  occurredAt: string | number
+  sourceSnapshotHash: string
 }
 
 export interface ActiveOrderDossierFileItemVO {

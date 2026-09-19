@@ -1357,6 +1357,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 latest, reexecuteProvisionCommand);
         EdhrBatchExecutionRespVO result = toResp(latest);
         JSONObject reexecuteAudit = new JSONObject(true);
+        reexecuteAudit.put("activeOrderId", reexecuteProvisionCommand.getActiveOrderId());
         reexecuteAudit.put("sourceRejectedBatchExecutionId", source.getId());
         reexecuteAudit.put("attemptNo", attemptNo);
         reexecuteAudit.put("reason", reason);
@@ -9003,6 +9004,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                       String permissionCode, String permissionDecision, String resultStatus,
                                       String beforeSummaryHash, String afterSummaryHash, String metadataJson,
                                       boolean callerTransaction) {
+        OperationAuditEnrichment enrichment =
+                enrichActiveOrderOperationAudit(batchExecutionId, afterSummaryHash, metadataJson);
         MesProEdhrOperationAuditCommand command = new MesProEdhrOperationAuditCommand()
                 .setRequestId("EDHR-AUD-" + java.util.UUID.randomUUID())
                 .setObjectType(objectType)
@@ -9022,13 +9025,78 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setPermissionDecision(permissionDecision)
                 .setResultStatus(resultStatus)
                 .setBeforeSummaryHash(beforeSummaryHash)
-                .setAfterSummaryHash(afterSummaryHash)
-                .setMetadataJson(metadataJson);
+                .setAfterSummaryHash(enrichment.afterSummaryHash())
+                .setMetadataJson(enrichment.metadataJson());
         if (callerTransaction) {
             operationAuditService.recordInCallerTransaction(command);
         } else {
             operationAuditService.record(command);
         }
+    }
+
+    private OperationAuditEnrichment enrichActiveOrderOperationAudit(Long batchExecutionId,
+                                                                     String afterSummaryHash,
+                                                                     String metadataJson) {
+        if (batchExecutionId == null) {
+            return new OperationAuditEnrichment(metadataJson, afterSummaryHash);
+        }
+        JSONObject metadata = StrUtil.isBlank(metadataJson) ? new JSONObject(true) : JSON.parseObject(metadataJson);
+        if (metadata == null) {
+            throw new IllegalStateException("active order operation audit metadata is invalid: " + batchExecutionId);
+        }
+        List<MesProEdhrBatchExecutionOriginDO> origins =
+                batchExecutionOriginMapper.selectListByBatchExecutionId(batchExecutionId);
+        if (origins == null || origins.isEmpty()) {
+            Long activeOrderId = metadata.getLong("activeOrderId");
+            if (activeOrderId == null || StrUtil.isNotBlank(afterSummaryHash)) {
+                return new OperationAuditEnrichment(metadata.toJSONString(), afterSummaryHash);
+            }
+            String sourceSnapshotHash = metadata.getString("sourceSnapshotHash");
+            if (StrUtil.isBlank(sourceSnapshotHash)) {
+                throw new IllegalStateException("active order operation audit source snapshot hash is missing: "
+                        + batchExecutionId);
+            }
+            return new OperationAuditEnrichment(metadata.toJSONString(), sourceSnapshotHash);
+        }
+        List<Long> activeOrderIds = origins.stream()
+                .map(MesProEdhrBatchExecutionOriginDO::getActiveOrderId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (activeOrderIds.isEmpty()) {
+            return new OperationAuditEnrichment(metadataJson, afterSummaryHash);
+        }
+        if (activeOrderIds.size() > 1) {
+            throw new IllegalStateException("active order operation audit has multiple active order origins: "
+                    + batchExecutionId);
+        }
+        Long activeOrderId = activeOrderIds.get(0);
+        Long existingActiveOrderId = metadata.getLong("activeOrderId");
+        if (existingActiveOrderId != null && !Objects.equals(existingActiveOrderId, activeOrderId)) {
+            throw new IllegalStateException("active order operation audit source mismatch: " + batchExecutionId);
+        }
+        metadata.put("activeOrderId", activeOrderId);
+        String resolvedAfterSummaryHash = afterSummaryHash;
+        if (StrUtil.isBlank(resolvedAfterSummaryHash)) {
+            List<String> sourceSnapshotHashes = origins.stream()
+                    .map(MesProEdhrBatchExecutionOriginDO::getSourceSnapshotHash)
+                    .filter(StrUtil::isNotBlank)
+                    .distinct()
+                    .toList();
+            if (sourceSnapshotHashes.size() > 1) {
+                throw new IllegalStateException("active order operation audit has multiple source snapshot hashes: "
+                        + batchExecutionId);
+            }
+            if (sourceSnapshotHashes.isEmpty()) {
+                throw new IllegalStateException("active order operation audit source snapshot hash is missing: "
+                        + batchExecutionId);
+            }
+            resolvedAfterSummaryHash = sourceSnapshotHashes.get(0);
+        }
+        return new OperationAuditEnrichment(metadata.toJSONString(), resolvedAfterSummaryHash);
+    }
+
+    private record OperationAuditEnrichment(String metadataJson, String afterSummaryHash) {
     }
 
     private MesProEdhrBatchProvisioningRecordDO createProvisioningRecord(

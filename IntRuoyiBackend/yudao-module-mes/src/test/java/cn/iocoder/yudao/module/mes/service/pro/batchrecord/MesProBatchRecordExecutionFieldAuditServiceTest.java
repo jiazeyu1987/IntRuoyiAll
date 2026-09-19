@@ -424,6 +424,31 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void saveChanges_recordsOwningBatchExecutionIdInsteadOfFormExecutionId() {
+        String beforeJson = JsonUtils.toJsonString(List.of(Map.of(
+                "rowIndex", 1,
+                "columnIndex", 2,
+                "value", "36.6"
+        )));
+        MesProBatchRecordExecutionDO execution = insertDraftExecution(beforeJson)
+                .setBatchExecutionId(8301L);
+        executionMapper.updateById(execution);
+        String beforeHash = MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(beforeJson);
+        mockFieldChangeSignature();
+
+        MesProBatchRecordExecutionFieldAuditSaveResult result = fieldAuditService.saveChanges(
+                saveCommand(execution, beforeHash, "idem-audit-batch-owner-001",
+                        new BigDecimal("36.6"), MesProBatchRecordExecutionFieldAuditHasher.hashTypedValue(
+                                MesProBatchRecordExecutionFieldAuditValueType.NUMBER, new BigDecimal("36.6"))));
+
+        verify(operationAuditService).record(argThat(audit ->
+                "FIELD_AUDIT_BATCH".equals(audit.getObjectType())
+                        && String.valueOf(result.getAuditBatchId()).equals(audit.getObjectId())
+                        && Long.valueOf(8301L).equals(audit.getBatchExecutionId())
+                        && !Long.valueOf(execution.getId()).equals(audit.getBatchExecutionId())));
+    }
+
+    @Test
     void saveChanges_multiUserSameFormKeepsActualActorSignatureAndHashSeparated() {
         String beforeJson = JsonUtils.toJsonString(List.of(Map.of(
                 "rowIndex", 1,

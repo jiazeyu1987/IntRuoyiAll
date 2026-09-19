@@ -10,13 +10,13 @@ const executionList = read('IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchEx
 const historyList = read('IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchRecordHistoryPage.vue')
 const router = read('IntRuoyiFronted/src/router/modules/remaining.ts')
 
-assert.match(executionList, /data-edhr-batch-execution-source-detail/)
+assert.match(executionList, /data-edhr-batch-active-order-detail/)
 assert.match(executionList, />\s*详情\s*</)
-assert.match(executionList, /edhr-batch-execution\/source-detail/)
+assert.match(executionList, /edhr-batch-execution\/active-order-detail/)
 
-assert.match(historyList, /data-edhr-history-source-detail/)
+assert.match(historyList, /data-edhr-history-active-order-detail/)
 assert.match(historyList, />\s*详情\s*</)
-assert.match(historyList, /edhr-batch-execution\/source-detail/)
+assert.match(historyList, /edhr-batch-execution\/active-order-detail/)
 
 const detailPagePath = path.join(
   workspaceRoot,
@@ -28,7 +28,7 @@ assert.match(detailPage, /getEdhrBatchActiveOrderDetail/)
 assert.doesNotMatch(detailPage, /getTeamLeaderActiveOrderDetail/)
 assert.match(detailPage, /batchExecutionId/)
 
-assert.match(router, /edhr-batch-execution\/source-detail/)
+assert.match(router, /edhr-batch-execution\/active-order-detail/)
 assert.match(router, /BatchExecutionActiveOrderDetailPage\.vue/)
 assert.match(router, /mes:pro-edhr-batch-execution:query/)
 

@@ -31,6 +31,6 @@ public class MesProEdhrBatchActiveOrderDetailService {
                 || !Objects.equals(activeOrder.getWorkOrderId(), batch.getWorkOrderId())) {
             throw new IllegalStateException("EDHR_BATCH_ACTIVE_ORDER_SOURCE_INVALID");
         }
-        return detailService.getDetail(activeOrder.getLeaderUserId(), activeOrderId);
+        return detailService.getFormalDetail(activeOrderId);
     }
 }

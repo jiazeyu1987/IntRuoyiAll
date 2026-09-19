@@ -1,7 +1,7 @@
 <template>
   <ContentWrap>
-    <div class="edhr-batch-source-detail" data-edhr-batch-source-detail-page>
-      <div class="edhr-batch-source-detail__toolbar">
+    <div class="edhr-batch-active-order-detail" data-edhr-batch-active-order-detail-page>
+      <div class="edhr-batch-active-order-detail__toolbar">
         <el-button data-edhr-batch-source-detail-back @click="goBack">返回</el-button>
       </div>
       <ActiveOrderSubmissionDetailPanel
@@ -48,8 +48,12 @@ const parseBatchExecutionId = (): EdhrRouteId => {
 
 const resolveReturnPath = () => {
   const source = typeof route.query.from === 'string' ? route.query.from.trim() : ''
-  if (source === 'execution') return '/mes/pro/feedback/edhr-batch-execution'
-  if (source === 'history') return '/mes/pro/feedback/edhr-batch-history'
+  if (source === 'execution' || source === '/mes/pro/feedback/edhr-batch-execution') {
+    return '/mes/pro/feedback/edhr-batch-execution'
+  }
+  if (source === 'history' || source === '/mes/pro/feedback/edhr-batch-history') {
+    return '/mes/pro/feedback/edhr-batch-history'
+  }
   throw new Error('缺少详情来源页面，无法返回原列表。')
 }
 
@@ -93,13 +97,13 @@ onMounted(loadDetail)
 </script>
 
 <style scoped>
-.edhr-batch-source-detail {
+.edhr-batch-active-order-detail {
   display: grid;
   gap: 12px;
   min-width: 0;
 }
 
-.edhr-batch-source-detail__toolbar {
+.edhr-batch-active-order-detail__toolbar {
   display: flex;
   justify-content: flex-start;
 }

@@ -25,13 +25,15 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper receiptMapper;
     @Mock
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper batchMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
 
     private MesTeamLeaderActiveOrderReleaseApplicationServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(
-                generationService, completionService, receiptMapper, batchMapper);
+                generationService, completionService, receiptMapper, batchMapper, applicationMapper);
     }
 
     @Test
@@ -53,16 +55,44 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
         when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(receipt);
         when(batchMapper.selectByContext(90L, "B90", 30L)).thenReturn(
                 cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO.builder().id(93L).status(0).build());
-        var expected = new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L);
+        var expected = new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L).setVersion(1);
         when(generationService.generate(20L, command)).thenReturn(expected);
+        when(applicationMapper.bindP3BatchExecution(99L, 1, 93L)).thenReturn(1);
         assertSame(expected, service.applyGenerated(20L, command));
+        verify(applicationMapper).bindP3BatchExecution(99L, 1, 93L);
         org.mockito.Mockito.verifyNoInteractions(completionService);
+    }
+
+    @Test
+    void pushGeneratedBindsExistingPendingApplicationToPersistedP2Batch() {
+        var command = new MesTeamLeaderActiveOrderReleaseApplyCommand()
+                .setActiveOrderId(10L).setIdempotencyKey("P3-10");
+        var existing = new MesTeamLeaderActiveOrderReleaseApplicationResult()
+                .setApplicationId(99L).setVersion(1);
+        when(generationService.replayExisting(20L, command)).thenReturn(existing);
+        var receipt = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO.builder()
+                .id(88L).activeOrderId(10L).leaderUserId(20L).workOrderId(90L).batchCode("B90").routeId(30L)
+                .receiptStatus("BACKFILL_SUCCEEDED").batchRecordStatus("SUCCESS").processInspectionStatus("SUCCESS")
+                .batchRecordId(91L).processInspectionId(92L).routeVersionId(31L).build();
+        when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(receipt);
+        when(batchMapper.selectByContext(90L, "B90", 30L)).thenReturn(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO.builder()
+                        .id(93L).status(0).build());
+        when(applicationMapper.bindP3BatchExecution(99L, 1, 93L)).thenReturn(1);
+
+        var actual = service.applyGenerated(20L, command);
+
+        org.junit.jupiter.api.Assertions.assertEquals(93L, actual.getBatchExecutionId());
+        org.junit.jupiter.api.Assertions.assertEquals(2, actual.getVersion());
+        verify(applicationMapper).bindP3BatchExecution(99L, 1, 93L);
+        verify(generationService, never()).generate(20L, command);
     }
 
     @Test
     void pushGeneratedReplaysWithoutGeneratingAgain() {
         var command = new MesTeamLeaderActiveOrderReleaseApplyCommand().setActiveOrderId(10L).setIdempotencyKey("P3-10");
-        var expected = new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L);
+        var expected = new MesTeamLeaderActiveOrderReleaseApplicationResult()
+                .setApplicationId(99L).setVersion(2).setBatchExecutionId(93L);
         when(generationService.replayExisting(20L, command)).thenReturn(expected);
         assertSame(expected, service.applyGenerated(20L, command));
         org.mockito.Mockito.verifyNoInteractions(completionService, receiptMapper, batchMapper);

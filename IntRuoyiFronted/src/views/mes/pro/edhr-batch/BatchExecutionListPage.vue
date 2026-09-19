@@ -165,8 +165,8 @@
                   <el-button
                     link
                     type="primary"
-                    data-edhr-batch-execution-source-detail
-                    @click="openSourceDetail(row)"
+                    data-edhr-batch-active-order-detail
+                    @click="openActiveOrderDetail(row)"
                   >
                     详情
                   </el-button>
@@ -186,8 +186,8 @@
                   <el-button
                     link
                     type="primary"
-                    data-edhr-batch-execution-source-detail
-                    @click="openSourceDetail(row)"
+                    data-edhr-batch-active-order-detail
+                    @click="openActiveOrderDetail(row)"
                   >
                     详情
                   </el-button>
@@ -200,8 +200,8 @@
                   <el-button
                     link
                     type="primary"
-                    data-edhr-batch-execution-source-detail
-                    @click="openSourceDetail(row)"
+                    data-edhr-batch-active-order-detail
+                    @click="openActiveOrderDetail(row)"
                   >
                     详情
                   </el-button>
@@ -222,8 +222,8 @@
                   <el-button
                     link
                     type="primary"
-                    data-edhr-batch-execution-source-detail
-                    @click="openSourceDetail(row)"
+                    data-edhr-batch-active-order-detail
+                    @click="openActiveOrderDetail(row)"
                   >
                     详情
                   </el-button>
@@ -241,8 +241,8 @@
                   <el-button
                     link
                     type="primary"
-                    data-edhr-batch-execution-source-detail
-                    @click="openSourceDetail(row)"
+                    data-edhr-batch-active-order-detail
+                    @click="openActiveOrderDetail(row)"
                   >
                     详情
                   </el-button>
@@ -1861,7 +1861,7 @@ const openActiveOrderOtherUploadTab = async (row: EdhrBatchExecutionRespVO) => {
     return
   }
   await router.push({
-    path: '/mes/pro/feedback/edhr-batch-execution/source-detail',
+    path: '/mes/pro/feedback/edhr-batch-execution/active-order-detail',
     query: {
       batchExecutionId: String(row.id),
       from: 'execution',
@@ -1870,13 +1870,13 @@ const openActiveOrderOtherUploadTab = async (row: EdhrBatchExecutionRespVO) => {
   })
 }
 
-const openSourceDetail = async (row: EdhrBatchExecutionRespVO) => {
+const openActiveOrderDetail = async (row: EdhrBatchExecutionRespVO) => {
   if (!row.id) {
     message.error('当前批次缺少批次执行编号，无法查看详情批记录。')
     return
   }
   await router.push({
-    path: '/mes/pro/feedback/edhr-batch-execution/source-detail',
+    path: '/mes/pro/feedback/edhr-batch-execution/active-order-detail',
     query: { batchExecutionId: String(row.id), from: 'execution' }
   })
 }

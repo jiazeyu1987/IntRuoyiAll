@@ -192,6 +192,39 @@
                 </tr>
               </tbody>
             </table>
+
+            <table
+              v-if="detail.operationFacts?.length"
+              class="team-leader-workbench__active-order-summary-table"
+              data-active-order-summary-operation-facts-table
+            >
+              <tbody>
+                <tr>
+                  <th colspan="6" class="team-leader-workbench__active-order-summary-title">
+                    活跃订单操作事实
+                  </th>
+                </tr>
+                <tr>
+                  <th>操作</th>
+                  <th>来源类型</th>
+                  <th>来源编号</th>
+                  <th>操作人</th>
+                  <th>结果</th>
+                  <th>发生时间</th>
+                </tr>
+                <tr
+                  v-for="fact in detail.operationFacts"
+                  :key="fact.id"
+                >
+                  <td>{{ fact.operationName || fact.operationType }}</td>
+                  <td>{{ fact.sourceType }}</td>
+                  <td>{{ fact.sourceId }}</td>
+                  <td>{{ fact.actorName }}</td>
+                  <td>{{ fact.resultStatus }}</td>
+                  <td>{{ formatDateTime(fact.occurredAt) }}</td>
+                </tr>
+              </tbody>
+            </table>
           </section>
         </el-tab-pane>
         <el-tab-pane

@@ -103,8 +103,8 @@
               <el-button
                 link
                 type="primary"
-                data-edhr-history-source-detail
-                @click.stop="openSourceDetail(batch)"
+                data-edhr-history-active-order-detail
+                @click.stop="openActiveOrderDetail(batch)"
               >
                 详情
               </el-button>
@@ -140,6 +140,14 @@
                   @click="handlePrintArchive"
                 >
                   打印
+                </el-button>
+                <el-button
+                  type="primary"
+                  plain
+                  data-edhr-history-active-order-detail
+                  @click="openActiveOrderDetail(selectedBatch)"
+                >
+                  详情
                 </el-button>
               </div>
             </section>
@@ -995,14 +1003,17 @@ const selectBatch = async (batch: EdhrBatchExecutionRespVO) => {
   await Promise.all([loadTimeline(batch.id, ''), loadActiveOrderDetail(batch)])
 }
 
-const openSourceDetail = async (batch: EdhrBatchExecutionRespVO) => {
+const openActiveOrderDetail = async (batch: EdhrBatchExecutionRespVO) => {
   if (!batch.id) {
     message.error('当前历史批次缺少批次执行编号，无法查看详情批记录。')
     return
   }
   await router.push({
-    path: '/mes/pro/feedback/edhr-batch-execution/source-detail',
-    query: { batchExecutionId: String(batch.id), from: 'history' }
+    path: '/mes/pro/feedback/edhr-batch-execution/active-order-detail',
+    query: {
+      batchExecutionId: String(batch.id),
+      from: '/mes/pro/feedback/edhr-batch-history'
+    }
   })
 }
 

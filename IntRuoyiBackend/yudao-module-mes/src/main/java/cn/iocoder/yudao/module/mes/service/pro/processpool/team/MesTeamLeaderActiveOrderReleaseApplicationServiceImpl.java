@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowIdempotency;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import java.util.Objects;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
@@ -19,16 +20,19 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
     private final MesTeamLeaderActiveOrderCompletionService completionService;
     private final MesProcessPoolActiveOrderCompletionReceiptMapper receiptMapper;
     private final MesProEdhrBatchExecutionMapper batchMapper;
+    private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
 
     public MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(
             MesTeamLeaderActiveOrderReleaseGenerationService generationService,
             MesTeamLeaderActiveOrderCompletionService completionService,
             MesProcessPoolActiveOrderCompletionReceiptMapper receiptMapper,
-            MesProEdhrBatchExecutionMapper batchMapper) {
+            MesProEdhrBatchExecutionMapper batchMapper,
+            MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper) {
         this.generationService = generationService;
         this.completionService = completionService;
         this.receiptMapper = receiptMapper;
         this.batchMapper = batchMapper;
+        this.applicationMapper = applicationMapper;
     }
 
     @Override
@@ -38,7 +42,7 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         String key = MesReleaseFlowIdempotency.requireKey(command == null ? null : command.getIdempotencyKey());
         command.setIdempotencyKey(key);
         var existing = generationService.replayExisting(leaderUserId, command);
-        if (existing != null) return existing;
+        if (existing != null && existing.getBatchExecutionId() != null) return existing;
         var receipt = receiptMapper.selectByActiveOrderIdForUpdate(command.getActiveOrderId());
         if (receipt == null || !Objects.equals(receipt.getLeaderUserId(), leaderUserId)
                 || !Objects.equals(receipt.getActiveOrderId(), command.getActiveOrderId())
@@ -56,7 +60,25 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING,
                     command.getActiveOrderId(), "P2生成的有效批次不存在");
         }
-        return generationService.generate(leaderUserId, command);
+        if (existing != null) {
+            if (existing.getBatchExecutionId() != null
+                    && !Objects.equals(existing.getBatchExecutionId(), batch.getId())) {
+                throw new IllegalStateException("P3 release application batch execution mismatch");
+            }
+            if (applicationMapper.bindP3BatchExecution(
+                    existing.getApplicationId(), existing.getVersion(), batch.getId()) != 1) {
+                throw new IllegalStateException("P3 release application batch execution binding failed");
+            }
+            return existing.setBatchExecutionId(batch.getId())
+                    .setVersion(existing.getVersion() + 1);
+        }
+        var generated = generationService.generate(leaderUserId, command);
+        if (applicationMapper.bindP3BatchExecution(
+                generated.getApplicationId(), generated.getVersion(), batch.getId()) != 1) {
+            throw new IllegalStateException("P3 release application batch execution binding failed");
+        }
+        return generated.setBatchExecutionId(batch.getId())
+                .setVersion(generated.getVersion() + 1);
     }
 
     @Override

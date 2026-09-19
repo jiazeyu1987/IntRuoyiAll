@@ -31,6 +31,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
     private List<InputMaterialDetail> inputMaterialUsages;
     private List<ProcessDetail> processes;
     private PqcProductionReleaseSummary pqcProductionRelease;
+    private List<OperationFact> operationFacts;
 
     @Data
     @Accessors(chain = true)
@@ -198,6 +199,22 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private String status;
         private String statusLabel;
         private SignatureDetail signature;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class OperationFact {
+        private Long id;
+        private String operationType;
+        private String operationName;
+        private String sourceType;
+        private String sourceId;
+        private Long actorUserId;
+        private String actorName;
+        private Long signatureId;
+        private String resultStatus;
+        private LocalDateTime occurredAt;
+        private String sourceSnapshotHash;
     }
 
     @Data

@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
@@ -12,6 +13,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDossierFileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +53,7 @@ public class MesActiveOrderDossierFileService {
     private final MesProcessPoolActiveOrderDossierFileMapper dossierFileMapper;
     private final AdminUserApi adminUserApi;
     private final FileService fileService;
+    private final MesProEdhrOperationAuditService operationAuditService;
 
     @Transactional(readOnly = true)
     public Result list(Long actorUserId, Query query) {
@@ -149,6 +153,8 @@ public class MesActiveOrderDossierFileService {
             cleanupStoredFile(fileId, ex);
             throw ex;
         }
+        recordDossierOperation("DOSSIER_UPLOAD", "活跃订单资料上传", actorUserId, operatorName, row, null, row.getSha256(),
+                operatedAt);
         return toFileItem(row);
     }
 
@@ -171,6 +177,7 @@ public class MesActiveOrderDossierFileService {
                 || row.getFileId() == null) {
             throw dossierFileBlocked("资料文件不属于当前活跃订单和资料页签，不能删除。");
         }
+        String operatorName = resolveOperatorName(actorUserId);
         FileDO file = fileService.getFile(row.getFileId());
         if (file == null || file.getId() == null) {
             throw dossierFileBlocked("资料文件对应的文件实体不存在：" + row.getFileId());
@@ -184,6 +191,8 @@ public class MesActiveOrderDossierFileService {
         } catch (Exception ex) {
             throw new IllegalStateException("删除资料文件实体失败：" + file.getId(), ex);
         }
+        recordDossierOperation("DOSSIER_DELETE", "活跃订单资料删除", actorUserId, operatorName, row, row.getSha256(), null,
+                LocalDateTime.now());
     }
 
     private ResolvedContext resolveContext(Long actorUserId, Long activeOrderId, Long applicationId) {
@@ -258,6 +267,35 @@ public class MesActiveOrderDossierFileService {
         } catch (Exception cleanupFailure) {
             failure.addSuppressed(cleanupFailure);
         }
+    }
+
+    private void recordDossierOperation(String operationType, String actionName, Long actorUserId, String operatorName,
+                                        MesProcessPoolActiveOrderDossierFileDO row, String beforeHash,
+                                        String afterHash, LocalDateTime operatedAt) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("activeOrderId", row.getActiveOrderId());
+        metadata.put("applicationId", row.getApplicationId());
+        metadata.put("dossierFileId", row.getId());
+        metadata.put("categoryKey", row.getCategoryKey());
+        metadata.put("fileId", row.getFileId());
+        metadata.put("fileName", row.getFileName());
+        metadata.put("sha256", row.getSha256());
+        operationAuditService.recordInCallerTransaction(new MesProEdhrOperationAuditCommand()
+                .setRequestId("active-order-dossier-" + operationType.toLowerCase() + "-" + row.getId())
+                .setObjectType("ACTIVE_ORDER_DOSSIER_FILE")
+                .setObjectId(String.valueOf(row.getId()))
+                .setRecordCategory("ACTIVE_ORDER_DOSSIER")
+                .setOperationType(operationType)
+                .setActionName(actionName)
+                .setActorUserId(actorUserId)
+                .setActorUsername(operatorName)
+                .setPermissionCode("mes:pro:process-pool-team:active-order-dossier")
+                .setPermissionDecision("ALLOW")
+                .setResultStatus("SUCCESS")
+                .setBeforeSummaryHash(beforeHash)
+                .setAfterSummaryHash(afterHash)
+                .setMetadataJson(JsonUtils.toJsonString(metadata))
+                .setOccurredAt(operatedAt));
     }
 
     private static CategoryDefinition requireCategory(String categoryKey) {

@@ -1907,15 +1907,15 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'pro/feedback/edhr-batch-execution/source-detail',
+        path: 'pro/feedback/edhr-batch-execution/active-order-detail',
         component: () => import('@/views/mes/pro/edhr-batch/BatchExecutionActiveOrderDetailPage.vue'),
         name: 'MesProEdhrBatchExecutionActiveOrderDetail',
         meta: {
-          noCache: true,
+          noCache: false,
           hidden: true,
           canTo: true,
           icon: '',
-          title: '批次来源详情',
+          title: '活跃订单详情批记录',
           activeMenu: '/mes/pro/feedback/edhr-batch-execution',
           permission: ['mes:pro-edhr-batch-execution:query']
         }

@@ -15,6 +15,7 @@ public class MesTeamLeaderActiveOrderReleaseApplicationResult {
     private String batchCode;
     private Long routeId;
     private Long routeVersionId;
+    private Long batchExecutionId;
     private Long pqcReleaseWorkTaskId;
     private String status;
     private String sourceSnapshotHash;

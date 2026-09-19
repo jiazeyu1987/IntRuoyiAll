@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.hutool.json.JSONUtil;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
@@ -9,11 +10,13 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecor
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionArchiveDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrRecordChangeEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionArchiveMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordChangeEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
@@ -24,7 +27,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -60,6 +66,8 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
     @Resource
     private MesProEdhrBatchExecutionSignatureMapper batchSignatureMapper;
     @Resource
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
+    @Resource
     private MesProEdhrRecordChangeEventMapper changeEventMapper;
     @Resource
     private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
@@ -71,6 +79,8 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
     private MesProEdhrWorkTaskService workTaskService;
     @Resource
     private MesProBatchRecordExecutionSignatureService signatureService;
+    @Resource
+    private MesProEdhrOperationAuditService operationAuditService;
 
     @Override
     public EdhrRecordChangeRespVO precheckPlatformVoidBatchExecution(EdhrRecordChangeRequestReqVO reqVO) {
@@ -106,6 +116,7 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
         MesProEdhrRecordChangeEventDO event = buildBatchVoidChangeEvent(reqVO, batch, archive, signatureId, actorUserId);
         event.setBpmProcessInstanceId(bpmProcessInstanceId);
         changeEventMapper.insert(event);
+        recordBatchVoidOperation("BATCH_VOID_REQUEST", "申请批次作废", event, batch, actorUserId);
         return toResp(event);
     }
 
@@ -125,6 +136,7 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
         MesProEdhrBatchExecutionArchiveDO archive = latestBatchArchive(batch.getId());
         MesProEdhrRecordChangeEventDO event = buildBatchVoidChangeEvent(reqVO, batch, archive, signatureId, actorUserId);
         changeEventMapper.insert(event);
+        recordBatchVoidOperation("BATCH_VOID_REQUEST", "申请批次作废", event, batch, actorUserId);
         return approveVoidBatchExecutionByBpm(event, actorUserId);
     }
 
@@ -152,6 +164,8 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
                     .setApprovedBy(actorUserId)
                     .setApprovedAt(now)
                     .setRemark(StrUtil.blankToDefault(StrUtil.trim(rejectReason), event.getRemark())));
+            recordBatchVoidOperation("BATCH_VOID_REJECTED", "驳回批次作废", event,
+                    requireBatchExecution(event.getBatchExecutionId()), actorUserId);
             return toResp(changeEventMapper.selectById(event.getId()));
         }
         throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_STATUS_INVALID);
@@ -281,7 +295,59 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
                 .setEffectiveAt(now)
                 .setPreviousArchiveHash(archive == null ? event.getPreviousArchiveHash() : archive.getContentHash())
                 .setNewArchiveHash(archive == null ? event.getNewArchiveHash() : archive.getContentHash()));
+        recordBatchVoidOperation("BATCH_VOID_EFFECTIVE", "批次作废生效", event, batch, actorUserId);
         return toResp(changeEventMapper.selectById(event.getId()));
+    }
+
+    private void recordBatchVoidOperation(String operationType, String actionName,
+                                          MesProEdhrRecordChangeEventDO event,
+                                          MesProEdhrBatchExecutionDO batch,
+                                          Long actorUserId) {
+        Long activeOrderId = resolveActiveOrderId(batch.getId());
+        if (activeOrderId == null) {
+            return;
+        }
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("activeOrderId", activeOrderId);
+        metadata.put("batchExecutionId", batch.getId());
+        metadata.put("changeEventId", event.getId());
+        metadata.put("changeCode", event.getChangeCode());
+        metadata.put("changeType", event.getChangeType());
+        metadata.put("changeStatus", event.getChangeStatus());
+        metadata.put("reasonCategory", event.getReasonCategory());
+        metadata.put("reasonText", event.getReasonText());
+        metadata.put("previousStatus", event.getPreviousStatus());
+        metadata.put("newStatus", event.getNewStatus());
+        metadata.put("requestSignatureId", event.getRequestSignatureId());
+        metadata.put("sourceArchiveId", event.getSourceArchiveId());
+        String metadataJson = JSONUtil.toJsonStr(metadata);
+        operationAuditService.recordInCallerTransaction(new MesProEdhrOperationAuditCommand()
+                .setRequestId("BATCH-VOID-" + operationType + "-" + event.getId())
+                .setObjectType("BATCH_EXECUTION_VOID_CHANGE")
+                .setObjectId(String.valueOf(event.getId()))
+                .setBatchExecutionId(batch.getId())
+                .setOperationType(operationType)
+                .setActionName(actionName)
+                .setActorUserId(actorUserId)
+                .setActorUsername(SecurityFrameworkUtils.getLoginUserNickname())
+                .setPermissionCode("mes:pro-edhr:batch-void:update")
+                .setPermissionDecision("ALLOW")
+                .setResultStatus("SUCCESS")
+                .setAfterSummaryHash(DigestUtil.sha256Hex(metadataJson))
+                .setMetadataJson(metadataJson)
+                .setOccurredAt(now()));
+    }
+
+    private Long resolveActiveOrderId(Long batchExecutionId) {
+        List<Long> activeOrderIds = batchExecutionOriginMapper.selectListByBatchExecutionId(batchExecutionId).stream()
+                .map(MesProEdhrBatchExecutionOriginDO::getActiveOrderId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (activeOrderIds.size() > 1) {
+            throw new IllegalStateException("批次作废存在多个不同的活跃订单来源：" + batchExecutionId);
+        }
+        return activeOrderIds.isEmpty() ? null : activeOrderIds.get(0);
     }
 
     private String buildBatchVoidWorkTaskCancelReason(MesProEdhrRecordChangeEventDO event) {

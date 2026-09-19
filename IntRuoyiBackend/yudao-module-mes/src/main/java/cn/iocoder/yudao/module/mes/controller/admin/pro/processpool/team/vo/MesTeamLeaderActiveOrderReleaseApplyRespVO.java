@@ -39,6 +39,10 @@ public class MesTeamLeaderActiveOrderReleaseApplyRespVO {
     @JsonSerialize(using = ToStringSerializer.class)
     private Long routeVersionId;
 
+    @Schema(description = "P3关联的批次执行编号", example = "9001")
+    @JsonSerialize(using = ToStringSerializer.class)
+    private Long batchExecutionId;
+
     @Schema(description = "PQC生产放行待办编号", example = "9001")
     @JsonSerialize(using = ToStringSerializer.class)
     private Long pqcReleaseWorkTaskId;

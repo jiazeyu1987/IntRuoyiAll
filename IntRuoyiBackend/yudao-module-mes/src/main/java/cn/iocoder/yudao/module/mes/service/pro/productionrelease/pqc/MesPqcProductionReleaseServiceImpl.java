@@ -126,72 +126,31 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         ensureNoClosedNonconformanceOutcome(application);
         signatureService.validatePqcSubmitSignature(actorUserId, command.getSignaturePassword());
 
-        MesPqcReleaseDossierPlan dossierPlan = dossierPort.plan(application, actorUserId);
-        if (dossierPlan == null || !Objects.equals(application.getSourceSnapshotHash(),
-                dossierPlan.getSourceSnapshotHash())) {
-            throw blocker(MesReleaseFlowBlockerType.FROZEN_ROUTE_SOURCE_REQUIRED, application,
-                    "RELEASE_APPLICATION", String.valueOf(application.getId()),
-                    "authoritative source snapshot changed after the release application",
-                    "create a new release application from the current frozen route sources");
-        }
-        Long batchExecutionId = batchExecutionPort.openOrCreate(new MesProductionReleaseBatchExecutionCommand()
-                .setApplicationId(application.getId())
-                .setWorkOrderId(application.getWorkOrderId())
-                .setWorkOrderCode(application.getWorkOrderCode())
-                .setBatchCode(application.getBatchCode())
-                .setRouteId(application.getRouteId())
-                .setRouteVersionId(application.getRouteVersionId())
-                .setEntryType("ACTIVE_ORDER_PQC")
-                .setEntryBusinessId(String.valueOf(application.getId()))
-                .setActiveOrderId(application.getActiveOrderId())
-                .setIdempotencyKey(command.getIdempotencyKey())
-                );
-        if (batchExecutionId == null || batchExecutionId <= 0) {
-            throw blocker(MesReleaseFlowBlockerType.LEGACY_BATCH_EXECUTION_MIGRATION_REQUIRED, application,
-                    "BATCH_EXECUTION", null, "production release batch execution was not created",
-                    "repair the release-bound batch execution contract before retrying");
-        }
-
-        MesPqcReleaseDossierWriteResult dossierWrite = requireDossierWrite(
-                application, dossierPort.write(dossierPlan, batchExecutionId));
-        MesProductionReleaseReportStageInitializationResult reportStage = requireReportStage(
-                application, reportStageInitializer.initializeRequiredReportStage(
-                        new MesProductionReleaseReportStageInitializationCommand()
-                                .setApplicationId(application.getId())
-                                .setBatchExecutionId(batchExecutionId)
-                                .setRouteId(application.getRouteId())
-                                .setRouteVersionId(application.getRouteVersionId())
-                                .setSourceSnapshotHash(application.getSourceSnapshotHash())
-                                .setExpectedApplicationVersion(command.getExpectedVersion())));
+        Long batchExecutionId = requireExistingBatchExecutionId(application);
         Long signatureId = signatureService.recordPqcReleaseSignature(
-                actorUserId, batchExecutionId, command.getSignaturePassword(), opinion);
+                actorUserId, batchExecutionId, application.getId(), command.getSignaturePassword(), opinion);
         LocalDateTime decidedAt = LocalDateTime.now(clock);
         MesPqcProductionReleaseDecisionResult result = baseResult(application, workTask)
                 .setDecision("APPROVE")
                 .setStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING)
                 .setBatchExecutionId(batchExecutionId)
                 .setSignatureId(signatureId)
-                .setBatchRecordEvidenceIds(copy(dossierWrite.getBatchRecordEvidenceIds()))
-                .setProcessInspectionEvidenceIds(copy(dossierWrite.getProcessInspectionEvidenceIds()))
-                .setProcessInspectionFormCenterInstanceIds(copy(
-                        dossierWrite.getProcessInspectionFormCenterInstanceIds()))
-                .setLossReportEvidenceIds(copy(dossierWrite.getLossReportEvidenceIds()))
-                .setLossReportFormCenterInstanceIds(copy(dossierWrite.getLossReportFormCenterInstanceIds()))
-                .setLossReportFieldAuditIds(copy(dossierWrite.getLossReportFieldAuditIds()))
-                .setLossReportFieldAuditHeadHashes(copy(dossierWrite.getLossReportFieldAuditHeadHashes()))
-                .setLossReportStatus(dossierWrite.getLossReportStatus())
-                .setHasActualLoss(dossierWrite.getHasActualLoss())
-                .setLossQuantity(dossierWrite.getLossQuantity())
-                .setLossSourceSnapshotHash(dossierWrite.getSourceSnapshotHash())
-                .setReportUploadTasks(copy(reportStage.getReportUploadTasks()))
-                .setReportSnapshotHash(reportStage.getReportSnapshotHash())
+                .setBatchRecordEvidenceIds(List.of())
+                .setProcessInspectionEvidenceIds(List.of())
+                .setProcessInspectionFormCenterInstanceIds(List.of())
+                .setLossReportEvidenceIds(List.of())
+                .setLossReportFormCenterInstanceIds(List.of())
+                .setLossReportFieldAuditIds(List.of())
+                .setLossReportFieldAuditHeadHashes(List.of())
+                .setReportUploadTasks(List.of())
+                .setReportSnapshotHash(application.getReportSnapshotHash())
                 .setVersion(command.getExpectedVersion() + 1)
                 .setDecidedBy(actorUserId)
                 .setDecidedAt(decidedAt)
                 .setDecisionIdempotencyKey(idempotencyKey)
                 .setDecisionPayloadHash(payloadHash);
         int updated = applicationMapper.approveFromPending(application.getId(), command.getExpectedVersion(),
-                batchExecutionId, actorUserId, decidedAt, reportStage.getReportSnapshotHash(),
+                batchExecutionId, actorUserId, decidedAt, application.getReportSnapshotHash(),
                 JSON.toJSONString(result));
         requireCasSuccess(updated, application);
         requireTaskCompletion(workTaskMapper.completePqcDecisionTask(workTask.getId(), decidedAt, "APPROVE"), application);
@@ -468,6 +427,16 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .anyMatch(expected::equals);
     }
 
+    private Long requireExistingBatchExecutionId(MesProcessPoolActiveOrderReleaseApplicationDO application) {
+        Long batchExecutionId = application == null ? null : application.getBatchExecutionId();
+        if (batchExecutionId == null || batchExecutionId <= 0) {
+            throw blocker(MesReleaseFlowBlockerType.LEGACY_BATCH_EXECUTION_MIGRATION_REQUIRED, application,
+                    "BATCH_EXECUTION", null, "release application is missing the P3 batch execution association",
+                    "run P3 to push the P2 batch-record facts before PQC release");
+        }
+        return batchExecutionId;
+    }
+
     private MesPqcReleaseDossierWriteResult requireDossierWrite(
             MesProcessPoolActiveOrderReleaseApplicationDO application,
             MesPqcReleaseDossierWriteResult result) {
@@ -625,6 +594,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setIdempotencyKey(idempotencyKey)
                 .setTenantId(TenantContextHolder.getTenantId())
                 .setApplicationId(application.getId())
+                .setActiveOrderId(application.getActiveOrderId())
                 .setWorkTaskId(workTask.getId())
                 .setBatchExecutionId(result.getBatchExecutionId())
                 .setFromStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)

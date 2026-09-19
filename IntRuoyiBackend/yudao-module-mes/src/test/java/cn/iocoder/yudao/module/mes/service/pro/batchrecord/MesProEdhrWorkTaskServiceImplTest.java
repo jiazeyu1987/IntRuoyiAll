@@ -15,6 +15,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskStatsRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
@@ -25,6 +26,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProce
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
@@ -122,6 +124,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     private MesProRouteProcessService routeProcessService;
     @MockitoBean
     private MesProEdhrOperationAuditService operationAuditService;
+    @MockitoBean
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
 
     @BeforeEach
     void setTenant() {
@@ -905,6 +909,40 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
             assertEquals(reworkTask.getId(), validated.getId());
             assertEquals(MesProEdhrWorkTaskService.TASK_TYPE_REWORK, validated.getTaskType());
         }
+    }
+
+    @Test
+    void completeReviewAndCreateRework_recordsActiveOrderOperationFact() {
+        MesProEdhrWorkTaskDO reviewTask = insertCandidateReviewTask(9001L, 9901L, "R1C1",
+                177L, "177", "rework-audit")
+                .setRouteId(5504L)
+                .setRouteProcessId(5504L)
+                .setProcessId(6001L);
+        workTaskMapper.updateById(reviewTask);
+        insertAssignmentRule(5504L, MesProEdhrWorkTaskService.TASK_TYPE_FILL, 120, "USER", 188L, 188L);
+        insertAssignmentRule(5504L, MesProEdhrWorkTaskService.TASK_TYPE_REWORK, 120, "USER", 188L, 188L);
+        when(batchExecutionOriginMapper.selectListByBatchExecutionId(1001L))
+                .thenReturn(List.of(new MesProEdhrBatchExecutionOriginDO()
+                        .setBatchExecutionId(1001L)
+                        .setActiveOrderId(8101L)
+                        .setOriginKey("ACTIVE_ORDER:8101")));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(177L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("审核人");
+            MesProEdhrWorkTaskDO reworkTask = workTaskService.completeReviewAndCreateRework(
+                    reviewTask.getId(), 9001L, 9002L, "批记录复核不通过");
+
+            assertEquals(MesProEdhrWorkTaskService.TASK_TYPE_REWORK, reworkTask.getTaskType());
+            assertEquals(9002L, reworkTask.getExecutionId());
+        }
+
+        verify(operationAuditService).record(org.mockito.ArgumentMatchers.argThat(command -> {
+            JSONObject metadata = JSON.parseObject(command.getMetadataJson());
+            return "REWORK_TASK_CREATED".equals(command.getOperationType())
+                    && metadata != null
+                    && Objects.equals(8101L, metadata.getLong("activeOrderId"));
+        }));
     }
 
     @Test
@@ -2222,6 +2260,42 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals(reassigned.getId(), params.get("workTaskId"));
         assertEquals("规则变更后重新派发", params.get("reason"));
         assertTrue(String.valueOf(params.get("actionUrl")).contains("workTaskId=" + reassigned.getId()));
+    }
+
+    @Test
+    void reassignFillTaskRecordsActiveOrderOperationFact() {
+        MesProEdhrBatchExecutionTaskDO batchTask = batchTask(3093L, 9193L, 5193L,
+                "REPORT-REASSIGN-004", "ROUTE_FORM", "光固I", 10)
+                .setBatchRecordVersionId(78093L);
+        batchTaskMapper.insert(batchTask);
+        MesProEdhrWorkTaskDO fillTask = insertFillTask(8093L, batchTask.getId(), "reassign-active-order")
+                .setBatchExecutionId(3093L)
+                .setRouteProcessId(5193L)
+                .setCandidateSourceType("USERS")
+                .setCandidateUserSnapshot("288")
+                .setAssigneeUserId(288L);
+        workTaskMapper.updateById(fillTask);
+        insertProcessFormFillRule(5193L, "REPORT-REASSIGN-004", 78093L, "USERS", "389,390", 90);
+        when(adminUserApi.getUserList(List.of(389L, 390L))).thenReturn(List.of(
+                adminUser(389L, CommonStatusEnum.ENABLE.getStatus()),
+                adminUser(390L, CommonStatusEnum.ENABLE.getStatus())));
+        when(batchExecutionOriginMapper.selectListByBatchExecutionId(3093L))
+                .thenReturn(List.of(new MesProEdhrBatchExecutionOriginDO()
+                        .setBatchExecutionId(3093L)
+                        .setActiveOrderId(8101L)
+                        .setOriginKey("ACTIVE_ORDER")));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("aoteman");
+            workTaskService.reassignFillTask(fillTask.getId(), "规则变更后重新派发");
+        }
+
+        ArgumentCaptor<MesProEdhrOperationAuditCommand> captor =
+                ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
+        verify(operationAuditService).record(captor.capture());
+        assertEquals("FILL_TASK_REASSIGN", captor.getValue().getOperationType());
+        assertTrue(captor.getValue().getMetadataJson().contains("\"activeOrderId\":8101"));
     }
 
     @Test

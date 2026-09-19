@@ -234,6 +234,21 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testSign_hashesJsonSemanticCanonicalForm() {
+        ElectronicSignatureCommand command = buildCommand("idem-json-canonical", "V1", "审批通过");
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+
+            ElectronicSignatureResult result = signatureService.sign(command);
+
+            assertEquals(
+                    "3384dfd06702cb579f9488985d8fc899340d06626fc28f18a1cbf9acfe68ef2f",
+                    result.contentHash());
+        }
+    }
+
+    @Test
     public void testQueryEvidence_detectsContentTamperingWithoutRewritingHistory() {
         ElectronicSignatureCommand command = buildCommand("idem-007", "V1", "审批通过");
 

@@ -87,7 +87,7 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
     }
 
     private String resolveContentHash(ElectronicSignatureRecordDO record) {
-        String directHash = hash(record.getCanonicalContentJson());
+        String directHash = hash(ElectronicSignatureJsonCanonicalizer.canonicalize(record.getCanonicalContentJson()));
         if (Objects.equals(record.getContentHash(), directHash)) {
             return directHash;
         }
@@ -96,7 +96,8 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
                 snapshot.get().canonicalContentJson())) {
             return directHash;
         }
-        String replayedHash = hash(snapshot.get().canonicalContentJson());
+        String replayedHash = hash(ElectronicSignatureJsonCanonicalizer.canonicalize(
+                snapshot.get().canonicalContentJson()));
         return Objects.equals(record.getContentHash(), replayedHash) ? replayedHash : directHash;
     }
 
@@ -144,8 +145,10 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
                 record.getSubjectVersion(), record.getMeaningCode(), record.getMeaningLabel(), record.getReason(),
                 originalSignedAt(record), record.getTimeEvidenceId(), AUTHENTICATION_METHOD, contentHash,
                 StrUtil.nullToEmpty(record.getBeforeContentHash()), StrUtil.nullToEmpty(record.getAfterContentHash()),
-                StrUtil.nullToEmpty(record.getBeforeContentJson()), StrUtil.nullToEmpty(record.getAfterContentJson()),
-                StrUtil.nullToEmpty(record.getFieldDiffJson()), HASH_ALGORITHM, record.getKeyVersion(),
+                StrUtil.nullToEmpty(ElectronicSignatureJsonCanonicalizer.canonicalize(record.getBeforeContentJson())),
+                StrUtil.nullToEmpty(ElectronicSignatureJsonCanonicalizer.canonicalize(record.getAfterContentJson())),
+                StrUtil.nullToEmpty(ElectronicSignatureJsonCanonicalizer.canonicalize(record.getFieldDiffJson())),
+                HASH_ALGORITHM, record.getKeyVersion(),
                 record.getPolicyVersion(), record.getVerificationStatus());
     }
 

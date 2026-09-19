@@ -77,6 +77,20 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
 
     @Update("""
             UPDATE mes_pro_process_pool_active_order_release_application
+            SET batch_execution_id = #{batchExecutionId},
+                version = version + 1
+            WHERE id = #{id}
+              AND deleted = b'0'
+              AND version = #{expectedVersion}
+              AND application_status = 'PQC_RELEASE_PENDING'
+              AND batch_execution_id IS NULL
+            """)
+    int bindP3BatchExecution(@Param("id") Long id,
+                             @Param("expectedVersion") Integer expectedVersion,
+                             @Param("batchExecutionId") Long batchExecutionId);
+
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order_release_application
             SET version = version + 1
             WHERE id = #{id}
               AND deleted = b'0'

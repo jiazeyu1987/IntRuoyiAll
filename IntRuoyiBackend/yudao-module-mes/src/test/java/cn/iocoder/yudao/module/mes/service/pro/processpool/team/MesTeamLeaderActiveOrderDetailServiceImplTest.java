@@ -18,6 +18,11 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEv
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDetailReadMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrOperationAuditEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderEventPartyReadDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderDetailReadDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
@@ -27,6 +32,14 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterial;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterialService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureEvidenceDTO;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO;
+import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
+import cn.iocoder.yudao.module.system.service.user.AdminUserService;
+import com.alibaba.fastjson.JSON;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -156,8 +169,124 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         assertEquals(0, detail.getInputMaterialUsages().size());
     }
 
+    @Test
+    void formalDetailIncludesPqcReleaseSignatureFromTheSameActiveOrderFact() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("CLOSED").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(null);
+        when(releaseApplicationMapper.selectLatestByActiveOrderId(8101L))
+                .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team
+                        .MesProcessPoolActiveOrderReleaseApplicationDO.builder()
+                        .id(8801L)
+                        .activeOrderId(8101L)
+                        .batchExecutionId(9901L)
+                        .pqcDecision("APPROVE")
+                        .applicationStatus("REPORT_UPLOAD_PENDING")
+                        .dossierSummaryJson(JSON.toJSONString(java.util.Map.of("signatureId", 7701L)))
+                        .build());
+        when(signatureQueryService.getById(7701L)).thenReturn(new ElectronicSignatureEvidenceDTO(
+                7701L, "MES", "PQC_RELEASE", "BATCH_EXECUTION",
+                MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(9901L,
+                        MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
+                        null, null, null, null, null, null, null,
+                        "PQC_RELEASE_APPLICATION", 8801L, "PQC生产放行",
+                        MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
+                        null, null, null, null),
+                null, 3001L,
+                "PQC_RELEASE", "PQC生产放行", null, LocalDateTime.of(2026, 9, 18, 21, 22, 52),
+                "time-1", "SESSION_PLUS_PASSWORD", "content", "evidence", "SHA-256",
+                "v1", "p1", "VALID", null, null, null, null, null, null, null, null));
+        when(signatureQueryService.verifyEvidence(7701L)).thenReturn(new ElectronicSignatureVerificationDTO(
+                7701L, "VALID", "content", "content", "evidence", "evidence", "SHA-256", "v1"));
+        when(adminUserService.getUser(3001L)).thenReturn(new AdminUserDO().setId(3001L).setNickname("PQC组长"));
+
+        MesTeamLeaderActiveOrderDetail detail = service.getFormalDetail(8101L);
+
+        assertEquals("已生产放行", detail.getPqcProductionRelease().getStatusLabel());
+        assertEquals(7701L, detail.getPqcProductionRelease().getSignature().getSignatureId());
+        assertEquals("PQC组长", detail.getPqcProductionRelease().getSignature().getSignerName());
+    }
+
+    @Test
+    void activeOrderOperationsShouldAppearInFormalFactChain() throws Exception {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("CLOSED").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(null);
+        when(operationAuditEventMapper.selectSuccessfulListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesProEdhrOperationAuditEventDO.builder()
+                        .id(8801L)
+                        .objectType("ACTIVE_ORDER")
+                        .objectId("8101")
+                        .operationType("BATCH_REWORK")
+                        .actionName("批次返工")
+                        .actorUserId(3001L)
+                        .actorUsername("生产组长甲")
+                        .resultStatus("SUCCESS")
+                        .afterSummaryHash("snapshot-1")
+                        .metadataJson("{\"activeOrderId\":8101,\"signatureId\":7701}")
+                        .occurredAt(LocalDateTime.of(2026, 9, 18, 22, 10))
+                        .build()));
+
+        MesTeamLeaderActiveOrderDetail detail = service.getFormalDetail(8101L);
+        var getter = MesTeamLeaderActiveOrderDetail.class.getMethod("getOperationFacts");
+        List<?> facts = (List<?>) getter.invoke(detail);
+
+        assertEquals(1, facts.size());
+        Object fact = facts.get(0);
+        assertEquals("BATCH_REWORK", fact.getClass().getMethod("getOperationType").invoke(fact));
+        assertEquals("ACTIVE_ORDER", fact.getClass().getMethod("getSourceType").invoke(fact));
+        assertEquals("8101", fact.getClass().getMethod("getSourceId").invoke(fact));
+        assertEquals(7701L, fact.getClass().getMethod("getSignatureId").invoke(fact));
+    }
+
+    @Test
+    void activeOrderMaintenanceOperationsShouldAppearInFormalFactChain() throws Exception {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("CLOSED").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(null);
+        when(adminUserService.getUser(3001L)).thenReturn(new AdminUserDO().setId(3001L).setNickname("生产组长甲"));
+        when(maintenanceAuditMapper.selectSuccessfulListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesProcessPoolTeamMaintenanceAuditDO.builder()
+                        .id(9901L)
+                        .operatorUserId(3001L)
+                        .actionType("APPLY_ACTIVE_ORDER_VERSION_UPGRADE")
+                        .targetType("ACTIVE_ORDER")
+                        .targetId(8101L)
+                        .resultStatus("SUCCESS")
+                        .changeSummary("活跃订单版本升级审批通过后重启")
+                        .auditTime(LocalDateTime.of(2026, 9, 18, 22, 20))
+                        .build()));
+
+        MesTeamLeaderActiveOrderDetail detail = service.getFormalDetail(8101L);
+        var getter = MesTeamLeaderActiveOrderDetail.class.getMethod("getOperationFacts");
+        List<?> facts = (List<?>) getter.invoke(detail);
+
+        assertEquals(1, facts.size());
+        Object fact = facts.get(0);
+        assertEquals("APPLY_ACTIVE_ORDER_VERSION_UPGRADE",
+                fact.getClass().getMethod("getOperationType").invoke(fact));
+        assertEquals("ACTIVE_ORDER", fact.getClass().getMethod("getSourceType").invoke(fact));
+        assertEquals("8101", fact.getClass().getMethod("getSourceId").invoke(fact));
+        assertEquals(3001L, fact.getClass().getMethod("getActorUserId").invoke(fact));
+    }
+
     @Mock
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Mock
+    private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
+    @Mock
+    private MesProEdhrOperationAuditEventMapper operationAuditEventMapper;
+    @Mock
+    private MesProcessPoolTeamMaintenanceAuditMapper maintenanceAuditMapper;
     @Mock
     private MesProcessPoolActiveOrderDetailReadMapper detailReadMapper;
     @Mock
@@ -178,6 +307,10 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     private MesProProcessPoolEventMapper eventMapper;
     @Mock
     private MesProProcessPoolEventRevisionMapper eventRevisionMapper;
+    @Mock
+    private ElectronicSignatureQueryService signatureQueryService;
+    @Mock
+    private AdminUserService adminUserService;
     @InjectMocks
     private MesTeamLeaderActiveOrderDetailServiceImpl service;
 
