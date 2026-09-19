@@ -12,7 +12,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteCandidateConfigService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteCandidateConfigServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionLifecycleServiceImpl;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionSnapshotIdentityWriter;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -26,6 +28,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TOTAL_RECOGNITION_JSON_INVALID;
 
 /** Synchronizes an explicitly imported recognition JSON into the candidate route version production configuration. */
 @Service
@@ -53,23 +58,61 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
         this.candidateConfigService = candidateConfigService;
     }
 
-    public void sync(Long dccProjectCodeId, String totalRecognitionJson) {
-        JSONObject root = JSON.parseObject(totalRecognitionJson);
-        Integer schemaVersion = root == null ? null : root.getInteger("schemaVersion");
-        if (root == null || !List.of(2, 3).contains(schemaVersion) || root.getJSONArray("processes") == null) {
-            throw new IllegalArgumentException("批记录总识别 JSON 必须是 schemaVersion=2/3 且包含 processes");
+    public void initializeActiveVersionProductionConfigs(Long dccProjectCodeId, String totalRecognitionJson) {
+        JSONObject root = parseRecognitionRoot(totalRecognitionJson);
+        Long routeId = requireSingleRoute(dccProjectCodeId);
+        MesProRouteVersionDO activeVersion = routeVersionMapper.selectActiveByRouteId(routeId);
+        if (activeVersion == null || !Boolean.TRUE.equals(activeVersion.getActive())) {
+            throw new IllegalArgumentException("批记录识别设备参数初始化需要当前工艺路线存在正式版本：routeId=" + routeId);
         }
+        JSONObject routeSnapshot = parseVersionSnapshot(activeVersion);
+        JSONObject configSnapshots = routeSnapshot.getJSONObject("configSnapshots");
+        if (configSnapshots == null) {
+            throw new IllegalArgumentException("正式路线快照缺少 configSnapshots：routeVersionId=" + activeVersion.getId());
+        }
+        Map<Long, MesProRouteProcessDO> routeProcesses = routeProcessesFromVersionSnapshot(activeVersion);
+        JSONArray productionConfigs = buildProductionConfigs(
+                root, routeProcesses, readExistingProductionConfigs(activeVersion));
+        configSnapshots.put(PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY, 1);
+        configSnapshots.put(PRODUCTION_PROCESS_CONFIGS_KEY, productionConfigs);
+        MesProRouteCandidateConfigServiceImpl.validateProductionProcessConfigs(activeVersion.getId(), configSnapshots);
+
+        MesProRouteVersionDO update = new MesProRouteVersionDO();
+        update.setId(activeVersion.getId());
+        MesProRouteVersionSnapshotIdentityWriter.apply(update, routeSnapshot.toJSONString());
+        routeVersionMapper.updateById(update);
+    }
+
+    public void sync(Long dccProjectCodeId, String totalRecognitionJson) {
+        JSONObject root = parseRecognitionRoot(totalRecognitionJson);
         Long routeId = requireSingleRoute(dccProjectCodeId);
         MesProRouteVersionDO candidate = routeVersionMapper.selectOpenCandidateByRouteId(routeId);
         if (candidate == null || !MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(
                 candidate.getLifecycleStatus())) {
             throw new IllegalArgumentException("批记录识别设备参数同步需要当前工艺路线存在草稿候选版本：routeId=" + routeId);
         }
-        Map<Long, MesProRouteProcessDO> routeProcesses = routeProcessesFromCandidateSnapshot(candidate);
+        JSONArray productionConfigs = buildProductionConfigs(root,
+                routeProcessesFromVersionSnapshot(candidate), readExistingProductionConfigs(candidate));
+        candidateConfigService.saveConfigSnapshots(candidate.getId(), candidate.getRouteSnapshotSha256(), Map.of(
+                PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY, 1,
+                PRODUCTION_PROCESS_CONFIGS_KEY, productionConfigs));
+    }
+
+    private JSONObject parseRecognitionRoot(String totalRecognitionJson) {
+        JSONObject root = JSON.parseObject(totalRecognitionJson);
+        Integer schemaVersion = root == null ? null : root.getInteger("schemaVersion");
+        if (root == null || !List.of(2, 3).contains(schemaVersion) || root.getJSONArray("processes") == null) {
+            throw new IllegalArgumentException("批记录总识别 JSON 必须是 schemaVersion=2/3 且包含 processes");
+        }
+        return root;
+    }
+
+    private JSONArray buildProductionConfigs(JSONObject root, Map<Long, MesProRouteProcessDO> routeProcesses,
+                                             JSONArray existingProductionConfigs) {
         Map<Long, String> processNames = processNames(routeProcesses.values().stream()
                 .map(MesProRouteProcessDO::getProcessId).distinct().toList());
-        JSONArray productionConfigs = readExistingProductionConfigs(candidate);
-        Map<Long, JSONObject> existingConfigsByRouteProcessId = productionConfigsByRouteProcessId(productionConfigs);
+        Map<Long, JSONObject> existingConfigsByRouteProcessId =
+                productionConfigsByRouteProcessId(existingProductionConfigs);
         Map<Long, JSONObject> importedByRouteProcessId = recognitionProcessesByRouteProcessId(
                 root.getJSONArray("processes"), routeProcesses, processNames);
         Map<Long, JSONObject> configsByRouteProcessId = new LinkedHashMap<>();
@@ -85,9 +128,18 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
                     routeProcess, processNames.get(routeProcess.getProcessId()),
                     process == null ? null : process.getJSONArray("equipmentGroups"), existingConfig));
         }
-        candidateConfigService.saveConfigSnapshots(candidate.getId(), candidate.getRouteSnapshotSha256(), Map.of(
-                PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY, 1,
-                PRODUCTION_PROCESS_CONFIGS_KEY, new JSONArray(new ArrayList<>(configsByRouteProcessId.values()))));
+        return new JSONArray(new ArrayList<>(configsByRouteProcessId.values()));
+    }
+
+    private JSONObject parseVersionSnapshot(MesProRouteVersionDO routeVersion) {
+        if (routeVersion == null || routeVersion.getRouteId() == null || routeVersion.getRouteSnapshotJson() == null) {
+            throw new IllegalArgumentException("路线版本快照缺少正式身份");
+        }
+        JSONObject routeSnapshot = JSON.parseObject(routeVersion.getRouteSnapshotJson());
+        if (routeSnapshot == null || !routeVersion.getRouteId().equals(routeSnapshot.getLong("routeId"))) {
+            throw new IllegalArgumentException("路线版本快照 routeId 不匹配：routeVersionId=" + routeVersion.getId());
+        }
+        return routeSnapshot;
     }
 
     private Map<Long, JSONObject> recognitionProcessesByRouteProcessId(JSONArray processes,
@@ -157,19 +209,25 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
                 if (groupKey == null) {
                     groupKey = buildDeviceGroupKey(processName, groupSort);
                 }
-                if (!groupKeys.add(groupKey)) {
-                    throw new IllegalArgumentException("JSON 设备组键重复：" + groupKey);
-                }
                 JSONArray deviceIds = new JSONArray();
                 List<JSONObject> parameters = arrayObjects(group.getJSONArray("parameters"), "parameters");
                 for (JSONObject equipment : arrayObjects(group.getJSONArray("equipmentOptions"), "equipmentOptions")) {
-                    Long deviceId = requireExistingDeviceId(equipment);
+                    Long deviceId = findExistingDeviceId(equipment);
+                    if (deviceId == null) {
+                        continue;
+                    }
                     deviceIds.add(deviceId);
                     for (int parameterIndex = 0; parameterIndex < parameters.size(); parameterIndex++) {
                         JSONObject parameter = parameters.get(parameterIndex);
                         parameterRules.add(toParameterRuleSnapshot(routeProcess, deviceId, parameter,
                                 processName, groupSort, parameterIndex + 1));
                     }
+                }
+                if (deviceIds.isEmpty()) {
+                    continue;
+                }
+                if (!groupKeys.add(groupKey)) {
+                    throw new IllegalArgumentException("JSON 设备组键重复：" + groupKey);
                 }
                 JSONObject selectionGroup = new JSONObject(true);
                 selectionGroup.put("deviceGroupKey", groupKey);
@@ -201,17 +259,22 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
         return matches.get(0);
     }
 
-    private Long requireExistingDeviceId(JSONObject equipment) {
+    private Long findExistingDeviceId(JSONObject equipment) {
         String code = requireText(equipment, "code");
         List<MesProcessPoolTeamDeviceDO> matches = deviceMapper.selectList(
                 new LambdaQueryWrapperX<MesProcessPoolTeamDeviceDO>()
                         .eq(MesProcessPoolTeamDeviceDO::getDeviceCode, code));
+        if (matches.isEmpty()) {
+            return null;
+        }
         if (matches.size() != 1) {
-            throw new IllegalArgumentException("JSON 设备必须匹配唯一现有设备：" + code + "，当前数量=" + matches.size());
+            throw exception(PRO_BATCH_RECORD_REPORT_TOTAL_RECOGNITION_JSON_INVALID,
+                    "JSON 设备必须匹配唯一现有设备：" + code + "，当前数量=" + matches.size());
         }
         MesProcessPoolTeamDeviceDO device = matches.get(0);
         if (!Boolean.TRUE.equals(device.getEnabled()) || !"ENABLED".equals(device.getDeviceStatus())) {
-            throw new IllegalArgumentException("JSON 设备不是启用状态：" + code);
+            throw exception(PRO_BATCH_RECORD_REPORT_TOTAL_RECOGNITION_JSON_INVALID,
+                    "JSON 设备不是启用状态：" + code);
         }
         return device.getId();
     }
@@ -279,18 +342,14 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
         return routeIds.get(0);
     }
 
-    private Map<Long, MesProRouteProcessDO> routeProcessesFromCandidateSnapshot(MesProRouteVersionDO candidate) {
-        if (candidate == null || candidate.getRouteId() == null || candidate.getRouteSnapshotJson() == null) {
-            throw new IllegalArgumentException("候选路线快照缺少正式身份");
-        }
-        JSONObject routeSnapshot = JSON.parseObject(candidate.getRouteSnapshotJson());
+    private Map<Long, MesProRouteProcessDO> routeProcessesFromVersionSnapshot(MesProRouteVersionDO routeVersion) {
+        JSONObject routeSnapshot = parseVersionSnapshot(routeVersion);
         JSONObject configSnapshots = routeSnapshot == null ? null : routeSnapshot.getJSONObject("configSnapshots");
         JSONObject flowGraph = configSnapshots == null ? null : configSnapshots.getJSONObject("flowGraph");
         JSONArray nodes = flowGraph == null ? null : flowGraph.getJSONArray("nodes");
-        if (routeSnapshot == null || !candidate.getRouteId().equals(routeSnapshot.getLong("routeId"))
-                || nodes == null || nodes.isEmpty()) {
+        if (nodes == null || nodes.isEmpty()) {
             throw new IllegalArgumentException("候选路线快照缺少完整 flowGraph.nodes：routeVersionId="
-                    + candidate.getId());
+                    + routeVersion.getId());
         }
         Map<Long, MesProRouteProcessDO> result = new LinkedHashMap<>();
         for (Object rawNode : nodes) {
@@ -300,12 +359,12 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
             Integer sort = node.getInteger("sort");
             MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
                     .id(routeProcessId)
-                    .routeId(candidate.getRouteId())
+                    .routeId(routeVersion.getRouteId())
                     .processId(processId)
                     .sort(sort)
                     .build();
             if (result.put(routeProcessId, routeProcess) != null) {
-                throw new IllegalArgumentException("候选路线工序身份重复：routeVersionId=" + candidate.getId()
+                throw new IllegalArgumentException("候选路线工序身份重复：routeVersionId=" + routeVersion.getId()
                         + "，routeProcessId=" + routeProcessId);
             }
         }

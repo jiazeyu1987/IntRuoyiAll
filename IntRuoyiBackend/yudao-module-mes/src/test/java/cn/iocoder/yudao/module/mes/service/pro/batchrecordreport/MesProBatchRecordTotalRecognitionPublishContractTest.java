@@ -29,12 +29,22 @@ class MesProBatchRecordTotalRecognitionPublishContractTest {
         assertContains(service, "routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId");
         assertContains(service, "routeVersionWorkflowService.createCandidate");
         assertContains(service, "routeGenerationService.generateRouteOnlyForUploadedWord");
+        assertContains(service, "recognitionDeviceSyncService.initializeActiveVersionProductionConfigs");
         assertContains(service, "recognitionDeviceSyncService.sync");
         assertContains(service, "updateProjectCodeTotalRecognitionJson");
         assertContains(service, "buildRouteParsedTablesFromTotalRecognitionJson");
         assertContains(service, "validatePublishProcessNames");
+        String publishMethod = service.substring(service.indexOf(
+                "public MesProBatchRecordTotalRecognitionPublishResult publishTotalRecognitionJson"));
+        assertOrder(publishMethod,
+                "routeGenerationService.generateRouteOnlyForUploadedWord",
+                "recognitionDeviceSyncService.initializeActiveVersionProductionConfigs",
+                "createPublishCandidate",
+                "recognitionDeviceSyncService.sync");
 
         assertContains(deviceSync, "schemaVersion");
+        assertContains(deviceSync, "public void initializeActiveVersionProductionConfigs");
+        assertContains(deviceSync, "MesProRouteVersionSnapshotIdentityWriter.apply");
         assertContains(deviceSync, "resolveProcessByName");
         assertContains(deviceSync, "buildDeviceGroupKey");
         assertContains(deviceSync, "buildParameterCode");
@@ -47,5 +57,15 @@ class MesProBatchRecordTotalRecognitionPublishContractTest {
 
     private static void assertContains(String content, String expected) {
         assertTrue(content.contains(expected), "Expected content to include: " + expected);
+    }
+
+    private static void assertOrder(String content, String... orderedTokens) {
+        int previousIndex = -1;
+        for (String token : orderedTokens) {
+            int currentIndex = content.indexOf(token);
+            assertTrue(currentIndex > previousIndex,
+                    "Expected token order after index " + previousIndex + ": " + token);
+            previousIndex = currentIndex;
+        }
     }
 }
