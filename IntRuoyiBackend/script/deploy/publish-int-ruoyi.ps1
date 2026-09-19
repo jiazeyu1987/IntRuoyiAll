@@ -88,6 +88,44 @@ if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction Sile
     $PSNativeCommandUseErrorActionPreference = $false
 }
 
+# The release executor is also supported on locked-down Windows PowerShell
+# hosts where Microsoft.PowerShell.Utility is present but Get-FileHash is not
+# command-resolvable. Keep hashing deterministic and independent of profile
+# modules so the button-triggered release gate fails only on a real mismatch.
+function Get-FileHash {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('SHA256')]
+        [string]$Algorithm,
+        [Parameter(Mandatory = $true)]
+        [string]$LiteralPath
+    )
+
+    if (-not (Test-Path -LiteralPath $LiteralPath -PathType Leaf)) {
+        throw "Hash input file does not exist: $LiteralPath"
+    }
+
+    $stream = [System.IO.File]::OpenRead($LiteralPath)
+    try {
+        $hasher = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $bytes = $hasher.ComputeHash($stream)
+        }
+        finally {
+            $hasher.Dispose()
+        }
+    }
+    finally {
+        $stream.Dispose()
+    }
+
+    [pscustomobject]@{
+        Algorithm = $Algorithm
+        Hash = ([System.BitConverter]::ToString($bytes) -replace '-', '')
+        Path = $LiteralPath
+    }
+}
+
 function Fail([string]$Message) {
     Write-Host "[FAIL] $Message" -ForegroundColor Red
     exit 1
