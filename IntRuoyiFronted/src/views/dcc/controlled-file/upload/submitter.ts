@@ -331,16 +331,17 @@ export const clearSubmitFieldErrors = (fieldErrors: UploadSubmitFieldErrors) => 
 
 export const buildSubmitPayload = (
   draft: UploadFormDraft,
-  previewFile: ControlledFileUploadRespVO,
+  readOnlyFile: ControlledFileUploadRespVO,
+  editableFile?: ControlledFileUploadRespVO,
   drawingPdfUpload?: ControlledFileUploadRespVO
 ): ControlledFileSubmitReqVO => ({
   categoryId: draft.categoryId as number,
   directoryId: draft.directoryId as number,
-  sessionId: previewFile.sessionId,
-  idempotencyKey: previewFile.sessionId,
-  originalUploadTicket: previewFile.uploadTicket,
-  sourceUploadTicket: previewFile.uploadTicket,
-  sourceFileName: previewFile.fileName,
+  sessionId: readOnlyFile.sessionId,
+  idempotencyKey: readOnlyFile.sessionId,
+  readOnlyUploadTicket: readOnlyFile.uploadTicket,
+  editableUploadTicket: editableFile?.uploadTicket,
+  sourceFileName: editableFile?.fileName || readOnlyFile.fileName,
   drawingPdfUploadTicket: drawingPdfUpload?.uploadTicket,
   fileName: trimText(draft.fileName),
   fileNumber: trimText(draft.fileNumber),
@@ -367,10 +368,11 @@ export const createUploadSubmitterService = (deps: UploadSubmitterServiceDeps) =
     },
     async submit(
       draft: UploadFormDraft,
-      previewFile: ControlledFileUploadRespVO,
+      readOnlyFile: ControlledFileUploadRespVO,
+      editableFile?: ControlledFileUploadRespVO,
       drawingPdfUpload?: ControlledFileUploadRespVO
     ) {
-      return await deps.submit(buildSubmitPayload(draft, previewFile, drawingPdfUpload))
+      return await deps.submit(buildSubmitPayload(draft, readOnlyFile, editableFile, drawingPdfUpload))
     }
   }
 }

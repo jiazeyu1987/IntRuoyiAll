@@ -9,6 +9,8 @@ import java.util.Set;
 public final class DccControlledFileUploadTypePolicy {
 
     public static final String PURPOSE_SOURCE = "SOURCE";
+    public static final String PURPOSE_READ_ONLY_VIEW = "READ_ONLY_VIEW";
+    public static final String PURPOSE_EDITABLE_SOURCE = "EDITABLE_SOURCE";
     public static final String PURPOSE_DRAWING_PDF = "DRAWING_PDF";
     public static final String PURPOSE_TRAINING_RECORD = "TRAINING_RECORD";
     public static final String PURPOSE_EXTERNAL_REVIEW_OUTPUT = "EXTERNAL_REVIEW_OUTPUT";
@@ -28,6 +30,8 @@ public final class DccControlledFileUploadTypePolicy {
     public static boolean isSupportedPurpose(String purpose) {
         String normalized = normalizePurpose(purpose);
         return PURPOSE_SOURCE.equals(normalized)
+                || PURPOSE_READ_ONLY_VIEW.equals(normalized)
+                || PURPOSE_EDITABLE_SOURCE.equals(normalized)
                 || PURPOSE_DRAWING_PDF.equals(normalized)
                 || PURPOSE_TRAINING_RECORD.equals(normalized)
                 || PURPOSE_EXTERNAL_REVIEW_OUTPUT.equals(normalized);
@@ -35,6 +39,14 @@ public final class DccControlledFileUploadTypePolicy {
 
     public static boolean isSourcePurpose(String purpose) {
         return PURPOSE_SOURCE.equals(normalizePurpose(purpose));
+    }
+
+    public static boolean isReadOnlyViewPurpose(String purpose) {
+        return PURPOSE_READ_ONLY_VIEW.equals(normalizePurpose(purpose));
+    }
+
+    public static boolean isEditableSourcePurpose(String purpose) {
+        return PURPOSE_EDITABLE_SOURCE.equals(normalizePurpose(purpose));
     }
 
     public static boolean isDrawingPdfPurpose(String purpose) {

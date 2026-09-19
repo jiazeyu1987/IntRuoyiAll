@@ -1086,12 +1086,34 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     @Override
     public DccDownloadFileBinary readDownloadFile(Long userId, Long id, Boolean nonControlledWarningConfirmed,
                                                   String downloadRequestId, DccRequestAuditContext auditContext) {
+        return readDownloadFile(userId, id, nonControlledWarningConfirmed, downloadRequestId, auditContext, false);
+    }
+
+    @Override
+    public DccDownloadFileBinary readReadOnlyDownloadFile(Long userId, Long id,
+                                                          Boolean nonControlledWarningConfirmed,
+                                                          String downloadRequestId,
+                                                          DccRequestAuditContext auditContext) {
+        return readDownloadFile(userId, id, nonControlledWarningConfirmed, downloadRequestId, auditContext, false);
+    }
+
+    @Override
+    public DccDownloadFileBinary readEditableDownloadFile(Long userId, Long id,
+                                                          Boolean nonControlledWarningConfirmed,
+                                                          String downloadRequestId,
+                                                          DccRequestAuditContext auditContext) {
+        return readDownloadFile(userId, id, nonControlledWarningConfirmed, downloadRequestId, auditContext, true);
+    }
+
+    private DccDownloadFileBinary readDownloadFile(Long userId, Long id, Boolean nonControlledWarningConfirmed,
+                                                   String downloadRequestId, DccRequestAuditContext auditContext,
+                                                   boolean editable) {
         String normalizedDownloadRequestId = requireDownloadRequestId(downloadRequestId);
         DccRequestAuditContext requiredAuditContext = requireAuditContext(auditContext)
                 .withRequestId(normalizedDownloadRequestId);
         requireDownloadRequestUnused(normalizedDownloadRequestId);
         return readDownloadBinary(userId, id, nonControlledWarningConfirmed, normalizedDownloadRequestId,
-                requiredAuditContext);
+                requiredAuditContext, editable);
     }
 
     @Override
@@ -1288,7 +1310,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
 
     private DccDownloadFileBinary readDownloadBinary(Long userId, Long id, Boolean nonControlledWarningConfirmed,
                                                      String downloadRequestId,
-                                                     DccRequestAuditContext auditContext) {
+                                                     DccRequestAuditContext auditContext,
+                                                     boolean editable) {
         DccControlledFileDO file = controlledFileMapper.selectById(id);
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
@@ -1298,10 +1321,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     "WARNING_UNCONFIRMED", auditContext);
             throw exception(CONTROLLED_FILE_DOWNLOAD_WARNING_UNCONFIRMED);
         }
-        Long sourceFileId = resolveBinaryFileId(file, DccAccessTypeEnum.DOWNLOAD);
+        Long sourceFileId = resolveDownloadFileId(file, editable);
         requireBusinessFileAccess(BusinessFileAccessOperation.DOWNLOAD, userId, sourceFileId,
                 TenantContextHolder.getRequiredTenantId(), null, auditContext, null);
-        DccDownloadPolicyDecision policyDecision = decideDownloadBinary(userId, file);
+        DccDownloadPolicyDecision policyDecision = decideDownloadBinary(userId, file, sourceFileId);
         if (!policyDecision.allowed()) {
             recordAccess(file.getId(), userId, DccAccessTypeEnum.DOWNLOAD, false,
                     "ACCESS_DENIED", auditContext);
@@ -1309,7 +1332,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         }
         FileDO sourceFile;
         try {
-            sourceFile = resolveBinaryFileRecord(file, DccAccessTypeEnum.DOWNLOAD);
+            sourceFile = fileMapper.selectById(sourceFileId);
+            if (sourceFile == null) {
+                throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+            }
         } catch (ServiceException ex) {
             recordAccess(file.getId(), userId, DccAccessTypeEnum.DOWNLOAD, false,
                     "PUBLISHED_FILE_MISSING", auditContext);
@@ -1693,11 +1719,23 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
 
     private DccDownloadPolicyDecision decideDownloadBinary(Long userId, DccControlledFileDO file,
                                                            boolean hasDirectoryManagementPermission) {
+        return decideDownloadBinary(userId, file, file.getPublishedFileId(), hasDirectoryManagementPermission);
+    }
+
+    private DccDownloadPolicyDecision decideDownloadBinary(Long userId, DccControlledFileDO file,
+                                                           Long artifactFileId) {
+        return decideDownloadBinary(userId, file, artifactFileId,
+                directoryAccessPermissionService.hasDirectoryManagementPermission(userId));
+    }
+
+    private DccDownloadPolicyDecision decideDownloadBinary(Long userId, DccControlledFileDO file,
+                                                           Long artifactFileId,
+                                                           boolean hasDirectoryManagementPermission) {
         if (!isWithinAssignedFileScope(userId, file)) {
             return downloadPolicyService.decide(new DccDownloadPolicyContext(
-                    file.getId(), file.getStatus(), file.getPublishedFileId(), false, false));
+                    file.getId(), file.getStatus(), artifactFileId, false, false));
         }
-        boolean candidate = file.getPublishedFileId() != null
+        boolean candidate = artifactFileId != null
                 && DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus());
         boolean recipientAllowed = candidate && hasActiveElectronicDistributionAccess(userId, file);
         boolean categoryDownloadAllowed = candidate
@@ -1711,7 +1749,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         return downloadPolicyService.decide(new DccDownloadPolicyContext(
                 file.getId(),
                 file.getStatus(),
-                file.getPublishedFileId(),
+                artifactFileId,
                 categoryDownloadAllowed,
                 directoryDownloadAllowed));
     }
@@ -1765,7 +1803,17 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         return file.getPublishedFileId();
     }
 
+    private Long resolveDownloadFileId(DccControlledFileDO file, boolean editable) {
+        if (editable) {
+            return file.getEditableFileId();
+        }
+        return file.getReadOnlyFileId() != null ? file.getReadOnlyFileId() : file.getPublishedFileId();
+    }
+
     private Long resolvePreviewReferenceId(DccControlledFileDO file) {
+        if (file.getReadOnlyFileId() != null) {
+            return file.getReadOnlyFileId();
+        }
         String status = file.getStatus();
         if (DccControlledFileStatusEnum.ACTIVE.getStatus().equals(status)
                 || DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(status)) {
@@ -2177,6 +2225,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 hasDirectoryManagementPermission));
         DccDownloadPolicyDecision downloadDecision = decideDownloadBinary(userId, file, hasDirectoryManagementPermission);
         respVO.setCanDownload(downloadDecision.allowed());
+        respVO.setCanDownloadReadOnly(decideDownloadBinary(userId, file, resolveDownloadFileId(file, false),
+                hasDirectoryManagementPermission).allowed());
+        respVO.setCanDownloadEditable(decideDownloadBinary(userId, file, resolveDownloadFileId(file, true),
+                hasDirectoryManagementPermission).allowed());
         respVO.setCanPrint(canPrintControlledFile(userId, file));
         respVO.setAccessExplanation(buildAccessExplanation(userId, file, hasDirectoryManagementPermission,
                 respVO.getCanPreview(), downloadDecision));
@@ -2288,6 +2340,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 hasDirectoryManagementPermission, currentViewMatrixAccessByCategory));
         DccDownloadPolicyDecision downloadDecision = decideDownloadBinary(userId, file, hasDirectoryManagementPermission);
         respVO.setCanDownload(downloadDecision.allowed());
+        respVO.setCanDownloadReadOnly(decideDownloadBinary(userId, file, resolveDownloadFileId(file, false),
+                hasDirectoryManagementPermission).allowed());
+        respVO.setCanDownloadEditable(decideDownloadBinary(userId, file, resolveDownloadFileId(file, true),
+                hasDirectoryManagementPermission).allowed());
         respVO.setCanPrint(canPrintControlledFile(userId, file));
         respVO.setAccessExplanation(buildAccessExplanation(userId, file, hasDirectoryManagementPermission,
                 respVO.getCanPreview(), downloadDecision, currentViewMatrixAccessByCategory));
@@ -2725,6 +2781,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     respVO.setPreviewUnavailableReason(previewProjection.unavailableReason());
                     respVO.setCanDownload(canReadBinary(userId, history, DccAccessTypeEnum.DOWNLOAD,
                             hasDirectoryManagementPermission));
+                    respVO.setCanDownloadReadOnly(decideDownloadBinary(userId, history,
+                            resolveDownloadFileId(history, false), hasDirectoryManagementPermission).allowed());
+                    respVO.setCanDownloadEditable(decideDownloadBinary(userId, history,
+                            resolveDownloadFileId(history, true), hasDirectoryManagementPermission).allowed());
                     fillCheckoutProjection(respVO, history);
                     return respVO;
                 })
