@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
@@ -24,12 +25,24 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDetailReadMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrOperationAuditEventDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderEventPartyReadDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderDetailReadDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterial;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterialService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.PqcResultValueValidator;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureEvidenceDTO;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO;
+import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
+import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
@@ -74,6 +87,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     private final MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProProcessPoolEventRevisionMapper eventRevisionMapper;
+    private final MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
+    private final MesProEdhrOperationAuditEventMapper operationAuditEventMapper;
+    private final MesProcessPoolTeamMaintenanceAuditMapper maintenanceAuditMapper;
+    private final ElectronicSignatureQueryService signatureQueryService;
+    private final AdminUserService adminUserService;
 
     public MesTeamLeaderActiveOrderDetailServiceImpl(MesProcessPoolActiveOrderMapper activeOrderMapper,
                                                        MesProcessPoolActiveOrderDetailReadMapper detailReadMapper,
@@ -86,7 +104,12 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                                                        MesMdItemMapper itemMapper,
                                                        MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper,
                                                        MesProProcessPoolEventMapper eventMapper,
-                                                       MesProProcessPoolEventRevisionMapper eventRevisionMapper) {
+                                                       MesProProcessPoolEventRevisionMapper eventRevisionMapper,
+                                                       MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper,
+                                                       MesProEdhrOperationAuditEventMapper operationAuditEventMapper,
+                                                       MesProcessPoolTeamMaintenanceAuditMapper maintenanceAuditMapper,
+                                                       ElectronicSignatureQueryService signatureQueryService,
+                                                       AdminUserService adminUserService) {
         this.activeOrderMapper = activeOrderMapper;
         this.detailReadMapper = detailReadMapper;
         this.processMaterialService = processMaterialService;
@@ -99,6 +122,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         this.backfillMapper = backfillMapper;
         this.eventMapper = eventMapper;
         this.eventRevisionMapper = eventRevisionMapper;
+        this.releaseApplicationMapper = releaseApplicationMapper;
+        this.operationAuditEventMapper = operationAuditEventMapper;
+        this.maintenanceAuditMapper = maintenanceAuditMapper;
+        this.signatureQueryService = signatureQueryService;
+        this.adminUserService = adminUserService;
     }
 
     @Override
@@ -109,6 +137,19 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 || !MesTeamLeaderActiveOrderServiceImpl.STATUS_ACTIVE.equals(activeOrder.getActiveStatus())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
         }
+        return buildDetail(activeOrder, activeOrderId);
+    }
+
+    @Override
+    public MesTeamLeaderActiveOrderDetail getFormalDetail(Long activeOrderId) {
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(activeOrderId);
+        if (activeOrder == null) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
+        }
+        return buildDetail(activeOrder, activeOrderId);
+    }
+
+    private MesTeamLeaderActiveOrderDetail buildDetail(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId) {
         List<MesTeamLeaderActiveOrderDetailReadDO> rows = detailReadMapper.selectByActiveOrderId(activeOrderId);
         if (rows == null || rows.isEmpty()) {
             throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
@@ -129,7 +170,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         attachInputMaterials(activeOrder, activeOrderId, accumulators, inputSourceSnapshot);
         attachSupplementMaterials(first.getWorkOrderCode(), activeOrderId, accumulators);
         attachPqcSubmissions(activeOrder, activeOrderId, accumulators);
-        return new MesTeamLeaderActiveOrderDetail()
+        MesTeamLeaderActiveOrderDetail detail = new MesTeamLeaderActiveOrderDetail()
                 .setActiveOrderId(activeOrderId)
                 .setVersion(activeOrder.getVersion())
                 .setWorkOrderId(first.getWorkOrderId())
@@ -144,7 +185,164 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setWorkOrderCreateTime(first.getWorkOrderCreateTime())
                 .setRouteName(first.getRouteName())
                 .setInputMaterialUsages(resolveInputMaterialUsages(inputSourceSnapshot))
-                .setProcesses(accumulators.values().stream().map(ProcessAccumulator::toDetail).toList());
+                .setProcesses(accumulators.values().stream().map(ProcessAccumulator::toDetail).toList())
+                .setOperationFacts(resolveOperationFacts(activeOrderId));
+        attachPqcProductionRelease(detail, activeOrderId);
+        return detail;
+    }
+
+    private List<MesTeamLeaderActiveOrderDetail.OperationFact> resolveOperationFacts(Long activeOrderId) {
+        List<MesProEdhrOperationAuditEventDO> events =
+                operationAuditEventMapper.selectSuccessfulListByActiveOrderId(activeOrderId);
+        List<MesProcessPoolTeamMaintenanceAuditDO> maintenanceAudits =
+                maintenanceAuditMapper.selectSuccessfulListByActiveOrderId(activeOrderId);
+        List<MesTeamLeaderActiveOrderDetail.OperationFact> facts = new ArrayList<>();
+        if (events != null) {
+            facts.addAll(events.stream().map(event -> toOperationFact(event, activeOrderId)).toList());
+        }
+        if (maintenanceAudits != null) {
+            facts.addAll(maintenanceAudits.stream()
+                    .map(audit -> toMaintenanceOperationFact(audit, activeOrderId))
+                    .toList());
+        }
+        return facts.stream()
+                .sorted(Comparator.comparing(MesTeamLeaderActiveOrderDetail.OperationFact::getOccurredAt,
+                                Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(MesTeamLeaderActiveOrderDetail.OperationFact::getId,
+                                Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+    }
+
+    private MesTeamLeaderActiveOrderDetail.OperationFact toMaintenanceOperationFact(
+            MesProcessPoolTeamMaintenanceAuditDO audit, Long activeOrderId) {
+        if (audit == null || audit.getId() == null || audit.getAuditTime() == null
+                || audit.getOperatorUserId() == null || audit.getResultStatus() == null
+                || !Objects.equals(activeOrderId, audit.getTargetId())
+                || !"ACTIVE_ORDER".equals(audit.getTargetType())) {
+            throw new IllegalStateException("ACTIVE_ORDER_OPERATION_FACT_INCOMPLETE");
+        }
+        AdminUserDO operator = adminUserService.getUser(audit.getOperatorUserId());
+        if (operator == null || operator.getNickname() == null || operator.getNickname().isBlank()) {
+            throw new IllegalStateException("ACTIVE_ORDER_OPERATION_FACT_ACTOR_MISSING");
+        }
+        return new MesTeamLeaderActiveOrderDetail.OperationFact()
+                .setId(audit.getId())
+                .setOperationType(requireTextValue(audit.getActionType(), activeOrderId))
+                .setOperationName(requireTextValue(audit.getChangeSummary(), activeOrderId))
+                .setSourceType(requireTextValue(audit.getTargetType(), activeOrderId))
+                .setSourceId(String.valueOf(audit.getTargetId()))
+                .setActorUserId(audit.getOperatorUserId())
+                .setActorName(operator.getNickname())
+                .setResultStatus(audit.getResultStatus())
+                .setOccurredAt(audit.getAuditTime());
+    }
+
+    private MesTeamLeaderActiveOrderDetail.OperationFact toOperationFact(
+            MesProEdhrOperationAuditEventDO event, Long activeOrderId) {
+        if (event == null || event.getId() == null || event.getOccurredAt() == null
+                || event.getActorUserId() == null || event.getResultStatus() == null
+                || event.getAfterSummaryHash() == null || event.getAfterSummaryHash().isBlank()
+                || event.getMetadataJson() == null || event.getMetadataJson().isBlank()) {
+            throw new IllegalStateException("ACTIVE_ORDER_OPERATION_FACT_INCOMPLETE"
+                    + " eventId=" + (event == null ? null : event.getId())
+                    + " objectType=" + (event == null ? null : event.getObjectType())
+                    + " objectId=" + (event == null ? null : event.getObjectId())
+                    + " operationType=" + (event == null ? null : event.getOperationType())
+                    + " actorUserId=" + (event == null ? null : event.getActorUserId())
+                    + " resultStatus=" + (event == null ? null : event.getResultStatus())
+                    + " occurredAt=" + (event == null ? null : event.getOccurredAt())
+                    + " afterSummaryHashPresent=" + (event != null
+                    && event.getAfterSummaryHash() != null
+                    && !event.getAfterSummaryHash().isBlank())
+                    + " metadataPresent=" + (event != null
+                    && event.getMetadataJson() != null
+                    && !event.getMetadataJson().isBlank()));
+        }
+        JSONObject metadata = JSON.parseObject(event.getMetadataJson());
+        Long metadataActiveOrderId = metadata == null ? null : metadata.getLong("activeOrderId");
+        if (!Objects.equals(metadataActiveOrderId, activeOrderId)) {
+            throw new IllegalStateException("ACTIVE_ORDER_OPERATION_FACT_SOURCE_MISMATCH");
+        }
+        return new MesTeamLeaderActiveOrderDetail.OperationFact()
+                .setId(event.getId())
+                .setOperationType(requireTextValue(event.getOperationType(), activeOrderId))
+                .setOperationName(requireTextValue(event.getActionName(), activeOrderId))
+                .setSourceType(requireTextValue(event.getObjectType(), activeOrderId))
+                .setSourceId(requireTextValue(event.getObjectId(), activeOrderId))
+                .setActorUserId(event.getActorUserId())
+                .setActorName(requireTextValue(event.getActorUsername(), activeOrderId))
+                .setSignatureId(signatureIdOf(metadata))
+                .setResultStatus(event.getResultStatus())
+                .setOccurredAt(event.getOccurredAt())
+                .setSourceSnapshotHash(event.getAfterSummaryHash());
+    }
+
+    private Long signatureIdOf(JSONObject metadata) {
+        if (metadata == null) {
+            return null;
+        }
+        Object value = metadata.get("signatureId");
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String text && !text.isBlank() && !"NOT_APPLICABLE".equals(text)) {
+            return Long.valueOf(text);
+        }
+        return null;
+    }
+
+    private void attachPqcProductionRelease(MesTeamLeaderActiveOrderDetail detail, Long activeOrderId) {
+        MesProcessPoolActiveOrderReleaseApplicationDO application =
+                releaseApplicationMapper.selectLatestByActiveOrderId(activeOrderId);
+        if (application == null
+                || !"APPROVE".equals(application.getPqcDecision())
+                || application.getBatchExecutionId() == null
+                || application.getBatchExecutionId() <= 0
+                || application.getDossierSummaryJson() == null
+                || application.getDossierSummaryJson().isBlank()) {
+            return;
+        }
+        JSONObject dossier = JSON.parseObject(application.getDossierSummaryJson());
+        Long signatureId = dossier == null ? null : dossier.getLong("signatureId");
+        if (signatureId == null || signatureId <= 0) {
+            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ID_MISSING");
+        }
+        String subjectId = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(
+                application.getBatchExecutionId(),
+                MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
+                null, null, null, null, null, null, null,
+                "PQC_RELEASE_APPLICATION", application.getId(), "PQC生产放行",
+                MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
+                null, null, null, null);
+        ElectronicSignatureEvidenceDTO signature = signatureQueryService.getById(signatureId);
+        if (signature == null
+                || !Objects.equals(signature.subjectId(), subjectId)
+                || !Objects.equals(signature.actionCode(), MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE)
+                || !Objects.equals(signature.verificationStatus(), "VALID")
+                || signature.actorId() == null
+                || signature.signedAt() == null) {
+            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_RECORD_MISSING");
+        }
+        ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signatureId);
+        if (verification == null
+                || !Objects.equals(verification.signatureId(), signatureId)
+                || !Objects.equals(verification.verificationStatus(), "VALID")
+                || !Objects.equals(verification.storedEvidenceHash(), signature.evidenceHash())
+                || !Objects.equals(verification.calculatedEvidenceHash(), signature.evidenceHash())) {
+            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_RECORD_MISSING");
+        }
+        AdminUserDO signer = adminUserService.getUser(signature.actorId());
+        if (signer == null || signer.getNickname() == null || signer.getNickname().isBlank()) {
+            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ACTOR_MISSING");
+        }
+        detail.setPqcProductionRelease(new MesTeamLeaderActiveOrderDetail.PqcProductionReleaseSummary()
+                .setStatus(application.getApplicationStatus())
+                .setStatusLabel("已生产放行")
+                .setSignature(new MesTeamLeaderActiveOrderDetail.SignatureDetail()
+                        .setSignatureId(signature.id())
+                        .setSignerName(signer.getNickname())
+                        .setSignedAt(signature.signedAt())
+                        .setRole(MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE)));
     }
 
     private FormalInputSourceSnapshot resolveInputSourceSnapshot(MesProcessPoolActiveOrderDO activeOrder,
@@ -808,6 +1006,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         if (value == null || value.isBlank()) {
             throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
         }
+    }
+
+    private static String requireTextValue(String value, Long activeOrderId) {
+        requireText(value, activeOrderId);
+        return value;
     }
 
     private static <T> List<Long> distinctIds(List<T> rows, Function<T, Long> idGetter) {

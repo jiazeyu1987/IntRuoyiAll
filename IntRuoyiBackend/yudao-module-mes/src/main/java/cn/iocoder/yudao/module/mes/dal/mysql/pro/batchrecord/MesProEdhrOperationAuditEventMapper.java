@@ -61,4 +61,15 @@ public interface MesProEdhrOperationAuditEventMapper extends BaseMapperX<MesProE
                 .orderByDesc(MesProEdhrOperationAuditEventDO::getOccurredAt)
                 .orderByDesc(MesProEdhrOperationAuditEventDO::getId));
     }
+
+    default List<MesProEdhrOperationAuditEventDO> selectSuccessfulListByActiveOrderId(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProEdhrOperationAuditEventDO>()
+                .eq(MesProEdhrOperationAuditEventDO::getResultStatus, "SUCCESS")
+                .like(MesProEdhrOperationAuditEventDO::getMetadataJson, "\"activeOrderId\":" + activeOrderId)
+                .orderByDesc(MesProEdhrOperationAuditEventDO::getOccurredAt)
+                .orderByDesc(MesProEdhrOperationAuditEventDO::getId));
+    }
 }

@@ -9,6 +9,8 @@ public interface ElectronicSignatureQueryService {
 
     List<ElectronicSignatureEvidenceDTO> listBySubject(String moduleCode, String subjectType, String subjectId);
 
+    ElectronicSignatureEvidenceDTO getById(Long signatureId);
+
     ElectronicSignatureVerificationDTO verifyEvidence(Long signatureId);
 
 }

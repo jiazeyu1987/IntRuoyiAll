@@ -118,12 +118,16 @@ public class MesProBatchRecordExecutionSignatureService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public Long recordPqcReleaseSignature(Long actorId, Long executionId, String password, String comment) {
+    public Long recordPqcReleaseSignature(Long actorId, Long executionId, Long releaseApplicationId,
+                                          String password, String comment) {
         if (executionId == null || executionId <= 0) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
         }
+        if (releaseApplicationId == null || releaseApplicationId <= 0) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        }
         return recordSignatureForActor(actorId, executionId, password, comment, ACTION_PQC_RELEASE,
-                null, null, null, null, null, null, null, "PQC_RELEASE_APPLICATION", null,
+                null, null, null, null, null, null, null, "PQC_RELEASE_APPLICATION", releaseApplicationId,
                 "PQC生产放行", ACTION_PQC_RELEASE, null, null, null, null, null);
     }
 

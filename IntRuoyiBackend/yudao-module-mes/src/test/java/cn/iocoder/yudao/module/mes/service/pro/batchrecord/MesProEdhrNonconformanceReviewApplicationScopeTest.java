@@ -12,6 +12,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExec
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
@@ -52,6 +54,9 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @Mock private MesProWorkOrderMapper workOrderMapper;
     @Mock private MesProEdhrWorkTaskMapper workTaskMapper;
     @Mock private MesProBatchRecordExecutionSignatureService signatureService;
+    @Mock private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
+    @Mock private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
+    @Mock private MesProEdhrOperationAuditService operationAuditService;
 
     private MesProEdhrNonconformanceReviewServiceImpl service;
 
@@ -65,6 +70,74 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         ReflectionTestUtils.setField(service, "workOrderMapper", workOrderMapper);
         ReflectionTestUtils.setField(service, "workTaskMapper", workTaskMapper);
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
+        ReflectionTestUtils.setField(service, "batchExecutionOriginMapper", batchExecutionOriginMapper);
+        ReflectionTestUtils.setField(service, "pqcInspectionTaskMapper", pqcInspectionTaskMapper);
+        ReflectionTestUtils.setField(service, "operationAuditService", operationAuditService);
+    }
+
+    @Test
+    void creatingApplicationReviewRecordsActiveOrderOperationFact() {
+        when(releaseApplicationMapper.selectByIdForUpdate(7001L)).thenReturn(
+                new MesProcessPoolActiveOrderReleaseApplicationDO()
+                        .setId(7001L)
+                        .setActiveOrderId(8101L)
+                        .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
+                        .setVersion(1)
+                        .setWorkOrderId(3001L)
+                        .setWorkOrderCode("WO-001")
+                        .setBatchCode("BATCH-001"));
+        when(workOrderMapper.selectByIdForUpdate(3001L)).thenReturn(
+                new MesProWorkOrderDO().setId(3001L).setTemporaryFrozen(false));
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), true)).thenReturn(1);
+        when(reviewMapper.insert(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(invocation -> {
+            invocation.<MesProEdhrNonconformanceReviewDO>getArgument(0).setId(1001L);
+            return 1;
+        });
+
+        service.create(new MesProEdhrNonconformanceReviewCreateReqVO()
+                .setSourceType("PQC_RELEASE")
+                .setSourceId(7001L)
+                .setNonconformanceReason("检验结论需要评审"));
+
+        ArgumentCaptor<MesProEdhrOperationAuditCommand> auditCaptor =
+                ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
+        verify(operationAuditService).recordInCallerTransaction(auditCaptor.capture());
+        assertEquals("NONCONFORMANCE_REVIEW_CREATE", auditCaptor.getValue().getOperationType());
+        assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"activeOrderId\":8101"));
+    }
+
+    @Test
+    void disposingApplicationReviewRecordsActiveOrderOperationFact() {
+        stubPendingReview("rework");
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
+        when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
+                isNull(), any(), eq("返工处理"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK")))
+                .thenReturn(1);
+
+        service.dispose(disposeRequest("rework"));
+
+        ArgumentCaptor<MesProEdhrOperationAuditCommand> auditCaptor =
+                ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
+        verify(operationAuditService).recordInCallerTransaction(auditCaptor.capture());
+        assertEquals("NONCONFORMANCE_REVIEW_DISPOSE", auditCaptor.getValue().getOperationType());
+        assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"activeOrderId\":8101"));
+    }
+
+    @Test
+    void concessionReleaseDispositionRecordsActiveOrderOperationFactWithBusinessActionName() {
+        stubPendingReview("concession_release");
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
+
+        service.dispose(disposeRequest("concession_release"));
+
+        ArgumentCaptor<MesProEdhrOperationAuditCommand> auditCaptor =
+                ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
+        verify(operationAuditService).recordInCallerTransaction(auditCaptor.capture());
+        assertEquals("NONCONFORMANCE_REVIEW_DISPOSE", auditCaptor.getValue().getOperationType());
+        assertEquals("让步放行", auditCaptor.getValue().getActionName());
+        assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"activeOrderId\":8101"));
+        assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"disposition\":\"concession_release\""));
     }
 
     @Test
@@ -72,6 +145,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         when(releaseApplicationMapper.selectByIdForUpdate(7001L)).thenReturn(
                 new MesProcessPoolActiveOrderReleaseApplicationDO()
                         .setId(7001L)
+                        .setActiveOrderId(8101L)
                         .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
                         .setVersion(1)
                         .setWorkOrderId(3001L)
@@ -566,6 +640,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         when(releaseApplicationMapper.selectByIdForUpdate(7001L)).thenReturn(
                 new MesProcessPoolActiveOrderReleaseApplicationDO()
                         .setId(7001L)
+                        .setActiveOrderId(8101L)
                         .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
                         .setVersion(1)
                         .setWorkOrderId(3001L)

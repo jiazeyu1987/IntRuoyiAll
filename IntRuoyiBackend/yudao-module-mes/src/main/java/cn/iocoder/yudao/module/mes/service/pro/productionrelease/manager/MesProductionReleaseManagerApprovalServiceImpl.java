@@ -224,6 +224,7 @@ public class MesProductionReleaseManagerApprovalServiceImpl
                 .setIdempotencyKey(command.getIdempotencyKey())
                 .setTenantId(TenantContextHolder.getTenantId())
                 .setApplicationId(application.getId())
+                .setActiveOrderId(application.getActiveOrderId())
                 .setWorkTaskId(workTask.getId())
                 .setBatchExecutionId(application.getBatchExecutionId())
                 .setReleaseTransactionId(released.getId())

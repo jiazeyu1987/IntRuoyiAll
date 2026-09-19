@@ -23,6 +23,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionAttachmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseCheckItemDO;
@@ -34,6 +35,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseCheckItemMapper;
@@ -63,6 +65,7 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseMaterialGate
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseOrigin;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
+import com.alibaba.fastjson.JSON;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -98,6 +101,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     private MesProEdhrReleaseService releaseService;
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
+    @Resource
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
     @Resource
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Resource
@@ -476,6 +481,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     @Test
     void submitRecordsTerminalOperationAuditWhenOwnerSignsRelease() {
         MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-SUBMIT-AUDIT");
+        insertActiveOrderOrigin(batch, 8101L);
         insertRouteReleaseOwnerRule(batch.getRouteId(), 10001L);
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7351L);
         insertCompletedExecution(task.getExecutionId(), true);
@@ -505,6 +511,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals("ALLOW", audit.getPermissionDecision());
         assertEquals("SUCCESS", audit.getResultStatus());
         assertTrue(audit.getMetadataJson().contains("\"toStatus\":\"PENDING_APPROVAL\""));
+        assertEquals(8101L, JSON.parseObject(audit.getMetadataJson()).getLong("activeOrderId"));
     }
 
     @Test
@@ -1249,6 +1256,26 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
 
     private MesProEdhrBatchExecutionDO insertClosedBatch(String batchCode) {
         return insertClosedBatch(null, batchCode);
+    }
+
+    private void insertActiveOrderOrigin(MesProEdhrBatchExecutionDO batch, Long activeOrderId) {
+        batchExecutionOriginMapper.insert(MesProEdhrBatchExecutionOriginDO.builder()
+                .batchExecutionId(batch.getId())
+                .entryType("ACTIVE_ORDER_COMPLETION")
+                .originKey("ACTIVE_ORDER:" + activeOrderId)
+                .activeOrderId(activeOrderId)
+                .workOrderId(batch.getWorkOrderId())
+                .sourceSnapshotHash("active-order-source-" + activeOrderId)
+                .batchProvisionReceiptId(9001L)
+                .batchProvisionStatus("COMPLETED")
+                .sourceCredentialId("active-order-receipt-" + activeOrderId)
+                .sourceCredentialHash("active-order-receipt-hash-" + activeOrderId)
+                .sourceBundleHash("active-order-bundle-hash-" + activeOrderId)
+                .idempotencyKey("ACTIVE-ORDER-ORIGIN-" + activeOrderId)
+                .relationStatus("ACTIVE")
+                .capturedBy(10001L)
+                .capturedAt(LocalDateTime.now())
+                .build());
     }
 
     private MesProEdhrReleaseRespVO insertPendingApprovalRelease(MesProEdhrBatchExecutionDO batch) {

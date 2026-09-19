@@ -49,6 +49,18 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
     }
 
     @Override
+    public ElectronicSignatureEvidenceDTO getById(Long signatureId) {
+        if (signatureId == null) {
+            throw exception(ESIGN_COMMAND_INVALID, "签名编号不能为空");
+        }
+        ElectronicSignatureRecordDO record = signatureRecordMapper.selectById(signatureId);
+        if (record == null || !Objects.equals(record.getTenantId(), TenantContextHolder.getRequiredTenantId())) {
+            throw exception(ESIGN_COMMAND_INVALID, "签名记录不存在");
+        }
+        return toEvidence(record);
+    }
+
+    @Override
     public ElectronicSignatureVerificationDTO verifyEvidence(Long signatureId) {
         if (signatureId == null) {
             throw exception(ESIGN_COMMAND_INVALID, "签名编号不能为空");
@@ -57,7 +69,7 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
         if (record == null || !Objects.equals(record.getTenantId(), TenantContextHolder.getRequiredTenantId())) {
             throw exception(ESIGN_COMMAND_INVALID, "签名记录不存在");
         }
-        String calculatedContentHash = hash(record.getCanonicalContentJson());
+        String calculatedContentHash = hash(ElectronicSignatureJsonCanonicalizer.canonicalize(record.getCanonicalContentJson()));
         String calculatedEvidenceHash = hash(evidencePayload(record, calculatedContentHash));
         String status = Objects.equals(record.getContentHash(), calculatedContentHash)
                 && Objects.equals(record.getEvidenceHash(), calculatedEvidenceHash)
@@ -84,8 +96,10 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
                 record.getSubjectVersion(), record.getMeaningCode(), record.getMeaningLabel(), record.getReason(),
                 originalSignedAt(record), record.getTimeEvidenceId(), AUTHENTICATION_METHOD, contentHash,
                 StrUtil.nullToEmpty(record.getBeforeContentHash()), StrUtil.nullToEmpty(record.getAfterContentHash()),
-                StrUtil.nullToEmpty(record.getBeforeContentJson()), StrUtil.nullToEmpty(record.getAfterContentJson()),
-                StrUtil.nullToEmpty(record.getFieldDiffJson()), HASH_ALGORITHM, record.getKeyVersion(),
+                StrUtil.nullToEmpty(ElectronicSignatureJsonCanonicalizer.canonicalize(record.getBeforeContentJson())),
+                StrUtil.nullToEmpty(ElectronicSignatureJsonCanonicalizer.canonicalize(record.getAfterContentJson())),
+                StrUtil.nullToEmpty(ElectronicSignatureJsonCanonicalizer.canonicalize(record.getFieldDiffJson())),
+                HASH_ALGORITHM, record.getKeyVersion(),
                 record.getPolicyVersion(), record.getVerificationStatus());
     }
 

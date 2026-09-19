@@ -1028,6 +1028,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (workOrder.getTenantId() != null && !Objects.equals(workOrder.getTenantId(), tenantId)) {
             throw new IllegalStateException("FIXED_ACTIVE_ORDER_TEST_RESET_TENANT_SCOPE_MISMATCH");
         }
+        workOrderMapper.updateTemporaryFrozenByIds(List.of(workOrder.getId()), Boolean.FALSE);
         List<MesProcessPoolActiveOrderDO> activeOrders = activeOrderMapper.selectList(
                 new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
                         .eq(MesProcessPoolActiveOrderDO::getTenantId, tenantId)

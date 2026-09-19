@@ -158,11 +158,17 @@
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('updateTime')" label="最后更新时间" prop="updateTime" :width="getEdhrBatchExecutionColumnWidthString('updateTime', 180)" :formatter="edhrDateTimeFormatter" v-bind="sortColumnAttrs('updateTime')" />
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('operation')" label="操作" prop="operation" :width="getEdhrBatchExecutionColumnWidthString('operation', 180)" fixed="right">
               <template #default="{ row }">
-                <div
-                  v-if="resolveBatchVoidOperationState(row) === 'pending-withdrawable'"
-                  class="edhr-batch-page__actions"
-                >
+                <div class="edhr-batch-page__actions">
                   <el-button
+                    link
+                    type="primary"
+                    data-edhr-batch-active-order-detail
+                    @click="openActiveOrderDetail(row)"
+                  >
+                    详情
+                  </el-button>
+                  <el-button
+                    v-if="resolveBatchVoidOperationState(row) === 'pending-withdrawable'"
                     v-hasPermi="['mes:pro-edhr-change:void']"
                     link
                     type="warning"
@@ -170,28 +176,15 @@
                   >
                     撤回作废申请
                   </el-button>
-                </div>
-                <div
-                  v-else-if="resolveBatchVoidOperationState(row) === 'pending-readonly'"
-                  class="edhr-batch-page__actions"
-                >
-                  <span class="edhr-batch-page__muted">作废申请中</span>
-                </div>
-                <div
-                  v-else-if="resolveBatchVoidOperationState(row) === 'voided'"
-                  class="edhr-batch-page__actions"
-                >
-                  <el-button link type="primary" @click="openDetail(row)">编辑</el-button>
-                </div>
-                <div
-                  v-else-if="resolveBatchVoidOperationState(row) === 'release-locked'"
-                  class="edhr-batch-page__actions"
-                >
-                  <el-button link type="primary" @click="openDetail(row)">编辑</el-button>
-                </div>
-                <div v-else class="edhr-batch-page__actions">
-                  <el-button link type="primary" @click="openDetail(row)">编辑</el-button>
+                  <span
+                    v-else-if="resolveBatchVoidOperationState(row) === 'pending-readonly'"
+                    class="edhr-batch-page__muted"
+                  >
+                    作废申请中
+                  </span>
+                  <el-button v-else link type="primary" @click="openDetail(row)">编辑</el-button>
                   <el-button
+                    v-if="resolveBatchVoidOperationState(row) === 'normal'"
                     v-hasPermi="['mes:pro-edhr-change:void']"
                     link
                     type="danger"
@@ -1503,6 +1496,16 @@ const resolveReadinessUserLabel = (user: UserApi.UserVO) => {
 const openDetail = async (row: EdhrBatchExecutionRespVO) => {
   const query: Record<string, string> = { id: String(row.id) }
   await router.push({ path: '/mes/pro/feedback/edhr-batch-execution/detail', query })
+}
+
+const openActiveOrderDetail = async (row: EdhrBatchExecutionRespVO) => {
+  await router.push({
+    path: '/mes/pro/feedback/edhr-batch-execution/active-order-detail',
+    query: {
+      batchExecutionId: String(row.id),
+      from: '/mes/pro/feedback/edhr-batch-execution'
+    }
+  })
 }
 
 const openVoidDialog = async (row: EdhrBatchExecutionRespVO) => {

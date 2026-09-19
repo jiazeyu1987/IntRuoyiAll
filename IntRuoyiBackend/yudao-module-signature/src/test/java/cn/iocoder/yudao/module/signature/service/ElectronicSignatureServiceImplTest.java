@@ -216,6 +216,21 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testSign_hashesJsonSemanticCanonicalForm() {
+        ElectronicSignatureCommand command = buildCommand("idem-json-canonical", "V1", "审批通过");
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+
+            ElectronicSignatureResult signed = signatureService.sign(command);
+            ElectronicSignatureRecordDO record = signatureRecordMapper.selectById(signed.signatureId());
+
+            assertEquals("3384dfd06702cb579f9488985d8fc899340d06626fc28f18a1cbf9acfe68ef2f",
+                    record.getContentHash());
+        }
+    }
+
+    @Test
     public void testQueryEvidence_detectsContentTamperingWithoutRewritingHistory() {
         ElectronicSignatureCommand command = buildCommand("idem-007", "V1", "审批通过");
 
@@ -354,7 +369,7 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
                 public SignatureSubjectSnapshot loadAndAuthorize(SignatureSubjectCommand command) {
                     assertEquals(101L, command.actorId());
                     return new SignatureSubjectSnapshot("TEST_RECORD", command.subjectId(), "V1",
-                            "{\"name\":\"record\",\"version\":\"V1\"}",
+                            "{\"version\":\"V1\",\"name\":\"record\"}",
                             null, null, null, "PI001", "TASK001", "APPROVE_NODE", 1);
                 }
             };

@@ -25,6 +25,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseCheckItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
@@ -36,6 +37,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseCheckItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
@@ -149,6 +151,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
 
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
+    @Resource
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
     @Resource
     private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     @Resource
@@ -1513,6 +1517,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         metadata.put("permissionDecision", "ALLOW");
         metadata.put("resultStatus", "SUCCESS");
         metadata.put("batchExecutionId", batch.getId());
+        metadata.put("activeOrderId", resolveSingleActiveOrderId(batch.getId()));
         metadata.put("releaseTransactionId", transaction.getId());
         metadata.put("fromStatus", fromStatus);
         metadata.put("toStatus", toStatus);
@@ -1581,6 +1586,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         metadata.put("permissionDecision", "ALLOW");
         metadata.put("resultStatus", "SUCCESS");
         metadata.put("batchExecutionId", batch.getId());
+        metadata.put("activeOrderId", resolveSingleActiveOrderId(batch.getId()));
         metadata.put("releaseTransactionId", transaction.getId());
         metadata.put("fromStatus", fromStatus);
         metadata.put("toStatus", toStatus);
@@ -1602,6 +1608,22 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setAfterSummaryHash(hashReleaseAuditPayload(afterPayload))
                 .setMetadataJson(JSON.toJSONString(metadata))
                 .setOccurredAt(occurredAt));
+    }
+
+    private Long resolveSingleActiveOrderId(Long batchExecutionId) {
+        if (batchExecutionId == null) {
+            return null;
+        }
+        List<Long> activeOrderIds = batchExecutionOriginMapper.selectListByBatchExecutionId(batchExecutionId).stream()
+                .map(MesProEdhrBatchExecutionOriginDO::getActiveOrderId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (activeOrderIds.size() > 1) {
+            throw new IllegalStateException("release transaction has multiple active order origins: "
+                    + batchExecutionId);
+        }
+        return activeOrderIds.isEmpty() ? null : activeOrderIds.get(0);
     }
 
     private String resolveTerminalAuditActionName(String eventType) {

@@ -5,12 +5,15 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRequestReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionArchiveDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionArchiveMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.mockito.ArgumentCaptor;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -18,6 +21,7 @@ import java.time.LocalDateTime;
 
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Import(MesProEdhrBatchVoidEffectServiceImpl.class)
 class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
@@ -38,6 +42,12 @@ class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
     @MockitoBean
     private MesProEdhrWorkTaskService workTaskService;
+    @MockitoBean
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
+    @MockitoBean
+    private MesProEdhrOperationAuditService operationAuditService;
+    @MockitoBean
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     @Test
     void executeDirectPlatformVoidBatchExecution_cancelsActiveWorkTasks() {
@@ -55,6 +65,39 @@ class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
 
         verify(workTaskService).cancelActiveTasksByBatch(batch.getId(),
                 "批次已作废：金手指直通作废后工作台任务必须同步关闭。");
+    }
+
+    @Test
+    void executeDirectPlatformVoidBatchExecutionRecordsActiveOrderOperationFact() {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatchExecution();
+        insertSealedBatchArchive(batch.getId());
+        when(batchExecutionOriginMapper.selectListByBatchExecutionId(batch.getId()))
+                .thenReturn(java.util.List.of(new MesProEdhrBatchExecutionOriginDO()
+                        .setBatchExecutionId(batch.getId())
+                        .setActiveOrderId(8101L)
+                        .setOriginKey("ACTIVE_ORDER")));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockLoginUser()) {
+            batchVoidEffectService.executeDirectPlatformVoidBatchExecution(new EdhrRecordChangeRequestReqVO()
+                    .setBatchExecutionId(batch.getId())
+                    .setReasonCategory("ORDER_CANCELLED")
+                    .setReasonText("作废必须归属同一活跃订单。")
+                    .setPassword("request-pass")
+                    .setComment("active-order void"), ACTOR_ID);
+        }
+
+        ArgumentCaptor<MesProEdhrOperationAuditCommand> captor =
+                ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
+        verify(operationAuditService, org.mockito.Mockito.times(2))
+                .recordInCallerTransaction(captor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(
+                java.util.Set.of("BATCH_VOID_REQUEST", "BATCH_VOID_EFFECTIVE"),
+                captor.getAllValues().stream()
+                        .map(MesProEdhrOperationAuditCommand::getOperationType)
+                        .collect(java.util.stream.Collectors.toSet()));
+        captor.getAllValues().forEach(command ->
+                org.junit.jupiter.api.Assertions.assertTrue(command.getMetadataJson()
+                        .contains("\"activeOrderId\":8101")));
     }
 
     private static MockedStatic<SecurityFrameworkUtils> mockLoginUser() {

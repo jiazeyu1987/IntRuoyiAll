@@ -51,7 +51,7 @@ class MesPqcReleaseOrderDetailServiceTest {
                 .id(10L).workOrderId(11L).leaderUserId(99L).build());
         var result = new MesTeamLeaderActiveOrderDetail();
         result.setWorkOrderCode("WO-11");
-        when(detail.getDetail(99L, 10L)).thenReturn(result);
+        when(detail.getFormalDetail(10L)).thenReturn(result);
         when(materials.getPage(any())).thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(java.util.List.of(), 0L));
         var service = new MesPqcReleaseOrderDetailService(auth, applications, orders, signatures, users, detail, materials);
         assertSame(result, service.get(7L, 8L).detail());
@@ -59,7 +59,7 @@ class MesPqcReleaseOrderDetailServiceTest {
         order.verify(auth).get(7L, 8L);
         order.verify(applications).selectById(8L);
         order.verify(orders).selectById(10L);
-        order.verify(detail).getDetail(99L, 10L);
+        order.verify(detail).getFormalDetail(10L);
         verifyNoInteractions(signatures, users);
     }
 
@@ -89,15 +89,15 @@ class MesPqcReleaseOrderDetailServiceTest {
                 .workOrderId(11L)
                 .leaderUserId(99L)
                 .build());
-        when(signatures.getById(66L))
-                .thenReturn(signatureEvidence(66L, 77L, "release-subject-88", signedAt));
+        String subjectId = releaseSubjectId(88L, 8L);
+        when(signatures.getById(66L)).thenReturn(signatureEvidence(66L, 77L, subjectId, signedAt));
         when(signatures.verifyEvidence(66L)).thenReturn(
                 new ElectronicSignatureVerificationDTO(66L, "VALID", "content-hash", "content-hash",
                         "evidence-hash", "evidence-hash", "SHA-256", "v1"));
         when(users.getUser(77L)).thenReturn(new AdminUserDO().setId(77L).setNickname("王放行"));
         var result = new MesTeamLeaderActiveOrderDetail();
         result.setWorkOrderCode("WO-11");
-        when(detail.getDetail(99L, 10L)).thenReturn(result);
+        when(detail.getFormalDetail(10L)).thenReturn(result);
         when(materials.getPage(any())).thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(java.util.List.of(), 0L));
 
         var service = new MesPqcReleaseOrderDetailService(auth, applications, orders, signatures, users, detail, materials);
@@ -140,15 +140,15 @@ class MesPqcReleaseOrderDetailServiceTest {
                 .workOrderId(11L)
                 .leaderUserId(99L)
                 .build());
-        when(signatures.getById(9001L))
-                .thenReturn(signatureEvidence(9001L, 1L, "release-subject-900000001059", signedAt));
+        String subjectId = releaseSubjectId(900000001059L, 56L);
+        when(signatures.getById(9001L)).thenReturn(signatureEvidence(9001L, 1L, subjectId, signedAt));
         when(signatures.verifyEvidence(9001L)).thenReturn(
                 new ElectronicSignatureVerificationDTO(9001L, "VALID", "content-hash", "content-hash",
                         "evidence-hash", "evidence-hash", "SHA-256", "v1"));
         when(users.getUser(1L)).thenReturn(new AdminUserDO().setId(1L).setNickname("管理员"));
         var result = new MesTeamLeaderActiveOrderDetail();
         result.setWorkOrderCode("WO-11");
-        when(detail.getDetail(99L, 1009200145L)).thenReturn(result);
+        when(detail.getFormalDetail(1009200145L)).thenReturn(result);
         when(materials.getPage(any())).thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(java.util.List.of(), 0L));
 
         var service = new MesPqcReleaseOrderDetailService(auth, applications, orders, signatures, users, detail, materials);
@@ -188,7 +188,7 @@ class MesPqcReleaseOrderDetailServiceTest {
         when(signatures.getById(66L)).thenReturn(null);
         var result = new MesTeamLeaderActiveOrderDetail();
         result.setWorkOrderCode("WO-11");
-        when(detail.getDetail(99L, 10L)).thenReturn(result);
+        when(detail.getFormalDetail(10L)).thenReturn(result);
 
         var service = new MesPqcReleaseOrderDetailService(auth, applications, orders, signatures, users, detail, materials);
         assertEquals("PQC_RELEASE_SIGNATURE_RECORD_MISSING",
@@ -225,5 +225,14 @@ class MesPqcReleaseOrderDetailServiceTest {
                 null,
                 null,
                 null);
+    }
+
+    private static String releaseSubjectId(Long batchExecutionId, Long applicationId) {
+        return MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(batchExecutionId,
+                MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
+                null, null, null, null, null, null, null,
+                "PQC_RELEASE_APPLICATION", applicationId, "PQC生产放行",
+                MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
+                null, null, null, null);
     }
 }

@@ -176,6 +176,14 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .isNull(MesPqcInspectionTaskDO::getSubmittedEventId));
     }
 
+    default MesPqcInspectionTaskDO selectBySubmittedEventId(Long submittedEventId) {
+        if (submittedEventId == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
+                .eq(MesPqcInspectionTaskDO::getSubmittedEventId, submittedEventId));
+    }
+
     default int updateConfirmedIfSubmitted(Long id, String submittedStatus, String confirmedStatus) {
         return update(null, new LambdaUpdateWrapper<MesPqcInspectionTaskDO>()
                 .set(MesPqcInspectionTaskDO::getTaskStatus, confirmedStatus)

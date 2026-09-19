@@ -1907,6 +1907,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-batch-execution/active-order-detail',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchExecutionActiveOrderDetailPage.vue'),
+        name: 'MesProEdhrBatchExecutionActiveOrderDetail',
+        meta: {
+          noCache: false,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '活跃订单详情批记录',
+          activeMenu: '/mes/pro/feedback/edhr-batch-execution',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-batch-history',
         component: () => import('@/views/mes/pro/edhr-batch/BatchRecordHistoryPage.vue'),
         name: 'MesProEdhrBatchHistory',

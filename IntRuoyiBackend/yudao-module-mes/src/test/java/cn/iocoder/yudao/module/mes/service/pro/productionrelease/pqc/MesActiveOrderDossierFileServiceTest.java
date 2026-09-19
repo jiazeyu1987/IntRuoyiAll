@@ -9,6 +9,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDossierFileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.junit.jupiter.api.Test;
@@ -28,8 +30,8 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 class MesActiveOrderDossierFileServiceTest {
 
@@ -149,6 +151,12 @@ class MesActiveOrderDossierFileServiceTest {
         assertEquals(7001L, row.getFileId());
         assertEquals("生产组长", row.getOperatorName());
         assertFalse(row.getStoragePath().contains("batch"));
+        var auditCaptor = org.mockito.ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
+        verify(fixture.operationAuditService).recordInCallerTransaction(auditCaptor.capture());
+        assertEquals("DOSSIER_UPLOAD", auditCaptor.getValue().getOperationType());
+        assertEquals("3c41d3835155c97d51a836c887be9c0063b7b45f61e14017a9d653fa4c655802",
+                auditCaptor.getValue().getAfterSummaryHash());
+        assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"activeOrderId\":10"));
     }
 
     @Test
@@ -171,6 +179,7 @@ class MesActiveOrderDossierFileServiceTest {
         var fixture = fixture();
         when(fixture.activeOrderMapper.selectById(10L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(10L).leaderUserId(7L).workOrderId(20L).build());
+        when(fixture.adminUserApi.getUser(7L)).thenReturn(user(7L, "生产组长"));
         when(fixture.dossierFileMapper.selectById(8001L)).thenReturn(
                 dossierFile(8001L, 10L, null, "INCOMING_INSPECTION_FILE", 7001L, "incoming.pdf"));
         when(fixture.fileService.getFile(7001L)).thenReturn(FileDO.builder().id(7001L).name("incoming.pdf").build());
@@ -181,6 +190,12 @@ class MesActiveOrderDossierFileServiceTest {
 
         verify(fixture.dossierFileMapper).deleteById(8001L);
         verify(fixture.fileService).deleteFile(7001L);
+        var auditCaptor = org.mockito.ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
+        verify(fixture.operationAuditService).recordInCallerTransaction(auditCaptor.capture());
+        assertEquals("DOSSIER_DELETE", auditCaptor.getValue().getOperationType());
+        assertEquals("HASH", auditCaptor.getValue().getBeforeSummaryHash());
+        assertNull(auditCaptor.getValue().getAfterSummaryHash());
+        assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"activeOrderId\":10"));
     }
 
     @Test
@@ -206,6 +221,7 @@ class MesActiveOrderDossierFileServiceTest {
         var fixture = fixture();
         when(fixture.activeOrderMapper.selectById(10L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(10L).leaderUserId(7L).workOrderId(20L).build());
+        when(fixture.adminUserApi.getUser(7L)).thenReturn(user(7L, "生产组长"));
         when(fixture.dossierFileMapper.selectById(8001L)).thenReturn(
                 dossierFile(8001L, 10L, null, "INCOMING_INSPECTION_FILE", 7001L, "incoming.pdf"));
         when(fixture.fileService.getFile(7001L)).thenReturn(FileDO.builder().id(7001L).name("incoming.pdf").build());
@@ -217,6 +233,7 @@ class MesActiveOrderDossierFileServiceTest {
 
         assertTrue(ex.getMessage().contains("删除资料文件关系失败"));
         verify(fixture.fileService, never()).deleteFile(7001L);
+        verify(fixture.operationAuditService, never()).recordInCallerTransaction(any());
     }
 
     @Test
@@ -224,6 +241,7 @@ class MesActiveOrderDossierFileServiceTest {
         var fixture = fixture();
         when(fixture.activeOrderMapper.selectById(10L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(10L).leaderUserId(7L).workOrderId(20L).build());
+        when(fixture.adminUserApi.getUser(7L)).thenReturn(user(7L, "生产组长"));
         when(fixture.dossierFileMapper.selectById(8001L)).thenReturn(
                 dossierFile(8001L, 10L, null, "INCOMING_INSPECTION_FILE", 7001L, "incoming.pdf"));
         when(fixture.fileService.getFile(7001L)).thenReturn(FileDO.builder().id(7001L).name("incoming.pdf").build());
@@ -236,6 +254,7 @@ class MesActiveOrderDossierFileServiceTest {
 
         assertTrue(ex.getMessage().contains("删除资料文件实体失败"));
         assertNotNull(ex.getCause());
+        verify(fixture.operationAuditService, never()).recordInCallerTransaction(any());
     }
 
     private static MesProcessPoolActiveOrderDossierFileDO dossierFile(Long id, Long activeOrderId,
@@ -264,10 +283,11 @@ class MesActiveOrderDossierFileServiceTest {
         var dossierFileMapper = mock(MesProcessPoolActiveOrderDossierFileMapper.class);
         var adminUserApi = mock(AdminUserApi.class);
         var fileService = mock(FileService.class);
+        var operationAuditService = mock(MesProEdhrOperationAuditService.class);
         var service = new MesActiveOrderDossierFileService(applicationMapper, activeOrderMapper,
-                dossierFileMapper, adminUserApi, fileService);
+                dossierFileMapper, adminUserApi, fileService, operationAuditService);
         return new Fixture(applicationMapper, activeOrderMapper, dossierFileMapper,
-                adminUserApi, fileService, service);
+                adminUserApi, fileService, operationAuditService, service);
     }
 
     private record Fixture(
@@ -276,6 +296,7 @@ class MesActiveOrderDossierFileServiceTest {
             MesProcessPoolActiveOrderDossierFileMapper dossierFileMapper,
             AdminUserApi adminUserApi,
             FileService fileService,
+            MesProEdhrOperationAuditService operationAuditService,
             MesActiveOrderDossierFileService service) {
     }
 }

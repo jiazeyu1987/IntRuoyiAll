@@ -51,6 +51,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionArchiveDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchDossierItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionSignatureDO;
@@ -81,6 +82,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionArchiveMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchDossierItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchProvisioningRecordMapper;
@@ -199,6 +201,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 @Import({
         MesProEdhrBatchExecutionServiceImpl.class,
@@ -218,6 +221,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     private MesProEdhrBatchWorkbenchService batchWorkbenchService;
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
+    @Resource
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
     @Resource
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Resource
@@ -496,6 +501,67 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .toList();
         assertEquals(fixture.reportId1(), persistedRouteTasks.get(0).getBatchRecordReportId());
         assertEquals(fixture.reportId2(), persistedRouteTasks.get(1).getBatchRecordReportId());
+    }
+
+    @Test
+    void activeOrderOperationAuditUsesEntrySnapshotWhenOriginIsMaterializedAfterAuditWrite() throws Exception {
+        MesProEdhrBatchExecutionServiceImpl implementation =
+                (MesProEdhrBatchExecutionServiceImpl) batchExecutionService;
+        MesProEdhrBatchExecutionOriginMapper originMapper = mock(MesProEdhrBatchExecutionOriginMapper.class);
+        java.lang.reflect.Field field = MesProEdhrBatchExecutionServiceImpl.class
+                .getDeclaredField("batchExecutionOriginMapper");
+        field.setAccessible(true);
+        field.set(implementation, originMapper);
+        when(originMapper.selectListByBatchExecutionId(9001L)).thenReturn(List.of());
+
+        java.lang.reflect.Method method = MesProEdhrBatchExecutionServiceImpl.class.getDeclaredMethod(
+                "enrichActiveOrderOperationAudit", Long.class, String.class, String.class);
+        method.setAccessible(true);
+        Object enrichment = method.invoke(implementation, 9001L, null,
+                "{\"activeOrderId\":8101,\"sourceSnapshotHash\":\"entry-snapshot-1\"}");
+
+        assertEquals("entry-snapshot-1",
+                enrichment.getClass().getMethod("afterSummaryHash").invoke(enrichment));
+    }
+
+    @Test
+    void batchOperationAuditShouldCarryActiveOrderSourceFromFormalOrigin() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-ACTIVE-ORDER-AUDIT")
+                .setRouteId(fixture.routeId()));
+        batchExecutionOriginMapper.insert(MesProEdhrBatchExecutionOriginDO.builder()
+                .tenantId(1L)
+                .batchExecutionId(created.getId())
+                .entryType("ACTIVE_ORDER_COMPLETION")
+                .originKey("ACTIVE_ORDER:8101")
+                .activeOrderId(8101L)
+                .workOrderId(fixture.workOrderId())
+                .sourceSnapshotHash("active-order-source-hash")
+                .batchProvisionReceiptId(9001L)
+                .batchProvisionStatus("COMPLETED")
+                .sourceCredentialId("active-order-receipt-8101")
+                .sourceCredentialHash("active-order-receipt-hash-8101")
+                .sourceBundleHash("active-order-bundle-hash-8101")
+                .idempotencyKey("ACTIVE-ORDER-AUDIT-8101")
+                .relationStatus("ACTIVE")
+                .capturedBy(10001L)
+                .capturedAt(LocalDateTime.of(2026, 9, 18, 10, 0))
+                .build());
+        clearInvocations(operationAuditService);
+
+        batchExecutionService.syncStatus(created.getId());
+
+        verify(operationAuditService, atLeastOnce()).recordInCallerTransaction(argThat(command -> {
+            JSONObject metadata = JSON.parseObject(command.getMetadataJson());
+            return "SYNC".equals(command.getOperationType())
+                    && "BATCH_EXECUTION".equals(command.getObjectType())
+                    && Objects.equals(created.getId(), command.getBatchExecutionId())
+                    && metadata != null
+                    && Objects.equals(8101L, metadata.getLong("activeOrderId"))
+                    && "active-order-source-hash".equals(command.getAfterSummaryHash());
+        }));
     }
 
     @Test
@@ -1523,7 +1589,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         EdhrBatchExecutionRespVO original = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode(batchCode)
-                .setRouteId(fixture.routeId()));
+                .setRouteId(fixture.routeId())
+                .setActiveOrderId(8101L));
         LocalDateTime rejectedAt = LocalDateTime.of(2026, 7, 22, 10, 30);
         batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
                 .setId(original.getId())
@@ -1538,6 +1605,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 new EdhrBatchExecutionReexecuteReqVO()
                         .setSourceRejectedBatchExecutionId(original.getId())
                         .setEntryType("MANUAL_CONTROLLED_RETRY")
+                        .setActiveOrderId(8101L)
                         .setReason("真拒收后同生产批号重做")
                         .setRemark("同批号新执行尝试"));
 
@@ -1573,6 +1641,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(reexecuted.getId(), event.getNewExecutionId());
         assertEquals("50", event.getPreviousStatus());
         assertEquals("0", event.getNewStatus());
+        verify(operationAuditService, atLeastOnce()).recordInCallerTransaction(argThat(command -> {
+            JSONObject metadata = JSON.parseObject(command.getMetadataJson());
+            return "REEXECUTE".equals(command.getOperationType())
+                    && metadata != null
+                    && Objects.equals(8101L, metadata.getLong("activeOrderId"));
+        }));
     }
 
     @Test

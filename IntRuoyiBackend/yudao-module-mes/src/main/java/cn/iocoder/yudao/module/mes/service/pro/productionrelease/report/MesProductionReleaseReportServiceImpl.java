@@ -484,6 +484,7 @@ public class MesProductionReleaseReportServiceImpl implements MesProductionRelea
                 .setIdempotencyKey(idempotencyKey)
                 .setTenantId(TenantContextHolder.getTenantId())
                 .setApplicationId(application.getId())
+                .setActiveOrderId(application.getActiveOrderId())
                 .setWorkTaskId(workTask.getId())
                 .setBatchExecutionId(application.getBatchExecutionId())
                 .setReleaseTransactionId(result.getReleaseTransactionId())

@@ -1176,6 +1176,11 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 .setSubmittedAt(now).setApprovedAt(now)
                 .setOpenedAt(task.getOpenedAt() == null ? now : task.getOpenedAt())
                 .setOpenedBy(task.getOpenedBy() == null ? actorUserId : task.getOpenedBy()));
+        Map<String, Object> backfillMetadata = new LinkedHashMap<>();
+        backfillMetadata.put("applicationId", applicationId);
+        backfillMetadata.put("formCenterInstanceId", task.getFormCenterInstanceId());
+        backfillMetadata.put("evidenceHash", evidenceHash);
+        addActiveOrderMetadata(backfillMetadata, batch.getId());
         operationAuditService.recordInCallerTransaction(new MesProEdhrOperationAuditCommand()
                 .setRequestId("AUTO_BACKFILL:" + batchTaskId + ":" + evidenceHash)
                 .setObjectType("EDHR_ROUTE_FORM").setObjectId(String.valueOf(batchTaskId))
@@ -1184,8 +1189,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 .setOperationType("VERIFIED_BACKFILL").setActionName("生产放行正式证据自动回填")
                 .setActorUserId(actorUserId).setPermissionDecision("ALLOW").setResultStatus("SUCCESS")
                 .setAfterSummaryHash(evidenceHash)
-                .setMetadataJson(JSON.toJSONString(Map.of("applicationId", applicationId,
-                        "formCenterInstanceId", task.getFormCenterInstanceId(), "evidenceHash", evidenceHash))));
+                .setMetadataJson(JSON.toJSONString(backfillMetadata)));
         // Manual batch-record sequencing advances only when its responsible person completes the main form.
     }
 
@@ -1757,8 +1761,10 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 reviewTask.getProcessId(), TASK_TYPE_FILL);
         completeTask(reviewTask);
         cancelPendingReviewTasks(rejectedExecutionId, reviewTask.getId(), reason);
-        return createTask(TASK_TYPE_REWORK, reviewTask, revisionExecutionId, rejectedExecutionId,
+        MesProEdhrWorkTaskDO reworkTask = createTask(TASK_TYPE_REWORK, reviewTask, revisionExecutionId, rejectedExecutionId,
                 fillRule.getAssigneeUserId(), requireLoginUserId(), reason, reason);
+        recordReworkTaskCreationAudit(reviewTask, reworkTask, reason);
+        return reworkTask;
     }
 
     @Override
@@ -2910,6 +2916,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         metadata.put("canceledCandidateTasksAfter", canceledAfterPayload);
         metadata.put("permissionDecision", "ALLOW");
         metadata.put("resultStatus", "SUCCESS");
+        addActiveOrderMetadata(metadata, beforeTask.getBatchExecutionId());
         operationAuditService.record(new MesProEdhrOperationAuditCommand()
                 .setRequestId(requestId)
                 .setObjectType("WORK_TASK")
@@ -2953,6 +2960,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         metadata.put("associatedSignatureId", "NOT_APPLICABLE");
         metadata.put("permissionDecision", "ALLOW");
         metadata.put("resultStatus", "SUCCESS");
+        addActiveOrderMetadata(metadata, beforeTask.getBatchExecutionId());
         operationAuditService.record(new MesProEdhrOperationAuditCommand()
                 .setRequestId(requestId)
                 .setObjectType("WORK_TASK")
@@ -2971,6 +2979,42 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 .setResultStatus("SUCCESS")
                 .setBeforeSummaryHash(hashAuditPayload(beforePayload))
                 .setAfterSummaryHash(hashAuditPayload(afterPayload))
+                .setMetadataJson(JSON.toJSONString(metadata)));
+    }
+
+    private void recordReworkTaskCreationAudit(MesProEdhrWorkTaskDO sourceTask,
+                                               MesProEdhrWorkTaskDO reworkTask,
+                                               String reason) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        String requestId = "EDHR-REWORK-TASK-" + java.util.UUID.randomUUID();
+        metadata.put("requestSource", "BATCH_RECORD_REVIEW");
+        metadata.put("idempotencyKey", requestId);
+        metadata.put("reason", reason);
+        metadata.put("sourceReviewTaskId", sourceTask.getId());
+        metadata.put("sourceExecutionId", sourceTask.getExecutionId());
+        metadata.put("revisionExecutionId", reworkTask.getExecutionId());
+        metadata.put("reworkTask", toWorkTaskAuditPayload(reworkTask));
+        metadata.put("associatedSignatureId", "NOT_APPLICABLE");
+        metadata.put("permissionDecision", "ALLOW");
+        metadata.put("resultStatus", "SUCCESS");
+        addActiveOrderMetadata(metadata, sourceTask.getBatchExecutionId());
+        operationAuditService.record(new MesProEdhrOperationAuditCommand()
+                .setRequestId(requestId)
+                .setObjectType("WORK_TASK")
+                .setObjectId(String.valueOf(reworkTask.getId()))
+                .setBatchExecutionId(reworkTask.getBatchExecutionId())
+                .setExecutionId(reworkTask.getExecutionId())
+                .setWorkTaskId(reworkTask.getId())
+                .setRouteId(reworkTask.getRouteId())
+                .setRouteProcessId(reworkTask.getRouteProcessId())
+                .setOperationType("REWORK_TASK_CREATED")
+                .setActionName("创建 eDHR 返工任务")
+                .setActorUserId(reworkTask.getSourceUserId())
+                .setActorUsername(SecurityFrameworkUtils.getLoginUserNickname())
+                .setPermissionCode("mes:pro-edhr-work-task:create")
+                .setPermissionDecision("ALLOW")
+                .setResultStatus("SUCCESS")
+                .setAfterSummaryHash(hashAuditPayload(metadata.get("reworkTask")))
                 .setMetadataJson(JSON.toJSONString(metadata)));
     }
 
@@ -3005,6 +3049,23 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
 
     private String hashAuditPayload(Object payload) {
         return MesProBatchRecordExecutionFieldAuditHasher.sha256(JSON.toJSONString(payload));
+    }
+
+    private void addActiveOrderMetadata(Map<String, Object> metadata, Long batchExecutionId) {
+        if (batchExecutionId == null) {
+            return;
+        }
+        List<Long> activeOrderIds = batchExecutionOriginMapper.selectListByBatchExecutionId(batchExecutionId).stream()
+                .map(origin -> origin.getActiveOrderId())
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (activeOrderIds.size() > 1) {
+            throw new IllegalStateException("工作任务操作存在多个不同的活跃订单来源：" + batchExecutionId);
+        }
+        if (!activeOrderIds.isEmpty()) {
+            metadata.put("activeOrderId", activeOrderIds.get(0));
+        }
     }
 
     private Long requireLoginUserId() {

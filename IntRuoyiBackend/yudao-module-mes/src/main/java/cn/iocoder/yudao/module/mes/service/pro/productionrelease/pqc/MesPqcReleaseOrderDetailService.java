@@ -53,8 +53,7 @@ public class MesPqcReleaseOrderDetailService {
                 || !Objects.equals(order.getWorkOrderId(), application.getWorkOrderId())) {
             throw new IllegalStateException("PQC_RELEASE_ACTIVE_ORDER_SOURCE_INVALID");
         }
-        // PQC authorization above governs the viewer; reuse the owner's identical read projection.
-        var detail = detailService.getDetail(order.getLeaderUserId(), order.getId());
+        var detail = detailService.getFormalDetail(application.getActiveOrderId());
         if (detail == null || detail.getWorkOrderCode() == null || detail.getWorkOrderCode().isBlank()) {
             throw new IllegalStateException("PQC_RELEASE_WORK_ORDER_CODE_MISSING");
         }
@@ -88,7 +87,7 @@ public class MesPqcReleaseOrderDetailService {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ID_MISSING");
         }
         ElectronicSignatureEvidenceDTO signature = requireUnifiedPqcReleaseSignature(
-                decision.getSignatureId(), application.getBatchExecutionId());
+                decision.getSignatureId(), application.getBatchExecutionId(), application.getId());
         AdminUserDO signer = adminUserService.getUser(signature.actorId());
         if (signer == null || StrUtil.isBlank(signer.getNickname())) {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ACTOR_MISSING");
@@ -103,26 +102,27 @@ public class MesPqcReleaseOrderDetailService {
                         .setRole(MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE)));
     }
 
-    private ElectronicSignatureEvidenceDTO requireUnifiedPqcReleaseSignature(Long signatureId, Long batchExecutionId) {
+    private ElectronicSignatureEvidenceDTO requireUnifiedPqcReleaseSignature(
+            Long signatureId, Long batchExecutionId, Long applicationId) {
         if (signatureId == null) {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ID_MISSING");
         }
         if (batchExecutionId == null || batchExecutionId <= 0) {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_EXECUTION_MISMATCH");
         }
+        if (applicationId == null || applicationId <= 0) {
+            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_APPLICATION_MISSING");
+        }
         String subjectId = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(batchExecutionId,
                 MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
                 null, null, null, null, null, null, null,
-                "PQC_RELEASE_APPLICATION", null, "PQC生产放行",
+                "PQC_RELEASE_APPLICATION", applicationId, "PQC生产放行",
                 MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
                 null, null, null, null);
-        ElectronicSignatureEvidenceDTO signature = signatureQueryService
-                .listBySubject(MesBatchRecordSignatureSubjectAdapter.MODULE_CODE,
-                        MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE, subjectId)
-                .stream()
-                .filter(item -> Objects.equals(item.id(), signatureId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("PQC_RELEASE_SIGNATURE_RECORD_MISSING"));
+        ElectronicSignatureEvidenceDTO signature = signatureQueryService.getById(signatureId);
+        if (signature == null || !Objects.equals(signature.subjectId(), subjectId)) {
+            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_RECORD_MISSING");
+        }
         if (!Objects.equals(signature.actionCode(), MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE)
                 || !Objects.equals(signature.moduleCode(), MesBatchRecordSignatureSubjectAdapter.MODULE_CODE)
                 || !Objects.equals(signature.subjectType(), MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE)

@@ -74,12 +74,17 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
         SignatureActionDefinition actionDefinition = findAction(command);
         SignatureSubjectSnapshot snapshot = loadSnapshot(command, actorId, actionDefinition);
         LocalDateTime signedAt = LocalDateTime.now();
-        String contentHash = hash(snapshot.canonicalContentJson());
-        String beforeContentHash = StrUtil.isBlank(snapshot.beforeContentJson()) ? null : hash(snapshot.beforeContentJson());
-        String afterContentHash = StrUtil.isBlank(snapshot.afterContentJson()) ? null : hash(snapshot.afterContentJson());
+        String canonicalContentJson = ElectronicSignatureJsonCanonicalizer.canonicalize(snapshot.canonicalContentJson());
+        String beforeContentJson = ElectronicSignatureJsonCanonicalizer.canonicalize(snapshot.beforeContentJson());
+        String afterContentJson = ElectronicSignatureJsonCanonicalizer.canonicalize(snapshot.afterContentJson());
+        String fieldDiffJson = ElectronicSignatureJsonCanonicalizer.canonicalize(snapshot.fieldDiffJson());
+        String contentHash = hash(canonicalContentJson);
+        String beforeContentHash = StrUtil.isBlank(beforeContentJson) ? null : hash(beforeContentJson);
+        String afterContentHash = StrUtil.isBlank(afterContentJson) ? null : hash(afterContentJson);
         String timeEvidenceId = "SERVER_CLOCK:" + signedAt;
         String evidenceHash = hash(evidencePayload(command, actorId, actionDefinition, snapshot, signedAt,
-                timeEvidenceId, contentHash, beforeContentHash, afterContentHash));
+                timeEvidenceId, contentHash, beforeContentHash, afterContentHash, beforeContentJson, afterContentJson,
+                fieldDiffJson));
 
         ElectronicSignatureRecordDO record = ElectronicSignatureRecordDO.builder()
                 .moduleCode(command.moduleCode())
@@ -97,10 +102,10 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
                 .contentHash(contentHash)
                 .beforeContentHash(beforeContentHash)
                 .afterContentHash(afterContentHash)
-                .canonicalContentJson(snapshot.canonicalContentJson())
-                .beforeContentJson(snapshot.beforeContentJson())
-                .afterContentJson(snapshot.afterContentJson())
-                .fieldDiffJson(snapshot.fieldDiffJson())
+                .canonicalContentJson(canonicalContentJson)
+                .beforeContentJson(beforeContentJson)
+                .afterContentJson(afterContentJson)
+                .fieldDiffJson(fieldDiffJson)
                 .evidenceHash(evidenceHash)
                 .algorithm(HASH_ALGORITHM)
                 .keyVersion(KEY_VERSION)
@@ -185,14 +190,15 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
     private String evidencePayload(ElectronicSignatureCommand command, Long actorId,
                                    SignatureActionDefinition actionDefinition, SignatureSubjectSnapshot snapshot,
                                    LocalDateTime signedAt, String timeEvidenceId, String contentHash,
-                                   String beforeContentHash, String afterContentHash) {
+                                   String beforeContentHash, String afterContentHash, String beforeContentJson,
+                                   String afterContentJson, String fieldDiffJson) {
         return String.join("|", String.valueOf(TenantContextHolder.getRequiredTenantId()), String.valueOf(actorId),
                 command.moduleCode(), command.actionCode(), snapshot.subjectType(), snapshot.subjectId(),
                 snapshot.subjectVersion(), actionDefinition.meaningCode(), actionDefinition.meaningLabel(),
                 command.reason(), signedAt.toString(), timeEvidenceId, AUTHENTICATION_METHOD, contentHash,
                 StrUtil.nullToEmpty(beforeContentHash), StrUtil.nullToEmpty(afterContentHash),
-                StrUtil.nullToEmpty(snapshot.beforeContentJson()), StrUtil.nullToEmpty(snapshot.afterContentJson()),
-                StrUtil.nullToEmpty(snapshot.fieldDiffJson()), HASH_ALGORITHM, KEY_VERSION,
+                StrUtil.nullToEmpty(beforeContentJson), StrUtil.nullToEmpty(afterContentJson),
+                StrUtil.nullToEmpty(fieldDiffJson), HASH_ALGORITHM, KEY_VERSION,
                 actionDefinition.policyVersion(), VERIFICATION_STATUS_VALID);
     }
 

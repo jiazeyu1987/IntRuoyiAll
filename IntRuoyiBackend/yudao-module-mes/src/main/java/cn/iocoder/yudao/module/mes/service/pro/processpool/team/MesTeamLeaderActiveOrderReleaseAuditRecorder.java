@@ -5,6 +5,8 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditCom
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditRecorder;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditService;
+import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
+import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -18,18 +20,27 @@ public class MesTeamLeaderActiveOrderReleaseAuditRecorder implements MesReleaseF
     private static final String PQC_PERMISSION_CODE = "mes:pro-production-release:pqc-approve";
 
     private final MesProEdhrOperationAuditService auditService;
+    private final AdminUserService adminUserService;
 
-    public MesTeamLeaderActiveOrderReleaseAuditRecorder(MesProEdhrOperationAuditService auditService) {
+    public MesTeamLeaderActiveOrderReleaseAuditRecorder(
+            MesProEdhrOperationAuditService auditService,
+            AdminUserService adminUserService) {
         this.auditService = auditService;
+        this.adminUserService = adminUserService;
     }
 
     @Override
     public void record(MesReleaseFlowAuditCommand command) {
+        AdminUserDO actor = adminUserService.getUser(command.getActorUserId());
+        if (actor == null || actor.getId() == null || actor.getNickname() == null || actor.getNickname().isBlank()) {
+            throw new IllegalStateException("RELEASE_FLOW_AUDIT_ACTOR_NAME_MISSING");
+        }
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("stage", command.getStage());
         metadata.put("idempotencyKey", command.getIdempotencyKey());
         metadata.put("tenantId", command.getTenantId());
         metadata.put("applicationId", command.getApplicationId());
+        metadata.put("activeOrderId", command.getActiveOrderId());
         metadata.put("fromStatus", command.getFromStatus());
         metadata.put("toStatus", command.getToStatus());
         metadata.put("version", command.getVersion());
@@ -41,6 +52,7 @@ public class MesTeamLeaderActiveOrderReleaseAuditRecorder implements MesReleaseF
                 .setOperationType(command.getEventType())
                 .setActionName(command.getStage())
                 .setActorUserId(command.getActorUserId())
+                .setActorUsername(actor.getNickname())
                 .setPermissionCode(permissionCode(command))
                 .setPermissionDecision("ALLOW")
                 .setResultStatus(command.getResultStatus())

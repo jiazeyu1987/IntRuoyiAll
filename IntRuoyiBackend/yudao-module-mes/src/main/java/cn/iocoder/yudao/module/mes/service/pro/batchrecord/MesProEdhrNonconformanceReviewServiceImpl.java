@@ -22,6 +22,10 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskS
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
@@ -35,6 +39,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -79,6 +84,12 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     private MesProWorkOrderMapper workOrderMapper;
     @Resource
     private MesProBatchRecordExecutionSignatureService signatureService;
+    @Resource
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
+    @Resource
+    private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
+    @Resource
+    private MesProEdhrOperationAuditService operationAuditService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -114,6 +125,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         Long workOrderId = batch != null ? batch.getWorkOrderId()
                 : application != null ? application.getWorkOrderId() : pqcSubmissionEvent.getWorkOrderId();
         MesProWorkOrderDO workOrder = lockWorkOrder(workOrderId);
+        Long activeOrderId = resolveActiveOrderId(batch, application, pqcSubmissionEvent);
         LocalDateTime now = now();
         Boolean previousWorkOrderTemporaryFrozen = captureWorkOrderExternalFreezeAtReviewStart(workOrder, now);
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
@@ -142,6 +154,10 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         }
         if (workOrder != null) {
             requireWorkOrderUpdate(workOrder.getId(), true);
+        }
+        if (activeOrderId != null) {
+            recordReviewOperation("NONCONFORMANCE_REVIEW_CREATE", "创建不合格评审", review, activeOrderId,
+                    null, now);
         }
         return toResp(review);
     }
@@ -213,6 +229,11 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             if (workTaskMapper.completePqcDecisionTask(task.getId(), now, decision) != 1) {
                 throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
             }
+        }
+        Long activeOrderId = resolveActiveOrderId(review, batch, application);
+        if (activeOrderId != null) {
+            recordReviewOperation("NONCONFORMANCE_REVIEW_DISPOSE", disposeActionName(disposition), review, activeOrderId,
+                    disposition, now);
         }
         return toResp(reviewMapper.selectById(review.getId()));
     }
@@ -488,6 +509,98 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
         return lockedTask;
+    }
+
+    private Long resolveActiveOrderId(MesProEdhrBatchExecutionDO batch,
+                                      MesProcessPoolActiveOrderReleaseApplicationDO application,
+                                      MesProProcessPoolEventDO pqcSubmissionEvent) {
+        if (application != null) {
+            return application.getActiveOrderId();
+        }
+        if (batch != null) {
+            List<Long> activeOrderIds = batchExecutionOriginMapper.selectListByBatchExecutionId(batch.getId()).stream()
+                    .map(MesProEdhrBatchExecutionOriginDO::getActiveOrderId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            if (activeOrderIds.size() > 1) {
+                throw new IllegalStateException("不合格评审批次来源未唯一绑定活跃订单：" + batch.getId());
+            }
+            return activeOrderIds.isEmpty() ? null : activeOrderIds.get(0);
+        }
+        if (pqcSubmissionEvent != null) {
+            MesPqcInspectionTaskDO task = pqcInspectionTaskMapper
+                    .selectBySubmittedEventId(pqcSubmissionEvent.getId());
+            if (task == null) {
+                return null;
+            }
+            if (task.getActiveOrderId() == null
+                    || !Objects.equals(task.getWorkOrderId(), pqcSubmissionEvent.getWorkOrderId())) {
+                throw new IllegalStateException("不合格评审PQC提交来源未绑定活跃订单：" + pqcSubmissionEvent.getId());
+            }
+            return task.getActiveOrderId();
+        }
+        return null;
+    }
+
+    private Long resolveActiveOrderId(MesProEdhrNonconformanceReviewDO review,
+                                      MesProEdhrBatchExecutionDO batch,
+                                      MesProcessPoolActiveOrderReleaseApplicationDO application) {
+        if (SOURCE_TYPE_PQC_SUBMISSION.equals(review.getSourceType())) {
+            MesPqcInspectionTaskDO task = pqcInspectionTaskMapper.selectBySubmittedEventId(review.getSourceId());
+            if (task == null) {
+                return null;
+            }
+            if (task.getActiveOrderId() == null
+                    || !Objects.equals(task.getWorkOrderId(), review.getWorkOrderId())) {
+                throw new IllegalStateException("不合格评审PQC提交来源未绑定活跃订单：" + review.getSourceId());
+            }
+            return task.getActiveOrderId();
+        }
+        return resolveActiveOrderId(batch, application, null);
+    }
+
+    private void recordReviewOperation(String operationType, String actionName,
+                                       MesProEdhrNonconformanceReviewDO review, Long activeOrderId,
+                                       String disposition, LocalDateTime occurredAt) {
+        Map<String, Object> metadata = new java.util.LinkedHashMap<>();
+        metadata.put("activeOrderId", activeOrderId);
+        metadata.put("reviewId", review.getId());
+        metadata.put("reviewCode", review.getReviewCode());
+        metadata.put("sourceType", review.getSourceType());
+        metadata.put("sourceId", review.getSourceId());
+        metadata.put("batchExecutionId", review.getBatchExecutionId());
+        metadata.put("workOrderId", review.getWorkOrderId());
+        metadata.put("disposition", disposition);
+        String afterSummaryHash = DigestUtil.sha256Hex(JSON.toJSONString(metadata));
+        operationAuditService.recordInCallerTransaction(new MesProEdhrOperationAuditCommand()
+                .setRequestId("NONCONFORMANCE-REVIEW-" + operationType + "-" + review.getId())
+                .setObjectType("NONCONFORMANCE_REVIEW")
+                .setObjectId(String.valueOf(review.getId()))
+                .setBatchExecutionId(review.getBatchExecutionId())
+                .setOperationType(operationType)
+                .setActionName(actionName)
+                .setActorUserId(SecurityFrameworkUtils.getLoginUserId())
+                .setActorUsername(SecurityFrameworkUtils.getLoginUserNickname())
+                .setPermissionCode("mes:pro-edhr:nonconformance-review:update")
+                .setPermissionDecision("ALLOW")
+                .setResultStatus("SUCCESS")
+                .setAfterSummaryHash(afterSummaryHash)
+                .setMetadataJson(JSON.toJSONString(metadata))
+                .setOccurredAt(occurredAt));
+    }
+
+    private String disposeActionName(String disposition) {
+        if (DISPOSITION_CONCESSION_RELEASE.equals(disposition)) {
+            return "让步放行";
+        }
+        if (DISPOSITION_REWORK.equals(disposition)) {
+            return "返工处理";
+        }
+        if (DISPOSITION_VOID.equals(disposition)) {
+            return "作废处理";
+        }
+        throw new IllegalStateException("不支持的不合格评审处置动作：" + disposition);
     }
 
     private String requireSourceType(String rawSourceType) {
