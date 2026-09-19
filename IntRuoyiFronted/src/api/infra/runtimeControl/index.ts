@@ -7,6 +7,8 @@ export type RuntimeControlCandidateStatus = 'AVAILABLE' | 'BLOCKED'
 export type RuntimeControlPublishScope = 'code-only' | 'with-data'
 export type RuntimeControlTargetEnvironment = 'test' | 'prod' | 'backup'
 export type RuntimeControlRootDiskTargetEnvironment = 'test' | 'prod' | 'backup'
+export type RuntimeControlBackupKind = 'FULL' | 'INCREMENTAL'
+export type RuntimeControlRestoreCandidateType = 'REHEARSAL' | 'CONTROLLED_RESTORE'
 
 export interface RuntimeControlOperationVO {
   operationId: string
@@ -60,6 +62,7 @@ export interface RuntimeControlActionReqVO {
   releaseTag?: string
   testConclusion?: string
   sqlPath?: string
+  backupKind?: RuntimeControlBackupKind
   selectedImageCandidateId?: string
   selectedRecoverySetCandidateId?: string
 }
@@ -168,18 +171,25 @@ export interface RuntimeControlRollbackCandidateVO extends RuntimeControlCandida
 }
 
 export interface RuntimeControlRestoreCandidateVO extends RuntimeControlCandidateVO {
+  candidateType?: RuntimeControlRestoreCandidateType
   recoverySetId?: string
-  recoverySetStatus?: RuntimeControlCandidateStatus
+  recoverySetStatus?: string
   programVersion?: string
   redisPolicy?: string
   configurationManifestPath?: string
   recoverySetManifestHash?: string
+  manifestDigest?: string
+  chainDigest?: string
+  sourceFingerprint?: string
+  targetFingerprint?: string
   componentSummary?: Record<string, string>
   dccBackupMode?: string
   dccChainStatus?: string
   dccChangeSummary?: Record<string, string>
   checksumPath?: string
   rehearsalReportPath?: string
+  rehearsalStatus?: string
+  lastRehearsedAt?: string
   snapshotPath?: string
 }
 
@@ -499,7 +509,10 @@ export const acknowledgeRuntimeControlAlert = (id: number) => {
   })
 }
 
-export const getRuntimeControlOwnerMatrix = (params?: { environment?: string; action?: string }) => {
+export const getRuntimeControlOwnerMatrix = (params?: {
+  environment?: string
+  action?: string
+}) => {
   return request.get<RuntimeControlOwnerMatrixVO[]>({
     url: '/infra/runtime-control/owner-matrix',
     params,
@@ -514,7 +527,10 @@ export const createRuntimeControlOwnerMatrix = (data: RuntimeControlOwnerMatrixR
   })
 }
 
-export const updateRuntimeControlOwnerMatrix = (id: number, data: RuntimeControlOwnerMatrixReqVO) => {
+export const updateRuntimeControlOwnerMatrix = (
+  id: number,
+  data: RuntimeControlOwnerMatrixReqVO
+) => {
   return request.put<RuntimeControlOwnerMatrixVO>({
     url: `/infra/runtime-control/owner-matrix/${id}`,
     data

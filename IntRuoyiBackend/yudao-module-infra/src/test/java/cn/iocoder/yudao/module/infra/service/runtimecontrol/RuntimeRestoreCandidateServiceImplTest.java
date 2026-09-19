@@ -18,6 +18,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -56,7 +57,7 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
 
         List<RuntimeControlRestoreCandidateRespVO> candidates = candidateService.listRestoreCandidates();
 
-        assertEquals(1, candidates.size());
+        assertEquals(2, candidates.size());
         assertEquals("nas-backup-points/20260526-010203/manifest/manifest.json",
                 candidates.get(0).getManifestPath());
     }
@@ -77,10 +78,37 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
 
         List<RuntimeControlRestoreCandidateRespVO> candidates = candidateService.listRestoreCandidates();
 
-        assertEquals(1, candidates.size());
-        assertEquals("AVAILABLE", candidates.get(0).getStatus());
-        assertFalse(candidates.get(0).getBlockedReasons().stream().anyMatch(reason -> reason.contains("演练")));
-        assertFalse(candidates.get(0).getBlockedReasons().stream().anyMatch(reason -> reason.contains("现场快照")));
+        RuntimeControlRestoreCandidateRespVO rehearsal = findCandidate(candidates, "REHEARSAL");
+        RuntimeControlRestoreCandidateRespVO controlledRestore = findCandidate(candidates, "CONTROLLED_RESTORE");
+        assertEquals("AVAILABLE", rehearsal.getStatus());
+        assertEquals("BLOCKED", controlledRestore.getStatus());
+        assertFalse(rehearsal.getBlockedReasons().stream().anyMatch(reason -> reason.contains("演练")));
+        assertFalse(rehearsal.getBlockedReasons().stream().anyMatch(reason -> reason.contains("现场快照")));
+        assertTrue(controlledRestore.getBlockedReasons().stream()
+                .anyMatch(reason -> reason.contains("rehearsalStatus") || reason.contains("演练")));
+    }
+
+    @Test
+    void listRestoreCandidatesShouldSplitRehearsalAndControlledRestoreCandidates() throws Exception {
+        createRestorePoint("20260526-010203", true, true, true, true);
+
+        List<RuntimeControlRestoreCandidateRespVO> candidates = candidateService.listRestoreCandidates();
+
+        assertEquals(2, candidates.size());
+        RuntimeControlRestoreCandidateRespVO rehearsal = findCandidate(candidates, "REHEARSAL");
+        RuntimeControlRestoreCandidateRespVO controlledRestore = findCandidate(candidates, "CONTROLLED_RESTORE");
+        assertEquals("rehearsal:20260526-010203", rehearsal.getCandidateId());
+        assertEquals("restore:20260526-010203", controlledRestore.getCandidateId());
+        assertEquals("AVAILABLE", rehearsal.getStatus());
+        assertEquals("AVAILABLE", controlledRestore.getStatus());
+        assertEquals("PASSED", controlledRestore.getRehearsalStatus());
+        assertEquals("2026-09-19T00:00:00+08:00", controlledRestore.getLastRehearsedAt());
+        assertFalse(controlledRestore.getManifestDigest().isBlank());
+        assertFalse(controlledRestore.getChainDigest().isBlank());
+        assertNotEquals(controlledRestore.getSourceFingerprint(), controlledRestore.getTargetFingerprint());
+        assertTrue(controlledRestore.getSourceFingerprint().contains("serverHost=172.30.30.58"));
+        assertTrue(controlledRestore.getTargetFingerprint().contains("environment=test"));
+        assertTrue(controlledRestore.getTargetFingerprint().contains("host=172.30.30.58"));
     }
 
     @Test
@@ -90,17 +118,39 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
         List<RuntimeControlRestoreCandidateRespVO> candidates = candidateService.listRestoreCandidates();
 
         assertFalse(candidates.isEmpty());
-        RuntimeControlRestoreCandidateRespVO candidate = candidates.get(0);
+        RuntimeControlRestoreCandidateRespVO candidate = findCandidate(candidates, "CONTROLLED_RESTORE");
         assertEquals("AVAILABLE", candidate.getStatus());
         assertEquals("20260526-010203", candidate.getBackupId());
         assertFalse(candidate.getCandidateId().isBlank());
     }
 
     @Test
+    void listRestoreCandidatesShouldBlockControlledRestoreWhenRehearsalEvidenceDoesNotBindCandidate()
+            throws Exception {
+        createRestorePoint("20260526-010203", true, true, true, true);
+        Path reportPath = backupPointsRoot.resolve("20260526-010203")
+                .resolve("manifest").resolve("rehearsal-report.json");
+        java.nio.file.Files.writeString(reportPath, """
+                {"status":"PASSED","backupId":"20260526-010203","manifestDigest":"wrong",
+                 "chainDigest":"wrong","sourceFingerprint":"wrong","targetFingerprint":"wrong"}
+                """);
+
+        RuntimeControlRestoreCandidateRespVO candidate = findCandidate(candidateService.listRestoreCandidates(),
+                "CONTROLLED_RESTORE");
+
+        assertEquals("BLOCKED", candidate.getStatus());
+        assertTrue(candidate.getBlockedReasons().stream()
+                .anyMatch(reason -> reason.contains("rehearsal-report manifestDigest")));
+        assertTrue(candidate.getBlockedReasons().stream()
+                .anyMatch(reason -> reason.contains("rehearsal-report targetFingerprint")));
+    }
+
+    @Test
     void listRestoreCandidatesShouldAcceptIncrementalManifestObjectSnapshot() throws Exception {
         createRestorePoint("20260606-145029", true, true, true, true);
 
-        RuntimeControlRestoreCandidateRespVO candidate = candidateService.listRestoreCandidates().get(0);
+        RuntimeControlRestoreCandidateRespVO candidate = findCandidate(candidateService.listRestoreCandidates(),
+                "CONTROLLED_RESTORE");
 
         assertEquals("AVAILABLE", candidate.getStatus());
         assertTrue(candidate.getBlockedReasons().isEmpty());
@@ -112,7 +162,8 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
     void listRestoreCandidatesShouldBlockLegacyTarObjectSnapshot() throws Exception {
         createArchiveRestorePoint("20260606-145029");
 
-        RuntimeControlRestoreCandidateRespVO candidate = candidateService.listRestoreCandidates().get(0);
+        RuntimeControlRestoreCandidateRespVO candidate = findCandidate(candidateService.listRestoreCandidates(),
+                "CONTROLLED_RESTORE");
 
         assertEquals("BLOCKED", candidate.getStatus());
         assertTrue(candidate.getBlockedReasons().stream()
@@ -125,9 +176,10 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
 
         List<RuntimeControlRestoreCandidateRespVO> candidates = candidateService.listRestoreCandidates();
 
-        assertEquals(1, candidates.size());
-        assertEquals("BLOCKED", candidates.get(0).getStatus());
-        assertTrue(candidates.get(0).getBlockedReasons().stream()
+        assertEquals(2, candidates.size());
+        RuntimeControlRestoreCandidateRespVO candidate = findCandidate(candidates, "CONTROLLED_RESTORE");
+        assertEquals("BLOCKED", candidate.getStatus());
+        assertTrue(candidate.getBlockedReasons().stream()
                 .anyMatch(reason -> reason.contains("recoverySet")));
     }
 
@@ -140,7 +192,8 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
                 recoverySetManifestWithoutTargetProof("20260526-010203", "20260526_010203",
                         sha256(checksumsText)));
 
-        RuntimeControlRestoreCandidateRespVO candidate = candidateService.listRestoreCandidates().get(0);
+        RuntimeControlRestoreCandidateRespVO candidate = findCandidate(candidateService.listRestoreCandidates(),
+                "CONTROLLED_RESTORE");
 
         assertEquals("BLOCKED", candidate.getStatus());
         assertTrue(candidate.getBlockedReasons().stream()
@@ -151,7 +204,8 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
     void listRestoreCandidatesShouldExposeRecoverySetFields() throws Exception {
         createRestorePoint("20260526-010203", true, true, true, true);
 
-        RuntimeControlRestoreCandidateRespVO candidate = candidateService.listRestoreCandidates().get(0);
+        RuntimeControlRestoreCandidateRespVO candidate = findCandidate(candidateService.listRestoreCandidates(),
+                "CONTROLLED_RESTORE");
 
         assertEquals("20260526-010203", candidate.getRecoverySetId());
         assertEquals("COMPLETE", candidate.getRecoverySetStatus());
@@ -159,6 +213,8 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("CLEAR_AND_REBUILD", candidate.getRedisPolicy());
         assertEquals("deploy/runtime.env", candidate.getConfigurationManifestPath());
         assertFalse(candidate.getRecoverySetManifestHash().isBlank());
+        assertEquals(candidate.getRecoverySetManifestHash(), candidate.getManifestDigest());
+        assertFalse(candidate.getChainDigest().isBlank());
         assertEquals("mysql/ruoyi-vue-pro.sql.gz", candidate.getComponentSummary().get("mysql"));
         assertEquals("objects/manifest-object-inventory.json", candidate.getComponentSummary().get("minio"));
         assertEquals("incremental", candidate.getDccBackupMode());
@@ -173,9 +229,9 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
 
         List<RuntimeControlRestoreCandidateRespVO> candidates = candidateService.listRestoreCandidates();
 
-        assertEquals(1, candidates.size());
-        assertEquals("AVAILABLE", candidates.get(0).getStatus());
-        assertEquals("20260526_010203", candidates.get(0).getImageTag());
+        RuntimeControlRestoreCandidateRespVO candidate = findCandidate(candidates, "CONTROLLED_RESTORE");
+        assertEquals("AVAILABLE", candidate.getStatus());
+        assertEquals("20260526_010203", candidate.getImageTag());
     }
 
     @Test
@@ -186,9 +242,10 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
 
         List<RuntimeControlRestoreCandidateRespVO> candidates = candidateService.listRestoreCandidates();
 
-        assertEquals(1, candidates.size());
-        assertEquals("restore:20260530-001131", candidates.get(0).getCandidateId());
-        assertEquals("AVAILABLE", candidates.get(0).getStatus());
+        assertEquals(2, candidates.size());
+        RuntimeControlRestoreCandidateRespVO candidate = findCandidate(candidates, "CONTROLLED_RESTORE");
+        assertEquals("restore:20260530-001131", candidate.getCandidateId());
+        assertEquals("AVAILABLE", candidate.getStatus());
     }
 
     @Test
@@ -200,9 +257,9 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
 
         List<RuntimeControlRestoreCandidateRespVO> candidates = candidateService.listRestoreCandidates();
 
-        assertEquals(scanLimit, candidates.size());
+        assertEquals(scanLimit * 2, candidates.size());
         assertEquals("20260608-120009", candidates.get(0).getBackupId());
-        assertEquals("20260608-120005", candidates.get(scanLimit - 1).getBackupId());
+        assertEquals("20260608-120005", candidates.get(candidates.size() - 1).getBackupId());
         assertFalse(candidates.stream().anyMatch(candidate -> "20260608-120004".equals(candidate.getBackupId())));
     }
 
@@ -212,7 +269,8 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlServiceImpl service = new RuntimeControlServiceImpl(properties, commandExecutor,
                 new RuntimeControlOperationStore(properties), responsibilityService(), candidateService);
         RuntimeControlActionReqVO reqVO = highRiskAction("restore-data");
-        reqVO.setSelectedRecoverySetCandidateId(candidateService.listRestoreCandidates().get(0).getCandidateId());
+        reqVO.setSelectedRecoverySetCandidateId(findCandidate(candidateService.listRestoreCandidates(),
+                "CONTROLLED_RESTORE").getCandidateId());
 
         service.executeAction(reqVO, "1001");
 
@@ -227,13 +285,36 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlServiceImpl service = new RuntimeControlServiceImpl(properties, commandExecutor,
                 new RuntimeControlOperationStore(properties), responsibilityService(), candidateService);
         RuntimeControlActionReqVO reqVO = highRiskAction("restore-data");
-        reqVO.setSelectedRecoverySetCandidateId(candidateService.listRestoreCandidates().get(0).getCandidateId());
+        reqVO.setSelectedRecoverySetCandidateId(findCandidate(candidateService.listRestoreCandidates(),
+                "CONTROLLED_RESTORE").getCandidateId());
 
         service.executeAction(reqVO, "1001");
 
         verify(commandExecutor, timeout(1000)).executeDetachedOperation(argThat(command ->
                 command.getArguments().contains("--selected-backup-id")
                         && command.getArguments().contains("20260526-010203")), any(), any(), any());
+    }
+
+    @Test
+    void executeRestoreShouldRejectRehearsalCandidate() throws Exception {
+        createRestorePoint("20260526-010203", true, true, true, true);
+        RuntimeControlServiceImpl service = new RuntimeControlServiceImpl(properties, commandExecutor,
+                new RuntimeControlOperationStore(properties), responsibilityService(), candidateService);
+        RuntimeControlActionReqVO reqVO = highRiskAction("restore-data");
+        reqVO.setSelectedRecoverySetCandidateId(findCandidate(candidateService.listRestoreCandidates(), "REHEARSAL")
+                .getCandidateId());
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> service.executeAction(reqVO, "1001"));
+
+        assertTrue(exception.getMessage().contains("CONTROLLED_RESTORE"));
+    }
+
+    private RuntimeControlRestoreCandidateRespVO findCandidate(
+            List<RuntimeControlRestoreCandidateRespVO> candidates, String candidateType) {
+        return candidates.stream()
+                .filter(candidate -> candidateType.equals(candidate.getCandidateType()))
+                .findFirst()
+                .orElseThrow();
     }
 
     private void createRestorePoint(String backupId, boolean manifest, boolean checksum,
@@ -253,7 +334,7 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
         String checksumsText = "sha256  deploy/runtime.env\n";
         if (manifest) {
             java.nio.file.Files.writeString(root.resolve("manifest").resolve("manifest.json"),
-                    recoverySetManifest(backupId, "20260526_010203", sha256(checksumsText)));
+                    recoverySetManifest(backupId, "20260526_010203", sha256(checksumsText), rehearsal));
             java.nio.file.Files.writeString(root.resolve("manifest").resolve("dcc-backup-manifest.json"),
                     dccBackupManifest(backupId));
         }
@@ -261,8 +342,13 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
             java.nio.file.Files.writeString(root.resolve("manifest").resolve("checksums.txt"), checksumsText);
         }
         if (rehearsal) {
+            String manifestText = java.nio.file.Files.readString(root.resolve("manifest").resolve("manifest.json"));
             java.nio.file.Files.writeString(root.resolve("manifest").resolve("rehearsal-report.json"),
-                    "{\"status\":\"PASSED\"}");
+                    """
+                    {"status":"PASSED","backupId":"%s","manifestDigest":"%s","chainDigest":"%s",
+                     "sourceFingerprint":"serverHost=172.30.30.58;appDir=/opt/intruoyi/runtime;minioBucket=yudao;imageTag=20260526_010203",
+                     "targetFingerprint":"environment=test;host=172.30.30.58;imageTag=20260526_010203"}
+                    """.formatted(backupId, sha256(manifestText), sha256(dccBackupManifest(backupId))));
         }
         if (snapshot) {
             java.nio.file.Files.writeString(root.resolve("manifest").resolve("现场快照.md"), "snapshot");
@@ -287,12 +373,18 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
                 "{\"mode\":\"incremental-manifest\",\"objects\":[]}");
         String checksumsText = "sha256  deploy/runtime.env\n";
         java.nio.file.Files.writeString(root.resolve("manifest").resolve("manifest.json"),
-                recoverySetManifest(backupId, manifestImageTag, sha256(checksumsText)));
+                recoverySetManifest(backupId, manifestImageTag, sha256(checksumsText), true));
         java.nio.file.Files.writeString(root.resolve("manifest").resolve("dcc-backup-manifest.json"),
                 dccBackupManifest(backupId));
         java.nio.file.Files.writeString(root.resolve("manifest").resolve("checksums.txt"), checksumsText);
+        String manifestText = java.nio.file.Files.readString(root.resolve("manifest").resolve("manifest.json"));
         java.nio.file.Files.writeString(root.resolve("manifest").resolve("rehearsal-report.json"),
-                "{\"status\":\"PASSED\"}");
+                """
+                {"status":"PASSED","backupId":"%s","manifestDigest":"%s","chainDigest":"%s",
+                 "sourceFingerprint":"serverHost=172.30.30.58;appDir=/opt/intruoyi/runtime;minioBucket=yudao;imageTag=%s",
+                 "targetFingerprint":"environment=test;host=172.30.30.58;imageTag=%s"}
+                """.formatted(backupId, sha256(manifestText), sha256(dccBackupManifest(backupId)),
+                        manifestImageTag, manifestImageTag));
         java.nio.file.Files.writeString(root.resolve("manifest").resolve("现场快照.md"), "snapshot");
     }
 
@@ -403,10 +495,17 @@ class RuntimeRestoreCandidateServiceImplTest extends BaseMockitoUnitTest {
         java.nio.file.Files.writeString(root.resolve("mysql").resolve("ruoyi-vue-pro.sql.gz"), "dump");
     }
 
-    private String recoverySetManifest(String backupId, String imageTag, String checksumsHash) {
+    private String recoverySetManifest(String backupId, String imageTag, String checksumsHash, boolean rehearsed) {
+        String validation = rehearsed
+                ? """
+                ,"validation":{"mysqlDumpCreated":true,"objectBackupCreated":true,"checksumsGenerated":true,"rehearsalStatus":"PASSED","lastRehearsedAt":"2026-09-19T00:00:00+08:00"}
+                """
+                : """
+                ,"validation":{"mysqlDumpCreated":true,"objectBackupCreated":true,"checksumsGenerated":true,"rehearsalStatus":"NOT_RUN"}
+                """;
         return """
-                {"schemaVersion":"v2","backupId":"%s","targetEnvironment":"test","targetHost":"172.30.30.58","status":"success","deploy":{"imageTag":"%s"},"recoverySet":{"id":"%s","status":"COMPLETE","program":{"imageTag":"%s"},"mysql":{"dumpPath":"mysql/ruoyi-vue-pro.sql.gz"},"minio":{"bucket":"yudao","snapshotPath":"objects/manifest-object-inventory.json"},"businessFiles":{"snapshotPath":"objects/manifest-object-inventory.json"},"redis":{"policy":"CLEAR_AND_REBUILD"},"configuration":{"manifestPath":"deploy/runtime.env","composePath":"deploy/docker-compose.yml"},"checksums":{"path":"manifest/checksums.txt","sha256":"%s"}}}
-                """.formatted(backupId, imageTag, backupId, imageTag, checksumsHash);
+                {"schemaVersion":"v2","backupId":"%s","targetEnvironment":"test","targetHost":"172.30.30.58","status":"success","source":{"serverHost":"172.30.30.58","appDir":"/opt/intruoyi/runtime","minioBucket":"yudao"},"deploy":{"imageTag":"%s"},"recoverySet":{"id":"%s","status":"COMPLETE","program":{"imageTag":"%s"},"mysql":{"dumpPath":"mysql/ruoyi-vue-pro.sql.gz"},"minio":{"bucket":"yudao","snapshotPath":"objects/manifest-object-inventory.json"},"businessFiles":{"snapshotPath":"objects/manifest-object-inventory.json"},"redis":{"policy":"CLEAR_AND_REBUILD"},"configuration":{"manifestPath":"deploy/runtime.env","composePath":"deploy/docker-compose.yml"},"checksums":{"path":"manifest/checksums.txt","sha256":"%s"}}%s}
+                """.formatted(backupId, imageTag, backupId, imageTag, checksumsHash, validation);
     }
 
     private String dccBackupManifest(String backupId) {

@@ -340,7 +340,7 @@ def test_linux_runtime_ports_are_required_before_mutating_actions(tmp_path: Path
 
     with pytest.raises(module.BackupOpsError) as exc_info:
         if mode == "backup-now":
-            module.backup_now(config, _NoDockerRunner())
+                module.backup_now(config, _NoDockerRunner(), "FULL")
         elif mode == "restore-data":
             module.restore_data(config, _NoDockerRunner(), "20260526-220000")
         else:
@@ -370,7 +370,7 @@ def test_linux_backup_manifest_uses_runtime_env_ports(tmp_path: Path, monkeypatc
     monkeypatch.setattr(module, "get_minio_creds", lambda _container_name: ("access", "secret"))
     monkeypatch.setattr(module, "require_executable", lambda path, _code, _message: path)
 
-    module.backup_now(config, _DccBackupNowRunner())
+    module.backup_now(config, _DccBackupNowRunner(), "FULL")
 
     manifest_paths = list(backup_points_root.glob("*/manifest/manifest.json"))
     assert len(manifest_paths) == 1
@@ -402,7 +402,7 @@ def test_linux_backup_now_generates_dcc_restore_candidate_contract(
     monkeypatch.setattr(module, "get_minio_creds", lambda _container_name: ("access", "secret"))
     monkeypatch.setattr(module, "require_executable", lambda path, _code, _message: path)
 
-    module.backup_now(config, _DccBackupNowRunner())
+    module.backup_now(config, _DccBackupNowRunner(), "FULL")
 
     backup_root = backup_points_root / "20260609-000001"
     object_inventory = json.loads((backup_root / "objects" / "manifest-object-inventory.json").read_text(encoding="utf-8"))
@@ -494,7 +494,7 @@ def test_linux_backup_now_reuses_unchanged_object_without_bucket_mirror(
     monkeypatch.setattr(module, "require_executable", lambda path, _code, _message: path)
     runner = _DccBackupNowRunner()
 
-    module.backup_now(config, runner)
+    module.backup_now(config, runner, "FULL")
 
     backup_root = backup_points_root / "20260609-000001"
     object_inventory = json.loads((backup_root / "objects" / "manifest-object-inventory.json").read_text(encoding="utf-8"))
@@ -536,7 +536,7 @@ def test_linux_backup_manifest_declares_complete_recovery_set(tmp_path: Path) ->
     _write_dcc_backup_manifest(backup_root / "manifest")
     module.write_checksums(backup_root)
 
-    module.write_manifest(backup_root, "20260526-220000", "manual", config, "release-v2", 49123, 18099)
+    module.write_manifest(backup_root, "20260526-220000", "manual", "FULL", config, "release-v2", 49123, 18099)
 
     manifest = json.loads((backup_root / "manifest" / "manifest.json").read_text(encoding="utf-8"))
     recovery_set = manifest["recoverySet"]
@@ -591,7 +591,7 @@ def test_linux_backup_manifest_blocks_mysql_incremental_request_without_prerequi
     module.write_checksums(backup_root)
 
     with pytest.raises(module.BackupOpsError) as exc_info:
-        module.write_manifest(backup_root, "20260526-220000", "manual", config, "release-v2", 49123, 18099)
+        module.write_manifest(backup_root, "20260526-220000", "manual", "FULL", config, "release-v2", 49123, 18099)
 
     assert exc_info.value.code == "INTBK-6001"
     assert exc_info.value.status == "blocked"
@@ -622,7 +622,7 @@ def test_linux_backup_now_records_binlog_preflight_before_rehearsal_gate(
     monkeypatch.setattr(module, "require_executable", lambda path, _code, _message: path)
     runner = _DccBackupNowRunner()
 
-    result = module.backup_now(config, runner)
+    result = module.backup_now(config, runner, "INCREMENTAL")
 
     backup_root = Path(result["backupRoot"])
     preflight = json.loads((backup_root / "mysql" / "binlog-preflight.json").read_text(encoding="utf-8"))
@@ -657,7 +657,7 @@ def test_linux_backup_now_exports_binlog_segment_manifest_before_replay_gate(
     monkeypatch.setattr(module, "require_executable", lambda path, _code, _message: path)
     runner = _DccBackupNowRunner()
 
-    result = module.backup_now(config, runner)
+    result = module.backup_now(config, runner, "INCREMENTAL")
 
     backup_root = Path(result["backupRoot"])
     segment = json.loads((backup_root / "mysql" / "binlog-segment-manifest.json").read_text(encoding="utf-8"))
@@ -697,7 +697,7 @@ def test_linux_backup_now_writes_binlog_manifest_and_requires_rehearsal(
     monkeypatch.setattr(module, "require_executable", lambda path, _code, _message: path)
     runner = _DccBackupNowRunner()
 
-    result = module.backup_now(config, runner)
+    result = module.backup_now(config, runner, "INCREMENTAL")
 
     backup_root = Path(result["backupRoot"])
     assert backup_root.parent == backup_points_root
@@ -815,7 +815,7 @@ def test_linux_backup_manifest_blocks_success_without_dcc_manifest(tmp_path: Pat
     module.write_checksums(backup_root)
 
     with pytest.raises(module.BackupOpsError) as exc_info:
-        module.write_manifest(backup_root, "20260526-220000", "manual", config, "release-v2", 49123, 18099)
+        module.write_manifest(backup_root, "20260526-220000", "manual", "FULL", config, "release-v2", 49123, 18099)
 
     assert exc_info.value.code == "INTBK-6001"
     assert exc_info.value.status == "blocked"
@@ -848,7 +848,7 @@ def test_linux_backup_manifest_blocks_success_without_test_target_proof(tmp_path
     module.write_checksums(backup_root)
 
     with pytest.raises(module.BackupOpsError) as exc_info:
-        module.write_manifest(backup_root, "20260526-220000", "manual", config, "release-v2", 49123, 18099)
+        module.write_manifest(backup_root, "20260526-220000", "manual", "FULL", config, "release-v2", 49123, 18099)
 
     assert exc_info.value.code == "INTBK-1003"
     assert "targetEnvironment=test" in exc_info.value.message
@@ -917,7 +917,7 @@ def test_linux_backup_modes_require_test_target_environment(tmp_path: Path, mode
         module.project_target_environment(config, mode, "prod")
 
     assert exc_info.value.status == "blocked"
-    assert "backup-now and backup-scheduled require --target-environment test" in exc_info.value.message
+    assert "Production backup confirmation is required" in exc_info.value.message
 
 
 def test_linux_backup_scheduled_projects_to_test_runtime(tmp_path: Path) -> None:

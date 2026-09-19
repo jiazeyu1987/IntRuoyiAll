@@ -56,18 +56,18 @@
 ### 按钮化备份恢复入口门禁
 
 - Trigger: 设计或实现 ChatGPT 网页、管理后台或运行控制台中的“立即备份”“选择备份包恢复”“恢复演练”“恢复数据”按钮。
-- Preflight check: 先确认唯一执行源是后端 operation gateway / runtime-control / `E:\IntRuoyi\IntRuoyiBackend\script\backup-ops`，不得直接绑定浏览器、ChatGPT 网页或 `.bat` 入口执行 SSH/shell。`backup-now` 请求必须显式传入 `FULL` 或 `INCREMENTAL`；`restore-data` 必须由服务端恢复候选解析 `selectedBackupId`，并在 preview 中核对 manifest、checksums、rehearsalStatus、runtime `IMAGE_TAG`、schema 指纹、DB/MinIO/DCC/Redis policy、目标 host 和容量。现状介绍必须区分静态已知配置与实时恢复就绪状态。
-- Blocker: `BackupKind` 缺失、恢复候选不是服务端签发、备份包未 `COMPLETE`、checksum/DCC manifest 缺失、演练未 `PASSED`、当前目标 fingerprint 不兼容、外部 writer 未隔离、pre-restore snapshot 不可创建、或只读实时 preflight 未执行时，不得启用恢复数据按钮或宣称当前测试服可恢复。
-- Verification: 记录按钮请求体、operationId、targetEnvironment、backupKind、candidateId、backupId、preview blockers、互斥锁状态、manifest/checksum/rehearsal/restore report、backend health、frontend HTTP、登录、样本文件 hash 和关键业务路径验证结果。静态设计任务只能标注“方案已形成”，不能标注“恢复演练成功”。
-- Forbidden action: 禁止让前端或 ChatGPT 网页传任意 host/path/命令；禁止把 `.bat` 控制台成功等同于网页接口契约成功；禁止缺少 `BackupKind` 时默认全量或增量；禁止未演练包直接覆盖测试服；禁止用历史备份报告、旧任务证据或静态配置冒充当前实时恢复就绪。
+- Preflight check: 先确认唯一执行源是后端 operation gateway / runtime-control / `E:\IntRuoyi\IntRuoyiBackend\script\backup-ops`，不得直接绑定浏览器、ChatGPT 网页或 `.bat` 入口执行 SSH/shell。`backup-now` 请求必须显式传入 `FULL` 或 `INCREMENTAL`，并从前端表单、后端 action 参数、linux-local `--backup-kind` / PowerShell `-BackupKind` 一路贯通到实际脚本；linux-local 配置的 MySQL 备份策略必须与请求备份类型一致，不一致必须阻断，不得静默改全量或增量。候选必须区分 `REHEARSAL`（允许 `COMPLETE + NOT_RUN`）与 `CONTROLLED_RESTORE`（绑定当前目标 `PASSED` 证明），不可变 manifest 与可变演练/兼容证据分离，候选 API 必须显式暴露 `manifestDigest`、`chainDigest`、`sourceFingerprint`、`targetFingerprint`，不能只用 `backupId` 或目录名授权恢复，并在 preview 中核对签名、全载荷 hash、chain digest、runtime `IMAGE_TAG`、schema 指纹、DB/MinIO/DCC/Redis policy、目标 host、容量、隔离副作用和候选失效时间。现状介绍必须区分静态已知配置与实时恢复就绪状态。
+- Blocker: `BackupKind` 缺失、候选不是服务端签发或已过期、备份集未 `COMPLETE`、checksum/签名/DCC manifest 缺失、`NOT_RUN` 候选尝试覆盖、演练证明与目标 fingerprint/chain digest 不匹配、外部 writer 或隔离副作用未处理、pre-restore snapshot/空目标证明不可创建、源账号可删除全部备份、或只读实时 preflight 未执行时，不得启用恢复数据按钮或宣称当前测试服可恢复。
+- Verification: 记录按钮请求体、operationId、targetEnvironment、backupKind、candidateType、candidateId、backupId、manifest/chain digest、source/target fingerprint、preview blockers、互斥租约、签名/全载荷 hash、rehearsal/restore report、目标模式、backend health、frontend HTTP、登录、样本文件 hash 和关键业务路径验证结果；静态验证至少覆盖候选类型拒绝、backupKind 参数链、digest/fingerprint 出参和前端按动作过滤；验证 `UNKNOWN` 终态保持写保护。静态设计任务只能标注“方案已形成”，不能标注“恢复演练成功”。
+- Forbidden action: 禁止让前端或 ChatGPT 网页传任意 host/path/命令；禁止把 `.bat` 控制台成功等同于网页接口契约成功；禁止缺少 `BackupKind` 时默认全量或增量；禁止把 `NOT_RUN` 强行标成 `PASSED`、让前端绕过候选状态、在隔离演练中连接真实外部系统、未演练包直接覆盖测试服、让源账号删除受保护副本，或用历史报告冒充当前实时就绪。
 - Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260918-test-backup-restore-design\verification-report.md` 与 `docs/recovery/backup-disaster-recovery.md`。
 
 ### 大数据量备份恢复首版里程碑顺序门禁
 
 - Trigger: 规划或评审几百 GB 数据量的备份恢复首版，尤其出现“先做按钮、增量后续再做”“全量成功即可上线”或“整链恢复后续优化”等拆分方案。
-- Preflight check: 先完成数据、对象、数据库、配置、秘密引用、外部依赖、owner、RTO/RPO、容量和停写窗口盘点；在实际数据规模上选定并实测数据库全量主方案；确认恢复控制平面不依赖被恢复的业务后端；定义 `FULL -> INCREMENTAL -> chain restore` 的统一恢复点和对象删除 tombstone 契约。
-- Blocker: 只有文件生成没有全量隔离恢复、只有数据库增量没有对象增删改、增量链缺 parent/base/position、恢复控制平面随业务后端一起不可用、数据库主方案未按实际规模验证、或只能依赖用户电脑中转几百 GB 数据时，不能进入按钮化放行。
-- Verification: M2 记录实际规模 FULL 和隔离全量恢复；M3 连续生成至少三个真实增量并恢复中间点和最新点，验证数据库与对象新增/修改/删除，并注入中间增量损坏确认精确阻断；M4 区分恢复演练和覆盖恢复；M5 完成支持矩阵与换机/不兼容验证；M6 完成一个完整调度周期、保留模拟、最长链恢复和故障注入。
+- Preflight check: 先完成数据、对象、数据库、配置、秘密引用、外部依赖、owner、共同恢复点 RPO、演练/覆盖 RTO、容量和停写窗口盘点；在实际数据规模上选定并实测数据库全量主方案；确认恢复控制平面、镜像/工具、密钥 escrow 和备份仓库不依赖被恢复的业务后端或源账号；定义 `FULL -> INCREMENTAL -> chain restore` 的统一恢复点、对象 tombstone、最大链年龄和日志保留契约。
+- Blocker: 只有文件生成没有全量隔离恢复、只有数据库增量没有对象增删改、增量链缺 parent/base/position 或所需 binlog 已 purge、恢复控制平面随业务后端一起不可用、隔离演练会触发外部副作用、备份仓库与源系统共用可删除权限、数据库主方案未按实际规模验证、或只能依赖用户电脑中转几百 GB 数据时，不能进入按钮化放行。
+- Verification: M2 记录实际规模 FULL 和隔离全量恢复；M3 连续生成至少三个真实增量并恢复中间点和最新点，验证数据库与对象新增/修改/删除，并注入中间增量损坏、日志提前清理和对象并发修改；M4 区分演练候选与受控恢复候选、演练与覆盖恢复；M5 完成支持矩阵与换机/不兼容验证；M6 完成一个完整调度周期、依赖图保留模拟、最大链恢复、独立副本删除权限和故障注入。
 - Forbidden action: 禁止把真实增量、整链恢复、跨存储一致性和大数据容量验证推迟到按钮上线后；禁止用小样本成功外推几百 GB；禁止把“增量包小”当成“恢复只需传增量”；禁止把升级、降级、换机承诺写成任意环境自动兼容。
 - Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260918-backup-restore-milestone-review\verification-report.md`。
 

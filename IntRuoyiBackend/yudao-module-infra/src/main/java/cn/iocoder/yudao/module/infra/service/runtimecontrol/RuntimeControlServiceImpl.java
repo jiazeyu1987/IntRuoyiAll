@@ -421,6 +421,11 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                     actionLabel + " failed");
             return new RuntimeControlTerminalStatus("failed", failureSummary);
         }
+        if (logContent.contains("操作完成：未知") || logContent.contains("结果代码：INTBK-UNKNOWN")) {
+            String unknownSummary = StrUtil.blankToDefault(extractResultDescription(logContent),
+                    actionLabel + " status unknown");
+            return new RuntimeControlTerminalStatus("unknown", unknownSummary);
+        }
         return null;
     }
 
@@ -791,7 +796,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                 throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testConclusion");
             }
             reqVO.setTestConclusion(StrUtil.trim(reqVO.getTestConclusion()));
-            bindRecoverySetCandidate(reqVO);
+            bindRecoverySetCandidate(action, reqVO);
         }
         if (action.requiresPublishScope()) {
             if (StrUtil.isBlank(reqVO.getPublishScope())) {
@@ -865,7 +870,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             reqVO.setSelectedImageTag(candidate.getImageTag());
         }
         if (action == RuntimeControlOperationAction.REHEARSAL || action == RuntimeControlOperationAction.RESTORE_DATA) {
-            bindRecoverySetCandidate(reqVO);
+            bindRecoverySetCandidate(action, reqVO);
         }
         return backendRuntimeBaseConfig;
     }
@@ -962,9 +967,12 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         return releasePackage;
     }
 
-    private void bindRecoverySetCandidate(RuntimeControlActionReqVO reqVO) {
+    private void bindRecoverySetCandidate(RuntimeControlOperationAction action, RuntimeControlActionReqVO reqVO) {
+        String requiredCandidateType = action == RuntimeControlOperationAction.REHEARSAL
+                ? "REHEARSAL" : "CONTROLLED_RESTORE";
         RuntimeControlRestoreCandidateRespVO candidate =
-                candidateService.requireAvailableRestoreCandidate(reqVO.getSelectedRecoverySetCandidateId());
+                candidateService.requireAvailableRestoreCandidate(reqVO.getSelectedRecoverySetCandidateId(),
+                        requiredCandidateType);
         reqVO.setSelectedBackupId(candidate.getBackupId());
         reqVO.setRecoverySetId(candidate.getRecoverySetId());
         reqVO.setRecoverySetManifestHash(candidate.getRecoverySetManifestHash());
@@ -981,7 +989,8 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                     "tested.json 缺少 selectedRecoverySetCandidateId");
         }
         RuntimeControlRestoreCandidateRespVO candidate =
-                candidateService.requireAvailableRestoreCandidate(releasePackage.getTestedRecoverySetCandidateId());
+                candidateService.requireAvailableRestoreCandidate(releasePackage.getTestedRecoverySetCandidateId(),
+                        "CONTROLLED_RESTORE");
         if (!StrUtil.equals(candidate.getRecoverySetId(), releasePackage.getTestedRecoverySetId())) {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
                     "tested.json recoverySetId 与当前恢复集候选不一致");
@@ -1024,6 +1033,12 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             }
             throw exception(RUNTIME_CONTROL_INVALID_TARGET, environment, "ops");
         }
+        RuntimeControlOperationRespVO unknownOperation = latestUnknownOperation(environment);
+        if (unknownOperation != null) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
+                    environment + " 环境存在 UNKNOWN 操作，保持写保护直到人工确认并收口："
+                            + unknownOperation.getOperationId());
+        }
         if (!runtimeEnvironment.isAccessEnabled()) {
             if (action == RuntimeControlOperationAction.BACKUP_NOW && "prod".equals(environment)) {
                 return;
@@ -1031,6 +1046,14 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, environment + " 环境未启用："
                     + StrUtil.blankToDefault(runtimeEnvironment.getAccessDisabledReason(), "环境访问未启用"));
         }
+    }
+
+    private RuntimeControlOperationRespVO latestUnknownOperation(String environment) {
+        return operationStore.listLatest(200).stream()
+                .filter(operation -> environment.equals(operation.getEnvironment()))
+                .filter(operation -> "unknown".equals(operation.getStatus()))
+                .findFirst()
+                .orElse(null);
     }
 
     private void validateReleaseTag(String releaseTag) {

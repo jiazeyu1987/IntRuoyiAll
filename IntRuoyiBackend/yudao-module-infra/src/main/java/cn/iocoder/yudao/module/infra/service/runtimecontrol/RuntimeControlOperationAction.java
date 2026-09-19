@@ -94,9 +94,6 @@ public enum RuntimeControlOperationAction {
     public List<String> buildArguments(RuntimeControlActionReqVO reqVO, String operatorName,
                                        RuntimeControlProperties properties) {
         boolean linuxBackup = isBackupAction() && properties.getBackupOps().isLinuxLocal();
-        if (linuxBackup && this == BACKUP_NOW && StrUtil.isNotBlank(reqVO.getBackupKind())) {
-            throw new IllegalArgumentException("backupKind FULL/INCREMENTAL is not supported by linux-local in the minimal release");
-        }
         List<String> args = linuxBackup ? linuxBackupArguments(action, reqVO, properties)
                 : new ArrayList<>(argumentsBuilder.apply(reqVO));
         if (deploysReleasePackage()) {
@@ -421,6 +418,12 @@ public enum RuntimeControlOperationAction {
         if ("backup-now".equals(mode)) {
             args.add("--target-environment");
             args.add(StrUtil.trim(reqVO.getTargetEnvironment()));
+            String backupKind = StrUtil.trimToEmpty(reqVO.getBackupKind()).toUpperCase(Locale.ROOT);
+            if (!List.of("FULL", "INCREMENTAL").contains(backupKind)) {
+                throw new IllegalArgumentException("backupKind must be FULL or INCREMENTAL");
+            }
+            args.add("--backup-kind");
+            args.add(backupKind);
         }
         if ("rollback-app".equals(mode)) {
             args.add("--target-environment");
