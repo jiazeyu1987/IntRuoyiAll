@@ -15,7 +15,7 @@ if not exist "%PS1%" (
 
 if /i "%~1"=="cancel" goto cancel
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%PS1%" -ServerHost "%SERVER_HOST%" -RemoteAppDir "%REMOTE_APP_DIR%" -FrontendPort %FRONTEND_PORT% -BackendPort %BACKEND_PORT%
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS1%" -ServerHost "%SERVER_HOST%" -RemoteAppDir "%REMOTE_APP_DIR%" -RemoteMinioContainer "ragflow_compose-minio-1" -FrontendPort %FRONTEND_PORT% -BackendPort %BACKEND_PORT%
 set "EXIT_CODE=%ERRORLEVEL%"
 exit /b %EXIT_CODE%
 

@@ -152,6 +152,22 @@ def test_backup_use_cases_dispatch_mysql_by_kind_without_fallback() -> None:
         assert "-BackupKind $BackupKind" in source
 
 
+def test_incremental_backup_checks_mysqlbinlog_before_stopping_services() -> None:
+    for name in ("BackupNow.psm1", "BackupScheduled.psm1"):
+        source = (BACKUP_ROOT / "scripts" / "modules" / "UseCases" / name).read_text(encoding="utf-8")
+        preflight_index = source.index("Test-BackupOpsMySqlBinlogToolAvailable")
+        stop_index = source.index("Stop-BackupOpsFrontendBackend")
+        assert preflight_index < stop_index
+
+    source = (BACKUP_ROOT / "scripts" / "modules" / "Infra" / "MySqlOps.psm1").read_text(encoding="utf-8")
+    function = source.split("function Test-BackupOpsMySqlBinlogToolAvailable", 1)[1].split(
+        "function Export-BackupOpsMySqlBinlogIncrement", 1
+    )[0]
+    assert "command -v mysqlbinlog" in function
+    assert "MYSQLBINLOG_AVAILABLE" in function
+    assert "mysqlbinlog is unavailable" in function
+
+
 def test_manifest_records_explicit_chain_identity() -> None:
     source = (BACKUP_ROOT / "scripts" / "modules" / "Infra" / "FileOps.psm1").read_text(encoding="utf-8")
     manifest = source.split("function New-BackupOpsManifest", 1)[1].split(

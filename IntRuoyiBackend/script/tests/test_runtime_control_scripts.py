@@ -225,6 +225,8 @@ def test_remote_scripts_support_json_and_website_component():
     assert "[ValidateSet('backend', 'frontend', 'full', 'website')]" in restart_script
     assert "docker compose restart website" in restart_script
     assert "OperationRecordPath" in restart_script
+    assert "[switch]$CheckReachability" in restart_script
+    assert "Assert-RemoteOnlyOfficePublicFileBaseUrlReachable -CheckReachability" in restart_script
 
 
 def test_remote_restart_blocks_showroom_media_bucket_inconsistency_before_backend_restart():
@@ -234,18 +236,27 @@ def test_remote_restart_blocks_showroom_media_bucket_inconsistency_before_backen
     assert "$RemoteMysqlContainer = 'intruoyi-mysql'" in script
     assert "[string]$RemoteMinioContainer = ''" in script
     assert "Missing -RemoteMinioContainer; remote backend restart requires an explicit MinIO container." in script
-    assert "$ShowroomMediaSampleObjects = @(" in script
-    assert "showroom/product/cover/20260530/product-product_001-cover.png" in script
-    assert "showroom/narration/20260522/company-1-zh-ruoxi.wav" in script
+    assert "sample_product=" in script
+    assert "sample_narration=" in script
+    assert "FROM infra_file WHERE config_id = 28" in script
+    assert "0x73686f77726f6f6d2f70726f647563742f" in script
+    assert "0x73686f77726f6f6d2f6e6172726174696f6e2f" in script
+    assert "protected infra_file samples are incomplete" in script
     assert "SELECT JSON_UNQUOTE(JSON_EXTRACT(config, CAST(0x242e6275636b6574 AS CHAR CHARACTER SET utf8mb4))) FROM infra_file_config WHERE master = 1 AND deleted = 0 LIMIT 1" in script
     assert "Showroom media bucket consistency check failed" in script
-    assert "test -f '/data/`$bucket/`$object/xl.meta'" in script
+    assert "docker exec $RemoteMinioContainer test -f" in script
 
     guard_condition = "if ($Component -eq 'backend' -or $Component -eq 'full')"
     guard_block_index = script.index(guard_condition, script.index("Info \"Restarting remote runtime"))
     restart_index = script.index("docker compose restart $serviceNames")
     assert script.index("Missing -RemoteMinioContainer", guard_block_index) < restart_index
     assert script.index("Assert-RemoteShowroomMediaBucketConsistency", guard_block_index) < restart_index
+
+
+def test_test_server_restart_wrapper_passes_the_authoritative_minio_container():
+    wrapper = (DEPLOY_DIR / "restart-int-ruoyi-to-test.bat").read_text(encoding="utf-8")
+
+    assert '-RemoteMinioContainer "ragflow_compose-minio-1"' in wrapper
 
 
 def test_remote_restart_quotes_mysql_bucket_sql_for_ssh_shell():

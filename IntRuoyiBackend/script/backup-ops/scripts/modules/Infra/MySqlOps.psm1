@@ -774,6 +774,34 @@ function Write-BackupOpsMySqlEvidenceJson {
     [System.IO.File]::WriteAllText($Path, ($Value | ConvertTo-Json -Depth 8), [System.Text.UTF8Encoding]::new($false))
 }
 
+function Test-BackupOpsMySqlBinlogToolAvailable {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Config,
+        [Parameter(Mandatory = $true)]
+        [object]$LogSession
+    )
+
+    Import-BackupOpsSshDependency
+    $sshRequest = Get-BackupOpsProductionSshRequest -Config $Config
+    $containerName = [string](Get-BackupOpsRequiredConfigValue -Config $Config -Path @('containers', 'mysql') -Code 'INTBK-3001' -Reason '缺少 MySQL 容器名配置。' -Action '请补齐 containers.mysql。')
+    $command = "set -eu; docker exec {0} sh -lc 'command -v mysqlbinlog >/dev/null 2>&1' ; printf 'MYSQLBINLOG_AVAILABLE\n'" -f
+        (ConvertTo-BackupBashSingleQuotedString -Value $containerName)
+    $result = Invoke-BackupSshCommand -Request (Merge-BackupOpsRequest -Request $sshRequest -Extra @{
+        Command = "bash -lc {0}" -f (ConvertTo-BackupBashSingleQuotedString -Value $command)
+        TimeoutSeconds = 60
+    })
+    if (([string]$result.output).Trim() -notmatch 'MYSQLBINLOG_AVAILABLE') {
+        throw (New-BackupOpsMySqlException -Code 'INTBK-3001' -Status 'blocked' -Message "MySQL incremental backup preflight failed: mysqlbinlog is unavailable in container $containerName.")
+    }
+    Write-BackupOpsLog -Session $LogSession -Message 'MySQL incremental preflight passed: mysqlbinlog is available.'
+    return [pscustomobject]@{
+        status = 'passed'
+        executable = 'mysqlbinlog'
+        container = $containerName
+    }
+}
+
 function Export-BackupOpsMySqlBinlogIncrement {
     param(
         [Parameter(Mandatory = $true)]
@@ -1245,4 +1273,4 @@ function Test-BackupOpsMySqlDumpIntegrity {
     return [pscustomobject]@{ backupId = $BackupId; status = 'passed' }
 }
 
-Export-ModuleMember -Function New-BackupMySqlDumpCommandSpec, New-BackupMySqlRestoreCommandSpec, Test-BackupMySqlConnectivity, Export-BackupMySqlDump, Import-BackupMySqlDump, ConvertFrom-BackupOpsMySqlPayloadProof, Export-BackupOpsMySqlDump, Export-BackupOpsMySqlBinlogIncrement, Test-BackupOpsMySqlDumpIntegrity, Test-BackupOpsMySqlRestoreChainIntegrity, Replay-BackupOpsMySqlBinlogChain, Import-BackupOpsMySqlDump
+Export-ModuleMember -Function New-BackupMySqlDumpCommandSpec, New-BackupMySqlRestoreCommandSpec, Test-BackupMySqlConnectivity, Export-BackupMySqlDump, Import-BackupMySqlDump, ConvertFrom-BackupOpsMySqlPayloadProof, Export-BackupOpsMySqlDump, Test-BackupOpsMySqlBinlogToolAvailable, Export-BackupOpsMySqlBinlogIncrement, Test-BackupOpsMySqlDumpIntegrity, Test-BackupOpsMySqlRestoreChainIntegrity, Replay-BackupOpsMySqlBinlogChain, Import-BackupOpsMySqlDump

@@ -103,6 +103,10 @@ function Invoke-BackupNowUseCase {
         $resultContext.backupId = $workspace.BackupId
         $resultContext.imageTag = $workspace.ImageTag
 
+        if ($BackupKind -eq 'INCREMENTAL') {
+            $null = Test-BackupOpsMySqlBinlogToolAvailable -Config $Config -LogSession $logSession
+        }
+
         Show-BackupOpsProgress -Current 3 -Total 9 -Message '停止 frontend/backend，建立无写入窗口...'
         try {
             $servicesStopped = $true
