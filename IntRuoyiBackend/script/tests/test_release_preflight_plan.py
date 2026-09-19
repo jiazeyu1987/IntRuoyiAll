@@ -1,6 +1,8 @@
 import json
 import hashlib
 
+import pytest
+
 from script.release.release_preflight_plan import build_preflight_plan, main
 
 
@@ -221,6 +223,19 @@ def test_preflight_preserves_manifest_order_when_dependencies_become_ready() -> 
 
 def test_preflight_outputs_apply_when_safe() -> None:
     plan = build_preflight_plan([migration()], {}, target_environment="test", publish_scope="with-data")
+
+    assert plan["status"] == "passed"
+    assert plan["items"][0]["action"] == "APPLY"
+
+
+@pytest.mark.parametrize("migration_type", ["preflight", "backfill", "postflight", "rollback-dry-run"])
+def test_preflight_accepts_evidence_only_migration_types(migration_type: str) -> None:
+    plan = build_preflight_plan(
+        [migration(type=migration_type)],
+        {},
+        target_environment="test",
+        publish_scope="with-data",
+    )
 
     assert plan["status"] == "passed"
     assert plan["items"][0]["action"] == "APPLY"

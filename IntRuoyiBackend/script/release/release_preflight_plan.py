@@ -7,6 +7,8 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
+from script.release.release_migration_manifest import ALLOWED_TYPES
+
 
 BLOCKED_ACTIONS = {
     "BLOCKED_CHECKSUM_MISMATCH",
@@ -17,7 +19,7 @@ BLOCKED_ACTIONS = {
 SKIP_ENV_NOT_ALLOWED = "SKIP_ENV_NOT_ALLOWED"
 SKIP_SCOPE_EXCLUDED = "SKIP_SCOPE_EXCLUDED"
 SUPPORTED_PUBLISH_SCOPES = {"code-only", "with-data"}
-SUPPORTED_MIGRATION_TYPES = {"schema", "data", "menu", "config", "permission", "seed"}
+SUPPORTED_MIGRATION_TYPES = ALLOWED_TYPES
 
 
 def _state_for(target_state: dict[str, dict[str, object]], migration_id: str) -> dict[str, object] | None:
