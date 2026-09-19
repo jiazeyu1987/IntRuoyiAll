@@ -88,6 +88,10 @@ if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction Sile
     $PSNativeCommandUseErrorActionPreference = $false
 }
 
+$script:ReleaseOperationLockAcquired = $false
+$script:ReleaseOperationLockReleased = $false
+$script:ReleaseOperationLockReleaseInProgress = $false
+
 # The release executor is also supported on locked-down Windows PowerShell
 # hosts where Microsoft.PowerShell.Utility is present but Get-FileHash is not
 # command-resolvable. Keep hashing deterministic and independent of profile
@@ -127,6 +131,15 @@ function Get-FileHash {
 }
 
 function Fail([string]$Message) {
+    if ($script:ReleaseOperationLockAcquired -and -not $script:ReleaseOperationLockReleased -and -not $script:ReleaseOperationLockReleaseInProgress) {
+        $script:ReleaseOperationLockReleaseInProgress = $true
+        try {
+            Info 'Releasing acquired release operation lock as FAILED before exiting'
+            Invoke-ReleaseOperationLockRelease -Status 'FAILED' -ErrorMessage $Message
+        } finally {
+            $script:ReleaseOperationLockReleaseInProgress = $false
+        }
+    }
     Write-Host "[FAIL] $Message" -ForegroundColor Red
     exit 1
 }
@@ -4769,7 +4782,43 @@ $stateSql
 SQL"
 }
 
+function Invoke-StaleZeroMigrationReleaseOperationLockRecovery {
+    $recoverySql = @"
+UPDATE infra_release_operation_lock lock_row
+SET status = 'FAILED',
+    finished_at = NOW(),
+    error_message = CONCAT('STALE_ZERO_MIGRATION_LOCK_RELEASED by ', '$Environment-$ReleaseTag'),
+    updater = 'release-system',
+    update_time = NOW()
+WHERE lock_row.target_environment = '$Environment'
+  AND lock_row.status = 'RUNNING'
+  AND lock_row.release_tag <> '$ReleaseTag'
+  AND lock_row.started_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)
+  AND NOT EXISTS (
+    SELECT 1
+    FROM infra_release_migration m
+    WHERE m.target_environment = lock_row.target_environment
+      AND m.release_tag = lock_row.release_tag
+      AND m.status IN ('RUNNING', 'APPLIED', 'FAILED')
+  );
+SELECT CASE
+  WHEN EXISTS (
+    SELECT 1
+    FROM infra_release_operation_lock
+    WHERE target_environment = '$Environment'
+      AND status = 'RUNNING'
+      AND release_tag <> '$ReleaseTag'
+  ) THEN 'STALE_LOCK_STILL_HELD'
+  ELSE 'STALE_ZERO_MIGRATION_LOCK_RECOVERY_OK'
+END;
+"@
+    Invoke-SshCommand "cat <<'SQL' | docker exec -i intruoyi-mysql mysql -uroot -p$mySqlRootPassword --default-character-set=utf8mb4 --batch --skip-column-names ruoyi-vue-pro | grep '^STALE_ZERO_MIGRATION_LOCK_RECOVERY_OK$'
+$recoverySql
+SQL"
+}
+
 function Invoke-ReleaseOperationLockAcquire {
+    Invoke-StaleZeroMigrationReleaseOperationLockRecovery
     $operationId = "$Environment-$ReleaseTag"
     $lockSql = @"
 INSERT INTO infra_release_operation_lock (target_environment, operation_id, release_tag, status, started_at, finished_at, error_message, creator, create_time, updater, update_time, deleted, tenant_id)
@@ -4794,6 +4843,8 @@ WHERE target_environment = '$Environment';
     Invoke-SshCommand "cat <<'SQL' | docker exec -i intruoyi-mysql mysql -uroot -p$mySqlRootPassword --default-character-set=utf8mb4 --batch --skip-column-names ruoyi-vue-pro | grep '^LOCK_ACQUIRED$'
 $lockSql
 SQL"
+    $script:ReleaseOperationLockAcquired = $true
+    $script:ReleaseOperationLockReleased = $false
 }
 
 function Invoke-ReleaseOperationLockRelease {
@@ -4821,6 +4872,7 @@ WHERE target_environment = '$Environment';
     Invoke-SshCommand "cat <<'SQL' | docker exec -i intruoyi-mysql mysql -uroot -p$mySqlRootPassword --default-character-set=utf8mb4 --batch --skip-column-names ruoyi-vue-pro | grep '^LOCK_RELEASED$'
 $lockSql
 SQL"
+    $script:ReleaseOperationLockReleased = $true
 }
 
 function Copy-RequiredDatabaseSqlScripts {

@@ -1220,6 +1220,45 @@ def test_deploy_release_acquires_release_operation_lock_before_migrations() -> N
     assert acquire_idx < migration_idx < readiness_idx < release_idx
 
 
+def test_deploy_release_failure_releases_acquired_operation_lock() -> None:
+    text = read_publish_script()
+    fail_start = text.index("function Fail")
+    info_start = text.index("function Info", fail_start)
+    fail_block = text[fail_start:info_start]
+    acquire_start = text.index("function Invoke-ReleaseOperationLockAcquire")
+    acquire_end = text.index("function Invoke-ReleaseOperationLockRelease", acquire_start)
+    acquire_block = text[acquire_start:acquire_end]
+    release_start = text.index("function Invoke-ReleaseOperationLockRelease")
+    release_end = text.index("function Copy-RequiredDatabaseSqlScripts", release_start)
+    release_block = text[release_start:release_end]
+
+    assert "$script:ReleaseOperationLockAcquired = $false" in text
+    assert "$script:ReleaseOperationLockReleased = $false" in text
+    assert "$script:ReleaseOperationLockReleaseInProgress = $false" in text
+    assert "if ($script:ReleaseOperationLockAcquired -and -not $script:ReleaseOperationLockReleased" in fail_block
+    assert "Invoke-ReleaseOperationLockRelease -Status 'FAILED' -ErrorMessage $Message" in fail_block
+    assert "$script:ReleaseOperationLockAcquired = $true" in acquire_block
+    assert "$script:ReleaseOperationLockReleased = $true" in release_block
+
+
+def test_deploy_release_recovers_stale_zero_migration_operation_lock_before_acquire() -> None:
+    text = read_publish_script()
+    recovery_start = text.index("function Invoke-StaleZeroMigrationReleaseOperationLockRecovery")
+    recovery_end = text.index("function Invoke-ReleaseOperationLockAcquire", recovery_start)
+    recovery_block = text[recovery_start:recovery_end]
+    acquire_start = text.index("function Invoke-ReleaseOperationLockAcquire")
+    acquire_end = text.index("function Invoke-ReleaseOperationLockRelease", acquire_start)
+    acquire_block = text[acquire_start:acquire_end]
+
+    assert "STALE_ZERO_MIGRATION_LOCK_RELEASED" in recovery_block
+    assert "DATE_SUB(NOW(), INTERVAL 30 MINUTE)" in recovery_block
+    assert "NOT EXISTS (" in recovery_block
+    assert "infra_release_migration" in recovery_block
+    assert "m.status IN ('RUNNING', 'APPLIED', 'FAILED')" in recovery_block
+    assert "Invoke-StaleZeroMigrationReleaseOperationLockRecovery" in acquire_block
+    assert acquire_block.index("Invoke-StaleZeroMigrationReleaseOperationLockRecovery") < acquire_block.index("LOCK_ACQUIRED")
+
+
 def test_publish_script_syncs_runtime_control_ops_scripts_without_secrets() -> None:
     text = read_publish_script()
 
