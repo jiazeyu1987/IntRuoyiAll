@@ -3456,6 +3456,16 @@ function New-ReleaseGitChangeItems {
     )
 
     $gitFacts = Get-ReleaseGitChangeFacts -SourceRepos $SourceRepos -CurrentReleaseTag $ReleaseTag
+    if (-not $EnableSmartReleaseReport) {
+        return [ordered]@{
+            previousReleaseTag = $gitFacts.previousReleaseTag
+            previousPackageId = $gitFacts.previousPackageId
+            maxItems = $MaxItems
+            summaryGenerator = 'git-facts'
+            items = @($gitFacts.items | Select-Object -First $MaxItems)
+        }
+    }
+
     $summary = Invoke-ReleaseCodexSummary `
         -Facts $gitFacts.items `
         -PreviousReleaseTag $gitFacts.previousReleaseTag `

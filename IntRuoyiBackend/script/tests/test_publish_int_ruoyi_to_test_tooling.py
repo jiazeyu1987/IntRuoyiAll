@@ -345,6 +345,14 @@ def test_release_change_set_uses_codex_plain_language_summary_from_previous_git_
     assert "--pretty=format:%cI%x09%h%x09%s" not in text
 
 
+def test_standard_release_uses_deterministic_git_facts_without_smart_report() -> None:
+    text = read_publish_script()
+
+    assert "if (-not $EnableSmartReleaseReport)" in text
+    assert "summaryGenerator = 'git-facts'" in text
+    assert "items = @($gitFacts.items | Select-Object -First $MaxItems)" in text
+
+
 def test_release_change_set_fails_fast_without_codex_or_valid_plain_language_output() -> None:
     text = read_publish_script()
 
