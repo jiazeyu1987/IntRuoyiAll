@@ -158,11 +158,37 @@ function Write-BackupOpsRehearsalEvidence {
     $localSnapshotPath = Join-Path $localEvidenceDir '现场快照.md'
     $verifiedAt = ([System.DateTimeOffset]$CompletedAt).ToString('o')
     $checkSummary = ConvertTo-BackupOpsRehearsalCheckSummary -Checks $Context['checks']
+    $remoteManifestPath = $remoteManifestDir + '/manifest.json'
+    $remoteDccManifestPath = $remoteManifestDir + '/dcc-backup-manifest.json'
+    $manifestDigestCommand = "sha256sum {0} | cut -d ' ' -f1" -f (
+        ConvertTo-BackupBashSingleQuotedString -Value $remoteManifestPath)
+    $chainDigestCommand = "sha256sum {0} | cut -d ' ' -f1" -f (
+        ConvertTo-BackupBashSingleQuotedString -Value $remoteDccManifestPath)
+    $manifestDigest = (Invoke-BackupSshCommand -Request ($testSshRequest + @{ Command = $manifestDigestCommand })).output.Trim()
+    $chainDigest = (Invoke-BackupSshCommand -Request ($testSshRequest + @{ Command = $chainDigestCommand })).output.Trim()
+    if ($manifestDigest -notmatch '^[0-9a-fA-F]{64}$' -or $chainDigest -notmatch '^[0-9a-fA-F]{64}$') {
+        throw (New-RehearsalEvidenceException -Code 'INTBK-7002' -Status 'fail' -Message "恢复演练证据摘要生成失败：manifestDigest 或 chainDigest 不是有效 SHA-256。")
+    }
+    $manifest = (Get-BackupOpsRemoteFileText -SshRequest $testSshRequest -Path $remoteManifestPath) | ConvertFrom-Json
+    $sourceFingerprint = "serverHost={0};appDir={1};minioBucket={2};imageTag={3}" -f `
+        [string]$manifest.source.serverHost, [string]$manifest.source.appDir,
+        [string]$manifest.source.minioBucket, [string]$manifest.deploy.imageTag
+    $targetFingerprint = "environment={0};host={1};imageTag={2}" -f `
+        [string]$manifest.targetEnvironment, [string]$manifest.targetHost, [string]$manifest.deploy.imageTag
+    foreach ($fingerprint in @($sourceFingerprint, $targetFingerprint)) {
+        if ($fingerprint -match '=(;|$)') {
+            throw (New-RehearsalEvidenceException -Code 'INTBK-7002' -Status 'fail' -Message "恢复演练证据指纹字段不完整。")
+        }
+    }
 
     $report = [pscustomobject]([ordered]@{
             status = 'PASSED'
             lastVerifiedAt = $verifiedAt
             backupId = $BackupId
+            manifestDigest = $manifestDigest
+            chainDigest = $chainDigest
+            sourceFingerprint = $sourceFingerprint
+            targetFingerprint = $targetFingerprint
             imageTag = $Context['imageTag']
             startedAt = ([System.DateTimeOffset]$StartedAt).ToString('o')
             completedAt = $verifiedAt

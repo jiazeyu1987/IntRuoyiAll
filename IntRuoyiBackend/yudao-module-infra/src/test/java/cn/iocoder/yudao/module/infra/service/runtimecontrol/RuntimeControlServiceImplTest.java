@@ -26,7 +26,9 @@ import org.mockito.Mock;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -828,7 +830,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         createRestoreCandidateFixture(properties, "20260525-215449", "20260525_200033");
         RuntimeOpsCandidateService candidateService =
                 new RuntimeOpsCandidateServiceImpl(properties, new RuntimeControlNasBrowserServiceStub(tempDir));
-        String recoverySetCandidateId = candidateService.listRestoreCandidates().get(0).getCandidateId();
+        String recoverySetCandidateId = findRestoreCandidate(candidateService, "CONTROLLED_RESTORE").getCandidateId();
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("mark-release-tested");
         reqVO.setReason("测试服验证通过");
@@ -1255,6 +1257,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("backup-now");
         reqVO.setTargetEnvironment("test");
+        reqVO.setBackupKind("FULL");
         reqVO.setReason("测试服立即备份");
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
@@ -1287,8 +1290,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("rehearsal");
         reqVO.setReason("恢复演练");
-        reqVO.setSelectedRecoverySetCandidateId(candidateService
-                .listRestoreCandidates().get(0).getCandidateId());
+        reqVO.setSelectedRecoverySetCandidateId(findRestoreCandidate(candidateService, "REHEARSAL").getCandidateId());
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -1338,8 +1340,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setAction("restore-data");
         reqVO.setReason("测试服恢复数据");
         reqVO.setTargetEnvironment("test");
-        reqVO.setSelectedRecoverySetCandidateId(candidateService
-                .listRestoreCandidates().get(0).getCandidateId());
+        reqVO.setSelectedRecoverySetCandidateId(findRestoreCandidate(candidateService, "CONTROLLED_RESTORE")
+                .getCandidateId());
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -1374,8 +1376,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("备份服恢复数据");
         reqVO.setTargetEnvironment("backup");
         reqVO.setProdConfirmText("PROD");
-        reqVO.setSelectedRecoverySetCandidateId(candidateService
-                .listRestoreCandidates().get(0).getCandidateId());
+        reqVO.setSelectedRecoverySetCandidateId(findRestoreCandidate(candidateService, "CONTROLLED_RESTORE")
+                .getCandidateId());
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -1409,8 +1411,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setAction("restore-data");
         reqVO.setReason("备份服恢复数据");
         reqVO.setTargetEnvironment("backup");
-        reqVO.setSelectedRecoverySetCandidateId(candidateService
-                .listRestoreCandidates().get(0).getCandidateId());
+        reqVO.setSelectedRecoverySetCandidateId(findRestoreCandidate(candidateService, "CONTROLLED_RESTORE")
+                .getCandidateId());
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1440,8 +1442,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("禁止正式服恢复数据");
         reqVO.setTargetEnvironment("prod");
         reqVO.setProdConfirmText("PROD");
-        reqVO.setSelectedRecoverySetCandidateId(candidateService
-                .listRestoreCandidates().get(0).getCandidateId());
+        reqVO.setSelectedRecoverySetCandidateId(findRestoreCandidate(candidateService, "CONTROLLED_RESTORE")
+                .getCandidateId());
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1641,6 +1643,53 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("立即备份 completed", persisted.getSummary());
     }
 
+    @Test
+    void getOperationLogShouldReconcileRunningStatusFromTerminalUnknownLogAndKeepWriteProtection()
+            throws Exception {
+        RuntimeControlOperationStore operationStore = new RuntimeControlOperationStore(properties);
+        runtimeControlService = new RuntimeControlServiceImpl(properties, commandExecutor, operationStore,
+                createSeededResponsibilityService(properties),
+                new RuntimeOpsCandidateServiceImpl(properties, new RuntimeControlNasBrowserServiceStub(tempDir)),
+                nasSettingsService, nasBrowserService);
+        RuntimeControlOperationRespVO operation = new RuntimeControlOperationRespVO();
+        operation.setOperationId("op-terminal-unknown");
+        operation.setRequestedBy("1001");
+        operation.setRequestedAt(LocalDateTime.now());
+        operation.setEnvironment("test");
+        operation.setComponent("ops");
+        operation.setAction("backup-now");
+        operation.setActionLabel("立即备份");
+        operation.setParameters(Map.of("targetEnvironment", "test"));
+        operation.setReason("测试服立即备份");
+        operation.setStatus("running");
+        operation.setSummary("立即备份 dispatched");
+        Path logPath = operationStore.getOperationLogPath(operation.getOperationId());
+        operation.setResultLogPath(logPath.toString());
+        operationStore.initializeLog(logPath);
+        Files.writeString(logPath, """
+                操作完成：未知
+                动作类型：立即备份
+                结果代码：INTBK-UNKNOWN
+                结果说明：命令进程中断，不能证明备份成功或失败。
+                """, StandardCharsets.UTF_8);
+        operationStore.save(operation);
+
+        RuntimeControlLogRespVO log = runtimeControlService.getOperationLog(operation.getOperationId(), 1024);
+
+        assertEquals("unknown", log.getStatus());
+        RuntimeControlOperationRespVO persisted = operationStore.findById(operation.getOperationId());
+        assertEquals("unknown", persisted.getStatus());
+        RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
+        reqVO.setAction("backup-now");
+        reqVO.setTargetEnvironment("test");
+        reqVO.setBackupKind("FULL");
+        reqVO.setReason("unknown write protection");
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> runtimeControlService.executeAction(reqVO, "1001"));
+        assertEquals(ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_INVALID.getCode(), exception.getCode());
+        assertTrue(exception.getMessage().contains("UNKNOWN 操作"));
+    }
+
     private void waitOperationStatus(String operationId, String status) throws InterruptedException {
         for (int i = 0; i < 20; i++) {
             boolean matched = runtimeControlService.getOperations().stream()
@@ -1814,9 +1863,10 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
             java.nio.file.Files.writeString(root.resolve("manifest").resolve("manifest.json"),
                     "{\"schemaVersion\":\"v2\",\"backupId\":\"" + backupId
                             + "\",\"targetEnvironment\":\"test\",\"targetHost\":\"172.30.30.58\",\"status\":\"success\",\"deploy\":{\"imageTag\":\""
-                            + imageTag + "\"},\"recoverySet\":{\"id\":\"" + backupId
+                            + imageTag
+                            + "\"},\"source\":{\"serverHost\":\"172.30.30.58\",\"appDir\":\"/opt/intruoyi/runtime\",\"minioBucket\":\"yudao\"},\"recoverySet\":{\"id\":\"" + backupId
                             + "\",\"status\":\"COMPLETE\",\"program\":{\"imageTag\":\"" + imageTag
-                            + "\"},\"mysql\":{\"dumpPath\":\"mysql/ruoyi-vue-pro.sql.gz\"},\"minio\":{\"bucket\":\"yudao\",\"snapshotPath\":\"objects/manifest-object-inventory.json\"},\"businessFiles\":{\"snapshotPath\":\"objects/manifest-object-inventory.json\"},\"redis\":{\"policy\":\"CLEAR_AND_REBUILD\"},\"configuration\":{\"manifestPath\":\"deploy/runtime.env\",\"composePath\":\"deploy/docker-compose.yml\"},\"checksums\":{\"path\":\"manifest/checksums.txt\",\"sha256\":\"abc\"}}}");
+                            + "\"},\"mysql\":{\"dumpPath\":\"mysql/ruoyi-vue-pro.sql.gz\"},\"minio\":{\"bucket\":\"yudao\",\"snapshotPath\":\"objects/manifest-object-inventory.json\"},\"businessFiles\":{\"snapshotPath\":\"objects/manifest-object-inventory.json\"},\"redis\":{\"policy\":\"CLEAR_AND_REBUILD\"},\"configuration\":{\"manifestPath\":\"deploy/runtime.env\",\"composePath\":\"deploy/docker-compose.yml\"},\"checksums\":{\"path\":\"manifest/checksums.txt\",\"sha256\":\"abc\"}},\"validation\":{\"mysqlDumpCreated\":true,\"objectBackupCreated\":true,\"checksumsGenerated\":true,\"rehearsalStatus\":\"PASSED\",\"lastRehearsedAt\":\"2026-09-19T00:00:00+08:00\"}}");
         } catch (java.io.IOException ex) {
             throw new IllegalStateException(ex);
         }
@@ -1828,7 +1878,13 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
             Path manifest = tempDir.resolve("nas-backup-points").resolve(backupId).resolve("manifest");
             java.nio.file.Files.writeString(manifest.resolve("checksums.txt"), "sha256  deploy/runtime.env");
             java.nio.file.Files.writeString(manifest.resolve("dcc-backup-manifest.json"), dccBackupManifest(backupId));
-            java.nio.file.Files.writeString(manifest.resolve("rehearsal-report.json"), "{\"status\":\"PASSED\"}");
+            String manifestText = java.nio.file.Files.readString(manifest.resolve("manifest.json"));
+            java.nio.file.Files.writeString(manifest.resolve("rehearsal-report.json"), """
+                    {"status":"PASSED","backupId":"%s","manifestDigest":"%s","chainDigest":"%s",
+                     "sourceFingerprint":"serverHost=172.30.30.58;appDir=/opt/intruoyi/runtime;minioBucket=yudao;imageTag=%s",
+                     "targetFingerprint":"environment=test;host=172.30.30.58;imageTag=%s"}
+                    """.formatted(backupId, sha256(manifestText), sha256(dccBackupManifest(backupId)),
+                    imageTag, imageTag));
             java.nio.file.Files.writeString(manifest.resolve("现场快照.md"), "snapshot");
         } catch (java.io.IOException ex) {
             throw new IllegalStateException(ex);
@@ -1844,7 +1900,27 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     private RuntimeControlRestoreCandidateRespVO createAvailableRecoverySetCandidate(RuntimeControlProperties properties) {
         createRestoreCandidateFixture(properties, "20260525-215449", "20260525_200033");
         return new RuntimeOpsCandidateServiceImpl(properties, new RuntimeControlNasBrowserServiceStub(tempDir))
-                .listRestoreCandidates().get(0);
+                .listRestoreCandidates().stream()
+                .filter(candidate -> "CONTROLLED_RESTORE".equals(candidate.getCandidateType()))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private RuntimeControlRestoreCandidateRespVO findRestoreCandidate(RuntimeOpsCandidateService candidateService,
+                                                                      String candidateType) {
+        return candidateService.listRestoreCandidates().stream()
+                .filter(candidate -> candidateType.equals(candidate.getCandidateType()))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private String sha256(String text) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(text.getBytes(StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 
     private Path writeBackupOpsConfig(Path backupPointsRoot) {

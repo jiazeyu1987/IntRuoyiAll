@@ -31,4 +31,18 @@ class RuntimeControlOperationActionBackupConfirmTest {
         assertTrue(args.contains("-BackupKind"));
         assertEquals("FULL", args.get(args.indexOf("-BackupKind") + 1));
     }
+
+    @Test
+    void linuxLocalBackupNowShouldPassExplicitBackupKind() {
+        RuntimeControlProperties properties = RuntimeControlProperties.createDefaultForTests(tempDir);
+        properties.getBackupOps().setExecutionMode("linux-local");
+        RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
+        reqVO.setTargetEnvironment("test");
+        reqVO.setBackupKind("INCREMENTAL");
+
+        List<String> args = RuntimeControlOperationAction.BACKUP_NOW.buildArguments(reqVO, "scheduler", properties);
+
+        assertTrue(args.contains("--backup-kind"));
+        assertEquals("INCREMENTAL", args.get(args.indexOf("--backup-kind") + 1));
+    }
 }
