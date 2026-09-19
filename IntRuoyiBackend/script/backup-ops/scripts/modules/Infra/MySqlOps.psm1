@@ -559,7 +559,7 @@ function Import-BackupMySqlDump {
     try {
         Invoke-BackupSshCommand -Request (Merge-BackupOpsRequest -Request $Request -Extra @{
             Command = $restoreSpec.integrityCommand
-            TimeoutSeconds = 60
+            TimeoutSeconds = 7200
         }) | Out-Null
         Test-BackupMySqlConnectivity -Request $Request | Out-Null
         Invoke-BackupSshCommand -Request (Merge-BackupOpsRequest -Request $Request -Extra @{
