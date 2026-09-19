@@ -261,6 +261,14 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     }
 
     @Override
+    public void rejectLegacyProductionAction(RuntimeControlActionReqVO reqVO) {
+        if (reqVO != null && "promote-prod".equals(reqVO.getAction())) {
+            throw exception(RUNTIME_CONTROL_INVALID_ACTION,
+                    "promote-prod 必须通过已测试发布工作流的正式晋级按钮发起");
+        }
+    }
+
+    @Override
     public boolean cancelOperation(String operationId) {
         RuntimeControlOperationRespVO operation = operationStore.findById(operationId);
         if (operation == null) {

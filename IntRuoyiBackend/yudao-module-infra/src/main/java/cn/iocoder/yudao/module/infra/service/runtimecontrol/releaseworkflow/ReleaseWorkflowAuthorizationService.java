@@ -33,17 +33,21 @@ public class ReleaseWorkflowAuthorizationService {
     public synchronized ReleaseAuthorizationGrant issue(String workflowId, String releaseTag,
                                                          String packageDigest, String manifestDigest,
                                                          String presetId, String presetVersion,
-                                                         String approver) {
+                                                         String approver, String previewId,
+                                                         String targetFingerprint,
+                                                         long expectedStateVersion) {
         Instant issuedAt = Instant.now();
         return issue(workflowId, releaseTag, packageDigest, manifestDigest, presetId, presetVersion,
-                approver, issuedAt, issuedAt.plus(Duration.ofMinutes(15)));
+                approver, issuedAt, issuedAt.plus(Duration.ofMinutes(15)), previewId,
+                targetFingerprint, expectedStateVersion);
     }
 
     public synchronized ReleaseAuthorizationGrant issue(String workflowId, String releaseTag,
                                                          String packageDigest, String manifestDigest,
                                                          String presetId, String presetVersion,
                                                          String approver, Instant issuedAt,
-                                                         Instant validUntil) {
+                                                         Instant validUntil, String previewId,
+                                                         String targetFingerprint, long expectedStateVersion) {
         properties.getReleaseWorkflow().validate();
         if (!properties.getReleaseWorkflow().getPresetId().equals(presetId)
                 || !properties.getReleaseWorkflow().getPresetVersion().equals(presetVersion)) {
@@ -53,7 +57,8 @@ public class ReleaseWorkflowAuthorizationService {
                 "grant-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16),
                 workflowId, releaseTag, packageDigest, manifestDigest, "prod", presetId, presetVersion,
                 ReleaseWorkflowContract.PUBLISH_SCOPE, approver, issuedAt, validUntil,
-                "nonce-" + UUID.randomUUID().toString().replace("-", "").substring(0, 24), null, null);
+                "nonce-" + UUID.randomUUID().toString().replace("-", "").substring(0, 24), null, null,
+                previewId, targetFingerprint, expectedStateVersion);
         persist(grant);
         return grant;
     }
@@ -101,7 +106,8 @@ public class ReleaseWorkflowAuthorizationService {
                             grant.grantId(), grant.workflowId(), grant.releaseTag(), grant.packageDigest(),
                             grant.manifestDigest(), grant.targetEnvironment(), grant.presetId(), grant.presetVersion(),
                             grant.approvedScope(), grant.approver(), grant.issuedAt(), grant.validUntil(), grant.nonce(),
-                            grant.revokedAt(), now);
+                            grant.revokedAt(), now, grant.previewId(), grant.targetFingerprint(),
+                            grant.expectedStateVersion());
                     persist(consumed);
                     return consumed;
                 }
@@ -122,7 +128,8 @@ public class ReleaseWorkflowAuthorizationService {
                 grant.grantId(), grant.workflowId(), grant.releaseTag(), grant.packageDigest(),
                 grant.manifestDigest(), grant.targetEnvironment(), grant.presetId(), grant.presetVersion(),
                 grant.approvedScope(), grant.approver(), grant.issuedAt(), grant.validUntil(), grant.nonce(),
-                now, grant.consumedAt());
+                now, grant.consumedAt(), grant.previewId(), grant.targetFingerprint(),
+                grant.expectedStateVersion());
         persist(revoked);
         return revoked;
     }
@@ -165,6 +172,20 @@ public class ReleaseWorkflowAuthorizationService {
             }
         }
         return new Validation(true, null);
+    }
+
+    private static String legacyFingerprint(String workflowId, String releaseTag) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest((workflowId + "|" + releaseTag).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder result = new StringBuilder();
+            for (byte item : digest) {
+                result.append(String.format("%02x", item));
+            }
+            return result.toString();
+        } catch (Exception ex) {
+            throw new AuthorizationException("AUTHORIZATION_TARGET_FINGERPRINT_FAILED", ex);
+        }
     }
 
     private static Validation invalid(String code) {

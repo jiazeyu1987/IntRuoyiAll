@@ -41,6 +41,7 @@ class RuntimeControlCanonicalContractTest {
             "GET /infra/runtime-control/capacity/status",
             "POST /infra/runtime-control/capacity/refresh",
             "GET /infra/runtime-control/release-status",
+            "POST /infra/runtime-control/release-workflows/{workflowId}/production-preview",
             "GET /infra/runtime-control/backup-points",
             "GET /infra/runtime-control/backup-points/{backupId}",
             "GET /infra/runtime-control/incidents/page",

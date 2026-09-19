@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlActionReqVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlOperationRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleasePackageRespVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowProductionPreviewRespVO;
 import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeControlProperties;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlOperationStore;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlService;
@@ -46,6 +47,7 @@ class ReleaseWorkflowOrchestratorTest {
     private RuntimeControlService runtimeControlService;
     private RuntimeControlOperationStore operationStore;
     private ReleaseWorkflowService workflowService;
+    private ReleaseWorkflowProductionPreviewService productionPreviewService;
     private ReleaseWorkflowOrchestrator orchestrator;
 
     @BeforeEach
@@ -55,8 +57,9 @@ class ReleaseWorkflowOrchestratorTest {
         operationStore = new RuntimeControlOperationStore(properties);
         ReleaseWorkflowStore workflowStore = new ReleaseWorkflowStore(properties);
         workflowService = new ReleaseWorkflowService(properties, workflowStore);
-        orchestrator = new ReleaseWorkflowOrchestrator(properties,
-                workflowService, operationStore, runtimeControlService);
+        productionPreviewService = new ReleaseWorkflowProductionPreviewService(properties);
+        orchestrator = new ReleaseWorkflowOrchestrator(properties, workflowService, operationStore,
+                runtimeControlService, new ReleaseWorkflowAuthorizationService(properties), productionPreviewService);
         when(runtimeControlService.getReleasePackages()).thenAnswer(ignored -> java.util.List.of());
         when(runtimeControlService.getReleasePackage(any())).thenReturn(Optional.empty());
     }
@@ -517,23 +520,28 @@ class ReleaseWorkflowOrchestratorTest {
         properties.getReleaseWorkflow().setProductionWriteEnabled(true);
         properties.getEnvironments().get("prod").setAccessEnabled(true);
         ReleaseWorkflowRecord workflow = testedWorkflow();
-        ReleaseAuthorizationGrant grant = orchestrator.authorizeProduction(workflow.workflowId(), "approver");
+        RuntimeControlReleaseWorkflowProductionPreviewRespVO preview = productionPreviewService.create(
+                workflow, workflow.stateVersion());
+        ReleaseAuthorizationGrant grant = orchestrator.authorizeProduction(workflow.workflowId(), "approver",
+                preview.getPreviewId(), workflow.stateVersion());
         RuntimeControlOperationRespVO promote = operation("running");
         promote.setAction("promote-prod");
         promote.setEnvironment("prod");
         stubWorkflowOperations(promote);
 
         ReleaseWorkflowRecord promoting = orchestrator.startProductionPromotion(workflow.workflowId(), "operator",
-                "approved production release", grant.grantId(), "PROD");
+                "approved production release", grant.grantId(), "PROD", preview.getPreviewId(),
+                workflow.stateVersion(), "prod-promotion-once");
 
         assertEquals(ReleaseWorkflowRecord.State.PROMOTING_PROD, promoting.state());
         ArgumentCaptor<RuntimeControlActionReqVO> request = ArgumentCaptor.forClass(RuntimeControlActionReqVO.class);
         verify(runtimeControlService).executeAction(request.capture(), eq("operator"));
         assertEquals(workflow.releaseTag(), request.getValue().getReleaseTag());
         assertEquals(workflow.testOperationId(), request.getValue().getTestOperationId());
-        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
-                () -> orchestrator.startProductionPromotion(workflow.workflowId(), "operator",
-                        "duplicate production release", grant.grantId(), "PROD"));
+        ReleaseWorkflowRecord duplicate = orchestrator.startProductionPromotion(workflow.workflowId(), "operator",
+                "duplicate production release", grant.grantId(), "PROD", preview.getPreviewId(),
+                workflow.stateVersion(), "prod-promotion-once");
+        assertEquals(ReleaseWorkflowRecord.State.PROMOTING_PROD, duplicate.state());
         verify(runtimeControlService, times(1)).executeAction(any(), eq("operator"));
     }
 
@@ -542,13 +550,17 @@ class ReleaseWorkflowOrchestratorTest {
         properties.getReleaseWorkflow().setProductionWriteEnabled(true);
         properties.getEnvironments().get("prod").setAccessEnabled(true);
         ReleaseWorkflowRecord workflow = testedWorkflow();
-        ReleaseAuthorizationGrant grant = orchestrator.authorizeProduction(workflow.workflowId(), "approver");
+        RuntimeControlReleaseWorkflowProductionPreviewRespVO preview = productionPreviewService.create(
+                workflow, workflow.stateVersion());
+        ReleaseAuthorizationGrant grant = orchestrator.authorizeProduction(workflow.workflowId(), "approver",
+                preview.getPreviewId(), workflow.stateVersion());
         when(runtimeControlService.executeAction(any(), eq("operator")))
                 .thenThrow(new IllegalStateException("operation binding store unavailable"));
 
         org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
                 () -> orchestrator.startProductionPromotion(workflow.workflowId(), "operator",
-                        "approved production release", grant.grantId(), "PROD"));
+                        "approved production release", grant.grantId(), "PROD", preview.getPreviewId(),
+                        workflow.stateVersion(), "prod-promotion-failure"));
         ReleaseWorkflowRecord isolated = workflowService.require(workflow.workflowId());
         ReleaseWorkflowService.OptionalLease prodLease =
                 workflowService.acquireEnvironmentLease("prod", "next-workflow");
@@ -628,18 +640,19 @@ class ReleaseWorkflowOrchestratorTest {
     void productionWriteDisabledRejectsBeforeStateChangeOrDispatch() {
         properties.getEnvironments().get("prod").setAccessEnabled(true);
         ReleaseWorkflowRecord workflow = testedWorkflow();
-        ReleaseAuthorizationGrant grant = orchestrator.authorizeProduction(workflow.workflowId(), "approver");
+        RuntimeControlReleaseWorkflowProductionPreviewRespVO preview = productionPreviewService.create(
+                workflow, workflow.stateVersion());
 
         org.junit.jupiter.api.Assertions.assertThrows(
-                ReleaseWorkflowAuthorizationService.AuthorizationException.class,
-                () -> orchestrator.startProductionPromotion(workflow.workflowId(), "operator",
-                        "approved production release", grant.grantId(), "PROD"));
+                IllegalStateException.class,
+                () -> orchestrator.authorizeProduction(workflow.workflowId(), "approver",
+                        preview.getPreviewId(), workflow.stateVersion()));
         ReleaseWorkflowService.OptionalLease prodLease =
                 workflowService.acquireEnvironmentLease("prod", "next-workflow");
 
         assertEquals(ReleaseWorkflowRecord.State.TESTED,
                 workflowService.require(workflow.workflowId()).state());
-        assertNull(new ReleaseWorkflowAuthorizationService(properties).require(grant.grantId()).consumedAt());
+        assertFalse(preview.isEligible());
         assertTrue(prodLease.acquired());
         prodLease.close();
         verify(runtimeControlService, never()).executeAction(any(), any());

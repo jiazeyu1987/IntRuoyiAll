@@ -20,7 +20,10 @@ public record ReleaseAuthorizationGrant(
         Instant validUntil,
         String nonce,
         Instant revokedAt,
-        Instant consumedAt) {
+        Instant consumedAt,
+        String previewId,
+        String targetFingerprint,
+        long expectedStateVersion) {
 
     @JsonCreator
     public ReleaseAuthorizationGrant(
@@ -38,7 +41,10 @@ public record ReleaseAuthorizationGrant(
             @JsonProperty("validUntil") Instant validUntil,
             @JsonProperty("nonce") String nonce,
             @JsonProperty("revokedAt") Instant revokedAt,
-            @JsonProperty("consumedAt") Instant consumedAt) {
+            @JsonProperty("consumedAt") Instant consumedAt,
+            @JsonProperty("previewId") String previewId,
+            @JsonProperty("targetFingerprint") String targetFingerprint,
+            @JsonProperty("expectedStateVersion") long expectedStateVersion) {
         this.grantId = requireText(grantId, "grantId");
         this.workflowId = requireText(workflowId, "workflowId");
         this.releaseTag = requireText(releaseTag, "releaseTag");
@@ -54,6 +60,9 @@ public record ReleaseAuthorizationGrant(
         this.nonce = requireText(nonce, "nonce");
         this.revokedAt = revokedAt;
         this.consumedAt = consumedAt;
+        this.previewId = requireText(previewId, "previewId");
+        this.targetFingerprint = requireDigest(targetFingerprint, "targetFingerprint");
+        this.expectedStateVersion = expectedStateVersion;
         if (issuedAt == null || validUntil == null || !validUntil.isAfter(issuedAt)) {
             throw new IllegalArgumentException("RELEASE_AUTHORIZATION_TIME_INVALID");
         }

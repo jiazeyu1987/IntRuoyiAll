@@ -99,7 +99,49 @@ export interface RuntimeControlReleaseWorkflowTestAcceptanceReqVO {
 export interface RuntimeControlReleaseWorkflowProdReqVO {
   reason: string
   authorizationGrantId: string
+  previewId: string
+  expectedStateVersion: number
+  idempotencyKey: string
   prodConfirmText: string
+}
+
+export interface RuntimeControlReleaseWorkflowProductionPreviewReqVO {
+  reason: string
+  expectedStateVersion: number
+}
+
+export interface RuntimeControlReleaseWorkflowProductionCheckVO {
+  code: string
+  status: 'PASS' | 'BLOCKED'
+  message: string
+  evidenceRef?: string
+}
+
+export interface RuntimeControlReleaseWorkflowProductionPreviewVO {
+  previewId: string
+  workflowId: string
+  expectedStateVersion: number
+  releaseTag: string
+  packageDigest?: string
+  manifestDigest?: string
+  targetEnvironment: 'prod'
+  targetDisplayName: string
+  currentProdReleaseTag?: string
+  testOperationId?: string
+  testedBy?: string
+  testedAt?: RuntimeControlDateTime
+  targetFingerprint: string
+  eligible: boolean
+  checks: RuntimeControlReleaseWorkflowProductionCheckVO[]
+  blockers: string[]
+  createdAt: RuntimeControlDateTime
+  expiresAt: RuntimeControlDateTime
+}
+
+export interface RuntimeControlReleaseWorkflowProductionAuthorizationReqVO {
+  previewId: string
+  reason: string
+  expectedStateVersion: number
 }
 
 export interface RuntimeControlReleaseAuthorizationVO {
@@ -115,6 +157,9 @@ export interface RuntimeControlReleaseAuthorizationVO {
   approver: string
   issuedAt: RuntimeControlDateTime
   validUntil: RuntimeControlDateTime
+  previewId: string
+  targetFingerprint: string
+  expectedStateVersion: number
 }
 
 export interface RuntimeControlReleaseWorkflowVO {
@@ -687,12 +732,28 @@ export const acceptRuntimeControlReleaseWorkflowTest = (
   })
 }
 
-export const authorizeRuntimeControlReleaseWorkflowProduction = (workflowId: string) => {
+export const authorizeRuntimeControlReleaseWorkflowProduction = (
+  workflowId: string,
+  data: RuntimeControlReleaseWorkflowProductionAuthorizationReqVO
+) => {
   return request.post<RuntimeControlReleaseAuthorizationVO>({
     url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/production-authorization`,
+    data,
     timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
   })
 }
+
+export const previewRuntimeControlReleaseWorkflowProduction = (
+  workflowId: string,
+  data: RuntimeControlReleaseWorkflowProductionPreviewReqVO
+) => {
+  return request.post<RuntimeControlReleaseWorkflowProductionPreviewVO>({
+    url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/production-preview`,
+    data,
+    timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+  })
+}
+
 
 export const promoteRuntimeControlReleaseWorkflowProduction = (
   workflowId: string,

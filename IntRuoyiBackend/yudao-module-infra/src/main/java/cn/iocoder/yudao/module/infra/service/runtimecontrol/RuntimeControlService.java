@@ -20,6 +20,8 @@ public interface RuntimeControlService {
 
     RuntimeControlOperationRespVO executeAction(RuntimeControlActionReqVO reqVO, String requestedBy);
 
+    void rejectLegacyProductionAction(RuntimeControlActionReqVO reqVO);
+
     boolean cancelOperation(String operationId);
 
     RuntimeControlActionPreviewRespVO previewAction(RuntimeControlActionReqVO reqVO, String requestedBy);

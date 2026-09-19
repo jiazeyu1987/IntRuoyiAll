@@ -881,6 +881,7 @@ const activeReleaseWorkflow = computed(() => {
 const releaseWorkflowReason = ref('本次程序发布')
 const releaseWorkflowLoading = ref(false)
 const releaseWorkflowSubmitting = ref<'' | 'build' | 'test' | 'prod'>('')
+const productionPreview = ref<RuntimeControlApi.RuntimeControlReleaseWorkflowProductionPreviewVO>()
 const backupPoints = ref<RuntimeControlApi.RuntimeControlBackupPointVO[]>([])
 const probeLatest = ref<RuntimeControlApi.RuntimeControlProbeLatestVO>()
 const capacityStatus = ref<RuntimeControlApi.RuntimeControlCapacityStatusVO>()
@@ -935,7 +936,6 @@ const legacyReleaseActions = [
   { action: 'publish-test', label: '部署发布包到测试服', icon: 'ep:upload', type: 'primary' },
   { action: 'apply-test-db-sql', label: '测试服数据库快应用', icon: 'ep:coin', type: 'warning' },
   { action: 'mark-release-tested', label: '标记测试通过', icon: 'ep:circle-check', type: 'success' },
-  { action: 'promote-prod', label: '上线已验证发布包', icon: 'ep:promotion', type: 'warning' },
   { action: 'promote-backup', label: '上线审查服', icon: 'ep:connection', type: 'warning' }
 ]
 const allOperationActions = [...legacyReleaseActions, ...operationActions]
@@ -1048,7 +1048,9 @@ const canPublishReleaseWorkflow = computed(
   () => canOperate.value && releaseWorkflowSubmitting.value === '' && activeReleaseWorkflow.value?.state === 'READY'
 )
 const canPromoteReleaseWorkflow = computed(
-  () => canOperate.value && releaseWorkflowSubmitting.value === '' && activeReleaseWorkflow.value?.state === 'TESTED'
+  () => checkPermi(['infra:runtime-control:promote-prod'])
+    && releaseWorkflowSubmitting.value === ''
+    && activeReleaseWorkflow.value?.state === 'TESTED'
 )
 const releaseWorkflowEligibilityText = computed(() => {
   if (!activeReleaseWorkflow.value) {
@@ -1061,7 +1063,7 @@ const releaseWorkflowEligibilityText = computed(() => {
     return '程序包已就绪；发布测试服按钮将在部署编排服务启用后开放。'
   }
   if (activeReleaseWorkflow.value.state === 'TESTED') {
-    return '测试服已验收；正式晋级仍需一次性授权与 PROD 确认。'
+    return '测试服已验收；点击正式按钮后先执行只读资格预检。'
   }
   return `当前阶段：${releaseWorkflowStateText(activeReleaseWorkflow.value.state)}`
 })
@@ -1313,8 +1315,28 @@ const requestProdReleaseWorkflow = async () => {
   const workflow = activeReleaseWorkflow.value
   if (!workflow || workflow.state !== 'TESTED') return
   try {
+    releaseWorkflowSubmitting.value = 'prod'
+    const preview = await RuntimeControlApi.previewRuntimeControlReleaseWorkflowProduction(
+      workflow.workflowId,
+      {
+        reason: releaseWorkflowReason.value.trim() || '晋级同一程序包到正式服',
+        expectedStateVersion: workflow.stateVersion
+      }
+    )
+    productionPreview.value = preview
+    const checkSummary = preview.checks
+      .map((check) => `${check.status}: ${check.code} - ${check.message}`)
+      .join('\n')
+    if (!preview.eligible) {
+      await ElMessageBox.alert(
+        `${checkSummary}\n\n阻断：${preview.blockers.join('\n')}`,
+        '正式服资格预检未通过',
+        { type: 'warning', confirmButtonText: '知道了' }
+      )
+      return
+    }
     const result = await ElMessageBox.prompt(
-      `正式服 / ${workflow.releaseTag}\npackageDigest=${workflow.packageDigest}\nmanifestDigest=${workflow.manifestDigest}`,
+      `正式服 / ${preview.releaseTag}\npackageDigest=${preview.packageDigest}\nmanifestDigest=${preview.manifestDigest}\n\n${checkSummary}`,
       '晋级正式服',
       {
         confirmButtonText: '确认晋级',
@@ -1323,15 +1345,22 @@ const requestProdReleaseWorkflow = async () => {
         inputValidator: (value) => value === 'PROD' || '必须准确输入 PROD'
       }
     )
-    releaseWorkflowSubmitting.value = 'prod'
     const authorization = await RuntimeControlApi.authorizeRuntimeControlReleaseWorkflowProduction(
-      workflow.workflowId
+      workflow.workflowId,
+      {
+        previewId: preview.previewId,
+        reason: releaseWorkflowReason.value.trim() || '晋级同一程序包到正式服',
+        expectedStateVersion: workflow.stateVersion
+      }
     )
     const updated = await RuntimeControlApi.promoteRuntimeControlReleaseWorkflowProduction(
       workflow.workflowId,
       {
         reason: releaseWorkflowReason.value.trim() || '晋级同一程序包到正式服',
         authorizationGrantId: authorization.grantId,
+        previewId: preview.previewId,
+        expectedStateVersion: workflow.stateVersion,
+        idempotencyKey: crypto.randomUUID(),
         prodConfirmText: result.value
       }
     )
@@ -1705,7 +1734,7 @@ const canRestart = (environment: string, component: string) => {
 }
 
 const operationRequiresProd = (action: string) => {
-  if (['promote-prod', 'promote-backup'].includes(action)) return true
+  if (['promote-backup'].includes(action)) return true
   if (['backup-now', 'rollback-app', 'restore-data'].includes(action)) {
     return operationEnvironmentRequiresProdConfirm(operationDialog.targetEnvironment)
   }
@@ -1717,7 +1746,7 @@ const operationEnvironmentRequiresProdConfirm = (environment: string) => {
 }
 
 const operationRequiresOwner = (action: string) => {
-  return ['promote-prod', 'promote-backup', 'rollback-app', 'rehearsal', 'restore-data'].includes(
+  return ['promote-backup', 'rollback-app', 'rehearsal', 'restore-data'].includes(
     action
   )
 }
@@ -1752,7 +1781,7 @@ const operationSupportsPublishScope = (action: string) => {
 }
 
 const operationSupportsSmartReleaseReport = (action: string) => {
-  return ['build-release', 'publish-test', 'promote-prod', 'promote-backup'].includes(action)
+  return ['build-release', 'publish-test', 'promote-backup'].includes(action)
 }
 
 const operationSupportsTargetEnvironment = (action: string) => {
@@ -1824,11 +1853,11 @@ const assertRemoteRootCleanupProof = (
 }
 
 const operationUsesReleaseTag = (action: string) => {
-  return ['build-release', 'publish-test', 'promote-prod', 'promote-backup'].includes(action)
+  return ['build-release', 'publish-test', 'promote-backup'].includes(action)
 }
 
 const operationUsesReleaseTagSelector = (action: string) => {
-  return ['publish-test', 'promote-prod', 'promote-backup'].includes(action)
+  return ['publish-test', 'promote-backup'].includes(action)
 }
 
 const operationUsesCurrentTestReleaseTag = (action: string) => {
@@ -1836,11 +1865,11 @@ const operationUsesCurrentTestReleaseTag = (action: string) => {
 }
 
 const operationRequiresReleaseTag = (action: string) => {
-  return ['publish-test', 'promote-prod', 'promote-backup'].includes(action)
+  return ['publish-test', 'promote-backup'].includes(action)
 }
 
 const operationRequiresTestedReleasePackage = (action: string) => {
-  return ['promote-prod', 'promote-backup'].includes(action)
+  return ['promote-backup'].includes(action)
 }
 
 const releaseTagDirectoryText = () => {
@@ -1855,7 +1884,7 @@ const operationSourceDirectoryText = (action: string) => {
   if (action === 'backup-now') {
     return `${operationTargetEnvironmentText(operationDialog.targetEnvironment)} 当前 MySQL / MinIO / 文件对象 / 运行态`
   }
-  if (['publish-test', 'promote-prod', 'promote-backup'].includes(action)) {
+  if (['publish-test', 'promote-backup'].includes(action)) {
     return `${RELEASE_PACKAGE_ROOT}/${releaseTagDirectoryText()}`
   }
   if (action === 'rollback-app') {
@@ -1997,9 +2026,7 @@ const openOperation = async (actionValue: string) => {
         ? DEFAULT_PUBLISH_TEST_REASON
         : action.action === 'apply-test-db-sql'
           ? DEFAULT_APPLY_TEST_DB_SQL_REASON
-        : action.action === 'promote-prod'
-          ? DEFAULT_PROMOTE_PROD_REASON
-          : action.action === 'promote-backup'
+        : action.action === 'promote-backup'
             ? DEFAULT_PROMOTE_BACKUP_REASON
           : ''
   operationDialog.sqlPath = ''

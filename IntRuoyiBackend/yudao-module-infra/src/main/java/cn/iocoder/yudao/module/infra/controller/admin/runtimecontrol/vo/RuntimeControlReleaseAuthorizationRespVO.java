@@ -19,6 +19,9 @@ public class RuntimeControlReleaseAuthorizationRespVO {
     private String approver;
     private Instant issuedAt;
     private Instant validUntil;
+    private String previewId;
+    private String targetFingerprint;
+    private long expectedStateVersion;
 
     public static RuntimeControlReleaseAuthorizationRespVO from(ReleaseAuthorizationGrant grant) {
         RuntimeControlReleaseAuthorizationRespVO result = new RuntimeControlReleaseAuthorizationRespVO();
@@ -34,6 +37,9 @@ public class RuntimeControlReleaseAuthorizationRespVO {
         result.approver = grant.approver();
         result.issuedAt = grant.issuedAt();
         result.validUntil = grant.validUntil();
+        result.previewId = grant.previewId();
+        result.targetFingerprint = grant.targetFingerprint();
+        result.expectedStateVersion = grant.expectedStateVersion();
         return result;
     }
 }

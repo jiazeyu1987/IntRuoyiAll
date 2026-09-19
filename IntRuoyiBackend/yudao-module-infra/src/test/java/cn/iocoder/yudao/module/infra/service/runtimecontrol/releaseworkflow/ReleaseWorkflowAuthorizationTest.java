@@ -18,6 +18,8 @@ class ReleaseWorkflowAuthorizationTest {
 
     private static final String PACKAGE_DIGEST = "a".repeat(64);
     private static final String MANIFEST_DIGEST = "b".repeat(64);
+    private static final String PREVIEW_ID = "prod-preview-test";
+    private static final String TARGET_FINGERPRINT = "c".repeat(64);
 
     @TempDir
     Path tempDir;
@@ -27,7 +29,8 @@ class ReleaseWorkflowAuthorizationTest {
         RuntimeControlProperties properties = RuntimeControlProperties.createDefaultForTests(tempDir);
         ReleaseWorkflowAuthorizationService service = new ReleaseWorkflowAuthorizationService(properties);
         ReleaseAuthorizationGrant grant = service.issue("rw-authorization-1", "release-authorization-1",
-                PACKAGE_DIGEST, MANIFEST_DIGEST, "preset-app-release", "1", "operator");
+                PACKAGE_DIGEST, MANIFEST_DIGEST, "preset-app-release", "1", "operator",
+                PREVIEW_ID, TARGET_FINGERPRINT, 7);
 
         ReleaseWorkflowAuthorizationService.Validation validation = service.preview(grant.grantId(),
                 new ReleaseWorkflowAuthorizationService.WorkflowTuple("rw-other", "release-authorization-1",
@@ -44,7 +47,8 @@ class ReleaseWorkflowAuthorizationTest {
         properties.getReleaseWorkflow().setProductionWriteEnabled(true);
         ReleaseWorkflowAuthorizationService service = new ReleaseWorkflowAuthorizationService(properties);
         ReleaseAuthorizationGrant grant = service.issue("rw-authorization-2", "release-authorization-2",
-                PACKAGE_DIGEST, MANIFEST_DIGEST, "preset-app-release", "1", "operator");
+                PACKAGE_DIGEST, MANIFEST_DIGEST, "preset-app-release", "1", "operator",
+                PREVIEW_ID, TARGET_FINGERPRINT, 7);
         ReleaseWorkflowAuthorizationService.WorkflowTuple tuple = new ReleaseWorkflowAuthorizationService.WorkflowTuple(
                 grant.workflowId(), grant.releaseTag(), grant.packageDigest(), grant.manifestDigest(), "prod",
                 grant.presetId(), grant.presetVersion(), grant.approvedScope(), ReleaseWorkflowRecord.State.TESTED);
@@ -61,7 +65,8 @@ class ReleaseWorkflowAuthorizationTest {
         ReleaseWorkflowAuthorizationService service = new ReleaseWorkflowAuthorizationService(properties);
         ReleaseAuthorizationGrant grant = service.issue("rw-authorization-3", "release-authorization-3",
                 PACKAGE_DIGEST, MANIFEST_DIGEST, "preset-app-release", "1", "operator",
-                Instant.now().minus(Duration.ofHours(2)), Instant.now().minus(Duration.ofHours(1)));
+                Instant.now().minus(Duration.ofHours(2)), Instant.now().minus(Duration.ofHours(1)),
+                PREVIEW_ID, TARGET_FINGERPRINT, 7);
 
         assertThrows(ReleaseWorkflowAuthorizationService.AuthorizationException.class,
                 () -> service.execute(grant.grantId(), new ReleaseWorkflowAuthorizationService.WorkflowTuple(
@@ -77,7 +82,8 @@ class ReleaseWorkflowAuthorizationTest {
         properties.getReleaseWorkflow().setProductionWriteEnabled(true);
         ReleaseWorkflowAuthorizationService issuer = new ReleaseWorkflowAuthorizationService(properties);
         ReleaseAuthorizationGrant grant = issuer.issue("rw-authorization-4", "release-authorization-4",
-                PACKAGE_DIGEST, MANIFEST_DIGEST, "preset-app-release", "1", "operator");
+                PACKAGE_DIGEST, MANIFEST_DIGEST, "preset-app-release", "1", "operator",
+                PREVIEW_ID, TARGET_FINGERPRINT, 7);
         ReleaseWorkflowAuthorizationService.WorkflowTuple tuple = new ReleaseWorkflowAuthorizationService.WorkflowTuple(
                 grant.workflowId(), grant.releaseTag(), grant.packageDigest(), grant.manifestDigest(), "prod",
                 grant.presetId(), grant.presetVersion(), grant.approvedScope(), ReleaseWorkflowRecord.State.TESTED);

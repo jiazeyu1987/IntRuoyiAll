@@ -30,19 +30,23 @@ public class ReleaseWorkflowOrchestrator {
     private final RuntimeControlOperationStore operationStore;
     private final RuntimeControlService runtimeControlService;
     private final ReleaseWorkflowAuthorizationService authorizationService;
+    private final ReleaseWorkflowProductionPreviewService productionPreviewService;
     private final Map<String, ReleaseWorkflowService.OptionalLease> activeLeases = new ConcurrentHashMap<>();
+    private final Map<String, String> prodIdempotencyOperations = new ConcurrentHashMap<>();
 
     @Autowired
     public ReleaseWorkflowOrchestrator(RuntimeControlProperties properties,
                                        ReleaseWorkflowService workflowService,
                                        RuntimeControlOperationStore operationStore,
                                        RuntimeControlService runtimeControlService,
-                                       ReleaseWorkflowAuthorizationService authorizationService) {
+                                       ReleaseWorkflowAuthorizationService authorizationService,
+                                       ReleaseWorkflowProductionPreviewService productionPreviewService) {
         this.properties = properties;
         this.workflowService = workflowService;
         this.operationStore = operationStore;
         this.runtimeControlService = runtimeControlService;
         this.authorizationService = authorizationService;
+        this.productionPreviewService = productionPreviewService;
     }
 
     public ReleaseWorkflowOrchestrator(RuntimeControlProperties properties,
@@ -50,7 +54,8 @@ public class ReleaseWorkflowOrchestrator {
                                        RuntimeControlOperationStore operationStore,
                                        RuntimeControlService runtimeControlService) {
         this(properties, workflowService, operationStore, runtimeControlService,
-                new ReleaseWorkflowAuthorizationService(properties));
+                new ReleaseWorkflowAuthorizationService(properties),
+                new ReleaseWorkflowProductionPreviewService(properties));
     }
 
     public synchronized ReleaseWorkflowRecord startBuild(String requestedBy, String reason,
@@ -203,18 +208,39 @@ public class ReleaseWorkflowOrchestrator {
         }
     }
 
-    public synchronized ReleaseAuthorizationGrant authorizeProduction(String workflowId, String approver) {
+    public synchronized ReleaseAuthorizationGrant authorizeProduction(String workflowId, String approver,
+                                                                      String previewId,
+                                                                      long expectedStateVersion) {
         ReleaseWorkflowRecord workflow = reconcile(workflowId);
         requireTestedArtifactBinding(workflow);
+        productionPreviewService.requireBinding(previewId, workflow, expectedStateVersion);
         return authorizationService.issue(workflow.workflowId(), workflow.releaseTag(), workflow.packageDigest(),
-                workflow.manifestDigest(), workflow.presetId(), workflow.presetVersion(), approver);
+                workflow.manifestDigest(), workflow.presetId(), workflow.presetVersion(), approver,
+                previewId, productionPreviewService.require(previewId).getTargetFingerprint(), expectedStateVersion);
     }
 
     public synchronized ReleaseWorkflowRecord startProductionPromotion(String workflowId, String requestedBy,
                                                                        String reason, String authorizationGrantId,
-                                                                       String prodConfirmText) {
+                                                                       String prodConfirmText, String previewId,
+                                                                       long expectedStateVersion,
+                                                                       String idempotencyKey) {
+        String idempotencyId = requireIdempotencyKey(idempotencyKey);
+        String idempotencyScope = workflowId + "|prod|" + idempotencyId;
+        String existingOperationId = prodIdempotencyOperations.get(idempotencyScope);
+        if (existingOperationId != null) {
+            ReleaseWorkflowRecord current = workflowService.require(workflowId);
+            if (existingOperationId.equals(current.operationId())) {
+                return current;
+            }
+            RuntimeControlOperationRespVO existing = operationStore.findById(existingOperationId);
+            if (existing != null) {
+                return current;
+            }
+            throw new IllegalStateException("RELEASE_WORKFLOW_IDEMPOTENCY_CONFLICT");
+        }
         ReleaseWorkflowRecord workflow = reconcile(workflowId);
         requireTestedArtifactBinding(workflow);
+        productionPreviewService.requireBinding(previewId, workflow, expectedStateVersion);
         ReleaseWorkflowAuthorizationService.WorkflowTuple tuple = productionWorkflowTuple(workflow);
         ReleaseWorkflowAuthorizationService.Validation preflight =
                 authorizationService.previewExecution(authorizationGrantId, tuple, prodConfirmText,
@@ -238,6 +264,7 @@ public class ReleaseWorkflowOrchestrator {
                 throw new ReleaseWorkflowAuthorizationService.AuthorizationException(validation.errorCode());
             }
             String operationId = newOperationId();
+            prodIdempotencyOperations.put(idempotencyScope, operationId);
             workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
                     ReleaseWorkflowRecord.State.PROD_PREVIEW, "PROD_PREVIEW", true, true);
             workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(), operationId);
@@ -627,6 +654,13 @@ public class ReleaseWorkflowOrchestrator {
 
     private String leaseKey(String workflowId, String environment) {
         return workflowId + ":" + environment;
+    }
+
+    private static String requireIdempotencyKey(String value) {
+        if (value == null || !value.matches("[A-Za-z0-9][A-Za-z0-9._:-]{7,127}")) {
+            throw new IllegalArgumentException("RELEASE_WORKFLOW_IDEMPOTENCY_KEY_INVALID");
+        }
+        return value;
     }
 
     private ReleaseWorkflowAuthorizationService.WorkflowTuple productionWorkflowTuple(ReleaseWorkflowRecord workflow) {
