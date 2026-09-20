@@ -78,7 +78,7 @@ class DccRegistrationCertificateReminderSchemaTest extends BaseDbUnitTest {
                 "constraint `chk_dcc_reg_cert_reminder_delivery_status` check",
                 "constraint `chk_dcc_reg_cert_reminder_delivery_message` check",
                 "registrationcertificatereminderdailyjob",
-                "\"roleids\":[910218,910231]",
+                "\"roleids\":[910218]",
                 "\"permission\":\"dcc:registration-certificate:query-current\"",
                 "0 0 9 * * ?");
         assertFalse(normalized.contains("registrationcertificatereminderdailyjob', ''"),
@@ -86,6 +86,41 @@ class DccRegistrationCertificateReminderSchemaTest extends BaseDbUnitTest {
         assertFalse(normalized.contains("`handler_param` = ''"),
                 "reminder job update must keep recipient scope params instead of resetting handler_param to blank");
         assertFalse(normalized.contains("'other'"), "reminder persisted code sets must not define OTHER");
+    }
+
+    @Test
+    void notificationRoleScopeBackfillShouldRejectUnapprovedRoleInferenceAndUseOneTransaction() throws Exception {
+        Path backendRoot = findBackendRoot();
+        Path migration = backendRoot.resolve(
+                "sql/mysql/20260830_dcc_registration_certificate_notification_role_scope_backfill.sql");
+        assertTrue(Files.isRegularFile(migration),
+                "notification role scope backfill migration must exist");
+
+        String normalized = Files.readString(migration, StandardCharsets.UTF_8)
+                .toLowerCase(Locale.ROOT);
+        assertContainsAll(normalized,
+                "roleids",
+                "json_array(910218)",
+                "query-current permission cannot define notification recipients",
+                "start transaction",
+                "rollback",
+                "dcc-reg-cert-notification-role-scope-backfill");
+        assertTrue(normalized.contains("missing_configured_role_count > 0"),
+                "legacy or stale role references must fail closed");
+        assertFalse(normalized.contains("json_arrayagg"),
+                "query-current permissions must not infer notification roles");
+        assertFalse(normalized.contains("system_role_menu"),
+                "role-menu permission rows are not a notification-role source");
+        assertFalse(normalized.contains("system_menu"),
+                "menu permissions are not a notification-role source");
+        assertFalse(normalized.contains("910231"),
+                "notification role contract must not include the unapproved stale role 910231");
+        assertTrue(normalized.indexOf("start transaction") < normalized.indexOf("update `infra_job`"),
+                "infra_job handler_param repair must be protected by the explicit transaction");
+        assertTrue(normalized.indexOf("start transaction") < normalized.indexOf("insert into `mdm_role_company_scope`"),
+                "all persistent writes must occur after the explicit transaction begins");
+        assertTrue(normalized.indexOf("start transaction") < normalized.indexOf("commit"),
+                "transaction must commit only after scope verification");
     }
 
     @Test

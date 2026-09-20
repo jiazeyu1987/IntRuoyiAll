@@ -43,7 +43,7 @@ def test_notification_role_scope_backfill_uses_configured_roles_and_current_cert
     assert "`enterprise`.`status` = 'ENABLE'" in text
     assert "`role`.`status` = 0" in text
     assert "`role_scope`.`status` = 'ENABLE'" in text
-    assert "910218" not in text
+    assert "JSON_ARRAY(910218)" in text
     assert "910231" not in text
 
 

@@ -473,7 +473,7 @@ public interface ErrorCodeConstants {
             "注册证生产关系变更信息不能为空");
     ErrorCode REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT = new ErrorCode(1_080_000_254,
             "注册证变更历史冲突");
-    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_PENDING_CONFLICT = new ErrorCode(1_080_000_262,
+    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_PENDING_CONFLICT = new ErrorCode(1_080_000_347,
             "该注册证已有待审批的变更，请审批完成后再提交");
     ErrorCode REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_CONFLICT = new ErrorCode(1_080_000_255,
             "注册证生命周期事件冲突");
