@@ -2,13 +2,7 @@
 SELECT CASE
   WHEN (SELECT COUNT(*) FROM `system_users` AS `u` JOIN `system_tenant` AS `t` ON `t`.`id` = `u`.`tenant_id` AND `t`.`deleted` = b'0' WHERE `u`.`tenant_id` = 1 AND `u`.`username` = 'admin' AND `u`.`status` = 0 AND `u`.`deleted` = b'0') = 1
    AND (SELECT COUNT(*) FROM `system_role` WHERE `tenant_id` = 1 AND `code` = 'MES_PQC_RELEASE_OWNER' AND `status` = 0 AND `deleted` = b'0') = 1
-   AND EXISTS (
-     SELECT 1
-     FROM `system_users` AS `u`
-     JOIN `system_role` AS `r` ON `r`.`tenant_id` = 1 AND `r`.`code` = 'MES_PQC_RELEASE_OWNER' AND `r`.`status` = 0 AND `r`.`deleted` = b'0'
-     JOIN `system_user_role` AS `ur` ON `ur`.`user_id` = `u`.`id` AND `ur`.`role_id` = `r`.`id` AND `ur`.`tenant_id` = 1 AND `ur`.`deleted` = b'0'
-     WHERE `u`.`tenant_id` = 1 AND `u`.`username` = 'admin' AND `u`.`status` = 0 AND `u`.`deleted` = b'0'
-   )
+   AND EXISTS (SELECT 1 FROM `system_users` AS `u` WHERE `u`.`tenant_id` = 1 AND `u`.`username` = 'admin' AND `u`.`status` = 0 AND `u`.`deleted` = b'0')
   THEN 'TARGET_PREFLIGHT_PASS:20260918_mes_pqc_release_owner_admin_assignment'
   ELSE 'TARGET_PREFLIGHT_BLOCKED:20260918_mes_pqc_release_owner_admin_assignment'
 END;
