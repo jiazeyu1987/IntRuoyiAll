@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260818_dcc_registration_certificate_lifecycle; type=schema; riskLevel=high
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260818_dcc_registration_certificate_lifecycle; type=schema; riskLevel=high; requiresTargetPreflight=true
 -- Purpose: Add shared reminder configuration, daily run, occurrence, delivery and scheduler seed contracts for domestic registration certificates.
 
 DROP PROCEDURE IF EXISTS assert_dcc_registration_certificate_reminder_contract;

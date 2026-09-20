@@ -84,6 +84,13 @@ def test_template_category_migration_requires_target_preflight() -> None:
     assert "requiresTargetPreflight=true" in header
 
 
+def test_registration_certificate_reminder_schema_requires_target_preflight() -> None:
+    migration = REPO_ROOT / "sql/mysql/20260818_dcc_registration_certificate_reminder.sql"
+    header = migration.read_text(encoding="utf-8").splitlines()[0]
+
+    assert "requiresTargetPreflight=true" in header
+
+
 def test_label_preflight_blocks_empty_menu_ids_like_migration() -> None:
     database = _database("label_preflight")
     try:
