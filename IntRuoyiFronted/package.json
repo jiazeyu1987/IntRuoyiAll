@@ -448,6 +448,17 @@
     "vue-tsc": "^2.2.12",
     "xlsx": "0.18.5"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@swc/core",
+      "core-js",
+      "core-js-pure",
+      "es5-ext",
+      "esbuild",
+      "vue-demi"
+    ]
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
