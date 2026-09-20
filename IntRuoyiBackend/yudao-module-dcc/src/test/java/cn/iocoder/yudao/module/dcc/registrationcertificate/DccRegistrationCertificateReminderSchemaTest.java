@@ -78,7 +78,7 @@ class DccRegistrationCertificateReminderSchemaTest extends BaseDbUnitTest {
                 "constraint `chk_dcc_reg_cert_reminder_delivery_status` check",
                 "constraint `chk_dcc_reg_cert_reminder_delivery_message` check",
                 "registrationcertificatereminderdailyjob",
-                "\"roleids\":[910218]",
+                "\"roleids\":[910218,910231]",
                 "\"permission\":\"dcc:registration-certificate:query-current\"",
                 "0 0 9 * * ?");
         assertFalse(normalized.contains("registrationcertificatereminderdailyjob', ''"),
