@@ -137,7 +137,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 || !MesTeamLeaderActiveOrderServiceImpl.STATUS_ACTIVE.equals(activeOrder.getActiveStatus())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
         }
-        return buildDetail(activeOrder, activeOrderId);
+        return buildDetail(activeOrder, activeOrderId, false);
     }
 
     @Override
@@ -146,10 +146,20 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         if (activeOrder == null) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
         }
-        return buildDetail(activeOrder, activeOrderId);
+        return buildDetail(activeOrder, activeOrderId, false);
     }
 
-    private MesTeamLeaderActiveOrderDetail buildDetail(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId) {
+    @Override
+    public MesTeamLeaderActiveOrderDetail getArchivedFormalDetail(Long activeOrderId) {
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdIgnoreDeleted(activeOrderId);
+        if (activeOrder == null) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
+        }
+        return buildDetail(activeOrder, activeOrderId, true);
+    }
+
+    private MesTeamLeaderActiveOrderDetail buildDetail(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId,
+                                                       boolean archivedFormalSource) {
         List<MesTeamLeaderActiveOrderDetailReadDO> rows = detailReadMapper.selectByActiveOrderId(activeOrderId);
         if (rows == null || rows.isEmpty()) {
             throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
@@ -167,7 +177,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             accumulator.addSubmission(row, activeOrderId);
         }
         FormalInputSourceSnapshot inputSourceSnapshot = resolveInputSourceSnapshot(activeOrder, activeOrderId);
-        attachInputMaterials(activeOrder, activeOrderId, accumulators, inputSourceSnapshot);
+        attachInputMaterials(activeOrder, activeOrderId, accumulators, inputSourceSnapshot, archivedFormalSource);
         attachSupplementMaterials(first.getWorkOrderCode(), activeOrderId, accumulators);
         attachPqcSubmissions(activeOrder, activeOrderId, accumulators);
         MesTeamLeaderActiveOrderDetail detail = new MesTeamLeaderActiveOrderDetail()
@@ -354,13 +364,18 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
 
     private void attachInputMaterials(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId,
                                        Map<ProcessIdentity, ProcessAccumulator> accumulators,
-                                       FormalInputSourceSnapshot inputSourceSnapshot) {
+                                       FormalInputSourceSnapshot inputSourceSnapshot,
+                                       boolean archivedFormalSource) {
         FormalInputSourceSnapshot resolvedInputSourceSnapshot = inputSourceSnapshot;
         for (ProcessAccumulator accumulator : accumulators.values()) {
             MesTeamLeaderActiveOrderDetail.ProcessDetail process = accumulator.process;
+            List<MesFrontlineProcessMaterial> frozenMaterials = archivedFormalSource
+                    ? processMaterialService.listArchivedFrozenMaterials(activeOrderId, activeOrder.getRouteId(),
+                    process.getRouteProcessId(), process.getProcessId())
+                    : processMaterialService.listFrozenMaterials(activeOrderId, activeOrder.getRouteId(),
+                    process.getRouteProcessId(), process.getProcessId());
             List<MesTeamLeaderActiveOrderDetail.InputMaterialDetail> inputMaterials =
-                    processMaterialService.listFrozenMaterials(activeOrderId, activeOrder.getRouteId(),
-                                    process.getRouteProcessId(), process.getProcessId()).stream()
+                    frozenMaterials.stream()
                             .filter(material -> MesFrontlineProcessMaterial.ROLE_INPUT.equals(material.materialRole()))
                             .map(material -> toCompletedInputMaterialDetail(material, resolvedInputSourceSnapshot))
                             .toList();

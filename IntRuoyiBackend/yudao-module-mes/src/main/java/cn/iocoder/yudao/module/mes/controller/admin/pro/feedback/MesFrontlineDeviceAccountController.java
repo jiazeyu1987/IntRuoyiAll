@@ -52,6 +52,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
@@ -61,6 +62,8 @@ import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUti
 @RequestMapping("/mes/pro/feedback/frontline/device-account")
 @Validated
 public class MesFrontlineDeviceAccountController {
+
+    private static final String STATUS_ACTIVE = "ACTIVE";
 
     @Resource
     private MesFrontlineDeviceAccountContextService contextService;
@@ -90,6 +93,7 @@ public class MesFrontlineDeviceAccountController {
     public CommonResult<List<MesFrontlineActiveOrderRespVO>> getProductionActiveOrders() {
         Long leaderUserId = contextService.resolveResponsibleLeaderUserId(getLoginUserId());
         return success(activeOrderService.listActiveOrders(leaderUserId).stream()
+                .filter(MesFrontlineDeviceAccountController::isProductionFillableActiveOrder)
                 .map(MesFrontlineDeviceAccountController::toProductionActiveOrderRespVO)
                 .toList());
     }
@@ -261,6 +265,10 @@ public class MesFrontlineDeviceAccountController {
                 .setRouteVersionNo(activeOrder.getRouteVersionNo())
                 .setRouteName(activeOrder.getRouteName())
                 .setLatestSubmitTime(activeOrder.getJoinedAt());
+    }
+
+    private static boolean isProductionFillableActiveOrder(MesTeamLeaderActiveOrderRow activeOrder) {
+        return activeOrder != null && Objects.equals(STATUS_ACTIVE, activeOrder.getBusinessStatus());
     }
 
     private static MesFrontlineActiveOrderProcessRespVO toProductionActiveOrderProcessRespVO(

@@ -543,6 +543,7 @@ export interface EdhrBatchReviewTimelineRespVO {
   signatureRecords?: EdhrBatchExecutionReviewSignatureRecord[]
   approvalRecords?: EdhrBatchExecutionReviewApprovalRecord[]
   flowEvents?: EdhrBatchExecutionReviewFlowEvent[]
+  releaseEvents?: EdhrBatchExecutionReviewReleaseEvent[]
   archiveVersions?: EdhrBatchExecutionArchiveRespVO[]
   dossierItems?: EdhrBatchExecutionDossierItemRespVO[]
   executionReviews?: EdhrBatchExecutionReviewExecutionRespVO[]
@@ -619,6 +620,20 @@ export interface EdhrBatchExecutionReviewFlowEvent {
   eventSnapshotJson?: string
   evidenceHash?: string
   occurredAt?: string
+}
+
+export interface EdhrBatchExecutionReviewReleaseEvent {
+  id?: number
+  eventType?: string
+  fromStatus?: string
+  toStatus?: string
+  actorUserId?: number
+  actorName?: string
+  reason?: string
+  opinion?: string
+  signoffEvidenceHash?: string
+  evidenceHash?: string
+  occurredAt?: string | number
 }
 
 export interface EdhrBatchExecutionDossierItemRespVO {

@@ -26,11 +26,11 @@ public class MesProEdhrBatchActiveOrderDetailService {
         if (activeOrderId == null) {
             throw new IllegalStateException("EDHR_BATCH_ACTIVE_ORDER_SOURCE_MISSING");
         }
-        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(activeOrderId);
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdIgnoreDeleted(activeOrderId);
         if (activeOrder == null || activeOrder.getLeaderUserId() == null
                 || !Objects.equals(activeOrder.getWorkOrderId(), batch.getWorkOrderId())) {
             throw new IllegalStateException("EDHR_BATCH_ACTIVE_ORDER_SOURCE_INVALID");
         }
-        return detailService.getFormalDetail(activeOrderId);
+        return detailService.getArchivedFormalDetail(activeOrderId);
     }
 }

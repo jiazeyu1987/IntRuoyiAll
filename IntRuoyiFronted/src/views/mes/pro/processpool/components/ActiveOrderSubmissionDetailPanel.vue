@@ -1260,7 +1260,7 @@
               row-key="attachmentId"
               class="team-leader-workbench__active-order-submission-table"
             >
-              <el-table-column label="文件名" min-width="220">
+              <el-table-column label="文件名" width="220">
                 <template #default="{ row }">
                   <el-button
                     link

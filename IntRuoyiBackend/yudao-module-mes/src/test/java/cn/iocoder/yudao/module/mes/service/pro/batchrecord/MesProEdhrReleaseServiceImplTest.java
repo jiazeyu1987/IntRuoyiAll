@@ -852,8 +852,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void managedActiveOrderApprovalClosesBatchAndAppendsDecisionToItsOrigin() {
-        var batch = insertReadyToCloseBatch("BATCH-MANAGED-ACTIVE-ORDER");
+    void managedActiveOrderApprovalArchivesCreatedBatchAndAppendsDecisionToItsOriginWithoutArchiveTaskRule() {
+        var batch = insertCreatedBatch("BATCH-MANAGED-ACTIVE-ORDER");
         var precheck = insertPendingApprovalRelease(batch);
         var task = releaseApprovalTask(precheck.getReleaseTransactionId(), 7981L);
         var request = approvalRequest(precheck, batch, task, "managed-active", "verified-signoff", "上市放行")
@@ -893,12 +893,12 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
             releaseService.approve(request);
         }
-        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED,
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED,
                 batchExecutionMapper.selectById(batch.getId()).getStatus());
         var released = releaseTransactionMapper.selectById(precheck.getReleaseTransactionId());
         assertEquals("RELEASED", released.getReleaseStatus());
         assertNotNull(released.getReleaseDecisionId());
-        verify(workTaskService).createArchiveTaskAfterBatchClose(any());
+        verify(workTaskService, never()).createArchiveTaskAfterBatchClose(any());
         verify(batchTraceabilityService).appendReleaseDecision(argThat(command ->
                 command.getOriginId().equals(9081L) && command.getReleaseApplicationId().equals(5081L)
                         && command.getReleaseDecisionId().equals(released.getReleaseDecisionId())));
@@ -1449,6 +1449,17 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
                 .setId(batch.getId())
                 .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE)
+                .setAggregateHash(null)
+                .setClosedBy(null)
+                .setClosedAt(null));
+        return batchExecutionMapper.selectById(batch.getId());
+    }
+
+    private MesProEdhrBatchExecutionDO insertCreatedBatch(String batchCode) {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch(batchCode);
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)
                 .setAggregateHash(null)
                 .setClosedBy(null)
                 .setClosedAt(null));

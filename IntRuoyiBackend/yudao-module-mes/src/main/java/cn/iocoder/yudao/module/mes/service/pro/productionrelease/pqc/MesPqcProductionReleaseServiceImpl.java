@@ -22,6 +22,10 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStage;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseFormalFactSnapshots;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializationCommand;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializationResult;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializer;
 import com.alibaba.fastjson.JSON;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -60,6 +64,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     private final MesPqcReleaseDossierPort dossierPort;
     private final MesProductionReleaseBatchExecutionPort batchExecutionPort;
     private final MesProductionReleaseReportStageInitializer reportStageInitializer;
+    private final MesProductionReleaseManagerStageInitializer managerStageInitializer;
     private final MesReleaseFlowAuditRecorder auditRecorder;
     private final MesProBatchRecordExecutionSignatureService signatureService;
     private final MesProEdhrNonconformanceReviewService nonconformanceReviewService;
@@ -73,12 +78,13 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesPqcReleaseDossierPort dossierPort,
             MesProductionReleaseBatchExecutionPort batchExecutionPort,
             MesProductionReleaseReportStageInitializer reportStageInitializer,
+            MesProductionReleaseManagerStageInitializer managerStageInitializer,
             MesReleaseFlowAuditRecorder auditRecorder,
             MesProBatchRecordExecutionSignatureService signatureService,
             MesProEdhrNonconformanceReviewService nonconformanceReviewService,
             MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper) {
         this(applicationMapper, workTaskMapper, dossierPort, batchExecutionPort,
-                reportStageInitializer, auditRecorder, signatureService, nonconformanceReviewService,
+                reportStageInitializer, managerStageInitializer, auditRecorder, signatureService, nonconformanceReviewService,
                 nonconformanceReviewMapper, Clock.systemUTC());
     }
 
@@ -88,6 +94,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesPqcReleaseDossierPort dossierPort,
             MesProductionReleaseBatchExecutionPort batchExecutionPort,
             MesProductionReleaseReportStageInitializer reportStageInitializer,
+            MesProductionReleaseManagerStageInitializer managerStageInitializer,
             MesReleaseFlowAuditRecorder auditRecorder,
             MesProBatchRecordExecutionSignatureService signatureService,
             MesProEdhrNonconformanceReviewService nonconformanceReviewService,
@@ -98,6 +105,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         this.dossierPort = dossierPort;
         this.batchExecutionPort = batchExecutionPort;
         this.reportStageInitializer = reportStageInitializer;
+        this.managerStageInitializer = managerStageInitializer;
         this.auditRecorder = auditRecorder;
         this.signatureService = signatureService;
         this.nonconformanceReviewService = nonconformanceReviewService;
@@ -130,9 +138,11 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         Long signatureId = signatureService.recordPqcReleaseSignature(
                 actorUserId, batchExecutionId, application.getId(), command.getSignaturePassword(), opinion);
         LocalDateTime decidedAt = LocalDateTime.now(clock);
+        String activeOrderFactsSnapshotHash = MesProductionReleaseFormalFactSnapshots.activeOrderFactsSnapshotHash(
+                application, "APPROVE", actorUserId, decidedAt);
         MesPqcProductionReleaseDecisionResult result = baseResult(application, workTask)
                 .setDecision("APPROVE")
-                .setStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING)
+                .setStatus(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING)
                 .setBatchExecutionId(batchExecutionId)
                 .setSignatureId(signatureId)
                 .setBatchRecordEvidenceIds(List.of())
@@ -143,17 +153,28 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setLossReportFieldAuditIds(List.of())
                 .setLossReportFieldAuditHeadHashes(List.of())
                 .setReportUploadTasks(List.of())
-                .setReportSnapshotHash(application.getReportSnapshotHash())
-                .setVersion(command.getExpectedVersion() + 1)
+                .setReportSnapshotHash(activeOrderFactsSnapshotHash)
+                .setVersion(command.getExpectedVersion() + 2)
                 .setDecidedBy(actorUserId)
                 .setDecidedAt(decidedAt)
                 .setDecisionIdempotencyKey(idempotencyKey)
                 .setDecisionPayloadHash(payloadHash);
         int updated = applicationMapper.approveFromPending(application.getId(), command.getExpectedVersion(),
-                batchExecutionId, actorUserId, decidedAt, application.getReportSnapshotHash(),
+                batchExecutionId, actorUserId, decidedAt, activeOrderFactsSnapshotHash,
                 JSON.toJSONString(result));
         requireCasSuccess(updated, application);
         requireTaskCompletion(workTaskMapper.completePqcDecisionTask(workTask.getId(), decidedAt, "APPROVE"), application);
+        MesProductionReleaseManagerStageInitializationResult managerStage = managerStageInitializer
+                .initializeManagerReleaseStage(new MesProductionReleaseManagerStageInitializationCommand()
+                        .setApplicationId(application.getId())
+                        .setBatchExecutionId(batchExecutionId)
+                        .setReportSnapshotHash(activeOrderFactsSnapshotHash)
+                        .setReportEvidences(List.of())
+                        .setExpectedApplicationVersion(command.getExpectedVersion() + 1)
+                        .setActiveOrderFormalFacts(true));
+        requireManagerHandoff(application, command.getExpectedVersion() + 1,
+                activeOrderFactsSnapshotHash, managerStage);
+        batchExecutionPort.markReadyForMarketRelease(batchExecutionId, actorUserId);
         recordDecisionAudit(application, workTask, result, idempotencyKey,
                 MesReleaseFlowAuditEventType.PQC_PRODUCTION_RELEASE_APPROVED);
         return result;
@@ -581,6 +602,30 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         }
     }
 
+    private void requireManagerHandoff(
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            Integer expectedVersion,
+            String reportSnapshotHash,
+            MesProductionReleaseManagerStageInitializationResult managerStage) {
+        if (managerStage == null || managerStage.getReleaseTransactionId() == null
+                || managerStage.getManagerReleaseWorkTaskId() == null
+                || StrUtil.isBlank(managerStage.getManagerCandidateSnapshotHash())) {
+            throw blocker(MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE, application,
+                    "MANAGER_RELEASE_STAGE", String.valueOf(application.getId()),
+                    "manager release stage receipt is incomplete",
+                    "configure the management representative role and retry PQC release");
+        }
+        int updated = applicationMapper.handoffReportsToManager(application.getId(), expectedVersion,
+                reportSnapshotHash, managerStage.getReleaseTransactionId(),
+                managerStage.getManagerReleaseWorkTaskId(), managerStage.getManagerCandidateSnapshotHash());
+        if (updated != 1) {
+            throw blocker(MesReleaseFlowBlockerType.STATE_VERSION_CONFLICT, application,
+                    "RELEASE_APPLICATION", String.valueOf(application.getId()),
+                    "manager release handoff lost the application version race",
+                    "reload the authoritative receipt before deciding");
+        }
+    }
+
     private void recordDecisionAudit(
             MesProcessPoolActiveOrderReleaseApplicationDO application,
             MesProEdhrWorkTaskDO workTask,
@@ -597,6 +642,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setActiveOrderId(application.getActiveOrderId())
                 .setWorkTaskId(workTask.getId())
                 .setBatchExecutionId(result.getBatchExecutionId())
+                .setSignatureId(result.getSignatureId())
                 .setFromStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
                 .setToStatus(result.getStatus())
                 .setVersion(result.getVersion())

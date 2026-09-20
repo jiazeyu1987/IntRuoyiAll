@@ -19,6 +19,7 @@ public class MesReleaseFlowAuditCommand {
     private Long workTaskId;
     private Long batchExecutionId;
     private Long releaseTransactionId;
+    private Long signatureId;
     private String fromStatus;
     private String toStatus;
     private Integer version;

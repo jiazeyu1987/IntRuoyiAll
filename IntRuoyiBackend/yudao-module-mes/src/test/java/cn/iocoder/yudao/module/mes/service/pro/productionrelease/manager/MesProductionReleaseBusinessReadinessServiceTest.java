@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
@@ -30,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -183,6 +185,42 @@ class MesProductionReleaseBusinessReadinessServiceTest {
         assertEquals(1, result.failedCheckCount());
         assertEquals(1, result.blockingCheckCount());
         assertTrue(result.hasBlockingChecks());
+    }
+
+    @Test
+    void activeOrderFormalFactsUseFrozenPqcFactsInsteadOfLegacyEdhrFormChecks() {
+        MesProEdhrBatchExecutionDO batch = batch();
+        MesProcessPoolActiveOrderReleaseApplicationDO application =
+                new MesProcessPoolActiveOrderReleaseApplicationDO()
+                        .setId(701L)
+                        .setActiveOrderId(801L)
+                        .setBatchExecutionId(batch.getId())
+                        .setBatchCode(batch.getBatchCode())
+                        .setWorkOrderCode(batch.getWorkOrderCode())
+                        .setSourceSnapshotHash("active-order-source-hash")
+                        .setPqcReleaseWorkTaskId(951L)
+                        .setPqcDecision("APPROVE")
+                        .setPqcDecidedBy(7002L)
+                        .setPqcDecidedAt(LocalDateTime.of(2026, 9, 20, 10, 0));
+        MesProductionReleaseBusinessReadiness result =
+                service.resolveActiveOrderFormalFactsReadiness(batch, application);
+
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.dhrStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.inspectionStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.deviationStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.reworkStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.scrapStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.inventoryStatus());
+        assertEquals(6, result.requiredCheckCount());
+        assertEquals(0, result.failedCheckCount());
+        assertEquals(0, result.blockingCheckCount());
+        assertTrue(result.snapshotJson().contains("ACTIVE_ORDER_FORMAL_FACTS"));
+        verify(releaseCompletenessService, never()).evaluateInspectionResult(batch);
+        verify(releaseCompletenessService, never()).evaluateDeviationClosed(batch);
+        verify(releaseCompletenessService, never()).evaluateReworkClosed(batch);
+        verify(releaseCompletenessService, never()).evaluateScrapRecorded(batch);
+        verify(releaseCompletenessService, never()).evaluateInventoryConsistency(batch);
+        verify(batchExecutionTaskMapper, never()).selectListByBatchExecutionId(batch.getId());
     }
 
     @Test

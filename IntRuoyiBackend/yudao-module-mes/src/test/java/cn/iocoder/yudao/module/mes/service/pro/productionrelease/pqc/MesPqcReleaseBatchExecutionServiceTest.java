@@ -18,6 +18,8 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowIdempote
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializationResult;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializer;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,6 +65,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
     @Mock private MesPqcReleaseDossierPort dossierPort;
     @Mock private MesProductionReleaseBatchExecutionPort batchExecutionPort;
     @Mock private MesProductionReleaseReportStageInitializer reportStageInitializer;
+    @Mock private MesProductionReleaseManagerStageInitializer managerStageInitializer;
     @Mock private MesReleaseFlowAuditRecorder auditRecorder;
     @Mock private MesProBatchRecordExecutionSignatureService signatureService;
     @Mock private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
@@ -75,11 +78,18 @@ class MesPqcReleaseBatchExecutionServiceTest {
         TenantContextHolder.setTenantId(TENANT_ID);
         service = new MesPqcProductionReleaseServiceImpl(
                 applicationMapper, workTaskMapper, dossierPort,
-                batchExecutionPort, reportStageInitializer, auditRecorder, signatureService,
+                batchExecutionPort, reportStageInitializer, managerStageInitializer, auditRecorder, signatureService,
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         lenient().when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(application());
         lenient().when(workTaskMapper.selectById(PQC_WORK_TASK_ID)).thenReturn(workTask());
+        lenient().when(managerStageInitializer.initializeManagerReleaseStage(any())).thenReturn(
+                new MesProductionReleaseManagerStageInitializationResult()
+                        .setReleaseTransactionId(9101L)
+                        .setManagerReleaseWorkTaskId(9201L)
+                        .setManagerCandidateSnapshotHash("manager-candidates"));
+        lenient().when(applicationMapper.handoffReportsToManager(eq(APPLICATION_ID), eq(VERSION + 1), any(),
+                eq(9101L), eq(9201L), eq("manager-candidates"))).thenReturn(1);
     }
 
     @AfterEach
@@ -114,29 +124,29 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setHasActualLoss(true).setLossReportStatus("SUCCESS").setLossQuantity(java.math.BigDecimal.ONE)
                         .setSourceSnapshotHash("loss-source").setSourceObjectIds(List.of(3L)).setSourceValueHashes(List.of("loss")).setBlockers(List.of()));
         service = new MesPqcProductionReleaseServiceImpl(applicationMapper, workTaskMapper, realPort,
-                batchExecutionPort, reportStageInitializer, auditRecorder, signatureService,
+                batchExecutionPort, reportStageInitializer, managerStageInitializer, auditRecorder, signatureService,
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         lenient().when(batchExecutionPort.openOrCreate(any())).thenReturn(BATCH_EXECUTION_ID);
         lenient().when(reportStageInitializer.initializeRequiredReportStage(any())).thenReturn(
                 new MesProductionReleaseReportStageInitializationResult().setReportUploadTasks(reportTasks()).setReportSnapshotHash("report-hash"));
         when(applicationMapper.approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
-                eq(PQC_USER_ID), any(), isNull(String.class), any())).thenReturn(1);
+                eq(PQC_USER_ID), any(), any(String.class), any())).thenReturn(1);
         when(workTaskMapper.completePqcDecisionTask(eq(PQC_WORK_TASK_ID), any(), eq("APPROVE"))).thenReturn(1);
         when(signatureService.recordPqcReleaseSignature(eq(PQC_USER_ID), eq(BATCH_EXECUTION_ID), eq(APPLICATION_ID),
                 eq("signature-password"), eq("正式来源核对通过"))).thenReturn(9901L);
         var command = approveCommand("dynamic-loss-flow").setApprovalOpinion("正式来源核对通过");
         var result = service.approve(PQC_USER_ID, command);
-        assertEquals(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING, result.getStatus());
+        assertEquals(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING, result.getStatus());
         assertTrue(result.getLossReportEvidenceIds().isEmpty());
         assertTrue(result.getLossReportFormCenterInstanceIds().isEmpty());
         assertTrue(result.getLossReportFieldAuditIds().isEmpty());
         assertTrue(result.getReportUploadTasks().isEmpty());
         var persisted = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(applicationMapper).approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
-                eq(PQC_USER_ID), any(), isNull(String.class), persisted.capture());
+                eq(PQC_USER_ID), any(), any(String.class), persisted.capture());
         when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(application()
-                .setApplicationStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING).setVersion(VERSION + 1)
+                .setApplicationStatus(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING).setVersion(VERSION + 2)
                 .setDossierSummaryJson(persisted.getValue()));
         var replay = service.approve(PQC_USER_ID, command);
         assertEquals(result.getLossReportFormCenterInstanceIds(), replay.getLossReportFormCenterInstanceIds());
@@ -164,7 +174,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setReportUploadTasks(reportTasks)
                         .setReportSnapshotHash("report-hash"));
         when(applicationMapper.approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
-                eq(PQC_USER_ID), any(), isNull(String.class), any())).thenReturn(1);
+                eq(PQC_USER_ID), any(), any(String.class), any())).thenReturn(1);
         when(workTaskMapper.completePqcDecisionTask(eq(PQC_WORK_TASK_ID), any(), eq("APPROVE"))).thenReturn(1);
         when(signatureService.recordPqcReleaseSignature(
                 eq(PQC_USER_ID), eq(BATCH_EXECUTION_ID), eq(APPLICATION_ID),
@@ -181,7 +191,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setApprovalOpinion("正式来源核对通过"));
 
         assertEquals("APPROVE", result.getDecision());
-        assertEquals(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING, result.getStatus());
+        assertEquals(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING, result.getStatus());
         assertEquals(BATCH_EXECUTION_ID, result.getBatchExecutionId());
         assertEquals(9901L, result.getSignatureId());
         assertEquals(List.of(), result.getBatchRecordEvidenceIds());
@@ -194,6 +204,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
         verify(reportStageInitializer, never()).initializeRequiredReportStage(any());
         verify(nonconformanceReviewService).ensureWorkOrderNotFrozen(3001L, "PQC放行");
         verify(signatureService).validatePqcSubmitSignature(PQC_USER_ID, "signature-password");
+        verify(batchExecutionPort).markReadyForMarketRelease(BATCH_EXECUTION_ID, PQC_USER_ID);
     }
 
     @Test
@@ -216,7 +227,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setReportUploadTasks(reportTasks())
                         .setReportSnapshotHash("report-hash"));
         when(applicationMapper.approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
-                eq(PQC_USER_ID), any(), isNull(String.class), any())).thenReturn(1);
+                eq(PQC_USER_ID), any(), any(String.class), any())).thenReturn(1);
         when(workTaskMapper.completePqcDecisionTask(eq(PQC_WORK_TASK_ID), any(), eq("APPROVE"))).thenReturn(1);
         when(signatureService.recordPqcReleaseSignature(
                 eq(PQC_USER_ID), eq(BATCH_EXECUTION_ID), eq(APPLICATION_ID),
@@ -229,7 +240,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
 
         assertEquals(List.of(), result.getProcessInspectionEvidenceIds());
         assertEquals(List.of(), result.getProcessInspectionFormCenterInstanceIds());
-        assertEquals(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING, result.getStatus());
+        assertEquals(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING, result.getStatus());
     }
 
     @Test
@@ -528,13 +539,13 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 eq(PQC_USER_ID), eq(BATCH_EXECUTION_ID), eq(APPLICATION_ID),
                 eq("signature-password"), isNull())).thenReturn(9901L);
         when(applicationMapper.approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
-                eq(PQC_USER_ID), any(), isNull(String.class), any())).thenReturn(1);
+                eq(PQC_USER_ID), any(), any(String.class), any())).thenReturn(1);
         when(workTaskMapper.completePqcDecisionTask(eq(PQC_WORK_TASK_ID), any(), eq("APPROVE"))).thenReturn(1);
 
         MesPqcProductionReleaseDecisionResult result = service.approve(PQC_USER_ID,
                 approveCommand("pqc-approve-report-failure"));
 
-        assertEquals(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING, result.getStatus());
+        assertEquals(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING, result.getStatus());
         verify(reportStageInitializer, never()).initializeRequiredReportStage(any());
     }
 

@@ -171,6 +171,59 @@ class MesReleaseAuthoritativeContextPortImplTest {
     }
 
     @Test
+    void activeOrderFormalFactsUseProvisioningReadinessWhenLegacyBatchStatusIsCreated() {
+        TenantContextHolder.setTenantId(1L);
+        MesProEdhrReleaseTransactionDO transaction = new MesProEdhrReleaseTransactionDO()
+                .setId(10L).setBatchExecutionId(20L).setReleaseStatus("PENDING_APPROVAL").setVersion(3);
+        MesProcessPoolActiveOrderReleaseApplicationDO application = new MesProcessPoolActiveOrderReleaseApplicationDO()
+                .setId(30L).setBatchExecutionId(20L).setReleaseTransactionId(10L)
+                .setActiveOrderId(70L).setWorkOrderId(40L).setReleaseApprovalWorkTaskId(50L)
+                .setApplicationStatus(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING);
+        MesProEdhrBatchExecutionDO batch = new MesProEdhrBatchExecutionDO()
+                .setId(20L).setStatus(0).setProvisioningStatus("BATCH_READY");
+        MesProEdhrBatchExecutionOriginDO origin = new MesProEdhrBatchExecutionOriginDO()
+                .setId(60L).setBatchExecutionId(20L).setEntryType("ACTIVE_ORDER_COMPLETION")
+                .setActiveOrderId(70L).setWorkOrderId(40L).setSourceSnapshotHash("source-snapshot")
+                .setCompletionBackfillReceiptId(900L).setCompletionVersion(1)
+                .setPickListBindingId(55L).setPickListId(66L).setPickListBindingVersion(1)
+                .setHasActualLoss(false);
+        MesProEdhrBatchTraceSourcePrecheckRespVO source = new MesProEdhrBatchTraceSourcePrecheckRespVO()
+                .setBatchExecutionId(20L).setOriginLinkId(61L).setTraceLinkHash("trace-hash")
+                .setSourceSnapshotHash("source-snapshot").setRelationStatus("BOUND");
+        MesReleaseMaterialGateReceipt gate = completeGate("active-gate", 20L, "source-snapshot");
+        MesFlow6CompletionBackfillReceipt completionReceipt = activeCompletionReceipt();
+
+        when(releaseTransactionMapper.selectById(10L)).thenReturn(transaction);
+        when(applicationMapper.selectListByReleaseTransactionId(10L)).thenReturn(List.of(application));
+        when(batchExecutionMapper.selectById(20L)).thenReturn(batch);
+        when(originMapper.selectListByBatchExecutionId(20L)).thenReturn(List.of(origin));
+        when(traceabilityService.resolveSourcePrecheck(org.mockito.ArgumentMatchers.any())).thenReturn(source);
+        when(materialGateReceiptPort.orderedStream()).thenReturn(Stream.of(materialGatePort));
+        when(materialGatePort.getLatestVerified(1L, 20L, "source-snapshot")).thenReturn(gate);
+        when(activeOrderMapper.selectById(70L)).thenReturn(new MesProcessPoolActiveOrderDO().setId(70L).setVersion(3));
+        when(completionReceiptPort.getByReceiptId(900L, 1L)).thenReturn(completionReceipt);
+        when(backfillMapper.selectListByActiveOrderIdForUpdate(70L)).thenReturn(List.of(
+                backfill(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD),
+                backfill(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_PROCESS_INSPECTION)));
+        when(pickListBindingMapper.selectListByActiveOrderId(70L))
+                .thenReturn(List.of(binding(70L, 40L, 55L, 66L, "pick-source")));
+        when(traceabilityService.getTraceability(20L)).thenReturn(traceability(20L, 60L,
+                binding(70L, 40L, 55L, 66L, "pick-source")));
+
+        MesReleaseFinalizationCommand command = new MesReleaseFinalizationCommand()
+                .setReleaseTransactionId(10L).setReleaseApplicationId(30L).setBatchExecutionId(20L)
+                .setWorkTaskId(50L);
+
+        MesReleaseFinalizationEvidence evidence = new MesReleaseAuthoritativeContextPortImpl(
+                releaseTransactionMapper, batchExecutionMapper, applicationMapper, originMapper,
+                activeOrderMapper, backfillMapper, pickListBindingMapper, completionReceiptPort,
+                materialGateReceiptPort, traceabilityService, independentReceiptService).require(command);
+
+        assertSame(gate, evidence.getMaterialGateReceipt());
+        assertEquals(70L, command.getActiveOrderId());
+    }
+
+    @Test
     void activeOrderEntryUsesMaterializedBackfillIdsWhenReceiptCarriesMultipleSourceIds() {
         TenantContextHolder.setTenantId(1L);
         MesProEdhrReleaseTransactionDO transaction = new MesProEdhrReleaseTransactionDO()

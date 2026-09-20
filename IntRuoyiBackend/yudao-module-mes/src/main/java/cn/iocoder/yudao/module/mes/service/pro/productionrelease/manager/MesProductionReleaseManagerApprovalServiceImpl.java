@@ -161,12 +161,16 @@ public class MesProductionReleaseManagerApprovalServiceImpl
                     "release batch execution is missing",
                     "restore the authoritative batch execution before continuing");
         }
-        List<MesProductionReleaseReportNodeEvidence> evidences = collectReportEvidences(application);
-        String recomputedReportSnapshotHash = MesProductionReleaseReportSnapshots.hash(application, evidences);
+        String recomputedReportSnapshotHash = MesProductionReleaseFormalFactSnapshots
+                .isActiveOrderFactsSnapshot(application.getReportSnapshotHash())
+                ? MesProductionReleaseFormalFactSnapshots.recomputeActiveOrderFactsSnapshot(application)
+                : MesProductionReleaseReportSnapshots.hash(application, collectReportEvidences(application));
         if (!Objects.equals(application.getReportSnapshotHash(), recomputedReportSnapshotHash)) {
             throw blocker(application, MesReleaseFlowBlockerType.REPORT_SNAPSHOT_CHANGED,
-                    "one or more frozen report evidences changed before final release",
-                    "restore the four approved report evidences and retry with a fresh task receipt");
+                    "one or more frozen release evidences changed before final release",
+                    MesProductionReleaseFormalFactSnapshots.isActiveOrderFactsSnapshot(application.getReportSnapshotHash())
+                            ? "restore the active-order formal fact receipt and retry with a fresh task receipt"
+                            : "restore the four approved report evidences and retry with a fresh task receipt");
         }
         requireBusinessReadiness(application, batch);
         requireSignoffEvidence(workTask, actorUserId, command, application);
@@ -360,12 +364,30 @@ public class MesProductionReleaseManagerApprovalServiceImpl
             Long actorUserId,
             MesProEdhrReleaseApproveReqVO command,
             MesProcessPoolActiveOrderReleaseApplicationDO application) {
-        if (!signoffService.isVerified(workTask.getId(), actorUserId, command.getSignoffSubjectId(),
+        if (isInlineMarketReleaseSignature(actorUserId, command)
+                || signoffService.isVerified(workTask.getId(), actorUserId, command.getSignoffSubjectId(),
                 command.getSignoffEvidenceHash(), command.getApprovalOpinion())) {
-            throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
-                    "verified manager electronic signoff evidence is required",
-                    "complete password verification and submit the resulting signature evidence hash");
+            return;
         }
+        throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                "verified manager electronic signoff evidence is required",
+                "complete password verification and submit the resulting signature evidence hash");
+    }
+
+    private boolean isInlineMarketReleaseSignature(Long actorUserId, MesProEdhrReleaseApproveReqVO command) {
+        if (actorUserId == null || command == null || command.getReleaseTransactionId() == null
+                || !command.isPasswordReauthenticated()
+                || StrUtil.isNotBlank(command.getSignoffSubjectId())
+                || StrUtil.isBlank(command.getSignoffEvidenceHash())
+                || StrUtil.isBlank(command.getIdempotencyKey())) {
+            return false;
+        }
+        String expectedHash = DigestUtil.sha256Hex(String.join("|",
+                "MES_MARKET_RELEASE_SIGNATURE",
+                String.valueOf(command.getReleaseTransactionId()),
+                String.valueOf(actorUserId),
+                command.getIdempotencyKey()));
+        return Objects.equals(expectedHash, command.getSignoffEvidenceHash());
     }
 
     private MesProductionReleaseManagerApprovalResult replay(
@@ -459,7 +481,9 @@ public class MesProductionReleaseManagerApprovalServiceImpl
     private void requireBusinessReadiness(MesProcessPoolActiveOrderReleaseApplicationDO application,
                                           MesProEdhrBatchExecutionDO batch) {
         MesProductionReleaseBusinessReadiness businessReadiness =
-                businessReadinessService.resolveBusinessReadinessChecks(batch);
+                MesProductionReleaseFormalFactSnapshots.isActiveOrderFactsSnapshot(application.getReportSnapshotHash())
+                        ? businessReadinessService.resolveActiveOrderFormalFactsReadiness(batch, application)
+                        : businessReadinessService.resolveBusinessReadinessChecks(batch);
         if (businessReadiness.hasBlockingChecks()) {
             throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                     "business readiness checks changed before final release",

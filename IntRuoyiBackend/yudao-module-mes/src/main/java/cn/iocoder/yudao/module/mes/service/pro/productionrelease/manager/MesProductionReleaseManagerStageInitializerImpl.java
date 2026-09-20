@@ -67,20 +67,28 @@ public class MesProductionReleaseManagerStageInitializerImpl
             MesProductionReleaseManagerStageInitializationCommand command) {
         requireCommand(command);
         MesProcessPoolActiveOrderReleaseApplicationDO application = applicationMapper.selectById(command.getApplicationId());
+        String expectedApplicationStatus = isActiveOrderFormalFacts(command)
+                ? MesReleaseFlowStatus.MANAGER_RELEASE_PENDING
+                : MesReleaseFlowStatus.REPORT_UPLOAD_PENDING;
         if (application == null
                 || !Objects.equals(application.getBatchExecutionId(), command.getBatchExecutionId())
                 || !Objects.equals(application.getVersion(), command.getExpectedApplicationVersion())
-                || !Objects.equals(application.getApplicationStatus(), MesReleaseFlowStatus.REPORT_UPLOAD_PENDING)) {
+                || !Objects.equals(application.getApplicationStatus(), expectedApplicationStatus)) {
             throw blocker(application, MesReleaseFlowBlockerType.STATE_VERSION_CONFLICT,
                     "release application changed before manager-stage initialization",
-                    "refresh the report completion receipt before retrying");
+                    isActiveOrderFormalFacts(command)
+                            ? "refresh the active-order PQC release receipt before retrying"
+                            : "refresh the report completion receipt before retrying");
         }
-        String recomputedSnapshotHash = MesProductionReleaseReportSnapshots.hash(
-                application, command.getReportEvidences());
+        String recomputedSnapshotHash = isActiveOrderFormalFacts(command)
+                ? application.getReportSnapshotHash()
+                : MesProductionReleaseReportSnapshots.hash(application, command.getReportEvidences());
         if (!Objects.equals(recomputedSnapshotHash, command.getReportSnapshotHash())) {
             throw blocker(application, MesReleaseFlowBlockerType.REPORT_SNAPSHOT_CHANGED,
                     "report snapshot changed before manager-stage initialization",
-                    "reload and verify all four completed report evidences");
+                    isActiveOrderFormalFacts(command)
+                            ? "reload and verify the active-order formal fact receipt"
+                            : "reload and verify all four completed report evidences");
         }
         if (releaseTransactionMapper.selectByBatchExecutionId(command.getBatchExecutionId()) != null) {
             throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
@@ -100,7 +108,8 @@ public class MesProductionReleaseManagerStageInitializerImpl
         MesProductionReleaseRoleCandidates candidates = candidateResolver.resolveRequiredCandidates(
                 tenantId, MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE);
         requireCandidates(application, candidates);
-        MesProductionReleaseBusinessReadiness businessReadiness = resolveBusinessReadinessChecks(application, batch);
+        MesProductionReleaseBusinessReadiness businessReadiness = resolveBusinessReadinessChecks(
+                application, batch, isActiveOrderFormalFacts(command));
 
         MesProEdhrReleaseTransactionDO transaction = buildTransaction(
                 batch, application, command.getReportSnapshotHash(), businessReadiness);
@@ -119,9 +128,11 @@ public class MesProductionReleaseManagerStageInitializerImpl
 
     private MesProductionReleaseBusinessReadiness resolveBusinessReadinessChecks(
             MesProcessPoolActiveOrderReleaseApplicationDO application,
-            MesProEdhrBatchExecutionDO batch) {
-        MesProductionReleaseBusinessReadiness businessReadiness =
-                businessReadinessService.resolveBusinessReadinessChecks(batch);
+            MesProEdhrBatchExecutionDO batch,
+            boolean activeOrderFormalFacts) {
+        MesProductionReleaseBusinessReadiness businessReadiness = activeOrderFormalFacts
+                ? businessReadinessService.resolveActiveOrderFormalFactsReadiness(batch, application)
+                : businessReadinessService.resolveBusinessReadinessChecks(batch);
         if (businessReadiness.hasBlockingChecks()) {
             throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                     "business readiness checks block manager-stage initialization",
@@ -133,12 +144,28 @@ public class MesProductionReleaseManagerStageInitializerImpl
     private void requireCommand(MesProductionReleaseManagerStageInitializationCommand command) {
         if (command == null || command.getApplicationId() == null || command.getBatchExecutionId() == null
                 || command.getExpectedApplicationVersion() == null || command.getExpectedApplicationVersion() < 0
-                || StrUtil.isBlank(command.getReportSnapshotHash())
-                || command.getReportEvidences() == null || command.getReportEvidences().size() != 4) {
+                || StrUtil.isBlank(command.getReportSnapshotHash())) {
+            throw blocker(null, MesReleaseFlowBlockerType.REPORT_SNAPSHOT_CHANGED,
+                    "complete manager-stage command is required",
+                    "complete and freeze the release evidence first");
+        }
+        if (isActiveOrderFormalFacts(command)) {
+            if (!MesProductionReleaseFormalFactSnapshots.isActiveOrderFactsSnapshot(command.getReportSnapshotHash())) {
+                throw blocker(null, MesReleaseFlowBlockerType.REPORT_SNAPSHOT_CHANGED,
+                        "active-order formal fact snapshot is required",
+                        "complete the PQC release receipt from the active-order detail facts first");
+            }
+            return;
+        }
+        if (command.getReportEvidences() == null || command.getReportEvidences().size() != 4) {
             throw blocker(null, MesReleaseFlowBlockerType.REPORT_SNAPSHOT_CHANGED,
                     "complete four-report manager-stage command is required",
                     "complete and freeze all four report evidences first");
         }
+    }
+
+    private boolean isActiveOrderFormalFacts(MesProductionReleaseManagerStageInitializationCommand command) {
+        return command != null && Boolean.TRUE.equals(command.getActiveOrderFormalFacts());
     }
 
     private void requireCandidates(
@@ -189,7 +216,9 @@ public class MesProductionReleaseManagerStageInitializerImpl
                         "businessReadinessSnapshotHash", businessReadiness.snapshotHash(),
                         "businessReadinessSnapshotJson", businessReadiness.snapshotJson())))
                 .setVersion(1)
-                .setRemark("production release manager approval");
+                .setRemark(MesProductionReleaseFormalFactSnapshots.isActiveOrderFactsSnapshot(reportSnapshotHash)
+                        ? "active order formal fact manager approval"
+                        : "production release manager approval");
     }
 
     private MesProEdhrWorkTaskDO buildWorkTask(

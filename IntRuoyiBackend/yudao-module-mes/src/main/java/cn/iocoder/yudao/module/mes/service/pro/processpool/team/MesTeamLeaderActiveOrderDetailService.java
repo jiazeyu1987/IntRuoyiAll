@@ -5,4 +5,6 @@ public interface MesTeamLeaderActiveOrderDetailService {
     MesTeamLeaderActiveOrderDetail getDetail(Long leaderUserId, Long activeOrderId);
 
     MesTeamLeaderActiveOrderDetail getFormalDetail(Long activeOrderId);
+
+    MesTeamLeaderActiveOrderDetail getArchivedFormalDetail(Long activeOrderId);
 }

@@ -84,6 +84,31 @@ const clickMenu = async (page, text) => {
   await target.click()
 }
 
+const normalizeText = (text) => String(text || '').replace(/\s+/g, ' ').trim()
+
+const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+const DOSSIER_UPLOADS = [
+  {
+    label: '来料检文件',
+    category: 'INCOMING_INSPECTION_FILE',
+    fileName: `${RUN_ID}-incoming-inspection.txt`,
+    content: `runId=${RUN_ID}\ncategory=INCOMING_INSPECTION_FILE\n正式来料检资料\n`
+  },
+  {
+    label: '灭菌文件',
+    category: 'STERILIZATION_FILE',
+    fileName: `${RUN_ID}-sterilization.txt`,
+    content: `runId=${RUN_ID}\ncategory=STERILIZATION_FILE\n正式灭菌资料\n`
+  },
+  {
+    label: '成品检文件',
+    category: 'FINISHED_PRODUCT_FILE',
+    fileName: `${RUN_ID}-finished-product.txt`,
+    content: `runId=${RUN_ID}\ncategory=FINISHED_PRODUCT_FILE\n正式成品检资料\n`
+  }
+]
+
 const login = async (page) => {
   await page.goto(`${BASE_URL}/login?redirect=/index`, {
     waitUntil: 'domcontentloaded',
@@ -140,7 +165,6 @@ const openActiveOrderPool = async (page) => {
   const filter = page.locator('[data-team-leader-active-order-work-order-filter]').first()
   await filter.waitFor({ state: 'visible', timeout: 30000 })
   await filter.fill(WORK_ORDER_CODE)
-  await targetRow(page).waitFor({ state: 'visible', timeout: 60000 })
 }
 
 const targetRow = (page) =>
@@ -161,6 +185,10 @@ const resetFixedOrder = async (page) => {
   const response = await resetResponse
   assert.equal(response.ok(), true, '重置请求必须成功')
   const body = await response.json()
+  if (body.code !== 0) {
+    evidence.resetResponse = body
+    persist()
+  }
   assert.equal(body.code, 0, body.msg)
   assert.ok(body.data.activeOrderId, '重置必须生成活跃订单')
   evidence.beforeP1.activeOrderId = body.data.activeOrderId
@@ -261,10 +289,80 @@ const assertDossierTabsReadable = async (detail, phase) => {
     await panel.waitFor({ state: 'visible', timeout: 60000 })
     const text = await panel.innerText()
     assert.ok(!text.includes('尚未执行P2生成正式批次'), `${phase} ${label} 不得提示缺少P2正式批次`)
-    assert.match(text, /来源批次：/, `${phase} ${label} 必须显示P2正式批次来源`)
+    assert.match(text, /资料归属：当前活跃订单/, `${phase} ${label} 必须声明当前活跃订单资料归属`)
+    assert.ok(!text.includes('来源批次：'), `${phase} ${label} 不得暴露P2批次来源字段`)
     tabs.push({ label, category, text: text.replace(/\s+/g, ' ').slice(0, 600) })
   }
   evidence[phase].dossierTabs = tabs
+}
+
+const dossierPanel = async (detail, upload) => {
+  await clickTab(detail, upload.label)
+  const panel = detail.locator(`[data-active-order-dossier-file-category="${upload.category}"]`).first()
+  await panel.waitFor({ state: 'visible', timeout: 60000 })
+  return panel
+}
+
+const uploadDossierFilesViaDetail = async (detail, phase) => {
+  const uploaded = []
+  for (const upload of DOSSIER_UPLOADS) {
+    const panel = await dossierPanel(detail, upload)
+    const responsePromise = detail.page().waitForResponse(
+      (response) =>
+        response.url().includes('/mes/pro/process-pool/team-leader/active-order/dossier-files/upload') &&
+        response.request().method() === 'POST',
+      { timeout: 120000 }
+    )
+    const fileInput = panel.locator('[data-active-order-dossier-file-upload] input[type="file"]').first()
+    await fileInput.setInputFiles({
+      name: upload.fileName,
+      mimeType: 'text/plain',
+      buffer: Buffer.from(upload.content, 'utf8')
+    })
+    const response = await responsePromise
+    const result = await response.json()
+    assert.equal(response.ok(), true, `${phase} ${upload.label} 上传HTTP请求失败`)
+    assert.equal(result.code, 0, `${phase} ${upload.label} 上传失败：${result.msg}`)
+    await panel
+      .locator('[data-active-order-dossier-file-preview]')
+      .filter({ hasText: upload.fileName })
+      .first()
+      .waitFor({ state: 'visible', timeout: 60000 })
+    const text = normalizeText(await panel.innerText())
+    assert.match(text, new RegExp(escapeRegExp(upload.fileName)), `${phase} ${upload.label} 必须显示上传文件名`)
+    assert.match(text, /上传人|上传时间/, `${phase} ${upload.label} 必须显示上传元信息`)
+    uploaded.push({
+      label: upload.label,
+      category: upload.category,
+      fileName: upload.fileName,
+      response: { status: response.status(), code: result.code },
+      text: text.slice(0, 800)
+    })
+  }
+  evidence[phase].uploadedDossierFiles = uploaded
+  persist()
+  return uploaded
+}
+
+const assertUploadedDossierFilesVisible = async (detail, phase, expectedUploads = DOSSIER_UPLOADS) => {
+  const visibleFiles = []
+  for (const upload of expectedUploads) {
+    const panel = await dossierPanel(detail, upload)
+    const text = normalizeText(await panel.innerText())
+    assert.match(text, new RegExp(escapeRegExp(upload.fileName)), `${phase} ${upload.label} 必须保留上传文件`)
+    assert.match(text, /资料归属：当前活跃订单/, `${phase} ${upload.label} 必须继续声明活跃订单资料归属`)
+    assert.match(text, /上传人|上传时间/, `${phase} ${upload.label} 必须保留上传人和上传时间`)
+    assert.ok(!text.includes('暂无文件'), `${phase} ${upload.label} 不得显示暂无文件`)
+    visibleFiles.push({
+      label: upload.label,
+      category: upload.category,
+      fileName: upload.fileName,
+      text: text.slice(0, 800)
+    })
+  }
+  evidence[phase].visibleDossierFiles = visibleFiles
+  persist()
+  return visibleFiles
 }
 
 const collectProductionFacts = async (scope, phase) => {
@@ -390,6 +488,50 @@ const assertProductionInputBatchesPresent = async (scope, phase) => {
   assert.ok(batchTexts.length > 0, `${phase} 批次执行生产表单必须显示 P2 回填后的输入物料批号`)
 }
 
+const collectPqcReleaseBusinessFacts = async (scope, phase) => {
+  try {
+    await scope.getByRole('tab', { name: '总表' }).first().waitFor({
+      state: 'visible',
+      timeout: 90000
+    })
+  } catch (error) {
+    const detailError = scope.locator('[data-team-leader-active-order-detail-error]:visible').first()
+    if (await detailError.count()) {
+      assert.fail(`${phase} 详情加载失败：${normalizeText(await detailError.innerText())}`)
+    }
+    throw error
+  }
+  await clickTab(scope, '总表')
+  const errorCount = await scope.locator('[data-team-leader-active-order-detail-error]:visible').count()
+  assert.equal(errorCount, 0, `${phase} 详情不得显示系统异常或加载错误`)
+  const releaseTable = scope.locator('[data-active-order-summary-pqc-release-table]').first()
+  await releaseTable.waitFor({ state: 'visible', timeout: 60000 })
+  const releaseText = normalizeText(await releaseTable.innerText())
+  assert.match(releaseText, /PQC生产放行/, `${phase} 必须显示PQC生产放行事实`)
+  assert.match(releaseText, /已生产放行|已让步放行/, `${phase} 必须显示已放行状态`)
+  const signatureButton = releaseTable
+    .locator('[data-active-order-summary-pqc-release-signature]')
+    .first()
+  const signatureText = normalizeText(await signatureButton.innerText())
+  assert.ok(signatureText && !['--', '未签名'].includes(signatureText), `${phase} 必须显示PQC放行签名`)
+  assert.equal(await signatureButton.isDisabled(), false, `${phase} PQC放行签名必须可查看`)
+  const operationTable = scope.locator('[data-active-order-summary-operation-facts-table]').first()
+  await operationTable.waitFor({ state: 'visible', timeout: 60000 })
+  const operationText = normalizeText(await operationTable.innerText())
+  assert.match(operationText, /PQC生产放行|生产放行/, `${phase} 操作事实必须包含PQC生产放行`)
+  const facts = {
+    releaseText,
+    signatureText,
+    operationText: operationText.slice(0, 1200)
+  }
+  if (!evidence[phase]) {
+    evidence[phase] = {}
+  }
+  evidence[phase].pqcReleaseFacts = facts
+  persist()
+  return facts
+}
+
 const runP1 = async (page) => {
   await openActiveOrderPool(page)
   const row = targetRow(page)
@@ -488,7 +630,7 @@ const runP3 = async (page, expectSuccess) => {
   await clickMenu(page, 'PQC生产放行')
   const releasePage = page.locator('[data-pqc-production-release-page]')
   await releasePage.waitFor({ state: 'visible', timeout: 60000 })
-  await releasePage.locator('[data-pqc-production-release-work-order-filter] input').fill(WORK_ORDER_CODE)
+  await releasePage.locator('[data-pqc-production-release-work-order-filter]').fill(WORK_ORDER_CODE)
   await releasePage.locator('[data-pqc-production-release-query]').click()
   const releaseRow = releasePage.locator('[data-pqc-production-release-list] .el-table__body-wrapper tbody tr').filter({ hasText: WORK_ORDER_CODE })
   await releaseRow.first().waitFor({ state: 'visible', timeout: 60000 })
@@ -496,6 +638,183 @@ const runP3 = async (page, expectSuccess) => {
   assert.ok((await releaseRow.innerText()).includes(String(body.data.applicationId)))
   evidence.afterP3.visibleInPqcRelease = true
   await screenshot(page, 'pqc-release-received')
+  return body.data
+}
+
+const approvePqcReleaseAndVerifyReleasedDetail = async (page) => {
+  const releasePage = page.locator('[data-pqc-production-release-page]')
+  await releasePage.waitFor({ state: 'visible', timeout: 60000 })
+  await releasePage.locator('[data-pqc-production-release-work-order-filter]').fill(WORK_ORDER_CODE)
+  await releasePage.locator('[data-pqc-production-release-query]').click()
+  const releaseRow = releasePage
+    .locator('[data-pqc-production-release-list] .el-table__body-wrapper tbody tr')
+    .filter({ hasText: WORK_ORDER_CODE })
+    .first()
+  await releaseRow.waitFor({ state: 'visible', timeout: 60000 })
+  const approveButton = releaseRow.locator('[data-pqc-production-release-approve]').first()
+  assert.equal(await approveButton.isEnabled(), true, 'PQC放行按钮必须可点击')
+  await approveButton.click()
+  const dialog = page.locator('[data-pqc-production-release-dialog]').first()
+  await dialog.waitFor({ state: 'visible', timeout: 30000 })
+  await dialog.locator('[data-pqc-production-release-signature-password]').fill(PASSWORD)
+  await dialog.locator('[data-pqc-production-release-approval-opinion]').fill(`E2E生产放行 ${RUN_ID}`)
+  const responsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/production-release/pqc/approve') &&
+      response.request().method() === 'POST',
+    { timeout: 240000 }
+  )
+  await dialog.locator('[data-pqc-production-release-confirm]').click()
+  const response = await responsePromise
+  const result = await response.json()
+  evidence.afterPqcRelease = {
+    response: { status: response.status(), code: result.code, message: result.msg },
+    applicationId: result.data?.applicationId,
+    batchExecutionId: String(result.data?.batchExecutionId || evidence.afterP2.batchExecutionId || ''),
+    signatureId: String(result.data?.signatureId || ''),
+    decision: result.data?.decision,
+    status: result.data?.status
+  }
+  persist()
+  assert.equal(response.ok(), true, 'PQC生产放行HTTP请求失败')
+  assert.equal(result.code, 0, `PQC生产放行失败：${result.msg}`)
+  assert.equal(result.data?.decision, 'APPROVE', 'PQC生产放行必须返回APPROVE决定')
+  assert.ok(result.data?.signatureId, 'PQC生产放行必须产生电子签名')
+  await dialog.locator('[data-pqc-production-release-batch-execution-id]').waitFor({
+    state: 'visible',
+    timeout: 60000
+  })
+  await screenshot(page, 'pqc-release-approved-dialog')
+  await dialog.getByRole('button', { name: '关闭' }).click()
+  await dialog.waitFor({ state: 'hidden', timeout: 30000 })
+  await releasePage.waitFor({ state: 'visible', timeout: 60000 })
+  await firstVisible(releasePage.getByRole('tab', { name: '已放行' }), '已放行').then((tab) => tab.click())
+  await releasePage.locator('[data-pqc-production-release-work-order-filter]').fill(WORK_ORDER_CODE)
+  await releasePage.locator('[data-pqc-production-release-query]').click()
+  const releasedRow = releasePage
+    .locator('[data-pqc-production-release-list] .el-table__body-wrapper tbody tr')
+    .filter({ hasText: WORK_ORDER_CODE })
+    .first()
+  await releasedRow.waitFor({ state: 'visible', timeout: 60000 })
+  assert.match(await releasedRow.innerText(), /已生产放行|已放行/)
+  await releasedRow.locator('[data-pqc-production-release-detail]').first().click()
+  const detail = page.locator('[data-pqc-production-release-order-detail]').first()
+  await detail.waitFor({ state: 'visible', timeout: 60000 })
+  const facts = await collectPqcReleaseBusinessFacts(detail, 'afterPqcReleaseReleasedDetail')
+  evidence.afterPqcRelease.releasedDetailFacts = facts
+  await screenshot(page, 'pqc-release-released-detail')
+  await detail.locator('[data-pqc-production-release-detail-back]').click()
+  await releasePage.waitFor({ state: 'visible', timeout: 60000 })
+  persist()
+  return facts
+}
+
+const openBatchExecutionDetailAndVerifyReleaseFacts = async (page, expectedFacts) => {
+  await page.goto(
+    addQuery(`${BASE_URL}/mes/pro/feedback/edhr-batch-execution`, {
+      workOrderCode: WORK_ORDER_CODE
+    }),
+    { waitUntil: 'domcontentloaded', timeout: 60000 }
+  )
+  const listPage = page.locator('[data-user-table-key="mes.pro.edhrBatch.execution.main"]').first()
+  await listPage.waitFor({ state: 'visible', timeout: 60000 })
+  const row = listPage
+    .locator('.el-table__body-wrapper tbody tr')
+    .filter({ hasText: WORK_ORDER_CODE })
+    .first()
+  await row.waitFor({ state: 'visible', timeout: 60000 })
+  await row.locator('[data-edhr-batch-active-order-detail]').first().click()
+  const detail = page.locator('[data-edhr-batch-active-order-detail-page]').first()
+  await detail.waitFor({ state: 'visible', timeout: 60000 })
+  const facts = await collectPqcReleaseBusinessFacts(detail, 'afterPqcReleaseBatchExecutionDetail')
+  assert.equal(
+    facts.signatureText,
+    expectedFacts.signatureText,
+    '批次执行详情必须显示与PQC已放行详情一致的放行签名'
+  )
+  evidence.afterPqcRelease.batchExecutionDetailFacts = facts
+  await screenshot(page, 'batch-execution-active-order-detail-after-pqc-release')
+  persist()
+  return facts
+}
+
+const approveMarketReleaseAndVerifyHistory = async (page, expectedFacts) => {
+  await page.goto(
+    addQuery(`${BASE_URL}/mes/pro/feedback/edhr-batch-execution`, {
+      workOrderCode: WORK_ORDER_CODE
+    }),
+    { waitUntil: 'domcontentloaded', timeout: 60000 }
+  )
+  const listPage = page.locator('[data-user-table-key="mes.pro.edhrBatch.execution.main"]').first()
+  await listPage.waitFor({ state: 'visible', timeout: 60000 })
+  const row = listPage
+    .locator('.el-table__body-wrapper tbody tr')
+    .filter({ hasText: WORK_ORDER_CODE })
+    .first()
+  await row.waitFor({ state: 'visible', timeout: 60000 })
+  const releaseButton = row.locator('[data-edhr-batch-action="release"]').first()
+  await releaseButton.waitFor({ state: 'visible', timeout: 60000 })
+  assert.equal(await releaseButton.isEnabled(), true, 'PQC放行后批次执行必须可以上市放行')
+  await releaseButton.click()
+  const dialog = page.locator('.el-dialog').filter({ hasText: '上市放行确认' }).first()
+  await dialog.waitFor({ state: 'visible', timeout: 30000 })
+  await dialog.getByPlaceholder('请输入上市放行负责人的电子签名密码').fill(PASSWORD)
+  const responsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/edhr-release/approve') &&
+      response.request().method() === 'POST',
+    { timeout: 240000 }
+  )
+  await dialog.getByRole('button', { name: '确认上市放行' }).click()
+  const response = await responsePromise
+  const result = await response.json()
+  evidence.afterMarketRelease = {
+    response: { status: response.status(), code: result.code, message: result.msg },
+    data: result.data || null
+  }
+  persist()
+  assert.equal(response.ok(), true, '上市放行HTTP请求失败')
+  assert.equal(result.code, 0, `上市放行失败：${result.msg}`)
+  await page.waitForURL(/\/mes\/pro\/feedback\/edhr-batch-history/, { timeout: 60000 })
+  const historyPage = page.locator('[data-edhr-batch-history-page]').first()
+  await historyPage.waitFor({ state: 'visible', timeout: 60000 })
+  await historyPage.locator('[data-edhr-history-work-order-filter]').fill(WORK_ORDER_CODE)
+  await historyPage.locator('[data-edhr-history-query]').click()
+  const historyRow = historyPage
+    .locator('[data-edhr-history-batch-item]')
+    .filter({ hasText: WORK_ORDER_CODE })
+    .first()
+  await historyRow.waitFor({ state: 'visible', timeout: 60000 })
+  await historyRow.click()
+  const timeline = historyPage.locator('[data-edhr-history-timeline-item]')
+  await timeline.first().waitFor({ state: 'visible', timeout: 60000 })
+  const timelineText = await timeline.allInnerTexts()
+  assert.match(timelineText.join('\n'), /上市放行|放行/, '历史追溯必须包含上市放行历史信息')
+  assert.match(timelineText.join('\n'), /签名|电子签名|APPROVED|已批准|已放行/, '历史追溯必须包含放行签名或审批证据')
+  const detailButton = historyPage.locator('[data-edhr-history-active-order-detail]').first()
+  await detailButton.click()
+  const detail = page.locator('[data-edhr-batch-active-order-detail-page]').first()
+  await detail.waitFor({ state: 'visible', timeout: 60000 })
+  const facts = await collectPqcReleaseBusinessFacts(detail, 'afterMarketReleaseHistoryDetail')
+  assert.equal(
+    facts.signatureText,
+    expectedFacts.signatureText,
+    '历史追溯入口的详情必须显示与PQC已放行详情一致的放行签名'
+  )
+  assert.match(
+    facts.operationText,
+    /活跃订单资料上传|DOSSIER_UPLOAD/,
+    '历史追溯入口的详情必须显示资料上传操作事实'
+  )
+  await assertUploadedDossierFilesVisible(detail, 'afterMarketReleaseHistoryDetail')
+  evidence.afterMarketRelease.historyDetailFacts = facts
+  await screenshot(page, 'history-active-order-detail-after-market-release')
+  await page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 })
+  await historyPage.waitFor({ state: 'visible', timeout: 60000 })
+  const attachmentItems = await historyPage.locator('[data-edhr-history-attachment-item]').count()
+  evidence.afterMarketRelease.historyAttachmentItems = attachmentItems
+  evidence.afterMarketRelease.historyTimelineItems = await timeline.count()
+  await screenshot(page, 'batch-history-after-market-release')
+  persist()
+  return evidence.afterMarketRelease
 }
 
 const verifyMaterialActualUsage = async (scope) => {
@@ -529,9 +848,16 @@ const verifyMaterialActualUsage = async (scope) => {
   await screenshot(scope.page(), 'p2-material-actual-usage')
   assert.ok(comparisons.length > 0)
   for (const row of comparisons) {
-    assert.notEqual(row.expected, null, `物料${row.code}缺少生产输入来源，不能补造实际用量`)
-    assert.notEqual(row.actualUsage, '', `物料${row.code}实际用量为空`)
-    assert.equal(Number(row.actualUsage.replace(/,/g, '')), row.expected, `物料${row.code}实际用量应取生产输入最大值`)
+    if (row.expected === null) {
+      assert.equal(row.actualUsage, '', `物料${row.code}没有生产输入来源时不得补造实际用量`)
+      continue
+    }
+    assert.notEqual(row.actualUsage, '', `物料${row.code}存在生产输入来源但实际用量为空`)
+    assert.equal(
+      Number(row.actualUsage.replace(/,/g, '')),
+      row.expected,
+      `物料${row.code}实际用量应取生产输入最大值`
+    )
   }
 }
 
@@ -591,11 +917,20 @@ async function main() {
     await assertSummaryMaterialBatchesPresent(afterP2ActiveDetail, 'afterP2')
     await assertNoDetailP2Entrypoints(afterP2ActiveDetail, 'afterP2')
     await assertDossierTabsReadable(afterP2ActiveDetail, 'afterP2')
+    await uploadDossierFilesViaDetail(afterP2ActiveDetail, 'afterP2')
+    await assertUploadedDossierFilesVisible(afterP2ActiveDetail, 'afterP2')
     await screenshot(page, 'after-p2-active-order-detail')
 
     if (process.argv.includes('--material-usage')) await verifyMaterialActualUsage(afterP2ActiveDetail)
 
-    if (process.argv.includes('--with-p3')) await runP3(page, true)
+    if (process.argv.includes('--with-p3')) {
+      await runP3(page, true)
+      const releasedFacts = await approvePqcReleaseAndVerifyReleasedDetail(page)
+      await openBatchExecutionDetailAndVerifyReleaseFacts(page, releasedFacts)
+      if (process.argv.includes('--with-market-release')) {
+        await approveMarketReleaseAndVerifyHistory(page, releasedFacts)
+      }
+    }
 
     assert.equal(evidence.pageErrors.length, 0, `页面运行错误：${evidence.pageErrors.join('\n')}`)
     evidence.status = 'PASS'

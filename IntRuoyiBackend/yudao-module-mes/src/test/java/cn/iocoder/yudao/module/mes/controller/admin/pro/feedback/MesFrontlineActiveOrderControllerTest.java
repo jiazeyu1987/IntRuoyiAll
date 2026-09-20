@@ -72,6 +72,7 @@ class MesFrontlineActiveOrderControllerTest {
                         .setRouteVersionId(2101L)
                         .setRouteVersionNo("V14")
                         .setRouteName("生产路线")
+                        .setBusinessStatus("ACTIVE")
                         .setJoinedAt(LocalDateTime.of(2026, 8, 12, 9, 0))));
 
         CommonResult<List<MesFrontlineActiveOrderRespVO>> response = controller.getProductionActiveOrders();
@@ -83,6 +84,38 @@ class MesFrontlineActiveOrderControllerTest {
         assertEquals(new BigDecimal("100"), response.getData().get(0).getQuantity());
         assertEquals(2101L, response.getData().get(0).getRouteVersionId());
         assertEquals("V14", response.getData().get(0).getRouteVersionNo());
+    }
+
+    @Test
+    void getProductionActiveOrders_excludesNonFillableBusinessStatusRows() {
+        when(contextService.resolveResponsibleLeaderUserId(null)).thenReturn(7001L);
+        when(activeOrderService.listActiveOrders(7001L)).thenReturn(List.of(
+                new MesTeamLeaderActiveOrderRow()
+                        .setId(1009200176L)
+                        .setWorkOrderId(1001L)
+                        .setWorkOrderCode("WO-COMPLETED-001")
+                        .setProductId(3001L)
+                        .setProductName("已完工产品")
+                        .setQuantity(new BigDecimal("100"))
+                        .setRouteId(2001L)
+                        .setRouteVersionId(2101L)
+                        .setBusinessStatus("COMPLETED"),
+                new MesTeamLeaderActiveOrderRow()
+                        .setId(5002L)
+                        .setWorkOrderId(1002L)
+                        .setWorkOrderCode("WO-ACTIVE-001")
+                        .setProductId(3002L)
+                        .setProductName("可填写产品")
+                        .setQuantity(new BigDecimal("80"))
+                        .setRouteId(2002L)
+                        .setRouteVersionId(2102L)
+                        .setBusinessStatus("ACTIVE")));
+
+        CommonResult<List<MesFrontlineActiveOrderRespVO>> response = controller.getProductionActiveOrders();
+
+        assertEquals(1, response.getData().size());
+        assertEquals(5002L, response.getData().get(0).getActiveOrderId());
+        assertEquals("WO-ACTIVE-001", response.getData().get(0).getWorkOrderCode());
     }
 
     @Test

@@ -78,6 +78,9 @@ public class MesProEdhrReleaseApproveReqVO {
     @JsonIgnore
     private MesReleaseMaterialGateReceipt materialGateReceipt;
 
+    @JsonIgnore
+    private boolean passwordReauthenticated;
+
     public MesProEdhrReleaseApproveReqVO setReleaseTransactionId(Long releaseTransactionId) {
         this.releaseTransactionId = releaseTransactionId;
         return this;

@@ -37,6 +37,21 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
 
     @Update("""
             UPDATE mes_pro_edhr_batch_execution
+            SET status = 20,
+                provisioning_status = 'BATCH_READY',
+                updater = CAST(#{actorUserId} AS CHAR),
+                update_time = NOW()
+            WHERE tenant_id = #{tenantId}
+              AND id = #{id}
+              AND deleted = b'0'
+              AND status IN (0, 10, 20)
+            """)
+    int markActiveOrderPqcReleasedReadyForMarketRelease(@Param("tenantId") Long tenantId,
+                                                        @Param("id") Long id,
+                                                        @Param("actorUserId") Long actorUserId);
+
+    @Update("""
+            UPDATE mes_pro_edhr_batch_execution
             SET status = 60,
                 active_context_key = NULL,
                 remark = CONCAT(COALESCE(remark, ''), #{reason}),

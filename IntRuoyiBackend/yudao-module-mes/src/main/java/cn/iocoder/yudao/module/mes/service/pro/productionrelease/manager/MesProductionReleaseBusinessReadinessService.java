@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
@@ -103,6 +104,30 @@ public class MesProductionReleaseBusinessReadinessService {
                 checks);
     }
 
+    public MesProductionReleaseBusinessReadiness resolveActiveOrderFormalFactsReadiness(
+            MesProEdhrBatchExecutionDO batch,
+            MesProcessPoolActiveOrderReleaseApplicationDO application) {
+        if (batch == null || batch.getId() == null || application == null
+                || application.getId() == null
+                || application.getBatchExecutionId() == null
+                || !Objects.equals(batch.getId(), application.getBatchExecutionId())
+                || StrUtil.hasBlank(application.getWorkOrderCode(), application.getBatchCode(),
+                application.getSourceSnapshotHash(), application.getPqcDecision())
+                || application.getPqcReleaseWorkTaskId() == null
+                || application.getPqcDecidedBy() == null
+                || application.getPqcDecidedAt() == null) {
+            throw new IllegalArgumentException("active order formal facts are required for release readiness");
+        }
+        List<MesOrderReleaseCompletenessCheck> checks = List.of(
+                activeOrderFactCheck(MesProEdhrReleaseServiceImpl.CHECK_DHR_COMPLETENESS, "DHR 完整性检查"),
+                activeOrderFactCheck(MesProEdhrReleaseServiceImpl.CHECK_INSPECTION_RESULT, "检验结果检查"),
+                activeOrderFactCheck(MesProEdhrReleaseServiceImpl.CHECK_DEVIATION_CLOSED, "偏差关闭检查"),
+                activeOrderFactCheck(MesProEdhrReleaseServiceImpl.CHECK_REWORK_CLOSED, "返工关闭检查"),
+                activeOrderFactCheck(MesProEdhrReleaseServiceImpl.CHECK_SCRAP_RECORDED, "报废记录检查"),
+                activeOrderFactCheck(MesProEdhrReleaseServiceImpl.CHECK_INVENTORY_CONSISTENCY, "库存一致性检查"));
+        return buildReadiness(batch, checks, "ACTIVE_ORDER_FORMAL_FACTS");
+    }
+
     private MesOrderReleaseCompletenessCheck buildDhrCompletenessCheck(MesProEdhrBatchExecutionDO batch) {
         boolean pass = ordinaryProcessFillEvidenceComplete(batch.getId());
         String failureReason = pass ? "普通工序已填写完成并提交电子签名证据"
@@ -120,6 +145,43 @@ public class MesProductionReleaseBusinessReadinessService {
                 batch.getBatchExecutionCode(),
                 failureReason,
                 suggestion);
+    }
+
+    private MesOrderReleaseCompletenessCheck activeOrderFactCheck(String code, String name) {
+        return new MesOrderReleaseCompletenessCheck(
+                code,
+                name,
+                CATEGORY_DHR,
+                MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS,
+                SEVERITY_INFO,
+                "MES_ACTIVE_ORDER",
+                "ACTIVE_ORDER_RELEASE_APPLICATION",
+                "ACTIVE_ORDER_FORMAL_FACTS",
+                "ACTIVE_ORDER_FORMAL_FACTS",
+                "活跃订单详情正式事实已冻结并完成PQC复核",
+                "无需处理");
+    }
+
+    private MesProductionReleaseBusinessReadiness buildReadiness(
+            MesProEdhrBatchExecutionDO batch,
+            List<MesOrderReleaseCompletenessCheck> checks,
+            String sourceType) {
+        int failedCount = (int) checks.stream().filter(this::isFailedCheck).count();
+        int blockingCount = (int) checks.stream().filter(this::isBlockingCheck).count();
+        String snapshotJson = buildSnapshotJson(batch, checks, LocalDateTime.now(), sourceType);
+        return new MesProductionReleaseBusinessReadiness(
+                resultOf(checks, MesProEdhrReleaseServiceImpl.CHECK_DHR_COMPLETENESS),
+                resultOf(checks, MesProEdhrReleaseServiceImpl.CHECK_INSPECTION_RESULT),
+                resultOf(checks, MesProEdhrReleaseServiceImpl.CHECK_DEVIATION_CLOSED),
+                resultOf(checks, MesProEdhrReleaseServiceImpl.CHECK_REWORK_CLOSED),
+                resultOf(checks, MesProEdhrReleaseServiceImpl.CHECK_SCRAP_RECORDED),
+                resultOf(checks, MesProEdhrReleaseServiceImpl.CHECK_INVENTORY_CONSISTENCY),
+                checks.size(),
+                failedCount,
+                blockingCount,
+                snapshotJson,
+                DigestUtil.sha256Hex(snapshotJson),
+                checks);
     }
 
     private boolean ordinaryProcessFillEvidenceComplete(Long batchExecutionId) {
@@ -282,7 +344,15 @@ public class MesProductionReleaseBusinessReadinessService {
     private String buildSnapshotJson(MesProEdhrBatchExecutionDO batch,
                                      List<MesOrderReleaseCompletenessCheck> checks,
                                      LocalDateTime checkedAt) {
+        return buildSnapshotJson(batch, checks, checkedAt, "EDHR");
+    }
+
+    private String buildSnapshotJson(MesProEdhrBatchExecutionDO batch,
+                                     List<MesOrderReleaseCompletenessCheck> checks,
+                                     LocalDateTime checkedAt,
+                                     String sourceType) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("sourceType", sourceType);
         snapshot.put("batchExecutionId", batch.getId());
         snapshot.put("batchExecutionCode", batch.getBatchExecutionCode());
         snapshot.put("workOrderCode", batch.getWorkOrderCode());

@@ -47,6 +47,11 @@ assertIncludes(
   'flowEvents?: EdhrBatchExecutionReviewFlowEvent[]',
   'review-timeline API 合同必须包含流程干预事件。'
 )
+assertIncludes(
+  api,
+  'releaseEvents?: EdhrBatchExecutionReviewReleaseEvent[]',
+  'review-timeline API 合同必须包含上市放行事务事件。'
+)
 
 assertIncludes(
   historyPage,
@@ -65,6 +70,9 @@ assertIncludes(historyPage, 'signatureRecords', '统一时间线必须消费签�
 assertIncludes(historyPage, 'approvalRecords', '统一时间线必须消费审批记录。')
 assertIncludes(historyPage, 'archiveVersions', '统一时间线必须消费归档版本。')
 assertIncludes(historyPage, 'flowEvents', '统一时间线必须消费流程干预事件。')
+assertIncludes(historyPage, 'releaseEvents', '统一时间线必须消费上市放行事务事件。')
+assertIncludes(historyPage, '上市放行', '统一时间线必须展示上市放行历史信息。')
+assertIncludes(historyPage, '电子签名证据哈希=', '统一时间线必须明确展示上市放行电子签名证据。')
 assertIncludes(historyPage, 'resolveBatchEventTimelineTitle', '统一时间线必须把批次关闭和质量拒收翻译成用户可读结论。')
 assertIncludes(historyPage, '关闭签名ID=', '统一时间线必须展示批次关闭签名证据。')
 assertIncludes(historyPage, '质量拒收签名ID=', '统一时间线必须展示质量拒收签名证据。')

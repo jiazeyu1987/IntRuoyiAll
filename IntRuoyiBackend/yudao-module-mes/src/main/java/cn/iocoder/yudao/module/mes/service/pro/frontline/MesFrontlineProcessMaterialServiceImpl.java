@@ -57,6 +57,20 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
                                                                  Long routeProcessId, Long processId) {
         ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrder = activeOrderSnapshotResolver
                 .requireEffective(activeOrderId);
+        return listFrozenMaterials(activeOrder, routeId, routeProcessId, processId);
+    }
+
+    @Override
+    public List<MesFrontlineProcessMaterial> listArchivedFrozenMaterials(Long activeOrderId, Long routeId,
+                                                                         Long routeProcessId, Long processId) {
+        ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrder = activeOrderSnapshotResolver
+                .requireFormalSource(activeOrderId);
+        return listFrozenMaterials(activeOrder, routeId, routeProcessId, processId);
+    }
+
+    private List<MesFrontlineProcessMaterial> listFrozenMaterials(
+            ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrder, Long routeId,
+            Long routeProcessId, Long processId) {
         requireIdentity(activeOrder, routeId, routeProcessId, processId);
         MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder);
         MesProRouteVersionDO routeVersion = requireRouteVersion(activeOrder);

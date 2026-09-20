@@ -23,12 +23,12 @@ assert.doesNotMatch(
 
 assert.match(
   panel,
-  /<span>提交人<\/span>[\s\S]*pqcSubmission\.submitterName/,
+  /<span>提交人<\/span>[\s\S]*submission\.submitterName/,
   'PQC 提交卡片必须显示提交人。'
 )
 assert.match(
   panel,
-  /<span>审核人<\/span>[\s\S]*pqcSubmission\.reviewerName\s*\|\|\s*'未审核'/,
+  /<span>复核人<\/span>[\s\S]*submission\.reviewerName\s*\|\|\s*'未复核'/,
   'PQC 提交卡片必须显示审核人，未审核时显示未审核。'
 )
 assert.match(

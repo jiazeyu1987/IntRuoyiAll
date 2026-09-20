@@ -524,6 +524,7 @@ import {
   type EdhrBatchExecutionRespVO,
   type EdhrBatchExecutionDossierItemRespVO,
   type EdhrBatchExecutionReviewFlowEvent,
+  type EdhrBatchExecutionReviewReleaseEvent,
   type EdhrBatchExecutionReviewTaskEvent,
   type EdhrBatchExecutionReviewExecutionRespVO,
   type EdhrBatchReviewTimelineRespVO
@@ -620,6 +621,7 @@ const timelineSourceSummaryItems = computed(() => [
   { label: '电子签名', count: timeline.value?.signatureRecords?.length || 0 },
   { label: '审批记录', count: timeline.value?.approvalRecords?.length || 0 },
   { label: '流程干预', count: timeline.value?.flowEvents?.length || 0 },
+  { label: '上市放行', count: timeline.value?.releaseEvents?.length || 0 },
   { label: '归档版本', count: timeline.value?.archiveVersions?.length || 0 }
 ])
 
@@ -709,6 +711,17 @@ const resolveFlowInterventionTimelineProof = (event: EdhrBatchExecutionReviewFlo
   ]
     .filter(Boolean)
     .join(' ; ')
+}
+
+const resolveReleaseTimelineDescription = (event: EdhrBatchExecutionReviewReleaseEvent) => {
+  return [
+    `状态 ${event.fromStatus || '--'} -> ${event.toStatus || '--'}`,
+    event.actorName || event.actorUserId ? `操作人 ${event.actorName || event.actorUserId}` : '',
+    event.opinion ? `意见 ${event.opinion}` : '',
+    event.reason ? `原因 ${event.reason}` : ''
+  ]
+    .filter(Boolean)
+    .join('，')
 }
 
 const resolveBatchEventTimelineTitle = (event: EdhrBatchExecutionReviewBatchEvent) => {
@@ -827,6 +840,25 @@ const unifiedTimelineItems = computed<UnifiedTimelineItem[]>(() => {
         event.occurredAt,
         event.action === 'TRANSFER' || event.action === 'ADD_SIGN' ? 'warning' : 'danger',
         resolveFlowInterventionTimelineProof(event)
+      )
+    )
+  })
+
+  ;(current.releaseEvents || []).forEach((event, index) => {
+    items.push(
+      createTimelineItem(
+        `release-${index}-${event.id || ''}`,
+        '上市放行',
+        `上市放行 ${event.eventType || '--'}`,
+        resolveReleaseTimelineDescription(event),
+        event.occurredAt,
+        event.toStatus === 'RELEASED' ? 'success' : 'warning',
+        [
+          event.signoffEvidenceHash ? `电子签名证据哈希=${event.signoffEvidenceHash}` : '',
+          event.evidenceHash ? `事件证据哈希=${event.evidenceHash}` : ''
+        ]
+          .filter(Boolean)
+          .join(' ; ') || undefined
       )
     )
   })

@@ -113,7 +113,7 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             WHERE id = #{id}
               AND deleted = b'0'
               AND version = #{expectedVersion}
-              AND application_status = 'REPORT_UPLOAD_PENDING'
+              AND application_status IN ('REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING')
             """)
     int handoffReportsToManager(@Param("id") Long id,
                                 @Param("expectedVersion") Integer expectedVersion,
@@ -142,7 +142,7 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
 
     @Update("""
             UPDATE mes_pro_process_pool_active_order_release_application
-            SET application_status = 'REPORT_UPLOAD_PENDING',
+            SET application_status = 'MANAGER_RELEASE_PENDING',
                 batch_execution_id = #{batchExecutionId},
                 pqc_decision = 'APPROVE',
                 pqc_decided_by = #{decidedBy},

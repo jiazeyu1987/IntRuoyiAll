@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDateTime;
@@ -81,6 +82,9 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .eq(MesProcessPoolActiveOrderDO::getId, activeOrderId)
                 .last("FOR UPDATE"));
     }
+
+    @Select("SELECT * FROM mes_pro_process_pool_active_order WHERE id = #{activeOrderId} LIMIT 1")
+    MesProcessPoolActiveOrderDO selectByIdIgnoreDeleted(@Param("activeOrderId") Long activeOrderId);
 
     default int markCompleted(Long activeOrderId, Integer expectedVersion, Long leaderUserId) {
         if (activeOrderId == null || expectedVersion == null || leaderUserId == null) {

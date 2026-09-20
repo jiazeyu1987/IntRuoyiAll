@@ -38,13 +38,13 @@ assert.match(
 )
 assert.match(
   service,
-  /activeOrderMapper\.selectById\(activeOrderId\)/,
-  '批次执行详情服务必须校验正式活跃订单存在。'
+  /activeOrderMapper\.selectByIdIgnoreDeleted\(activeOrderId\)/,
+  '批次执行详情服务必须校验批次绑定的正式活跃订单来源，即使该来源已从当前活跃池归档。'
 )
 assert.match(
   service,
-  /detailService\.getDetail\(activeOrder\.getLeaderUserId\(\), activeOrderId\)/,
-  '批次执行详情服务必须复用活跃订单详情投影，但不要求当前查看人具备生产组长权限。'
+  /detailService\.getArchivedFormalDetail\(activeOrderId\)/,
+  '批次执行详情服务必须复用活跃订单正式事实投影，且上市放行后仍能读取同一份详情。'
 )
 assert.match(
   api,

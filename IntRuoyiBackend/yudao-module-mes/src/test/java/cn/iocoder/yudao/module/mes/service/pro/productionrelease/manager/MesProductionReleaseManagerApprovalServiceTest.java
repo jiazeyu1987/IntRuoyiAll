@@ -36,6 +36,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import com.alibaba.fastjson.JSONObject;
@@ -160,6 +161,25 @@ class MesProductionReleaseManagerApprovalServiceTest {
     }
 
     @Test
+    void activeOrderFormalFactsPrepareAfterDatabaseDatetimePrecisionRoundTrip() {
+        Fixture fixture = activeOrderFormalFactFixture();
+        stubApproval(fixture);
+        lenient().when(businessReadinessService.resolveBusinessReadinessChecks(any()))
+                .thenReturn(blockingReadiness());
+        when(businessReadinessService.resolveActiveOrderFormalFactsReadiness(any(), any()))
+                .thenReturn(passReadiness());
+
+        MesProductionReleaseManagerApprovalResult result = service.prepareForFinalization(
+                ACTOR_USER_ID, fixture.command());
+
+        assertEquals(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING, result.getApplicationStatus());
+        assertEquals(fixture.reportSnapshotHash(), result.getReportSnapshotHash());
+        verify(businessReadinessService).resolveActiveOrderFormalFactsReadiness(any(), any());
+        verify(releaseTransactionMapper, never()).approveProductionRelease(
+                any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     void sameKeySamePayloadReplaysReleasedReceiptWithoutWrites() {
         Fixture fixture = fixture();
         when(workTaskMapper.selectById(2001L)).thenReturn(fixture.workTask());
@@ -259,7 +279,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
         when(releaseTransactionMapper.selectByIdForUpdate(1001L)).thenReturn(fixture.transaction());
         when(workTaskMapper.selectByIdForUpdate(2001L)).thenReturn(fixture.workTask());
         when(batchExecutionMapper.selectById(901L)).thenReturn(fixture.batch());
-        when(batchTaskMapper.selectListByBatchExecutionId(901L)).thenReturn(fixture.batchTasks());
+        lenient().when(batchTaskMapper.selectListByBatchExecutionId(901L)).thenReturn(fixture.batchTasks());
         lenient().when(candidateResolver.resolveRequiredCandidates(1L,
                 MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE))
                 .thenReturn(new MesProductionReleaseRoleCandidates(
@@ -319,6 +339,25 @@ class MesProductionReleaseManagerApprovalServiceTest {
                 .setSignoffSubjectId("signed-subject")
                 .setApprovalOpinion("approved");
         return new Fixture(application, reportSnapshotHash, batchTasks, command);
+    }
+
+    private Fixture activeOrderFormalFactFixture() {
+        Fixture fixture = fixture();
+        LocalDateTime preciseDecidedAt = LocalDateTime.of(2026, 9, 20, 10, 0, 0, 797000000);
+        MesProcessPoolActiveOrderReleaseApplicationDO application = fixture.application()
+                .setActiveOrderId(801L)
+                .setWorkOrderId(301L)
+                .setWorkOrderCode("WO-001")
+                .setBatchCode("BATCH-001")
+                .setPqcReleaseWorkTaskId(951L)
+                .setPqcDecision("APPROVE")
+                .setPqcDecidedBy(ACTOR_USER_ID)
+                .setPqcDecidedAt(preciseDecidedAt.plusSeconds(1).withNano(0))
+                .setSourceSnapshotHash("active-order-source-hash");
+        String formalFactsHash = MesProductionReleaseFormalFactSnapshots.activeOrderFactsSnapshotHash(
+                application, "APPROVE", ACTOR_USER_ID, preciseDecidedAt);
+        application.setReportSnapshotHash(formalFactsHash);
+        return new Fixture(application, formalFactsHash, fixture.batchTasks(), fixture.command());
     }
 
     private MesProEdhrReleaseTransactionEventDO replayEvent(Fixture fixture) {

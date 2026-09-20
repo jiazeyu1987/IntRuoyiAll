@@ -51,7 +51,7 @@
 - Keywords: 有效路线误判, 请从工艺流程列表选择有效路线, 未激活页签请求, 独立配置页签, DCC 项目绑定, 缺表, 错误归属, 页签按需加载 -> `docs/frontend-development.md#独立配置页签加载与错误归属`
 - Keywords: 数据库 Long ID, Number route params, Number route query, parsePositiveRouteQueryId, MesRouteId, 超过安全整数, 路由身份精度丢失 -> `docs/frontend-development.md#前端数据库-long-id-路由解析门禁`
 - Keywords: 一线生产最大化, 首次切换工序短暂加载, 首次切换员工短暂加载, 再次切换无加载, 全部员工模板快照, employeeSwitchSnapshots, runtime-config GET 预热, switch-employee POST 禁止批量预调用 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁`
-- Keywords: 一线生产默认首单, 活跃订单冻结工序, activeOrderId 工序接口, routeVersionId, 旧订单旧工序, 新订单新工序, 冻结节点缺少 processCode processName, 冻结工序标签只读订单逐工序快照与锁定路线快照, 禁止读取当前工序主数据补历史, PQC任务必须属于订单冻结routeProcessId和processId, 禁止按 routeId 过滤当前路线, 运行配置活跃订单身份, 切换订单清理旧工序员工模板配置, 旧下游不得拒绝切换上游, 迟到响应令牌 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁` and `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见`
+- Keywords: 一线生产默认首单, 活跃订单冻结工序, activeOrderId 工序接口, routeVersionId, 旧订单旧工序, 新订单新工序, 冻结节点缺少 processCode processName, 冻结工序标签只读订单逐工序快照与锁定路线快照, 禁止读取当前工序主数据补历史, PQC任务必须属于订单冻结routeProcessId和processId, 禁止按 routeId 过滤当前路线, 运行配置活跃订单身份, 一线生产活跃订单列表只返回可填写订单, businessStatus=ACTIVE, activeStatus-only禁止, 切换订单清理旧工序员工模板配置, 旧下游不得拒绝切换上游, 迟到响应令牌 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁` and `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见`
 - Keywords: 一线设备多选, selectedDevices, selectionMode, deviceGroupKey, device selection snapshot, SINGLE, MULTIPLE, 未选设备, 设备组快照哈希, 历史设备组禁止推断, 当前工序未配置报工物料, productionSubmitContext.deviceSelectionSnapshot -> `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见`
 - Keywords: 工序多物料报工, 批记录物料配置, frontlineReportMaterialIds, 非产品BOM, 空配置允许报工, 工序级报工, materialDetails空数组, materialDetails, materialDetails非空子集, 输出物料部分填写, 物料页签灰绿, 完成数量最小值, 5/3取3, 主报工数量守恒, 多物料损耗负合格数量, 系统同步批号, production_order_no material_number lot_number -> `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见`
 - Keywords: 报工列表黄框字段, 主表不显示详情已有字段, 多物料多设备主表去重, submissionMaterialSummary隐藏, submissionDeviceSummary隐藏, submissionParameterSummary隐藏, 完成数量损耗数量移入展开详情, 设备名称设备编号参数同一行, 参数分号分隔 -> `docs/frontend-development.md#前端静态契约隔离门禁`
@@ -676,4 +676,5 @@
 - Keywords: AI E2E, eDHR主链, 生产PQC交错, 全部生产后补PQC, INTERLEAVED_MAIN_CHAIN_PLAN, S02, S03 -> `docs/e2e-rules.md#固定输入输出的业务链验收`
 - Keywords: AI E2E, targetRequests, targetRequestEvidenceFlushed, targetRequest label, httpStatus, businessCode, parseError, Playwright response异步解析, 失败报告缺最后请求, flushTargetRequests -> `docs/e2e-rules.md#固定输入输出的业务链验收`
 - Keywords: AI E2E, eDHR PREPARE, ERP生产订单模板, unitCode, FUnitId, ExecuteBillQuery, View模板分录, 1040502016 -> `docs/e2e-rules.md#固定输入输出的业务链验收`
+- Keywords: eDHR 活跃订单正式事实, 历史追溯详情, 资料上传, 文件名, 上传人, 上传时间, 活跃订单资料上传, 上市放行后详情, 历史列表附件计数为空 -> `docs/e2e-rules.md#固定输入输出的业务链验收`
 - Keywords: Codex Web, IntRuoyi MCP, Streamable HTTP, 只读工具注册, 示例 CRUD 工具禁止暴露, MCP endpoint 未配置 fail-fast -> `docs/integrations/external-platform-readiness.md#MCP-Tool-Exposure-Boundary`

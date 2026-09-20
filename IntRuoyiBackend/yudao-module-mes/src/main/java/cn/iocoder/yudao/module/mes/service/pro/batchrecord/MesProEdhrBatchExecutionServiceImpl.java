@@ -4141,6 +4141,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         MesProEdhrBatchExecutionDO batch = validateBatchExists(id);
         syncIfActive(batch);
         batch = batchExecutionMapper.selectById(batch.getId());
+        MesProEdhrReleaseTransactionDO releaseTransaction =
+                releaseTransactionMapper.selectByBatchExecutionId(batch.getId());
         List<MesProEdhrBatchExecutionTaskDO> tasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId());
         batchExecutionVisibilityService.requireVisibleBatch(batch, tasks, currentUserId());
         List<MesProEdhrBatchExecutionSignatureDO> signatures =
@@ -4187,9 +4189,51 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setSignatureRecords(signatures.stream().map(this::toSignatureRecord).toList())
                 .setApprovalRecords(approvalRecords)
                 .setFlowEvents(flowEvents.stream().map(this::toFlowEvent).toList())
+                .setReleaseEvents(buildReviewTimelineReleaseEvents(releaseTransaction))
                 .setArchiveVersions(archives.stream().map(this::toArchiveResp).toList())
                 .setDossierItems(dossierItems.stream().map(this::toTimelineDossierItem).toList())
                 .setExecutionReviews(executionReviews);
+    }
+
+    private List<EdhrBatchExecutionReviewTimelineRespVO.ReleaseEvent> buildReviewTimelineReleaseEvents(
+            MesProEdhrReleaseTransactionDO releaseTransaction) {
+        if (releaseTransaction == null || releaseTransaction.getId() == null) {
+            return List.of();
+        }
+        List<MesProEdhrReleaseTransactionEventDO> events = releaseTransactionEventMapper.selectList(
+                new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProEdhrReleaseTransactionEventDO>()
+                        .eq(MesProEdhrReleaseTransactionEventDO::getReleaseTransactionId,
+                                releaseTransaction.getId())
+                        .orderByAsc(MesProEdhrReleaseTransactionEventDO::getOccurredAt)
+                        .orderByAsc(MesProEdhrReleaseTransactionEventDO::getId));
+        if (events.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> actorIds = events.stream()
+                .map(MesProEdhrReleaseTransactionEventDO::getActorUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, AdminUserRespDTO> actorMap = actorIds.isEmpty()
+                ? Map.of()
+                : Objects.requireNonNull(adminUserApi.getUserMap(actorIds),
+                        "EDHR review timeline release actors are required");
+        return events.stream().map(event -> {
+            AdminUserRespDTO actor = event.getActorUserId() == null
+                    ? null : Objects.requireNonNull(actorMap.get(event.getActorUserId()),
+                            "EDHR review timeline release actor is required");
+            return new EdhrBatchExecutionReviewTimelineRespVO.ReleaseEvent()
+                    .setId(event.getId())
+                    .setEventType(event.getEventType())
+                    .setFromStatus(event.getFromStatus())
+                    .setToStatus(event.getToStatus())
+                    .setActorUserId(event.getActorUserId())
+                    .setActorName(actor == null ? null : requireActorNickname(actor, "timelineReleaseActor"))
+                    .setReason(event.getReason())
+                    .setOpinion(event.getOpinion())
+                    .setSignoffEvidenceHash(event.getSignoffEvidenceHash())
+                    .setEvidenceHash(event.getEvidenceHash())
+                    .setOccurredAt(event.getOccurredAt());
+        }).toList();
     }
 
     private Map<Long, TaskGate> buildReviewTimelineTaskGateMap(MesProEdhrBatchExecutionDO batch,
@@ -9056,7 +9100,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 throw new IllegalStateException("active order operation audit source snapshot hash is missing: "
                         + batchExecutionId);
             }
-            return new OperationAuditEnrichment(metadata.toJSONString(), sourceSnapshotHash);
+            return new OperationAuditEnrichment(metadata.toJSONString(), normalizeAuditSummaryHash(sourceSnapshotHash));
         }
         List<Long> activeOrderIds = origins.stream()
                 .map(MesProEdhrBatchExecutionOriginDO::getActiveOrderId)
@@ -9093,7 +9137,14 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             }
             resolvedAfterSummaryHash = sourceSnapshotHashes.get(0);
         }
-        return new OperationAuditEnrichment(metadata.toJSONString(), resolvedAfterSummaryHash);
+        return new OperationAuditEnrichment(metadata.toJSONString(), normalizeAuditSummaryHash(resolvedAfterSummaryHash));
+    }
+
+    private String normalizeAuditSummaryHash(String summaryHash) {
+        if (StrUtil.isBlank(summaryHash) || summaryHash.length() <= 64) {
+            return summaryHash;
+        }
+        return DigestUtil.sha256Hex(summaryHash);
     }
 
     private record OperationAuditEnrichment(String metadataJson, String afterSummaryHash) {

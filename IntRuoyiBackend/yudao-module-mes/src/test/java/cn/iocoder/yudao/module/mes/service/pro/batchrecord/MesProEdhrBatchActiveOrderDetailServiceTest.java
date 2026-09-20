@@ -30,7 +30,7 @@ class MesProEdhrBatchActiveOrderDetailServiceTest {
     private MesProEdhrBatchActiveOrderDetailService service;
 
     @Test
-    void getDetail_usesBatchFormalSourceAndOwnerProjection() {
+    void getDetail_usesBatchArchivedFormalSource() {
         EdhrBatchExecutionRespVO batch = new EdhrBatchExecutionRespVO()
                 .setId(100L)
                 .setWorkOrderId(200L)
@@ -42,14 +42,14 @@ class MesProEdhrBatchActiveOrderDetailServiceTest {
         MesTeamLeaderActiveOrderDetail detail = new MesTeamLeaderActiveOrderDetail()
                 .setActiveOrderId(300L);
         when(batchExecutionService.get(100L)).thenReturn(batch);
-        when(activeOrderMapper.selectById(300L)).thenReturn(activeOrder);
-        when(detailService.getDetail(400L, 300L)).thenReturn(detail);
+        when(activeOrderMapper.selectByIdIgnoreDeleted(300L)).thenReturn(activeOrder);
+        when(detailService.getArchivedFormalDetail(300L)).thenReturn(detail);
 
         assertSame(detail, service.getDetail(100L));
 
         verify(batchExecutionService).get(100L);
-        verify(activeOrderMapper).selectById(300L);
-        verify(detailService).getDetail(400L, 300L);
+        verify(activeOrderMapper).selectByIdIgnoreDeleted(300L);
+        verify(detailService).getArchivedFormalDetail(300L);
     }
 
     @Test
@@ -70,7 +70,7 @@ class MesProEdhrBatchActiveOrderDetailServiceTest {
                 .setId(100L)
                 .setWorkOrderId(200L)
                 .setActiveOrderId(300L));
-        when(activeOrderMapper.selectById(300L)).thenReturn(new MesProcessPoolActiveOrderDO()
+        when(activeOrderMapper.selectByIdIgnoreDeleted(300L)).thenReturn(new MesProcessPoolActiveOrderDO()
                 .setId(300L)
                 .setLeaderUserId(400L)
                 .setWorkOrderId(999L));

@@ -52,13 +52,18 @@ assert.match(
 
 assert.match(
   releaseDetailService,
-  /MesProBatchRecordExecutionSignatureMapper/,
-  'PQC 放行详情服务必须从正式电子签名表读取签名记录。'
+  /ElectronicSignatureQueryService/,
+  'PQC 放行详情服务必须通过正式电子签名查询服务读取签名记录。'
 )
 assert.match(
   releaseDetailService,
-  /selectById\(decision\.getSignatureId\(\)\)/,
-  'PQC 放行详情服务必须使用放行回执 signatureId 读取签名。'
+  /signatureQueryService\.getById\(signatureId\)/,
+  'PQC 放行详情服务必须使用放行回执 signatureId 读取正式签名。'
+)
+assert.match(
+  releaseDetailService,
+  /signatureQueryService\.verifyEvidence\(signatureId\)/,
+  'PQC 放行详情服务必须校验证据哈希和签名有效性。'
 )
 assert.match(
   releaseDetailService,

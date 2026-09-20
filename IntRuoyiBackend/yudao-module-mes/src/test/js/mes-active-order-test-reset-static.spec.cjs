@@ -20,6 +20,21 @@ assert.match(controller, /mes:pro-process-pool-team-leader:maintain/)
 assert.match(service, new RegExp(targetCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 assert.match(service, /TenantContextHolder\.getTenantId\(\)/)
 assert.match(service, /@Transactional\(rollbackFor = Exception\.class\)/)
+assert.match(
+  service,
+  /\.eq\(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrder\.getId\(\)\)/,
+  'fixed test reset must collect every non-deleted active-order row for the fixed work order, including CLOSED/RELEASED rows'
+)
+assert.match(
+  service,
+  /workOrder\.setStatus\(MesProWorkOrderStatusEnum\.CONFIRMED\.getStatus\(\)\)/,
+  'fixed test reset must restore the fixed work order to CONFIRMED before the next real flow'
+)
+assert.doesNotMatch(
+  service,
+  /\.in\(MesProcessPoolActiveOrderDO::getActiveStatus, List\.of\(STATUS_ACTIVE, STATUS_REMOVED\)\)/,
+  'fixed test reset must not leave released rows outside the reset scope'
+)
 for (const required of [
   'deleteFeedbacks',
   'deleteOrderProcessCompletions',

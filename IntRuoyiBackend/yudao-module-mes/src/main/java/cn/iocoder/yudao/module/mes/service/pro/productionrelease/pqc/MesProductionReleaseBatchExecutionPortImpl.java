@@ -129,6 +129,28 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
                         .setRemark("PQC production release application " + command.getApplicationId()));
     }
 
+    @Override
+    public void markReadyForMarketRelease(Long batchExecutionId, Long actorUserId) {
+        if (batchExecutionId == null || batchExecutionId <= 0 || actorUserId == null) {
+            throw exception(BAD_REQUEST);
+        }
+        int updated = batchExecutionMapper.markActiveOrderPqcReleasedReadyForMarketRelease(
+                TenantContextHolder.getRequiredTenantId(), batchExecutionId, actorUserId);
+        if (updated != 1) {
+            throw new MesReleaseFlowBlockerException(
+                    "active order batch execution cannot be marked ready for market release",
+                    new MesReleaseFlowFailureRespVO()
+                            .setStage(MesReleaseFlowStage.SP_3)
+                            .setCurrentStatus(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING)
+                            .setBlockers(List.of(new MesReleaseFlowBlocker()
+                                    .setBlockerType(MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE)
+                                    .setObjectType("BATCH_EXECUTION")
+                                    .setObjectId(String.valueOf(batchExecutionId))
+                                    .setReason("active order batch execution cannot be marked ready for market release")
+                                    .setSuggestion("confirm the active order batch execution is not frozen, voided, rejected or archived"))));
+        }
+    }
+
     private MesBatchExecutionProvisionCommand toProvisionCommand(
             MesProductionReleaseBatchExecutionCommand command) {
         return new MesBatchExecutionProvisionCommand()

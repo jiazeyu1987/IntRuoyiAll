@@ -56,6 +56,9 @@ public class MesReleaseFinalizationCommand {
     @JsonIgnore
     private boolean materialGateRequired = true;
 
+    @JsonIgnore
+    private boolean passwordReauthenticated;
+
     public boolean isIndependentOrigin() {
         return origin == MesReleaseOrigin.MANUAL
                 || origin == MesReleaseOrigin.SCHEDULED

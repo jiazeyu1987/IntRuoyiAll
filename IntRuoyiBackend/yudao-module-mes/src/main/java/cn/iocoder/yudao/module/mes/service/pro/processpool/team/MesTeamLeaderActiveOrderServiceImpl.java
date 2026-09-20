@@ -1028,12 +1028,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (workOrder.getTenantId() != null && !Objects.equals(workOrder.getTenantId(), tenantId)) {
             throw new IllegalStateException("FIXED_ACTIVE_ORDER_TEST_RESET_TENANT_SCOPE_MISMATCH");
         }
-        workOrderMapper.updateTemporaryFrozenByIds(List.of(workOrder.getId()), Boolean.FALSE);
+        workOrder.setStatus(MesProWorkOrderStatusEnum.CONFIRMED.getStatus())
+                .setTemporaryFrozen(Boolean.FALSE);
+        workOrderMapper.updateById(workOrder);
         List<MesProcessPoolActiveOrderDO> activeOrders = activeOrderMapper.selectList(
                 new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
                         .eq(MesProcessPoolActiveOrderDO::getTenantId, tenantId)
                         .eq(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrder.getId())
-                        .in(MesProcessPoolActiveOrderDO::getActiveStatus, List.of(STATUS_ACTIVE, STATUS_REMOVED))
                         .orderByAsc(MesProcessPoolActiveOrderDO::getId)
                         .last("FOR UPDATE"));
         List<Long> activeOrderIds = activeOrders.stream().map(MesProcessPoolActiveOrderDO::getId)

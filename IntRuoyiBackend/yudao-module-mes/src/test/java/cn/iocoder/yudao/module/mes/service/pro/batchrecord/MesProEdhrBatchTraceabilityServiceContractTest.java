@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 
 import cn.hutool.crypto.digest.DigestUtil;
 
@@ -222,6 +223,43 @@ class MesProEdhrBatchTraceabilityServiceContractTest {
     }
 
     @Test
+    void activeOrderTraceGraphAllowsMultipleMaterialIssueFactsFromFormalDetail() {
+        MesProEdhrBatchExecutionOriginDO origin = MesProEdhrBatchExecutionOriginDO.builder()
+                .id(1L).batchExecutionId(101L).entryType(MesProEdhrBatchTraceEntryType.ACTIVE_ORDER_COMPLETION)
+                .hasActualLoss(true).build();
+        List<MesProEdhrBatchExecutionTraceLinkDO> links = new ArrayList<>(List.of(
+                traceLink(2L, 1L, MesProEdhrBatchTraceLinkType.ACTIVE_ORDER, "ACTIVE_ORDER", 100L),
+                traceLink(3L, 1L, MesProEdhrBatchTraceLinkType.WORK_ORDER, "WORK_ORDER", 101L),
+                traceLink(4L, 1L, MesProEdhrBatchTraceLinkType.PRODUCTION_SUBMIT, "PRODUCTION_SUBMIT", 102L),
+                traceLink(5L, 1L, MesProEdhrBatchTraceLinkType.PRODUCTION_SIGNATURE, "PRODUCTION_SIGNATURE", 103L),
+                traceLink(6L, 1L, MesProEdhrBatchTraceLinkType.PRODUCTION_LEADER_REVIEW, "PRODUCTION_LEADER_REVIEW", 104L),
+                traceLink(7L, 1L, MesProEdhrBatchTraceLinkType.PQC_TASK, "PQC_TASK", 105L),
+                traceLink(8L, 1L, MesProEdhrBatchTraceLinkType.PQC_SUBMISSION, "PQC_SUBMISSION", 106L),
+                traceLink(9L, 1L, MesProEdhrBatchTraceLinkType.PQC_SIGNATURE, "PQC_SIGNATURE", 107L),
+                traceLink(10L, 1L, MesProEdhrBatchTraceLinkType.PQC_LEADER_CONFIRMATION, "PQC_LEADER_CONFIRMATION", 108L),
+                traceLink(11L, 1L, MesProEdhrBatchTraceLinkType.PQC_AGGREGATE_DETAIL, "PQC_AGGREGATE_DETAIL", 109L),
+                traceLink(12L, 1L, MesProEdhrBatchTraceLinkType.BATCH_RECORD_RECEIPT, "BATCH_RECORD_RECEIPT", 110L),
+                traceLink(13L, 1L, MesProEdhrBatchTraceLinkType.PROCESS_INSPECTION_RECEIPT, "PROCESS_INSPECTION_RECEIPT", 111L),
+                traceLink(14L, 1L, MesProEdhrBatchTraceLinkType.COMPLETION_BACKFILL_RECEIPT, "COMPLETION_BACKFILL_RECEIPT", 112L),
+                traceLink(15L, 1L, MesProEdhrBatchTraceLinkType.BATCH_PROVISION_RECEIPT, "BATCH_PROVISION_RECEIPT", 113L),
+                traceLink(16L, 1L, MesProEdhrBatchTraceLinkType.LOSS_REPORT_RECEIPT, "LOSS_REPORT_RECEIPT", 114L),
+                traceLink(17L, 1L, MesProEdhrBatchTraceLinkType.LOSS_FACT, "LOSS_FACT", 115L).setRelationStatus("HAS_LOSS"),
+                traceLink(18L, 1L, MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE, "MATERIAL_ISSUE", 116L),
+                traceLink(19L, 1L, MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE_LINE, "MATERIAL_ISSUE_LINE", 117L),
+                traceLink(20L, 1L, MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE, "MATERIAL_ISSUE", 118L),
+                traceLink(21L, 1L, MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE_LINE, "MATERIAL_ISSUE_LINE", 119L)
+        ));
+        String manifestJson = "{\"batchExecutionId\":101}";
+        MesProEdhrBatchExecutionTraceManifestDO manifest = MesProEdhrBatchExecutionTraceManifestDO.builder()
+                .id(22L).batchExecutionId(101L).manifestVersion(1).manifestJson(manifestJson)
+                .manifestHash(DigestUtil.sha256Hex(
+                        MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(manifestJson))).build();
+
+        assertTrue(MesProEdhrBatchTraceabilityServiceImpl.isTraceCaptured(
+                List.of(origin), links, List.of(manifest)));
+    }
+
+    @Test
     void flow8SourcePrecheckReadsFormalFourFieldContract() {
         MesProEdhrBatchExecutionOriginDO origin = MesProEdhrBatchExecutionOriginDO.builder()
                 .id(1L).batchExecutionId(101L).sourceSnapshotHash("origin-snapshot-v1").build();
@@ -304,6 +342,24 @@ class MesProEdhrBatchTraceabilityServiceContractTest {
         MesProEdhrBatchExecutionTraceLinkDO provision = traceLink(3L, 1L,
                 MesProEdhrBatchTraceLinkType.BATCH_PROVISION_RECEIPT, "BATCH_PROVISION_RECEIPT", 13L)
                 .setRelationStatus("CAPTURED");
+
+        MesProEdhrBatchTraceSourcePrecheckRespVO snapshot =
+                MesProEdhrBatchTraceabilityServiceImpl.resolveSourcePrecheckWithoutLinkId(
+                        new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(101L),
+                        List.of(origin), List.of(provision), java.time.LocalDateTime.of(2026, 8, 24, 12, 0));
+
+        assertEquals(3L, snapshot.getOriginLinkId());
+        assertEquals("origin-snapshot-v1", snapshot.getSourceSnapshotHash());
+    }
+
+    @Test
+    void flow8SourcePrecheckSelectsTheSingleFormalBoundBatchProvisionLinkWhenCallerHasNoLinkId() {
+        MesProEdhrBatchExecutionOriginDO origin = MesProEdhrBatchExecutionOriginDO.builder()
+                .id(1L).batchExecutionId(101L).entryType(MesProEdhrBatchTraceEntryType.ACTIVE_ORDER_COMPLETION)
+                .sourceSnapshotHash("origin-snapshot-v1").build();
+        MesProEdhrBatchExecutionTraceLinkDO provision = traceLink(3L, 1L,
+                MesProEdhrBatchTraceLinkType.BATCH_PROVISION_RECEIPT, "BATCH_PROVISION_RECEIPT", 13L)
+                .setRelationStatus("BOUND");
 
         MesProEdhrBatchTraceSourcePrecheckRespVO snapshot =
                 MesProEdhrBatchTraceabilityServiceImpl.resolveSourcePrecheckWithoutLinkId(

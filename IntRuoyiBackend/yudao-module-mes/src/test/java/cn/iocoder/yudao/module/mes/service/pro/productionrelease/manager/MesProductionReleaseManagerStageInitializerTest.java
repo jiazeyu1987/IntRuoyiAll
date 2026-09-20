@@ -30,6 +30,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -127,6 +128,63 @@ class MesProductionReleaseManagerStageInitializerTest {
         assertEquals(77L, task.getCandidateSourceId());
         assertEquals("8101,8102", task.getCandidateUserSnapshot());
         assertEquals("manager-candidate-hash", task.getResponsibilitySourceVersion());
+    }
+
+    @Test
+    void createsPendingApprovalTransactionFromActiveOrderFormalFactsAfterPqcRelease() {
+        LocalDateTime preciseDecidedAt = LocalDateTime.of(2026, 9, 20, 10, 0, 0, 123456789);
+        MesProcessPoolActiveOrderReleaseApplicationDO application = new MesProcessPoolActiveOrderReleaseApplicationDO()
+                .setId(701L)
+                .setActiveOrderId(801L)
+                .setWorkOrderId(301L)
+                .setWorkOrderCode("WO-001")
+                .setBatchCode("BATCH-001")
+                .setBatchExecutionId(901L)
+                .setPqcReleaseWorkTaskId(951L)
+                .setPqcDecision("PASS")
+                .setPqcDecidedBy(7002L)
+                // The database datetime column truncates sub-millisecond precision after PQC approval.
+                .setPqcDecidedAt(preciseDecidedAt.withNano(123000000))
+                .setSourceSnapshotHash("active-order-source-hash")
+                .setApplicationStatus(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING)
+                .setVersion(5)
+                .setAppliedBy(7001L);
+        String formalFactsHash = MesProductionReleaseFormalFactSnapshots.activeOrderFactsSnapshotHash(
+                application, "APPROVE", 7002L, preciseDecidedAt);
+        application.setReportSnapshotHash(formalFactsHash);
+        when(applicationMapper.selectById(701L)).thenReturn(application);
+        when(batchExecutionMapper.selectById(901L)).thenReturn(batch());
+        when(candidateResolver.resolveRequiredCandidates(1L,
+                MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE))
+                .thenReturn(new MesProductionReleaseRoleCandidates(
+                        77L, MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE,
+                        List.of(8101L, 8102L), "manager-candidate-hash"));
+        when(businessReadinessService.resolveActiveOrderFormalFactsReadiness(any(), any()))
+                .thenReturn(passReadiness());
+        AtomicLong ids = new AtomicLong(1000L);
+        when(releaseTransactionMapper.insert(any(MesProEdhrReleaseTransactionDO.class))).thenAnswer(invocation -> {
+            MesProEdhrReleaseTransactionDO transaction = invocation.getArgument(0);
+            transaction.setId(ids.incrementAndGet());
+            return 1;
+        });
+        when(workTaskMapper.insert(any(MesProEdhrWorkTaskDO.class))).thenAnswer(invocation -> {
+            MesProEdhrWorkTaskDO task = invocation.getArgument(0);
+            task.setId(ids.incrementAndGet());
+            return 1;
+        });
+
+        MesProductionReleaseManagerStageInitializationResult result = initializer.initializeManagerReleaseStage(
+                new MesProductionReleaseManagerStageInitializationCommand()
+                        .setApplicationId(701L)
+                        .setBatchExecutionId(901L)
+                        .setReportSnapshotHash(formalFactsHash)
+                        .setExpectedApplicationVersion(5)
+                        .setActiveOrderFormalFacts(true));
+
+        assertNotNull(result.getReleaseTransactionId());
+        assertNotNull(result.getManagerReleaseWorkTaskId());
+        verify(releaseTransactionMapper).insert(any(MesProEdhrReleaseTransactionDO.class));
+        verify(workTaskMapper).insert(any(MesProEdhrWorkTaskDO.class));
     }
 
     @Test

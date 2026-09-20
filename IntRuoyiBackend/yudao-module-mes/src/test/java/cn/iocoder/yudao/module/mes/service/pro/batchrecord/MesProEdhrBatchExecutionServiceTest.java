@@ -525,6 +525,28 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void activeOrderOperationAuditHashesLongFormalFactSnapshotForSummaryColumn() throws Exception {
+        MesProEdhrBatchExecutionServiceImpl implementation =
+                (MesProEdhrBatchExecutionServiceImpl) batchExecutionService;
+        MesProEdhrBatchExecutionOriginMapper originMapper = mock(MesProEdhrBatchExecutionOriginMapper.class);
+        java.lang.reflect.Field field = MesProEdhrBatchExecutionServiceImpl.class
+                .getDeclaredField("batchExecutionOriginMapper");
+        field.setAccessible(true);
+        field.set(implementation, originMapper);
+        String formalFactSnapshot = "ACTIVE_ORDER_FACTS:" + "a".repeat(64);
+        when(originMapper.selectListByBatchExecutionId(9001L)).thenReturn(List.of());
+
+        java.lang.reflect.Method method = MesProEdhrBatchExecutionServiceImpl.class.getDeclaredMethod(
+                "enrichActiveOrderOperationAudit", Long.class, String.class, String.class);
+        method.setAccessible(true);
+        Object enrichment = method.invoke(implementation, 9001L, null,
+                "{\"activeOrderId\":8101,\"sourceSnapshotHash\":\"" + formalFactSnapshot + "\"}");
+
+        assertEquals(DigestUtil.sha256Hex(formalFactSnapshot),
+                enrichment.getClass().getMethod("afterSummaryHash").invoke(enrichment));
+    }
+
+    @Test
     void batchOperationAuditShouldCarryActiveOrderSourceFromFormalOrigin() {
         Fixture fixture = insertRouteFixture(true, true);
         EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()

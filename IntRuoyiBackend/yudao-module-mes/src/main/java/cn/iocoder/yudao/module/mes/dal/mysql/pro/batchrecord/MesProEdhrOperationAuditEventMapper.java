@@ -57,7 +57,8 @@ public interface MesProEdhrOperationAuditEventMapper extends BaseMapperX<MesProE
         return selectList(new LambdaQueryWrapperX<MesProEdhrOperationAuditEventDO>()
                 .eq(MesProEdhrOperationAuditEventDO::getOperationType, "OPEN")
                 .eq(MesProEdhrOperationAuditEventDO::getResultStatus, "SUCCESS")
-                .like(MesProEdhrOperationAuditEventDO::getMetadataJson, "\"activeOrderId\":" + activeOrderId)
+                .apply("JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.activeOrderId')) = {0}",
+                        String.valueOf(activeOrderId))
                 .orderByDesc(MesProEdhrOperationAuditEventDO::getOccurredAt)
                 .orderByDesc(MesProEdhrOperationAuditEventDO::getId));
     }
@@ -68,7 +69,8 @@ public interface MesProEdhrOperationAuditEventMapper extends BaseMapperX<MesProE
         }
         return selectList(new LambdaQueryWrapperX<MesProEdhrOperationAuditEventDO>()
                 .eq(MesProEdhrOperationAuditEventDO::getResultStatus, "SUCCESS")
-                .like(MesProEdhrOperationAuditEventDO::getMetadataJson, "\"activeOrderId\":" + activeOrderId)
+                .apply("JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.activeOrderId')) = {0}",
+                        String.valueOf(activeOrderId))
                 .orderByDesc(MesProEdhrOperationAuditEventDO::getOccurredAt)
                 .orderByDesc(MesProEdhrOperationAuditEventDO::getId));
     }

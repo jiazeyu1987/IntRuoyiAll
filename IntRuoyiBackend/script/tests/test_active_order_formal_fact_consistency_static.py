@@ -55,3 +55,16 @@ def test_fixed_test_order_reset_clears_temporary_freeze_before_p1():
     reset_body = service[reset_start:reset_end]
 
     assert "workOrderMapper.updateTemporaryFrozenByIds(List.of(workOrder.getId()), Boolean.FALSE)" in reset_body
+
+
+def test_active_order_operation_facts_use_json_metadata_lookup():
+    mapper = read("dal/mysql/pro/batchrecord/MesProEdhrOperationAuditEventMapper.java")
+    recorder = read("service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseAuditRecorder.java")
+    pqc_service = read("service/pro/productionrelease/pqc/MesPqcProductionReleaseServiceImpl.java")
+
+    assert "JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.activeOrderId')) = {0}" in mapper
+    assert '.like(MesProEdhrOperationAuditEventDO::getMetadataJson, "\\"activeOrderId\\":"' not in mapper
+    assert 'metadata.put("batchExecutionId", command.getBatchExecutionId())' in recorder
+    assert 'metadata.put("signatureId", command.getSignatureId())' in recorder
+    assert 'case MesReleaseFlowAuditEventType.PQC_PRODUCTION_RELEASE_APPROVED -> "PQC生产放行"' in recorder
+    assert ".setSignatureId(result.getSignatureId())" in pqc_service

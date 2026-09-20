@@ -117,11 +117,15 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
         Long batchExecutionId = application.getBatchExecutionId();
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(batchExecutionId);
+        boolean activeOrderFormalFacts = application.getActiveOrderId() != null;
+        boolean batchProvisioningReady = batch != null
+                && "BATCH_READY".equals(batch.getProvisioningStatus())
+                && (activeOrderFormalFacts
+                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE)
+                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED));
         if (batch == null || batch.getStatus() == null
                 || (batch.getTenantId() != null && !Objects.equals(batch.getTenantId(), tenantId))
-                || !"BATCH_READY".equals(batch.getProvisioningStatus())
-                || !(Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE)
-                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED))) {
+                || !batchProvisioningReady) {
             throw blocker(application, "flow 6 batch execution is not BATCH_READY");
         }
         String entryType = command.getEntryType() != null ? command.getEntryType()
@@ -226,6 +230,7 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 || source.getOriginLinkId() == null || isBlank(source.getTraceLinkHash())
                 || isBlank(source.getSourceSnapshotHash()) || isBlank(source.getRelationStatus())
                 || !("CAPTURED".equalsIgnoreCase(source.getRelationStatus())
+                || "BOUND".equalsIgnoreCase(source.getRelationStatus())
                 || "READY".equalsIgnoreCase(source.getRelationStatus()))
                 || "NOT_APPLICABLE".equalsIgnoreCase(source.getRelationStatus())
                 || !Objects.equals(source.getSourceSnapshotHash(), origin.getSourceSnapshotHash())) {

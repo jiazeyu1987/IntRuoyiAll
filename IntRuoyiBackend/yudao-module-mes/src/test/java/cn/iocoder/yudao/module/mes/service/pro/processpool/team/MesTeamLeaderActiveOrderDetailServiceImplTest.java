@@ -211,6 +211,21 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     }
 
     @Test
+    void archivedFormalDetailReadsClosedOrArchivedSourceOrder() {
+        when(activeOrderMapper.selectByIdIgnoreDeleted(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("CLOSED").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
+        when(processMaterialService.listArchivedFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(null);
+
+        MesTeamLeaderActiveOrderDetail detail = service.getArchivedFormalDetail(8101L);
+
+        assertEquals(8101L, detail.getActiveOrderId());
+        assertEquals("881MO090889", detail.getWorkOrderCode());
+    }
+
+    @Test
     void activeOrderOperationsShouldAppearInFormalFactChain() throws Exception {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("CLOSED").build());

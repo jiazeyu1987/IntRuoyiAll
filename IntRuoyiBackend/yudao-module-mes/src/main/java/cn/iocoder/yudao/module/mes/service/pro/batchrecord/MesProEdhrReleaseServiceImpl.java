@@ -556,6 +556,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setSignoffEvidenceHash(signoffEvidenceHash)
                 .setSignoffSubjectId(reqVO.getSignoffSubjectId())
                 .setApprovalOpinion(reqVO.getApprovalOpinion())
+                .setPasswordReauthenticated(true)
                 .setIndependentPrerequisiteReceipt(reqVO.getIndependentPrerequisiteReceipt())
                 .setMaterialGateReceipt(reqVO.getMaterialGateReceipt())
                 .setMaterialGateRequired(false));
@@ -647,6 +648,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setSignoffEvidenceHash(command.getSignoffEvidenceHash())
                 .setSignoffSubjectId(command.getSignoffSubjectId())
                 .setApprovalOpinion(command.getApprovalOpinion())
+                .setPasswordReauthenticated(command.isPasswordReauthenticated())
                 .setIndependentPrerequisiteReceipt(command.getIndependentPrerequisiteReceipt())
                 .setMaterialGateReceipt(command.getMaterialGateReceipt());
     }
@@ -701,7 +703,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                     .setIdempotencyKey(command.getIdempotencyKey())
                     .setSignoffEvidenceHash(command.getSignoffEvidenceHash())
                     .setSignoffSubjectId(command.getSignoffSubjectId())
-                    .setApprovalOpinion(command.getApprovalOpinion());
+                    .setApprovalOpinion(command.getApprovalOpinion())
+                    .setPasswordReauthenticated(command.isPasswordReauthenticated());
             MesProductionReleaseManagerApprovalResult prepared = managerApprovalService.prepareForFinalization(
                     command.getActorUserId(), approve);
             if (prepared.isReplayed()) {
@@ -791,19 +794,43 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         if (Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)) {
             return;
         }
-        if (!Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE)) {
+        boolean managedActiveOrderFinalRelease = isManagedActiveOrderFinalRelease(transaction, command);
+        if (!Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE)
+                && !isManagedActiveOrderCreatedBatchFinalRelease(batch, transaction, command)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
         String aggregateHash = DigestUtil.sha256Hex(String.join(":",
                 String.valueOf(batch.getAggregateHash()),
                 String.valueOf(transaction.getId()),
                 String.valueOf(command.getSignoffEvidenceHash())));
-        batch.setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+        batch.setStatus(managedActiveOrderFinalRelease
+                        ? MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED
+                        : MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
                 .setClosedBy(command.getActorUserId())
                 .setClosedAt(occurredAt)
                 .setAggregateHash(aggregateHash);
         batchExecutionMapper.updateById(batch);
-        workTaskService.createArchiveTaskAfterBatchClose(batch);
+        if (!managedActiveOrderFinalRelease) {
+            workTaskService.createArchiveTaskAfterBatchClose(batch);
+        }
+    }
+
+    private boolean isManagedActiveOrderCreatedBatchFinalRelease(MesProEdhrBatchExecutionDO batch,
+                                                                  MesProEdhrReleaseTransactionDO transaction,
+                                                                  MesReleaseFinalizationCommand command) {
+        return batch != null
+                && Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)
+                && isManagedActiveOrderFinalRelease(transaction, command);
+    }
+
+    private boolean isManagedActiveOrderFinalRelease(MesProEdhrReleaseTransactionDO transaction,
+                                                     MesReleaseFinalizationCommand command) {
+        return transaction != null
+                && command != null
+                && managerApprovalService.isManagedReleaseTransaction(transaction.getId())
+                && command.getOrigin() == MesReleaseOrigin.ACTIVE_ORDER
+                && MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(command.getEntryType())
+                && command.getActiveOrderId() != null;
     }
 
     @Override
