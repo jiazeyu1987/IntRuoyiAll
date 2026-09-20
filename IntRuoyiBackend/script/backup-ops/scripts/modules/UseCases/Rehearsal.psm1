@@ -2,6 +2,15 @@
 
 $script:BackupOpsUtf8NoBom = [System.Text.UTF8Encoding]::new($false)
 
+function ConvertTo-BackupBashSingleQuotedString {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Value
+    )
+
+    return "'" + ($Value -replace "'", "'""'""'") + "'"
+}
+
 function New-RehearsalEvidenceException {
     param(
         [Parameter(Mandatory = $true)]
