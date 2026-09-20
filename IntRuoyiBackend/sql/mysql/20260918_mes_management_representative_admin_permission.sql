@@ -11,6 +11,13 @@ BEGIN
   DECLARE v_tenant_id BIGINT DEFAULT NULL;
   DECLARE v_admin_id BIGINT DEFAULT NULL;
   DECLARE v_role_id BIGINT DEFAULT NULL;
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    DROP TEMPORARY TABLE IF EXISTS `tmp_mes_management_representative_required_menus`;
+    DROP TEMPORARY TABLE IF EXISTS `tmp_mes_management_representative_admin`;
+    RESIGNAL;
+  END;
 
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_management_representative_admin`;
   CREATE TEMPORARY TABLE `tmp_mes_management_representative_admin` (
@@ -81,6 +88,8 @@ BEGIN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'Management representative release permission menu is missing';
   END IF;
+
+  START TRANSACTION;
 
   INSERT INTO `system_role_menu` (
     `role_id`, `menu_id`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`
@@ -162,6 +171,8 @@ BEGIN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'Admin management representative role binding was not persisted';
   END IF;
+
+  COMMIT;
 
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_management_representative_required_menus`;
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_management_representative_admin`;

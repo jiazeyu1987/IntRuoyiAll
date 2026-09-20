@@ -44,3 +44,23 @@ def test_migration_preserves_required_release_permission_chain() -> None:
     assert "`existing`.`role_id` = v_role_id" in text
     assert "`existing`.`tenant_id` = v_tenant_id" in text
     assert "Admin management representative role binding was not persisted" in text
+
+
+def test_migration_wraps_role_and_menu_writes_in_explicit_transaction() -> None:
+    text = read_sql()
+    upper_text = text.upper()
+
+    first_mutation = min(
+        upper_text.index("INSERT INTO `SYSTEM_ROLE_MENU`"),
+        upper_text.index("UPDATE `SYSTEM_ROLE_MENU`"),
+        upper_text.index("UPDATE `SYSTEM_USER_ROLE`"),
+        upper_text.index("INSERT INTO `SYSTEM_USER_ROLE`"),
+    )
+
+    assert "DECLARE EXIT HANDLER FOR SQLEXCEPTION" in upper_text
+    assert "ROLLBACK;" in upper_text
+    assert "RESIGNAL;" in upper_text
+    assert "START TRANSACTION;" in upper_text
+    assert "COMMIT;" in upper_text
+    assert upper_text.index("START TRANSACTION;") < first_mutation
+    assert upper_text.index("COMMIT;") > first_mutation

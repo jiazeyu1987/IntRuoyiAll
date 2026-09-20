@@ -61,6 +61,25 @@ def test_menu_retirement_soft_deletes_menus_and_removes_assignments() -> None:
     assert "NOT IN (0, 21)" in text
 
 
+def test_menu_retirement_wraps_all_mutations_in_explicit_transaction() -> None:
+    text = read_sql()
+    upper_text = text.upper()
+
+    first_mutation = min(
+        upper_text.index("UPDATE `SYSTEM_ROLE_MENU`"),
+        upper_text.index("UPDATE `SYSTEM_MENU`"),
+        upper_text.index("UPDATE `SYSTEM_TENANT_PACKAGE`"),
+    )
+
+    assert "DECLARE EXIT HANDLER FOR SQLEXCEPTION" in upper_text
+    assert "ROLLBACK;" in upper_text
+    assert "RESIGNAL;" in upper_text
+    assert "START TRANSACTION;" in upper_text
+    assert "COMMIT;" in upper_text
+    assert upper_text.index("START TRANSACTION;") < first_mutation
+    assert upper_text.index("COMMIT;") > first_mutation
+
+
 def test_menu_retirement_forbids_destructive_or_silent_paths() -> None:
     text = read_sql().upper()
 

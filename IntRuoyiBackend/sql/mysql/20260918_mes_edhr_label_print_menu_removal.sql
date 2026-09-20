@@ -7,6 +7,15 @@ DROP PROCEDURE IF EXISTS ensure_mes_edhr_label_print_menus_removed;
 DELIMITER $$
 CREATE PROCEDURE ensure_mes_edhr_label_print_menus_removed()
 BEGIN
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    DROP TEMPORARY TABLE IF EXISTS `tmp_mes_edhr_label_print_package_menu_ids`;
+    DROP TEMPORARY TABLE IF EXISTS `tmp_mes_edhr_label_print_affected_packages`;
+    DROP TEMPORARY TABLE IF EXISTS `tmp_mes_edhr_label_print_retired_menu_ids`;
+    RESIGNAL;
+  END;
+
   IF NOT EXISTS (
       SELECT 1
       FROM `system_menu`
@@ -75,6 +84,8 @@ BEGIN
     (900344),
     (900345),
     (900346);
+
+  START TRANSACTION;
 
   UPDATE `system_role_menu` AS `role_menu`
   JOIN `tmp_mes_edhr_label_print_retired_menu_ids` AS `retired`
@@ -197,6 +208,8 @@ BEGIN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'eDHR label-print tenant package menu assignments remain after retirement';
   END IF;
+
+  COMMIT;
 
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_edhr_label_print_package_menu_ids`;
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_edhr_label_print_affected_packages`;
