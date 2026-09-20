@@ -34,7 +34,12 @@ def _load_frozen_registry(path: Path | str | None) -> dict[str, str]:
 def _resolve_sql_paths(sql_root: Path, sql_paths: list[Path | str] | None) -> list[Path]:
     if sql_paths is None:
         return sorted(
-            (path for path in sql_root.rglob("20*.sql") if not is_rollback_migration(path)),
+            (
+                path
+                for path in sql_root.rglob("20*.sql")
+                if "target-preflight" not in path.relative_to(sql_root).parts
+                and not is_rollback_migration(path)
+            ),
             key=lambda item: item.relative_to(sql_root).as_posix(),
         )
     resolved: list[Path] = []

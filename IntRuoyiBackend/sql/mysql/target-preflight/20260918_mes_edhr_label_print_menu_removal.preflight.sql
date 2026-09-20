@@ -5,7 +5,7 @@ SELECT CASE
    AND (SELECT COUNT(*) FROM `system_menu` WHERE `id` IN (900320,900321,900322,900323,900324,900325,900326,900327,900328,900329,900330,900331,900338,900339,900340,900341,900342,900343,900344,900345,900346) AND `deleted` = b'0') IN (0, 21)
    AND NOT EXISTS (
      SELECT 1 FROM `system_tenant_package`
-     WHERE `deleted` = b'0' AND `menu_ids` IS NOT NULL AND `menu_ids` <> '' AND NOT JSON_VALID(`menu_ids`)
+     WHERE `deleted` = b'0' AND `menu_ids` IS NOT NULL AND NOT JSON_VALID(`menu_ids`)
    )
   THEN 'TARGET_PREFLIGHT_PASS:20260918_mes_edhr_label_print_menu_removal'
   ELSE 'TARGET_PREFLIGHT_BLOCKED:20260918_mes_edhr_label_print_menu_removal'
