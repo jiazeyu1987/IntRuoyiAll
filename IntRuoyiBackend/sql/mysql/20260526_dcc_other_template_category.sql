@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium; requiresTargetPreflight=true
 -- Seed real DCC template categories used by NAS transfer when users choose "其他".
 -- Safe to run repeatedly: for each enabled real tenant with one active "产品技术要求", create or update
 -- one active "其他" category and insert only missing governance rows copied from that tenant's source template.

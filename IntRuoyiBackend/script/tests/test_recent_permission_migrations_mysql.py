@@ -77,6 +77,13 @@ INSERT INTO system_tenant_package VALUES (1, '{menu_ids}', b'0', 'seed', NOW());
 """
 
 
+def test_template_category_migration_requires_target_preflight() -> None:
+    migration = REPO_ROOT / "sql/mysql/20260526_dcc_other_template_category.sql"
+    header = migration.read_text(encoding="utf-8").splitlines()[0]
+
+    assert "requiresTargetPreflight=true" in header
+
+
 def test_label_preflight_blocks_empty_menu_ids_like_migration() -> None:
     database = _database("label_preflight")
     try:
