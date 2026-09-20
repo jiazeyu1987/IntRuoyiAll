@@ -76,10 +76,10 @@ BEGIN
       WHERE `menu`.`permission` = `required_menu`.`permission`
         AND `menu`.`status` = 0
         AND `menu`.`deleted` = b'0'
-    ) <> 1
+    ) < 1
   ) THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Management representative release permission menu is missing or ambiguous';
+      SET MESSAGE_TEXT = 'Management representative release permission menu is missing';
   END IF;
 
   INSERT INTO `system_role_menu` (
