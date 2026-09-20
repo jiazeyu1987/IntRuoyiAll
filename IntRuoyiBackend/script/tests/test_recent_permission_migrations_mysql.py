@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import subprocess
 import uuid
 from pathlib import Path
@@ -84,11 +85,14 @@ def test_template_category_migration_requires_target_preflight() -> None:
     assert "requiresTargetPreflight=true" in header
 
 
-def test_registration_certificate_reminder_schema_requires_target_preflight() -> None:
+def test_registration_certificate_reminder_schema_stays_immutable_and_uses_external_preflight() -> None:
     migration = REPO_ROOT / "sql/mysql/20260818_dcc_registration_certificate_reminder.sql"
-    header = migration.read_text(encoding="utf-8").splitlines()[0]
+    preflight = REPO_ROOT / "sql/mysql/target-preflight/20260818_dcc_registration_certificate_reminder.preflight.sql"
+    normalized = migration.read_bytes().replace(b"\r\n", b"\n")
 
-    assert "requiresTargetPreflight=true" in header
+    assert hashlib.sha256(normalized).hexdigest() == "cbfb78688e6fd497fa77ebe3fce6776d5efa1ae41d0a052380781e394670fa91"
+    assert preflight.is_file()
+    assert "migrationId=20260818_dcc_registration_certificate_reminder" in preflight.read_text(encoding="utf-8")
 
 
 def test_label_preflight_blocks_empty_menu_ids_like_migration() -> None:
