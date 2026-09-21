@@ -31,6 +31,7 @@ public class ReleaseWorkflowOrchestrator {
     private final RuntimeControlService runtimeControlService;
     private final ReleaseWorkflowAuthorizationService authorizationService;
     private final ReleaseWorkflowProductionPreviewService productionPreviewService;
+    private final ReleaseWorkflowTestEvidenceStore testEvidenceStore;
     private final Map<String, ReleaseWorkflowService.OptionalLease> activeLeases = new ConcurrentHashMap<>();
     private final Map<String, String> prodIdempotencyOperations = new ConcurrentHashMap<>();
 
@@ -40,13 +41,15 @@ public class ReleaseWorkflowOrchestrator {
                                        RuntimeControlOperationStore operationStore,
                                        RuntimeControlService runtimeControlService,
                                        ReleaseWorkflowAuthorizationService authorizationService,
-                                       ReleaseWorkflowProductionPreviewService productionPreviewService) {
+                                       ReleaseWorkflowProductionPreviewService productionPreviewService,
+                                       ReleaseWorkflowTestEvidenceStore testEvidenceStore) {
         this.properties = properties;
         this.workflowService = workflowService;
         this.operationStore = operationStore;
         this.runtimeControlService = runtimeControlService;
         this.authorizationService = authorizationService;
         this.productionPreviewService = productionPreviewService;
+        this.testEvidenceStore = testEvidenceStore;
     }
 
     public ReleaseWorkflowOrchestrator(RuntimeControlProperties properties,
@@ -55,7 +58,9 @@ public class ReleaseWorkflowOrchestrator {
                                        RuntimeControlService runtimeControlService) {
         this(properties, workflowService, operationStore, runtimeControlService,
                 new ReleaseWorkflowAuthorizationService(properties),
-                new ReleaseWorkflowProductionPreviewService(properties));
+                new ReleaseWorkflowProductionPreviewService(properties, runtimeControlService,
+                        new ReleaseWorkflowTestEvidenceStore(properties, operationStore)),
+                new ReleaseWorkflowTestEvidenceStore(properties, operationStore));
     }
 
     public synchronized ReleaseWorkflowRecord startBuild(String requestedBy, String reason,
@@ -483,8 +488,9 @@ public class ReleaseWorkflowOrchestrator {
         }
         if (workflow.state() == ReleaseWorkflowRecord.State.TEST_DEPLOYING
                 && "publish-test".equals(operation.getAction())) {
+            Path evidencePath = testEvidenceStore.write(workflow.workflowId(), workflow.releaseTag(), operation);
             workflow = workflowService.bindTestOperation(workflow.workflowId(), workflow.stateVersion(),
-                    operation.getOperationId(), operationStore.getOperationPath(operation.getOperationId()).toString());
+                    operation.getOperationId(), evidencePath.toString());
             return workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
                     ReleaseWorkflowRecord.State.TEST_DEPLOYED, "TEST_DEPLOYED", true, false);
         }

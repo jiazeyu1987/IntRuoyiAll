@@ -20,6 +20,7 @@ public class RuntimeControlReleaseWorkflowProductionPreviewRespVO {
     private String testedBy;
     private Instant testedAt;
     private String targetFingerprint;
+    private String evidenceFingerprint;
     private boolean eligible;
     private List<RuntimeControlReleaseWorkflowProductionCheckVO> checks;
     private List<String> blockers;

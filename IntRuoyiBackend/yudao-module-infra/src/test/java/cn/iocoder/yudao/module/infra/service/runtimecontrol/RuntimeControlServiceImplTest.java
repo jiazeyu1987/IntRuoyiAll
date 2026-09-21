@@ -68,6 +68,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     private RuntimeControlServiceImpl runtimeControlService;
     private TestReleasePackageConfigService releasePackageConfigService;
     private final Map<String, String> manifestDigests = new ConcurrentHashMap<>();
+    private java.util.function.Function<String, byte[]> testedFixtureFactory;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -314,6 +315,36 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
 
         RuntimeControlStatusRespVO full = result.getStatuses().get("test").get("intruoyi-full");
         assertEquals("26-05-29_21-05-42", full.getCurrentReleaseTag());
+    }
+
+    @Test
+    void getReleasePackageShouldReadCurrentTestedAttestationBytesAndRejectMalformedEvidence() {
+        stubNasReleaseConfig();
+        String releaseTag = "release-r10-tested";
+        String packagePath = "Backup/ReleasePackage/" + releaseTag;
+        String testedPath = packagePath + "/tested.json";
+        testedFixtureFactory = tag -> """
+                {"schemaVersion":"v2","releaseTag":"%s","packageDirectoryName":"%s","packageDigest":"%s","manifestDigest":"%s","testEnvironment":"test","publishTestOperationId":"op-test-12345678","publishTestOperationStatus":"SUCCESS","publishTestRequestedAt":"2026-09-21T08:00:00Z","testedAt":"2026-09-21T09:00:00Z","testResult":"PASS","testedBy":"qa","testConclusion":"page verified"}
+                """.formatted(tag, tag, "a".repeat(64), manifestDigests.get(tag))
+                .getBytes(StandardCharsets.UTF_8);
+        stubReleasePackageManifest(packagePath, releaseTag, true, true);
+        byte[] tested = testedFixtureFactory.apply(releaseTag);
+
+        RuntimeControlReleasePackageRespVO releasePackage = runtimeControlService.getReleasePackage(releaseTag).orElseThrow();
+        assertTrue(releasePackage.getTested());
+        assertEquals(releaseTag, releasePackage.getTestedReleaseTag());
+        assertEquals("a".repeat(64), releasePackage.getTestedPackageDigest());
+        assertEquals(manifestDigests.get(releaseTag), releasePackage.getTestedManifestDigest());
+        assertEquals("op-test-12345678", releasePackage.getTestedOperationId());
+        assertEquals("2026-09-21T08:00:00Z", releasePackage.getTestedOperationRequestedAt());
+        assertEquals(cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseDigestContract
+                .manifestDigest(tested), releasePackage.getTestedDigest());
+
+        doReturn(new NasFileReadResult("tested.json", testedPath, "application/json", "{".getBytes(StandardCharsets.UTF_8)))
+                .when(nasBrowserService).readFile(any(NasConnectionConfig.class), eq(testedPath));
+        RuntimeControlReleasePackageRespVO malformed = runtimeControlService.getReleasePackage(releaseTag).orElseThrow();
+        assertFalse(malformed.getTested());
+        assertTrue(malformed.getTestedValidationError().contains("invalid"));
     }
 
     @Test
@@ -1852,10 +1883,11 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
                             """.formatted(recoverySet.getCandidateId(), recoverySet.getRecoverySetId(),
                             recoverySet.getRecoverySetManifestHash(), recoverySet.getProgramVersion(),
                             recoverySet.getRedisPolicy());
-            doReturn(new NasFileReadResult("tested.json", testedPath, "application/json",
-                    """
+            byte[] testedBytes = testedFixtureFactory == null ? """
                             {"releaseTag":"%s","packageDirectoryName":"%s","testedAt":"2026-05-29T22:00:00Z","operatorName":"tester","recoverySet":%s}
-                            """.formatted(releaseTag, releaseTag, recoverySetJson).getBytes(StandardCharsets.UTF_8)))
+                            """.formatted(releaseTag, releaseTag, recoverySetJson).getBytes(StandardCharsets.UTF_8)
+                    : testedFixtureFactory.apply(releaseTag);
+            doReturn(new NasFileReadResult("tested.json", testedPath, "application/json", testedBytes))
                     .when(nasBrowserService).readFile(any(NasConnectionConfig.class), eq(testedPath));
         }
     }

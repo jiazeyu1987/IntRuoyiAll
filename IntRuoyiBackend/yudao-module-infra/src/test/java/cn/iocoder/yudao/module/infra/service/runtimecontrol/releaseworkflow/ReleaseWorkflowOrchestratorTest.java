@@ -17,12 +17,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.HexFormat;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -48,18 +51,23 @@ class ReleaseWorkflowOrchestratorTest {
     private RuntimeControlOperationStore operationStore;
     private ReleaseWorkflowService workflowService;
     private ReleaseWorkflowProductionPreviewService productionPreviewService;
+    private ReleaseWorkflowTestEvidenceStore testEvidenceStore;
     private ReleaseWorkflowOrchestrator orchestrator;
 
     @BeforeEach
     void setUp() {
         properties = RuntimeControlProperties.createDefaultForTests(tempDir);
+        configureExecutorFixture();
         runtimeControlService = mock(RuntimeControlService.class);
         operationStore = new RuntimeControlOperationStore(properties);
         ReleaseWorkflowStore workflowStore = new ReleaseWorkflowStore(properties);
         workflowService = new ReleaseWorkflowService(properties, workflowStore);
-        productionPreviewService = new ReleaseWorkflowProductionPreviewService(properties);
+        testEvidenceStore = new ReleaseWorkflowTestEvidenceStore(properties, operationStore);
+        productionPreviewService = new ReleaseWorkflowProductionPreviewService(properties, runtimeControlService,
+                testEvidenceStore);
         orchestrator = new ReleaseWorkflowOrchestrator(properties, workflowService, operationStore,
-                runtimeControlService, new ReleaseWorkflowAuthorizationService(properties), productionPreviewService);
+                runtimeControlService, new ReleaseWorkflowAuthorizationService(properties), productionPreviewService,
+                testEvidenceStore);
         when(runtimeControlService.getReleasePackages()).thenAnswer(ignored -> java.util.List.of());
         when(runtimeControlService.getReleasePackage(any())).thenReturn(Optional.empty());
     }
@@ -369,7 +377,8 @@ class ReleaseWorkflowOrchestratorTest {
         RuntimeControlActionReqVO markRequest = request.getAllValues().get(2);
         assertEquals("mark-release-tested", markRequest.getAction());
         assertEquals(publishOperationId, markRequest.getTestOperationId());
-        assertEquals(operationStore.getOperationPath(publishOperationId).toString(),
+        assertEquals(tempDir.resolve("workflow-evidence").resolve(workflow.workflowId())
+                        .resolve(publishOperationId + ".json").toString(),
                 markRequest.getTestOperationEvidencePath());
         assertEquals("PASS", markRequest.getTestResult());
         assertEquals(workflow.packageDigest(), markRequest.getExpectedPackageDigest());
@@ -517,6 +526,69 @@ class ReleaseWorkflowOrchestratorTest {
         assertEquals(workflow.packageDigest(), event.details().get("packageDigest"));
         assertEquals(workflow.manifestDigest(), event.details().get("manifestDigest"));
         assertNotNull(event.details().get("acceptedAt"));
+    }
+
+    @Test
+    void missingRealEvidenceBlocksGrantWithoutStartingProductionOperation() {
+        properties.getReleaseWorkflow().setProductionWriteEnabled(true);
+        properties.getEnvironments().get("prod").setAccessEnabled(true);
+        ReleaseWorkflowRecord workflow = testedWorkflow();
+        when(runtimeControlService.getReleasePackage(workflow.releaseTag())).thenReturn(Optional.empty());
+
+        RuntimeControlReleaseWorkflowProductionPreviewRespVO preview = productionPreviewService.create(
+                workflow, workflow.stateVersion());
+
+        assertFalse(preview.isEligible());
+        ReleaseWorkflowRecord tested = workflow;
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> orchestrator.authorizeProduction(tested.workflowId(), "approver",
+                        preview.getPreviewId(), tested.stateVersion()));
+        assertEquals(ReleaseWorkflowRecord.State.TESTED, workflowService.require(workflow.workflowId()).state());
+        verify(runtimeControlService, never()).executeAction(any(), any());
+        assertTrue(operationStore.listLatest(10).stream()
+                .noneMatch(operation -> "promote-prod".equals(operation.getAction())));
+    }
+
+    @Test
+    void attestationDriftAfterPreviewBlocksGrantAndProductionOperation() {
+        properties.getReleaseWorkflow().setProductionWriteEnabled(true);
+        properties.getEnvironments().get("prod").setAccessEnabled(true);
+        ReleaseWorkflowRecord workflow = testedWorkflow();
+        var preview = productionPreviewService.create(workflow, workflow.stateVersion());
+        assertTrue(preview.isEligible());
+        runtimeControlService.getReleasePackage(workflow.releaseTag()).orElseThrow()
+                .setTestedManifestDigest("0".repeat(64));
+
+        ReleaseWorkflowRecord tested = workflow;
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> orchestrator.authorizeProduction(tested.workflowId(), "approver",
+                        preview.getPreviewId(), tested.stateVersion()));
+        assertEquals(ReleaseWorkflowRecord.State.TESTED, workflowService.require(workflow.workflowId()).state());
+        verify(runtimeControlService, never()).executeAction(any(), any());
+        assertTrue(operationStore.listLatest(10).stream()
+                .noneMatch(operation -> "promote-prod".equals(operation.getAction())));
+    }
+
+    @Test
+    void attestationDriftAfterGrantBlocksDispatchBeforeProductionStateChange() {
+        properties.getReleaseWorkflow().setProductionWriteEnabled(true);
+        properties.getEnvironments().get("prod").setAccessEnabled(true);
+        ReleaseWorkflowRecord workflow = testedWorkflow();
+        var preview = productionPreviewService.create(workflow, workflow.stateVersion());
+        ReleaseAuthorizationGrant grant = orchestrator.authorizeProduction(workflow.workflowId(), "approver",
+                preview.getPreviewId(), workflow.stateVersion());
+        runtimeControlService.getReleasePackage(workflow.releaseTag()).orElseThrow()
+                .setPackageDigest("0".repeat(64));
+
+        ReleaseWorkflowRecord tested = workflow;
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> orchestrator.startProductionPromotion(tested.workflowId(), "operator",
+                        "approved production release", grant.grantId(), "PROD", preview.getPreviewId(),
+                        tested.stateVersion(), "prod-promotion-drift"));
+        assertEquals(ReleaseWorkflowRecord.State.TESTED, workflowService.require(workflow.workflowId()).state());
+        verify(runtimeControlService, never()).executeAction(any(), any());
+        assertTrue(operationStore.listLatest(10).stream()
+                .noneMatch(operation -> "promote-prod".equals(operation.getAction())));
     }
 
     @Test
@@ -760,6 +832,7 @@ class ReleaseWorkflowOrchestratorTest {
             operation.setOperationId(request.getPreassignedOperationId());
             operation.setAction(request.getAction());
             operation.setEnvironment(operationEnvironment(request.getAction()));
+            operation.setParameters(Map.of("releaseTag", request.getReleaseTag()));
             return operation;
         });
     }
@@ -827,11 +900,56 @@ class ReleaseWorkflowOrchestratorTest {
                 ReleaseWorkflowRecord.State.READY, "READY", true, true);
         workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
                 ReleaseWorkflowRecord.State.TEST_DEPLOYING, "TEST_DEPLOYING", true, false);
+        RuntimeControlOperationRespVO publish = operation("succeeded");
+        publish.setOperationId("op-publish-test-success");
+        publish.setAction("publish-test");
+        publish.setEnvironment("test");
+        publish.setParameters(Map.of("releaseTag", workflow.releaseTag()));
+        operationStore.save(publish);
+        Path evidencePath = testEvidenceStore.write(workflow.workflowId(), workflow.releaseTag(), publish);
         workflow = workflowService.bindTestOperation(workflow.workflowId(), workflow.stateVersion(),
-                "op-publish-test-success", operationStore.getOperationPath("op-publish-test-success").toString());
+                publish.getOperationId(), evidencePath.toString());
         workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
                 ReleaseWorkflowRecord.State.TEST_DEPLOYED, "TEST_DEPLOYED", true, false);
-        return workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+        workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
                 ReleaseWorkflowRecord.State.TESTED, "TESTED", true, false);
+        RuntimeControlReleasePackageRespVO releasePackage = packageFor(workflow.releaseTag());
+        releasePackage.setStatus("AVAILABLE");
+        releasePackage.setPublishScope("app-release");
+        releasePackage.setPackageDirectoryName(workflow.releaseTag());
+        releasePackage.setChecksumPresent(true);
+        releasePackage.setTested(true);
+        releasePackage.setTestedDigest("c".repeat(64));
+        releasePackage.setTestedSchemaVersion("v2");
+        releasePackage.setTestedReleaseTag(workflow.releaseTag());
+        releasePackage.setTestedPackageDirectoryName(workflow.releaseTag());
+        releasePackage.setTestedPackageDigest(workflow.packageDigest());
+        releasePackage.setTestedManifestDigest(workflow.manifestDigest());
+        releasePackage.setTestedEnvironment("test");
+        releasePackage.setTestedOperationId(publish.getOperationId());
+        releasePackage.setTestedOperationStatus("SUCCESS");
+        releasePackage.setTestedOperationRequestedAt(testEvidenceStore.verify(workflow).requestedAt());
+        releasePackage.setTestedResult("PASS");
+        releasePackage.setTestedAt(Instant.now().toString());
+        releasePackage.setOperatorName("qa");
+        releasePackage.setTestedConclusion("validated");
+        when(runtimeControlService.getReleasePackage(workflow.releaseTag()))
+                .thenReturn(Optional.of(releasePackage));
+        return workflow;
+    }
+
+    private void configureExecutorFixture() {
+        try {
+            Path root = tempDir.resolve("maintenance");
+            Path script = root.resolve("ops/deploy/publish-int-ruoyi.ps1");
+            Files.createDirectories(script.getParent());
+            byte[] content = "param([string]$Mode)\n".getBytes(StandardCharsets.UTF_8);
+            Files.write(script, content);
+            properties.getReleaseWorkflow().setMaintenanceRepoRoot(root.toString());
+            properties.getReleaseWorkflow().setExpectedPublishScriptSha256(HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(content)));
+        } catch (Exception ex) {
+            throw new AssertionError(ex);
+        }
     }
 }

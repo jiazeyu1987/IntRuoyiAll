@@ -2,13 +2,18 @@ package cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow;
 
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowProductionCheckVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowProductionPreviewRespVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleasePackageRespVO;
 import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeControlProperties;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlService;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,10 +26,17 @@ public class ReleaseWorkflowProductionPreviewService {
     private static final Duration PREVIEW_TTL = Duration.ofMinutes(10);
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RuntimeControlProperties properties;
+    private final RuntimeControlService runtimeControlService;
+    private final ReleaseWorkflowTestEvidenceStore testEvidenceStore;
     private final Map<String, RuntimeControlReleaseWorkflowProductionPreviewRespVO> previews = new ConcurrentHashMap<>();
 
-    public ReleaseWorkflowProductionPreviewService(RuntimeControlProperties properties) {
+    @Autowired
+    public ReleaseWorkflowProductionPreviewService(RuntimeControlProperties properties,
+                                                   RuntimeControlService runtimeControlService,
+                                                   ReleaseWorkflowTestEvidenceStore testEvidenceStore) {
         this.properties = properties;
+        this.runtimeControlService = runtimeControlService;
+        this.testEvidenceStore = testEvidenceStore;
     }
 
     public RuntimeControlReleaseWorkflowProductionPreviewRespVO create(
@@ -58,6 +70,7 @@ public class ReleaseWorkflowProductionPreviewService {
         check(checks, blockers, "PRODUCTION_TARGET_CONFIGURED", prod != null
                 && prod.getHost() != null && !prod.getHost().isBlank()
                 && prod.getRemoteAppDir() != null && !prod.getRemoteAppDir().isBlank(), "正式环境目标配置缺失");
+        preview.setEvidenceFingerprint(inspectActualEvidence(workflow, checks, blockers));
         preview.setChecks(checks);
         preview.setBlockers(blockers);
         preview.setEligible(blockers.isEmpty());
@@ -82,6 +95,101 @@ public class ReleaseWorkflowProductionPreviewService {
                 || !targetFingerprint().equals(preview.getTargetFingerprint())) {
             throw new IllegalStateException("PRODUCTION_PREVIEW_BINDING_MISMATCH");
         }
+        List<RuntimeControlReleaseWorkflowProductionCheckVO> checks = new ArrayList<>();
+        List<String> blockers = new ArrayList<>();
+        String fingerprint = inspectActualEvidence(workflow, checks, blockers);
+        if (!blockers.isEmpty() || !safeEquals(preview.getEvidenceFingerprint(), fingerprint)) {
+            throw new IllegalStateException("PRODUCTION_PREVIEW_EVIDENCE_CHANGED: " + String.join("; ", blockers));
+        }
+    }
+
+    private String inspectActualEvidence(ReleaseWorkflowRecord workflow,
+                                         List<RuntimeControlReleaseWorkflowProductionCheckVO> checks,
+                                         List<String> blockers) {
+        RuntimeControlReleasePackageRespVO releasePackage = null;
+        String packageError = "NAS manifest 与工作流包摘要不一致或不可用";
+        try {
+            releasePackage = runtimeControlService.getReleasePackage(workflow.releaseTag()).orElse(null);
+        } catch (ServiceException | IllegalStateException ex) {
+            packageError = "NAS 发布包不可读：" + ex.getClass().getSimpleName();
+        }
+        boolean packageMatches = releasePackage != null
+                && "AVAILABLE".equals(releasePackage.getStatus())
+                && Boolean.TRUE.equals(releasePackage.getChecksumPresent())
+                && "app-release".equals(releasePackage.getPublishScope())
+                && workflow.releaseTag().equals(releasePackage.getReleaseTag())
+                && workflow.releaseTag().equals(releasePackage.getPackageDirectoryName())
+                && workflow.packageDigest() != null && workflow.packageDigest().equals(releasePackage.getPackageDigest())
+                && workflow.manifestDigest() != null && workflow.manifestDigest().equals(releasePackage.getManifestDigest());
+        check(checks, blockers, "PACKAGE_EVIDENCE", packageMatches, packageError);
+
+        ReleaseWorkflowTestEvidenceStore.VerifiedEvidence operationEvidence = null;
+        String operationError = "测试服成功 operation 证明缺失或失效";
+        try {
+            operationEvidence = testEvidenceStore.verify(workflow);
+        } catch (ServiceException ex) {
+            operationError = "TEST_OPERATION_EVIDENCE_INVALID";
+        } catch (IllegalStateException ex) {
+            operationError = ex.getMessage();
+        }
+        check(checks, blockers, "TEST_OPERATION_EVIDENCE", operationEvidence != null,
+                operationError);
+
+        boolean testedMatches = packageMatches && operationEvidence != null
+                && Boolean.TRUE.equals(releasePackage.getTested())
+                && releasePackage.getTestedDigest() != null
+                && "v2".equals(releasePackage.getTestedSchemaVersion())
+                && workflow.releaseTag().equals(releasePackage.getTestedReleaseTag())
+                && workflow.releaseTag().equals(releasePackage.getTestedPackageDirectoryName())
+                && workflow.packageDigest().equals(releasePackage.getTestedPackageDigest())
+                && workflow.manifestDigest().equals(releasePackage.getTestedManifestDigest())
+                && "test".equals(releasePackage.getTestedEnvironment())
+                && workflow.testOperationId().equals(releasePackage.getTestedOperationId())
+                && "SUCCESS".equals(releasePackage.getTestedOperationStatus())
+                && operationEvidence.requestedAt().equals(releasePackage.getTestedOperationRequestedAt())
+                && "PASS".equals(releasePackage.getTestedResult())
+                && hasText(releasePackage.getOperatorName())
+                && hasText(releasePackage.getTestedConclusion())
+                && isUtcInstant(releasePackage.getTestedAt());
+        check(checks, blockers, "TESTED_ATTESTATION", testedMatches,
+                "tested.json 与工作流、manifest 或测试 operation 不一致");
+
+        ReleaseWorkflowExecutorContract.VerifiedExecutor executor = null;
+        String executorError = "维护发布器路径或文件 SHA 与批准值不一致";
+        try {
+            executor = ReleaseWorkflowExecutorContract.verify(properties);
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            executorError = ex.getMessage();
+        }
+        check(checks, blockers, "RELEASE_EXECUTOR", executor != null,
+                executorError);
+
+        if (!packageMatches || !testedMatches || operationEvidence == null || executor == null) {
+            return null;
+        }
+        Map<String, String> identity = new LinkedHashMap<>();
+        identity.put("manifestDigest", releasePackage.getManifestDigest());
+        identity.put("packageDigest", releasePackage.getPackageDigest());
+        identity.put("testedDigest", releasePackage.getTestedDigest());
+        identity.put("testOperationEvidenceDigest", operationEvidence.sha256());
+        identity.put("executorDigest", executor.sha256());
+        try {
+            return ReleaseDigestContract.manifestDigest(objectMapper.writeValueAsBytes(identity));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            throw new IllegalStateException("PRODUCTION_EVIDENCE_FINGERPRINT_FAILED", ex);
+        }
+    }
+
+    private boolean isUtcInstant(String value) {
+        try {
+            return hasText(value) && Instant.parse(value) != null;
+        } catch (DateTimeParseException ex) {
+            return false;
+        }
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private void check(List<RuntimeControlReleaseWorkflowProductionCheckVO> checks, List<String> blockers,
@@ -94,23 +202,20 @@ public class ReleaseWorkflowProductionPreviewService {
     private String targetFingerprint() {
         try {
             RuntimeControlProperties.Environment prod = properties.getEnvironments().get("prod");
-            if (prod == null) {
-                throw new IllegalStateException("PRODUCTION_TARGET_MISSING");
-            }
             Map<String, Object> target = new LinkedHashMap<>();
             target.put("environment", "prod");
             target.put("presetId", properties.getReleaseWorkflow().getPresetId());
             target.put("presetVersion", properties.getReleaseWorkflow().getPresetVersion());
             target.put("writeEnabled", properties.getReleaseWorkflow().isProductionWriteEnabled());
-            target.put("accessEnabled", prod.isAccessEnabled());
-            target.put("host", prod.getHost());
-            target.put("serverUser", prod.getServerUser());
-            target.put("remoteAppDir", prod.getRemoteAppDir());
-            target.put("remoteReleaseRoot", prod.getRemoteReleaseRoot());
-            target.put("remoteDataRoot", prod.getRemoteDataRoot());
-            target.put("remoteDataDiskMount", prod.getRemoteDataDiskMount());
-            target.put("remoteDataDiskDevice", prod.getRemoteDataDiskDevice());
-            target.put("remoteMinioContainer", prod.getRemoteMinioContainer());
+            target.put("accessEnabled", prod != null && prod.isAccessEnabled());
+            target.put("host", prod == null ? null : prod.getHost());
+            target.put("serverUser", prod == null ? null : prod.getServerUser());
+            target.put("remoteAppDir", prod == null ? null : prod.getRemoteAppDir());
+            target.put("remoteReleaseRoot", prod == null ? null : prod.getRemoteReleaseRoot());
+            target.put("remoteDataRoot", prod == null ? null : prod.getRemoteDataRoot());
+            target.put("remoteDataDiskMount", prod == null ? null : prod.getRemoteDataDiskMount());
+            target.put("remoteDataDiskDevice", prod == null ? null : prod.getRemoteDataDiskDevice());
+            target.put("remoteMinioContainer", prod == null ? null : prod.getRemoteMinioContainer());
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(objectMapper.writeValueAsBytes(target));
             StringBuilder result = new StringBuilder();
             for (byte item : digest) result.append(String.format("%02x", item));

@@ -61,6 +61,20 @@ public class RuntimeControlReleasePackageRespVO {
     @Schema(description = "测试标记操作人")
     private String operatorName;
 
+    private String testedDigest;
+    private String testedSchemaVersion;
+    private String testedReleaseTag;
+    private String testedPackageDirectoryName;
+    private String testedPackageDigest;
+    private String testedManifestDigest;
+    private String testedEnvironment;
+    private String testedOperationId;
+    private String testedOperationStatus;
+    private String testedOperationRequestedAt;
+    private String testedResult;
+    private String testedConclusion;
+    private String testedValidationError;
+
     @Schema(description = "测试通过绑定的恢复集候选编号")
     private String testedRecoverySetCandidateId;
 

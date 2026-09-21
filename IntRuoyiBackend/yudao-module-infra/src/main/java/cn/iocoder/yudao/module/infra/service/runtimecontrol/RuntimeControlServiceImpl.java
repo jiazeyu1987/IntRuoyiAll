@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.infra.service.file.NasConnectionConfig;
 import cn.iocoder.yudao.module.infra.service.file.NasFileReadResult;
 import cn.iocoder.yudao.module.infra.service.file.NasSettingsService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseDigestContract;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowExecutorContract;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -415,25 +416,14 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             return;
         }
         RuntimeControlProperties.ReleaseWorkflow releaseWorkflow = properties.getReleaseWorkflow();
-        releaseWorkflow.validate();
-        Path maintenanceRoot = Path.of(StrUtil.trim(releaseWorkflow.getMaintenanceRepoRoot())).toAbsolutePath().normalize();
-        Path script = maintenanceRoot.resolve(releaseWorkflow.getPublishScriptPath()).normalize();
-        if (!script.startsWith(maintenanceRoot) || Files.isSymbolicLink(script) || !Files.isRegularFile(script)) {
-            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseWorkflow.publishScriptPath");
-        }
-        String actualDigest;
+        ReleaseWorkflowExecutorContract.VerifiedExecutor executor;
         try {
-            byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(script));
-            actualDigest = java.util.HexFormat.of().formatHex(digest);
-        } catch (IOException | java.security.NoSuchAlgorithmException ex) {
-            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseWorkflow.publishScriptSha256");
+            executor = ReleaseWorkflowExecutorContract.verify(properties);
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, ex.getMessage());
         }
-        if (!actualDigest.equalsIgnoreCase(releaseWorkflow.getExpectedPublishScriptSha256())) {
-            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
-                    "RELEASE_EXECUTOR_DIGEST_MISMATCH: expected published maintenance executor");
-        }
-        command.setWorkingDirectory(maintenanceRoot.toString());
-        command.setScriptPath(script.toString());
+        command.setWorkingDirectory(executor.maintenanceRoot().toString());
+        command.setScriptPath(executor.script().toString());
         if (action == RuntimeControlOperationAction.BUILD_RELEASE) {
             appendRequiredArgument(command.getArguments(), "-BackendRepoRoot",
                     appendConfiguredPath(releaseWorkflow.getApplicationRepoRoot(), "IntRuoyiBackend"));
@@ -726,20 +716,6 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         }
     }
 
-    private JsonNode readReleasePackageJson(NasConnectionConfig nasConfig, String path, String fileName,
-                                            List<String> blockedReasons) {
-        try {
-            NasFileReadResult result = nasBrowserService.readFile(nasConfig, path);
-            return objectMapper.readTree(new String(result.bytes(), StandardCharsets.UTF_8));
-        } catch (ServiceException ex) {
-            blockedReasons.add("缺少 " + fileName);
-            return null;
-        } catch (IOException ex) {
-            blockedReasons.add(fileName + " 解析失败：" + ex.getMessage());
-            return null;
-        }
-    }
-
     private void populateReleasePackageTestedMetadata(NasConnectionConfig nasConfig, String packagePath,
                                                       List<String> packageFileNames,
                                                       RuntimeControlReleasePackageRespVO respVO) {
@@ -748,16 +724,34 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             respVO.setTested(false);
             return;
         }
-        List<String> ignoredReasons = new ArrayList<>();
-        JsonNode tested = readReleasePackageJson(nasConfig, testedPath, "tested.json", ignoredReasons);
-        respVO.setTested(tested != null);
-        if (tested != null) {
+        try {
+            NasFileReadResult file = nasBrowserService.readFile(nasConfig, testedPath);
+            JsonNode tested = objectMapper.readTree(file.bytes());
+            if (tested == null || !tested.isObject()) {
+                throw new IllegalArgumentException("tested.json must be an object");
+            }
+            respVO.setTested(true);
+            respVO.setTestedDigest(ReleaseDigestContract.manifestDigest(file.bytes()));
+            respVO.setTestedSchemaVersion(text(tested, "schemaVersion"));
+            respVO.setTestedReleaseTag(text(tested, "releaseTag"));
+            respVO.setTestedPackageDirectoryName(text(tested, "packageDirectoryName"));
+            respVO.setTestedPackageDigest(text(tested, "packageDigest"));
+            respVO.setTestedManifestDigest(text(tested, "manifestDigest"));
+            respVO.setTestedEnvironment(text(tested, "testEnvironment"));
+            respVO.setTestedOperationId(text(tested, "publishTestOperationId"));
+            respVO.setTestedOperationStatus(text(tested, "publishTestOperationStatus"));
+            respVO.setTestedOperationRequestedAt(text(tested, "publishTestRequestedAt"));
+            respVO.setTestedResult(text(tested, "testResult"));
+            respVO.setTestedConclusion(text(tested, "testConclusion"));
             respVO.setTestedAt(text(tested, "testedAt"));
-            respVO.setOperatorName(text(tested, "operatorName"));
+            respVO.setOperatorName(text(tested, "testedBy"));
             JsonNode recoverySet = tested.get("recoverySet");
             respVO.setTestedRecoverySetCandidateId(text(recoverySet, "selectedRecoverySetCandidateId"));
             respVO.setTestedRecoverySetId(text(recoverySet, "recoverySetId"));
             respVO.setTestedRecoverySetManifestHash(text(recoverySet, "recoverySetManifestHash"));
+        } catch (IOException | IllegalArgumentException | ServiceException ex) {
+            respVO.setTested(false);
+            respVO.setTestedValidationError("tested.json unreadable or invalid: " + ex.getClass().getSimpleName());
         }
     }
 
