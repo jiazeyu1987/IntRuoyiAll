@@ -95,6 +95,16 @@ def test_registration_certificate_reminder_schema_stays_immutable_and_uses_exter
     assert "migrationId=20260818_dcc_registration_certificate_reminder" in preflight.read_text(encoding="utf-8")
 
 
+def test_optional_project_code_migration_stays_at_the_applied_idempotent_contract() -> None:
+    migration = REPO_ROOT / "sql/mysql/20260904_dcc_registration_certificate_download_optional_project_code.sql"
+    normalized = migration.read_bytes().replace(b"\r\n", b"\n")
+
+    assert hashlib.sha256(normalized).hexdigest() == "bd358486e116f99d2418cceafb39666c5cfe0455e4388cfd1a5292996a991c41"
+    text = normalized.decode("utf-8")
+    assert "IF EXISTS (" in text
+    assert "CONSTRAINT_NAME = 'chk_dcc_reg_cert_access_request_project'" in text
+
+
 def test_label_preflight_blocks_empty_menu_ids_like_migration() -> None:
     database = _database("label_preflight")
     try:
