@@ -13,5 +13,13 @@ public interface RuntimeControlCommandExecutor {
 
     void executeOperation(RuntimeControlCommand command, Path logPath);
 
+    default void registerOperation(String operationId, Path logPath) {
+        // Implementations that can terminate a running process override this hook.
+    }
+
+    default boolean cancelOperation(String operationId) {
+        throw new IllegalStateException("RUNTIME_CONTROL_OPERATION_CANCELLATION_UNAVAILABLE");
+    }
+
     void executeDetachedOperation(RuntimeControlCommand command, Path logPath, String operationId, String successSummary);
 }

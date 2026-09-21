@@ -9,6 +9,47 @@ export type RuntimeControlTargetEnvironment = 'test' | 'prod' | 'backup'
 export type RuntimeControlRootDiskTargetEnvironment = 'test' | 'prod' | 'backup'
 export type RuntimeControlBackupKind = 'FULL' | 'INCREMENTAL'
 export type RuntimeControlRestoreCandidateType = 'REHEARSAL' | 'CONTROLLED_RESTORE'
+export type RuntimeControlReleaseWorkflowState =
+  | 'SOURCE_FREEZING' | 'PREFLIGHTING' | 'TESTING' | 'BUILDING' | 'READY'
+  | 'TEST_DEPLOYING' | 'TEST_DEPLOYED' | 'TESTED' | 'PROD_PREVIEW'
+  | 'PROMOTING_PROD' | 'COMPLETED' | 'FAILED' | 'CANCELED' | 'RECOVERY_REQUIRED'
+
+export interface RuntimeControlReleaseWorkflowVO {
+  workflowId: string
+  releaseTag: string
+  publishScope: 'app-release'
+  state: RuntimeControlReleaseWorkflowState
+  stateVersion: number
+  operationId?: string
+  packageDigest?: string
+  manifestDigest?: string
+  errorCode?: string
+  failedStage?: string
+  requestedBy?: string
+  updatedAt?: RuntimeControlDateTime
+}
+
+export interface RuntimeControlReleaseWorkflowProductionPreviewVO {
+  previewId: string
+  workflowId: string
+  expectedStateVersion: number
+  releaseTag: string
+  packageDigest: string
+  manifestDigest: string
+  targetEnvironment: 'prod'
+  targetDisplayName: string
+  currentProdReleaseTag?: string
+  testOperationId?: string
+  eligible: boolean
+  blockers: string[]
+  expiresAt: RuntimeControlDateTime
+}
+
+export interface RuntimeControlReleaseAuthorizationVO {
+  grantId: string
+  previewId: string
+  expectedStateVersion: number
+}
 
 export interface RuntimeControlOperationVO {
   operationId: string
@@ -581,6 +622,59 @@ export const getRuntimeControlReleaseStatus = () => {
     timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
   })
 }
+
+export const getRuntimeControlReleaseWorkflowCreationContext = () =>
+  request.get<{ sourceSelectionId: string }>({
+    url: '/infra/runtime-control/release-workflows/creation-context'
+  })
+
+export const createRuntimeControlReleaseWorkflow = (data: { reason: string; sourceSelectionId: string }) =>
+  request.post<RuntimeControlReleaseWorkflowVO>({
+    url: '/infra/runtime-control/release-workflows', data,
+    timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+  })
+
+export const getRuntimeControlReleaseWorkflows = () =>
+  request.get<RuntimeControlReleaseWorkflowVO[]>({
+    url: '/infra/runtime-control/release-workflows',
+    timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+  })
+
+export const publishRuntimeControlReleaseWorkflowToTest = (workflowId: string, reason: string) =>
+  request.post<RuntimeControlReleaseWorkflowVO>({
+    url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/publish-test`,
+    data: { reason }, timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+  })
+
+export const acceptRuntimeControlReleaseWorkflowTest = (workflowId: string, conclusion: string) =>
+  request.post<RuntimeControlReleaseWorkflowVO>({
+    url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/test-acceptance`,
+    data: { result: 'PASS', conclusion }, timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+  })
+
+export const previewRuntimeControlReleaseWorkflowProduction = (
+  workflowId: string, expectedStateVersion: number, reason: string
+) => request.post<RuntimeControlReleaseWorkflowProductionPreviewVO>({
+  url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/production-preview`,
+  data: { reason, expectedStateVersion }, timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+})
+
+export const authorizeRuntimeControlReleaseWorkflowProduction = (
+  workflowId: string, previewId: string, expectedStateVersion: number, reason: string
+) => request.post<RuntimeControlReleaseAuthorizationVO>({
+  url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/production-authorization`,
+  data: { previewId, expectedStateVersion, reason },
+  timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+})
+
+export const promoteRuntimeControlReleaseWorkflowProduction = (
+  workflowId: string,
+  data: { reason: string; authorizationGrantId: string; previewId: string;
+    expectedStateVersion: number; idempotencyKey: string; prodConfirmText: string }
+) => request.post<RuntimeControlReleaseWorkflowVO>({
+  url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/promote-prod`,
+  data, timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+})
 
 export const runRuntimeControlInspection = () => {
   return request.post<RuntimeControlInspectionRunVO>({

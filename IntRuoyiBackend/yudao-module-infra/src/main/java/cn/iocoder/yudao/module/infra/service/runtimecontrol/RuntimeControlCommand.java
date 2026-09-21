@@ -13,4 +13,9 @@ public class RuntimeControlCommand {
     private String component;
     private String scriptPath;
     private List<String> arguments;
+    private String workingDirectory;
+
+    public RuntimeControlCommand(String environment, String component, String scriptPath, List<String> arguments) {
+        this(environment, component, scriptPath, arguments, null);
+    }
 }

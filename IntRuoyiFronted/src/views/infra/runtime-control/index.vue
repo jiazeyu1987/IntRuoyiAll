@@ -44,6 +44,61 @@
       <el-tag v-if="!canOperate" type="warning" effect="light">无运维操作权限</el-tag>
     </div>
 
+    <section class="release-workflow-panel">
+      <div class="release-workflow-toolbar">
+        <div class="panel-title">程序包发布工作流</div>
+        <el-input v-model="workflowReason" maxlength="200" placeholder="发布原因" clearable />
+        <el-button type="primary" :disabled="!canOperate || workflowBusy || !workflowReason.trim()"
+          :loading="workflowBusy" @click="createReleaseWorkflow">
+          <Icon icon="ep:box" class="mr-5px" />构建发布包
+        </el-button>
+        <el-button :loading="workflowLoading" @click="loadReleaseWorkflows">
+          <Icon icon="ep:refresh" class="mr-5px" />刷新
+        </el-button>
+      </div>
+      <el-table :data="releaseWorkflows" row-key="workflowId" v-loading="workflowLoading" size="small">
+        <el-table-column label="发布包" prop="releaseTag" min-width="250" show-overflow-tooltip />
+        <el-table-column label="阶段" prop="state" width="160" />
+        <el-table-column label="操作" prop="operationId" min-width="230" show-overflow-tooltip />
+        <el-table-column label="动作" min-width="280" fixed="right">
+          <template #default="{ row }">
+            <el-button v-if="row.state === 'READY'" link type="primary"
+              :disabled="!canOperate || workflowBusy || !workflowReason.trim()"
+              @click="publishWorkflowToTest(row)">部署测试服</el-button>
+            <el-button v-if="row.state === 'TEST_DEPLOYED'" link type="success"
+              :disabled="!canOperate || workflowBusy || !workflowReason.trim()"
+              @click="acceptWorkflowTest(row)">标记测试通过</el-button>
+            <el-button v-if="row.state === 'TESTED'" link type="warning"
+              :disabled="!canPromoteProd || workflowBusy || !workflowReason.trim()"
+              @click="previewProductionPromotion(row)">晋级正式服</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </section>
+
+    <el-dialog v-model="productionDialog.visible" title="晋级正式服" width="640px"
+      @closed="clearProductionPreview">
+      <template v-if="productionPreview">
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item label="发布包">{{ productionPreview.releaseTag }}</el-descriptions-item>
+          <el-descriptions-item label="目标">{{ productionPreview.targetDisplayName }}</el-descriptions-item>
+          <el-descriptions-item label="当前版本">{{ productionPreview.currentProdReleaseTag || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="包摘要">{{ productionPreview.packageDigest }}</el-descriptions-item>
+          <el-descriptions-item label="测试操作">{{ productionPreview.testOperationId }}</el-descriptions-item>
+        </el-descriptions>
+        <el-alert v-if="productionPreview.blockers.length" type="error" :closable="false"
+          :title="productionPreview.blockers.join('；')" class="mt-12px" />
+        <el-input v-model="productionDialog.confirmText" class="mt-12px"
+          placeholder="输入 PROD 确认" autocomplete="off" />
+      </template>
+      <template #footer>
+        <el-button @click="productionDialog.visible = false">取消</el-button>
+        <el-button type="danger" :loading="workflowBusy"
+          :disabled="!productionPreview?.eligible || productionDialog.confirmText !== 'PROD'"
+          @click="confirmProductionPromotion">确认晋级</el-button>
+      </template>
+    </el-dialog>
+
     <div class="release-status-panel" v-loading="opsLoading.releaseStatus">
       <div class="release-status-panel__head">
         <div>
@@ -847,6 +902,12 @@ const rollbackCandidates = ref<RuntimeControlApi.RuntimeControlRollbackCandidate
 const restoreCandidates = ref<RuntimeControlApi.RuntimeControlRestoreCandidateVO[]>([])
 const releasePackages = ref<RuntimeControlApi.RuntimeControlReleasePackageVO[]>([])
 const releaseStatus = ref<RuntimeControlApi.RuntimeControlReleaseStatusVO>()
+const releaseWorkflows = ref<RuntimeControlApi.RuntimeControlReleaseWorkflowVO[]>([])
+const workflowLoading = ref(false)
+const workflowBusy = ref(false)
+const workflowReason = ref('')
+const productionPreview = ref<RuntimeControlApi.RuntimeControlReleaseWorkflowProductionPreviewVO>()
+const productionDialog = reactive({ visible: false, confirmText: '', workflowId: '', idempotencyKey: '' })
 const backupPoints = ref<RuntimeControlApi.RuntimeControlBackupPointVO[]>([])
 const probeLatest = ref<RuntimeControlApi.RuntimeControlProbeLatestVO>()
 const capacityStatus = ref<RuntimeControlApi.RuntimeControlCapacityStatusVO>()
@@ -888,17 +949,7 @@ const displayComponentRows = [
 const releaseStatusEnvironments = ['test', 'prod', 'backup']
 
 const operationActions = [
-  { action: 'build-release', label: '构建发布包', icon: 'ep:box', type: 'primary' },
-  { action: 'publish-test', label: '部署发布包到测试服', icon: 'ep:upload', type: 'primary' },
   { action: 'apply-test-db-sql', label: '测试服数据库快应用', icon: 'ep:coin', type: 'warning' },
-  {
-    action: 'mark-release-tested',
-    label: '标记测试通过',
-    icon: 'ep:circle-check',
-    type: 'success'
-  },
-  { action: 'promote-prod', label: '上线已验证发布包', icon: 'ep:promotion', type: 'warning' },
-  { action: 'promote-backup', label: '上线审查服', icon: 'ep:connection', type: 'warning' },
   { action: 'backup-now', label: '立即备份', icon: 'ep:folder-checked', type: 'success' },
   { action: 'rehearsal', label: '恢复演练', icon: 'ep:video-play', type: 'warning' },
   { action: 'rollback-app', label: '回滚版本', icon: 'ep:refresh-left', type: 'warning' },
@@ -1014,6 +1065,7 @@ const remoteRootCleanupDialog = reactive({
 })
 
 const canOperate = computed(() => checkPermi(['infra:runtime-control:operate']))
+const canPromoteProd = computed(() => checkPermi(['infra:runtime-control:promote-prod']))
 const selectedRootDiskTarget = computed(() =>
   rootDiskTargetOptions.find((item) => item.value === remoteRootTargetEnvironment.value)
 )
@@ -1241,6 +1293,112 @@ const loadReleaseStatus = async () => {
     releasePackages.value = releaseStatus.value.releasePackages || []
   } finally {
     opsLoading.releaseStatus = false
+  }
+}
+
+const loadReleaseWorkflows = async () => {
+  workflowLoading.value = true
+  try {
+    releaseWorkflows.value = await RuntimeControlApi.getRuntimeControlReleaseWorkflows()
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowLoading.value = false
+  }
+}
+
+const createReleaseWorkflow = async () => {
+  if (!workflowReason.value.trim() || !canOperate.value) return
+  workflowBusy.value = true
+  try {
+    const context = await RuntimeControlApi.getRuntimeControlReleaseWorkflowCreationContext()
+    await RuntimeControlApi.createRuntimeControlReleaseWorkflow({
+      reason: workflowReason.value.trim(), sourceSelectionId: context.sourceSelectionId
+    })
+    await loadReleaseWorkflows()
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowBusy.value = false
+  }
+}
+
+const publishWorkflowToTest = async (workflow: RuntimeControlApi.RuntimeControlReleaseWorkflowVO) => {
+  if (!workflowReason.value.trim() || workflow.state !== 'READY') return
+  workflowBusy.value = true
+  try {
+    await RuntimeControlApi.publishRuntimeControlReleaseWorkflowToTest(
+      workflow.workflowId, workflowReason.value.trim()
+    )
+    await loadReleaseWorkflows()
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowBusy.value = false
+  }
+}
+
+const acceptWorkflowTest = async (workflow: RuntimeControlApi.RuntimeControlReleaseWorkflowVO) => {
+  if (!workflowReason.value.trim() || workflow.state !== 'TEST_DEPLOYED') return
+  workflowBusy.value = true
+  try {
+    await RuntimeControlApi.acceptRuntimeControlReleaseWorkflowTest(
+      workflow.workflowId, workflowReason.value.trim()
+    )
+    await loadReleaseWorkflows()
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowBusy.value = false
+  }
+}
+
+const clearProductionPreview = () => {
+  productionPreview.value = undefined
+  productionDialog.confirmText = ''
+  productionDialog.workflowId = ''
+  productionDialog.idempotencyKey = ''
+}
+
+const previewProductionPromotion = async (workflow: RuntimeControlApi.RuntimeControlReleaseWorkflowVO) => {
+  if (!workflowReason.value.trim() || workflow.state !== 'TESTED' || !canPromoteProd.value) return
+  workflowBusy.value = true
+  try {
+    productionPreview.value = await RuntimeControlApi.previewRuntimeControlReleaseWorkflowProduction(
+      workflow.workflowId, workflow.stateVersion, workflowReason.value.trim()
+    )
+    productionDialog.workflowId = workflow.workflowId
+    productionDialog.idempotencyKey = crypto.randomUUID()
+    productionDialog.visible = true
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowBusy.value = false
+  }
+}
+
+const confirmProductionPromotion = async () => {
+  const preview = productionPreview.value
+  if (!preview?.eligible || productionDialog.confirmText !== 'PROD' || !productionDialog.workflowId) return
+  workflowBusy.value = true
+  try {
+    const authorization = await RuntimeControlApi.authorizeRuntimeControlReleaseWorkflowProduction(
+      productionDialog.workflowId, preview.previewId, preview.expectedStateVersion,
+      workflowReason.value.trim()
+    )
+    await RuntimeControlApi.promoteRuntimeControlReleaseWorkflowProduction(
+      productionDialog.workflowId, {
+        reason: workflowReason.value.trim(), authorizationGrantId: authorization.grantId,
+        previewId: preview.previewId, expectedStateVersion: preview.expectedStateVersion,
+        idempotencyKey: productionDialog.idempotencyKey, prodConfirmText: productionDialog.confirmText
+      }
+    )
+    productionDialog.visible = false
+    await loadReleaseWorkflows()
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowBusy.value = false
   }
 }
 
@@ -2251,6 +2409,7 @@ const reportActionError = (error: unknown) => {
 
 onMounted(() => {
   loadOverview()
+  loadReleaseWorkflows()
   pollingTimer = window.setInterval(loadOverview, 60000)
 })
 
@@ -2277,6 +2436,30 @@ watch(
   padding: 16px;
   background: #f7f9fc;
   color: #172033;
+}
+
+.release-workflow-panel {
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  margin-bottom: 12px;
+}
+
+.release-workflow-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5ebf3;
+}
+
+.release-workflow-toolbar .el-input {
+  width: min(380px, 100%);
+}
+
+@media (max-width: 700px) {
+  .release-workflow-toolbar {
+    flex-wrap: wrap;
+  }
 }
 
 .runtime-toolbar {

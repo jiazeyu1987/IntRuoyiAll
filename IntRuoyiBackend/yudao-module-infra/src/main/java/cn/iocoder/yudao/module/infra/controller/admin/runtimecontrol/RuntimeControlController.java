@@ -24,6 +24,15 @@ import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeC
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlProbeLatestRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleasePackageRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseStatusRespVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowCreateReqVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowActionReqVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowRespVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowTestAcceptanceReqVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseAuthorizationRespVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowProdReqVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowProductionPreviewReqVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowProductionPreviewRespVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowProductionAuthorizationReqVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlRestartReqVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlRollbackCandidateRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlRestoreCandidateRespVO;
@@ -33,6 +42,7 @@ import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeC
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlWizardRecommendationReqVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlWizardRecommendationRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlWizardScenarioRespVO;
+import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeControlProperties;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeBackupDrillService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeOpsAlertService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeOpsBusinessHealthService;
@@ -45,6 +55,9 @@ import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlServic
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeIncidentService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeStorageGuardService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeRemoteRootDiskService;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowService;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowOrchestrator;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowProductionPreviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -97,6 +110,14 @@ public class RuntimeControlController {
     private RuntimeIncidentService runtimeIncidentService;
     @Resource
     private RuntimeRemoteRootDiskService runtimeRemoteRootDiskService;
+    @Resource
+    private ReleaseWorkflowService releaseWorkflowService;
+    @Resource
+    private ReleaseWorkflowOrchestrator releaseWorkflowOrchestrator;
+    @Resource
+    private ReleaseWorkflowProductionPreviewService releaseWorkflowProductionPreviewService;
+    @Resource
+    private RuntimeControlProperties runtimeControlProperties;
 
     @GetMapping("/overview")
     @Operation(summary = "获得运行控制台总览")
@@ -116,6 +137,7 @@ public class RuntimeControlController {
     @Operation(summary = "执行运行控制台运维动作")
     @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
     public CommonResult<RuntimeControlOperationRespVO> executeAction(@Valid @RequestBody RuntimeControlActionReqVO reqVO) {
+        runtimeControlService.rejectLegacyProductionAction(reqVO);
         return success(runtimeControlService.executeAction(reqVO, requireLoginUserId()));
     }
 
@@ -124,6 +146,7 @@ public class RuntimeControlController {
     @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
     public CommonResult<RuntimeControlActionPreviewRespVO> previewAction(
             @Valid @RequestBody RuntimeControlActionReqVO reqVO) {
+        runtimeControlService.rejectLegacyProductionAction(reqVO);
         return success(runtimeControlService.previewAction(reqVO, requireLoginUserId()));
     }
 
@@ -146,6 +169,102 @@ public class RuntimeControlController {
     @PreAuthorize("@ss.hasPermission('infra:runtime-control:query')")
     public CommonResult<RuntimeControlReleaseStatusRespVO> getReleaseStatus() {
         return success(runtimeControlService.getReleaseStatus());
+    }
+
+    @PostMapping("/release-workflows")
+    @Operation(summary = "创建程序发布工作流")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
+    public CommonResult<RuntimeControlReleaseWorkflowRespVO> createReleaseWorkflow(
+            @Valid @RequestBody RuntimeControlReleaseWorkflowCreateReqVO reqVO) {
+        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowOrchestrator.startBuild(
+                requireLoginUserId(), reqVO.getReason(), reqVO.getSourceSelectionId())));
+    }
+
+    @GetMapping("/release-workflows/creation-context")
+    @Operation(summary = "获得当前批准的程序发布源选择")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
+    public CommonResult<java.util.Map<String, String>> getReleaseWorkflowCreationContext() {
+        return success(java.util.Map.of("sourceSelectionId",
+                runtimeControlProperties.getReleaseWorkflow().getApprovedSourceSelectionId()));
+    }
+
+    @GetMapping("/release-workflows")
+    @Operation(summary = "获得程序发布工作流")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:query')")
+    public CommonResult<List<RuntimeControlReleaseWorkflowRespVO>> getReleaseWorkflows() {
+        return success(releaseWorkflowService.list().stream()
+                .map(item -> releaseWorkflowOrchestrator.reconcile(item.workflowId()))
+                .map(RuntimeControlReleaseWorkflowRespVO::from)
+                .toList());
+    }
+
+    @PostMapping("/release-workflows/{workflowId}/publish-test")
+    @Operation(summary = "发布程序包到测试服")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
+    public CommonResult<RuntimeControlReleaseWorkflowRespVO> publishReleaseWorkflowToTest(
+            @PathVariable("workflowId") String workflowId,
+            @Valid @RequestBody RuntimeControlReleaseWorkflowActionReqVO reqVO) {
+        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowOrchestrator.startTestPublish(
+                workflowId, requireLoginUserId(), reqVO.getReason())));
+    }
+
+    @PostMapping("/release-workflows/{workflowId}/test-acceptance")
+    @Operation(summary = "记录程序包测试验收")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
+    public CommonResult<RuntimeControlReleaseWorkflowRespVO> acceptReleaseWorkflowTest(
+            @PathVariable("workflowId") String workflowId,
+            @Valid @RequestBody RuntimeControlReleaseWorkflowTestAcceptanceReqVO reqVO) {
+        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowOrchestrator.acceptTest(
+                workflowId, requireLoginUserId(), reqVO.getResult(), reqVO.getConclusion())));
+    }
+
+    @PostMapping("/release-workflows/{workflowId}/production-authorization")
+    @Operation(summary = "创建一次性正式晋级授权")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:promote-prod')")
+    public CommonResult<RuntimeControlReleaseAuthorizationRespVO> authorizeReleaseWorkflowProduction(
+            @PathVariable("workflowId") String workflowId,
+            @Valid @RequestBody RuntimeControlReleaseWorkflowProductionAuthorizationReqVO reqVO) {
+        return success(RuntimeControlReleaseAuthorizationRespVO.from(
+                releaseWorkflowOrchestrator.authorizeProduction(workflowId, requireLoginUserId(),
+                        reqVO.getPreviewId(), reqVO.getExpectedStateVersion())));
+    }
+
+    @PostMapping("/release-workflows/{workflowId}/production-preview")
+    @Operation(summary = "预检已测试程序包正式晋级资格")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:promote-prod')")
+    public CommonResult<RuntimeControlReleaseWorkflowProductionPreviewRespVO> previewReleaseWorkflowProduction(
+            @PathVariable("workflowId") String workflowId,
+            @Valid @RequestBody RuntimeControlReleaseWorkflowProductionPreviewReqVO reqVO) {
+        return success(releaseWorkflowProductionPreviewService.create(
+                releaseWorkflowOrchestrator.reconcile(workflowId), reqVO.getExpectedStateVersion()));
+    }
+
+    @PostMapping("/release-workflows/{workflowId}/promote-prod")
+    @Operation(summary = "晋级同一程序包到正式服")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:promote-prod')")
+    public CommonResult<RuntimeControlReleaseWorkflowRespVO> promoteReleaseWorkflowProduction(
+            @PathVariable("workflowId") String workflowId,
+            @Valid @RequestBody RuntimeControlReleaseWorkflowProdReqVO reqVO) {
+        return success(RuntimeControlReleaseWorkflowRespVO.from(
+                releaseWorkflowOrchestrator.startProductionPromotion(workflowId, requireLoginUserId(),
+                        reqVO.getReason(), reqVO.getAuthorizationGrantId(), reqVO.getProdConfirmText(),
+                        reqVO.getPreviewId(), reqVO.getExpectedStateVersion(), reqVO.getIdempotencyKey())));
+    }
+
+    @GetMapping("/release-workflows/{workflowId}")
+    @Operation(summary = "获得程序发布工作流详情")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:query')")
+    public CommonResult<RuntimeControlReleaseWorkflowRespVO> getReleaseWorkflow(
+            @PathVariable("workflowId") String workflowId) {
+        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowOrchestrator.reconcile(workflowId)));
+    }
+
+    @PostMapping("/release-workflows/{workflowId}/cancel")
+    @Operation(summary = "取消程序发布工作流")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
+    public CommonResult<RuntimeControlReleaseWorkflowRespVO> cancelReleaseWorkflow(
+            @PathVariable("workflowId") String workflowId) {
+        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowOrchestrator.cancel(workflowId)));
     }
 
     @GetMapping("/operations/{operationId}/log")

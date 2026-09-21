@@ -22,6 +22,10 @@ class RuntimeControlOperationActionPromotionTest {
         RuntimeControlProperties properties = RuntimeControlProperties.createDefaultForTests(tempDir);
         RuntimeControlActionReqVO request = new RuntimeControlActionReqVO();
         request.setReleaseTag("release-button-prod-r1");
+        request.setTestOperationId("op-test-12345678");
+        request.setTestOperationEvidencePath("release/test-acceptance.json");
+        request.setExpectedPackageDigest("a".repeat(64));
+        request.setExpectedManifestDigest("b".repeat(64));
 
         List<String> args = RuntimeControlOperationAction.PROMOTE_PROD
                 .buildArguments(request, "operator", properties);
@@ -29,12 +33,15 @@ class RuntimeControlOperationActionPromotionTest {
         assertEquals("deploy-release", args.get(args.indexOf("-Mode") + 1));
         assertEquals("prod", args.get(args.indexOf("-Environment") + 1));
         assertEquals("release-button-prod-r1", args.get(args.indexOf("-ReleaseTag") + 1));
-        assertTrue(args.contains("-RequireTested"));
+        assertTrue(args.contains("-TestOperationId"));
+        assertEquals("op-test-12345678", args.get(args.indexOf("-TestOperationId") + 1));
+        assertTrue(args.contains("-TestOperationEvidencePath"));
+        assertEquals("a".repeat(64), args.get(args.indexOf("-ExpectedPackageDigest") + 1));
+        assertEquals("b".repeat(64), args.get(args.indexOf("-ExpectedManifestDigest") + 1));
         assertTrue(args.contains("-ConfirmText"));
         assertEquals("PROD", args.get(args.indexOf("-ConfirmText") + 1));
         assertFalse(args.contains("build-release"));
         assertFalse(args.contains("publish-test"));
-        assertFalse(args.contains("-TestOperationId"));
-        assertFalse(args.contains("-TestOperationEvidencePath"));
+        assertFalse(args.contains("-PublishScope"));
     }
 }

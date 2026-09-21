@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.infra.service.runtimecontrol;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlActionReqVO;
 import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeControlProperties;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowContract;
 import lombok.Getter;
 
 import java.util.ArrayList;
@@ -16,11 +17,11 @@ import java.util.function.Function;
 public enum RuntimeControlOperationAction {
 
     BUILD_RELEASE("build-release", "构建发布包", "release", false,
-            "script/deploy/publish-int-ruoyi.ps1",
+            "ops/deploy/publish-int-ruoyi.ps1",
             RuntimeControlOperationAction::buildReleaseArguments),
 
     PUBLISH_TEST("publish-test", "部署发布包到测试服", "test", false,
-            "script/deploy/publish-int-ruoyi.ps1",
+            "ops/deploy/publish-int-ruoyi.ps1",
             reqVO -> deployReleaseArguments("test", reqVO, false)),
 
     APPLY_TEST_DB_SQL("apply-test-db-sql", "测试服数据库快应用", "test", false,
@@ -28,15 +29,15 @@ public enum RuntimeControlOperationAction {
             RuntimeControlOperationAction::applyTestDbSqlArguments),
 
     MARK_RELEASE_TESTED("mark-release-tested", "标记测试通过", "test", false,
-            "script/deploy/publish-int-ruoyi.ps1",
+            "ops/deploy/publish-int-ruoyi.ps1",
             RuntimeControlOperationAction::markReleaseTestedArguments),
 
     PROMOTE_PROD("promote-prod", "上线已验证发布包", "prod", true,
-            "script/deploy/publish-int-ruoyi.ps1",
+            "ops/deploy/publish-int-ruoyi.ps1",
             reqVO -> deployReleaseArguments("prod", reqVO, true)),
 
     PROMOTE_BACKUP("promote-backup", "上线审查服", "backup", true,
-            "script/deploy/publish-int-ruoyi.ps1",
+            "ops/deploy/publish-int-ruoyi.ps1",
             reqVO -> deployReleaseArguments("backup", reqVO, true)),
 
     BACKUP_NOW("backup-now", "立即备份", "prod", true,
@@ -61,8 +62,7 @@ public enum RuntimeControlOperationAction {
     private final boolean prodConfirmRequired;
     private final String scriptPath;
     private final Function<RuntimeControlActionReqVO, List<String>> argumentsBuilder;
-    public static final String PUBLISH_SCOPE_CODE_ONLY = "code-only";
-    public static final String PUBLISH_SCOPE_WITH_DATA = "with-data";
+    public static final String PUBLISH_SCOPE_APP_RELEASE = ReleaseWorkflowContract.PUBLISH_SCOPE;
 
     RuntimeControlOperationAction(String action, String label, String environment, boolean prodConfirmRequired,
                                   String scriptPath,
@@ -85,6 +85,9 @@ public enum RuntimeControlOperationAction {
     }
 
     public String resolveScriptPath(RuntimeControlProperties properties) {
+        if (isReleasePackageAction()) {
+            return properties.getReleaseWorkflow().getPublishScriptPath();
+        }
         if (isBackupAction() && properties.getBackupOps().isLinuxLocal()) {
             return properties.getBackupOps().getLinuxScriptPath();
         }
@@ -112,6 +115,12 @@ public enum RuntimeControlOperationAction {
             args.add("-EnableSmartReleaseReport");
         }
         if (isBackupAction() && !linuxBackup) {
+            args.add("-OperatorName");
+            args.add(StrUtil.trim(operatorName));
+        }
+        if (this == MARK_RELEASE_TESTED) {
+            args.add("-TestResult");
+            args.add(StrUtil.trim(reqVO.getTestResult()));
             args.add("-OperatorName");
             args.add(StrUtil.trim(operatorName));
         }
@@ -149,10 +158,9 @@ public enum RuntimeControlOperationAction {
             case APPLY_TEST_DB_SQL -> Map.of("sqlPath", StrUtil.blankToDefault(reqVO.getSqlPath(), ""));
             case MARK_RELEASE_TESTED -> Map.of(
                     "releaseTag", StrUtil.blankToDefault(reqVO.getReleaseTag(), ""),
+                    "testResult", StrUtil.blankToDefault(reqVO.getTestResult(), ""),
                     "testConclusion", StrUtil.blankToDefault(reqVO.getTestConclusion(), ""),
-                    "selectedRecoverySetCandidateId",
-                    StrUtil.blankToDefault(reqVO.getSelectedRecoverySetCandidateId(), ""),
-                    "recoverySetId", StrUtil.blankToDefault(reqVO.getRecoverySetId(), ""));
+                    "testOperationId", StrUtil.blankToDefault(reqVO.getTestOperationId(), ""));
             case BACKUP_NOW -> Map.of(
                     "targetEnvironment", StrUtil.blankToDefault(reqVO.getTargetEnvironment(), ""),
                     "backupKind", StrUtil.blankToDefault(reqVO.getBackupKind(), ""));
@@ -180,7 +188,7 @@ public enum RuntimeControlOperationAction {
     }
 
     public boolean supportsPublishScope(String publishScope) {
-        return PUBLISH_SCOPE_CODE_ONLY.equals(publishScope) || PUBLISH_SCOPE_WITH_DATA.equals(publishScope);
+        return PUBLISH_SCOPE_APP_RELEASE.equals(publishScope);
     }
 
     private boolean isBackupAction() {
@@ -188,6 +196,15 @@ public enum RuntimeControlOperationAction {
     }
 
     public boolean requiresNasReleaseRepository() {
+        return this == BUILD_RELEASE || this == PUBLISH_TEST || this == MARK_RELEASE_TESTED
+                || this == PROMOTE_PROD || this == PROMOTE_BACKUP;
+    }
+
+    public boolean requiresReleaseWorkflowContext() {
+        return isReleasePackageAction();
+    }
+
+    private boolean isReleasePackageAction() {
         return this == BUILD_RELEASE || this == PUBLISH_TEST || this == MARK_RELEASE_TESTED
                 || this == PROMOTE_PROD || this == PROMOTE_BACKUP;
     }
@@ -237,17 +254,20 @@ public enum RuntimeControlOperationAction {
             args.add("-ReleaseTag");
             args.add(StrUtil.trim(reqVO.getReleaseTag()));
         }
+        addOptionalArgument(args, "-ExpectedMaintenanceCommit", reqVO.getExpectedMaintenanceCommit());
+        addOptionalArgument(args, "-ExpectedApplicationCommit", reqVO.getExpectedApplicationCommit());
+        addOptionalArgument(args, "-ExpectedFrontendCommit", reqVO.getExpectedFrontendCommit());
+        addOptionalArgument(args, "-SourceSelectionId", reqVO.getSourceSelectionId());
         args.add("-Component");
         args.add(Boolean.TRUE.equals(reqVO.getIncludeShowroomBuildPackage()) ? "full" : "intruoyi");
         if (Boolean.TRUE.equals(reqVO.getIncludeOnlyOffice())) {
             args.add("-IncludeOnlyOffice");
         }
-        if (PUBLISH_SCOPE_CODE_ONLY.equals(reqVO.getPublishScope())) {
+        if (PUBLISH_SCOPE_APP_RELEASE.equals(reqVO.getPublishScope())) {
+            args.add("-PublishScope");
+            args.add(PUBLISH_SCOPE_APP_RELEASE);
             args.add("-SkipDatabaseSync");
             args.add("-SkipMinioSync");
-            return args;
-        }
-        if (PUBLISH_SCOPE_WITH_DATA.equals(reqVO.getPublishScope())) {
             return args;
         }
         throw new IllegalArgumentException("Invalid publishScope: " + reqVO.getPublishScope());
@@ -271,14 +291,25 @@ public enum RuntimeControlOperationAction {
         args.add(environment);
         args.add("-ReleaseTag");
         args.add(StrUtil.trim(reqVO.getReleaseTag()));
+        appendExpectedPackageArguments(args, reqVO);
         if ("prod".equals(environment) || "backup".equals(environment)) {
             args.add("-ConfirmText");
             args.add("PROD");
         }
         if (requireTested) {
-            args.add("-RequireTested");
+            args.add("-TestOperationId");
+            args.add(StrUtil.trim(reqVO.getTestOperationId()));
+            args.add("-TestOperationEvidencePath");
+            args.add(StrUtil.trim(reqVO.getTestOperationEvidencePath()));
         }
         return args;
+    }
+
+    private static void appendExpectedPackageArguments(List<String> args, RuntimeControlActionReqVO reqVO) {
+        args.add("-ExpectedPackageDigest");
+        args.add(StrUtil.trim(reqVO.getExpectedPackageDigest()));
+        args.add("-ExpectedManifestDigest");
+        args.add(StrUtil.trim(reqVO.getExpectedManifestDigest()));
     }
 
     private static void appendRemoteDeployTargetArguments(List<String> args, String targetEnvironment,
@@ -356,16 +387,11 @@ public enum RuntimeControlOperationAction {
         args.add(StrUtil.trim(reqVO.getReleaseTag()));
         args.add("-TestConclusion");
         args.add(StrUtil.trim(reqVO.getTestConclusion()));
-        args.add("-SelectedRecoverySetCandidateId");
-        args.add(StrUtil.trim(reqVO.getSelectedRecoverySetCandidateId()));
-        args.add("-RecoverySetId");
-        args.add(StrUtil.trim(reqVO.getRecoverySetId()));
-        args.add("-RecoverySetManifestHash");
-        args.add(StrUtil.trim(reqVO.getRecoverySetManifestHash()));
-        args.add("-RecoverySetProgramVersion");
-        args.add(StrUtil.trim(reqVO.getRecoverySetProgramVersion()));
-        args.add("-RecoverySetRedisPolicy");
-        args.add(StrUtil.trim(reqVO.getRecoverySetRedisPolicy()));
+        args.add("-TestOperationId");
+        args.add(StrUtil.trim(reqVO.getTestOperationId()));
+        args.add("-TestOperationEvidencePath");
+        args.add(StrUtil.trim(reqVO.getTestOperationEvidencePath()));
+        appendExpectedPackageArguments(args, reqVO);
         return args;
     }
 

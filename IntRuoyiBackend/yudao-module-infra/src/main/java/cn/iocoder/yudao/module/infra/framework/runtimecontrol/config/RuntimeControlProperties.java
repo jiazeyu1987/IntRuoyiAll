@@ -33,12 +33,17 @@ public class RuntimeControlProperties implements InitializingBean {
     private List<String> components = List.of("intruoyi-frontend", "intruoyi-backend", "intruoyi-full", "website-frontend");
     private BackupOps backupOps = new BackupOps();
     private ReleasePackage releasePackage = new ReleasePackage();
+    private ReleaseWorkflow releaseWorkflow = new ReleaseWorkflow();
     private StorageGuard storageGuard = new StorageGuard();
 
     public static RuntimeControlProperties createDefaultForTests(Path stateDir) {
         RuntimeControlProperties properties = new RuntimeControlProperties();
         properties.setStateDir(stateDir.toString());
         properties.setRepoRoot("D:/ProjectPackage/Int/IntRuoyi/ruoyi-vue-pro");
+        properties.releaseWorkflow.setApprovedMaintenanceCommit("a".repeat(40));
+        properties.releaseWorkflow.setApprovedApplicationCommit("b".repeat(40));
+        properties.releaseWorkflow.setApprovedFrontendCommit("b".repeat(40));
+        properties.releaseWorkflow.setExpectedPublishScriptSha256("c".repeat(64));
         properties.afterPropertiesSet();
         return properties;
     }
@@ -340,6 +345,79 @@ public class RuntimeControlProperties implements InitializingBean {
         private String backendRuntimeBaseImage = "";
         private String backendRuntimeBaseDigest = "";
         private String backendRuntimeBaseVersion = "";
+    }
+
+    @Data
+    public static class ReleaseWorkflow {
+        private String approvedSourceSelectionId = "approved-source";
+        private String approvedMaintenanceCommit = "";
+        private String approvedApplicationCommit = "";
+        private String approvedFrontendCommit = "";
+        private String maintenanceRepoRoot = "D:/ProjectPackage/Int/IntRuoyiMaintance";
+        private String applicationRepoRoot = "E:/IntRuoyi";
+        private String publishScriptPath = "ops/deploy/publish-int-ruoyi.ps1";
+        private String expectedPublishScriptSha256 = "";
+        private String presetId = "preset-app-release";
+        private String presetVersion = "1";
+        private Duration heartbeatTimeout = Duration.ofMinutes(15);
+        private Duration leaseTtl = Duration.ofMinutes(30);
+        private boolean productionWriteEnabled;
+        private List<String> secretRefs = List.of("release.nas.ssh", "release.registry");
+
+        public void validate() {
+            if (approvedSourceSelectionId == null
+                    || !approvedSourceSelectionId.matches("[a-z0-9][a-z0-9.-]{2,63}")) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.approved-source-selection-id is invalid");
+            }
+            validateOptionalCommit(approvedMaintenanceCommit, "approved-maintenance-commit");
+            validateOptionalCommit(approvedApplicationCommit, "approved-application-commit");
+            validateOptionalCommit(approvedFrontendCommit, "approved-frontend-commit");
+            validatePathLikeText(maintenanceRepoRoot, "maintenance-repo-root");
+            validatePathLikeText(applicationRepoRoot, "application-repo-root");
+            validatePathLikeText(publishScriptPath, "publish-script-path");
+            if (!publishScriptPath.replace('\\', '/').equals("ops/deploy/publish-int-ruoyi.ps1")) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.publish-script-path must name the managed executor");
+            }
+            if (expectedPublishScriptSha256 == null || !expectedPublishScriptSha256.matches("(?i)[0-9a-f]{64}")) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.expected-publish-script-sha256 is required");
+            }
+            if (presetId == null || !presetId.matches("[a-z0-9][a-z0-9.-]{2,63}")) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.preset-id is invalid");
+            }
+            if (presetVersion == null || !presetVersion.matches("[0-9]+")) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.preset-version is invalid");
+            }
+            if (heartbeatTimeout == null || heartbeatTimeout.isZero() || heartbeatTimeout.isNegative()) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.heartbeat-timeout must be greater than 0");
+            }
+            if (leaseTtl == null || leaseTtl.isZero() || leaseTtl.isNegative()) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.lease-ttl must be greater than 0");
+            }
+            if (secretRefs == null || secretRefs.isEmpty() || secretRefs.stream().anyMatch(value ->
+                    value == null || value.isBlank() || value.contains("=") || value.contains("\n"))) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.secret-refs are invalid");
+            }
+        }
+
+        public void validateApprovedCommits() {
+            if (approvedMaintenanceCommit == null || !approvedMaintenanceCommit.matches("[0-9a-fA-F]{40}")
+                    || approvedApplicationCommit == null || !approvedApplicationCommit.matches("[0-9a-fA-F]{40}")
+                    || approvedFrontendCommit == null || !approvedFrontendCommit.matches("[0-9a-fA-F]{40}")) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.approved-commits are required");
+            }
+        }
+
+        private static void validateOptionalCommit(String commit, String name) {
+            if (commit != null && !commit.isBlank() && !commit.matches("[0-9a-fA-F]{40}")) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow." + name + " is invalid");
+            }
+        }
+
+        private static void validatePathLikeText(String value, String name) {
+            if (value == null || value.isBlank() || value.contains("\n") || value.contains("\r")) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow." + name + " is invalid");
+            }
+        }
     }
 
     @Data

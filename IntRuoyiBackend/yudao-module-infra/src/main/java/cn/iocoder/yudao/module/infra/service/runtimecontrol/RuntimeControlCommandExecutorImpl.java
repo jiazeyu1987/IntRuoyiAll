@@ -16,6 +16,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -26,7 +28,7 @@ import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.RUNTIME_CON
 public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandExecutor {
 
     private static final Duration RESTART_COMMAND_TIMEOUT = Duration.ofMinutes(5);
-    private static final Duration OPERATION_COMMAND_TIMEOUT = Duration.ofHours(12);
+    private static final Duration OPERATION_COMMAND_TIMEOUT = Duration.ofHours(2);
     private static final Duration DETACHED_OPERATION_START_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration PROCESS_TERMINATION_TIMEOUT = Duration.ofSeconds(10);
     private static final boolean WINDOWS = System.getProperty("os.name")
@@ -36,6 +38,9 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
     private RuntimeControlProperties properties;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Map<String, String> pendingOperationLogs = new ConcurrentHashMap<>();
+    private final Map<String, Process> activeProcesses = new ConcurrentHashMap<>();
+    private final Map<String, String> activeContainers = new ConcurrentHashMap<>();
 
     @Override
     public RuntimeControlStatusResult queryStatus(RuntimeControlCommand command) {
@@ -71,13 +76,43 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
 
     @Override
     public void executeOperation(RuntimeControlCommand command, Path logPath) {
-        execute(command, false, logPath, OPERATION_COMMAND_TIMEOUT);
+        String operationId = findPendingOperationId(logPath);
+        execute(command, false, logPath, OPERATION_COMMAND_TIMEOUT, operationId);
+    }
+
+    @Override
+    public void registerOperation(String operationId, Path logPath) {
+        if (StrUtil.isBlank(operationId) || logPath == null) {
+            throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "operation cancellation registration is invalid");
+        }
+        pendingOperationLogs.put(operationKey(logPath), operationId);
+    }
+
+    @Override
+    public boolean cancelOperation(String operationId) {
+        if (StrUtil.isBlank(operationId)) {
+            throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "operationId is required for cancellation");
+        }
+        Process process = activeProcesses.get(operationId);
+        if (process != null) {
+            if (process.isAlive()) {
+                terminateCommandProcess(process);
+            }
+            return !process.isAlive();
+        }
+        String containerId = activeContainers.get(operationId);
+        if (StrUtil.isNotBlank(containerId)) {
+            runCommand(List.of("docker", "rm", "--force", containerId), PROCESS_TERMINATION_TIMEOUT);
+            activeContainers.remove(operationId, containerId);
+            return true;
+        }
+        return false;
     }
 
     @Override
     public void executeDetachedOperation(RuntimeControlCommand command, Path logPath, String operationId,
-                                         String successSummary) {
-        Path repoRoot = resolveRepoRoot();
+                                          String successSummary) {
+        Path repoRoot = resolveWorkingDirectory(command);
         Path script = resolveScript(command.getScriptPath(), repoRoot);
         if (!Files.isRegularFile(script)) {
             throw exception(RUNTIME_CONTROL_SCRIPT_NOT_EXISTS, script.toString());
@@ -88,11 +123,18 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
         Path runnerScript = writeDetachedRunnerScript(operationId, logPath, commandLine, successSummary);
         List<String> dockerCommand = buildDetachedDockerCommand(operationId, runnerScript);
         String containerId = runCommand(dockerCommand, DETACHED_OPERATION_START_TIMEOUT).trim();
+        pendingOperationLogs.remove(operationKey(logPath));
+        activeContainers.put(operationId, containerId);
         appendDetachedRunnerStart(logPath, runnerScript, containerId);
     }
 
     private String execute(RuntimeControlCommand command, boolean captureOutput, Path logPath, Duration timeout) {
-        Path repoRoot = resolveRepoRoot();
+        return execute(command, captureOutput, logPath, timeout, null);
+    }
+
+    private String execute(RuntimeControlCommand command, boolean captureOutput, Path logPath, Duration timeout,
+                           String operationId) {
+        Path repoRoot = resolveWorkingDirectory(command);
         Path script = resolveScript(command.getScriptPath(), repoRoot);
         if (!Files.isRegularFile(script)) {
             throw exception(RUNTIME_CONTROL_SCRIPT_NOT_EXISTS, script.toString());
@@ -108,6 +150,9 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
         }
         try {
             Process process = processBuilder.start();
+            if (operationId != null) {
+                activeProcesses.put(operationId, process);
+            }
             boolean finished;
             try {
                 finished = process.waitFor(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
@@ -130,7 +175,24 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
             return captureOutput ? output : "";
         } catch (IOException ex) {
             throw exception(RUNTIME_CONTROL_COMMAND_FAILED, ex.getMessage());
+        } finally {
+            if (operationId != null) {
+                activeProcesses.remove(operationId);
+            }
         }
+    }
+
+    private String findPendingOperationId(Path logPath) {
+        if (logPath == null) {
+            return null;
+        }
+        String key = operationKey(logPath);
+        String operationId = pendingOperationLogs.remove(key);
+        return operationId;
+    }
+
+    private String operationKey(Path logPath) {
+        return logPath.toAbsolutePath().normalize().toString();
     }
 
     private Path writeDetachedRunnerScript(String operationId, Path logPath, List<String> commandLine,
@@ -467,11 +529,12 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
                     # Runtime Control Operation
                     environment=%s
                     component=%s
+                    workingDirectory=%s
                     script=%s
                     command=%s
 
-                    """.formatted(command.getEnvironment(), command.getComponent(), command.getScriptPath(),
-                    String.join(" ", commandLine));
+                    """.formatted(command.getEnvironment(), command.getComponent(), resolveWorkingDirectoryText(command),
+                    command.getScriptPath(), String.join(" ", commandLine));
             Files.writeString(logPath, header, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
         } catch (IOException ex) {
@@ -521,6 +584,30 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
             throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "repoRoot directory not found: " + repoRoot);
         }
         return repoRoot;
+    }
+
+    private Path resolveWorkingDirectory(RuntimeControlCommand command) {
+        if (command == null || StrUtil.isBlank(command.getWorkingDirectory())) {
+            return resolveRepoRoot();
+        }
+        Path workingDirectory;
+        try {
+            workingDirectory = Path.of(command.getWorkingDirectory()).toAbsolutePath().normalize();
+        } catch (InvalidPathException ex) {
+            throw exception(RUNTIME_CONTROL_COMMAND_FAILED,
+                    "workingDirectory invalid: " + command.getWorkingDirectory() + ", " + ex.getMessage());
+        }
+        if (!Files.isDirectory(workingDirectory)) {
+            throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "workingDirectory directory not found: " + workingDirectory);
+        }
+        return workingDirectory;
+    }
+
+    private String resolveWorkingDirectoryText(RuntimeControlCommand command) {
+        if (command == null || StrUtil.isBlank(command.getWorkingDirectory())) {
+            return "<repoRoot>";
+        }
+        return command.getWorkingDirectory();
     }
 
     private Path resolveScript(String scriptPath, Path repoRoot) {

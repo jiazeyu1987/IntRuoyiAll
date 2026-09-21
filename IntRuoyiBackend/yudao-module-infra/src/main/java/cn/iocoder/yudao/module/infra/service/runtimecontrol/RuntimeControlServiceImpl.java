@@ -19,6 +19,7 @@ import cn.iocoder.yudao.module.infra.service.file.NasBrowserService;
 import cn.iocoder.yudao.module.infra.service.file.NasConnectionConfig;
 import cn.iocoder.yudao.module.infra.service.file.NasFileReadResult;
 import cn.iocoder.yudao.module.infra.service.file.NasSettingsService;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseDigestContract;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,10 +38,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_INVALID;
@@ -70,6 +73,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     private final NasBrowserService nasBrowserService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ExecutorService operationExecutor = Executors.newCachedThreadPool();
+    private final Set<String> canceledOperations = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     @Autowired
     public RuntimeControlServiceImpl(RuntimeControlProperties properties,
@@ -206,7 +210,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             throw exception(RUNTIME_CONTROL_INVALID_ACTION, reqVO.getAction());
         }
         RuntimeControlOperationRespVO operation = new RuntimeControlOperationRespVO();
-        operation.setOperationId(UUID.randomUUID().toString());
+        operation.setOperationId(resolveOperationId(reqVO));
         operation.setRequestedBy(operator);
         operation.setRequestedAt(LocalDateTime.now());
         operation.setEnvironment(action.resolveEnvironment(reqVO));
@@ -240,18 +244,65 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         operation.setParameters(action.safeParameters(reqVO));
         operationStore.save(operation);
 
-        RuntimeControlCommand command = new RuntimeControlCommand(operation.getEnvironment(), "ops",
-                action.resolveScriptPath(properties), action.buildArguments(reqVO, operation.getRequestedBy(), properties));
-        Path nasConfigPath = appendNasReleaseArguments(action, command, operation.getOperationId());
-        appendBackendRuntimeBaseArguments(action, command, backendRuntimeBaseConfig);
-        if (action.requiresDetachedLinuxLocalRunner(properties)) {
-            operationExecutor.submit(() -> executeDetachedActionCommand(operation.getOperationId(), action, command, logPath,
-                    nasConfigPath));
-        } else {
-            operationExecutor.submit(() -> executeActionCommand(operation.getOperationId(), action, command, logPath,
-                    nasConfigPath));
+        Path nasConfigPath = null;
+        try {
+            RuntimeControlCommand command = new RuntimeControlCommand(operation.getEnvironment(), "ops",
+                    action.resolveScriptPath(properties), action.buildArguments(reqVO, operation.getRequestedBy(), properties));
+            bindReleaseWorkflowToolchain(action, command);
+            nasConfigPath = appendNasReleaseArguments(action, command, operation.getOperationId());
+            appendBackendRuntimeBaseArguments(action, command, backendRuntimeBaseConfig);
+            commandExecutor.registerOperation(operation.getOperationId(), logPath);
+            Path operationNasConfigPath = nasConfigPath;
+            if (action.requiresDetachedLinuxLocalRunner(properties)) {
+                operationExecutor.submit(() -> executeDetachedActionCommand(operation.getOperationId(), action, command,
+                        logPath, operationNasConfigPath));
+            } else {
+                operationExecutor.submit(() -> executeActionCommand(operation.getOperationId(), action, command,
+                        logPath, operationNasConfigPath));
+            }
+        } catch (RuntimeException ex) {
+            cleanupNasReleaseConfig(nasConfigPath, ex);
+            String blockedMessage = StrUtil.blankToDefault(ex.getMessage(), "Operation blocked");
+            appendOperationLog(logPath, "BLOCKED: " + blockedMessage + System.lineSeparator(), ex);
+            operationStore.updateStatus(operation.getOperationId(), "blocked", blockedMessage);
+            throw ex;
         }
         return operation;
+    }
+
+    @Override
+    public void rejectLegacyProductionAction(RuntimeControlActionReqVO reqVO) {
+        RuntimeControlOperationAction action = reqVO == null ? null
+                : RuntimeControlOperationAction.fromAction(reqVO.getAction());
+        if (action != null && action.requiresReleaseWorkflowContext()) {
+            throw exception(RUNTIME_CONTROL_INVALID_ACTION,
+                    action.getAction() + " 必须通过程序发布工作流按钮发起");
+        }
+    }
+
+    @Override
+    public boolean cancelOperation(String operationId) {
+        RuntimeControlOperationRespVO operation = operationStore.findById(operationId);
+        if (operation == null) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "operationId");
+        }
+        if (!"running".equals(operation.getStatus())) {
+            return true;
+        }
+        canceledOperations.add(operationId);
+        boolean terminated;
+        try {
+            terminated = commandExecutor.cancelOperation(operationId);
+        } catch (RuntimeException ex) {
+            canceledOperations.remove(operationId);
+            throw ex;
+        }
+        if (!terminated) {
+            canceledOperations.remove(operationId);
+            return false;
+        }
+        operationStore.updateStatus(operationId, "canceled", "Operation canceled after process termination");
+        return true;
     }
 
     @Override
@@ -264,6 +315,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         RuntimeControlReleasePackageConfig backendRuntimeBaseConfig = validateActionGuard(action, reqVO);
         RuntimeControlCommand command = new RuntimeControlCommand(action.resolveEnvironment(reqVO), "ops",
                 action.resolveScriptPath(properties), action.buildArguments(reqVO, operator, properties));
+        bindReleaseWorkflowToolchain(action, command);
         appendNasReleasePreviewArguments(action, command);
         appendBackendRuntimeBaseArguments(action, command, backendRuntimeBaseConfig);
 
@@ -337,7 +389,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     }
 
     private void appendBackendRuntimeBaseArguments(RuntimeControlOperationAction action, RuntimeControlCommand command,
-                                                   RuntimeControlReleasePackageConfig releasePackage) {
+                                                    RuntimeControlReleasePackageConfig releasePackage) {
         if (action != RuntimeControlOperationAction.BUILD_RELEASE) {
             return;
         }
@@ -358,6 +410,49 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                 releasePackage.backendRuntimeBaseVersion());
     }
 
+    private void bindReleaseWorkflowToolchain(RuntimeControlOperationAction action, RuntimeControlCommand command) {
+        if (!action.requiresReleaseWorkflowContext()) {
+            return;
+        }
+        RuntimeControlProperties.ReleaseWorkflow releaseWorkflow = properties.getReleaseWorkflow();
+        releaseWorkflow.validate();
+        Path maintenanceRoot = Path.of(StrUtil.trim(releaseWorkflow.getMaintenanceRepoRoot())).toAbsolutePath().normalize();
+        Path script = maintenanceRoot.resolve(releaseWorkflow.getPublishScriptPath()).normalize();
+        if (!script.startsWith(maintenanceRoot) || Files.isSymbolicLink(script) || !Files.isRegularFile(script)) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseWorkflow.publishScriptPath");
+        }
+        String actualDigest;
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(script));
+            actualDigest = java.util.HexFormat.of().formatHex(digest);
+        } catch (IOException | java.security.NoSuchAlgorithmException ex) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseWorkflow.publishScriptSha256");
+        }
+        if (!actualDigest.equalsIgnoreCase(releaseWorkflow.getExpectedPublishScriptSha256())) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
+                    "RELEASE_EXECUTOR_DIGEST_MISMATCH: expected published maintenance executor");
+        }
+        command.setWorkingDirectory(maintenanceRoot.toString());
+        command.setScriptPath(script.toString());
+        if (action == RuntimeControlOperationAction.BUILD_RELEASE) {
+            appendRequiredArgument(command.getArguments(), "-BackendRepoRoot",
+                    appendConfiguredPath(releaseWorkflow.getApplicationRepoRoot(), "IntRuoyiBackend"));
+            appendRequiredArgument(command.getArguments(), "-FrontendRepoRoot",
+                    appendConfiguredPath(releaseWorkflow.getApplicationRepoRoot(), "IntRuoyiFronted"));
+        }
+    }
+
+    private String appendConfiguredPath(String root, String child) {
+        if (StrUtil.isBlank(root)) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "releaseWorkflow.applicationRepoRoot");
+        }
+        try {
+            return Path.of(StrUtil.trim(root)).resolve(child).normalize().toString().replace('\\', '/');
+        } catch (InvalidPathException ex) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseWorkflow.applicationRepoRoot");
+        }
+    }
+
     private void appendRequiredArgument(List<String> arguments, String name, String value) {
         if (StrUtil.isBlank(value)) {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, name);
@@ -370,7 +465,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         if (nasSettingsService == null) {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "nasSettingsService");
         }
-        NasConnectionConfig config = nasSettingsService.getRequiredNasConfig();
+        NasConnectionConfig config = releaseNasConfig();
         Path configPath = Path.of(properties.getStateDir()).normalize()
                 .resolve("nas-release-config")
                 .resolve(operationId + ".json");
@@ -459,6 +554,32 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     }
 
     @Override
+    public Optional<RuntimeControlReleasePackageRespVO> getReleasePackage(String releaseTag) {
+        if (nasSettingsService == null || nasBrowserService == null) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "nas release package dependencies");
+        }
+        String directoryName = StrUtil.trim(releaseTag);
+        if (StrUtil.isBlank(directoryName)) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "releaseTag");
+        }
+        if (StrUtil.containsAny(directoryName, "/", "\\")) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseTag");
+        }
+        NasConnectionConfig nasConfig = releaseNasConfig();
+        String packagePath = releasePackagesRoot() + "/" + directoryName;
+        FileNasListRespVO.Item item = new FileNasListRespVO.Item()
+                .setName(directoryName)
+                .setPath(packagePath)
+                .setDir(true)
+                .setSize(0L);
+        RuntimeControlReleasePackageRespVO releasePackage = buildReleasePackageResponse(item, nasConfig);
+        if (!RELEASE_PACKAGE_STATUS_AVAILABLE.equals(releasePackage.getStatus())) {
+            return Optional.empty();
+        }
+        return Optional.of(releasePackage);
+    }
+
+    @Override
     public RuntimeControlReleaseStatusRespVO getReleaseStatus() {
         RuntimeControlOverviewRespVO overview = getOverview();
         List<RuntimeControlReleasePackageRespVO> packages = getReleasePackages();
@@ -501,7 +622,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         String directoryName = item.getName();
         String packagePath = StrUtil.blankToDefault(item.getPath(), releasePackagesRoot() + "/" + directoryName)
                 .replace("\\", "/");
-        String manifestPath = packagePath + "/release-manifest.json";
+        String manifestPath = packagePath + "/manifest.json";
         List<String> blockedReasons = new ArrayList<>();
         respVO.setReleaseTag(directoryName);
         respVO.setPackageDirectoryName(directoryName);
@@ -509,47 +630,79 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
 
         List<String> packageFileNames = listReleasePackageFileNames(nasConfig, packagePath, blockedReasons);
         JsonNode manifest = null;
-        if (packageFileNames.contains("release-manifest.json")) {
-            manifest = readReleasePackageJson(nasConfig, manifestPath, "release-manifest.json", blockedReasons);
+        if (packageFileNames.contains("manifest.json")) {
+            ManifestContent manifestContent = readReleasePackageManifest(nasConfig, manifestPath, blockedReasons);
+            if (manifestContent != null) {
+                manifest = manifestContent.node();
+                respVO.setManifestDigest(manifestContent.digest());
+            }
         } else {
-            blockedReasons.add("缺少 release-manifest.json");
+            blockedReasons.add("缺少 manifest.json");
         }
         if (manifest != null) {
             String releaseTag = text(manifest, "releaseTag");
             if (StrUtil.isNotBlank(releaseTag)) {
                 respVO.setReleaseTag(releaseTag);
             }
-            String packageDirectoryName = text(manifest, "packageDirectoryName");
+            String packageDirectoryName = text(manifest, "packageId");
             respVO.setPackageDirectoryName(packageDirectoryName);
             respVO.setImageTag(packageDirectoryName);
-            respVO.setBuiltAt(text(manifest, "builtAt"));
+            respVO.setBuiltAt(text(manifest, "createdAt"));
             respVO.setPublishScope(text(manifest, "publishScope"));
+            respVO.setPackageDigest(text(manifest, "packageDigest"));
+            respVO.setSourceRoots(readSourceRoots(manifest.get("sourceRoots")));
+            respVO.setSourceRoles(readSourceRoles(manifest.get("sourceRoles")));
             String component = text(manifest, "component");
             respVO.setComponent(component);
-            Boolean includeShowroomBuildPackage = booleanValue(manifest, "includeShowroomBuildPackage");
+            JsonNode components = manifest.get("components");
+            Boolean includeShowroomBuildPackage = null;
+            if (components != null && components.isArray()) {
+                boolean validComponents = true;
+                boolean includesWebsite = false;
+                for (JsonNode entry : components) {
+                    if (!entry.isTextual() || !List.of("backend", "admin-frontend", "website",
+                            "database-contract", "required-sql", "runtime-env", "onlyoffice",
+                            "packaging-manifest").contains(entry.asText())) {
+                        validComponents = false;
+                    }
+                    includesWebsite |= "website".equals(entry.asText());
+                }
+                if (validComponents) {
+                    includeShowroomBuildPackage = includesWebsite;
+                }
+            }
             respVO.setIncludeShowroomBuildPackage(includeShowroomBuildPackage);
             if (StrUtil.isBlank(component)) {
-                blockedReasons.add("release-manifest.json 缺少 component");
+                blockedReasons.add("manifest.json 缺少 component");
             } else if (!List.of("full", "intruoyi", "backend", "frontend", "website").contains(component)) {
-                blockedReasons.add("release-manifest.json component 非法");
+                blockedReasons.add("manifest.json component 非法");
             }
             if (includeShowroomBuildPackage == null) {
-                blockedReasons.add("release-manifest.json 缺少 includeShowroomBuildPackage");
+                blockedReasons.add("manifest.json components 缺失或非法");
             }
             Boolean onlyOfficeIncluded = booleanValue(manifest, "onlyOfficeIncluded");
             respVO.setOnlyOfficeIncluded(onlyOfficeIncluded);
             if (onlyOfficeIncluded == null) {
-                blockedReasons.add("release-manifest.json 缺少 onlyOfficeIncluded");
+                blockedReasons.add("manifest.json 缺少 onlyOfficeIncluded");
             }
             if (StrUtil.isBlank(packageDirectoryName)) {
-                blockedReasons.add("release-manifest.json 缺少 packageDirectoryName");
+                blockedReasons.add("manifest.json 缺少 packageId");
             } else if (!directoryName.equals(packageDirectoryName)) {
-                blockedReasons.add("release-manifest packageDirectoryName 与目录不一致");
+                blockedReasons.add("manifest packageId 与目录不一致");
+            }
+            if (StrUtil.isBlank(respVO.getPackageDigest())) {
+                blockedReasons.add("manifest.json 缺少 packageDigest");
+            }
+            if (respVO.getSourceRoots().size() != 2) {
+                blockedReasons.add("manifest.json 缺少 sourceRoots");
+            }
+            if (respVO.getSourceRoles().size() != 3) {
+                blockedReasons.add("manifest.json 缺少 sourceRoles");
             }
             boolean checksumPresent = hasReleasePackageChecksum(manifest);
             respVO.setChecksumPresent(checksumPresent);
             if (!checksumPresent) {
-                blockedReasons.add("release-manifest.json 缺少 artifact sha256");
+                blockedReasons.add("manifest.json 缺少 artifact sha256");
             }
         } else {
             respVO.setChecksumPresent(false);
@@ -621,6 +774,54 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         return false;
     }
 
+    private ManifestContent readReleasePackageManifest(NasConnectionConfig nasConfig, String path,
+                                                       List<String> blockedReasons) {
+        try {
+            NasFileReadResult result = nasBrowserService.readFile(nasConfig, path);
+            JsonNode node = objectMapper.readTree(new String(result.bytes(), StandardCharsets.UTF_8));
+            return new ManifestContent(node, ReleaseDigestContract.manifestDigest(result.bytes()));
+        } catch (ServiceException ex) {
+            blockedReasons.add("缺少 manifest.json");
+            return null;
+        } catch (IOException | IllegalArgumentException ex) {
+            blockedReasons.add("manifest.json 解析失败：" + ex.getMessage());
+            return null;
+        }
+    }
+
+    private List<RuntimeControlReleasePackageRespVO.SourceRoot> readSourceRoots(JsonNode sourceRoots) {
+        if (sourceRoots == null || !sourceRoots.isArray()) {
+            return List.of();
+        }
+        List<RuntimeControlReleasePackageRespVO.SourceRoot> result = new ArrayList<>();
+        for (JsonNode sourceRoot : sourceRoots) {
+            RuntimeControlReleasePackageRespVO.SourceRoot item = new RuntimeControlReleasePackageRespVO.SourceRoot();
+            item.setRootRole(text(sourceRoot, "rootRole"));
+            item.setNormalizedRoot(text(sourceRoot, "normalizedRoot"));
+            item.setApprovedCommit(text(sourceRoot, "approvedCommit"));
+            item.setCommit(text(sourceRoot, "commit"));
+            item.setDirty(booleanValue(sourceRoot, "dirty"));
+            result.add(item);
+        }
+        return result;
+    }
+
+    private List<RuntimeControlReleasePackageRespVO.SourceRole> readSourceRoles(JsonNode sourceRoles) {
+        if (sourceRoles == null || !sourceRoles.isArray()) {
+            return List.of();
+        }
+        List<RuntimeControlReleasePackageRespVO.SourceRole> result = new ArrayList<>();
+        for (JsonNode sourceRole : sourceRoles) {
+            RuntimeControlReleasePackageRespVO.SourceRole item = new RuntimeControlReleasePackageRespVO.SourceRole();
+            item.setSourceRole(text(sourceRole, "sourceRole"));
+            item.setRootRole(text(sourceRole, "rootRole"));
+            item.setRelativePath(text(sourceRole, "relativePath"));
+            item.setCommit(text(sourceRole, "commit"));
+            result.add(item);
+        }
+        return result;
+    }
+
     private String text(JsonNode node, String fieldName) {
         JsonNode field = node == null ? null : node.get(fieldName);
         return field == null || field.isNull() ? "" : field.asText();
@@ -640,6 +841,13 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             failure = ex;
         }
         failure = cleanupNasReleaseConfig(nasConfigPath, failure);
+        if (canceledOperations.contains(operationId)) {
+            if (failure != null) {
+                operationStore.updateStatus(operationId, "canceled", "Operation canceled after process termination");
+            }
+            canceledOperations.remove(operationId);
+            return;
+        }
         if (failure != null) {
             operationStore.updateStatus(operationId, "failed", StrUtil.blankToDefault(failure.getMessage(), "Operation failed"));
             throw failure;
@@ -656,6 +864,13 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             failure = ex;
         }
         failure = cleanupNasReleaseConfig(nasConfigPath, failure);
+        if (canceledOperations.contains(operationId)) {
+            if (failure != null) {
+                operationStore.updateStatus(operationId, "canceled", "Operation canceled after process termination");
+            }
+            canceledOperations.remove(operationId);
+            return;
+        }
         if (failure != null) {
             operationStore.updateStatus(operationId, "failed", StrUtil.blankToDefault(failure.getMessage(), "Operation failed"));
             throw failure;
@@ -778,7 +993,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     }
 
     private RuntimeControlReleasePackageConfig validateActionGuard(RuntimeControlOperationAction action,
-                                                                   RuntimeControlActionReqVO reqVO) {
+                                                                    RuntimeControlActionReqVO reqVO) {
         RuntimeControlReleasePackageConfig backendRuntimeBaseConfig = null;
         if (StrUtil.isBlank(reqVO.getReason())) {
             throw exception(RUNTIME_CONTROL_PROD_GUARD_REQUIRED);
@@ -791,12 +1006,25 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             throw exception(RUNTIME_CONTROL_PROD_GUARD_REQUIRED);
         }
         if (action == RuntimeControlOperationAction.MARK_RELEASE_TESTED) {
-            reqVO.setReleaseTag(resolveCurrentReleaseTag("test"));
+            String testResult = StrUtil.trimToEmpty(reqVO.getTestResult()).toUpperCase(Locale.ROOT);
+            if (StrUtil.isBlank(testResult)) {
+                throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testResult");
+            }
+            if (!"PASS".equals(testResult)) {
+                throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "testResult");
+            }
+            reqVO.setTestResult(testResult);
             if (StrUtil.isBlank(reqVO.getTestConclusion())) {
                 throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testConclusion");
             }
             reqVO.setTestConclusion(StrUtil.trim(reqVO.getTestConclusion()));
-            bindRecoverySetCandidate(action, reqVO);
+            if (StrUtil.isBlank(reqVO.getTestOperationId())) {
+                throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testOperationId");
+            }
+            if (StrUtil.isBlank(reqVO.getTestOperationEvidencePath())) {
+                throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testOperationEvidencePath");
+            }
+            reqVO.setReleaseTag(resolveCurrentReleaseTag("test"));
         }
         if (action.requiresPublishScope()) {
             if (StrUtil.isBlank(reqVO.getPublishScope())) {
@@ -823,6 +1051,17 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         }
         if (!action.requiresPublishScope() && reqVO.getIncludeShowroomBuildPackage() != null) {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "includeShowroomBuildPackage");
+        }
+        validateReleaseWorkflowContext(action, reqVO);
+        if (action.requiresReleaseWorkflowContext() && action != RuntimeControlOperationAction.BUILD_RELEASE) {
+            if (StrUtil.isBlank(reqVO.getExpectedPackageDigest())
+                    || StrUtil.isBlank(reqVO.getExpectedManifestDigest())) {
+                throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "expectedPackageDigest/expectedManifestDigest");
+            }
+            if (!reqVO.getExpectedPackageDigest().matches("[0-9a-f]{64}")
+                    || !reqVO.getExpectedManifestDigest().matches("[0-9a-f]{64}")) {
+                throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "expectedPackageDigest/expectedManifestDigest");
+            }
         }
         if (action.requiresReleaseTag()) {
             validateReleaseTag(reqVO.getReleaseTag());
@@ -856,11 +1095,22 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             validateRemoteDeployTargetHostConfig(action.resolveEnvironment(reqVO));
             validateReleaseTargetHostConfig();
         }
+        if ((action == RuntimeControlOperationAction.PROMOTE_PROD
+                || action == RuntimeControlOperationAction.PROMOTE_BACKUP)
+                && (StrUtil.isBlank(reqVO.getTestOperationId())
+                || StrUtil.isBlank(reqVO.getTestOperationEvidencePath()))) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testOperationEvidence");
+        }
         if (action.requiresResponsibilityGate()) {
             responsibilityService.validateRequiredOwners(action.resolveEnvironment(reqVO), action.getAction());
         }
         RuntimeControlReleasePackageRespVO releasePackage = validateReleasePackageAvailability(action,
                 reqVO.getReleaseTag());
+        if (releasePackage != null
+                && (!reqVO.getExpectedPackageDigest().equals(releasePackage.getPackageDigest())
+                || !reqVO.getExpectedManifestDigest().equals(releasePackage.getManifestDigest()))) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "RELEASE_WORKFLOW_PACKAGE_BINDING_MISMATCH");
+        }
         if (action == RuntimeControlOperationAction.PROMOTE_BACKUP) {
             recheckPromoteBackupRecoverySet(releasePackage);
         }
@@ -873,6 +1123,36 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             bindRecoverySetCandidate(action, reqVO);
         }
         return backendRuntimeBaseConfig;
+    }
+
+    private String resolveOperationId(RuntimeControlActionReqVO reqVO) {
+        String preassigned = StrUtil.trimToNull(reqVO.getPreassignedOperationId());
+        if (preassigned == null) {
+            return UUID.randomUUID().toString();
+        }
+        if (!preassigned.matches("(?:op-)?[a-z0-9-]{8,64}")) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "preassignedOperationId");
+        }
+        return preassigned;
+    }
+
+    private void validateReleaseWorkflowContext(RuntimeControlOperationAction action, RuntimeControlActionReqVO reqVO) {
+        if (!action.requiresReleaseWorkflowContext()) {
+            return;
+        }
+        if (StrUtil.isBlank(reqVO.getReleaseWorkflowId())
+                || reqVO.getReleaseWorkflowExpectedStateVersion() == null
+                || StrUtil.isBlank(reqVO.getPreassignedOperationId())) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "releaseWorkflowContext");
+        }
+        if (!StrUtil.trim(reqVO.getReleaseWorkflowId()).matches("rw-[a-z0-9]{8,32}")
+                && !StrUtil.trim(reqVO.getReleaseWorkflowId()).matches("wf-[a-z0-9-]{6,64}")) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseWorkflowId");
+        }
+        if (reqVO.getReleaseWorkflowExpectedStateVersion() < 0) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseWorkflowExpectedStateVersion");
+        }
+        resolveOperationId(reqVO);
     }
 
     private void validateApplyTestDbSqlTargetConfig() {
@@ -952,10 +1232,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                 && action != RuntimeControlOperationAction.PROMOTE_BACKUP) {
             return null;
         }
-        RuntimeControlReleasePackageRespVO releasePackage = getReleasePackages().stream()
-                .filter(item -> releaseTag.equals(item.getReleaseTag())
-                        || releaseTag.equals(item.getPackageDirectoryName()))
-                .findFirst()
+        RuntimeControlReleasePackageRespVO releasePackage = getReleasePackage(releaseTag)
                 .orElseThrow(() -> exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
                         "releaseTag 发布包缺少 manifest/checksum 或不存在：" + releaseTag));
         if ((action == RuntimeControlOperationAction.PROMOTE_PROD
@@ -1145,5 +1422,8 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     }
 
     private record RuntimeControlTerminalStatus(String status, String summary) {
+    }
+
+    private record ManifestContent(JsonNode node, String digest) {
     }
 }
