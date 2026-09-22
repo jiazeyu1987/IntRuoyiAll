@@ -1,0 +1,166 @@
+# Execution Log
+
+- 用户要求：先提交前后端代码，然后重启前后端。
+- 已读取根 AGENTS.md、local-runtime、branch-runtime-ports、worktree-restrictions、task-closeout-rules。
+- 当前 int_main，起始已跟踪改动 120 个；原前端 PID 4820，后端 PID 53108，均归属 E:\IntRuoyi。
+- Git 范围以用户本轮前后端代码授权为准；不执行其他任务或日志的整仓基线提交。
+- 基线提交 094d183e3：76 个后端文件、71 个前端文件（共147）；git diff --cached --check 与端口门禁 PASS；新增敏感关键词检查均为符号、测试值，无新增真实凭据。所有标准重启 schema 只读探针和依赖检查 PASS，无需执行迁移。
+- 重启脚本静态合同：43 passed。发现并行前端 8083/PID44944；任务包装器复用标准脚本原始 Start-Backend/Start-Frontend 函数、构建和配置，仅收紧停止逻辑至 8081/48081 所属进程，数据库迁移写入口改为明确阻塞。
+- Maven 31 模块 package 预检 BUILD SUCCESS（03:01）；保留 testCompile，跳过测试执行。代码相对基线提交无漂移。开始正式重启。
+- 首次重启：旧后端 Stop-Process 后 TCP Listen 短暂滞留，严格端口空闲断言阻塞；复查旧 PID 已退出、48081 已释放。任务包装器增加只针对已停止归属 PID 的 10 秒端口释放等待，遇到未知 PID 仍立即阻塞。
+- 经验整理：已检索 docs/worktree-memory.md 的运行时 smoke 进程归属与日志时间窗门禁，现有规则已覆盖本次并行进程保护；未新增重复长期文档。
+
+- 最终运行核验 PASS：8081/49104 HTTP200，48081/61216 UP，8083/44944 未变，运行包SHA256与构建包一致。
+- 状态先设 ready_for_closeout，再执行 cleanup preview/apply。重启输出日志因继承句柄仍占用，明确保留为证据。
+
+## 基线提交文件清单（094d183e3）
+
+- IntRuoyiBackend/script/deploy/restart-int-ruoyi-local.ps1
+- IntRuoyiBackend/script/tests/test_active_order_ncr_fact_chain_static.py
+- IntRuoyiBackend/script/tests/test_edhr_live_label_print_menu_removal_sql.py
+- IntRuoyiBackend/script/tests/test_edhr_nonconformance_review_materials_static.py
+- IntRuoyiBackend/script/tests/test_infra_idle_logout_config_sql.py
+- IntRuoyiBackend/script/tests/test_pqc_submission_grouping_static.py
+- IntRuoyiBackend/script/tests/test_restart_int_ruoyi_local_schema.py
+- IntRuoyiBackend/sql/mysql/20260919_mes_edhr_live_label_print_menu_removal.sql
+- IntRuoyiBackend/sql/mysql/20260920_mes_edhr_nonconformance_review_active_order_fact.sql
+- IntRuoyiBackend/sql/mysql/20260921_infra_idle_logout_config.sql
+- IntRuoyiBackend/sql/mysql/20260921_mes_edhr_nonconformance_review_material_preview.sql
+- IntRuoyiBackend/sql/mysql/20260921_mes_edhr_nonconformance_review_materials_json.sql
+- IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionTaskServiceImpl.java
+- IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionTaskServiceImplTest.java
+- IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/enums/ErrorCodeConstants.java
+- IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/config/ConfigServiceImpl.java
+- IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/config/ConfigServiceImplTest.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrNonconformanceReviewController.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/vo/EdhrBatchExecutionPageReqVO.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/vo/EdhrBatchExecutionRespVO.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/vo/MesProEdhrNonconformanceReviewDisposeReqVO.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/vo/MesProEdhrNonconformanceReviewPageReqVO.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/vo/MesProEdhrNonconformanceReviewRespVO.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/MesFrontlineDeviceAccountController.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/vo/frontline/MesFrontlineActiveOrderProcessRespVO.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesProcessPoolTeamLeaderController.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/vo/MesTeamLeaderActiveOrderDetailRespVO.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/vo/ProcessPoolTimelineEventRespVO.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/dataobject/pro/batchrecord/MesProEdhrNonconformanceReviewDO.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProEdhrBatchExecutionMapper.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProEdhrNonconformanceReviewMapper.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/MesProProcessPoolTimelineReadMapper.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/ProcessPoolTimelineEventReadDO.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesProcessPoolActiveOrderReleaseApplicationMapper.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesTeamLeaderDataCleanupMapper.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrNonconformanceReviewMaterialBusinessFileAccessProvider.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordDomainTraceServiceImpl.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrNonconformanceReviewService.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrNonconformanceReviewServiceImpl.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcess.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceImpl.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcContextServiceImpl.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/ProcessPoolTimelineServiceImpl.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesOutputMaterialProgressCalculator.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesReportAllocationCommandService.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderCompletionBatchExecutionService.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderDetail.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderDetailServiceImpl.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseApplicationServiceImpl.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseGenerationService.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceImpl.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderSimulationService.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderReportConfirmationServiceImpl.java
+- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderSubmissionReviewServiceImpl.java
+- IntRuoyiBackend/yudao-module-mes/src/main/resources/mapper/pro/processpool/MesProProcessPoolTimelineReadMapper.xml
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/MesFrontlineActiveOrderControllerTest.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesProductionReleaseApplyControllerJsonTest.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/MesProEdhrHistoryStandardListContractTest.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrNonconformanceReviewApplicationScopeTest.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineActiveOrderProcessServiceTest.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcContextServiceTest.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcEmployeeSwitchServiceTest.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcSubmissionConcurrencyTest.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/ProcessPoolTimelineReportAllocationProjectionTest.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/ProcessPoolTimelineTestSupport.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesProductionReleaseApplySp1Test.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderDetailServiceImplTest.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceTest.java
+- IntRuoyiBackend/yudao-module-mes/src/test/js/frontline-pqc-equipment-visible-from-config-static.spec.cjs
+- IntRuoyiBackend/yudao-module-mes/src/test/js/frontline-pqc-route-device-parameter-static.spec.cjs
+- IntRuoyiBackend/yudao-module-mes/src/test/js/frontline-route-device-logic-hardening-static.spec.cjs
+- IntRuoyiBackend/yudao-module-mes/src/test/js/mes-active-order-test-reset-static.spec.cjs
+- IntRuoyiBackend/yudao-module-mes/src/test/js/mes-pqc-current-history-exclusive-static.spec.cjs
+- IntRuoyiFronted/src/api/common/filePreview.ts
+- IntRuoyiFronted/src/api/mes/pro/edhr/batchExecution.ts
+- IntRuoyiFronted/src/api/mes/pro/edhr/nonconformanceReview.ts
+- IntRuoyiFronted/src/api/mes/pro/feedback/index.ts
+- IntRuoyiFronted/src/api/mes/pro/processpool/index.ts
+- IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts
+- IntRuoyiFronted/src/hooks/web/useIdleLogout.ts
+- IntRuoyiFronted/src/router/modules/remaining.ts
+- IntRuoyiFronted/src/utils/routerHelper.ts
+- IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionActiveOrderDetailPage.vue
+- IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchPageGraphPage.vue
+- IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchRecordHistoryPage.vue
+- IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchVoidedPage.vue
+- IntRuoyiFronted/src/views/mes/pro/edhr-batch/EdhrBatchRecordTabs.vue
+- IntRuoyiFronted/src/views/mes/pro/edhr-nonconformance/NonconformanceReviewPage.vue
+- IntRuoyiFronted/src/views/mes/pro/feedback/frontline-pqc-active-order-foreground-refresh-static.spec.cjs
+- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue
+- IntRuoyiFronted/src/views/mes/pro/processpool/ActiveOrderSubmissionDetailPage.vue
+- IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue
+- IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue
+- IntRuoyiFronted/src/views/mes/pro/production-release/PqcProductionReleasePage.vue
+- IntRuoyiFronted/src/views/Profile/components/index.ts
+- IntRuoyiFronted/src/views/Profile/components/ProfileBasicConfig.vue
+- IntRuoyiFronted/src/views/Profile/Index.vue
+- IntRuoyiFronted/tests/e2e/active-order-detail-current-status-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/active-order-market-release-summary-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/active-order-operation-facts-chinese-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/edhr-ai-loop-archive-s08-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/edhr-ai-loop-dynamic-coverage.spec.cjs
+- IntRuoyiFronted/tests/e2e/edhr-ai-loop-initialization-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/edhr-ai-loop-orchestration.spec.cjs
+- IntRuoyiFronted/tests/e2e/edhr-ai-loop-pqc-s03-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/edhr-ai-loop-production-s02-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/edhr-ai-loop-release-s05-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/edhr-ai-loop/coverage.cjs
+- IntRuoyiFronted/tests/e2e/edhr-ai-loop/runner.cjs
+- IntRuoyiFronted/tests/e2e/edhr-batch-navigation-void-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/edhr-batch-page-graph-tab-static.spec.js
+- IntRuoyiFronted/tests/e2e/edhr-batch-void-behavior.spec.cjs
+- IntRuoyiFronted/tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/edhr-frontline-pqc-tab-static.spec.js
+- IntRuoyiFronted/tests/e2e/edhr-history-standard-list-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/edhr-ncr-under-batch-record-tabs-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/frontline-fullscreen-inline-error-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/frontline-pqc-final-inspection-switch-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/frontline-pqc-hide-first-inspection-card-static.spec.js
+- IntRuoyiFronted/tests/e2e/frontline-pqc-inspection-button-cardinality-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/frontline-pqc-inspection-type-process-filter-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/frontline-pqc-item-level-sampling-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/frontline-pqc-process-navigation-buttons-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/frontline-pqc-process-picker-autoclose-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/frontline-pqc-qa-process-contract-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/frontline-production-password-failure-dialog-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/frontline-production-quantity-cards-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/frontline-production-repeat-submit-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/frontline-production-submitted-quantity-refresh-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/idle-logout-config-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/pqc-leader-detail-loss-quantity-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/pqc-leader-sample-values-detail-only-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/pqc-requirement-alignment-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/pqc-submission-grouping-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/profile-basic-idle-logout-config-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/system-login-security-idle-logout-static.spec.js
+- IntRuoyiFronted/tests/e2e/team-leader-active-order-release-application-static.spec.js
+- IntRuoyiFronted/tests/e2e/team-leader-column-width-persistence-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/team-leader-complete-general-p2-p3-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/team-leader-complete-refresh-sync-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/team-leader-device-parameter-overlap-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/team-leader-hide-review-copy-columns-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/team-leader-pqc-management-regular-columns-static.spec.cjs
+- IntRuoyiFronted/tests/e2e/team-leader-production-report-payload-columns-static.spec.cjs
+- Cleanup preview/apply PASS：仅删除本任务5个临时附件，保留核心记录与被占用的重启证据日志；未改其他任务。运行目标已完成，机器状态 blocked 仅表示项目要求的远程推送未获授权。
+- 任务目录被现有 .gitignore 忽略；仅强制暂存本任务3个核心收尾记录，运行日志不提交。
