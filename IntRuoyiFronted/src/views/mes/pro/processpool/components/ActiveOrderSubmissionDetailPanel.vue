@@ -160,11 +160,51 @@
                   :key="pair.key"
                 >
                   <td>{{ pair.left?.processName || blankSummaryField }}</td>
-                  <td>{{ pair.left?.operatorText || blankSummaryField }}</td>
-                  <td>{{ pair.left?.assemblyDateText || blankSummaryField }}</td>
+                  <td>
+                    <button
+                      type="button"
+                      class="team-leader-workbench__signature-link"
+                      data-active-order-summary-process-operator-signature
+                      :disabled="!pair.left?.signature?.signatureId"
+                      @click="openActiveOrderSignatureRecord(pair.left?.signature)"
+                    >
+                      {{ pair.left?.operatorText || blankSummaryField }}
+                    </button>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="team-leader-workbench__signature-link"
+                      data-active-order-summary-process-assembly-date-signature
+                      :disabled="!pair.left?.signature?.signatureId"
+                      @click="openActiveOrderSignatureRecord(pair.left?.signature)"
+                    >
+                      {{ pair.left?.assemblyDateText || blankSummaryField }}
+                    </button>
+                  </td>
                   <td>{{ pair.right?.processName || blankSummaryField }}</td>
-                  <td>{{ pair.right?.operatorText || blankSummaryField }}</td>
-                  <td>{{ pair.right?.assemblyDateText || blankSummaryField }}</td>
+                  <td>
+                    <button
+                      type="button"
+                      class="team-leader-workbench__signature-link"
+                      data-active-order-summary-process-operator-signature
+                      :disabled="!pair.right?.signature?.signatureId"
+                      @click="openActiveOrderSignatureRecord(pair.right?.signature)"
+                    >
+                      {{ pair.right?.operatorText || blankSummaryField }}
+                    </button>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="team-leader-workbench__signature-link"
+                      data-active-order-summary-process-assembly-date-signature
+                      :disabled="!pair.right?.signature?.signatureId"
+                      @click="openActiveOrderSignatureRecord(pair.right?.signature)"
+                    >
+                      {{ pair.right?.assemblyDateText || blankSummaryField }}
+                    </button>
+                  </td>
                 </tr>
                 <tr v-if="!summaryProcessPersonnelPairs.length">
                   <td colspan="6">{{ blankSummaryField }}</td>
@@ -272,7 +312,15 @@
                         <span>不合格原因：{{ fact.nonconformanceReason || '--' }}</span>
                         <span>评审意见：{{ fact.reviewOpinion || '--' }}</span>
                         <span>处置结果：{{ resolveNonconformanceDispositionLabel(fact.disposition) }}</span>
-                        <span>QA签名：{{ fact.qaSignature || '--' }}</span>
+                        <button
+                          type="button"
+                          class="team-leader-workbench__signature-link"
+                          data-active-order-summary-operation-qa-signature
+                          :disabled="!fact.signatureId"
+                          @click="openActiveOrderSignatureRecord(toOperationFactSignature(fact))"
+                        >
+                          QA签名：{{ formatOperationFactQaSignatureText(fact) }}
+                        </button>
                         <el-button
                           v-if="fact.reviewMaterialUrl || fact.reviewMaterialFileId"
                           link
@@ -341,16 +389,84 @@
                   <td>{{ row.unqualifiedQuantityText }}</td>
                   <td>{{ row.unqualifiedReasonText }}</td>
                   <td>{{ row.disposalMethodText }}</td>
-                  <td>{{ row.productionOperatorDateText }}</td>
-                  <td>{{ row.inspectorConfirmationDateText }}</td>
-                  <td>{{ row.approverDateText }}</td>
+                  <td>
+                    <template
+                      v-for="signature in row.productionOperatorSignatures"
+                      :key="signature.signatureId"
+                    >
+                      <button
+                        type="button"
+                        class="team-leader-workbench__signature-link"
+                        data-active-order-pqc-loss-production-signature
+                        @click="openActiveOrderSignatureRecord(signature)"
+                      >
+                        {{ formatLossReportSignatureDateText(signature) }}
+                      </button>
+                    </template>
+                    <span v-if="!row.productionOperatorSignatures.length">
+                      {{ blankSummaryField }}
+                    </span>
+                  </td>
+                  <td>
+                    <template
+                      v-for="signature in row.inspectorSignatures"
+                      :key="signature.signatureId"
+                    >
+                      <button
+                        type="button"
+                        class="team-leader-workbench__signature-link"
+                        data-active-order-pqc-loss-inspector-signature
+                        @click="openActiveOrderSignatureRecord(signature)"
+                      >
+                        {{ formatLossReportSignatureDateText(signature) }}
+                      </button>
+                    </template>
+                    <span v-if="!row.inspectorSignatures.length">
+                      {{ blankSummaryField }}
+                    </span>
+                  </td>
+                  <td>
+                    <template
+                      v-for="signature in row.approverSignatures"
+                      :key="signature.signatureId"
+                    >
+                      <button
+                        type="button"
+                        class="team-leader-workbench__signature-link"
+                        data-active-order-pqc-loss-approver-signature
+                        @click="openActiveOrderSignatureRecord(signature)"
+                      >
+                        {{ formatLossReportSignatureDateText(signature) }}
+                      </button>
+                    </template>
+                    <span v-if="!row.approverSignatures.length">
+                      {{ blankSummaryField }}
+                    </span>
+                  </td>
                 </tr>
                 <tr v-if="!pqcLossReportRows.length">
                   <td colspan="8">暂无生产过程损耗记录</td>
                 </tr>
                 <tr>
                   <th colspan="2">批准人/日期：</th>
-                  <td colspan="6">{{ pqcLossReportApprovalText }}</td>
+                  <td colspan="6">
+                    <template
+                      v-for="signature in pqcLossReportApprovalSignatures"
+                      :key="signature.signatureId"
+                    >
+                      <button
+                        type="button"
+                        class="team-leader-workbench__signature-link"
+                        data-active-order-pqc-loss-approval-signature
+                        @click="openActiveOrderSignatureRecord(signature)"
+                      >
+                        {{ formatLossReportSignatureDateText(signature) }}
+                      </button>
+                    </template>
+                    <span v-if="!pqcLossReportApprovalSignatures.length">
+                      {{ blankSummaryField }}
+                    </span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -685,11 +801,45 @@
                         </div>
                         <div>
                           <span>提交人</span>
-                          <strong>{{ submission.submitterName || '未记录' }}</strong>
+                          <strong>
+                            <template
+                              v-for="signature in submission.submitterSignatures ?? []"
+                              :key="signature.signatureId"
+                            >
+                              <button
+                                type="button"
+                                class="team-leader-workbench__signature-link"
+                                data-active-order-pqc-original-submitter-signature
+                                @click="openActiveOrderSignatureRecord(signature)"
+                              >
+                                {{ formatActiveOrderSignatureCellText(signature) }}
+                              </button>
+                            </template>
+                            <span v-if="!(submission.submitterSignatures ?? []).length">
+                              {{ submission.submitterName || '未记录' }}
+                            </span>
+                          </strong>
                         </div>
                         <div>
                           <span>复核人</span>
-                          <strong>{{ submission.reviewerName || '未复核' }}</strong>
+                          <strong>
+                            <template
+                              v-for="signature in submission.reviewerSignatures ?? []"
+                              :key="signature.signatureId"
+                            >
+                              <button
+                                type="button"
+                                class="team-leader-workbench__signature-link"
+                                data-active-order-pqc-original-reviewer-signature
+                                @click="openActiveOrderSignatureRecord(signature)"
+                              >
+                                {{ formatActiveOrderSignatureCellText(signature) }}
+                              </button>
+                            </template>
+                            <span v-if="!(submission.reviewerSignatures ?? []).length">
+                              {{ submission.reviewerName || '未复核' }}
+                            </span>
+                          </strong>
                         </div>
                       </div>
                       <table
@@ -2418,11 +2568,27 @@ const openActiveOrderSignatureRecord = (
   router.push({
     path: '/signature-governance/signature-records',
     query: {
-      quickFilterField: 'keyword',
+      quickFilterField: 'signatureId',
       quickFilterValue: String(signature.signatureId)
     }
   })
 }
+
+const toOperationFactSignature = (
+  fact?: TeamLeaderActiveOrderOperationFactRespVO
+): TeamLeaderActiveOrderSignatureDetailRespVO | undefined => {
+  if (!fact?.signatureId) return undefined
+  return {
+    signatureId: fact.signatureId,
+    signerName: fact.actorName,
+    signedAt: fact.occurredAt,
+    role: fact.operationType
+  }
+}
+
+const formatOperationFactQaSignatureText = (
+  fact?: TeamLeaderActiveOrderOperationFactRespVO
+) => fact?.qaSignature || formatActiveOrderSignatureCellText(toOperationFactSignature(fact))
 
 const formatMarketReleaseSignatureCellText = (
   summary?: ActiveOrderMarketReleaseSummary
@@ -3186,6 +3352,7 @@ interface ActiveOrderSummaryProcessPersonnelRow {
   processName: string
   operatorText: string
   assemblyDateText: string
+  signature?: TeamLeaderActiveOrderSignatureDetailRespVO
 }
 
 interface ActiveOrderPqcLossReportRow {
@@ -3198,6 +3365,9 @@ interface ActiveOrderPqcLossReportRow {
   productionOperatorDateText: string
   inspectorConfirmationDateText: string
   approverDateText: string
+  productionOperatorSignatures: TeamLeaderActiveOrderSignatureDetailRespVO[]
+  inspectorSignatures: TeamLeaderActiveOrderSignatureDetailRespVO[]
+  approverSignatures: TeamLeaderActiveOrderSignatureDetailRespVO[]
 }
 
 const buildActiveOrderSummaryPairs = <T,>(
@@ -3367,7 +3537,8 @@ const summaryProcessPersonnelRows = computed<ActiveOrderSummaryProcessPersonnelR
       ].join('::'),
       processName: process.processName || blankSummaryField,
       operatorText: formatSummarySignatureOperator(latestSubmitterSignature),
-      assemblyDateText: formatSummarySignatureDate(latestSubmitterSignature)
+      assemblyDateText: formatSummarySignatureDate(latestSubmitterSignature),
+      signature: latestSubmitterSignature
     }
   })
 })
@@ -3466,6 +3637,8 @@ const pqcLossReportRows = computed<ActiveOrderPqcLossReportRow[]>(() => {
       const productionOperatorDateText = formatLossReportSignaturesDateText(productionSignatures)
       const latestPqcSubmitterSignature = resolveLatestSignature(submission.submitterSignatures)
       const latestPqcReviewerSignature = resolveLatestSignature(submission.reviewerSignatures)
+      const inspectorSignatures = latestPqcSubmitterSignature ? [latestPqcSubmitterSignature] : []
+      const approverSignatures = latestPqcReviewerSignature ? [latestPqcReviewerSignature] : []
       rows.push({
         key: [
           process.routeProcessId,
@@ -3481,18 +3654,25 @@ const pqcLossReportRows = computed<ActiveOrderPqcLossReportRow[]>(() => {
         disposalMethodText: '☑ 报废　☐ 其他：',
         productionOperatorDateText,
         inspectorConfirmationDateText: formatLossReportSignatureDateText(latestPqcSubmitterSignature),
-        approverDateText: formatLossReportSignatureDateText(latestPqcReviewerSignature)
+        approverDateText: formatLossReportSignatureDateText(latestPqcReviewerSignature),
+        productionOperatorSignatures: productionSignatures,
+        inspectorSignatures,
+        approverSignatures
       })
     }
   }
   return rows
 })
 
-const pqcLossReportApprovalText = computed(() => {
-  const approvalTexts = Array.from(
-    new Set(pqcLossReportRows.value.map((row) => row.approverDateText).filter(Boolean))
-  )
-  return approvalTexts.length ? approvalTexts.join('；') : blankSummaryField
+const pqcLossReportApprovalSignatures = computed(() => {
+  const signaturesById = new Map<number, TeamLeaderActiveOrderSignatureDetailRespVO>()
+  for (const row of pqcLossReportRows.value) {
+    for (const signature of row.approverSignatures) {
+      if (!signature?.signatureId || signaturesById.has(signature.signatureId)) continue
+      signaturesById.set(signature.signatureId, signature)
+    }
+  }
+  return Array.from(signaturesById.values())
 })
 
 type ActiveOrderDetailReplenishmentMaterialRow =

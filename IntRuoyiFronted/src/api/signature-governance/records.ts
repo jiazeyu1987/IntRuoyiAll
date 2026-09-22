@@ -13,6 +13,7 @@ export type SignatureGovernanceRecordSourceCode =
 export interface SignatureGovernanceRecordPageReqVO extends PageParam {
   sourceCodes?: SignatureGovernanceRecordSourceCode[]
   keyword?: string
+  signatureId?: string
   signerUserId?: number
   signerKeyword?: string
   actionCode?: string

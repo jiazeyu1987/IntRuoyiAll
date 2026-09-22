@@ -397,6 +397,7 @@ const signatureRecordPdfPreviewDialog = reactive({
 const recordQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   { key: 'recordScope', label: '记录范围', type: 'select', options: recordScopeOptions },
   { key: 'source', label: '来源', type: 'select', options: sourceOptions },
+  { key: 'signatureId', label: '签名记录 ID', type: 'text', placeholder: '签名记录 ID' },
   { key: 'keyword', label: '关键字', type: 'text', placeholder: '业务编号/名称' },
   { key: 'signer', label: '签名人', type: 'text', placeholder: '签名人/账号' },
   { key: 'action', label: '动作', type: 'text', placeholder: '动作编码' },
@@ -435,7 +436,10 @@ const buildPageParams = (): SignatureGovernanceRecordPageReqVO => {
   if (quickFilter.fieldKey === 'recordScope') {
     return params
   }
-  if (quickFilter.fieldKey === 'source') {
+  if (quickFilter.fieldKey === 'signatureId') {
+    params.sourceCodes = ['BATCH_RECORD']
+    params.signatureId = normalizeText(quickFilter.value)
+  } else if (quickFilter.fieldKey === 'source') {
     params.sourceCodes = [quickFilter.value as SignatureGovernanceRecordSourceCode]
   } else if (quickFilter.fieldKey === 'keyword') {
     params.keyword = normalizeText(quickFilter.value)
