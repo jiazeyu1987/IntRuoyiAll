@@ -61,14 +61,29 @@ assert.match(pqcDefaultColumns, /key:\s*'lossQuantity'[\s\S]*label:\s*'损耗数
 
 for (const pqcOnlyColumn of [
   'product',
-  'inspectionTask',
-  'inspectionItems',
-  'inspectionJudgement'
+  'inspectionTask'
 ]) {
   assert.match(
     pqcDefaultColumns,
     new RegExp(`key:\\s*'${pqcOnlyColumn}'`),
     `PQC leader report columns must keep PQC-only ${pqcOnlyColumn}`
+  )
+}
+for (const detailOnlyColumn of [
+  'inspectionItems',
+  'equipmentSnapshot',
+  'selectedDevice',
+  'equipmentNumber',
+  'acceptanceStandard',
+  'inspectionMethod',
+  'inspectionJudgement',
+  'parameterSnapshot',
+  'deviceParameterReadings'
+]) {
+  assert.doesNotMatch(
+    pqcDefaultColumns,
+    new RegExp(`key:\\s*'${detailOnlyColumn}'`),
+    `PQC regular report columns must keep ${detailOnlyColumn} in the detail tab only`
   )
 }
 assert.match(

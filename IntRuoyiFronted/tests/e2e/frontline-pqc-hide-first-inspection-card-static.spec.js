@@ -9,16 +9,20 @@ const viewPath = path.join(
 )
 const source = fs.readFileSync(viewPath, 'utf8').replace(/\r\n/g, '\n')
 
-const typeTabsStart = source.indexOf('class="frontline-pqc-type-tabs"')
-const typeTabsEnd = source.indexOf('class="frontline-pqc-form-area"', typeTabsStart)
-assert.ok(typeTabsStart >= 0 && typeTabsEnd > typeTabsStart, 'PQC inspection type tab block must exist.')
+const ruleSelectorMarker = source.indexOf('data-pqc-inspection-rule-selector')
+const typeTabsStart = source.lastIndexOf('<section', ruleSelectorMarker)
+const typeTabsEnd = source.indexOf('<footer class="frontline-pqc-submit-bar">', ruleSelectorMarker)
+assert.ok(
+  ruleSelectorMarker >= 0 && typeTabsStart >= 0 && typeTabsEnd > ruleSelectorMarker,
+  'PQC inspection type rule panel must exist.'
+)
 
 const typeTabsBlock = source.slice(typeTabsStart, typeTabsEnd)
 
 assert.match(
   typeTabsBlock,
   /v-for="tab in pqcInspectionTypeTabs"/,
-  'PQC inspection type cards must be rendered only from formal task options on the current process.'
+  'PQC inspection type cards must be rendered only from formal task options in the current order.'
 )
 assert.match(
   typeTabsBlock,
@@ -37,13 +41,13 @@ assert.match(
 )
 assert.match(
   typeTabsBlock,
-  /:class="\{ active: activePqcTaskOption\?\.inspectionRuleKey === tab\.ruleKey \}"/,
-  'PQC inspection type active state must follow the selected formal task rule.'
+  /:class="\{ active: selectedPqcInspectionRuleKey === tab\.ruleKey \}"/,
+  'PQC inspection type active state must follow the independent selected formal task rule.'
 )
 assert.match(
   typeTabsBlock,
-  /@click="selectPqcInspectionTaskOption\(tab\.value\)"/,
-  'PQC inspection type card clicks must select the formal task snapshot from the current process.'
+  /@click="selectPqcInspectionRule\(tab\.ruleKey\)"/,
+  'PQC inspection type card clicks must select the formal rule before resolving a process task snapshot.'
 )
 assert.match(
   typeTabsBlock,
@@ -68,8 +72,13 @@ assert.match(
 )
 assert.match(
   source,
-  /const pqcInspectionTypeTabs = computed<\{ ruleKey: FrontlinePqcInspectionRuleKey; type: InspectionType; value: number; label: string \}\[\]>\(\(\) => \{[\s\S]*getUniquePqcTaskOptionsByRule\(\s*getPqcTaskOptionsForInspectionItem\(process, activePqcTabKey\.value\)[\s\S]*ruleKey: option\.inspectionRuleKey/,
-  'PQC visible type cards must be deduplicated from the selected method formal pqcTaskOptions by rule key.'
+  /const pqcInspectionTypeTabs = computed<\{[\s\S]*?ruleKey: FrontlinePqcInspectionRuleKey[\s\S]*?type: InspectionType[\s\S]*?label: string[\s\S]*?\}\[\]\>\(\(\) =>[\s\S]*PQC_INSPECTION_RULE_ORDER[\s\S]*allSwitchablePqcProcessOptions\.value[\s\S]*hasExecutablePqcTaskForRule\(process, ruleKey\)/,
+  'PQC visible type cards must be deduplicated from the current order formal pqcTaskOptions by rule key.'
+)
+assert.doesNotMatch(
+  typeTabsBlock,
+  /tab\.value|data-pqc-task-option|selectPqcInspectionTaskOption/,
+  'The independent inspection type panel must not expose current-process task ids as visible button identity.'
 )
 assert.doesNotMatch(
   source,

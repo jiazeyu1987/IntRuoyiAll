@@ -18,11 +18,15 @@ const blockBetween = (source, startToken, endToken) => {
   return source.slice(start, end)
 }
 
-const taskButtonBlock = blockBetween(
-  panelSource,
-  '<div class="frontline-pqc-type-tabs">',
-  '<div class="frontline-pqc-form-area">'
-)
+const taskButtonBlock = (() => {
+  const marker = panelSource.indexOf('data-pqc-inspection-rule-selector')
+  assert.ok(marker >= 0, 'missing inspection rule selector marker.')
+  const start = panelSource.lastIndexOf('<section', marker)
+  assert.ok(start >= 0, 'missing inspection rule selector section.')
+  const end = panelSource.indexOf('<footer class="frontline-pqc-submit-bar">', marker)
+  assert.ok(end > marker, 'missing submit footer after inspection rule selector.')
+  return panelSource.slice(start, end)
+})()
 
 assert.match(
   taskButtonBlock,
@@ -41,13 +45,13 @@ assert.match(
 )
 assert.match(
   taskButtonBlock,
-  /activePqcTaskOption\?\.inspectionRuleKey === tab\.ruleKey/,
-  'PQC task button active state must be per formal rule, not per duplicated item task id.'
+  /selectedPqcInspectionRuleKey === tab\.ruleKey/,
+  'PQC task button active state must be per independent formal rule, not per duplicated item task id.'
 )
 assert.match(
   taskButtonBlock,
-  /@click="selectPqcInspectionTaskOption\(tab\.value\)"/,
-  'PQC task button clicks must apply the selected formal task snapshot.'
+  /@click="selectPqcInspectionRule\(tab\.ruleKey\)"/,
+  'PQC task button clicks must set the independent rule before resolving a task snapshot.'
 )
 assert.doesNotMatch(
   taskButtonBlock,
@@ -62,13 +66,18 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /const getUniquePqcTaskOptionsByRule = \([\s\S]*PQC_INSPECTION_RULE_ORDER[\s\S]*option\.inspectionRuleKey === ruleKey[\s\S]*return orderedOptions/,
-  'PQC visible task options must be deduplicated by FIRST/PATROL_AM/PATROL_PM/FINAL.'
+  /const pqcInspectionTypeTabs = computed<\{[\s\S]*?ruleKey: FrontlinePqcInspectionRuleKey[\s\S]*PQC_INSPECTION_RULE_ORDER[\s\S]*allSwitchablePqcProcessOptions\.value[\s\S]*hasExecutablePqcTaskForRule\(process, ruleKey\)[\s\S]*\.map\(\(ruleKey\) => \(\{[\s\S]*ruleKey,[\s\S]*label: PQC_INSPECTION_RULE_LABELS\[ruleKey\]/,
+  'PQC visible task buttons must be deduplicated by FIRST/PATROL_AM/PATROL_PM/FINAL at current-order rule level.'
 )
 assert.match(
   panelSource,
-  /const pqcInspectionTypeTabs = computed<\{ ruleKey: FrontlinePqcInspectionRuleKey; type: InspectionType; value: number; label: string \}\[\]>\(\(\) => \{[\s\S]*getUniquePqcTaskOptionsByRule\(\s*getPqcTaskOptionsForInspectionItem\(process, activePqcTabKey\.value\)[\s\S]*ruleKey: option\.inspectionRuleKey[\s\S]*value: option\.pqcTaskId/,
-  'PQC visible buttons must be one per configured rule and keep the selected task id for submission.'
+  /const pqcInspectionTypeTabs = computed<\{[\s\S]*?ruleKey: FrontlinePqcInspectionRuleKey[\s\S]*?type: InspectionType[\s\S]*?label: string[\s\S]*?\}\[\]\>\(\(\) =>[\s\S]*PQC_INSPECTION_RULE_ORDER[\s\S]*allSwitchablePqcProcessOptions\.value[\s\S]*hasExecutablePqcTaskForRule\(process, ruleKey\)[\s\S]*ruleKey,[\s\S]*label: PQC_INSPECTION_RULE_LABELS\[ruleKey\]/,
+  'PQC visible buttons must be one per configured rule available in the current order.'
+)
+assert.doesNotMatch(
+  taskButtonBlock,
+  /tab\.value|data-pqc-task-option|selectPqcInspectionTaskOption/,
+  'The independent rule selector must not bind visible buttons directly to one current-process task id.'
 )
 assert.doesNotMatch(
   panelSource,

@@ -956,10 +956,11 @@ public class MesReportAllocationCommandService {
     }
 
     private ReviewSignaturePayload recordRejectionSignature(MesProProcessPoolEventDO event,
-                                                              Long leaderUserId,
-                                                              String signaturePassword) {
+                                                               Long leaderUserId,
+                                                               String signaturePassword) {
         Long signatureId = signatureService.recordTeamLeaderReviewSignature(
-                leaderUserId, signaturePassword, "组长驳回生产报工:PRODUCTION:" + event.getId());
+                leaderUserId, signaturePassword, "组长驳回生产报工:PRODUCTION:" + event.getId(),
+                "PROCESS_POOL_EVENT", event.getId(), "生产报工组长驳回");
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("signatureId", signatureId);
         snapshot.put("actorId", leaderUserId);
@@ -972,10 +973,11 @@ public class MesReportAllocationCommandService {
     }
 
     private ReviewSignaturePayload recordApprovedReviewSignature(MesProProcessPoolEventDO event,
-                                                                 MesReportAllocationSaveCommand command,
-                                                                 LocalDateTime reviewedAt) {
+                                                                  MesReportAllocationSaveCommand command,
+                                                                  LocalDateTime reviewedAt) {
         Long signatureId = signatureService.recordTeamLeaderReviewSignature(command.getLeaderUserId(),
-                command.getSignaturePassword(), "组长报工分配确认:PRODUCTION:" + event.getId());
+                command.getSignaturePassword(), "组长报工分配确认:PRODUCTION:" + event.getId(),
+                "PROCESS_POOL_EVENT", event.getId(), "生产报工组长复核");
         return new ReviewSignaturePayload(signatureId, command.getLeaderUserId(),
                 buildApprovedReviewSignatureSnapshot(event, command, signatureId, reviewedAt));
     }

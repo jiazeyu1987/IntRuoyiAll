@@ -15,7 +15,9 @@ const extractColumn = (prop) => {
 }
 
 const extractStyleRule = (selector) => {
-  const start = page.indexOf(selector)
+  const pattern = new RegExp(`(^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)
+  const match = page.match(pattern)
+  const start = match ? (match.index || 0) + match[1].length : -1
   const end = page.indexOf('\n}', start)
   assert.ok(start >= 0 && end > start, `${selector} style rule must be locatable.`)
   return page.slice(start, end + 2)

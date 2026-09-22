@@ -130,6 +130,17 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
                 .last("ORDER BY CASE WHEN review_status = 'pending_review' THEN 0 ELSE 1 END, id DESC LIMIT 1"));
     }
 
+    default MesProEdhrNonconformanceReviewDO selectFirstBlockingPqcSubmissionByActiveOrderId(Long activeOrderId) {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                .eq(MesProEdhrNonconformanceReviewDO::getActiveOrderId, activeOrderId)
+                .ne(MesProEdhrNonconformanceReviewDO::getSourceType, "PQC_RELEASE")
+                .and(query -> query
+                        .eq(MesProEdhrNonconformanceReviewDO::getReviewStatus, STATUS_PENDING_REVIEW)
+                        .or()
+                        .eq(MesProEdhrNonconformanceReviewDO::getDisposition, "void"))
+                .last("ORDER BY CASE WHEN review_status = 'pending_review' THEN 0 ELSE 1 END, id DESC LIMIT 1"));
+    }
+
     default List<MesProEdhrNonconformanceReviewDO> selectFreezeLifecycleByWorkOrderId(Long workOrderId) {
         return selectList(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
                 .eq(MesProEdhrNonconformanceReviewDO::getWorkOrderId, workOrderId)
@@ -143,11 +154,30 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
                 .orderByDesc(MesProEdhrNonconformanceReviewDO::getId));
     }
 
+    default List<MesProEdhrNonconformanceReviewDO> selectListByActiveOrderId(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                .eq(MesProEdhrNonconformanceReviewDO::getActiveOrderId, activeOrderId)
+                .orderByDesc(MesProEdhrNonconformanceReviewDO::getId));
+    }
+
+    default List<MesProEdhrNonconformanceReviewDO> selectListByReviewMaterialFileId(Long fileId) {
+        if (fileId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                .eq(MesProEdhrNonconformanceReviewDO::getReviewMaterialFileId, fileId)
+                .orderByDesc(MesProEdhrNonconformanceReviewDO::getId));
+    }
+
     private LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO> buildPageQuery(
             MesProEdhrNonconformanceReviewPageReqVO reqVO) {
         return new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
                 .likeIfPresent(MesProEdhrNonconformanceReviewDO::getReviewCode, reqVO.getReviewCode())
                 .eqIfPresent(MesProEdhrNonconformanceReviewDO::getSourceType, reqVO.getSourceType())
+                .eqIfPresent(MesProEdhrNonconformanceReviewDO::getSourceId, reqVO.getSourceId())
                 .eqIfPresent(MesProEdhrNonconformanceReviewDO::getBatchExecutionId, reqVO.getBatchExecutionId())
                 .likeIfPresent(MesProEdhrNonconformanceReviewDO::getBatchExecutionCode,
                         reqVO.getBatchExecutionCode())

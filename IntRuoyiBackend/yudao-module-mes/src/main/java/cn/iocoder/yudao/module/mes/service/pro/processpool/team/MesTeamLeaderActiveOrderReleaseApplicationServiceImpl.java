@@ -21,18 +21,21 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
     private final MesProcessPoolActiveOrderCompletionReceiptMapper receiptMapper;
     private final MesProEdhrBatchExecutionMapper batchMapper;
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
+    private final MesTeamLeaderActiveOrderCompletionBatchExecutionService completionBatchExecutionService;
 
     public MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(
             MesTeamLeaderActiveOrderReleaseGenerationService generationService,
             MesTeamLeaderActiveOrderCompletionService completionService,
             MesProcessPoolActiveOrderCompletionReceiptMapper receiptMapper,
             MesProEdhrBatchExecutionMapper batchMapper,
-            MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper) {
+            MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
+            MesTeamLeaderActiveOrderCompletionBatchExecutionService completionBatchExecutionService) {
         this.generationService = generationService;
         this.completionService = completionService;
         this.receiptMapper = receiptMapper;
         this.batchMapper = batchMapper;
         this.applicationMapper = applicationMapper;
+        this.completionBatchExecutionService = completionBatchExecutionService;
     }
 
     @Override
@@ -43,6 +46,16 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         command.setIdempotencyKey(key);
         var existing = generationService.replayExisting(leaderUserId, command);
         if (existing != null && existing.getBatchExecutionId() != null) return existing;
+        Long batchExecutionId = requirePersistedP2BatchExecutionId(leaderUserId, command);
+        if (existing != null) {
+            return bindBatchExecution(existing, batchExecutionId);
+        }
+        var generated = generationService.generate(leaderUserId, command);
+        return bindBatchExecution(generated, batchExecutionId);
+    }
+
+    private Long requirePersistedP2BatchExecutionId(
+            Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command) {
         var receipt = receiptMapper.selectByActiveOrderIdForUpdate(command.getActiveOrderId());
         if (receipt == null || !Objects.equals(receipt.getLeaderUserId(), leaderUserId)
                 || !Objects.equals(receipt.getActiveOrderId(), command.getActiveOrderId())
@@ -60,25 +73,23 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING,
                     command.getActiveOrderId(), "P2生成的有效批次不存在");
         }
-        if (existing != null) {
-            if (existing.getBatchExecutionId() != null
-                    && !Objects.equals(existing.getBatchExecutionId(), batch.getId())) {
+        return batch.getId();
+    }
+
+    private MesTeamLeaderActiveOrderReleaseApplicationResult bindBatchExecution(
+            MesTeamLeaderActiveOrderReleaseApplicationResult application, Long batchExecutionId) {
+        if (application.getBatchExecutionId() != null) {
+            if (!Objects.equals(application.getBatchExecutionId(), batchExecutionId)) {
                 throw new IllegalStateException("P3 release application batch execution mismatch");
             }
-            if (applicationMapper.bindP3BatchExecution(
-                    existing.getApplicationId(), existing.getVersion(), batch.getId()) != 1) {
-                throw new IllegalStateException("P3 release application batch execution binding failed");
-            }
-            return existing.setBatchExecutionId(batch.getId())
-                    .setVersion(existing.getVersion() + 1);
+            return application;
         }
-        var generated = generationService.generate(leaderUserId, command);
         if (applicationMapper.bindP3BatchExecution(
-                generated.getApplicationId(), generated.getVersion(), batch.getId()) != 1) {
+                application.getApplicationId(), application.getVersion(), batchExecutionId) != 1) {
             throw new IllegalStateException("P3 release application batch execution binding failed");
         }
-        return generated.setBatchExecutionId(batch.getId())
-                .setVersion(generated.getVersion() + 1);
+        return application.setBatchExecutionId(batchExecutionId)
+                .setVersion(application.getVersion() + 1);
     }
 
     @Override
@@ -91,11 +102,18 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         MesTeamLeaderActiveOrderReleaseApplicationResult existing =
                 generationService.replayExisting(leaderUserId, command);
         if (existing != null) {
-            return existing;
+            if (existing.getBatchExecutionId() != null) {
+                return existing;
+            }
+            Long batchExecutionId = requirePersistedP2BatchExecutionId(leaderUserId, command);
+            return bindBatchExecution(existing, batchExecutionId);
         }
-        completionService.completeForRelease(
+        MesTeamLeaderActiveOrderCompletionResult completion = completionService.completeForRelease(
                 leaderUserId, command.getActiveOrderId(), releaseIdempotencyKey, command.getConfirmNoReplenishmentInfo());
-        return generationService.generate(leaderUserId, command);
+        Long batchExecutionId = completionBatchExecutionService.openOrCreate(
+                leaderUserId, command.getActiveOrderId(), completion.getCompletionReceiptId(), releaseIdempotencyKey);
+        MesTeamLeaderActiveOrderReleaseApplicationResult generated = generationService.generate(leaderUserId, command);
+        return bindBatchExecution(generated, batchExecutionId);
     }
 
     @Override

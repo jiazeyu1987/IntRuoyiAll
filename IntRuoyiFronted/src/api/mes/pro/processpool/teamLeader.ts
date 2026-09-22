@@ -540,6 +540,11 @@ export interface TeamLeaderActiveOrderPqcProductionReleaseSummaryRespVO {
   signature?: TeamLeaderActiveOrderSignatureDetailRespVO
 }
 
+export interface TeamLeaderActiveOrderStatusSummaryRespVO {
+  status: string
+  statusLabel: string
+}
+
 export interface TeamLeaderActiveOrderSubmissionMaterialDetailRespVO {
   materialId: number
   materialCode: string
@@ -674,6 +679,7 @@ export interface TeamLeaderActiveOrderDetailRespVO {
   routeName: string
   inputMaterialUsages?: TeamLeaderActiveOrderInputMaterialDetailRespVO[]
   processes: TeamLeaderActiveOrderProcessDetailRespVO[]
+  activeOrderStatus?: TeamLeaderActiveOrderStatusSummaryRespVO
   pqcProductionRelease?: TeamLeaderActiveOrderPqcProductionReleaseSummaryRespVO
   operationFacts?: TeamLeaderActiveOrderOperationFactRespVO[]
 }
@@ -687,6 +693,13 @@ export interface TeamLeaderActiveOrderOperationFactRespVO {
   actorUserId: number
   actorName: string
   signatureId?: number
+  nonconformanceReason?: string
+  reviewMaterialUrl?: string
+  reviewMaterialFileId?: number
+  reviewOpinion?: string
+  disposition?: string
+  qaSignature?: string
+  qaUserId?: number
   resultStatus: string
   occurredAt: string | number
   sourceSnapshotHash: string
@@ -809,6 +822,7 @@ export interface TeamLeaderActiveOrderReleaseApplyRespVO {
   batchCode?: string | null
   routeId: string
   routeVersionId: string
+  batchExecutionId: string
   pqcReleaseWorkTaskId: string
   status: TeamLeaderActiveOrderReleaseApplicationStatus
   sourceSnapshotHash: string

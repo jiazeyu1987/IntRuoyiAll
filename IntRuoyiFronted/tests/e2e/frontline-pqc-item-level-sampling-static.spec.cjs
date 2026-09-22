@@ -44,8 +44,8 @@ assert.match(
 )
 assert.match(
   pageSource,
-  /const getUniquePqcTaskOptionsByRule = \([\s\S]*PQC_INSPECTION_RULE_ORDER[\s\S]*option\.inspectionRuleKey === ruleKey[\s\S]*return orderedOptions/,
-  'Item-level task buttons must be deduplicated by formal rule key.'
+  /const pqcInspectionTypeTabs = computed<\{[\s\S]*?ruleKey: FrontlinePqcInspectionRuleKey[\s\S]*PQC_INSPECTION_RULE_ORDER[\s\S]*allSwitchablePqcProcessOptions\.value[\s\S]*hasExecutablePqcTaskForRule\(process, ruleKey\)[\s\S]*\.map\(\(ruleKey\) => \(\{[\s\S]*ruleKey,[\s\S]*label: PQC_INSPECTION_RULE_LABELS\[ruleKey\]/,
+  'Item-level task buttons must be deduplicated by formal rule key at current-order rule level.'
 )
 assert.match(
   pageSource,

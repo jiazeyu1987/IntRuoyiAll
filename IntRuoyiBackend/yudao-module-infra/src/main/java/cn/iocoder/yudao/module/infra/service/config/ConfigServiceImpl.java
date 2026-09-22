@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.*;
@@ -26,11 +27,17 @@ import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.*;
 @Validated
 public class ConfigServiceImpl implements ConfigService {
 
+    public static final String IDLE_LOGOUT_MINUTES_CONFIG_KEY = "system.login.idle-timeout-minutes";
+    private static final int IDLE_LOGOUT_MINUTES_MIN = 1;
+    private static final int IDLE_LOGOUT_MINUTES_MAX = 1440;
+    private static final Pattern POSITIVE_INTEGER_PATTERN = Pattern.compile("^[1-9]\\d*$");
+
     @Resource
     private ConfigMapper configMapper;
 
     @Override
     public Long createConfig(ConfigSaveReqVO createReqVO) {
+        validateConfigValue(createReqVO.getKey(), createReqVO.getValue());
         // 校验参数配置 key 的唯一性
         validateConfigKeyUnique(null, createReqVO.getKey());
 
@@ -45,6 +52,7 @@ public class ConfigServiceImpl implements ConfigService {
     public void updateConfig(ConfigSaveReqVO updateReqVO) {
         // 校验自己存在
         validateConfigExists(updateReqVO.getId());
+        validateConfigValue(updateReqVO.getKey(), updateReqVO.getValue());
         // 校验参数配置 key 的唯一性
         validateConfigKeyUnique(updateReqVO.getId(), updateReqVO.getKey());
 
@@ -118,6 +126,24 @@ public class ConfigServiceImpl implements ConfigService {
         }
         if (!config.getId().equals(id)) {
             throw exception(CONFIG_KEY_DUPLICATE);
+        }
+    }
+
+    private void validateConfigValue(String key, String value) {
+        if (!IDLE_LOGOUT_MINUTES_CONFIG_KEY.equals(key)) {
+            return;
+        }
+        if (value == null || !POSITIVE_INTEGER_PATTERN.matcher(value).matches()) {
+            throw exception(CONFIG_IDLE_LOGOUT_MINUTES_INVALID);
+        }
+        int minutes;
+        try {
+            minutes = Integer.parseInt(value);
+        } catch (NumberFormatException ex) {
+            throw exception(CONFIG_IDLE_LOGOUT_MINUTES_INVALID);
+        }
+        if (minutes < IDLE_LOGOUT_MINUTES_MIN || minutes > IDLE_LOGOUT_MINUTES_MAX) {
+            throw exception(CONFIG_IDLE_LOGOUT_MINUTES_INVALID);
         }
     }
 

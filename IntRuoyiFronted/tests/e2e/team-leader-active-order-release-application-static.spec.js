@@ -170,8 +170,18 @@ assert.match(
 )
 assert.match(
   releaseFlow,
-  /const refreshedReceipt = activeOrderOptions\.value\.find\([\s\S]*refreshedReceipt\?\.releaseApplicationId === result\.applicationId[\s\S]*refreshedReceipt\.releaseApplicationStatus === result\.status[\s\S]*releaseApplicationLocks\.delete\(row\.id\)[\s\S]*releaseApplicationLocks\.set\(row\.id, 'CONFIRMED_NOT_PROJECTED'\)/,
-  'a successful list request must not unlock duplicate submission until it projects the formal write status.'
+  /const applyActiveOrderReleaseReceiptToRow\s*=\s*\(\s*row:\s*TeamLeaderActiveOrderRespVO,\s*result:\s*TeamLeaderActiveOrderReleaseApplyRespVO\s*\)\s*=>\s*\{[\s\S]*row\.releaseApplicationId\s*=\s*result\.applicationId[\s\S]*row\.pqcReleaseWorkTaskId\s*=\s*result\.pqcReleaseWorkTaskId[\s\S]*row\.releaseApplicationStatus\s*=\s*result\.status[\s\S]*row\.releaseSourceSnapshotHash\s*=\s*result\.sourceSnapshotHash[\s\S]*row\.releaseApplicationVersion\s*=\s*result\.version/,
+  'the page must project the formal backend receipt into the current active-order row.'
+)
+assert.match(
+  releaseFlow,
+  /applyActiveOrderReleaseReceiptToRow\(row, result\)[\s\S]*await loadActiveOrders\(\)[\s\S]*const refreshedReceipt = activeOrderOptions\.value\.find\([\s\S]*if \(refreshedReceipt\) \{[\s\S]*applyActiveOrderReleaseReceiptToRow\(refreshedReceipt, result\)[\s\S]*releaseApplicationLocks\.delete\(row\.id\)/,
+  'a successful list request must retain the formal write receipt even when list projection lags.'
+)
+assert.doesNotMatch(
+  releaseFlow,
+  /CONFIRMED_NOT_PROJECTED|申请已提交，但列表状态尚未同步，请刷新页面/,
+  'a stale list projection must not be shown as a user-facing error after a confirmed write.'
 )
 assert.match(
   releaseFlow,

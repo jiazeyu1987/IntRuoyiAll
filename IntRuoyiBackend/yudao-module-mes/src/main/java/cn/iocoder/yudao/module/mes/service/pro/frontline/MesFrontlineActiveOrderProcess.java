@@ -18,6 +18,7 @@ public record MesFrontlineActiveOrderProcess(Long activeOrderId,
                                              String workstationName,
                                              BigDecimal productionQuantityFactor,
                                              BigDecimal targetQuantity,
+                                             BigDecimal submittedQuantity,
                                              Boolean checkFlag) {
 
     public MesFrontlineActiveOrderProcess(Long activeOrderId,
@@ -37,7 +38,28 @@ public record MesFrontlineActiveOrderProcess(Long activeOrderId,
                                           BigDecimal targetQuantity) {
         this(activeOrderId, routeId, routeVersionId, routeCode, routeName, routeProcessId, processId, processCode,
                 processName, sort, workstationId, workstationCode, workstationName, productionQuantityFactor,
-                targetQuantity, Boolean.FALSE);
+                targetQuantity, BigDecimal.ZERO, Boolean.FALSE);
+    }
+
+    public MesFrontlineActiveOrderProcess(Long activeOrderId,
+                                          Long routeId,
+                                          Long routeVersionId,
+                                          String routeCode,
+                                          String routeName,
+                                          Long routeProcessId,
+                                          Long processId,
+                                          String processCode,
+                                          String processName,
+                                          Integer sort,
+                                          Long workstationId,
+                                          String workstationCode,
+                                          String workstationName,
+                                          BigDecimal productionQuantityFactor,
+                                          BigDecimal targetQuantity,
+                                          Boolean checkFlag) {
+        this(activeOrderId, routeId, routeVersionId, routeCode, routeName, routeProcessId, processId, processCode,
+                processName, sort, workstationId, workstationCode, workstationName, productionQuantityFactor,
+                targetQuantity, BigDecimal.ZERO, checkFlag);
     }
 
     public MesFrontlineRouteProcessCandidate toRouteProcessCandidate() {

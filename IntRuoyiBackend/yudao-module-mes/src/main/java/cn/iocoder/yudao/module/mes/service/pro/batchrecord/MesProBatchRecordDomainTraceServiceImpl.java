@@ -11,11 +11,13 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordDomainTraceSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionAttachmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordDomainTraceItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordDomainTraceSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -58,6 +60,8 @@ public class MesProBatchRecordDomainTraceServiceImpl implements MesProBatchRecor
     private MesProBatchRecordExecutionAttachmentService attachmentService;
     @Resource
     private MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
+    @Resource
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
 
     @Override
     public MesProBatchRecordDomainTraceDetailRespVO getTraceDetail(Long executionId) {
@@ -500,10 +504,28 @@ public class MesProBatchRecordDomainTraceServiceImpl implements MesProBatchRecor
 
     private List<MesProEdhrNonconformanceReviewDO> selectNonconformanceReviews(
             MesProBatchRecordExecutionDO execution) {
-        if (execution.getBatchExecutionId() == null) {
+        Long activeOrderId = resolveUniqueActiveOrderId(execution);
+        if (activeOrderId == null) {
             return List.of();
         }
-        return nonconformanceReviewMapper.selectListByBatchExecutionId(execution.getBatchExecutionId());
+        return nonconformanceReviewMapper.selectListByActiveOrderId(activeOrderId);
+    }
+
+    private Long resolveUniqueActiveOrderId(MesProBatchRecordExecutionDO execution) {
+        if (execution.getBatchExecutionId() == null) {
+            return null;
+        }
+        List<Long> activeOrderIds = batchExecutionOriginMapper
+                .selectListByBatchExecutionId(execution.getBatchExecutionId())
+                .stream()
+                .map(MesProEdhrBatchExecutionOriginDO::getActiveOrderId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (activeOrderIds.size() > 1) {
+            throw exception(PRO_BATCH_RECORD_DOMAIN_TRACE_BLOCKED);
+        }
+        return activeOrderIds.isEmpty() ? null : activeOrderIds.get(0);
     }
 
     private String buildNonconformanceReviewTraceSnapshotJson(MesProEdhrNonconformanceReviewDO review) {

@@ -53,6 +53,9 @@ public class ProcessPoolTimelineEventReadDO {
     private LocalDate pqcBusinessDate;
     private String pqcShiftCode;
     private Integer roundNo;
+    private String pqcSubmissionGroupId;
+    private java.util.List<Long> groupedEventIds;
+    private java.util.List<String> groupedOriginalPayloadJsons;
     private Long sourceFeedbackId;
     private Long sourceRecordbookEntryId;
     private Long sourceRecordbookEventId;

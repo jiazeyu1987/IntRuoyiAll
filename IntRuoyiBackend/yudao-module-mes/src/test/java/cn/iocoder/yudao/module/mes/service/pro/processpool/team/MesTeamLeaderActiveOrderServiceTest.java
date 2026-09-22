@@ -227,7 +227,6 @@ class MesTeamLeaderActiveOrderServiceTest {
     private MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
     @Mock
     private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
-
     private MesTeamLeaderActiveOrderService service;
 
     @BeforeEach

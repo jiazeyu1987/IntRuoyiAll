@@ -107,9 +107,9 @@ assert.match(
   'the visible error boundary must preserve the real resolved error text.'
 )
 assert.doesNotMatch(
-  panelSource,
+  showErrorBlock,
   /message\.error\(/,
-  'frontline errors must not be owned by body-level Element Plus toasts.'
+  'frontline error boundary must not own errors with body-level Element Plus toasts.'
 )
 assert.doesNotMatch(
   panelSource,

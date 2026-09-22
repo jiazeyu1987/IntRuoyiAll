@@ -33,6 +33,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotCodec;
@@ -284,7 +285,8 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                     processMapper, itemMapper, mock(MesQaInspectionRegulationService.class),
                     equipmentConfigService,
                     taskMapper, pieceDetailMapper, mock(MesMdItemService.class), scopeMapper, adminUserApi,
-                    eventService, recordMapper, signatureService);
+                    eventService, recordMapper, signatureService,
+                    mock(MesProEdhrNonconformanceReviewService.class));
         }
 
         private Pair submitConcurrently(MesFrontlinePqcSubmitCommand firstCommand,

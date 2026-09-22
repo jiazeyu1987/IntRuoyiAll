@@ -34,6 +34,10 @@ export type OnlineFilePreviewSource =
       fileId: number | string
     }
   | {
+      type: 'MES_EDHR_NONCONFORMANCE_REVIEW_MATERIAL'
+      fileId: number | string
+    }
+  | {
       type: 'DCC_REGISTRATION_CERTIFICATE'
       businessFileId: number | string
     }
@@ -56,6 +60,13 @@ export const buildMesActiveOrderDossierFilePreviewSource = (
   fileId: number | string
 ): OnlineFilePreviewSource => ({
   type: 'MES_ACTIVE_ORDER_DOSSIER_FILE',
+  fileId
+})
+
+export const buildMesEdhrNonconformanceReviewMaterialPreviewSource = (
+  fileId: number | string
+): OnlineFilePreviewSource => ({
+  type: 'MES_EDHR_NONCONFORMANCE_REVIEW_MATERIAL',
   fileId
 })
 

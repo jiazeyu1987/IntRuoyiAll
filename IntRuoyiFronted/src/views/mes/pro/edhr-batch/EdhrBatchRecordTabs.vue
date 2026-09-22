@@ -7,7 +7,8 @@
   >
     <el-tab-pane label="批次执行" name="execution" />
     <el-tab-pane label="历史追溯" name="history" />
-    <el-tab-pane label="批记录页面关系图" name="pageGraph" />
+    <el-tab-pane label="不合格评审" name="nonconformanceReview" />
+    <el-tab-pane label="作废" name="voided" />
   </el-tabs>
 </template>
 
@@ -17,7 +18,8 @@ defineOptions({ name: 'MesProEdhrBatchRecordTabs' })
 type EdhrBatchRecordTab =
   | 'execution'
   | 'history'
-  | 'pageGraph'
+  | 'voided'
+  | 'nonconformanceReview'
 type EdhrBatchTabPane = {
   props?: {
     name?: string | number
@@ -33,7 +35,8 @@ const router = useRouter()
 const routeByTab: Partial<Record<EdhrBatchRecordTab, string>> = {
   execution: '/mes/pro/feedback/edhr-batch-execution',
   history: '/mes/pro/feedback/edhr-batch-history',
-  pageGraph: '/mes/pro/feedback/edhr-batch-page-graph'
+  voided: '/mes/pro/feedback/edhr-batch-voided',
+  nonconformanceReview: '/mes/pro/feedback/edhr-nonconformance-review'
 }
 
 const navigateToTab = async (name: string | number | undefined) => {

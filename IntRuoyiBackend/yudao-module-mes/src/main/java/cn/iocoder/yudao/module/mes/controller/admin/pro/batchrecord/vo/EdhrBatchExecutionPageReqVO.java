@@ -29,6 +29,8 @@ public class EdhrBatchExecutionPageReqVO extends PageParam {
 
     private String productCode;
 
+    private String productName;
+
     private Long routeId;
 
     private String routeCode;
@@ -41,10 +43,15 @@ public class EdhrBatchExecutionPageReqVO extends PageParam {
 
     private Boolean excludeReleased;
 
+    private Boolean releasedOnly;
+
     private Boolean completedTraceOnly;
 
     @DateTimeFormat(pattern = FORMAT_YEAR_MONTH_DAY_HOUR_MINUTE_SECOND)
     private LocalDateTime[] createTime;
+
+    @DateTimeFormat(pattern = FORMAT_YEAR_MONTH_DAY_HOUR_MINUTE_SECOND)
+    private LocalDateTime[] releaseApprovedTime;
 
     private QuickFilter quickFilter;
 }

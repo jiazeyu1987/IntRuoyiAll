@@ -21,12 +21,12 @@ import java.util.Set;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
 
-final class MesOutputMaterialProgressCalculator {
+public final class MesOutputMaterialProgressCalculator {
 
     private MesOutputMaterialProgressCalculator() {
     }
 
-    static BigDecimal calculateConservativeProcessProgress(
+    public static BigDecimal calculateConservativeProcessProgress(
             MesProcessPoolActiveOrderDO activeOrder,
             MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
             List<MesProProcessPoolEventDO> productionEvents,

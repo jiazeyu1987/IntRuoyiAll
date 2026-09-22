@@ -404,6 +404,7 @@
                 type="button"
                 class="pqc-item-tab"
                 data-pqc-inspection-tab
+                :data-pqc-inspection-item-code="item.key"
                 :class="{ active: activePqcTabKey === item.key }"
                 :aria-pressed="activePqcTabKey === item.key"
                 @click="selectPqcInspectionTab(item.key)"
@@ -436,20 +437,6 @@
         </section>
 
         <section class="frontline-work-panel frontline-pqc-fill-panel">
-          <div class="frontline-pqc-type-tabs">
-            <button
-              v-for="tab in pqcInspectionTypeTabs"
-              :key="tab.ruleKey"
-              type="button"
-              :data-pqc-inspection-rule-tab="tab.ruleKey"
-              :data-pqc-inspection-type-tab="tab.type"
-              :data-pqc-task-option="String(tab.value)"
-              :class="{ active: activePqcTaskOption?.inspectionRuleKey === tab.ruleKey }"
-              @click="selectPqcInspectionTaskOption(tab.value)"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
           <div class="frontline-pqc-form-area">
             <div class="frontline-pqc-number-field">
               <label for="frontlinePqcInspectionQuantity">检验</label>
@@ -505,6 +492,26 @@
               </button>
               <span>件</span>
             </div>
+          </div>
+        </section>
+        <section
+          class="frontline-work-panel frontline-pqc-rule-panel"
+          data-pqc-inspection-rule-selector
+          :data-pqc-process-filter-rule="selectedPqcInspectionRuleKey || ''"
+        >
+          <div class="frontline-pqc-type-tabs">
+            <button
+              v-for="tab in pqcInspectionTypeTabs"
+              :key="tab.ruleKey"
+              type="button"
+              :data-pqc-inspection-rule-tab="tab.ruleKey"
+              :data-pqc-inspection-type-tab="tab.type"
+              :class="{ active: selectedPqcInspectionRuleKey === tab.ruleKey }"
+              :aria-pressed="selectedPqcInspectionRuleKey === tab.ruleKey"
+              @click="selectPqcInspectionRule(tab.ruleKey)"
+            >
+              {{ tab.label }}
+            </button>
           </div>
         </section>
         <footer class="frontline-pqc-submit-bar">
@@ -593,17 +600,35 @@
             type="button"
             data-frontline-production-selection-card
             data-frontline-production-active-order-card
-            :disabled="payloadLoading || submitConfirmationOpen || productionSubmitSuccessOpen"
+            :disabled="isProductionSelectionSwitchLocked"
             @click="openPicker('order')"
           >
-            <div class="frontline-production-order-summary" aria-label="活跃订单">
-              <span
-                class="frontline-production-order-summary__value"
-                data-frontline-production-order-code
-                data-frontline-production-active-order-summary
-              >
-                {{ productionActiveOrderSummaryLabel }}
-              </span>
+            <div class="frontline-production-order-summary" :aria-label="productionActiveOrderSummaryLabel">
+              <div class="frontline-production-order-summary__row">
+                <span class="frontline-production-order-summary__label">生产工单</span>
+                <span
+                  class="frontline-production-order-summary__value"
+                  data-frontline-production-order-code
+                  data-frontline-production-active-order-summary
+                >
+                  {{ productionOrderLabel }}
+                </span>
+              </div>
+              <div class="frontline-production-order-summary__row">
+                <span class="frontline-production-order-summary__label">产品</span>
+                <span class="frontline-production-order-summary__value">
+                  {{ productionProductNameLabel }}
+                </span>
+              </div>
+              <div class="frontline-production-order-summary__row">
+                <span class="frontline-production-order-summary__label">生产数量</span>
+                <span
+                  class="frontline-production-order-summary__value is-quantity"
+                  data-frontline-production-order-quantity
+                >
+                  {{ selectedProductionOrderQuantityLabel }} 件
+                </span>
+              </div>
             </div>
           </button>
           <div
@@ -630,6 +655,15 @@
             >
               <div class="top-label">工序</div>
               <div class="top-value">{{ selectedProcessLabel }}</div>
+              <div
+                v-if="selectedProductionProcessSubmittedQuantityLabel"
+                class="frontline-production-process-submitted"
+              >
+                <span>已提交</span>
+                <strong data-frontline-production-process-submitted-quantity>
+                  {{ selectedProductionProcessSubmittedQuantityLabel }} 件
+                </strong>
+              </div>
             </button>
             <button
               class="frontline-production-process-nav-button"
@@ -643,11 +677,11 @@
             </button>
           </div>
           <button
-            class="frontline-top-card top-box frontline-production-selection-card"
+            class="frontline-top-card top-box frontline-production-selection-card frontline-production-employee-card"
             type="button"
             data-frontline-production-selection-card
             data-frontline-production-employee-card
-            :disabled="payloadLoading || submitConfirmationOpen || productionSubmitSuccessOpen"
+            :disabled="isProductionSelectionSwitchLocked"
             @click="openPicker('employee')"
           >
             <div class="top-label">员工</div>
@@ -1821,6 +1855,7 @@ const activePqcInspectionKey = ref<PqcInspectionItemKey>()
 const activePqcStandardKey = ref<PqcInspectionItemKey>()
 const activePqcMethodKey = ref<PqcInspectionItemKey>()
 const selectedPqcInspectionKey = ref<PqcInspectionItemKey>()
+const selectedPqcInspectionRuleKey = ref<FrontlinePqcInspectionRuleKey>()
 const activePqcTaskOptionId = ref<number>()
 const pqcPieceDraftValues = ref<string[]>([])
 const pqcPieceValues = reactive<Record<string, string[]>>({})
@@ -1830,6 +1865,15 @@ const pqcSignaturePassword = ref('')
 const pqcSubmitResultUncertain = ref(false)
 
 const isPqcMode = computed(() => props.mode === 'pqc')
+const isProductionSubmitErrorAcknowledgementPending = computed(() =>
+  !isPqcMode.value && Boolean(frontlineErrorMessage.value)
+)
+const isProductionSelectionSwitchLocked = computed(() =>
+  payloadLoading.value ||
+  submitConfirmationOpen.value ||
+  productionSubmitSuccessOpen.value ||
+  isProductionSubmitErrorAcknowledgementPending.value
+)
 const PRODUCTION_CANVAS_WIDTH = 1920
 const PRODUCTION_CANVAS_HEIGHT = 1080
 const productionViewportScale = ref(1)
@@ -1838,6 +1882,7 @@ let productionViewportResizeObserver: ResizeObserver | undefined
 let processSelectionRequestId = 0
 let activeOrderSelectionRequestId = 0
 let productionEmployeeSelectionRequestId = 0
+let pqcActiveOrderRefreshPromise: Promise<void> | undefined
 const productionStageStyle = computed(() => {
   const scale = productionViewportScale.value
   return {
@@ -1869,23 +1914,6 @@ const currentLoginEmployeeCandidate = computed<FrontlineEmployeeCandidateVO | un
 })
 const selectedActiveOrder = computed(() => deviceState.selectedActiveOrder)
 
-const productionActiveOrderSummaryLabel = computed(() => {
-  const selectedOrder = selectedActiveOrder.value
-  if (!selectedOrder) {
-    return '未选择'
-  }
-  const workOrderCode = selectedOrder.workOrderCode?.trim()
-  if (!workOrderCode) {
-    throw new Error(`一线活跃订单缺少正式订单号：workOrderId=${selectedOrder.workOrderId}`)
-  }
-  const productName = selectedOrder.productName?.trim()
-  if (!productName) {
-    throw new Error(`一线活跃订单缺少正式产品名：workOrderId=${selectedOrder.workOrderId}`)
-  }
-  const quantityText = formatProductionQuantity(selectedOrder.quantity)
-  return `${workOrderCode}-${productName}(${quantityText})`
-})
-
 const productionOrderLabel = computed(() => {
   const selectedOrder = selectedActiveOrder.value
   if (!selectedOrder) {
@@ -1896,6 +1924,25 @@ const productionOrderLabel = computed(() => {
     throw new Error(`一线活跃订单缺少正式订单号：workOrderId=${selectedOrder.workOrderId}`)
   }
   return workOrderCode
+})
+
+const productionProductNameLabel = computed(() => {
+  const selectedOrder = selectedActiveOrder.value
+  if (!selectedOrder) {
+    return '未选择'
+  }
+  const productName = selectedOrder.productName?.trim()
+  if (!productName) {
+    throw new Error(`一线活跃订单缺少正式产品名：workOrderId=${selectedOrder.workOrderId}`)
+  }
+  return productName
+})
+
+const productionActiveOrderSummaryLabel = computed(() => {
+  if (!selectedActiveOrder.value) {
+    return '未选择'
+  }
+  return `${productionOrderLabel.value}-${productionProductNameLabel.value}`
 })
 
 const formatProductionQuantity = (quantity: number) => {
@@ -1910,6 +1957,27 @@ const selectedOrderQuantityLabel = computed(() =>
     ? formatProductionQuantity(selectedActiveOrder.value.quantity)
     : ''
 )
+
+const selectedProductionOrderQuantityLabel = computed(() =>
+  selectedActiveOrder.value
+    ? formatProductionQuantity(selectedActiveOrder.value.quantity)
+    : ''
+)
+
+const formatProductionSubmittedQuantity = (quantity: number) => {
+  if (!Number.isFinite(quantity) || quantity < 0) {
+    throw new Error(`一线生产工序已提交数量无效：${quantity}`)
+  }
+  return String(quantity)
+}
+
+const selectedProductionProcessSubmittedQuantityLabel = computed(() => {
+  const selectedProcess = deviceState.selectedProcess
+  if (!selectedProcess || !('routeProcessId' in selectedProcess)) {
+    return ''
+  }
+  return formatProductionSubmittedQuantity(selectedProcess.submittedQuantity)
+})
 
 const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selectedProcess))
 
@@ -2011,19 +2079,34 @@ const getPqcTaskOptionsForInspectionItem = (
   itemKey?: PqcInspectionItemKey
 ) => getPqcTaskOptions(process).filter((option) => pqcTaskOptionIncludesItem(option, itemKey))
 
-const getUniquePqcTaskOptionsByRule = (options: PqcTaskOptionSnapshot[]) => {
-  const orderedOptions: PqcTaskOptionSnapshot[] = []
-  const seenTaskIds = new Set<number>()
-  for (const ruleKey of PQC_INSPECTION_RULE_ORDER) {
-    const option = options.find((option) => option.inspectionRuleKey === ruleKey)
-    if (!option || seenTaskIds.has(option.pqcTaskId)) {
-      continue
-    }
-    seenTaskIds.add(option.pqcTaskId)
-    orderedOptions.push(option)
-  }
-  return orderedOptions
-}
+const getPqcTaskOptionsByRule = (
+  process: FrontlinePqcProcessVO,
+  ruleKey: FrontlinePqcInspectionRuleKey,
+  itemKey?: PqcInspectionItemKey
+) => getPqcTaskOptionsForInspectionItem(process, itemKey)
+  .filter((option) => option.inspectionRuleKey === ruleKey)
+
+const getPqcTaskOptionForRule = (
+  process: FrontlinePqcProcessVO,
+  ruleKey: FrontlinePqcInspectionRuleKey,
+  itemKey?: PqcInspectionItemKey
+) => getPqcTaskOptionsByRule(process, ruleKey, itemKey)[0] ||
+  getPqcTaskOptionsByRule(process, ruleKey)[0]
+
+const hasExecutablePqcTaskForRule = (
+  process: FrontlinePqcProcessVO,
+  ruleKey: FrontlinePqcInspectionRuleKey
+) => getPqcTaskOptions(process).some((option) => option.inspectionRuleKey === ruleKey)
+
+const findFirstPqcInspectionRuleKey = (processes: FrontlinePqcProcessVO[]) =>
+  PQC_INSPECTION_RULE_ORDER.find((ruleKey) =>
+    processes.some((process) => hasExecutablePqcTaskForRule(process, ruleKey))
+  )
+
+const findFirstPqcProcessForInspectionRule = (
+  processes: FrontlinePqcProcessVO[],
+  ruleKey: FrontlinePqcInspectionRuleKey
+) => processes.find((process) => hasExecutablePqcTaskForRule(process, ruleKey))
 
 const preferPqcTaskOption = (
   options: PqcTaskOptionSnapshot[],
@@ -2057,6 +2140,11 @@ const preferPqcTaskOption = (
 
 const getDefaultPqcTaskOption = (process: FrontlinePqcProcessVO) => {
   const selectedItemKey = resolveSelectedPqcInspectionItemKey(process)
+  const selectedRuleKey = selectedPqcInspectionRuleKey.value
+  if (selectedRuleKey) {
+    return getPqcTaskOptionForRule(process, selectedRuleKey, selectedItemKey) ||
+      getPqcTaskOptionForRule(process, selectedRuleKey)
+  }
   const selectedItemOptions = getPqcTaskOptionsForInspectionItem(process, selectedItemKey)
   return preferPqcTaskOption(
     selectedItemOptions.length > 0 ? selectedItemOptions : getPqcTaskOptions(process)
@@ -2065,28 +2153,36 @@ const getDefaultPqcTaskOption = (process: FrontlinePqcProcessVO) => {
 
 const getSelectedPqcTaskOption = (process: FrontlinePqcProcessVO) => {
   const selectedItemKey = resolveSelectedPqcInspectionItemKey(process)
+  const selectedRuleKey = selectedPqcInspectionRuleKey.value
   const selectedTaskId = activePqcTaskOptionId.value
   const selectedTask = selectedTaskId
     ? getPqcTaskOptions(process).find((option) =>
-      option.pqcTaskId === selectedTaskId && pqcTaskOptionIncludesItem(option, selectedItemKey)
+      option.pqcTaskId === selectedTaskId &&
+      (!selectedRuleKey || option.inspectionRuleKey === selectedRuleKey) &&
+      pqcTaskOptionIncludesItem(option, selectedItemKey)
     )
     : undefined
+  if (selectedRuleKey) {
+    return selectedTask ||
+      getPqcTaskOptionForRule(process, selectedRuleKey, selectedItemKey) ||
+      getPqcTaskOptionForRule(process, selectedRuleKey)
+  }
   return selectedTask || getDefaultPqcTaskOption(process)
 }
 
-const pqcInspectionTypeTabs = computed<{ ruleKey: FrontlinePqcInspectionRuleKey; type: InspectionType; value: number; label: string }[]>(() => {
-  const process = deviceState.selectedProcess
-  if (!isFrontlinePqcProcess(process)) {
-    return []
-  }
-  return getUniquePqcTaskOptionsByRule(
-    getPqcTaskOptionsForInspectionItem(process, activePqcTabKey.value)
-  ).map((option) => ({
-    ruleKey: option.inspectionRuleKey,
-    type: option.inspectionType,
-    value: option.pqcTaskId,
-    label: PQC_INSPECTION_RULE_LABELS[option.inspectionRuleKey]
-  }))
+const pqcInspectionTypeTabs = computed<{
+  ruleKey: FrontlinePqcInspectionRuleKey
+  type: InspectionType
+  label: string
+}[]>(() => {
+  return PQC_INSPECTION_RULE_ORDER
+    .filter((ruleKey) => allSwitchablePqcProcessOptions.value
+      .some((process) => hasExecutablePqcTaskForRule(process, ruleKey)))
+    .map((ruleKey) => ({
+      ruleKey,
+      type: PQC_INSPECTION_RULE_TYPES[ruleKey],
+      label: PQC_INSPECTION_RULE_LABELS[ruleKey]
+    }))
 })
 
 const activePqcTaskOption = computed<PqcTaskOptionSnapshot | undefined>(() => {
@@ -2744,9 +2840,19 @@ const switchableProcessOptions = computed(() => {
   })
 })
 
-const switchablePqcProcessOptions = computed(() =>
+const allSwitchablePqcProcessOptions = computed(() =>
   switchableProcessOptions.value.filter(isFrontlinePqcProcess)
 )
+
+const filteredPqcProcessOptions = computed(() => {
+  const ruleKey = selectedPqcInspectionRuleKey.value
+  if (!ruleKey) {
+    return allSwitchablePqcProcessOptions.value
+  }
+  return allSwitchablePqcProcessOptions.value.filter((process) =>
+    hasExecutablePqcTaskForRule(process, ruleKey)
+  )
+})
 
 const normalizeActiveOrderKeyword = (value?: string) => (value || '').trim().toLocaleUpperCase()
 
@@ -2784,7 +2890,10 @@ const pickerOptions = computed<FrontlinePickerOption[]>(() => {
     }))
   }
   if (activePicker.value === 'process') {
-    return switchableProcessOptions.value.map((process) => ({
+    const processOptions = isPqcMode.value
+      ? filteredPqcProcessOptions.value
+      : switchableProcessOptions.value
+    return processOptions.map((process) => ({
       key: isFrontlinePqcProcess(process)
         ? `QA-${process.regulationVersionId}-${process.qaProcessId}`
         : `MES-${process.activeOrderId}-${process.routeId}-${process.routeProcessId}-${process.processId}`,
@@ -3189,6 +3298,15 @@ const rememberProductionMaterialDeviceDrafts = (
 
 const resetProductionSubmissionDraft = () => {
   resetProductionMaterialDrafts()
+  productionDraft.outputQuantity = undefined
+  for (const defect of configuredDefectReasons.value) {
+    productionDefectDraft[defect.key] = 0
+  }
+  for (const deviceKey of Object.keys(deviceParameterDraft)) {
+    delete deviceParameterDraft[deviceKey]
+  }
+  resetProductionDeviceMeteringValidityDraft()
+  syncProductionDeviceParameterDraft(visibleDeviceCards.value)
   resetProductionClearanceConfirmations()
   Object.assign(draft.fieldValues, createFrontlineDefaultValues(context.templateCode))
   payloadPreview.value = undefined
@@ -3304,6 +3422,7 @@ const formatPqcTaskOptionLabel = (option: PqcTaskOptionSnapshot) =>
 const applyPqcTaskOptionToDraft = (option: PqcTaskOptionSnapshot) => {
   const storedDraft = getPqcTaskDraft(option)
   activePqcTaskOptionId.value = option.pqcTaskId
+  selectedPqcInspectionRuleKey.value = option.inspectionRuleKey
   pqcDraft.inspectionType = option.inspectionType
   pqcDraft.patrolRound = option.roundNo
   pqcDraft.inspectionQuantity = storedDraft.inspectionQuantity ?? option.plannedInspectionQuantity
@@ -3311,6 +3430,14 @@ const applyPqcTaskOptionToDraft = (option: PqcTaskOptionSnapshot) => {
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
   pqcSubmitResultUncertain.value = false
+  const taskItemKeys = new Set(option.inspectionItems.map((item) => item.itemCode).filter(Boolean))
+  if (!selectedPqcInspectionKey.value || !taskItemKeys.has(selectedPqcInspectionKey.value)) {
+    const preferredItemKey = normalizePqcTaskOptionItemKey(option)
+    selectedPqcInspectionKey.value =
+      preferredItemKey && taskItemKeys.has(preferredItemKey)
+        ? preferredItemKey
+        : option.inspectionItems[0]?.itemCode
+  }
   applyPqcItemEquipmentDefaults(option.inspectionItems.map(mapPqcInspectionItem), option)
 }
 
@@ -3568,7 +3695,12 @@ const applyPqcTaskSnapshotToDraft = (
     clearPqcTaskOptionDraft()
     return
   }
-  const taskSnapshot = getDefaultPqcTaskOption(process)
+  const selectedRuleKey = selectedPqcInspectionRuleKey.value
+  const selectedItemKey = resolveSelectedPqcInspectionItemKey(process)
+  const taskSnapshot = selectedRuleKey
+    ? getPqcTaskOptionForRule(process, selectedRuleKey, selectedItemKey) ||
+      getPqcTaskOptionForRule(process, selectedRuleKey)
+    : getDefaultPqcTaskOption(process)
   if (!taskSnapshot) {
     clearPqcTaskOptionDraft()
     return
@@ -3671,7 +3803,7 @@ const selectPqcInspectionTab = async (itemKey: PqcInspectionItemKey) => {
   const option = preferPqcTaskOption(
     getPqcTaskOptionsForInspectionItem(process, itemKey),
     pqcDraft.inspectionType,
-    activePqcTaskOption.value?.inspectionRuleKey
+    selectedPqcInspectionRuleKey.value || activePqcTaskOption.value?.inspectionRuleKey
   )
   if (!option) {
     showFrontlineError('当前检验方法暂无待执行PQC任务。')
@@ -3823,9 +3955,17 @@ const getPqcCurrentSubmitTaskOptions = () => {
       option.shiftCode === activeOption.shiftCode &&
       option.roundNo === activeOption.roundNo
     )
+  const scopeItemKeys = new Set(
+    [...scopeOptions, ...completedScopeOptions]
+      .flatMap((option) => option.inspectionItems.map((item) => item.itemCode).filter(Boolean))
+  )
+  const scopeInspectionItems = pqcInspectionItems.value.filter((item) => scopeItemKeys.has(item.key))
+  if (!scopeInspectionItems.length) {
+    throw new Error(`${formatPqcTaskOptionLabel(activeOption)}缺少可提交PQC检验项目。`)
+  }
   const submitOptions: PqcTaskOptionSnapshot[] = []
   const submittedTaskIds = new Set<number>()
-  for (const item of pqcInspectionItems.value) {
+  for (const item of scopeInspectionItems) {
     const option = scopeOptions.find((option) => pqcTaskOptionIncludesItem(option, item.key))
     if (!option) {
       if (completedScopeOptions.some((completedOption) =>
@@ -4027,6 +4167,35 @@ const selectPqcInspectionTaskOption = async (pqcTaskId: number) => {
   applyPqcTaskOptionToSelectedProcess(option)
   selectedPqcInspectionKey.value = itemKey
   await switchPqcCurrentLoginEmployeeForActiveTask()
+}
+
+const selectPqcInspectionRule = async (ruleKey: FrontlinePqcInspectionRuleKey) => {
+  persistCurrentPqcTaskDraft()
+  selectedPqcInspectionRuleKey.value = ruleKey
+  const currentProcess = isFrontlinePqcProcess(deviceState.selectedProcess)
+    ? deviceState.selectedProcess
+    : undefined
+  const currentRuleOption = currentProcess
+    ? getPqcTaskOptionForRule(currentProcess, ruleKey, activePqcTabKey.value) ||
+      getPqcTaskOptionForRule(currentProcess, ruleKey)
+    : undefined
+  if (currentProcess && currentRuleOption) {
+    if (activePqcTaskOption.value?.pqcTaskId !== currentRuleOption.pqcTaskId) {
+      applyPqcTaskOptionToSelectedProcess(currentRuleOption)
+      await switchPqcCurrentLoginEmployeeForActiveTask()
+    }
+    return
+  }
+  const targetProcess = findFirstPqcProcessForInspectionRule(
+    allSwitchablePqcProcessOptions.value,
+    ruleKey
+  )
+  if (!targetProcess) {
+    clearPqcTaskOptionDraft()
+    showFrontlineError(`当前工单没有可执行的${PQC_INSPECTION_RULE_LABELS[ruleKey]}工序。`)
+    return
+  }
+  await handleSelectProcess(targetProcess)
 }
 
 const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {
@@ -4323,9 +4492,10 @@ const findInitialProcess = (
 ) => {
   if (isPqcMode.value) {
     const qaProcesses = processes.filter(isFrontlinePqcProcess)
-    return qaProcesses.find((process) =>
-      Boolean(getDefaultPqcTaskOption(process))
-    ) || qaProcesses[0]
+    const ruleKey = selectedPqcInspectionRuleKey.value || findFirstPqcInspectionRuleKey(qaProcesses)
+    return ruleKey
+      ? findFirstPqcProcessForInspectionRule(qaProcesses, ruleKey)
+      : undefined
   }
   const productionProcesses = processes.filter(isFrontlineProductionProcess)
   const requestedRouteId = requestedIdentity.routeId
@@ -4448,6 +4618,7 @@ const handleSelectActiveOrder = async (
   pqcSubmitResultUncertain.value = false
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
+  selectedPqcInspectionRuleKey.value = undefined
   clearPqcExecutionSelection()
   const selectionRequestId = ++activeOrderSelectionRequestId
   let processes: FrontlinePqcProcessVO[]
@@ -4472,6 +4643,13 @@ const handleSelectActiveOrder = async (
   applyActiveOrderToContext(activeOrder)
   employeeTemplateCode.value = undefined
   payloadPreview.value = undefined
+  const initialRuleKey = findFirstPqcInspectionRuleKey(processes)
+  if (!initialRuleKey) {
+    closePicker()
+    showFrontlineError('当前工单没有可执行PQC检验任务。')
+    return
+  }
+  selectedPqcInspectionRuleKey.value = initialRuleKey
   const initialProcess = findInitialProcess(processes)
   if (initialProcess) {
     try {
@@ -4491,6 +4669,16 @@ const handleSelectProcess = async (
   const selectionRequestId = ++processSelectionRequestId
   if (isPqcMode.value && !isFrontlinePqcProcess(process)) {
     showFrontlineError('PQC只能选择QA规程工序。')
+    return
+  }
+  const selectedRuleKey = selectedPqcInspectionRuleKey.value
+  if (
+    isPqcMode.value &&
+    isFrontlinePqcProcess(process) &&
+    selectedRuleKey &&
+    !hasExecutablePqcTaskForRule(process, selectedRuleKey)
+  ) {
+    showFrontlineError(`当前工序没有可执行的${PQC_INSPECTION_RULE_LABELS[selectedRuleKey]}任务。`)
     return
   }
   if (!isPqcMode.value && !isFrontlineProductionProcess(process)) {
@@ -4774,6 +4962,39 @@ const closeProductionSubmitSuccessDialog = () => {
   productionSubmitSuccessOpen.value = false
 }
 
+const refreshProductionSelectedProcessSubmittedQuantity = async () => {
+  const selectedActiveOrder = deviceState.selectedActiveOrder
+  const selectedProcess = deviceState.selectedProcess
+  if (!selectedActiveOrder || !isFrontlineProductionProcess(selectedProcess)) {
+    throw new Error('报工已成功，但当前工序身份丢失，无法刷新已提交数量。请刷新页面后核对。')
+  }
+  deviceState.loadingProcesses = true
+  deviceState.lastError = undefined
+  try {
+    const processes = await ProFeedbackApi.getFrontlineProductionActiveOrderProcesses(
+      selectedActiveOrder.activeOrderId
+    )
+    if (processes.some((process) => process.activeOrderId !== selectedActiveOrder.activeOrderId)) {
+      throw new Error('生产工单刷新返回了不属于当前活跃订单的工序。')
+    }
+    const refreshedProcess = processes.find((process) =>
+      isSameProcess(process, selectedProcess)
+    )
+    if (!refreshedProcess) {
+      throw new Error('刷新结果中找不到当前工序。')
+    }
+    deviceState.productionProcessOptions = processes
+    deviceState.processOptions = processes
+    deviceState.selectedProcess = refreshedProcess
+  } catch (error) {
+    const messageText = `报工已成功，但当前工序已提交数量刷新失败：${resolveErrorMessage(error)}。请刷新页面或联系组长核对后再操作。`
+    deviceState.lastError = messageText
+    throw new Error(messageText)
+  } finally {
+    deviceState.loadingProcesses = false
+  }
+}
+
 const handleProductionFormalSubmit = async () => {
   if (
     payloadLoading.value ||
@@ -4803,6 +5024,7 @@ const handleProductionFormalSubmit = async () => {
 
     payloadLoading.value = true
     const submitResult = await ProFeedbackApi.frontlineSubmit(formalPayload)
+    await refreshProductionSelectedProcessSubmittedQuantity()
     try {
       rememberProductionMaterialDeviceDrafts(materialDetails)
     } catch (memoryError) {
@@ -5673,6 +5895,38 @@ const buildPqcPieceValuesPayload = () => {
   return values
 }
 
+const buildPqcSelectedProcessSnapshot = (
+  process: FrontlinePqcProcessVO,
+  taskOption: PqcTaskOptionSnapshot
+) => ({
+  routeId: process.routeId,
+  routeCode: process.routeCode,
+  routeName: process.routeName,
+  dccProjectCodeId: process.dccProjectCodeId,
+  regulationId: process.regulationId,
+  regulationCode: process.regulationCode,
+  regulationName: process.regulationName,
+  regulationSourceType: process.regulationSourceType,
+  regulationVersionId: process.regulationVersionId,
+  qaProcessId: process.qaProcessId,
+  qaProcessCode: process.qaProcessCode,
+  qaProcessName: process.qaProcessName,
+  qaProcessSort: process.qaProcessSort,
+  activeOrderId: process.activeOrderId,
+  finalInspectionApplicable: process.finalInspectionApplicable,
+  inspectionTypeRules: process.inspectionTypeRules
+    .filter((rule) => rule.key === taskOption.inspectionRuleKey)
+    .map((rule) => ({ ...rule })),
+  inspectionItems: taskOption.inspectionItems.map((item) => ({ ...item })),
+  taskSummary: { ...process.taskSummary },
+  pqcTaskOptions: [{
+    ...taskOption,
+    inspectionTypeRule: { ...taskOption.inspectionTypeRule },
+    inspectionItems: taskOption.inspectionItems.map((item) => ({ ...item }))
+  }],
+  productionSubmitCandidates: process.productionSubmitCandidates.map((candidate) => ({ ...candidate }))
+})
+
 const buildPqcInspectionSubmitPayloadForTask = (
   taskOption: PqcTaskOptionSnapshot
 ): FrontlinePqcInspectionSubmitReqVO => {
@@ -5720,7 +5974,7 @@ const buildPqcInspectionSubmitPayloadForTask = (
       fieldValues: taskFieldValues,
       inspectionResult,
       selectedActiveOrder: activeOrder ? { ...activeOrder } : undefined,
-      selectedProcess: { ...process },
+      selectedProcess: buildPqcSelectedProcessSnapshot(process, taskOption),
       selectedEmployee: employee ? { ...employee } : undefined
     },
     clientSubmitTime: formatLocalDateTime()
@@ -5730,7 +5984,7 @@ const buildPqcInspectionSubmitPayloadForTask = (
 function buildPqcInspectionSubmitPayloads(): FrontlinePqcInspectionSubmitReqVO[] {
   persistCurrentPqcTaskDraft()
   const taskOptions = getPqcCurrentSubmitTaskOptions()
-  const payloads = taskOptions.map((taskOption) =>
+  let payloads = taskOptions.map((taskOption) =>
     buildPqcInspectionSubmitPayloadForTask(taskOption))
   if (
     taskOptions.length === 1 &&
@@ -5738,6 +5992,14 @@ function buildPqcInspectionSubmitPayloads(): FrontlinePqcInspectionSubmitReqVO[]
   ) {
     payloads[0] = buildPqcInspectionSubmitPayload()
   }
+  const pqcSubmissionGroupId = `PQC-${crypto.randomUUID()}`
+  payloads = payloads.map((payload) => ({
+    ...payload,
+    rawPayload: {
+      ...(payload.rawPayload || {}),
+      pqcSubmissionGroupId
+    }
+  }))
   return payloads
 }
 
@@ -5921,9 +6183,7 @@ const nextProductionProcess = computed(() => {
 
 const isProductionProcessNavigationBlocked = computed(() =>
   isPqcMode.value ||
-  payloadLoading.value ||
-  submitConfirmationOpen.value ||
-  productionSubmitSuccessOpen.value ||
+  isProductionSelectionSwitchLocked.value ||
   deviceState.loadingProcesses ||
   deviceState.loadingEmployees ||
   deviceState.loadingTemplate
@@ -5941,7 +6201,7 @@ const selectedPqcProcessIndex = computed(() => {
   if (!isPqcMode.value || !isFrontlinePqcProcess(deviceState.selectedProcess)) {
     return -1
   }
-  return switchablePqcProcessOptions.value.findIndex((process) =>
+  return filteredPqcProcessOptions.value.findIndex((process) =>
     isSameProcess(process, deviceState.selectedProcess)
   )
 })
@@ -5949,14 +6209,14 @@ const selectedPqcProcessIndex = computed(() => {
 const previousPqcProcess = computed(() => {
   const selectedIndex = selectedPqcProcessIndex.value
   return selectedIndex > 0
-    ? switchablePqcProcessOptions.value[selectedIndex - 1]
+    ? filteredPqcProcessOptions.value[selectedIndex - 1]
     : undefined
 })
 
 const nextPqcProcess = computed(() => {
   const selectedIndex = selectedPqcProcessIndex.value
-  return selectedIndex >= 0 && selectedIndex < switchablePqcProcessOptions.value.length - 1
-    ? switchablePqcProcessOptions.value[selectedIndex + 1]
+  return selectedIndex >= 0 && selectedIndex < filteredPqcProcessOptions.value.length - 1
+    ? filteredPqcProcessOptions.value[selectedIndex + 1]
     : undefined
 })
 
@@ -6043,9 +6303,41 @@ const initializeProductionSelection = async () => {
   }
 }
 
+const refreshPqcActiveOrdersAndEnsureSelection = async () => {
+  if (!isPqcMode.value) {
+    return
+  }
+  if (pqcActiveOrderRefreshPromise) {
+    return pqcActiveOrderRefreshPromise
+  }
+  pqcActiveOrderRefreshPromise = (async () => {
+    const activeOrders = await loadFrontlinePqcActiveOrders(deviceState)
+    if (!deviceState.selectedActiveOrder) {
+      const initialActiveOrder = activeOrders[0]
+      if (initialActiveOrder) {
+        await handleSelectActiveOrder(initialActiveOrder)
+      }
+    }
+  })()
+  try {
+    await pqcActiveOrderRefreshPromise
+  } finally {
+    pqcActiveOrderRefreshPromise = undefined
+  }
+}
+
+const handlePqcForegroundRefresh = () => {
+  if (!isPqcMode.value || (document.visibilityState && document.visibilityState !== 'visible')) {
+    return
+  }
+  refreshPqcActiveOrdersAndEnsureSelection().catch(showFrontlineError)
+}
+
 onMounted(async () => {
   document.addEventListener('fullscreenchange', syncPqcFullscreenState)
+  document.addEventListener('visibilitychange', handlePqcForegroundRefresh)
   window.addEventListener('resize', scheduleProductionViewportScaleUpdate)
+  window.addEventListener('focus', handlePqcForegroundRefresh)
   try {
     if (!isPqcMode.value) {
       if (typeof ResizeObserver !== 'function') {
@@ -6061,11 +6353,7 @@ onMounted(async () => {
     const catalogRequest = FrontlineTemplateApi.getCatalog()
     if (isPqcMode.value) {
       catalog.value = await catalogRequest
-      const activeOrders = await loadFrontlinePqcActiveOrders(deviceState)
-      const initialActiveOrder = activeOrders[0]
-      if (initialActiveOrder) {
-        await handleSelectActiveOrder(initialActiveOrder)
-      }
+      await refreshPqcActiveOrdersAndEnsureSelection()
       Object.assign(draft.fieldValues, buildPqcFieldValues())
       return
     }
@@ -6084,7 +6372,9 @@ onUnmounted(() => {
   resolveProductionFormalSubmitConfirmation(false)
   closeProductionSubmitSuccessDialog()
   document.removeEventListener('fullscreenchange', syncPqcFullscreenState)
+  document.removeEventListener('visibilitychange', handlePqcForegroundRefresh)
   window.removeEventListener('resize', scheduleProductionViewportScaleUpdate)
+  window.removeEventListener('focus', handlePqcForegroundRefresh)
   if (productionViewportScaleFrame !== undefined) {
     window.cancelAnimationFrame(productionViewportScaleFrame)
     productionViewportScaleFrame = undefined
@@ -6268,6 +6558,11 @@ onUnmounted(() => {
   padding: 26px 20px;
 }
 
+.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-rule-panel,
+.frontline-operator-panel:fullscreen .frontline-pqc-rule-panel {
+  padding: 20px;
+}
+
 .frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-number-field,
 .frontline-operator-panel:fullscreen .frontline-pqc-number-field {
   grid-template-columns: 128px 58px minmax(54px, 1fr) 58px 42px;
@@ -6290,7 +6585,7 @@ onUnmounted(() => {
 
 .frontline-operator-top {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.35fr) minmax(0, 0.9fr) 240px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.55fr) minmax(0, 0.6fr) 240px;
   gap: 20px;
 
   &.is-pqc {
@@ -6346,18 +6641,38 @@ onUnmounted(() => {
   padding: 14px 22px;
 }
 
+.frontline-production-employee-card {
+  padding: 18px 20px;
+}
+
 .frontline-production-order-summary {
   --frontline-production-order-summary-line-height: 30px;
   display: grid;
   width: 100%;
   min-width: 0;
-  max-height: calc(var(--frontline-production-order-summary-line-height) * 3);
-  gap: 0;
+  max-height: calc(var(--frontline-production-order-summary-line-height) * 3 + 4px);
+  gap: 2px;
   align-content: center;
   overflow: hidden;
   text-overflow: clip;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.frontline-production-order-summary__row {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  min-width: 0;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.frontline-production-order-summary__label {
+  color: var(--frontline-muted);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: var(--frontline-production-order-summary-line-height);
+  white-space: nowrap;
 }
 
 .frontline-production-order-summary .frontline-production-order-summary__value {
@@ -6372,6 +6687,11 @@ onUnmounted(() => {
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.frontline-production-order-summary .frontline-production-order-summary__value.is-quantity {
+  white-space: nowrap;
+  word-break: normal;
 }
 
 .frontline-top-card.is-login-employee {
@@ -6407,6 +6727,33 @@ onUnmounted(() => {
   font: inherit;
   text-align: center;
   cursor: pointer;
+}
+
+.frontline-production-process-submitted {
+  display: flex;
+  max-width: 100%;
+  align-items: baseline;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.frontline-production-process-submitted span {
+  color: var(--frontline-muted);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.frontline-production-process-submitted strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--frontline-ink);
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .frontline-production-process-nav-button {
@@ -8182,13 +8529,23 @@ onUnmounted(() => {
 
 .frontline-pqc-fill-panel {
   grid-column: 2;
-  grid-row: 1 / 3;
+  grid-row: 1;
   grid-template-rows: auto minmax(min-content, 1fr);
   align-content: stretch;
   gap: 16px;
   overflow-x: hidden;
   overflow-y: auto;
   padding: 22px;
+}
+
+.frontline-pqc-rule-panel {
+  grid-column: 2;
+  grid-row: 2;
+  align-content: center;
+  min-height: 0;
+  padding: 18px 22px;
+  border-color: #f0bf00;
+  background: #fff9d7;
 }
 
 .frontline-pqc-type-tabs {
@@ -9042,11 +9399,12 @@ onUnmounted(() => {
   }
 
   .frontline-operator-main.is-pqc {
-    grid-template-rows: auto auto 104px;
+    grid-template-rows: auto auto auto 104px;
   }
 
   .frontline-pqc-content-panel,
   .frontline-pqc-fill-panel,
+  .frontline-pqc-rule-panel,
   .frontline-pqc-submit-bar {
     grid-column: auto;
     grid-row: auto;

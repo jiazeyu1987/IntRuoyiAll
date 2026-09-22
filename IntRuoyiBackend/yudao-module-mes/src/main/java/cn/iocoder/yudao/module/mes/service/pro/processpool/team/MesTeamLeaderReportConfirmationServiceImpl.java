@@ -498,7 +498,8 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
         Long signatureId = signatureService.recordTeamLeaderReviewSignature(
                 reqBO.getLeaderUserId(),
                 reqBO.getSignaturePassword(),
-                buildReviewSignatureComment(reqBO, event));
+                buildReviewSignatureComment(reqBO, event),
+                "PROCESS_POOL_EVENT", event.getId(), "报工确认组长复核");
         return new ReviewSignaturePayload(
                 signatureId,
                 reqBO.getLeaderUserId(),

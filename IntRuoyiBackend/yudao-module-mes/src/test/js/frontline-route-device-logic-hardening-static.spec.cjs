@@ -40,8 +40,13 @@ assert.match(
 )
 assert.match(
   pqcService,
-  /filter\(option -> routeDeviceContext\.deviceCodes\(\)\.contains\([\s\S]*normalizeEquipmentCode\(option\.getEquipmentCode\(\)\)\)/,
-  '一线 PQC 设备选项必须按正式设备编码限制为 QA 允许设备与冻结路线设备的交集。'
+  /source\.getEquipmentOptions\(\)[\s\S]*copyEquipmentOptionWithParameters\([\s\S]*routeDeviceContext\.parametersByDeviceCode\(\)/,
+  '一线 PQC 设备选项必须保留检验项目配置，路线冻结快照只负责按正式设备编码附加参数。'
+)
+assert.doesNotMatch(
+  pqcService,
+  /filter\(option -> routeDeviceContext\.deviceCodes\(\)\.contains\([\s\S]*normalizeEquipmentCode\(option\.(getEquipmentCode|equipmentCode)\(\)\)/,
+  '一线 PQC 不得因生产路线设备编码不相交而隐藏已配置的检验设备。'
 )
 
 assert.match(

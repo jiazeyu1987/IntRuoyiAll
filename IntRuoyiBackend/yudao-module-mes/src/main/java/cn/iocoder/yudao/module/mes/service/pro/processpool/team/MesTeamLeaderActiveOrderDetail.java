@@ -27,6 +27,7 @@ public class MesTeamLeaderActiveOrderDetail {
     private String routeName;
     private List<InputMaterialDetail> inputMaterialUsages = List.of();
     private List<ProcessDetail> processes = List.of();
+    private ActiveOrderStatusSummary activeOrderStatus;
     private PqcProductionReleaseSummary pqcProductionRelease;
     private List<OperationFact> operationFacts = List.of();
 
@@ -199,6 +200,13 @@ public class MesTeamLeaderActiveOrderDetail {
 
     @Data
     @Accessors(chain = true)
+    public static class ActiveOrderStatusSummary {
+        private String status;
+        private String statusLabel;
+    }
+
+    @Data
+    @Accessors(chain = true)
     public static class OperationFact {
         private Long id;
         private String operationType;
@@ -208,6 +216,13 @@ public class MesTeamLeaderActiveOrderDetail {
         private Long actorUserId;
         private String actorName;
         private Long signatureId;
+        private String nonconformanceReason;
+        private String reviewMaterialUrl;
+        private Long reviewMaterialFileId;
+        private String reviewOpinion;
+        private String disposition;
+        private String qaSignature;
+        private Long qaUserId;
         private String resultStatus;
         private LocalDateTime occurredAt;
         private String sourceSnapshotHash;

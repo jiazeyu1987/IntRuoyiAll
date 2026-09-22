@@ -2,6 +2,7 @@ import BasicInfo from './BasicInfo.vue'
 import EdhrReleaseDossierRequirementSetting from './EdhrReleaseDossierRequirementSetting.vue'
 import EdhrRecordbookGlobalSetting from './EdhrRecordbookGlobalSetting.vue'
 import ProfileWorkbench from './ProfileWorkbench.vue'
+import ProfileBasicConfig from './ProfileBasicConfig.vue'
 import ProfileErpTableAutoSyncSetting from './ProfileErpTableAutoSyncSetting.vue'
 import ProfileUser from './ProfileUser.vue'
 import RegistrationCertificateConfig from './RegistrationCertificateConfig.vue'
@@ -15,6 +16,7 @@ export {
   EdhrRecordbookGlobalSetting,
   ProfileUser,
   ProfileWorkbench,
+  ProfileBasicConfig,
   ProfileErpTableAutoSyncSetting,
   RegistrationCertificateConfig,
   ResetPwd,

@@ -871,7 +871,9 @@ public class MesTeamLeaderActiveOrderSimulationService {
             }
             Long eventId;
             if (MesPqcInspectionTaskDO.TASK_STATUS_PENDING.equals(task.getTaskStatus())) {
-                eventId = submitPqcTask(activeOrder, task, leaderUserId, simulationStage, simulationRunId);
+                String pqcSubmissionGroupId = buildPqcSubmissionGroupId(activeOrder, task, simulationRunId);
+                eventId = submitPqcTask(activeOrder, task, leaderUserId, simulationStage, simulationRunId,
+                        pqcSubmissionGroupId);
                 submitCount++;
             } else if (MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())) {
                 eventId = requirePositive(task.getSubmittedEventId(), "pqcTask.submittedEventId");
@@ -1033,7 +1035,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
     }
 
     private Long submitPqcTask(MesProcessPoolActiveOrderDO activeOrder, MesPqcInspectionTaskDO task,
-                               Long leaderUserId, String simulationStage, String simulationRunId) {
+                               Long leaderUserId, String simulationStage, String simulationRunId,
+                               String pqcSubmissionGroupId) {
         Integer actualInspectionQuantity = requirePositiveInteger(task.getPlannedInspectionQuantity(),
                 "pqcTask.plannedInspectionQuantity");
         List<MesPqcInspectionPieceDetailDO> existingDetails = pqcPieceDetailMapper.selectListByTaskId(task.getId());
@@ -1089,7 +1092,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .inspectionResult(inspectionResult)
                 .rawPayload(buildPqcRawPayload(activeOrder, task, actualInspectionQuantity, scrapQuantity, pieceDetails,
                         inspectionResult,
-                        pieceBuildResult.selectedEquipment(), simulationStage, simulationRunId))
+                        pieceBuildResult.selectedEquipment(), simulationStage, simulationRunId,
+                        pqcSubmissionGroupId))
                 .clientSubmitTime(now)
                 .signatureId(signatureId)
                 .signatureUserId(leaderUserId)
@@ -1158,6 +1162,21 @@ public class MesTeamLeaderActiveOrderSimulationService {
                     .build());
         }
         return new PqcPieceBuildResult(result, selectedEquipment);
+    }
+
+    private String buildPqcSubmissionGroupId(MesProcessPoolActiveOrderDO activeOrder, MesPqcInspectionTaskDO task,
+                                             String simulationRunId) {
+        return String.join(":",
+                "SIM-AO-PQC-GROUP",
+                String.valueOf(activeOrder.getId()),
+                String.valueOf(task.getRouteProcessId()),
+                String.valueOf(task.getProcessId()),
+                String.valueOf(task.getQaProcessId()),
+                String.valueOf(task.getInspectionType()),
+                String.valueOf(task.getBusinessDate()),
+                String.valueOf(task.getShiftCode()),
+                String.valueOf(task.getRoundNo()),
+                String.valueOf(simulationRunId));
     }
 
     private Integer simulatedPqcScrapQuantity(Integer actualInspectionQuantity) {
@@ -1282,9 +1301,11 @@ public class MesTeamLeaderActiveOrderSimulationService {
                                       String inspectionResult,
                                       PqcEquipment selectedEquipment,
                                       String simulationStage,
-                                      String simulationRunId) {
+                                      String simulationRunId,
+                                      String pqcSubmissionGroupId) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("simulated", true);
+        payload.put("pqcSubmissionGroupId", pqcSubmissionGroupId);
         payload.put("activeOrderId", activeOrder.getId());
         payload.put("pqcTaskId", task.getId());
         payload.put("regulationVersionId", task.getRegulationVersionId());

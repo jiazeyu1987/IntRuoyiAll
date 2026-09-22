@@ -124,7 +124,8 @@ class MesFrontlineActiveOrderControllerTest {
         when(activeOrderProcessService.listProcesses(7001L, 48L)).thenReturn(List.of(
                 new MesFrontlineActiveOrderProcess(48L, 2001L, 501L, "R-OLD", "旧版路线",
                         980645L, 3001L, "P-OLD", "旧版精洗", 10, 4001L, "WS-OLD", "旧版工位",
-                        new BigDecimal("1.500000"), new BigDecimal("150.000000"))));
+                        new BigDecimal("1.500000"), new BigDecimal("150.000000"),
+                        new BigDecimal("45.000000"), Boolean.FALSE)));
 
         CommonResult<List<MesFrontlineActiveOrderProcessRespVO>> response =
                 controller.getProductionActiveOrderProcesses(48L);
@@ -135,6 +136,7 @@ class MesFrontlineActiveOrderControllerTest {
         assertEquals(980645L, process.getRouteProcessId());
         assertEquals(new BigDecimal("1.500000"), process.getProductionQuantityFactor());
         assertEquals(new BigDecimal("150.000000"), process.getTargetQuantity());
+        assertEquals(new BigDecimal("45.000000"), process.getSubmittedQuantity());
         assertEquals(4001L, process.getWorkstationId());
     }
 }

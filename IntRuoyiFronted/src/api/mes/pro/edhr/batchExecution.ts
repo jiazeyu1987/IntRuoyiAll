@@ -64,12 +64,15 @@ export interface EdhrBatchExecutionPageReqVO extends PageParam {
   workOrderCode?: string
   batchCode?: string
   productCode?: string
+  productName?: string
   routeCode?: string
   status?: number
   excludeStatuses?: number[]
   excludeReleased?: boolean
+  releasedOnly?: boolean
   completedTraceOnly?: boolean
   createTime?: string[]
+  releaseApprovedTime?: string[]
   quickFilter?: TableQuickFilterValue
 }
 
@@ -487,6 +490,10 @@ export interface EdhrBatchExecutionRespVO {
   rejectedAt?: string
   rejectReason?: string
   aggregateHash?: string
+  releaseTransactionId?: number
+  releaseStatus?: string
+  releaseApprovedBy?: number
+  releaseApprovedAt?: string
   createTime?: string
   updateTime?: string
   tasks?: EdhrBatchExecutionTaskRespVO[]

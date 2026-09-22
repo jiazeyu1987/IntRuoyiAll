@@ -26,7 +26,8 @@ const router = read(routerPath)
 const menuSql = read(menuSqlPath)
 
 assert.match(tabs, /<el-tab-pane label="批次执行" name="execution"/)
-assert.match(tabs, /<el-tab-pane label="批记录页面关系图" name="pageGraph"/)
+assert.doesNotMatch(tabs, /<el-tab-pane label="批记录页面关系图" name="pageGraph"/)
+assert.match(tabs, /<el-tab-pane label="作废" name="voided"/)
 assert.doesNotMatch(
   tabs,
   /<el-tab-pane\s+label="生产填写"\s+name="production"/,

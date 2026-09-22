@@ -34,6 +34,8 @@ public class MesProEdhrNonconformanceReviewDO extends BaseDO {
 
     private Long sourceId;
 
+    private Long activeOrderId;
+
     private Long batchExecutionId;
 
     private String batchExecutionCode;
@@ -54,6 +56,10 @@ public class MesProEdhrNonconformanceReviewDO extends BaseDO {
 
     private String reviewMaterialUrl;
 
+    private Long reviewMaterialFileId;
+
+    private String reviewMaterialsJson;
+
     private String reviewOpinion;
 
     private String qaSignature;
@@ -73,4 +79,15 @@ public class MesProEdhrNonconformanceReviewDO extends BaseDO {
     private String traceSnapshotJson;
 
     private String remark;
+
+    private Long tenantId;
+
+    public Long getTenantId() {
+        return tenantId;
+    }
+
+    public MesProEdhrNonconformanceReviewDO setTenantId(Long tenantId) {
+        this.tenantId = tenantId;
+        return this;
+    }
 }

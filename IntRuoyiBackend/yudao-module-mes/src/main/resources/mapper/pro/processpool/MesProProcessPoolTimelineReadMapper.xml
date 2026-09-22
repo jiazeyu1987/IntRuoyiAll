@@ -67,6 +67,13 @@
         pqc_task.business_date AS pqcBusinessDate,
         pqc_task.shift_code AS pqcShiftCode,
         pqc_task.round_no AS roundNo,
+        CASE
+            WHEN JSON_VALID(pool_event.raw_payload) THEN
+                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId')), '')
+            ELSE NULL
+        END AS pqcSubmissionGroupId,
+        NULL AS groupedEventIds,
+        NULL AS groupedOriginalPayloadJsons,
         pool_event.feedback_source_id AS sourceFeedbackId,
         NULL AS sourceRecordbookEntryId,
         pool_event.recordbook_source_id AS sourceRecordbookEventId,
@@ -183,10 +190,6 @@
         </if>
         <if test="reqVO.pqcFormView == 'CURRENT'">
             AND pool_event.event_type = 'PQC_INSPECTION'
-            AND (
-                latest_submission_review.review_status IS NULL
-                OR latest_submission_review.review_status <![CDATA[<>]]> 'APPROVED'
-            )
             AND NOT EXISTS (
                 SELECT 1
                 FROM mes_pro_process_pool_active_order_release_application release_application
@@ -203,6 +206,24 @@
         <if test="reqVO.pqcFormView == 'HISTORY'">
             AND pool_event.event_type = 'PQC_INSPECTION'
             AND latest_submission_review.review_status = 'APPROVED'
+        </if>
+        <if test="reqVO.eventType == 'PQC_INSPECTION'">
+            AND (
+                NOT (
+                    JSON_VALID(pool_event.raw_payload)
+                    AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId')), '') IS NOT NULL
+                )
+                OR pool_event.id = (
+                    SELECT MAX(group_event.id)
+                    FROM mes_pro_process_pool_event group_event
+                    WHERE group_event.tenant_id = pool_event.tenant_id
+                      AND group_event.deleted = 0
+                      AND group_event.event_type = 'PQC_INSPECTION'
+                      AND JSON_VALID(group_event.raw_payload)
+                      AND JSON_UNQUOTE(JSON_EXTRACT(group_event.raw_payload, '$.pqcSubmissionGroupId')) =
+                          JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId'))
+                )
+            )
         </if>
     </sql>
 
@@ -284,7 +305,20 @@
     </sql>
 
     <select id="selectTimelineCount" resultType="java.lang.Long">
-        SELECT COUNT(1)
+        SELECT
+        <choose>
+            <when test="reqVO.eventType == 'PQC_INSPECTION'">
+                COUNT(DISTINCT CASE
+                    WHEN JSON_VALID(pool_event.raw_payload)
+                     AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId')), '') IS NOT NULL
+                        THEN JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId'))
+                    ELSE CONCAT('EVENT:', pool_event.id)
+                END)
+            </when>
+            <otherwise>
+                COUNT(1)
+            </otherwise>
+        </choose>
         FROM mes_pro_process_pool_event pool_event
         LEFT JOIN mes_pro_work_order work_order
           ON work_order.id = pool_event.work_order_id
@@ -431,6 +465,22 @@
          AND revision_summary.tenant_id = pool_event.tenant_id
         WHERE pool_event.deleted = 0
           AND pool_event.id = #{id}
+    </select>
+
+    <select id="selectPqcSubmissionGroupPayloadsByGroupIds"
+            resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO">
+        SELECT pool_event.id AS id,
+               JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId')) AS pqcSubmissionGroupId,
+               CAST(pool_event.raw_payload AS CHAR) AS originalPayloadJson
+        FROM mes_pro_process_pool_event pool_event
+        WHERE pool_event.deleted = 0
+          AND pool_event.event_type = 'PQC_INSPECTION'
+          AND JSON_VALID(pool_event.raw_payload)
+          AND JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId')) IN
+        <foreach collection="groupIds" item="groupId" open="(" separator="," close=")">
+            #{groupId}
+        </foreach>
+        ORDER BY pool_event.id ASC
     </select>
 
     <select id="selectReportAllocationsByEventIds"

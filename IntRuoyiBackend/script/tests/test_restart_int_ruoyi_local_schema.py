@@ -30,6 +30,18 @@ def test_local_restart_applies_system_user_lifecycle_deactivation_migration() ->
     assert "handler_name = 'userLifecycleDeactivateJob'" in text
 
 
+def test_local_restart_applies_idle_logout_config_seed() -> None:
+    script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
+    text = script_path.read_text(encoding="utf-8")
+
+    assert "20260921_infra_idle_logout_config.sql" in text
+    assert "Infra idle logout config seed" in text
+    assert "system.login.idle-timeout-minutes" in text
+    assert "COUNT(*)" in text
+    assert "FROM infra_config" in text
+    assert "CAST(value AS UNSIGNED) BETWEEN 1 AND 1440" in text
+
+
 def test_local_restart_applies_batch_record_cell_link_structured_source_widths_migration() -> None:
     script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
     text = script_path.read_text(encoding="utf-8")

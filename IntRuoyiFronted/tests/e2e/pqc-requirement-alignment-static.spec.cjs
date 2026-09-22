@@ -67,8 +67,8 @@ assert.match(
 
 const typeTabsBlock = blockBetween(
   panelSource,
-  '<div class="frontline-pqc-type-tabs">',
-  '<div class="frontline-pqc-form-area">'
+  'data-pqc-inspection-rule-selector',
+  '<footer class="frontline-pqc-submit-bar">'
 )
 assert.match(
   typeTabsBlock,
@@ -77,8 +77,8 @@ assert.match(
 )
 assert.match(
   typeTabsBlock,
-  /:key="tab\.ruleKey"[\s\S]*:data-pqc-inspection-rule-tab="tab\.ruleKey"[\s\S]*@click="selectPqcInspectionTaskOption\(tab\.value\)"/,
-  'PQC task tabs must use rule identity while preserving the formal selected task id.'
+  /:key="tab\.ruleKey"[\s\S]*:data-pqc-inspection-rule-tab="tab\.ruleKey"[\s\S]*@click="selectPqcInspectionRule\(tab\.ruleKey\)"/,
+  'PQC task tabs must use rule identity and select the independent formal rule.'
 )
 assert.doesNotMatch(
   typeTabsBlock,
@@ -88,13 +88,13 @@ assert.doesNotMatch(
 
 const selectTaskBlock = blockBetween(
   panelSource,
-  'const selectPqcInspectionTaskOption = async (pqcTaskId: number) => {',
+  'const selectPqcInspectionRule = async (ruleKey: FrontlinePqcInspectionRuleKey) => {',
   'const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {'
 )
 assert.match(
   selectTaskBlock,
-  /applyPqcTaskOptionToSelectedProcess\(option\)/,
-  'Selecting FIRST/PATROL_AM/PATROL_PM/FINAL must apply the matching PQC task snapshot to the current process.'
+  /selectedPqcInspectionRuleKey\.value = ruleKey[\s\S]*(?:applyPqcTaskOptionToSelectedProcess\(currentRuleOption\)|handleSelectProcess\(targetProcess\))/,
+  'Selecting FIRST/PATROL_AM/PATROL_PM/FINAL must apply the matching current-process task or jump to an eligible process.'
 )
 assert.doesNotMatch(
   selectTaskBlock,
@@ -104,8 +104,8 @@ assert.doesNotMatch(
 
 assert.match(
   panelSource,
-  /const getUniquePqcTaskOptionsByRule = \([\s\S]*PQC_INSPECTION_RULE_ORDER[\s\S]*option\.inspectionRuleKey === ruleKey[\s\S]*return orderedOptions/,
-  'PQC task selection grid must deduplicate item-level tasks by formal rule key.'
+  /const pqcInspectionTypeTabs = computed<\{[\s\S]*?ruleKey: FrontlinePqcInspectionRuleKey[\s\S]*PQC_INSPECTION_RULE_ORDER[\s\S]*allSwitchablePqcProcessOptions\.value[\s\S]*hasExecutablePqcTaskForRule\(process, ruleKey\)[\s\S]*\.map\(\(ruleKey\) => \(\{[\s\S]*ruleKey,[\s\S]*label: PQC_INSPECTION_RULE_LABELS\[ruleKey\]/,
+  'PQC task selection grid must deduplicate item-level tasks by formal rule key at current-order rule level.'
 )
 
 console.log('PASS: PQC requirement alignment static contract')

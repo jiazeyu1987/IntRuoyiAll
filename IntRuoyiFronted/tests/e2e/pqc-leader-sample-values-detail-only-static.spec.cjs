@@ -58,7 +58,7 @@ assert.doesNotMatch(
 )
 assert.match(
   page,
-  /const isSubmissionColumnVisible = \(key: string\) =>\s*\n\s*submissionColumns\.value\.some\(\(column\) => column\.key === key\)\s*\n\s*&& activeSubmissionColumnControl\.value\.isColumnVisible\(key\)/,
+  /const isSubmissionColumnVisible = \(key: string\) =>[\s\S]*?submissionColumns\.value\.some\(\(column\) => column\.key === key\)\s*&&[\s\S]*?activeSubmissionColumnControl\.value\.isColumnVisible\(key\)/,
   'Submission column visibility must not default missing role-specific columns to visible.'
 )
 assert.doesNotMatch(
@@ -69,7 +69,7 @@ assert.doesNotMatch(
 
 assert.match(
   page,
-  /const activePqcModuleTab = ref<'personnel' \| 'management' \| 'task' \| 'detail' \| 'history'>\('management'\)/,
+  /const activePqcModuleTab = ref<'personnel' \| 'management' \| 'equipment' \| 'detail' \| 'history'>\(\s*'management'\s*\)/,
   'PQC module tabs must include an in-page detail tab state.'
 )
 assert.match(

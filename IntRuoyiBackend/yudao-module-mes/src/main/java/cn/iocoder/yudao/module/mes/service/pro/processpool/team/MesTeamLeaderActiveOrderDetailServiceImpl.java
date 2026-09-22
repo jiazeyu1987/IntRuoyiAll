@@ -28,6 +28,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrOperationAuditEventDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderEventPartyReadDO;
@@ -180,6 +181,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         attachInputMaterials(activeOrder, activeOrderId, accumulators, inputSourceSnapshot, archivedFormalSource);
         attachSupplementMaterials(first.getWorkOrderCode(), activeOrderId, accumulators);
         attachPqcSubmissions(activeOrder, activeOrderId, accumulators);
+        MesProcessPoolActiveOrderReleaseApplicationDO application =
+                releaseApplicationMapper.selectLatestByActiveOrderId(activeOrderId);
         MesTeamLeaderActiveOrderDetail detail = new MesTeamLeaderActiveOrderDetail()
                 .setActiveOrderId(activeOrderId)
                 .setVersion(activeOrder.getVersion())
@@ -196,9 +199,31 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setRouteName(first.getRouteName())
                 .setInputMaterialUsages(resolveInputMaterialUsages(inputSourceSnapshot))
                 .setProcesses(accumulators.values().stream().map(ProcessAccumulator::toDetail).toList())
+                .setActiveOrderStatus(resolveActiveOrderStatus(application))
                 .setOperationFacts(resolveOperationFacts(activeOrderId));
-        attachPqcProductionRelease(detail, activeOrderId);
+        attachPqcProductionRelease(detail, application);
         return detail;
+    }
+
+    private MesTeamLeaderActiveOrderDetail.ActiveOrderStatusSummary resolveActiveOrderStatus(
+            MesProcessPoolActiveOrderReleaseApplicationDO application) {
+        if (application == null) {
+            return new MesTeamLeaderActiveOrderDetail.ActiveOrderStatusSummary()
+                    .setStatus("NOT_APPLIED")
+                    .setStatusLabel("未申请");
+        }
+        String status = application.getApplicationStatus();
+        String label = switch (status) {
+            case MesReleaseFlowStatus.PQC_RELEASE_PENDING -> "待PQC放行";
+            case MesReleaseFlowStatus.PQC_RELEASE_REJECTED -> "待审查";
+            case MesReleaseFlowStatus.REPORT_UPLOAD_PENDING, MesReleaseFlowStatus.MANAGER_RELEASE_PENDING ->
+                    "待上市放行";
+            case MesReleaseFlowStatus.RELEASED -> "已上市放行";
+            default -> throw new IllegalStateException("ACTIVE_ORDER_RELEASE_STATUS_INVALID: " + status);
+        };
+        return new MesTeamLeaderActiveOrderDetail.ActiveOrderStatusSummary()
+                .setStatus(status)
+                .setStatusLabel(label);
     }
 
     private List<MesTeamLeaderActiveOrderDetail.OperationFact> resolveOperationFacts(Long activeOrderId) {
@@ -282,6 +307,13 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setActorUserId(event.getActorUserId())
                 .setActorName(requireTextValue(event.getActorUsername(), activeOrderId))
                 .setSignatureId(signatureIdOf(metadata))
+                .setNonconformanceReason(metadata.getString("nonconformanceReason"))
+                .setReviewMaterialUrl(metadata.getString("reviewMaterialUrl"))
+                .setReviewMaterialFileId(metadata.getLong("reviewMaterialFileId"))
+                .setReviewOpinion(metadata.getString("reviewOpinion"))
+                .setDisposition(metadata.getString("disposition"))
+                .setQaSignature(metadata.getString("qaSignature"))
+                .setQaUserId(metadata.getLong("qaUserId"))
                 .setResultStatus(event.getResultStatus())
                 .setOccurredAt(event.getOccurredAt())
                 .setSourceSnapshotHash(event.getAfterSummaryHash());
@@ -301,9 +333,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         return null;
     }
 
-    private void attachPqcProductionRelease(MesTeamLeaderActiveOrderDetail detail, Long activeOrderId) {
-        MesProcessPoolActiveOrderReleaseApplicationDO application =
-                releaseApplicationMapper.selectLatestByActiveOrderId(activeOrderId);
+    private void attachPqcProductionRelease(MesTeamLeaderActiveOrderDetail detail,
+                                            MesProcessPoolActiveOrderReleaseApplicationDO application) {
         if (application == null
                 || !"APPROVE".equals(application.getPqcDecision())
                 || application.getBatchExecutionId() == null

@@ -16,6 +16,9 @@ public interface MesProProcessPoolTimelineReadMapper {
 
     ProcessPoolTimelineEventReadDO selectTimelineDetailById(@Param("id") Long id);
 
+    List<ProcessPoolTimelineEventReadDO> selectPqcSubmissionGroupPayloadsByGroupIds(
+            @Param("groupIds") List<String> groupIds);
+
     List<ProcessPoolTimelineReportAllocationReadDO> selectReportAllocationsByEventIds(
             @Param("eventIds") List<Long> eventIds);
 

@@ -60,6 +60,13 @@
                   :can-update="hasRegistrationCertificateConfigUpdatePermission"
                 />
               </el-tab-pane>
+              <el-tab-pane
+                v-if="hasInfraConfigQueryPermission"
+                label="基础配置"
+                name="basicConfig"
+              >
+                <ProfileBasicConfig :can-update="hasInfraConfigUpdatePermission" />
+              </el-tab-pane>
             </el-tabs>
           </div>
         </el-tab-pane>
@@ -74,11 +81,13 @@
 import * as NotifyMessageApi from '@/api/system/notify/message'
 import { useProfileWorkbenchTodoBadgeStore } from '@/store/modules/profileWorkbenchTodoBadge'
 import { useUserStore } from '@/store/modules/user'
+import { checkPermi } from '@/utils/permission'
 import MyNotifyMessageList from '@/views/system/notify/my/components/MyNotifyMessageList.vue'
 import {
   BasicInfo,
   EdhrReleaseDossierRequirementSetting,
   EdhrRecordbookGlobalSetting,
+  ProfileBasicConfig,
   ProfileErpTableAutoSyncSetting,
   ProfileWorkbench,
   RegistrationCertificateConfig,
@@ -98,7 +107,21 @@ const REGISTRATION_CERTIFICATE_CONFIG_QUERY_PERMISSION =
   'dcc:registration-certificate:config:query'
 const REGISTRATION_CERTIFICATE_CONFIG_UPDATE_PERMISSION =
   'dcc:registration-certificate:config:update'
+const INFRA_CONFIG_QUERY_PERMISSION = 'infra:config:query'
+const INFRA_CONFIG_UPDATE_PERMISSION = 'infra:config:update'
 const hasGoldenFingerPermission = computed(() => userStore.permissions.has(GOLDEN_FINGER_PERMISSION))
+const hasProfilePermission = (permission: string) =>
+  isAdminUser.value ||
+  userStore.getUser.username === 'admin' ||
+  userStore.permissions.has('*:*:*') ||
+  userStore.permissions.has(permission) ||
+  checkPermi([permission])
+const hasInfraConfigQueryPermission = computed(() =>
+  hasProfilePermission(INFRA_CONFIG_QUERY_PERMISSION)
+)
+const hasInfraConfigUpdatePermission = computed(() =>
+  hasProfilePermission(INFRA_CONFIG_UPDATE_PERMISSION)
+)
 const hasRegistrationCertificateConfigPermission = computed(() =>
   userStore.permissions.has(REGISTRATION_CERTIFICATE_CONFIG_QUERY_PERMISSION)
 )
@@ -106,7 +129,10 @@ const hasRegistrationCertificateConfigUpdatePermission = computed(() =>
   userStore.permissions.has(REGISTRATION_CERTIFICATE_CONFIG_UPDATE_PERMISSION)
 )
 const hasAnyProfileConfigPermission = computed(
-  () => hasGoldenFingerPermission.value || hasRegistrationCertificateConfigPermission.value
+  () =>
+    hasGoldenFingerPermission.value ||
+    hasRegistrationCertificateConfigPermission.value ||
+    hasInfraConfigQueryPermission.value
 )
 
 const isSocialBindingCallback = () =>
@@ -134,6 +160,7 @@ const activeName = ref(resolveProfileActiveTab())
 const resolveFirstConfigName = () => {
   if (hasGoldenFingerPermission.value) return 'erpTableSync'
   if (hasRegistrationCertificateConfigPermission.value) return 'registrationCertificate'
+  if (hasInfraConfigQueryPermission.value) return 'basicConfig'
   return ''
 }
 const resolveConfigActiveTab = () => {
@@ -142,6 +169,9 @@ const resolveConfigActiveTab = () => {
     hasRegistrationCertificateConfigPermission.value
   ) {
     return 'registrationCertificate'
+  }
+  if (route.query.config === 'basicConfig' && hasInfraConfigQueryPermission.value) {
+    return 'basicConfig'
   }
   return resolveFirstConfigName()
 }
@@ -199,6 +229,9 @@ const ensureSocialTabVisible = () => {
   if (hasRegistrationCertificateConfigPermission.value) {
     visibleConfigNames.add('registrationCertificate')
   }
+  if (hasInfraConfigQueryPermission.value) {
+    visibleConfigNames.add('basicConfig')
+  }
   if (activeName.value === 'config' && !visibleConfigNames.has(activeConfigName.value)) {
     activeConfigName.value = resolveConfigActiveTab()
   }
@@ -209,6 +242,7 @@ watch(
     () => route.fullPath,
     isAdminUser,
     hasGoldenFingerPermission,
+    hasInfraConfigQueryPermission,
     hasRegistrationCertificateConfigPermission
   ],
   () => {

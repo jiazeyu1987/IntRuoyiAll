@@ -129,6 +129,15 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "PQC 检验轮次", example = "2")
     private Integer roundNo;
 
+    @Schema(description = "PQC 同一次正式提交动作标识")
+    private String pqcSubmissionGroupId;
+
+    @Schema(description = "PQC 同一次正式提交的来源事件编号")
+    private List<Long> groupedEventIds;
+
+    @Schema(description = "PQC 同一次正式提交的来源 payload")
+    private List<String> groupedOriginalPayloadJsons;
+
     @Schema(description = "来源报工编号", example = "7001")
     private Long sourceFeedbackId;
 

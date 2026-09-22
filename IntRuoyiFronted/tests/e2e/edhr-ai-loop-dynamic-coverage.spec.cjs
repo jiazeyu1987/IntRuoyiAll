@@ -12,6 +12,7 @@ assert.equal(baseline.expected.productionFeedbackCount, 3)
 assert.equal(baseline.expected.pqcTaskCount, 2)
 assert.equal(baseline.expected.pqcSubmissionCount, 2)
 assert.equal(baseline.pqcGroups.length, 1, 'one UI submission may produce multiple task receipts')
+assert.equal(baseline.expected.pqcReviewCount, 1, 'one formal UI submission group is reviewed once')
 assert.equal(baseline.expected.pqcPieceResultCount, 5)
 assert.ok(Object.isFrozen(baseline.pqcGroups[0].tasks[0].inspectionItems))
 productionProcesses[0].targetQuantity = 999
@@ -19,14 +20,16 @@ assert.equal(baseline.productionProcesses[0].quantity, 10)
 assert.throws(() => freezeExecutionBaseline(order, [{ ...productionProcesses[0], targetQuantity: undefined }], pqcProcesses), /targetQuantity/)
 assert.throws(() => freezeExecutionBaseline(order, productionProcesses, [{ ...pqcProcesses[0], tasks: [task(71, 2), task(71, 2)] }]), /duplicate/)
 assert.throws(() => freezeExecutionBaseline(order, productionProcesses, [{ ...pqcProcesses[0], tasks: [{ ...task(71, 2), quantity: 0 }] }]), /quantity/)
-assert.throws(() => assertCoverage(baseline, ['1', '2'], ['71']), /coverage/)
-assert.throws(() => assertCoverage(baseline, ['1', '2'], ['71']), error => {
+const submitted71 = { formalIdentity: baseline.pqcGroups[0].tasks[0].formalIdentity, pqcTaskId: '100071' }
+const submitted72 = { formalIdentity: baseline.pqcGroups[0].tasks[1].formalIdentity, pqcTaskId: '100072' }
+assert.throws(() => assertCoverage(baseline, ['1', '2'], [submitted71]), /coverage/)
+assert.throws(() => assertCoverage(baseline, ['1', '2'], [submitted71]), error => {
   assert.deepEqual(error.actual.missingProductionIds, ['3'])
-  assert.deepEqual(error.actual.missingTaskIds, ['72'])
+  assert.deepEqual(error.actual.missingPqcFormalIdentities, [baseline.pqcGroups[0].tasks[1].formalIdentity])
   return true
 })
-assert.throws(() => assertCoverage(baseline, ['1', '2', '3'], ['71', '71']), /coverage/)
-assertCoverage(baseline, ['1', '2', '3'], ['71', '72'])
+assert.throws(() => assertCoverage(baseline, ['1', '2', '3'], [submitted71, submitted71]), /coverage/)
+assertCoverage(baseline, ['1', '2', '3'], [submitted71, submitted72])
 assertDouble100({ productionProgressText: '100%', inspectionProgressText: '100.00%' })
 for (const text of ['1000%', '未完成100', '99.99%', '100% / 90%']) {
   assert.throws(() => assertDouble100({ productionProgressText: text, inspectionProgressText: '100%' }), /100/)

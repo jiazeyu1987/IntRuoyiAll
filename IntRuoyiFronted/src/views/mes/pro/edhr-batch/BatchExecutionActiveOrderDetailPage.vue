@@ -48,6 +48,9 @@ const parseBatchExecutionId = (): EdhrRouteId => {
 
 const resolveReturnPath = () => {
   const source = typeof route.query.from === 'string' ? route.query.from.trim() : ''
+  if (source === '/mes/pro/feedback/edhr-batch-voided') {
+    return '/mes/pro/feedback/edhr-batch-voided'
+  }
   if (source === 'execution' || source === '/mes/pro/feedback/edhr-batch-execution') {
     return '/mes/pro/feedback/edhr-batch-execution'
   }
@@ -103,8 +106,4 @@ onMounted(loadDetail)
   min-width: 0;
 }
 
-.edhr-batch-active-order-detail__toolbar {
-  display: flex;
-  justify-content: flex-start;
-}
 </style>

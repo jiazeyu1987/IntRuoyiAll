@@ -45,11 +45,15 @@ for (const required of [
   'deleteRecordbooks',
   'deleteFormInstances',
   'deleteEvents',
+  'deleteNonconformanceReviewsByActiveOrderIds',
   'deleteActiveOrders',
   'addActiveOrder'
 ]) {
   assert.match(service, new RegExp(required), `reset must include ${required}`)
 }
+assert.match(cleanupMapper, /deleteNonconformanceReviewsByActiveOrderIds\(/)
+assert.match(cleanupMapper, /DELETE FROM mes_pro_edhr_nonconformance_review WHERE tenant_id = #\{tenantId\}/)
+assert.match(cleanupMapper, /AND active_order_id IN/)
 for (const appendOnlyDeleteCall of [
   'deleteBatchOrigins',
   'deleteTraceLinks',

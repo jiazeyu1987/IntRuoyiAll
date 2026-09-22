@@ -16,8 +16,7 @@ assert.ok(exists(pagePath), `${pagePath} must exist.`)
 const tabs = read(tabsPath)
 const page = read(pagePath)
 
-assert.match(tabs, /批记录页面关系图/, 'eDHR batch tabs must include page graph tab label.')
-assert.match(tabs, /'pageGraph'/, 'eDHR batch tab union must include pageGraph key.')
+assert.doesNotMatch(tabs, /批记录页面关系图|'pageGraph'/, 'page graph is no longer a batch execution tab.')
 assert.match(tabs, /@tab-click="handleTabClick"/, 'eDHR batch tabs must navigate from the real Element Plus tab click event.')
 assert.doesNotMatch(tabs, /@tab-change="handleTabChange"/, 'eDHR batch tabs must not depend only on tab-change for navigation.')
 assert.doesNotMatch(
@@ -25,10 +24,10 @@ assert.doesNotMatch(
   /组长工作台|生产组长|PQC组长|'teamLeader'|'productionLeader'|'pqcLeader'|edhr-batch-(?:team-leader|production-leader|pqc-leader)/,
   'leader workbenches must not remain eDHR batch tabs.'
 )
-assert.match(
+assert.doesNotMatch(
   tabs,
   /pageGraph:\s*'\/mes\/pro\/feedback\/edhr-batch-page-graph'/,
-  'page graph tab must map to the stable page graph route.'
+  'batch tabs must not navigate to the removed graph tab.'
 )
 
 const routePath = "path: 'pro/feedback/edhr-batch-page-graph'"
@@ -47,7 +46,7 @@ assert.doesNotMatch(
   'router must not keep eDHR internal leader routes.'
 )
 
-assert.match(page, /<EdhrBatchRecordTabs\s+active-tab="pageGraph"/, 'page graph page must render shared tabs.')
+assert.doesNotMatch(page, /<EdhrBatchRecordTabs/, 'standalone graph must not select a removed tab.')
 assert.match(page, /data-edhr-page-graph/, 'page graph page must expose a stable graph selector.')
 assert.match(page, /data-edhr-page-node/, 'page graph page must expose stable node selectors.')
 assert.match(page, /data-edhr-page-edge/, 'page graph page must expose stable edge selectors.')

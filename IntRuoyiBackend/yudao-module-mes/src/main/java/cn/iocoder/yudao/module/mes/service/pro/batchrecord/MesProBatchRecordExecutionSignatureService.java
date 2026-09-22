@@ -178,6 +178,13 @@ public class MesProBatchRecordExecutionSignatureService {
 
     @Transactional(rollbackFor = Exception.class)
     public Long recordTeamLeaderReviewSignature(Long actorId, String password, String comment) {
+        return recordTeamLeaderReviewSignature(actorId, password, comment, null, null, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordTeamLeaderReviewSignature(Long actorId, String password, String comment,
+                                                String reviewSourceType, Long reviewSourceId,
+                                                String reviewSourceName) {
         if (actorId == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
@@ -186,7 +193,8 @@ public class MesProBatchRecordExecutionSignatureService {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
         return recordSignatureForSystemUser(actorId, user, 0L, password, comment, ACTION_TEAM_LEADER_REVIEW,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, reviewSourceType, reviewSourceId, reviewSourceName,
+                null, null, null, null, null,
                 null);
     }
 

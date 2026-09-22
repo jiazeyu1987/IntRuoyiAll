@@ -147,7 +147,8 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
         Long signatureId = signatureService.recordTeamLeaderReviewSignature(
                 reqBO.getLeaderUserId(),
                 reqBO.getSignaturePassword(),
-                buildReviewSignatureComment(reqBO, event));
+                buildReviewSignatureComment(reqBO, event),
+                "PROCESS_POOL_EVENT", event.getId(), "提交记录组长复核");
         return new ReviewSignaturePayload(
                 signatureId,
                 reqBO.getLeaderUserId(),

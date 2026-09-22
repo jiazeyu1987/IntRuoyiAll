@@ -11,6 +11,25 @@ const viewSource = read(path.join(
 ))
 const feedbackApiSource = read(path.join(frontendRoot, 'src/api/mes/pro/feedback/index.ts'))
 
+const extractConstFunctionBlock = (source, name) => {
+  const start = source.indexOf(`const ${name} = async`)
+  assert.ok(start >= 0, `missing function: ${name}`)
+  const openIndex = source.indexOf('{', start)
+  assert.ok(openIndex > start, `missing function body: ${name}`)
+  let depth = 0
+  for (let index = openIndex; index < source.length; index += 1) {
+    const char = source[index]
+    if (char === '{') depth += 1
+    if (char === '}') {
+      depth -= 1
+      if (depth === 0) {
+        return source.slice(openIndex + 1, index)
+      }
+    }
+  }
+  assert.fail(`unterminated function: ${name}`)
+}
+
 assert.match(
   feedbackApiSource,
   /pqcTaskOptions: FrontlinePqcTaskOptionVO\[\]/,
@@ -38,8 +57,14 @@ assert.doesNotMatch(
 )
 assert.match(
   viewSource,
-  /@click="selectPqcInspectionTaskOption\(tab\.value\)"[\s\S]*const selectPqcInspectionTaskOption = async \(pqcTaskId: number\)[\s\S]*applyPqcTaskOptionToSelectedProcess\(option\)/,
-  'Selecting a configured inspection button must apply the matching task option snapshot.'
+  /@click="selectPqcInspectionRule\(tab\.ruleKey\)"/,
+  'Selecting a configured inspection button must pass the formal rule key.'
+)
+const selectRuleBlock = extractConstFunctionBlock(viewSource, 'selectPqcInspectionRule')
+assert.match(
+  selectRuleBlock,
+  /selectedPqcInspectionRuleKey\.value = ruleKey[\s\S]*(?:applyPqcTaskOptionToSelectedProcess\(currentRuleOption\)|handleSelectProcess\(targetProcess\))/,
+  'Selecting a configured inspection rule must keep the rule selected and apply or jump to the matching task option snapshot.'
 )
 
 console.log('PASS: frontline PQC final inspection displays only from formal task options')

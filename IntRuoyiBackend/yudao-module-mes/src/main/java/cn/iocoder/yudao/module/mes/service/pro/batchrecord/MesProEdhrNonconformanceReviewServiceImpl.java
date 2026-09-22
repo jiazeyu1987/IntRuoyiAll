@@ -2,9 +2,12 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
+import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchExecutionRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewDisposeReqVO;
@@ -28,17 +31,22 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInsp
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.util.UriUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -70,6 +78,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     private static final Set<String> SUPPORTED_DISPOSITIONS =
             Set.of(DISPOSITION_CONCESSION_RELEASE, DISPOSITION_REWORK, DISPOSITION_VOID);
     private static final DateTimeFormatter REVIEW_CODE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final String ADMIN_FILE_ACCESS_PREFIX = "/admin-api/infra/file/";
+    private static final String ADMIN_FILE_ACCESS_GET_SEGMENT = "/get/";
 
     @Resource
     private MesProEdhrNonconformanceReviewMapper reviewMapper;
@@ -91,6 +101,10 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
     @Resource
     private MesProEdhrOperationAuditService operationAuditService;
+    @Resource
+    private MesTeamLeaderActiveOrderDetailService activeOrderDetailService;
+    @Resource
+    private FileMapper fileMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -100,8 +114,9 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         MesProEdhrBatchExecutionDO batch = null;
         MesProcessPoolActiveOrderReleaseApplicationDO application = null;
         MesProProcessPoolEventDO pqcSubmissionEvent = null;
-        if (SOURCE_TYPE_PQC_RELEASE.equals(sourceType) && reqVO.getBatchExecutionId() == null) {
+        if (SOURCE_TYPE_PQC_RELEASE.equals(sourceType) && reqVO.getSourceId() != null) {
             application = requirePqcReleaseApplicationForUpdate(reqVO.getSourceId());
+            validatePqcReleaseReviewBatchExecutionId(application, reqVO.getBatchExecutionId());
             if (reviewMapper.selectLatestBySource(sourceType, application.getId()) != null) {
                 throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_PENDING_EXISTS);
             }
@@ -126,13 +141,14 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         Long workOrderId = batch != null ? batch.getWorkOrderId()
                 : application != null ? application.getWorkOrderId() : pqcSubmissionEvent.getWorkOrderId();
         MesProWorkOrderDO workOrder = lockWorkOrder(workOrderId);
-        Long activeOrderId = resolveActiveOrderId(batch, application, pqcSubmissionEvent);
+        Long activeOrderId = requireActiveOrderId(resolveActiveOrderId(batch, application, pqcSubmissionEvent));
         LocalDateTime now = now();
         Boolean previousWorkOrderTemporaryFrozen = captureWorkOrderExternalFreezeAtReviewStart(workOrder, now);
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
                 .reviewCode(buildReviewCode(batch == null ? reqVO.getSourceId() : batch.getId(), now))
                 .sourceType(sourceType)
                 .sourceId(reqVO.getSourceId())
+                .activeOrderId(activeOrderId)
                 .batchExecutionId(batch == null ? null : batch.getId())
                 .batchExecutionCode(batch == null ? null : batch.getBatchExecutionCode())
                 .workOrderId(workOrderId)
@@ -156,10 +172,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         if (workOrder != null) {
             requireWorkOrderUpdate(workOrder.getId(), true);
         }
-        if (activeOrderId != null) {
-            recordReviewOperation("NONCONFORMANCE_REVIEW_CREATE", "创建不合格评审", review, activeOrderId,
-                    null, now);
-        }
+        recordReviewOperation("NONCONFORMANCE_REVIEW_CREATE", "创建不合格评审", review, activeOrderId,
+                null, now, null, null, null, null, null, null, null);
         return toResp(review);
     }
 
@@ -185,7 +199,10 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrNonconformanceReviewRespVO dispose(MesProEdhrNonconformanceReviewDisposeReqVO reqVO) {
         String disposition = requireDisposition(reqVO.getDisposition());
-        String reviewMaterialUrl = requireText(reqVO.getReviewMaterialUrl());
+        ResolvedReviewMaterials reviewMaterials = resolveReviewMaterials(reqVO.getReviewMaterials(),
+                reqVO.getReviewMaterialEvents());
+        String reviewMaterialUrl = reviewMaterials.summaryUrl();
+        Long reviewMaterialFileId = reviewMaterials.primaryFileId();
         String reviewOpinion = requireText(reqVO.getReviewOpinion());
         String signaturePassword = requireText(reqVO.getSignaturePassword());
         MesProEdhrNonconformanceReviewDO review = requirePendingReviewForUpdate(reqVO.getId());
@@ -208,7 +225,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 ? MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED : review.getPreviousBatchStatus();
         Long qaUserId = SecurityFrameworkUtils.getLoginUserId();
         String qaDispositionAggregateHash = buildQaDispositionAggregateHash(review, disposition, reviewMaterialUrl,
-                reviewOpinion, qaUserId);
+                reviewMaterialFileId, reviewMaterials.materialsJson(), reviewOpinion, qaUserId);
         Long qaDispositionSignatureId = recordQaDispositionSignature(qaUserId, review.getId(),
                 signaturePassword, reviewOpinion, qaDispositionAggregateHash);
         String qaSignature = "QA电子签名#" + qaDispositionSignatureId;
@@ -219,6 +236,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 .setReviewStatus(STATUS_CLOSED)
                 .setDisposition(disposition)
                 .setReviewMaterialUrl(reviewMaterialUrl)
+                .setReviewMaterialFileId(reviewMaterialFileId)
+                .setReviewMaterialsJson(reviewMaterials.materialsJson())
                 .setReviewOpinion(reviewOpinion)
                 .setQaSignature(qaSignature)
                 .setQaUserId(qaUserId)
@@ -249,11 +268,11 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
             }
         }
-        Long activeOrderId = resolveActiveOrderId(review, batch, application);
-        if (activeOrderId != null) {
-            recordReviewOperation("NONCONFORMANCE_REVIEW_DISPOSE", disposeActionName(disposition), review, activeOrderId,
-                    disposition, now);
-        }
+        Long activeOrderId = requireActiveOrderId(review.getActiveOrderId() != null
+                ? review.getActiveOrderId() : resolveActiveOrderId(review, batch, application));
+        recordReviewOperation("NONCONFORMANCE_REVIEW_DISPOSE", disposeActionName(disposition), review, activeOrderId,
+                disposition, now, qaDispositionSignatureId, reviewMaterialUrl, reviewMaterialFileId,
+                reviewMaterials.materialsJson(), reviewOpinion, qaSignature, qaUserId);
         return toResp(reviewMapper.selectById(review.getId()));
     }
 
@@ -264,6 +283,16 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_NOT_EXISTS);
         }
         return toResp(review);
+    }
+
+    @Override
+    public MesTeamLeaderActiveOrderDetail getActiveOrderDetail(Long id) {
+        MesProEdhrNonconformanceReviewDO review = reviewMapper.selectById(id);
+        if (review == null) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_NOT_EXISTS);
+        }
+        Long activeOrderId = requireActiveOrderId(review.getActiveOrderId());
+        return activeOrderDetailService.getFormalDetail(activeOrderId);
     }
 
     @Override
@@ -299,6 +328,27 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     public void ensureWorkOrderNotFrozen(Long workOrderId, String actionName) {
         MesProEdhrNonconformanceReviewDO blockingReview = workOrderId == null
                 ? null : reviewMapper.selectFirstBlockingByWorkOrderId(workOrderId);
+        if (blockingReview != null) {
+            String branch = STATUS_PENDING_REVIEW.equals(blockingReview.getReviewStatus())
+                    ? "待处置不合格评审" : "作废处置不合格评审";
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED,
+                    actionName, buildReviewFreezeDetail(actionName, branch, blockingReview));
+        }
+        if (workOrderId != null) {
+            MesProWorkOrderDO workOrder = lockWorkOrder(workOrderId);
+            if (Boolean.TRUE.equals(workOrder.getTemporaryFrozen())) {
+                throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
+                                .PRO_WORK_ORDER_TEMPORARY_FROZEN_OPERATION_FORBIDDEN,
+                        actionName, buildWorkOrderFreezeDetail(actionName, workOrderId, "工单临时冻结"));
+            }
+        }
+    }
+
+    @Override
+    public void ensurePqcSubmissionNotFrozen(Long activeOrderId, Long workOrderId, String actionName) {
+        Long requiredActiveOrderId = requireActiveOrderId(activeOrderId);
+        MesProEdhrNonconformanceReviewDO blockingReview =
+                reviewMapper.selectFirstBlockingPqcSubmissionByActiveOrderId(requiredActiveOrderId);
         if (blockingReview != null) {
             String branch = STATUS_PENDING_REVIEW.equals(blockingReview.getReviewStatus())
                     ? "待处置不合格评审" : "作废处置不合格评审";
@@ -385,10 +435,12 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         MesProWorkOrderDO workOrder = lockWorkOrder(batch.getWorkOrderId());
         LocalDateTime now = now();
         Boolean previousWorkOrderTemporaryFrozen = captureWorkOrderExternalFreezeAtReviewStart(workOrder, now);
+        Long activeOrderId = requireActiveOrderId(resolveActiveOrderId(batch, null, null));
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
                 .reviewCode(buildReviewCode(batch.getId(), now))
                 .sourceType(sourceType)
                 .sourceId(sourceId)
+                .activeOrderId(activeOrderId)
                 .batchExecutionId(batch.getId())
                 .batchExecutionCode(batch.getBatchExecutionCode())
                 .workOrderId(batch.getWorkOrderId())
@@ -408,6 +460,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         if (workOrder != null) {
             requireWorkOrderUpdate(workOrder.getId(), true);
         }
+        recordReviewOperation("NONCONFORMANCE_REVIEW_CREATE", "创建不合格评审", review, activeOrderId,
+                null, now, null, null, null, null, null, null, null);
         return review;
     }
 
@@ -586,6 +640,17 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         return lockedTask;
     }
 
+    private void validatePqcReleaseReviewBatchExecutionId(
+            MesProcessPoolActiveOrderReleaseApplicationDO application, Long requestBatchExecutionId) {
+        if (requestBatchExecutionId == null) {
+            return;
+        }
+        if (application == null || application.getBatchExecutionId() == null
+                || !Objects.equals(application.getBatchExecutionId(), requestBatchExecutionId)) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+    }
+
     private Long resolveActiveOrderId(MesProEdhrBatchExecutionDO batch,
                                       MesProcessPoolActiveOrderReleaseApplicationDO application,
                                       MesProProcessPoolEventDO pqcSubmissionEvent) {
@@ -635,9 +700,19 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         return resolveActiveOrderId(batch, application, null);
     }
 
+    private Long requireActiveOrderId(Long activeOrderId) {
+        if (activeOrderId == null || activeOrderId <= 0) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        return activeOrderId;
+    }
+
     private void recordReviewOperation(String operationType, String actionName,
                                        MesProEdhrNonconformanceReviewDO review, Long activeOrderId,
-                                       String disposition, LocalDateTime occurredAt) {
+                                       String disposition, LocalDateTime occurredAt,
+                                       Long signatureId, String reviewMaterialUrl, Long reviewMaterialFileId,
+                                       String reviewMaterialsJson, String reviewOpinion, String qaSignature,
+                                       Long qaUserId) {
         Map<String, Object> metadata = new java.util.LinkedHashMap<>();
         metadata.put("activeOrderId", activeOrderId);
         metadata.put("reviewId", review.getId());
@@ -646,7 +721,15 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         metadata.put("sourceId", review.getSourceId());
         metadata.put("batchExecutionId", review.getBatchExecutionId());
         metadata.put("workOrderId", review.getWorkOrderId());
+        metadata.put("nonconformanceReason", review.getNonconformanceReason());
+        metadata.put("reviewMaterialUrl", reviewMaterialUrl);
+        metadata.put("reviewMaterialFileId", reviewMaterialFileId);
+        metadata.put("reviewMaterialsJson", reviewMaterialsJson);
+        metadata.put("reviewOpinion", reviewOpinion);
         metadata.put("disposition", disposition);
+        metadata.put("qaSignature", qaSignature);
+        metadata.put("qaUserId", qaUserId);
+        metadata.put("signatureId", signatureId);
         String afterSummaryHash = DigestUtil.sha256Hex(JSON.toJSONString(metadata));
         operationAuditService.recordInCallerTransaction(new MesProEdhrOperationAuditCommand()
                 .setRequestId("NONCONFORMANCE-REVIEW-" + operationType + "-" + review.getId())
@@ -702,6 +785,132 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         return text;
     }
 
+    private ResolvedReviewMaterials resolveReviewMaterials(
+            List<MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO> reviewMaterials,
+            List<MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO> reviewMaterialEvents) {
+        if (reviewMaterials == null || reviewMaterials.isEmpty()) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+        }
+        List<MaterialDraft> drafts = new ArrayList<>();
+        for (int index = 0; index < reviewMaterials.size(); index++) {
+            MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO material = reviewMaterials.get(index);
+            if (material == null || StrUtil.isBlank(material.getUrl())) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+            }
+            String url = requireText(material.getUrl());
+            drafts.add(new MaterialDraft(url, StrUtil.trim(material.getFileName()),
+                    material.getSortNo() == null ? index + 1 : material.getSortNo(),
+                    parseAdminFileAccessLocation(url)));
+        }
+        Map<FileLocation, Integer> usedByLocation = new LinkedHashMap<>();
+        List<Map<String, Object>> activeMaterials = new ArrayList<>();
+        List<String> summaryUrls = new ArrayList<>();
+        for (MaterialDraft draft : drafts) {
+            int usedCount = usedByLocation.getOrDefault(draft.location(), 0);
+            FileDO file = resolveReviewMaterialFile(draft.location(), usedCount);
+            usedByLocation.put(draft.location(), usedCount + 1);
+            Map<String, Object> active = new LinkedHashMap<>();
+            active.put("url", draft.url());
+            active.put("fileId", file.getId());
+            active.put("fileName", StrUtil.blankToDefault(draft.fileName(), resolveFileName(draft.url())));
+            active.put("sortNo", draft.sortNo());
+            active.put("configId", file.getConfigId());
+            active.put("path", file.getPath());
+            activeMaterials.add(active);
+            summaryUrls.add(draft.url());
+        }
+        List<Map<String, Object>> events = normalizeReviewMaterialEvents(reviewMaterialEvents);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("activeMaterials", activeMaterials);
+        payload.put("reviewMaterialEvents", events);
+        return new ResolvedReviewMaterials(String.join(",", summaryUrls),
+                (Long) activeMaterials.get(0).get("fileId"), JSON.toJSONString(payload));
+    }
+
+    private FileDO resolveReviewMaterialFile(FileLocation location, int usedCount) {
+        List<FileDO> files = fileMapper.selectList(new LambdaQueryWrapperX<FileDO>()
+                .eq(FileDO::getConfigId, location.configId)
+                .eq(FileDO::getPath, location.path)
+                .orderByDesc(FileDO::getId));
+        if (files == null || files.size() <= usedCount) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+        }
+        FileDO file = files.get(usedCount);
+        if (file == null || file.getId() == null || file.getId() <= 0) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+        }
+        return file;
+    }
+
+    private List<Map<String, Object>> normalizeReviewMaterialEvents(
+            List<MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO> reviewMaterialEvents) {
+        if (reviewMaterialEvents == null || reviewMaterialEvents.isEmpty()) {
+            return List.of();
+        }
+        List<Map<String, Object>> events = new ArrayList<>();
+        for (int index = 0; index < reviewMaterialEvents.size(); index++) {
+            MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO event = reviewMaterialEvents.get(index);
+            if (event == null || StrUtil.isBlank(event.getAction()) || StrUtil.isBlank(event.getUrl())) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+            }
+            String action = StrUtil.trim(event.getAction()).toUpperCase();
+            if (!"UPLOAD".equals(action) && !"DELETE".equals(action)) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+            }
+            String url = requireText(event.getUrl());
+            parseAdminFileAccessLocation(url);
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            normalized.put("action", action);
+            normalized.put("url", url);
+            normalized.put("fileName", StrUtil.blankToDefault(StrUtil.trim(event.getFileName()), resolveFileName(url)));
+            normalized.put("sequence", event.getSequence() == null ? index + 1 : event.getSequence());
+            events.add(normalized);
+        }
+        return events;
+    }
+
+    private String resolveFileName(String url) {
+        String value = StrUtil.blankToDefault(url, "");
+        int index = value.lastIndexOf('/');
+        String name = index < 0 ? value : value.substring(index + 1);
+        return UriUtils.decode(name, StandardCharsets.UTF_8);
+    }
+
+    private FileLocation parseAdminFileAccessLocation(String reviewMaterialUrl) {
+        String text = requireText(reviewMaterialUrl);
+        int prefixIndex = text.indexOf(ADMIN_FILE_ACCESS_PREFIX);
+        if (prefixIndex < 0) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+        }
+        String tail = text.substring(prefixIndex + ADMIN_FILE_ACCESS_PREFIX.length());
+        int getIndex = tail.indexOf(ADMIN_FILE_ACCESS_GET_SEGMENT);
+        if (getIndex <= 0) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+        }
+        Long configId = parsePositiveFileConfigId(tail.substring(0, getIndex));
+        String encodedPath = tail.substring(getIndex + ADMIN_FILE_ACCESS_GET_SEGMENT.length());
+        if (StrUtil.isBlank(encodedPath)) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+        }
+        String path = UriUtils.decode(encodedPath, StandardCharsets.UTF_8);
+        if (StrUtil.isBlank(path) || StrUtil.contains(path, "..")) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+        }
+        return new FileLocation(configId, path);
+    }
+
+    private Long parsePositiveFileConfigId(String value) {
+        try {
+            Long parsed = Long.valueOf(value);
+            if (parsed <= 0) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+            }
+            return parsed;
+        } catch (NumberFormatException ex) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+        }
+    }
+
     private Long recordQaDispositionSignature(Long qaUserId, Long reviewId, String signaturePassword,
                                               String reviewOpinion, String qaDispositionAggregateHash) {
         return signatureService.recordQaDispositionSignature(qaUserId, reviewId, signaturePassword, reviewOpinion,
@@ -711,6 +920,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     private String buildQaDispositionAggregateHash(MesProEdhrNonconformanceReviewDO review,
                                                    String disposition,
                                                    String reviewMaterialUrl,
+                                                   Long reviewMaterialFileId,
+                                                   String reviewMaterialsJson,
                                                    String reviewOpinion,
                                                    Long qaUserId) {
         JSONObject payload = new JSONObject(true);
@@ -722,6 +933,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         payload.put("workOrderId", review.getWorkOrderId());
         payload.put("disposition", disposition);
         payload.put("reviewMaterialUrl", reviewMaterialUrl);
+        payload.put("reviewMaterialFileId", reviewMaterialFileId);
+        payload.put("reviewMaterialsJson", reviewMaterialsJson);
         payload.put("reviewOpinion", reviewOpinion);
         payload.put("qaUserId", qaUserId);
         return DigestUtil.sha256Hex(JSON.toJSONString(payload));
@@ -779,6 +992,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         snapshot.put("batchCode", review.getBatchCode());
         snapshot.put("nonconformanceReason", review.getNonconformanceReason());
         snapshot.put("reviewMaterialUrl", update.getReviewMaterialUrl());
+        snapshot.put("reviewMaterialFileId", update.getReviewMaterialFileId());
+        snapshot.put("reviewMaterialsJson", update.getReviewMaterialsJson());
         snapshot.put("reviewOpinion", update.getReviewOpinion());
         snapshot.put("qaSignature", update.getQaSignature());
         snapshot.put("qaSignatureSnapshotJson", JSON.parseObject(qaSignatureSnapshotJson));
@@ -842,5 +1057,14 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             this.end = end;
             this.previousExternalFreeze = previousExternalFreeze;
         }
+    }
+
+    private record FileLocation(Long configId, String path) {
+    }
+
+    private record MaterialDraft(String url, String fileName, Integer sortNo, FileLocation location) {
+    }
+
+    private record ResolvedReviewMaterials(String summaryUrl, Long primaryFileId, String materialsJson) {
     }
 }

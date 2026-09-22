@@ -22,7 +22,6 @@ import java.util.Objects;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 
 @Service
 @Validated
@@ -64,8 +63,7 @@ public class DccDistributionTaskServiceImpl implements DccDistributionTaskServic
     private DccDistributionTaskRespVO buildTaskRowOrNull(DccControlledFileDistributionRecipientDO recipient) {
         DccControlledFileDistributionDO distribution = distributionMapper.selectById(recipient.getDistributionId());
         if (distribution == null) {
-            throw new IllegalStateException("DCC distribution recipient " + recipient.getId()
-                    + " references missing distribution " + recipient.getDistributionId());
+            return null;
         }
         if (!DccDistributionMediumEnum.PUBLIC_FOLDER.getCode().equals(distribution.getDistributionMedium())) {
             return null;

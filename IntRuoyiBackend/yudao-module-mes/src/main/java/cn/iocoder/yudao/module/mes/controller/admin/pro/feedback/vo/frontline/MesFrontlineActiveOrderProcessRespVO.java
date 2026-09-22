@@ -24,4 +24,5 @@ public class MesFrontlineActiveOrderProcessRespVO {
     private String workstationName;
     private BigDecimal productionQuantityFactor;
     private BigDecimal targetQuantity;
+    private BigDecimal submittedQuantity;
 }

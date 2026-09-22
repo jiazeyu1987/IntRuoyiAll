@@ -11,6 +11,8 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
@@ -21,6 +23,7 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
     int BATCH_STATUS_FROZEN = 15;
     int BATCH_STATUS_REJECTED = 50;
     int BATCH_STATUS_VOIDED = 60;
+    DateTimeFormatter SQL_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Update("UPDATE mes_pro_edhr_batch_execution SET active_context_key = NULL WHERE id = #{id}")
     void clearActiveContextKey(@Param("id") Long id);
@@ -108,6 +111,7 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getWorkOrderCode, reqVO.getWorkOrderCode())
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getBatchCode, reqVO.getBatchCode())
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getProductCode, reqVO.getProductCode())
+                .likeIfPresent(MesProEdhrBatchExecutionDO::getProductName, reqVO.getProductName())
                 .eqIfPresent(MesProEdhrBatchExecutionDO::getRouteId, reqVO.getRouteId())
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getRouteCode, reqVO.getRouteCode())
                 .eqIfPresent(MesProEdhrBatchExecutionDO::getStatus, reqVO.getStatus())
@@ -125,6 +129,9 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
                     + "AND rt.deleted = 0 "
                     + "AND rt.release_status = 'RELEASED'");
         }
+        if (Boolean.TRUE.equals(reqVO.getReleasedOnly())) {
+            queryWrapper.exists(releasedTransactionExistsSql(reqVO.getReleaseApprovedTime()));
+        }
         if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly())) {
             queryWrapper.and(wrapper -> wrapper
                     .in(MesProEdhrBatchExecutionDO::getStatus,
@@ -139,6 +146,7 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
                 "workOrderCode", QuickFilterUtils.QuickFilterField.text(MesProEdhrBatchExecutionDO::getWorkOrderCode),
                 "batchCode", QuickFilterUtils.QuickFilterField.text(MesProEdhrBatchExecutionDO::getBatchCode),
                 "product", QuickFilterUtils.QuickFilterField.text(MesProEdhrBatchExecutionDO::getProductCode),
+                "productName", QuickFilterUtils.QuickFilterField.text(MesProEdhrBatchExecutionDO::getProductName),
                 "status", QuickFilterUtils.QuickFilterField.integerSelect(MesProEdhrBatchExecutionDO::getStatus),
                 "createTime", QuickFilterUtils.QuickFilterField.localDateTimeRange(MesProEdhrBatchExecutionDO::getCreateTime)
         ));
@@ -146,11 +154,27 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
     }
 
     private String releasedTransactionExistsSql() {
-        return "SELECT 1 FROM mes_pro_edhr_release_transaction rt "
+        return releasedTransactionExistsSql(null);
+    }
+
+    private String releasedTransactionExistsSql(LocalDateTime[] releaseApprovedTime) {
+        String sql = "SELECT 1 FROM mes_pro_edhr_release_transaction rt "
                 + "WHERE rt.tenant_id = mes_pro_edhr_batch_execution.tenant_id "
                 + "AND rt.batch_execution_id = mes_pro_edhr_batch_execution.id "
                 + "AND rt.deleted = 0 "
                 + "AND rt.release_status = 'RELEASED'";
+        if (releaseApprovedTime == null || releaseApprovedTime.length == 0) {
+            return sql;
+        }
+        LocalDateTime start = releaseApprovedTime.length > 0 ? releaseApprovedTime[0] : null;
+        LocalDateTime end = releaseApprovedTime.length > 1 ? releaseApprovedTime[1] : null;
+        if (start != null) {
+            sql += " AND rt.approved_at >= TIMESTAMP '" + SQL_DATETIME_FORMATTER.format(start) + "'";
+        }
+        if (end != null) {
+            sql += " AND rt.approved_at <= TIMESTAMP '" + SQL_DATETIME_FORMATTER.format(end) + "'";
+        }
+        return sql;
     }
 
     default List<MesProEdhrBatchExecutionDO> selectUnarchivedListByBatchCode(String batchCode) {

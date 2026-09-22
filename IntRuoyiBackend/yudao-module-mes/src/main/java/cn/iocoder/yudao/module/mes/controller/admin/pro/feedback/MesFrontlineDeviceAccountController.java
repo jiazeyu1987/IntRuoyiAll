@@ -289,6 +289,7 @@ public class MesFrontlineDeviceAccountController {
         respVO.setWorkstationName(process.workstationName());
         respVO.setProductionQuantityFactor(process.productionQuantityFactor());
         respVO.setTargetQuantity(process.targetQuantity());
+        respVO.setSubmittedQuantity(process.submittedQuantity());
         return respVO;
     }
 

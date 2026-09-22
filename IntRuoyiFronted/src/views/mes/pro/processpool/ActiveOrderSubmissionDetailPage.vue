@@ -1,6 +1,7 @@
 <template>
   <ContentWrap>
     <div class="team-leader-workbench__active-order-detail-page" data-team-leader-active-order-detail-page>
+      <el-button data-team-leader-active-order-detail-back @click="goBack">返回</el-button>
       <ActiveOrderSubmissionDetailPanel
         :detail="detail"
         :source-work-order="sourceWorkOrder"
@@ -17,7 +18,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ActiveOrderSubmissionDetailPanel from './components/ActiveOrderSubmissionDetailPanel.vue'
 import {
@@ -33,6 +34,7 @@ import {
 defineOptions({ name: 'MesProcessPoolActiveOrderSubmissionDetail' })
 
 const route = useRoute()
+const router = useRouter()
 
 const detail = ref<TeamLeaderActiveOrderDetailRespVO>()
 const sourceWorkOrder = ref<ProWorkOrderVO>()
@@ -147,6 +149,10 @@ const loadDetail = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const goBack = () => {
+  router.back()
 }
 
 watch(

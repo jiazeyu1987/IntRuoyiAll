@@ -114,9 +114,24 @@ const selectionHeader = panel.match(
 )?.[0]
 assert.ok(selectionHeader, 'production process and employee selection header must exist.')
 assert.strictEqual(
-  (selectionHeader.match(/:disabled="payloadLoading \|\| submitConfirmationOpen \|\| productionSubmitSuccessOpen \|\| productionSubmitFailureOpen"/g) || []).length,
+  (selectionHeader.match(/:disabled="isProductionSelectionSwitchLocked"/g) || []).length,
   2,
-  'process and employee switching must remain locked through success or password-failure acknowledgement, then reopen.'
+  'order and employee switching must remain locked through submit, success, or inline failure acknowledgement, then reopen.'
+)
+assert.match(
+  panel,
+  /const isProductionSubmitErrorAcknowledgementPending\s*=\s*computed\(\(\)\s*=>\s*!isPqcMode\.value\s*&&\s*Boolean\(frontlineErrorMessage\.value\)\s*\)/,
+  'production submit failures must reuse the inline error acknowledgement state instead of a separate dialog.'
+)
+assert.match(
+  panel,
+  /const isProductionSelectionSwitchLocked\s*=\s*computed\(\(\)\s*=>[\s\S]*payloadLoading\.value[\s\S]*submitConfirmationOpen\.value[\s\S]*productionSubmitSuccessOpen\.value[\s\S]*isProductionSubmitErrorAcknowledgementPending\.value[\s\S]*\)/,
+  'production order and employee cards must stay locked while the inline failure remains unacknowledged.'
+)
+assert.match(
+  panel,
+  /const isProductionProcessNavigationBlocked\s*=\s*computed\(\(\)\s*=>[\s\S]*isProductionSelectionSwitchLocked\.value/,
+  'production process navigation must share the same failure acknowledgement lock.'
 )
 
 console.log('PASS: frontline production resets for independent repeated submissions')

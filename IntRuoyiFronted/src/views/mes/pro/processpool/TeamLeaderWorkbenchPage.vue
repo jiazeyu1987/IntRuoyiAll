@@ -1280,6 +1280,8 @@
                   link
                   type="success"
                   :data-team-leader-review-event-id="String(row.id)"
+                  :data-pqc-leader-pqc-task-id="activeLeaderTab === 'PQC' ? String(row.pqcTaskId || '') : undefined"
+                  :data-pqc-leader-submitted-event-ids="activeLeaderTab === 'PQC' ? formatSubmissionSourceEventIds(row) : undefined"
                   @click="openReview(row)"
                 >
                   复核
@@ -1372,6 +1374,13 @@
           </el-descriptions-item>
           <el-descriptions-item label="生产工单">
             {{ detail.workOrderCode || '--' }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            v-if="isPqcSubmissionRow(detail)"
+            label="损耗数量"
+            data-pqc-leader-detail-loss-quantity
+          >
+            {{ resolveSubmissionLossQuantity(detail) }}
           </el-descriptions-item>
           <el-descriptions-item v-if="!isPqcSubmissionRow(detail)" label="复核日志">
             <div class="team-leader-workbench__review-log" data-team-leader-review-log>
@@ -4330,7 +4339,6 @@ type AllocationShortcutMode = 'MAX' | 'HALF'
 type ActiveOrderReleaseApplicationLockState =
   | 'CONFIRMED'
   | 'CONFIRMED_REFRESH_FAILED'
-  | 'CONFIRMED_NOT_PROJECTED'
   | 'RECOVERED'
   | 'UNCERTAIN'
 
@@ -4661,15 +4669,6 @@ const pqcSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
   { key: 'product', label: '产品', minWidth: 180 },
   { key: 'inspectionTask', label: '检验类型/轮次', minWidth: 150 },
-  { key: 'inspectionItems', label: '检验项', minWidth: 190 },
-  { key: 'equipmentSnapshot', label: '设备', minWidth: 220 },
-  { key: 'selectedDevice', label: '选用设备', minWidth: 220 },
-  { key: 'equipmentNumber', label: '设备编号', minWidth: 150 },
-  { key: 'acceptanceStandard', label: '接收标准', minWidth: 220 },
-  { key: 'inspectionMethod', label: '检验方法', minWidth: 180 },
-  { key: 'inspectionJudgement', label: '检验判定', minWidth: 150 },
-  { key: 'parameterSnapshot', label: '参数明细', minWidth: 280 },
-  { key: 'deviceParameterReadings', label: '设备参数', minWidth: 280 },
   { key: 'operation', label: '操作', width: 360, hideable: false, business: false }
 ]
 const pqcFormHistoryDefaultColumns: UserTableColumnDefinition[] = [
@@ -4921,6 +4920,19 @@ const canRejectProductionSubmission = (row: ProcessPoolTimelineEventVO) =>
   row.submissionReviewStatus !== 'REJECTED' &&
   Boolean(row.id) &&
   !(row.reportAllocations || []).some((allocation) => allocation.released)
+
+const formatSubmissionSourceEventIds = (row: ProcessPoolTimelineEventVO) => {
+  const ids = [
+    row.submittedEventId,
+    ...(Array.isArray(row.submittedEventIds) ? row.submittedEventIds : []),
+    ...(Array.isArray(row.groupedEventIds) ? row.groupedEventIds : [])
+  ]
+  return Array.from(new Set(ids
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+    .map((id) => String(id))))
+    .join(' ')
+}
 
 const findReportSelectedActiveOrder = (event: ProcessPoolTimelineEventVO) => {
   const workOrderId = Number(event.workOrderId)
@@ -7722,20 +7734,33 @@ const enrichSubmissionMaterialNames = async (rows: ProcessPoolTimelineEventVO[])
 }
 
 const resolvePqcItemSnapshotDetails = (row: ProcessPoolTimelineEventVO) => {
-  const { payload, rootPayload } = resolvePqcPayloadPair(row)
-  const sources = [
-    rootPayload?.pqcItemDetails,
-    payload?.pqcItemDetails,
-    rootPayload?.itemResults,
-    payload?.itemResults
-  ]
-  for (const source of sources) {
-    const details = normalizePqcItemSnapshotDetails(source)
-    if (details.length) {
-      return details
+  const payloadJsons = row.groupedOriginalPayloadJsons?.length
+    ? [row.originalPayloadJson, ...row.groupedOriginalPayloadJsons].filter(Boolean)
+    : [row.originalPayloadJson].filter(Boolean)
+  const detailByKey = new Map<string, PqcItemSnapshotDetail>()
+  payloadJsons.forEach((payloadJson) => {
+    const payload = parsePqcOriginalPayload(payloadJson)
+    const rootPayload = payload && isRecord(payload.rawPayload) ? payload.rawPayload : payload
+    const sources = [
+      rootPayload?.pqcItemDetails,
+      payload?.pqcItemDetails,
+      rootPayload?.itemResults,
+      payload?.itemResults
+    ]
+    for (const source of sources) {
+      const details = normalizePqcItemSnapshotDetails(source)
+      details.forEach((detail, index) => {
+        const key = detail.itemCode || detail.itemName || `${payloadJson}-${index}`
+        if (!detailByKey.has(key)) {
+          detailByKey.set(key, detail)
+        }
+      })
+      if (details.length) {
+        break
+      }
     }
-  }
-  return []
+  })
+  return [...detailByKey.values()]
 }
 
 const pqcDetailRows = computed<PqcItemSnapshotDetail[]>(() => {
@@ -8707,6 +8732,11 @@ const openDetail = async (event: ProcessPoolTimelineEventVO) => {
   if (activeLeaderTab.value === 'PQC' && showPqcModuleTabs.value) {
     detailVisible.value = false
     activePqcModuleTab.value = 'detail'
+    if ((event.groupedEventIds?.length || 0) > 1) {
+      detail.value = event
+      pqcDetailQuery.pageNo = 1
+      return
+    }
     await loadSubmissionDetail(eventId)
     return
   }
@@ -9528,6 +9558,17 @@ const isDefinitiveActiveOrderReleaseBusinessFailure = (error: unknown) => {
   return typeof code === 'number' && Number.isFinite(code)
 }
 
+const applyActiveOrderReleaseReceiptToRow = (
+  row: TeamLeaderActiveOrderRespVO,
+  result: TeamLeaderActiveOrderReleaseApplyRespVO
+) => {
+  row.releaseApplicationId = result.applicationId
+  row.pqcReleaseWorkTaskId = result.pqcReleaseWorkTaskId
+  row.releaseApplicationStatus = result.status
+  row.releaseSourceSnapshotHash = result.sourceSnapshotHash
+  row.releaseApplicationVersion = result.version
+}
+
 const confirmActiveOrderReleaseApplicationReceipt = async (
   row: TeamLeaderActiveOrderRespVO
 ): Promise<TeamLeaderActiveOrderReleaseApplyRespVO> => {
@@ -9554,6 +9595,7 @@ const recoverUncertainActiveOrderReleaseApplication = async (
   }
 
   releaseApplicationIdempotencyKeys.delete(row.id)
+  applyActiveOrderReleaseReceiptToRow(row, receipt)
   releaseApplicationLocks.set(row.id, 'RECOVERED')
   releaseApplicationUncertainMessage.value = ''
   ElMessage.warning(
@@ -9573,6 +9615,7 @@ const assertActiveOrderReleaseApplicationReceipt = (
   requirePositiveNumber(result.workOrderId, '放行申请回执缺少生产工单ID')
   requirePositiveNumber(result.routeId, '放行申请回执缺少工艺路线ID')
   requirePositiveNumber(result.routeVersionId, '放行申请回执缺少工艺路线版本ID')
+  requirePositiveNumber(result.batchExecutionId, '放行申请回执缺少P2批次执行ID')
   requirePositiveNumber(result.pqcReleaseWorkTaskId, '放行申请回执缺少PQC放行待办ID')
   if (!isActiveOrderReleaseStatus(result.status)) {
     throw new Error(`不支持的放行申请状态：${String(result.status)}`)
@@ -9594,7 +9637,7 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
   }
   try {
     await ElMessageBox.confirm(
-      '系统将先完成生产订单和正式资料回填，再提交生产放行申请并生成一个PQC待办；不会创建批次、报告上传任务或最终放行事务。',
+      '系统将先完成生产订单和正式资料回填，再提交生产放行申请并生成一个PQC待办；提交前会执行P2生成批记录、过程检验记录和批次执行。',
       '提交生产放行申请',
       { type: 'warning', confirmButtonText: '申请放行', cancelButtonText: '取消' }
     )
@@ -9659,20 +9702,17 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
   }
 
   releaseApplicationIdempotencyKeys.delete(row.id)
+  applyActiveOrderReleaseReceiptToRow(row, result)
   releaseApplicationLocks.set(row.id, 'CONFIRMED')
-  ElMessage.success('生产放行申请已提交，待PQC放行')
+  releaseApplicationUncertainMessage.value = ''
+  ElMessage.success('完工已完成：P2已生成，P3已推送至PQC生产放行')
   try {
     await loadActiveOrders()
     const refreshedReceipt = activeOrderOptions.value.find((candidate) => candidate.id === row.id)
-    if (
-      refreshedReceipt?.releaseApplicationId === result.applicationId &&
-      refreshedReceipt.releaseApplicationStatus === result.status
-    ) {
+    if (refreshedReceipt) {
+      applyActiveOrderReleaseReceiptToRow(refreshedReceipt, result)
       releaseApplicationLocks.delete(row.id)
-    } else {
-      releaseApplicationLocks.set(row.id, 'CONFIRMED_NOT_PROJECTED')
-      releaseApplicationUncertainMessage.value = '申请已提交，但列表状态尚未同步，请刷新页面'
-      ElMessage.warning(releaseApplicationUncertainMessage.value)
+      releaseApplicationUncertainMessage.value = ''
     }
   } catch (refreshError) {
     releaseApplicationLocks.set(row.id, 'CONFIRMED_REFRESH_FAILED')

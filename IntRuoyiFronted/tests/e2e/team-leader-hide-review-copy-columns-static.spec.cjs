@@ -11,8 +11,8 @@ const reportStart = page.indexOf(reportMarker)
 assert.ok(reportStart >= 0, 'team leader report table must keep a stable report marker.')
 
 const tableStart = page.indexOf('<el-table', reportStart)
-const tableEnd = page.indexOf('</el-table>', tableStart)
-assert.ok(tableStart > reportStart && tableEnd > tableStart, 'team leader report table block must be locatable.')
+const tableEnd = page.indexOf('</UnifiedListTemplate>', tableStart)
+assert.ok(tableStart > reportStart && tableEnd > tableStart, 'team leader report template block must be locatable.')
 const tableBlock = page.slice(tableStart, tableEnd)
 
 const extractConstArray = (constName) => {
@@ -44,7 +44,6 @@ for (const [key, label] of [
 }
 
 for (const [key, label, marker] of [
-  ['deviceParameterReadings', '设备参数', 'data-team-leader-device-parameter-readings'],
   ['operation', '操作', 'data-team-leader-correction-event-id'],
   ['lossQuantity', '损耗数量', 'data-team-leader-loss-quantity']
 ]) {
@@ -55,6 +54,17 @@ for (const [key, label, marker] of [
   )
   assert.match(tableBlock, new RegExp(marker), `adjacent required table marker ${marker} must remain rendered.`)
 }
+
+assert.doesNotMatch(
+  pqcDefaultColumns,
+  /key:\s*'deviceParameterReadings'/,
+  'PQC管理 regular column settings must keep device parameter details out of the default list.'
+)
+assert.match(
+  page,
+  /data-team-leader-device-parameter-readings/,
+  'device parameter detail rendering support must remain available outside the regular default column set.'
+)
 
 for (const requiredReviewCapability of [
   'canReviewSubmission',

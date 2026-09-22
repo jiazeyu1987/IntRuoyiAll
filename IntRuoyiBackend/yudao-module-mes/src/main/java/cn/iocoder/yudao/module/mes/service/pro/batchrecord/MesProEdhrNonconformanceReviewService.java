@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewDisposeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
 
 import java.util.List;
 
@@ -29,6 +30,8 @@ public interface MesProEdhrNonconformanceReviewService {
 
     MesProEdhrNonconformanceReviewRespVO get(Long id);
 
+    MesTeamLeaderActiveOrderDetail getActiveOrderDetail(Long id);
+
     PageResult<MesProEdhrNonconformanceReviewRespVO> getPendingPage(
             MesProEdhrNonconformanceReviewPageReqVO reqVO);
 
@@ -39,4 +42,6 @@ public interface MesProEdhrNonconformanceReviewService {
     void ensureBatchNotFrozen(Long batchExecutionId, String actionName);
 
     void ensureWorkOrderNotFrozen(Long workOrderId, String actionName);
+
+    void ensurePqcSubmissionNotFrozen(Long activeOrderId, Long workOrderId, String actionName);
 }

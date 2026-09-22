@@ -54,6 +54,8 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     private static final String BUSINESS_KEY_PREFIX = "PQC_RELEASE";
     private static final String TASK_TYPE_PQC_RELEASE = "PQC_PRODUCTION_RELEASE";
     private static final String BUSINESS_SCOPE_RELEASE_APPLICATION = "RELEASE_APPLICATION";
+    private static final String NONCONFORMANCE_REWORK = "NONCONFORMANCE_REWORK";
+    private static final String REWORK_CYCLE_PREFIX = "REWORK:";
 
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProWorkOrderMapper workOrderMapper;
@@ -106,7 +108,8 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         MesProcessPoolActiveOrderDO activeOrder = requireActiveOrder(command.getActiveOrderId(), leaderUserId);
         MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder);
         String batchCode = requireBatchCode(workOrder);
-        String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode);
+        Long latestReworkCycleId = latestReworkCycleId(activeOrder.getId());
+        String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode, latestReworkCycleId);
 
         MesProcessPoolActiveOrderReleaseApplicationDO existing =
                 findExistingApplication(activeOrder.getId(), requestKey, businessKey);
@@ -149,7 +152,8 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         MesProcessPoolActiveOrderDO activeOrder = requireActiveOrder(command.getActiveOrderId(), leaderUserId);
         MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder);
         String batchCode = requireBatchCode(workOrder);
-        String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode);
+        Long latestReworkCycleId = latestReworkCycleId(activeOrder.getId());
+        String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode, latestReworkCycleId);
         MesProcessPoolActiveOrderReleaseApplicationDO existing =
                 findExistingApplication(activeOrder.getId(), requestKey, businessKey);
         return existing == null ? null : persistenceService.toResult(requireCurrentApplication(existing));
@@ -445,21 +449,46 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     }
 
     private String businessKey(Long tenantId, MesProcessPoolActiveOrderDO activeOrder,
-                               MesProWorkOrderDO workOrder, String batchCode) {
-        return DigestUtil.sha256Hex(String.join("|", BUSINESS_KEY_PREFIX,
+                               MesProWorkOrderDO workOrder, String batchCode, Long latestReworkCycleId) {
+        List<String> parts = new ArrayList<>(List.of(BUSINESS_KEY_PREFIX,
                 String.valueOf(tenantId), String.valueOf(activeOrder.getId()),
                 String.valueOf(workOrder.getId()), batchCode,
                 String.valueOf(activeOrder.getRouteId()), String.valueOf(activeOrder.getRouteVersionId())));
+        if (latestReworkCycleId != null) {
+            parts.add(REWORK_CYCLE_PREFIX + latestReworkCycleId);
+        }
+        return DigestUtil.sha256Hex(String.join("|", parts));
+    }
+
+    private Long latestReworkCycleId(Long activeOrderId) {
+        MesProcessPoolActiveOrderReleaseApplicationDO latestRework =
+                applicationMapper.selectLatestReworkClosedByActiveOrderId(activeOrderId);
+        return latestRework == null ? null : latestRework.getId();
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO findExistingApplication(
             Long activeOrderId, String requestKey, String businessKey) {
         MesProcessPoolActiveOrderReleaseApplicationDO requestExisting =
                 applicationMapper.selectByRequestIdempotencyKey(activeOrderId, requestKey);
-        if (requestExisting != null) {
+        if (requestExisting != null && !isReworkClosedReleaseApplication(requestExisting)) {
             return requestExisting;
         }
-        return applicationMapper.selectByBusinessIdempotencyKey(activeOrderId, businessKey);
+        MesProcessPoolActiveOrderReleaseApplicationDO businessExisting =
+                applicationMapper.selectByBusinessIdempotencyKey(activeOrderId, businessKey);
+        return isReworkClosedReleaseApplication(businessExisting) ? null : businessExisting;
+    }
+
+    private boolean isReworkClosedReleaseApplication(MesProcessPoolActiveOrderReleaseApplicationDO existing) {
+        if (existing == null) {
+            return false;
+        }
+        if (MesReleaseFlowStatus.PQC_RELEASE_REJECTED.equals(existing.getApplicationStatus())
+                && NONCONFORMANCE_REWORK.equals(existing.getPqcDecision())) {
+            return true;
+        }
+        MesProcessPoolActiveOrderReleaseApplicationDO latestRework =
+                applicationMapper.selectLatestReworkClosedByActiveOrderId(existing.getActiveOrderId());
+        return latestRework != null && Objects.equals(latestRework.getId(), existing.getId());
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO requireCurrentApplication(

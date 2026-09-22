@@ -16,10 +16,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -59,6 +61,7 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
         List<ProcessPoolTimelineEventRespVO> list = timelineReadMapper.selectTimelinePage(reqVO).stream()
                 .map(this::toEventRespVO)
                 .toList();
+        list = enrichPqcSubmissionGroupRows(reqVO, list);
         fillFeedbackMaterialDetails(list);
         fillReportAllocations(list);
         return new PageResult<>(list, total);
@@ -146,6 +149,9 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setPqcBusinessDate(event.getPqcBusinessDate())
                 .setPqcShiftCode(event.getPqcShiftCode())
                 .setRoundNo(event.getRoundNo())
+                .setPqcSubmissionGroupId(event.getPqcSubmissionGroupId())
+                .setGroupedEventIds(event.getGroupedEventIds())
+                .setGroupedOriginalPayloadJsons(event.getGroupedOriginalPayloadJsons())
                 .setSourceFeedbackId(event.getSourceFeedbackId())
                 .setSourceRecordbookEntryId(event.getSourceRecordbookEntryId())
                 .setSourceRecordbookEventId(event.getSourceRecordbookEventId())
@@ -172,6 +178,125 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setSubmissionReviewedAt(event.getSubmissionReviewedAt())
                 .setModificationHistorySummary(event.getModificationHistorySummary());
         fillProductionSubmissionPayload(event, respVO);
+    }
+
+    private List<ProcessPoolTimelineEventRespVO> enrichPqcSubmissionGroupRows(ProcessPoolTimelinePageReqVO reqVO,
+                                                                              List<ProcessPoolTimelineEventRespVO> list) {
+        if (list.isEmpty() || reqVO == null
+                || !MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(reqVO.getEventType())) {
+            return list;
+        }
+        List<String> groupIds = list.stream()
+                .map(ProcessPoolTimelineEventRespVO::getPqcSubmissionGroupId)
+                .filter(StrUtil::isNotBlank)
+                .map(String::trim)
+                .distinct()
+                .toList();
+        Map<String, List<ProcessPoolTimelineEventReadDO>> eventPayloadsByGroupId = groupIds.isEmpty()
+                ? Map.of()
+                : timelineReadMapper.selectPqcSubmissionGroupPayloadsByGroupIds(groupIds).stream()
+                .filter(row -> StrUtil.isNotBlank(row.getPqcSubmissionGroupId()))
+                .collect(Collectors.groupingBy(row -> row.getPqcSubmissionGroupId().trim(),
+                        LinkedHashMap::new, Collectors.toList()));
+        List<ProcessPoolTimelineEventRespVO> enrichedRows = new ArrayList<>();
+        for (ProcessPoolTimelineEventRespVO row : list) {
+            PqcSubmissionRowAccumulator accumulator = new PqcSubmissionRowAccumulator(row);
+            List<ProcessPoolTimelineEventReadDO> groupedPayloads = StrUtil.isBlank(row.getPqcSubmissionGroupId())
+                    ? List.of()
+                    : eventPayloadsByGroupId.getOrDefault(row.getPqcSubmissionGroupId().trim(), List.of());
+            if (groupedPayloads.isEmpty()) {
+                accumulator.add(row.getId(), row.getOriginalPayloadJson());
+            } else {
+                groupedPayloads.forEach(groupedPayload ->
+                        accumulator.add(groupedPayload.getId(), groupedPayload.getOriginalPayloadJson()));
+            }
+            enrichedRows.add(accumulator.toRow());
+        }
+        return enrichedRows;
+    }
+
+    private class PqcSubmissionRowAccumulator {
+        private final ProcessPoolTimelineEventRespVO representative;
+        private final List<Long> eventIds = new ArrayList<>();
+        private final List<String> payloadJsons = new ArrayList<>();
+        private final List<Map<String, Object>> payloads = new ArrayList<>();
+        private final Map<String, Object> itemDetailByKey = new LinkedHashMap<>();
+        private final Map<String, Object> itemResultByKey = new LinkedHashMap<>();
+
+        private PqcSubmissionRowAccumulator(ProcessPoolTimelineEventRespVO representative) {
+            this.representative = representative;
+        }
+
+        private void add(Long eventId, String originalPayloadJson) {
+            if (eventId == null) {
+                throw new IllegalStateException("PQC提交分组缺少来源事件编号，不能合并显示");
+            }
+            eventIds.add(eventId);
+            if (StrUtil.isNotBlank(originalPayloadJson)) {
+                payloadJsons.add(originalPayloadJson);
+                Map<String, Object> payload = parseOriginalPayload(originalPayloadJson);
+                if (payload != null) {
+                    payloads.add(payload);
+                    appendPqcItems(itemDetailByKey, payload.get("pqcItemDetails"));
+                    appendPqcItems(itemResultByKey, payload.get("itemResults"));
+                }
+            }
+        }
+
+        private ProcessPoolTimelineEventRespVO toRow() {
+            representative.setGroupedEventIds(List.copyOf(eventIds));
+            representative.setGroupedOriginalPayloadJsons(List.copyOf(payloadJsons));
+            if (eventIds.size() <= 1 || payloads.isEmpty()) {
+                return representative;
+            }
+            representative.setOriginalPayloadJson(buildGroupedPqcPayloadJson());
+            return representative;
+        }
+
+        private String buildGroupedPqcPayloadJson() {
+            Map<String, Object> groupedPayload = new LinkedHashMap<>(payloads.get(0));
+            groupedPayload.put("groupedEventIds", List.copyOf(eventIds));
+            groupedPayload.put("groupedOriginalPayloadJsons", List.copyOf(payloadJsons));
+            groupedPayload.put("pqcItemDetails", new ArrayList<>(itemDetailByKey.values()));
+            groupedPayload.put("itemResults", new ArrayList<>(itemResultByKey.values()));
+            groupedPayload.put("actualInspectionQuantity", resolveGroupedQuantity("actualInspectionQuantity"));
+            groupedPayload.put("scrapQuantity", resolveGroupedQuantity("scrapQuantity"));
+            return JsonUtils.toJsonString(groupedPayload);
+        }
+
+        private String resolveGroupedQuantity(String key) {
+            List<String> values = payloads.stream()
+                    .map(payload -> payload.get(key))
+                    .filter(Objects::nonNull)
+                    .map(value -> String.valueOf(value).trim())
+                    .filter(StrUtil::isNotBlank)
+                    .distinct()
+                    .toList();
+            if (values.isEmpty()) {
+                return null;
+            }
+            return String.join("、", values);
+        }
+
+        private void appendPqcItems(Map<String, Object> target, Object source) {
+            if (!(source instanceof List<?> items)) {
+                return;
+            }
+            for (int index = 0; index < items.size(); index++) {
+                Object item = items.get(index);
+                if (!(item instanceof Map<?, ?> rawItem)) {
+                    continue;
+                }
+                Object rawKey = rawItem.get("itemCode");
+                String key = rawKey == null ? "item-" + index : String.valueOf(rawKey).trim();
+                if (StrUtil.isBlank(key)) {
+                    key = "item-" + index;
+                }
+                if (!target.containsKey(key)) {
+                    target.put(key, item);
+                }
+            }
+        }
     }
 
     private void fillProductionSubmissionPayload(ProcessPoolTimelineEventReadDO event,

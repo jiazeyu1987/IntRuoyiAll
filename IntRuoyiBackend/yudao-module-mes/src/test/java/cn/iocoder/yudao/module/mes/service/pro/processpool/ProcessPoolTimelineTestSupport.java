@@ -158,6 +158,14 @@ final class ProcessPoolTimelineTestSupport {
         }
 
         @Override
+        public List<ProcessPoolTimelineEventReadDO> selectPqcSubmissionGroupPayloadsByGroupIds(List<String> groupIds) {
+            return events.stream()
+                    .filter(event -> event.getPqcSubmissionGroupId() != null)
+                    .filter(event -> groupIds.contains(event.getPqcSubmissionGroupId()))
+                    .toList();
+        }
+
+        @Override
         public List<ProcessPoolTimelineReportAllocationReadDO> selectReportAllocationsByEventIds(List<Long> eventIds) {
             return List.of();
         }

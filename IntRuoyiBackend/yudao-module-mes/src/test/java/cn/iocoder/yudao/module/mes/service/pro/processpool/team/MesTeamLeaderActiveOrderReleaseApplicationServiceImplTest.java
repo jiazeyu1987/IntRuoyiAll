@@ -27,13 +27,16 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper batchMapper;
     @Mock
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
+    @Mock
+    private MesTeamLeaderActiveOrderCompletionBatchExecutionService completionBatchExecutionService;
 
     private MesTeamLeaderActiveOrderReleaseApplicationServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(
-                generationService, completionService, receiptMapper, batchMapper, applicationMapper);
+                generationService, completionService, receiptMapper, batchMapper, applicationMapper,
+                completionBatchExecutionService);
     }
 
     @Test
@@ -106,19 +109,25 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
                 .setIdempotencyKey("release-key")
                 .setApplyRemark("生产组长申请放行");
         MesTeamLeaderActiveOrderReleaseApplicationResult expected =
-                new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L);
+                new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L).setVersion(1);
         when(generationService.replayExisting(20L, command)).thenReturn(null);
         when(completionService.completeForRelease(20L, 10L, "release-key", true))
                 .thenReturn(new MesTeamLeaderActiveOrderCompletionResult().setCompletionReceiptId(88L));
         when(generationService.generate(20L, command)).thenReturn(expected);
+        when(completionBatchExecutionService.openOrCreate(20L, 10L, 88L, "release-key")).thenReturn(93L);
+        when(applicationMapper.bindP3BatchExecution(99L, 1, 93L)).thenReturn(1);
 
         MesTeamLeaderActiveOrderReleaseApplicationResult actual = service.apply(20L, command);
 
         assertSame(expected, actual);
+        org.junit.jupiter.api.Assertions.assertEquals(93L, actual.getBatchExecutionId());
+        org.junit.jupiter.api.Assertions.assertEquals(2, actual.getVersion());
         InOrder order = inOrder(completionService, generationService);
         order.verify(generationService).replayExisting(20L, command);
         order.verify(completionService).completeForRelease(20L, 10L, "release-key", true);
         order.verify(generationService).generate(20L, command);
+        verify(completionBatchExecutionService).openOrCreate(20L, 10L, 88L, "release-key");
+        verify(applicationMapper).bindP3BatchExecution(99L, 1, 93L);
     }
 
     @Test
@@ -128,7 +137,10 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
                 .setIdempotencyKey("release-key")
                 .setApplyRemark("生产组长重试申请放行");
         MesTeamLeaderActiveOrderReleaseApplicationResult expected =
-                new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L);
+                new MesTeamLeaderActiveOrderReleaseApplicationResult()
+                        .setApplicationId(99L)
+                        .setVersion(2)
+                        .setBatchExecutionId(93L);
         when(generationService.replayExisting(20L, command)).thenReturn(expected);
 
         MesTeamLeaderActiveOrderReleaseApplicationResult actual = service.apply(20L, command);

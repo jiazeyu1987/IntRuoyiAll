@@ -102,6 +102,14 @@ const applyRouteMetaOverrides = (
   const routePath = normalizeInternalRoutePath(route.path)
   const componentPath = normalizeInternalComponentPath(route.component)
   if (
+    routePath === 'mes/pro/feedback/edhr-nonconformance-review' ||
+    routePath === 'pro/feedback/edhr-nonconformance-review' ||
+    componentPath === 'mes/pro/edhr-nonconformance/NonconformanceReviewPage'
+  ) {
+    meta.hidden = true
+    meta.activeMenu = '/mes/pro/feedback/edhr-batch-execution'
+  }
+  if (
     DCC_UPLOAD_BROWSER_CACHE_ROUTE_PATHS.has(routePath) ||
     DCC_UPLOAD_BROWSER_CACHE_ROUTE_COMPONENTS.has(componentPath) ||
     MES_ROUTE_BATCH_RECORD_TAB_CACHE_ROUTE_PATHS.has(routePath) ||

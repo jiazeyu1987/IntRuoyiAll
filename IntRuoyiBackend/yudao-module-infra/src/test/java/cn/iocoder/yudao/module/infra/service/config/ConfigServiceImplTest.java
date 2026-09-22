@@ -28,6 +28,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @Import(ConfigServiceImpl.class)
 public class ConfigServiceImplTest extends BaseDbUnitTest {
 
+    private static final String IDLE_LOGOUT_MINUTES_KEY = "system.login.idle-timeout-minutes";
+
     @Resource
     private ConfigServiceImpl configService;
 
@@ -65,6 +67,52 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
         // 校验是否更新正确
         ConfigDO config = configMapper.selectById(reqVO.getId()); // 获取最新的
         assertPojoEquals(reqVO, config);
+    }
+
+    @Test
+    public void testCreateConfig_idleLogoutMinutesRejectsInvalidValue() {
+        ConfigSaveReqVO reqVO = randomPojo(ConfigSaveReqVO.class, o -> {
+            o.setId(null);
+            o.setKey(IDLE_LOGOUT_MINUTES_KEY);
+            o.setValue("0");
+        });
+
+        assertServiceException(() -> configService.createConfig(reqVO), CONFIG_IDLE_LOGOUT_MINUTES_INVALID);
+    }
+
+    @Test
+    public void testUpdateConfig_idleLogoutMinutesRejectsInvalidValue() {
+        ConfigDO dbConfig = randomConfigDO(o -> {
+            o.setConfigKey(IDLE_LOGOUT_MINUTES_KEY);
+            o.setValue("15");
+        });
+        configMapper.insert(dbConfig);
+        ConfigSaveReqVO reqVO = randomPojo(ConfigSaveReqVO.class, o -> {
+            o.setId(dbConfig.getId());
+            o.setKey(IDLE_LOGOUT_MINUTES_KEY);
+            o.setValue("1441");
+        });
+
+        assertServiceException(() -> configService.updateConfig(reqVO), CONFIG_IDLE_LOGOUT_MINUTES_INVALID);
+    }
+
+    @Test
+    public void testUpdateConfig_idleLogoutMinutesAcceptsValidValue() {
+        ConfigDO dbConfig = randomConfigDO(o -> {
+            o.setConfigKey(IDLE_LOGOUT_MINUTES_KEY);
+            o.setValue("15");
+        });
+        configMapper.insert(dbConfig);
+        ConfigSaveReqVO reqVO = randomPojo(ConfigSaveReqVO.class, o -> {
+            o.setId(dbConfig.getId());
+            o.setKey(IDLE_LOGOUT_MINUTES_KEY);
+            o.setValue("30");
+        });
+
+        configService.updateConfig(reqVO);
+
+        ConfigDO config = configMapper.selectById(reqVO.getId());
+        assertEquals("30", config.getValue());
     }
 
     @Test

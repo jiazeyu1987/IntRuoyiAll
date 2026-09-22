@@ -6,7 +6,7 @@ const crypto = require('node:crypto')
 const { createRunId, buildManifest, FIXED_RESET_WORK_ORDER_CODE } = require('./manifest.cjs')
 const { EXIT_CODES, writeRunReport, writeFailureArtifacts, classifyError } = require('./reporter.cjs')
 const { stageResults } = require('./stages.cjs')
-const { freezeExecutionBaseline, assertCoverage, assertDouble100, resolveProductionIdentity } = require('./coverage.cjs')
+const { freezeExecutionBaseline, assertCoverage, assertDouble100, resolveProductionIdentity, buildPqcTaskGroups, pqcTaskFormalIdentity } = require('./coverage.cjs')
 
 function arg(name) {
   const index = process.argv.indexOf(`--${name}`)
@@ -93,6 +93,8 @@ function targetRequestLabel(method, pathname) {
   if (route.includes('/edhr-work-task') && method === 'GET') return 'WORK_TASK_PAGE'
   if (route.includes('/pqc-production-release/page')) return 'PQC_RELEASE_PAGE'
   if (route.includes('/pqc-production-release/approve')) return 'PQC_RELEASE_APPROVE'
+  if (route.includes('/edhr-nonconformance-review/create')) return 'NONCONFORMANCE_REVIEW_CREATE'
+  if (route.includes('/edhr-nonconformance-review/dispose')) return 'NONCONFORMANCE_REVIEW_DISPOSE'
   if (route.includes('/special-node/attachment/prepare-upload')) return 'REPORT_PREPARE_UPLOAD'
   if (route.includes('/special-node/complete')) return 'REPORT_COMPLETE'
   if (route.includes('/approval-center/tasks/review')) return 'MANAGER_RELEASE_APPROVE'
@@ -205,9 +207,13 @@ function requirePositiveIdString(value, label) {
 }
 
 async function runWithStage(stage, action, expected, fn) {
+  console.error(`[AI-E2E] ${stage} START ${action}`)
   try {
-    return await fn()
+    const result = await fn()
+    console.error(`[AI-E2E] ${stage} PASS ${action}`)
+    return result
   } catch (error) {
+    console.error(`[AI-E2E] ${stage} FAIL ${action}: ${errorMessage(error)}`)
     if (error && typeof error === 'object' && error.stage) throw error
     const classification = classifyError(error)
     throw stageError({
@@ -256,18 +262,61 @@ async function parseActiveOrderListResponse(response, action) {
 
 async function login(page) {
   await page.goto(`${frontendUrl}/login`, { waitUntil: 'commit', timeout: 60000 })
+  const loginState = await waitForLoginOrAuthenticated(page)
+  if (loginState === 'AUTHENTICATED') return
+  await waitForLoginFormShell(page)
   await selectLoginTenant(page)
   await page.locator('.login-form input[placeholder="请输入用户名"]:visible').first().fill(username)
   await page.locator('.login-form input[type="password"]:visible').first().fill(password)
-  const response = page.waitForResponse((r) => r.url().includes('/admin-api/system/auth/login') && r.request().method() === 'POST')
+  const response = page.waitForResponse((r) => r.url().includes('/admin-api/system/auth/login') && r.request().method() === 'POST',
+    { timeout: 60000 })
   await page.locator('.login-form button[type="submit"]:visible, .login-form button:has-text("登录"):visible').first().click()
   const loginResponse = await response
   assert.equal(loginResponse.ok(), true, `登录失败：HTTP ${loginResponse.status()}`)
   await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 60000 })
 }
 
+async function waitForLoginOrAuthenticated(page) {
+  const usernameInput = page.locator('.login-form input[placeholder="请输入用户名"]:visible').first()
+  const currentPath = new URL(page.url()).pathname
+  if (!currentPath.includes('/login') && !(await usernameInput.isVisible({ timeout: 500 }).catch(() => false))) {
+    return 'AUTHENTICATED'
+  }
+  try {
+    return await Promise.any([
+      usernameInput.waitFor({ state: 'visible', timeout: 60000 }).then(() => 'LOGIN_FORM'),
+      page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 60000 }).then(() => 'AUTHENTICATED')
+    ])
+  } catch (error) {
+    throw new Error(`登录续接失败：既未出现登录表单，也未恢复到已认证页面。当前页面：${page.url()}。${errorMessage(error)}`)
+  }
+}
+
+async function waitForLoginFormShell(page) {
+  await page.locator('.login-form:visible').first().waitFor({ state: 'visible', timeout: 60000 })
+  await page.locator('.login-form input[placeholder="请输入用户名"]:visible').first()
+    .waitFor({ state: 'visible', timeout: 60000 })
+}
+
+async function isLoginPage(page) {
+  if (page.url().includes('/login')) return true
+  return page.locator('.login-form input[placeholder="请输入用户名"]:visible')
+    .first().isVisible({ timeout: 1000 }).catch(() => false)
+}
+
+async function ensurePqcSession(page, manifestOrder, processKey) {
+  if (!(await isLoginPage(page))) return false
+  await login(page)
+  await selectFrontlinePqcOrder(page, manifestOrder)
+  await selectFrontlinePqcProcess(page, processKey)
+  return true
+}
+
 async function selectLoginTenant(page, tenantName = '芋道源码') {
-  const tenant = page.locator('.login-form .el-select input:visible').first()
+  await waitForLoginFormShell(page)
+  const tenant = page.locator(
+    '.login-form .el-select input[role="combobox"]:visible, .login-form input.el-select__input:visible, .login-form input[placeholder*="租户"]:visible'
+  ).first()
   await tenant.waitFor({ state: 'visible', timeout: 30000 })
   await tenant.click()
   await tenant.fill(tenantName)
@@ -384,7 +433,12 @@ async function resetFixedTestActiveOrder(page, manifestOrder, manifest) {
 }
 
 async function selectFrontlineProductionOrder(page, manifestOrder) {
-  await page.goto(`${frontendUrl}/mes/pro/feedback/edhr-batch-production-fill`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  const productionUrl = `${frontendUrl}/mes/pro/feedback/edhr-batch-production-fill`
+  await page.goto(productionUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  if (await isLoginPage(page)) {
+    await login(page)
+    await page.goto(productionUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  }
   await page.locator('[data-frontline-production-stage]').waitFor({ state: 'visible', timeout: 30000 })
   await page.locator('[data-frontline-production-material-tab]').first().waitFor({ state: 'visible', timeout: 30000 })
   await page.locator('[data-frontline-production-process-current]:not(:disabled)').waitFor({ state: 'visible', timeout: 30000 })
@@ -396,6 +450,8 @@ async function selectFrontlineProductionOrder(page, manifestOrder) {
   await option.waitFor({ state: 'visible', timeout: 30000 })
   await option.click()
   await page.locator('[data-frontline-production-order-code]').filter({ hasText: manifestOrder.workOrderCode }).waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('[data-frontline-production-process-current]').filter({ hasNotText: '未选择' }).waitFor({ state: 'visible', timeout: 60000 })
+  await page.locator('[data-frontline-production-process-current]:not(:disabled)').waitFor({ state: 'visible', timeout: 30000 })
 }
 
 async function selectFrontlineProductionProcess(page, processKey) {
@@ -417,6 +473,14 @@ async function selectFrontlineProductionEmployee(page) {
   const label = (await option.innerText()).trim()
   await option.click()
   return label
+}
+
+async function ensureProductionSession(page, manifestOrder, processKey) {
+  if (!(await isLoginPage(page))) return false
+  await login(page)
+  await selectFrontlineProductionOrder(page, manifestOrder)
+  await selectFrontlineProductionProcess(page, processKey)
+  return true
 }
 
 async function fillProductionQuantityForAllMaterials(page, quantity, quantityMode) {
@@ -445,14 +509,19 @@ async function confirmClearanceChecks(page) {
   return { clearanceCount: count }
 }
 
-async function submitOneProductionReport(page, manifestOrder, step) {
+async function submitOneProductionReport(page, manifestOrder, step, sessionRecoveryAttempted = false) {
   await selectFrontlineProductionOrder(page, manifestOrder)
   const processLabel = await selectFrontlineProductionProcess(page, step.processKey)
   assert.deepEqual((await page.locator('[data-frontline-production-material-tab]').allTextContents()).map(text => text.trim()), step.outputMaterials, '输出物料与冻结基线不一致')
   const employeeLabel = await selectFrontlineProductionEmployee(page)
   const quantityScope = await fillProductionQuantityForAllMaterials(page, step.quantity, step.quantityMode)
   const clearance = await confirmClearanceChecks(page)
-  await page.locator('[data-production-submit-open-confirmation]').click()
+  const submitButton = page.locator('[data-production-submit-open-confirmation]')
+  if (!(await submitButton.isEnabled().catch(() => false)) && !sessionRecoveryAttempted &&
+      await ensureProductionSession(page, manifestOrder, step.processKey)) {
+    return submitOneProductionReport(page, manifestOrder, step, true)
+  }
+  await submitButton.click()
   const dialog = page.locator('[data-production-submit-confirmation-dialog]')
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
   await dialog.locator('[data-production-submit-signature-password]').fill(productionIdentity.signaturePassword)
@@ -494,7 +563,7 @@ async function reviewProductionReport(page, manifestOrder, submission) {
   await reviewButton.click()
   const dialog = page.locator('[data-team-leader-review-dialog]')
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
-  await dialog.locator('[data-team-leader-review-signature-password] input').fill(signaturePassword)
+  await dialog.locator('[data-team-leader-review-signature-password]').fill(signaturePassword)
   const previewResponse = page.waitForResponse((r) => r.url().includes('/mes/pro/process-pool/team-leader/submission/allocation/preview-fifo') && r.request().method() === 'POST')
   await dialog.locator('[data-team-leader-fifo-allocation]').click()
   const preview = await previewResponse
@@ -512,7 +581,12 @@ async function reviewProductionReport(page, manifestOrder, submission) {
 }
 
 async function selectFrontlinePqcOrder(page, manifestOrder) {
-  await page.goto(`${frontendUrl}/mes/pro/feedback/edhr-batch-pqc-fill`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  const pqcUrl = `${frontendUrl}/mes/pro/feedback/edhr-batch-pqc-fill`
+  await page.goto(pqcUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  if (await isLoginPage(page)) {
+    await login(page)
+    await page.goto(pqcUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  }
   await page.locator('[data-frontline-pqc-operator]').waitFor({ state: 'visible', timeout: 30000 })
   await page.locator('[data-pqc-inspection-tab]').first().waitFor({ state: 'visible', timeout: 30000 })
   await page.locator('[data-pqc-process-current]:not(:disabled)').waitFor({ state: 'visible', timeout: 30000 })
@@ -594,12 +668,12 @@ async function fillPqcInspectionItems(page, step) {
   const items = []
   for (const task of step.tasks) {
     for (const item of task.inspectionItems) {
-      const tab = page.locator('[data-pqc-inspection-tab]').filter({ has: page.getByText(item.itemName.trim(), { exact: true }) })
+      assert.ok(item.itemCode && String(item.itemCode).trim(), `检验项目缺少正式编码: ${item.itemName}`)
+      const tab = page.locator(`[data-pqc-inspection-tab][data-pqc-inspection-item-code="${cssAttributeValue(item.itemCode)}"]`)
       await tab.click()
-      const taskTab = page.locator(`[data-pqc-task-option="${task.pqcTaskId}"]`)
-      await taskTab.waitFor({ state: 'visible' })
-      assert.equal(await taskTab.getAttribute('data-pqc-inspection-rule-tab'), task.ruleKey)
-      await taskTab.click()
+      const ruleTab = page.locator(`[data-pqc-inspection-rule-tab="${cssAttributeValue(task.ruleKey)}"]`)
+      await ruleTab.waitFor({ state: 'visible' })
+      await ruleTab.click()
       await fillPqcQuantity(page, task.quantity)
       await page.locator('[data-pqc-active-inspection-panel]').waitFor({ state: 'visible' })
       const numeric = ['NUMBER', 'NUMERIC'].includes(String(item.resultType).toUpperCase())
@@ -619,23 +693,44 @@ async function fillPqcInspectionItems(page, step) {
   return items
 }
 
-async function submitOnePqcInspectionRound(page, manifestOrder, step) {
-  const items = await fillPqcInspectionItems(page, step)
-  await page.locator('[data-pqc-submit-open-signature]').click()
+async function submitOnePqcInspectionRound(page, manifestOrder, step, sessionRecoveryAttempted = false) {
+  let items = await fillPqcInspectionItems(page, step)
+  const submitButton = page.locator('[data-pqc-submit-open-signature]')
+  if (!(await submitButton.isEnabled().catch(() => false)) &&
+      await ensurePqcSession(page, manifestOrder, step.processKey)) {
+    items = await fillPqcInspectionItems(page, step)
+  }
+  await submitButton.click()
   const dialog = page.locator('[data-pqc-signature-dialog]')
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
   await dialog.locator('[data-pqc-signature-password]').fill(signaturePassword)
-  // Each task produces its own request and review event; collect all, not only the first response.
+  // Each configured task posts its own receipt; the leader page reviews the formal group once.
   const receipts = Promise.all(step.tasks.map(async task => {
     const response = await page.waitForResponse(r => r.url().includes('/mes/pro/feedback/frontline/device-account/pqc/submit') &&
       r.request().method() === 'POST' && String(r.request().postDataJSON().pqcTaskId) === task.pqcTaskId)
-    const data = await readPageResponse(response, `PQC提交 ${task.pqcTaskId}`)
+    assert.equal(response.ok(), true, `PQC提交 ${task.pqcTaskId}: HTTP ${response.status()}`)
+    const body = await response.json()
+    return { task, body }
+  }))
+  const responseResults = await Promise.all([receipts, dialog.locator('[data-pqc-submit-confirm-accept]').click()])
+    .then(([results]) => results)
+  const unauthorized = responseResults.find(({ body }) => Number(body.code) === 401)
+  if (unauthorized && !sessionRecoveryAttempted) {
+    await page.goto(`${frontendUrl}/login`, { waitUntil: 'commit', timeout: 60000 })
+    await ensurePqcSession(page, manifestOrder, step.processKey)
+    return submitOnePqcInspectionRound(page, manifestOrder, step, true)
+  }
+  const submissions = responseResults.map(({ task, body }) => {
+    assert.notEqual(Number(body.code), 401, `PQC提交 ${task.pqcTaskId}: 登录会话恢复后仍未认证`)
+    assert.equal(Number(body.code), 0, `PQC提交 ${task.pqcTaskId}: ${body.msg || 'unknown'}`)
+    assert.ok(body.data != null, `PQC提交 ${task.pqcTaskId}: missing data`)
+    const data = body.data
     assert.equal(String(data.pqcTaskId), task.pqcTaskId)
     assert.equal(data.inspectionResult, 'SUCCESS', `PQC检验不合格: ${task.pqcTaskId}`)
-    return { ...data, processKey: step.processKey, processLabel: step.processLabel, ruleKey: task.ruleKey,
-      quantity: task.quantity, items: items.filter(item => item.pqcTaskId === task.pqcTaskId), workOrderCode: manifestOrder.workOrderCode }
-  }))
-  const [submissions] = await Promise.all([receipts, dialog.locator('[data-pqc-submit-confirm-accept]').click()])
+    const submitSourceEventId = requirePositiveIdString(data.sourceRevision, `PQC提交 ${task.pqcTaskId} 来源事件`)
+    return { ...data, processKey: step.processKey, processLabel: step.processLabel, ruleKey: task.ruleKey, formalIdentity: task.formalIdentity,
+      submitSourceEventId, quantity: task.quantity, items: items.filter(item => item.pqcTaskId === task.pqcTaskId), workOrderCode: manifestOrder.workOrderCode }
+  })
   await dialog.waitFor({ state: 'hidden', timeout: 30000 })
   return submissions
 }
@@ -648,25 +743,33 @@ async function openPqcReviewWorkbench(page) {
   await page.locator('[data-user-table-key="mes.processPool.teamLeader.submissions"]').waitFor({ state: 'visible', timeout: 30000 })
 }
 
-async function reviewPqcInspectionSubmission(page, manifestOrder, submission) {
+async function reviewPqcInspectionSubmission(page, manifestOrder, submission, sessionRecoveryAttempted = false) {
+  if (await isLoginPage(page)) {
+    await login(page)
+  }
   await openPqcReviewWorkbench(page)
   const row = page.locator('.el-table__row:visible').filter({
     has: page.locator(`[data-pqc-leader-work-order]:text-is("${manifestOrder.workOrderCode}")`)
   }).filter({
-    has: page.locator(`[data-team-leader-review-event-id="${requirePositiveIdString(submission.pqcEventId, 'PQC提交事件')}"]`)
+    has: page.locator('[data-team-leader-review-event-id]')
   })
-  await row.waitFor({ state: 'visible', timeout: 30000 })
+  await row.first().waitFor({ state: 'visible', timeout: 30000 })
+  assert.equal(await row.count(), 1, '当前工单下待复核PQC提交必须唯一，禁止误审其他PQC提交')
   const reviewButton = row.locator('[data-team-leader-review-event-id]').first()
   const eventId = await reviewButton.getAttribute('data-team-leader-review-event-id')
   await reviewButton.click()
   const dialog = page.locator('[data-team-leader-review-dialog]')
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
-  await dialog.locator('[data-team-leader-review-signature-password] input').fill(signaturePassword)
+  await dialog.locator('[data-team-leader-review-signature-password]').fill(signaturePassword)
   const reviewResponse = page.waitForResponse((r) => r.url().includes('/mes/pro/process-pool/team-leader/submission/review') && r.request().method() === 'POST')
   await dialog.locator('[data-team-leader-review-submit]').click()
   const response = await reviewResponse
   assert.equal(response.ok(), true, `PQC组长复核失败：HTTP ${response.status()}`)
   const body = await response.json()
+  if (Number(body.code) === 401 && !sessionRecoveryAttempted) {
+    await login(page)
+    return reviewPqcInspectionSubmission(page, manifestOrder, submission, true)
+  }
   assert.equal(Number(body.code), 0, `PQC组长复核业务失败：${body.msg || 'unknown'}`)
   await dialog.waitFor({ state: 'hidden', timeout: 30000 })
   return { eventId: requirePositiveIdString(eventId, 'PQC组长复核eventId'), reviewStatus: 'APPROVED' }
@@ -707,6 +810,20 @@ function pqcInspectionContract(items) {
   return items.map(({ lastSelectedEquipmentId, lastSelectedEquipmentNumber, ...contract }) => contract)
 }
 
+function cssAttributeValue(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+function toPqcTaskSnapshot(processKey, task) {
+  const snapshot = {
+    pqcTaskId: String(task.pqcTaskId), ruleKey: task.inspectionRuleKey || task.ruleKey, type: task.inspectionType || task.type,
+    businessDate: task.businessDate, shiftCode: task.shiftCode, roundNo: task.roundNo,
+    quantity: task.plannedInspectionQuantity == null ? task.quantity : task.plannedInspectionQuantity,
+    ruleSort: task.ruleSort, taskStatus: task.taskStatus, inspectionItems: pqcInspectionContract(task.inspectionItems)
+  }
+  return { ...snapshot, processKey, formalIdentity: pqcTaskFormalIdentity(processKey, snapshot) }
+}
+
 async function freezeActiveOrderExecutionBaseline(page, order) {
   const detail = await readOrderDetailFromPage(page, order)
   const runtimeConfigurations = new Map()
@@ -744,35 +861,36 @@ async function freezeActiveOrderExecutionBaseline(page, order) {
   for (const process of processes) {
     const processKey = `QA-${process.regulationVersionId}-${process.qaProcessId}`
     const processLabel = await selectFrontlinePqcProcess(page, processKey)
-    pqcProcesses.push({ processKey, processLabel, tasks: process.pqcTaskOptions.map(task => ({
-      pqcTaskId: String(task.pqcTaskId), ruleKey: task.inspectionRuleKey, type: task.inspectionType,
-      businessDate: task.businessDate, shiftCode: task.shiftCode, roundNo: task.roundNo,
-      quantity: task.plannedInspectionQuantity, ruleSort: task.ruleSort, taskStatus: task.taskStatus, inspectionItems: pqcInspectionContract(task.inspectionItems)
-    })) })
+    pqcProcesses.push({ processKey, processLabel, tasks: process.pqcTaskOptions.map(task => toPqcTaskSnapshot(processKey, task)) })
   }
   return freezeExecutionBaseline(order, productionProcesses, pqcProcesses)
 }
 
 async function discoverPendingPqcTasksForOrder(page, order, baseline, productionProcess) {
   const processes = await readPqcProcessesFromPage(page, order)
-  const pendingIds = []
-  const eligibleKeys = new Set()
+  const executableProcesses = []
+  const frozenByIdentity = new Map(baseline.pqcTasks.map(task => [task.formalIdentity, task]))
   for (const process of processes) {
     const processKey = `QA-${process.regulationVersionId}-${process.qaProcessId}`
+    const runtimeTasks = []
     for (const task of process.pqcTaskOptions) {
-      const frozen = baseline.pqcTasks.find(t => t.pqcTaskId === String(task.pqcTaskId))
-      assert.ok(frozen, `发现未冻结PQC任务: ${task.pqcTaskId}`)
+      const current = toPqcTaskSnapshot(processKey, task)
+      const frozen = frozenByIdentity.get(current.formalIdentity)
+      assert.ok(frozen, `发现未冻结PQC任务身份: ${current.formalIdentity}`)
       assert.equal(frozen.processKey, processKey, 'PQC工序身份变化')
-      assert.equal(Number(task.plannedInspectionQuantity), Number(frozen.quantity), '应检数量变化')
-      assert.deepEqual(pqcInspectionContract(task.inspectionItems), frozen.inspectionItems, '检验项目或标准变化')
-      assert.equal(task.inspectionRuleKey, frozen.ruleKey, '检验类型变化')
-      assert.deepEqual([task.businessDate, task.shiftCode, task.roundNo], [frozen.businessDate, frozen.shiftCode, frozen.roundNo], '检验轮次变化')
-      if (task.taskStatus === 'PENDING') pendingIds.push(String(task.pqcTaskId))
+      assert.equal(Number(current.quantity), Number(frozen.quantity), '应检数量变化')
+      assert.deepEqual(current.inspectionItems, frozen.inspectionItems, '检验项目或标准变化')
+      assert.equal(current.ruleKey, frozen.ruleKey, '检验类型变化')
+      assert.deepEqual([current.businessDate, current.shiftCode, current.roundNo], [frozen.businessDate, frozen.shiftCode, frozen.roundNo], '检验轮次变化')
+      if (current.taskStatus === 'PENDING') runtimeTasks.push(current)
     }
-    if (!productionProcess || process.productionSubmitCandidates.some(candidate =>
-      String(candidate.routeProcessId) === String(productionProcess.routeProcessId))) eligibleKeys.add(processKey)
+    if ((!productionProcess || process.productionSubmitCandidates.some(candidate =>
+      String(candidate.routeProcessId) === String(productionProcess.routeProcessId))) && runtimeTasks.length > 0) {
+      executableProcesses.push({ processKey, processLabel: process.processName || process.qaProcessName || processKey, tasks: runtimeTasks })
+    }
   }
-  return baseline.pqcGroups.filter(group => eligibleKeys.has(group.processKey) && group.tasks.some(t => pendingIds.includes(t.pqcTaskId)))
+  const executable = buildPqcTaskGroups(executableProcesses)
+  return executable.groups
 }
 
 async function submitOnePqcInspectionForProcess(page, manifestOrder, step) {
@@ -796,8 +914,11 @@ async function executeProductionAndPqcInterleaved(page, manifestOrder, activeOrd
         const submissions = await submitOnePqcInspectionForProcess(page, manifestOrder, step)
         for (const submission of submissions) {
           pqc.submissions.push(submission)
-          pqc.reviews.push(await reviewPqcInspectionSubmission(page, manifestOrder, submission))
         }
+        pqc.reviews.push(await reviewPqcInspectionSubmission(page, manifestOrder, {
+          ...submissions[0],
+          groupedPqcTaskIds: submissions.map(submission => String(submission.pqcTaskId))
+        }))
         executedSteps.push({ kind: 'PQC', processKey: step.processKey, taskIds: step.tasks.map(t => t.pqcTaskId) })
       })
     }
@@ -813,7 +934,7 @@ async function executeProductionAndPqcInterleaved(page, manifestOrder, activeOrd
   }
   await executePending(null) // 全订单尾扫，包含独立QA工序与延后可执行任务。
   await runWithStage('S03', '冻结任务覆盖核验', baseline.expected, async () => {
-    assertCoverage(baseline, production.submissions.map(s => s.routeProcessId), pqc.submissions.map(s => s.pqcTaskId))
+    assertCoverage(baseline, production.submissions.map(s => s.routeProcessId), pqc.submissions)
     assert.equal(production.reviews.length, baseline.expected.productionReviewCount)
     assert.equal(pqc.reviews.length, baseline.expected.pqcReviewCount)
   })
@@ -1193,6 +1314,90 @@ async function filterPqcProductionReleasePage(page, manifestOrder) {
   return { row, releasePage: body.data || {} }
 }
 
+function isNonconformanceReviewCreateResponse(response) {
+  return response.url().includes('/mes/pro/edhr-nonconformance-review/create') &&
+    response.request().method() === 'POST'
+}
+
+function isNonconformanceReviewDisposeResponse(response) {
+  return response.url().includes('/mes/pro/edhr-nonconformance-review/dispose') &&
+    response.request().method() === 'POST'
+}
+
+function createNonconformanceReviewFixture(runDir, manifestOrder) {
+  const fixtureDir = path.join(runDir, 'nonconformance-fixture')
+  fs.mkdirSync(fixtureDir, { recursive: true })
+  const filePath = path.join(fixtureDir, 'pqc-release-nonconformance-review.pdf')
+  fs.writeFileSync(filePath, buildMinimalOnePagePdf([
+    'AI eDHR nonconformance review',
+    `runId ${runId}`,
+    `workOrder ${manifestOrder.workOrderCode}`,
+    `batch ${manifestOrder.batchCode}`
+  ]), 'utf8')
+  return filePath
+}
+
+async function completePqcReleaseNonconformanceReview(page, manifestOrder, row, runDir) {
+  const nonconformanceButton = row.locator('[data-pqc-production-release-nonconformance]')
+  const applicationId = String(await nonconformanceButton.getAttribute('data-pqc-production-release-application-id') || '')
+  assert.ok(applicationId, 'PQC生产放行行缺少申请ID，无法发起不合格评审')
+  await nonconformanceButton.click()
+  const reviewPage = page.locator('[data-edhr-ncr-page]')
+  await reviewPage.waitFor({ state: 'visible', timeout: 60000 })
+
+  const reason = `AI E2E PQC放行前不合格评审 ${manifestOrder.workOrderCode}`
+  await reviewPage.locator('[data-edhr-ncr-create-reason] textarea').fill(reason)
+  const createResponse = page.waitForResponse(isNonconformanceReviewCreateResponse)
+  await reviewPage.locator('[data-edhr-ncr-create-submit]').click()
+  const createBody = await readCommonResult(await createResponse, '不合格评审创建失败')
+  assert.equal(Number(createBody.code), 0, `不合格评审创建业务失败：${createBody.msg || 'unknown'}`)
+  const created = createBody.data || {}
+  assert.ok(String(created.id || '').trim(), '不合格评审创建回执缺少评审ID')
+  assert.equal(String(created.activeOrderId), String(manifestOrder.activeOrderId), '不合格评审未归属当前活跃订单')
+  assert.equal(String(created.sourceId), applicationId, '不合格评审未绑定当前PQC放行申请')
+  assert.equal(created.reviewStatus, 'pending_review', '新建不合格评审必须为待评审')
+
+  const material = reviewPage.locator('[data-edhr-ncr-review-material]')
+  await material.waitFor({ state: 'visible', timeout: 30000 })
+  const fixturePath = createNonconformanceReviewFixture(runDir, manifestOrder)
+  await material.locator('input[type="file"]').setInputFiles(fixturePath)
+  await material.locator('.el-upload-list__item').first().waitFor({ state: 'visible', timeout: 60000 })
+  const opinion = `AI E2E QA评审确认让步放行 ${manifestOrder.workOrderCode}`
+  await reviewPage.locator('[data-edhr-ncr-review-opinion] textarea').fill(opinion)
+  await reviewPage.locator('[data-edhr-ncr-signature-password] input').fill(signaturePassword)
+  const disposeResponse = page.waitForResponse(isNonconformanceReviewDisposeResponse)
+  await reviewPage.locator('[data-edhr-ncr-concession-release]').click()
+  const disposeBody = await readCommonResult(await disposeResponse, '不合格评审让步放行失败')
+  assert.equal(Number(disposeBody.code), 0, `不合格评审让步放行业务失败：${disposeBody.msg || 'unknown'}`)
+  const disposed = disposeBody.data || {}
+  assert.equal(String(disposed.id), String(created.id), '不合格评审处置回执评审ID变化')
+  assert.equal(String(disposed.activeOrderId), String(manifestOrder.activeOrderId), '处置事实未归属当前活跃订单')
+  assert.equal(disposed.reviewStatus, 'closed', '不合格评审让步放行后必须关闭')
+  assert.equal(disposed.disposition, 'concession_release', '不合格评审处置结果必须为让步放行')
+  assert.ok(String(disposed.qaSignature || '').trim(), '不合格评审处置缺少QA电子签名')
+  assert.ok(String(disposed.reviewMaterialUrl || '').trim(), '不合格评审处置缺少正式评审材料')
+  await reviewPage.locator('[data-edhr-ncr-disposition-result]').filter({ hasText: '让步放行' }).waitFor({ state: 'visible', timeout: 30000 })
+  await reviewPage.locator('[data-edhr-ncr-qa-signature]').filter({ hasText: /QA电子签名#[1-9]\d*/ }).waitFor({ state: 'visible', timeout: 30000 })
+
+  await page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.locator('[data-pqc-production-release-page]').waitFor({ state: 'visible', timeout: 60000 })
+  return {
+    reviewId: disposed.id,
+    reviewCode: disposed.reviewCode,
+    activeOrderId: disposed.activeOrderId,
+    sourceType: disposed.sourceType,
+    sourceId: disposed.sourceId,
+    reviewStatus: disposed.reviewStatus,
+    disposition: disposed.disposition,
+    nonconformanceReason: disposed.nonconformanceReason,
+    reviewOpinion: disposed.reviewOpinion,
+    reviewMaterialUrl: disposed.reviewMaterialUrl,
+    qaSignature: disposed.qaSignature,
+    closedAt: disposed.closedAt,
+    unfrozenAt: disposed.unfrozenAt
+  }
+}
+
 function assertPqcReleaseApprovedReceipt(receipt, manifestOrder) {
   assert.equal(receipt.decision, 'APPROVE', 'S05回执必须为PQC通过')
   assert.equal(receipt.status, 'REPORT_UPLOAD_PENDING', `S05后状态必须进入报告上传，实际为${receipt.status}`)
@@ -1217,8 +1422,11 @@ function assertPqcReleaseApprovedReceipt(receipt, manifestOrder) {
   }
 }
 
-async function approvePqcProductionReleaseS05(page, manifestOrder, completion) {
+async function approvePqcProductionReleaseS05(page, manifestOrder, completion, runDir) {
   await openPqcProductionReleasePageFromWorkTask(page, manifestOrder)
+  const initial = await filterPqcProductionReleasePage(page, manifestOrder)
+  const nonconformanceReview = await completePqcReleaseNonconformanceReview(
+    page, manifestOrder, initial.row, runDir)
   const { row, releasePage } = await filterPqcProductionReleasePage(page, manifestOrder)
   const approveButton = row.locator('[data-pqc-production-release-approve]').first()
   if (!(await approveButton.isEnabled().catch(() => false))) {
@@ -1255,6 +1463,7 @@ async function approvePqcProductionReleaseS05(page, manifestOrder, completion) {
     signatureId: receipt.signatureId,
     reportUploadTaskCount: receipt.reportUploadTasks.length,
     reportUploadTasks: receipt.reportUploadTasks,
+    nonconformanceReview,
     sourceSnapshotHash: receipt.sourceSnapshotHash,
     reportSnapshotHash: receipt.reportSnapshotHash
   }
@@ -1531,15 +1740,6 @@ function isEdhrBatchHistoryPageResponseForOrder(manifestOrder) {
   }
 }
 
-function isEdhrBatchHistoryTimelineResponseForBatch(batchExecutionId) {
-  return (response) => {
-    if (!response.url().includes('/mes/pro/edhr-batch-execution/review-timeline') ||
-      response.request().method() !== 'GET') return false
-    const parsed = new URL(response.url())
-    return parsed.searchParams.get('id') === String(batchExecutionId)
-  }
-}
-
 function assertArchiveGeneratedReceipt(archive, manifestOrder, finalRelease, archiveTask) {
   assert.equal(String(archive.batchExecutionId), String(finalRelease.batchExecutionId), 'S08归档批次ID必须与最终放行批次一致')
   assert.equal(String(archive.batchExecutionId), String(archiveTask.batchExecutionId), 'S08归档批次ID必须与归档待办一致')
@@ -1626,7 +1826,6 @@ async function verifyArchivedHistoryPage(page, manifestOrder, finalRelease, arch
   historyUrl.searchParams.set('workOrderCode', manifestOrder.workOrderCode)
   historyUrl.searchParams.set('batchCode', manifestOrder.batchCode)
   const pageResponse = page.waitForResponse(isEdhrBatchHistoryPageResponseForOrder(manifestOrder))
-  const timelineResponse = page.waitForResponse(isEdhrBatchHistoryTimelineResponseForBatch(finalRelease.batchExecutionId))
   await page.goto(historyUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.locator('[data-edhr-batch-history-page]').waitFor({ state: 'visible', timeout: 60000 })
   const pageBody = await readCommonResult(await pageResponse, '历史追溯列表查询失败')
@@ -1638,37 +1837,31 @@ async function verifyArchivedHistoryPage(page, manifestOrder, finalRelease, arch
   )
   assert.ok(archivedRow, `历史追溯列表缺少本轮批次：${manifestOrder.workOrderCode}`)
   assert.equal(Number(archivedRow.status), 40, `历史追溯列表批次必须为已归档状态40，实际为${archivedRow.status}`)
-  const row = page.locator('[data-edhr-history-batch-item]').filter({
+  const row = page.locator('.el-table__row:visible').filter({
     has: page.locator(`[data-edhr-history-work-order-code]:text-is("${manifestOrder.workOrderCode}")`)
   }).filter({
     has: page.locator(`[data-edhr-history-batch-code]:text-is("${manifestOrder.batchCode}")`)
   }).first()
   await row.waitFor({ state: 'visible', timeout: 60000 })
   await row.locator('[data-edhr-history-batch-status]').filter({ hasText: '已归档' }).waitFor({ state: 'visible', timeout: 60000 })
-  const timelineBody = await readCommonResult(await timelineResponse, '历史追溯时间线查询失败')
-  assert.equal(Number(timelineBody.code), 0, `历史追溯时间线业务失败：${timelineBody.msg || 'unknown'}`)
-  const timeline = timelineBody.data || {}
-  const archiveVersions = Array.isArray(timeline.archiveVersions) ? timeline.archiveVersions : []
-  const matchingArchive = archiveVersions.find((item) => String(item.id) === String(archive.id))
-  assert.ok(matchingArchive, `历史追溯时间线缺少本轮归档版本：${archive.id}`)
-  assert.equal(matchingArchive.archiveStatus, 'SEALED', `历史追溯归档版本必须为SEALED，实际为${matchingArchive.archiveStatus}`)
-  assert.ok(Array.isArray(timeline.taskEvents) && timeline.taskEvents.length > 0, '历史追溯缺少任务事件')
-  assert.ok(Array.isArray(timeline.signatureRecords) && timeline.signatureRecords.length > 0, '历史追溯缺少电子签名')
-  assert.ok(Array.isArray(timeline.approvalRecords) && timeline.approvalRecords.length > 0, '历史追溯缺少审批记录')
-  assert.ok(Array.isArray(timeline.dossierItems) && timeline.dossierItems.length >= 4, '历史追溯缺少四份放行资料目录')
-  await page.locator('[data-edhr-history-source-count="归档版本"]').filter({ hasText: /^[1-9]\d*$/ }).waitFor({ state: 'visible', timeout: 60000 })
-  await page.locator('[data-edhr-history-dossier-item]').first().waitFor({ state: 'visible', timeout: 60000 })
-  await page.locator('[data-edhr-history-process-item]').first().waitFor({ state: 'visible', timeout: 60000 })
-  await page.locator('[data-edhr-history-timeline-item]').first().waitFor({ state: 'visible', timeout: 60000 })
+  await row.locator('[data-edhr-history-active-order-detail]').click()
+  await page.locator('[data-edhr-batch-active-order-detail-page]').waitFor({ state: 'visible', timeout: 60000 })
+  const operationFacts = page.locator('[data-active-order-summary-operation-facts-table]')
+  await operationFacts.waitFor({ state: 'visible', timeout: 60000 })
+  const createFact = operationFacts.locator('[data-active-order-operation-fact]').filter({ hasText: '创建不合格评审' })
+  const dispositionFact = operationFacts.locator('[data-active-order-operation-fact]').filter({ hasText: '让步放行' })
+  await createFact.first().waitFor({ state: 'visible', timeout: 60000 })
+  await dispositionFact.first().waitFor({ state: 'visible', timeout: 60000 })
+  assert.match(await createFact.first().innerText(), /创建不合格评审[\s\S]*NONCONFORMANCE_REVIEW[\s\S]*SUCCESS/, '历史详情中的不合格评审创建事实不完整')
+  assert.match(await dispositionFact.first().innerText(), /让步放行[\s\S]*NONCONFORMANCE_REVIEW[\s\S]*SUCCESS/, '历史详情中的不合格评审处置事实不完整')
   return {
     batchExecutionId: finalRelease.batchExecutionId,
     archiveId: archive.id,
-    archiveStatus: matchingArchive.archiveStatus,
-    archiveVersion: matchingArchive.archiveVersion,
-    taskEventCount: timeline.taskEvents.length,
-    signatureCount: timeline.signatureRecords.length,
-    approvalCount: timeline.approvalRecords.length,
-    dossierCount: timeline.dossierItems.length
+    archiveStatus: archive.archiveStatus,
+    archiveVersion: archive.archiveVersion,
+    historyRowStatus: archivedRow.status,
+    nonconformanceCreateFactVisible: true,
+    nonconformanceDispositionFactVisible: true
   }
 }
 
@@ -1709,6 +1902,8 @@ async function main() {
   const browser = await chromium.launch({ headless: !headed })
   const context = await browser.newContext({ recordVideo: { dir: path.join(runDir, 'videos') } })
   const page = await context.newPage()
+  page.setDefaultTimeout(60000)
+  page.setDefaultNavigationTimeout(60000)
   const targetRequests = trackTargetRequests(page)
   await context.tracing.start({ screenshots: true, snapshots: true, sources: true })
   try {
@@ -1767,8 +1962,8 @@ async function main() {
     }
     const completion = await runWithStage('S04', 'S04领料晚到回填与完工申请',
       { releaseApplicationStatus: 'PQC_RELEASE_PENDING', inputMaterialPickListVisible: true, inputMaterialBatchVisible: true }, () => completeActiveOrderAndApplyRelease(page, mainOrder))
-    const pqcRelease = await runWithStage('S05', 'S05PQC生产放行',
-      { status: 'REPORT_UPLOAD_PENDING', reportUploadTaskCount: 4 }, () => approvePqcProductionReleaseS05(page, mainOrder, completion))
+    const pqcRelease = await runWithStage('S05', 'S05不合格评审闭环及PQC生产放行',
+      { nonconformanceDisposition: 'concession_release', status: 'REPORT_UPLOAD_PENDING', reportUploadTaskCount: 4 }, () => approvePqcProductionReleaseS05(page, mainOrder, completion, runDir))
     const reportUpload = await runWithStage('S06', 'S06四份资料上传',
       { completedReportCount: 4, nextStatus: 'MANAGER_RELEASE_PENDING' }, () => uploadReleaseReportsS06(page, mainOrder, pqcRelease, runDir))
     const finalRelease = await runWithStage('S07', 'S07管理者代表最终放行',

@@ -1080,6 +1080,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setProcesses(detail.getProcesses().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderProcessDetailRespVO)
                         .toList())
+                .setActiveOrderStatus(toActiveOrderStatusSummaryRespVO(detail.getActiveOrderStatus()))
                 .setPqcProductionRelease(toActiveOrderPqcProductionReleaseSummaryRespVO(
                         detail.getPqcProductionRelease()))
                 .setOperationFacts(detail.getOperationFacts().stream()
@@ -1292,6 +1293,17 @@ public class MesProcessPoolTeamLeaderController {
                 .setSignature(toActiveOrderSignatureDetailRespVO(summary.getSignature()));
     }
 
+    private static MesTeamLeaderActiveOrderDetailRespVO.ActiveOrderStatusSummary
+            toActiveOrderStatusSummaryRespVO(
+            MesTeamLeaderActiveOrderDetail.ActiveOrderStatusSummary summary) {
+        if (summary == null) {
+            return null;
+        }
+        return new MesTeamLeaderActiveOrderDetailRespVO.ActiveOrderStatusSummary()
+                .setStatus(summary.getStatus())
+                .setStatusLabel(summary.getStatusLabel());
+    }
+
     private static MesTeamLeaderActiveOrderDetailRespVO.OperationFact toActiveOrderOperationFactRespVO(
             MesTeamLeaderActiveOrderDetail.OperationFact fact) {
         return new MesTeamLeaderActiveOrderDetailRespVO.OperationFact()
@@ -1303,6 +1315,12 @@ public class MesProcessPoolTeamLeaderController {
                 .setActorUserId(fact.getActorUserId())
                 .setActorName(fact.getActorName())
                 .setSignatureId(fact.getSignatureId())
+                .setNonconformanceReason(fact.getNonconformanceReason())
+                .setReviewMaterialUrl(fact.getReviewMaterialUrl())
+                .setReviewOpinion(fact.getReviewOpinion())
+                .setDisposition(fact.getDisposition())
+                .setQaSignature(fact.getQaSignature())
+                .setQaUserId(fact.getQaUserId())
                 .setResultStatus(fact.getResultStatus())
                 .setOccurredAt(fact.getOccurredAt())
                 .setSourceSnapshotHash(fact.getSourceSnapshotHash());

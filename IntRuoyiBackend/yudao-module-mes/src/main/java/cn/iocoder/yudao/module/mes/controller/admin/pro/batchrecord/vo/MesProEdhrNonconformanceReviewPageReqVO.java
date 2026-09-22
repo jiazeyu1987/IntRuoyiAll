@@ -14,6 +14,8 @@ public class MesProEdhrNonconformanceReviewPageReqVO extends PageParam {
 
     private String sourceType;
 
+    private Long sourceId;
+
     private Long batchExecutionId;
 
     private String batchExecutionCode;

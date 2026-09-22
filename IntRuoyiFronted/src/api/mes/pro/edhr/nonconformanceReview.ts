@@ -1,5 +1,6 @@
 import request from '@/config/axios'
 import type { EdhrRouteId } from './batchExecution'
+import type { TeamLeaderActiveOrderDetailRespVO } from '@/api/mes/pro/processpool/teamLeader'
 
 const EDHR_NONCONFORMANCE_REVIEW_BASE_URL = '/mes/pro/edhr-nonconformance-review'
 
@@ -43,14 +44,30 @@ export interface EdhrBatchExecutionRejectReqVO {
 export interface EdhrNonconformanceReviewDisposeReqVO {
   id: EdhrRouteId
   disposition: EdhrNonconformanceReviewDisposition
-  reviewMaterialUrl: string
+  reviewMaterialUrl?: string
+  reviewMaterials: EdhrNonconformanceReviewMaterial[]
+  reviewMaterialEvents?: EdhrNonconformanceReviewMaterialEvent[]
   reviewOpinion: string
   signaturePassword: string
+}
+
+export interface EdhrNonconformanceReviewMaterial {
+  url: string
+  fileName?: string
+  sortNo?: number
+}
+
+export interface EdhrNonconformanceReviewMaterialEvent {
+  action: 'UPLOAD' | 'DELETE'
+  url: string
+  fileName?: string
+  sequence?: number
 }
 
 export interface EdhrNonconformanceReviewPageReqVO extends PageParam {
   reviewCode?: string
   sourceType?: EdhrNonconformanceReviewSourceType
+  sourceId?: EdhrRouteId
   batchExecutionId?: EdhrRouteId
   batchExecutionCode?: string
   workOrderCode?: string
@@ -61,6 +78,7 @@ export interface EdhrNonconformanceReviewPageReqVO extends PageParam {
 
 export interface EdhrNonconformanceReviewRespVO {
   id: number
+  activeOrderId?: number
   reviewCode?: string
   sourceType?: EdhrNonconformanceReviewSourceType
   sourceId?: number
@@ -73,6 +91,8 @@ export interface EdhrNonconformanceReviewRespVO {
   reviewStatus?: EdhrNonconformanceReviewStatus
   nonconformanceReason?: string
   reviewMaterialUrl?: string
+  reviewMaterialFileId?: number
+  reviewMaterialsJson?: string
   reviewOpinion?: string
   qaSignature?: string
   qaUserId?: number
@@ -123,6 +143,13 @@ export const getNonconformanceReview = async (id: EdhrRouteId) => {
   return await request.get<EdhrNonconformanceReviewRespVO>({
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/get`,
     params: { id }
+  })
+}
+
+export const getNonconformanceReviewActiveOrderDetail = async (reviewId: EdhrRouteId) => {
+  return await request.get<TeamLeaderActiveOrderDetailRespVO>({
+    url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/active-order-detail`,
+    params: { reviewId }
   })
 }
 

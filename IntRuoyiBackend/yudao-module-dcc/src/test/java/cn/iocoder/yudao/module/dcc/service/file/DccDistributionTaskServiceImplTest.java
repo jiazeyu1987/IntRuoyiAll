@@ -21,7 +21,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -108,7 +107,7 @@ class DccDistributionTaskServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void getMyDistributionTaskPage_missingDistribution_failsFast() {
+    void getMyDistributionTaskPage_missingDistribution_returnsEmptyPage() {
         DccDistributionTaskPageReqVO reqVO = new DccDistributionTaskPageReqVO();
         reqVO.setPageNo(1);
         reqVO.setPageSize(10);
@@ -121,10 +120,55 @@ class DccDistributionTaskServiceImplTest extends BaseMockitoUnitTest {
                         .build()));
         when(distributionMapper.selectById(301L)).thenReturn(null);
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> distributionTaskService.getMyDistributionTaskPage(99L, reqVO));
-        assertEquals("DCC distribution recipient 501 references missing distribution 301", ex.getMessage());
+        PageResult<DccDistributionTaskRespVO> page =
+                distributionTaskService.getMyDistributionTaskPage(99L, reqVO);
+
+        assertEquals(0L, page.getTotal());
+        assertTrue(page.getList().isEmpty());
         verify(distributionMapper).selectById(301L);
+    }
+
+    @Test
+    void getMyDistributionTaskPage_missingDistribution_skipsStaleRecipientAndKeepsValidTask() {
+        DccDistributionTaskPageReqVO reqVO = new DccDistributionTaskPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        reqVO.setStatus("READY_TO_ACKNOWLEDGE");
+        when(distributionRecipientMapper.selectListByUserId(99L)).thenReturn(List.of(
+                DccControlledFileDistributionRecipientDO.builder()
+                        .id(501L)
+                        .distributionId(301L)
+                        .userId(99L)
+                        .build(),
+                DccControlledFileDistributionRecipientDO.builder()
+                        .id(502L)
+                        .distributionId(302L)
+                        .userId(99L)
+                        .build()));
+        when(distributionMapper.selectById(301L)).thenReturn(null);
+        when(distributionMapper.selectById(302L)).thenReturn(DccControlledFileDistributionDO.builder()
+                .id(302L)
+                .controlledFileId(900L)
+                .departmentId(300L)
+                .distributionMedium(DccDistributionMediumEnum.PUBLIC_FOLDER.getCode())
+                .status(DccControlledFileDistributionStatusEnum.SENT.getCode())
+                .build());
+        when(controlledFileMapper.selectById(900L)).thenReturn(DccControlledFileDO.builder()
+                .id(900L)
+                .categoryId(15L)
+                .fileName("仍有效的分发确认.pdf")
+                .title("仍有效的分发确认")
+                .fileNumber("DCC-DIST-002")
+                .versionNo("A")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .publishedTime(LocalDateTime.of(2026, 7, 20, 9, 30))
+                .build());
+
+        PageResult<DccDistributionTaskRespVO> page =
+                distributionTaskService.getMyDistributionTaskPage(99L, reqVO);
+
+        assertEquals(1L, page.getTotal());
+        assertEquals(502L, page.getList().get(0).getRecipientId());
     }
 
     @Test

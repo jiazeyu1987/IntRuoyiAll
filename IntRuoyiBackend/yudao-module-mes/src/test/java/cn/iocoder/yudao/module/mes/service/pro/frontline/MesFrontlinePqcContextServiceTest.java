@@ -40,6 +40,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService;
@@ -165,6 +166,7 @@ class MesFrontlinePqcContextServiceTest {
     private MesQaInspectionRegulationService regulationService;
     private MesPqcItemEquipmentConfigService pqcItemEquipmentConfigService;
     private MesMdItemService itemService;
+    private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     private MesFrontlinePqcContextService service;
 
     @BeforeEach
@@ -196,6 +198,7 @@ class MesFrontlinePqcContextServiceTest {
         eventService = mock(MesProcessPoolEventService.class);
         pqcRecordMapper = mock(MesProProcessPoolPqcRecordMapper.class);
         signatureService = mock(MesProBatchRecordExecutionSignatureService.class);
+        nonconformanceReviewService = mock(MesProEdhrNonconformanceReviewService.class);
         service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, processPoolEventMapper,
                 processSnapshotMapper,
                 teamDeviceMapper,
@@ -203,7 +206,7 @@ class MesFrontlinePqcContextServiceTest {
                 regulationMapper, versionMapper, regulationProcessMapper, regulationItemMapper,
                 regulationService, pqcItemEquipmentConfigService, pqcTaskMapper,
                 pieceDetailMapper, itemService, scopeMapper,
-                adminUserApi, eventService, pqcRecordMapper, signatureService);
+                adminUserApi, eventService, pqcRecordMapper, signatureService, nonconformanceReviewService);
     }
 
     @Test
@@ -537,6 +540,8 @@ class MesFrontlinePqcContextServiceTest {
         MesFrontlinePqcSubmitResult result = service.submitPqcInspection(loginUserId, command);
 
         assertEquals(pqcEventId, result.pqcEventId());
+        verify(nonconformanceReviewService).ensurePqcSubmissionNotFrozen(ACTIVE_ORDER_ID, WORK_ORDER_ID,
+                "PQC提交");
         verify(pqcTaskMapper).updateSubmittedIfPending(eq(pqcTaskId), eq(2), anyString(), anyString(), anyString());
         assertNull(command.getProductionSubmitEventId());
         ArgumentCaptor<MesProcessPoolCreatePqcInspectionReqDTO> requestCaptor =

@@ -120,6 +120,11 @@ export interface ProcessPoolTimelineEventVO {
   pqcBusinessDate?: string
   pqcShiftCode?: string
   roundNo?: number
+  pqcSubmissionGroupId?: string
+  groupedEventIds?: number[]
+  groupedOriginalPayloadJsons?: string[]
+  submittedEventId?: number
+  submittedEventIds?: number[]
   sourceFeedbackId?: number
   sourceRecordbookEntryId?: number
   sourceRecordbookEventId?: number

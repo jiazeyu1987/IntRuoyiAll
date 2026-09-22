@@ -687,7 +687,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setRejectedBy(latest.getRejectedBy())
                 .setRejectedAt(latest.getRejectedAt())
                 .setRejectReason(latest.getRejectReason())
-                .setAggregateHash(latest.getAggregateHash());
+                .setAggregateHash(latest.getAggregateHash())
+                .setReleaseTransactionId(releaseTransaction == null ? null : releaseTransaction.getId())
+                .setReleaseStatus(releaseTransaction == null ? null : releaseTransaction.getReleaseStatus())
+                .setReleaseApprovedBy(releaseTransaction == null ? null : releaseTransaction.getApprovedBy())
+                .setReleaseApprovedAt(releaseTransaction == null ? null : releaseTransaction.getApprovedAt());
     }
 
     @Override
@@ -6818,7 +6822,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setRejectedBy(latest.getRejectedBy())
                 .setRejectedAt(latest.getRejectedAt())
                 .setRejectReason(latest.getRejectReason())
-                .setAggregateHash(latest.getAggregateHash());
+                .setAggregateHash(latest.getAggregateHash())
+                .setReleaseTransactionId(releaseTransaction == null ? null : releaseTransaction.getId())
+                .setReleaseStatus(releaseTransaction == null ? null : releaseTransaction.getReleaseStatus())
+                .setReleaseApprovedBy(releaseTransaction == null ? null : releaseTransaction.getApprovedBy())
+                .setReleaseApprovedAt(releaseTransaction == null ? null : releaseTransaction.getApprovedAt());
     }
 
     private Long resolveBatchActiveOrderId(Long batchExecutionId) {

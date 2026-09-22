@@ -45,6 +45,16 @@
         data-active-order-detail-record-boundary
       >
         <strong>{{ recordScopeLabel }}</strong>
+        <div
+          v-if="detail.activeOrderStatus?.statusLabel"
+          class="team-leader-workbench__active-order-current-status"
+          data-active-order-current-status
+        >
+          <span>当前状态</span>
+          <el-tag :type="activeOrderStatusTagType">
+            {{ detail.activeOrderStatus.statusLabel }}
+          </el-tag>
+        </div>
         <span v-if="recordScope === 'FORMAL_BATCH_SOURCE_DETAIL'">正式批记录来源详情</span>
       </div>
 
@@ -194,6 +204,37 @@
             </table>
 
             <table
+              v-if="summaryMarketRelease"
+              class="team-leader-workbench__active-order-summary-table"
+              data-active-order-summary-market-release-table
+            >
+              <tbody>
+                <tr>
+                  <th colspan="4" class="team-leader-workbench__active-order-summary-title">
+                    上市放行
+                  </th>
+                </tr>
+                <tr>
+                  <th>上市放行状态</th>
+                  <td>{{ summaryMarketRelease.statusLabel }}</td>
+                  <th>上市放行电子签名</th>
+                  <td>
+                    <el-button
+                      link
+                      type="primary"
+                      class="team-leader-workbench__signature-link"
+                      data-active-order-summary-market-release-signature
+                      :disabled="!summaryMarketRelease.signature?.signatureId"
+                      @click="openActiveOrderSignatureRecord(summaryMarketRelease.signature)"
+                    >
+                      {{ formatMarketReleaseSignatureCellText(summaryMarketRelease) }}
+                    </el-button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <table
               v-if="detail.operationFacts?.length"
               class="team-leader-workbench__active-order-summary-table"
               data-active-order-summary-operation-facts-table
@@ -212,17 +253,39 @@
                   <th>结果</th>
                   <th>发生时间</th>
                 </tr>
-                <tr
-                  v-for="fact in detail.operationFacts"
-                  :key="fact.id"
-                >
-                  <td>{{ fact.operationName || fact.operationType }}</td>
-                  <td>{{ fact.sourceType }}</td>
-                  <td>{{ fact.sourceId }}</td>
-                  <td>{{ fact.actorName }}</td>
-                  <td>{{ fact.resultStatus }}</td>
-                  <td>{{ formatDateTime(fact.occurredAt) }}</td>
-                </tr>
+                <template v-for="fact in detail.operationFacts" :key="fact.id">
+                  <tr
+                    data-active-order-operation-fact
+                    :data-active-order-operation-type="fact.operationType"
+                    :data-active-order-operation-source-id="fact.sourceId"
+                  >
+                    <td>{{ formatActiveOrderOperationType(fact) }}</td>
+                    <td>{{ formatActiveOrderOperationSourceType(fact.sourceType) }}</td>
+                    <td>{{ fact.sourceId }}</td>
+                    <td>{{ fact.actorName }}</td>
+                    <td>{{ formatActiveOrderOperationResultStatus(fact.resultStatus) }}</td>
+                    <td>{{ formatDateTime(fact.occurredAt) }}</td>
+                  </tr>
+                  <tr v-if="hasNonconformanceEvidence(fact)" data-active-order-operation-ncr-trace>
+                    <td colspan="6">
+                      <div class="team-leader-workbench__operation-fact-evidence">
+                        <span>不合格原因：{{ fact.nonconformanceReason || '--' }}</span>
+                        <span>评审意见：{{ fact.reviewOpinion || '--' }}</span>
+                        <span>处置结果：{{ resolveNonconformanceDispositionLabel(fact.disposition) }}</span>
+                        <span>QA签名：{{ fact.qaSignature || '--' }}</span>
+                        <el-button
+                          v-if="fact.reviewMaterialUrl || fact.reviewMaterialFileId"
+                          link
+                          type="primary"
+                          data-active-order-ncr-review-material-preview
+                          @click="previewNonconformanceReviewMaterial(fact)"
+                        >
+                          查看评审材料
+                        </el-button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
               </tbody>
             </table>
           </section>
@@ -1753,6 +1816,7 @@ import type {
   TeamLeaderActiveOrderPqcSubmissionDetailRespVO,
   TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO,
   TeamLeaderActiveOrderProcessDetailRespVO,
+  TeamLeaderActiveOrderOperationFactRespVO,
   TeamLeaderActiveOrderClearanceConfirmationRespVO,
   TeamLeaderActiveOrderSubmissionDetailRespVO,
   TeamLeaderActiveOrderSubmissionDeviceDetailRespVO,
@@ -1769,6 +1833,7 @@ import {
 import type { ProWorkOrderVO } from '@/api/mes/pro/workorder'
 import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-list'
 import {
+  buildMesEdhrNonconformanceReviewMaterialPreviewSource,
   buildMesActiveOrderDossierFilePreviewSource,
   type OnlineFilePreviewSource
 } from '@/api/common/filePreview'
@@ -1824,6 +1889,14 @@ const showPqcSubmissionTab = computed(
   () => displayMode.value === 'full' || displayMode.value === 'pqc'
 )
 const showSummaryTab = computed(() => !embedded.value)
+const activeOrderStatusTagType = computed(() => {
+  const status = props.detail?.activeOrderStatus?.status
+  if (status === 'RELEASED') return 'success'
+  if (status === 'PQC_RELEASE_REJECTED') return 'warning'
+  if (status === 'PQC_RELEASE_PENDING') return 'warning'
+  if (status === 'REPORT_UPLOAD_PENDING' || status === 'MANAGER_RELEASE_PENDING') return 'primary'
+  return 'info'
+})
 const blankSummaryField = ''
 const dossierFileTabDefinitions = [
   { key: 'INCOMING_INSPECTION_FILE', label: '来料检文件' },
@@ -1832,6 +1905,13 @@ const dossierFileTabDefinitions = [
   { key: 'OTHER_FILE', label: '其他文件' }
 ]
 type UploadError = Parameters<UploadRequestOptions['onError']>[0]
+
+interface ActiveOrderMarketReleaseSummary {
+  statusLabel: string
+  signature?: TeamLeaderActiveOrderSignatureDetailRespVO
+  actorName?: string
+  occurredAt?: string | number
+}
 
 const resolveInitialActiveTab = () => {
   const requestedTab = props.initialActiveTab?.trim()
@@ -1843,6 +1923,106 @@ const resolveInitialActiveTab = () => {
 }
 
 const formatDateTime = (value?: string | number | Date) => formatDateTimeValue(value)
+
+const activeOrderOperationTypeLabels: Record<string, string> = {
+  ADD_ACTIVE_ORDER: '加入活跃订单',
+  CLOSE_ACTIVE_ORDER_BY_RELEASE: '按上市放行关闭活跃订单',
+  REBUILD_ACTIVE_ORDER: '重建活跃订单',
+  REMOVE_ACTIVE_ORDER: '移除活跃订单',
+  MOVE_ACTIVE_ORDER: '调整活跃订单顺序',
+  BATCH_EXECUTION_CREATED_FROM_RELEASE: '创建生产放行批次执行',
+  BATCH_RECORD_RELEASE_APPROVED: '批记录上市放行',
+  MANAGER_RELEASE_TASK_CREATED: '创建管理者代表放行任务',
+  PQC_PRODUCTION_RELEASE_APPLIED: '推送生产放行',
+  PQC_PRODUCTION_RELEASE_APPROVED: '生产放行通过',
+  PQC_PRODUCTION_RELEASE_REJECTED: '生产放行退回',
+  RELEASE_REPORT_NODE_COMPLETED: '生产放行报告节点完成',
+  RELEASE_REPORT_UPLOAD_COMPLETED: '生产放行报告上传完成',
+  UPLOAD_ACTIVE_ORDER_DOSSIER_FILE: '活跃订单资料上传',
+  DELETE_ACTIVE_ORDER_DOSSIER_FILE: '活跃订单资料删除'
+}
+
+const activeOrderOperationNameLabels: Record<string, string> = {
+  '查看 eDHR 批次详情': '查看电子批记录批次详情',
+  'P3推送PQC生产放行': '第三阶段推送生产放行',
+  'PQC生产放行': '生产放行'
+}
+
+const activeOrderOperationSourceTypeLabels: Record<string, string> = {
+  ACTIVE_ORDER: '活跃订单',
+  ACTIVE_ORDER_DOSSIER_FILE: '活跃订单资料文件',
+  BATCH_EXECUTION: '批次执行',
+  BATCH_EXECUTION_TASK: '批次执行任务',
+  MANAGER_ELECTRONIC_SIGNATURE: '管理者代表电子签名',
+  MANAGER_RELEASE_WORK_TASK: '管理者代表放行任务',
+  PRODUCTION_RELEASE_APPLICATION: '生产放行申请',
+  RELEASE_TRANSACTION: '上市放行事务'
+}
+
+const activeOrderOperationResultStatusLabels: Record<string, string> = {
+  BLOCKED: '已阻断',
+  CANCELED: '已取消',
+  FAILED: '失败',
+  PENDING: '处理中',
+  REJECTED: '已拒绝',
+  SUCCESS: '成功'
+}
+
+const isReadableChineseOperationText = (value?: string) => {
+  const normalized = String(value || '').trim()
+  if (!normalized) return false
+  if (normalized.includes('_')) return false
+  return /[\u4e00-\u9fa5]/.test(normalized) && !/[A-Za-z]/.test(normalized)
+}
+
+const formatActiveOrderOperationType = (fact: TeamLeaderActiveOrderOperationFactRespVO) => {
+  const operationName = String(fact.operationName || '').trim()
+  if (activeOrderOperationNameLabels[operationName]) {
+    return activeOrderOperationNameLabels[operationName]
+  }
+  const operationType = String(fact.operationType || '').trim()
+  if (activeOrderOperationTypeLabels[operationType]) {
+    return activeOrderOperationTypeLabels[operationType]
+  }
+  if (isReadableChineseOperationText(operationName)) {
+    return operationName
+  }
+  return '未知操作'
+}
+
+const formatActiveOrderOperationSourceType = (sourceType?: string) => {
+  const normalized = String(sourceType || '').trim()
+  if (activeOrderOperationSourceTypeLabels[normalized]) {
+    return activeOrderOperationSourceTypeLabels[normalized]
+  }
+  return '未知来源'
+}
+
+const formatActiveOrderOperationResultStatus = (resultStatus?: string) => {
+  const normalized = String(resultStatus || '').trim()
+  if (activeOrderOperationResultStatusLabels[normalized]) {
+    return activeOrderOperationResultStatusLabels[normalized]
+  }
+  return '未知结果'
+}
+
+const hasNonconformanceEvidence = (fact: TeamLeaderActiveOrderOperationFactRespVO) => {
+  return Boolean(
+    fact.nonconformanceReason ||
+      fact.reviewMaterialUrl ||
+      fact.reviewMaterialFileId ||
+      fact.reviewOpinion ||
+      fact.disposition ||
+      fact.qaSignature
+  )
+}
+
+const resolveNonconformanceDispositionLabel = (disposition?: string) => {
+  if (disposition === 'concession_release') return '让步放行'
+  if (disposition === 'rework') return '返工'
+  if (disposition === 'void') return '作废'
+  return disposition || '--'
+}
 
 const formatIntegerQuantity = (value: number | string | undefined) => {
   if (value === undefined || value === null || value === '') return '-'
@@ -2242,6 +2422,19 @@ const openActiveOrderSignatureRecord = (
       quickFilterValue: String(signature.signatureId)
     }
   })
+}
+
+const formatMarketReleaseSignatureCellText = (
+  summary?: ActiveOrderMarketReleaseSummary
+) => {
+  if (!summary) return '未签名'
+  if (summary.signature?.signatureId) {
+    return formatActiveOrderSignatureCellText(summary.signature)
+  }
+  const signerName = String(summary.actorName || '').trim() || '签名人未记录'
+  const signedAt = formatDateTime(summary.occurredAt)
+  const signedAtText = signedAt && signedAt !== '-' ? signedAt : '签名时间未记录'
+  return `${signerName}（${signedAtText}）`
 }
 
 const toNumberOrUndefined = (value?: number | string) => {
@@ -3188,6 +3381,29 @@ const summaryProcessPersonnelPairs = computed(() =>
 
 const summaryPqcProductionRelease = computed(() => props.detail?.pqcProductionRelease)
 
+const summaryMarketRelease = computed<ActiveOrderMarketReleaseSummary | undefined>(() => {
+  const marketReleaseFact = (props.detail?.operationFacts ?? []).find(
+    (fact) =>
+      fact.operationType === 'BATCH_RECORD_RELEASE_APPROVED' &&
+      (fact.operationName || fact.operationType) === '批记录上市放行' &&
+      fact.resultStatus === 'SUCCESS'
+  )
+  if (!marketReleaseFact) return undefined
+  return {
+    statusLabel: '已上市放行',
+    actorName: marketReleaseFact.actorName,
+    occurredAt: marketReleaseFact.occurredAt,
+    signature: marketReleaseFact.signatureId
+      ? {
+          signatureId: marketReleaseFact.signatureId,
+          signerName: marketReleaseFact.actorName,
+          signedAt: marketReleaseFact.occurredAt,
+          role: 'BATCH_RECORD_RELEASE_APPROVED'
+        }
+      : undefined
+  }
+})
+
 const resolveLatestSignature = (
   signatures: TeamLeaderActiveOrderSignatureDetailRespVO[] = []
 ) => {
@@ -3426,6 +3642,18 @@ const previewDossierFile = (file: ActiveOrderDossierFileItemVO) => {
   dossierPreviewDialogVisible.value = true
 }
 
+const previewNonconformanceReviewMaterial = (fact: TeamLeaderActiveOrderOperationFactRespVO) => {
+  if (!fact.reviewMaterialFileId) {
+    ElMessage.error('评审材料缺少文件编号，无法在线查看。')
+    return
+  }
+  selectedDossierPreviewSource.value = buildMesEdhrNonconformanceReviewMaterialPreviewSource(
+    fact.reviewMaterialFileId
+  )
+  selectedDossierPreviewTitle.value = '评审材料在线预览'
+  dossierPreviewDialogVisible.value = true
+}
+
 const deleteDossierFile = async (categoryKey: string, file: ActiveOrderDossierFileItemVO) => {
   const activeOrderId = props.detail?.activeOrderId
   if (!activeOrderId || !file.attachmentId) {
@@ -3576,6 +3804,21 @@ watch(
 .team-leader-workbench__active-order-summary-title {
   font-size: 16px;
   letter-spacing: 0.04em;
+}
+
+.team-leader-workbench__active-order-detail-record-boundary {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.team-leader-workbench__active-order-current-status {
+  display: inline-flex;
+  align-items: center;
+  justify-self: center;
+  gap: 8px;
+  color: var(--el-text-color-regular);
+  font-size: 14px;
 }
 
 .team-leader-workbench__active-order-detail-summary {

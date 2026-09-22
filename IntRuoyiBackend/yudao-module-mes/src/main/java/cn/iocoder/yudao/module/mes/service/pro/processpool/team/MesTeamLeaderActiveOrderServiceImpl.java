@@ -81,6 +81,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulation
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationSetVersionMemberMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderTypeEnum;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderSaveReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesRouteDccProductMasterInvariant;
@@ -171,6 +172,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private static final String SIMULATION_COPY_CODE_PREFIX = "SIM-COPY-";
     private static final String PQC_STATUS_PENDING = "PENDING";
     private static final String PQC_INSPECTION_TASK_SOURCE_TYPE = "MES_PQC_INSPECTION_TASK";
+    private static final String NONCONFORMANCE_REWORK = "NONCONFORMANCE_REWORK";
     private static final String INSPECTION_TYPE_FIRST = "FIRST";
     private static final String INSPECTION_TYPE_PATROL = "PATROL";
     private static final String INSPECTION_TYPE_FINAL = "FINAL";
@@ -1158,6 +1160,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
         if (!activeOrderIds.isEmpty()) {
             dataCleanupMapper.deleteReleaseApplications(tenantId, activeOrderIds);
+            dataCleanupMapper.deleteNonconformanceReviewsByActiveOrderIds(tenantId, activeOrderIds);
             dataCleanupMapper.deleteActiveOrderAudits(tenantId, activeOrderIds);
             dataCleanupMapper.deleteActiveOrders(tenantId, activeOrderIds);
         }
@@ -2524,13 +2527,41 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .distinct()
                 .toList();
         Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> latestByActiveOrderId = new LinkedHashMap<>();
-        for (MesProcessPoolActiveOrderReleaseApplicationDO application
-                : releaseApplicationMapper.selectLatestByActiveOrderIds(activeOrderIds)) {
-            if (application.getActiveOrderId() != null) {
+        Set<Long> reworkClosedActiveOrderIds = new LinkedHashSet<>();
+        List<MesProcessPoolActiveOrderReleaseApplicationDO> applications =
+                releaseApplicationMapper.selectLatestByActiveOrderIds(activeOrderIds);
+        List<Long> applicationIds = applications.stream()
+                .map(MesProcessPoolActiveOrderReleaseApplicationDO::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Set<Long> reworkClosedApplicationIds = applicationIds.isEmpty()
+                ? Collections.emptySet()
+                : new LinkedHashSet<>(Objects.requireNonNull(
+                releaseApplicationMapper.selectReworkClosedApplicationIds(applicationIds),
+                "release application rework facts query returned null"));
+        for (MesProcessPoolActiveOrderReleaseApplicationDO application : applications) {
+            if (application.getActiveOrderId() == null
+                    || latestByActiveOrderId.containsKey(application.getActiveOrderId())
+                    || reworkClosedActiveOrderIds.contains(application.getActiveOrderId())) {
+                continue;
+            }
+            if (isReworkClosedReleaseApplication(application)
+                    || reworkClosedApplicationIds.contains(application.getId())) {
+                reworkClosedActiveOrderIds.add(application.getActiveOrderId());
+                continue;
+            }
+            if (!reworkClosedActiveOrderIds.contains(application.getActiveOrderId())) {
                 latestByActiveOrderId.putIfAbsent(application.getActiveOrderId(), application);
             }
         }
         return latestByActiveOrderId;
+    }
+
+    private static boolean isReworkClosedReleaseApplication(MesProcessPoolActiveOrderReleaseApplicationDO application) {
+        return application != null
+                && MesReleaseFlowStatus.PQC_RELEASE_REJECTED.equals(application.getApplicationStatus())
+                && NONCONFORMANCE_REWORK.equals(application.getPqcDecision());
     }
 
     private String requireFormalRouteName(MesProcessPoolActiveOrderDO activeOrder,

@@ -122,6 +122,14 @@ public class EdhrBatchExecutionRespVO {
 
     private String aggregateHash;
 
+    private Long releaseTransactionId;
+
+    private String releaseStatus;
+
+    private Long releaseApprovedBy;
+
+    private LocalDateTime releaseApprovedAt;
+
     @Data
     @Accessors(chain = true)
     public static class CurrentProcessFiller {

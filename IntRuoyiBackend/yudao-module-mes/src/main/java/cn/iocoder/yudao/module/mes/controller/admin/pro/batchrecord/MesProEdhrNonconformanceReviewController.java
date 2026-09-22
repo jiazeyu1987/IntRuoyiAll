@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.MesProcessPoolTeamLeaderController;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchExecutionRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewDisposeReqVO;
@@ -71,6 +73,15 @@ public class MesProEdhrNonconformanceReviewController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:query')")
     public CommonResult<MesProEdhrNonconformanceReviewRespVO> get(@RequestParam("id") Long id) {
         return success(nonconformanceReviewService.get(id));
+    }
+
+    @GetMapping("/active-order-detail")
+    @Operation(summary = "获得不合格评审关联的活跃订单详情")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:query')")
+    public CommonResult<MesTeamLeaderActiveOrderDetailRespVO> getActiveOrderDetail(
+            @RequestParam("reviewId") Long reviewId) {
+        return success(MesProcessPoolTeamLeaderController.toActiveOrderDetailRespVO(
+                nonconformanceReviewService.getActiveOrderDetail(reviewId)));
     }
 
     @GetMapping("/batch-list")

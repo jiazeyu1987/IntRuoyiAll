@@ -281,7 +281,7 @@ assert.doesNotMatch(
 )
 assert.doesNotMatch(
   pageSource,
-  /withPqcTaskOption|process\.(?:pqcTaskId|inspectionType|businessDate|shiftCode|roundNo|plannedInspectionQuantity)/,
+  /withPqcTaskOption|process\.(?:pqcTaskId|inspectionType(?!Rules)|businessDate|shiftCode|roundNo|plannedInspectionQuantity)\b/,
   'The page must keep selected task identity locally and must not write task-option fields into the process DTO.'
 )
 assert.match(

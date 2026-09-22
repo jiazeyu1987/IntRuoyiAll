@@ -75,6 +75,29 @@ const remainingRouter: AppRouteRecordRaw[] = [
     }
   },
   {
+    path: '/mes/production-release/pqc',
+    component: Layout,
+    name: 'MesPqcProductionReleaseActionUrlRoot',
+    meta: {
+      hidden: true
+    },
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/mes/pro/production-release/PqcProductionReleasePage.vue'),
+        name: 'MesPqcProductionReleaseActionUrl',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'PQC生产放行',
+          activeMenu: '/mes/production-release/pqc'
+        }
+      }
+    ]
+  },
+  {
     path: '/',
     component: Layout,
     redirect: '/user/profile',
@@ -1710,6 +1733,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'production-release/pqc',
+        component: () => import('@/views/mes/pro/production-release/PqcProductionReleasePage.vue'),
+        name: 'MesPqcProductionRelease',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'PQC生产放行',
+          activeMenu: '/mes/production-release/pqc',
+          permission: ['mes:pro-production-release:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-execution/form',
         component: () => import('@/views/mes/pro/edhr/ExecutionPage.vue'),
         name: 'MesProFeedbackEdhrExecutionForm',
@@ -2029,6 +2066,19 @@ const remainingRouter: AppRouteRecordRaw[] = [
           icon: '',
           title: '批记录测试',
           activeMenu: '/mes/pro/feedback/edhr-batch-test',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
+        path: 'pro/feedback/edhr-batch-voided',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchVoidedPage.vue'),
+        name: 'MesProEdhrBatchVoided',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: '作废批次',
+          activeMenu: '/mes/pro/feedback/edhr-batch-execution',
           permission: ['mes:pro-edhr-batch-execution:query']
         }
       },

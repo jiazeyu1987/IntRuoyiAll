@@ -249,6 +249,7 @@ export interface FrontlineDeviceRouteProcessVO {
   workstationId?: number | null
   workstationCode?: string
   workstationName?: string
+  submittedQuantity: number
   productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
 }
 

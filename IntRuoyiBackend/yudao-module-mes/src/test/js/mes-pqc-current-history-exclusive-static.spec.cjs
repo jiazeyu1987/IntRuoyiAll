@@ -17,8 +17,18 @@ const currentViewBlock = mapper.match(
 assert.ok(currentViewBlock, 'PQC current view filter must exist')
 assert.match(
   currentViewBlock[0],
-  /latest_submission_review\.review_status IS NULL[\s\S]*latest_submission_review\.review_status\s*<!\[CDATA\[<>\]\]>\s*'APPROVED'/,
-  'PQC management must exclude forms whose latest review is APPROVED while retaining unreviewed and rejected forms'
+  /pool_event\.event_type = 'PQC_INSPECTION'/,
+  'PQC management must only include PQC inspection events'
+)
+assert.doesNotMatch(
+  currentViewBlock[0],
+  /latest_submission_review\.review_status\s+IS NULL[\s\S]*latest_submission_review\.review_status\s*<!\[CDATA\[<>\]\]>\s*'APPROVED'/,
+  'PQC management must keep approved submissions visible before release'
+)
+assert.match(
+  currentViewBlock[0],
+  /NOT EXISTS[\s\S]*release_transaction\.release_status = 'RELEASED'/,
+  'PQC management must exclude submissions after the active order is formally released'
 )
 
 const historyViewBlock = mapper.match(
@@ -31,4 +41,4 @@ assert.match(
   'PQC history must include only forms whose latest review is APPROVED'
 )
 
-console.log('PASS: PQC management and form history are mutually exclusive after approval')
+console.log('PASS: PQC management keeps approved active-order submissions visible and excludes released orders')

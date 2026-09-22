@@ -948,6 +948,16 @@ public interface MesTeamLeaderDataCleanupMapper {
 
     @Delete({
             "<script>",
+            "DELETE FROM mes_pro_edhr_nonconformance_review WHERE tenant_id = #{tenantId}",
+            "AND active_order_id IN",
+            "<foreach collection='activeOrderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "</script>"
+    })
+    int deleteNonconformanceReviewsByActiveOrderIds(@Param("tenantId") Long tenantId,
+                                                    @Param("activeOrderIds") Collection<Long> activeOrderIds);
+
+    @Delete({
+            "<script>",
             "DELETE FROM mes_pro_edhr_traveler_event WHERE tenant_id = #{tenantId} AND traveler_id IN",
             "<foreach collection='travelerIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
             "</script>"

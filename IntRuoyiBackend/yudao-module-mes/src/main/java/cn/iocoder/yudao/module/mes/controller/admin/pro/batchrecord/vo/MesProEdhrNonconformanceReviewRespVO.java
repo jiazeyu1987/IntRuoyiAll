@@ -17,6 +17,8 @@ public class MesProEdhrNonconformanceReviewRespVO {
 
     private Long sourceId;
 
+    private Long activeOrderId;
+
     private Long batchExecutionId;
 
     private String batchExecutionCode;
@@ -34,6 +36,10 @@ public class MesProEdhrNonconformanceReviewRespVO {
     private String nonconformanceReason;
 
     private String reviewMaterialUrl;
+
+    private Long reviewMaterialFileId;
+
+    private String reviewMaterialsJson;
 
     private String reviewOpinion;
 

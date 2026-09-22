@@ -13,6 +13,17 @@ const readSource = (relativePath) => {
 const hookSource = readSource('src/hooks/web/useIdleLogout.ts')
 const userInfoSource = readSource('src/layout/components/UserInfo/src/UserInfo.vue')
 
+assert.ok(
+  hookSource.includes("import * as ConfigApi from '@/api/infra/config'"),
+  'idle logout hook must read the runtime config through the infra config API'
+)
+
+assert.ok(
+  hookSource.includes('system.login.idle-timeout-minutes') &&
+    hookSource.includes('ConfigApi.getConfigKey'),
+  'idle logout hook must use the admin-maintained idle logout config'
+)
+
 for (const token of [
   'mousemove',
   'mousedown',
@@ -25,8 +36,8 @@ for (const token of [
 }
 
 assert.ok(
-  hookSource.includes('15 * 60 * 1000') || hookSource.includes('900000'),
-  'idle logout hook must use a 15 minute inactivity timeout'
+  !hookSource.includes('15 * 60 * 1000') && !hookSource.includes('900000'),
+  'idle logout hook must not keep a hard-coded 15 minute inactivity timeout'
 )
 
 for (const token of [

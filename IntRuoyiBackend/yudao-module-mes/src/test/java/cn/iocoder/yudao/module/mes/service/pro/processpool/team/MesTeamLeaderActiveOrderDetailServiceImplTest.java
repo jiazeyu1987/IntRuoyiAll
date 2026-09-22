@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
@@ -30,6 +31,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterial;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterialService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter;
@@ -1197,6 +1199,28 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         ServiceException error = assertThrows(ServiceException.class, () -> service.getDetail(3001L, 8101L));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS.getCode(), error.getCode());
+    }
+
+    @Test
+    void activeOrderDetailExposesCurrentStatusForReleaseApplication() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("ACTIVE").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(null);
+        when(releaseApplicationMapper.selectLatestByActiveOrderId(8101L)).thenReturn(
+                MesProcessPoolActiveOrderReleaseApplicationDO.builder()
+                        .id(7101L)
+                        .activeOrderId(8101L)
+                        .workOrderId(9001L)
+                        .applicationStatus(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING)
+                        .build());
+
+        MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
+
+        assertEquals(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING, detail.getActiveOrderStatus().getStatus());
+        assertEquals("待上市放行", detail.getActiveOrderStatus().getStatusLabel());
     }
 
     @Test

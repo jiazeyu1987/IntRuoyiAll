@@ -132,6 +132,7 @@
                   type="danger"
                   :disabled="row.underReview || Boolean(row.nonconformanceDisposition)"
                   data-pqc-production-release-nonconformance
+                  :data-pqc-production-release-application-id="String(row.applicationId)"
                   @click="openNonconformanceReview(row)"
                 >
                   不合格审查
@@ -515,8 +516,7 @@ const openNonconformanceReview = (row: MesPqcProductionReleasePageItemRespVO) =>
     name: 'MesProFeedbackEdhrNonconformanceReview',
     query: {
       sourceType: SOURCE_TYPE_PQC_RELEASE,
-      sourceId: row.applicationId,
-      batchExecutionId: row.batchExecutionId || undefined
+      sourceId: row.applicationId
     }
   })
 }

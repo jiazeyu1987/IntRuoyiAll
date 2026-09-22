@@ -1,6 +1,23 @@
 <template>
   <ContentWrap>
-    <div class="edhr-ncr">
+    <section v-if="activeOrderDetailVisible" data-edhr-ncr-active-order-detail>
+      <el-button
+        :icon="ArrowLeft"
+        data-edhr-ncr-active-order-detail-back
+        @click="activeOrderDetailVisible = false"
+      >
+        返回
+      </el-button>
+      <ActiveOrderSubmissionDetailPanel
+        :detail="activeOrderDetail"
+        :production-material-lists="[]"
+        :loading="activeOrderDetailLoading"
+        :error="activeOrderDetailError"
+        @retry="retryActiveOrderDetail"
+      />
+    </section>
+    <div v-show="!activeOrderDetailVisible" class="edhr-ncr" data-edhr-ncr-page>
+      <EdhrBatchRecordTabs active-tab="nonconformanceReview" />
       <div class="edhr-ncr__header">
         <div>
           <div class="edhr-ncr__title">不合格评审</div>
@@ -23,13 +40,19 @@
           <el-form-item label="不合格原因" required>
             <el-input
               v-model="entryForm.nonconformanceReason"
+              data-edhr-ncr-create-reason
               type="textarea"
               :rows="3"
               placeholder="请输入不合格原因"
             />
           </el-form-item>
           <el-form-item>
-            <el-button type="danger" :loading="createLoading" @click="submitCreateReview">
+            <el-button
+              type="danger"
+              :loading="createLoading"
+              data-edhr-ncr-create-submit
+              @click="submitCreateReview"
+            >
               提交不合格评审
             </el-button>
           </el-form-item>
@@ -69,7 +92,14 @@
             </el-table-column>
             <el-table-column label="操作" width="110" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" @click.stop="selectReview(row)">处理</el-button>
+                <el-button
+                  link
+                  type="primary"
+                  data-edhr-ncr-active-order-detail
+                  @click.stop="openActiveOrderDetail(row)"
+                >
+                  详情
+                </el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -103,16 +133,18 @@
 
             <template v-if="selectedReview.reviewStatus === REVIEW_STATUS_PENDING_REVIEW">
               <el-form label-width="110px" :model="disposeForm" class="edhr-ncr__dispose-form">
-                <el-form-item label="评审材料" required>
+                <el-form-item label="评审材料" required data-edhr-ncr-review-material>
                   <UploadFile
                     :is-show-tip="false"
-                    v-model="disposeForm.reviewMaterialUrl"
-                    :limit="1"
+                    v-model="disposeForm.reviewMaterialUrls"
+                    directory="dcc/controlled-file/unclassified/nonconformance-review"
+                    :limit="5"
                   />
                 </el-form-item>
                 <el-form-item label="评审意见" required>
                   <el-input
                     v-model="disposeForm.reviewOpinion"
+                    data-edhr-ncr-review-opinion
                     type="textarea"
                     :rows="4"
                     placeholder="请输入评审意见"
@@ -121,6 +153,7 @@
                 <el-form-item label="电子签名密码" required>
                   <el-input
                     v-model="disposeForm.signaturePassword"
+                    data-edhr-ncr-signature-password
                     type="password"
                     show-password
                     autocomplete="new-password"
@@ -132,6 +165,7 @@
                     <el-button
                       type="success"
                       :loading="disposeLoading"
+                      data-edhr-ncr-concession-release
                       @click="handleDispose(DISPOSITION_CONCESSION_RELEASE)"
                     >
                       让步放行
@@ -158,13 +192,14 @@
             <template v-else>
               <el-result
                 icon="success"
+                data-edhr-ncr-disposition-result
                 :title="resolveDispositionLabel(selectedReview.disposition)"
                 :sub-title="resolveDispositionNote(selectedReview.disposition)"
               />
               <div class="edhr-ncr__summary">
                 <div>
                   <span class="edhr-ncr__label">评审材料</span>
-                  <span>{{ selectedReview.reviewMaterialUrl || '--' }}</span>
+                  <span>{{ resolveReviewMaterialDisplay(selectedReview) }}</span>
                 </div>
                 <div>
                   <span class="edhr-ncr__label">评审意见</span>
@@ -172,7 +207,7 @@
                 </div>
                 <div>
                   <span class="edhr-ncr__label">QA签名</span>
-                  <span>{{ selectedReview.qaSignature || '--' }}</span>
+                  <span data-edhr-ncr-qa-signature>{{ selectedReview.qaSignature || '--' }}</span>
                 </div>
                 <div>
                   <span class="edhr-ncr__label">完成时间</span>
@@ -189,7 +224,10 @@
 </template>
 
 <script setup lang="ts">
+import { ArrowLeft } from '@element-plus/icons-vue'
 import { UploadFile } from '@/components/UploadFile'
+import ActiveOrderSubmissionDetailPanel from '@/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
+import EdhrBatchRecordTabs from '../edhr-batch/EdhrBatchRecordTabs.vue'
 import {
   DISPOSITION_CONCESSION_RELEASE,
   DISPOSITION_REWORK,
@@ -200,8 +238,12 @@ import {
   createNonconformanceReview,
   disposeNonconformanceReview,
   getNonconformanceReview,
+  getNonconformanceReviewActiveOrderDetail,
   getPendingNonconformanceReviewPage,
+  type EdhrNonconformanceReviewMaterial,
+  type EdhrNonconformanceReviewMaterialEvent,
   type EdhrNonconformanceReviewDisposition,
+  type EdhrNonconformanceReviewPageReqVO,
   type EdhrNonconformanceReviewRespVO,
   type EdhrNonconformanceReviewSourceType
 } from '@/api/mes/pro/edhr/nonconformanceReview'
@@ -220,6 +262,12 @@ const errorText = ref('')
 const pendingReviews = ref<EdhrNonconformanceReviewRespVO[]>([])
 const selectedReview = ref<EdhrNonconformanceReviewRespVO>()
 const total = ref(0)
+const activeOrderDetailVisible = ref(false)
+const activeOrderDetailLoading = ref(false)
+const activeOrderDetailError = ref('')
+const activeOrderDetail = ref<Awaited<ReturnType<typeof getNonconformanceReviewActiveOrderDetail>>>()
+const activeOrderDetailRow = ref<EdhrNonconformanceReviewRespVO>()
+let activeOrderDetailRequestSequence = 0
 
 const queryParams = reactive({
   pageNo: 1,
@@ -247,10 +295,13 @@ const entryForm = reactive({
 })
 
 const disposeForm = reactive({
-  reviewMaterialUrl: '',
+  reviewMaterialUrls: [] as string[],
+  reviewMaterialEvents: [] as EdhrNonconformanceReviewMaterialEvent[],
   reviewOpinion: '',
   signaturePassword: ''
 })
+let materialTrackingEnabled = true
+let materialEventSequence = 0
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
   const responseMessage =
@@ -282,25 +333,84 @@ const resolveDispositionNote = (disposition?: string) => {
   return ''
 }
 
+const resolveFileName = (url: string) => {
+  const fileName = url.substring(url.lastIndexOf('/') + 1)
+  return decodeURIComponent(fileName)
+}
+
+const parseReviewMaterialsJson = (review?: EdhrNonconformanceReviewRespVO): string[] => {
+  if (!review?.reviewMaterialsJson) {
+    return review?.reviewMaterialUrl ? review.reviewMaterialUrl.split(',').filter(Boolean) : []
+  }
+  try {
+    const payload = JSON.parse(review.reviewMaterialsJson)
+    const activeMaterials = Array.isArray(payload?.activeMaterials) ? payload.activeMaterials : []
+    return activeMaterials
+      .map((material) => material?.url)
+      .filter((url): url is string => typeof url === 'string' && url.trim().length > 0)
+  } catch (error) {
+    throw new Error('评审材料清单格式无效，无法继续显示。')
+  }
+}
+
+const resolveReviewMaterialDisplay = (review?: EdhrNonconformanceReviewRespVO) => {
+  const urls = parseReviewMaterialsJson(review)
+  if (!urls.length) return '--'
+  return urls.map(resolveFileName).join('、')
+}
+
+const buildReviewMaterials = (): EdhrNonconformanceReviewMaterial[] =>
+  disposeForm.reviewMaterialUrls.map((url, index) => ({
+    url,
+    fileName: resolveFileName(url),
+    sortNo: index + 1
+  }))
+
 const resetDisposeForm = () => {
-  disposeForm.reviewMaterialUrl = ''
+  materialTrackingEnabled = false
+  disposeForm.reviewMaterialUrls = []
+  disposeForm.reviewMaterialEvents = []
+  materialEventSequence = 0
+  nextTick(() => {
+    materialTrackingEnabled = true
+  })
   disposeForm.reviewOpinion = ''
   disposeForm.signaturePassword = ''
+}
+
+const buildPendingReviewQuery = () => {
+  const query: EdhrNonconformanceReviewPageReqVO = { ...queryParams }
+  if (entrySourceId.value) {
+    query.sourceType = entryForm.sourceType
+    query.sourceId = entrySourceId.value
+    return query
+  }
+  if (entryBatchExecutionId.value) {
+    query.batchExecutionId = entryBatchExecutionId.value
+  }
+  return query
 }
 
 const loadPendingReviews = async () => {
   listLoading.value = true
   errorText.value = ''
   try {
-    const data = await getPendingNonconformanceReviewPage(queryParams)
+    const data = await getPendingNonconformanceReviewPage(buildPendingReviewQuery())
     pendingReviews.value = data.list || []
     total.value = data.total || 0
-    if (!selectedReview.value && pendingReviews.value.length > 0) {
+    const selectedStillVisible =
+      selectedReview.value?.id &&
+      pendingReviews.value.some((review) => review.id === selectedReview.value?.id)
+    if (pendingReviews.value.length === 0) {
+      selectedReview.value = undefined
+      resetDisposeForm()
+    } else if (!selectedStillVisible) {
       selectReview(pendingReviews.value[0])
     }
   } catch (error) {
     pendingReviews.value = []
     total.value = 0
+    selectedReview.value = undefined
     errorText.value = resolveErrorMessage(error, '不合格评审列表加载失败。')
   } finally {
     listLoading.value = false
@@ -323,8 +433,43 @@ const selectReview = (review: EdhrNonconformanceReviewRespVO) => {
   fillDisposeForm(review)
 }
 
+const openActiveOrderDetail = async (review: EdhrNonconformanceReviewRespVO) => {
+  if (!review.id || !review.activeOrderId) {
+    message.error('缺少正式活跃订单来源，无法查看详情。')
+    return
+  }
+  const sequence = ++activeOrderDetailRequestSequence
+  activeOrderDetailRow.value = review
+  activeOrderDetailVisible.value = true
+  activeOrderDetailLoading.value = true
+  activeOrderDetailError.value = ''
+  activeOrderDetail.value = undefined
+  try {
+    const result = await getNonconformanceReviewActiveOrderDetail(review.id)
+    if (sequence !== activeOrderDetailRequestSequence) return
+    activeOrderDetail.value = result
+  } catch (error) {
+    if (sequence !== activeOrderDetailRequestSequence) return
+    activeOrderDetailError.value = resolveErrorMessage(error, '活跃订单详情加载失败。')
+  } finally {
+    if (sequence === activeOrderDetailRequestSequence) {
+      activeOrderDetailLoading.value = false
+    }
+  }
+}
+
+const retryActiveOrderDetail = () => {
+  if (activeOrderDetailRow.value) void openActiveOrderDetail(activeOrderDetailRow.value)
+}
+
 const fillDisposeForm = (review: EdhrNonconformanceReviewRespVO) => {
-  disposeForm.reviewMaterialUrl = review.reviewMaterialUrl || ''
+  materialTrackingEnabled = false
+  disposeForm.reviewMaterialUrls = parseReviewMaterialsJson(review)
+  disposeForm.reviewMaterialEvents = []
+  materialEventSequence = 0
+  nextTick(() => {
+    materialTrackingEnabled = true
+  })
   disposeForm.reviewOpinion = review.reviewOpinion || ''
   disposeForm.signaturePassword = ''
 }
@@ -373,7 +518,7 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
     return
   }
   if (
-    !disposeForm.reviewMaterialUrl ||
+    disposeForm.reviewMaterialUrls.length === 0 ||
     !disposeForm.reviewOpinion.trim() ||
     !disposeForm.signaturePassword.trim()
   ) {
@@ -386,7 +531,9 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
     const review = await disposeNonconformanceReview({
       id: selectedReview.value.id,
       disposition,
-      reviewMaterialUrl: disposeForm.reviewMaterialUrl,
+      reviewMaterialUrl: disposeForm.reviewMaterialUrls.join(','),
+      reviewMaterials: buildReviewMaterials(),
+      reviewMaterialEvents: disposeForm.reviewMaterialEvents,
       reviewOpinion: disposeForm.reviewOpinion.trim(),
       signaturePassword: disposeForm.signaturePassword.trim()
     })
@@ -402,11 +549,46 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
 }
 
 watch(
+  () => [...disposeForm.reviewMaterialUrls],
+  (nextUrls, previousUrls) => {
+    if (!materialTrackingEnabled) return
+    const previous = previousUrls || []
+    const additions = [...nextUrls]
+    const removals = [...previous]
+    for (const url of previous) {
+      const index = additions.indexOf(url)
+      if (index >= 0) additions.splice(index, 1)
+    }
+    for (const url of nextUrls) {
+      const index = removals.indexOf(url)
+      if (index >= 0) removals.splice(index, 1)
+    }
+    additions.forEach((url) => {
+      disposeForm.reviewMaterialEvents.push({
+        action: 'UPLOAD',
+        url,
+        fileName: resolveFileName(url),
+        sequence: ++materialEventSequence
+      })
+    })
+    removals.forEach((url) => {
+      disposeForm.reviewMaterialEvents.push({
+        action: 'DELETE',
+        url,
+        fileName: resolveFileName(url),
+        sequence: ++materialEventSequence
+      })
+    })
+  }
+)
+
+watch(
   () =>
     [
       route.name,
       route.query.batchExecutionId,
       route.query.sourceType,
+      route.query.sourceId,
       route.query.reviewId
     ] as const,
   ([routeName]) => {

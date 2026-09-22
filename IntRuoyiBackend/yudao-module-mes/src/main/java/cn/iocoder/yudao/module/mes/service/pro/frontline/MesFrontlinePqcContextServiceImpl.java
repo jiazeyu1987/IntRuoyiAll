@@ -40,6 +40,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.template.FrontlineTemplateCodes;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.template.FrontlineTemplateTypes;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
@@ -135,6 +136,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
     private final MesProcessPoolEventService processPoolEventService;
     private final MesProProcessPoolPqcRecordMapper pqcRecordMapper;
     private final MesProBatchRecordExecutionSignatureService signatureService;
+    private final MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     public MesFrontlinePqcContextServiceImpl(MesProcessPoolActiveOrderMapper activeOrderMapper,
                                              MesProProcessPoolEventMapper processPoolEventMapper,
@@ -154,10 +156,11 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                                              MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper,
                                              MesMdItemService itemService,
                                              MesProcessPoolTeamLeaderScopeMapper scopeMapper,
-                                             AdminUserApi adminUserApi,
-                                             MesProcessPoolEventService processPoolEventService,
-                                             MesProProcessPoolPqcRecordMapper pqcRecordMapper,
-                                             MesProBatchRecordExecutionSignatureService signatureService) {
+                                              AdminUserApi adminUserApi,
+                                              MesProcessPoolEventService processPoolEventService,
+                                              MesProProcessPoolPqcRecordMapper pqcRecordMapper,
+                                              MesProBatchRecordExecutionSignatureService signatureService,
+                                              MesProEdhrNonconformanceReviewService nonconformanceReviewService) {
         this.activeOrderMapper = activeOrderMapper;
         this.processPoolEventMapper = processPoolEventMapper;
         this.processSnapshotMapper = processSnapshotMapper;
@@ -180,6 +183,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         this.processPoolEventService = processPoolEventService;
         this.pqcRecordMapper = pqcRecordMapper;
         this.signatureService = signatureService;
+        this.nonconformanceReviewService = nonconformanceReviewService;
     }
 
     @Override
@@ -849,8 +853,6 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             List<MesFrontlinePqcProcessRespVO.PqcEquipmentOption> equipmentOptions = (source.getEquipmentOptions() == null
                     ? List.<MesFrontlinePqcProcessRespVO.PqcEquipmentOption>of()
                     : source.getEquipmentOptions()).stream()
-                    .filter(option -> routeDeviceContext.deviceCodes().contains(
-                            normalizeEquipmentCode(option.getEquipmentCode())))
                     .map(option -> copyEquipmentOptionWithParameters(
                             option, routeDeviceContext.parametersByDeviceCode()))
                     .toList();
@@ -1318,6 +1320,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         requirePqcSubmitCommand(command);
         MesPqcInspectionTaskDO task = pqcTaskMapper.selectByIdForUpdate(command.getPqcTaskId());
         Long regulationDccProjectCodeId = applyPqcTaskContext(command, task, loginUserId);
+        nonconformanceReviewService.ensurePqcSubmissionNotFrozen(task.getActiveOrderId(), task.getWorkOrderId(),
+                "PQC提交");
         List<MesFrontlinePqcInspectionItem> inspectionItems = resolveSubmittedInspectionItems(
                 task, command, regulationDccProjectCodeId);
         List<MesPqcInspectionPieceDetailDO> pieceDetails = buildPieceDetails(task.getId(), command,
@@ -1605,8 +1609,6 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         return publishedItems.stream()
                 .map(item -> toInspectionItem(item, equipmentByItem.getOrDefault(item.getItemCode(), List.of())
                         .stream()
-                        .filter(option -> routeDeviceContext.deviceCodes().contains(
-                                normalizeEquipmentCode(option.equipmentCode())))
                         .toList()))
                 .toList();
     }

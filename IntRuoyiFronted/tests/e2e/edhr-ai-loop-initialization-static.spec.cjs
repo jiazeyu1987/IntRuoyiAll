@@ -3,6 +3,7 @@ const fs = require('node:fs')
 const source = fs.readFileSync('tests/e2e/edhr-ai-loop/runner.cjs', 'utf8')
 const select = source.slice(source.indexOf('async function selectFrontlineProductionOrder'),source.indexOf('async function selectFrontlineProductionProcess'))
 assert.match(select, /data-frontline-production-material-tab[\s\S]*waitFor[\s\S]*data-frontline-production-active-order-card/)
+assert.match(select, /data-frontline-production-process-current[\s\S]*hasNotText:\s*'未选择'/, 'after selecting a production order, runner must wait for the page auto-selected first process before opening the process picker')
 console.log('PASS: wait initial production material render before opening order picker')
 
 assert.ok(source.includes('[data-frontline-production-process-current]:not(:disabled)'))

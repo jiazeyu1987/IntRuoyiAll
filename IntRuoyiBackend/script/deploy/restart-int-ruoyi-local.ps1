@@ -61,6 +61,21 @@ SELECT CASE WHEN (
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260520_system_nas_management_menu.sql'
     },
     [PSCustomObject]@{
+        Name = 'Infra idle logout config seed'
+        ProbeSql = @'
+SELECT CASE WHEN (
+  SELECT COUNT(*)
+  FROM infra_config
+  WHERE config_key = 'system.login.idle-timeout-minutes'
+    AND deleted = b'0'
+    AND visible = b'1'
+    AND value REGEXP '^[1-9][0-9]{0,3}$'
+    AND CAST(value AS UNSIGNED) BETWEEN 1 AND 1440
+) = 1 THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260921_infra_idle_logout_config.sql'
+    },
+    [PSCustomObject]@{
         Name = 'MES route use config enabled column'
         ProbeSql = @'
 SELECT CASE WHEN
