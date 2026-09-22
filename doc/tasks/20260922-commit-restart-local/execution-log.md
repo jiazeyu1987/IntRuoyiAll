@@ -164,3 +164,4 @@
 - IntRuoyiFronted/tests/e2e/team-leader-production-report-payload-columns-static.spec.cjs
 - Cleanup preview/apply PASS：仅删除本任务5个临时附件，保留核心记录与被占用的重启证据日志；未改其他任务。运行目标已完成，机器状态 blocked 仅表示项目要求的远程推送未获授权。
 - 任务目录被现有 .gitignore 忽略；仅强制暂存本任务3个核心收尾记录，运行日志不提交。
+- 最终复查推翻前端可用结论：初次HTTP200后，20秒请求超时，按门禁延长到60秒仍超时。PID49104仍监听8081，日志只有snabbdom sourcemap缺失警告，无明确启动错误；后端health仍UP。未停止8083并行服务、未切换端口或改业务配置。最终状态blocked，前端可用性未通过。

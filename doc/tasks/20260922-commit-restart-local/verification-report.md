@@ -1,5 +1,10 @@
 # Verification Report
 
+## 最终结论（覆盖下面首次检查结果）
+
+BLOCKED：后端UP、代码已提交；前端初次HTTP200之后，最终20秒请求及延长60秒复查均超时。8081仍由PID49104监听，但不能认定前端可用。下文HTTP200仅为初次检查历史证据。
+
+
 - 用户授权的前后端基线提交：094d183e3，共147文件（后端76，前端71），临时测试目录未提交。
 - staged diff --check：PASS；提交钩子 branch runtime port guard：PASS。
 - 重启静态测试：python -X utf8 -m pytest script/tests/test_runtime_control_scripts.py script/tests/test_restart_int_ruoyi_local_schema.py -q，43 passed。
