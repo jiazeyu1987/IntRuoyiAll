@@ -120,6 +120,7 @@ class MesTeamLeaderActiveOrderReleaseAuditRecorderTest {
                 .setActiveOrderId(8101L)
                 .setApplicationId(7001L)
                 .setBatchExecutionId(9001L)
+                .setReleaseTransactionId(7601L)
                 .setSignatureId(7701L)
                 .setActorUserId(7101L)
                 .setOccurredAt(LocalDateTime.of(2026, 9, 20, 13, 30))
@@ -137,6 +138,7 @@ class MesTeamLeaderActiveOrderReleaseAuditRecorderTest {
                 () -> assertEquals(DigestUtil.sha256Hex(formalFactSnapshot), audit.getAfterSummaryHash()),
                 () -> assertEquals(64, audit.getAfterSummaryHash().length()),
                 () -> assertEquals(formalFactSnapshot, metadata.getString("sourceSnapshotHash")));
+        assertEquals(7601L, metadata.getLong("releaseTransactionId"));
     }
 
     private static void verifyActor(AdminUserService adminUserService, Long actorUserId) {

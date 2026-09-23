@@ -333,13 +333,22 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         if (Objects.equals(event.getOperationType(),
                 cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditEventType
                         .BATCH_RECORD_RELEASE_APPROVED)) {
-            Long releaseTransactionId = metadata == null ? null : metadata.getLong("releaseTransactionId");
-            if (releaseTransactionId == null || releaseTransactionId <= 0) {
-                throw new IllegalStateException("ACTIVE_ORDER_MARKET_RELEASE_TRANSACTION_ID_MISSING");
+            Long batchExecutionId = event.getBatchExecutionId();
+            if (batchExecutionId == null || batchExecutionId <= 0) {
+                throw new IllegalStateException("ACTIVE_ORDER_MARKET_RELEASE_BATCH_EXECUTION_ID_MISSING");
             }
-            MesProEdhrReleaseTransactionDO transaction = releaseTransactionMapper.selectById(releaseTransactionId);
-            if (transaction == null) {
+            MesProEdhrReleaseTransactionDO transaction =
+                    releaseTransactionMapper.selectByBatchExecutionId(batchExecutionId);
+            if (transaction == null || transaction.getId() == null) {
                 throw new IllegalStateException("ACTIVE_ORDER_MARKET_RELEASE_TRANSACTION_MISSING");
+            }
+            if (!Objects.equals(batchExecutionId, transaction.getBatchExecutionId())) {
+                throw new IllegalStateException("ACTIVE_ORDER_MARKET_RELEASE_TRANSACTION_BATCH_MISMATCH");
+            }
+            Long metadataReleaseTransactionId = metadata == null ? null : metadata.getLong("releaseTransactionId");
+            if (metadataReleaseTransactionId != null
+                    && !Objects.equals(metadataReleaseTransactionId, transaction.getId())) {
+                throw new IllegalStateException("ACTIVE_ORDER_MARKET_RELEASE_TRANSACTION_ID_MISMATCH");
             }
             signatureId = transaction.getApprovalSignatureId();
         }
@@ -508,26 +517,24 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                         LinkedHashMap::new,
                         Collectors.mapping(ErpKingdeeProductionPickListItemDO::getProductionOrderNo,
                                 Collectors.filtering(Objects::nonNull, Collectors.toList()))));
+        Map<Long, MesTeamLeaderActiveOrderDetail.SourcePickListDocument> documentsById = new LinkedHashMap<>();
+        for (Long pickListId : pickListIds) {
+            ErpKingdeeProductionPickListDO header = headersById.get(pickListId);
+            documentsById.put(pickListId, new MesTeamLeaderActiveOrderDetail.SourcePickListDocument()
+                    .setId(header.getId())
+                    .setBillNo(header.getSourceBillNo())
+                    .setDocumentStatus(header.getDocumentStatus())
+                    .setBillDate(header.getBillDate())
+                    .setProductionOrderNos(productionOrderNosByPickListId.getOrDefault(pickListId, List.of()).stream()
+                            .filter(Objects::nonNull)
+                            .distinct()
+                            .toList()));
+        }
         for (MesTeamLeaderActiveOrderDetail.InputMaterialDetail material : materials) {
-            List<ErpKingdeeProductionPickListDO> sourceHeaders = material.getSourcePickListIds().stream()
-                    .map(headersById::get)
+            material.setSourcePickListDocuments(material.getSourcePickListIds().stream()
+                    .map(documentsById::get)
                     .filter(Objects::nonNull)
-                    .toList();
-            material.setSourcePickListDocumentStatuses(sourceHeaders.stream()
-                            .map(ErpKingdeeProductionPickListDO::getDocumentStatus)
-                            .filter(Objects::nonNull)
-                            .distinct()
-                            .toList())
-                    .setSourcePickListBillDates(sourceHeaders.stream()
-                            .map(ErpKingdeeProductionPickListDO::getBillDate)
-                            .filter(Objects::nonNull)
-                            .distinct()
-                            .toList())
-                    .setSourcePickListProductionOrderNos(material.getSourcePickListIds().stream()
-                            .flatMap(id -> productionOrderNosByPickListId.getOrDefault(id, List.of()).stream())
-                            .filter(Objects::nonNull)
-                            .distinct()
-                            .toList());
+                    .toList());
         }
     }
 

@@ -45,6 +45,7 @@ public class MesTeamLeaderActiveOrderReleaseAuditRecorder implements MesReleaseF
         metadata.put("applicationId", command.getApplicationId());
         metadata.put("activeOrderId", command.getActiveOrderId());
         metadata.put("batchExecutionId", command.getBatchExecutionId());
+        metadata.put("releaseTransactionId", command.getReleaseTransactionId());
         metadata.put("signatureId", command.getSignatureId());
         metadata.put("fromStatus", command.getFromStatus());
         metadata.put("toStatus", command.getToStatus());

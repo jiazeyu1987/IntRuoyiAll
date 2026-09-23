@@ -276,19 +276,87 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(null);
         when(operationAuditEventMapper.selectSuccessfulListByActiveOrderId(8101L)).thenReturn(List.of(
                 MesProEdhrOperationAuditEventDO.builder()
-                        .id(8802L).objectType("PRODUCTION_RELEASE_APPLICATION").objectId("7501")
+                        .id(8802L).batchExecutionId(9001L)
+                        .objectType("PRODUCTION_RELEASE_APPLICATION").objectId("7501")
                         .operationType("BATCH_RECORD_RELEASE_APPROVED").actionName("批记录上市放行")
                         .actorUserId(3001L).actorUsername("生产组长甲").resultStatus("SUCCESS")
                         .afterSummaryHash("snapshot-release")
                         .metadataJson("{\"activeOrderId\":8101,\"releaseTransactionId\":7601,\"signatureId\":1}")
                         .occurredAt(LocalDateTime.of(2026, 9, 18, 22, 30)).build()));
-        when(releaseTransactionMapper.selectById(7601L)).thenReturn(
-                MesProEdhrReleaseTransactionDO.builder().id(7601L).approvalSignatureId(7702L).build());
+        when(releaseTransactionMapper.selectByBatchExecutionId(9001L)).thenReturn(
+                MesProEdhrReleaseTransactionDO.builder().id(7601L)
+                        .batchExecutionId(9001L).approvalSignatureId(7702L).build());
 
         var facts = service.getFormalDetail(8101L).getOperationFacts();
 
         assertEquals(1, facts.size());
         assertEquals(7702L, facts.get(0).getSignatureId());
+    }
+
+    @Test
+    void marketReleaseOperationFactResolvesFormalTransactionForLegacyAuditMetadata() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("CLOSED").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(null);
+        when(operationAuditEventMapper.selectSuccessfulListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesProEdhrOperationAuditEventDO.builder()
+                        .id(8803L)
+                        .batchExecutionId(9001L)
+                        .objectType("PRODUCTION_RELEASE_APPLICATION")
+                        .objectId("7501")
+                        .operationType("BATCH_RECORD_RELEASE_APPROVED")
+                        .actionName("批记录上市放行")
+                        .actorUserId(3001L)
+                        .actorUsername("生产组长甲")
+                        .resultStatus("SUCCESS")
+                        .afterSummaryHash("snapshot-release")
+                        .metadataJson("{\"activeOrderId\":8101,\"signatureId\":1}")
+                        .occurredAt(LocalDateTime.of(2026, 9, 18, 22, 30))
+                        .build()));
+        when(releaseTransactionMapper.selectByBatchExecutionId(9001L)).thenReturn(
+                MesProEdhrReleaseTransactionDO.builder().id(7601L)
+                        .batchExecutionId(9001L).approvalSignatureId(7702L).build());
+
+        var facts = service.getFormalDetail(8101L).getOperationFacts();
+
+        assertEquals(1, facts.size());
+        assertEquals(7702L, facts.get(0).getSignatureId());
+    }
+
+    @Test
+    void marketReleaseOperationFactRejectsConflictingMetadataTransactionId() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("CLOSED").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(null);
+        when(operationAuditEventMapper.selectSuccessfulListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesProEdhrOperationAuditEventDO.builder()
+                        .id(8804L)
+                        .batchExecutionId(9001L)
+                        .objectType("PRODUCTION_RELEASE_APPLICATION")
+                        .objectId("7501")
+                        .operationType("BATCH_RECORD_RELEASE_APPROVED")
+                        .actionName("批记录上市放行")
+                        .actorUserId(3001L)
+                        .actorUsername("生产组长甲")
+                        .resultStatus("SUCCESS")
+                        .afterSummaryHash("snapshot-release")
+                        .metadataJson("{\"activeOrderId\":8101,\"releaseTransactionId\":7602}")
+                        .occurredAt(LocalDateTime.of(2026, 9, 18, 22, 30))
+                        .build()));
+        when(releaseTransactionMapper.selectByBatchExecutionId(9001L)).thenReturn(
+                MesProEdhrReleaseTransactionDO.builder().id(7601L)
+                        .batchExecutionId(9001L).approvalSignatureId(7702L).build());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> service.getFormalDetail(8101L));
+
+        assertEquals("ACTIVE_ORDER_MARKET_RELEASE_TRANSACTION_ID_MISMATCH", error.getMessage());
     }
 
     @Test
