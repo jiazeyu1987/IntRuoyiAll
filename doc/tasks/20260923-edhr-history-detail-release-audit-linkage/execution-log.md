@@ -24,3 +24,5 @@ REGRESSION: `mvn -pl yudao-module-mes -am '-Dtest=MesTeamLeaderActiveOrderReleas
 - Cleanup apply: PASS；仅删除上述两个临时 evidence 文件，任务记录与验证报告保留。
 - Git 收尾：未执行提交或推送。用户提供的仓库规则要求当轮明确授权，而当前轮没有该授权；项目规则要求推送后才能标记完成，因此状态保持 `blocked`，不得标为 `completed`。
 - 当前状态：代码与验证完成，cleanup 已执行；待获得 Git 提交/推送授权后完成集成收尾。
+- Commit: `7f33d911afe225e46dd25f425b2f10f1cdc1f37a`（`修复批次历史详情放行事务关联`）；push: `origin/int_main` 成功，远端由 `314d846e3` 更新到该提交。
+- 提交边界复核：提交只包含本任务代码、测试、经验规则和任务记录；目标文件工作区里此前存在的其它未提交内容仍保持未提交。
