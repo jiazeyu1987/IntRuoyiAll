@@ -70,4 +70,34 @@ class ReleaseWorkflowRecoveryTest {
         assertEquals(ReleaseWorkflowRecord.State.RECOVERY_REQUIRED,
                 service.cancel(workflow.workflowId()).state());
     }
+
+    @Test
+    void recoveryRequiredPreservesOriginalFailureAcrossRepeatedSchedulerRunsAndRestart() {
+        RuntimeControlProperties properties = RuntimeControlProperties.createDefaultForTests(tempDir);
+        properties.getReleaseWorkflow().setHeartbeatTimeout(Duration.ofSeconds(1));
+        ReleaseWorkflowService service = new ReleaseWorkflowService(properties);
+        ReleaseWorkflowRecord workflow = service.create("routine release", "approved-source");
+        workflow = service.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                ReleaseWorkflowRecord.State.PREFLIGHTING, "PREFLIGHTING", true, false);
+        workflow = service.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                ReleaseWorkflowRecord.State.TESTING, "TESTING", true, false);
+        workflow = service.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                ReleaseWorkflowRecord.State.BUILDING, "BUILDING", true, false);
+        service.cancel(workflow.workflowId());
+        service.overrideHeartbeatForTest(workflow.workflowId(), Instant.now().minusSeconds(10));
+        ReleaseWorkflowRecord isolated = service.require(workflow.workflowId());
+
+        ReleaseWorkflowService restarted = new ReleaseWorkflowService(properties);
+        for (int scan = 0; scan < 2; scan++) {
+            assertEquals(0, restarted.recoverStaleWorkflows(Instant.now().plusSeconds(scan * 10)).size(),
+                    "An isolated workflow must not be reclassified as another heartbeat failure");
+            ReleaseWorkflowRecord current = restarted.require(workflow.workflowId());
+            assertEquals(ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, current.state());
+            assertEquals(isolated.stateVersion(), current.stateVersion());
+            assertEquals(isolated.errorCode(), current.errorCode());
+            assertEquals(isolated.failedStage(), current.failedStage());
+            assertEquals(isolated.evidenceRefs(), current.evidenceRefs());
+            assertEquals(isolated.zeroWriteEvidence(), current.zeroWriteEvidence());
+        }
+    }
 }

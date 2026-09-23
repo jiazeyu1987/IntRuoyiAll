@@ -122,7 +122,7 @@ class ReleaseWorkflowBackupRecoveryServiceTest {
         var service = fixture(); var preview = service.inspect(workflow.workflowId(), workflow.stateVersion(), "actor");
         var expired = new ReleaseWorkflowBackupRecoveryService.Preview(preview.previewId(), preview.workflowId(), preview.expectedStateVersion(),
                 preview.actor(), preview.targetFingerprint(), preview.operationFingerprint(), preview.evidenceDigest(), preview.runtimeVersion(),
-                preview.eligible(), preview.blockers(), preview.nextAction(), Instant.EPOCH);
+                preview.eligible(), preview.blockers(), preview.nextAction(), Instant.EPOCH, preview.kind());
         new com.fasterxml.jackson.databind.ObjectMapper().registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
                 .writeValue(Path.of(properties.getStateDir()).resolve("backup-recovery").resolve(preview.previewId() + ".json").toFile(), expired);
         assertThrows(IllegalStateException.class, () -> service.recover(workflow.workflowId(), workflow.stateVersion(), preview.previewId(), "actor", "PROD"));

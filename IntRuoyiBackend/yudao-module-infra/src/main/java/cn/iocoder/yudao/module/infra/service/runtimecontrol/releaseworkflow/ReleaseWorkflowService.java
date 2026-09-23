@@ -211,6 +211,19 @@ public class ReleaseWorkflowService {
                 zeroWriteEvidence);
     }
 
+    /** Called by the orchestrator only after fresh, complete build-only and executor-termination proof. */
+    ReleaseWorkflowRecord retireVerifiedBackupBuildFailure(String workflowId, long version, String actor, String digest) {
+        var current = store.require(workflowId);
+        if (current.state() != ReleaseWorkflowRecord.State.RECOVERY_REQUIRED || current.backupIntent() == null
+                || !java.util.Objects.equals(current.requestedBy(), actor) || digest == null || !digest.matches("[0-9a-f]{64}")
+                || current.packageDigest() != null || current.manifestDigest() != null) {
+            throw new IllegalStateException("BUILD_RECOVERY_COMPLETION_BINDING_INVALID");
+        }
+        return store.update(current, version, ReleaseWorkflowRecord.State.FAILED, actor,
+                "RELEASE_WORKFLOW_VERIFIED_BUILD_FAILURE", "VERIFIED_BUILD_FAILURE", false,
+                List.of("build-retirement-proof:" + digest, "build-retirement-actor:" + actor), false);
+    }
+
     public ReleaseWorkflowRecord failTestAcceptance(String workflowId, long expectedStateVersion,
                                                      ReleaseWorkflowTestResult testResult,
                                                      String conclusion, String acceptedBy) {
@@ -277,6 +290,7 @@ public class ReleaseWorkflowService {
         Duration timeout = properties.getReleaseWorkflow().getHeartbeatTimeout();
         return store.list().stream()
                 .filter(record -> record.state().isHeartbeatMonitored())
+                .filter(record -> record.state() != ReleaseWorkflowRecord.State.RECOVERY_REQUIRED)
                 .filter(record -> record.lastHeartbeatAt().plus(timeout).isBefore(now))
                 .map(record -> recoverStale(record, now))
                 .toList();

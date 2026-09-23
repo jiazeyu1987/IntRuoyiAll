@@ -37,6 +37,16 @@ export interface RuntimeControlReleaseWorkflowVO {
   sourceCleanupErrorCode?: string
 }
 
+export interface RuntimeControlBackupRecoveryPreviewVO {
+  previewId: string
+  workflowId: string
+  expectedStateVersion: number
+  eligible: boolean
+  blockers: string[]
+  nextAction: string
+  expiresAt: RuntimeControlDateTime
+}
+
 export interface RuntimeControlBackupPublishPreviewVO {
   previewId: string
   actor: string
@@ -712,6 +722,22 @@ export const getRuntimeControlReleaseWorkflows = () =>
     url: '/infra/runtime-control/release-workflows',
     timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
   })
+
+export const inspectRuntimeControlBackupRecovery = (workflowId: string, expectedStateVersion: number) =>
+  request.post<RuntimeControlBackupRecoveryPreviewVO>({
+    url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/backup-recovery/inspect`,
+    timeout: 180_000,
+    data: { expectedStateVersion }
+  })
+
+export const recoverRuntimeControlBackup = (
+  workflowId: string,
+  data: { expectedStateVersion: number; previewId: string; prodConfirmText: string }
+) => request.post<RuntimeControlReleaseWorkflowVO>({
+  url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/backup-recovery/recover`,
+  timeout: 180_000,
+  data
+})
 
 export const publishRuntimeControlReleaseWorkflowToTest = (workflowId: string, reason: string) =>
   request.post<RuntimeControlReleaseWorkflowVO>({

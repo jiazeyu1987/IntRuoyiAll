@@ -5,6 +5,9 @@ import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeCont
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Proxy;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -13,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -26,6 +30,39 @@ class RuntimeControlCommandExecutorImplTest {
 
     @TempDir
     private Path tempDir;
+
+    @Test
+    void threeArgumentRegistrationIsMandatoryAndLegacyOverloadProvidesEmptyBindings() throws Exception {
+        Method boundRegistration = RuntimeControlCommandExecutor.class.getMethod(
+                "registerOperation", String.class, Path.class, Map.class);
+        Method legacyRegistration = RuntimeControlCommandExecutor.class.getMethod(
+                "registerOperation", String.class, Path.class);
+        assertTrue(Modifier.isAbstract(boundRegistration.getModifiers()),
+                "implementations must explicitly support immutable security bindings");
+        assertTrue(legacyRegistration.isDefault());
+
+        AtomicReference<Object[]> delegatedArguments = new AtomicReference<>();
+        RuntimeControlCommandExecutor executor = (RuntimeControlCommandExecutor) Proxy.newProxyInstance(
+                RuntimeControlCommandExecutor.class.getClassLoader(),
+                new Class<?>[]{RuntimeControlCommandExecutor.class},
+                (proxy, method, arguments) -> {
+                    if (method.isDefault()) return InvocationHandler.invokeDefault(proxy, method, arguments);
+                    if ("registerOperation".equals(method.getName())) {
+                        delegatedArguments.set(arguments);
+                        return null;
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                });
+
+        Path logPath = tempDir.resolve("legacy-registration.log");
+        executor.registerOperation("op-legacy-12345678", logPath);
+
+        assertTrue(delegatedArguments.get() != null);
+        assertEquals(3, delegatedArguments.get().length);
+        assertEquals("op-legacy-12345678", delegatedArguments.get()[0]);
+        assertEquals(logPath, delegatedArguments.get()[1]);
+        assertEquals(Map.of(), delegatedArguments.get()[2]);
+    }
 
     @Test
     void silentRegisteredOperationHasLiveExecutorUntilCanceled() throws Exception {
@@ -66,6 +103,31 @@ class RuntimeControlCommandExecutorImplTest {
             worker.interrupt();
             worker.join(10000);
         }
+    }
+
+    @Test
+    void registeredImmutableBuildBindingsAreWrittenBeforeTheCommandLog() throws Exception {
+        RuntimeControlCommandExecutorImpl executor = executorWithProperties(propertiesWithRepoRoot(tempDir.toString()));
+        Path script = writePowerShellScript("Write-Output 'runtime-ok'");
+        Path log = tempDir.resolve("bound-operation.log");
+        String hostDigest = "a".repeat(64);
+        List<String> commandLine = RuntimeControlCommandExecutorImpl.buildCommandLine(script);
+        String commandDigest = cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow
+                .ReleaseWorkflowCommandFingerprint.calculate("local", "intruoyi-backend", "<repoRoot>",
+                        String.join(" ", commandLine));
+
+        executor.registerOperation("op-bound-12345678", log, Map.of(
+                "executorHostIdentitySha256", hostDigest,
+                "releaseWorkflowCommandSha256", commandDigest));
+        executor.executeOperation(command(script), log);
+
+        String contents = Files.readString(log, StandardCharsets.UTF_8);
+        assertTrue(contents.contains("executorHostIdentitySha256=" + hostDigest));
+        assertTrue(contents.contains("releaseWorkflowCommandSha256=" + commandDigest));
+        assertEquals(commandDigest, cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow
+                .ReleaseWorkflowCommandFingerprint.calculate("local", "intruoyi-backend", "<repoRoot>",
+                        contents.lines().filter(line -> line.startsWith("command="))
+                                .map(line -> line.substring("command=".length())).findFirst().orElseThrow()));
     }
 
     @Test

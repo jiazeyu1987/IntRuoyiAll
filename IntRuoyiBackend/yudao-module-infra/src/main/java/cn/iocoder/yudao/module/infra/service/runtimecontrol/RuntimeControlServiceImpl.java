@@ -25,6 +25,8 @@ import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.Rele
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowStore;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowBackupAuthorizationService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowWorktreeFactory;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowExecutorHostIdentity;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowCommandFingerprint;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +64,7 @@ import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.RUNTIME_CON
 @Service
 public class RuntimeControlServiceImpl implements RuntimeControlService {
 
+    private static final String RELEASE_WORKFLOW_COMMAND_FINGERPRINT_PARAMETER = "releaseWorkflowCommandSha256";
     private static final int OPERATION_HISTORY_LIMIT = 50;
     private static final int DEFAULT_LOG_TAIL_BYTES = 64 * 1024;
     private static final int MAX_LOG_TAIL_BYTES = 256 * 1024;
@@ -220,6 +223,9 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             throw exception(RUNTIME_CONTROL_INVALID_ACTION, reqVO.getAction());
         }
         validateIndependentBackupBinding(action, reqVO, operator);
+        String executorHostIdentity = action == RuntimeControlOperationAction.BUILD_RELEASE
+                && isIndependentBackup(action, reqVO)
+                ? ReleaseWorkflowExecutorHostIdentity.currentDigest() : null;
         RuntimeControlOperationRespVO operation = new RuntimeControlOperationRespVO();
         operation.setOperationId(resolveOperationId(reqVO));
         operation.setRequestedBy(operator);
@@ -228,7 +234,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         operation.setComponent("ops");
         operation.setAction(action.getAction());
         operation.setActionLabel(action.getLabel());
-        operation.setParameters(operationParameters(action, reqVO));
+        operation.setParameters(operationParameters(action, reqVO, executorHostIdentity));
         operation.setReason(StrUtil.trim(reqVO.getReason()));
         operation.setStatus("running");
         operation.setSummary(action.getLabel() + " dispatched");
@@ -241,7 +247,8 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                     && java.util.Objects.equals(existing.getEnvironment(), operation.getEnvironment())
                     && java.util.Objects.equals(existing.getRequestedBy(), operation.getRequestedBy())
                     && java.util.Objects.equals(existing.getReason(), operation.getReason())
-                    && java.util.Objects.equals(existing.getParameters(), operation.getParameters())) {
+                    && sameOperationRequestParameters(existing.getParameters(), operation.getParameters(),
+                    action == RuntimeControlOperationAction.BUILD_RELEASE)) {
                 return existing;
             }
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "RELEASE_WORKFLOW_OPERATION_ALREADY_CLAIMED");
@@ -255,7 +262,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             String blockedMessage = StrUtil.blankToDefault(ex.getMessage(), "Operation blocked");
             appendOperationLog(logPath, "BLOCKED: " + blockedMessage + System.lineSeparator(), ex);
             operation.setEnvironment(action.resolveEnvironment(reqVO));
-            operation.setParameters(operationParameters(action, reqVO));
+            operation.setParameters(operationParameters(action, reqVO, executorHostIdentity));
             operation.setStatus("blocked");
             operation.setSummary(blockedMessage);
             operation.setZeroWriteEvidence(true);
@@ -264,7 +271,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         }
 
         operation.setEnvironment(action.resolveEnvironment(reqVO));
-        operation.setParameters(operationParameters(action, reqVO));
+        operation.setParameters(operationParameters(action, reqVO, executorHostIdentity));
         operationStore.save(operation);
 
         Path nasConfigPath = null;
@@ -275,10 +282,29 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             appendRestoreIsolationArguments(action, command);
             nasConfigPath = appendNasReleaseArguments(action, command, operation.getOperationId());
             appendBackendRuntimeBaseArguments(action, command, backendRuntimeBaseConfig);
-            commandExecutor.registerOperation(operation.getOperationId(), logPath);
+            Map<String, String> operationLogBindings = Map.of();
+            if (executorHostIdentity != null) {
+                Path script = Path.of(command.getScriptPath());
+                if (!script.isAbsolute()) {
+                    throw new IllegalStateException("BUILD_RECOVERY_COMMAND_SCRIPT_NOT_ABSOLUTE");
+                }
+                List<String> commandLine = RuntimeControlCommandExecutorImpl.buildCommandLine(script.normalize());
+                commandLine.addAll(command.getArguments());
+                String commandDigest = ReleaseWorkflowCommandFingerprint.calculate(command.getEnvironment(),
+                        command.getComponent(), command.getWorkingDirectory(), String.join(" ", commandLine));
+                operation.getParameters().put(RELEASE_WORKFLOW_COMMAND_FINGERPRINT_PARAMETER, commandDigest);
+                operationLogBindings = Map.of(
+                        "executorHostIdentitySha256", executorHostIdentity,
+                        "releaseWorkflowCommandSha256", commandDigest);
+            }
             Path operationNasConfigPath = nasConfigPath;
             operation.setZeroWriteEvidence(false);
             operationStore.save(operation);
+            if (executorHostIdentity != null) {
+                commandExecutor.registerOperation(operation.getOperationId(), logPath, operationLogBindings);
+            } else {
+                commandExecutor.registerOperation(operation.getOperationId(), logPath);
+            }
             if (action.requiresDetachedLinuxLocalRunner(properties)) {
                 operationExecutor.submit(() -> executeDetachedActionCommand(operation.getOperationId(), action, command,
                         logPath, operationNasConfigPath));
@@ -1527,6 +1553,28 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             parameters.put("manifestDigest", request.getExpectedManifestDigest());
         }
         return parameters;
+    }
+
+    private Map<String, String> operationParameters(RuntimeControlOperationAction action, RuntimeControlActionReqVO request,
+                                                    String executorHostIdentity) {
+        Map<String, String> parameters = operationParameters(action, request);
+        if (executorHostIdentity != null) {
+            parameters.put("executorHostIdentitySha256", executorHostIdentity);
+        }
+        return parameters;
+    }
+
+    private boolean sameOperationRequestParameters(Map<String, String> persisted, Map<String, String> requested,
+                                                   boolean buildCommandFingerprintIsDerived) {
+        if (persisted == null) {
+            return requested == null;
+        }
+        Map<String, String> requestIdentity = new LinkedHashMap<>(persisted);
+        if (buildCommandFingerprintIsDerived) {
+            // Added only after build command construction; it is execution evidence, not submitted request identity.
+            requestIdentity.remove(RELEASE_WORKFLOW_COMMAND_FINGERPRINT_PARAMETER);
+        }
+        return java.util.Objects.equals(requestIdentity, requested);
     }
 
     private void validateIndependentBackupBinding(RuntimeControlOperationAction action,

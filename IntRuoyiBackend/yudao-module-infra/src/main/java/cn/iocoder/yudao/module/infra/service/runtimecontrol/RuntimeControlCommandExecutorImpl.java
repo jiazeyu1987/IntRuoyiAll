@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -39,6 +40,7 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, String> pendingOperationLogs = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, String>> pendingOperationBindings = new ConcurrentHashMap<>();
     private final Map<String, Process> activeProcesses = new ConcurrentHashMap<>();
     private final Map<String, String> activeContainers = new ConcurrentHashMap<>();
 
@@ -77,15 +79,31 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
     @Override
     public void executeOperation(RuntimeControlCommand command, Path logPath) {
         String operationId = findPendingOperationId(logPath);
-        execute(command, false, logPath, OPERATION_COMMAND_TIMEOUT, operationId);
+        try {
+            execute(command, false, logPath, OPERATION_COMMAND_TIMEOUT, operationId);
+        } finally {
+            if (logPath != null) pendingOperationBindings.remove(operationKey(logPath));
+        }
     }
 
     @Override
     public void registerOperation(String operationId, Path logPath) {
+        registerOperation(operationId, logPath, Map.of());
+    }
+
+    @Override
+    public void registerOperation(String operationId, Path logPath, Map<String, String> immutableBindings) {
         if (StrUtil.isBlank(operationId) || logPath == null) {
             throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "operation cancellation registration is invalid");
         }
-        pendingOperationLogs.put(operationKey(logPath), operationId);
+        if (immutableBindings == null || immutableBindings.entrySet().stream().anyMatch(entry ->
+                !Set.of("executorHostIdentitySha256", "releaseWorkflowCommandSha256").contains(entry.getKey())
+                        || entry.getValue() == null || !entry.getValue().matches("[0-9a-f]{64}"))) {
+            throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "operation immutable binding registration is invalid");
+        }
+        String key = operationKey(logPath);
+        pendingOperationBindings.put(key, Map.copyOf(immutableBindings));
+        pendingOperationLogs.put(key, operationId);
     }
 
     @Override
@@ -125,20 +143,24 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
     @Override
     public void executeDetachedOperation(RuntimeControlCommand command, Path logPath, String operationId,
                                           String successSummary) {
-        Path repoRoot = resolveWorkingDirectory(command);
-        Path script = resolveScript(command.getScriptPath(), repoRoot);
-        if (!Files.isRegularFile(script)) {
-            throw exception(RUNTIME_CONTROL_SCRIPT_NOT_EXISTS, script.toString());
+        try {
+            Path repoRoot = resolveWorkingDirectory(command);
+            Path script = resolveScript(command.getScriptPath(), repoRoot);
+            if (!Files.isRegularFile(script)) {
+                throw exception(RUNTIME_CONTROL_SCRIPT_NOT_EXISTS, script.toString());
+            }
+            List<String> commandLine = buildCommandLine(script);
+            commandLine.addAll(command.getArguments());
+            prepareOperationLog(command, logPath, commandLine);
+            Path runnerScript = writeDetachedRunnerScript(operationId, logPath, commandLine, successSummary);
+            List<String> dockerCommand = buildDetachedDockerCommand(operationId, runnerScript);
+            String containerId = runCommand(dockerCommand, DETACHED_OPERATION_START_TIMEOUT).trim();
+            pendingOperationLogs.remove(operationKey(logPath));
+            activeContainers.put(operationId, containerId);
+            appendDetachedRunnerStart(logPath, runnerScript, containerId);
+        } finally {
+            if (logPath != null) pendingOperationBindings.remove(operationKey(logPath));
         }
-        List<String> commandLine = buildCommandLine(script);
-        commandLine.addAll(command.getArguments());
-        prepareOperationLog(command, logPath, commandLine);
-        Path runnerScript = writeDetachedRunnerScript(operationId, logPath, commandLine, successSummary);
-        List<String> dockerCommand = buildDetachedDockerCommand(operationId, runnerScript);
-        String containerId = runCommand(dockerCommand, DETACHED_OPERATION_START_TIMEOUT).trim();
-        pendingOperationLogs.remove(operationKey(logPath));
-        activeContainers.put(operationId, containerId);
-        appendDetachedRunnerStart(logPath, runnerScript, containerId);
     }
 
     private String execute(RuntimeControlCommand command, boolean captureOutput, Path logPath, Duration timeout) {
@@ -538,16 +560,22 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
         }
         try {
             Files.createDirectories(logPath.getParent());
+            Map<String, String> bindings = pendingOperationBindings.remove(operationKey(logPath));
+            String bindingHeader = bindings == null ? "" : bindings.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .map(entry -> entry.getKey() + "=" + entry.getValue())
+                    .collect(Collectors.joining(System.lineSeparator(), "", System.lineSeparator()));
             String header = """
                     # Runtime Control Operation
                     environment=%s
                     component=%s
                     workingDirectory=%s
                     script=%s
+                    %s
                     command=%s
 
                     """.formatted(command.getEnvironment(), command.getComponent(), resolveWorkingDirectoryText(command),
-                    command.getScriptPath(), String.join(" ", commandLine));
+                    command.getScriptPath(), bindingHeader, String.join(" ", commandLine));
             Files.writeString(logPath, header, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
         } catch (IOException ex) {
@@ -555,7 +583,7 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
         }
     }
 
-    private List<String> buildCommandLine(Path script) {
+    static List<String> buildCommandLine(Path script) {
         String fileName = script.getFileName().toString().toLowerCase();
         List<String> commandLine = new ArrayList<>();
         if (fileName.endsWith(".ps1")) {

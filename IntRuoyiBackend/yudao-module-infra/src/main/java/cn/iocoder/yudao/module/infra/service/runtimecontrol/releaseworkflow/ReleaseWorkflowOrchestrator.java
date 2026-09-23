@@ -87,6 +87,21 @@ public class ReleaseWorkflowOrchestrator {
         return recovered;
     }
 
+    /** Local build retirement, separately verified; never releases a target deployment owner. */
+    public synchronized ReleaseWorkflowRecord completeBackupBuildFailure(String workflowId, long version,
+                                                                         String actor, String digest) {
+        var current = workflowService.require(workflowId);
+        var proof = new ReleaseWorkflowBuildFailureRecovery(properties, operationStore, runtimeControlService,
+                new ReleaseWorkflowWorktreeFactory(properties), ReleaseWorkflowBuildFailureRecovery::windowsLastBoot)
+                .inspect(current, actor);
+        if (!proof.eligible() || !java.util.Objects.equals(proof.digest(), digest)) {
+            throw new IllegalStateException("BUILD_RECOVERY_COMPLETION_EVIDENCE_REJECTED");
+        }
+        var retired = workflowService.retireVerifiedBackupBuildFailure(workflowId, version, actor, digest);
+        releaseLease(workflowId, "build");
+        return retired;
+    }
+
     private ReleaseWorkflowRecord dispatchBackupBuild(ReleaseWorkflowRecord workflow) {
         var lease = workflowService.acquireEnvironmentLease("build", workflow.workflowId());
         if (!lease.acquired()) { lease.close(); return workflowService.require(workflow.workflowId()); }

@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow;
 
 import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeControlProperties;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlOperationStore;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlRestoreIsolationConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -26,24 +27,49 @@ public class ReleaseWorkflowBackupRecoveryService {
     private final RuntimeControlOperationStore operations;
     private final Runner runner;
     private final Completion completion;
+    private final ReleaseWorkflowBuildFailureRecovery buildRecovery;
+    private final Completion buildCompletion;
     private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @Autowired
     public ReleaseWorkflowBackupRecoveryService(RuntimeControlProperties properties, ReleaseWorkflowStore store,
-            RuntimeControlOperationStore operations, ReleaseWorkflowOrchestrator orchestrator) {
-        this(properties, store, operations, null, orchestrator::completeBackupRecovery);
+            RuntimeControlOperationStore operations, ReleaseWorkflowOrchestrator orchestrator, RuntimeControlService runtime) {
+        this(properties, store, operations, null, orchestrator::completeBackupRecovery,
+                new ReleaseWorkflowBuildFailureRecovery(properties, operations, runtime,
+                        new ReleaseWorkflowWorktreeFactory(properties), ReleaseWorkflowBuildFailureRecovery::windowsLastBoot),
+                orchestrator::completeBackupBuildFailure);
     }
 
     public ReleaseWorkflowBackupRecoveryService(RuntimeControlProperties properties, ReleaseWorkflowStore store,
             RuntimeControlOperationStore operations, Runner runner, Completion completion) {
+        this(properties, store, operations, runner, completion, null, null);
+    }
+
+    ReleaseWorkflowBackupRecoveryService(RuntimeControlProperties properties, ReleaseWorkflowStore store,
+            RuntimeControlOperationStore operations, Runner runner, Completion completion,
+            ReleaseWorkflowBuildFailureRecovery buildRecovery, Completion buildCompletion) {
         this.properties = properties; this.store = store; this.operations = operations;
         this.runner = runner == null ? this::execute : runner; this.completion = completion;
+        this.buildRecovery = buildRecovery; this.buildCompletion = buildCompletion;
     }
 
     public Preview inspect(String workflowId, long version, String actor) {
         requireActor(actor);
         requireNoPublicationDecision(workflowId);
         var workflow = requireRecoverable(workflowId, version);
+        var operation = operations.findById(workflow.operationId());
+        if (operation != null && "build-release".equals(operation.getAction())) {
+            if (buildRecovery == null) throw new IllegalStateException("BUILD_RECOVERY_VERIFIER_UNAVAILABLE");
+            var proof = buildRecovery.inspect(workflow, actor);
+            requireRecoverable(workflowId, version);
+            Preview preview = new Preview("br-" + UUID.randomUUID(), workflowId, version, actor, "BUILD_FAILURE",
+                    proof.digest(), proof.digest(), null, proof.eligible(), proof.blockers(),
+                    proof.eligible() ? "确认 PROD 后仅退休失败构建；保留失败版本与 NAS 遗留，不声明零写入，不恢复部署环境。"
+                            : "构建仍隔离：缺少可验证的来源、命令或执行树终止证据。主机启动时间必须晚于操作请求；不能强制解锁。",
+                    Instant.now().plusSeconds(600), RecoveryKind.BUILD_FAILURE);
+            write(path(preview.previewId() + ".json"), preview);
+            return preview;
+        }
         Binding binding = binding(workflow);
         String fingerprint = targetFingerprint();
         CommandResult result = runner.run(command(workflow, binding, "inspect", null));
@@ -61,7 +87,7 @@ public class ReleaseWorkflowBackupRecoveryService {
                         : blockers.contains("RECOVERY_PUBLISH_RECEIPT_REQUIRES_ACK")
                         ? "该发布已有运行态验收收据，请继续发布 ACK 确认流程；保留当前环境隔离，不执行普通恢复。"
                         : "保持隔离；按报告检查迁移台账、配置、容器及旧恢复标记。部分写入须先执行经批准的数据恢复与兼容性验收，不能强制解锁。",
-                Instant.now().plusSeconds(600));
+                Instant.now().plusSeconds(600), RecoveryKind.DEPLOYMENT_RECOVERY);
         write(path(preview.previewId() + ".json"), preview);
         return preview;
     }
@@ -76,6 +102,8 @@ public class ReleaseWorkflowBackupRecoveryService {
                 || preview.expectedStateVersion() != version || !preview.eligible()) {
             throw new IllegalStateException("RECOVERY_PREVIEW_BINDING_INVALID");
         }
+        if (preview.kind() == null) throw new IllegalStateException("RECOVERY_PREVIEW_KIND_REQUIRED_REINSPECT");
+        if (preview.kind() == RecoveryKind.BUILD_FAILURE) return recoverBuildFailure(workflowId, version, actor, preview);
         Path verified = path(workflowId + ".verified.json");
         if (Files.isRegularFile(verified)) {
             Preview evidence = read(verified, Preview.class);
@@ -102,6 +130,29 @@ public class ReleaseWorkflowBackupRecoveryService {
         }
         write(verified, preview);
         return completion.complete(workflowId, version, actor, preview.evidenceDigest());
+    }
+
+    private ReleaseWorkflowRecord recoverBuildFailure(String id, long version, String actor, Preview preview) {
+        if (buildRecovery == null || buildCompletion == null) throw new IllegalStateException("BUILD_RECOVERY_VERIFIER_UNAVAILABLE");
+        Path verified = path(id + ".build-verified.json");
+        if (Files.isRegularFile(verified)) {
+            if (!preview.equals(read(verified, Preview.class))) throw new IllegalStateException("RECOVERY_PREVIOUS_RESULT_BINDING_INVALID");
+            var current = store.require(id);
+            if (current.state() == ReleaseWorkflowRecord.State.FAILED && !current.zeroWriteEvidence()
+                    && "VERIFIED_BUILD_FAILURE".equals(current.failedStage()) && current.stateVersion() == version + 1) return current;
+        }
+        if (preview.expiresAt().isBefore(Instant.now()) || !properties.getReleaseWorkflow().isProductionWriteEnabled()) {
+            throw new IllegalStateException("RECOVERY_AUTHORIZATION_EXPIRED_OR_DISABLED");
+        }
+        var current = requireRecoverable(id, version);
+        var proof = buildRecovery.inspect(current, actor);
+        if (!proof.eligible() || !Objects.equals(proof.digest(), preview.evidenceDigest())
+                || !Objects.equals(proof.digest(), preview.operationFingerprint()) || !"BUILD_FAILURE".equals(preview.targetFingerprint())) {
+            throw new IllegalStateException("BUILD_RECOVERY_FRESH_EVIDENCE_REJECTED: " + String.join(",", proof.blockers()));
+        }
+        // No external dispatch: a crash between proof and local CAS can safely repeat the fresh verification.
+        if (!Files.exists(verified)) write(verified, preview);
+        return buildCompletion.complete(id, version, actor, proof.digest());
     }
 
     private ReleaseWorkflowRecord requireRecoverable(String id, long version) {
@@ -312,5 +363,6 @@ public class ReleaseWorkflowBackupRecoveryService {
     public record Preview(String previewId, String workflowId, long expectedStateVersion, String actor,
                           String targetFingerprint, String operationFingerprint, String evidenceDigest,
                           String runtimeVersion, boolean eligible, List<String> blockers, String nextAction,
-                          Instant expiresAt) { }
+                          Instant expiresAt, RecoveryKind kind) { }
+    public enum RecoveryKind { BUILD_FAILURE, DEPLOYMENT_RECOVERY }
 }

@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.infra.service.runtimecontrol;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Map;
 
 public interface RuntimeControlCommandExecutor {
 
@@ -15,8 +16,10 @@ public interface RuntimeControlCommandExecutor {
 
     boolean isOperationExecutorAlive(String operationId);
 
+    void registerOperation(String operationId, Path logPath, Map<String, String> immutableBindings);
+
     default void registerOperation(String operationId, Path logPath) {
-        // Implementations that can terminate a running process override this hook.
+        registerOperation(operationId, logPath, Map.of());
     }
 
     default boolean cancelOperation(String operationId) {

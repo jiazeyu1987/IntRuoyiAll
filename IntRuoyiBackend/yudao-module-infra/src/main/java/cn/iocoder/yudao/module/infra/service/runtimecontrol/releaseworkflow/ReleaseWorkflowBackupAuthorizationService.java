@@ -124,7 +124,7 @@ public class ReleaseWorkflowBackupAuthorizationService {
         try { return mapper.readValue(path(id).toFile(), type); }
         catch (java.io.IOException e) { throw new IllegalStateException("RELEASE_WORKFLOW_AUTH_STORE_READ_FAILED", e); }
     }
-    static String digest(String value) {
+    public static String digest(String value) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
         catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
     }

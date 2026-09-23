@@ -65,28 +65,45 @@ class RuntimeControlGeneratedBackupIdentityTest {
         parameters.put("frontendCommit", building.frontendCommit());
         parameters.put("packageDigest", null);
         parameters.put("manifestDigest", null);
+        String testHostIdentity = "f".repeat(64);
+        parameters.put("executorHostIdentitySha256", testHostIdentity);
+        parameters.put("releaseWorkflowCommandSha256", "e".repeat(64));
         operation.setParameters(parameters);
         var operations = new RuntimeControlOperationStore(properties);
         assertTrue(operations.createIfAbsent(operation));
         var executor = mock(RuntimeControlCommandExecutor.class);
         var nas = mock(NasBrowserService.class);
-        var runtime = new RuntimeControlServiceImpl(properties, executor, operations,
-                mock(RuntimeOpsResponsibilityService.class), mock(RuntimeOpsCandidateService.class),
-                mock(RuntimeControlReleasePackageConfigService.class), mock(NasSettingsService.class), nas);
-        assertEquals(operation, runtime.executeAction(request, "operator"));
-        var recheck = RuntimeControlServiceImpl.class.getDeclaredMethod("validateIndependentBackupBinding",
-                RuntimeControlOperationAction.class, RuntimeControlActionReqVO.class, String.class, boolean.class);
-        recheck.setAccessible(true);
-        for (var state : List.of(ReleaseWorkflowRecord.State.TESTING, ReleaseWorkflowRecord.State.BUILDING)) {
-            building = store.update(building, building.stateVersion(), state, "verifier:unit",
-                    null, null, false, List.of(), false);
-            assertDoesNotThrow(() -> recheck.invoke(runtime, RuntimeControlOperationAction.BUILD_RELEASE,
-                    request, "operator", false));
+        try (var identity = mockStatic(ReleaseWorkflowExecutorHostIdentity.class)) {
+            identity.when(ReleaseWorkflowExecutorHostIdentity::currentDigest).thenReturn(testHostIdentity);
+            var runtime = new RuntimeControlServiceImpl(properties, executor, operations,
+                    mock(RuntimeOpsResponsibilityService.class), mock(RuntimeOpsCandidateService.class),
+                    mock(RuntimeControlReleasePackageConfigService.class), mock(NasSettingsService.class), nas);
+            assertEquals(operation, runtime.executeAction(request, "operator"));
+            identity.when(ReleaseWorkflowExecutorHostIdentity::currentDigest).thenReturn("a".repeat(64));
+            var identityFailure = assertThrows(RuntimeException.class,
+                    () -> runtime.executeAction(request, "operator"));
+            assertTrue(identityFailure.getMessage().contains("RELEASE_WORKFLOW_OPERATION_ALREADY_CLAIMED"),
+                    identityFailure.getMessage());
+            identity.when(ReleaseWorkflowExecutorHostIdentity::currentDigest).thenReturn(testHostIdentity);
+            request.setIncludeOnlyOffice(true);
+            var claimFailure = assertThrows(RuntimeException.class, () -> runtime.executeAction(request, "operator"));
+            assertTrue(claimFailure.getMessage().contains("RELEASE_WORKFLOW_OPERATION_ALREADY_CLAIMED"),
+                    claimFailure.getMessage());
+            var recheck = RuntimeControlServiceImpl.class.getDeclaredMethod("validateIndependentBackupBinding",
+                    RuntimeControlOperationAction.class, RuntimeControlActionReqVO.class, String.class, boolean.class);
+            recheck.setAccessible(true);
+            request.setIncludeOnlyOffice(false);
+            for (var state : List.of(ReleaseWorkflowRecord.State.TESTING, ReleaseWorkflowRecord.State.BUILDING)) {
+                building = store.update(building, building.stateVersion(), state, "verifier:unit",
+                        null, null, false, List.of(), false);
+                assertDoesNotThrow(() -> recheck.invoke(runtime, RuntimeControlOperationAction.BUILD_RELEASE,
+                        request, "operator", false));
+            }
+            store.update(building, building.stateVersion(), ReleaseWorkflowRecord.State.READY,
+                    "verifier:unit", null, null, false, List.of(), false);
+            assertThrows(java.lang.reflect.InvocationTargetException.class, () -> recheck.invoke(runtime,
+                    RuntimeControlOperationAction.BUILD_RELEASE, request, "operator", false));
         }
-        store.update(building, building.stateVersion(), ReleaseWorkflowRecord.State.READY,
-                "verifier:unit", null, null, false, List.of(), false);
-        assertThrows(java.lang.reflect.InvocationTargetException.class, () -> recheck.invoke(runtime,
-                RuntimeControlOperationAction.BUILD_RELEASE, request, "operator", false));
         verifyNoInteractions(executor, nas);
     }
 }

@@ -97,6 +97,10 @@
             <el-button v-if="row.state === 'TESTED'" link type="warning"
               :disabled="!canPromoteProd || workflowBusy || !workflowReason.trim()"
               @click="previewProductionPromotion(row)">晋级正式服</el-button>
+            <el-button v-if="row.state === 'RECOVERY_REQUIRED' && row.targetEnvironment === 'backup'"
+              v-hasPermi="['infra:runtime-control:publish-backup']" link type="warning"
+              :disabled="!canPublishBackup || workflowBusy"
+              @click="inspectBackupRecovery(row)">检查恢复</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -184,6 +188,28 @@
         >
           确认发布
         </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="backupRecoveryDialog.visible" title="审查发布恢复检查" width="640px"
+      :close-on-click-modal="!workflowBusy" :close-on-press-escape="!workflowBusy"
+      :show-close="!workflowBusy" @closed="clearBackupRecoveryPreview">
+      <template v-if="backupRecoveryPreview">
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item label="发布包">{{ backupRecoveryDialog.releaseTag }}</el-descriptions-item>
+          <el-descriptions-item label="检查有效期">{{ formatRuntimeDate(backupRecoveryPreview.expiresAt) }}</el-descriptions-item>
+        </el-descriptions>
+        <el-alert v-if="backupRecoveryPreview.blockers.length" type="error" :closable="false"
+          :title="backupRecoveryPreview.blockers.join('；')" class="mt-12px" />
+        <el-alert type="warning" :closable="false" :title="backupRecoveryPreview.nextAction" class="mt-12px" />
+        <el-input v-if="backupRecoveryPreview.eligible" v-model="backupRecoveryDialog.confirmText"
+          class="mt-12px" placeholder="输入 PROD 确认" autocomplete="off" :disabled="workflowBusy" />
+      </template>
+      <template #footer>
+        <el-button :disabled="workflowBusy" @click="backupRecoveryDialog.visible = false">取消</el-button>
+        <el-button type="warning" :loading="workflowBusy"
+          :disabled="workflowBusy || !backupRecoveryPreview?.eligible || backupRecoveryDialog.confirmText !== 'PROD' || !canPublishBackup"
+          @click="confirmBackupRecovery">确认恢复</el-button>
       </template>
     </el-dialog>
 
@@ -998,6 +1024,8 @@ const productionPreview = ref<RuntimeControlApi.RuntimeControlReleaseWorkflowPro
 const productionDialog = reactive({ visible: false, confirmText: '', workflowId: '', idempotencyKey: '' })
 const backupPublishPreview = ref<RuntimeControlApi.RuntimeControlBackupPublishPreviewVO>()
 const backupPublishDialog = reactive({ visible: false, confirmText: '', idempotencyKey: '' })
+const backupRecoveryPreview = ref<RuntimeControlApi.RuntimeControlBackupRecoveryPreviewVO>()
+const backupRecoveryDialog = reactive({ visible: false, confirmText: '', releaseTag: '' })
 const backupPoints = ref<RuntimeControlApi.RuntimeControlBackupPointVO[]>([])
 const probeLatest = ref<RuntimeControlApi.RuntimeControlProbeLatestVO>()
 const capacityStatus = ref<RuntimeControlApi.RuntimeControlCapacityStatusVO>()
@@ -1538,6 +1566,51 @@ const confirmBackupPublish = async () => {
     await loadReleaseWorkflows()
   } catch (error) {
     reportActionError(error)
+  } finally {
+    workflowBusy.value = false
+  }
+}
+
+const clearBackupRecoveryPreview = () => {
+  backupRecoveryPreview.value = undefined
+  backupRecoveryDialog.confirmText = ''
+  backupRecoveryDialog.releaseTag = ''
+}
+
+const inspectBackupRecovery = async (workflow: RuntimeControlApi.RuntimeControlReleaseWorkflowVO) => {
+  if (workflowBusy.value || !canPublishBackup.value || workflow.state !== 'RECOVERY_REQUIRED' || workflow.targetEnvironment !== 'backup') return
+  clearBackupRecoveryPreview()
+  workflowBusy.value = true
+  try {
+    backupRecoveryPreview.value = await RuntimeControlApi.inspectRuntimeControlBackupRecovery(
+      workflow.workflowId, workflow.stateVersion
+    )
+    backupRecoveryDialog.releaseTag = workflow.releaseTag
+    backupRecoveryDialog.visible = true
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowBusy.value = false
+  }
+}
+
+const confirmBackupRecovery = async () => {
+  const preview = backupRecoveryPreview.value
+  if (workflowBusy.value || !canPublishBackup.value || !preview?.eligible || backupRecoveryDialog.confirmText !== 'PROD') return
+  workflowBusy.value = true
+  try {
+    await RuntimeControlApi.recoverRuntimeControlBackup(preview.workflowId, {
+      previewId: preview.previewId,
+      expectedStateVersion: preview.expectedStateVersion,
+      prodConfirmText: backupRecoveryDialog.confirmText
+    })
+    backupRecoveryDialog.visible = false
+    await loadReleaseWorkflows()
+  } catch (error) {
+    backupRecoveryDialog.visible = false
+    backupRecoveryPreview.value = undefined
+    reportActionError(error)
+    lastError.value += '；恢复结果未确认，请刷新工作流状态后重新检查。'
   } finally {
     workflowBusy.value = false
   }
