@@ -22,6 +22,7 @@ public class RuntimeOpsResponsibilityServiceImpl implements RuntimeOpsResponsibi
     private static final List<RuntimeControlOwnerMatrixRespVO> DEFAULT_RELEASE_OWNERS = List.of(
             defaultOwner(-1001L, "prod", "promote-prod", "release-owner", "默认发布责任人"),
             defaultOwner(-1002L, "backup", "promote-backup", "release-owner", "默认发布责任人"),
+            defaultOwner(-1022L, "backup", "publish-backup", "release-owner", "默认审查发布责任人"),
             defaultOwner(-1003L, "prod", "rollback-app", "release-owner", "默认发布责任人"),
             defaultOwner(-1004L, "test", "rollback-app", "release-owner", "默认回滚发布责任人"),
             defaultOwner(-1005L, "backup", "rollback-app", "release-owner", "默认回滚发布责任人"),

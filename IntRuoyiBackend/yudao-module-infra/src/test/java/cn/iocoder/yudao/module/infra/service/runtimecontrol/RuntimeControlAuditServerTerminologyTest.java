@@ -24,8 +24,8 @@ class RuntimeControlAuditServerTerminologyTest {
     void backendUserFacingLabelsShouldUseAuditServerWhileTechnicalKeysRemainStable() throws Exception {
         RuntimeControlProperties properties = RuntimeControlProperties.createDefaultForTests(tempDir);
 
-        assertEquals("审查服", properties.getEnvironments().get("backup").getLabel());
-        assertEquals("上线审查服", RuntimeControlOperationAction.PROMOTE_BACKUP.getLabel());
+        assertEquals("审查服务器", properties.getEnvironments().get("backup").getLabel());
+        assertEquals("上线审查服务器", RuntimeControlOperationAction.PROMOTE_BACKUP.getLabel());
         assertEquals("promote-backup", RuntimeControlOperationAction.PROMOTE_BACKUP.getAction());
         assertEquals("backup", RuntimeControlOperationAction.PROMOTE_BACKUP.getEnvironment());
         assertEquals("172.30.30.59", RuntimeControlProperties.BACKUP_SERVER_HOST);

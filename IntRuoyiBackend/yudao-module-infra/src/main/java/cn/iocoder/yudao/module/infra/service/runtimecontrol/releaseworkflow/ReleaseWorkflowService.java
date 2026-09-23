@@ -52,6 +52,7 @@ public class ReleaseWorkflowService {
             throw new IllegalArgumentException("RELEASE_WORKFLOW_SOURCE_SELECTION_NOT_APPROVED");
         }
         ReleaseWorkflowRecord existing = store.list().stream()
+                .filter(record -> record.backupIntent() == null)
                 .filter(record -> !record.state().isTerminal())
                 .filter(record -> normalizedReason.equals(record.reason()))
                 .filter(record -> normalizedSourceSelectionId.equals(record.sourceSelectionId()))
@@ -84,6 +85,39 @@ public class ReleaseWorkflowService {
                 && workflow.getApprovedMaintenanceCommit().equals(record.maintenanceCommit())
                 && workflow.getApprovedApplicationCommit().equals(record.applicationCommit())
                 && workflow.getApprovedFrontendCommit().equals(record.frontendCommit());
+    }
+
+    public synchronized ReleaseWorkflowRecord createBackup(ReleaseWorkflowBackupAuthorizationService.Grant grant) {
+        var preview = grant.preview();
+        String workflowId = "rw-backup-" + ReleaseWorkflowBackupAuthorizationService.digest(
+                preview.actor() + "|" + preview.idempotencyKey()).substring(0, 32);
+        ReleaseWorkflowRecord existing = store.list().stream().filter(record -> workflowId.equals(record.workflowId()))
+                .findFirst().orElse(null);
+        if (existing != null) {
+            if (existing.backupIntent() == null || !existing.reason().equals(preview.reason())
+                    || !existing.sourceSelectionId().equals(preview.sourceSelectionId())
+                    || !existing.backupIntent().targetFingerprint().equals(preview.targetFingerprint())
+                    || !existing.backupIntent().authorizationId().equals(grant.authorizationId())) {
+                throw new IllegalStateException("RELEASE_WORKFLOW_IDEMPOTENCY_CONFLICT");
+            }
+            return existing;
+        }
+        Instant now = Instant.now();
+        String releaseTag = "release-review-" + workflowId.substring("rw-backup-".length());
+        ReleaseWorkflowRecord created = new ReleaseWorkflowRecord(workflowId, releaseTag,
+                ReleaseWorkflowContract.PUBLISH_SCOPE, preview.presetId(), preview.presetVersion(),
+                ReleaseWorkflowRecord.State.SOURCE_FREEZING, 0, 1, null, null, null, false, List.of(),
+                null, null, null, null, now, now, now, false, preview.actor(), preview.reason(),
+                preview.sourceSelectionId(), preview.maintenanceCommit(), preview.applicationCommit(),
+                preview.frontendCommit(), new ReleaseWorkflowRecord.BackupIntent(grant.authorizationId(), preview.previewId(),
+                        preview.targetFingerprint(), preview.idempotencyKey()));
+        try {
+            store.create(created);
+            return created;
+        } catch (ReleaseWorkflowStore.DuplicateWorkflowException conflict) {
+            // A concurrent process committed this deterministic request identity first.
+            return createBackup(grant);
+        }
     }
 
     public ReleaseWorkflowRecord require(String workflowId) {
@@ -159,11 +193,16 @@ public class ReleaseWorkflowService {
             throw new ReleaseWorkflowStore.CasConflictException(workflowId, expectedStateVersion,
                     current.stateVersion());
         }
+        if (!success && targetState == ReleaseWorkflowRecord.State.FAILED
+                && current.state().isWriteStage() && !zeroWriteEvidence) {
+            targetState = ReleaseWorkflowRecord.State.RECOVERY_REQUIRED;
+        }
         validateTransition(current.state(), targetState);
         String normalizedStage = requireText(stage, "stage");
         String errorCode = success ? null : "RELEASE_WORKFLOW_" + normalizedStage.toUpperCase().replace('-', '_') + "_FAILED";
         String failedStage = success ? null : normalizedStage;
-        boolean retryable = success ? false : targetState != ReleaseWorkflowRecord.State.RECOVERY_REQUIRED;
+        boolean retryable = success ? false : targetState != ReleaseWorkflowRecord.State.RECOVERY_REQUIRED
+                && targetState != ReleaseWorkflowRecord.State.BACKUP_FINALIZING;
         List<String> normalizedEvidenceRefs = evidenceRefs == null || evidenceRefs.isEmpty()
                 ? List.of("workflow/" + normalizedStage + ".json")
                 : List.copyOf(evidenceRefs);
@@ -218,10 +257,13 @@ public class ReleaseWorkflowService {
 
     public ReleaseWorkflowRecord cancel(String workflowId) {
         ReleaseWorkflowRecord current = store.require(workflowId);
+        if (current.state() == ReleaseWorkflowRecord.State.BACKUP_FINALIZING) {
+            throw new IllegalStateException("RELEASE_WORKFLOW_ACCEPTED_PUBLICATION_CANNOT_BE_CANCELED");
+        }
         if (current.state().isTerminal()) {
             throw new ReleaseWorkflowStore.TerminalWorkflowException(workflowId, current.state());
         }
-        if (current.state().isWriteStage()) {
+        if (current.state().isWriteStage() || (current.backupIntent() != null && current.operationId() != null)) {
             return store.update(current, current.stateVersion(), ReleaseWorkflowRecord.State.RECOVERY_REQUIRED,
                     VERIFIER_ACTOR, "RELEASE_WORKFLOW_CANCELLED_WRITE", current.state().name(), false,
                     List.of("workflow/cancel.json"), false);
@@ -247,6 +289,9 @@ public class ReleaseWorkflowService {
 
     public ReleaseWorkflowRecord retry(String workflowId, boolean contentOrMigrationChanged) {
         ReleaseWorkflowRecord current = store.require(workflowId);
+        if (current.backupIntent() != null) {
+            throw new RetryRequiresNewWorkflowException(workflowId);
+        }
         if (current.state() != ReleaseWorkflowRecord.State.FAILED || !current.retryable()) {
             throw new RetryNotAllowedException(workflowId);
         }
@@ -263,7 +308,7 @@ public class ReleaseWorkflowService {
     }
 
     private ReleaseWorkflowRecord recoverStale(ReleaseWorkflowRecord current, Instant now) {
-        if (current.state().isWriteStage()) {
+        if (current.state().isWriteStage() || (current.backupIntent() != null && current.operationId() != null)) {
             return store.update(current, current.stateVersion(), ReleaseWorkflowRecord.State.RECOVERY_REQUIRED,
                     VERIFIER_ACTOR, "RELEASE_WORKFLOW_HEARTBEAT_TIMEOUT", current.state().name(), false,
                     List.of("workflow/recovery-required.json"), false);
@@ -285,7 +330,7 @@ public class ReleaseWorkflowService {
                 new EnumMap<>(ReleaseWorkflowRecord.State.class);
         result.put(ReleaseWorkflowRecord.State.SOURCE_FREEZING,
                 EnumSet.of(ReleaseWorkflowRecord.State.PREFLIGHTING, ReleaseWorkflowRecord.State.FAILED,
-                        ReleaseWorkflowRecord.State.CANCELED));
+                        ReleaseWorkflowRecord.State.CANCELED, ReleaseWorkflowRecord.State.RECOVERY_REQUIRED));
         result.put(ReleaseWorkflowRecord.State.PREFLIGHTING,
                 EnumSet.of(ReleaseWorkflowRecord.State.TESTING, ReleaseWorkflowRecord.State.FAILED,
                         ReleaseWorkflowRecord.State.CANCELED, ReleaseWorkflowRecord.State.RECOVERY_REQUIRED));
@@ -296,7 +341,15 @@ public class ReleaseWorkflowService {
                 EnumSet.of(ReleaseWorkflowRecord.State.READY, ReleaseWorkflowRecord.State.FAILED,
                         ReleaseWorkflowRecord.State.RECOVERY_REQUIRED));
         result.put(ReleaseWorkflowRecord.State.READY,
-                EnumSet.of(ReleaseWorkflowRecord.State.TEST_DEPLOYING, ReleaseWorkflowRecord.State.CANCELED));
+                EnumSet.of(ReleaseWorkflowRecord.State.TEST_DEPLOYING, ReleaseWorkflowRecord.State.BACKUP_DEPLOYING,
+                        ReleaseWorkflowRecord.State.CANCELED, ReleaseWorkflowRecord.State.RECOVERY_REQUIRED,
+                        ReleaseWorkflowRecord.State.FAILED));
+        result.put(ReleaseWorkflowRecord.State.BACKUP_DEPLOYING,
+                EnumSet.of(ReleaseWorkflowRecord.State.BACKUP_FINALIZING, ReleaseWorkflowRecord.State.RECOVERY_REQUIRED,
+                        ReleaseWorkflowRecord.State.FAILED));
+        result.put(ReleaseWorkflowRecord.State.BACKUP_FINALIZING,
+                EnumSet.of(ReleaseWorkflowRecord.State.BACKUP_FINALIZING, ReleaseWorkflowRecord.State.BACKUP_DEPLOYED,
+                        ReleaseWorkflowRecord.State.RECOVERY_REQUIRED));
         result.put(ReleaseWorkflowRecord.State.TEST_DEPLOYING,
                 EnumSet.of(ReleaseWorkflowRecord.State.TEST_DEPLOYED, ReleaseWorkflowRecord.State.FAILED,
                         ReleaseWorkflowRecord.State.RECOVERY_REQUIRED));
@@ -311,7 +364,8 @@ public class ReleaseWorkflowService {
                 EnumSet.of(ReleaseWorkflowRecord.State.COMPLETED, ReleaseWorkflowRecord.State.FAILED,
                         ReleaseWorkflowRecord.State.RECOVERY_REQUIRED));
         result.put(ReleaseWorkflowRecord.State.RECOVERY_REQUIRED,
-                EnumSet.of(ReleaseWorkflowRecord.State.READY, ReleaseWorkflowRecord.State.FAILED));
+                EnumSet.of(ReleaseWorkflowRecord.State.READY, ReleaseWorkflowRecord.State.FAILED,
+                        ReleaseWorkflowRecord.State.BACKUP_FINALIZING));
         return Map.copyOf(result);
     }
 

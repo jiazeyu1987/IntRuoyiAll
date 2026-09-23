@@ -21,6 +21,10 @@ import cn.iocoder.yudao.module.infra.service.file.NasFileReadResult;
 import cn.iocoder.yudao.module.infra.service.file.NasSettingsService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseDigestContract;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowExecutorContract;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowRecord;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowStore;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowBackupAuthorizationService;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowWorktreeFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -184,6 +188,8 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         RuntimeControlProperties.Environment environment = properties.getEnvironments().get(reqVO.getEnvironment());
         RuntimeControlProperties.Target target = validateTarget(reqVO.getEnvironment(), reqVO.getComponent());
         validateRestartGuard(reqVO);
+        validateNoUnknownOperation(reqVO.getEnvironment(), null);
+        String restoreMarker = environment.isLocal() ? null : RuntimeControlRestoreIsolationConfig.resolve(properties);
 
         RuntimeControlOperationRespVO operation = new RuntimeControlOperationRespVO();
         operation.setOperationId(UUID.randomUUID().toString());
@@ -199,6 +205,9 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
 
         RuntimeControlCommand command = new RuntimeControlCommand(reqVO.getEnvironment(), reqVO.getComponent(),
                 target.getRestartScript(), target.buildRestartArguments(environment, operation.getResultLogPath()));
+        if (restoreMarker != null) {
+            appendRequiredArgument(command.getArguments(), "-RestoreIsolationMarkerPath", restoreMarker);
+        }
         commandExecutor.restart(command);
         return operation;
     }
@@ -210,6 +219,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         if (action == null) {
             throw exception(RUNTIME_CONTROL_INVALID_ACTION, reqVO.getAction());
         }
+        validateIndependentBackupBinding(action, reqVO, operator);
         RuntimeControlOperationRespVO operation = new RuntimeControlOperationRespVO();
         operation.setOperationId(resolveOperationId(reqVO));
         operation.setRequestedBy(operator);
@@ -218,14 +228,25 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         operation.setComponent("ops");
         operation.setAction(action.getAction());
         operation.setActionLabel(action.getLabel());
-        operation.setParameters(action.safeParameters(reqVO));
+        operation.setParameters(operationParameters(action, reqVO));
         operation.setReason(StrUtil.trim(reqVO.getReason()));
         operation.setStatus("running");
         operation.setSummary(action.getLabel() + " dispatched");
         Path logPath = operationStore.getOperationLogPath(operation.getOperationId());
         operation.setResultLogPath(logPath.toString());
+        if (!operationStore.createIfAbsent(operation)) {
+            RuntimeControlOperationRespVO existing = operationStore.findById(operation.getOperationId());
+            if (isIndependentBackup(action, reqVO) && existing != null
+                    && java.util.Objects.equals(existing.getAction(), operation.getAction())
+                    && java.util.Objects.equals(existing.getEnvironment(), operation.getEnvironment())
+                    && java.util.Objects.equals(existing.getRequestedBy(), operation.getRequestedBy())
+                    && java.util.Objects.equals(existing.getReason(), operation.getReason())
+                    && java.util.Objects.equals(existing.getParameters(), operation.getParameters())) {
+                return existing;
+            }
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "RELEASE_WORKFLOW_OPERATION_ALREADY_CLAIMED");
+        }
         operationStore.initializeLog(logPath);
-        operationStore.save(operation);
 
         RuntimeControlReleasePackageConfig backendRuntimeBaseConfig;
         try {
@@ -234,41 +255,271 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             String blockedMessage = StrUtil.blankToDefault(ex.getMessage(), "Operation blocked");
             appendOperationLog(logPath, "BLOCKED: " + blockedMessage + System.lineSeparator(), ex);
             operation.setEnvironment(action.resolveEnvironment(reqVO));
-            operation.setParameters(action.safeParameters(reqVO));
+            operation.setParameters(operationParameters(action, reqVO));
             operation.setStatus("blocked");
             operation.setSummary(blockedMessage);
+            operation.setZeroWriteEvidence(true);
             operationStore.save(operation);
             throw ex;
         }
 
         operation.setEnvironment(action.resolveEnvironment(reqVO));
-        operation.setParameters(action.safeParameters(reqVO));
+        operation.setParameters(operationParameters(action, reqVO));
         operationStore.save(operation);
 
         Path nasConfigPath = null;
         try {
             RuntimeControlCommand command = new RuntimeControlCommand(operation.getEnvironment(), "ops",
                     action.resolveScriptPath(properties), action.buildArguments(reqVO, operation.getRequestedBy(), properties));
-            bindReleaseWorkflowToolchain(action, command);
+            bindReleaseWorkflowToolchain(action, command, reqVO);
+            appendRestoreIsolationArguments(action, command);
             nasConfigPath = appendNasReleaseArguments(action, command, operation.getOperationId());
             appendBackendRuntimeBaseArguments(action, command, backendRuntimeBaseConfig);
             commandExecutor.registerOperation(operation.getOperationId(), logPath);
             Path operationNasConfigPath = nasConfigPath;
+            operation.setZeroWriteEvidence(false);
+            operationStore.save(operation);
             if (action.requiresDetachedLinuxLocalRunner(properties)) {
                 operationExecutor.submit(() -> executeDetachedActionCommand(operation.getOperationId(), action, command,
                         logPath, operationNasConfigPath));
             } else {
                 operationExecutor.submit(() -> executeActionCommand(operation.getOperationId(), action, command,
-                        logPath, operationNasConfigPath));
+                        logPath, operationNasConfigPath, reqVO, operator));
             }
         } catch (RuntimeException ex) {
             cleanupNasReleaseConfig(nasConfigPath, ex);
             String blockedMessage = StrUtil.blankToDefault(ex.getMessage(), "Operation blocked");
             appendOperationLog(logPath, "BLOCKED: " + blockedMessage + System.lineSeparator(), ex);
-            operationStore.updateStatus(operation.getOperationId(), "blocked", blockedMessage);
+            operationStore.updateResult(operation.getOperationId(), "blocked", blockedMessage, true);
             throw ex;
         }
         return operation;
+    }
+
+    @Override
+    public RuntimeControlOperationRespVO dispatchWorkflowAction(RuntimeControlActionReqVO request, String requestedBy) {
+        String operator = requireOperator(requestedBy, "requestedBy");
+        RuntimeControlOperationAction action = RuntimeControlOperationAction.fromAction(request.getAction());
+        if (action == null || !isIndependentBackup(action, request)) {
+            throw exception(RUNTIME_CONTROL_INVALID_ACTION, "Independent backup workflow dispatch required");
+        }
+        try {
+            return executeAction(request, operator);
+        } catch (RuntimeException rejection) {
+            recordUndispatchedWorkflowRejection(action, request, operator, rejection);
+            throw rejection;
+        }
+    }
+
+    private void recordUndispatchedWorkflowRejection(RuntimeControlOperationAction action,
+                                                     RuntimeControlActionReqVO request, String operator,
+                                                     RuntimeException rejection) {
+        try {
+            ReleaseWorkflowRecord record = new ReleaseWorkflowStore(properties).require(request.getReleaseWorkflowId());
+            if (record.backupIntent() == null || record.operationId() == null
+                    || !record.operationId().equals(request.getPreassignedOperationId())
+                    || !java.util.Objects.equals(record.requestedBy(), operator)) {
+                return;
+            }
+            RuntimeControlActionReqVO binding = new RuntimeControlActionReqVO();
+            binding.setReleaseWorkflowId(record.workflowId());
+            binding.setReleaseAuthorizationId(record.backupIntent().authorizationId());
+            binding.setTargetEnvironment("backup");
+            binding.setPublishScope(record.publishScope());
+            binding.setIncludeOnlyOffice(false);
+            binding.setIncludeShowroomBuildPackage(false);
+            binding.setReleaseTag(record.releaseTag());
+            binding.setSourceSelectionId(record.sourceSelectionId());
+            binding.setExpectedMaintenanceCommit(record.maintenanceCommit());
+            binding.setExpectedApplicationCommit(record.applicationCommit());
+            binding.setExpectedFrontendCommit(record.frontendCommit());
+            binding.setExpectedPackageDigest(record.packageDigest());
+            binding.setExpectedManifestDigest(record.manifestDigest());
+            RuntimeControlOperationRespVO rejected = new RuntimeControlOperationRespVO();
+            rejected.setOperationId(record.operationId());
+            rejected.setEnvironment("backup");
+            rejected.setComponent("ops");
+            rejected.setAction(action.getAction());
+            rejected.setActionLabel(action.getLabel());
+            rejected.setRequestedBy(operator);
+            rejected.setRequestedAt(LocalDateTime.now());
+            rejected.setReason(record.reason());
+            rejected.setParameters(operationParameters(action, binding));
+            rejected.setStatus("blocked");
+            rejected.setSummary(StrUtil.blankToDefault(rejection.getMessage(), "Workflow dispatch rejected before process launch"));
+            rejected.setZeroWriteEvidence(true);
+            Path logPath = operationStore.getOperationLogPath(record.operationId());
+            rejected.setResultLogPath(logPath.toString());
+            // The exclusive claim proves this attempt never dispatched; a previous claim is never overwritten.
+            if (operationStore.createIfAbsent(rejected)) {
+                operationStore.initializeLog(logPath);
+                appendOperationLog(logPath, "BLOCKED: " + rejected.getSummary() + System.lineSeparator(), rejection);
+            }
+        } catch (RuntimeException evidenceFailure) {
+            rejection.addSuppressed(evidenceFailure);
+        }
+    }
+
+    @Override
+    public void validateBackupPublishPrerequisites() {
+        properties.requireBackupPublishTarget();
+        responsibilityService.validateRequiredOwners("backup", "publish-backup");
+        RuntimeControlRestoreIsolationConfig.resolve(properties);
+    }
+
+    @Override
+    public boolean isOperationExecutorAlive(String operationId) {
+        return commandExecutor.isOperationExecutorAlive(operationId);
+    }
+
+    @Override
+    public Optional<RuntimeControlBackupPublicationReceipt> inspectBackupReceipt(ReleaseWorkflowRecord expected) {
+        ReleaseWorkflowRecord workflow = requireBackupConfirmationContext(expected);
+        RuntimeControlCommand command = backupConfirmationCommand(workflow, "inspect");
+        Optional<RuntimeControlBackupPublicationReceipt> receipt = RuntimeControlBackupPublicationReceipt.parseOutput(
+                commandExecutor.executeForOutput(command, java.time.Duration.ofMinutes(2)));
+        receipt.ifPresent(value -> {
+            value.verifyFor(workflow);
+            operationStore.archiveBackupReceipt(workflow.operationId(), value, null);
+        });
+        return receipt;
+    }
+
+    @Override
+    public RuntimeControlBackupPublicationReceipt acknowledgeBackupReceipt(ReleaseWorkflowRecord expected,
+            RuntimeControlBackupPublicationReceipt receipt, String decisionDigest) {
+        ReleaseWorkflowRecord workflow = requireBackupConfirmationContext(expected);
+        if (!"BACKUP_FINALIZING".equals(workflow.state().name())) {
+            throw new IllegalStateException("BACKUP_FINALIZING_REQUIRED");
+        }
+        receipt.verifyFor(workflow);
+        requireAcceptedDecision(workflow, receipt, decisionDigest);
+        RuntimeControlCommand command = backupConfirmationCommand(workflow, "ack");
+        appendRequiredArgument(command.getArguments(), "-LeaseToken", receipt.binding().leaseToken());
+        appendRequiredArgument(command.getArguments(), "-ExpectedReceiptDigest", receipt.receiptDigest());
+        appendRequiredArgument(command.getArguments(), "-ConfirmationDecisionDigest", decisionDigest);
+        appendRequiredArgument(command.getArguments(), "-ConfirmText", "PROD");
+        // Even a recovered CONFIRMED receipt must finish the idempotent owner-release ACK.
+        RuntimeControlBackupPublicationReceipt confirmed = RuntimeControlBackupPublicationReceipt.parseOutput(
+                        commandExecutor.executeForOutput(command, java.time.Duration.ofMinutes(2)))
+                .orElseThrow(() -> new IllegalStateException("BACKUP_ACK_CONFIRMATION_REQUIRED"));
+        confirmed.verifyFor(workflow);
+        if (!"CONFIRMED".equals(confirmed.state()) || !receipt.sameImmutableReceipt(confirmed)
+                || !decisionDigest.equals(confirmed.confirmationDecisionDigest())) {
+            throw new IllegalStateException("BACKUP_ACK_CONFIRMATION_MISMATCH");
+        }
+        operationStore.archiveBackupReceipt(workflow.operationId(), confirmed, null);
+        return confirmed;
+    }
+
+    @Override
+    public void completeBackupConfirmation(ReleaseWorkflowRecord expected,
+                                            RuntimeControlBackupPublicationReceipt confirmedReceipt) {
+        ReleaseWorkflowRecord workflow = requireBackupConfirmationContext(expected);
+        if (!List.of("BACKUP_FINALIZING", "BACKUP_DEPLOYED").contains(workflow.state().name())) {
+            throw new IllegalStateException("BACKUP_FINALIZING_REQUIRED");
+        }
+        confirmedReceipt.verifyFor(workflow);
+        if (!"CONFIRMED".equals(confirmedReceipt.state())) throw new IllegalStateException("BACKUP_ACK_CONFIRMATION_REQUIRED");
+        requireAcceptedDecision(workflow, confirmedReceipt, confirmedReceipt.confirmationDecisionDigest());
+        Path confirmation = backupFinalizationPath(workflow, ".confirmation.json");
+        try {
+            if (!Files.isRegularFile(confirmation) || Files.isSymbolicLink(confirmation)
+                    || !confirmedReceipt.equals(objectMapper.readValue(confirmation.toFile(), RuntimeControlBackupPublicationReceipt.class))) {
+                throw new IllegalStateException("BACKUP_LOCAL_CONFIRMATION_REQUIRED");
+            }
+        } catch (IOException ex) {
+            throw new IllegalStateException("BACKUP_LOCAL_CONFIRMATION_INVALID", ex);
+        }
+        operationStore.completeBackupPublication(workflow.operationId(), confirmedReceipt);
+    }
+
+    private ReleaseWorkflowRecord requireBackupConfirmationContext(ReleaseWorkflowRecord expected) {
+        if (expected == null) throw new IllegalArgumentException("BACKUP_WORKFLOW_REQUIRED");
+        ReleaseWorkflowRecord current = new ReleaseWorkflowStore(properties).require(expected.workflowId());
+        if (current.backupIntent() == null || !List.of("BACKUP_DEPLOYING", "BACKUP_FINALIZING", "RECOVERY_REQUIRED", "BACKUP_DEPLOYED")
+                .contains(current.state().name()) || !java.util.Objects.equals(current.operationId(), expected.operationId())
+                || !java.util.Objects.equals(current.releaseTag(), expected.releaseTag())
+                || !java.util.Objects.equals(current.packageDigest(), expected.packageDigest())
+                || !java.util.Objects.equals(current.manifestDigest(), expected.manifestDigest())
+                || !java.util.Objects.equals(current.sourceSelectionId(), expected.sourceSelectionId())
+                || !java.util.Objects.equals(current.maintenanceCommit(), expected.maintenanceCommit())
+                || !java.util.Objects.equals(current.applicationCommit(), expected.applicationCommit())
+                || !java.util.Objects.equals(current.frontendCommit(), expected.frontendCommit())
+                || !java.util.Objects.equals(current.backupIntent(), expected.backupIntent())
+                || !java.util.Objects.equals(current.requestedBy(), expected.requestedBy())
+                || !current.backupIntent().targetFingerprint().equals(ReleaseWorkflowBackupAuthorizationService.targetFingerprint(properties))) {
+            throw new IllegalStateException("BACKUP_CONFIRMATION_CONTEXT_MISMATCH");
+        }
+        RuntimeControlOperationRespVO operation = operationStore.findById(current.operationId());
+        if (operation == null || !"publish-backup".equals(operation.getAction()) || !"backup".equals(operation.getEnvironment())
+                || !java.util.Objects.equals(current.requestedBy(), operation.getRequestedBy()) || operation.getParameters() == null) {
+            throw new IllegalStateException("BACKUP_CONFIRMATION_OPERATION_MISMATCH");
+        }
+        Map<String, String> tuple = Map.of("workflowId", current.workflowId(), "releaseTag", current.releaseTag(),
+                "authorizationId", current.backupIntent().authorizationId(), "sourceSelectionId", current.sourceSelectionId(),
+                "maintenanceCommit", current.maintenanceCommit(), "applicationCommit", current.applicationCommit(),
+                "frontendCommit", current.frontendCommit(), "packageDigest", java.util.Objects.requireNonNull(current.packageDigest()),
+                "manifestDigest", java.util.Objects.requireNonNull(current.manifestDigest()));
+        for (var field : tuple.entrySet()) {
+            if (!field.getValue().equals(operation.getParameters().get(field.getKey()))) {
+                throw new IllegalStateException("BACKUP_CONFIRMATION_OPERATION_BINDING_MISMATCH");
+            }
+        }
+        return current;
+    }
+
+    private RuntimeControlCommand backupConfirmationCommand(ReleaseWorkflowRecord workflow, String mode) {
+        var target = properties.requireBackupPublishTarget();
+        var frozen = new ReleaseWorkflowWorktreeFactory(properties).requirePrepared(workflow);
+        Path script = frozen.maintenanceRoot().resolve("ops/deploy/confirm-review-publish.ps1").normalize();
+        if (!script.startsWith(frozen.maintenanceRoot()) || !Files.isRegularFile(script) || Files.isSymbolicLink(script)) {
+            throw new IllegalStateException("BACKUP_CONFIRMATION_EXECUTOR_MISSING");
+        }
+        List<String> arguments = new ArrayList<>();
+        appendRequiredArgument(arguments, "-Mode", mode);
+        appendRequiredArgument(arguments, "-ServerHost", target.getHost());
+        appendRequiredArgument(arguments, "-ServerUser", target.getServerUser());
+        appendRequiredArgument(arguments, "-RemoteAppDir", target.getRemoteAppDir());
+        appendRequiredArgument(arguments, "-ReleaseWorkflowId", workflow.workflowId());
+        appendRequiredArgument(arguments, "-JavaOperationId", workflow.operationId());
+        appendRequiredArgument(arguments, "-ReleaseTag", workflow.releaseTag());
+        appendRequiredArgument(arguments, "-ExpectedPackageDigest", workflow.packageDigest());
+        appendRequiredArgument(arguments, "-ExpectedManifestDigest", workflow.manifestDigest());
+        return new RuntimeControlCommand("backup", "ops", script.toString(), arguments, frozen.maintenanceRoot().toString());
+    }
+
+    private Path backupFinalizationPath(ReleaseWorkflowRecord workflow, String suffix) {
+        return Path.of(properties.getStateDir()).resolve("backup-finalization").resolve(workflow.workflowId() + suffix);
+    }
+
+    private void requireAcceptedDecision(ReleaseWorkflowRecord workflow, RuntimeControlBackupPublicationReceipt receipt,
+                                         String decisionDigest) {
+        Path decision = backupFinalizationPath(workflow, ".decision.json");
+        try {
+            if (decisionDigest == null || !decisionDigest.matches("[0-9a-f]{64}")
+                    || !Files.isRegularFile(decision) || Files.isSymbolicLink(decision)) {
+                throw new IllegalStateException("BACKUP_ACCEPTED_DECISION_REQUIRED");
+            }
+            byte[] bytes = Files.readAllBytes(decision);
+            if (!RuntimeControlBackupPublicationReceipt.sha256(bytes).equals(decisionDigest)) {
+                throw new IllegalStateException("BACKUP_ACCEPTED_DECISION_DIGEST_MISMATCH");
+            }
+            JsonNode data = objectMapper.readTree(bytes);
+            if (data == null || data.path("schemaVersion").asInt() != 1 || !"ACCEPTED".equals(data.path("decision").asText())
+                    || !workflow.workflowId().equals(data.path("workflowId").asText())
+                    || !workflow.operationId().equals(data.path("operationId").asText())
+                    || !workflow.releaseTag().equals(data.path("releaseTag").asText())
+                    || !workflow.sourceSelectionId().equals(data.path("sourceSelectionId").asText())
+                    || !workflow.maintenanceCommit().equals(data.path("maintenanceCommit").asText())
+                    || !workflow.applicationCommit().equals(data.path("applicationCommit").asText())
+                    || !workflow.frontendCommit().equals(data.path("frontendCommit").asText())
+                    || !receipt.awaitingConfirmation().equals(objectMapper.treeToValue(data.path("receipt"), RuntimeControlBackupPublicationReceipt.class))) {
+                throw new IllegalStateException("BACKUP_ACCEPTED_DECISION_BINDING_MISMATCH");
+            }
+        } catch (IOException ex) {
+            throw new IllegalStateException("BACKUP_ACCEPTED_DECISION_INVALID", ex);
+        }
     }
 
     @Override
@@ -313,10 +564,12 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         if (action == null) {
             throw exception(RUNTIME_CONTROL_INVALID_ACTION, reqVO.getAction());
         }
+        validateIndependentBackupBinding(action, reqVO, operator);
         RuntimeControlReleasePackageConfig backendRuntimeBaseConfig = validateActionGuard(action, reqVO);
         RuntimeControlCommand command = new RuntimeControlCommand(action.resolveEnvironment(reqVO), "ops",
                 action.resolveScriptPath(properties), action.buildArguments(reqVO, operator, properties));
-        bindReleaseWorkflowToolchain(action, command);
+        bindReleaseWorkflowToolchain(action, command, reqVO);
+        appendRestoreIsolationArguments(action, command);
         appendNasReleasePreviewArguments(action, command);
         appendBackendRuntimeBaseArguments(action, command, backendRuntimeBaseConfig);
 
@@ -411,8 +664,13 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                 releasePackage.backendRuntimeBaseVersion());
     }
 
-    private void bindReleaseWorkflowToolchain(RuntimeControlOperationAction action, RuntimeControlCommand command) {
+    private void bindReleaseWorkflowToolchain(RuntimeControlOperationAction action, RuntimeControlCommand command,
+                                               RuntimeControlActionReqVO request) {
         if (!action.requiresReleaseWorkflowContext()) {
+            return;
+        }
+        if (isIndependentBackup(action, request)) {
+            bindFrozenBackupToolchain(action, command, request);
             return;
         }
         RuntimeControlProperties.ReleaseWorkflow releaseWorkflow = properties.getReleaseWorkflow();
@@ -430,6 +688,48 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             appendRequiredArgument(command.getArguments(), "-FrontendRepoRoot",
                     appendConfiguredPath(releaseWorkflow.getApplicationRepoRoot(), "IntRuoyiFronted"));
         }
+    }
+
+    private void bindFrozenBackupToolchain(RuntimeControlOperationAction action, RuntimeControlCommand command,
+                                           RuntimeControlActionReqVO request) {
+        try {
+            if (StrUtil.isBlank(request.getFrozenPublishScriptSha256())
+                    || !request.getFrozenPublishScriptSha256().equalsIgnoreCase(
+                            properties.getReleaseWorkflow().getExpectedPublishScriptSha256())) {
+                throw new IllegalArgumentException("RELEASE_EXECUTOR_DIGEST_MISMATCH: frozen executor is not approved");
+            }
+            String configuredRoot = properties.getReleaseWorkflow().getWorktreeRoot();
+            if (StrUtil.isBlank(configuredRoot)) {
+                throw new IllegalArgumentException("RELEASE_WORKFLOW_WORKTREE_ROOT_REQUIRED");
+            }
+            Path workflowRoot = Path.of(configuredRoot).toRealPath().resolve(request.getReleaseWorkflowId());
+            Path maintenance = requireFrozenRoot(request.getFrozenMaintenanceRoot(), workflowRoot.resolve("maintenance"));
+            Path backend = requireFrozenRoot(request.getFrozenBackendRoot(), workflowRoot.resolve("application/IntRuoyiBackend"));
+            Path frontend = requireFrozenRoot(request.getFrozenFrontendRoot(), workflowRoot.resolve("application/IntRuoyiFronted"));
+            RuntimeControlProperties isolated = new RuntimeControlProperties();
+            org.springframework.beans.BeanUtils.copyProperties(properties.getReleaseWorkflow(), isolated.getReleaseWorkflow());
+            isolated.getReleaseWorkflow().setMaintenanceRepoRoot(maintenance.toString());
+            isolated.getReleaseWorkflow().setExpectedPublishScriptSha256(request.getFrozenPublishScriptSha256());
+            var verified = ReleaseWorkflowExecutorContract.verify(isolated);
+            command.setWorkingDirectory(verified.maintenanceRoot().toString());
+            command.setScriptPath(verified.script().toString());
+            if (action == RuntimeControlOperationAction.BUILD_RELEASE) {
+                appendRequiredArgument(command.getArguments(), "-BackendRepoRoot", backend.toString());
+                appendRequiredArgument(command.getArguments(), "-FrontendRepoRoot", frontend.toString());
+            }
+        } catch (IOException | IllegalArgumentException ex) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
+                    "RELEASE_WORKFLOW_FROZEN_TOOLCHAIN_INVALID: " + ex.getMessage());
+        }
+    }
+
+    private Path requireFrozenRoot(String actual, Path expected) throws IOException {
+        if (StrUtil.isBlank(actual) || !Files.isDirectory(expected)
+                || !Path.of(actual).toAbsolutePath().normalize().equals(expected.toAbsolutePath().normalize())
+                || !Path.of(actual).toRealPath().equals(expected.toAbsolutePath().normalize())) {
+            throw new IllegalArgumentException("RELEASE_WORKFLOW_FROZEN_ROOT_INVALID");
+        }
+        return expected;
     }
 
     private String appendConfiguredPath(String root, String child) {
@@ -483,6 +783,11 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
 
     private RuntimeControlOperationRespVO reconcileTerminalOperationStatus(RuntimeControlOperationRespVO operation,
                                                                            String logContent) {
+        if ("publish-backup".equals(operation.getAction())
+                || "build-release".equals(operation.getAction()) && "backup".equals(operation.getEnvironment())) {
+            // Review workflow completion belongs to the executor/receipt/ACK protocol, never diagnostic text.
+            return operation;
+        }
         if (!"running".equals(operation.getStatus()) || StrUtil.isBlank(logContent)) {
             return operation;
         }
@@ -827,26 +1132,73 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     }
 
     private void executeActionCommand(String operationId, RuntimeControlOperationAction action,
-                                      RuntimeControlCommand command, Path logPath, Path nasConfigPath) {
+                                      RuntimeControlCommand command, Path logPath, Path nasConfigPath,
+                                      RuntimeControlActionReqVO request, String operator) {
         RuntimeException failure = null;
+        boolean dispatched = false;
         try {
+            validateIndependentBackupBinding(action, request, operator, false);
+            if (isIndependentBackup(action, request)) {
+                validateNoUnknownOperation("backup", action == RuntimeControlOperationAction.PUBLISH_BACKUP
+                        ? request.getReleaseWorkflowId() : null);
+            }
+            dispatched = true;
             commandExecutor.executeOperation(command, logPath);
         } catch (RuntimeException ex) {
             failure = ex;
         }
+        if (action == RuntimeControlOperationAction.PUBLISH_BACKUP && dispatched) {
+            try {
+                RuntimeControlBackupPublicationReceipt receipt = RuntimeControlBackupPublicationReceipt.parseLog(logPath)
+                        .orElseThrow(() -> new IllegalStateException("BACKUP_PUBLICATION_RECEIPT_REQUIRED"));
+                ReleaseWorkflowRecord workflow = new ReleaseWorkflowStore(properties).require(request.getReleaseWorkflowId());
+                receipt.verifyFor(workflow);
+                operationStore.archiveBackupReceipt(operationId, receipt, failure == null ? null : failure.getMessage());
+                // Receipt and its retained remote owner are independent of local credential-file cleanup.
+                RuntimeException cleanupFailure = cleanupNasReleaseConfig(nasConfigPath, null);
+                if (cleanupFailure != null) {
+                    operationStore.recordLocalCleanupError(operationId, cleanupFailure.getMessage());
+                    if (failure == null) failure = cleanupFailure;
+                    else failure.addSuppressed(cleanupFailure);
+                }
+                canceledOperations.remove(operationId);
+                if (failure != null) throw new BackupReceiptRetainedException(failure);
+                return;
+            } catch (BackupReceiptRetainedException retained) {
+                throw retained;
+            } catch (IOException | RuntimeException receiptFailure) {
+                if (failure == null) failure = new IllegalStateException(
+                        "BACKUP_PUBLICATION_RECEIPT_UNCONFIRMED: " + receiptFailure.getMessage(), receiptFailure);
+                else failure.addSuppressed(receiptFailure);
+            }
+        }
+        boolean zeroWriteEvidence = failure != null && !dispatched;
+        if (failure != null && dispatched && isIndependentBackup(action, request)) {
+            try {
+                zeroWriteEvidence = RuntimeControlExecutionEvidence.confirmedZeroWriteRejection(logPath);
+            } catch (IOException evidenceFailure) {
+                failure.addSuppressed(evidenceFailure);
+            }
+        }
         failure = cleanupNasReleaseConfig(nasConfigPath, failure);
         if (canceledOperations.contains(operationId)) {
             if (failure != null) {
-                operationStore.updateStatus(operationId, "canceled", "Operation canceled after process termination");
+                operationStore.updateResult(operationId, "canceled", "Operation canceled after process termination", zeroWriteEvidence);
             }
             canceledOperations.remove(operationId);
             return;
         }
         if (failure != null) {
-            operationStore.updateStatus(operationId, "failed", StrUtil.blankToDefault(failure.getMessage(), "Operation failed"));
+            operationStore.updateResult(operationId, "failed", StrUtil.blankToDefault(failure.getMessage(), "Operation failed"), zeroWriteEvidence);
             throw failure;
         }
         operationStore.updateStatus(operationId, "succeeded", action.getLabel() + " completed");
+    }
+
+    private static final class BackupReceiptRetainedException extends IllegalStateException {
+        private BackupReceiptRetainedException(RuntimeException cause) {
+            super("BACKUP_PUBLICATION_RECEIPT_RETAINED: " + cause.getMessage(), cause);
+        }
     }
 
     private void executeDetachedActionCommand(String operationId, RuntimeControlOperationAction action,
@@ -1084,6 +1436,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         }
         validateActionEnvironmentEnabled(action, reqVO);
         if (action == RuntimeControlOperationAction.PUBLISH_TEST
+                || action == RuntimeControlOperationAction.PUBLISH_BACKUP
                 || action == RuntimeControlOperationAction.PROMOTE_PROD
                 || action == RuntimeControlOperationAction.PROMOTE_BACKUP) {
             validateRemoteDeployTargetHostConfig(action.resolveEnvironment(reqVO));
@@ -1139,7 +1492,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                 || StrUtil.isBlank(reqVO.getPreassignedOperationId())) {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "releaseWorkflowContext");
         }
-        if (!StrUtil.trim(reqVO.getReleaseWorkflowId()).matches("rw-[a-z0-9]{8,32}")
+        if (!StrUtil.trim(reqVO.getReleaseWorkflowId()).matches("rw-(?:backup-)?[a-z0-9]{8,32}")
                 && !StrUtil.trim(reqVO.getReleaseWorkflowId()).matches("wf-[a-z0-9-]{6,64}")) {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseWorkflowId");
         }
@@ -1147,6 +1500,79 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "releaseWorkflowExpectedStateVersion");
         }
         resolveOperationId(reqVO);
+    }
+
+    private void appendRestoreIsolationArguments(RuntimeControlOperationAction action, RuntimeControlCommand command) {
+        if (action.requiresReleaseWorkflowContext() && action != RuntimeControlOperationAction.MARK_RELEASE_TESTED) {
+            appendRequiredArgument(command.getArguments(), "-RestoreIsolationMarkerPath",
+                    RuntimeControlRestoreIsolationConfig.resolve(properties));
+        }
+    }
+
+    private boolean isIndependentBackup(RuntimeControlOperationAction action, RuntimeControlActionReqVO request) {
+        return action == RuntimeControlOperationAction.PUBLISH_BACKUP
+                || action == RuntimeControlOperationAction.BUILD_RELEASE && "backup".equals(request.getTargetEnvironment());
+    }
+
+    private Map<String, String> operationParameters(RuntimeControlOperationAction action, RuntimeControlActionReqVO request) {
+        Map<String, String> parameters = new LinkedHashMap<>(action.safeParameters(request));
+        if (isIndependentBackup(action, request)) {
+            parameters.put("workflowId", request.getReleaseWorkflowId());
+            parameters.put("authorizationId", request.getReleaseAuthorizationId());
+            parameters.put("sourceSelectionId", request.getSourceSelectionId());
+            parameters.put("maintenanceCommit", request.getExpectedMaintenanceCommit());
+            parameters.put("applicationCommit", request.getExpectedApplicationCommit());
+            parameters.put("frontendCommit", request.getExpectedFrontendCommit());
+            parameters.put("packageDigest", request.getExpectedPackageDigest());
+            parameters.put("manifestDigest", request.getExpectedManifestDigest());
+        }
+        return parameters;
+    }
+
+    private void validateIndependentBackupBinding(RuntimeControlOperationAction action,
+                                                   RuntimeControlActionReqVO request, String operator) {
+        validateIndependentBackupBinding(action, request, operator, true);
+    }
+
+    private void validateIndependentBackupBinding(RuntimeControlOperationAction action,
+                                                   RuntimeControlActionReqVO request, String operator,
+                                                   boolean exactVersion) {
+        if (!isIndependentBackup(action, request)) {
+            return;
+        }
+        validateReleaseWorkflowContext(action, request);
+        ReleaseWorkflowRecord record = new ReleaseWorkflowStore(properties).require(request.getReleaseWorkflowId());
+        boolean expectedState = action == RuntimeControlOperationAction.BUILD_RELEASE
+                ? (exactVersion ? record.state() == ReleaseWorkflowRecord.State.PREFLIGHTING
+                    : Set.of(ReleaseWorkflowRecord.State.PREFLIGHTING, ReleaseWorkflowRecord.State.TESTING,
+                            ReleaseWorkflowRecord.State.BUILDING).contains(record.state()))
+                : record.state() == ReleaseWorkflowRecord.State.BACKUP_DEPLOYING;
+        if (record.backupIntent() == null || !expectedState
+                || (exactVersion ? request.getReleaseWorkflowExpectedStateVersion() != record.stateVersion()
+                    : request.getReleaseWorkflowExpectedStateVersion() > record.stateVersion())
+                || !java.util.Objects.equals(record.operationId(), request.getPreassignedOperationId())
+                || !java.util.Objects.equals(record.requestedBy(), operator)
+                || !java.util.Objects.equals(record.reason(), request.getReason())
+                || !java.util.Objects.equals(record.releaseTag(), request.getReleaseTag())
+                || !java.util.Objects.equals(record.sourceSelectionId(), request.getSourceSelectionId())
+                || !java.util.Objects.equals(record.maintenanceCommit(), request.getExpectedMaintenanceCommit())
+                || !java.util.Objects.equals(record.applicationCommit(), request.getExpectedApplicationCommit())
+                || !java.util.Objects.equals(record.frontendCommit(), request.getExpectedFrontendCommit())
+                || !java.util.Objects.equals(record.backupIntent().authorizationId(), request.getReleaseAuthorizationId())
+                || !java.util.Objects.equals(record.backupIntent().targetFingerprint(),
+                    ReleaseWorkflowBackupAuthorizationService.targetFingerprint(properties))) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "RELEASE_WORKFLOW_BACKUP_BINDING_MISMATCH");
+        }
+        properties.requireBackupPublishTarget();
+        if (!"PROD".equals(request.getProdConfirmText())) {
+            throw exception(RUNTIME_CONTROL_PROD_GUARD_REQUIRED);
+        }
+        if (action == RuntimeControlOperationAction.PUBLISH_BACKUP
+                && (record.packageDigest() == null || record.manifestDigest() == null
+                || !record.packageDigest().equals(request.getExpectedPackageDigest())
+                || !record.manifestDigest().equals(request.getExpectedManifestDigest()))) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "RELEASE_WORKFLOW_PACKAGE_BINDING_MISMATCH");
+        }
     }
 
     private void validateApplyTestDbSqlTargetConfig() {
@@ -1222,6 +1648,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     private RuntimeControlReleasePackageRespVO validateReleasePackageAvailability(RuntimeControlOperationAction action,
                                                                                  String releaseTag) {
         if (action != RuntimeControlOperationAction.PUBLISH_TEST
+                && action != RuntimeControlOperationAction.PUBLISH_BACKUP
                 && action != RuntimeControlOperationAction.PROMOTE_PROD
                 && action != RuntimeControlOperationAction.PROMOTE_BACKUP) {
             return null;
@@ -1273,6 +1700,12 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     }
 
     private void validateActionTargetEnvironment(RuntimeControlOperationAction action, RuntimeControlActionReqVO reqVO) {
+        if (isIndependentBackup(action, reqVO)) {
+            if (StrUtil.isNotBlank(reqVO.getTargetEnvironment()) && !"backup".equals(reqVO.getTargetEnvironment())) {
+                throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "targetEnvironment");
+            }
+            return;
+        }
         if (action != RuntimeControlOperationAction.BACKUP_NOW
                 && action != RuntimeControlOperationAction.ROLLBACK_APP
                 && action != RuntimeControlOperationAction.RESTORE_DATA) {
@@ -1304,12 +1737,9 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             }
             throw exception(RUNTIME_CONTROL_INVALID_TARGET, environment, "ops");
         }
-        RuntimeControlOperationRespVO unknownOperation = latestUnknownOperation(environment);
-        if (unknownOperation != null) {
-            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
-                    environment + " 环境存在 UNKNOWN 操作，保持写保护直到人工确认并收口："
-                            + unknownOperation.getOperationId());
-        }
+        // Only this action has already passed the persisted independent-publisher binding checks.
+        validateNoUnknownOperation(environment, action == RuntimeControlOperationAction.PUBLISH_BACKUP
+                ? reqVO.getReleaseWorkflowId() : null);
         if (!runtimeEnvironment.isAccessEnabled()) {
             if (action == RuntimeControlOperationAction.BACKUP_NOW && "prod".equals(environment)) {
                 return;
@@ -1319,12 +1749,29 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         }
     }
 
-    private RuntimeControlOperationRespVO latestUnknownOperation(String environment) {
-        return operationStore.listLatest(200).stream()
-                .filter(operation -> environment.equals(operation.getEnvironment()))
-                .filter(operation -> "unknown".equals(operation.getStatus()))
-                .findFirst()
-                .orElse(null);
+    private void validateNoUnknownOperation(String environment, String validatedPublisherWorkflowId) {
+        RuntimeControlOperationRespVO unknownOperation = operationStore.findUnknownOperation(environment);
+        if (unknownOperation != null) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
+                    environment + " 环境存在 UNKNOWN 操作，保持写保护直到人工确认并收口："
+                            + unknownOperation.getOperationId());
+        }
+        if ("backup".equals(environment)) {
+            for (ReleaseWorkflowRecord workflow : new ReleaseWorkflowStore(properties).list()) {
+                if (!"backup".equals(workflow.targetEnvironment())) {
+                    continue;
+                }
+                boolean recoveryRequired = workflow.state() == ReleaseWorkflowRecord.State.RECOVERY_REQUIRED;
+                boolean finalizing = "BACKUP_FINALIZING".equals(workflow.state().name());
+                boolean anotherPublisher = workflow.state() == ReleaseWorkflowRecord.State.BACKUP_DEPLOYING
+                        && !workflow.workflowId().equals(validatedPublisherWorkflowId);
+                if (recoveryRequired || finalizing || anotherPublisher) {
+                    throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
+                            "backup 环境存在 " + workflow.state() + " 工作流，验收或正式恢复完成前保持写保护："
+                                    + workflow.workflowId());
+                }
+            }
+        }
     }
 
     private void validateReleaseTag(String releaseTag) {

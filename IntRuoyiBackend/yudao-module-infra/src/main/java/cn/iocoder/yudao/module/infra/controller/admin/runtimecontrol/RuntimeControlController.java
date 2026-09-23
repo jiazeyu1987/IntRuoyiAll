@@ -57,6 +57,8 @@ import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeStorageGuardS
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeRemoteRootDiskService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowOrchestrator;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowBackupAuthorizationService;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlBackupPublishRequests;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowProductionPreviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -180,9 +182,37 @@ public class RuntimeControlController {
                 requireLoginUserId(), reqVO.getReason(), reqVO.getSourceSelectionId())));
     }
 
+    @PostMapping("/release-workflows/backup-preview")
+    @Operation(summary = "预览审查服务器独立发布")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:publish-backup')")
+    public CommonResult<ReleaseWorkflowBackupAuthorizationService.Preview> previewBackupPublish(
+            @Valid @RequestBody RuntimeControlBackupPublishRequests.Preview request) {
+        return success(ReleaseWorkflowApiErrors.call(() -> releaseWorkflowOrchestrator.previewBackup(requireLoginUserId(), request.reason(),
+                request.sourceSelectionId(), request.idempotencyKey())));
+    }
+
+    @PostMapping("/release-workflows/backup-authorization")
+    @Operation(summary = "授权审查服务器独立发布")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:publish-backup')")
+    public CommonResult<ReleaseWorkflowBackupAuthorizationService.Grant> authorizeBackupPublish(
+            @Valid @RequestBody RuntimeControlBackupPublishRequests.Authorization request) {
+        return success(ReleaseWorkflowApiErrors.call(() -> releaseWorkflowOrchestrator.authorizeBackup(request.previewId(), requireLoginUserId(),
+                request.prodConfirmText())));
+    }
+
+    @PostMapping("/release-workflows/publish-backup")
+    @Operation(summary = "从固定源码自动发布到审查服务器")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:publish-backup')")
+    public CommonResult<RuntimeControlReleaseWorkflowRespVO> publishBackup(
+            @Valid @RequestBody RuntimeControlBackupPublishRequests.Publish request) {
+        return success(RuntimeControlReleaseWorkflowRespVO.from(ReleaseWorkflowApiErrors.call(() -> releaseWorkflowOrchestrator.startBackup(
+                requireLoginUserId(), request.previewId(), request.authorizationId(), request.idempotencyKey(),
+                request.prodConfirmText()))));
+    }
+
     @GetMapping("/release-workflows/creation-context")
     @Operation(summary = "获得当前批准的程序发布源选择")
-    @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate') or @ss.hasPermission('infra:runtime-control:publish-backup')")
     public CommonResult<java.util.Map<String, String>> getReleaseWorkflowCreationContext() {
         return success(java.util.Map.of("sourceSelectionId",
                 runtimeControlProperties.getReleaseWorkflow().getApprovedSourceSelectionId()));
@@ -193,8 +223,8 @@ public class RuntimeControlController {
     @PreAuthorize("@ss.hasPermission('infra:runtime-control:query')")
     public CommonResult<List<RuntimeControlReleaseWorkflowRespVO>> getReleaseWorkflows() {
         return success(releaseWorkflowService.list().stream()
-                .map(item -> releaseWorkflowOrchestrator.reconcile(item.workflowId()))
-                .map(RuntimeControlReleaseWorkflowRespVO::from)
+                .map(item -> item.backupIntent() == null ? releaseWorkflowOrchestrator.reconcile(item.workflowId()) : item)
+                .map(this::workflowResponse)
                 .toList());
     }
 
@@ -256,7 +286,20 @@ public class RuntimeControlController {
     @PreAuthorize("@ss.hasPermission('infra:runtime-control:query')")
     public CommonResult<RuntimeControlReleaseWorkflowRespVO> getReleaseWorkflow(
             @PathVariable("workflowId") String workflowId) {
-        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowOrchestrator.reconcile(workflowId)));
+        var workflow = releaseWorkflowService.require(workflowId);
+        return success(workflowResponse(workflow.backupIntent() == null
+                ? releaseWorkflowOrchestrator.reconcile(workflowId) : workflow));
+    }
+
+    private RuntimeControlReleaseWorkflowRespVO workflowResponse(
+            cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowRecord workflow) {
+        var response = RuntimeControlReleaseWorkflowRespVO.from(workflow);
+        if (workflow.backupIntent() != null) {
+            var cleanup = releaseWorkflowOrchestrator.getSourceCleanupStatus(workflow.workflowId());
+            response.setSourceCleanupStatus(cleanup.status());
+            response.setSourceCleanupErrorCode(cleanup.errorCode());
+        }
+        return response;
     }
 
     @PostMapping("/release-workflows/{workflowId}/cancel")
@@ -264,7 +307,8 @@ public class RuntimeControlController {
     @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
     public CommonResult<RuntimeControlReleaseWorkflowRespVO> cancelReleaseWorkflow(
             @PathVariable("workflowId") String workflowId) {
-        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowOrchestrator.cancel(workflowId)));
+        return success(RuntimeControlReleaseWorkflowRespVO.from(ReleaseWorkflowApiErrors.call(
+                () -> releaseWorkflowOrchestrator.cancel(workflowId))));
     }
 
     @GetMapping("/operations/{operationId}/log")

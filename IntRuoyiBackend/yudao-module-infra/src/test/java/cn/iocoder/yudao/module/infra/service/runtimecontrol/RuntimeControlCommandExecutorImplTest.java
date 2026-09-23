@@ -20,11 +20,53 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 class RuntimeControlCommandExecutorImplTest {
 
     @TempDir
     private Path tempDir;
+
+    @Test
+    void silentRegisteredOperationHasLiveExecutorUntilCanceled() throws Exception {
+        Method liveness = assertDoesNotThrow(() -> RuntimeControlCommandExecutorImpl.class
+                .getMethod("isOperationExecutorAlive", String.class), "executor liveness must be independent of logs");
+        RuntimeControlCommandExecutorImpl executor = executorWithProperties(propertiesWithRepoRoot(tempDir.toString()));
+        Path script = writePowerShellScript("Start-Sleep -Seconds 30");
+        Path log = tempDir.resolve("silent-operation.log");
+        String operationId = "op-silent-12345678";
+        assertFalse((Boolean) liveness.invoke(executor, operationId));
+        executor.registerOperation(operationId, log);
+        assertFalse((Boolean) liveness.invoke(executor, operationId), "queued is not proof of a living process");
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread worker = new Thread(() -> {
+            try {
+                executor.executeOperation(command(script), log);
+            } catch (Throwable ex) {
+                failure.set(ex);
+            }
+        });
+        worker.start();
+        try {
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+            while (!(Boolean) liveness.invoke(executor, operationId) && System.nanoTime() < deadline) {
+                Thread.sleep(20);
+            }
+            assertTrue((Boolean) liveness.invoke(executor, operationId), String.valueOf(failure.get()));
+            var lastWrite = Files.getLastModifiedTime(log);
+            Thread.sleep(250);
+            assertEquals(lastWrite, Files.getLastModifiedTime(log));
+            assertTrue((Boolean) liveness.invoke(executor, operationId), "silent process remains alive");
+            assertTrue(executor.cancelOperation(operationId));
+            worker.join(10000);
+            assertFalse(worker.isAlive());
+            assertFalse((Boolean) liveness.invoke(executor, operationId));
+        } finally {
+            executor.cancelOperation(operationId);
+            worker.interrupt();
+            worker.join(10000);
+        }
+    }
 
     @Test
     void executeForOutputShouldFailFastWhenRepoRootBlank() throws Exception {
@@ -254,7 +296,9 @@ class RuntimeControlCommandExecutorImplTest {
     }
 
     private RuntimeControlProperties propertiesWithRepoRoot(String repoRoot) {
-        RuntimeControlProperties properties = RuntimeControlProperties.createDefaultForTests(tempDir.resolve("state"));
+        // These process tests do not exercise workflows or backup configuration.
+        RuntimeControlProperties properties = new RuntimeControlProperties();
+        properties.setStateDir(tempDir.resolve("state").toString());
         properties.setRepoRoot(repoRoot);
         return properties;
     }

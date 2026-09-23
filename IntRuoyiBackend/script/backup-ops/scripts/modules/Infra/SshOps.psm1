@@ -3,6 +3,28 @@
 $script:BackupOpsUtf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $script:BackupOpsDefaultSshTimeoutSeconds = 300
 $script:BackupOpsDefaultScpTimeoutSeconds = 300
+Import-Module (Join-Path $PSScriptRoot '../../../../deploy/RuntimeResourceLease.psm1')
+
+# The launcher supplies the actual runtime target; reading source files never locks their host.
+function Get-BackupRuntimeResourceLease {
+    param([hashtable]$Request)
+    if (-not (Get-Variable -Name IntRuoyiBackupRuntimeTarget -Scope Global -ErrorAction SilentlyContinue)) { return $null }
+    if ([string]$Request.Host -ne $global:IntRuoyiBackupRuntimeTarget) { return $null }
+    if (-not (Get-Variable -Name IntRuoyiBackupRuntimeLease -Scope Global -ErrorAction SilentlyContinue) -or
+        $null -eq $global:IntRuoyiBackupRuntimeLease) {
+        $global:IntRuoyiBackupRuntimeLease = New-RemoteRuntimeLease -TargetHost $Request.Host -User $Request.User -SshOptions (Get-BackupSshCommonArguments -Request $Request) -RestoreIsolationMarkerPath $global:IntRuoyiBackupRestoreMarkerPath
+    }
+    return $global:IntRuoyiBackupRuntimeLease
+}
+
+function Complete-BackupRuntimeResourceLease {
+    if (Get-Variable -Name IntRuoyiBackupRuntimeLease -Scope Global -ErrorAction SilentlyContinue) {
+        if ($null -ne $global:IntRuoyiBackupRuntimeLease) {
+            Complete-RemoteRuntimeLease -Lease $global:IntRuoyiBackupRuntimeLease
+            $global:IntRuoyiBackupRuntimeLease = $null
+        }
+    }
+}
 
 function New-BackupOpsSshException {
     param(
@@ -376,6 +398,13 @@ function Invoke-BackupSshCommand {
     $user = Get-BackupSshFieldValue -Request $Request -Name 'User'
     $command = Get-BackupSshFieldValue -Request $Request -Name 'Command' -Code 'INTBK-2003'
 
+    if (-not $PlanOnly) {
+        $runtimeLease = Get-BackupRuntimeResourceLease -Request $Request
+        if ($null -ne $runtimeLease) {
+            $command = Get-RemoteRuntimeLeaseShell -Action Fence -Token $runtimeLease.Token -Command $command
+        }
+    }
+
     $arguments = Get-BackupSshCommonArguments -Request $Request
     $arguments += @("${user}@${host}", $command)
     $plan = New-BackupSshExecutionPlan -Operation 'ssh-command' -Tool 'ssh' -Arguments $arguments -Request $Request
@@ -442,7 +471,13 @@ function Send-BackupFileOverSsh {
 
     Assert-BackupSshExecutable -Name 'scp'
     $timeoutSeconds = if ($Request.ContainsKey('TimeoutSeconds')) { [int]$Request['TimeoutSeconds'] } else { $script:BackupOpsDefaultScpTimeoutSeconds }
-    $result = Invoke-BackupNativeProcess -FilePath 'scp' -ArgumentList $arguments -TimeoutSeconds $timeoutSeconds
+    $runtimeLease = Get-BackupRuntimeResourceLease -Request $Request
+    if ($null -ne $runtimeLease) {
+        $recursiveUpload = $Request.ContainsKey('Recursive') -and [bool]$Request['Recursive']
+        $result = Send-RemoteRuntimeLeaseFile -Lease $runtimeLease -LocalPath $localPath -RemotePath $remotePath -Recursive:$recursiveUpload -TimeoutSeconds $timeoutSeconds
+    } else {
+        $result = Invoke-BackupNativeProcess -FilePath 'scp' -ArgumentList $arguments -TimeoutSeconds $timeoutSeconds
+    }
     $output = Remove-BackupSshNoise (($result.StdOut + "`n" + $result.StdErr).Trim())
     if ($result.ExitCode -ne 0) {
         throw (New-BackupOpsSshException -Code 'INTBK-2002' -Status 'fail' -Message (Protect-BackupSshSensitiveText -Text "SCP upload failed for ${user}@${host}: $localPath -> $remotePath`n$output"))
@@ -508,4 +543,4 @@ function Receive-BackupFileOverSsh {
         })
 }
 
-Export-ModuleMember -Function Test-BackupSshConnection, Invoke-BackupSshCommand, Send-BackupFileOverSsh, Receive-BackupFileOverSsh, Protect-BackupSshSensitiveText
+Export-ModuleMember -Function Test-BackupSshConnection, Invoke-BackupSshCommand, Send-BackupFileOverSsh, Receive-BackupFileOverSsh, Protect-BackupSshSensitiveText, Complete-BackupRuntimeResourceLease

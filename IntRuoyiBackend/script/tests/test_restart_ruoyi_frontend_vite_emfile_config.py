@@ -13,9 +13,12 @@ def test_frontend_restart_uses_windows_safe_vite_settings() -> None:
 
     optimize_setting = "`$env:VITE_OPTIMIZE_PROFILE = 'windows-safe'"
     threadpool_setting = "`$env:UV_THREADPOOL_SIZE = '1'"
+    api_url_setting = "`$env:VITE_API_URL = '/admin-api'"
     pnpm_start = "pnpm dev -- --strictPort"
 
     assert optimize_setting in frontend_block
     assert threadpool_setting in frontend_block
+    assert api_url_setting in frontend_block
     assert frontend_block.index(optimize_setting) < frontend_block.index(pnpm_start)
     assert frontend_block.index(threadpool_setting) < frontend_block.index(pnpm_start)
+    assert frontend_block.index(api_url_setting) < frontend_block.index(pnpm_start)

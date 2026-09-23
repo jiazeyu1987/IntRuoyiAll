@@ -118,6 +118,7 @@ class RuntimeOpsResponsibilityServiceImplTest extends BaseMockitoUnitTest {
     void defaultOpsOwnersShouldCoverCapacityBackupAndRehearsalRoutes() {
         assertDefaultOwner("prod", "promote-prod", "release-owner");
         assertDefaultOwner("backup", "promote-backup", "release-owner");
+        assertDefaultOwner("backup", "publish-backup", "release-owner");
         assertDefaultOwner("local", "storage-capacity-warning", "ops-owner");
         assertDefaultOwner("test", "storage-capacity-warning", "ops-owner");
         assertDefaultOwner("backup", "storage-capacity-warning", "ops-owner");
@@ -132,6 +133,18 @@ class RuntimeOpsResponsibilityServiceImplTest extends BaseMockitoUnitTest {
         assertDefaultOwner("backup", "restore-data-started", "data-owner");
         assertDefaultOwner("test", "restore-data-finished", "data-owner");
         assertDefaultOwner("backup", "restore-data-finished", "data-owner");
+    }
+
+    @Test
+    void backupPublishShouldHaveRequiredDefaultOwner() {
+        responsibilityService.validateRequiredOwners("backup", "publish-backup");
+
+        List<RuntimeControlOwnerMatrixRespVO> owners =
+                responsibilityService.getRequiredOwners("backup", "publish-backup");
+        assertEquals(1, owners.size());
+        assertEquals("release-owner", owners.get(0).getRole());
+        assertEquals(1L, owners.get(0).getOwnerUserId());
+        assertEquals("admin", owners.get(0).getOwnerName());
     }
 
     @Test

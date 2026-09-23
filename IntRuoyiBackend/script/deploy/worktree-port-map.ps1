@@ -27,16 +27,17 @@ function ConvertTo-IntRuoyiWorktreeName {
     }
 
     $normalizedPath = ([System.IO.Path]::GetFullPath($Path.Replace('/', '\'))).TrimEnd('\')
-    $pattern = '(?:\\worktrees\\|\\IntRuoyiWorktrees\\|\\release-worktrees\\)([^\\]+)\\' + [regex]::Escape($RepoFolder) + '$'
+    $worktreeRootPattern = '(?:\\worktrees\\|\\IntRuoyiWorktrees?\\|\\release-worktrees\\)'
+    $pattern = $worktreeRootPattern + '([^\\]+)\\' + [regex]::Escape($RepoFolder) + '$'
     if ($normalizedPath -match $pattern) {
         return $Matches[1]
     }
-    $shortFolder = if ($RepoFolder -eq 'ruoyi-vue-pro') { 'b' } else { 'f' }
-    $shortFolderPattern = '(?:\\worktrees\\|\\IntRuoyiWorktrees\\|\\release-worktrees\\)([^\\]+)\\' + [regex]::Escape($shortFolder) + '$'
+    $shortFolder = if ($RepoFolder -eq 'ruoyi-vue-pro') { '(?:b|a)' } else { '(?:f|a)' }
+    $shortFolderPattern = $worktreeRootPattern + '([^\\]+)\\' + $shortFolder + '$'
     if ($normalizedPath -match $shortFolderPattern) {
         return $Matches[1]
     }
-    $flatPattern = '(?:\\worktrees\\|\\IntRuoyiWorktrees\\|\\release-worktrees\\)' + [regex]::Escape($RepoFolder) + '-([^\\]+)$'
+    $flatPattern = $worktreeRootPattern + [regex]::Escape($RepoFolder) + '-([^\\]+)$'
     if ($normalizedPath -match $flatPattern) {
         return $Matches[1]
     }
@@ -46,6 +47,81 @@ function ConvertTo-IntRuoyiWorktreeName {
     }
 
     throw "Cannot derive IntRuoyi worktree name from path [$Path] and branch [$Branch]."
+}
+
+function Test-IntRuoyiNonBusinessWorktreePath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $normalizedPath = ([System.IO.Path]::GetFullPath($Path.Replace('/', '\'))).TrimEnd('\')
+    $isDetachedUmbrella = (Test-Path -LiteralPath (Join-Path $normalizedPath 'IntRuoyiBackend')) -or
+        (Test-Path -LiteralPath (Join-Path $normalizedPath 'IntRuoyiFronted'))
+    return (
+        $normalizedPath -match '\\runtime\\clean-build-worktrees\\' -or
+        $normalizedPath -match '\\release-worktrees\\' -or
+        $normalizedPath -match '^C:\\codex-build(?:\\|$)' -or
+        $isDetachedUmbrella
+    )
+}
+
+function Resolve-IntRuoyiWorkspaceRoot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BackendPath
+    )
+
+    $normalizedPath = ([System.IO.Path]::GetFullPath($BackendPath.Replace('/', '\'))).TrimEnd('\')
+    if (Test-Path -LiteralPath (Join-Path $normalizedPath 'IntRuoyiBackend')) {
+        return $normalizedPath
+    }
+
+    $leaf = Split-Path -Leaf $normalizedPath
+    if ($leaf -in @('IntRuoyiBackend', 'ruoyi-vue-pro')) {
+        return (Split-Path -Parent $normalizedPath).TrimEnd('\')
+    }
+
+    throw "Cannot resolve IntRuoyi workspace root from backend path [$BackendPath]."
+}
+
+function Resolve-IntRuoyiFrontendRepoRoot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$WorkspaceRoot
+    )
+
+    $normalizedRoot = ([System.IO.Path]::GetFullPath($WorkspaceRoot.Replace('/', '\'))).TrimEnd('\')
+    $leaf = Split-Path -Leaf $normalizedRoot
+    if ($leaf -in @('IntRuoyiFronted', 'yudao-ui-admin-vue3')) {
+        return $normalizedRoot
+    }
+    foreach ($candidateName in @('IntRuoyiFronted', 'yudao-ui-admin-vue3')) {
+        $candidate = Join-Path $normalizedRoot $candidateName
+        if (Test-Path -LiteralPath $candidate) {
+            return $candidate
+        }
+    }
+
+    throw "Missing IntRuoyi frontend repository under workspace root [$WorkspaceRoot]."
+}
+
+function Resolve-IntRuoyiBackendRepoRoot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$WorkspaceRoot
+    )
+
+    $normalizedRoot = ([System.IO.Path]::GetFullPath($WorkspaceRoot.Replace('/', '\'))).TrimEnd('\')
+    $leaf = Split-Path -Leaf $normalizedRoot
+    if ($leaf -in @('IntRuoyiBackend', 'ruoyi-vue-pro')) {
+        return $normalizedRoot
+    }
+    $candidate = Join-Path $normalizedRoot 'IntRuoyiBackend'
+    if (Test-Path -LiteralPath $candidate) {
+        return $candidate
+    }
+    throw "Missing IntRuoyi backend repository under workspace root [$WorkspaceRoot]."
 }
 
 function Get-IntRuoyiGitWorktrees {
@@ -100,10 +176,7 @@ function Get-IntRuoyiGitWorktrees {
         if (-not (Test-Path -LiteralPath $fullPath)) {
             throw "Stale $Kind worktree path listed by git. Prune or repair it first: $fullPath"
         }
-        if ($fullPath -match '\\runtime\\clean-build-worktrees\\') {
-            continue
-        }
-        if ($fullPath -match '\\release-worktrees\\') {
+        if ((Test-IntRuoyiNonBusinessWorktreePath -Path $fullPath) -and [string]::IsNullOrWhiteSpace($entry.Branch)) {
             continue
         }
         $entries += [PSCustomObject]@{
@@ -198,8 +271,8 @@ function New-IntRuoyiAssignment {
         FrontendPort = $FrontendPort
         BackendPort = $BackendPort
         Active = $Active
-        FrontendPath = if ($FrontendWorktree) { $FrontendWorktree.Path } elseif ($ExistingAssignment) { $ExistingAssignment.FrontendPath } else { $null }
-        BackendPath = if ($BackendWorktree) { $BackendWorktree.Path } elseif ($ExistingAssignment) { $ExistingAssignment.BackendPath } else { $null }
+        FrontendPath = if ($FrontendWorktree) { Resolve-IntRuoyiFrontendRepoRoot -WorkspaceRoot $FrontendWorktree.Path } elseif ($ExistingAssignment) { $ExistingAssignment.FrontendPath } else { $null }
+        BackendPath = if ($BackendWorktree) { Resolve-IntRuoyiBackendRepoRoot -WorkspaceRoot $BackendWorktree.Path } elseif ($ExistingAssignment) { $ExistingAssignment.BackendPath } else { $null }
         FrontendBranch = if ($FrontendWorktree) { $FrontendWorktree.Branch } elseif ($ExistingAssignment) { $ExistingAssignment.FrontendBranch } else { $null }
         BackendBranch = if ($BackendWorktree) { $BackendWorktree.Branch } elseif ($ExistingAssignment) { $ExistingAssignment.BackendBranch } else { $null }
     }
@@ -325,8 +398,8 @@ function Get-IntRuoyiWorktreeInventory {
         throw 'backend worktrees must include exactly one int_main entry to locate the IntRuoyi workspace root.'
     }
 
-    $workspaceRoot = (Split-Path -Parent $mainBackend[0].Path).TrimEnd('\')
-    $frontendMain = Join-Path $workspaceRoot 'IntRuoyiFronted'
+    $workspaceRoot = Resolve-IntRuoyiWorkspaceRoot -BackendPath $mainBackend[0].Path
+    $frontendMain = Resolve-IntRuoyiFrontendRepoRoot -WorkspaceRoot $workspaceRoot
     $frontendWorktrees = Get-IntRuoyiGitWorktrees -RepoPath $frontendMain -Kind 'frontend'
 
     return [PSCustomObject]@{
@@ -390,11 +463,8 @@ function New-IntRuoyiMainPortContext {
     param([string]$CurrentBackendRepoRoot = (Get-IntRuoyiBackendRepoRootFromScript))
 
     $backendRepoRoot = (Resolve-Path $CurrentBackendRepoRoot).Path.TrimEnd('\')
-    $workspaceRoot = (Split-Path -Parent $backendRepoRoot).TrimEnd('\')
-    $frontendPath = Join-Path $workspaceRoot 'IntRuoyiFronted'
-    if (-not (Test-Path -LiteralPath $frontendPath)) {
-        throw "Missing int_main frontend path: $frontendPath"
-    }
+    $workspaceRoot = Resolve-IntRuoyiWorkspaceRoot -BackendPath $backendRepoRoot
+    $frontendPath = Resolve-IntRuoyiFrontendRepoRoot -WorkspaceRoot $workspaceRoot
 
     return [PSCustomObject]@{
         Name = 'int_main'

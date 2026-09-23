@@ -13,6 +13,8 @@ public interface RuntimeControlCommandExecutor {
 
     void executeOperation(RuntimeControlCommand command, Path logPath);
 
+    boolean isOperationExecutorAlive(String operationId);
+
     default void registerOperation(String operationId, Path logPath) {
         // Implementations that can terminate a running process override this hook.
     }

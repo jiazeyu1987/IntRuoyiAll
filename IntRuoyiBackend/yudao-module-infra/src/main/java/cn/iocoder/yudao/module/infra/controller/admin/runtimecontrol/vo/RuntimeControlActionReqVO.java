@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Schema(description = "管理后台 - 运行控制台运维动作 Request VO")
 @Data
@@ -46,6 +47,7 @@ public class RuntimeControlActionReqVO {
     private Long releaseWorkflowExpectedStateVersion;
 
     @Schema(description = "服务端预分配 operationId")
+    @JsonIgnore
     private String preassignedOperationId;
 
     private String expectedMaintenanceCommit;
@@ -57,6 +59,22 @@ public class RuntimeControlActionReqVO {
     private String testOperationEvidencePath;
     private String expectedPackageDigest;
     private String expectedManifestDigest;
+
+    @JsonIgnore
+    @Schema(hidden = true)
+    private String releaseAuthorizationId;
+    @JsonIgnore
+    @Schema(hidden = true)
+    private String frozenMaintenanceRoot;
+    @JsonIgnore
+    @Schema(hidden = true)
+    private String frozenBackendRoot;
+    @JsonIgnore
+    @Schema(hidden = true)
+    private String frozenFrontendRoot;
+    @JsonIgnore
+    @Schema(hidden = true)
+    private String frozenPublishScriptSha256;
 
     @Schema(description = "测试验证结论；标记测试通过必填")
     private String testConclusion;

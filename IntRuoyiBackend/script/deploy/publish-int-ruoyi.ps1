@@ -1,4 +1,7 @@
 param(
+    [ValidateSet('promotion', 'independent-backup')]
+    [string]$DeployIntent = 'promotion',
+    [string]$RestoreIsolationMarkerPath = '',
     [ValidateSet('direct', 'build-release', 'deploy-release', 'mark-tested')]
     [string]$Mode = 'direct',
     [ValidateSet('full', 'intruoyi', 'backend', 'frontend', 'website')]
@@ -84,6 +87,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if ($DeployIntent -eq 'independent-backup') {
+    throw 'INDEPENDENT_BACKUP_CONTROLLED_EXECUTOR_REQUIRED: use the configured maintenance publish executor; this legacy script does not implement the workflow authorization and digest contract.'
+}
+Import-Module (Join-Path $PSScriptRoot 'RuntimeResourceLease.psm1')
+$script:RuntimeResourceLease = $null
 if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
     $PSNativeCommandUseErrorActionPreference = $false
 }
@@ -344,6 +352,12 @@ function New-SshArgumentList {
         [string]$Command
     )
 
+    if ($Mode -in @('direct', 'deploy-release')) {
+        if ($null -eq $script:RuntimeResourceLease) {
+            $script:RuntimeResourceLease = New-RemoteRuntimeLease -TargetHost $ServerHost -User $ServerUser -SshOptions (Get-SshCommonOptions) -RestoreIsolationMarkerPath $RestoreIsolationMarkerPath
+        }
+        $Command = Get-RemoteRuntimeLeaseShell -Action Fence -Token $script:RuntimeResourceLease.Token -Command $Command
+    }
     return @('-n') + (Get-SshCommonOptions) + @(
         "$ServerUser@$ServerHost",
         $Command
@@ -1546,7 +1560,32 @@ function Copy-ToServer {
         [switch]$Recursive
     )
 
-    Invoke-CheckedCommand -FilePath 'scp' -ArgumentList (New-ScpArgumentList -LocalPath $LocalPath -RemotePath $RemotePath -Recursive:$Recursive)
+    if ($Mode -in @('direct', 'deploy-release')) {
+        $null = New-SshArgumentList -Command 'true'
+        $null = Send-RemoteRuntimeLeaseFile -Lease $script:RuntimeResourceLease -LocalPath $LocalPath -RemotePath $RemotePath -Recursive:$Recursive
+    } else {
+        Invoke-CheckedCommand -FilePath 'scp' -ArgumentList (New-ScpArgumentList -LocalPath $LocalPath -RemotePath $RemotePath -Recursive:$Recursive)
+    }
+}
+
+function Assert-BackendHealthJsonUp {
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Content)
+    try { $health = $Content | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw 'BACKEND_HEALTH_JSON_INVALID' }
+    if (-not $Content.TrimStart().StartsWith('{') -or $null -eq $health -or
+        $null -eq $health.PSObject.Properties['status'] -or
+        $health.PSObject.Properties['status'].Value -isnot [string] -or
+        $health.status -cne 'UP') {
+        throw 'BACKEND_HEALTH_NOT_UP: root status must be UP'
+    }
+}
+
+function Assert-BackendHealthUp {
+    param([Parameter(Mandatory = $true)][string]$Url)
+    $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 10 -MaximumRedirection 0
+    if ($response.StatusCode -ne 200) { throw "BACKEND_HEALTH_HTTP_INVALID: $($response.StatusCode)" }
+    Assert-BackendHealthJsonUp -Content ([string]$response.Content)
+    Info "Backend health status=UP; releaseTag=$ReleaseTag; url=$Url"
 }
 
 function Wait-HttpOk {
@@ -5803,7 +5842,10 @@ if ($publishWebsite) {
     Wait-RemoteHttpOk -Url "http://127.0.0.1:$WebsiteHostPort/showroom" -TimeoutSeconds 180
 }
 
-if ($publishBackend) { Wait-HttpOk -Url "http://${ServerHost}:$BackendPort/actuator/health" -TimeoutSeconds 180 }
+if ($publishBackend) {
+    Wait-HttpOk -Url "http://${ServerHost}:$BackendPort/actuator/health" -TimeoutSeconds 180
+    Assert-BackendHealthUp -Url "http://${ServerHost}:$BackendPort/actuator/health"
+}
 if ($publishFrontend) { Wait-HttpOk -Url "http://${ServerHost}:$FrontendPort/" -TimeoutSeconds 180 }
 if ($publishFrontend) {
     Wait-HttpContentTypeOk -Url "http://${ServerHost}:$FrontendPort/pdfjs/pdf.worker.mjs" -ExpectedContentType 'application/javascript' -TimeoutSeconds 180
@@ -5846,6 +5888,10 @@ if ($remoteCleanupDirs.Count -gt 0) {
 }
 
 Write-Host ''
+if ($null -ne $script:RuntimeResourceLease) {
+    Complete-RemoteRuntimeLease -Lease $script:RuntimeResourceLease
+    $script:RuntimeResourceLease = $null
+}
 Write-Host "Publish completed for $PublishTargetName."
 if ($publishFrontend) {
     Write-Host "IntRuoyi frontend: http://${ServerHost}:$FrontendPort"

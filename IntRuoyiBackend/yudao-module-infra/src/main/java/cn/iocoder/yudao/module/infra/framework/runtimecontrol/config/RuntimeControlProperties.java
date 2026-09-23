@@ -44,6 +44,18 @@ public class RuntimeControlProperties implements InitializingBean {
         properties.releaseWorkflow.setApprovedApplicationCommit("b".repeat(40));
         properties.releaseWorkflow.setApprovedFrontendCommit("b".repeat(40));
         properties.releaseWorkflow.setExpectedPublishScriptSha256("c".repeat(64));
+        properties.releaseWorkflow.setWorktreeRoot(stateDir.resolve("worktrees").toString());
+        properties.releaseWorkflow.setPnpmVersion("10.25.0");
+        try {
+            Path fixtureDir = java.nio.file.Files.createDirectories(stateDir.resolve("test-fixtures"));
+            Path backupConfig = java.nio.file.Files.createTempFile(fixtureDir, "backup-config-", ".json");
+            java.nio.file.Files.writeString(backupConfig,
+                    "{\"servers\":{\"test\":{\"backupPointsRoot\":\"/mnt/nas/Backup/BackupPackage\"}}}",
+                    java.nio.charset.StandardCharsets.UTF_8);
+            properties.backupOps.setConfigPath(backupConfig.toAbsolutePath().toString());
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException("Unable to create runtime-control unit-test config", ex);
+        }
         properties.afterPropertiesSet();
         return properties;
     }
@@ -51,6 +63,35 @@ public class RuntimeControlProperties implements InitializingBean {
     public Target getTarget(String environment, String component) {
         Environment env = environments.get(environment);
         return env == null ? null : env.getTargets().get(component);
+    }
+
+    /** Independent review publication has a fixed, server-owned infrastructure contract. */
+    public Environment requireBackupPublishTarget() {
+        if (!releaseWorkflow.isProductionWriteEnabled()) {
+            throw new IllegalArgumentException("RELEASE_WORKFLOW_BACKUP_WRITE_DISABLED");
+        }
+        Environment target = environments.get("backup");
+        if (target == null || target.isLocal() || !target.isAccessEnabled()
+                || !BACKUP_SERVER_HOST.equals(target.getHost())
+                || !"root".equals(target.getServerUser())
+                || !"/opt/intruoyi/runtime".equals(target.getRemoteAppDir())
+                || !"/mnt/intruoyi-data/runtime-data".equals(target.getRemoteDataRoot())
+                || !"/mnt/intruoyi-data/intruoyi-releases".equals(target.getRemoteReleaseRoot())
+                || !"/mnt/intruoyi-data".equals(target.getRemoteDataDiskMount())
+                || !"/dev/mapper/cl-home".equals(target.getRemoteDataDiskDevice())
+                || !"intruoyi-minio".equals(target.getRemoteMinioContainer())
+                || !backupEndpointMatches(target, "intruoyi-frontend", 8081, "frontend")
+                || !backupEndpointMatches(target, "intruoyi-backend", 48081, "backend")
+                || !backupEndpointMatches(target, "website-frontend", 8083, "website")) {
+            throw new IllegalArgumentException("RELEASE_WORKFLOW_BACKUP_TARGET_INVALID");
+        }
+        return target;
+    }
+
+    private static boolean backupEndpointMatches(Environment environment, String component, int port, String action) {
+        Target endpoint = environment.getTargets() == null ? null : environment.getTargets().get(component);
+        return endpoint != null && Integer.valueOf(port).equals(endpoint.getPort())
+                && remoteTargetUrl(BACKUP_SERVER_HOST, action).equals(endpoint.getUrl());
     }
 
     private static Map<String, Environment> defaultEnvironments() {
@@ -94,7 +135,7 @@ public class RuntimeControlProperties implements InitializingBean {
     }
 
     private static Environment backupEnvironment() {
-        Environment env = remoteEnvironment("审查服", BACKUP_SERVER_HOST);
+        Environment env = remoteEnvironment("审查服务器", BACKUP_SERVER_HOST);
         env.setRemoteReleaseRoot("/mnt/intruoyi-data/intruoyi-releases");
         env.setRemoteDataRoot("/mnt/intruoyi-data/runtime-data");
         env.setRemoteDataDiskMount("/mnt/intruoyi-data");
@@ -349,6 +390,8 @@ public class RuntimeControlProperties implements InitializingBean {
 
     @Data
     public static class ReleaseWorkflow {
+        private String worktreeRoot;
+        private String pnpmVersion;
         private String approvedSourceSelectionId = "approved-source";
         private String approvedMaintenanceCommit = "";
         private String approvedApplicationCommit = "";

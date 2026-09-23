@@ -335,6 +335,14 @@ function Invoke-BackupOpsMode {
 
     $operationMutex = $null
     $mutexAcquired = $false
+    if ($Mode -in @('restore-data', 'rollback-app')) {
+        $markerRoot = [string](Get-BackupOpsRequiredLauncherConfigValue -Config $Config -Path @('servers', 'test', 'backupPointsRoot') -FieldName 'servers.test.backupPointsRoot')
+        $global:IntRuoyiBackupRestoreMarkerPath = $markerRoot.TrimEnd('/') + '/.restore-stage/restore-isolation.json'
+        $global:IntRuoyiBackupRuntimeTarget = [string](Get-BackupOpsRequiredLauncherConfigValue -Config $Config -Path @('servers', 'production', 'host') -FieldName 'servers.production.host')
+        if ($Mode -eq 'restore-data' -and [string]$Config.servers.test.host -ne $global:IntRuoyiBackupRuntimeTarget) {
+            throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message 'RESTORE_TARGET_MAPPING_MISMATCH: lower restore transports must resolve to the selected runtime target before acquiring its resource lease.')
+        }
+    }
     if ($Mode -in @('backup-now', 'backup-scheduled', 'rehearsal', 'restore-data')) {
         $operationMutex = [System.Threading.Mutex]::new($false, 'Global\IntRuoyi-BackupOps')
         $mutexAcquired = $operationMutex.WaitOne(0)
@@ -359,10 +367,14 @@ function Invoke-BackupOpsMode {
                 return Invoke-BackupScheduledUseCase -Config $Config -BackupKind $BackupKind -OperatorName $OperatorName
             }
             'rollback-app' {
-                return Invoke-RollbackAppUseCase -Config $Config -SelectedImageTag $SelectedImageTag -OperatorName $OperatorName -NonInteractive:$NonInteractive
+                $result = Invoke-RollbackAppUseCase -Config $Config -SelectedImageTag $SelectedImageTag -OperatorName $OperatorName -NonInteractive:$NonInteractive
+                if ([string]$result.status -eq 'success') { Complete-BackupRuntimeResourceLease }
+                return $result
             }
             'restore-data' {
-                return Invoke-RestoreDataUseCase -Config $Config -SelectedBackupId $SelectedBackupId -OperatorName $OperatorName -NonInteractive:$NonInteractive
+                $result = Invoke-RestoreDataUseCase -Config $Config -SelectedBackupId $SelectedBackupId -OperatorName $OperatorName -NonInteractive:$NonInteractive
+                if ([string]$result.status -eq 'success') { Complete-BackupRuntimeResourceLease }
+                return $result
             }
             'rehearsal' {
                 return Invoke-RehearsalUseCase -Config $Config -SelectedBackupId $SelectedBackupId -OperatorName $OperatorName

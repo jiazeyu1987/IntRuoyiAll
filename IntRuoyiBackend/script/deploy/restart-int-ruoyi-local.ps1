@@ -1214,6 +1214,7 @@ function Start-Frontend {
 `$env:VITE_OPEN = 'false'
 `$env:VITE_BASE_URL = 'http://127.0.0.1:$BackendPort'
 `$env:VITE_PROXY_TARGET = 'http://127.0.0.1:$BackendPort'
+`$env:VITE_API_URL = '/admin-api'
 `$env:VITE_OPTIMIZE_PROFILE = 'windows-safe'
 `$env:UV_THREADPOOL_SIZE = '1'
 pnpm dev -- --strictPort

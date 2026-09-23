@@ -800,7 +800,7 @@ class ReleaseWorkflowOrchestratorTest {
     }
 
     @Test
-    void failedBuildUsesLastObservedBuildStage() throws Exception {
+    void failedBuildWithoutZeroWriteProofUsesLastStageAndRetainsIsolation() throws Exception {
         RuntimeControlOperationRespVO operation = operation("running");
         stubWorkflowOperations(operation);
         ReleaseWorkflowRecord workflow = orchestrator.startBuild("operator", "failed build stage", "approved-source");
@@ -816,8 +816,9 @@ class ReleaseWorkflowOrchestratorTest {
 
         ReleaseWorkflowRecord failed = orchestrator.reconcile(workflow.workflowId());
 
-        assertEquals(ReleaseWorkflowRecord.State.FAILED, failed.state());
+        assertEquals(ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, failed.state());
         assertEquals("BUILDING", failed.failedStage());
+        assertFalse(failed.zeroWriteEvidence());
     }
 
     private void stubWorkflowOperations(RuntimeControlOperationRespVO... operations) {

@@ -52,13 +52,39 @@
           :loading="workflowBusy" @click="createReleaseWorkflow">
           <Icon icon="ep:box" class="mr-5px" />构建发布包
         </el-button>
+        <el-button
+          v-hasPermi="['infra:runtime-control:publish-backup']"
+          type="warning"
+          plain
+          :disabled="!canPublishBackup || workflowBusy || !workflowReason.trim()"
+          :loading="workflowBusy && backupPublishDialog.visible"
+          @click="openBackupPublishPreview"
+        >
+          <Icon icon="ep:promotion" class="mr-5px" />发布到审查服务器
+        </el-button>
         <el-button :loading="workflowLoading" @click="loadReleaseWorkflows">
           <Icon icon="ep:refresh" class="mr-5px" />刷新
         </el-button>
       </div>
       <el-table :data="releaseWorkflows" row-key="workflowId" v-loading="workflowLoading" size="small">
         <el-table-column label="发布包" prop="releaseTag" min-width="250" show-overflow-tooltip />
-        <el-table-column label="阶段" prop="state" width="160" />
+        <el-table-column label="目标" min-width="120">
+          <template #default="{ row }">
+            {{ row.automaticPublish ? '审查服务器' : '测试/正式服' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="阶段" width="150">
+          <template #default="{ row }">{{ releaseWorkflowStateText(row.state) }}</template>
+        </el-table-column>
+        <el-table-column label="最后进展" min-width="170">
+          <template #default="{ row }">{{ formatRuntimeDate(row.lastHeartbeatAt || row.updatedAt) }}</template>
+        </el-table-column>
+        <el-table-column label="持续时间" width="120">
+          <template #default="{ row }">{{ releaseWorkflowDurationText(row) }}</template>
+        </el-table-column>
+        <el-table-column label="错误" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">{{ releaseWorkflowErrorText(row) }}</template>
+        </el-table-column>
         <el-table-column label="操作" prop="operationId" min-width="230" show-overflow-tooltip />
         <el-table-column label="动作" min-width="280" fixed="right">
           <template #default="{ row }">
@@ -96,6 +122,68 @@
         <el-button type="danger" :loading="workflowBusy"
           :disabled="!productionPreview?.eligible || productionDialog.confirmText !== 'PROD'"
           @click="confirmProductionPromotion">确认晋级</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="backupPublishDialog.visible"
+      title="发布到审查服务器"
+      width="720px"
+      @closed="clearBackupPublishPreview"
+    >
+      <template v-if="backupPublishPreview">
+        <el-alert
+          type="warning"
+          :closable="false"
+          show-icon
+          title="这是独立审查发布：固定源码、固定目标，仅发布 app-release，不经过测试服或正式服。"
+        />
+        <el-descriptions :column="1" border size="small" class="mt-12px">
+          <el-descriptions-item label="目标">
+            {{ backupPublishPreview.targetLabel }}（{{ backupPublishPreview.targetHost }}）
+          </el-descriptions-item>
+          <el-descriptions-item label="发布范围">
+            {{ backupPublishPreview.publishScope }}
+          </el-descriptions-item>
+          <el-descriptions-item label="固定源码">
+            {{ backupPublishPreview.sourceSelectionId }}
+          </el-descriptions-item>
+          <el-descriptions-item label="维护仓提交">
+            {{ backupPublishPreview.maintenanceCommit }}
+          </el-descriptions-item>
+          <el-descriptions-item label="应用仓提交">
+            {{ backupPublishPreview.applicationCommit }}
+          </el-descriptions-item>
+          <el-descriptions-item label="前端提交">
+            {{ backupPublishPreview.frontendCommit }}
+          </el-descriptions-item>
+          <el-descriptions-item label="服务端口">
+            前端 {{ backupPublishPreview.targetPorts.frontend }} / 后端
+            {{ backupPublishPreview.targetPorts.backend }} / 展厅
+            {{ backupPublishPreview.targetPorts.showroom }}
+          </el-descriptions-item>
+          <el-descriptions-item label="预览有效期">
+            {{ formatRuntimeDate(backupPublishPreview.expiresAt) }}
+          </el-descriptions-item>
+        </el-descriptions>
+        <el-input
+          v-model="backupPublishDialog.confirmText"
+          class="mt-12px"
+          placeholder="输入 PROD 确认"
+          autocomplete="off"
+          @keyup.enter="confirmBackupPublish"
+        />
+      </template>
+      <template #footer>
+        <el-button @click="backupPublishDialog.visible = false">取消</el-button>
+        <el-button
+          type="warning"
+          :loading="workflowBusy"
+          :disabled="!backupPublishPreview || backupPublishDialog.confirmText !== 'PROD' || !canPublishBackup"
+          @click="confirmBackupPublish"
+        >
+          确认发布
+        </el-button>
       </template>
     </el-dialog>
 
@@ -908,6 +996,8 @@ const workflowBusy = ref(false)
 const workflowReason = ref('')
 const productionPreview = ref<RuntimeControlApi.RuntimeControlReleaseWorkflowProductionPreviewVO>()
 const productionDialog = reactive({ visible: false, confirmText: '', workflowId: '', idempotencyKey: '' })
+const backupPublishPreview = ref<RuntimeControlApi.RuntimeControlBackupPublishPreviewVO>()
+const backupPublishDialog = reactive({ visible: false, confirmText: '', idempotencyKey: '' })
 const backupPoints = ref<RuntimeControlApi.RuntimeControlBackupPointVO[]>([])
 const probeLatest = ref<RuntimeControlApi.RuntimeControlProbeLatestVO>()
 const capacityStatus = ref<RuntimeControlApi.RuntimeControlCapacityStatusVO>()
@@ -1066,6 +1156,7 @@ const remoteRootCleanupDialog = reactive({
 
 const canOperate = computed(() => checkPermi(['infra:runtime-control:operate']))
 const canPromoteProd = computed(() => checkPermi(['infra:runtime-control:promote-prod']))
+const canPublishBackup = computed(() => checkPermi(['infra:runtime-control:publish-backup']))
 const selectedRootDiskTarget = computed(() =>
   rootDiskTargetOptions.find((item) => item.value === remoteRootTargetEnvironment.value)
 )
@@ -1345,6 +1436,105 @@ const acceptWorkflowTest = async (workflow: RuntimeControlApi.RuntimeControlRele
     await RuntimeControlApi.acceptRuntimeControlReleaseWorkflowTest(
       workflow.workflowId, workflowReason.value.trim()
     )
+    await loadReleaseWorkflows()
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowBusy.value = false
+  }
+}
+
+const releaseWorkflowStateText = (state?: string) => {
+  const labels: Record<string, string> = {
+    SOURCE_FREEZING: '冻结源码',
+    PREFLIGHTING: '发布前检查',
+    TESTING: '验证构建',
+    BUILDING: '构建中',
+    READY: '待部署测试服',
+    TEST_DEPLOYING: '部署测试服',
+    TEST_DEPLOYED: '测试服已部署',
+    BACKUP_DEPLOYING: '部署审查服务器',
+    BACKUP_FINALIZING: '等待发布确认',
+    BACKUP_DEPLOYED: '审查服务器已发布',
+    TESTED: '测试已通过',
+    PROD_PREVIEW: '正式服预览',
+    PROMOTING_PROD: '晋级正式服',
+    COMPLETED: '已完成',
+    FAILED: '失败',
+    CANCELED: '已取消',
+    RECOVERY_REQUIRED: '需要恢复'
+  }
+  return state ? labels[state] || state : '-'
+}
+
+const releaseWorkflowErrorText = (
+  workflow: RuntimeControlApi.RuntimeControlReleaseWorkflowVO
+) => workflow.errorCode || workflow.failedStage || '-'
+
+const releaseWorkflowDurationText = (
+  workflow: RuntimeControlApi.RuntimeControlReleaseWorkflowVO
+) => {
+  const start = workflow.createdAt ? new Date(workflow.createdAt as string).getTime() : NaN
+  const end = workflow.updatedAt ? new Date(workflow.updatedAt as string).getTime() : Date.now()
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return '-'
+  const seconds = Math.floor((end - start) / 1000)
+  if (seconds < 60) return `${seconds} 秒`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes} 分钟`
+  return `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分钟`
+}
+
+const clearBackupPublishPreview = () => {
+  backupPublishPreview.value = undefined
+  backupPublishDialog.confirmText = ''
+  backupPublishDialog.idempotencyKey = ''
+}
+
+const openBackupPublishPreview = async () => {
+  if (!workflowReason.value.trim() || !canPublishBackup.value) return
+  workflowBusy.value = true
+  backupPublishDialog.idempotencyKey = crypto.randomUUID()
+  try {
+    const context = await RuntimeControlApi.getRuntimeControlReleaseWorkflowCreationContext()
+    backupPublishPreview.value = await RuntimeControlApi.previewRuntimeControlBackupPublish({
+      reason: workflowReason.value.trim(),
+      sourceSelectionId: context.sourceSelectionId,
+      idempotencyKey: backupPublishDialog.idempotencyKey
+    })
+    backupPublishDialog.confirmText = ''
+    backupPublishDialog.visible = true
+  } catch (error) {
+    backupPublishDialog.idempotencyKey = ''
+    reportActionError(error)
+  } finally {
+    workflowBusy.value = false
+  }
+}
+
+const confirmBackupPublish = async () => {
+  const preview = backupPublishPreview.value
+  if (
+    !preview ||
+    backupPublishDialog.confirmText !== 'PROD' ||
+    !canPublishBackup.value ||
+    backupPublishDialog.idempotencyKey !== preview.idempotencyKey
+  ) {
+    return
+  }
+  workflowBusy.value = true
+  try {
+    const grant = await RuntimeControlApi.authorizeRuntimeControlBackupPublish(
+      preview.previewId,
+      backupPublishDialog.confirmText
+    )
+    await RuntimeControlApi.publishRuntimeControlBackup({
+      previewId: preview.previewId,
+      authorizationId: grant.authorizationId,
+      idempotencyKey: preview.idempotencyKey,
+      prodConfirmText: backupPublishDialog.confirmText
+    })
+    backupPublishDialog.visible = false
+    message.success('审查服务器发布已提交，页面将持续显示工作流状态')
     await loadReleaseWorkflows()
   } catch (error) {
     reportActionError(error)

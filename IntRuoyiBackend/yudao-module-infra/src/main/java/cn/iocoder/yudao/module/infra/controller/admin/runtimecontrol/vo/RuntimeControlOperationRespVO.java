@@ -40,6 +40,15 @@ public class RuntimeControlOperationRespVO {
     @Schema(description = "状态", requiredMode = Schema.RequiredMode.REQUIRED, example = "running")
     private String status;
 
+    @Schema(description = "已证明执行器未产生目标写入；null 表示历史或未知证据，不能视为零写入")
+    private Boolean zeroWriteEvidence;
+
+    private String backupReceiptDigest;
+    private String backupReceiptEvidencePath;
+    private String backupConfirmationState;
+    private String localCleanupError;
+    private String executionError;
+
     @Schema(description = "摘要")
     private String summary;
 

@@ -89,6 +89,19 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
     }
 
     @Override
+    public boolean isOperationExecutorAlive(String operationId) {
+        if (StrUtil.isBlank(operationId)) {
+            throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "operationId is required for executor liveness");
+        }
+        if (activeContainers.containsKey(operationId)) {
+            throw exception(RUNTIME_CONTROL_COMMAND_FAILED,
+                    "Detached operation requires container liveness evidence: " + operationId);
+        }
+        Process process = activeProcesses.get(operationId);
+        return process != null && process.isAlive();
+    }
+
+    @Override
     public boolean cancelOperation(String operationId) {
         if (StrUtil.isBlank(operationId)) {
             throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "operationId is required for cancellation");

@@ -97,6 +97,10 @@ try {
     $runtimeCleanBuildSkipped = $_.Exception.Message -like '*Cannot derive IntRuoyi worktree name*'
 }
 Assert-Equal $runtimeCleanBuildSkipped $true 'Runtime clean-build worktrees are not business worktrees and must be filtered before name conversion.'
+$codexBuildSkipped = Test-IntRuoyiNonBusinessWorktreePath -Path 'C:\codex-build\pqc-completion-20260922'
+Assert-Equal $codexBuildSkipped $true 'Codex build worktrees are not business worktrees and must be filtered before name conversion.'
+$detachedUmbrellaSkipped = Test-IntRuoyiNonBusinessWorktreePath -Path 'D:\IntRuoyiWorktree\r260917-button-publish\a'
+Assert-Equal $detachedUmbrellaSkipped $true 'Detached umbrella worktrees containing nested application repositories must be excluded from component port inventory.'
 
 $frontend = @(
     New-FakeWorktree -Name 'int_main' -Kind 'frontend'
@@ -162,5 +166,11 @@ $mainContext = New-IntRuoyiMainPortContext -CurrentBackendRepoRoot $currentBacke
 Assert-Equal (Split-Path -Leaf $mainContext.FrontendPath) 'IntRuoyiFronted' 'int_main context should use the current frontend root.'
 Assert-Equal $mainContext.FrontendPort 8081 'int_main context frontend port should remain fixed.'
 Assert-Equal $mainContext.BackendPort 48081 'int_main context backend port should remain fixed.'
+$nestedWorkspaceRoot = Resolve-IntRuoyiWorkspaceRoot -BackendPath 'E:\IntRuoyi'
+Assert-Equal $nestedWorkspaceRoot 'E:\IntRuoyi' 'Nested IntRuoyi workspace roots should resolve from the umbrella repository path.'
+$nestedFrontendRoot = Resolve-IntRuoyiFrontendRepoRoot -WorkspaceRoot $nestedWorkspaceRoot
+Assert-Equal $nestedFrontendRoot 'E:\IntRuoyi\IntRuoyiFronted' 'Nested IntRuoyi workspace roots should resolve the sibling frontend repository.'
+$componentFrontendRoot = Resolve-IntRuoyiFrontendRepoRoot -WorkspaceRoot 'E:\IntRuoyi\IntRuoyiFronted'
+Assert-Equal $componentFrontendRoot 'E:\IntRuoyi\IntRuoyiFronted' 'Frontend component roots should remain stable when passed to assignment normalization.'
 
 Write-Host 'worktree-port-map tests passed'

@@ -121,7 +121,7 @@ public class ReleaseWorkflowStore {
                 current.testOperationId(), current.testOperationEvidencePath(),
                 current.createdAt(), now, now,
                 zeroWriteEvidence, current.requestedBy(), current.reason(), current.sourceSelectionId(),
-                current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit());
+                current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit(), current.backupIntent());
         return persistEvent(envelope, updated, current.state(), targetState, actor, errorCode,
                 failedStage, retryable, updated.evidenceRefs(), details, now);
     }
@@ -147,7 +147,7 @@ public class ReleaseWorkflowStore {
                 current.testOperationId(), current.testOperationEvidencePath(),
                 current.createdAt(), now, now, current.zeroWriteEvidence(),
                 current.requestedBy(), current.reason(), current.sourceSelectionId(),
-                current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit());
+                current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit(), current.backupIntent());
         return persistEvent(envelope, updated, current.state(), current.state(), actor, null,
                 null, false, List.of(), Map.of(), now);
     }
@@ -166,9 +166,9 @@ public class ReleaseWorkflowStore {
                 current.operationId(), current.errorCode(), current.failedStage(), current.retryable(),
                 current.evidenceRefs(), current.packageDigest(), current.manifestDigest(),
                 current.testOperationId(), current.testOperationEvidencePath(),
-                current.createdAt(), now, heartbeatAt,
+                current.createdAt(), current.updatedAt(), heartbeatAt,
                 current.zeroWriteEvidence(), current.requestedBy(), current.reason(), current.sourceSelectionId(),
-                current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit());
+                current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit(), current.backupIntent());
         return persistEvent(envelope, updated, current.state(), current.state(), actor, null,
                 null, false, List.of(), Map.of(), now);
     }
@@ -179,6 +179,10 @@ public class ReleaseWorkflowStore {
                                                              String actor) {
         WorkflowEnvelope envelope = readEnvelope(expected.workflowId());
         ReleaseWorkflowRecord current = requireVersion(expected, expected.stateVersion(), envelope.record());
+        if (current.packageDigest() != null && (!current.packageDigest().equalsIgnoreCase(packageDigest)
+                || !current.manifestDigest().equalsIgnoreCase(manifestDigest))) {
+            throw new IllegalStateException("RELEASE_WORKFLOW_ARTIFACT_BINDING_IMMUTABLE");
+        }
         if (current.state().isTerminal()) {
             throw new TerminalWorkflowException(current.workflowId(), current.state());
         }
@@ -190,7 +194,7 @@ public class ReleaseWorkflowStore {
                 current.evidenceRefs(), packageDigest, manifestDigest,
                 current.testOperationId(), current.testOperationEvidencePath(), current.createdAt(), now, now,
                 current.zeroWriteEvidence(), current.requestedBy(), current.reason(), current.sourceSelectionId(),
-                current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit());
+                current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit(), current.backupIntent());
         return persistEvent(envelope, updated, current.state(), current.state(), actor, null,
                 null, false, List.of("manifest.json"), Map.of(), now);
     }
@@ -209,7 +213,7 @@ public class ReleaseWorkflowStore {
                 current.evidenceRefs(), current.packageDigest(), current.manifestDigest(),
                 testOperationId, testOperationEvidencePath, current.createdAt(), now, now,
                 current.zeroWriteEvidence(), current.requestedBy(), current.reason(), current.sourceSelectionId(),
-                current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit());
+                current.maintenanceCommit(), current.applicationCommit(), current.frontendCommit(), current.backupIntent());
         return persistEvent(envelope, updated, current.state(), current.state(), actor, null,
                 null, false, List.of(testOperationEvidencePath), Map.of(), now);
     }
@@ -300,9 +304,28 @@ public class ReleaseWorkflowStore {
 
     private void writeAtomic(Path path, Object value) throws IOException {
         Files.createDirectories(path.getParent());
-        Path tmp = path.resolveSibling(path.getFileName() + ".tmp");
-        objectMapper.writerWithDefaultPrettyPrinter().writeValue(tmp.toFile(), value);
-        Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        // The JVM monitor prevents overlapping FileLocks between Store instances. The OS lock
+        // serializes other processes; CAS is checked again inside this publication boundary.
+        synchronized (ReleaseWorkflowStore.class) {
+            try (var channel = java.nio.channels.FileChannel.open(path.resolveSibling(path.getFileName() + ".lock"),
+                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.WRITE);
+                 var lock = channel.lock()) {
+                WorkflowEnvelope next = (WorkflowEnvelope) value;
+                if (Files.exists(path)) {
+                    WorkflowEnvelope previous = objectMapper.readValue(path.toFile(), WorkflowEnvelope.class);
+                    if (next.events().size() == 1) throw new DuplicateWorkflowException(next.record().workflowId());
+                    if (previous.record().stateVersion() != next.record().stateVersion() - 1) {
+                        throw new CasConflictException(next.record().workflowId(), next.record().stateVersion() - 1,
+                                previous.record().stateVersion());
+                    }
+                } else if (next.events().size() != 1) {
+                    throw new WorkflowNotFoundException(next.record().workflowId());
+                }
+                Path tmp = Files.createTempFile(path.getParent(), path.getFileName().toString(), ".tmp");
+                objectMapper.writerWithDefaultPrettyPrinter().writeValue(tmp.toFile(), value);
+                Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            }
+        }
     }
 
     private long modifiedAt(Path path) {

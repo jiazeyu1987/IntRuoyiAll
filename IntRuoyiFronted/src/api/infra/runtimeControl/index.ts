@@ -26,7 +26,52 @@ export interface RuntimeControlReleaseWorkflowVO {
   errorCode?: string
   failedStage?: string
   requestedBy?: string
+  createdAt?: RuntimeControlDateTime
   updatedAt?: RuntimeControlDateTime
+  automaticPublish?: boolean
+  targetEnvironment?: RuntimeControlTargetEnvironment
+  reason?: string
+  sourceSelectionId?: string
+  lastHeartbeatAt?: RuntimeControlDateTime
+  sourceCleanupStatus?: string
+  sourceCleanupErrorCode?: string
+}
+
+export interface RuntimeControlBackupPublishPreviewVO {
+  previewId: string
+  actor: string
+  reason: string
+  sourceSelectionId: string
+  idempotencyKey: string
+  targetFingerprint: string
+  maintenanceCommit: string
+  applicationCommit: string
+  frontendCommit: string
+  presetId: string
+  presetVersion: string
+  targetEnvironment: 'backup'
+  targetHost: string
+  publishScope: 'app-release'
+  expiresAt: RuntimeControlDateTime
+  targetLabel: string
+  remoteAppDir: string
+  remoteDataRoot: string
+  remoteReleaseRoot: string
+  remoteDataDiskMount: string
+  remoteDataDiskDevice: string
+  targetPorts: Record<string, number>
+}
+
+export interface RuntimeControlBackupPublishGrantVO {
+  authorizationId: string
+  preview: RuntimeControlBackupPublishPreviewVO
+  authorizedAt: RuntimeControlDateTime
+}
+
+export interface RuntimeControlBackupPublishPreviewReqVO {
+  reason: string
+  sourceSelectionId: string
+  idempotencyKey: string
 }
 
 export interface RuntimeControlReleaseWorkflowProductionPreviewVO {
@@ -627,6 +672,34 @@ export const getRuntimeControlReleaseWorkflowCreationContext = () =>
   request.get<{ sourceSelectionId: string }>({
     url: '/infra/runtime-control/release-workflows/creation-context'
   })
+
+export const previewRuntimeControlBackupPublish = (
+  data: RuntimeControlBackupPublishPreviewReqVO
+) => request.post<RuntimeControlBackupPublishPreviewVO>({
+  url: '/infra/runtime-control/release-workflows/backup-preview',
+  data,
+  timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+})
+
+export const authorizeRuntimeControlBackupPublish = (
+  previewId: string,
+  prodConfirmText: string
+) => request.post<RuntimeControlBackupPublishGrantVO>({
+  url: '/infra/runtime-control/release-workflows/backup-authorization',
+  data: { previewId, prodConfirmText },
+  timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+})
+
+export const publishRuntimeControlBackup = (data: {
+  previewId: string
+  authorizationId: string
+  idempotencyKey: string
+  prodConfirmText: string
+}) => request.post<RuntimeControlReleaseWorkflowVO>({
+  url: '/infra/runtime-control/release-workflows/publish-backup',
+  data,
+  timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+})
 
 export const createRuntimeControlReleaseWorkflow = (data: { reason: string; sourceSelectionId: string }) =>
   request.post<RuntimeControlReleaseWorkflowVO>({

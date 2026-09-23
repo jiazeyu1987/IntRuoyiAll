@@ -39,7 +39,23 @@ public record ReleaseWorkflowRecord(
         String sourceSelectionId,
         String maintenanceCommit,
         String applicationCommit,
-        String frontendCommit) {
+        String frontendCommit,
+        BackupIntent backupIntent) {
+
+    /** Schema v1 records have no independent target intent and retain the test/promote flow. */
+    public ReleaseWorkflowRecord(String workflowId, String releaseTag, String publishScope, String presetId,
+            String presetVersion, State state, long stateVersion, int attempt, String operationId,
+            String errorCode, String failedStage, boolean retryable, List<String> evidenceRefs,
+            String packageDigest, String manifestDigest, String testOperationId, String testOperationEvidencePath,
+            Instant createdAt, Instant updatedAt, Instant lastHeartbeatAt, boolean zeroWriteEvidence,
+            String requestedBy, String reason, String sourceSelectionId, String maintenanceCommit,
+            String applicationCommit, String frontendCommit) {
+        this(workflowId, releaseTag, publishScope, presetId, presetVersion, state, stateVersion, attempt,
+                operationId, errorCode, failedStage, retryable, evidenceRefs, packageDigest, manifestDigest,
+                testOperationId, testOperationEvidencePath, createdAt, updatedAt, lastHeartbeatAt,
+                zeroWriteEvidence, requestedBy, reason, sourceSelectionId, maintenanceCommit,
+                applicationCommit, frontendCommit, null);
+    }
 
     @JsonCreator
     public ReleaseWorkflowRecord(
@@ -69,7 +85,8 @@ public record ReleaseWorkflowRecord(
             @JsonProperty("sourceSelectionId") String sourceSelectionId,
             @JsonProperty("maintenanceCommit") String maintenanceCommit,
             @JsonProperty("applicationCommit") String applicationCommit,
-            @JsonProperty("frontendCommit") String frontendCommit) {
+            @JsonProperty("frontendCommit") String frontendCommit,
+            @JsonProperty("backupIntent") BackupIntent backupIntent) {
         this.workflowId = requireText(workflowId, "workflowId");
         this.releaseTag = requireText(releaseTag, "releaseTag");
         this.publishScope = Objects.requireNonNull(publishScope, "publishScope");
@@ -109,6 +126,11 @@ public record ReleaseWorkflowRecord(
         this.maintenanceCommit = requireCommit(maintenanceCommit, "maintenanceCommit");
         this.applicationCommit = requireCommit(applicationCommit, "applicationCommit");
         this.frontendCommit = requireCommit(frontendCommit, "frontendCommit");
+        this.backupIntent = backupIntent;
+        if ((state == State.BACKUP_DEPLOYING || state == State.BACKUP_FINALIZING || state == State.BACKUP_DEPLOYED
+                || workflowId.startsWith("rw-backup-")) && backupIntent == null) {
+            throw new IllegalArgumentException("RELEASE_WORKFLOW_BACKUP_INTENT_MISSING");
+        }
     }
 
     public static ReleaseWorkflowRecord newWorkflow(String workflowId, String releaseTag,
@@ -129,7 +151,32 @@ public record ReleaseWorkflowRecord(
                 state, stateVersion, attempt, operationId, errorCode, failedStage, retryable,
                 evidenceRefs, packageDigest, manifestDigest, testOperationId, testOperationEvidencePath,
                 createdAt, updatedAt, lastHeartbeatAt, zeroWriteEvidence,
-                requestedBy, reason, sourceSelectionId, maintenanceCommit, applicationCommit, frontendCommit);
+                requestedBy, reason, sourceSelectionId, maintenanceCommit, applicationCommit, frontendCommit, backupIntent);
+    }
+
+    public ReleaseWorkflowRecord withBackupIntent(BackupIntent intent) {
+        if (backupIntent != null && !backupIntent.equals(intent)) {
+            throw new IllegalStateException("RELEASE_WORKFLOW_BACKUP_INTENT_IMMUTABLE");
+        }
+        return new ReleaseWorkflowRecord(workflowId, releaseTag, publishScope, presetId, presetVersion,
+                state, stateVersion, attempt, operationId, errorCode, failedStage, retryable,
+                evidenceRefs, packageDigest, manifestDigest, testOperationId, testOperationEvidencePath,
+                createdAt, updatedAt, lastHeartbeatAt, zeroWriteEvidence, requestedBy, reason,
+                sourceSelectionId, maintenanceCommit, applicationCommit, frontendCommit, intent);
+    }
+
+    public String targetEnvironment() { return backupIntent == null ? "test" : "backup"; }
+
+    public record BackupIntent(String authorizationId, String previewId, String targetFingerprint,
+                               String idempotencyKey) {
+        public BackupIntent {
+            requireText(authorizationId, "authorizationId");
+            requireText(previewId, "previewId");
+            requireText(idempotencyKey, "idempotencyKey");
+            if (optionalDigest(targetFingerprint, "targetFingerprint") == null) {
+                throw new IllegalArgumentException("RELEASE_WORKFLOW_TARGET_FINGERPRINT_MISSING");
+            }
+        }
     }
 
     public enum State {
@@ -140,6 +187,9 @@ public record ReleaseWorkflowRecord(
         READY,
         TEST_DEPLOYING,
         TEST_DEPLOYED,
+        BACKUP_DEPLOYING,
+        BACKUP_FINALIZING,
+        BACKUP_DEPLOYED,
         TESTED,
         PROD_PREVIEW,
         PROMOTING_PROD,
@@ -149,11 +199,11 @@ public record ReleaseWorkflowRecord(
         RECOVERY_REQUIRED;
 
         public boolean isTerminal() {
-            return this == COMPLETED || this == FAILED || this == CANCELED;
+            return this == COMPLETED || this == FAILED || this == CANCELED || this == BACKUP_DEPLOYED;
         }
 
         public boolean isWriteStage() {
-            return this == BUILDING || this == TEST_DEPLOYING || this == PROMOTING_PROD
+            return this == BUILDING || this == TEST_DEPLOYING || this == BACKUP_DEPLOYING || this == BACKUP_FINALIZING || this == PROMOTING_PROD
                     || this == RECOVERY_REQUIRED;
         }
 

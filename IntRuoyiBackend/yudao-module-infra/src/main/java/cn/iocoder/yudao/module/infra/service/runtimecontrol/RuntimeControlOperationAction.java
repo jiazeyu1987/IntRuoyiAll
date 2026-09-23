@@ -24,6 +24,10 @@ public enum RuntimeControlOperationAction {
             "ops/deploy/publish-int-ruoyi.ps1",
             reqVO -> deployReleaseArguments("test", reqVO, false)),
 
+    PUBLISH_BACKUP("publish-backup", "发布到审查服务器", "backup", true,
+            "ops/deploy/publish-int-ruoyi.ps1",
+            reqVO -> deployReleaseArguments("backup", reqVO, false)),
+
     APPLY_TEST_DB_SQL("apply-test-db-sql", "测试服数据库快应用", "test", false,
             "script/deploy/apply-test-db-sql.ps1",
             RuntimeControlOperationAction::applyTestDbSqlArguments),
@@ -36,7 +40,7 @@ public enum RuntimeControlOperationAction {
             "ops/deploy/publish-int-ruoyi.ps1",
             reqVO -> deployReleaseArguments("prod", reqVO, true)),
 
-    PROMOTE_BACKUP("promote-backup", "上线审查服", "backup", true,
+    PROMOTE_BACKUP("promote-backup", "上线审查服务器", "backup", true,
             "ops/deploy/publish-int-ruoyi.ps1",
             reqVO -> deployReleaseArguments("backup", reqVO, true)),
 
@@ -99,7 +103,25 @@ public enum RuntimeControlOperationAction {
         boolean linuxBackup = isBackupAction() && properties.getBackupOps().isLinuxLocal();
         List<String> args = linuxBackup ? linuxBackupArguments(action, reqVO, properties)
                 : new ArrayList<>(argumentsBuilder.apply(reqVO));
-        if (deploysReleasePackage()) {
+        boolean independentBackup = this == PUBLISH_BACKUP
+                || this == BUILD_RELEASE && "backup".equals(reqVO.getTargetEnvironment());
+        if (independentBackup) {
+            properties.requireBackupPublishTarget();
+            addRequiredArgument(args, "-DeployIntent", "independent-backup");
+            addRequiredArgument(args, "-ReleaseWorkflowId", reqVO.getReleaseWorkflowId());
+            addRequiredArgument(args, "-AuthorizationId", reqVO.getReleaseAuthorizationId());
+            if (this == BUILD_RELEASE) {
+                addRequiredArgument(args, "-Environment", "backup");
+                addRequiredArgument(args, "-ConfirmText", "PROD");
+            } else {
+                addRequiredArgument(args, "-JavaOperationId", reqVO.getPreassignedOperationId());
+                addRequiredArgument(args, "-SourceSelectionId", reqVO.getSourceSelectionId());
+                addRequiredArgument(args, "-ExpectedMaintenanceCommit", reqVO.getExpectedMaintenanceCommit());
+                addRequiredArgument(args, "-ExpectedApplicationCommit", reqVO.getExpectedApplicationCommit());
+                addRequiredArgument(args, "-ExpectedFrontendCommit", reqVO.getExpectedFrontendCommit());
+            }
+        }
+        if (deploysReleasePackage() || independentBackup) {
             appendRemoteDeployTargetArguments(args, resolveEnvironment(reqVO), properties);
         }
         if (this == APPLY_TEST_DB_SQL) {
@@ -128,6 +150,9 @@ public enum RuntimeControlOperationAction {
     }
 
     public String resolveEnvironment(RuntimeControlActionReqVO reqVO) {
+        if (this == BUILD_RELEASE && "backup".equals(reqVO.getTargetEnvironment())) {
+            return "backup";
+        }
         if (this != BACKUP_NOW && this != ROLLBACK_APP && this != RESTORE_DATA) {
             return environment;
         }
@@ -136,6 +161,9 @@ public enum RuntimeControlOperationAction {
     }
 
     public boolean isProdConfirmRequired(RuntimeControlActionReqVO reqVO) {
+        if (this == BUILD_RELEASE && "backup".equals(reqVO.getTargetEnvironment())) {
+            return true;
+        }
         if (this == BACKUP_NOW) {
             return "prod".equals(resolveEnvironment(reqVO));
         }
@@ -153,7 +181,7 @@ public enum RuntimeControlOperationAction {
                     "includeShowroomBuildPackage",
                     String.valueOf(Boolean.TRUE.equals(reqVO.getIncludeShowroomBuildPackage())),
                     "releaseTag", StrUtil.blankToDefault(reqVO.getReleaseTag(), ""));
-            case PUBLISH_TEST, PROMOTE_PROD, PROMOTE_BACKUP ->
+            case PUBLISH_TEST, PUBLISH_BACKUP, PROMOTE_PROD, PROMOTE_BACKUP ->
                     Map.of("releaseTag", StrUtil.blankToDefault(reqVO.getReleaseTag(), ""));
             case APPLY_TEST_DB_SQL -> Map.of("sqlPath", StrUtil.blankToDefault(reqVO.getSqlPath(), ""));
             case MARK_RELEASE_TESTED -> Map.of(
@@ -196,7 +224,7 @@ public enum RuntimeControlOperationAction {
     }
 
     public boolean requiresNasReleaseRepository() {
-        return this == BUILD_RELEASE || this == PUBLISH_TEST || this == MARK_RELEASE_TESTED
+        return this == BUILD_RELEASE || this == PUBLISH_TEST || this == PUBLISH_BACKUP || this == MARK_RELEASE_TESTED
                 || this == PROMOTE_PROD || this == PROMOTE_BACKUP;
     }
 
@@ -205,16 +233,16 @@ public enum RuntimeControlOperationAction {
     }
 
     private boolean isReleasePackageAction() {
-        return this == BUILD_RELEASE || this == PUBLISH_TEST || this == MARK_RELEASE_TESTED
+        return this == BUILD_RELEASE || this == PUBLISH_TEST || this == PUBLISH_BACKUP || this == MARK_RELEASE_TESTED
                 || this == PROMOTE_PROD || this == PROMOTE_BACKUP;
     }
 
     private boolean deploysReleasePackage() {
-        return this == PUBLISH_TEST || this == PROMOTE_PROD || this == PROMOTE_BACKUP;
+        return this == PUBLISH_TEST || this == PUBLISH_BACKUP || this == PROMOTE_PROD || this == PROMOTE_BACKUP;
     }
 
     public boolean requiresReleaseTag() {
-        return this == PUBLISH_TEST || this == MARK_RELEASE_TESTED || this == PROMOTE_PROD || this == PROMOTE_BACKUP;
+        return this == PUBLISH_TEST || this == PUBLISH_BACKUP || this == MARK_RELEASE_TESTED || this == PROMOTE_PROD || this == PROMOTE_BACKUP;
     }
 
     public boolean requiresSqlPath() {
@@ -238,7 +266,7 @@ public enum RuntimeControlOperationAction {
     }
 
     public boolean requiresResponsibilityGate() {
-        return this == PROMOTE_PROD || this == PROMOTE_BACKUP || this == ROLLBACK_APP || this == REHEARSAL
+        return this == PUBLISH_BACKUP || this == PROMOTE_PROD || this == PROMOTE_BACKUP || this == ROLLBACK_APP || this == REHEARSAL
                 || this == RESTORE_DATA;
     }
 

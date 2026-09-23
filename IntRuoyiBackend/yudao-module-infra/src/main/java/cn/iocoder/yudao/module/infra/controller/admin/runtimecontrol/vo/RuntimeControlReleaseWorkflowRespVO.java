@@ -32,6 +32,10 @@ public class RuntimeControlReleaseWorkflowRespVO {
     private String requestedBy;
     private String reason;
     private String sourceSelectionId;
+    private String targetEnvironment;
+    private boolean automaticPublish;
+    private String sourceCleanupStatus;
+    private String sourceCleanupErrorCode;
 
     public static RuntimeControlReleaseWorkflowRespVO from(ReleaseWorkflowRecord record) {
         RuntimeControlReleaseWorkflowRespVO result = new RuntimeControlReleaseWorkflowRespVO();
@@ -56,6 +60,8 @@ public class RuntimeControlReleaseWorkflowRespVO {
         result.requestedBy = record.requestedBy();
         result.reason = record.reason();
         result.sourceSelectionId = record.sourceSelectionId();
+        result.targetEnvironment = record.targetEnvironment();
+        result.automaticPublish = record.backupIntent() != null;
         return result;
     }
 }

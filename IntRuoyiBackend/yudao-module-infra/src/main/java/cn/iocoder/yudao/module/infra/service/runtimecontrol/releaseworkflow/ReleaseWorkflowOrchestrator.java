@@ -32,8 +32,214 @@ public class ReleaseWorkflowOrchestrator {
     private final ReleaseWorkflowAuthorizationService authorizationService;
     private final ReleaseWorkflowProductionPreviewService productionPreviewService;
     private final ReleaseWorkflowTestEvidenceStore testEvidenceStore;
+    private final ReleaseWorkflowSourceCleanupService sourceCleanupService;
+    private final ReleaseWorkflowBackupFinalizationService backupFinalization;
     private final Map<String, ReleaseWorkflowService.OptionalLease> activeLeases = new ConcurrentHashMap<>();
     private final Map<String, String> prodIdempotencyOperations = new ConcurrentHashMap<>();
+    private final Map<String, java.util.concurrent.FutureTask<Void>> sourcePreparations = new ConcurrentHashMap<>();
+    private final Map<String, Thread> activeSourceThreads = new ConcurrentHashMap<>();
+    private final Map<String, java.util.concurrent.FutureTask<Void>> sourceCleanups = new ConcurrentHashMap<>();
+    private final Map<String, java.util.concurrent.FutureTask<Void>> confirmations = new ConcurrentHashMap<>();
+    private final Map<String, Thread> activeConfirmationThreads = new ConcurrentHashMap<>();
+    private final java.util.concurrent.ExecutorService confirmationExecutor = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "release-backup-confirmation"); thread.setDaemon(true); return thread;
+    });
+    private final java.util.concurrent.ExecutorService sourceExecutor = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "release-source-preparation"); thread.setDaemon(true); return thread;
+    });
+
+    public ReleaseWorkflowBackupAuthorizationService.Preview previewBackup(String actor, String reason,
+                                                                           String sourceSelectionId, String idempotencyKey) {
+        runtimeControlService.validateBackupPublishPrerequisites();
+        return backupAuthorization().preview(actor, reason, sourceSelectionId, idempotencyKey);
+    }
+
+    public ReleaseWorkflowBackupAuthorizationService.Grant authorizeBackup(String previewId, String actor, String confirm) {
+        return backupAuthorization().authorize(previewId, actor, confirm);
+    }
+
+    public synchronized ReleaseWorkflowRecord startBackup(String actor, String previewId, String grantId,
+                                                          String idempotencyKey, String confirm) {
+        boolean existing = workflowService.list().stream().anyMatch(w -> w.backupIntent() != null
+                && actor.equals(w.requestedBy()) && idempotencyKey.equals(w.backupIntent().idempotencyKey())
+                && grantId.equals(w.backupIntent().authorizationId()));
+        var grant = backupAuthorization().requireGrant(grantId, previewId, actor, idempotencyKey, confirm, existing);
+        // SOURCE_FREEZING is a durable queue entry. Only the background reconciler prepares sources and dispatches.
+        return workflowService.createBackup(grant);
+    }
+
+    private ReleaseWorkflowBackupAuthorizationService backupAuthorization() {
+        return new ReleaseWorkflowBackupAuthorizationService(properties);
+    }
+
+    /** Called only after the controlled recovery verifier has completed its fresh remote CAS. */
+    public synchronized ReleaseWorkflowRecord completeBackupRecovery(String workflowId, long expectedVersion,
+                                                                     String actor, String previewDigest) {
+        ReleaseWorkflowRecord current = workflowService.require(workflowId);
+        if (current.backupIntent() == null || current.state() != ReleaseWorkflowRecord.State.RECOVERY_REQUIRED
+                || actor == null || actor.isBlank() || previewDigest == null || !previewDigest.matches("[0-9a-f]{64}")) {
+            throw new IllegalStateException("RELEASE_WORKFLOW_VERIFIED_BACKUP_RECOVERY_REQUIRED");
+        }
+        ReleaseWorkflowRecord recovered = workflowService.verifyAdvance(workflowId, expectedVersion,
+                ReleaseWorkflowRecord.State.FAILED, "VERIFIED_ZERO_WRITE_RECOVERY", false, true,
+                List.of("recovery-preview:" + previewDigest, "recovery-actor:" + actor));
+        releaseAllLeases(workflowId);
+        return recovered;
+    }
+
+    private ReleaseWorkflowRecord dispatchBackupBuild(ReleaseWorkflowRecord workflow) {
+        var lease = workflowService.acquireEnvironmentLease("build", workflow.workflowId());
+        if (!lease.acquired()) { lease.close(); return workflowService.require(workflow.workflowId()); }
+        activeLeases.put(leaseKey(workflow.workflowId(), "build"), lease);
+        try {
+            backupAuthorization().requireWorkflowBinding(workflow);
+            String operationId = newOperationId();
+            workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(), operationId);
+            ReleaseWorkflowRecord claimed = workflow;
+            var preparation = new java.util.concurrent.FutureTask<Void>(() -> {
+                activeSourceThreads.put(claimed.workflowId(), Thread.currentThread());
+                prepareBackupBuild(claimed);
+                return null;
+            });
+            sourcePreparations.put(workflow.workflowId(), preparation);
+            sourceExecutor.execute(preparation);
+            return claimed;
+        } catch (ReleaseWorkflowStore.CasConflictException ex) {
+            releaseLease(workflow.workflowId(), "build");
+            return workflowService.require(workflow.workflowId());
+        } catch (RuntimeException ex) {
+            sourcePreparations.remove(workflow.workflowId());
+            releaseLease(workflow.workflowId(), "build");
+            failIfActive(workflow.workflowId(), "SOURCE_PREPARATION", true, ex);
+            throw ex;
+        }
+    }
+
+    private void prepareBackupBuild(ReleaseWorkflowRecord claimed) {
+        boolean dispatchAttempted = false;
+        try {
+            ReleaseWorkflowRecord initial = workflowService.require(claimed.workflowId());
+            if (initial.state() != ReleaseWorkflowRecord.State.SOURCE_FREEZING
+                    || !claimed.operationId().equals(initial.operationId()) || Thread.currentThread().isInterrupted()) {
+                throw new IllegalStateException("RELEASE_WORKFLOW_SOURCE_PREPARATION_CANCELED");
+            }
+            new ReleaseWorkflowSourcePreflight().verify();
+            var frozen = new ReleaseWorkflowWorktreeFactory(properties).prepare(claimed);
+            new ReleaseWorkflowSourceDependencies(properties).prepare(frozen);
+            synchronized (this) {
+                ReleaseWorkflowRecord workflow = workflowService.require(claimed.workflowId());
+                if (workflow.state() != ReleaseWorkflowRecord.State.SOURCE_FREEZING
+                        || !claimed.operationId().equals(workflow.operationId()) || Thread.currentThread().isInterrupted()) {
+                    throw new IllegalStateException("RELEASE_WORKFLOW_SOURCE_PREPARATION_CANCELED");
+                }
+                workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                    ReleaseWorkflowRecord.State.PREFLIGHTING, "PREFLIGHTING", true, true);
+            RuntimeControlActionReqVO request = backupRequest(workflow, workflow.operationId(), "build-release");
+            request.setPublishScope(ReleaseWorkflowContract.PUBLISH_SCOPE);
+            request.setIncludeOnlyOffice(false);
+            request.setIncludeShowroomBuildPackage(false);
+            request.setEnableSmartReleaseReport(false);
+            request.setFrozenMaintenanceRoot(frozen.maintenanceRoot().toString());
+            request.setFrozenBackendRoot(frozen.backendRoot().toString());
+            request.setFrozenFrontendRoot(frozen.frontendRoot().toString());
+            request.setFrozenPublishScriptSha256(frozen.publishScriptSha256());
+                dispatchAttempted = true;
+                requireOperationBinding(workflow.operationId(), runtimeControlService.dispatchWorkflowAction(request, workflow.requestedBy()));
+            }
+        } catch (RuntimeException ex) {
+            synchronized (this) {
+                if (dispatchAttempted) recordBackupDispatchFailure(claimed.workflowId(), "BACKUP_BUILD_DISPATCH", true, ex);
+                else {
+                    failIfActive(claimed.workflowId(), "SOURCE_PREPARATION", true, ex);
+                    releaseLease(claimed.workflowId(), "build");
+                }
+            }
+        } finally {
+            activeSourceThreads.remove(claimed.workflowId());
+            sourcePreparations.remove(claimed.workflowId());
+        }
+    }
+
+    private boolean sourcePreparationAlive(String workflowId) {
+        var task = sourcePreparations.get(workflowId);
+        var thread = activeSourceThreads.get(workflowId);
+        return task != null && !task.isDone() && thread != null && thread.isAlive();
+    }
+
+    @jakarta.annotation.PreDestroy
+    public void shutdownSourcePreparation() {
+        sourceExecutor.shutdownNow();
+        confirmationExecutor.shutdownNow();
+    }
+
+    public ReleaseWorkflowSourceCleanupService.CleanupStatus getSourceCleanupStatus(String workflowId) {
+        ReleaseWorkflowRecord workflow = workflowService.require(workflowId);
+        if (workflow.backupIntent() == null) throw new IllegalArgumentException("RELEASE_WORKFLOW_NOT_BACKUP");
+        return sourceCleanupService.getStatus(workflowId);
+    }
+
+    private void queueSourceCleanup(ReleaseWorkflowRecord workflow) {
+        var status = sourceCleanupService.getStatus(workflow.workflowId());
+        if ("SUCCEEDED".equals(status.status()) || "FAILED".equals(status.status())
+                || sourceCleanups.containsKey(workflow.workflowId())) return;
+        var task = new java.util.concurrent.FutureTask<Void>(() -> {
+            try { sourceCleanupService.cleanup(workflow); }
+            catch (RuntimeException error) {
+                org.slf4j.LoggerFactory.getLogger(ReleaseWorkflowOrchestrator.class).error(
+                        "Release source cleanup failed for {}: {}", workflow.workflowId(), safeCauseReference(error));
+            } finally { sourceCleanups.remove(workflow.workflowId()); }
+            return null;
+        });
+        sourceCleanups.put(workflow.workflowId(), task);
+        sourceExecutor.execute(task);
+    }
+
+    private ReleaseWorkflowRecord dispatchBackupDeploy(ReleaseWorkflowRecord workflow) {
+        var lease = workflowService.acquireEnvironmentLease("backup", workflow.workflowId());
+        if (!lease.acquired()) { lease.close(); return workflowService.require(workflow.workflowId()); }
+        activeLeases.put(leaseKey(workflow.workflowId(), "backup"), lease);
+        boolean dispatchAttempted = false;
+        try {
+            backupAuthorization().requireWorkflowBinding(workflow);
+            String operationId = newOperationId();
+            workflow = workflowService.assignOperation(workflow.workflowId(), workflow.stateVersion(), operationId);
+            workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                    ReleaseWorkflowRecord.State.BACKUP_DEPLOYING, "BACKUP_DEPLOYING", true, false);
+            RuntimeControlActionReqVO request = backupRequest(workflow, operationId, "publish-backup");
+            request.setExpectedPackageDigest(workflow.packageDigest());
+            request.setExpectedManifestDigest(workflow.manifestDigest());
+            var frozen = new ReleaseWorkflowWorktreeFactory(properties).prepare(workflow);
+            request.setFrozenMaintenanceRoot(frozen.maintenanceRoot().toString());
+            request.setFrozenBackendRoot(frozen.backendRoot().toString());
+            request.setFrozenFrontendRoot(frozen.frontendRoot().toString());
+            request.setFrozenPublishScriptSha256(frozen.publishScriptSha256());
+            dispatchAttempted = true;
+            requireOperationBinding(operationId, runtimeControlService.dispatchWorkflowAction(request, workflow.requestedBy()));
+            return workflowService.require(workflow.workflowId());
+        } catch (ReleaseWorkflowStore.CasConflictException ex) {
+            releaseLease(workflow.workflowId(), "backup");
+            return workflowService.require(workflow.workflowId());
+        } catch (RuntimeException ex) {
+            recordBackupDispatchFailure(workflow.workflowId(), "BACKUP_DEPLOY_DISPATCH", dispatchAttempted, ex);
+            throw ex;
+        }
+    }
+
+    private RuntimeControlActionReqVO backupRequest(ReleaseWorkflowRecord workflow, String operationId, String action) {
+        RuntimeControlActionReqVO request = new RuntimeControlActionReqVO();
+        request.setAction(action);
+        request.setTargetEnvironment("backup");
+        request.setProdConfirmText("PROD");
+        request.setReleaseAuthorizationId(workflow.backupIntent().authorizationId());
+        request.setReason(workflow.reason());
+        request.setReleaseTag(workflow.releaseTag());
+        request.setSourceSelectionId(workflow.sourceSelectionId());
+        request.setExpectedMaintenanceCommit(workflow.maintenanceCommit());
+        request.setExpectedApplicationCommit(workflow.applicationCommit());
+        request.setExpectedFrontendCommit(workflow.frontendCommit());
+        attachWorkflowContext(request, workflow, operationId);
+        return request;
+    }
 
     @Autowired
     public ReleaseWorkflowOrchestrator(RuntimeControlProperties properties,
@@ -50,6 +256,8 @@ public class ReleaseWorkflowOrchestrator {
         this.authorizationService = authorizationService;
         this.productionPreviewService = productionPreviewService;
         this.testEvidenceStore = testEvidenceStore;
+        this.sourceCleanupService = new ReleaseWorkflowSourceCleanupService(properties, new ReleaseWorkflowWorktreeFactory(properties));
+        this.backupFinalization = new ReleaseWorkflowBackupFinalizationService(properties, workflowService, runtimeControlService);
     }
 
     public ReleaseWorkflowOrchestrator(RuntimeControlProperties properties,
@@ -121,6 +329,7 @@ public class ReleaseWorkflowOrchestrator {
     public synchronized ReleaseWorkflowRecord startTestPublish(String workflowId, String requestedBy,
                                                                String reason) {
         ReleaseWorkflowRecord workflow = reconcile(workflowId);
+        if (workflow.backupIntent() != null) throw new IllegalStateException("RELEASE_WORKFLOW_TARGET_MISMATCH");
         if (workflow.state() != ReleaseWorkflowRecord.State.READY) {
             throw new IllegalStateException("RELEASE_WORKFLOW_NOT_READY");
         }
@@ -308,11 +517,15 @@ public class ReleaseWorkflowOrchestrator {
 
     public synchronized ReleaseWorkflowRecord reconcile(String workflowId) {
         ReleaseWorkflowRecord workflow = workflowService.require(workflowId);
-        if (workflow.operationId() == null || workflow.state().isTerminal()
-                || workflow.state() == ReleaseWorkflowRecord.State.RECOVERY_REQUIRED) {
+        if (workflow.operationId() == null || workflow.state().isTerminal()) {
             return workflow;
         }
         RuntimeControlOperationRespVO operation = operationStore.findById(workflow.operationId());
+        if (shouldFinalizeBackup(workflow, operation)) {
+            queueBackupConfirmation(workflowId);
+            return workflowService.require(workflowId);
+        }
+        if (workflow.state() == ReleaseWorkflowRecord.State.RECOVERY_REQUIRED) return workflow;
         if (operation != null) {
             try {
                 workflow = advanceObservedBuildStages(workflow, operation);
@@ -329,18 +542,85 @@ public class ReleaseWorkflowOrchestrator {
                 return failed;
             }
         }
+        if (operation == null && workflow.backupIntent() != null) {
+            if (sourcePreparationAlive(workflow.workflowId())) return workflow;
+            if (workflow.lastHeartbeatAt().plus(properties.getReleaseWorkflow().getHeartbeatTimeout())
+                    .isAfter(Instant.now())) return workflow;
+            return workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                    ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, "OPERATION_UNKNOWN", false, false);
+        }
         if (operation == null || "running".equals(operation.getStatus())) {
             return workflow;
         }
         if ("succeeded".equals(operation.getStatus())) {
             workflow = advanceSucceeded(workflow, operation);
         } else if ("failed".equals(operation.getStatus()) || "blocked".equals(operation.getStatus())) {
+            boolean verifiedZeroWrite = verifiedZeroWrite(workflow, operation);
             workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
-                    ReleaseWorkflowRecord.State.FAILED, workflow.state().name(), false,
-                    !workflow.state().isWriteStage());
+                    workflow.backupIntent() != null && !verifiedZeroWrite ? ReleaseWorkflowRecord.State.RECOVERY_REQUIRED : ReleaseWorkflowRecord.State.FAILED,
+                    workflow.state().name(), false, verifiedZeroWrite || (workflow.backupIntent() == null && !workflow.state().isWriteStage()));
+        } else if (workflow.backupIntent() != null) {
+            workflow = workflowService.verifyAdvance(workflow.workflowId(), workflow.stateVersion(),
+                    ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, "OPERATION_UNKNOWN", false, false);
         }
         releaseLeasesForState(workflow);
+        if (workflow.state() == ReleaseWorkflowRecord.State.READY && workflow.backupIntent() != null) {
+            return dispatchBackupDeploy(workflow);
+        }
         return workflow;
+    }
+
+    private boolean shouldFinalizeBackup(ReleaseWorkflowRecord workflow, RuntimeControlOperationRespVO operation) {
+        if (workflow.backupIntent() == null) return false;
+        if (workflow.state() == ReleaseWorkflowRecord.State.BACKUP_FINALIZING) return true;
+        if (workflow.state() != ReleaseWorkflowRecord.State.BACKUP_DEPLOYING
+                && workflow.state() != ReleaseWorkflowRecord.State.RECOVERY_REQUIRED) return false;
+        if (operation == null) return workflow.state() == ReleaseWorkflowRecord.State.BACKUP_DEPLOYING
+                && workflow.lastHeartbeatAt().plus(properties.getReleaseWorkflow().getHeartbeatTimeout()).isBefore(Instant.now());
+        return "publish-backup".equals(operation.getAction()) && !verifiedZeroWrite(workflow, operation)
+                && (!"running".equals(operation.getStatus())
+                    || (workflow.state() == ReleaseWorkflowRecord.State.RECOVERY_REQUIRED
+                        && !runtimeControlService.isOperationExecutorAlive(operation.getOperationId())));
+    }
+
+    private void queueBackupConfirmation(String workflowId) {
+        var task = new java.util.concurrent.FutureTask<Void>(() -> {
+            activeConfirmationThreads.put(workflowId, Thread.currentThread());
+            try {
+                var current = workflowService.require(workflowId);
+                if (current.state().isTerminal()) return null;
+                var finalized = backupFinalization.reconcile(workflowId);
+                if (finalized.isPresent()) releaseLeasesForState(finalized.get());
+                else {
+                    current = workflowService.require(workflowId);
+                    if (current.state() == ReleaseWorkflowRecord.State.BACKUP_DEPLOYING) {
+                        workflowService.verifyAdvance(workflowId, current.stateVersion(),
+                                ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, "BACKUP_RUNTIME_RECEIPT_MISSING", false, false);
+                    }
+                }
+            } catch (RuntimeException error) {
+                isolateAfterDispatchFailure(workflowId, "BACKUP_FINALIZATION", error);
+                org.slf4j.LoggerFactory.getLogger(ReleaseWorkflowOrchestrator.class).error(
+                        "Review publication confirmation blocked for {}: {}", workflowId, safeCauseReference(error));
+            } finally {
+                activeConfirmationThreads.remove(workflowId);
+                confirmations.remove(workflowId);
+            }
+            return null;
+        });
+        if (confirmations.putIfAbsent(workflowId, task) != null) return;
+        try { confirmationExecutor.execute(task); }
+        catch (RuntimeException rejected) {
+            confirmations.remove(workflowId, task);
+            isolateAfterDispatchFailure(workflowId, "BACKUP_CONFIRMATION_WORKER_REJECTED", rejected);
+            throw rejected;
+        }
+    }
+
+    private boolean confirmationAlive(String workflowId) {
+        var task = confirmations.get(workflowId);
+        var thread = activeConfirmationThreads.get(workflowId);
+        return task != null && !task.isDone() && thread != null && thread.isAlive();
     }
 
     /**
@@ -352,6 +632,25 @@ public class ReleaseWorkflowOrchestrator {
     public synchronized List<ReleaseWorkflowRecord> reconcileActiveWorkflows(Instant now) {
         List<ReleaseWorkflowRecord> changed = new ArrayList<>();
         for (ReleaseWorkflowRecord workflow : workflowService.list()) {
+            if (workflow.state() == ReleaseWorkflowRecord.State.BACKUP_DEPLOYED) {
+                queueSourceCleanup(workflow);
+                continue;
+            }
+            if (workflow.backupIntent() != null && (workflow.state() == ReleaseWorkflowRecord.State.BACKUP_FINALIZING
+                    || workflow.state() == ReleaseWorkflowRecord.State.RECOVERY_REQUIRED)) {
+                if (confirmationAlive(workflow.workflowId())) {
+                    changed.add(workflowService.heartbeat(workflow.workflowId(), workflow.stateVersion(), now));
+                    continue;
+                }
+                ReleaseWorkflowRecord observed = reconcile(workflow.workflowId());
+                if (observed.stateVersion() != workflow.stateVersion()) changed.add(observed);
+                continue;
+            }
+            if (workflow.backupIntent() != null && workflow.state() == ReleaseWorkflowRecord.State.SOURCE_FREEZING
+                    && workflow.operationId() == null) {
+                changed.add(dispatchBackupBuild(workflow));
+                continue;
+            }
             if (workflow.state().isTerminal()
                     || workflow.state() == ReleaseWorkflowRecord.State.RECOVERY_REQUIRED
                     || workflow.operationId() == null) {
@@ -359,12 +658,22 @@ public class ReleaseWorkflowOrchestrator {
             }
             RuntimeControlOperationRespVO operation = operationStore.findById(workflow.operationId());
             if (operation == null) {
+                if (sourcePreparationAlive(workflow.workflowId())) {
+                    changed.add(workflowService.heartbeat(workflow.workflowId(), workflow.stateVersion(), now));
+                } else if (workflow.backupIntent() != null) changed.add(reconcile(workflow.workflowId()));
                 continue;
             }
             if ("running".equals(operation.getStatus())) {
                 ReleaseWorkflowRecord observed = advanceObservedBuildStages(workflow, operation);
                 if (observed.stateVersion() != workflow.stateVersion()) {
                     changed.add(observed);
+                    continue;
+                }
+                if (workflow.backupIntent() != null) {
+                    if (runtimeControlService.isOperationExecutorAlive(operation.getOperationId())) {
+                        ReleaseWorkflowRecord current = workflowService.require(workflow.workflowId());
+                        changed.add(workflowService.heartbeat(current.workflowId(), current.stateVersion(), now));
+                    }
                     continue;
                 }
                 Instant progressAt = recentOperationLogProgressAt(operation.getOperationId(), now);
@@ -386,6 +695,21 @@ public class ReleaseWorkflowOrchestrator {
 
     public synchronized ReleaseWorkflowRecord cancel(String workflowId) {
         ReleaseWorkflowRecord current = workflowService.require(workflowId);
+        if (current.backupIntent() != null && (current.state() == ReleaseWorkflowRecord.State.BACKUP_FINALIZING
+                || backupFinalization.hasAcceptedDecision(workflowId))) {
+            throw new IllegalStateException("RELEASE_WORKFLOW_ACCEPTED_PUBLICATION_CANNOT_BE_CANCELED");
+        }
+        var preparation = sourcePreparations.get(workflowId);
+        if (preparation != null) {
+            preparation.cancel(true);
+            if (current.state() == ReleaseWorkflowRecord.State.SOURCE_FREEZING) {
+                ReleaseWorkflowRecord canceled = workflowService.verifyAdvance(workflowId, current.stateVersion(),
+                        ReleaseWorkflowRecord.State.CANCELED, "SOURCE_PREPARATION_CANCELED", false, true);
+                sourcePreparations.remove(workflowId);
+                releaseLease(workflowId, "build");
+                return canceled;
+            }
+        }
         if (current.operationId() != null && !current.state().isTerminal()) {
             RuntimeControlOperationRespVO operation = operationStore.findById(current.operationId());
             if (operation != null && "running".equals(operation.getStatus())) {
@@ -417,6 +741,10 @@ public class ReleaseWorkflowOrchestrator {
                         .plus(properties.getReleaseWorkflow().getHeartbeatTimeout()).isBefore(now))
                 .toList();
         for (ReleaseWorkflowRecord workflow : stale) {
+            if (sourcePreparationAlive(workflow.workflowId()) || confirmationAlive(workflow.workflowId())) {
+                workflowService.heartbeat(workflow.workflowId(), workflow.stateVersion(), now);
+                continue;
+            }
             if (workflow.operationId() == null) {
                 continue;
             }
@@ -426,6 +754,16 @@ public class ReleaseWorkflowOrchestrator {
                 continue;
             }
             if (operation != null && "running".equals(operation.getStatus())) {
+                if (workflow.backupIntent() != null) {
+                    ReleaseWorkflowRecord current = workflowService.require(workflow.workflowId());
+                    if (runtimeControlService.isOperationExecutorAlive(operation.getOperationId())) {
+                        workflowService.heartbeat(current.workflowId(), current.stateVersion(), now);
+                    } else {
+                        workflowService.verifyAdvance(current.workflowId(), current.stateVersion(),
+                                ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, "EXECUTOR_LIVENESS_UNKNOWN", false, false);
+                    }
+                    continue;
+                }
                 Instant progressAt = recentOperationLogProgressAt(operation.getOperationId(), now);
                 if (progressAt != null) {
                     ReleaseWorkflowRecord current = workflowService.require(workflow.workflowId());
@@ -617,7 +955,8 @@ public class ReleaseWorkflowOrchestrator {
         if (!current.state().isTerminal()) {
             try {
                 workflowService.verifyAdvance(current.workflowId(), current.stateVersion(),
-                        ReleaseWorkflowRecord.State.FAILED, stage, false, zeroWriteEvidence);
+                        ReleaseWorkflowRecord.State.FAILED, stage, false, zeroWriteEvidence,
+                        List.of(safeCauseReference(cause)));
             } catch (ReleaseWorkflowService.InvalidTransitionException transitionFailure) {
                 if (cause != null) {
                     cause.addSuppressed(transitionFailure);
@@ -633,7 +972,8 @@ public class ReleaseWorkflowOrchestrator {
             ReleaseWorkflowRecord current = workflowService.require(workflowId);
             if (!current.state().isTerminal() && current.state() != ReleaseWorkflowRecord.State.RECOVERY_REQUIRED) {
                 workflowService.verifyAdvance(current.workflowId(), current.stateVersion(),
-                        ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, stage, false, false);
+                        ReleaseWorkflowRecord.State.RECOVERY_REQUIRED, stage, false, false,
+                        List.of(safeCauseReference(cause)));
             }
         } catch (RuntimeException recoveryFailure) {
             cause.addSuppressed(recoveryFailure);
@@ -651,6 +991,40 @@ public class ReleaseWorkflowOrchestrator {
         }
     }
 
+    private static String safeCauseReference(RuntimeException cause) {
+        if (cause == null) return "failure:UNSPECIFIED";
+        var matcher = java.util.regex.Pattern.compile("^[A-Z][A-Z0-9_]{2,100}")
+                .matcher(String.valueOf(cause.getMessage()));
+        return "failure:" + (matcher.find() ? matcher.group() : cause.getClass().getSimpleName());
+    }
+
+    private void recordBackupDispatchFailure(String workflowId, String stage, boolean dispatchAttempted, RuntimeException cause) {
+        var current = workflowService.require(workflowId);
+        var operation = current.operationId() == null ? null : operationStore.findById(current.operationId());
+        if (!dispatchAttempted || verifiedZeroWrite(current, operation)) {
+            failIfActive(workflowId, stage, true, cause);
+            releaseAllLeases(workflowId);
+        } else {
+            isolateAfterDispatchFailure(workflowId, stage, cause);
+        }
+    }
+
+    private static boolean verifiedZeroWrite(ReleaseWorkflowRecord workflow, RuntimeControlOperationRespVO operation) {
+        if (operation == null || !Boolean.TRUE.equals(operation.getZeroWriteEvidence())) return false;
+        if (workflow.backupIntent() == null) return true;
+        var parameters = operation.getParameters();
+        return workflow.operationId().equals(operation.getOperationId()) && "backup".equals(operation.getEnvironment())
+                && ("build-release".equals(operation.getAction()) || "publish-backup".equals(operation.getAction()))
+                && workflow.requestedBy().equals(operation.getRequestedBy()) && parameters != null
+                && workflow.workflowId().equals(parameters.get("workflowId"))
+                && workflow.releaseTag().equals(parameters.get("releaseTag"))
+                && workflow.backupIntent().authorizationId().equals(parameters.get("authorizationId"))
+                && workflow.sourceSelectionId().equals(parameters.get("sourceSelectionId"))
+                && workflow.maintenanceCommit().equals(parameters.get("maintenanceCommit"))
+                && workflow.applicationCommit().equals(parameters.get("applicationCommit"))
+                && workflow.frontendCommit().equals(parameters.get("frontendCommit"));
+    }
+
     private void releaseLease(String workflowId, String environment) {
         ReleaseWorkflowService.OptionalLease lease = activeLeases.remove(leaseKey(workflowId, environment));
         if (lease != null) {
@@ -662,6 +1036,7 @@ public class ReleaseWorkflowOrchestrator {
         releaseLease(workflowId, "build");
         releaseLease(workflowId, "test");
         releaseLease(workflowId, "prod");
+        releaseLease(workflowId, "backup");
     }
 
     private String leaseKey(String workflowId, String environment) {

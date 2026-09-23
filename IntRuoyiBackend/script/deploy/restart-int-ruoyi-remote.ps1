@@ -11,10 +11,13 @@ param(
     [int]$FrontendPort = 8081,
     [int]$BackendPort = 48081,
     [int]$WebsiteHostPort = 8083,
-    [string]$OperationRecordPath
+    [string]$OperationRecordPath,
+    [Parameter(Mandatory = $true)][string]$RestoreIsolationMarkerPath
 )
 
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'RuntimeResourceLease.psm1')
+$script:RuntimeResourceLease = $null
 
 $RemoteMysqlContainer = 'intruoyi-mysql'
 $RemoteMysqlDatabase = 'ruoyi-vue-pro'
@@ -54,6 +57,10 @@ function Require-Command([string]$Name) {
 
 function Invoke-SshCommand {
     param([string]$Command)
+    if ($null -eq $script:RuntimeResourceLease) {
+        $script:RuntimeResourceLease = New-RemoteRuntimeLease -TargetHost $ServerHost -User $ServerUser -SshOptions @('-o', 'BatchMode=yes', '-o', 'ConnectTimeout=5') -RestoreIsolationMarkerPath $RestoreIsolationMarkerPath
+    }
+    $Command = Get-RemoteRuntimeLeaseShell -Action Fence -Token $script:RuntimeResourceLease.Token -Command $Command
     & ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no "$ServerUser@$ServerHost" $Command
     if ($LASTEXITCODE -ne 0) {
         Fail "SSH command failed: $Command"
@@ -229,6 +236,8 @@ if ($Component -eq 'website') {
 }
 
 Write-Host ''
+Complete-RemoteRuntimeLease -Lease $script:RuntimeResourceLease
+$script:RuntimeResourceLease = $null
 Write-Host 'Restart completed.'
 Write-Host "Frontend: http://${ServerHost}:$FrontendPort"
 Write-Host "Backend health: http://${ServerHost}:$BackendPort/actuator/health"
