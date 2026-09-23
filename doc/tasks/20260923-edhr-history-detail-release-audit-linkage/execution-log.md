@@ -23,6 +23,9 @@ REGRESSION: `mvn -pl yudao-module-mes -am '-Dtest=MesTeamLeaderActiveOrderReleas
 - Cleanup preview: PASS；当前为 `int_main` 主工作区而非 linked worktree，保留 `task.md`、`execution-log.md`、`verification-report.md`，只删除本任务的临时 `backend-api-evidence.md` 与 `bug-regression-evidence.md`，无 blocked/warnings。
 - Cleanup apply: PASS；仅删除上述两个临时 evidence 文件，任务记录与验证报告保留。
 - Git 收尾：未执行提交或推送。用户提供的仓库规则要求当轮明确授权，而当前轮没有该授权；项目规则要求推送后才能标记完成，因此状态保持 `blocked`，不得标为 `completed`。
-- 当前状态：代码与验证完成，cleanup 已执行；待获得 Git 提交/推送授权后完成集成收尾。
+- 当前状态：代码、定向验证与 cleanup 已完成。
 - Commit: `7f33d911afe225e46dd25f425b2f10f1cdc1f37a`（`修复批次历史详情放行事务关联`）；push: `origin/int_main` 成功，远端由 `314d846e3` 更新到该提交。
-- 提交边界复核：提交只包含本任务代码、测试、经验规则和任务记录；目标文件工作区里此前存在的其它未提交内容仍保持未提交。
+- 提交边界复核：提交仅含本任务代码、测试、经验规则和任务记录；同目录文件内其它工作区修改仍保持未提交。
+- Runtime read-only check: `48081` 由 Java PID 64784 监听，启动 Jar 为 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260923-135239.jar`，命令行 repo-root 为 `E:\IntRuoyi\IntRuoyiBackend`；health 返回 `HTTP 200 {"status":"UP"}`。
+- Runtime restart blocker: 标准重启脚本会执行 `mvn -pl yudao-server -am -DskipTests package`，并检查本地 schema、MinIO 文件和依赖端口。当前验证只覆盖 MES 模块定向测试，且主工作区有大量并行脏改动；为避免全仓构建把并行代码装入运行 Jar，本轮未重启 `int_main`。
+- 实现提交 `7f33d911afe225e46dd25f425b2f10f1cdc1f37a`；收尾记录提交 `b4ac507c3`。均已推送 `origin/int_main`，远端与本地 HEAD 一致。
