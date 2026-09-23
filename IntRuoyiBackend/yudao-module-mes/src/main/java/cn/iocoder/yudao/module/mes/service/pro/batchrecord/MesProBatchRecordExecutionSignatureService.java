@@ -54,6 +54,7 @@ public class MesProBatchRecordExecutionSignatureService {
     public static final String ACTION_PRODUCTION_SUBMIT = "PRODUCTION_SUBMIT";
     public static final String ACTION_PQC_SUBMIT = "PQC_SUBMIT";
     public static final String ACTION_PQC_RELEASE = "PQC_RELEASE";
+    public static final String ACTION_MARKET_RELEASE = "MARKET_RELEASE";
     public static final String ACTION_TEAM_LEADER_REVIEW = "TEAM_LEADER_REVIEW";
     public static final String ACTION_BATCH_VOID_REQUEST = "BATCH_VOID_REQUEST";
     public static final String ACTION_BATCH_CLOSE = "BATCH_CLOSE";
@@ -62,6 +63,7 @@ public class MesProBatchRecordExecutionSignatureService {
     public static final String ACTION_SPECIAL_NODE_SKIP = "SPECIAL_NODE_SKIP";
     public static final String ACTION_ROUTE_FORM_OPTIONAL_SKIP = "ROUTE_FORM_OPTIONAL_SKIP";
     public static final String ACTION_QA_DISPOSITION = "QA_DISPOSITION";
+    public static final String ACTION_NONCONFORMANCE_REVIEW_CREATE = "NONCONFORMANCE_REVIEW_CREATE";
     public static final String SIGNATURE_MODE_PASSWORD = "PASSWORD";
     public static final String SIGNATURE_MODE_DRAFT_SESSION = "DRAFT_SESSION";
     public static final String SIGNATURE_MODE_SIMULATION_SESSION = "SIMULATION_SESSION";
@@ -133,6 +135,18 @@ public class MesProBatchRecordExecutionSignatureService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public Long recordMarketReleaseSignature(Long actorId, Long executionId, Long releaseTransactionId,
+                                             String password, String comment) {
+        if (executionId == null || executionId <= 0 || releaseTransactionId == null || releaseTransactionId <= 0) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        }
+        return recordSignatureForActor(actorId, executionId, password, comment, ACTION_MARKET_RELEASE,
+                null, null, null, null, null, null, null,
+                "EDHR_MARKET_RELEASE", releaseTransactionId, "上市放行",
+                ACTION_MARKET_RELEASE, comment, null, null, null, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public Long recordBatchVoidRequestSignature(Long actorId, Long batchExecutionId, String password, String comment,
                                                 String aggregateHash) {
         if (batchExecutionId == null || batchExecutionId <= 0) {
@@ -163,6 +177,17 @@ public class MesProBatchRecordExecutionSignatureService {
         return recordSignatureForActor(actorId, 0L, password, comment, ACTION_QA_DISPOSITION,
                 null, null, null, null, null, null, null, "EDHR_NONCONFORMANCE_REVIEW", reviewId,
                 "eDHR不合格评审处置", ACTION_QA_DISPOSITION, comment, null, null, aggregateHash, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordNonconformanceReviewCreateSignature(Long actorId, Long reviewId, String password,
+                                                          String comment, String aggregateHash) {
+        if (reviewId == null || reviewId <= 0) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        }
+        return recordSignatureForActor(actorId, 0L, password, comment, ACTION_NONCONFORMANCE_REVIEW_CREATE,
+                null, null, null, null, null, null, null, "EDHR_NONCONFORMANCE_REVIEW", reviewId,
+                "eDHR不合格评审创建", ACTION_NONCONFORMANCE_REVIEW_CREATE, comment, null, null, aggregateHash, null);
     }
 
     public void validatePqcSubmitSignature(Long actorId, String password) {
@@ -858,9 +883,11 @@ public class MesProBatchRecordExecutionSignatureService {
             case ACTION_PRODUCTION_SUBMIT -> "一线生产报工提交";
             case ACTION_PQC_SUBMIT -> "PQC检验提交";
             case ACTION_PQC_RELEASE -> "PQC生产放行";
+            case ACTION_MARKET_RELEASE -> "上市放行";
             case ACTION_TEAM_LEADER_REVIEW -> "组长复核";
             case ACTION_NONCONFORMANCE_REJECT -> "发起eDHR不合格评审";
             case ACTION_QA_DISPOSITION -> "QA不合格评审处置";
+            case ACTION_NONCONFORMANCE_REVIEW_CREATE -> "创建eDHR不合格评审";
             default -> actionType;
         };
     }

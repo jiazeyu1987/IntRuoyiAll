@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
 import com.alibaba.fastjson.JSON;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import java.util.Objects;
 
@@ -15,10 +16,16 @@ public class MesProductionReleaseSignoffService {
     }
 
     public boolean isVerified(Long taskId, Long actorId, String subjectId, String evidenceHash, String opinion) {
+        return findVerifiedSignatureId(taskId, actorId, subjectId, evidenceHash, opinion).isPresent();
+    }
+
+    public Optional<Long> findVerifiedSignatureId(
+            Long taskId, Long actorId, String subjectId, String evidenceHash, String opinion) {
         if (taskId == null || actorId == null || subjectId == null || subjectId.isBlank()
                 || evidenceHash == null || evidenceHash.isBlank()) {
-            return false;
+            return Optional.empty();
         }
+        Long verifiedSignatureId = null;
         for (var signature : signatures.listBySubject("BPM", "BPM_APPROVAL_TASK", subjectId)) {
             if (!Objects.equals(signature.actorId(), actorId)
                     || !Objects.equals(signature.taskId(), String.valueOf(taskId))
@@ -47,9 +54,12 @@ public class MesProductionReleaseSignoffService {
                     && Objects.equals(signature.id(), verification.signatureId())
                     && Objects.equals(evidenceHash, verification.storedEvidenceHash())
                     && Objects.equals(evidenceHash, verification.calculatedEvidenceHash())) {
-                return true;
+                if (verifiedSignatureId != null && !Objects.equals(verifiedSignatureId, signature.id())) {
+                    throw new IllegalStateException("EDHR_MARKET_RELEASE_SIGNATURE_AMBIGUOUS");
+                }
+                verifiedSignatureId = signature.id();
             }
         }
-        return false;
+        return Optional.ofNullable(verifiedSignatureId);
     }
 }

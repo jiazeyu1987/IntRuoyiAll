@@ -30,6 +30,10 @@ public class MesProEdhrReleaseApproveReqVO {
 
     private String signoffSubjectId;
 
+    /** Server-created formal market-release signature identity; never accepted from HTTP. */
+    @JsonIgnore
+    private Long signatureId;
+
     private String approvalOpinion;
 
     /** Release provenance and gate receipts are required by finalizeRelease. */
@@ -103,6 +107,11 @@ public class MesProEdhrReleaseApproveReqVO {
 
     public MesProEdhrReleaseApproveReqVO setSignoffEvidenceHash(String signoffEvidenceHash) {
         this.signoffEvidenceHash = signoffEvidenceHash;
+        return this;
+    }
+
+    public MesProEdhrReleaseApproveReqVO setSignatureId(Long signatureId) {
+        this.signatureId = signatureId;
         return this;
     }
 

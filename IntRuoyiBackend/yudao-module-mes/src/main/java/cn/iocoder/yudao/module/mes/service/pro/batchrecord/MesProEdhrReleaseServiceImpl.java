@@ -201,6 +201,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrFourMaterialGateService fourMaterialGateService;
     @Resource
     private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @Resource
+    private MesProBatchRecordExecutionSignatureService executionSignatureService;
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
@@ -519,7 +521,6 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         MesProEdhrReleaseTransactionDO transaction = requireTransaction(reqVO.getReleaseTransactionId());
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
         nonconformanceReviewService.ensureBatchNotFrozen(batch.getId(), "上市放行");
-        adminUserApi.reauthenticateForSignature(actorUserId, password);
         String idempotencyKey = requireIdempotencyKey(reqVO.getIdempotencyKey());
         String signoffEvidenceHash = StrUtil.blankToDefault(
                 StrUtil.trim(reqVO.getSignoffEvidenceHash()),
@@ -528,6 +529,14 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                         String.valueOf(reqVO.getReleaseTransactionId()),
                         String.valueOf(actorUserId),
                         idempotencyKey)));
+        Long signatureId = null;
+        if (isInlineMarketReleaseSignature(actorUserId, reqVO, signoffEvidenceHash)) {
+            signatureId = executionSignatureService.recordMarketReleaseSignature(
+                    actorUserId, transaction.getBatchExecutionId(), transaction.getId(),
+                    password, reqVO.getApprovalOpinion());
+        } else {
+            adminUserApi.reauthenticateForSignature(actorUserId, password);
+        }
         return finalizeRelease(new MesReleaseFinalizationCommand()
                 .setReleaseTransactionId(reqVO.getReleaseTransactionId())
                 .setAction(MesReleaseFinalizationAction.APPROVE)
@@ -555,11 +564,28 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setExpectedVersion(reqVO.getExpectedVersion())
                 .setSignoffEvidenceHash(signoffEvidenceHash)
                 .setSignoffSubjectId(reqVO.getSignoffSubjectId())
+                .setSignatureId(signatureId)
                 .setApprovalOpinion(reqVO.getApprovalOpinion())
                 .setPasswordReauthenticated(true)
                 .setIndependentPrerequisiteReceipt(reqVO.getIndependentPrerequisiteReceipt())
                 .setMaterialGateReceipt(reqVO.getMaterialGateReceipt())
                 .setMaterialGateRequired(false));
+    }
+
+    private boolean isInlineMarketReleaseSignature(
+            Long actorUserId, MesProEdhrReleaseApproveReqVO reqVO, String signoffEvidenceHash) {
+        if (actorUserId == null || reqVO == null || reqVO.getReleaseTransactionId() == null
+                || StrUtil.isNotBlank(reqVO.getSignoffSubjectId())
+                || StrUtil.isBlank(signoffEvidenceHash)
+                || StrUtil.isBlank(reqVO.getIdempotencyKey())) {
+            return false;
+        }
+        String expectedHash = DigestUtil.sha256Hex(String.join("|",
+                "MES_MARKET_RELEASE_SIGNATURE",
+                String.valueOf(reqVO.getReleaseTransactionId()),
+                String.valueOf(actorUserId),
+                reqVO.getIdempotencyKey()));
+        return Objects.equals(expectedHash, signoffEvidenceHash);
     }
 
     @Override
@@ -703,6 +729,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                     .setIdempotencyKey(command.getIdempotencyKey())
                     .setSignoffEvidenceHash(command.getSignoffEvidenceHash())
                     .setSignoffSubjectId(command.getSignoffSubjectId())
+                    .setSignatureId(command.getSignatureId())
                     .setApprovalOpinion(command.getApprovalOpinion())
                     .setPasswordReauthenticated(command.isPasswordReauthenticated());
             MesProductionReleaseManagerApprovalResult prepared = managerApprovalService.prepareForFinalization(
@@ -715,6 +742,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             if (releaseTransactionMapper.approveProductionRelease(
                     transaction.getId(), command.getExpectedVersion(), command.getActorUserId(),
                     command.getIdempotencyKey(), command.getSignoffEvidenceHash(),
+                    command.getSignatureId(),
                     StrUtil.trim(command.getApprovalOpinion()), occurredAt) != 1) {
                 throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
             }
@@ -760,7 +788,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         String opinion = StrUtil.trim(command.getApprovalOpinion());
         if (releaseTransactionMapper.approveProductionRelease(
                 transaction.getId(), command.getExpectedVersion(), command.getActorUserId(),
-                command.getIdempotencyKey(), command.getSignoffEvidenceHash(), opinion, occurredAt) != 1) {
+                command.getIdempotencyKey(), command.getSignoffEvidenceHash(),
+                command.getSignatureId(), opinion, occurredAt) != 1) {
             throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
         }
         transaction = releaseTransactionMapper.selectById(transaction.getId());

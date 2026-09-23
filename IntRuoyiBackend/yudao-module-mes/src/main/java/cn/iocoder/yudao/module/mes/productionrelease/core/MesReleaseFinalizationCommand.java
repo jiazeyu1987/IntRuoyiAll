@@ -40,6 +40,9 @@ public class MesReleaseFinalizationCommand {
     private Integer expectedVersion;
     private String signoffEvidenceHash;
     private String signoffSubjectId;
+    /** Server-created formal market-release signature identity. */
+    @JsonIgnore
+    private Long signatureId;
     private String approvalOpinion;
     private String decisionReason;
     /** HTTP callers may submit only receipt identifiers; authoritative payloads come from the owner port. */

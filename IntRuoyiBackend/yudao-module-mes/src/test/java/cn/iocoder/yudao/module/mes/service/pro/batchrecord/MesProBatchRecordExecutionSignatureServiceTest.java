@@ -28,6 +28,8 @@ import org.mockito.MockedStatic;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 
@@ -103,6 +105,33 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
             assertTrue(captor.getValue().idempotencyKey().startsWith("MES|99|SUBMIT|"));
             verify(signatureMapper, never()).insert(any(MesProBatchRecordExecutionSignatureDO.class));
         }
+    }
+
+    @Test
+    void recordMarketReleaseSignature_usesFormalTransactionScopedAction() {
+        when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser("上市放行人"));
+        stubActorSnapshot();
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7301L));
+
+        Long signatureId = signatureService.recordMarketReleaseSignature(
+                99L, 900L, 700L, "secret", "上市放行");
+
+        ArgumentCaptor<ElectronicSignatureCommand> captor =
+                ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        verify(adminUserApi).reauthenticateForSignature(99L, "secret");
+        verify(electronicSignatureService).sign(captor.capture());
+        assertEquals(7301L, signatureId);
+        assertEquals("MARKET_RELEASE", captor.getValue().actionCode());
+        assertEquals("MES_BATCH_RECORD", captor.getValue().subjectType());
+        assertEquals("上市放行", captor.getValue().reason());
+        assertTrue(captor.getValue().idempotencyKey().startsWith("MES|99|MARKET_RELEASE|"));
+        String subjectPayload = new String(
+                Base64.getUrlDecoder().decode(captor.getValue().subjectId()),
+                StandardCharsets.UTF_8);
+        assertTrue(subjectPayload.contains("\nMARKET_RELEASE\n"));
+        assertTrue(subjectPayload.contains("\nEDHR_MARKET_RELEASE\n700\n上市放行\n"));
     }
 
     @Test

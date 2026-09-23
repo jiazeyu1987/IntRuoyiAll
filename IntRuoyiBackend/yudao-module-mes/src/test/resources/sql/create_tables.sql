@@ -2740,11 +2740,14 @@ CREATE TABLE IF NOT EXISTS "mes_pro_process_pool_active_order_release_applicatio
     "creator" varchar(64) DEFAULT '',
     "updater" varchar(64) DEFAULT '',
     "deleted" bit NOT NULL DEFAULT FALSE,
+    "current_batch_execution_id" bigint GENERATED ALWAYS AS
+      (CASE WHEN "application_status" = 'PQC_RELEASE_REJECTED' AND "pqc_decision" = 'NONCONFORMANCE_REWORK'
+       THEN NULL ELSE "batch_execution_id" END),
     PRIMARY KEY ("id"),
     CONSTRAINT "uk_mes_pp_active_order_release_request" UNIQUE ("tenant_id", "active_order_id", "request_idempotency_key", "deleted"),
     CONSTRAINT "uk_mes_pp_active_order_release_business" UNIQUE ("tenant_id", "active_order_id", "business_idempotency_key", "deleted"),
     CONSTRAINT "uk_mes_pp_release_pqc_task" UNIQUE ("tenant_id", "pqc_release_work_task_id", "deleted"),
-    CONSTRAINT "uk_mes_pp_release_batch_execution" UNIQUE ("tenant_id", "batch_execution_id", "deleted")
+    CONSTRAINT "uk_mes_pp_release_batch_execution" UNIQUE ("tenant_id", "current_batch_execution_id", "deleted")
 );
 
 CREATE TABLE IF NOT EXISTS "mes_pro_process_pool_active_order_dossier_file" (
@@ -3057,6 +3060,7 @@ CREATE TABLE IF NOT EXISTS "mes_pro_edhr_release_transaction" (
     "approved_by" bigint DEFAULT NULL,
     "approved_at" timestamp DEFAULT NULL,
     "approval_signoff_evidence_hash" varchar(128) DEFAULT NULL,
+    "approval_signature_id" bigint DEFAULT NULL,
     "approval_opinion" varchar(500) DEFAULT NULL,
     "rejected_by" bigint DEFAULT NULL,
     "rejected_at" timestamp DEFAULT NULL,

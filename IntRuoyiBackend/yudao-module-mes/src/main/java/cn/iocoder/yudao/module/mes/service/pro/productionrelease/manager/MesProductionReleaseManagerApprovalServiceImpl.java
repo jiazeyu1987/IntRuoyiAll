@@ -236,6 +236,7 @@ public class MesProductionReleaseManagerApprovalServiceImpl
                 .setToStatus(MesReleaseFlowStatus.RELEASED)
                 .setVersion(application.getVersion() + 1)
                 .setActorUserId(actorUserId)
+                .setSignatureId(command.getSignatureId())
                 .setOccurredAt(occurredAt)
                 .setSourceSnapshotHash(reportSnapshotHash)
                 .setResultStatus("SUCCESS"));
@@ -364,14 +365,16 @@ public class MesProductionReleaseManagerApprovalServiceImpl
             Long actorUserId,
             MesProEdhrReleaseApproveReqVO command,
             MesProcessPoolActiveOrderReleaseApplicationDO application) {
-        if (isInlineMarketReleaseSignature(actorUserId, command)
-                || signoffService.isVerified(workTask.getId(), actorUserId, command.getSignoffSubjectId(),
-                command.getSignoffEvidenceHash(), command.getApprovalOpinion())) {
+        if (isInlineMarketReleaseSignature(actorUserId, command)) {
             return;
         }
-        throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
-                "verified manager electronic signoff evidence is required",
-                "complete password verification and submit the resulting signature evidence hash");
+        Long verifiedSignatureId = signoffService.findVerifiedSignatureId(workTask.getId(), actorUserId,
+                command.getSignoffSubjectId(), command.getSignoffEvidenceHash(), command.getApprovalOpinion())
+                .orElseThrow(() -> blocker(application,
+                        MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                        "verified manager electronic signoff evidence is required",
+                        "complete password verification and submit the resulting signature evidence hash"));
+        command.setSignatureId(verifiedSignatureId);
     }
 
     private boolean isInlineMarketReleaseSignature(Long actorUserId, MesProEdhrReleaseApproveReqVO command) {
@@ -449,6 +452,7 @@ public class MesProductionReleaseManagerApprovalServiceImpl
         snapshot.put("fromStatus", MesReleaseFlowStatus.MANAGER_RELEASE_PENDING);
         snapshot.put("toStatus", MesReleaseFlowStatus.RELEASED);
         snapshot.put("actorUserId", actorUserId);
+        snapshot.put("signatureId", command.getSignatureId());
         snapshot.put("opinion", StrUtil.trim(command.getApprovalOpinion()));
         snapshot.put("idempotencyKey", command.getIdempotencyKey());
         snapshot.put("signoffEvidenceHash", command.getSignoffEvidenceHash());

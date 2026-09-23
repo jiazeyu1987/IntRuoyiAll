@@ -64,6 +64,7 @@ public interface MesProEdhrReleaseTransactionMapper extends BaseMapperX<MesProEd
                 approved_by = #{approvedBy},
                 approved_at = #{approvedAt},
                 approval_signoff_evidence_hash = #{signoffEvidenceHash},
+                approval_signature_id = #{signatureId},
                 approval_opinion = #{approvalOpinion},
                 version = version + 1
             WHERE id = #{id}
@@ -76,6 +77,7 @@ public interface MesProEdhrReleaseTransactionMapper extends BaseMapperX<MesProEd
                                  @Param("approvedBy") Long approvedBy,
                                  @Param("idempotencyKey") String idempotencyKey,
                                  @Param("signoffEvidenceHash") String signoffEvidenceHash,
+                                 @Param("signatureId") Long signatureId,
                                  @Param("approvalOpinion") String approvalOpinion,
                                  @Param("approvedAt") LocalDateTime approvedAt);
 

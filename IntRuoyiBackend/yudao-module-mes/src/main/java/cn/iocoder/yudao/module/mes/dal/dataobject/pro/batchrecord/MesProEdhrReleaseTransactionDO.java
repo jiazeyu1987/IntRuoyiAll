@@ -94,6 +94,8 @@ public class MesProEdhrReleaseTransactionDO extends BaseDO {
 
     private String approvalSignoffEvidenceHash;
 
+    private Long approvalSignatureId;
+
     private String approvalOpinion;
 
     private Long rejectedBy;

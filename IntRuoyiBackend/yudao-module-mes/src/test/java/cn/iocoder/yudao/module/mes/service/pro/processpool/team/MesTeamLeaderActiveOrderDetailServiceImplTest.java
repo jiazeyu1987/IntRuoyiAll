@@ -20,8 +20,12 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrOperationAuditEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderEventPartyReadDO;
@@ -263,6 +267,31 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     }
 
     @Test
+    void marketReleaseOperationFactReadsSignatureIdFromReleaseTransaction() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("CLOSED").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(null);
+        when(operationAuditEventMapper.selectSuccessfulListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesProEdhrOperationAuditEventDO.builder()
+                        .id(8802L).objectType("PRODUCTION_RELEASE_APPLICATION").objectId("7501")
+                        .operationType("BATCH_RECORD_RELEASE_APPROVED").actionName("批记录上市放行")
+                        .actorUserId(3001L).actorUsername("生产组长甲").resultStatus("SUCCESS")
+                        .afterSummaryHash("snapshot-release")
+                        .metadataJson("{\"activeOrderId\":8101,\"releaseTransactionId\":7601,\"signatureId\":1}")
+                        .occurredAt(LocalDateTime.of(2026, 9, 18, 22, 30)).build()));
+        when(releaseTransactionMapper.selectById(7601L)).thenReturn(
+                MesProEdhrReleaseTransactionDO.builder().id(7601L).approvalSignatureId(7702L).build());
+
+        var facts = service.getFormalDetail(8101L).getOperationFacts();
+
+        assertEquals(1, facts.size());
+        assertEquals(7702L, facts.get(0).getSignatureId());
+    }
+
+    @Test
     void activeOrderMaintenanceOperationsShouldAppearInFormalFactChain() throws Exception {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("CLOSED").build());
@@ -301,7 +330,11 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     @Mock
     private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     @Mock
+    private MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
+    @Mock
     private MesProEdhrOperationAuditEventMapper operationAuditEventMapper;
+    @Mock
+    private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
     @Mock
     private MesProcessPoolTeamMaintenanceAuditMapper maintenanceAuditMapper;
     @Mock
@@ -1221,6 +1254,37 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
 
         assertEquals(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING, detail.getActiveOrderStatus().getStatus());
         assertEquals("待上市放行", detail.getActiveOrderStatus().getStatusLabel());
+    }
+
+    @Test
+    void activeOrderDetailShowsVoidedWhenRejectedReleaseReviewClosedAsVoid() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("ACTIVE").build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(backfillMapper.selectByActiveOrderAndType(8101L, "BATCH_RECORD")).thenReturn(null);
+        when(releaseApplicationMapper.selectLatestByActiveOrderId(8101L)).thenReturn(
+                MesProcessPoolActiveOrderReleaseApplicationDO.builder()
+                        .id(7101L)
+                        .activeOrderId(8101L)
+                        .workOrderId(9001L)
+                        .applicationStatus(MesReleaseFlowStatus.PQC_RELEASE_REJECTED)
+                        .build());
+        when(nonconformanceReviewMapper.selectLatestBySource("PQC_RELEASE", 7101L)).thenReturn(
+                MesProEdhrNonconformanceReviewDO.builder()
+                        .id(7201L)
+                        .sourceType("PQC_RELEASE")
+                        .sourceId(7101L)
+                        .activeOrderId(8101L)
+                        .reviewStatus("closed")
+                        .disposition("void")
+                        .build());
+
+        MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
+
+        assertEquals("VOIDED", detail.getActiveOrderStatus().getStatus());
+        assertEquals("已作废", detail.getActiveOrderStatus().getStatusLabel());
     }
 
     @Test

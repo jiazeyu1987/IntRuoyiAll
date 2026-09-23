@@ -8,6 +8,10 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillMapper;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListDO;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListDO;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListItemMapper;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
@@ -26,8 +30,12 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessIn
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDetailReadMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrOperationAuditEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
@@ -84,12 +92,16 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     private final MesQaInspectionRegulationProcessMapper qaProcessMapper;
     private final ErpKingdeeProductionReplenishmentListItemMapper replenishmentListItemMapper;
     private final ErpKingdeeProductionReplenishmentListMapper replenishmentListMapper;
+    private final ErpKingdeeProductionPickListMapper pickListMapper;
+    private final ErpKingdeeProductionPickListItemMapper pickListItemMapper;
     private final MesMdItemMapper itemMapper;
     private final MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProProcessPoolEventRevisionMapper eventRevisionMapper;
     private final MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
+    private final MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
     private final MesProEdhrOperationAuditEventMapper operationAuditEventMapper;
+    private final MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
     private final MesProcessPoolTeamMaintenanceAuditMapper maintenanceAuditMapper;
     private final ElectronicSignatureQueryService signatureQueryService;
     private final AdminUserService adminUserService;
@@ -102,12 +114,16 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                                                        MesQaInspectionRegulationProcessMapper qaProcessMapper,
                                                        ErpKingdeeProductionReplenishmentListItemMapper replenishmentListItemMapper,
                                                        ErpKingdeeProductionReplenishmentListMapper replenishmentListMapper,
+                                                       ErpKingdeeProductionPickListMapper pickListMapper,
+                                                       ErpKingdeeProductionPickListItemMapper pickListItemMapper,
                                                        MesMdItemMapper itemMapper,
                                                        MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper,
                                                        MesProProcessPoolEventMapper eventMapper,
                                                        MesProProcessPoolEventRevisionMapper eventRevisionMapper,
                                                        MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper,
+                                                       MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper,
                                                        MesProEdhrOperationAuditEventMapper operationAuditEventMapper,
+                                                       MesProEdhrReleaseTransactionMapper releaseTransactionMapper,
                                                        MesProcessPoolTeamMaintenanceAuditMapper maintenanceAuditMapper,
                                                        ElectronicSignatureQueryService signatureQueryService,
                                                        AdminUserService adminUserService) {
@@ -119,12 +135,16 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         this.qaProcessMapper = qaProcessMapper;
         this.replenishmentListItemMapper = replenishmentListItemMapper;
         this.replenishmentListMapper = replenishmentListMapper;
+        this.pickListMapper = pickListMapper;
+        this.pickListItemMapper = pickListItemMapper;
         this.itemMapper = itemMapper;
         this.backfillMapper = backfillMapper;
         this.eventMapper = eventMapper;
         this.eventRevisionMapper = eventRevisionMapper;
         this.releaseApplicationMapper = releaseApplicationMapper;
+        this.nonconformanceReviewMapper = nonconformanceReviewMapper;
         this.operationAuditEventMapper = operationAuditEventMapper;
+        this.releaseTransactionMapper = releaseTransactionMapper;
         this.maintenanceAuditMapper = maintenanceAuditMapper;
         this.signatureQueryService = signatureQueryService;
         this.adminUserService = adminUserService;
@@ -201,6 +221,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setProcesses(accumulators.values().stream().map(ProcessAccumulator::toDetail).toList())
                 .setActiveOrderStatus(resolveActiveOrderStatus(application))
                 .setOperationFacts(resolveOperationFacts(activeOrderId));
+        attachPickListMetadata(detail, activeOrderId);
         attachPqcProductionRelease(detail, application);
         return detail;
     }
@@ -213,6 +234,16 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setStatusLabel("未申请");
         }
         String status = application.getApplicationStatus();
+        if (MesReleaseFlowStatus.PQC_RELEASE_REJECTED.equals(status)) {
+            MesProEdhrNonconformanceReviewDO review =
+                    nonconformanceReviewMapper.selectLatestBySource("PQC_RELEASE", application.getId());
+            if (review != null && "closed".equals(review.getReviewStatus())
+                    && "void".equals(review.getDisposition())) {
+                return new MesTeamLeaderActiveOrderDetail.ActiveOrderStatusSummary()
+                        .setStatus("VOIDED")
+                        .setStatusLabel("已作废");
+            }
+        }
         String label = switch (status) {
             case MesReleaseFlowStatus.PQC_RELEASE_PENDING -> "待PQC放行";
             case MesReleaseFlowStatus.PQC_RELEASE_REJECTED -> "待审查";
@@ -298,6 +329,20 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         if (!Objects.equals(metadataActiveOrderId, activeOrderId)) {
             throw new IllegalStateException("ACTIVE_ORDER_OPERATION_FACT_SOURCE_MISMATCH");
         }
+        Long signatureId = signatureIdOf(metadata);
+        if (Objects.equals(event.getOperationType(),
+                cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditEventType
+                        .BATCH_RECORD_RELEASE_APPROVED)) {
+            Long releaseTransactionId = metadata == null ? null : metadata.getLong("releaseTransactionId");
+            if (releaseTransactionId == null || releaseTransactionId <= 0) {
+                throw new IllegalStateException("ACTIVE_ORDER_MARKET_RELEASE_TRANSACTION_ID_MISSING");
+            }
+            MesProEdhrReleaseTransactionDO transaction = releaseTransactionMapper.selectById(releaseTransactionId);
+            if (transaction == null) {
+                throw new IllegalStateException("ACTIVE_ORDER_MARKET_RELEASE_TRANSACTION_MISSING");
+            }
+            signatureId = transaction.getApprovalSignatureId();
+        }
         return new MesTeamLeaderActiveOrderDetail.OperationFact()
                 .setId(event.getId())
                 .setOperationType(requireTextValue(event.getOperationType(), activeOrderId))
@@ -306,10 +351,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setSourceId(requireTextValue(event.getObjectId(), activeOrderId))
                 .setActorUserId(event.getActorUserId())
                 .setActorName(requireTextValue(event.getActorUsername(), activeOrderId))
-                .setSignatureId(signatureIdOf(metadata))
+                .setSignatureId(signatureId)
                 .setNonconformanceReason(metadata.getString("nonconformanceReason"))
                 .setReviewMaterialUrl(metadata.getString("reviewMaterialUrl"))
-                .setReviewMaterialFileId(metadata.getLong("reviewMaterialFileId"))
+                .setReviewMaterialFileId(reviewMaterialFileIdOf(metadata))
+                .setReviewMaterialsJson(metadata.getString("reviewMaterialsJson"))
                 .setReviewOpinion(metadata.getString("reviewOpinion"))
                 .setDisposition(metadata.getString("disposition"))
                 .setQaSignature(metadata.getString("qaSignature"))
@@ -317,6 +363,28 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setResultStatus(event.getResultStatus())
                 .setOccurredAt(event.getOccurredAt())
                 .setSourceSnapshotHash(event.getAfterSummaryHash());
+    }
+
+    private Long reviewMaterialFileIdOf(JSONObject metadata) {
+        if (metadata == null) {
+            return null;
+        }
+        Long fileId = metadata.getLong("reviewMaterialFileId");
+        if (fileId != null && fileId > 0) {
+            return fileId;
+        }
+        String materialsJson = metadata.getString("reviewMaterialsJson");
+        if (materialsJson == null || materialsJson.isBlank()) {
+            return null;
+        }
+        JSONObject payload = JSON.parseObject(materialsJson);
+        JSONArray activeMaterials = payload == null ? null : payload.getJSONArray("activeMaterials");
+        if (activeMaterials == null || activeMaterials.isEmpty()) {
+            return null;
+        }
+        JSONObject firstMaterial = activeMaterials.getJSONObject(0);
+        Long parsedFileId = firstMaterial == null ? null : firstMaterial.getLong("fileId");
+        return parsedFileId != null && parsedFileId > 0 ? parsedFileId : null;
     }
 
     private Long signatureIdOf(JSONObject metadata) {
@@ -411,6 +479,55 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                             .map(material -> toCompletedInputMaterialDetail(material, resolvedInputSourceSnapshot))
                             .toList();
             accumulator.setInputMaterials(inputMaterials);
+        }
+    }
+
+    private void attachPickListMetadata(MesTeamLeaderActiveOrderDetail detail, Long activeOrderId) {
+        List<MesTeamLeaderActiveOrderDetail.InputMaterialDetail> materials = new ArrayList<>();
+        materials.addAll(detail.getInputMaterialUsages());
+        detail.getProcesses().forEach(process -> materials.addAll(process.getInputMaterials()));
+        List<Long> pickListIds = materials.stream()
+                .flatMap(material -> material.getSourcePickListIds().stream())
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (pickListIds.isEmpty()) {
+            return;
+        }
+        List<ErpKingdeeProductionPickListDO> headers = pickListMapper.selectBatchIds(pickListIds);
+        Map<Long, ErpKingdeeProductionPickListDO> headersById = headers.stream()
+                .collect(Collectors.toMap(ErpKingdeeProductionPickListDO::getId, Function.identity(),
+                        (left, right) -> left));
+        if (headersById.size() != pickListIds.size()) {
+            throw invalidCompletedInput("领料单正式表头缺失：" + pickListIds);
+        }
+        List<ErpKingdeeProductionPickListItemDO> items = pickListItemMapper.selectListByPickListIds(pickListIds);
+        Map<Long, List<String>> productionOrderNosByPickListId = items.stream()
+                .filter(item -> item.getProductionPickListId() != null)
+                .collect(Collectors.groupingBy(ErpKingdeeProductionPickListItemDO::getProductionPickListId,
+                        LinkedHashMap::new,
+                        Collectors.mapping(ErpKingdeeProductionPickListItemDO::getProductionOrderNo,
+                                Collectors.filtering(Objects::nonNull, Collectors.toList()))));
+        for (MesTeamLeaderActiveOrderDetail.InputMaterialDetail material : materials) {
+            List<ErpKingdeeProductionPickListDO> sourceHeaders = material.getSourcePickListIds().stream()
+                    .map(headersById::get)
+                    .filter(Objects::nonNull)
+                    .toList();
+            material.setSourcePickListDocumentStatuses(sourceHeaders.stream()
+                            .map(ErpKingdeeProductionPickListDO::getDocumentStatus)
+                            .filter(Objects::nonNull)
+                            .distinct()
+                            .toList())
+                    .setSourcePickListBillDates(sourceHeaders.stream()
+                            .map(ErpKingdeeProductionPickListDO::getBillDate)
+                            .filter(Objects::nonNull)
+                            .distinct()
+                            .toList())
+                    .setSourcePickListProductionOrderNos(material.getSourcePickListIds().stream()
+                            .flatMap(id -> productionOrderNosByPickListId.getOrDefault(id, List.of()).stream())
+                            .filter(Objects::nonNull)
+                            .distinct()
+                            .toList());
         }
     }
 

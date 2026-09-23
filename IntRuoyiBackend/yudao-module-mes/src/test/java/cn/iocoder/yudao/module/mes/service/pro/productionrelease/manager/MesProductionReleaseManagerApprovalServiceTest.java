@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTr
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditCommand;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditRecorder;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
@@ -39,6 +41,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import com.alibaba.fastjson.JSONObject;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -98,11 +101,31 @@ class MesProductionReleaseManagerApprovalServiceTest {
                 result.getReleaseTransaction().getReleaseStatus());
         assertEquals(MesReleaseFlowStatus.RELEASED, result.getApplicationStatus());
         verify(releaseTransactionMapper, never()).approveProductionRelease(
-                any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any());
         verify(applicationMapper).releaseFromManager(
                 701L, 5, fixture.reportSnapshotHash(), 1001L, 2001L);
         verify(workTaskMapper).completeManagerReleaseTask(2001L, fixture.now(), "approved");
         verify(auditRecorder).record(any());
+    }
+
+    @Test
+    void completeAfterFinalizationCarriesFormalMarketReleaseSignatureIdToAudit() {
+        Fixture fixture = fixture();
+        fixture.command().setSignatureId(7301L);
+        stubApproval(fixture);
+        when(applicationMapper.releaseFromManager(
+                701L, 5, fixture.reportSnapshotHash(), 1001L, 2001L)).thenReturn(1);
+        when(workTaskMapper.completeManagerReleaseTask(2001L, fixture.now(), "approved")).thenReturn(1);
+
+        MesProductionReleaseManagerApprovalResult prepared = service.prepareForFinalization(
+                ACTOR_USER_ID, fixture.command());
+        service.completeAfterFinalization(
+                ACTOR_USER_ID, fixture.command(), prepared, fixture.releasedTransaction());
+
+        ArgumentCaptor<MesReleaseFlowAuditCommand> captor =
+                ArgumentCaptor.forClass(MesReleaseFlowAuditCommand.class);
+        verify(auditRecorder).record(captor.capture());
+        assertEquals(7701L, captor.getValue().getSignatureId());
     }
 
     @Test
@@ -119,7 +142,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
         assertEquals(MesReleaseFlowBlockerType.REPORT_SNAPSHOT_CHANGED,
                 failure.getFailure().getBlockers().get(0).getBlockerType());
         verify(releaseTransactionMapper, never()).approveProductionRelease(
-                any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any());
         verify(applicationMapper, never()).releaseFromManager(any(), any(), any(), any(), any());
     }
 
@@ -138,7 +161,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
                 failure.getFailure().getBlockers().get(0).getBlockerType());
         verify(workTaskMapper, never()).selectByIdForUpdate(any());
         verify(releaseTransactionMapper, never()).approveProductionRelease(
-                any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -157,7 +180,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
         assertEquals(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING, result.getApplicationStatus());
         assertEquals(1001L, result.getReleaseTransaction().getId());
         verify(releaseTransactionMapper, never()).approveProductionRelease(
-                any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -176,7 +199,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
         assertEquals(fixture.reportSnapshotHash(), result.getReportSnapshotHash());
         verify(businessReadinessService).resolveActiveOrderFormalFactsReadiness(any(), any());
         verify(releaseTransactionMapper, never()).approveProductionRelease(
-                any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -196,7 +219,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
 
         org.junit.jupiter.api.Assertions.assertTrue(result.isReplayed());
         verify(releaseTransactionMapper, never()).approveProductionRelease(
-                any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any());
         verify(applicationMapper, never()).releaseFromManager(any(), any(), any(), any(), any());
     }
 
@@ -213,9 +236,9 @@ class MesProductionReleaseManagerApprovalServiceTest {
 
         assertEquals(MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                 failure.getFailure().getBlockers().get(0).getBlockerType());
-        verify(signoffService, never()).isVerified(any(), any(), any(), any(), any());
+        verify(signoffService, never()).findVerifiedSignatureId(any(), any(), any(), any(), any());
         verify(releaseTransactionMapper, never()).approveProductionRelease(
-                any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any());
         verify(applicationMapper, never()).releaseFromManager(any(), any(), any(), any(), any());
     }
 
@@ -256,7 +279,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
         assertEquals(MesReleaseFlowBlockerType.IDEMPOTENCY_PAYLOAD_CONFLICT,
                 failure.getFailure().getBlockers().get(0).getBlockerType());
         verify(releaseTransactionMapper, never()).approveProductionRelease(
-                any(), any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -285,7 +308,8 @@ class MesProductionReleaseManagerApprovalServiceTest {
                 .thenReturn(new MesProductionReleaseRoleCandidates(
                         77L, MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE,
                         List.of(ACTOR_USER_ID), "manager-candidate-hash"));
-        lenient().when(signoffService.isVerified(any(), any(), any(), any(), any())).thenReturn(true);
+        lenient().when(signoffService.findVerifiedSignatureId(any(), any(), any(), any(), any()))
+                .thenReturn(Optional.of(7701L));
         lenient().when(businessReadinessService.resolveBusinessReadinessChecks(any()))
                 .thenReturn(passReadiness());
     }

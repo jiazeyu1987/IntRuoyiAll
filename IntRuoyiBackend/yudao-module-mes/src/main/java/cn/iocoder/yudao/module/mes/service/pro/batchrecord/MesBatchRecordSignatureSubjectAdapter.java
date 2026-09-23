@@ -37,6 +37,7 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                 action(MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT, "生产提交"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_PQC_SUBMIT, "PQC提交"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE, "PQC放行"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_MARKET_RELEASE, "上市放行"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW, "班组长复核"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_BATCH_VOID_REQUEST, "eDHR批次作废申请"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_BATCH_CLOSE, "关闭eDHR批次"),
