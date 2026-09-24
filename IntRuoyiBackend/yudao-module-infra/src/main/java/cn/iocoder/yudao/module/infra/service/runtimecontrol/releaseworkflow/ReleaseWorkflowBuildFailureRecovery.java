@@ -224,7 +224,8 @@ final class ReleaseWorkflowBuildFailureRecovery {
                 || !operation.getSummary().contains("exitCode=1")) return false;
         String text = Files.readString(log, java.nio.charset.StandardCharsets.UTF_8);
         return text.contains("backend build is blocked before package generation")
-                && text.lines().filter(line -> line.startsWith("[") || line.startsWith("RELEASE_"))
+                && text.lines().filter(line -> line.startsWith("[FAIL]") || line.startsWith("RELEASE_")
+                        || line.startsWith("RUNTIME_"))
                 .noneMatch(line -> line.matches("(?i).*\\b(?:NAS|REMOTE|UPLOAD|PUBLISH)\\b.*"));
     }
 
