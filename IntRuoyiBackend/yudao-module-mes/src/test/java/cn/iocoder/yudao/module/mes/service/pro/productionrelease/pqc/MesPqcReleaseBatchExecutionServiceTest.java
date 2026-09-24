@@ -5,9 +5,11 @@ import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditRecorder;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlocker;
@@ -61,6 +63,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
     private static final int VERSION = 1;
 
     @Mock private MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
+    @Mock private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock private MesProEdhrWorkTaskMapper workTaskMapper;
     @Mock private MesPqcReleaseDossierPort dossierPort;
     @Mock private MesProductionReleaseBatchExecutionPort batchExecutionPort;
@@ -77,11 +80,14 @@ class MesPqcReleaseBatchExecutionServiceTest {
     void setUp() {
         TenantContextHolder.setTenantId(TENANT_ID);
         service = new MesPqcProductionReleaseServiceImpl(
-                applicationMapper, workTaskMapper, dossierPort,
+                applicationMapper, activeOrderMapper, workTaskMapper, dossierPort,
                 batchExecutionPort, reportStageInitializer, managerStageInitializer, auditRecorder, signatureService,
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         lenient().when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(application());
+        lenient().when(activeOrderMapper.selectByIdForUpdate(2001L)).thenReturn(new MesProcessPoolActiveOrderDO()
+                .setId(2001L).setVersion(0).setUdiControlDocumentNo("UDI-TEST-20260924-001/V1"));
+        lenient().when(activeOrderMapper.writeUdiControlDocumentNo(any(), any(), any(), any())).thenReturn(1);
         lenient().when(workTaskMapper.selectById(PQC_WORK_TASK_ID)).thenReturn(workTask());
         lenient().when(managerStageInitializer.initializeManagerReleaseStage(any())).thenReturn(
                 new MesProductionReleaseManagerStageInitializationResult()
@@ -123,7 +129,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setFieldAuditIds(List.of(302L)).setFieldAuditHeadHashes(List.of("loss-audit"))
                         .setHasActualLoss(true).setLossReportStatus("SUCCESS").setLossQuantity(java.math.BigDecimal.ONE)
                         .setSourceSnapshotHash("loss-source").setSourceObjectIds(List.of(3L)).setSourceValueHashes(List.of("loss")).setBlockers(List.of()));
-        service = new MesPqcProductionReleaseServiceImpl(applicationMapper, workTaskMapper, realPort,
+        service = new MesPqcProductionReleaseServiceImpl(applicationMapper, activeOrderMapper, workTaskMapper, realPort,
                 batchExecutionPort, reportStageInitializer, managerStageInitializer, auditRecorder, signatureService,
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
@@ -188,6 +194,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setExpectedVersion(VERSION)
                         .setIdempotencyKey("pqc-approve-7001")
                         .setSignaturePassword("signature-password")
+                        .setUdiControlDocumentNo("UDI-TEST-20260924-001/V1")
                         .setApprovalOpinion("正式来源核对通过"));
 
         assertEquals("APPROVE", result.getDecision());
@@ -407,7 +414,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
         MesPqcProductionReleaseApproveCommand command = approveCommand("pqc-approve-replay");
         String payloadHash = MesReleaseFlowIdempotency.payloadHash(
                 "APPROVE", String.valueOf(APPLICATION_ID), String.valueOf(PQC_WORK_TASK_ID),
-                String.valueOf(VERSION), String.valueOf(PQC_USER_ID), null);
+                String.valueOf(VERSION), String.valueOf(PQC_USER_ID), null, "UDI-TEST-20260924-001/V1");
         MesPqcProductionReleaseDecisionResult stored = new MesPqcProductionReleaseDecisionResult()
                 .setApplicationId(APPLICATION_ID)
                 .setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)
@@ -444,7 +451,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
         MesPqcProductionReleaseApproveCommand command = approveCommand("pqc-approve-replay-forbidden");
         String payloadHash = MesReleaseFlowIdempotency.payloadHash(
                 "APPROVE", String.valueOf(APPLICATION_ID), String.valueOf(PQC_WORK_TASK_ID),
-                String.valueOf(VERSION), String.valueOf(PQC_USER_ID), null);
+                String.valueOf(VERSION), String.valueOf(PQC_USER_ID), null, "UDI-TEST-20260924-001/V1");
         MesPqcProductionReleaseDecisionResult stored = new MesPqcProductionReleaseDecisionResult()
                 .setApplicationId(APPLICATION_ID)
                 .setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)
@@ -471,7 +478,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
         MesPqcProductionReleaseApproveCommand command = approveCommand("pqc-approve-replay-actor-bound");
         String payloadHash = MesReleaseFlowIdempotency.payloadHash(
                 "APPROVE", String.valueOf(APPLICATION_ID), String.valueOf(PQC_WORK_TASK_ID),
-                String.valueOf(VERSION), String.valueOf(PQC_USER_ID), null);
+                String.valueOf(VERSION), String.valueOf(PQC_USER_ID), null, "UDI-TEST-20260924-001/V1");
         MesPqcProductionReleaseDecisionResult stored = new MesPqcProductionReleaseDecisionResult()
                 .setApplicationId(APPLICATION_ID)
                 .setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)
@@ -570,7 +577,8 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 .setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)
                 .setExpectedVersion(VERSION)
                 .setSignaturePassword("signature-password")
-                .setIdempotencyKey(key);
+                .setIdempotencyKey(key)
+                .setUdiControlDocumentNo("UDI-TEST-20260924-001/V1");
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO application() {

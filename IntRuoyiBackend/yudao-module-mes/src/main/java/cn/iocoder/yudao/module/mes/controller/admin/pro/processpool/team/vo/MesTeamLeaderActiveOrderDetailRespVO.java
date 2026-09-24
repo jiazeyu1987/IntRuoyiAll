@@ -17,6 +17,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
 
     private Long activeOrderId;
     private Integer version;
+    private String udiControlDocumentNo;
     private Long workOrderId;
     private String workOrderCode;
     private String batchCode;
@@ -67,7 +68,18 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private List<Long> sourcePickListIds;
         private List<String> sourcePickListNos;
         private List<Long> sourcePickListItemIds;
+        private List<SourcePickListDocument> sourcePickListDocuments;
         private String sourceSnapshotHash;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SourcePickListDocument {
+        private Long id;
+        private String billNo;
+        private String documentStatus;
+        private LocalDateTime billDate;
+        private List<String> productionOrderNos;
     }
 
     @Data
@@ -223,6 +235,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private String nonconformanceReason;
         private String reviewMaterialUrl;
         private Long reviewMaterialFileId;
+        private String reviewMaterialsJson;
         private String reviewOpinion;
         private String disposition;
         private String qaSignature;

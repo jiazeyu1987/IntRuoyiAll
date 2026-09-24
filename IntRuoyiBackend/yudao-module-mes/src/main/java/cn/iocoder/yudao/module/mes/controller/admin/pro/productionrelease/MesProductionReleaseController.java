@@ -65,6 +65,7 @@ public class MesProductionReleaseController {
                         .setExpectedVersion(reqVO.getExpectedVersion())
                         .setIdempotencyKey(reqVO.getIdempotencyKey())
                         .setApprovalOpinion(reqVO.getApprovalOpinion())
+                        .setUdiControlDocumentNo(reqVO.getUdiControlDocumentNo())
                         .setSignaturePassword(reqVO.getSignaturePassword()))));
     }
 
@@ -141,6 +142,7 @@ public class MesProductionReleaseController {
                 .setDecision(result.getDecision())
                 .setStatus(result.getStatus())
                 .setRejectReason(result.getRejectReason())
+                .setUdiControlDocumentNo(result.getUdiControlDocumentNo())
                 .setBatchExecutionId(result.getBatchExecutionId())
                 .setSignatureId(result.getSignatureId())
                 .setBatchRecordEvidenceIds(result.getBatchRecordEvidenceIds())

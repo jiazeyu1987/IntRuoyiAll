@@ -1063,6 +1063,7 @@ public class MesProcessPoolTeamLeaderController {
         return new MesTeamLeaderActiveOrderDetailRespVO()
                 .setActiveOrderId(detail.getActiveOrderId())
                 .setVersion(detail.getVersion())
+                .setUdiControlDocumentNo(detail.getUdiControlDocumentNo())
                 .setWorkOrderId(detail.getWorkOrderId())
                 .setWorkOrderCode(detail.getWorkOrderCode())
                 .setBatchCode(detail.getBatchCode())
@@ -1128,6 +1129,14 @@ public class MesProcessPoolTeamLeaderController {
                 .setSourcePickListIds(material.getSourcePickListIds())
                 .setSourcePickListNos(material.getSourcePickListNos())
                 .setSourcePickListItemIds(material.getSourcePickListItemIds())
+                .setSourcePickListDocuments(material.getSourcePickListDocuments().stream()
+                        .map(document -> new MesTeamLeaderActiveOrderDetailRespVO.SourcePickListDocument()
+                                .setId(document.getId())
+                                .setBillNo(document.getBillNo())
+                                .setDocumentStatus(document.getDocumentStatus())
+                                .setBillDate(document.getBillDate())
+                                .setProductionOrderNos(document.getProductionOrderNos()))
+                        .toList())
                 .setSourceSnapshotHash(material.getSourceSnapshotHash());
     }
 
@@ -1317,6 +1326,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setSignatureId(fact.getSignatureId())
                 .setNonconformanceReason(fact.getNonconformanceReason())
                 .setReviewMaterialUrl(fact.getReviewMaterialUrl())
+                .setReviewMaterialsJson(fact.getReviewMaterialsJson())
                 .setReviewOpinion(fact.getReviewOpinion())
                 .setDisposition(fact.getDisposition())
                 .setQaSignature(fact.getQaSignature())

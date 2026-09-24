@@ -14,6 +14,7 @@ public class MesTeamLeaderActiveOrderDetail {
 
     private Long activeOrderId;
     private Integer version;
+    private String udiControlDocumentNo;
     private Long workOrderId;
     private String workOrderCode;
     private String batchCode;
@@ -64,7 +65,18 @@ public class MesTeamLeaderActiveOrderDetail {
         private List<Long> sourcePickListIds = List.of();
         private List<String> sourcePickListNos = List.of();
         private List<Long> sourcePickListItemIds = List.of();
+        private List<SourcePickListDocument> sourcePickListDocuments = List.of();
         private String sourceSnapshotHash;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SourcePickListDocument {
+        private Long id;
+        private String billNo;
+        private String documentStatus;
+        private LocalDateTime billDate;
+        private List<String> productionOrderNos = List.of();
     }
 
     @Data
@@ -219,6 +231,7 @@ public class MesTeamLeaderActiveOrderDetail {
         private String nonconformanceReason;
         private String reviewMaterialUrl;
         private Long reviewMaterialFileId;
+        private String reviewMaterialsJson;
         private String reviewOpinion;
         private String disposition;
         private String qaSignature;

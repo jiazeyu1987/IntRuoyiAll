@@ -102,6 +102,12 @@
                   <th>生产周期</th>
                   <td>{{ summaryProductionCycleText }}</td>
                 </tr>
+                <tr>
+                  <th>UDI编号</th>
+                  <td colspan="3" data-active-order-udi-control-document-no>
+                    {{ detail.udiControlDocumentNo || '未填写' }}
+                  </td>
+                </tr>
               </tbody>
             </table>
 

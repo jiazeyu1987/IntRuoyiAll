@@ -62,6 +62,7 @@ export interface MesPqcProductionReleaseApproveReqVO {
   expectedVersion: number
   idempotencyKey: string
   signaturePassword: string
+  udiControlDocumentNo: string
   approvalOpinion?: string
 }
 
@@ -93,6 +94,7 @@ export interface MesPqcProductionReleaseDecisionRespVO {
   version: number
   decidedBy?: string
   decidedAt?: string | number
+  udiControlDocumentNo?: string
 }
 
 export interface MesPqcProductionReleasePageReqVO extends PageParam {

@@ -206,6 +206,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         MesTeamLeaderActiveOrderDetail detail = new MesTeamLeaderActiveOrderDetail()
                 .setActiveOrderId(activeOrderId)
                 .setVersion(activeOrder.getVersion())
+                .setUdiControlDocumentNo(activeOrder.getUdiControlDocumentNo())
                 .setWorkOrderId(first.getWorkOrderId())
                 .setWorkOrderCode(first.getWorkOrderCode())
                 .setBatchCode(first.getBatchCode())

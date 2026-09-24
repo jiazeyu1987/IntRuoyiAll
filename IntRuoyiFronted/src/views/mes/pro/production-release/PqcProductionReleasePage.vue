@@ -188,6 +188,15 @@
         </el-result>
 
         <el-form v-else label-width="118px" class="pqc-release-dialog__form">
+          <el-form-item label="UDI编号" required>
+            <el-input
+              v-model="releaseForm.udiControlDocumentNo"
+              data-pqc-production-release-udi-document-no
+              maxlength="128"
+              show-word-limit
+              placeholder="请输入UDI编号"
+            />
+          </el-form-item>
           <el-form-item label="电子签名密码" required>
             <el-input
               v-model="releaseForm.signaturePassword"
@@ -282,6 +291,7 @@ const queryParams = reactive({
 })
 
 const releaseForm = reactive({
+  udiControlDocumentNo: '',
   signaturePassword: '',
   approvalOpinion: ''
 })
@@ -374,12 +384,14 @@ const openReleaseDialog = (row: MesPqcProductionReleasePageItemRespVO) => {
   releaseResult.value = undefined
   releaseOutcomeUncertain.value = false
   releaseForm.signaturePassword = ''
+  releaseForm.udiControlDocumentNo = ''
   releaseForm.approvalOpinion = ''
   releaseDialogVisible.value = true
 }
 
 const resetReleaseDialog = () => {
   releaseForm.signaturePassword = ''
+  releaseForm.udiControlDocumentNo = ''
   releaseForm.approvalOpinion = ''
   releaseError.value = ''
   releaseResult.value = undefined
@@ -419,6 +431,7 @@ const applyReleaseSuccess = async (
   assertReleasedReceipt(result)
   releaseIdempotencyKeys.delete(row.applicationId)
   releaseForm.signaturePassword = ''
+  releaseForm.udiControlDocumentNo = ''
   releaseOutcomeUncertain.value = false
   releaseResult.value = result
   activeView.value =
@@ -481,6 +494,15 @@ const submitRelease = async () => {
   const row = selectedRow.value
   if (!row) return
   const signaturePassword = releaseForm.signaturePassword.trim()
+  const udiControlDocumentNo = releaseForm.udiControlDocumentNo.trim()
+  if (!udiControlDocumentNo) {
+    releaseError.value = 'UDI编号不能为空。'
+    return
+  }
+  if (udiControlDocumentNo.length > 128) {
+    releaseError.value = 'UDI编号长度不能超过128个字符。'
+    return
+  }
   if (!signaturePassword) {
     releaseError.value = '电子签名密码不能为空。'
     return
@@ -496,6 +518,7 @@ const submitRelease = async () => {
       expectedVersion: row.version,
       idempotencyKey,
       signaturePassword,
+      udiControlDocumentNo,
       approvalOpinion: releaseForm.approvalOpinion.trim() || undefined
     })
     await applyReleaseSuccess(row, result, false)

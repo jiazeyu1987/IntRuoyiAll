@@ -5,10 +5,12 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditCommand;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditEventType;
@@ -60,6 +62,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             "FINISHED_PRODUCT_INSPECTION_RECORD");
 
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
+    private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProEdhrWorkTaskMapper workTaskMapper;
     private final MesPqcReleaseDossierPort dossierPort;
     private final MesProductionReleaseBatchExecutionPort batchExecutionPort;
@@ -74,6 +77,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     @Autowired
     public MesPqcProductionReleaseServiceImpl(
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
+            MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesPqcReleaseDossierPort dossierPort,
             MesProductionReleaseBatchExecutionPort batchExecutionPort,
@@ -83,13 +87,14 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesProBatchRecordExecutionSignatureService signatureService,
             MesProEdhrNonconformanceReviewService nonconformanceReviewService,
             MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper) {
-        this(applicationMapper, workTaskMapper, dossierPort, batchExecutionPort,
+        this(applicationMapper, activeOrderMapper, workTaskMapper, dossierPort, batchExecutionPort,
                 reportStageInitializer, managerStageInitializer, auditRecorder, signatureService, nonconformanceReviewService,
                 nonconformanceReviewMapper, Clock.systemUTC());
     }
 
     public MesPqcProductionReleaseServiceImpl(
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
+            MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesPqcReleaseDossierPort dossierPort,
             MesProductionReleaseBatchExecutionPort batchExecutionPort,
@@ -101,6 +106,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper,
             Clock clock) {
         this.applicationMapper = applicationMapper;
+        this.activeOrderMapper = activeOrderMapper;
         this.workTaskMapper = workTaskMapper;
         this.dossierPort = dossierPort;
         this.batchExecutionPort = batchExecutionPort;
@@ -120,9 +126,11 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         requireApproveCommand(actorUserId, command);
         String idempotencyKey = MesReleaseFlowIdempotency.requireKey(command.getIdempotencyKey());
         String opinion = trimAndValidateOptionalText(command.getApprovalOpinion(), "approvalOpinion");
-        String payloadHash = decisionPayloadHash("APPROVE", command.getApplicationId(),
-                command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId, opinion);
+        String udiControlDocumentNo = requireUdiControlDocumentNo(command.getUdiControlDocumentNo());
         MesProcessPoolActiveOrderReleaseApplicationDO application = requireApplicationForUpdate(command.getApplicationId());
+        String payloadHash = decisionPayloadHash("APPROVE", command.getApplicationId(),
+                command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId, opinion,
+                udiControlDocumentNo);
         MesPqcProductionReleaseDecisionResult replay = replayOrRejectProcessedApplication(
                 application, actorUserId, "APPROVE", idempotencyKey, payloadHash);
         if (replay != null) {
@@ -132,6 +140,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 application, command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId);
         nonconformanceReviewService.ensureWorkOrderNotFrozen(application.getWorkOrderId(), "PQC放行");
         ensureNoClosedNonconformanceOutcome(application);
+        MesProcessPoolActiveOrderDO activeOrder = requireAndLockActiveOrder(application, udiControlDocumentNo, actorUserId);
         signatureService.validatePqcSubmitSignature(actorUserId, command.getSignaturePassword());
 
         Long batchExecutionId = requireExistingBatchExecutionId(application);
@@ -153,6 +162,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setLossReportFieldAuditIds(List.of())
                 .setLossReportFieldAuditHeadHashes(List.of())
                 .setReportUploadTasks(List.of())
+                .setUdiControlDocumentNo(udiControlDocumentNo)
                 .setReportSnapshotHash(activeOrderFactsSnapshotHash)
                 .setVersion(command.getExpectedVersion() + 2)
                 .setDecidedBy(actorUserId)
@@ -193,7 +203,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                     "provide the formal PQC rejection reason");
         }
         String payloadHash = decisionPayloadHash("REJECT", command.getApplicationId(),
-                command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId, reason);
+                command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId, reason, null);
         MesProcessPoolActiveOrderReleaseApplicationDO application = requireApplicationForUpdate(command.getApplicationId());
         MesPqcProductionReleaseDecisionResult replay = replayOrRejectProcessedApplication(
                 application, actorUserId, "REJECT", idempotencyKey, payloadHash);
@@ -290,6 +300,55 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, null,
                     "PQC_RELEASE_DECISION", null, "PQC approval command is incomplete",
                     "provide applicationId, pqcReleaseWorkTaskId, expectedVersion and signaturePassword");
+        }
+    }
+
+    private String requireUdiControlDocumentNo(String value) {
+        try {
+            return MesPqcProductionReleaseUdiPolicy.requireNormalized(value);
+        } catch (IllegalArgumentException exception) {
+            throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, null,
+                    "UDI_CONTROL_DOCUMENT_NO", null, exception.getMessage(),
+                    "provide a non-blank UDI control document number with at most 128 characters");
+        }
+    }
+
+    private MesProcessPoolActiveOrderDO requireAndLockActiveOrder(
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            String udiControlDocumentNo,
+            Long actorUserId) {
+        if (application.getActiveOrderId() == null || application.getActiveOrderId() <= 0) {
+            throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, application,
+                    "ACTIVE_ORDER", null,
+                    "release application is missing the formal activeOrderId source",
+                    "repair the release application source before approving the PQC release");
+        }
+        if (activeOrderMapper == null) {
+            throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, application,
+                    "ACTIVE_ORDER", String.valueOf(application.getActiveOrderId()),
+                    "active-order persistence boundary is unavailable",
+                    "configure the active-order mapper before approving the PQC release");
+        }
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(application.getActiveOrderId());
+        try {
+            MesPqcProductionReleaseUdiPolicy.WriteDecision decision =
+                    MesPqcProductionReleaseUdiPolicy.checkCompatibility(activeOrder, udiControlDocumentNo);
+            if (decision == MesPqcProductionReleaseUdiPolicy.WriteDecision.WRITE) {
+                if (activeOrder.getVersion() == null) {
+                    throw new IllegalStateException("formal active order version is missing");
+                }
+                int updated = activeOrderMapper.writeUdiControlDocumentNo(
+                        activeOrder.getId(), activeOrder.getVersion(), udiControlDocumentNo, actorUserId);
+                if (updated != 1) {
+                    throw new IllegalStateException("active-order UDI control document number persistence failed");
+                }
+                activeOrder.setUdiControlDocumentNo(udiControlDocumentNo);
+            }
+            return activeOrder;
+        } catch (IllegalStateException exception) {
+            throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, application,
+                    "UDI_CONTROL_DOCUMENT_NO", String.valueOf(application.getActiveOrderId()),
+                    exception.getMessage(), "use the existing UDI number or repair the formal active-order source");
         }
     }
 
@@ -654,9 +713,10 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
 
     private String decisionPayloadHash(
             String decision, Long applicationId, Long workTaskId, Integer expectedVersion, Long actorUserId,
-            String detail) {
+            String detail, String udiControlDocumentNo) {
         return MesReleaseFlowIdempotency.payloadHash(decision, String.valueOf(applicationId),
-                String.valueOf(workTaskId), String.valueOf(expectedVersion), String.valueOf(actorUserId), detail);
+                String.valueOf(workTaskId), String.valueOf(expectedVersion), String.valueOf(actorUserId), detail,
+                udiControlDocumentNo);
     }
 
     private boolean empty(List<?> values) {
