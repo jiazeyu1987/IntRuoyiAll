@@ -16,6 +16,7 @@ final class ReleaseWorkflowBuildFailureRecovery {
     private final ReleaseWorkflowWorktreeFactory factory;
     private final BootVerifier boot;
     private final HostIdentityProvider hostIdentity;
+    private final ReleaseWorkflowHistoricalBuildFailureVerifier historicalVerifier;
 
     ReleaseWorkflowBuildFailureRecovery(RuntimeControlProperties properties, RuntimeControlOperationStore operations,
             RuntimeControlService runtime, ReleaseWorkflowWorktreeFactory factory, BootVerifier boot) {
@@ -27,14 +28,39 @@ final class ReleaseWorkflowBuildFailureRecovery {
             HostIdentityProvider hostIdentity) {
         this.properties = properties; this.operations = operations; this.runtime = runtime;
         this.factory = factory; this.boot = boot; this.hostIdentity = Objects.requireNonNull(hostIdentity);
+        this.historicalVerifier = new ReleaseWorkflowHistoricalBuildFailureVerifier(properties, operations, runtime, factory);
     }
 
     Proof inspect(ReleaseWorkflowRecord workflow, String actor) {
+        Proof exact;
         try { return verify(workflow, actor); }
         catch (RuntimeException | java.io.IOException ex) {
             String code = ex.getMessage();
             if (code == null || !code.matches("[A-Z][A-Z0-9_]+")) code = "BUILD_RECOVERY_EVIDENCE_INVALID";
-            return new Proof(null, false, List.of(code));
+            exact = new Proof(null, false, List.of(code));
+        }
+        if (!isHistoricalSchemaCandidate(workflow)) return exact;
+        Proof historical = historicalVerifier.inspect(workflow, actor);
+        return historical.eligible() ? historical : exact;
+    }
+
+    private boolean isHistoricalSchemaCandidate(ReleaseWorkflowRecord workflow) {
+        try {
+            if (workflow == null || workflow.operationId() == null) return false;
+            var operation = operations.findById(workflow.operationId());
+            if (operation == null || !"build-release".equals(operation.getAction())) return false;
+            var parameters = operation.getParameters();
+            if (parameters == null || parameters.containsKey("executorHostIdentitySha256")
+                    || parameters.containsKey("releaseWorkflowCommandSha256")) return false;
+            Path log = operations.getOperationLogPath(operation.getOperationId());
+            if (!Files.isRegularFile(log, LinkOption.NOFOLLOW_LINKS) || Files.size(log) > 8 * 1024 * 1024) {
+                return false;
+            }
+            String text = Files.readString(log, java.nio.charset.StandardCharsets.UTF_8);
+            return text.lines().noneMatch(line -> line.startsWith("executorHostIdentitySha256=")
+                    || line.startsWith("releaseWorkflowCommandSha256="));
+        } catch (RuntimeException | java.io.IOException ignored) {
+            return false;
         }
     }
 
@@ -148,7 +174,7 @@ final class ReleaseWorkflowBuildFailureRecovery {
         return new Proof(digest, true, List.of());
     }
 
-    private static Map<String, String> command(String source) {
+    static Map<String, String> command(String source) {
         var matcher = Pattern.compile("\"[^\"]*\"|'[^']*'|[^\\s]+").matcher(source);
         List<String> tokens = new ArrayList<>();
         while (matcher.find()) {

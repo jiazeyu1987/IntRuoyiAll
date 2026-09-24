@@ -48,6 +48,8 @@ class ReleaseWorkflowBuildFailureRecoveryTest {
                 .writeValue(grantPath.toFile(), new ReleaseWorkflowBackupAuthorizationService.Grant("grant", authorization, requested));
         var store = new ReleaseWorkflowStore(properties); store.create(workflow);
         workflow = store.assignOperation(workflow, workflow.stateVersion(), "op-build", "1");
+        workflow = store.update(workflow, workflow.stateVersion(), ReleaseWorkflowRecord.State.TESTING,
+                "1", "TESTING_FAILED", "TESTING", false, List.of(), false);
         workflow = store.update(workflow, workflow.stateVersion(), ReleaseWorkflowRecord.State.RECOVERY_REQUIRED,
                 "1", "TESTING_FAILED", "TESTING", false, List.of(), false);
         Path maintenance = dir.resolve("maintenance");
@@ -98,6 +100,19 @@ class ReleaseWorkflowBuildFailureRecoveryTest {
         return ReleaseWorkflowCommandFingerprint.calculate(environment, component, workingDirectory, command);
     }
 
+    private void markHistoricalFailureEvidence() throws Exception {
+        operation.getParameters().remove("executorHostIdentitySha256");
+        operation.getParameters().remove("releaseWorkflowCommandSha256");
+        Path log = operations.getOperationLogPath("op-build");
+        operation.setResultLogPath(log.toAbsolutePath().normalize().toString());
+        operation.setSummary("运行控制台命令执行失败：exitCode=1, log=" + log.toAbsolutePath().normalize());
+        operations.save(operation);
+        String historicalLog = Files.readString(log)
+                .replaceFirst("(?m)^executorHostIdentitySha256=.*\\R", "")
+                .replaceFirst("(?m)^releaseWorkflowCommandSha256=.*\\R", "");
+        Files.writeString(log, historicalLog + "\n[FAIL] Command failed with exit code 1\n");
+    }
+
     @Test void absentRebootProofDoesNotTreatMemoryLivenessAsTermination() throws Exception {
         var recovery = fixture(requested.minusSeconds(1));
         var proof = recovery.inspect(workflow, "1");
@@ -122,6 +137,75 @@ class ReleaseWorkflowBuildFailureRecoveryTest {
         assertTrue(recovery.inspect(workflow, "1").blockers().contains("BUILD_EXECUTOR_HOST_IDENTITY_INVALID"));
     }
 
+    @Test void verifiableHistoricalPreBuildingFailureCanBeRetiredWithoutZeroWriteClaim() throws Exception {
+        var recovery = fixture(requested.plusSeconds(10));
+        markHistoricalFailureEvidence();
+        assertFalse(operation.getParameters().containsKey("executorHostIdentitySha256"));
+        assertFalse(operation.getParameters().containsKey("releaseWorkflowCommandSha256"));
+        Path log = operations.getOperationLogPath("op-build");
+        assertFalse(Files.readString(log).lines().anyMatch(line -> line.startsWith("executorHostIdentitySha256=")));
+        assertFalse(Files.readString(log).lines().anyMatch(line -> line.startsWith("releaseWorkflowCommandSha256=")));
+
+        var historicalProof = new ReleaseWorkflowHistoricalBuildFailureVerifier(properties, operations, runtime, factory)
+                .inspect(workflow, "1");
+        assertTrue(historicalProof.eligible(), historicalProof.blockers().toString());
+        var proof = recovery.inspect(workflow, "1");
+
+        assertTrue(proof.eligible(), proof.blockers().toString());
+        assertNotNull(proof.digest());
+    }
+
+    @Test void historicalFailureRetirementKeepsRecoveryIsolationAndZeroWriteFalse() throws Exception {
+        var build = fixture(requested.plusSeconds(10));
+        markHistoricalFailureEvidence();
+        properties.getReleaseWorkflow().setProductionWriteEnabled(true);
+        var store = new ReleaseWorkflowStore(properties);
+        var service = new ReleaseWorkflowBackupRecoveryService(properties, store, operations,
+                args -> { throw new AssertionError("historical build retirement must never run remote recovery"); },
+                (id, version, actor, proof) -> { throw new AssertionError("historical build retirement is not zero-write recovery"); },
+                build, new ReleaseWorkflowService(properties, store)::retireVerifiedBackupBuildFailure);
+
+        var preview = service.inspect(workflow.workflowId(), workflow.stateVersion(), "1");
+        var retired = service.recover(workflow.workflowId(), workflow.stateVersion(), preview.previewId(), "1", "PROD");
+
+        assertTrue(preview.eligible(), preview.blockers().toString());
+        assertEquals(ReleaseWorkflowRecord.State.FAILED, retired.state());
+        assertFalse(retired.zeroWriteEvidence());
+        assertFalse(retired.retryable());
+    }
+
+    @Test void historicalFailureWithoutOriginalFailureEventRemainsRecoveryRequired() throws Exception {
+        var recovery = fixture(requested.plusSeconds(10));
+        operation.getParameters().remove("executorHostIdentitySha256");
+        operation.getParameters().remove("releaseWorkflowCommandSha256");
+        Path log = operations.getOperationLogPath("op-build");
+        operation.setResultLogPath(log.toAbsolutePath().normalize().toString());
+        operation.setSummary("运行控制台命令执行失败：exitCode=1, log=" + log.toAbsolutePath().normalize());
+        operations.save(operation);
+        String historicalLog = Files.readString(log)
+                .replaceFirst("(?m)^executorHostIdentitySha256=.*\\R", "")
+                .replaceFirst("(?m)^releaseWorkflowCommandSha256=.*\\R", "");
+        Files.writeString(log, historicalLog);
+
+        var proof = recovery.inspect(workflow, "1");
+
+        assertFalse(proof.eligible());
+        assertEquals(List.of("BUILD_EXECUTOR_HOST_IDENTITY_INVALID"), proof.blockers());
+    }
+
+    @Test void historicalFailureWithPublicationReceiptCannotBeRetired() throws Exception {
+        var recovery = fixture(requested.plusSeconds(10));
+        markHistoricalFailureEvidence();
+        Path receipt = operations.backupReceiptPath("op-build");
+        Files.createDirectories(receipt.getParent());
+        Files.writeString(receipt, "{}");
+
+        var proof = recovery.inspect(workflow, "1");
+
+        assertFalse(proof.eligible());
+        assertTrue(proof.blockers().contains("BUILD_RECOVERY_PUBLICATION_EVIDENCE_PRESENT"));
+    }
+
     @Test void operationAndLogBoundToDifferentCurrentHostNeverAllowRecovery() throws Exception {
         fixture(requested.plusSeconds(10));
         var recovery = new ReleaseWorkflowBuildFailureRecovery(properties, operations, runtime, factory,
@@ -143,6 +227,7 @@ class ReleaseWorkflowBuildFailureRecoveryTest {
         store.update(building, building.stateVersion(), ReleaseWorkflowRecord.State.RECOVERY_REQUIRED,
                 "1", "BUILD_FAILED", "BUILDING", false, List.of(), false);
         workflow = store.require(workflow.workflowId());
+        markHistoricalFailureEvidence();
         assertFalse(recovery.inspect(workflow, "1").eligible());
         assertTrue(recovery.inspect(workflow, "1").blockers().contains("BUILD_RECOVERY_NAS_WRITE_BOUNDARY"));
     }
