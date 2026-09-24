@@ -51,6 +51,7 @@ public final class ReleaseWorkflowWorktreeFactory {
         Path workflowRoot = root.resolve(workflow.workflowId());
         Path maintenance = workflowRoot.resolve("maintenance");
         Path application = workflowRoot.resolve("application");
+        requireWindowsPathBudget(workflowRoot, maintenance, application);
         try {
             rejectRedirectedAncestors(root);
             rejectRedirectedAncestors(workflowRoot);
@@ -113,13 +114,16 @@ public final class ReleaseWorkflowWorktreeFactory {
             // No CREATE option: a missing preparation lock is evidence loss, not a new preparation request.
             try (FileChannel channel = FileChannel.open(lockPath, StandardOpenOption.WRITE);
                  FileLock lock = acquire(channel)) {
-                if (!Files.readString(owner, StandardCharsets.UTF_8)
-                        .equals(binding(workflow, maintenanceSource, applicationSource))) {
+                String ownerBinding = Files.readString(owner, StandardCharsets.UTF_8);
+                Path boundMaintenance = bindingPath(ownerBinding, 3);
+                Path boundApplication = bindingPath(ownerBinding, 4);
+                String boundScriptDigest = bindingValue(ownerBinding, 8);
+                if (!ownerBinding.equals(binding(workflow, boundMaintenance, boundApplication, boundScriptDigest))) {
                     throw new IllegalStateException("SOURCE_WORKTREE_BINDING_DRIFT");
                 }
-                verifyPrepared(maintenanceSource, maintenance, workflow.maintenanceCommit());
-                verifyPrepared(applicationSource, application, workflow.applicationCommit());
-                return verifiedLayout(maintenance, application);
+                verifyPrepared(boundMaintenance, maintenance, workflow.maintenanceCommit());
+                verifyPrepared(boundApplication, application, workflow.applicationCommit());
+                return verifiedLayout(maintenance, application, boundScriptDigest);
             }
         } catch (IOException | NoSuchAlgorithmException error) {
             throw new IllegalStateException("SOURCE_PREPARED_VERIFICATION_FAILED", error);
@@ -127,13 +131,24 @@ public final class ReleaseWorkflowWorktreeFactory {
     }
 
     private String binding(ReleaseWorkflowRecord workflow, Path maintenanceSource, Path applicationSource) {
+        return binding(workflow, maintenanceSource, applicationSource,
+                properties.getReleaseWorkflow().getExpectedPublishScriptSha256());
+    }
+
+    private String binding(ReleaseWorkflowRecord workflow, Path maintenanceSource, Path applicationSource,
+            String scriptDigest) {
         return String.join("\n", "release-worktree-v1", workflow.workflowId(), workflow.releaseTag(),
                 maintenanceSource.toString(), applicationSource.toString(), workflow.maintenanceCommit(),
                 workflow.applicationCommit(), workflow.frontendCommit(),
-                properties.getReleaseWorkflow().getExpectedPublishScriptSha256().toLowerCase()) + "\n";
+                scriptDigest.toLowerCase()) + "\n";
     }
 
     private FrozenWorktrees verifiedLayout(Path maintenance, Path application) throws IOException, NoSuchAlgorithmException {
+        return verifiedLayout(maintenance, application, properties.getReleaseWorkflow().getExpectedPublishScriptSha256());
+    }
+
+    private FrozenWorktrees verifiedLayout(Path maintenance, Path application, String expectedScriptDigest)
+            throws IOException, NoSuchAlgorithmException {
         Path backend = application.resolve("IntRuoyiBackend");
         Path frontend = application.resolve("IntRuoyiFronted");
         Path script = maintenance.resolve(properties.getReleaseWorkflow().getPublishScriptPath());
@@ -144,7 +159,7 @@ public final class ReleaseWorkflowWorktreeFactory {
             throw new IllegalStateException("SOURCE_ROLE_PATH_MISSING");
         }
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(script)));
-        if (!sha256.equalsIgnoreCase(properties.getReleaseWorkflow().getExpectedPublishScriptSha256())) {
+        if (!sha256.equalsIgnoreCase(expectedScriptDigest)) {
             throw new IllegalStateException("RELEASE_EXECUTOR_DIGEST_MISMATCH");
         }
         return new FrozenWorktrees(maintenance, application, backend, frontend, sha256);
@@ -291,6 +306,30 @@ public final class ReleaseWorkflowWorktreeFactory {
             throw new IllegalStateException("SOURCE_WORKTREE_PATH_INSPECTION_FAILED", error);
         }
         return path;
+    }
+
+    private static Path bindingPath(String binding, int index) {
+        String[] lines = binding.split("\\n", -1);
+        if (lines.length < 9 || !"release-worktree-v1".equals(lines[0])) {
+            throw new IllegalStateException("SOURCE_WORKTREE_BINDING_INVALID");
+        }
+        return controlledPath(lines[index]);
+    }
+
+    private static String bindingValue(String binding, int index) {
+        String[] lines = binding.split("\\n", -1);
+        if (lines.length < 9 || lines[index].isBlank()) {
+            throw new IllegalStateException("SOURCE_WORKTREE_BINDING_INVALID");
+        }
+        return lines[index];
+    }
+
+    private static void requireWindowsPathBudget(Path... paths) {
+        for (Path path : paths) {
+            if (path.toString().length() > 220) {
+                throw new IllegalStateException("SOURCE_WORKTREE_PATH_TOO_LONG");
+            }
+        }
     }
 
     private static boolean overlaps(Path left, Path right) {
