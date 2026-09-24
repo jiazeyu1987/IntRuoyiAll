@@ -121,9 +121,11 @@ final class ReleaseWorkflowBuildFailureRecovery {
         boolean enteredBuilding = w.state() == ReleaseWorkflowRecord.State.BUILDING
                 || journal.stream().anyMatch(e -> e.toState() == ReleaseWorkflowRecord.State.BUILDING
                 || "BUILDING".equals(e.failedStage()));
+        boolean prePackageFailure = false;
         String nasBoundaryDigest = null;
         if (enteredBuilding) {
-            require(isVerifiablePrePackageFailure(w, op, journal), "BUILD_RECOVERY_NAS_WRITE_BOUNDARY");
+            prePackageFailure = isVerifiablePrePackageFailure(w, op, journal);
+            require(prePackageFailure, "BUILD_RECOVERY_NAS_WRITE_BOUNDARY");
             NasBoundaryEvidence evidence = nasBoundaryInspector.inspect(w.releaseTag());
             require(evidence.packageAbsent() && evidence.stagingAbsent(), "BUILD_RECOVERY_NAS_EVIDENCE_UNAVAILABLE");
             nasBoundaryDigest = evidence.digest();
@@ -209,9 +211,10 @@ final class ReleaseWorkflowBuildFailureRecovery {
         required.put("-RemoteMinioContainer", target.getRemoteMinioContainer());
         require(required.entrySet().stream().allMatch(e -> e.getValue().equals(command.get(e.getKey()))), "BUILD_RECOVERY_COMMAND_BINDING_INVALID");
         Instant bootTime = boot.lastBoot();
-        require(bootTime != null && bootTime.isAfter(op.getRequestedAt().atZone(ZoneId.systemDefault()).toInstant())
-                && !bootTime.isAfter(Instant.now()) && !runtime.isOperationExecutorAlive(w.operationId()),
-                "BUILD_EXECUTOR_TERMINATION_UNPROVEN");
+        boolean executorStopped = !runtime.isOperationExecutorAlive(w.operationId());
+        boolean rebootProof = bootTime != null && bootTime.isAfter(op.getRequestedAt().atZone(ZoneId.systemDefault()).toInstant())
+                && !bootTime.isAfter(Instant.now());
+        require(executorStopped && (rebootProof || prePackageFailure), "BUILD_EXECUTOR_TERMINATION_UNPROVEN");
         String digest = ReleaseWorkflowBackupAuthorizationService.digest(String.join("\n", w.workflowId(), w.releaseTag(),
                 w.operationId(), actor, new TreeMap<>(expected).toString(), frozen.publishScriptSha256(),
                 op.getRequestedAt().toString(), bootTime.toString(), ReleaseWorkflowBackupAuthorizationService.digest(grantText),
