@@ -142,6 +142,7 @@ public class MesProductionReleaseController {
                 .setDecision(result.getDecision())
                 .setStatus(result.getStatus())
                 .setRejectReason(result.getRejectReason())
+                .setUdiControlDocumentNo(result.getUdiControlDocumentNo())
                 .setBatchExecutionId(result.getBatchExecutionId())
                 .setSignatureId(result.getSignatureId())
                 .setBatchRecordEvidenceIds(result.getBatchRecordEvidenceIds())

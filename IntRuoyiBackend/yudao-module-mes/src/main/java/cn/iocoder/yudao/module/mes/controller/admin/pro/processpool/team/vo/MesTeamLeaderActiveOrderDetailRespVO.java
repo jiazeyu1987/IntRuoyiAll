@@ -17,6 +17,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
 
     private Long activeOrderId;
     private Integer version;
+    private String udiControlDocumentNo;
     private Long workOrderId;
     private String workOrderCode;
     private String batchCode;

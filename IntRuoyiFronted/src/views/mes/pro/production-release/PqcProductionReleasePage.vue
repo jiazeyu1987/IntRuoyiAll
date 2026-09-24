@@ -188,13 +188,13 @@
         </el-result>
 
         <el-form v-else label-width="118px" class="pqc-release-dialog__form">
-          <el-form-item label="线下 UDI 文件编号" required>
+          <el-form-item label="UDI编号" required>
             <el-input
               v-model="releaseForm.udiControlDocumentNo"
               data-pqc-production-release-udi-document-no
               maxlength="128"
               show-word-limit
-              placeholder="请输入线下 UDI 文件编号"
+              placeholder="请输入UDI编号"
               @keyup.enter="submitRelease"
             />
           </el-form-item>
@@ -395,15 +395,15 @@ const openReleaseDialog = (row: MesPqcProductionReleasePageItemRespVO) => {
   releaseError.value = ''
   releaseResult.value = undefined
   releaseOutcomeUncertain.value = false
-  releaseForm.udiControlDocumentNo = ''
   releaseForm.signaturePassword = ''
+  releaseForm.udiControlDocumentNo = ''
   releaseForm.approvalOpinion = ''
   releaseDialogVisible.value = true
 }
 
 const resetReleaseDialog = () => {
-  releaseForm.udiControlDocumentNo = ''
   releaseForm.signaturePassword = ''
+  releaseForm.udiControlDocumentNo = ''
   releaseForm.approvalOpinion = ''
   releaseError.value = ''
   releaseResult.value = undefined
@@ -442,8 +442,8 @@ const applyReleaseSuccess = async (
 ) => {
   assertReleasedReceipt(result)
   releaseIdempotencyKeys.delete(row.applicationId)
-  releaseForm.udiControlDocumentNo = ''
   releaseForm.signaturePassword = ''
+  releaseForm.udiControlDocumentNo = ''
   releaseOutcomeUncertain.value = false
   releaseResult.value = result
   activeView.value =
@@ -505,12 +505,16 @@ const recoverUncertainRelease = async (
 const submitRelease = async () => {
   const row = selectedRow.value
   if (!row) return
+  const signaturePassword = releaseForm.signaturePassword.trim()
   const udiControlDocumentNo = releaseForm.udiControlDocumentNo.trim()
   if (!udiControlDocumentNo) {
-    releaseError.value = '线下 UDI 文件编号不能为空。'
+    releaseError.value = 'UDI编号不能为空。'
     return
   }
-  const signaturePassword = releaseForm.signaturePassword.trim()
+  if (udiControlDocumentNo.length > 128) {
+    releaseError.value = 'UDI编号长度不能超过128个字符。'
+    return
+  }
   if (!signaturePassword) {
     releaseError.value = '电子签名密码不能为空。'
     return

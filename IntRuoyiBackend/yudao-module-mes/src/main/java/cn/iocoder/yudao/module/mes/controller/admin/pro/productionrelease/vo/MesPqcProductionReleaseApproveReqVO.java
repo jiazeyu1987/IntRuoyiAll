@@ -30,8 +30,8 @@ public class MesPqcProductionReleaseApproveReqVO {
     @Size(max = 500)
     private String approvalOpinion;
 
-    @NotBlank(message = "线下 UDI 文件编号不能为空")
-    @Size(max = 128, message = "线下 UDI 文件编号长度不能超过128个字符")
+    @NotBlank(message = "UDI编号不能为空")
+    @Size(max = 128, message = "UDI编号长度不能超过128个字符")
     private String udiControlDocumentNo;
 
     @NotBlank(message = "电子签名密码不能为空")

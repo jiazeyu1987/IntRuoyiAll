@@ -1078,6 +1078,7 @@ public class MesProcessPoolTeamLeaderController {
         return new MesTeamLeaderActiveOrderDetailRespVO()
                 .setActiveOrderId(detail.getActiveOrderId())
                 .setVersion(detail.getVersion())
+                .setUdiControlDocumentNo(detail.getUdiControlDocumentNo())
                 .setWorkOrderId(detail.getWorkOrderId())
                 .setWorkOrderCode(detail.getWorkOrderCode())
                 .setBatchCode(detail.getBatchCode())

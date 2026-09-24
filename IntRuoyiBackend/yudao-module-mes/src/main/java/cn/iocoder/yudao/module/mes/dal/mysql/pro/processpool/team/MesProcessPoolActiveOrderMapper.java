@@ -92,6 +92,22 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .last("FOR UPDATE"));
     }
 
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order
+            SET udi_control_document_no = #{udiControlDocumentNo},
+                updater = CAST(#{actorUserId} AS CHAR),
+                update_time = NOW(),
+                version = version + 1
+            WHERE id = #{activeOrderId}
+              AND deleted = b'0'
+              AND version = #{expectedVersion}
+              AND udi_control_document_no IS NULL
+            """)
+    int writeUdiControlDocumentNo(@Param("activeOrderId") Long activeOrderId,
+                                  @Param("expectedVersion") Integer expectedVersion,
+                                  @Param("udiControlDocumentNo") String udiControlDocumentNo,
+                                  @Param("actorUserId") Long actorUserId);
+
     @Select("SELECT * FROM mes_pro_process_pool_active_order WHERE id = #{activeOrderId} LIMIT 1")
     MesProcessPoolActiveOrderDO selectByIdIgnoreDeleted(@Param("activeOrderId") Long activeOrderId);
 

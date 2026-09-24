@@ -21,6 +21,7 @@ public class MesPqcProductionReleaseDecisionRespVO {
     private String decision;
     private String status;
     private String rejectReason;
+    private String udiControlDocumentNo;
 
     @JsonSerialize(using = ToStringSerializer.class)
     private Long batchExecutionId;

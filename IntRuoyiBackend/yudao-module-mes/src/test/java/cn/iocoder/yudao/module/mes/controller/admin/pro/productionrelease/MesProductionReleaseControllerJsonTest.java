@@ -73,7 +73,12 @@ class MesProductionReleaseControllerJsonTest {
         approve.setExpectedVersion(1);
         approve.setIdempotencyKey("pqc-approve-1");
         approve.setSignaturePassword("valid-test-signature-input");
+        approve.setUdiControlDocumentNo("UDI-TEST-20260924-001/V1");
         assertTrue(validator.validate(approve).isEmpty());
+        approve.setUdiControlDocumentNo(" ");
+        assertTrue(validator.validate(approve).stream()
+                .anyMatch(item -> item.getPropertyPath().toString().equals("udiControlDocumentNo")));
+        approve.setUdiControlDocumentNo("UDI-TEST-20260924-001/V1");
         approve.setIdempotencyKey("contains space");
         assertTrue(validator.validate(approve).stream()
                 .anyMatch(item -> item.getPropertyPath().toString().equals("idempotencyKey")));

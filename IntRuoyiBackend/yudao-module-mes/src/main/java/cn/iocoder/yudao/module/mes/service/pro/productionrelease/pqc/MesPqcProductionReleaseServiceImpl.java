@@ -163,6 +163,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setLossReportFieldAuditIds(List.of())
                 .setLossReportFieldAuditHeadHashes(List.of())
                 .setReportUploadTasks(List.of())
+                .setUdiControlDocumentNo(udiControlDocumentNo)
                 .setReportSnapshotHash(activeOrderFactsSnapshotHash)
                 .setVersion(command.getExpectedVersion() + 2)
                 .setDecidedBy(actorUserId)
@@ -206,7 +207,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                     "provide the formal PQC rejection reason");
         }
         String payloadHash = decisionPayloadHash("REJECT", command.getApplicationId(),
-                command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId, reason);
+                command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId, reason, null);
         MesProcessPoolActiveOrderReleaseApplicationDO application = requireApplicationForUpdate(command.getApplicationId());
         MesPqcProductionReleaseDecisionResult replay = replayOrRejectProcessedApplication(
                 application, actorUserId, "REJECT", idempotencyKey, payloadHash);
@@ -377,12 +378,12 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         String trimmed = StrUtil.trim(value);
         if (StrUtil.isBlank(trimmed)) {
             throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, null,
-                    "PQC_RELEASE_UDI_DOCUMENT", null, "线下 UDI 文件编号不能为空",
+                    "PQC_RELEASE_UDI_DOCUMENT", null, "UDI编号不能为空",
                     "provide a trimmed UDI control document number");
         }
         if (trimmed.length() > 128) {
             throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, null,
-                    "PQC_RELEASE_UDI_DOCUMENT", null, "线下 UDI 文件编号长度不能超过128个字符",
+                    "PQC_RELEASE_UDI_DOCUMENT", null, "UDI编号长度不能超过128个字符",
                     "shorten the UDI control document number to at most 128 characters");
         }
         return trimmed;
@@ -402,14 +403,14 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         if (activeOrderId == null || activeOrderId <= 0) {
             throw blocker(MesReleaseFlowBlockerType.AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED, null,
                     "ACTIVE_ORDER", activeOrderId == null ? null : String.valueOf(activeOrderId),
-                    "缺少正式活跃订单来源，无法保存线下 UDI 文件编号",
+                    "缺少正式活跃订单来源，无法保存UDI编号",
                     "provide the release application's formal activeOrderId");
         }
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
         if (activeOrder == null) {
             throw blocker(MesReleaseFlowBlockerType.AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED, null,
                     "ACTIVE_ORDER", String.valueOf(activeOrderId),
-                    "正式活跃订单来源不存在，无法保存线下 UDI 文件编号",
+                    "正式活跃订单来源不存在，无法保存UDI编号",
                     "use the active order referenced by the release application");
         }
         return activeOrder;
@@ -421,7 +422,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 && !Objects.equals(StrUtil.trim(activeOrder.getUdiControlDocumentNo()), udiControlDocumentNo)) {
             throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, null,
                     "ACTIVE_ORDER", String.valueOf(activeOrder.getId()),
-                    "活跃订单已有不同的线下 UDI 文件编号，不能覆盖",
+                    "活跃订单已有不同的UDI编号，不能覆盖",
                     "reuse the existing UDI control document number");
         }
     }
@@ -434,7 +435,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         if (updated != 1) {
             throw blocker(MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE, null,
                     "ACTIVE_ORDER", String.valueOf(activeOrder.getId()),
-                    "活跃订单线下 UDI 文件编号保存失败",
+                    "活跃订单UDI编号保存失败",
                     "retry after verifying the formal active order source");
         }
     }

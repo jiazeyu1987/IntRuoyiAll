@@ -681,6 +681,7 @@ export interface TeamLeaderActiveOrderProcessDetailRespVO {
 export interface TeamLeaderActiveOrderDetailRespVO {
   activeOrderId: number
   version: number
+  udiControlDocumentNo?: string
   workOrderId: number
   workOrderCode: string
   batchCode?: string

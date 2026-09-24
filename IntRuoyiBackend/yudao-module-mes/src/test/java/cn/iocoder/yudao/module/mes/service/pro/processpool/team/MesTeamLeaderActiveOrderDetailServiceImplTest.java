@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListItemMapper;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
@@ -76,6 +78,11 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     private MesProcessPoolActiveOrderPickListBindingMapper bindingMapper;
     @Mock
     private MesProcessPoolActiveOrderPickListBindingItemMapper bindingItemMapper;
+
+    @Mock
+    private ErpKingdeeProductionPickListMapper pickListMapper;
+    @Mock
+    private ErpKingdeeProductionPickListItemMapper pickListItemMapper;
 
     @Test
     void completedDetailReadsBatchesFromCompletionSnapshot() {
@@ -434,6 +441,12 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(pickListMapper.selectBatchIds(anyList())).thenAnswer(invocation ->
+                ((List<Long>) invocation.getArgument(0)).stream()
+                        .map(id -> cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListDO.builder()
+                                .id(id).sourceBillNo("LL-" + id).documentStatus("已审核").build())
+                        .toList());
+        lenient().when(pickListItemMapper.selectListByPickListIds(anyList())).thenReturn(List.of());
         lenient().when(replenishmentListItemMapper.selectListByProductionOrderNo("881MO090889"))
                 .thenReturn(List.of());
         lenient().when(eventMapper.selectBatchIds(anyList())).thenAnswer(invocation -> {
@@ -1305,7 +1318,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     @Test
     void activeOrderDetailExposesCurrentStatusForReleaseApplication() {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
-                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("ACTIVE").build());
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).activeStatus("ACTIVE")
+                .udiControlDocumentNo("UDI-TEST-20260924-001/V1").build());
         when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
                 row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
         when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
@@ -1322,6 +1336,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
 
         assertEquals(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING, detail.getActiveOrderStatus().getStatus());
         assertEquals("待上市放行", detail.getActiveOrderStatus().getStatusLabel());
+        assertEquals("UDI-TEST-20260924-001/V1", detail.getUdiControlDocumentNo());
     }
 
     @Test

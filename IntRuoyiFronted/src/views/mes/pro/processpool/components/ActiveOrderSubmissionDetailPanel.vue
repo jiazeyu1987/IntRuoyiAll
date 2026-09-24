@@ -103,8 +103,10 @@
                   <td>{{ summaryProductionCycleText }}</td>
                 </tr>
                 <tr>
-                  <th>线下 UDI 文件编号</th>
-                  <td colspan="3">{{ detail.udiControlDocumentNo || '未填写' }}</td>
+                  <th>UDI编号</th>
+                  <td colspan="3" data-active-order-udi-control-document-no>
+                    {{ detail.udiControlDocumentNo || '未填写' }}
+                  </td>
                 </tr>
               </tbody>
             </table>

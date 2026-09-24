@@ -16,6 +16,7 @@ public class MesPqcProductionReleaseDecisionResult {
     private String decision;
     private String status;
     private String rejectReason;
+    private String udiControlDocumentNo;
     private Long batchExecutionId;
     private Long signatureId;
     private List<Long> batchRecordEvidenceIds;
