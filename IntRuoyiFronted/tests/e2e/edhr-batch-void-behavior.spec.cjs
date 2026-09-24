@@ -1,72 +1,96 @@
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const vm = require('node:vm')
 const ts = require('typescript')
 const { parse, compileScript, compileTemplate } = require('vue/compiler-sfc')
+
 const root = path.resolve(__dirname, '../../src')
-const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
-const loadScript = (file, context, exports) => {
-  const { descriptor, errors } = parse(read(file))
-  assert.deepEqual(errors, [])
-  const compiled = compileScript(descriptor, { id: file })
-  assert.deepEqual(compileTemplate({ source: descriptor.template.content, filename: file, id: file, compilerOptions: { bindingMetadata: compiled.bindings } }).errors, [])
-  const source = ts.createSourceFile(file + '.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
-  const body = source.statements.filter((node) => !ts.isImportDeclaration(node)).map((node) => node.getText(source)).join('\n')
-  const js = ts.transpileModule(body, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
-  return vm.runInNewContext(`(() => { ${js}; return { ${exports} }; })()`, context)
-}
-async function main() {
-  const calls = []
-  const navigation = []
-  let failure = false
-  const api = loadScript('views/mes/pro/edhr-batch/BatchVoidedPage.vue', {
-    ref: (value) => ({ value }), reactive: (value) => value, defineOptions() {}, onMounted() {}, Error,
-    useRouter: () => ({ push: async (target) => navigation.push(target) }),
-    EDHR_BATCH_STATUS_VOIDED: 60,
-    getEdhrBatchExecutionPage: async (query) => {
-      calls.push(query)
-      if (failure) throw new Error('正式接口失败')
-      return { list: [{ id: 42, status: 60 }], total: 13 }
+const file = 'views/mes/pro/edhr-batch/BatchVoidedPage.vue'
+const source = fs.readFileSync(path.join(root, file), 'utf8')
+const { descriptor, errors } = parse(source)
+assert.deepEqual(errors, [])
+const compiled = compileScript(descriptor, { id: file })
+assert.deepEqual(
+  compileTemplate({
+    source: descriptor.template.content,
+    filename: file,
+    id: file,
+    compilerOptions: { bindingMetadata: compiled.bindings }
+  }).errors,
+  []
+)
+
+const scriptSource = ts.createSourceFile(
+  `${file}.ts`,
+  descriptor.scriptSetup.content,
+  ts.ScriptTarget.Latest,
+  true
+)
+const scriptBody = scriptSource.statements
+  .filter((node) => !ts.isImportDeclaration(node))
+  .map((node) => node.getText(scriptSource))
+  .join('\n')
+const transpiled = ts.transpileModule(scriptBody, {
+  compilerOptions: { target: ts.ScriptTarget.ES2022 }
+}).outputText
+const calls = []
+const detailCalls = []
+const api = Function(
+  'getPqcProductionReleasePage',
+  'getPqcProductionReleaseOrderDetail',
+  'PQC_RELEASE_VIEW_VOIDED',
+  'onMounted',
+  'reactive',
+  'ref',
+  'defineOptions',
+  `return (() => { ${transpiled}; return { getList, openDetail, list, total, queryParams }; })()`
+)(
+  async (query) => {
+    calls.push(query)
+    return {
+      list: [
+        {
+          applicationId: '88',
+          viewStatus: 'VOIDED',
+          workOrderCode: 'WO-VOID',
+          batchCode: 'BA-VOID',
+          nonconformanceDisposition: 'void',
+          nonconformanceReason: '检验结果不合格'
+        }
+      ],
+      total: 1
     }
-  }, 'getList, handleQuery, resetQuery, openDetail, queryParams, list, total, loadError, loading')
+  },
+  async (applicationId) => {
+    detailCalls.push(applicationId)
+    return { detail: { workOrderCode: 'WO-VOID' }, productionMaterialLists: [] }
+  },
+  'VOIDED',
+  () => {},
+  (value) => value,
+  (value) => ({ value }),
+  () => {}
+)
+
+async function main() {
   await api.getList()
-  assert.equal(calls[0].status, 60)
-  assert.equal(calls[0].completedTraceOnly, true)
-  assert.equal(api.total.value, 13)
-  api.queryParams.pageNo = 2
-  await api.getList()
-  assert.equal(calls[1].pageNo, 2)
-  api.queryParams.batchCode = 'B-42'
-  await api.handleQuery()
-  assert.equal(calls[2].batchCode, 'B-42')
-  assert.equal(calls[2].pageNo, 1)
-  await api.resetQuery()
-  assert.equal(calls[3].batchCode, '')
-  assert.equal(calls[3].status, 60)
-  assert.equal(calls[3].completedTraceOnly, true)
-  await api.openDetail({ id: 42 })
-  assert.equal(navigation[0].query.batchExecutionId, '42')
-  assert.equal(navigation[0].query.from, '/mes/pro/feedback/edhr-batch-voided')
-  failure = true
-  await api.getList()
-  assert.equal(api.loadError.value, '正式接口失败')
-  assert.equal(api.list.value.length, 0)
-  assert.equal(api.loading.value, false)
-  const helper = read('utils/routerHelper.ts')
-  const body = helper.slice(helper.indexOf('const applyRouteMetaOverrides'), helper.indexOf('export const registerComponent'))
-  const routeBlock = body.slice(body.indexOf('  if ('), body.indexOf('  if (', body.indexOf('  if (') + 1))
-  for (const input of [
-    { routePath: 'mes/pro/feedback/edhr-nonconformance-review', componentPath: '' },
-    { routePath: 'pro/feedback/edhr-nonconformance-review', componentPath: '' },
-    { routePath: 'other', componentPath: 'mes/pro/edhr-nonconformance/NonconformanceReviewPage' },
-    { routePath: 'other', componentPath: 'other', unrelated: true }
-  ]) {
-    const meta = { hidden: false }
-    vm.runInNewContext(routeBlock, { ...input, meta })
-    assert.equal(meta.hidden, !input.unrelated)
-    if (!input.unrelated) assert.equal(meta.activeMenu, '/mes/pro/feedback/edhr-batch-execution')
-  }
-  console.log('PASS voided list behavior, menu projection and Vue compilation')
+  assert.equal(calls[0].viewStatus, 'VOIDED')
+  assert.equal(calls[0].workOrderCode, undefined)
+  assert.equal(api.list.value[0].applicationId, '88')
+  assert.equal(api.list.value[0].nonconformanceDisposition, 'void')
+  await api.openDetail(api.list.value[0])
+  assert.deepEqual(detailCalls, ['88'])
+  assert.equal(api.total.value, 1)
+  assert.match(source, /PQC_RELEASE_VIEW_VOIDED/)
+  assert.match(source, /getPqcProductionReleaseOrderDetail/)
+  assert.doesNotMatch(source, /getEdhrBatchExecutionPage/)
+  assert.doesNotMatch(source, /getTeamLeaderVoidedActiveOrderPage/)
+  assert.doesNotMatch(source, /readBlocked/)
+  assert.doesNotMatch(source, /数据异常/)
+  console.log('PASS voided page uses PQC release applications and disposition detail')
 }
-main().catch((error) => { console.error(error); process.exitCode = 1 })
+
+main().catch((error) => {
+  console.error(error)
+  process.exitCode = 1
+})

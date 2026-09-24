@@ -18,7 +18,7 @@
 2. `completed`：写入正式事务 ID，通过批次执行唯一关系解析正式事务，并通过 7 项定向测试。
 3. `completed`：完成定向测试重跑、差异检查、证据 validator 与验证报告。
 4. `completed`：仅本任务文件提交并推送，远端分支与本地 HEAD 一致。
-5. `blocked`：运行态已只读核验；标准重启会运行全仓服务器包构建及本地依赖/schema检查，本轮未执行该更宽影响的重启。
+5. `completed`：标准服务器聚合构建通过，新 Jar 已加载到本机 `int_main`，健康检查 UP。
 
 ## 预期验证
 
@@ -29,4 +29,4 @@
 
 ## Current Status
 
-blocked
+completed

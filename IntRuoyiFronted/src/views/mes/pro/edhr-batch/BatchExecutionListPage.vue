@@ -205,15 +205,6 @@
                   >
                     详情
                   </el-button>
-                  <el-button
-                    v-hasPermi="['mes:pro-production-release:pqc-reject']"
-                    link
-                    type="warning"
-                    data-edhr-batch-action="reject"
-                    @click="handleRejectClick(row)"
-                  >
-                    驳回
-                  </el-button>
                 </div>
                 <div
                   v-else-if="resolveBatchVoidOperationState(row) === 'release-locked'"
@@ -384,6 +375,19 @@
 
     <Dialog title="上市放行确认" v-model="releaseDialogVisible" width="560px">
       <el-alert
+        v-if="releaseTransactionMissing"
+        title="正式上市放行事务尚未生成。"
+        :description="
+          selectedReleaseBatch?.activeOrderId
+            ? '让步处置只关闭不合格评审，不会生成正式放行事务。请在“PQC生产放行”的“待放行”列表中完成该工单的正式放行签字；事务生成后再返回本页。'
+            : '请先在批次详情页完成放行预检及正式前置审批，生成事务后再返回本页。'
+        "
+        type="warning"
+        :closable="false"
+        show-icon
+        class="edhr-batch-page__dialog-alert"
+      />
+      <el-alert
         v-if="releaseError"
         :title="releaseError"
         type="error"
@@ -391,6 +395,15 @@
         show-icon
         class="edhr-batch-page__dialog-alert"
       />
+      <el-button
+        v-if="releaseTransactionMissing && selectedReleaseBatch?.activeOrderId && selectedReleaseBatch?.workOrderCode"
+        link
+        type="primary"
+        data-edhr-batch-action="pqc-release-prerequisite"
+        @click="openPqcReleasePending"
+      >
+        查看对应 PQC 待放行申请
+      </el-button>
       <el-descriptions v-if="selectedReleaseBatch" :column="1" border>
         <el-descriptions-item label="批次执行编码">
           {{ selectedReleaseBatch.batchExecutionCode || selectedReleaseBatch.id }}
@@ -413,7 +426,11 @@
         show-icon
         class="mt-12px"
       />
-      <el-form v-else label-width="120px" class="mt-12px">
+      <el-form
+        v-else-if="releaseContext?.releaseTransactionId"
+        label-width="120px"
+        class="mt-12px"
+      >
         <el-form-item label="电子签名密码" required>
           <el-input
             v-model="releaseForm.password"
@@ -433,6 +450,7 @@
       <template #footer>
         <el-button @click="releaseDialogVisible = false">取 消</el-button>
         <el-button
+          v-if="releaseContext?.releaseTransactionId"
           type="primary"
           :loading="releaseLoading"
           :disabled="releaseContextLoading"
@@ -1005,6 +1023,7 @@ const selectedVoidBatch = ref<EdhrBatchExecutionRespVO>()
 const selectedReleaseBatch = ref<EdhrBatchExecutionRespVO>()
 const selectedRejectBatch = ref<EdhrBatchExecutionRespVO>()
 const releaseContext = ref<EdhrReleaseRowVO>()
+const releaseTransactionMissing = ref(false)
 const batchFlowTraceTimeline = ref<EdhrBatchReviewTimelineRespVO>()
 const readinessResult = ref<EdhrRehearsalReadinessResult>()
 const queryParams = reactive({
@@ -1793,6 +1812,7 @@ const openReleaseDialog = async (row: EdhrBatchExecutionRespVO) => {
   }
   selectedReleaseBatch.value = row
   releaseContext.value = undefined
+  releaseTransactionMissing.value = false
   releaseError.value = ''
   releaseForm.password = ''
   releaseForm.idempotencyKey = `EDHR-MARKET-RELEASE-${row.id}-${generateUUID()}`
@@ -1805,16 +1825,38 @@ const openReleaseDialog = async (row: EdhrBatchExecutionRespVO) => {
       batchExecutionCode: row.batchExecutionCode
     }
     const result = await getEdhrReleasePage(params)
-    releaseContext.value = (result.list || []).find(
+    const context = (result.list || []).find(
       (item) => String(item.batchExecutionId) === String(row.id)
     )
-    if (!releaseContext.value?.releaseTransactionId) {
-      throw new Error('当前批次没有可用的正式放行事务，请先完成放行前置流程。')
+    if (!context) {
+      throw new Error('未查询到此批次的放行状态，请刷新列表后重试。')
+    }
+    releaseContext.value = context
+    if (!context.releaseTransactionId) {
+      releaseTransactionMissing.value = true
+      return
     }
   } catch (error) {
     releaseError.value = resolveErrorMessage(error, '上市放行事务加载失败。')
   } finally {
     releaseContextLoading.value = false
+  }
+}
+
+const openPqcReleasePending = async () => {
+  const batch = selectedReleaseBatch.value
+  const workOrderCode = batch?.workOrderCode?.trim()
+  if (!batch?.activeOrderId || !workOrderCode) {
+    releaseError.value = '缺少活跃订单或工单信息，无法定位 PQC 待放行申请。'
+    return
+  }
+  try {
+    await router.push({
+      name: 'MesPqcProductionRelease',
+      query: { workOrderCode }
+    })
+  } catch (error) {
+    releaseError.value = resolveErrorMessage(error, '无法打开对应的 PQC 待放行申请。')
   }
 }
 

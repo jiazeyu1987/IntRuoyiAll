@@ -32,6 +32,7 @@ export interface EdhrNonconformanceReviewCreateReqVO {
   sourceId?: EdhrRouteId
   batchExecutionId?: EdhrRouteId
   nonconformanceReason: string
+  signaturePassword: string
   remark?: string
 }
 

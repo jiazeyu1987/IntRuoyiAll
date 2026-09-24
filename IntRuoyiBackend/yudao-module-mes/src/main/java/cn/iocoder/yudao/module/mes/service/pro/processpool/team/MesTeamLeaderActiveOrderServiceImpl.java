@@ -2,7 +2,9 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderVoidedActiveOrderPageReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
@@ -110,6 +112,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -2450,6 +2453,166 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .toList();
     }
 
+    @Override
+    public PageResult<MesTeamLeaderActiveOrderRow> pageVoidedActiveOrders(
+            Long leaderUserId, MesTeamLeaderVoidedActiveOrderPageReqVO reqVO) {
+        if (leaderUserId == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "voidedActiveOrderPage");
+        }
+        List<MesProcessPoolActiveOrderDO> voidedOrders =
+                activeOrderMapper.selectVoidedVersionUpgradedListByLeader(leaderUserId);
+        if (voidedOrders.isEmpty()) {
+            return new PageResult<>(List.of(), 0L);
+        }
+        Map<Long, MesProWorkOrderDO> workOrdersById = loadActiveOrderWorkOrders(voidedOrders);
+        Map<Long, MesMdItemDO> productsById = loadActiveOrderProducts(workOrdersById.values());
+        Map<Long, MesProRouteDO> routesById = loadRoutesById(voidedOrders);
+        Map<Long, MesProRouteVersionDO> routeVersionsById = loadRouteVersionsById(voidedOrders);
+        Map<Long, String> readBlockReasonsByActiveOrderId =
+                loadVoidedActiveOrderReadBlockReasons(voidedOrders);
+        List<MesTeamLeaderActiveOrderRow> filteredRows = voidedOrders.stream()
+                .map(activeOrder -> toVoidedActiveOrderRow(
+                        activeOrder, workOrdersById, productsById, routesById, routeVersionsById,
+                        readBlockReasonsByActiveOrderId.get(activeOrder.getId())))
+                .filter(row -> matchesVoidedActiveOrderFilter(row, reqVO))
+                .toList();
+        int pageNo = reqVO == null || reqVO.getPageNo() == null ? 1 : Math.max(reqVO.getPageNo(), 1);
+        int pageSize = reqVO == null || reqVO.getPageSize() == null ? 10 : Math.max(reqVO.getPageSize(), 1);
+        int fromIndex = Math.min((pageNo - 1) * pageSize, filteredRows.size());
+        int toIndex = Math.min(fromIndex + pageSize, filteredRows.size());
+        return new PageResult<>(filteredRows.subList(fromIndex, toIndex), (long) filteredRows.size());
+    }
+
+    private Map<Long, String> loadVoidedActiveOrderReadBlockReasons(
+            List<MesProcessPoolActiveOrderDO> activeOrders) {
+        List<Long> activeOrderIds = activeOrders.stream()
+                .map(MesProcessPoolActiveOrderDO::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, List<MesProcessPoolActiveOrderProcessSnapshotDO>> snapshotsByActiveOrderId =
+                processSnapshotMapper.selectListByActiveOrderIds(activeOrderIds).stream()
+                        .filter(snapshot -> snapshot.getActiveOrderId() != null)
+                        .collect(Collectors.groupingBy(MesProcessPoolActiveOrderProcessSnapshotDO::getActiveOrderId));
+        String reason = "活跃订单缺少当前工序生产系数和目标数量快照";
+        return activeOrders.stream()
+                .filter(activeOrder -> !hasCompleteVoidedActiveOrderSnapshots(
+                        activeOrder, snapshotsByActiveOrderId.get(activeOrder.getId())))
+                .collect(Collectors.toMap(MesProcessPoolActiveOrderDO::getId,
+                        activeOrder -> reason + "：" + activeOrder.getId(),
+                        (left, right) -> left, LinkedHashMap::new));
+    }
+
+    private static boolean hasCompleteVoidedActiveOrderSnapshots(
+            MesProcessPoolActiveOrderDO activeOrder,
+            List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots) {
+        if (activeOrder == null || snapshots == null || snapshots.isEmpty()) {
+            return false;
+        }
+        return snapshots.stream().allMatch(snapshot ->
+                snapshot != null
+                        && Objects.equals(activeOrder.getWorkOrderId(), snapshot.getWorkOrderId())
+                        && Objects.equals(activeOrder.getRouteId(), snapshot.getRouteId())
+                        && Objects.equals(activeOrder.getRouteVersionId(), snapshot.getRouteVersionId())
+                        && snapshot.getRouteProcessId() != null
+                        && snapshot.getProcessId() != null
+                        && snapshot.getProductionQuantityFactorSnapshot() != null
+                        && snapshot.getProductionQuantityFactorSnapshot().compareTo(BigDecimal.ZERO) > 0
+                        && snapshot.getPlannedQuantitySnapshot() != null
+                        && snapshot.getPlannedQuantitySnapshot().compareTo(BigDecimal.ZERO) > 0
+                        && snapshot.getProcessNameSnapshot() != null
+                        && !snapshot.getProcessNameSnapshot().isBlank());
+    }
+
+    private Map<Long, MesProRouteDO> loadRoutesById(List<MesProcessPoolActiveOrderDO> activeOrders) {
+        List<Long> routeIds = activeOrders.stream()
+                .map(MesProcessPoolActiveOrderDO::getRouteId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (routeIds.isEmpty()) {
+            return Map.of();
+        }
+        return routeMapper.selectBatchIds(routeIds).stream()
+                .filter(route -> route.getId() != null)
+                .collect(Collectors.toMap(MesProRouteDO::getId, Function.identity(), (left, right) -> left));
+    }
+
+    private Map<Long, MesProRouteVersionDO> loadRouteVersionsById(List<MesProcessPoolActiveOrderDO> activeOrders) {
+        List<Long> routeVersionIds = activeOrders.stream()
+                .map(MesProcessPoolActiveOrderDO::getRouteVersionId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (routeVersionIds.isEmpty()) {
+            return Map.of();
+        }
+        return routeVersionMapper.selectBatchIds(routeVersionIds).stream()
+                .filter(routeVersion -> routeVersion.getId() != null)
+                .collect(Collectors.toMap(MesProRouteVersionDO::getId, Function.identity(),
+                        (left, right) -> left));
+    }
+
+    private MesTeamLeaderActiveOrderRow toVoidedActiveOrderRow(
+            MesProcessPoolActiveOrderDO activeOrder,
+            Map<Long, MesProWorkOrderDO> workOrdersById,
+            Map<Long, MesMdItemDO> productsById,
+            Map<Long, MesProRouteDO> routesById,
+            Map<Long, MesProRouteVersionDO> routeVersionsById,
+            String readBlockReason) {
+        MesProWorkOrderDO workOrder = workOrdersById.get(activeOrder.getWorkOrderId());
+        MesMdItemDO product = workOrder == null ? null : productsById.get(workOrder.getProductId());
+        MesProRouteDO route = routesById.get(activeOrder.getRouteId());
+        MesProRouteVersionDO routeVersion = routeVersionsById.get(activeOrder.getRouteVersionId());
+        return new MesTeamLeaderActiveOrderRow()
+                .setId(activeOrder.getId())
+                .setLeaderUserId(activeOrder.getLeaderUserId())
+                .setWorkOrderId(activeOrder.getWorkOrderId())
+                .setWorkOrderCode(workOrder == null ? null : workOrder.getCode())
+                .setProductId(workOrder == null ? null : workOrder.getProductId())
+                .setProductName(product == null ? null : product.getName())
+                .setProductCode(product == null ? null : product.getCode())
+                .setBatchCode(workOrder == null ? null : workOrder.getBatchCode())
+                .setQuantity(workOrder == null ? null : workOrder.getQuantity())
+                .setRouteId(activeOrder.getRouteId())
+                .setRouteName(route == null ? null : route.getName())
+                .setRouteVersionId(activeOrder.getRouteVersionId())
+                .setRouteVersionNo(routeVersion == null ? null : routeVersion.getVersionNo())
+                .setErpFixedQuantitySnapshot(activeOrder.getErpFixedQuantitySnapshot())
+                .setProductionProgressPercent(BigDecimal.ZERO)
+                .setInspectionProgressPercent(BigDecimal.ZERO)
+                .setActiveStatus(activeOrder.getActiveStatus())
+                .setBusinessStatus(activeOrder.getBusinessStatus())
+                .setJoinedAt(activeOrder.getJoinedAt())
+                .setRemovedAt(activeOrder.getRemovedAt())
+                .setVersion(activeOrder.getVersion())
+                .setAbnormal(false)
+                .setSimulated(activeOrder.getSimulated())
+                .setSimulationStage(activeOrder.getSimulationStage())
+                .setSimulationRunId(activeOrder.getSimulationRunId())
+                .setReadBlocked(readBlockReason != null)
+                .setReadBlockReason(readBlockReason)
+                .setAbnormal(readBlockReason != null)
+                .setAbnormalReason(readBlockReason);
+    }
+
+    private static boolean matchesVoidedActiveOrderFilter(
+            MesTeamLeaderActiveOrderRow row, MesTeamLeaderVoidedActiveOrderPageReqVO reqVO) {
+        if (reqVO == null) {
+            return true;
+        }
+        return containsIgnoreCase(row.getWorkOrderCode(), reqVO.getWorkOrderCode())
+                && containsIgnoreCase(row.getProductName(), reqVO.getProductName())
+                && containsIgnoreCase(row.getBatchCode(), reqVO.getBatchCode());
+    }
+
+    private static boolean containsIgnoreCase(String value, String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return true;
+        }
+        return value != null && value.toLowerCase(Locale.ROOT).contains(keyword.trim().toLowerCase(Locale.ROOT));
+    }
+
     private Map<Long, Stage1GeneratedDetailTarget> resolveLatestStage1GeneratedDetailTargets(
             List<MesProcessPoolActiveOrderDO> activeOrders,
             Map<Long, MesProWorkOrderDO> workOrdersById) {
@@ -3610,10 +3773,32 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     activeOrder.getId());
         }
         if (Objects.equals(INSPECTION_TYPE_FIRST, inspectionType) || Objects.equals("FINAL", inspectionType)) {
-            return resolveFixedInspectionQuantity(items, inspectionType, activeOrder.getId());
+            Integer configuredQuantity = resolveFixedInspectionQuantity(items, inspectionType, activeOrder.getId());
+            return Objects.equals(INSPECTION_TYPE_FIRST, inspectionType)
+                    ? capFirstInspectionQuantity(configuredQuantity, activeOrder.getErpFixedQuantitySnapshot(),
+                    activeOrder.getId())
+                    : configuredQuantity;
         }
         throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                 "QA检验类型无效，activeOrderId=" + activeOrder.getId() + "，inspectionType=" + inspectionType);
+    }
+
+    private Integer capFirstInspectionQuantity(Integer configuredQuantity,
+                                               BigDecimal orderQuantity,
+                                               Long activeOrderId) {
+        if (orderQuantity == null || orderQuantity.compareTo(BigDecimal.ZERO) < 0) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "订单数量无效，activeOrderId=" + activeOrderId);
+        }
+        if (orderQuantity.compareTo(BigDecimal.valueOf(configuredQuantity)) >= 0) {
+            return configuredQuantity;
+        }
+        try {
+            return orderQuantity.intValueExact();
+        } catch (ArithmeticException ex) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "首检数量需要使用整数订单数量，activeOrderId=" + activeOrderId);
+        }
     }
 
     private Integer resolveFixedInspectionQuantity(List<MesQaInspectionRegulationItemDO> items,

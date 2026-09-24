@@ -14,8 +14,8 @@ const WORK_ORDER_CODE =
   'SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891'
 
 const REQUIRED_TEXTS = [
-  '生产提交',
-  'PQC提交',
+  '生产表单',
+  '过程检表单',
   '领料单',
   '提交数量',
   '提交人',
@@ -120,13 +120,13 @@ async function collectDialogTextByScrolling(page, dialog) {
   const productionProcessTabCount = await productionProcessTabs.count()
   assert.equal(productionProcessTabCount, 15, `生产提交必须展示 15 个生产工序 Tab，实际 ${productionProcessTabCount}`)
   await dialog.getByRole('tab', { name: /领料单/ }).waitFor({ state: 'visible', timeout: 30000 })
-  await dialog.getByRole('tab', { name: /生产提交/ }).waitFor({ state: 'visible', timeout: 30000 })
-  await dialog.getByRole('tab', { name: /PQC提交/ }).waitFor({ state: 'visible', timeout: 30000 })
-  await dialog.getByRole('tab', { name: /生产提交/ }).click()
+  await dialog.getByRole('tab', { name: /生产表单/ }).waitFor({ state: 'visible', timeout: 30000 })
+  await dialog.getByRole('tab', { name: /过程检表单/ }).waitFor({ state: 'visible', timeout: 30000 })
+  await dialog.getByRole('tab', { name: /生产表单/ }).click()
   await dialog.getByRole('tab', { name: /1\.\s*粗洗工序/ }).click()
 
   let collected = `\n---FIRST-PROCESS---\n${await dialog.innerText({ timeout: 10000 })}`
-  await dialog.getByRole('tab', { name: /PQC提交/ }).click()
+  await dialog.getByRole('tab', { name: /过程检表单/ }).click()
   await dialog.locator('[data-team-leader-active-order-detail-pqc-process-tab]').first().waitFor({
     state: 'visible',
     timeout: 30000

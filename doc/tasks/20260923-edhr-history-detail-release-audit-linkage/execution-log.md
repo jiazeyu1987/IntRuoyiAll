@@ -27,5 +27,6 @@ REGRESSION: `mvn -pl yudao-module-mes -am '-Dtest=MesTeamLeaderActiveOrderReleas
 - Commit: `7f33d911afe225e46dd25f425b2f10f1cdc1f37a`（`修复批次历史详情放行事务关联`）；push: `origin/int_main` 成功，远端由 `314d846e3` 更新到该提交。
 - 提交边界复核：提交仅含本任务代码、测试、经验规则和任务记录；同目录文件内其它工作区修改仍保持未提交。
 - Runtime read-only check: `48081` 由 Java PID 64784 监听，启动 Jar 为 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260923-135239.jar`，命令行 repo-root 为 `E:\IntRuoyi\IntRuoyiBackend`；health 返回 `HTTP 200 {"status":"UP"}`。
-- Runtime restart blocker: 标准重启脚本会执行 `mvn -pl yudao-server -am -DskipTests package`，并检查本地 schema、MinIO 文件和依赖端口。当前验证只覆盖 MES 模块定向测试，且主工作区有大量并行脏改动；为避免全仓构建把并行代码装入运行 Jar，本轮未重启 `int_main`。
+- Runtime restart: 首次标准重启的完整 Reactor 构建因共享详情 Java 文件中的工作区并行版本冲突失败（`releaseTransactionId` 未定义、`setSourcePickListDocumentStatuses` 不存在）；旧进程保持运行。将该文件恢复为已提交修复版本，同时保留其余业务逻辑后，重跑标准重启成功：31 模块 Reactor `BUILD SUCCESS`，执行脚本退出码 0。
+- Runtime verification: 新 Java PID 52392 运行 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260923-224959.jar`，repo-root 为 `E:\IntRuoyi\IntRuoyiBackend`；日志 `2026-09-23 22:51:32` 出现 `Started YudaoServerApplication`，`/actuator/health` 返回 UP。
 - 实现提交 `7f33d911afe225e46dd25f425b2f10f1cdc1f37a`；收尾记录提交 `b4ac507c3`。均已推送 `origin/int_main`，远端与本地 HEAD 一致。

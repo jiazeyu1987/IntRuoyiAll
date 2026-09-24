@@ -59,8 +59,8 @@ assert.match(
 
 assert.match(
   panel,
-  /renderActiveOrderDocumentLinks\(material\.sourcePickListNos,\s*material\.sourcePickListIds,\s*'pick'\)/,
-  '领料单列必须按编号和 ID 渲染可点击链接。'
+  /renderActiveOrderDocumentLinks\(\[document\.billNo\],\s*\[document\.id\],\s*'pick'\)/,
+  '领料单表头必须按编号和 ID 渲染可点击链接。'
 )
 assert.match(
   panel,

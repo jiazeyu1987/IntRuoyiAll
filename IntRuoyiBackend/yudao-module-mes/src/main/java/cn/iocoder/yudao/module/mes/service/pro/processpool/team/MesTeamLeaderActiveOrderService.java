@@ -1,5 +1,8 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderVoidedActiveOrderPageReqVO;
+
 import java.util.List;
 
 public interface MesTeamLeaderActiveOrderService {
@@ -29,6 +32,9 @@ public interface MesTeamLeaderActiveOrderService {
     void moveActiveOrder(MesTeamLeaderActiveOrderMoveReqBO reqBO);
 
     List<MesTeamLeaderActiveOrderRow> listActiveOrders(Long leaderUserId);
+
+    PageResult<MesTeamLeaderActiveOrderRow> pageVoidedActiveOrders(Long leaderUserId,
+                                                                   MesTeamLeaderVoidedActiveOrderPageReqVO reqVO);
 
     void closeForRelease(Long activeOrderId, Integer expectedVersion,
                          Long releaseDecisionId, Long actorUserId);

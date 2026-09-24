@@ -30,10 +30,12 @@
 
 - Trigger: 页面或接口在当前代码已支持的路径上提示 `系统异常`，后端栈包含缺表、缺列、`doesn't have a default value`、`cannot be null`、旧索引冲突，或源码已有对应正式迁移但运行库 schema 可能滞后。
 - Preflight check: 先从后端失败栈冻结首个数据库异常、Mapper 与目标表，再以当前后端 Java 进程实际启动参数/运行态数据源作为真实连接库，不能只看 `application-local.yaml` 或默认配置；随后用 `information_schema.columns/statistics` 或 `SHOW COLUMNS/INDEX` 对比当前运行库和目标正式迁移；同时确认迁移 metadata、`dependsOn` 和 release migration policy gate 通过。不得先改业务代码适配旧库。
+- 多轮返工放行场景：若历史申请必须保留但正式返工关闭后应释放当前批次，不能删除历史行或放宽旧唯一键；应使用由正式状态计算的 `GENERATED ALWAYS` 当前批次列，原子替换当前唯一索引，并保留历史批次索引。Mapper 的当前关联查询、历史回读和新轮次创建必须同时切换到同一当前批次语义。
 - Generated-column check: 正式 MySQL 中的 `GENERATED ALWAYS` 列只能由数据库计算，业务 INSERT/UPDATE 不得显式写入。若测试 H2 schema 为普通列，必须用静态 SQL 合同或 MySQL 迁移合同补位，防止 H2 通过但运行库报 `The value specified for generated column ... is not allowed`。
 - MySQL DDL idempotence check: 本地/正式 MySQL 8.0 运行库不接受的 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` 不能作为幂等迁移写法；新增列应复用项目既有 `information_schema.COLUMNS` 守护过程，并用真实 MySQL 首次/重复执行或静态合同证明可跑。
 - Blocker: 无法确认当前后端实际连接库、目标迁移依赖未满足、运行态表结构与迁移前置不一致、迁移会破坏现有唯一性或历史数据，或只能通过默认值、吞异常、伪造上下文继续提交时必须停止。
 - Verification: 迁移前用可重复运行的运行态 schema 契约记录 RED；执行正式迁移后用同一契约记录 GREEN，并运行目标服务回归和不写基线业务数据的真实页面复验。成功写入型 E2E 仍须遵守测试租户、任务自有数据和明确授权门禁。
+- Verification extension: 对返工轮次迁移必须同时证明首次执行、重复执行、当前唯一索引、历史索引、历史行投影/计数不变和拟议当前冲突为零；仅 health=UP 或页面重启成功不能证明旧唯一键冲突已修复。
 - Diagnosis order: HTTP 200 不能证明接口成功；必须同时记录业务码/消息、Mapper 首个数据库异常和真实连接库。若本机重启脚本或运行 Jar 覆盖了数据源地址，迁移也必须打到该运行库；配置文件库迁移成功不代表页面运行库已修复。若订单初始化、排产工单主列表、个人中心聚合页或批记录建立链接的任一子请求返回业务码 500 且日志为缺列、字段过短或数据截断，先修复运行库迁移漂移和字段容量，再判断前端错误归属；不要通过隐藏该子请求错误、返回空数据或截断业务字段编码掩盖 schema 缺口。
 - Shared-layout attribution: 进入业务页面时看到全局“系统异常”，必须先用浏览器网络记录定位第一个失败请求。顶部待办、消息角标或权限初始化等公共布局请求失败时，不得按当前页面路由归因给业务模块；例如一线生产目标接口全部成功而 `/approval-center/tasks/page` 因 DCC 表缺列失败，应修复对应 DCC 迁移并同时复验公共接口与一线页面，不能修改 MES 或隐藏全局错误。
 - Policy scope: 完整 SQL 根目录门禁若被无关文件阻断，不得修改无关迁移或绕过记录；应冻结目标迁移的完整 dependsOn 闭包单独核验并同时记录根目录门禁阻断，未通过的完整门禁不能宣称全库发布就绪。

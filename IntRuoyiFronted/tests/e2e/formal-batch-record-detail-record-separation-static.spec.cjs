@@ -23,8 +23,8 @@ assert(
   '详情批记录必须有稳定的记录范围标识'
 )
 assert(
-  activeOrderPanel.includes('详情批记录'),
-  '共享详情面板必须明确标识详情批记录，不得继续让用户误认为正式批记录'
+  activeOrderPanel.includes('批记录状态'),
+  '共享详情面板必须明确标识批记录状态'
 )
 
 const formSurfaceStart = batchDetailPage.indexOf('class="edhr-batch-detail__form-surface"')
@@ -48,10 +48,16 @@ assert(
   '批次执行详情必须以来源详情范围加载详情批记录'
 )
 
-for (const [name, source] of [
-  ['历史批记录', historyPage],
-  ['批次执行追溯', traceDrawer]
-]) {
+assert(
+  historyPage.includes("path: '/mes/pro/feedback/edhr-batch-execution/active-order-detail'"),
+  '历史批记录必须跳转到独立的活跃订单详情页'
+)
+assert(
+  historyPage.includes("from: '/mes/pro/feedback/edhr-batch-history'"),
+  '历史批记录跳转必须保留历史列表返回来源'
+)
+
+for (const [name, source] of [['批次执行追溯', traceDrawer]]) {
   assert(
     source.includes("import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'"),
     `${name}必须保留正式 eDHR 批记录组件`

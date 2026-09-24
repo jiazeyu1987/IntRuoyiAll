@@ -96,9 +96,27 @@ const uploadRef = ref<UploadInstance>()
 const uploadList = ref<UploadUserFile[]>([])
 const fileList = ref<UploadUserFile[]>([])
 const uploadNumber = ref<number>(0)
+const fileNameByUrl = new Map<string, string>()
 
 const { uploadUrl, httpRequest: defaultHttpRequest } = useUpload(props.directory)
 const httpRequest = computed(() => props.httpRequest || defaultHttpRequest)
+
+const resolveUploadFileName = (url: string) => {
+  const pathname = new URL(url, window.location.origin).pathname
+  const fileName = pathname.substring(pathname.lastIndexOf('/') + 1)
+  let current = fileName.replace(/\+/g, ' ')
+  let decoded = decodeURIComponent(current)
+  while (decoded !== current) {
+    current = decoded.replace(/\+/g, ' ')
+    decoded = decodeURIComponent(current)
+  }
+  return decoded
+}
+
+const resolveModelFileName = (url: string) => {
+  const originalName = fileNameByUrl.get(url)
+  return originalName !== undefined ? originalName : resolveUploadFileName(url)
+}
 
 // 文件上传之前判断
 const beforeUpload: UploadProps['beforeUpload'] = (file: UploadRawFile) => {
@@ -133,12 +151,18 @@ const beforeUpload: UploadProps['beforeUpload'] = (file: UploadRawFile) => {
 //   uploadRef.value.data.path = uploadFile.name
 // }
 // 文件上传成功
-const handleFileSuccess: UploadProps['onSuccess'] = (res: any): void => {
+const handleFileSuccess: UploadProps['onSuccess'] = (res: any, uploadFile): void => {
+  if (typeof res?.data !== 'string' || !res.data.trim()) {
+    throw new Error('上传成功响应缺少文件地址')
+  }
   message.success('上传成功')
   // 删除自身
-  const index = fileList.value.findIndex((item: any) => item.response?.data === res.data)
-  fileList.value.splice(index, 1)
-  uploadList.value.push({ name: res.data, url: res.data })
+  const index = fileList.value.findIndex((item: any) => item.uid === uploadFile.uid)
+  if (index >= 0) {
+    fileList.value.splice(index, 1)
+  }
+  fileNameByUrl.set(res.data, uploadFile.name)
+  uploadList.value.push({ name: uploadFile.name, url: res.data })
   if (uploadList.value.length == uploadNumber.value) {
     fileList.value.push(...uploadList.value)
     uploadList.value = []
@@ -161,6 +185,9 @@ const handleRemove = (file: UploadFile) => {
   const index = fileList.value.map((f) => f.name).indexOf(file.name)
   if (index > -1) {
     fileList.value.splice(index, 1)
+    if (file.url) {
+      fileNameByUrl.delete(file.url)
+    }
     emitUpdateModelValue()
   }
 }
@@ -174,6 +201,7 @@ watch(
   (val: string | string[]) => {
     if (!val) {
       fileList.value = [] // fix：处理掉缓存，表单重置后上传组件的内容并没有重置
+      fileNameByUrl.clear()
       return
     }
 
@@ -181,13 +209,13 @@ watch(
     // 情况1：字符串
     if (isString(val)) {
       fileList.value.push(
-        ...val.split(',').map((url) => ({ name: url.substring(url.lastIndexOf('/') + 1), url }))
+        ...val.split(',').map((url) => ({ name: resolveModelFileName(url), url }))
       )
       return
     }
     // 情况2：数组
     fileList.value.push(
-      ...(val as string[]).map((url) => ({ name: url.substring(url.lastIndexOf('/') + 1), url }))
+      ...(val as string[]).map((url) => ({ name: resolveModelFileName(url), url }))
     )
   },
   { immediate: true, deep: true }

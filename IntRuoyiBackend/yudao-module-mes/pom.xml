@@ -367,6 +367,7 @@
                         <artifactId>maven-compiler-plugin</artifactId>
                         <configuration>
                             <testIncludes>
+                                <testInclude>**/MesActiveOrderDossierFileServiceTest.java</testInclude>
                             <testInclude>**/MesProductionReleaseSignoffServiceTest.java</testInclude>
                                 <testInclude>**/MesProductionReleaseBatchExecutionPortTest.java</testInclude>
                                 <testInclude>**/MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest.java</testInclude>
@@ -387,6 +388,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
+                                <include>**/MesActiveOrderDossierFileServiceTest.java</include>
                                 <include>**/MesProductionReleaseSignoffServiceTest.java</include>
                                 <include>**/MesProductionReleaseBatchExecutionPortTest.java</include>
                                 <include>**/MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest.java</include>

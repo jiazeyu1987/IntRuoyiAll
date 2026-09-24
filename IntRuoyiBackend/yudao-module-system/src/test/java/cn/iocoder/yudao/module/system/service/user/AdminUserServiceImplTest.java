@@ -623,6 +623,41 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testUpdateUserPassword02_allowsCurrentPasswordReuse() {
+        AdminUserDO dbUser = randomAdminUserDO(o -> o.setPassword("encode:current"));
+        userMapper.insert(dbUser);
+        String password = "Current@2026";
+        when(passwordEncoder.matches(eq(password), eq(dbUser.getPassword()))).thenReturn(true);
+        when(passwordEncoder.encode(eq(password))).thenReturn("encode:" + password);
+
+        userService.updateUserPassword(dbUser.getId(), password);
+
+        AdminUserDO user = userMapper.selectById(dbUser.getId());
+        assertEquals("encode:" + password, user.getPassword());
+    }
+
+    @Test
+    public void testUpdateUserPassword02_allowsRecentHistoryPasswordReuse() {
+        AdminUserDO dbUser = randomAdminUserDO(o -> o.setPassword("encode:current"));
+        userMapper.insert(dbUser);
+        passwordHistoryMapper.insert(AdminUserPasswordHistoryDO.builder()
+                .userId(dbUser.getId())
+                .passwordHash("encode:old1")
+                .changedAt(LocalDateTime.now().minusDays(1))
+                .sourceType("SELF_CHANGE")
+                .build());
+        String password = "Old@2026";
+        when(passwordEncoder.matches(eq(password), eq(dbUser.getPassword()))).thenReturn(false);
+        when(passwordEncoder.matches(eq(password), eq("encode:old1"))).thenReturn(true);
+        when(passwordEncoder.encode(eq(password))).thenReturn("encode:" + password);
+
+        userService.updateUserPassword(dbUser.getId(), password);
+
+        AdminUserDO user = userMapper.selectById(dbUser.getId());
+        assertEquals("encode:" + password, user.getPassword());
+    }
+
+    @Test
     public void testUpdateUserPassword02_weakPassword() {
         AdminUserDO dbUser = randomAdminUserDO();
         userMapper.insert(dbUser);

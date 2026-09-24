@@ -1,18 +1,17 @@
 <template>
   <ContentWrap>
-    <div class="team-leader-workbench__active-order-detail-page" data-team-leader-active-order-detail-page>
+    <ActiveOrderDetailLayout data-team-leader-active-order-detail-page>
       <el-button data-team-leader-active-order-detail-back @click="goBack">返回</el-button>
       <ActiveOrderSubmissionDetailPanel
         :detail="detail"
         :source-work-order="sourceWorkOrder"
         :production-material-lists="productionMaterialLists"
         :production-material-list-loading="productionMaterialListLoading"
-        :production-material-list-error="productionMaterialListError"
         :loading="loading"
         :error="error"
         @retry="loadDetail"
       />
-    </div>
+    </ActiveOrderDetailLayout>
   </ContentWrap>
 </template>
 
@@ -20,7 +19,9 @@
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import ActiveOrderSubmissionDetailPanel from './components/ActiveOrderSubmissionDetailPanel.vue'
+import ActiveOrderDetailLayout from './components/ActiveOrderDetailLayout.vue'
 import {
   getTeamLeaderActiveOrderDetail,
   type TeamLeaderActiveOrderDetailRespVO
@@ -40,7 +41,6 @@ const detail = ref<TeamLeaderActiveOrderDetailRespVO>()
 const sourceWorkOrder = ref<ProWorkOrderVO>()
 const productionMaterialLists = ref<ErpProductionMaterialListVO[]>([])
 const productionMaterialListLoading = ref(false)
-const productionMaterialListError = ref('')
 const loading = ref(false)
 const error = ref('')
 
@@ -53,8 +53,8 @@ const resolveErrorMessage = (errorValue: unknown, fallback: string) => {
 }
 
 const requireActiveOrderId = () => {
-  const activeOrderId = Number(route.params.activeOrderId)
-  if (!Number.isFinite(activeOrderId) || activeOrderId <= 0) {
+  const activeOrderId = parsePositiveRouteQueryId(route.params.activeOrderId)
+  if (!activeOrderId) {
     throw new Error('活跃订单记录ID不能为空')
   }
   return activeOrderId
@@ -92,7 +92,6 @@ const resolveDisplayedProductionOrderNo = (
 
 const loadProductionMaterialLists = async (productionOrderNo: string) => {
   productionMaterialListLoading.value = true
-  productionMaterialListError.value = ''
   productionMaterialLists.value = []
   try {
     const pageSize = 100
@@ -100,11 +99,10 @@ const loadProductionMaterialLists = async (productionOrderNo: string) => {
     let pageNo = 1
     let total = 0
     do {
-      const data = await ErpProductionMaterialListApi.getPage({
-        pageNo,
-        pageSize,
-        productionOrderNo
-      })
+      const data = await ErpProductionMaterialListApi.getPage(
+        { pageNo, pageSize, productionOrderNo },
+        { ignoreErrorMessage: true }
+      )
       const pageRows = Array.isArray(data?.list) ? data.list : []
       rows.push(...pageRows)
       total = Number(data?.total ?? rows.length)
@@ -112,8 +110,9 @@ const loadProductionMaterialLists = async (productionOrderNo: string) => {
       if (!pageRows.length) break
     } while (rows.length < total)
     productionMaterialLists.value = rows
-  } catch (loadError) {
-    productionMaterialListError.value = resolveErrorMessage(loadError, '生产用料清单加载失败')
+  } catch {
+    // Optional ERP data: failed queries intentionally show the empty state.
+    productionMaterialLists.value = []
   } finally {
     productionMaterialListLoading.value = false
   }
@@ -125,7 +124,6 @@ const loadDetail = async () => {
   detail.value = undefined
   sourceWorkOrder.value = undefined
   productionMaterialLists.value = []
-  productionMaterialListError.value = ''
   try {
     const sourceWorkOrderCode = resolveSourceWorkOrderCode()
     const [detailResult, sourceWorkOrderResult] = await Promise.all([
@@ -142,7 +140,7 @@ const loadDetail = async () => {
       sourceWorkOrderCode,
       sourceWorkOrderResult
     )
-    await loadProductionMaterialLists(productionOrderNo)
+    void loadProductionMaterialLists(productionOrderNo)
   } catch (loadError) {
     error.value = resolveErrorMessage(loadError, '工序提交详情加载失败')
     ElMessage.error(error.value)
@@ -164,13 +162,3 @@ watch(
 
 onMounted(loadDetail)
 </script>
-<style scoped>
-.team-leader-workbench__active-order-detail-page {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-</style>

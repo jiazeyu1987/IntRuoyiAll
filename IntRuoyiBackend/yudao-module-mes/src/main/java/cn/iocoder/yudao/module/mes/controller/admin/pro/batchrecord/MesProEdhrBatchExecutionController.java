@@ -49,6 +49,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrRehearsalRe
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachment;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachmentPrepareUploadCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachmentPrepareUploadResult;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage4.MesStage4DossierUploadSimulationCommand;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage4.MesStage4DossierUploadSimulationResult;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage4.MesStage4DossierUploadSimulationService;
@@ -118,9 +119,13 @@ public class MesProEdhrBatchExecutionController {
     @GetMapping("/active-order-detail")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
     public CommonResult<MesTeamLeaderActiveOrderDetailRespVO> getActiveOrderDetail(
-            @RequestParam("batchExecutionId") Long batchExecutionId) {
+            @RequestParam(value = "batchExecutionId", required = false) Long batchExecutionId,
+            @RequestParam(value = "activeOrderId", required = false) Long activeOrderId) {
+        MesTeamLeaderActiveOrderDetail detail = activeOrderId != null
+                ? batchActiveOrderDetailService.getDetailByActiveOrderId(activeOrderId)
+                : batchActiveOrderDetailService.getDetail(batchExecutionId);
         return success(MesProcessPoolTeamLeaderController.toActiveOrderDetailRespVO(
-                batchActiveOrderDetailService.getDetail(batchExecutionId)));
+                detail));
     }
 
     @GetMapping("/workbench")

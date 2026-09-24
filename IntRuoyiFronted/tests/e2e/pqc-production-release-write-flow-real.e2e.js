@@ -380,7 +380,7 @@ const createAndConcedeReview = async (page) => {
     .fill('同意让步，待PQC签字')
   await detail
     .locator('.el-form-item')
-    .filter({ hasText: 'QA签名' })
+    .filter({ hasText: '电子签名' })
     .locator('input')
     .fill('admin QA')
   const disposed = await waitBusinessWrite(

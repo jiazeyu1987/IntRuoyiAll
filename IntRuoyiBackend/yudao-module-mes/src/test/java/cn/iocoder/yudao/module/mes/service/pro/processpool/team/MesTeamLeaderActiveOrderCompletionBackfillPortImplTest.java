@@ -90,6 +90,58 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     @Test
+    void releaseCompletionReplaysExistingReceiptAfterItsOwnBackfillWrites() {
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+        var activeOrders = org.mockito.Mockito.mock(MesProcessPoolActiveOrderMapper.class);
+        var receipts = org.mockito.Mockito.mock(MesProcessPoolActiveOrderCompletionReceiptMapper.class);
+        var progress = org.mockito.Mockito.mock(MesTeamLeaderActiveOrderCompletionProgressPort.class);
+        var pickLists = org.mockito.Mockito.mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class);
+        var trace = org.mockito.Mockito.mock(MesActiveOrderTransferTraceService.class);
+        var aggregation = org.mockito.Mockito.mock(MesPqcProcessInspectionAggregationService.class);
+        var service = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrders, receipts, progress,
+                port, pickLists, trace, aggregation);
+        var activeOrder = order().setVersion(2).setActiveStatus("ACTIVE");
+        var stored = new java.util.concurrent.atomic.AtomicReference<MesProcessPoolActiveOrderCompletionReceiptDO>();
+        when(activeOrders.selectByIdForUpdate(10L)).thenReturn(activeOrder);
+        when(receipts.selectByActiveOrderIdForUpdate(10L)).thenAnswer(call -> stored.get());
+        when(receipts.selectByIdempotencyKeyForUpdate(any())).thenAnswer(call -> stored.get());
+        when(progress.read(20L, activeOrder)).thenReturn(new MesTeamLeaderActiveOrderCompletionProgress()
+                .setProductionProgressPercent(BigDecimal.valueOf(100))
+                .setInspectionProgressPercent(BigDecimal.valueOf(100)));
+        when(activeOrders.markCompleted(10L, 2, 20L)).thenAnswer(call -> {
+            activeOrder.setVersion(3); return 1;
+        });
+        when(receipts.insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class))).thenAnswer(call -> {
+            var receipt = call.<MesProcessPoolActiveOrderCompletionReceiptDO>getArgument(0);
+            receipt.setId(177L); stored.set(receipt); return 1;
+        });
+        var first = service.completeForRelease(20L, 10L, "release-round-1", true);
+        String receiptHash = stored.get().getReceiptHash();
+        // Models MyBatis audit-field writeback when Tx-A updates the completion rows.
+        var completion = completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L)).get(0);
+        completion.setUpdateTime(java.time.LocalDateTime.of(2026, 9, 22, 13, 41));
+        completion.setUpdater("20");
+        var second = service.completeForRelease(20L, 10L, "release-round-2", null);
+        assertEquals(first.getCompletionReceiptId(), second.getCompletionReceiptId());
+        assertEquals(receiptHash, second.getReceiptHash());
+        verify(receipts, org.mockito.Mockito.times(1)).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
+        verify(activeOrders, org.mockito.Mockito.times(1)).markCompleted(10L, 2, 20L);
+        verify(backfillMapper, org.mockito.Mockito.times(2)).insert(any(MesProcessPoolActiveOrderCompletionBackfillDO.class));
+
+        var changed = productIssueDetail();
+        changed.setBatchCode("REAL-SOURCE-CHANGE");
+        when(productIssueDetailMapper.selectListByIssueIdForUpdate(901L)).thenReturn(List.of(changed));
+        assertThrows(ServiceException.class, () -> service.completeForRelease(20L, 10L, "release-round-3", null));
+        when(productIssueDetailMapper.selectListByIssueIdForUpdate(901L)).thenReturn(List.of(productIssueDetail()));
+        completion.setBackfillExecutionId(999999L);
+        assertThrows(ServiceException.class, () -> service.completeForRelease(20L, 10L, "wrong-backfill-binding", null));
+        completion.setBackfillExecutionId(stored.get().getBatchRecordId());
+        stored.get().setReceiptHash("tampered");
+        assertThrows(ServiceException.class, () -> service.completeForRelease(20L, 10L, "tampered-receipt", null));
+        verify(receipts, org.mockito.Mockito.times(1)).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
+    }
+
+    @Test
     void noLossMaterializesOnlyBatchAndInspectionRows() {
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
 

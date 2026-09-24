@@ -22,6 +22,8 @@ assert.match(service, /resolveActiveOrderStatus\(application\)/, '详情服务�
 assert.match(service, /"NOT_APPLIED"[\s\S]*"未申请"/, '无放行申请必须显示未申请。')
 assert.match(service, /MesReleaseFlowStatus\.PQC_RELEASE_PENDING[\s\S]*"待PQC放行"/, '待 PQC 放行状态必须显示待PQC放行。')
 assert.match(service, /MesReleaseFlowStatus\.PQC_RELEASE_REJECTED[\s\S]*"待审查"/, 'PQC 拒绝状态必须显示待审查。')
+assert.match(service, /nonconformanceReviewMapper\.selectLatestBySource\("PQC_RELEASE",\s*application\.getId\(\)\)/, 'PQC 拒绝后的详情状态必须读取对应不合格评审终态。')
+assert.match(service, /"VOIDED"[\s\S]*"已作废"/, 'PQC 拒绝后不合格评审处置为作废时必须显示已作废。')
 assert.match(service, /MesReleaseFlowStatus\.MANAGER_RELEASE_PENDING[\s\S]*"待上市放行"/, 'PQC 通过后、上市前必须显示待上市放行。')
 assert.match(service, /MesReleaseFlowStatus\.RELEASED[\s\S]*"已上市放行"/, '最终放行完成必须显示已上市放行。')
 assert.match(api, /activeOrderStatus\?: TeamLeaderActiveOrderStatusSummaryRespVO/, '前端 API 类型必须包含 activeOrderStatus。')

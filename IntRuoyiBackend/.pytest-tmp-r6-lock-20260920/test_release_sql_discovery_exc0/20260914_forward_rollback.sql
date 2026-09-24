@@ -1,0 +1,2 @@
+-- rollback-migration: type=schema
+-- release-migration: type=schema

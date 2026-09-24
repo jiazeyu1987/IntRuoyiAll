@@ -6,10 +6,12 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditCommand;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditEventType;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditRecorder;
@@ -60,6 +62,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             "FINISHED_PRODUCT_INSPECTION_RECORD");
 
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
+    private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProEdhrWorkTaskMapper workTaskMapper;
     private final MesPqcReleaseDossierPort dossierPort;
     private final MesProductionReleaseBatchExecutionPort batchExecutionPort;
@@ -74,6 +77,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     @Autowired
     public MesPqcProductionReleaseServiceImpl(
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
+            MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesPqcReleaseDossierPort dossierPort,
             MesProductionReleaseBatchExecutionPort batchExecutionPort,
@@ -83,13 +87,14 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesProBatchRecordExecutionSignatureService signatureService,
             MesProEdhrNonconformanceReviewService nonconformanceReviewService,
             MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper) {
-        this(applicationMapper, workTaskMapper, dossierPort, batchExecutionPort,
+        this(applicationMapper, activeOrderMapper, workTaskMapper, dossierPort, batchExecutionPort,
                 reportStageInitializer, managerStageInitializer, auditRecorder, signatureService, nonconformanceReviewService,
                 nonconformanceReviewMapper, Clock.systemUTC());
     }
 
     public MesPqcProductionReleaseServiceImpl(
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
+            MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesPqcReleaseDossierPort dossierPort,
             MesProductionReleaseBatchExecutionPort batchExecutionPort,
@@ -101,6 +106,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper,
             Clock clock) {
         this.applicationMapper = applicationMapper;
+        this.activeOrderMapper = activeOrderMapper;
         this.workTaskMapper = workTaskMapper;
         this.dossierPort = dossierPort;
         this.batchExecutionPort = batchExecutionPort;
@@ -120,14 +126,18 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         requireApproveCommand(actorUserId, command);
         String idempotencyKey = MesReleaseFlowIdempotency.requireKey(command.getIdempotencyKey());
         String opinion = trimAndValidateOptionalText(command.getApprovalOpinion(), "approvalOpinion");
+        String udiControlDocumentNo = trimAndValidateUdiDocumentNo(command.getUdiControlDocumentNo());
         String payloadHash = decisionPayloadHash("APPROVE", command.getApplicationId(),
-                command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId, opinion);
+                command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId,
+                opinion, udiControlDocumentNo);
         MesProcessPoolActiveOrderReleaseApplicationDO application = requireApplicationForUpdate(command.getApplicationId());
         MesPqcProductionReleaseDecisionResult replay = replayOrRejectProcessedApplication(
                 application, actorUserId, "APPROVE", idempotencyKey, payloadHash);
         if (replay != null) {
             return replay;
         }
+        MesProcessPoolActiveOrderDO activeOrder = requireActiveOrderForUpdate(application.getActiveOrderId());
+        ensureUdiDocumentConsistency(activeOrder, udiControlDocumentNo);
         MesProEdhrWorkTaskDO workTask = requireProcessableTask(
                 application, command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId);
         nonconformanceReviewService.ensureWorkOrderNotFrozen(application.getWorkOrderId(), "PQC放行");
@@ -159,6 +169,9 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setDecidedAt(decidedAt)
                 .setDecisionIdempotencyKey(idempotencyKey)
                 .setDecisionPayloadHash(payloadHash);
+        if (StrUtil.isBlank(activeOrder.getUdiControlDocumentNo())) {
+            requireUdiDocumentUpdate(activeOrder, udiControlDocumentNo, actorUserId);
+        }
         int updated = applicationMapper.approveFromPending(application.getId(), command.getExpectedVersion(),
                 batchExecutionId, actorUserId, decidedAt, activeOrderFactsSnapshotHash,
                 JSON.toJSONString(result));
@@ -360,6 +373,21 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         }
     }
 
+    private String trimAndValidateUdiDocumentNo(String value) {
+        String trimmed = StrUtil.trim(value);
+        if (StrUtil.isBlank(trimmed)) {
+            throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, null,
+                    "PQC_RELEASE_UDI_DOCUMENT", null, "线下 UDI 文件编号不能为空",
+                    "provide a trimmed UDI control document number");
+        }
+        if (trimmed.length() > 128) {
+            throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, null,
+                    "PQC_RELEASE_UDI_DOCUMENT", null, "线下 UDI 文件编号长度不能超过128个字符",
+                    "shorten the UDI control document number to at most 128 characters");
+        }
+        return trimmed;
+    }
+
     private String trimAndValidateOptionalText(String value, String fieldName) {
         String trimmed = StrUtil.trim(value);
         if (trimmed != null && trimmed.length() > 500) {
@@ -368,6 +396,47 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                     "shorten " + fieldName + " to at most 500 characters");
         }
         return trimmed;
+    }
+
+    private MesProcessPoolActiveOrderDO requireActiveOrderForUpdate(Long activeOrderId) {
+        if (activeOrderId == null || activeOrderId <= 0) {
+            throw blocker(MesReleaseFlowBlockerType.AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED, null,
+                    "ACTIVE_ORDER", activeOrderId == null ? null : String.valueOf(activeOrderId),
+                    "缺少正式活跃订单来源，无法保存线下 UDI 文件编号",
+                    "provide the release application's formal activeOrderId");
+        }
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
+        if (activeOrder == null) {
+            throw blocker(MesReleaseFlowBlockerType.AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED, null,
+                    "ACTIVE_ORDER", String.valueOf(activeOrderId),
+                    "正式活跃订单来源不存在，无法保存线下 UDI 文件编号",
+                    "use the active order referenced by the release application");
+        }
+        return activeOrder;
+    }
+
+    private void ensureUdiDocumentConsistency(MesProcessPoolActiveOrderDO activeOrder,
+                                               String udiControlDocumentNo) {
+        if (StrUtil.isNotBlank(activeOrder.getUdiControlDocumentNo())
+                && !Objects.equals(StrUtil.trim(activeOrder.getUdiControlDocumentNo()), udiControlDocumentNo)) {
+            throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, null,
+                    "ACTIVE_ORDER", String.valueOf(activeOrder.getId()),
+                    "活跃订单已有不同的线下 UDI 文件编号，不能覆盖",
+                    "reuse the existing UDI control document number");
+        }
+    }
+
+    private void requireUdiDocumentUpdate(MesProcessPoolActiveOrderDO activeOrder,
+                                           String udiControlDocumentNo,
+                                           Long actorUserId) {
+        int updated = activeOrderMapper.updateUdiControlDocumentNo(
+                activeOrder.getId(), udiControlDocumentNo, actorUserId);
+        if (updated != 1) {
+            throw blocker(MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE, null,
+                    "ACTIVE_ORDER", String.valueOf(activeOrder.getId()),
+                    "活跃订单线下 UDI 文件编号保存失败",
+                    "retry after verifying the formal active order source");
+        }
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO requireApplicationForUpdate(Long applicationId) {
@@ -654,9 +723,10 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
 
     private String decisionPayloadHash(
             String decision, Long applicationId, Long workTaskId, Integer expectedVersion, Long actorUserId,
-            String detail) {
+            String detail, String udiControlDocumentNo) {
         return MesReleaseFlowIdempotency.payloadHash(decision, String.valueOf(applicationId),
-                String.valueOf(workTaskId), String.valueOf(expectedVersion), String.valueOf(actorUserId), detail);
+                String.valueOf(workTaskId), String.valueOf(expectedVersion), String.valueOf(actorUserId), detail,
+                udiControlDocumentNo);
     }
 
     private boolean empty(List<?> values) {

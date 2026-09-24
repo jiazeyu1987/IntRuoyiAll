@@ -91,9 +91,10 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
     }
 
     @Override
-    public String readSourceSnapshotHash(Long leaderUserId, MesProcessPoolActiveOrderDO activeOrder,
-                                         MesTeamLeaderActiveOrderCompletionCommand command) {
-        return prepare(leaderUserId, activeOrder, command).getSourceSnapshotHash();
+    public boolean matchesReceiptSources(Long leaderUserId, MesProcessPoolActiveOrderDO activeOrder,
+                                         MesTeamLeaderActiveOrderCompletionCommand command,
+                                         MesProcessPoolActiveOrderCompletionReceiptDO receipt) {
+        return MesTeamLeaderActiveOrderCompletionSourceEvidence.matches(receipt, prepare(leaderUserId, activeOrder, command));
     }
 
     @Override

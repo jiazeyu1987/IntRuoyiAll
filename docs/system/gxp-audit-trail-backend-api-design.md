@@ -1,5 +1,7 @@
 # 统一 GxP 审计追踪后端与 API 设计
 
+> 本文保留早期全局设计。2026-09-24活跃订单主链实施以[当前开发包](../../doc/tasks/20260924-edhr-gxp-audit-coverage/implementation-readme.md)为准：复用system模块GxpAuditService及现有账本；旧GxpAuditTrailService命名和全局查询草案不是当前实现入口。新增能力尚未实施，参见ADR-0002当前实现对齐。
+
 ## Purpose and Scope
 
 定义统一审计内核、领域接入边界、只读查询 API、周期审查 API、错误模型、事务和幂等规则。统一接口是后端内部审计写入契约，不代理或统一现有业务 Controller。

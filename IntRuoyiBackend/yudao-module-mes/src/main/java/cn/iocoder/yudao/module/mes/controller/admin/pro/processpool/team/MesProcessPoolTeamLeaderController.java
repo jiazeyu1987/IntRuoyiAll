@@ -49,6 +49,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderReleaseApplyRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTransferTraceRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderVoidedActiveOrderPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderAllocationTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderBatchRecordTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderOrderProcessTraceRespVO;
@@ -592,6 +593,20 @@ public class MesProcessPoolTeamLeaderController {
                 .toList());
     }
 
+    @GetMapping("/active-order/voided-page")
+    @Operation(summary = "分页查询已作废活跃订单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<PageResult<MesTeamLeaderActiveOrderRespVO>> getVoidedActiveOrderPage(
+            MesTeamLeaderVoidedActiveOrderPageReqVO reqVO) {
+        PageResult<MesTeamLeaderActiveOrderRow> page =
+                activeOrderService.pageVoidedActiveOrders(SecurityFrameworkUtils.getLoginUserId(), reqVO);
+        return success(new PageResult<>(
+                page.getList().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderRespVO)
+                        .toList(),
+                page.getTotal()));
+    }
+
     @GetMapping("/active-order/detail")
     @Operation(summary = "查询生产组长活跃订单逐工序提交详情")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
@@ -1072,6 +1087,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setProductCode(detail.getProductCode())
                 .setProductName(detail.getProductName())
                 .setProductSpecification(detail.getProductSpecification())
+                .setUdiControlDocumentNo(detail.getUdiControlDocumentNo())
                 .setWorkOrderCreateTime(detail.getWorkOrderCreateTime())
                 .setRouteName(detail.getRouteName())
                 .setInputMaterialUsages(detail.getInputMaterialUsages().stream()
@@ -1128,6 +1144,14 @@ public class MesProcessPoolTeamLeaderController {
                 .setSourcePickListIds(material.getSourcePickListIds())
                 .setSourcePickListNos(material.getSourcePickListNos())
                 .setSourcePickListItemIds(material.getSourcePickListItemIds())
+                .setSourcePickListDocuments(material.getSourcePickListDocuments().stream()
+                        .map(document -> new MesTeamLeaderActiveOrderDetailRespVO.SourcePickListDocument()
+                                .setId(document.getId())
+                                .setBillNo(document.getBillNo())
+                                .setDocumentStatus(document.getDocumentStatus())
+                                .setBillDate(document.getBillDate())
+                                .setProductionOrderNos(document.getProductionOrderNos()))
+                        .toList())
                 .setSourceSnapshotHash(material.getSourceSnapshotHash());
     }
 
@@ -1317,6 +1341,8 @@ public class MesProcessPoolTeamLeaderController {
                 .setSignatureId(fact.getSignatureId())
                 .setNonconformanceReason(fact.getNonconformanceReason())
                 .setReviewMaterialUrl(fact.getReviewMaterialUrl())
+                .setReviewMaterialFileId(fact.getReviewMaterialFileId())
+                .setReviewMaterialsJson(fact.getReviewMaterialsJson())
                 .setReviewOpinion(fact.getReviewOpinion())
                 .setDisposition(fact.getDisposition())
                 .setQaSignature(fact.getQaSignature())

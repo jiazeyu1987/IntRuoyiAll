@@ -46,7 +46,9 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                         "上市放行负责人发起eDHR不合格评审"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_SPECIAL_NODE_SKIP, "跳过eDHR特殊工序"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_ROUTE_FORM_OPTIONAL_SKIP, "跳过eDHR可选路线表单"),
-                action(MesProBatchRecordExecutionSignatureService.ACTION_QA_DISPOSITION, "QA不合格评审处置")
+                action(MesProBatchRecordExecutionSignatureService.ACTION_QA_DISPOSITION, "QA不合格评审处置"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REVIEW_CREATE,
+                        "eDHR不合格评审创建")
         );
     }
 

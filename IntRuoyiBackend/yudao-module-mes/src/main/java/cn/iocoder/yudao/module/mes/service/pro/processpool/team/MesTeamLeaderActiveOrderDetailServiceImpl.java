@@ -215,6 +215,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setProductCode(first.getProductCode())
                 .setProductName(first.getProductName())
                 .setProductSpecification(first.getProductSpecification())
+                .setUdiControlDocumentNo(activeOrder.getUdiControlDocumentNo())
                 .setWorkOrderCreateTime(first.getWorkOrderCreateTime())
                 .setRouteName(first.getRouteName())
                 .setInputMaterialUsages(resolveInputMaterialUsages(inputSourceSnapshot))

@@ -366,7 +366,7 @@ const assertUploadedDossierFilesVisible = async (detail, phase, expectedUploads 
 }
 
 const collectProductionFacts = async (scope, phase) => {
-  await clickTab(scope, '生产提交')
+  await clickTab(scope, '生产表单')
   const processTabs = scope.locator('[data-team-leader-active-order-detail-production-process-tab]')
   const processCount = await processTabs.count()
   assert.ok(processCount > 0, `${phase} 必须显示生产工序`)
@@ -391,7 +391,7 @@ const collectProductionFacts = async (scope, phase) => {
 }
 
 const collectPqcOriginalFacts = async (scope, phase) => {
-  await clickTab(scope, 'PQC提交')
+  await clickTab(scope, '过程检表单')
   await clickTab(scope, '原始提交')
   const processTabs = scope.locator('[data-team-leader-active-order-detail-pqc-process-tab]')
   const processCount = await processTabs.count()
@@ -434,7 +434,7 @@ const collectPqcOriginalFacts = async (scope, phase) => {
 }
 
 const assertNoPqcProcessInspectionRecord = async (scope, phase) => {
-  await clickTab(scope, 'PQC提交')
+  await clickTab(scope, '过程检表单')
   await clickTab(scope, '过程检验记录')
   const tableCount = await scope.locator('[data-pqc-inspection-record-form-table]:visible').count()
   evidence[phase].processInspectionRecordTableCount = tableCount
@@ -446,7 +446,7 @@ const assertNoPqcProcessInspectionRecord = async (scope, phase) => {
 }
 
 const assertPqcProcessInspectionRecordPresent = async (scope, phase) => {
-  await clickTab(scope, 'PQC提交')
+  await clickTab(scope, '过程检表单')
   await clickTab(scope, '过程检验记录')
   const table = scope.locator('[data-pqc-inspection-record-form-table]:visible').first()
   await table.waitFor({ state: 'visible', timeout: 60000 })
@@ -471,7 +471,7 @@ const assertPqcProcessInspectionRecordPresent = async (scope, phase) => {
 }
 
 const assertProductionInputBatchesPresent = async (scope, phase) => {
-  await clickTab(scope, '生产提交')
+  await clickTab(scope, '生产表单')
   const processTabs = scope.locator('[data-team-leader-active-order-detail-production-process-tab]')
   const processCount = await processTabs.count()
   const batchTexts = []
@@ -818,7 +818,7 @@ const approveMarketReleaseAndVerifyHistory = async (page, expectedFacts) => {
 }
 
 const verifyMaterialActualUsage = async (scope) => {
-  await clickTab(scope, '生产提交')
+  await clickTab(scope, '生产表单')
   const processTabs = scope.locator('[data-team-leader-active-order-detail-production-process-tab]')
   const expected = new Map()
   for (let index = 0; index < await processTabs.count(); index += 1) {

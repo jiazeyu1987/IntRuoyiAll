@@ -852,7 +852,7 @@ async function disposeReview(page, review, disposition, opinion, signature) {
   assert.equal(uploadBody.code, 0, `review material upload failed: ${uploadBody.msg || uploadBody.code}`)
 
   await page.getByPlaceholder('请输入评审意见').fill(opinion)
-  await page.getByPlaceholder('请输入QA签名').fill(signature)
+  await page.getByPlaceholder('请输入本人电子签名密码').fill(signature)
   const label = {
     concession_release: '让步放行',
     rework: '返工',
@@ -924,7 +924,7 @@ async function openBatchTrace(page, batch, traceExecution, expectedLabels) {
   assert.match(pageText, /不合格评审/)
   assert.match(pageText, /评审材料/)
   assert.match(pageText, /评审意见/)
-  assert.match(pageText, /QA签名/)
+  assert.match(pageText, /电子签名/)
   assert.match(pageText, /冻结(?:时间)?[：:]/)
   for (const label of expectedLabels) assert.match(pageText, new RegExp(label))
   await page.screenshot({ path: path.join(RESULT_DIR, `trace-${expectedLabels.length}.png`), fullPage: true })

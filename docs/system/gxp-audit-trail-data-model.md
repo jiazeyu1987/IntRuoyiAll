@@ -1,5 +1,7 @@
 # 统一 GxP 审计追踪数据模型
 
+> 本文保留早期全局目标。当前已有gxp_audit_event；活跃订单主链按[增量迁移规格](../../doc/tasks/20260924-edhr-gxp-audit-coverage/docs/system/migration-design.md)实施，保留V1原文、Hash及物理旧列，新写入使用V2，禁止根据本文旧建表草案重建账本。尚未执行真实迁移。
+
 ## Purpose and Scope
 
 定义统一只追加事件、专业证据引用、完整性清单、归档回执和周期审查的数据关系。该模型是审计事实源，不替代领域业务表或电子签名事实源。

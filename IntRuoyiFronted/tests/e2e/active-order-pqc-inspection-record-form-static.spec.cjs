@@ -8,7 +8,7 @@ const panel = fs.readFileSync(
   'utf8'
 )
 
-const pqcTabStart = panel.indexOf('label="PQC提交"')
+const pqcTabStart = panel.indexOf('label="过程检表单"')
 const processRecordTabStart = panel.indexOf('label="过程检验记录"', pqcTabStart)
 const nextTabStart = panel.indexOf('</el-tab-pane>', processRecordTabStart)
 assert.ok(pqcTabStart > 0, 'PQC提交页签必须存在。')

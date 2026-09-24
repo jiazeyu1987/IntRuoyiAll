@@ -332,7 +332,6 @@ public class AdminUserServiceImpl implements AdminUserService {
         // 1. 校验用户存在
         AdminUserDO user = validateUserExists(id);
         validatePasswordStrength(password);
-        validatePasswordNotReused(user, password);
 
         // 2. 更新密码
         AdminUserDO updateObj = new AdminUserDO();

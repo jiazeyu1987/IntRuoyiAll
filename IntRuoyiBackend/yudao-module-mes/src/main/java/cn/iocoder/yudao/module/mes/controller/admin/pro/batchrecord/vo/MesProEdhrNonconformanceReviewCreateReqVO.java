@@ -22,6 +22,10 @@ public class MesProEdhrNonconformanceReviewCreateReqVO {
     @NotBlank(message = "不合格原因不能为空")
     private String nonconformanceReason;
 
+    @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "电子签名密码不能为空")
+    private String signaturePassword;
+
     @Schema(description = "备注")
     private String remark;
 }

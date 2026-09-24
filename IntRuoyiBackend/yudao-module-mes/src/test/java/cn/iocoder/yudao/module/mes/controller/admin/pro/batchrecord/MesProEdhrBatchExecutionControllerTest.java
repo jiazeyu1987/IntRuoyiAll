@@ -35,6 +35,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -114,7 +115,7 @@ class MesProEdhrBatchExecutionControllerTest {
                 .setActiveOrderId(300L);
         when(batchActiveOrderDetailService.getDetail(100L)).thenReturn(detail);
 
-        assertEquals(300L, controller.getActiveOrderDetail(100L).getData().getActiveOrderId());
+        assertEquals(300L, controller.getActiveOrderDetail(100L, null).getData().getActiveOrderId());
 
         verify(batchActiveOrderDetailService).getDetail(100L);
     }
@@ -132,11 +133,15 @@ class MesProEdhrBatchExecutionControllerTest {
         assertEquals("id", get.getParameters()[0].getAnnotation(RequestParam.class).value());
 
         Method activeOrderDetail = MesProEdhrBatchExecutionController.class.getDeclaredMethod(
-                "getActiveOrderDetail", Long.class);
+                "getActiveOrderDetail", Long.class, Long.class);
         assertArrayEquals(new String[]{"/active-order-detail"},
                 activeOrderDetail.getAnnotation(GetMapping.class).value());
         assertEquals("batchExecutionId",
                 activeOrderDetail.getParameters()[0].getAnnotation(RequestParam.class).value());
+        assertFalse(activeOrderDetail.getParameters()[0].getAnnotation(RequestParam.class).required());
+        assertEquals("activeOrderId",
+                activeOrderDetail.getParameters()[1].getAnnotation(RequestParam.class).value());
+        assertFalse(activeOrderDetail.getParameters()[1].getAnnotation(RequestParam.class).required());
         assertEquals("@ss.hasPermission('mes:pro-edhr-batch-execution:query')",
                 activeOrderDetail.getAnnotation(PreAuthorize.class).value());
 

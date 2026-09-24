@@ -6,9 +6,11 @@ import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDossierFileDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDossierFileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
@@ -175,6 +177,50 @@ class MesActiveOrderDossierFileServiceTest {
     }
 
     @Test
+    void uploadRejectsReleasedActiveOrderBeforeFileWrite() {
+        var fixture = fixture();
+        when(fixture.activeOrderMapper.selectById(10L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(10L).leaderUserId(7L).workOrderId(20L).build());
+        when(fixture.applicationMapper.selectLatestByActiveOrderId(10L)).thenReturn(
+                MesProcessPoolActiveOrderReleaseApplicationDO.builder()
+                        .id(55L).activeOrderId(10L).applicationStatus("RELEASED").build());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> fixture.service.upload(7L,
+                new MesActiveOrderDossierFileService.UploadCommand(
+                        10L, null, "INCOMING_INSPECTION_FILE", "incoming.pdf", "application/pdf",
+                        "pdf".getBytes(StandardCharsets.UTF_8))));
+
+        assertTrue(ex.getMessage().contains("已上市放行"));
+        verify(fixture.fileService, never()).createFileAndReturnId(any(byte[].class), any(), any(), any());
+        verify(fixture.dossierFileMapper, never()).insert(any(MesProcessPoolActiveOrderDossierFileDO.class));
+        verify(fixture.operationAuditService, never()).recordInCallerTransaction(any());
+    }
+
+    @Test
+    void deleteRejectsVoidedActiveOrderBeforePhysicalDelete() throws Exception {
+        var fixture = fixture();
+        when(fixture.activeOrderMapper.selectById(10L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(10L).leaderUserId(7L).workOrderId(20L).build());
+        when(fixture.applicationMapper.selectLatestByActiveOrderId(10L)).thenReturn(
+                MesProcessPoolActiveOrderReleaseApplicationDO.builder()
+                        .id(55L).activeOrderId(10L).applicationStatus("PQC_RELEASE_REJECTED").build());
+        when(fixture.nonconformanceReviewMapper.selectLatestBySource("PQC_RELEASE", 55L)).thenReturn(
+                MesProEdhrNonconformanceReviewDO.builder()
+                        .id(66L).sourceType("PQC_RELEASE").sourceId(55L)
+                        .reviewStatus("closed").disposition("void").build());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> fixture.service.delete(7L,
+                new MesActiveOrderDossierFileService.DeleteCommand(
+                        10L, null, "INCOMING_INSPECTION_FILE", 8001L)));
+
+        assertTrue(ex.getMessage().contains("已作废"));
+        verify(fixture.dossierFileMapper, never()).selectById(8001L);
+        verify(fixture.dossierFileMapper, never()).deleteById(8001L);
+        verify(fixture.fileService, never()).deleteFile(7001L);
+        verify(fixture.operationAuditService, never()).recordInCallerTransaction(any());
+    }
+
+    @Test
     void deleteRemovesOnlyTheCurrentActiveOrderFileAndOwnedInfraFile() throws Exception {
         var fixture = fixture();
         when(fixture.activeOrderMapper.selectById(10L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
@@ -284,16 +330,18 @@ class MesActiveOrderDossierFileServiceTest {
         var adminUserApi = mock(AdminUserApi.class);
         var fileService = mock(FileService.class);
         var operationAuditService = mock(MesProEdhrOperationAuditService.class);
+        var nonconformanceReviewMapper = mock(MesProEdhrNonconformanceReviewMapper.class);
         var service = new MesActiveOrderDossierFileService(applicationMapper, activeOrderMapper,
-                dossierFileMapper, adminUserApi, fileService, operationAuditService);
+                dossierFileMapper, nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService);
         return new Fixture(applicationMapper, activeOrderMapper, dossierFileMapper,
-                adminUserApi, fileService, operationAuditService, service);
+                nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService, service);
     }
 
     private record Fixture(
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
             MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProcessPoolActiveOrderDossierFileMapper dossierFileMapper,
+            MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper,
             AdminUserApi adminUserApi,
             FileService fileService,
             MesProEdhrOperationAuditService operationAuditService,

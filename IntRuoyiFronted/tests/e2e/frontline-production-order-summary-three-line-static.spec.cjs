@@ -64,19 +64,17 @@ assert.match(
 )
 assert.match(
   orderCard,
-  /{{\s*productionActiveOrderSummaryLabel\s*}}/,
-  'active-order card must show the selected order as 编号-产品名(数量).'
+  /:aria-label="productionActiveOrderSummaryLabel"/,
+  'active-order card must retain the accessible 编号-产品名(数量) summary.'
 )
 assert.doesNotMatch(
   orderCard,
-  /data-frontline-production-batch-code/,
-  'active-order card must not split the batch code into a separate visible line.'
+  /class="frontline-production-order-summary__label">[^<]*产品/,
+  'active-order card must leave the yellow-box label area empty.'
 )
-assert.doesNotMatch(
-  orderCard,
-  /data-frontline-production-product-name/,
-  'active-order card must not split the product name into a separate visible line.'
-)
+assert.match(orderCard, /productionOrderLabel/, 'active-order card must show the order code.')
+assert.match(orderCard, /productionProductNameLabel/, 'active-order card must show the product name.')
+assert.match(orderCard, /selectedProductionOrderQuantityLabel/, 'active-order card must show the order quantity.')
 assert.match(
   panel,
   /const productionActiveOrderSummaryLabel = computed\([\s\S]*selectedOrder\.workOrderCode\?\.trim\(\)[\s\S]*selectedOrder\.productName\?\.trim\(\)[\s\S]*formatProductionQuantity\(selectedOrder\.quantity\)[\s\S]*`\$\{workOrderCode\}-\$\{productName\}\(\$\{quantityText\}\)`/,

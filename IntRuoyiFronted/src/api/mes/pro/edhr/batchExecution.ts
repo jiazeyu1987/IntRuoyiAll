@@ -853,10 +853,13 @@ export const getEdhrBatchExecution = async (id: EdhrRouteId) => {
   })
 }
 
-export const getEdhrBatchActiveOrderDetail = async (batchExecutionId: EdhrRouteId) => {
+export const getEdhrBatchActiveOrderDetail = async (params: {
+  batchExecutionId?: EdhrRouteId
+  activeOrderId?: EdhrRouteId
+}) => {
   return await request.get<TeamLeaderActiveOrderDetailRespVO>({
     url: `${BATCH_EXECUTION_BASE_URL}/active-order-detail`,
-    params: { batchExecutionId }
+    params
   })
 }
 

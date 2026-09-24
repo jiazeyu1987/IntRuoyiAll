@@ -45,7 +45,7 @@ for (const [key, label] of [
 
 for (const [key, label, marker] of [
   ['operation', '操作', 'data-team-leader-correction-event-id'],
-  ['lossQuantity', '损耗数量', 'data-team-leader-loss-quantity']
+  ['completionQuantity', '检验数量', 'data-team-leader-completion-quantity']
 ]) {
   assert.match(
     allSubmissionColumnBlocks,
@@ -64,6 +64,11 @@ assert.match(
   page,
   /data-team-leader-device-parameter-readings/,
   'device parameter detail rendering support must remain available outside the regular default column set.'
+)
+assert.doesNotMatch(
+  pqcDefaultColumns,
+  /key:\s*'lossQuantity'|key:\s*'lossBreakdown'/,
+  'PQC management default columns must hide the red-box loss columns.'
 )
 
 for (const requiredReviewCapability of [

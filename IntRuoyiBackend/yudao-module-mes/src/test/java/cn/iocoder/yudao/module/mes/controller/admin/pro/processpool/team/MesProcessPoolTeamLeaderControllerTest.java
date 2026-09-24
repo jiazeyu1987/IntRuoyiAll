@@ -27,6 +27,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildResultRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTransferTraceRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderVoidedActiveOrderPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderAllocationTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderBatchRecordTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderOrderProcessTraceRespVO;
@@ -837,6 +838,8 @@ class MesProcessPoolTeamLeaderControllerTest {
                 new String[]{"/active-order/remove"}, "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("getActiveOrderList", new Class[]{}, GetMapping.class,
                 new String[]{"/active-order/list"}, "mes:pro-process-pool-team-leader:query");
+        assertEndpoint("getVoidedActiveOrderPage", new Class[]{MesTeamLeaderVoidedActiveOrderPageReqVO.class}, GetMapping.class,
+                new String[]{"/active-order/voided-page"}, "mes:pro-process-pool-team-leader:query");
         assertEndpoint("previewReportFifoAllocation",
                 new Class[]{MesTeamLeaderReportAllocationPreviewReqVO.class}, PostMapping.class,
                 new String[]{"/submission/allocation/preview-fifo"},

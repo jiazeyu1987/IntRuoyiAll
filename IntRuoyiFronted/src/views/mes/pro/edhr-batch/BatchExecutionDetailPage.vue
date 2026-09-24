@@ -4518,7 +4518,7 @@ const loadInlineActiveOrderSubmissionDetail = async (
   }
   inlineActiveOrderSubmissionDetailLoading.value = true
   try {
-    const nextDetail = await getEdhrBatchActiveOrderDetail(batch.id)
+    const nextDetail = await getEdhrBatchActiveOrderDetail({ batchExecutionId: batch.id })
     if (isStaleBatchDetailRequest(requestSerial)) return
     if (!nextDetail.processes?.length) {
       throw new Error('活跃订单缺少正式工序目标，无法展示一线提交表单')

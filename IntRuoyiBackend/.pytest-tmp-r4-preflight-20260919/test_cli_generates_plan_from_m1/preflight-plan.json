@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "targetEnvironment": "test",
+  "publishScope": "with-data",
+  "items": [
+    {
+      "migrationId": "m1",
+      "file": "sql/mysql/m1.sql",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "action": "APPLY",
+      "reason": "migration is pending and prerequisites are satisfied"
+    }
+  ]
+}

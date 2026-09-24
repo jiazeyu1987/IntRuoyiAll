@@ -102,6 +102,10 @@
                   <th>生产周期</th>
                   <td>{{ summaryProductionCycleText }}</td>
                 </tr>
+                <tr>
+                  <th>线下 UDI 文件编号</th>
+                  <td colspan="3">{{ detail.udiControlDocumentNo || '未填写' }}</td>
+                </tr>
               </tbody>
             </table>
 
@@ -353,22 +357,31 @@
                           <div
                             v-if="
                               fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE' &&
-                              (fact.reviewMaterialUrl || fact.reviewMaterialFileId)
+                              resolveNonconformanceReviewMaterials(fact).length
                             "
                             class="team-leader-workbench__operation-fact-evidence-item"
                           >
                             <span class="team-leader-workbench__operation-fact-evidence-label">
                               评审材料
                             </span>
-                            <el-button
-                              link
-                              type="primary"
+                            <div
                               class="team-leader-workbench__operation-fact-evidence-value"
-                              data-active-order-ncr-review-material-preview
-                              @click="previewNonconformanceReviewMaterial(fact)"
                             >
-                              查看评审材料
-                            </el-button>
+                              <div
+                                v-for="(material, materialIndex) in resolveNonconformanceReviewMaterials(fact)"
+                                :key="materialIndex"
+                              >
+                                <el-button
+                                  link
+                                  type="primary"
+                                  class="team-leader-workbench__operation-fact-evidence-value"
+                                  data-active-order-ncr-review-material-preview
+                                  @click="previewNonconformanceReviewMaterial(material)"
+                                >
+                                  {{ material.fileName }}
+                                </el-button>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -494,7 +507,7 @@
         </el-tab-pane>
         <el-tab-pane
           v-if="showProductionSubmissionTab"
-          label="生产提交"
+          label="生产表单"
           name="productionSubmissions"
         >
           <el-tabs
@@ -743,7 +756,7 @@
         </el-tab-pane>
         <el-tab-pane
           v-if="showPqcSubmissionTab"
-          label="PQC提交"
+          label="过程检表单"
           name="pqcSubmissions"
         >
           <el-tabs
@@ -1098,48 +1111,50 @@
           data-team-leader-active-order-detail-material-tab
         >
           <div
-            v-if="pickListMaterials.length"
-            class="team-leader-workbench__active-order-detail-table-shell"
+            v-if="pickListDocuments.length"
+            class="team-leader-workbench__pick-list-documents"
+            data-active-order-pick-list-documents
           >
-            <el-table
-              :data="pickListMaterials"
-              size="small"
-              border
-              :fit="true"
-              table-layout="fixed"
-              :span-method="pickListTableSpanMethod"
-              class="team-leader-workbench__active-order-submission-table"
+            <section
+              v-for="document in pickListDocuments"
+              :key="document.key"
+              class="team-leader-workbench__pick-list-document"
+              data-active-order-pick-list-document
             >
-              <el-table-column label="生产领料单号" width="190">
-                <template #default="{ row: material }">
+              <h3>生产领料单</h3>
+              <div class="team-leader-workbench__pick-list-head">
+                <div>
+                  <span>生产领料单号：</span>
                   <template
-                    v-for="link in renderActiveOrderDocumentLinks(material.sourcePickListNos, material.sourcePickListIds, 'pick')"
+                    v-for="link in renderActiveOrderDocumentLinks([document.billNo], [document.id], 'pick')"
                     :key="link.key"
                   >
                     <el-button link type="primary" @click="openActiveOrderDocument(link)">
                       {{ link.no }}
                     </el-button>
                   </template>
-                  <span v-if="!renderActiveOrderDocumentLinks(material.sourcePickListNos, material.sourcePickListIds, 'pick').length">
-                    -
-                  </span>
-                </template>
-              </el-table-column>
-              <el-table-column label="单据状态" width="120">
-                <template #default="{ row: material }">
-                  {{ formatPickListDocumentStatuses(material.sourcePickListDocumentStatuses) }}
-                </template>
-              </el-table-column>
-              <el-table-column label="单据日期" width="150">
-                <template #default="{ row: material }">
-                  {{ formatPickListBillDates(material.sourcePickListBillDates) }}
-                </template>
-              </el-table-column>
-              <el-table-column label="生产订单编号" width="190">
-                <template #default="{ row: material }">
-                  {{ formatPickListProductionOrderNos(material.sourcePickListProductionOrderNos) }}
-                </template>
-              </el-table-column>
+                </div>
+                <div>
+                  <span>单据状态：</span>
+                  <strong>{{ document.documentStatus || '-' }}</strong>
+                </div>
+                <div>
+                  <span>单据日期：</span>
+                  <strong>{{ formatDate(document.billDate) }}</strong>
+                </div>
+                <div>
+                  <span>生产订单编号：</span>
+                  <strong>{{ document.productionOrderNos.join('、') || '-' }}</strong>
+                </div>
+              </div>
+            <el-table
+              :data="document.rows"
+              size="small"
+              border
+              :fit="true"
+              table-layout="fixed"
+              class="team-leader-workbench__active-order-submission-table"
+            >
               <el-table-column label="物料编码" prop="materialCode" width="140" />
               <el-table-column label="物料名称" prop="materialName" />
               <el-table-column label="规格型号" width="150">
@@ -1163,6 +1178,7 @@
                 </template>
               </el-table-column>
             </el-table>
+            </section>
           </div>
           <el-empty v-else :image-size="56" description="暂无领料单物料批号" />
         </el-tab-pane>
@@ -2243,6 +2259,7 @@ const formatActiveOrderOperationResultStatus = (resultStatus?: string) => {
 const hasNonconformanceEvidence = (fact: TeamLeaderActiveOrderOperationFactRespVO) => {
   return Boolean(
     fact.nonconformanceReason ||
+      fact.reviewMaterialsJson ||
       fact.reviewMaterialUrl ||
       fact.reviewMaterialFileId ||
       fact.reviewOpinion ||
@@ -2314,36 +2331,6 @@ const openActiveOrderDocument = (link: ActiveOrderDocumentLink) => {
       sourceBillNo: link.no
     }
   })
-}
-
-const formatPickListDocumentStatuses = (statuses?: string[]) => {
-  const values = (statuses ?? []).map((status) => String(status).trim()).filter(Boolean)
-  return values.length ? values.join('、') : '-'
-}
-
-const formatPickListBillDates = (dates?: string[]) => {
-  const values = (dates ?? []).map((date) => formatDate(date)).filter(Boolean)
-  return values.length ? values.join('、') : '-'
-}
-
-const formatPickListProductionOrderNos = (orderNos?: string[]) => {
-  const values = (orderNos ?? []).map((orderNo) => String(orderNo).trim()).filter(Boolean)
-  return values.length ? values.join('、') : '-'
-}
-
-const pickListTableSpanMethod = ({
-  rowIndex,
-  columnIndex
-}: {
-  rowIndex: number
-  columnIndex: number
-}) => {
-  if (columnIndex >= 0 && columnIndex < 4) {
-    return rowIndex === 0
-      ? { rowspan: pickListMaterials.value.length, colspan: 1 }
-      : { rowspan: 0, colspan: 0 }
-  }
-  return { rowspan: 1, colspan: 1 }
 }
 
 const openWorkOrderList = (workOrderCode: string) => {
@@ -3447,6 +3434,16 @@ type ActiveOrderDetailPickListMaterialRow = TeamLeaderActiveOrderInputMaterialDe
   sourceProcessNames: string[]
 }
 
+interface ActiveOrderPickListDocument {
+  key: string
+  id: number
+  billNo: string
+  documentStatus: string
+  billDate: string
+  productionOrderNos: string[]
+  rows: ActiveOrderDetailPickListMaterialRow[]
+}
+
 interface ActiveOrderSummaryPair<T> {
   key: string
   left?: T
@@ -3533,6 +3530,32 @@ const pickListMaterials = computed<ActiveOrderDetailPickListMaterialRow[]>(() =>
     }
   }
   return Array.from(rowsByKey.values())
+})
+
+const pickListDocuments = computed<ActiveOrderPickListDocument[]>(() => {
+  const grouped = new Map<number, ActiveOrderPickListDocument>()
+  for (const material of pickListMaterials.value) {
+    for (const sourceDocument of material.sourcePickListDocuments ?? []) {
+      if (!grouped.has(sourceDocument.id)) {
+        grouped.set(sourceDocument.id, {
+          key: String(sourceDocument.id),
+          id: sourceDocument.id,
+          billNo: sourceDocument.billNo,
+          documentStatus: sourceDocument.documentStatus,
+          billDate: sourceDocument.billDate,
+          productionOrderNos: sourceDocument.productionOrderNos,
+          rows: []
+        })
+      }
+      grouped.get(sourceDocument.id)?.rows.push({
+        ...material,
+        sourcePickListIds: [sourceDocument.id],
+        sourcePickListNos: [sourceDocument.billNo],
+        sourcePickListDocuments: [sourceDocument]
+      })
+    }
+  }
+  return Array.from(grouped.values())
 })
 
 const formatSummaryMaterialBatchCodes = (
@@ -3923,15 +3946,64 @@ const previewDossierFile = (file: ActiveOrderDossierFileItemVO) => {
   dossierPreviewDialogVisible.value = true
 }
 
-const previewNonconformanceReviewMaterial = (fact: TeamLeaderActiveOrderOperationFactRespVO) => {
-  if (!fact.reviewMaterialFileId) {
+type NonconformanceReviewMaterialDisplay = {
+  fileId?: number
+  fileName: string
+}
+
+const decodeNonconformanceMaterialName = (value: string, fromUrl: boolean) => {
+  let current = value
+  while (true) {
+    const normalized = fromUrl ? current.replace(/\+/g, ' ') : current
+    const decoded = normalized.replace(/(?:%[0-9a-f]{2})+/gi, (encoded) =>
+      decodeURIComponent(encoded)
+    )
+    if (decoded === current) return decoded
+    current = decoded
+  }
+}
+
+const resolveNonconformanceReviewMaterials = (
+  fact: TeamLeaderActiveOrderOperationFactRespVO
+): NonconformanceReviewMaterialDisplay[] => {
+  let materials: { fileId?: number; fileName?: string; url?: string }[]
+  if (fact.reviewMaterialsJson) {
+    const payload = JSON.parse(fact.reviewMaterialsJson)
+    if (!Array.isArray(payload?.activeMaterials)) {
+      throw new Error('评审材料清单格式无效，无法显示。')
+    }
+    materials = payload.activeMaterials
+  } else if (fact.reviewMaterialUrl) {
+    materials = [{ fileId: fact.reviewMaterialFileId, url: fact.reviewMaterialUrl }]
+  } else if (fact.reviewMaterialFileId) {
+    throw new Error('评审材料缺少名称和路径，无法显示。')
+  } else {
+    return []
+  }
+  return materials.map((material) => {
+    const persistedName = material.fileName?.trim()
+    let fileName: string
+    if (persistedName) {
+      fileName = decodeNonconformanceMaterialName(persistedName, false)
+    } else {
+      if (!material.url) throw new Error('评审材料缺少名称和路径，无法显示。')
+      const pathname = new URL(material.url, window.location.origin).pathname
+      fileName = decodeNonconformanceMaterialName(pathname.slice(pathname.lastIndexOf('/') + 1), true)
+      if (!fileName) throw new Error('评审材料名称为空，无法显示。')
+    }
+    return { fileId: material.fileId, fileName }
+  })
+}
+
+const previewNonconformanceReviewMaterial = (material: NonconformanceReviewMaterialDisplay) => {
+  if (!material.fileId) {
     ElMessage.error('评审材料缺少文件编号，无法在线查看。')
     return
   }
   selectedDossierPreviewSource.value = buildMesEdhrNonconformanceReviewMaterialPreviewSource(
-    fact.reviewMaterialFileId
+    material.fileId
   )
-  selectedDossierPreviewTitle.value = '评审材料在线预览'
+  selectedDossierPreviewTitle.value = material.fileName
   dossierPreviewDialogVisible.value = true
 }
 
@@ -4451,6 +4523,67 @@ watch(
 .team-leader-workbench__production-material-list-footer {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.team-leader-workbench__pick-list-documents {
+  display: grid;
+  gap: 18px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.team-leader-workbench__pick-list-document {
+  display: grid;
+  gap: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--el-border-color);
+  background: var(--el-bg-color);
+}
+
+.team-leader-workbench__pick-list-document h3 {
+  margin: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--el-border-color);
+  background: var(--el-fill-color-lighter);
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.team-leader-workbench__pick-list-head {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-bottom: 1px solid var(--el-border-color);
+}
+
+.team-leader-workbench__pick-list-head > div {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-right: 1px solid var(--el-border-color);
+  border-bottom: 1px solid var(--el-border-color);
+}
+
+.team-leader-workbench__pick-list-head > div:nth-child(2n) {
+  border-right: 0;
+}
+
+.team-leader-workbench__pick-list-head > div:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.team-leader-workbench__pick-list-head span {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.team-leader-workbench__pick-list-head strong {
+  min-width: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .team-leader-workbench__dossier-file-panel {

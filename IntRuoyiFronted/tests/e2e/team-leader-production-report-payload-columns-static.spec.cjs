@@ -57,7 +57,11 @@ assert.doesNotMatch(
   'production report default columns must hide duplicate detail fields from the main row'
 )
 assert.match(pqcDefaultColumns, /key:\s*'completionQuantity'[\s\S]*label:\s*'检验数量'/, 'PQC report table must keep inspection quantity')
-assert.match(pqcDefaultColumns, /key:\s*'lossQuantity'[\s\S]*label:\s*'损耗数量'/, 'PQC report table must keep loss quantity')
+assert.doesNotMatch(
+  pqcDefaultColumns,
+  /key:\s*'lossQuantity'|key:\s*'lossBreakdown'/,
+  'PQC regular report default columns must hide the red-box loss columns'
+)
 
 for (const pqcOnlyColumn of [
   'product',

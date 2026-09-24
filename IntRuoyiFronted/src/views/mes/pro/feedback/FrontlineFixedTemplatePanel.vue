@@ -604,31 +604,19 @@
             @click="openPicker('order')"
           >
             <div class="frontline-production-order-summary" :aria-label="productionActiveOrderSummaryLabel">
-              <div class="frontline-production-order-summary__row">
-                <span class="frontline-production-order-summary__label">生产工单</span>
-                <span
-                  class="frontline-production-order-summary__value"
-                  data-frontline-production-order-code
-                  data-frontline-production-active-order-summary
-                >
-                  {{ productionOrderLabel }}
-                </span>
-              </div>
-              <div class="frontline-production-order-summary__row">
-                <span class="frontline-production-order-summary__label">产品</span>
-                <span class="frontline-production-order-summary__value">
-                  {{ productionProductNameLabel }}
-                </span>
-              </div>
-              <div class="frontline-production-order-summary__row">
-                <span class="frontline-production-order-summary__label">生产数量</span>
-                <span
-                  class="frontline-production-order-summary__value is-quantity"
-                  data-frontline-production-order-quantity
-                >
-                  {{ selectedProductionOrderQuantityLabel }} 件
-                </span>
-              </div>
+              <span
+                class="frontline-production-order-summary__value"
+                data-frontline-production-order-code
+                data-frontline-production-active-order-summary
+              >
+                {{ productionOrderLabel }}<br />{{ productionProductNameLabel }}
+              </span>
+              <span
+                class="frontline-production-order-quantity"
+                data-frontline-production-order-quantity
+              >
+                {{ selectedProductionOrderQuantityLabel }} 件
+              </span>
             </div>
           </button>
           <div
@@ -1939,10 +1927,20 @@ const productionProductNameLabel = computed(() => {
 })
 
 const productionActiveOrderSummaryLabel = computed(() => {
-  if (!selectedActiveOrder.value) {
+  const selectedOrder = selectedActiveOrder.value
+  if (!selectedOrder) {
     return '未选择'
   }
-  return `${productionOrderLabel.value}-${productionProductNameLabel.value}`
+  const workOrderCode = selectedOrder.workOrderCode?.trim()
+  if (!workOrderCode) {
+    throw new Error(`一线活跃订单缺少正式订单号：workOrderId=${selectedOrder.workOrderId}`)
+  }
+  const productName = selectedOrder.productName?.trim()
+  if (!productName) {
+    throw new Error(`一线活跃订单缺少正式产品名：workOrderId=${selectedOrder.workOrderId}`)
+  }
+  const quantityText = formatProductionQuantity(selectedOrder.quantity)
+  return `${workOrderCode}-${productName}(${quantityText})`
 })
 
 const formatProductionQuantity = (quantity: number) => {
@@ -6650,29 +6648,15 @@ onUnmounted(() => {
   display: grid;
   width: 100%;
   min-width: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(92px, 0.35fr);
+  align-items: center;
   max-height: calc(var(--frontline-production-order-summary-line-height) * 3 + 4px);
-  gap: 2px;
+  gap: 12px;
   align-content: center;
   overflow: hidden;
   text-overflow: clip;
   white-space: normal;
   overflow-wrap: anywhere;
-}
-
-.frontline-production-order-summary__row {
-  display: grid;
-  grid-template-columns: 108px minmax(0, 1fr);
-  min-width: 0;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.frontline-production-order-summary__label {
-  color: var(--frontline-muted);
-  font-size: 22px;
-  font-weight: 800;
-  line-height: var(--frontline-production-order-summary-line-height);
-  white-space: nowrap;
 }
 
 .frontline-production-order-summary .frontline-production-order-summary__value {
@@ -6689,7 +6673,15 @@ onUnmounted(() => {
   word-break: break-word;
 }
 
-.frontline-production-order-summary .frontline-production-order-summary__value.is-quantity {
+.frontline-production-order-quantity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  color: var(--frontline-ink);
+  font-size: 42px;
+  font-weight: 900;
+  line-height: 1.1;
   white-space: nowrap;
   word-break: normal;
 }

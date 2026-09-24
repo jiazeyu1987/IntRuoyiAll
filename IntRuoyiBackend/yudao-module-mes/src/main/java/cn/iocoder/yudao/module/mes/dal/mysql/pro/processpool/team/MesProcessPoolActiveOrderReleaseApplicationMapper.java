@@ -44,7 +44,7 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
     @Select("""
             SELECT *
             FROM mes_pro_process_pool_active_order_release_application
-            WHERE batch_execution_id = #{batchExecutionId}
+            WHERE current_batch_execution_id = #{batchExecutionId}
               AND deleted = b'0'
             FOR UPDATE
             """)
@@ -249,67 +249,22 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
     }
 
     @Select("""
-            SELECT a.*
-            FROM mes_pro_process_pool_active_order_release_application a
-            LEFT JOIN (
-                SELECT r1.source_id, r1.review_status, r1.disposition
-                FROM mes_pro_edhr_nonconformance_review r1
-                INNER JOIN (
-                    SELECT source_id, MAX(id) AS id
-                    FROM mes_pro_edhr_nonconformance_review
-                    WHERE source_type = 'PQC_RELEASE' AND deleted = b'0'
-                    GROUP BY source_id
-                ) latest ON latest.source_id = r1.source_id AND latest.id = r1.id
-                WHERE r1.source_type = 'PQC_RELEASE' AND r1.deleted = b'0'
-            ) r ON r.source_id = a.id
-            WHERE a.active_order_id = #{activeOrderId}
-              AND a.deleted = b'0'
-              AND (
-                  (a.application_status = 'PQC_RELEASE_REJECTED'
-                   AND a.pqc_decision = 'NONCONFORMANCE_REWORK')
-                  OR (r.review_status = 'closed' AND r.disposition = 'rework')
-              )
-            ORDER BY a.id DESC
-            LIMIT 1
+            SELECT * FROM mes_pro_process_pool_active_order_release_application
+            WHERE active_order_id = #{activeOrderId} AND deleted = b'0'
+              AND application_status = 'PQC_RELEASE_REJECTED' AND pqc_decision = 'NONCONFORMANCE_REWORK'
+            ORDER BY id DESC LIMIT 1
             """)
     MesProcessPoolActiveOrderReleaseApplicationDO selectLatestReworkClosedByActiveOrderIdInternal(
             @Param("activeOrderId") Long activeOrderId);
 
     default List<Long> selectReworkClosedApplicationIds(Collection<Long> applicationIds) {
-        if (applicationIds == null || applicationIds.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return selectReworkClosedApplicationIdsInternal(applicationIds);
+        if (applicationIds == null || applicationIds.isEmpty()) return List.of();
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .in(MesProcessPoolActiveOrderReleaseApplicationDO::getId, applicationIds)
+                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getApplicationStatus, "PQC_RELEASE_REJECTED")
+                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getPqcDecision, "NONCONFORMANCE_REWORK"))
+                .stream().map(MesProcessPoolActiveOrderReleaseApplicationDO::getId).toList();
     }
-
-    @Select({
-            "<script>",
-            "SELECT DISTINCT a.id",
-            "FROM mes_pro_process_pool_active_order_release_application a",
-            "LEFT JOIN (",
-            "    SELECT r1.source_id, r1.review_status, r1.disposition",
-            "    FROM mes_pro_edhr_nonconformance_review r1",
-            "    INNER JOIN (",
-            "        SELECT source_id, MAX(id) AS id",
-            "        FROM mes_pro_edhr_nonconformance_review",
-            "        WHERE source_type = 'PQC_RELEASE' AND deleted = b'0'",
-            "        GROUP BY source_id",
-            "    ) latest ON latest.source_id = r1.source_id AND latest.id = r1.id",
-            "    WHERE r1.source_type = 'PQC_RELEASE' AND r1.deleted = b'0'",
-            ") r ON r.source_id = a.id",
-            "WHERE a.deleted = b'0'",
-            "  AND a.id IN",
-            "  <foreach collection='applicationIds' item='applicationId' open='(' separator=',' close=')'>",
-            "    #{applicationId}",
-            "  </foreach>",
-            "  AND (",
-            "      (a.application_status = 'PQC_RELEASE_REJECTED'",
-            "       AND a.pqc_decision = 'NONCONFORMANCE_REWORK')",
-            "      OR (r.review_status = 'closed' AND r.disposition = 'rework')",
-            "  )",
-            "</script>"
-    })
-    List<Long> selectReworkClosedApplicationIdsInternal(@Param("applicationIds") Collection<Long> applicationIds);
 
     default List<MesProcessPoolActiveOrderReleaseApplicationDO> selectLatestByActiveOrderIds(
             Collection<Long> activeOrderIds) {
@@ -360,9 +315,9 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
         if (batchExecutionIds == null || batchExecutionIds.isEmpty()) {
             return Collections.emptyList();
         }
-        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
-                .in(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId, batchExecutionIds)
-                .orderByDesc(MesProcessPoolActiveOrderReleaseApplicationDO::getId));
+        return selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .in("current_batch_execution_id", batchExecutionIds)
+                .orderByDesc("id"));
     }
 
     default List<MesProcessPoolActiveOrderReleaseApplicationDO> selectListForPqcReleasePage(

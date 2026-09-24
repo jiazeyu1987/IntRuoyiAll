@@ -1,0 +1,160 @@
+{
+  "SchemaVersion": 1,
+  "BaseFrontendPort": 8081,
+  "BaseBackendPort": 48081,
+  "UpdatedAt": "2026-09-23T05:26:13.6036085Z",
+  "Assignments": [
+    {
+      "Name": "int_main",
+      "FrontendPort": 8081,
+      "BackendPort": 48081,
+      "Active": true,
+      "FrontendPath": "E:\\IntRuoyi\\IntRuoyiFronted",
+      "BackendPath": "E:\\IntRuoyi\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/int_main",
+      "BackendBranch": "refs/heads/int_main"
+    },
+    {
+      "Name": "20260918_001",
+      "FrontendPort": 8082,
+      "BackendPort": 48082,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\20260918_001\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\20260918_001\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/20260918_001",
+      "BackendBranch": "refs/heads/codex/20260918_001"
+    },
+    {
+      "Name": "20260918_bohui",
+      "FrontendPort": 8083,
+      "BackendPort": 48083,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\20260918_bohui\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\20260918_bohui\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/20260918_bohui",
+      "BackendBranch": "refs/heads/codex/20260918_bohui"
+    },
+    {
+      "Name": "20260918_gongyiluxian",
+      "FrontendPort": 8084,
+      "BackendPort": 48084,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\20260918_gongyiluxian\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\20260918_gongyiluxian\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/20260918_gongyiluxian",
+      "BackendBranch": "refs/heads/codex/20260918_gongyiluxian"
+    },
+    {
+      "Name": "20260918_huoyue",
+      "FrontendPort": 8085,
+      "BackendPort": 48085,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\20260918_huoyue\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\20260918_huoyue\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/20260918_huoyue",
+      "BackendBranch": "refs/heads/codex/20260918_huoyue"
+    },
+    {
+      "Name": "backup-restore-remediation-20260920",
+      "FrontendPort": 8086,
+      "BackendPort": 48086,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\backup-restore-remediation\\backend\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\backup-restore-remediation\\backend\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/backup-restore-remediation-20260920",
+      "BackendBranch": "refs/heads/codex/backup-restore-remediation-20260920"
+    },
+    {
+      "Name": "one-button-app-release-20260911",
+      "FrontendPort": 8087,
+      "BackendPort": 48087,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\r260911-release-button\\a\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\r260911-release-button\\a\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/one-button-app-release-20260911",
+      "BackendBranch": "refs/heads/codex/one-button-app-release-20260911"
+    },
+    {
+      "Name": "prod-promotion-button-implementation",
+      "FrontendPort": 8088,
+      "BackendPort": 48088,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\r260919-prod-button-impl\\a\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\r260919-prod-button-impl\\a\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/prod-promotion-button-implementation",
+      "BackendBranch": "refs/heads/codex/prod-promotion-button-implementation"
+    },
+    {
+      "Name": "r17-migration-ledger-fix",
+      "FrontendPort": 8095,
+      "BackendPort": 48095,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\r260923-r17-migration-fix\\a\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\r260923-r17-migration-fix\\a\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/r17-migration-ledger-fix",
+      "BackendBranch": "refs/heads/codex/r17-migration-ledger-fix"
+    },
+    {
+      "Name": "r260920-main-integrate-910218",
+      "FrontendPort": 8089,
+      "BackendPort": 48089,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\r260920-main-integrate-910218\\a\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\r260920-main-integrate-910218\\a\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/r260920-main-integrate-910218",
+      "BackendBranch": "refs/heads/codex/r260920-main-integrate-910218"
+    },
+    {
+      "Name": "r260920-main-integrate-promotion",
+      "FrontendPort": 8090,
+      "BackendPort": 48090,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\r260920-main-integrate-promotion\\a\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\r260920-main-integrate-promotion\\a\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/r260920-main-integrate-promotion",
+      "BackendBranch": "refs/heads/codex/r260920-main-integrate-promotion"
+    },
+    {
+      "Name": "r260921-prod-release-application",
+      "FrontendPort": 8091,
+      "BackendPort": 48091,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\r260921-prod-release\\a\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\r260921-prod-release\\a\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/r260921-prod-release-application",
+      "BackendBranch": "refs/heads/codex/r260921-prod-release-application"
+    },
+    {
+      "Name": "r260921-prod-release2-application",
+      "FrontendPort": 8092,
+      "BackendPort": 48092,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\r260921-prod-release2\\a\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\r260921-prod-release2\\a\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/r260921-prod-release2-application",
+      "BackendBranch": "refs/heads/codex/r260921-prod-release2-application"
+    },
+    {
+      "Name": "r82-reg-cert-preflight-fix",
+      "FrontendPort": 8093,
+      "BackendPort": 48093,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\r260917-button-publish9\\a\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\r260917-button-publish9\\a\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/r82-reg-cert-preflight-fix",
+      "BackendBranch": "refs/heads/codex/r82-reg-cert-preflight-fix"
+    },
+    {
+      "Name": "review-server-publish-20260922",
+      "FrontendPort": 8094,
+      "BackendPort": 48094,
+      "Active": true,
+      "FrontendPath": "D:\\IntRuoyiWorktree\\r260922-review-app\\IntRuoyiFronted",
+      "BackendPath": "D:\\IntRuoyiWorktree\\r260922-review-app\\IntRuoyiBackend",
+      "FrontendBranch": "refs/heads/codex/review-server-publish-20260922",
+      "BackendBranch": "refs/heads/codex/review-server-publish-20260922"
+    }
+  ],
+  "WorkspaceRoot": "E:\\IntRuoyi",
+  "RegistryPath": "E:\\IntRuoyi\\worktrees\\.ports\\worktree-ports.json"
+}

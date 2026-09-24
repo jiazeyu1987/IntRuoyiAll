@@ -33,4 +33,16 @@ public class MesProEdhrBatchActiveOrderDetailService {
         }
         return detailService.getArchivedFormalDetail(activeOrderId);
     }
+
+    @Transactional(rollbackFor = Exception.class)
+    public MesTeamLeaderActiveOrderDetail getDetailByActiveOrderId(Long activeOrderId) {
+        if (activeOrderId == null || activeOrderId <= 0) {
+            throw new IllegalStateException("EDHR_BATCH_ACTIVE_ORDER_SOURCE_MISSING");
+        }
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdIgnoreDeleted(activeOrderId);
+        if (activeOrder == null || activeOrder.getLeaderUserId() == null) {
+            throw new IllegalStateException("EDHR_BATCH_ACTIVE_ORDER_SOURCE_INVALID");
+        }
+        return detailService.getArchivedFormalDetail(activeOrderId);
+    }
 }

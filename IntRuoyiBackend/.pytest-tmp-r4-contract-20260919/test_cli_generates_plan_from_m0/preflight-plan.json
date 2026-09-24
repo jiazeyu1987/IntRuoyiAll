@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "targetEnvironment": "test",
+  "publishScope": "with-data",
+  "items": [
+    {
+      "migrationId": "m1",
+      "file": "sql/mysql/m1.sql",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "action": "SKIP_ALREADY_APPLIED",
+      "reason": "migration already applied with matching checksum"
+    }
+  ]
+}

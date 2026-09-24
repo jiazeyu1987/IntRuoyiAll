@@ -17,11 +17,6 @@ assert.match(
 )
 assert.match(
   panel,
-  /<td>\{\{ formatActiveOrderOperationSourceType\(fact\.sourceType\) \}\}<\/td>/,
-  '操作事实表的来源类型列必须通过中文格式化函数展示。'
-)
-assert.match(
-  panel,
   /<td>\{\{ formatActiveOrderOperationResultStatus\(fact\.resultStatus\) \}\}<\/td>/,
   '操作事实表的结果列必须通过中文格式化函数展示。'
 )
@@ -30,26 +25,30 @@ assert.match(
   /CLOSE_ACTIVE_ORDER_BY_RELEASE:\s*'按上市放行关闭活跃订单'/,
   'CLOSE_ACTIVE_ORDER_BY_RELEASE 必须映射为中文操作文案。'
 )
-assert.match(
-  panel,
-  /ACTIVE_ORDER_DOSSIER_FILE:\s*'活跃订单资料文件'/,
-  'ACTIVE_ORDER_DOSSIER_FILE 必须映射为中文来源类型。'
-)
 assert.match(panel, /SUCCESS:\s*'成功'/, 'SUCCESS 必须映射为中文结果。')
 assert.match(
   panel,
-  /return '未知操作'/,
-  '未来新增未知操作枚举必须显示中文默认文案，不直接暴露英文码。'
+  /ACTIVE_ORDER_OPERATION_LABEL_UNMAPPED/,
+  '未映射操作必须显式报错，不得显示未知操作兜底文案。'
 )
-assert.match(
-  panel,
-  /return '未知来源'/,
-  '未来新增未知来源类型必须显示中文默认文案，不直接暴露英文码。'
-)
+assert.doesNotMatch(panel, /return '未知操作'/, '操作事实不得显示“未知操作”。')
 assert.match(
   panel,
   /return '未知结果'/,
   '未来新增未知结果枚举必须显示中文默认文案，不直接暴露英文码。'
+)
+assert.doesNotMatch(panel, /<th>来源类型<\/th>/, '操作事实表不得显示来源类型列。')
+assert.doesNotMatch(panel, /<th>来源编号<\/th>/, '操作事实表不得显示来源编号列。')
+assert.doesNotMatch(
+  panel,
+  /formatActiveOrderOperationSourceType\(fact\.sourceType\)/,
+  '操作事实表不得渲染来源类型。'
+)
+assert.doesNotMatch(panel, /<td>\{\{ fact\.sourceId \}\}<\/td>/, '操作事实表不得渲染来源编号。')
+assert.doesNotMatch(
+  panel,
+  /data-active-order-operation-source-id/,
+  '操作事实表行不得把来源编号继续暴露到 DOM 属性。'
 )
 assert.doesNotMatch(
   panel,

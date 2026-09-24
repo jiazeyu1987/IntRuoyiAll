@@ -50,6 +50,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderVoidedActiveOrderPageReqVO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationAdjustmentAuditMapper;
@@ -302,6 +303,65 @@ class MesTeamLeaderActiveOrderServiceTest {
         lenient().when(abnormalStateService.findLatestOpenByWorkOrderIds(any())).thenReturn(Map.of());
         lenient().when(releaseApplicationMapper.selectLatestByActiveOrderIds(any())).thenReturn(List.of());
         lenient().when(reportAllocationMapper.selectListByActiveOrderIds(any())).thenReturn(List.of());
+    }
+
+    @Test
+    void voidedActiveOrderWithoutProcessSnapshotIsReadBlocked() {
+        MesProcessPoolActiveOrderDO activeOrder = MesProcessPoolActiveOrderDO.builder()
+                .id(45L)
+                .leaderUserId(1L)
+                .workOrderId(980032L)
+                .routeId(980091L)
+                .routeVersionId(633L)
+                .activeStatus("REMOVED")
+                .businessStatus("VERSION_UPGRADED")
+                .build();
+        MesProcessPoolActiveOrderDO readableActiveOrder = MesProcessPoolActiveOrderDO.builder()
+                .id(46L)
+                .leaderUserId(1L)
+                .workOrderId(980032L)
+                .routeId(980091L)
+                .routeVersionId(633L)
+                .activeStatus("REMOVED")
+                .businessStatus("VERSION_UPGRADED")
+                .build();
+        MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder()
+                .id(980032L)
+                .productId(7001L)
+                .code("CODX-PQC-20260807-SP-WO-05")
+                .build();
+        when(activeOrderMapper.selectVoidedVersionUpgradedListByLeader(1L))
+                .thenReturn(List.of(activeOrder, readableActiveOrder));
+        when(workOrderMapper.selectBatchIds(List.of(980032L))).thenReturn(List.of(workOrder));
+        when(itemMapper.selectBatchIds(List.of(7001L))).thenReturn(List.of(MesMdItemDO.builder()
+                .id(7001L).name("按压式球囊扩充压力泵").build()));
+        when(routeMapper.selectBatchIds(List.of(980091L))).thenReturn(List.of());
+        when(routeVersionMapper.selectBatchIds(List.of(633L))).thenReturn(List.of());
+        when(processSnapshotMapper.selectListByActiveOrderIds(List.of(45L, 46L))).thenReturn(List.of(
+                MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .id(4601L)
+                        .activeOrderId(46L)
+                        .workOrderId(980032L)
+                        .routeId(980091L)
+                        .routeVersionId(633L)
+                        .routeProcessId(46001L)
+                        .processId(46002L)
+                        .processNameSnapshot("工序")
+                        .productionQuantityFactorSnapshot(BigDecimal.ONE)
+                        .plannedQuantitySnapshot(BigDecimal.TEN)
+                        .build()));
+
+        MesTeamLeaderVoidedActiveOrderPageReqVO request = new MesTeamLeaderVoidedActiveOrderPageReqVO();
+        request.setPageNo(1);
+        request.setPageSize(10);
+        var result = service.pageVoidedActiveOrders(1L, request);
+
+        assertEquals(2L, result.getTotal());
+        assertEquals(2, result.getList().size());
+        assertTrue(Boolean.TRUE.equals(result.getList().get(0).getReadBlocked()));
+        assertTrue(result.getList().get(0).getReadBlockReason()
+                .contains("活跃订单缺少当前工序生产系数和目标数量快照"));
+        assertFalse(Boolean.TRUE.equals(result.getList().get(1).getReadBlocked()));
     }
 
     @Test
@@ -972,6 +1032,38 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(MesDeviceParameterSnapshotCodec.sha256(snapshots.get(0).getParameterSnapshotJson()),
                 snapshots.get(0).getParameterSnapshotSha256());
         assertEquals("[]", snapshots.get(1).getParameterSnapshotJson());
+    }
+
+    @Test
+    void shouldCapFirstInspectionQuantityAtOrderQuantity() {
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("3")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(1),
+                publishedRegulation(9902L, null, null));
+        stubSuccessfulActiveOrderInsert();
+
+        service.addActiveOrder(activeOrderReq());
+
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
+                ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        List<MesPqcInspectionTaskDO> tasks = taskCaptor.getAllValues();
+        assertEquals(3, pqcTaskByIdentity(tasks, 928601L, "FIRST").getPlannedInspectionQuantity());
+    }
+
+    @Test
+    void shouldKeepConfiguredFirstInspectionQuantityWhenOrderQuantityEqualsIt() {
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("5")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(1),
+                publishedRegulation(9902L, null, null));
+        stubSuccessfulActiveOrderInsert();
+
+        service.addActiveOrder(activeOrderReq());
+
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
+                ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        assertEquals(5, pqcTaskByIdentity(taskCaptor.getAllValues(), 928601L, "FIRST")
+                .getPlannedInspectionQuantity());
     }
 
     @Test

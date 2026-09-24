@@ -67,6 +67,10 @@ def test_active_order_operation_fact_exposes_nonconformance_evidence():
         MES_JAVA
         / "service/pro/processpool/team/MesTeamLeaderActiveOrderDetailServiceImpl.java"
     )
+    controller = read(
+        MES_JAVA
+        / "controller/admin/pro/processpool/team/MesProcessPoolTeamLeaderController.java"
+    )
     review_service = read(
         MES_JAVA
         / "service/pro/batchrecord/MesProEdhrNonconformanceReviewServiceImpl.java"
@@ -76,6 +80,7 @@ def test_active_order_operation_fact_exposes_nonconformance_evidence():
         assert "private String nonconformanceReason;" in source
         assert "private String reviewMaterialUrl;" in source
         assert "private Long reviewMaterialFileId;" in source
+        assert "private String reviewMaterialsJson;" in source
         assert "private String reviewOpinion;" in source
         assert "private String disposition;" in source
         assert "private String qaSignature;" in source
@@ -85,6 +90,7 @@ def test_active_order_operation_fact_exposes_nonconformance_evidence():
         "nonconformanceReason",
         "reviewMaterialUrl",
         "reviewMaterialFileId",
+        "reviewMaterialsJson",
         "reviewOpinion",
         "disposition",
         "qaSignature",
@@ -94,10 +100,43 @@ def test_active_order_operation_fact_exposes_nonconformance_evidence():
         assert f'"{key}"' in review_service
         assert (
             f'metadata.getString("{key}")' in detail_service
-            or (key == "reviewMaterialFileId" and 'metadata.getLong("reviewMaterialFileId")' in detail_service)
+            or (key == "reviewMaterialFileId" and "reviewMaterialFileIdOf(metadata)" in detail_service)
             or (key == "qaUserId" and 'metadata.getLong("qaUserId")' in detail_service)
             or (key == "signatureId" and "signatureIdOf(metadata)" in detail_service)
         )
+        assert f"fact.get{key[0].upper() + key[1:]}()" in controller
+
+
+def test_active_order_operation_fact_derives_review_material_file_id_from_materials_json():
+    detail_service = read(
+        MES_JAVA
+        / "service/pro/processpool/team/MesTeamLeaderActiveOrderDetailServiceImpl.java"
+    )
+    front_type = read(ROOT / "IntRuoyiFronted" / "src" / "api" / "mes" / "pro" / "processpool" / "teamLeader.ts")
+    front_panel = read(
+        ROOT
+        / "IntRuoyiFronted"
+        / "src"
+        / "views"
+        / "mes"
+        / "pro"
+        / "processpool"
+        / "components"
+        / "ActiveOrderSubmissionDetailPanel.vue"
+    )
+
+    assert "private Long reviewMaterialFileIdOf(JSONObject metadata)" in detail_service
+    assert 'metadata.getLong("reviewMaterialFileId")' in detail_service
+    assert 'JSON.parseObject(materialsJson)' in detail_service
+    assert 'payload.getJSONArray("activeMaterials")' in detail_service
+    assert 'firstMaterial.getLong("fileId")' in detail_service
+    assert ".setReviewMaterialFileId(reviewMaterialFileIdOf(metadata))" in detail_service
+    assert ".setReviewMaterialsJson(metadata.getString(\"reviewMaterialsJson\"))" in detail_service
+    assert "reviewMaterialsJson?: string" in front_type
+    assert "resolveNonconformanceReviewMaterialFileId" in front_panel
+    assert "JSON.parse(fact.reviewMaterialsJson)" in front_panel
+    assert "buildMesEdhrNonconformanceReviewMaterialPreviewSource(" in front_panel
+    assert "materialFileId" in front_panel
 
 
 def test_nonconformance_review_material_uses_protected_online_preview_file_id():

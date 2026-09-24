@@ -29,7 +29,7 @@ const governanceXml = fs.readFileSync(governanceXmlPath, 'utf8')
 
 assert.match(panel, /quickFilterField:\s*['"]signatureId['"]/)
 assert.match(panel, /summaryProcessPersonnelRows[\s\S]*signature:/)
-assert.match(panel, /data-active-order-summary-operation-qa-signature[\s\S]*fact\.signatureId/)
+assert.match(panel, /data-active-order-summary-operation-signature[\s\S]*fact\.signatureId/)
 assert.match(panel, /productionOperatorSignatures/)
 assert.match(panel, /inspectorSignatures/)
 assert.match(panel, /approverSignatures/)

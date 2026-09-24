@@ -123,9 +123,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
             if (java.util.Objects.equals(existing.getActiveOrderId(), activeOrder.getId())
                     && java.util.Objects.equals(existing.getRequestIdempotencyKey(), command.getIdempotencyKey())
                     && java.util.Objects.equals(existing.getRequestPayloadHash(), requestPayloadHash)) {
-                String currentSourceSnapshotHash = backfillPort.readSourceSnapshotHash(
-                        leaderUserId, activeOrder, command);
-                if (!java.util.Objects.equals(existing.getSourceSnapshotHash(), currentSourceSnapshotHash)) {
+                if (!backfillPort.matchesReceiptSources(leaderUserId, activeOrder, command, existing)) {
                     throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_IDEMPOTENCY_CONFLICT,
                             activeOrder.getId(), command.getIdempotencyKey());
                 }

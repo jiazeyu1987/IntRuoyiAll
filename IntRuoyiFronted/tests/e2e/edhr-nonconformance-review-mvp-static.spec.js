@@ -22,7 +22,7 @@ assert.match(page, /返工/)
 assert.match(page, /作废/)
 assert.match(page, /评审材料/)
 assert.match(page, /评审意见/)
-assert.match(page, /QA签名/)
+assert.match(page, /电子签名/)
 assert.match(page, /提交不合格评审/)
 assert.match(page, /冻结后禁止报工、PQC提交、PQC放行/)
 

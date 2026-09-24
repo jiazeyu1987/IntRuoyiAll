@@ -328,29 +328,24 @@ class MesProductionReleaseApplySp1Test {
     }
 
     @Test
-    void reviewClosedReworkApplicationStartsNewCycleEvenIfApplicationStatusWasNotSynchronized() {
-        MesProcessPoolActiveOrderReleaseApplicationDO reviewClosed = existingApplication()
-                .setId(6902L)
-                .setPqcReleaseWorkTaskId(7902L)
-                .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
-                .setPqcDecision(null)
-                .setRequestIdempotencyKey("previous-release-request");
-        when(applicationMapper.selectLatestReworkClosedByActiveOrderId(ACTIVE_ORDER_ID))
-                .thenReturn(reviewClosed);
-        when(applicationMapper.selectByRequestIdempotencyKey(ACTIVE_ORDER_ID, "previous-release-request"))
-                .thenReturn(reviewClosed);
-        when(applicationMapper.selectByBusinessIdempotencyKey(
-                ACTIVE_ORDER_ID,
-                DigestUtil.sha256Hex("PQC_RELEASE|1|2001|3001|BATCH-001|4001|4002|REWORK:6902")))
-                .thenReturn(null);
+    void inconsistentReworkProjectionFailsBeforeCreatingAnotherApplication() {
+        var inconsistent = existingApplication().setId(6902L)
+                .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING).setPqcDecision(null);
+        when(applicationMapper.selectLatestReworkClosedByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(inconsistent);
+        assertThrows(IllegalStateException.class,
+                () -> generationService.generate(LEADER_USER_ID, command("new-request")));
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+    }
 
-        MesTeamLeaderActiveOrderReleaseApplicationResult result =
-                generationService.generate(LEADER_USER_ID, command("previous-release-request"));
-
-        assertEquals(APPLICATION_ID, result.getApplicationId());
-        verify(applicationMapper).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
-        verify(workTaskMapper).insert(any(MesProEdhrWorkTaskDO.class));
-        verify(auditRecorder).record(any());
+    @Test
+    void retryOfOldRequestKeepsItsOriginalRoundIdentity() {
+        var old = existingApplication().setId(6902L)
+                .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_REJECTED)
+                .setPqcDecision("NONCONFORMANCE_REWORK").setRequestIdempotencyKey("old-request");
+        when(applicationMapper.selectLatestReworkClosedByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(old);
+        when(applicationMapper.selectByRequestIdempotencyKey(ACTIVE_ORDER_ID, "old-request")).thenReturn(old);
+        assertEquals(6902L, generationService.generate(LEADER_USER_ID, command("old-request")).getApplicationId());
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
     }
 
     @Test

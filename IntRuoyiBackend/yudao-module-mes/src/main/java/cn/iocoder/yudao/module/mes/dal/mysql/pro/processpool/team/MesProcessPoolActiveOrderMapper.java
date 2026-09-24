@@ -35,6 +35,15 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .orderByAsc(MesProcessPoolActiveOrderDO::getId));
     }
 
+    default List<MesProcessPoolActiveOrderDO> selectVoidedVersionUpgradedListByLeader(Long leaderUserId) {
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getLeaderUserId, leaderUserId)
+                .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "REMOVED")
+                .eq(MesProcessPoolActiveOrderDO::getBusinessStatus, "VERSION_UPGRADED")
+                .orderByDesc(MesProcessPoolActiveOrderDO::getRemovedAt)
+                .orderByDesc(MesProcessPoolActiveOrderDO::getId));
+    }
+
     default List<MesProcessPoolActiveOrderDO> selectActiveListByLeaderForUpdate(Long leaderUserId) {
         return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
                 .eq(MesProcessPoolActiveOrderDO::getLeaderUserId, leaderUserId)
@@ -85,6 +94,14 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
 
     @Select("SELECT * FROM mes_pro_process_pool_active_order WHERE id = #{activeOrderId} LIMIT 1")
     MesProcessPoolActiveOrderDO selectByIdIgnoreDeleted(@Param("activeOrderId") Long activeOrderId);
+
+    @Update("UPDATE mes_pro_process_pool_active_order " +
+            "SET udi_control_document_no = #{udiControlDocumentNo}, " +
+            "updater = CAST(#{actorUserId} AS CHAR), update_time = NOW(), version = version + 1 " +
+            "WHERE id = #{activeOrderId} AND deleted = 0")
+    int updateUdiControlDocumentNo(@Param("activeOrderId") Long activeOrderId,
+                                   @Param("udiControlDocumentNo") String udiControlDocumentNo,
+                                   @Param("actorUserId") Long actorUserId);
 
     default int markCompleted(Long activeOrderId, Integer expectedVersion, Long leaderUserId) {
         if (activeOrderId == null || expectedVersion == null || leaderUserId == null) {

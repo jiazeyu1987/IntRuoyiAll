@@ -8,9 +8,9 @@ const panel = fs.readFileSync(
   'utf8'
 )
 
-const productionTabStart = panel.indexOf('<el-tab-pane label="生产提交" name="productionSubmissions">')
+const productionTabStart = panel.search(/<el-tab-pane\b[^>]*label="生产表单"[^>]*name="productionSubmissions"[^>]*>/)
 assert.ok(productionTabStart > 0, '必须存在生产提交主页签。')
-const pqcTabStart = panel.indexOf('<el-tab-pane label="PQC提交" name="pqcSubmissions">')
+const pqcTabStart = panel.search(/<el-tab-pane\b[^>]*label="过程检表单"[^>]*name="pqcSubmissions"[^>]*>/)
 assert.ok(pqcTabStart > productionTabStart, '必须存在 PQC提交主页签。')
 const materialTabStart = panel.indexOf('data-team-leader-active-order-detail-material-tab', pqcTabStart)
 assert.ok(materialTabStart > pqcTabStart, '必须能定位 PQC提交页签边界。')
@@ -50,7 +50,7 @@ assert.doesNotMatch(
 )
 assert.match(
   productionTab,
-  /buildProductionRecordMaterialDeviceGroups\(buildProductionRecordRows\(process\)\)/,
+  /buildProductionRecordRowDeviceGroups\(row\)/,
   '生产记录表单内嵌内容必须展示当前工序的物料使用设备/设备参数。'
 )
 

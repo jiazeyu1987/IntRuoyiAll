@@ -1,9 +1,7 @@
 <template>
   <ContentWrap>
-    <div class="edhr-batch-active-order-detail" data-edhr-batch-active-order-detail-page>
-      <div class="edhr-batch-active-order-detail__toolbar">
-        <el-button data-edhr-batch-source-detail-back @click="goBack">返回</el-button>
-      </div>
+    <ActiveOrderDetailLayout data-edhr-batch-active-order-detail-page>
+      <el-button data-edhr-batch-source-detail-back @click="goBack">返回</el-button>
       <ActiveOrderSubmissionDetailPanel
         :detail="detail"
         :loading="loading"
@@ -12,7 +10,7 @@
         record-scope="FORMAL_BATCH_SOURCE_DETAIL"
         @retry="loadDetail"
       />
-    </div>
+    </ActiveOrderDetailLayout>
   </ContentWrap>
 </template>
 
@@ -20,6 +18,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ActiveOrderSubmissionDetailPanel from '@/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
+import ActiveOrderDetailLayout from '@/views/mes/pro/processpool/components/ActiveOrderDetailLayout.vue'
 import { getEdhrBatchActiveOrderDetail, type EdhrRouteId } from '@/api/mes/pro/edhr/batchExecution'
 import type { TeamLeaderActiveOrderDetailRespVO } from '@/api/mes/pro/processpool/teamLeader'
 
@@ -44,6 +43,23 @@ const parseBatchExecutionId = (): EdhrRouteId => {
     throw new Error('缺少有效批次执行编号，无法查看详情批记录。')
   }
   return value
+}
+
+const parseActiveOrderId = (): EdhrRouteId | undefined => {
+  const value = typeof route.query.activeOrderId === 'string' ? route.query.activeOrderId.trim() : ''
+  if (!value) return undefined
+  if (!/^\d+$/.test(value) || Number(value) <= 0) {
+    throw new Error('缺少有效活跃订单编号，无法查看详情批记录。')
+  }
+  return value
+}
+
+const resolveDetailQuery = () => {
+  const activeOrderId = parseActiveOrderId()
+  if (activeOrderId) {
+    return { activeOrderId }
+  }
+  return { batchExecutionId: parseBatchExecutionId() }
 }
 
 const resolveReturnPath = () => {
@@ -73,7 +89,7 @@ const loadDetail = async () => {
   error.value = ''
   detail.value = undefined
   try {
-    const result = await getEdhrBatchActiveOrderDetail(parseBatchExecutionId())
+    const result = await getEdhrBatchActiveOrderDetail(resolveDetailQuery())
     if (!result.processes?.length) {
       throw new Error('活跃订单缺少正式工序目标，无法展示详情批记录。')
     }
@@ -90,7 +106,7 @@ const goBack = async () => {
 }
 
 watch(
-  () => [route.query.batchExecutionId, route.query.from],
+  () => [route.query.batchExecutionId, route.query.activeOrderId, route.query.from],
   () => {
     void loadDetail()
   }
@@ -98,12 +114,3 @@ watch(
 
 onMounted(loadDetail)
 </script>
-
-<style scoped>
-.edhr-batch-active-order-detail {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-
-</style>

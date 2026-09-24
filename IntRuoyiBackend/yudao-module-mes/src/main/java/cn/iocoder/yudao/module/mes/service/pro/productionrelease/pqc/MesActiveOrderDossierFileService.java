@@ -13,6 +13,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDossierFileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
@@ -51,6 +53,7 @@ public class MesActiveOrderDossierFileService {
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProcessPoolActiveOrderDossierFileMapper dossierFileMapper;
+    private final MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
     private final AdminUserApi adminUserApi;
     private final FileService fileService;
     private final MesProEdhrOperationAuditService operationAuditService;
@@ -117,6 +120,7 @@ public class MesActiveOrderDossierFileService {
             throw ServiceExceptionUtil.invalidParamException("上传文件缺少文件类型，不能写入资料文件。");
         }
         ResolvedContext context = resolveContext(actorUserId, command.activeOrderId(), command.applicationId());
+        assertMutable(context.activeOrder());
         String operatorName = resolveOperatorName(actorUserId);
         String directory = FILE_DIRECTORY_PREFIX + context.activeOrder().getId() + "/" + category.key();
         Long fileId = fileService.createFileAndReturnId(command.content(), fileName, directory, contentType);
@@ -168,6 +172,7 @@ public class MesActiveOrderDossierFileService {
             throw ServiceExceptionUtil.invalidParamException("缺少资料文件编号，不能删除。");
         }
         ResolvedContext context = resolveContext(actorUserId, command.activeOrderId(), command.applicationId());
+        assertMutable(context.activeOrder());
         MesProcessPoolActiveOrderDossierFileDO row = dossierFileMapper.selectById(command.attachmentId());
         if (row == null) {
             throw dossierFileBlocked("要删除的资料文件不存在：" + command.attachmentId());
@@ -220,6 +225,29 @@ public class MesActiveOrderDossierFileService {
             throw dossierFileBlocked("当前用户不是该活跃订单生产组长，不能读取资料文件。");
         }
         return new ResolvedContext(activeOrder, application);
+    }
+
+    private void assertMutable(MesProcessPoolActiveOrderDO activeOrder) {
+        if ("RELEASED".equals(activeOrder.getBusinessStatus())) {
+            throw dossierFileBlocked("活跃订单已上市放行，资料文件仅可查看，不能上传或删除。");
+        }
+        MesProcessPoolActiveOrderReleaseApplicationDO latestApplication =
+                applicationMapper.selectLatestByActiveOrderId(activeOrder.getId());
+        if (latestApplication == null) {
+            return;
+        }
+        String applicationStatus = latestApplication.getApplicationStatus();
+        if (MesReleaseFlowStatus.RELEASED.equals(applicationStatus)) {
+            throw dossierFileBlocked("活跃订单已上市放行，资料文件仅可查看，不能上传或删除。");
+        }
+        if (!MesReleaseFlowStatus.PQC_RELEASE_REJECTED.equals(applicationStatus)) {
+            return;
+        }
+        var review = nonconformanceReviewMapper.selectLatestBySource("PQC_RELEASE", latestApplication.getId());
+        if (review != null && "closed".equals(review.getReviewStatus())
+                && "void".equals(review.getDisposition())) {
+            throw dossierFileBlocked("活跃订单已作废，资料文件仅可查看，不能上传或删除。");
+        }
     }
 
     private static void validateDossierRow(MesProcessPoolActiveOrderDossierFileDO row) {

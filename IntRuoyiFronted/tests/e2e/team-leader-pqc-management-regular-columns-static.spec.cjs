@@ -31,8 +31,6 @@ const expectedBusinessPairs = [
   ['process', '工序'],
   ['workOrder', '生产工单'],
   ['completionQuantity', '检验数量'],
-  ['lossQuantity', '损耗数量'],
-  ['lossBreakdown', '损耗明细'],
   ['product', '产品'],
   ['inspectionTask', '检验类型/轮次']
 ]
@@ -64,6 +62,14 @@ for (const key of detailOnlyKeys) {
     pqcDefaultColumns,
     new RegExp(`key:\\s*'${key}'`),
     `${key} must be removed from the PQC管理 regular default columns.`
+  )
+}
+
+for (const key of ['lossQuantity', 'lossBreakdown']) {
+  assert.doesNotMatch(
+    pqcDefaultColumns,
+    new RegExp(`key:\\s*'${key}'`),
+    `${key} must be hidden from the PQC管理 regular default columns.`
   )
 }
 

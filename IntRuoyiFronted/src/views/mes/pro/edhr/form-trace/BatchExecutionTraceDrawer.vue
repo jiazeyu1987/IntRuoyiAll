@@ -589,7 +589,7 @@ const loadTraceActiveOrderDetail = async (batch: EdhrBatchExecutionRespVO | unde
   }
   activeOrderDetailLoading.value = true
   try {
-    const detail = await getEdhrBatchActiveOrderDetail(batch.id)
+    const detail = await getEdhrBatchActiveOrderDetail({ batchExecutionId: batch.id })
     if (requestSerial !== activeOrderDetailRequestSerial) return
     if (!detail.processes?.length) {
       throw new Error('活跃订单缺少正式工序目标，无法展示详情批记录。')

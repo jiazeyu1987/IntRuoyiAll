@@ -1120,7 +1120,7 @@ async function readInputMaterialBackfillEvidence(page, manifestOrder) {
     url.pathname.includes('/mes/pro/process-pool/active-order/') &&
     url.pathname.includes('/submission-detail'), { timeout: 60000 })
   await page.locator('[data-team-leader-active-order-detail-page]').waitFor({ state: 'visible', timeout: 60000 })
-  await page.getByRole('tab', { name: '生产提交', exact: true }).click()
+  await page.getByRole('tab', { name: '生产表单', exact: true }).click()
   await page.locator('[data-active-order-production-record-input-materials]').first()
     .waitFor({ state: 'visible', timeout: 60000 })
 

@@ -1,8 +1,7 @@
 <template>
   <ContentWrap>
-    <section v-if="activeOrderDetailVisible" data-edhr-ncr-active-order-detail>
+    <ActiveOrderDetailLayout v-if="activeOrderDetailVisible" data-edhr-ncr-active-order-detail>
       <el-button
-        :icon="ArrowLeft"
         data-edhr-ncr-active-order-detail-back
         @click="activeOrderDetailVisible = false"
       >
@@ -15,7 +14,7 @@
         :error="activeOrderDetailError"
         @retry="retryActiveOrderDetail"
       />
-    </section>
+    </ActiveOrderDetailLayout>
     <div v-show="!activeOrderDetailVisible" class="edhr-ncr" data-edhr-ncr-page>
       <EdhrBatchRecordTabs active-tab="nonconformanceReview" />
       <div class="edhr-ncr__header">
@@ -44,6 +43,16 @@
               type="textarea"
               :rows="3"
               placeholder="请输入不合格原因"
+            />
+          </el-form-item>
+          <el-form-item label="电子签名密码" required>
+            <el-input
+              v-model="entryForm.signaturePassword"
+              data-edhr-ncr-create-signature-password
+              type="password"
+              show-password
+              autocomplete="new-password"
+              placeholder="请输入本人电子签名密码"
             />
           </el-form-item>
           <el-form-item>
@@ -206,7 +215,7 @@
                   <span>{{ selectedReview.reviewOpinion || '--' }}</span>
                 </div>
                 <div>
-                  <span class="edhr-ncr__label">QA签名</span>
+                  <span class="edhr-ncr__label">电子签名</span>
                   <span data-edhr-ncr-qa-signature>{{ selectedReview.qaSignature || '--' }}</span>
                 </div>
                 <div>
@@ -224,9 +233,9 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft } from '@element-plus/icons-vue'
 import { UploadFile } from '@/components/UploadFile'
 import ActiveOrderSubmissionDetailPanel from '@/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
+import ActiveOrderDetailLayout from '@/views/mes/pro/processpool/components/ActiveOrderDetailLayout.vue'
 import EdhrBatchRecordTabs from '../edhr-batch/EdhrBatchRecordTabs.vue'
 import {
   DISPOSITION_CONCESSION_RELEASE,
@@ -291,7 +300,8 @@ const canCreateEntry = computed(
 
 const entryForm = reactive({
   sourceType: SOURCE_TYPE_PQC_SUBMISSION as EdhrNonconformanceReviewSourceType,
-  nonconformanceReason: ''
+  nonconformanceReason: '',
+  signaturePassword: ''
 })
 
 const disposeForm = reactive({
@@ -302,6 +312,11 @@ const disposeForm = reactive({
 })
 let materialTrackingEnabled = true
 let materialEventSequence = 0
+
+type ReviewMaterialDisplay = {
+  url: string
+  fileName?: string
+}
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
   const responseMessage =
@@ -333,30 +348,60 @@ const resolveDispositionNote = (disposition?: string) => {
   return ''
 }
 
-const resolveFileName = (url: string) => {
-  const fileName = url.substring(url.lastIndexOf('/') + 1)
-  return decodeURIComponent(fileName)
+const decodeFileName = (value: string) => {
+  let current = value.replace(/\+/g, ' ')
+  let decoded = decodeURIComponent(current)
+  while (decoded !== current) {
+    current = decoded.replace(/\+/g, ' ')
+    decoded = decodeURIComponent(current)
+  }
+  return decoded
 }
 
-const parseReviewMaterialsJson = (review?: EdhrNonconformanceReviewRespVO): string[] => {
+const resolveFileName = (url: string) => {
+  const pathname = new URL(url, window.location.origin).pathname
+  const fileName = pathname.substring(pathname.lastIndexOf('/') + 1)
+  return decodeFileName(fileName)
+}
+
+const parseReviewMaterialsJson = (review?: EdhrNonconformanceReviewRespVO): ReviewMaterialDisplay[] => {
   if (!review?.reviewMaterialsJson) {
-    return review?.reviewMaterialUrl ? review.reviewMaterialUrl.split(',').filter(Boolean) : []
+    return review?.reviewMaterialUrl
+      ? review.reviewMaterialUrl.split(',').filter(Boolean).map((url) => ({ url }))
+      : []
   }
   try {
     const payload = JSON.parse(review.reviewMaterialsJson)
     const activeMaterials = Array.isArray(payload?.activeMaterials) ? payload.activeMaterials : []
     return activeMaterials
-      .map((material) => material?.url)
-      .filter((url): url is string => typeof url === 'string' && url.trim().length > 0)
+      .map((material) => ({
+        url: material?.url,
+        fileName: typeof material?.fileName === 'string' ? material.fileName.trim() : undefined
+      }))
+      .filter(
+        (material): material is ReviewMaterialDisplay =>
+          typeof material.url === 'string' && material.url.trim().length > 0
+      )
   } catch (error) {
     throw new Error('评审材料清单格式无效，无法继续显示。')
   }
 }
 
+const parseReviewMaterialUrls = (review?: EdhrNonconformanceReviewRespVO) =>
+  parseReviewMaterialsJson(review).map((material) => material.url)
+
+const resolveReviewMaterialName = (material: ReviewMaterialDisplay) => {
+  const persistedName = material.fileName?.trim()
+  if (persistedName) {
+    return persistedName.includes('%') ? decodeFileName(persistedName) : persistedName
+  }
+  return resolveFileName(material.url)
+}
+
 const resolveReviewMaterialDisplay = (review?: EdhrNonconformanceReviewRespVO) => {
-  const urls = parseReviewMaterialsJson(review)
-  if (!urls.length) return '--'
-  return urls.map(resolveFileName).join('、')
+  const materials = parseReviewMaterialsJson(review)
+  if (!materials.length) return '--'
+  return materials.map(resolveReviewMaterialName).join('、')
 }
 
 const buildReviewMaterials = (): EdhrNonconformanceReviewMaterial[] =>
@@ -464,7 +509,7 @@ const retryActiveOrderDetail = () => {
 
 const fillDisposeForm = (review: EdhrNonconformanceReviewRespVO) => {
   materialTrackingEnabled = false
-  disposeForm.reviewMaterialUrls = parseReviewMaterialsJson(review)
+  disposeForm.reviewMaterialUrls = parseReviewMaterialUrls(review)
   disposeForm.reviewMaterialEvents = []
   materialEventSequence = 0
   nextTick(() => {
@@ -488,6 +533,11 @@ const submitCreateReview = async () => {
     message.error('不合格原因不能为空。')
     return
   }
+  const signaturePassword = entryForm.signaturePassword.trim()
+  if (!signaturePassword) {
+    message.error('电子签名密码不能为空。')
+    return
+  }
   createLoading.value = true
   errorText.value = ''
   try {
@@ -495,11 +545,13 @@ const submitCreateReview = async () => {
       sourceType: entryForm.sourceType,
       sourceId: entrySourceId.value,
       batchExecutionId: batchExecutionId || undefined,
-      nonconformanceReason: reason
+      nonconformanceReason: reason,
+      signaturePassword
     })
     selectedReview.value = review
     resetDisposeForm()
     entryForm.nonconformanceReason = ''
+    entryForm.signaturePassword = ''
     message.success(
       batchExecutionId ? '不合格评审已创建，批次已冻结' : '不合格评审已创建，工单已冻结'
     )

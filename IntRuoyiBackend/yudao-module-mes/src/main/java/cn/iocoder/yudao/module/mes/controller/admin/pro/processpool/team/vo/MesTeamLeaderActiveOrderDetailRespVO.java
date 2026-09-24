@@ -26,6 +26,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
     private String productCode;
     private String productName;
     private String productSpecification;
+    private String udiControlDocumentNo;
     private LocalDateTime workOrderCreateTime;
     private String routeName;
     private List<InputMaterialDetail> inputMaterialUsages;
@@ -67,7 +68,18 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private List<Long> sourcePickListIds;
         private List<String> sourcePickListNos;
         private List<Long> sourcePickListItemIds;
+        private List<SourcePickListDocument> sourcePickListDocuments;
         private String sourceSnapshotHash;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SourcePickListDocument {
+        private Long id;
+        private String billNo;
+        private String documentStatus;
+        private LocalDateTime billDate;
+        private List<String> productionOrderNos;
     }
 
     @Data
@@ -223,6 +235,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private String nonconformanceReason;
         private String reviewMaterialUrl;
         private Long reviewMaterialFileId;
+        private String reviewMaterialsJson;
         private String reviewOpinion;
         private String disposition;
         private String qaSignature;

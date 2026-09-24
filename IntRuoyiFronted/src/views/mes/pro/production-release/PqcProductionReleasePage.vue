@@ -1,7 +1,7 @@
 <template>
   <ContentWrap>
-    <section v-if="detailVisible" data-pqc-production-release-order-detail>
-      <el-button :icon="ArrowLeft" data-pqc-production-release-detail-back @click="detailVisible = false">
+    <ActiveOrderDetailLayout v-if="detailVisible" data-pqc-production-release-order-detail>
+      <el-button data-pqc-production-release-detail-back @click="detailVisible = false">
         返回
       </el-button>
       <ActiveOrderSubmissionDetailPanel
@@ -12,7 +12,7 @@
         :pqc-release-application-id="detailRow?.applicationId"
         @retry="retryOrderDetail"
       />
-    </section>
+    </ActiveOrderDetailLayout>
     <div v-show="!detailVisible" class="pqc-release-page" data-pqc-production-release-page>
       <div class="pqc-release-page__header">
         <div>
@@ -188,6 +188,16 @@
         </el-result>
 
         <el-form v-else label-width="118px" class="pqc-release-dialog__form">
+          <el-form-item label="线下 UDI 文件编号" required>
+            <el-input
+              v-model="releaseForm.udiControlDocumentNo"
+              data-pqc-production-release-udi-document-no
+              maxlength="128"
+              show-word-limit
+              placeholder="请输入线下 UDI 文件编号"
+              @keyup.enter="submitRelease"
+            />
+          </el-form-item>
           <el-form-item label="电子签名密码" required>
             <el-input
               v-model="releaseForm.signaturePassword"
@@ -231,8 +241,9 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, Refresh, RefreshLeft, Search } from '@element-plus/icons-vue'
+import { Refresh, RefreshLeft, Search } from '@element-plus/icons-vue'
 import ActiveOrderSubmissionDetailPanel from '../processpool/components/ActiveOrderSubmissionDetailPanel.vue'
+import ActiveOrderDetailLayout from '../processpool/components/ActiveOrderDetailLayout.vue'
 import {
   PQC_RELEASE_VIEW_CONCESSION_RELEASED,
   PQC_RELEASE_VIEW_PENDING,
@@ -253,6 +264,7 @@ import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 defineOptions({ name: 'MesPqcProductionRelease' })
 
 const router = useRouter()
+const route = useRoute()
 const message = useMessage()
 const loading = ref(false)
 const loadError = ref('')
@@ -277,11 +289,12 @@ let listRequestSequence = 0
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
-  workOrderCode: '',
+  workOrderCode: typeof route.query.workOrderCode === 'string' ? route.query.workOrderCode : '',
   batchCode: ''
 })
 
 const releaseForm = reactive({
+  udiControlDocumentNo: '',
   signaturePassword: '',
   approvalOpinion: ''
 })
@@ -320,6 +333,15 @@ const getList = async () => {
     if (requestId === listRequestSequence) loading.value = false
   }
 }
+
+watch(
+  () => route.query.workOrderCode,
+  (value) => {
+    queryParams.workOrderCode = typeof value === 'string' ? value : ''
+    queryParams.pageNo = 1
+    getList()
+  }
+)
 
 const handleTabChange = () => {
   queryParams.pageNo = 1
@@ -373,12 +395,14 @@ const openReleaseDialog = (row: MesPqcProductionReleasePageItemRespVO) => {
   releaseError.value = ''
   releaseResult.value = undefined
   releaseOutcomeUncertain.value = false
+  releaseForm.udiControlDocumentNo = ''
   releaseForm.signaturePassword = ''
   releaseForm.approvalOpinion = ''
   releaseDialogVisible.value = true
 }
 
 const resetReleaseDialog = () => {
+  releaseForm.udiControlDocumentNo = ''
   releaseForm.signaturePassword = ''
   releaseForm.approvalOpinion = ''
   releaseError.value = ''
@@ -418,6 +442,7 @@ const applyReleaseSuccess = async (
 ) => {
   assertReleasedReceipt(result)
   releaseIdempotencyKeys.delete(row.applicationId)
+  releaseForm.udiControlDocumentNo = ''
   releaseForm.signaturePassword = ''
   releaseOutcomeUncertain.value = false
   releaseResult.value = result
@@ -480,6 +505,11 @@ const recoverUncertainRelease = async (
 const submitRelease = async () => {
   const row = selectedRow.value
   if (!row) return
+  const udiControlDocumentNo = releaseForm.udiControlDocumentNo.trim()
+  if (!udiControlDocumentNo) {
+    releaseError.value = '线下 UDI 文件编号不能为空。'
+    return
+  }
   const signaturePassword = releaseForm.signaturePassword.trim()
   if (!signaturePassword) {
     releaseError.value = '电子签名密码不能为空。'
@@ -496,6 +526,7 @@ const submitRelease = async () => {
       expectedVersion: row.version,
       idempotencyKey,
       signaturePassword,
+      udiControlDocumentNo,
       approvalOpinion: releaseForm.approvalOpinion.trim() || undefined
     })
     await applyReleaseSuccess(row, result, false)

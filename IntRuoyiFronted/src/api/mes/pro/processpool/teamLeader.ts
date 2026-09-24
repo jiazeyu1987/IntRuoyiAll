@@ -257,7 +257,7 @@ export interface TeamLeaderActiveOrderSimulationCopyReqVO {
 }
 
 export interface TeamLeaderActiveOrderSimulationCopyRespVO {
-  activeOrderId: number
+  activeOrderId: number | string
   workOrderId: number
   workOrderCode: string
   workOrderName: string
@@ -303,7 +303,7 @@ export interface TeamLeaderDataCleanupResultRespVO {
 
 export interface Stage2_5BackfillBatchExecutionSimulationReqVO {
   simulationRunId: string
-  activeOrderId: number
+  activeOrderId: number | string
   expectedVersion: number
 }
 
@@ -373,6 +373,12 @@ export interface Stage1ActiveOrderCompleteSimulationRespVO {
 
 export interface TeamLeaderActiveOrderListRequestOptions {
   ignoreErrorMessage?: boolean
+}
+
+export interface TeamLeaderVoidedActiveOrderPageReqVO extends PageParam {
+  workOrderCode?: string
+  productName?: string
+  batchCode?: string
 }
 
 export interface TeamProductionPersonnelListReqVO {
@@ -584,7 +590,16 @@ export interface TeamLeaderActiveOrderInputMaterialDetailRespVO {
   sourcePickListIds: number[]
   sourcePickListNos: string[]
   sourcePickListItemIds: number[]
+  sourcePickListDocuments: TeamLeaderActiveOrderPickListDocumentRespVO[]
   sourceSnapshotHash?: string
+}
+
+export interface TeamLeaderActiveOrderPickListDocumentRespVO {
+  id: number
+  billNo: string
+  documentStatus: string
+  billDate: string
+  productionOrderNos: string[]
 }
 
 export interface TeamLeaderActiveOrderSupplementMaterialDetailRespVO {
@@ -675,6 +690,7 @@ export interface TeamLeaderActiveOrderDetailRespVO {
   drawingNumber?: string
   productCode?: string
   productName?: string
+  udiControlDocumentNo?: string
   workOrderCreateTime?: string | number
   routeName: string
   inputMaterialUsages?: TeamLeaderActiveOrderInputMaterialDetailRespVO[]
@@ -696,6 +712,7 @@ export interface TeamLeaderActiveOrderOperationFactRespVO {
   nonconformanceReason?: string
   reviewMaterialUrl?: string
   reviewMaterialFileId?: number
+  reviewMaterialsJson?: string
   reviewOpinion?: string
   disposition?: string
   qaSignature?: string
@@ -749,11 +766,12 @@ export interface TeamLeaderActiveOrderRespVO {
   readBlocked?: boolean
   readBlockReason?: string
 
-  id: number
+  id: number | string
   workOrderId: number
   workOrderCode?: string
   productName?: string
   productCode?: string
+  batchCode?: string
   quantity?: number | string
   routeId: number
   routeName: string
@@ -1056,7 +1074,16 @@ export const getTeamLeaderActiveOrderList = async (
   })
 }
 
-export const getTeamLeaderActiveOrderDetail = async (activeOrderId: number) => {
+export const getTeamLeaderVoidedActiveOrderPage = async (
+  params: TeamLeaderVoidedActiveOrderPageReqVO
+) => {
+  return await request.get<PageResult<TeamLeaderActiveOrderRespVO[]>>({
+    url: '/mes/pro/process-pool/team-leader/active-order/voided-page',
+    params
+  })
+}
+
+export const getTeamLeaderActiveOrderDetail = async (activeOrderId: number | string) => {
   return await request.get<TeamLeaderActiveOrderDetailRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/detail',
     params: { activeOrderId }

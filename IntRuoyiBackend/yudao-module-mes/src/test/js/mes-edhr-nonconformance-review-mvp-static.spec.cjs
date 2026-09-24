@@ -19,6 +19,24 @@ assert.match(service, /DISPOSITION_CONCESSION_RELEASE\s*=\s*"concession_release"
 assert.match(service, /DISPOSITION_REWORK\s*=\s*"rework"/)
 assert.match(service, /DISPOSITION_VOID\s*=\s*"void"/)
 
+const serviceImpl = readModule(
+  'src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrNonconformanceReviewServiceImpl.java'
+)
+const resolveReviewMaterialsMethod = serviceImpl.match(
+  /private ResolvedReviewMaterials resolveReviewMaterials[\s\S]*?\n    private FileDO resolveReviewMaterialFile/
+)?.[0]
+assert(resolveReviewMaterialsMethod, 'resolveReviewMaterials method must exist')
+assert.match(
+  resolveReviewMaterialsMethod,
+  /active\.put\("fileName",\s*file\.getName\(\)\)/,
+  '评审材料文件名必须来自 infra_file.name'
+)
+assert.doesNotMatch(
+  resolveReviewMaterialsMethod,
+  /active\.put\("fileName",\s*StrUtil\.blankToDefault\(draft\.fileName\(\)/,
+  '评审材料文件名不能来自客户端提交值或 URL 推导值'
+)
+
 const controller = readModule(
   'src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrNonconformanceReviewController.java'
 )

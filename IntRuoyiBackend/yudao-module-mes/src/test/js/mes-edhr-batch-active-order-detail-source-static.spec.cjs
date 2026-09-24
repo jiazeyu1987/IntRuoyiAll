@@ -18,12 +18,12 @@ const traceDrawer = read('IntRuoyiFronted/src/views/mes/pro/edhr/form-trace/Batc
 
 assert.match(
   controller,
-  /@GetMapping\("\/active-order-detail"\)[\s\S]*@PreAuthorize\("@ss\.hasPermission\('mes:pro-edhr-batch-execution:query'\)"\)[\s\S]*getActiveOrderDetail\(\s*@RequestParam\("batchExecutionId"\) Long batchExecutionId\s*\)/,
+  /@GetMapping\("\/active-order-detail"\)[\s\S]*@PreAuthorize\("@ss\.hasPermission\('mes:pro-edhr-batch-execution:query'\)"\)[\s\S]*getActiveOrderDetail\(\s*@RequestParam\(value = "batchExecutionId", required = false\) Long batchExecutionId,\s*@RequestParam\(value = "activeOrderId", required = false\) Long activeOrderId\s*\)/,
   '批次执行必须提供自己的活跃订单详情读取入口，并使用批次执行查询权限。'
 )
 assert.match(
   controller,
-  /MesProcessPoolTeamLeaderController\.toActiveOrderDetailRespVO\(\s*batchActiveOrderDetailService\.getDetail\(batchExecutionId\)\s*\)/,
+  /activeOrderId != null[\s\S]*getDetailByActiveOrderId\(activeOrderId\)[\s\S]*getDetail\(batchExecutionId\)[\s\S]*MesProcessPoolTeamLeaderController\.toActiveOrderDetailRespVO/,
   '批次执行接口必须复用活跃订单详情同一份响应结构。'
 )
 assert.match(
@@ -47,14 +47,18 @@ assert.match(
   '批次执行详情服务必须复用活跃订单正式事实投影，且上市放行后仍能读取同一份详情。'
 )
 assert.match(
+  service,
+  /getDetailByActiveOrderId\(Long activeOrderId\)[\s\S]*activeOrderMapper\.selectByIdIgnoreDeleted\(activeOrderId\)[\s\S]*detailService\.getArchivedFormalDetail\(activeOrderId\)/,
+  '作废活跃订单没有批次执行 ID 时，批次作用域详情入口必须支持 activeOrderId 正式身份。'
+)
+assert.match(
   api,
-  /getEdhrBatchActiveOrderDetail[\s\S]*BATCH_EXECUTION_BASE_URL[\s\S]*active-order-detail[\s\S]*batchExecutionId/,
+  /getEdhrBatchActiveOrderDetail[\s\S]*batchExecutionId\?: EdhrRouteId[\s\S]*activeOrderId\?: EdhrRouteId[\s\S]*BATCH_EXECUTION_BASE_URL[\s\S]*active-order-detail/,
   '前端批次执行 API 必须调用批次执行自己的详情入口。'
 )
 
 for (const [name, source] of [
   ['批次执行详情页', detailPage],
-  ['历史追溯页', historyPage],
   ['批次追溯抽屉', traceDrawer]
 ]) {
   assert.match(
@@ -68,5 +72,16 @@ for (const [name, source] of [
     `${name} 不得直接调用生产组长详情接口，否则没有生产组长权限时会打不开。`
   )
 }
+
+assert.match(
+  historyPage,
+  /edhr-batch-execution\/active-order-detail[\s\S]*batchExecutionId/,
+  '历史追溯页必须跳转到批次执行作用域详情入口，并携带批次执行身份。'
+)
+assert.doesNotMatch(
+  historyPage,
+  /getTeamLeaderActiveOrderDetail/,
+  '历史追溯页不得直接调用生产组长详情接口。'
+)
 
 console.log('mes-edhr-batch-active-order-detail-source static contract passed')

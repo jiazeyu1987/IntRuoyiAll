@@ -111,6 +111,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     public MesProEdhrNonconformanceReviewRespVO create(MesProEdhrNonconformanceReviewCreateReqVO reqVO) {
         String sourceType = requireSourceType(reqVO.getSourceType());
         String reason = requireText(reqVO.getNonconformanceReason());
+        String signaturePassword = requireText(reqVO.getSignaturePassword());
         MesProEdhrBatchExecutionDO batch = null;
         MesProcessPoolActiveOrderReleaseApplicationDO application = null;
         MesProProcessPoolEventDO pqcSubmissionEvent = null;
@@ -164,6 +165,10 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 .remark(StrUtil.trim(reqVO.getRemark()))
                 .build();
         reviewMapper.insert(review);
+        Long actorId = SecurityFrameworkUtils.getLoginUserId();
+        String createAggregateHash = buildCreateAggregateHash(review, activeOrderId, actorId);
+        Long signatureId = signatureService.recordNonconformanceReviewCreateSignature(
+                actorId, review.getId(), signaturePassword, reason, createAggregateHash);
         if (batch != null) {
             batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
                     .setId(batch.getId())
@@ -173,7 +178,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             requireWorkOrderUpdate(workOrder.getId(), true);
         }
         recordReviewOperation("NONCONFORMANCE_REVIEW_CREATE", "创建不合格评审", review, activeOrderId,
-                null, now, null, null, null, null, null, null, null);
+                null, now, signatureId, null, null, null, null, "电子签名#" + signatureId, null);
         return toResp(review);
     }
 
@@ -191,7 +196,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REJECT,
                 "eDHR不合格评审发起", aggregateHash);
         MesProEdhrNonconformanceReviewDO review = createBatchReview(
-                batch, SOURCE_TYPE_PQC_RELEASE, null, reason, "上市放行负责人电子签名#" + signatureId);
+                batch, SOURCE_TYPE_PQC_RELEASE, null, reason, "上市放行负责人电子签名#" + signatureId,
+                signatureId);
         return toResp(review);
     }
 
@@ -228,7 +234,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 reviewMaterialFileId, reviewMaterials.materialsJson(), reviewOpinion, qaUserId);
         Long qaDispositionSignatureId = recordQaDispositionSignature(qaUserId, review.getId(),
                 signaturePassword, reviewOpinion, qaDispositionAggregateHash);
-        String qaSignature = "QA电子签名#" + qaDispositionSignatureId;
+        String qaSignature = "电子签名#" + qaDispositionSignatureId;
         String qaSignatureSnapshotJson = buildQaSignatureSnapshotJson(review, qaUserId, qaDispositionSignatureId,
                 disposition, now, qaDispositionAggregateHash);
         MesProEdhrNonconformanceReviewDO update = new MesProEdhrNonconformanceReviewDO()
@@ -431,7 +437,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                                                                String sourceType,
                                                                Long sourceId,
                                                                String reason,
-                                                               String remark) {
+                                                               String remark,
+                                                               Long signatureId) {
         MesProWorkOrderDO workOrder = lockWorkOrder(batch.getWorkOrderId());
         LocalDateTime now = now();
         Boolean previousWorkOrderTemporaryFrozen = captureWorkOrderExternalFreezeAtReviewStart(workOrder, now);
@@ -461,8 +468,23 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             requireWorkOrderUpdate(workOrder.getId(), true);
         }
         recordReviewOperation("NONCONFORMANCE_REVIEW_CREATE", "创建不合格评审", review, activeOrderId,
-                null, now, null, null, null, null, null, null, null);
+                null, now, signatureId, null, null, null, null, "电子签名#" + signatureId, null);
         return review;
+    }
+
+    private String buildCreateAggregateHash(MesProEdhrNonconformanceReviewDO review, Long activeOrderId,
+                                            Long actorId) {
+        JSONObject payload = new JSONObject(true);
+        payload.put("reviewId", review.getId());
+        payload.put("reviewCode", review.getReviewCode());
+        payload.put("activeOrderId", activeOrderId);
+        payload.put("sourceType", review.getSourceType());
+        payload.put("sourceId", review.getSourceId());
+        payload.put("batchExecutionId", review.getBatchExecutionId());
+        payload.put("workOrderId", review.getWorkOrderId());
+        payload.put("nonconformanceReason", review.getNonconformanceReason());
+        payload.put("actorId", actorId);
+        return DigestUtil.sha256Hex(JSON.toJSONString(payload));
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO requirePqcReleaseApplicationForUpdate(Long applicationId) {
@@ -812,7 +834,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             Map<String, Object> active = new LinkedHashMap<>();
             active.put("url", draft.url());
             active.put("fileId", file.getId());
-            active.put("fileName", StrUtil.blankToDefault(draft.fileName(), resolveFileName(draft.url())));
+            active.put("fileName", file.getName());
             active.put("sortNo", draft.sortNo());
             active.put("configId", file.getConfigId());
             active.put("path", file.getPath());

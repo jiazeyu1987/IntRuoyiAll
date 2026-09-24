@@ -92,8 +92,11 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         lenient().when(fileMapper.selectList(any())).thenReturn(List.of(FileDO.builder()
                 .id(REVIEW_MATERIAL_FILE_ID)
                 .configId(10L)
+                .name("review.pdf")
                 .path("review.pdf")
                 .build()));
+        lenient().when(signatureService.recordNonconformanceReviewCreateSignature(
+                any(), any(), any(), any(), any())).thenReturn(9200L);
     }
 
     @Test
@@ -118,7 +121,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         service.create(new MesProEdhrNonconformanceReviewCreateReqVO()
                 .setSourceType("PQC_RELEASE")
                 .setSourceId(7001L)
-                .setNonconformanceReason("检验结论需要评审"));
+                .setNonconformanceReason("检验结论需要评审")
+                .setSignaturePassword("create-password"));
 
         ArgumentCaptor<MesProEdhrOperationAuditCommand> auditCaptor =
                 ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
@@ -129,6 +133,39 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
         verify(reviewMapper).insert(reviewCaptor.capture());
         assertEquals(8101L, reviewCaptor.getValue().getActiveOrderId());
+    }
+
+    @Test
+    void creatingReviewWithInvalidElectronicSignatureDoesNotFreezeOrRecordFact() {
+        when(releaseApplicationMapper.selectByIdForUpdate(7001L)).thenReturn(
+                new MesProcessPoolActiveOrderReleaseApplicationDO()
+                        .setId(7001L)
+                        .setActiveOrderId(8101L)
+                        .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
+                        .setVersion(1)
+                        .setWorkOrderId(3001L)
+                        .setWorkOrderCode("WO-001")
+                        .setBatchCode("BATCH-001"));
+        when(workOrderMapper.selectByIdForUpdate(3001L)).thenReturn(
+                new MesProWorkOrderDO().setId(3001L).setTemporaryFrozen(false));
+        when(reviewMapper.insert(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(invocation -> {
+            invocation.<MesProEdhrNonconformanceReviewDO>getArgument(0).setId(1001L);
+            return 1;
+        });
+        when(signatureService.recordNonconformanceReviewCreateSignature(
+                isNull(), eq(1001L), eq("wrong-password"), eq("检验结论需要评审"), any()))
+                .thenThrow(exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID));
+
+        assertThrows(ServiceException.class, () -> service.create(
+                new MesProEdhrNonconformanceReviewCreateReqVO()
+                        .setSourceType("PQC_RELEASE")
+                        .setSourceId(7001L)
+                        .setNonconformanceReason("检验结论需要评审")
+                        .setSignaturePassword("wrong-password")));
+
+        verify(batchExecutionMapper, never()).updateById(any(MesProEdhrBatchExecutionDO.class));
+        verify(workOrderMapper, never()).updateTemporaryFrozenByIds(any(), any());
+        verifyNoInteractions(operationAuditService);
     }
 
     @Test
@@ -169,7 +206,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 .contains("\"reviewMaterialFileId\":" + REVIEW_MATERIAL_FILE_ID));
         assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"reviewMaterialsJson\""));
         assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"reviewOpinion\":\"让步放行\""));
-        assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"qaSignature\":\"QA电子签名#9101\""));
+        assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"qaSignature\":\"电子签名#9101\""));
         assertTrue(auditCaptor.getValue().getMetadataJson().contains("\"signatureId\":9101"));
     }
 
@@ -178,9 +215,9 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         stubPendingReview("rework");
         String sameUrl = "http://localhost:48081/admin-api/infra/file/10/get/review.pdf";
         lenient().when(fileMapper.selectList(any())).thenReturn(List.of(
-                FileDO.builder().id(9303L).configId(10L).path("review.pdf").build(),
-                FileDO.builder().id(9302L).configId(10L).path("review.pdf").build(),
-                FileDO.builder().id(9301L).configId(10L).path("review.pdf").build()));
+                FileDO.builder().id(9303L).configId(10L).name("review.pdf").path("review.pdf").build(),
+                FileDO.builder().id(9302L).configId(10L).name("review.pdf").path("review.pdf").build(),
+                FileDO.builder().id(9301L).configId(10L).name("review.pdf").path("review.pdf").build()));
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
         when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
                 isNull(), any(), eq("返工处理"), any())).thenReturn(1);
@@ -193,7 +230,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 .setReviewMaterialUrl(sameUrl)
                 .setReviewMaterials(List.of(new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO()
                         .setUrl(sameUrl)
-                        .setFileName("review.pdf")
+                        .setFileName("%E9%94%99%E8%AF%AF%E7%9A%84%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%90%8D%E7%A7%B0.pdf")
                         .setSortNo(1)))
                 .setReviewMaterialEvents(List.of(
                         new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO()
@@ -210,6 +247,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         verify(reviewMapper).updateById(updateCaptor.capture());
         assertEquals(9303L, updateCaptor.getValue().getReviewMaterialFileId());
         assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"fileId\":9303"));
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"fileName\":\"review.pdf\""));
         assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"action\":\"DELETE\""));
         assertTrue(updateCaptor.getValue().getTraceSnapshotJson().contains("\"reviewMaterialsJson\""));
     }
@@ -237,7 +275,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 new MesProEdhrNonconformanceReviewCreateReqVO()
                         .setSourceType("PQC_RELEASE")
                         .setSourceId(7001L)
-                        .setNonconformanceReason("检验结论需要评审"));
+                        .setNonconformanceReason("检验结论需要评审")
+                        .setSignaturePassword("create-password"));
 
         assertEquals(1001L, result.getId());
         assertEquals(3001L, result.getWorkOrderId());
@@ -272,7 +311,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                         .setSourceType("PQC_RELEASE")
                         .setSourceId(7001L)
                         .setBatchExecutionId(9301L)
-                        .setNonconformanceReason("检验结论需要评审"));
+                        .setNonconformanceReason("检验结论需要评审")
+                        .setSignaturePassword("create-password"));
 
         assertEquals(1001L, result.getId());
         assertEquals(8101L, result.getActiveOrderId());
@@ -313,7 +353,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 new MesProEdhrNonconformanceReviewCreateReqVO()
                         .setSourceType("PQC_SUBMISSION")
                         .setSourceId(160L)
-                        .setNonconformanceReason("PQC提交不合格"));
+                        .setNonconformanceReason("PQC提交不合格")
+                        .setSignaturePassword("create-password"));
 
         assertEquals(1003L, result.getId());
         assertEquals("PQC_SUBMISSION", result.getSourceType());
@@ -357,7 +398,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                         .setSourceType("PQC_SUBMISSION")
                         .setSourceId(161L)
                         .setBatchExecutionId(999_999L)
-                        .setNonconformanceReason("PQC提交不合格"));
+                        .setNonconformanceReason("PQC提交不合格")
+                        .setSignaturePassword("create-password"));
 
         assertEquals(1004L, result.getId());
         assertEquals("PQC_SUBMISSION", result.getSourceType());
@@ -390,7 +432,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         service.create(new MesProEdhrNonconformanceReviewCreateReqVO()
                 .setSourceType("PQC_RELEASE")
                 .setBatchExecutionId(9001L)
-                .setNonconformanceReason("批次不合格"));
+                .setNonconformanceReason("批次不合格")
+                .setSignaturePassword("create-password"));
 
         ArgumentCaptor<MesProEdhrNonconformanceReviewDO> reviewCaptor =
                 ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
@@ -639,7 +682,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         ArgumentCaptor<MesProEdhrNonconformanceReviewDO> updateCaptor =
                 ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
         verify(reviewMapper).updateById(updateCaptor.capture());
-        assertEquals("QA电子签名#9101", updateCaptor.getValue().getQaSignature());
+        assertEquals("电子签名#9101", updateCaptor.getValue().getQaSignature());
         assertTrue(updateCaptor.getValue().getTraceSnapshotJson().contains("\"qaSignatureSnapshotJson\""));
         assertTrue(updateCaptor.getValue().getTraceSnapshotJson().contains("\"signatureId\":9101"));
         assertTrue(updateCaptor.getValue().getTraceSnapshotJson().contains("\"actionType\":\"QA_DISPOSITION\""));
@@ -699,7 +742,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         service.create(new MesProEdhrNonconformanceReviewCreateReqVO()
                 .setSourceType("PQC_SUBMISSION")
                 .setSourceId(171L)
-                .setNonconformanceReason("第二份同轮评审"));
+                .setNonconformanceReason("第二份同轮评审")
+                .setSignaturePassword("create-password"));
 
         ArgumentCaptor<MesProEdhrNonconformanceReviewDO> reviewCaptor =
                 ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);

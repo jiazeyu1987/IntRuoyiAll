@@ -1,0 +1,1 @@
+{"database": {"schemaMigrations": [{"migrationId": "m1", "file": "required-sql/m1.sql", "sha256": "sha256:7da4695d804cc2a38c1baa9e49d4b786b145798add6c63d3a1645c96f321f841", "type": "schema", "allowedEnvironments": ["test", "backup"], "dependsOn": []}]}}

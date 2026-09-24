@@ -1438,6 +1438,13 @@
                   </template>
                 </el-table-column>
                 <el-table-column label="设备编号" prop="selectedEquipmentNumber" min-width="130" />
+                <el-table-column label="损耗数量" min-width="100">
+                  <template #default="{ row }">
+                    <span data-pqc-leader-detail-item-loss-quantity>
+                      {{ formatPqcItemLossQuantity(row) }}
+                    </span>
+                  </template>
+                </el-table-column>
                 <el-table-column label="接收标准" min-width="180">
                   <template #default="{ row }">{{ formatPqcSnapshotStandard(row) }}</template>
                 </el-table-column>
@@ -2715,6 +2722,13 @@
               </template>
             </el-table-column>
             <el-table-column label="设备编号" prop="selectedEquipmentNumber" min-width="130" />
+            <el-table-column label="损耗数量" min-width="100">
+              <template #default="{ row }">
+                <span data-pqc-leader-detail-item-loss-quantity>
+                  {{ formatPqcItemLossQuantity(row) }}
+                </span>
+              </template>
+            </el-table-column>
             <el-table-column label="接收标准" min-width="180">
               <template #default="{ row }">{{ formatPqcSnapshotStandard(row) }}</template>
             </el-table-column>
@@ -4178,6 +4192,7 @@ import {
 import { MdItemApi } from '@/api/mes/md/item'
 import { SOURCE_TYPE_PQC_SUBMISSION } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { formatDateTimeValue, formatDate } from '@/utils/formatTime'
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 
 defineOptions({ name: 'MesProProcessPoolTeamLeaderWorkbench' })
 
@@ -4441,11 +4456,11 @@ const abnormalSubmitting = ref(false)
 const maintenanceSubmitting = ref(false)
 const activeOrderLoading = ref(false)
 const activeOrderConflictSubmitting = ref(false)
-const activeOrderMoveSubmittingId = ref<number>()
+const activeOrderMoveSubmittingId = ref<number | string>()
 const activeOrderMoveDirection = ref<'UP' | 'DOWN'>()
-const activeOrderRebuildSubmittingId = ref<number>()
-const activeOrderVersionUpgradeSubmittingId = ref<number>()
-const activeOrderSimulationSubmittingId = ref<number>()
+const activeOrderRebuildSubmittingId = ref<number | string>()
+const activeOrderVersionUpgradeSubmittingId = ref<number | string>()
+const activeOrderSimulationSubmittingId = ref<number | string>()
 const activeOrderTestResetSubmitting = ref(false)
 const teamLeaderDataCleanupSubmitting = ref(false)
 const correctionSubmitting = ref(false)
@@ -4477,10 +4492,10 @@ const activeOrderSelectedCandidate = ref<TeamLeaderActiveOrderCandidateRespVO>()
 const activeOrderCandidateKeyword = ref('')
 const activeOrderCandidateLoading = ref(false)
 const activeOrderCandidateError = ref('')
-const releaseApplicationSubmittingId = ref<number>()
+const releaseApplicationSubmittingId = ref<number | string>()
 const releaseApplicationBlockers = ref<TeamLeaderActiveOrderReleaseBlockerRespVO[]>([])
-const releaseApplicationIdempotencyKeys = new Map<number, string>()
-const releaseApplicationLocks = reactive(new Map<number, ActiveOrderReleaseApplicationLockState>())
+const releaseApplicationIdempotencyKeys = new Map<number | string, string>()
+const releaseApplicationLocks = reactive(new Map<number | string, ActiveOrderReleaseApplicationLockState>())
 const releaseApplicationUncertainMessage = ref('')
 const processConfigRows = ref<TeamLeaderProcessConfigRowRespVO[]>([])
 const processConfigDisplayRows = ref<TeamLeaderProcessConfigRowRespVO[]>([])
@@ -4627,6 +4642,7 @@ const pqcDetailColumns: any[] = [
   { key: 'itemName', label: '检验项目', visible: true },
   { key: 'selectedEquipmentName', label: '检验设备', visible: true },
   { key: 'selectedEquipmentNumber', label: '设备编号', visible: true },
+  { key: 'lossQuantity', label: '损耗数量', visible: true },
   { key: 'standardText', label: '接收标准', visible: true },
   { key: 'inspectionMethod', label: '检验方法', visible: true },
   { key: 'sampleValues', label: '样本值', visible: true },
@@ -4665,8 +4681,6 @@ const pqcSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'process', label: '工序', minWidth: 150 },
   { key: 'workOrder', label: '生产工单', minWidth: 160 },
   { key: 'completionQuantity', label: '检验数量', minWidth: 130 },
-  { key: 'lossQuantity', label: '损耗数量', minWidth: 120 },
-  { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
   { key: 'product', label: '产品', minWidth: 180 },
   { key: 'inspectionTask', label: '检验类型/轮次', minWidth: 150 },
   { key: 'operation', label: '操作', width: 360, hideable: false, business: false }
@@ -5694,7 +5708,7 @@ const resolveActiveOrderReleaseBlockerLocator = (
   return locatorParts.join('；')
 }
 
-const isActiveOrderReleaseApplicationLocked = (activeOrderId: number) =>
+const isActiveOrderReleaseApplicationLocked = (activeOrderId: number | string) =>
   releaseApplicationLocks.has(activeOrderId)
 
 const resolveActiveOrderRowClassName = ({ row }: { row: TeamLeaderActiveOrderRespVO }) =>
@@ -5748,7 +5762,7 @@ const formatTraceQuantity = (value: number | string | undefined) => {
 }
 
 const navigateActiveOrderSubmissionDetail = (
-  activeOrderId: number,
+  activeOrderId: string,
   sourceWorkOrderCode?: string
 ) => {
   router.push({
@@ -5761,7 +5775,10 @@ const navigateActiveOrderSubmissionDetail = (
 }
 
 const openActiveOrderSubmissionDetail = (row: TeamLeaderActiveOrderRespVO) => {
-  const sourceActiveOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+  const sourceActiveOrderId = parsePositiveRouteQueryId(row.id)
+  if (!sourceActiveOrderId) {
+    throw new Error('活跃订单记录ID不能为空或不是有效的十进制整数')
+  }
   navigateActiveOrderSubmissionDetail(sourceActiveOrderId)
 }
 const resolveActiveOrderConflictProcesses = (
@@ -7300,6 +7317,7 @@ type PqcSubmissionPayloadRecord = Record<string, unknown>
 interface PqcItemSnapshotDetail {
   itemCode?: string
   itemName?: string
+  lossQuantity?: number | string
   selectedEquipmentId?: number
   selectedEquipmentCode?: string
   selectedEquipmentName?: string
@@ -7391,13 +7409,33 @@ const normalizePqcSubmittedValues = (value: unknown): string[] => {
   return text ? [text] : []
 }
 
-const toPqcItemSnapshotDetail = (value: unknown): PqcItemSnapshotDetail | undefined => {
+const normalizePqcItemLossQuantity = (value: unknown): number | string => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return 0
+  }
+  const numericValue = Number(value)
+  return Number.isFinite(numericValue) ? numericValue : String(value).trim()
+}
+
+const resolvePqcPayloadScrapQuantity = (payload?: PqcSubmissionPayloadRecord) => {
+  const fieldValues = isRecord(payload?.fieldValues) ? payload.fieldValues : undefined
+  const pqcDraft = isRecord(payload?.pqcDraft) ? payload.pqcDraft : undefined
+  return [payload?.scrapQuantity, fieldValues?.scrapQuantity, pqcDraft?.scrapQuantity].find(
+    (value) => value !== undefined && value !== null && String(value).trim() !== ''
+  )
+}
+
+const toPqcItemSnapshotDetail = (
+  value: unknown,
+  lossQuantity: number | string = 0
+): PqcItemSnapshotDetail | undefined => {
   if (!isRecord(value)) {
     return undefined
   }
   const detail: PqcItemSnapshotDetail = {
     itemCode: String(value.itemCode ?? '').trim() || undefined,
     itemName: String(value.itemName ?? '').trim() || undefined,
+    lossQuantity,
     selectedEquipmentId: Number(value.selectedEquipmentId) || undefined,
     selectedEquipmentCode: String(value.selectedEquipmentCode ?? '').trim() || undefined,
     selectedEquipmentName: String(value.selectedEquipmentName ?? '').trim() || undefined,
@@ -7418,10 +7456,13 @@ const toPqcItemSnapshotDetail = (value: unknown): PqcItemSnapshotDetail | undefi
   return detail.itemCode || detail.itemName ? detail : undefined
 }
 
-const normalizePqcItemSnapshotDetails = (value: unknown): PqcItemSnapshotDetail[] => {
+const normalizePqcItemSnapshotDetails = (
+  value: unknown,
+  lossQuantity: number | string = 0
+): PqcItemSnapshotDetail[] => {
   const sourceItems = Array.isArray(value) ? value : isRecord(value) ? Object.values(value) : []
   return sourceItems
-    .map(toPqcItemSnapshotDetail)
+    .map((item) => toPqcItemSnapshotDetail(item, lossQuantity))
     .filter((item): item is PqcItemSnapshotDetail => Boolean(item))
 }
 
@@ -7735,12 +7776,15 @@ const enrichSubmissionMaterialNames = async (rows: ProcessPoolTimelineEventVO[])
 
 const resolvePqcItemSnapshotDetails = (row: ProcessPoolTimelineEventVO) => {
   const payloadJsons = row.groupedOriginalPayloadJsons?.length
-    ? [row.originalPayloadJson, ...row.groupedOriginalPayloadJsons].filter(Boolean)
+    ? [...row.groupedOriginalPayloadJsons, row.originalPayloadJson].filter(Boolean)
     : [row.originalPayloadJson].filter(Boolean)
   const detailByKey = new Map<string, PqcItemSnapshotDetail>()
   payloadJsons.forEach((payloadJson) => {
     const payload = parsePqcOriginalPayload(payloadJson)
     const rootPayload = payload && isRecord(payload.rawPayload) ? payload.rawPayload : payload
+    const lossQuantity = normalizePqcItemLossQuantity(
+      resolvePqcPayloadScrapQuantity(rootPayload || payload)
+    )
     const sources = [
       rootPayload?.pqcItemDetails,
       payload?.pqcItemDetails,
@@ -7748,7 +7792,7 @@ const resolvePqcItemSnapshotDetails = (row: ProcessPoolTimelineEventVO) => {
       payload?.itemResults
     ]
     for (const source of sources) {
-      const details = normalizePqcItemSnapshotDetails(source)
+      const details = normalizePqcItemSnapshotDetails(source, lossQuantity)
       details.forEach((detail, index) => {
         const key = detail.itemCode || detail.itemName || `${payloadJson}-${index}`
         if (!detailByKey.has(key)) {
@@ -7784,6 +7828,9 @@ const formatSubmissionQuantity = (value: unknown) => {
   }
   return `${String(value).trim()} 件`
 }
+
+const formatPqcItemLossQuantity = (detail: PqcItemSnapshotDetail) =>
+  formatSubmissionQuantity(detail.lossQuantity ?? 0)
 
 const formatSubmissionText = (value: unknown, emptyText = '--') => {
   if (value === undefined || value === null || String(value).trim() === '') {
@@ -9605,7 +9652,7 @@ const recoverUncertainActiveOrderReleaseApplication = async (
 
 const assertActiveOrderReleaseApplicationReceipt = (
   result: TeamLeaderActiveOrderReleaseApplyRespVO,
-  activeOrderId: number,
+  activeOrderId: number | string,
   requireInitialStatus = false
 ) => {
   if (String(result.activeOrderId) !== String(activeOrderId)) {

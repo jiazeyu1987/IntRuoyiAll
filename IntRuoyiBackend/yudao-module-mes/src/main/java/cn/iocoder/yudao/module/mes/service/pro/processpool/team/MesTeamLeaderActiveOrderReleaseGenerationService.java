@@ -463,6 +463,9 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     private Long latestReworkCycleId(Long activeOrderId) {
         MesProcessPoolActiveOrderReleaseApplicationDO latestRework =
                 applicationMapper.selectLatestReworkClosedByActiveOrderId(activeOrderId);
+        if (latestRework != null && !isReworkClosedReleaseApplication(latestRework)) {
+            throw new IllegalStateException("REWORK_APPLICATION_STATE_INCONSISTENT");
+        }
         return latestRework == null ? null : latestRework.getId();
     }
 
@@ -470,7 +473,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
             Long activeOrderId, String requestKey, String businessKey) {
         MesProcessPoolActiveOrderReleaseApplicationDO requestExisting =
                 applicationMapper.selectByRequestIdempotencyKey(activeOrderId, requestKey);
-        if (requestExisting != null && !isReworkClosedReleaseApplication(requestExisting)) {
+        if (requestExisting != null) {
             return requestExisting;
         }
         MesProcessPoolActiveOrderReleaseApplicationDO businessExisting =
@@ -482,13 +485,8 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         if (existing == null) {
             return false;
         }
-        if (MesReleaseFlowStatus.PQC_RELEASE_REJECTED.equals(existing.getApplicationStatus())
-                && NONCONFORMANCE_REWORK.equals(existing.getPqcDecision())) {
-            return true;
-        }
-        MesProcessPoolActiveOrderReleaseApplicationDO latestRework =
-                applicationMapper.selectLatestReworkClosedByActiveOrderId(existing.getActiveOrderId());
-        return latestRework != null && Objects.equals(latestRework.getId(), existing.getId());
+        return MesReleaseFlowStatus.PQC_RELEASE_REJECTED.equals(existing.getApplicationStatus())
+                && NONCONFORMANCE_REWORK.equals(existing.getPqcDecision());
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO requireCurrentApplication(
