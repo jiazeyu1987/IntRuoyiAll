@@ -70,6 +70,10 @@ final class ReleaseWorkflowBuildFailureRecovery {
         try { return verify(workflow, actor); }
         catch (RuntimeException | java.io.IOException ex) {
             String code = ex.getMessage();
+            if (code != null) {
+                code = code.trim().split("[:\\s]", 2)[0].toUpperCase(Locale.ROOT)
+                        .replaceAll("[^A-Z0-9_]", "");
+            }
             if (code == null || !code.matches("[A-Z][A-Z0-9_]+")) code = "BUILD_RECOVERY_EVIDENCE_INVALID";
             exact = new Proof(null, false, List.of(code));
         }
