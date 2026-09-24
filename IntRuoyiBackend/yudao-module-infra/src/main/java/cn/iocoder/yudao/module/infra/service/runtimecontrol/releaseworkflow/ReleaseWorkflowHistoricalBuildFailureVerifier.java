@@ -33,7 +33,7 @@ final class ReleaseWorkflowHistoricalBuildFailureVerifier {
             ReleaseWorkflowRecord.State.TESTING,
             ReleaseWorkflowRecord.State.RECOVERY_REQUIRED);
     private static final Pattern FAILURE_EVENT = Pattern.compile(
-            "(?m)^\\[FAIL\\] Command failed with exit code [1-9][0-9]*\\s*$");
+            "(?m)^\\[FAIL\\] Command failed with exit code [1-9][0-9]*(?:: .*?)?\\s*$");
 
     private final RuntimeControlProperties properties;
     private final RuntimeControlOperationStore operations;
