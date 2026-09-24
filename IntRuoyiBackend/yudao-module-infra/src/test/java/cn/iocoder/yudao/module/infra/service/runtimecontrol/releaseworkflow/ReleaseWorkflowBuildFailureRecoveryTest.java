@@ -232,6 +232,32 @@ class ReleaseWorkflowBuildFailureRecoveryTest {
         assertTrue(recovery.inspect(workflow, "1").blockers().contains("BUILD_RECOVERY_NAS_WRITE_BOUNDARY"));
     }
 
+    @Test void prePackageBuildingFailureWithVerifiedNasAbsenceCanBeRetiredWithoutZeroWriteClaim() throws Exception {
+        fixture(requested.plusSeconds(10));
+        ReleaseWorkflowStore store = new ReleaseWorkflowStore(properties);
+        var testing = store.update(workflow, workflow.stateVersion(), ReleaseWorkflowRecord.State.TESTING,
+                "1", null, null, true, List.of(), false);
+        var building = store.update(testing, testing.stateVersion(), ReleaseWorkflowRecord.State.BUILDING,
+                "1", null, null, true, List.of(), false);
+        store.update(building, building.stateVersion(), ReleaseWorkflowRecord.State.RECOVERY_REQUIRED,
+                "1", "BUILD_FAILED", "BUILDING", false, List.of(), false);
+        workflow = store.require(workflow.workflowId());
+        operation.setSummary("运行控制台命令执行失败：exitCode=1, log=" + operations.getOperationLogPath("op-build"));
+        operation.setResultLogPath(operations.getOperationLogPath("op-build").toAbsolutePath().normalize().toString());
+        operations.save(operation);
+        Files.writeString(operations.getOperationLogPath("op-build"),
+                Files.readString(operations.getOperationLogPath("op-build"))
+                        + "[FAIL] backend build is blocked before package generation\n");
+
+        var recovery = new ReleaseWorkflowBuildFailureRecovery(properties, operations, runtime, factory,
+                () -> requested.plusSeconds(10), () -> TEST_HOST_IDENTITY,
+                releaseTag -> new ReleaseWorkflowBuildFailureRecovery.NasBoundaryEvidence(true, true, "e".repeat(64)));
+        var proof = recovery.inspect(workflow, "1");
+
+        assertTrue(proof.eligible(), proof.blockers().toString());
+        assertNotNull(proof.digest());
+    }
+
     @Test void unboundNasAndRuntimeOptionsCannotPassExactCommandBinding() throws Exception {
         var recovery = fixture(requested.plusSeconds(10));
         Path log = operations.getOperationLogPath("op-build");

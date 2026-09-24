@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow;
 
 import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeControlProperties;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlOperationRespVO;
+import cn.iocoder.yudao.module.infra.service.file.NasBrowserService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlOperationStore;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlService;
 import java.nio.file.*;
@@ -16,19 +18,51 @@ final class ReleaseWorkflowBuildFailureRecovery {
     private final ReleaseWorkflowWorktreeFactory factory;
     private final BootVerifier boot;
     private final HostIdentityProvider hostIdentity;
+    private final NasBoundaryInspector nasBoundaryInspector;
     private final ReleaseWorkflowHistoricalBuildFailureVerifier historicalVerifier;
 
     ReleaseWorkflowBuildFailureRecovery(RuntimeControlProperties properties, RuntimeControlOperationStore operations,
             RuntimeControlService runtime, ReleaseWorkflowWorktreeFactory factory, BootVerifier boot) {
-        this(properties, operations, runtime, factory, boot, ReleaseWorkflowExecutorHostIdentity::currentDigest);
+        this(properties, operations, runtime, factory, boot, ReleaseWorkflowExecutorHostIdentity::currentDigest,
+                workflowId -> NasBoundaryEvidence.unavailable());
     }
 
     ReleaseWorkflowBuildFailureRecovery(RuntimeControlProperties properties, RuntimeControlOperationStore operations,
             RuntimeControlService runtime, ReleaseWorkflowWorktreeFactory factory, BootVerifier boot,
             HostIdentityProvider hostIdentity) {
+        this(properties, operations, runtime, factory, boot, hostIdentity,
+                workflowId -> NasBoundaryEvidence.unavailable());
+    }
+
+    ReleaseWorkflowBuildFailureRecovery(RuntimeControlProperties properties, RuntimeControlOperationStore operations,
+            RuntimeControlService runtime, ReleaseWorkflowWorktreeFactory factory, BootVerifier boot,
+            HostIdentityProvider hostIdentity, NasBoundaryInspector nasBoundaryInspector) {
         this.properties = properties; this.operations = operations; this.runtime = runtime;
         this.factory = factory; this.boot = boot; this.hostIdentity = Objects.requireNonNull(hostIdentity);
+        this.nasBoundaryInspector = Objects.requireNonNull(nasBoundaryInspector);
         this.historicalVerifier = new ReleaseWorkflowHistoricalBuildFailureVerifier(properties, operations, runtime, factory);
+    }
+
+    static NasBoundaryEvidence inspectNasReleaseBoundary(RuntimeControlProperties properties,
+            NasBrowserService nasBrowserService, String releaseTag) {
+        try {
+            String root = properties.getReleasePackage().getNasReleaseRoot();
+            var listing = nasBrowserService.listFiles(root);
+            String entries = listing.getItems().stream()
+                    .map(item -> String.valueOf(item.getPath()) + "|" + String.valueOf(item.getName()))
+                    .sorted().collect(java.util.stream.Collectors.joining("\n"));
+            boolean absent = listing.getItems().stream().noneMatch(item -> {
+                String name = String.valueOf(item.getName());
+                String path = String.valueOf(item.getPath());
+                return name.equals(releaseTag) || path.equals(root + "/" + releaseTag)
+                        || name.startsWith("." + releaseTag + ".staging-")
+                        || path.contains("/." + releaseTag + ".staging-");
+            });
+            return new NasBoundaryEvidence(absent, absent,
+                    ReleaseWorkflowBackupAuthorizationService.digest(root + "\n" + entries));
+        } catch (RuntimeException ex) {
+            return NasBoundaryEvidence.unavailable();
+        }
     }
 
     Proof inspect(ReleaseWorkflowRecord workflow, String actor) {
@@ -80,14 +114,21 @@ final class ReleaseWorkflowBuildFailureRecovery {
                 && op.getParameters().get("packageDigest") == null && op.getParameters().get("manifestDigest") == null,
                 "BUILD_RECOVERY_SOURCE_BINDING_INVALID");
         var journal = new ReleaseWorkflowStore(properties).readJournal(w.workflowId());
-        require(w.state() != ReleaseWorkflowRecord.State.BUILDING
-                        && journal.stream().noneMatch(e -> e.toState() == ReleaseWorkflowRecord.State.BUILDING
-                        || "BUILDING".equals(e.failedStage())),
-                "BUILD_RECOVERY_NAS_WRITE_BOUNDARY");
-        require(!journal.isEmpty() && journal.stream().allMatch(e -> e.toState() == null || Set.of(
-                ReleaseWorkflowRecord.State.SOURCE_FREEZING, ReleaseWorkflowRecord.State.PREFLIGHTING,
-                ReleaseWorkflowRecord.State.TESTING,
-                ReleaseWorkflowRecord.State.RECOVERY_REQUIRED).contains(e.toState())), "BUILD_RECOVERY_DEPLOYMENT_HISTORY_PRESENT");
+        boolean enteredBuilding = w.state() == ReleaseWorkflowRecord.State.BUILDING
+                || journal.stream().anyMatch(e -> e.toState() == ReleaseWorkflowRecord.State.BUILDING
+                || "BUILDING".equals(e.failedStage()));
+        String nasBoundaryDigest = null;
+        if (enteredBuilding) {
+            require(isVerifiablePrePackageFailure(w, op, journal), "BUILD_RECOVERY_NAS_WRITE_BOUNDARY");
+            NasBoundaryEvidence evidence = nasBoundaryInspector.inspect(w.releaseTag());
+            require(evidence.packageAbsent() && evidence.stagingAbsent(), "BUILD_RECOVERY_NAS_EVIDENCE_UNAVAILABLE");
+            nasBoundaryDigest = evidence.digest();
+        }
+        require(!journal.isEmpty() && journal.stream().allMatch(e -> e.toState() == null
+                || Set.of(ReleaseWorkflowRecord.State.SOURCE_FREEZING, ReleaseWorkflowRecord.State.PREFLIGHTING,
+                ReleaseWorkflowRecord.State.TESTING, ReleaseWorkflowRecord.State.RECOVERY_REQUIRED).contains(e.toState())
+                || (enteredBuilding && e.toState() == ReleaseWorkflowRecord.State.BUILDING)),
+                "BUILD_RECOVERY_DEPLOYMENT_HISTORY_PRESENT");
         try (var files = Files.list(operations.getStateDir())) {
             for (Path file : files.filter(p -> p.getFileName().toString().endsWith(".json")).toList()) {
                 String id = file.getFileName().toString().replaceFirst("\\.json$", "");
@@ -170,8 +211,21 @@ final class ReleaseWorkflowBuildFailureRecovery {
         String digest = ReleaseWorkflowBackupAuthorizationService.digest(String.join("\n", w.workflowId(), w.releaseTag(),
                 w.operationId(), actor, new TreeMap<>(expected).toString(), frozen.publishScriptSha256(),
                 op.getRequestedAt().toString(), bootTime.toString(), ReleaseWorkflowBackupAuthorizationService.digest(grantText),
-                ReleaseWorkflowBackupAuthorizationService.digest(text)));
+                ReleaseWorkflowBackupAuthorizationService.digest(text), String.valueOf(nasBoundaryDigest)));
         return new Proof(digest, true, List.of());
+    }
+
+    private boolean isVerifiablePrePackageFailure(ReleaseWorkflowRecord workflow,
+            RuntimeControlOperationRespVO operation, List<ReleaseWorkflowEvent> journal) throws java.io.IOException {
+        if (journal.stream().noneMatch(event -> event.toState() == ReleaseWorkflowRecord.State.RECOVERY_REQUIRED
+                && "BUILDING".equals(event.failedStage()))) return false;
+        Path log = operations.getOperationLogPath(operation.getOperationId());
+        if (!Files.isRegularFile(log) || operation.getSummary() == null
+                || !operation.getSummary().contains("exitCode=1")) return false;
+        String text = Files.readString(log, java.nio.charset.StandardCharsets.UTF_8);
+        return text.contains("backend build is blocked before package generation")
+                && text.lines().filter(line -> line.startsWith("[") || line.startsWith("RELEASE_"))
+                .noneMatch(line -> line.matches("(?i).*\\b(?:NAS|REMOTE|UPLOAD|PUBLISH)\\b.*"));
     }
 
     static Map<String, String> command(String source) {
@@ -222,5 +276,9 @@ final class ReleaseWorkflowBuildFailureRecovery {
     }
     @FunctionalInterface interface BootVerifier { Instant lastBoot(); }
     @FunctionalInterface interface HostIdentityProvider { String currentDigest(); }
+    @FunctionalInterface interface NasBoundaryInspector { NasBoundaryEvidence inspect(String releaseTag); }
+    record NasBoundaryEvidence(boolean packageAbsent, boolean stagingAbsent, String digest) {
+        static NasBoundaryEvidence unavailable() { return new NasBoundaryEvidence(false, false, null); }
+    }
     record Proof(String digest, boolean eligible, List<String> blockers) { }
 }
