@@ -210,7 +210,7 @@ final class ReleaseWorkflowBuildFailureRecovery {
         required.put("-RemoteDataDiskMount", authorized.remoteDataDiskMount()); required.put("-RemoteDataDiskDevice", authorized.remoteDataDiskDevice());
         required.put("-RemoteMinioContainer", target.getRemoteMinioContainer());
         require(required.entrySet().stream().allMatch(e -> e.getValue().equals(command.get(e.getKey()))), "BUILD_RECOVERY_COMMAND_BINDING_INVALID");
-        Instant bootTime = boot.lastBoot();
+        Instant bootTime = prePackageFailure ? op.getRequestedAt().atZone(ZoneId.systemDefault()).toInstant() : boot.lastBoot();
         boolean executorStopped = !runtime.isOperationExecutorAlive(w.operationId());
         boolean rebootProof = bootTime != null && bootTime.isAfter(op.getRequestedAt().atZone(ZoneId.systemDefault()).toInstant())
                 && !bootTime.isAfter(Instant.now());
