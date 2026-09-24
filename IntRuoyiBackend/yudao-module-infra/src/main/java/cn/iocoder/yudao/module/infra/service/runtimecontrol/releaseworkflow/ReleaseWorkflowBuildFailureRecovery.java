@@ -2,7 +2,7 @@ package cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow;
 
 import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeControlProperties;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlOperationRespVO;
-import cn.iocoder.yudao.module.infra.service.file.NasBrowserService;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeReleasePackageNasRepository;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlOperationStore;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlService;
 import java.nio.file.*;
@@ -44,16 +44,16 @@ final class ReleaseWorkflowBuildFailureRecovery {
     }
 
     static NasBoundaryEvidence inspectNasReleaseBoundary(RuntimeControlProperties properties,
-            NasBrowserService nasBrowserService, String releaseTag) {
+            RuntimeReleasePackageNasRepository repository, String releaseTag) {
         try {
-            String root = properties.getReleasePackage().getNasReleaseRoot();
-            var listing = nasBrowserService.listFiles(root);
-            String entries = listing.getItems().stream()
-                    .map(item -> String.valueOf(item.getPath()) + "|" + String.valueOf(item.getName()))
+            String root = repository.releasePackagesRoot();
+            var listing = repository.listReleasePackageDirs();
+            String entries = listing.stream()
+                    .map(item -> String.valueOf(item.path()) + "|" + String.valueOf(item.directoryName()))
                     .sorted().collect(java.util.stream.Collectors.joining("\n"));
-            boolean absent = listing.getItems().stream().noneMatch(item -> {
-                String name = String.valueOf(item.getName());
-                String path = String.valueOf(item.getPath());
+            boolean absent = listing.stream().noneMatch(item -> {
+                String name = String.valueOf(item.directoryName());
+                String path = String.valueOf(item.path());
                 return name.equals(releaseTag) || path.equals(root + "/" + releaseTag)
                         || name.startsWith("." + releaseTag + ".staging-")
                         || path.contains("/." + releaseTag + ".staging-");

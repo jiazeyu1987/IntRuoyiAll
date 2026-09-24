@@ -1,7 +1,7 @@
 package cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow;
 
 import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeControlProperties;
-import cn.iocoder.yudao.module.infra.service.file.NasBrowserService;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeReleasePackageNasRepository;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlOperationStore;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlRestoreIsolationConfig;
@@ -35,12 +35,12 @@ public class ReleaseWorkflowBackupRecoveryService {
     @Autowired
     public ReleaseWorkflowBackupRecoveryService(RuntimeControlProperties properties, ReleaseWorkflowStore store,
             RuntimeControlOperationStore operations, ReleaseWorkflowOrchestrator orchestrator, RuntimeControlService runtime,
-            NasBrowserService nasBrowserService) {
+            RuntimeReleasePackageNasRepository releasePackageRepository) {
         this(properties, store, operations, null, orchestrator::completeBackupRecovery,
                 new ReleaseWorkflowBuildFailureRecovery(properties, operations, runtime,
                         new ReleaseWorkflowWorktreeFactory(properties), ReleaseWorkflowBuildFailureRecovery::windowsLastBoot,
                         ReleaseWorkflowExecutorHostIdentity::currentDigest,
-                        releaseTag -> ReleaseWorkflowBuildFailureRecovery.inspectNasReleaseBoundary(properties, nasBrowserService, releaseTag)),
+                        releaseTag -> ReleaseWorkflowBuildFailureRecovery.inspectNasReleaseBoundary(properties, releasePackageRepository, releaseTag)),
                 orchestrator::completeBackupBuildFailure);
     }
 
