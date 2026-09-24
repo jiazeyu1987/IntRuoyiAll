@@ -139,11 +139,15 @@ public class ReleaseWorkflowBackupRecoveryService {
     private ReleaseWorkflowRecord recoverBuildFailure(String id, long version, String actor, Preview preview) {
         if (buildRecovery == null || buildCompletion == null) throw new IllegalStateException("BUILD_RECOVERY_VERIFIER_UNAVAILABLE");
         Path verified = path(id + ".build-verified.json");
+        Preview previous = Files.isRegularFile(verified) ? read(verified, Preview.class) : null;
         if (Files.isRegularFile(verified)) {
-            if (!preview.equals(read(verified, Preview.class))) throw new IllegalStateException("RECOVERY_PREVIOUS_RESULT_BINDING_INVALID");
             var current = store.require(id);
-            if (current.state() == ReleaseWorkflowRecord.State.FAILED && !current.zeroWriteEvidence()
+            if (preview.equals(previous)
+                    && current.state() == ReleaseWorkflowRecord.State.FAILED && !current.zeroWriteEvidence()
                     && "VERIFIED_BUILD_FAILURE".equals(current.failedStage()) && current.stateVersion() == version + 1) return current;
+            if (current.state() != ReleaseWorkflowRecord.State.RECOVERY_REQUIRED || current.stateVersion() != version) {
+                throw new IllegalStateException("RECOVERY_PREVIOUS_RESULT_BINDING_INVALID");
+            }
         }
         if (preview.expiresAt().isBefore(Instant.now()) || !properties.getReleaseWorkflow().isProductionWriteEnabled()) {
             throw new IllegalStateException("RECOVERY_AUTHORIZATION_EXPIRED_OR_DISABLED");
@@ -155,7 +159,7 @@ public class ReleaseWorkflowBackupRecoveryService {
             throw new IllegalStateException("BUILD_RECOVERY_FRESH_EVIDENCE_REJECTED: " + String.join(",", proof.blockers()));
         }
         // No external dispatch: a crash between proof and local CAS can safely repeat the fresh verification.
-        if (!Files.exists(verified)) write(verified, preview);
+        write(verified, preview);
         return buildCompletion.complete(id, version, actor, proof.digest());
     }
 
