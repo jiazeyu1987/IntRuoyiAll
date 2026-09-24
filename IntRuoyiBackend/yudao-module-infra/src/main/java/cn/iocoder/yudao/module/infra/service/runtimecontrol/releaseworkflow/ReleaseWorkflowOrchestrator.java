@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeC
 import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeControlProperties;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlOperationStore;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlService;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeReleasePackageNasRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -34,6 +35,7 @@ public class ReleaseWorkflowOrchestrator {
     private final ReleaseWorkflowTestEvidenceStore testEvidenceStore;
     private final ReleaseWorkflowSourceCleanupService sourceCleanupService;
     private final ReleaseWorkflowBackupFinalizationService backupFinalization;
+    private final RuntimeReleasePackageNasRepository releasePackageNasRepository;
     private final Map<String, ReleaseWorkflowService.OptionalLease> activeLeases = new ConcurrentHashMap<>();
     private final Map<String, String> prodIdempotencyOperations = new ConcurrentHashMap<>();
     private final Map<String, java.util.concurrent.FutureTask<Void>> sourcePreparations = new ConcurrentHashMap<>();
@@ -92,7 +94,8 @@ public class ReleaseWorkflowOrchestrator {
                                                                          String actor, String digest) {
         var current = workflowService.require(workflowId);
         var proof = new ReleaseWorkflowBuildFailureRecovery(properties, operationStore, runtimeControlService,
-                new ReleaseWorkflowWorktreeFactory(properties), ReleaseWorkflowBuildFailureRecovery::windowsLastBoot)
+                new ReleaseWorkflowWorktreeFactory(properties), ReleaseWorkflowBuildFailureRecovery::windowsLastBoot,
+                ReleaseWorkflowExecutorHostIdentity::currentDigest, this::inspectNasReleaseBoundary)
                 .inspect(current, actor);
         if (!proof.eligible() || !java.util.Objects.equals(proof.digest(), digest)) {
             throw new IllegalStateException("BUILD_RECOVERY_COMPLETION_EVIDENCE_REJECTED");
@@ -100,6 +103,14 @@ public class ReleaseWorkflowOrchestrator {
         var retired = workflowService.retireVerifiedBackupBuildFailure(workflowId, version, actor, digest);
         releaseLease(workflowId, "build");
         return retired;
+    }
+
+    private ReleaseWorkflowBuildFailureRecovery.NasBoundaryEvidence inspectNasReleaseBoundary(String releaseTag) {
+        if (releasePackageNasRepository == null) {
+            return ReleaseWorkflowBuildFailureRecovery.NasBoundaryEvidence.unavailable();
+        }
+        return ReleaseWorkflowBuildFailureRecovery.inspectNasReleaseBoundary(properties,
+                releasePackageNasRepository, releaseTag);
     }
 
     private ReleaseWorkflowRecord dispatchBackupBuild(ReleaseWorkflowRecord workflow) {
@@ -263,7 +274,8 @@ public class ReleaseWorkflowOrchestrator {
                                        RuntimeControlService runtimeControlService,
                                        ReleaseWorkflowAuthorizationService authorizationService,
                                        ReleaseWorkflowProductionPreviewService productionPreviewService,
-                                       ReleaseWorkflowTestEvidenceStore testEvidenceStore) {
+                                       ReleaseWorkflowTestEvidenceStore testEvidenceStore,
+                                       RuntimeReleasePackageNasRepository releasePackageNasRepository) {
         this.properties = properties;
         this.workflowService = workflowService;
         this.operationStore = operationStore;
@@ -271,8 +283,20 @@ public class ReleaseWorkflowOrchestrator {
         this.authorizationService = authorizationService;
         this.productionPreviewService = productionPreviewService;
         this.testEvidenceStore = testEvidenceStore;
+        this.releasePackageNasRepository = releasePackageNasRepository;
         this.sourceCleanupService = new ReleaseWorkflowSourceCleanupService(properties, new ReleaseWorkflowWorktreeFactory(properties));
         this.backupFinalization = new ReleaseWorkflowBackupFinalizationService(properties, workflowService, runtimeControlService);
+    }
+
+    public ReleaseWorkflowOrchestrator(RuntimeControlProperties properties,
+                                       ReleaseWorkflowService workflowService,
+                                       RuntimeControlOperationStore operationStore,
+                                       RuntimeControlService runtimeControlService,
+                                       ReleaseWorkflowAuthorizationService authorizationService,
+                                       ReleaseWorkflowProductionPreviewService productionPreviewService,
+                                       ReleaseWorkflowTestEvidenceStore testEvidenceStore) {
+        this(properties, workflowService, operationStore, runtimeControlService, authorizationService,
+                productionPreviewService, testEvidenceStore, null);
     }
 
     public ReleaseWorkflowOrchestrator(RuntimeControlProperties properties,
@@ -283,7 +307,7 @@ public class ReleaseWorkflowOrchestrator {
                 new ReleaseWorkflowAuthorizationService(properties),
                 new ReleaseWorkflowProductionPreviewService(properties, runtimeControlService,
                         new ReleaseWorkflowTestEvidenceStore(properties, operationStore)),
-                new ReleaseWorkflowTestEvidenceStore(properties, operationStore));
+                new ReleaseWorkflowTestEvidenceStore(properties, operationStore), null);
     }
 
     public synchronized ReleaseWorkflowRecord startBuild(String requestedBy, String reason,
