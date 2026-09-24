@@ -1088,7 +1088,6 @@ public class MesProcessPoolTeamLeaderController {
                 .setProductCode(detail.getProductCode())
                 .setProductName(detail.getProductName())
                 .setProductSpecification(detail.getProductSpecification())
-                .setUdiControlDocumentNo(detail.getUdiControlDocumentNo())
                 .setWorkOrderCreateTime(detail.getWorkOrderCreateTime())
                 .setRouteName(detail.getRouteName())
                 .setInputMaterialUsages(detail.getInputMaterialUsages().stream()

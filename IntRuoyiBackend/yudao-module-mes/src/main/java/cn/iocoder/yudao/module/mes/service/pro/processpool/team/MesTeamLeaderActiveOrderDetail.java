@@ -24,7 +24,6 @@ public class MesTeamLeaderActiveOrderDetail {
     private String productCode;
     private String productName;
     private String productSpecification;
-    private String udiControlDocumentNo;
     private LocalDateTime workOrderCreateTime;
     private String routeName;
     private List<InputMaterialDetail> inputMaterialUsages = List.of();
