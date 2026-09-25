@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeCont
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
@@ -226,7 +227,7 @@ class RuntimeControlCommandExecutorImplTest {
         Files.delete(script);
         Files.delete(parentPidFile);
         Files.delete(childPidFile);
-        Files.delete(tempDir);
+        deleteTreeWithRetry(tempDir);
     }
 
     @Test
@@ -267,7 +268,7 @@ class RuntimeControlCommandExecutorImplTest {
         }
         Files.delete(script);
         Files.delete(parentPidFile);
-        Files.delete(tempDir);
+        deleteTreeWithRetry(tempDir);
     }
 
     @Test
@@ -310,7 +311,7 @@ class RuntimeControlCommandExecutorImplTest {
         Files.delete(script);
         Files.delete(parentPidFile);
         Files.delete(childPidFile);
-        Files.delete(tempDir);
+        deleteTreeWithRetry(tempDir);
     }
 
     @Test
@@ -354,7 +355,7 @@ class RuntimeControlCommandExecutorImplTest {
         }
         Files.delete(script);
         Files.delete(parentPidFile);
-        Files.delete(tempDir);
+        deleteTreeWithRetry(tempDir);
     }
 
     private RuntimeControlProperties propertiesWithRepoRoot(String repoRoot) {
@@ -408,5 +409,28 @@ class RuntimeControlCommandExecutorImplTest {
         }
         process.destroyForcibly();
         process.onExit().get(5, TimeUnit.SECONDS);
+    }
+
+    private void deleteTreeWithRetry(Path root) throws Exception {
+        Exception failure = null;
+        for (int attempt = 0; attempt < 50; attempt++) {
+            try {
+                if (!Files.exists(root)) return;
+                try (var paths = Files.walk(root)) {
+                    paths.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (IOException ex) {
+                            throw new java.io.UncheckedIOException(ex);
+                        }
+                    });
+                }
+                return;
+            } catch (java.io.UncheckedIOException | IOException ex) {
+                failure = ex;
+                Thread.sleep(200);
+            }
+        }
+        if (failure != null) throw failure;
     }
 }

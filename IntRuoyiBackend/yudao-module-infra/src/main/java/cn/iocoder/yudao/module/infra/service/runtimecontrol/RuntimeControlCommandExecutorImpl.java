@@ -396,69 +396,59 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
 
     private boolean terminateWindowsProcessTree(Process process, long deadlineNanos,
                                                 InterruptionTracker interruption) {
-        Process taskkill = null;
-        RuntimeException taskkillFailure = null;
         List<ProcessHandle> descendants = new ArrayList<>(process.toHandle().descendants().toList());
-        try {
-            taskkill = new ProcessBuilder("taskkill.exe", "/PID", Long.toString(process.pid()), "/T", "/F")
-                    .redirectErrorStream(true)
-                    .start();
-            boolean taskkillTerminated = awaitProcessExit(taskkill, deadlineNanos, interruption);
-            String output = taskkillTerminated
-                    ? new String(taskkill.getInputStream().readAllBytes(), StandardCharsets.UTF_8)
-                    : "";
-            if (!taskkillTerminated) {
-                taskkill.destroyForcibly();
-                awaitProcessExit(taskkill, System.nanoTime() + Duration.ofSeconds(1).toNanos(), interruption);
-                taskkillFailure = exception(RUNTIME_CONTROL_COMMAND_FAILED,
-                        "Command cleanup failed: taskkill did not finish within " + PROCESS_TERMINATION_TIMEOUT);
-            } else if (taskkill.exitValue() != 0) {
-                taskkillFailure = exception(RUNTIME_CONTROL_COMMAND_FAILED,
-                        "Command cleanup failed: taskkill exitCode=" + taskkill.exitValue() + ", output=" + output);
-            }
-        } catch (IOException ex) {
-            taskkillFailure = exception(RUNTIME_CONTROL_COMMAND_FAILED,
-                    "Command cleanup failed: " + ex.getMessage());
-        } finally {
-            if (taskkill != null) {
-                try {
-                    closeProcessStreams(taskkill);
-                } catch (RuntimeException closeFailure) {
-                    if (taskkillFailure == null) {
-                        taskkillFailure = closeFailure;
-                    } else {
-                        taskkillFailure.addSuppressed(closeFailure);
-                    }
-                }
-            }
-        }
-
-        if (process.isAlive()) {
-            descendants.addAll(process.toHandle().descendants()
-                    .filter(candidate -> descendants.stream().noneMatch(known -> known.pid() == candidate.pid()))
-                    .toList());
-        }
-        long forcedTerminationDeadline = Math.max(deadlineNanos,
-                System.nanoTime() + Duration.ofSeconds(1).toNanos());
-        process.destroyForcibly();
         for (int i = descendants.size() - 1; i >= 0; i--) {
             ProcessHandle descendant = descendants.get(i);
             if (descendant.isAlive()) {
                 descendant.destroyForcibly();
             }
         }
-        boolean terminated = awaitProcessExit(process, forcedTerminationDeadline, interruption);
+        process.destroyForcibly();
+        boolean terminated = awaitProcessExit(process, deadlineNanos, interruption);
+        long forcedTerminationDeadline = Math.max(deadlineNanos,
+                System.nanoTime() + Duration.ofSeconds(1).toNanos());
         for (ProcessHandle descendant : descendants) {
             terminated = awaitProcessExit(descendant, forcedTerminationDeadline, interruption) && terminated;
         }
-        if (taskkillFailure != null) {
-            if (!terminated) {
-                taskkillFailure.addSuppressed(exception(RUNTIME_CONTROL_COMMAND_FAILED,
-                        "Command cleanup failed: observed Windows process tree did not terminate"));
-            }
-            throw taskkillFailure;
+        if (terminated) {
+            return true;
         }
-        return terminated;
+        // Native ProcessHandle termination is the primary path. For wrappers that
+        // keep a child alive, terminate each observed PID explicitly; using /T on
+        // the root PID can block indefinitely on Windows when the root already exited.
+        List<ProcessHandle> remaining = new ArrayList<>();
+        if (process.isAlive()) remaining.add(process.toHandle());
+        descendants.stream().filter(ProcessHandle::isAlive).forEach(remaining::add);
+        for (ProcessHandle handle : remaining) {
+            terminateWindowsHandle(handle, deadlineNanos, interruption);
+        }
+        boolean allTerminated = !process.isAlive();
+        for (ProcessHandle descendant : descendants) {
+            allTerminated = awaitProcessExit(descendant, deadlineNanos, interruption) && allTerminated;
+        }
+        return allTerminated;
+    }
+
+    private void terminateWindowsHandle(ProcessHandle handle, long deadlineNanos,
+                                        InterruptionTracker interruption) {
+        Process taskkill = null;
+        try {
+            taskkill = new ProcessBuilder("taskkill.exe", "/PID", Long.toString(handle.pid()), "/T", "/F")
+                    .redirectErrorStream(true)
+                    .start();
+            long taskkillDeadline = Math.min(deadlineNanos,
+                    System.nanoTime() + Duration.ofSeconds(2).toNanos());
+            if (!awaitProcessExit(taskkill, taskkillDeadline, interruption)) {
+                taskkill.destroyForcibly();
+            }
+        } catch (IOException ignored) {
+            // The Java handle termination above remains authoritative; the caller
+            // verifies liveness before returning from cleanup.
+        } finally {
+            if (taskkill != null) {
+                closeProcessStreams(taskkill);
+            }
+        }
     }
 
     private boolean terminateSingleProcess(Process process, long deadlineNanos,
