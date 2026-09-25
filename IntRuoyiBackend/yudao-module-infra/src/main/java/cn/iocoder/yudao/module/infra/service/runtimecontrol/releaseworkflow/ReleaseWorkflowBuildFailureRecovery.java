@@ -121,9 +121,11 @@ final class ReleaseWorkflowBuildFailureRecovery {
         boolean enteredBuilding = w.state() == ReleaseWorkflowRecord.State.BUILDING
                 || journal.stream().anyMatch(e -> e.toState() == ReleaseWorkflowRecord.State.BUILDING
                 || "BUILDING".equals(e.failedStage()));
+        boolean enteredTestingFailure = hasVerifiableTestingFailure(op, journal);
+        boolean enteredBuildPhase = enteredBuilding || enteredTestingFailure;
         boolean prePackageFailure = false;
         String nasBoundaryDigest = null;
-        if (enteredBuilding) {
+        if (enteredBuildPhase) {
             prePackageFailure = isVerifiablePrePackageFailure(w, op, journal);
             require(prePackageFailure, "BUILD_RECOVERY_NAS_WRITE_BOUNDARY");
             NasBoundaryEvidence evidence = nasBoundaryInspector.inspect(w.releaseTag());
@@ -133,7 +135,7 @@ final class ReleaseWorkflowBuildFailureRecovery {
         require(!journal.isEmpty() && journal.stream().allMatch(e -> e.toState() == null
                 || Set.of(ReleaseWorkflowRecord.State.SOURCE_FREEZING, ReleaseWorkflowRecord.State.PREFLIGHTING,
                 ReleaseWorkflowRecord.State.TESTING, ReleaseWorkflowRecord.State.RECOVERY_REQUIRED).contains(e.toState())
-                || (enteredBuilding && e.toState() == ReleaseWorkflowRecord.State.BUILDING)),
+                || (enteredBuildPhase && e.toState() == ReleaseWorkflowRecord.State.BUILDING)),
                 "BUILD_RECOVERY_DEPLOYMENT_HISTORY_PRESENT");
         try (var files = Files.list(operations.getStateDir())) {
             for (Path file : files.filter(p -> p.getFileName().toString().endsWith(".json")).toList()) {
@@ -225,15 +227,30 @@ final class ReleaseWorkflowBuildFailureRecovery {
     private boolean isVerifiablePrePackageFailure(ReleaseWorkflowRecord workflow,
             RuntimeControlOperationRespVO operation, List<ReleaseWorkflowEvent> journal) throws java.io.IOException {
         if (journal.stream().noneMatch(event -> event.toState() == ReleaseWorkflowRecord.State.RECOVERY_REQUIRED
-                && "BUILDING".equals(event.failedStage()))) return false;
+                && Set.of("BUILDING", "TESTING").contains(event.failedStage()))) return false;
         Path log = operations.getOperationLogPath(operation.getOperationId());
         if (!Files.isRegularFile(log) || operation.getSummary() == null
                 || !operation.getSummary().contains("exitCode=1")) return false;
         String text = Files.readString(log, java.nio.charset.StandardCharsets.UTF_8);
-        return text.contains("backend build is blocked before package generation")
+        boolean prePackageMarker = text.contains("backend build is blocked before package generation")
+                || (text.contains("RELEASE_WORKFLOW_STAGE=TESTING") && text.contains("[ERROR] Tests run:"));
+        return prePackageMarker
                 && text.lines().filter(line -> line.startsWith("[FAIL]") || line.startsWith("RELEASE_")
                         || line.startsWith("RUNTIME_"))
                 .noneMatch(line -> line.matches("(?i).*\\b(?:NAS|REMOTE|UPLOAD|PUBLISH)\\b.*"));
+    }
+
+    private boolean hasVerifiableTestingFailure(RuntimeControlOperationRespVO operation,
+            List<ReleaseWorkflowEvent> journal) throws java.io.IOException {
+        if (journal.stream().noneMatch(event -> event.toState() == ReleaseWorkflowRecord.State.RECOVERY_REQUIRED
+                && "TESTING".equals(event.failedStage()))
+                || operation == null || operation.getSummary() == null
+                || !operation.getSummary().contains("exitCode=1")
+                || !operation.getSummary().contains("Tests run:")) return false;
+        Path log = operations.getOperationLogPath(operation.getOperationId());
+        if (!Files.isRegularFile(log) || Files.size(log) > 8 * 1024 * 1024) return false;
+        String text = Files.readString(log, java.nio.charset.StandardCharsets.UTF_8);
+        return text.contains("RELEASE_WORKFLOW_STAGE=TESTING") && text.contains("[ERROR] Tests run:");
     }
 
     static Map<String, String> command(String source) {

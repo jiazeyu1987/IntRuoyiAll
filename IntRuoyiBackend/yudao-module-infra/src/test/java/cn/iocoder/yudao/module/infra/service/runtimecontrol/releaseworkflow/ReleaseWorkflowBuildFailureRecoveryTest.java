@@ -242,7 +242,7 @@ class ReleaseWorkflowBuildFailureRecoveryTest {
         store.update(building, building.stateVersion(), ReleaseWorkflowRecord.State.RECOVERY_REQUIRED,
                 "1", "BUILD_FAILED", "BUILDING", false, List.of(), false);
         workflow = store.require(workflow.workflowId());
-        operation.setSummary("运行控制台命令执行失败：exitCode=1, log=" + operations.getOperationLogPath("op-build"));
+        operation.setSummary("运行控制台命令执行失败：exitCode=1, Tests run: 253, log=" + operations.getOperationLogPath("op-build"));
         operation.setResultLogPath(operations.getOperationLogPath("op-build").toAbsolutePath().normalize().toString());
         operations.save(operation);
         Files.writeString(operations.getOperationLogPath("op-build"),
@@ -252,6 +252,31 @@ class ReleaseWorkflowBuildFailureRecoveryTest {
         var recovery = new ReleaseWorkflowBuildFailureRecovery(properties, operations, runtime, factory,
                 () -> requested.plusSeconds(10), () -> TEST_HOST_IDENTITY,
                 releaseTag -> new ReleaseWorkflowBuildFailureRecovery.NasBoundaryEvidence(true, true, "e".repeat(64)));
+        var proof = recovery.inspect(workflow, "1");
+
+        assertTrue(proof.eligible(), proof.blockers().toString());
+        assertNotNull(proof.digest());
+    }
+
+    @Test void prePackageTestingFailureWithVerifiedNasAbsenceCanBeRetiredWithoutZeroWriteClaim() throws Exception {
+        fixture(requested.plusSeconds(10));
+        ReleaseWorkflowStore store = new ReleaseWorkflowStore(properties);
+        var testing = store.update(workflow, workflow.stateVersion(), ReleaseWorkflowRecord.State.TESTING,
+                "1", null, null, true, List.of(), false);
+        store.update(testing, testing.stateVersion(), ReleaseWorkflowRecord.State.RECOVERY_REQUIRED,
+                "1", "TESTING_FAILED", "TESTING", false, List.of(), false);
+        workflow = store.require(workflow.workflowId());
+        operation.setSummary("运行控制台命令执行失败：exitCode=1, log=" + operations.getOperationLogPath("op-build"));
+        operation.setResultLogPath(operations.getOperationLogPath("op-build").toAbsolutePath().normalize().toString());
+        operations.save(operation);
+        Files.writeString(operations.getOperationLogPath("op-build"),
+                Files.readString(operations.getOperationLogPath("op-build"))
+                        + "RELEASE_WORKFLOW_STAGE=TESTING evidence=application-artifact-build\n"
+                        + "[ERROR] Tests run: 253, Failures: 5, Errors: 2, Skipped: 0\n");
+
+        var recovery = new ReleaseWorkflowBuildFailureRecovery(properties, operations, runtime, factory,
+                () -> requested.plusSeconds(10), () -> TEST_HOST_IDENTITY,
+                releaseTag -> new ReleaseWorkflowBuildFailureRecovery.NasBoundaryEvidence(true, true, "t".repeat(64)));
         var proof = recovery.inspect(workflow, "1");
 
         assertTrue(proof.eligible(), proof.blockers().toString());
