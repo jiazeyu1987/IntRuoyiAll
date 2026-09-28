@@ -31,3 +31,5 @@
 - The ignored copied archive remains preserved locally and is excluded from the closeout commit. The Codex managed archive remains recoverable; its residual parent directory is retained.
 - Cleanup was re-run after setting `ready_for_closeout`: preview reported `ready`, kept the three core records and archive, with no deletes, blockers, or warnings; apply returned `applied` and deleted nothing.
 - `scripts/preflight/branch-runtime-port-guard.ps1` passed for `int_main/int_main`; before closeout, `origin/int_main` and local `int_main` were equal. The existing staged and unstaged parallel edits were left intact.
+- Closeout commit `b5f9ee6aca7f5e9d18eb54e52fffd8e7eadc41b0` contains only `task.md`, `execution-log.md`, and `verification-report.md`; `git push origin int_main` succeeded. Post-push `git rev-list --left-right --count origin/int_main...int_main` returned `0 0`.
+- Experience consolidation found the existing worktree memory already covers unrelated dirty changes, archive/residue boundaries, and slot cleanup; no durable rule change was needed.

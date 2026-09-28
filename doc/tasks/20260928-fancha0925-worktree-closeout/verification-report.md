@@ -25,3 +25,4 @@ The integrated `fancha0925` managed worktree was archived and removed. Its featu
 
 - Cleanup preview and apply passed with no deletions, blockers, or warnings.
 - The branch runtime guard passed. Only this task's core records are committed and pushed; unrelated staged, unstaged, deleted, and untracked workspace changes are excluded.
+- Closeout commit `b5f9ee6aca7f5e9d18eb54e52fffd8e7eadc41b0` pushed successfully to `origin/int_main`; post-push ahead/behind count is `0 0`.
