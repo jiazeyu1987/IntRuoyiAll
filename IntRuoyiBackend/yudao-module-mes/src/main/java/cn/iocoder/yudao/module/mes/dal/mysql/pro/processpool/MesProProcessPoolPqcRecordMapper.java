@@ -20,6 +20,12 @@ public interface MesProProcessPoolPqcRecordMapper extends BaseMapperX<MesProProc
                 .eq(MesProProcessPoolPqcRecordDO::getEventId, eventId));
     }
 
+    default MesProProcessPoolPqcRecordDO selectByEventIdForUpdate(Long eventId) {
+        return selectOne(new LambdaQueryWrapperX<MesProProcessPoolPqcRecordDO>()
+                .eq(MesProProcessPoolPqcRecordDO::getEventId, eventId)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProProcessPoolPqcRecordDO> selectListByProductionSubmitEventId(Long productionSubmitEventId) {
         return selectList(new LambdaQueryWrapperX<MesProProcessPoolPqcRecordDO>()
                 .eq(MesProProcessPoolPqcRecordDO::getProductionSubmitEventId, productionSubmitEventId)

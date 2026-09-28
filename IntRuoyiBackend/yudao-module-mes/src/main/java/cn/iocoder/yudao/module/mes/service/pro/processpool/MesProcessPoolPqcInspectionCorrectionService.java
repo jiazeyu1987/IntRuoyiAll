@@ -134,12 +134,13 @@ public class MesProcessPoolPqcInspectionCorrectionService {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "releasedPqcInspectionForm");
         }
 
-        MesProProcessPoolPqcRecordDO record = pqcRecordMapper.selectByEventId(event.getId());
+        // Identity pre-reads may establish an older snapshot; correction decisions require current facts.
+        MesProProcessPoolPqcRecordDO record = pqcRecordMapper.selectByEventIdForUpdate(event.getId());
         if (record == null || !Objects.equals(record.getTenantId(), event.getTenantId())
                 || !Objects.equals(record.getEventId(), event.getId())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcRecord");
         }
-        List<MesPqcInspectionPieceDetailDO> existingDetails = pieceDetailMapper.selectListByTaskId(task.getId());
+        List<MesPqcInspectionPieceDetailDO> existingDetails = pieceDetailMapper.selectListByTaskIdForUpdate(task.getId());
         validateExistingDetails(task, existingDetails);
         List<MesPqcInspectionPieceDetailDO> updatedDetails = buildUpdatedDetails(command, task, existingDetails);
         validateScrapQuantityAgainstPieceDetails(command, updatedDetails);

@@ -144,7 +144,8 @@ public class MesPqcProcessInspectionAggregationServiceImpl
                 .equals(evidence.path("payloadHash").asText())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.signedPayload");
         }
-        List<MesPqcInspectionPieceDetailDO> details = pieceDetailMapper.selectListByTaskId(task.getId());
+        // A consistent snapshot can still expose pieces removed by an earlier committed correction.
+        List<MesPqcInspectionPieceDetailDO> details = pieceDetailMapper.selectListByTaskIdForUpdate(task.getId());
         validatePieceDetails(record, task, details, eventId);
         LocalDateTime aggregatedAt = LocalDateTime.now();
         if (pqcRecordMapper.replaceProcessInspectionReviewIfAggregated(tenantId, eventId, previousReviewId,

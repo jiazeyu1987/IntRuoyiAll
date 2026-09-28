@@ -55,6 +55,14 @@ public class MesTeamLeaderFifoAllocationService {
 
     public MesTeamLeaderReportAllocationPreview previewFifoAllocation(MesTeamLeaderFifoAllocationReqBO reqBO) {
         validateReq(reqBO);
+        MesProProcessPoolEventDO currentEvent = eventMapper.selectById(reqBO.getEventId());
+        if (currentEvent == null || !Objects.equals(reqBO.getEventId(), currentEvent.getId())
+                || currentEvent.getWorkOrderId() == null || currentEvent.getRouteId() == null
+                || !Objects.equals(reqBO.getRouteProcessId(), currentEvent.getRouteProcessId())
+                || !Objects.equals(reqBO.getProcessId(), currentEvent.getProcessId())
+                || !MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(currentEvent.getEventType())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "fifoReportAllocation.productionEventIdentity");
+        }
         List<MesProcessPoolActiveOrderDO> activeOrders = sortedActiveOrders(reqBO.getLeaderUserId());
         if (reqBO.getExcludedActiveOrderIds() != null && !reqBO.getExcludedActiveOrderIds().isEmpty()) {
             activeOrders = activeOrders.stream()
@@ -86,13 +94,15 @@ public class MesTeamLeaderFifoAllocationService {
                 .map(MesProcessPoolReportAllocationDO::getEventId).distinct().toList();
         List<MesProProcessPoolEventDO> previousEvents = previousEventIds.isEmpty()
                 ? List.of() : eventMapper.selectBatchIds(previousEventIds);
-        MesProProcessPoolEventDO currentEvent = eventMapper.selectById(reqBO.getEventId());
 
         BigDecimal unallocated = reqBO.getConfirmQuantity();
         List<MesTeamLeaderReportAllocationPreviewLine> lines = new ArrayList<>();
         for (MesProcessPoolActiveOrderDO activeOrder : activeOrders) {
             if (unallocated.compareTo(BigDecimal.ZERO) <= 0) {
                 break;
+            }
+            if (!Objects.equals(activeOrder.getRouteId(), currentEvent.getRouteId())) {
+                continue;
             }
             MesProWorkOrderDO workOrder = workOrderMap.get(activeOrder.getWorkOrderId());
             Optional<MesTeamLeaderOrderProcessTarget> targetOptional = orderProcessTargetService
@@ -101,6 +111,9 @@ public class MesTeamLeaderFifoAllocationService {
                 continue;
             }
             MesTeamLeaderOrderProcessTarget target = targetOptional.get();
+            if (!Objects.equals(target.routeProcessId(), currentEvent.getRouteProcessId())) {
+                continue;
+            }
             BigDecimal remaining = remainingQuantity(activeOrder, workOrder, target,
                     currentEvent, previousEvents, previousAllocations);
             if (remaining.compareTo(BigDecimal.ZERO) <= 0) {

@@ -316,6 +316,8 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
         order.setVersion(3).setActiveStatus("COMPLETED");
         var replay = completionService.complete(20L, command());
         assertEquals(receiptId, replay.getCompletionReceiptId());
+        completed.setBackfillExecutionId(-1L);
+        assertThrows(ServiceException.class, () -> completionService.complete(20L, command()));
         verify(receiptMapper, times(1)).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
         assertEquals(2, materializations.size());
     }

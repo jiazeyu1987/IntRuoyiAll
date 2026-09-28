@@ -51,6 +51,7 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -98,6 +99,12 @@ class MesP0ActiveOrderFifoClosedLoopTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(snapshotMapper.selectListByActiveOrderAndProcessForUpdate(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(invocation -> List.of(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(invocation.getArgument(0)).routeProcessId(5001L)
+                        .processId(invocation.getArgument(1)).overagePercentSnapshot(BigDecimal.ZERO)
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build()));
         org.mockito.Mockito.lenient().when(snapshotMapper.selectByActiveOrderAndProcess(
                 org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.anyLong())).thenAnswer(invocation ->
@@ -114,6 +121,7 @@ class MesP0ActiveOrderFifoClosedLoopTest {
                 orderProcessTargetService, orderProcessCompletionService, abnormalStateService,
                 reportManagementSummaryService);
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
+        ReflectionTestUtils.setField(service, "snapshotMapper", snapshotMapper);
         org.mockito.Mockito.lenient().when(signatureService.recordTeamLeaderReviewSignature(
                 any(), any(), any(), any(), any(), any())).thenReturn(9101L);
     }
@@ -121,6 +129,7 @@ class MesP0ActiveOrderFifoClosedLoopTest {
     @Test
     void shouldPassOnlyThisConfirmationQuantitiesToFifoConsumptionAcrossActiveOrders() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         givenSuccessPqcBinding(80);
         when(activeOrderMapper.selectActiveListByLeader(LEADER_USER_ID)).thenReturn(List.of(
@@ -166,6 +175,7 @@ class MesP0ActiveOrderFifoClosedLoopTest {
     @Test
     void shouldRejectManualAllocationWhenCurrentProcessRemainingIsInsufficientBeforeTerminalWrites() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         givenSuccessPqcBinding(80);
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L, "ACTIVE", "2026-08-03T08:00:00");
@@ -181,11 +191,64 @@ class MesP0ActiveOrderFifoClosedLoopTest {
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH.getCode(),
                 ex.getCode());
         verifyNoTerminalWrites();
+        verifyNoInteractions(signatureService, processPoolFifoAllocationService);
+    }
+
+    @Test
+    void shouldRejectManualAllocationWhenMaterialQuantityExceedsFrozenCapacity() {
+        MesProProcessPoolEventDO current = event("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":250}]}");
+        when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(current);
+        when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
+        givenSuccessPqcBinding(80);
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L, "ACTIVE", "2026-08-03T08:00:00");
+        when(activeOrderMapper.selectActiveListByLeader(LEADER_USER_ID)).thenReturn(List.of(activeOrder));
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L)))
+                .thenReturn(List.of(workOrder(9001L, "WO-9001")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of());
+        when(orderProcessTargetService.requireTarget(activeOrder, 5001L, 6001L)).thenReturn(target("200"));
+        org.mockito.Mockito.lenient().when(snapshotMapper.selectListByActiveOrderAndProcessForUpdate(8101L, 6001L))
+                .thenReturn(List.of(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(8101L).routeProcessId(5001L).processId(6001L)
+                        .overagePercentSnapshot(BigDecimal.ZERO)
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[501]}").build()));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.confirmSubmission(signedManualReq(line(8101L, "80"))));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH.getCode(),
+                error.getCode());
+        verifyNoTerminalWrites();
+        verifyNoInteractions(signatureService, processPoolFifoAllocationService);
+    }
+
+    @Test
+    void shouldRejectDuplicateManualLinesWhoseCombinedQuantityExceedsCapacity() {
+        when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
+        when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
+        givenSuccessPqcBinding(80);
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L, "ACTIVE", "2026-08-03T08:00:00");
+        when(activeOrderMapper.selectActiveListByLeader(LEADER_USER_ID)).thenReturn(List.of(activeOrder));
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L)))
+                .thenReturn(List.of(workOrder(9001L, "WO-9001")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(allocation(8101L, 9001L, "150")));
+        when(orderProcessTargetService.requireTarget(activeOrder, 5001L, 6001L)).thenReturn(target("200"));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.confirmSubmission(baseReq().allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
+                        .allocations(List.of(line(8101L, "40"), line(8101L, "40"))).build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH.getCode(),
+                error.getCode());
+        verifyNoTerminalWrites();
+        verifyNoInteractions(signatureService, processPoolFifoAllocationService);
     }
 
     @Test
     void shouldRejectManualAllocationWhenTotalDoesNotMatchSubmittedQuantityBeforeTerminalWrites() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         givenSuccessPqcBinding(80);
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L, "ACTIVE", "2026-08-03T08:00:00");
@@ -318,6 +381,7 @@ class MesP0ActiveOrderFifoClosedLoopTest {
                 .id(id)
                 .leaderUserId(LEADER_USER_ID)
                 .workOrderId(workOrderId)
+                .routeId(4001L)
                 .activeStatus(status)
                 .joinedAt(LocalDateTime.parse(joinedAt))
                 .build();

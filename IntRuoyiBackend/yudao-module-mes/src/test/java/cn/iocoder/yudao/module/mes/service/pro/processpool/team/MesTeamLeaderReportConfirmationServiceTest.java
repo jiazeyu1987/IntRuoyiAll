@@ -92,6 +92,12 @@ class MesTeamLeaderReportConfirmationServiceTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(snapshotMapper.selectListByActiveOrderAndProcessForUpdate(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(invocation -> List.of(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(invocation.getArgument(0)).routeProcessId(5001L)
+                        .processId(invocation.getArgument(1)).overagePercentSnapshot(BigDecimal.ZERO)
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build()));
         org.mockito.Mockito.lenient().when(snapshotMapper.selectByActiveOrderAndProcess(
                 org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.anyLong())).thenAnswer(invocation ->
@@ -108,6 +114,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 orderProcessTargetService, orderProcessCompletionService, abnormalStateService,
                 reportManagementSummaryService);
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
+        ReflectionTestUtils.setField(service, "snapshotMapper", snapshotMapper);
         lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any())).thenReturn(9101L);
         lenient().when(abnormalStateService.findOpenWorkOrderIds(anyCollection())).thenReturn(Set.of());
     }
@@ -115,6 +122,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @Test
     void shouldConfirmSubmissionWithManualAllocationsToActiveOrders() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80,\"pressure\":15}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(event("{\"outputQuantity\":80,\"pressure\":15}"));
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
         givenSuccessPqcBinding(80);
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
@@ -167,6 +175,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @Test
     void shouldBlockWhenManualAllocationTargetsNonActiveOrder() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
         givenSuccessPqcBinding(80);
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
@@ -194,6 +203,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @Test
     void shouldBlockWhenAllocationTotalDoesNotEqualSubmittedQuantity() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
         givenSuccessPqcBinding(80);
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
@@ -226,6 +236,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @Test
     void shouldBlockDuplicateConfirmationBeforeCreatingReview() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(allocation(9001L, "80")));
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.confirmSubmission(
@@ -251,6 +262,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @Test
     void shouldBlockManualAllocationToOpenAbnormalOrder() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
         givenSuccessPqcBinding(80);
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
@@ -279,6 +291,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @Test
     void shouldBlockAllocationWhenSubmissionAlreadyRejected() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
         when(reviewMapper.selectLatestByEventIdForUpdate(1001L))
                 .thenReturn(submissionReview(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED));
 
@@ -327,6 +340,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @Test
     void shouldConfirmManualAllocationAgainstPerProcessSnapshotTargetInsteadOfErpQuantity() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":300}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(event("{\"outputQuantity\":300}"));
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
         givenSuccessPqcBinding(300);
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L, "2026-07-31T08:00:00");
@@ -360,8 +374,9 @@ class MesTeamLeaderReportConfirmationServiceTest {
     }
 
     @Test
-    void shouldPersistManualAllocationBeyondRemainingQuantityForLeaderCorrection() {
+    void shouldPersistManualAllocationWithinExplicitFrozenOverageAllowance() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
         givenSuccessPqcBinding(80);
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L, "2026-07-31T08:00:00");
@@ -371,6 +386,11 @@ class MesTeamLeaderReportConfirmationServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "90")));
         when(orderProcessTargetService.requireTarget(activeOrder, 5001L, 6001L)).thenReturn(target("100"));
+        org.mockito.Mockito.lenient().when(snapshotMapper.selectListByActiveOrderAndProcessForUpdate(8101L, 6001L))
+                .thenReturn(List.of(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(8101L).routeProcessId(5001L).processId(6001L)
+                        .overagePercentSnapshot(new BigDecimal("70"))
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build()));
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7003L);
             return 1;
@@ -382,7 +402,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .leaderUserId(3001L)
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
-                .reviewRemark("允许提交，交由组长后续纠错")
+                .reviewRemark("按已冻结的70%超产上限确认")
                 .reviewSignatureId(9101L)
                 .reviewSignatureUserId(3001L)
                 .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
@@ -486,6 +506,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .id(id)
                 .leaderUserId(3001L)
                 .workOrderId(workOrderId)
+                .routeId(4001L)
                 .activeStatus("ACTIVE")
                 .joinedAt(LocalDateTime.parse(joinedAt))
                 .build();

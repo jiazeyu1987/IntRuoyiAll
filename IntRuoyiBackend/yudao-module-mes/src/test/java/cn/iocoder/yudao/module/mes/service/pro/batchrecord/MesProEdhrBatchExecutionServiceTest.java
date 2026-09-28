@@ -141,6 +141,7 @@ import org.junit.jupiter.api.function.Executable;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.io.ByteArrayInputStream;
@@ -1218,6 +1219,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                                 .thenComparing(MesProEdhrBatchExecutionTaskDO::getBatchRecordSort))
                         .toList();
         assertTrue(persistedRouteTasks.isEmpty());
+        assertEquals(incompleteFrozenBatchTaskConfigSnapshotJson(),
+                batchExecutionMapper.selectById(legacyBatch.getId()).getRouteSnapshotJson());
         verify(workTaskService, never()).createInitialFillTask(argThat(batch -> Objects.equals(batch.getId(), legacyBatch.getId())));
     }
 
@@ -1832,6 +1835,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
             JSONObject metadata = JSON.parseObject(command.getMetadataJson());
             return "REEXECUTE".equals(command.getOperationType())
                     && metadata != null
+                    && "TEST-SNAPSHOT".equals(metadata.getString("sourceSnapshotHash"))
+                    && "TEST-SNAPSHOT".equals(command.getAfterSummaryHash())
                     && Objects.equals(8101L, metadata.getLong("activeOrderId"));
         }));
     }
@@ -4483,6 +4488,25 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(1, preview.getFormViewModel().getSignatureCellMarkers().get(0).getColumnIndex());
         verify(jimuReportGateway, never()).getReportJson(any());
         verify(singleExecutionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
+    void dynamicSignatureRules_preserveExplicitMarkerAndDoNotMarkOrdinaryCells() {
+        JSONObject schema = JSON.parseObject(dynamicFormJimuSchemaJsonWithSignatureRuleOnly());
+        schema.getJSONArray("cellRules").add(JSON.parseObject(
+                "{\"rowIndex\":4,\"columnIndex\":0,\"valueType\":\"TEXT\",\"label\":\"说明\"}"));
+        schema.put("signatureCellMarkers", JSON.parseArray(
+                "[{\"rowIndex\":4,\"columnIndex\":1,\"enabled\":false,\"actionType\":\"FORM_SUBMIT\",\"label\":\"提交签名\",\"signatureCellKey\":\"4:1\"}]"));
+
+        String result = ReflectionTestUtils.invokeMethod(batchExecutionService,
+                "buildDynamicRouteFormJimuPreviewSheetLayout", JSON.toJSONString(schema));
+
+        JSONObject cells = JSON.parseObject(result).getJSONObject("rows").getJSONObject("4").getJSONObject("cells");
+        assertNull(cells.getJSONObject("0").getJSONObject("edhrSignature"));
+        JSONObject marker = cells.getJSONObject("1").getJSONObject("edhrSignature");
+        assertEquals(Boolean.FALSE, marker.getBoolean("enabled"));
+        assertEquals("FORM_SUBMIT", marker.getString("actionType"));
+        assertEquals("提交签名", marker.getString("label"));
     }
 
     @Test

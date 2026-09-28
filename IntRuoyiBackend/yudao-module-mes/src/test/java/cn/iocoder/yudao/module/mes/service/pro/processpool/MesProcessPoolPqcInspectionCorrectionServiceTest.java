@@ -583,6 +583,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
         verify(fixture.signatureService, never()).recordFieldChangeSignature(any());
         verify(fixture.revisionService, never()).updatePqcInspectionRecord(any());
         verify(fixture.pqcRecordMapper, never()).selectByEventId(any());
+        verify(fixture.pqcRecordMapper, never()).selectByEventIdForUpdate(any());
         verify(fixture.pieceDetailMapper, never()).deleteByTaskId(any());
         verify(fixture.pieceDetailMapper, never()).insertBatch(any());
         verify(fixture.taskMapper, never()).updateById(any(MesPqcInspectionTaskDO.class));
@@ -681,8 +682,13 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
             when(activeOrderMapper.selectByIdForUpdate(5001L)).thenReturn(activeOrder);
             when(releaseStateService.findReleasedActiveOrderIdsForUpdate(List.of(5001L))).thenReturn(Set.of());
             when(pqcRecordMapper.selectByEventId(EVENT_ID)).thenReturn(record());
+            // Nonconcurrent fixtures expose the same row to both read modes; snapshot tests use separate versions.
+            when(pqcRecordMapper.selectByEventIdForUpdate(EVENT_ID))
+                    .thenAnswer(invocation -> pqcRecordMapper.selectByEventId(EVENT_ID));
             when(pieceDetailMapper.selectListByTaskId(TASK_ID))
                     .thenReturn(List.of(existingDetail(resultType, lower, upper, precision)));
+            when(pieceDetailMapper.selectListByTaskIdForUpdate(TASK_ID))
+                    .thenAnswer(invocation -> pieceDetailMapper.selectListByTaskId(TASK_ID));
             when(signatureService.recordFieldChangeSignature(any())).thenReturn(signature());
             when(revisionService.updatePqcInspectionRecord(any())).thenReturn(701L);
             when(taskMapper.updateById(any(MesPqcInspectionTaskDO.class))).thenReturn(1);

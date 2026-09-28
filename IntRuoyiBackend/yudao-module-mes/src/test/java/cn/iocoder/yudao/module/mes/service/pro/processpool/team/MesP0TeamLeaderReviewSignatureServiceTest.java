@@ -103,6 +103,12 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(snapshotMapper.selectListByActiveOrderAndProcessForUpdate(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(invocation -> List.of(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(invocation.getArgument(0)).routeProcessId(5001L)
+                        .processId(invocation.getArgument(1)).overagePercentSnapshot(BigDecimal.ZERO)
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build()));
         org.mockito.Mockito.lenient().when(snapshotMapper.selectByActiveOrderAndProcess(
                 org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.anyLong())).thenAnswer(invocation ->
@@ -122,6 +128,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 pqcPieceDetailMapper, orderProcessTargetService, orderProcessCompletionService,
                 abnormalStateService, reportManagementSummaryService);
         ReflectionTestUtils.setField(reportConfirmationService, "signatureService", signatureService);
+        ReflectionTestUtils.setField(reportConfirmationService, "snapshotMapper", snapshotMapper);
         lenient().when(signatureService.recordTeamLeaderReviewSignature(anyLong(), any(), any(),
                 eq("PROCESS_POOL_EVENT"), eq(1001L), any()))
                 .thenReturn(REVIEW_SIGNATURE_ID);
@@ -263,6 +270,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     @Test
     void confirmSubmissionShouldPersistReviewSignatureOnApprovalReview() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         when(pqcRecordMapper.selectListByProductionSubmitEventId(EVENT_ID)).thenReturn(List.of(
                 pqcRecord(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)));
@@ -440,6 +448,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 .id(8101L)
                 .leaderUserId(LEADER_USER_ID)
                 .workOrderId(9001L)
+                .routeId(4001L)
                 .activeStatus("ACTIVE")
                 .joinedAt(LocalDateTime.of(2026, 8, 3, 8, 0))
                 .build();

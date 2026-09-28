@@ -104,6 +104,22 @@ class MesFifoOutputMaterialAllocationTest {
                 error.getCode());
     }
 
+    @Test
+    void fifoMissingFormalEventCannotReturnSuccessfulEmptyPreview() {
+        when(events.selectById(10L)).thenReturn(null);
+        ServiceException error = assertThrows(ServiceException.class, this::preview);
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), error.getCode());
+        verify(orders, never()).selectActiveListByLeader(anyLong());
+    }
+
+    @Test
+    void fifoEventWithMissingRouteCannotReturnSuccessfulEmptyPreview() {
+        current.setRouteId(null);
+        ServiceException error = assertThrows(ServiceException.class, this::preview);
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), error.getCode());
+        verify(orders, never()).selectActiveListByLeader(anyLong());
+    }
+
     private MesTeamLeaderReportAllocationPreview preview() {
         return service.previewFifoAllocation(MesTeamLeaderFifoAllocationReqBO.builder().leaderUserId(30L)
                 .eventId(10L).processId(60L).routeProcessId(50L).confirmQuantity(new BigDecimal("100"))

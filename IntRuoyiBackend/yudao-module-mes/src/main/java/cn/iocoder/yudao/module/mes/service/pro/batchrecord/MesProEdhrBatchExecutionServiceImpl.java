@@ -1369,6 +1369,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         EdhrBatchExecutionRespVO result = toResp(latest);
         JSONObject reexecuteAudit = new JSONObject(true);
         reexecuteAudit.put("activeOrderId", reexecuteProvisionCommand.getActiveOrderId());
+        reexecuteAudit.put("sourceSnapshotHash", reexecuteProvisionCommand.getSourceSnapshotHash());
         reexecuteAudit.put("sourceRejectedBatchExecutionId", source.getId());
         reexecuteAudit.put("attemptNo", attemptNo);
         reexecuteAudit.put("reason", reason);
@@ -4420,10 +4421,16 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         }
         JSONArray rules = schema.getJSONArray("cellRules");
         JSONArray markers = schema.getJSONArray("signatureCellMarkers");
+        JSONArray effectiveRules = rules == null ? new JSONArray() : rules;
+        JSONArray effectiveMarkers = buildDynamicRouteFormSignatureMarkers(effectiveRules);
+        if (markers != null) {
+            // Explicit per-cell signature configuration takes precedence over rule-derived markers.
+            effectiveMarkers.addAll(markers);
+        }
         return mergeDynamicRouteFormRulesIntoSheetLayout(
                 sheetLayoutJson,
-                rules == null ? new JSONArray() : rules,
-                markers == null ? new JSONArray() : markers);
+                effectiveRules,
+                effectiveMarkers);
     }
 
     private String resolveDynamicRouteFormSheetLayoutJson(JSONObject schema) {
@@ -5479,12 +5486,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                           MesProRouteDO route,
                                                           List<MesProRouteProcessDO> routeProcesses) {
         if (batch.getRouteVersionId() != null) {
-            if (hasFrozenBatchTaskConfigSnapshot(batch.getRouteSnapshotJson())) {
-                return resolveFrozenBatchTaskConfigs(batch);
-            }
-            if (hasCurrentBatchProcessConfig(route.getId())) {
-                return resolveBatchTaskConfigs(route, routeProcesses);
-            }
             return resolveFrozenBatchTaskConfigs(batch);
         }
         return resolveBatchTaskConfigs(route, routeProcesses);
@@ -6322,15 +6323,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private boolean hasBatchFlowConfigContext(Long routeId, String batchUseType) {
         MesProRouteFlowConfigDO flowConfig = routeFlowConfigMapper.selectByRouteIdAndUseType(routeId, batchUseType);
         return flowConfig == null || MesProRouteFlowContextMatcher.isFlowContext(flowConfig, routeId, batchUseType);
-    }
-
-    private boolean hasCurrentBatchProcessConfig(Long routeId) {
-        if (routeId == null) {
-            return false;
-        }
-        return !routeFlowProcessConfigMapper
-                .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.BATCH.getType())
-                .isEmpty();
     }
 
     private boolean isOwnedByEnabledProcessConfig(

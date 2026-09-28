@@ -27,7 +27,8 @@ final class MesTeamLeaderActiveOrderCompletionSourceEvidence {
         JsonNode frozenSignatures = requiredObject(receipt.getSignatureSnapshotJson());
         JsonNode liveSignatures = requiredObject(current.getSignatureSnapshotJson());
         if (!normalizeCompletions(frozenSource.get("completions"), null)
-                || !normalizeCompletions(liveSource.get("completions"), receipt.getBatchRecordId())
+                // The formal source contains input facts only; writeback bindings live in the signature snapshot.
+                || !normalizeCompletions(liveSource.get("completions"), null)
                 || !normalizeCompletions(frozenSignatures.get("productionCompletionSignatures"), null)
                 || !normalizeCompletions(liveSignatures.get("productionCompletionSignatures"), receipt.getBatchRecordId())) {
             return false;

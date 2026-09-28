@@ -50,6 +50,10 @@ class MesTeamLeaderFifoAllocationServiceTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO.builder()
+                        .id(1001L).workOrderId(9001L).routeId(4001L).routeProcessId(5001L).processId(6001L)
+                        .eventType("PRODUCTION_SUBMIT").build());
         org.mockito.Mockito.lenient().when(snapshotMapper.selectByActiveOrderAndProcess(
                 org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.anyLong())).thenAnswer(invocation ->
@@ -210,6 +214,10 @@ class MesTeamLeaderFifoAllocationServiceTest {
 
     @Test
     void shouldSkipActiveOrdersWithoutCurrentRouteProcessSnapshotDuringFifoPreview() {
+        when(eventMapper.selectById(1001L)).thenReturn(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO.builder()
+                        .id(1001L).workOrderId(980019L).routeId(4001L)
+                        .routeProcessId(980645L).processId(922985L).eventType("PRODUCTION_SUBMIT").build());
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
                 activeOrder(35L, 980022L, "2026-08-07T10:25:34"),
                 activeOrder(48L, 980019L, "2026-08-08T11:58:12")));
@@ -221,7 +229,9 @@ class MesTeamLeaderFifoAllocationServiceTest {
         when(orderProcessTargetService.findUniqueTargetForProcess(
                 activeOrder(35L, 980022L, "2026-08-07T10:25:34"), 922985L)).thenReturn(Optional.empty());
         when(orderProcessTargetService.findUniqueTargetForProcess(
-                activeOrder(48L, 980019L, "2026-08-08T11:58:12"), 922985L)).thenReturn(Optional.of(target("100")));
+                activeOrder(48L, 980019L, "2026-08-08T11:58:12"), 922985L)).thenReturn(Optional.of(
+                new MesTeamLeaderOrderProcessTarget(980645L, 922985L, new BigDecimal("100"),
+                        BigDecimal.ONE, new BigDecimal("100"))));
 
         MesTeamLeaderReportAllocationPreview preview = service.previewFifoAllocation(
                 MesTeamLeaderFifoAllocationReqBO.builder()
@@ -247,6 +257,7 @@ class MesTeamLeaderFifoAllocationServiceTest {
                 .id(id)
                 .leaderUserId(3001L)
                 .workOrderId(workOrderId)
+                .routeId(4001L)
                 .activeStatus("ACTIVE")
                 .joinedAt(joinedAt)
                 .build();
