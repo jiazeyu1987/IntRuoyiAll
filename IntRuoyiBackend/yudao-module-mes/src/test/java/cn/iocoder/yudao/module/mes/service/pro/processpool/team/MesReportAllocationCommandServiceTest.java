@@ -98,6 +98,7 @@ class MesReportAllocationCommandServiceTest {
                 .routeProcessId(routeProcessId)
                 .processId(6001L)
                 .overagePercentSnapshot(new BigDecimal("1000"))
+                .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}")
                 .build();
     }
 
@@ -798,6 +799,7 @@ class MesReportAllocationCommandServiceTest {
     @Test
     void shouldRejectUnreleasedProductionSubmissionAndRebuildDerivedFacts() {
         MesProProcessPoolEventDO event = event();
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder(8101L, 9001L));
         MesProcessPoolReportAllocationDO current = allocation(7101L, 8101L, 9001L, 5101L, "100");
         MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
                 .id(7201L).eventId(1001L).currentVersion(1).build();
@@ -834,6 +836,7 @@ class MesReportAllocationCommandServiceTest {
     @Test
     void shouldRejectProductionSubmissionBeforeWritingWhenAnyAllocationWasReleased() {
         MesProProcessPoolEventDO event = event();
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder(8101L, 9001L));
         MesProcessPoolReportAllocationDO current = allocation(7101L, 8101L, 9001L, 5101L, "100");
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
         when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(
@@ -879,6 +882,7 @@ class MesReportAllocationCommandServiceTest {
     @Test
     void shouldRepairResidualCurrentAllocationWhenRejectedRequestWasProcessedByOldRuntime() {
         MesProProcessPoolEventDO event = event();
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder(8101L, 9001L));
         MesProcessPoolReportAllocationDO current = allocation(7101L, 8101L, 9001L, 5101L, "9111");
         MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
                 .id(7201L).eventId(1001L).currentVersion(1).build();

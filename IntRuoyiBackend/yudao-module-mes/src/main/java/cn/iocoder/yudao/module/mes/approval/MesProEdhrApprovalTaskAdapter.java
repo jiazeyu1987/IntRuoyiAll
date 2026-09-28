@@ -140,6 +140,7 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
                     .setReleaseTransactionId(releaseTransactionId)
                     .setWorkTaskId(workTaskId)
                     .setExpectedVersion(releaseService.get(releaseTransactionId).getVersion())
+                    .setPassword(context.getSignaturePassword())
                     .setSignoffSubjectId(context.getSignatureSubjectId())
                     .setIdempotencyKey(buildReviewIdempotencyKey(context.getResult(), workTaskId))
                     .setSignoffEvidenceHash(buildSignoffEvidenceHash(context))

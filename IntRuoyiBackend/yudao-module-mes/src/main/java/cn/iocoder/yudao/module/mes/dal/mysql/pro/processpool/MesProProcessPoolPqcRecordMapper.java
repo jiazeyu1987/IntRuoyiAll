@@ -50,6 +50,18 @@ public interface MesProProcessPoolPqcRecordMapper extends BaseMapperX<MesProProc
                 .eq(MesProProcessPoolPqcRecordDO::getEventId, eventId));
     }
 
+    default int replaceProcessInspectionReviewIfAggregated(Long tenantId, Long eventId, Long previousReviewId,
+                                                            Long reviewId, LocalDateTime aggregatedAt) {
+        return update(null, new LambdaUpdateWrapper<MesProProcessPoolPqcRecordDO>()
+                .set(MesProProcessPoolPqcRecordDO::getProcessInspectionReviewId, reviewId)
+                .set(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregatedAt, aggregatedAt)
+                .eq(MesProProcessPoolPqcRecordDO::getTenantId, tenantId)
+                .eq(MesProProcessPoolPqcRecordDO::getEventId, eventId)
+                .eq(MesProProcessPoolPqcRecordDO::getProcessInspectionReviewId, previousReviewId)
+                .eq(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregationStatus,
+                        MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED));
+    }
+
     default int deleteByEventIds(Collection<Long> eventIds) {
         return eventIds == null || eventIds.isEmpty() ? 0 : physicalDeleteByEventIds(eventIds);
     }

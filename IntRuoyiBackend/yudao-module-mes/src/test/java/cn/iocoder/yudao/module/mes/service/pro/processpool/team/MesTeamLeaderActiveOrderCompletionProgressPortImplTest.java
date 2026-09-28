@@ -218,6 +218,9 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
                 .routeProcessId(routeProcessId)
                 .processId(1L)
                 .rawPayload(rawPayload)
+                .reportOutputQuantity(com.alibaba.fastjson.JSON.parseObject(rawPayload).getJSONArray("materialDetails")
+                        .stream().map(detail -> ((com.alibaba.fastjson.JSONObject) detail).getBigDecimal("outputQuantity"))
+                        .min(BigDecimal::compareTo).orElseThrow())
                 .build();
     }
 }

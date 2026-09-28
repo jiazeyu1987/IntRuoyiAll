@@ -393,6 +393,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .allocatedQuantity(new BigDecimal("60")).build();
         var source = MesProProcessPoolEventDO.builder().id(1001L).workOrderId(9000L).routeId(7001L)
                 .routeProcessId(5001L).processId(6001L).eventType("PRODUCTION_SUBMIT")
+                .reportOutputQuantity(new BigDecimal("100"))
                 .rawPayload("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":100}]}").build();
         when(processSnapshotMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of(snapshot));
         when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of(allocation));
@@ -976,6 +977,25 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(pickListItemMapper, never()).selectListByPickListIds(any());
         verify(pickListBindingMapper, never()).selectByActiveOrderIdAndPickListId(any(), any());
         verify(pickListBindingMapper, never()).insert(any(MesProcessPoolActiveOrderPickListBindingDO.class));
+    }
+
+    @Test
+    void shouldOfferCurrentRemovedCandidateAfterMultipleSupersededCycles() {
+        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
+                .thenReturn(List.of(confirmedWorkOrder()));
+        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
+        when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L))).thenReturn(List.of(
+                existingActiveOrder(8001L, "REMOVED", 1).setBusinessStatus("VERSION_UPGRADED"),
+                existingActiveOrder(8002L, "REMOVED", 2).setBusinessStatus("VERSION_UPGRADED"),
+                existingActiveOrder(8003L, "REMOVED", 3).setBusinessStatus("REWORKED"),
+                existingActiveOrder(8101L, "REMOVED", 7)));
+
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+
+        assertEquals(1, candidates.size());
+        assertTrue(candidates.get(0).isEligible());
+        assertEquals("RECOVERABLE", candidates.get(0).getCandidateState());
+        assertEquals(null, candidates.get(0).getIneligibleReason());
     }
 
     @Test
@@ -2615,6 +2635,41 @@ class MesTeamLeaderActiveOrderServiceTest {
         return matches.get(0);
     }
 
+    @Test
+    void shouldRecoverCurrentRemovedOrderAfterOneVersionUpgrade() {
+        assertRecoveryIgnoresSupersededOrders(List.of(
+                existingActiveOrder(8001L, "REMOVED", 1).setBusinessStatus("VERSION_UPGRADED")));
+    }
+
+    @Test
+    void shouldRecoverCurrentRemovedOrderAfterMultipleUpgradesAndRework() {
+        assertRecoveryIgnoresSupersededOrders(List.of(
+                existingActiveOrder(8001L, "REMOVED", 1).setBusinessStatus("VERSION_UPGRADED"),
+                existingActiveOrder(8002L, "REMOVED", 2).setBusinessStatus("VERSION_UPGRADED"),
+                existingActiveOrder(8003L, "REMOVED", 3).setBusinessStatus("REWORKED")));
+    }
+
+    private void assertRecoveryIgnoresSupersededOrders(List<MesProcessPoolActiveOrderDO> superseded) {
+        stubWorkOrderExists(confirmedWorkOrder());
+        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
+        List<MesProcessPoolActiveOrderDO> history = new java.util.ArrayList<>(superseded);
+        history.add(existingActiveOrder(8101L, "REMOVED", 7));
+        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L)).thenReturn(history);
+        when(reportAllocationMapper.selectAllListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of());
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of());
+        when(activeOrderMapper.reactivateRemovedActiveOrder(any(), any(), any(), any(), any())).thenReturn(1);
+        when(activeOrderMapper.refreshActiveOrderSnapshot(any(MesProcessPoolActiveOrderDO.class))).thenReturn(1);
+        when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
+
+        MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(activeOrderReq());
+
+        assertEquals(8101L, result.getActiveOrderId());
+        assertEquals(MesTeamLeaderActiveOrderAddResult.ACTION_RECOVER, result.getAction());
+        verify(activeOrderMapper).reactivateRemovedActiveOrder(
+                eq(8101L), eq(3001L), eq(7), any(LocalDateTime.class), eq(1L));
+        verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
+    }
+
     private void stubProductionAllocations(List<MesProcessPoolReportAllocationDO> allocations) {
         List<MesProProcessPoolEventDO> events = new java.util.ArrayList<>();
         for (int index = 0; index < allocations.size(); index++) {
@@ -2629,6 +2684,7 @@ class MesTeamLeaderActiveOrderServiceTest {
             events.add(MesProProcessPoolEventDO.builder().id(eventId)
                     .workOrderId(allocation.getWorkOrderId()).routeId(922119L)
                     .routeProcessId(allocation.getRouteProcessId()).processId(allocation.getProcessId())
+                    .reportOutputQuantity(allocation.getAllocatedQuantity())
                     .eventType("PRODUCTION_SUBMIT").rawPayload(payload.toJSONString()).build());
         }
         when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(allocations);

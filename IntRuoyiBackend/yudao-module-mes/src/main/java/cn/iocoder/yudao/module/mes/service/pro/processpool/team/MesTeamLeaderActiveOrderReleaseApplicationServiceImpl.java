@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowIdempotency;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import java.util.Objects;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -20,6 +21,7 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
     private final MesTeamLeaderActiveOrderCompletionService completionService;
     private final MesProcessPoolActiveOrderCompletionReceiptMapper receiptMapper;
     private final MesProEdhrBatchExecutionMapper batchMapper;
+    private final MesProEdhrBatchExecutionOriginMapper originMapper;
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     private final MesTeamLeaderActiveOrderCompletionBatchExecutionService completionBatchExecutionService;
 
@@ -29,13 +31,15 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
             MesProcessPoolActiveOrderCompletionReceiptMapper receiptMapper,
             MesProEdhrBatchExecutionMapper batchMapper,
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
-            MesTeamLeaderActiveOrderCompletionBatchExecutionService completionBatchExecutionService) {
+            MesTeamLeaderActiveOrderCompletionBatchExecutionService completionBatchExecutionService,
+            MesProEdhrBatchExecutionOriginMapper originMapper) {
         this.generationService = generationService;
         this.completionService = completionService;
         this.receiptMapper = receiptMapper;
         this.batchMapper = batchMapper;
         this.applicationMapper = applicationMapper;
         this.completionBatchExecutionService = completionBatchExecutionService;
+        this.originMapper = originMapper;
     }
 
     @Override
@@ -67,8 +71,21 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING,
                     command.getActiveOrderId(), "请先完成P2，生成批记录和过程检验记录");
         }
-        var batch = batchMapper.selectByContext(receipt.getWorkOrderId(), receipt.getBatchCode(), receipt.getRouteId());
+        var batchIds = originMapper.selectListByTraceFilter(command.getActiveOrderId(), receipt.getWorkOrderId(),
+                        null, "ACTIVE_ORDER_COMPLETION").stream()
+                .filter(origin -> Objects.equals(origin.getCompletionBackfillReceiptId(), receipt.getId()))
+                .map(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO::getBatchExecutionId)
+                .filter(Objects::nonNull).distinct().toList();
+        if (batchIds.size() != 1) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING,
+                    command.getActiveOrderId(), "本轮P2回执缺少唯一批次来源");
+        }
+        var batch = batchMapper.selectById(batchIds.get(0));
         if (batch == null || batch.getId() == null
+                || !Objects.equals(batch.getWorkOrderId(), receipt.getWorkOrderId())
+                || !Objects.equals(batch.getBatchCode(), receipt.getBatchCode())
+                || !Objects.equals(batch.getRouteId(), receipt.getRouteId())
+                || !Objects.equals(batch.getRouteVersionId(), receipt.getRouteVersionId())
                 || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionMapper.BATCH_STATUS_VOIDED)) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING,
                     command.getActiveOrderId(), "P2生成的有效批次不存在");

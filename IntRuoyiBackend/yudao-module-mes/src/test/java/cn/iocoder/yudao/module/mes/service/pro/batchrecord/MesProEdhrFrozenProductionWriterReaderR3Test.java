@@ -482,9 +482,10 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
     }
 
     @Test
-    void sourceHashReplaySelfInvocationAlsoRequiresTheExistingTransaction() {
+    void receiptSourceReplaySelfInvocationAlsoRequiresTheExistingTransaction() {
         TransactionSynchronizationManager.setActualTransactionActive(false);
-        assertThrows(IllegalStateException.class, () -> writer.readSourceSnapshotHash(20L, order, command()));
+        assertThrows(IllegalStateException.class, () -> writer.matchesReceiptSources(20L, order, command(),
+                new MesProcessPoolActiveOrderCompletionReceiptDO()));
         verifyNoInteractions(eventMapper, reviewMapper, backfillMapper);
     }
 

@@ -2594,7 +2594,7 @@ const edhrVoidActionProjection = computed(() =>
 const NONCONFORMANCE_FROZEN_ACTION_LOCKED_MESSAGE =
   '不合格评审待处理，冻结后禁止报工、PQC提交、PQC放行。'
 const nonconformanceFrozenActionLocked = computed(
-  () => batchStatus.value === EDHR_BATCH_STATUS_FROZEN
+  () => detail.value?.productionActionLocked === true
 )
 const batchActionLocked = computed(
   () =>
@@ -2606,7 +2606,7 @@ const batchActionLockMessage = computed(() =>
   pendingVoidActionLocked.value
     ? edhrVoidActionProjection.value.blockerMessage
     : nonconformanceFrozenActionLocked.value
-      ? NONCONFORMANCE_FROZEN_ACTION_LOCKED_MESSAGE
+      ? detail.value?.productionActionLockReason || NONCONFORMANCE_FROZEN_ACTION_LOCKED_MESSAGE
       : edhrReleaseActionProjection.value.blockerMessage || releaseActionLockMessage.value
 )
 const resolveEdhrBatchActionProjection = (
@@ -2973,7 +2973,7 @@ function buildReleaseDecisionActionItems(): ReleaseStageActionItem[] {
       type: 'danger',
       permission: ['mes:pro-edhr-nonconformance-review:create'],
       disabled: !canOpenNonconformanceReview.value,
-      onClick: () => openNonconformanceReviewEntry(SOURCE_TYPE_PQC_RELEASE)
+      onClick: openNonconformanceReviewEntry
     },
     {
       key: 'release-signature',
@@ -5183,7 +5183,7 @@ const submitReleaseReturn = async () => {
   }
 }
 
-const openNonconformanceReviewEntry = (sourceType = SOURCE_TYPE_PQC_RELEASE) => {
+const openNonconformanceReviewEntry = () => {
   if (!ensureViewedReleaseStageWritable('不合格审查')) return
   if (!canOpenNonconformanceReview.value) {
     message.error(
@@ -5191,15 +5191,16 @@ const openNonconformanceReviewEntry = (sourceType = SOURCE_TYPE_PQC_RELEASE) => 
     )
     return
   }
+  const activeOrderId = detail.value?.activeOrderId
+  if (!activeOrderId) {
+    message.error('当前批次缺少正式活跃订单ID，无法发起不合格审查。')
+    return
+  }
   router.push({
     name: 'MesProFeedbackEdhrNonconformanceReview',
     query: {
-      sourceType,
-      sourceId:
-        sourceType === SOURCE_TYPE_PQC_RELEASE && traceRecordReleaseTransactionId.value
-          ? String(traceRecordReleaseTransactionId.value)
-          : String(assertBatchExecutionId()),
-      batchExecutionId: String(assertBatchExecutionId())
+      activeOrderId: String(activeOrderId),
+      autoCreate: '1'
     }
   })
 }

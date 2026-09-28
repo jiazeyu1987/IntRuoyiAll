@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
@@ -99,6 +101,64 @@ public class MesPqcProcessInspectionAggregationServiceImpl
                 .toList();
         if (!Boolean.TRUE.equals(aggregateDetailMapper.insertBatch(aggregateRows))) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcProcessInspectionAggregateDetail");
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void refreshCorrectedPqcSubmission(Long eventId, Long previousReviewId, Long correctionReviewId) {
+        if (eventId == null || previousReviewId == null || correctionReviewId == null
+                || previousReviewId.equals(correctionReviewId)) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.review");
+        }
+        MesProProcessPoolPqcRecordDO record = pqcRecordMapper.selectByEventId(eventId);
+        if (record == null || !MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED
+                .equals(record.getProcessInspectionAggregationStatus())
+                || !Objects.equals(record.getProcessInspectionReviewId(), previousReviewId)) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.previousAggregation");
+        }
+        Long tenantId = requireTenantId(record, eventId);
+        MesProProcessPoolEventDO event = eventMapper.selectById(eventId);
+        validatePqcEvent(record, event, eventId);
+        MesPqcInspectionTaskDO task = pqcTaskMapper.selectById(event.getFeedbackSourceId());
+        validatePqcTask(record, event, task, eventId);
+        if (!MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.confirmedTask");
+        }
+        MesProcessPoolSubmissionReviewDO review = reviewMapper.selectLatestByEventIdForUpdate(eventId);
+        if (review == null || !Objects.equals(correctionReviewId, review.getId())
+                || !Objects.equals(tenantId, review.getTenantId()) || !Objects.equals(eventId, review.getEventId())
+                || !MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(review.getReviewStatus())
+                || !MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC.equals(review.getLeaderType())
+                || review.getReviewSignatureId() == null || review.getReviewSignatureId() <= 0
+                || !Objects.equals(review.getLeaderUserId(), review.getReviewSignatureUserId())
+                || StrUtil.isBlank(review.getReviewSignatureSnapshotJson())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.signedReview");
+        }
+        var evidence = JsonUtils.parseTree(review.getReviewSignatureSnapshotJson());
+        if (!"PQC_INSPECTION_CORRECTION".equals(evidence.path("actionType").asText())
+                || evidence.path("supersededReviewId").asLong() != previousReviewId
+                || evidence.path("revisionId").asLong() <= 0
+                || evidence.path("signatureId").asLong() != review.getReviewSignatureId()
+                || !MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload())
+                .equals(evidence.path("payloadHash").asText())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.signedPayload");
+        }
+        List<MesPqcInspectionPieceDetailDO> details = pieceDetailMapper.selectListByTaskId(task.getId());
+        validatePieceDetails(record, task, details, eventId);
+        LocalDateTime aggregatedAt = LocalDateTime.now();
+        if (pqcRecordMapper.replaceProcessInspectionReviewIfAggregated(tenantId, eventId, previousReviewId,
+                correctionReviewId, aggregatedAt) != 1) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.concurrentAggregation");
+        }
+        if (aggregateDetailMapper.deleteByEventId(eventId) <= 0) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.previousDetails");
+        }
+        List<MesPqcProcessInspectionAggregateDetailDO> rows = details.stream()
+                .map(detail -> buildAggregateDetail(record, event, task, detail, correctionReviewId, aggregatedAt))
+                .toList();
+        if (!Boolean.TRUE.equals(aggregateDetailMapper.insertBatch(rows))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.aggregateDetails");
         }
     }
 

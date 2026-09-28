@@ -112,7 +112,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
     public MesTeamLeaderActiveOrderCompletionBackfillDraft prepare(
             Long leaderUserId, MesProcessPoolActiveOrderDO activeOrder,
             MesTeamLeaderActiveOrderCompletionCommand command) {
-        // Also covers readSourceSnapshotHash -> prepare self invocation (no proxy interception).
+        // Also covers matchesReceiptSources -> prepare self invocation (no proxy interception).
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("Formal production freeze requires the existing Tx-A transaction");
         }

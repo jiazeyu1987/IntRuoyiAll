@@ -4190,7 +4190,6 @@ import {
   correctProcessPoolProductionReport
 } from '@/api/mes/pro/processpool/eventRevision'
 import { MdItemApi } from '@/api/mes/md/item'
-import { SOURCE_TYPE_PQC_SUBMISSION } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { formatDateTimeValue, formatDate } from '@/utils/formatTime'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 
@@ -4918,7 +4917,7 @@ const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
   Boolean(row.id)
 
 const canOpenPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) =>
-  canReviewSubmission(row)
+  canReviewSubmission(row) && Boolean(row.activeOrderId)
 
 const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
   !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value) &&
@@ -8820,8 +8819,8 @@ const openPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) 
     return
   }
   const query: Record<string, string> = {
-    sourceType: SOURCE_TYPE_PQC_SUBMISSION,
-    sourceId: String(row.id)
+    activeOrderId: String(row.activeOrderId),
+    autoCreate: '1'
   }
   router.push({
     name: 'MesProFeedbackEdhrNonconformanceReview',

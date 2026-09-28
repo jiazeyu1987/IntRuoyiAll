@@ -114,6 +114,15 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRe
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordJimuReportGateway;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderReworkCycleTransactionTest;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationServiceImpl;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseGenerationService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplyCommand;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationResult;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionBatchExecutionService;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
@@ -223,6 +232,10 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Resource
     private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
+    @Resource
+    private javax.sql.DataSource testDataSource;
+    @Resource
+    private MesProcessPoolActiveOrderReleaseApplicationMapper reworkApplicationMapper;
     @Resource
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Resource
@@ -387,7 +400,11 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(batchExecutionEntryContractService.validate(any(MesBatchExecutionAuthoritativeContext.class)))
                 .thenAnswer(invocation -> ((MesBatchExecutionAuthoritativeContext) invocation.getArgument(0))
                         .getProvisionCommand());
-        when(provisioningRecordMapper.selectByIdempotencyKey(any(), any())).thenReturn(null);
+        when(provisioningRecordMapper.selectByIdempotencyKey(any(), any())).thenAnswer(invocation ->
+                provisioningRecords.values().stream()
+                        .filter(record -> Objects.equals(record.getTenantId(), invocation.getArgument(0)))
+                        .filter(record -> Objects.equals(record.getIdempotencyKey(), invocation.getArgument(1)))
+                        .findFirst().orElse(null));
         when(provisioningRecordMapper.selectByBatchExecutionId(any(), any())).thenAnswer(invocation ->
                 provisioningRecords.get(invocation.getArgument(1, Long.class)));
         when(provisioningRecordMapper.insert(any(MesProEdhrBatchProvisioningRecordDO.class)))
@@ -467,6 +484,116 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void completionReceiptsFromConsecutiveReworkCyclesCreateSeparateBatches() {
+        Fixture fixture = insertRouteFixture(true, true);
+        Long routeVersionId = routeVersionMapper.selectActiveByRouteId(fixture.routeId()).getId();
+        List<Long> batchIds = new ArrayList<>();
+        for (long cycle = 1; cycle <= 3; cycle++) {
+            String receiptId = String.valueOf(8800L + cycle);
+            EdhrBatchExecutionOpenOrCreateReqVO request = new EdhrBatchExecutionOpenOrCreateReqVO()
+                    .setWorkOrderId(fixture.workOrderId()).setBatchCode("BATCH-REWORK-CYCLES")
+                    .setRouteId(fixture.routeId()).setRouteVersionId(routeVersionId)
+                    .setEntryType("ACTIVE_ORDER_COMPLETION")
+                    .setEntryBusinessId("ACTIVE_ORDER_COMPLETION:" + receiptId)
+                    .setSourceCredentialType("CompletionBackfillReceipt").setSourceCredentialId(receiptId)
+                    .setSourceContextHash("cycle-source-" + cycle).setSourceSnapshotHash("cycle-source-" + cycle)
+                    .setActiveOrderId(8100L + cycle).setCompletionTransactionId("completion-" + cycle)
+                    .setExpectedActiveOrderVersion(0L).setCompletionVersion(1L)
+                    .setCompletionBackfillReceiptId(receiptId).setCompletionBackfillReceiptHash("receipt-" + cycle)
+                    .setIdempotencyKey("completion-batch-" + cycle);
+
+            EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(request);
+            assertEquals(created.getId(), batchExecutionService.openOrCreate(request).getId());
+            assertFalse(batchIds.contains(created.getId()), "A new completion receipt must not reuse an old cycle batch");
+            batchIds.add(created.getId());
+        }
+        assertEquals(3, batchIds.size());
+        assertEquals(3, batchExecutionMapper.selectListByWorkOrderIdAndBatchCode(
+                fixture.workOrderId(), "BATCH-REWORK-CYCLES").size());
+    }
+
+    @Test
+    void completionReplayUsesFormalProvisioningIdentityWhenContextKeyPredatesCycles() {
+        Fixture fixture = insertRouteFixture(true, true);
+        Long versionId = routeVersionMapper.selectActiveByRouteId(fixture.routeId()).getId();
+        var request = new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId()).setBatchCode("BATCH-EXISTING-RECEIPT")
+                .setRouteId(fixture.routeId()).setRouteVersionId(versionId)
+                .setEntryType("ACTIVE_ORDER_COMPLETION").setEntryBusinessId("ACTIVE_ORDER_COMPLETION:8851")
+                .setSourceCredentialType("CompletionBackfillReceipt").setSourceCredentialId("8851")
+                .setSourceContextHash("existing-source").setSourceSnapshotHash("existing-source")
+                .setActiveOrderId(8151L).setCompletionTransactionId("completion-existing")
+                .setExpectedActiveOrderVersion(0L).setCompletionVersion(1L)
+                .setCompletionBackfillReceiptId("8851").setCompletionBackfillReceiptHash("receipt-existing")
+                .setIdempotencyKey("completion-batch-existing");
+        Long batchId = batchExecutionService.openOrCreate(request).getId();
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO().setId(batchId)
+                .setActiveContextKey(fixture.workOrderId() + ":BATCH-EXISTING-RECEIPT:" + fixture.routeId()));
+
+        assertEquals(batchId, batchExecutionService.openOrCreate(request).getId());
+        assertEquals(1, batchExecutionMapper.selectListByWorkOrderIdAndBatchCode(
+                fixture.workOrderId(), "BATCH-EXISTING-RECEIPT").size());
+    }
+
+    @Test
+    void twoActualReworkCyclesCanCompleteOpenBatchAndBindReleaseApplication() throws Exception {
+        Fixture fixture = insertRouteFixture(true, true);
+        var cycle = new MesActiveOrderReworkCycleTransactionTest();
+        cycle.setUpForDownstream(fixture.workOrderId(), fixture.routeId(), fixture.routeVersionId());
+        var generation = mock(MesTeamLeaderActiveOrderReleaseGenerationService.class);
+        var applicationService = new MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(generation,
+                mock(MesTeamLeaderActiveOrderCompletionService.class), cycle.receiptMapper(), batchExecutionMapper,
+                reworkApplicationMapper, mock(MesTeamLeaderActiveOrderCompletionBatchExecutionService.class),
+                batchExecutionOriginMapper);
+        List<Long> batches = new ArrayList<>();
+        cycle.exerciseTwoReworks(receipt -> {
+            String receiptId = String.valueOf(receipt.getId());
+            var request = new EdhrBatchExecutionOpenOrCreateReqVO().setWorkOrderId(receipt.getWorkOrderId())
+                    .setBatchCode(receipt.getBatchCode()).setRouteId(receipt.getRouteId())
+                    .setRouteVersionId(receipt.getRouteVersionId()).setEntryType("ACTIVE_ORDER_COMPLETION")
+                    .setEntryBusinessId("ACTIVE_ORDER_COMPLETION:" + receiptId)
+                    .setSourceCredentialType("CompletionBackfillReceipt").setSourceCredentialId(receiptId)
+                    .setSourceContextHash(receipt.getSourceSnapshotHash()).setSourceSnapshotHash(receipt.getSourceSnapshotHash())
+                    .setActiveOrderId(receipt.getActiveOrderId()).setCompletionTransactionId(receipt.getRequestIdempotencyKey())
+                    .setExpectedActiveOrderVersion(receipt.getExpectedVersion().longValue())
+                    .setCompletionVersion(receipt.getCompletedVersion().longValue())
+                    .setCompletionBackfillReceiptId(receiptId).setCompletionBackfillReceiptHash(receipt.getReceiptHash())
+                    .setIdempotencyKey("completion-batch:" + receiptId);
+            Long batchId = batchExecutionService.openOrCreate(request).getId();
+            assertEquals(batchId, batchExecutionService.openOrCreate(request).getId());
+            assertFalse(batches.contains(batchId));
+            batches.add(batchId);
+            // Tx-C is a separate after-commit boundary; its formal relation is the P3 input.
+            batchExecutionOriginMapper.insert(new MesProEdhrBatchExecutionOriginDO().setTenantId(1L)
+                    .setBatchExecutionId(batchId).setOriginKey("ACTIVE_ORDER:" + receipt.getActiveOrderId())
+                    .setActiveOrderId(receipt.getActiveOrderId()).setWorkOrderId(receipt.getWorkOrderId())
+                    .setEntryType("ACTIVE_ORDER_COMPLETION").setCompletionBackfillReceiptId(receipt.getId())
+                    .setCompletionBackfillReceiptHash(receipt.getReceiptHash()).setSourceSnapshotHash(receipt.getSourceSnapshotHash())
+                    .setBatchProvisionReceiptId(provisioningRecords.get(batchId).getId()).setBatchProvisionStatus("READY")
+                    .setSourceBundleHash(provisioningRecords.get(batchId).getSourceBundleHash())
+                    .setRelationStatus("EFFECTIVE").setCapturedAt(LocalDateTime.now())
+                    .setIdempotencyKey("origin:" + receiptId));
+            var application = new MesProcessPoolActiveOrderReleaseApplicationDO().setActiveOrderId(receipt.getActiveOrderId())
+                    .setWorkOrderId(receipt.getWorkOrderId()).setRouteId(receipt.getRouteId())
+                    .setRouteVersionId(receipt.getRouteVersionId()).setBatchCode(receipt.getBatchCode())
+                    .setApplicationStatus("PQC_RELEASE_PENDING").setVersion(1)
+                    .setSourceSnapshotHash(receipt.getSourceSnapshotHash()).setRequestIdempotencyKey("apply:" + receiptId)
+                    .setBusinessIdempotencyKey("release:" + receipt.getActiveOrderId());
+            application.setTenantId(1L);
+            reworkApplicationMapper.insert(application);
+            var command = new MesTeamLeaderActiveOrderReleaseApplyCommand().setActiveOrderId(receipt.getActiveOrderId())
+                    .setIdempotencyKey("apply:" + receiptId);
+            when(generation.generate(2L, command)).thenReturn(new MesTeamLeaderActiveOrderReleaseApplicationResult()
+                    .setApplicationId(application.getId()).setVersion(1));
+            var result = applicationService.applyGenerated(2L, command);
+            assertEquals(batchId, result.getBatchExecutionId());
+            assertEquals(batchId, reworkApplicationMapper.selectById(application.getId()).getBatchExecutionId());
+        });
+        assertEquals(2, batches.size());
+        assertNotEquals(batches.get(0), batches.get(1));
+    }
+
+    @Test
     void openOrCreate_generatesRouteOrderedTasksAndIsIdempotent() {
         Fixture fixture = insertRouteFixture(true, true);
 
@@ -501,6 +628,34 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .toList();
         assertEquals(fixture.reportId1(), persistedRouteTasks.get(0).getBatchRecordReportId());
         assertEquals(fixture.reportId2(), persistedRouteTasks.get(1).getBatchRecordReportId());
+    }
+
+    @Test
+    void completionUsesItsFrozenRouteVersionAfterAnotherVersionIsPublished() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProRouteVersionDO frozen = routeVersionMapper.selectActiveByRouteId(fixture.routeId());
+        routeVersionMapper.updateById(MesProRouteVersionDO.builder()
+                .id(frozen.getId()).active(false).lifecycleStatus("SUPERSEDED").build());
+        MesProRouteVersionDO latest = MesProRouteVersionDO.builder()
+                .routeId(fixture.routeId()).versionNo("V2").active(true).lifecycleStatus("ACTIVE")
+                .routeSnapshotJson(frozen.getRouteSnapshotJson()).build();
+        routeVersionMapper.insert(latest);
+        EdhrBatchExecutionOpenOrCreateReqVO request = new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId()).setBatchCode("BATCH-FROZEN-REWORK")
+                .setRouteId(fixture.routeId()).setRouteVersionId(frozen.getId())
+                .setEntryType("ACTIVE_ORDER_COMPLETION").setEntryBusinessId("ACTIVE_ORDER_COMPLETION:8801")
+                .setSourceCredentialType("CompletionBackfillReceipt").setSourceCredentialId("8801")
+                .setSourceContextHash("frozen-source").setSourceSnapshotHash("frozen-source")
+                .setActiveOrderId(8101L).setCompletionTransactionId("completion-frozen")
+                .setExpectedActiveOrderVersion(0L).setCompletionVersion(1L)
+                .setCompletionBackfillReceiptId("8801").setCompletionBackfillReceiptHash("receipt-frozen")
+                .setIdempotencyKey("completion-batch-frozen");
+
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(request);
+
+        assertEquals(frozen.getId(), created.getRouteVersionId());
+        assertEquals(frozen.getRouteSnapshotJson(),
+                batchExecutionMapper.selectById(created.getId()).getRouteSnapshotJson());
     }
 
     @Test
@@ -575,7 +730,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
         batchExecutionService.syncStatus(created.getId());
 
-        verify(operationAuditService, atLeastOnce()).recordInCallerTransaction(argThat(command -> {
+        verify(operationAuditService, atLeastOnce()).record(argThat(command -> {
             JSONObject metadata = JSON.parseObject(command.getMetadataJson());
             return "SYNC".equals(command.getOperationType())
                     && "BATCH_EXECUTION".equals(command.getObjectType())
@@ -690,6 +845,15 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .build();
         batchExecutionMapper.insert(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO().setId(legacyBatch.getId())
+                .setProvisioningStatus("BATCH_PROVISIONING"));
+        provisioningRecordMapper.insert(new MesProEdhrBatchProvisioningRecordDO()
+                .setTenantId(1L).setBatchExecutionId(legacyBatch.getId())
+                .setEntryType("MANUAL").setEntryBusinessId("TEST-ENTRY:BATCH-LEGACY-MISSING-PROCESS")
+                .setSourceCredentialId("TEST-CREDENTIAL").setSourceSnapshotHash("TEST-SNAPSHOT")
+                .setSourceBundleHash("TEST-BUNDLE").setSourceVersion("1")
+                .setIdempotencyKey("TEST-IDEMPOTENCY:TEST-ENTRY:BATCH-LEGACY-MISSING-PROCESS")
+                .setStatus("BATCH_PROVISIONING").setAttemptCount(1));
 
         EdhrBatchExecutionRespVO reopened = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(workOrder.getId())
@@ -1628,6 +1792,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                         .setSourceRejectedBatchExecutionId(original.getId())
                         .setEntryType("MANUAL_CONTROLLED_RETRY")
                         .setActiveOrderId(8101L)
+                        .setIdempotencyKey("MANUAL_CONTROLLED_RETRY:" + original.getId())
                         .setReason("真拒收后同生产批号重做")
                         .setRemark("同批号新执行尝试"));
 
@@ -6277,15 +6442,10 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         markBatchOwner(batch.getId(), 0L);
         markReleasePrecheckPassed(batch.getId());
 
-        LocalDateTime selectedSignedAt = LocalDateTime.of(2026, 6, 15, 15, 30);
         EdhrBatchExecutionRespVO closed = batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
                 .setId(batch.getId())
                 .setPassword("secret")
-                .setComment("close batch and create archive task")
-                .setSignatureTime(new MesProBatchRecordExecutionSignatureTimeReqVO()
-                        .setSelectedSignedAt(selectedSignedAt)
-                        .setSelectedTimeZone("Asia/Shanghai")
-                        .setSelectedTimeReason("批执行关闭按现场复核完成时间显示")));
+                .setComment("close batch and create archive task"));
 
         assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, closed.getStatus());
         MesProEdhrBatchExecutionDO updated = batchExecutionMapper.selectById(batch.getId());
@@ -6441,17 +6601,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setAggregateHash("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
 
         EdhrBatchExecutionRespVO result;
-        LocalDateTime selectedSignedAt = LocalDateTime.of(2026, 6, 15, 15, 10);
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
             result = batchExecutionService.qualityReject(new EdhrBatchExecutionQualityRejectReqVO()
                     .setId(batch.getId())
                     .setReason("质量负责人终态拒收。")
-                    .setPassword("sign-pass")
-                    .setSignatureTime(new MesProBatchRecordExecutionSignatureTimeReqVO()
-                            .setSelectedSignedAt(selectedSignedAt)
-                            .setSelectedTimeZone("Asia/Shanghai")
-                            .setSelectedTimeReason("质量拒收按纸面终判时间显示")));
+                    .setPassword("sign-pass"));
         }
 
         assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED, result.getStatus());
@@ -8331,6 +8486,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         if (reportId2 != null) {
             insertBatchUseConfig(route.getId(), routeProcess2.getId(), "SEQUENTIAL", reportId2);
         }
+        // BaseDbUnitTest has no tenant insert interceptor; explicit projection SQL still filters tenant 1.
+        org.springframework.jdbc.core.JdbcTemplate jdbc = new org.springframework.jdbc.core.JdbcTemplate(testDataSource);
+        jdbc.update("UPDATE mes_pro_route_flow_process_config SET tenant_id = ? WHERE route_id = ?",
+                TenantContextHolder.getRequiredTenantId(), route.getId());
+        jdbc.update("UPDATE mes_pro_route_flow_process_batch_record SET tenant_id = ? WHERE route_id = ?",
+                TenantContextHolder.getRequiredTenantId(), route.getId());
         routeProductMapper.insert(MesProRouteProductDO.builder()
                 .routeId(route.getId())
                 .itemId(productId)

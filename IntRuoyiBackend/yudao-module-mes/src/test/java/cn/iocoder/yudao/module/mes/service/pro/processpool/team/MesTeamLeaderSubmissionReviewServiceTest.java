@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
@@ -17,6 +19,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,6 +50,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     private MesProBatchRecordExecutionSignatureService signatureService;
     @Mock
     private MesReportAllocationCommandService reportAllocationCommandService;
+    @Mock
+    private MesProProcessPoolEventRevisionMapper revisionMapper;
 
     private MesTeamLeaderSubmissionReviewService service;
 
@@ -56,6 +63,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         ReflectionTestUtils.setField(service, "reportAllocationCommandService", reportAllocationCommandService);
         lenient().when(signatureService.recordTeamLeaderReviewSignature(
                 any(), any(), any(), any(), any(), any())).thenReturn(9101L);
+        ReflectionTestUtils.setField(service, "revisionMapper", revisionMapper);
+        // The current review API binds the signature to its business object using all six arguments.
     }
 
     @Test
@@ -192,6 +201,91 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 any(), any(), any(), any(), any(), any());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
+    }
+
+    @Test
+    void shouldReviewSignedCorrectionAfterRejectedPqcWithoutDeletingOldReview() {
+        MesProProcessPoolEventDO corrected = event().setRawPayload(
+                "{\"outputQuantity\":11,\"supersededReviewId\":7000}");
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(corrected);
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingReview());
+        bindRevision(corrected, 8001L);
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7010L);
+            return 1;
+        });
+
+        assertEquals(7010L, service.reviewSubmission(reviewReq()));
+
+        verify(reviewMapper).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(reviewMapper, never()).updateById(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7010L);
+    }
+
+    @Test
+    void repeatedRejectionCorrectionAndApprovalPreserveEachReviewAndReplayLatestOnly() {
+        MesProProcessPoolEventDO corrected = event().setRawPayload(
+                "{\"outputQuantity\":11,\"supersededReviewId\":7000}");
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(corrected);
+        MesProcessPoolSubmissionReviewDO first = existingReview().setLeaderUserId(3001L)
+                .setLeaderType("PQC").setReviewRemark(rejectedReviewReq().getReviewRemark());
+        AtomicReference<MesProcessPoolSubmissionReviewDO> latest = new AtomicReference<>(first);
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenAnswer(invocation -> latest.get());
+        List<MesProcessPoolSubmissionReviewDO> reviews = new ArrayList<>(List.of(first));
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            MesProcessPoolSubmissionReviewDO next = invocation.getArgument(0);
+            next.setId(7000L + reviews.size());
+            reviews.add(next);
+            latest.set(next);
+            return 1;
+        });
+        bindRevision(corrected, 8001L);
+
+        assertEquals(7001L, service.reviewSubmission(rejectedReviewReq()));
+        assertEquals(7001L, service.reviewSubmission(rejectedReviewReq()));
+        corrected.setRawPayload("{\"outputQuantity\":12,\"supersededReviewId\":7001}");
+        bindRevision(corrected, 8002L);
+        assertEquals(7002L, service.reviewSubmission(reviewReq()));
+        assertEquals(7002L, service.reviewSubmission(reviewReq()));
+        assertEquals(3, reviews.size());
+        assertEquals("REJECTED", first.getReviewStatus());
+        verify(signatureService, org.mockito.Mockito.times(2))
+                .recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any());
+        verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7002L);
+    }
+
+    @Test
+    void payloadClaimWithoutSignedMatchingRevisionCannotReopenRejectedReview() {
+        MesProProcessPoolEventDO corrected = event().setRawPayload(
+                "{\"outputQuantity\":11,\"supersededReviewId\":7000}");
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(corrected);
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingReview());
+        assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+    }
+
+    @Test
+    void signedRevisionForDifferentPayloadCannotReopenRejectedReview() {
+        MesProProcessPoolEventDO corrected = event().setRawPayload(
+                "{\"outputQuantity\":11,\"supersededReviewId\":7000}");
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(corrected);
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingReview());
+        bindRevision(corrected, 8001L);
+        corrected.setRawPayload("{\"outputQuantity\":12,\"supersededReviewId\":7000}");
+        assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any());
+    }
+
+    private void bindRevision(MesProProcessPoolEventDO event, Long id) {
+        MesProProcessPoolEventRevisionDO revision = MesProProcessPoolEventRevisionDO.builder()
+                .id(id).eventId(event.getId()).revisionStatus("EFFECTIVE")
+                .revisionSignatureId(9500L + id).revisionSignatureUserId(3001L).modifiedByUserId(3001L)
+                .revisionSignatureSnapshot("{\"signatureId\":" + (9500L + id)
+                        + ",\"actorId\":3001,\"signedAt\":\"2026-09-28T10:30:00\"}")
+                .afterPayload(event.getRawPayload()).build();
+        revision.setTenantId(event.getTenantId());
+        when(revisionMapper.selectListByEventId(event.getId())).thenReturn(List.of(revision));
     }
 
     @Test

@@ -163,6 +163,10 @@ class MesOutputMaterialProgressCalculatorTest {
                 .routeId(40L)
                 .routeProcessId(101L)
                 .processId(1L)
+                .reportOutputQuantity(com.alibaba.fastjson.JSON.parseObject(rawPayload).containsKey("materialDetails")
+                        ? com.alibaba.fastjson.JSON.parseObject(rawPayload).getJSONArray("materialDetails").stream()
+                        .map(detail -> ((com.alibaba.fastjson.JSONObject) detail).getBigDecimal("outputQuantity"))
+                        .min(BigDecimal::compareTo).orElseThrow() : new BigDecimal("100"))
                 .rawPayload(rawPayload)
                 .build();
     }

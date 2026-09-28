@@ -6,6 +6,7 @@ const EDHR_NONCONFORMANCE_REVIEW_BASE_URL = '/mes/pro/edhr-nonconformance-review
 
 export const SOURCE_TYPE_PQC_SUBMISSION = 'PQC_SUBMISSION'
 export const SOURCE_TYPE_PQC_RELEASE = 'PQC_RELEASE'
+export const SOURCE_TYPE_ACTIVE_ORDER = 'ACTIVE_ORDER'
 
 export const REVIEW_STATUS_PENDING_REVIEW = 'pending_review'
 export const REVIEW_STATUS_CLOSED = 'closed'
@@ -17,6 +18,7 @@ export const DISPOSITION_VOID = 'void'
 export type EdhrNonconformanceReviewSourceType =
   | typeof SOURCE_TYPE_PQC_SUBMISSION
   | typeof SOURCE_TYPE_PQC_RELEASE
+  | typeof SOURCE_TYPE_ACTIVE_ORDER
 
 export type EdhrNonconformanceReviewStatus =
   | typeof REVIEW_STATUS_PENDING_REVIEW
@@ -28,12 +30,22 @@ export type EdhrNonconformanceReviewDisposition =
   | typeof DISPOSITION_VOID
 
 export interface EdhrNonconformanceReviewCreateReqVO {
-  sourceType: EdhrNonconformanceReviewSourceType
+  activeOrderId?: EdhrRouteId
+  sourceType?: EdhrNonconformanceReviewSourceType
   sourceId?: EdhrRouteId
   batchExecutionId?: EdhrRouteId
   nonconformanceReason: string
-  signaturePassword: string
+  signaturePassword?: string
   remark?: string
+}
+
+export interface EdhrNonconformanceReviewActiveOrderRespVO {
+  id: number
+  workOrderId?: number
+  workOrderCode?: string
+  batchCode?: string
+  activeStatus?: string
+  businessStatus?: string
 }
 
 export interface EdhrBatchExecutionRejectReqVO {
@@ -115,6 +127,12 @@ export const createNonconformanceReview = async (data: EdhrNonconformanceReviewC
   })
 }
 
+export const getNonconformanceReviewActiveOrderList = async () => {
+  return await request.get<EdhrNonconformanceReviewActiveOrderRespVO[]>({
+    url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/active-order-list`
+  })
+}
+
 export const rejectEdhrBatchExecutionToNonconformanceReview = async (
   data: EdhrBatchExecutionRejectReqVO
 ) => {
@@ -136,6 +154,13 @@ export const getPendingNonconformanceReviewPage = async (
 ) => {
   return await request.get<PageResult<EdhrNonconformanceReviewRespVO[]>>({
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/pending-page`,
+    params
+  })
+}
+
+export const getNonconformanceReviewPage = async (params: EdhrNonconformanceReviewPageReqVO) => {
+  return await request.get<PageResult<EdhrNonconformanceReviewRespVO[]>>({
+    url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/page`,
     params
   })
 }

@@ -15,6 +15,8 @@ public class MesProEdhrReleaseRespVO {
 
     private Long batchExecutionId;
 
+    private Long activeOrderId;
+
     private String batchExecutionCode;
 
     private Long workOrderId;

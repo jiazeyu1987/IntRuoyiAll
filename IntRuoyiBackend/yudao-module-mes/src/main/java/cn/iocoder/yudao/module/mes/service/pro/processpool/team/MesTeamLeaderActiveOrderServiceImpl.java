@@ -388,6 +388,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             return Collections.emptyMap();
         }
         return activeOrderMapper.selectHistoryByWorkOrderIds(workOrderIds).stream()
+                .filter(MesTeamLeaderActiveOrderServiceImpl::isRecoverableHistory)
                 .filter(history -> history.getWorkOrderId() != null)
                 .collect(Collectors.groupingBy(MesProcessPoolActiveOrderDO::getWorkOrderId,
                         LinkedHashMap::new, Collectors.toList()));
@@ -2271,6 +2272,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             MesProcessPoolActiveOrderPickListBindingDO pickList) {
         List<MesProcessPoolActiveOrderDO> history = activeOrderMapper
                 .selectHistoryByWorkOrderIdForUpdate(reqBO.getWorkOrderId());
+        if (history != null) {
+            history = history.stream().filter(MesTeamLeaderActiveOrderServiceImpl::isRecoverableHistory).toList();
+        }
         if (history == null || history.isEmpty()) {
             return null;
         }
@@ -2287,6 +2291,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
         throw new IllegalStateException("Unexpected active order history status: "
                 + historicalOrder.getActiveStatus() + ", activeOrderId=" + historicalOrder.getId());
+    }
+
+    private static boolean isRecoverableHistory(MesProcessPoolActiveOrderDO order) {
+        return !"VERSION_UPGRADED".equals(order.getBusinessStatus())
+                && !"REWORKED".equals(order.getBusinessStatus());
     }
 
     private MesTeamLeaderActiveOrderAddResult reactivateRemovedActiveOrder(

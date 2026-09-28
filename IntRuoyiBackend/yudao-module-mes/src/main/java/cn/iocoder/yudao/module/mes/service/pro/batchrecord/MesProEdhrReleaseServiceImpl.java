@@ -413,7 +413,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(batchExecutionId);
         nonconformanceReviewService.ensureBatchNotFrozen(batch.getId(), "PQC放行");
         MesProEdhrReleaseTransactionDO transaction = existingTransaction == null
-                ? releaseTransactionMapper.selectByBatchExecutionId(batch.getId()) : existingTransaction;
+                ? releaseTransactionMapper.selectCurrentByBatchExecutionId(batch.getId()) : existingTransaction;
         if (transaction != null) {
             requirePrecheckEditable(transaction);
         }
@@ -605,6 +605,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         if (command.getAction() == MesReleaseFinalizationAction.APPROVE) {
             hydrateBatchExecutionIdFromReleaseTransaction(command);
             MesProEdhrReleaseTransactionDO current = requireTransactionForUpdate(command.getReleaseTransactionId());
+            nonconformanceReviewService.ensureBatchNotFrozen(command.getBatchExecutionId(), "上市放行");
             if (STATUS_RELEASED.equals(current.getReleaseStatus())
                     && managerApprovalService.isManagedReleaseTransaction(current.getId())) {
                 var replay = managerApprovalService.prepareForFinalization(authenticatedActorUserId,
@@ -2074,6 +2075,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setReleaseTransactionId(transaction == null ? null : transaction.getId())
                 .setReleaseCode(transaction == null ? null : transaction.getReleaseCode())
                 .setBatchExecutionId(batch.getId())
+                .setActiveOrderId(releaseApplication == null
+                        ? resolveSingleActiveOrderId(batch.getId()) : releaseApplication.getActiveOrderId())
                 .setBatchExecutionCode(batch.getBatchExecutionCode())
                 .setWorkOrderId(batch.getWorkOrderId())
                 .setWorkOrderCode(batch.getWorkOrderCode())

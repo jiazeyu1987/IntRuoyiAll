@@ -3,11 +3,15 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureResult;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +51,9 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
     @Resource
     private MesProBatchRecordExecutionSignatureService signatureService;
 
+    @Resource
+    private MesProProcessPoolEventRevisionMapper revisionMapper;
+
     public MesTeamLeaderSubmissionReviewServiceImpl(MesTeamLeaderScopeService scopeService,
                                                     MesProProcessPoolEventMapper eventMapper,
                                                     MesProcessPoolSubmissionReviewMapper reviewMapper,
@@ -80,7 +87,8 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                 event.getActualEmployeeId());
         MesProcessPoolSubmissionReviewDO existingReview =
                 reviewMapper.selectLatestByEventIdForUpdate(reqBO.getEventId());
-        if (existingReview != null) {
+        MesProProcessPoolEventRevisionDO correction = findSignedCorrection(event, existingReview);
+        if (existingReview != null && correction == null) {
             if (isIdempotentReplay(reqBO, existingReview)) {
                 return existingReview.getId();
             }
@@ -91,7 +99,7 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                 && MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
             throw exception(PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED, reqBO.getEventId());
         }
-        ReviewSignaturePayload reviewSignature = recordReviewSignature(reqBO, event);
+        ReviewSignaturePayload reviewSignature = recordReviewSignature(reqBO, event, correction);
         MesProcessPoolSubmissionReviewDO review = MesProcessPoolSubmissionReviewDO.builder()
                 .eventId(reqBO.getEventId())
                 .leaderUserId(reqBO.getLeaderUserId())
@@ -109,6 +117,41 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
             processInspectionAggregationService.aggregateApprovedPqcSubmission(reqBO.getEventId(), review.getId());
         }
         return review.getId();
+    }
+
+    private MesProProcessPoolEventRevisionDO findSignedCorrection(
+            MesProProcessPoolEventDO event, MesProcessPoolSubmissionReviewDO previous) {
+        if (previous == null || !MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(previous.getReviewStatus())
+                || !MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+            return null;
+        }
+        var revisions = revisionMapper.selectListByEventId(event.getId());
+        if (revisions.isEmpty()) {
+            return null;
+        }
+        MesProProcessPoolEventRevisionDO revision = revisions.get(0);
+        if (!Objects.equals(event.getId(), revision.getEventId())
+                || !Objects.equals(event.getTenantId(), revision.getTenantId())
+                || !MesProProcessPoolEventRevisionDO.STATUS_EFFECTIVE.equals(revision.getRevisionStatus())
+                || revision.getId() == null || revision.getRevisionSignatureId() == null
+                || revision.getRevisionSignatureId() <= 0 || revision.getRevisionSignatureUserId() == null
+                || !Objects.equals(revision.getRevisionSignatureUserId(), revision.getModifiedByUserId())
+                || StrUtil.isBlank(revision.getRevisionSignatureSnapshot())
+                || StrUtil.isBlank(revision.getAfterPayload())) {
+            return null;
+        }
+        var payload = JsonUtils.parseTree(revision.getAfterPayload());
+        if (!payload.isObject() || !payload.path("supersededReviewId").isIntegralNumber()
+                || !Objects.equals(previous.getId(), payload.path("supersededReviewId").longValue())
+                || !Objects.equals(MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload()),
+                MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(revision.getAfterPayload()))) {
+            return null;
+        }
+        var signature = JsonUtils.parseObject(revision.getRevisionSignatureSnapshot(),
+                MesProBatchRecordExecutionFieldAuditSignatureResult.class);
+        return signature != null && signature.getSignedAt() != null
+                && Objects.equals(signature.getSignatureId(), revision.getRevisionSignatureId())
+                && Objects.equals(signature.getActorId(), revision.getRevisionSignatureUserId()) ? revision : null;
     }
 
     private boolean isIdempotentReplay(MesTeamLeaderSubmissionReviewReqBO reqBO,
@@ -143,7 +186,8 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
     }
 
     private ReviewSignaturePayload recordReviewSignature(MesTeamLeaderSubmissionReviewReqBO reqBO,
-                                                         MesProProcessPoolEventDO event) {
+                                                         MesProProcessPoolEventDO event,
+                                                         MesProProcessPoolEventRevisionDO correction) {
         Long signatureId = signatureService.recordTeamLeaderReviewSignature(
                 reqBO.getLeaderUserId(),
                 reqBO.getSignaturePassword(),
@@ -152,7 +196,7 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
         return new ReviewSignaturePayload(
                 signatureId,
                 reqBO.getLeaderUserId(),
-                buildReviewSignatureSnapshot(reqBO, event, signatureId));
+                buildReviewSignatureSnapshot(reqBO, event, signatureId, correction));
     }
 
     private String buildReviewSignatureComment(MesTeamLeaderSubmissionReviewReqBO reqBO,
@@ -162,7 +206,8 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
 
     private String buildReviewSignatureSnapshot(MesTeamLeaderSubmissionReviewReqBO reqBO,
                                                 MesProProcessPoolEventDO event,
-                                                Long signatureId) {
+                                                Long signatureId,
+                                                MesProProcessPoolEventRevisionDO correction) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("signatureId", signatureId);
         payload.put("actorId", reqBO.getLeaderUserId());
@@ -171,6 +216,13 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
         payload.put("eventType", event.getEventType());
         payload.put("leaderType", reqBO.getLeaderType());
         payload.put("reviewStatus", reqBO.getReviewStatus());
+        payload.put("payloadHash", MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload()));
+        if (correction != null) {
+            payload.put("revisionId", correction.getId());
+            payload.put("revisionSignatureId", correction.getRevisionSignatureId());
+            payload.put("supersededReviewId", JsonUtils.parseTree(correction.getAfterPayload())
+                    .path("supersededReviewId").longValue());
+        }
         return JsonUtils.toJsonString(payload);
     }
 

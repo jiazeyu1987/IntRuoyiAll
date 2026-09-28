@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewDisposeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
 
 import java.util.List;
@@ -14,6 +15,7 @@ public interface MesProEdhrNonconformanceReviewService {
 
     String SOURCE_TYPE_PQC_SUBMISSION = "PQC_SUBMISSION";
     String SOURCE_TYPE_PQC_RELEASE = "PQC_RELEASE";
+    String SOURCE_TYPE_ACTIVE_ORDER = "ACTIVE_ORDER";
 
     String STATUS_PENDING_REVIEW = "pending_review";
     String STATUS_CLOSED = "closed";
@@ -24,6 +26,8 @@ public interface MesProEdhrNonconformanceReviewService {
 
     MesProEdhrNonconformanceReviewRespVO create(MesProEdhrNonconformanceReviewCreateReqVO reqVO);
 
+    List<MesProEdhrNonconformanceReviewActiveOrderRespVO> listActiveOrderCandidates();
+
     MesProEdhrNonconformanceReviewRespVO rejectBatch(MesProEdhrBatchExecutionRejectReqVO reqVO);
 
     MesProEdhrNonconformanceReviewRespVO dispose(MesProEdhrNonconformanceReviewDisposeReqVO reqVO);
@@ -31,6 +35,9 @@ public interface MesProEdhrNonconformanceReviewService {
     MesProEdhrNonconformanceReviewRespVO get(Long id);
 
     MesTeamLeaderActiveOrderDetail getActiveOrderDetail(Long id);
+
+    PageResult<MesProEdhrNonconformanceReviewRespVO> getPage(
+            MesProEdhrNonconformanceReviewPageReqVO reqVO);
 
     PageResult<MesProEdhrNonconformanceReviewRespVO> getPendingPage(
             MesProEdhrNonconformanceReviewPageReqVO reqVO);

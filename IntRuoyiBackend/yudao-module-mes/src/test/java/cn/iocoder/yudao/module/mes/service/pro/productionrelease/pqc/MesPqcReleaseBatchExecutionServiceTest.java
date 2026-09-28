@@ -6,11 +6,13 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWork
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditRecorder;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlocker;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
@@ -64,6 +66,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
 
     @Mock private MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     @Mock private MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Mock private MesProWorkOrderMapper workOrderMapper;
     @Mock private MesProEdhrWorkTaskMapper workTaskMapper;
     @Mock private MesPqcReleaseDossierPort dossierPort;
     @Mock private MesProductionReleaseBatchExecutionPort batchExecutionPort;
@@ -80,13 +83,16 @@ class MesPqcReleaseBatchExecutionServiceTest {
     void setUp() {
         TenantContextHolder.setTenantId(TENANT_ID);
         service = new MesPqcProductionReleaseServiceImpl(
-                applicationMapper, activeOrderMapper, workTaskMapper, dossierPort,
+                applicationMapper, activeOrderMapper, workOrderMapper, workTaskMapper, dossierPort,
                 batchExecutionPort, reportStageInitializer, managerStageInitializer, auditRecorder, signatureService,
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         lenient().when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(application());
+        lenient().when(applicationMapper.selectById(APPLICATION_ID)).thenReturn(application());
         lenient().when(activeOrderMapper.selectByIdForUpdate(2001L)).thenReturn(new MesProcessPoolActiveOrderDO()
-                .setId(2001L).setVersion(0).setUdiControlDocumentNo("UDI-TEST-20260924-001/V1"));
+                .setId(2001L).setWorkOrderId(3001L).setVersion(0).setUdiControlDocumentNo("UDI-TEST-20260924-001/V1"));
+        lenient().when(workOrderMapper.selectByIdForUpdate(3001L))
+                .thenReturn(new MesProWorkOrderDO().setId(3001L).setTemporaryFrozen(false));
         lenient().when(activeOrderMapper.writeUdiControlDocumentNo(any(), any(), any(), any())).thenReturn(1);
         lenient().when(workTaskMapper.selectById(PQC_WORK_TASK_ID)).thenReturn(workTask());
         lenient().when(managerStageInitializer.initializeManagerReleaseStage(any())).thenReturn(
@@ -101,6 +107,91 @@ class MesPqcReleaseBatchExecutionServiceTest {
     @AfterEach
     void tearDown() {
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void concurrentNcrCanFinishBeforePqcApprovalWithoutReverseLockWait() throws Exception {
+        assertNcrLockOrder(false);
+    }
+
+    @Test
+    void concurrentNcrCanFinishBeforePqcRejectionWithoutReverseLockWait() throws Exception {
+        assertNcrLockOrder(true);
+    }
+
+    private void assertNcrLockOrder(boolean reject) throws Exception {
+        var activeLock = new java.util.concurrent.locks.ReentrantLock();
+        var workLock = new java.util.concurrent.locks.ReentrantLock();
+        var applicationLock = new java.util.concurrent.locks.ReentrantLock();
+        var ncrReady = new java.util.concurrent.CountDownLatch(1);
+        var decisionAttempted = new java.util.concurrent.CountDownLatch(1);
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        var boundary = new IllegalStateException("decision-context-checked");
+        lenient().when(applicationMapper.selectById(APPLICATION_ID)).thenReturn(application());
+        when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenAnswer(invocation -> {
+            applicationLock.lock();
+            decisionAttempted.countDown();
+            return application();
+        });
+        lenient().when(activeOrderMapper.selectByIdForUpdate(2001L)).thenAnswer(invocation -> {
+            decisionAttempted.countDown();
+            activeLock.lock();
+            return new MesProcessPoolActiveOrderDO().setId(2001L).setWorkOrderId(3001L)
+                    .setActiveStatus("ACTIVE").setBusinessStatus("COMPLETED")
+                    .setVersion(0).setUdiControlDocumentNo("UDI-TEST-20260924-001/V1");
+        });
+        when(workOrderMapper.selectByIdForUpdate(3001L)).thenAnswer(invocation -> {
+            decisionAttempted.countDown();
+            workLock.lock();
+            return new MesProWorkOrderDO().setId(3001L).setTemporaryFrozen(false);
+        });
+        org.mockito.Mockito.doThrow(boundary).when(nonconformanceReviewService)
+                .ensureWorkOrderNotFrozen(3001L, "PQC放行");
+        try {
+            var ncr = executor.submit(() -> {
+                activeLock.lock();
+                workLock.lock();
+                ncrReady.countDown();
+                try {
+                    assertTrue(decisionAttempted.await(3, java.util.concurrent.TimeUnit.SECONDS));
+                    assertTrue(applicationLock.tryLock(500, java.util.concurrent.TimeUnit.MILLISECONDS),
+                            "NCR holding active order/work order must not wait behind PQC's application-first lock");
+                    applicationLock.unlock();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(interrupted);
+                } finally {
+                    workLock.unlock();
+                    activeLock.unlock();
+                }
+            });
+            var decision = executor.submit(() -> {
+                TenantContextHolder.setTenantId(TENANT_ID);
+                try {
+                    assertTrue(ncrReady.await(3, java.util.concurrent.TimeUnit.SECONDS));
+                    RuntimeException failure = assertThrows(RuntimeException.class, () -> {
+                        if (reject) service.reject(PQC_USER_ID, new MesPqcProductionReleaseRejectCommand()
+                                .setApplicationId(APPLICATION_ID).setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)
+                                .setExpectedVersion(VERSION).setRejectReason("不合格")
+                                .setIdempotencyKey("reject-lock"));
+                        else service.approve(PQC_USER_ID, approveCommand("approve-lock"));
+                    });
+                    org.junit.jupiter.api.Assertions.assertSame(boundary, failure);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(interrupted);
+                } finally {
+                    while (applicationLock.isHeldByCurrentThread()) applicationLock.unlock();
+                    while (workLock.isHeldByCurrentThread()) workLock.unlock();
+                    while (activeLock.isHeldByCurrentThread()) activeLock.unlock();
+                    TenantContextHolder.clear();
+                }
+            });
+            ncr.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            decision.get(5, java.util.concurrent.TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
@@ -129,7 +220,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setFieldAuditIds(List.of(302L)).setFieldAuditHeadHashes(List.of("loss-audit"))
                         .setHasActualLoss(true).setLossReportStatus("SUCCESS").setLossQuantity(java.math.BigDecimal.ONE)
                         .setSourceSnapshotHash("loss-source").setSourceObjectIds(List.of(3L)).setSourceValueHashes(List.of("loss")).setBlockers(List.of()));
-        service = new MesPqcProductionReleaseServiceImpl(applicationMapper, activeOrderMapper, workTaskMapper, realPort,
+        service = new MesPqcProductionReleaseServiceImpl(applicationMapper, activeOrderMapper, workOrderMapper, workTaskMapper, realPort,
                 batchExecutionPort, reportStageInitializer, managerStageInitializer, auditRecorder, signatureService,
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
@@ -437,11 +528,16 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 .setVersion(2)
                 .setDossierSummaryJson(JSON.toJSONString(stored));
         when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(processed);
+        when(workOrderMapper.selectByIdForUpdate(3001L))
+                .thenReturn(new MesProWorkOrderDO().setId(3001L).setTemporaryFrozen(true));
+        lenient().doThrow(new IllegalStateException("later NCR freeze must not block a stored decision"))
+                .when(nonconformanceReviewService).ensureWorkOrderNotFrozen(3001L, "PQC放行");
 
         MesPqcProductionReleaseDecisionResult replay = service.approve(PQC_USER_ID, command);
 
         assertEquals(BATCH_EXECUTION_ID, replay.getBatchExecutionId());
         assertEquals("pqc-approve-replay", replay.getDecisionIdempotencyKey());
+        verify(nonconformanceReviewService, never()).ensureWorkOrderNotFrozen(any(), any());
         verify(batchExecutionPort, never()).openOrCreate(any());
         verify(auditRecorder, never()).record(any());
     }

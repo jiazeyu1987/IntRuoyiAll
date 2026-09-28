@@ -315,6 +315,14 @@
             label-width="96px"
           >
             <template v-if="pqcDecisionAction === 'APPROVE'">
+              <el-form-item label="UDI编号" prop="udiControlDocumentNo">
+                <el-input
+                  v-model="pqcDecisionForm.udiControlDocumentNo"
+                  maxlength="128"
+                  show-word-limit
+                  placeholder="请输入UDI编号"
+                />
+              </el-form-item>
               <el-form-item label="电子签名" prop="signaturePassword">
                 <el-input
                   v-model="pqcDecisionForm.signaturePassword"
@@ -686,11 +694,16 @@ const queryParams = reactive({
   processName: ''
 })
 const pqcDecisionForm = reactive({
+  udiControlDocumentNo: '',
   signaturePassword: '',
   approvalOpinion: '',
   rejectReason: ''
 })
 const pqcDecisionRules: FormRules<typeof pqcDecisionForm> = {
+  udiControlDocumentNo: [
+    { required: true, message: '请输入UDI编号', trigger: 'blur' },
+    { max: 128, message: 'UDI编号长度不能超过128个字符', trigger: 'blur' }
+  ],
   signaturePassword: [{ required: true, message: '请输入电子签名密码', trigger: 'blur' }],
   rejectReason: [
     { required: true, message: '请输入拒绝原因', trigger: 'blur' },
@@ -1285,6 +1298,7 @@ const resetPqcDecisionDialog = () => {
   pqcDecisionBlockers.value = []
   pqcDecisionUncertainMessage.value = ''
   pqcDecisionIdempotencyKey.value = ''
+  pqcDecisionForm.udiControlDocumentNo = ''
   pqcDecisionForm.signaturePassword = ''
   pqcDecisionForm.approvalOpinion = ''
   pqcDecisionForm.rejectReason = ''
@@ -1411,6 +1425,7 @@ const submitPqcProductionReleaseDecision = async () => {
             expectedVersion,
             idempotencyKey: pqcDecisionIdempotencyKey.value,
             signaturePassword: pqcDecisionForm.signaturePassword,
+            udiControlDocumentNo: pqcDecisionForm.udiControlDocumentNo.trim(),
             approvalOpinion: pqcDecisionForm.approvalOpinion.trim() || undefined
           })
         : await rejectPqcProductionRelease({

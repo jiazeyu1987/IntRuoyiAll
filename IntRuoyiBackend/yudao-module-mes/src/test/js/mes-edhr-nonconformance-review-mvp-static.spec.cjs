@@ -83,6 +83,13 @@ const releaseService = readModule(
 )
 assert.match(releaseService, /ensureBatchNotFrozen\(batch\.getId\(\),\s*"PQC放行"\)/)
 assert.match(releaseService, /ensureBatchNotFrozen\(transaction\.getBatchExecutionId\(\),\s*"PQC放行"\)/)
+assert.match(releaseService, /ensureBatchNotFrozen\(command\.getBatchExecutionId\(\),\s*"上市放行"\)/)
+assert.match(releaseService, /setActiveOrderId\(resolveSingleActiveOrderId\(batch\.getId\(\)\)\)/)
+
+const releaseResponse = readModule(
+  'src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/vo/MesProEdhrReleaseRespVO.java'
+)
+assert.match(releaseResponse, /private Long activeOrderId;/)
 
 const feedbackService = readModule(
   'src/main/java/cn/iocoder/yudao/module/mes/service/pro/feedback/MesProFeedbackServiceImpl.java'

@@ -21,7 +21,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
@@ -42,6 +44,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_EMPLOYEE_PROFILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_EMPLOYEE_DISPLAY_NAME_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_DUPLICATE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_OWNER_CONFLICT;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_OWNER_CHANGED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_SIGNATURE_PASSWORD_MANAGED_BY_USER;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED;
 
@@ -153,12 +157,14 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long linkFormalEmployee(MesTeamFormalEmployeeLinkReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getSystemUserId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "formalEmployee");
         }
         AdminUserRespDTO user = requireFormalUser(reqBO.getSystemUserId());
         assertFormalUserNotLinked(reqBO.getLeaderUserId(), reqBO.getSystemUserId());
+        assertEnabledFormalOwnerAvailable(reqBO.getSystemUserId(), null);
         String displayName = normalizeText(reqBO.getDisplayName());
         if (displayName == null) {
             displayName = resolveUserDisplayName(user);
@@ -176,7 +182,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                 .employeeType("FORMAL")
                 .enabled(Boolean.TRUE)
                 .build();
-        employeeProfileMapper.insert(profile);
+        insertEmployeeProfileWithOwnerGuard(profile);
         syncProductionEmployeeScope(profile);
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), reqBO.getLeaderUserId(),
                 "LINK_FORMAL_EMPLOYEE", "TEAM_EMPLOYEE_PROFILE", profile.getId(), "SUCCESS",
@@ -206,6 +212,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateEmployeeEnabled(MesTeamEmployeeStatusUpdateReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getEmployeeProfileId() == null
                 || reqBO.getEnabled() == null) {
@@ -214,12 +221,21 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         MesProcessPoolTeamEmployeeProfileDO profile = requireEmployeeProfile(reqBO.getLeaderUserId(),
                 reqBO.getEmployeeProfileId());
         boolean enabled = Boolean.TRUE.equals(reqBO.getEnabled());
+        if (enabled) {
+            assertEnabledFormalOwnerAvailable(profile.getSystemUserId(), profile.getId());
+        }
         MesProcessPoolTeamEmployeeProfileDO update = MesProcessPoolTeamEmployeeProfileDO.builder()
                 .id(profile.getId())
                 .enabled(enabled)
                 .disabledAt(enabled ? null : LocalDateTime.now())
                 .build();
-        employeeProfileMapper.updateById(update);
+        try {
+            if (employeeProfileMapper.updateById(update) != 1) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "employeeProfileStatusWrite");
+            }
+        } catch (DuplicateKeyException error) {
+            throw translateEnabledOwnerConflict(error, profile.getSystemUserId());
+        }
         syncProductionEmployeeScopeEnabled(profile, enabled);
         String actionType = enabled ? "ENABLE_EMPLOYEE" : "DISABLE_EMPLOYEE";
         String actionName = enabled ? "启用生产人员：" : "禁用生产人员：";
@@ -265,11 +281,13 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createEmployee(MesTeamEmployeeProfileSaveReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || isBlank(reqBO.getEmployeeCode())
                 || isBlank(reqBO.getEmployeeName()) || isBlank(reqBO.getEmployeeType())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "employeeProfile");
         }
+        assertEnabledFormalOwnerAvailable(reqBO.getSystemUserId(), null);
         MesProcessPoolTeamEmployeeProfileDO profile = MesProcessPoolTeamEmployeeProfileDO.builder()
                 .leaderUserId(reqBO.getLeaderUserId())
                 .systemUserId(reqBO.getSystemUserId())
@@ -279,7 +297,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                 .employeeType(reqBO.getEmployeeType())
                 .enabled(Boolean.TRUE)
                 .build();
-        employeeProfileMapper.insert(profile);
+        insertEmployeeProfileWithOwnerGuard(profile);
         syncProductionEmployeeScope(profile);
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "CREATE_EMPLOYEE_PROFILE",
                 "TEAM_EMPLOYEE_PROFILE", profile.getId(), null, profile.toString());
@@ -553,6 +571,42 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "formalEmployeeUser");
         }
         return user;
+    }
+
+    private void assertEnabledFormalOwnerAvailable(Long systemUserId, Long excludedProfileId) {
+        if (systemUserId == null) {
+            return;
+        }
+        List<MesProcessPoolTeamEmployeeProfileDO> owners = employeeProfileMapper.selectList(
+                new LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>()
+                        .eq(MesProcessPoolTeamEmployeeProfileDO::getSystemUserId, systemUserId)
+                        .eq(MesProcessPoolTeamEmployeeProfileDO::getEnabled, Boolean.TRUE));
+        for (MesProcessPoolTeamEmployeeProfileDO owner : owners) {
+            if (!Objects.equals(owner.getId(), excludedProfileId)) {
+                throw exception(PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_OWNER_CONFLICT,
+                        systemUserId, owner.getLeaderUserId());
+            }
+        }
+    }
+
+    private void insertEmployeeProfileWithOwnerGuard(MesProcessPoolTeamEmployeeProfileDO profile) {
+        try {
+            if (employeeProfileMapper.insert(profile) != 1 || profile.getId() == null) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "employeeProfileInsert");
+            }
+        } catch (DuplicateKeyException error) {
+            throw translateEnabledOwnerConflict(error, profile.getSystemUserId());
+        }
+    }
+
+    private RuntimeException translateEnabledOwnerConflict(DuplicateKeyException error, Long systemUserId) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause.getMessage() != null && cause.getMessage().toLowerCase(java.util.Locale.ROOT)
+                    .contains("uk_mes_pp_employee_enabled_user")) {
+                return exception(PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_OWNER_CHANGED, systemUserId);
+            }
+        }
+        return error;
     }
 
     private void assertFormalUserNotLinked(Long leaderUserId, Long systemUserId) {

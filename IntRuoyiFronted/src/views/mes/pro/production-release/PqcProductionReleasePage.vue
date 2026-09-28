@@ -258,7 +258,6 @@ import {
   type MesPqcProductionReleasePageItemRespVO,
   type MesPqcProductionReleaseViewStatus
 } from '@/api/mes/pro/productionRelease'
-import { SOURCE_TYPE_PQC_RELEASE } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesPqcProductionRelease' })
@@ -547,11 +546,15 @@ const submitRelease = async () => {
 }
 
 const openNonconformanceReview = (row: MesPqcProductionReleasePageItemRespVO) => {
+  if (!hasActiveOrderDetail(row)) {
+    message.error('缺少正式活跃订单来源，无法发起不合格审查')
+    return
+  }
   router.push({
     name: 'MesProFeedbackEdhrNonconformanceReview',
     query: {
-      sourceType: SOURCE_TYPE_PQC_RELEASE,
-      sourceId: row.applicationId
+      activeOrderId: row.activeOrderId,
+      autoCreate: '1'
     }
   })
 }
@@ -622,8 +625,8 @@ onMounted(getList)
 
 .pqc-release-page__secondary {
   margin-top: 3px;
-  color: var(--el-text-color-secondary);
   font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .pqc-release-page__actions {

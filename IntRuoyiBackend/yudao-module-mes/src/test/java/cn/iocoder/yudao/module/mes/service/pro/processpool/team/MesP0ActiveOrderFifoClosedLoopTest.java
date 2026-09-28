@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
@@ -18,10 +19,13 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQu
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import org.springframework.test.util.ReflectionTestUtils;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationCommand;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationService;
@@ -68,6 +72,8 @@ class MesP0ActiveOrderFifoClosedLoopTest {
     @Mock
     private MesProcessPoolReportAllocationMapper allocationMapper;
     @Mock
+    private MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
+    @Mock
     private MesProProcessPoolQuantityFragmentMapper quantityFragmentMapper;
     @Mock
     private MesProProcessPoolPqcRecordMapper pqcRecordMapper;
@@ -85,19 +91,31 @@ class MesP0ActiveOrderFifoClosedLoopTest {
     private MesWorkOrderAbnormalStateService abnormalStateService;
     @Mock
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
+    @Mock
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesTeamLeaderReportConfirmationService service;
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(snapshotMapper.selectByActiveOrderAndProcess(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyLong())).thenAnswer(invocation ->
+                MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(invocation.getArgument(0)).routeProcessId(invocation.getArgument(1))
+                        .processId(invocation.getArgument(2))
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build());
         MesTeamLeaderFifoAllocationService fifoAllocationService =
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
-                        orderProcessTargetService, abnormalStateService);
+                        orderProcessTargetService, abnormalStateService, eventMapper, snapshotMapper);
         service = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper, activeOrderMapper,
                 workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper, pqcRecordMapper,
                 fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper, pqcPieceDetailMapper,
                 orderProcessTargetService, orderProcessCompletionService, abnormalStateService,
                 reportManagementSummaryService);
+        ReflectionTestUtils.setField(service, "signatureService", signatureService);
+        org.mockito.Mockito.lenient().when(signatureService.recordTeamLeaderReviewSignature(
+                any(), any(), any(), any(), any(), any())).thenReturn(9101L);
     }
 
     @Test
@@ -216,6 +234,7 @@ class MesP0ActiveOrderFifoClosedLoopTest {
                 .leaderUserId(LEADER_USER_ID)
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .reviewRemark("P0 active-order FIFO confirmation")
+                .signaturePassword("leader-password")
                 .reviewSignatureId(9101L)
                 .reviewSignatureUserId(LEADER_USER_ID)
                 .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}");
@@ -316,6 +335,7 @@ class MesP0ActiveOrderFifoClosedLoopTest {
     private static MesProcessPoolReportAllocationDO allocation(Long activeOrderId, Long workOrderId,
                                                                String quantity) {
         return MesProcessPoolReportAllocationDO.builder()
+                .eventId(900001L)
                 .activeOrderId(activeOrderId)
                 .workOrderId(workOrderId)
                 .routeProcessId(5001L)

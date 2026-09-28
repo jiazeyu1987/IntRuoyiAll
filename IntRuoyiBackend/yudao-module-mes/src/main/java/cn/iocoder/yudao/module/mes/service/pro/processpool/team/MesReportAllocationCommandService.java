@@ -256,7 +256,7 @@ public class MesReportAllocationCommandService {
         Map<Long, MesProcessPoolActiveOrderDO> activeById = activeOrders.stream().collect(Collectors.toMap(
                 MesProcessPoolActiveOrderDO::getId, Function.identity(), (a, b) -> a, LinkedHashMap::new));
         Map<Long, BigDecimal> desired = aggregateDesired(command.getAllocations(), activeById, event.getId());
-        Set<Long> releaseCandidates = new LinkedHashSet<>(activeById.keySet());
+        Set<Long> releaseCandidates = new LinkedHashSet<>(desired.keySet());
         current.stream().map(MesProcessPoolReportAllocationDO::getActiveOrderId).forEach(releaseCandidates::add);
         assertActiveOrdersOpenForProduction(releaseCandidates, activeById);
         Set<Long> releasedIds = releaseStateService.findReleasedActiveOrderIdsForUpdate(releaseCandidates);
@@ -486,12 +486,9 @@ public class MesReportAllocationCommandService {
         if (desired.isEmpty()) {
             return new AllocationValidation(Map.of(), Map.of());
         }
-        Map<Long, BigDecimal> allocatedElsewhere = allocationMapper
+        List<MesProcessPoolReportAllocationDO> allocatedElsewhere = allocationMapper
                 .selectListByActiveOrderIdsAndProcessForUpdate(desired.keySet(), event.getProcessId()).stream()
-                .filter(row -> !Objects.equals(row.getEventId(), event.getId()))
-                .collect(Collectors.groupingBy(MesProcessPoolReportAllocationDO::getActiveOrderId,
-                        LinkedHashMap::new, Collectors.reducing(BigDecimal.ZERO,
-                                MesProcessPoolReportAllocationDO::getAllocatedQuantity, BigDecimal::add)));
+                .filter(row -> !Objects.equals(row.getEventId(), event.getId())).toList();
         Map<Long, MesTeamLeaderOrderProcessTarget> targets = new LinkedHashMap<>();
         Map<Long, BigDecimal> overageByActiveOrderId = new LinkedHashMap<>();
         for (Map.Entry<Long, BigDecimal> entry : desired.entrySet()) {
@@ -504,8 +501,8 @@ public class MesReportAllocationCommandService {
             MesTeamLeaderOrderProcessTarget target = targetService.requireUniqueTargetForProcess(order,
                     event.getProcessId());
             targets.put(order.getId(), target);
-            BigDecimal totalForOrder = allocatedElsewhere.getOrDefault(order.getId(), BigDecimal.ZERO)
-                    .add(entry.getValue());
+            BigDecimal totalForOrder = calculateAllocatedMaterialMaximum(
+                    order, target, event, entry.getValue(), allocatedElsewhere, true);
             assertWithinFrozenOverageLimit(order.getId(), target.routeProcessId(), target.processId(),
                     target.plannedQuantity(), totalForOrder, true);
             BigDecimal overage = totalForOrder.subtract(target.plannedQuantity()).max(BigDecimal.ZERO);
@@ -758,12 +755,9 @@ public class MesReportAllocationCommandService {
         }
         Set<Long> activeOrderIds = current.stream().map(MesProcessPoolReportAllocationDO::getActiveOrderId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        Map<Long, BigDecimal> allocatedElsewhere = allocationMapper
+        List<MesProcessPoolReportAllocationDO> allocatedElsewhere = allocationMapper
                 .selectListByActiveOrderIdsAndProcess(activeOrderIds, event.getProcessId()).stream()
-                .filter(row -> !Objects.equals(row.getEventId(), event.getId()))
-                .collect(Collectors.groupingBy(MesProcessPoolReportAllocationDO::getActiveOrderId,
-                        LinkedHashMap::new, Collectors.reducing(BigDecimal.ZERO,
-                                MesProcessPoolReportAllocationDO::getAllocatedQuantity, BigDecimal::add)));
+                .filter(row -> !Objects.equals(row.getEventId(), event.getId())).toList();
         Map<Long, BigDecimal> currentByActiveOrder = aggregateRows(current);
         Map<Long, BigDecimal> result = new LinkedHashMap<>();
         for (Long activeOrderId : activeOrderIds) {
@@ -773,14 +767,37 @@ public class MesReportAllocationCommandService {
             }
             MesTeamLeaderOrderProcessTarget target = targetService.requireUniqueTargetForProcess(
                     activeOrder, event.getProcessId());
-            BigDecimal totalForOrder = allocatedElsewhere.getOrDefault(activeOrderId, BigDecimal.ZERO)
-                    .add(currentByActiveOrder.getOrDefault(activeOrderId, BigDecimal.ZERO));
+            BigDecimal totalForOrder = calculateAllocatedMaterialMaximum(activeOrder, target, event,
+                    currentByActiveOrder.getOrDefault(activeOrderId, BigDecimal.ZERO), allocatedElsewhere, false);
             assertWithinFrozenOverageLimit(activeOrderId, target.routeProcessId(), target.processId(),
                     target.plannedQuantity(), totalForOrder, false);
             result.put(activeOrderId,
                     totalForOrder.subtract(target.plannedQuantity()).max(BigDecimal.ZERO));
         }
         return result;
+    }
+
+    private BigDecimal calculateAllocatedMaterialMaximum(MesProcessPoolActiveOrderDO order,
+            MesTeamLeaderOrderProcessTarget target, MesProProcessPoolEventDO currentEvent,
+            BigDecimal currentQuantity, List<MesProcessPoolReportAllocationDO> otherAllocations,
+            boolean forUpdate) {
+        MesProcessPoolActiveOrderProcessSnapshotDO frozen = requireFrozenProcessSnapshot(
+                order.getId(), target.routeProcessId(), target.processId(), forUpdate);
+        List<MesProcessPoolReportAllocationDO> projected = new ArrayList<>(otherAllocations.stream()
+                .filter(row -> Objects.equals(row.getActiveOrderId(), order.getId())).toList());
+        projected.add(MesProcessPoolReportAllocationDO.builder().eventId(currentEvent.getId())
+                .activeOrderId(order.getId()).workOrderId(order.getWorkOrderId())
+                .routeProcessId(target.routeProcessId()).processId(target.processId())
+                .allocatedQuantity(currentQuantity).build());
+        Set<Long> eventIds = projected.stream().map(MesProcessPoolReportAllocationDO::getEventId)
+                .filter(id -> !Objects.equals(id, currentEvent.getId()))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<MesProProcessPoolEventDO> events = new ArrayList<>();
+        if (!eventIds.isEmpty()) {
+            events.addAll(eventMapper.selectBatchIds(eventIds));
+        }
+        events.add(currentEvent);
+        return MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(order, frozen, events, projected);
     }
 
     private void assertWithinFrozenOverageLimit(Long activeOrderId, Long routeProcessId, Long processId,
@@ -796,6 +813,12 @@ public class MesReportAllocationCommandService {
 
     private BigDecimal requireFrozenOveragePercent(Long activeOrderId, Long routeProcessId, Long processId,
                                                    boolean forUpdate) {
+        return requireFrozenProcessSnapshot(activeOrderId, routeProcessId, processId, forUpdate)
+                .getOveragePercentSnapshot();
+    }
+
+    private MesProcessPoolActiveOrderProcessSnapshotDO requireFrozenProcessSnapshot(
+            Long activeOrderId, Long routeProcessId, Long processId, boolean forUpdate) {
         MesProcessPoolActiveOrderProcessSnapshotDO snapshot = forUpdate
                 ? activeOrderProcessSnapshotMapper.selectListByActiveOrderAndProcessForUpdate(activeOrderId, processId)
                 .stream()
@@ -808,7 +831,7 @@ public class MesReportAllocationCommandService {
                     "reportAllocation.overagePercentSnapshot activeOrderId=" + activeOrderId
                             + ", routeProcessId=" + routeProcessId + ", processId=" + processId);
         }
-        return snapshot.getOveragePercentSnapshot();
+        return snapshot;
     }
 
     private Map<Long, MesProWorkOrderDO> loadWorkOrders(List<MesProcessPoolActiveOrderDO> orders) {
@@ -886,7 +909,14 @@ public class MesReportAllocationCommandService {
         }
         for (Long activeOrderId : activeOrderIds) {
             MesProcessPoolActiveOrderDO activeOrder = activeById.get(activeOrderId);
-            if (activeOrder != null && !"ACTIVE".equals(activeOrder.getBusinessStatus())) {
+            if (activeOrder == null) {
+                activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
+            }
+            if (activeOrder == null) {
+                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED, activeOrderId);
+            }
+            if (!"ACTIVE".equals(activeOrder.getBusinessStatus())
+                    || !"ACTIVE".equals(activeOrder.getActiveStatus())) {
                 throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED, activeOrderId);
             }
         }

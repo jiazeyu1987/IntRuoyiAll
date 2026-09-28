@@ -691,7 +691,6 @@ export interface TeamLeaderActiveOrderDetailRespVO {
   drawingNumber?: string
   productCode?: string
   productName?: string
-  udiControlDocumentNo?: string
   workOrderCreateTime?: string | number
   routeName: string
   inputMaterialUsages?: TeamLeaderActiveOrderInputMaterialDetailRespVO[]

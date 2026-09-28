@@ -870,8 +870,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (route == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
         }
-        MesProEdhrBatchExecutionDO existing = batchExecutionMapper.selectByContext(
-                reqVO.getWorkOrderId(), batchCode, routeId);
+        boolean completionEntry = "ACTIVE_ORDER_COMPLETION".equals(provisionCommand.getEntryType());
+        String completionContextKey = completionEntry
+                ? completionContextKey(provisionCommand) : null;
+        MesProEdhrBatchExecutionDO existing = completionEntry
+                ? findCompletionBatch(provisionCommand)
+                : batchExecutionMapper.selectByContext(reqVO.getWorkOrderId(), batchCode, routeId);
         if (existing != null) {
             validateExistingEntryContext(existing, reqVO.getWorkOrderId(), batchCode,
                     routeId, requestedRouteVersionId);
@@ -880,12 +884,14 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (!CommonStatusEnum.isEnable(route.getStatus())) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
         }
-        MesProRouteVersionDO activeRouteVersion = routeVersionMapper.selectActiveByRouteId(route.getId());
+        MesProRouteVersionDO activeRouteVersion = completionEntry && requestedRouteVersionId != null
+                ? routeVersionMapper.selectById(requestedRouteVersionId)
+                : routeVersionMapper.selectActiveByRouteId(route.getId());
         if (activeRouteVersion == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_VERSION_REQUIRED, route.getId());
         }
-        if (requestedRouteVersionId != null
-                && !Objects.equals(requestedRouteVersionId, activeRouteVersion.getId())) {
+        if (!Objects.equals(activeRouteVersion.getRouteId(), route.getId()) || (requestedRouteVersionId != null
+                && !Objects.equals(requestedRouteVersionId, activeRouteVersion.getId()))) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
         }
         MesProEdhrBatchExecutionDO batch = new MesProEdhrBatchExecutionDO()
@@ -893,7 +899,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setWorkOrderId(workOrder.getId())
                 .setWorkOrderCode(workOrder.getCode())
                 .setBatchCode(batchCode)
-                .setActiveContextKey(buildActiveContextKey(workOrder.getId(), batchCode, route.getId()))
+                .setActiveContextKey(completionEntry ? completionContextKey
+                        : buildActiveContextKey(workOrder.getId(), batchCode, route.getId()))
                 .setAttemptNo(1)
                 .setProductId(workOrder.getProductId())
                 .setProductCode(String.valueOf(workOrder.getProductId()))
@@ -1384,6 +1391,34 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .max(Integer::compareTo)
                 .orElse(1);
         return Math.max(2, maxAttemptNo + 1);
+    }
+
+    private String completionContextKey(MesBatchExecutionProvisionCommand command) {
+        if (command.getActiveOrderId() == null || StrUtil.isBlank(command.getCompletionBackfillReceiptId())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
+        return "ACTIVE_ORDER_COMPLETION:" + command.getActiveOrderId() + ":"
+                + command.getCompletionBackfillReceiptId();
+    }
+
+    private MesProEdhrBatchExecutionDO findCompletionBatch(MesBatchExecutionProvisionCommand command) {
+        var record = provisioningRecordMapper.selectByIdempotencyKey(
+                TenantContextHolder.getRequiredTenantId(), command.getIdempotencyKey());
+        if (record == null) {
+            return null;
+        }
+        if (!Objects.equals(record.getEntryType(), command.getEntryType())
+                || !Objects.equals(record.getEntryBusinessId(), command.getEntryBusinessId())
+                || !Objects.equals(record.getSourceCredentialId(), command.getCompletionBackfillReceiptId())
+                || !Objects.equals(record.getSourceCredentialHash(), command.getCompletionBackfillReceiptHash())
+                || !Objects.equals(record.getSourceSnapshotHash(), command.getSourceSnapshotHash())) {
+            throw new IllegalStateException("BATCH_PROVISIONING_IDEMPOTENCY_CONFLICT");
+        }
+        var batch = batchExecutionMapper.selectById(record.getBatchExecutionId());
+        if (batch == null || Objects.equals(batch.getStatus(), BATCH_STATUS_VOIDED)) {
+            throw new IllegalStateException("COMPLETION_PROVISIONED_BATCH_MISSING_OR_VOIDED");
+        }
+        return batch;
     }
 
     private String buildActiveContextKey(Long workOrderId, String batchCode, Long routeId) {
@@ -6795,6 +6830,9 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setReleaseActionLocked(!goldenFingerActionBypass && pendingReleaseApproval)
                 .setReleaseActionLockReason(!goldenFingerActionBypass && pendingReleaseApproval
                         ? PENDING_RELEASE_ACTION_LOCK_REASON : null)
+                .setProductionActionLocked(!goldenFingerActionBypass && nonconformanceFrozen)
+                .setProductionActionLockReason(!goldenFingerActionBypass && nonconformanceFrozen
+                        ? NONCONFORMANCE_FROZEN_ACTION_LOCK_REASON : null)
                 .setTasks(tasks.stream()
                         .map(task -> toTaskResp(task, taskGateMap.get(task.getId()),
                                 fillableWorkTaskMap.get(task.getId()),

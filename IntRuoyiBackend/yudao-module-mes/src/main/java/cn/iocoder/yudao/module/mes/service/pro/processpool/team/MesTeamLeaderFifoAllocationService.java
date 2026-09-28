@@ -1,9 +1,13 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import org.springframework.stereotype.Service;
@@ -20,9 +24,7 @@ import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH;
 
 @Service
 public class MesTeamLeaderFifoAllocationService {
@@ -32,17 +34,23 @@ public class MesTeamLeaderFifoAllocationService {
     private final MesProcessPoolReportAllocationMapper allocationMapper;
     private final MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
     private final MesWorkOrderAbnormalStateService abnormalStateService;
+    private final MesProProcessPoolEventMapper eventMapper;
+    private final MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
 
     public MesTeamLeaderFifoAllocationService(MesProcessPoolActiveOrderMapper activeOrderMapper,
                                               MesProWorkOrderMapper workOrderMapper,
                                               MesProcessPoolReportAllocationMapper allocationMapper,
                                               MesTeamLeaderOrderProcessTargetService orderProcessTargetService,
-                                              MesWorkOrderAbnormalStateService abnormalStateService) {
+                                              MesWorkOrderAbnormalStateService abnormalStateService,
+                                              MesProProcessPoolEventMapper eventMapper,
+                                              MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper) {
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderMapper = workOrderMapper;
         this.allocationMapper = allocationMapper;
         this.orderProcessTargetService = orderProcessTargetService;
         this.abnormalStateService = abnormalStateService;
+        this.eventMapper = eventMapper;
+        this.snapshotMapper = snapshotMapper;
     }
 
     public MesTeamLeaderReportAllocationPreview previewFifoAllocation(MesTeamLeaderFifoAllocationReqBO reqBO) {
@@ -69,8 +77,16 @@ public class MesTeamLeaderFifoAllocationService {
                 .collect(Collectors.toMap(MesProWorkOrderDO::getId, Function.identity(), (a, b) -> a,
                         LinkedHashMap::new));
         List<Long> activeOrderIds = activeOrders.stream().map(MesProcessPoolActiveOrderDO::getId).toList();
-        Map<Long, BigDecimal> allocatedByActiveOrder = allocatedByActiveOrder(activeOrderIds, reqBO.getProcessId(),
-                reqBO.getExcludedEventId());
+        List<MesProcessPoolReportAllocationDO> previousAllocations = allocationMapper
+                .selectListByActiveOrderIdsAndProcessForUpdate(activeOrderIds, reqBO.getProcessId()).stream()
+                .filter(allocation -> !Objects.equals(allocation.getEventId(), reqBO.getEventId())
+                        && !Objects.equals(allocation.getEventId(), reqBO.getExcludedEventId()))
+                .toList();
+        List<Long> previousEventIds = previousAllocations.stream()
+                .map(MesProcessPoolReportAllocationDO::getEventId).distinct().toList();
+        List<MesProProcessPoolEventDO> previousEvents = previousEventIds.isEmpty()
+                ? List.of() : eventMapper.selectBatchIds(previousEventIds);
+        MesProProcessPoolEventDO currentEvent = eventMapper.selectById(reqBO.getEventId());
 
         BigDecimal unallocated = reqBO.getConfirmQuantity();
         List<MesTeamLeaderReportAllocationPreviewLine> lines = new ArrayList<>();
@@ -85,7 +101,8 @@ public class MesTeamLeaderFifoAllocationService {
                 continue;
             }
             MesTeamLeaderOrderProcessTarget target = targetOptional.get();
-            BigDecimal remaining = remainingQuantity(activeOrder, workOrder, allocatedByActiveOrder, target);
+            BigDecimal remaining = remainingQuantity(activeOrder, workOrder, target,
+                    currentEvent, previousEvents, previousAllocations);
             if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
@@ -119,27 +136,19 @@ public class MesTeamLeaderFifoAllocationService {
                 .toList();
     }
 
-    Map<Long, BigDecimal> allocatedByActiveOrder(List<Long> activeOrderIds, Long processId, Long excludedEventId) {
-        return allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(activeOrderIds, processId)
-                .stream()
-                .filter(allocation -> excludedEventId == null
-                        || !Objects.equals(allocation.getEventId(), excludedEventId))
-                .collect(Collectors.groupingBy(MesProcessPoolReportAllocationDO::getActiveOrderId,
-                        LinkedHashMap::new,
-                        Collectors.reducing(BigDecimal.ZERO,
-                                MesProcessPoolReportAllocationDO::getAllocatedQuantity,
-                                BigDecimal::add)));
-    }
-
     private BigDecimal remainingQuantity(MesProcessPoolActiveOrderDO activeOrder, MesProWorkOrderDO workOrder,
-                                         Map<Long, BigDecimal> allocatedByActiveOrder,
-                                         MesTeamLeaderOrderProcessTarget target) {
+                                         MesTeamLeaderOrderProcessTarget target,
+                                         MesProProcessPoolEventDO currentEvent,
+                                         List<MesProProcessPoolEventDO> previousEvents,
+                                         List<MesProcessPoolReportAllocationDO> previousAllocations) {
         if (workOrder == null || workOrder.getQuantity() == null
                 || workOrder.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, activeOrder.getWorkOrderId());
         }
-        BigDecimal alreadyAllocated = allocatedByActiveOrder.getOrDefault(activeOrder.getId(), BigDecimal.ZERO);
-        return target.plannedQuantity().subtract(alreadyAllocated);
+        MesProcessPoolActiveOrderProcessSnapshotDO snapshot = snapshotMapper.selectByActiveOrderAndProcess(
+                activeOrder.getId(), target.routeProcessId(), target.processId());
+        return MesOutputMaterialProgressCalculator.calculateAvailableAllocationQuantity(
+                activeOrder, snapshot, target.plannedQuantity(), currentEvent, previousEvents, previousAllocations);
     }
 
     private void validateReq(MesTeamLeaderFifoAllocationReqBO reqBO) {

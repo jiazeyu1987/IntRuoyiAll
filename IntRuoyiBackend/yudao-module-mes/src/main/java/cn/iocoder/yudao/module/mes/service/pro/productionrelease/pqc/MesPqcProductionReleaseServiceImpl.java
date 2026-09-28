@@ -7,11 +7,13 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditCommand;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditEventType;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditRecorder;
@@ -63,6 +65,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
 
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
+    private final MesProWorkOrderMapper workOrderMapper;
     private final MesProEdhrWorkTaskMapper workTaskMapper;
     private final MesPqcReleaseDossierPort dossierPort;
     private final MesProductionReleaseBatchExecutionPort batchExecutionPort;
@@ -78,6 +81,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     public MesPqcProductionReleaseServiceImpl(
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
             MesProcessPoolActiveOrderMapper activeOrderMapper,
+            MesProWorkOrderMapper workOrderMapper,
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesPqcReleaseDossierPort dossierPort,
             MesProductionReleaseBatchExecutionPort batchExecutionPort,
@@ -87,7 +91,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesProBatchRecordExecutionSignatureService signatureService,
             MesProEdhrNonconformanceReviewService nonconformanceReviewService,
             MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper) {
-        this(applicationMapper, activeOrderMapper, workTaskMapper, dossierPort, batchExecutionPort,
+        this(applicationMapper, activeOrderMapper, workOrderMapper, workTaskMapper, dossierPort, batchExecutionPort,
                 reportStageInitializer, managerStageInitializer, auditRecorder, signatureService, nonconformanceReviewService,
                 nonconformanceReviewMapper, Clock.systemUTC());
     }
@@ -95,6 +99,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     public MesPqcProductionReleaseServiceImpl(
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
             MesProcessPoolActiveOrderMapper activeOrderMapper,
+            MesProWorkOrderMapper workOrderMapper,
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesPqcReleaseDossierPort dossierPort,
             MesProductionReleaseBatchExecutionPort batchExecutionPort,
@@ -107,6 +112,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             Clock clock) {
         this.applicationMapper = applicationMapper;
         this.activeOrderMapper = activeOrderMapper;
+        this.workOrderMapper = workOrderMapper;
         this.workTaskMapper = workTaskMapper;
         this.dossierPort = dossierPort;
         this.batchExecutionPort = batchExecutionPort;
@@ -130,13 +136,14 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         String payloadHash = decisionPayloadHash("APPROVE", command.getApplicationId(),
                 command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId,
                 opinion, udiControlDocumentNo);
-        MesProcessPoolActiveOrderReleaseApplicationDO application = requireApplicationForUpdate(command.getApplicationId());
+        LockedDecisionSource source = lockDecisionSource(command.getApplicationId());
+        MesProcessPoolActiveOrderReleaseApplicationDO application = source.application();
         MesPqcProductionReleaseDecisionResult replay = replayOrRejectProcessedApplication(
                 application, actorUserId, "APPROVE", idempotencyKey, payloadHash);
         if (replay != null) {
             return replay;
         }
-        MesProcessPoolActiveOrderDO activeOrder = requireActiveOrderForUpdate(application.getActiveOrderId());
+        MesProcessPoolActiveOrderDO activeOrder = source.activeOrder();
         ensureUdiDocumentConsistency(activeOrder, udiControlDocumentNo);
         MesProEdhrWorkTaskDO workTask = requireProcessableTask(
                 application, command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId);
@@ -208,7 +215,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         }
         String payloadHash = decisionPayloadHash("REJECT", command.getApplicationId(),
                 command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId, reason, null);
-        MesProcessPoolActiveOrderReleaseApplicationDO application = requireApplicationForUpdate(command.getApplicationId());
+        MesProcessPoolActiveOrderReleaseApplicationDO application = lockDecisionSource(command.getApplicationId()).application();
         MesPqcProductionReleaseDecisionResult replay = replayOrRejectProcessedApplication(
                 application, actorUserId, "REJECT", idempotencyKey, payloadHash);
         if (replay != null) {
@@ -216,6 +223,9 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         }
         MesProEdhrWorkTaskDO workTask = requireProcessableTask(
                 application, command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId);
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(application.getWorkOrderId(), "PQC放行");
+        Long batchExecutionId = requireExistingBatchExecutionId(application);
+        nonconformanceReviewService.ensureBatchNotFrozen(batchExecutionId, "PQC放行");
         LocalDateTime decidedAt = LocalDateTime.now(clock);
         MesPqcProductionReleaseDecisionResult result = baseResult(application, workTask)
                 .setDecision("REJECT")
@@ -287,13 +297,58 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                         applications.stream().map(MesProcessPoolActiveOrderReleaseApplicationDO::getId).toList(),
                         TenantContextHolder.getTenantId())
                 .forEach(review -> reviewsByApplicationId.putIfAbsent(review.getSourceId(), review));
-
+        List<Long> activeOrderIds = applications.stream()
+                .map(MesProcessPoolActiveOrderReleaseApplicationDO::getActiveOrderId)
+                .filter(Objects::nonNull).distinct().toList();
+        List<MesProcessPoolActiveOrderReleaseApplicationDO> allRoundApplications =
+                applicationMapper.selectListByActiveOrderIds(activeOrderIds);
+        List<MesProEdhrNonconformanceReviewDO> activeOrderReviews =
+                nonconformanceReviewMapper.selectListByActiveOrderIds(activeOrderIds,
+                        TenantContextHolder.getTenantId());
         List<MesPqcProductionReleasePageItem> pageRows = new java.util.ArrayList<>();
         for (MesProcessPoolActiveOrderReleaseApplicationDO application : applications) {
             MesProEdhrNonconformanceReviewDO review = reviewsByApplicationId.get(application.getId());
+            if (review == null) {
+                review = resolveActiveOrderReview(application, allRoundApplications, activeOrderReviews);
+            }
             pageRows.add(toPageItem(application, review, query.getViewStatus()));
         }
         return new PageResult<>(pageRows, applicationPage.getTotal());
+    }
+
+    private MesProEdhrNonconformanceReviewDO resolveActiveOrderReview(
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            List<MesProcessPoolActiveOrderReleaseApplicationDO> allApplications,
+            List<MesProEdhrNonconformanceReviewDO> reviews) {
+        if (application.getActiveOrderId() == null) {
+            return null;
+        }
+        return reviews.stream()
+                .filter(review -> MesProEdhrNonconformanceReviewService.SOURCE_TYPE_ACTIVE_ORDER
+                        .equals(review.getSourceType()))
+                .filter(review -> Objects.equals(review.getActiveOrderId(), application.getActiveOrderId()))
+                .filter(review -> {
+                    LocalDateTime reviewAt = reviewAt(review);
+                    return reviewAt != null && (application.getAppliedAt() == null
+                            || !reviewAt.isBefore(application.getAppliedAt()));
+                })
+                .filter(review -> allApplications.stream().noneMatch(next ->
+                        Objects.equals(next.getActiveOrderId(), application.getActiveOrderId())
+                                && next.getAppliedAt() != null && application.getAppliedAt() != null
+                                && next.getAppliedAt().isAfter(application.getAppliedAt())
+                                && !next.getAppliedAt().isAfter(reviewAt(review))))
+                .max(java.util.Comparator.comparing(MesProEdhrNonconformanceReviewDO::getId))
+                .orElse(null);
+    }
+
+    private LocalDateTime reviewAt(MesProEdhrNonconformanceReviewDO review) {
+        if (review.getFrozenAt() != null) {
+            return review.getFrozenAt();
+        }
+        if (review.getClosedAt() != null) {
+            return review.getClosedAt();
+        }
+        return review.getCreateTime();
     }
 
     private void requireApproveCommand(Long actorUserId, MesPqcProductionReleaseApproveCommand command) {
@@ -438,6 +493,45 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                     "活跃订单UDI编号保存失败",
                     "retry after verifying the formal active order source");
         }
+    }
+
+    private LockedDecisionSource lockDecisionSource(Long applicationId) {
+        // The first read locates the formal identity only; decisions use the locked rows below.
+        MesProcessPoolActiveOrderReleaseApplicationDO source = applicationMapper.selectById(applicationId);
+        if (source == null) {
+            throw blocker(MesReleaseFlowBlockerType.LEGACY_RELEASE_APPLICATION_MIGRATION_REQUIRED, null,
+                    "RELEASE_APPLICATION", String.valueOf(applicationId),
+                    "release application is missing", "query an existing release application");
+        }
+        MesProcessPoolActiveOrderDO activeOrder = requireActiveOrderForUpdate(source.getActiveOrderId());
+        if (source.getWorkOrderId() == null || !Objects.equals(source.getWorkOrderId(), activeOrder.getWorkOrderId())) {
+            throw blocker(MesReleaseFlowBlockerType.AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED, source,
+                    "ACTIVE_ORDER", String.valueOf(source.getActiveOrderId()),
+                    "release application and active order have different work order identities",
+                    "reload the authoritative application source");
+        }
+        // Acquire the work order row before the application, without applying mutable freeze guards.
+        // Successful decision replays must remain readable after a later NCR freezes the work order.
+        MesProWorkOrderDO workOrder = workOrderMapper.selectByIdForUpdate(source.getWorkOrderId());
+        if (workOrder == null) {
+            throw blocker(MesReleaseFlowBlockerType.AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED, source,
+                    "WORK_ORDER", String.valueOf(source.getWorkOrderId()),
+                    "release application's formal work order does not exist",
+                    "reload the authoritative application source");
+        }
+        MesProcessPoolActiveOrderReleaseApplicationDO application = requireApplicationForUpdate(applicationId);
+        if (!Objects.equals(application.getActiveOrderId(), activeOrder.getId())
+                || !Objects.equals(application.getWorkOrderId(), workOrder.getId())) {
+            throw blocker(MesReleaseFlowBlockerType.STATE_VERSION_CONFLICT, application,
+                    "RELEASE_APPLICATION", String.valueOf(applicationId),
+                    "release application source changed while acquiring its locks",
+                    "reload the authoritative application source");
+        }
+        return new LockedDecisionSource(application, activeOrder);
+    }
+
+    private record LockedDecisionSource(MesProcessPoolActiveOrderReleaseApplicationDO application,
+                                        MesProcessPoolActiveOrderDO activeOrder) {
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO requireApplicationForUpdate(Long applicationId) {

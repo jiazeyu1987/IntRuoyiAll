@@ -948,6 +948,20 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Transactional(rollbackFor = Exception.class)
     public void cancelReleaseApprovalTask(Long releaseTransactionId, String reason) {
         MesProEdhrWorkTaskDO workTask = resolveReleaseApprovalTask(null, releaseTransactionId);
+        cancelActiveReleaseApprovalTask(workTask, reason);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelReleaseApprovalTaskById(Long workTaskId, String reason) {
+        MesProEdhrWorkTaskDO workTask = resolveReleaseApprovalTask(workTaskId, null);
+        cancelActiveReleaseApprovalTask(workTask, reason);
+    }
+
+    private void cancelActiveReleaseApprovalTask(MesProEdhrWorkTaskDO workTask, String reason) {
+        if (!isActiveReleaseApprovalTask(workTask)) {
+            return;
+        }
         workTaskMapper.updateById(new MesProEdhrWorkTaskDO()
                 .setId(workTask.getId())
                 .setStatus(MesProEdhrWorkTaskStatus.CANCELED)
@@ -955,6 +969,12 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 .setRemark(reason)
                 .setCompletedAt(LocalDateTime.now()));
         revokeRuntimeTaskEntitlement(workTask);
+    }
+
+    private boolean isActiveReleaseApprovalTask(MesProEdhrWorkTaskDO workTask) {
+        return workTask != null && (MesProEdhrWorkTaskStatus.TODO.equals(workTask.getStatus())
+                || MesProEdhrWorkTaskStatus.DOING.equals(workTask.getStatus())
+                || MesProEdhrWorkTaskStatus.OVERDUE.equals(workTask.getStatus()));
     }
 
     private MesProEdhrWorkTaskDO resolveReleaseApprovalTask(Long workTaskId, Long releaseTransactionId) {

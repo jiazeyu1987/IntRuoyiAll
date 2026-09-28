@@ -37,6 +37,8 @@ public class MesProcessPoolActiveOrderDO extends TenantBaseDO {
     private Long dccProjectCodeId;
     private Long qaRegulationId;
     private Long qaRegulationVersionId;
+    private Long reworkSourceActiveOrderId;
+    private Long reworkReviewId;
     private BigDecimal erpFixedQuantitySnapshot;
     private String activeStatus;
     private String businessStatus;

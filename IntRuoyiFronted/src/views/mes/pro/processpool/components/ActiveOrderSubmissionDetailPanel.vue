@@ -396,6 +396,55 @@
         </el-tab-pane>
         <el-tab-pane
           v-if="showSummaryTab"
+          label="偏差"
+          name="deviation"
+          data-active-order-deviation-tab
+        >
+          <section class="team-leader-workbench__active-order-summary" data-active-order-deviation-panel>
+            <el-empty
+              v-if="!nonconformanceOperationFacts.length"
+              description="没有偏差"
+              data-active-order-deviation-empty
+            />
+            <table
+              v-else
+              class="team-leader-workbench__active-order-summary-table"
+              data-active-order-deviation-table
+            >
+              <tbody>
+                <tr>
+                  <th>偏差编号</th>
+                  <th>内容</th>
+                  <th>处理结果</th>
+                  <th>电子签名</th>
+                  <th>发生时间</th>
+                </tr>
+                <tr v-for="fact in nonconformanceOperationFacts" :key="`deviation-${fact.id}`">
+                  <td>{{ fact.sourceId || '--' }}</td>
+                  <td>
+                    <div>发起：{{ fact.nonconformanceReason || '--' }}</div>
+                    <div v-if="fact.reviewOpinion">处理：{{ fact.reviewOpinion }}</div>
+                  </td>
+                  <td>{{ resolveNonconformanceDispositionLabel(fact.disposition) }}</td>
+                  <td>
+                    <button
+                      type="button"
+                      class="team-leader-workbench__signature-link"
+                      data-active-order-deviation-signature
+                      :disabled="!fact.signatureId"
+                      @click="openActiveOrderSignatureRecord(toOperationFactSignature(fact))"
+                    >
+                      {{ formatOperationFactSignatureText(fact) }}
+                    </button>
+                  </td>
+                  <td>{{ formatDateTime(fact.occurredAt) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        </el-tab-pane>
+        <el-tab-pane
+          v-if="showSummaryTab"
           label="生产过程损耗报告单"
           name="pqcLossReport"
           data-active-order-pqc-loss-report-tab
@@ -2095,6 +2144,12 @@ const showPqcSubmissionTab = computed(
   () => displayMode.value === 'full' || displayMode.value === 'pqc'
 )
 const showSummaryTab = computed(() => !embedded.value)
+const nonconformanceOperationFacts = computed(() =>
+  (props.detail?.operationFacts ?? []).filter((fact) =>
+    fact.operationType === 'NONCONFORMANCE_REVIEW_CREATE' ||
+    fact.operationType === 'NONCONFORMANCE_REVIEW_DISPOSE'
+  )
+)
 const activeOrderStatusTagType = computed(() => {
   const status = props.detail?.activeOrderStatus?.status
   if (status === 'RELEASED') return 'success'

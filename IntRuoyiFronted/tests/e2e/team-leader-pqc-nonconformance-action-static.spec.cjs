@@ -16,14 +16,20 @@ assert.match(
 
 assert.match(
   page,
-  /const canOpenPqcSubmissionNonconformanceReview = \(row: ProcessPoolTimelineEventVO\) =>\s*[\r\n]+\s*canReviewSubmission\(row\)/,
-  '不合格审查按钮必须对待复核PQC提交行开放，不能依赖批次执行上下文。'
+  /const canOpenPqcSubmissionNonconformanceReview = \(row: ProcessPoolTimelineEventVO\) =>\s*[\r\n]+\s*canReviewSubmission\(row\) && Boolean\(row\.activeOrderId\)/,
+  '不合格审查按钮必须对待复核且有正式活跃订单来源的PQC提交行开放。'
 )
 
 assert.match(
   page,
+  /activeOrderId:\s*String\(row\.activeOrderId\)[\s\S]*autoCreate:\s*'1'/,
+  'PQC管理入口跳转必须携带活跃订单身份并自动打开新建弹框。'
+)
+
+assert.doesNotMatch(
+  page,
   /sourceType:\s*SOURCE_TYPE_PQC_SUBMISSION[\s\S]*sourceId:\s*String\(row\.id\)/,
-  'PQC管理入口跳转必须携带PQC提交来源ID。'
+  'PQC管理入口不得继续携带旧PQC提交来源筛选。'
 )
 
 assert.doesNotMatch(

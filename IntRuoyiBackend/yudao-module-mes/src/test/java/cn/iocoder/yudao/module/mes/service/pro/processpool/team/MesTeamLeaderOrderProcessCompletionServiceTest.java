@@ -555,6 +555,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                         .routeId(triggerEvent.getRouteId())
                         .routeProcessId(routeProcessId)
                         .processId(processId)
+                        .reportOutputQuantity(entry.getValue())
                         .rawPayload("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":"
                                 + entry.getValue().stripTrailingZeros().toPlainString() + "}]}")
                         .serverSubmitTime(triggerEvent.getServerSubmitTime())
@@ -682,6 +683,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .routeId(7001L)
                 .routeProcessId(routeProcessId)
                 .processId(6001L)
+                .reportOutputQuantity(new BigDecimal(outputQuantity))
                 .rawPayload("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":"
                         + outputQuantity + "}]}")
                 .build();

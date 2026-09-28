@@ -2,11 +2,14 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,10 @@ class MesTeamLeaderFifoAllocationServiceTest {
     @Mock
     private MesProcessPoolReportAllocationMapper allocationMapper;
     @Mock
+    private MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
+    @Mock
+    private MesProProcessPoolEventMapper eventMapper;
+    @Mock
     private MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
     @Mock
     private MesWorkOrderAbnormalStateService abnormalStateService;
@@ -43,8 +50,15 @@ class MesTeamLeaderFifoAllocationServiceTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(snapshotMapper.selectByActiveOrderAndProcess(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyLong())).thenAnswer(invocation ->
+                MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(invocation.getArgument(0)).routeProcessId(invocation.getArgument(1))
+                        .processId(invocation.getArgument(2))
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build());
         service = new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
-                orderProcessTargetService, abnormalStateService);
+                orderProcessTargetService, abnormalStateService, eventMapper, snapshotMapper);
     }
 
     @Test
@@ -248,6 +262,7 @@ class MesTeamLeaderFifoAllocationServiceTest {
 
     private static MesProcessPoolReportAllocationDO allocation(Long workOrderId, String quantity) {
         return MesProcessPoolReportAllocationDO.builder()
+                .eventId(900001L)
                 .activeOrderId(workOrderId.equals(9001L) ? 8101L : 8102L)
                 .workOrderId(workOrderId)
                 .routeProcessId(5001L)
