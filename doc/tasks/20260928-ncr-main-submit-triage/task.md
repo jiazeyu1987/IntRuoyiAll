@@ -6,7 +6,7 @@
 ## Milestones
 - M1 completed：核实 Git、并行任务及冲突归属。
 - M2 completed：形成文件分类与提交条件，保留并行工作。
-- M3 in_progress：按用户再次要求提交业务快照并推送，保留未完成验证说明。
+- M3 completed：业务快照8c50567aa已推送origin/int_main，记录验证限制。
 
 ## Expected Verification
 - Git 未合并项为零；提交文件归属与依赖完整。
@@ -15,7 +15,7 @@
 - 本轮未请求 E2E，不执行 E2E；既有 NCR E2E 未完成状态仍保留。
 
 ## Current Status
-in_progress：用户再次明确要求提交推送，执行业务代码快照；业务验证未完成。
+ready_for_closeout：业务快照8c50567aa已提交推送；本任务仅为Git交付，业务验证仍未完成，不处理并行任务收尾。
 
 ## 设计约束检查
 - 本轮已授权提交推送；授权不表示验收通过。

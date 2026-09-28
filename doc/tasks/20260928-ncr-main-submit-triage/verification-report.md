@@ -32,3 +32,9 @@ file-classification.tsv 为初筛清单，明确标注“候选”不代表已�
 选择范围：MES源码与测试、前端源码与测试、五份相关前向SQL（详见commit-paths.txt）。包括完整主流程依赖，排除临时删除、AGENTS/规则/AOCI、演示、备份及其他文档。既有暂存docs/backend-development.md保留，不纳入。
 
 CHECK：未合并索引为空；选定跟踪文件 git diff --check HEAD 通过。最新编译失败后的测试适配已由原任务落盘，尚无本轮整体GREEN，不以旧测试结果替代。快照不代表可发布版本。
+## 提交推送结果
+- 业务快照提交：8c50567aa（102个业务/测试/SQL文件及4个任务记录，共106文件）。完整文件列表见commit-paths.txt，Git提交为准确版本。
+- git push origin int_main -> PASS，远端从840b9ef0d推进至8c50567aa；同时包含原有反查两个提交。
+- Git提交/推送端口钩子均通过。git diff --cached --check通过。
+- 原暂存docs/backend-development.md保持暂存且未纳入；其余排除项保持工作区原状，未清理并行文件。
+- 本轮未运行构建、E2E、SQL或部署。业务验证仍在原任务进行，不能视为全量验证通过。
