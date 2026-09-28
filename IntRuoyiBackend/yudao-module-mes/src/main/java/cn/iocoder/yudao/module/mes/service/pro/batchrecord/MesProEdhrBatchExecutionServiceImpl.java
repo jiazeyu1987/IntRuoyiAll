@@ -7016,11 +7016,14 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private boolean isActiveBatch(MesProEdhrBatchExecutionDO batch) {
-        return batch != null
-                && !Objects.equals(batch.getStatus(), BATCH_STATUS_CLOSED)
-                && !Objects.equals(batch.getStatus(), BATCH_STATUS_ARCHIVED)
-                && !Objects.equals(batch.getStatus(), BATCH_STATUS_REJECTED)
-                && !Objects.equals(batch.getStatus(), BATCH_STATUS_VOIDED);
+        if (batch == null || Objects.equals(batch.getStatus(), BATCH_STATUS_CLOSED)
+                || Objects.equals(batch.getStatus(), BATCH_STATUS_ARCHIVED)
+                || Objects.equals(batch.getStatus(), BATCH_STATUS_REJECTED)
+                || Objects.equals(batch.getStatus(), BATCH_STATUS_VOIDED)) {
+            return false;
+        }
+        MesProEdhrReleaseTransactionDO release = releaseTransactionMapper.selectByBatchExecutionId(batch.getId());
+        return release == null || !"RELEASED".equals(release.getReleaseStatus());
     }
 
     private void recoverMissingRouteFormTasksBeforePageRendering(MesProEdhrBatchExecutionDO batch) {

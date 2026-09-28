@@ -48,14 +48,30 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     @Mock private MesWmProductIssueDetailMapper productIssueDetailMapper;
     @Mock private MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
     @Mock private MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper eventMapper;
+    @Mock private MesProcessPoolSubmissionReviewMapper reviewMapper;
 
     private MesTeamLeaderActiveOrderCompletionBackfillPortImpl port;
 
     @BeforeEach
     void setUp() {
+        org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
         port = new MesTeamLeaderActiveOrderCompletionBackfillPortImpl(snapshotMapper, allocationMapper,
                 completionMapper, taskMapper, detailMapper, workOrderMapper, lossSourceReader, backfillMapper,
-                productIssueMapper, productIssueDetailMapper, pickListBindingMapper, pickListBindingItemMapper);
+                productIssueMapper, productIssueDetailMapper, pickListBindingMapper, pickListBindingItemMapper,
+                eventMapper, reviewMapper);
+        var event = new MesProProcessPoolEventDO().setId(401L).setWorkOrderId(30L).setRouteId(40L)
+                .setRouteProcessId(101L).setProcessId(1L).setEventType("PRODUCTION_SUBMIT").setRawPayload("{}");
+        event.setTenantId(1L);
+        var review = new MesProcessPoolSubmissionReviewDO().setId(601L).setEventId(401L).setLeaderUserId(20L)
+                .setLeaderType("PRODUCTION").setReviewStatus("APPROVED").setReviewedAt(java.time.LocalDateTime.of(2026, 9, 24, 9, 0))
+                .setReviewSignatureId(602L).setReviewSignatureUserId(20L)
+                .setReviewSignatureSnapshotJson("{\"signatureId\":602,\"actorId\":20,\"processPoolEventId\":401,"
+                        + "\"actionType\":\"TEAM_LEADER_REVIEW\",\"eventType\":\"PRODUCTION_SUBMIT\","
+                        + "\"leaderType\":\"PRODUCTION\",\"reviewStatus\":\"APPROVED\"}");
+        review.setTenantId(1L);
+        org.mockito.Mockito.lenient().when(eventMapper.selectByIdForUpdateNowait(401L)).thenReturn(event);
+        org.mockito.Mockito.lenient().when(reviewMapper.selectByIdForUpdateNowait(601L)).thenReturn(review);
         org.mockito.Mockito.lenient().when(pickListBindingMapper.selectListByActiveOrderId(10L))
                 .thenReturn(List.of(MesProcessPoolActiveOrderPickListBindingDO.builder().id(8801L)
                         .activeOrderId(10L).workOrderId(30L).pickListId(9901L).sourceSnapshotHash("pick-hash").build()));
@@ -87,6 +103,11 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                     });
                     return 1;
                 });
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTransaction() {
+        org.springframework.transaction.support.TransactionSynchronizationManager.clear();
     }
 
     @Test
@@ -324,9 +345,11 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     private MesProcessPoolActiveOrderProcessSnapshotDO snapshot(Long routeProcessId, Long processId) {
-        return MesProcessPoolActiveOrderProcessSnapshotDO.builder().id(routeProcessId).activeOrderId(10L)
+        var row = MesProcessPoolActiveOrderProcessSnapshotDO.builder().id(routeProcessId).activeOrderId(10L)
                 .workOrderId(30L).routeId(40L).routeVersionId(41L).routeProcessId(routeProcessId).processId(processId)
                 .plannedQuantitySnapshot(BigDecimal.TEN).build();
+        row.setTenantId(1L);
+        return row;
     }
 
     private MesProcessPoolReportAllocationDO allocation() {
@@ -334,8 +357,11 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     private MesProcessPoolReportAllocationDO allocation(Long id, Long routeProcessId) {
-        return MesProcessPoolReportAllocationDO.builder().id(id).activeOrderId(10L).workOrderId(30L)
+        var row = MesProcessPoolReportAllocationDO.builder().id(id).activeOrderId(10L).workOrderId(30L)
+                .eventId(401L).reviewId(601L).leaderUserId(20L)
                 .routeProcessId(routeProcessId).processId(1L).allocatedQuantity(BigDecimal.TEN).build();
+        row.setTenantId(1L);
+        return row;
     }
 
     private MesProcessPoolOrderProcessCompletionDO completion() {

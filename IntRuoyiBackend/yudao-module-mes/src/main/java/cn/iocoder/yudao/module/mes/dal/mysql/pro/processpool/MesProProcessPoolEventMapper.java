@@ -14,6 +14,13 @@ import java.util.List;
 @Mapper
 public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessPoolEventDO> {
 
+    /** Completion already holds target allocation locks; never wait on the event-first writer chain. */
+    default MesProProcessPoolEventDO selectByIdForUpdateNowait(Long id) {
+        java.util.Objects.requireNonNull(id, "production freeze event id");
+        return selectOne(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+                .eq(MesProProcessPoolEventDO::getId, id).last("FOR UPDATE NOWAIT"));
+    }
+
     default MesProProcessPoolEventDO selectSubmitByIdempotency(MesProProcessPoolEventDO event) {
         if (event == null || event.getEventIdempotencyKey() == null) {
             return null;
@@ -173,6 +180,16 @@ public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessP
                 .orderByDesc(MesProProcessPoolEventDO::getServerSubmitTime)
                 .orderByDesc(MesProProcessPoolEventDO::getId)
                 .last("FOR UPDATE"));
+    }
+
+    default List<MesProProcessPoolEventDO> selectProductionSubmitsByIds(Collection<Long> eventIds) {
+        if (eventIds == null || eventIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+                .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .in(MesProProcessPoolEventDO::getId, eventIds)
+                .orderByAsc(MesProProcessPoolEventDO::getId));
     }
 
     default List<MesProProcessPoolEventDO> selectPqcEventsForSubmit(MesProProcessPoolEventDO submitEvent) {

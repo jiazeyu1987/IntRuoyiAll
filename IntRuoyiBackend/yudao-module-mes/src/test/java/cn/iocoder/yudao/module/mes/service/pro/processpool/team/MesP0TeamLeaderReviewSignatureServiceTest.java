@@ -111,7 +111,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 pqcPieceDetailMapper, orderProcessTargetService, orderProcessCompletionService,
                 abnormalStateService, reportManagementSummaryService);
         ReflectionTestUtils.setField(reportConfirmationService, "signatureService", signatureService);
-        lenient().when(signatureService.recordTeamLeaderReviewSignature(anyLong(), any(), any()))
+        lenient().when(signatureService.recordTeamLeaderReviewSignature(anyLong(), any(), any(),
+                eq("PROCESS_POOL_EVENT"), eq(1001L), any()))
                 .thenReturn(REVIEW_SIGNATURE_ID);
     }
 
@@ -140,7 +141,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
 
         assertEquals(7001L, reviewId);
         verify(signatureService).recordTeamLeaderReviewSignature(eq(LEADER_USER_ID),
-                eq(SIGNATURE_PASSWORD), any());
+                eq(SIGNATURE_PASSWORD), any(), eq("PROCESS_POOL_EVENT"), eq(1001L), eq("提交记录组长复核"));
     }
 
     @Test
@@ -280,8 +281,22 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
         assertTrue(review.getReviewSignatureSnapshotJson().contains("\"actorId\":" + LEADER_USER_ID));
         assertTrue(review.getReviewSignatureSnapshotJson().contains("\"actionType\":\"TEAM_LEADER_REVIEW\""));
         verify(allocationMapper).insertBatch(anyCollection());
-        verify(orderProcessCompletionService, never()).applyConfirmedAllocations(any(MesProProcessPoolEventDO.class),
-                anyCollection());
+        ArgumentCaptor<MesProProcessPoolEventDO> eventCaptor =
+                ArgumentCaptor.forClass(MesProProcessPoolEventDO.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Collection<MesProcessPoolReportAllocationDO>> allocationCaptor =
+                ArgumentCaptor.forClass(Collection.class);
+        verify(orderProcessCompletionService).applyConfirmedAllocations(eventCaptor.capture(),
+                allocationCaptor.capture());
+        assertEquals(1001L, eventCaptor.getValue().getId());
+        List<MesProcessPoolReportAllocationDO> confirmedAllocations = List.copyOf(allocationCaptor.getValue());
+        assertEquals(1, confirmedAllocations.size());
+        MesProcessPoolReportAllocationDO confirmedAllocation = confirmedAllocations.get(0);
+        assertEquals(1001L, confirmedAllocation.getEventId());
+        assertEquals(0, new BigDecimal("80").compareTo(confirmedAllocation.getAllocatedQuantity()));
+        assertEquals(8101L, confirmedAllocation.getActiveOrderId());
+        assertEquals(9001L, confirmedAllocation.getWorkOrderId());
+        assertEquals(7002L, confirmedAllocation.getReviewId());
     }
 
     private static MesTeamLeaderSubmissionReviewReqBO unsignedReviewReq() {

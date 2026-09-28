@@ -3,6 +3,10 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillDO;
@@ -29,6 +33,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueMa
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.enums.wm.MesWmProductIssueStatusEnum;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -62,6 +67,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
     private final MesWmProductIssueDetailMapper productIssueDetailMapper;
     private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
     private final MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
+    private final MesProProcessPoolEventMapper eventMapper;
+    private final MesProcessPoolSubmissionReviewMapper reviewMapper;
 
     public MesTeamLeaderActiveOrderCompletionBackfillPortImpl(
             MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper,
@@ -75,7 +82,9 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
             MesWmProductIssueMapper productIssueMapper,
             MesWmProductIssueDetailMapper productIssueDetailMapper,
             MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper,
-            MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper) {
+            MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper,
+            MesProProcessPoolEventMapper eventMapper,
+            MesProcessPoolSubmissionReviewMapper reviewMapper) {
         this.snapshotMapper = snapshotMapper;
         this.allocationMapper = allocationMapper;
         this.completionMapper = completionMapper;
@@ -88,6 +97,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         this.productIssueDetailMapper = productIssueDetailMapper;
         this.pickListBindingMapper = pickListBindingMapper;
         this.pickListBindingItemMapper = pickListBindingItemMapper;
+        this.eventMapper = eventMapper;
+        this.reviewMapper = reviewMapper;
     }
 
     @Override
@@ -100,6 +111,10 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
     public MesTeamLeaderActiveOrderCompletionBackfillDraft prepare(
             Long leaderUserId, MesProcessPoolActiveOrderDO activeOrder,
             MesTeamLeaderActiveOrderCompletionCommand command) {
+        // Also covers readSourceSnapshotHash -> prepare self invocation (no proxy interception).
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalStateException("Formal production freeze requires the existing Tx-A transaction");
+        }
         if (activeOrder == null || !Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)) {
             throw sourceMissing(activeOrder, "ACTIVE_ORDER_OWNER");
         }
@@ -117,6 +132,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         List<Long> batchSourceIds = new ArrayList<>(
                 validateProductionSources(activeOrder, snapshots, allocations, completions));
         List<Long> inspectionSourceIds = validateInspectionSources(activeOrder, snapshots, tasks, details);
+        Map<String, Object> productionFacts = freezeProductionFacts(activeOrder, snapshots, allocations);
 
         MesProWorkOrderDO workOrder = workOrderMapper.selectByIdForUpdate(activeOrder.getWorkOrderId());
         if (workOrder == null || workOrder.getProductId() == null || StrUtil.isBlank(workOrder.getBatchCode())
@@ -147,7 +163,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                 .filter(Objects::nonNull).forEach(batchSourceIds::add);
         String sourceSeed = canonicalSourceSeed(activeOrder, workOrder, formalProductIssues, pickListBindings,
                 pickListItems,
-                snapshots, allocations, completions, tasks, details);
+                snapshots, allocations, completions, tasks, details, productionFacts);
         String sourceSeedHash = sha256(sourceSeed);
         MesTeamLeaderActiveOrderReleaseLossReportPlanCommand lossCommand =
                 new MesTeamLeaderActiveOrderReleaseLossReportPlanCommand()
@@ -533,6 +549,133 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                 .setSourceHash(sourceHash);
     }
 
+    private Map<String, Object> freezeProductionFacts(MesProcessPoolActiveOrderDO order,
+            List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots,
+            List<MesProcessPoolReportAllocationDO> allocations) {
+        Set<Long> eventIds = new java.util.TreeSet<>();
+        Set<Long> reviewIds = new java.util.TreeSet<>();
+        for (MesProcessPoolReportAllocationDO allocation : allocations) {
+            if (allocation == null || allocation.getId() == null || allocation.getEventId() == null
+                    || allocation.getReviewId() == null || allocation.getLeaderUserId() == null
+                    || !Objects.equals(order.getTenantId(), allocation.getTenantId())
+                    || !Objects.equals(order.getId(), allocation.getActiveOrderId())
+                    || !Objects.equals(order.getWorkOrderId(), allocation.getWorkOrderId())
+                    || snapshots.stream().filter(snapshot -> snapshot != null
+                        && Objects.equals(order.getId(), snapshot.getActiveOrderId())
+                        && Objects.equals(order.getTenantId(), snapshot.getTenantId())
+                        && Objects.equals(order.getWorkOrderId(), snapshot.getWorkOrderId())
+                        && Objects.equals(order.getRouteId(), snapshot.getRouteId())
+                        && Objects.equals(order.getRouteVersionId(), snapshot.getRouteVersionId())
+                        && snapshot.getRouteProcessId() != null && snapshot.getProcessId() != null
+                        && Objects.equals(snapshot.getRouteProcessId(), allocation.getRouteProcessId())
+                        && Objects.equals(snapshot.getProcessId(), allocation.getProcessId())).count() != 1) {
+                throw sourceMissing(order, "PRODUCTION_ALLOCATION_BINDING");
+            }
+            eventIds.add(allocation.getEventId());
+            reviewIds.add(allocation.getReviewId());
+        }
+        Map<Long, MesProProcessPoolEventDO> events = new LinkedHashMap<>();
+        List<Map<String, Object>> frozenEvents = new ArrayList<>();
+        // Existing allocation locks precede these reads. NOWAIT prevents an event-first writer wait cycle.
+        // Do not catch/retry lock failures: the outer Tx-A must roll back unchanged.
+        for (Long id : eventIds) {
+            MesProProcessPoolEventDO event = eventMapper.selectByIdForUpdateNowait(id);
+            if (event == null || !Objects.equals(id, event.getId())
+                    || !Objects.equals(order.getTenantId(), event.getTenantId())
+                    || !"PRODUCTION_SUBMIT".equals(event.getEventType())
+                    || event.getRouteId() == null
+                    || event.getRouteProcessId() == null || event.getProcessId() == null
+                    || StrUtil.isBlank(event.getRawPayload())
+                    || !isJsonObject(event.getRawPayload())) {
+                throw sourceMissing(order, "PRODUCTION_EVENT_SNAPSHOT:" + id);
+            }
+            events.put(id, event);
+            Map<String, Object> frozen = new LinkedHashMap<>();
+            frozen.put("id", id);
+            frozen.put("tenantId", event.getTenantId());
+            frozen.put("eventType", event.getEventType());
+            frozen.put("workOrderId", event.getWorkOrderId());
+            frozen.put("routeId", event.getRouteId());
+            frozen.put("routeProcessId", event.getRouteProcessId());
+            frozen.put("processId", event.getProcessId());
+            frozen.put("rawPayload", event.getRawPayload());
+            frozen.put("payloadContentHash", sha256(event.getRawPayload()));
+            frozen.put("actualEmployeeId", event.getActualEmployeeId());
+            frozen.put("signatureId", event.getSignatureId());
+            frozen.put("signatureUserId", event.getSignatureUserId());
+            frozen.put("signatureSnapshot", event.getSignatureSnapshot());
+            frozen.put("serverSubmitTime", event.getServerSubmitTime());
+            frozenEvents.add(frozen);
+        }
+        Map<Long, MesProcessPoolSubmissionReviewDO> reviews = new LinkedHashMap<>();
+        List<Map<String, Object>> frozenReviews = new ArrayList<>();
+        for (Long id : reviewIds) {
+            MesProcessPoolSubmissionReviewDO review = reviewMapper.selectByIdForUpdateNowait(id);
+            if (review == null || !Objects.equals(id, review.getId())
+                    || !Objects.equals(order.getTenantId(), review.getTenantId())
+                    || !"PRODUCTION".equals(review.getLeaderType()) || !"APPROVED".equals(review.getReviewStatus())
+                    || review.getLeaderUserId() == null || review.getReviewedAt() == null
+                    || review.getReviewSignatureId() == null
+                    || !Objects.equals(review.getLeaderUserId(), review.getReviewSignatureUserId())
+                    || StrUtil.isBlank(review.getReviewSignatureSnapshotJson())) {
+                throw sourceMissing(order, "PRODUCTION_REVIEW_SNAPSHOT:" + id);
+            }
+            var signature = JsonUtils.parseTree(review.getReviewSignatureSnapshotJson());
+            if (signature == null || !signature.isObject()
+                    || !Objects.equals(String.valueOf(review.getReviewSignatureId()), signature.path("signatureId").asText())
+                    || !Objects.equals(String.valueOf(review.getLeaderUserId()), signature.path("actorId").asText())
+                    || !Objects.equals(String.valueOf(review.getEventId()), signature.path("processPoolEventId").asText())
+                    || !"TEAM_LEADER_REVIEW".equals(signature.path("actionType").asText())
+                    || !"PRODUCTION_SUBMIT".equals(signature.path("eventType").asText())
+                    || !"PRODUCTION".equals(signature.path("leaderType").asText())
+                    || !"APPROVED".equals(signature.path("reviewStatus").asText())) {
+                throw sourceMissing(order, "PRODUCTION_REVIEW_SIGNATURE:" + id);
+            }
+            reviews.put(id, review);
+            Map<String, Object> frozen = new LinkedHashMap<>();
+            frozen.put("id", id);
+            frozen.put("tenantId", review.getTenantId());
+            frozen.put("eventId", review.getEventId());
+            frozen.put("leaderUserId", review.getLeaderUserId());
+            frozen.put("leaderType", review.getLeaderType());
+            frozen.put("reviewStatus", review.getReviewStatus());
+            frozen.put("reviewedAt", review.getReviewedAt());
+            frozen.put("reviewSignatureId", review.getReviewSignatureId());
+            frozen.put("reviewSignatureUserId", review.getReviewSignatureUserId());
+            frozen.put("reviewSignatureSnapshotJson", review.getReviewSignatureSnapshotJson());
+            frozenReviews.add(frozen);
+        }
+        for (MesProcessPoolReportAllocationDO allocation : allocations) {
+            var event = events.get(allocation.getEventId());
+            var review = reviews.get(allocation.getReviewId());
+            // Shared sources may belong to a different work order, route and route process.
+            if (!Objects.equals(event.getProcessId(), allocation.getProcessId())
+                    || !Objects.equals(review.getEventId(), event.getId())) {
+                throw sourceMissing(order, "PRODUCTION_EVENT_REVIEW_ALLOCATION_MISMATCH");
+            }
+        }
+        Map<String, Object> facts = new LinkedHashMap<>();
+        facts.put("formatVersion", 1);
+        facts.put("events", frozenEvents);
+        facts.put("reviews", frozenReviews);
+        return facts;
+    }
+
+    private static boolean isJsonObject(String json) {
+        var node = JsonUtils.parseTree(json);
+        return node != null && node.isObject();
+    }
+
+    private static List<com.fasterxml.jackson.databind.node.ObjectNode> completionSourceFacts(
+            List<MesProcessPoolOrderProcessCompletionDO> rows) {
+        return rows.stream().map(row -> {
+            var fact = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(JsonUtils.toJsonString(row));
+            // Only write()'s outputs and the persistence update audit are excluded; retain every other field.
+            fact.remove(List.of("backfillStatus", "backfillExecutionId", "backfillError", "updateTime", "updater"));
+            return fact;
+        }).toList();
+    }
+
     private static String canonicalSourceSeed(MesProcessPoolActiveOrderDO order,
                                                MesProWorkOrderDO workOrder,
                                                FormalProductIssues formalProductIssues,
@@ -542,7 +685,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                                                List<MesProcessPoolReportAllocationDO> allocations,
                                                List<MesProcessPoolOrderProcessCompletionDO> completions,
                                                List<MesPqcInspectionTaskDO> tasks,
-                                               List<MesPqcProcessInspectionAggregateDetailDO> details) {
+                                               List<MesPqcProcessInspectionAggregateDetailDO> details,
+                                               Map<String, Object> productionFacts) {
         Map<String, Object> seed = new LinkedHashMap<>();
         Map<String, Object> orderBinding = new LinkedHashMap<>();
         orderBinding.put("id", order.getId());
@@ -563,7 +707,9 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         seed.put("pickListBindingItems", pickListItems);
         seed.put("snapshots", snapshots);
         seed.put("allocations", allocations);
-        seed.put("completions", completions);
+        seed.put("productionFacts", productionFacts);
+        // Backfill status/id/error and audit timestamps are outputs of write(), not replay source facts.
+        seed.put("completions", completionSourceFacts(completions));
         seed.put("pqcTasks", tasks);
         seed.put("pqcDetails", details);
         return JsonUtils.toJsonString(seed);

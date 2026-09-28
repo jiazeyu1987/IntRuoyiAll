@@ -6,6 +6,7 @@
   "private": false,
   "scripts": {
     "edhr:field-responsibility:page-contract": "node scripts/edhr-field-responsibility-page-contract.test.mjs",
+    "e2e:edhr:batch-reverse-trace:static": "node tests/e2e/edhr-batch-reverse-trace-static.spec.cjs",
     "e2e:edhr:field-responsibility:check": "node --check tests/e2e/edhr-field-responsibility-real-flow.e2e.js",
     "e2e:edhr:field-responsibility": "node tests/e2e/edhr-field-responsibility-real-flow.e2e.js",
     "i": "pnpm install",

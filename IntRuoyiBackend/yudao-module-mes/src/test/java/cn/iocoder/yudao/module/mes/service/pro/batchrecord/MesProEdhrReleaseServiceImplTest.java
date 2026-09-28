@@ -152,6 +152,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     @MockitoBean
     private MesProEdhrBatchTraceabilityService batchTraceabilityService;
+    @MockitoBean
+    private MesProBatchRecordExecutionSignatureService executionSignatureService;
 
     @BeforeEach
     void setUpDossierRequirementDefaults() {
