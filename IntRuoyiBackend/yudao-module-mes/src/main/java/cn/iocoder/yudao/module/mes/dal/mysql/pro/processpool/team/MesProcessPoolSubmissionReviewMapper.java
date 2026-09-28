@@ -14,6 +14,13 @@ import java.util.List;
 @Mapper
 public interface MesProcessPoolSubmissionReviewMapper extends BaseMapperX<MesProcessPoolSubmissionReviewDO> {
 
+    /** Freeze only the allocation-bound review, without waiting on another writer's lock. */
+    default MesProcessPoolSubmissionReviewDO selectByIdForUpdateNowait(Long id) {
+        java.util.Objects.requireNonNull(id, "production freeze review id");
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolSubmissionReviewDO>()
+                .eq(MesProcessPoolSubmissionReviewDO::getId, id).last("FOR UPDATE NOWAIT"));
+    }
+
     default List<MesProcessPoolSubmissionReviewDO> selectListByEventId(Long eventId) {
         if (eventId == null) {
             return Collections.emptyList();

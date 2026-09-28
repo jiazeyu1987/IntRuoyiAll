@@ -75,7 +75,9 @@ class MesReportAllocationCommandServiceTest {
                 targetService, fifoService, routeStartAuthorizationService, quantityFragmentService,
                 completionService, reportManagementSummaryService, activeOrderProcessSnapshotMapper);
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
-        org.mockito.Mockito.lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any()))
+        org.mockito.Mockito.lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any(),
+                org.mockito.ArgumentMatchers.eq("PROCESS_POOL_EVENT"), org.mockito.ArgumentMatchers.eq(1001L),
+                org.mockito.ArgumentMatchers.eq("生产报工组长复核")))
                 .thenReturn(9901L);
         org.mockito.Mockito.lenient().when(routeStartAuthorizationService.listAuthorizedRouteProcesses(3001L)).thenReturn(List.of(
                 MesProRouteProcessDO.builder().id(5001L).processId(6001L).build()));
@@ -306,7 +308,7 @@ class MesReportAllocationCommandServiceTest {
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_SIGNATURE_REQUIRED.getCode(),
                 ex.getCode());
-        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any());
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(allocationMapper, never()).insertBatch(anyCollection());
         verify(auditMapper, never()).insertBatch(anyCollection());
@@ -850,7 +852,7 @@ class MesReportAllocationCommandServiceTest {
         verify(quantityFragmentService, never()).rebuildForVersion(any(), any(), anyCollection());
         verify(reviewMapper, never()).deleteById(any());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
-        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any());
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -869,7 +871,7 @@ class MesReportAllocationCommandServiceTest {
         Long reviewId = service.rejectProductionSubmission(1001L, 3001L, "不合格", "reject-pass");
 
         assertEquals(7401L, reviewId);
-        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any());
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any());
         verify(quantityFragmentService, never()).rebuildForVersion(any(), any(), anyCollection());
         verify(stateMapper, never()).updateById(any(MesProcessPoolReportAllocationStateDO.class));
     }
@@ -975,7 +977,7 @@ class MesReportAllocationCommandServiceTest {
         verify(allocationMapper, never()).attachReviewToCurrentRowsByEventId(any(), any(), any(), any());
         verify(allocationMapper, never()).supersedeCurrentRows(anyCollection(), any());
         verify(reviewMapper, never()).updateById(any(MesProcessPoolSubmissionReviewDO.class));
-        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any());
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any());
         verify(quantityFragmentService, never()).rebuildForVersion(any(), any(), anyCollection());
     }
 

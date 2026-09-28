@@ -54,7 +54,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 processInspectionAggregationService);
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
         ReflectionTestUtils.setField(service, "reportAllocationCommandService", reportAllocationCommandService);
-        lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any())).thenReturn(9101L);
+        lenient().when(signatureService.recordTeamLeaderReviewSignature(
+                any(), any(), any(), any(), any(), any())).thenReturn(9101L);
     }
 
     @Test
@@ -187,7 +188,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         Long reviewId = service.reviewSubmission(reviewReq());
 
         assertEquals(7004L, reviewId);
-        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any());
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(
+                any(), any(), any(), any(), any(), any());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
     }
@@ -229,6 +231,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         verify(reviewMapper).insert(reviewCaptor.capture());
         assertEquals(3001L, reviewCaptor.getValue().getLeaderUserId());
         assertEquals(9101L, reviewCaptor.getValue().getReviewSignatureId());
+        verify(signatureService).recordTeamLeaderReviewSignature(3001L, "review-pass",
+                "组长复核:PQC:1001:APPROVED", "PROCESS_POOL_EVENT", 1001L, "提交记录组长复核");
         verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7003L);
     }
 

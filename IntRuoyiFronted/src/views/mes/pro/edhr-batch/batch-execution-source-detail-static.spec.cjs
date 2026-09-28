@@ -14,7 +14,7 @@ assert.match(executionList, /data-edhr-batch-active-order-detail/)
 assert.match(executionList, />\s*详情\s*</)
 assert.match(executionList, /edhr-batch-execution\/active-order-detail/)
 
-assert.match(historyList, /data-edhr-history-active-order-detail/)
+assert.match(historyList, /data-edhr-history-detail-action/)
 assert.match(historyList, />\s*详情\s*</)
 assert.match(historyList, /edhr-batch-execution\/active-order-detail/)
 
