@@ -42,10 +42,34 @@ class GxpAuditPolicyActivationServiceContractTest {
         @SuppressWarnings("unchecked")
         List<Object> operations = (List<Object>) parseOperations.invoke(service, 1L, bundle);
 
-        assertEquals(27, operations.size(), "策略包中的每个 operation 都必须保留");
+        assertEquals(bundle.policyNode().path("operations").size(), operations.size(), "策略包中的每个 operation 都必须保留");
         Field operationId = operations.get(operations.size() - 1).getClass().getDeclaredField("operationId");
         operationId.setAccessible(true);
         assertEquals("gxp.policy.activate", operationId.get(operations.get(operations.size() - 1)));
+    }
+
+    @Test
+    void activationProjectionPreservesV2SourceLocationsAndOwnerRole() throws Exception {
+        var node = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
+        var operation = node.putArray("operations").addObject();
+        operation.put("operationId", "test.v2.projection");
+        for (String field : List.of("sourceType", "domain", "subjectType", "actionType", "reasonPolicy",
+                "signaturePolicy", "statePolicy", "retentionClass", "applicability")) {
+            operation.put(field, "TEST_ONLY");
+        }
+        operation.putArray("sourceLocators").add("First#write").add("Second#write");
+        operation.put("ownerRole", "QUALITY_OWNER");
+        operation.putArray("testIds").add("TEST-PROJECTION");
+        var bundle = new GxpAuditPolicyBundle("gxp-audit-policy.v2", "test-only", "DRAFT",
+                "TEST-ONLY", "a".repeat(64), "b".repeat(64), node.toString(), "", "", node);
+        Method parse = GxpAuditPolicyActivationServiceImpl.class.getDeclaredMethod(
+                "parseOperations", Long.class, GxpAuditPolicyBundle.class);
+        parse.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        var operations = (List<cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOperationDO>)
+                parse.invoke(new GxpAuditPolicyActivationServiceImpl(), 1L, bundle);
+        assertEquals("[\"First#write\",\"Second#write\"]", operations.get(0).getSourceLocator());
+        assertEquals("QUALITY_OWNER", operations.get(0).getOwner());
     }
 
     @Test

@@ -162,9 +162,9 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                 .filter(Objects::nonNull).forEach(batchSourceIds::add);
         formalProductIssues.allDetails().stream().map(MesWmProductIssueDetailDO::getId)
                 .filter(Objects::nonNull).forEach(batchSourceIds::add);
-        String sourceSeed = canonicalSourceSeed(activeOrder, workOrder, formalProductIssues, pickListBindings,
-                pickListItems,
-                snapshots, allocations, completions, tasks, details, productionFacts);
+        String sourceSeed = MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.canonicalize(
+                canonicalSourceSeed(activeOrder, workOrder, formalProductIssues, pickListBindings, pickListItems,
+                        snapshots, allocations, completions, tasks, details, productionFacts));
         String sourceSeedHash = sha256(sourceSeed);
         MesTeamLeaderActiveOrderReleaseLossReportPlanCommand lossCommand =
                 new MesTeamLeaderActiveOrderReleaseLossReportPlanCommand()
@@ -191,7 +191,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                 .sorted(Comparator.comparing(source -> source.getSnapshot().getRouteProcessId()))
                 .map(this::toLossCondition)
                 .toList();
-        String lossConditionFactsJson = JsonUtils.toJsonString(conditions);
+        String lossConditionFactsJson = MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.canonicalize(
+                JsonUtils.toJsonString(conditions));
         String signatureSnapshotJson = signatureSnapshot(completions, tasks, details, lossSources);
         boolean hasActualLoss = conditions.stream().anyMatch(item -> Boolean.TRUE.equals(item.getHasActualLoss()));
         BigDecimal lossQuantity = conditions.stream().map(MesTeamLeaderActiveOrderCompletionLossCondition::getLossQuantity)
@@ -199,7 +200,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         List<Long> replenishmentItemIds = conditions.stream().flatMap(item -> item.getReplenishmentSources().stream())
                 .map(MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource::getItemId)
                 .distinct().sorted().toList();
-        String sourceSnapshotHash = sha256(sourceSeedHash + "|" + lossConditionFactsJson);
+        String sourceSnapshotHash = MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.sourceSnapshotHash(
+                sourceSeed, lossConditionFactsJson);
         String batchIdsJson = JsonUtils.toJsonString(batchSourceIds);
         String inspectionIdsJson = JsonUtils.toJsonString(inspectionSourceIds);
         return new MesTeamLeaderActiveOrderCompletionBackfillDraft()

@@ -160,7 +160,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                 new BigDecimal("4"), new BigDecimal("2"), 8301L, "LOSS-01", "正常损耗");
         verify(feedbackMaterialMapper).selectListByFeedbackIdForUpdate(5101L);
         verify(feedbackMaterialMapper).updateCorrectedMaterialFact(6101L, new BigDecimal("4"),
-                new BigDecimal("2"), "[{\"reasonId\":8301,\"quantity\":2}]", null, "[]");
+                new BigDecimal("2"), "[{\"reasonId\":8301,\"reasonCode\":\"LOSS-01\",\"reasonName\":\"正常损耗\",\"quantity\":2}]", null, "[]");
     }
 
     @Test
@@ -413,6 +413,109 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                 .filter(field -> "MATERIAL_LOSS.3401".equals(field.getFieldCode()))
                 .findFirst().orElseThrow().getAfterValue());
         verify(fragmentMapper, never()).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 1, 2})
+    void correctsDeviceParameterWithSameLossReasonOnTwoMaterials(int materialLoss) throws Exception {
+        MesProProcessPoolEventDO source = eventWithBusinessDetails();
+        com.fasterxml.jackson.databind.node.ObjectNode payload =
+                (com.fasterxml.jackson.databind.node.ObjectNode) cn.iocoder.yudao.framework.common.util.json.JsonUtils
+                        .getObjectMapper().readTree(source.getRawPayload());
+        com.fasterxml.jackson.databind.node.ArrayNode losses =
+                (com.fasterxml.jackson.databind.node.ArrayNode) payload.get("lossDetails");
+        ((com.fasterxml.jackson.databind.node.ObjectNode) losses.get(0)).put("quantity", 1);
+        losses.add(losses.get(0).deepCopy());
+        payload.set("lossReasonDetails", losses.deepCopy());
+        for (com.fasterxml.jackson.databind.JsonNode material : payload.get("materialDetails")) {
+            com.fasterxml.jackson.databind.node.ObjectNode fact = (com.fasterxml.jackson.databind.node.ObjectNode) material;
+            fact.put("lossQuantity", 1);
+            fact.set("lossDetails", losses.arrayNode().add(losses.get(0).deepCopy()));
+        }
+        String original = payload.toString();
+        source.setRawPayload(original);
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(source);
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenAnswer(invocation -> {
+            assertEquals(original, source.getRawPayload(), "Original facts must survive until revision capture");
+            return 708L;
+        });
+        List<MesProcessPoolProductionReportCorrectionCommand.LossDetailCommand> materialReasons = materialLoss == 0
+                ? List.of() : List.of(new MesProcessPoolProductionReportCorrectionCommand.LossDetailCommand()
+                        .setReasonId(8301L).setQuantity(BigDecimal.valueOf(materialLoss)));
+        MesProcessPoolProductionReportCorrectionCommand request = command().setOutputQuantity(new BigDecimal("4"))
+                .setLossDetails(materialLoss == 0 ? List.of() : List.of(
+                        new MesProcessPoolProductionReportCorrectionCommand.LossDetailCommand()
+                                .setReasonId(8301L).setQuantity(BigDecimal.valueOf(2L * materialLoss))))
+                .setMaterialDetails(List.of(
+                        new MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand()
+                                .setMaterialId(3401L).setOutputQuantity(new BigDecimal("2"))
+                                .setLossQuantity(BigDecimal.valueOf(materialLoss)).setLossDetails(materialReasons),
+                        new MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand()
+                                .setMaterialId(4801L).setOutputQuantity(new BigDecimal("2"))
+                                .setLossQuantity(BigDecimal.valueOf(materialLoss)).setLossDetails(materialReasons)))
+                .setDeviceParameterReadings(List.of(
+                        new MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand()
+                                .setDeviceId(41L).setParameterCode("pressure").setValue(new BigDecimal("21"))));
+
+        assertEquals(708L, service.correct(request));
+
+        ArgumentCaptor<MesProcessPoolEventRevisionUpdateReqBO> captor =
+                ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(revisionService).updateProductionReportRecord(captor.capture());
+        com.fasterxml.jackson.databind.JsonNode after = cn.iocoder.yudao.framework.common.util.json.JsonUtils
+                .getObjectMapper().readTree(captor.getValue().getAfterPayload());
+        assertEquals(materialLoss == 0 ? 0 : 1, after.get("lossDetails").size());
+        assertEquals(2 * materialLoss, after.get("lossQuantity").intValue());
+        for (int index = 0; index < 2; index++) {
+            assertEquals(payload.get("materialDetails").get(index).get("materialId"),
+                    after.get("materialDetails").get(index).get("materialId"));
+            assertEquals(materialLoss, after.get("materialDetails").get(index).get("lossQuantity").intValue());
+            assertEquals(materialLoss == 0 ? 0 : 1,
+                    after.get("materialDetails").get(index).get("lossDetails").size());
+        }
+        if (materialLoss == 1) {
+            for (int index = 0; index < 2; index++) {
+                assertEquals(payload.get("materialDetails").get(index).get("lossDetails"),
+                        after.get("materialDetails").get(index).get("lossDetails"));
+                assertEquals(payload.get("materialDetails").get(index).get("materialName"),
+                        after.get("materialDetails").get(index).get("materialName"));
+            }
+            assertFalse(captor.getValue().getChangedFields().stream()
+                    .anyMatch(field -> field.getFieldCode().startsWith("LOSS_REASON.")));
+        } else {
+            MesProcessPoolEventRevisionFieldChangeBO reasonChange = captor.getValue().getChangedFields().stream()
+                    .filter(field -> "LOSS_REASON.8301".equals(field.getFieldCode())).findFirst().orElseThrow();
+            assertEquals("2", reasonChange.getBeforeValue());
+            assertEquals(String.valueOf(2 * materialLoss), reasonChange.getAfterValue());
+        }
+    }
+
+    @Test
+    void rejectsConflictingSnapshotsForSameLossReasonBeforeSigning() throws Exception {
+        MesProProcessPoolEventDO source = eventWithBusinessDetails();
+        com.fasterxml.jackson.databind.node.ObjectNode payload =
+                (com.fasterxml.jackson.databind.node.ObjectNode) cn.iocoder.yudao.framework.common.util.json.JsonUtils
+                        .getObjectMapper().readTree(source.getRawPayload());
+        com.fasterxml.jackson.databind.node.ArrayNode losses =
+                (com.fasterxml.jackson.databind.node.ArrayNode) payload.get("lossDetails");
+        com.fasterxml.jackson.databind.node.ObjectNode conflicting =
+                ((com.fasterxml.jackson.databind.node.ObjectNode) losses.get(0)).deepCopy();
+        conflicting.put("reasonName", "不同原因快照");
+        losses.add(conflicting);
+        source.setRawPayload(payload.toString());
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(source);
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+
+        cn.iocoder.yudao.framework.common.exception.ServiceException error = assertThrows(
+                cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.correct(command().setOutputQuantity(new BigDecimal("4"))));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("lossDetails.reasonMetadata"));
+        verify(signatureService, never()).recordFieldChangeSignature(any());
+        verify(revisionService, never()).updateProductionReportRecord(any());
+        verify(feedbackMapper, never()).updateCorrectedProductionReport(
+                any(), any(), any(), any(), any(), any(), any());
     }
 
     private static MesProcessPoolProductionReportCorrectionCommand command() {

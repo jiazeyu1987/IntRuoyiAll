@@ -40,6 +40,40 @@ import static org.mockito.Mockito.verify;
 class MesActiveOrderDossierFileServiceTest {
 
     @Test
+    void repeatedNamesReceiveDifferentStorageLocations() {
+        var fixture = fixture();
+        when(fixture.activeOrderMapper.selectById(10L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(10L).leaderUserId(7L).workOrderId(20L).build());
+        when(fixture.adminUserApi.getUser(7L)).thenReturn(user(7L, "生产组长"));
+        java.util.Map<Long, FileDO> stored = new java.util.LinkedHashMap<>();
+        when(fixture.fileService.createFileAndReturnId(any(byte[].class), eq("incoming.pdf"), any(), eq("application/pdf")))
+                .thenAnswer(invocation -> {
+                    Long id = 7001L + stored.size();
+                    String path = invocation.getArgument(2, String.class) + "/incoming.pdf";
+                    byte[] bytes = invocation.getArgument(0);
+                    stored.put(id, FileDO.builder().id(id).configId(1L).name("incoming.pdf")
+                            .path(path).url("http://file/" + path).type("application/pdf")
+                            .size((long) bytes.length).build());
+                    return id;
+                });
+        when(fixture.fileService.getFile(any())).thenAnswer(invocation -> stored.get(invocation.getArgument(0)));
+        when(fixture.dossierFileMapper.insert(any(MesProcessPoolActiveOrderDossierFileDO.class)))
+                .thenAnswer(invocation -> {
+                    ((MesProcessPoolActiveOrderDossierFileDO) invocation.getArgument(0)).setId(8000L + stored.size());
+                    return 1;
+                });
+        for (String content : List.of("first-content", "second-content")) {
+            fixture.service.upload(7L, new MesActiveOrderDossierFileService.UploadCommand(
+                    10L, null, "INCOMING_INSPECTION_FILE", "incoming.pdf", "application/pdf",
+                    content.getBytes(StandardCharsets.UTF_8)));
+        }
+        org.junit.jupiter.api.Assertions.assertNotEquals(stored.get(7001L).getPath(), stored.get(7002L).getPath(),
+                "The same file name must not reuse the previous upload's storage key");
+        assertEquals("incoming.pdf", stored.get(7001L).getName());
+        assertEquals("incoming.pdf", stored.get(7002L).getName());
+    }
+
+    @Test
     void pqcReleaseViewerListsActiveOrderFilesBeforeP2WithoutFormalReleaseLookup() {
         var fixture = fixture();
         when(fixture.applicationMapper.selectById(55L)).thenReturn(MesProcessPoolActiveOrderReleaseApplicationDO.builder()
@@ -124,7 +158,7 @@ class MesActiveOrderDossierFileServiceTest {
         when(fixture.adminUserApi.getUser(7L)).thenReturn(user(7L, "生产组长"));
         byte[] content = "pdf-content".getBytes(StandardCharsets.UTF_8);
         when(fixture.fileService.createFileAndReturnId(eq(content), eq("incoming.pdf"),
-                eq("mes/active-order-dossier/10/INCOMING_INSPECTION_FILE"), eq("application/pdf")))
+                org.mockito.ArgumentMatchers.startsWith("mes/active-order-dossier/10/INCOMING_INSPECTION_FILE/"), eq("application/pdf")))
                 .thenReturn(7001L);
         when(fixture.fileService.getFile(7001L)).thenReturn(FileDO.builder()
                 .id(7001L).configId(1L).name("incoming.pdf")

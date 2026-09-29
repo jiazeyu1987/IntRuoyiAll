@@ -36,37 +36,39 @@ def test_d09_policy_registers_upload_and_delete_at_real_service_methods() -> Non
     assert operations["mes.dossier.upload"] == {
         "operationId": "mes.dossier.upload",
         "sourceType": "SERVICE_METHOD",
-        "sourceLocator": (
+        "sourceLocators": [
             "cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc."
             "MesActiveOrderDossierFileService#upload"
-        ),
+        ],
         "domain": "MES",
         "subjectType": "DOSSIER_ATTACHMENT",
         "actionType": "CREATE",
         "reasonPolicy": "SYSTEM",
         "signaturePolicy": "NONE",
         "statePolicy": "ABSENT_TO_PRESENT",
+        "snapshotProfile": "ATTACHMENT",
         "retentionClass": "GXP_MES_DOSSIER",
         "testIds": ["BDD-D09-UPLOAD", "BDD-D09-AUDIT-FAILURE"],
-        "owner": "mes-owner",
+        "ownerRole": "mes-owner",
         "applicability": "GXP",
     }
     assert operations["mes.dossier.delete"] == {
         "operationId": "mes.dossier.delete",
         "sourceType": "SERVICE_METHOD",
-        "sourceLocator": (
+        "sourceLocators": [
             "cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc."
             "MesActiveOrderDossierFileService#delete"
-        ),
+        ],
         "domain": "MES",
         "subjectType": "DOSSIER_ATTACHMENT",
         "actionType": "DELETE",
         "reasonPolicy": "SYSTEM",
         "signaturePolicy": "NONE",
         "statePolicy": "PRESENT_TO_ABSENT",
+        "snapshotProfile": "ATTACHMENT",
         "retentionClass": "GXP_MES_DOSSIER",
         "testIds": ["BDD-D09-DELETE", "BDD-D09-AUDIT-FAILURE"],
-        "owner": "mes-owner",
+        "ownerRole": "mes-owner",
         "applicability": "GXP",
     }
 

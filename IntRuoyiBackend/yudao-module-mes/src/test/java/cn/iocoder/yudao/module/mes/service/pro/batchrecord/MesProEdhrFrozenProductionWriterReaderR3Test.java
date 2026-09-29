@@ -24,6 +24,10 @@ import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.*;
 import org.mockito.*;
 import org.springframework.dao.CannotAcquireLockException;
@@ -78,6 +82,7 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
     private MesProProcessPoolEventDO event;
     private MesProcessPoolSubmissionReviewDO review;
     private MesProcessPoolActiveOrderCompletionReceiptDO persisted;
+    private Long forcedFirstBackfillId;
     private final List<MesProcessPoolActiveOrderCompletionBackfillDO> materializations = new ArrayList<>();
 
     @BeforeEach
@@ -125,7 +130,8 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
         });
         when(backfillMapper.insert(any(MesProcessPoolActiveOrderCompletionBackfillDO.class))).thenAnswer(call -> {
             MesProcessPoolActiveOrderCompletionBackfillDO row = call.getArgument(0);
-            row.setId(1100L + materializations.size());
+            row.setId(forcedFirstBackfillId != null && materializations.isEmpty()
+                    ? forcedFirstBackfillId : 1100L + materializations.size());
             materializations.add(row);
             return 1;
         });
@@ -156,6 +162,20 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
     }
 
     @Test
+    void realWriterReceiptSurvivesReorderedJsonColumnReadbackInActualValidator() throws Exception {
+        var batch = completeAndBind();
+        var origin = origins.selectListByBatchExecutionId(batch.getId()).get(0);
+        String formalSource = persisted.getFormalSourceSnapshotJson();
+        String lossFacts = persisted.getLossConditionFactsJson();
+
+        // Simulate a JSON column readback that preserves values but changes whitespace and object-key order.
+        persisted.setFormalSourceSnapshotJson(" \n" + reverseObjectOrder(formalSource) + "\n ")
+                .setLossConditionFactsJson(" \n" + reverseObjectOrder(lossFacts) + "\n ");
+
+        assertDoesNotThrow(() -> MesProEdhrReverseTraceReceiptValidator.validate(batch, origin, persisted));
+    }
+
+    @Test
     void runtimeSerializerPreservesSnowflakeIdentityThroughRealWriterAndReader() {
         var originalMapper = JsonUtils.getObjectMapper();
         try {
@@ -176,6 +196,38 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
             assertParameter(batch, "32");
             assertTrue(keys(batch, Category.EQUIPMENT).contains("EQUIPMENT:PRODUCTION:deviceId:77"));
             assertTrue(keys(batch, Category.PERSON).contains("PERSON:SYSTEM_USER:PRODUCTION_REVIEW:20"));
+        } finally {
+            JsonUtils.init(originalMapper);
+        }
+    }
+
+    @Test
+    void realWriterLargeBatchIdSurvivesEquivalentJsonReadbackAndCompletionReplay() throws Exception {
+        var originalMapper = JsonUtils.getObjectMapper();
+        try {
+            var configuration = new cn.iocoder.yudao.framework.jackson.config.YudaoJacksonAutoConfiguration();
+            configuration.jsonUtils(originalMapper.copy().registerModule(configuration.timestampSupportModuleBean()));
+            forcedFirstBackfillId = 9_007_199_254_740_993L;
+
+            completeAndBind();
+            Long receiptId = persisted.getId();
+            assertEquals(forcedFirstBackfillId, persisted.getBatchRecordId());
+            var completed = completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L)).get(0);
+            assertEquals(forcedFirstBackfillId, completed.getBackfillExecutionId());
+            JsonNode replayId = JsonUtils.parseTree(persisted.getSignatureSnapshotJson())
+                    .path("productionCompletionSignatures").path(0).path("backfillExecutionId");
+            assertTrue(replayId.isMissingNode(), "receipt snapshot is captured before writeback outputs");
+
+            persisted.setFormalSourceSnapshotJson(" \n" + reverseObjectOrder(persisted.getFormalSourceSnapshotJson()) + "\n ")
+                    .setSignatureSnapshotJson(" \n" + reverseObjectOrder(persisted.getSignatureSnapshotJson()) + "\n ")
+                    .setLossConditionFactsJson(" \n" + reverseObjectOrder(persisted.getLossConditionFactsJson()) + "\n ");
+            order.setVersion(3).setActiveStatus("COMPLETED");
+
+            var replay = completionService.complete(20L, command());
+            assertEquals(receiptId, replay.getCompletionReceiptId());
+            assertEquals(persisted.getReceiptHash(), replay.getReceiptHash());
+            verify(receiptMapper, times(1)).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
+            assertEquals(2, materializations.size());
         } finally {
             JsonUtils.init(originalMapper);
         }
@@ -541,6 +593,29 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
         JSONObject facts = JSON.parseObject(receipt.getFormalSourceSnapshotJson()).getJSONObject("productionFacts");
         assertNotNull(facts, "real writer must freeze productionFacts; test must not manufacture this JSON");
         return facts;
+    }
+
+    private String reverseObjectOrder(String json) throws Exception {
+        return reverseObjectOrder(JsonUtils.getObjectMapper().readTree(json)).toString();
+    }
+
+    private JsonNode reverseObjectOrder(JsonNode node) {
+        if (node.isObject()) {
+            ObjectNode result = JsonNodeFactory.instance.objectNode();
+            List<String> names = new ArrayList<>();
+            node.fieldNames().forEachRemaining(names::add);
+            Collections.reverse(names);
+            for (String name : names) {
+                result.set(name, reverseObjectOrder(node.get(name)));
+            }
+            return result;
+        }
+        if (node.isArray()) {
+            ArrayNode result = JsonNodeFactory.instance.arrayNode();
+            node.elements().forEachRemaining(child -> result.add(reverseObjectOrder(child)));
+            return result;
+        }
+        return node;
     }
 
     private MesTeamLeaderActiveOrderCompletionCommand command() {

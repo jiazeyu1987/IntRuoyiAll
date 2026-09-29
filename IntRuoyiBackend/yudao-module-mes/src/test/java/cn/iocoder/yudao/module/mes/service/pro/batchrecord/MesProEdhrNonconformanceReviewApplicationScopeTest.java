@@ -1,5 +1,8 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import com.baomidou.mybatisplus.core.conditions.AbstractWrapper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
@@ -33,12 +36,14 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -64,6 +69,12 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesProEdhrNonconformanceReviewApplicationScopeTest {
 
+    @BeforeAll
+    static void initializeMyBatisMetadata() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), FileDO.class.getName()), FileDO.class);
+    }
+
     private static final String REVIEW_MATERIAL_URL =
             "http://localhost:48081/admin-api/infra/file/10/get/review.pdf";
     private static final Long REVIEW_MATERIAL_FILE_ID = 9102L;
@@ -83,6 +94,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @Mock private MesProEdhrOperationAuditService operationAuditService;
     @Mock private FileMapper fileMapper;
     @Mock private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService unifiedAudit;
+    private final java.util.Map<String, Long> materialIds = new java.util.HashMap<>();
 
     @Mock private cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper signatureRecordMapper;
     @Mock private cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper auditReceiptMapper;
@@ -200,12 +212,9 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         lenient().when(reviewCounterMapper.insertOrIncrement(any())).thenReturn(1);
         lenient().when(reviewCounterMapper.selectByTenantIdForUpdate(any())).thenReturn(
                 MesProEdhrNonconformanceReviewCounterDO.builder().tenantId(122L).currentSerial(0L).build());
-        lenient().when(fileMapper.selectList(any())).thenReturn(List.of(FileDO.builder()
-                .id(REVIEW_MATERIAL_FILE_ID)
-                .configId(10L)
-                .name("review.pdf")
-                .path("review.pdf")
-                .build()));
+        materialIds.clear();
+        stubFormalFile(REVIEW_MATERIAL_URL, FileDO.builder().id(REVIEW_MATERIAL_FILE_ID)
+                .configId(10L).name("review.pdf").path("review.pdf").url(REVIEW_MATERIAL_URL).build());
         lenient().when(signatureService.recordNonconformanceReviewCreateSignature(
                 any(), any(), any(), any(), any())).thenReturn(9200L);
     }
@@ -524,45 +533,163 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     }
 
     @Test
-    void disposeAcceptsMultipleMaterialFactsAndUsesLatestDuplicatePathRecords() {
-        stubPendingReview("rework");
-        String sameUrl = "http://localhost:48081/admin-api/infra/file/10/get/review.pdf";
-        lenient().when(fileMapper.selectList(any())).thenReturn(List.of(
-                FileDO.builder().id(9303L).configId(10L).name("review.pdf").path("review.pdf").build(),
-                FileDO.builder().id(9302L).configId(10L).name("review.pdf").path("review.pdf").build(),
-                FileDO.builder().id(9301L).configId(10L).name("review.pdf").path("review.pdf").build()));
+    void disposeKeepsExplicitMaterialAndDeletedEventIdentities() {
+        stubPendingReview("concession_release");
+        String firstUrl = "https://files.example/first/review.pdf";
+        String secondUrl = "https://files.example/second/review.pdf";
+        stubFormalFile(firstUrl, FileDO.builder().id(9301L).configId(10L).name("review.pdf")
+                .path("first/review.pdf").url(firstUrl).build());
+        stubFormalFile(secondUrl, FileDO.builder().id(9302L).configId(10L).name("review.pdf")
+                .path("second/review.pdf").url(secondUrl).build());
+        when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), false)).thenReturn(1);
+        var request = disposeRequestWithEvent(firstUrl);
+        request.setReviewMaterialEvents(List.of(
+                new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO()
+                        .setFileId(9301L).setAction("UPLOAD").setUrl(firstUrl).setSequence(1),
+                new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO()
+                        .setFileId(9302L).setAction("UPLOAD").setUrl(secondUrl).setSequence(2),
+                new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO()
+                        .setFileId(9302L).setAction("DELETE").setUrl(secondUrl).setSequence(3)));
+        service.dispose(request);
+        ArgumentCaptor<MesProEdhrNonconformanceReviewDO> updateCaptor =
+                ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
+        verify(reviewMapper).updateById(updateCaptor.capture());
+        assertEquals(9301L, updateCaptor.getValue().getReviewMaterialFileId());
+        var payload = com.alibaba.fastjson.JSON.parseObject(updateCaptor.getValue().getReviewMaterialsJson());
+        assertEquals(9301L, payload.getJSONArray("activeMaterials").getJSONObject(0).getLong("fileId"));
+        assertEquals(1, payload.getJSONArray("activeMaterials").size());
+        assertEquals(9302L, payload.getJSONArray("reviewMaterialEvents").getJSONObject(2).getLong("fileId"));
+        assertEquals("DELETE", payload.getJSONArray("reviewMaterialEvents").getJSONObject(2).getString("action"));
+        assertTrue(updateCaptor.getValue().getTraceSnapshotJson().contains("\"reviewMaterialsJson\""));
+    }
+    @Test
+    void disposeUsesExactPersistedUrlForLiteralPercentAndAuthoritativeFileName() {
+        stubPendingReview("concession_release");
+        String url = "http://localhost:48081/admin-api/infra/file/10/get/100%.pdf";
+        stubFormalFile(url, FileDO.builder().id(9401L).configId(10L)
+                .name("100%.pdf").path("100%.pdf").url(url).build());
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
-        when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK")))
-                .thenReturn(1);
 
         service.dispose(new MesProEdhrNonconformanceReviewDisposeReqVO()
                 .setId(1001L)
-                .setDisposition("rework")
-                .setReviewMaterialUrl(sameUrl)
-                .setReviewMaterials(List.of(new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO()
-                        .setUrl(sameUrl)
-                        .setFileName("%E9%94%99%E8%AF%AF%E7%9A%84%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%90%8D%E7%A7%B0.pdf")
-                        .setSortNo(1)))
-                .setReviewMaterialEvents(List.of(
+                .setDisposition("concession_release")
+                .setReviewMaterialUrl(url)
+                .setReviewMaterials(java.util.List.of(reviewMaterials(url).get(0)
+                        .setFileName("客户端猜测.pdf")))
+                .setReviewMaterialEvents(java.util.List.of(
                         new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO()
-                                .setAction("UPLOAD").setUrl(sameUrl).setFileName("review.pdf").setSequence(1),
-                        new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO()
-                                .setAction("DELETE").setUrl(sameUrl).setFileName("review.pdf").setSequence(2),
-                        new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO()
-                                .setAction("UPLOAD").setUrl(sameUrl).setFileName("review.pdf").setSequence(3)))
-                .setReviewOpinion("返工处理")
+                                .setAction("UPLOAD").setFileId(materialIds.get(url)).setUrl(url).setFileName("客户端猜测.pdf").setSequence(1)))
+                .setReviewOpinion("让步放行")
                 .setSignaturePassword("qa-signature-password"));
 
         ArgumentCaptor<MesProEdhrNonconformanceReviewDO> updateCaptor =
                 ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
         verify(reviewMapper).updateById(updateCaptor.capture());
-        assertEquals(9303L, updateCaptor.getValue().getReviewMaterialFileId());
-        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"fileId\":9303"));
+        assertEquals(9401L, updateCaptor.getValue().getReviewMaterialFileId());
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"fileName\":\"100%.pdf\""));
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"configId\":10"));
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"mes/edhr-ncr/reviews/1001/upload-9401/100%.pdf\""));
+        assertFalse(updateCaptor.getValue().getReviewMaterialsJson().contains("客户端猜测.pdf"));
+    }
+
+    @Test
+    void disposePreservesLiteralPercentEncodedSequenceWithoutDecodingIt() {
+        stubPendingReview("concession_release");
+        String url = "http://localhost:48081/admin-api/infra/file/10/get/100%25.pdf";
+        stubFormalFile(url, FileDO.builder().id(9402L).configId(10L)
+                .name("100%25.pdf").path("100%25.pdf").url(url).build());
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
+
+        service.dispose(new MesProEdhrNonconformanceReviewDisposeReqVO()
+                .setId(1001L)
+                .setDisposition("concession_release")
+                .setReviewMaterialUrl(url)
+                .setReviewMaterials(java.util.List.of(new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO()
+                        .setFileId(materialIds.get(url)).setUrl(url).setFileName("客户端猜测.pdf").setSortNo(1)))
+                .setReviewMaterialEvents(java.util.List.of(
+                        new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO()
+                                .setAction("UPLOAD").setFileId(materialIds.get(url)).setUrl(url).setFileName("客户端猜测.pdf").setSequence(1)))
+                .setReviewOpinion("让步放行")
+                .setSignaturePassword("qa-signature-password"));
+
+        ArgumentCaptor<MesProEdhrNonconformanceReviewDO> updateCaptor =
+                ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
+        verify(reviewMapper).updateById(updateCaptor.capture());
+        assertEquals(9402L, updateCaptor.getValue().getReviewMaterialFileId());
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"fileName\":\"100%25.pdf\""));
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"mes/edhr-ncr/reviews/1001/upload-9402/100%25.pdf\""));
+        assertFalse(updateCaptor.getValue().getReviewMaterialsJson().contains("客户端猜测.pdf"));
+    }
+
+    @Test
+    void disposeSupportsExactS3PresignedUrlWithoutAdminPathParsing() {
+        stubPendingReview("concession_release");
+        String url = "https://s3.example.test/ncr/100%25.pdf?X-Amz-Signature=fixture";
+        stubFormalFile(url, FileDO.builder().id(9403L).configId(21L)
+                .name("100%25.pdf").path("ncr/100%25.pdf").url(url).build());
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
+
+        service.dispose(new MesProEdhrNonconformanceReviewDisposeReqVO()
+                .setId(1001L)
+                .setDisposition("concession_release")
+                .setReviewMaterialUrl(url)
+                .setReviewMaterials(java.util.List.of(new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO()
+                        .setFileId(materialIds.get(url)).setUrl(url).setFileName("客户端猜测.pdf").setSortNo(1)))
+                .setReviewMaterialEvents(java.util.List.of(
+                        new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO()
+                                .setAction("UPLOAD").setFileId(materialIds.get(url)).setUrl(url).setFileName("客户端猜测.pdf").setSequence(1)))
+                .setReviewOpinion("让步放行")
+                .setSignaturePassword("qa-signature-password"));
+
+        ArgumentCaptor<MesProEdhrNonconformanceReviewDO> updateCaptor =
+                ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
+        verify(reviewMapper).updateById(updateCaptor.capture());
+        assertEquals(9403L, updateCaptor.getValue().getReviewMaterialFileId());
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"configId\":21"));
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"path\":\"mes/edhr-ncr/reviews/1001/upload-9403/ncr/100%25.pdf\""));
+        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"url\":\"" + url + "\""));
+    }
+
+    @Test
+    void disposeUsesExplicitIdentityRatherThanCaseInsensitiveUrlCandidates() {
+        stubPendingReview("concession_release");
+        String exactUrl = REVIEW_MATERIAL_URL;
+        stubFormalFile(exactUrl, FileDO.builder().id(9406L).configId(10L).name("review.pdf")
+                .path("review.pdf").url(exactUrl).build());
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
+
+        service.dispose(disposeRequestWithEvent(exactUrl).setReviewMaterialEvents(null));
+
+        ArgumentCaptor<MesProEdhrNonconformanceReviewDO> updateCaptor =
+                ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
+        verify(reviewMapper).updateById(updateCaptor.capture());
+        assertEquals(9406L, updateCaptor.getValue().getReviewMaterialFileId());
         assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"fileName\":\"review.pdf\""));
-        assertTrue(updateCaptor.getValue().getReviewMaterialsJson().contains("\"action\":\"DELETE\""));
-        assertTrue(updateCaptor.getValue().getTraceSnapshotJson().contains("\"reviewMaterialsJson\""));
+    }
+
+    @Test
+    void disposeRejectsMissingPersistedFileUrlInsteadOfUsingConfigAndPath() {
+        when(reviewMapper.selectByIdForUpdate(1001L)).thenReturn(new MesProEdhrNonconformanceReviewDO().setId(1001L).setReviewStatus("pending_review"));
+        String url = REVIEW_MATERIAL_URL;
+        stubFormalFile(url, FileDO.builder().id(9404L).configId(10L)
+                .name("review.pdf").path("review.pdf").url(null).build());
+
+        assertThrows(ServiceException.class, () -> service.dispose(disposeRequestWithEvent(url)));
+        verify(fileMapper).selectById(materialIds.get(url));
+        verify(reviewMapper, never()).updateById(any(MesProEdhrNonconformanceReviewDO.class));
+    }
+
+    @Test
+    void disposeRejectsForgedUrlThatOnlyReachesTheSameDecodedPath() {
+        when(reviewMapper.selectByIdForUpdate(1001L)).thenReturn(new MesProEdhrNonconformanceReviewDO().setId(1001L).setReviewStatus("pending_review"));
+        String persistedUrl = REVIEW_MATERIAL_URL;
+        String forgedUrl = "http://evil.example.test/admin-api/infra/file/10/get/review.pdf";
+        stubFormalFile(forgedUrl, FileDO.builder().id(9405L).configId(10L)
+                .name("review.pdf").path("review.pdf").url(persistedUrl).build());
+
+        assertThrows(ServiceException.class, () -> service.dispose(disposeRequestWithEvent(forgedUrl)));
+        verify(fileMapper).selectById(materialIds.get(forgedUrl));
+        verify(reviewMapper, never()).updateById(any(MesProEdhrNonconformanceReviewDO.class));
     }
 
     @Test
@@ -1001,13 +1128,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 eq("作废处理"), any())).thenReturn(9102L);
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3002L), true)).thenReturn(1);
 
-        service.dispose(new MesProEdhrNonconformanceReviewDisposeReqVO()
-                .setId(1002L)
-                .setDisposition("void")
-                .setReviewMaterialUrl(REVIEW_MATERIAL_URL)
-                .setReviewMaterials(reviewMaterials(REVIEW_MATERIAL_URL))
-                .setReviewOpinion("作废处理")
-                .setSignaturePassword("qa-signature-password"));
+        service.dispose(disposeRequest(1002L, "void"));
 
         verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3002L), true);
         verify(batchExecutionMapper).updateById(any(MesProEdhrBatchExecutionDO.class));
@@ -1711,9 +1832,27 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
 
     private List<MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO> reviewMaterials(String url) {
         return java.util.List.of(new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO()
-                .setUrl(url)
+                .setFileId(materialIds.get(url)).setUrl(url)
                 .setFileName("review.pdf")
                 .setSortNo(1));
+    }
+
+    private void stubFormalFile(String requestedUrl, FileDO file) {
+        file.setPath("mes/edhr-ncr/reviews/1001/upload-" + file.getId() + "/" + file.getPath());
+        materialIds.put(requestedUrl, file.getId());
+        lenient().when(fileMapper.selectById(file.getId())).thenReturn(file);
+    }
+    private MesProEdhrNonconformanceReviewDisposeReqVO disposeRequestWithEvent(String url) {
+        return new MesProEdhrNonconformanceReviewDisposeReqVO()
+                .setId(1001L)
+                .setDisposition("concession_release")
+                .setReviewMaterialUrl(url)
+                .setReviewMaterials(reviewMaterials(url))
+                .setReviewMaterialEvents(java.util.List.of(
+                        new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO()
+                                .setAction("UPLOAD").setFileId(materialIds.get(url)).setUrl(url).setFileName("review.pdf").setSequence(1)))
+                .setReviewOpinion("让步放行")
+                .setSignaturePassword("qa-signature-password");
     }
 
     private void stubBatchOrigin(Long batchExecutionId, Long activeOrderId) {
@@ -1724,6 +1863,12 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     }
 
     private MesProEdhrNonconformanceReviewDisposeReqVO disposeRequest(Long reviewId, String disposition) {
-        return disposeRequest(disposition).setId(reviewId);
+        var request = disposeRequest(disposition).setId(reviewId);
+        Long fileId = 100000L + reviewId;
+        lenient().when(fileMapper.selectById(fileId)).thenReturn(FileDO.builder().id(fileId)
+                .configId(10L).name("review.pdf").url(REVIEW_MATERIAL_URL)
+                .path("mes/edhr-ncr/reviews/" + reviewId + "/upload-1/review.pdf").build());
+        request.getReviewMaterials().get(0).setFileId(fileId);
+        return request;
     }
 }

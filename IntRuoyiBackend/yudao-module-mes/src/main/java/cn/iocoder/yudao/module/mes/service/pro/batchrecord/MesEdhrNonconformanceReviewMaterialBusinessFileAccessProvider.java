@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import com.fasterxml.jackson.databind.JsonNode;
 import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
 import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessProvider;
 import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
@@ -51,7 +53,7 @@ public class MesEdhrNonconformanceReviewMaterialBusinessFileAccessProvider imple
         }
         MesProEdhrNonconformanceReviewDO row = rows.get(0);
         validateRowIdentity(fileId, row);
-        return Optional.of(toReference(row));
+        return Optional.of(toReference(fileId, row));
     }
 
     @Override
@@ -111,7 +113,6 @@ public class MesEdhrNonconformanceReviewMaterialBusinessFileAccessProvider imple
     private void validateRowIdentity(Long fileId, MesProEdhrNonconformanceReviewDO row) {
         if (row == null || row.getId() == null || row.getId() <= 0
                 || row.getReviewMaterialFileId() == null
-                || !Objects.equals(row.getReviewMaterialFileId(), fileId)
                 || row.getActiveOrderId() == null || row.getActiveOrderId() <= 0
                 || row.getTenantId() == null || row.getTenantId() <= 0
                 || isBlank(row.getReviewMaterialUrl())
@@ -119,11 +120,35 @@ public class MesEdhrNonconformanceReviewMaterialBusinessFileAccessProvider imple
                 || !MesProEdhrNonconformanceReviewService.STATUS_CLOSED.equals(row.getReviewStatus())) {
             throw new IllegalStateException("不合格评审材料正式归属记录不完整：" + fileId);
         }
+        if (isBlank(row.getReviewMaterialsJson())) {
+            if (!Objects.equals(row.getReviewMaterialFileId(), fileId)) {
+                throw new IllegalStateException("历史评审材料编号与正式归属不一致：" + fileId);
+            }
+            return;
+        }
+        JsonNode materials = JsonUtils.parseTree(row.getReviewMaterialsJson()).get("activeMaterials");
+        if (materials == null || !materials.isArray()) {
+            throw new IllegalStateException("不合格评审材料清单格式无效：" + row.getId());
+        }
+        int matches = 0;
+        for (JsonNode material : materials) {
+            JsonNode id = material.get("fileId");
+            boolean sameId = id != null && ((id.isIntegralNumber() && id.canConvertToLong()
+                    && id.longValue() == fileId) || (id.isTextual() && fileId.toString().equals(id.textValue())));
+            if (sameId) {
+                if (material.path("url").asText().isBlank()) {
+                    throw new IllegalStateException("不合格评审材料路径缺失：" + fileId);
+                }
+                matches++;
+            }
+        }
+        if (matches != 1) {
+            throw new IllegalStateException("不合格评审材料未唯一列入有效清单：" + fileId);
+        }
     }
 
-    private BusinessFileAccessReference toReference(MesProEdhrNonconformanceReviewDO row) {
-        validateRowIdentity(row.getReviewMaterialFileId(), row);
-        String versionKey = "NCR-MATERIAL-" + row.getId() + "-" + row.getReviewMaterialFileId()
+    private BusinessFileAccessReference toReference(Long fileId, MesProEdhrNonconformanceReviewDO row) {
+        String versionKey = "NCR-MATERIAL-" + row.getId() + "-" + fileId
                 + "-" + row.getActiveOrderId() + "-" + normalizeVersionTail(row);
         return new BusinessFileAccessReference(PROVIDER_ID, BUSINESS_TYPE, row.getId(),
                 versionKey, row.getTenantId(), null);

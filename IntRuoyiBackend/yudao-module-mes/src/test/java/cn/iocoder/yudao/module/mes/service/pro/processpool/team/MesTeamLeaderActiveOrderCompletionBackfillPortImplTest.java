@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
@@ -20,8 +21,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
@@ -121,6 +128,8 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         var aggregation = org.mockito.Mockito.mock(MesPqcProcessInspectionAggregationService.class);
         var service = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrders, receipts, progress,
                 port, pickLists, trace, aggregation);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService",
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
         var activeOrder = order().setVersion(2).setActiveStatus("ACTIVE");
         var stored = new java.util.concurrent.atomic.AtomicReference<MesProcessPoolActiveOrderCompletionReceiptDO>();
         when(activeOrders.selectByIdForUpdate(10L)).thenReturn(activeOrder);
@@ -189,6 +198,52 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 (MesProcessPoolOrderProcessCompletionDO row) ->
                 MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS.equals(row.getBackfillStatus())
                         && Long.valueOf(1101L).equals(row.getBackfillExecutionId())));
+    }
+
+    @Test
+    void writerProducesCanonicalSourceJsonThatSurvivesJsonDatabaseFormatting() throws Exception {
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+
+        MesTeamLeaderActiveOrderCompletionBackfillDraft draft = port.prepare(20L, order(), command());
+        String formalJson = draft.getFormalSourceSnapshotJson();
+        String lossJson = draft.getLossConditionFactsJson();
+
+        assertEquals(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.canonicalize(formalJson),
+                formalJson);
+        assertEquals(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.canonicalize(lossJson),
+                lossJson);
+        assertEquals(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.sourceSnapshotHash(
+                        formalJson, lossJson), draft.getSourceSnapshotHash());
+        assertTrue(JsonUtils.getObjectMapper().readTree(formalJson).path("activeOrderBinding").path("id")
+                .isIntegralNumber());
+
+        String equivalentFormalJson = "  " + reverseObjectOrder(formalJson) + "  ";
+        assertEquals(draft.getSourceSnapshotHash(),
+                MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.sourceSnapshotHash(
+                        equivalentFormalJson, "  " + lossJson + "  "));
+    }
+
+    private String reverseObjectOrder(String json) throws Exception {
+        return reverseObjectOrder(JsonUtils.getObjectMapper().readTree(json)).toString();
+    }
+
+    private JsonNode reverseObjectOrder(JsonNode node) {
+        if (node.isObject()) {
+            ObjectNode result = JsonNodeFactory.instance.objectNode();
+            List<String> names = new ArrayList<>();
+            node.fieldNames().forEachRemaining(names::add);
+            names.sort(Comparator.reverseOrder());
+            for (String name : names) {
+                result.set(name, reverseObjectOrder(node.get(name)));
+            }
+            return result;
+        }
+        if (node.isArray()) {
+            ArrayNode result = JsonNodeFactory.instance.arrayNode();
+            node.elements().forEachRemaining(child -> result.add(reverseObjectOrder(child)));
+            return result;
+        }
+        return node;
     }
 
     @Test

@@ -34,6 +34,17 @@ const backendService = fs.readFileSync(backendServicePath, 'utf8')
 const backendProvider = fs.existsSync(backendProviderPath) ? fs.readFileSync(backendProviderPath, 'utf8') : ''
 const dccPreviewController = fs.readFileSync(dccPreviewControllerPath, 'utf8')
 
+const extractInterfaceBlock = (source, interfaceName) => {
+  const start = source.indexOf(`export interface ${interfaceName}`)
+  assert(start >= 0, `缺少 ${interfaceName} 接口声明`)
+  const end = source.indexOf('\n}', start)
+  assert(end > start, `${interfaceName} 接口声明缺少结束边界`)
+  return source.slice(start, end + 2)
+}
+
+const dossierFileCategoryInterface = extractInterfaceBlock(api, 'ActiveOrderDossierFileCategoryVO')
+const dossierFilesInterface = extractInterfaceBlock(api, 'ActiveOrderDossierFilesRespVO')
+
 for (const label of ['来料检文件', '灭菌文件', '成品检文件', '其他文件']) {
   assert(
     panel.includes(`label="${label}"`) || panel.includes(`label: '${label}'`),
@@ -82,9 +93,9 @@ assert(!panel.includes('buildEdhrSpecialNodeAttachmentPreviewSource'),
   '资料文件预览不得冒充 eDHR 特殊节点附件')
 
 assert(!panel.includes('dossierFiles?.batchExecutionCode'), '资料文件页签不得显示P2来源批次')
-assert(!api.match(/export interface ActiveOrderDossierFileCategoryVO[\s\S]*?batchTaskId/),
+assert(!dossierFileCategoryInterface.includes('batchTaskId'),
   '资料文件分类响应不得暴露P2任务编号')
-assert(!api.match(/export interface ActiveOrderDossierFilesRespVO[\s\S]*?batchExecutionId/),
+assert(!dossierFilesInterface.includes('batchExecutionId'),
   '资料文件响应不得暴露P2批次编号')
 assert(backendService.includes('MesProcessPoolActiveOrderDossierFileMapper'),
   '后端资料文件服务必须使用活跃订单资料文件归属 Mapper')

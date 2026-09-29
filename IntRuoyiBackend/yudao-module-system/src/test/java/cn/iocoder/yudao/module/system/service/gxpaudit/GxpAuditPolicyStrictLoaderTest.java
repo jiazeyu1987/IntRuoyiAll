@@ -281,10 +281,9 @@ class GxpAuditPolicyStrictLoaderTest {
         scope.put("mode", "R1");
         scope.putArray("includedReferences").add("mes.active-order.add");
         scope.putArray("excludedReferences");
-        scope.set("writeBoundaryScan", policy.remove("writeBoundaryScan"));
+        scope.set("writeBoundaryScan", existing.path("coverageScope").path("writeBoundaryScan").deepCopy());
         ObjectNode operation = operation(existing).deepCopy();
-        String locator = operation.remove("sourceLocator").asText();
-        operation.remove("owner");
+        String locator = operation.path("sourceLocators").get(0).asText();
         operation.putArray("sourceLocators").add(locator).add("test.fixture.StrictOrder#add");
         operation.put("ownerRole", "TEST_ONLY_OWNER");
         operation.put("snapshotProfile", "ORDER");

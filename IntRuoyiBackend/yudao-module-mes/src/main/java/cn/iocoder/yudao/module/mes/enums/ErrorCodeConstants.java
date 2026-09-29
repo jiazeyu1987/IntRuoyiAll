@@ -1341,6 +1341,8 @@ public interface ErrorCodeConstants {
             "活跃订单完成缺少正式三类回填来源：activeOrderId={}，blocker={}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PERSISTENCE_FAILED = new ErrorCode(1_040_760_370,
             "活跃订单完成回执持久化失败：activeOrderId={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_EVIDENCE_LOCKED = new ErrorCode(1_040_760_412,
+            "活跃订单已有完工回执或回填记录，不能重建、移除或重新加入，请继续原完工或放行流程：activeOrderId={}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_NOT_FOUND = new ErrorCode(1_040_760_371,
             "活跃订单完成回执不存在或不属于当前租户：receiptId={}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_TAMPERED = new ErrorCode(1_040_760_372,

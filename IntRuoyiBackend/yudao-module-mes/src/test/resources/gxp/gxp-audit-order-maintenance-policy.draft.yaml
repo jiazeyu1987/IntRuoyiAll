@@ -1,0 +1,35 @@
+# Proposal only: not packaged, approved, registered or activated.
+proposalType: GXP_AUDIT_OPERATION_FRAGMENT
+status: DRAFT
+approvalReference: null
+runtimeLoad: false
+operations:
+  - operationId: mes.active-order.remove
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#removeActiveOrder
+    domain: MES
+    subjectType: MES_ACTIVE_ORDER
+    actionType: UPDATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_MES_PRODUCTION
+    testIds: [BDD-M9-REMOVE, BDD-M9-REMOVE-ROLLBACK]
+    owner: mes-owner
+    applicability: GXP
+  - operationId: mes.active-order.rebuild
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#rebuildActiveOrder
+    domain: MES
+    subjectType: MES_ACTIVE_ORDER
+    actionType: UPDATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_MES_PRODUCTION
+    testIds: [BDD-M9-REBUILD, BDD-M9-REBUILD-ROLLBACK]
+    owner: mes-owner
+    applicability: GXP
+# Reason records the system action, not a fabricated user explanation/signature.
+# Deployment requires a complete approved bundle and tenant activation.
+# Missing policy must roll back, not silently omit the audit.

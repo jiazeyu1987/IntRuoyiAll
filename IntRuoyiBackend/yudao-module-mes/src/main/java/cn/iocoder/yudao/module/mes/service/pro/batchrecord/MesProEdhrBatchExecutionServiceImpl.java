@@ -2989,8 +2989,20 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_VOIDED)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
-        requireBatchActionUnlocked(batch.getId());
+        if (isOrdinarySpecialAttachmentNode(task)) {
+            if (selectPendingBatchVoidChange(batch.getId()) != null) {
+                throw exception(PRO_EDHR_BATCH_EXECUTION_PENDING_VOID_ACTION_LOCKED);
+            }
+            validateBatchForSpecialAttachmentSave(batch.getId());
+        } else {
+            requireBatchActionUnlocked(batch.getId());
+        }
         return task;
+    }
+
+    private boolean isOrdinarySpecialAttachmentNode(MesProEdhrBatchExecutionTaskDO task) {
+        return task != null && SKIPPABLE_SPECIAL_NODE_TYPES.contains(resolveNodeType(task))
+                && workTaskMapper.selectReleaseReportByBatchTaskId(task.getId()) == null;
     }
 
     private MesProEdhrWorkTaskDO validateOptionalRouteFormSkipWorkTask(MesProEdhrBatchExecutionTaskDO task,
@@ -6981,6 +6993,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private boolean shouldApplyBatchActionLock(String actionLockReason,
                                                MesProEdhrBatchExecutionTaskDO task,
                                                TaskActionContext actionContext) {
+        if (PENDING_RELEASE_ACTION_LOCK_REASON.equals(actionLockReason)
+                && isOrdinarySpecialAttachmentNode(task) && actionContext != null
+                && "FILLER".equals(actionContext.currentUserRole())
+                && !actionContext.allowedActions().isEmpty()) {
+            return false;
+        }
         return !PENDING_RELEASE_ACTION_LOCK_REASON.equals(actionLockReason)
                 || actionContext == null
                 || !isSubmittedOrdinaryRouteFormTask(task)

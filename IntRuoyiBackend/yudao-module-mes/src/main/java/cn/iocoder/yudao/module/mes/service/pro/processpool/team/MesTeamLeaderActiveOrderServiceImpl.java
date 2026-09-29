@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_EVIDENCE_LOCKED;
+
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
@@ -90,6 +92,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderTypeEnum;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderSaveReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesRouteDccProductMasterInvariant;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteCandidateConfigServiceImpl;
@@ -256,6 +259,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private final MesWmProductIssueMapper productIssueMapper;
     private final MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
     private final MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
+    private final MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper;
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillMapper completionBackfillMapper;
     @Resource
     private MesTeamLeaderDataCleanupMapper dataCleanupMapper;
 
@@ -308,7 +316,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                                MesProEdhrBatchExecutionMapper batchExecutionMapper,
                                                MesWmProductIssueMapper productIssueMapper,
                                                MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper,
-                                               MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService) {
+                                               MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService,
+                                               MesProEdhrNonconformanceReviewService nonconformanceReviewService) {
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderService = workOrderService;
         this.workOrderMapper = workOrderMapper;
@@ -356,6 +365,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         this.productIssueMapper = productIssueMapper;
         this.workOrderAbnormalMapper = workOrderAbnormalMapper;
         this.routeStartAuthorizationService = routeStartAuthorizationService;
+        this.nonconformanceReviewService = nonconformanceReviewService;
     }
 
     @Override
@@ -1667,6 +1677,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesTeamLeaderActiveOrderRebuildPreview previewRebuildActiveOrder(Long leaderUserId, Long activeOrderId) {
         MesProcessPoolActiveOrderDO activeOrder = requireActiveOrderForRebuild(leaderUserId, activeOrderId);
         return buildRebuildPreview(activeOrder);
@@ -1725,7 +1736,16 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (activeOrder.getWorkOrderId() == null) {
             throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
         }
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(activeOrder.getWorkOrderId(), "活跃订单重建");
+        requireNoCompletionEvidence(activeOrder.getId());
         return activeOrder;
+    }
+
+    private void requireNoCompletionEvidence(Long activeOrderId) {
+        if (completionReceiptMapper.selectByActiveOrderIdForUpdate(activeOrderId) != null
+                || !completionBackfillMapper.selectListByActiveOrderIdForUpdate(activeOrderId).isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_EVIDENCE_LOCKED, activeOrderId);
+        }
     }
 
     private void requireNoRebuildEvidence(MesTeamLeaderActiveOrderRebuildPreview preview) {
@@ -2180,6 +2200,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (activeOrder == null || !Objects.equals(activeOrder.getLeaderUserId(), reqBO.getLeaderUserId())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, reqBO.getActiveOrderId());
         }
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(activeOrder.getWorkOrderId(), "活跃订单移除");
+        requireNoCompletionEvidence(activeOrder.getId());
         requireNoReleaseApplication(activeOrder.getId());
         String beforeSnapshot = activeOrderMaintenanceSnapshot(activeOrder);
         reportAllocationOrderChangeService.invalidateActiveOrder(activeOrder.getId(), reqBO.getLeaderUserId(),
@@ -2728,6 +2750,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             MesTeamLeaderActiveOrderAddReqBO reqBO,
             MesProcessPoolActiveOrderDO removed,
             MesProcessPoolActiveOrderPickListBindingDO pickList) {
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(removed.getWorkOrderId(), "活跃订单重新加入");
+        requireNoCompletionEvidence(removed.getId());
         MesTeamLeaderActiveOrderRebuildPreview recoveryPreview = buildRebuildPreview(removed);
         requireNoReleaseApplication(recoveryPreview);
         requireNoRebuildEvidence(recoveryPreview);

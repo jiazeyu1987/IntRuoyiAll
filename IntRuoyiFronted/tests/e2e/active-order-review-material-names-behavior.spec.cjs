@@ -4,17 +4,32 @@ const path = require('node:path')
 const vm = require('node:vm')
 const ts = require('typescript')
 const { test } = require('node:test')
+const exactModule = { exports: {} }
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../../src/utils/exactIntegerJson.ts'), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS } }).outputText, { exports: exactModule.exports })
+const { parseExactIntegerJson } = exactModule.exports
 
-const source = fs.readFileSync(path.resolve(__dirname, '../../src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'), 'utf8')
-const start = source.indexOf('type NonconformanceReviewMaterialDisplay =')
+const sourcePath = path.resolve(__dirname, '../../src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue')
+const utilityPath = path.resolve(__dirname, '../../src/utils/fileName.ts')
+const source = fs.readFileSync(sourcePath, 'utf8')
+const utilitySource = fs.readFileSync(utilityPath, 'utf8').replace(/export const /g, 'const ')
+const utility = { URL, window: { location: { origin: 'http://localhost' } } }
+vm.createContext(utility)
+vm.runInContext(
+  ts.transpileModule(`${utilitySource}\nglobalThis.resolveUrlPathFileName = resolveUrlPathFileName;`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2020 }
+  }).outputText,
+  utility
+)
+const start = source.indexOf('const resolveNonconformanceReviewMaterials =')
 const end = source.indexOf('const deleteDossierFile =', start)
 assert(start >= 0 && end > start, '评审事实必须解析完整材料清单并逐份保留名称与文件 ID')
 const preview = { value: null }
 const title = { value: '' }
 const visible = { value: false }
 const errors = []
-const context = {
+const context = { parseExactIntegerJson,
   URL, window: { location: { origin: 'http://localhost' } },
+  resolveUrlPathFileName: utility.resolveUrlPathFileName,
   selectedDossierPreviewSource: preview, selectedDossierPreviewTitle: title,
   dossierPreviewDialogVisible: visible, ElMessage: { error: (value) => errors.push(value) },
   buildMesEdhrNonconformanceReviewMaterialPreviewSource: (fileId) => ({ fileId })
@@ -38,15 +53,23 @@ test('多份材料完整保留顺序并逐份打开对应正式文件', () => {
     assert.equal(visible.value, true)
   }
 })
-test('编码及重复编码中文名称正常显示', () => {
+test('FileDO.name 是权威原名，编码样式名称也不被猜测改写', () => {
   const name = '不合格 评审.xlsx'
-  for (const fileName of [encodeURIComponent(name), encodeURIComponent(encodeURIComponent(name))]) {
-    assert.equal(resolve([{ fileId: 11, fileName }])[0].fileName, name)
+  for (const fileName of [
+    encodeURIComponent(name),
+    encodeURIComponent(encodeURIComponent(name)),
+    '100%25.pdf',
+    '%AB.pdf',
+    '%E6.pdf'
+  ]) {
+    assert.equal(resolve([{ fileId: 11, fileName }])[0].fileName, fileName)
   }
 })
-test('URL 名称只解码路径，排除查询和片段，处理上传路径加号', () => {
-  const url = '/files/%25E4%25B8%258D%25E5%2590%2588%25E6%25A0%25BC%252B%25E8%25AF%2584%25E5%25AE%25A1.xlsx?download=1#preview'
-  assert.equal(resolve([{ fileId: 11, url }])[0].fileName, '不合格 评审.xlsx')
+test('URL 名称只解码路径一次，排除查询和片段并保留加号', () => {
+  const url = '/files/%E4%B8%8D%E5%90%88%E6%A0%BC%2B%E8%AF%84%E5%AE%A1.xlsx?download=1#preview'
+  assert.equal(resolve([{ fileId: 11, url }])[0].fileName, '不合格+评审.xlsx')
+  const doubleEncodedUrl = '/files/%25E4%25B8%258D%25E5%2590%2588%25E6%25A0%25BC%252B%25E8%25AF%2584%25E5%25AE%25A1.xlsx?download=1#preview'
+  assert.equal(resolve([{ fileId: 11, url: doubleEncodedUrl }])[0].fileName, '%E4%B8%8D%E5%90%88%E6%A0%BC%2B%E8%AF%84%E5%AE%A1.xlsx')
   assert.equal(context.resolveMaterials({ reviewMaterialUrl: '/files/中文.pdf', reviewMaterialFileId: 11 })[0].fileName, '中文.pdf')
 })
 test('正式空清单不被标量补齐，坏清单明确失败', () => {

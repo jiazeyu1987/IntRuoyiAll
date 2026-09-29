@@ -1,6 +1,5 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
-import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -33,13 +32,15 @@ final class MesTeamLeaderActiveOrderCompletionSourceEvidence {
                 || !normalizeCompletions(liveSignatures.get("productionCompletionSignatures"), receipt.getBatchRecordId())) {
             return false;
         }
-        return frozenSource.equals(liveSource) && frozenSignatures.equals(liveSignatures)
-                && lossFacts(receipt.getLossConditionFactsJson()).equals(lossFacts(current.getLossConditionFactsJson()));
+        return canonicalJson(frozenSource).equals(canonicalJson(liveSource))
+                && canonicalJson(frozenSignatures).equals(canonicalJson(liveSignatures))
+                && canonicalJson(lossFacts(receipt.getLossConditionFactsJson()))
+                .equals(canonicalJson(lossFacts(current.getLossConditionFactsJson())));
     }
 
     private static JsonNode requiredObject(String json) {
         if (json == null || json.isBlank()) throw new IllegalStateException("COMPLETION_SOURCE_EVIDENCE_MISSING");
-        JsonNode node = JsonUtils.parseTree(json);
+        JsonNode node = MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.parseExact(json);
         if (node == null || !node.isObject()) throw new IllegalStateException("COMPLETION_SOURCE_EVIDENCE_INVALID");
         return node;
     }
@@ -50,8 +51,7 @@ final class MesTeamLeaderActiveOrderCompletionSourceEvidence {
             if (!(row instanceof ObjectNode object)) return false;
             // Exclude only verified writeback outputs. A missing/changed output binding remains a conflict.
             if (expectedBackfillId != null && (!"SUCCESS".equals(row.path("backfillStatus").asText())
-                    || !row.path("backfillExecutionId").isIntegralNumber()
-                    || row.path("backfillExecutionId").asLong() != expectedBackfillId
+                    || !matchesExpectedBackfillId(row.get("backfillExecutionId"), expectedBackfillId)
                     || (!row.path("backfillError").isMissingNode() && !row.path("backfillError").isNull()))) {
                 return false;
             }
@@ -60,9 +60,21 @@ final class MesTeamLeaderActiveOrderCompletionSourceEvidence {
         return true;
     }
 
+    private static boolean matchesExpectedBackfillId(JsonNode value, Long expected) {
+        if (value == null || expected == null) return false;
+        if (value.isIntegralNumber()) {
+            return value.canConvertToLong() && value.longValue() == expected;
+        }
+        return value.isTextual() && Long.toString(expected).equals(value.textValue());
+    }
+
+    private static String canonicalJson(JsonNode node) {
+        return MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.canonicalize(node.toString());
+    }
+
     private static JsonNode lossFacts(String json) {
         if (json == null || json.isBlank()) throw new IllegalStateException("COMPLETION_LOSS_EVIDENCE_MISSING");
-        JsonNode facts = JsonUtils.parseTree(json);
+        JsonNode facts = MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.parseExact(json);
         if (facts == null || !facts.isArray() || facts.isEmpty()) {
             throw new IllegalStateException("COMPLETION_LOSS_EVIDENCE_INVALID");
         }

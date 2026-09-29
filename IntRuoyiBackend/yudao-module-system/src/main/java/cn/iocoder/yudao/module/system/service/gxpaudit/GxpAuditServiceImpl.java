@@ -201,7 +201,9 @@ public class GxpAuditServiceImpl implements GxpAuditService {
     }
 
     private void validatePolicyRequirements(GxpAuditCommand command, GxpAuditPolicyOperationDO policy) {
-        if (StrUtil.startWith(policy.getReasonPolicy(), "REQUIRED") && StrUtil.isBlank(command.getReason())) {
+        if (("USER_REQUIRED".equals(policy.getReasonPolicy())
+                || StrUtil.startWith(policy.getReasonPolicy(), "REQUIRED"))
+                && StrUtil.isBlank(command.getReason())) {
             throw exception(GXP_AUDIT_REASON_REQUIRED, command.getOperationId());
         }
         if (command.getBeforeState() == null || command.getAfterState() == null

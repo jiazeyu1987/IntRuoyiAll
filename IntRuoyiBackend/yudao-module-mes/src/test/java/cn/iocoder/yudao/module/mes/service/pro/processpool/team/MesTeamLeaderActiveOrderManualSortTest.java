@@ -49,6 +49,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulation
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationSetVersionMemberMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -117,6 +118,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
     @Mock private MesWmProductIssueMapper productIssueMapper;
     @Mock private MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
     @Mock private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
+    @Mock private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     private MesTeamLeaderActiveOrderService service;
 
@@ -140,7 +142,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
                 reportAllocationOrderChangeService,
                 pickListBindingMapper, pickListBindingItemMapper, workOrderBomMapper,
                 batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper,
-                routeStartAuthorizationService);
+                routeStartAuthorizationService, nonconformanceReviewService);
     }
 
     @Test

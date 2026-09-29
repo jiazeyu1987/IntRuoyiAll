@@ -621,7 +621,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
         List<MesProEdhrBatchExecutionTaskDO> tasks = batchTaskMapper.selectListByBatchExecutionId(created.getId());
         assertEquals(6, tasks.size());
-        verify(operationAuditService, atLeastOnce()).record(argThat(command ->
+        verify(operationAuditService, atLeastOnce()).recordInCallerTransaction(argThat(command ->
                 "OPEN".equals(command.getOperationType())
                         && "BATCH_EXECUTION".equals(command.getObjectType())
                         && String.valueOf(created.getId()).equals(command.getObjectId())
@@ -733,7 +733,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
         batchExecutionService.syncStatus(created.getId());
 
-        verify(operationAuditService, atLeastOnce()).record(argThat(command -> {
+        verify(operationAuditService, atLeastOnce()).recordInCallerTransaction(argThat(command -> {
             JSONObject metadata = JSON.parseObject(command.getMetadataJson());
             return "SYNC".equals(command.getOperationType())
                     && "BATCH_EXECUTION".equals(command.getObjectType())
@@ -4520,6 +4520,80 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(1, preview.getFormViewModel().getSignatureCellMarkers().get(0).getColumnIndex());
         verify(jimuReportGateway, never()).getReportJson(any());
         verify(singleExecutionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
+    void ordinaryAttachmentOwnerCanCompleteWhileManagerReleaseIsPending() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId()).setBatchCode("FLOW17-MANAGER-PENDING")
+                .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO node = batch.getTasks().stream()
+                .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT
+                        .equals(task.getNodeType())).findFirst().orElseThrow();
+        configureBatchSpecialAttachmentOwners(batch.getId(), 188L, 190L);
+        releaseTransactionMapper.insert(new MesProEdhrReleaseTransactionDO()
+                .setBatchExecutionId(batch.getId()).setReleaseCode("FLOW17-RELEASE")
+                .setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
+            EdhrBatchExecutionTaskRespVO visibleNode = batchExecutionService.get(batch.getId()).getTasks().stream()
+                    .filter(task -> node.getId().equals(task.getId())).findFirst().orElseThrow();
+            assertEquals(List.of("CLOSE"), visibleNode.getAllowedActions());
+            assertNull(visibleNode.getDisabledReason());
+            batchExecutionService.completeSpecialNode(node.getId(), null, List.of());
+        }
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED,
+                batchTaskMapper.selectById(node.getId()).getStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL,
+                releaseTransactionMapper.selectByBatchExecutionId(batch.getId()).getReleaseStatus());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {15, 30, 40, 50, 60})
+    void ordinaryAttachmentCompletionStillRejectsFrozenOrTerminalBatch(int batchStatus) {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId()).setBatchCode("FLOW17-TERMINAL")
+                .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO node = batch.getTasks().stream()
+                .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT
+                        .equals(task.getNodeType())).findFirst().orElseThrow();
+        configureBatchSpecialAttachmentOwners(batch.getId(), 188L);
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO().setId(batch.getId()).setStatus(batchStatus));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
+            ServiceException rejected = assertThrows(ServiceException.class,
+                    () -> batchExecutionService.completeSpecialNode(node.getId(), null, List.of()));
+            assertEquals(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID.getCode(), rejected.getCode());
+        }
+        assertEquals(node.getStatus(), batchTaskMapper.selectById(node.getId()).getStatus());
+    }
+
+    @Test
+    void ordinaryAttachmentCompletionStillRejectsPendingVoidDuringReleaseApproval() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId()).setBatchCode("FLOW17-PENDING-VOID")
+                .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO node = batch.getTasks().stream()
+                .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT
+                        .equals(task.getNodeType())).findFirst().orElseThrow();
+        configureBatchSpecialAttachmentOwners(batch.getId(), 188L);
+        releaseTransactionMapper.insert(new MesProEdhrReleaseTransactionDO()
+                .setBatchExecutionId(batch.getId()).setReleaseCode("FLOW17-PENDING-VOID")
+                .setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL));
+        recordChangeEventMapper.insert(MesProEdhrRecordChangeEventDO.builder()
+                .changeCode("FLOW17-VOID").changeType("VOID").targetScope("BATCH")
+                .batchExecutionId(batch.getId()).changeStatus("SUBMITTED")
+                .reasonCategory("PRODUCTION_VOID").reasonText("作废审批未完成").build());
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
+            ServiceException rejected = assertThrows(ServiceException.class,
+                    () -> batchExecutionService.completeSpecialNode(node.getId(), null, List.of()));
+            assertEquals(PRO_EDHR_BATCH_EXECUTION_PENDING_VOID_ACTION_LOCKED.getCode(), rejected.getCode());
+        }
+        assertEquals(node.getStatus(), batchTaskMapper.selectById(node.getId()).getStatus());
     }
 
     @Test

@@ -169,12 +169,16 @@
         <template v-if="selectedReview.reviewStatus === REVIEW_STATUS_PENDING_REVIEW">
           <el-form label-width="110px" :model="disposeForm" class="edhr-ncr__dispose-form">
             <el-form-item label="评审材料" required data-edhr-ncr-review-material>
-              <UploadFile
-                :is-show-tip="false"
-                v-model="disposeForm.reviewMaterialUrls"
-                directory="dcc/controlled-file/unclassified/nonconformance-review"
-                :limit="5"
-              />
+              <div>
+                <input type="file" multiple aria-label="上传评审材料" :disabled="disposeLoading" @change="handleMaterialUpload" />
+                <p v-if="materialUploadsPending">正在上传 {{ materialUploadsPending }} 份材料…</p>
+                <ul>
+                  <li v-for="url in disposeForm.reviewMaterialUrls" :key="url">
+                    {{ disposeForm.reviewMaterialNames[url] }}
+                    <el-button link type="danger" :disabled="disposeLoading" @click="removeReviewMaterial(url)">移除</el-button>
+                  </li>
+                </ul>
+              </div>
             </el-form-item>
             <el-form-item label="评审意见" required>
               <el-input
@@ -247,7 +251,7 @@
 </template>
 
 <script setup lang="ts">
-import { UploadFile } from '@/components/UploadFile'
+import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
 import EdhrBatchRecordTabs from '../edhr-batch/EdhrBatchRecordTabs.vue'
 import {
   DISPOSITION_CONCESSION_RELEASE,
@@ -259,6 +263,7 @@ import {
   SOURCE_TYPE_PQC_SUBMISSION,
   createNonconformanceReview,
   disposeNonconformanceReview,
+  uploadNonconformanceReviewMaterial,
   getNonconformanceReviewActiveOrderList,
   getNonconformanceReviewPage,
   type EdhrNonconformanceReviewActiveOrderRespVO,
@@ -269,6 +274,7 @@ import {
   type EdhrNonconformanceReviewRespVO
 } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { resolveUrlPathFileName } from '@/utils/fileName'
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProFeedbackEdhrNonconformanceReview' })
@@ -313,14 +319,18 @@ const formatActiveOrderLabel = (order: EdhrNonconformanceReviewActiveOrderRespVO
 
 const disposeForm = reactive({
   reviewMaterialUrls: [] as string[],
+  reviewMaterialNames: {} as Record<string, string>,
+  reviewMaterialIds: {} as Record<string, string | number>,
   reviewMaterialEvents: [] as EdhrNonconformanceReviewMaterialEvent[],
   reviewOpinion: '',
   signaturePassword: ''
 })
 let materialTrackingEnabled = true
 let materialEventSequence = 0
+let materialContextGeneration = 0
+const materialUploadsPending = ref(0)
 
-type ReviewMaterialDisplay = { url: string; fileName?: string }
+type ReviewMaterialDisplay = { url: string; fileName?: string; fileId?: string | number }
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
   const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
@@ -355,20 +365,8 @@ const resolveDispositionNote = (disposition?: string) => {
   return ''
 }
 
-const decodeFileName = (value: string) => {
-  let current = value.replace(/\+/g, ' ')
-  let decoded = decodeURIComponent(current)
-  while (decoded !== current) {
-    current = decoded.replace(/\+/g, ' ')
-    decoded = decodeURIComponent(current)
-  }
-  return decoded
-}
-
 const resolveFileName = (url: string) => {
-  const pathname = new URL(url, window.location.origin).pathname
-  const fileName = pathname.substring(pathname.lastIndexOf('/') + 1)
-  return decodeFileName(fileName)
+  return resolveUrlPathFileName(url)
 }
 
 const parseReviewMaterialsJson = (review?: EdhrNonconformanceReviewRespVO): ReviewMaterialDisplay[] => {
@@ -378,12 +376,13 @@ const parseReviewMaterialsJson = (review?: EdhrNonconformanceReviewRespVO): Revi
       : []
   }
   try {
-    const payload = JSON.parse(review.reviewMaterialsJson)
+    const payload = parseExactIntegerJson(review.reviewMaterialsJson)
     const activeMaterials = Array.isArray(payload?.activeMaterials) ? payload.activeMaterials : []
     return activeMaterials
       .map((material) => ({
         url: material?.url,
-        fileName: typeof material?.fileName === 'string' ? material.fileName.trim() : undefined
+        fileId: material?.fileId,
+        fileName: typeof material?.fileName === 'string' ? material.fileName : undefined
       }))
       .filter(
         (material): material is ReviewMaterialDisplay =>
@@ -395,8 +394,8 @@ const parseReviewMaterialsJson = (review?: EdhrNonconformanceReviewRespVO): Revi
 }
 
 const resolveReviewMaterialName = (material: ReviewMaterialDisplay) => {
-  const persistedName = material.fileName?.trim()
-  if (persistedName) return persistedName.includes('%') ? decodeFileName(persistedName) : persistedName
+  const persistedName = material.fileName
+  if (persistedName?.trim()) return persistedName
   return resolveFileName(material.url)
 }
 
@@ -407,15 +406,62 @@ const resolveReviewMaterialDisplay = (review?: EdhrNonconformanceReviewRespVO) =
 }
 
 const buildReviewMaterials = (): EdhrNonconformanceReviewMaterial[] =>
-  disposeForm.reviewMaterialUrls.map((url, index) => ({
-    url,
-    fileName: resolveFileName(url),
-    sortNo: index + 1
+  disposeForm.reviewMaterialUrls.map((url, index) => {
+    const fileName = disposeForm.reviewMaterialNames[url]
+    const fileId = disposeForm.reviewMaterialIds[url]
+    if (!fileName?.trim() || !fileId) throw new Error('评审材料缺少正式文件身份或原始文件名，请重新上传。')
+    return { fileId, url, fileName, sortNo: index + 1 }
+  })
+
+const handleMaterialUpload = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files || [])
+  input.value = ''
+  const reviewId = selectedReview.value?.id
+  if (!reviewId || !reviewDialogVisible.value || disposeLoading.value) return
+  if (disposeForm.reviewMaterialUrls.length + materialUploadsPending.value + files.length > 5) {
+    message.error('最多上传 5 份评审材料。')
+    return
+  }
+  const generation = materialContextGeneration
+  const isCurrent = () => generation === materialContextGeneration
+    && selectedReview.value?.id === reviewId && reviewDialogVisible.value
+  materialUploadsPending.value += files.length
+  await Promise.all(files.map(async (file) => {
+    try {
+      const material = await uploadNonconformanceReviewMaterial(reviewId, file)
+      if (!isCurrent()) return
+      if (!material.fileId || !material.url || !material.fileName?.trim()) {
+        throw new Error('上传结果缺少正式文件身份或原始名称，请重新上传。')
+      }
+      if (disposeForm.reviewMaterialUrls.includes(material.url)) {
+        throw new Error('上传结果重复，无法确认材料独立性。')
+      }
+      disposeForm.reviewMaterialIds[material.url] = material.fileId
+      disposeForm.reviewMaterialNames[material.url] = material.fileName
+      disposeForm.reviewMaterialUrls.push(material.url)
+    } catch (error) {
+      if (isCurrent()) message.error(`${file.name}：${resolveErrorMessage(error, '上传失败，请重试。')}`)
+    } finally {
+      if (isCurrent()) materialUploadsPending.value--
+    }
   }))
+}
+
+const removeReviewMaterial = (url: string) => {
+  if (disposeLoading.value) return
+  disposeForm.reviewMaterialUrls = disposeForm.reviewMaterialUrls.filter((value) => value !== url)
+  delete disposeForm.reviewMaterialIds[url]
+  delete disposeForm.reviewMaterialNames[url]
+}
 
 const resetDisposeForm = () => {
+  materialContextGeneration++
+  materialUploadsPending.value = 0
   materialTrackingEnabled = false
   disposeForm.reviewMaterialUrls = []
+  disposeForm.reviewMaterialNames = {}
+  disposeForm.reviewMaterialIds = {}
   disposeForm.reviewMaterialEvents = []
   materialEventSequence = 0
   nextTick(() => {
@@ -426,8 +472,17 @@ const resetDisposeForm = () => {
 }
 
 const fillDisposeForm = (review: EdhrNonconformanceReviewRespVO) => {
+  materialContextGeneration++
+  materialUploadsPending.value = 0
+  const materials = parseReviewMaterialsJson(review)
   materialTrackingEnabled = false
-  disposeForm.reviewMaterialUrls = parseReviewMaterialsJson(review).map((material) => material.url)
+  disposeForm.reviewMaterialIds = Object.fromEntries(
+    materials.flatMap((material) => material.fileId ? [[material.url, material.fileId]] : [])
+  )
+  disposeForm.reviewMaterialNames = Object.fromEntries(
+    materials.flatMap((material) => (material.fileName ? [[material.url, material.fileName]] : []))
+  )
+  disposeForm.reviewMaterialUrls = materials.map((material) => material.url)
   disposeForm.reviewMaterialEvents = []
   materialEventSequence = 0
   nextTick(() => {
@@ -533,6 +588,10 @@ const submitCreateReview = async () => {
 }
 
 const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) => {
+  if (materialUploadsPending.value) {
+    message.error('请等待材料上传完成后再处置。')
+    return
+  }
   if (!selectedReview.value?.id) {
     message.error('请选择待处置评审单。')
     return
@@ -584,23 +643,40 @@ watch(
       if (index >= 0) removals.splice(index, 1)
     }
     additions.forEach((url) => {
+      const fileName = disposeForm.reviewMaterialNames[url]
+      if (!fileName) throw new Error('评审材料缺少原始文件名，请重新打开材料或重新上传。')
       disposeForm.reviewMaterialEvents.push({
+        fileId: disposeForm.reviewMaterialIds[url],
         action: 'UPLOAD',
         url,
-        fileName: resolveFileName(url),
+        fileName,
         sequence: ++materialEventSequence
       })
     })
     removals.forEach((url) => {
+      const fileName = disposeForm.reviewMaterialNames[url]
+      if (!fileName) throw new Error('评审材料缺少原始文件名，请重新打开材料或重新上传。')
+      if (!disposeForm.reviewMaterialIds[url]) return
       disposeForm.reviewMaterialEvents.push({
+        fileId: disposeForm.reviewMaterialIds[url],
         action: 'DELETE',
         url,
-        fileName: resolveFileName(url),
+        fileName,
         sequence: ++materialEventSequence
       })
     })
-  }
+  },
+  { flush: 'sync' }
 )
+
+watch(reviewDialogVisible, (visible) => {
+  if (!visible) {
+    materialContextGeneration++
+    materialUploadsPending.value = 0
+  }
+}, { flush: 'sync' })
+
+onBeforeUnmount(() => { materialContextGeneration++ })
 
 watch(
   () => [route.name, route.query.activeOrderId, route.query.autoCreate] as const,

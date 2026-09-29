@@ -12,8 +12,8 @@ import yaml
 
 
 REQUIRED_FIELDS = {
-    "operationId", "sourceType", "sourceLocator", "domain", "subjectType", "actionType",
-    "reasonPolicy", "signaturePolicy", "statePolicy", "retentionClass", "testIds", "owner",
+    "operationId", "sourceType", "sourceLocators", "domain", "subjectType", "actionType",
+    "reasonPolicy", "signaturePolicy", "statePolicy", "retentionClass", "testIds", "ownerRole",
     "applicability",
 }
 ALLOWED_SOURCE_TYPES = {"SERVICE_METHOD", "JOB", "MIGRATION", "SCRIPT"}
@@ -216,8 +216,8 @@ def registered_method_records(root: Path, candidate: Path, operations: list[Oper
     source = JAVA_NON_CODE.sub(lambda match: re.sub(r"[^\n]", " ", match.group()), text)
     fqcn, methods = java_methods(text)
     registered_names = {
-        op.source_locator.split("#", 1)[1] for op in operations
-        if op.source_type == "SERVICE_METHOD" and op.source_locator.startswith(fqcn + "#")
+        locator.split("#", 1)[1] for op in operations for locator in op.source_locators
+        if op.source_type == "SERVICE_METHOD" and locator.startswith(fqcn + "#")
     }
     names = {method.name for method in methods}
     reasons: dict[str, set[str]] = {name: set() for name in names}
@@ -280,7 +280,7 @@ def registered_method_records(root: Path, candidate: Path, operations: list[Oper
 
 @dataclass(frozen=True)
 class Operation:
-    values: dict[str, str]
+    values: dict[str, object]
 
     @property
     def operation_id(self) -> str:
@@ -291,8 +291,8 @@ class Operation:
         return self.values["sourceType"]
 
     @property
-    def source_locator(self) -> str:
-        return self.values["sourceLocator"]
+    def source_locators(self) -> list[str]:
+        return self.values["sourceLocators"]
 
     @property
     def domain(self) -> str:
@@ -300,29 +300,19 @@ class Operation:
 
 
 def parse_policy(path: Path) -> tuple[str, list[Operation]]:
-    text = path.read_text(encoding="utf-8")
-    version_match = re.search(r"^policyVersion:\s*(\S+)\s*$", text, re.MULTILINE)
-    if not version_match:
+    policy = load_policy_bundle(path)
+    version = policy.get("policyVersion")
+    if not isinstance(version, str) or not version.strip():
         raise SystemExit("policyVersion is required")
-    operations: list[Operation] = []
-    current: dict[str, str] | None = None
-    for raw_line in text.splitlines():
-        line = raw_line.rstrip()
-        if line.startswith("  - "):
-            if current:
-                operations.append(Operation(current))
-            current = {}
-            key, value = line[4:].split(":", 1)
-            current[key.strip()] = value.strip()
-            continue
-        if current is not None and line.startswith("    ") and ":" in line:
-            key, value = line.strip().split(":", 1)
-            current[key.strip()] = value.strip()
-    if current:
-        operations.append(Operation(current))
-    if not operations:
+    values = policy.get("operations")
+    if not isinstance(values, list) or not values:
         raise SystemExit("operations must not be empty")
-    return version_match.group(1), operations
+    for value in values:
+        locators = value.get("sourceLocators")
+        if not isinstance(locators, list) or not locators or any(
+                not isinstance(locator, str) or not locator.strip() for locator in locators):
+            raise SystemExit("sourceLocators must be a non-empty list of strings")
+    return version, [Operation(value) for value in values]
 
 
 def backend_root(root: Path) -> Path:
@@ -363,9 +353,13 @@ def discover_annotations(root: Path) -> dict[str, str]:
 
 
 def source_locator_exists(root: Path, operation: Operation) -> bool:
+    return all(_source_locator_exists(root, operation.source_type, locator)
+               for locator in operation.source_locators)
+
+
+def _source_locator_exists(root: Path, source_type: str, locator: str) -> bool:
     source_root = backend_root(root)
-    locator = operation.source_locator
-    if operation.source_type == "SERVICE_METHOD":
+    if source_type == "SERVICE_METHOD":
         class_name, _, method_name = locator.partition("#")
         if not class_name or not method_name:
             return False
@@ -409,18 +403,18 @@ def registered_source_files(root: Path, operations: list[Operation]) -> set[Path
     source_root = backend_root(root)
     registered: set[Path] = set()
     for operation in operations:
-        locator = operation.source_locator
-        if operation.source_type == "SERVICE_METHOD":
-            class_name, _, _ = locator.partition("#")
-            class_suffix = Path(*class_name.split(".")).with_suffix(".java")
-            for java_root in [*source_root.glob("*/src/main/java"), *source_root.glob("yudao-framework/*/src/main/java")]:
-                source_path = java_root / class_suffix
+        for locator in operation.source_locators:
+            if operation.source_type == "SERVICE_METHOD":
+                class_name, _, _ = locator.partition("#")
+                class_suffix = Path(*class_name.split(".")).with_suffix(".java")
+                for java_root in [*source_root.glob("*/src/main/java"), *source_root.glob("yudao-framework/*/src/main/java")]:
+                    source_path = java_root / class_suffix
+                    if source_path.is_file():
+                        registered.add(source_path.resolve())
+            elif operation.source_type in {"MIGRATION", "SCRIPT"}:
+                source_path = source_root / locator.split("#", 1)[0]
                 if source_path.is_file():
                     registered.add(source_path.resolve())
-        elif operation.source_type in {"MIGRATION", "SCRIPT"}:
-            source_path = source_root / locator.split("#", 1)[0]
-            if source_path.is_file():
-                registered.add(source_path.resolve())
     return registered
 
 
@@ -490,7 +484,7 @@ def validate_boundary_scan(
     operations: list[Operation],
     report_path: Path | None = None,
 ) -> tuple[int, int, int, str, list[dict[str, str]]]:
-    scan = policy.get("writeBoundaryScan")
+    scan = policy.get("coverageScope", {}).get("writeBoundaryScan")
     if not isinstance(scan, dict) or scan.get("registrationMode") != "REGISTERED_OR_APPROVED_EXCLUSION":
         raise SystemExit("writeBoundaryScan.registrationMode must be REGISTERED_OR_APPROVED_EXCLUSION")
     categories = scan.get("categories")
@@ -596,7 +590,7 @@ def validate_boundary_scan(
 
 def canonical_report(policy_version: str, operations: list[Operation], annotations: dict[str, str]) -> str:
     rows = [
-        f"{policy_version}|{op.operation_id}|{op.source_type}|{op.source_locator}|{op.domain}|"
+        f"{policy_version}|{op.operation_id}|{op.source_type}|{json.dumps(op.source_locators, separators=(',', ':'))}|{op.domain}|"
         f"{annotations.get(op.operation_id, '')}"
         for op in sorted(operations, key=lambda item: item.operation_id)
     ]
@@ -629,16 +623,16 @@ def main() -> None:
             errors.append(f"{operation.operation_id}: invalid sourceType {operation.source_type}")
         if operation.values.get("applicability") not in ALLOWED_APPLICABILITY:
             errors.append(f"{operation.operation_id}: invalid applicability {operation.values.get('applicability')}")
-        if not operation.values.get("owner"):
-            errors.append(f"{operation.operation_id}: owner is required")
-        if not operation.values.get("testIds", "").startswith("[") or operation.values.get("testIds") == "[]":
+        if not operation.values.get("ownerRole"):
+            errors.append(f"{operation.operation_id}: ownerRole is required")
+        if not isinstance(operation.values.get("testIds"), list) or not operation.values["testIds"]:
             errors.append(f"{operation.operation_id}: testIds must be a non-empty list")
         if not source_locator_exists(root, operation):
-            errors.append(f"{operation.operation_id}: sourceLocator does not resolve: {operation.source_locator}")
+            errors.append(f"{operation.operation_id}: sourceLocator does not resolve: {operation.source_locators}")
     for operation_id, locator in annotations.items():
         if operation_id not in seen:
             errors.append(f"{operation_id}: annotated GxP write is missing from policy ({locator})")
-        elif next(op for op in operations if op.operation_id == operation_id).source_locator != locator:
+        elif next(op for op in operations if op.operation_id == operation_id).source_locators.count(locator) != 1:
             errors.append(f"{operation_id}: annotation locator mismatch: {locator}")
     missing_domains = REQUIRED_HIGH_RISK_DOMAINS - {op.domain for op in operations if op.values.get("applicability") == "GXP"}
     if missing_domains:
@@ -652,7 +646,7 @@ def main() -> None:
     report = canonical_report(policy_version, operations, annotations)
     print(f"PASS gxp audit coverage gate operations={len(operations)} annotations={len(annotations)} "
           f"sha256={hashlib.sha256(report.encode('utf-8')).hexdigest()} "
-          f"boundaryCategories={len(policy['writeBoundaryScan']['categories'])} "
+          f"boundaryCategories={len(policy['coverageScope']['writeBoundaryScan']['categories'])} "
           f"boundaryCandidates={boundary_candidates} boundaryRegistered={boundary_registered} "
           f"boundaryExclusions={boundary_exclusions} boundaryReportRecords={len(exclusion_records)} "
           f"boundarySha256={boundary_hash}")

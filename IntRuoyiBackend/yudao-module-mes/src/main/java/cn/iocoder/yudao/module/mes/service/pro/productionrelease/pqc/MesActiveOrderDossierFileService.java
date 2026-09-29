@@ -132,7 +132,8 @@ public class MesActiveOrderDossierFileService {
         ResolvedContext context = resolveContext(actorUserId, command.activeOrderId(), command.applicationId());
         assertMutable(context.activeOrder());
         String operatorName = resolveOperatorName(actorUserId);
-        String directory = FILE_DIRECTORY_PREFIX + context.activeOrder().getId() + "/" + category.key();
+        String directory = FILE_DIRECTORY_PREFIX + context.activeOrder().getId() + "/" + category.key()
+                + "/" + java.util.UUID.randomUUID();
         Long fileId = fileService.createFileAndReturnId(command.content(), fileName, directory, contentType);
         if (fileId == null || fileId <= 0) {
             throw new IllegalStateException("文件服务未返回有效文件编号，不能登记资料文件。");

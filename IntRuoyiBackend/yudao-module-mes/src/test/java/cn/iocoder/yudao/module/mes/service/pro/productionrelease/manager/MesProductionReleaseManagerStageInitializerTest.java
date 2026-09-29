@@ -130,6 +130,82 @@ class MesProductionReleaseManagerStageInitializerTest {
         assertEquals("manager-candidate-hash", task.getResponsibilitySourceVersion());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"PRECHECK_REQUIRED", "PRECHECK_FAILED", "PRECHECK_PASSED"})
+    void standalonePrecheckDoesNotBlockFormalManagerStage(String precheckStatus) {
+        MesProcessPoolActiveOrderReleaseApplicationDO application = application();
+        List<MesProductionReleaseReportNodeEvidence> reports = evidences();
+        String snapshotHash = MesProductionReleaseReportSnapshots.hash(application, reports);
+        when(applicationMapper.selectById(701L)).thenReturn(application);
+        when(releaseTransactionMapper.selectCurrentByBatchExecutionId(901L)).thenReturn(
+                new MesProEdhrReleaseTransactionDO().setId(990L).setBatchExecutionId(901L)
+                        .setReleaseCode("STANDALONE-PRECHECK").setReleaseStatus(precheckStatus)
+                        .setVersion(1).setPrecheckSnapshotJson("{\"origin\":\"standalone-precheck\"}"));
+        org.mockito.Mockito.lenient().when(releaseTransactionMapper.selectByIdForUpdate(990L)).thenReturn(
+                new MesProEdhrReleaseTransactionDO().setId(990L).setBatchExecutionId(901L)
+                        .setReleaseCode("STANDALONE-PRECHECK").setReleaseStatus(precheckStatus)
+                        .setVersion(1).setPrecheckSnapshotJson("{\"origin\":\"standalone-precheck\"}"));
+        org.mockito.Mockito.lenient().when(releaseTransactionMapper.updateById(any(MesProEdhrReleaseTransactionDO.class)))
+                .thenReturn(1);
+        org.mockito.Mockito.lenient().when(batchExecutionMapper.selectById(901L)).thenReturn(batch());
+        org.mockito.Mockito.lenient().when(candidateResolver.resolveRequiredCandidates(1L,
+                MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE))
+                .thenReturn(new MesProductionReleaseRoleCandidates(77L,
+                        MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE,
+                        List.of(8101L, 8102L), "manager-candidate-hash"));
+        org.mockito.Mockito.lenient().when(businessReadinessService.resolveBusinessReadinessChecks(any()))
+                .thenReturn(passReadiness());
+        org.mockito.Mockito.lenient().when(releaseTransactionMapper.insert(any(MesProEdhrReleaseTransactionDO.class)))
+                .thenAnswer(invocation -> {
+                    ((MesProEdhrReleaseTransactionDO) invocation.getArgument(0)).setId(1001L);
+                    return 1;
+                });
+        org.mockito.Mockito.lenient().when(workTaskMapper.insert(any(MesProEdhrWorkTaskDO.class)))
+                .thenAnswer(invocation -> {
+                    ((MesProEdhrWorkTaskDO) invocation.getArgument(0)).setId(1002L);
+                    return 1;
+                });
+
+        MesProductionReleaseManagerStageInitializationResult result = initializer.initializeManagerReleaseStage(
+                new MesProductionReleaseManagerStageInitializationCommand().setApplicationId(701L)
+                        .setBatchExecutionId(901L).setReportSnapshotHash(snapshotHash)
+                        .setReportEvidences(reports).setExpectedApplicationVersion(4));
+
+        assertEquals(990L, result.getReleaseTransactionId());
+        ArgumentCaptor<MesProEdhrReleaseTransactionDO> upgraded = ArgumentCaptor.forClass(MesProEdhrReleaseTransactionDO.class);
+        verify(releaseTransactionMapper).updateById(upgraded.capture());
+        verify(releaseTransactionMapper, never()).insert(any(MesProEdhrReleaseTransactionDO.class));
+        assertEquals(2, upgraded.getValue().getVersion());
+        assertEquals("STANDALONE-PRECHECK", upgraded.getValue().getReleaseCode());
+        assertEquals("PENDING_APPROVAL", upgraded.getValue().getReleaseStatus());
+        assertEquals("{\"origin\":\"standalone-precheck\"}", com.alibaba.fastjson.JSON.parseObject(
+                upgraded.getValue().getPrecheckSnapshotJson()).getJSONObject("standalonePrecheck")
+                .getString("snapshotJson"));
+        ArgumentCaptor<MesProEdhrWorkTaskDO> task = ArgumentCaptor.forClass(MesProEdhrWorkTaskDO.class);
+        verify(workTaskMapper).insert(task.capture());
+        assertEquals(result.getReleaseTransactionId(), task.getValue().getBusinessScopeId());
+        assertEquals("8101,8102", task.getValue().getCandidateUserSnapshot());
+    }
+
+    @Test
+    void initializerRejectsTransactionThatBecamePendingAfterDiscovery() {
+        var application = application();
+        var reports = evidences();
+        when(applicationMapper.selectById(701L)).thenReturn(application);
+        when(releaseTransactionMapper.selectCurrentByBatchExecutionId(901L)).thenReturn(
+                new MesProEdhrReleaseTransactionDO().setId(990L).setReleaseStatus("PRECHECK_PASSED"));
+        org.mockito.Mockito.lenient().when(releaseTransactionMapper.selectByIdForUpdate(990L)).thenReturn(
+                new MesProEdhrReleaseTransactionDO().setId(990L).setBatchExecutionId(901L)
+                        .setReleaseStatus("PENDING_APPROVAL").setVersion(2));
+        assertThrows(MesReleaseFlowBlockerException.class, () -> initializer.initializeManagerReleaseStage(
+                new MesProductionReleaseManagerStageInitializationCommand().setApplicationId(701L)
+                        .setBatchExecutionId(901L).setExpectedApplicationVersion(4).setReportEvidences(reports)
+                        .setReportSnapshotHash(MesProductionReleaseReportSnapshots.hash(application, reports))));
+        verify(releaseTransactionMapper).selectByIdForUpdate(990L);
+        verify(releaseTransactionMapper, never()).updateById(any(MesProEdhrReleaseTransactionDO.class));
+        verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
+    }
+
     @Test
     void createsPendingApprovalTransactionFromActiveOrderFormalFactsAfterPqcRelease() {
         LocalDateTime preciseDecidedAt = LocalDateTime.of(2026, 9, 20, 10, 0, 0, 123456789);

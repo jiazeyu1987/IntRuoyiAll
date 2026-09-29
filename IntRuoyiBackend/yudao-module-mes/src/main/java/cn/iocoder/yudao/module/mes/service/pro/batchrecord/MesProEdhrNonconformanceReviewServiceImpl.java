@@ -11,19 +11,21 @@ import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
-import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
+import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.FileUploadSecurityPolicy;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchExecutionRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewDisposeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewActiveOrderRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewMaterialUploadRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewCounterDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
@@ -57,9 +59,6 @@ import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.util.UriUtils;
-
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -100,9 +99,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             Set.of(DISPOSITION_CONCESSION_RELEASE, DISPOSITION_REWORK, DISPOSITION_VOID);
     private static final DateTimeFormatter REVIEW_CODE_MONTH_FORMATTER = DateTimeFormatter.ofPattern("yyyyMM");
     private static final long REVIEW_CODE_MAX_SERIAL = 99_999_999L;
-    private static final String ADMIN_FILE_ACCESS_PREFIX = "/admin-api/infra/file/";
-    private static final String ADMIN_FILE_ACCESS_GET_SEGMENT = "/get/";
-
+    private static final String REVIEW_MATERIAL_DIRECTORY_PREFIX = "mes/edhr-ncr/reviews/";
     @Resource
     private MesProEdhrNonconformanceReviewMapper reviewMapper;
     @Resource
@@ -145,6 +142,10 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     private ElectronicSignatureRecordMapper signatureRecordMapper;
     @Resource
     private cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService signatureQueryService;
+    @Resource
+    private FileService fileService;
+    @Resource
+    private FileUploadSecurityPolicy fileUploadSecurityPolicy;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -350,10 +351,6 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrNonconformanceReviewRespVO dispose(MesProEdhrNonconformanceReviewDisposeReqVO reqVO) {
         String disposition = requireDisposition(reqVO.getDisposition());
-        ResolvedReviewMaterials reviewMaterials = resolveReviewMaterials(reqVO.getReviewMaterials(),
-                reqVO.getReviewMaterialEvents());
-        String reviewMaterialUrl = reviewMaterials.summaryUrl();
-        Long reviewMaterialFileId = reviewMaterials.primaryFileId();
         String reviewOpinion = requireText(reqVO.getReviewOpinion());
         String signaturePassword = requireText(reqVO.getSignaturePassword());
         unifiedAudit.acquireLedgerLock();
@@ -361,6 +358,10 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         if (review == null) {
             throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_NOT_EXISTS);
         }
+        ResolvedReviewMaterials reviewMaterials = resolveReviewMaterials(review.getId(), reqVO.getReviewMaterials(),
+                reqVO.getReviewMaterialEvents());
+        String reviewMaterialUrl = reviewMaterials.summaryUrl();
+        Long reviewMaterialFileId = reviewMaterials.primaryFileId();
         if (STATUS_CLOSED.equals(review.getReviewStatus()) && DISPOSITION_REWORK.equals(disposition)) {
             verifyReworkReplay(review, disposition, reviewMaterials, reviewOpinion);
             return toResp(review);
@@ -672,6 +673,44 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
 
     private static String auditId(Long id) {
         return id == null ? null : id.toString();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrNonconformanceReviewMaterialUploadRespVO uploadMaterial(Long reviewId, String fileName,
+                                                                               String contentType, byte[] content) {
+        if (reviewId == null || reviewId <= 0 || content == null || content.length == 0) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+        }
+        if (StrUtil.isBlank(StrUtil.trim(fileName))) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+        }
+        MesProEdhrNonconformanceReviewDO review = reviewMapper.selectById(reviewId);
+        if (review == null) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_NOT_EXISTS);
+        }
+        if (!STATUS_PENDING_REVIEW.equals(review.getReviewStatus())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+        }
+        fileUploadSecurityPolicy.validate(fileName, content);
+        String directory = reviewMaterialDirectory(reviewId) + "/" + java.util.UUID.randomUUID();
+        Long fileId = fileService.createFileAndReturnId(content, fileName, directory,
+                StrUtil.isBlank(contentType) ? null : StrUtil.trim(contentType));
+        if (fileId == null || fileId <= 0) {
+            throw new IllegalStateException("文件服务未返回有效文件编号，不能确认评审材料上传成功。");
+        }
+        FileDO file = fileService.getFile(fileId);
+        validateUploadedReviewMaterial(directory, fileName, content.length, fileId, file);
+        MesProEdhrNonconformanceReviewMaterialUploadRespVO response =
+                new MesProEdhrNonconformanceReviewMaterialUploadRespVO();
+        response.setFileId(file.getId());
+        response.setUrl(file.getUrl());
+        response.setFileName(file.getName());
+        response.setConfigId(file.getConfigId());
+        response.setPath(file.getPath());
+        response.setType(file.getType());
+        response.setSize(file.getSize());
+        return response;
     }
 
     private void closeManagerReleaseForNonconformance(
@@ -1359,7 +1398,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         return text;
     }
 
-    private ResolvedReviewMaterials resolveReviewMaterials(
+    private ResolvedReviewMaterials resolveReviewMaterials(Long reviewId,
             List<MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO> reviewMaterials,
             List<MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO> reviewMaterialEvents) {
         if (reviewMaterials == null || reviewMaterials.isEmpty()) {
@@ -1368,32 +1407,38 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         List<MaterialDraft> drafts = new ArrayList<>();
         for (int index = 0; index < reviewMaterials.size(); index++) {
             MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO material = reviewMaterials.get(index);
-            if (material == null || StrUtil.isBlank(material.getUrl())) {
+            if (material == null || material.getFileId() == null || material.getFileId() <= 0) {
                 throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
             }
-            String url = requireText(material.getUrl());
-            drafts.add(new MaterialDraft(url, StrUtil.trim(material.getFileName()),
-                    material.getSortNo() == null ? index + 1 : material.getSortNo(),
-                    parseAdminFileAccessLocation(url)));
+            String url = material.getUrl();
+            if (url != null && !url.equals(url.trim())) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+            }
+            drafts.add(new MaterialDraft(material.getFileId(), url,
+                    material.getSortNo() == null ? index + 1 : material.getSortNo()));
         }
-        Map<FileLocation, Integer> usedByLocation = new LinkedHashMap<>();
+        Set<Long> usedFileIds = new java.util.HashSet<>();
+        Map<Long, FileDO> authoritativeFilesById = new LinkedHashMap<>();
         List<Map<String, Object>> activeMaterials = new ArrayList<>();
         List<String> summaryUrls = new ArrayList<>();
         for (MaterialDraft draft : drafts) {
-            int usedCount = usedByLocation.getOrDefault(draft.location(), 0);
-            FileDO file = resolveReviewMaterialFile(draft.location(), usedCount);
-            usedByLocation.put(draft.location(), usedCount + 1);
+            if (!usedFileIds.add(draft.fileId())) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+            }
+            FileDO file = resolveReviewMaterialFile(reviewId, draft.fileId(), draft.url());
+            authoritativeFilesById.put(draft.fileId(), file);
             Map<String, Object> active = new LinkedHashMap<>();
-            active.put("url", draft.url());
+            active.put("url", file.getUrl());
             active.put("fileId", file.getId());
             active.put("fileName", file.getName());
             active.put("sortNo", draft.sortNo());
             active.put("configId", file.getConfigId());
             active.put("path", file.getPath());
             activeMaterials.add(active);
-            summaryUrls.add(draft.url());
+            summaryUrls.add(file.getUrl());
         }
-        List<Map<String, Object>> events = normalizeReviewMaterialEvents(reviewMaterialEvents);
+        List<Map<String, Object>> events = normalizeReviewMaterialEvents(reviewMaterialEvents,
+                reviewId, authoritativeFilesById);
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("activeMaterials", activeMaterials);
         payload.put("reviewMaterialEvents", events);
@@ -1401,87 +1446,70 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 (Long) activeMaterials.get(0).get("fileId"), JSON.toJSONString(payload));
     }
 
-    private FileDO resolveReviewMaterialFile(FileLocation location, int usedCount) {
-        List<FileDO> files = fileMapper.selectList(new LambdaQueryWrapperX<FileDO>()
-                .eq(FileDO::getConfigId, location.configId)
-                .eq(FileDO::getPath, location.path)
-                .orderByDesc(FileDO::getId));
-        if (files == null || files.size() <= usedCount) {
-            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
-        }
-        FileDO file = files.get(usedCount);
-        if (file == null || file.getId() == null || file.getId() <= 0) {
+    private FileDO resolveReviewMaterialFile(Long reviewId, Long fileId, String submittedUrl) {
+        FileDO file = fileMapper.selectById(fileId);
+        if (file == null || file.getId() == null || !Objects.equals(fileId, file.getId())
+                || file.getConfigId() == null || file.getConfigId() <= 0
+                || StrUtil.isBlank(file.getPath()) || StrUtil.isBlank(file.getName())
+                || StrUtil.isBlank(file.getUrl())
+                || !file.getPath().startsWith(reviewMaterialDirectory(reviewId) + "/")
+                || (submittedUrl != null && !Objects.equals(submittedUrl, file.getUrl()))) {
             throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
         }
         return file;
     }
 
     private List<Map<String, Object>> normalizeReviewMaterialEvents(
-            List<MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO> reviewMaterialEvents) {
+            List<MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO> reviewMaterialEvents,
+            Long reviewId, Map<Long, FileDO> authoritativeFilesById) {
         if (reviewMaterialEvents == null || reviewMaterialEvents.isEmpty()) {
             return List.of();
         }
         List<Map<String, Object>> events = new ArrayList<>();
         for (int index = 0; index < reviewMaterialEvents.size(); index++) {
             MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialEventReqVO event = reviewMaterialEvents.get(index);
-            if (event == null || StrUtil.isBlank(event.getAction()) || StrUtil.isBlank(event.getUrl())) {
+            if (event == null || StrUtil.isBlank(event.getAction()) || event.getFileId() == null
+                    || event.getFileId() <= 0) {
                 throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
             }
             String action = StrUtil.trim(event.getAction()).toUpperCase();
             if (!"UPLOAD".equals(action) && !"DELETE".equals(action)) {
                 throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
             }
-            String url = requireText(event.getUrl());
-            parseAdminFileAccessLocation(url);
+            String url = event.getUrl();
+            if (url != null && !url.equals(url.trim())) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+            }
+            FileDO file = authoritativeFilesById.get(event.getFileId());
+            if (file == null) {
+                file = resolveReviewMaterialFile(reviewId, event.getFileId(), url);
+            } else if (url != null && !Objects.equals(url, file.getUrl())) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+            }
             Map<String, Object> normalized = new LinkedHashMap<>();
             normalized.put("action", action);
-            normalized.put("url", url);
-            normalized.put("fileName", StrUtil.blankToDefault(StrUtil.trim(event.getFileName()), resolveFileName(url)));
+            normalized.put("fileId", file.getId());
+            normalized.put("url", file.getUrl());
+            normalized.put("fileName", file.getName());
             normalized.put("sequence", event.getSequence() == null ? index + 1 : event.getSequence());
             events.add(normalized);
         }
         return events;
     }
 
-    private String resolveFileName(String url) {
-        String value = StrUtil.blankToDefault(url, "");
-        int index = value.lastIndexOf('/');
-        String name = index < 0 ? value : value.substring(index + 1);
-        return UriUtils.decode(name, StandardCharsets.UTF_8);
+    private String reviewMaterialDirectory(Long reviewId) {
+        return REVIEW_MATERIAL_DIRECTORY_PREFIX + reviewId;
     }
 
-    private FileLocation parseAdminFileAccessLocation(String reviewMaterialUrl) {
-        String text = requireText(reviewMaterialUrl);
-        int prefixIndex = text.indexOf(ADMIN_FILE_ACCESS_PREFIX);
-        if (prefixIndex < 0) {
-            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
-        }
-        String tail = text.substring(prefixIndex + ADMIN_FILE_ACCESS_PREFIX.length());
-        int getIndex = tail.indexOf(ADMIN_FILE_ACCESS_GET_SEGMENT);
-        if (getIndex <= 0) {
-            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
-        }
-        Long configId = parsePositiveFileConfigId(tail.substring(0, getIndex));
-        String encodedPath = tail.substring(getIndex + ADMIN_FILE_ACCESS_GET_SEGMENT.length());
-        if (StrUtil.isBlank(encodedPath)) {
-            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
-        }
-        String path = UriUtils.decode(encodedPath, StandardCharsets.UTF_8);
-        if (StrUtil.isBlank(path) || StrUtil.contains(path, "..")) {
-            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
-        }
-        return new FileLocation(configId, path);
-    }
-
-    private Long parsePositiveFileConfigId(String value) {
-        try {
-            Long parsed = Long.valueOf(value);
-            if (parsed <= 0) {
-                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
-            }
-            return parsed;
-        } catch (NumberFormatException ex) {
-            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+    private void validateUploadedReviewMaterial(String directory, String originalName, long contentLength,
+                                               Long fileId, FileDO file) {
+        if (file == null || !Objects.equals(fileId, file.getId()) || file.getConfigId() == null
+                || file.getConfigId() <= 0 || StrUtil.isBlank(file.getName()) || StrUtil.isBlank(file.getPath())
+                || StrUtil.isBlank(file.getUrl())
+                || !file.getPath().startsWith(directory + "/")
+                || !Objects.equals(originalName, file.getName())
+                || !Objects.equals(contentLength, file.getSize())) {
+            throw new IllegalStateException("文件服务返回的评审材料身份或目录不符合当前评审。");
         }
     }
 
@@ -1645,10 +1673,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         }
     }
 
-    private record FileLocation(Long configId, String path) {
-    }
-
-    private record MaterialDraft(String url, String fileName, Integer sortNo, FileLocation location) {
+    private record MaterialDraft(Long fileId, String url, Integer sortNo) {
     }
 
     private record ResolvedReviewMaterials(String summaryUrl, Long primaryFileId, String materialsJson) {

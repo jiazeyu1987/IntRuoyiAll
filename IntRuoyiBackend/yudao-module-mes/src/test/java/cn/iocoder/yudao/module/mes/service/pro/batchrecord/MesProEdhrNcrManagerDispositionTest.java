@@ -40,6 +40,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonc
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -51,6 +52,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProEdhrNcrManagerDispositionTest {
+    @Mock
+    private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService unifiedAudit;
+
 
     @Test
     void missingReleaseTransactionIdCancelsLinkedManagerTask() {
@@ -100,6 +104,10 @@ class MesProEdhrNcrManagerDispositionTest {
     @Mock
     private FileMapper fileMapper;
     @Mock
+    private cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper signatureRecordMapper;
+    @Mock
+    private cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService signatureQueryService;
+    @Mock
     private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
     @Mock
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
@@ -119,6 +127,30 @@ class MesProEdhrNcrManagerDispositionTest {
     @Test
     void disposeVoidClosesManagerApprovalAndTransactionWithoutApprove() {
         assertManagerReleaseDisposition(DISPOSITION_VOID, "NONCONFORMANCE_VOID");
+    }
+
+    @Test
+    void disposeRejectsForgedFileIdAndUrl() {
+        when(reviewMapper.selectByIdForUpdate(1001L)).thenReturn(new MesProEdhrNonconformanceReviewDO()
+                .setId(1001L).setReviewStatus(STATUS_PENDING_REVIEW));
+        MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO material =
+                new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO()
+                        .setFileId(70002L)
+                        .setUrl("s3://bucket/mes/edhr-ncr/reviews/1001/20260929/ncr.pdf")
+                        .setFileName("ncr.pdf")
+                        .setSortNo(1);
+        var request = new MesProEdhrNonconformanceReviewDisposeReqVO()
+                .setId(1001L).setDisposition(DISPOSITION_VOID)
+                .setReviewOpinion("QA disposition").setSignaturePassword("qa-password")
+                .setReviewMaterials(List.of(material));
+        var failure = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.dispose(request));
+        assertEquals(MesProEdhrBatchExecutionErrorCodeConstants
+                .PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED.getCode(), failure.getCode());
+        verify(fileMapper).selectById(70002L);
+        verify(reviewMapper, never()).updateById(any(MesProEdhrNonconformanceReviewDO.class));
+        verify(signatureService, never()).recordQaDispositionSignature(any(), any(), any(), any(), any());
+        verify(reworkCycleService, never()).start(any(), any(), any(), any());
     }
 
     private void assertManagerReleaseDisposition(String disposition, String decision) {
@@ -174,6 +206,7 @@ class MesProEdhrNcrManagerDispositionTest {
 
         when(reviewMapper.selectByIdForUpdate(review.getId())).thenReturn(review);
         when(reviewMapper.selectById(review.getId())).thenReturn(review);
+        when(reviewMapper.updateById(any(MesProEdhrNonconformanceReviewDO.class))).thenReturn(1);
         if (DISPOSITION_REWORK.equals(disposition)) {
             when(reviewMapper.selectFreezeLifecycleByWorkOrderId(workOrderId)).thenReturn(List.of());
             when(activeOrderMapper.selectByIdForUpdate(activeOrderId)).thenReturn(new MesProcessPoolActiveOrderDO()
@@ -190,13 +223,36 @@ class MesProEdhrNcrManagerDispositionTest {
         when(workOrderMapper.selectByIdForUpdate(workOrderId)).thenReturn(workOrder);
         when(workOrderMapper.updateTemporaryFrozenByIds(anyList(), anyBoolean())).thenReturn(1);
         when(signatureService.recordQaDispositionSignature(eq(900L), eq(review.getId()), eq("qa-password"),
-                eq("QA disposition"), any())).thenReturn(9000L);
+                eq("QA disposition"), any())).thenAnswer(call -> {
+                    String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(
+                            0L, "QA_DISPOSITION", null, null, null, null, null, null, null,
+                            "EDHR_NONCONFORMANCE_REVIEW", review.getId(), "eDHR不合格评审处置",
+                            "QA_DISPOSITION", null, null, call.getArgument(4), null);
+                    var snapshot = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(
+                            new cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand(
+                                    900L, "MES", "QA_DISPOSITION", "MES_BATCH_RECORD", subject,
+                                    MesBatchRecordSignatureSubjectAdapter.subjectVersion(subject), "QA disposition"));
+                    String hash = cn.hutool.crypto.digest.DigestUtil.sha256Hex(snapshot.canonicalContentJson());
+                    var signature = cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO.builder()
+                            .id(9000L).actorId(900L).moduleCode("MES").actionCode("QA_DISPOSITION")
+                            .subjectType("MES_BATCH_RECORD").subjectId(subject).subjectVersion(snapshot.subjectVersion())
+                            .reason("QA disposition").canonicalContentJson(snapshot.canonicalContentJson())
+                            .contentHash(hash).evidenceHash("manager-disposition-evidence").verificationStatus("VALID").build();
+                    signature.setTenantId(122L);
+                    when(signatureRecordMapper.selectById(9000L)).thenReturn(signature);
+                    when(signatureQueryService.verifyEvidence(9000L)).thenReturn(
+                            new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO(
+                                    9000L, "VALID", hash, hash, "manager-disposition-evidence",
+                                    "manager-disposition-evidence", "SHA-256", null));
+                    return 9000L;
+                });
         FileDO file = new FileDO();
         file.setId(70001L);
         file.setConfigId(1L);
-        file.setPath("ncr.pdf");
+        file.setPath("mes/edhr-ncr/reviews/1001/upload-1/20260929/ncr.pdf");
         file.setName("ncr.pdf");
-        when(fileMapper.selectList(any())).thenReturn(List.of(file));
+        file.setUrl("/admin-api/infra/file/1/get/ncr.pdf");
+        when(fileMapper.selectById(70001L)).thenReturn(file);
         when(releaseTransactionMapper.selectByIdForUpdate(transactionId)).thenReturn(transaction);
         when(releaseTransactionMapper.updateById(any(MesProEdhrReleaseTransactionDO.class))).thenReturn(1);
 
@@ -207,15 +263,19 @@ class MesProEdhrNcrManagerDispositionTest {
         req.setSignaturePassword("qa-password");
         MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO material =
                 new MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO();
+        material.setFileId(file.getId());
         material.setUrl("/admin-api/infra/file/1/get/ncr.pdf");
         material.setFileName("ncr.pdf");
         material.setSortNo(1);
         req.setReviewMaterials(List.of(material));
 
+        TenantContextHolder.setTenantId(122L);
         try (MockedStatic<SecurityFrameworkUtils> login = mockStatic(SecurityFrameworkUtils.class)) {
             login.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(900L);
             login.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("QA");
             service.dispose(req);
+        } finally {
+            TenantContextHolder.clear();
         }
 
         verify(releaseApplicationMapper).closeFromNonconformance(eq(applicationId), eq(3), eq(decision),
@@ -282,6 +342,7 @@ class MesProEdhrNcrManagerDispositionTest {
         ReflectionTestUtils.setField(realWorkTaskService, "workTaskMapper", workTaskMapper);
         ReflectionTestUtils.setField(realWorkTaskService, "permissionApi", permissionApi);
 
+        TenantContextHolder.setTenantId(122L);
         TenantContextHolder.setTenantId(122L);
         try (MockedStatic<SecurityFrameworkUtils> login = mockStatic(SecurityFrameworkUtils.class)) {
             login.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(900L);

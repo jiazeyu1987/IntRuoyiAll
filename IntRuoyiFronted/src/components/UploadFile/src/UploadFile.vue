@@ -72,17 +72,19 @@ import type { UploadInstance, UploadProps, UploadRawFile, UploadUserFile } from 
 import { isString } from '@/utils/is'
 import { useUpload } from '@/components/UploadFile/src/useUpload'
 import { UploadFile } from 'element-plus/es/components/upload/src/upload'
+import { resolveUrlPathFileName } from '@/utils/fileName'
 
 defineOptions({ name: 'UploadFile' })
 
 const message = useMessage() // 消息弹窗
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'update:fileNames'])
 
 const props = defineProps({
   modelValue: propTypes.oneOfType<string | string[]>([String, Array<String>]).isRequired,
   fileType: propTypes.array.def(['doc', 'xls', 'ppt', 'txt', 'pdf']), // 文件类型, 例如['png', 'jpg', 'jpeg']
   fileSize: propTypes.number.def(5), // 大小限制(MB)
   limit: propTypes.number.def(5), // 数量限制
+  fileNames: propTypes.object.def({}), // 文件原始名称，按文件地址索引
   autoUpload: propTypes.bool.def(true), // 自动上传
   drag: propTypes.bool.def(false), // 拖拽上传
   isShowTip: propTypes.bool.def(true), // 是否显示提示
@@ -101,16 +103,12 @@ const fileNameByUrl = new Map<string, string>()
 const { uploadUrl, httpRequest: defaultHttpRequest } = useUpload(props.directory)
 const httpRequest = computed(() => props.httpRequest || defaultHttpRequest)
 
-const resolveUploadFileName = (url: string) => {
-  const pathname = new URL(url, window.location.origin).pathname
-  const fileName = pathname.substring(pathname.lastIndexOf('/') + 1)
-  let current = fileName.replace(/\+/g, ' ')
-  let decoded = decodeURIComponent(current)
-  while (decoded !== current) {
-    current = decoded.replace(/\+/g, ' ')
-    decoded = decodeURIComponent(current)
-  }
-  return decoded
+const resolveUploadFileName = (url: string) => resolveUrlPathFileName(url)
+
+const syncProvidedFileNames = () => {
+  Object.entries(props.fileNames || {}).forEach(([url, name]) => {
+    if (typeof name === 'string' && name.trim()) fileNameByUrl.set(url, name)
+  })
 }
 
 const resolveModelFileName = (url: string) => {
@@ -182,13 +180,16 @@ const excelUploadError: UploadProps['onError'] = (): void => {
 }
 // 删除上传文件
 const handleRemove = (file: UploadFile) => {
-  const index = fileList.value.map((f) => f.name).indexOf(file.name)
+  const index = fileList.value.findIndex((item) => {
+    if (file.uid !== undefined && item.uid !== undefined) return item.uid === file.uid
+    if (file.url) return item.url === file.url
+    return item === file
+  })
   if (index > -1) {
+    const removedUrl = fileList.value[index].url
     fileList.value.splice(index, 1)
-    if (file.url) {
-      fileNameByUrl.delete(file.url)
-    }
-    emitUpdateModelValue()
+    emitUpdateModelValue(false)
+    if (removedUrl) fileNameByUrl.delete(removedUrl)
   }
 }
 const handlePreview: UploadProps['onPreview'] = (uploadFile) => {
@@ -206,6 +207,7 @@ watch(
     }
 
     fileList.value = [] // 保障数据为空
+    syncProvidedFileNames()
     // 情况1：字符串
     if (isString(val)) {
       fileList.value.push(
@@ -220,15 +222,38 @@ watch(
   },
   { immediate: true, deep: true }
 )
+
+watch(
+  () => props.fileNames,
+  () => {
+    syncProvidedFileNames()
+    fileList.value = fileList.value.map((file) =>
+      file.url ? { ...file, name: resolveModelFileName(file.url) } : file
+    )
+  },
+  { deep: true }
+)
 // 发送文件链接列表更新
-const emitUpdateModelValue = () => {
+const emitFileNames = () => {
+  const fileNames = Object.fromEntries(
+    fileList.value.flatMap((file) => {
+      const name = file.url ? fileNameByUrl.get(file.url) : undefined
+      return file.url && name !== undefined ? [[file.url, name]] : []
+    })
+  )
+  emit('update:fileNames', fileNames)
+}
+
+const emitUpdateModelValue = (emitNamesFirst = true) => {
   // 情况1：数组结果
   let result: string | string[] = fileList.value.map((file) => file.url!)
   // 情况2：逗号分隔的字符串
   if (props.limit === 1 || isString(props.modelValue)) {
     result = result.join(',')
   }
+  if (emitNamesFirst) emitFileNames()
   emit('update:modelValue', result)
+  if (!emitNamesFirst) emitFileNames()
 }
 </script>
 <style lang="scss" scoped>

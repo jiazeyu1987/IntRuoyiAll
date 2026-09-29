@@ -274,6 +274,7 @@ public class MesProcessPoolProductionReportCorrectionService {
         if (original == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "materialDetails");
         }
+        Map<Long, JsonNode> canonicalReasons = originalLossReasons(payload);
         Map<Long, MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand> byMaterialId =
                 requested.stream().collect(Collectors.toMap(
                         MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand::getMaterialId,
@@ -311,7 +312,18 @@ public class MesProcessPoolProductionReportCorrectionService {
                         MesProcessPoolFragmentOriginalField.LOSS_QUANTITY));
             }
             if (change.getLossDetails() != null) {
-                material.set("lossDetails", JsonUtils.getObjectMapper().valueToTree(change.getLossDetails()));
+                ArrayNode materialReasons = JsonUtils.getObjectMapper().createArrayNode();
+                for (MesProcessPoolProductionReportCorrectionCommand.LossDetailCommand detail : change.getLossDetails()) {
+                    JsonNode canonical = detail == null ? null : canonicalReasons.get(detail.getReasonId());
+                    if (canonical == null || detail.getQuantity() == null
+                            || detail.getQuantity().signum() <= 0) {
+                        throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "materialDetails.lossDetails");
+                    }
+                    ObjectNode materialReason = ((ObjectNode) canonical).deepCopy();
+                    materialReason.put("quantity", detail.getQuantity());
+                    materialReasons.add(materialReason);
+                }
+                material.set("lossDetails", materialReasons);
             }
             if (change.getSelectedDevice() == null) {
                 material.putNull("selectedDevice");
@@ -605,8 +617,18 @@ public class MesProcessPoolProductionReportCorrectionService {
         Map<Long, JsonNode> result = new LinkedHashMap<>();
         for (JsonNode detail : details) {
             Long reasonId = requireLong(detail.get("reasonId"), "lossDetails.reasonId");
-            if (result.put(reasonId, detail) != null) {
-                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "lossDetails.reasonId");
+            BigDecimal quantity = requireDecimal(detail.get("quantity"), "lossDetails.quantity");
+            JsonNode previous = result.get(reasonId);
+            if (previous == null) {
+                result.put(reasonId, detail.deepCopy());
+            } else {
+                if (!Objects.equals(text(previous, "reasonCode"), text(detail, "reasonCode"))
+                        || !Objects.equals(text(previous, "reasonName"), text(detail, "reasonName"))) {
+                    throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "lossDetails.reasonMetadata");
+                }
+                // Multiple material facts can carry the same reason; aggregate only the audit comparison copy.
+                ((ObjectNode) previous).put("quantity",
+                        requireDecimal(previous.get("quantity"), "lossDetails.quantity").add(quantity));
             }
         }
         return result;

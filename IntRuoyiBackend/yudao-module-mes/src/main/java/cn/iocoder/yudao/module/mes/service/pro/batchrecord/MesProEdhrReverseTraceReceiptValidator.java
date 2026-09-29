@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -9,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionReceiptHash;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer;
 import java.util.Objects;
 
 /** Shared immutable completion receipt contract; category-specific facts remain with their adapters. */
@@ -57,8 +57,14 @@ final class MesProEdhrReverseTraceReceiptValidator {
                 || !Objects.equals(origin.getSourceSnapshotHash(), receipt.getSourceSnapshotHash())) {
             throw conflict("完工回执状态、冻结版本或绑定哈希冲突");
         }
-        if (!Objects.equals(receipt.getSourceSnapshotHash(), DigestUtil.sha256Hex(
-                DigestUtil.sha256Hex(receipt.getFormalSourceSnapshotJson()) + "|" + receipt.getLossConditionFactsJson()))) {
+        final String actualSourceSnapshotHash;
+        try {
+            actualSourceSnapshotHash = MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.sourceSnapshotHash(
+                    receipt.getFormalSourceSnapshotJson(), receipt.getLossConditionFactsJson());
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalStateException("SOURCE_CONFLICT:完工来源JSON无法校验", exception);
+        }
+        if (!Objects.equals(receipt.getSourceSnapshotHash(), actualSourceSnapshotHash)) {
             throw conflict("完工正式来源快照哈希冲突");
         }
         final String actualHash;

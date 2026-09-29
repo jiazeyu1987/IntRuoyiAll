@@ -39,7 +39,10 @@ public class MesProEdhrNonconformanceReviewDisposeReqVO {
     @Data
     public static class ReviewMaterialReqVO {
 
-        @Schema(description = "材料 URL", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "正式文件记录编号", requiredMode = Schema.RequiredMode.REQUIRED)
+        private Long fileId;
+
+        @Schema(description = "材料 URL，用于与正式文件记录精确比对")
         private String url;
 
         @Schema(description = "材料文件名")
@@ -55,7 +58,10 @@ public class MesProEdhrNonconformanceReviewDisposeReqVO {
         @Schema(description = "操作类型：UPLOAD/DELETE", requiredMode = Schema.RequiredMode.REQUIRED)
         private String action;
 
-        @Schema(description = "材料 URL", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "正式文件记录编号", requiredMode = Schema.RequiredMode.REQUIRED)
+        private Long fileId;
+
+        @Schema(description = "材料 URL，用于与正式文件记录精确比对")
         private String url;
 
         @Schema(description = "材料文件名")

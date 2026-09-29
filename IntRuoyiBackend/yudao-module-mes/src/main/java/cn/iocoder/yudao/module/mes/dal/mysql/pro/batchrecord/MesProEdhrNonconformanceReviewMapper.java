@@ -224,7 +224,9 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
             return List.of();
         }
         return selectList(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
-                .eq(MesProEdhrNonconformanceReviewDO::getReviewMaterialFileId, fileId)
+                .and(query -> query.eq(MesProEdhrNonconformanceReviewDO::getReviewMaterialFileId, fileId)
+                        .or().apply("JSON_CONTAINS(review_materials_json, JSON_OBJECT('fileId', {0}), '$.activeMaterials')", fileId)
+                        .or().apply("JSON_CONTAINS(review_materials_json, JSON_OBJECT('fileId', {0}), '$.activeMaterials')", fileId.toString()))
                 .orderByDesc(MesProEdhrNonconformanceReviewDO::getId));
     }
 

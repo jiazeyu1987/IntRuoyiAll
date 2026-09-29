@@ -25,10 +25,10 @@ def fixture(tmp_path, body):
                        expectedMinCandidates=0,
                        unregisteredDisposition=dict(decision="FAIL", reasonCode="UNREGISTERED", reason="Review entry"))
                   for kind in sorted(gate.BOUNDARY_SOURCE_TYPES)]
-    policy = dict(writeBoundaryScan=dict(registrationMode="REGISTERED_OR_APPROVED_EXCLUSION",
-                                        approvedExclusionsFile="approved.jsonl", categories=categories))
+    policy = dict(coverageScope=dict(writeBoundaryScan=dict(registrationMode="REGISTERED_OR_APPROVED_EXCLUSION",
+                                        approvedExclusionsFile="approved.jsonl", categories=categories)))
     operations = [gate.Operation(dict(operationId="order.add", sourceType="SERVICE_METHOD",
-                                      sourceLocator="demo.OrderService#addOrder"))]
+                                      sourceLocators=["demo.OrderService#addOrder"]))]
     return source, policy, operations
 
 
@@ -321,3 +321,29 @@ def test_function_callback_may_persist_and_requires_registration(tmp_path, funct
     source.write_text(source.read_text().replace("package demo;", "package demo; " + import_statement), encoding="utf-8")
     with pytest.raises(SystemExit, match="#reconcile"):
         gate.validate_boundary_scan(tmp_path, policy, operations)
+
+
+def test_v2_policy_parses_all_locators_and_registers_each(tmp_path):
+    import yaml
+    source, policy, operations = fixture(tmp_path, "public void addOrder() { mapper.insert(row); } public void saveOrder() { mapper.update(row); }")
+    values = dict(operations[0].values, sourceLocators=["demo.OrderService#addOrder", "demo.OrderService#saveOrder"], ownerRole="qa", testIds=["BDD-1"], domain="EDHR")
+    policy_path = tmp_path / "policy.yaml"
+    policy_path.write_text(yaml.safe_dump(dict(policyVersion="v2", operations=[values], coverageScope=policy["coverageScope"])), encoding="utf-8")
+    version, parsed = gate.parse_policy(policy_path)
+    assert version == "v2"
+    assert len(parsed) == 1
+    assert parsed[0].source_locators == values["sourceLocators"]
+    assert gate.source_locator_exists(tmp_path, parsed[0])
+    gate.validate_boundary_scan(tmp_path, policy, parsed)
+    assert "demo.OrderService#saveOrder" in gate.canonical_report(version, parsed, {})
+    invalid = gate.Operation(dict(values, sourceLocators=["demo.OrderService#addOrder", "demo.OrderService#missing"]))
+    assert not gate.source_locator_exists(tmp_path, invalid)
+
+
+@pytest.mark.parametrize("locators", [None, [], "demo.OrderService#addOrder", [""]])
+def test_v2_policy_rejects_invalid_locator_array(tmp_path, locators):
+    import yaml
+    policy = tmp_path / "invalid.yaml"
+    policy.write_text(yaml.safe_dump(dict(policyVersion="v2", operations=[dict(sourceLocators=locators)])), encoding="utf-8")
+    with pytest.raises(SystemExit, match="sourceLocators"):
+        gate.parse_policy(policy)

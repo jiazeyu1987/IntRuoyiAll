@@ -238,7 +238,7 @@ public class GxpAuditPolicyActivationServiceImpl implements GxpAuditPolicyActiva
             operation.setPolicyVersion(bundle.policyVersion());
             operation.setOperationId(text(operationNode, "operationId"));
             operation.setSourceType(text(operationNode, "sourceType"));
-            operation.setSourceLocator(text(operationNode, "sourceLocator"));
+            operation.setSourceLocator(operationNode.path("sourceLocators").toString());
             operation.setDomain(text(operationNode, "domain"));
             operation.setSubjectType(text(operationNode, "subjectType"));
             operation.setActionType(text(operationNode, "actionType"));
@@ -247,7 +247,7 @@ public class GxpAuditPolicyActivationServiceImpl implements GxpAuditPolicyActiva
             operation.setStatePolicy(text(operationNode, "statePolicy"));
             operation.setRetentionClass(text(operationNode, "retentionClass"));
             operation.setTestIds(operationNode.path("testIds").toString());
-            operation.setOwner(text(operationNode, "owner"));
+            operation.setOwner(text(operationNode, "ownerRole"));
             operation.setApplicability(text(operationNode, "applicability"));
             operation.setActive(true);
             result.add(operation);

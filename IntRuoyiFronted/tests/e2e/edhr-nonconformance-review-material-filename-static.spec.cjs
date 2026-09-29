@@ -6,69 +6,30 @@ const pagePath = path.join(
   repoRoot,
   'src/views/mes/pro/edhr-nonconformance/NonconformanceReviewPage.vue'
 )
-const source = fs.readFileSync(pagePath, 'utf8')
+const source = fs.readFileSync(pagePath, 'utf8').replace(/\r\n/g, '\n')
 const uploadFilePath = path.join(repoRoot, 'src/components/UploadFile/src/UploadFile.vue')
 const uploadSource = fs.readFileSync(uploadFilePath, 'utf8')
+const utilityPath = path.join(repoRoot, 'src/utils/fileName.ts')
+const utilitySource = fs.readFileSync(utilityPath, 'utf8')
 
-const resolveFileNameMatch = source.match(
-  /const decodeFileName = \(value: string\) => \{[\s\S]*?const resolveFileName = \(url: string\) => \{[\s\S]*?\n\}/
-)
-
-if (!resolveFileNameMatch) {
-  throw new Error('Nonconformance review page must define resolveFileName.')
+if (!source.includes("import { resolveUrlPathFileName } from '@/utils/fileName'")) {
+  throw new Error('Nonconformance review page must use the shared filename protocol.')
 }
 
-const resolveFileNameBlock = resolveFileNameMatch[0]
-
-if (!resolveFileNameBlock.includes('new URL(')) {
-  throw new Error('resolveFileName must parse material URLs with URL semantics before decoding.')
+if (!utilitySource.includes('new URL(url, origin).pathname')) {
+  throw new Error('URL-only filename resolution must parse pathname with URL semantics.')
 }
 
-if (!resolveFileNameBlock.includes('pathname')) {
-  throw new Error('resolveFileName must decode the URL pathname, not query or fragment text.')
+if (!utilitySource.includes('return decodeURIComponent(value)')) {
+  throw new Error('URL-only filename resolution must decode a valid pathname segment.')
 }
 
-if (!/replace\(\s*\/\\\+\/g,\s*' '\s*\)/.test(resolveFileNameBlock)) {
-  throw new Error('resolveFileName must normalize plus signs in uploaded file-name segments.')
+if (/while\s*\(/.test(utilitySource) || /decodeURIComponent\(.*decodeURIComponent/.test(utilitySource)) {
+  throw new Error('Filename protocol must not repeatedly decode or guess a second URL layer.')
 }
 
-if (!/while\s*\(\s*decoded\s*!==\s*current\s*\)/.test(resolveFileNameBlock)) {
-  throw new Error('resolveFileName must decode repeatedly until a double-encoded filename is stable.')
-}
-
-if (resolveFileNameBlock.includes("url.substring(url.lastIndexOf('/') + 1)")) {
-  throw new Error('resolveFileName must not directly decode the full final URL segment.')
-}
-
-const encodedUrl =
-  'http://localhost/admin-api/infra/file/4/get/%E4%B8%8D%E5%90%88%E6%A0%BC+%E8%AF%84%E5%AE%A1.xlsx?token=abc'
-const expectedFileName = '不合格 评审.xlsx'
-
-const doubleEncodedUrl =
-  'http://localhost/admin-api/infra/file/4/get/%25E4%25B8%258D%25E5%2590%2588%25E6%25A0%25BC%252B%25E8%25AF%2584%25E5%25AE%25A1.xlsx?token=abc'
-const decodeRepeatedly = (value) => {
-  let current = value
-  let decoded = decodeURIComponent(current.replace(/\+/g, ' '))
-  while (decoded !== current) {
-    current = decoded
-    decoded = decodeURIComponent(current.replace(/\+/g, ' '))
-  }
-  return decoded
-}
-
-const actualFileName = decodeRepeatedly(new URL(encodedUrl).pathname.split('/').pop())
-const actualDoubleEncodedFileName = decodeRepeatedly(
-  new URL(doubleEncodedUrl).pathname.split('/').pop()
-)
-
-if (actualFileName !== expectedFileName) {
-  throw new Error(`fixture sanity failed: expected ${expectedFileName}, got ${actualFileName}`)
-}
-
-if (actualDoubleEncodedFileName !== expectedFileName) {
-  throw new Error(
-    `double-encoded fixture sanity failed: expected ${expectedFileName}, got ${actualDoubleEncodedFileName}`
-  )
+if (source.includes('decodeURIComponent(') || uploadSource.includes('decodeURIComponent(')) {
+  throw new Error('Consumers must use the shared filename protocol instead of decoding persisted names.')
 }
 
 const handleFileSuccessMatch = uploadSource.match(
@@ -97,8 +58,12 @@ if (!uploadSource.includes('resolveUploadFileName')) {
   throw new Error('UploadFile must have one URL filename decoder for legacy URL-only values.')
 }
 
+if (!uploadSource.includes("defineEmits(['update:modelValue', 'update:fileNames'])")) {
+  throw new Error('UploadFile must publish authoritative original names with model URLs.')
+}
+
 const materialsParserMatch = source.match(
-  /const parseReviewMaterialsJson = \(review\?: EdhrNonconformanceReviewRespVO\):[\s\S]*?\n\}\n\nconst resolveReviewMaterialDisplay/
+  /const parseReviewMaterialsJson = \(review\?: EdhrNonconformanceReviewRespVO\):[\s\S]*?\n\}\n\nconst resolveReviewMaterialName/
 )
 
 if (!materialsParserMatch) {

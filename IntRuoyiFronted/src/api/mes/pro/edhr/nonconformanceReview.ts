@@ -65,16 +65,27 @@ export interface EdhrNonconformanceReviewDisposeReqVO {
 }
 
 export interface EdhrNonconformanceReviewMaterial {
+  fileId: EdhrRouteId
   url: string
   fileName?: string
   sortNo?: number
 }
 
 export interface EdhrNonconformanceReviewMaterialEvent {
+  fileId: EdhrRouteId
   action: 'UPLOAD' | 'DELETE'
   url: string
   fileName?: string
   sequence?: number
+}
+
+export const uploadNonconformanceReviewMaterial = async (reviewId: EdhrRouteId, file: File) => {
+  const data = new FormData()
+  data.append('file', file)
+  return await request.upload<EdhrNonconformanceReviewMaterial>({
+    url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/${reviewId}/materials/upload`,
+    data
+  })
 }
 
 export interface EdhrNonconformanceReviewPageReqVO extends PageParam {

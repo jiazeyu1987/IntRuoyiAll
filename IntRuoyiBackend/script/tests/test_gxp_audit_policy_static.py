@@ -21,7 +21,7 @@ SCHEMA_PATH = RUNTIME_SOURCE_ROOT / "config" / "gxp-audit-policy.schema.json"
 REQUIRED_OPERATION_FIELDS = {
     "operationId",
     "sourceType",
-    "sourceLocator",
+    "sourceLocators",
     "domain",
     "subjectType",
     "actionType",
@@ -30,7 +30,7 @@ REQUIRED_OPERATION_FIELDS = {
     "statePolicy",
     "retentionClass",
     "testIds",
-    "owner",
+    "ownerRole",
     "applicability",
 }
 
@@ -89,8 +89,8 @@ def test_registered_operations_have_required_fields_and_unique_ids() -> None:
     for operation in operations:
         assert REQUIRED_OPERATION_FIELDS.issubset(operation), operation
         assert operation["operationId"], operation
-        assert operation["sourceLocator"], operation
-        assert operation["owner"], operation
+        assert operation["sourceLocators"], operation
+        assert operation["ownerRole"], operation
         assert operation["testIds"], operation
         operation_ids.append(operation["operationId"])
 
@@ -108,43 +108,42 @@ def test_registered_operations_resolve_to_exact_source_locator() -> None:
     policy = _load_policy()
 
     for operation in policy["operations"]:
-        locator = operation["sourceLocator"]
-        if operation["sourceType"] in {"MIGRATION", "SCRIPT"}:
-            source_ref, separator, member_name = locator.partition("#")
-            source_path = RUNTIME_SOURCE_ROOT / source_ref
-            assert source_path.is_file(), f"sourceLocator script does not exist: {locator}"
-            if separator:
-                source_text = source_path.read_text(encoding="utf-8", errors="ignore")
-                assert re.search(rf"\b{re.escape(member_name)}\s*\(", source_text), (
-                    f"sourceLocator script member does not exist: {locator}"
+        for locator in operation["sourceLocators"]:
+            if operation["sourceType"] in {"MIGRATION", "SCRIPT"}:
+                source_ref, separator, member_name = locator.partition("#")
+                source_path = RUNTIME_SOURCE_ROOT / source_ref
+                assert source_path.is_file(), f"sourceLocator script does not exist: {locator}"
+                if separator:
+                    source_text = source_path.read_text(encoding="utf-8", errors="ignore")
+                    assert re.search(rf"\b{re.escape(member_name)}\s*\(", source_text), (
+                        f"sourceLocator script member does not exist: {locator}"
+                    )
+            else:
+                assert "#" in locator, f"sourceLocator must be exact class#method: {locator}"
+                source_ref, member_name = locator.split("#", 1)
+                assert source_ref and member_name, f"sourceLocator must include source and member: {locator}"
+                relative_path = Path(*source_ref.split(".")).with_suffix(".java")
+                candidates = [
+                    path for pattern in (
+                        f"IntRuoyiBackend/*/src/main/java/{relative_path.as_posix()}",
+                        f"IntRuoyiBackend/yudao-framework/*/src/main/java/{relative_path.as_posix()}",
+                    )
+                    for path in WORKSPACE_ROOT.glob(pattern)
+                    if path.is_file()
+                ]
+                assert candidates, f"sourceLocator class does not exist: {locator}"
+                class_text = candidates[0].read_text(encoding="utf-8", errors="ignore")
+                assert re.search(rf"\b{re.escape(member_name)}\s*\(", class_text), (
+                    f"sourceLocator method does not exist: {locator}"
                 )
-        else:
-            assert "#" in locator, f"sourceLocator must be exact class#method: {locator}"
-            source_ref, member_name = locator.split("#", 1)
-            assert source_ref and member_name, f"sourceLocator must include source and member: {locator}"
-            relative_path = Path(*source_ref.split(".")).with_suffix(".java")
-            candidates = [
-                path for pattern in (
-                    f"IntRuoyiBackend/*/src/main/java/{relative_path.as_posix()}",
-                    f"IntRuoyiBackend/yudao-framework/*/src/main/java/{relative_path.as_posix()}",
-                )
-                for path in WORKSPACE_ROOT.glob(pattern)
-                if path.is_file()
-            ]
-            assert candidates, f"sourceLocator class does not exist: {locator}"
-            class_text = candidates[0].read_text(encoding="utf-8", errors="ignore")
-            assert re.search(rf"\b{re.escape(member_name)}\s*\(", class_text), (
-                f"sourceLocator method does not exist: {locator}"
-            )
-
 
 def test_write_boundary_scan_policy_covers_required_source_types() -> None:
     policy = _load_policy()
-    assert policy["writeBoundaryScan"]["registrationMode"] == "REGISTERED_OR_APPROVED_EXCLUSION"
-    approved_exclusions_file = policy["writeBoundaryScan"]["approvedExclusionsFile"]
+    assert policy["coverageScope"]["writeBoundaryScan"]["registrationMode"] == "REGISTERED_OR_APPROVED_EXCLUSION"
+    approved_exclusions_file = policy["coverageScope"]["writeBoundaryScan"]["approvedExclusionsFile"]
     assert isinstance(approved_exclusions_file, str) and approved_exclusions_file
     assert (WORKSPACE_ROOT / approved_exclusions_file).is_file()
-    scan_categories = policy["writeBoundaryScan"]["categories"]
+    scan_categories = policy["coverageScope"]["writeBoundaryScan"]["categories"]
     configured_types = {category["sourceType"] for category in scan_categories}
 
     assert configured_types == set(WRITE_BOUNDARY_PATTERNS), configured_types
@@ -160,7 +159,7 @@ def test_write_boundary_scan_policy_covers_required_source_types() -> None:
 
 def test_approved_exclusion_inventory_is_explicit_and_current() -> None:
     policy = _load_policy()
-    inventory_path = WORKSPACE_ROOT / policy["writeBoundaryScan"]["approvedExclusionsFile"]
+    inventory_path = WORKSPACE_ROOT / policy["coverageScope"]["writeBoundaryScan"]["approvedExclusionsFile"]
     records = [
         json.loads(line)
         for line in inventory_path.read_text(encoding="utf-8").splitlines()
@@ -208,11 +207,11 @@ def test_coverage_gate_rejects_unlisted_boundary_candidate(tmp_path: Path, monke
         for source_type in sorted(WRITE_BOUNDARY_PATTERNS)
     ]
     policy = {
-        "writeBoundaryScan": {
+        "coverageScope": {"writeBoundaryScan": {
             "registrationMode": "REGISTERED_OR_APPROVED_EXCLUSION",
             "approvedExclusionsFile": "approved.jsonl",
             "categories": categories,
-        }
+        }}
     }
     monkeypatch.setattr(gate, "registered_source_files", lambda root, operations: set())
     monkeypatch.setattr(
@@ -261,11 +260,11 @@ def test_coverage_gate_rejects_changed_approved_candidate(tmp_path: Path, monkey
         for source_type in sorted(WRITE_BOUNDARY_PATTERNS)
     ]
     policy = {
-        "writeBoundaryScan": {
+        "coverageScope": {"writeBoundaryScan": {
             "registrationMode": "REGISTERED_OR_APPROVED_EXCLUSION",
             "approvedExclusionsFile": "approved.jsonl",
             "categories": categories,
-        }
+        }}
     }
     monkeypatch.setattr(gate, "registered_source_files", lambda root, operations: set())
     monkeypatch.setattr(
@@ -280,7 +279,7 @@ def test_coverage_gate_rejects_changed_approved_candidate(tmp_path: Path, monkey
 
 def test_write_boundary_scan_finds_current_repo_candidates() -> None:
     policy = _load_policy()
-    scan_categories = policy["writeBoundaryScan"]["categories"]
+    scan_categories = policy["coverageScope"]["writeBoundaryScan"]["categories"]
 
     for category in scan_categories:
         source_type = category["sourceType"]

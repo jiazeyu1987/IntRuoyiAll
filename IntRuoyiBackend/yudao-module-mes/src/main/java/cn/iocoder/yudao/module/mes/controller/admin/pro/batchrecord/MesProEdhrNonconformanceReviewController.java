@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewActiveOrderRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewMaterialUploadRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,11 +20,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
@@ -66,6 +70,18 @@ public class MesProEdhrNonconformanceReviewController {
     public CommonResult<MesProEdhrNonconformanceReviewRespVO> dispose(
             @Valid @RequestBody MesProEdhrNonconformanceReviewDisposeReqVO reqVO) {
         return success(nonconformanceReviewService.dispose(reqVO));
+    }
+
+    @PostMapping("/{reviewId}/materials/upload")
+    @Operation(summary = "上传 eDHR 不合格评审材料")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:dispose')")
+    public CommonResult<MesProEdhrNonconformanceReviewMaterialUploadRespVO> uploadMaterial(
+            @PathVariable("reviewId") Long reviewId, @RequestParam("file") MultipartFile file) throws IOException {
+        if (file == null) {
+            throw new IllegalArgumentException("评审材料文件不能为空");
+        }
+        return success(nonconformanceReviewService.uploadMaterial(reviewId, file.getOriginalFilename(),
+                file.getContentType(), file.getBytes()));
     }
 
     @GetMapping("/page")

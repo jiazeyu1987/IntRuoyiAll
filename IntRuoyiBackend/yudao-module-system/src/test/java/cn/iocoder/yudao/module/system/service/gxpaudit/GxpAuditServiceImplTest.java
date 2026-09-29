@@ -179,7 +179,7 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {"resultStatus", "errorCode", "attemptedOperationId"})
     void attemptService_shouldBindFailureFactsThroughRealAppend(String field) {
-        insertPolicy("gxp.attempt.record", "GXP", "REQUEST_ATTEMPT", "CREATE", "REQUIRED_CATEGORY_AND_TEXT", "NOT_REQUIRED");
+        insertPolicy("gxp.attempt.record", "GXP", "REQUEST_ATTEMPT", "CREATE", "USER_REQUIRED", "NONE");
         GxpAuditAttemptServiceImpl attempts = new GxpAuditAttemptServiceImpl();
         // Real writer and isolated persistence; enclosing test supplies the transaction.
         ReflectionTestUtils.setField(attempts, "gxpAuditService", gxpAuditService);
@@ -239,9 +239,9 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
         loginUser.setInfo(Map.of("username", "qa.admin", LoginUser.INFO_KEY_NICKNAME, "质量管理员"));
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(loginUser, null));
         insertPolicy("edhr.execution.field.update", "EDHR", "EDHR_FIELD", "UPDATE",
-                "REQUIRED_CATEGORY_AND_TEXT", "NOT_REQUIRED");
+                "USER_REQUIRED", "NONE");
         insertPolicy("signature.record.create", "SIGNATURE", "SIGNATURE_RECORD", "CREATE",
-                "REQUIRED_CATEGORY_AND_TEXT", "REQUIRED");
+                "USER_REQUIRED", "REQUIRED");
         GxpAuditLedgerSequenceDO sequence = new GxpAuditLedgerSequenceDO();
         sequence.setTenantId(1L);
         sequence.setNextLedgerSequence(1L);
@@ -328,6 +328,17 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
 
         assertServiceException(() -> gxpAuditService.append(command),
                 GXP_AUDIT_REASON_REQUIRED, "edhr.execution.field.update");
+        assertEquals(0L, auditEventMapper.selectCount());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"USER_REQUIRED", "REQUIRED", "REQUIRED_CATEGORY_AND_TEXT"})
+    void userRequiredPolicyRejectsBlankReasonWithoutWritingAudit(String reasonPolicy) {
+        insertPolicy("test.user-required", "TEST", "TEST", "UPDATE", reasonPolicy, "NONE");
+        GxpAuditCommand input = command("test.user-required", "user-required-empty");
+        input.setReason(" ");
+        assertServiceException(() -> gxpAuditService.append(input),
+                GXP_AUDIT_REASON_REQUIRED, "test.user-required");
         assertEquals(0L, auditEventMapper.selectCount());
     }
 

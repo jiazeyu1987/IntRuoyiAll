@@ -2233,7 +2233,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus'
 import type {
@@ -2274,6 +2274,8 @@ import {
   type OnlineFilePreviewSource
 } from '@/api/common/filePreview'
 import { formatDateTimeValue } from '@/utils/formatTime'
+import { resolveUrlPathFileName } from '@/utils/fileName'
+import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 
 const props = defineProps<{
@@ -2324,6 +2326,65 @@ const gxpAuditDetailError = ref('')
 const selectedGxpAuditEvent = ref<GxpAuditEventRespVO>()
 let gxpAuditRequestId = 0
 let gxpAuditDetailRequestId = 0
+
+type DossierContextIdentity = {
+  activeOrderId: number | string
+  applicationId?: number | string
+}
+
+type DossierContextToken = {
+  key: string
+  generation: number
+  requestSequence: number
+  contextChanged: boolean
+}
+
+const createDossierRequestContext = () => {
+  let mounted = true
+  let generation = 0
+  let requestSequence = 0
+  let currentKey = 'none'
+
+  const resolveKey = (identity?: DossierContextIdentity) => JSON.stringify([
+    identity?.activeOrderId == null ? null : String(identity.activeOrderId),
+    identity?.applicationId == null ? null : String(identity.applicationId)
+  ])
+
+  const begin = (identity?: DossierContextIdentity): DossierContextToken => {
+    const key = resolveKey(identity)
+    const contextChanged = key !== currentKey
+    if (contextChanged) {
+      generation += 1
+      currentKey = key
+    }
+    requestSequence += 1
+    return { key, generation, requestSequence, contextChanged }
+  }
+
+  const capture = (identity: DossierContextIdentity): DossierContextToken | undefined => {
+    const key = resolveKey(identity)
+    return mounted && key === currentKey
+      ? { key, generation, requestSequence, contextChanged: false }
+      : undefined
+  }
+
+  const isCurrentContext = (token: DossierContextToken) =>
+    mounted && token.generation === generation && token.key === currentKey
+
+  const isCurrentRequest = (token: DossierContextToken) =>
+    isCurrentContext(token) && token.requestSequence === requestSequence
+
+  const invalidate = () => {
+    mounted = false
+    generation += 1
+    requestSequence += 1
+    currentKey = 'none'
+  }
+
+  return { begin, capture, isCurrentContext, isCurrentRequest, invalidate }
+}
+
+const dossierRequestContext = createDossierRequestContext()
 const router = useRouter()
 
 const displayMode = computed(() => props.displayMode || 'full')
@@ -4269,24 +4330,45 @@ const formatDossierFileSize = (value?: number | string) => {
 
 const loadDossierFiles = async () => {
   const activeOrderId = props.detail?.activeOrderId
+  const applicationId = props.pqcReleaseApplicationId
   if (!activeOrderId) {
+    dossierRequestContext.begin()
     dossierFiles.value = undefined
+    dossierFileLoading.value = false
     dossierFileError.value = ''
+    dossierFileUploadingKey.value = ''
+    dossierPreviewDialogVisible.value = false
+    selectedDossierPreviewSource.value = null
+    selectedDossierPreviewTitle.value = ''
     return
+  }
+  const requestToken = dossierRequestContext.begin({ activeOrderId, applicationId })
+  if (requestToken.contextChanged) {
+    dossierFiles.value = undefined
+    dossierFileUploadingKey.value = ''
+    dossierPreviewDialogVisible.value = false
+    selectedDossierPreviewSource.value = null
+    selectedDossierPreviewTitle.value = ''
   }
   dossierFileLoading.value = true
   dossierFileError.value = ''
   try {
-    dossierFiles.value = await getActiveOrderDossierFiles({
+    const response = await getActiveOrderDossierFiles({
       activeOrderId,
-      applicationId: props.pqcReleaseApplicationId
+      applicationId
     })
+    if (dossierRequestContext.isCurrentRequest(requestToken)) {
+      dossierFiles.value = response
+    }
   } catch (error) {
+    if (!dossierRequestContext.isCurrentRequest(requestToken)) return
     const message = error instanceof Error ? error.message : String(error || '资料文件加载失败')
     dossierFiles.value = undefined
     dossierFileError.value = message
   } finally {
-    dossierFileLoading.value = false
+    if (dossierRequestContext.isCurrentRequest(requestToken)) {
+      dossierFileLoading.value = false
+    }
   }
 }
 
@@ -4303,6 +4385,14 @@ const uploadDossierFile = async (categoryKey: string, options: UploadRequestOpti
     options.onError?.(new Error('缺少活跃订单ID') as UploadError)
     return
   }
+  const operationToken = dossierRequestContext.capture({
+    activeOrderId,
+    applicationId: props.pqcReleaseApplicationId
+  })
+  if (!operationToken) {
+    options.onError?.(new Error('资料上下文已切换，不能继续上传。') as UploadError)
+    return
+  }
   dossierFileUploadingKey.value = categoryKey
   try {
     await uploadActiveOrderDossierFile(
@@ -4314,15 +4404,26 @@ const uploadDossierFile = async (categoryKey: string, options: UploadRequestOpti
       },
       options.onProgress
     )
+    if (!dossierRequestContext.isCurrentContext(operationToken)) {
+      options.onSuccess?.({})
+      return
+    }
     options.onSuccess?.({})
     ElMessage.success('资料文件已上传')
+    if (!dossierRequestContext.isCurrentContext(operationToken)) return
     await loadDossierFiles()
   } catch (error) {
+    if (!dossierRequestContext.isCurrentContext(operationToken)) {
+      options.onError?.((error instanceof Error ? error : new Error(String(error))) as UploadError)
+      return
+    }
     const message = error instanceof Error ? error.message : String(error || '资料文件上传失败')
     dossierFileError.value = message
     options.onError?.((error instanceof Error ? error : new Error(message)) as UploadError)
   } finally {
-    dossierFileUploadingKey.value = ''
+    if (dossierRequestContext.isCurrentContext(operationToken)) {
+      dossierFileUploadingKey.value = ''
+    }
   }
 }
 
@@ -4341,24 +4442,12 @@ type NonconformanceReviewMaterialDisplay = {
   fileName: string
 }
 
-const decodeNonconformanceMaterialName = (value: string, fromUrl: boolean) => {
-  let current = value
-  while (true) {
-    const normalized = fromUrl ? current.replace(/\+/g, ' ') : current
-    const decoded = normalized.replace(/(?:%[0-9a-f]{2})+/gi, (encoded) =>
-      decodeURIComponent(encoded)
-    )
-    if (decoded === current) return decoded
-    current = decoded
-  }
-}
-
 const resolveNonconformanceReviewMaterials = (
   fact: TeamLeaderActiveOrderOperationFactRespVO
 ): NonconformanceReviewMaterialDisplay[] => {
   let materials: { fileId?: number; fileName?: string; url?: string }[]
   if (fact.reviewMaterialsJson) {
-    const payload = JSON.parse(fact.reviewMaterialsJson)
+    const payload = parseExactIntegerJson(fact.reviewMaterialsJson)
     if (!Array.isArray(payload?.activeMaterials)) {
       throw new Error('评审材料清单格式无效，无法显示。')
     }
@@ -4371,15 +4460,13 @@ const resolveNonconformanceReviewMaterials = (
     return []
   }
   return materials.map((material) => {
-    const persistedName = material.fileName?.trim()
+    const persistedName = material.fileName
     let fileName: string
-    if (persistedName) {
-      fileName = decodeNonconformanceMaterialName(persistedName, false)
+    if (persistedName?.trim()) {
+      fileName = persistedName
     } else {
       if (!material.url) throw new Error('评审材料缺少名称和路径，无法显示。')
-      const pathname = new URL(material.url, window.location.origin).pathname
-      fileName = decodeNonconformanceMaterialName(pathname.slice(pathname.lastIndexOf('/') + 1), true)
-      if (!fileName) throw new Error('评审材料名称为空，无法显示。')
+      fileName = resolveUrlPathFileName(material.url)
     }
     return { fileId: material.fileId, fileName }
   })
@@ -4407,11 +4494,17 @@ const deleteDossierFile = async (categoryKey: string, file: ActiveOrderDossierFi
     ElMessage.error('缺少资料文件来源，不能删除。')
     return
   }
+  const operationToken = dossierRequestContext.capture({
+    activeOrderId,
+    applicationId: props.pqcReleaseApplicationId
+  })
+  if (!operationToken) return
   await ElMessageBox.confirm(`确认删除资料文件“${file.fileName || file.attachmentId}”？`, '删除确认', {
     confirmButtonText: '删除',
     cancelButtonText: '取消',
     type: 'warning'
   })
+  if (!dossierRequestContext.isCurrentContext(operationToken)) return
   try {
     await deleteActiveOrderDossierFile({
       activeOrderId,
@@ -4419,9 +4512,12 @@ const deleteDossierFile = async (categoryKey: string, file: ActiveOrderDossierFi
       categoryKey,
       attachmentId: file.attachmentId
     })
+    if (!dossierRequestContext.isCurrentContext(operationToken)) return
     ElMessage.success('资料文件已删除')
+    if (!dossierRequestContext.isCurrentContext(operationToken)) return
     await loadDossierFiles()
   } catch (error) {
+    if (!dossierRequestContext.isCurrentContext(operationToken)) return
     dossierFileError.value = error instanceof Error ? error.message : String(error || '资料文件删除失败')
   }
 }
@@ -4473,6 +4569,17 @@ watch(
 watch(gxpAuditDetailVisible, (visible) => {
   if (!visible) resetGxpAuditDetail()
 }, { flush: 'sync' })
+
+onBeforeUnmount(() => {
+  dossierRequestContext.invalidate()
+  dossierFiles.value = undefined
+  dossierFileLoading.value = false
+  dossierFileError.value = ''
+  dossierFileUploadingKey.value = ''
+  dossierPreviewDialogVisible.value = false
+  selectedDossierPreviewSource.value = null
+  selectedDossierPreviewTitle.value = ''
+})
 </script>
 <style scoped>
 .team-leader-workbench__active-order-detail {

@@ -83,10 +83,11 @@ class GxpAuditPolicyActivationLockBehaviorTest {
         ObjectNode node = JsonNodeFactory.instance.objectNode();
         ObjectNode operation = node.putArray("operations").addObject();
         for (String key : List.of("operationId", "sourceType", "sourceLocator", "domain", "subjectType",
-                "actionType", "reasonPolicy", "signaturePolicy", "statePolicy", "retentionClass", "owner",
+                "actionType", "reasonPolicy", "signaturePolicy", "statePolicy", "retentionClass", "ownerRole",
                 "applicability")) {
             operation.put(key, "TEST_ONLY");
         }
+        operation.putArray("sourceLocators").add("TEST_ONLY");
         operation.putArray("testIds").add("ACT02-LOCK");
         bundle = new GxpAuditPolicyBundle("gxp-audit-policy.v2", "test-v1", "APPROVED",
                 "TEST-ONLY-APPROVAL", "a".repeat(64), "b".repeat(64), node.toString(),

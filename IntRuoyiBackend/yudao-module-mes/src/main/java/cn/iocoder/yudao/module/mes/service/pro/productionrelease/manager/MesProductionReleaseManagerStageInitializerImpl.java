@@ -90,10 +90,18 @@ public class MesProductionReleaseManagerStageInitializerImpl
                             ? "reload and verify the active-order formal fact receipt"
                             : "reload and verify all four completed report evidences");
         }
-        if (releaseTransactionMapper.selectCurrentByBatchExecutionId(command.getBatchExecutionId()) != null) {
-            throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
-                    "the release batch already has a release transaction",
-                    "use the existing authoritative release transaction");
+        MesProEdhrReleaseTransactionDO existingTransaction =
+                releaseTransactionMapper.selectCurrentByBatchExecutionId(command.getBatchExecutionId());
+        if (existingTransaction != null) {
+            existingTransaction = releaseTransactionMapper.selectByIdForUpdate(existingTransaction.getId());
+            if (existingTransaction == null
+                    || !Objects.equals(existingTransaction.getBatchExecutionId(), command.getBatchExecutionId())
+                    || !isStandalonePrecheckStatus(existingTransaction.getReleaseStatus())
+                    || existingTransaction.getVersion() == null) {
+                throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                        "release transaction changed before formal manager-stage promotion",
+                        "use the current authoritative release transaction");
+            }
         }
         MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(command.getBatchExecutionId());
         if (batch == null) {
@@ -113,7 +121,22 @@ public class MesProductionReleaseManagerStageInitializerImpl
 
         MesProEdhrReleaseTransactionDO transaction = buildTransaction(
                 batch, application, command.getReportSnapshotHash(), businessReadiness);
-        if (releaseTransactionMapper.insert(transaction) != 1 || transaction.getId() == null) {
+        if (existingTransaction != null) {
+            com.alibaba.fastjson.JSONObject snapshot = JSON.parseObject(transaction.getPrecheckSnapshotJson());
+            Map<String, Object> prior = new java.util.LinkedHashMap<>();
+            prior.put("transactionId", existingTransaction.getId());
+            prior.put("status", existingTransaction.getReleaseStatus());
+            prior.put("version", existingTransaction.getVersion());
+            prior.put("snapshotJson", existingTransaction.getPrecheckSnapshotJson());
+            snapshot.put("standalonePrecheck", prior);
+            transaction.setId(existingTransaction.getId())
+                    .setReleaseCode(existingTransaction.getReleaseCode())
+                    .setVersion(Math.addExact(existingTransaction.getVersion(), 1))
+                    .setPrecheckSnapshotJson(JSON.toJSONString(snapshot));
+            if (releaseTransactionMapper.updateById(transaction) != 1) {
+                throw new IllegalStateException("standalone precheck promotion failed");
+            }
+        } else if (releaseTransactionMapper.insert(transaction) != 1 || transaction.getId() == null) {
             throw new IllegalStateException("manager release transaction insert failed");
         }
         MesProEdhrWorkTaskDO workTask = buildWorkTask(batch, application, transaction, candidates);
@@ -178,6 +201,12 @@ public class MesProductionReleaseManagerStageInitializerImpl
                     "enabled management representative candidates are required",
                     "configure the tenant management representative role and enabled members");
         }
+    }
+
+    private boolean isStandalonePrecheckStatus(String status) {
+        return MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_REQUIRED.equals(status)
+                || MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_FAILED.equals(status)
+                || MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED.equals(status);
     }
 
     private MesProEdhrReleaseTransactionDO buildTransaction(

@@ -421,7 +421,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         gxpAuditService.acquireLedgerLock();
         MesProEdhrReleaseTransactionDO existingTransaction = null;
         if (reqVO.getReleaseTransactionId() != null) {
-            existingTransaction = releaseTransactionMapper.selectById(reqVO.getReleaseTransactionId());
+            existingTransaction = releaseTransactionMapper.selectByIdForUpdate(reqVO.getReleaseTransactionId());
             if (existingTransaction == null) {
                 throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
             }
@@ -433,6 +433,12 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 || STATUS_REJECTED.equals(existingTransaction.getReleaseStatus())
                 ? releaseTransactionMapper.selectCurrentByBatchExecutionId(batch.getId()) : existingTransaction;
         if (transaction != null) {
+            if (existingTransaction == null || !Objects.equals(transaction.getId(), existingTransaction.getId())) {
+                transaction = releaseTransactionMapper.selectByIdForUpdate(transaction.getId());
+                if (transaction == null) {
+                    throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+                }
+            }
             requirePrecheckEditable(transaction);
         }
         GxpAuditStateEnvelope auditBefore = releasePreparationState(transaction);

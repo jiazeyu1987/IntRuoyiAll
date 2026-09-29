@@ -1,6 +1,5 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
-import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.jackson.config.YudaoJacksonAutoConfiguration;
@@ -17,6 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEv
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionReceiptHash;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionPublishProjectionServiceImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -184,12 +184,73 @@ class MesProEdhrReverseTraceR2Test {
         validDynamicFieldStillHasCatalogMatchAndEvidenceWhenOtherCategoriesHaveNoRecords();
     }
 
+    @Test
+    void mysqlJsonFormattingAndObjectKeyOrderMustNotInvalidateCanonicalSourceHash() throws Exception {
+        var receipt = receipts.get(9002L);
+        var origin = origins.get(9002L);
+        String canonicalHash = canonicalSourceHash(receipt.getFormalSourceSnapshotJson(),
+                receipt.getLossConditionFactsJson());
+        receipt.setSourceSnapshotHash(canonicalHash);
+        receipt.setFormalSourceSnapshotJson(" { \"workOrderBinding\" : { \"id\" : 1001 }, "
+                + "\"pqcDetails\" : [ ], \"activeOrderBinding\" : { \"routeVersionId\" : 2002,"
+                + "\"routeId\" : 2001, \"workOrderId\" : 1001, \"tenantId\" : 1, \"id\" : 6001 },"
+                + "\"formalProductIssueDetails\" : { }, \"completions\" : [ ], \"snapshots\" : [ ],"
+                + "\"allocations\" : [ ], \"pickListBindings\" : [ ], \"pickListBindingItems\" : { },"
+                + "\"formalProductIssues\" : [ ], \"pqcTasks\" : [ ] } ");
+        receipt.setLossConditionFactsJson(" [ ] ");
+        receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
+        origin.setSourceSnapshotHash(canonicalHash).setCompletionBackfillReceiptHash(receipt.getReceiptHash());
+
+        assertDoesNotThrow(() -> MesProEdhrReverseTraceReceiptValidator.validate(
+                batch(9002L), origin, receipt));
+    }
+
+    @Test
+    void nestedLossJsonFormattingMustUseTheSameCanonicalSourceContract() throws Exception {
+        var receipt = receipts.get(9002L);
+        var origin = origins.get(9002L);
+        String rawLoss = "[{\"b\":{\"y\":2,\"x\":1},\"a\":1}]";
+        String equivalentLoss = " [ { \"a\" : 1.0, \"b\" : { \"x\" : 1, \"y\" : 2 } } ] ";
+        receipt.setLossConditionFactsJson(equivalentLoss);
+        receipt.setSourceSnapshotHash(canonicalSourceHash(receipt.getFormalSourceSnapshotJson(), rawLoss));
+        receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
+        origin.setSourceSnapshotHash(receipt.getSourceSnapshotHash())
+                .setCompletionBackfillReceiptHash(receipt.getReceiptHash());
+
+        assertDoesNotThrow(() -> MesProEdhrReverseTraceReceiptValidator.validate(
+                batch(9002L), origin, receipt));
+    }
+
+    @Test
+    void changingFormalSourceAndRehashingReceiptMustStillConflictWithImmutableOrigin() throws Exception {
+        var receipt = receipts.get(9002L);
+        var origin = origins.get(9002L);
+        String originalSourceHash = origin.getSourceSnapshotHash();
+        receipt.setFormalSourceSnapshotJson(receipt.getFormalSourceSnapshotJson()
+                .replace("\"completions\":[]", "\"completions\":[{\"id\":999}]"));
+        receipt.setSourceSnapshotHash(canonicalSourceHash(receipt.getFormalSourceSnapshotJson(),
+                receipt.getLossConditionFactsJson()));
+        receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
+        origin.setCompletionBackfillReceiptHash(receipt.getReceiptHash());
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> MesProEdhrReverseTraceReceiptValidator.validate(batch(9002L), origin, receipt));
+        assertTrue(exception.getMessage().startsWith("SOURCE_CONFLICT:"));
+        assertEquals(originalSourceHash, origin.getSourceSnapshotHash());
+    }
+
     private void bindHashes(MesProcessPoolActiveOrderCompletionReceiptDO receipt, MesProEdhrBatchExecutionOriginDO origin) {
-        receipt.setSourceSnapshotHash(DigestUtil.sha256Hex(
-                DigestUtil.sha256Hex(receipt.getFormalSourceSnapshotJson()) + "|" + receipt.getLossConditionFactsJson()));
+        receipt.setSourceSnapshotHash(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer
+                .sourceSnapshotHash(receipt.getFormalSourceSnapshotJson(), receipt.getLossConditionFactsJson()));
         receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
         origin.setSourceSnapshotHash(receipt.getSourceSnapshotHash());
         origin.setCompletionBackfillReceiptHash(receipt.getReceiptHash());
+    }
+
+    private String canonicalSourceHash(String formalSourceSnapshotJson, String lossConditionFactsJson)
+            throws Exception {
+        return MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.sourceSnapshotHash(
+                formalSourceSnapshotJson, lossConditionFactsJson);
     }
 
     @Test
@@ -328,8 +389,8 @@ class MesProEdhrReverseTraceR2Test {
                     default -> throw new IllegalArgumentException(defect);
                 }
                 receipt.setFormalSourceSnapshotJson(defect.equals("snapshotRoot") ? "[]" : snapshot.toJSONString());
-                receipt.setSourceSnapshotHash(DigestUtil.sha256Hex(
-                        DigestUtil.sha256Hex(receipt.getFormalSourceSnapshotJson()) + "|" + receipt.getLossConditionFactsJson()));
+                receipt.setSourceSnapshotHash(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer
+                        .sourceSnapshotHash(receipt.getFormalSourceSnapshotJson(), receipt.getLossConditionFactsJson()));
                 origin.setSourceSnapshotHash(receipt.getSourceSnapshotHash());
                 receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
                 origin.setCompletionBackfillReceiptHash(receipt.getReceiptHash());
@@ -375,7 +436,8 @@ class MesProEdhrReverseTraceR2Test {
                 .setProcessInspectionStatus(MesProcessPoolActiveOrderCompletionReceiptDO.BACKFILL_STATUS_SUCCESS)
                 .setCompletedVersion(1).setBatchRecordId(8201L).setProcessInspectionId(8301L);
         receipt.setTenantId(1L);
-        receipt.setSourceSnapshotHash(DigestUtil.sha256Hex(DigestUtil.sha256Hex(snapshot) + "|[]"));
+        receipt.setSourceSnapshotHash(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer
+                .sourceSnapshotHash(snapshot, "[]"));
         receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
         return receipt;
     }
