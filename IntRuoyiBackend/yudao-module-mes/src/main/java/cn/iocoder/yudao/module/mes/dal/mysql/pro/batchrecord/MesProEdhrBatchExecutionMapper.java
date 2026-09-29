@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.QuickFilterUtils;
@@ -10,11 +11,14 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import cn.hutool.core.util.StrUtil;
 
 @Mapper
 public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBatchExecutionDO> {
@@ -31,6 +35,47 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
     @Select("SELECT * FROM mes_pro_edhr_batch_execution WHERE id = #{id} "
             + "AND deleted = b'0' FOR UPDATE")
     MesProEdhrBatchExecutionDO selectByIdForUpdate(@Param("id") Long id);
+
+    default MesProEdhrBatchExecutionDO selectByTenantIdAndIdForUpdate(Long tenantId, Long id) {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .eq(MesProEdhrBatchExecutionDO::getTenantId, tenantId)
+                .eq(MesProEdhrBatchExecutionDO::getId, id)
+                .eq(MesProEdhrBatchExecutionDO::getDeleted, false)
+                .last("FOR UPDATE"));
+    }
+
+    default MesProEdhrBatchExecutionDO selectByTenantIdAndId(Long tenantId, Long id) {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .eq(MesProEdhrBatchExecutionDO::getTenantId, tenantId)
+                .eq(MesProEdhrBatchExecutionDO::getId, id));
+    }
+
+    default PageResult<MesProEdhrBatchExecutionDO> selectDeviationOptionsPage(
+            PageParam pageParam, Long tenantId, String search) {
+        LambdaQueryWrapperX<MesProEdhrBatchExecutionDO> query = new LambdaQueryWrapperX<>();
+        query.eq(MesProEdhrBatchExecutionDO::getTenantId, tenantId)
+                .ne(MesProEdhrBatchExecutionDO::getStatus, BATCH_STATUS_VOIDED)
+                .notExists("SELECT 1 FROM mes_pro_edhr_release_transaction rt "
+                        + "WHERE rt.tenant_id = mes_pro_edhr_batch_execution.tenant_id "
+                        + "AND rt.batch_execution_id = mes_pro_edhr_batch_execution.id "
+                        + "AND rt.deleted = 0 AND rt.release_status = 'RELEASED'");
+        // Deviations must be traceable from the active-order detail. Exclude legacy/manual
+        // batches that have no formal active-order origin from the initiation selector.
+        query.exists("SELECT 1 FROM mes_pro_edhr_batch_execution_origin origin "
+                + "WHERE origin.tenant_id = mes_pro_edhr_batch_execution.tenant_id "
+                + "AND origin.batch_execution_id = mes_pro_edhr_batch_execution.id "
+                + "AND origin.deleted = 0 AND origin.active_order_id IS NOT NULL "
+                + "AND origin.entry_type IN ('ACTIVE_ORDER_COMPLETION','ACTIVE_ORDER_SCHEDULED',"
+                + "'ACTIVE_ORDER_PQC','MANUAL_CONTROLLED_RETRY')");
+        if (StrUtil.isNotBlank(search)) {
+            query.and(wrapper -> wrapper
+                    .like(MesProEdhrBatchExecutionDO::getBatchExecutionCode, search)
+                    .or()
+                    .like(MesProEdhrBatchExecutionDO::getBatchCode, search));
+        }
+        query.orderByDesc(MesProEdhrBatchExecutionDO::getId);
+        return selectPage(pageParam, query);
+    }
 
     @Update("UPDATE mes_pro_edhr_batch_execution SET provisioning_status = #{status} "
             + "WHERE tenant_id = #{tenantId} AND id = #{id}")

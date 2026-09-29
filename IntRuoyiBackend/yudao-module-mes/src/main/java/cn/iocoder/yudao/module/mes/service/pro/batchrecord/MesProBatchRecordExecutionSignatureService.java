@@ -64,6 +64,13 @@ public class MesProBatchRecordExecutionSignatureService {
     public static final String ACTION_ROUTE_FORM_OPTIONAL_SKIP = "ROUTE_FORM_OPTIONAL_SKIP";
     public static final String ACTION_QA_DISPOSITION = "QA_DISPOSITION";
     public static final String ACTION_NONCONFORMANCE_REVIEW_CREATE = "NONCONFORMANCE_REVIEW_CREATE";
+    public static final String ACTION_DEVIATION_INITIATION = "DEVIATION_INITIATION";
+    public static final String ACTION_DEVIATION_HANDLING_PREPARE = "DEVIATION_HANDLING_PREPARE";
+    public static final String ACTION_DEVIATION_HANDLING_VERIFY = "DEVIATION_HANDLING_VERIFY";
+    public static final String ACTION_DEVIATION_HANDLING_DEPARTMENT = "DEVIATION_HANDLING_DEPARTMENT";
+    public static final String ACTION_DEVIATION_HANDLING_QA = "DEVIATION_HANDLING_QA";
+    public static final String ACTION_DEVIATION_HANDLING_QUALITY = "DEVIATION_HANDLING_QUALITY";
+    public static final String ACTION_DEVIATION_HANDLING_MANAGEMENT = "DEVIATION_HANDLING_MANAGEMENT";
     public static final String SIGNATURE_MODE_PASSWORD = "PASSWORD";
     public static final String SIGNATURE_MODE_DRAFT_SESSION = "DRAFT_SESSION";
     public static final String SIGNATURE_MODE_SIMULATION_SESSION = "SIMULATION_SESSION";
@@ -188,6 +195,48 @@ public class MesProBatchRecordExecutionSignatureService {
         return recordSignatureForActor(actorId, 0L, password, comment, ACTION_NONCONFORMANCE_REVIEW_CREATE,
                 null, null, null, null, null, null, null, "EDHR_NONCONFORMANCE_REVIEW", reviewId,
                 "eDHR不合格评审创建", ACTION_NONCONFORMANCE_REVIEW_CREATE, comment, null, null, aggregateHash, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordDeviationInitiationSignature(Long actorId, Long batchExecutionId,
+                                                   Long deviationId, String deviationCode,
+                                                   String batchExecutionCode, String password,
+                                                   String contentHash) {
+        if (batchExecutionId == null || batchExecutionId <= 0
+                || deviationId == null || deviationId <= 0
+                || StrUtil.isBlank(deviationCode) || StrUtil.isBlank(contentHash)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        }
+        String intent = "发起偏差 " + deviationCode + "，批记录 " + batchExecutionCode;
+        return recordSignatureForActor(actorId, 0L, password, intent, ACTION_DEVIATION_INITIATION,
+                null, null, null, null, null, null, null,
+                "EDHR_DEVIATION", deviationId, intent, ACTION_DEVIATION_INITIATION,
+                intent, null, null, contentHash, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordDeviationHandlingSignature(Long actorId, Long deviationId, Long handlingId,
+                                                 String deviationCode, String node, Integer contentVersion,
+                                                 String contentHash, String password, String comment) {
+        if (deviationId == null || deviationId <= 0 || handlingId == null || handlingId <= 0
+                || StrUtil.isBlank(deviationCode) || StrUtil.isBlank(node)
+                || contentVersion == null || contentVersion <= 0 || StrUtil.isBlank(contentHash)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        }
+        String actionType = switch (node) {
+            case "PREPARER" -> ACTION_DEVIATION_HANDLING_PREPARE;
+            case "VERIFIER" -> ACTION_DEVIATION_HANDLING_VERIFY;
+            case "DEPARTMENT_OWNER" -> ACTION_DEVIATION_HANDLING_DEPARTMENT;
+            case "QA" -> ACTION_DEVIATION_HANDLING_QA;
+            case "QUALITY_OWNER" -> ACTION_DEVIATION_HANDLING_QUALITY;
+            case "MANAGEMENT_REP" -> ACTION_DEVIATION_HANDLING_MANAGEMENT;
+            default -> throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        };
+        String intent = "偏差 " + deviationCode + " 处理节点 " + node;
+        return recordSignatureForActor(actorId, 0L, password, intent, actionType,
+                null, null, null, null, null, null, null,
+                "EDHR_DEVIATION_HANDLING", handlingId, intent, node, comment,
+                (long) contentVersion, contentHash, contentHash, null);
     }
 
     public void validatePqcSubmitSignature(Long actorId, String password) {
@@ -888,6 +937,13 @@ public class MesProBatchRecordExecutionSignatureService {
             case ACTION_NONCONFORMANCE_REJECT -> "发起eDHR不合格评审";
             case ACTION_QA_DISPOSITION -> "QA不合格评审处置";
             case ACTION_NONCONFORMANCE_REVIEW_CREATE -> "创建eDHR不合格评审";
+            case ACTION_DEVIATION_INITIATION -> "发起eDHR偏差";
+            case ACTION_DEVIATION_HANDLING_PREPARE -> "偏差处理编制";
+            case ACTION_DEVIATION_HANDLING_VERIFY -> "偏差处理验证";
+            case ACTION_DEVIATION_HANDLING_DEPARTMENT -> "偏差部门负责人确认";
+            case ACTION_DEVIATION_HANDLING_QA -> "偏差QA关闭确认";
+            case ACTION_DEVIATION_HANDLING_QUALITY -> "偏差质量负责人批准";
+            case ACTION_DEVIATION_HANDLING_MANAGEMENT -> "关键偏差管理者代表批准";
             default -> actionType;
         };
     }

@@ -45,6 +45,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTr
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseDecisionMapper;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
@@ -209,6 +210,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     @Resource
     private GxpAuditService gxpAuditService;
+    @Resource
+    private MesProEdhrDeviationService deviationService;
     @Resource
     private MesProBatchRecordExecutionSignatureService executionSignatureService;
 
@@ -638,7 +641,10 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         command.setActorUserId(authenticatedActorUserId);
         if (command.getAction() == MesReleaseFinalizationAction.APPROVE) {
             hydrateBatchExecutionIdFromReleaseTransaction(command);
-            MesProEdhrReleaseTransactionDO current = requireTransactionForUpdate(command.getReleaseTransactionId());
+            // This read only identifies an already-completed manager replay. Mutating approval is locked in
+            // finalizeApproval after it locks the batch row, preserving the batch -> release lock order shared
+            // with deviation creation.
+            MesProEdhrReleaseTransactionDO current = requireTransaction(command.getReleaseTransactionId());
             nonconformanceReviewService.ensureBatchNotFrozen(command.getBatchExecutionId(), "上市放行");
             if (STATUS_RELEASED.equals(current.getReleaseStatus())
                     && managerApprovalService.isManagedReleaseTransaction(current.getId())) {
@@ -737,11 +743,22 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrReleaseRespVO finalizeApproval(
             MesReleaseFinalizationCommand command,
             MesReleaseFinalizationEvidence evidence) {
-        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(command.getReleaseTransactionId());
-        if (!Objects.equals(transaction.getBatchExecutionId(), command.getBatchExecutionId())) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        MesProEdhrReleaseTransactionDO observed = requireTransaction(command.getReleaseTransactionId());
+        Long batchExecutionId = observed.getBatchExecutionId();
+        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(
+                tenantId, batchExecutionId);
+        if (batch == null || !Objects.equals(batch.getTenantId(), tenantId)
+                || !Objects.equals(batch.getId(), batchExecutionId)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
         }
-        MesProEdhrBatchExecutionDO batch = requireBatchExecution(command.getBatchExecutionId());
+        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(command.getReleaseTransactionId());
+        if (!Objects.equals(transaction.getBatchExecutionId(), batchExecutionId)
+                || !Objects.equals(transaction.getBatchExecutionId(), command.getBatchExecutionId())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        }
+        // Both deviation creation and final market release lock the batch first, then the release transaction.
+        deviationService.ensureNoOpenDeviationForMarketRelease(tenantId, batchExecutionId);
         if (managerApprovalService.isManagedReleaseTransaction(command.getReleaseTransactionId())) {
             MesProEdhrReleaseApproveReqVO approve = new MesProEdhrReleaseApproveReqVO()
                     .setReleaseTransactionId(command.getReleaseTransactionId())

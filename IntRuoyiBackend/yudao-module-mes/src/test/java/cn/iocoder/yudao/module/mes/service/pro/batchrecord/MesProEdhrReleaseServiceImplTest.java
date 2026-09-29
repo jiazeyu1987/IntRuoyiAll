@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.signature.BpmApprovalSignatureRecordDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.signature.BpmApprovalSignatureRecordMapper;
@@ -48,11 +49,14 @@ import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import org.springframework.jdbc.core.JdbcTemplate;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerApprovalService;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseUpstreamStatePort;
@@ -76,9 +80,11 @@ import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
+import javax.sql.DataSource;
 
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomLongId;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_PRECHECK_REQUIRED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_DEVIATION_MARKET_RELEASE_BLOCKED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_PASSWORD_FAILED;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -96,7 +102,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Import({MesProEdhrReleaseServiceImpl.class, MesProEdhrCandidateResolver.class})
+@Import({MesProEdhrReleaseServiceImpl.class, MesProEdhrCandidateResolver.class,
+        MesProEdhrDeviationServiceImpl.class, MesProEdhrDeviationNumberGenerator.class})
 class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
 
     @Resource
@@ -233,7 +240,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     @Test
     void terminalPolicyRemainsUnapprovedDraftOutsideRuntimeBundle() throws Exception {
         var mapper = new com.fasterxml.jackson.databind.ObjectMapper(new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
-        String yaml = Files.readString(Path.of("../../doc/tasks/20260928-gxp20-review-fixes/gxp-audit-release-terminal-policy.draft.yaml"));
+        String yaml = Files.readString(Path.of("src/test/resources/gxp/gxp-audit-release-terminal-policy.draft.yaml"));
         var proposal = mapper.readTree(yaml);
         assertEquals("DRAFT", proposal.path("status").asText());
         assertTrue(proposal.path("approvalReference").isNull());
@@ -351,7 +358,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     @Test
     void m8PolicyProposalIsNotApprovedOrPackaged() throws Exception {
         var mapper = new com.fasterxml.jackson.databind.ObjectMapper(new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
-        String yaml = Files.readString(Path.of("../../doc/tasks/20260928-gxp20-review-fixes/gxp-audit-release-preparation-policy.draft.yaml"));
+        String yaml = Files.readString(Path.of("src/test/resources/gxp/gxp-audit-release-preparation-policy.draft.yaml"));
         var proposal = mapper.readTree(yaml);
         assertEquals("DRAFT", proposal.path("status").asText());
         assertTrue(proposal.path("approvalReference").isNull());
@@ -394,13 +401,13 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         org.springframework.test.util.ReflectionTestUtils.setField(writer, "policyOperationMapper", policies);
         var ledgerMapper = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper.class);
         var watermark = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO();
-        watermark.setTenantId(1L);
+        watermark.setTenantId(0L);
         watermark.setNextLedgerSequence(1L);
-        when(ledgerMapper.selectByTenantIdForUpdate(1L)).thenReturn(watermark);
+        when(ledgerMapper.selectByTenantIdForUpdate(0L)).thenReturn(watermark);
         var activationMapper = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper.class);
         var activation = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyActivationDO();
         activation.setPolicyVersion("M8-MISSING-OPERATION");
-        when(activationMapper.selectLatestForUpdate(1L)).thenReturn(activation);
+        when(activationMapper.selectLatestForUpdate(0L)).thenReturn(activation);
         org.springframework.test.util.ReflectionTestUtils.setField(writer, "ledgerSequenceMapper", ledgerMapper);
         org.springframework.test.util.ReflectionTestUtils.setField(writer, "policyActivationMapper", activationMapper);
         org.mockito.Mockito.doAnswer(i -> {
@@ -411,9 +418,9 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.GXP_AUDIT_POLICY_NOT_FOUND.getCode(), failure.getCode());
         assertEquals(auditCount, m8AuditMapper.selectCount());
         assertEquals(null, releaseTransactionMapper.selectByBatchExecutionId(batch.getId()));
-        verify(ledgerMapper).selectByTenantIdForUpdate(1L);
-        verify(activationMapper).selectLatestForUpdate(1L);
-        verify(policies).selectByPolicyVersionForUpdate(1L, "M8-MISSING-OPERATION", "mes.market-release.precheck-create");
+        verify(ledgerMapper).selectByTenantIdForUpdate(0L);
+        verify(activationMapper).selectLatestForUpdate(0L);
+        verify(policies).selectByPolicyVersionForUpdate(0L, "M8-MISSING-OPERATION", "mes.market-release.precheck-create");
     }
 
     @Test
@@ -554,6 +561,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Resource
+    private DataSource dataSource;
+    @Resource
     private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
     @Resource
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
@@ -612,6 +621,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
 
     @BeforeEach
     void setUpDossierRequirementDefaults() {
+        TenantContextHolder.setTenantId(0L);
         mockDossierRequirementState(false, false, false, false, "dossier-hash-all-false");
         mockReleaseCompletenessSourcesAsNotApplicable();
         when(fourMaterialGateService.evaluate(any())).thenAnswer(invocation ->
@@ -656,6 +666,11 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                             .setIssuedAt(LocalDateTime.now())
                             : null);
         });
+    }
+
+    @AfterEach
+    void clearTenantContext() {
+        TenantContextHolder.clear();
     }
 
     @Test
@@ -1404,6 +1419,44 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals(10001L, closed.getClosedBy());
         assertNotNull(closed.getClosedAt());
         verify(workTaskService).createArchiveTaskAfterBatchClose(any());
+    }
+
+    @Test
+    void approveRejectsOpenDeviationAfterAcquiringBatchLockAndKeepsReleasePending() {
+        MesProEdhrBatchExecutionDO batch = insertReadyToCloseBatch("BATCH-REL-OPEN-DEVIATION-BLOCK");
+        MesProEdhrReleaseRespVO precheck = insertPendingApprovalRelease(batch);
+        MesProEdhrWorkTaskDO approvalTask = releaseApprovalTask(precheck.getReleaseTransactionId(), 7907L);
+        when(workTaskService.validateReleaseApprovalTask(any(), any())).thenReturn(approvalTask);
+        String signatureUrl = "http://localhost/signature/edhr-release-open-deviation.png";
+        String signoffEvidenceHash = DigestUtil.sha256Hex(signatureUrl);
+        when(approvalSignatureRecordMapper.selectList(any())).thenReturn(List.of(
+                BpmApprovalSignatureRecordDO.builder()
+                        .moduleCode("EDHR")
+                        .sourceTaskType("EDHR_WORK_TASK")
+                        .sourceTaskId(String.valueOf(approvalTask.getId()))
+                        .signerUserId(10001L)
+                        .reviewResult("APPROVE")
+                        .passwordVerified(Boolean.TRUE)
+                        .signatureImageFileUrl(signatureUrl)
+                        .build()));
+        new JdbcTemplate(dataSource).update("INSERT INTO mes_pro_edhr_deviation "
+                        + "(tenant_id, deviation_code, batch_execution_id, status, deleted) "
+                        + "VALUES (?, ?, ?, ?, ?)",
+                0L, "PC-202610-0091", batch.getId(), "OPEN", false);
+        MesProEdhrReleaseApproveReqVO request = approvalRequest(precheck, batch, approvalTask,
+                "approve-open-deviation", signoffEvidenceHash, "偏差未关闭不应上市放行");
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("审批放行人");
+            ServiceException error = assertThrows(ServiceException.class, () -> releaseService.approve(request));
+            assertEquals(PRO_EDHR_DEVIATION_MARKET_RELEASE_BLOCKED.getCode(), error.getCode());
+        }
+
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL,
+                releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE,
+                batchExecutionMapper.selectById(batch.getId()).getStatus());
     }
 
     @Test

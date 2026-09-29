@@ -25,6 +25,7 @@ import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapp
 import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureSealMapper;
 import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureTimeEvidenceMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
@@ -196,6 +197,7 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
     @Test
     public void testQueryEvidence_listsSubjectAndVerifiesStoredHashes() {
         ElectronicSignatureCommand command = buildCommand("idem-006", "V1", "审批通过");
+        when(adminUserApi.getUser(101L)).thenReturn(new AdminUserRespDTO().setId(101L).setNickname("张三"));
 
         try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
             mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
@@ -206,6 +208,7 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
             ElectronicSignatureEvidenceDTO item = evidence.get(0);
             assertEquals(signed.signatureId(), item.id());
             assertEquals("APPROVE", item.actionCode());
+            assertEquals("张三", item.actorDisplayName());
             assertEquals("{\"name\":\"record\",\"version\":\"V1\"}", item.canonicalContentJson());
 
             ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signed.signatureId());

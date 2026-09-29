@@ -1916,6 +1916,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-deviation',
+        component: () => import('@/views/mes/pro/edhr-deviation/index.vue'),
+        name: 'MesProEdhrDeviation',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '偏差管理',
+          activeMenu: '/mes/pro/feedback/edhr-deviation',
+          permission: ['mes:pro-edhr-deviation:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-batch-execution',
         component: () => import('@/views/mes/pro/edhr-batch/BatchExecutionListPage.vue'),
         name: 'MesProEdhrBatchExecutionListPage',

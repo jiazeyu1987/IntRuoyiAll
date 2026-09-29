@@ -20,6 +20,15 @@ public interface MesProBatchRecordExecutionSignatureMapper extends BaseMapperX<M
                 .orderByDesc(MesProBatchRecordExecutionSignatureDO::getSignedAt));
     }
 
+    default List<MesProBatchRecordExecutionSignatureDO> selectListByReviewSource(String reviewSourceType,
+                                                                                   Long reviewSourceId) {
+        return selectList(new LambdaQueryWrapperX<MesProBatchRecordExecutionSignatureDO>()
+                .eq(MesProBatchRecordExecutionSignatureDO::getReviewSourceType, reviewSourceType)
+                .eq(MesProBatchRecordExecutionSignatureDO::getReviewSourceId, reviewSourceId)
+                .orderByAsc(MesProBatchRecordExecutionSignatureDO::getSignedAt)
+                .orderByAsc(MesProBatchRecordExecutionSignatureDO::getId));
+    }
+
     default List<MesProBatchRecordExecutionSignatureDO> selectTimelineListByExecutionId(Long executionId) {
         return selectList(new LambdaQueryWrapperX<MesProBatchRecordExecutionSignatureDO>()
                 .eq(MesProBatchRecordExecutionSignatureDO::getExecutionId, executionId)

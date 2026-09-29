@@ -1,0 +1,52 @@
+# Proposal fragments only; not a runtime bundle. No approval or activation.
+proposalType: GXP_AUDIT_OPERATION_FRAGMENTS
+status: DRAFT
+approvalReference: null
+runtimeLoad: false
+operations:
+  - operationId: mes.market-release.precheck-create
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#precheck
+    domain: MES
+    subjectType: RELEASE_TRANSACTION
+    actionType: CREATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_MES_RELEASE
+    testIds: [BDD-M8-PRECHECK, BDD-M8-ROLLBACK]
+    owner: mes-owner
+    applicability: GXP
+  - operationId: mes.market-release.precheck
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#precheck
+    domain: MES
+    subjectType: RELEASE_TRANSACTION
+    actionType: UPDATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_MES_RELEASE
+    testIds: [BDD-M8-PRECHECK, BDD-M8-ROLLBACK]
+    owner: mes-owner
+    applicability: GXP
+  - operationId: mes.market-release.submit
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#submit
+    domain: MES
+    subjectType: RELEASE_TRANSACTION
+    actionType: SUBMIT
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_MES_RELEASE
+    testIds: [BDD-M8-SUBMIT, BDD-M8-ROLLBACK]
+    owner: mes-owner
+    applicability: GXP
+# Metadata below is NOT runtime registration. Both submit entry mappings require review.
+additionalSourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#submitForApproval
+# Submit preserves existing reauthentication; it does not create a formal signature record.
+# Precheck FAILED is a successfully persisted check outcome, not a failed audit write.
+# Deployment requires an approved complete policy bundle and tenant activation.
+# Until activation, missing policy rejects and rolls back preparation operations.

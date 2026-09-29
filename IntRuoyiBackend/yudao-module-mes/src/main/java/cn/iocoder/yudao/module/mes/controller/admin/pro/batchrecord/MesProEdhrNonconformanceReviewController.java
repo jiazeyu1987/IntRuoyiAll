@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.MesProc
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchExecutionRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewCreateReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationNcrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewDisposeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO;
@@ -54,6 +55,15 @@ public class MesProEdhrNonconformanceReviewController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:create')")
     public CommonResult<List<MesProEdhrNonconformanceReviewActiveOrderRespVO>> getActiveOrderList() {
         return success(nonconformanceReviewService.listActiveOrderCandidates());
+    }
+
+    @PostMapping("/create-from-critical-deviations")
+    @Operation(summary = "QA从关键偏差发起 eDHR 不合格评审并冻结批次")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:deviation-create')")
+    public CommonResult<MesProEdhrNonconformanceReviewRespVO> createFromCriticalDeviations(
+            @Valid @RequestBody MesProEdhrDeviationNcrCreateReqVO reqVO) {
+        return success(nonconformanceReviewService.createCriticalDeviationReview(
+                cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId(), reqVO));
     }
 
     @PostMapping("/reject-batch")

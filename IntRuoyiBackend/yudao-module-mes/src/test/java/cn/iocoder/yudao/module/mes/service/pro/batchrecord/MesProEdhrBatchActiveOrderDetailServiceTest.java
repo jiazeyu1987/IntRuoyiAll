@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailService;
 import org.junit.jupiter.api.Test;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -58,10 +59,10 @@ class MesProEdhrBatchActiveOrderDetailServiceTest {
                 .setId(100L)
                 .setWorkOrderId(200L));
 
-        IllegalStateException error = assertThrows(IllegalStateException.class,
+        ServiceException error = assertThrows(ServiceException.class,
                 () -> service.getDetail(100L));
 
-        assertEquals("EDHR_BATCH_ACTIVE_ORDER_SOURCE_MISSING", error.getMessage());
+        assertEquals("当前批次尚未关联正式活跃订单，无法展示活跃订单详情，请核查批次来源", error.getMessage());
     }
 
     @Test
@@ -75,9 +76,9 @@ class MesProEdhrBatchActiveOrderDetailServiceTest {
                 .setLeaderUserId(400L)
                 .setWorkOrderId(999L));
 
-        IllegalStateException error = assertThrows(IllegalStateException.class,
+        ServiceException error = assertThrows(ServiceException.class,
                 () -> service.getDetail(100L));
 
-        assertEquals("EDHR_BATCH_ACTIVE_ORDER_SOURCE_INVALID", error.getMessage());
+        assertEquals("当前批次的正式活跃订单来源无效，请核查来源关联", error.getMessage());
     }
 }

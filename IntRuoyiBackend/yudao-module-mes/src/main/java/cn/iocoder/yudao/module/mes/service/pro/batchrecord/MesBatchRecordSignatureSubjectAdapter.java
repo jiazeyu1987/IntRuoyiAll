@@ -44,11 +44,20 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                 action(MesProBatchRecordExecutionSignatureService.ACTION_QUALITY_REJECT, "质量终态拒收eDHR批次"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REJECT,
                         "上市放行负责人发起eDHR不合格评审"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REVIEW_CREATE,
+                        "QA发起关键偏差不合格评审"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_SPECIAL_NODE_SKIP, "跳过eDHR特殊工序"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_ROUTE_FORM_OPTIONAL_SKIP, "跳过eDHR可选路线表单"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_QA_DISPOSITION, "QA不合格评审处置"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REVIEW_CREATE,
-                        "eDHR不合格评审创建")
+                        "eDHR不合格评审创建"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_DEVIATION_INITIATION, "发起eDHR偏差"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_DEVIATION_HANDLING_PREPARE, "偏差处理编制"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_DEVIATION_HANDLING_VERIFY, "偏差处理验证"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_DEVIATION_HANDLING_DEPARTMENT, "偏差部门负责人确认"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_DEVIATION_HANDLING_QA, "偏差QA关闭确认"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_DEVIATION_HANDLING_QUALITY, "偏差质量负责人批准"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_DEVIATION_HANDLING_MANAGEMENT, "关键偏差管理者代表批准")
         );
     }
 

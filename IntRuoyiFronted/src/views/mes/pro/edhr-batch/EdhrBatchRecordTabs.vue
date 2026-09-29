@@ -8,6 +8,7 @@
     <el-tab-pane label="批次执行" name="execution" />
     <el-tab-pane label="历史追溯" name="history" />
     <el-tab-pane label="不合格评审" name="nonconformanceReview" />
+    <el-tab-pane label="偏差" name="deviation" />
     <el-tab-pane label="作废" name="voided" />
   </el-tabs>
 </template>
@@ -20,6 +21,7 @@ type EdhrBatchRecordTab =
   | 'history'
   | 'voided'
   | 'nonconformanceReview'
+  | 'deviation'
 type EdhrBatchTabPane = {
   props?: {
     name?: string | number
@@ -36,7 +38,8 @@ const routeByTab: Partial<Record<EdhrBatchRecordTab, string>> = {
   execution: '/mes/pro/feedback/edhr-batch-execution',
   history: '/mes/pro/feedback/edhr-batch-history',
   voided: '/mes/pro/feedback/edhr-batch-voided',
-  nonconformanceReview: '/mes/pro/feedback/edhr-nonconformance-review'
+  nonconformanceReview: '/mes/pro/feedback/edhr-nonconformance-review',
+  deviation: '/mes/pro/feedback/edhr-deviation'
 }
 
 const navigateToTab = async (name: string | number | undefined) => {
@@ -48,7 +51,8 @@ const navigateToTab = async (name: string | number | undefined) => {
   if (nextTab === props.activeTab || router.currentRoute.value.path === nextPath) {
     return
   }
-  await router.push({ path: nextPath })
+  const currentQuery = { ...router.currentRoute.value.query }
+  await router.push({ path: nextPath, query: currentQuery })
 }
 
 const handleTabClick = async (pane: EdhrBatchTabPane) => {

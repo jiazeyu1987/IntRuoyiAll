@@ -30,7 +30,6 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionCloseReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionOpenOrCreateReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionManualOpenOrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionQualityRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionReexecuteReqVO;
@@ -448,10 +447,17 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
     private MesBatchExecutionAuthoritativeContext testAuthoritativeContext(
             MesBatchExecutionProvisionCommand request) {
-        String entryType = StrUtil.isBlank(request.getEntryType()) ? "MANUAL" : request.getEntryType();
+        boolean defaultCompletionFixture = StrUtil.isBlank(request.getEntryType());
+        String entryType = defaultCompletionFixture ? "ACTIVE_ORDER_COMPLETION" : request.getEntryType();
+        String fixtureContext = request.getWorkOrderId() + "|" + request.getBatchCode();
+        String receiptId = defaultCompletionFixture
+                ? "TEST-COMPLETION:" + fixtureContext : request.getCompletionBackfillReceiptId();
+        String receiptHash = defaultCompletionFixture
+                ? DigestUtil.sha256Hex(receiptId) : request.getCompletionBackfillReceiptHash();
         String entryBusinessId = StrUtil.blankToDefault(request.getEntryBusinessId(),
                 "TEST-ENTRY:" + request.getBatchCode());
-        String sourceCredentialId = StrUtil.blankToDefault(request.getSourceCredentialId(), "TEST-CREDENTIAL");
+        String sourceCredentialId = defaultCompletionFixture ? receiptId
+                : StrUtil.blankToDefault(request.getSourceCredentialId(), "TEST-CREDENTIAL");
         String sourceContextHash = StrUtil.blankToDefault(request.getSourceContextHash(), "TEST-CONTEXT");
         String sourceSnapshotHash = StrUtil.blankToDefault(request.getSourceSnapshotHash(), "TEST-SNAPSHOT");
         String idempotencyKey = StrUtil.blankToDefault(request.getIdempotencyKey(),
@@ -459,10 +465,11 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         MesBatchExecutionProvisionCommand canonical = new MesBatchExecutionProvisionCommand()
                 .setEntryType(entryType).setEntryBusinessId(entryBusinessId)
                 .setSourceCredentialType(StrUtil.blankToDefault(request.getSourceCredentialType(),
-                        "IndependentBatchPrerequisiteReceipt"))
+                        defaultCompletionFixture ? "CompletionBackfillReceipt" : "IndependentBatchPrerequisiteReceipt"))
                 .setSourceCredentialId(sourceCredentialId).setSourceRelationId(request.getSourceRelationId())
                 .setSourceContextHash(sourceContextHash).setTenantId(1L)
-                .setActiveOrderId(request.getActiveOrderId()).setWorkOrderId(request.getWorkOrderId())
+                .setActiveOrderId(defaultCompletionFixture ? request.getWorkOrderId() : request.getActiveOrderId())
+                .setWorkOrderId(request.getWorkOrderId())
                 .setWorkOrderCode(StrUtil.blankToDefault(request.getWorkOrderCode(),
                         "TEST-WO:" + request.getWorkOrderId()))
                 .setBatchCode(request.getBatchCode()).setRouteId(request.getRouteId())
@@ -476,8 +483,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setCompletionVersion(request.getCompletionVersion()).setSourceVersion(
                         StrUtil.blankToDefault(request.getSourceVersion(), "1"))
                 .setSourceBundleHash(StrUtil.blankToDefault(request.getSourceBundleHash(), "TEST-BUNDLE"))
-                .setCompletionBackfillReceiptId(request.getCompletionBackfillReceiptId())
-                .setCompletionBackfillReceiptHash(request.getCompletionBackfillReceiptHash())
+                .setCompletionBackfillReceiptId(receiptId)
+                .setCompletionBackfillReceiptHash(receiptHash)
                 .setPickListHeaderSnapshotHash(request.getPickListHeaderSnapshotHash())
                 .setPickListLineSnapshotHash(request.getPickListLineSnapshotHash())
                 .setSourceEvidence(request.getSourceEvidence()).setPayloadHash(request.getPayloadHash());
@@ -848,12 +855,14 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .provisioningStatus("BATCH_PROVISIONING")
                 .build();
         batchExecutionMapper.insert(legacyBatch);
+        String receiptId = "TEST-COMPLETION:" + workOrder.getId()
+                + "|BATCH-LEGACY-MISSING-PROCESS";
         provisioningRecords.put(legacyBatch.getId(), new MesProEdhrBatchProvisioningRecordDO()
                 .setId(randomLongId())
                 .setTenantId(1L)
                 .setBatchExecutionId(legacyBatch.getId())
-                .setEntryType("MANUAL")
-                .setSourceCredentialId("TEST-CREDENTIAL")
+                .setEntryType("ACTIVE_ORDER_COMPLETION")
+                .setSourceCredentialId(receiptId).setSourceCredentialHash(DigestUtil.sha256Hex(receiptId))
                 .setSourceSnapshotHash("TEST-SNAPSHOT")
                 .setSourceBundleHash("TEST-BUNDLE")
                 .setSourceVersion("1")
@@ -864,8 +873,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setProvisioningStatus("BATCH_PROVISIONING"));
         provisioningRecordMapper.insert(new MesProEdhrBatchProvisioningRecordDO()
                 .setTenantId(1L).setBatchExecutionId(legacyBatch.getId())
-                .setEntryType("MANUAL").setEntryBusinessId("TEST-ENTRY:BATCH-LEGACY-MISSING-PROCESS")
-                .setSourceCredentialId("TEST-CREDENTIAL").setSourceSnapshotHash("TEST-SNAPSHOT")
+                .setEntryType("ACTIVE_ORDER_COMPLETION").setEntryBusinessId("TEST-ENTRY:BATCH-LEGACY-MISSING-PROCESS")
+                .setSourceCredentialId(receiptId).setSourceCredentialHash(DigestUtil.sha256Hex(receiptId)).setSourceSnapshotHash("TEST-SNAPSHOT")
                 .setSourceBundleHash("TEST-BUNDLE").setSourceVersion("1")
                 .setIdempotencyKey("TEST-IDEMPOTENCY:TEST-ENTRY:BATCH-LEGACY-MISSING-PROCESS")
                 .setStatus("BATCH_PROVISIONING").setAttemptCount(1));
@@ -1127,27 +1136,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertTrue(detail.getTasks().isEmpty());
         assertTrue(detail.getCloseBlockers().stream()
                 .anyMatch(blocker -> blocker.contains("工艺流程批记录配置")));
-    }
-
-    @Test
-    void openOrCreateManual_createsAndReusesBatchWithoutFormalReceipt() {
-        Fixture fixture = insertRouteFixture(true, true);
-
-        EdhrBatchExecutionRespVO result = batchExecutionService.openOrCreateManual(
-                new EdhrBatchExecutionManualOpenOrCreateReqVO()
-                        .setWorkOrderId(fixture.workOrderId())
-                        .setRouteId(fixture.routeId())
-                        .setBatchCode("MANUAL-001"));
-        EdhrBatchExecutionRespVO repeated = batchExecutionService.openOrCreateManual(
-                new EdhrBatchExecutionManualOpenOrCreateReqVO()
-                        .setWorkOrderId(fixture.workOrderId())
-                        .setRouteId(fixture.routeId())
-                        .setBatchCode("MANUAL-001"));
-
-        verify(independentBatchPrerequisiteReceiptService, never()).issue(any(), any(), any());
-        assertEquals(result.getId(), repeated.getId());
-        assertEquals("MANUAL-001", result.getBatchCode());
-        assertEquals(fixture.routeId(), result.getRouteId());
     }
 
     @Test
@@ -5165,30 +5153,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .set(MesProRouteFlowProcessBatchRecordDO::getLastPublishedTemplateVersionNo, null));
         refreshActiveRouteVersionSnapshot(fixture.routeId());
 
-        when(independentBatchPrerequisiteReceiptService.issue(any(), eq(1L), any()))
-                .thenAnswer(invocation -> {
-                    MesIndependentBatchPrerequisiteReceiptIssueCommand command = invocation.getArgument(0);
-                    return new MesIndependentBatchPrerequisiteReceipt()
-                            .setReceiptId("manual-receipt-null-binding-identity")
-                            .setTenantId(1L)
-                            .setEntryType(command.getEntryType())
-                            .setWorkOrderId(command.getWorkOrderId())
-                            .setWorkOrderCode(command.getWorkOrderCode())
-                            .setRouteId(command.getRouteId())
-                            .setRouteVersionId(command.getRouteVersionId())
-                            .setRouteVersion(command.getRouteVersion())
-                            .setBatchCode(command.getBatchCode())
-                            .setSourceRelationId(command.getSourceRelationId())
-                            .setSourceRelationVersion(command.getSourceRelationVersion())
-                            .setSourceContextHash(command.getSourceContextHash())
-                            .setSourceSnapshotHash(command.getSourceSnapshotHash())
-                            .setIdempotencyKey(command.getIdempotencyKey())
-                            .setPayloadHash("manual-payload-null-binding-identity")
-                            .setSourceEvidence(command.getSourceEvidence());
-                });
-
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreateManual(
-                new EdhrBatchExecutionManualOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(
+                new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-NULL-BINDING-IDENTITY")
                 .setRouteId(fixture.routeId()));

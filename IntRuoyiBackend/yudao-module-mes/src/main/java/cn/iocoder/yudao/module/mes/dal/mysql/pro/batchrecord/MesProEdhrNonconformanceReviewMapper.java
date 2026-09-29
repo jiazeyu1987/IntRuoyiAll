@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonc
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 import java.util.Collection;
@@ -20,6 +21,19 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
     @Select("SELECT * FROM mes_pro_edhr_nonconformance_review WHERE id = #{id} "
             + "AND deleted = b'0' FOR UPDATE")
     MesProEdhrNonconformanceReviewDO selectByIdForUpdate(@Param("id") Long id);
+
+    @Select("SELECT * FROM mes_pro_edhr_nonconformance_review "
+            + "WHERE tenant_id = #{tenantId} AND idempotency_key = #{idempotencyKey} "
+            + "AND deleted = b'0' FOR UPDATE")
+    MesProEdhrNonconformanceReviewDO selectByTenantAndIdempotencyKeyForUpdate(
+            @Param("tenantId") Long tenantId, @Param("idempotencyKey") String idempotencyKey);
+
+    @Update("UPDATE mes_pro_edhr_nonconformance_review "
+            + "SET qa_create_signature_id = #{signatureId}, qa_signature = #{signature}, qa_user_id = #{qaUserId} "
+            + "WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = b'0'")
+    int attachCreateSignature(@Param("tenantId") Long tenantId, @Param("id") Long id,
+                              @Param("signatureId") Long signatureId, @Param("signature") String signature,
+                              @Param("qaUserId") Long qaUserId);
 
     default PageResult<MesProEdhrNonconformanceReviewDO> selectPage(
             MesProEdhrNonconformanceReviewPageReqVO reqVO) {

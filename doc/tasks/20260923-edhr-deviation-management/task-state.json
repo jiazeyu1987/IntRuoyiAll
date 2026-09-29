@@ -1,0 +1,488 @@
+{
+  "schema_version": 2,
+  "task_id": "20260923-edhr-deviation-management",
+  "mode": "full",
+  "status": "in_progress",
+  "current_phase": "P6",
+  "phase_statuses": [
+    {
+      "phase_id": "P1",
+      "title": "正式身份、编号、数据与权限",
+      "objective": "建立批记录偏差的数据、编号、权限和正式批记录身份基础，覆盖未推送 PQC 的场景。",
+      "owned_paths": [
+        "IntRuoyiBackend/sql/mysql",
+        "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes",
+        "IntRuoyiBackend/yudao-module-mes/src/test"
+      ],
+      "dependencies": [],
+      "deliverables": [
+        "偏差、唯一处理记录及月序列迁移",
+        "偏差数据访问与权限服务",
+        "正式批记录来源解析和并发/幂等测试"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P1-AC1",
+          "text": "有create权限者仅关联一份当前租户正式批记录，一批可多偏差；无权限、跨租户、缺对象拒绝且业务零写入。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        },
+        {
+          "ac_id": "P1-AC2",
+          "text": "上市放行后不能新增关联偏差；UI和后端均给出明确原因。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        },
+        {
+          "ac_id": "P1-AC3",
+          "text": "PC-YYYYMM-0001按租户/上海时区年月递增，月切重置、9999后扩位、并发唯一、已提交号不回收。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        },
+        {
+          "ac_id": "P1-AC4",
+          "text": "正式批记录在PQC推送前已存在时，偏差候选和发起仍可直接使用其batchExecutionId；不依赖PQC放行申请或订单身份。QA在该场景发起关键偏差NCR由P4转审验收覆盖。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        },
+        {
+          "ac_id": "P1-AC5",
+          "text": "创建偏差与上市放行并发只有合法顺序可成功；幂等重放不生成第二条偏差/签名。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+        "doc/tasks/20260923-edhr-deviation-management/test-report.md",
+        "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "新增H2 MyBatis候选查询验证PQC推送前批记录可选，剔除跨租户、作废及已放行批次；节点测试2项PASS。",
+        "GxP 偏差发起策略已按角色 owner ROLE_QA_QUALITY_OWNER、signaturePolicy=REQUIRED、版本 20260924-edhr-deviation-01 登记到配置和幂等迁移；隔离 MySQL 首次/重复执行均验证一条 operation 行。等待独立复核后决定是否完成 P1。",
+        "独立复核通过策略登记、69项Maven、7项Node和隔离MySQL迁移；完整Spring/MySQL端到端并发仍列为范围限制。"
+      ],
+      "last_reviewed_at": "2026-09-24T09:00:37+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P2",
+      "title": "唯一处理、签名及常规关闭",
+      "objective": "实现唯一处理记录、完整电子签名矩阵、内容版本及常规关闭状态机。",
+      "owned_paths": [
+        "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord",
+        "IntRuoyiBackend/yudao-module-mes/src/test"
+      ],
+      "dependencies": [
+        "P1"
+      ],
+      "deliverables": [
+        "偏差处理与签名服务",
+        "常规关闭状态机",
+        "签名失效和多角色测试"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P2-AC1",
+          "text": "发起表单覆盖Word发起部分字段，等级仅普通/重大（关键），不得自动把原主要偏差映射成关键。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P2-AC2",
+          "text": "一偏差至多一份处理记录；未开始可无记录，修改/验证不合格后重验始终复用同一ID，常规关闭前内容完整。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P2-AC3",
+          "text": "常规关闭要求处理结论为闭环完成，发起编制、处理编制、验证合格、部门负责人、QA关闭确认、质量负责人全部有效签名；QA与质量任意先后，缺任一或持续跟踪仍未处理。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P2-AC4",
+          "text": "关键偏差常规路径再要求管理者代表；普通偏差无此必签条件，转NCR例外不要求偏差表批准。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P2-AC5",
+          "text": "修改唯一处理正文保存原因和前后值，旧处理版签名失效但历史可查；未重签不能正常关闭。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P2-AC6",
+          "text": "同一账号可分别签多个有权节点；同版新增签名不使其他签名失效，不能一次认证自动代签全部节点。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+        "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "P2 executor tests 6/6 and combined regression 75/75 pass; independent tester review pending.",
+        "独立测试复核标准reactor命令7/7通过；MES-only失败归因于并行依赖缓存并未作为P2结果。"
+      ],
+      "last_reviewed_at": "2026-09-24T10:44:39+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P3",
+      "title": "标准列表、详情和前端交互",
+      "objective": "实现标准偏差列表、详情、正式批记录主 Tab 和两个只读追溯入口。",
+      "owned_paths": [
+        "IntRuoyiFronted/src/api/mes/pro/edhr",
+        "IntRuoyiFronted/src/views/mes/pro",
+        "IntRuoyiFronted/tests/e2e"
+      ],
+      "dependencies": [
+        "P2"
+      ],
+      "deliverables": [
+        "偏差管理列表和详情页面",
+        "正式批记录偏差 Tab 与只读追溯组件",
+        "前端静态/组件合同测试"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P3-AC1",
+          "text": "全部/未处理/已处理全部采用标准列表服务端过滤分页排序；query权限看租户内全部而非仅本人。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        },
+        {
+          "ac_id": "P3-AC2",
+          "text": "详情展示发起、唯一处理或未处理说明、签名/审计、关闭方式和NCR链接；转审不伪装验证合格。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        },
+        {
+          "ac_id": "P3-AC3",
+          "text": "正式批记录/活跃表单详情有偏差主Tab，两种追溯抽屉有只读偏差Tab；无逐工序重复Tab或写操作泄漏。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        },
+        {
+          "ac_id": "P3-AC4",
+          "text": "空集合显示“没有偏差”；无权、身份错误、网络失败分别显示原因；旧响应不能串到另一批次。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        },
+        {
+          "ac_id": "P3-AC5",
+          "text": "正常activeOrderId-only入口经后端正式来源得到batchExecutionId再读偏差，不以缺ID错误长期替代功能。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        },
+        {
+          "ac_id": "P3-AC6",
+          "text": "交互包含关联批记录/评审跳转返回、未保存提醒、取消签名、版本冲突、幂等重试和有权动作提示。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+        "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+        "doc/tasks/20260923-edhr-deviation-management/verification-report.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "P3后端分页/详情、前端偏差管理页、批记录追溯偏差页签和静态合同已实现；前端依赖缺失，vue-tsc/E2E未执行。",
+        "P3已补齐标准列表模板、发起偏差电子签名表单、处理保存/签名/关闭入口、正式批记录与活跃订单偏差Tab及activeOrderId来源解析；真实E2E未授权，阶段继续进行最终审计。"
+      ],
+      "last_reviewed_at": "2026-09-26T00:00:00+08:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P4",
+      "title": "关键偏差转 NCR 及四项控制",
+      "objective": "复用统一不合格评审，实现关键偏差直接转审、原子关闭及四项业务动作阻断。",
+      "owned_paths": [
+        "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord",
+        "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/frontline",
+        "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease",
+        "IntRuoyiFronted/src/views/mes/pro/edhr-nonconformance"
+      ],
+      "dependencies": [
+        "P3"
+      ],
+      "deliverables": [
+        "批记录偏差来源的不合格评审入口",
+        "四项动作服务端门禁",
+        "三类处置、原子性及不自锁测试"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P4-AC1",
+          "text": "偏差转审仅QA且关键等级可用；现有PQC等独立NCR来源不被错误要求先建关键偏差。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P4-AC2",
+          "text": "一张NCR创建时可多选同批开放关键偏差，空集、跨批、跨租户、普通等级或已关闭项整体拒绝，未选中项不变。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P4-AC3",
+          "text": "关键偏差可在处理尚未完成、无验证/批准时直接转NCR，PQC尚未推送也不阻断批记录级入口，成功自动关闭；保留实际资料，不补造缺失签名。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P4-AC4",
+          "text": "未关闭偏差或待审NCR分别阻断四项正式动作；关键偏差转审关闭仍由NCR接管阻断。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P4-AC5",
+          "text": "QA/PQC处置授权者按让步、返工、作废结果继续控制批次；其他开放偏差/冻结仍有效，让步不自动上市放行。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P4-AC6",
+          "text": "评审创建、发起签名、冻结、关联和偏差关闭原子化；失败零部分成功，同幂等键可重放成功结果。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P4-AC7",
+          "text": "已有待审NCR时拒绝第二张及静默追加，保持新偏差OPEN；处理/签署/QA转审/评审处置不被四项门禁误拦。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+        "doc/tasks/20260923-edhr-deviation-management/test-report.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "P4关键偏差转不合格评审最小切片已实现，7项集成与既有NCR 27项回归通过；待独立复核。",
+        "P4最小切片及迁移验证已通过，独立测试复核仍待完成；P5已补充关闭方式/NCR关联只读字段但未进入阶段门禁。",
+        "独立复核通过；P4关键偏差转NCR及既有NCR回归112项相关选择测试通过。"
+      ],
+      "last_reviewed_at": "2026-09-24T21:00:58+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P5",
+      "title": "在线追溯与历史证据",
+      "objective": "在管理、批记录详情和两个追溯入口统一呈现偏差、签名和不合格评审结果。",
+      "owned_paths": [
+        "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord",
+        "IntRuoyiFronted/src/views/mes/pro/edhr/form-trace",
+        "IntRuoyiFronted/src/views/mes/pro/edhr-batch"
+      ],
+      "dependencies": [
+        "P4"
+      ],
+      "deliverables": [
+        "批记录级偏差读模型",
+        "只读历史和签名证据展示",
+        "同源、只读及跨租户测试"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P5-AC1",
+          "text": "偏差管理与批记录详情及两种追溯读取同一批全部正式偏差及其关联NCR处置，不混入别批数据。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        },
+        {
+          "ac_id": "P5-AC2",
+          "text": "在线历史保留修订、签名、正常关闭/转审关闭原因；关闭或上市放行后只读，不把PDF导出扩展冒充本次必验。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        },
+        {
+          "ac_id": "P5-AC3",
+          "text": "签名展示真实姓名、服务器精确时间/时区、含义和证据，失效可识别；没有真实签名不拼造成功图样。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md",
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+        "doc/tasks/20260923-edhr-deviation-management/test-report.md",
+        "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+        "doc/tasks/20260923-edhr-deviation-management/verification-report.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "P5已补齐修订历史、历史签名失效状态和NCR处置读模型；真实E2E仍未执行，P5继续进行最终页面审计。"
+      ],
+      "last_reviewed_at": "2026-09-26T00:00:00+08:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P6",
+      "title": "定向验证与交接",
+      "objective": "完成全部定向回归、迁移策略和任务证据，形成可独立复验的交接结果。",
+      "owned_paths": [
+        "doc/tasks/20260923-edhr-deviation-management",
+        "IntRuoyiBackend/yudao-module-mes/src/test",
+        "IntRuoyiFronted/tests/e2e"
+      ],
+      "dependencies": [
+        "P5"
+      ],
+      "deliverables": [
+        "执行日志和测试报告",
+        "28 项验收映射证据",
+        "发布前门禁和剩余风险清单"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P6-AC1",
+          "text": "按阶段完成实际定向测试证据；E2E须当轮授权且走真实页面，文档校验不可记业务PASS。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+            "doc/tasks/20260923-edhr-deviation-management/test-report.md",
+            "doc/tasks/20260923-edhr-deviation-management/verification-report.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260923-edhr-deviation-management/execution-log.md",
+        "doc/tasks/20260923-edhr-deviation-management/test-report.md",
+        "doc/tasks/20260923-edhr-deviation-management/verification-report.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review."
+      ],
+      "last_reviewed_at": "2026-09-26T23:55:00+08:00",
+      "status": "completed"
+    }
+  ],
+  "planner_review_status": "approved",
+  "test_status": "passed",
+  "blocking_prereqs": [],
+  "iteration_counts": {
+    "planner_revisions": 0,
+    "executor_loops": 0,
+    "test_loops": 0
+  },
+  "created_at": "2026-09-23T23:16:16+08:00",
+  "updated_at": "2026-09-26T23:55:00+08:00",
+  "branch": "codex/piancha-0923",
+  "baseline_revision": "f46b0bdc20d80ee7fa6e5d6b86898bcae0d0b357",
+  "workspace_root": "D:\\IntRuoyiWorktree\\piancha_0923",
+  "tasks_root": "D:\\IntRuoyiWorktree\\piancha_0923\\doc\\tasks",
+  "task_dir": "D:\\IntRuoyiWorktree\\piancha_0923\\doc\\tasks\\20260923-edhr-deviation-management",
+  "goal": "eDHR 偏差管理 PRD",
+  "artifacts": {
+    "prd": "D:\\IntRuoyiWorktree\\piancha_0923\\doc\\tasks\\20260923-edhr-deviation-management\\prd.md",
+    "test_plan": "D:\\IntRuoyiWorktree\\piancha_0923\\doc\\tasks\\20260923-edhr-deviation-management\\test-plan.md",
+    "task_state": "D:\\IntRuoyiWorktree\\piancha_0923\\doc\\tasks\\20260923-edhr-deviation-management\\task-state.json",
+    "execution_log": "D:\\IntRuoyiWorktree\\piancha_0923\\doc\\tasks\\20260923-edhr-deviation-management\\execution-log.md",
+    "test_report": "D:\\IntRuoyiWorktree\\piancha_0923\\doc\\tasks\\20260923-edhr-deviation-management\\test-report.md"
+  },
+  "integration_review_note": "历史手动批次E2E不能代替正式活跃订单来源主链；最终全链路验收尚未确认。集成见20260929-deviation-main-integration。"
+}

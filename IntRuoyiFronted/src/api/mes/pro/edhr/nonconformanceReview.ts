@@ -7,6 +7,7 @@ const EDHR_NONCONFORMANCE_REVIEW_BASE_URL = '/mes/pro/edhr-nonconformance-review
 export const SOURCE_TYPE_PQC_SUBMISSION = 'PQC_SUBMISSION'
 export const SOURCE_TYPE_PQC_RELEASE = 'PQC_RELEASE'
 export const SOURCE_TYPE_ACTIVE_ORDER = 'ACTIVE_ORDER'
+export const SOURCE_TYPE_DEVIATION = 'DEVIATION'
 
 export const REVIEW_STATUS_PENDING_REVIEW = 'pending_review'
 export const REVIEW_STATUS_CLOSED = 'closed'
@@ -19,6 +20,7 @@ export type EdhrNonconformanceReviewSourceType =
   | typeof SOURCE_TYPE_PQC_SUBMISSION
   | typeof SOURCE_TYPE_PQC_RELEASE
   | typeof SOURCE_TYPE_ACTIVE_ORDER
+  | typeof SOURCE_TYPE_DEVIATION
 
 export type EdhrNonconformanceReviewStatus =
   | typeof REVIEW_STATUS_PENDING_REVIEW
@@ -46,6 +48,15 @@ export interface EdhrNonconformanceReviewActiveOrderRespVO {
   batchCode?: string
   activeStatus?: string
   businessStatus?: string
+}
+
+export interface EdhrDeviationNcrCreateReqVO {
+  batchExecutionId: EdhrRouteId
+  deviationIds: EdhrRouteId[]
+  nonconformanceReason: string
+  remark?: string
+  idempotencyKey: string
+  signaturePassword: string
 }
 
 export interface EdhrBatchExecutionRejectReqVO {
@@ -141,6 +152,13 @@ export const createNonconformanceReview = async (data: EdhrNonconformanceReviewC
 export const getNonconformanceReviewActiveOrderList = async () => {
   return await request.get<EdhrNonconformanceReviewActiveOrderRespVO[]>({
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/active-order-list`
+  })
+}
+
+export const createCriticalDeviationReview = async (data: EdhrDeviationNcrCreateReqVO) => {
+  return await request.post<EdhrNonconformanceReviewRespVO>({
+    url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/create-from-critical-deviations`,
+    data
   })
 }
 

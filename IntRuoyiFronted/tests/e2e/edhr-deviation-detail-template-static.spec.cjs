@@ -1,0 +1,13 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const root = path.resolve(__dirname, '../..')
+const detailFile = path.join(root, 'src/views/mes/pro/edhr-deviation/DeviationDetail.vue')
+const listFile = path.join(root, 'src/views/mes/pro/edhr-deviation/index.vue')
+const detail = fs.readFileSync(detailFile, 'utf8')
+const list = fs.readFileSync(listFile, 'utf8')
+assert.equal((detail.match(/<template\b/g) || []).length, (detail.match(/<\/template>/g) || []).length, 'DeviationDetail.vue template tags must be balanced')
+assert.match(detail, /<el-card[\s\S]*?<template #header>[\s\S]*?<\/template>[\s\S]*?<\/el-card>/, 'handling card header slot must be explicitly closed')
+assert.doesNotMatch(list, /sortable="custom"\s+v-bind="sortColumnAttrs/, 'UnifiedListTemplate sort attrs must be the sole sortable source to avoid duplicate TS2783 properties')
+console.log('PASS edhr-deviation-template-and-sort-static')

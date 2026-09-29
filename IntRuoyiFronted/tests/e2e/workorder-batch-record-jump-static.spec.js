@@ -22,25 +22,11 @@ assert(
   workOrderSource.includes('批记录') &&
     workOrderSource.includes('handleOpenBatchRecord(scope.row)') &&
     workOrderSource.includes("path: '/mes/pro/feedback/edhr-batch-execution'") &&
-    workOrderSource.includes('prefillWorkOrderCode: row.code'),
+    workOrderSource.includes('workOrderCode: row.code'),
   'Work order rows must expose a 批记录 action that navigates to eDHR batch execution with the current work order code.'
 )
 
-assert(
-  batchExecutionSource.includes('const route = useRoute()') &&
-    batchExecutionSource.includes('getPrefillWorkOrderCodeFromRoute') &&
-    batchExecutionSource.includes('prefillWorkOrderForCreateDialog') &&
-    batchExecutionSource.includes('route.query.prefillWorkOrderCode') &&
-    batchExecutionSource.includes('createForm.workOrderId = matchedWorkOrder.id') &&
-    batchExecutionSource.includes('createForm.batchCode = matchedWorkOrder.batchCode || createForm.batchCode'),
-  'eDHR batch execution page must consume route query when opening the create dialog and prefill the matching work order.'
-)
-
-assert(
-  /onMounted\(\s*\(\)\s*=>\s*\{[\s\S]*getList\(\)[\s\S]*if\s*\(\s*getPrefillWorkOrderCodeFromRoute\(\)\s*\)\s*\{[\s\S]*openCreateDialog\(\)/.test(
-    batchExecutionSource
-  ),
-  'eDHR batch execution page must automatically open the create dialog when routed with prefillWorkOrderCode.'
-)
+assert(batchExecutionSource.includes('route.query.workOrderCode'), 'Batch list must consume read-only work order filter.')
+assert(!batchExecutionSource.includes('openCreateDialog'), 'No manual create dialog may be opened.')
 
 console.log('PASS: work order batch record jump static contract')

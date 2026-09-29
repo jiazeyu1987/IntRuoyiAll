@@ -81,14 +81,7 @@ expectNotIncludes(
   '批次执行列表隐藏额外筛选后不应保留仅服务筛选表单的 label-width 配置。'
 )
 
-const requiredActions = [
-  '@click="openCreateDialog"',
-  "v-hasPermi=\"['mes:pro-edhr-batch-execution:create']\""
-]
-
-for (const action of requiredActions) {
-  assert(actionsSource.includes(action), `批次执行顶部操作区缺少动作：${action}`)
-}
+assert(!actionsSource.includes('openCreateDialog'), 'Manual create action must be removed.')
 
 assert(!actionsSource.includes('@click="handleQuery"'), '批次执行顶部操作区不得渲染重复查询按钮。')
 assert(!actionsSource.includes('@click="resetQuery"'), '批次执行顶部操作区不得渲染重置按钮。')
@@ -109,12 +102,9 @@ for (const contract of requiredTableContracts) {
 const requiredColumns = [
   "'batchExecutionCode'",
   "'workOrderCode'",
-  "'currentProcess'",
-  "'currentFillers'",
   "'product'",
   "'route'",
   "'status'",
-  "'progress'",
   "'blockedCount'",
   "'updateTime'",
   "'operation'"
@@ -134,12 +124,11 @@ expectIncludes(
 )
 
 const preservedBusinessHandlers = [
-  'openCreateDialog',
-  'openReadinessDialog',
+  'openActiveOrderDetail',
   'openDetail',
   'openFlowTraceDialog',
   'openOperationHistoryDialog',
-  'handleDownloadArchiveByPreview',
+  'openActiveOrderOtherUploadTab',
   'handleEdhrBatchExecutionHeaderDragend'
 ]
 

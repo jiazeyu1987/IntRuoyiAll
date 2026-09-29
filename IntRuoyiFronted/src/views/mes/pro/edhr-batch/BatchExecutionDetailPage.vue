@@ -1,6 +1,17 @@
 <template>
   <ContentWrap class="edhr-batch-detail__content-wrap">
     <div v-loading="loading" class="edhr-batch-detail" data-edhr-batch-detail-page>
+      <el-tabs v-model="mainViewTab" class="edhr-batch-detail__main-tabs" aria-label="正式批记录详情主视图">
+        <el-tab-pane label="批记录" name="execution" />
+        <el-tab-pane label="偏差" name="deviation" />
+      </el-tabs>
+      <section v-if="mainViewTab === 'deviation'" class="edhr-batch-detail__main-deviation-pane">
+        <DeviationTracePane
+          v-if="traceRecordBatchExecutionId"
+          :batch-execution-id="traceRecordBatchExecutionId"
+        />
+        <el-empty v-else description="当前批次不存在，暂无偏差" />
+      </section>
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
       <el-alert
         v-if="releaseActionError"
@@ -1292,6 +1303,13 @@
           />
           <el-empty v-else description="当前批次不存在，暂无操作审计记录" />
         </el-tab-pane>
+        <el-tab-pane label="偏差" name="deviation">
+          <DeviationTracePane
+            v-if="traceRecordBatchExecutionId"
+            :batch-execution-id="traceRecordBatchExecutionId"
+          />
+          <el-empty v-else description="当前批次不存在，暂无偏差" />
+        </el-tab-pane>
         <el-tab-pane v-if="showFieldResponsibilityTab" label="字段责任" name="fieldResponsibility">
           <div class="edhr-batch-detail__trace-field-responsibility">
             <div class="edhr-batch-detail__trace-field-responsibility-head">
@@ -1561,6 +1579,7 @@ import DomainTraceListPane from '@/views/mes/pro/edhr/components/DomainTraceList
 import OperationAuditListPane from '@/views/mes/pro/edhr/components/OperationAuditListPane.vue'
 import ReleaseEventListPane from '@/views/mes/pro/edhr/components/ReleaseEventListPane.vue'
 import FormTraceChangeTab from '@/views/mes/pro/edhr/form-trace/FormTraceChangeTab.vue'
+import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePane.vue'
 import ActionFormPanel from '@/views/form-center/business-action/ActionFormPanel.vue'
 import {
   resolveReleaseCheckCategoryLabel,
@@ -1616,7 +1635,7 @@ const canUseFlowTransferIntervention = computed(
     FLOW_TRANSFER_ADMIN_ROLES.some((role) => userStore.roles.includes(role))
 )
 type EdhrBatchExecutionDetailFocus = 'process' | 'precheck' | 'approval'
-type TraceRecordTab = 'release' | 'change' | 'audit' | 'domain' | 'fieldResponsibility'
+type TraceRecordTab = 'release' | 'change' | 'audit' | 'deviation' | 'domain' | 'fieldResponsibility'
 
 const loading = ref(false)
 const syncLoading = ref(false)
@@ -1696,6 +1715,7 @@ const releaseReturnSubmitting = ref(false)
 const releaseReturnError = ref('')
 const releaseCheckLoading = ref(false)
 const traceRecordTab = ref<TraceRecordTab>('release')
+const mainViewTab = ref<'execution' | 'deviation'>('execution')
 const processDetailDialogVisible = ref(false)
 const reviewLoading = ref(false)
 const reviewError = ref('')

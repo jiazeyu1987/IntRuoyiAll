@@ -1,5 +1,5 @@
 schemaVersion: gxp-audit-policy.v2
-policyVersion: 20260929-gxp-contract-01
+policyVersion: 20260929-edhr-deviation-01
 status: APPROVED
 approvalReference: CODEX-IMPLEMENTATION-20260908
 operations:
@@ -241,6 +241,20 @@ operations:
     testIds: [BDD-D03-REJECT]
     ownerRole: mes-owner
     applicability: GXP
+  - operationId: edhr.deviation.create
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrDeviationServiceImpl#create]
+    domain: EDHR
+    subjectType: EDHR_DEVIATION
+    actionType: CREATE
+    reasonPolicy: USER_REQUIRED
+    signaturePolicy: REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    snapshotProfile: NCR
+    retentionClass: GXP_BATCH_RECORD
+    testIds: [P1-AC1, P1-AC5, MesProEdhrDeviationSignatureIntegrationTest]
+    ownerRole: ROLE_QA_QUALITY_OWNER
+    applicability: GXP
   - operationId: edhr.execution.field.update
     sourceType: SERVICE_METHOD
     sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditServiceImpl#saveChanges]
@@ -403,6 +417,7 @@ coverageScope:
     - mes.dossier.delete
     - mes.production.allocation.save
     - mes.production.reject
+    - edhr.deviation.create
     - edhr.execution.field.update
     - dcc.controlled-file.publish
     - signature.record.create

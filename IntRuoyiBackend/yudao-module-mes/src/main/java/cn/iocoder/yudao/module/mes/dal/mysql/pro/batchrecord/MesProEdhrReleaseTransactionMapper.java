@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDateTime;
@@ -28,6 +29,12 @@ public interface MesProEdhrReleaseTransactionMapper extends BaseMapperX<MesProEd
                 .orderByDesc(MesProEdhrReleaseTransactionDO::getId)
                 .last("LIMIT 1"));
     }
+
+    @Select("SELECT * FROM mes_pro_edhr_release_transaction WHERE tenant_id = #{tenantId} "
+            + "AND batch_execution_id = #{batchExecutionId} AND deleted = 0 ORDER BY id ASC FOR UPDATE")
+    List<MesProEdhrReleaseTransactionDO> selectListByTenantAndBatchExecutionIdForUpdate(
+            @Param("tenantId") Long tenantId,
+            @Param("batchExecutionId") Long batchExecutionId);
 
     default List<MesProEdhrReleaseTransactionDO> selectListByBatchExecutionIds(Collection<Long> batchExecutionIds) {
         if (batchExecutionIds == null || batchExecutionIds.isEmpty()) {

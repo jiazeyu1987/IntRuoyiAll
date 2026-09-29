@@ -17,6 +17,7 @@ public interface MesProEdhrNonconformanceReviewService {
     String SOURCE_TYPE_PQC_SUBMISSION = "PQC_SUBMISSION";
     String SOURCE_TYPE_PQC_RELEASE = "PQC_RELEASE";
     String SOURCE_TYPE_ACTIVE_ORDER = "ACTIVE_ORDER";
+    String SOURCE_TYPE_DEVIATION = "DEVIATION";
 
     String STATUS_PENDING_REVIEW = "pending_review";
     String STATUS_CLOSED = "closed";
@@ -28,6 +29,8 @@ public interface MesProEdhrNonconformanceReviewService {
     MesProEdhrNonconformanceReviewRespVO create(MesProEdhrNonconformanceReviewCreateReqVO reqVO);
 
     List<MesProEdhrNonconformanceReviewActiveOrderRespVO> listActiveOrderCandidates();
+    MesProEdhrNonconformanceReviewRespVO createCriticalDeviationReview(Long actorUserId,
+            cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationNcrCreateReqVO reqVO);
 
     MesProEdhrNonconformanceReviewRespVO rejectBatch(MesProEdhrBatchExecutionRejectReqVO reqVO);
 

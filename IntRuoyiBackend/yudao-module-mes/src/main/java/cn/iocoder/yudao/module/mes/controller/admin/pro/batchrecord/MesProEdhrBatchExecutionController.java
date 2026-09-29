@@ -7,7 +7,6 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionOpenOrCreateReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionManualOpenOrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionQualityRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionReexecuteReqVO;
@@ -186,13 +185,6 @@ public class MesProEdhrBatchExecutionController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:create')")
     public CommonResult<EdhrBatchExecutionRespVO> openOrCreate(@Valid @RequestBody EdhrBatchExecutionOpenOrCreateReqVO reqVO) {
         return success(batchExecutionService.openOrCreate(reqVO));
-    }
-
-    @PostMapping("/open-or-create-manual")
-    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:create')")
-    public CommonResult<EdhrBatchExecutionRespVO> openOrCreateManual(
-            @Valid @RequestBody EdhrBatchExecutionManualOpenOrCreateReqVO reqVO) {
-        return success(batchExecutionService.openOrCreateManual(reqVO));
     }
 
     @PostMapping("/reexecute-rejected-batch")

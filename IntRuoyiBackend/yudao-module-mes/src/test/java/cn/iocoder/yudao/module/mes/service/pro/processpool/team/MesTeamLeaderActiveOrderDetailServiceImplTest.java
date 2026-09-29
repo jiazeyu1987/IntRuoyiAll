@@ -211,7 +211,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 null, 3001L,
                 "PQC_RELEASE", "PQC生产放行", null, LocalDateTime.of(2026, 9, 18, 21, 22, 52),
                 "time-1", "SESSION_PLUS_PASSWORD", "content", "evidence", "SHA-256",
-                "v1", "p1", "VALID", null, null, null, null, null, null, null, null));
+                "v1", "p1", "VALID", null, null, null, null, null, null, null, null, "PQC组长"));
         when(signatureQueryService.verifyEvidence(7701L)).thenReturn(new ElectronicSignatureVerificationDTO(
                 7701L, "VALID", "content", "content", "evidence", "evidence", "SHA-256", "v1"));
         when(adminUserService.getUser(3001L)).thenReturn(new AdminUserDO().setId(3001L).setNickname("PQC组长"));

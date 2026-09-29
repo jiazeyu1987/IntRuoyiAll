@@ -135,6 +135,34 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     }
 
     @Test
+    void recordDeviationInitiationSignature_bindsCanonicalDeviationToElectronicSignature() {
+        when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser("偏差发起人"));
+        stubActorSnapshot();
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7401L));
+
+        Long signatureId = signatureService.recordDeviationInitiationSignature(
+                99L, 900L, 501L, "PC-202609-0001", "BATCH-900", "secret", "deviation-content-hash");
+
+        ArgumentCaptor<ElectronicSignatureCommand> captor =
+                ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        verify(adminUserApi).reauthenticateForSignature(99L, "secret");
+        verify(electronicSignatureService).sign(captor.capture());
+        assertEquals(7401L, signatureId);
+        assertEquals("DEVIATION_INITIATION", captor.getValue().actionCode());
+        assertEquals("MES_BATCH_RECORD", captor.getValue().subjectType());
+        assertEquals("发起偏差 PC-202609-0001，批记录 BATCH-900", captor.getValue().reason());
+        assertTrue(captor.getValue().idempotencyKey().startsWith("MES|99|DEVIATION_INITIATION|"));
+        String subjectPayload = new String(
+                Base64.getUrlDecoder().decode(captor.getValue().subjectId()),
+                StandardCharsets.UTF_8);
+        assertTrue(subjectPayload.contains("\nDEVIATION_INITIATION\n"));
+        assertTrue(subjectPayload.contains("\nEDHR_DEVIATION\n501\n"));
+        assertTrue(subjectPayload.contains("deviation-content-hash"));
+    }
+
+    @Test
     void recordProductionSubmitSignature_usesSelectedEmployeeActorInsteadOfLoginUser() {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);

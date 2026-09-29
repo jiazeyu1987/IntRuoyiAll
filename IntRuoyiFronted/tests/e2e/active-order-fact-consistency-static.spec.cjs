@@ -33,12 +33,12 @@ assert.doesNotMatch(
 
 assert.match(
   history,
-  /data-edhr-history-active-order-detail/,
+  /<el-button\b[^>]*data-edhr-history-detail-action[^>]*@click="openActiveOrderDetail\(row\)"[^>]*>\s*详情\s*<\/el-button>/,
   '历史追溯列表必须提供“详情”按钮。'
 )
 assert.match(
   history,
-  /openActiveOrderDetail\(batch\)/,
+  /openActiveOrderDetail\(row\)/,
   '历史追溯“详情”按钮必须打开活跃订单详情批记录。'
 )
 assert.doesNotMatch(

@@ -316,3 +316,10 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - 后端启动后验证 `http://127.0.0.1:48081/actuator/health`。
 - 分支启动后验证对应 profile 的前端入口和后端健康检查，例如 `int_batch` 使用 `http://127.0.0.1:8041/` 与 `http://127.0.0.1:48041/actuator/health`。
 - 分支后端需要覆盖 Spring 参数时必须使用 `start-branch-backend.ps1 -ExtraArgs @('...')`；启动后除 health 外，还要核对监听 PID 的真实命令行包含任务 `repo-root/state-dir` 等关键参数。参数名写错但 PowerShell 未阻断、或只看到 health `UP`，都不能作为目标功能已加载的证据。
+
+## 2026-09-26 Worktree 前端依赖隔离补充
+
+- 触发场景：附加 worktree 的 Vite 启动出现 `server.fs.allow` 拒绝、动态模块 500、或 node_modules 指向另一个工作区。
+- 经验规则：附加 worktree 必须使用自己的 `node_modules`，优先在该 worktree 前端目录运行 `pnpm install --frozen-lockfile`；启动前确认 `node_modules\.bin\vite` 和关键依赖都解析到当前 worktree。
+- 验证方式：记录依赖安装退出码、实际 `node_modules` 是否为目录而非 junction、Vite 启动命令/端口、前端 HTTP 200 和目标动态模块 HTTP 200；依赖安装完成后再运行 `vue-tsc`、ESLint 和 Playwright。
+- 禁止做法：禁止用主工作区 node_modules junction/symlink 代替 worktree 依赖，禁止修改 package.json/lockfile 绕过安装，禁止只看端口监听就宣称前端可用。

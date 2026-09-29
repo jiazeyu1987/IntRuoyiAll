@@ -14,16 +14,39 @@
             反查关联批次
           </el-button>
         </div>
-        <ActiveOrderSubmissionDetailPanel
-          :detail="detail"
-          :loading="loading"
-          :error="error"
-          :initial-active-tab="initialActiveTab"
-          audit-scope-type="BATCH"
-          :audit-scope-id="auditDetailQuery"
-          record-scope="FORMAL_BATCH_SOURCE_DETAIL"
-          @retry="loadDetail"
-        />
+        <el-tabs v-model="activeTab" class="edhr-batch-active-order-detail__tabs">
+          <el-tab-pane label="批记录详情" name="detail">
+            <ActiveOrderSubmissionDetailPanel
+              :detail="detail"
+              :loading="loading"
+              :error="error"
+              :initial-active-tab="initialActiveTab"
+              audit-scope-type="BATCH"
+              :audit-scope-id="auditDetailQuery"
+              record-scope="FORMAL_BATCH_SOURCE_DETAIL"
+              @retry="loadDetail"
+            />
+          </el-tab-pane>
+          <el-tab-pane label="偏差" name="deviation">
+            <el-skeleton v-if="deviationLoading" :rows="4" animated />
+            <el-alert
+              v-else-if="deviationError"
+              :title="deviationError"
+              type="error"
+              :closable="false"
+              show-icon
+            >
+              <el-button link type="primary" @click="loadDeviationBatches">重试</el-button>
+            </el-alert>
+            <template v-else-if="deviationBatches.length">
+              <section v-for="batch in deviationBatches" :key="batch.batchExecutionId">
+                <h3 v-if="deviationBatches.length > 1">{{ batch.batchExecutionCode }}</h3>
+                <DeviationTracePane :batch-execution-id="batch.batchExecutionId" />
+              </section>
+            </template>
+            <el-empty v-else description="暂无正式批记录，无法查看偏差" />
+          </el-tab-pane>
+        </el-tabs>
         <BatchReverseTracePanel
           v-model:visible="reverseTraceVisible"
           :anchor-batch-execution-id="batchExecutionId"
@@ -39,9 +62,14 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ActiveOrderSubmissionDetailPanel from '@/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import ActiveOrderDetailLayout from '@/views/mes/pro/processpool/components/ActiveOrderDetailLayout.vue'
+import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePane.vue'
 import BatchReverseTracePanel from './components/BatchReverseTracePanel.vue'
 import { canReverseTrace, readReverseTraceState, reverseTraceHistoryPath } from './reverseTraceState'
 import { getEdhrBatchActiveOrderDetail, type EdhrRouteId } from '@/api/mes/pro/edhr/batchExecution'
+import {
+  getDeviationBatchOptionsByActiveOrder,
+  type DeviationBatchOptionRespVO
+} from '@/api/mes/pro/edhr/deviation'
 import type { TeamLeaderActiveOrderDetailRespVO } from '@/api/mes/pro/processpool/teamLeader'
 
 defineOptions({ name: 'MesProEdhrBatchExecutionActiveOrderDetail' })
@@ -52,6 +80,10 @@ const router = useRouter()
 const detail = ref<TeamLeaderActiveOrderDetailRespVO>()
 const loading = ref(false)
 const error = ref('')
+const activeTab = ref<'detail' | 'deviation'>('detail')
+const deviationBatches = ref<DeviationBatchOptionRespVO[]>([])
+const deviationLoading = ref(false)
+const deviationError = ref('')
 const reverseTraceVisible = ref(false)
 const batchExecutionId = computed(() => {
   const value = typeof route.query.batchExecutionId === 'string' ? route.query.batchExecutionId.trim() : ''
@@ -122,6 +154,38 @@ const resolveErrorMessage = (errorValue: unknown) => {
   return responseMessage?.msg || responseMessage?.message || '活跃订单详情批记录加载失败。'
 }
 
+let deviationSequence = 0
+const loadDeviationBatches = async () => {
+  const sequence = ++deviationSequence
+  deviationLoading.value = true
+  deviationError.value = ''
+  deviationBatches.value = []
+  try {
+    const query = resolveDetailQuery()
+    const batches = query.activeOrderId
+      ? await getDeviationBatchOptionsByActiveOrder(Number(query.activeOrderId))
+      : [{ batchExecutionId: Number(query.batchExecutionId) }]
+    if (sequence !== deviationSequence) return
+    deviationBatches.value = batches
+  } catch (errorValue) {
+    if (sequence !== deviationSequence) return
+    deviationError.value = resolveErrorMessage(errorValue)
+  } finally {
+    if (sequence === deviationSequence) deviationLoading.value = false
+  }
+}
+
+watch(
+  () => [activeTab.value, route.query.batchExecutionId, route.query.activeOrderId],
+  () => {
+    deviationSequence++
+    deviationBatches.value = []
+    deviationError.value = ''
+    deviationLoading.value = false
+    if (activeTab.value === 'deviation') void loadDeviationBatches()
+  }
+)
+
 let detailSequence = 0
 const loadDetail = async () => {
   const sequence = ++detailSequence
@@ -165,7 +229,7 @@ watch(
 )
 
 onMounted(loadDetail)
-onBeforeUnmount(() => { detailSequence++; loading.value = false })
+onBeforeUnmount(() => { detailSequence++; deviationSequence++; loading.value = false })
 
 watch(
   () => [route.query.tab, route.query.batchExecutionId, reverseTraceRestoreKey.value, canOpenReverseTrace.value],

@@ -44,6 +44,13 @@
 
     <el-skeleton v-if="loading" :rows="8" animated />
     <el-tabs v-else v-model="activeTab" class="edhr-form-trace-batch-trace__tabs">
+      <el-tab-pane label="偏差" name="deviations">
+        <DeviationTracePane
+          v-if="traceBatchExecutionId"
+          :batch-execution-id="traceBatchExecutionId"
+        />
+        <el-empty v-else description="当前追溯上下文暂无正式批记录，暂无偏差" />
+      </el-tab-pane>
       <el-tab-pane label="正式批记录" name="recordForm">
         <section class="edhr-form-trace-batch-trace__section">
           <div class="edhr-form-trace-batch-trace__section-head">
@@ -349,6 +356,7 @@ import FieldAuditPage from '@/views/mes/pro/edhr/FieldAuditPage.vue'
 import SignaturePage from '@/views/mes/pro/edhr/SignaturePage.vue'
 import OperationAuditListPane from '@/views/mes/pro/edhr/components/OperationAuditListPane.vue'
 import ReleaseEventListPane from '@/views/mes/pro/edhr/components/ReleaseEventListPane.vue'
+import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePane.vue'
 import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'
 import ActiveOrderSubmissionDetailPanel from '@/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import {
@@ -417,7 +425,7 @@ const latestBatchArchive = computed(() => timeline.value?.archiveVersions?.[0])
 const latestBatchArchivePdfAValid = computed(() =>
   latestBatchArchive.value ? isValidPdfAArchive(latestBatchArchive.value) : false
 )
-const activeTab = ref<'recordForm' | 'fieldResponsibility' | 'operationAudit' | 'signatures' | 'releaseEvents'>(
+const activeTab = ref<'deviations' | 'recordForm' | 'fieldResponsibility' | 'operationAudit' | 'signatures' | 'releaseEvents'>(
   'recordForm'
 )
 const selectedRecordExecutionId = ref('')

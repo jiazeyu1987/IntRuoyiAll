@@ -45,6 +45,12 @@ public class MesProEdhrNonconformanceReviewRespVO {
 
     private String qaSignature;
 
+    private Long qaCreateSignatureId;
+
+    private String deviationIdsJson;
+
+    private String idempotencyKey;
+
     private Long qaUserId;
 
     private LocalDateTime frozenAt;

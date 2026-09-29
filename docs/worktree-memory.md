@@ -471,3 +471,9 @@
 - Verification: 记录 detached 状态、cleanup preview 的 blocked 行、任务最终状态以及未执行 commit/push/apply 的原因。
 - Forbidden action: 禁止在 detached HEAD 上猜测分支名、强行提交、手工绕过 closeout guard、直接删除 worktree 或把 blocked preview 写成 cleanup PASS。
 - Evidence: `doc/tasks/20260914-edhr-static-021-inventory-evidence-chain/verification-report.md`，EDHR-STATIC-021 在 linked worktree 中 cleanup preview 阻塞于 `Current worktree branch could not be resolved`，任务按规则停在 blocked。
+
+
+## 测试夹具随融合提交门禁
+- 触发：测试引用 doc/tasks 下被忽略的策略草案、样例或快照，源工作区通过而新 checkout 缺文件。
+- 规则：将测试必需且不含敏感信息的原始夹具归入对应模块 src/test/resources，并更新测试读取路径；生产策略与未批准测试草案必须保持隔离。不得用编造内容或跳过断言掩盖缺文件。
+- 验证：以 Git 跟踪清单确认夹具随实现提交，重新执行实际消费夹具的测试；不要把源工作区忽略文件存在当作合并后可复现的证据。

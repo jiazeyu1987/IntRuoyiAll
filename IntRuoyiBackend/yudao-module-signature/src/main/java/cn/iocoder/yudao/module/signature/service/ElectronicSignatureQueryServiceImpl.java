@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand;
 import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectSnapshot;
 import cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO;
 import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.alibaba.fastjson.JSON;
 import jakarta.annotation.Resource;
@@ -35,6 +36,8 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
 
     @Resource
     private ElectronicSignatureRecordMapper signatureRecordMapper;
+    @Resource
+    private AdminUserApi adminUserApi;
     @Resource
     private List<ElectronicSignatureSubjectAdapter> subjectAdapters;
 
@@ -129,6 +132,14 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
     }
 
     private ElectronicSignatureEvidenceDTO toEvidence(ElectronicSignatureRecordDO record) {
+        String actorDisplayName = null;
+        if (adminUserApi != null && record.getActorId() != null) {
+            var actor = adminUserApi.getUser(record.getActorId());
+            if (actor != null) {
+                actorDisplayName = StrUtil.isNotBlank(actor.getNickname())
+                        ? actor.getNickname() : actor.getUsername();
+            }
+        }
         return new ElectronicSignatureEvidenceDTO(record.getId(), record.getModuleCode(), record.getActionCode(),
                 record.getSubjectType(), record.getSubjectId(), record.getSubjectVersion(), record.getActorId(),
                 record.getMeaningCode(), record.getMeaningLabel(), record.getReason(), record.getSignedAt(),
@@ -136,7 +147,8 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
                 record.getEvidenceHash(), record.getAlgorithm(), record.getKeyVersion(), record.getPolicyVersion(),
                 record.getVerificationStatus(), record.getProcessInstanceId(), record.getTaskId(),
                 record.getNodeCode(), record.getNodeOrder(), record.getCanonicalContentJson(),
-                record.getBeforeContentJson(), record.getAfterContentJson(), record.getFieldDiffJson());
+                record.getBeforeContentJson(), record.getAfterContentJson(), record.getFieldDiffJson(),
+                actorDisplayName, "Asia/Shanghai");
     }
 
     private String evidencePayload(ElectronicSignatureRecordDO record, String contentHash) {

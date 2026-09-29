@@ -83,13 +83,6 @@ export interface EdhrBatchExecutionOpenOrCreateReqVO {
   remark?: string
 }
 
-export interface EdhrBatchExecutionManualOpenOrCreateReqVO {
-  workOrderId: number
-  batchCode: string
-  routeId: number
-  remark?: string
-}
-
 export interface EdhrBatchExecutionRouteOptionRespVO {
   routeId: number
   routeCode?: string
@@ -904,15 +897,6 @@ export const simulateEdhrStage4DossierUpload = async (
   return await request.post<EdhrStage4DossierUploadSimulationRespVO>({
     url: BATCH_EXECUTION_BASE_URL + '/simulation/stage4/dossier-upload',
     data: { simulationRunId, batchExecutionId, stage2_5SimulationRunId, inputMode }
-  })
-}
-
-export const openOrCreateManualEdhrBatchExecution = async (
-  data: EdhrBatchExecutionManualOpenOrCreateReqVO
-) => {
-  return await request.post<EdhrBatchExecutionRespVO>({
-    url: BATCH_EXECUTION_BASE_URL + '/open-or-create-manual',
-    data
   })
 }
 

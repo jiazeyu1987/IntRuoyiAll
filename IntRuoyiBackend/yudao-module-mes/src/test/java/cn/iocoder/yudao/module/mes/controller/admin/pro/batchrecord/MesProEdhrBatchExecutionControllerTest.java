@@ -232,4 +232,15 @@ class MesProEdhrBatchExecutionControllerTest {
                         && Long.valueOf(916L).equals(command.getApproverUserId())
                         && Long.valueOf(1161L).equals(command.getArchiverUserId())));
     }
+    @org.junit.jupiter.api.Test
+    void doesNotExposeManualBatchCreation() {
+        for (java.lang.reflect.Method method : MesProEdhrBatchExecutionController.class.getDeclaredMethods()) {
+            PostMapping mapping = method.getAnnotation(PostMapping.class);
+            if (mapping != null) {
+                for (String route : mapping.value()) {
+                    org.junit.jupiter.api.Assertions.assertNotEquals("/open-or-create-manual", route);
+                }
+            }
+        }
+    }
 }

@@ -64,6 +64,14 @@ public class MesProEdhrNonconformanceReviewDO extends BaseDO {
 
     private String qaSignature;
 
+    private Long qaCreateSignatureId;
+
+    private String deviationIdsJson;
+
+    private String idempotencyKey;
+
+    private String payloadHash;
+
     private Long qaUserId;
 
     private LocalDateTime frozenAt;

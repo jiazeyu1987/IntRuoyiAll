@@ -501,6 +501,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             EdhrScheduleCompletionCreateCommand command = new EdhrScheduleCompletionCreateCommand()
                     .setScheduleOrderId(scheduleOrder.getId())
                     .setScheduleOrderCode(scheduleOrder.getCode())
+                    .setEntryType("ACTIVE_ORDER_SCHEDULED")
                     .setWorkOrderId(scheduleOrder.getWorkOrderId())
                     .setBatchCode(workOrder == null ? null : workOrder.getBatchCode())
                     .setProductId(scheduleOrder.getProductId())

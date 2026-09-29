@@ -26,6 +26,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewMaterialUploadRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationNcrCreateReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewCounterDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
@@ -37,6 +38,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExec
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewCounterMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrDeviationMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrDeviationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
@@ -70,6 +73,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.HashSet;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS;
@@ -80,6 +84,11 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_PENDING_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_SELECTION_REQUIRED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_NOT_CRITICAL;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_BATCH_MISMATCH;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_NOT_OPEN;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_IDEMPOTENCY_CONFLICT;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_WORK_ORDER_STATE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.DISPOSITION_CONCESSION_RELEASE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.DISPOSITION_REWORK;
@@ -87,6 +96,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonc
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.SOURCE_TYPE_PQC_RELEASE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.SOURCE_TYPE_PQC_SUBMISSION;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.SOURCE_TYPE_ACTIVE_ORDER;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.SOURCE_TYPE_DEVIATION;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.STATUS_CLOSED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.STATUS_PENDING_REVIEW;
 
@@ -108,6 +118,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     private MesProEdhrWorkTaskService workTaskService;
     @Resource
     private MesProEdhrNonconformanceReviewCounterMapper reviewCounterMapper;
+    @Resource
+    private MesProEdhrDeviationMapper deviationMapper;
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Resource
@@ -324,6 +336,138 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                     .setActiveStatus(activeOrder.getActiveStatus())
                     .setBusinessStatus(activeOrder.getBusinessStatus());
         }).toList();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrNonconformanceReviewRespVO createCriticalDeviationReview(
+            Long actorUserId, MesProEdhrDeviationNcrCreateReqVO reqVO) {
+        if (actorUserId == null || actorUserId <= 0) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        String reason = requireText(reqVO.getNonconformanceReason());
+        String signaturePassword = requireText(reqVO.getSignaturePassword());
+        String idempotencyKey = requireText(reqVO.getIdempotencyKey());
+        List<Long> deviationIds = normalizeDeviationIds(reqVO.getDeviationIds());
+        unifiedAudit.acquireLedgerLock();
+        MesProEdhrBatchExecutionDO batch = requireBatchExecutionForUpdate(reqVO.getBatchExecutionId());
+        Long tenantId = batch.getTenantId() != null ? batch.getTenantId() : TenantContextHolder.getTenantId();
+        String payloadHash = buildDeviationTransferPayloadHash(batch, deviationIds, reason, reqVO.getRemark());
+        MesProEdhrNonconformanceReviewDO replay = reviewMapper
+                .selectByTenantAndIdempotencyKeyForUpdate(tenantId, idempotencyKey);
+        if (replay != null) {
+            if (!Objects.equals(replay.getPayloadHash(), payloadHash)) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_IDEMPOTENCY_CONFLICT);
+            }
+            return toResp(replay);
+        }
+        validateBatchCanStartReview(batch);
+        lockAndValidateCriticalDeviations(tenantId, batch.getId(), deviationIds);
+        MesProWorkOrderDO workOrder = lockWorkOrder(batch.getWorkOrderId());
+        LocalDateTime now = now();
+        Boolean previousWorkOrderTemporaryFrozen = captureWorkOrderExternalFreezeAtReviewStart(workOrder, now);
+        // A deviation is authoritative at batch-record scope. An active-order origin is
+        // optional for this source and must not block QA from opening the review.
+        Long activeOrderId = resolveActiveOrderId(batch, null, null);
+        String deviationIdsJson = JSON.toJSONString(deviationIds);
+        MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
+                .reviewCode(buildReviewCode(now))
+                .sourceType(SOURCE_TYPE_DEVIATION)
+                .sourceId(batch.getId())
+                .activeOrderId(activeOrderId)
+                .batchExecutionId(batch.getId())
+                .batchExecutionCode(batch.getBatchExecutionCode())
+                .workOrderId(batch.getWorkOrderId())
+                .workOrderCode(batch.getWorkOrderCode())
+                .batchCode(batch.getBatchCode())
+                .previousBatchStatus(batch.getStatus())
+                .previousWorkOrderTemporaryFrozen(previousWorkOrderTemporaryFrozen)
+                .reviewStatus(STATUS_PENDING_REVIEW)
+                .nonconformanceReason(reason)
+                .deviationIdsJson(deviationIdsJson)
+                .idempotencyKey(idempotencyKey)
+                .payloadHash(payloadHash)
+                .frozenAt(now)
+                .remark(StrUtil.trim(reqVO.getRemark()))
+                .build();
+        reviewMapper.insert(review);
+        if (review.getId() == null) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_NOT_EXISTS);
+        }
+        String signatureAggregateHash = buildDeviationTransferSignatureHash(review, deviationIds, payloadHash);
+        Long signatureId = signatureService.recordNonconformanceReviewCreateSignature(
+                actorUserId, review.getId(), signaturePassword, reason, signatureAggregateHash);
+        if (signatureId == null || reviewMapper.attachCreateSignature(tenantId, review.getId(), signatureId,
+                "QA电子签名#" + signatureId, actorUserId) != 1) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED);
+        }
+        if (batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId()).setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN)) != 1) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+        }
+        if (workOrder != null) {
+            requireWorkOrderUpdate(workOrder.getId(), true);
+        }
+        if (deviationMapper.closeToNonconformance(tenantId, batch.getId(), deviationIds,
+                review.getId(), now) != deviationIds.size()) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        recordReviewOperation("NONCONFORMANCE_REVIEW_DEVIATION_TRANSFER",
+                "关键偏差转不合格评审", review, activeOrderId, null, now, signatureId,
+                null, null, deviationIdsJson, reason, "QA电子签名#" + signatureId, actorUserId);
+        review.setQaCreateSignatureId(signatureId).setQaSignature("QA电子签名#" + signatureId)
+                .setQaUserId(actorUserId);
+        return toResp(review);
+    }
+
+    private List<Long> normalizeDeviationIds(List<Long> rawDeviationIds) {
+        if (rawDeviationIds == null || rawDeviationIds.isEmpty()
+                || rawDeviationIds.stream().anyMatch(id -> id == null || id <= 0)
+                || new HashSet<>(rawDeviationIds).size() != rawDeviationIds.size()) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_SELECTION_REQUIRED);
+        }
+        return rawDeviationIds.stream().sorted().toList();
+    }
+
+    private List<MesProEdhrDeviationDO> lockAndValidateCriticalDeviations(
+            Long tenantId, Long batchExecutionId, List<Long> deviationIds) {
+        List<MesProEdhrDeviationDO> deviations = new ArrayList<>();
+        for (Long deviationId : deviationIds) {
+            MesProEdhrDeviationDO deviation = deviationMapper.selectByTenantAndIdForUpdate(tenantId, deviationId);
+            if (deviation == null || !Objects.equals(deviation.getBatchExecutionId(), batchExecutionId)) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_BATCH_MISMATCH);
+            }
+            if (!"CRITICAL".equals(deviation.getLevel())) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_NOT_CRITICAL);
+            }
+            if (!"OPEN".equals(deviation.getStatus()) || deviation.getNonconformanceReviewId() != null) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_NOT_OPEN);
+            }
+            deviations.add(deviation);
+        }
+        return deviations;
+    }
+
+    private String buildDeviationTransferPayloadHash(MesProEdhrBatchExecutionDO batch, List<Long> deviationIds,
+                                                     String reason, String remark) {
+        JSONObject payload = new JSONObject(true);
+        payload.put("sourceType", SOURCE_TYPE_DEVIATION);
+        payload.put("batchExecutionId", batch.getId());
+        payload.put("deviationIds", deviationIds);
+        payload.put("nonconformanceReason", reason);
+        payload.put("remark", StrUtil.trim(remark));
+        return DigestUtil.sha256Hex(JSON.toJSONString(payload));
+    }
+
+    private String buildDeviationTransferSignatureHash(MesProEdhrNonconformanceReviewDO review,
+                                                        List<Long> deviationIds, String payloadHash) {
+        JSONObject payload = new JSONObject(true);
+        payload.put("reviewId", review.getId());
+        payload.put("reviewCode", review.getReviewCode());
+        payload.put("batchExecutionId", review.getBatchExecutionId());
+        payload.put("deviationIds", deviationIds);
+        payload.put("payloadHash", payloadHash);
+        return DigestUtil.sha256Hex(JSON.toJSONString(payload));
     }
 
     @Override

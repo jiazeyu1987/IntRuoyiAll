@@ -546,7 +546,7 @@ const handleOpenBatchRecord = async (row: WorkOrderTreeRow) => {
   await router.push({
     path: '/mes/pro/feedback/edhr-batch-execution',
     query: {
-      prefillWorkOrderCode: row.code
+      workOrderCode: row.code
     }
   })
 }

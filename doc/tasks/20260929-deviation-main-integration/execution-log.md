@@ -47,3 +47,33 @@ RED: MesReleasePrecheckPromotionRaceTest -> FAIL, both transaction-id and batch-
 GREEN: main-stable-final Maven MesReleasePrecheckPromotionRaceTest + MesProductionReleaseManagerStageInitializerTest -> PASS, 2 + 7 tests. Precheck locks/re-reads; manager promotion retains the transaction identity.
 GREEN: main-fixture-final Maven MesTeamLeaderActiveOrderServiceTest -> PASS, 99 tests. Tenant and historical cleanup mapper fixtures restored; production guards and original assertions retained.
 GREEN: main-fixture-green Maven -> PASS, BatchExecution 200 + NCR manager 6; together with active-order 99 and unchanged successful classes in main-stable-final, all 578 selected MES baseline cases and 130 system cases have passing evidence. No production guard weakened.
+
+## Source implementation evidence (before rebase)
+
+来源实现验证开始。主任务记录位于 E:/IntRuoyi/doc/tasks/20260929-deviation-main-integration。
+
+来源回归：mes 328项，8 failures / 9 errors；签名模块单独结果见日志。11个批次整类历史失败待主线融合后复验。新来源守卫使4个偏差测试夹具缺正式来源；补齐H2真实关联，不放宽业务守卫。两个前端脚本从仓库根启动导致ENOENT，重跑从前端目录；列表旧断言仍要求主线已删除的当前工序/填写人/进度列，更新为现行列表合同。
+BDD: 偏差只选择正式来源 -> Given 同租户正式与无来源批次，When 查询候选或发起偏差，Then 只接受正式活跃订单来源；签名失败仍回滚所有偏差写入。
+RED: source-tests.log -> FAIL, 新来源守卫导致缺来源的4个夹具失败。
+来源47项核心定向回归PASS，前端类型与ESLint PASS（1既有warning）。整类旧基线仍有13项失败，不提交失败基线。为接入已验证主线修复，临时保存本任务自有未提交源码，快进到主线后原样恢复并逐处解决冲突；不处理主线stash。
+
+融合编译RED: source-merged-tests.log -> FAIL, 偏差NCR旧编号函数调用与主线全局序号新签名不匹配。已统一调用主线buildReviewCode(now)，保留新编号机制。
+
+融合回归发现既有Release测试依赖未入Git的GxP任务草案。已从原GxP集成工作区读取原始草案，归档为src/test/resources/gxp正式测试夹具（不进入生产策略），修正缺策略用例沿用0租户却mock1租户的夹具矛盾。原始FAIL保留于source-merged-tests-green.log。
+
+用户明确选择仅本地合并，不推送远程。继续本地提交与融合；项目推送完成门禁未执行，最终报告明确区分本地融合与远程交付。
+
+经验沉淀：复用docs/backend-development.md审计策略门禁，补充真实打包资源不得由fixture转换掩盖、升级必须覆盖加载/激活/运行消费链。仅本任务经验变更，未新建长期文档。
+
+
+## Runtime policy v2 alignment
+BDD: Runtime policy loads -> Given actual Maven-packaged META-INF/gxp resources / When strict loader reads them / Then all 28 operations satisfy v2 schema.
+BDD: Activation preserves metadata -> Given v2 sourceLocators and ownerRole / When projecting immutable operations / Then all locations and role persist.
+BDD: Required reasons -> Given USER_REQUIRED or persisted REQUIRED/REQUIRED_CATEGORY_AND_TEXT / When reason is blank / Then no audit event is appended.
+BDD: Historical policy remains immutable -> Given frozen legacy artifact and activation / When current v2 uses the same historical version or request / Then activation rejects and old records remain unchanged.
+RED: mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-system -am test '-Dtest=GxpAuditPolicyActivationServiceContractTest,GxpAuditServiceImplTest#userRequiredPolicyRejectsBlankReasonWithoutWritingAudit' '-Dsurefire.failIfNoSpecifiedTests=false' '-DfailIfNoTests=false' '-Dstyle.color=never' -> FAIL, real bundle missing coverageScope and USER_REQUIRED accepted blank reason; policy-v2-red.log.
+RED: mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-system -am test '-Dtest=GxpAuditPolicyActivationServiceContractTest#activationProjectionPreservesV2SourceLocationsAndOwnerRole,GxpAuditServiceImplTest#userRequiredPolicyRejectsBlankReasonWithoutWritingAudit' '-Dsurefire.failIfNoSpecifiedTests=false' '-DfailIfNoTests=false' '-Dstyle.color=never' -> FAIL, v2 projection demanded obsolete sourceLocator and legacy REQUIRED constraints were dropped; policy-projection-red.log (controlled old projection, then restored).
+
+GREEN: mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am test '-Dtest=GxpAuditPolicy*Test,GxpAuditServiceImplTest,MesProEdhrReleaseServiceImplTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-DfailIfNoTests=false' '-Dstyle.color=never' -> PASS, policy-v2-final-green.log; includes two historical immutable conflict scenarios and actual packaged runtime policy.
+
+GREEN: 来源15类最终回归 -> PASS 369项；2026-09-29 10:15:41 source-stable-final.log。准备独立实现提交，后续重放到主线基线。

@@ -190,8 +190,66 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_473, "eDHR 不合格评审原因、材料、意见和电子签名密码均不能为空");
     ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED =
             new ErrorCode(1_040_750_474, "当前批次存在不合格评审冻结，禁止{}：{}");
+    ErrorCode PRO_EDHR_DEVIATION_BATCH_NOT_EXISTS =
+            new ErrorCode(1_040_750_475, "偏差关联的正式批记录不存在或不属于当前租户：batchExecutionId={}");
+    ErrorCode PRO_EDHR_DEVIATION_BATCH_MARKET_RELEASED =
+            new ErrorCode(1_040_750_476, "上市放行后不能新增偏差：batchExecutionId={}");
+    ErrorCode PRO_EDHR_DEVIATION_IDEMPOTENCY_CONFLICT =
+            new ErrorCode(1_040_750_477, "偏差发起幂等键已用于不同请求：idempotencyKey={}");
+    ErrorCode PRO_EDHR_DEVIATION_IDEMPOTENCY_KEY_REQUIRED =
+            new ErrorCode(1_040_750_478, "偏差发起必须提供幂等键");
+    ErrorCode PRO_EDHR_DEVIATION_SEQUENCE_ALLOCATION_FAILED =
+            new ErrorCode(1_040_750_479, "偏差编号序列分配失败：tenantId={}，yearMonth={}");
+    ErrorCode PRO_EDHR_DEVIATION_INITIATOR_REQUIRED =
+            new ErrorCode(1_040_750_480, "偏差发起缺少当前登录用户身份");
+    ErrorCode PRO_EDHR_DEVIATION_MARKET_RELEASE_BLOCKED =
+            new ErrorCode(1_040_750_481, "批记录存在未关闭偏差，禁止上市放行：batchExecutionId={}");
+    ErrorCode PRO_EDHR_DEVIATION_LEVEL_INVALID =
+            new ErrorCode(1_040_750_482, "偏差等级无效，只允许 NORMAL 或 CRITICAL");
+    ErrorCode PRO_EDHR_DEVIATION_CATEGORY_INVALID =
+            new ErrorCode(1_040_750_483, "偏差类别缺失或包含不支持的类别编码");
+    ErrorCode PRO_EDHR_DEVIATION_REQUIRED_CONTENT_MISSING =
+            new ErrorCode(1_040_750_484, "偏差说明、等级依据或幂等键不能为空");
+    ErrorCode PRO_EDHR_DEVIATION_CREATE_FAILED =
+            new ErrorCode(1_040_750_485, "偏差记录持久化失败");
+    ErrorCode PRO_EDHR_DEVIATION_SIGNATURE_REQUIRED =
+            new ErrorCode(1_040_750_486, "偏差正式发起必须完成电子签名");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_SELECTION_REQUIRED =
+            new ErrorCode(1_040_750_505, "关键偏差转不合格评审必须选择一条或多条偏差");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_NOT_CRITICAL =
+            new ErrorCode(1_040_750_506, "只有重大（关键）偏差允许转不合格评审");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_BATCH_MISMATCH =
+            new ErrorCode(1_040_750_507, "所选偏差必须属于同一正式批记录");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_NOT_OPEN =
+            new ErrorCode(1_040_750_508, "所选偏差已关闭或已关联不合格评审");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_DEVIATION_IDEMPOTENCY_CONFLICT =
+            new ErrorCode(1_040_750_509, "关键偏差转审幂等键与请求载荷冲突");
+    ErrorCode PRO_EDHR_DEVIATION_HANDLING_NOT_EXISTS =
+            new ErrorCode(1_040_750_493, "偏差处理记录不存在：deviationId={}");
+    ErrorCode PRO_EDHR_DEVIATION_HANDLING_CLOSED =
+            new ErrorCode(1_040_750_494, "偏差已关闭，处理记录只读：deviationId={}");
+    ErrorCode PRO_EDHR_DEVIATION_HANDLING_VERSION_CONFLICT =
+            new ErrorCode(1_040_750_495, "偏差处理记录已被修改，请刷新后重试：deviationId={}");
+    ErrorCode PRO_EDHR_DEVIATION_HANDLING_REVISION_REASON_REQUIRED =
+            new ErrorCode(1_040_750_504, "修改偏差处理记录必须填写修订原因：deviationId={}");
+    ErrorCode PRO_EDHR_DEVIATION_HANDLING_REQUIRED =
+            new ErrorCode(1_040_750_496, "偏差处理记录缺少必填调查、处置或验证内容：deviationId={}");
+    ErrorCode PRO_EDHR_DEVIATION_HANDLING_SIGNATURE_REQUIRED =
+            new ErrorCode(1_040_750_497, "偏差处理缺少有效电子签名：{}，deviationId={}");
+    ErrorCode PRO_EDHR_DEVIATION_HANDLING_NODE_INVALID =
+            new ErrorCode(1_040_750_498, "偏差处理签名节点无效：{}");
+    ErrorCode PRO_EDHR_DEVIATION_HANDLING_CLOSE_FAILED =
+            new ErrorCode(1_040_750_499, "偏差常规关闭失败：deviationId={}");
+    ErrorCode PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED =
+            new ErrorCode(1_040_750_500, "当前用户无权执行偏差处理动作：{}");
     ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_WORK_ORDER_STATE_REQUIRED =
             new ErrorCode(1_040_750_491, "不合格评审缺少工单冻结前状态，禁止恢复工单");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED =
             new ErrorCode(1_040_750_492, "eDHR 批次缺少冻结工艺路线身份或快照，禁止归档");
+    ErrorCode PRO_EDHR_BATCH_ACTIVE_ORDER_SOURCE_MISSING =
+            new ErrorCode(1_040_750_510, "当前批次尚未关联正式活跃订单，无法展示活跃订单详情，请核查批次来源");
+    ErrorCode PRO_EDHR_BATCH_ACTIVE_ORDER_SOURCE_INVALID =
+            new ErrorCode(1_040_750_511, "当前批次的正式活跃订单来源无效，请核查来源关联");
+    ErrorCode PRO_EDHR_BATCH_FORMAL_ACTIVE_SOURCE_REQUIRED =
+            new ErrorCode(1_040_750_512, "批次只能通过活跃订单正式流程生成，不支持独立或手动创建");
 }

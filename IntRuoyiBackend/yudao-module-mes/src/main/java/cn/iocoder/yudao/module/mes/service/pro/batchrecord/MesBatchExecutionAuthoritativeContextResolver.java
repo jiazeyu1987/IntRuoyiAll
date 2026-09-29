@@ -35,21 +35,16 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 public class MesBatchExecutionAuthoritativeContextResolver {
 
     private static final String ACTIVE_RECEIPT_TYPE = "CompletionBackfillReceipt";
-    private static final String INDEPENDENT_RECEIPT_TYPE = "IndependentBatchPrerequisiteReceipt";
     private static final Set<String> ACTIVE_ENTRY_TYPES = Set.of(
             "ACTIVE_ORDER_COMPLETION", "ACTIVE_ORDER_SCHEDULED", "ACTIVE_ORDER_PQC", "MANUAL_CONTROLLED_RETRY");
-    private static final Set<String> INDEPENDENT_ENTRY_TYPES = Set.of("MANUAL", "SCHEDULED", "PQC_INDEPENDENT");
 
     private final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
-    private final MesIndependentBatchPrerequisiteReceiptService independentReceiptService;
     private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
 
     public MesBatchExecutionAuthoritativeContextResolver(
             MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort,
-            MesIndependentBatchPrerequisiteReceiptService independentReceiptService,
             MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper) {
         this.completionReceiptPort = completionReceiptPort;
-        this.independentReceiptService = independentReceiptService;
         this.pickListBindingMapper = pickListBindingMapper;
     }
 
@@ -60,19 +55,16 @@ public class MesBatchExecutionAuthoritativeContextResolver {
         if (request == null || StrUtil.isBlank(request.getEntryType())) {
             throw exception(PRO_EDHR_BATCH_ENTRY_SCENARIO_MISMATCH);
         }
+        if (!ACTIVE_ENTRY_TYPES.contains(request.getEntryType())) {
+            throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_FORMAL_ACTIVE_SOURCE_REQUIRED);
+        }
         if (request.getCompletionBackfillReceipt() != null || request.getIndependentReceipt() != null) {
             throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
         }
         if (StrUtil.isBlank(request.getSourceCredentialId())) {
             throw exception(PRO_EDHR_BATCH_ENTRY_CREDENTIAL_REQUIRED);
         }
-        if (ACTIVE_ENTRY_TYPES.contains(request.getEntryType())) {
-            return resolveActive(request, tenantId);
-        }
-        if (INDEPENDENT_ENTRY_TYPES.contains(request.getEntryType())) {
-            return resolveIndependent(request, tenantId);
-        }
-        throw exception(PRO_EDHR_BATCH_ENTRY_SCENARIO_MISMATCH);
+        return resolveActive(request, tenantId);
     }
 
     private MesBatchExecutionAuthoritativeContext resolveActive(
@@ -164,46 +156,6 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                 .setCompletionBackfillReceipt(canonicalReceipt);
         return new MesBatchExecutionAuthoritativeContext().setProvisionCommand(canonical)
                 .setCompletionReceipt(receipt).setPickListBindings(pickListBindings);
-    }
-
-    private MesBatchExecutionAuthoritativeContext resolveIndependent(
-            MesBatchExecutionProvisionCommand request, Long tenantId) {
-        MesIndependentBatchPrerequisiteReceipt receipt = independentReceiptService.verify(
-                new MesIndependentBatchPrerequisiteReceiptVerifyCommand()
-                        .setReceiptId(request.getSourceCredentialId()).setEntryType(request.getEntryType())
-                        .setSourceSnapshotHash(request.getSourceSnapshotHash()), tenantId);
-        if (receipt == null || !Objects.equals(tenantId, receipt.getTenantId())
-                || !Objects.equals(request.getSourceCredentialId(), receipt.getReceiptId())
-                || !Objects.equals(request.getEntryType(), receipt.getEntryType())) {
-            throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
-        }
-        requireMatch(request.getWorkOrderId(), receipt.getWorkOrderId());
-        requireMatch(request.getBatchCode(), receipt.getBatchCode());
-        requireMatch(request.getRouteId(), receipt.getRouteId());
-        requireMatch(request.getRouteVersionId(), receipt.getRouteVersionId());
-        requireMatch(request.getSourceSnapshotHash(), receipt.getSourceSnapshotHash());
-        requireMatch(request.getSourceContextHash(), receipt.getSourceContextHash());
-        requireMatch(request.getSourceRelationId(), receipt.getSourceRelationId());
-        requireMatch(request.getExpectedSourceVersion(), receipt.getSourceRelationVersion());
-        requireMatch(request.getPayloadHash(), receipt.getPayloadHash());
-        if (request.getTenantId() != null && !Objects.equals(request.getTenantId(), tenantId)) {
-            throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
-        }
-        MesBatchExecutionProvisionCommand canonical = new MesBatchExecutionProvisionCommand()
-                .setEntryType(receipt.getEntryType()).setEntryBusinessId(request.getEntryBusinessId())
-                .setSourceCredentialType(INDEPENDENT_RECEIPT_TYPE).setSourceCredentialId(receipt.getReceiptId())
-                .setSourceRelationId(receipt.getSourceRelationId()).setSourceContextHash(receipt.getSourceContextHash())
-                .setTenantId(receipt.getTenantId()).setWorkOrderId(receipt.getWorkOrderId())
-                .setWorkOrderCode(receipt.getWorkOrderCode()).setBatchCode(receipt.getBatchCode())
-                .setRouteId(receipt.getRouteId()).setRouteVersionId(receipt.getRouteVersionId())
-                .setSourceSnapshotHash(receipt.getSourceSnapshotHash()).setIdempotencyKey(request.getIdempotencyKey())
-                .setExpectedSourceVersion(receipt.getSourceRelationVersion()).setPayloadHash(receipt.getPayloadHash())
-                .setSourceVersion(receipt.getSourceRelationVersion())
-                .setSourceBundleHash(traceSourceBundleHash(normalizeIndependentEvidence(receipt.getSourceEvidence())))
-                .setSourceEvidence(normalizeIndependentEvidence(receipt.getSourceEvidence()))
-                .setIndependentReceipt(receipt);
-        return new MesBatchExecutionAuthoritativeContext().setProvisionCommand(canonical)
-                .setIndependentReceipt(receipt);
     }
 
     private Long parseReceiptId(String value) {
@@ -358,41 +310,4 @@ public class MesBatchExecutionAuthoritativeContextResolver {
         }
     }
 
-    private List<MesBatchExecutionSourceEvidence> normalizeIndependentEvidence(
-            List<MesBatchExecutionSourceEvidence> sourceEvidence) {
-        if (sourceEvidence == null || sourceEvidence.isEmpty()) {
-            throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED);
-        }
-        return sourceEvidence.stream().map(item -> {
-            if (item == null || StrUtil.isBlank(item.getSourceType())
-                    || StrUtil.isBlank(item.getSourceId()) || StrUtil.isBlank(item.getSourceSnapshotHash())
-                    || StrUtil.isBlank(item.getSourceVersion()) || StrUtil.isBlank(item.getRelationStatus())
-                    || StrUtil.isBlank(item.getSourceObjectType()) || StrUtil.isBlank(item.getSourceObjectId())) {
-                throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED);
-            }
-            Map<String, Object> snapshot = new LinkedHashMap<>();
-            snapshot.put("sourceType", item.getSourceType());
-            snapshot.put("sourceId", item.getSourceId());
-            snapshot.put("witnessHash", item.getSourceSnapshotHash());
-            String snapshotJson = item.getSnapshotJson();
-            if (StrUtil.isBlank(snapshotJson)) {
-                throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED);
-            }
-            String sourceObjectId = item.getSourceObjectId();
-            String sourceObjectType = item.getSourceObjectType();
-            parseEvidenceId(sourceObjectId);
-            String normalizedSnapshotHash = MesProEdhrBatchTraceSourceHash.calculate(item.getSourceType(), snapshotJson);
-            return new MesBatchExecutionSourceEvidence()
-                    .setSourceType(item.getSourceType()).setSourceId(item.getSourceId())
-                    .setSourceVersion(item.getSourceVersion())
-                    .setSourceSnapshotHash(normalizedSnapshotHash)
-                    .setPayloadHash(item.getPayloadHash()).setSignature(item.getSignature())
-                    .setSourceObjectType(sourceObjectType)
-                    .setSourceObjectId(sourceObjectId).setSnapshotJson(snapshotJson)
-                    .setSourceIdentityKey(item.getSourceType() + ":" + sourceObjectType + ":"
-                            + sourceObjectId + "::")
-                    .setRelationStatus(item.getRelationStatus())
-                    .setRelationReason(item.getRelationReason());
-        }).toList();
-    }
 }

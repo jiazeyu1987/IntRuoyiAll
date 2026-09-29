@@ -34,13 +34,6 @@
             @reset="resetEdhrBatchExecutionColumnConfig"
           />
           <el-button
-            v-hasPermi="['mes:pro-edhr-batch-execution:create']"
-            type="primary"
-            @click="openCreateDialog"
-          >
-            打开/创建
-          </el-button>
-          <el-button
             v-if="hasGoldenFingerPermission"
             v-hasPermi="[GOLDEN_FINGER_PERMISSION]"
             plain
@@ -279,99 +272,6 @@
         </template>
       </UnifiedListTemplate>
     </div>
-
-    <Dialog title="打开或创建 eDHR 批次执行" v-model="createDialogVisible" width="520px">
-      <el-alert
-        v-if="createError"
-        :title="createError"
-        type="error"
-        :closable="false"
-        show-icon
-        class="edhr-batch-page__dialog-alert"
-      />
-      <el-form label-width="96px">
-        <el-form-item label="生产工单" required>
-          <el-select
-            v-model="createForm.workOrderId"
-            filterable
-            remote
-            reserve-keyword
-            clearable
-            :remote-method="searchSelectableWorkOrders"
-            :loading="workOrderLoading"
-            popper-class="edhr-batch-page__work-order-select-popper"
-            placeholder="输入工单号或产品名称搜索并选择未冻结工单"
-            style="width: 100%"
-            @change="handleWorkOrderChange"
-            @clear="handleWorkOrderClear"
-          >
-            <el-option
-              v-for="workOrder in selectableWorkOrders"
-              :key="workOrder.id"
-              :label="resolveWorkOrderOptionLabel(workOrder)"
-              :value="workOrder.id"
-            >
-              <div class="edhr-batch-page__work-order-option">
-                <div>
-                  <div class="edhr-batch-page__work-order-code">{{ workOrder.code || '--' }}</div>
-                  <div class="edhr-batch-page__muted">{{ workOrder.name || '--' }}</div>
-                </div>
-                <div class="edhr-batch-page__work-order-meta">
-                  <span>{{ workOrder.productName || workOrder.productCode || '未维护产品' }}</span>
-                  <span>{{ workOrder.batchCode || '未维护批次' }}</span>
-                  <span>ID {{ workOrder.id }}</span>
-                </div>
-              </div>
-            </el-option>
-          </el-select>
-          <div class="edhr-batch-page__field-hint">
-            仅显示未取消且未临时冻结的生产工单。
-          </div>
-        </el-form-item>
-        <el-form-item label="工艺路线" required>
-          <el-select
-            v-model="createForm.routeId"
-            clearable
-            :disabled="!createForm.workOrderId || createRouteOptionsLoading || !createRouteOptions.length"
-            :loading="createRouteOptionsLoading"
-            popper-class="edhr-batch-page__work-order-select-popper"
-            placeholder="请先选择工单，再选择该产品绑定的工艺路线"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="routeOption in createRouteOptions"
-              :key="routeOption.routeId"
-              :label="resolveRouteOptionLabel(routeOption)"
-              :value="routeOption.routeId"
-            >
-              <div class="edhr-batch-page__work-order-option">
-                <div>
-                  <div class="edhr-batch-page__work-order-code">{{ routeOption.routeCode || '--' }}</div>
-                  <div class="edhr-batch-page__muted">{{ routeOption.routeName || '--' }}</div>
-                </div>
-                <div class="edhr-batch-page__work-order-meta">
-                  <span>ID {{ routeOption.routeId }}</span>
-                  <span>{{ routeOption.batchRouteEnabled ? '批记录流程已启用' : '批记录流程未启用' }}</span>
-                </div>
-              </div>
-            </el-option>
-          </el-select>
-          <div class="edhr-batch-page__field-hint">
-            多条路线时必须明确选择，避免同一工单按错误路线创建批次。
-          </div>
-        </el-form-item>
-        <el-form-item label="批次号" required>
-          <el-input v-model="createForm.batchCode" placeholder="请输入真实批次号" />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="createForm.remark" type="textarea" :rows="3" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="createDialogVisible = false">取 消</el-button>
-        <el-button type="primary" :loading="createLoading" @click="submitOpenOrCreate">确 认</el-button>
-      </template>
-    </Dialog>
 
     <Dialog title="上市放行确认" v-model="releaseDialogVisible" width="560px">
       <el-alert
@@ -890,14 +790,11 @@ import {
   goldenFingerBulkVoidEdhrBatchExecutions,
   getEdhrRehearsalReadiness,
   getEdhrBatchReviewTimeline,
-  getEdhrBatchExecutionRouteOptions,
   getLatestEdhrBatchArchive,
   getEdhrBatchExecutionPage,
-  openOrCreateManualEdhrBatchExecution,
   type EdhrBatchExecutionArchiveRespVO,
   type EdhrBatchExecutionPageReqVO,
   type EdhrBatchExecutionRespVO,
-  type EdhrBatchExecutionRouteOptionRespVO,
   type EdhrBatchReviewTimelineRespVO,
   type EdhrRehearsalReadinessItem,
   type EdhrRehearsalReadinessResult
@@ -909,14 +806,12 @@ import {
   type EdhrReleaseRowVO
 } from '@/api/mes/pro/edhr/release'
 import { rejectEdhrBatchExecutionToNonconformanceReview } from '@/api/mes/pro/edhr/nonconformanceReview'
-import { ProWorkOrderApi, type ProWorkOrderVO } from '@/api/mes/pro/workorder'
 import * as UserApi from '@/api/system/user'
 import * as DefinitionApi from '@/api/bpm/definition'
 import * as ProcessInstanceApi from '@/api/bpm/processInstance'
 import { requestVoidBatchExecution, resolveVoidBatchExecutionApproval } from '@/api/mes/pro/edhr/change'
 import { CandidateStrategy, NodeId } from '@/components/SimpleProcessDesignerV2/src/consts'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
-import { MesProWorkOrderStatusEnum } from '@/views/mes/utils/constants'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import EdhrBatchRecordTabs from './EdhrBatchRecordTabs.vue'
@@ -970,7 +865,6 @@ const {
 } = useUserTableColumns('mes.pro.edhrBatch.execution.main', edhrBatchExecutionDefaultColumns)
 
 const loading = ref(false)
-const createLoading = ref(false)
 const voidLoading = ref(false)
 const releaseLoading = ref(false)
 const rejectLoading = ref(false)
@@ -978,10 +872,7 @@ const releaseContextLoading = ref(false)
 const goldenFingerBulkVoidLoading = ref(false)
 const readinessLoading = ref(false)
 const readinessUserLoading = ref(false)
-const workOrderLoading = ref(false)
-const createRouteOptionsLoading = ref(false)
 const loadError = ref('')
-const createError = ref('')
 const voidError = ref('')
 const releaseError = ref('')
 const rejectError = ref('')
@@ -1001,10 +892,7 @@ const handleBatchExecutionSelectionChange = (rows: EdhrBatchExecutionRespVO[]) =
   selectedGoldenFingerBulkVoidRows.value = rows.filter(isGoldenFingerBulkVoidSelectableRow)
 }
 const readinessUserOptions = ref<UserApi.UserVO[]>([])
-const selectableWorkOrders = ref<ProWorkOrderVO[]>([])
-const createRouteOptions = ref<EdhrBatchExecutionRouteOptionRespVO[]>([])
 const total = ref(0)
-const createDialogVisible = ref(false)
 const voidDialogVisible = ref(false)
 const releaseDialogVisible = ref(false)
 const rejectDialogVisible = ref(false)
@@ -1058,12 +946,6 @@ const edhrBatchQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   },
   { key: 'createTime', label: '创建时间', type: 'dateRange' }
 ]
-const createForm = reactive({
-  workOrderId: undefined as number | undefined,
-  routeId: undefined as number | undefined,
-  batchCode: '',
-  remark: ''
-})
 const readinessForm = reactive({
   routeId: '',
   executorUserId: '',
@@ -1541,166 +1423,6 @@ const applyRouteQueryFilters = () => {
   if (batchCode) queryParams.batchCode = batchCode
 }
 
-const resetCreateForm = () => {
-  createForm.workOrderId = undefined
-  createForm.routeId = undefined
-  createForm.batchCode = ''
-  createForm.remark = ''
-  selectableWorkOrders.value = []
-  createRouteOptions.value = []
-}
-
-const openCreateDialog = () => {
-  createError.value = ''
-  resetCreateForm()
-  createDialogVisible.value = true
-  const prefillWorkOrderCode = getPrefillWorkOrderCodeFromRoute()
-  if (prefillWorkOrderCode) {
-    prefillWorkOrderForCreateDialog(prefillWorkOrderCode)
-    return
-  }
-  searchSelectableWorkOrders('')
-}
-
-const getPrefillWorkOrderCodeFromRoute = () => {
-  return typeof route.query.prefillWorkOrderCode === 'string' ? route.query.prefillWorkOrderCode.trim() : ''
-}
-
-const prefillWorkOrderForCreateDialog = async (prefillWorkOrderCode: string) => {
-  if (!prefillWorkOrderCode) return
-  await searchSelectableWorkOrders(prefillWorkOrderCode)
-  const matchedWorkOrder = selectableWorkOrders.value.find((workOrder) => workOrder.code === prefillWorkOrderCode)
-  if (!matchedWorkOrder) {
-    createError.value = `未找到可用于批次执行的生产工单：${prefillWorkOrderCode}`
-    return
-  }
-  createForm.workOrderId = matchedWorkOrder.id
-  createForm.batchCode = matchedWorkOrder.batchCode || createForm.batchCode
-  await loadCreateRouteOptions(matchedWorkOrder.id)
-}
-
-const buildSelectableWorkOrderQueries = (keyword: string) => {
-  const normalizedKeyword = keyword.trim()
-  const baseQuery = {
-    pageNo: 1,
-    pageSize: 20,
-    temporaryFrozen: false
-  }
-  if (!normalizedKeyword) return [baseQuery]
-  return [
-    {
-      ...baseQuery,
-      code: normalizedKeyword
-    },
-    {
-      ...baseQuery,
-      productNameKeyword: normalizedKeyword
-    }
-  ]
-}
-
-const dedupeSelectableWorkOrders = (workOrders: ProWorkOrderVO[]) => {
-  const workOrderMap = new Map<number, ProWorkOrderVO>()
-  workOrders.forEach((workOrder) => {
-    if (!workOrderMap.has(workOrder.id)) {
-      workOrderMap.set(workOrder.id, workOrder)
-    }
-  })
-  return [...workOrderMap.values()]
-}
-
-const searchSelectableWorkOrders = async (keyword: string) => {
-  workOrderLoading.value = true
-  createError.value = ''
-  try {
-    const workOrderPages = await Promise.all(
-      buildSelectableWorkOrderQueries(keyword).map((query) => ProWorkOrderApi.getWorkOrderPage(query))
-    )
-    selectableWorkOrders.value = dedupeSelectableWorkOrders(
-      workOrderPages.flatMap((data) => data.list || [])
-    ).filter(
-      (workOrder) => workOrder.status !== MesProWorkOrderStatusEnum.CANCELED
-    )
-  } catch (error) {
-    selectableWorkOrders.value = []
-    createError.value = resolveErrorMessage(error, '有效生产工单查询失败。')
-  } finally {
-    workOrderLoading.value = false
-  }
-}
-
-const loadCreateRouteOptions = async (workOrderId?: number) => {
-  createRouteOptions.value = []
-  createForm.routeId = undefined
-  if (!workOrderId) return
-  createRouteOptionsLoading.value = true
-  try {
-    createRouteOptions.value = await getEdhrBatchExecutionRouteOptions(workOrderId)
-    if (createRouteOptions.value.length === 1) {
-      createForm.routeId = createRouteOptions.value[0].routeId
-    }
-  } catch (error) {
-    createRouteOptions.value = []
-    createError.value = resolveErrorMessage(error, '工艺路线查询失败。')
-  } finally {
-    createRouteOptionsLoading.value = false
-  }
-}
-
-const handleWorkOrderClear = () => {
-  createForm.workOrderId = undefined
-  createForm.routeId = undefined
-  selectableWorkOrders.value = []
-  createRouteOptions.value = []
-}
-
-const handleWorkOrderChange = async (workOrderId?: number) => {
-  const selectedWorkOrder = selectableWorkOrders.value.find((workOrder) => workOrder.id === workOrderId)
-  if (selectedWorkOrder?.batchCode) {
-    createForm.batchCode = selectedWorkOrder.batchCode
-  }
-  await loadCreateRouteOptions(workOrderId)
-}
-
-const resolveWorkOrderOptionLabel = (workOrder: ProWorkOrderVO) => {
-  return [workOrder.code, workOrder.name, workOrder.productName || workOrder.productCode]
-    .filter(Boolean)
-    .join(' / ')
-}
-
-const resolveRouteOptionLabel = (routeOption: EdhrBatchExecutionRouteOptionRespVO) => {
-  return [routeOption.routeCode, routeOption.routeName, `ID ${routeOption.routeId}`]
-    .filter(Boolean)
-    .join(' / ')
-}
-
-const submitOpenOrCreate = async () => {
-  createLoading.value = true
-  try {
-    if (createForm.workOrderId == null) throw new Error('请选择有效的未冻结生产工单。')
-    if (createRouteOptionsLoading.value) throw new Error('工艺路线正在加载，请稍候再确认。')
-    if (createForm.routeId == null) {
-      if (!createError.value) createError.value = '请选择工艺路线。'
-      return
-    }
-    if (!createForm.batchCode.trim()) throw new Error('批次号不能为空。')
-    createError.value = ''
-    const result = await openOrCreateManualEdhrBatchExecution({
-      workOrderId: createForm.workOrderId,
-      routeId: createForm.routeId,
-      batchCode: createForm.batchCode.trim(),
-      remark: createForm.remark.trim() || undefined
-    })
-    createDialogVisible.value = false
-    message.success('已打开 eDHR 批次执行')
-    await router.push({ path: '/mes/pro/feedback/edhr-batch-execution/detail', query: { id: String(result.id) } })
-  } catch (error) {
-    createError.value = resolveErrorMessage(error, '打开或创建 eDHR 批次执行失败。')
-  } finally {
-    createLoading.value = false
-  }
-}
-
 const submitReadinessCheck = async () => {
   readinessLoading.value = true
   readinessError.value = ''
@@ -2073,9 +1795,6 @@ const handleViewArchive = async (row: EdhrBatchExecutionRespVO) => {
 onMounted(() => {
   applyRouteQueryFilters()
   getList()
-  if (getPrefillWorkOrderCodeFromRoute()) {
-    openCreateDialog()
-  }
 })
 </script>
 
@@ -2197,48 +1916,6 @@ onMounted(() => {
   color: #6b7280;
   font-size: 12px;
   line-height: 18px;
-}
-
-.edhr-batch-page__work-order-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-}
-
-.edhr-batch-page__work-order-code {
-  color: #172033;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 18px;
-}
-
-.edhr-batch-page__work-order-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  color: #6b7280;
-  font-size: 12px;
-  line-height: 18px;
-  white-space: nowrap;
-}
-
-:global(.edhr-batch-page__work-order-select-popper) {
-  width: min(640px, calc(100vw - 48px)) !important;
-  min-width: min(640px, calc(100vw - 48px)) !important;
-  max-width: calc(100vw - 48px);
-}
-
-:global(.edhr-batch-page__work-order-select-popper .el-select-dropdown__item) {
-  height: auto;
-  min-height: 60px;
-  padding: 8px 12px;
-  line-height: normal;
-}
-
-:global(.edhr-batch-page__work-order-select-popper .edhr-batch-page__work-order-option) {
-  min-height: 52px;
 }
 
 .edhr-batch-page__muted {

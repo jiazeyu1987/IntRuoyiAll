@@ -34,7 +34,6 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionOpenOrCreateReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionManualOpenOrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionQualityRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionReexecuteReqVO;
@@ -738,105 +737,13 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         return openOrCreateInternal(reqVO, provisionCommand, false);
     }
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public EdhrBatchExecutionRespVO openOrCreateManual(EdhrBatchExecutionManualOpenOrCreateReqVO reqVO) {
-        if (reqVO == null || StrUtil.isBlank(reqVO.getBatchCode()) || reqVO.getWorkOrderId() == null
-                || reqVO.getRouteId() == null) {
-            throw exception(BAD_REQUEST);
-        }
-        Long tenantId = TenantContextHolder.getTenantId();
-        Long actorUserId = currentUserId();
-        MesProWorkOrderDO workOrder = validateSelectableWorkOrder(reqVO.getWorkOrderId());
-        Long routeId = resolveRouteId(reqVO.getRouteId(), workOrder);
-        MesProRouteDO route = routeMapper.selectById(routeId);
-        if (route == null) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
-        }
-        MesProRouteVersionDO routeVersion = routeVersionMapper.selectActiveByRouteId(routeId);
-        if (routeVersion == null) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_VERSION_REQUIRED, routeId);
-        }
-        String batchCode = reqVO.getBatchCode().trim();
-        String sourceSnapshotHash = manualSourceSnapshotHash(tenantId, workOrder, route, routeVersion, batchCode);
-        String entryBusinessId = "MANUAL_BATCH:" + sourceSnapshotHash;
-        String sourceContextHash = MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(
-                entryBusinessId + "|actor=" + actorUserId);
-        String idempotencyKey = "MANUAL_BATCH:" + sourceSnapshotHash;
-        MesBatchExecutionSourceEvidence evidence = new MesBatchExecutionSourceEvidence()
-                .setSourceType("WORK_ORDER")
-                .setSourceId(String.valueOf(workOrder.getId()))
-                .setSourceVersion("1")
-                .setSourceSnapshotHash(MesProEdhrBatchTraceSourceHash.calculate("WORK_ORDER",
-                        JSON.toJSONString(Map.of("workOrderId", workOrder.getId()))))
-                .setPayloadHash(MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(
-                        entryBusinessId + "|" + sourceSnapshotHash))
-                .setSignature(MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(
-                        "MANUAL|" + sourceContextHash + "|" + actorUserId))
-                .setSourceObjectType("WORK_ORDER")
-                .setSourceObjectId(String.valueOf(workOrder.getId()))
-                .setSnapshotJson(JSON.toJSONString(Map.of("workOrderId", workOrder.getId())))
-                .setRelationStatus("BOUND");
-        MesBatchExecutionProvisionCommand provisionCommand = new MesBatchExecutionProvisionCommand()
-                .setEntryType("MANUAL")
-                .setEntryBusinessId(entryBusinessId)
-                .setSourceCredentialType("MANUAL_BATCH_CONTEXT")
-                .setSourceCredentialId(entryBusinessId)
-                .setSourceRelationId(entryBusinessId)
-                .setSourceContextHash(sourceContextHash)
-                .setTenantId(tenantId)
-                .setWorkOrderId(workOrder.getId())
-                .setWorkOrderCode(workOrder.getCode())
-                .setBatchCode(batchCode)
-                .setRouteId(routeId)
-                .setRouteVersionId(routeVersion.getId())
-                .setSourceSnapshotHash(sourceSnapshotHash)
-                .setIdempotencyKey(idempotencyKey)
-                .setExpectedSourceVersion("1")
-                .setSourceVersion(routeVersion.getVersionNo())
-                .setSourceBundleHash(MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(
-                        entryBusinessId + "|" + sourceSnapshotHash + "|" + routeVersion.getVersionNo()))
-                .setPayloadHash(MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(
-                        entryBusinessId + "|" + sourceSnapshotHash + "|" + sourceContextHash))
-                .setSourceEvidence(List.of(evidence));
-        EdhrBatchExecutionOpenOrCreateReqVO openRequest = new EdhrBatchExecutionOpenOrCreateReqVO()
-                .setWorkOrderId(workOrder.getId())
-                .setWorkOrderCode(workOrder.getCode())
-                .setBatchCode(batchCode)
-                .setRouteId(routeId)
-                .setRouteVersionId(routeVersion.getId())
-                .setRemark(reqVO.getRemark())
-                .setEntryType("MANUAL")
-                .setEntryBusinessId(entryBusinessId)
-                .setSourceCredentialType("MANUAL_BATCH_CONTEXT")
-                .setSourceCredentialId(entryBusinessId)
-                .setSourceRelationId(entryBusinessId)
-                .setSourceContextHash(sourceContextHash)
-                .setTenantId(tenantId)
-                .setSourceSnapshotHash(sourceSnapshotHash)
-                .setExpectedSourceVersion("1")
-                .setIdempotencyKey(idempotencyKey)
-                .setPayloadHash(provisionCommand.getPayloadHash());
-        applyAuthoritativeContext(openRequest, provisionCommand);
-        return openOrCreateInternal(openRequest, provisionCommand, false);
-    }
-
-    private String manualSourceSnapshotHash(Long tenantId, MesProWorkOrderDO workOrder, MesProRouteDO route,
-                                            MesProRouteVersionDO routeVersion, String batchCode) {
-        return MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(String.join("|",
-                "MANUAL_BATCH", String.valueOf(tenantId), String.valueOf(workOrder.getId()),
-                String.valueOf(workOrder.getCode()), String.valueOf(route.getId()), String.valueOf(route.getCode()),
-                String.valueOf(routeVersion.getId()), String.valueOf(routeVersion.getVersionNo()), batchCode));
-    }
-
     private EdhrBatchExecutionRespVO openOrCreateInternal(EdhrBatchExecutionOpenOrCreateReqVO reqVO,
                                                            MesBatchExecutionProvisionCommand provisionCommand,
                                                            boolean scheduleEntry) {
         if (scheduleEntry) {
             requireEntryType(reqVO.getEntryType(), "ACTIVE_ORDER_SCHEDULED", "SCHEDULED");
         } else {
-            requireEntryType(reqVO.getEntryType(), "ACTIVE_ORDER_COMPLETION", "MANUAL",
-                    "PQC_INDEPENDENT");
+            requireEntryType(reqVO.getEntryType(), "ACTIVE_ORDER_COMPLETION");
         }
         if (StrUtil.isBlank(reqVO.getBatchCode())) {
             throw exception(BAD_REQUEST);
