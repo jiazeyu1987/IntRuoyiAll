@@ -78,15 +78,15 @@ assert.match(
   /label="偏差"[\s\S]*name="deviation"[\s\S]*data-active-order-deviation-tab/,
   '批记录详情必须提供独立的偏差页签。'
 )
-assert.match(
-  panel,
-  /description="没有偏差"[\s\S]*data-active-order-deviation-empty/,
-  '无关联偏差时必须明确展示没有偏差。'
-)
-assert.match(
-  panel,
-  /nonconformanceOperationFacts[\s\S]*fact\.operationType === 'NONCONFORMANCE_REVIEW_CREATE'[\s\S]*fact\.operationType === 'NONCONFORMANCE_REVIEW_DISPOSE'/,
-  '偏差页签只能展示不合格评审发起和处置事实。'
-)
-
-console.log('PASS: active-order NCR evidence layout static contract')
+assert.equal((panel.match(/name="deviation"/g) || []).length, 1, '偏差页签只能出现一次。')
+assert.match(panel, /v-for="batch in deviationBatches"[\s\S]*<DeviationTracePane :batch-execution-id="batch.batchExecutionId"/, '正式关联批记录必须逐个展示偏差追溯。')
+assert.match(panel, /getDeviationBatchOptionsByActiveOrder\(activeOrderId!\)/, '必须通过正式活跃订单关联查询批记录。')
+assert.doesNotMatch(panel, /nonconformanceOperationFacts/, '不能用不合格事件代替正式偏差。')
+assert.match(panel, /v-if="deviationLoading"/, '关联查询必须展示加载状态。')
+assert.match(panel, /v-else-if="deviationError"[\s\S]*@click="loadDeviationBatches"/, '关联查询失败必须展示可重试错误。')
+assert.match(panel, /description="暂无正式批记录，无法查看偏差"[\s\S]*data-active-order-deviation-empty/, '未关联正式批记录不能误报没有偏差。')
+const trace = fs.readFileSync(path.join(repoRoot, 'IntRuoyiFronted/src/views/mes/pro/edhr/components/DeviationTracePane.vue'), 'utf8')
+assert.match(trace, /v-else-if="error"[\s\S]*@click="load"/, '正式偏差查询错误必须可见并允许重试。')
+assert.match(trace, /v-else-if="!rows.length" description="没有偏差"/, '成功查询空结果才展示没有偏差。')
+assert.match(trace, /getDeviationPage\(\{ pageNo: 1, pageSize: 200, batchExecutionId \}\)/, '偏差列表必须按正式批记录身份查询。')
+console.log('PASS: active-order NCR evidence layout and formal deviation trace contract')

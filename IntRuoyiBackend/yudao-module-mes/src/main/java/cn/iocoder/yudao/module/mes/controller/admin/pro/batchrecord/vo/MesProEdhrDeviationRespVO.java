@@ -9,6 +9,9 @@ import java.time.LocalDateTime;
 @Accessors(chain = true)
 public class MesProEdhrDeviationRespVO {
 
+    // Current read eligibility; lifecycle is revalidated by the transfer write transaction.
+    private Boolean canTransferToNcr;
+    private String transferToNcrBlockedReason;
     private Long id;
     private String deviationCode;
     private Long batchExecutionId;

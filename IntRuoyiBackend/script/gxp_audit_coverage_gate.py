@@ -128,6 +128,19 @@ def java_methods(text: str) -> tuple[str, list[JavaMethod]]:
 def explicit_value_call(method: JavaMethod, source: str, receiver: str | None,
                         name: str, offset: int) -> bool:
     """Disambiguate BigDecimal.add only; callbacks may have arbitrary side effects."""
+    if name == "add" and receiver in ("BigDecimal", "java.math.BigDecimal"):
+        reference = re.match(re.escape(receiver) + r"\s*::\s*add\b", method.body[offset:])
+        root_name = receiver.split(".")[0]
+        # A type-looking name may instead resolve to a field, local, parameter,
+        # nested type or type parameter. Keep ambiguous names fail-closed.
+        shadowed = re.search(
+            r"\b(?:class|interface|record|enum)\s+" + root_name + r"\b"
+            + r"|\b[\w.<>?\[\]]+\s+" + root_name + r"\s*(?=[=,;)\[:])"
+            + r"|<\s*" + root_name + r"\s*(?:>|,|extends\b)", source)
+        imported = receiver == "java.math.BigDecimal" or re.search(
+            r"\bimport\s+java\.math\.BigDecimal\s*;", source)
+        if reference and imported and not shadowed:
+            return True
     if name != "add" or receiver is None or not re.fullmatch(r"\w+", receiver):
         return False
     qualified = "java.math.BigDecimal"

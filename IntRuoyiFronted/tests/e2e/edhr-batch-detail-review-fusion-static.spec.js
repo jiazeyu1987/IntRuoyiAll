@@ -20,13 +20,13 @@ assert(
   '融合详情页必须直接承载已填写批记录只读表单'
 )
 assert(
-  detail.includes("工序复盘") && detail.includes("批次级信息"),
+  detail.includes("工序复盘") && detail.includes('label="批次信息" name="batch"'),
   '融合详情页必须同时展示工序复盘主线和批次级无工序信息'
 )
 assert(
   !detail.includes("工序任务索引") &&
-    detail.includes("已填写表单") &&
-    detail.includes('aria-label="已填写批记录"') &&
+    detail.includes('data-edhr-formal-batch-record') &&
+    detail.includes('aria-label="已填写正式批记录"') &&
     !detail.includes('class="edhr-batch-detail__table"') &&
     !detail.includes("edhr-batch-detail__process-group"),
   '工序复盘必须聚焦已填写批记录和证据链，不能保留旧工序任务索引或割裂详情表格'
@@ -39,7 +39,7 @@ assert(
   detail.includes("RELEASE_VIRTUAL_PROCESS") &&
     detail.includes("label: '放行'") &&
     detail.includes("selectReleaseProcess") &&
-    detail.includes("放行参数") &&
+    detail.includes('aria-label="放行预检工作区"') &&
     detail.includes("handleReleasePrecheck") &&
     detail.includes("handleGenerateArchive") &&
     !detail.includes('<section class="edhr-batch-detail__closing"'),
@@ -59,4 +59,10 @@ assert(
   '复盘兼容壳必须继续复用详情实现，并提供独立 keep-alive 名称'
 )
 
+assert.match(detail, /@click="openTraceRecordGroup">追溯记录/, 'Batch information must be reachable through the existing trace action')
+assert.match(detail, /<el-drawer v-model="traceRecordDrawerVisible"[\s\S]*<el-tab-pane label="批次信息" name="batch">[\s\S]*reviewTimeline\.batchEvents/, 'Batch facts must be bound to the formal review timeline inside the reachable drawer')
+assert.match(detail, /type TraceRecordTab = 'batch' \|/, 'Batch pane must be a supported trace tab')
+for (const field of ['batchExecutionId', 'batchExecutionCode', 'status', 'createTime', 'aggregateHash', 'closedBy', 'closedAt', 'closeSignatureId', 'rejectedBy', 'rejectedAt', 'rejectSignatureId', 'rejectReason']) {
+  assert.ok(detail.includes(`event.${field}`), `Batch pane must retain formal ${field}`)
+}
 console.log('edhr batch detail/review fusion static contract passed')

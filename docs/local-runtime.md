@@ -323,3 +323,22 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - 经验规则：附加 worktree 必须使用自己的 `node_modules`，优先在该 worktree 前端目录运行 `pnpm install --frozen-lockfile`；启动前确认 `node_modules\.bin\vite` 和关键依赖都解析到当前 worktree。
 - 验证方式：记录依赖安装退出码、实际 `node_modules` 是否为目录而非 junction、Vite 启动命令/端口、前端 HTTP 200 和目标动态模块 HTTP 200；依赖安装完成后再运行 `vue-tsc`、ESLint 和 Playwright。
 - 禁止做法：禁止用主工作区 node_modules junction/symlink 代替 worktree 依赖，禁止修改 package.json/lockfile 绕过安装，禁止只看端口监听就宣称前端可用。
+
+## Windows Vite 静态导入预处理与 EMFILE
+
+- 触发：Vite 已 ready，但首页或源码模块出现 `EMFILE: too many open files`。
+- 排查：检查真实 `fs/promises` 调用栈和 `server.preTransformRequests`。`UV_THREADPOOL_SIZE`、watch ignore 和依赖预构建清单不能单独约束递归静态导入预处理；已有 callback fs 补丁也不能证明 promise 文件读取已受控。
+- 规则：现有 `windows-safe` 开发配置按实际请求转换模块，关闭递归预处理；保留实际编译、文件错误、代理和源码监听。用真实 Vite import-analysis 回归确认一个入口不会派生整图预处理，依赖仍能按需编译，缺失文件仍失败。
+- 验证：首页、主入口及原失败模块分别 HTTP 200，新进程日志无 EMFILE。首次转换超时须复核后续结果，不能仅凭 Vite ready 判定成功。证据：`doc/tasks/20260929-start-local-runtime/verification-report.md`。
+
+## GxP 策略启动不一致的运行诊断
+
+- 打包加载门禁：源覆盖扫描通过后，必须再用真实运行 Jar 的 loader 校验策略与 schema，尤其是 snapshotProfile 等枚举；扫描登记通过不等于运行器可加载。配置纠正后重新生成覆盖报告与完整包，并绑定最终哈希。
+- 辅助写入边界：父事务的待办行快照不能代替权限 claim/grant/专项事件或通知正文。按真实写入算法覆盖受影响集合，跨策略重建须包含所有受影响用户的 grants；用真实服务持久化和审计失败回滚验证。AFTER_COMMIT 写入另有事务，不归入父事务快照。
+
+- 触发：启动失败于 `GxP policy startup mismatch`。
+- 排查：只读对比运行 Jar 内唯一策略、后端 config 权威源、租户最新 activation 的版本与规范内容 hash，并区分历史哈希算法、真实内容变化和打包错误。
+- 规则：真实策略变化必须通过正式激活事务切换，保留旧版本、旧 activation 和审计事实；不得修改已有 hash、关闭启动保护或回退策略让启动通过。激活前核对覆盖证据和数据库写入授权；覆盖检查失败不能记作已获批准的成功报告。
+- 换行核验：审批清单原始字节 SHA 不匹配时，分别核对原字节、CRLF→LF 和 LF→CRLF；只检查一个方向不能将余项全部归为源码逻辑变化。该诊断不改变正式 hash 合同，不自动更新审批人、批准引用或候选摘要。
+- 审批来源：合入代码、允许数据库写入和批准当前策略是不同事实；若合入记录明确保留未批准策略/覆盖缺口，不能仅凭 YAML 的旧 APPROVED 标签或旧批准引用执行激活。方法扫描候选也须区分真实写入与尚未解析的词法调用，不能批量排除。
+- 验证：策略、激活及运行包一致后，再核对固定后端端口和 health UP。前端 HTTP 200、Maven BUILD SUCCESS 或脚本派发成功都不能替代该验证。

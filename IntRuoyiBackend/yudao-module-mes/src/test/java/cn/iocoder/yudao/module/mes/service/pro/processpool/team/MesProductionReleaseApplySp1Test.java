@@ -86,6 +86,8 @@ class MesProductionReleaseApplySp1Test {
     @Mock private MesReleaseFlowAuditRecorder auditRecorder;
     @Mock private MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
 
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper reviewMapper;
+
     private MesTeamLeaderActiveOrderReleaseGenerationService generationService;
 
     @BeforeEach
@@ -94,11 +96,14 @@ class MesProductionReleaseApplySp1Test {
         MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistenceService =
                 new MesTeamLeaderActiveOrderReleaseApplicationPersistenceService(
                         applicationMapper, workTaskMapper, auditRecorder);
+        var freezeService = new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(freezeService, "reviewMapper", reviewMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(freezeService, "workOrderMapper", workOrderMapper);
         generationService = new MesTeamLeaderActiveOrderReleaseGenerationService(
                 activeOrderMapper, workOrderMapper, processSnapshotMapper, completionMapper,
                 pqcTaskMapper, aggregateDetailMapper, allocationMapper, applicationMapper, workTaskMapper,
                 persistenceService, candidateResolver, new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher(),
-                pickListBindingMapper);
+                pickListBindingMapper, freezeService);
 
         lenient().when(activeOrderMapper.selectByIdForUpdate(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
         lenient().when(pickListBindingMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
@@ -136,6 +141,49 @@ class MesProductionReleaseApplySp1Test {
     @AfterEach
     void tearDown() {
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void frozenWorkOrderCannotCreateNewReleaseApplicationOrTask() {
+        when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID))
+                .thenReturn(workOrder().setTemporaryFrozen(true));
+
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> generationService.generate(LEADER_USER_ID, command("frozen-p3")));
+
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+        verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
+        verify(auditRecorder, never()).record(any());
+    }
+
+    @Test
+    void blockingNcrCannotCreateReleaseEvenIfTemporaryFlagIsFalse() {
+        when(reviewMapper.selectFirstBlockingByWorkOrderId(WORK_ORDER_ID)).thenReturn(
+                new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO()
+                        .setId(998L).setWorkOrderId(WORK_ORDER_ID).setReviewStatus("PENDING_REVIEW"));
+
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> generationService.generate(LEADER_USER_ID, command("frozen-ncr-p3")));
+
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+        verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
+        verify(auditRecorder, never()).record(any());
+    }
+
+    @Test
+    void frozenWorkOrderCanReplaySuccessfulApplicationWithoutNewWrites() {
+        var existing = existingApplication().setRequestIdempotencyKey("completed-before-freeze");
+        when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID))
+                .thenReturn(workOrder().setTemporaryFrozen(true));
+        when(applicationMapper.selectByRequestIdempotencyKey(ACTIVE_ORDER_ID, "completed-before-freeze"))
+                .thenReturn(existing);
+
+        var replay = generationService.generate(LEADER_USER_ID, command("completed-before-freeze"));
+
+        assertEquals(APPLICATION_ID, replay.getApplicationId());
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+        verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
+        verify(auditRecorder, never()).record(any());
     }
 
     @Test

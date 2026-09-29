@@ -87,7 +87,7 @@ class MesProEdhrDeviationHandlingServiceTest {
 
     @Test
     void ledgerLockPrecedesBusinessLocks() {
-        assertThrows(ServiceException.class, () -> service.sign(201L, 901L, "QA", "signature", "review"));
+        assertThrows(ServiceException.class, () -> service.sign(201L, 901L, "QA", "signature", "review", 1, "current-hash"));
         var order = org.mockito.Mockito.inOrder(gxpAuditService, deviationMapper);
         order.verify(gxpAuditService).acquireLedgerLock();
         order.verify(deviationMapper).selectByTenantAndIdForUpdate(71L, 901L);
@@ -208,6 +208,21 @@ class MesProEdhrDeviationHandlingServiceTest {
         verify(deviationMapper, never()).closeNormally(anyLong(), anyLong(), anyString(), any());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(value = {
+            "1,current-hash", "2,old-hash", "NULL,current-hash", "2,NULL", "2,''"
+    }, nullValues = "NULL")
+    void reviewedContentMustMatchLockedVersionBeforeSigning(Integer version, String hash) {
+        when(deviationMapper.selectByTenantAndIdForUpdate(71L, 901L)).thenReturn(openDeviation("NORMAL"));
+        when(handlingMapper.selectByTenantAndDeviationIdForUpdate(71L, 901L))
+                .thenReturn(newHandling(7701L, 2, "current-hash"));
+        var error = assertThrows(ServiceException.class,
+                () -> service.sign(201L, 901L, "QA", "password", "review", version, hash));
+
+        assertEquals(PRO_EDHR_DEVIATION_HANDLING_VERSION_CONFLICT.getCode(), error.getCode());
+        org.mockito.Mockito.verifyNoInteractions(signatureService);
+    }
+
     @Test
     void sameActorCanSignMultipleIndependentHandlingNodes() {
         MesProEdhrDeviationDO deviation = openDeviation("CRITICAL");
@@ -219,9 +234,9 @@ class MesProEdhrDeviationHandlingServiceTest {
                 .thenReturn(9901L, 9902L);
 
         Long first = service.sign(201L, 901L, MesProEdhrDeviationHandlingServiceImpl.NODE_QA,
-                "password", "QA确认");
+                "password", "QA确认", 1, "current-hash");
         Long second = service.sign(201L, 901L, MesProEdhrDeviationHandlingServiceImpl.NODE_QUALITY_OWNER,
-                "password", "质量批准");
+                "password", "质量批准", 1, "current-hash");
 
         assertEquals(9901L, first);
         assertEquals(9902L, second);

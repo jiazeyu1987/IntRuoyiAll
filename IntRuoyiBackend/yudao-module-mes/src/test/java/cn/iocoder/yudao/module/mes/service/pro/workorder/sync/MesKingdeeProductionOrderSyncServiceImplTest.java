@@ -74,6 +74,12 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
     @Mock
     private MesMdUnitMeasureMapper unitMeasureMapper;
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper;
+
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+
     private ErpKingdeeProperties kingdeeProperties;
     private MesKingdeeProductionOrderSyncServiceImpl syncService;
 
@@ -89,7 +95,102 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         syncService = new MesKingdeeProductionOrderSyncServiceImpl(
                 productionOrderClient, kingdeeConfigService, workOrderService, workOrderMapper,
                 syncRecordMapper, scheduleOrderMapper, scheduleOrderDiffMapper,
-                itemMapper, itemTypeMapper, unitMeasureMapper);
+                itemMapper, itemTypeMapper, unitMeasureMapper, activeOrderMapper, completionReceiptMapper);
+
+    }
+
+    @Test
+    void syncWorkOrders_rejectsChangedBatchAfterFormalCompletion() {
+        var order = buildOrder();
+        order.setBatchNumber("ERP-NEW-BATCH");
+        var existing = MesProWorkOrderDO.builder().id(501L).code("881MO091049")
+                .productId(20L).batchCode("FORMAL-COMPLETED-BATCH").build();
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any()))
+                .thenReturn(List.of(order));
+        when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
+        org.mockito.Mockito.lenient().when(completionReceiptMapper.selectFirstByWorkOrderIdForUpdate(501L))
+                .thenReturn(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO()
+                        .setId(901L).setWorkOrderId(501L));
+
+        ServiceException error = assertThrows(ServiceException.class, syncService::syncWorkOrders);
+
+        assertTrue(error.getMessage().contains("完工"));
+        var lockOrder = org.mockito.Mockito.inOrder(activeOrderMapper, workOrderMapper, completionReceiptMapper);
+        lockOrder.verify(activeOrderMapper).selectAllByWorkOrderIdForUpdate(501L);
+        lockOrder.verify(workOrderMapper).selectByIdForUpdate(501L);
+        lockOrder.verify(completionReceiptMapper).selectFirstByWorkOrderIdForUpdate(501L);
+        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
+        verify(scheduleOrderDiffMapper, never()).insert(any(MesProScheduleOrderDiffDO.class));
+        verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
+    }
+
+    @Test
+    void syncWorkOrders_allowsBatchCorrectionBeforeCompletion() {
+        var order = buildOrder();
+        order.setBatchNumber("ERP-CORRECTED-BATCH");
+        var existing = MesProWorkOrderDO.builder().id(501L).code("881MO091049")
+                .productId(20L).batchCode("OLD-BATCH").build();
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any()))
+                .thenReturn(List.of(order));
+        when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
+
+        syncService.syncWorkOrders();
+
+        var update = ArgumentCaptor.forClass(MesProWorkOrderDO.class);
+        verify(workOrderMapper).updateById(update.capture());
+        assertEquals("ERP-CORRECTED-BATCH", update.getValue().getBatchCode());
+    }
+
+    @Test
+    void syncWorkOrders_allowsOtherMetadataWithUnchangedCompletedBatch() {
+        var order = buildOrder();
+        order.setBatchNumber("FORMAL-BATCH");
+        order.setDrawingNumber("NEW-DRAWING");
+        var existing = MesProWorkOrderDO.builder().id(501L).code("881MO091049")
+                .productId(20L).batchCode("FORMAL-BATCH").build();
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any()))
+                .thenReturn(List.of(order));
+        when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
+        org.mockito.Mockito.lenient().when(completionReceiptMapper.selectFirstByWorkOrderIdForUpdate(501L)).thenReturn(
+                new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO()
+                        .setId(901L).setWorkOrderId(501L));
+
+        syncService.syncWorkOrders();
+
+        var update = ArgumentCaptor.forClass(MesProWorkOrderDO.class);
+        verify(workOrderMapper).updateById(update.capture());
+        assertEquals("FORMAL-BATCH", update.getValue().getBatchCode());
+        assertEquals("NEW-DRAWING", update.getValue().getDrawingNumber());
+    }
+
+    @Test
+    void syncWorkOrders_usesLockedIdentityInsteadOfStaleInitialLookup() {
+        var order = buildOrder();
+        order.setBatchNumber("INITIAL-BATCH");
+        var initial = MesProWorkOrderDO.builder().id(501L).code("881MO091049")
+                .productId(20L).batchCode("INITIAL-BATCH").build();
+        var locked = MesProWorkOrderDO.builder().id(501L).code("881MO091049")
+                .productId(20L).batchCode("COMPLETED-WHILE-WAITING").build();
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any()))
+                .thenReturn(List.of(order));
+        when(workOrderService.getWorkOrder("881MO091049")).thenReturn(initial);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(initial.getId())).thenReturn(initial);
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
+        when(workOrderMapper.selectByIdForUpdate(501L)).thenReturn(locked);
+        when(completionReceiptMapper.selectFirstByWorkOrderIdForUpdate(501L)).thenReturn(
+                new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO()
+                        .setId(901L).setWorkOrderId(501L));
+
+        ServiceException error = assertThrows(ServiceException.class, syncService::syncWorkOrders);
+
+        assertTrue(error.getMessage().contains("COMPLETED-WHILE-WAITING"));
+        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
     }
 
     @Test
@@ -157,6 +258,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         when(productionOrderClient.fetchProductionOrders(kingdeeProperties)).thenReturn(List.of(order));
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
         when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
 
         MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrdersFullSkipExisting();
 
@@ -193,6 +295,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
         when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
         when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
 
         syncService.syncWorkOrders();
@@ -237,6 +340,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
         when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
         when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
 
         syncService.syncWorkOrders();
@@ -352,7 +456,9 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
                 .build();
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(syncRecord);
         when(workOrderMapper.selectById(501L)).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
         when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
         when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
 
         MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrders();
@@ -378,10 +484,11 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
                 .thenReturn(List.of(existingOrder, newOrder));
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
         when(syncRecordMapper.selectBySourceKey("310120", "MAT-002")).thenReturn(null);
-        when(workOrderService.getWorkOrder("881MO091049"))
-                .thenReturn(new MesProWorkOrderDO().setId(900L).setCode("881MO091049").setName("Old A")
-                        .setProductId(19L).setQuantity(BigDecimal.ONE)
-                        .setRequestDate(LocalDateTime.of(2026, 3, 20, 0, 0)).setRemark("old"));
+        var existing = new MesProWorkOrderDO().setId(900L).setCode("881MO091049").setName("Old A")
+                .setProductId(19L).setQuantity(BigDecimal.ONE)
+                .setRequestDate(LocalDateTime.of(2026, 3, 20, 0, 0)).setRemark("old");
+        when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+        when(workOrderMapper.selectByIdForUpdate(900L)).thenReturn(existing);
         when(workOrderService.getWorkOrder("881MO091050")).thenReturn(null);
         when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(19L));
         when(itemMapper.selectByCode("MAT-002")).thenReturn(new MesMdItemDO().setId(20L));
@@ -492,6 +599,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
         when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
         when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
         when(scheduleOrderMapper.selectEffectiveByWorkOrderId(501L)).thenReturn(scheduleOrder);
 
@@ -528,6 +636,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
         when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
         when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
 
         MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrders();
@@ -547,6 +656,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
                 .id(501L)
                 .code("881MO091049")
                 .name("Material A")
+                .materialSpecification("Spec A")
                 .type(MesProWorkOrderTypeEnum.SELF.getType())
                 .orderSourceType(MesProWorkOrderSourceTypeEnum.STORE.getType())
                 .productId(20L)
@@ -562,6 +672,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
         when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
         when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
 
         MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrders();
@@ -580,6 +691,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
                 .id(501L)
                 .code("881MO091049")
                 .name("Material A")
+                .materialSpecification("Spec A")
                 .type(MesProWorkOrderTypeEnum.SELF.getType())
                 .orderSourceType(MesProWorkOrderSourceTypeEnum.STORE.getType())
                 .productId(20L)
@@ -593,6 +705,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
         when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
         when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
 
         MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrders();
@@ -617,6 +730,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
         when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
         when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
 
         MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrders();
@@ -653,6 +767,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(syncRecord);
         when(workOrderMapper.selectById(501L)).thenReturn(sourceLinkedWorkOrder);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(sourceLinkedWorkOrder.getId())).thenReturn(sourceLinkedWorkOrder);
         when(workOrderService.getWorkOrder("881MO091049-REV")).thenReturn(null);
         when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
 
@@ -703,7 +818,9 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(syncRecord);
         when(workOrderMapper.selectById(501L)).thenReturn(sourceLinkedWorkOrder);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(sourceLinkedWorkOrder.getId())).thenReturn(sourceLinkedWorkOrder);
         when(workOrderService.getWorkOrder("881MO091049-REV")).thenReturn(conflictingWorkOrder);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(conflictingWorkOrder.getId())).thenReturn(conflictingWorkOrder);
 
         ServiceException exception = assertThrows(ServiceException.class, () -> syncService.syncWorkOrders());
 
@@ -792,6 +909,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
                 org.mockito.ArgumentMatchers.eq(kingdeeProperties),
                 org.mockito.ArgumentMatchers.eq(List.of("WO-VOID")))).thenReturn(List.of());
         when(workOrderMapper.selectById(501L)).thenReturn(existingWorkOrder);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existingWorkOrder.getId())).thenReturn(existingWorkOrder);
 
         MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrders();
 
@@ -822,6 +940,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
                 org.mockito.ArgumentMatchers.eq(kingdeeProperties),
                 org.mockito.ArgumentMatchers.eq(List.of("WO-VOID")))).thenReturn(List.of(voidedOrder));
         when(workOrderMapper.selectById(502L)).thenReturn(existingWorkOrder);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existingWorkOrder.getId())).thenReturn(existingWorkOrder);
 
         MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrders();
 
@@ -852,6 +971,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
                 org.mockito.ArgumentMatchers.eq(kingdeeProperties),
                 org.mockito.ArgumentMatchers.eq(List.of("WO-DONE")))).thenReturn(List.of(finishedOrder));
         when(workOrderMapper.selectById(503L)).thenReturn(existingWorkOrder);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existingWorkOrder.getId())).thenReturn(existingWorkOrder);
 
         MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrders();
 

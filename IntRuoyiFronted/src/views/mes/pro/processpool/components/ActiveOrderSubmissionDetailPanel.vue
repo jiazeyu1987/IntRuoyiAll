@@ -473,103 +473,18 @@
             </section>
           </section>
         </el-tab-pane>
-        <el-tab-pane
-          v-if="showSummaryTab"
-          label="偏差"
-          name="deviation"
-          data-active-order-deviation-tab
-        >
-          <section class="team-leader-workbench__active-order-summary" data-active-order-deviation-panel>
-            <el-empty
-              v-if="!nonconformanceOperationFacts.length"
-              description="没有偏差"
-              data-active-order-deviation-empty
-            />
-            <table
-              v-else
-              class="team-leader-workbench__active-order-summary-table"
-              data-active-order-deviation-table
-            >
-              <tbody>
-                <tr>
-                  <th>偏差编号</th>
-                  <th>内容</th>
-                  <th>处理结果</th>
-                  <th>电子签名</th>
-                  <th>发生时间</th>
-                </tr>
-                <tr v-for="fact in nonconformanceOperationFacts" :key="`deviation-${fact.id}`">
-                  <td>{{ fact.sourceId || '--' }}</td>
-                  <td>
-                    <div>发起：{{ fact.nonconformanceReason || '--' }}</div>
-                    <div v-if="fact.reviewOpinion">处理：{{ fact.reviewOpinion }}</div>
-                  </td>
-                  <td>{{ resolveNonconformanceDispositionLabel(fact.disposition) }}</td>
-                  <td>
-                    <button
-                      type="button"
-                      class="team-leader-workbench__signature-link"
-                      data-active-order-deviation-signature
-                      :disabled="!fact.signatureId"
-                      @click="openActiveOrderSignatureRecord(toOperationFactSignature(fact))"
-                    >
-                      {{ formatOperationFactSignatureText(fact) }}
-                    </button>
-                  </td>
-                  <td>{{ formatDateTime(fact.occurredAt) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-        </el-tab-pane>
-        <el-tab-pane
-          v-if="showSummaryTab"
-          label="偏差"
-          name="deviation"
-          data-active-order-deviation-tab
-        >
-          <section class="team-leader-workbench__active-order-summary" data-active-order-deviation-panel>
-            <el-empty
-              v-if="!nonconformanceOperationFacts.length"
-              description="没有偏差"
-              data-active-order-deviation-empty
-            />
-            <table
-              v-else
-              class="team-leader-workbench__active-order-summary-table"
-              data-active-order-deviation-table
-            >
-              <tbody>
-                <tr>
-                  <th>偏差编号</th>
-                  <th>内容</th>
-                  <th>处理结果</th>
-                  <th>电子签名</th>
-                  <th>发生时间</th>
-                </tr>
-                <tr v-for="fact in nonconformanceOperationFacts" :key="`deviation-${fact.id}`">
-                  <td>{{ fact.sourceId || '--' }}</td>
-                  <td>
-                    <div>发起：{{ fact.nonconformanceReason || '--' }}</div>
-                    <div v-if="fact.reviewOpinion">处理：{{ fact.reviewOpinion }}</div>
-                  </td>
-                  <td>{{ resolveNonconformanceDispositionLabel(fact.disposition) }}</td>
-                  <td>
-                    <button
-                      type="button"
-                      class="team-leader-workbench__signature-link"
-                      data-active-order-deviation-signature
-                      :disabled="!fact.signatureId"
-                      @click="openActiveOrderSignatureRecord(toOperationFactSignature(fact))"
-                    >
-                      {{ formatOperationFactSignatureText(fact) }}
-                    </button>
-                  </td>
-                  <td>{{ formatDateTime(fact.occurredAt) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
+        <el-tab-pane v-if="showSummaryTab" label="偏差" name="deviation" data-active-order-deviation-tab>
+          <el-skeleton v-if="deviationLoading" :rows="4" animated />
+          <el-alert v-else-if="deviationError" :title="deviationError" type="error" :closable="false">
+            <el-button link type="primary" @click="loadDeviationBatches">重试</el-button>
+          </el-alert>
+          <template v-else-if="deviationBatches.length">
+            <section v-for="batch in deviationBatches" :key="batch.batchExecutionId">
+              <h3 v-if="deviationBatches.length > 1">{{ batch.batchExecutionCode }}</h3>
+              <DeviationTracePane :batch-execution-id="batch.batchExecutionId" />
+            </section>
+          </template>
+          <el-empty v-else description="暂无正式批记录，无法查看偏差" data-active-order-deviation-empty />
         </el-tab-pane>
         <el-tab-pane
           v-if="showSummaryTab"
@@ -2277,6 +2192,8 @@ import { formatDateTimeValue } from '@/utils/formatTime'
 import { resolveUrlPathFileName } from '@/utils/fileName'
 import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
+import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePane.vue'
+import { getDeviationBatchOptionsByActiveOrder, type DeviationBatchOptionRespVO } from '@/api/mes/pro/edhr/deviation'
 
 const props = defineProps<{
   detail?: TeamLeaderActiveOrderDetailRespVO
@@ -2409,12 +2326,39 @@ const showPqcSubmissionTab = computed(
   () => displayMode.value === 'full' || displayMode.value === 'pqc'
 )
 const showSummaryTab = computed(() => !embedded.value)
-const nonconformanceOperationFacts = computed(() =>
-  (props.detail?.operationFacts ?? []).filter((fact) =>
-    fact.operationType === 'NONCONFORMANCE_REVIEW_CREATE' ||
-    fact.operationType === 'NONCONFORMANCE_REVIEW_DISPOSE'
-  )
-)
+const deviationLoading = ref(false)
+const deviationError = ref('')
+const deviationBatches = ref<DeviationBatchOptionRespVO[]>([])
+let deviationSequence = 0
+const loadDeviationBatches = async () => {
+  const sequence = ++deviationSequence
+  const activeOrderId = props.detail?.activeOrderId
+  deviationBatches.value = []
+  deviationError.value = ''
+  if (!(typeof activeOrderId === 'string' ? /^[1-9]\d*$/.test(activeOrderId) : Number.isSafeInteger(activeOrderId) && Number(activeOrderId) > 0)) {
+    deviationError.value = '缺少有效活跃订单编号，无法查询偏差'
+    deviationLoading.value = false
+    return
+  }
+  deviationLoading.value = true
+  try {
+    const batches = await getDeviationBatchOptionsByActiveOrder(activeOrderId!)
+    if (sequence !== deviationSequence) return
+    deviationBatches.value = batches
+  } catch (cause: any) {
+    if (sequence !== deviationSequence) return
+    deviationError.value = cause?.response?.data?.msg || '偏差关联批记录加载失败，请重试'
+  } finally {
+    if (sequence === deviationSequence) deviationLoading.value = false
+  }
+}
+watch(() => [props.detail?.activeOrderId, activeTab.value], () => {
+  deviationSequence++
+  deviationBatches.value = []
+  deviationError.value = ''
+  deviationLoading.value = false
+  if (activeTab.value === 'deviation') void loadDeviationBatches()
+}, { immediate: true })
 const activeOrderStatusTagType = computed(() => {
   const status = props.detail?.activeOrderStatus?.status
   if (status === 'RELEASED') return 'success'
@@ -2860,12 +2804,6 @@ const readProductionMaterialListText = (
     }
   }
   return ''
-}
-
-const formatProductionMaterialListQuantity = (value: number | string | undefined | null) => {
-  if (value === undefined || value === null || value === '') return ''
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? String(Math.round(parsed)) : String(value)
 }
 
 const normalizeProductionMaterialCode = (value: string | number | undefined | null) => {

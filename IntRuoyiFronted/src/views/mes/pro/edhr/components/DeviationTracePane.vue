@@ -35,8 +35,8 @@ const openDeviation = (row: DeviationRespVO) => {
 const load = async () => {
   const serial = ++requestSerial
   loading.value = true; error.value = ''
-  const batchExecutionId = Number(props.batchExecutionId)
-  if (!Number.isSafeInteger(batchExecutionId) || batchExecutionId <= 0) {
+  const batchExecutionId = props.batchExecutionId
+  if (!(typeof batchExecutionId === 'string' ? /^[1-9]\d*$/.test(batchExecutionId) : Number.isSafeInteger(batchExecutionId) && batchExecutionId > 0)) {
     rows.value = []
     error.value = '偏差追溯缺少有效批记录编号，请重试'
     loading.value = false

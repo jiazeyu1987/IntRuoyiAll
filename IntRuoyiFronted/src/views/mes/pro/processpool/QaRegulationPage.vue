@@ -2487,7 +2487,6 @@ const commonRegulationActiveTab = ref<CommonRegulationTabName>('overview')
 const qaItemsQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
 const qaChecksQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
 const qaPqcPreviewQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
-const commonRegulationSetListQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
 const commonRegulationItemsQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
 const selectedCommonRegulationVersionId = ref<number>()
 const selectedCommonRegulationSetVersionId = ref<number>()
@@ -2583,16 +2582,6 @@ const qaPqcPreviewDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'taskIdentity', label: '任务身份', minWidth: 260 }
 ]
 
-const commonRegulationSetDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'setCode', label: '套编号', width: 190, sortable: false },
-  { key: 'setName', label: '套名称', minWidth: 240, sortable: false },
-  { key: 'setStatus', label: '状态', width: 100, sortable: false },
-  { key: 'currentVersion', label: '当前版本', width: 130, sortable: false },
-  { key: 'versionCount', label: '版本数', width: 100, sortable: false },
-  { key: 'memberCount', label: '当前成员', width: 110, sortable: false },
-  { key: 'operation', label: '操作', width: 230, hideable: false, business: false }
-]
-
 const {
   columns: qaItemsColumns,
   saving: qaItemsColumnSaving,
@@ -2624,17 +2613,6 @@ const {
   saveConfig: saveQaPqcPreviewColumnConfig,
   resetConfig: resetQaPqcPreviewColumnConfig
 } = useUserTableColumns('mes.qa.regulation.pqcPreview.v2', qaPqcPreviewDefaultColumns)
-
-const {
-  columns: commonRegulationSetColumns,
-  saving: commonRegulationSetColumnSaving,
-  isColumnVisible: isCommonRegulationSetColumnVisible,
-  getColumnWidthString: getCommonRegulationSetColumnWidthString,
-  getColumnMinWidthString: getCommonRegulationSetColumnMinWidthString,
-  handleHeaderDragend: handleCommonRegulationSetHeaderDragend,
-  saveConfig: saveCommonRegulationSetColumnConfig,
-  resetConfig: resetCommonRegulationSetColumnConfig
-} = useUserTableColumns('mes.qa.common-regulation-set.main', commonRegulationSetDefaultColumns)
 
 const createEmptyQaRegulationDraft = (): QaRegulationDraft => ({
   regulationId: undefined,
@@ -3123,12 +3101,6 @@ const pagedCommonRegulationItems = computed(() =>
   paginateQaRows(commonRegulationItems.value, commonRegulationItemsQuery)
 )
 
-const commonRegulationSetCurrentVersion = (set: QaCommonRegulationSetVO) =>
-  set.versions?.find((version) => Number(version.id) === Number(set.currentVersionId))
-
-const commonRegulationSetMemberCount = (set: QaCommonRegulationSetVO) =>
-  commonRegulationSetCurrentVersion(set)?.members?.length || 0
-
 const commonRegulationOverviewComposeText = computed(() => {
   const documentCount = selectedCommonRegulationSetVersionDocuments.value.length
   const itemCount = commonRegulationItems.value.length
@@ -3149,24 +3121,6 @@ const commonRegulationOverviewDetailText = computed(() => {
   const selectedVersion = selectedCommonRegulationSetVersionPreview.value?.versionNo || '未选择版本'
   return `当前发布版本 ${publishedVersion}；所选版本 ${selectedVersion}；${commonRegulationOverviewComposeText.value}`
 })
-
-const pagedCommonRegulationSets = computed(() =>
-  paginateQaRows(commonRegulationSets.value, commonRegulationSetListQuery)
-)
-
-const commonRegulationSetSummaryText = computed(() => {
-  const publishedVersionCount = commonRegulationSets.value.reduce(
-    (count, set) =>
-      count +
-      (set.versions || []).filter((version) => version.lifecycleStatus === 'PUBLISHED').length,
-    0
-  )
-  return `共 ${commonRegulationSets.value.length} 套 · ${publishedVersionCount} 个已发布版本`
-})
-
-const handleCommonRegulationSetPagination = () => {
-  keepQaLocalPageInRange(commonRegulationSetListQuery, commonRegulationSets.value.length)
-}
 
 const selectCommonRegulationSet = (set: QaCommonRegulationSetVO) => {
   selectedCommonRegulationSetId.value = set.id
@@ -3218,7 +3172,6 @@ const openSelectedCommonRegulationSetVersionDialog = () => {
 }
 
 const synchronizeCommonRegulationSetSelection = (sets: QaCommonRegulationSetVO[]) => {
-  handleCommonRegulationSetPagination()
   const selectedSet = sets.find(
     (set) => Number(set.id) === Number(selectedCommonRegulationSetId.value)
   )

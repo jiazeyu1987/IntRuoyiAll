@@ -328,6 +328,25 @@ const disposeForm = reactive({
 let materialTrackingEnabled = true
 let materialEventSequence = 0
 let materialContextGeneration = 0
+let reviewContextGeneration = 0
+let listRequestSequence = 0
+let createContextGeneration = 0
+const invalidateCreateContext = () => {
+  createContextGeneration++
+  listRequestSequence++
+  listLoading.value = false
+  createLoading.value = false
+  activeOrderCandidatesLoading.value = false
+}
+const invalidateReviewContext = () => {
+  invalidateCreateContext()
+  reviewContextGeneration++
+  materialContextGeneration++
+  listRequestSequence++
+  disposeLoading.value = false
+  listLoading.value = false
+  materialUploadsPending.value = 0
+}
 const materialUploadsPending = ref(0)
 
 type ReviewMaterialDisplay = { url: string; fileName?: string; fileId?: string | number }
@@ -455,22 +474,6 @@ const removeReviewMaterial = (url: string) => {
   delete disposeForm.reviewMaterialNames[url]
 }
 
-const resetDisposeForm = () => {
-  materialContextGeneration++
-  materialUploadsPending.value = 0
-  materialTrackingEnabled = false
-  disposeForm.reviewMaterialUrls = []
-  disposeForm.reviewMaterialNames = {}
-  disposeForm.reviewMaterialIds = {}
-  disposeForm.reviewMaterialEvents = []
-  materialEventSequence = 0
-  nextTick(() => {
-    materialTrackingEnabled = true
-  })
-  disposeForm.reviewOpinion = ''
-  disposeForm.signaturePassword = ''
-}
-
 const fillDisposeForm = (review: EdhrNonconformanceReviewRespVO) => {
   materialContextGeneration++
   materialUploadsPending.value = 0
@@ -485,8 +488,9 @@ const fillDisposeForm = (review: EdhrNonconformanceReviewRespVO) => {
   disposeForm.reviewMaterialUrls = materials.map((material) => material.url)
   disposeForm.reviewMaterialEvents = []
   materialEventSequence = 0
+  const generation = materialContextGeneration
   nextTick(() => {
-    materialTrackingEnabled = true
+    if (generation === materialContextGeneration) materialTrackingEnabled = true
   })
   disposeForm.reviewOpinion = review.reviewOpinion || ''
   disposeForm.signaturePassword = ''
@@ -499,10 +503,14 @@ const buildReviewQuery = (): EdhrNonconformanceReviewPageReqVO => {
 }
 
 const loadReviews = async () => {
+  const generation = reviewContextGeneration
+  const request = ++listRequestSequence
+  const isCurrent = () => generation === reviewContextGeneration && request === listRequestSequence
   listLoading.value = true
   errorText.value = ''
   try {
     const data = await getNonconformanceReviewPage(buildReviewQuery())
+    if (!isCurrent()) return
     reviews.value = data.list || []
     total.value = data.total || 0
     if (selectedReview.value?.id) {
@@ -510,11 +518,12 @@ const loadReviews = async () => {
       if (refreshed) selectedReview.value = refreshed
     }
   } catch (error) {
+    if (!isCurrent()) return
     reviews.value = []
     total.value = 0
     errorText.value = resolveErrorMessage(error, '不合格评审列表加载失败。')
   } finally {
-    listLoading.value = false
+    if (isCurrent()) listLoading.value = false
   }
 }
 
@@ -524,11 +533,17 @@ const handleTabChange = () => {
 }
 
 const openCreateDialog = async () => {
+  invalidateCreateContext()
+  const generation = createContextGeneration
+  const reviewGeneration = reviewContextGeneration
+  const isCurrent = () => generation === createContextGeneration &&
+    reviewGeneration === reviewContextGeneration && createDialogVisible.value
   errorText.value = ''
   createDialogVisible.value = true
   activeOrderCandidatesLoading.value = true
   try {
     const candidates = await getNonconformanceReviewActiveOrderList()
+    if (!isCurrent()) return
     activeOrderCandidates.value = entryActiveOrderId.value
       ? candidates.filter((order) => order.id === entryActiveOrderId.value)
       : candidates
@@ -537,9 +552,10 @@ const openCreateDialog = async () => {
     }
     selectedActiveOrderId.value = entryActiveOrderId.value || activeOrderCandidates.value[0]?.id
   } catch (error) {
+    if (!isCurrent()) return
     errorText.value = resolveErrorMessage(error, '活跃订单加载失败。')
   } finally {
-    activeOrderCandidatesLoading.value = false
+    if (isCurrent()) activeOrderCandidatesLoading.value = false
   }
 }
 
@@ -550,12 +566,15 @@ const closeCreateDialog = () => {
 }
 
 const openReviewDialog = (review: EdhrNonconformanceReviewRespVO) => {
+  invalidateReviewContext()
+  errorText.value = ''
   selectedReview.value = review
   fillDisposeForm(review)
   reviewDialogVisible.value = true
 }
 
 const submitCreateReview = async () => {
+  if (createLoading.value || !createDialogVisible.value) return
   if (!selectedActiveOrderId.value) {
     message.error('请选择活跃订单后再发起不合格评审。')
     return
@@ -565,6 +584,10 @@ const submitCreateReview = async () => {
     message.error('不合格原因不能为空。')
     return
   }
+  const generation = reviewContextGeneration
+  const createGeneration = createContextGeneration
+  const isCurrent = () => generation === reviewContextGeneration &&
+    createGeneration === createContextGeneration && createDialogVisible.value
   createLoading.value = true
   errorText.value = ''
   try {
@@ -572,27 +595,33 @@ const submitCreateReview = async () => {
       activeOrderId: selectedActiveOrderId.value,
       nonconformanceReason: reason
     })
-    selectedReview.value = review
-    resetDisposeForm()
+    if (!isCurrent()) return
     closeCreateDialog()
     activeTab.value = 'all'
     queryParams.pageNo = 1
     message.success('不合格评审已创建，编号 ' + (review.reviewCode || '--'))
     await loadReviews()
   } catch (error) {
+    if (!isCurrent()) return
     errorText.value = resolveErrorMessage(error, '不合格评审创建失败。')
     message.error(errorText.value)
   } finally {
-    createLoading.value = false
+    if (isCurrent()) createLoading.value = false
   }
 }
 
 const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) => {
+  if (disposeLoading.value || !reviewDialogVisible.value) return
+  const reviewId = selectedReview.value?.id
+  const generation = reviewContextGeneration
+  const isCurrent = () =>
+    generation === reviewContextGeneration &&
+    reviewDialogVisible.value && selectedReview.value?.id === reviewId
   if (materialUploadsPending.value) {
     message.error('请等待材料上传完成后再处置。')
     return
   }
-  if (!selectedReview.value?.id) {
+  if (!reviewId) {
     message.error('请选择待处置评审单。')
     return
   }
@@ -608,7 +637,7 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
   errorText.value = ''
   try {
     const review = await disposeNonconformanceReview({
-      id: selectedReview.value.id,
+      id: reviewId,
       disposition,
       reviewMaterialUrl: disposeForm.reviewMaterialUrls.join(','),
       reviewMaterials: buildReviewMaterials(),
@@ -616,14 +645,16 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
       reviewOpinion: disposeForm.reviewOpinion.trim(),
       signaturePassword: disposeForm.signaturePassword.trim()
     })
+    if (!isCurrent()) return
     selectedReview.value = review
     message.success('已' + resolveDispositionLabel(disposition))
     await loadReviews()
   } catch (error) {
+    if (!isCurrent()) return
     errorText.value = resolveErrorMessage(error, '不合格评审处置失败。')
     message.error(errorText.value)
   } finally {
-    disposeLoading.value = false
+    if (isCurrent()) disposeLoading.value = false
   }
 }
 
@@ -669,14 +700,20 @@ watch(
   { flush: 'sync' }
 )
 
+watch(createDialogVisible, (visible) => {
+  if (!visible) invalidateCreateContext()
+}, { flush: 'sync' })
+
 watch(reviewDialogVisible, (visible) => {
   if (!visible) {
-    materialContextGeneration++
-    materialUploadsPending.value = 0
+    invalidateReviewContext()
   }
 }, { flush: 'sync' })
 
-onBeforeUnmount(() => { materialContextGeneration++ })
+onBeforeUnmount(() => {
+  invalidateReviewContext()
+  invalidateCreateContext()
+})
 
 watch(
   () => [route.name, route.query.activeOrderId, route.query.autoCreate] as const,

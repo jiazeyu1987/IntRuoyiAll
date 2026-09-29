@@ -1461,10 +1461,6 @@ const openDetail = async (row: EdhrBatchExecutionRespVO) => {
   await router.push({ path: '/mes/pro/feedback/edhr-batch-execution/detail', query })
 }
 
-const handlePlaceholderBatchAction = () => {
-  message.info('功能暂未开放')
-}
-
 const resetRejectForm = () => {
   rejectForm.nonconformanceReason = ''
   rejectForm.signaturePassword = ''

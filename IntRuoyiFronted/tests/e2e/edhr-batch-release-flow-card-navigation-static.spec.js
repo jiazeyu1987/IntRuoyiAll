@@ -68,8 +68,13 @@ assert.match(actionItemsBlock, /readonlyAllowed/, '只读阶段必须区分查�
 assert.match(actionItemsBlock, /isViewedReleaseStageReadonly\.value[\s\S]*!action\.readonlyAllowed[\s\S]*disabled: true/, '非当前阶段推进动作必须被统一禁用。')
 assert.match(
   actionItemsBlock,
-  /key: 'release-reject'[\s\S]*label: '拒收'[\s\S]*onClick: openQualityRejectDialog/,
-  '放行阶段右侧必须提供拒收动作。'
+  /key: 'release-return'[\s\S]*label: '退回'[\s\S]*permission: \['mes:pro-edhr-release:reject'\][\s\S]*disabled: !canReturnRelease\.value[\s\S]*onClick: openReleaseReturnDialog/,
+  '放行阶段右侧必须提供使用正式放行退回权限和处理函数的退回动作。'
+)
+assert.match(
+  actionItemsBlock,
+  /key: 'nonconformance-review'[\s\S]*label: '不合格审查'[\s\S]*permission: \['mes:pro-edhr-nonconformance-review:create'\][\s\S]*disabled: !canOpenNonconformanceReview\.value[\s\S]*onClick: openNonconformanceReviewEntry/,
+  '不合格审查必须保留独立权限、办理资格和正式评审入口。'
 )
 assert.match(
   actionItemsBlock,
@@ -88,13 +93,18 @@ for (const guardedAction of [
   'handleReleasePrecheck',
   'openReleaseSignatureConfirmDialog',
   'confirmReleaseSignatureSubmit',
-  'openQualityRejectDialog',
-  'submitQualityReject',
+  'openReleaseReturnDialog',
+  'submitReleaseReturn',
+  'openNonconformanceReviewEntry',
   'handleGenerateArchive'
 ]) {
+  const actionStart = detailPage.indexOf(`const ${guardedAction} =`)
+  assert.ok(actionStart >= 0, `必须能定位 ${guardedAction}。`)
+  const nextActionStart = detailPage.indexOf('\nconst ', actionStart + 1)
+  assert.ok(nextActionStart > actionStart, `必须能定位 ${guardedAction} 的结束边界。`)
   assert.match(
-    detailPage,
-    new RegExp(`const ${guardedAction}[\\s\\S]*ensureViewedReleaseStageWritable\\(`),
+    detailPage.slice(actionStart, nextActionStart),
+    /ensureViewedReleaseStageWritable\(/,
     `${guardedAction} 必须在执行写入动作前检查非当前阶段只读态。`
   )
 }

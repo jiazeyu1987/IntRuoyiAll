@@ -31,6 +31,7 @@
           <el-table-column prop="batchCode" label="批号" min-width="140" />
           <el-table-column prop="level" label="等级" width="100" v-bind="sortColumnAttrs('level')"><template #default="{ row }"><el-tag :type="row.level === 'CRITICAL' ? 'danger' : 'warning'">{{ row.level === 'CRITICAL' ? '重大（关键）' : '普通' }}</el-tag></template></el-table-column>
           <el-table-column prop="status" label="状态" width="100" v-bind="sortColumnAttrs('status')"><template #default="{ row }">{{ row.status === 'OPEN' ? '未处理' : '已处理' }}</template></el-table-column>
+          <el-table-column prop="transferToNcrBlockedReason" label="转审说明" min-width="240" show-overflow-tooltip />
           <el-table-column prop="initiatedAt" label="发起时间" min-width="180" v-bind="sortColumnAttrs('initiatedAt')"><template #default="{ row }">{{ formatTime(row.initiatedAt) }}</template></el-table-column>
           <el-table-column label="操作" width="100" fixed="right"><template #default="{ row }"><el-button link type="primary" @click="openDetail(row.id)">详情</el-button></template></el-table-column>
         </el-table>
@@ -153,14 +154,14 @@ const handleSortChange = (state: { key?: string; prop?: string; order?: 'ascendi
 const handleTabChange = () => { query.pageNo = 1; load() }
 const reset = () => { query.search = ''; query.level = undefined; query.initiatedAt = []; query.sortField = ''; query.sortOrder = undefined; query.pageNo = 1; quickFilter.resetQuickFilter(); void load() }
 const openDetail = (id: number) => { detailId.value = id; detailVisible.value = true }
-const isCriticalOpen = (row: DeviationRespVO) => row.level === 'CRITICAL' && row.status === 'OPEN'
+const isCriticalOpen = (row: DeviationRespVO) => row.level === 'CRITICAL' && row.status === 'OPEN' && row.canTransferToNcr === true
 const handleSelectionChange = (selection: DeviationRespVO[]) => {
   const eligible = selection.filter(isCriticalOpen)
   const batchIds = [...new Set(eligible.map(row => row.batchExecutionId))]
   selectedCritical.value = batchIds.length <= 1 ? eligible : []
 }
 const openBatchNcr = () => {
-  if (!selectedCritical.value.length) return
+  if (!selectedCritical.value.length || !selectedCritical.value.every(isCriticalOpen)) return
   batchNcrForm.nonconformanceReason = ''
   batchNcrForm.remark = ''
   batchNcrForm.signaturePassword = ''
@@ -169,7 +170,7 @@ const openBatchNcr = () => {
 const submitBatchNcr = async () => {
   const reason = batchNcrForm.nonconformanceReason.trim()
   const password = batchNcrForm.signaturePassword.trim()
-  if (!reason || !password || !selectedCritical.value.length) return
+  if (!reason || !password || !selectedCritical.value.length || !selectedCritical.value.every(isCriticalOpen)) return
   const batchExecutionId = selectedCritical.value[0].batchExecutionId
   batchNcrLoading.value = true
   try {

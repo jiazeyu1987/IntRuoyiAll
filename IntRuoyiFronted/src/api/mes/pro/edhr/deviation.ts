@@ -3,7 +3,7 @@ import request from '@/config/axios'
 export interface DeviationPageReqVO extends PageParam {
   status?: 'OPEN' | 'CLOSED'
   level?: 'NORMAL' | 'CRITICAL'
-  batchExecutionId?: number
+  batchExecutionId?: number | string
   search?: string
   sortField?: string
   sortOrder?: 'asc' | 'desc'
@@ -12,7 +12,7 @@ export interface DeviationPageReqVO extends PageParam {
 }
 
 export interface DeviationBatchOptionRespVO {
-  batchExecutionId: number
+  batchExecutionId: number | string
   batchExecutionCode?: string
   batchCode?: string
   workOrderCode?: string
@@ -33,6 +33,8 @@ export interface DeviationCreateReqVO {
 }
 
 export interface DeviationRespVO {
+  canTransferToNcr?: boolean
+  transferToNcrBlockedReason?: string
   id: number
   deviationCode: string
   batchExecutionId: number
@@ -145,7 +147,7 @@ export const getDeviationPage = (params: DeviationPageReqVO) =>
 export const getDeviationBatchOptions = (params: PageParam & { search?: string }) =>
   request.get({ url: '/mes/pro/edhr-deviation/batch-options', params })
 
-export const getDeviationBatchOptionsByActiveOrder = (activeOrderId: number) =>
+export const getDeviationBatchOptionsByActiveOrder = (activeOrderId: number | string) =>
   request.get<DeviationBatchOptionRespVO[]>({
     url: '/mes/pro/edhr-deviation/batch-options-by-active-order',
     params: { activeOrderId }
@@ -163,7 +165,7 @@ export const getDeviationHandling = (deviationId: number) =>
 export const saveDeviationHandling = (deviationId: number, data: Record<string, unknown>) =>
   request.post({ url: '/mes/pro/edhr-deviation-handling/save', params: { deviationId }, data })
 
-export const signDeviationHandling = (data: { deviationId: number; node: string; password: string; comment: string }) =>
+export const signDeviationHandling = (data: { deviationId: number; node: string; password: string; comment: string; expectedContentVersion: number; expectedContentHash: string }) =>
   request.post({ url: '/mes/pro/edhr-deviation-handling/sign', data })
 
 export const closeDeviationHandling = (deviationId: number) =>

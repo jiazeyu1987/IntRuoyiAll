@@ -50,7 +50,8 @@ public class MesProEdhrDeviationHandlingController {
     @PreAuthorize("@ss.hasAnyPermissions('mes:pro-edhr-deviation:handle','mes:pro-edhr-deviation:verify','mes:pro-edhr-deviation:department-confirm','mes:pro-edhr-deviation:qa-close','mes:pro-edhr-deviation:quality-approve','mes:pro-edhr-deviation:critical-management-approve')")
     public CommonResult<Long> sign(@Valid @RequestBody MesProEdhrDeviationHandlingSignReqVO reqVO) {
         return success(handlingService.sign(SecurityFrameworkUtils.getLoginUserId(), reqVO.getDeviationId(),
-                reqVO.getNode(), reqVO.getPassword(), reqVO.getComment()));
+                reqVO.getNode(), reqVO.getPassword(), reqVO.getComment(),
+                reqVO.getExpectedContentVersion(), reqVO.getExpectedContentHash()));
     }
 
     @PostMapping("/close")

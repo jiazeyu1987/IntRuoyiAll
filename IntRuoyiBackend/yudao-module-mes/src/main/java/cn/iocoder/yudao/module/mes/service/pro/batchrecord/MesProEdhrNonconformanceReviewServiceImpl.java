@@ -366,9 +366,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         MesProWorkOrderDO workOrder = lockWorkOrder(batch.getWorkOrderId());
         LocalDateTime now = now();
         Boolean previousWorkOrderTemporaryFrozen = captureWorkOrderExternalFreezeAtReviewStart(workOrder, now);
-        // A deviation is authoritative at batch-record scope. An active-order origin is
-        // optional for this source and must not block QA from opening the review.
-        Long activeOrderId = resolveActiveOrderId(batch, null, null);
+        // Disposition requires this formal origin; reject before creating an unresolvable frozen review.
+        Long activeOrderId = requireActiveOrderId(resolveActiveOrderId(batch, null, null));
         String deviationIdsJson = JSON.toJSONString(deviationIds);
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
                 .reviewCode(buildReviewCode(now))

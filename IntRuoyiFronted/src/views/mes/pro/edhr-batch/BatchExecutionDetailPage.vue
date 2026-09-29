@@ -1277,6 +1277,32 @@
         class="edhr-batch-detail__dialog-alert"
       />
       <el-tabs v-model="traceRecordTab">
+        <el-tab-pane label="批次信息" name="batch">
+          <el-skeleton v-if="reviewLoading" :rows="6" animated />
+          <el-alert v-else-if="reviewError" :title="reviewError" type="error" :closable="false" show-icon />
+          <template v-else-if="reviewTimeline?.batchEvents?.length">
+            <el-descriptions
+              v-for="(event, index) in reviewTimeline.batchEvents"
+              :key="index"
+              :column="1"
+              border
+            >
+              <el-descriptions-item label="批次执行编号">{{ event.batchExecutionCode || '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="批次执行ID">{{ event.batchExecutionId ?? '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="状态">{{ event.status == null ? '未记录' : resolveBatchStatusLabel(event.status) }}</el-descriptions-item>
+              <el-descriptions-item label="创建时间">{{ event.createTime == null || event.createTime === '' ? '未记录' : formatReviewTime(event.createTime) }}</el-descriptions-item>
+              <el-descriptions-item label="聚合摘要">{{ event.aggregateHash || '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="关闭人员编号">{{ event.closedBy ?? '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="关闭时间">{{ event.closedAt == null || event.closedAt === '' ? '未记录' : formatReviewTime(event.closedAt) }}</el-descriptions-item>
+              <el-descriptions-item label="关闭签名编号">{{ event.closeSignatureId ?? '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="拒收人员编号">{{ event.rejectedBy ?? '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="拒收时间">{{ event.rejectedAt == null || event.rejectedAt === '' ? '未记录' : formatReviewTime(event.rejectedAt) }}</el-descriptions-item>
+              <el-descriptions-item label="拒收签名编号">{{ event.rejectSignatureId ?? '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="拒收原因">{{ event.rejectReason || '未记录' }}</el-descriptions-item>
+            </el-descriptions>
+          </template>
+          <el-empty v-else description="暂无批次信息" />
+        </el-tab-pane>
         <el-tab-pane label="放行事件" name="release">
           <ReleaseEventListPane
             v-if="traceRecordReleaseTransactionId"
@@ -1547,7 +1573,6 @@ import {
   type EdhrStage4DossierUploadSimulationRespVO,
   type MesProductionReleaseReportNodeCompleteRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
-import { SOURCE_TYPE_PQC_RELEASE } from '@/api/mes/pro/edhr/nonconformanceReview'
 import {
   EDHR_PRODUCTION_RELEASE_REPORT_NODE_TYPES,
   EDHR_WORK_TASK_STATUS_TODO,
@@ -1635,7 +1660,7 @@ const canUseFlowTransferIntervention = computed(
     FLOW_TRANSFER_ADMIN_ROLES.some((role) => userStore.roles.includes(role))
 )
 type EdhrBatchExecutionDetailFocus = 'process' | 'precheck' | 'approval'
-type TraceRecordTab = 'release' | 'change' | 'audit' | 'deviation' | 'domain' | 'fieldResponsibility'
+type TraceRecordTab = 'batch' | 'release' | 'change' | 'audit' | 'deviation' | 'domain' | 'fieldResponsibility'
 
 const loading = ref(false)
 const syncLoading = ref(false)
@@ -3541,7 +3566,8 @@ const resolveBatchStatusLabel = (status?: number) => {
     [EDHR_BATCH_STATUS_REWORK_REQUIRED]: '需返工/需修订',
     [EDHR_BATCH_STATUS_CLOSED]: '已关闭',
     [EDHR_BATCH_STATUS_ARCHIVED]: '已归档',
-    [EDHR_BATCH_STATUS_REJECTED]: '质量已拒收'
+    [EDHR_BATCH_STATUS_REJECTED]: '质量已拒收',
+    [EDHR_BATCH_STATUS_VOIDED]: '已作废'
   }
   return status == null ? '--' : labels[status] || String(status)
 }
@@ -4476,6 +4502,7 @@ const loadReviewTimeline = async (requestSerial?: number) => {
     }
   } catch (error) {
     if (isStaleBatchDetailRequest(requestSerial)) return
+    reviewError.value = resolveErrorMessage(error, '电子批记录批次复盘时间线加载失败。')
     reviewTimeline.value = undefined
     selectedExecutionId.value = ''
     const focus = resolveDetailFocus()
@@ -4490,7 +4517,6 @@ const loadReviewTimeline = async (requestSerial?: number) => {
     )
     selectedReleaseStep.value = !selectedTaskId.value
     clearTaskPreview()
-    reviewError.value = resolveErrorMessage(error, '电子批记录批次复盘时间线加载失败。')
   } finally {
     if (isStaleBatchDetailRequest(requestSerial)) return
     reviewLoading.value = false

@@ -3266,9 +3266,6 @@ const buildProductionClearanceConfirmationPayload = () =>
     description: confirmation.description
   }))
 
-const buildProductionDeviceMeteringValidityPayload = () =>
-  buildProductionDeviceMeteringValidityFromSelectedDevices(buildProductionSelectedDevicesPayload())
-
 const rememberProductionMaterialDeviceDrafts = (
   submittedMaterials: ProFrontlineFeedbackMaterialReqVO[]
 ) => {
@@ -4147,25 +4144,6 @@ const stepPqcPieceValue = (index: number, delta: number) => {
 
 const updatePqcPieceDraftValue = (index: number, event: Event) => {
   pqcPieceDraftValues.value[index] = (event.target as HTMLInputElement).value
-}
-
-const selectPqcInspectionTaskOption = async (pqcTaskId: number) => {
-  const process = deviceState.selectedProcess
-  const itemKey = activePqcTabKey.value
-  const option = getPqcTaskOptions(isFrontlinePqcProcess(process) ? process : undefined)
-    .find((taskOption) =>
-      taskOption.pqcTaskId === pqcTaskId && pqcTaskOptionIncludesItem(taskOption, itemKey)
-    )
-  if (!option) {
-    showFrontlineError('当前工序缺少对应的PQC任务。')
-    return
-  }
-  if (activePqcTaskOption.value?.pqcTaskId === option.pqcTaskId) {
-    return
-  }
-  applyPqcTaskOptionToSelectedProcess(option)
-  selectedPqcInspectionKey.value = itemKey
-  await switchPqcCurrentLoginEmployeeForActiveTask()
 }
 
 const selectPqcInspectionRule = async (ruleKey: FrontlinePqcInspectionRuleKey) => {
@@ -5482,19 +5460,6 @@ const buildFrontlineFormalSubmitPayload = (
       materialDetails
     ) as unknown as Record<string, unknown>
   }
-}
-
-const buildProductionDeviceParameterPayload = (deviceKey: string) => {
-  const device = visibleDeviceCards.value.find((item) => item.key === deviceKey)
-  const params = deviceParameterDraft[deviceKey] || {}
-  const parameterCodes = new Set(
-    getProductionSubmittableParameters(device).map((parameter) => parameter.parameterCode)
-  )
-  return Object.fromEntries(
-    Object.entries(params).filter(
-      ([parameterCode, value]) => parameterCodes.has(parameterCode) && value !== undefined
-    )
-  )
 }
 
 const buildProductionLossDetailsFromDraft = (

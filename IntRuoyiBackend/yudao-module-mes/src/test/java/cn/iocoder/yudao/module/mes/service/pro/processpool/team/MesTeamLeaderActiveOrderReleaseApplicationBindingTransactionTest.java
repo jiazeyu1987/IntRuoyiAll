@@ -177,16 +177,24 @@ class MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest {
             if (missingPolicy) {
                 var realAudit = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImpl();
                 var policies = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper.class);
-                when(policies.selectActive(1L, "mes.pqc-release.bind-batch")).thenAnswer(invocation -> {
+                when(policies.selectByPolicyVersionForUpdate(1L, "test-binding-policy", "mes.pqc-release.bind-batch")).thenAnswer(invocation -> {
                     assertEquals(93L, batch());
                     assertEquals(2, version());
                     auditCalls.incrementAndGet();
                     return null;
                 });
+                var activations = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper.class);
+                var activation = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyActivationDO();
+                activation.setTenantId(1L);
+                activation.setPolicyVersion("test-binding-policy");
+                when(activations.selectLatestForUpdate(1L)).thenReturn(activation);
                 var ledger = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper.class);
-                when(ledger.selectByTenantIdForUpdate(1L)).thenReturn(
-                        new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO());
+                var watermark = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO();
+                watermark.setTenantId(1L);
+                watermark.setNextLedgerSequence(1L);
+                when(ledger.selectByTenantIdForUpdate(1L)).thenReturn(watermark);
                 ReflectionTestUtils.setField(realAudit, "policyOperationMapper", policies);
+                ReflectionTestUtils.setField(realAudit, "policyActivationMapper", activations);
                 ReflectionTestUtils.setField(realAudit, "ledgerSequenceMapper", ledger);
                 ReflectionTestUtils.setField(target, "gxpAuditService", realAudit);
             }
@@ -226,10 +234,11 @@ class MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest {
     }
 
     @org.junit.jupiter.api.Test
-    void draftIsUnapprovedOperationFragmentAndNotARuntimeBundle() throws Exception {
+    void syntheticDraftFragmentCannotBecomeRuntimePolicy() throws Exception {
         var mapper = new com.fasterxml.jackson.databind.ObjectMapper(new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
-        String yaml = java.nio.file.Files.readString(java.nio.file.Path.of(
-                "../../doc/tasks/20260928-gxp20-review-fixes/gxp-audit-pqc-bind-policy.draft.yaml"));
+        // Synthetic negative-test input, not a recovered task artifact or an approved policy.
+        String yaml = new org.springframework.core.io.ClassPathResource(
+                "fixtures/gxp/unapproved-bind-operation.yaml").getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         var fragment = mapper.readTree(yaml);
         assertEquals("GXP_AUDIT_OPERATION_FRAGMENT", fragment.path("proposalType").asText());
         assertEquals("DRAFT", fragment.path("status").asText());
@@ -243,7 +252,9 @@ class MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest {
         var loader = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPolicyBundleLoader();
         var packaged = loader.load();
         assertFalse(packaged.policyNode().path("operations").toString().contains("mes.pqc-release.bind-batch"));
-        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+        var failure = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
                 () -> ReflectionTestUtils.invokeMethod(loader, "load", yaml, packaged.rawSchema()));
+        assertEquals(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.GXP_AUDIT_POLICY_BUNDLE_INVALID.getCode(),
+                failure.getCode());
     }
 }

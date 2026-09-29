@@ -372,7 +372,6 @@ const erpCreateLoadingId = ref<number | null>(null) // 行级创建 ERP 订单�
 const aiE2eDialog = reactive({
   visible: false,
   loading: false,
-  workOrderId: 0,
   runId: '',
   slot: 'O01',
   quantity: 100,
@@ -509,7 +508,6 @@ const handleCreateKingdeeProductionOrder = async (row: WorkOrderTreeRow) => {
   }
 }
 const openAiE2eDialog = (_row?: WorkOrderTreeRow) => {
-  aiE2eDialog.workOrderId = undefined
   aiE2eDialog.runId = `AI-EDHR-${new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
   aiE2eDialog.slot = 'O01'
   aiE2eDialog.quantity = 100

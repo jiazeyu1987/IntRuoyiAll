@@ -9,6 +9,13 @@ import org.apache.ibatis.annotations.Mapper;
 public interface MesProcessPoolActiveOrderCompletionReceiptMapper
         extends BaseMapperX<MesProcessPoolActiveOrderCompletionReceiptDO> {
 
+    default MesProcessPoolActiveOrderCompletionReceiptDO selectFirstByWorkOrderIdForUpdate(Long workOrderId) {
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderCompletionReceiptDO>()
+                .eq(MesProcessPoolActiveOrderCompletionReceiptDO::getWorkOrderId, workOrderId)
+                .orderByAsc(MesProcessPoolActiveOrderCompletionReceiptDO::getId)
+                .last("LIMIT 1 FOR UPDATE"));
+    }
+
     default MesProcessPoolActiveOrderCompletionReceiptDO selectByActiveOrderIdForUpdate(Long activeOrderId) {
         if (activeOrderId == null) {
             return null;

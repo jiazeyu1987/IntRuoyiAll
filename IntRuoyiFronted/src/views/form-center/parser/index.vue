@@ -1296,16 +1296,6 @@ const formatEquipmentGroupOptions = (group?: BatchRecordTotalRecognitionEquipmen
   return (group?.equipmentOptions || []).map((equipment) => formatNameCode(equipment)).join('、') || '-'
 }
 
-const formatSelectionMode = (selectionMode?: string) => {
-  if (selectionMode === 'SINGLE') {
-    return '单选'
-  }
-  if (selectionMode === 'MULTIPLE') {
-    return '多选'
-  }
-  return formatValue(selectionMode)
-}
-
 const getParameterDisplayName = (parameter?: BatchRecordTotalRecognitionParameter) => {
   const displayName = formatValue(parameter?.ui?.displayName)
   if (displayName !== '-') {

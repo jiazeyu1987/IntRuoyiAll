@@ -168,7 +168,8 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long sign(Long actorUserId, Long deviationId, String node, String password, String comment) {
+    public Long sign(Long actorUserId, Long deviationId, String node, String password, String comment,
+              Integer expectedContentVersion, String expectedContentHash) {
         requireActor(actorUserId);
         requirePermission(permissionByNode(node));
         if (!ALL_NODES.contains(node)) {
@@ -187,6 +188,11 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
                 .selectByTenantAndDeviationIdForUpdate(tenantId, deviationId);
         if (handling == null || handling.getContentVersion() == null || handling.getContentHash() == null) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_NOT_EXISTS, deviationId);
+        }
+        if (expectedContentVersion == null || !hasText(expectedContentHash)
+                || !Objects.equals(handling.getContentVersion(), expectedContentVersion)
+                || !Objects.equals(handling.getContentHash(), expectedContentHash)) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_VERSION_CONFLICT, deviationId);
         }
         return signatureService.recordDeviationHandlingSignature(actorUserId, deviationId, handling.getId(),
                 deviation.getDeviationCode(), node, handling.getContentVersion(), handling.getContentHash(),

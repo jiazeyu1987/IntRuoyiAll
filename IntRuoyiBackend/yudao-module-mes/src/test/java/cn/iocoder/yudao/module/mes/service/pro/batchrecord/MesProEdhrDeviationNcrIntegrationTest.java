@@ -132,6 +132,25 @@ class MesProEdhrDeviationNcrIntegrationTest {
     }
 
     @Test
+    void missingFormalActiveOrderRejectsTransferBeforeAnyBusinessWrites() {
+        stubBatchAndWorkOrder();
+        when(batchExecutionOriginMapper.selectListByBatchExecutionId(9001L)).thenReturn(List.of());
+        when(deviationMapper.selectByTenantAndIdForUpdate(any(), eq(3001L))).thenReturn(critical(3001L));
+        when(deviationMapper.selectByTenantAndIdForUpdate(any(), eq(3002L))).thenReturn(critical(3002L));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.createCriticalDeviationReview(501L, request("missing-origin")));
+
+        assertEquals(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID.getCode(),
+                error.getCode());
+        verify(reviewMapper, never()).insert(org.mockito.ArgumentMatchers.<MesProEdhrNonconformanceReviewDO>any());
+        verify(batchExecutionMapper, never()).updateById(org.mockito.ArgumentMatchers.<MesProEdhrBatchExecutionDO>any());
+        verify(workOrderMapper, never()).updateTemporaryFrozenByIds(any(), any());
+        verify(deviationMapper, never()).closeToNonconformance(any(), any(), anyCollection(), any(), any());
+        verifyNoInteractions(signatureService, operationAuditService);
+    }
+
+    @Test
     void qaCanTransferSingleCriticalDeviationWithFormalActiveOrderOrigin() {
         stubBatchAndWorkOrder();
         when(reviewMapper.selectByTenantAndIdempotencyKeyForUpdate(any(), eq("ncr-formal-active-origin"))).thenReturn(null);

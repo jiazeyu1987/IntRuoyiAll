@@ -4,7 +4,7 @@ const path = require('node:path')
 const vm = require('node:vm')
 const ts = require('typescript')
 const panel = fs.readFileSync(path.resolve(__dirname, '../../src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'), 'utf8')
-const helpers = panel.slice(panel.indexOf('const formatProductionMaterialListQuantity ='), panel.indexOf('const formatDate ='))
+const helpers = panel.slice(panel.indexOf('const normalizeProductionMaterialCode ='), panel.indexOf('const formatDate ='))
 const resolver = panel.slice(panel.indexOf('const resolveProductionMaterialListActualUsage ='), panel.indexOf('const resolveProductionMaterialListWarehouse ='))
 const props = { detail: {
   inputMaterialUsages: [{ materialCode: 'A', actualQuantity: 100 }],

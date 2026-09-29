@@ -30,6 +30,8 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderSourceTypeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.ibatis.exceptions.TooManyResultsException;
 import org.springframework.stereotype.Service;
@@ -69,6 +71,8 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
     private final MesMdItemMapper itemMapper;
     private final MesMdItemTypeMapper itemTypeMapper;
     private final MesMdUnitMeasureMapper unitMeasureMapper;
+    private final MesProcessPoolActiveOrderMapper activeOrderMapper;
+    private final MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -162,7 +166,21 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
     private void syncExistingWorkOrder(MesProWorkOrderDO existingWorkOrder,
                                        ErpKingdeeProductionOrder productionOrder,
                                        Long productId) {
+        // Completion holds the active-order row before receipt/work-order locks. Include every
+        // historical state so archived or reworked receipts retain the same identity protection.
+        activeOrderMapper.selectAllByWorkOrderIdForUpdate(existingWorkOrder.getId());
+        existingWorkOrder = workOrderMapper.selectByIdForUpdate(existingWorkOrder.getId());
+        if (existingWorkOrder == null) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "ERP同步对应的生产工单不存在");
+        }
         MesProWorkOrderDO updated = buildUpdatedWorkOrder(existingWorkOrder, productionOrder, productId);
+        if (!Objects.equals(existingWorkOrder.getBatchCode(), updated.getBatchCode())
+                && completionReceiptMapper.selectFirstByWorkOrderIdForUpdate(existingWorkOrder.getId()) != null) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "工单 " + existingWorkOrder.getCode() + " 已生成正式完工回执，不能通过ERP同步修改批号（"
+                            + existingWorkOrder.getBatchCode() + " -> " + updated.getBatchCode() + "）");
+        }
         if (!hasWorkOrderChanged(existingWorkOrder, updated)) {
             return;
         }

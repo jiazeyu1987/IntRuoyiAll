@@ -10,6 +10,11 @@ import lombok.ToString;
 public class MesProEdhrDeviationHandlingSignReqVO {
     @NotNull
     private Long deviationId;
+    @NotNull
+    @jakarta.validation.constraints.Positive
+    private Integer expectedContentVersion;
+    @NotBlank
+    private String expectedContentHash;
     @NotBlank
     private String node;
     @NotBlank

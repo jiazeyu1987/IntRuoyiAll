@@ -18,7 +18,7 @@
         <div>
           <h2>PQC生产放行</h2>
         </div>
-        <el-button :icon="Refresh" :loading="loading" circle title="刷新" @click="getList" />
+        <el-button :icon="Refresh" :loading="loading" circle title="刷新" @click="getList()" />
       </div>
 
       <el-tabs v-model="activeView" class="pqc-release-page__tabs" @tab-change="handleTabChange">
@@ -147,7 +147,7 @@
         :total="total"
         v-model:page="queryParams.pageNo"
         v-model:limit="queryParams.pageSize"
-        @pagination="getList"
+        @pagination="getList()"
       />
     </div>
 
@@ -156,7 +156,6 @@
       data-pqc-production-release-dialog
       title="确认生产放行"
       width="540px"
-      @closed="resetReleaseDialog"
     >
       <div v-if="selectedRow" class="pqc-release-dialog">
         <el-descriptions :column="1" border>
@@ -308,7 +307,7 @@ const resolveErrorMessage = (error: unknown, fallback: string) => {
   return fallback
 }
 
-const getList = async () => {
+const getList = async (isCurrent: () => boolean = () => true) => {
   const requestId = ++listRequestSequence
   loading.value = true
   loadError.value = ''
@@ -320,11 +319,11 @@ const getList = async () => {
       workOrderCode: queryParams.workOrderCode.trim() || undefined,
       batchCode: queryParams.batchCode.trim() || undefined
     })
-    if (requestId !== listRequestSequence) return
+    if (requestId !== listRequestSequence || !isCurrent()) return
     list.value = data.list || []
     total.value = data.total || 0
   } catch (error) {
-    if (requestId !== listRequestSequence) return
+    if (requestId !== listRequestSequence || !isCurrent()) return
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'PQC生产放行列表加载失败。')
@@ -389,7 +388,19 @@ const resolveStatusTagType = (row: MesPqcProductionReleasePageItemRespVO) => {
   return 'primary'
 }
 
+let releaseDialogGeneration = 0
+const captureReleaseContext = () => {
+  const generation = releaseDialogGeneration
+  const applicationId = selectedRow.value?.applicationId
+  return () => releaseDialogVisible.value && generation === releaseDialogGeneration && selectedRow.value?.applicationId === applicationId
+}
+watch(releaseDialogVisible, (visible) => {
+  if (!visible) resetReleaseDialog()
+}, { flush: 'sync' })
+onBeforeUnmount(() => { releaseDialogGeneration++ })
+
 const openReleaseDialog = (row: MesPqcProductionReleasePageItemRespVO) => {
+  resetReleaseDialog()
   selectedRow.value = row
   releaseError.value = ''
   releaseResult.value = undefined
@@ -401,6 +412,8 @@ const openReleaseDialog = (row: MesPqcProductionReleasePageItemRespVO) => {
 }
 
 const resetReleaseDialog = () => {
+  releaseDialogGeneration++
+  releaseSubmitting.value = false
   releaseForm.signaturePassword = ''
   releaseForm.udiControlDocumentNo = ''
   releaseForm.approvalOpinion = ''
@@ -437,8 +450,10 @@ const assertReleasedReceipt = (result: MesPqcProductionReleaseDecisionRespVO) =>
 const applyReleaseSuccess = async (
   row: MesPqcProductionReleasePageItemRespVO,
   result: MesPqcProductionReleaseDecisionRespVO,
-  recovered: boolean
+  recovered: boolean,
+  isCurrent: () => boolean
 ) => {
+  if (!isCurrent()) return
   assertReleasedReceipt(result)
   releaseIdempotencyKeys.delete(row.applicationId)
   releaseForm.signaturePassword = ''
@@ -450,7 +465,8 @@ const applyReleaseSuccess = async (
       ? PQC_RELEASE_VIEW_CONCESSION_RELEASED
       : PQC_RELEASE_VIEW_RELEASED
   queryParams.pageNo = 1
-  await getList()
+  await getList(isCurrent)
+  if (!isCurrent()) return
   recovered
     ? message.warning('响应异常，但权威回执已确认生产放行完成')
     : message.success('生产放行完成')
@@ -458,12 +474,15 @@ const applyReleaseSuccess = async (
 
 const recoverUncertainRelease = async (
   row: MesPqcProductionReleasePageItemRespVO,
-  writeError: unknown
+  writeError: unknown,
+  isCurrent: () => boolean
 ) => {
   let receipt: MesPqcProductionReleaseDecisionRespVO
   try {
     receipt = await getPqcProductionRelease(row.applicationId)
+    if (!isCurrent()) return
   } catch (receiptError) {
+    if (!isCurrent()) return
     releaseOutcomeUncertain.value = true
     releaseError.value =
       `生产放行响应不确定，权威回执查询失败。请刷新核对后再操作。` +
@@ -490,12 +509,13 @@ const recoverUncertainRelease = async (
     if (receipt.decision === 'NONCONFORMANCE_REWORK') activeView.value = PQC_RELEASE_VIEW_REWORKED
     if (receipt.decision === 'NONCONFORMANCE_VOID') activeView.value = PQC_RELEASE_VIEW_VOIDED
     queryParams.pageNo = 1
-    await getList()
+    await getList(isCurrent)
     return
   }
   try {
-    await applyReleaseSuccess(row, receipt, true)
+    await applyReleaseSuccess(row, receipt, true, isCurrent)
   } catch (receiptError) {
+    if (!isCurrent()) return
     releaseOutcomeUncertain.value = true
     releaseError.value = resolveErrorMessage(receiptError, '权威回执状态无法确认。')
   }
@@ -503,7 +523,8 @@ const recoverUncertainRelease = async (
 
 const submitRelease = async () => {
   const row = selectedRow.value
-  if (!row) return
+  if (!row || !releaseDialogVisible.value || releaseSubmitting.value) return
+  const isCurrent = captureReleaseContext()
   const signaturePassword = releaseForm.signaturePassword.trim()
   const udiControlDocumentNo = releaseForm.udiControlDocumentNo.trim()
   if (!udiControlDocumentNo) {
@@ -532,16 +553,17 @@ const submitRelease = async () => {
       udiControlDocumentNo,
       approvalOpinion: releaseForm.approvalOpinion.trim() || undefined
     })
-    await applyReleaseSuccess(row, result, false)
+    await applyReleaseSuccess(row, result, false, isCurrent)
   } catch (error) {
+    if (!isCurrent()) return
     releaseForm.signaturePassword = ''
     if (isDefinitiveReleaseBusinessFailure(error)) {
       releaseError.value = resolveErrorMessage(error, '生产放行失败。')
     } else {
-      await recoverUncertainRelease(row, error)
+      await recoverUncertainRelease(row, error, isCurrent)
     }
   } finally {
-    releaseSubmitting.value = false
+    if (isCurrent()) releaseSubmitting.value = false
   }
 }
 
@@ -590,7 +612,7 @@ const retryOrderDetail = () => {
   if (detailRow.value) void openActiveOrderDetail(detailRow.value)
 }
 
-onMounted(getList)
+onMounted(() => getList())
 </script>
 
 <style scoped>

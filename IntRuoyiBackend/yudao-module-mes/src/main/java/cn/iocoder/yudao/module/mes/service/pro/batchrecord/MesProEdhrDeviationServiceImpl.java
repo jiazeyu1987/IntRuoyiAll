@@ -260,7 +260,7 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
                 new Page<>(reqVO.getPageNo(), reqVO.getPageSize()), tenantId, reqVO.getStatus(),
                 reqVO.getLevel(), reqVO.getBatchExecutionId(), reqVO.getSearch(), reqVO.getSortField(),
                 reqVO.getSortOrder(), reqVO.getInitiatedAtStart(), reqVO.getInitiatedAtEnd());
-        return new PageResult<>(page.getRecords().stream().map(this::toResp).toList(), page.getTotal());
+        return new PageResult<>(page.getRecords().stream().map(this::toRespWithTransferEligibility).toList(), page.getTotal());
     }
 
     @Override
@@ -273,7 +273,39 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
         if (deviation == null) {
             throw exception(PRO_EDHR_DEVIATION_BATCH_NOT_EXISTS, id);
         }
-        return toResp(deviation);
+        return toRespWithTransferEligibility(deviation);
+    }
+
+    private MesProEdhrDeviationRespVO toRespWithTransferEligibility(MesProEdhrDeviationDO deviation) {
+        MesProEdhrDeviationRespVO response = toResp(deviation);
+        response.setCanTransferToNcr(false);
+        if (!STATUS_OPEN.equals(deviation.getStatus()) || !LEVEL_CRITICAL.equals(deviation.getLevel())) {
+            return response.setTransferToNcrBlockedReason("仅未关闭的关键偏差可以转不合格审批");
+        }
+        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectByTenantIdAndId(
+                TenantContextHolder.getRequiredTenantId(), deviation.getBatchExecutionId());
+        if (batch == null || batch.getStatus() == null) {
+            return response.setTransferToNcrBlockedReason("关联批次状态缺失，不能转审，请联系管理员核对；偏差调查记录仍可查看");
+        }
+        String reason = switch (batch.getStatus()) {
+            case MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED ->
+                    "原批次已返工退役，不能再发起不合格审批；请继续调查并按常规关闭偏差";
+            case MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED ->
+                    "关联批次已作废，不能发起不合格审批；请继续调查并按常规关闭偏差";
+            case MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED,
+                 MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED ->
+                    "关联批次已关闭或归档，不能发起不合格审批；请继续调查并按常规关闭偏差";
+            case MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN ->
+                    "关联批次已冻结，暂不能重复转审；可继续常规调查，原评审处理后请刷新转审状态";
+            default -> null;
+        };
+        if (reason != null) {
+            return response.setTransferToNcrBlockedReason(reason);
+        }
+        if (nonconformanceReviewMapper.selectPendingByBatchExecutionId(batch.getId()) != null) {
+            return response.setTransferToNcrBlockedReason("关联批次已有待处置不合格审批，暂不能重复转审；可继续常规调查，原评审处理后请刷新转审状态");
+        }
+        return response.setCanTransferToNcr(true);
     }
 
     @Override

@@ -59,10 +59,13 @@
         <el-button
           v-hasPermi="['mes:pro-edhr-nonconformance-review:deviation-create']"
           type="danger"
+          :disabled="detail.canTransferToNcr !== true"
           @click="openNcrCreateDialog"
         >
           发起不合格审批
         </el-button>
+        <el-button link type="primary" @click="refreshTransferEligibility">刷新转审状态</el-button>
+        <el-alert v-if="detail.canTransferToNcr === false" class="mt-8px" type="warning" :closable="false" :title="detail.transferToNcrBlockedReason" />
       </div>
       <el-divider />
       <el-alert v-if="handlingError" type="error" :closable="false" :title="handlingError">
@@ -104,6 +107,7 @@
           <el-descriptions-item label="验证内容">{{ handling.verificationContent || '—' }}</el-descriptions-item>
         </el-descriptions>
         <el-form v-if="detail.status === 'OPEN' && !props.readonly" :model="handlingForm" label-width="110px" class="handling-form">
+          <el-form-item v-if="handlingForm.expectedContentVersion > 0" label="修订原因" required><el-input v-model="handlingForm.revisionReason" type="textarea" maxlength="500" show-word-limit placeholder="请说明本次修改原因" /></el-form-item>
           <el-form-item label="根因分析"><el-input v-model="handlingForm.rootCauseAnalysis" type="textarea" :rows="2" /></el-form-item>
           <el-form-item label="影响范围"><el-input v-model="handlingForm.impactScope" type="textarea" :rows="2" /></el-form-item>
           <el-form-item label="风险评估"><el-input v-model="handlingForm.riskAssessment" type="textarea" :rows="2" /></el-form-item>
@@ -223,7 +227,20 @@ const signVisible = ref(false)
 const ncrCreateVisible = ref(false)
 const ncrCreateLoading = ref(false)
 const ncrCreateError = ref('')
-const handlingForm = reactive({ expectedContentVersion: 0, revisionReason: '', investigationStartedAt: '', plannedCompletedAt: '', completedAt: '', investigationMembersJson: '', rootCauseAnalysis: '', impactScope: '', riskAssessment: '', productDisposition: '', nonconformanceReviewCode: '', correctiveOwnerName: '', correctiveDueAt: '', capaRequired: false, capaCode: '', capaAttachmentsJson: '', handlingConclusion: 'CLOSED_LOOP', verificationResult: 'PASS', verificationContent: '' })
+const createHandlingForm = () => ({ expectedContentVersion: 0, revisionReason: '', investigationStartedAt: '', plannedCompletedAt: '', completedAt: '', investigationMembersJson: '', rootCauseAnalysis: '', impactScope: '', riskAssessment: '', productDisposition: '', nonconformanceReviewCode: '', correctiveOwnerName: '', correctiveDueAt: '', capaRequired: false, capaCode: '', capaAttachmentsJson: '', handlingConclusion: 'CLOSED_LOOP', verificationResult: 'PASS', verificationContent: '' })
+const handlingForm = reactive(createHandlingForm())
+let savedFormSnapshot = ''
+let loadSequence = 0
+let transferEligibilitySequence = 0
+let handlingSequence = 0
+let reviewSequence = 0
+const formSnapshot = () => JSON.stringify({ ...handlingForm, revisionReason: '' })
+const resetHandling = () => {
+  handling.value = undefined
+  Object.assign(handlingForm, createHandlingForm())
+  savedFormSnapshot = ''
+}
+
 const signForm = reactive({ node: 'PREPARER', password: '', comment: '' })
 const ncrCreateForm = reactive({ nonconformanceReason: '', remark: '', signaturePassword: '', idempotencyKey: '' })
 const signNodeOptions = computed(() => {
@@ -291,8 +308,24 @@ const openReview = () => {
     void router.push({ path: '/mes/pro/feedback/edhr-nonconformance-review', query: { reviewId: String(detail.value.nonconformanceReviewId), from: 'deviation' } })
   }
 }
+const refreshTransferEligibility = async () => {
+  const id = props.id
+  const sequence = loadSequence
+  const refreshSequence = ++transferEligibilitySequence
+  try {
+    const latest = await getDeviation(id)
+    if (id !== props.id || sequence !== loadSequence || refreshSequence !== transferEligibilitySequence || !detail.value) return
+    detail.value.canTransferToNcr = latest.canTransferToNcr
+    detail.value.transferToNcrBlockedReason = latest.transferToNcrBlockedReason
+  } catch (cause: any) {
+    if (id === props.id && sequence === loadSequence && refreshSequence === transferEligibilitySequence) {
+      ElMessage.error(cause?.response?.data?.msg || cause?.message || '转审状态读取失败，请重试')
+    }
+  }
+}
 const openNcrCreateDialog = () => {
   if (props.readonly || !detail.value || detail.value.status !== 'OPEN' || detail.value.level !== 'CRITICAL') return
+  if (detail.value.canTransferToNcr !== true) return
   ncrCreateError.value = ''
   ncrCreateForm.nonconformanceReason = ''
   ncrCreateForm.remark = ''
@@ -303,10 +336,16 @@ const openNcrCreateDialog = () => {
 const submitNcrCreate = async () => {
   if (props.readonly) return
   const current = detail.value
+  const id = props.id
+  const sequence = loadSequence
   const nonconformanceReason = ncrCreateForm.nonconformanceReason.trim()
   const signaturePassword = ncrCreateForm.signaturePassword.trim()
   if (!current || current.status !== 'OPEN' || current.level !== 'CRITICAL' || !current.batchExecutionId) {
     ncrCreateError.value = '当前偏差不满足发起不合格审批条件，请刷新后重试'
+    return
+  }
+  if (current.canTransferToNcr !== true) {
+    ncrCreateError.value = current.transferToNcrBlockedReason || '转审资格未就绪，请刷新转审状态'
     return
   }
   if (!nonconformanceReason || !signaturePassword) {
@@ -324,51 +363,64 @@ const submitNcrCreate = async () => {
       idempotencyKey: ncrCreateForm.idempotencyKey,
       signaturePassword
     })
+    if (id !== props.id || sequence !== loadSequence) return
     ncrCreateVisible.value = false
     await load()
     ElMessage.success('不合格审批已发起，偏差已转审关闭')
   } catch (error: any) {
-    ncrCreateError.value = error?.response?.data?.msg || '不合格审批发起失败，请重试'
+    if (id === props.id && sequence === loadSequence) ncrCreateError.value = error?.response?.data?.msg || '不合格审批发起失败，请重试'
   } finally {
-    ncrCreateLoading.value = false
+    if (id === props.id && sequence === loadSequence) ncrCreateLoading.value = false
   }
+}
+const applyHandling = (record?: DeviationHandlingRespVO) => {
+  resetHandling()
+  handling.value = record
+  if (record) {
+  Object.assign(handlingForm, {
+        expectedContentVersion: record.contentVersion || 0,
+        investigationStartedAt: record.investigationStartedAt || '',
+        plannedCompletedAt: record.plannedCompletedAt || '',
+        completedAt: record.completedAt || '',
+        investigationMembersJson: record.investigationMembersJson || '',
+        rootCauseAnalysis: record.rootCauseAnalysis || '',
+        impactScope: record.impactScope || '',
+        riskAssessment: record.riskAssessment || '',
+        productDisposition: record.productDisposition || '',
+        nonconformanceReviewCode: record.nonconformanceReviewCode || '',
+        correctiveOwnerName: record.correctiveOwnerName || '',
+        correctiveDueAt: record.correctiveDueAt || '',
+        capaRequired: record.capaRequired || false,
+        capaCode: record.capaCode || '',
+        capaAttachmentsJson: record.capaAttachmentsJson || '',
+        handlingConclusion: record.handlingConclusion || 'CLOSED_LOOP',
+        verificationResult: record.verificationResult || 'PASS',
+        verificationContent: record.verificationContent || ''
+      })
+  }
+  savedFormSnapshot = formSnapshot()
 }
 const loadHandling = async () => {
   if (!detail.value) return
+  const id = props.id
+  const sequence = ++handlingSequence
   handlingLoading.value = true
   handlingError.value = ''
   try {
-    handling.value = await getDeviationHandling(props.id)
-    if (handling.value) {
-      Object.assign(handlingForm, {
-        expectedContentVersion: handling.value.contentVersion || 0,
-        investigationStartedAt: handling.value.investigationStartedAt || '',
-        plannedCompletedAt: handling.value.plannedCompletedAt || '',
-        completedAt: handling.value.completedAt || '',
-        investigationMembersJson: handling.value.investigationMembersJson || '',
-        rootCauseAnalysis: handling.value.rootCauseAnalysis || '',
-        impactScope: handling.value.impactScope || '',
-        riskAssessment: handling.value.riskAssessment || '',
-        productDisposition: handling.value.productDisposition || '',
-        nonconformanceReviewCode: handling.value.nonconformanceReviewCode || '',
-        correctiveOwnerName: handling.value.correctiveOwnerName || '',
-        correctiveDueAt: handling.value.correctiveDueAt || '',
-        capaRequired: handling.value.capaRequired || false,
-        capaCode: handling.value.capaCode || '',
-        capaAttachmentsJson: handling.value.capaAttachmentsJson || '',
-        handlingConclusion: handling.value.handlingConclusion || 'CLOSED_LOOP',
-        verificationResult: handling.value.verificationResult || 'PASS',
-        verificationContent: handling.value.verificationContent || ''
-      })
-    }
+    const record = await getDeviationHandling(id)
+    if (id !== props.id || sequence !== handlingSequence) return
+    applyHandling(record)
   } catch {
-    handling.value = undefined
+    if (id !== props.id || sequence !== handlingSequence) return
+    resetHandling()
     handlingError.value = '偏差处理记录加载失败，请重试'
   } finally {
-    handlingLoading.value = false
+    if (id === props.id && sequence === handlingSequence) handlingLoading.value = false
   }
 }
 const loadNcrReviewDetail = async () => {
+  const id = props.id
+  const sequence = ++reviewSequence
   const reviewId = detail.value?.nonconformanceReviewId
   if (!props.readonly || detail.value?.closeReason !== 'TRANSFERRED_TO_NCR' || !reviewId) {
     ncrReviewDetail.value = undefined
@@ -384,6 +436,7 @@ const loadNcrReviewDetail = async () => {
   ncrSignatureEvidence.value = undefined
   try {
     const review = await getNonconformanceReview(reviewId)
+    if (id !== props.id || sequence !== reviewSequence) return
     ncrReviewDetail.value = review
     if (review.reviewStatus !== 'pending_review') {
       try {
@@ -395,16 +448,23 @@ const loadNcrReviewDetail = async () => {
       }
     }
   } catch (cause: any) {
+    if (id !== props.id || sequence !== reviewSequence) return
     ncrReviewError.value = cause?.response?.data?.msg || '关联不合格评审详情加载失败，请重试'
   } finally {
-    ncrReviewLoading.value = false
+    if (id === props.id && sequence === reviewSequence) ncrReviewLoading.value = false
   }
 }
 const saveHandling = async () => {
   if (props.readonly) return
+  if (handlingForm.expectedContentVersion > 0 && !handlingForm.revisionReason.trim()) {
+    ElMessage.error('请填写修订原因后保存')
+    return
+  }
+  const id = props.id
+  const sequence = loadSequence
   handlingSaving.value = true
   try {
-    handling.value = await saveDeviationHandling(props.id, {
+    const record = await saveDeviationHandling(id, {
       ...handlingForm,
       investigationStartedAt: normalizeOptionalDateTime(handlingForm.investigationStartedAt),
       plannedCompletedAt: normalizeOptionalDateTime(handlingForm.plannedCompletedAt),
@@ -413,12 +473,32 @@ const saveHandling = async () => {
       investigationMembersJson: normalizeOptionalJson(handlingForm.investigationMembersJson),
       capaAttachmentsJson: normalizeOptionalJson(handlingForm.capaAttachmentsJson)
     })
+    if (id !== props.id || sequence !== loadSequence) return
+    applyHandling(record)
     ElMessage.success('处理记录已保存')
-  } catch (error: any) { ElMessage.error(error?.response?.data?.msg || '处理记录保存失败，请重试') } finally { handlingSaving.value = false }
+  } catch (error: any) {
+    if (id === props.id && sequence === loadSequence) ElMessage.error(error?.response?.data?.msg || '处理记录保存失败，请重试')
+  } finally {
+    if (id === props.id && sequence === loadSequence) handlingSaving.value = false
+  }
 }
-const openSignDialog = (node: string) => { if (props.readonly) return; signForm.node = node; signForm.password = ''; signForm.comment = ''; signVisible.value = true }
+const canSignSavedHandling = () => {
+  if (!handling.value?.id || !handling.value.contentVersion || !handling.value.contentHash || formSnapshot() !== savedFormSnapshot || handlingSaving.value) {
+    ElMessage.error('请先保存当前处理内容，再审阅并签名')
+    return false
+  }
+  return true
+}
+const openSignDialog = (node: string) => {
+  if (props.readonly || !canSignSavedHandling()) return
+  signForm.node = node
+  signForm.password = ''
+  signForm.comment = ''
+  signVisible.value = true
+}
 const startHandling = () => {
   if (props.readonly || !detail.value || detail.value.status !== 'OPEN') return
+  resetHandling()
   handling.value = { id: 0, deviationId: props.id, contentVersion: 0, signatureEvidence: [], signatureHistory: [], revisionHistory: [] }
 }
 const normalizeOptionalJson = (value: string) => {
@@ -431,27 +511,77 @@ const normalizeOptionalJson = (value: string) => {
     return JSON.stringify(trimmed)
   }
 }
-const normalizeOptionalDateTime = (value: string) => value.trim() ? value : null
+const normalizeOptionalDateTime = (value: string | null | undefined) => value?.trim() ? value : null
 const signHandling = async () => {
-  if (props.readonly) return
+  if (props.readonly || !canSignSavedHandling()) return
+  const id = props.id
+  const sequence = loadSequence
+  const reviewed = handling.value!
   signing.value = true
-  try { await signDeviationHandling({ deviationId: props.id, ...signForm }); signVisible.value = false; await loadHandling(); ElMessage.success('电子签名已记录') } catch (error: any) { ElMessage.error(error?.response?.data?.msg || '电子签名失败，请重试') } finally { signing.value = false }
+  try {
+    await signDeviationHandling({ deviationId: id, ...signForm, expectedContentVersion: reviewed.contentVersion!, expectedContentHash: reviewed.contentHash! })
+    if (id !== props.id || sequence !== loadSequence) return
+    signVisible.value = false
+    await loadHandling()
+    ElMessage.success('电子签名已记录')
+  } catch (error: any) {
+    if (id === props.id && sequence === loadSequence) ElMessage.error(error?.response?.data?.msg || '电子签名失败，请重试')
+  } finally {
+    if (id === props.id && sequence === loadSequence) signing.value = false
+  }
 }
 const closeHandling = async () => {
-  if (props.readonly) return
+  if (props.readonly || !canSignSavedHandling()) return
+  const id = props.id
+  const sequence = loadSequence
   await ElMessageBox.confirm('确认按当前处理内容常规关闭该偏差吗？', '关闭确认')
+  if (id !== props.id || sequence !== loadSequence || !canSignSavedHandling()) return
   closing.value = true
-  try { await closeDeviationHandling(props.id); await load(); ElMessage.success('偏差已关闭') } catch (error: any) { ElMessage.error(error?.response?.data?.msg || '偏差关闭失败，请重试') } finally { closing.value = false }
+  try {
+    await closeDeviationHandling(id)
+    if (id !== props.id || sequence !== loadSequence) return
+    await load()
+    ElMessage.success('偏差已关闭')
+  } catch (error: any) {
+    if (id === props.id && sequence === loadSequence) ElMessage.error(error?.response?.data?.msg || '偏差关闭失败，请重试')
+  } finally {
+    if (id === props.id && sequence === loadSequence) closing.value = false
+  }
 }
 const load = async () => {
+  const id = props.id
+  const sequence = ++loadSequence
+  handlingSequence++
+  reviewSequence++
+  detail.value = undefined
+  resetHandling()
+  signVisible.value = false
+  ncrCreateVisible.value = false
+  Object.assign(signForm, { node: 'PREPARER', password: '', comment: '' })
+  ncrReviewDetail.value = undefined
+  ncrSignatureEvidence.value = undefined
+  handlingLoading.value = false
+  handlingSaving.value = false
+  signing.value = false
+  closing.value = false
+  ncrCreateLoading.value = false
+  ncrCreateError.value = ''
+  ncrReviewError.value = ''
+  ncrSignatureEvidenceError.value = ''
+  Object.assign(ncrCreateForm, { nonconformanceReason: '', remark: '', signaturePassword: '', idempotencyKey: '' })
   loading.value = true
   error.value = ''
   handlingError.value = ''
   try {
-    detail.value = await getDeviation(props.id)
-    await loadHandling()
-    await loadNcrReviewDetail()
-  } catch { error.value = '偏差详情加载失败，请重试' } finally { loading.value = false }
+    const record = await getDeviation(id)
+    if (id !== props.id || sequence !== loadSequence) return
+    detail.value = record
+    await Promise.all([loadHandling(), loadNcrReviewDetail()])
+  } catch {
+    if (id === props.id && sequence === loadSequence) error.value = '偏差详情加载失败，请重试'
+  } finally {
+    if (id === props.id && sequence === loadSequence) loading.value = false
+  }
 }
 watch(() => props.id, load, { immediate: true })
 </script>

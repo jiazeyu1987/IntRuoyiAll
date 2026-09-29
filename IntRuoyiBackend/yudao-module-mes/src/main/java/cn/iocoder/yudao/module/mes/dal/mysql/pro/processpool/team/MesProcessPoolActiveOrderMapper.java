@@ -150,6 +150,14 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .setSql("version = version + 1"));
     }
 
+    /** Serialize ERP identity changes with completion, including completed/reworked/archived histories. */
+    default List<MesProcessPoolActiveOrderDO> selectAllByWorkOrderIdForUpdate(Long workOrderId) {
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrderId)
+                .orderByAsc(MesProcessPoolActiveOrderDO::getId)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProcessPoolActiveOrderDO> selectListByWorkOrderIdForUpdate(Long workOrderId) {
         if (workOrderId == null) {
             return List.of();

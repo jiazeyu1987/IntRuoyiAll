@@ -33,6 +33,7 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCandidates;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCodes;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,6 +71,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     private final MesProductionReleaseRequiredCandidateResolver candidateResolver;
     private final MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher;
     private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
+    private final MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     public MesTeamLeaderActiveOrderReleaseGenerationService(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -84,7 +86,8 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
             MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistenceService,
             MesProductionReleaseRequiredCandidateResolver candidateResolver,
             MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher,
-            MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper) {
+            MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper,
+            MesProEdhrNonconformanceReviewService nonconformanceReviewService) {
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderMapper = workOrderMapper;
         this.processSnapshotMapper = processSnapshotMapper;
@@ -98,6 +101,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         this.candidateResolver = candidateResolver;
         this.sourceSnapshotHasher = sourceSnapshotHasher;
         this.pickListBindingMapper = pickListBindingMapper;
+        this.nonconformanceReviewService = nonconformanceReviewService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -117,6 +121,9 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
             return persistenceService.toResult(requireCurrentApplication(existing));
         }
 
+        // Successful application replay is read-only; only new applications must pass the
+        // authoritative NCR/work-order freeze gate before any pending task can be created.
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(workOrder.getId(), "申请PQC生产放行");
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = requireSnapshots(activeOrder);
         requireNoProductionQuantityConflict(activeOrder, snapshots);
         List<MesProcessPoolOrderProcessCompletionDO> completions =

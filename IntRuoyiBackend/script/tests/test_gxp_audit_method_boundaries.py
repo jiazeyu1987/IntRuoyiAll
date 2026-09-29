@@ -323,6 +323,34 @@ def test_function_callback_may_persist_and_requires_registration(tmp_path, funct
         gate.validate_boundary_scan(tmp_path, policy, operations)
 
 
+@pytest.mark.parametrize("receiver,imports", [
+    ("BigDecimal", "import java.math.BigDecimal;"),
+    ("java.math.BigDecimal", ""),
+])
+def test_immutable_arithmetic_method_reference_is_not_write(tmp_path, receiver, imports):
+    source, policy, operations = fixture(tmp_path, f"""
+        public void addOrder() {{ mapper.insert(order); }}
+        public Object total() {{ return amounts.stream().reduce(java.math.BigDecimal.ZERO, {receiver}::add); }}
+    """)
+    source.write_text(source.read_text().replace("package demo;", "package demo; " + imports), encoding="utf-8")
+    gate.validate_boundary_scan(tmp_path, policy, operations)
+
+
+@pytest.mark.parametrize("body,imports", [
+    ("public void reconcile() { amounts.forEach(BigDecimal::add); }", ""),
+    ("public void reconcile(Writer BigDecimal) { amounts.forEach(BigDecimal::add); }", "import java.math.BigDecimal;"),
+    ("private Writer BigDecimal; public void reconcile() { amounts.forEach(BigDecimal::add); }", "import java.math.BigDecimal;"),
+    ("public void reconcile() { Writer BigDecimal = writer; amounts.forEach(BigDecimal::add); }", "import java.math.BigDecimal;"),
+    ("class BigDecimal {} public void reconcile() { amounts.forEach(BigDecimal::add); }", "import java.math.BigDecimal;"),
+    ("public void reconcile() { amounts.forEach(mapper::add); }", "import java.math.BigDecimal;"),
+])
+def test_unresolved_or_shadowed_arithmetic_reference_stays_blocked(tmp_path, body, imports):
+    source, policy, operations = fixture(tmp_path, "public void addOrder() { mapper.insert(order); }" + body)
+    source.write_text(source.read_text().replace("package demo;", "package demo; " + imports), encoding="utf-8")
+    with pytest.raises(SystemExit, match="#reconcile"):
+        gate.validate_boundary_scan(tmp_path, policy, operations)
+
+
 def test_v2_policy_parses_all_locators_and_registers_each(tmp_path):
     import yaml
     source, policy, operations = fixture(tmp_path, "public void addOrder() { mapper.insert(row); } public void saveOrder() { mapper.update(row); }")

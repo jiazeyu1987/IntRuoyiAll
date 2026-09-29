@@ -15,7 +15,7 @@ const activeOrderPanelPath = path.join(
   workspaceRoot,
   'IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 )
-const source = fs.readFileSync(pagePath, 'utf8')
+const source = fs.readFileSync(pagePath, 'utf8').replace(/\r\n/g, '\n')
 const sourceDetail = fs.readFileSync(sourceDetailPath, 'utf8')
 const activeOrderPanel = fs.readFileSync(activeOrderPanelPath, 'utf8')
 const operationStart = source.indexOf(
@@ -31,7 +31,7 @@ const operationColumn = source.slice(operationStart, operationEnd)
 assert.match(operationColumn, />\s*详情\s*</, '操作列必须保留详情按钮')
 assert.match(operationColumn, />\s*上市放行\s*</, '操作列必须显示上市放行按钮')
 assert.match(operationColumn, />\s*上传\s*</, '操作列必须显示上传按钮')
-assert.match(operationColumn, />\s*驳回\s*</, '操作列必须显示驳回占位按钮')
+assert.match(operationColumn, />\s*驳回\s*</, '操作列必须显示驳回按钮')
 assert.doesNotMatch(operationColumn, />\s*编辑\s*</, '操作列不得继续显示编辑按钮')
 
 assert.match(
@@ -80,20 +80,10 @@ assert.doesNotMatch(
   '上传按钮不得继续是占位动作'
 )
 
-const placeholderHandlerStart = source.indexOf('const handlePlaceholderBatchAction =')
-assert.ok(placeholderHandlerStart >= 0, '必须存在占位按钮处理器')
-const placeholderHandlerEnd = source.indexOf('\n\n', placeholderHandlerStart)
-const placeholderHandler = source.slice(
-  placeholderHandlerStart,
-  placeholderHandlerEnd >= 0 ? placeholderHandlerEnd : source.length
-)
-assert.match(placeholderHandler, /功能暂未开放/, '占位按钮必须给出明确的未开放反馈')
-assert.doesNotMatch(placeholderHandler, /上市放行/, '占位处理器不得包含上市放行动作')
-assert.doesNotMatch(placeholderHandler, /上传/, '占位处理器不得包含上传动作')
-assert.doesNotMatch(
-  placeholderHandler,
-  /await\s+\w+\(/,
-  '占位按钮处理器不得调用异步业务接口'
+assert.match(
+  operationColumn,
+  /@click="openActiveOrderDetail\(row\)"/,
+  '详情按钮必须打开当前行正式活跃订单详情'
 )
 
 assert.match(
@@ -174,7 +164,7 @@ const uploadHandler = source.slice(
 assert.match(uploadHandler, /row\.id/, '上传入口必须使用批次执行编号定位正式活跃订单详情')
 assert.match(
   uploadHandler,
-  /edhr-batch-execution\/source-detail/,
+  /edhr-batch-execution\/active-order-detail/,
   '上传入口必须进入批次作用域活跃订单详情页'
 )
 assert.match(uploadHandler, /tab:\s*'otherUpload'/, '上传入口必须携带其他上传 Tab 参数')

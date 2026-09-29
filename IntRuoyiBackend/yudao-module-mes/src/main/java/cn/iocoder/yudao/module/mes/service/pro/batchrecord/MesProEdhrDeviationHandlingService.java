@@ -10,7 +10,8 @@ public interface MesProEdhrDeviationHandlingService {
     MesProEdhrDeviationHandlingRespVO save(Long actorUserId, Long deviationId,
                                             MesProEdhrDeviationHandlingSaveReqVO reqVO);
 
-    Long sign(Long actorUserId, Long deviationId, String node, String password, String comment);
+    Long sign(Long actorUserId, Long deviationId, String node, String password, String comment,
+              Integer expectedContentVersion, String expectedContentHash);
 
     void closeNormally(Long actorUserId, Long deviationId);
 }

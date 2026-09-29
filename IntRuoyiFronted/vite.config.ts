@@ -150,6 +150,8 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
             port: effectiveDevPortNumber,
             host: "0.0.0.0",
             open: env.VITE_OPEN === 'true',
+            // Windows-safe 模式按实际请求编译，避免静态导入递归预热耗尽文件句柄。
+            preTransformRequests: !useWindowsSafeOptimize,
             // 避免生成产物、任务证据和依赖备份耗尽 Windows 文件句柄。
             watch: {
               ignored: devWatchIgnored

@@ -263,7 +263,7 @@
         :total="total"
         v-model:page="queryParams.pageNo"
         v-model:limit="queryParams.pageSize"
-        @pagination="getList"
+        @pagination="getList()"
       />
 
       <Dialog
@@ -402,7 +402,6 @@
         title="管理者代表最终放行"
         width="720px"
         data-manager-release-dialog
-        @closed="resetManagerReleaseDialog"
       >
         <div v-loading="managerReleaseLoading" class="edhr-work-task-page__pqc-dialog">
           <el-alert
@@ -1084,12 +1083,15 @@ const resolveTaskActionUrl = (row: EdhrWorkTaskRespVO) => {
   return url
 }
 
-const refreshStats = async () => {
+const refreshStats = async (isCurrent: () => boolean = () => true) => {
   const data = await getEdhrWorkTaskStats()
+  if (!isCurrent()) return
   Object.assign(stats, data)
 }
 
-const getList = async () => {
+let workTaskListSequence = 0
+const getList = async (isCurrent: () => boolean = () => true) => {
+  const sequence = ++workTaskListSequence
   loading.value = true
   loadError.value = ''
   try {
@@ -1105,15 +1107,18 @@ const getList = async () => {
               ...buildQuery(),
               status: resolveMyPageStatus()
             })
+    if (sequence !== workTaskListSequence || !isCurrent()) return
     list.value = data.list || []
     total.value = data.total || 0
-    await refreshStats()
+    await refreshStats(() => sequence === workTaskListSequence && isCurrent())
+    if (sequence !== workTaskListSequence || !isCurrent()) return
   } catch (error) {
+    if (sequence !== workTaskListSequence || !isCurrent()) return
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'eDHR 工作任务加载失败。')
   } finally {
-    loading.value = false
+    if (sequence === workTaskListSequence) loading.value = false
   }
 }
 
@@ -1472,7 +1477,19 @@ const submitPqcProductionReleaseDecision = async () => {
   pqcDecisionSubmitting.value = false
 }
 
+let managerReleaseDialogGeneration = 0
+const captureManagerReleaseContext = () => {
+  const generation = managerReleaseDialogGeneration
+  const taskId = managerReleaseTask.value?.id
+  return () => managerReleaseDialogVisible.value && generation === managerReleaseDialogGeneration && managerReleaseTask.value?.id === taskId
+}
+watch(managerReleaseDialogVisible, (visible) => {
+  if (!visible) resetManagerReleaseDialog()
+}, { flush: 'sync' })
+onBeforeUnmount(() => { managerReleaseDialogGeneration++ })
+
 const resetManagerReleaseDialog = () => {
+  managerReleaseDialogGeneration++
   managerReleaseForm.signaturePassword = ''
   managerReleaseLoading.value = false
   managerReleaseSubmitting.value = false
@@ -1530,6 +1547,7 @@ const openManagerReleaseDialog = async (row: EdhrWorkTaskRespVO) => {
   resetManagerReleaseDialog()
   managerReleaseTask.value = row
   managerReleaseDialogVisible.value = true
+  const isCurrent = captureManagerReleaseContext()
   managerReleaseLoading.value = true
   try {
     if (!canHandleManagerRelease(row)) {
@@ -1537,6 +1555,7 @@ const openManagerReleaseDialog = async (row: EdhrWorkTaskRespVO) => {
     }
     const { releaseTransactionId } = requireManagerReleaseTaskContext(row)
     const receipt = await getEdhrRelease(releaseTransactionId)
+    if (!isCurrent()) return
     assertManagerReleaseReceiptMatchesTask(receipt, row)
     managerReleaseReceipt.value = receipt
     if (receipt.releaseStatus !== 'PENDING_APPROVAL') {
@@ -1545,6 +1564,7 @@ const openManagerReleaseDialog = async (row: EdhrWorkTaskRespVO) => {
       )
     }
   } catch (error) {
+    if (!isCurrent()) return
     const failure = resolvePqcProductionReleaseFailure(error)
     if (failure) {
       managerReleaseBlockers.value = failure.blockers
@@ -1557,27 +1577,31 @@ const openManagerReleaseDialog = async (row: EdhrWorkTaskRespVO) => {
       message.error(managerReleaseUncertainMessage.value)
     }
   } finally {
-    managerReleaseLoading.value = false
+    if (isCurrent()) managerReleaseLoading.value = false
   }
 }
 
 const recoverUncertainManagerReleaseApproval = async (
   row: EdhrWorkTaskRespVO,
-  writeError: unknown
+  writeError: unknown,
+  isCurrent: () => boolean
 ) => {
   const { releaseTransactionId } = requireManagerReleaseTaskContext(row)
   try {
     const receipt = await getEdhrRelease(releaseTransactionId)
+    if (!isCurrent()) return false
     assertManagerReleaseReceiptMatchesTask(receipt, row)
     if (receipt.releaseStatus !== 'RELEASED') {
       throw new Error(`权威回执仍为${resolveManagerReleaseStatusLabel(receipt.releaseStatus)}。`)
     }
     assertManagerReleaseApprovalResult(receipt, row)
-    await loadStage5ReleaseSnapshot(receipt)
+    await loadStage5ReleaseSnapshot(receipt, isCurrent)
+    if (!isCurrent()) return false
     managerReleaseReceipt.value = receipt
     message.warning('最终放行响应异常，但权威回执已确认事务为已放行。')
     return true
   } catch (confirmationError) {
+    if (!isCurrent()) return false
     managerReleaseLockedTransactionIds.add(releaseTransactionId)
     managerReleaseUncertainMessage.value =
       `最终放行结果不确定，请人工核对后刷新页面：写入错误 ` +
@@ -1588,18 +1612,20 @@ const recoverUncertainManagerReleaseApproval = async (
   }
 }
 
-const refreshManagerReleaseListAfterSuccess = async () => {
-  await getList()
+const refreshManagerReleaseListAfterSuccess = async (isCurrent: () => boolean) => {
+  await getList(isCurrent)
+  if (!isCurrent()) return
   if (loadError.value) {
     message.warning(`最终放行已确认，但待办列表刷新失败：${loadError.value}`)
   }
 }
 
-const loadStage5ReleaseSnapshot = async (receipt: EdhrReleaseRowVO) => {
+const loadStage5ReleaseSnapshot = async (receipt: EdhrReleaseRowVO, isCurrent: () => boolean) => {
   const simulationRunId =
     typeof route.query.simulationRunId === 'string' ? route.query.simulationRunId.trim() : ''
   if (!simulationRunId) return
   const snapshot = await getEdhrStage5ReleaseSnapshot(simulationRunId, receipt.batchExecutionId)
+  if (!isCurrent()) return
   const evidence = snapshot.fourMaterialEvidence
   if (
     snapshot.releaseStatus !== 'RELEASED' ||
@@ -1614,6 +1640,8 @@ const loadStage5ReleaseSnapshot = async (receipt: EdhrReleaseRowVO) => {
 }
 
 const submitManagerReleaseApproval = async () => {
+  if (!managerReleaseDialogVisible.value || managerReleaseSubmitting.value) return
+  const isCurrent = captureManagerReleaseContext()
   const row = managerReleaseTask.value
   const currentReceipt = managerReleaseReceipt.value
   if (!row || !currentReceipt) {
@@ -1625,6 +1653,7 @@ const submitManagerReleaseApproval = async () => {
     return
   }
   await managerReleaseFormRef.value?.validate()
+  if (!isCurrent() || managerReleaseSubmitting.value) return
   const context = requireManagerReleaseTaskContext(row)
   managerReleaseSubmitting.value = true
   managerReleaseBlockers.value = []
@@ -1639,49 +1668,55 @@ const submitManagerReleaseApproval = async () => {
       signaturePassword: managerReleaseForm.signaturePassword,
       reason: managerReleaseForm.approvalOpinion.trim()
     })
+    if (!isCurrent()) return
     managerReleaseForm.signaturePassword = ''
     result = await getEdhrRelease(context.releaseTransactionId)
+    if (!isCurrent()) return
   } catch (writeError) {
+    if (!isCurrent()) return
     managerReleaseForm.signaturePassword = ''
     const failure = resolvePqcProductionReleaseFailure(writeError)
     if (failure) {
       managerReleaseBlockers.value = failure.blockers
       message.error(resolveErrorMessage(writeError, failure.blockers[0].reason))
-    } else if (await recoverUncertainManagerReleaseApproval(row, writeError)) {
-      await refreshManagerReleaseListAfterSuccess()
+    } else if (await recoverUncertainManagerReleaseApproval(row, writeError, isCurrent)) {
+      await refreshManagerReleaseListAfterSuccess(isCurrent)
     }
-    managerReleaseSubmitting.value = false
+    if (isCurrent()) managerReleaseSubmitting.value = false
     return
   }
 
   try {
     assertManagerReleaseApprovalResult(result, row)
   } catch (receiptError) {
-    if (await recoverUncertainManagerReleaseApproval(row, receiptError)) {
-      await refreshManagerReleaseListAfterSuccess()
+    if (await recoverUncertainManagerReleaseApproval(row, receiptError, isCurrent)) {
+      await refreshManagerReleaseListAfterSuccess(isCurrent)
     }
-    managerReleaseSubmitting.value = false
+    if (isCurrent()) managerReleaseSubmitting.value = false
     return
   }
 
   managerReleaseReceipt.value = result
   try {
-    await loadStage5ReleaseSnapshot(result)
+    await loadStage5ReleaseSnapshot(result, isCurrent)
+    if (!isCurrent()) return
   } catch (snapshotError) {
+    if (!isCurrent()) return
     managerReleaseUncertainMessage.value = `最终放行已确认，但 Stage5 追溯回执读取失败：${resolveErrorMessage(
       snapshotError,
       '请人工核对后刷新页面'
     )}`
     message.error(managerReleaseUncertainMessage.value)
-    managerReleaseSubmitting.value = false
+    if (isCurrent()) managerReleaseSubmitting.value = false
     return
   }
   message.success(`最终放行已确认，生产批次 ${result.batchExecutionId} 已进入可追溯列表。`)
-  await getList()
+  await getList(isCurrent)
+  if (!isCurrent()) return
   if (loadError.value) {
     message.warning(`最终放行已确认，但待办列表刷新失败：${loadError.value}`)
   }
-  managerReleaseSubmitting.value = false
+  if (isCurrent()) managerReleaseSubmitting.value = false
 }
 
 const openTask = async (row: EdhrWorkTaskRespVO) => {
