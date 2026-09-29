@@ -3,7 +3,7 @@ package cn.iocoder.yudao.module.system.service.tenant;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.ObjectUtil;
-import cn.hutool.crypto.digest.DigestUtil;
+import java.util.UUID;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
@@ -30,7 +30,7 @@ import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.tenant.handler.TenantInfoHandler;
 import cn.iocoder.yudao.module.system.service.tenant.handler.TenantMenuHandler;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
-import com.baomidou.dynamic.datasource.annotation.DSTransactional;
+import org.springframework.transaction.annotation.Transactional;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,7 +41,7 @@ import org.springframework.validation.annotation.Validated;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeSet;
+
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
@@ -97,7 +97,7 @@ public class TenantServiceImpl implements TenantService {
     }
 
     @Override
-    @DSTransactional // 多数据源，使用 @DSTransactional 保证本地事务，以及数据源的切换
+    @Transactional(rollbackFor = Exception.class)
     @DataPermission(enable = false) // 参见 https://gitee.com/zhijiantianya/ruoyi-vue-pro/pulls/1154 说明
     public Long createTenant(TenantSaveReqVO createReqVO) {
         // 校验租户名称是否重复
@@ -126,7 +126,9 @@ public class TenantServiceImpl implements TenantService {
         // 创建用户
         Long userId = userService.createUser(TenantConvert.INSTANCE.convert02(createReqVO));
         // 分配角色
-        permissionService.assignUserRole(userId, singleton(roleId), "租户创建时分配租户管理员角色",
+        Long targetTenant = TenantContextHolder.getRequiredTenantId();
+        tenantMapper.updateById(new TenantDO().setId(targetTenant).setContactUserId(userId));
+        permissionService.initializeTenantAdministrator(targetTenant, userId, roleId, "租户创建时分配租户管理员角色",
                 permissionAuditKey("tenant.create.user-role", userId, singleton(roleId)));
         return userId;
     }
@@ -138,13 +140,14 @@ public class TenantServiceImpl implements TenantService {
                 .setSort(0).setRemark("系统自动生成");
         Long roleId = roleService.createRole(reqVO, RoleTypeEnum.SYSTEM.getType());
         // 分配权限
-        permissionService.assignRoleMenu(roleId, tenantPackage.getMenuIds(), "租户创建时分配租户套餐菜单权限",
+        permissionService.assignTenantRoleMenu(TenantContextHolder.getRequiredTenantId(), roleId, tenantPackage.getMenuIds(),
+                "system:tenant:create", "租户创建时分配租户套餐菜单权限",
                 permissionAuditKey("tenant.create.role-menu", roleId, tenantPackage.getMenuIds()));
         return roleId;
     }
 
     @Override
-    @DSTransactional // 多数据源，使用 @DSTransactional 保证本地事务，以及数据源的切换
+    @Transactional(rollbackFor = Exception.class)
     public void updateTenant(TenantSaveReqVO updateReqVO) {
         // 校验存在
         TenantDO tenant = validateUpdateTenant(updateReqVO.getId());
@@ -160,7 +163,7 @@ public class TenantServiceImpl implements TenantService {
         tenantMapper.updateById(updateObj);
         // 如果套餐发生变化，则修改其角色的权限
         if (ObjectUtil.notEqual(tenant.getPackageId(), updateReqVO.getPackageId())) {
-            updateTenantRoleMenu(tenant.getId(), tenantPackage.getMenuIds());
+            updateTenantRoleMenu(tenant.getId(), tenantPackage.getMenuIds(), "system:tenant:update");
         }
     }
 
@@ -194,8 +197,12 @@ public class TenantServiceImpl implements TenantService {
     }
 
     @Override
-    @DSTransactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateTenantRoleMenu(Long tenantId, Set<Long> menuIds) {
+        updateTenantRoleMenu(tenantId, menuIds, "system:tenant-package:update");
+    }
+
+    private void updateTenantRoleMenu(Long tenantId, Set<Long> menuIds, String managementPermission) {
         TenantUtils.execute(tenantId, () -> {
             // 获得所有角色
             List<RoleDO> roles = roleService.getRoleList();
@@ -205,7 +212,7 @@ public class TenantServiceImpl implements TenantService {
             roles.forEach(role -> {
                 // 如果是租户管理员，重新分配其权限为租户套餐的权限
                 if (Objects.equals(role.getCode(), RoleCodeEnum.TENANT_ADMIN.getCode())) {
-                    permissionService.assignRoleMenu(role.getId(), menuIds, "租户套餐变更同步租户管理员菜单权限",
+                    permissionService.assignTenantRoleMenu(tenantId, role.getId(), menuIds, managementPermission, "租户套餐变更同步租户管理员菜单权限",
                             permissionAuditKey("tenant.package.role-menu", role.getId(), menuIds));
                     log.info("[updateTenantRoleMenu][租户管理员({}/{}) 的权限修改为({})]", role.getId(), role.getTenantId(), menuIds);
                     return;
@@ -213,7 +220,7 @@ public class TenantServiceImpl implements TenantService {
                 // 如果是其他角色，则去掉超过套餐的权限
                 Set<Long> roleMenuIds = permissionService.getRoleMenuListByRoleId(role.getId());
                 roleMenuIds = CollUtil.intersectionDistinct(roleMenuIds, menuIds);
-                permissionService.assignRoleMenu(role.getId(), roleMenuIds, "租户套餐变更收敛角色菜单权限",
+                permissionService.assignTenantRoleMenu(tenantId, role.getId(), roleMenuIds, managementPermission, "租户套餐变更收敛角色菜单权限",
                         permissionAuditKey("tenant.package.role-menu", role.getId(), roleMenuIds));
                 log.info("[updateTenantRoleMenu][角色({}/{}) 的权限修改为({})]", role.getId(), role.getTenantId(), roleMenuIds);
             });
@@ -221,8 +228,8 @@ public class TenantServiceImpl implements TenantService {
     }
 
     private String permissionAuditKey(String operation, Long subjectId, Set<Long> targetIds) {
-        return operation + ":" + subjectId + ":" + DigestUtil.sha256Hex(
-                new TreeSet<>(targetIds == null ? Set.<Long>of() : targetIds).toString());
+        // A new tenant-management invocation is a new command, even if its desired set repeats.
+        return operation + ":" + subjectId + ":" + UUID.randomUUID();
     }
 
     @Override

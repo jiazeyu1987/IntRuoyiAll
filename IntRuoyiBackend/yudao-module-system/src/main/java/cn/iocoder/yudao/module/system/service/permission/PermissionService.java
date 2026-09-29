@@ -61,6 +61,14 @@ public interface PermissionService {
      */
     void assignRoleMenu(Long roleId, Set<Long> menuIds, String reason, String idempotencyKey);
 
+    /** Internal, explicitly authorized tenant administration; no controller accepts this target. */
+    void assignTenantRoleMenu(Long tenantId, Long roleId, Set<Long> menuIds, String managementPermission,
+                              String reason, String idempotencyKey);
+
+    /** Initialize only the declared contact user of the newly created tenant. */
+    void initializeTenantAdministrator(Long tenantId, Long userId, Long roleId, String reason, String idempotencyKey);
+
+
     /**
      * 处理角色删除时，删除关联授权数据
      *

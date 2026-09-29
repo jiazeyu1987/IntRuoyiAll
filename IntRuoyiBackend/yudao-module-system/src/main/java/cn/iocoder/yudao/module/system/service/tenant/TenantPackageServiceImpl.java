@@ -10,7 +10,7 @@ import cn.iocoder.yudao.module.system.controller.admin.tenant.vo.packages.Tenant
 import cn.iocoder.yudao.module.system.dal.dataobject.tenant.TenantDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.tenant.TenantPackageDO;
 import cn.iocoder.yudao.module.system.dal.mysql.tenant.TenantPackageMapper;
-import com.baomidou.dynamic.datasource.annotation.DSTransactional;
+import org.springframework.transaction.annotation.Transactional;
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Lazy;
@@ -50,7 +50,7 @@ public class TenantPackageServiceImpl implements TenantPackageService {
     }
 
     @Override
-    @DSTransactional // 多数据源，使用 @DSTransactional 保证本地事务，以及数据源的切换
+    @Transactional(rollbackFor = Exception.class)
     public void updateTenantPackage(TenantPackageSaveReqVO updateReqVO) {
         // 校验存在
         TenantPackageDO tenantPackage = validateTenantPackageExists(updateReqVO.getId());

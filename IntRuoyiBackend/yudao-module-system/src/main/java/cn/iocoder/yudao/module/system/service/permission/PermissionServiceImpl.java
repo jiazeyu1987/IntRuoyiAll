@@ -1,6 +1,12 @@
 package cn.iocoder.yudao.module.system.service.permission;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
+import cn.iocoder.yudao.module.system.dal.mysql.tenant.TenantMapper;
+import cn.iocoder.yudao.module.system.dal.dataobject.tenant.TenantDO;
+import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
@@ -78,6 +84,8 @@ public class PermissionServiceImpl implements PermissionService {
     private RoleMapper roleMapper;
     @Resource
     private AdminUserMapper adminUserMapper;
+    @Resource
+    private TenantMapper tenantMapper;
 
     @Override
     public boolean hasAnyPermissions(Long userId, String... permissions) {
@@ -220,6 +228,24 @@ public class PermissionServiceImpl implements PermissionService {
         Map<String, Object> requested = permissionSetState("roleId", roleId, "menuIds", menuIds);
         var command = permissionCommandProtocol.begin("system.permission.role-menu.assign", roleId,
                 reason, idempotencyKey, requested);
+        applyRoleMenu(command, roleId, menuIds);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @Caching(evict = {
+            @CacheEvict(value = RedisKeyConstants.MENU_ROLE_ID_LIST, allEntries = true),
+            @CacheEvict(value = RedisKeyConstants.PERMISSION_MENU_ID_LIST, allEntries = true)
+    })
+    public void assignTenantRoleMenu(Long tenantId, Long roleId, Set<Long> menuIds, String managementPermission,
+                                     String reason, String idempotencyKey) {
+        requireTenantAdministration(tenantId, managementPermission);
+        var command = permissionCommandProtocol.beginTenantAdministration("system.permission.role-menu.assign", roleId,
+                reason, idempotencyKey, permissionSetState("roleId", roleId, "menuIds", menuIds), tenantId, managementPermission);
+        applyRoleMenu(command, roleId, menuIds);
+    }
+
+    private void applyRoleMenu(PermissionCommandProtocol.Command command, Long roleId, Set<Long> menuIds) {
         if (command.replayed()) return;
         requirePermissionRole(command.tenantId(), roleId);
         // 获得角色拥有菜单编号
@@ -304,6 +330,48 @@ public class PermissionServiceImpl implements PermissionService {
         requireGxpPermissionAuditEvidence(reason, idempotencyKey);
         var command = permissionCommandProtocol.begin("system.permission.user-role.assign", userId,
                 reason, idempotencyKey, permissionSetState("userId", userId, "roleIds", roleIds));
+        applyUserRole(command, userId, roleIds, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = RedisKeyConstants.USER_ROLE_ID_LIST, key = "#userId")
+    public void initializeTenantAdministrator(Long tenantId, Long userId, Long roleId, String reason, String idempotencyKey) {
+        requireTenantAdministration(tenantId, "system:tenant:create");
+        var command = permissionCommandProtocol.beginTenantAdministration("system.permission.user-role.assign", userId,
+                reason, idempotencyKey, permissionSetState("userId", userId, "roleIds", Set.of(roleId)),
+                tenantId, "system:tenant:create");
+        if (command.replayed()) return;
+        TenantDO tenant = tenantMapper.selectById(tenantId);
+        RoleDO role = roleMapper.selectPermissionSubjectForUpdate(tenantId, roleId);
+        if (tenant == null || !Objects.equals(userId, tenant.getContactUserId()) || role == null
+                || !RoleCodeEnum.TENANT_ADMIN.getCode().equals(role.getCode())
+                || !Objects.equals(RoleTypeEnum.SYSTEM.getType(), role.getType())) {
+            throw new IllegalStateException("Tenant administrator initialization subject mismatch");
+        }
+        applyUserRole(command, userId, Set.of(roleId), true);
+    }
+
+    private void requireTenantAdministration(Long tenantId, String permission) {
+        if (!Set.of("system:tenant:create", "system:tenant:update", "system:tenant-package:update").contains(permission)
+                || !Objects.equals(tenantId, TenantContextHolder.getRequiredTenantId())) {
+            throw new IllegalStateException("Tenant administration target or action mismatch");
+        }
+        var actor = SecurityFrameworkUtils.getLoginUser();
+        if (actor == null || actor.getId() == null || actor.getTenantId() == null) {
+            throw new IllegalStateException("Authenticated tenant administrator required");
+        }
+        TenantUtils.execute(actor.getTenantId(), () -> {
+            TenantDO platform = tenantMapper.selectById(actor.getTenantId());
+            if (platform == null || !Objects.equals(platform.getPackageId(), TenantDO.PACKAGE_ID_SYSTEM)
+                    || !hasAnyPermissions(actor.getId(), permission)) {
+                throw new IllegalStateException("Tenant administration permission denied");
+            }
+        });
+    }
+
+    private void applyUserRole(PermissionCommandProtocol.Command command, Long userId, Set<Long> roleIds,
+                               boolean initializeAdministrator) {
         if (command.replayed()) return;
         if (adminUserMapper.selectPermissionSubjectForUpdate(command.tenantId(), userId) == null) {
             throw new IllegalStateException("Permission user subject not found in tenant");
@@ -311,7 +379,11 @@ public class PermissionServiceImpl implements PermissionService {
         // 获得角色拥有角色编号
         Set<Long> dbRoleIds = convertSet(userRoleMapper.selectPermissionRowsForUpdate(command.tenantId(), userId),
                 UserRoleDO::getRoleId);
-        validateAssignableUserRoles(dbRoleIds, roleIds);
+        if (initializeAdministrator) {
+            if (!dbRoleIds.isEmpty()) throw new IllegalStateException("Tenant administrator already initialized");
+        } else {
+            validateAssignableUserRoles(dbRoleIds, roleIds);
+        }
         Set<Long> beforeRoleIds = sortedLongSet(dbRoleIds);
         // 计算新增和删除的角色编号
         Set<Long> roleIdList = CollUtil.emptyIfNull(roleIds);

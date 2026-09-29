@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.system.service.permission;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.PermissionCommandReceiptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.PermissionCommandReceiptMapper;
@@ -43,18 +44,41 @@ public class PermissionCommandProtocol {
     @Resource private GxpAuditPolicyOperationMapper operations;
     @Resource private GxpAuditService audit;
 
-    public record Command(PermissionCommandReceiptDO receipt, String key, String reason, boolean replayed) {
-        public Long tenantId() { return receipt.getTenantId(); }
+    public record Command(PermissionCommandReceiptDO receipt, String key, String reason, boolean replayed,
+                          Long tenantId, boolean tenantAdministration) {
     }
 
     public Command begin(String operation, Long subject, String reason, String sourceKey, Map<String, Object> data) {
+        return beginInternal(operation, subject, reason, sourceKey, data, TenantContextHolder.getRequiredTenantId(), false);
+    }
+
+    // Only PermissionService's authorized tenant-management entry calls this protocol path.
+    Command beginTenantAdministration(String operation, Long subject, String reason, String sourceKey,
+                                       Map<String, Object> data, Long targetTenant, String managementPermission) {
+        var actor = SecurityFrameworkUtils.getLoginUser();
+        require(actor != null && actor.getTenantId() != null, "authenticated-actor-required");
+        require(Objects.equals(targetTenant, TenantContextHolder.getRequiredTenantId()), "target-tenant-context-required");
+        Map<String, Object> managementData = new TreeMap<>(data);
+        managementData.put("targetTenantId", targetTenant.toString());
+        managementData.put("managementPermission", managementPermission);
+        return TenantUtils.execute(actor.getTenantId(), () ->
+                beginInternal(operation, subject, reason, sourceKey, managementData, targetTenant, true));
+    }
+
+    private Command beginInternal(String operation, Long subject, String reason, String sourceKey,
+                                  Map<String, Object> data, Long targetTenant, boolean management) {
         byte[] originalKey = validateKey(sourceKey);
         require(!StrUtil.isBlank(reason), "reason-required");
         utf8(reason);
         require(subject != null && subject > 0, "subject-required");
         boolean user = "system.permission.user-role.assign".equals(operation);
         String subjectType = user ? "SYSTEM_USER" : "SYSTEM_ROLE";
-        validateData(operation, subject, data);
+        Map<String, Object> domainData = new TreeMap<>(data);
+        if (management) {
+            domainData.remove("targetTenantId");
+            domainData.remove("managementPermission");
+        }
+        validateData(operation, subject, domainData);
         var actor = SecurityFrameworkUtils.getLoginUser();
         Long tenant = TenantContextHolder.getRequiredTenantId();
         require(actor != null && actor.getId() != null && actor.getId() > 0
@@ -85,17 +109,26 @@ public class PermissionCommandProtocol {
         draft.setResultJson(RESULT);
         if (saved != null) {
             validateReplay(saved, draft, event, key, actor.getId(), reason);
-            return new Command(saved, key, reason, true);
+            return new Command(saved, key, reason, true, targetTenant, management);
         }
         require(event == null, "event-without-receipt");
         // A legacy event cannot be silently upgraded or supplied a missing success receipt.
         require(events.selectByIdempotencyKeyForUpdate(tenant, sourceKey) == null, "legacy-event-without-receipt");
         draft.setId(IdWorker.getId());
         draft.setCreatedAtUtc(LocalDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MILLIS));
-        return new Command(draft, key, reason, false);
+        return new Command(draft, key, reason, false, targetTenant, management);
     }
 
     public void finish(Command command, Map<String, Object> before, Map<String, Object> after) {
+        Map<String, Object> beforeState = new TreeMap<>(before), afterState = new TreeMap<>(after);
+        if (command.tenantAdministration()) {
+            beforeState.put("targetTenantId", command.tenantId().toString());
+            afterState.put("targetTenantId", command.tenantId().toString());
+        }
+        TenantUtils.execute(command.receipt().getTenantId(), () -> finishInternal(command, beforeState, afterState));
+    }
+
+    private void finishInternal(Command command, Map<String, Object> before, Map<String, Object> after) {
         require(!command.replayed(), "replay-cannot-write");
         var receipt = command.receipt();
         String beforeJson = canonical(before), afterJson = canonical(after);
