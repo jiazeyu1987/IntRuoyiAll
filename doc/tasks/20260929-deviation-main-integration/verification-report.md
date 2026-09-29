@@ -231,3 +231,10 @@ Experience review: project-experience-consolidation SKILL.md read. Existing docs
 
 ## Delivery boundary
 User authorized local merge only; origin is intentionally not pushed. Local integration is verified, not production release. Full real-page E2E after removal of manual batch creation is still incomplete, and the repository-wide audit coverage gate has recorded unresolved entries. No DB migration/activation or service restart was performed this turn. Preserve piancha_0923 for the outstanding formal-path E2E; do not delete unrelated main assets. The project remote-delivery closeout requirement remains blocked by the explicit local-only scope.
+
+## Local merge and cleanup evidence
+- Main int_main fast-forward 613da490f -> f876b896f PASS; includes implementation 73587dae8 and source evidence commit f876b896f.
+- Main/source backend and frontend Git comparison PASS (identical verified code).
+- Source cleanup preview/apply: 3 kept, 41 task temporary files deleted. Main cleanup preview/apply: 3 kept, 15 deleted. Both no blockers/warnings; evidence consolidated here before deletion.
+- Unrelated crow-bike.svg, pelican-cycling.html and worktrees/.ports/1.上传操作流程 preserved and excluded from commits.
+- Local merge complete. No remote push as explicitly requested; project remote-delivery completion remains blocked. Source worktree retained for outstanding formal-path E2E.
