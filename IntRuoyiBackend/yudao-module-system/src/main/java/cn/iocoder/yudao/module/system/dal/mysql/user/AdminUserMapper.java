@@ -16,6 +16,11 @@ import java.util.List;
 @Mapper
 public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
 
+    default AdminUserDO selectPermissionSubjectForUpdate(Long tenantId, Long userId) {
+        return selectOne(new LambdaQueryWrapperX<AdminUserDO>()
+                .eq(AdminUserDO::getTenantId, tenantId).eq(AdminUserDO::getId, userId).last("FOR UPDATE"));
+    }
+
     default AdminUserDO selectByUsername(String username) {
         return selectOne(AdminUserDO::getUsername, username);
     }

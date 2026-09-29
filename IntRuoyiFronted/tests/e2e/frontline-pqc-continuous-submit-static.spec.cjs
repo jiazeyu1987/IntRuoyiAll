@@ -114,10 +114,10 @@ assert.doesNotMatch(
 const recoverStart = panel.indexOf('const recoverPqcSubmitReceiptAfterUncertainError')
 const recoverEnd = panel.indexOf('const handleConfirmPqcSubmit', recoverStart)
 const recoverBlock = panel.slice(recoverStart, recoverEnd)
-assert.match(
+assert.doesNotMatch(
   recoverBlock,
-  /resetPqcSubmissionDraft\(recoveredReceipt\.pqcTaskId\)/,
-  '响应不确定但只读确认已提交时，应按成功提交处理并进入下一次独立提交。'
+  /resetPqcSubmissionDraft|message\.success/,
+  '仅按任务查询的旧回执无法绑定本次内容，不得清草稿或恢复成功。'
 )
 assert.match(
   recoverBlock,

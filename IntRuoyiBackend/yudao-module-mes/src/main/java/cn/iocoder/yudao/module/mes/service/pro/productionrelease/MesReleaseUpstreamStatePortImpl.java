@@ -23,7 +23,8 @@ public class MesReleaseUpstreamStatePortImpl implements MesReleaseUpstreamStateP
                 .setPickListStatus("READ_ONLY_SOURCE");
         if (command.getActiveOrderId() != null) {
             activeOrderService.closeForRelease(command.getActiveOrderId(),
-                    command.getActiveOrderExpectedVersion(), command.getReleaseDecisionId(), command.getActorUserId());
+                    command.getActiveOrderExpectedVersion(), command.getReleaseDecisionId(), command.getActorUserId(),
+                    command.getParentSignatureRecordId());
             result.setActiveOrderId(command.getActiveOrderId()).setActiveOrderStatus("CLOSED");
         }
         if (command.getWorkOrderId() != null) {

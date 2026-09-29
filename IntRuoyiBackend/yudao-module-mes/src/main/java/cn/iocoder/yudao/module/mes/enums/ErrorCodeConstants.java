@@ -1160,6 +1160,8 @@ public interface ErrorCodeConstants {
             "数据清理范围已变化，请重新预检");
     ErrorCode PRO_PROCESS_POOL_DATA_CLEANUP_BLOCKED = new ErrorCode(1_040_760_400,
             "数据清理被正式业务锁定：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_EVIDENCE_BLOCKED = new ErrorCode(1_040_760_401,
+            "活跃订单已有报工、检验或生产进度证据，禁止重建，必须保留历史记录：{}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_DOSSIER_FILE_BLOCKED = new ErrorCode(1_040_760_409,
             "活跃订单资料文件读取受阻：{}");
     ErrorCode PRO_PROCESS_POOL_PICK_LIST_REQUIRED = new ErrorCode(1_040_760_360, "正式领料单不能为空");

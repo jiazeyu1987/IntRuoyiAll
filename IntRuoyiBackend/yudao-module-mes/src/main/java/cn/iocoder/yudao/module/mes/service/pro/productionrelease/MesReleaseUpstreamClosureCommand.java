@@ -12,4 +12,5 @@ public class MesReleaseUpstreamClosureCommand {
     private Integer activeOrderExpectedVersion;
     private Long workOrderId;
     private Long actorUserId;
+    private String parentSignatureRecordId;
 }

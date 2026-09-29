@@ -82,6 +82,8 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderTypeEnum;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -228,6 +230,8 @@ class MesTeamLeaderActiveOrderServiceTest {
     private MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
     @Mock
     private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
+    @Mock
+    private GxpAuditService gxpAuditService;
     private MesTeamLeaderActiveOrderService service;
 
     @BeforeEach
@@ -249,6 +253,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 pickListBindingMapper, pickListBindingItemMapper,
                 workOrderBomMapper, batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper,
                 routeStartAuthorizationService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(itemMapper.selectById(anyLong())).thenAnswer(invocation -> MesMdItemDO.builder()
                 .id(invocation.getArgument(0, Long.class))
@@ -378,6 +383,62 @@ class MesTeamLeaderActiveOrderServiceTest {
         order.verify(reportAllocationOrderChangeService)
                 .invalidateActiveOrder(8101L, 3001L, "活跃订单移除");
         order.verify(activeOrderMapper).removeActiveOrder(eq(8101L), eq(7), any(LocalDateTime.class));
+        ArgumentCaptor<GxpAuditCommand> audit = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(audit.capture());
+        assertEquals("mes.active-order.remove", audit.getValue().getOperationId());
+        assertEquals("SYSTEM", audit.getValue().getReasonSource());
+        assertEquals("7", audit.getValue().getBeforeState().getObjectVersion());
+        assertEquals("8", audit.getValue().getAfterState().getObjectVersion());
+        assertTrue(audit.getValue().getBeforeState().getCanonicalJson().contains("\"activeStatus\":\"ACTIVE\""));
+        assertTrue(audit.getValue().getAfterState().getCanonicalJson().contains("\"activeStatus\":\"REMOVED\""));
+        assertTrue(audit.getValue().getAfterState().getCanonicalJson().contains("\"workOrderId\":9001"));
+        inOrder(gxpAuditService, activeOrderMapper).verify(gxpAuditService).acquireLedgerLock();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void removalAuditFailureRollsBackBusinessAndMaintenanceRows(boolean missingPolicy) {
+        var dataSource = new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                "jdbc:h2:mem:m9_remove_" + java.util.UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
+        var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        jdbc.execute("CREATE TABLE m9_order (id BIGINT PRIMARY KEY, status VARCHAR(32), version INT)");
+        jdbc.execute("CREATE TABLE m9_audit (id INT)");
+        jdbc.execute("CREATE TABLE m9_allocation (id INT PRIMARY KEY, valid BOOLEAN)");
+        jdbc.update("INSERT INTO m9_order VALUES (8101, 'ACTIVE', 7)");
+        jdbc.update("INSERT INTO m9_allocation VALUES (1, TRUE)");
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(existingActiveOrder(8101L, "ACTIVE", 7));
+        when(activeOrderMapper.removeActiveOrder(eq(8101L), eq(7), any())).thenAnswer(call ->
+                jdbc.update("UPDATE m9_order SET status = 'REMOVED', version = 8 WHERE id = 8101"));
+        org.mockito.Mockito.doAnswer(call -> {
+            jdbc.update("UPDATE m9_allocation SET valid = FALSE WHERE id = 1");
+            return null;
+        }).when(reportAllocationOrderChangeService).invalidateActiveOrder(8101L, 3001L, "活跃订单移除");
+        when(auditMapper.insert(any(MesProcessPoolTeamMaintenanceAuditDO.class)))
+                .thenAnswer(call -> jdbc.update("INSERT INTO m9_audit VALUES (1)"));
+        org.mockito.Mockito.doAnswer(call -> {
+            assertEquals("REMOVED", jdbc.queryForObject("SELECT status FROM m9_order", String.class));
+            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM m9_audit", Integer.class));
+            assertEquals(false, jdbc.queryForObject("SELECT valid FROM m9_allocation", Boolean.class));
+            if (missingPolicy) return appendWithMissingMaintenancePolicy(call.getArgument(0));
+            throw new IllegalStateException("M9 audit unavailable");
+        }).when(gxpAuditService).append(any(GxpAuditCommand.class));
+        var proxy = new org.springframework.aop.framework.ProxyFactory(service);
+        proxy.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource),
+                new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        try {
+            var transactionalService = (MesTeamLeaderActiveOrderService) proxy.getProxy();
+            RuntimeException error = assertThrows(RuntimeException.class, () ->
+                    transactionalService.removeActiveOrder(MesTeamLeaderActiveOrderRemoveReqBO.builder()
+                            .leaderUserId(3001L).activeOrderId(8101L).build()));
+            assertMaintenanceAuditFailure(error, missingPolicy, "M9 audit unavailable");
+            assertEquals("ACTIVE", jdbc.queryForObject("SELECT status FROM m9_order", String.class));
+            assertEquals(7, jdbc.queryForObject("SELECT version FROM m9_order", Integer.class));
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM m9_audit", Integer.class));
+            assertEquals(true, jdbc.queryForObject("SELECT valid FROM m9_allocation", Boolean.class));
+        } finally {
+            shutdownTestDatabase(jdbc);
+        }
     }
 
     @Test
@@ -923,6 +984,35 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
+    void shouldAppendUnifiedGxpAuditAfterSuccessfulActiveOrderAdd() {
+        stubWorkOrderExists(confirmedWorkOrder());
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        stubSuccessfulActiveOrderInsert();
+
+        MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(activeOrderReq());
+
+        assertEquals(MesTeamLeaderActiveOrderAddResult.ACTION_ADD, result.getAction());
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        GxpAuditCommand command = auditCaptor.getValue();
+        assertEquals("mes.active-order.add", command.getOperationId());
+        assertEquals("MES_ACTIVE_ORDER:8101", command.getSubjectId());
+        assertEquals("0", command.getSubjectVersion());
+        assertEquals("ACTIVE_ORDER:8101:JOIN:0", command.getIdempotencyKey());
+        assertEquals("cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#addActiveOrder",
+                command.getSourceLocator());
+        assertEquals("ABSENT", command.getBeforeState().getState());
+        assertEquals("null", command.getBeforeState().getCanonicalJson());
+        assertEquals("PRESENT", command.getAfterState().getState());
+        assertTrue(command.getAfterState().getCanonicalJson().contains("\"activeStatus\":\"ACTIVE\""));
+        assertTrue(command.getAfterState().getCanonicalJson().contains("\"workOrderId\":9001"));
+        assertTrue(command.getAfterState().getCanonicalJson().contains("\"routeVersionId\":448"));
+        assertTrue(command.getAfterState().getCanonicalJson().contains("\"version\":0"));
+    }
+
+    @Test
     void shouldAddWorkOrderToLeaderActivePoolWithoutPickList() {
         stubWorkOrderExists(confirmedWorkOrder());
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
@@ -1430,19 +1520,19 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(4, preview.getPqcTaskCount());
     }
 
-    @Test
-    void rebuildActiveOrderShouldRequireConfirmationBeforeDeletingHistoricalRuntimeData() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void rebuildActiveOrderRejectsEvidenceEvenWhenDeletionConfirmed(boolean confirmed) {
         stubRebuildHistoricalRuntimePreview(false);
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.rebuildActiveOrder(
                 MesTeamLeaderActiveOrderRebuildReqBO.builder()
                         .leaderUserId(3001L)
                         .activeOrderId(8101L)
-                        .confirmDeleteHistoricalRuntimeData(false)
+                        .confirmDeleteHistoricalRuntimeData(confirmed)
                         .build()));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_CONFIRM_REQUIRED.getCode(),
-                ex.getCode());
+        assertEquals(1_040_760_401, ex.getCode());
         verify(processSnapshotMapper, never()).deleteByActiveOrderId(any());
         verify(pqcInspectionTaskMapper, never()).deleteByActiveOrderId(any());
         verify(reportAllocationMapper, never()).deleteAllByActiveOrderId(any());
@@ -1451,8 +1541,8 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void rebuildActiveOrderShouldDeleteRuntimeHistoryThenRebuildSnapshotsFromCurrentSources() {
-        stubRebuildHistoricalRuntimePreview(false);
+    void rebuildActiveOrderWithoutEvidenceRebuildsSnapshotsFromCurrentSources() {
+        stubRebuildWithoutEvidence();
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
                 publishedRegulation(9902L, 928609L, 6001L));
@@ -1466,32 +1556,32 @@ class MesTeamLeaderActiveOrderServiceTest {
                         .confirmDeleteHistoricalRuntimeData(true)
                         .build());
 
-        assertTrue(result.isHistoricalRuntimeDataDeleted());
-        assertEquals(1, result.getDeletedProductionReportCount());
-        assertEquals(1, result.getDeletedProductionProgressCount());
-        assertEquals(3, result.getDeletedPqcInspectionResultCount());
+        assertFalse(result.isHistoricalRuntimeDataDeleted());
+        assertEquals(0, result.getDeletedProductionReportCount());
+        assertEquals(0, result.getDeletedProductionProgressCount());
+        assertEquals(0, result.getDeletedPqcInspectionResultCount());
         assertEquals(1, result.getDeletedProcessSnapshotCount());
         assertEquals(1, result.getDeletedPqcTaskCount());
         assertEquals(2, result.getRebuiltProcessSnapshotCount());
         assertEquals(4, result.getRebuiltPqcTaskCount());
         verify(pqcAggregateDetailMapper).deleteByActiveOrderId(8101L);
         verify(pqcPieceDetailMapper).deleteByTaskIds(List.of(8305L));
-        verify(pqcRecordMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
-        verify(submissionReviewMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
-        verify(reviewCopyFieldMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
-        verify(reviewCopyMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
-        verify(eventRevisionDiffMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
-        verify(eventRevisionMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
-        verify(quantityFragmentMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
-        verify(reportAllocationStateMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
+        verify(pqcRecordMapper).deleteByEventIds(Set.of());
+        verify(submissionReviewMapper).deleteByEventIds(Set.of());
+        verify(reviewCopyFieldMapper).deleteByEventIds(Set.of());
+        verify(reviewCopyMapper).deleteByEventIds(Set.of());
+        verify(eventRevisionDiffMapper).deleteByEventIds(Set.of());
+        verify(eventRevisionMapper).deleteByEventIds(Set.of());
+        verify(quantityFragmentMapper).deleteByEventIds(Set.of());
+        verify(reportAllocationStateMapper).deleteByEventIds(Set.of());
         verify(reportAllocationAdjustmentAuditMapper).deleteByActiveOrderId(8101L);
         verify(reportAllocationMapper).deleteAllByActiveOrderId(8101L);
         verify(orderProcessCompletionMapper).deleteByWorkOrderId(9001L);
         verify(pqcInspectionTaskMapper).deleteByActiveOrderId(8101L);
         verify(processSnapshotMapper).deleteByActiveOrderId(8101L);
         verify(releaseApplicationMapper, never()).deleteByActiveOrderId(8101L);
-        verify(processPoolEventMapper).deleteActiveOrderRuntimeEventsByIds(Set.of(8801L, 8802L, 8803L));
-        verify(feedbackMapper).deleteByIds(List.of(5501L));
+        verify(processPoolEventMapper, never()).deleteActiveOrderRuntimeEventsByIds(any());
+        verify(feedbackMapper, never()).deleteByIds(any());
         verify(activeOrderMapper).refreshActiveOrderSnapshot(argThat((MesProcessPoolActiveOrderDO update) ->
                 Objects.equals(8101L, update.getId())
                         && Objects.equals(3001L, update.getLeaderUserId())
@@ -1503,6 +1593,119 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(processSnapshotMapper).insertBatch(any());
         verify(pqcInspectionTaskMapper, times(4)).insert(any(MesPqcInspectionTaskDO.class));
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+        ArgumentCaptor<GxpAuditCommand> audit = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(audit.capture());
+        assertEquals("mes.active-order.rebuild", audit.getValue().getOperationId());
+        assertEquals("SYSTEM", audit.getValue().getReasonSource());
+        assertEquals("7", audit.getValue().getBeforeState().getObjectVersion());
+        assertEquals("8", audit.getValue().getAfterState().getObjectVersion());
+        assertFalse(audit.getValue().getBeforeState().getCanonicalJson()
+                .equals(audit.getValue().getAfterState().getCanonicalJson()));
+        assertTrue(audit.getValue().getBeforeState().getCanonicalJson().contains("processSnapshots"));
+        assertTrue(audit.getValue().getAfterState().getCanonicalJson().contains("pqcTasks"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void rebuildAuditFailureRollsBackDeletedRowsAndNewSnapshots(boolean missingPolicy) {
+        stubRebuildWithoutEvidence();
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        var dataSource = new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                "jdbc:h2:mem:m9_rebuild_" + java.util.UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
+        var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        jdbc.execute("CREATE TABLE m9_snapshot (id INT PRIMARY KEY)");
+        jdbc.execute("CREATE TABLE m9_order (version INT)");
+        jdbc.execute("CREATE TABLE m9_audit (id INT)");
+        jdbc.update("INSERT INTO m9_snapshot VALUES (1)");
+        jdbc.update("INSERT INTO m9_order VALUES (7)");
+        when(processSnapshotMapper.deleteByActiveOrderId(8101L))
+                .thenAnswer(call -> jdbc.update("DELETE FROM m9_snapshot"));
+        when(processSnapshotMapper.insertBatch(any())).thenAnswer(call -> {
+            jdbc.update("INSERT INTO m9_snapshot VALUES (2)");
+            return true;
+        });
+        when(activeOrderMapper.refreshActiveOrderSnapshot(any(MesProcessPoolActiveOrderDO.class)))
+                .thenAnswer(call -> jdbc.update("UPDATE m9_order SET version = 8"));
+        when(auditMapper.insert(any(MesProcessPoolTeamMaintenanceAuditDO.class)))
+                .thenAnswer(call -> jdbc.update("INSERT INTO m9_audit VALUES (1)"));
+        org.mockito.Mockito.doAnswer(call -> {
+            assertEquals(2, jdbc.queryForObject("SELECT id FROM m9_snapshot", Integer.class));
+            assertEquals(8, jdbc.queryForObject("SELECT version FROM m9_order", Integer.class));
+            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM m9_audit", Integer.class));
+            if (missingPolicy) return appendWithMissingMaintenancePolicy(call.getArgument(0));
+            throw new IllegalStateException("M9 rebuild audit unavailable");
+        }).when(gxpAuditService).append(any(GxpAuditCommand.class));
+        var proxy = new org.springframework.aop.framework.ProxyFactory(service);
+        proxy.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource),
+                new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        try {
+            var transactionalService = (MesTeamLeaderActiveOrderService) proxy.getProxy();
+            RuntimeException error = assertThrows(RuntimeException.class, () ->
+                    transactionalService.rebuildActiveOrder(MesTeamLeaderActiveOrderRebuildReqBO.builder()
+                            .leaderUserId(3001L).activeOrderId(8101L).confirmDeleteHistoricalRuntimeData(true).build()));
+            assertMaintenanceAuditFailure(error, missingPolicy, "M9 rebuild audit unavailable");
+            assertEquals(1, jdbc.queryForObject("SELECT id FROM m9_snapshot", Integer.class));
+            assertEquals(7, jdbc.queryForObject("SELECT version FROM m9_order", Integer.class));
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM m9_audit", Integer.class));
+        } finally {
+            shutdownTestDatabase(jdbc);
+        }
+    }
+
+    private void shutdownTestDatabase(org.springframework.jdbc.core.JdbcTemplate jdbc) {
+        // SHUTDOWN closes the connection; do not inspect statement warnings afterwards.
+        jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+            try (var statement = connection.createStatement()) {
+                statement.execute("SHUTDOWN");
+            }
+            return null;
+        });
+    }
+
+    private Object appendWithMissingMaintenancePolicy(GxpAuditCommand command) {
+        var writer = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImpl();
+        var policies = org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(writer, "policyOperationMapper", policies);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        try {
+            return writer.append(command);
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
+    }
+
+    private void assertMaintenanceAuditFailure(RuntimeException error, boolean missingPolicy, String message) {
+        if (missingPolicy) {
+            assertTrue(error instanceof ServiceException);
+            assertEquals(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.GXP_AUDIT_POLICY_NOT_FOUND.getCode(),
+                    ((ServiceException) error).getCode());
+        } else {
+            assertTrue(error instanceof IllegalStateException);
+            assertEquals(message, error.getMessage());
+        }
+    }
+
+    @Test
+    void maintenancePolicyDraftIsNotApprovedOrPackaged() throws Exception {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper(new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
+        String yaml = java.nio.file.Files.readString(java.nio.file.Path.of(
+                "../../doc/tasks/20260928-gxp20-review-fixes/gxp-audit-order-maintenance-policy.draft.yaml"));
+        var proposal = mapper.readTree(yaml);
+        assertEquals("DRAFT", proposal.path("status").asText());
+        assertTrue(proposal.path("approvalReference").isNull());
+        assertFalse(proposal.path("runtimeLoad").asBoolean());
+        assertEquals(2, proposal.path("operations").size());
+        var loader = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPolicyBundleLoader();
+        var bundle = loader.load();
+        for (var operation : proposal.path("operations")) {
+            assertFalse(bundle.policyNode().path("operations").toString().contains(operation.path("operationId").asText()));
+        }
+        assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                loader, "load", yaml, bundle.rawSchema()));
     }
 
     @Test
@@ -1526,7 +1729,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void rebuildActiveOrderShouldResolveLatestPublishedQaVersionInsteadOfRegulationPointer() {
-        stubRebuildHistoricalRuntimePreview(false);
+        stubRebuildWithoutEvidence();
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
                 publishedRegulation(9902L, 928609L, 6001L));
@@ -1830,6 +2033,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(routeVersionMapper, never()).selectListByRouteIds(any());
         verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
         verify(processSnapshotMapper, never()).insertBatch(any());
+        verify(gxpAuditService, never()).append(any(GxpAuditCommand.class));
     }
 
     @Test
@@ -1875,6 +2079,41 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(pqcInspectionTaskMapper, times(4)).insert(any(MesPqcInspectionTaskDO.class));
         verify(inspectionRegulationMapper, never()).selectByDccProjectCodeId(any());
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void shouldAppendUnifiedGxpAuditAfterActualActiveOrderRecovery() {
+        stubWorkOrderExists(confirmedWorkOrder());
+        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
+        MesProcessPoolActiveOrderDO removed = existingActiveOrder(8101L, "REMOVED", 7);
+        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L)).thenReturn(List.of(removed));
+        when(reportAllocationMapper.selectAllListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of());
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of());
+        when(activeOrderMapper.reactivateRemovedActiveOrder(any(), any(), any(), any(), any())).thenReturn(1);
+        when(activeOrderMapper.refreshActiveOrderSnapshot(any(MesProcessPoolActiveOrderDO.class))).thenReturn(1);
+        when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
+
+        MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(activeOrderReq());
+
+        assertEquals(MesTeamLeaderActiveOrderAddResult.ACTION_RECOVER, result.getAction());
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        GxpAuditCommand command = auditCaptor.getValue();
+        assertEquals("mes.active-order.restore", command.getOperationId());
+        assertEquals("MES_ACTIVE_ORDER:8101", command.getSubjectId());
+        assertEquals("9", command.getSubjectVersion());
+        assertEquals("ACTIVE_ORDER:8101:RESTORE:9", command.getIdempotencyKey());
+        assertEquals("cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#addActiveOrder",
+                command.getSourceLocator());
+        assertEquals("PRESENT", command.getBeforeState().getState());
+        assertTrue(command.getBeforeState().getCanonicalJson().contains("\"activeStatus\":\"REMOVED\""));
+        assertTrue(command.getBeforeState().getCanonicalJson().contains("\"workOrderId\":9001"));
+        assertTrue(command.getBeforeState().getCanonicalJson().contains("\"version\":7"));
+        assertEquals("PRESENT", command.getAfterState().getState());
+        assertTrue(command.getAfterState().getCanonicalJson().contains("\"activeStatus\":\"ACTIVE\""));
+        assertTrue(command.getAfterState().getCanonicalJson().contains("\"workOrderId\":9001"));
+        assertTrue(command.getAfterState().getCanonicalJson().contains("\"version\":9"));
     }
 
     @Test
@@ -2649,6 +2888,59 @@ class MesTeamLeaderActiveOrderServiceTest {
                 existingActiveOrder(8003L, "REMOVED", 3).setBusinessStatus("REWORKED")));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"PRODUCTION", "PQC", "COMPLETION", "AGGREGATE"})
+    void recoveryRejectsFormalEvidenceBeforeAnyMutation(String evidenceType) {
+        stubWorkOrderExists(confirmedWorkOrder());
+        MesProcessPoolActiveOrderDO removed = existingActiveOrder(8101L, "REMOVED", 7);
+        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L)).thenReturn(List.of(
+                existingActiveOrder(8001L, "REMOVED", 1).setBusinessStatus("VERSION_UPGRADED"),
+                existingActiveOrder(8002L, "REMOVED", 2).setBusinessStatus("REWORKED"), removed));
+        switch (evidenceType) {
+            case "PRODUCTION" -> {
+                when(reportAllocationMapper.selectAllListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of(
+                        MesProcessPoolReportAllocationDO.builder().id(8401L).activeOrderId(8101L)
+                                .workOrderId(9001L).eventId(8801L).build()));
+                when(processPoolEventMapper.selectByIdForUpdate(8801L)).thenReturn(
+                        MesProProcessPoolEventDO.builder().id(8801L).workOrderId(9001L)
+                                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT).build());
+            }
+            case "PQC" -> {
+                when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of(
+                        frozenPqcTask(8305L, "FIRST", "FIRST", 5).setSubmittedEventId(8802L)));
+                when(processPoolEventMapper.selectByIdForUpdate(8802L)).thenReturn(
+                        MesProProcessPoolEventDO.builder().id(8802L).workOrderId(9001L)
+                                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                                .feedbackSourceId(8305L).build());
+            }
+            case "COMPLETION" -> when(orderProcessCompletionMapper
+                    .selectListByWorkOrderIdsForUpdate(List.of(9001L))).thenReturn(List.of(
+                    MesProcessPoolOrderProcessCompletionDO.builder().id(8501L).workOrderId(9001L)
+                            .routeProcessId(928601L).processId(6001L).build()));
+            case "AGGREGATE" -> when(pqcAggregateDetailMapper.selectListByActiveOrderId(8101L))
+                    .thenReturn(List.of(MesPqcProcessInspectionAggregateDetailDO.builder()
+                            .id(8701L).activeOrderId(8101L).eventId(8803L).build()));
+            default -> throw new IllegalArgumentException(evidenceType);
+        }
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.addActiveOrder(activeOrderReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_EVIDENCE_BLOCKED.getCode(),
+                error.getCode());
+        verifyNoActiveOrderWrites();
+        verify(activeOrderMapper, never()).refreshActiveOrderSnapshot(any(MesProcessPoolActiveOrderDO.class));
+        verify(processSnapshotMapper, never()).deleteByActiveOrderId(any());
+        verify(pqcInspectionTaskMapper, never()).deleteByActiveOrderId(any());
+        verify(reportAllocationMapper, never()).deleteAllByActiveOrderId(any());
+        verify(orderProcessCompletionMapper, never()).deleteByWorkOrderId(any());
+        verify(processPoolEventMapper, never()).deleteActiveOrderRuntimeEventsByIds(any());
+        verify(submissionReviewMapper, never()).deleteByEventIds(any());
+        verify(eventRevisionMapper, never()).deleteByEventIds(any());
+        verify(gxpAuditService, never()).append(any(GxpAuditCommand.class));
+        assertEquals("REMOVED", removed.getActiveStatus());
+        assertEquals(7, removed.getVersion());
+    }
     private void assertRecoveryIgnoresSupersededOrders(List<MesProcessPoolActiveOrderDO> superseded) {
         stubWorkOrderExists(confirmedWorkOrder());
         stubCandidatePqcPrerequisites(publishedRegulation(9902L));
@@ -2899,6 +3191,15 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .actualInspectionQuantity(0)
                 .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_PENDING)
                 .build();
+    }
+
+    private void stubRebuildWithoutEvidence() {
+        when(activeOrderMapper.selectByIdForUpdate(8101L))
+                .thenReturn(existingActiveOrder(8101L, "ACTIVE", 7));
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L))
+                .thenReturn(List.of(frozenPqcTask(8305L, "FIRST", "FIRST", 5)));
+        when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(8101L))
+                .thenReturn(List.of(frozenProcessSnapshot()));
     }
 
     private void stubRebuildHistoricalRuntimePreview(boolean withReleaseApplication) {

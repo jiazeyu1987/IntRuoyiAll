@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackMaterialReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
@@ -11,16 +12,20 @@ import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.ActiveOrderSnapshotResolver;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,6 +64,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     private MesProBatchRecordExecutionSignatureService signatureService;
     @Mock
     private ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -74,7 +81,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
                 signatureService,
-                activeOrderSnapshotResolver);
+                activeOrderSnapshotResolver,
+                gxpAuditService);
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuditIdentity(submitService);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
         MesProFrontlineFeedbackSubmitTestData.stubLossReasonValidator(lossReasonValidator);
         org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApply(any()))
@@ -113,6 +122,15 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             return true;
         }));
         verify(signatureService).recordProductionSubmitSignature(9102L, "sign-123", "一线生产报工提交");
+        ArgumentCaptor<GxpAuditCommand> audit = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(audit.capture());
+        assertNotNull(audit.getValue().getPerformedBy(), "actual employee must not default to device LoginUser");
+        Map<?, ?> performedBy = JsonUtils.parseObject(audit.getValue().getPerformedBy(), Map.class);
+        assertEquals("9102", String.valueOf(performedBy.get("actorId")));
+        assertEquals("SYSTEM_USER", performedBy.get("actorType"));
+        assertEquals("employee.9102", performedBy.get("username"));
+        assertEquals("正式员工9102", performedBy.get("displayName"));
+        assertTrue(!JsonUtils.toJsonString(audit.getValue()).contains("sign-123"));
         verify(feedbackService).createFrontlineFeedback(argThat(payload -> {
             assertEquals(9102L, payload.getFeedbackUserId());
             return true;
@@ -123,6 +141,54 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertEquals(9001L, payload.getDeviceAccountUserId());
             return true;
         }));
+    }
+
+    @Test
+    void shouldAppendUnifiedProductionAuditAfterFormalSubmitEventCreated() {
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
+        when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
+        when(signatureService.recordProductionSubmitSignature(9001L, "sign-123", "一线生产报工提交"))
+                .thenReturn(4001L);
+        stubValidLossReason();
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertEquals(801L,
+                    submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq())
+                            .getProcessPoolEventId());
+        }
+
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        GxpAuditCommand command = auditCaptor.getValue();
+        assertEquals("mes.production.submit", command.getOperationId());
+        assertEquals("MES_PROCESS_POOL_EVENT:801", command.getSubjectId());
+        assertEquals("PRODUCTION_SUBMIT_EVENT:801", command.getIdempotencyKey());
+        assertEquals("4001", command.getSignatureRecordId());
+        assertEquals("ABSENT", command.getBeforeState().getState());
+        assertEquals("PRESENT", command.getAfterState().getState());
+
+        Map<?, ?> after = JsonUtils.parseObject(command.getAfterState().getCanonicalJson(), Map.class);
+        assertEquals(501L, ((Number) after.get("feedbackId")).longValue());
+        assertEquals(801L, ((Number) after.get("eventId")).longValue());
+        assertEquals(81L, ((Number) after.get("activeOrderId")).longValue());
+        assertEquals(71L, ((Number) after.get("routeProcessId")).longValue());
+        assertEquals(31L, ((Number) after.get("processId")).longValue());
+        assertEquals(9001L, ((Number) after.get("actualEmployeeId")).longValue());
+        assertEquals(9001L, ((Number) after.get("signatureEmployeeId")).longValue());
+        assertEquals(0, new BigDecimal("100.500")
+                .compareTo(new BigDecimal(String.valueOf(after.get("outputQuantity")))));
+        assertEquals(0, new BigDecimal("2.500")
+                .compareTo(new BigDecimal(String.valueOf(after.get("lossQuantity")))));
+        assertEquals(2, ((List<?>) after.get("materialDetails")).size());
+        assertTrue(((List<?>) after.get("devices")).size() > 0);
+        assertTrue(((List<?>) after.get("parameterReadings")).size() > 0);
+        assertTrue(after.containsKey("clearanceFacts"));
+        Map<?, ?> formalSource = (Map<?, ?>) after.get("formalSourceSnapshot");
+        assertEquals("frontline-session-snapshot-001", formalSource.get("snapshotId"));
+        assertEquals("frontline-session-snapshot-hash-001", formalSource.get("snapshotHash"));
     }
 
     @Test

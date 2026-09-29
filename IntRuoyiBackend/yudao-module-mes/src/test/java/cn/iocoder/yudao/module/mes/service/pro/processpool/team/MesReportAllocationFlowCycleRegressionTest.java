@@ -10,6 +10,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -39,6 +41,7 @@ class MesReportAllocationFlowCycleRegressionTest {
     private final MesProcessPoolActiveOrderProcessSnapshotMapper snapshots = mock(MesProcessPoolActiveOrderProcessSnapshotMapper.class);
     private final MesTeamLeaderOrderProcessCompletionService completion = mock(MesTeamLeaderOrderProcessCompletionService.class);
     private MesReportAllocationCommandService service;
+    private final GxpAuditService gxpAuditService = mock(GxpAuditService.class);
     private MesProProcessPoolEventDO submitted;
     private MesProcessPoolActiveOrderDO order;
     private MesProcessPoolActiveOrderProcessSnapshotDO snapshot;
@@ -54,8 +57,10 @@ class MesReportAllocationFlowCycleRegressionTest {
                 mock(MesReportAllocationQuantityFragmentService.class), completion,
                 mock(MesProductionReportManagementSummaryService.class), snapshots);
         MesProBatchRecordExecutionSignatureService signature = mock(MesProBatchRecordExecutionSignatureService.class);
-        when(signature.recordTeamLeaderReviewSignature(any(), any(), any())).thenReturn(99L);
+        when(signature.recordTeamLeaderReviewSignature(any(), any(), any(),
+                eq("PROCESS_POOL_EVENT"), eq(10L), eq("生产报工组长复核"))).thenReturn(99L);
         ReflectionTestUtils.setField(service, "signatureService", signature);
+        ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         submitted = event(10L, 502L, "100");
         order = order(81L, 91L);
         snapshot = snapshot(order, "[501,502]");
@@ -89,6 +94,14 @@ class MesReportAllocationFlowCycleRegressionTest {
         assertAmount("100", result.getTotalAllocatedQuantity());
         verify(releases).findReleaseApplicationLockedActiveOrderIdsForUpdate(Set.of(81L));
         verify(completion).reconcileAffectedAllocations(eq(submitted), anyCollection());
+        var audit = org.mockito.ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(audit.capture());
+        assertEquals("mes.production.allocation.save", audit.getValue().getOperationId());
+        assertEquals("99", audit.getValue().getSignatureRecordId());
+        assertTrue(audit.getValue().getLinks().stream().anyMatch(link ->
+                "ACTIVE_ORDER".equals(link.objectType()) && "81".equals(link.objectId())));
+        assertFalse(audit.getValue().getLinks().stream().anyMatch(link ->
+                "ACTIVE_ORDER".equals(link.objectType()) && "82".equals(link.objectId())));
     }
 
     @Test

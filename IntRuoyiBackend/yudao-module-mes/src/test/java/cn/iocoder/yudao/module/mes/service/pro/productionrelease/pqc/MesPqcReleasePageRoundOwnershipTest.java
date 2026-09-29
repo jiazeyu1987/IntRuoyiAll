@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -83,6 +84,15 @@ class MesPqcReleasePageRoundOwnershipTest extends BaseDbUnitTest {
                 reviewMapper, Clock.systemUTC());
     }
 
+    @AfterEach
+    void cleanRoundApplications() {
+        for (long id = 1L; id <= 7L; id++) {
+            jdbcTemplate.update("DELETE FROM mes_pro_process_pool_active_order_release_application "
+                    + "WHERE id = ? AND tenant_id = ? AND request_idempotency_key = ?",
+                    id, TENANT_ID, "request-" + id);
+        }
+    }
+
     @Test
     void pqcPageKeepsReviewOwnershipByApplicationRoundAcrossFiveViews() {
         PageResult<MesPqcProductionReleasePageItem> firstRoundSnapshot = page("REWORKED", 1);
@@ -125,6 +135,33 @@ class MesPqcReleasePageRoundOwnershipTest extends BaseDbUnitTest {
         assertEquals(List.of(2L), ids(secondVoidPage));
         assertEquals(102L, secondVoidPage.getList().get(0).getNonconformanceReviewId());
         assertEquals("void", secondVoidPage.getList().get(0).getNonconformanceDisposition());
+    }
+
+    @Test
+    void latestSourceReviewExcludesDeletedRowsWithoutLettingDeletedHigherIdHideTheLiveReview() {
+        seedDeletedReviews();
+
+        var reviews = reviewMapper.selectLatestBySourceIds("ACTIVE_ORDER", List.of(1001L, 1002L), TENANT_ID);
+
+        assertEquals(List.of(101L), reviews.stream().map(review -> review.getId()).toList());
+    }
+
+    @Test
+    void activeOrderReviewListExcludesDeletedRowsAndKeepsTheLiveReview() {
+        seedDeletedReviews();
+
+        var reviews = reviewMapper.selectListByActiveOrderIds(List.of(1001L, 1002L), TENANT_ID);
+
+        assertEquals(List.of(101L), reviews.stream().map(review -> review.getId()).toList());
+    }
+
+    private void seedDeletedReviews() {
+        insertReview(201L, 1001L, 1001L, "closed", "void", "deleted newer review",
+                LocalDateTime.of(2026, 9, 4, 10, 0), LocalDateTime.of(2026, 9, 5, 10, 0));
+        insertReview(202L, 1002L, 1002L, "closed", "void", "deleted only review",
+                LocalDateTime.of(2026, 9, 4, 10, 0), LocalDateTime.of(2026, 9, 5, 10, 0));
+        assertEquals(2, jdbcTemplate.update(
+                "UPDATE mes_pro_edhr_nonconformance_review SET deleted = TRUE WHERE id IN (201, 202)"));
     }
 
     private void assertPage(String viewStatus, long total, long expectedApplicationId) {

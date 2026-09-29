@@ -222,6 +222,7 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
     public SystemConfigPackageImportRespVO importPackage(byte[] content, Boolean confirmed,
                                                          String targetSnapshotSha256,
                                                          Collection<String> availableComponents) {
+        gxpAuditService.acquireLedgerLock();
         if (!Boolean.TRUE.equals(confirmed)) {
             throw exception(CONFIG_PACKAGE_CONFIRM_REQUIRED);
         }

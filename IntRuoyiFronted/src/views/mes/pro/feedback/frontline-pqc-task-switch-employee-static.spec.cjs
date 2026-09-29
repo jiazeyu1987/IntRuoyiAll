@@ -45,8 +45,7 @@ assert.match(
 
 const taskSelectionFunctions = [
   ['selectPqcInspectionTab', 'const getPqcSelectedEquipmentLabel'],
-  ['selectPqcInspectionType', 'const selectPqcInspectionTaskOption'],
-  ['selectPqcInspectionTaskOption', 'const updatePqcQuantity']
+  ['selectPqcInspectionTaskOption', 'const selectPqcInspectionRule']
 ]
 
 for (const [functionName, endMarker] of taskSelectionFunctions) {
@@ -67,6 +66,24 @@ for (const [functionName, endMarker] of taskSelectionFunctions) {
     `${functionName} must rebind the current PQC employee after task switching`
   )
 }
+
+const ruleSelection = sliceBetween(panelSource, 'const selectPqcInspectionRule = async',
+  'const updatePqcQuantity', 'PQC inspection rule selection')
+assert.match(panelSource, /@click="selectPqcInspectionRule\(tab\.ruleKey\)"/)
+assert.match(panelSource, /@click="selectPqcInspectionTab\(item\.key\)"/)
+assert.match(ruleSelection, /getPqcTaskOptionForRule\(currentProcess, ruleKey, activePqcTabKey\.value\)/)
+assert.match(ruleSelection, /applyPqcTaskOptionToSelectedProcess\(currentRuleOption\)[\s\S]*await switchPqcCurrentLoginEmployeeForActiveTask\(\)/)
+assert.match(ruleSelection, /findFirstPqcProcessForInspectionRule\([\s\S]*await handleSelectProcess\(targetProcess\)/)
+assert.match(ruleSelection, /if \(!targetProcess\)[\s\S]*clearPqcTaskOptionDraft\(\)[\s\S]*showFrontlineError/)
+const processSelection = sliceBetween(panelSource, 'const handleSelectProcess = async',
+  'const handlePickerProcessClick', 'formal process selection')
+assert.match(processSelection, /await selectFrontlinePqcProcess\(deviceState, selectedProcess\)/)
+assert.match(processSelection, /applyPqcTaskSnapshotToDraft\(selectedProcess\)/)
+assert.match(processSelection, /findInitialEmployee\(\)[\s\S]*await handleSelectEmployee\(initialEmployee\)/)
+const employeeSelection = sliceBetween(panelSource, 'const handleSelectEmployee = async',
+  'watch(currentLoginUserId', 'formal employee selection')
+assert.match(employeeSelection, /!isCurrentLoginEmployee\(employee\)/)
+assert.match(employeeSelection, /await switchFrontlinePqcActualEmployee\(deviceState, activePqcTaskOption\.value, employee\.userId\)/)
 
 const pqcSubmitButton = sliceBetween(
   panelSource,

@@ -37,5 +37,6 @@ public interface MesTeamLeaderActiveOrderService {
                                                                    MesTeamLeaderVoidedActiveOrderPageReqVO reqVO);
 
     void closeForRelease(Long activeOrderId, Integer expectedVersion,
-                         Long releaseDecisionId, Long actorUserId);
+                         Long releaseDecisionId, Long actorUserId,
+                         String parentSignatureRecordId);
 }

@@ -17,8 +17,14 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconfor
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +63,9 @@ public class MesActiveOrderDossierFileService {
     private final AdminUserApi adminUserApi;
     private final FileService fileService;
     private final MesProEdhrOperationAuditService operationAuditService;
+
+    @Resource
+    private GxpAuditService gxpAuditService;
 
     @Transactional(readOnly = true)
     public Result list(Long actorUserId, Query query) {
@@ -119,6 +128,7 @@ public class MesActiveOrderDossierFileService {
         if (StrUtil.isBlank(contentType)) {
             throw ServiceExceptionUtil.invalidParamException("上传文件缺少文件类型，不能写入资料文件。");
         }
+        gxpAuditService.acquireLedgerLock();
         ResolvedContext context = resolveContext(actorUserId, command.activeOrderId(), command.applicationId());
         assertMutable(context.activeOrder());
         String operatorName = resolveOperatorName(actorUserId);
@@ -159,6 +169,7 @@ public class MesActiveOrderDossierFileService {
         }
         recordDossierOperation("DOSSIER_UPLOAD", "活跃订单资料上传", actorUserId, operatorName, row, null, row.getSha256(),
                 operatedAt);
+        appendDossierGxpAudit("mes.dossier.upload", "ABSENT", "PRESENT", row, null, row.getSha256(), operatedAt);
         return toFileItem(row);
     }
 
@@ -171,6 +182,7 @@ public class MesActiveOrderDossierFileService {
         if (command.attachmentId() == null || command.attachmentId() <= 0) {
             throw ServiceExceptionUtil.invalidParamException("缺少资料文件编号，不能删除。");
         }
+        gxpAuditService.acquireLedgerLock();
         ResolvedContext context = resolveContext(actorUserId, command.activeOrderId(), command.applicationId());
         assertMutable(context.activeOrder());
         MesProcessPoolActiveOrderDossierFileDO row = dossierFileMapper.selectById(command.attachmentId());
@@ -197,6 +209,8 @@ public class MesActiveOrderDossierFileService {
             throw new IllegalStateException("删除资料文件实体失败：" + file.getId(), ex);
         }
         recordDossierOperation("DOSSIER_DELETE", "活跃订单资料删除", actorUserId, operatorName, row, row.getSha256(), null,
+                LocalDateTime.now());
+        appendDossierGxpAudit("mes.dossier.delete", "PRESENT", "ABSENT", row, row.getSha256(), null,
                 LocalDateTime.now());
     }
 
@@ -324,6 +338,59 @@ public class MesActiveOrderDossierFileService {
                 .setAfterSummaryHash(afterHash)
                 .setMetadataJson(JsonUtils.toJsonString(metadata))
                 .setOccurredAt(operatedAt));
+    }
+
+    private void appendDossierGxpAudit(String operationId, String beforeState, String afterState,
+                                       MesProcessPoolActiveOrderDossierFileDO row,
+                                       String beforeHash, String afterHash, LocalDateTime operatedAt) {
+        Map<String, Object> before = new LinkedHashMap<>();
+        before.put("dossierFileId", row.getId());
+        before.put("activeOrderId", row.getActiveOrderId());
+        before.put("applicationId", row.getApplicationId());
+        before.put("categoryKey", row.getCategoryKey());
+        before.put("fileId", row.getFileId());
+        before.put("fileName", row.getFileName());
+        before.put("sha256", beforeHash);
+        Map<String, Object> after = new LinkedHashMap<>(before);
+        after.put("sha256", afterHash);
+        after.put("operatedAt", operatedAt);
+        List<GxpAuditRelation> links = new java.util.ArrayList<>();
+        links.add(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
+                String.valueOf(row.getActiveOrderId()), null, null));
+        links.add(new GxpAuditRelation("SOURCE", "DOSSIER_ATTACHMENT",
+                String.valueOf(row.getId()), null, afterHash == null ? beforeHash : afterHash));
+        if (row.getApplicationId() != null) {
+            links.add(new GxpAuditRelation("SOURCE", "RELEASE_APPLICATION",
+                    String.valueOf(row.getApplicationId()), null, null));
+        }
+        boolean upload = "mes.dossier.upload".equals(operationId);
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .eventSchemaVersion(2)
+                .operationId(operationId)
+                .subjectId("ACTIVE_ORDER_DOSSIER_FILE:" + row.getId())
+                .subjectVersion(String.valueOf(row.getId()))
+                .reason("活跃订单资料文件已完成正式登记变更")
+                .reasonCode(upload ? "MES_DOSSIER_UPLOAD" : "MES_DOSSIER_DELETE")
+                .reasonSource("SYSTEM")
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state(beforeState)
+                        .canonicalJson(JsonUtils.toJsonString(before))
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state(afterState)
+                        .canonicalJson(JsonUtils.toJsonString(after))
+                        .build())
+                .idempotencyKey((upload ? "DOSSIER_UPLOAD:" : "DOSSIER_DELETE:")
+                        + row.getId() + (upload ? "" : ":" + beforeHash))
+                .requestId("MES-DOSSIER:" + row.getId() + ":" + operationId)
+                .resultStatus("SUCCESS")
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator("cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc."
+                        + "MesActiveOrderDossierFileService#" + (upload ? "upload" : "delete"))
+                .links(links)
+                .evidences(List.of(new GxpAuditEvidence("FORMAL_DOSSIER_ATTACHMENT",
+                        String.valueOf(row.getId()), null, afterHash == null ? beforeHash : afterHash, "DOSSIER")))
+                .build());
     }
 
     private static CategoryDefinition requireCategory(String categoryKey) {

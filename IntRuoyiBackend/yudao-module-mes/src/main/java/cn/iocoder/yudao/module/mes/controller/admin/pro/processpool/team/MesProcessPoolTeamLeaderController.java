@@ -3,6 +3,9 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.module.system.controller.admin.gxpaudit.vo.GxpAuditEventPageReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.gxpaudit.vo.GxpAuditEventRespVO;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditQueryService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceStatusUpdateReqVO;
@@ -66,6 +69,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamTemporaryEmployeeCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamTemporarySignaturePasswordResetReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesWorkOrderAbnormalReportReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.gxpaudit.MesGxpAuditControllerSupport;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
@@ -187,6 +191,7 @@ public class MesProcessPoolTeamLeaderController {
     private final MesStage6IdiSimulationService stage6IdiSimulationService;
     private final MesStage2_5BackfillBatchExecutionSimulationService stage2_5SimulationService;
     private final MesStage1ActiveOrderCompleteSimulationService stage1SimulationService;
+    private final GxpAuditQueryService gxpAuditQueryService;
 
     public MesProcessPoolTeamLeaderController(MesTeamLeaderWorkbenchService workbenchService,
                                               MesTeamLeaderSubmissionReviewService submissionReviewService,
@@ -205,7 +210,8 @@ public class MesProcessPoolTeamLeaderController {
                                               MesTeamLeaderActiveOrderCompletionService activeOrderCompletionService,
                                               MesStage6IdiSimulationService stage6IdiSimulationService,
                                               MesStage2_5BackfillBatchExecutionSimulationService stage2_5SimulationService,
-                                              MesStage1ActiveOrderCompleteSimulationService stage1SimulationService) {
+                                              MesStage1ActiveOrderCompleteSimulationService stage1SimulationService,
+                                              GxpAuditQueryService gxpAuditQueryService) {
         this.workbenchService = workbenchService;
         this.submissionReviewService = submissionReviewService;
         this.abnormalReportService = abnormalReportService;
@@ -224,6 +230,7 @@ public class MesProcessPoolTeamLeaderController {
         this.stage6IdiSimulationService = stage6IdiSimulationService;
         this.stage2_5SimulationService = stage2_5SimulationService;
         this.stage1SimulationService = stage1SimulationService;
+        this.gxpAuditQueryService = gxpAuditQueryService;
     }
 
     @ExceptionHandler(MesReleaseFlowBlockerException.class)
@@ -614,6 +621,35 @@ public class MesProcessPoolTeamLeaderController {
             @RequestParam("activeOrderId") Long activeOrderId) {
         return success(toActiveOrderDetailRespVO(activeOrderDetailService.getDetail(
                 SecurityFrameworkUtils.getLoginUserId(), activeOrderId)));
+    }
+
+    @GetMapping("/active-order/audit/page")
+    @Operation(summary = "查询活跃订单统一 GxP 审计")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<PageResult<GxpAuditEventRespVO>> getActiveOrderAuditPage(
+            @Valid GxpAuditEventPageReqVO reqVO,
+            @RequestParam("activeOrderId") Long activeOrderId) {
+        activeOrderDetailService.getDetail(SecurityFrameworkUtils.getLoginUserId(), activeOrderId);
+        return success(MesGxpAuditControllerSupport.toPage(gxpAuditQueryService.page(
+                MesGxpAuditControllerSupport.toQuery(reqVO, "ACTIVE_ORDER", activeOrderId))));
+    }
+
+    @GetMapping("/active-order/audit/get")
+    @Operation(summary = "查询活跃订单统一 GxP 审计详情")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<GxpAuditEventRespVO> getActiveOrderAudit(
+            @RequestParam("activeOrderId") Long activeOrderId,
+            @RequestParam("eventId") Long eventId) {
+        activeOrderDetailService.getDetail(SecurityFrameworkUtils.getLoginUserId(), activeOrderId);
+        var event = gxpAuditQueryService.get(eventId);
+        if (event == null) {
+            return success(null);
+        }
+        var relations = gxpAuditQueryService.listRelations(eventId);
+        if (!MesGxpAuditControllerSupport.containsRelation(relations, "ACTIVE_ORDER", activeOrderId)) {
+            return success(null);
+        }
+        return success(MesGxpAuditControllerSupport.toResponse(event, relations));
     }
 
     @PostMapping("/active-order/release/apply")

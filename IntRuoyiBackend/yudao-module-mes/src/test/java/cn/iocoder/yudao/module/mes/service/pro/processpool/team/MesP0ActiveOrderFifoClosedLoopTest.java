@@ -174,6 +174,7 @@ class MesP0ActiveOrderFifoClosedLoopTest {
 
     @Test
     void shouldRejectManualAllocationWhenCurrentProcessRemainingIsInsufficientBeforeTerminalWrites() {
+        org.mockito.Mockito.lenient().when(allocationMapper.insertBatch(anyCollection())).thenReturn(Boolean.TRUE);
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
         org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
@@ -196,6 +197,7 @@ class MesP0ActiveOrderFifoClosedLoopTest {
 
     @Test
     void shouldRejectManualAllocationWhenMaterialQuantityExceedsFrozenCapacity() {
+        org.mockito.Mockito.lenient().when(allocationMapper.insertBatch(anyCollection())).thenReturn(Boolean.TRUE);
         MesProProcessPoolEventDO current = event("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":250}]}");
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(current);
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
@@ -224,6 +226,7 @@ class MesP0ActiveOrderFifoClosedLoopTest {
 
     @Test
     void shouldRejectDuplicateManualLinesWhoseCombinedQuantityExceedsCapacity() {
+        org.mockito.Mockito.lenient().when(allocationMapper.insertBatch(anyCollection())).thenReturn(Boolean.TRUE);
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         givenSuccessPqcBinding(80);

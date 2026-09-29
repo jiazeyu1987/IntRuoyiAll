@@ -1,22 +1,20 @@
 package cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit;
 
-import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
 import com.baomidou.mybatisplus.annotation.KeySequence;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
 
 @TableName(value = "gxp_audit_event", autoResultMap = true)
 @KeySequence("gxp_audit_event_seq")
 @Data
-@EqualsAndHashCode(callSuper = true)
-public class GxpAuditEventDO extends TenantBaseDO {
+public class GxpAuditEventDO {
 
     @TableId
     private Long id;
+    private Long tenantId;
     private Long ledgerSequence;
     private String operationId;
     private String domain;
@@ -45,5 +43,21 @@ public class GxpAuditEventDO extends TenantBaseDO {
     private String previousEventHash;
     private String eventHash;
     private String algorithm;
+    private Integer eventSchemaVersion;
+    private String canonicalizationVersion;
+    private String resultStatus;
+    private String reasonCode;
+    private String reasonSource;
+    private String transactionId;
+    private String authenticatedActorJson;
+    private String performedByJson;
+    private String sourceType;
+    private String sourceLocator;
+    private String traceId;
+    private String errorCode;
+    private String attemptedOperationId;
+    private String relationManifestJson;
+    private String evidenceManifestJson;
+    private String statePayloadHash;
 
 }

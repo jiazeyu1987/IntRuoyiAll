@@ -50,6 +50,8 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceSelecti
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -70,11 +72,13 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -167,6 +171,7 @@ class MesFrontlinePqcContextServiceTest {
     private MesPqcItemEquipmentConfigService pqcItemEquipmentConfigService;
     private MesMdItemService itemService;
     private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    private GxpAuditService gxpAuditService;
     private MesFrontlinePqcContextService service;
 
     @BeforeEach
@@ -199,6 +204,7 @@ class MesFrontlinePqcContextServiceTest {
         pqcRecordMapper = mock(MesProProcessPoolPqcRecordMapper.class);
         signatureService = mock(MesProBatchRecordExecutionSignatureService.class);
         nonconformanceReviewService = mock(MesProEdhrNonconformanceReviewService.class);
+        gxpAuditService = mock(GxpAuditService.class);
         service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, processPoolEventMapper,
                 processSnapshotMapper,
                 teamDeviceMapper,
@@ -206,7 +212,8 @@ class MesFrontlinePqcContextServiceTest {
                 regulationMapper, versionMapper, regulationProcessMapper, regulationItemMapper,
                 regulationService, pqcItemEquipmentConfigService, pqcTaskMapper,
                 pieceDetailMapper, itemService, scopeMapper,
-                adminUserApi, eventService, pqcRecordMapper, signatureService, nonconformanceReviewService);
+                adminUserApi, eventService, pqcRecordMapper, signatureService, nonconformanceReviewService,
+                gxpAuditService);
     }
 
     @Test
@@ -501,12 +508,20 @@ class MesFrontlinePqcContextServiceTest {
         when(eventService.createPqcInspectionEvent(any(MesProcessPoolCreatePqcInspectionReqDTO.class)))
                 .thenReturn(pqcEventId);
         when(pqcTaskMapper.updateSubmittedEventId(pqcTaskId, pqcEventId)).thenReturn(1);
+        when(pieceDetailMapper.selectListByTaskId(pqcTaskId)).thenReturn(List.of(
+                MesPqcInspectionPieceDetailDO.builder()
+                        .id(9601L).taskId(pqcTaskId).sampleNo(1).itemCode("ID-001")
+                        .itemName("外观").measuredValue("合格").itemResult("合格")
+                        .judgement(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
+                        .build()));
         when(processPoolEventMapper.selectById(pqcEventId)).thenReturn(MesProProcessPoolEventDO.builder()
                 .id(pqcEventId)
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
                 .feedbackSourceType("MES_PQC_INSPECTION_TASK")
                 .feedbackSourceId(pqcTaskId)
                 .signatureId(signatureId)
+                .actualEmployeeId(actualEmployeeId).signatureUserId(actualEmployeeId)
+                .signatureSnapshot(pqcIdentitySnapshot(signatureId, actualEmployeeId, pqcTaskId))
                 .serverSubmitTime(submitTime)
                 .build());
         when(pqcRecordMapper.selectByEventId(pqcEventId)).thenReturn(MesProProcessPoolPqcRecordDO.builder()
@@ -514,6 +529,7 @@ class MesFrontlinePqcContextServiceTest {
                 .eventId(pqcEventId)
                 .productionSubmitEventId(null)
                 .signatureId(signatureId)
+                .actualEmployeeId(actualEmployeeId).signatureUserId(actualEmployeeId)
                 .inspectionResult(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
                 .serverSubmitTime(submitTime)
                 .build());
@@ -559,6 +575,122 @@ class MesFrontlinePqcContextServiceTest {
         assertNull(pqcDraft.get("nonconformanceDescription"));
         assertNull(pqcDraft.get("defectDescription"));
         verify(processPoolEventMapper, never()).selectProductionSubmitsByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID);
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        GxpAuditCommand audit = auditCaptor.getValue();
+        assertEquals("mes.pqc.submit", audit.getOperationId());
+        assertNotNull(audit.getPerformedBy(), "actual employee must not default to device LoginUser");
+        Map<?, ?> performedBy = JsonUtils.parseObject(audit.getPerformedBy(), Map.class);
+        assertEquals(String.valueOf(actualEmployeeId), String.valueOf(performedBy.get("actorId")));
+        assertEquals("SYSTEM_USER", performedBy.get("actorType"));
+        assertEquals("user-3002", performedBy.get("username"));
+        assertEquals("员工3002", performedBy.get("displayName"));
+        assertEquals(audit.getPerformedBy(), MesFrontlineAuditIdentity.persistedPqc(
+                JsonUtils.parseObject(request.getSignatureSnapshot(), Map.class).get("performedBy"), actualEmployeeId));
+        assertTrue(!JsonUtils.toJsonString(audit).contains("sign-123"));
+        assertEquals("PQC_SUBMIT:" + pqcTaskId + ":" + pqcEventId, audit.getIdempotencyKey());
+        assertEquals("SUBMITTED", audit.getAfterState().getState());
+        assertEquals(String.valueOf(signatureId), audit.getSignatureRecordId());
+        assertEquals("MES_PQC_INSPECTION_TASK:" + pqcTaskId, audit.getSubjectId());
+        assertTrue(audit.getAfterState().getCanonicalJson().contains("\"taskStatus\":\"SUBMITTED\""));
+        assertTrue(audit.getAfterState().getCanonicalJson().contains("\"submittedEventId\":" + pqcEventId));
+        assertTrue(audit.getAfterState().getCanonicalJson().contains("\"submittedContentHash\""));
+    }
+
+    @Test
+    void submitPqcInspectionPropagatesGxpAuditFailureAfterFormalPqcWrites() {
+        long loginUserId = 3001L;
+        long actualEmployeeId = 3002L;
+        long pqcTaskId = 9101L;
+        long pqcEventId = 9401L;
+        long signatureId = 9301L;
+        LocalDateTime submitTime = LocalDateTime.of(2026, 8, 19, 15, 30);
+        when(pqcTaskMapper.selectByIdForUpdate(pqcTaskId)).thenReturn(pendingTask(pqcTaskId));
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(
+                activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID, submitTime));
+        when(processSnapshotMapper.selectByActiveOrderAndProcess(ACTIVE_ORDER_ID, 30001L, 40001L))
+                .thenReturn(processSnapshot(30001L, 40001L));
+        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                processSnapshot(30001L, 40001L)));
+        when(scopeMapper.selectActiveScopesByLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
+                .thenReturn(List.of(pqcEmployeeScope(loginUserId, actualEmployeeId)));
+        when(adminUserApi.getUserList(any())).thenReturn(List.of(enabledUser(loginUserId), enabledUser(actualEmployeeId)));
+        when(regulationProcessMapper.selectById(QA_PROCESS_ID)).thenReturn(
+                MesQaInspectionRegulationProcessDO.builder().id(QA_PROCESS_ID)
+                        .regulationVersionId(REGULATION_VERSION_ID).build());
+        when(versionMapper.selectById(REGULATION_VERSION_ID)).thenReturn(
+                MesQaInspectionRegulationVersionDO.builder().id(REGULATION_VERSION_ID)
+                        .regulationId(REGULATION_ID).lifecycleStatus("PUBLISHED").build());
+        when(regulationMapper.selectById(REGULATION_ID)).thenReturn(
+                MesQaInspectionRegulationDO.builder().id(REGULATION_ID).dccProjectCodeId(DCC_PROJECT_ID).build());
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(
+                DccProjectCodeDO.builder().id(DCC_PROJECT_ID).build());
+        when(regulationItemMapper.selectListByVersionId(REGULATION_VERSION_ID))
+                .thenReturn(List.of(publishedItem("FIRST")));
+        when(pqcTaskMapper.updateSubmittedIfPending(anyLong(), any(), anyString(), anyString(), anyString()))
+                .thenReturn(1);
+        when(signatureService.recordPqcSubmitSignature(actualEmployeeId, pqcTaskId,
+                "sign-123", "PQC任务" + pqcTaskId + "正式提交")).thenReturn(signatureId);
+        when(eventService.createPqcInspectionEvent(any(MesProcessPoolCreatePqcInspectionReqDTO.class)))
+                .thenReturn(pqcEventId);
+        when(pqcTaskMapper.updateSubmittedEventId(pqcTaskId, pqcEventId)).thenReturn(1);
+        when(processPoolEventMapper.selectById(pqcEventId)).thenReturn(MesProProcessPoolEventDO.builder()
+                .id(pqcEventId).eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                .feedbackSourceType("MES_PQC_INSPECTION_TASK").feedbackSourceId(pqcTaskId)
+                .signatureUserId(actualEmployeeId)
+                .signatureSnapshot(pqcIdentitySnapshot(signatureId, actualEmployeeId, pqcTaskId))
+                .actualEmployeeId(actualEmployeeId).signatureId(signatureId).serverSubmitTime(submitTime).build());
+        when(pqcRecordMapper.selectByEventId(pqcEventId)).thenReturn(MesProProcessPoolPqcRecordDO.builder()
+                .id(9501L).eventId(pqcEventId).signatureId(signatureId)
+                .actualEmployeeId(actualEmployeeId).signatureUserId(actualEmployeeId)
+                .inspectionResult(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
+                .serverSubmitTime(submitTime).build());
+        when(pieceDetailMapper.selectListByTaskId(pqcTaskId)).thenReturn(List.of(
+                MesPqcInspectionPieceDetailDO.builder().id(9601L).taskId(pqcTaskId)
+                        .sampleNo(1).itemCode("ID-001").measuredValue("合格")
+                        .judgement(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS).build()));
+        doThrow(new IllegalStateException("gxp append failed")).when(gxpAuditService).append(any(GxpAuditCommand.class));
+
+        MesFrontlinePqcSubmitCommand command = MesFrontlinePqcSubmitCommand.builder()
+                .activeOrderId(ACTIVE_ORDER_ID).pqcTaskId(pqcTaskId)
+                .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
+                .actualEmployeeId(actualEmployeeId).actualInspectionQuantity(1).scrapQuantity(0)
+                .signaturePassword("sign-123")
+                .itemResults(List.of(MesFrontlinePqcSubmitCommand.ItemResult.builder()
+                        .itemCode("ID-001").sampleValues(List.of("合格")).build()))
+                .rawPayload(Map.of()).clientSubmitTime(submitTime).build();
+
+        assertThrows(IllegalStateException.class, () -> service.submitPqcInspection(loginUserId, command));
+        verify(gxpAuditService).acquireLedgerLock();
+        verify(gxpAuditService).append(any(GxpAuditCommand.class));
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missing", "actor", "domain", "signature", "record", "name"})
+    void pqcAuditRejectsMissingOrMismatchedFormalIdentity(String invalid) {
+        Map<String, Object> performed = new java.util.LinkedHashMap<>(Map.of(
+                "actorId", "3002", "actorType", "SYSTEM_USER", "displayName", "正式检验员", "username", "pqc.3002"));
+        if ("actor".equals(invalid)) performed.put("actorId", "3001");
+        if ("domain".equals(invalid)) performed.put("actorType", "MES_EMPLOYEE_PROFILE");
+        if ("name".equals(invalid)) performed.put("displayName", " ");
+        MesProProcessPoolEventDO event = MesProProcessPoolEventDO.builder()
+                .id(9401L).actualEmployeeId(3002L).signatureUserId(3002L).signatureId(9301L)
+                .signatureSnapshot("missing".equals(invalid) ? null : JsonUtils.toJsonString(Map.of(
+                        "signatureId", 9301L, "actorId", 3002L, "pqcTaskId", 9101L,
+                        "actionType", "PQC_SUBMIT", "performedBy", performed)))
+                .build();
+        if ("signature".equals(invalid)) event.setSignatureUserId(3001L);
+        MesProProcessPoolPqcRecordDO record = MesProProcessPoolPqcRecordDO.builder()
+                .id(9501L).eventId(9401L).actualEmployeeId(3002L).signatureUserId(3002L).signatureId(9301L).build();
+        if ("record".equals(invalid)) record.setActualEmployeeId(3001L);
+        when(processPoolEventMapper.selectById(9401L)).thenReturn(event);
+        when(pqcRecordMapper.selectByEventId(9401L)).thenReturn(record);
+        when(pieceDetailMapper.selectListByTaskId(9101L)).thenReturn(List.of(
+                MesPqcInspectionPieceDetailDO.builder().id(9601L).taskId(9101L).build()));
+        assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                service, "appendPqcSubmitGxpAudit", pendingTask(9101L), 9401L));
+        verify(gxpAuditService, never()).append(any());
     }
 
     private static Stream<Arguments> adjustableTaskIdentities() {
@@ -1007,6 +1139,13 @@ class MesFrontlinePqcContextServiceTest {
                 .employeeUserId(actualEmployeeId)
                 .enabled(true)
                 .build();
+    }
+
+    private static String pqcIdentitySnapshot(long signatureId, long employeeId, long taskId) {
+        return JsonUtils.toJsonString(Map.of("signatureId", signatureId, "actorId", employeeId,
+                "pqcTaskId", taskId, "actionType", "PQC_SUBMIT", "performedBy", Map.of(
+                        "actorId", String.valueOf(employeeId), "actorType", "SYSTEM_USER",
+                        "displayName", "员工" + employeeId, "username", "user-" + employeeId)));
     }
 
     private static AdminUserRespDTO enabledUser(long userId) {

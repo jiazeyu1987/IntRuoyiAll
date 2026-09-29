@@ -65,6 +65,8 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseMaterialGate
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseOrigin;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import com.alibaba.fastjson.JSON;
 
 import java.nio.file.Files;
@@ -82,6 +84,7 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_PASSW
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -95,6 +98,456 @@ import static org.mockito.Mockito.when;
 
 @Import({MesProEdhrReleaseServiceImpl.class, MesProEdhrCandidateResolver.class})
 class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
+
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionEventMapper terminalEventMapper;
+
+    private void terminalAction(boolean withdraw, Long transactionId, String reason) {
+        if (withdraw) {
+            releaseService.withdraw(new MesProEdhrReleaseWithdrawReqVO().setReleaseTransactionId(transactionId)
+                    .setIdempotencyKey("terminal-audit").setWithdrawReason(reason));
+        } else {
+            releaseService.reject(new MesProEdhrReleaseRejectReqVO().setReleaseTransactionId(transactionId)
+                    .setIdempotencyKey("terminal-audit").setRejectReason(reason));
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void terminalReplayReadsCommittedEventDespiteOlderReadSnapshot(boolean withdraw) throws Exception {
+        var batch = insertClosedBatch("TERMINAL-CURRENT-READ");
+        Long id = insertPendingApprovalRelease(batch).getReleaseTransactionId();
+        when(workTaskService.validateReleaseApprovalTask(any(), any())).thenReturn(releaseApprovalTask(id, 7992L));
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            terminalAction(withdraw, id, "正式原因");
+            var event = terminalEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKey(
+                    id, withdraw ? "WITHDRAW" : "REJECT", "terminal-audit");
+            assertNotNull(event);
+            long eventCount = terminalEventMapper.selectCount();
+            long decisionCount = releaseDecisionMapper.selectCount();
+            String persisted = JSON.toJSONString(releaseTransactionMapper.selectById(id));
+            var queryMapper = org.mockito.Mockito.mock(
+                    cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionEventMapper.class,
+                    org.mockito.Mockito.CALLS_REAL_METHODS);
+            // Models RR visibility at the query boundary; does not claim a live MySQL concurrency test.
+            org.mockito.Mockito.doAnswer(invocation -> {
+                com.baomidou.mybatisplus.core.conditions.Wrapper<?> query = invocation.getArgument(0);
+                return query.getSqlSegment().contains("FOR UPDATE") ? event : null;
+            }).when(queryMapper).selectOne(org.mockito.ArgumentMatchers.<com.baomidou.mybatisplus.core.conditions.Wrapper<
+                    cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionEventDO>>any());
+            var target = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(releaseService);
+            org.springframework.test.util.ReflectionTestUtils.setField(target, "releaseTransactionEventMapper", queryMapper);
+            clearInvocations(gxpAuditService, operationAuditService, workTaskService);
+            try {
+                terminalAction(withdraw, id, "正式原因");
+                var conflict = assertThrows(MesReleaseFlowBlockerException.class,
+                        () -> terminalAction(withdraw, id, "改变原因"));
+                assertEquals(MesReleaseFlowBlockerType.IDEMPOTENCY_PAYLOAD_CONFLICT,
+                        conflict.getFailure().getBlockers().get(0).getBlockerType());
+                assertEquals(persisted, JSON.toJSONString(releaseTransactionMapper.selectById(id)));
+                assertEquals(eventCount, terminalEventMapper.selectCount());
+                assertEquals(decisionCount, releaseDecisionMapper.selectCount());
+                verify(gxpAuditService, never()).append(any());
+                verify(operationAuditService, never()).record(any());
+                verify(operationAuditService, never()).recordInCallerTransaction(any());
+                verify(workTaskService, never()).completeReleaseApprovalTask(any(), any(), any(), any());
+                verify(workTaskService, never()).cancelReleaseApprovalTask(any(), any());
+            } finally {
+                org.springframework.test.util.ReflectionTestUtils.setField(target, "releaseTransactionEventMapper", terminalEventMapper);
+            }
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void terminalRealWriterPersistsPresentEnvelopeAndWhitelistedBusinessState(boolean withdraw) {
+        var batch = insertClosedBatch("TERMINAL-V2-CONTRACT");
+        Long id = insertPendingApprovalRelease(batch).getReleaseTransactionId();
+        when(workTaskService.validateReleaseApprovalTask(any(), any())).thenReturn(releaseApprovalTask(id, 7993L));
+        var writer = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImpl();
+        var ledgerMapper = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper.class);
+        var ledger = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO();
+        ledger.setTenantId(1L);
+        ledger.setNextLedgerSequence(1L);
+        when(ledgerMapper.selectByTenantIdForUpdate(1L)).thenReturn(ledger);
+        when(ledgerMapper.updateById(org.mockito.ArgumentMatchers.<cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO>any())).thenReturn(1);
+        var activationMapper = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper.class);
+        var activation = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyActivationDO();
+        activation.setPolicyVersion("TERMINAL-TEST-ONLY");
+        when(activationMapper.selectLatestForUpdate(1L)).thenReturn(activation);
+        var policies = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper.class);
+        var policy = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOperationDO();
+        policy.setPolicyVersion("TERMINAL-TEST-ONLY");
+        policy.setActive(true);
+        policy.setApplicability("GXP");
+        policy.setDomain("MES");
+        policy.setSubjectType("RELEASE_TRANSACTION");
+        policy.setActionType(withdraw ? "WITHDRAW" : "REJECT");
+        policy.setReasonPolicy("REQUIRED");
+        policy.setSignaturePolicy("NONE");
+        policy.setStatePolicy("PRESENT_TO_PRESENT");
+        when(policies.selectByPolicyVersionForUpdate(any(), any(), any())).thenReturn(policy);
+        var events = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper.class);
+        when(events.insert(org.mockito.ArgumentMatchers.<cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO>any()))
+                .thenAnswer(invocation -> { ((cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO) invocation.getArgument(0)).setId(901L); return 1; });
+        var relations = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventRelationMapper.class);
+        when(relations.insert(org.mockito.ArgumentMatchers.<cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventRelationDO>any())).thenReturn(1);
+        org.springframework.test.util.ReflectionTestUtils.setField(writer, "ledgerSequenceMapper", ledgerMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(writer, "policyActivationMapper", activationMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(writer, "policyOperationMapper", policies);
+        org.springframework.test.util.ReflectionTestUtils.setField(writer, "auditEventMapper", events);
+        org.springframework.test.util.ReflectionTestUtils.setField(writer, "eventRelationMapper", relations);
+        org.mockito.Mockito.doAnswer(invocation -> writer.append(invocation.getArgument(0))).when(gxpAuditService).append(any());
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            var actor = new cn.iocoder.yudao.framework.security.core.LoginUser();
+            actor.setId(10001L);
+            actor.setTenantId(1L);
+            actor.setUserType(2);
+            actor.setInfo(java.util.Map.of("username", "terminal-reviewer", "nickname", "放行负责人"));
+            security.when(SecurityFrameworkUtils::getLoginUser).thenReturn(actor);
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            terminalAction(withdraw, id, "正式用户原因");
+        }
+        var capture = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO.class);
+        verify(events).insert(capture.capture());
+        var written = capture.getValue();
+        assertEquals("PRESENT", written.getBeforeState());
+        assertEquals("PRESENT", written.getAfterState());
+        var before = JSON.parseObject(written.getBeforeStateJson());
+        var after = JSON.parseObject(written.getAfterStateJson());
+        assertEquals("PENDING_APPROVAL", before.getString("releaseStatus"));
+        assertEquals(withdraw ? "WITHDRAWN" : "REJECTED", after.getString("releaseStatus"));
+        assertEquals(id, after.getLong("releaseTransactionId"));
+        assertEquals(releaseTransactionMapper.selectById(id).getReleaseDecisionId(), after.getLong("releaseDecisionId"));
+        assertEquals(null, before.getLong("releaseDecisionId"));
+        var allowed = Set.of("releaseTransactionId", "batchExecutionId", "releaseStatus", "version", "releaseDecisionId",
+                "submittedBy", "submittedAt", "approvedBy", "approvedAt", "rejectedBy", "rejectedAt", "rejectReason",
+                "withdrawnBy", "withdrawnAt", "withdrawReason", "finalizationPayloadHash");
+        assertTrue(allowed.containsAll(before.keySet()), "before must not serialize the complete DO");
+        assertTrue(allowed.containsAll(after.keySet()), "after must not serialize the complete DO");
+        assertEquals("USER", written.getReasonSource());
+        assertEquals(null, written.getSignatureRecordId());
+    }
+
+    @Test
+    void terminalPolicyRemainsUnapprovedDraftOutsideRuntimeBundle() throws Exception {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper(new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
+        String yaml = Files.readString(Path.of("../../doc/tasks/20260928-gxp20-review-fixes/gxp-audit-release-terminal-policy.draft.yaml"));
+        var proposal = mapper.readTree(yaml);
+        assertEquals("DRAFT", proposal.path("status").asText());
+        assertTrue(proposal.path("approvalReference").isNull());
+        assertFalse(proposal.path("runtimeLoad").asBoolean());
+        assertEquals(2, proposal.path("operations").size());
+        var loader = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPolicyBundleLoader();
+        var bundle = loader.load();
+        for (var operation : proposal.path("operations")) {
+            assertFalse(bundle.policyNode().path("operations").toString().contains(operation.path("operationId").asText()));
+            assertEquals("NONE", operation.path("signaturePolicy").asText());
+            assertEquals("REQUIRED", operation.path("reasonPolicy").asText());
+        }
+        assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                loader, "load", yaml, bundle.rawSchema()));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void terminalAuditUsesIndependentOperationAndReplayDoesNotAppend(boolean withdraw) {
+        var batch = insertClosedBatch("TERMINAL-AUDIT");
+        var prepared = insertPendingApprovalRelease(batch);
+        Long id = prepared.getReleaseTransactionId();
+        when(workTaskService.validateReleaseApprovalTask(any(), any())).thenReturn(releaseApprovalTask(id, 7991L));
+        clearInvocations(gxpAuditService, operationAuditService);
+        long decisions = releaseDecisionMapper.selectCount();
+        long events = terminalEventMapper.selectCount();
+        var originalTransaction = releaseTransactionMapper.selectById(id);
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            terminalAction(withdraw, id, "退回补充正式资料");
+            String persisted = JSON.toJSONString(releaseTransactionMapper.selectById(id));
+            terminalAction(withdraw, id, "退回补充正式资料");
+            assertEquals(persisted, JSON.toJSONString(releaseTransactionMapper.selectById(id)));
+            var conflict = assertThrows(MesReleaseFlowBlockerException.class,
+                    () -> terminalAction(withdraw, id, "不同原因"));
+            assertEquals(MesReleaseFlowBlockerType.IDEMPOTENCY_PAYLOAD_CONFLICT,
+                    conflict.getFailure().getBlockers().get(0).getBlockerType());
+            assertEquals(persisted, JSON.toJSONString(releaseTransactionMapper.selectById(id)));
+        }
+        assertEquals(decisions + 1, releaseDecisionMapper.selectCount());
+        assertEquals(events + 1, terminalEventMapper.selectCount());
+        var captor = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+        verify(gxpAuditService).append(captor.capture());
+        var audit = captor.getValue();
+        assertEquals(withdraw ? "mes.market-release.withdraw" : "mes.market-release.reject", audit.getOperationId());
+        assertEquals("RELEASE_TRANSACTION:" + id, audit.getSubjectId());
+        assertEquals("PRESENT", audit.getBeforeState().getState());
+        var beforeSnapshot = JSON.parseObject(audit.getBeforeState().getCanonicalJson());
+        assertEquals(originalTransaction.getVersion(), beforeSnapshot.getInteger("version"));
+        assertEquals(originalTransaction.getReleaseDecisionId(), beforeSnapshot.getLong("releaseDecisionId"));
+        assertEquals("PENDING_APPROVAL", beforeSnapshot.getString("releaseStatus"));
+        assertEquals("PRESENT", audit.getAfterState().getState());
+        assertEquals(withdraw ? "WITHDRAWN" : "REJECTED",
+                JSON.parseObject(audit.getAfterState().getCanonicalJson()).getString("releaseStatus"));
+        assertEquals("USER", audit.getReasonSource());
+        assertEquals("退回补充正式资料", audit.getReason());
+        assertEquals(null, audit.getSignatureRecordId());
+        assertTrue(audit.getIdempotencyKey().length() <= 96);
+        assertTrue(audit.getSourceLocator().endsWith(withdraw ? "#finalizeWithdraw" : "#finalizeReject"));
+        assertTrue(audit.getAfterState().getCanonicalJson().contains("releaseDecisionId"));
+        assertEquals(releaseTransactionMapper.selectById(id).getReleaseDecisionId(),
+                JSON.parseObject(audit.getAfterState().getCanonicalJson()).getLong("releaseDecisionId"));
+        verify(operationAuditService).recordInCallerTransaction(any());
+        verify(operationAuditService, never()).record(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void terminalUnifiedFailureRollsBackActualSpecializedAndBusinessWrites(boolean withdraw) {
+        var batch = insertClosedBatch("TERMINAL-ROLLBACK");
+        var prepared = insertPendingApprovalRelease(batch);
+        Long id = prepared.getReleaseTransactionId();
+        var task = releaseApprovalTask(id, null).setBatchExecutionId(batch.getId()).setStatus("PENDING")
+                .setTaskCode("TERMINAL-" + id).setAssigneeUserId(10001L).setActionUrl("/test/terminal");
+        m8WorkTaskMapper.insert(task);
+        when(workTaskService.validateReleaseApprovalTask(any(), any())).thenReturn(task);
+        // Boundary substitute writes the real task table; this is not full WorkTaskService integration.
+        org.mockito.stubbing.Answer<Object> taskWrite = invocation -> {
+            assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+            m8WorkTaskMapper.updateById(new MesProEdhrWorkTaskDO().setId(task.getId())
+                    .setStatus(withdraw ? "CANCELLED" : "COMPLETED"));
+            return null;
+        };
+        org.mockito.Mockito.doAnswer(taskWrite).when(workTaskService).completeReleaseApprovalTask(any(), any(), any(), any());
+        org.mockito.Mockito.doAnswer(taskWrite).when(workTaskService).cancelReleaseApprovalTask(any(), any());
+        m8UseRealSpecializedAudit();
+        long audits = m8AuditMapper.selectCount();
+        long decisions = releaseDecisionMapper.selectCount();
+        long events = terminalEventMapper.selectCount();
+        String before = JSON.toJSONString(releaseTransactionMapper.selectById(id));
+        var reached = new java.util.concurrent.atomic.AtomicBoolean();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            assertEquals(audits + 1, m8AuditMapper.selectCount());
+            assertEquals(decisions + 1, releaseDecisionMapper.selectCount());
+            assertEquals(events + 1, terminalEventMapper.selectCount());
+            assertEquals(withdraw ? "WITHDRAWN" : "REJECTED", releaseTransactionMapper.selectById(id).getReleaseStatus());
+            assertEquals(withdraw ? "CANCELLED" : "COMPLETED", m8WorkTaskMapper.selectById(task.getId()).getStatus());
+            reached.set(true);
+            throw new IllegalStateException("terminal unified audit failure");
+        }).when(gxpAuditService).append(any());
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            var failure = assertThrows(IllegalStateException.class, () -> terminalAction(withdraw, id, "撤销或驳回原因"));
+            assertEquals("terminal unified audit failure", failure.getMessage());
+        }
+        assertTrue(reached.get(), "failure must occur after actual persisted writes");
+        assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+        assertEquals(before, JSON.toJSONString(releaseTransactionMapper.selectById(id)));
+        assertEquals("PENDING", m8WorkTaskMapper.selectById(task.getId()).getStatus());
+        assertEquals(audits, m8AuditMapper.selectCount());
+        assertEquals(decisions, releaseDecisionMapper.selectCount());
+        assertEquals(events, terminalEventMapper.selectCount());
+    }
+
+    @Test
+    void m8PolicyProposalIsNotApprovedOrPackaged() throws Exception {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper(new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
+        String yaml = Files.readString(Path.of("../../doc/tasks/20260928-gxp20-review-fixes/gxp-audit-release-preparation-policy.draft.yaml"));
+        var proposal = mapper.readTree(yaml);
+        assertEquals("DRAFT", proposal.path("status").asText());
+        assertTrue(proposal.path("approvalReference").isNull());
+        assertFalse(proposal.path("runtimeLoad").asBoolean());
+        assertEquals(3, proposal.path("operations").size());
+        var loader = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPolicyBundleLoader();
+        var bundle = loader.load();
+        for (var operation : proposal.path("operations")) {
+            assertFalse(bundle.policyNode().path("operations").toString().contains(operation.path("operationId").asText()));
+        }
+        assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                loader, "load", yaml, bundle.rawSchema()));
+    }
+
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper m8AuditMapper;
+    @Resource
+    private org.springframework.transaction.PlatformTransactionManager m8TransactionManager;
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper m8WorkTaskMapper;
+
+    private void m8UseRealSpecializedAudit() {
+        var target = new MesProEdhrOperationAuditServiceImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(target, "auditEventMapper", m8AuditMapper);
+        var factory = new org.springframework.aop.framework.ProxyFactory(target);
+        factory.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(m8TransactionManager,
+                new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        var real = (MesProEdhrOperationAuditService) factory.getProxy();
+        when(operationAuditService.recordInCallerTransaction(any())).thenAnswer(i -> real.recordInCallerTransaction(i.getArgument(0)));
+        when(operationAuditService.record(any())).thenAnswer(i -> real.record(i.getArgument(0)));
+    }
+
+    @Test
+    void m8MissingPolicyRollsBackRealSpecializedAuditAndBusiness() {
+        var batch = insertClosedBatch("M8-MISSING-POLICY");
+        m8UseRealSpecializedAudit();
+        long auditCount = m8AuditMapper.selectCount();
+        var writer = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImpl();
+        var policies = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(writer, "policyOperationMapper", policies);
+        var ledgerMapper = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper.class);
+        var watermark = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO();
+        watermark.setTenantId(1L);
+        watermark.setNextLedgerSequence(1L);
+        when(ledgerMapper.selectByTenantIdForUpdate(1L)).thenReturn(watermark);
+        var activationMapper = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper.class);
+        var activation = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyActivationDO();
+        activation.setPolicyVersion("M8-MISSING-OPERATION");
+        when(activationMapper.selectLatestForUpdate(1L)).thenReturn(activation);
+        org.springframework.test.util.ReflectionTestUtils.setField(writer, "ledgerSequenceMapper", ledgerMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(writer, "policyActivationMapper", activationMapper);
+        org.mockito.Mockito.doAnswer(i -> {
+            assertEquals(auditCount + 1, m8AuditMapper.selectCount());
+            return writer.append(i.getArgument(0));
+        }).when(gxpAuditService).append(any());
+        var failure = assertThrows(ServiceException.class, () -> precheckAsUser(10001L, batch.getId()));
+        assertEquals(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.GXP_AUDIT_POLICY_NOT_FOUND.getCode(), failure.getCode());
+        assertEquals(auditCount, m8AuditMapper.selectCount());
+        assertEquals(null, releaseTransactionMapper.selectByBatchExecutionId(batch.getId()));
+        verify(ledgerMapper).selectByTenantIdForUpdate(1L);
+        verify(activationMapper).selectLatestForUpdate(1L);
+        verify(policies).selectByPolicyVersionForUpdate(1L, "M8-MISSING-OPERATION", "mes.market-release.precheck-create");
+    }
+
+    @Test
+    void m8SpecializedAuditFailureRollsBackPrecheckBeforeUnifiedAppend() {
+        var batch = insertClosedBatch("M8-SPECIAL-FAIL");
+        doThrow(new IllegalStateException("special audit failed")).when(operationAuditService).recordInCallerTransaction(any());
+        assertThrows(IllegalStateException.class, () -> precheckAsUser(10001L, batch.getId()));
+        assertEquals(null, releaseTransactionMapper.selectByBatchExecutionId(batch.getId()));
+        verify(gxpAuditService, never()).append(any());
+    }
+
+    @Test
+    void m8PrecheckAppendsUnifiedAuditAndUsesCallerTransaction() {
+        var batch = insertClosedBatch("M8-PRECHECK");
+        var result = precheckAsUser(10001L, batch.getId());
+        var captor = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+        verify(gxpAuditService).append(captor.capture());
+        var audit = captor.getValue();
+        assertEquals("mes.market-release.precheck-create", audit.getOperationId());
+        assertTrue(audit.getIdempotencyKey().length() <= 96);
+        assertEquals("ABSENT", audit.getBeforeState().getState());
+        assertEquals(result.getReleaseStatus(), audit.getAfterState().getState());
+        assertTrue(audit.getAfterState().getCanonicalJson().contains("checkItems"));
+        verify(operationAuditService).recordInCallerTransaction(any());
+        verify(operationAuditService, never()).record(any());
+    }
+
+    @Test
+    void m8PrecheckAuditFailureRollsBackPersistedTransactionAndChecks() {
+        var batch = insertClosedBatch("M8-ROLLBACK");
+        long checksBefore = releaseCheckItemMapper.selectCount();
+        doThrow(new IllegalStateException("M8 audit failure")).when(gxpAuditService).append(any());
+        assertThrows(IllegalStateException.class, () -> precheckAsUser(10001L, batch.getId()));
+        assertEquals(null, releaseTransactionMapper.selectByBatchExecutionId(batch.getId()));
+        assertEquals(checksBefore, releaseCheckItemMapper.selectCount());
+    }
+
+    @Test
+    void m8RepeatedPrecheckFreezesOldChecksAndUsesUpdateEvent() {
+        var batch = insertClosedBatch("M8-RECHECK");
+        var first = precheckAsUser(10001L, batch.getId());
+        var oldChecks = releaseCheckItemMapper.selectList(new LambdaQueryWrapperX<MesProEdhrReleaseCheckItemDO>()
+                .eq(MesProEdhrReleaseCheckItemDO::getReleaseTransactionId, first.getReleaseTransactionId()));
+        clearInvocations(gxpAuditService);
+        precheckAsUser(10001L, batch.getId());
+        var captor = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+        verify(gxpAuditService).append(captor.capture());
+        var audit = captor.getValue();
+        assertEquals("mes.market-release.precheck", audit.getOperationId());
+        assertEquals(first.getReleaseStatus(), audit.getBeforeState().getState());
+        var before = JSON.parseObject(audit.getBeforeState().getCanonicalJson()).getJSONArray("checkItems");
+        assertEquals(oldChecks.size(), before.size());
+        assertEquals("OPEN", before.getJSONObject(0).getString("itemStatus"));
+        assertTrue(audit.getAfterState().getCanonicalJson().contains("SUPERSEDED"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void m8SubmitAuditFailureRollsBackState(boolean delegated) {
+        var batch = insertClosedBatch("M8-SUBMIT-ROLLBACK");
+        insertRouteReleaseOwnerRule(batch.getRouteId(), 10001L);
+        var task = insertApprovedOrdinaryTask(batch.getId(), 7351L);
+        insertCompletedExecution(task.getExecutionId(), true);
+        var precheck = precheckAsUser(10001L, batch.getId());
+        m8UseRealSpecializedAudit();
+        long auditCount = m8AuditMapper.selectCount();
+        doThrow(new IllegalStateException("M8 audit failure")).when(gxpAuditService).append(any());
+        long tasksBefore = m8WorkTaskMapper.selectCount();
+        org.mockito.Mockito.doAnswer(i -> {
+            assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+            var inserted = releaseApprovalTask(precheck.getReleaseTransactionId(), null)
+                    .setBatchExecutionId(batch.getId()).setStatus("PENDING")
+                    .setTaskCode("M8-ROLLBACK-" + batch.getId()).setAssigneeUserId(10001L)
+                    .setActionUrl("/test/m8-release");
+            m8WorkTaskMapper.insert(inserted);
+            assertEquals(tasksBefore + 1, m8WorkTaskMapper.selectCount());
+            return inserted;
+        }).when(workTaskService).createReleaseApprovalTaskAfterSubmit(any(), any());
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            assertThrows(IllegalStateException.class, () -> {
+                if (delegated) {
+                    releaseService.submitForApproval(new MesProEdhrReleaseSubmitForApprovalCommand()
+                            .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                            .setIdempotencyKey("M8-rollback").setSubmitReason("提交审核"));
+                } else {
+                    releaseService.submit(new MesProEdhrReleaseSubmitReqVO()
+                            .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                            .setIdempotencyKey("M8-rollback").setPassword("test-secret").setSubmitReason("提交审核"));
+                }
+            });
+        }
+        var persisted = releaseTransactionMapper.selectById(precheck.getReleaseTransactionId());
+        assertEquals("PRECHECK_PASSED", persisted.getReleaseStatus());
+        assertEquals(null, persisted.getSubmittedAt());
+        assertEquals(null, persisted.getSubmitIdempotencyKey());
+        assertEquals(auditCount, m8AuditMapper.selectCount());
+        assertEquals(tasksBefore, m8WorkTaskMapper.selectCount());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void m8SubmitAppendsUnifiedAuditAndUsesCallerTransaction(boolean delegated) {
+        var batch = insertClosedBatch("M8-SUBMIT");
+        insertRouteReleaseOwnerRule(batch.getRouteId(), 10001L);
+        var task = insertApprovedOrdinaryTask(batch.getId(), 7351L);
+        insertCompletedExecution(task.getExecutionId(), true);
+        var precheck = precheckAsUser(10001L, batch.getId());
+        clearInvocations(gxpAuditService, operationAuditService);
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            for (int attempt = 0; attempt < 2; attempt++) {
+            if (delegated) {
+                releaseService.submitForApproval(new MesProEdhrReleaseSubmitForApprovalCommand()
+                        .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                        .setIdempotencyKey("M8-submit").setSubmitReason("提交审核"));
+            } else {
+                releaseService.submit(new MesProEdhrReleaseSubmitReqVO()
+                        .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                        .setIdempotencyKey("M8-submit").setPassword("test-secret").setSubmitReason("提交审核"));
+            }
+            }
+        }
+        var captor = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+        verify(gxpAuditService).append(captor.capture());
+        assertEquals("mes.market-release.submit", captor.getValue().getOperationId());
+        assertEquals("PRECHECK_PASSED", captor.getValue().getBeforeState().getState());
+        assertEquals("PENDING_APPROVAL", captor.getValue().getAfterState().getState());
+        assertTrue(captor.getValue().getSourceLocator().endsWith(delegated ? "#submitForApproval" : "#submit"));
+        assertEquals(null, captor.getValue().getSignatureRecordId());
+        verify(operationAuditService).recordInCallerTransaction(any());
+        verify(operationAuditService, never()).record(any());
+        verify(workTaskService).createReleaseApprovalTaskAfterSubmit(any(), any());
+    }
 
     @Resource
     private MesProEdhrReleaseService releaseService;
@@ -152,6 +605,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     @MockitoBean
     private MesProEdhrBatchTraceabilityService batchTraceabilityService;
+    @MockitoBean
+    private GxpAuditService gxpAuditService;
     @MockitoBean
     private MesProBatchRecordExecutionSignatureService executionSignatureService;
 
@@ -501,7 +956,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
 
         ArgumentCaptor<MesProEdhrOperationAuditCommand> captor =
                 ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
-        verify(operationAuditService).record(captor.capture());
+        verify(operationAuditService).recordInCallerTransaction(captor.capture());
         MesProEdhrOperationAuditCommand audit = captor.getValue();
         assertEquals("submit-terminal-audit", audit.getRequestId());
         assertEquals("RELEASE_TRANSACTION", audit.getObjectType());
@@ -615,7 +1070,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7451L);
         insertCompletedExecution(task.getExecutionId(), true);
         MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
-        clearInvocations(operationAuditService, workTaskService);
+        clearInvocations(operationAuditService, workTaskService, gxpAuditService);
 
         MesProEdhrReleaseRespVO rejected;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -634,7 +1089,15 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         verify(workTaskService, never()).completeReleaseApprovalTask(any(), any(), any(), any());
         ArgumentCaptor<MesProEdhrOperationAuditCommand> captor =
                 ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
-        verify(operationAuditService).record(captor.capture());
+        verify(operationAuditService).recordInCallerTransaction(captor.capture());
+        verify(operationAuditService, never()).record(any());
+        var unified = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+        verify(gxpAuditService).append(unified.capture());
+        assertEquals("mes.market-release.reject", unified.getValue().getOperationId());
+        assertEquals("PRESENT", unified.getValue().getBeforeState().getState());
+        assertEquals("PRESENT", unified.getValue().getAfterState().getState());
+        assertEquals("PRECHECK_PASSED", JSON.parseObject(unified.getValue().getBeforeState().getCanonicalJson()).getString("releaseStatus"));
+        assertEquals("REJECTED", JSON.parseObject(unified.getValue().getAfterState().getCanonicalJson()).getString("releaseStatus"));
         MesProEdhrOperationAuditCommand audit = captor.getValue();
         assertEquals("reject-owner-return", audit.getRequestId());
         assertEquals(MesProEdhrReleaseServiceImpl.EVENT_TYPE_REJECT, audit.getOperationType());
@@ -748,7 +1211,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals(10001L, withdrawn.getWithdrawnBy());
         assertEquals("撤回待审批申请", withdrawn.getWithdrawReason());
         verify(workTaskService).cancelReleaseApprovalTask(precheck.getReleaseTransactionId(), "撤回待审批申请");
-        verify(operationAuditService).record(any());
+        verify(operationAuditService).recordInCallerTransaction(any());
+        verify(operationAuditService, never()).record(any());
     }
 
     @Test
@@ -1100,7 +1564,16 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void precheckRestartsRejectedReleaseTransactionByBatchExecutionId() {
+    void precheckCreatesNewRoundAfterRejectionAndReusesThatRoundWithoutChangingHistory() {
+        assertRejectedRoundResubmissionPreservesHistory(false);
+    }
+
+    @Test
+    void precheckWithExplicitRejectedIdCreatesNewRoundAndPreservesHistoryOnReplay() {
+        assertRejectedRoundResubmissionPreservesHistory(true);
+    }
+
+    private void assertRejectedRoundResubmissionPreservesHistory(boolean explicitRejectedId) {
         MesProEdhrBatchExecutionDO batch = insertClosedBatch("E2E-REL-RETURNED-REJECTED");
         batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
                 .setId(batch.getId())
@@ -1141,13 +1614,35 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .version(1)
                 .build());
 
-        MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
+        String rejectedRoundBefore = JSON.toJSONString(releaseTransactionMapper.selectById(transactionId));
+        MesProEdhrReleaseRespVO result = precheckRejectedRoundAsUser(batch.getId(), transactionId, explicitRejectedId);
 
-        assertEquals(transactionId, result.getReleaseTransactionId());
+        assertNotEquals(transactionId, result.getReleaseTransactionId());
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, result.getReleaseStatus());
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.getDhrStatus());
         assertEquals(0, result.getFailedCheckCount());
         assertEquals(0, result.getBlockingCheckCount());
+        assertEquals(rejectedRoundBefore, JSON.toJSONString(releaseTransactionMapper.selectById(transactionId)),
+                "rejected round identity, decision, actor, timestamps and version must remain unchanged");
+        assertEquals(2, releaseTransactionMapper.selectListByBatchExecutionIds(List.of(batch.getId())).size());
+
+        MesProEdhrReleaseRespVO replay = precheckRejectedRoundAsUser(batch.getId(), transactionId, explicitRejectedId);
+        assertEquals(result.getReleaseTransactionId(), replay.getReleaseTransactionId());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, replay.getReleaseStatus());
+        assertEquals(2, releaseTransactionMapper.selectListByBatchExecutionIds(List.of(batch.getId())).size(),
+                "repeating precheck must not create another release round");
+        assertEquals(rejectedRoundBefore, JSON.toJSONString(releaseTransactionMapper.selectById(transactionId)));
+    }
+
+    private MesProEdhrReleaseRespVO precheckRejectedRoundAsUser(
+            Long batchId, Long rejectedId, boolean explicitRejectedId) {
+        if (!explicitRejectedId) {
+            return precheckAsUser(10001L, batchId);
+        }
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            return releaseService.precheck(new MesProEdhrReleasePrecheckReqVO().setReleaseTransactionId(rejectedId));
+        }
     }
 
     @Test

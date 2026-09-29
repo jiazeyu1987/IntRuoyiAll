@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalization
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationCommand;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerApprovalService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -46,6 +47,7 @@ class MesProEdhrNcrReleaseGateTest {
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(release, "gxpAuditService", mock(GxpAuditService.class));
         ReflectionTestUtils.setField(release, "releaseTransactionMapper", transactions);
         ReflectionTestUtils.setField(release, "batchExecutionMapper", batches);
         ReflectionTestUtils.setField(release, "nonconformanceReviewService", reviews);

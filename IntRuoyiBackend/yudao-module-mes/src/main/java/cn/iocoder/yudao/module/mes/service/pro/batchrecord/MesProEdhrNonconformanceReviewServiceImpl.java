@@ -2,6 +2,15 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand;
+import cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO;
+import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
@@ -61,6 +70,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS;
@@ -127,6 +137,14 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     private MesTeamLeaderActiveOrderDetailService activeOrderDetailService;
     @Resource
     private FileMapper fileMapper;
+    @Resource
+    private GxpAuditService unifiedAudit;
+    @Resource
+    private cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper auditReceiptMapper;
+    @Resource
+    private ElectronicSignatureRecordMapper signatureRecordMapper;
+    @Resource
+    private cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService signatureQueryService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -137,6 +155,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         }
         String sourceType = requireSourceType(reqVO.getSourceType());
         String signaturePassword = requireText(reqVO.getSignaturePassword());
+        unifiedAudit.acquireLedgerLock();
         MesProEdhrBatchExecutionDO batch = null;
         MesProcessPoolActiveOrderReleaseApplicationDO application = null;
         MesProProcessPoolEventDO pqcSubmissionEvent = null;
@@ -204,6 +223,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         }
         recordReviewOperation("NONCONFORMANCE_REVIEW_CREATE", "创建不合格评审", review, activeOrderId,
                 null, now, signatureId, null, null, null, null, "电子签名#" + signatureId, null);
+        appendCreationAudit(review, signatureId, false, createAggregateHash);
         return toResp(review);
     }
 
@@ -310,6 +330,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     public MesProEdhrNonconformanceReviewRespVO rejectBatch(MesProEdhrBatchExecutionRejectReqVO reqVO) {
         String reason = requireText(reqVO.getNonconformanceReason());
         String signaturePassword = requireText(reqVO.getSignaturePassword());
+        unifiedAudit.acquireLedgerLock();
         MesProEdhrBatchExecutionDO batch = requireBatchExecutionForUpdate(reqVO.getBatchExecutionId());
         validateBatchCanStartReview(batch);
         Long releaseOwnerUserId = SecurityFrameworkUtils.getLoginUserId();
@@ -321,6 +342,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         MesProEdhrNonconformanceReviewDO review = createBatchReview(
                 batch, SOURCE_TYPE_PQC_RELEASE, null, reason, "上市放行负责人电子签名#" + signatureId,
                 signatureId);
+        appendCreationAudit(review, signatureId, true, aggregateHash);
         return toResp(review);
     }
 
@@ -334,6 +356,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         Long reviewMaterialFileId = reviewMaterials.primaryFileId();
         String reviewOpinion = requireText(reqVO.getReviewOpinion());
         String signaturePassword = requireText(reqVO.getSignaturePassword());
+        unifiedAudit.acquireLedgerLock();
         MesProEdhrNonconformanceReviewDO review = reviewMapper.selectByIdForUpdate(reqVO.getId());
         if (review == null) {
             throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_NOT_EXISTS);
@@ -374,10 +397,14 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 : DISPOSITION_REWORK.equals(disposition)
                 ? MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED : review.getPreviousBatchStatus();
         Long qaUserId = SecurityFrameworkUtils.getLoginUserId();
+        GxpAuditStateEnvelope auditBefore = dispositionAuditState(review, batch == null ? null : batch.getStatus(),
+                workOrder == null ? null : workOrder.getTemporaryFrozen(), application, null, null);
         String qaDispositionAggregateHash = buildQaDispositionAggregateHash(review, disposition, reviewMaterialUrl,
                 reviewMaterialFileId, reviewMaterials.materialsJson(), reviewOpinion, qaUserId);
         Long qaDispositionSignatureId = recordQaDispositionSignature(qaUserId, review.getId(),
                 signaturePassword, reviewOpinion, qaDispositionAggregateHash);
+        ElectronicSignatureRecordDO auditSignature = requireDispositionAuditSignature(
+                qaDispositionSignatureId, qaUserId, review.getId(), reviewOpinion, qaDispositionAggregateHash);
         String qaSignature = "电子签名#" + qaDispositionSignatureId;
         String qaSignatureSnapshotJson = buildQaSignatureSnapshotJson(review, qaUserId, qaDispositionSignatureId,
                 disposition, now, qaDispositionAggregateHash);
@@ -396,14 +423,20 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 .setUnfrozenAt(DISPOSITION_VOID.equals(disposition) ? null : now)
                 .setVoidedAt(DISPOSITION_VOID.equals(disposition) ? now : null);
         update.setTraceSnapshotJson(buildTraceSnapshotJson(review, update, nextBatchStatus, qaSignatureSnapshotJson));
-        reviewMapper.updateById(update);
-        if (batch != null) {
-            batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
-                    .setId(batch.getId())
-                    .setStatus(nextBatchStatus));
+        if (reviewMapper.updateById(update) != 1) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
+        if (batch != null) {
+            if (batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                    .setId(batch.getId())
+                    .setStatus(nextBatchStatus)) != 1) {
+                throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+            }
+        }
+        Boolean resultingFreeze = workOrder == null ? null
+                : recomputeWorkOrderTemporaryFreeze(workOrder, review, disposition, now);
         if (workOrder != null) {
-            requireWorkOrderUpdate(workOrder.getId(), recomputeWorkOrderTemporaryFreeze(workOrder, review, disposition, now));
+            requireWorkOrderUpdate(workOrder.getId(), resultingFreeze);
         }
         if (application != null && (DISPOSITION_REWORK.equals(disposition) || DISPOSITION_VOID.equals(disposition))) {
             MesProEdhrWorkTaskDO task = requirePqcTaskForUpdate(application);
@@ -421,13 +454,224 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             }
             closeManagerReleaseForNonconformance(application, decision, qaUserId, now);
         }
+        Long reworkActiveOrderId = null;
         if (DISPOSITION_REWORK.equals(disposition)) {
-            reworkCycleService.start(activeOrderId, review.getWorkOrderId(), review.getId(), now);
+            reworkActiveOrderId = reworkCycleService.start(activeOrderId, review.getWorkOrderId(), review.getId(), now);
         }
         recordReviewOperation("NONCONFORMANCE_REVIEW_DISPOSE", disposeActionName(disposition), review, activeOrderId,
                 disposition, now, qaDispositionSignatureId, reviewMaterialUrl, reviewMaterialFileId,
                 reviewMaterials.materialsJson(), reviewOpinion, qaSignature, qaUserId);
+        // Build after-state from the checked writes, not from a potentially stale ordinary read.
+        MesProEdhrNonconformanceReviewDO auditAfterReview = BeanUtils.toBean(review, MesProEdhrNonconformanceReviewDO.class);
+        auditAfterReview.setActiveOrderId(activeOrderId).setReviewStatus(update.getReviewStatus())
+                .setDisposition(update.getDisposition()).setReviewOpinion(update.getReviewOpinion())
+                .setReviewMaterialsJson(update.getReviewMaterialsJson());
+        appendDispositionAudit(auditBefore, dispositionAuditState(auditAfterReview, nextBatchStatus,
+                resultingFreeze, application, reworkActiveOrderId, auditSignature),
+                auditAfterReview, application, reworkActiveOrderId, auditSignature);
         return toResp(reviewMapper.selectById(review.getId()));
+    }
+
+    private ElectronicSignatureRecordDO requireDispositionAuditSignature(
+            Long signatureId, Long actorId, Long reviewId, String reason, String aggregateHash) {
+        String action = MesProBatchRecordExecutionSignatureService.ACTION_QA_DISPOSITION;
+        String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, action,
+                null, null, null, null, null, null, null, "EDHR_NONCONFORMANCE_REVIEW", reviewId,
+                "eDHR不合格评审处置", action, null, null, aggregateHash, null);
+        ElectronicSignatureRecordDO record = signatureId == null ? null : signatureRecordMapper.selectById(signatureId);
+        var expected = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(
+                actorId, "MES", action, "MES_BATCH_RECORD", subject,
+                MesBatchRecordSignatureSubjectAdapter.subjectVersion(subject), reason));
+        if (actorId == null || record == null || !Objects.equals(signatureId, record.getId())
+                || !Objects.equals(TenantContextHolder.getRequiredTenantId(), record.getTenantId())
+                || !Objects.equals(actorId, record.getActorId()) || !"MES".equals(record.getModuleCode())
+                || !action.equals(record.getActionCode()) || !"MES_BATCH_RECORD".equals(record.getSubjectType())
+                || !subject.equals(record.getSubjectId()) || !Objects.equals(expected.subjectVersion(), record.getSubjectVersion())
+                || !Objects.equals(reason, record.getReason()) || !"VALID".equals(record.getVerificationStatus())
+                || StrUtil.isBlank(record.getCanonicalContentJson()) || StrUtil.isBlank(record.getContentHash())
+                || !JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(record.getCanonicalContentJson()))) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        // Native JSON storage may change formatting; use the signature kernel's canonical verification protocol.
+        var verification = signatureQueryService.verifyEvidence(signatureId);
+        if (verification == null || !Objects.equals(signatureId, verification.signatureId())
+                || !"VALID".equals(verification.verificationStatus())
+                || !Objects.equals(record.getContentHash(), verification.storedContentHash())
+                || !Objects.equals(record.getContentHash(), verification.calculatedContentHash())
+                || StrUtil.isBlank(record.getEvidenceHash())
+                || !Objects.equals(record.getEvidenceHash(), verification.storedEvidenceHash())
+                || !Objects.equals(record.getEvidenceHash(), verification.calculatedEvidenceHash())) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        return record;
+    }
+
+    private GxpAuditStateEnvelope dispositionAuditState(MesProEdhrNonconformanceReviewDO review,
+            Integer batchStatus, Boolean temporaryFrozen,
+            MesProcessPoolActiveOrderReleaseApplicationDO application, Long reworkActiveOrderId,
+            ElectronicSignatureRecordDO signature) {
+        Map<String, Object> data = new TreeMap<>();
+        data.put("reviewId", auditId(review.getId()));
+        data.put("sourceType", review.getSourceType());
+        data.put("sourceId", auditId(review.getSourceId()));
+        data.put("activeOrderId", auditId(review.getActiveOrderId()));
+        data.put("batchExecutionId", auditId(review.getBatchExecutionId()));
+        data.put("batchStatus", batchStatus == null ? null : batchStatus.toString());
+        data.put("workOrderId", auditId(review.getWorkOrderId()));
+        data.put("previousWorkOrderTemporaryFrozen", review.getPreviousWorkOrderTemporaryFrozen());
+        data.put("temporaryFrozen", temporaryFrozen);
+        data.put("reviewStatus", review.getReviewStatus());
+        data.put("disposition", review.getDisposition());
+        data.put("nonconformanceReason", review.getNonconformanceReason());
+        data.put("reviewOpinion", review.getReviewOpinion());
+        List<Map<String, Object>> materials = new ArrayList<>();
+        if (StrUtil.isNotBlank(review.getReviewMaterialsJson())) {
+            var source = JSON.parseObject(review.getReviewMaterialsJson()).getJSONArray("activeMaterials");
+            if (source == null) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+            }
+            for (int i = 0; i < source.size(); i++) {
+                JSONObject material = source.getJSONObject(i);
+                Map<String, Object> item = new TreeMap<>();
+                item.put("fileId", material.getString("fileId"));
+                item.put("configId", material.getString("configId"));
+                item.put("fileName", material.getString("fileName"));
+                item.put("path", material.getString("path"));
+                // infra_file has no persisted content digest. Do not label metadata hashes as file hashes.
+                item.put("sha256", null);
+                item.put("hashAvailability", "NOT_RECORDED_BY_FILE_SOURCE");
+                materials.add(item);
+            }
+        }
+        data.put("materials", materials);
+        data.put("signatureRecordId", signature == null ? null : auditId(signature.getId()));
+        data.put("signatureContentHash", signature == null ? null : signature.getContentHash());
+        data.put("applicationId", application == null ? null : auditId(application.getId()));
+        data.put("reworkActiveOrderId", auditId(reworkActiveOrderId));
+        // Tree nodes preserve explicit nulls despite the application's NON_NULL mapper configuration.
+        String canonical = JsonUtils.toJsonString(JsonUtils.parseTree(JSON.toJSONString(data,
+                com.alibaba.fastjson.serializer.SerializerFeature.WriteMapNullValue)));
+        return GxpAuditStateEnvelope.builder().state("PRESENT")
+                .objectVersion("sha256:" + DigestUtil.sha256Hex(canonical)).canonicalJson(canonical).build();
+    }
+
+    private void appendDispositionAudit(GxpAuditStateEnvelope before, GxpAuditStateEnvelope after,
+            MesProEdhrNonconformanceReviewDO review, MesProcessPoolActiveOrderReleaseApplicationDO application,
+            Long reworkActiveOrderId, ElectronicSignatureRecordDO signature) {
+        String operation = "mes.nonconformance." + (DISPOSITION_CONCESSION_RELEASE.equals(review.getDisposition())
+                ? "concession" : review.getDisposition());
+        Map<String, Object> identity = new TreeMap<>();
+        identity.put("tenantId", TenantContextHolder.getRequiredTenantId().toString());
+        identity.put("operationId", operation);
+        identity.put("identity", List.of(auditId(review.getId()), review.getDisposition()));
+        List<GxpAuditRelation> links = new ArrayList<>();
+        links.add(new GxpAuditRelation("SUBJECT", "NONCONFORMANCE_REVIEW", auditId(review.getId()), null, null));
+        links.add(new GxpAuditRelation("AFFECTED", "ACTIVE_ORDER", auditId(review.getActiveOrderId()), null, null));
+        links.add(new GxpAuditRelation("AFFECTED", "WORK_ORDER", auditId(review.getWorkOrderId()), null, null));
+        if (review.getBatchExecutionId() != null) {
+            links.add(new GxpAuditRelation("AFFECTED", "BATCH_EXECUTION", auditId(review.getBatchExecutionId()), null, null));
+        }
+        if (application != null) {
+            links.add(new GxpAuditRelation("AFFECTED", "RELEASE_APPLICATION", auditId(application.getId()), null, null));
+            if (!DISPOSITION_CONCESSION_RELEASE.equals(review.getDisposition())) {
+                addDispositionRelation(links, "WORK_TASK", application.getPqcReleaseWorkTaskId());
+                addDispositionRelation(links, "WORK_TASK", application.getReleaseApprovalWorkTaskId());
+                addDispositionRelation(links, "RELEASE_TRANSACTION", application.getReleaseTransactionId());
+            }
+        }
+        if (reworkActiveOrderId != null) {
+            links.add(new GxpAuditRelation("REWORK_CYCLE", "ACTIVE_ORDER", auditId(reworkActiveOrderId), null, null));
+        }
+        links.add(new GxpAuditRelation("SIGNATURE", "ELECTRONIC_SIGNATURE", auditId(signature.getId()),
+                signature.getSubjectVersion(), signature.getContentHash()));
+        unifiedAudit.append(GxpAuditCommand.builder().eventSchemaVersion(2).operationId(operation)
+                .subjectId(auditId(review.getId())).subjectVersion(after.getObjectVersion())
+                .reason(review.getReviewOpinion()).reasonSource("USER").resultStatus("SUCCESS")
+                .beforeState(before).afterState(after)
+                .idempotencyKey("GXP2:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(identity)))
+                .sourceType("SERVICE_METHOD").sourceLocator("MesProEdhrNonconformanceReviewServiceImpl#dispose")
+                .signatureRecordId(auditId(signature.getId())).signatureContentHash(signature.getContentHash())
+                .links(links).evidences(List.of(new GxpAuditEvidence("SIGNATURE", auditId(signature.getId()),
+                        signature.getSubjectVersion(), signature.getContentHash(), "QA_DISPOSITION"))).build());
+    }
+
+    private void appendCreationAudit(MesProEdhrNonconformanceReviewDO review, Long signatureId,
+                                     boolean batchRejection, String aggregateHash) {
+        String action = batchRejection ? "NONCONFORMANCE_REJECT" : "NONCONFORMANCE_REVIEW_CREATE";
+        String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(
+                batchRejection ? review.getBatchExecutionId() : 0L, action,
+                null, null, null, null, null, null, null,
+                batchRejection ? "EDHR_BATCH" : "EDHR_NONCONFORMANCE_REVIEW",
+                batchRejection ? review.getBatchExecutionId() : review.getId(),
+                batchRejection ? "eDHR不合格评审发起" : "eDHR不合格评审创建", action,
+                null, null, aggregateHash, null);
+        ElectronicSignatureRecordDO signature = signatureId == null ? null : signatureRecordMapper.selectById(signatureId);
+        if (signature == null || !Objects.equals(signature.getId(), signatureId)
+                || !Objects.equals(signature.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(signature.getActorId(), SecurityFrameworkUtils.getLoginUserId())
+                || !Objects.equals(signature.getModuleCode(), "MES")
+                || !Objects.equals(signature.getActionCode(), action)
+                || !Objects.equals(signature.getSubjectType(), "MES_BATCH_RECORD")
+                || !Objects.equals(signature.getSubjectId(), subject)
+                || !Objects.equals(signature.getSubjectVersion(), MesBatchRecordSignatureSubjectAdapter.subjectVersion(subject))
+                || !Objects.equals(signature.getReason(), review.getNonconformanceReason())
+                || !Objects.equals(signature.getVerificationStatus(), "VALID")
+                || StrUtil.isBlank(signature.getContentHash())) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        var expected = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(
+                new cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand(
+                        signature.getActorId(), "MES", action, "MES_BATCH_RECORD", subject,
+                        signature.getSubjectVersion(), review.getNonconformanceReason()));
+        if (!Objects.equals(JsonUtils.parseTree(signature.getCanonicalContentJson()),
+                JsonUtils.parseTree(expected.canonicalContentJson()))) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        var verification = signatureQueryService.verifyEvidence(signatureId);
+        if (verification == null || !Objects.equals(verification.signatureId(), signatureId)
+                || !"VALID".equals(verification.verificationStatus())
+                || !Objects.equals(signature.getContentHash(), verification.storedContentHash())
+                || !Objects.equals(signature.getContentHash(), verification.calculatedContentHash())
+                || !Objects.equals(verification.storedEvidenceHash(), verification.calculatedEvidenceHash())) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        GxpAuditStateEnvelope after = dispositionAuditState(review,
+                review.getBatchExecutionId() == null ? null : MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN,
+                true, null, null, signature);
+        Map<String, Object> identity = new TreeMap<>();
+        identity.put("tenantId", TenantContextHolder.getRequiredTenantId().toString());
+        identity.put("operationId", "mes.nonconformance.create");
+        identity.put("identity", List.of(auditId(review.getId())));
+        List<GxpAuditRelation> links = new ArrayList<>();
+        links.add(new GxpAuditRelation("SUBJECT", "NONCONFORMANCE_REVIEW", auditId(review.getId()), null, null));
+        addDispositionRelation(links, "ACTIVE_ORDER", review.getActiveOrderId());
+        addDispositionRelation(links, "WORK_ORDER", review.getWorkOrderId());
+        addDispositionRelation(links, "BATCH_EXECUTION", review.getBatchExecutionId());
+        if (SOURCE_TYPE_PQC_RELEASE.equals(review.getSourceType())) {
+            addDispositionRelation(links, "RELEASE_APPLICATION", review.getSourceId());
+        }
+        links.add(new GxpAuditRelation("SIGNATURE", "ELECTRONIC_SIGNATURE", auditId(signatureId),
+                signature.getSubjectVersion(), signature.getContentHash()));
+        unifiedAudit.append(GxpAuditCommand.builder().eventSchemaVersion(2).operationId("mes.nonconformance.create")
+                .subjectId(auditId(review.getId())).subjectVersion(after.getObjectVersion())
+                .reason(review.getNonconformanceReason()).reasonSource("USER").resultStatus("SUCCESS")
+                .beforeState(GxpAuditStateEnvelope.builder().state("ABSENT").canonicalJson("{}").build()).afterState(after)
+                .idempotencyKey("GXP2:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(identity)))
+                .sourceType("SERVICE_METHOD").sourceLocator("MesProEdhrNonconformanceReviewServiceImpl#"
+                        + (batchRejection ? "rejectBatch" : "create"))
+                .signatureRecordId(auditId(signatureId)).signatureContentHash(signature.getContentHash())
+                .links(links).evidences(List.of(new GxpAuditEvidence("SIGNATURE", auditId(signatureId),
+                        signature.getSubjectVersion(), signature.getContentHash(), action))).build());
+    }
+
+    private static void addDispositionRelation(List<GxpAuditRelation> links, String type, Long id) {
+        if (id != null) {
+            links.add(new GxpAuditRelation("AFFECTED", type, auditId(id), null, null));
+        }
+    }
+
+    private static String auditId(Long id) {
+        return id == null ? null : id.toString();
     }
 
     private void closeManagerReleaseForNonconformance(
@@ -643,6 +887,25 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         if (cycle == null || !Objects.equals(cycle.getWorkOrderId(), review.getWorkOrderId())
                 || !Objects.equals(cycle.getReworkSourceActiveOrderId(), review.getActiveOrderId())) {
             throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        Map<String, Object> identity = new TreeMap<>();
+        identity.put("tenantId", TenantContextHolder.getRequiredTenantId().toString());
+        identity.put("operationId", "mes.nonconformance.rework");
+        identity.put("identity", List.of(auditId(review.getId()), DISPOSITION_REWORK));
+        String key = "GXP2:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(identity));
+        var receipt = auditReceiptMapper.selectByIdempotencyKeyForUpdate(TenantContextHolder.getRequiredTenantId(), key);
+        if (receipt == null) {
+            throw exception(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.GXP_AUDIT_RECEIPT_MISSING, key);
+        }
+        if (!Objects.equals(receipt.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(receipt.getOperationId(), "mes.nonconformance.rework")
+                || !Objects.equals(receipt.getSubjectType(), "NONCONFORMANCE_REVIEW")
+                || !Objects.equals(receipt.getSubjectId(), auditId(review.getId()))
+                || !Objects.equals(receipt.getIdempotencyKey(), key)
+                || !Objects.equals(receipt.getActorId(), actor)
+                || !Objects.equals(receipt.getSignatureRecordId(), auditId(signature.getLong("signatureId")))
+                || !Objects.equals(receipt.getResultStatus(), "SUCCESS")) {
+            throw exception(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.GXP_AUDIT_IDEMPOTENCY_CONFLICT, key);
         }
     }
 

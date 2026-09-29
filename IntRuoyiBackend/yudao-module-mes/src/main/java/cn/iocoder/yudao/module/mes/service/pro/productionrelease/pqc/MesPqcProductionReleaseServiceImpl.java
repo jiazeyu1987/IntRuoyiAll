@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
@@ -30,6 +31,12 @@ import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProd
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializationCommand;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializationResult;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializer;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
+import jakarta.annotation.Resource;
 import com.alibaba.fastjson.JSON;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -76,6 +83,9 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     private final MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     private final MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
     private final Clock clock;
+
+    @Resource
+    private GxpAuditService gxpAuditService;
 
     @Autowired
     public MesPqcProductionReleaseServiceImpl(
@@ -130,6 +140,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     public MesPqcProductionReleaseDecisionResult approve(
             Long actorUserId, MesPqcProductionReleaseApproveCommand command) {
         requireApproveCommand(actorUserId, command);
+        gxpAuditService.acquireLedgerLock();
         String idempotencyKey = MesReleaseFlowIdempotency.requireKey(command.getIdempotencyKey());
         String opinion = trimAndValidateOptionalText(command.getApprovalOpinion(), "approvalOpinion");
         String udiControlDocumentNo = trimAndValidateUdiDocumentNo(command.getUdiControlDocumentNo());
@@ -198,6 +209,9 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         batchExecutionPort.markReadyForMarketRelease(batchExecutionId, actorUserId);
         recordDecisionAudit(application, workTask, result, idempotencyKey,
                 MesReleaseFlowAuditEventType.PQC_PRODUCTION_RELEASE_APPROVED);
+        appendPqcProductionReleaseGxpAudit(application, workTask, result,
+                "mes.pqc.production-release.approve",
+                "MesPqcProductionReleaseServiceImpl#approve");
         return result;
     }
 
@@ -206,6 +220,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     public MesPqcProductionReleaseDecisionResult reject(
             Long actorUserId, MesPqcProductionReleaseRejectCommand command) {
         requireRejectCommand(actorUserId, command);
+        gxpAuditService.acquireLedgerLock();
         String idempotencyKey = MesReleaseFlowIdempotency.requireKey(command.getIdempotencyKey());
         String reason = StrUtil.trim(command.getRejectReason());
         if (StrUtil.isBlank(reason) || reason.length() > 500) {
@@ -242,7 +257,85 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         requireTaskCompletion(workTaskMapper.completePqcDecisionTask(workTask.getId(), decidedAt, "REJECT"), application);
         recordDecisionAudit(application, workTask, result, idempotencyKey,
                 MesReleaseFlowAuditEventType.PQC_PRODUCTION_RELEASE_REJECTED);
+        appendPqcProductionReleaseGxpAudit(application, workTask, result,
+                "mes.pqc.production-release.reject",
+                "MesPqcProductionReleaseServiceImpl#reject");
         return result;
+    }
+
+    private void appendPqcProductionReleaseGxpAudit(
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            MesProEdhrWorkTaskDO workTask,
+            MesPqcProductionReleaseDecisionResult result,
+            String operationId,
+            String methodName) {
+        String signatureId = result.getSignatureId() == null ? null : String.valueOf(result.getSignatureId());
+        Map<String, Object> before = new java.util.LinkedHashMap<>();
+        before.put("applicationId", application.getId());
+        before.put("status", MesReleaseFlowStatus.PQC_RELEASE_PENDING);
+        before.put("version", application.getVersion());
+        Map<String, Object> after = new java.util.LinkedHashMap<>();
+        after.put("applicationId", application.getId());
+        after.put("activeOrderId", application.getActiveOrderId());
+        after.put("workOrderId", application.getWorkOrderId());
+        after.put("batchCode", application.getBatchCode());
+        after.put("batchExecutionId", result.getBatchExecutionId());
+        after.put("pqcReleaseWorkTaskId", workTask.getId());
+        after.put("decision", result.getDecision());
+        after.put("status", result.getStatus());
+        after.put("version", result.getVersion());
+        after.put("decidedBy", result.getDecidedBy());
+        after.put("decidedAt", result.getDecidedAt());
+        after.put("rejectReason", result.getRejectReason());
+        after.put("sourceSnapshotHash", result.getSourceSnapshotHash());
+        after.put("reportSnapshotHash", result.getReportSnapshotHash());
+        after.put("udiControlDocumentNo", result.getUdiControlDocumentNo());
+        List<GxpAuditRelation> links = new java.util.ArrayList<>();
+        links.add(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
+                String.valueOf(application.getActiveOrderId()), null, null));
+        links.add(new GxpAuditRelation("SOURCE", "RELEASE_APPLICATION",
+                String.valueOf(application.getId()), String.valueOf(result.getVersion()),
+                application.getSourceSnapshotHash()));
+        links.add(new GxpAuditRelation("WORK_TASK", "EDHR_WORK_TASK",
+                String.valueOf(workTask.getId()), null, null));
+        if (result.getBatchExecutionId() != null) {
+            links.add(new GxpAuditRelation("SOURCE", "BATCH_EXECUTION",
+                    String.valueOf(result.getBatchExecutionId()), null, null));
+        }
+        if (signatureId != null) {
+            links.add(new GxpAuditRelation("SIGNATURE", "SIGNATURE", signatureId, null, null));
+        }
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .eventSchemaVersion(2)
+                .operationId(operationId)
+                .subjectId("MES_PQC_RELEASE_APPLICATION:" + application.getId())
+                .subjectVersion(String.valueOf(result.getVersion()))
+                .reason(result.getRejectReason() == null ? "PQC生产放行已完成正式决策" : result.getRejectReason())
+                .reasonCode("APPROVE".equals(result.getDecision())
+                        ? "MES_PQC_PRODUCTION_RELEASE_APPROVE" : "MES_PQC_PRODUCTION_RELEASE_REJECT")
+                .reasonSource(result.getRejectReason() == null ? "SYSTEM" : "USER")
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
+                        .objectVersion(String.valueOf(application.getVersion()))
+                        .canonicalJson(JsonUtils.toJsonString(before))
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state(result.getStatus())
+                        .objectVersion(String.valueOf(result.getVersion()))
+                        .canonicalJson(JsonUtils.toJsonString(after))
+                        .build())
+                .idempotencyKey("PQC_PRODUCTION_RELEASE:" + application.getId() + ":" + result.getDecision())
+                .requestId("MES-PQC-PRODUCTION-RELEASE:" + application.getId() + ":" + result.getDecision())
+                .resultStatus("SUCCESS")
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator("cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc."
+                        + methodName)
+                .signatureRecordId(signatureId)
+                .links(links)
+                .evidences(List.of(new GxpAuditEvidence("FORMAL_PQC_RELEASE_DECISION",
+                        String.valueOf(application.getId()), String.valueOf(result.getVersion()),
+                        result.getDecisionPayloadHash(), "PQC_RELEASE")))
+                .build());
     }
 
     @Override

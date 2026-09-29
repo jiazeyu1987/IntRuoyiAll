@@ -99,6 +99,8 @@ public class MesActiveOrderReworkCycleTransactionTest {
         completion = new MesTeamLeaderActiveOrderCompletionServiceImpl(orders, receipts, progress, backfill,
                 mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class),
                 mock(MesActiveOrderTransferTraceService.class), mock(MesPqcProcessInspectionAggregationService.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(completion, "gxpAuditService",
+                mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
         var target = new MesActiveOrderReworkCycleService(orders, snapshots, tasks);
         var proxy = new ProxyFactory(target);
         proxy.setProxyTargetClass(true);

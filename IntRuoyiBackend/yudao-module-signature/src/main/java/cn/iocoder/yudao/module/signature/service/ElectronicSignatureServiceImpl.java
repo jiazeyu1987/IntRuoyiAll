@@ -56,6 +56,7 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
     @Transactional(rollbackFor = Exception.class)
     @GxpWriteOperation(operationId = "signature.record.create")
     public ElectronicSignatureResult sign(ElectronicSignatureCommand command) {
+        gxpAuditService.acquireLedgerLock();
         validateCommand(command);
         Long actorId = SecurityFrameworkUtils.getLoginUserId();
         if (actorId == null) {

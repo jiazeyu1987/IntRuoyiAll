@@ -55,6 +55,7 @@ class MesReportAllocationFrontlineSnapshotGuardTest {
     @Mock private MesProcessPoolActiveOrderProcessSnapshotMapper activeOrderProcessSnapshotMapper;
 
     private MesReportAllocationCommandService service;
+    @Mock private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
 
     @BeforeEach
     void setUp() {
@@ -62,6 +63,7 @@ class MesReportAllocationFrontlineSnapshotGuardTest {
                 allocationMapper, stateMapper, auditMapper, reviewMapper, poolQuantityService, releaseStateService,
                 targetService, fifoService, routeStartAuthorizationService, quantityFragmentService,
                 completionService, reportManagementSummaryService, activeOrderProcessSnapshotMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
     }
 
     @Test
@@ -115,11 +117,11 @@ class MesReportAllocationFrontlineSnapshotGuardTest {
         return MesProProcessPoolEventDO.builder().id(1001L).eventType("PRODUCTION_SUBMIT")
                 .eventIdempotencyKey("P0-SUBMIT-F2-20260817-001").workOrderId(9001L)
                 .deviceAccountId(9001L).reportOutputQuantity(new BigDecimal("300"))
-                .actualEmployeeId(4001L).routeProcessId(5001L).processId(6001L).build();
+                .actualEmployeeId(4001L).signatureId(9901L).routeProcessId(5001L).processId(6001L).build();
     }
 
     private static MesProcessPoolActiveOrderDO activeOrder(Long id, Long workOrderId) {
         return MesProcessPoolActiveOrderDO.builder().id(id).leaderUserId(3001L).workOrderId(workOrderId)
-                .activeStatus("ACTIVE").build();
+                .activeStatus("ACTIVE").businessStatus("ACTIVE").build();
     }
 }

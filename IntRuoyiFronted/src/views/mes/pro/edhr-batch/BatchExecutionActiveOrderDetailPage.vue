@@ -19,6 +19,8 @@
           :loading="loading"
           :error="error"
           :initial-active-tab="initialActiveTab"
+          audit-scope-type="BATCH"
+          :audit-scope-id="auditDetailQuery"
           record-scope="FORMAL_BATCH_SOURCE_DETAIL"
           @retry="loadDetail"
         />
@@ -92,6 +94,11 @@ const resolveDetailQuery = () => {
   }
   return { batchExecutionId: parseBatchExecutionId() }
 }
+
+const auditDetailQuery = computed(() => {
+  if (!detail.value || loading.value || error.value) return undefined
+  return resolveDetailQuery()
+})
 
 const resolveReturnPath = () => {
   const source = typeof route.query.from === 'string' ? route.query.from.trim() : ''

@@ -1,15 +1,21 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,6 +35,8 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     @Mock
     private MesTeamLeaderActiveOrderCompletionBatchExecutionService completionBatchExecutionService;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     @Mock
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper originMapper;
@@ -40,6 +48,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
         service = new MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(
                 generationService, completionService, receiptMapper, batchMapper, applicationMapper,
                 completionBatchExecutionService, originMapper);
+        ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
     }
 
     @Test
@@ -95,6 +104,13 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
         assertSame(expected, service.applyGenerated(20L, command));
         verify(applicationMapper).bindP3BatchExecution(99L, 1, 93L);
         org.mockito.Mockito.verifyNoInteractions(completionService);
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals("mes.pqc-release.apply", auditCaptor.getValue().getOperationId());
+        org.junit.jupiter.api.Assertions.assertEquals("PQC_RELEASE_APPLY:99", auditCaptor.getValue().getIdempotencyKey());
+        org.junit.jupiter.api.Assertions.assertTrue(
+                auditCaptor.getValue().getSourceLocator().endsWith("#applyGenerated"));
     }
 
     @Test
@@ -118,6 +134,8 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
         org.junit.jupiter.api.Assertions.assertEquals(2, actual.getVersion());
         verify(applicationMapper).bindP3BatchExecution(99L, 1, 93L);
         verify(generationService, never()).generate(20L, command);
+        verify(gxpAuditService).acquireLedgerLock();
+        verify(gxpAuditService).append(any(GxpAuditCommand.class));
     }
 
     @Test
@@ -157,6 +175,35 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
         order.verify(generationService).generate(20L, command);
         verify(completionBatchExecutionService).openOrCreate(20L, 10L, 88L, "release-key");
         verify(applicationMapper).bindP3BatchExecution(99L, 1, 93L);
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals("mes.pqc-release.apply", auditCaptor.getValue().getOperationId());
+        org.junit.jupiter.api.Assertions.assertEquals("PQC_RELEASE_APPLY:99", auditCaptor.getValue().getIdempotencyKey());
+        org.junit.jupiter.api.Assertions.assertEquals("PQC_RELEASE_PENDING", auditCaptor.getValue().getAfterState().getState());
+    }
+
+    @Test
+    void applyAuditFailureMustPropagateAfterApplicationBinding() {
+        MesTeamLeaderActiveOrderReleaseApplyCommand command = new MesTeamLeaderActiveOrderReleaseApplyCommand()
+                .setActiveOrderId(10L).setConfirmNoReplenishmentInfo(true)
+                .setIdempotencyKey("release-key");
+        MesTeamLeaderActiveOrderReleaseApplicationResult expected =
+                new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L).setVersion(1);
+        when(generationService.replayExisting(20L, command)).thenReturn(null);
+        when(completionService.completeForRelease(20L, 10L, "release-key", true))
+                .thenReturn(new MesTeamLeaderActiveOrderCompletionResult().setCompletionReceiptId(88L));
+        when(completionBatchExecutionService.openOrCreate(20L, 10L, 88L, "release-key")).thenReturn(93L);
+        when(generationService.generate(20L, command)).thenReturn(expected);
+        when(applicationMapper.bindP3BatchExecution(99L, 1, 93L)).thenReturn(1);
+        doThrow(new IllegalStateException("gxp append failed"))
+                .when(gxpAuditService).append(any(GxpAuditCommand.class));
+
+        assertThrows(IllegalStateException.class, () -> service.apply(20L, command));
+
+        verify(gxpAuditService).acquireLedgerLock();
+        verify(gxpAuditService).append(any(GxpAuditCommand.class));
+        verify(applicationMapper).bindP3BatchExecution(99L, 1, 93L);
     }
 
     @Test
@@ -177,6 +224,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
         assertSame(expected, actual);
         verify(completionService, never()).completeForRelease(20L, 10L, "release-key", null);
         verify(generationService, never()).generate(20L, command);
+        verify(gxpAuditService, never()).append(any(GxpAuditCommand.class));
     }
 
     @Test

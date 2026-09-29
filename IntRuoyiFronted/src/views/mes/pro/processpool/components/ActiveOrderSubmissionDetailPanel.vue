@@ -392,6 +392,134 @@
                 </template>
               </tbody>
             </table>
+            <section
+              v-if="showSummaryTab"
+              class="team-leader-workbench__active-order-gxp-audit"
+              data-active-order-gxp-audit
+            >
+              <div class="team-leader-workbench__active-order-summary-title">
+                统一 GxP 审计追踪
+              </div>
+              <el-alert
+                v-if="gxpAuditError"
+                :title="gxpAuditError"
+                type="error"
+                :closable="false"
+                show-icon
+                data-active-order-gxp-audit-error
+              />
+              <el-table
+                v-else
+                v-loading="gxpAuditLoading"
+                :data="gxpAuditEvents"
+                size="small"
+                stripe
+                data-active-order-gxp-audit-table
+              >
+                <el-table-column label="操作" min-width="220">
+                  <template #default="{ row }">
+                    {{ formatGxpAuditOperation(row) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="实际执行人 / 认证账号" min-width="140">
+                  <template #default="{ row }">
+                    <div>执行人：{{ formatGxpAuditActorSnapshot(row.performedByJson, '执行人') }}</div>
+                    <div>认证账号：{{ formatGxpAuditActorSnapshot(row.authenticatedActorJson, '认证账号') }}</div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="结果" width="110">
+                  <template #default="{ row }">
+                    {{ formatGxpAuditResult(row.resultStatus) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="发生时间" min-width="170">
+                  <template #default="{ row }">
+                    {{ formatDateTime(row.serverOccurredAt) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="完整性" width="120">
+                  <template #default="{ row }">
+                    {{ formatGxpAuditIntegrity(row.integrityStatus) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="详情" width="90" fixed="right">
+                  <template #default="{ row }">
+                    <el-button
+                      link
+                      type="primary"
+                      data-active-order-gxp-audit-detail
+                      @click="openGxpAuditEvent(row)"
+                    >
+                      查看
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-pagination
+                v-if="!gxpAuditError && gxpAuditTotal > gxpAuditPageSize"
+                v-model:current-page="gxpAuditPageNo"
+                :page-size="gxpAuditPageSize"
+                :total="gxpAuditTotal"
+                layout="total, prev, pager, next"
+                background
+                data-active-order-gxp-audit-pagination
+                @current-change="loadGxpAudit"
+              />
+              <el-empty
+                v-if="!gxpAuditLoading && !gxpAuditError && !gxpAuditEvents.length"
+                :image-size="48"
+                description="当前对象暂无统一 GxP 审计记录"
+              />
+            </section>
+          </section>
+        </el-tab-pane>
+        <el-tab-pane
+          v-if="showSummaryTab"
+          label="偏差"
+          name="deviation"
+          data-active-order-deviation-tab
+        >
+          <section class="team-leader-workbench__active-order-summary" data-active-order-deviation-panel>
+            <el-empty
+              v-if="!nonconformanceOperationFacts.length"
+              description="没有偏差"
+              data-active-order-deviation-empty
+            />
+            <table
+              v-else
+              class="team-leader-workbench__active-order-summary-table"
+              data-active-order-deviation-table
+            >
+              <tbody>
+                <tr>
+                  <th>偏差编号</th>
+                  <th>内容</th>
+                  <th>处理结果</th>
+                  <th>电子签名</th>
+                  <th>发生时间</th>
+                </tr>
+                <tr v-for="fact in nonconformanceOperationFacts" :key="`deviation-${fact.id}`">
+                  <td>{{ fact.sourceId || '--' }}</td>
+                  <td>
+                    <div>发起：{{ fact.nonconformanceReason || '--' }}</div>
+                    <div v-if="fact.reviewOpinion">处理：{{ fact.reviewOpinion }}</div>
+                  </td>
+                  <td>{{ resolveNonconformanceDispositionLabel(fact.disposition) }}</td>
+                  <td>
+                    <button
+                      type="button"
+                      class="team-leader-workbench__signature-link"
+                      data-active-order-deviation-signature
+                      :disabled="!fact.signatureId"
+                      @click="openActiveOrderSignatureRecord(toOperationFactSignature(fact))"
+                    >
+                      {{ formatOperationFactSignatureText(fact) }}
+                    </button>
+                  </td>
+                  <td>{{ formatDateTime(fact.occurredAt) }}</td>
+                </tr>
+              </tbody>
+            </table>
           </section>
         </el-tab-pane>
         <el-tab-pane
@@ -2057,6 +2185,49 @@
         />
         <el-empty v-else description="暂无可预览附件" />
       </Dialog>
+      <Dialog
+        title="统一 GxP 审计详情"
+        v-model="gxpAuditDetailVisible"
+        width="900px"
+        destroy-on-close
+      >
+        <el-alert
+          v-if="gxpAuditDetailError"
+          :title="gxpAuditDetailError"
+          type="error"
+          :closable="false"
+          show-icon
+        />
+        <el-skeleton v-else-if="gxpAuditDetailLoading" :rows="8" animated />
+        <template v-else-if="selectedGxpAuditEvent">
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="操作编号">
+              {{ selectedGxpAuditEvent.operationId || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="事件编号">
+              {{ selectedGxpAuditEvent.id }}
+            </el-descriptions-item>
+            <el-descriptions-item label="对象">
+              {{ selectedGxpAuditEvent.subjectType || '--' }} / {{ selectedGxpAuditEvent.subjectId || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="原因">
+              {{ selectedGxpAuditEvent.reason || selectedGxpAuditEvent.reasonCode || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="实际执行人">
+              {{ formatGxpAuditActorSnapshot(selectedGxpAuditEvent.performedByJson, '执行人') }}
+            </el-descriptions-item>
+            <el-descriptions-item label="认证账号">
+              {{ formatGxpAuditActorSnapshot(selectedGxpAuditEvent.authenticatedActorJson, '认证账号') }}
+            </el-descriptions-item>
+            <el-descriptions-item label="变更前" :span="2">
+              <pre class="team-leader-workbench__gxp-audit-json">{{ formatGxpAuditJson(selectedGxpAuditEvent.beforeStateJson) }}</pre>
+            </el-descriptions-item>
+            <el-descriptions-item label="变更后" :span="2">
+              <pre class="team-leader-workbench__gxp-audit-json">{{ formatGxpAuditJson(selectedGxpAuditEvent.afterStateJson) }}</pre>
+            </el-descriptions-item>
+          </el-descriptions>
+        </template>
+      </Dialog>
     </template>
   </div>
 </template>
@@ -2088,6 +2259,13 @@ import {
   getActiveOrderDossierFiles,
   uploadActiveOrderDossierFile
 } from '@/api/mes/pro/processpool/teamLeader'
+import {
+  getActiveOrderGxpAuditEvent,
+  getActiveOrderGxpAuditPage,
+  type ActiveOrderAuditScope,
+  type ActiveOrderAuditIdentity,
+  type GxpAuditEventRespVO
+} from '@/api/mes/pro/edhr/activeOrderAudit'
 import type { ProWorkOrderVO } from '@/api/mes/pro/workorder'
 import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-list'
 import {
@@ -2111,6 +2289,8 @@ const props = defineProps<{
   recordScope?: 'DETAIL_RECORD' | 'FORMAL_BATCH_SOURCE_DETAIL'
   productionRouteProcessId?: number | string
   pqcReleaseApplicationId?: number | string
+  auditScopeType?: ActiveOrderAuditScope
+  auditScopeId?: ActiveOrderAuditIdentity
   initialActiveTab?: string
 }>()
 
@@ -2132,11 +2312,35 @@ const dossierFileUploadingKey = ref('')
 const dossierPreviewDialogVisible = ref(false)
 const selectedDossierPreviewSource = ref<OnlineFilePreviewSource | null>(null)
 const selectedDossierPreviewTitle = ref('')
+const gxpAuditLoading = ref(false)
+const gxpAuditError = ref('')
+const gxpAuditEvents = ref<GxpAuditEventRespVO[]>([])
+const gxpAuditPageNo = ref(1)
+const gxpAuditPageSize = 50
+const gxpAuditTotal = ref(0)
+const gxpAuditDetailVisible = ref(false)
+const gxpAuditDetailLoading = ref(false)
+const gxpAuditDetailError = ref('')
+const selectedGxpAuditEvent = ref<GxpAuditEventRespVO>()
+let gxpAuditRequestId = 0
+let gxpAuditDetailRequestId = 0
 const router = useRouter()
 
 const displayMode = computed(() => props.displayMode || 'full')
 const recordScope = computed(() => props.recordScope || 'DETAIL_RECORD')
 const embedded = computed(() => Boolean(props.embedded))
+const auditScopeTypeValue = computed<ActiveOrderAuditScope>(() => {
+  if (props.auditScopeType) return props.auditScopeType
+  if (props.pqcReleaseApplicationId !== undefined) return 'PQC'
+  if (recordScope.value === 'FORMAL_BATCH_SOURCE_DETAIL') return 'BATCH'
+  return 'TEAM'
+})
+const auditScopeIdValue = computed<ActiveOrderAuditIdentity | undefined>(() => {
+  if (props.auditScopeId !== undefined) return props.auditScopeId
+  if (auditScopeTypeValue.value === 'BATCH') return undefined
+  if (auditScopeTypeValue.value === 'PQC') return props.pqcReleaseApplicationId
+  return props.detail?.activeOrderId
+})
 const showProductionSubmissionTab = computed(
   () => displayMode.value === 'full' || displayMode.value === 'production'
 )
@@ -2193,6 +2397,135 @@ const resolveInitialActiveTab = () => {
 }
 
 const formatDateTime = (value?: string | number | Date) => formatDateTimeValue(value)
+
+const formatGxpAuditOperation = (event: GxpAuditEventRespVO) =>
+  event.operationId || event.action || '未识别操作'
+
+const formatGxpAuditActorSnapshot = (value: string | undefined, label: string) => {
+  if (!value?.trim()) return '未记录'
+  let snapshot: unknown
+  try {
+    snapshot = JSON.parse(value)
+  } catch {
+    return `${label}快照损坏`
+  }
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    return `${label}快照损坏`
+  }
+  const displayName = (snapshot as Record<string, unknown>).displayName
+  if (displayName === undefined || displayName === null) return '未记录'
+  if (typeof displayName !== 'string') return `${label}快照损坏`
+  return displayName.trim() || '未记录'
+}
+
+const formatGxpAuditResult = (resultStatus?: string) => {
+  if (resultStatus === 'SUCCESS') return '成功'
+  if (resultStatus === 'FAILED') return '失败'
+  if (resultStatus === 'DENIED') return '拒绝'
+  return resultStatus || '未记录'
+}
+
+const formatGxpAuditIntegrity = (status?: string) => {
+  if (status === 'NOT_VERIFIED') return '待核验'
+  if (status === 'INVALID') return '无效'
+  return status || '未记录'
+}
+
+const formatGxpAuditJson = (value?: string) => {
+  if (!value) return '未记录'
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2)
+  } catch {
+    return value
+  }
+}
+
+const resetGxpAuditDetail = () => {
+  gxpAuditDetailRequestId += 1
+  selectedGxpAuditEvent.value = undefined
+  gxpAuditDetailError.value = ''
+  gxpAuditDetailLoading.value = false
+}
+
+const gxpAuditScopeIsValid = (value: unknown): value is ActiveOrderAuditIdentity => {
+  const validId = (id: unknown) => typeof id === 'number'
+    ? Number.isSafeInteger(id) && id > 0
+    : typeof id === 'string' && /^[1-9]\d*$/.test(id)
+  if (auditScopeTypeValue.value !== 'BATCH') return validId(value)
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const keys = Object.keys(value)
+  return keys.length === 1 && ['activeOrderId', 'batchExecutionId'].includes(keys[0]) &&
+    validId((value as Record<string, unknown>)[keys[0]])
+}
+
+const loadGxpAudit = async () => {
+  const requestId = ++gxpAuditRequestId
+  const scopeType = auditScopeTypeValue.value
+  const scopeId = auditScopeIdValue.value
+  const pageNo = gxpAuditPageNo.value
+  const isCurrent = () => requestId === gxpAuditRequestId &&
+    scopeType === auditScopeTypeValue.value && scopeId === auditScopeIdValue.value &&
+    pageNo === gxpAuditPageNo.value && showSummaryTab.value && !props.loading && !props.error
+  gxpAuditEvents.value = []
+  gxpAuditTotal.value = 0
+  gxpAuditError.value = ''
+  if (!showSummaryTab.value || props.loading || props.error) {
+    gxpAuditLoading.value = false
+    return
+  }
+  if (!gxpAuditScopeIsValid(scopeId)) {
+    gxpAuditLoading.value = false
+    gxpAuditError.value = '缺少有效的审计查询身份，无法加载统一 GxP 审计记录。'
+    return
+  }
+  gxpAuditLoading.value = true
+  gxpAuditError.value = ''
+  try {
+    const page = await getActiveOrderGxpAuditPage(scopeType, scopeId, {
+      pageNo,
+      pageSize: gxpAuditPageSize
+    })
+    if (!isCurrent()) return
+    gxpAuditEvents.value = Array.isArray(page?.list) ? page.list : []
+    gxpAuditTotal.value = Number(page?.total || 0)
+  } catch (error) {
+    if (!isCurrent()) return
+    gxpAuditEvents.value = []
+    gxpAuditTotal.value = 0
+    gxpAuditError.value = error instanceof Error && error.message
+      ? error.message
+      : '统一 GxP 审计查询失败，请重试。'
+  } finally {
+    if (isCurrent()) gxpAuditLoading.value = false
+  }
+}
+
+const openGxpAuditEvent = async (event: GxpAuditEventRespVO) => {
+  const requestId = ++gxpAuditDetailRequestId
+  const scopeType = auditScopeTypeValue.value
+  const scopeId = auditScopeIdValue.value
+  if (!showSummaryTab.value || props.loading || props.error || !gxpAuditScopeIsValid(scopeId)) return
+  const isCurrent = () => requestId === gxpAuditDetailRequestId &&
+    scopeType === auditScopeTypeValue.value && scopeId === auditScopeIdValue.value &&
+    showSummaryTab.value && !props.loading && !props.error && gxpAuditDetailVisible.value
+  selectedGxpAuditEvent.value = undefined
+  gxpAuditDetailVisible.value = true
+  gxpAuditDetailLoading.value = true
+  gxpAuditDetailError.value = ''
+  try {
+    const detail = await getActiveOrderGxpAuditEvent(scopeType, scopeId, event.id)
+    if (!isCurrent()) return
+    if (!detail) throw new Error('统一 GxP 审计事件不存在或不属于当前对象。')
+    selectedGxpAuditEvent.value = detail
+  } catch (error) {
+    if (!isCurrent()) return
+    gxpAuditDetailError.value = error instanceof Error && error.message
+      ? error.message
+      : '统一 GxP 审计详情加载失败。'
+  } finally {
+    if (isCurrent()) gxpAuditDetailLoading.value = false
+  }
+}
 
 const activeOrderOperationTypeLabels: Record<string, string> = {
   ADD_ACTIVE_ORDER: '加入活跃订单',
@@ -4125,6 +4458,21 @@ watch(
   },
   { immediate: true }
 )
+
+watch(
+  () => [auditScopeTypeValue.value, auditScopeIdValue.value, showSummaryTab.value, props.loading, props.error],
+  () => {
+    resetGxpAuditDetail()
+    gxpAuditDetailVisible.value = false
+    gxpAuditPageNo.value = 1
+    void loadGxpAudit()
+  },
+  { immediate: true, flush: 'sync' }
+)
+
+watch(gxpAuditDetailVisible, (visible) => {
+  if (!visible) resetGxpAuditDetail()
+}, { flush: 'sync' })
 </script>
 <style scoped>
 .team-leader-workbench__active-order-detail {
@@ -4189,6 +4537,26 @@ watch(
   min-width: 0;
   max-width: 100%;
   overflow-x: hidden;
+}
+
+.team-leader-workbench__active-order-gxp-audit {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.team-leader-workbench__gxp-audit-json {
+  max-height: 260px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f8fafc;
 }
 
 .team-leader-workbench__active-order-summary-table {

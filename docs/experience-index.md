@@ -662,7 +662,7 @@
 - Keywords: 活跃订单PQC提交双层Tab, 原始提交, 过程检验记录, submittedItems, processInspectionItems, PQC首次提交快照, revision beforePayload, event rawPayload, pqcItemDetails, itemResults, 原始提交多样本聚合一行, 检测数量13只显示一条检验项目, 禁止用聚合明细兜底原始提交 -> `docs/backend-development.md#pqc-过程检验汇集必须形成最终确认明细` and `docs/frontend-development.md#前端选择弹框即时反馈门禁`
 
 - 一对一关联扩展为一对多时的调用点审计、并发幂等与全量清理：`backend-development.md` 的“关联从一对一扩展为一对多门禁”。
-- Keywords: GxP审计追踪, 统一审计内核, signature.gxp, GxpAuditTrailService.append, append-only, 只追加账本, 审计失败业务回滚, before/after, 状态信封, 变更原因, 电子签名绑定, 非签名业务不得伪造signatureRecordId, DCC发布审批发起, 业务审批发起证据边界, 对象hash链, 每日清单, 自包含法规归档包, 仅归档包恢复, 周期审查实际执行, 全写边界覆盖, sourceLocator 精确到类方法, 登记悬空失败, 数据库特权审计外送, 未封存水位, WORM回执, API访问日志不能替代审计, 新写入口CI门禁, 统一内部审计接口不是统一远程业务接口, PASS FOR DESIGN, PASS FOR SOFTWARE, PASS FOR OPERATIONAL COMPLIANCE -> `docs/backend-development.md#GxP-业务写入统一审计接入门禁`
+- Keywords: GxP审计追踪, 统一审计内核, signature.gxp, GxpAuditTrailService.append, append-only, 只追加账本, 审计失败业务回滚, before/after, 状态信封, 变更原因, 电子签名绑定, 非签名业务不得伪造signatureRecordId, DCC发布审批发起, 业务审批发起证据边界, 对象hash链, 每日清单, 自包含法规归档包, 仅归档包恢复, 周期审查实际执行, 全写边界覆盖, sourceLocator 精确到类方法, 登记悬空失败, 运行时策略与打包资源一致, schema自校验, 逐候选路径与SHA-256排除证据, 数据库特权审计外送, 未封存水位, WORM回执, API访问日志不能替代审计, 新写入口CI门禁, 统一内部审计接口不是统一远程业务接口, PASS FOR DESIGN, PASS FOR SOFTWARE, PASS FOR OPERATIONAL COMPLIANCE -> `docs/backend-development.md#GxP-业务写入统一审计接入门禁`
 - Keywords: 历史详情审计元数据缺少正式事务ID, releaseTransactionId 未序列化, batchExecutionId 唯一正式事务关系, 审计快照ID与领域记录交叉校验, 禁止按签名/时间/文本猜关联 -> `docs/backend-development.md#电子签名身份与业务详情一致性门禁`
 - Keywords: 可信时间, 审计追踪时间戳, chrony, Last offset, RMS offset, Leap status, 系统签名时间, 业务发生时间, selectedSignedAt, signatureDisplayAt, inspection-runs.json, 时间戳证据 ZIP, 审查摘要, SHA256SUMS, 审查服 -> `docs/backend-development.md#可信时间与正式签名时间边界门禁`、`docs/frontend-development.md#可信时间证据与业务发生时间展示门禁`
 - Keywords: DCC unified signature, 统一电子签名, 领域签名投影, DCC HMAC, HMAC_SHA256, 签名投影缺失 -> `docs/backend-development.md#dcc-统一签名与领域投影一致性门禁`
@@ -679,3 +679,5 @@
 - Keywords: AI E2E, eDHR PREPARE, ERP生产订单模板, unitCode, FUnitId, ExecuteBillQuery, View模板分录, 1040502016 -> `docs/e2e-rules.md#固定输入输出的业务链验收`
 - Keywords: eDHR 活跃订单正式事实, 历史追溯详情, 资料上传, 文件名, 上传人, 上传时间, 活跃订单资料上传, 上市放行后详情, 历史列表附件计数为空 -> `docs/e2e-rules.md#固定输入输出的业务链验收`
 - Keywords: Codex Web, IntRuoyi MCP, Streamable HTTP, 只读工具注册, 示例 CRUD 工具禁止暴露, MCP endpoint 未配置 fail-fast -> `docs/integrations/external-platform-readiness.md#MCP-Tool-Exposure-Boundary`
+- Keywords: GxP本地策略激活, APPROVED策略包, 策略操作登记, gxp.policy.activate统一审计事件, 现有本地MySQL, 不创建隔离数据库, 本地激活不等于生产合规 -> `docs/backend-development.md#GxP-业务写入统一审计接入门禁`
+- Keywords: GxP四项复核, 活跃订单主链路, PQC检验任务ACTIVE_ORDER关系, 分配before/after快照, 无变化重算不追加审计, 逐候选SHA-256排除, 结构化YAML策略激活 -> `docs/backend-development.md#GxP-业务写入统一审计接入门禁`

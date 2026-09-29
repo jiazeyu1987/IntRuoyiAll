@@ -25,12 +25,16 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconforma
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializationResult;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializer;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.*;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -76,6 +80,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
     @Mock private MesProBatchRecordExecutionSignatureService signatureService;
     @Mock private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     @Mock private MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
+    @Mock private GxpAuditService gxpAuditService;
 
     private MesPqcProductionReleaseService service;
 
@@ -87,6 +92,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 batchExecutionPort, reportStageInitializer, managerStageInitializer, auditRecorder, signatureService,
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
+        ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         lenient().when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(application());
         lenient().when(applicationMapper.selectById(APPLICATION_ID)).thenReturn(application());
         lenient().when(activeOrderMapper.selectByIdForUpdate(2001L)).thenReturn(new MesProcessPoolActiveOrderDO()
@@ -224,6 +230,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 batchExecutionPort, reportStageInitializer, managerStageInitializer, auditRecorder, signatureService,
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
+        ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         lenient().when(batchExecutionPort.openOrCreate(any())).thenReturn(BATCH_EXECUTION_ID);
         lenient().when(reportStageInitializer.initializeRequiredReportStage(any())).thenReturn(
                 new MesProductionReleaseReportStageInitializationResult().setReportUploadTasks(reportTasks()).setReportSnapshotHash("report-hash"));
@@ -303,6 +310,14 @@ class MesPqcReleaseBatchExecutionServiceTest {
         verify(nonconformanceReviewService).ensureWorkOrderNotFrozen(3001L, "PQC放行");
         verify(signatureService).validatePqcSubmitSignature(PQC_USER_ID, "signature-password");
         verify(batchExecutionPort).markReadyForMarketRelease(BATCH_EXECUTION_ID, PQC_USER_ID);
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        assertEquals("mes.pqc.production-release.approve", auditCaptor.getValue().getOperationId());
+        assertEquals("MANAGER_RELEASE_PENDING", auditCaptor.getValue().getAfterState().getState());
+        assertEquals(result.getUdiControlDocumentNo(),
+                JSON.parseObject(auditCaptor.getValue().getAfterState().getCanonicalJson())
+                        .getString("udiControlDocumentNo"));
     }
 
     @Test
@@ -366,6 +381,11 @@ class MesPqcReleaseBatchExecutionServiceTest {
         verify(dossierPort, never()).plan(any(), any());
         verify(dossierPort, never()).write(any(), any());
         verify(reportStageInitializer, never()).initializeRequiredReportStage(any());
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> rejectAuditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(rejectAuditCaptor.capture());
+        assertEquals("mes.pqc.production-release.reject", rejectAuditCaptor.getValue().getOperationId());
+        assertEquals("PQC_RELEASE_REJECTED", rejectAuditCaptor.getValue().getAfterState().getState());
     }
 
     @Test

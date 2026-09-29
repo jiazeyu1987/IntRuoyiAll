@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://int.ruoyi.local/schema/gxp-audit-policy.v2",
+  "title": "GxP audit policy bundle v2",
+  "type": "object",
+  "required": ["schemaVersion", "policyVersion", "status", "approvalReference", "operations", "coverageScope"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "gxp-audit-policy.v2" },
+    "policyVersion": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "status": { "enum": ["DRAFT", "APPROVED"] },
+    "approvalReference": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "required": ["operationId", "sourceType", "sourceLocators", "domain", "subjectType", "actionType", "reasonPolicy", "signaturePolicy", "statePolicy", "snapshotProfile", "retentionClass", "testIds", "ownerRole", "applicability"],
+        "additionalProperties": false,
+        "properties": {
+          "operationId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "sourceType": { "enum": ["SERVICE_METHOD", "JOB", "LISTENER", "IMPORT", "MIGRATION", "SCRIPT"] },
+          "sourceLocators": { "type": "array", "minItems": 1, "maxItems": 256, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 512 } },
+          "domain": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "subjectType": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "actionType": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "reasonPolicy": { "enum": ["SYSTEM", "SYSTEM_WITH_OPTIONAL_TEXT", "USER_REQUIRED", "SYSTEM_ERROR", "APPROVAL_REFERENCE"] },
+          "signaturePolicy": { "enum": ["REQUIRED", "PARENT", "NONE"] },
+          "statePolicy": { "enum": ["ABSENT_TO_PRESENT", "PRESENT_TO_PRESENT", "PRESENT_TO_ABSENT", "ABSENT_OR_PRESENT_TO_PRESENT"] },
+          "snapshotProfile": { "enum": ["ORDER", "PRODUCTION", "ALLOCATION", "PRODUCTION_REVIEW", "PQC", "PQC_REVIEW", "COMPLETION", "APPLICATION", "PQC_RELEASE", "MARKET_RELEASE", "ATTACHMENT", "NCR", "ATTEMPT", "POLICY"] },
+          "retentionClass": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "testIds": { "type": "array", "minItems": 1, "maxItems": 256, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 128 } },
+          "ownerRole": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "scopeReason": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "futureOwnerRole": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "futureTaskReference": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "applicability": { "enum": ["GXP", "OUT_OF_RELEASE_SCOPE"] }
+        }
+      }
+    },
+    "coverageScope": {
+      "type": "object",
+      "required": ["scopeId", "mode", "includedReferences", "excludedReferences", "writeBoundaryScan"],
+      "additionalProperties": false,
+      "properties": {
+        "scopeId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "mode": { "enum": ["R1", "FULL_COVERAGE"] },
+        "includedReferences": { "type": "array", "minItems": 1, "maxItems": 4096, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 512 } },
+        "excludedReferences": { "type": "array", "maxItems": 4096, "uniqueItems": true, "items": {
+          "type": "object", "required": ["reference", "reason", "evidenceReference", "futureOwnerRole", "futureTaskReference"], "additionalProperties": false,
+          "properties": {
+            "reference": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "reason": { "type": "string", "minLength": 1, "maxLength": 2000 },
+            "evidenceReference": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "futureOwnerRole": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "futureTaskReference": { "type": "string", "minLength": 1, "maxLength": 512 }
+          }
+        } },
+        "writeBoundaryScan": {
+      "type": "object",
+      "required": ["registrationMode", "approvedExclusionsFile", "categories"],
+      "properties": {
+        "registrationMode": { "const": "REGISTERED_OR_APPROVED_EXCLUSION" },
+        "approvedExclusionsFile": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "categories": {
+          "type": "array",
+          "minItems": 8,
+          "items": { "$ref": "#/$defs/writeBoundaryCategory" }
+        }
+      },
+      "additionalProperties": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "writeBoundaryCategory": {
+      "type": "object",
+      "required": ["sourceType", "requiredRegistration", "paths", "expectedMinCandidates", "unregisteredDisposition"],
+      "properties": {
+        "sourceType": {
+          "enum": ["CONTROLLER", "DOMAIN_SERVICE", "JOB", "MESSAGE_CONSUMER", "IMPORT", "EXTERNAL_SYNC", "MIGRATION", "OPS_SCRIPT"]
+        },
+        "requiredRegistration": { "const": true },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "expectedMinCandidates": { "type": "integer", "minimum": 1 },
+        "unregisteredDisposition": { "$ref": "#/$defs/unregisteredDisposition" }
+      },
+      "additionalProperties": false
+    },
+    "unregisteredDisposition": {
+      "type": "object",
+      "required": ["decision", "reasonCode", "reason"],
+      "properties": {
+        "decision": { "const": "FAIL" },
+        "reasonCode": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 512 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -250,6 +250,8 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         assertEquals("HEAD_HASH", audit.getAfterState().getState());
         assertEquals(result.getFieldAuditHeadHash(), audit.getAfterState().getObjectVersion());
         assertTrue(audit.getAfterState().getCanonicalJson().contains("\"changedFieldCount\":1"));
+        assertTrue(audit.getLinks().stream().anyMatch(link -> "BATCH_RECORD_EXECUTION".equals(link.objectType())
+                && String.valueOf(execution.getId()).equals(link.objectId())));
     }
 
     @Test

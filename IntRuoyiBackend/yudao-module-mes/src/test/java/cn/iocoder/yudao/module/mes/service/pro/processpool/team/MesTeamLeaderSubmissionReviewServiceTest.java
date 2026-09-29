@@ -4,12 +4,16 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +31,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.doThrow;
@@ -45,6 +50,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     @Mock
     private MesProcessPoolSubmissionReviewMapper reviewMapper;
     @Mock
+    private MesPqcInspectionTaskMapper pqcTaskMapper;
+    @Mock
     private MesPqcProcessInspectionAggregationService processInspectionAggregationService;
     @Mock
     private MesProBatchRecordExecutionSignatureService signatureService;
@@ -52,6 +59,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     private MesReportAllocationCommandService reportAllocationCommandService;
     @Mock
     private MesProProcessPoolEventRevisionMapper revisionMapper;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     private MesTeamLeaderSubmissionReviewService service;
 
@@ -61,10 +70,14 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 processInspectionAggregationService);
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
         ReflectionTestUtils.setField(service, "reportAllocationCommandService", reportAllocationCommandService);
+        // The current review API binds the signature to its business object using all six arguments.
         lenient().when(signatureService.recordTeamLeaderReviewSignature(
                 any(), any(), any(), any(), any(), any())).thenReturn(9101L);
         ReflectionTestUtils.setField(service, "revisionMapper", revisionMapper);
-        // The current review API binds the signature to its business object using all six arguments.
+        ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(service, "pqcTaskMapper", pqcTaskMapper);
+        lenient().when(pqcTaskMapper.selectById(5101L)).thenReturn(MesPqcInspectionTaskDO.builder()
+                .id(5101L).activeOrderId(8101L).build());
     }
 
     @Test
@@ -95,6 +108,13 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         assertEquals("{\"outputQuantity\":10}", event.getRawPayload());
         assertEquals(9001L, event.getSignatureId());
         verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7001L);
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        assertEquals("mes.pqc.review.approve", auditCaptor.getValue().getOperationId());
+        assertEquals("PQC_REVIEW:7001", auditCaptor.getValue().getIdempotencyKey());
+        assertEquals("PQC_REVIEW_APPROVED", auditCaptor.getValue().getAfterState().getState());
+        assertHasActiveOrderRelation(auditCaptor.getValue(), 8101L);
     }
 
     @Test
@@ -109,6 +129,12 @@ class MesTeamLeaderSubmissionReviewServiceTest {
 
         assertEquals(7002L, reviewId);
         verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> rejectAuditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(rejectAuditCaptor.capture());
+        assertEquals("mes.pqc.review.reject", rejectAuditCaptor.getValue().getOperationId());
+        assertEquals("PQC_REVIEW_REJECTED", rejectAuditCaptor.getValue().getAfterState().getState());
+        assertHasActiveOrderRelation(rejectAuditCaptor.getValue(), 8101L);
     }
 
     @Test
@@ -252,6 +278,26 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         verify(signatureService, org.mockito.Mockito.times(2))
                 .recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any());
         verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7002L);
+        ArgumentCaptor<GxpAuditCommand> audits = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService, org.mockito.Mockito.times(2)).append(audits.capture());
+        assertEquals(List.of("PQC_REVIEW:7001", "PQC_REVIEW:7002"),
+                audits.getAllValues().stream().map(GxpAuditCommand::getIdempotencyKey).toList());
+        assertEquals(List.of("mes.pqc.review.reject", "mes.pqc.review.approve"),
+                audits.getAllValues().stream().map(GxpAuditCommand::getOperationId).toList());
+        for (int index = 0; index < audits.getAllValues().size(); index++) {
+            GxpAuditCommand audit = audits.getAllValues().get(index);
+            assertHasActiveOrderRelation(audit, 8101L);
+            var after = cn.iocoder.yudao.framework.common.util.json.JsonUtils
+                    .parseTree(audit.getAfterState().getCanonicalJson());
+            var signature = cn.iocoder.yudao.framework.common.util.json.JsonUtils
+                    .parseTree(after.path("review").path("reviewSignatureSnapshotJson").asText());
+            assertEquals(8001L + index, signature.path("revisionId").asLong());
+            assertEquals(7000L + index, signature.path("supersededReviewId").asLong());
+            assertEquals(17501L + index, signature.path("revisionSignatureId").asLong());
+            assertTrue(signature.path("payloadHash").isTextual());
+        }
+        verify(reviewMapper, never()).updateById(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(reviewMapper, never()).deleteById(org.mockito.ArgumentMatchers.anyLong());
     }
 
     @Test
@@ -383,12 +429,19 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         return MesProProcessPoolEventDO.builder()
                 .id(1001L)
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                .feedbackSourceId(5101L)
                 .actualEmployeeId(actualEmployeeId)
                 .rawPayload("{\"outputQuantity\":10}")
                 .serverSubmitTime(LocalDateTime.of(2026, 7, 30, 9, 10))
                 .signatureId(9001L)
                 .signatureUserId(actualEmployeeId)
                 .build();
+    }
+
+    private static void assertHasActiveOrderRelation(GxpAuditCommand command, Long activeOrderId) {
+        assertTrue(command.getLinks().stream().anyMatch(link ->
+                "ACTIVE_ORDER".equals(link.objectType())
+                        && activeOrderId.toString().equals(link.objectId())));
     }
 
     private static MesProcessPoolSubmissionReviewDO existingReview() {

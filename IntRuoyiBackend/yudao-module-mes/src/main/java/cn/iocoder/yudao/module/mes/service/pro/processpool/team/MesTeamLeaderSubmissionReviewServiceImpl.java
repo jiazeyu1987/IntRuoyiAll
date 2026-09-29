@@ -4,14 +4,21 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureResult;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +26,8 @@ import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -54,6 +63,11 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
     @Resource
     private MesProProcessPoolEventRevisionMapper revisionMapper;
 
+    @Resource
+    private GxpAuditService gxpAuditService;
+
+    @Resource
+    private MesPqcInspectionTaskMapper pqcTaskMapper;
     public MesTeamLeaderSubmissionReviewServiceImpl(MesTeamLeaderScopeService scopeService,
                                                     MesProProcessPoolEventMapper eventMapper,
                                                     MesProcessPoolSubmissionReviewMapper reviewMapper,
@@ -68,6 +82,7 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
     @Transactional(rollbackFor = Exception.class)
     public Long reviewSubmission(MesTeamLeaderSubmissionReviewReqBO reqBO) {
         validateReq(reqBO);
+        gxpAuditService.acquireLedgerLock();
         if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(reqBO.getLeaderType())
                 && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(reqBO.getReviewStatus())) {
             return reportAllocationCommandService.rejectProductionSubmission(
@@ -116,6 +131,7 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                 && MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
             processInspectionAggregationService.aggregateApprovedPqcSubmission(reqBO.getEventId(), review.getId());
         }
+        appendPqcReviewGxpAudit(event, review);
         return review.getId();
     }
 
@@ -154,6 +170,109 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                 && Objects.equals(signature.getActorId(), revision.getRevisionSignatureUserId()) ? revision : null;
     }
 
+    private void appendPqcReviewGxpAudit(MesProProcessPoolEventDO event,
+                                         MesProcessPoolSubmissionReviewDO review) {
+        if (review.getId() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "submissionReview.reviewId");
+        }
+        boolean approved = MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(review.getReviewStatus());
+        String operationId = approved ? "mes.pqc.review.approve" : "mes.pqc.review.reject";
+        Map<String, Object> before = new LinkedHashMap<>();
+        before.put("eventId", event.getId());
+        before.put("state", "ABSENT");
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("event", pqcReviewEventSnapshot(event));
+        after.put("review", pqcReviewSnapshot(review));
+        after.put("aggregationState", approved ? "AGGREGATED" : "NOT_APPLICABLE");
+        MesPqcInspectionTaskDO pqcTask = resolvePqcInspectionTask(event);
+        List<GxpAuditRelation> links = new ArrayList<>();
+        links.add(new GxpAuditRelation("SUBJECT", "PROCESS_POOL_EVENT",
+                String.valueOf(event.getId()), String.valueOf(review.getId()), null));
+        links.add(new GxpAuditRelation("REVIEW", "PQC_REVIEW",
+                String.valueOf(review.getId()), String.valueOf(review.getId()), null));
+        links.add(new GxpAuditRelation("SOURCE", "PQC_INSPECTION_TASK",
+                String.valueOf(pqcTask.getId()), null, null));
+        links.add(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
+                String.valueOf(pqcTask.getActiveOrderId()), null, null));
+        links.add(new GxpAuditRelation("SIGNATURE", "SIGNATURE",
+                String.valueOf(review.getReviewSignatureId()), null, null));
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .eventSchemaVersion(2)
+                .operationId(operationId)
+                .subjectId("MES_PROCESS_POOL_EVENT:" + event.getId())
+                .subjectVersion(String.valueOf(review.getId()))
+                .reason(approved ? "PQC复核已通过" : review.getReviewRemark())
+                .reasonCode(approved ? "MES_PQC_REVIEW_APPROVE" : "MES_PQC_REVIEW_REJECT")
+                .reasonSource(approved ? "SYSTEM" : "USER")
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state("ABSENT")
+                        .objectVersion(String.valueOf(event.getId()))
+                        .canonicalJson(JsonUtils.toJsonString(before))
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state(approved ? "PQC_REVIEW_APPROVED" : "PQC_REVIEW_REJECTED")
+                        .objectVersion(String.valueOf(review.getId()))
+                        .canonicalJson(JsonUtils.toJsonString(after))
+                        .build())
+                .idempotencyKey("PQC_REVIEW:" + review.getId())
+                .requestId("MES-PQC-REVIEW:" + event.getId() + ":" + review.getId())
+                .resultStatus("SUCCESS")
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator("cn.iocoder.yudao.module.mes.service.pro.processpool.team."
+                        + "MesTeamLeaderSubmissionReviewServiceImpl#reviewSubmission")
+                .signatureRecordId(String.valueOf(review.getReviewSignatureId()))
+                .links(links)
+                .evidences(List.of(new GxpAuditEvidence("FORMAL_PQC_REVIEW_SOURCE",
+                        String.valueOf(event.getId()), String.valueOf(review.getId()), null, "PQC_REVIEW")))
+                .build());
+    }
+
+    private MesPqcInspectionTaskDO resolvePqcInspectionTask(MesProProcessPoolEventDO event) {
+        Long feedbackSourceId = event.getFeedbackSourceId();
+        if (feedbackSourceId == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcReview.feedbackSourceId");
+        }
+        MesPqcInspectionTaskDO pqcTask = pqcTaskMapper.selectById(feedbackSourceId);
+        if (pqcTask == null || !Objects.equals(feedbackSourceId, pqcTask.getId())
+                || pqcTask.getActiveOrderId() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                    "pqcReview.pqcInspectionTask.activeOrderId");
+        }
+        return pqcTask;
+    }
+
+    private Map<String, Object> pqcReviewEventSnapshot(MesProProcessPoolEventDO event) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("eventId", event.getId());
+        snapshot.put("eventType", event.getEventType());
+        snapshot.put("workOrderId", event.getWorkOrderId());
+        snapshot.put("routeId", event.getRouteId());
+        snapshot.put("routeProcessId", event.getRouteProcessId());
+        snapshot.put("processId", event.getProcessId());
+        snapshot.put("qaProcessId", event.getQaProcessId());
+        snapshot.put("feedbackSourceType", event.getFeedbackSourceType());
+        snapshot.put("feedbackSourceId", event.getFeedbackSourceId());
+        snapshot.put("actualEmployeeId", event.getActualEmployeeId());
+        snapshot.put("signatureId", event.getSignatureId());
+        snapshot.put("serverSubmitTime", event.getServerSubmitTime());
+        snapshot.put("rawPayload", event.getRawPayload());
+        return snapshot;
+    }
+
+    private Map<String, Object> pqcReviewSnapshot(MesProcessPoolSubmissionReviewDO review) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("reviewId", review.getId());
+        snapshot.put("eventId", review.getEventId());
+        snapshot.put("leaderUserId", review.getLeaderUserId());
+        snapshot.put("leaderType", review.getLeaderType());
+        snapshot.put("reviewStatus", review.getReviewStatus());
+        snapshot.put("reviewRemark", review.getReviewRemark());
+        snapshot.put("reviewedAt", review.getReviewedAt());
+        snapshot.put("reviewSignatureId", review.getReviewSignatureId());
+        snapshot.put("reviewSignatureUserId", review.getReviewSignatureUserId());
+        snapshot.put("reviewSignatureSnapshotJson", review.getReviewSignatureSnapshotJson());
+        return snapshot;
+    }
     private boolean isIdempotentReplay(MesTeamLeaderSubmissionReviewReqBO reqBO,
                                        MesProcessPoolSubmissionReviewDO existingReview) {
         return existingReview.getId() != null

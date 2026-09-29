@@ -1,0 +1,27 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const sourceRoot = path.resolve(__dirname, '../../../../../')
+const panelPath = path.join(sourceRoot, 'src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue')
+const apiPath = path.join(sourceRoot, 'src/api/mes/pro/edhr/activeOrderAudit.ts')
+const batchDetailPath = path.join(sourceRoot, 'src/views/mes/pro/edhr-batch/BatchExecutionActiveOrderDetailPage.vue')
+
+const panel = fs.readFileSync(panelPath, 'utf8')
+const api = fs.readFileSync(apiPath, 'utf8')
+const batchDetail = fs.readFileSync(batchDetailPath, 'utf8')
+
+assert.match(panel, /data-active-order-gxp-audit/)
+assert.match(panel, /data-active-order-gxp-audit-pagination/)
+assert.match(panel, /gxpAuditPageNo/)
+assert.match(panel, /gxpAuditTotal/)
+assert.match(panel, /统一 GxP 审计追踪/)
+assert.doesNotMatch(panel, /<el-tab-pane[^>]+label="电子批记录"/)
+assert.match(api, /active-order\/audit\/page/)
+assert.match(api, /production-release\/pqc\/audit\/page/)
+assert.match(api, /edhr-batch-execution\/audit\/page/)
+assert.match(batchDetail, /audit-scope-type="BATCH"/)
+assert.match(batchDetail, /:audit-scope-id="auditDetailQuery"/)
+assert.match(batchDetail, /const auditDetailQuery = computed\([\s\S]*?return resolveDetailQuery\(\)/)
+
+console.log('active-order-gxp-audit-static: PASS')

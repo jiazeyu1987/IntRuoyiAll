@@ -24,6 +24,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -97,6 +98,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
     @Mock
     private MesProBatchRecordExecutionSignatureService signatureService;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     private MesTeamLeaderSubmissionReviewService submissionReviewService;
     private MesTeamLeaderReportConfirmationService reportConfirmationService;
@@ -119,6 +122,10 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
         submissionReviewService = new MesTeamLeaderSubmissionReviewServiceImpl(scopeService, eventMapper, reviewMapper,
                 processInspectionAggregationService);
         ReflectionTestUtils.setField(submissionReviewService, "signatureService", signatureService);
+        ReflectionTestUtils.setField(submissionReviewService, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(submissionReviewService, "pqcTaskMapper", pqcTaskMapper);
+        lenient().when(pqcTaskMapper.selectById(5101L)).thenReturn(MesPqcInspectionTaskDO.builder()
+                .id(5101L).activeOrderId(8101L).build());
         MesTeamLeaderFifoAllocationService fifoAllocationService =
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
                         orderProcessTargetService, abnormalStateService, eventMapper, snapshotMapper);

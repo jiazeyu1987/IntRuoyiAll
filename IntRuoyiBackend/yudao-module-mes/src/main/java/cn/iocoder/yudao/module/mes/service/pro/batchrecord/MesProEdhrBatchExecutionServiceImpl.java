@@ -700,6 +700,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         MesProEdhrBatchExecutionDO batch = validateBatchExists(id);
         EdhrBatchExecutionRespVO result;
         try {
+            recoverMissingRouteFormTasksBeforePageRendering(batch);
             syncIfActive(batch);
             batch = batchExecutionMapper.selectById(batch.getId());
             batchExecutionVisibilityService.requireVisibleBatch(batch, currentUserId());
@@ -1341,6 +1342,37 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         List<BatchTaskConfig> taskConfigs = buildBatchTaskConfigs(route, routeProcesses, activeRouteVersion);
         newAttempt.setTaskTotal(taskConfigs.size());
         batchExecutionMapper.insert(newAttempt);
+        List<MesProEdhrBatchExecutionOriginDO> sourceOrigins =
+                batchExecutionOriginMapper.selectListByBatchExecutionId(source.getId());
+        for (MesProEdhrBatchExecutionOriginDO sourceOrigin : sourceOrigins) {
+            batchExecutionOriginMapper.insert(MesProEdhrBatchExecutionOriginDO.builder()
+                    .tenantId(sourceOrigin.getTenantId())
+                    .batchExecutionId(newAttempt.getId())
+                    .entryType(sourceOrigin.getEntryType())
+                    .originKey(sourceOrigin.getOriginKey())
+                    .activeOrderId(sourceOrigin.getActiveOrderId())
+                    .workOrderId(sourceOrigin.getWorkOrderId())
+                    .completionTransactionId(sourceOrigin.getCompletionTransactionId())
+                    .completionVersion(sourceOrigin.getCompletionVersion())
+                    .completionBackfillReceiptId(sourceOrigin.getCompletionBackfillReceiptId())
+                    .completionBackfillReceiptHash(sourceOrigin.getCompletionBackfillReceiptHash())
+                    .pickListBindingId(sourceOrigin.getPickListBindingId())
+                    .pickListId(sourceOrigin.getPickListId())
+                    .pickListBindingVersion(sourceOrigin.getPickListBindingVersion())
+                    .hasActualLoss(sourceOrigin.getHasActualLoss())
+                    .sourceSnapshotHash(sourceOrigin.getSourceSnapshotHash())
+                    .batchProvisionReceiptId(sourceOrigin.getBatchProvisionReceiptId())
+                    .batchProvisionStatus(sourceOrigin.getBatchProvisionStatus())
+                    .sourceCredentialId(sourceOrigin.getSourceCredentialId())
+                    .sourceCredentialHash(sourceOrigin.getSourceCredentialHash())
+                    .sourceBundleHash(sourceOrigin.getSourceBundleHash())
+                    .idempotencyKey(sourceOrigin.getIdempotencyKey() + ":ATTEMPT:" + attemptNo)
+                    .relationStatus(sourceOrigin.getRelationStatus())
+                    .relationReason(sourceOrigin.getRelationReason())
+                    .capturedBy(sourceOrigin.getCapturedBy())
+                    .capturedAt(sourceOrigin.getCapturedAt())
+                    .build());
+        }
         createDefaultDossierItems(newAttempt);
 
         List<MesProEdhrBatchExecutionTaskDO> insertedTasks = new ArrayList<>();
@@ -1378,7 +1410,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         recordOperationAudit("BATCH_EXECUTION", String.valueOf(latest.getId()), CHANGE_TYPE_REEXECUTE,
                 "质量拒收后同生产批号新执行尝试", latest.getId(), null, null, latest.getRouteId(), null,
                 null, null, "mes:pro-edhr-batch-execution:create", "ALLOW",
-                "SUCCESS", null, null, reexecuteAudit.toJSONString(), true);
+                "SUCCESS", null, reexecuteProvisionCommand.getSourceSnapshotHash(), reexecuteAudit.toJSONString(), true);
         publishBatchProvisioned(latest, reexecuteProvisionCommand, provisioningRecord.getId());
         return result;
     }
@@ -2027,7 +2059,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 actionName, task.getBatchExecutionId(), task.getExecutionId(), task.getId(),
                 batch.getRouteId(), task.getRouteProcessId(), task.getBatchRecordReportId(), task.getRecordCategory(),
                 "mes:pro-edhr-batch-execution:update", "ALLOW", "SUCCESS", null, null,
-                payload.toJSONString());
+                payload.toJSONString(), true);
         return toResp(latest);
     }
 
@@ -2075,7 +2107,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 "完成 eDHR 特殊工序", task.getBatchExecutionId(), task.getExecutionId(), task.getId(),
                 batch.getRouteId(), task.getRouteProcessId(), task.getBatchRecordReportId(), task.getRecordCategory(),
                 "mes:pro-edhr-batch-execution:update", "ALLOW", "SUCCESS", null, null,
-                payload.toJSONString());
+                payload.toJSONString(), true);
         return toResp(latest);
     }
 
@@ -2136,7 +2168,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 "完成生产放行报告节点", task.getBatchExecutionId(), task.getExecutionId(), task.getId(),
                 null, task.getRouteProcessId(), task.getBatchRecordReportId(), task.getRecordCategory(),
                 "mes:pro-edhr-batch-execution:update", "ALLOW", "SUCCESS", null, null,
-                payload.toJSONString());
+                payload.toJSONString(), true);
         return evidence;
     }
 
@@ -2199,7 +2231,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 "完成 eDHR 预放行资料节点", task.getBatchExecutionId(), task.getExecutionId(), task.getId(),
                 batch.getRouteId(), task.getRouteProcessId(), task.getBatchRecordReportId(), task.getRecordCategory(),
                 "mes:pro-edhr-batch-execution:update", "ALLOW", "SUCCESS", null, null,
-                payload.toJSONString());
+                payload.toJSONString(), true);
         return evidence;
     }
 
@@ -4159,7 +4191,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         recordOperationAudit("BATCH_EXECUTION", String.valueOf(id), "SYNC",
                 "同步 eDHR 批次状态", id, null, null, latest.getRouteId(), null,
                 null, null, "mes:pro-edhr-batch-execution:update", "ALLOW",
-                "SUCCESS", null, null, null);
+                "SUCCESS", null, null, null, true);
         return result;
     }
 
@@ -4179,6 +4211,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     @Transactional(rollbackFor = Exception.class)
     public EdhrBatchExecutionReviewTimelineRespVO getReviewTimeline(Long id) {
         MesProEdhrBatchExecutionDO batch = validateBatchExists(id);
+        recoverMissingRouteFormTasksBeforePageRendering(batch);
         syncIfActive(batch);
         batch = batchExecutionMapper.selectById(batch.getId());
         MesProEdhrReleaseTransactionDO releaseTransaction =
@@ -4856,7 +4889,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         recordOperationAudit("BATCH_EXECUTION", String.valueOf(batch.getId()), "CLOSE",
                 "关闭 eDHR 批次", batch.getId(), null, null, batch.getRouteId(), null,
                 null, null, "mes:pro-edhr-batch-execution:close", "ALLOW",
-                "SUCCESS", null, aggregateHash, JSON.toJSONString(Map.of("comment", value(reqVO.getComment()))));
+                "SUCCESS", null, aggregateHash, JSON.toJSONString(Map.of("comment", value(reqVO.getComment()))), true);
         return result;
     }
 
@@ -4898,7 +4931,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         recordOperationAudit("BATCH_EXECUTION", String.valueOf(batch.getId()), "QUALITY_REJECT",
                 "质量终态拒收 eDHR 批次", batch.getId(), null, null, batch.getRouteId(), null,
                 null, null, "mes:pro-edhr-batch-execution:quality-reject", "ALLOW",
-                "SUCCESS", null, aggregateHash, JSON.toJSONString(Map.of("reason", reason)));
+                "SUCCESS", null, aggregateHash, JSON.toJSONString(Map.of("reason", reason)), true);
         return result;
     }
 
@@ -4992,7 +5025,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         recordOperationAudit("BATCH_ARCHIVE", String.valueOf(archive.getId()), "ARCHIVE",
                 "生成 eDHR 批次最终归档", batch.getId(), null, archiveTask.getId(), batch.getRouteId(), null,
                 null, null, "mes:pro-edhr-batch-execution-archive:create", "ALLOW",
-                "SUCCESS", null, archive.getContentHash(), null);
+                "SUCCESS", null, archive.getContentHash(), null, true);
         return result;
     }
 
@@ -9042,7 +9075,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         metadata.putIfAbsent("associatedSignatureId", "NOT_APPLICABLE");
         metadata.putIfAbsent("permissionDecision", permissionDecision);
         metadata.putIfAbsent("resultStatus", resultStatus);
-        operationAuditService.record(new MesProEdhrOperationAuditCommand()
+        operationAuditService.recordInCallerTransaction(new MesProEdhrOperationAuditCommand()
                 .setRequestId(requestId)
                 .setObjectType(objectType)
                 .setObjectId(objectId)

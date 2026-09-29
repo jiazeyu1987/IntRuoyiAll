@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.ActiveOrderSnapshotResolver;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +45,8 @@ class MesProFrontlineFeedbackRouteOrderGateTest {
     private MesProBatchRecordExecutionSignatureService signatureService;
     @Mock
     private ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -59,11 +62,16 @@ class MesProFrontlineFeedbackRouteOrderGateTest {
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
                 signatureService,
-                activeOrderSnapshotResolver);
+                activeOrderSnapshotResolver,
+                gxpAuditService);
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuditIdentity(submitService);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
         MesProFrontlineFeedbackSubmitTestData.stubLossReasonValidator(lossReasonValidator);
         MesProFrontlineFeedbackSubmitTestData.stubActiveOrderSnapshot(activeOrderSnapshotResolver);
         org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApply(any()))
+                .thenReturn(MesFrontlineParameterAuditResult.empty());
+        org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApplyMaterial(
+                        any(), any(), any(), any(), any()))
                 .thenReturn(MesFrontlineParameterAuditResult.empty());
         org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any()))
                 .thenReturn(4001L);
