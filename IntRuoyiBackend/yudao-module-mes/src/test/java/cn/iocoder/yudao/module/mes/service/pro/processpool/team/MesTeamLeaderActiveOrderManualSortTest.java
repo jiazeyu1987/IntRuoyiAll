@@ -119,6 +119,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
     @Mock private MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
     @Mock private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
     @Mock private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @Mock private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
 
     private MesTeamLeaderActiveOrderService service;
 
@@ -143,6 +144,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
                 pickListBindingMapper, pickListBindingItemMapper, workOrderBomMapper,
                 batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper,
                 routeStartAuthorizationService, nonconformanceReviewService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
     }
 
     @Test
@@ -155,6 +157,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
         when(activeOrderMapper.swapActiveOrderSortOrders(
                 LEADER_USER_ID, target.getId(), target.getSortOrder(), first.getId(), first.getSortOrder()))
                 .thenReturn(2);
+        stubPersistedSwap(target, first);
 
         service.moveActiveOrder(moveRequest(target.getId(), "UP"));
 
@@ -172,6 +175,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
         when(activeOrderMapper.swapActiveOrderSortOrders(
                 LEADER_USER_ID, target.getId(), target.getSortOrder(), last.getId(), last.getSortOrder()))
                 .thenReturn(2);
+        stubPersistedSwap(target, last);
 
         service.moveActiveOrder(moveRequest(target.getId(), "DOWN"));
 
@@ -205,6 +209,13 @@ class MesTeamLeaderActiveOrderManualSortTest {
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS.getCode(), exception.getCode());
         verify(activeOrderMapper, never()).swapActiveOrderSortOrders(
                 LEADER_USER_ID, owned.getId(), owned.getSortOrder(), owned.getId(), owned.getSortOrder());
+    }
+
+    private void stubPersistedSwap(MesProcessPoolActiveOrderDO target, MesProcessPoolActiveOrderDO adjacent) {
+        var persistedTarget = activeOrder(target.getId(), adjacent.getSortOrder()).setVersion(target.getVersion() + 1);
+        var persistedAdjacent = activeOrder(adjacent.getId(), target.getSortOrder()).setVersion(adjacent.getVersion() + 1);
+        when(activeOrderMapper.selectByIdForUpdate(target.getId())).thenReturn(persistedTarget);
+        when(activeOrderMapper.selectByIdForUpdate(adjacent.getId())).thenReturn(persistedAdjacent);
     }
 
     private static MesTeamLeaderActiveOrderMoveReqBO moveRequest(Long activeOrderId, String direction) {

@@ -43,6 +43,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrDevi
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskService;
@@ -58,6 +59,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -127,6 +129,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     @Resource
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Resource
+    private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    @Resource
     private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderReworkCycleService reworkCycleService;
     @Resource
     private MesProProcessPoolEventMapper processPoolEventMapper;
@@ -164,6 +168,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     public MesProEdhrNonconformanceReviewRespVO create(MesProEdhrNonconformanceReviewCreateReqVO reqVO) {
         String reason = requireText(reqVO.getNonconformanceReason());
         if (reqVO.getActiveOrderId() != null) {
+            unifiedAudit.acquireLedgerLock();
             return createFromActiveOrder(reqVO, reason);
         }
         String sourceType = requireSourceType(reqVO.getSourceType());
@@ -257,6 +262,10 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             validateBatchCanStartReview(batch);
         }
         MesProWorkOrderDO workOrder = lockWorkOrder(activeOrder.getWorkOrderId());
+        Map<String, Object> beforeData = new TreeMap<>();
+        beforeData.put("affectedState", captureAffectedState(null, activeOrder, batch, workOrder,
+                null, new DispositionAuditTargets(null, null, null, null), null));
+        GxpAuditStateEnvelope before = auditEnvelope("ABSENT", beforeData);
         LocalDateTime now = now();
         Boolean previousWorkOrderTemporaryFrozen = captureWorkOrderExternalFreezeAtReviewStart(workOrder, now);
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
@@ -285,6 +294,15 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         requireWorkOrderUpdate(workOrder.getId(), true);
         recordReviewOperation("NONCONFORMANCE_REVIEW_CREATE", "创建不合格评审", review, activeOrder.getId(),
                 null, now, null, null, null, null, null, null, null);
+        MesProEdhrNonconformanceReviewDO persisted = requireAuditRow(reviewMapper.selectByIdForUpdate(review.getId()));
+        MesProEdhrBatchExecutionDO afterBatch = batch == null ? null
+                : requireAuditRow(batchExecutionMapper.selectByIdForUpdate(batch.getId()));
+        MesProWorkOrderDO afterWorkOrder = requireAuditRow(workOrderMapper.selectByIdForUpdate(workOrder.getId()));
+        GxpAuditStateEnvelope after = withAffectedState(dispositionAuditState(persisted,
+                afterBatch == null ? null : afterBatch.getStatus(), afterWorkOrder.getTemporaryFrozen(), null, null, null),
+                captureAffectedState(persisted, requireAuditRow(activeOrderMapper.selectByIdForUpdate(activeOrder.getId())), afterBatch, afterWorkOrder,
+                        null, new DispositionAuditTargets(null, null, null, null), null));
+        appendUnsignedCreationAudit(before, after, persisted);
         return toResp(review);
     }
 
@@ -513,7 +531,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
         MesProEdhrBatchExecutionDO batch = review.getBatchExecutionId() == null
-                ? null : requireBatchExecution(review.getBatchExecutionId());
+                ? null : requireAuditRow(batchExecutionMapper.selectByIdForUpdate(review.getBatchExecutionId()));
         validateBatchCanDisposeReview(batch, review);
         MesProcessPoolActiveOrderReleaseApplicationDO sourceApplication = review.getActiveOrderId() == null
                 && SOURCE_TYPE_PQC_RELEASE.equals(review.getSourceType()) && review.getSourceId() != null
@@ -521,11 +539,10 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         Long activeOrderId = requireActiveOrderId(review.getActiveOrderId() != null
                 ? review.getActiveOrderId() : resolveActiveOrderId(review, batch, sourceApplication));
         // Completion, correction and rework take the active order lock before the work order lock.
-        if (DISPOSITION_REWORK.equals(disposition)) {
-            MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
-            if (activeOrder == null || !Objects.equals(activeOrder.getWorkOrderId(), review.getWorkOrderId())) {
-                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
-            }
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
+        if (activeOrder == null || (DISPOSITION_REWORK.equals(disposition)
+                && !Objects.equals(activeOrder.getWorkOrderId(), review.getWorkOrderId()))) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
         }
         MesProWorkOrderDO workOrder = lockWorkOrder(review.getWorkOrderId());
         MesProcessPoolActiveOrderReleaseApplicationDO application = resolvePqcReleaseApplicationForReview(review);
@@ -541,8 +558,11 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 : DISPOSITION_REWORK.equals(disposition)
                 ? MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED : review.getPreviousBatchStatus();
         Long qaUserId = SecurityFrameworkUtils.getLoginUserId();
-        GxpAuditStateEnvelope auditBefore = dispositionAuditState(review, batch == null ? null : batch.getStatus(),
-                workOrder == null ? null : workOrder.getTemporaryFrozen(), application, null, null);
+        DispositionAuditTargets auditTargets = resolveDispositionAuditTargets(application, review.getId(), disposition);
+        GxpAuditStateEnvelope auditBefore = withAffectedState(dispositionAuditState(review,
+                batch == null ? null : batch.getStatus(), workOrder == null ? null : workOrder.getTemporaryFrozen(),
+                application, auditTargets.existingReworkId(), null), captureAffectedState(review, activeOrder,
+                batch, workOrder, application, auditTargets, auditTargets.existingReworkId()));
         String qaDispositionAggregateHash = buildQaDispositionAggregateHash(review, disposition, reviewMaterialUrl,
                 reviewMaterialFileId, reviewMaterials.materialsJson(), reviewOpinion, qaUserId);
         Long qaDispositionSignatureId = recordQaDispositionSignature(qaUserId, review.getId(),
@@ -605,14 +625,22 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         recordReviewOperation("NONCONFORMANCE_REVIEW_DISPOSE", disposeActionName(disposition), review, activeOrderId,
                 disposition, now, qaDispositionSignatureId, reviewMaterialUrl, reviewMaterialFileId,
                 reviewMaterials.materialsJson(), reviewOpinion, qaSignature, qaUserId);
-        // Build after-state from the checked writes, not from a potentially stale ordinary read.
-        MesProEdhrNonconformanceReviewDO auditAfterReview = BeanUtils.toBean(review, MesProEdhrNonconformanceReviewDO.class);
-        auditAfterReview.setActiveOrderId(activeOrderId).setReviewStatus(update.getReviewStatus())
-                .setDisposition(update.getDisposition()).setReviewOpinion(update.getReviewOpinion())
-                .setReviewMaterialsJson(update.getReviewMaterialsJson());
-        appendDispositionAudit(auditBefore, dispositionAuditState(auditAfterReview, nextBatchStatus,
-                resultingFreeze, application, reworkActiveOrderId, auditSignature),
-                auditAfterReview, application, reworkActiveOrderId, auditSignature);
+        // Current reads observe the actual rows written by the whole caller transaction.
+        MesProEdhrNonconformanceReviewDO auditAfterReview = requireAuditRow(reviewMapper.selectByIdForUpdate(review.getId()));
+        MesProEdhrBatchExecutionDO afterBatch = batch == null ? null
+                : requireAuditRow(batchExecutionMapper.selectByIdForUpdate(batch.getId()));
+        MesProWorkOrderDO afterWorkOrder = workOrder == null ? null
+                : requireAuditRow(workOrderMapper.selectByIdForUpdate(workOrder.getId()));
+        MesProcessPoolActiveOrderReleaseApplicationDO afterApplication = application == null ? null
+                : requireAuditRow(releaseApplicationMapper.selectByIdForUpdate(application.getId()));
+        GxpAuditStateEnvelope auditAfter = withAffectedState(dispositionAuditState(auditAfterReview,
+                afterBatch == null ? null : afterBatch.getStatus(),
+                afterWorkOrder == null ? null : afterWorkOrder.getTemporaryFrozen(),
+                afterApplication, reworkActiveOrderId, auditSignature), captureAffectedState(auditAfterReview,
+                requireAuditRow(activeOrderMapper.selectByIdForUpdate(activeOrderId)), afterBatch, afterWorkOrder,
+                afterApplication, auditTargets, reworkActiveOrderId));
+        appendDispositionAudit(auditBefore, auditAfter, auditAfterReview, afterApplication,
+                reworkActiveOrderId, auditSignature);
         return toResp(reviewMapper.selectById(review.getId()));
     }
 
@@ -699,6 +727,127 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 .objectVersion("sha256:" + DigestUtil.sha256Hex(canonical)).canonicalJson(canonical).build();
     }
 
+    private record DispositionAuditTargets(Long pqcTaskId, Long managerTaskId,
+                                           Long transactionId, Long existingReworkId) { }
+
+    private DispositionAuditTargets resolveDispositionAuditTargets(
+            MesProcessPoolActiveOrderReleaseApplicationDO application, Long reviewId, String disposition) {
+        Long pqcTaskId = null;
+        Long managerTaskId = null;
+        Long transactionId = null;
+        if (application != null && !DISPOSITION_CONCESSION_RELEASE.equals(disposition)) {
+            pqcTaskId = application.getPqcReleaseWorkTaskId();
+            transactionId = application.getReleaseTransactionId();
+            if (transactionId == null) {
+                managerTaskId = application.getReleaseApprovalWorkTaskId();
+            } else {
+                requireAuditRow(releaseTransactionMapper.selectByIdForUpdate(transactionId));
+                // The cancellation service selects by transaction scope, not by application task id.
+                MesProEdhrWorkTaskDO task = workTaskMapper.selectOne(new QueryWrapper<MesProEdhrWorkTaskDO>()
+                        .eq("business_scope_type", "RELEASE_TRANSACTION").eq("business_scope_id", transactionId)
+                        .eq("task_type", "RELEASE_APPROVE")
+                        .in("status", MesProEdhrWorkTaskStatus.TODO, MesProEdhrWorkTaskStatus.DOING,
+                                MesProEdhrWorkTaskStatus.OVERDUE)
+                        .orderByDesc("id").last("FOR UPDATE"));
+                managerTaskId = task == null ? null : task.getId();
+            }
+        }
+        MesProcessPoolActiveOrderDO existing = DISPOSITION_REWORK.equals(disposition)
+                ? activeOrderMapper.selectOne(new QueryWrapper<MesProcessPoolActiveOrderDO>()
+                        .eq("rework_review_id", reviewId).last("FOR UPDATE")) : null;
+        return new DispositionAuditTargets(pqcTaskId, managerTaskId, transactionId,
+                existing == null ? null : existing.getId());
+    }
+
+    private Map<String, Object> captureAffectedState(MesProEdhrNonconformanceReviewDO review,
+            MesProcessPoolActiveOrderDO activeOrder, MesProEdhrBatchExecutionDO batch, MesProWorkOrderDO workOrder,
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            DispositionAuditTargets targets, Long reworkActiveOrderId) {
+        Map<String, Object> data = new TreeMap<>();
+        data.put("nonconformanceReview", review);
+        data.put("workOrder", workOrder);
+        data.put("batchExecution", batch);
+        data.put("sourceActiveOrder", activeOrder);
+        data.put("releaseApplication", application);
+        data.put("pqcReleaseTask", targets.pqcTaskId() == null ? null
+                : requireAuditRow(workTaskMapper.selectByIdForUpdate(targets.pqcTaskId())));
+        data.put("managerReleaseTask", targets.managerTaskId() == null ? null
+                : requireAuditRow(workTaskMapper.selectByIdForUpdate(targets.managerTaskId())));
+        data.put("managerReleaseTransaction", targets.transactionId() == null ? null
+                : requireAuditRow(releaseTransactionMapper.selectByIdForUpdate(targets.transactionId())));
+        data.put("reworkActiveOrder", null);
+        data.put("reworkProcessSnapshots", List.of());
+        data.put("reworkPqcTasks", List.of());
+        if (reworkActiveOrderId != null) {
+            MesProcessPoolActiveOrderDO cycle = requireAuditRow(activeOrderMapper.selectByIdForUpdate(reworkActiveOrderId));
+            if (!Objects.equals(cycle.getReworkSourceActiveOrderId(), activeOrder.getId())
+                    || review == null || !Objects.equals(cycle.getReworkReviewId(), review.getId())
+                    || !Objects.equals(cycle.getWorkOrderId(), review.getWorkOrderId())) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+            }
+            var snapshots = processSnapshotMapper.selectListByActiveOrderIdForUpdate(reworkActiveOrderId);
+            var tasks = pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(reworkActiveOrderId);
+            if (snapshots == null || snapshots.isEmpty() || tasks == null || tasks.isEmpty()
+                    || snapshots.stream().anyMatch(row -> row.getId() == null
+                        || !Objects.equals(row.getActiveOrderId(), reworkActiveOrderId)
+                        || !Objects.equals(row.getWorkOrderId(), review.getWorkOrderId()))
+                    || tasks.stream().anyMatch(row -> row.getId() == null
+                        || !Objects.equals(row.getActiveOrderId(), reworkActiveOrderId)
+                        || !Objects.equals(row.getWorkOrderId(), review.getWorkOrderId()))) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+            }
+            data.put("reworkActiveOrder", cycle);
+            data.put("reworkProcessSnapshots", snapshots.stream()
+                    .sorted(java.util.Comparator.comparing(row -> row.getId())).toList());
+            data.put("reworkPqcTasks", tasks.stream()
+                    .sorted(java.util.Comparator.comparing(row -> row.getId())).toList());
+        }
+        return data;
+    }
+
+    private <T> T requireAuditRow(T row) {
+        if (row == null) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        return row;
+    }
+
+    private GxpAuditStateEnvelope withAffectedState(GxpAuditStateEnvelope state, Map<String, Object> affected) {
+        Map<String, Object> data = new TreeMap<>(JSON.parseObject(state.getCanonicalJson()));
+        data.put("affectedState", affected);
+        return auditEnvelope(state.getState(), data);
+    }
+
+    private GxpAuditStateEnvelope auditEnvelope(String state, Map<String, Object> data) {
+        // Serialize immediately: later mapper updates must not mutate the before-state.
+        String canonical = JsonUtils.toJsonString(JsonUtils.parseTree(JSON.toJSONString(data,
+                com.alibaba.fastjson.serializer.SerializerFeature.WriteMapNullValue)));
+        return GxpAuditStateEnvelope.builder().state(state)
+                .objectVersion("sha256:" + DigestUtil.sha256Hex(canonical)).canonicalJson(canonical).build();
+    }
+
+    private void appendUnsignedCreationAudit(GxpAuditStateEnvelope before, GxpAuditStateEnvelope after,
+            MesProEdhrNonconformanceReviewDO review) {
+        String operation = "mes.nonconformance.active-order.create";
+        Map<String, Object> identity = new TreeMap<>();
+        identity.put("tenantId", TenantContextHolder.getRequiredTenantId().toString());
+        identity.put("operationId", operation);
+        identity.put("identity", List.of(auditId(review.getId())));
+        List<GxpAuditRelation> links = new ArrayList<>();
+        links.add(new GxpAuditRelation("SUBJECT", "NONCONFORMANCE_REVIEW", auditId(review.getId()), null, null));
+        addDispositionRelation(links, "ACTIVE_ORDER", review.getActiveOrderId());
+        addDispositionRelation(links, "WORK_ORDER", review.getWorkOrderId());
+        addDispositionRelation(links, "BATCH_EXECUTION", review.getBatchExecutionId());
+        unifiedAudit.append(GxpAuditCommand.builder().eventSchemaVersion(2).operationId(operation)
+                .subjectId(auditId(review.getId())).subjectVersion(after.getObjectVersion())
+                .reason(review.getNonconformanceReason()).reasonSource("USER").resultStatus("SUCCESS")
+                .beforeState(before).afterState(after)
+                .idempotencyKey("GXP2:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(identity)))
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator(MesProEdhrNonconformanceReviewServiceImpl.class.getName() + "#create")
+                .links(links).evidences(List.of()).build());
+    }
+
     private void appendDispositionAudit(GxpAuditStateEnvelope before, GxpAuditStateEnvelope after,
             MesProEdhrNonconformanceReviewDO review, MesProcessPoolActiveOrderReleaseApplicationDO application,
             Long reworkActiveOrderId, ElectronicSignatureRecordDO signature) {
@@ -733,7 +882,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 .reason(review.getReviewOpinion()).reasonSource("USER").resultStatus("SUCCESS")
                 .beforeState(before).afterState(after)
                 .idempotencyKey("GXP2:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(identity)))
-                .sourceType("SERVICE_METHOD").sourceLocator("MesProEdhrNonconformanceReviewServiceImpl#dispose")
+                .sourceType("SERVICE_METHOD").sourceLocator(MesProEdhrNonconformanceReviewServiceImpl.class.getName() + "#dispose")
                 .signatureRecordId(auditId(signature.getId())).signatureContentHash(signature.getContentHash())
                 .links(links).evidences(List.of(new GxpAuditEvidence("SIGNATURE", auditId(signature.getId()),
                         signature.getSubjectVersion(), signature.getContentHash(), "QA_DISPOSITION"))).build());
@@ -801,7 +950,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 .reason(review.getNonconformanceReason()).reasonSource("USER").resultStatus("SUCCESS")
                 .beforeState(GxpAuditStateEnvelope.builder().state("ABSENT").canonicalJson("{}").build()).afterState(after)
                 .idempotencyKey("GXP2:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(identity)))
-                .sourceType("SERVICE_METHOD").sourceLocator("MesProEdhrNonconformanceReviewServiceImpl#"
+                .sourceType("SERVICE_METHOD").sourceLocator(MesProEdhrNonconformanceReviewServiceImpl.class.getName() + "#"
                         + (batchRejection ? "rejectBatch" : "create"))
                 .signatureRecordId(auditId(signatureId)).signatureContentHash(signature.getContentHash())
                 .links(links).evidences(List.of(new GxpAuditEvidence("SIGNATURE", auditId(signatureId),

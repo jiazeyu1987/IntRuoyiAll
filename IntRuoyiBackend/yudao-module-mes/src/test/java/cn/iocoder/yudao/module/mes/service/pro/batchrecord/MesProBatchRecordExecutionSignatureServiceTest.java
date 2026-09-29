@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureAuthorizationService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
@@ -11,6 +12,9 @@ import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.PostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
@@ -76,6 +80,8 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     private AdminUserApi adminUserApi;
     @Mock
     private ElectronicSignatureService electronicSignatureService;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     @InjectMocks
     private MesProBatchRecordExecutionSignatureService signatureService;
@@ -239,10 +245,17 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
         when(passwordEncoder.matches("tmp-secret", "bcrypt-temp-sign")).thenReturn(true);
         when(signatureMapper.insert(any(MesProBatchRecordExecutionSignatureDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProBatchRecordExecutionSignatureDO.class).setId(880100L);
+            when(signatureMapper.selectById(880100L)).thenReturn(invocation.getArgument(0));
             return 1;
         });
 
-        Long signatureId = signatureService.recordProductionSubmitSignature(8801L, "tmp-secret", "一线生产报工提交");
+        Long signatureId;
+        TenantContextHolder.setTenantId(1L);
+        try {
+            signatureId = signatureService.recordProductionSubmitSignature(8801L, "tmp-secret", "一线生产报工提交");
+        } finally {
+            TenantContextHolder.clear();
+        }
 
         assertEquals(880100L, signatureId);
         ArgumentCaptor<MesProBatchRecordExecutionSignatureDO> captor =
@@ -262,6 +275,11 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
         assertEquals("临时工甲", signature.getActorNicknameSnapshot());
         assertEquals("生产人员档案电子签名密码已验证", signature.getAuthorizationBasis());
         assertEquals("CAPTURED_PARTIAL_ORG", signature.getSnapshotStatus());
+        ArgumentCaptor<GxpAuditCommand> audit = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(audit.capture());
+        assertEquals("mes.employee-production-signature.create", audit.getValue().getOperationId());
+        assertNull(audit.getValue().getSignatureRecordId());
+        assertTrue(audit.getValue().getPerformedBy().contains("MES_EMPLOYEE_PROFILE"));
     }
 
     @Test
@@ -560,12 +578,17 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
 
     @Test
     void attachFieldChangeSignature_updatesFieldAuditBinding() {
-        when(signatureMapper.selectById(777L)).thenReturn(MesProBatchRecordExecutionSignatureDO.builder()
+        when(signatureMapper.selectOne(org.mockito.ArgumentMatchers.<Wrapper<MesProBatchRecordExecutionSignatureDO>>any()))
+                .thenReturn(MesProBatchRecordExecutionSignatureDO.builder()
                 .id(777L)
                 .executionId(900L)
                 .actionType("FIELD_CHANGE")
                 .build());
         when(signatureMapper.updateById(any(MesProBatchRecordExecutionSignatureDO.class))).thenReturn(1);
+        when(signatureMapper.selectById(777L)).thenReturn(MesProBatchRecordExecutionSignatureDO.builder()
+                .id(777L).executionId(900L).actionType("FIELD_CHANGE").auditBatchId(888L)
+                .signatureChallengeHash("b".repeat(64)).fieldAuditRevision(2L)
+                .fieldAuditHeadHash("c".repeat(64)).cellValuesHash("d".repeat(64)).build());
 
         signatureService.attachFieldChangeSignature(new MesProBatchRecordExecutionFieldAuditSignatureAttachCommand()
                 .setSignatureId(777L)

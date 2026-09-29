@@ -1,6 +1,9 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -9,21 +12,33 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchTraceOutboxEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrOperationAuditEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchProvisioningRecordDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTraceLinkDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTraceManifestDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchTraceOutboxEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchProvisioningRecordMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTraceLinkMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTraceManifestMapper;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceabilityRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
 import lombok.RequiredArgsConstructor;
+import jakarta.annotation.Resource;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -37,6 +52,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityBlocker.TRACE_MAPPING_BLOCKED;
 
@@ -76,6 +92,18 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
     private final MesIndependentBatchPrerequisiteReceiptPort independentReceiptPort;
     private final MesProEdhrBatchProvisioningRecordMapper provisioningRecordMapper;
 
+    @Resource
+    private GxpAuditService unifiedAudit;
+    @Resource
+    private MesProEdhrBatchExecutionOriginMapper originMapper;
+    @Resource
+    private MesProEdhrBatchExecutionTraceLinkMapper traceLinkMapper;
+    @Resource
+    private MesProEdhrBatchExecutionTraceManifestMapper manifestMapper;
+
+    private static final String AUDIT_PROVISION = "mes.batch-trace.provision";
+    private static final String AUDIT_FAILURE = "mes.batch-trace.provision-failure";
+
     @Override
     public MesProEdhrBatchTraceTxCResult produce(MesProEdhrBatchTraceTxCCommand command) {
         if (command == null || command.getBatchExecutionId() == null
@@ -83,49 +111,162 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
                 || isBlank(command.getIdempotencyKey())) {
             throw new IllegalArgumentException("Tx-C requires batchExecutionId, eventId and idempotencyKey");
         }
+        Long tenantId = requireCurrentTenant();
         try {
-            MesProEdhrBatchTraceTxCResult result = new TransactionTemplate(transactionManager).execute(status -> {
+            MesProEdhrBatchTraceTxCResult result = independentTransaction().execute(status -> {
+                unifiedAudit.acquireLedgerLock();
+                String before = captureAuditState(command, tenantId);
                 MesProEdhrBatchTraceOutboxEventDO byEvent = outboxEventMapper.selectByEventId(command.getEventId());
                 if (byEvent != null) {
+                    requireOutboxScope(byEvent, command, tenantId);
                     return toResult(byEvent).setIdempotent(true);
                 }
                 MesProEdhrBatchTraceOutboxEventDO byKey = outboxEventMapper.selectByIdempotencyKey(command.getIdempotencyKey());
                 if (byKey != null) {
+                    requireOutboxScope(byKey, command, tenantId);
                     if (Objects.equals(byKey.getSourceSnapshotHash(), command.getExpectedSourceSnapshotHash())
                             && Objects.equals(byKey.getSourceBundleHash(), command.getExpectedSourceBundleHash())) {
                         return toResult(byKey).setIdempotent(true);
                     }
-                    throw blocked("IDEMPOTENCY_WITNESS_CONFLICT",
-                            "idempotencyKey already belongs to a different source witness");
                 }
 
-                FormalInput first = readFormalInput(command);
-                validateWitness(command, first.metadata);
-                FormalInput second = readFormalInput(command);
-                if (!Objects.equals(first.fingerprint, second.fingerprint)) {
-                    throw blocked("SOURCE_CHANGED_AFTER_PRECHECK",
-                            "formal source fingerprint changed after precheck");
+                MesProEdhrBatchTraceOutboxEventDO event;
+                try {
+                    if (byKey != null) {
+                        throw blocked("IDEMPOTENCY_WITNESS_CONFLICT",
+                                "idempotencyKey already belongs to a different source witness");
+                    }
+                    FormalInput first = readFormalInput(command);
+                    validateWitness(command, first.metadata);
+                    FormalInput second = readFormalInput(command);
+                    if (!Objects.equals(first.fingerprint, second.fingerprint)) {
+                        throw blocked("SOURCE_CHANGED_AFTER_PRECHECK",
+                                "formal source fingerprint changed after precheck");
+                    }
+                    MesProEdhrBatchTraceCaptureCommand capture = toCaptureCommand(command, second);
+                    MesProEdhrBatchTraceabilityRespVOWithLink trace = captureFormalMapping(capture);
+                    markProvisioningReady(command, second.metadata);
+                    event = persistSuccess(command, second, trace);
+                } catch (TxCBlockedException ex) {
+                    throw new TxCBusinessFailure(ex.reasonCode, ex.getMessage(), ex);
+                } catch (RuntimeException ex) {
+                    throw new TxCBusinessFailure("TRACE_SERVICE_FAILURE", nonBlankMessage(ex), ex);
                 }
-                MesProEdhrBatchTraceCaptureCommand capture = toCaptureCommand(command, second);
-                MesProEdhrBatchTraceabilityRespVOWithLink trace = captureFormalMapping(capture);
-                markProvisioningReady(command, second.metadata);
-                MesProEdhrBatchTraceOutboxEventDO event = persistSuccess(command, second, trace);
+                // Audit/snapshot/commit failures must escape, not become a business-failure outbox.
+                appendAudit(command, event, before, captureAuditState(command, tenantId), null);
                 publishAfterCommit(event);
                 return toResult(event);
             });
             return Objects.requireNonNull(result, "Tx-C transaction returned no result");
-        } catch (TxCBlockedException ex) {
+        } catch (TxCBusinessFailure ex) {
             return persistFailureInNewTransaction(command, ex.reasonCode, ex.getMessage());
-        } catch (RuntimeException ex) {
-            return persistFailureInNewTransaction(command, "TRACE_SERVICE_FAILURE", nonBlankMessage(ex));
         }
     }
 
     private MesProEdhrBatchTraceTxCResult persistFailureInNewTransaction(
             MesProEdhrBatchTraceTxCCommand command, String reasonCode, String reason) {
-        MesProEdhrBatchTraceTxCResult result = new TransactionTemplate(transactionManager)
-                .execute(status -> persistFailure(command, reasonCode, reason));
+        Long tenantId = requireCurrentTenant();
+        MesProEdhrBatchTraceTxCResult result = independentTransaction().execute(status -> {
+            unifiedAudit.acquireLedgerLock();
+            String before = captureAuditState(command, tenantId);
+            MesProEdhrBatchTraceTxCResult failure = persistFailure(command, reasonCode, reason);
+            MesProEdhrBatchTraceOutboxEventDO event = outboxEventMapper.selectByEventId(failure.getEventId());
+            requireOutboxScope(event, command, tenantId);
+            if (!Boolean.TRUE.equals(failure.getIdempotent())) {
+                appendAudit(command, event, before, captureAuditState(command, tenantId), reasonCode);
+            }
+            return failure;
+        });
         return Objects.requireNonNull(result, "Tx-C failure transaction returned no result");
+    }
+
+    private TransactionTemplate independentTransaction() {
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return transaction;
+    }
+
+    private Long requireCurrentTenant() {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        var actor = SecurityFrameworkUtils.getLoginUser();
+        if (actor != null && !Objects.equals(actor.getTenantId(), tenantId)) {
+            throw new IllegalStateException("Tx-C authenticated tenant differs from current event tenant");
+        }
+        return tenantId;
+    }
+
+    private void requireOutboxScope(MesProEdhrBatchTraceOutboxEventDO event,
+                                    MesProEdhrBatchTraceTxCCommand command, Long tenantId) {
+        if (event == null || !Objects.equals(event.getTenantId(), tenantId)
+                || !Objects.equals(event.getBatchExecutionId(), command.getBatchExecutionId())) {
+            throw new IllegalStateException("Tx-C outbox is missing or crosses tenant/batch scope");
+        }
+    }
+
+    /** Lock current rows and freeze JSON before any mutation; never snapshot request-derived state. */
+    private String captureAuditState(MesProEdhrBatchTraceTxCCommand command, Long tenantId) {
+        Long batchId = command.getBatchExecutionId();
+        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(tenantId, batchId);
+        MesProEdhrBatchProvisioningRecordDO provisioning = provisioningRecordMapper.selectOne(
+                new LambdaQueryWrapperX<MesProEdhrBatchProvisioningRecordDO>()
+                        .eq(MesProEdhrBatchProvisioningRecordDO::getTenantId, tenantId)
+                        .eq(MesProEdhrBatchProvisioningRecordDO::getId, command.getProvisioningReceiptId())
+                        .last("FOR UPDATE"));
+        if (batch == null || provisioning == null || !Objects.equals(provisioning.getBatchExecutionId(), batchId)) {
+            throw new IllegalStateException("Tx-C requires current tenant-visible batch and provisioning rows");
+        }
+        Map<String, Object> state = new LinkedHashMap<>();
+        state.put("batch", batch);
+        state.put("provisioning", provisioning);
+        state.put("origins", originMapper.selectList(new LambdaQueryWrapperX<MesProEdhrBatchExecutionOriginDO>()
+                .eq(MesProEdhrBatchExecutionOriginDO::getTenantId, tenantId)
+                .eq(MesProEdhrBatchExecutionOriginDO::getBatchExecutionId, batchId)
+                .orderByAsc(MesProEdhrBatchExecutionOriginDO::getId).last("FOR UPDATE")));
+        state.put("traceLinks", traceLinkMapper.selectList(new LambdaQueryWrapperX<MesProEdhrBatchExecutionTraceLinkDO>()
+                .eq(MesProEdhrBatchExecutionTraceLinkDO::getTenantId, tenantId)
+                .eq(MesProEdhrBatchExecutionTraceLinkDO::getBatchExecutionId, batchId)
+                .orderByAsc(MesProEdhrBatchExecutionTraceLinkDO::getId).last("FOR UPDATE")));
+        state.put("manifests", manifestMapper.selectList(new LambdaQueryWrapperX<MesProEdhrBatchExecutionTraceManifestDO>()
+                .eq(MesProEdhrBatchExecutionTraceManifestDO::getTenantId, tenantId)
+                .eq(MesProEdhrBatchExecutionTraceManifestDO::getBatchExecutionId, batchId)
+                .orderByAsc(MesProEdhrBatchExecutionTraceManifestDO::getManifestVersion).last("FOR UPDATE")));
+        state.put("outbox", outboxEventMapper.selectList(new LambdaQueryWrapperX<MesProEdhrBatchTraceOutboxEventDO>()
+                .eq(MesProEdhrBatchTraceOutboxEventDO::getTenantId, tenantId)
+                .eq(MesProEdhrBatchTraceOutboxEventDO::getBatchExecutionId, batchId)
+                .orderByAsc(MesProEdhrBatchTraceOutboxEventDO::getId).last("FOR UPDATE")));
+        return JsonUtils.toJsonString(state);
+    }
+
+    private void appendAudit(MesProEdhrBatchTraceTxCCommand command, MesProEdhrBatchTraceOutboxEventDO event,
+                             String before, String after, String failureReasonCode) {
+        boolean failed = failureReasonCode != null;
+        String operation = failed ? AUDIT_FAILURE : AUDIT_PROVISION;
+        String subjectVersion = String.valueOf(event.getId());
+        unifiedAudit.append(GxpAuditCommand.builder().operationId(operation)
+                .subjectId(String.valueOf(command.getBatchExecutionId())).subjectVersion(subjectVersion)
+                .beforeState(GxpAuditStateEnvelope.builder().state("PRESENT")
+                        .objectVersion(DigestUtil.sha256Hex(before)).canonicalJson(before).build())
+                .afterState(GxpAuditStateEnvelope.builder().state("PRESENT")
+                        .objectVersion(DigestUtil.sha256Hex(after)).canonicalJson(after).build())
+                .reason(event.getReason()).reasonSource("SYSTEM")
+                .reasonCode(failed ? failureReasonCode : SUCCESS_EVENT)
+                .resultStatus(failed ? "FAILED" : "SUCCESS")
+                .errorCode(failed ? event.getErrorCode() : null)
+                .attemptedOperationId(failed ? AUDIT_PROVISION : null)
+                .idempotencyKey("txc:" + DigestUtil.sha256Hex(JSON.toJSONString(
+                        List.of(operation, event.getTenantId(), event.getIdempotencyKey()))))
+                .requestId(event.getEventId())
+                // Parent audit context is thread-bound and is not suspended with the JDBC resource.
+                .transactionId(UUID.randomUUID().toString())
+                .sourceType("SERVICE_METHOD").sourceLocator(MesProEdhrBatchTraceTxCProducer.class.getName() + "#produce")
+                .links(List.of(
+                        new GxpAuditRelation("SUBJECT", "MES_BATCH_TRACE_PROVISIONING",
+                                String.valueOf(command.getBatchExecutionId()), subjectVersion, null),
+                        new GxpAuditRelation("EVIDENCE", "BATCH_TRACE_OUTBOX", String.valueOf(event.getId()),
+                                subjectVersion, event.getPayloadHash()),
+                        new GxpAuditRelation("AFFECTED", "BATCH_PROVISIONING_RECORD",
+                                String.valueOf(command.getProvisioningReceiptId()), null, null)))
+                .build());
     }
 
     private void markProvisioningReady(MesProEdhrBatchTraceTxCCommand command, JSONObject metadata) {
@@ -666,6 +807,15 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
 
         private TxCBlockedException(String reasonCode, String message) {
             super(message);
+            this.reasonCode = reasonCode;
+        }
+    }
+
+    private static final class TxCBusinessFailure extends RuntimeException {
+        private final String reasonCode;
+
+        private TxCBusinessFailure(String reasonCode, String message, RuntimeException cause) {
+            super(message, cause);
             this.reasonCode = reasonCode;
         }
     }

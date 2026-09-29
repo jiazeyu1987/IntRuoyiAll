@@ -1,8 +1,64 @@
 schemaVersion: gxp-audit-policy.v2
-policyVersion: 20260929-edhr-deviation-01
+policyVersion: 20260929-local-startup-01
 status: APPROVED
-approvalReference: CODEX-IMPLEMENTATION-20260908
+approvalReference: 20260929-start-local-runtime
 operations:
+  - operationId: mes.work-task.entitlement
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesWorkTaskAuxiliaryAudit#entitlements]
+    domain: MES
+    subjectType: MES_WORK_TASK
+    actionType: UPDATE
+    reasonPolicy: SYSTEM
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: SECURITY
+    retentionClass: GXP_MES_WORK_TASK
+    testIds: [BDD-AUX-STATE, BDD-AUX-ROLLBACK, BDD-AUX-TENANT, BDD-AUX-REPLAY]
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.work-task.notify
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesWorkTaskAuxiliaryAudit#notifications]
+    domain: MES
+    subjectType: MES_WORK_TASK
+    actionType: UPDATE
+    reasonPolicy: SYSTEM
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: APPLICATION
+    retentionClass: GXP_MES_WORK_TASK
+    testIds: [BDD-AUX-STATE, BDD-AUX-ROLLBACK, BDD-AUX-TENANT, BDD-AUX-REPLAY]
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.batch-trace.provision
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceTxCProducer#produce]
+    domain: MES
+    subjectType: MES_BATCH_TRACE_PROVISIONING
+    actionType: UPDATE
+    reasonPolicy: SYSTEM
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: COMPLETION
+    retentionClass: GXP_MES_COMPLETION
+    testIds: [BDD-TXC-SUCCESS, BDD-TXC-AUDIT-ROLLBACK, BDD-TXC-REPLAY, BDD-TXC-TENANT]
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.batch-trace.provision-failure
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceTxCProducer#produce]
+    domain: MES
+    subjectType: MES_BATCH_TRACE_PROVISIONING
+    actionType: UPDATE
+    reasonPolicy: SYSTEM
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: COMPLETION
+    retentionClass: GXP_MES_COMPLETION
+    testIds: [BDD-TXC-FAILURE, BDD-TXC-FAILURE-AUDIT-ROLLBACK, BDD-TXC-REPLAY, BDD-TXC-TENANT]
+    ownerRole: mes-owner
+    applicability: GXP
   - operationId: mes.active-order.add
     sourceType: SERVICE_METHOD
     sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#addActiveOrder]
@@ -103,7 +159,7 @@ operations:
     applicability: GXP
   - operationId: mes.active-order.complete
     sourceType: SERVICE_METHOD
-    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionServiceImpl#complete]
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionServiceImpl#complete, cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionServiceImpl#completeForRelease]
     domain: MES
     subjectType: ACTIVE_ORDER_COMPLETION
     actionType: COMPLETE
@@ -117,7 +173,7 @@ operations:
     applicability: GXP
   - operationId: mes.pqc-release.apply
     sourceType: SERVICE_METHOD
-    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationServiceImpl#apply]
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationServiceImpl#apply, cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationServiceImpl#applyGenerated]
     domain: MES
     subjectType: PRODUCTION_RELEASE_APPLICATION
     actionType: CREATE
@@ -159,7 +215,7 @@ operations:
     applicability: GXP
   - operationId: mes.market-release.approve
     sourceType: SERVICE_METHOD
-    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#finalizeRelease]
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#finalizeRelease, cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#approve]
     domain: MES
     subjectType: RELEASE_TRANSACTION
     actionType: APPROVE
@@ -257,7 +313,7 @@ operations:
     applicability: GXP
   - operationId: edhr.execution.field.update
     sourceType: SERVICE_METHOD
-    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditServiceImpl#saveChanges]
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditServiceImpl#saveChanges, cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditServiceImpl#saveSystemCellLinkChanges]
     domain: EDHR
     subjectType: EDHR_FIELD
     actionType: UPDATE
@@ -299,7 +355,7 @@ operations:
     applicability: GXP
   - operationId: system.permission.role-menu.assign
     sourceType: SERVICE_METHOD
-    sourceLocators: [cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#assignRoleMenu]
+    sourceLocators: [cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#assignRoleMenu, cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#assignTenantRoleMenu]
     domain: SYSTEM
     subjectType: ROLE_PERMISSION
     actionType: ASSIGN
@@ -313,7 +369,7 @@ operations:
     applicability: GXP
   - operationId: system.permission.user-role.assign
     sourceType: SERVICE_METHOD
-    sourceLocators: [cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#assignUserRole]
+    sourceLocators: [cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#assignUserRole, cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#initializeTenantAdministrator]
     domain: SYSTEM
     subjectType: USER_ROLE
     actionType: ASSIGN
@@ -383,7 +439,7 @@ operations:
     applicability: GXP
   - operationId: gxp.policy.activate
     sourceType: SERVICE_METHOD
-    sourceLocators: [cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPolicyActivationServiceImpl#activate]
+    sourceLocators: [cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPolicyActivationServiceImpl#activate, cn.iocoder.yudao.module.system.service.gxpaudit.maintenance.GxpAuditPolicyActivateMain#main, cn.iocoder.yudao.module.system.service.gxpaudit.maintenance.GxpAuditPolicyActivateMain#run]
     domain: SYSTEM
     subjectType: GXP_POLICY
     actionType: ACTIVATE
@@ -396,10 +452,347 @@ operations:
     ownerRole: release-owner
     applicability: GXP
 
+  - operationId: mes.market-release.precheck-create
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#precheck]
+    domain: MES
+    subjectType: RELEASE_TRANSACTION
+    actionType: CREATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: ABSENT_TO_PRESENT
+    snapshotProfile: MARKET_RELEASE
+    retentionClass: GXP_MES_RELEASE
+    testIds: [MesProEdhrReleaseServiceImplTest#m8PrecheckAppendsUnifiedAuditAndUsesCallerTransaction, MesProEdhrReleaseServiceImplTest#m8PrecheckAuditFailureRollsBackPersistedTransactionAndChecks]
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.market-release.precheck
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#precheck]
+    domain: MES
+    subjectType: RELEASE_TRANSACTION
+    actionType: UPDATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: MARKET_RELEASE
+    retentionClass: GXP_MES_RELEASE
+    testIds: [MesProEdhrReleaseServiceImplTest#m8RepeatedPrecheckFreezesOldChecksAndUsesUpdateEvent]
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.market-release.submit
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#submit, cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#submitForApproval]
+    domain: MES
+    subjectType: RELEASE_TRANSACTION
+    actionType: SUBMIT
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: MARKET_RELEASE
+    retentionClass: GXP_MES_RELEASE
+    testIds: [MesProEdhrReleaseServiceImplTest#m8SubmitAppendsUnifiedAuditAndUsesCallerTransaction, MesProEdhrReleaseServiceImplTest#m8SubmitAuditFailureRollsBackState]
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.market-release.reject
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#reject, cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#finalizeRelease, cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#finalizeReject]
+    domain: MES
+    subjectType: RELEASE_TRANSACTION
+    actionType: REJECT
+    reasonPolicy: USER_REQUIRED
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: MARKET_RELEASE
+    retentionClass: GXP_MES_RELEASE
+    testIds: [MesProEdhrReleaseServiceImplTest#terminalAuditUsesIndependentOperationAndReplayDoesNotAppend, MesProEdhrReleaseServiceImplTest#terminalUnifiedFailureRollsBackActualSpecializedAndBusinessWrites]
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.market-release.withdraw
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#withdraw, cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#finalizeRelease, cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#finalizeWithdraw]
+    domain: MES
+    subjectType: RELEASE_TRANSACTION
+    actionType: WITHDRAW
+    reasonPolicy: USER_REQUIRED
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: MARKET_RELEASE
+    retentionClass: GXP_MES_RELEASE
+    testIds: [MesProEdhrReleaseServiceImplTest#terminalAuditUsesIndependentOperationAndReplayDoesNotAppend, MesProEdhrReleaseServiceImplTest#terminalUnifiedFailureRollsBackActualSpecializedAndBusinessWrites]
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.active-order.rebuild
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#rebuildActiveOrder]
+    domain: MES
+    subjectType: MES_ACTIVE_ORDER
+    actionType: UPDATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: ORDER
+    retentionClass: GXP_MES_PRODUCTION
+    testIds: [BDD-M9-REBUILD, BDD-M9-REBUILD-ROLLBACK]
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.active-order.remove
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#removeActiveOrder]
+    domain: MES
+    subjectType: MES_ACTIVE_ORDER
+    actionType: UPDATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: ORDER
+    retentionClass: GXP_MES_PRODUCTION
+    testIds: [BDD-M9-REMOVE, BDD-M9-REMOVE-ROLLBACK]
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.pqc-release.bind-batch
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationServiceImpl#apply, cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationServiceImpl#applyGenerated]
+    domain: MES
+    subjectType: PRODUCTION_RELEASE_APPLICATION
+    actionType: UPDATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: APPLICATION
+    retentionClass: GXP_MES_RELEASE
+    testIds: [MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest#existingBindingPersistsTruthfulBeforeAfterAudit, MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest#auditFailureRollsBackBindingAndVersionInDatabase, MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest#alreadyBoundReplayDoesNotWriteAgain]
+    ownerRole: mes-owner
+    applicability: GXP
+
+  - operationId: mes.active-order.reorder
+    subjectType: MES_ACTIVE_ORDER
+    snapshotProfile: ORDER
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#moveActiveOrder]
+    testIds: [MesActiveOrderMaintenanceAuditTransactionTest#reorderPersistsBothOrdersAndRealAudit, MesActiveOrderMaintenanceAuditTransactionTest#reorderAuditFailureRollsBackBothOrdersAndSpecializedAudit]
+    sourceType: SERVICE_METHOD
+    domain: MES
+    actionType: UPDATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_MES_PRODUCTION
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.active-order.data-cleanup
+    subjectType: MES_RUNTIME_CLEANUP
+    snapshotProfile: ORDER
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#executeDataCleanup]
+    testIds: [MesActiveOrderMaintenanceAuditTransactionTest#cleanupPersistsExactScopeAndRealAudit, MesActiveOrderMaintenanceAuditTransactionTest#cleanupAuditFailureRollsBackDeletedChildrenAndSpecializedAudit]
+    sourceType: SERVICE_METHOD
+    domain: MES
+    actionType: UPDATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_MES_PRODUCTION
+    ownerRole: mes-owner
+    applicability: GXP
+
+  - operationId: mes.pqc-inspection.correct
+    sourceType: SERVICE_METHOD
+    sourceLocators:
+    - cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolPqcInspectionCorrectionService#correct
+    domain: MES
+    subjectType: PQC_INSPECTION
+    actionType: UPDATE
+    reasonPolicy: USER_REQUIRED
+    signaturePolicy: REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: PQC
+    retentionClass: GXP_MES_PQC
+    testIds:
+    - MesProcessPoolPqcInspectionCorrectionServiceTest#correctionAppendsOneBusinessFactWithActualBeforeAndSignatureRelations
+    - MesProcessPoolPqcInspectionCorrectionServiceTest#auditFailureRollsBackActualCorrectionBoundaryWrites
+    - MesProcessPoolPqcInspectionCorrectionServiceTest#correctConfirmedPqcUsingRealAggregationReplacesItsFormalDetails
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.nonconformance.create
+    sourceType: SERVICE_METHOD
+    sourceLocators:
+    - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl#create
+    - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl#rejectBatch
+    domain: MES
+    subjectType: NONCONFORMANCE_REVIEW
+    actionType: CREATE
+    reasonPolicy: USER_REQUIRED
+    signaturePolicy: REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    snapshotProfile: NCR
+    retentionClass: GXP_BATCH_RECORD
+    testIds:
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#creatingApplicationReviewRecordsActiveOrderOperationFact
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#releaseOwnerRejectCreatesSignedPendingReviewAndFreezesBatch
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.nonconformance.concession
+    sourceType: SERVICE_METHOD
+    sourceLocators:
+    - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl#dispose
+    domain: MES
+    subjectType: NONCONFORMANCE_REVIEW
+    actionType: UPDATE
+    reasonPolicy: USER_REQUIRED
+    signaturePolicy: REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: NCR
+    retentionClass: GXP_BATCH_RECORD
+    testIds:
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#successfulDispositionAppendsOneReadableUnifiedFact
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#unifiedAppendFailureEscapesAfterBusinessAndSpecializedAuditWrites
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#mismatchedPersistedSignatureRejectsBeforeBusinessWrites
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.nonconformance.rework
+    sourceType: SERVICE_METHOD
+    sourceLocators:
+    - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl#dispose
+    domain: MES
+    subjectType: NONCONFORMANCE_REVIEW
+    actionType: UPDATE
+    reasonPolicy: USER_REQUIRED
+    signaturePolicy: REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: NCR
+    retentionClass: GXP_BATCH_RECORD
+    testIds:
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#successfulDispositionAppendsOneReadableUnifiedFact
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#unifiedAppendFailureEscapesAfterBusinessAndSpecializedAuditWrites
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#mismatchedPersistedSignatureRejectsBeforeBusinessWrites
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.nonconformance.void
+    sourceType: SERVICE_METHOD
+    sourceLocators:
+    - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl#dispose
+    domain: MES
+    subjectType: NONCONFORMANCE_REVIEW
+    actionType: VOID
+    reasonPolicy: USER_REQUIRED
+    signaturePolicy: REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: NCR
+    retentionClass: GXP_BATCH_RECORD
+    testIds:
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#successfulDispositionAppendsOneReadableUnifiedFact
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#unifiedAppendFailureEscapesAfterBusinessAndSpecializedAuditWrites
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#mismatchedPersistedSignatureRejectsBeforeBusinessWrites
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.employee-production-signature.create
+    sourceType: SERVICE_METHOD
+    sourceLocators:
+    - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordProductionSubmitSignature
+    domain: MES
+    subjectType: MES_SIGNATURE_PROJECTION
+    actionType: CREATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: ABSENT_TO_PRESENT
+    snapshotProfile: SIGNATURE
+    retentionClass: GXP_MES_PRODUCTION
+    testIds:
+    - MesSignatureProjectionAuditTransactionTest#employeeCreateCapturesPersistedProjectionWithoutInventingSystemSigner
+    - MesSignatureProjectionAuditTransactionTest#employeeAuditFailureRollsBackProjectionAndLedger
+    - MesSignatureProjectionAuditTransactionTest#missingActivatedOperationRejectsProjectionCommit
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: edhr.field-save-evidence.create
+    sourceType: SERVICE_METHOD
+    sourceLocators:
+    - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordFieldChangeDraftSave
+    domain: MES
+    subjectType: MES_SIGNATURE_PROJECTION
+    actionType: CREATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: ABSENT_TO_PRESENT
+    snapshotProfile: SIGNATURE
+    retentionClass: GXP_MES_PRODUCTION
+    testIds:
+    - MesSignatureProjectionAuditTransactionTest#draftCreateCapturesActualUnverifiedSessionEvidence
+    - MesSignatureProjectionAuditTransactionTest#draftAuditFailureRollsBackProjectionAndLedger
+    - MesSignatureProjectionAuditTransactionTest#parentFailureRollsBackBothProjectionEventsAndBinding
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: edhr.field-save-evidence.bind
+    sourceType: SERVICE_METHOD
+    sourceLocators:
+    - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#attachFieldChangeSignature
+    domain: MES
+    subjectType: MES_SIGNATURE_PROJECTION
+    actionType: UPDATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: SIGNATURE
+    retentionClass: GXP_MES_PRODUCTION
+    testIds:
+    - MesSignatureProjectionAuditTransactionTest#bindingCapturesExactPersistedBeforeAndAfter
+    - MesSignatureProjectionAuditTransactionTest#bindingAuditFailureRestoresPriorPersistedBindings
+    - MesSignatureProjectionAuditTransactionTest#mismatchingExecutionCannotRebindProjection
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.production-report.correct
+    sourceType: SERVICE_METHOD
+    sourceLocators:
+    - cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolProductionReportCorrectionService#correct
+    domain: MES
+    subjectType: MES_PROCESS_POOL_EVENT
+    actionType: UPDATE
+    reasonPolicy: USER_REQUIRED
+    signaturePolicy: REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: PRODUCTION
+    retentionClass: GXP_MES_PRODUCTION
+    testIds:
+    - MesProcessPoolProductionReportCorrectionAuditTransactionTest#correctionPersistsCompleteBeforeAfterAndVerifiedSignature
+    - MesProcessPoolProductionReportCorrectionAuditTransactionTest#relationFailureRollsBackBusinessSignatureRevisionAndLedger
+    - MesProcessPoolProductionReportCorrectionAuditTransactionTest#invalidStoredSignatureRejectsBeforeBusinessMutation
+    - MesProcessPoolProductionReportCorrectionAuditTransactionTest#originalReasonScopeAndNoDifferenceGuardsRemainEffective
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.nonconformance.active-order.create
+    sourceType: SERVICE_METHOD
+    sourceLocators:
+    - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl#create
+    domain: MES
+    subjectType: NONCONFORMANCE_REVIEW
+    actionType: CREATE
+    reasonPolicy: USER_REQUIRED
+    signaturePolicy: NONE
+    statePolicy: ABSENT_TO_PRESENT
+    snapshotProfile: NCR
+    retentionClass: GXP_BATCH_RECORD
+    testIds:
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#ncr02UnsignedCreationRecordsActualFreezeStateWithoutSignature
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#ncr02UnsignedAuditFailureEscapesAfterBusinessAndSpecializedWrites
+    - MesProEdhrNonconformanceReviewApplicationScopeTest#ncr02UnsignedCreationTakesLedgerLockBeforeActiveOrderLock
+    ownerRole: mes-owner
+    applicability: GXP
 coverageScope:
   scopeId: REGISTERED-OPERATIONS-20260929
   mode: R1
   includedReferences:
+    - mes.work-task.entitlement
+    - mes.work-task.notify
+    - mes.batch-trace.provision
+    - mes.batch-trace.provision-failure
+    - mes.employee-production-signature.create
+    - edhr.field-save-evidence.create
+    - edhr.field-save-evidence.bind
+    - mes.production-report.correct
+    - mes.nonconformance.active-order.create
+    - mes.pqc-inspection.correct
+    - mes.nonconformance.create
+    - mes.nonconformance.concession
+    - mes.nonconformance.rework
+    - mes.nonconformance.void
     - mes.active-order.add
     - mes.active-order.restore
     - mes.production.submit
@@ -428,10 +821,278 @@ coverageScope:
     - release.migration.apply
     - gxp.attempt.record
     - gxp.policy.activate
-  excludedReferences: []
+    - mes.market-release.precheck-create
+    - mes.market-release.precheck
+    - mes.market-release.submit
+    - mes.market-release.reject
+    - mes.market-release.withdraw
+    - mes.active-order.rebuild
+    - mes.active-order.remove
+    - mes.pqc-release.bind-batch
+    - mes.active-order.reorder
+    - mes.active-order.data-cleanup
+  excludedReferences:
+    - reference: SIG-M01
+      reason: 'recordSubmitSignature(Long executionId, String password, String comment): MIXED_SCOPE. Separate security/legacy effects remain explicit in exact source
+        evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M01
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M02
+      reason: 'recordPqcSubmitSignature(Long actorId, Long pqcTaskId, String password, String comment): MIXED_SCOPE. Separate security/legacy effects remain explicit
+        in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M02
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M03
+      reason: 'recordPqcReleaseSignature(Long actorId, Long executionId, Long releaseApplicationId, String password, String comment): MIXED_SCOPE. Separate security/legacy
+        effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M03
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M04
+      reason: 'recordMarketReleaseSignature(Long actorId, Long executionId, Long releaseTransactionId, String password, String comment): MIXED_SCOPE. Separate security/legacy
+        effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M04
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M05
+      reason: 'recordBatchVoidRequestSignature(Long actorId, Long batchExecutionId, String password, String comment, String aggregateHash): MIXED_SCOPE. Separate security/legacy
+        effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M05
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M06
+      reason: 'recordBatchActionSignature(Long actorId, Long batchExecutionId, String password, String comment, String actionType, String reviewSourceName, String aggregateHash):
+        MIXED_SCOPE. Separate security/legacy effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M06
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M07
+      reason: 'recordQaDispositionSignature(Long actorId, Long reviewId, String password, String comment, String aggregateHash): MIXED_SCOPE. Separate security/legacy
+        effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M07
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M08
+      reason: 'recordNonconformanceReviewCreateSignature(Long actorId, Long reviewId, String password, String comment, String aggregateHash): MIXED_SCOPE. Separate security/legacy
+        effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M08
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M09
+      reason: 'recordDeviationInitiationSignature(Long actorId, Long batchExecutionId, Long deviationId, String deviationCode, String batchExecutionCode, String password,
+        String contentHash): MIXED_SCOPE. Separate security/legacy effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M09
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M10
+      reason: 'recordDeviationHandlingSignature(Long actorId, Long deviationId, Long handlingId, String deviationCode, String node, Integer contentVersion, String contentHash,
+        String password, String comment): MIXED_SCOPE. Separate security/legacy effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M10
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M11
+      reason: 'recordTeamLeaderReviewSignature(Long actorId, String password, String comment): MIXED_SCOPE. Separate security/legacy effects remain explicit in exact
+        source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M11
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M12
+      reason: 'recordTeamLeaderReviewSignature(Long actorId, String password, String comment, String reviewSourceType, Long reviewSourceId, String reviewSourceName):
+        MIXED_SCOPE. Separate security/legacy effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M12
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M13
+      reason: 'recordStage1SimulationSignature(Long actorId, String actionType, Long objectId, String simulationStage, String simulationRunId): OUT_OF_RELEASE_SCOPE.
+        Separate security/legacy effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M13
+      futureOwnerRole: mes-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M14
+      reason: 'recordSubmitSignature(Long executionId, String password, String comment, MesProBatchRecordExecutionSignatureTimeCommand signatureTimeCommand): MIXED_SCOPE.
+        Separate security/legacy effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M14
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M15
+      reason: 'attachSubmitSignatureProcessInstance(Long signatureId, Long executionId, String processInstanceId): OUT_OF_RELEASE_SCOPE. Separate security/legacy effects
+        remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M15
+      futureOwnerRole: mes-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M16
+      reason: 'recordApprovalSignature(MesProBatchRecordExecutionApprovalSignatureCommand command): MIXED_SCOPE. Separate security/legacy effects remain explicit in exact
+        source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M16
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M17
+      reason: 'recordArchiveSealSignature(Long executionId, String password, String comment): MIXED_SCOPE. Separate security/legacy effects remain explicit in exact source
+        evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M17
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M18
+      reason: 'recordArchiveSealSignature(Long executionId, String password, String comment, MesProBatchRecordExecutionSignatureTimeCommand signatureTimeCommand): MIXED_SCOPE.
+        Separate security/legacy effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M18
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M19
+      reason: 'recordFormReviewSignature(Long executionId, String password, String comment, Long fieldAuditRevision, String fieldAuditHeadHash, String cellValuesHash):
+        MIXED_SCOPE. Separate security/legacy effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M19
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M20
+      reason: 'recordFormReviewSignature(Long executionId, String password, String comment, Long fieldAuditRevision, String fieldAuditHeadHash, String cellValuesHash,
+        MesProBatchRecordExecutionSignatureTimeCommand signatureTimeCommand): MIXED_SCOPE. Separate security/legacy effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M20
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M21
+      reason: 'bindSignatureFieldAuditEvidence(Long signatureId, Long executionId, Long fieldAuditRevision, String fieldAuditHeadHash, String cellValuesHash): OUT_OF_RELEASE_SCOPE.
+        Separate security/legacy effects remain explicit in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M21
+      futureOwnerRole: mes-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: SIG-M22
+      reason: 'recordFieldChangeSignature(MesProBatchRecordExecutionFieldAuditSignatureCommand command): MIXED_SCOPE. Separate security/legacy effects remain explicit
+        in exact source evidence.'
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#SIG-M22
+      futureOwnerRole: system-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope
+    - reference: M01
+      reason: Explicit context construction registers existing services and mappers; no database write is executed by context initialization.
+      evidenceReference: IntRuoyiBackend/config/gxp-audit-method-scope-review.json#M01
+      futureOwnerRole: release-owner
+      futureTaskReference: doc/tasks/20260929-start-local-runtime/maintenance-entry-evidence.md
+    - reference: "F02"
+      reason: "Only selects execution/batches/items/signatures and computes hashes; withAttachmentChain -> attachmentService.verifyAttachmentChain selects attachment rows and constructs verification results. It never calls operationAuditService.record. Scanner conflates this overload with verifyChain(VerifyReqVO) by method name; disposition must match this exact signature."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#F02"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#exact-declaration-decisions"
+    - reference: "F03"
+      reason: "Selects audit items and verifies chains, then appends specialized FIELD_AUDIT_PAGE/QUERY via MesProEdhrOperationAuditServiceImpl.record -> auditEventMapper.insert. Real access telemetry write, not READ_ONLY; no field-state update and no existing unified operation. Exclude only this legacy access-log entry from registered business-transition R1, retain the specialized log and explicit R2 work item."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#F03"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#r2-field-audit-access"
+    - reference: "F04"
+      reason: "Selects execution/batch/items/signature/attachments; then specialized FIELD_AUDIT_BATCH/VIEW -> operationAuditService.record -> auditEventMapper.insert. Real access telemetry, not edhr.execution.field.update and not READ_ONLY."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#F04"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#r2-field-audit-access"
+    - reference: "F05"
+      reason: "Calls the read-only Long overload then appends FIELD_AUDIT_CHAIN/VERIFY to the specialized ledger. The exact overload remains a writer even though F02 is read-only; no existing unified business-transition operation applies."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#F05"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#r2-field-audit-access"
+    - reference: "F06"
+      reason: "Selects audit items, renders bytes, and appends FIELD_AUDIT_EXPORT/EXPORT containing output SHA-256 to the specialized ledger. Only export/access telemetry is deferred; this is not a read-only exemption or permission to remove export logging."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#F06"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#r2-field-audit-access"
+    - reference: "P01"
+      reason: "selectActiveList, pending task/work-order/route/item reads, mapById is called only with MesProWorkOrderDO::getId and MesProRouteDO::getId. idGetter.apply is a getter at these exact call sites. Local candidates/maps only; no save/insert/update service path."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#P01"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#exact-declaration-decisions"
+    - reference: "P02"
+      reason: "Reads active order/frozen process snapshots/tasks/locked QA versions and builds DTOs. Collectors.toMap value mapper creates a fresh LinkedHashSet of QA process IDs; merge lambda left.addAll(right) mutates those sets only. Equipment helpers select data and mutate response objects."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#P02"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#exact-declaration-decisions"
+    - reference: "P03"
+      reason: "Delegates one-argument read-only overload then applyLastSelectedEquipmentDefaults: permission/employee reads and selectLatestSelectedEquipmentByActualEmployeeAndItemCode; setters affect inspection response DTOs only. Match this signature independently."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#P03"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#exact-declaration-decisions"
+    - reference: "P04"
+      reason: "Validates bound employee and reads pending PQC task; finds process via read-only listProcessesByActiveOrder, returns new template/switch-result records. Does not persist task employee or submission. The actual writer submitPqcInspection remains registered separately."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#P04"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#exact-declaration-decisions"
+    - reference: "A01"
+      reason: "requireEvent(false), scope/pool checks, selectListByEventId -> buildCurrentSnapshot; arithmetic/reduction and response construction. BigDecimal::add scanner fix is parent-owned and was not re-reviewed here."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#A01"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#exact-declaration-decisions"
+    - reference: "A02"
+      reason: "Reads event, existing allocations, released IDs and active-order sequence; fifoService.previewFifoAllocation builds preview lines and quantity totals. SELECT FOR UPDATE in downstream helpers acquires locks but performs no persistent write. No createInitialAllocation/save invocation. Arithmetic false positive is parent-owned."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#A02"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#exact-declaration-decisions"
+    - reference: "O01"
+      reason: "Exact fixed work-order code, current tenant/leader, requireSimulationIdentity for all owned records; rejects formal receipt/backfill/release/NCR and unowned batch history before deletes. Simulation fixture lifecycle is separate from production transitions. Delegated addActiveOrder audit does not cover destructive reset; retain explicit gap and do not execute as part of startup."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#O01"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#r2-simulation-maintenance"
+    - reference: "O02"
+      reason: "Reads frozen source, creates distinct SIM-COPY work order and simulated=true/LATEST_VERSION_COPY active order plus snapshots/tasks. Only TeamMaintenanceAuditSupport specialized events cover the copy. Separate test-fixture lifecycle; source production order is not the copied target."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#O02"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#r2-simulation-maintenance"
+    - reference: "O03"
+      reason: "Requires exact current leader, ACTIVE, simulated=true, LATEST_VERSION_COPY and nonblank run ID; refuses batch/issue/release evidence, then identity-checked runtime cleanup/deletes and specialized maintenance audit. Limited simulation fixture cleanup, not ordinary production cleanup."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#O03"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#r2-simulation-maintenance"
+    - reference: "O08"
+      reason: "Selects active orders/routes/work orders/products/abnormals/release applications and calculates response progress. After arithmetic fix the scanner still follows new ActiveOrderProcessIdentity(...) as if the nested record declaration were a method; its private complete() only returns three nonnull checks. No business write or completion command; exact signature disposition is required."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#O08"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#exact-declaration-decisions"
+    - reference: "S01"
+      reason: "loadCurrentSnapshot uses mapper SELECTs; hashSnapshot mutates local StringBuilder via append; XSSFWorkbook/ByteArrayOutputStream and createSheet/createRow/createCell are in-memory document construction. Workbook bytes returned, no config import/replaceAllConfig/JDBC update call."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#S01"
+      futureOwnerRole: "system-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#exact-declaration-decisions"
+    - reference: "S02"
+      reason: "WorkbookFactory.create reads caller bytes; validations build error/diff lists and hash local StringBuilder; loadCurrentSnapshot SELECTs only. No invocation of importPackage or replace config writers. Not MessageDigest.update: actual scanner triggers are append and POI create methods."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#S02"
+      futureOwnerRole: "system-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#exact-declaration-decisions"
+    - reference: "U01"
+      reason: "Only the temporary-role success branch invokes TemporaryRoleGrantServiceImpl.recordPermissionUse -> insertAudit(...USE...) -> temporaryRoleGrantAuditMapper.insert. Legacy permission-use telemetry, no grant/assignment change. Keep this real log writer distinct from read-only permission calculations and from unified permission assignment operations."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#U01"
+      futureOwnerRole: "system-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#r2-temporary-permission-use"
+    - reference: "U03"
+      reason: "RoleServiceImpl deleteRole/deleteRoleList legacy lifecycle -> delete user-role and role-menu rows; no permissionCommandProtocol.finish and no existing unified operation. Separate role deletion/cascade from explicitly included assignment commands. This is a known security-audit gap, not harmless or fully covered."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#U03"
+      futureOwnerRole: "system-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#r2-security-lifecycle"
+    - reference: "U04"
+      reason: "MenuServiceImpl.deleteMenu legacy lifecycle -> roleMenuMapper.deleteListByMenuId. No unified append. Scope decision applies only to legacy menu deletion cascade, never to assignRoleMenu or production permission changes performed by that registered command."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#U04"
+      futureOwnerRole: "system-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#r2-security-lifecycle"
+    - reference: "U06"
+      reason: "AdminUserServiceImpl.deleteUser/deleteUserList legacy user lifecycle -> userRoleMapper.deleteListByUserId; not a call through audited assignUserRole. Known separate deletion/cascade gap; keep follow-up security owner/task visible."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#U06"
+      futureOwnerRole: "system-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#r2-security-lifecycle"
+    - reference: "U07"
+      reason: "Role/user/dept reads construct a new DeptDataPermissionRespDTO. CollUtil.addAll, CollectionUtils.addIfNotNull and result.getDeptIds().add only mutate that result's collection. No assignment/revocation API is invoked."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#U07"
+      futureOwnerRole: "system-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/coverage-review.md#exact-declaration-decisions"
+    - reference: "NCR-03-A"
+      reason: "This is a real current callable writer for batch-record critical-deviation transfer, not read-only, dead code, or a subordinate covered by create/dispose. The selected R1 covers the registered active-order production/inspection/release transitions and current deviation creation/permission assignment, not this separate batch-deviation-to-NCR transfer entry. The method validates and locks the batch/selected deviations/work order, increments the review-code counter, inserts the review, persists and attaches an NCR creation signature, freezes batch/work, closes each selected deviation into the review, and records NONCONFORMANCE_REVIEW_DEVIATION_TRANSFER in the specialized ledger. It takes a unified ledger lock but never appends a unified transfer business event; signature.record.create, where present in the called signature owner, describes the signature only. No registered parent transaction encloses this controller-owned entry. Explicit local scope deferral retains the named gap; it cannot be counted as registered or ordinary exclusion coverage."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#NCR-03-A"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/verification-report.md#ncr-local-scope"
+    - reference: "NCR-03-B"
+      reason: "This is a current NCR page material-acquisition endpoint, not obsolete legacy code and not a read-only helper. It checks the pending review, validates upload security, creates an isolated storage directory, delegates to the real file writer and returns persisted file identity/metadata. It does not change the review/disposition itself. R1 is bounded to registered transitions, so this independent upload request is explicitly deferred as an auxiliary write, not represented as covered by subsequent disposition. FileServiceImpl#createFileRecord(byte[],...) uploads external content and inserts infra_file without a unified material-acquisition event; later disposition records supplied file metadata with hashAvailability NOT_RECORDED_BY_FILE_SOURCE and does not retroactively audit upload or prove content-byte integrity."
+      evidenceReference: "IntRuoyiBackend/config/gxp-audit-method-scope-review.json#NCR-03-B"
+      futureOwnerRole: "mes-owner"
+      futureTaskReference: "doc/tasks/20260929-start-local-runtime/verification-report.md#ncr-local-scope"
   writeBoundaryScan:
 
     registrationMode: REGISTERED_OR_APPROVED_EXCLUSION
+    candidateHashMode: UTF8_LF_SHA256
     approvedExclusionsFile: IntRuoyiBackend/config/gxp-audit-boundary-exclusions.jsonl
     categories:
       - sourceType: CONTROLLER

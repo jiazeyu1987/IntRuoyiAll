@@ -131,6 +131,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         ReflectionTestUtils.setField(service, "batchExecutionMapper", batchExecutionMapper);
         ReflectionTestUtils.setField(service, "releaseApplicationMapper", releaseApplicationMapper);
         ReflectionTestUtils.setField(service, "activeOrderMapper", activeOrderMapper);
+        ReflectionTestUtils.setField(service, "processSnapshotMapper", processSnapshotMapper);
         ReflectionTestUtils.setField(service, "reworkCycleService",
                 new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderReworkCycleService(
                         activeOrderMapper, processSnapshotMapper, pqcInspectionTaskMapper));
@@ -145,12 +146,32 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         lenient().when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(any())).thenReturn(List.of(
                 new MesPqcInspectionTaskDO().setActiveOrderId(8101L).setWorkOrderId(3001L)));
         lenient().when(activeOrderMapper.retireForRework(any(), any(), any())).thenReturn(1);
+        var persistedCycle = new java.util.concurrent.atomic.AtomicReference<MesProcessPoolActiveOrderDO>();
         lenient().when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class))).thenAnswer(invocation -> {
-            ((MesProcessPoolActiveOrderDO) invocation.getArgument(0)).setId(8201L);
+            persistedCycle.set(invocation.<MesProcessPoolActiveOrderDO>getArgument(0).setId(8201L));
             return 1;
         });
-        lenient().when(processSnapshotMapper.insert(any(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO.class))).thenReturn(1);
-        lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
+        lenient().when(activeOrderMapper.selectByIdForUpdate(8201L)).thenAnswer(call -> persistedCycle.get());
+        var persistedSnapshots = new java.util.ArrayList<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO>();
+        var persistedTasks = new java.util.ArrayList<MesPqcInspectionTaskDO>();
+        lenient().when(processSnapshotMapper.insert(any(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO.class))).thenAnswer(call -> {
+            persistedSnapshots.add(call.<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO>getArgument(0).setId(4201L + persistedSnapshots.size()));
+            return 1;
+        });
+        lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenAnswer(call -> {
+            persistedTasks.add(call.<MesPqcInspectionTaskDO>getArgument(0).setId(6201L + persistedTasks.size()));
+            return 1;
+        });
+        lenient().when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(8201L)).thenReturn(persistedSnapshots);
+        lenient().when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8201L)).thenReturn(persistedTasks);
+        // Creation fixtures persist the inserted row; post-write current reads must not manufacture it.
+        lenient().when(reviewMapper.selectByIdForUpdate(any())).thenAnswer(call ->
+                org.mockito.Mockito.mockingDetails(reviewMapper).getInvocations().stream()
+                        .filter(i -> i.getMethod().getName().equals("insert")
+                                && i.getArgument(0) instanceof MesProEdhrNonconformanceReviewDO)
+                        .map(i -> i.<MesProEdhrNonconformanceReviewDO>getArgument(0))
+                        .filter(row -> java.util.Objects.equals(row.getId(), call.getArgument(0)))
+                        .reduce((first, last) -> last).orElse(null));
         ReflectionTestUtils.setField(service, "processPoolEventMapper", processPoolEventMapper);
         ReflectionTestUtils.setField(service, "workOrderMapper", workOrderMapper);
         ReflectionTestUtils.setField(service, "workTaskMapper", workTaskMapper);
@@ -161,7 +182,12 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         ReflectionTestUtils.setField(service, "fileMapper", fileMapper);
         lenient().when(signatureService.recordQaDispositionSignature(any(), any(), any(), any(), any()))
                 .thenReturn(9101L);
-        lenient().when(reviewMapper.updateById(any(MesProEdhrNonconformanceReviewDO.class))).thenReturn(1);
+        lenient().when(reviewMapper.updateById(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(call -> {
+            var update = call.<MesProEdhrNonconformanceReviewDO>getArgument(0);
+            var persisted = reviewMapper.selectByIdForUpdate(update.getId());
+            copyPersistedUpdate(update, persisted);
+            return 1;
+        });
         lenient().when(batchExecutionMapper.updateById(any(MesProEdhrBatchExecutionDO.class))).thenReturn(1);
         TenantContextHolder.setTenantId(122L);
         var actor = new cn.iocoder.yudao.framework.security.core.LoginUser();
@@ -344,7 +370,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         assertEquals(8101L, result.getSourceId());
         assertEquals(8101L, result.getActiveOrderId());
         assertTrue(result.getReviewCode().matches("BHGSP-\\d{6}-00000000"));
-        verify(activeOrderMapper).selectByIdForUpdate(8101L);
+        verify(activeOrderMapper, org.mockito.Mockito.atLeastOnce()).selectByIdForUpdate(8101L);
         verify(signatureService, never()).recordNonconformanceReviewCreateSignature(
                 any(), any(), any(), any(), any());
         ArgumentCaptor<MesProEdhrOperationAuditCommand> auditCaptor =
@@ -1082,6 +1108,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         when(reviewMapper.selectFreezeLifecycleByWorkOrderId(3001L)).thenReturn(java.util.List.of(review));
         when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(java.util.List.of(8101L)))
                 .thenReturn(java.util.List.of(application));
+        when(releaseApplicationMapper.selectByIdForUpdate(7601L)).thenReturn(application);
         when(workTaskMapper.selectByIdForUpdate(8601L)).thenReturn(new MesProEdhrWorkTaskDO()
                 .setId(8601L)
                 .setTaskType("PQC_PRODUCTION_RELEASE")
@@ -1120,7 +1147,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 .build();
         when(reviewMapper.selectByIdForUpdate(1002L)).thenReturn(review);
         when(reviewMapper.selectById(1002L)).thenReturn(review.setDisposition("void"));
-        when(batchExecutionMapper.selectById(9001L)).thenReturn(
+        when(batchExecutionMapper.selectByIdForUpdate(9001L)).thenReturn(
                 new MesProEdhrBatchExecutionDO().setId(9001L).setStatus(15));
         when(workOrderMapper.selectByIdForUpdate(3002L)).thenReturn(
                 new MesProWorkOrderDO().setId(3002L).setTemporaryFrozen(true));
@@ -1488,7 +1515,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 "batchExecutionId", "batchStatus", "workOrderId", "previousWorkOrderTemporaryFrozen",
                 "temporaryFrozen", "reviewStatus", "disposition", "nonconformanceReason", "reviewOpinion",
                 "materials", "signatureRecordId", "signatureContentHash", "applicationId",
-                "reworkActiveOrderId"), after.keySet());
+                "reworkActiveOrderId", "affectedState"), after.keySet());
         assertTrue(command.getLinks().contains(new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation(
                 "SUBJECT", "NONCONFORMANCE_REVIEW", "1001", null, null)));
         assertTrue(command.getLinks().contains(new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation(
@@ -1705,6 +1732,337 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         return receipt;
     }
 
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void ncr02UnsignedCreationRecordsActualFreezeStateWithoutSignature(boolean withBatch) {
+        stubUnsignedAuditClosureCreation(withBatch);
+
+        var result = service.create(unsignedAuditClosureRequest());
+
+        assertEquals(1202L, result.getId());
+        var command = captureAuditClosureCommand();
+        assertEquals("mes.nonconformance.active-order.create", command.getOperationId());
+        assertEquals(MesProEdhrNonconformanceReviewServiceImpl.class.getName() + "#create",
+                command.getSourceLocator());
+        assertEquals("ABSENT", command.getBeforeState().getState());
+        assertEquals("PRESENT", command.getAfterState().getState());
+        assertEquals("USER", command.getReasonSource());
+        assertEquals(unsignedAuditClosureRequest().getNonconformanceReason(), command.getReason());
+        assertNull(command.getSignatureRecordId());
+        assertNull(command.getSignatureContentHash());
+        assertFalse(command.getLinks().stream().anyMatch(link -> "SIGNATURE".equals(link.relationType())));
+        verifyNoInteractions(signatureService, signatureRecordMapper);
+        var before = com.alibaba.fastjson.JSON.parseObject(command.getBeforeState().getCanonicalJson());
+        var after = com.alibaba.fastjson.JSON.parseObject(command.getAfterState().getCanonicalJson());
+        org.junit.jupiter.api.Assertions.assertNotNull(before.getJSONObject("affectedState"));
+        org.junit.jupiter.api.Assertions.assertNotNull(after.getJSONObject("affectedState"));
+        assertFalse(before.getJSONObject("affectedState").getJSONObject("workOrder").getBooleanValue("temporaryFrozen"));
+        assertTrue(after.getJSONObject("affectedState").getJSONObject("workOrder").getBooleanValue("temporaryFrozen"));
+        assertEquals("1202", after.getString("reviewId"));
+        assertEquals("pending_review", after.getString("reviewStatus"));
+        if (withBatch) {
+            assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS,
+                    before.getJSONObject("affectedState").getJSONObject("batchExecution").getInteger("status"));
+            assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN,
+                    after.getJSONObject("affectedState").getJSONObject("batchExecution").getInteger("status"));
+        } else {
+            assertNull(before.getJSONObject("affectedState").get("batchExecution"));
+            assertNull(after.getJSONObject("affectedState").get("batchExecution"));
+        }
+        assertTrue(command.getIdempotencyKey().length() <= 96);
+        assertEquals("sha256:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(
+                command.getAfterState().getCanonicalJson()), command.getSubjectVersion());
+    }
+
+    @Test
+    void ncr02UnsignedAuditFailureEscapesAfterBusinessAndSpecializedWrites() {
+        stubUnsignedAuditClosureCreation(false);
+        var failure = new IllegalStateException("ncr-unified-append-failure");
+        org.mockito.Mockito.doThrow(failure).when(unifiedAudit).append(any());
+
+        org.junit.jupiter.api.Assertions.assertSame(failure, assertThrows(IllegalStateException.class,
+                () -> service.create(unsignedAuditClosureRequest())));
+
+        var order = org.mockito.Mockito.inOrder(reviewMapper, workOrderMapper, operationAuditService, unifiedAudit);
+        order.verify(reviewMapper).insert(any(MesProEdhrNonconformanceReviewDO.class));
+        order.verify(workOrderMapper).updateTemporaryFrozenByIds(List.of(3001L), true);
+        order.verify(operationAuditService).recordInCallerTransaction(any());
+        order.verify(unifiedAudit).append(any());
+        verifyNoInteractions(signatureService);
+        // This proves propagation/order. A separate physical-transaction test must prove rollback.
+    }
+
+    @Test
+    void ncr02UnsignedCreationTakesLedgerLockBeforeActiveOrderLock() {
+        stubUnsignedAuditClosureCreation(false);
+        service.create(unsignedAuditClosureRequest());
+
+        var order = org.mockito.Mockito.inOrder(unifiedAudit, activeOrderMapper, reviewMapper);
+        order.verify(unifiedAudit).acquireLedgerLock();
+        order.verify(activeOrderMapper).selectByIdForUpdate(8101L);
+        order.verify(reviewMapper).insert(any(MesProEdhrNonconformanceReviewDO.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"rework", "void"})
+    void ncr05DispositionRecordsActualReleaseAndTaskTransitions(String disposition) {
+        stubDispositionAuditClosure(disposition);
+
+        service.dispose(disposeRequest(disposition));
+
+        var command = captureAuditClosureCommand();
+        var before = auditClosureAffectedState(command.getBeforeState());
+        var after = auditClosureAffectedState(command.getAfterState());
+        assertEquals(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING,
+                before.getJSONObject("releaseApplication").getString("applicationStatus"));
+        assertEquals(MesReleaseFlowStatus.PQC_RELEASE_REJECTED,
+                after.getJSONObject("releaseApplication").getString("applicationStatus"));
+        assertEquals(1, before.getJSONObject("releaseApplication").getIntValue("version"));
+        assertEquals(2, after.getJSONObject("releaseApplication").getIntValue("version"));
+        assertEquals("NONCONFORMANCE_" + disposition.toUpperCase(java.util.Locale.ROOT),
+                after.getJSONObject("releaseApplication").getString("pqcDecision"));
+        assertEquals(MesProEdhrWorkTaskStatus.TODO, before.getJSONObject("pqcReleaseTask").getString("status"));
+        assertEquals(MesProEdhrWorkTaskStatus.DONE, after.getJSONObject("pqcReleaseTask").getString("status"));
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL,
+                before.getJSONObject("managerReleaseTransaction").getString("releaseStatus"));
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_REJECTED,
+                after.getJSONObject("managerReleaseTransaction").getString("releaseStatus"));
+        assertEquals(4, before.getJSONObject("managerReleaseTransaction").getIntValue("version"));
+        assertEquals(5, after.getJSONObject("managerReleaseTransaction").getIntValue("version"));
+        assertEquals(MesProEdhrWorkTaskStatus.TODO, before.getJSONObject("managerReleaseTask").getString("status"));
+        assertEquals(MesProEdhrWorkTaskStatus.CANCELED, after.getJSONObject("managerReleaseTask").getString("status"));
+        org.junit.jupiter.api.Assertions.assertNotNull(after.getJSONObject("managerReleaseTask").get("completedAt"));
+        assertEquals(MesProEdhrNonconformanceReviewServiceImpl.class.getName() + "#dispose",
+                command.getSourceLocator());
+        assertEquals("9101", command.getSignatureRecordId());
+        assertFalse(command.getAfterState().getCanonicalJson().contains("qa-signature-password"));
+        if ("void".equals(disposition)) {
+            assertNull(after.get("reworkActiveOrder"));
+            assertEquals(0, after.getJSONArray("reworkProcessSnapshots").size());
+            assertEquals(0, after.getJSONArray("reworkPqcTasks").size());
+            assertEquals("ACTIVE", after.getJSONObject("sourceActiveOrder").getString("activeStatus"));
+        }
+    }
+
+    @Test
+    void ncr05ReworkRecordsRetiredSourceAndEveryPersistedCycleChild() {
+        stubDispositionAuditClosure("rework");
+
+        service.dispose(disposeRequest("rework"));
+
+        var command = captureAuditClosureCommand();
+        var before = auditClosureAffectedState(command.getBeforeState());
+        var after = auditClosureAffectedState(command.getAfterState());
+        assertEquals("ACTIVE", before.getJSONObject("sourceActiveOrder").getString("activeStatus"));
+        assertEquals("COMPLETED", before.getJSONObject("sourceActiveOrder").getString("businessStatus"));
+        assertEquals(1, before.getJSONObject("sourceActiveOrder").getIntValue("version"));
+        assertNull(before.get("reworkActiveOrder"));
+        assertEquals(0, before.getJSONArray("reworkProcessSnapshots").size());
+        assertEquals(0, before.getJSONArray("reworkPqcTasks").size());
+        assertEquals("REMOVED", after.getJSONObject("sourceActiveOrder").getString("activeStatus"));
+        assertEquals("REWORKED", after.getJSONObject("sourceActiveOrder").getString("businessStatus"));
+        assertEquals(2, after.getJSONObject("sourceActiveOrder").getIntValue("version"));
+        var next = after.getJSONObject("reworkActiveOrder");
+        assertEquals("8201", next.getString("id"));
+        assertEquals("8101", next.getString("reworkSourceActiveOrderId"));
+        assertEquals("1001", next.getString("reworkReviewId"));
+        assertEquals("ACTIVE", next.getString("businessStatus"));
+        assertEquals("4002", next.getString("routeVersionId"));
+        assertEquals(0, next.getIntValue("version"));
+        var snapshots = after.getJSONArray("reworkProcessSnapshots");
+        var tasks = after.getJSONArray("reworkPqcTasks");
+        assertEquals(2, snapshots.size());
+        assertEquals(2, tasks.size());
+        for (int i = 0; i < 2; i++) {
+            assertEquals("8201", snapshots.getJSONObject(i).getString("activeOrderId"));
+            assertEquals("8201", tasks.getJSONObject(i).getString("activeOrderId"));
+            assertEquals("frozen-config-" + (i + 1), snapshots.getJSONObject(i).getString("productionConfigSnapshotJson"));
+            assertEquals(MesPqcInspectionTaskDO.TASK_STATUS_PENDING, tasks.getJSONObject(i).getString("taskStatus"));
+            assertEquals(0, tasks.getJSONObject(i).getIntValue("actualInspectionQuantity"));
+            assertNull(tasks.getJSONObject(i).get("submittedEventId"));
+            assertNull(tasks.getJSONObject(i).get("submittedContentHash"));
+        }
+        verify(activeOrderMapper, org.mockito.Mockito.atLeastOnce()).selectByIdForUpdate(8201L);
+        verify(processSnapshotMapper).selectListByActiveOrderIdForUpdate(8201L);
+        verify(pqcInspectionTaskMapper).selectListByActiveOrderIdForUpdate(8201L);
+    }
+
+    @Test
+    void ncr05MissingPersistedAfterApplicationCannotProduceSuccessAudit() {
+        var application = stubDispositionAuditClosure("void", false);
+        lenient().when(releaseApplicationMapper.selectByIdForUpdate(7001L)).thenAnswer(call ->
+                MesReleaseFlowStatus.PQC_RELEASE_REJECTED.equals(application.getApplicationStatus()) ? null : application);
+
+        assertThrows(RuntimeException.class, () -> service.dispose(disposeRequest("void")));
+        verify(unifiedAudit, never()).append(any());
+    }
+
+    private MesProEdhrNonconformanceReviewCreateReqVO unsignedAuditClosureRequest() {
+        return new MesProEdhrNonconformanceReviewCreateReqVO().setActiveOrderId(8101L)
+                .setNonconformanceReason("Unsigned active-order NCR audit closure");
+    }
+
+    private void stubUnsignedAuditClosureCreation(boolean withBatch) {
+        var active = new MesProcessPoolActiveOrderDO().setId(8101L).setWorkOrderId(3001L)
+                .setActiveStatus("ACTIVE").setBusinessStatus("ACTIVE").setVersion(1);
+        var work = new MesProWorkOrderDO().setId(3001L).setCode("WO-001")
+                .setBatchCode("BATCH-001").setTemporaryFrozen(false);
+        var batch = new MesProEdhrBatchExecutionDO().setId(9001L).setWorkOrderId(3001L)
+                .setBatchExecutionCode("EXEC-001").setWorkOrderCode("WO-001").setBatchCode("BATCH-001")
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS);
+        lenient().when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(active);
+        lenient().when(workOrderMapper.selectByIdForUpdate(3001L)).thenReturn(work);
+        lenient().when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), true)).thenAnswer(call -> {
+            work.setTemporaryFrozen(true);
+            return 1;
+        });
+        lenient().when(batchExecutionOriginMapper.selectListByTraceFilter(8101L, 3001L, null, null))
+                .thenReturn(withBatch ? List.of(new MesProEdhrBatchExecutionOriginDO()
+                        .setBatchExecutionId(9001L).setActiveOrderId(8101L).setWorkOrderId(3001L)
+                        .setEntryType(MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION)) : List.of());
+        lenient().when(batchExecutionMapper.selectByIdForUpdate(9001L)).thenReturn(batch);
+        lenient().when(batchExecutionMapper.updateById(any(MesProEdhrBatchExecutionDO.class))).thenAnswer(call -> {
+            batch.setStatus(call.<MesProEdhrBatchExecutionDO>getArgument(0).getStatus());
+            return 1;
+        });
+        lenient().when(reviewMapper.insert(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(call -> {
+            var persisted = call.<MesProEdhrNonconformanceReviewDO>getArgument(0).setId(1202L);
+            lenient().when(reviewMapper.selectByIdForUpdate(1202L)).thenReturn(persisted);
+            lenient().when(reviewMapper.selectById(1202L)).thenReturn(persisted);
+            return 1;
+        });
+    }
+
+    private MesProcessPoolActiveOrderReleaseApplicationDO stubDispositionAuditClosure(String disposition) {
+        return stubDispositionAuditClosure(disposition, true);
+    }
+
+    private MesProcessPoolActiveOrderReleaseApplicationDO stubDispositionAuditClosure(String disposition,
+                                                                                    boolean returnsResponse) {
+        stubPendingReview(disposition, true, returnsResponse);
+        when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), "void".equals(disposition))).thenReturn(1);
+        var review = reviewMapper.selectByIdForUpdate(1001L);
+        review.setSourceType("ACTIVE_ORDER").setSourceId(8101L);
+        lenient().when(reviewMapper.updateById(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(call -> {
+            var update = call.<MesProEdhrNonconformanceReviewDO>getArgument(0);
+            review.setActiveOrderId(update.getActiveOrderId()).setReviewStatus(update.getReviewStatus())
+                    .setDisposition(update.getDisposition()).setReviewOpinion(update.getReviewOpinion())
+                    .setReviewMaterialsJson(update.getReviewMaterialsJson()).setQaUserId(update.getQaUserId())
+                    .setQaSignature(update.getQaSignature()).setClosedAt(update.getClosedAt())
+                    .setTraceSnapshotJson(update.getTraceSnapshotJson());
+            return 1;
+        });
+        var application = releaseApplicationMapper.selectByIdForUpdate(7001L);
+        application.setApplicationStatus(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING)
+                .setReleaseTransactionId(9301L).setReleaseApprovalWorkTaskId(8002L);
+        lenient().when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(8101L)))
+                .thenReturn(List.of(application));
+        var pqc = workTaskMapper.selectByIdForUpdate(8001L);
+        var manager = new MesProEdhrWorkTaskDO().setId(8002L).setTaskType("RELEASE_APPROVE")
+                .setBusinessScopeType("RELEASE_TRANSACTION").setBusinessScopeId(9301L)
+                .setStatus(MesProEdhrWorkTaskStatus.TODO).setCandidateUserSnapshot("[21]");
+        lenient().when(workTaskMapper.selectByIdForUpdate(8002L)).thenReturn(manager);
+        lenient().when(workTaskMapper.selectOne(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
+                .thenAnswer(call -> MesProEdhrWorkTaskStatus.TODO.equals(manager.getStatus()) ? manager : null);
+        lenient().when(workTaskMapper.selectActiveByBusinessScopeAndType("RELEASE_TRANSACTION", 9301L, "RELEASE_APPROVE"))
+                .thenAnswer(call -> MesProEdhrWorkTaskStatus.TODO.equals(manager.getStatus()) ? manager : null);
+        var transactions = org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper.class);
+        var transaction = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO()
+                .setId(9301L).setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL).setVersion(4);
+        ReflectionTestUtils.setField(service, "releaseTransactionMapper", transactions);
+        lenient().when(transactions.selectByIdForUpdate(9301L)).thenReturn(transaction);
+        lenient().when(transactions.updateById(any(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO.class)))
+                .thenAnswer(call -> {
+                    var update = call.<cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO>getArgument(0);
+                    transaction.setReleaseStatus(update.getReleaseStatus()).setVersion(update.getVersion())
+                            .setRejectedBy(update.getRejectedBy()).setRejectedAt(update.getRejectedAt())
+                            .setRejectReason(update.getRejectReason());
+                    return 1;
+                });
+        var tasks = org.mockito.Mockito.mock(MesProEdhrWorkTaskService.class);
+        ReflectionTestUtils.setField(service, "workTaskService", tasks);
+        org.mockito.Mockito.doAnswer(call -> {
+            manager.setStatus(MesProEdhrWorkTaskStatus.CANCELED).setReason(call.getArgument(1))
+                    .setCompletedAt(LocalDateTime.of(2026, 9, 29, 14, 0));
+            return null;
+        }).when(tasks).cancelReleaseApprovalTask(eq(9301L), any());
+        String decision = "NONCONFORMANCE_" + disposition.toUpperCase(java.util.Locale.ROOT);
+        lenient().when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq(decision),
+                eq(21L), any(), any(), any())).thenAnswer(call -> {
+                    application.setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_REJECTED).setVersion(2)
+                            .setPqcDecision(call.getArgument(2)).setPqcDecidedBy(call.getArgument(3))
+                            .setPqcDecidedAt(call.getArgument(4)).setPqcRejectReason(call.getArgument(5))
+                            .setDossierSummaryJson(call.getArgument(6));
+                    return 1;
+                });
+        lenient().when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq(decision))).thenAnswer(call -> {
+            pqc.setStatus(MesProEdhrWorkTaskStatus.DONE).setCompletedAt(call.getArgument(1)).setReason(call.getArgument(2));
+            return 1;
+        });
+        var source = activeOrderMapper.selectByIdForUpdate(8101L);
+        lenient().when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(source);
+        var nextOrder = new java.util.concurrent.atomic.AtomicReference<MesProcessPoolActiveOrderDO>();
+        lenient().when(activeOrderMapper.selectByIdForUpdate(8201L)).thenAnswer(call -> nextOrder.get());
+        lenient().when(activeOrderMapper.selectByReworkReviewId(1001L)).thenAnswer(call -> nextOrder.get());
+        lenient().when(activeOrderMapper.retireForRework(eq(8101L), eq(1), any())).thenAnswer(call -> {
+            source.setActiveStatus("REMOVED").setBusinessStatus("REWORKED").setVersion(2).setRemovedAt(call.getArgument(2));
+            return 1;
+        });
+        lenient().when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class))).thenAnswer(call -> {
+            nextOrder.set(call.<MesProcessPoolActiveOrderDO>getArgument(0).setId(8201L));
+            return 1;
+        });
+        var copiedSnapshots = new java.util.ArrayList<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO>();
+        var copiedTasks = new java.util.ArrayList<MesPqcInspectionTaskDO>();
+        var sourceSnapshots = new java.util.ArrayList<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO>();
+        var sourceTasks = new java.util.ArrayList<MesPqcInspectionTaskDO>();
+        for (long i = 1; i <= 2; i++) {
+            sourceSnapshots.add(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO()
+                    .setId(4100L + i).setActiveOrderId(8101L).setWorkOrderId(3001L)
+                    .setRouteProcessId(5100L + i).setProductionConfigSnapshotJson("frozen-config-" + i));
+            sourceTasks.add(new MesPqcInspectionTaskDO().setId(6100L + i).setActiveOrderId(8101L).setWorkOrderId(3001L)
+                    .setRouteProcessId(5100L + i).setTaskStatus("CONFIRMED").setActualInspectionQuantity(10)
+                    .setSubmittedEventId(7100L + i).setSubmittedContentHash("previous-inspection-" + i));
+        }
+        lenient().when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(sourceSnapshots);
+        lenient().when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(sourceTasks);
+        lenient().when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(8201L)).thenReturn(copiedSnapshots);
+        lenient().when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8201L)).thenReturn(copiedTasks);
+        lenient().when(processSnapshotMapper.insert(any(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO.class)))
+                .thenAnswer(call -> {
+                    copiedSnapshots.add(call.<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO>getArgument(0)
+                            .setId(4201L + copiedSnapshots.size()));
+                    return 1;
+                });
+        lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenAnswer(call -> {
+            copiedTasks.add(call.<MesPqcInspectionTaskDO>getArgument(0).setId(6201L + copiedTasks.size()));
+            return 1;
+        });
+        org.springframework.util.ReflectionUtils.doWithFields(service.getClass(), field -> {
+            if (field.getType() == cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper.class) {
+                org.springframework.util.ReflectionUtils.makeAccessible(field);
+                field.set(service, processSnapshotMapper);
+            }
+        });
+        return application;
+    }
+
+    private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand captureAuditClosureCommand() {
+        var captured = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+        verify(unifiedAudit).append(captured.capture());
+        return captured.getValue();
+    }
+
+    private com.alibaba.fastjson.JSONObject auditClosureAffectedState(
+            cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope envelope) {
+        var state = com.alibaba.fastjson.JSON.parseObject(envelope.getCanonicalJson()).getJSONObject("affectedState");
+        org.junit.jupiter.api.Assertions.assertNotNull(state, "actual persisted downstream state must be recorded");
+        return state;
+    }
+
     private void assertCreationAudit(String reviewId, String sourceType, String sourceId, String signatureId, String reason) {
         var captured = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
         verify(unifiedAudit).append(captured.capture());
@@ -1738,6 +2096,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                     .setReviewMaterialFileId(update.getReviewMaterialFileId()).setQaSignature(update.getQaSignature())
                     .setTraceSnapshotJson(update.getTraceSnapshotJson()).setClosedAt(update.getClosedAt());
             when(reviewMapper.selectById(1001L)).thenReturn(persisted);
+            lenient().when(reviewMapper.selectByIdForUpdate(1001L)).thenReturn(persisted);
             return 1;
         }).when(reviewMapper).updateById(any(MesProEdhrNonconformanceReviewDO.class));
         if (!"concession_release".equals(disposition)) {
@@ -1745,6 +2104,20 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
             when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq(decision),
                     eq(21L), any(), any(), any())).thenReturn(1);
             when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq(decision))).thenReturn(1);
+        }
+    }
+
+    private static void copyPersistedUpdate(Object update, Object persisted) {
+        var source = new org.springframework.beans.BeanWrapperImpl(update);
+        var target = new org.springframework.beans.BeanWrapperImpl(persisted);
+        for (var property : source.getPropertyDescriptors()) {
+            String name = property.getName();
+            if (!"class".equals(name) && source.isReadableProperty(name) && target.isWritableProperty(name)) {
+                Object value = source.getPropertyValue(name);
+                if (value != null) {
+                    target.setPropertyValue(name, value);
+                }
+            }
         }
     }
 

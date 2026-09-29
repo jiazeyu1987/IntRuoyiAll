@@ -86,6 +86,8 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
 
     @Resource
     private GxpAuditService gxpAuditService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
 
     @Autowired
     public MesPqcProductionReleaseServiceImpl(
@@ -163,6 +165,8 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         signatureService.validatePqcSubmitSignature(actorUserId, command.getSignaturePassword());
 
         Long batchExecutionId = requireExistingBatchExecutionId(application);
+        Map<String, Object> affectedBefore = affectedStates.capture(
+                batchExecutionId, application.getId(), application.getReleaseTransactionId(), null, false);
         Long signatureId = signatureService.recordPqcReleaseSignature(
                 actorUserId, batchExecutionId, application.getId(), command.getSignaturePassword(), opinion);
         LocalDateTime decidedAt = LocalDateTime.now(clock);
@@ -211,7 +215,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 MesReleaseFlowAuditEventType.PQC_PRODUCTION_RELEASE_APPROVED);
         appendPqcProductionReleaseGxpAudit(application, workTask, result,
                 "mes.pqc.production-release.approve",
-                "MesPqcProductionReleaseServiceImpl#approve");
+                "MesPqcProductionReleaseServiceImpl#approve", affectedBefore);
         return result;
     }
 
@@ -259,7 +263,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 MesReleaseFlowAuditEventType.PQC_PRODUCTION_RELEASE_REJECTED);
         appendPqcProductionReleaseGxpAudit(application, workTask, result,
                 "mes.pqc.production-release.reject",
-                "MesPqcProductionReleaseServiceImpl#reject");
+                "MesPqcProductionReleaseServiceImpl#reject", null);
         return result;
     }
 
@@ -268,7 +272,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesProEdhrWorkTaskDO workTask,
             MesPqcProductionReleaseDecisionResult result,
             String operationId,
-            String methodName) {
+            String methodName, Map<String, Object> affectedBefore) {
         String signatureId = result.getSignatureId() == null ? null : String.valueOf(result.getSignatureId());
         Map<String, Object> before = new java.util.LinkedHashMap<>();
         before.put("applicationId", application.getId());
@@ -290,6 +294,11 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         after.put("sourceSnapshotHash", result.getSourceSnapshotHash());
         after.put("reportSnapshotHash", result.getReportSnapshotHash());
         after.put("udiControlDocumentNo", result.getUdiControlDocumentNo());
+        if ("APPROVE".equals(result.getDecision())) {
+            before.put("affectedState", Objects.requireNonNull(affectedBefore));
+            after.put("affectedState", affectedStates.capture(result.getBatchExecutionId(),
+                    application.getId(), null, null, false));
+        }
         List<GxpAuditRelation> links = new java.util.ArrayList<>();
         links.add(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
                 String.valueOf(application.getActiveOrderId()), null, null));

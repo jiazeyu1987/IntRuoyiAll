@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import jakarta.annotation.Resource;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -65,6 +66,9 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
 
     @Resource
     private GxpAuditService gxpAuditService;
+
+    @Resource
+    private MesReleaseAffectedStateCollector affectedStateCollector;
 
     @Resource
     private MesPqcInspectionTaskMapper pqcTaskMapper;
@@ -114,6 +118,8 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                 && MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
             throw exception(PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED, reqBO.getEventId());
         }
+        String affectedRowsBefore = JsonUtils.toJsonString(affectedStateCollector.capturePqcSubmission(
+                event.getId(), event.getFeedbackSourceId()));
         ReviewSignaturePayload reviewSignature = recordReviewSignature(reqBO, event, correction);
         MesProcessPoolSubmissionReviewDO review = MesProcessPoolSubmissionReviewDO.builder()
                 .eventId(reqBO.getEventId())
@@ -131,7 +137,7 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                 && MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
             processInspectionAggregationService.aggregateApprovedPqcSubmission(reqBO.getEventId(), review.getId());
         }
-        appendPqcReviewGxpAudit(event, review);
+        appendPqcReviewGxpAudit(event, review, affectedRowsBefore);
         return review.getId();
     }
 
@@ -171,7 +177,8 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
     }
 
     private void appendPqcReviewGxpAudit(MesProProcessPoolEventDO event,
-                                         MesProcessPoolSubmissionReviewDO review) {
+                                         MesProcessPoolSubmissionReviewDO review,
+                                         String affectedRowsBefore) {
         if (review.getId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "submissionReview.reviewId");
         }
@@ -180,10 +187,13 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
         Map<String, Object> before = new LinkedHashMap<>();
         before.put("eventId", event.getId());
         before.put("state", "ABSENT");
+        before.put("affectedRows", JsonUtils.parseObject(affectedRowsBefore, Map.class));
         Map<String, Object> after = new LinkedHashMap<>();
         after.put("event", pqcReviewEventSnapshot(event));
         after.put("review", pqcReviewSnapshot(review));
         after.put("aggregationState", approved ? "AGGREGATED" : "NOT_APPLICABLE");
+        after.put("affectedRows", affectedStateCollector.capturePqcSubmission(
+                event.getId(), event.getFeedbackSourceId()));
         MesPqcInspectionTaskDO pqcTask = resolvePqcInspectionTask(event);
         List<GxpAuditRelation> links = new ArrayList<>();
         links.add(new GxpAuditRelation("SUBJECT", "PROCESS_POOL_EVENT",

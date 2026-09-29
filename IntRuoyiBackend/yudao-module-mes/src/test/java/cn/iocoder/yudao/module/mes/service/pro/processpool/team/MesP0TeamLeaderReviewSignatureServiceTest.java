@@ -123,6 +123,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 processInspectionAggregationService);
         ReflectionTestUtils.setField(submissionReviewService, "signatureService", signatureService);
         ReflectionTestUtils.setField(submissionReviewService, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(submissionReviewService, "affectedStateCollector",
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class));
         ReflectionTestUtils.setField(submissionReviewService, "pqcTaskMapper", pqcTaskMapper);
         lenient().when(pqcTaskMapper.selectById(5101L)).thenReturn(MesPqcInspectionTaskDO.builder()
                 .id(5101L).activeOrderId(8101L).build());

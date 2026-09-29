@@ -25,7 +25,7 @@ def fixture(tmp_path, body):
                        expectedMinCandidates=0,
                        unregisteredDisposition=dict(decision="FAIL", reasonCode="UNREGISTERED", reason="Review entry"))
                   for kind in sorted(gate.BOUNDARY_SOURCE_TYPES)]
-    policy = dict(coverageScope=dict(writeBoundaryScan=dict(registrationMode="REGISTERED_OR_APPROVED_EXCLUSION",
+    policy = dict(coverageScope=dict(writeBoundaryScan=dict(registrationMode="REGISTERED_OR_APPROVED_EXCLUSION", candidateHashMode="UTF8_LF_SHA256",
                                         approvedExclusionsFile="approved.jsonl", categories=categories)))
     operations = [gate.Operation(dict(operationId="order.add", sourceType="SERVICE_METHOD",
                                       sourceLocators=["demo.OrderService#addOrder"]))]
@@ -165,7 +165,7 @@ def test_private_helper_and_lexical_decoys_are_not_independent_entries(tmp_path)
     report = tmp_path / "boundaries.jsonl"
     gate.validate_boundary_scan(tmp_path, policy, operations, report)
     records = [json.loads(line) for line in report.read_text(encoding="utf-8").splitlines()]
-    assert {(record["sourceLocator"], record["decision"]) for record in records} == {
+    assert {(record["sourceLocator"], record["decision"]) for record in records if "sourceLocator" in record} == {
         ("demo.OrderService#addOrder", "REGISTERED"),
         ("demo.OrderService#insertAudit", "PRIVATE_HELPER"),
     }

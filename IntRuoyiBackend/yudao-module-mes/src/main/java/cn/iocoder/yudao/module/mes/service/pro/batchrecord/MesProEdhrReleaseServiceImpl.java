@@ -107,6 +107,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 @Service
 public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
 
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
+
     public static final String STATUS_PRECHECK_REQUIRED = "PRECHECK_REQUIRED";
     public static final String STATUS_PRECHECK_FAILED = "PRECHECK_FAILED";
     public static final String STATUS_PRECHECK_PASSED = "PRECHECK_PASSED";
@@ -521,7 +524,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         LocalDateTime occurredAt = now();
         Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
         requireReleaseOwner(batch, actorUserId);
-        GxpAuditStateEnvelope auditBefore = releasePreparationState(transaction);
+        GxpAuditStateEnvelope auditBefore = releaseSubmissionState(transaction);
         String password = requireReleaseSignaturePassword(reqVO.getPassword());
         adminUserApi.reauthenticateForSignature(actorUserId, password);
         String reason = StrUtil.blankToDefault(StrUtil.trim(reqVO.getSubmitReason()), "负责人电子签名放行");
@@ -789,6 +792,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             if (prepared.isReplayed()) {
                 return toResp(prepared.getBatchExecution(), prepared.getReleaseTransaction());
             }
+            Map<String, Object> auditBefore = marketReleaseBefore(command, transaction);
             String managerPayloadHash = finalizationPayloadHash(command, evidence);
             LocalDateTime occurredAt = now();
             if (releaseTransactionMapper.approveProductionRelease(
@@ -816,7 +820,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             appendReleaseDecision(command, decision);
             closeUpstreamAfterRelease(command, released, decision);
             reportManagementSummaryService.refreshByReleaseTransactionId(command.getReleaseTransactionId());
-            appendMarketReleaseGxpAudit(command, released, decision);
+            appendMarketReleaseGxpAudit(command, released, decision, auditBefore);
             return toResp(result.getBatchExecution(), released);
         }
         String finalizationPayloadHash = finalizationPayloadHash(command, evidence);
@@ -837,6 +841,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 command.setWorkTaskId(approvalTask.getId());
             }
         }
+        Map<String, Object> auditBefore = marketReleaseBefore(command, transaction);
         LocalDateTime occurredAt = now();
         String opinion = StrUtil.trim(command.getApprovalOpinion());
         if (releaseTransactionMapper.approveProductionRelease(
@@ -866,7 +871,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         recordTerminalOperationAudit(batch, transaction, EVENT_TYPE_APPROVE, STATUS_PENDING_APPROVAL, STATUS_RELEASED,
                 command.getActorUserId(), null, opinion, command.getIdempotencyKey(),
                 command.getSignoffEvidenceHash(), occurredAt);
-        appendMarketReleaseGxpAudit(command, transaction, decision);
+        appendMarketReleaseGxpAudit(command, transaction, decision, auditBefore);
         return toResp(batch, transaction);
     }
 
@@ -2031,6 +2036,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         data.put("withdrawnAt", transaction.getWithdrawnAt());
         data.put("withdrawReason", transaction.getWithdrawReason());
         data.put("finalizationPayloadHash", transaction.getFinalizationPayloadHash());
+        data.put("affectedState", affectedStates.capture(transaction.getBatchExecutionId(), null,
+                transaction.getId(), null, false));
         return GxpAuditStateEnvelope.builder()
                 .state("PRESENT")
                 .objectVersion(String.valueOf(transaction.getVersion()))
@@ -2071,13 +2078,26 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .build());
     }
 
+    private Map<String, Object> marketReleaseBefore(MesReleaseFinalizationCommand command,
+                                                     MesProEdhrReleaseTransactionDO transaction) {
+        Map<String, Object> before = new LinkedHashMap<>();
+        before.put("releaseTransactionId", transaction.getId());
+        before.put("releaseStatus", transaction.getReleaseStatus());
+        before.put("version", transaction.getVersion());
+        before.put("affectedState", marketReleaseAffected(command, transaction));
+        return before;
+    }
+
+    private Map<String, Object> marketReleaseAffected(MesReleaseFinalizationCommand command,
+                                                       MesProEdhrReleaseTransactionDO transaction) {
+        return affectedStates.capture(transaction.getBatchExecutionId(), command.getReleaseApplicationId(),
+                transaction.getId(), command.getOrigin() == MesReleaseOrigin.ACTIVE_ORDER
+                        ? transaction.getWorkOrderId() : null, false);
+    }
+
     private void appendMarketReleaseGxpAudit(MesReleaseFinalizationCommand command,
                                              MesProEdhrReleaseTransactionDO transaction,
-                                             MesProEdhrReleaseDecisionDO decision) {
-        Map<String, Object> before = new java.util.LinkedHashMap<>();
-        before.put("releaseTransactionId", transaction.getId());
-        before.put("releaseStatus", STATUS_PENDING_APPROVAL);
-        before.put("version", transaction.getVersion());
+                                             MesProEdhrReleaseDecisionDO decision, Map<String, Object> before) {
         Map<String, Object> after = new java.util.LinkedHashMap<>();
         after.put("releaseTransactionId", transaction.getId());
         after.put("releaseDecisionId", decision.getId());
@@ -2088,6 +2108,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         after.put("actorUserId", command.getActorUserId());
         after.put("signoffEvidenceHash", decision.getSignoffEvidenceHash());
         after.put("auditSnapshotJson", decision.getAuditSnapshotJson());
+        after.put("affectedState", marketReleaseAffected(command, transaction));
         String signatureRecordId = command.getSignatureId() == null
                 ? command.getSignoffSubjectId() : String.valueOf(command.getSignatureId());
         List<GxpAuditRelation> links = new java.util.ArrayList<>();
@@ -2121,8 +2142,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .reasonCode("MES_MARKET_RELEASE_APPROVE")
                 .reasonSource("SYSTEM")
                 .beforeState(GxpAuditStateEnvelope.builder()
-                        .state(STATUS_PENDING_APPROVAL)
-                        .objectVersion(String.valueOf(transaction.getVersion()))
+                        .state(String.valueOf(before.get("releaseStatus")))
+                        .objectVersion(String.valueOf(before.get("version")))
                         .canonicalJson(JsonUtils.toJsonString(before))
                         .build())
                 .afterState(GxpAuditStateEnvelope.builder()
@@ -2378,7 +2399,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         requirePrecheckPassed(transaction);
         requirePrecheckMaterialManifestCurrent(transaction);
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
-        GxpAuditStateEnvelope auditBefore = releasePreparationState(transaction);
+        GxpAuditStateEnvelope auditBefore = releaseSubmissionState(transaction);
         String fromStatus = transaction.getReleaseStatus();
         LocalDateTime occurredAt = now();
         Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
@@ -2403,6 +2424,11 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         appendReleasePreparationAudit(batch, transaction, auditBefore, "mes.market-release.submit",
                 "submitForApproval", idempotencyKey, reason);
         return toResp(batch, transaction).setReleaseApprovalWorkTaskId(approvalTask.getId());
+    }
+
+    private GxpAuditStateEnvelope releaseSubmissionState(MesProEdhrReleaseTransactionDO transaction) {
+        return affectedStates.withAffected(releasePreparationState(transaction),
+                affectedStates.capture(transaction.getBatchExecutionId(), null, transaction.getId(), null, false));
     }
 
     private GxpAuditStateEnvelope releasePreparationState(MesProEdhrReleaseTransactionDO transaction) {
@@ -2430,7 +2456,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         gxpAuditService.append(GxpAuditCommand.builder().eventSchemaVersion(2)
                 .operationId(operationId).subjectId("RELEASE_TRANSACTION:" + transaction.getId())
                 .subjectVersion(String.valueOf(transaction.getVersion()))
-                .beforeState(before).afterState(releasePreparationState(transaction))
+                .beforeState(before).afterState("mes.market-release.submit".equals(operationId)
+                        ? releaseSubmissionState(transaction) : releasePreparationState(transaction))
                 .reason(reason).reasonCode("MES_RELEASE_PREPARATION").reasonSource("SYSTEM")
                 .idempotencyKey("RELEASE_PREP:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(
                         List.of(operationId, transaction.getId(), idempotencyKey))))

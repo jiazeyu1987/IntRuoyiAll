@@ -134,6 +134,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Resource
     private NotifyMessageSendApi notifyMessageSendApi;
     @Resource
+    private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
+    @Resource
     private MesProRouteMapper routeMapper;
     @Resource
     private MesProRouteFlowProcessBatchRecordMapper routeFlowProcessBatchRecordMapper;
@@ -2524,7 +2526,9 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (!requiresRuntimeTaskEntitlement(task)) {
             return;
         }
-        permissionApi.syncEntitlementClaims(SystemEntitlementSyncReqDTO.builder()
+        auxiliaryAudit.entitlements(task, resolveRuntimeTaskEntitlementPolicyCode(task),
+                parseCandidateUserIds(task.getCandidateUserSnapshot()),
+                () -> permissionApi.syncEntitlementClaims(SystemEntitlementSyncReqDTO.builder()
                 .tenantId(requireTenantIdForEntitlement())
                 .sourceType(ENTITLEMENT_SOURCE_TYPE_WORK_TASK)
                 .sourceKey(buildWorkTaskEntitlementSourceKey(task))
@@ -2534,21 +2538,22 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 .resolvedUserIds(parseCandidateUserIds(task.getCandidateUserSnapshot()))
                 .operatorUserId(SecurityFrameworkUtils.getLoginUserId())
                 .operatorUsername(SecurityFrameworkUtils.getLoginUserNickname())
-                .build());
+                .build()));
     }
 
     private void revokeRuntimeTaskEntitlement(MesProEdhrWorkTaskDO task) {
         if (!requiresRuntimeTaskEntitlement(task)) {
             return;
         }
-        permissionApi.revokeEntitlementSource(SystemEntitlementRevokeReqDTO.builder()
+        auxiliaryAudit.entitlements(task, resolveRuntimeTaskEntitlementPolicyCode(task), Set.of(),
+                () -> permissionApi.revokeEntitlementSource(SystemEntitlementRevokeReqDTO.builder()
                 .tenantId(requireTenantIdForEntitlement())
                 .sourceType(ENTITLEMENT_SOURCE_TYPE_WORK_TASK)
                 .sourceKey(buildWorkTaskEntitlementSourceKey(task))
                 .policyCode(resolveRuntimeTaskEntitlementPolicyCode(task))
                 .operatorUserId(SecurityFrameworkUtils.getLoginUserId())
                 .operatorUsername(SecurityFrameworkUtils.getLoginUserNickname())
-                .build());
+                .build()));
     }
 
     private boolean requiresRuntimeTaskEntitlement(MesProEdhrWorkTaskDO task) {
@@ -2747,13 +2752,17 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 "actionUrl", task.getActionUrl(),
                 "reason", Objects.toString(task.getReason(), ""),
                 "workTaskId", task.getId());
-        for (Long userId : parseCandidateUserIds(task.getCandidateUserSnapshot())) {
-            NotifySendSingleToUserReqDTO reqDTO = new NotifySendSingleToUserReqDTO();
-            reqDTO.setUserId(userId);
-            reqDTO.setTemplateCode(templateCode);
-            reqDTO.setTemplateParams(templateParams);
-            notifyMessageSendApi.sendSingleMessageToAdmin(reqDTO);
-        }
+        auxiliaryAudit.notifications(task, () -> {
+            List<Long> messageIds = new ArrayList<>();
+            for (Long userId : parseCandidateUserIds(task.getCandidateUserSnapshot())) {
+                NotifySendSingleToUserReqDTO reqDTO = new NotifySendSingleToUserReqDTO();
+                reqDTO.setUserId(userId);
+                reqDTO.setTemplateCode(templateCode);
+                reqDTO.setTemplateParams(templateParams);
+                messageIds.add(notifyMessageSendApi.sendSingleMessageToAdmin(reqDTO));
+            }
+            return messageIds;
+        });
     }
 
     private void sendReassignmentNotify(MesProEdhrWorkTaskDO task, String reason) {

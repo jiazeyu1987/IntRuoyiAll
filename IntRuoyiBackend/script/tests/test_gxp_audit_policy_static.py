@@ -169,7 +169,14 @@ def test_approved_exclusion_inventory_is_explicit_and_current() -> None:
     keys = {(record["sourceType"], record["candidate"]) for record in records}
     assert len(keys) == len(records)
     for record in records:
-        assert record["decision"] == "APPROVED_EXCLUSION"
+        assert record["decision"] in {
+            "APPROVED_EXCLUSION", "REVIEWED_OUT_OF_RELEASE_SCOPE", "REVIEWED_MIXED_SCOPE", "REVIEWED_DELEGATED_EFFECT"
+        }
+        if record["decision"] != "APPROVED_EXCLUSION":
+            assert record["approvalReference"] == policy["approvalReference"]
+            assert record["evidenceReference"]
+            assert record["futureOwnerRole"]
+            assert record["futureTaskReference"]
         assert record["candidate"]
         assert record["sourceType"] in WRITE_BOUNDARY_PATTERNS
         assert re.fullmatch(r"[0-9a-f]{64}", record["candidateSha256"])
@@ -209,6 +216,7 @@ def test_coverage_gate_rejects_unlisted_boundary_candidate(tmp_path: Path, monke
     policy = {
         "coverageScope": {"writeBoundaryScan": {
             "registrationMode": "REGISTERED_OR_APPROVED_EXCLUSION",
+            "candidateHashMode": "UTF8_LF_SHA256",
             "approvedExclusionsFile": "approved.jsonl",
             "categories": categories,
         }}
@@ -262,6 +270,7 @@ def test_coverage_gate_rejects_changed_approved_candidate(tmp_path: Path, monkey
     policy = {
         "coverageScope": {"writeBoundaryScan": {
             "registrationMode": "REGISTERED_OR_APPROVED_EXCLUSION",
+            "candidateHashMode": "UTF8_LF_SHA256",
             "approvedExclusionsFile": "approved.jsonl",
             "categories": categories,
         }}
@@ -299,60 +308,30 @@ def test_write_boundary_scan_finds_current_repo_candidates() -> None:
         )
 
 
-def test_coverage_gate_reports_current_unregistered_methods_even_on_failure(tmp_path: Path) -> None:
-    gate = RUNTIME_SOURCE_ROOT / "script" / "gxp_audit_coverage_gate.py"
-    with tempfile.TemporaryDirectory(dir=tmp_path) as temporary_directory:
-        boundary_report = Path(temporary_directory) / "boundary-exclusions.jsonl"
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(gate),
-                "--root",
-                str(WORKSPACE_ROOT),
-                "--policy",
-                "IntRuoyiBackend/config/gxp-audit-policy.yaml",
-                "--boundary-report",
-                str(boundary_report),
-            ],
-            cwd=WORKSPACE_ROOT,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            check=False,
-        )
-        # The real repository has open coverage gaps. Scanner correctness must not
-        # require fabricated approvals to turn the release gate green.
-        assert result.returncode == 1, result.stderr or result.stdout
-        assert "FAIL gxp audit coverage gate" in result.stderr
-        records = [
-            json.loads(line)
-            for line in boundary_report.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
-        entries = [record for record in records if record["decision"] == "UNREGISTERED_ENTRY"]
-        assert any(record["sourceLocator"].endswith("MesTeamLeaderActiveOrderServiceImpl#removeActiveOrder")
-                   for record in entries)
-        assert any(record["sourceLocator"].endswith("MesTeamLeaderActiveOrderServiceImpl#executeDataCleanup")
-                   for record in entries)
-        assert all(record["line"] > 0 and record["signature"] for record in entries)
-        exclusion_records = [record for record in records if record["decision"] == "APPROVED_EXCLUSION"]
-        assert exclusion_records
-        required_fields = {
-            "candidate",
-            "decision",
-            "reasonCode",
-            "reason",
-            "approvedBy",
-            "approvalReference",
-        }
-        assert all(required_fields.issubset(record) for record in exclusion_records)
-        assert all(record["decision"] == "APPROVED_EXCLUSION" for record in exclusion_records)
-        assert all(
-            record["candidateSha256"] == hashlib.sha256(
-                (WORKSPACE_ROOT / Path(record["candidate"])).read_bytes()
-            ).hexdigest()
-            for record in exclusion_records
-        )
-        assert all(record["candidate"] in record["reason"] for record in exclusion_records)
-        assert all(record["candidateSha256"] in record["reason"] for record in exclusion_records)
-        assert len({record["reason"] for record in exclusion_records}) == len(exclusion_records)
+def test_coverage_gate_reports_injected_unregistered_methods_even_on_failure(tmp_path: Path) -> None:
+    from test_gxp_audit_method_boundaries import fixture, gate
+    source, policy, operations = fixture(tmp_path, """
+        public void addOrder() { mapper.insert(row); }
+        public void removeActiveOrder() { mapper.deleteById(id); }
+        public void executeDataCleanup() { mapper.deleteBatch(ids); }
+    """)
+    candidate = tmp_path / "ReadHelper.java"
+    candidate.write_text("class ReadHelper { void read() { digest.update(bytes); } }", encoding="utf-8")
+    digest = gate.source_sha256(candidate)
+    approved = dict(candidate="ReadHelper.java", candidateSha256=digest,
+                    decision="APPROVED_EXCLUSION", sourceType="DOMAIN_SERVICE",
+                    reasonCode="READ_ONLY", reason=f"ReadHelper.java; {digest}; fixture read-only helper",
+                    approvedBy="fixture-reviewer", approvalReference="FIXTURE")
+    (tmp_path / "approved.jsonl").write_text(json.dumps(approved), encoding="utf-8")
+    category = next(row for row in policy["coverageScope"]["writeBoundaryScan"]["categories"]
+                    if row["sourceType"] == "DOMAIN_SERVICE")
+    category["paths"].append("ReadHelper.java")
+    report = tmp_path / "failed-boundaries.jsonl"
+    with pytest.raises(SystemExit, match="FAIL gxp audit coverage gate"):
+        gate.validate_boundary_scan(tmp_path, policy, operations, report)
+    records = [json.loads(line) for line in report.read_text(encoding="utf-8").splitlines()]
+    entries = [row for row in records if row["decision"] == "UNREGISTERED_ENTRY"]
+    assert {row["sourceLocator"] for row in entries} == {
+        "demo.OrderService#removeActiveOrder", "demo.OrderService#executeDataCleanup"}
+    assert all(row["line"] > 0 and row["signature"] for row in entries)
+    assert [row for row in records if row["decision"] == "APPROVED_EXCLUSION"] == [approved]

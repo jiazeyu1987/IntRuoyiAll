@@ -112,6 +112,8 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
         task.setTenantId(1L);
         when(tasks.selectById(8001L)).thenReturn(task);
         ReflectionTestUtils.setField(producer, "gxpAuditService", audit);
+        ReflectionTestUtils.setField(producer, "affectedStateCollector",
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class));
         ReflectionTestUtils.setField(producer, "pqcTaskMapper", tasks);
         assertEquals(6101L, producer.reviewSubmission(MesTeamLeaderSubmissionReviewReqBO.builder()
                 .eventId(5101L).leaderUserId(31L).leaderType("PQC").reviewStatus("APPROVED")

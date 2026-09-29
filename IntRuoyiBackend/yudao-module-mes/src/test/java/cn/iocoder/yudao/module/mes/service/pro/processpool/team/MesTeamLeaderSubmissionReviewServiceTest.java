@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,6 +62,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     private MesProProcessPoolEventRevisionMapper revisionMapper;
     @Mock
     private GxpAuditService gxpAuditService;
+    @Mock
+    private MesReleaseAffectedStateCollector affectedStateCollector;
 
     private MesTeamLeaderSubmissionReviewService service;
 
@@ -75,6 +78,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 any(), any(), any(), any(), any(), any())).thenReturn(9101L);
         ReflectionTestUtils.setField(service, "revisionMapper", revisionMapper);
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        // Unit boundary only; the real collector/transaction proof is in MesCompletionAggregationAuditTransactionTest.
+        ReflectionTestUtils.setField(service, "affectedStateCollector", affectedStateCollector);
         ReflectionTestUtils.setField(service, "pqcTaskMapper", pqcTaskMapper);
         lenient().when(pqcTaskMapper.selectById(5101L)).thenReturn(MesPqcInspectionTaskDO.builder()
                 .id(5101L).activeOrderId(8101L).build());

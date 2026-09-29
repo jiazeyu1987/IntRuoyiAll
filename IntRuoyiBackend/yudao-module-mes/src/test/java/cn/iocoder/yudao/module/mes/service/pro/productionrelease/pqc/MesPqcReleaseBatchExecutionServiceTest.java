@@ -81,6 +81,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
     @Mock private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     @Mock private MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
     @Mock private GxpAuditService gxpAuditService;
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
 
     private MesPqcProductionReleaseService service;
 
@@ -93,6 +94,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(service, "affectedStates", affectedStates);
         lenient().when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(application());
         lenient().when(applicationMapper.selectById(APPLICATION_ID)).thenReturn(application());
         lenient().when(activeOrderMapper.selectByIdForUpdate(2001L)).thenReturn(new MesProcessPoolActiveOrderDO()
@@ -231,6 +233,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(service, "affectedStates", affectedStates);
         lenient().when(batchExecutionPort.openOrCreate(any())).thenReturn(BATCH_EXECUTION_ID);
         lenient().when(reportStageInitializer.initializeRequiredReportStage(any())).thenReturn(
                 new MesProductionReleaseReportStageInitializationResult().setReportUploadTasks(reportTasks()).setReportSnapshotHash("report-hash"));

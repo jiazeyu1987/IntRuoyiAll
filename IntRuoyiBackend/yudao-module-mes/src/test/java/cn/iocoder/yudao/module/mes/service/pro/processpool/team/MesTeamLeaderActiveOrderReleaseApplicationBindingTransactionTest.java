@@ -178,6 +178,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest {
                 var realAudit = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImpl();
                 var policies = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper.class);
                 when(policies.selectByPolicyVersionForUpdate(1L, "test-binding-policy", "mes.pqc-release.bind-batch")).thenAnswer(invocation -> {
+                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertEquals(93L, batch());
                     assertEquals(2, version());
                     auditCalls.incrementAndGet();
@@ -251,7 +252,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest {
         assertTrue(fragment.path("additionalSourceLocators").get(0).asText().endsWith("#applyGenerated"));
         var loader = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPolicyBundleLoader();
         var packaged = loader.load();
-        assertFalse(packaged.policyNode().path("operations").toString().contains("mes.pqc-release.bind-batch"));
+        assertTrue(packaged.policyNode().path("operations").toString().contains("mes.pqc-release.bind-batch"));
         var failure = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
                 () -> ReflectionTestUtils.invokeMethod(loader, "load", yaml, packaged.rawSchema()));
         assertEquals(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.GXP_AUDIT_POLICY_BUNDLE_INVALID.getCode(),

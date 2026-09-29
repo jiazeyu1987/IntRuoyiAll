@@ -37,6 +37,8 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
     private MesTeamLeaderActiveOrderCompletionBatchExecutionService completionBatchExecutionService;
     @Mock
     private GxpAuditService gxpAuditService;
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
 
     @Mock
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper originMapper;
@@ -49,6 +51,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
                 generationService, completionService, receiptMapper, batchMapper, applicationMapper,
                 completionBatchExecutionService, originMapper);
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(service, "affectedStates", affectedStates);
     }
 
     @Test

@@ -43,9 +43,14 @@ class GxpAuditPolicyActivationServiceContractTest {
         List<Object> operations = (List<Object>) parseOperations.invoke(service, 1L, bundle);
 
         assertEquals(bundle.policyNode().path("operations").size(), operations.size(), "策略包中的每个 operation 都必须保留");
-        Field operationId = operations.get(operations.size() - 1).getClass().getDeclaredField("operationId");
+        Field operationId = operations.get(0).getClass().getDeclaredField("operationId");
         operationId.setAccessible(true);
-        assertEquals("gxp.policy.activate", operationId.get(operations.get(operations.size() - 1)));
+        for (int index = 0; index < operations.size(); index++) {
+            assertEquals(bundle.policyNode().path("operations").get(index).path("operationId").asText(),
+                    operationId.get(operations.get(index)), "Every operation must retain its configured identity and order");
+        }
+        assertTrue(bundle.policyNode().path("operations").findValuesAsText("operationId")
+                .contains("gxp.policy.activate"));
     }
 
     @Test

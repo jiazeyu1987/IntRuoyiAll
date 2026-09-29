@@ -1,7 +1,11 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
@@ -67,6 +71,9 @@ public class MesActiveOrderReworkCycleTransactionTest {
         createTable(MesProcessPoolReportAllocationDO.class, "mes_pro_process_pool_report_allocation");
         createTable(MesProProcessPoolEventDO.class, "mes_pro_process_pool_event");
         createTable(MesProcessPoolActiveOrderCompletionReceiptDO.class, "mes_pro_process_pool_active_order_completion_receipt");
+        createTable(MesProcessPoolOrderProcessCompletionDO.class, "mes_pro_process_pool_order_process_completion");
+        createTable(MesProProcessPoolPqcRecordDO.class, "mes_pro_process_pool_pqc_record");
+        createTable(MesPqcProcessInspectionAggregateDetailDO.class, "mes_pqc_process_inspection_aggregate_detail");
         jdbc.execute("ALTER TABLE mes_pro_process_pool_active_order ADD current_route_version_id BIGINT GENERATED ALWAYS AS "
                 + "(CASE WHEN business_status IN ('REWORKED','VERSION_UPGRADED') THEN NULL ELSE route_version_id END)");
         jdbc.execute("CREATE UNIQUE INDEX uk_cycle ON mes_pro_process_pool_active_order "
@@ -101,10 +108,20 @@ public class MesActiveOrderReworkCycleTransactionTest {
                 mock(MesActiveOrderTransferTraceService.class), mock(MesPqcProcessInspectionAggregationService.class));
         org.springframework.test.util.ReflectionTestUtils.setField(completion, "gxpAuditService",
                 mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(completion, "affectedStateCollector",
+                new MesReleaseAffectedStateCollector(source));
+        // The real collector and completion mappers must join this fixture's physical transaction,
+        // including when this fixture is called from a different datasource's Spring test transaction.
+        var transactionManager = new DataSourceTransactionManager(source);
+        var completionProxy = new ProxyFactory(completion);
+        completionProxy.setProxyTargetClass(true);
+        completionProxy.addAdvice(new TransactionInterceptor(transactionManager,
+                new AnnotationTransactionAttributeSource()));
+        completion = (MesTeamLeaderActiveOrderCompletionServiceImpl) completionProxy.getProxy();
         var target = new MesActiveOrderReworkCycleService(orders, snapshots, tasks);
         var proxy = new ProxyFactory(target);
         proxy.setProxyTargetClass(true);
-        proxy.addAdvice(new TransactionInterceptor(new DataSourceTransactionManager(source),
+        proxy.addAdvice(new TransactionInterceptor(transactionManager,
                 new AnnotationTransactionAttributeSource()));
         service = (MesActiveOrderReworkCycleService) proxy.getProxy();
         seedCycle();
@@ -116,6 +133,11 @@ public class MesActiveOrderReworkCycleTransactionTest {
     }
 
     public void exerciseTwoReworks(java.util.function.Consumer<MesProcessPoolActiveOrderCompletionReceiptDO> downstream) {
+        TenantUtils.execute(1L, () -> exerciseTwoReworksInFixtureTenant(downstream));
+    }
+
+    private void exerciseTwoReworksInFixtureTenant(
+            java.util.function.Consumer<MesProcessPoolActiveOrderCompletionReceiptDO> downstream) {
         Long source = 1L;
         for (long review = 100; review <= 101; review++) {
             var reworkAt = LocalDateTime.of(2026, 9, 28, 8, 0).plusDays(review - 100);

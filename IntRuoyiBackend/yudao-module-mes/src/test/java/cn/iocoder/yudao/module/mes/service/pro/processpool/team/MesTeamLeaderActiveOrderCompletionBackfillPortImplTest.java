@@ -130,6 +130,8 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 port, pickLists, trace, aggregation);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService",
                 org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "affectedStateCollector",
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class));
         var activeOrder = order().setVersion(2).setActiveStatus("ACTIVE");
         var stored = new java.util.concurrent.atomic.AtomicReference<MesProcessPoolActiveOrderCompletionReceiptDO>();
         when(activeOrders.selectByIdForUpdate(10L)).thenReturn(activeOrder);
