@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +45,8 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
     private MesPqcProcessInspectionAggregationService processInspectionAggregationService;
     @Mock
     private GxpAuditService gxpAuditService;
+    @Mock
+    private MesReleaseAffectedStateCollector affectedStateCollector;
 
     private MesTeamLeaderActiveOrderCompletionServiceImpl service;
 
@@ -53,6 +56,8 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
                 progressPort, backfillPort, pickListCompletionSourceService, activeOrderTransferTraceService,
                 processInspectionAggregationService);
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        // Unit boundary only; the real collector/transaction proof is in MesCompletionAggregationAuditTransactionTest.
+        ReflectionTestUtils.setField(service, "affectedStateCollector", affectedStateCollector);
     }
 
     @Test

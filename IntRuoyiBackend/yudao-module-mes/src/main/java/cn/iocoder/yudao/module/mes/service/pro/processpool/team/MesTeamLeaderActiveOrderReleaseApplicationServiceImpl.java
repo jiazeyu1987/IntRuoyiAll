@@ -36,6 +36,8 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
 
     @Resource
     private GxpAuditService gxpAuditService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
 
     public MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(
             MesTeamLeaderActiveOrderReleaseGenerationService generationService,
@@ -67,9 +69,10 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         if (existing != null) {
             return bindExistingWithAudit(command.getActiveOrderId(), existing, batchExecutionId, "applyGenerated");
         }
+        Map<String, Object> affectedBefore = affectedStates.capture(batchExecutionId, null, null, null, true);
         var generated = generationService.generate(leaderUserId, command);
         MesTeamLeaderActiveOrderReleaseApplicationResult bound = bindBatchExecution(generated, batchExecutionId);
-        appendReleaseApplyGxpAudit(command.getActiveOrderId(), bound, null, "applyGenerated");
+        appendReleaseApplyGxpAudit(command.getActiveOrderId(), bound, null, "applyGenerated", affectedBefore);
         return bound;
     }
 
@@ -143,17 +146,14 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         }
         MesTeamLeaderActiveOrderCompletionResult completion = completionService.completeForRelease(
                 leaderUserId, command.getActiveOrderId(), releaseIdempotencyKey, command.getConfirmNoReplenishmentInfo());
+        Map<String, Object> affectedBefore = affectedStates.capture(
+                affectedStates.completionBatchId(completion.getCompletionReceiptId()), null, null, null, true);
         Long batchExecutionId = completionBatchExecutionService.openOrCreate(
                 leaderUserId, command.getActiveOrderId(), completion.getCompletionReceiptId(), releaseIdempotencyKey);
         MesTeamLeaderActiveOrderReleaseApplicationResult generated = generationService.generate(leaderUserId, command);
         MesTeamLeaderActiveOrderReleaseApplicationResult bound = bindBatchExecution(generated, batchExecutionId);
-        appendReleaseApplyGxpAudit(command.getActiveOrderId(), bound);
+        appendReleaseApplyGxpAudit(command.getActiveOrderId(), bound, null, "apply", affectedBefore);
         return bound;
-    }
-
-    private void appendReleaseApplyGxpAudit(Long activeOrderId,
-                                            MesTeamLeaderActiveOrderReleaseApplicationResult application) {
-        appendReleaseApplyGxpAudit(activeOrderId, application, null, "apply");
     }
 
     private MesTeamLeaderActiveOrderReleaseApplicationResult bindExistingWithAudit(
@@ -166,7 +166,7 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
                 .canonicalJson(JsonUtils.toJsonString(releaseApplicationState(activeOrderId, existing)))
                 .build();
         MesTeamLeaderActiveOrderReleaseApplicationResult bound = bindBatchExecution(existing, batchExecutionId);
-        appendReleaseApplyGxpAudit(activeOrderId, bound, before, sourceMethod);
+        appendReleaseApplyGxpAudit(activeOrderId, bound, before, sourceMethod, null);
         return bound;
     }
 
@@ -186,7 +186,7 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
 
     private void appendReleaseApplyGxpAudit(Long activeOrderId,
             MesTeamLeaderActiveOrderReleaseApplicationResult application,
-            GxpAuditStateEnvelope bindingBefore, String sourceMethod) {
+            GxpAuditStateEnvelope bindingBefore, String sourceMethod, Map<String, Object> affectedBefore) {
         if (application == null || application.getApplicationId() == null) {
             throw new IllegalStateException("P3 release application receipt is incomplete");
         }
@@ -195,6 +195,12 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         before.put("state", "ABSENT");
         Map<String, Object> after = releaseApplicationState(activeOrderId, application);
         boolean binding = bindingBefore != null;
+        // Binding-only updates already freeze the entire application receipt and do not create child rows.
+        if (!binding) {
+            before.put("affectedState", Objects.requireNonNull(affectedBefore));
+            after.put("affectedState", affectedStates.capture(application.getBatchExecutionId(),
+                    application.getApplicationId(), null, null, true));
+        }
         String auditIdentity = binding
                 ? "PQC_RELEASE_BIND_BATCH:" + application.getApplicationId() + ":" + application.getVersion()
                 : "PQC_RELEASE_APPLY:" + application.getApplicationId();

@@ -59,9 +59,10 @@
         } },
         "writeBoundaryScan": {
       "type": "object",
-      "required": ["registrationMode", "approvedExclusionsFile", "categories"],
+      "required": ["registrationMode", "candidateHashMode", "approvedExclusionsFile", "categories"],
       "properties": {
         "registrationMode": { "const": "REGISTERED_OR_APPROVED_EXCLUSION" },
+        "candidateHashMode": { "const": "UTF8_LF_SHA256" },
         "approvedExclusionsFile": { "type": "string", "minLength": 1, "maxLength": 512 },
         "categories": {
           "type": "array",

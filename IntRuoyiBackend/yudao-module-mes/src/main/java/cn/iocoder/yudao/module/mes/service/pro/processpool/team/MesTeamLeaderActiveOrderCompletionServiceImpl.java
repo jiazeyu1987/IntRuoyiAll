@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
@@ -46,6 +47,9 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
 
     @Resource
     private GxpAuditService gxpAuditService;
+
+    @Resource
+    private MesReleaseAffectedStateCollector affectedStateCollector;
 
     public MesTeamLeaderActiveOrderCompletionServiceImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -156,6 +160,8 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PROGRESS_NOT_COMPLETE, activeOrder.getId());
         }
 
+        String affectedRowsBefore = JsonUtils.toJsonString(affectedStateCollector.captureCompletion(
+                activeOrder.getId(), activeOrder.getWorkOrderId()));
         processInspectionAggregationService.aggregateApprovedPqcSubmissionsForActiveOrder(activeOrder.getId());
         MesTeamLeaderActiveOrderCompletionBackfillDraft draft = backfillPort.prepare(leaderUserId, activeOrder, command);
         if (draft == null || draft.getSourceSnapshotHash() == null || draft.getSourceSnapshotHash().isBlank()) {
@@ -216,17 +222,19 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         if (receiptMapper.insert(receipt) <= 0 || receipt.getId() == null) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PERSISTENCE_FAILED, activeOrder.getId());
         }
-        appendCompletionGxpAudit(activeOrder, receipt);
+        appendCompletionGxpAudit(activeOrder, receipt, affectedRowsBefore);
         return toResult(receipt);
     }
 
     private void appendCompletionGxpAudit(MesProcessPoolActiveOrderDO activeOrder,
-                                          MesProcessPoolActiveOrderCompletionReceiptDO receipt) {
+                                          MesProcessPoolActiveOrderCompletionReceiptDO receipt,
+                                          String affectedRowsBefore) {
         Map<String, Object> before = new java.util.LinkedHashMap<>();
         before.put("activeOrderId", activeOrder.getId());
         before.put("activeStatus", activeOrder.getActiveStatus());
         before.put("businessStatus", activeOrder.getBusinessStatus());
         before.put("version", receipt.getExpectedVersion());
+        before.put("affectedRows", JsonUtils.parseObject(affectedRowsBefore, Map.class));
         Map<String, Object> after = new java.util.LinkedHashMap<>();
         after.put("activeOrderId", receipt.getActiveOrderId());
         after.put("completedVersion", receipt.getCompletedVersion());
@@ -243,6 +251,8 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         after.put("sourceSnapshotHash", receipt.getSourceSnapshotHash());
         after.put("formalSourceSnapshotJson", receipt.getFormalSourceSnapshotJson());
         after.put("signatureSnapshotJson", receipt.getSignatureSnapshotJson());
+        after.put("affectedRows", affectedStateCollector.captureCompletion(
+                activeOrder.getId(), activeOrder.getWorkOrderId()));
         List<GxpAuditRelation> links = new java.util.ArrayList<>();
         links.add(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
                 String.valueOf(activeOrder.getId()), String.valueOf(receipt.getCompletedVersion()), null));

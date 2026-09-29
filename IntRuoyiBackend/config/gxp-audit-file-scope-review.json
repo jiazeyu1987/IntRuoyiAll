@@ -1,0 +1,1058 @@
+{
+  "LOCAL-FILE-01": {
+    "candidate": "IntRuoyiBackend/sql/mysql/20260922_mes_release_rework_current_batch.sql",
+    "candidateSha256": "3480f0b7dc08916f6916d5cd9f41abe1dbfa53ba6855ae6a383c431ccb041e61",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "release-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "upgrade_mes_release_rework_current_batch alters release application identity/indexes, drops the old batch-execution unique index, and installs a current-row uniqueness contract. It is executable production DDL, not a fixture. Evidence: upgrade_mes_release_rework_current_batch; ALTER TABLE mes_pro_process_pool_active_order_release_application; uk_mes_pp_release_batch_execution. Explicit local scope: this deployment migration is not selected by the actual launcher and is not executed during this task; it remains a real schema/data writer requiring controlled deployment evidence, not a read-only or fully audited operation.",
+    "followUp": "Enroll exact migration path/change manifest; verify prior data and current uniqueness before any application."
+  },
+  "LOCAL-FILE-02": {
+    "candidate": "IntRuoyiBackend/sql/mysql/20260924_gxp_audit_event_v2.sql",
+    "candidateSha256": "55662f3f7c328a4ff9ec9f0d062e9454cdad66459bafa7c370edf189a24774b3",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "release-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Adds v2 audit columns and policy snapshot fields, creates event relations/activations/legacy baseline tables, and drops/recreates append-only triggers. The bytes differ only by line endings from an old approval, but the reviewed content is an actual audit-schema writer, not inherently excludable. Evidence: ensure_gxp_audit_v2_column; gxp_audit_event_relation; gxp_audit_policy_activation; gxp_audit_legacy_fact_baseline; trg_gxp_audit_policy_activation_no_update. Explicit local scope: this deployment migration is not selected by the actual launcher and is not executed during this task; it remains a real schema/data writer requiring controlled deployment evidence, not a read-only or fully audited operation.",
+    "followUp": "Hash-representation migration may preserve old provenance; do not portray that as a fresh semantic exclusion of audit DDL. Require controlled migration registration/proof."
+  },
+  "LOCAL-FILE-03": {
+    "candidate": "IntRuoyiBackend/sql/mysql/20260924_mes_edhr_deviation_management.sql",
+    "candidateSha256": "7d51e05122668e7fba96142fb93f3c6d44ad66d9cea9aad9e701de83cffc3836",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "release-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Creates deviation/handling/sequence/request tables and menu permissions, and directly inserts gxp_audit_policy_operation. This changes both business schema and runtime policy data; it cannot be classified as test-only or merely an inert SQL example. Evidence: mes_pro_edhr_deviation; mes_pro_edhr_deviation_handling; mes_pro_edhr_deviation_create_request; ensure_mes_edhr_deviation_permissions; INSERT INTO `gxp_audit_policy_operation`. Explicit local scope: this deployment migration is not selected by the actual launcher and is not executed during this task; it remains a real schema/data writer requiring controlled deployment evidence, not a read-only or fully audited operation.",
+    "followUp": "Register migration and reconcile seeded policy version with controlled activation; never use this DML to bypass activation."
+  },
+  "LOCAL-FILE-04": {
+    "candidate": "IntRuoyiBackend/sql/mysql/20260924_mes_edhr_deviation_ncr.sql",
+    "candidateSha256": "1ee9aa076331cbcb2a12de3cf2e4e6e93b973807cf50ab5897d66ee945cdcb46",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "release-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Alters NCR review identity/source columns and creates a deviation-to-NCR permission entry in system_menu under prerequisite checks. Evidence: ensure_mes_edhr_deviation_ncr_schema; ALTER TABLE `mes_pro_edhr_nonconformance_review`; ensure_mes_edhr_deviation_ncr_permission; INSERT INTO `system_menu`. Explicit local scope: this deployment migration is not selected by the actual launcher and is not executed during this task; it remains a real schema/data writer requiring controlled deployment evidence, not a read-only or fully audited operation.",
+    "followUp": "Register schema and permission seed effects in controlled migration inventory."
+  },
+  "LOCAL-FILE-05": {
+    "candidate": "IntRuoyiBackend/sql/mysql/20260924_mes_pqc_release_udi_document_no.sql",
+    "candidateSha256": "a7df18be88fd80886f1008274a8ccafc2101402d489877c895b8f478d146fc56",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "release-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Procedure adds/checks UDI document number storage on the active-order table and fails on incompatible prerequisites. This persists release-related schema, not a read-only check. Evidence: add_mes_pqc_release_udi_document_no_20260924; ALTER TABLE `mes_pro_process_pool_active_order`. Explicit local scope: this deployment migration is not selected by the actual launcher and is not executed during this task; it remains a real schema/data writer requiring controlled deployment evidence, not a read-only or fully audited operation.",
+    "followUp": "Register path and verify UDI column contract/data preservation before applying."
+  },
+  "LOCAL-FILE-06": {
+    "candidate": "IntRuoyiBackend/sql/mysql/20260926_mes_edhr_nonconformance_review_code_counter.sql",
+    "candidateSha256": "bf3168bd2388c0957cba901de34d0686d7baa9a45aa54165d6afbb9f1e794d4c",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "release-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Creates the tenant-scoped NCR review-code counter table, which supplies persistent numbering for real reviews. Evidence: CREATE TABLE IF NOT EXISTS `mes_pro_edhr_nonconformance_review_counter`. Explicit local scope: this deployment migration is not selected by the actual launcher and is not executed during this task; it remains a real schema/data writer requiring controlled deployment evidence, not a read-only or fully audited operation.",
+    "followUp": "Register migration and counter uniqueness/numbering preconditions."
+  },
+  "LOCAL-FILE-07": {
+    "candidate": "IntRuoyiBackend/sql/mysql/20260927_mes_edhr_release_transaction_rework_history.sql",
+    "candidateSha256": "536a799cce57f3632e13ad222d61483ca2a39bfdd6290331aa86f4ca8aabccd3",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "release-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Changes release transaction current/history uniqueness and drops the older per-batch unique index, allowing retained rework rounds. Evidence: upgrade_mes_edhr_release_transaction_rework_history; ALTER TABLE mes_pro_edhr_release_transaction; uk_mes_pro_edhr_release_transaction_batch. Explicit local scope: this deployment migration is not selected by the actual launcher and is not executed during this task; it remains a real schema/data writer requiring controlled deployment evidence, not a read-only or fully audited operation.",
+    "followUp": "Register migration and prove historical transactions retained/current uniqueness enforced."
+  },
+  "LOCAL-FILE-08": {
+    "candidate": "IntRuoyiBackend/sql/mysql/20260928_mes_active_order_rework_cycle.sql",
+    "candidateSha256": "69ba5d3458d44875a60516deba2c405e600718d485b0bec94a02c2a86cc806c1",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "release-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Adds rework source/review relationships, a generated current route-version identity, and current/history unique indexes on active orders; verifies exact column/index definitions. Evidence: upgrade_mes_active_order_rework_cycle; rework_source_active_order_id; rework_review_id; current_route_version_id; DROP INDEX uk_mes_pp_active_order. Explicit local scope: this deployment migration is not selected by the actual launcher and is not executed during this task; it remains a real schema/data writer requiring controlled deployment evidence, not a read-only or fully audited operation.",
+    "followUp": "Register rework schema migration with current/history data checks; not a safe blanket exclusion."
+  },
+  "LOCAL-FILE-09": {
+    "candidate": "IntRuoyiBackend/sql/mysql/20260928_mes_formal_employee_enabled_owner.sql",
+    "candidateSha256": "c44e9531176ab650e5fc4f6791bac9ebc6d36e7744666ca1741b2d063d94dd04",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "release-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Adds a generated enabled-owner uniqueness key for formal team employees, refuses existing multiple enabled owners, and installs an index governing future ownership writes. Evidence: upgrade_mes_formal_employee_enabled_owner; ALTER TABLE mes_pro_process_pool_team_employee_profile. Explicit local scope: this deployment migration is not selected by the actual launcher and is not executed during this task; it remains a real schema/data writer requiring controlled deployment evidence, not a read-only or fully audited operation.",
+    "followUp": "Controlled migration review remains required even if team configuration business operations are locally OUT_OF_R1."
+  },
+  "LOCAL-FILE-10": {
+    "candidate": "IntRuoyiBackend/sql/mysql/20260928_mes_pqc_piece_correction_history.sql",
+    "candidateSha256": "5356d54dd94ec5c411737d7a01a61cafecbf86c22a116e464bcb81a329dc6490",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "release-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Adds current-sample identity/indexing and replaces the legacy PQC piece uniqueness constraint to retain correction history; explicitly detects duplicate current pieces. Evidence: migrate_mes_pqc_piece_correction_history; ALTER TABLE mes_pqc_inspection_piece_detail; current_sample_no; DROP INDEX uk_mes_pqc_piece_item. Explicit local scope: this deployment migration is not selected by the actual launcher and is not executed during this task; it remains a real schema/data writer requiring controlled deployment evidence, not a read-only or fully audited operation.",
+    "followUp": "Register migration; preserve prior evidence and validate current-row uniqueness before applying."
+  },
+  "LOCAL-FILE-11": {
+    "candidate": "IntRuoyiBackend/sql/mysql/20260929_mes_pqc_task_frozen_identity_columns.sql",
+    "candidateSha256": "c608359d79e90e21252b0dcd5de13dfaa31e5b143fedd621a4e74308b4b225c3",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "release-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Checks the real InnoDB/utf8mb4 PQC task table, then constructs ALTER TABLE statements to add frozen identity columns. Dynamic SQL is real DDL and requires reviewed enumeration, not silent exclusion. Evidence: check_pqt_frozen_identity; add_pqt_frozen_identity; SET @pqt_identity_ddl; ALTER TABLE `mes_pqc_inspection_task` ADD COLUMN. Explicit local scope: this deployment migration is not selected by the actual launcher and is not executed during this task; it remains a real schema/data writer requiring controlled deployment evidence, not a read-only or fully audited operation.",
+    "followUp": "Register exact generated-column list and verify compatibility; preserve populated identity columns on rollback."
+  },
+  "LOCAL-FILE-12": {
+    "candidate": "IntRuoyiBackend/sql/mysql/20260929_system_permission_command_receipt.sql",
+    "candidateSha256": "4f48890a71d76b1a1e1e312c1ff41117b2c16a403a18ef8842da5a0adb89c952",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "release-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Creates system_gxp_command_receipt backing permission-command idempotency and audit linkage. It is production persistence infrastructure used by PermissionCommandProtocol. Evidence: CREATE TABLE IF NOT EXISTS `system_gxp_command_receipt`. Explicit local scope: this deployment migration is not selected by the actual launcher and is not executed during this task; it remains a real schema/data writer requiring controlled deployment evidence, not a read-only or fully audited operation.",
+    "followUp": "Register exact migration and prove receipt uniqueness/atomicity, not just DDL presence."
+  },
+  "LOCAL-FILE-13": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderVersionUpgradeServiceImpl.java",
+    "candidateSha256": "4fb71f08c11300583dc9b8690933888a28b672fde61dbe436eb7b2b07a07ed1d",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "mes-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "preview/submit/markApprovalPending/applyApprovedUpgrade/rejectOrCancelApproval implement a route-version upgrade workflow, inserting upgrade requests and copying pick-list bindings with specialized maintenance audit. The reviewed R1 list has no version-upgrade operation; this is a real write subsystem explicitly outside that limited local registration scope. Evidence: submit:197 -> versionUpgradeRequestMapper.insert:257; applyApprovedUpgrade:302 -> TeamMaintenanceAuditSupport.insertAudit:389; pickListBindingMapper.insert:424; pickListBindingItemMapper.insert:460; rejectOrCancelApproval:469",
+    "followUp": "GXP-FILE-FOLLOWUP-VERSION-UPGRADE: register upgrade submit/apply/reject, before/after identity and frozen-evidence checks before broader/production compliance. Local exclusion must remain visibly OUT_OF_R1, not FULL_COVERAGE."
+  },
+  "LOCAL-FILE-14": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderRuntimeConfigServiceImpl.java",
+    "candidateSha256": "4434f824c4931e12b4fc386806f4c0375552e8ac7ed3cca19be9689ea16578ea",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "mes-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Creates/links/renames/enables team personnel and devices, binds devices and saves parameter/defect rules, using TeamMaintenanceAuditSupport. These are actual configuration writes but are not among the reviewed 28 R1 operations, which cover production events and permission assignment rather than team configuration lifecycle. Evidence: createTemporaryEmployee:134; linkFormalEmployee:161; updateEmployeeEnabled:216; resetTemporaryEmployeeSignaturePassword:248; createDevice:383; bindDeviceToProcess:427; saveDeviceParameterRule:459; saveProcessDefectReason:508",
+    "followUp": "GXP-FILE-FOLLOWUP-TEAM-CONFIG: add explicit personnel/device/rule lifecycle operations and signatures/rollback evidence before full or production coverage; local scope only."
+  },
+  "LOCAL-FILE-15": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/schedule/MesProAutoScheduleServiceImpl.java",
+    "candidateSha256": "311485ed109ce5540b0b8712e72bdd362932e2c8d70242be38f9d4c0d15247e0",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "mes-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "apply/replanApply create and revise scheduling state; issue and night-shift handlers insert/update/delete schedule tasks and dependencies. Scheduling is a real writer subsystem outside the reviewed R1 production/inspection/release operation list. Evidence: apply:295; replanApply:561; replanApplyForNightly:567; createIssue:952 -> scheduleIssueMapper.insert:967; cancelNightShift:973 -> taskDependencyMapper.deleteByTaskIds:982 / taskMapper.deleteById:985; resolveIssue:1010 -> scheduleIssueMapper.updateById:1022",
+    "followUp": "GXP-FILE-FOLLOWUP-SCHEDULING: register scheduling jobs/manual apply/replan/issue mutations before expanding coverage; no production/full-coverage claim."
+  },
+  "LOCAL-FILE-16": {
+    "candidate": "IntRuoyiBackend/script/deploy/restart-int-ruoyi-local.ps1",
+    "candidateSha256": "eaa2322984a67a6865796d95d0d73ee18137088ae9a995700bb1f8543c87c93c",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "release-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Canonical local process lifecycle and schema prerequisite helper. All 32 real schema probes pass and none of the 12 separately reviewed deployment migrations is selected; this authorized startup executes no migration. Process control is outside registered business-transition coverage. Future schema application requires its own controlled migration review. Evidence: runtime-preflight.json: 32/32 PASS, pendingAutomaticSql=0; launcher-evidence.md: prebuilt source/copy SHA and executable structure validated before process stop; 45 tests PASS",
+    "followUp": "Runtime/deployment owner must bind each future executed migration to release evidence before broader coverage."
+  },
+  "LOCAL-LEGACY-01": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationHandlingServiceImpl.java",
+    "candidateSha256": "3aab32cedf15ccba0d408a34d59c8865d193aaac1c9acd65fee9633532ed020d",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "mes-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Independent file/call-chain review confirms separate existing lifecycle outside registered local R1. Actual persistent writes remain explicit; no read-only or audited claim. DEV-01: {\"id\": \"DEV-01\", \"classification\": \"C_REVIEWED_OUT_OF_RELEASE_SCOPE\", \"title\": \"Extended deviation-handling lifecycle\", \"methods\": [\"cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrDeviationHandlingServiceImpl#save(Long actorUserId, Long deviationId, MesProEdhrDeviationHandlingSaveReqVO reqVO)\", \"cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrDeviationHandlingServiceImpl#sign(Long actorUserId, Long deviationId, String node, String password, String comment)\", \"cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrDeviationHandlingServiceImpl#closeNormally(Long actorUserId, Long deviationId)\"], \"branchCondition\": \"After deviation creation: save/revise handling, sign handling and close deviation.\", \"operationIds\": [\"edhr.deviation.create\", \"signature.record.create\"], \"proofMethodRefs\": [\"cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrDeviationHandlingServiceImpl#save(Long actorUserId, Long deviationId, MesProEdhrDeviationHandlingSaveReqVO reqVO)\", \"cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrDeviationHandlingServiceImpl#sign(Long actorUserId, Long deviationId, String node, String password, String comment)\", \"cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrDeviationHandlingServiceImpl#closeNormally(Long actorUserId, Long deviationId)\", \"cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordDeviationHandlingSignature(Long actorId, Long deviationId, Long handlingId, String deviationCode, String node, Integer contentVersion, String contentHash, String password, String comment)\"], \"transactionEvidence\": \"save and close are transactional domain writes; sign delegates a signature insert but not a handling lifecycle audit.\", \"stateEnvelopeEvidence\": \"Initial save inserts then returns before specialized revision audit; later save records a specialized audit. closeNormally updates the deviation. A unified signature event exists only for signing.\", \"gap\": \"The registered edhr.deviation.create operation does not cover later handling save/revise/close. Specialized audit or signature creation alone is not the business event.\", \"ownerRole\": \"qa-owner\", \"followUpReference\": \"20260929-start-local-runtime/DEV-01\", \"followUp\": \"Define explicit handling lifecycle audit envelopes before bringing this separate workflow into release scope.\", \"scope\": \"LOCAL_ONLY_R1\", \"releaseScopeDecision\": \"REVIEWED_OUT_OF_RELEASE_SCOPE\"}",
+    "followUp": "Implement the named lifecycle audit contracts and regression evidence before including these paths in a future approved scope."
+  },
+  "LOCAL-LEGACY-02": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderReportConfirmationServiceImpl.java",
+    "candidateSha256": "a1962f12ec16f654e583ce4e7c63482ef8ce9fa1473dc82190652f1b61410307",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "mes-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Independent file/call-chain review confirms separate existing lifecycle outside registered local R1. Actual persistent writes remain explicit; no read-only or audited claim. CONFIRM-01: {\"id\": \"CONFIRM-01\", \"classification\": \"C_REVIEWED_OUT_OF_RELEASE_SCOPE\", \"title\": \"Separate legacy report-confirmation command\", \"methods\": [\"cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportConfirmationServiceImpl#confirmSubmission(MesTeamLeaderReportConfirmationReqBO reqBO)\"], \"branchCondition\": \"Current main-source search found declaration/interface only for confirmSubmission; current registered allocation is MesReportAllocationCommandService.\", \"operationIds\": [], \"proofMethodRefs\": [\"cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportConfirmationServiceImpl#confirmSubmission(MesTeamLeaderReportConfirmationReqBO reqBO)\"], \"transactionEvidence\": \"Transactional method writes FIFO allocation, review/allocation rows, completion allocations and summary after signing.\", \"stateEnvelopeEvidence\": \"Its signature fact is separate from its business mutations; no registered unified confirmation event is observed.\", \"gap\": \"Named gap: confirmSubmission's allocation/review/completion mutations. Static absence of current callers is not proof the method is permanently dead.\", \"ownerRole\": \"mes-owner\", \"followUpReference\": \"20260929-start-local-runtime/CONFIRM-01\", \"followUp\": \"Keep this legacy command outside LOCAL_ONLY_R1; remove or give it an explicit business audit before exposure.\", \"scope\": \"LOCAL_ONLY_R1\", \"releaseScopeDecision\": \"REVIEWED_OUT_OF_RELEASE_SCOPE\"}",
+    "followUp": "Implement the named lifecycle audit contracts and regression evidence before including these paths in a future approved scope."
+  },
+  "LOCAL-LEGACY-03": {
+    "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+    "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58",
+    "decision": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "system-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Independent file/call-chain review confirms separate existing lifecycle outside registered local R1. Actual persistent writes remain explicit; no read-only or audited claim. USER-01: {\"id\": \"USER-01\", \"classification\": \"C_REVIEWED_OUT_OF_RELEASE_SCOPE\", \"title\": \"Separate account lifecycle including role-association deletion cascade\", \"methods\": [\"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#createUser(UserSaveReqVO createReqVO)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#registerUser(AuthRegisterReqVO registerReqVO)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#updateUser(UserSaveReqVO updateReqVO)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#updateUserProfile(Long id, UserProfileUpdateReqVO reqVO)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#updateUserPassword(Long id, UserProfileUpdatePasswordReqVO reqVO)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#updateUserPassword(Long id, String password)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#updateUserStatus(Long id, Integer status)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#recordUserLifecycleDeactivation(UserLifecycleDeactivateReqVO reqVO)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#processDueLifecycleDeactivations(LocalDateTime now, int limit)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#deleteUser(Long id)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#deleteUserList(List<Long> ids)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#importUserList(List<UserImportExcelVO> importUsers, boolean isUpdateSupport)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#importDingTalkUserList(List<UserDingTalkImportExcelVO> importUsers)\"], \"branchCondition\": \"R1 explicitly covers permission assignment, not independent account CRUD/import/deactivation/deletion.\", \"operationIds\": [], \"proofMethodRefs\": [\"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#createUser(UserSaveReqVO createReqVO)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#registerUser(AuthRegisterReqVO registerReqVO)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#updateUser(UserSaveReqVO updateReqVO)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#updateUserProfile(Long id, UserProfileUpdateReqVO reqVO)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#updateUserPassword(Long id, UserProfileUpdatePasswordReqVO reqVO)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#updateUserPassword(Long id, String password)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#updateUserStatus(Long id, Integer status)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#recordUserLifecycleDeactivation(UserLifecycleDeactivateReqVO reqVO)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#processDueLifecycleDeactivations(LocalDateTime now, int limit)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#deleteUser(Long id)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#deleteUserList(List<Long> ids)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#importUserList(List<UserImportExcelVO> importUsers, boolean isUpdateSupport)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#importDingTalkUserList(List<UserDingTalkImportExcelVO> importUsers)\", \"cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#processUserDeleted(Long userId)\"], \"transactionEvidence\": \"These are actual account/dept/lifecycle writes. deleteUser/deleteUserList call processUserDeleted, which directly deletes user-role rows without PermissionCommandProtocol finish.\", \"stateEnvelopeEvidence\": \"No full account-lifecycle event observed. User-role deletion caused by deleting a user is not automatically an audited assignment.\", \"gap\": \"Named per-method lifecycle gaps and cascade gap remain explicit; do not call this read-only or covered by user-role assignment.\", \"ownerRole\": \"system-owner\", \"followUpReference\": \"20260929-start-local-runtime/USER-01\", \"followUp\": \"Owner must define lifecycle and deletion-cascade operations before adding this workflow to R1.\", \"scope\": \"LOCAL_ONLY_R1\", \"releaseScopeDecision\": \"REVIEWED_OUT_OF_RELEASE_SCOPE\"}; USER-02: {\"id\": \"USER-02\", \"classification\": \"C_REVIEWED_OUT_OF_RELEASE_SCOPE\", \"title\": \"Authentication/account counters are a separate security lifecycle\", \"methods\": [\"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#updateUserLogin(Long id, String loginIp)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#recordUserLoginFailure(Long id)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#resetUserLoginFailure(Long id)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#resetUserLoginFailure(Long id, String reason)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#reauthenticateForSignature(Long id, String rawPassword)\"], \"branchCondition\": \"Login/reauthentication telemetry and lock/failure counters; does not exclude the unified electronic-signature fact.\", \"operationIds\": [], \"proofMethodRefs\": [\"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#updateUserLogin(Long id, String loginIp)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#recordUserLoginFailure(Long id)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#resetUserLoginFailure(Long id)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#resetUserLoginFailure(Long id, String reason)\", \"cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl#reauthenticateForSignature(Long id, String rawPassword)\"], \"transactionEvidence\": \"reauthenticateForSignature is transactional with noRollbackFor service exceptions; failed authentication intentionally persists counter/lock effects.\", \"stateEnvelopeEvidence\": \"The signature operation audits the signature record, not the account counter's old/new state.\", \"gap\": \"Named gaps: last-login update, failure increment, reset and lock/unlock effects.\", \"ownerRole\": \"system-owner\", \"followUpReference\": \"20260929-start-local-runtime/USER-02\", \"followUp\": \"Keep a named security-lifecycle follow-up; do not claim these mutation methods are read-only or that signature creation audits every account write.\", \"scope\": \"LOCAL_ONLY_R1\", \"releaseScopeDecision\": \"REVIEWED_OUT_OF_RELEASE_SCOPE\"}",
+    "followUp": "Implement the named lifecycle audit contracts and regression evidence before including these paths in a future approved scope."
+  },
+  "LOCAL-MIXED-01": {
+    "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/tenant/TenantPackageServiceImpl.java",
+    "candidateSha256": "6a10f330543f18d4a7ab1995160b6c74be1ff8272792d820e8d6b23c74d1e497",
+    "decision": "REVIEWED_MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "system-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Exact permission-assignment effects are transactionally audited by registered callees; separate package/tenant/account lifecycle effects remain explicitly outside local R1. This is neither whole-file registration nor whole-file exclusion.",
+    "delegations": [
+      {
+        "effect": "Package menu propagation is audited by registered permission operations",
+        "operationIds": [
+          "system.permission.role-menu.assign"
+        ],
+        "analysis": "Only changed menu propagation through tenantService.updateTenantRoleMenu; package row itself is PKG-02. Transaction: Package update is transactional. Role assignment methods join transaction; PermissionCommandProtocol requires MANDATORY transaction, actor authorization, active policy and ledger lock. State: Role-menu helper locks and reads actual menu membership, applies delta, reselects persisted membership and records before/after plus target tenant. Protocol binds actor-tenant ledger, target tenant, canonical input/replay identity and appends before receipt insert. Limitation: No permission-assignment envelope gap observed for this bounded propagation. Package metadata CRUD is a different lifecycle."
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Tenant package lifecycle is outside current permission-assignment R1",
+        "analysis": "Package metadata insert/update/delete; explicitly excludes PKG-01 menu assignment effect. Transaction: Real tenant-package mapper writes. State: Permission events capture changed permissions, not package metadata changes. Limitation: Named per-method gaps: package create/update/delete/bulk delete.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups"
+      }
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/tenant/TenantPackageServiceImpl.java",
+        "candidateSha256": "6a10f330543f18d4a7ab1995160b6c74be1ff8272792d820e8d6b23c74d1e497"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/tenant/TenantServiceImpl.java",
+        "candidateSha256": "43a891d2c712fea31783b15216a2f2d90f4d41696190fa9776eba1904d97b97a"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/PermissionServiceImpl.java",
+        "candidateSha256": "81d558ffe325997fa30cce91de09501290e50f8cfe0d8463fad7d87caa50280c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/PermissionCommandProtocol.java",
+        "candidateSha256": "97396142b04b627bf303bdba9f079837587f6899f3a46e9161dda62b23f79240"
+      }
+    ]
+  },
+  "LOCAL-MIXED-02": {
+    "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/tenant/TenantServiceImpl.java",
+    "candidateSha256": "43a891d2c712fea31783b15216a2f2d90f4d41696190fa9776eba1904d97b97a",
+    "decision": "REVIEWED_MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "system-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Exact permission-assignment effects are transactionally audited by registered callees; separate package/tenant/account lifecycle effects remain explicitly outside local R1. This is neither whole-file registration nor whole-file exclusion.",
+    "delegations": [
+      {
+        "effect": "Tenant setup and package change delegate permission writes",
+        "operationIds": [
+          "system.permission.role-menu.assign",
+          "system.permission.user-role.assign"
+        ],
+        "analysis": "Only assignTenantRoleMenu / initializeTenantAdministrator subeffects, including role-menu synchronization. Transaction: Transactional tenant entry calls platform-authorized target-tenant assignment. The mandatory protocol switches to actor ledger tenant for lock/audit and records target tenant explicitly. State: Role-menu and user-role helpers lock/read before sets, mutate, reselect persisted sets and finish the protocol. Initialization validates contact user and admin-role identity before assignment. The receipt binds actor/input/op/subject and existing replay identity. Limitation: No assignment gap observed. Tenant/user/role creation itself is not this permission event."
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Tenant/account/role lifecycle outside permission-assignment R1",
+        "analysis": "Tenant and contact/role/user provisioning metadata; exclude permission deltas in TENANT-01. Transaction: Tenant create/update/delete and role/user creation are real writes within management workflow. State: Permission protocol does not envelope all lifecycle row fields merely because a role assignment follows. Limitation: Named gaps: create/update/delete tenant, contact binding, account and role provisioning.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups"
+      }
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/tenant/TenantServiceImpl.java",
+        "candidateSha256": "43a891d2c712fea31783b15216a2f2d90f4d41696190fa9776eba1904d97b97a"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/PermissionServiceImpl.java",
+        "candidateSha256": "81d558ffe325997fa30cce91de09501290e50f8cfe0d8463fad7d87caa50280c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/PermissionCommandProtocol.java",
+        "candidateSha256": "97396142b04b627bf303bdba9f079837587f6899f3a46e9161dda62b23f79240"
+      }
+    ]
+  },
+  "LOCAL-SUB-AGG-01": {
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "mes-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesPqcProcessInspectionAggregationServiceImpl.java",
+    "candidateSha256": "5f6dd7ad4f6079656a2f6c190af32bf656097bf6a8cb279526050a9404b87d42",
+    "decision": "REVIEWED_MIXED_SCOPE",
+    "analysis": "AGG-01's previously missing actual rows now appear before/after in both current parents. AGG-02 has an existing actual correction envelope and the observed backend policy now registers its operation. Simulation remains separately named R1 scope, not a reason to exclude production writes.",
+    "delegations": [
+      {
+        "caseId": "AGG-01",
+        "effect": "Initial approved PQC review confirms the inspection task, changes PQC record review/status, and inserts formal aggregate details.",
+        "operationIds": [
+          "mes.pqc.review.approve"
+        ],
+        "transactionProof": "reviewSubmission is REQUIRED @Transactional, acquires the ledger lock, serializes capturePqcSubmission before inserting the review/aggregating, calls the REQUIRED child through its service, rereads actual rows, and appends before returning. Exceptions propagate; no independent transaction or asynchronous audit is used for these child writes.",
+        "beforeAfterProof": "Parent affectedRows contains tenant/deleted-scoped current SELECT ... FOR UPDATE rows for the submitted event's inspection task, PQC record and aggregate detail identities/values. Collector capturePqcSubmission/capturePqcRows selects actual rows rather than the literal aggregationState field.",
+        "sources": [
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderSubmissionReviewServiceImpl.java",
+            "method": "reviewSubmission / appendPqcReviewGxpAudit",
+            "lines": "86-140,179-222"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesPqcProcessInspectionAggregationServiceImpl.java",
+            "method": "aggregateApprovedPqcSubmission",
+            "lines": "61-106"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+            "method": "capturePqcSubmission / capturePqcRows / queryRows",
+            "lines": "method anchors"
+          }
+        ],
+        "evidence": "MesCompletionAggregationAuditTransactionTest approval success and real aggregate/review/task rollback cases in 61964.",
+        "analysis": "transactionProof: reviewSubmission is REQUIRED @Transactional, acquires the ledger lock, serializes capturePqcSubmission before inserting the review/aggregating, calls the REQUIRED child through its service, rereads actual rows, and appends before returning. Exceptions propagate; no independent transaction or asynchronous audit is used for these child writes. beforeAfterProof: Parent affectedRows contains tenant/deleted-scoped current SELECT ... FOR UPDATE rows for the submitted event's inspection task, PQC record and aggregate detail identities/values. Collector capturePqcSubmission/capturePqcRows selects actual rows rather than the literal aggregationState field. evidence: MesCompletionAggregationAuditTransactionTest approval success and real aggregate/review/task rollback cases in 61964."
+      },
+      {
+        "caseId": "AGG-01",
+        "effect": "Completion catches up pending approved submissions while preserving an already-aggregated neighbor.",
+        "operationIds": [
+          "mes.active-order.complete"
+        ],
+        "transactionProof": "complete is REQUIRED @Transactional and obtains the ledger lock. It freezes captureCompletion before aggregateApprovedPqcSubmissionsForActiveOrder, then writes materializations/bindings, receipt and audit in that same transaction. The child's default REQUIRED boundary joins the parent; its internal single-event call remains inside that transaction.",
+        "beforeAfterProof": "captureCompletion uses activeOrderId to lock the actual inspection tasks and their submitted-event records/aggregate rows, and workOrderId for completion binding rows. before is serialized before catch-up, after is reread at append; already-aggregated validation is not misclassified as coverage of a mutating branch.",
+        "sources": [
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderCompletionServiceImpl.java",
+            "method": "complete / appendCompletionGxpAudit",
+            "lines": "116-302"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesPqcProcessInspectionAggregationServiceImpl.java",
+            "method": "aggregateApprovedPqcSubmissionsForActiveOrder",
+            "lines": "167-211"
+          }
+        ],
+        "evidence": "MesCompletionAggregationAuditTransactionTest completion success preserves the existing neighbor; failure trigger observes real binding/aggregate/receipt writes then requires rollback.",
+        "analysis": "transactionProof: complete is REQUIRED @Transactional and obtains the ledger lock. It freezes captureCompletion before aggregateApprovedPqcSubmissionsForActiveOrder, then writes materializations/bindings, receipt and audit in that same transaction. The child's default REQUIRED boundary joins the parent; its internal single-event call remains inside that transaction. beforeAfterProof: captureCompletion uses activeOrderId to lock the actual inspection tasks and their submitted-event records/aggregate rows, and workOrderId for completion binding rows. before is serialized before catch-up, after is reread at append; already-aggregated validation is not misclassified as coverage of a mutating branch. evidence: MesCompletionAggregationAuditTransactionTest completion success preserves the existing neighbor; failure trigger observes real binding/aggregate/receipt writes then requires rollback."
+      },
+      {
+        "caseId": "AGG-02",
+        "effect": "Signed PQC inspection correction replaces the prior review binding and event aggregate details.",
+        "operationIds": [
+          "mes.pqc-inspection.correct"
+        ],
+        "transactionProof": "correct is REQUIRED @Transactional, acquires the ledger lock, locks current event/task/record/review, captures before, calls REQUIRED refreshCorrectedPqcSubmission, rereads final event/task/record/pieces/review and aggregate rows, then appends. Child errors escape the parent.",
+        "beforeAfterProof": "correctionAuditState serializes actual aggregate IDs, old/new review IDs, record/task/source-piece identities, measured/judgement/standard/equipment values. Its aggregate query uses FOR UPDATE and filters to the corrected event. The child validates the signed correction revision before replacing review and deleting/reinserting rows.",
+        "sources": [
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolPqcInspectionCorrectionService.java",
+            "method": "correct / appendCorrectionAudit / correctionAuditState",
+            "lines": "110-257,299-356"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesPqcProcessInspectionAggregationServiceImpl.java",
+            "method": "refreshCorrectedPqcSubmission",
+            "lines": "108-165"
+          }
+        ],
+        "evidence": "Current source + observed policy registration only in this review. The final 61964 batch did not select PQC inspection correction tests.",
+        "analysis": "transactionProof: correct is REQUIRED @Transactional, acquires the ledger lock, locks current event/task/record/review, captures before, calls REQUIRED refreshCorrectedPqcSubmission, rereads final event/task/record/pieces/review and aggregate rows, then appends. Child errors escape the parent. beforeAfterProof: correctionAuditState serializes actual aggregate IDs, old/new review IDs, record/task/source-piece identities, measured/judgement/standard/equipment values. Its aggregate query uses FOR UPDATE and filters to the corrected event. The child validates the signed correction revision before replacing review and deleting/reinserting rows. evidence: Current source + observed policy registration only in this review. The final 61964 batch did not select PQC inspection correction tests."
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "caseId": "AGG-03",
+        "effect": "Stage simulation's direct initial aggregation call",
+        "caller": {
+          "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderSimulationService.java",
+          "method": "aggregateApprovedPqcSubmission caller",
+          "lines": "890"
+        },
+        "classification": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+        "analysis": "A real simulation writer, not an audited production delegation. Excluded only as a separately reviewed LOCAL_ONLY_R1 simulation path; no simulation audit/compliance claim.",
+        "futureOwnerRole": "mes-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups"
+      }
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesPqcProcessInspectionAggregationServiceImpl.java",
+        "candidateSha256": "5f6dd7ad4f6079656a2f6c190af32bf656097bf6a8cb279526050a9404b87d42"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolPqcInspectionCorrectionService.java",
+        "candidateSha256": "8efa63d5d8cb22b3135adbed27b72f5baf887464e625938759ae7beaad2fe9c2"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderSubmissionReviewServiceImpl.java",
+        "candidateSha256": "5b3a2e7df9643d813a3c1561abc12d9f56dfab317e37e56b87ee92211065ac4a"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderCompletionServiceImpl.java",
+        "candidateSha256": "ab8693d7e3a6496837126d7539dda6b97467d5e41fa2b1ed92d8c45d76cb39bf"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderSimulationService.java",
+        "candidateSha256": "62c85b5dbf1b8e048012d38a4bbd00dbb73b06cf0f45ea18dc51260e9fe9cc60"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+        "candidateSha256": "93591dc100076d14eb9d471c8acbad29178dc59162d86c9804bf68a938bb05e8"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/pqc/MesPqcProcessInspectionAggregateDetailMapper.java",
+        "candidateSha256": "210fb55072d51353bc8763cece79968ca645b2f38f491f7367a38bf672dc5391"
+      }
+    ],
+    "evidenceBoundary": "Source review plus the specifically named current H2/mock tests only. Not full historical verification, MySQL concurrency or whole-file regulatory compliance.",
+    "collectorUpdateEvidence": "Parent exact byte comparison: only ten existing readiness/time SELECT projection columns added; predicates, locks, Completion paths unchanged. 16979/27074 current GREEN; no broadened effect or historical coverage claim."
+  },
+  "LOCAL-SUB-BACK-01": {
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "mes-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderCompletionBackfillPortImpl.java",
+    "candidateSha256": "7686986ddc6bb94105c3938c31c97af62264ff76b082f511e48fa63e68fdcd83",
+    "decision": "REVIEWED_DELEGATED_EFFECT",
+    "analysis": "BACK-01's missing mutable completion bindings are now frozen/reread by the parent. Preserve the original claim contract's receipt-backed materialization creation proof; do not turn that bounded proof into a claim that every materialization metadata column is copied into the audit.",
+    "delegations": [
+      {
+        "caseId": "BACK-01",
+        "effect": "Completion materializes formal batch/process/optional-loss evidence and updates the same work order's completion bindings.",
+        "operationIds": [
+          "mes.active-order.complete"
+        ],
+        "transactionProof": "The only observed production write caller is complete. Its REQUIRED transaction and ledger lock contain prepare/write, active-order CAS, receipt insert and audit append. write has no separate transaction; it locks all completion rows for the work order and rejects any non-completed row before binding them. Failures propagate to the parent.",
+        "beforeAfterProof": "captureCompletion runs before catch-up/write and again for the audit after-state. Actual mes_pro_process_pool_order_process_completion rows are selected by work_order_id with tenant/deleted filtering and FOR UPDATE, including backfill_status, backfill_execution_id and backfill_error. This closes the actual BACK-01 mutable-row gap without changing replay-source canonicalization.",
+        "receiptProof": "write inserts BATCH_RECORD and PROCESS_INSPECTION plus conditional LOSS_REPORT materializations with real generated IDs, source IDs/hash and formal/signature/loss payloads. Parent receipt stores those IDs, source/signature snapshots, statuses and loss facts. MesTeamLeaderActiveOrderCompletionReceiptHash hashes the canonical receipt body; unified SOURCE/FORMAL_COMPLETION_RECEIPT links bind its real ID/version/hash, and output relations identify the materializations. No separate child business operation is invented.",
+        "sources": [
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderCompletionBackfillPortImpl.java",
+            "method": "write / materializedPayload / insertMaterialization",
+            "lines": "235-378"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderCompletionServiceImpl.java",
+            "method": "complete / appendCompletionGxpAudit",
+            "lines": "116-302"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderCompletionReceiptHash.java",
+            "method": "snapshotJson",
+            "lines": "method anchor"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+            "method": "captureCompletion",
+            "lines": "method anchor"
+          }
+        ],
+        "analysis": "transactionProof: The only observed production write caller is complete. Its REQUIRED transaction and ledger lock contain prepare/write, active-order CAS, receipt insert and audit append. write has no separate transaction; it locks all completion rows for the work order and rejects any non-completed row before binding them. Failures propagate to the parent. beforeAfterProof: captureCompletion runs before catch-up/write and again for the audit after-state. Actual mes_pro_process_pool_order_process_completion rows are selected by work_order_id with tenant/deleted filtering and FOR UPDATE, including backfill_status, backfill_execution_id and backfill_error. This closes the actual BACK-01 mutable-row gap without changing replay-source canonicalization. receiptProof: write inserts BATCH_RECORD and PROCESS_INSPECTION plus conditional LOSS_REPORT materializations with real generated IDs, source IDs/hash and formal/signature/loss payloads. Parent receipt stores those IDs, source/signature snapshots, statuses and loss facts. MesTeamLeaderActiveOrderCompletionReceiptHash hashes the canonical receipt body; unified SOURCE/FORMAL_COMPLETION_RECEIPT links bind its real ID/version/hash, and output relations identify the materializations. No separate child business operation is invented."
+      }
+    ],
+    "outOfScopeEffects": [],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderCompletionBackfillPortImpl.java",
+        "candidateSha256": "7686986ddc6bb94105c3938c31c97af62264ff76b082f511e48fa63e68fdcd83"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderCompletionServiceImpl.java",
+        "candidateSha256": "ab8693d7e3a6496837126d7539dda6b97467d5e41fa2b1ed92d8c45d76cb39bf"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesPqcProcessInspectionAggregationServiceImpl.java",
+        "candidateSha256": "5f6dd7ad4f6079656a2f6c190af32bf656097bf6a8cb279526050a9404b87d42"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+        "candidateSha256": "93591dc100076d14eb9d471c8acbad29178dc59162d86c9804bf68a938bb05e8"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderCompletionReceiptHash.java",
+        "candidateSha256": "2447a755489208b3bba4e78af886d37eef210a58e55abb7b066a208a71235169"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderCompletionBackfillDO.java",
+        "candidateSha256": "4413a50c2f2c68ff7dd11b2cd20bf3fa955d56ef3cec77895643b9315be0d6c0"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesProcessPoolActiveOrderCompletionBackfillMapper.java",
+        "candidateSha256": "2f362329b8d5d616042664acf17dba40230c50c3b9615b3658aab13fa83930ee"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesProcessPoolActiveOrderCompletionReceiptMapper.java",
+        "candidateSha256": "8a65a85f0d9d84270611d69819270557c176e12f41ba555e9983146b2f9d283f"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesProcessPoolOrderProcessCompletionMapper.java",
+        "candidateSha256": "607b411c304ce1e447a94542deab7b08c02d6287b4923ca76e055d775b080fbd"
+      }
+    ],
+    "evidenceBoundary": "Source review plus the specifically named current H2/mock tests only. Not full historical verification, MySQL concurrency or whole-file regulatory compliance.",
+    "collectorUpdateEvidence": "Parent exact byte comparison: only ten existing readiness/time SELECT projection columns added; predicates, locks, Completion paths unchanged. 16979/27074 current GREEN; no broadened effect or historical coverage claim."
+  },
+  "LOCAL-SUB-GEN-01": {
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "mes-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseGenerationService.java",
+    "candidateSha256": "c6e78c5769187589b46e785923ffc96761a40c3023133fc6c8ee440c90f68b19",
+    "decision": "REVIEWED_DELEGATED_EFFECT",
+    "analysis": "GEN-01's created PQC task candidate/assignment/ownership state is now captured by the existing release-apply parent around the actual generation/persistence boundary. No independent generation operation or new signature rule is needed for the observed callers.",
+    "delegations": [
+      {
+        "caseId": "GEN-01",
+        "effect": "apply/applyGenerated -> generate -> persistPending creates an application and a frozen PQC task, binds its task ID and records the specialized apply event.",
+        "operationIds": [
+          "mes.pqc-release.apply"
+        ],
+        "transactionProof": "Both observed apply parents are REQUIRED @Transactional and acquire the ledger lock. generate is REQUIRED and calls MANDATORY persistPending. Application/task inserts, task binding, specialized event, batch binding and unified append remain in the caller transaction. Existing-application replay returns without a new generated task; the binding-only branch uses its separate registered parent operation and does not call generate.",
+        "beforeAfterProof": "apply captures before openOrCreate/generate; applyGenerated captures before generate. The append rereads real releaseApplications and workTasks by the returned application/batch IDs. The work-task predicate additionally includes RELEASE_APPLICATION/business_scope_id so the generated task, whose batch_execution_id can be null, is not lost. Actual candidates, assignee, source/responsibility identity/digest, ownership, task status/timestamps and application binding/version enter affectedState.",
+        "sources": [
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseGenerationService.java",
+            "method": "generate",
+            "lines": "103-145"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseApplicationPersistenceService.java",
+            "method": "persistPending / buildPqcTask",
+            "lines": "method anchors"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseApplicationServiceImpl.java",
+            "method": "applyGenerated / apply / appendReleaseApplyGxpAudit",
+            "lines": "59-76,130-156,193-248"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+            "method": "capture",
+            "lines": "application/workTasks predicates"
+          }
+        ],
+        "analysis": "transactionProof: Both observed apply parents are REQUIRED @Transactional and acquire the ledger lock. generate is REQUIRED and calls MANDATORY persistPending. Application/task inserts, task binding, specialized event, batch binding and unified append remain in the caller transaction. Existing-application replay returns without a new generated task; the binding-only branch uses its separate registered parent operation and does not call generate. beforeAfterProof: apply captures before openOrCreate/generate; applyGenerated captures before generate. The append rereads real releaseApplications and workTasks by the returned application/batch IDs. The work-task predicate additionally includes RELEASE_APPLICATION/business_scope_id so the generated task, whose batch_execution_id can be null, is not lost. Actual candidates, assignee, source/responsibility identity/digest, ownership, task status/timestamps and application binding/version enter affectedState."
+      }
+    ],
+    "outOfScopeEffects": [],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseGenerationService.java",
+        "candidateSha256": "c6e78c5769187589b46e785923ffc96761a40c3023133fc6c8ee440c90f68b19"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseApplicationPersistenceService.java",
+        "candidateSha256": "01d743be96257c8be53683acf4fb82fcc28f74b76468e126870111564be5e018"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseApplicationServiceImpl.java",
+        "candidateSha256": "7b89695ccad9ab61b2ea3ceace3897538c79cf113900ff0572e1ff19d97596a0"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+        "candidateSha256": "93591dc100076d14eb9d471c8acbad29178dc59162d86c9804bf68a938bb05e8"
+      }
+    ],
+    "evidenceBoundary": "Source review plus the specifically named current H2/mock tests only. Not full historical verification, MySQL concurrency or whole-file regulatory compliance.",
+    "collectorUpdateEvidence": "Parent exact byte comparison: only ten existing readiness/time SELECT projection columns added; predicates, locks, Completion paths unchanged. 16979/27074 current GREEN; no broadened effect or historical coverage claim."
+  },
+  "LOCAL-SUB-UP-01": {
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "mes-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseUpstreamStatePortImpl.java",
+    "candidateSha256": "c372aafb1f29a8d96c9efeb59b1f370a5f39e0af9a6be5b423392adc3e174fde",
+    "decision": "REVIEWED_DELEGATED_EFFECT",
+    "analysis": "The port's one observed mutating caller is active-order-origin release finalization. Active-order close and work-order/task finish have distinct existing operation envelopes; the return's READ_ONLY_SOURCE pick-list marker is not a write.",
+    "delegations": [
+      {
+        "caseId": "UP-01",
+        "effect": "Close the active order using the release decision and expected version.",
+        "operationIds": [
+          "mes.active-order.close-by-release"
+        ],
+        "transactionProof": "Transactional release finalization calls the port, which calls REQUIRED closeForRelease. close obtains the ledger lock and current active-order row lock, enforces expected version, performs one CAS, rereads the locked actual row and appends specialized and unified audit. Errors escape into the enclosing release transaction.",
+        "beforeAfterProof": "Both envelopes now contain JsonUtils serialization of the actual locked before row and actual reselected after row, not the former constructed non-JSON text. The release decision and optional parent signature are linked.",
+        "sources": [
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseUpstreamStatePortImpl.java",
+            "method": "closeAfterRelease",
+            "lines": "method anchor"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceImpl.java",
+            "method": "closeForRelease",
+            "lines": "2825-2892"
+          }
+        ],
+        "analysis": "transactionProof: Transactional release finalization calls the port, which calls REQUIRED closeForRelease. close obtains the ledger lock and current active-order row lock, enforces expected version, performs one CAS, rereads the locked actual row and appends specialized and unified audit. Errors escape into the enclosing release transaction. beforeAfterProof: Both envelopes now contain JsonUtils serialization of the actual locked before row and actual reselected after row, not the former constructed non-JSON text. The release decision and optional parent signature are linked."
+      },
+      {
+        "caseId": "UP-02",
+        "effect": "Finish confirmed work-order tasks/work order, or bind release fields on an already-finished work order.",
+        "operationIds": [
+          "mes.market-release.approve"
+        ],
+        "transactionProof": "Release finalization is inside transactional finalizeRelease; it captures marketReleaseBefore before writes, calls closeUpstreamAfterRelease, and captures after before append. finishWorkOrderForRelease is REQUIRED and locks the work order. Task updates share that transaction. No per-child or independent successful transaction is asserted.",
+        "beforeAfterProof": "The parent's collector queries actual workOrders and productionTasks for ACTIVE_ORDER origin before and after close. Work-order status/finish date/release decision/actor/time and task status/finish/cancel dates are included. finishTaskByOrderId preserves terminal/cancelled tasks; already-FINISHED is still a release-field write, not no-op replay.",
+        "sources": [
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImpl.java",
+            "method": "finalizeApproval / closeUpstreamAfterRelease / marketReleaseBefore / marketReleaseAffected / appendMarketReleaseGxpAudit",
+            "lines": "746-approval body,2005-2019,2081-2111"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/workorder/MesProWorkOrderServiceImpl.java",
+            "method": "finishWorkOrderForRelease",
+            "lines": "389-419"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/task/MesProTaskServiceImpl.java",
+            "method": "finishTaskByOrderId",
+            "lines": "192-203"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+            "method": "capture workOrders / productionTasks",
+            "lines": "74-77"
+          }
+        ],
+        "analysis": "transactionProof: Release finalization is inside transactional finalizeRelease; it captures marketReleaseBefore before writes, calls closeUpstreamAfterRelease, and captures after before append. finishWorkOrderForRelease is REQUIRED and locks the work order. Task updates share that transaction. No per-child or independent successful transaction is asserted. beforeAfterProof: The parent's collector queries actual workOrders and productionTasks for ACTIVE_ORDER origin before and after close. Work-order status/finish date/release decision/actor/time and task status/finish/cancel dates are included. finishTaskByOrderId preserves terminal/cancelled tasks; already-FINISHED is still a release-field write, not no-op replay."
+      }
+    ],
+    "outOfScopeEffects": [],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseUpstreamStatePortImpl.java",
+        "candidateSha256": "c372aafb1f29a8d96c9efeb59b1f370a5f39e0af9a6be5b423392adc3e174fde"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceImpl.java",
+        "candidateSha256": "cfb1e37311fc362bfb31d3ad2e5218dfcc89d14cf9ea1bef557511db248147ff"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/workorder/MesProWorkOrderServiceImpl.java",
+        "candidateSha256": "53ca7b601eae1ebe3d093d94191a455ab094d0cd0afd86943816cff847614ef9"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/task/MesProTaskServiceImpl.java",
+        "candidateSha256": "b55434c78c60b8e4a77175f51b93107b756cdc9997ce7881cd75e6f14b71337d"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImpl.java",
+        "candidateSha256": "a7b7d44955dee14977e6bb6a7c608c8bd56f1528baf3fbe66ffb25c70fa52b2d"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+        "candidateSha256": "93591dc100076d14eb9d471c8acbad29178dc59162d86c9804bf68a938bb05e8"
+      }
+    ],
+    "evidenceBoundary": "Source review plus the specifically named current H2/mock tests only. Not full historical verification, MySQL concurrency or whole-file regulatory compliance.",
+    "collectorUpdateEvidence": "Parent exact byte comparison: only ten existing readiness/time SELECT projection columns added; predicates, locks, Completion paths unchanged. 16979/27074 current GREEN; no broadened effect or historical coverage claim."
+  },
+  "LOCAL-SUB-MGR-01": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesProductionReleaseManagerStageInitializerImpl.java",
+    "candidateSha256": "58794f7a895e44cb6ae1f17868aaa8ab797250b5855fe329c0f4915d4db6211d",
+    "decision": "REVIEWED_MIXED_SCOPE",
+    "analysis": "The exact current MGR omission is closed by captured genuine RED, the minimal ten-column projection change, current 4/4 parent-effect GREEN, and unchanged real initializer/parent transaction source. This extends the existing parent audit envelope only. Separate report and simulation effects retain their prior explicit R1 exclusions; no historical data or workflow is modified.",
+    "delegations": [
+      {
+        "caseId": "MGR-01",
+        "effect": "Current active-order formal-facts PQC approve creates or promotes the manager transaction and inserts its frozen-candidate task.",
+        "operationIds": [
+          "mes.pqc.production-release.approve"
+        ],
+        "proofStatus": "SOURCE_BOUND_PARENT_EFFECT_VERIFIED",
+        "transactionProof": "The unchanged PQC approve REQUIRED transaction acquires the ledger lock (line 145), validates/locks its source and captures before (168-169) before business mutation. It updates the application (198-201), completes the PQC task (202), calls the existing MANDATORY initializer (203-210), binds manager IDs (211-212), and appends the registered parent operation (216-218). The real initializer is MANDATORY at line 65, locks the current eligible precheck (93-104), inserts/updates the manager transaction (122-140), and inserts its manager task (142-144). These are not separate commits and no new business rule was introduced.",
+        "beforeAfterProof": "Collector.capture now reads all ten existing readiness/count/time columns into actual releaseTransactions before and after, in addition to prior actual status/version/precheckSnapshot and handoff/task candidate ownership fields. With null explicit transaction ID it uses the same latest non-REJECTED/non-WITHDRAWN boundary; promotion's overwritten values are preserved by the parent before read. Both reads use current tenant-scoped/deleted-filtered SELECT FOR UPDATE and require an active transaction. The timestamp is the persisted last_precheck_at, not readiness JSON checkedAt or the incomplete standalonePrecheck summary.",
+        "receiptProof": "Existing application handoff stores actual manager transaction/task IDs, candidate snapshot hash and report snapshot hash. Parent after state reselects those persisted bindings and affected rows, and the existing operation relates the application/batch/signature evidence. This does not invent a new independent manager operation or claim a separately hash-bound whole-row receipt.",
+        "sourceAnchors": [
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesProductionReleaseManagerStageInitializerImpl.java",
+            "methods": "initializeManagerReleaseStage/buildTransaction/buildWorkTask",
+            "lines": "65-149;212-285"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcProductionReleaseServiceImpl.java",
+            "methods": "approve/appendPqcProductionReleaseGxpAudit",
+            "lines": "141-218; method anchors"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+            "methods": "capture transactionColumns/transaction selection/queryRows",
+            "lines": "48-62;182-209"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProEdhrReleaseTransactionMapper.java",
+            "methods": "selectCurrentByBatchExecutionId",
+            "lines": "25-30"
+          }
+        ],
+        "regressionProof": "RED 3480: 4 tests, 2 expected missing-field failures, no fixture errors. After only two SELECT projection lines were added, actual 16979 Parent4 XML has 4 PASS, including create/promotion comparisons of all ten keys against independent DB reads, replay with one initializer/audit invocation, and audit-failure restoration of all ten prior fields plus application/task/version state. Initializer/readiness/candidate/authentication and GxP append boundaries remain mocked; the test does not claim their internal behavior.",
+        "analysis": "transactionProof: The unchanged PQC approve REQUIRED transaction acquires the ledger lock (line 145), validates/locks its source and captures before (168-169) before business mutation. It updates the application (198-201), completes the PQC task (202), calls the existing MANDATORY initializer (203-210), binds manager IDs (211-212), and appends the registered parent operation (216-218). The real initializer is MANDATORY at line 65, locks the current eligible precheck (93-104), inserts/updates the manager transaction (122-140), and inserts its manager task (142-144). These are not separate commits and no new business rule was introduced. beforeAfterProof: Collector.capture now reads all ten existing readiness/count/time columns into actual releaseTransactions before and after, in addition to prior actual status/version/precheckSnapshot and handoff/task candidate ownership fields. With null explicit transaction ID it uses the same latest non-REJECTED/non-WITHDRAWN boundary; promotion's overwritten values are preserved by the parent before read. Both reads use current tenant-scoped/deleted-filtered SELECT FOR UPDATE and require an active transaction. The timestamp is the persisted last_precheck_at, not readiness JSON checkedAt or the incomplete standalonePrecheck summary. receiptProof: Existing application handoff stores actual manager transaction/task IDs, candidate snapshot hash and report snapshot hash. Parent after state reselects those persisted bindings and affected rows, and the existing operation relates the application/batch/signature evidence. This does not invent a new independent manager operation or claim a separately hash-bound whole-row receipt. regressionProof: RED 3480: 4 tests, 2 expected missing-field failures, no fixture errors. After only two SELECT projection lines were added, actual 16979 Parent4 XML has 4 PASS, including create/promotion comparisons of all ten keys against independent DB reads, replay with one initializer/audit invocation, and audit-failure restoration of all ten prior fields plus application/task/version state. Initializer/readiness/candidate/authentication and GxP append boundaries remain mocked; the test does not claim their internal behavior."
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Independent four-report completion manager-stage handoff",
+        "caller": {
+          "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/report/MesProductionReleaseReportServiceImpl.java",
+          "method": "completeReportNode",
+          "lines": "174-194"
+        },
+        "classification": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+        "analysis": "The REPORT_UPLOAD_PENDING/four-completed-evidence branch independently calls the same initializer. It is not the active-order formal-facts PQC parent and its business audit is not claimed by this delegation.",
+        "futureOwnerRole": "mes-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups"
+      },
+      {
+        "effect": "Stage-5 final-release simulation manager initialization",
+        "caller": {
+          "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage5/MesStage5FinalReleaseSimulationServiceImpl.java",
+          "method": "initializeManagerReleaseStage caller",
+          "lines": "195-201"
+        },
+        "classification": "REVIEWED_OUT_OF_RELEASE_SCOPE",
+        "analysis": "Explicit separate simulation writer; no audit coverage claimed. Neither out-of-scope caller is used to scope out the in-scope PQC initializer gap.",
+        "futureOwnerRole": "mes-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups"
+      }
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesProductionReleaseManagerStageInitializerImpl.java",
+        "candidateSha256": "58794f7a895e44cb6ae1f17868aaa8ab797250b5855fe329c0f4915d4db6211d"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcProductionReleaseServiceImpl.java",
+        "candidateSha256": "2cad0fea5675ad66e4fb3b54a72c734662c946fd1b13db55d1c2f24994695c42"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+        "candidateSha256": "93591dc100076d14eb9d471c8acbad29178dc59162d86c9804bf68a938bb05e8"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/report/MesProductionReleaseReportServiceImpl.java",
+        "candidateSha256": "366158bf7835e5974b5e4d42617ae40af279f92ffcceab91920ac8b910faba3f"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage5/MesStage5FinalReleaseSimulationServiceImpl.java",
+        "candidateSha256": "f065acd8c7be6ac720c5cc0ed6e6c7a29abeacd0560a2ad2cade7efdfd364816"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProEdhrReleaseTransactionMapper.java",
+        "candidateSha256": "08dfa8a97b9658eb1088a4163ca336ec7ddc687895a9eb47500f4a6bf784a604"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesProductionReleaseBusinessReadiness.java",
+        "candidateSha256": "18b3004c6ab149548a10bbdc22bc4ae7d64dbb05e967023cddb526a8b2fb565c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesProductionReleaseBusinessReadinessService.java",
+        "candidateSha256": "613c4f4066157f2c0cd30c923f0fdb4b4978f912b1676bf99d7cd246d69ffbd6"
+      }
+    ],
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "mes-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups"
+  },
+  "LOCAL-SUB-BATCH-01": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java",
+    "candidateSha256": "cec0c425596b25ada47f69ebb12bf48f69bf7b222c07aa69cbc5671c58adce7f",
+    "decision": "REVIEWED_MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "mes-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Final current-source review after joint run11901: 83 tests, zero failures/errors/skips. Existing parent row delegations and independent lifecycle exclusions retained exactly. Current auxiliary permission and notification effects are now covered by the dedicated registered helper, not excluded. Tx-C success/failure has independent transactional evidence (12 cases); manager-readiness collector includes all ten persisted fields (parent 4 cases). Auxiliary 10-case RED85432/GREEN37047 and final11901 use actual permission/notification persistence and Gxp writer on private H2. Tests are bounded integration fixtures, not full business E2E or historical validation. Dependency renewals are only the verified collector, Tx-C producer and three unchanged-request WorkTask wrappers.",
+    "delegations": [
+      {
+        "effect": "Current apply same-transaction batch provisioning and reused-batch synchronization",
+        "operationIds": [
+          "mes.pqc-release.apply"
+        ],
+        "analysis": "Parent freezes before using completionBatchId before openOrCreate; after generation/bind rereads persisted batch/task/origin/workTask state plus dossierItems, provisioningRecords, formInstances, formSnapshots, sharedExecutions, operationAudits. batchTasks includes submitted_at/approved_at. Existing collector follows actual task form IDs and BATCH_SHARED identity, tenant-scoped ordered current reads. These maps precede the parent's append in its transaction; they cannot represent later Tx-C writes.",
+        "evidence": [
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseApplicationServiceImpl.java",
+            "line": 149,
+            "analysis": "before capture -> openOrCreate -> generate/bind -> append"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+            "line": 78,
+            "analysis": "binding/provisioning/form/shared/audit collections"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java",
+            "line": 841,
+            "analysis": "forms/shared execution, batch update, initial tasks, provisioning record, specialized OPEN, event publication"
+          }
+        ]
+      },
+      {
+        "effect": "Current task entitlement sync/revoke and initial notifications",
+        "operationIds": [
+          "mes.work-task.entitlement",
+          "mes.work-task.notify"
+        ],
+        "analysis": "Existing WorkTask sync/revoke/send calls invoke MesWorkTaskAuxiliaryAudit in the same required transaction. Ledger and tenant task are locked before changes. Claims and specialized events are scoped to task source/policy; grants include every policy for old and new affected users because rebuildUserGrants rewrites those grants. Notifications use returned IDs and full persisted rows. Audit relation failure propagates and rolls back task/auxiliary/audit writes. Unchanged revoke replay writes no new fact. Existing permission rules, recipient and content computation unchanged; independent reassignment/overdue paths remain outside this current boundary. Final aux 10 PASS includes actual APIs/services/mappers, tenant rejection and absent-transaction rejection; template formatting alone is mocked."
+      },
+      {
+        "effect": "AFTER_COMMIT independent Tx-C graph, provisioning state, receipt and outbox writes",
+        "operationIds": [
+          "mes.batch-trace.provision",
+          "mes.batch-trace.provision-failure"
+        ],
+        "analysis": "Final producer uses independent transactions and actual kernel actor/tenant validation. Dedicated 12-case current suite verifies success/failure snapshots, rollback on audit failure, replay and parent context. Source review found no current MappingEvent production consumer; no later writer inferred. These effects are not represented as parent afterState."
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "BATCH-02 independent batch lifecycle only",
+        "analysis": "Preserve previously reviewed standalone/scheduled/production-release provisioning, reexecution, golden-finger void, task open/special/report/dossier completion, attachment maintenance, sync/close/reject/archive and read-triggered synchronization boundary. Excludes neither current apply/BATCH-01 nor its Tx-C/current task auxiliary effects. See original subordinate-file-scope-additions.json LOCAL-SUB-BATCH-01 and file-coverage-resolution.md:128; no new OUT decision here.",
+        "futureOwnerRole": "mes-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups"
+      }
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java",
+        "candidateSha256": "cec0c425596b25ada47f69ebb12bf48f69bf7b222c07aa69cbc5671c58adce7f"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrWorkTaskServiceImpl.java",
+        "candidateSha256": "13aa69dbd465c154848536b42d2bdb13c0b6b10c6696187c726a9bd7ac17dc88"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderCompletionBatchExecutionService.java",
+        "candidateSha256": "9199b23dc87b7c1e3fa16dc5d10b336ccfdbaf51ddca29ac7af82b43dd342c51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseApplicationServiceImpl.java",
+        "candidateSha256": "7b89695ccad9ab61b2ea3ceace3897538c79cf113900ff0572e1ff19d97596a0"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+        "candidateSha256": "93591dc100076d14eb9d471c8acbad29178dc59162d86c9804bf68a938bb05e8"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchTraceTxCProducer.java",
+        "candidateSha256": "a63ed3043ea49573f85e87628ae3382b2b726f73455d8a954dd33390770e429e"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchTraceTxCApplicationService.java",
+        "candidateSha256": "87c86b4b26148d2b438b12c9c8e5a4d8a96c37ed450ded799465775c4d3bb9e0"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchProvisionedEvent.java",
+        "candidateSha256": "ad06ec1240be2c75e496a93f5761e3554b048130142df2f76dd49332b94899f4"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchTraceMappingEvent.java",
+        "candidateSha256": "d681b88b0731b653f867f32dcc84346371f4b0c2ee795b7127cab3d909d030b7"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchTraceabilityServiceImpl.java",
+        "candidateSha256": "ec1e03f9d62950fd8d204edd4adb9249ef804b979de876d79f56acc48a393f8f"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProEdhrBatchTraceOutboxEventMapper.java",
+        "candidateSha256": "be72225df0df7468eeb3ef299636be947323a4c69f6594f798914201116d0367"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/permission/PermissionApiImpl.java",
+        "candidateSha256": "85247fe9c4b7917c981773abc98283015f54931f76212503cfb4ee98d9e817bb"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/SystemEntitlementServiceImpl.java",
+        "candidateSha256": "9e4e1a8fa021a17fbed0f7ec3ad125d8d5c3ab45b44395d4c953564bcbae4f30"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/notify/NotifyMessageSendApiImpl.java",
+        "candidateSha256": "17f9d8ea58599fed8cf335b7d82f2d1be44c33e3b121bf55f82d8380e50e3c06"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/notify/NotifySendServiceImpl.java",
+        "candidateSha256": "26d2beb0ff0b6e0efb2339507d9521fe4cc8d183bc117839f47917e136b50444"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/notify/NotifyMessageServiceImpl.java",
+        "candidateSha256": "1f5bd8831c8429fd586f4ebc3d8bc1f177dfd1ee972464054d7ccc22155ee8de"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesWorkTaskAuxiliaryAudit.java",
+        "candidateSha256": "3944eb13d44219b9e743e56df85a933f6ec6abc69cb070905104db80175c8b3e"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesWorkTaskAuxiliaryAuditTransactionTest.java",
+        "candidateSha256": "92409c61d87748b09e7e1b7f27600cafe219d2a14f860488bf83f2dbb5659114"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesNcrScopeAuditTransactionTest.java",
+        "candidateSha256": "d208c1b6324ec2d065c4d8054d4bafdd22290ca238623cf17e7b2f984f91bb62"
+      }
+    ]
+  },
+  "LOCAL-SUB-TASK-01": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrWorkTaskServiceImpl.java",
+    "candidateSha256": "13aa69dbd465c154848536b42d2bdb13c0b6b10c6696187c726a9bd7ac17dc88",
+    "decision": "REVIEWED_MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "futureOwnerRole": "mes-owner",
+    "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups",
+    "analysis": "Final current-source review after joint run11901: 83 tests, zero failures/errors/skips. Existing parent row delegations and independent lifecycle exclusions retained exactly. Current auxiliary permission and notification effects are now covered by the dedicated registered helper, not excluded. Tx-C success/failure has independent transactional evidence (12 cases); manager-readiness collector includes all ten persisted fields (parent 4 cases). Auxiliary 10-case RED85432/GREEN37047 and final11901 use actual permission/notification persistence and Gxp writer on private H2. Tests are bounded integration fixtures, not full business E2E or historical validation. Dependency renewals are only the verified collector, Tx-C producer and three unchanged-request WorkTask wrappers.",
+    "delegations": [
+      {
+        "effect": "Current BATCH-01 initial and companion fill task rows",
+        "operationIds": [
+          "mes.pqc-release.apply"
+        ],
+        "analysis": "createInitialFillTask chooses actual required waiting task and companion anchors, then createTask inserts/sets action_url. The collector includes current batch workTasks/candidates/ownership/status; current 8 provisioning tests and application case prove their bounded fixture envelope. Not proof of entitlement/notification writes or Tx-C.",
+        "evidence": [
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrWorkTaskServiceImpl.java",
+            "line": 785,
+            "analysis": "initial/companion task creation"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrWorkTaskServiceImpl.java",
+            "line": 2095,
+            "analysis": "actual task row and auxiliary calls"
+          },
+          {
+            "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+            "line": 65,
+            "analysis": "current workTasks capture"
+          }
+        ]
+      },
+      {
+        "effect": "Current release submit/finalize/reject/withdraw task rows",
+        "operationIds": [
+          "mes.market-release.submit",
+          "mes.market-release.approve",
+          "mes.market-release.reject",
+          "mes.market-release.withdraw"
+        ],
+        "analysis": "Retain prior source-reviewed delegation to releaseSubmissionState/releaseTerminalState/marketReleaseBefore and reread after child completion/cancellation. Parent session 61964 selected releaseScope* 6 PASS. Tests use controlled work-task seams; they are not full entitlement/notification lifecycle verification."
+      },
+      {
+        "effect": "Current NCR rework/void release-task cancellation rows",
+        "operationIds": [
+          "mes.nonconformance.rework",
+          "mes.nonconformance.void"
+        ],
+        "analysis": "NCR parent captures current affected release task state around cancellation. Current MesNcrScopeAuditTransactionTest three PASS includes two real relation-failure rollback disposition cases; this is not a global WorkTaskService correctness claim."
+      },
+      {
+        "effect": "Current task entitlement sync/revoke and initial notifications",
+        "operationIds": [
+          "mes.work-task.entitlement",
+          "mes.work-task.notify"
+        ],
+        "analysis": "Existing WorkTask sync/revoke/send calls invoke MesWorkTaskAuxiliaryAudit in the same required transaction. Ledger and tenant task are locked before changes. Claims and specialized events are scoped to task source/policy; grants include every policy for old and new affected users because rebuildUserGrants rewrites those grants. Notifications use returned IDs and full persisted rows. Audit relation failure propagates and rolls back task/auxiliary/audit writes. Unchanged revoke replay writes no new fact. Existing permission rules, recipient and content computation unchanged; independent reassignment/overdue paths remain outside this current boundary. Final aux 10 PASS includes actual APIs/services/mappers, tenant rejection and absent-transaction rejection; template formatting alone is mocked."
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "TASK-02 independent task/rule/advancement/overdue/read-cleanup lifecycle only",
+        "analysis": "Retain exact existing independent workflow boundary from subordinate-file-scope-additions.json LOCAL-SUB-TASK-01. Current BATCH-01 tasks, release tasks, NCR cancellations, entitlement sync/revoke and notifications reached by those calls are NOT moved into this OUT list.",
+        "futureOwnerRole": "mes-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#local-scope-follow-ups"
+      }
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrWorkTaskServiceImpl.java",
+        "candidateSha256": "13aa69dbd465c154848536b42d2bdb13c0b6b10c6696187c726a9bd7ac17dc88"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java",
+        "candidateSha256": "cec0c425596b25ada47f69ebb12bf48f69bf7b222c07aa69cbc5671c58adce7f"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderCompletionBatchExecutionService.java",
+        "candidateSha256": "9199b23dc87b7c1e3fa16dc5d10b336ccfdbaf51ddca29ac7af82b43dd342c51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseApplicationServiceImpl.java",
+        "candidateSha256": "7b89695ccad9ab61b2ea3ceace3897538c79cf113900ff0572e1ff19d97596a0"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/MesReleaseAffectedStateCollector.java",
+        "candidateSha256": "93591dc100076d14eb9d471c8acbad29178dc59162d86c9804bf68a938bb05e8"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImpl.java",
+        "candidateSha256": "a7b7d44955dee14977e6bb6a7c608c8bd56f1528baf3fbe66ffb25c70fa52b2d"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrNonconformanceReviewServiceImpl.java",
+        "candidateSha256": "5d25a01f7b5b5b536653aa3644c9d25ba303ca53c19770b3dec9947f16d24f8f"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/permission/PermissionApiImpl.java",
+        "candidateSha256": "85247fe9c4b7917c981773abc98283015f54931f76212503cfb4ee98d9e817bb"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/SystemEntitlementServiceImpl.java",
+        "candidateSha256": "9e4e1a8fa021a17fbed0f7ec3ad125d8d5c3ab45b44395d4c953564bcbae4f30"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/notify/NotifyMessageSendApiImpl.java",
+        "candidateSha256": "17f9d8ea58599fed8cf335b7d82f2d1be44c33e3b121bf55f82d8380e50e3c06"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/notify/NotifySendServiceImpl.java",
+        "candidateSha256": "26d2beb0ff0b6e0efb2339507d9521fe4cc8d183bc117839f47917e136b50444"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/notify/NotifyMessageServiceImpl.java",
+        "candidateSha256": "1f5bd8831c8429fd586f4ebc3d8bc1f177dfd1ee972464054d7ccc22155ee8de"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesWorkTaskAuxiliaryAudit.java",
+        "candidateSha256": "3944eb13d44219b9e743e56df85a933f6ec6abc69cb070905104db80175c8b3e"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesWorkTaskAuxiliaryAuditTransactionTest.java",
+        "candidateSha256": "92409c61d87748b09e7e1b7f27600cafe219d2a14f860488bf83f2dbb5659114"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesNcrScopeAuditTransactionTest.java",
+        "candidateSha256": "d208c1b6324ec2d065c4d8054d4bafdd22290ca238623cf17e7b2f984f91bb62"
+      }
+    ]
+  }
+}

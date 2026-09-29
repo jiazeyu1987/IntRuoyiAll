@@ -1,0 +1,1047 @@
+{
+  "SIG-M01": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordSubmitSignature",
+    "signature": "recordSubmitSignature(Long executionId, String password, String comment)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through the exact overload chain -> recordSignature -> recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M02": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordPqcSubmitSignature",
+    "signature": "recordPqcSubmitSignature(Long actorId, Long pqcTaskId, String password, String comment)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M03": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordPqcReleaseSignature",
+    "signature": "recordPqcReleaseSignature(Long actorId, Long executionId, Long releaseApplicationId, String password, String comment)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M04": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordMarketReleaseSignature",
+    "signature": "recordMarketReleaseSignature(Long actorId, Long executionId, Long releaseTransactionId, String password, String comment)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M05": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordBatchVoidRequestSignature",
+    "signature": "recordBatchVoidRequestSignature(Long actorId, Long batchExecutionId, String password, String comment, String aggregateHash)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M06": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordBatchActionSignature",
+    "signature": "recordBatchActionSignature(Long actorId, Long batchExecutionId, String password, String comment, String actionType, String reviewSourceName, String aggregateHash)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M07": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordQaDispositionSignature",
+    "signature": "recordQaDispositionSignature(Long actorId, Long reviewId, String password, String comment, String aggregateHash)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M08": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordNonconformanceReviewCreateSignature",
+    "signature": "recordNonconformanceReviewCreateSignature(Long actorId, Long reviewId, String password, String comment, String aggregateHash)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M09": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordDeviationInitiationSignature",
+    "signature": "recordDeviationInitiationSignature(Long actorId, Long batchExecutionId, Long deviationId, String deviationCode, String batchExecutionCode, String password, String contentHash)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M10": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordDeviationHandlingSignature",
+    "signature": "recordDeviationHandlingSignature(Long actorId, Long deviationId, Long handlingId, String deviationCode, String node, Integer contentVersion, String contentHash, String password, String comment)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M11": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordTeamLeaderReviewSignature",
+    "signature": "recordTeamLeaderReviewSignature(Long actorId, String password, String comment)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through the exact team-leader overload chain -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M12": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordTeamLeaderReviewSignature",
+    "signature": "recordTeamLeaderReviewSignature(Long actorId, String password, String comment, String reviewSourceType, Long reviewSourceId, String reviewSourceName)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through the exact team-leader overload chain -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M13": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordStage1SimulationSignature",
+    "signature": "recordStage1SimulationSignature(Long actorId, String actionType, Long objectId, String simulationStage, String simulationRunId)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Direct signatureMapper.insert persists SIMULATION_SESSION/passwordVerified=false with MES_ACTIVE_ORDER_SIMULATION provenance. Only the MesTeamLeaderActiveOrderSimulationService helper and its simulation paths call this entry. It is not a unified signature or covered by signature.record.create. Existing body is unchanged; separately scoped simulation behavior is excluded only from local R1, not certified audited.",
+    "outOfScopeEffects": [
+      {
+        "effect": "Simulation MES signature-projection insert",
+        "analysis": "Direct signatureMapper.insert persists SIMULATION_SESSION/passwordVerified=false with MES_ACTIVE_ORDER_SIMULATION provenance. Only the MesTeamLeaderActiveOrderSimulationService helper and its simulation paths call this entry. It is not a unified signature or covered by signature.record.create. Existing body is unchanged; separately scoped simulation behavior is excluded only from local R1, not certified audited.",
+        "futureOwnerRole": "mes-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M14": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordSubmitSignature",
+    "signature": "recordSubmitSignature(Long executionId, String password, String comment, MesProBatchRecordExecutionSignatureTimeCommand signatureTimeCommand)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through the exact overload chain -> recordSignature -> recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M15": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#attachSubmitSignatureProcessInstance",
+    "signature": "attachSubmitSignatureProcessInstance(Long signatureId, Long executionId, String processInstanceId)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Direct signatureMapper.updateById changes processInstanceId after identity/action validation. MesProBatchRecordExecutionBusinessApprovalEffectExecutor#markPending calls it. The prior signature-create fact does not capture this later binding before/after. This independent legacy approval effect remains an explicit gap, not READ_ONLY or delegated audit coverage.",
+    "outOfScopeEffects": [
+      {
+        "effect": "Legacy batch-submit process-instance binding update",
+        "analysis": "Direct signatureMapper.updateById changes processInstanceId after identity/action validation. MesProBatchRecordExecutionBusinessApprovalEffectExecutor#markPending calls it. The prior signature-create fact does not capture this later binding before/after. This independent legacy approval effect remains an explicit gap, not READ_ONLY or delegated audit coverage.",
+        "futureOwnerRole": "mes-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M16": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordApprovalSignature",
+    "signature": "recordApprovalSignature(MesProBatchRecordExecutionApprovalSignatureCommand command)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through the exact overload chain -> recordSignature -> recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M17": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordArchiveSealSignature",
+    "signature": "recordArchiveSealSignature(Long executionId, String password, String comment)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through the exact overload chain -> recordSignature -> recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M18": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordArchiveSealSignature",
+    "signature": "recordArchiveSealSignature(Long executionId, String password, String comment, MesProBatchRecordExecutionSignatureTimeCommand signatureTimeCommand)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through the exact overload chain -> recordSignature -> recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M19": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordFormReviewSignature",
+    "signature": "recordFormReviewSignature(Long executionId, String password, String comment, Long fieldAuditRevision, String fieldAuditHeadHash, String cellValuesHash)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through the exact overload chain -> recordSignature -> recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M20": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordFormReviewSignature",
+    "signature": "recordFormReviewSignature(Long executionId, String password, String comment, Long fieldAuditRevision, String fieldAuditHeadHash, String cellValuesHash, MesProBatchRecordExecutionSignatureTimeCommand signatureTimeCommand)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through the exact overload chain -> recordSignature -> recordSignatureForActor -> recordSignatureForSystemUser -> signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M21": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#bindSignatureFieldAuditEvidence",
+    "signature": "bindSignatureFieldAuditEvidence(Long signatureId, Long executionId, Long fieldAuditRevision, String fieldAuditHeadHash, String cellValuesHash)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Direct signatureMapper.updateById changes fieldAuditRevision, fieldAuditHeadHash and cellValuesHash. Callers are BusinessApprovalEffectExecutor#executeDirect/#markPending, ExecutionServiceImpl#submitGoldenFingerFill/#submitOrdinaryProcessFill, and ArchiveServiceImpl#recordSealSignature. Existing signature creation does not capture these later persisted bindings. The unchanged independent workflow effect is outside local R1, not READ_ONLY or delegated audit coverage.",
+    "outOfScopeEffects": [
+      {
+        "effect": "Legacy batch-submit/approval/archive field-evidence binding update",
+        "analysis": "Direct signatureMapper.updateById changes fieldAuditRevision, fieldAuditHeadHash and cellValuesHash. Callers are BusinessApprovalEffectExecutor#executeDirect/#markPending, ExecutionServiceImpl#submitGoldenFingerFill/#submitOrdinaryProcessFill, and ArchiveServiceImpl#recordSealSignature. Existing signature creation does not capture these later persisted bindings. The unchanged independent workflow effect is outside local R1, not READ_ONLY or delegated audit coverage.",
+        "futureOwnerRole": "mes-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "SIG-M22": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService#recordFieldChangeSignature",
+    "signature": "recordFieldChangeSignature(MesProBatchRecordExecutionFieldAuditSignatureCommand command)",
+    "candidateSha256": "302f404a23d1abe6793f14636f68d68c00ecd06bfb8d0a9a0f3902ed2d964de7",
+    "decision": "MIXED_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact unchanged declaration/body routes through direct reauthentication and signUnifiedSignature -> ElectronicSignatureServiceImpl#sign. On a new signature the owner locks the audit ledger, persists the unified signature record and appends signature.record.create in the same transaction; replay returns the existing signature. The constructed MES projection DTO is not inserted on this path. Credential reauthentication independently changes account-security counters/locks, so the whole method is MIXED_SCOPE, not pure DELEGATED_EFFECT or READ_ONLY. validatePqcSubmitSignature(Long actorId, String password) has no lexical gate finding but shares this security-writing limitation; it is not falsely added as an UNREGISTERED_ENTRY.",
+    "operationIds": [
+      "signature.record.create"
+    ],
+    "dependentSources": [
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java",
+        "candidateSha256": "8f26036adccb72fd802714f5052c7e994c408cc49ad11e035038221771fdcd51"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+        "candidateSha256": "6a9dae9ed5555b452aeb4a39d9fdd583adc1179b4d2dc479326d32cd17b6ac3c"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "candidateSha256": "90b998741129fd2867156101e129b1a8cf93c7400eec3df5c5932429239a7b58"
+      },
+      {
+        "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+        "candidateSha256": "381905a8ae5c6cb46084947fe81ee6e37572847fe014dd1f228be8e245a6f1a3"
+      }
+    ],
+    "outOfScopeEffects": [
+      {
+        "effect": "Account-security failure counters and lock state",
+        "analysis": "AdminUserApiImpl#reauthenticateForSignature -> AdminUserServiceImpl#reauthenticateForSignature selects the account FOR UPDATE, can reset expired lock/failure state, records bad-credential failures, and resets failure/lock fields on successful authentication. These real writes are not signature.record.create, not READ_ONLY, and are left unchanged. Their commit behavior depends on the existing enclosing transaction; no claim is made that every attempted failure-counter write commits.",
+        "futureOwnerRole": "system-owner",
+        "futureTaskReference": "doc/tasks/20260929-start-local-runtime/verification-report.md#signature-local-scope"
+      }
+    ]
+  },
+  "F02": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionFieldAuditServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditServiceImpl#verifyChain",
+    "signature": "verifyChain(Long executionId)",
+    "candidateSha256": "9a1d49ece71652dbd4f2318cab58b91ff917a14c5ea094b7804fc31511f369fb",
+    "decision": "READ_ONLY",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Only selects execution/batches/items/signatures and computes hashes; withAttachmentChain -> attachmentService.verifyAttachmentChain selects attachment rows and constructs verification results. It never calls operationAuditService.record. Scanner conflates this overload with verifyChain(VerifyReqVO) by method name; disposition must match this exact signature."
+  },
+  "F03": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionFieldAuditServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditServiceImpl#getPage",
+    "signature": "getPage(MesProBatchRecordExecutionFieldAuditPageReqVO pageReqVO)",
+    "candidateSha256": "9a1d49ece71652dbd4f2318cab58b91ff917a14c5ea094b7804fc31511f369fb",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Selects audit items and verifies chains, then appends specialized FIELD_AUDIT_PAGE/QUERY via MesProEdhrOperationAuditServiceImpl.record -> auditEventMapper.insert. Real access telemetry write, not READ_ONLY; no field-state update and no existing unified operation. Exclude only this legacy access-log entry from registered business-transition R1, retain the specialized log and explicit R2 work item."
+  },
+  "F04": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionFieldAuditServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditServiceImpl#getDetail",
+    "signature": "getDetail(MesProBatchRecordExecutionFieldAuditDetailReqVO reqVO)",
+    "candidateSha256": "9a1d49ece71652dbd4f2318cab58b91ff917a14c5ea094b7804fc31511f369fb",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Selects execution/batch/items/signature/attachments; then specialized FIELD_AUDIT_BATCH/VIEW -> operationAuditService.record -> auditEventMapper.insert. Real access telemetry, not edhr.execution.field.update and not READ_ONLY."
+  },
+  "F05": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionFieldAuditServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditServiceImpl#verifyChain",
+    "signature": "verifyChain(MesProBatchRecordExecutionFieldAuditVerifyReqVO reqVO)",
+    "candidateSha256": "9a1d49ece71652dbd4f2318cab58b91ff917a14c5ea094b7804fc31511f369fb",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Calls the read-only Long overload then appends FIELD_AUDIT_CHAIN/VERIFY to the specialized ledger. The exact overload remains a writer even though F02 is read-only; no existing unified business-transition operation applies."
+  },
+  "F06": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionFieldAuditServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditServiceImpl#export",
+    "signature": "export(MesProBatchRecordExecutionFieldAuditExportReqVO reqVO)",
+    "candidateSha256": "9a1d49ece71652dbd4f2318cab58b91ff917a14c5ea094b7804fc31511f369fb",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Selects audit items, renders bytes, and appends FIELD_AUDIT_EXPORT/EXPORT containing output SHA-256 to the specialized ledger. Only export/access telemetry is deferred; this is not a read-only exemption or permission to remove export logging."
+  },
+  "P01": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcContextServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcContextServiceImpl#listActiveOrders",
+    "signature": "listActiveOrders()",
+    "candidateSha256": "91cc8a27762c1ac4cfe6927551b62bd83e21d78a1480cb6c1d799f14ae469384",
+    "decision": "READ_ONLY",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "selectActiveList, pending task/work-order/route/item reads, mapById is called only with MesProWorkOrderDO::getId and MesProRouteDO::getId. idGetter.apply is a getter at these exact call sites. Local candidates/maps only; no save/insert/update service path."
+  },
+  "P02": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcContextServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcContextServiceImpl#listProcessesByActiveOrder",
+    "signature": "listProcessesByActiveOrder(Long activeOrderId)",
+    "candidateSha256": "91cc8a27762c1ac4cfe6927551b62bd83e21d78a1480cb6c1d799f14ae469384",
+    "decision": "READ_ONLY",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Reads active order/frozen process snapshots/tasks/locked QA versions and builds DTOs. Collectors.toMap value mapper creates a fresh LinkedHashSet of QA process IDs; merge lambda left.addAll(right) mutates those sets only. Equipment helpers select data and mutate response objects."
+  },
+  "P03": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcContextServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcContextServiceImpl#listProcessesByActiveOrder",
+    "signature": "listProcessesByActiveOrder(Long activeOrderId, Long loginUserId, Long actualEmployeeId)",
+    "candidateSha256": "91cc8a27762c1ac4cfe6927551b62bd83e21d78a1480cb6c1d799f14ae469384",
+    "decision": "READ_ONLY",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Delegates one-argument read-only overload then applyLastSelectedEquipmentDefaults: permission/employee reads and selectLatestSelectedEquipmentByActualEmployeeAndItemCode; setters affect inspection response DTOs only. Match this signature independently."
+  },
+  "P04": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcContextServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcContextServiceImpl#switchPqcActualEmployee",
+    "signature": "switchPqcActualEmployee(Long loginUserId, Long activeOrderId, Long regulationVersionId, Long qaProcessId, Long pqcTaskId, Long actualEmployeeId)",
+    "candidateSha256": "91cc8a27762c1ac4cfe6927551b62bd83e21d78a1480cb6c1d799f14ae469384",
+    "decision": "READ_ONLY",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Validates bound employee and reads pending PQC task; finds process via read-only listProcessesByActiveOrder, returns new template/switch-result records. Does not persist task employee or submission. The actual writer submitPqcInspection remains registered separately."
+  },
+  "A01": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesReportAllocationCommandService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationCommandService#getCurrent",
+    "signature": "getCurrent(Long eventId, Long leaderUserId, String leaderType)",
+    "candidateSha256": "47adf06dca4129855df51ec4f0c625aaf1950d91d5f04d56228f1e04a708e370",
+    "decision": "READ_ONLY",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "requireEvent(false), scope/pool checks, selectListByEventId -> buildCurrentSnapshot; arithmetic/reduction and response construction. BigDecimal::add scanner fix is parent-owned and was not re-reviewed here."
+  },
+  "A02": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesReportAllocationCommandService.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationCommandService#previewFifo",
+    "signature": "previewFifo(Long eventId, Long leaderUserId, String leaderType)",
+    "candidateSha256": "47adf06dca4129855df51ec4f0c625aaf1950d91d5f04d56228f1e04a708e370",
+    "decision": "READ_ONLY",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Reads event, existing allocations, released IDs and active-order sequence; fifoService.previewFifoAllocation builds preview lines and quantity totals. SELECT FOR UPDATE in downstream helpers acquires locks but performs no persistent write. No createInitialAllocation/save invocation. Arithmetic false positive is parent-owned."
+  },
+  "O01": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#resetFixedSimulationActiveOrder",
+    "signature": "resetFixedSimulationActiveOrder(Long leaderUserId)",
+    "candidateSha256": "cfb1e37311fc362bfb31d3ad2e5218dfcc89d14cf9ea1bef557511db248147ff",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Exact fixed work-order code, current tenant/leader, requireSimulationIdentity for all owned records; rejects formal receipt/backfill/release/NCR and unowned batch history before deletes. Simulation fixture lifecycle is separate from production transitions. Delegated addActiveOrder audit does not cover destructive reset; retain explicit gap and do not execute as part of startup. Re-reviewed after cleanup/reorder/closure audit patches: exact raw declaration and body are unchanged from c1ce846e78af1bd7bf73a17ec5da8b31e26f8619; no additional scope is inferred."
+  },
+  "O02": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#copyLatestSimulationActiveOrder",
+    "signature": "copyLatestSimulationActiveOrder(Long leaderUserId, Long sourceActiveOrderId, String simulationRunId)",
+    "candidateSha256": "cfb1e37311fc362bfb31d3ad2e5218dfcc89d14cf9ea1bef557511db248147ff",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Reads frozen source, creates distinct SIM-COPY work order and simulated=true/LATEST_VERSION_COPY active order plus snapshots/tasks. Only TeamMaintenanceAuditSupport specialized events cover the copy. Separate test-fixture lifecycle; source production order is not the copied target. Re-reviewed after cleanup/reorder/closure audit patches: exact raw declaration and body are unchanged from c1ce846e78af1bd7bf73a17ec5da8b31e26f8619; no additional scope is inferred."
+  },
+  "O03": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#cleanupLatestSimulationActiveOrder",
+    "signature": "cleanupLatestSimulationActiveOrder(Long leaderUserId, Long activeOrderId)",
+    "candidateSha256": "cfb1e37311fc362bfb31d3ad2e5218dfcc89d14cf9ea1bef557511db248147ff",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Requires exact current leader, ACTIVE, simulated=true, LATEST_VERSION_COPY and nonblank run ID; refuses batch/issue/release evidence, then identity-checked runtime cleanup/deletes and specialized maintenance audit. Limited simulation fixture cleanup, not ordinary production cleanup. Re-reviewed after cleanup/reorder/closure audit patches: exact raw declaration and body are unchanged from c1ce846e78af1bd7bf73a17ec5da8b31e26f8619; no additional scope is inferred."
+  },
+  "O08": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#listActiveOrders",
+    "signature": "listActiveOrders(Long leaderUserId)",
+    "candidateSha256": "cfb1e37311fc362bfb31d3ad2e5218dfcc89d14cf9ea1bef557511db248147ff",
+    "decision": "READ_ONLY",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Selects active orders/routes/work orders/products/abnormals/release applications and calculates response progress. After arithmetic fix the scanner still follows new ActiveOrderProcessIdentity(...) as if the nested record declaration were a method; its private complete() only returns three nonnull checks. No business write or completion command; exact signature disposition is required. Re-reviewed after cleanup/reorder/closure audit patches: exact raw declaration and body are unchanged from c1ce846e78af1bd7bf73a17ec5da8b31e26f8619; no additional scope is inferred."
+  },
+  "S01": {
+    "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/configpackage/SystemConfigPackageServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.system.service.configpackage.SystemConfigPackageServiceImpl#exportPackage",
+    "signature": "exportPackage()",
+    "candidateSha256": "5d9a07cdded0c25935fb79333fb2eea99f6979b7fce461580f4f1f36b63527f0",
+    "decision": "READ_ONLY",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "loadCurrentSnapshot uses mapper SELECTs; hashSnapshot mutates local StringBuilder via append; XSSFWorkbook/ByteArrayOutputStream and createSheet/createRow/createCell are in-memory document construction. Workbook bytes returned, no config import/replaceAllConfig/JDBC update call."
+  },
+  "S02": {
+    "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/configpackage/SystemConfigPackageServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.system.service.configpackage.SystemConfigPackageServiceImpl#precheck",
+    "signature": "precheck(byte[] content, Collection<String> availableComponents)",
+    "candidateSha256": "5d9a07cdded0c25935fb79333fb2eea99f6979b7fce461580f4f1f36b63527f0",
+    "decision": "READ_ONLY",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "WorkbookFactory.create reads caller bytes; validations build error/diff lists and hash local StringBuilder; loadCurrentSnapshot SELECTs only. No invocation of importPackage or replace config writers. Not MessageDigest.update: actual scanner triggers are append and POI create methods."
+  },
+  "U01": {
+    "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/PermissionServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#hasAnyPermissions",
+    "signature": "hasAnyPermissions(Long userId, String... permissions)",
+    "candidateSha256": "81d558ffe325997fa30cce91de09501290e50f8cfe0d8463fad7d87caa50280c",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Only the temporary-role success branch invokes TemporaryRoleGrantServiceImpl.recordPermissionUse -> insertAudit(...USE...) -> temporaryRoleGrantAuditMapper.insert. Legacy permission-use telemetry, no grant/assignment change. Keep this real log writer distinct from read-only permission calculations and from unified permission assignment operations."
+  },
+  "U03": {
+    "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/PermissionServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#processRoleDeleted",
+    "signature": "processRoleDeleted(Long roleId)",
+    "candidateSha256": "81d558ffe325997fa30cce91de09501290e50f8cfe0d8463fad7d87caa50280c",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "RoleServiceImpl deleteRole/deleteRoleList legacy lifecycle -> delete user-role and role-menu rows; no permissionCommandProtocol.finish and no existing unified operation. Separate role deletion/cascade from explicitly included assignment commands. This is a known security-audit gap, not harmless or fully covered."
+  },
+  "U04": {
+    "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/PermissionServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#processMenuDeleted",
+    "signature": "processMenuDeleted(Long menuId)",
+    "candidateSha256": "81d558ffe325997fa30cce91de09501290e50f8cfe0d8463fad7d87caa50280c",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "MenuServiceImpl.deleteMenu legacy lifecycle -> roleMenuMapper.deleteListByMenuId. No unified append. Scope decision applies only to legacy menu deletion cascade, never to assignRoleMenu or production permission changes performed by that registered command."
+  },
+  "U06": {
+    "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/PermissionServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#processUserDeleted",
+    "signature": "processUserDeleted(Long userId)",
+    "candidateSha256": "81d558ffe325997fa30cce91de09501290e50f8cfe0d8463fad7d87caa50280c",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "AdminUserServiceImpl.deleteUser/deleteUserList legacy user lifecycle -> userRoleMapper.deleteListByUserId; not a call through audited assignUserRole. Known separate deletion/cascade gap; keep follow-up security owner/task visible."
+  },
+  "U07": {
+    "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/permission/PermissionServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#getDeptDataPermission",
+    "signature": "getDeptDataPermission(Long userId)",
+    "candidateSha256": "81d558ffe325997fa30cce91de09501290e50f8cfe0d8463fad7d87caa50280c",
+    "decision": "READ_ONLY",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Role/user/dept reads construct a new DeptDataPermissionRespDTO. CollUtil.addAll, CollectionUtils.addIfNotNull and result.getDeptIds().add only mutate that result's collection. No assignment/revocation API is invoked."
+  },
+  "M01": {
+    "candidate": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/maintenance/GxpAuditPolicyActivateMain.java",
+    "sourceLocator": "cn.iocoder.yudao.module.system.service.gxpaudit.maintenance.GxpAuditPolicyActivateMain#openContext",
+    "signature": "openContext(DataSource dataSource)",
+    "candidateSha256": "6c70542eea9faa76c8d988473e5d2b75083a75e93b40e89289063226fd7f6385",
+    "decision": "READ_ONLY",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "Builds an explicit Spring context with datasource, transaction manager and existing mapper/service beans. registerMapper registers bean factories only; refresh initializes MyBatis with no database migrations, runners, component scan or write methods. close releases the failed context. Actual database writes occur only in registered run -> activationService.activate inside the transaction. Maintenance context tests verify no web/scheduling/business components and real transaction proxies."
+  },
+  "NCR-03-A": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrNonconformanceReviewServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl#createCriticalDeviationReview",
+    "signature": "createCriticalDeviationReview(Long actorUserId, MesProEdhrDeviationNcrCreateReqVO reqVO)",
+    "candidateSha256": "5d25a01f7b5b5b536653aa3644c9d25ba303ca53c19770b3dec9947f16d24f8f",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "This is a real current callable writer for batch-record critical-deviation transfer, not read-only, dead code, or a subordinate covered by create/dispose. The selected R1 covers the registered active-order production/inspection/release transitions and current deviation creation/permission assignment, not this separate batch-deviation-to-NCR transfer entry. The method validates and locks the batch/selected deviations/work order, increments the review-code counter, inserts the review, persists and attaches an NCR creation signature, freezes batch/work, closes each selected deviation into the review, and records NONCONFORMANCE_REVIEW_DEVIATION_TRANSFER in the specialized ledger. It takes a unified ledger lock but never appends a unified transfer business event; signature.record.create, where present in the called signature owner, describes the signature only. No registered parent transaction encloses this controller-owned entry. Explicit local scope deferral retains the named gap; it cannot be counted as registered or ordinary exclusion coverage."
+  },
+  "NCR-03-B": {
+    "candidate": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrNonconformanceReviewServiceImpl.java",
+    "sourceLocator": "cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl#uploadMaterial",
+    "signature": "uploadMaterial(Long reviewId, String fileName, String contentType, byte[] content)",
+    "candidateSha256": "5d25a01f7b5b5b536653aa3644c9d25ba303ca53c19770b3dec9947f16d24f8f",
+    "decision": "OUT_OF_RELEASE_SCOPE",
+    "approvedBy": "admin",
+    "approvalReference": "20260929-start-local-runtime",
+    "analysis": "This is a current NCR page material-acquisition endpoint, not obsolete legacy code and not a read-only helper. It checks the pending review, validates upload security, creates an isolated storage directory, delegates to the real file writer and returns persisted file identity/metadata. It does not change the review/disposition itself. R1 is bounded to registered transitions, so this independent upload request is explicitly deferred as an auxiliary write, not represented as covered by subsequent disposition. FileServiceImpl#createFileRecord(byte[],...) uploads external content and inserts infra_file without a unified material-acquisition event; later disposition records supplied file metadata with hashAvailability NOT_RECORDED_BY_FILE_SOURCE and does not retroactively audit upload or prove content-byte integrity."
+  }
+}

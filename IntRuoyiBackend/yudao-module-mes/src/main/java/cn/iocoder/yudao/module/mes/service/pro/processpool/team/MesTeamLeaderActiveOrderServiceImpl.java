@@ -178,6 +178,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private MesProProcessMapper processMapper;
     @Resource
     private GxpAuditService gxpAuditService;
+    @Resource
+    private javax.sql.DataSource dataSource;
 
     static final String STATUS_ACTIVE = "ACTIVE";
     static final String STATUS_REMOVED = "REMOVED";
@@ -2340,6 +2342,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
         Long tenantId = currentTenantId();
         List<Long> processPoolIds = resolveCleanupProcessPoolIds();
+        Map<String, List<Map<String, Object>>> beforeRows = captureDataCleanupRows(tenantId,
+                historyOrderIds, workOrderIds, bindingIds, feedbackIds, importRecordIds, pqcTaskIds, processPoolIds);
+        String beforeCleanupJson = dataCleanupAuditJson(tenantId, orderIds, workOrderIds, beforeRows);
         deleteIfAnyPresent(eventIds, workOrderIds,
                 () -> dataCleanupMapper.deleteFifoAllocationLines(tenantId, eventIds, workOrderIds));
         deleteIfPresent(processPoolIds, () -> dataCleanupMapper.deleteProcessPoolRowsByIds(tenantId, processPoolIds));
@@ -2427,11 +2432,147 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 "activeOrderCount=" + orderIds.size() + ",reportEventCount=" + eventIds.size()
                         + ",batchExecutionCount=" + batchIds.size()
                         + ",releaseApplicationCount=" + releaseApplicationIds.size());
+        appendDataCleanupGxpAudit(leaderUserId, tenantId, historyOrders, beforeCleanupJson,
+                dataCleanupAuditJson(tenantId, orderIds, workOrderIds, rereadDataCleanupRows(tenantId, beforeRows)));
         return MesTeamLeaderDataCleanupResult.builder().activeOrderCount(orderIds.size())
                 .reportEventCount(eventIds.size()).batchExecutionCount(batchIds.size())
                 .batchRecordExecutionCount(executionIds.size())
                 .releaseApplicationCount(releaseApplicationIds.size())
                 .releaseTransactionCount(releaseTransactionIds.size()).build();
+    }
+
+
+    /**
+     * Exact physical cleanup rows, including soft-deleted children. These SELECTs mirror the
+     * reachable DELETE predicates below the ordinary-cleanup evidence guards. JDBC participates
+     * in the same DataSource transaction as the MyBatis cleanup and GxP writers.
+     */
+    private Map<String, List<Map<String, Object>>> captureDataCleanupRows(
+            Long tenantId, List<Long> historyOrderIds, List<Long> workOrderIds,
+            List<Long> bindingIds, List<Long> feedbackIds, List<Long> importRecordIds,
+            List<Long> pqcTaskIds, List<Long> processPoolIds) {
+        Map<String, List<Map<String, Object>>> rows = new LinkedHashMap<>();
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("orders", historyOrderIds);
+        parameters.put("workOrders", workOrderIds);
+        parameters.put("bindings", bindingIds);
+        parameters.put("feedbacks", feedbackIds);
+        parameters.put("imports", importRecordIds);
+        parameters.put("tasks", pqcTaskIds);
+        parameters.put("pools", processPoolIds);
+        captureCleanupRows(rows, "mes_pro_process_pool_active_order", "id", "orders", parameters);
+        for (String table : List.of("mes_pro_process_pool_active_order_process_snapshot",
+                "mes_pqc_inspection_task", "mes_pqc_process_inspection_aggregate_detail",
+                "mes_pro_process_pool_report_allocation", "mes_pro_process_pool_report_allocation_adjustment_audit",
+                "mes_pro_process_pool_active_order_completion_receipt",
+                "mes_pro_process_pool_active_order_completion_backfill",
+                "mes_pro_process_pool_active_order_transfer_trace",
+                "mes_pro_process_pool_active_order_pick_list_binding")) {
+            captureCleanupRows(rows, table, "active_order_id", "orders", parameters);
+        }
+        captureCleanupRows(rows, "mes_pqc_inspection_piece_detail", "task_id", "tasks", parameters);
+        captureCleanupRows(rows, "mes_pro_process_pool_order_process_completion", "work_order_id", "workOrders", parameters);
+        captureCleanupRows(rows, "mes_pro_process_pool_work_order_abnormal", "work_order_id", "workOrders", parameters);
+        captureCleanupRows(rows, "mes_pro_process_pool_active_order_pick_list_binding_item", "binding_id", "bindings", parameters);
+        captureCleanupRows(rows, "mes_pro_feedback", "work_order_id", "workOrders", parameters);
+        captureCleanupRows(rows, "mes_pro_feedback_import_record", "feedback_id", "feedbacks", parameters);
+        captureCleanupRows(rows, "mes_pro_process_pool_fifo_allocation_line", "target_work_order_id", "workOrders", parameters);
+        captureCleanupRows(rows, "mes_pro_process_pool", "id", "pools", parameters);
+        rows.put("mes_pro_feedback_material", selectCleanupAuditRows("mes_pro_feedback_material",
+                cleanupScopePredicate(parameters, Map.of("active_order_id", "orders", "feedback_id", "feedbacks")), parameters));
+        rows.put("mes_pro_process_pool_active_order_version_upgrade_request", selectCleanupAuditRows(
+                "mes_pro_process_pool_active_order_version_upgrade_request",
+                cleanupScopePredicate(parameters, Map.of("source_active_order_id", "orders",
+                        "target_active_order_id", "orders", "source_work_order_id", "workOrders")), parameters));
+        var surplusPools = selectCleanupAuditRows("mes_pro_feedback_surplus_pool",
+                cleanupScopePredicate(parameters, Map.of("source_feedback_id", "feedbacks",
+                        "source_import_record_id", "imports")), parameters);
+        rows.put("mes_pro_feedback_surplus_pool", surplusPools);
+        parameters.put("surplusPools", surplusPools.stream().map(row -> row.get("id")).toList());
+        rows.put("mes_pro_feedback_surplus_allocation", selectCleanupAuditRows("mes_pro_feedback_surplus_allocation",
+                cleanupScopePredicate(parameters, Map.of("pool_id", "surplusPools",
+                        "import_record_id", "imports")), parameters));
+        return rows;
+    }
+
+    private void captureCleanupRows(Map<String, List<Map<String, Object>>> rows, String table,
+                                    String column, String parameter, Map<String, Object> parameters) {
+        rows.put(table, selectCleanupAuditRows(table,
+                cleanupScopePredicate(parameters, Map.of(column, parameter)), parameters));
+    }
+
+    private String cleanupScopePredicate(Map<String, Object> parameters, Map<String, String> fields) {
+        return fields.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                .filter(entry -> !((Collection<?>) parameters.get(entry.getValue())).isEmpty())
+                .map(entry -> entry.getKey() + " IN (:" + entry.getValue() + ")")
+                .collect(Collectors.joining(" OR "));
+    }
+
+    private List<Map<String, Object>> selectCleanupAuditRows(String table, String predicate,
+                                                            Map<String, Object> parameters) {
+        // No IDs means an empty physical deletion scope, never an unrestricted tenant query.
+        if (predicate.isEmpty()) {
+            return List.of();
+        }
+        return new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(dataSource)
+                .queryForList("SELECT * FROM " + table + " WHERE tenant_id = :tenantId AND ("
+                        + predicate + ") ORDER BY id FOR UPDATE", parameters);
+    }
+
+    private Map<String, List<Map<String, Object>>> rereadDataCleanupRows(
+            Long tenantId, Map<String, List<Map<String, Object>>> beforeRows) {
+        Map<String, List<Map<String, Object>>> rows = new LinkedHashMap<>();
+        beforeRows.forEach((table, before) -> {
+            List<Object> ids = before.stream().map(row -> row.get("id")).toList();
+            rows.put(table, selectCleanupAuditRows(table, ids.isEmpty() ? "" : "id IN (:ids)",
+                    Map.of("tenantId", tenantId, "ids", ids)));
+        });
+        return rows;
+    }
+
+    private String dataCleanupAuditJson(Long tenantId, List<Long> orderIds, List<Long> workOrderIds,
+                                        Map<String, List<Map<String, Object>>> rows) {
+        Map<String, Object> state = new LinkedHashMap<>();
+        state.put("tenantId", tenantId);
+        state.put("softRemoveActiveOrderIds", orderIds);
+        state.put("workOrderIds", workOrderIds);
+        state.put("tables", rows);
+        return JsonUtils.toJsonString(state);
+    }
+
+    private void appendDataCleanupGxpAudit(Long leaderUserId, Long tenantId,
+                                           List<MesProcessPoolActiveOrderDO> historyOrders,
+                                           String beforeJson, String afterJson) {
+        List<GxpAuditRelation> links = new ArrayList<>();
+        links.add(new GxpAuditRelation("SUBJECT", "TENANT", String.valueOf(tenantId), null, null));
+        links.add(new GxpAuditRelation("ACTOR", "SYSTEM_USER", String.valueOf(leaderUserId), null, null));
+        for (MesProcessPoolActiveOrderDO order : historyOrders) {
+            links.add(new GxpAuditRelation("AFFECTED", "ACTIVE_ORDER", String.valueOf(order.getId()), null, null));
+        }
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .operationId("mes.active-order.data-cleanup")
+                .subjectId("MES_RUNTIME_CLEANUP:" + tenantId)
+                // This collection has no persisted aggregate revision. Child versions are in the states.
+                .subjectVersion("UNVERSIONED")
+                .reason("生产组长清理已确认范围内的运行数据")
+                .reasonSource("SYSTEM")
+                .beforeState(GxpAuditStateEnvelope.builder().state("PRESENT").canonicalJson(beforeJson).build())
+                .afterState(GxpAuditStateEnvelope.builder().state("PRESENT").canonicalJson(afterJson).build())
+                .idempotencyKey("CLEANUP:" + DigestUtil.sha256Hex(tenantId + ":" + leaderUserId + ":" + beforeJson))
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator("cn.iocoder.yudao.module.mes.service.pro.processpool.team."
+                        + "MesTeamLeaderActiveOrderServiceImpl#executeDataCleanup")
+                .links(links)
+                .build());
+    }
+
+    private String activeOrderReorderAuditJson(MesProcessPoolActiveOrderDO target,
+                                               MesProcessPoolActiveOrderDO adjacent) {
+        Map<String, Object> state = new LinkedHashMap<>();
+        state.put("target", JSONObject.parseObject(activeOrderAuditJson(target)));
+        state.put("adjacent", JSONObject.parseObject(activeOrderAuditJson(adjacent)));
+        return JsonUtils.toJsonString(state);
     }
 
     private boolean hasHistoricalChildEvidence(List<Long> activeOrderIds, List<Long> workOrderIds) {
@@ -2608,6 +2749,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 || (!"UP".equals(reqBO.getDirection()) && !"DOWN".equals(reqBO.getDirection()))) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "moveActiveOrder");
         }
+        gxpAuditService.acquireLedgerLock();
         List<MesProcessPoolActiveOrderDO> activeOrders =
                 activeOrderMapper.selectActiveListByLeaderForUpdate(reqBO.getLeaderUserId());
         int targetIndex = -1;
@@ -2631,6 +2773,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 || Objects.equals(target.getSortOrder(), adjacent.getSortOrder())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_MOVE_INVALID, "活跃订单排序值缺失或重复");
         }
+        if (target.getVersion() == null || adjacent.getVersion() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder.version");
+        }
+        String beforeReorderJson = activeOrderReorderAuditJson(target, adjacent);
+        Integer beforeTargetVersion = target.getVersion();
         int updated = activeOrderMapper.swapActiveOrderSortOrders(reqBO.getLeaderUserId(),
                 target.getId(), target.getSortOrder(), adjacent.getId(), adjacent.getSortOrder());
         if (updated != 2) {
@@ -2642,6 +2789,36 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 + ",adjacentId=" + adjacent.getId() + ",adjacentSortOrder=" + target.getSortOrder();
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "MOVE_ACTIVE_ORDER",
                 "ACTIVE_ORDER", target.getId(), beforeSnapshot, afterSnapshot);
+        MesProcessPoolActiveOrderDO persistedTarget = activeOrderMapper.selectByIdForUpdate(target.getId());
+        MesProcessPoolActiveOrderDO persistedAdjacent = activeOrderMapper.selectByIdForUpdate(adjacent.getId());
+        if (persistedTarget == null || persistedAdjacent == null
+                || !Objects.equals(persistedTarget.getSortOrder(), adjacent.getSortOrder())
+                || !Objects.equals(persistedAdjacent.getSortOrder(), target.getSortOrder())
+                || !Objects.equals(persistedTarget.getVersion(), beforeTargetVersion + 1)
+                || !Objects.equals(persistedAdjacent.getVersion(), adjacent.getVersion() + 1)) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_MOVE_INVALID, "排序写入后状态不一致");
+        }
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .operationId("mes.active-order.reorder")
+                .subjectId("MES_ACTIVE_ORDER:" + target.getId())
+                .subjectVersion(String.valueOf(persistedTarget.getVersion()))
+                .reason("生产组长调整活跃订单生产优先顺序").reasonSource("SYSTEM")
+                .beforeState(GxpAuditStateEnvelope.builder().state("PRESENT")
+                        .objectVersion(String.valueOf(beforeTargetVersion)).canonicalJson(beforeReorderJson).build())
+                .afterState(GxpAuditStateEnvelope.builder().state("PRESENT")
+                        .objectVersion(String.valueOf(persistedTarget.getVersion()))
+                        .canonicalJson(activeOrderReorderAuditJson(persistedTarget, persistedAdjacent)).build())
+                .idempotencyKey("ACTIVE_ORDER:" + target.getId() + ":REORDER:" + persistedTarget.getVersion())
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator("cn.iocoder.yudao.module.mes.service.pro.processpool.team."
+                        + "MesTeamLeaderActiveOrderServiceImpl#moveActiveOrder")
+                .links(List.of(
+                        new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER", String.valueOf(target.getId()),
+                                String.valueOf(persistedTarget.getVersion()), null),
+                        new GxpAuditRelation("AFFECTED", "ACTIVE_ORDER", String.valueOf(adjacent.getId()),
+                                String.valueOf(persistedAdjacent.getVersion()), null),
+                        new GxpAuditRelation("ACTOR", "SYSTEM_USER", String.valueOf(reqBO.getLeaderUserId()), null, null)))
+                .build());
     }
 
     @Override
@@ -2661,16 +2838,20 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_VERSION_CONFLICT,
                     activeOrderId, expectedVersion, activeOrder.getVersion());
         }
+        String beforeSnapshot = JsonUtils.toJsonString(activeOrder);
         LocalDateTime releasedAt = LocalDateTime.now();
         if (activeOrderMapper.closeForRelease(activeOrderId, expectedVersion,
                 releaseDecisionId, actorUserId, releasedAt) != 1) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_VERSION_CONFLICT,
                     activeOrderId, expectedVersion, activeOrder.getVersion());
         }
-        String afterSnapshot = "activeStatus=CLOSED,businessStatus=RELEASED,releaseDecisionId="
-                + releaseDecisionId + ",releasedBy=" + actorUserId + ",releasedAt=" + releasedAt;
+        MesProcessPoolActiveOrderDO persistedAfter = activeOrderMapper.selectByIdForUpdate(activeOrderId);
+        if (persistedAfter == null) {
+            throw new IllegalStateException("Released active order disappeared: " + activeOrderId);
+        }
+        String afterSnapshot = JsonUtils.toJsonString(persistedAfter);
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, actorUserId, "CLOSE_ACTIVE_ORDER_BY_RELEASE",
-                "ACTIVE_ORDER", activeOrderId, activeOrder.toString(), afterSnapshot);
+                "ACTIVE_ORDER", activeOrderId, beforeSnapshot, afterSnapshot);
         List<GxpAuditRelation> links = new ArrayList<>();
         links.add(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
                 String.valueOf(activeOrderId), String.valueOf(expectedVersion + 1), null));
@@ -2690,7 +2871,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .beforeState(GxpAuditStateEnvelope.builder()
                         .state("ACTIVE")
                         .objectVersion(String.valueOf(expectedVersion))
-                        .canonicalJson(JsonUtils.toJsonString(activeOrder))
+                        .canonicalJson(beforeSnapshot)
                         .build())
                 .afterState(GxpAuditStateEnvelope.builder()
                         .state("CLOSED")

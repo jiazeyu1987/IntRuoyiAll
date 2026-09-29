@@ -555,6 +555,9 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 batchExecutionOriginMapper);
         org.springframework.test.util.ReflectionTestUtils.setField(applicationService, "gxpAuditService",
                 mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
+        // This test covers cycle/batch binding; persisted release audit content has its own H2 regression.
+        org.springframework.test.util.ReflectionTestUtils.setField(applicationService, "affectedStates",
+                mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class));
         List<Long> batches = new ArrayList<>();
         cycle.exerciseTwoReworks(receipt -> {
             String receiptId = String.valueOf(receipt.getId());

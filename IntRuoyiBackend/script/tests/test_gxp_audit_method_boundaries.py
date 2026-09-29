@@ -25,7 +25,7 @@ def fixture(tmp_path, body):
                        expectedMinCandidates=0,
                        unregisteredDisposition=dict(decision="FAIL", reasonCode="UNREGISTERED", reason="Review entry"))
                   for kind in sorted(gate.BOUNDARY_SOURCE_TYPES)]
-    policy = dict(coverageScope=dict(writeBoundaryScan=dict(registrationMode="REGISTERED_OR_APPROVED_EXCLUSION",
+    policy = dict(coverageScope=dict(writeBoundaryScan=dict(registrationMode="REGISTERED_OR_APPROVED_EXCLUSION", candidateHashMode="UTF8_LF_SHA256",
                                         approvedExclusionsFile="approved.jsonl", categories=categories)))
     operations = [gate.Operation(dict(operationId="order.add", sourceType="SERVICE_METHOD",
                                       sourceLocators=["demo.OrderService#addOrder"]))]
@@ -165,7 +165,7 @@ def test_private_helper_and_lexical_decoys_are_not_independent_entries(tmp_path)
     report = tmp_path / "boundaries.jsonl"
     gate.validate_boundary_scan(tmp_path, policy, operations, report)
     records = [json.loads(line) for line in report.read_text(encoding="utf-8").splitlines()]
-    assert {(record["sourceLocator"], record["decision"]) for record in records} == {
+    assert {(record["sourceLocator"], record["decision"]) for record in records if "sourceLocator" in record} == {
         ("demo.OrderService#addOrder", "REGISTERED"),
         ("demo.OrderService#insertAudit", "PRIVATE_HELPER"),
     }
@@ -319,6 +319,34 @@ def test_function_callback_may_persist_and_requires_registration(tmp_path, funct
         public void reconcile({function_type} writer) {{ writer.apply(order); }}
     """)
     source.write_text(source.read_text().replace("package demo;", "package demo; " + import_statement), encoding="utf-8")
+    with pytest.raises(SystemExit, match="#reconcile"):
+        gate.validate_boundary_scan(tmp_path, policy, operations)
+
+
+@pytest.mark.parametrize("receiver,imports", [
+    ("BigDecimal", "import java.math.BigDecimal;"),
+    ("java.math.BigDecimal", ""),
+])
+def test_immutable_arithmetic_method_reference_is_not_write(tmp_path, receiver, imports):
+    source, policy, operations = fixture(tmp_path, f"""
+        public void addOrder() {{ mapper.insert(order); }}
+        public Object total() {{ return amounts.stream().reduce(java.math.BigDecimal.ZERO, {receiver}::add); }}
+    """)
+    source.write_text(source.read_text().replace("package demo;", "package demo; " + imports), encoding="utf-8")
+    gate.validate_boundary_scan(tmp_path, policy, operations)
+
+
+@pytest.mark.parametrize("body,imports", [
+    ("public void reconcile() { amounts.forEach(BigDecimal::add); }", ""),
+    ("public void reconcile(Writer BigDecimal) { amounts.forEach(BigDecimal::add); }", "import java.math.BigDecimal;"),
+    ("private Writer BigDecimal; public void reconcile() { amounts.forEach(BigDecimal::add); }", "import java.math.BigDecimal;"),
+    ("public void reconcile() { Writer BigDecimal = writer; amounts.forEach(BigDecimal::add); }", "import java.math.BigDecimal;"),
+    ("class BigDecimal {} public void reconcile() { amounts.forEach(BigDecimal::add); }", "import java.math.BigDecimal;"),
+    ("public void reconcile() { amounts.forEach(mapper::add); }", "import java.math.BigDecimal;"),
+])
+def test_unresolved_or_shadowed_arithmetic_reference_stays_blocked(tmp_path, body, imports):
+    source, policy, operations = fixture(tmp_path, "public void addOrder() { mapper.insert(order); }" + body)
+    source.write_text(source.read_text().replace("package demo;", "package demo; " + imports), encoding="utf-8")
     with pytest.raises(SystemExit, match="#reconcile"):
         gate.validate_boundary_scan(tmp_path, policy, operations)
 

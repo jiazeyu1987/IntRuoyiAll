@@ -2,7 +2,9 @@ param(
     [ValidateSet('frontend', 'backend', 'full', 'website')]
     [string]$Component,
     [string]$WorktreeName,
-    [string]$OperationRecordPath
+    [string]$OperationRecordPath,
+    [string]$PrebuiltBackendJar,
+    [string]$PrebuiltBackendSha256
 )
 
 $ErrorActionPreference = 'Stop'
@@ -1244,42 +1246,161 @@ pnpm dev -- --strictPort
       -WindowStyle Hidden
 }
 
-function Start-Backend {
-    Require-Command 'java'
-    Require-Command 'mvn'
-    if (-not (Test-Path -LiteralPath (Join-Path $BackendDir 'pom.xml'))) {
-        Fail "Missing backend workspace: $BackendDir"
+function Get-BackendJarSha256([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        return [BitConverter]::ToString($sha256.ComputeHash($stream)).Replace('-', '')
+    } finally {
+        $sha256.Dispose()
+        $stream.Dispose()
     }
+}
+
+function Assert-BackendExecutableJar {
+    param(
+        [string]$Path,
+        [string]$ExpectedSha256
+    )
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        Fail "Missing executable backend jar: $Path"
+    }
+    $resolvedPath = (Resolve-Path -LiteralPath $Path).ProviderPath
+    if ([IO.Path]::GetExtension($resolvedPath) -ine '.jar') {
+        Fail 'Executable backend artifact must be a .jar file'
+    }
+    if ($ExpectedSha256 -cnotmatch '\A[0-9a-fA-F]{64}\z') {
+        Fail 'Expected backend SHA256 must contain exactly 64 hexadecimal characters'
+    }
+    $actualSha256 = Get-BackendJarSha256 -Path $resolvedPath
+    if ($actualSha256 -ine $ExpectedSha256) {
+        Fail "Backend jar SHA256 mismatch: $resolvedPath"
+    }
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    try {
+        $archive = [IO.Compression.ZipFile]::OpenRead($resolvedPath)
+    } catch {
+        Fail 'Invalid executable backend jar archive'
+    }
+    try {
+        $manifestEntry = $archive.GetEntry('META-INF/MANIFEST.MF')
+        if ($null -eq $manifestEntry) {
+            Fail 'Executable backend jar is missing its manifest'
+        }
+        $reader = [IO.StreamReader]::new($manifestEntry.Open())
+        try { $manifest = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        # JAR manifests fold long attributes onto lines beginning with one space.
+        $mainSection = (($manifest -replace '\r?\n ', '') -split '\r?\n\r?\n', 2)[0]
+        $attributes = @{}
+        foreach ($line in ($mainSection -split '\r?\n')) {
+            if ($line -match '^([^:]+): (.*)$') {
+                if ($attributes.ContainsKey($Matches[1])) {
+                    Fail 'Executable backend jar has duplicate manifest attributes'
+                }
+                $attributes[$Matches[1]] = $Matches[2]
+            }
+        }
+        foreach ($name in @('Main-Class', 'Start-Class')) {
+            if ($attributes[$name] -cnotmatch '\A[A-Za-z_$][A-Za-z0-9_.$]*\z') {
+                Fail "Executable backend jar is missing a valid $name"
+            }
+        }
+        if ($attributes['Spring-Boot-Classes'] -cne 'BOOT-INF/classes/' -or
+            $attributes['Spring-Boot-Lib'] -cne 'BOOT-INF/lib/') {
+            Fail 'Executable backend jar must have the full Spring Boot classes/lib layout'
+        }
+        $classPaths = @(
+            ($attributes['Main-Class'].Replace('.', '/') + '.class'),
+            ('BOOT-INF/classes/' + $attributes['Start-Class'].Replace('.', '/') + '.class')
+        )
+        foreach ($classPath in $classPaths) {
+            $entry = $archive.GetEntry($classPath)
+            if ($null -eq $entry -or $entry.Length -lt 8) {
+                Fail 'Executable backend jar is missing its launcher or application class'
+            }
+            $reader = [IO.BinaryReader]::new($entry.Open())
+            try { $magic = [BitConverter]::ToString($reader.ReadBytes(4)) } finally { $reader.Dispose() }
+            if ($magic -cne 'CA-FE-BA-BE') {
+                Fail 'Executable backend jar contains an invalid launcher or application class'
+            }
+        }
+        $libraries = @($archive.Entries | Where-Object { $_.FullName -clike 'BOOT-INF/lib/*.jar' })
+        if ($libraries.Count -eq 0) {
+            Fail 'Executable backend jar is missing its dependency libraries'
+        }
+        foreach ($library in $libraries) {
+            if ($library.Length -lt 4 -or $library.CompressedLength -ne $library.Length) {
+                Fail 'Executable backend jar dependencies must be nonempty stored JAR entries'
+            }
+            $reader = [IO.BinaryReader]::new($library.Open())
+            try { $magic = [BitConverter]::ToString($reader.ReadBytes(4)) } finally { $reader.Dispose() }
+            if ($magic -cne '50-4B-03-04') {
+                Fail 'Executable backend jar contains an invalid dependency library'
+            }
+        }
+    } finally {
+        $archive.Dispose()
+    }
+    return [pscustomobject]@{ Path = $resolvedPath; Sha256 = $actualSha256 }
+}
+
+function Assert-BackendLaunchConfiguration {
+    foreach ($name in @('OnlyOfficeBaseUrl', 'OnlyOfficePublicFileBaseUrl',
+            'DccSignatureEvidenceHmacSecret', 'DccSignatureEvidenceKeyVersion')) {
+        if ([string]::IsNullOrWhiteSpace((Get-Variable -Name $name -ValueOnly))) {
+            Fail "Missing required backend launch configuration: $name"
+        }
+    }
+}
+
+function Start-Backend {
+    $hasPrebuiltJar = -not [string]::IsNullOrEmpty($PrebuiltBackendJar)
+    $hasPrebuiltHash = -not [string]::IsNullOrEmpty($PrebuiltBackendSha256)
+    if ($hasPrebuiltJar -ne $hasPrebuiltHash) {
+        Fail 'PrebuiltBackendJar and PrebuiltBackendSha256 must be supplied together'
+    }
+    Assert-BackendLaunchConfiguration
+    Require-Command 'java'
+    if ($hasPrebuiltJar) {
+        $artifact = Assert-BackendExecutableJar -Path $PrebuiltBackendJar -ExpectedSha256 $PrebuiltBackendSha256
+    } else {
+        Require-Command 'mvn'
+        if (-not (Test-Path -LiteralPath (Join-Path $BackendDir 'pom.xml') -PathType Leaf)) {
+            Fail "Missing backend workspace: $BackendDir"
+        }
+        Push-Location -LiteralPath $RepoRoot
+        try {
+            & mvn -pl yudao-server -am '-DskipTests' package
+            if ($LASTEXITCODE -ne 0) {
+                Fail 'Backend package failed'
+            }
+        } finally {
+            Pop-Location
+        }
+        $sourceJar = Join-Path $BackendDir 'target\yudao-server-exec.jar'
+        if (-not (Test-Path -LiteralPath $sourceJar -PathType Leaf)) {
+            Fail "Missing executable backend jar after package: $sourceJar"
+        }
+        $sourceSha256 = Get-BackendJarSha256 -Path $sourceJar
+        $artifact = Assert-BackendExecutableJar -Path $sourceJar -ExpectedSha256 $sourceSha256
+    }
+    # Prepare and verify the stable runtime copy before any schema or process action.
     if (-not (Test-Path -LiteralPath $RuntimeDir)) {
         New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
     }
+    $timestamp = (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N')
+    $runtimeJar = Join-Path $RuntimeDir "backend-runtime-control-$timestamp.jar"
+    Copy-Item -LiteralPath $artifact.Path -Destination $runtimeJar
+    $null = Assert-BackendExecutableJar -Path $runtimeJar -ExpectedSha256 $artifact.Sha256
     Ensure-RequiredLocalMySqlSchema
     Assert-LocalShowroomFileConfigProtected
     Assert-LocalShowroomMediaBucketConsistency
     Assert-LocalDockerRuntimePortRoute -Name 'MySQL' -Port 23306
     Assert-LocalDockerRuntimePortRoute -Name 'Redis' -Port 26379
-    Stop-MatchingProcesses 'backend' $RuntimeDir
-    Stop-Port $BackendPort
-    Push-Location -LiteralPath $RepoRoot
-    try {
-        & mvn -pl yudao-server -am -DskipTests package
-        if ($LASTEXITCODE -ne 0) {
-            Fail 'Backend package failed'
-        }
-    } finally {
-        Pop-Location
-    }
-    $sourceJar = Join-Path $BackendDir 'target\yudao-server-exec.jar'
-    if (-not (Test-Path -LiteralPath $sourceJar)) {
-        Fail "Missing executable backend jar after package: $sourceJar"
-    }
-    $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-    $runtimeJar = Join-Path $RuntimeDir "backend-runtime-control-$timestamp.jar"
     $backendLogDir = Join-Path $RuntimeDir 'logs'
     $backendLogFile = Join-Path $backendLogDir 'yudao-server.log'
     New-Item -ItemType Directory -Force -Path $backendLogDir | Out-Null
-    Copy-Item -LiteralPath $sourceJar -Destination $runtimeJar -Force
-    Stop-Port $BackendPort
     $backendScript = @"
 `$env:DCC_ONLYOFFICE_BASE_URL = '$OnlyOfficeBaseUrl'
 `$env:DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL = '$OnlyOfficePublicFileBaseUrl'
@@ -1307,6 +1428,8 @@ Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
 & java @backendArgs
 "@
     $backendEncoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($backendScript))
+    Stop-MatchingProcesses 'backend' $RuntimeDir
+    Stop-Port $BackendPort
     Start-Process -FilePath 'powershell.exe' -ArgumentList @(
         '-NoProfile',
         '-ExecutionPolicy', 'Bypass',

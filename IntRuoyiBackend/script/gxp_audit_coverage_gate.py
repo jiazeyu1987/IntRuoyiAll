@@ -30,6 +30,7 @@ APPROVED_EXCLUSION_FIELDS = {
     "approvedBy",
     "approvalReference",
 }
+FILE_SCOPE_FIELDS = {"evidenceReference", "futureOwnerRole", "futureTaskReference"}
 BOUNDARY_PATTERNS = {
     "CONTROLLER": re.compile(r"@(PostMapping|PutMapping|DeleteMapping|PatchMapping)\b"),
     "DOMAIN_SERVICE": re.compile(
@@ -128,6 +129,19 @@ def java_methods(text: str) -> tuple[str, list[JavaMethod]]:
 def explicit_value_call(method: JavaMethod, source: str, receiver: str | None,
                         name: str, offset: int) -> bool:
     """Disambiguate BigDecimal.add only; callbacks may have arbitrary side effects."""
+    if name == "add" and receiver in ("BigDecimal", "java.math.BigDecimal"):
+        reference = re.match(re.escape(receiver) + r"\s*::\s*add\b", method.body[offset:])
+        root_name = receiver.split(".")[0]
+        # A type-looking name may instead resolve to a field, local, parameter,
+        # nested type or type parameter. Keep ambiguous names fail-closed.
+        shadowed = re.search(
+            r"\b(?:class|interface|record|enum)\s+" + root_name + r"\b"
+            + r"|\b[\w.<>?\[\]]+\s+" + root_name + r"\s*(?=[=,;)\[:])"
+            + r"|<\s*" + root_name + r"\s*(?:>|,|extends\b)", source)
+        imported = receiver == "java.math.BigDecimal" or re.search(
+            r"\bimport\s+java\.math\.BigDecimal\s*;", source)
+        if reference and imported and not shadowed:
+            return True
     if name != "add" or receiver is None or not re.fullmatch(r"\w+", receiver):
         return False
     qualified = "java.math.BigDecimal"
@@ -434,18 +448,21 @@ def load_approved_exclusions(root: Path, scan: dict[str, object]) -> dict[tuple[
             payload = json.loads(raw_line)
         except json.JSONDecodeError as error:
             raise SystemExit(f"approved exclusion inventory line {line_number} is not valid JSON: {error}") from error
-        if not isinstance(payload, dict) or set(payload) != APPROVED_EXCLUSION_FIELDS:
+        fields = APPROVED_EXCLUSION_FIELDS
+        if isinstance(payload, dict) and payload.get("decision") in {"REVIEWED_OUT_OF_RELEASE_SCOPE", "REVIEWED_MIXED_SCOPE", "REVIEWED_DELEGATED_EFFECT"}:
+            fields = fields | FILE_SCOPE_FIELDS
+        if not isinstance(payload, dict) or set(payload) != fields:
             raise SystemExit(
                 f"approved exclusion inventory line {line_number} must contain exactly "
-                f"{sorted(APPROVED_EXCLUSION_FIELDS)}"
+                f"{sorted(fields)}"
             )
-        record = {key: str(payload[key]).strip() for key in APPROVED_EXCLUSION_FIELDS}
+        record = {key: str(payload[key]).strip() for key in fields}
         source_type = record["sourceType"]
         candidate = record["candidate"]
         if source_type not in BOUNDARY_SOURCE_TYPES:
             raise SystemExit(f"approved exclusion inventory line {line_number} has unsupported sourceType: {source_type}")
-        if record["decision"] != "APPROVED_EXCLUSION":
-            raise SystemExit(f"approved exclusion inventory line {line_number} must be APPROVED_EXCLUSION")
+        if record["decision"] not in {"APPROVED_EXCLUSION", "REVIEWED_OUT_OF_RELEASE_SCOPE", "REVIEWED_MIXED_SCOPE", "REVIEWED_DELEGATED_EFFECT"}:
+            raise SystemExit(f"approved exclusion inventory line {line_number} has an unsupported decision")
         if not candidate or Path(candidate).is_absolute() or "\\" in candidate:
             raise SystemExit(f"approved exclusion inventory line {line_number} has invalid candidate path: {candidate}")
         candidate_path = (root / Path(candidate)).resolve()
@@ -457,7 +474,7 @@ def load_approved_exclusions(root: Path, scan: dict[str, object]) -> dict[tuple[
             raise SystemExit(f"approved exclusion inventory line {line_number} candidate does not resolve: {candidate}")
         if not re.fullmatch(r"[0-9a-f]{64}", record["candidateSha256"]):
             raise SystemExit(f"approved exclusion inventory line {line_number} has invalid candidateSha256")
-        if any(not record[field] for field in APPROVED_EXCLUSION_FIELDS - {"candidateSha256"}):
+        if any(not record[field] for field in fields - {"candidateSha256"}):
             raise SystemExit(f"approved exclusion inventory line {line_number} contains an empty approval field")
         if candidate not in record["reason"] or record["candidateSha256"] not in record["reason"]:
             raise SystemExit(f"approved exclusion inventory line {line_number} reason is not candidate-specific")
@@ -468,14 +485,158 @@ def load_approved_exclusions(root: Path, scan: dict[str, object]) -> dict[tuple[
     return records
 
 
-def write_boundary_report(path: Path, records: list[dict[str, str]]) -> None:
-    if not path.parent.is_dir():
-        raise SystemExit(f"boundary report parent directory does not exist: {path.parent}")
+def validate_file_scope_review(root: Path, policy: dict, record: dict) -> None:
+    if policy.get("coverageScope", {}).get("mode") != "R1":
+        raise SystemExit("file scope exclusions cannot satisfy FULL_COVERAGE")
+    if record["approvalReference"] != policy.get("approvalReference"):
+        raise SystemExit("file scope approval reference does not match policy")
+    relative, separator, review_id = record["evidenceReference"].partition("#")
+    path = (root / relative).resolve()
+    if not separator or not review_id or not path.is_relative_to(root) or not path.is_file():
+        raise SystemExit("file scope evidence is missing or outside repository")
+    try:
+        review = json.loads(path.read_text(encoding="utf-8"))[review_id]
+    except (ValueError, KeyError, TypeError) as error:
+        raise SystemExit("invalid file scope evidence") from error
+    identity = {"candidate", "candidateSha256", "decision", "approvedBy", "approvalReference",
+                "futureOwnerRole", "futureTaskReference"}
+    if (not isinstance(review, dict) or any(review.get(key) != record[key] for key in identity)
+            or not isinstance(review.get("analysis"), str) or not review["analysis"].strip()):
+        raise SystemExit("file scope review identity, follow-up or analysis is invalid")
+    if record["decision"] in {"REVIEWED_MIXED_SCOPE", "REVIEWED_DELEGATED_EFFECT"}:
+        delegations = review.get("delegations")
+        gaps = review.get("outOfScopeEffects")
+        if (not isinstance(delegations, list) or not delegations or not isinstance(gaps, list)
+                or (record["decision"] == "REVIEWED_MIXED_SCOPE" and not gaps)
+                or (record["decision"] == "REVIEWED_DELEGATED_EFFECT" and gaps)):
+            raise SystemExit("mixed scope requires explicit delegated effects and separate scope gaps")
+        dependencies = review.get("dependentSources")
+        if not isinstance(dependencies, list) or not dependencies:
+            raise SystemExit("mixed scope requires exact delegate source fingerprints")
+        for dependency in dependencies:
+            if not isinstance(dependency, dict) or set(dependency) != {"candidate", "candidateSha256"}:
+                raise SystemExit("mixed scope dependency identity is invalid")
+            relative_dependency = dependency["candidate"]
+            if not isinstance(relative_dependency, str):
+                raise SystemExit("mixed scope dependency path is invalid")
+            source = (root / relative_dependency).resolve()
+            if (not source.is_relative_to(root) or not source.is_file()
+                    or source_sha256(source) != dependency["candidateSha256"]):
+                raise SystemExit("mixed scope delegate source is missing or changed")
+        known = {operation["operationId"] for operation in policy["operations"]}
+        delegated = set()
+        for effect in delegations:
+            if (not isinstance(effect, dict)
+                    or any(not isinstance(effect.get(key), str) or not effect[key].strip()
+                           for key in ("effect", "analysis"))
+                    or not isinstance(effect.get("operationIds"), list) or not effect["operationIds"]
+                    or any(not isinstance(operation, str) or operation not in known
+                           for operation in effect["operationIds"])):
+                raise SystemExit("mixed scope delegation lacks proof or references an unknown operation")
+            delegated.update(effect["operationIds"])
+        for effect in gaps:
+            if (not isinstance(effect, dict)
+                    or any(not isinstance(effect.get(key), str) or not effect[key].strip()
+                           for key in ("effect", "analysis", "futureOwnerRole", "futureTaskReference"))):
+                raise SystemExit("mixed scope gap lacks analysis, owner or follow-up")
+        record["delegatedOperationIds"] = sorted(delegated)
+        record["outOfScopeEffectCount"] = len(gaps)
+    record["reviewEvidenceSha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def source_sha256(path: Path) -> str:
+    # One declared representation, not alternate-hash matching. Content changes
+    # still invalidate approval; only the checkout newline convention is normalized.
+    content = path.read_bytes().decode("utf-8").replace("\r\n", "\n")
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def boundary_report_bytes(records: list[dict[str, str]]) -> bytes:
     content = "\n".join(
         json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         for record in records
     )
-    path.write_text(f"{content}\n" if content else "", encoding="utf-8")
+    return (f"{content}\n" if content else "").encode("utf-8")
+
+
+def write_boundary_report(path: Path, records: list[dict[str, str]]) -> None:
+    if not path.parent.is_dir():
+        raise SystemExit(f"boundary report parent directory does not exist: {path.parent}")
+    path.write_bytes(boundary_report_bytes(records))
+
+
+def apply_reviewed_method_scope(root: Path, policy: dict, records: list[dict],
+                                errors: list[str]) -> None:
+    """Consume explicit R1 review evidence; never infer an exclusion from a class."""
+    used: set[tuple[str, str]] = set()
+    for exclusion in policy.get("coverageScope", {}).get("excludedReferences", []):
+        required = {"reference", "reason", "evidenceReference", "futureOwnerRole", "futureTaskReference"}
+        if not isinstance(exclusion, dict) or any(not str(exclusion.get(k, "")).strip() for k in required):
+            raise SystemExit("method scope exclusion requires complete review and follow-up metadata")
+        relative, separator, review_id = exclusion["evidenceReference"].partition("#")
+        evidence_path = (root / relative).resolve()
+        if not separator or not review_id or not evidence_path.is_relative_to(root) or not evidence_path.is_file():
+            raise SystemExit("method scope review evidence is missing or outside the repository")
+        try:
+            document = json.loads(evidence_path.read_text(encoding="utf-8"))
+            review = document[review_id]
+        except (ValueError, KeyError, TypeError) as error:
+            raise SystemExit("method scope review evidence is invalid") from error
+        review_fields = {"candidate", "sourceLocator", "signature", "candidateSha256", "decision",
+                         "approvedBy", "approvalReference", "analysis"}
+        if not isinstance(review, dict) or any(not isinstance(review.get(k), str) or not review[k].strip()
+                                              for k in review_fields):
+            raise SystemExit("method scope review has missing evidence or approval")
+        if review["approvalReference"] != policy.get("approvalReference"):
+            raise SystemExit("method scope approval reference does not match the policy")
+        decision = review["decision"]
+        if decision not in {"READ_ONLY", "OUT_OF_RELEASE_SCOPE", "DELEGATED_EFFECT", "MIXED_SCOPE"}:
+            raise SystemExit("unknown method scope decision")
+        if decision in {"OUT_OF_RELEASE_SCOPE", "MIXED_SCOPE"} and policy.get("coverageScope", {}).get("mode") != "R1":
+            raise SystemExit("out-of-release-scope review cannot satisfy FULL_COVERAGE")
+        matches = [record for record in records if record["sourceLocator"] == review["sourceLocator"]
+                   and record["signature"] == review["signature"] and record["candidate"] == review["candidate"]]
+        identity = (review["sourceLocator"], review["signature"])
+        if len(matches) != 1 or identity in used or matches[0]["decision"] != "UNREGISTERED_ENTRY":
+            raise SystemExit("method scope review does not resolve one unregistered declaration")
+        candidate = (root / review["candidate"]).resolve()
+        if not candidate.is_relative_to(root) or source_sha256(candidate) != review["candidateSha256"]:
+            raise SystemExit("method scope source SHA-256 changed; review is stale")
+        if decision in {"DELEGATED_EFFECT", "MIXED_SCOPE"}:
+            operations = review.get("operationIds")
+            known = {operation["operationId"] for operation in policy["operations"]}
+            if (not isinstance(operations, list) or not operations
+                    or any(not isinstance(operation, str) or operation not in known for operation in operations)):
+                raise SystemExit("method delegate has missing or unknown operation identities")
+            dependencies = review.get("dependentSources")
+            if not isinstance(dependencies, list) or not dependencies:
+                raise SystemExit("method delegate requires exact owner source evidence")
+            for dependency in dependencies:
+                if (not isinstance(dependency, dict) or set(dependency) != {"candidate", "candidateSha256"}
+                        or not isinstance(dependency["candidate"], str)):
+                    raise SystemExit("method delegate dependency identity is invalid")
+                owner_source = (root / dependency["candidate"]).resolve()
+                if (not owner_source.is_relative_to(root) or not owner_source.is_file()
+                        or source_sha256(owner_source) != dependency["candidateSha256"]):
+                    raise SystemExit("method delegate owner source is missing or changed")
+            matches[0]["delegatedOperationIds"] = sorted(set(operations))
+        if decision == "MIXED_SCOPE":
+            gaps = review.get("outOfScopeEffects")
+            if not isinstance(gaps, list) or not gaps:
+                raise SystemExit("mixed method requires explicit separate scope gaps")
+            for effect in gaps:
+                if (not isinstance(effect, dict)
+                        or any(not isinstance(effect.get(key), str) or not effect[key].strip()
+                               for key in ("effect", "analysis", "futureOwnerRole", "futureTaskReference"))):
+                    raise SystemExit("mixed method gap lacks analysis, owner or follow-up")
+            matches[0]["outOfScopeEffectCount"] = len(gaps)
+        used.add(identity)
+        record = matches[0]
+        record.update(decision="REVIEWED_" + decision, reviewReference=exclusion["reference"],
+                      reviewEvidenceSha256=hashlib.sha256(evidence_path.read_bytes()).hexdigest(),
+                      reviewSourceSha256=review["candidateSha256"], scopeReason=exclusion["reason"])
+        prefix = f"unregistered write entry {record['sourceLocator']} at {record['candidate']}:{record['line']}; "
+        errors[:] = [error for error in errors if not error.startswith(prefix)]
 
 
 def validate_boundary_scan(
@@ -487,6 +648,8 @@ def validate_boundary_scan(
     scan = policy.get("coverageScope", {}).get("writeBoundaryScan")
     if not isinstance(scan, dict) or scan.get("registrationMode") != "REGISTERED_OR_APPROVED_EXCLUSION":
         raise SystemExit("writeBoundaryScan.registrationMode must be REGISTERED_OR_APPROVED_EXCLUSION")
+    if scan.get("candidateHashMode") != "UTF8_LF_SHA256":
+        raise SystemExit("writeBoundaryScan.candidateHashMode must explicitly be UTF8_LF_SHA256")
     categories = scan.get("categories")
     if not isinstance(categories, list) or {category.get("sourceType") for category in categories} != BOUNDARY_SOURCE_TYPES:
         raise SystemExit("writeBoundaryScan must configure all required source types")
@@ -498,8 +661,12 @@ def validate_boundary_scan(
             records, findings = registered_method_records(root, candidate, operations)
             method_records.extend(records)
             errors.extend(findings)
+    apply_reviewed_method_scope(root, policy, method_records, errors)
     approved_exclusions = load_approved_exclusions(root, scan)
-    rows: list[str] = []
+    for record in approved_exclusions.values():
+        if record["decision"] in {"REVIEWED_OUT_OF_RELEASE_SCOPE", "REVIEWED_MIXED_SCOPE", "REVIEWED_DELEGATED_EFFECT"}:
+            validate_file_scope_review(root, policy, record)
+    registered_records: list[dict[str, str]] = []
     exclusion_records: list[dict[str, str]] = []
     total_candidates = 0
     total_registered = 0
@@ -526,7 +693,7 @@ def validate_boundary_scan(
                 seen_operation_files.add(candidate)
             else:
                 total_exclusions += 1
-            candidate_sha256 = hashlib.sha256(candidate.read_bytes()).hexdigest()
+            candidate_sha256 = source_sha256(candidate)
             source_type = str(category["sourceType"])
             inventory_key = (source_type, relative)
             if is_registered:
@@ -540,6 +707,7 @@ def validate_boundary_scan(
                     "decision": "REGISTERED",
                     "sourceType": source_type,
                 }
+                registered_records.append(record)
             else:
                 approved = approved_exclusions.get(inventory_key)
                 if approved is None:
@@ -559,7 +727,6 @@ def validate_boundary_scan(
                 record = dict(approved)
                 record["candidateSha256"] = candidate_sha256
                 exclusion_records.append(record)
-            rows.append(json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
     discovered_exclusions = {
         (record["sourceType"], record["candidate"])
         for record in exclusion_records
@@ -572,18 +739,16 @@ def validate_boundary_scan(
     if unaccounted:
         errors.append("registered operation source files are outside the scanned boundary: "
                          + ", ".join(sorted(path.relative_to(root).as_posix() for path in unaccounted)))
-    all_records = method_records + exclusion_records
+    all_records = method_records + registered_records + exclusion_records
     if report_path is not None:
         write_boundary_report(report_path, all_records)
     if errors:
         raise SystemExit("FAIL gxp audit coverage gate\n" + "\n".join(errors))
-    rows.extend(json.dumps(record, ensure_ascii=False, sort_keys=True) for record in method_records)
-    report = "\n".join(sorted(rows))
     return (
         total_candidates,
         total_registered,
         total_exclusions,
-        hashlib.sha256(report.encode("utf-8")).hexdigest(),
+        hashlib.sha256(boundary_report_bytes(all_records)).hexdigest(),
         all_records,
     )
 
@@ -597,14 +762,36 @@ def canonical_report(policy_version: str, operations: list[Operation], annotatio
     return "\n".join(rows)
 
 
+def activation_report(policy_path: Path, policy: dict, scan: tuple) -> dict:
+    canonical = json.dumps(policy, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return dict(schemaVersion="gxp-coverage-report.v1", status="PASS",
+                policyVersion=policy["policyVersion"], approvalReference=policy["approvalReference"],
+                policyHash=hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+                artifactHash=hashlib.sha256(policy_path.read_bytes()).hexdigest(),
+                coverageMode=policy["coverageScope"]["mode"], boundarySha256=scan[3],
+                candidates=scan[0], registeredFiles=scan[1], approvedFileExclusions=scan[2],
+                unresolvedCount=0,
+                reviewedReadOnlyCount=sum(r["decision"] == "REVIEWED_READ_ONLY" for r in scan[4]),
+                reviewedOutOfScopeCount=sum(r["decision"] in {"REVIEWED_OUT_OF_RELEASE_SCOPE", "REVIEWED_MIXED_SCOPE"}
+                                            for r in scan[4]))
+
+
+def source_root_path(value: str | Path) -> Path:
+    resolved = str(Path(value).resolve())
+    if os.name == "nt" and not resolved.startswith("\\\\?\\"):
+        resolved = "\\\\?\\UNC\\" + resolved[2:] if resolved.startswith("\\\\") else "\\\\?\\" + resolved
+    return Path(resolved)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", default=".")
     parser.add_argument("--policy", default="IntRuoyiBackend/config/gxp-audit-policy.yaml")
     parser.add_argument("--boundary-report", default=None)
+    parser.add_argument("--activation-report", default=None)
     args = parser.parse_args()
 
-    root = Path(args.root).resolve()
+    root = source_root_path(args.root)
     policy_path = (root / args.policy).resolve()
     policy_version, operations = parse_policy(policy_path)
     policy = load_policy_bundle(policy_path)
@@ -640,9 +827,16 @@ def main() -> None:
     if errors:
         raise SystemExit("\n".join(errors))
 
-    boundary_candidates, boundary_registered, boundary_exclusions, boundary_hash, exclusion_records = validate_boundary_scan(
+    scan = validate_boundary_scan(
         root, policy, operations, Path(args.boundary_report).resolve() if args.boundary_report else None
     )
+    boundary_candidates, boundary_registered, boundary_exclusions, boundary_hash, exclusion_records = scan
+    if args.activation_report:
+        report_path = Path(args.activation_report).resolve()
+        if not report_path.parent.is_dir():
+            raise SystemExit("activation report parent must exist")
+        report_path.write_text(json.dumps(activation_report(policy_path, policy, scan), ensure_ascii=False,
+                                         sort_keys=True, indent=2) + "\n", encoding="utf-8")
     report = canonical_report(policy_version, operations, annotations)
     print(f"PASS gxp audit coverage gate operations={len(operations)} annotations={len(annotations)} "
           f"sha256={hashlib.sha256(report.encode('utf-8')).hexdigest()} "

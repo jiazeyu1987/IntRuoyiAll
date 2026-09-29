@@ -177,17 +177,28 @@ class MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest {
             if (missingPolicy) {
                 var realAudit = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImpl();
                 var policies = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper.class);
-                when(policies.selectActive(1L, "mes.pqc-release.bind-batch")).thenAnswer(invocation -> {
+                String policyVersion = "fixture-activated-without-bind";
+                when(policies.selectByPolicyVersionForUpdate(1L, policyVersion, "mes.pqc-release.bind-batch"))
+                        .thenAnswer(invocation -> {
+                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertEquals(93L, batch());
                     assertEquals(2, version());
                     auditCalls.incrementAndGet();
                     return null;
                 });
                 var ledger = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper.class);
-                when(ledger.selectByTenantIdForUpdate(1L)).thenReturn(
-                        new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO());
+                var watermark = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO();
+                watermark.setTenantId(1L);
+                watermark.setNextLedgerSequence(1L);
+                when(ledger.selectByTenantIdForUpdate(1L)).thenReturn(watermark);
+                var activations = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper.class);
+                var activation = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyActivationDO();
+                activation.setTenantId(1L);
+                activation.setPolicyVersion(policyVersion);
+                when(activations.selectLatestForUpdate(1L)).thenReturn(activation);
                 ReflectionTestUtils.setField(realAudit, "policyOperationMapper", policies);
                 ReflectionTestUtils.setField(realAudit, "ledgerSequenceMapper", ledger);
+                ReflectionTestUtils.setField(realAudit, "policyActivationMapper", activations);
                 ReflectionTestUtils.setField(target, "gxpAuditService", realAudit);
             }
             ProxyFactory proxy = new ProxyFactory(target);
@@ -228,8 +239,11 @@ class MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest {
     @org.junit.jupiter.api.Test
     void draftIsUnapprovedOperationFragmentAndNotARuntimeBundle() throws Exception {
         var mapper = new com.fasterxml.jackson.databind.ObjectMapper(new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
-        String yaml = java.nio.file.Files.readString(java.nio.file.Path.of(
-                "../../doc/tasks/20260928-gxp20-review-fixes/gxp-audit-pqc-bind-policy.draft.yaml"));
+        String yaml;
+        try (var input = getClass().getResourceAsStream("/gxp/gxp-audit-pqc-bind-policy.draft.yaml")) {
+            assertNotNull(input, "test-owned PQC bind draft fixture must exist");
+            yaml = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
         var fragment = mapper.readTree(yaml);
         assertEquals("GXP_AUDIT_OPERATION_FRAGMENT", fragment.path("proposalType").asText());
         assertEquals("DRAFT", fragment.path("status").asText());
@@ -242,7 +256,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest {
         assertTrue(fragment.path("additionalSourceLocators").get(0).asText().endsWith("#applyGenerated"));
         var loader = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPolicyBundleLoader();
         var packaged = loader.load();
-        assertFalse(packaged.policyNode().path("operations").toString().contains("mes.pqc-release.bind-batch"));
+        assertTrue(packaged.policyNode().path("operations").toString().contains("mes.pqc-release.bind-batch"));
         assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
                 () -> ReflectionTestUtils.invokeMethod(loader, "load", yaml, packaged.rawSchema()));
     }

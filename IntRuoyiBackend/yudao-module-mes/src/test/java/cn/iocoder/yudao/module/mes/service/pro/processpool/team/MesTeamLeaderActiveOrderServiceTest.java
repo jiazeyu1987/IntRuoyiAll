@@ -1854,7 +1854,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void maintenancePolicyDraftIsNotApprovedOrPackaged() throws Exception {
+    void maintenanceDraftRemainsRejectedWhileApprovedOperationsArePackaged() throws Exception {
         var mapper = new com.fasterxml.jackson.databind.ObjectMapper(new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
         String yaml = java.nio.file.Files.readString(java.nio.file.Path.of(
                 "src/test/resources/gxp/gxp-audit-order-maintenance-policy.draft.yaml"));
@@ -1865,8 +1865,12 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(2, proposal.path("operations").size());
         var loader = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPolicyBundleLoader();
         var bundle = loader.load();
+        assertEquals("20260929-local-startup-01", bundle.policyNode().path("policyVersion").asText());
+        assertEquals("20260929-start-local-runtime", bundle.policyNode().path("approvalReference").asText());
         for (var operation : proposal.path("operations")) {
-            assertFalse(bundle.policyNode().path("operations").toString().contains(operation.path("operationId").asText()));
+            assertTrue(java.util.stream.StreamSupport.stream(bundle.policyNode().path("operations").spliterator(), false)
+                    .anyMatch(registered -> registered.path("operationId").asText()
+                            .equals(operation.path("operationId").asText())));
         }
         assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
                 loader, "load", yaml, bundle.rawSchema()));

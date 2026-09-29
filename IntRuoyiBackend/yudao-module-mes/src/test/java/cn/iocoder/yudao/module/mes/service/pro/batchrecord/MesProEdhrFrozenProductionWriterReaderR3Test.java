@@ -92,6 +92,8 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
         completionService = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrderMapper, receiptMapper,
                 progressPort, writer, pickListSource, transferTrace, aggregation);
         ReflectionTestUtils.setField(completionService, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(completionService, "affectedStateCollector",
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class));
         order = MesProcessPoolActiveOrderDO.builder().id(10L).leaderUserId(20L).workOrderId(30L)
                 .routeId(40L).routeVersionId(41L).activeStatus("ACTIVE").version(2).build();
         order.setTenantId(1L);

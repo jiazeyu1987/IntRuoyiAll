@@ -22,6 +22,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDiffDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionDiffMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter;
+import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand;
+import cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO;
+import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper;
+import cn.iocoder.yudao.module.signature.service.ElectronicSignatureQueryServiceImpl;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -67,6 +80,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         service = new MesProcessPoolProductionReportCorrectionService(
                 eventMapper, fragmentMapper, feedbackMapper, feedbackMaterialMapper, revisionService,
                 signatureService, lossReasonValidator, scopeService, reportManagementSummaryService);
+        initializeAuditFixture();
         lenient().when(feedbackMapper.selectListByIdsForUpdate(List.of(5101L))).thenReturn(List.of(formalFeedback()));
         lenient().when(feedbackMapper.updateCorrectedProductionReport(
                 nullable(Long.class), nullable(BigDecimal.class), nullable(BigDecimal.class),
@@ -155,10 +169,10 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"lossDecision\":\"REQUIRED\""));
         org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload()
                 .contains("\"materialId\":3401,\"materialCode\":\"A001.02.034.202\",\"materialName\":\"弹簧\",\"outputQuantity\":4,\"lossQuantity\":2"));
-        verify(feedbackMapper).selectListByIdsForUpdate(List.of(5101L));
+        verify(feedbackMapper, times(3)).selectListByIdsForUpdate(List.of(5101L));
         verify(feedbackMapper).updateCorrectedProductionReport(5101L, new BigDecimal("6"),
                 new BigDecimal("4"), new BigDecimal("2"), 8301L, "LOSS-01", "正常损耗");
-        verify(feedbackMaterialMapper).selectListByFeedbackIdForUpdate(5101L);
+        verify(feedbackMaterialMapper, times(3)).selectListByFeedbackIdForUpdate(5101L);
         verify(feedbackMaterialMapper).updateCorrectedMaterialFact(6101L, new BigDecimal("4"),
                 new BigDecimal("2"), "[{\"reasonId\":8301,\"reasonCode\":\"LOSS-01\",\"reasonName\":\"正常损耗\",\"quantity\":2}]", null, "[]");
     }
@@ -518,6 +532,80 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                 any(), any(), any(), any(), any(), any(), any());
     }
 
+    @org.junit.jupiter.api.AfterEach
+    void clearAuditTenant() {
+        TenantContextHolder.clear();
+    }
+
+    /** Unit boundary fixtures only. Actual persisted snapshots/atomicity are covered by AuditTransactionTest. */
+    private void initializeAuditFixture() {
+        TenantContextHolder.setTenantId(1L);
+        ReflectionTestUtils.setField(service, "gxpAuditService", org.mockito.Mockito.mock(GxpAuditService.class));
+        var revisionRows = org.mockito.Mockito.mock(MesProProcessPoolEventRevisionMapper.class);
+        var diffRows = org.mockito.Mockito.mock(MesProProcessPoolEventRevisionDiffMapper.class);
+        ReflectionTestUtils.setField(service, "revisionMapper", revisionRows);
+        ReflectionTestUtils.setField(service, "revisionDiffMapper", diffRows);
+        var configuration = new org.apache.ibatis.session.Configuration();
+        var assistant = new org.apache.ibatis.builder.MapperBuilderAssistant(configuration, "correction-unit");
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(assistant, MesProProcessPoolEventRevisionDO.class);
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(assistant, MesProProcessPoolEventRevisionDiffDO.class);
+        lenient().when(revisionRows.selectOne(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenAnswer(call -> {
+            MesProcessPoolEventRevisionUpdateReqBO input = lastArgument(revisionService, "updateProductionReportRecord");
+            var wrapper = call.getArgument(0, com.baomidou.mybatisplus.core.conditions.AbstractWrapper.class);
+            wrapper.getSqlSegment();
+            Long revisionId = ((Number) wrapper.getParamNameValuePairs().values().iterator().next()).longValue();
+            return MesProProcessPoolEventRevisionDO.builder().id(revisionId).eventId(input.getEventId())
+                    .afterPayload(input.getAfterPayload()).changeReason(input.getChangeReason())
+                    .revisionSignatureId(input.getRevisionSignatureId()).build();
+        });
+        lenient().when(diffRows.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenAnswer(call -> {
+            var wrapper = call.getArgument(0, com.baomidou.mybatisplus.core.conditions.AbstractWrapper.class);
+            wrapper.getSqlSegment();
+            Long revisionId = ((Number) wrapper.getParamNameValuePairs().values().iterator().next()).longValue();
+            return List.of(MesProProcessPoolEventRevisionDiffDO.builder().id(1L).eventId(176L).revisionId(revisionId).build());
+        });
+        var query = new ElectronicSignatureQueryServiceImpl();
+        var signatureRows = org.mockito.Mockito.mock(ElectronicSignatureRecordMapper.class);
+        ReflectionTestUtils.setField(query, "signatureRecordMapper", signatureRows);
+        ReflectionTestUtils.setField(query, "subjectAdapters", List.of(new MesBatchRecordSignatureSubjectAdapter()));
+        ReflectionTestUtils.setField(service, "electronicSignatureQueryService", query);
+        lenient().when(signatureRows.selectById(any(java.io.Serializable.class))).thenAnswer(call -> {
+            MesProBatchRecordExecutionFieldAuditSignatureCommand input = lastArgument(signatureService, "recordFieldChangeSignature");
+            var result = newSignature();
+            String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, "FIELD_CHANGE",
+                    null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                    input.getSignatureChallengeHash());
+            String version = cn.hutool.crypto.digest.DigestUtil.sha256Hex(subject);
+            var adapter = new MesBatchRecordSignatureSubjectAdapter();
+            var snapshot = adapter.loadAndAuthorize(new SignatureSubjectCommand(3001L, "MES", "FIELD_CHANGE",
+                    "MES_BATCH_RECORD", subject, version, input.getReasonText()));
+            var sorted = new java.util.TreeMap<String, Object>();
+            sorted.putAll(JsonUtils.parseObject(snapshot.canonicalContentJson(), java.util.Map.class));
+            String canonical = JsonUtils.toJsonString(sorted);
+            var definition = adapter.supportedActions().stream().filter(a -> "FIELD_CHANGE".equals(a.actionCode())).findFirst().orElseThrow();
+            var record = ElectronicSignatureRecordDO.builder().id(9102L).moduleCode("MES").actionCode("FIELD_CHANGE")
+                    .subjectType("MES_BATCH_RECORD").subjectId(subject).subjectVersion(version).actorId(3001L)
+                    .meaningCode(definition.meaningCode()).meaningLabel(definition.meaningLabel()).reason(input.getReasonText())
+                    .signedAt(result.getSignedAt()).timeEvidenceId("SERVER_CLOCK:" + result.getSignedAt())
+                    .authenticationMethod("SESSION_PLUS_PASSWORD").canonicalContentJson(canonical)
+                    .contentHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(canonical)).algorithm("SHA-256")
+                    .keyVersion("system-local-v1").policyVersion(definition.policyVersion()).verificationStatus("VALID").build();
+            record.setTenantId(1L);
+            record.setEvidenceHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(String.join("|", "1", "3001", "MES", "FIELD_CHANGE",
+                    "MES_BATCH_RECORD", subject, version, record.getMeaningCode(), record.getMeaningLabel(), input.getReasonText(),
+                    result.getSignedAt().toString(), record.getTimeEvidenceId(), "SESSION_PLUS_PASSWORD", record.getContentHash(),
+                    "", "", "", "", "", "SHA-256", "system-local-v1", record.getPolicyVersion(), "VALID")));
+            return record;
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T lastArgument(Object mock, String method) {
+        return (T) org.mockito.Mockito.mockingDetails(mock).getInvocations().stream()
+                .filter(call -> call.getMethod().getName().equals(method)).reduce((first, last) -> last)
+                .orElseThrow().getArgument(0);
+    }
+
     private static MesProcessPoolProductionReportCorrectionCommand command() {
         return new MesProcessPoolProductionReportCorrectionCommand()
                 .setEventId(176L)
@@ -530,7 +618,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     }
 
     private static MesProProcessPoolEventDO event() {
-        return MesProProcessPoolEventDO.builder()
+        MesProProcessPoolEventDO event = MesProProcessPoolEventDO.builder()
                 .id(176L)
                 .poolId(71L)
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
@@ -548,6 +636,8 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                 .signatureId(9001L)
                 .signatureUserId(964L)
                 .build();
+        event.setTenantId(1L);
+        return event;
     }
 
     private static MesProProcessPoolEventDO eventWithBusinessDetails() {

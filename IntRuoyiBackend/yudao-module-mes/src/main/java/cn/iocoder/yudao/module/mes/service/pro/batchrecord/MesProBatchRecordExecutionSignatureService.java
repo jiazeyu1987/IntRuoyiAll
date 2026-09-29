@@ -2,8 +2,10 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureAuthorizationService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
@@ -22,6 +24,11 @@ import cn.iocoder.yudao.module.system.service.dept.PostService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,7 +38,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -106,6 +115,8 @@ public class MesProBatchRecordExecutionSignatureService {
     private AdminUserApi adminUserApi;
     @Resource
     private ElectronicSignatureService electronicSignatureService;
+    @Resource
+    private GxpAuditService gxpAuditService;
 
     @Transactional(rollbackFor = Exception.class)
     public Long recordSubmitSignature(Long executionId, String password, String comment) {
@@ -279,6 +290,7 @@ public class MesProBatchRecordExecutionSignatureService {
         }
         AdminUserDO user = adminUserService.getUser(actorId);
         if (user == null) {
+            gxpAuditService.acquireLedgerLock();
             return recordProductionSubmitSignatureForEmployeeProfile(actorId, password, comment);
         }
         if (!authorizationService.isElectronicSignatureEnabled(actorId)) {
@@ -543,6 +555,7 @@ public class MesProBatchRecordExecutionSignatureService {
         if (user == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
+        gxpAuditService.acquireLedgerLock();
         LocalDateTime signedAt = nowAtDatabasePrecision();
         SignatureTimeEvidence signatureTimeEvidence =
                 buildSignatureTimeEvidence(command.getExecutionId(), ACTION_FIELD_CHANGE, actorId, signedAt, null);
@@ -581,9 +594,11 @@ public class MesProBatchRecordExecutionSignatureService {
                 .signatureChallengeHash(command.getSignatureChallengeHash())
                 .build();
         int inserted = signatureMapper.insert(signature);
-        if (inserted <= 0) {
+        if (inserted <= 0 || signature.getId() == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
+        appendProjectionAudit("edhr.field-save-evidence.create", "recordFieldChangeDraftSave", null,
+                requirePersistedProjection(signature.getId()), false);
         return new MesProBatchRecordExecutionFieldAuditSignatureResult()
                 .setSignatureId(signature.getId())
                 .setActorId(actorId)
@@ -605,11 +620,16 @@ public class MesProBatchRecordExecutionSignatureService {
                 || StrUtil.isBlank(command.getCellValuesHash())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
-        MesProBatchRecordExecutionSignatureDO signature = signatureMapper.selectById(command.getSignatureId());
+        gxpAuditService.acquireLedgerLock();
+        MesProBatchRecordExecutionSignatureDO signature = signatureMapper.selectOne(
+                new LambdaQueryWrapper<MesProBatchRecordExecutionSignatureDO>()
+                        .eq(MesProBatchRecordExecutionSignatureDO::getId, command.getSignatureId())
+                        .last("FOR UPDATE"));
         if (signature == null || !command.getExecutionId().equals(signature.getExecutionId())
                 || !StrUtil.equals(ACTION_FIELD_CHANGE, signature.getActionType())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
+        String beforeJson = JsonUtils.toJsonString(signature);
         int updated = signatureMapper.updateById(new MesProBatchRecordExecutionSignatureDO()
                 .setId(command.getSignatureId())
                 .setAuditBatchId(command.getAuditBatchId())
@@ -620,6 +640,8 @@ public class MesProBatchRecordExecutionSignatureService {
         if (updated <= 0) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
+        appendProjectionAudit("edhr.field-save-evidence.bind", "attachFieldChangeSignature", beforeJson,
+                requirePersistedProjection(command.getSignatureId()), false);
     }
 
     private Long recordSignature(Long executionId, String password, String comment, String actionType) {
@@ -839,6 +861,8 @@ public class MesProBatchRecordExecutionSignatureService {
         if (inserted <= 0 || signature.getId() == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
+        appendProjectionAudit("mes.employee-production-signature.create", "recordProductionSubmitSignature", null,
+                requirePersistedProjection(signature.getId()), true);
         return signature.getId();
     }
 
@@ -848,6 +872,60 @@ public class MesProBatchRecordExecutionSignatureService {
             return displayName;
         }
         return StrUtil.blankToDefault(StrUtil.trim(profile.getEmployeeName()), null);
+    }
+
+    private MesProBatchRecordExecutionSignatureDO requirePersistedProjection(Long signatureId) {
+        MesProBatchRecordExecutionSignatureDO persisted = signatureMapper.selectById(signatureId);
+        if (persisted == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
+        return persisted;
+    }
+
+    private void appendProjectionAudit(String operationId, String sourceMethod, String beforeJson,
+                                       MesProBatchRecordExecutionSignatureDO persisted, boolean employeeProfile) {
+        String afterJson = JsonUtils.toJsonString(persisted);
+        String afterHash = DigestUtil.sha256Hex(afterJson);
+        String beforeHash = beforeJson == null ? null : DigestUtil.sha256Hex(beforeJson);
+        List<GxpAuditRelation> relations = new ArrayList<>();
+        relations.add(new GxpAuditRelation("SUBJECT", "MES_SIGNATURE_PROJECTION",
+                String.valueOf(persisted.getId()), afterHash, afterHash));
+        if (persisted.getExecutionId() != null && persisted.getExecutionId() > 0) {
+            relations.add(new GxpAuditRelation("SOURCE", "BATCH_RECORD_EXECUTION",
+                    String.valueOf(persisted.getExecutionId()), null, null));
+        }
+        if (employeeProfile) {
+            relations.add(new GxpAuditRelation("PERFORMED_BY", "MES_EMPLOYEE_PROFILE",
+                    String.valueOf(persisted.getActorId()), null, null));
+        }
+        String source = MesProBatchRecordExecutionSignatureService.class.getName() + "#" + sourceMethod;
+        GxpAuditCommand command = GxpAuditCommand.builder()
+                .operationId(operationId)
+                .subjectId("MES_SIGNATURE_PROJECTION:" + persisted.getId())
+                .subjectVersion(afterHash)
+                .reason(beforeJson == null ? "Persist MES signature projection" : "Bind field-save evidence")
+                .reasonSource("SYSTEM")
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state(beforeJson == null ? "ABSENT" : "PRESENT")
+                        .objectVersion(beforeHash)
+                        .canonicalJson(beforeJson == null ? "{}" : beforeJson).build())
+                .afterState(GxpAuditStateEnvelope.builder().state("PRESENT")
+                        .objectVersion(afterHash).canonicalJson(afterJson).build())
+                .idempotencyKey("MES-SIG:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(
+                        List.of(operationId, persisted.getId(), beforeJson == null ? "ABSENT" : beforeJson, afterJson))))
+                .requestId("MES-SIG:" + persisted.getId())
+                .source(source).sourceLocator(source).sourceType("SERVICE_METHOD")
+                .links(relations).build();
+        // A MES employee-profile projection is not a system-user unified electronic signature.
+        // Its signer is separate from the authenticated device account supplied by the audit kernel.
+        if (employeeProfile) {
+            command.setPerformedBy(JsonUtils.toJsonString(Map.of(
+                    "identityDomain", "MES_EMPLOYEE_PROFILE", "id", persisted.getActorId(),
+                    "tenantId", TenantContextHolder.getRequiredTenantId(),
+                    "employeeCode", persisted.getActorUsernameSnapshot(),
+                    "displayName", persisted.getActorName())));
+        }
+        gxpAuditService.append(command);
     }
 
     private SignatureActorSnapshot buildActorSnapshot(AdminUserDO user, String actionType,
