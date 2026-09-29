@@ -208,3 +208,26 @@ GREEN: `python -m pytest IntRuoyiBackend/script/tests/test_gxp_audit_method_boun
 
 ## 来源最终定向回归
 GREEN: mvn -pl yudao-module-mes -am test (source-test-selection.txt中的15类) -> PASS。2026-09-29 10:15:41，签名模块13+MES356=369项，0failure/0error/0skip；source-stable-final.log。此结果基于640993221与本任务源码，仍须接入主线dirty基线后复验重叠部分。
+
+## Final integration command
+
+mvn -pl yudao-module-mes -am test '-Dtest=ElectronicSignatureServiceImplTest,GxpAuditPolicy*Test,GxpAuditServiceImplTest,MesActiveOrderDossierFileServiceTest,MesBatchExecutionAuthoritativeContextResolverTest,MesEdhrNcrMaterialAccessContractTest,MesEdhrNcrMaterialMapperContractTest,MesPqcReleaseOrderDetailServiceTest,MesProBatchRecordExecutionSignatureServiceTest,MesProcessPoolProductionReportCorrectionServiceTest,MesProductionReleaseManagerStageInitializerTest,MesProEdhrBatchActiveOrderDetailServiceTest,MesProEdhrBatchExecutionControllerTest,MesProEdhrBatchExecutionMapperTest,MesProEdhrBatchExecutionServiceTest,MesProEdhrDeviationHandlingServiceTest,MesProEdhrDeviationNcrIntegrationTest,MesProEdhrDeviationNumberGeneratorTest,MesProEdhrDeviationServiceImplTest,MesProEdhrDeviationSignatureIntegrationTest,MesProEdhrFrozenProductionWriterReaderR3Test,MesProEdhrNcrManagerDispositionTest,MesProEdhrNcrUploadStorageContractTest,MesProEdhrNonconformanceReviewApplicationScopeTest,MesProEdhrReleaseServiceImplTest,MesProEdhrReverseTraceR2Test,MesReleasePrecheckPromotionRaceTest,MesTeamLeaderActiveOrderCompletionBackfillPortImplTest,MesTeamLeaderActiveOrderCompletionSourceEvidenceC02Test,MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizerTest,MesTeamLeaderActiveOrderDetailServiceImplTest,MesTeamLeaderActiveOrderErpPlannedStartTest,MesTeamLeaderActiveOrderManualSortTest,MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderActiveOrderVersionUpgradeServiceImplTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-DfailIfNoTests=false' '-Dstyle.color=never'
+
+Frontend: 14 deviation/routing scripts (17 cases) plus 9 main attachment scripts (36 cases) PASS on integrated code; pnpm ts:check PASS after reboot (exit 0). Not browser E2E.
+
+# Ledger lock integration
+BDD: 签名入口统一锁顺序 -> Given 偏差发起、处理签名和关键偏差转评审与上市放行共享审计账本，When 请求取得业务锁，Then 必须已先取得审计账本锁。
+RED: mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am test -Dtest=MesProEdhrDeviationServiceImplTest#ledgerLockPrecedesBusinessLocks,MesProEdhrDeviationHandlingServiceTest#ledgerLockPrecedesBusinessLocks,MesProEdhrDeviationNcrIntegrationTest#ledgerLockPrecedesBusinessLocks -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false -Dstyle.color=never -> FAIL, 3 tests failed because acquireLedgerLock was not invoked. Evidence: review-lock-red.log.
+GREEN: mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am test -Dtest=MesProEdhrDeviationServiceImplTest,MesProEdhrDeviationHandlingServiceTest,MesProEdhrDeviationNcrIntegrationTest,MesProEdhrDeviationSignatureIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false -Dstyle.color=never -> PASS, 34 tests, no failures/errors. Evidence: review-lock-green.log.
+
+Changed only three signature-bearing write entry points to acquire ledger before business locks. save/closeNormally do not acquire the ledger downstream, so no artificial lock added. NCR fixtures now include tenant counter dependencies and use formal active-order origins. Mockito order proves call order, not actual database concurrency.
+
+Experience review: project-experience-consolidation SKILL.md read. Existing docs/backend-development.md destructive-operation read check already requires consistent audit-ledger/business lock order and distinguishes mock evidence from database concurrency; no duplicate long-term rule added.
+
+
+
+## Integrated result
+2026-09-29 10:47:54 +08:00, integrated-after-reboot Maven BUILD SUCCESS: system 130 + signature 13 + MES 741 = 884 tests, 0 failures/errors/skips. Source commit 73587dae8 on reviewed baseline 613da490f. Prior interrupted run is not counted. Frontend 53 cases and type check PASS. Port guard and Git whitespace check PASS.
+
+## Delivery boundary
+User authorized local merge only; origin is intentionally not pushed. Local integration is verified, not production release. Full real-page E2E after removal of manual batch creation is still incomplete, and the repository-wide audit coverage gate has recorded unresolved entries. No DB migration/activation or service restart was performed this turn. Preserve piancha_0923 for the outstanding formal-path E2E; do not delete unrelated main assets. The project remote-delivery closeout requirement remains blocked by the explicit local-only scope.

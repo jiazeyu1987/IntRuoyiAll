@@ -33,7 +33,7 @@
 
 ## Current Status
 
-in_progress
+blocked
 
 ## Worktree Setup
 
@@ -89,3 +89,5 @@ in_progress
 
 ## 2026-09-29 集成复核更正
 历史手动创建批次的通过记录不证明取消该入口后的正式主链通过。当前融合与验证见 ../20260929-deviation-main-integration/verification-report.md。本轮不执行真实前端E2E；四项冻结完整主链、管理者代表缺签拒绝及多偏差同一NCR关联的完整页面证据仍须按正式来源重新核对，不宣称全链路全部通过。
+
+当前阻塞仅指尚缺正式主链完整真实页面E2E和发布审计门禁；本地代码融合由20260929-deviation-main-integration记录，不把历史手动批次验收当作正式来源验收。旧策略登记段为历史记录；当前合入配置版本20260929-edhr-deviation-01，未执行数据库策略激活。

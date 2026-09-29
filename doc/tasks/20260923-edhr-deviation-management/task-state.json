@@ -2,7 +2,7 @@
   "schema_version": 2,
   "task_id": "20260923-edhr-deviation-management",
   "mode": "full",
-  "status": "in_progress",
+  "status": "blocked",
   "current_phase": "P6",
   "phase_statuses": [
     {

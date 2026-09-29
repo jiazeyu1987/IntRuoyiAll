@@ -77,3 +77,8 @@ RED: mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-system -am test '-Dtest=Gxp
 GREEN: mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am test '-Dtest=GxpAuditPolicy*Test,GxpAuditServiceImplTest,MesProEdhrReleaseServiceImplTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-DfailIfNoTests=false' '-Dstyle.color=never' -> PASS, policy-v2-final-green.log; includes two historical immutable conflict scenarios and actual packaged runtime policy.
 
 GREEN: 来源15类最终回归 -> PASS 369项；2026-09-29 10:15:41 source-stable-final.log。准备独立实现提交，后续重放到主线基线。
+
+2026-09-29 reboot resume: source replay commit 73587dae8 is based on main baseline 613da490f; tracked workspaces clean. integrated-final was interrupted before completion and is not PASS. Re-running union Maven selection and frontend type check; frontend static/behavior checks already passed 17 + 36 cases. No remote push, DB write, service restart or browser E2E.
+Conflict review: retained main NCR formal-file identity/upload page; API has both formal-file upload and critical-deviation creation; retained both service imports. Final v2 policy includes 28 operations and deviation version 20260929-edhr-deviation-01. Combined task evidence preserves both baseline and source records.
+GREEN: integrated-after-reboot union Maven -> PASS, 884 tests (130+13+741), zero failures/errors/skips; frontend 53 cases and pnpm ts:check PASS. Reboot-interrupted run excluded. Source and main port guards PASS.
+Cleanup source preview/apply PASS: ready_for_closeout, keep 3 core records, delete 41 task-owned temporary files, no blockers/warnings. Core reports contain the consolidated test evidence. worktree-closeout off because formal E2E remains outstanding; source checkout retained.
