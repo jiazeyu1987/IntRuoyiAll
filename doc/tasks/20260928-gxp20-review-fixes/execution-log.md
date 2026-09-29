@@ -422,6 +422,12 @@ RED: NOT RUN，其他owner编辑期间Maven暂停；本次服务代码未修复�
 用户原话：直接融合，不用验证了。已停止六个子agent及新增实现/构建/DB操作，保留已保存半成品。后续不再运行业务验证或把旧FAIL改为PASS；仅准备任务提交、检查Git冲突并保护主线未提交内容。主线HEAD 895272ee0，整合HEAD 0ece51c1c；主线83个已跟踪脏文件，20个与整合区同路径修改，尚未stash、提交或覆盖这些主线文件。
 ## 2026-09-29 用户授权暂存主线并直接融合
 
+- 结果：本地int_main合并提交a8f8669ed37aeb12b3d294bb10a1fc81d7dc9a44；git merge-base --is-ancestor codex/gxp-integration HEAD退出0。
+- 已处理20个merge冲突和7个stash恢复冲突，保留双方业务变化并移除合并重复；git diff --name-only --diff-filter=U为空。
+- stash apply后清空恢复产生的暂存区，原主线改动保持未提交；git diff --cached --name-only为空。stash第三父树的20个未跟踪文件与恢复后git hash-object逐项一致，0项缺失或不同。原有删除状态也保留。
+- stash 7780b938869d472475fb80bed6a459a8023317f6未删除；未触碰其他stash。未推送远程，未删除原worktree及其中未提交的验证证据/半成品。
+- task-closeout-cleanup主工作区preview：delete/blocked/warnings均为空；仅保留任务记录。后续测试按用户要求NOT RUN，不把Git整合完成写成业务或GxP全覆盖验收通过。
+- 主工作区cleanup apply退出0/status=applied，deleted_paths为空，未删除任何文件；worktree-closeout明确关闭，保留原工作区历史证据。整体验收未完成，状态保持ready_for_closeout，不伪记completed。
 - 用户允许暂存主线未提交改动，融合后恢复并处理冲突；不开展后续构建、业务测试或E2E。
 - 实现提交：71855dced（codex/gxp-integration）；融合前主线：895272ee0c19d9351544ee97400577e5eb8bf45b。
 - 主线已跟踪及未跟踪改动保全：stash 7780b938869d472475fb80bed6a459a8023317f6，名称 codex-preserve-int-main-before-gxp-integration-20260929；保留已有其他stash不动。
