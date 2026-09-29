@@ -1160,6 +1160,8 @@ public interface ErrorCodeConstants {
             "数据清理范围已变化，请重新预检");
     ErrorCode PRO_PROCESS_POOL_DATA_CLEANUP_BLOCKED = new ErrorCode(1_040_760_400,
             "数据清理被正式业务锁定：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_EVIDENCE_BLOCKED = new ErrorCode(1_040_760_401,
+            "活跃订单已有报工、检验或生产进度证据，禁止重建，必须保留历史记录：{}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_DOSSIER_FILE_BLOCKED = new ErrorCode(1_040_760_409,
             "活跃订单资料文件读取受阻：{}");
     ErrorCode PRO_PROCESS_POOL_PICK_LIST_REQUIRED = new ErrorCode(1_040_760_360, "正式领料单不能为空");
@@ -1251,6 +1253,10 @@ public interface ErrorCodeConstants {
             "正式工电子签名密码由用户管理统一维护，不能在生产人员档案中重置：{}");
     ErrorCode PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_DUPLICATE = new ErrorCode(1_040_760_337,
             "当前生产组长已关联该正式工，请启用或修改既有生产人员档案：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_OWNER_CONFLICT = new ErrorCode(1_040_760_410,
+            "正式员工 {} 已在组长 {} 的班组启用，请先停用原班组档案，再关联或启用当前班组");
+    ErrorCode PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_OWNER_CHANGED = new ErrorCode(1_040_760_411,
+            "正式员工 {} 的启用归属已被其他操作占用，请刷新并先停用原班组档案后重试");
     ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_PQC_LEADER_REQUIRED = new ErrorCode(1_040_760_338,
             "PQC 检验单只能由 PQC 组长确认或退回：eventId={}，leaderType={}");
     ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_REJECT_REMARK_REQUIRED = new ErrorCode(1_040_760_339,

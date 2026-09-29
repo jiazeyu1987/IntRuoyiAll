@@ -80,6 +80,11 @@ public interface ErrorCodeConstants {
     ErrorCode GXP_AUDIT_IDEMPOTENCY_CONFLICT = new ErrorCode(1_002_032_005, "GxP 审计幂等键载荷冲突：{}");
     ErrorCode GXP_AUDIT_APPEND_FAILED = new ErrorCode(1_002_032_006, "GxP 审计写入失败，业务已回滚：{}");
     ErrorCode GXP_AUDIT_COVERAGE_GAP = new ErrorCode(1_002_032_007, "GxP 审计覆盖登记存在缺口：{}");
+    ErrorCode GXP_AUDIT_V2_CONTRACT_INVALID = new ErrorCode(1_002_032_008, "GxP V2 审计契约无效：{}");
+    ErrorCode GXP_AUDIT_POLICY_BUNDLE_INVALID = new ErrorCode(1_002_032_009, "GxP 审计策略包无效：{}");
+    ErrorCode GXP_AUDIT_POLICY_ACTIVATION_INVALID = new ErrorCode(1_002_032_010, "GxP 审计策略激活无效：{}");
+    ErrorCode GXP_AUDIT_ATTEMPT_INVALID = new ErrorCode(1_002_032_011, "GxP 审计失败尝试无效：{}");
+    ErrorCode GXP_AUDIT_RECEIPT_MISSING = new ErrorCode(1_002_032_012, "GXP_AUDIT_RECEIPT_MISSING：缺少原审计回执，须历史治理：{}");
 
     // ========== 用户模块 1-002-003-000 ==========
     ErrorCode USER_USERNAME_EXISTS = new ErrorCode(1_002_003_000, "用户账号已经存在");

@@ -90,7 +90,7 @@ public class MesProductionReleaseManagerStageInitializerImpl
                             ? "reload and verify the active-order formal fact receipt"
                             : "reload and verify all four completed report evidences");
         }
-        if (releaseTransactionMapper.selectByBatchExecutionId(command.getBatchExecutionId()) != null) {
+        if (releaseTransactionMapper.selectCurrentByBatchExecutionId(command.getBatchExecutionId()) != null) {
             throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                     "the release batch already has a release transaction",
                     "use the existing authoritative release transaction");
@@ -187,7 +187,7 @@ public class MesProductionReleaseManagerStageInitializerImpl
             MesProductionReleaseBusinessReadiness businessReadiness) {
         LocalDateTime now = LocalDateTime.now();
         return new MesProEdhrReleaseTransactionDO()
-                .setReleaseCode("EDHR-REL-" + batch.getId())
+                .setReleaseCode("EDHR-REL-" + batch.getId() + "-" + application.getId())
                 .setBatchExecutionId(batch.getId())
                 .setBatchExecutionCode(batch.getBatchExecutionCode())
                 .setWorkOrderId(batch.getWorkOrderId())

@@ -18,6 +18,15 @@ public interface MesProEdhrReleaseTransactionEventMapper extends BaseMapperX<Mes
                 .eq(MesProEdhrReleaseTransactionEventDO::getIdempotencyKey, idempotencyKey));
     }
 
+    default MesProEdhrReleaseTransactionEventDO selectByReleaseTransactionIdAndEventTypeAndIdempotencyKeyForUpdate(
+            Long releaseTransactionId, String eventType, String idempotencyKey) {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrReleaseTransactionEventDO>()
+                .eq(MesProEdhrReleaseTransactionEventDO::getReleaseTransactionId, releaseTransactionId)
+                .eq(MesProEdhrReleaseTransactionEventDO::getEventType, eventType)
+                .eq(MesProEdhrReleaseTransactionEventDO::getIdempotencyKey, idempotencyKey)
+                .last("FOR UPDATE"));
+    }
+
     default PageResult<MesProEdhrReleaseTransactionEventDO> selectPage(MesProEdhrReleaseEventPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<MesProEdhrReleaseTransactionEventDO>()
                 .eq(MesProEdhrReleaseTransactionEventDO::getReleaseTransactionId, reqVO.getReleaseTransactionId())

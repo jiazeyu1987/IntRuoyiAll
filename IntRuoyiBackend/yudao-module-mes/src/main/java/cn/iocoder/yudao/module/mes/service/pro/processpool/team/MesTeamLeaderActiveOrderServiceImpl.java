@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderVoidedActiveOrderPageReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
@@ -17,8 +18,12 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
@@ -90,6 +95,11 @@ import cn.iocoder.yudao.module.mes.service.pro.route.MesRouteDccProductMasterInv
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteCandidateConfigServiceImpl;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -150,6 +160,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_PICK_LIST_CONFLICT;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_DATA_CLEANUP_CONFIRM_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_DATA_CLEANUP_SCOPE_CHANGED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_DATA_CLEANUP_BLOCKED;
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddResult.ACTION_ADD;
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddResult.ACTION_RECOVER;
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddResult.ACTION_REUSE;
@@ -162,6 +173,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     @Resource
     private MesProProcessMapper processMapper;
+    @Resource
+    private GxpAuditService gxpAuditService;
 
     static final String STATUS_ACTIVE = "ACTIVE";
     static final String STATUS_REMOVED = "REMOVED";
@@ -388,6 +401,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             return Collections.emptyMap();
         }
         return activeOrderMapper.selectHistoryByWorkOrderIds(workOrderIds).stream()
+                .filter(MesTeamLeaderActiveOrderServiceImpl::isRecoverableHistory)
                 .filter(history -> history.getWorkOrderId() != null)
                 .collect(Collectors.groupingBy(MesProcessPoolActiveOrderDO::getWorkOrderId,
                         LinkedHashMap::new, Collectors.toList()));
@@ -940,6 +954,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 || reqBO.getIdempotencyKey() == null || reqBO.getIdempotencyKey().isBlank()) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder");
         }
+        gxpAuditService.acquireLedgerLock();
         if (Boolean.TRUE.equals(reqBO.getSimulated())) {
             validateSimulationRunId(reqBO.getSimulationRunId());
             if (!Objects.equals(SIMULATION_STAGE_LATEST_VERSION_COPY, reqBO.getSimulationStage())) {
@@ -1010,6 +1025,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "ADD_ACTIVE_ORDER",
                 "ACTIVE_ORDER", activeOrder.getId(), null,
                 activeOrder.toString());
+        appendActiveOrderGxpAudit("mes.active-order.add",
+                "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#addActiveOrder",
+                "生产组长加入活跃订单", null, activeOrder, "JOIN");
         return addResult(activeOrder.getId(), ACTION_ADD, reqBO.getWorkOrderId(), null);
     }
 
@@ -1033,25 +1051,76 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (workOrder.getTenantId() != null && !Objects.equals(workOrder.getTenantId(), tenantId)) {
             throw new IllegalStateException("FIXED_ACTIVE_ORDER_TEST_RESET_TENANT_SCOPE_MISMATCH");
         }
-        workOrder.setStatus(MesProWorkOrderStatusEnum.CONFIRMED.getStatus())
-                .setTemporaryFrozen(Boolean.FALSE);
-        workOrderMapper.updateById(workOrder);
         List<MesProcessPoolActiveOrderDO> activeOrders = activeOrderMapper.selectList(
                 new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
                         .eq(MesProcessPoolActiveOrderDO::getTenantId, tenantId)
                         .eq(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrder.getId())
                         .orderByAsc(MesProcessPoolActiveOrderDO::getId)
                         .last("FOR UPDATE"));
+        if (activeOrders.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "missing simulation owner");
+        }
+        MesProcessPoolActiveOrderDO simulationOwner = activeOrders.get(0);
+        for (MesProcessPoolActiveOrderDO order : activeOrders) {
+            requireSimulationIdentity(simulationOwner, order.getTenantId(), order.getSimulated(),
+                    order.getSimulationStage(), order.getSimulationRunId());
+            if (!Objects.equals(order.getLeaderUserId(), leaderUserId)
+                    || !Objects.equals(order.getWorkOrderId(), workOrder.getId())) {
+                throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "simulation owner mismatch");
+            }
+        }
         List<Long> activeOrderIds = activeOrders.stream().map(MesProcessPoolActiveOrderDO::getId)
                 .filter(Objects::nonNull).toList();
         List<Long> workOrderIds = List.of(workOrder.getId());
+        // These immutable downstream facts have no simulation ownership contract.
+        // Check the same all-history scope as the physical deletes, before any write.
+        if (!dataCleanupMapper.selectResetCompletionReceiptIdsForUpdate(tenantId, activeOrderIds).isEmpty()
+                || !dataCleanupMapper.selectResetCompletionBackfillIdsForUpdate(tenantId, activeOrderIds).isEmpty()
+                || !dataCleanupMapper.selectResetReleaseApplicationIdsForUpdate(tenantId, activeOrderIds).isEmpty()
+                || !dataCleanupMapper.selectResetNonconformanceIdsForUpdate(tenantId, activeOrderIds).isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "formal reset downstream history");
+        }
         List<Long> activeOrderWorkOrderIds = activeOrders.stream()
                 .map(MesProcessPoolActiveOrderDO::getWorkOrderId)
                 .filter(Objects::nonNull).distinct().toList();
         List<Long> batchIds = dataCleanupMapper.selectBatchExecutionIdsByWorkOrderIds(tenantId, workOrderIds);
         List<Long> eventIds = dataCleanupMapper.selectEventIdsByWorkOrderIds(tenantId, workOrderIds);
-        List<Long> pqcTaskIds = activeOrderIds.isEmpty() ? List.of()
-                : dataCleanupMapper.selectPqcTaskIds(tenantId, activeOrderIds);
+        if (!batchIds.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED,
+                    "batch history has no proven simulation identity: " + batchIds);
+        }
+        for (Long eventId : eventIds) {
+            var event = processPoolEventMapper.selectByIdForUpdate(eventId);
+            if (event == null) {
+                throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "missing reset event=" + eventId);
+            }
+            requireSimulationIdentity(simulationOwner, event.getTenantId(), event.getSimulated(),
+                    event.getSimulationStage(), event.getSimulationRunId());
+            for (var reference : dataCleanupMapper.selectSimulationEventAllocationsForUpdate(tenantId, eventId)) {
+                requireSimulationIdentity(simulationOwner, reference.getTenantId(), reference.getSimulated(),
+                        reference.getSimulationStage(), reference.getSimulationRunId());
+                if (!activeOrderIds.contains(reference.getActiveOrderId())) {
+                    throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "shared reset allocation");
+                }
+            }
+        }
+        if (!eventIds.isEmpty()) {
+            for (var reference : dataCleanupMapper.selectCleanupReferencingTasksForUpdate(new LinkedHashSet<>(eventIds))) {
+                requireSimulationIdentity(simulationOwner, reference.getTenantId(), reference.getSimulated(),
+                        reference.getSimulationStage(), reference.getSimulationRunId());
+                if (!activeOrderIds.contains(reference.getActiveOrderId())
+                        || !Objects.equals(workOrder.getId(), reference.getWorkOrderId())) {
+                    throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "shared reset PQC task");
+                }
+            }
+        }
+        List<Long> pqcTaskIds = new ArrayList<>();
+        if ((!eventIds.isEmpty() && !dataCleanupMapper
+                .selectUnprovenSimulationRevisionIdsForUpdate(tenantId, eventIds).isEmpty())
+                || !dataCleanupMapper.selectUnprovenSimulationTransferIdsForUpdate(tenantId, activeOrderIds).isEmpty()
+                || !dataCleanupMapper.selectUnprovenSimulationMaintenanceIdsForUpdate(tenantId, activeOrderIds).isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "unproven reset historical facts");
+        }
         List<Long> executionIds = batchIds.isEmpty() ? List.of()
                 : dataCleanupMapper.selectBatchRecordExecutionIds(tenantId, batchIds);
         List<Long> releaseTransactionIds = batchIds.isEmpty() ? List.of()
@@ -1065,6 +1134,46 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         List<Long> travelerIds = batchIds.isEmpty() ? List.of()
                 : dataCleanupMapper.selectTravelerIds(tenantId, batchIds);
         List<Long> feedbackIds = dataCleanupMapper.selectFeedbackIds(tenantId, workOrderIds);
+
+        // Validate the actual historical child candidates before even changing the work order.
+        for (MesProcessPoolActiveOrderDO order : activeOrders) {
+            var allocations = dataCleanupMapper.selectSimulationAllocationsForUpdate(tenantId, order.getId());
+            for (var allocation : allocations) {
+                requireSimulationIdentity(order, allocation.getTenantId(), allocation.getSimulated(),
+                        allocation.getSimulationStage(), allocation.getSimulationRunId());
+            }
+            var tasks = dataCleanupMapper.selectCleanupTasksForUpdate(tenantId, order.getId());
+            var pieces = requireSimulationTaskEvidence(order, tasks);
+            tasks.stream().map(MesPqcInspectionTaskDO::getId).filter(Objects::nonNull)
+                    .filter(id -> !pqcTaskIds.contains(id)).forEach(pqcTaskIds::add);
+            var records = requireSimulationOwnChildSources(order, new LinkedHashSet<>(eventIds), false);
+            requireSimulationChildEvidence(order, allocations, new LinkedHashSet<>(eventIds), tasks, pieces, records);
+        }
+        if (!feedbackIds.isEmpty()) {
+            // A work-order link alone cannot establish a feedback's simulation provenance.
+            Set<Long> provenFeedbackIds = new LinkedHashSet<>();
+            for (Long eventId : eventIds) {
+                var event = processPoolEventMapper.selectByIdForUpdate(eventId);
+                if (Objects.equals(event.getFeedbackSourceType(), "MES_PRO_FEEDBACK")
+                        && event.getFeedbackSourceId() != null) {
+                    provenFeedbackIds.add(event.getFeedbackSourceId());
+                }
+            }
+            if (!provenFeedbackIds.equals(new LinkedHashSet<>(feedbackIds))) {
+                throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "unproven reset feedback source");
+            }
+            for (var reference : dataCleanupMapper.selectCleanupFeedbackEventsForUpdate(feedbackIds)) {
+                requireSimulationIdentity(simulationOwner, reference.getTenantId(), reference.getSimulated(),
+                        reference.getSimulationStage(), reference.getSimulationRunId());
+                if (!eventIds.contains(reference.getId())) {
+                    throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "shared reset feedback source");
+                }
+            }
+        }
+
+        workOrder.setStatus(MesProWorkOrderStatusEnum.CONFIRMED.getStatus())
+                .setTemporaryFrozen(Boolean.FALSE);
+        workOrderMapper.updateById(workOrder);
 
         if (!activeOrderIds.isEmpty()) {
             dataCleanupMapper.deleteFeedbackMaterials(tenantId, activeOrderIds);
@@ -1569,11 +1678,14 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getActiveOrderId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "rebuildActiveOrder");
         }
+        gxpAuditService.acquireLedgerLock();
         MesProcessPoolActiveOrderDO activeOrder = requireActiveOrderForRebuild(reqBO.getLeaderUserId(),
                 reqBO.getActiveOrderId());
+        Integer beforeVersion = activeOrder.getVersion();
         MesTeamLeaderActiveOrderRebuildPreview preview = buildRebuildPreview(activeOrder);
         requireNoReleaseApplication(preview);
-        requireDestructiveConfirmation(preview, reqBO.getConfirmDeleteHistoricalRuntimeData());
+        requireNoRebuildEvidence(preview);
+        String beforeSnapshot = activeOrderMaintenanceSnapshot(activeOrder);
         ActiveOrderRebuildCleanupSummary cleanupSummary = cleanupActiveOrderRuntimeHistory(activeOrder, preview);
         ActiveOrderRebuildSnapshotSource snapshotSource = refreshActiveOrderSnapshot(activeOrder);
         insertProcessSnapshots(activeOrder, snapshotSource.erpFixedQuantity(),
@@ -1594,6 +1706,10 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .build();
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "REBUILD_ACTIVE_ORDER",
                 "ACTIVE_ORDER", activeOrder.getId(), preview.toString(), result.toString());
+        appendActiveOrderMaintenanceGxpAudit("mes.active-order.rebuild",
+                "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#rebuildActiveOrder",
+                reqBO.getLeaderUserId(), activeOrder, beforeVersion, beforeSnapshot,
+                activeOrderMaintenanceSnapshot(activeOrder), "REBUILD");
         return result;
     }
 
@@ -1612,10 +1728,10 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return activeOrder;
     }
 
-    private void requireDestructiveConfirmation(MesTeamLeaderActiveOrderRebuildPreview preview,
-                                                 Boolean confirmDeleteHistoricalRuntimeData) {
-        if (preview.isHasHistoricalRuntimeData() && !Boolean.TRUE.equals(confirmDeleteHistoricalRuntimeData)) {
-            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_CONFIRM_REQUIRED, preview.toString());
+    private void requireNoRebuildEvidence(MesTeamLeaderActiveOrderRebuildPreview preview) {
+        if (preview.isHasHistoricalRuntimeData()) {
+            throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
+                    .PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_EVIDENCE_BLOCKED, preview.getActiveOrderId());
         }
     }
 
@@ -1640,16 +1756,53 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private ActiveOrderRebuildCleanupSummary cleanupActiveOrderRuntimeHistory(
             MesProcessPoolActiveOrderDO activeOrder, MesTeamLeaderActiveOrderRebuildPreview preview) {
-        List<MesProcessPoolReportAllocationDO> allocations =
-                reportAllocationMapper.selectAllListByActiveOrderIdForUpdate(activeOrder.getId());
-        List<MesPqcInspectionTaskDO> tasks = pqcInspectionTaskMapper
-                .selectListByActiveOrderIdForUpdate(activeOrder.getId());
+        List<MesProcessPoolReportAllocationDO> allocations = Boolean.TRUE.equals(activeOrder.getSimulated())
+                ? dataCleanupMapper.selectSimulationAllocationsForUpdate(currentTenantId(), activeOrder.getId())
+                : reportAllocationMapper.selectAllListByActiveOrderIdForUpdate(activeOrder.getId());
+        List<MesPqcInspectionTaskDO> tasks = Boolean.TRUE.equals(activeOrder.getSimulated())
+                ? dataCleanupMapper.selectCleanupTasksForUpdate(currentTenantId(), activeOrder.getId())
+                : pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId());
         List<Long> taskIds = tasks.stream()
                 .map(MesPqcInspectionTaskDO::getId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
         Set<Long> eventIds = resolveActiveOrderRuntimeEventIds(allocations, tasks);
+        if (Boolean.TRUE.equals(activeOrder.getSimulated())) {
+            Long tenantId = currentTenantId();
+            List<Long> ownerIds = List.of(activeOrder.getId());
+            if (!dataCleanupMapper.selectResetCompletionReceiptIdsForUpdate(tenantId, ownerIds).isEmpty()
+                    || !dataCleanupMapper.selectResetCompletionBackfillIdsForUpdate(tenantId, ownerIds).isEmpty()
+                    || !dataCleanupMapper.selectResetReleaseApplicationIdsForUpdate(tenantId, ownerIds).isEmpty()
+                    || !dataCleanupMapper.selectResetNonconformanceIdsForUpdate(tenantId, ownerIds).isEmpty()
+                    || (!eventIds.isEmpty() && !dataCleanupMapper
+                    .selectUnprovenSimulationRevisionIdsForUpdate(tenantId, eventIds).isEmpty())) {
+                throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "formal simulation cleanup history");
+            }
+            for (MesProcessPoolReportAllocationDO allocation : allocations) {
+                requireSimulationIdentity(activeOrder, allocation.getTenantId(), allocation.getSimulated(),
+                        allocation.getSimulationStage(), allocation.getSimulationRunId());
+            }
+            var pieces = requireSimulationTaskEvidence(activeOrder, tasks);
+            for (Long eventId : eventIds) {
+                MesProProcessPoolEventDO event = processPoolEventMapper.selectByIdForUpdate(eventId);
+                if (event == null) {
+                    throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED,
+                            "missing simulation event=" + eventId);
+                }
+                requireSimulationIdentity(activeOrder, event.getTenantId(), event.getSimulated(),
+                        event.getSimulationStage(), event.getSimulationRunId());
+                for (var reference : dataCleanupMapper.selectSimulationEventAllocationsForUpdate(currentTenantId(), eventId)) {
+                    requireSimulationIdentity(activeOrder, reference.getTenantId(), reference.getSimulated(),
+                            reference.getSimulationStage(), reference.getSimulationRunId());
+                    if (!Objects.equals(reference.getActiveOrderId(), activeOrder.getId())) {
+                        throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "shared simulation allocation");
+                    }
+                }
+            }
+            var records = requireSimulationOwnChildSources(activeOrder, eventIds, true);
+            requireSimulationChildEvidence(activeOrder, allocations, eventIds, tasks, pieces, records);
+        }
         List<MesProProcessPoolEventDO> productionEvents = resolveProductionReportEvents(eventIds);
         requireExclusiveProductionReportOwnership(activeOrder.getId(), productionEvents);
         List<Long> feedbackIds = productionEvents.stream()
@@ -1657,6 +1810,41 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
+
+        if (Boolean.TRUE.equals(activeOrder.getSimulated())) {
+            if (!eventIds.isEmpty()) {
+                for (var reference : dataCleanupMapper.selectCleanupReferencingTasksForUpdate(eventIds)) {
+                    if (!Objects.equals(reference.getActiveOrderId(), activeOrder.getId())
+                            || !taskIds.contains(reference.getId())) {
+                        throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED,
+                                "shared PQC event, taskId=" + reference.getId());
+                    }
+                    requireSimulationIdentity(activeOrder, reference.getTenantId(), reference.getSimulated(),
+                            reference.getSimulationStage(), reference.getSimulationRunId());
+                }
+            }
+            if (!feedbackIds.isEmpty()) {
+                for (var event : productionEvents) {
+                    if (event.getFeedbackSourceId() != null
+                            && !Objects.equals(event.getFeedbackSourceType(), "MES_PRO_FEEDBACK")) {
+                        throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "invalid feedback source type");
+                    }
+                }
+                var feedbacks = feedbackMapper.selectListByIdsForUpdate(feedbackIds);
+                Set<Long> resolvedIds = feedbacks.stream().map(feedback -> feedback.getId()).collect(Collectors.toSet());
+                if (!resolvedIds.equals(new LinkedHashSet<>(feedbackIds)) || feedbacks.stream()
+                        .anyMatch(feedback -> !Objects.equals(feedback.getWorkOrderId(), activeOrder.getWorkOrderId()))) {
+                    throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "unproven feedback work order");
+                }
+                for (var reference : dataCleanupMapper.selectCleanupFeedbackEventsForUpdate(feedbackIds)) {
+                    requireSimulationIdentity(activeOrder, reference.getTenantId(), reference.getSimulated(),
+                            reference.getSimulationStage(), reference.getSimulationRunId());
+                    if (!eventIds.contains(reference.getId())) {
+                        throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "shared feedback source");
+                    }
+                }
+            }
+        }
 
         pqcAggregateDetailMapper.deleteByActiveOrderId(activeOrder.getId());
         pqcPieceDetailMapper.deleteByTaskIds(taskIds);
@@ -1685,6 +1873,167 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 preview.getPqcInspectionResultCount(),
                 preview.getProcessSnapshotCount(),
                 preview.getPqcTaskCount());
+    }
+
+    private List<MesProProcessPoolPqcRecordDO> requireSimulationOwnChildSources(MesProcessPoolActiveOrderDO owner,
+                                                 Set<Long> eventIds, boolean includeProductionSource) {
+        Long tenantId = currentTenantId();
+        List<MesProProcessPoolPqcRecordDO> records = List.of();
+        if (!eventIds.isEmpty()) {
+            for (var fragment : dataCleanupMapper.selectSimulationFragmentsForUpdate(
+                    tenantId, eventIds, includeProductionSource)) {
+                requireSimulationIdentity(owner, fragment.getTenantId(), fragment.getSimulated(),
+                        fragment.getSimulationStage(), fragment.getSimulationRunId());
+                if (!Objects.equals(fragment.getWorkOrderId(), owner.getWorkOrderId())
+                        || !eventIds.contains(fragment.getEventId())
+                        || (fragment.getProductionSubmitEventId() != null
+                        && !eventIds.contains(fragment.getProductionSubmitEventId()))) {
+                    throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "unproven fragment source");
+                }
+            }
+            records = dataCleanupMapper.selectSimulationPqcRecordsForUpdate(tenantId, eventIds);
+            for (var record : records) {
+                requireSimulationIdentity(owner, record.getTenantId(), record.getSimulated(),
+                        record.getSimulationStage(), record.getSimulationRunId());
+                if (!Objects.equals(record.getWorkOrderId(), owner.getWorkOrderId())
+                        || !eventIds.contains(record.getEventId())
+                        || (record.getProductionSubmitEventId() != null
+                        && !eventIds.contains(record.getProductionSubmitEventId()))) {
+                    throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "unproven PQC record source");
+                }
+            }
+        }
+        for (var snapshot : dataCleanupMapper.selectSimulationSnapshotsForUpdate(tenantId, List.of(owner.getId()))) {
+            requireSimulationIdentity(owner, snapshot.getTenantId(), snapshot.getSimulated(),
+                    snapshot.getSimulationStage(), snapshot.getSimulationRunId());
+            if (!Objects.equals(snapshot.getActiveOrderId(), owner.getId())
+                    || !Objects.equals(snapshot.getWorkOrderId(), owner.getWorkOrderId())
+                    || snapshot.getRouteVersionId() == null
+                    || !Objects.equals(snapshot.getRouteVersionId(), owner.getRouteVersionId())) {
+                throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "unproven process snapshot owner");
+            }
+        }
+        var bindings = dataCleanupMapper.selectSimulationBindingsForUpdate(tenantId, List.of(owner.getId()));
+        for (var binding : bindings) {
+            requireSimulationIdentity(owner, binding.getTenantId(), binding.getSimulated(),
+                    binding.getSimulationStage(), binding.getSimulationRunId());
+            if (!Objects.equals(binding.getActiveOrderId(), owner.getId())
+                    || !Objects.equals(binding.getWorkOrderId(), owner.getWorkOrderId())) {
+                throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "unproven pick binding owner");
+            }
+        }
+        List<Long> bindingIds = bindings.stream().map(MesProcessPoolActiveOrderPickListBindingDO::getId).toList();
+        if (!bindingIds.isEmpty()) {
+            for (var item : dataCleanupMapper.selectSimulationBindingItemsForUpdate(tenantId, bindingIds)) {
+                requireSimulationIdentity(owner, item.getTenantId(), item.getSimulated(),
+                        item.getSimulationStage(), item.getSimulationRunId());
+                if (!bindingIds.contains(item.getBindingId())) {
+                    throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "unproven pick binding item owner");
+                }
+            }
+        }
+        return records;
+    }
+
+    private List<MesPqcInspectionPieceDetailDO> requireSimulationTaskEvidence(MesProcessPoolActiveOrderDO owner,
+                                               List<MesPqcInspectionTaskDO> tasks) {
+        for (var task : tasks) {
+            requireSimulationIdentity(owner, task.getTenantId(), task.getSimulated(),
+                    task.getSimulationStage(), task.getSimulationRunId());
+            if (!Objects.equals(task.getActiveOrderId(), owner.getId())
+                    || !Objects.equals(task.getWorkOrderId(), owner.getWorkOrderId())) {
+                throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "unproven task owner");
+            }
+        }
+        List<Long> taskIds = tasks.stream().map(MesPqcInspectionTaskDO::getId).toList();
+        List<MesPqcInspectionPieceDetailDO> pieces = taskIds.isEmpty() ? List.of()
+                : dataCleanupMapper.selectCleanupPiecesForUpdate(currentTenantId(), taskIds);
+        for (var piece : pieces) {
+                requireSimulationIdentity(owner, piece.getTenantId(), piece.getSimulated(),
+                        piece.getSimulationStage(), piece.getSimulationRunId());
+        }
+        return pieces;
+    }
+
+    private void requireSimulationChildEvidence(MesProcessPoolActiveOrderDO owner,
+                                                List<MesProcessPoolReportAllocationDO> allocations,
+                                                Set<Long> eventIds, List<MesPqcInspectionTaskDO> tasks,
+                                                List<MesPqcInspectionPieceDetailDO> pieces,
+                                                List<MesProProcessPoolPqcRecordDO> records) {
+        Long tenantId = currentTenantId();
+        Set<Long> reviewIds = new LinkedHashSet<>();
+        Map<Long, MesProcessPoolSubmissionReviewDO> reviewsById = new java.util.HashMap<>();
+        if (!eventIds.isEmpty()) {
+            for (MesProcessPoolSubmissionReviewDO review :
+                    dataCleanupMapper.selectCleanupReviewsForUpdate(tenantId, eventIds)) {
+                requireSimulationIdentity(owner, review.getTenantId(), review.getSimulated(),
+                        review.getSimulationStage(), review.getSimulationRunId());
+                reviewIds.add(review.getId());
+                reviewsById.put(review.getId(), review);
+            }
+        }
+        for (MesPqcProcessInspectionAggregateDetailDO aggregate :
+                dataCleanupMapper.selectCleanupAggregatesForUpdate(tenantId, owner.getId())) {
+            requireSimulationIdentity(owner, aggregate.getTenantId(), aggregate.getSimulated(),
+                    aggregate.getSimulationStage(), aggregate.getSimulationRunId());
+            var record = records.stream().filter(row -> Objects.equals(row.getId(), aggregate.getSourcePqcRecordId()))
+                    .findFirst().orElse(null);
+            var piece = pieces.stream().filter(row -> Objects.equals(row.getId(), aggregate.getSourcePieceDetailId()))
+                    .findFirst().orElse(null);
+            var review = reviewsById.get(aggregate.getReviewId());
+            var event = aggregate.getEventId() == null ? null
+                    : processPoolEventMapper.selectByIdForUpdate(aggregate.getEventId());
+            if (record == null || piece == null
+                    || review == null || event == null
+                    || !Objects.equals(aggregate.getActiveOrderId(), owner.getId())
+                    || !Objects.equals(aggregate.getWorkOrderId(), owner.getWorkOrderId())
+                    || !Objects.equals(aggregate.getEventId(), record.getEventId())
+                    || !Objects.equals(aggregate.getReviewId(), record.getProcessInspectionReviewId())
+                    || !reviewIds.contains(aggregate.getReviewId())
+                    || !Objects.equals(review.getEventId(), aggregate.getEventId())
+                    || !PQC_INSPECTION_TASK_SOURCE_TYPE.equals(event.getFeedbackSourceType())
+                    || !Objects.equals(event.getFeedbackSourceId(), aggregate.getPqcTaskId())
+                    || !PQC_INSPECTION_TASK_SOURCE_TYPE.equals(event.getRecordbookSourceType())
+                    || !Objects.equals(event.getRecordbookSourceId(), aggregate.getPqcTaskId())
+                    || !Objects.equals(aggregate.getProductionSubmitEventId(), record.getProductionSubmitEventId())
+                    || !Objects.equals(aggregate.getPqcTaskId(), piece.getTaskId())
+                    || tasks.stream().noneMatch(task -> Objects.equals(task.getId(), aggregate.getPqcTaskId()))) {
+                throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED,
+                        "unproven aggregate source, aggregateId=" + aggregate.getId());
+            }
+        }
+        Set<Long> allocationIds = allocations.stream().map(MesProcessPoolReportAllocationDO::getId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        for (MesProcessPoolOrderProcessCompletionDO completion :
+                dataCleanupMapper.selectCleanupCompletionsForUpdate(tenantId, owner.getWorkOrderId())) {
+            List<Long> sourceEvents = JsonUtils.parseArray(completion.getSourceEventIdsJson(), Long.class);
+            List<Long> sourceAllocations = JsonUtils.parseArray(completion.getSourceAllocationIdsJson(), Long.class);
+            if (!Objects.equals(completion.getTenantId(), tenantId)
+                    || !Objects.equals(completion.getWorkOrderId(), owner.getWorkOrderId())
+                    || sourceEvents == null || sourceEvents.isEmpty() || !eventIds.containsAll(sourceEvents)
+                    || sourceAllocations == null || sourceAllocations.isEmpty()
+                    || !allocationIds.containsAll(sourceAllocations)
+                    || !sourceEvents.contains(completion.getLastEventId())
+                    || (completion.getLastReviewId() != null && !reviewIds.contains(completion.getLastReviewId()))
+                    || completion.getBackfillExecutionId() != null) {
+                throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED,
+                        "unproven completion source, completionId=" + completion.getId());
+            }
+        }
+    }
+
+    private void requireSimulationIdentity(MesProcessPoolActiveOrderDO owner, Long tenantId,
+                                           Boolean simulated, String stage, String runId) {
+        if (!Objects.equals(owner.getTenantId(), currentTenantId())
+                || !Boolean.TRUE.equals(owner.getSimulated())
+                || owner.getSimulationRunId() == null || owner.getSimulationRunId().isBlank()
+                || owner.getSimulationStage() == null || owner.getSimulationStage().isBlank()
+                || !Objects.equals(tenantId, owner.getTenantId()) || !Boolean.TRUE.equals(simulated)
+                || !Objects.equals(stage, owner.getSimulationStage())
+                || !Objects.equals(runId, owner.getSimulationRunId())) {
+            throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED,
+                    "unproven simulation identity, activeOrderId=" + owner.getId());
+        }
     }
 
     private Set<Long> resolveActiveOrderRuntimeEventIds(List<MesProcessPoolReportAllocationDO> allocations,
@@ -1805,7 +2154,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         boolean hasHistoricalRuntimeData = !eventIds.isEmpty()
                 || !completions.isEmpty()
                 || pqcInspectionResultCount > 0
-                || !releaseApplications.isEmpty();
+                || !releaseApplications.isEmpty()
+                || hasHistoricalChildEvidence(List.of(activeOrder.getId()), List.of(activeOrder.getWorkOrderId()));
         return MesTeamLeaderActiveOrderRebuildPreview.builder()
                 .activeOrderId(activeOrder.getId())
                 .hasHistoricalRuntimeData(hasHistoricalRuntimeData)
@@ -1825,11 +2175,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getActiveOrderId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "removeActiveOrder");
         }
+        gxpAuditService.acquireLedgerLock();
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(reqBO.getActiveOrderId());
         if (activeOrder == null || !Objects.equals(activeOrder.getLeaderUserId(), reqBO.getLeaderUserId())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, reqBO.getActiveOrderId());
         }
         requireNoReleaseApplication(activeOrder.getId());
+        String beforeSnapshot = activeOrderMaintenanceSnapshot(activeOrder);
         reportAllocationOrderChangeService.invalidateActiveOrder(activeOrder.getId(), reqBO.getLeaderUserId(),
                 "活跃订单移除");
         LocalDateTime removedAt = LocalDateTime.now();
@@ -1846,6 +2198,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .build();
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "REMOVE_ACTIVE_ORDER",
                 "ACTIVE_ORDER", activeOrder.getId(), activeOrder.toString(), update.toString());
+        Integer beforeVersion = activeOrder.getVersion();
+        activeOrder.setActiveStatus(STATUS_REMOVED).setBusinessStatus(STATUS_REMOVED)
+                .setRemovedAt(removedAt).setVersion(update.getVersion());
+        appendActiveOrderMaintenanceGxpAudit("mes.active-order.remove",
+                "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#removeActiveOrder",
+                reqBO.getLeaderUserId(), activeOrder, beforeVersion, beforeSnapshot,
+                activeOrderMaintenanceSnapshot(activeOrder), "REMOVE");
     }
 
     @Override
@@ -1887,6 +2246,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 || expectedScope.getOrderVersions().size() != expectedScope.getOrderIds().size()) {
             throw exception(PRO_PROCESS_POOL_DATA_CLEANUP_CONFIRM_REQUIRED);
         }
+        gxpAuditService.acquireLedgerLock();
         MesTeamLeaderDataCleanupPreview current = previewDataCleanup(leaderUserId);
         if (!Objects.equals(current.getOrderIds(), expectedScope.getOrderIds())
                 || !Objects.equals(current.getOrderVersions(), expectedScope.getOrderVersions())) {
@@ -1901,11 +2261,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
         List<MesProcessPoolActiveOrderDO> historyOrders = selectCleanupOrdersWithRelated(leaderUserId, true, true);
         List<Long> historyOrderIds = historyOrders.stream().map(MesProcessPoolActiveOrderDO::getId).toList();
-        Set<Long> eventIdSet = new LinkedHashSet<>(resolveCleanupEventIds());
+        Set<Long> eventIdSet = new LinkedHashSet<>(dataCleanupMapper.selectAllCleanupEventIdsForUpdate(currentTenantId()));
         List<Long> eventIds = eventIdSet.stream().toList();
         List<Long> eventWorkOrderIds = eventIds.isEmpty() ? List.of()
                 : dataCleanupMapper.selectWorkOrderIdsByEventIds(currentTenantId(), eventIds);
-        List<Long> batchIds = resolveCleanupBatchExecutionIds();
+        List<Long> batchIds = dataCleanupMapper.selectAllBatchExecutionIdsForUpdate(currentTenantId());
         List<Long> batchWorkOrderIds = batchIds.isEmpty() ? List.of()
                 : dataCleanupMapper.selectWorkOrderIdsByBatchExecutionIds(currentTenantId(), batchIds);
         List<Long> workOrderIds = resolveCleanupWorkOrderIds(historyOrders,
@@ -1913,15 +2273,27 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (!Objects.equals(batchIds, current.getBatchExecutionIds())) {
             throw exception(PRO_PROCESS_POOL_DATA_CLEANUP_SCOPE_CHANGED);
         }
+        // Ordinary cleanup must not erase source evidence, including unfinished batches.
+        // Simulation copies have a separate identity-checked cleanup entry point.
+        if (!eventIds.isEmpty() || !batchIds.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_DATA_CLEANUP_BLOCKED,
+                    "存在报工、检验事件或批次执行证据，不能普通清理；测试副本请使用清理测试单");
+        }
         List<MesProcessPoolActiveOrderReleaseApplicationDO> releaseApplications =
                 releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(historyOrderIds);
         List<Long> releaseApplicationIds = releaseApplications.stream()
                 .map(MesProcessPoolActiveOrderReleaseApplicationDO::getId)
                 .filter(Objects::nonNull).distinct().sorted().toList();
         List<Long> releaseTransactionIds = resolveReleaseTransactionIds(currentTenantId(), batchIds, releaseApplications);
+        if (!releaseApplications.isEmpty() || !releaseTransactionIds.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_DATA_CLEANUP_BLOCKED, "存在放行申请或放行事务证据，不能普通清理");
+        }
         if (!Objects.equals(releaseApplicationIds.size(), current.getReleaseApplicationCount())
                 || !Objects.equals(releaseTransactionIds.size(), current.getReleaseTransactionCount())) {
             throw exception(PRO_PROCESS_POOL_DATA_CLEANUP_SCOPE_CHANGED);
+        }
+        if (hasHistoricalChildEvidence(historyOrderIds, workOrderIds)) {
+            throw exception(PRO_PROCESS_POOL_DATA_CLEANUP_BLOCKED, "存在检验或完工历史子证据，不能普通清理");
         }
         List<Long> feedbackIds = new ArrayList<>(workOrderIds.isEmpty() ? List.of()
                 : dataCleanupMapper.selectFeedbackIds(currentTenantId(), workOrderIds));
@@ -2038,6 +2410,22 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .batchRecordExecutionCount(executionIds.size())
                 .releaseApplicationCount(releaseApplicationIds.size())
                 .releaseTransactionCount(releaseTransactionIds.size()).build();
+    }
+
+    private boolean hasHistoricalChildEvidence(List<Long> activeOrderIds, List<Long> workOrderIds) {
+        Long tenantId = currentTenantId();
+        if (!activeOrderIds.isEmpty()) {
+            List<Long> taskIds = dataCleanupMapper.selectHistoricalPqcTaskIdsForUpdate(tenantId, activeOrderIds);
+            if (!taskIds.isEmpty()
+                    && !dataCleanupMapper.selectHistoricalPqcPieceIdsForUpdate(tenantId, taskIds).isEmpty()) {
+                return true;
+            }
+            if (!dataCleanupMapper.selectHistoricalPqcAggregateIdsForUpdate(tenantId, activeOrderIds).isEmpty()) {
+                return true;
+            }
+        }
+        return !workOrderIds.isEmpty()
+                && !dataCleanupMapper.selectHistoricalCompletionIdsForUpdate(tenantId, workOrderIds).isEmpty();
     }
 
     private Long currentTenantId() {
@@ -2237,10 +2625,12 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void closeForRelease(Long activeOrderId, Integer expectedVersion,
-                                Long releaseDecisionId, Long actorUserId) {
+                                Long releaseDecisionId, Long actorUserId,
+                                String parentSignatureRecordId) {
         if (activeOrderId == null || expectedVersion == null || releaseDecisionId == null || actorUserId == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "closeActiveOrderForRelease");
         }
+        gxpAuditService.acquireLedgerLock();
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
         if (activeOrder == null || !STATUS_ACTIVE.equals(activeOrder.getActiveStatus())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
@@ -2259,6 +2649,43 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 + releaseDecisionId + ",releasedBy=" + actorUserId + ",releasedAt=" + releasedAt;
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, actorUserId, "CLOSE_ACTIVE_ORDER_BY_RELEASE",
                 "ACTIVE_ORDER", activeOrderId, activeOrder.toString(), afterSnapshot);
+        List<GxpAuditRelation> links = new ArrayList<>();
+        links.add(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
+                String.valueOf(activeOrderId), String.valueOf(expectedVersion + 1), null));
+        links.add(new GxpAuditRelation("SOURCE", "RELEASE_DECISION",
+                String.valueOf(releaseDecisionId), null, null));
+        if (StrUtil.isNotBlank(parentSignatureRecordId)) {
+            links.add(new GxpAuditRelation("SIGNATURE", "SIGNATURE", parentSignatureRecordId, null, null));
+        }
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .eventSchemaVersion(2)
+                .operationId("mes.active-order.close-by-release")
+                .subjectId("ACTIVE_ORDER:" + activeOrderId)
+                .subjectVersion(String.valueOf(expectedVersion + 1))
+                .reason("上市放行成功后关闭活跃订单")
+                .reasonCode("MES_ACTIVE_ORDER_CLOSE_BY_RELEASE")
+                .reasonSource("SYSTEM")
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state("ACTIVE")
+                        .objectVersion(String.valueOf(expectedVersion))
+                        .canonicalJson(JsonUtils.toJsonString(activeOrder))
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state("CLOSED")
+                        .objectVersion(String.valueOf(expectedVersion + 1))
+                        .canonicalJson(afterSnapshot)
+                        .build())
+                .idempotencyKey("ACTIVE_ORDER_CLOSE_BY_RELEASE:" + activeOrderId + ":" + releaseDecisionId)
+                .requestId("MES-ACTIVE-ORDER-CLOSE-BY-RELEASE:" + activeOrderId + ":" + releaseDecisionId)
+                .resultStatus("SUCCESS")
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator("cn.iocoder.yudao.module.mes.service.pro.processpool.team."
+                        + "MesTeamLeaderActiveOrderServiceImpl#closeForRelease")
+                .signatureRecordId(parentSignatureRecordId)
+                .links(links)
+                .evidences(List.of(new GxpAuditEvidence("FORMAL_RELEASE_DECISION",
+                        String.valueOf(releaseDecisionId), null, null, "MARKET_RELEASE")))
+                .build());
     }
 
     private MesProcessPoolActiveOrderDO selectExistingActiveOrder(Long workOrderId, Long routeId,
@@ -2271,6 +2698,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             MesProcessPoolActiveOrderPickListBindingDO pickList) {
         List<MesProcessPoolActiveOrderDO> history = activeOrderMapper
                 .selectHistoryByWorkOrderIdForUpdate(reqBO.getWorkOrderId());
+        if (history != null) {
+            history = history.stream().filter(MesTeamLeaderActiveOrderServiceImpl::isRecoverableHistory).toList();
+        }
         if (history == null || history.isEmpty()) {
             return null;
         }
@@ -2289,10 +2719,18 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 + historicalOrder.getActiveStatus() + ", activeOrderId=" + historicalOrder.getId());
     }
 
+    private static boolean isRecoverableHistory(MesProcessPoolActiveOrderDO order) {
+        return !"VERSION_UPGRADED".equals(order.getBusinessStatus())
+                && !"REWORKED".equals(order.getBusinessStatus());
+    }
+
     private MesTeamLeaderActiveOrderAddResult reactivateRemovedActiveOrder(
             MesTeamLeaderActiveOrderAddReqBO reqBO,
             MesProcessPoolActiveOrderDO removed,
             MesProcessPoolActiveOrderPickListBindingDO pickList) {
+        MesTeamLeaderActiveOrderRebuildPreview recoveryPreview = buildRebuildPreview(removed);
+        requireNoReleaseApplication(recoveryPreview);
+        requireNoRebuildEvidence(recoveryPreview);
         MesProcessPoolActiveOrderDO recoveryTarget = MesProcessPoolActiveOrderDO.builder()
                 .id(removed.getId())
                 .leaderUserId(reqBO.getLeaderUserId())
@@ -2319,12 +2757,21 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     .businessStatus(STATUS_ACTIVE)
                     .joinedAt(rejoinedAt)
                     .sortOrder(sortOrder)
+                    .releaseDecisionId(removed.getReleaseDecisionId())
+                    .releasedBy(removed.getReleasedBy())
+                    .releasedAt(removed.getReleasedAt())
+                    .simulated(removed.getSimulated())
+                    .simulationStage(removed.getSimulationStage())
+                    .simulationRunId(removed.getSimulationRunId())
                     .version(removed.getVersion() == null ? null : removed.getVersion() + 1)
                     .build();
             rebuildRecoveredActiveOrder(reactivated, snapshotSource);
             TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "REACTIVATE_ACTIVE_ORDER",
                     "ACTIVE_ORDER", removed.getId(), removed.toString(),
                     reactivated + ", latestQaRegulationVersionId=" + snapshotSource.qaSource().version().getId());
+            appendActiveOrderGxpAudit("mes.active-order.restore",
+                    "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#addActiveOrder",
+                    "生产组长恢复已移除活跃订单", removed, reactivated, "RESTORE");
             return addResult(removed.getId(), ACTION_RECOVER, reqBO.getWorkOrderId(), pickList);
         }
         MesProcessPoolActiveOrderDO concurrentlyAdded = selectExistingActiveOrder(removed.getWorkOrderId(),
@@ -2333,6 +2780,116 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             return addResult(concurrentlyAdded.getId(), ACTION_REUSE, reqBO.getWorkOrderId(), null);
         }
         throw new IllegalStateException("Failed to reactivate removed active order: " + removed.getId());
+    }
+
+    private void appendActiveOrderGxpAudit(String operationId, String sourceLocator, String reason,
+                                           MesProcessPoolActiveOrderDO before,
+                                           MesProcessPoolActiveOrderDO after, String transition) {
+        String subjectVersion = String.valueOf(after.getVersion());
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .operationId(operationId)
+                .subjectId("MES_ACTIVE_ORDER:" + after.getId())
+                .subjectVersion(subjectVersion)
+                .reason(reason)
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state(before == null ? "ABSENT" : "PRESENT")
+                        .objectVersion(before == null ? null : String.valueOf(before.getVersion()))
+                        .canonicalJson(before == null ? "null" : activeOrderAuditJson(before))
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state("PRESENT")
+                        .objectVersion(subjectVersion)
+                        .canonicalJson(activeOrderAuditJson(after))
+                        .build())
+                .idempotencyKey("ACTIVE_ORDER:" + after.getId() + ":" + transition + ":" + subjectVersion)
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator(sourceLocator)
+                .links(List.of(
+                        new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
+                                String.valueOf(after.getId()), subjectVersion, null),
+                        new GxpAuditRelation("SOURCE", "WORK_ORDER",
+                                String.valueOf(after.getWorkOrderId()), null, null),
+                        new GxpAuditRelation("SOURCE", "ROUTE_VERSION",
+                                String.valueOf(after.getRouteVersionId()), null, null)))
+                .build());
+    }
+
+    private void appendActiveOrderMaintenanceGxpAudit(String operationId, String sourceLocator,
+                                                      Long actorUserId, MesProcessPoolActiveOrderDO activeOrder,
+                                                      Integer beforeVersion, String beforeJson, String afterJson,
+                                                      String transition) {
+        if (beforeVersion == null || activeOrder.getVersion() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder.version");
+        }
+        int nextVersion = activeOrder.getVersion();
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .operationId(operationId)
+                .subjectId("MES_ACTIVE_ORDER:" + activeOrder.getId())
+                .subjectVersion(String.valueOf(nextVersion))
+                .reason(transition.equals("REMOVE") ? "生产组长移除活跃订单" : "生产组长重建活跃订单运行快照")
+                .reasonSource("SYSTEM")
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state("PRESENT")
+                        .objectVersion(beforeVersion == null ? null : String.valueOf(beforeVersion))
+                        .canonicalJson(beforeJson)
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state("PRESENT")
+                        .objectVersion(String.valueOf(nextVersion))
+                        .canonicalJson(afterJson)
+                        .build())
+                .idempotencyKey("ACTIVE_ORDER:" + activeOrder.getId() + ":" + transition + ":" + nextVersion)
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator(sourceLocator)
+                .links(List.of(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
+                        String.valueOf(activeOrder.getId()), String.valueOf(nextVersion), null),
+                        new GxpAuditRelation("ACTOR", "SYSTEM_USER", String.valueOf(actorUserId), null, null),
+                        new GxpAuditRelation("SOURCE", "WORK_ORDER",
+                                String.valueOf(activeOrder.getWorkOrderId()), null, null)))
+                .build());
+    }
+
+    private String activeOrderMaintenanceSnapshot(MesProcessPoolActiveOrderDO activeOrder) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("activeOrder", JSONObject.parseObject(activeOrderAuditJson(activeOrder)));
+        snapshot.put("processSnapshots", processSnapshotMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId()));
+        List<MesPqcInspectionTaskDO> tasks = pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId());
+        snapshot.put("pqcTasks", tasks);
+        List<MesProcessPoolReportAllocationDO> allocations = reportAllocationMapper
+                .selectAllListByActiveOrderIdForUpdate(activeOrder.getId());
+        snapshot.put("allocations", allocations);
+        snapshot.put("completionRecords", orderProcessCompletionMapper
+                .selectListByWorkOrderIdsForUpdate(List.of(activeOrder.getWorkOrderId())));
+        snapshot.put("pqcAggregateDetails", pqcAggregateDetailMapper.selectListByActiveOrderId(activeOrder.getId()));
+        snapshot.put("events", resolveActiveOrderRuntimeEventIds(allocations, tasks).stream().sorted()
+                .map(processPoolEventMapper::selectByIdForUpdate).toList());
+        return JsonUtils.toJsonString(snapshot);
+    }
+
+    private String activeOrderAuditJson(MesProcessPoolActiveOrderDO activeOrder) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", activeOrder.getId());
+        payload.put("leaderUserId", activeOrder.getLeaderUserId());
+        payload.put("workOrderId", activeOrder.getWorkOrderId());
+        payload.put("routeId", activeOrder.getRouteId());
+        payload.put("routeVersionId", activeOrder.getRouteVersionId());
+        payload.put("dccProjectCodeId", activeOrder.getDccProjectCodeId());
+        payload.put("qaRegulationId", activeOrder.getQaRegulationId());
+        payload.put("qaRegulationVersionId", activeOrder.getQaRegulationVersionId());
+        payload.put("erpFixedQuantitySnapshot", activeOrder.getErpFixedQuantitySnapshot());
+        payload.put("activeStatus", activeOrder.getActiveStatus());
+        payload.put("businessStatus", activeOrder.getBusinessStatus());
+        payload.put("joinedAt", activeOrder.getJoinedAt());
+        payload.put("sortOrder", activeOrder.getSortOrder());
+        payload.put("removedAt", activeOrder.getRemovedAt());
+        payload.put("releaseDecisionId", activeOrder.getReleaseDecisionId());
+        payload.put("releasedBy", activeOrder.getReleasedBy());
+        payload.put("releasedAt", activeOrder.getReleasedAt());
+        payload.put("simulated", activeOrder.getSimulated());
+        payload.put("simulationStage", activeOrder.getSimulationStage());
+        payload.put("simulationRunId", activeOrder.getSimulationRunId());
+        payload.put("version", activeOrder.getVersion());
+        return JsonUtils.toJsonString(payload);
     }
 
     private ActiveOrderRebuildSnapshotSource rebuildRecoveredActiveOrder(

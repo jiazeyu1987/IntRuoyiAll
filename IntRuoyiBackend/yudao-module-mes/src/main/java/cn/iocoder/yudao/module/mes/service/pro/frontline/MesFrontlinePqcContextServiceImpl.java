@@ -53,6 +53,11 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipme
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.springframework.stereotype.Service;
@@ -98,6 +103,10 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContextService {
 
     private static final String PQC_INSPECTION_TASK_SOURCE_TYPE = "MES_PQC_INSPECTION_TASK";
+    private static final String GXP_PQC_SUBMIT_OPERATION = "mes.pqc.submit";
+    private static final String GXP_PQC_SOURCE_LOCATOR =
+            "cn.iocoder.yudao.module.mes.service.pro.frontline."
+                    + "MesFrontlinePqcContextServiceImpl#submitPqcInspection";
     private static final String PQC_TASK_STATUS_PENDING = "PENDING";
     private static final String PQC_TASK_STATUS_SUBMITTED = "SUBMITTED";
     private static final String PQC_TASK_STATUS_CONFIRMED = "CONFIRMED";
@@ -137,6 +146,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
     private final MesProProcessPoolPqcRecordMapper pqcRecordMapper;
     private final MesProBatchRecordExecutionSignatureService signatureService;
     private final MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    private final GxpAuditService gxpAuditService;
 
     public MesFrontlinePqcContextServiceImpl(MesProcessPoolActiveOrderMapper activeOrderMapper,
                                              MesProProcessPoolEventMapper processPoolEventMapper,
@@ -160,7 +170,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                                               MesProcessPoolEventService processPoolEventService,
                                               MesProProcessPoolPqcRecordMapper pqcRecordMapper,
                                               MesProBatchRecordExecutionSignatureService signatureService,
-                                              MesProEdhrNonconformanceReviewService nonconformanceReviewService) {
+                                              MesProEdhrNonconformanceReviewService nonconformanceReviewService,
+                                              GxpAuditService gxpAuditService) {
         this.activeOrderMapper = activeOrderMapper;
         this.processPoolEventMapper = processPoolEventMapper;
         this.processSnapshotMapper = processSnapshotMapper;
@@ -184,6 +195,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         this.pqcRecordMapper = pqcRecordMapper;
         this.signatureService = signatureService;
         this.nonconformanceReviewService = nonconformanceReviewService;
+        this.gxpAuditService = gxpAuditService;
     }
 
     @Override
@@ -1318,6 +1330,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
     public MesFrontlinePqcSubmitResult submitPqcInspection(Long loginUserId, MesFrontlinePqcSubmitCommand command) {
         requireValue(loginUserId, "loginUserId");
         requirePqcSubmitCommand(command);
+        gxpAuditService.acquireLedgerLock();
         MesPqcInspectionTaskDO task = pqcTaskMapper.selectByIdForUpdate(command.getPqcTaskId());
         Long regulationDccProjectCodeId = applyPqcTaskContext(command, task, loginUserId);
         nonconformanceReviewService.ensurePqcSubmissionNotFrozen(task.getActiveOrderId(), task.getWorkOrderId(),
@@ -1338,9 +1351,14 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                     task.getSubmittedContentHash())) {
                 throw exception(PRO_FRONTLINE_PQC_SUBMISSION_CONTENT_CONFLICT, task.getId());
             }
-            return loadPqcSubmitResult(event.getId(), task.getId(), task.getSubmittedContentHash());
+            MesFrontlinePqcSubmitResult result = loadPqcSubmitResult(event.getId(), task.getId(),
+                    task.getSubmittedContentHash());
+            appendPqcSubmitGxpAudit(task, event.getId());
+            return result;
         }
         String rawPayload = buildPqcInspectionEventRawPayload(command, pieceDetails, inspectionResult);
+        String performedBy = MesFrontlineAuditIdentity.pqc(
+                requirePqcEmployee(loginUserId, command.getActualEmployeeId()));
         int taskUpdated = pqcTaskMapper.updateSubmittedIfPending(task.getId(), command.getActualInspectionQuantity(),
                 contentHash, PQC_TASK_STATUS_PENDING, PQC_TASK_STATUS_SUBMITTED);
         if (taskUpdated != 1) {
@@ -1356,6 +1374,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         signatureSnapshot.put("requestUserId", loginUserId);
         signatureSnapshot.put("actionType", MesProBatchRecordExecutionSignatureService.ACTION_PQC_SUBMIT);
         signatureSnapshot.put("pqcTaskId", task.getId());
+        signatureSnapshot.put("performedBy", JsonUtils.parseObject(performedBy, Map.class));
 
         if (CollUtil.isNotEmpty(pieceDetails)) {
             pqcPieceDetailMapper.insertBatch(pieceDetails);
@@ -1386,7 +1405,163 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
                     "pqcTask.submittedEventId taskId=" + task.getId());
         }
-        return loadPqcSubmitResult(eventId, task.getId(), contentHash);
+        task.setActualInspectionQuantity(command.getActualInspectionQuantity())
+                .setSubmittedContentHash(contentHash)
+                .setSubmittedEventId(eventId)
+                .setTaskStatus(PQC_TASK_STATUS_SUBMITTED);
+        MesFrontlinePqcSubmitResult result = loadPqcSubmitResult(eventId, task.getId(), contentHash);
+        appendPqcSubmitGxpAudit(task, eventId);
+        return result;
+    }
+
+    private void appendPqcSubmitGxpAudit(MesPqcInspectionTaskDO task, Long eventId) {
+        MesProProcessPoolEventDO event = processPoolEventMapper.selectById(eventId);
+        MesProProcessPoolPqcRecordDO record = pqcRecordMapper.selectByEventId(eventId);
+        List<MesPqcInspectionPieceDetailDO> persistedDetails = pqcPieceDetailMapper.selectListByTaskId(task.getId());
+        if (event == null || record == null || CollUtil.isEmpty(persistedDetails)) {
+            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
+                    "pqcAudit.formalSource taskId=" + task.getId() + ", eventId=" + eventId);
+        }
+        Long signatureId = event.getSignatureId() == null ? record.getSignatureId() : event.getSignatureId();
+        requirePositive(signatureId, "pqcAudit.signatureId");
+        requirePositive(event.getActualEmployeeId(), "pqcAudit.actualEmployeeId");
+        if (!Objects.equals(event.getActualEmployeeId(), event.getSignatureUserId())
+                || !Objects.equals(event.getActualEmployeeId(), record.getActualEmployeeId())
+                || !Objects.equals(event.getActualEmployeeId(), record.getSignatureUserId())
+                || !Objects.equals(event.getSignatureId(), record.getSignatureId())
+                || StrUtil.isBlank(event.getSignatureSnapshot())) {
+            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID, "pqcAudit.formalIdentity");
+        }
+        Map<String, Object> identitySnapshot = JsonUtils.parseObject(event.getSignatureSnapshot(), Map.class);
+        if (identitySnapshot == null
+                || !Objects.equals(String.valueOf(signatureId), String.valueOf(identitySnapshot.get("signatureId")))
+                || !Objects.equals(String.valueOf(event.getActualEmployeeId()), String.valueOf(identitySnapshot.get("actorId")))
+                || !Objects.equals(String.valueOf(task.getId()), String.valueOf(identitySnapshot.get("pqcTaskId")))
+                || !MesProBatchRecordExecutionSignatureService.ACTION_PQC_SUBMIT.equals(identitySnapshot.get("actionType"))) {
+            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID, "pqcAudit.signatureIdentity");
+        }
+        String performedBy = MesFrontlineAuditIdentity.persistedPqc(
+                identitySnapshot.get("performedBy"), event.getActualEmployeeId());
+        String afterJson = buildPqcSubmitAfterStateJson(task, event, record, persistedDetails);
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .eventSchemaVersion(2)
+                .operationId(GXP_PQC_SUBMIT_OPERATION)
+                .performedBy(performedBy)
+                .subjectId(PQC_INSPECTION_TASK_SOURCE_TYPE + ":" + task.getId())
+                .subjectVersion(String.valueOf(eventId))
+                .reason("一线PQC提交已通过正式校验并完成持久化")
+                .reasonCode("MES_PQC_SUBMIT")
+                .reasonSource("SYSTEM")
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state("ABSENT")
+                        .canonicalJson("{\"state\":\"ABSENT\"}")
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state(PQC_TASK_STATUS_SUBMITTED)
+                        .objectVersion(String.valueOf(eventId))
+                        .canonicalJson(afterJson)
+                        .build())
+                .idempotencyKey("PQC_SUBMIT:" + task.getId() + ":" + eventId)
+                .requestId("MES-PQC-SUBMIT:" + task.getId() + ":" + eventId)
+                .resultStatus("SUCCESS")
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator(GXP_PQC_SOURCE_LOCATOR)
+                .signatureRecordId(String.valueOf(signatureId))
+                .links(List.of(
+                        new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
+                                String.valueOf(task.getActiveOrderId()), null, null),
+                        new GxpAuditRelation("SOURCE", "PQC_INSPECTION_TASK",
+                                String.valueOf(task.getId()), String.valueOf(eventId), null),
+                        new GxpAuditRelation("SOURCE", "PQC_INSPECTION_EVENT",
+                                String.valueOf(eventId), String.valueOf(eventId), null),
+                        new GxpAuditRelation("SIGNATURE", "SIGNATURE",
+                                String.valueOf(signatureId), null, null)))
+                .evidences(List.of(
+                        new GxpAuditEvidence("FORMAL_PQC_EVENT_SNAPSHOT", String.valueOf(eventId),
+                                String.valueOf(eventId), null, "PQC"),
+                        new GxpAuditEvidence("FORMAL_PQC_TASK_SNAPSHOT", String.valueOf(task.getId()),
+                                String.valueOf(eventId), null, "PQC")))
+                .build());
+    }
+
+    private String buildPqcSubmitAfterStateJson(MesPqcInspectionTaskDO task,
+                                                 MesProProcessPoolEventDO event,
+                                                 MesProProcessPoolPqcRecordDO record,
+                                                 List<MesPqcInspectionPieceDetailDO> details) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        Map<String, Object> taskSnapshot = new LinkedHashMap<>();
+        taskSnapshot.put("pqcTaskId", task.getId());
+        taskSnapshot.put("activeOrderId", task.getActiveOrderId());
+        taskSnapshot.put("workOrderId", task.getWorkOrderId());
+        taskSnapshot.put("routeId", task.getRouteId());
+        taskSnapshot.put("routeProcessId", task.getRouteProcessId());
+        taskSnapshot.put("processId", task.getProcessId());
+        taskSnapshot.put("regulationVersionId", task.getRegulationVersionId());
+        taskSnapshot.put("qaProcessId", task.getQaProcessId());
+        taskSnapshot.put("inspectionType", task.getInspectionType());
+        taskSnapshot.put("inspectionRuleKey", task.getInspectionRuleKey());
+        taskSnapshot.put("businessDate", task.getBusinessDate());
+        taskSnapshot.put("shift", task.getShiftCode());
+        taskSnapshot.put("round", task.getRoundNo());
+        taskSnapshot.put("actualInspectionQuantity", task.getActualInspectionQuantity());
+        taskSnapshot.put("taskStatus", task.getTaskStatus());
+        taskSnapshot.put("submittedContentHash", task.getSubmittedContentHash());
+        taskSnapshot.put("submittedEventId", task.getSubmittedEventId());
+        snapshot.put("task", taskSnapshot);
+
+        Map<String, Object> eventSnapshot = new LinkedHashMap<>();
+        eventSnapshot.put("eventId", event.getId());
+        eventSnapshot.put("serverSubmitTime", event.getServerSubmitTime());
+        eventSnapshot.put("actualEmployeeId", event.getActualEmployeeId());
+        eventSnapshot.put("deviceAccountId", event.getDeviceAccountId());
+        eventSnapshot.put("deviceId", event.getDeviceId());
+        eventSnapshot.put("workstationId", event.getWorkstationId());
+        eventSnapshot.put("templateType", event.getTemplateType());
+        eventSnapshot.put("rawPayload", event.getRawPayload());
+        snapshot.put("formalPqcEvent", eventSnapshot);
+
+        Map<String, Object> recordSnapshot = new LinkedHashMap<>();
+        recordSnapshot.put("recordId", record.getId());
+        recordSnapshot.put("eventId", record.getEventId());
+        recordSnapshot.put("inspectionResult", record.getInspectionResult());
+        recordSnapshot.put("actualEmployeeId", record.getActualEmployeeId());
+        recordSnapshot.put("signatureId", record.getSignatureId());
+        recordSnapshot.put("signatureUserId", record.getSignatureUserId());
+        recordSnapshot.put("serverSubmitTime", record.getServerSubmitTime());
+        recordSnapshot.put("rawPayload", record.getRawPayload());
+        snapshot.put("formalPqcRecord", recordSnapshot);
+
+        snapshot.put("samples", details.stream().map(this::pqcDetailSnapshot).toList());
+        Map<String, Object> signatureSnapshot = new LinkedHashMap<>();
+        signatureSnapshot.put("signatureId", event.getSignatureId());
+        signatureSnapshot.put("signatureUserId", event.getSignatureUserId());
+        signatureSnapshot.put("signatureSnapshot", event.getSignatureSnapshot());
+        snapshot.put("formalSignature", signatureSnapshot);
+        return JsonUtils.toJsonString(snapshot);
+    }
+
+    private Map<String, Object> pqcDetailSnapshot(MesPqcInspectionPieceDetailDO detail) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("detailId", detail.getId());
+        snapshot.put("taskId", detail.getTaskId());
+        snapshot.put("sampleNo", detail.getSampleNo());
+        snapshot.put("itemCode", detail.getItemCode());
+        snapshot.put("itemName", detail.getItemName());
+        snapshot.put("inspectionMethod", detail.getInspectionMethod());
+        snapshot.put("standardText", detail.getStandardText());
+        snapshot.put("standardLowerLimit", detail.getStandardLowerLimit());
+        snapshot.put("standardUpperLimit", detail.getStandardUpperLimit());
+        snapshot.put("standardUnit", detail.getStandardUnit());
+        snapshot.put("standardPrecision", detail.getStandardPrecision());
+        snapshot.put("resultType", detail.getResultType());
+        snapshot.put("selectedEquipmentId", detail.getSelectedEquipmentId());
+        snapshot.put("selectedEquipmentCode", detail.getSelectedEquipmentCode());
+        snapshot.put("selectedEquipmentName", detail.getSelectedEquipmentName());
+        snapshot.put("selectedEquipmentNumber", detail.getSelectedEquipmentNumber());
+        snapshot.put("measuredValue", detail.getMeasuredValue());
+        snapshot.put("itemResult", detail.getItemResult());
+        snapshot.put("judgement", detail.getJudgement());
+        return snapshot;
     }
 
     private String buildPqcInspectionEventRawPayload(MesFrontlinePqcSubmitCommand command,

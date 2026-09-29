@@ -100,7 +100,7 @@
                   v-hasPermi="['mes:pro-edhr-nonconformance-review:create']"
                   link
                   type="danger"
-                  :disabled="!row.batchExecutionId"
+                  :disabled="!row.activeOrderId"
                   @click="openNonconformanceReviewEntry(row)"
                 >
                   不合格审查
@@ -233,7 +233,6 @@ import {
   type EdhrReleaseRowVO,
   type EdhrReleaseStatus
 } from '@/api/mes/pro/edhr/release'
-import { SOURCE_TYPE_PQC_RELEASE } from '@/api/mes/pro/edhr/nonconformanceReview'
 import {
   resolveReleaseCheckCategoryLabel,
   resolveReleaseCheckCodeLabel,
@@ -357,16 +356,15 @@ const openCheckItems = async (row: EdhrReleaseRowVO) => {
 }
 
 const openNonconformanceReviewEntry = (row: EdhrReleaseRowVO) => {
-  if (!row.batchExecutionId) {
-    actionError.value = '缺少批次执行ID，无法发起不合格审查。'
+  if (!row.activeOrderId) {
+    actionError.value = '缺少正式活跃订单ID，无法发起不合格审查。'
     return
   }
   router.push({
     name: 'MesProFeedbackEdhrNonconformanceReview',
     query: {
-      sourceType: SOURCE_TYPE_PQC_RELEASE,
-      sourceId: row.releaseTransactionId ? String(row.releaseTransactionId) : undefined,
-      batchExecutionId: String(row.batchExecutionId)
+      activeOrderId: String(row.activeOrderId),
+      autoCreate: '1'
     }
   })
 }
@@ -445,8 +443,8 @@ onMounted(() => {
 
 .edhr-release-page__toolbar,
 .edhr-release-page__table {
+  background: #fff;
   border: 1px solid #dbe3ef;
-  background: #ffffff;
 }
 
 .edhr-release-page__toolbar {
@@ -458,9 +456,9 @@ onMounted(() => {
 .edhr-release-page__title {
   width: 100%;
   margin-bottom: 12px;
-  color: #172033;
   font-size: 16px;
   font-weight: 700;
+  color: #172033;
 }
 
 .edhr-release-page__table {
@@ -470,22 +468,22 @@ onMounted(() => {
 }
 
 .edhr-release-page__strong {
-  color: #172033;
   font-weight: 600;
   line-height: 1.5;
+  color: #172033;
 }
 
 .edhr-release-page__muted {
   margin-top: 4px;
-  color: #4b5563;
   font-size: 12px;
   line-height: 1.5;
+  color: #4b5563;
 }
 
 .edhr-release-page__metric {
-  color: #263247;
   font-size: 13px;
   line-height: 1.6;
+  color: #263247;
 }
 
 .edhr-release-page__metric strong {

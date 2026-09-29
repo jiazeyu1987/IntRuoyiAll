@@ -6,25 +6,32 @@ import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchExecutionRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewDisposeReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewCounterDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewCounterMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +44,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -45,7 +53,6 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -62,8 +69,11 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     private static final Long REVIEW_MATERIAL_FILE_ID = 9102L;
 
     @Mock private MesProEdhrNonconformanceReviewMapper reviewMapper;
+    @Mock private MesProEdhrNonconformanceReviewCounterMapper reviewCounterMapper;
     @Mock private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Mock private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
+    @Mock private MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock private MesProProcessPoolEventMapper processPoolEventMapper;
     @Mock private MesProWorkOrderMapper workOrderMapper;
     @Mock private MesProEdhrWorkTaskMapper workTaskMapper;
@@ -72,15 +82,63 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @Mock private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
     @Mock private MesProEdhrOperationAuditService operationAuditService;
     @Mock private FileMapper fileMapper;
+    @Mock private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService unifiedAudit;
 
+    @Mock private cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper signatureRecordMapper;
+    @Mock private cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper auditReceiptMapper;
+    private java.util.function.UnaryOperator<cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO>
+            signatureMutation = java.util.function.UnaryOperator.identity();
+    private cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO lastSignature;
     private MesProEdhrNonconformanceReviewServiceImpl service;
+
+    @org.junit.jupiter.api.AfterEach
+    void clearIdentity() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        TenantContextHolder.clear();
+    }
 
     @BeforeEach
     void setUp() {
         service = new MesProEdhrNonconformanceReviewServiceImpl();
+        // Type-based optional injection keeps the pre-implementation RED at the missing behavior,
+        // not at ReflectionTestUtils failing because the production dependency does not exist yet.
+        org.springframework.util.ReflectionUtils.doWithFields(service.getClass(), field -> {
+            if (field.getType() == cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class) {
+                org.springframework.util.ReflectionUtils.makeAccessible(field);
+                field.set(service, unifiedAudit);
+            }
+            if (field.getType() == cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper.class) {
+                org.springframework.util.ReflectionUtils.makeAccessible(field);
+                field.set(service, auditReceiptMapper);
+            }
+        });
+        lenient().when(auditReceiptMapper.selectByIdempotencyKeyForUpdate(eq(122L), any()))
+                .thenAnswer(call -> receiptFromLastAppend());
         ReflectionTestUtils.setField(service, "reviewMapper", reviewMapper);
+        ReflectionTestUtils.setField(service, "reviewCounterMapper", reviewCounterMapper);
         ReflectionTestUtils.setField(service, "batchExecutionMapper", batchExecutionMapper);
         ReflectionTestUtils.setField(service, "releaseApplicationMapper", releaseApplicationMapper);
+        ReflectionTestUtils.setField(service, "activeOrderMapper", activeOrderMapper);
+        ReflectionTestUtils.setField(service, "reworkCycleService",
+                new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderReworkCycleService(
+                        activeOrderMapper, processSnapshotMapper, pqcInspectionTaskMapper));
+        lenient().when(activeOrderMapper.selectByIdForUpdate(any())).thenAnswer(invocation ->
+                new MesProcessPoolActiveOrderDO().setId(invocation.getArgument(0)).setWorkOrderId(3001L)
+                        .setLeaderUserId(3002L).setRouteId(4001L).setRouteVersionId(4002L)
+                        .setQaRegulationVersionId(5001L).setErpFixedQuantitySnapshot(java.math.BigDecimal.TEN)
+                        .setActiveStatus("ACTIVE").setBusinessStatus("COMPLETED").setVersion(1));
+        lenient().when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(any())).thenReturn(List.of(
+                new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO()
+                        .setActiveOrderId(8101L).setWorkOrderId(3001L)));
+        lenient().when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(any())).thenReturn(List.of(
+                new MesPqcInspectionTaskDO().setActiveOrderId(8101L).setWorkOrderId(3001L)));
+        lenient().when(activeOrderMapper.retireForRework(any(), any(), any())).thenReturn(1);
+        lenient().when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class))).thenAnswer(invocation -> {
+            ((MesProcessPoolActiveOrderDO) invocation.getArgument(0)).setId(8201L);
+            return 1;
+        });
+        lenient().when(processSnapshotMapper.insert(any(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO.class))).thenReturn(1);
+        lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
         ReflectionTestUtils.setField(service, "processPoolEventMapper", processPoolEventMapper);
         ReflectionTestUtils.setField(service, "workOrderMapper", workOrderMapper);
         ReflectionTestUtils.setField(service, "workTaskMapper", workTaskMapper);
@@ -89,6 +147,59 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         ReflectionTestUtils.setField(service, "pqcInspectionTaskMapper", pqcInspectionTaskMapper);
         ReflectionTestUtils.setField(service, "operationAuditService", operationAuditService);
         ReflectionTestUtils.setField(service, "fileMapper", fileMapper);
+        lenient().when(signatureService.recordQaDispositionSignature(any(), any(), any(), any(), any()))
+                .thenReturn(9101L);
+        lenient().when(reviewMapper.updateById(any(MesProEdhrNonconformanceReviewDO.class))).thenReturn(1);
+        lenient().when(batchExecutionMapper.updateById(any(MesProEdhrBatchExecutionDO.class))).thenReturn(1);
+        TenantContextHolder.setTenantId(122L);
+        var actor = new cn.iocoder.yudao.framework.security.core.LoginUser();
+        actor.setId(21L);
+        actor.setTenantId(122L);
+        actor.setUserType(2);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        actor, null, List.of()));
+        ReflectionTestUtils.setField(service, "signatureRecordMapper", signatureRecordMapper);
+        var signatureQuery = org.mockito.Mockito.mock(cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService.class);
+        ReflectionTestUtils.setField(service, "signatureQueryService", signatureQuery);
+        lenient().when(signatureQuery.verifyEvidence(any())).thenAnswer(call ->
+                new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO(
+                        call.getArgument(0), "VALID", lastSignature.getContentHash(),
+                        cn.hutool.crypto.digest.DigestUtil.sha256Hex(lastSignature.getCanonicalContentJson()),
+                        "fixture-evidence", "fixture-evidence", "SHA-256", null));
+        lenient().when(signatureRecordMapper.selectById(any())).thenAnswer(call -> {
+            var invocation = org.mockito.Mockito.mockingDetails(signatureService).getInvocations().stream()
+                    .filter(i -> java.util.Set.of("recordQaDispositionSignature", "recordNonconformanceReviewCreateSignature",
+                            "recordBatchActionSignature").contains(i.getMethod().getName()))
+                    .reduce((first, second) -> second).orElseThrow();
+            boolean batch = invocation.getMethod().getName().equals("recordBatchActionSignature");
+            boolean create = invocation.getMethod().getName().equals("recordNonconformanceReviewCreateSignature");
+            String action = batch ? invocation.getArgument(4) : create ? "NONCONFORMANCE_REVIEW_CREATE" : "QA_DISPOSITION";
+            String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(batch ? invocation.getArgument(1) : 0L, action,
+                    null, null, null, null, null, null, null, batch ? "EDHR_BATCH" : "EDHR_NONCONFORMANCE_REVIEW",
+                    invocation.getArgument(1), batch ? invocation.getArgument(5) : create ? "eDHR不合格评审创建" : "eDHR不合格评审处置", action,
+                    null, null, invocation.getArgument(batch ? 6 : 4), null);
+            var snapshot = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(
+                    new cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand(
+                            21L, "MES", action, "MES_BATCH_RECORD", subject,
+                            MesBatchRecordSignatureSubjectAdapter.subjectVersion(subject), invocation.getArgument(3)));
+            var fields = new java.util.TreeMap<String, Object>(
+                    com.alibaba.fastjson.JSON.parseObject(snapshot.canonicalContentJson()));
+            String canonical = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(fields);
+            lastSignature = cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO.builder()
+                    .id(call.getArgument(0)).moduleCode("MES").actionCode(action)
+                    .subjectType("MES_BATCH_RECORD").subjectId(subject)
+                    .subjectVersion(MesBatchRecordSignatureSubjectAdapter.subjectVersion(subject))
+                    .actorId(21L).reason(invocation.getArgument(3)).canonicalContentJson(canonical)
+                    .contentHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(canonical))
+                    .evidenceHash("fixture-evidence")
+                    .verificationStatus("VALID").build();
+            lastSignature.setTenantId(122L);
+            return signatureMutation.apply(lastSignature);
+        });
+        lenient().when(reviewCounterMapper.insertOrIncrement(any())).thenReturn(1);
+        lenient().when(reviewCounterMapper.selectByTenantIdForUpdate(any())).thenReturn(
+                MesProEdhrNonconformanceReviewCounterDO.builder().tenantId(122L).currentSerial(0L).build());
         lenient().when(fileMapper.selectList(any())).thenReturn(List.of(FileDO.builder()
                 .id(REVIEW_MATERIAL_FILE_ID)
                 .configId(10L)
@@ -133,6 +244,208 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
         verify(reviewMapper).insert(reviewCaptor.capture());
         assertEquals(8101L, reviewCaptor.getValue().getActiveOrderId());
+        assertCreationAudit("1001", "PQC_RELEASE", "7001", "9200", "检验结论需要评审");
+    }
+
+    @Test
+    void activeOrderCanStartReviewBeforeCompletionWithoutDownstreamBatch() {
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(new MesProcessPoolActiveOrderDO()
+                .setId(8101L).setActiveStatus("ACTIVE").setBusinessStatus("ACTIVE").setWorkOrderId(3001L));
+        when(batchExecutionOriginMapper.selectListByTraceFilter(8101L, 3001L, null, null))
+                .thenReturn(List.of());
+        lenient().when(workOrderMapper.selectByIdForUpdate(3001L)).thenReturn(
+                new MesProWorkOrderDO().setId(3001L).setCode("WO-001")
+                        .setBatchCode("BATCH-001").setTemporaryFrozen(false));
+        lenient().when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), true)).thenReturn(1);
+        lenient().when(reviewMapper.insert(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(invocation -> {
+            invocation.<MesProEdhrNonconformanceReviewDO>getArgument(0).setId(1202L);
+            return 1;
+        });
+
+        MesProEdhrNonconformanceReviewRespVO result = service.create(
+                new MesProEdhrNonconformanceReviewCreateReqVO().setActiveOrderId(8101L)
+                        .setNonconformanceReason("完工前发现检验异常"));
+
+        assertEquals(1202L, result.getId());
+        assertEquals("ACTIVE_ORDER", result.getSourceType());
+        assertEquals(8101L, result.getSourceId());
+        assertEquals(8101L, result.getActiveOrderId());
+        assertEquals(3001L, result.getWorkOrderId());
+        assertEquals("WO-001", result.getWorkOrderCode());
+        assertEquals("BATCH-001", result.getBatchCode());
+        assertNull(result.getBatchExecutionId());
+        verify(workOrderMapper).updateTemporaryFrozenByIds(List.of(3001L), true);
+        verifyNoInteractions(batchExecutionMapper);
+        verify(operationAuditService).recordInCallerTransaction(argThat(command ->
+                command.getMetadataJson().contains("\"activeOrderId\":8101")));
+    }
+
+    @Test
+    void completedOrderWithMissingBatchStillRejectsInvalidSource() {
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(new MesProcessPoolActiveOrderDO()
+                .setId(8101L).setActiveStatus("ACTIVE").setBusinessStatus("COMPLETED").setWorkOrderId(3001L));
+        when(batchExecutionOriginMapper.selectListByTraceFilter(8101L, 3001L, null, null))
+                .thenReturn(List.of());
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.create(
+                new MesProEdhrNonconformanceReviewCreateReqVO().setActiveOrderId(8101L)
+                        .setNonconformanceReason("已完工来源损坏")));
+
+        assertEquals(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID.getCode(), error.getCode());
+        verify(reviewMapper, never()).insert(any(MesProEdhrNonconformanceReviewDO.class));
+        verifyNoInteractions(workOrderMapper, batchExecutionMapper, operationAuditService);
+    }
+
+    @Test
+    void activeOrderOnlyCreationRecordsAuditFactWithoutCreateSignature() {
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(new MesProcessPoolActiveOrderDO()
+                .setId(8101L)
+                .setActiveStatus("ACTIVE")
+                .setWorkOrderId(3001L));
+        when(reviewMapper.selectFirstBlockingByWorkOrderId(3001L)).thenReturn(null);
+        when(batchExecutionOriginMapper.selectListByTraceFilter(8101L, 3001L, null, null))
+                .thenReturn(List.of(new MesProEdhrBatchExecutionOriginDO()
+                        .setBatchExecutionId(9001L)
+                        .setActiveOrderId(8101L)
+                        .setWorkOrderId(3001L)
+                        .setEntryType(MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION)));
+        when(batchExecutionMapper.selectByIdForUpdate(9001L)).thenReturn(new MesProEdhrBatchExecutionDO()
+                .setId(9001L)
+                .setWorkOrderId(3001L)
+                .setBatchExecutionCode("EXEC-001")
+                .setWorkOrderCode("WO-001")
+                .setBatchCode("BATCH-001")
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS));
+        when(workOrderMapper.selectByIdForUpdate(3001L)).thenReturn(
+                new MesProWorkOrderDO().setId(3001L).setCode("WO-001")
+                        .setBatchCode("BATCH-001").setTemporaryFrozen(false));
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), true)).thenReturn(1);
+        when(reviewMapper.insert(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(invocation -> {
+            invocation.<MesProEdhrNonconformanceReviewDO>getArgument(0).setId(1201L);
+            return 1;
+        });
+
+        MesProEdhrNonconformanceReviewRespVO result = service.create(
+                new MesProEdhrNonconformanceReviewCreateReqVO()
+                        .setActiveOrderId(8101L)
+                        .setNonconformanceReason("活跃订单直接创建评审"));
+
+        assertEquals(1201L, result.getId());
+        assertEquals("ACTIVE_ORDER", result.getSourceType());
+        assertEquals(8101L, result.getSourceId());
+        assertEquals(8101L, result.getActiveOrderId());
+        assertTrue(result.getReviewCode().matches("BHGSP-\\d{6}-00000000"));
+        verify(activeOrderMapper).selectByIdForUpdate(8101L);
+        verify(signatureService, never()).recordNonconformanceReviewCreateSignature(
+                any(), any(), any(), any(), any());
+        ArgumentCaptor<MesProEdhrOperationAuditCommand> auditCaptor =
+                ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
+        verify(operationAuditService).recordInCallerTransaction(auditCaptor.capture());
+        assertFalse(auditCaptor.getValue().getMetadataJson().contains("\"signatureId\":9200"));
+    }
+
+    @Test
+    void legacyCreationStillRequiresSignature() {
+        ServiceException error = assertThrows(ServiceException.class, () -> service.create(
+                new MesProEdhrNonconformanceReviewCreateReqVO()
+                        .setSourceType("PQC_RELEASE")
+                        .setBatchExecutionId(9001L)
+                        .setNonconformanceReason("legacy入口缺少签名")));
+
+        assertEquals(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED.getCode(), error.getCode());
+        verifyNoInteractions(batchExecutionMapper, reviewMapper, workOrderMapper, signatureService,
+                operationAuditService);
+    }
+
+    @Test
+    void activeOrderCreationUsesTenantCounterContinuouslyAcrossReviews() {
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(new MesProcessPoolActiveOrderDO()
+                .setId(8101L).setActiveStatus("ACTIVE").setWorkOrderId(3001L));
+        when(activeOrderMapper.selectByIdForUpdate(8102L)).thenReturn(new MesProcessPoolActiveOrderDO()
+                .setId(8102L).setActiveStatus("ACTIVE").setWorkOrderId(3002L));
+        when(reviewMapper.selectFirstBlockingByWorkOrderId(any())).thenReturn(null);
+        when(batchExecutionOriginMapper.selectListByTraceFilter(8101L, 3001L, null, null))
+                .thenReturn(List.of(new MesProEdhrBatchExecutionOriginDO()
+                        .setBatchExecutionId(9001L)
+                        .setActiveOrderId(8101L)
+                        .setWorkOrderId(3001L)
+                        .setEntryType(MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION)));
+        when(batchExecutionOriginMapper.selectListByTraceFilter(8102L, 3002L, null, null))
+                .thenReturn(List.of(new MesProEdhrBatchExecutionOriginDO()
+                        .setBatchExecutionId(9002L)
+                        .setActiveOrderId(8102L)
+                        .setWorkOrderId(3002L)
+                        .setEntryType(MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION)));
+        when(batchExecutionMapper.selectByIdForUpdate(9001L)).thenReturn(new MesProEdhrBatchExecutionDO()
+                .setId(9001L).setWorkOrderId(3001L).setBatchExecutionCode("EXEC-001")
+                .setWorkOrderCode("WO-001").setBatchCode("BATCH-001")
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS));
+        when(batchExecutionMapper.selectByIdForUpdate(9002L)).thenReturn(new MesProEdhrBatchExecutionDO()
+                .setId(9002L).setWorkOrderId(3002L).setBatchExecutionCode("EXEC-002")
+                .setWorkOrderCode("WO-002").setBatchCode("BATCH-002")
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS));
+        when(workOrderMapper.selectByIdForUpdate(3001L)).thenReturn(
+                new MesProWorkOrderDO().setId(3001L).setCode("WO-001").setBatchCode("BATCH-001")
+                        .setTemporaryFrozen(false));
+        when(workOrderMapper.selectByIdForUpdate(3002L)).thenReturn(
+                new MesProWorkOrderDO().setId(3002L).setCode("WO-002").setBatchCode("BATCH-002")
+                        .setTemporaryFrozen(false));
+        when(workOrderMapper.updateTemporaryFrozenByIds(any(), eq(true))).thenReturn(1);
+        when(reviewMapper.insert(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(invocation -> {
+            invocation.<MesProEdhrNonconformanceReviewDO>getArgument(0)
+                    .setId(1200L + invocation.getArgument(0, MesProEdhrNonconformanceReviewDO.class).getWorkOrderId());
+            return 1;
+        });
+        when(reviewCounterMapper.selectByTenantIdForUpdate(122L)).thenReturn(
+                MesProEdhrNonconformanceReviewCounterDO.builder().tenantId(122L).currentSerial(0L).build(),
+                MesProEdhrNonconformanceReviewCounterDO.builder().tenantId(122L).currentSerial(1L).build());
+
+        MesProEdhrNonconformanceReviewRespVO first = service.create(
+                new MesProEdhrNonconformanceReviewCreateReqVO().setActiveOrderId(8101L)
+                        .setNonconformanceReason("第一次直接创建")
+                        .setSignaturePassword("create-password"));
+        MesProEdhrNonconformanceReviewRespVO second = service.create(
+                new MesProEdhrNonconformanceReviewCreateReqVO().setActiveOrderId(8102L)
+                        .setNonconformanceReason("第二次直接创建")
+                        .setSignaturePassword("create-password"));
+
+        assertTrue(first.getReviewCode().matches("BHGSP-\\d{6}-00000000"));
+        assertTrue(second.getReviewCode().matches("BHGSP-\\d{6}-00000001"));
+        verify(reviewCounterMapper, org.mockito.Mockito.times(2)).insertOrIncrement(122L);
+    }
+
+    @Test
+    void allPageDelegatesStatusFilterToReviewMapper() {
+        MesProEdhrNonconformanceReviewPageReqVO req = new MesProEdhrNonconformanceReviewPageReqVO();
+        req.setReviewStatus("closed");
+        MesProEdhrNonconformanceReviewDO row = MesProEdhrNonconformanceReviewDO.builder()
+                .id(301L).reviewCode("BHGSP-202609-00000000").reviewStatus("closed").build();
+        when(reviewMapper.selectPage(req)).thenReturn(new PageResult<>(List.of(row), 1L));
+
+        PageResult<MesProEdhrNonconformanceReviewRespVO> page = service.getPage(req);
+
+        assertEquals(1L, page.getTotal());
+        assertEquals("closed", page.getList().get(0).getReviewStatus());
+        verify(reviewMapper).selectPage(req);
+    }
+
+    @Test
+    void activeOrderCandidatesExposeCurrentActiveOrders() {
+        when(activeOrderMapper.selectActiveList()).thenReturn(java.util.List.of(
+                new MesProcessPoolActiveOrderDO()
+                        .setId(8101L)
+                        .setWorkOrderId(3001L)
+                        .setActiveStatus("ACTIVE")
+                        .setBusinessStatus("ACTIVE")));
+        when(workOrderMapper.selectBatchIds(java.util.List.of(3001L))).thenReturn(java.util.List.of(
+                new MesProWorkOrderDO().setId(3001L).setCode("WO-001").setBatchCode("BATCH-001")));
+
+        var candidates = service.listActiveOrderCandidates();
+
+        assertEquals(1, candidates.size());
+        assertEquals(8101L, candidates.get(0).getId());
+        assertEquals("WO-001", candidates.get(0).getWorkOrderCode());
+        assertEquals("BATCH-001", candidates.get(0).getBatchCode());
     }
 
     @Test
@@ -153,7 +466,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
             return 1;
         });
         when(signatureService.recordNonconformanceReviewCreateSignature(
-                isNull(), eq(1001L), eq("wrong-password"), eq("检验结论需要评审"), any()))
+                eq(21L), eq(1001L), eq("wrong-password"), eq("检验结论需要评审"), any()))
                 .thenThrow(exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID));
 
         assertThrows(ServiceException.class, () -> service.create(
@@ -173,7 +486,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         stubPendingReview("rework");
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
         when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                isNull(), any(), eq("返工处理"), any())).thenReturn(1);
+                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
         when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK")))
                 .thenReturn(1);
 
@@ -220,7 +533,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 FileDO.builder().id(9301L).configId(10L).name("review.pdf").path("review.pdf").build()));
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
         when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                isNull(), any(), eq("返工处理"), any())).thenReturn(1);
+                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
         when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK")))
                 .thenReturn(1);
 
@@ -457,7 +770,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 new MesProWorkOrderDO().setId(3008L).setTemporaryFrozen(false));
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3008L), true)).thenReturn(1);
         stubBatchOrigin(9002L, 8108L);
-        when(signatureService.recordBatchActionSignature(isNull(), eq(9002L), eq("release-password"),
+        when(signatureService.recordBatchActionSignature(eq(21L), eq(9002L), eq("release-password"),
                 eq("末检结果不合格"), eq(MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REJECT),
                 eq("eDHR不合格评审发起"), any())).thenReturn(9202L);
         when(reviewMapper.insert(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(invocation -> {
@@ -479,12 +792,13 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
         verify(reviewMapper).insert(reviewCaptor.capture());
         assertTrue(reviewCaptor.getValue().getRemark().contains("9202"));
-        verify(signatureService).recordBatchActionSignature(isNull(), eq(9002L), eq("release-password"),
+        verify(signatureService).recordBatchActionSignature(eq(21L), eq(9002L), eq("release-password"),
                 eq("末检结果不合格"), eq(MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REJECT),
                 eq("eDHR不合格评审发起"), any());
         verify(batchExecutionMapper).updateById(argThat((MesProEdhrBatchExecutionDO batch) ->
                 batch.getId().equals(9002L) && batch.getStatus().equals(15)));
         verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3008L), true);
+        assertCreationAudit("1202", "PQC_RELEASE", null, "9202", "末检结果不合格");
     }
 
     @Test
@@ -493,7 +807,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 .setId(9003L)
                 .setWorkOrderId(3009L)
                 .setStatus(20));
-        when(signatureService.recordBatchActionSignature(isNull(), eq(9003L), eq("wrong-password"),
+        when(signatureService.recordBatchActionSignature(eq(21L), eq(9003L), eq("wrong-password"),
                 eq("末检结果不合格"), eq(MesProBatchRecordExecutionSignatureService.ACTION_NONCONFORMANCE_REJECT),
                 eq("eDHR不合格评审发起"), any()))
                 .thenThrow(exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID));
@@ -589,6 +903,82 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     }
 
     @Test
+    void batchFreezeCheckUsesActiveOrderReviewWhenBatchOriginHasNoReviewBatchId() {
+        when(reviewMapper.selectPendingByBatchExecutionId(9004L)).thenReturn(null);
+        when(batchExecutionOriginMapper.selectListByBatchExecutionId(9004L)).thenReturn(
+                java.util.List.of(new MesProEdhrBatchExecutionOriginDO()
+                        .setBatchExecutionId(9004L)
+                        .setActiveOrderId(8104L)));
+        when(reviewMapper.selectFirstBlockingPqcSubmissionByActiveOrderId(8104L)).thenReturn(
+                MesProEdhrNonconformanceReviewDO.builder()
+                        .id(1104L)
+                        .reviewCode("NCR-1104")
+                        .reviewStatus("pending_review")
+                        .sourceType("ACTIVE_ORDER")
+                        .sourceId(8104L)
+                        .activeOrderId(8104L)
+                        .batchExecutionId(null)
+                        .workOrderId(3004L)
+                        .build());
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.ensureBatchNotFrozen(9004L, "上市放行"));
+
+        assertTrue(exception.getMessage().contains("reviewId=1104"));
+        verify(reviewMapper).selectFirstBlockingPqcSubmissionByActiveOrderId(8104L);
+    }
+
+    @Test
+    void activeOrderDisposeClosesAssociatedReleaseApplicationAndTodo() {
+        MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
+                .id(2601L)
+                .sourceType("ACTIVE_ORDER")
+                .sourceId(8101L)
+                .activeOrderId(8101L)
+                .workOrderId(3001L)
+                .workOrderCode("WO-001")
+                .reviewStatus("pending_review")
+                .previousWorkOrderTemporaryFrozen(false)
+                .frozenAt(LocalDateTime.of(2026, 9, 26, 8, 0))
+                .nonconformanceReason("活跃订单评审")
+                .build();
+        MesProcessPoolActiveOrderReleaseApplicationDO application =
+                new MesProcessPoolActiveOrderReleaseApplicationDO()
+                        .setId(7601L)
+                        .setActiveOrderId(8101L)
+                        .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
+                        .setVersion(1)
+                        .setWorkOrderId(3001L)
+                        .setPqcReleaseWorkTaskId(8601L);
+        when(reviewMapper.selectByIdForUpdate(2601L)).thenReturn(review);
+        when(reviewMapper.selectById(2601L)).thenReturn(review.setDisposition("rework"));
+        when(reviewMapper.selectFreezeLifecycleByWorkOrderId(3001L)).thenReturn(java.util.List.of(review));
+        when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(java.util.List.of(8101L)))
+                .thenReturn(java.util.List.of(application));
+        when(workTaskMapper.selectByIdForUpdate(8601L)).thenReturn(new MesProEdhrWorkTaskDO()
+                .setId(8601L)
+                .setTaskType("PQC_PRODUCTION_RELEASE")
+                .setBusinessScopeType("RELEASE_APPLICATION")
+                .setBusinessScopeId(7601L)
+                .setStatus(MesProEdhrWorkTaskStatus.TODO));
+        when(workOrderMapper.selectByIdForUpdate(3001L)).thenReturn(
+                new MesProWorkOrderDO().setId(3001L).setTemporaryFrozen(true));
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
+        when(signatureService.recordQaDispositionSignature(eq(21L), eq(2601L), eq("qa-signature-password"),
+                eq("返工处理"), any())).thenReturn(9601L);
+        when(releaseApplicationMapper.closeFromNonconformance(eq(7601L), eq(1), eq("NONCONFORMANCE_REWORK"),
+                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcDecisionTask(eq(8601L), any(), eq("NONCONFORMANCE_REWORK"))).thenReturn(1);
+
+        service.dispose(disposeRequest(2601L, "rework"));
+
+        verify(releaseApplicationMapper).selectListByActiveOrderIdsForUpdate(java.util.List.of(8101L));
+        verify(releaseApplicationMapper).closeFromNonconformance(eq(7601L), eq(1), eq("NONCONFORMANCE_REWORK"),
+                eq(21L), any(), eq("返工处理"), any());
+        verify(workTaskMapper).completePqcDecisionTask(eq(8601L), any(), eq("NONCONFORMANCE_REWORK"));
+    }
+
+    @Test
     void batchVoidKeepsWorkOrderFrozen() {
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
                 .id(1002L)
@@ -607,7 +997,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 new MesProEdhrBatchExecutionDO().setId(9001L).setStatus(15));
         when(workOrderMapper.selectByIdForUpdate(3002L)).thenReturn(
                 new MesProWorkOrderDO().setId(3002L).setTemporaryFrozen(true));
-        when(signatureService.recordQaDispositionSignature(isNull(), eq(1002L), eq("qa-signature-password"),
+        when(signatureService.recordQaDispositionSignature(eq(21L), eq(1002L), eq("qa-signature-password"),
                 eq("作废处理"), any())).thenReturn(9102L);
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3002L), true)).thenReturn(1);
 
@@ -637,11 +1027,54 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     }
 
     @Test
+    void qaReworkStartsNewActiveOrderCycleWithoutReusingCompletedOrder() {
+        stubPendingReview("rework");
+        when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), false)).thenReturn(1);
+        when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
+                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK")))
+                .thenReturn(1);
+
+        service.dispose(disposeRequest("rework"));
+
+        verify(activeOrderMapper).insert(argThat((MesProcessPoolActiveOrderDO next) ->
+                "ACTIVE".equals(next.getActiveStatus()) && "ACTIVE".equals(next.getBusinessStatus())
+                        && Long.valueOf(3001L).equals(next.getWorkOrderId())
+                        && !Long.valueOf(8101L).equals(next.getId())));
+    }
+
+    @Test
+    void replayingSameQaReworkReturnsClosedReviewWithoutCreatingAnotherCycle() {
+        stubPendingReview("rework");
+        when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), false)).thenReturn(1);
+        when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
+                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK"))).thenReturn(1);
+        service.dispose(disposeRequest("rework"));
+        ArgumentCaptor<MesProEdhrNonconformanceReviewDO> updated = ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
+        verify(reviewMapper).updateById(updated.capture());
+        var closed = updated.getValue().setActiveOrderId(8101L).setWorkOrderId(3001L)
+                .setSourceType("PQC_RELEASE").setSourceId(7001L);
+        when(reviewMapper.selectByIdForUpdate(1001L)).thenReturn(closed);
+        lenient().when(activeOrderMapper.selectByReworkReviewId(1001L)).thenReturn(new MesProcessPoolActiveOrderDO()
+                .setId(8201L).setReworkSourceActiveOrderId(8101L).setReworkReviewId(1001L).setWorkOrderId(3001L));
+
+        assertEquals(1001L, service.dispose(disposeRequest("rework")).getId());
+        assertThrows(ServiceException.class, () -> service.dispose(disposeRequest("rework")
+                .setReviewOpinion("changed signed decision")));
+        verify(activeOrderMapper, org.mockito.Mockito.times(1)).insert(any(MesProcessPoolActiveOrderDO.class));
+        verify(signatureService, org.mockito.Mockito.times(1)).recordQaDispositionSignature(any(), any(), any(), any(), any());
+        verify(unifiedAudit, org.mockito.Mockito.times(1)).append(any());
+        verify(reviewMapper, org.mockito.Mockito.times(1)).updateById(any(MesProEdhrNonconformanceReviewDO.class));
+        verify(operationAuditService, org.mockito.Mockito.times(1)).recordInCallerTransaction(any());
+    }
+
+    @Test
     void reworkClosesApplicationAndPqcTaskAndRestoresOriginalWorkOrderState() {
         stubPendingReview("rework");
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
         when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                isNull(), any(), eq("返工处理"), any())).thenReturn(1);
+                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
         when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK")))
                 .thenReturn(1);
 
@@ -656,7 +1089,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         stubPendingReview("void");
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), true)).thenReturn(1);
         when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_VOID"),
-                isNull(), any(), eq("作废处理"), any())).thenReturn(1);
+                eq(21L), any(), eq("作废处理"), any())).thenReturn(1);
         when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_VOID")))
                 .thenReturn(1);
 
@@ -671,13 +1104,13 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         stubPendingReview("rework");
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
         when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                isNull(), any(), eq("返工处理"), any())).thenReturn(1);
+                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
         when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK")))
                 .thenReturn(1);
 
         service.dispose(disposeRequest("rework"));
 
-        verify(signatureService).recordQaDispositionSignature(isNull(), eq(1001L), eq("qa-signature-password"),
+        verify(signatureService).recordQaDispositionSignature(eq(21L), eq(1001L), eq("qa-signature-password"),
                 eq("返工处理"), any());
         ArgumentCaptor<MesProEdhrNonconformanceReviewDO> updateCaptor =
                 ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
@@ -891,7 +1324,318 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3050L), false);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "concession_release,mes.nonconformance.concession",
+            "rework,mes.nonconformance.rework",
+            "void,mes.nonconformance.void"})
+    void successfulDispositionAppendsOneReadableUnifiedFact(String disposition, String operation) {
+        prepareUnifiedDisposition(disposition);
+        service.dispose(disposeRequest(disposition));
+
+        var captured = ArgumentCaptor.forClass(
+                cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+        verify(unifiedAudit, org.mockito.Mockito.times(1)).append(captured.capture());
+        var command = captured.getValue();
+        assertEquals(operation, command.getOperationId());
+        assertEquals("1001", command.getSubjectId());
+        assertEquals(disposeRequest(disposition).getReviewOpinion(), command.getReason());
+        assertEquals("USER", command.getReasonSource());
+        assertEquals("SUCCESS", command.getResultStatus());
+        assertEquals("9101", command.getSignatureRecordId());
+        org.junit.jupiter.api.Assertions.assertNotNull(command.getSignatureContentHash());
+        assertEquals(lastSignature.getContentHash(), command.getSignatureContentHash());
+        assertEquals("PRESENT", command.getBeforeState().getState());
+        assertEquals("PRESENT", command.getAfterState().getState());
+        assertTrue(command.getSubjectVersion().matches("sha256:[0-9a-f]{64}"));
+        assertTrue(command.getBeforeState().getObjectVersion().matches("sha256:[0-9a-f]{64}"));
+        assertTrue(command.getAfterState().getObjectVersion().matches("sha256:[0-9a-f]{64}"));
+        assertEquals("sha256:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(
+                command.getBeforeState().getCanonicalJson()), command.getBeforeState().getObjectVersion());
+        assertEquals("sha256:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(
+                command.getAfterState().getCanonicalJson()), command.getAfterState().getObjectVersion());
+        assertEquals(command.getAfterState().getObjectVersion(), command.getSubjectVersion());
+        org.junit.jupiter.api.Assertions.assertNotEquals(command.getBeforeState().getCanonicalJson(),
+                command.getAfterState().getCanonicalJson());
+        var before = com.alibaba.fastjson.JSON.parseObject(command.getBeforeState().getCanonicalJson());
+        var after = com.alibaba.fastjson.JSON.parseObject(command.getAfterState().getCanonicalJson());
+        assertEquals("pending_review", before.getString("reviewStatus"));
+        assertEquals("closed", after.getString("reviewStatus"));
+        assertEquals(disposition, after.getString("disposition"));
+        assertEquals("9102", after.getJSONArray("materials").getJSONObject(0).getString("fileId"));
+        assertEquals(java.util.Set.of("reviewId", "sourceType", "sourceId", "activeOrderId",
+                "batchExecutionId", "batchStatus", "workOrderId", "previousWorkOrderTemporaryFrozen",
+                "temporaryFrozen", "reviewStatus", "disposition", "nonconformanceReason", "reviewOpinion",
+                "materials", "signatureRecordId", "signatureContentHash", "applicationId",
+                "reworkActiveOrderId"), after.keySet());
+        assertTrue(command.getLinks().contains(new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation(
+                "SUBJECT", "NONCONFORMANCE_REVIEW", "1001", null, null)));
+        assertTrue(command.getLinks().contains(new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation(
+                "AFFECTED", "ACTIVE_ORDER", "8101", null, null)));
+        assertTrue(command.getLinks().contains(new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation(
+                "AFFECTED", "RELEASE_APPLICATION", "7001", null, null)));
+        assertFalse(command.getLinks().stream().anyMatch(link -> "BATCH_EXECUTION".equals(link.objectType())));
+        assertTrue(command.getAfterState().getCanonicalJson().contains("closed"));
+        assertTrue(command.getAfterState().getCanonicalJson().contains(disposition));
+        assertTrue(command.getAfterState().getCanonicalJson().contains("9102"), "actual material identity");
+        assertTrue(command.getLinks().stream().anyMatch(link -> "7001".equals(link.objectId())),
+                "actual release application must be linked");
+        assertTrue(command.getLinks().stream().anyMatch(link -> "8101".equals(link.objectId())),
+                "actual active order must be linked");
+        assertTrue(command.getLinks().stream().anyMatch(link -> "1001".equals(link.objectId())),
+                "actual review must be linked");
+        assertTrue(command.getIdempotencyKey().length() <= 96);
+        assertFalse(command.getBeforeState().getCanonicalJson().contains("qa-signature-password"));
+        assertFalse(command.getAfterState().getCanonicalJson().contains("qa-signature-password"));
+        verify(batchExecutionMapper, never()).insert(any(MesProEdhrBatchExecutionDO.class));
+        verify(batchExecutionMapper, never()).updateById(any(MesProEdhrBatchExecutionDO.class));
+        verify(operationAuditService).recordInCallerTransaction(any());
+        if (!"concession_release".equals(disposition)) {
+            assertTrue(command.getLinks().stream().anyMatch(link -> "8001".equals(link.objectId())
+                    && "WORK_TASK".equals(link.objectType()) && "AFFECTED".equals(link.relationType())),
+                    "completed PQC task must be linked");
+        }
+        if ("rework".equals(disposition)) {
+            assertTrue(command.getLinks().stream().anyMatch(link -> "8201".equals(link.objectId())
+                    && "ACTIVE_ORDER".equals(link.objectType()) && "REWORK_CYCLE".equals(link.relationType())),
+                    "new rework cycle must be linked without manufacturing a batch");
+        }
+    }
+
+    @Test
+    void unifiedLedgerLockPrecedesFirstReviewBusinessLock() {
+        prepareUnifiedDisposition("concession_release");
+        service.dispose(disposeRequest("concession_release"));
+        var order = org.mockito.Mockito.inOrder(unifiedAudit, reviewMapper, signatureService);
+        order.verify(unifiedAudit).acquireLedgerLock();
+        order.verify(reviewMapper).selectByIdForUpdate(1001L);
+        order.verify(signatureService).recordQaDispositionSignature(any(), any(), any(), any(), any());
+        order.verify(unifiedAudit).append(any());
+    }
+
+    @Test
+    void unifiedAppendFailureEscapesAfterBusinessAndSpecializedAuditWrites() {
+        stubPendingReview("concession_release", true, false);
+        when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), false)).thenReturn(1);
+        IllegalStateException failure = new IllegalStateException("unified-ledger-unavailable");
+        org.mockito.Mockito.doThrow(failure).when(unifiedAudit).append(any());
+        org.junit.jupiter.api.Assertions.assertSame(failure, assertThrows(IllegalStateException.class,
+                () -> service.dispose(disposeRequest("concession_release"))));
+        var order = org.mockito.Mockito.inOrder(reviewMapper, workOrderMapper, operationAuditService, unifiedAudit);
+        order.verify(reviewMapper).updateById(any(MesProEdhrNonconformanceReviewDO.class));
+        order.verify(workOrderMapper).updateTemporaryFrozenByIds(List.of(3001L), false);
+        order.verify(operationAuditService).recordInCallerTransaction(any());
+        order.verify(unifiedAudit).append(any());
+        // Mockito proves ordering/propagation only; database rollback is a separate integration gate.
+    }
+
+    @Test
+    void invalidDispositionNeverLeavesASuccessAuditFact() {
+        assertThrows(ServiceException.class, () -> service.dispose(disposeRequest("unsupported")));
+        verify(unifiedAudit, never()).append(any());
+        verify(reviewMapper, never()).updateById(any(MesProEdhrNonconformanceReviewDO.class));
+        verifyNoInteractions(signatureService, operationAuditService);
+    }
+
+    @Test
+    void invalidSignatureNeverWritesReviewOrUnifiedSuccess() {
+        stubPendingReview("concession_release", false);
+        when(signatureService.recordQaDispositionSignature(any(), any(), any(), any(), any()))
+                .thenThrow(exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID));
+        assertEquals(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID.getCode(),
+                assertThrows(ServiceException.class,
+                        () -> service.dispose(disposeRequest("concession_release"))).getCode());
+        verify(unifiedAudit, never()).append(any());
+        verify(reviewMapper, never()).updateById(any(MesProEdhrNonconformanceReviewDO.class));
+        verify(workOrderMapper, never()).updateTemporaryFrozenByIds(any(), any());
+        verifyNoInteractions(operationAuditService);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "tenant", "actor", "action", "subject", "content", "hash"})
+    void mismatchedPersistedSignatureRejectsBeforeBusinessWrites(String changedField) {
+        stubPendingReview("concession_release", true, false);
+        signatureMutation = record -> {
+            switch (changedField) {
+                case "tenant" -> record.setTenantId(999L);
+                case "actor" -> record.setActorId(22L);
+                case "action" -> record.setActionCode("NONCONFORMANCE_REVIEW_CREATE");
+                case "subject" -> record.setSubjectId(MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(
+                        0L, "QA_DISPOSITION", null, null, null, null, null, null, null,
+                        "EDHR_NONCONFORMANCE_REVIEW", 9999L, "eDHR不合格评审处置",
+                        "QA_DISPOSITION", null, null, "different-review", null));
+                case "content" -> {
+                    var json = com.alibaba.fastjson.JSON.parseObject(record.getCanonicalContentJson());
+                    json.put("reviewSourceId", "9999");
+                    record.setCanonicalContentJson(json.toJSONString());
+                    record.setContentHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(record.getCanonicalContentJson()));
+                }
+                case "hash" -> record.setContentHash("0".repeat(64));
+                default -> throw new AssertionError(changedField);
+            }
+            return record;
+        };
+        assertEquals(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID.getCode(),
+                assertThrows(ServiceException.class,
+                        () -> service.dispose(disposeRequest("concession_release"))).getCode());
+        verify(signatureRecordMapper).selectById(9101L);
+        verify(reviewMapper, never()).updateById(any(MesProEdhrNonconformanceReviewDO.class));
+        verify(workOrderMapper, never()).updateTemporaryFrozenByIds(any(), any());
+        verifyNoInteractions(operationAuditService);
+        verify(unifiedAudit, never()).append(any());
+    }
+
+    @Test
+    void reworkReplayWithMissingUnifiedReceiptRejectsWithoutRepairWrites() {
+        prepareClosedReworkForReceiptTest();
+        org.mockito.Mockito.doReturn(null).when(auditReceiptMapper)
+                .selectByIdempotencyKeyForUpdate(122L, reworkReceiptKey());
+        ServiceException error = assertThrows(ServiceException.class, () -> service.dispose(disposeRequest("rework")));
+        assertTrue(error.getMessage().contains("GXP_AUDIT_RECEIPT_MISSING"),
+                "The specified missing-receipt error must not be replaced by an unrelated source/state error");
+        assertReplayHasNoWrites();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"tenant", "operation", "subject", "key"})
+    void reworkReplayRejectsMismatchedReceiptIdentity(String changedField) {
+        var receipt = prepareClosedReworkForReceiptTest();
+        switch (changedField) {
+            case "tenant" -> receipt.setTenantId(999L);
+            case "operation" -> receipt.setOperationId("mes.nonconformance.void");
+            case "subject" -> receipt.setSubjectId("9999");
+            case "key" -> receipt.setIdempotencyKey("GXP2:" + "0".repeat(64));
+            default -> throw new AssertionError(changedField);
+        }
+        org.mockito.Mockito.doReturn(receipt).when(auditReceiptMapper)
+                .selectByIdempotencyKeyForUpdate(122L, reworkReceiptKey());
+        assertEquals(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.GXP_AUDIT_IDEMPOTENCY_CONFLICT.getCode(),
+                assertThrows(ServiceException.class, () -> service.dispose(disposeRequest("rework"))).getCode());
+        assertReplayHasNoWrites();
+    }
+
+    @Test
+    void reworkReplayReadsTheOriginalReceiptAndPreservesItsIdentity() {
+        var receipt = prepareClosedReworkForReceiptTest();
+        org.mockito.Mockito.doReturn(receipt).when(auditReceiptMapper)
+                .selectByIdempotencyKeyForUpdate(122L, reworkReceiptKey());
+        assertEquals(1001L, service.dispose(disposeRequest("rework")).getId());
+        verify(auditReceiptMapper).selectByIdempotencyKeyForUpdate(122L, reworkReceiptKey());
+        assertEquals(88001L, receipt.getId());
+        assertEquals("saved-event-hash", receipt.getEventHash());
+        assertReplayHasNoWrites();
+    }
+
+    private cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO prepareClosedReworkForReceiptTest() {
+        prepareUnifiedDisposition("rework");
+        service.dispose(disposeRequest("rework"));
+        var receipt = receiptFromLastAppend();
+        var updated = ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
+        verify(reviewMapper).updateById(updated.capture());
+        var closed = updated.getValue().setActiveOrderId(8101L).setWorkOrderId(3001L)
+                .setSourceType("PQC_RELEASE").setSourceId(7001L);
+        when(reviewMapper.selectByIdForUpdate(1001L)).thenReturn(closed);
+        when(activeOrderMapper.selectByReworkReviewId(1001L)).thenReturn(new MesProcessPoolActiveOrderDO()
+                .setId(8201L).setReworkSourceActiveOrderId(8101L).setReworkReviewId(1001L).setWorkOrderId(3001L));
+        org.mockito.Mockito.clearInvocations(unifiedAudit, reviewMapper, signatureService, workOrderMapper,
+                operationAuditService, activeOrderMapper, releaseApplicationMapper, workTaskMapper, auditReceiptMapper);
+        return receipt;
+    }
+
+    private void assertReplayHasNoWrites() {
+        verify(unifiedAudit, never()).append(any());
+        verify(reviewMapper, never()).updateById(any(MesProEdhrNonconformanceReviewDO.class));
+        verify(reviewMapper, never()).insert(any(MesProEdhrNonconformanceReviewDO.class));
+        verify(workOrderMapper, never()).updateTemporaryFrozenByIds(any(), any());
+        verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
+        verify(releaseApplicationMapper, never()).closeFromNonconformance(any(), any(), any(), any(), any(), any(), any());
+        verify(workTaskMapper, never()).completePqcDecisionTask(any(), any(), any());
+        verifyNoInteractions(signatureService, operationAuditService);
+    }
+
+    private String reworkReceiptKey() {
+        var identity = new java.util.TreeMap<String, Object>();
+        identity.put("tenantId", "122");
+        identity.put("operationId", "mes.nonconformance.rework");
+        identity.put("identity", List.of("1001", "rework"));
+        return "GXP2:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(identity));
+    }
+
+    private cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO receiptFromLastAppend() {
+        var command = org.mockito.Mockito.mockingDetails(unifiedAudit).getInvocations().stream()
+                .filter(i -> i.getMethod().getName().equals("append")).reduce((a, b) -> b)
+                .orElseThrow().<cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand>getArgument(0);
+        var receipt = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO();
+        receipt.setId(88001L);
+        receipt.setTenantId(122L);
+        receipt.setOperationId(command.getOperationId());
+        receipt.setSubjectType("NONCONFORMANCE_REVIEW");
+        receipt.setSubjectId(command.getSubjectId());
+        receipt.setSubjectVersion(command.getSubjectVersion());
+        receipt.setIdempotencyKey(command.getIdempotencyKey());
+        receipt.setSignatureRecordId(command.getSignatureRecordId());
+        receipt.setSignatureContentHash(command.getSignatureContentHash());
+        receipt.setResultStatus("SUCCESS");
+        receipt.setActorId(21L);
+        receipt.setEventHash("saved-event-hash");
+        receipt.setAfterStateJson(command.getAfterState().getCanonicalJson());
+        return receipt;
+    }
+
+    private void assertCreationAudit(String reviewId, String sourceType, String sourceId, String signatureId, String reason) {
+        var captured = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+        verify(unifiedAudit).append(captured.capture());
+        var command = captured.getValue();
+        assertEquals("mes.nonconformance.create", command.getOperationId());
+        assertEquals(reviewId, command.getSubjectId());
+        assertEquals(reason, command.getReason());
+        assertEquals("USER", command.getReasonSource());
+        assertEquals("ABSENT", command.getBeforeState().getState());
+        assertEquals("PRESENT", command.getAfterState().getState());
+        assertEquals(signatureId, command.getSignatureRecordId());
+        var after = com.alibaba.fastjson.JSON.parseObject(command.getAfterState().getCanonicalJson());
+        assertEquals(reviewId, after.getString("reviewId"));
+        assertEquals(sourceType, after.getString("sourceType"));
+        assertEquals(sourceId, after.getString("sourceId"));
+        assertEquals("pending_review", after.getString("reviewStatus"));
+        assertEquals("sha256:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(command.getAfterState().getCanonicalJson()),
+                command.getSubjectVersion());
+    }
+
+    private void prepareUnifiedDisposition(String disposition) {
+        stubPendingReview(disposition);
+        lenient().when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), "void".equals(disposition))).thenReturn(1);
+        // Return a separate post-write review, so before-state capture cannot rely on a mutated stub.
+        org.mockito.Mockito.lenient().doAnswer(invocation -> {
+            MesProEdhrNonconformanceReviewDO update = invocation.getArgument(0);
+            MesProEdhrNonconformanceReviewDO persisted = new MesProEdhrNonconformanceReviewDO();
+            org.springframework.beans.BeanUtils.copyProperties(reviewMapper.selectByIdForUpdate(1001L), persisted);
+            persisted.setReviewStatus(update.getReviewStatus()).setDisposition(update.getDisposition())
+                    .setReviewOpinion(update.getReviewOpinion()).setReviewMaterialsJson(update.getReviewMaterialsJson())
+                    .setReviewMaterialFileId(update.getReviewMaterialFileId()).setQaSignature(update.getQaSignature())
+                    .setTraceSnapshotJson(update.getTraceSnapshotJson()).setClosedAt(update.getClosedAt());
+            when(reviewMapper.selectById(1001L)).thenReturn(persisted);
+            return 1;
+        }).when(reviewMapper).updateById(any(MesProEdhrNonconformanceReviewDO.class));
+        if (!"concession_release".equals(disposition)) {
+            String decision = "NONCONFORMANCE_" + disposition.toUpperCase(java.util.Locale.ROOT);
+            when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq(decision),
+                    eq(21L), any(), any(), any())).thenReturn(1);
+            when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq(decision))).thenReturn(1);
+        }
+    }
+
     private void stubPendingReview(String disposition) {
+        stubPendingReview(disposition, true);
+    }
+
+    private void stubPendingReview(String disposition, boolean successfulSignature) {
+        stubPendingReview(disposition, successfulSignature, successfulSignature);
+    }
+
+    private void stubPendingReview(String disposition, boolean successfulSignature, boolean returnsResponse) {
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
                 .id(1001L)
                 .sourceType("PQC_RELEASE")
@@ -905,7 +1649,9 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 .nonconformanceReason("检验结论需要评审")
                 .build();
         when(reviewMapper.selectByIdForUpdate(1001L)).thenReturn(review);
-        when(reviewMapper.selectById(1001L)).thenReturn(review.setDisposition(disposition));
+        if (returnsResponse) {
+            when(reviewMapper.selectById(1001L)).thenReturn(review.setDisposition(disposition));
+        }
         lenient().when(reviewMapper.selectFreezeLifecycleByWorkOrderId(3001L)).thenReturn(
                 java.util.List.of(review));
         when(releaseApplicationMapper.selectByIdForUpdate(7001L)).thenReturn(
@@ -918,10 +1664,12 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                         .setPqcReleaseWorkTaskId(8001L));
         when(workOrderMapper.selectByIdForUpdate(3001L)).thenReturn(
                 new MesProWorkOrderDO().setId(3001L).setTemporaryFrozen(true));
-        when(signatureService.recordQaDispositionSignature(isNull(), eq(1001L), eq("qa-signature-password"),
-                eq("void".equals(disposition) ? "作废处理" :
-                        "rework".equals(disposition) ? "返工处理" : "让步放行"), any()))
-                .thenReturn(9101L);
+        if (successfulSignature) {
+            when(signatureService.recordQaDispositionSignature(eq(21L), eq(1001L), eq("qa-signature-password"),
+                    eq("void".equals(disposition) ? "作废处理" :
+                            "rework".equals(disposition) ? "返工处理" : "让步放行"), any()))
+                    .thenReturn(9101L);
+        }
         if (!"concession_release".equals(disposition)) {
             when(workTaskMapper.selectByIdForUpdate(8001L)).thenReturn(new MesProEdhrWorkTaskDO()
                     .setId(8001L)
@@ -941,6 +1689,24 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 .setReviewOpinion("void".equals(disposition) ? "作废处理" :
                         "rework".equals(disposition) ? "返工处理" : "让步放行")
                 .setSignaturePassword("qa-signature-password");
+    }
+
+    @Test
+    void reworkKeepsIndependentWorkOrderFreezeAndNewCycleCannotBypassIt() {
+        stubPendingReview("rework");
+        var review = reviewMapper.selectByIdForUpdate(1001L);
+        review.setPreviousWorkOrderTemporaryFrozen(true);
+        when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), true)).thenReturn(1);
+        when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
+                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK"))).thenReturn(1);
+
+        service.dispose(disposeRequest("rework"));
+
+        verify(workOrderMapper).updateTemporaryFrozenByIds(List.of(3001L), true);
+        verify(activeOrderMapper).insert(argThat((MesProcessPoolActiveOrderDO next) ->
+                "ACTIVE".equals(next.getBusinessStatus()) && Long.valueOf(3001L).equals(next.getWorkOrderId())));
+        assertThrows(ServiceException.class, () -> service.ensureWorkOrderNotFrozen(3001L, "返工生产"));
     }
 
     private List<MesProEdhrNonconformanceReviewDisposeReqVO.ReviewMaterialReqVO> reviewMaterials(String url) {

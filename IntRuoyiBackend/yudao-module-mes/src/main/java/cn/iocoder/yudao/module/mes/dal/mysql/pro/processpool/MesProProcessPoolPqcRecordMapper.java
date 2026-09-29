@@ -20,6 +20,12 @@ public interface MesProProcessPoolPqcRecordMapper extends BaseMapperX<MesProProc
                 .eq(MesProProcessPoolPqcRecordDO::getEventId, eventId));
     }
 
+    default MesProProcessPoolPqcRecordDO selectByEventIdForUpdate(Long eventId) {
+        return selectOne(new LambdaQueryWrapperX<MesProProcessPoolPqcRecordDO>()
+                .eq(MesProProcessPoolPqcRecordDO::getEventId, eventId)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProProcessPoolPqcRecordDO> selectListByProductionSubmitEventId(Long productionSubmitEventId) {
         return selectList(new LambdaQueryWrapperX<MesProProcessPoolPqcRecordDO>()
                 .eq(MesProProcessPoolPqcRecordDO::getProductionSubmitEventId, productionSubmitEventId)
@@ -48,6 +54,18 @@ public interface MesProProcessPoolPqcRecordMapper extends BaseMapperX<MesProProc
                 .set(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregatedAt, aggregatedAt)
                 .eq(MesProProcessPoolPqcRecordDO::getTenantId, tenantId)
                 .eq(MesProProcessPoolPqcRecordDO::getEventId, eventId));
+    }
+
+    default int replaceProcessInspectionReviewIfAggregated(Long tenantId, Long eventId, Long previousReviewId,
+                                                            Long reviewId, LocalDateTime aggregatedAt) {
+        return update(null, new LambdaUpdateWrapper<MesProProcessPoolPqcRecordDO>()
+                .set(MesProProcessPoolPqcRecordDO::getProcessInspectionReviewId, reviewId)
+                .set(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregatedAt, aggregatedAt)
+                .eq(MesProProcessPoolPqcRecordDO::getTenantId, tenantId)
+                .eq(MesProProcessPoolPqcRecordDO::getEventId, eventId)
+                .eq(MesProProcessPoolPqcRecordDO::getProcessInspectionReviewId, previousReviewId)
+                .eq(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregationStatus,
+                        MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED));
     }
 
     default int deleteByEventIds(Collection<Long> eventIds) {

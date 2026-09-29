@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewDisposeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,6 +45,13 @@ public class MesProEdhrNonconformanceReviewController {
         return success(nonconformanceReviewService.create(reqVO));
     }
 
+    @GetMapping("/active-order-list")
+    @Operation(summary = "查询可创建不合格评审的活跃订单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:create')")
+    public CommonResult<List<MesProEdhrNonconformanceReviewActiveOrderRespVO>> getActiveOrderList() {
+        return success(nonconformanceReviewService.listActiveOrderCandidates());
+    }
+
     @PostMapping("/reject-batch")
     @Operation(summary = "上市放行负责人驳回批次并发起不合格评审")
     @PreAuthorize("@ss.hasPermission('mes:pro-production-release:pqc-reject')")
@@ -58,6 +66,14 @@ public class MesProEdhrNonconformanceReviewController {
     public CommonResult<MesProEdhrNonconformanceReviewRespVO> dispose(
             @Valid @RequestBody MesProEdhrNonconformanceReviewDisposeReqVO reqVO) {
         return success(nonconformanceReviewService.dispose(reqVO));
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "分页查询 eDHR 不合格评审列表")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:query')")
+    public CommonResult<PageResult<MesProEdhrNonconformanceReviewRespVO>> getPage(
+            @Valid MesProEdhrNonconformanceReviewPageReqVO reqVO) {
+        return success(nonconformanceReviewService.getPage(reqVO));
     }
 
     @GetMapping("/pending-page")

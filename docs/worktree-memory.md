@@ -1,5 +1,10 @@
 # Worktree Memory
 
+## 用户取消验证后融合
+
+- 用户明确取消后续验证时，同步任务范围并保留已有失败、未运行和半成品事实，不以授权代替通过证据。
+- 先停止任务内并行写入，再准备精确提交；主线未提交改动仍需保全，不能把“直接融合”解释为覆盖、丢弃或提交无关工作。
+
 ## Worktree 前端依赖与类型检查门禁
 
 - Trigger: 附加 worktree 需要运行前端 `pnpm ts:check`、构建或静态检查，但该 worktree 是新 checkout 或未曾安装前端依赖。
@@ -434,6 +439,8 @@
 - 禁止做法：禁止按端口盲杀不属于当前任务的 Java 进程，禁止把 worktree 构建成功写成 `int_main` 已验证，禁止在主工作区 dirty 时清理或覆盖并行任务文件。
 
 ### 融合前主线二次漂移与 Dirty 阻断
+
+- 三方整合未提交代码时，须分别记录共同提交、两来源HEAD及逐文件SHA256；隔离目录内的主线参考副本不是本任务资产，不能整体提交。合并工具输入先统一换行再比较，原文件仍只读；出现真实内容冲突后由分工worker处理，禁止重跑机械同步覆盖worker结果。最终合入前再次核对来源摘要，漂移时停止并重建验证基线。
 
 - 触发场景：用户要求把附加 worktree 融合进 `int_main`，但 rebase/验证期间主分支又被其它任务推进，或主工作区保留并行任务 dirty/untracked 文件。
 - 经验规则：融合前重新执行 `git log --left-right --cherry-pick int_main...<branch>`；若出现 `<` 侧提交，先在附加 worktree 再 rebase 到当前 `int_main` 并重跑目标验证。即使分支已可 fast-forward，主工作区仍需 clean 后才能运行 closeout apply。

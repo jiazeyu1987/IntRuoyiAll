@@ -31,6 +31,23 @@ public final class MesOutputMaterialProgressCalculator {
             MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
             List<MesProProcessPoolEventDO> productionEvents,
             Collection<MesProcessPoolReportAllocationDO> currentAllocations) {
+        return calculateProcessQuantity(activeOrder, snapshot, productionEvents, currentAllocations, false);
+    }
+
+    /** 超产按最高物料累计量判断；完成进度仍按最低物料累计量判断。 */
+    public static BigDecimal calculateMaximumProcessQuantity(
+            MesProcessPoolActiveOrderDO activeOrder,
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+            List<MesProProcessPoolEventDO> productionEvents,
+            Collection<MesProcessPoolReportAllocationDO> currentAllocations) {
+        return calculateProcessQuantity(activeOrder, snapshot, productionEvents, currentAllocations, true);
+    }
+
+    private static BigDecimal calculateProcessQuantity(
+            MesProcessPoolActiveOrderDO activeOrder,
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+            List<MesProProcessPoolEventDO> productionEvents,
+            Collection<MesProcessPoolReportAllocationDO> currentAllocations, boolean maximum) {
         List<Long> outputMaterialIds = parseRequiredOutputMaterialIds(activeOrder, snapshot);
         Map<Long, BigDecimal> currentAllocationQuantityByEventId =
                 currentAllocationQuantityByEventId(activeOrder, snapshot, currentAllocations);
@@ -38,10 +55,75 @@ public final class MesOutputMaterialProgressCalculator {
             return zero(snapshot);
         }
         if (outputMaterialIds.isEmpty()) {
+            if (maximum) {
+                // 明确未配置输出物料的工序，其超产单位就是正式分配量。
+                return currentAllocationQuantityByEventId.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .setScale(scale(snapshot), RoundingMode.HALF_UP);
+            }
             return calculateFormalAllocationProgressWithoutOutputMaterials(activeOrder, snapshot,
                     productionEvents, currentAllocationQuantityByEventId);
         }
 
+        return calculateMaterialQuantities(activeOrder, snapshot, outputMaterialIds, productionEvents,
+                currentAllocationQuantityByEventId).values().stream()
+                .min(maximum ? (left, right) -> right.compareTo(left) : BigDecimal::compareTo)
+                .orElse(zero(snapshot))
+                .setScale(scale(snapshot), RoundingMode.HALF_UP);
+    }
+
+    /** 将本次报工实际包含的各物料剩余量反算为可分配的正式进度池数量。 */
+    public static BigDecimal calculateAvailableAllocationQuantity(
+            MesProcessPoolActiveOrderDO activeOrder,
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+            BigDecimal planned,
+            MesProProcessPoolEventDO currentEvent,
+            List<MesProProcessPoolEventDO> previousEvents,
+            Collection<MesProcessPoolReportAllocationDO> previousAllocations) {
+        List<Long> materialIds = parseRequiredOutputMaterialIds(activeOrder, snapshot);
+        if (planned == null || planned.signum() <= 0) {
+            throw sourceMissing(activeOrder, "PLANNED_QUANTITY_SNAPSHOT");
+        }
+        Map<Long, BigDecimal> previousByEvent =
+                currentAllocationQuantityByEventId(activeOrder, snapshot, previousAllocations);
+        if (materialIds.isEmpty()) {
+            return planned.subtract(previousByEvent.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add))
+                    .max(BigDecimal.ZERO);
+        }
+        if (currentEvent == null || currentEvent.getId() == null) {
+            throw sourceMissing(activeOrder, "PRODUCTION_EVENT_FOR_CURRENT_ALLOCATION");
+        }
+        BigDecimal pool = currentEvent.getReportOutputQuantity();
+        if (pool == null || pool.signum() <= 0) {
+            throw sourceMissing(activeOrder, "PRODUCTION_REPORT_OUTPUT_QUANTITY");
+        }
+        Map<Long, BigDecimal> previousMaterials = calculateMaterialQuantities(activeOrder, snapshot, materialIds,
+                previousEvents, previousByEvent);
+        Map<Long, BigDecimal> currentMaterials = calculateMaterialQuantities(activeOrder, snapshot, materialIds,
+                List.of(currentEvent), Map.of(currentEvent.getId(), pool));
+        BigDecimal capacity = pool;
+        boolean hasPositiveOutput = false;
+        for (Map.Entry<Long, BigDecimal> material : currentMaterials.entrySet()) {
+            if (material.getValue().signum() == 0) {
+                continue;
+            }
+            hasPositiveOutput = true;
+            BigDecimal remaining = planned.subtract(previousMaterials.get(material.getKey())).max(BigDecimal.ZERO);
+            BigDecimal materialCapacity = remaining.multiply(pool)
+                    .divide(material.getValue(), scale(snapshot), RoundingMode.DOWN);
+            capacity = capacity.min(materialCapacity);
+        }
+        if (!hasPositiveOutput) {
+            throw sourceMissing(activeOrder, "PRODUCTION_OUTPUT_MATERIAL_QUANTITY");
+        }
+        return capacity;
+    }
+
+    private static Map<Long, BigDecimal> calculateMaterialQuantities(
+            MesProcessPoolActiveOrderDO activeOrder,
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+            List<Long> outputMaterialIds,
+            List<MesProProcessPoolEventDO> productionEvents,
+            Map<Long, BigDecimal> currentAllocationQuantityByEventId) {
         Map<Long, BigDecimal> quantitiesByMaterial = new LinkedHashMap<>();
         outputMaterialIds.forEach(materialId -> quantitiesByMaterial.put(materialId, zero(snapshot)));
         Set<Long> matchedEventIds = new LinkedHashSet<>();
@@ -54,6 +136,10 @@ public final class MesOutputMaterialProgressCalculator {
             }
             validateProductionEventIdentity(activeOrder, snapshot, event);
             matchedEventIds.add(event.getId());
+            BigDecimal poolQuantity = event.getReportOutputQuantity();
+            if (poolQuantity == null || poolQuantity.signum() <= 0 || allocatedQuantity.compareTo(poolQuantity) > 0) {
+                throw sourceMissing(activeOrder, "PRODUCTION_REPORT_OUTPUT_QUANTITY");
+            }
             for (JSONObject detail : parseProductionMaterialDetails(activeOrder, event)) {
                 Long materialId = parseMaterialId(activeOrder, detail.get("materialId"), "PRODUCTION_MATERIAL_ID");
                 if (!quantitiesByMaterial.containsKey(materialId)) {
@@ -63,16 +149,15 @@ public final class MesOutputMaterialProgressCalculator {
                 if (outputQuantity == null || outputQuantity.signum() < 0) {
                     throw sourceMissing(activeOrder, "PRODUCTION_OUTPUT_MATERIAL_QUANTITY");
                 }
-                quantitiesByMaterial.merge(materialId, outputQuantity.min(allocatedQuantity), BigDecimal::add);
+                BigDecimal materialAllocation = outputQuantity.multiply(allocatedQuantity)
+                        .divide(poolQuantity, scale(snapshot) + 24, RoundingMode.HALF_UP);
+                quantitiesByMaterial.merge(materialId, materialAllocation, BigDecimal::add);
             }
         }
         if (!matchedEventIds.containsAll(currentAllocationQuantityByEventId.keySet())) {
             throw sourceMissing(activeOrder, "PRODUCTION_EVENT_FOR_CURRENT_ALLOCATION");
         }
-        return quantitiesByMaterial.values().stream()
-                .min(BigDecimal::compareTo)
-                .orElse(zero(snapshot))
-                .setScale(scale(snapshot), RoundingMode.HALF_UP);
+        return quantitiesByMaterial;
     }
 
     private static BigDecimal calculateFormalAllocationProgressWithoutOutputMaterials(

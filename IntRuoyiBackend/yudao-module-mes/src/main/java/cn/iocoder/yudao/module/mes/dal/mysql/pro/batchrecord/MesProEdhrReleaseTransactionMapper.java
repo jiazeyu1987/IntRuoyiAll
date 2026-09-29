@@ -17,7 +17,16 @@ public interface MesProEdhrReleaseTransactionMapper extends BaseMapperX<MesProEd
     default MesProEdhrReleaseTransactionDO selectByBatchExecutionId(Long batchExecutionId) {
         return selectOne(new LambdaQueryWrapperX<MesProEdhrReleaseTransactionDO>()
                 .eq(MesProEdhrReleaseTransactionDO::getBatchExecutionId, batchExecutionId)
-                .orderByDesc(MesProEdhrReleaseTransactionDO::getId));
+                .orderByDesc(MesProEdhrReleaseTransactionDO::getId)
+                .last("LIMIT 1"));
+    }
+
+    default MesProEdhrReleaseTransactionDO selectCurrentByBatchExecutionId(Long batchExecutionId) {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrReleaseTransactionDO>()
+                .eq(MesProEdhrReleaseTransactionDO::getBatchExecutionId, batchExecutionId)
+                .notIn(MesProEdhrReleaseTransactionDO::getReleaseStatus, "REJECTED", "WITHDRAWN")
+                .orderByDesc(MesProEdhrReleaseTransactionDO::getId)
+                .last("LIMIT 1"));
     }
 
     default List<MesProEdhrReleaseTransactionDO> selectListByBatchExecutionIds(Collection<Long> batchExecutionIds) {

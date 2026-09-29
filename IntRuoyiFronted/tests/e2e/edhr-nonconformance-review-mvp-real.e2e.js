@@ -44,6 +44,10 @@ const PASSWORD = process.env.NCR_E2E_PASSWORD || ''
 const WORK_ORDER_CODE = process.env.NCR_E2E_WORK_ORDER_CODE || '881MO101355'
 const SOURCE_ROUTE_CODE = process.env.NCR_E2E_SOURCE_ROUTE_CODE || 'RT000028'
 const RESTORE_ROUTE_ONLY = process.env.NCR_E2E_RESTORE_ROUTE_ONLY === '1'
+const INDEPENDENT_PAGE_ONLY = process.env.NCR_E2E_INDEPENDENT_PAGE_ONLY === '1'
+const INDEPENDENT_PAGE_CREATE = process.env.NCR_E2E_INDEPENDENT_PAGE_CREATE === '1'
+const INDEPENDENT_PAGE_DISPOSE = process.env.NCR_E2E_INDEPENDENT_PAGE_DISPOSE === '1'
+const INDEPENDENT_PAGE_SIGNATURE_PASSWORD = process.env.NCR_E2E_INDEPENDENT_PAGE_SIGNATURE_PASSWORD || PASSWORD
 const PQC_ENTRY_ONLY = process.env.NCR_E2E_PQC_ENTRY_ONLY === '1'
 const VERIFY_FROZEN_ACTIONS = process.env.NCR_E2E_VERIFY_FROZEN_ACTIONS === '1'
 const FROZEN_ACTIONS_ONLY = process.env.NCR_E2E_FROZEN_ACTIONS_ONLY === '1'
@@ -302,6 +306,169 @@ async function openQaListFromMenu(page) {
   const response = await responsePromise
   const body = await response.json()
   assert.equal(body.code, 0, `QA pending list failed: ${body.msg || body.code}`)
+}
+
+async function verifyIndependentReviewPageOnly(page) {
+  const pageResponses = []
+  const onResponse = async (response) => {
+    const pathname = new URL(response.url()).pathname
+    if (pathname.endsWith('/mes/pro/edhr-nonconformance-review/page')) {
+      pageResponses.push({ response, body: await response.json().catch(() => null) })
+    }
+  }
+  page.on('response', onResponse)
+  await page.goto(`${BASE_URL}${REVIEW_PATH}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.waitForURL((url) => url.pathname === REVIEW_PATH, { timeout: 60000 })
+  await page.locator('[data-edhr-ncr-page]').waitFor({ state: 'visible', timeout: 60000 })
+  await page.waitForTimeout(1000)
+  page.off('response', onResponse)
+  const initialBody = pageResponses[0]?.body
+  assert.ok(initialBody, 'independent review page must request /page')
+  assert.equal(initialBody.code, 0, `independent review page failed: ${initialBody.msg || initialBody.code}`)
+  assert.equal(await page.getByRole('tab', { name: '全部', exact: true }).count(), 1)
+  assert.equal(await page.getByRole('tab', { name: '进行中', exact: true }).count(), 1)
+  assert.equal(await page.getByRole('button', { name: '新建', exact: true }).count(), 1)
+
+  const pendingResponse = page.waitForResponse(
+    (response) => {
+      const url = new URL(response.url())
+      return url.pathname.endsWith('/mes/pro/edhr-nonconformance-review/page')
+        && url.searchParams.get('reviewStatus') === 'pending_review'
+    },
+    { timeout: 60000 }
+  )
+  await page.getByRole('tab', { name: '进行中', exact: true }).click()
+  const pendingBody = await pendingResponse.then((response) => response.json())
+  assert.equal(pendingBody.code, 0, `independent pending page failed: ${pendingBody.msg || pendingBody.code}`)
+
+  const activeOrderResponse = page.waitForResponse(
+    (response) => new URL(response.url()).pathname.endsWith('/mes/pro/edhr-nonconformance-review/active-order-list'),
+    { timeout: 60000 }
+  )
+  await page.getByRole('button', { name: '新建', exact: true }).click()
+  const activeOrderBody = await activeOrderResponse.then((response) => response.json())
+  assert.equal(activeOrderBody.code, 0, `active order candidates failed: ${activeOrderBody.msg || activeOrderBody.code}`)
+  const createDialog = page.locator('[data-edhr-ncr-create-dialog]')
+  await createDialog.waitFor({ state: 'visible', timeout: 30000 })
+  const createDialogText = await createDialog.innerText()
+  assert.match(createDialogText, /活跃订单/)
+  assert.match(createDialogText, /不合格原因/)
+  assert.doesNotMatch(createDialogText, /来源类型|来源单据|电子签名密码/)
+  assert.equal(await page.locator('[data-edhr-ncr-review-dialog]:visible').count(), 0)
+  let createdReview
+  let disposedReview
+  if (INDEPENDENT_PAGE_CREATE) {
+    const activeOrders = Array.isArray(activeOrderBody.data) ? activeOrderBody.data : []
+    assert.ok(activeOrders.length > 0, 'independent create E2E requires one active order candidate')
+    const activeOrder = activeOrders[0]
+    await page.locator('[data-edhr-ncr-active-order]').waitFor({ state: 'visible', timeout: 30000 })
+    await page.locator('[data-edhr-ncr-create-reason]').fill(`${RUN_ID} 活跃订单不合格原因`)
+    const createResponse = page.waitForResponse(
+      (response) => new URL(response.url()).pathname.endsWith('/mes/pro/edhr-nonconformance-review/create')
+        && response.request().method() === 'POST',
+      { timeout: 60000 }
+    )
+    await page.getByRole('button', { name: '提交不合格评审', exact: true }).click()
+    const createBody = await createResponse.then((response) => response.json())
+    assert.equal(createBody.code, 0, `independent create failed: ${createBody.msg || createBody.code}`)
+    createdReview = createBody.data
+    assert.match(createdReview.reviewCode, /^BHGSP-\d{6}-\d{8}$/)
+    assert.equal(createdReview.sourceType, 'ACTIVE_ORDER')
+    assert.equal(String(createdReview.sourceId), String(activeOrder.id))
+    assert.equal(createdReview.reviewStatus, 'pending_review')
+
+    const pendingAfterCreateResponse = page.waitForResponse(
+      (response) => {
+        const url = new URL(response.url())
+        return url.pathname.endsWith('/mes/pro/edhr-nonconformance-review/page')
+          && url.searchParams.get('reviewStatus') === 'pending_review'
+      },
+      { timeout: 60000 }
+    )
+    await page.getByRole('tab', { name: '进行中', exact: true }).click()
+    const pendingAfterCreateBody = await pendingAfterCreateResponse.then((response) => response.json())
+    assert.equal(pendingAfterCreateBody.code, 0)
+    const createdRow = page.locator('.el-table__body-wrapper tbody tr').filter({ hasText: createdReview.reviewCode }).first()
+    await createdRow.waitFor({ state: 'visible', timeout: 60000 })
+    await createdRow.getByRole('button', { name: '处理', exact: true }).click()
+    await page.locator('[data-edhr-ncr-review-dialog]').waitFor({ state: 'visible', timeout: 30000 })
+
+    const materialFile = path.join(RESULT_DIR, `${RUN_ID}-review-material.txt`)
+    fs.writeFileSync(materialFile, `${RUN_ID} review material\n`, 'utf8')
+    const fileInput = page.locator('.edhr-ncr__dispose-form input[type="file"]').first()
+    await fileInput.waitFor({ state: 'attached', timeout: 30000 })
+    const uploadResponse = page.waitForResponse(
+      (response) => new URL(response.url()).pathname.endsWith('/infra/file/upload'),
+      { timeout: 60000 }
+    )
+    await fileInput.setInputFiles(materialFile)
+    const uploadBody = await uploadResponse.then((response) => response.json())
+    assert.equal(uploadBody.code, 0, `review material upload failed: ${uploadBody.msg || uploadBody.code}`)
+    await page.getByPlaceholder('请输入评审意见').fill(`${RUN_ID} 评审意见`)
+    await page.getByPlaceholder('请输入本人电子签名密码').fill(INDEPENDENT_PAGE_SIGNATURE_PASSWORD)
+    const disposeResponse = page.waitForResponse(
+      (response) => new URL(response.url()).pathname.endsWith('/mes/pro/edhr-nonconformance-review/dispose')
+        && response.request().method() === 'POST',
+      { timeout: 60000 }
+    )
+    await page.getByRole('button', { name: '让步放行', exact: true }).click()
+    const disposeBody = await disposeResponse.then((response) => response.json())
+    assert.equal(disposeBody.code, 0, `independent dispose failed: ${disposeBody.msg || disposeBody.code}`)
+    disposedReview = disposeBody.data
+    assert.equal(disposedReview.disposition, 'concession_release')
+    assert.equal(disposedReview.reviewStatus, 'closed')
+  } else {
+    await page.getByRole('button', { name: '取消', exact: true }).click()
+    if (INDEPENDENT_PAGE_DISPOSE && (await page.locator('.el-table__body-wrapper tbody tr').count()) > 0) {
+      const processButton = page.locator('[data-edhr-ncr-review-process]:visible').first()
+      await processButton.waitFor({ state: 'visible', timeout: 30000 })
+      await page.waitForTimeout(500)
+      await processButton.click({ force: true })
+      await page.locator('[data-edhr-ncr-review-dialog]').waitFor({ state: 'visible', timeout: 30000 })
+      const materialFile = path.join(RESULT_DIR, `${RUN_ID}-dispose-material.txt`)
+      fs.writeFileSync(materialFile, `${RUN_ID} dispose material\n`, 'utf8')
+      const fileInput = page.locator('.edhr-ncr__dispose-form input[type="file"]').first()
+      await fileInput.waitFor({ state: 'attached', timeout: 30000 })
+      const uploadResponse = page.waitForResponse(
+        (response) => new URL(response.url()).pathname.endsWith('/infra/file/upload'),
+        { timeout: 60000 }
+      )
+      await fileInput.setInputFiles(materialFile)
+      const uploadBody = await uploadResponse.then((response) => response.json())
+      assert.equal(uploadBody.code, 0, `review material upload failed: ${uploadBody.msg || uploadBody.code}`)
+      await page.getByPlaceholder('请输入评审意见').fill(`${RUN_ID} 处置意见`)
+      await page.getByPlaceholder('请输入本人电子签名密码').fill(INDEPENDENT_PAGE_SIGNATURE_PASSWORD)
+      const disposeResponse = page.waitForResponse(
+        (response) => new URL(response.url()).pathname.endsWith('/mes/pro/edhr-nonconformance-review/dispose')
+          && response.request().method() === 'POST',
+        { timeout: 60000 }
+      )
+      await page.getByRole('button', { name: '让步放行', exact: true }).click()
+      const disposeBody = await disposeResponse.then((response) => response.json())
+      assert.equal(disposeBody.code, 0, `independent dispose failed: ${disposeBody.msg || disposeBody.code}`)
+      disposedReview = disposeBody.data
+      assert.equal(disposedReview.disposition, 'concession_release')
+      assert.equal(disposedReview.reviewStatus, 'closed')
+    }
+  }
+
+  const rows = page.locator('.el-table__body-wrapper tbody tr')
+  if (await rows.count()) {
+    await rows.first().getByRole('button', { name: /处理|查看/ }).click()
+    await page.locator('[data-edhr-ncr-review-dialog]').waitFor({ state: 'visible', timeout: 30000 })
+    assert.match(await page.locator('[data-edhr-ncr-review-dialog]').innerText(), /评审单号|不合格原因/)
+    await page.getByRole('button', { name: '关闭', exact: true }).click()
+  }
+  return {
+    status: 'PASS',
+    mode: 'INDEPENDENT_PAGE_ONLY',
+    initialCount: initialBody.data?.total || 0,
+    pendingCount: pendingBody.data?.total || 0,
+    activeOrderCandidateCount: Array.isArray(activeOrderBody.data) ? activeOrderBody.data.length : 0,
+    detailDialogChecked: (await rows.count()) > 0,
+    createdReviewCode: createdReview?.reviewCode,
+    disposedDisposition: disposedReview?.disposition
+  }
 }
 
 async function openPqcLeaderManagementFromMenu(page) {
@@ -966,6 +1133,22 @@ async function run() {
   let sourceRouteRestoreError
   try {
     await login(page)
+    if (INDEPENDENT_PAGE_ONLY) {
+      const result = await verifyIndependentReviewPageOnly(page)
+      result.runId = RUN_ID
+      result.tenant = TENANT
+      result.username = USERNAME
+      result.runtimeProfile = runtime.profile
+      result.runtimeSlot = runtime.slot
+      result.baseUrl = BASE_URL
+      result.backendUrl = BACKEND_URL
+      result.resultDir = RESULT_DIR
+      await context.tracing.stop({ path: path.join(RESULT_DIR, 'trace.zip') })
+      writeResult(result)
+      await browser.close()
+      console.log(JSON.stringify(result, null, 2))
+      return
+    }
     if (RESTORE_ROUTE_ONLY) {
       await closeVisibleBusinessDialogs(page)
       await setSourceRouteEnabled(page, false)

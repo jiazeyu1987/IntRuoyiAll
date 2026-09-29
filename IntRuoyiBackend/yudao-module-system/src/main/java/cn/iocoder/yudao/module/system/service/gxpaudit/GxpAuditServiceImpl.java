@@ -8,16 +8,24 @@ import cn.iocoder.yudao.framework.security.core.LoginUser;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO;
+import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventRelationDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOperationDO;
+import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyActivationDO;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventRelationMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.BeanUtils;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.Resource;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
@@ -36,20 +44,46 @@ public class GxpAuditServiceImpl implements GxpAuditService {
     private GxpAuditLedgerSequenceMapper ledgerSequenceMapper;
     @Resource
     private GxpAuditPolicyOperationMapper policyOperationMapper;
+    @Resource
+    private GxpAuditPolicyActivationMapper policyActivationMapper;
+    @Resource
+    private GxpAuditEventRelationMapper eventRelationMapper;
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public void acquireLedgerLock() {
+        Long tenantId = resolveTenantId();
+        if (ledgerSequenceMapper.selectByTenantIdForUpdate(tenantId) == null) {
+            throw exception(GXP_AUDIT_APPEND_FAILED, "ledger-sequence-watermark-not-initialized");
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public GxpAuditAppendResult append(GxpAuditCommand command) {
         validateRequired(command);
         Long tenantId = resolveTenantId();
-        GxpAuditPolicyOperationDO policy = policyOperationMapper.selectActive(tenantId, command.getOperationId());
-        if (policy == null) {
+        GxpAuditLedgerSequenceDO ledger = lockLedgerSequence(tenantId);
+        GxpAuditPolicyActivationDO activation = policyActivationMapper.selectLatestForUpdate(tenantId);
+        if (activation == null) {
+            throw exception(GXP_AUDIT_POLICY_NOT_FOUND, command.getOperationId());
+        }
+        GxpAuditPolicyOperationDO policy = policyOperationMapper.selectByPolicyVersionForUpdate(
+                tenantId, activation.getPolicyVersion(), command.getOperationId());
+        if (policy == null || !Boolean.TRUE.equals(policy.getActive())
+                || !"GXP".equals(policy.getApplicability())) {
             throw exception(GXP_AUDIT_POLICY_NOT_FOUND, command.getOperationId());
         }
         validatePolicyRequirements(command, policy);
 
+        // Normalize a private copy before hashing; callers may replay the same instance.
+        GxpAuditCommand normalized = GxpAuditCommand.builder().build();
+        BeanUtils.copyProperties(command, normalized);
+        command = normalized;
+        LoginUser actor = resolveActor();
+        enrichServerOwnedFields(command, actor, tenantId);
         String idempotencyPayloadHash = sha256(canonicalPayload(command, policy));
-        GxpAuditEventDO existing = auditEventMapper.selectByIdempotencyKey(tenantId, command.getIdempotencyKey());
+        GxpAuditEventDO existing = auditEventMapper.selectByIdempotencyKeyForUpdate(tenantId, command.getIdempotencyKey());
         if (existing != null) {
             if (!Objects.equals(existing.getIdempotencyPayloadHash(), idempotencyPayloadHash)) {
                 throw exception(GXP_AUDIT_IDEMPOTENCY_CONFLICT, command.getOperationId());
@@ -58,14 +92,15 @@ public class GxpAuditServiceImpl implements GxpAuditService {
                     existing.getEventHash(), true);
         }
 
-        LoginUser actor = resolveActor();
-        long ledgerSequence = allocateLedgerSequence(tenantId);
-        GxpAuditEventDO previous = auditEventMapper.selectLatestByTenant(tenantId);
-        LocalDateTime serverOccurredAt = LocalDateTime.now();
+        GxpAuditEventDO previous = auditEventMapper.selectLatestByTenantForUpdate(tenantId);
+        long ledgerSequence = allocateLedgerSequence(tenantId, ledger);
+        LocalDateTime serverOccurredAt = LocalDateTime.now(ZoneOffset.UTC);
 
         GxpAuditEventDO event = new GxpAuditEventDO();
         event.setTenantId(tenantId);
         event.setLedgerSequence(ledgerSequence);
+        event.setEventSchemaVersion(2);
+        event.setCanonicalizationVersion("GXP_CANONICAL_V2");
         event.setOperationId(command.getOperationId());
         event.setDomain(policy.getDomain());
         event.setSubjectType(policy.getSubjectType());
@@ -91,32 +126,57 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         event.setIdempotencyPayloadHash(idempotencyPayloadHash);
         event.setPreviousEventHash(previous == null ? null : previous.getEventHash());
         event.setAlgorithm(HASH_ALGORITHM);
+        event.setResultStatus(command.getResultStatus());
+        event.setReasonCode(command.getReasonCode());
+        event.setReasonSource(command.getReasonSource());
+        event.setTransactionId(command.getTransactionId());
+        event.setAuthenticatedActorJson(command.getAuthenticatedActor());
+        event.setPerformedByJson(command.getPerformedBy());
+        event.setSourceType(command.getSourceType());
+        event.setSourceLocator(command.getSourceLocator());
+        event.setTraceId(command.getTraceId());
+        event.setErrorCode(command.getErrorCode());
+        event.setAttemptedOperationId(command.getAttemptedOperationId());
+        event.setRelationManifestJson(command.getRelationManifest());
+        event.setEvidenceManifestJson(command.getEvidenceManifest());
+        event.setStatePayloadHash(command.getStatePayloadHash());
         event.setCanonicalEventJson(canonicalEvent(event));
         event.setEventHash(sha256(event.getCanonicalEventJson()));
 
-        try {
-            auditEventMapper.insert(event);
-        } catch (RuntimeException ex) {
+        if (auditEventMapper.insert(event) != 1) {
             throw exception(GXP_AUDIT_APPEND_FAILED, command.getOperationId());
+        }
+        for (GxpAuditRelation relation : command.getLinks()) {
+            GxpAuditEventRelationDO relationDO = new GxpAuditEventRelationDO();
+            relationDO.setTenantId(tenantId);
+            relationDO.setEventId(event.getId());
+            relationDO.setRelationType(relation.relationType());
+            relationDO.setTargetType(relation.objectType());
+            relationDO.setTargetId(relation.objectId());
+            relationDO.setTargetVersion(relation.objectVersion());
+            relationDO.setTargetHash(relation.objectHash());
+            relationDO.setCreatedAtUtc(serverOccurredAt);
+            if (eventRelationMapper.insert(relationDO) != 1) {
+                throw exception(GXP_AUDIT_APPEND_FAILED, command.getOperationId() + ":relation");
+            }
         }
         return new GxpAuditAppendResult(event.getId(), event.getLedgerSequence(), event.getEventHash(), false);
     }
 
-    private long allocateLedgerSequence(Long tenantId) {
+    private GxpAuditLedgerSequenceDO lockLedgerSequence(Long tenantId) {
         GxpAuditLedgerSequenceDO sequence = ledgerSequenceMapper.selectByTenantIdForUpdate(tenantId);
         if (sequence == null) {
-            Long maxLedgerSequence = auditEventMapper.selectMaxLedgerSequence(tenantId);
-            long nextLedgerSequence = (maxLedgerSequence == null ? 0L : maxLedgerSequence) + 1L;
-            GxpAuditLedgerSequenceDO initial = new GxpAuditLedgerSequenceDO();
-            initial.setTenantId(tenantId);
-            initial.setNextLedgerSequence(nextLedgerSequence + 1L);
-            ledgerSequenceMapper.insert(initial);
-            return nextLedgerSequence;
+            throw exception(GXP_AUDIT_APPEND_FAILED, "ledger-sequence-watermark-not-initialized");
         }
         Long nextLedgerSequence = sequence.getNextLedgerSequence();
         if (nextLedgerSequence == null || nextLedgerSequence < 1L) {
             throw exception(GXP_AUDIT_APPEND_FAILED, "invalid-ledger-sequence-watermark");
         }
+        return sequence;
+    }
+
+    private long allocateLedgerSequence(Long tenantId, GxpAuditLedgerSequenceDO sequence) {
+        Long nextLedgerSequence = sequence.getNextLedgerSequence();
         GxpAuditLedgerSequenceDO updated = new GxpAuditLedgerSequenceDO();
         updated.setTenantId(tenantId);
         updated.setNextLedgerSequence(nextLedgerSequence + 1L);
@@ -135,6 +195,9 @@ public class GxpAuditServiceImpl implements GxpAuditService {
                 || StrUtil.isBlank(command.getIdempotencyKey())) {
             throw exception(GXP_AUDIT_BEFORE_AFTER_REQUIRED, command.getOperationId());
         }
+        if (command.getIdempotencyKey().length() > 96) {
+            throw exception(GXP_AUDIT_V2_CONTRACT_INVALID, "idempotencyKey");
+        }
     }
 
     private void validatePolicyRequirements(GxpAuditCommand command, GxpAuditPolicyOperationDO policy) {
@@ -151,6 +214,47 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         if ("REQUIRED".equals(policy.getSignaturePolicy()) && StrUtil.isBlank(command.getSignatureRecordId())) {
             throw exception(GXP_AUDIT_SIGNATURE_REQUIRED, command.getOperationId());
         }
+    }
+
+    private void enrichServerOwnedFields(GxpAuditCommand command, LoginUser actor, Long tenantId) {
+        command.setEventSchemaVersion(2);
+        command.setTransactionId(StrUtil.blankToDefault(command.getTransactionId(),
+                GxpAuditTransactionContext.requireTransactionId()));
+        command.setResultStatus(StrUtil.blankToDefault(command.getResultStatus(), "SUCCESS"));
+        command.setReasonCode(StrUtil.blankToDefault(command.getReasonCode(),
+                command.getOperationId().toUpperCase().replace('.', '_').replace('-', '_')));
+        command.setReasonSource(StrUtil.blankToDefault(command.getReasonSource(),
+                StrUtil.isBlank(command.getReason()) ? "SYSTEM" : "USER"));
+        command.setAuthenticatedActor(StrUtil.blankToDefault(command.getAuthenticatedActor(), actorJson(actor, tenantId)));
+        command.setPerformedBy(StrUtil.blankToDefault(command.getPerformedBy(), actorJson(actor, tenantId)));
+        command.setSourceType(StrUtil.blankToDefault(command.getSourceType(), "SERVICE_METHOD"));
+        command.setSourceLocator(StrUtil.blankToDefault(command.getSourceLocator(), command.getSource()));
+        if (StrUtil.isBlank(command.getSourceLocator())) {
+            throw exception(GXP_AUDIT_V2_CONTRACT_INVALID, "sourceLocator");
+        }
+        command.setLinks(command.getLinks() == null ? List.of() : List.copyOf(command.getLinks()));
+        command.setEvidences(command.getEvidences() == null ? List.of() : List.copyOf(command.getEvidences()));
+        command.setRelationManifest(JsonUtils.toJsonString(command.getLinks()));
+        command.setEvidenceManifest(JsonUtils.toJsonString(command.getEvidences()));
+        command.setStatePayloadHash(sha256(command.getBeforeState().getCanonicalJson()
+                + "\u001f" + command.getAfterState().getCanonicalJson()));
+        if (!List.of("SUCCESS", "FAILED", "DENIED").contains(command.getResultStatus())) {
+            throw exception(GXP_AUDIT_V2_CONTRACT_INVALID, "resultStatus");
+        }
+        if (List.of("FAILED", "DENIED").contains(command.getResultStatus())
+                && StrUtil.isBlank(command.getErrorCode())) {
+            throw exception(GXP_AUDIT_V2_CONTRACT_INVALID, "errorCode");
+        }
+    }
+
+    private String actorJson(LoginUser actor, Long tenantId) {
+        TreeMap<String, Object> json = new TreeMap<>();
+        json.put("actorId", actor.getId());
+        json.put("displayName", resolveActorDisplayName(actor));
+        json.put("tenantId", tenantId);
+        json.put("userType", actor.getUserType());
+        json.put("username", resolveActorUsername(actor));
+        return JsonUtils.toJsonString(json);
     }
 
     private Long resolveTenantId() {
@@ -197,10 +301,21 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         payload.put("subjectVersion", command.getSubjectVersion());
         payload.put("actionType", policy.getActionType());
         payload.put("reason", command.getReason());
+        payload.put("resultStatus", command.getResultStatus());
+        payload.put("errorCode", command.getErrorCode());
+        payload.put("attemptedOperationId", command.getAttemptedOperationId());
+        payload.put("reasonCode", command.getReasonCode());
+        payload.put("reasonSource", command.getReasonSource());
+        payload.put("sourceType", command.getSourceType());
+        payload.put("sourceLocator", command.getSourceLocator());
         payload.put("before", command.getBeforeState());
         payload.put("after", command.getAfterState());
         payload.put("signatureRecordId", command.getSignatureRecordId());
         payload.put("signatureContentHash", command.getSignatureContentHash());
+        payload.put("authenticatedActor", command.getAuthenticatedActor());
+        payload.put("performedBy", command.getPerformedBy());
+        payload.put("links", command.getLinks());
+        payload.put("evidences", command.getEvidences());
         return JsonUtils.toJsonString(payload);
     }
 
@@ -233,6 +348,22 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         payload.put("signatureContentHash", event.getSignatureContentHash());
         payload.put("previousEventHash", event.getPreviousEventHash());
         payload.put("algorithm", event.getAlgorithm());
+        payload.put("eventSchemaVersion", event.getEventSchemaVersion());
+        payload.put("canonicalizationVersion", event.getCanonicalizationVersion());
+        payload.put("resultStatus", event.getResultStatus());
+        payload.put("reasonCode", event.getReasonCode());
+        payload.put("reasonSource", event.getReasonSource());
+        payload.put("transactionId", event.getTransactionId());
+        payload.put("authenticatedActorJson", event.getAuthenticatedActorJson());
+        payload.put("performedByJson", event.getPerformedByJson());
+        payload.put("sourceType", event.getSourceType());
+        payload.put("sourceLocator", event.getSourceLocator());
+        payload.put("traceId", event.getTraceId());
+        payload.put("errorCode", event.getErrorCode());
+        payload.put("attemptedOperationId", event.getAttemptedOperationId());
+        payload.put("relationManifestJson", event.getRelationManifestJson());
+        payload.put("evidenceManifestJson", event.getEvidenceManifestJson());
+        payload.put("statePayloadHash", event.getStatePayloadHash());
         return JsonUtils.toJsonString(payload);
     }
 

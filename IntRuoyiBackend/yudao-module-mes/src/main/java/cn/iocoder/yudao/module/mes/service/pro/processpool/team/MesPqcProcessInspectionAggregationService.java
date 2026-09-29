@@ -4,5 +4,7 @@ public interface MesPqcProcessInspectionAggregationService {
 
     void aggregateApprovedPqcSubmission(Long eventId, Long reviewId);
 
+    void refreshCorrectedPqcSubmission(Long eventId, Long previousReviewId, Long correctionReviewId);
+
     void aggregateApprovedPqcSubmissionsForActiveOrder(Long activeOrderId);
 }

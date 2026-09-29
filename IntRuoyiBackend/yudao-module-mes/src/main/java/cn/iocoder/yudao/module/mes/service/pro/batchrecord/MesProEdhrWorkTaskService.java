@@ -91,6 +91,8 @@ public interface MesProEdhrWorkTaskService {
 
     void cancelReleaseApprovalTask(Long releaseTransactionId, String reason);
 
+    void cancelReleaseApprovalTaskById(Long workTaskId, String reason);
+
     void bindExecution(Long batchTaskId, Long executionId);
 
     void completeOptionalFillTaskBySkip(Long workTaskId, String reason);

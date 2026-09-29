@@ -32,4 +32,7 @@ public class UserRoleDO extends BaseDO {
      */
     private Long roleId;
 
+    /** Explicit tenant for permission command persistence; column already exists. */
+    private Long tenantId;
+
 }

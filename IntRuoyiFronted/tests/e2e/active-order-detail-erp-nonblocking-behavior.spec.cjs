@@ -19,12 +19,18 @@ const apiJs = ts.transpileModule(apiSource.replace(/^import .*$/gm, '').replace(
   compilerOptions: { target: ts.ScriptTarget.ES2022 }
 }).outputText
 const createApi = get => Function('request', `${apiJs}; return ErpProductionMaterialListApi`)({ get })
+const routeIdSource = fs.readFileSync(path.resolve(__dirname, '../../src/utils/routeQueryId.ts'), 'utf8')
+const routeIdJs = ts.transpileModule(routeIdSource.replace(/^export /gm, ''), {
+  compilerOptions: { target: ts.ScriptTarget.ES2022 }
+}).outputText
+const parsePositiveRouteQueryId = Function(`${routeIdJs}; return parsePositiveRouteQueryId`)()
 
 function setup(getPage) {
   let resolve, reject
   const pending = new Promise((ok, fail) => { resolve = ok; reject = fail })
   const calls = []
   const deps = {
+    parsePositiveRouteQueryId,
     defineOptions() {}, onMounted() {}, watch() {},
     ref: value => ({ value }),
     useRoute: () => ({ params: { activeOrderId: 1009200057 }, query: {} }),

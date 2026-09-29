@@ -20,12 +20,14 @@ import cn.iocoder.yudao.module.mes.enums.wm.MesWmProductIssueStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReverseTraceModels.Category;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.*;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import org.junit.jupiter.api.*;
 import org.mockito.*;
 import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
@@ -63,6 +65,7 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
     @Mock private MesTeamLeaderActiveOrderPickListCompletionSourceService pickListSource;
     @Mock private MesActiveOrderTransferTraceService transferTrace;
     @Mock private MesPqcProcessInspectionAggregationService aggregation;
+    @Mock private GxpAuditService gxpAuditService;
     @Mock private MesProEdhrBatchExecutionOriginMapper origins;
     @Mock private MesProEdhrBatchExecutionTraceLinkMapper traceLinks;
     @Mock private MesProProcessPoolPqcRecordMapper pqcRecords;
@@ -83,6 +86,7 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         completionService = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrderMapper, receiptMapper,
                 progressPort, writer, pickListSource, transferTrace, aggregation);
+        ReflectionTestUtils.setField(completionService, "gxpAuditService", gxpAuditService);
         order = MesProcessPoolActiveOrderDO.builder().id(10L).leaderUserId(20L).workOrderId(30L)
                 .routeId(40L).routeVersionId(41L).activeStatus("ACTIVE").version(2).build();
         order.setTenantId(1L);
@@ -313,10 +317,46 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
         var completed = completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L)).get(0);
         completed.setUpdateTime(AT.plusDays(1));
         completed.setUpdater("20");
+        assertEquals("SUCCESS", completed.getBackfillStatus());
+        assertEquals(persisted.getBatchRecordId(), completed.getBackfillExecutionId());
+        var liveDraft = writer.prepare(20L, order, command());
+        var sourceCompletion = JsonUtils.parseTree(liveDraft.getFormalSourceSnapshotJson())
+                .path("completions").get(0);
+        assertFalse(sourceCompletion.has("backfillStatus"));
+        assertFalse(sourceCompletion.has("backfillExecutionId"));
+        var signatureCompletion = JsonUtils.parseTree(liveDraft.getSignatureSnapshotJson())
+                .path("productionCompletionSignatures").get(0);
+        assertEquals("SUCCESS", signatureCompletion.path("backfillStatus").asText());
+        assertEquals(persisted.getBatchRecordId().longValue(),
+                signatureCompletion.path("backfillExecutionId").asLong());
         order.setVersion(3).setActiveStatus("COMPLETED");
         var replay = completionService.complete(20L, command());
         assertEquals(receiptId, replay.getCompletionReceiptId());
         verify(receiptMapper, times(1)).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
+        assertEquals(2, materializations.size());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missingId", "differentId", "failedStatus", "error"})
+    void changedWritebackBindingStillConflictsWithoutMutatingTheReceipt(String mutation) {
+        completeAndBind();
+        String receiptBefore = JSON.toJSONString(persisted);
+        var completed = completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L)).get(0);
+        switch (mutation) {
+            case "missingId" -> completed.setBackfillExecutionId(null);
+            case "differentId" -> completed.setBackfillExecutionId(persisted.getBatchRecordId() + 1);
+            case "failedStatus" -> completed.setBackfillStatus("FAILED");
+            case "error" -> completed.setBackfillError("writeback failed");
+            default -> throw new IllegalArgumentException(mutation);
+        }
+
+        ServiceException conflict = assertThrows(ServiceException.class,
+                () -> completionService.complete(20L, command()));
+
+        assertEquals(1040760368, conflict.getCode());
+        assertEquals(receiptBefore, JSON.toJSONString(persisted));
+        verify(receiptMapper, times(1)).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
+        verify(receiptMapper, never()).updateById(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
         assertEquals(2, materializations.size());
     }
 
@@ -482,9 +522,10 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
     }
 
     @Test
-    void sourceHashReplaySelfInvocationAlsoRequiresTheExistingTransaction() {
+    void receiptSourceReplaySelfInvocationAlsoRequiresTheExistingTransaction() {
         TransactionSynchronizationManager.setActualTransactionActive(false);
-        assertThrows(IllegalStateException.class, () -> writer.readSourceSnapshotHash(20L, order, command()));
+        assertThrows(IllegalStateException.class, () -> writer.matchesReceiptSources(
+                20L, order, command(), new MesProcessPoolActiveOrderCompletionReceiptDO()));
         verifyNoInteractions(eventMapper, reviewMapper, backfillMapper);
     }
 

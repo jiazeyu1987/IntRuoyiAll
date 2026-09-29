@@ -292,7 +292,8 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
             verify(actionMapper, never()).insert(any(FormActionInstanceDO.class));
             verify(actionMapper, never()).updateById(any(FormActionInstanceDO.class));
             verify(finalizationService, never()).applyApprovedPublishControlledFile(any(), any(), any());
-            verifyNoInteractions(approvalRouteAssigneeResolver, gxpAuditService);
+            verifyNoInteractions(approvalRouteAssigneeResolver);
+            verify(gxpAuditService).acquireLedgerLock();
         } finally {
             TenantContextHolder.clear();
         }

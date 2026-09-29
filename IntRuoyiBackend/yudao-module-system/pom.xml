@@ -127,4 +127,20 @@
 
     </dependencies>
 
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${project.basedir}/../config</directory>
+                <targetPath>META-INF/gxp</targetPath>
+                <includes>
+                    <include>gxp-audit-policy.yaml</include>
+                    <include>gxp-audit-policy.schema.json</include>
+                </includes>
+            </resource>
+        </resources>
+    </build>
+
 </project>

@@ -30,13 +30,16 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionFieldAuditBatchMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionFieldAuditItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
@@ -146,6 +149,8 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
     @Resource
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Resource
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
+    @Resource
     private MesProBatchRecordExecutionAttachmentService attachmentService;
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
@@ -167,6 +172,7 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
     @GxpWriteOperation(operationId = "edhr.execution.field.update")
     public MesProBatchRecordExecutionFieldAuditSaveResult saveChanges(
             MesProBatchRecordExecutionFieldAuditSaveChangesCommand command) {
+        gxpAuditService.acquireLedgerLock();
         return saveChangesInternal(command, true);
     }
 
@@ -174,6 +180,7 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
     @Transactional(rollbackFor = Exception.class)
     public MesProBatchRecordExecutionFieldAuditSaveResult saveSystemCellLinkChanges(
             MesProBatchRecordExecutionFieldAuditSaveChangesCommand command) {
+        gxpAuditService.acquireLedgerLock();
         return saveChangesInternal(command, false);
     }
 
@@ -372,7 +379,28 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                 .source("MesProBatchRecordExecutionFieldAuditServiceImpl.saveChanges")
                 .signatureRecordId(signature.getSignatureId() == null ? null : String.valueOf(signature.getSignatureId()))
                 .signatureContentHash(signatureProjectionHash)
+                .links(buildUnifiedGxpAuditRelations(execution))
                 .build();
+    }
+
+    private List<GxpAuditRelation> buildUnifiedGxpAuditRelations(MesProBatchRecordExecutionDO execution) {
+        List<GxpAuditRelation> relations = new ArrayList<>();
+        relations.add(new GxpAuditRelation("SOURCE", "BATCH_RECORD_EXECUTION",
+                String.valueOf(execution.getId()), null, null));
+        if (execution.getBatchExecutionId() == null) {
+            return relations;
+        }
+        relations.add(new GxpAuditRelation("SOURCE", "BATCH_EXECUTION",
+                String.valueOf(execution.getBatchExecutionId()), null, null));
+        List<MesProEdhrBatchExecutionOriginDO> origins =
+                batchExecutionOriginMapper.selectListByBatchExecutionId(execution.getBatchExecutionId());
+        origins.stream()
+                .map(MesProEdhrBatchExecutionOriginDO::getActiveOrderId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .forEach(activeOrderId -> relations.add(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
+                        String.valueOf(activeOrderId), null, null)));
+        return relations;
     }
 
     private String buildUnifiedGxpBeforeStateJson(MesProBatchRecordExecutionDO execution) {

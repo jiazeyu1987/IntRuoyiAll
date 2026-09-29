@@ -15,6 +15,11 @@ import java.util.List;
 @Mapper
 public interface RoleMapper extends BaseMapperX<RoleDO> {
 
+    default RoleDO selectPermissionSubjectForUpdate(Long tenantId, Long roleId) {
+        return selectOne(new LambdaQueryWrapperX<RoleDO>()
+                .eq(RoleDO::getTenantId, tenantId).eq(RoleDO::getId, roleId).last("FOR UPDATE"));
+    }
+
     default PageResult<RoleDO> selectPage(RolePageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<RoleDO>()
                 .likeIfPresent(RoleDO::getName, reqVO.getName())

@@ -29,6 +29,7 @@ export interface EdhrReleaseRowVO {
   releaseTransactionId?: string
   releaseCode?: string
   batchExecutionId: string
+  activeOrderId?: string
   batchExecutionCode: string
   workOrderId?: string
   workOrderCode?: string

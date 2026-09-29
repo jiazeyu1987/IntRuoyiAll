@@ -262,6 +262,13 @@
 - Verification: 记录同一测试集的最终 `passed` 数量，并在 cleanup candidates 中列出任务自有 `.pytest-tmp`。
 - Forbidden action: 禁止把默认临时目录权限错误写成产品回归失败；禁止改用更少测试或删除系统临时目录来绕过。
 
+### PowerShell 测试报告路径与本次执行证据
+
+- 构造嵌套仓库和带完整类名、随机后缀的报告前，计算最长绝对路径；PowerShell 5.1 夹具使用短编号目录并显式校验路径预算。超限应在写入前说明前置条件，不静默换目录或吞掉文件异常。
+- 同一测试须覆盖 PowerShell 5.1 与 7；保留首次路径失败和修复后的相同测试集结果，不把夹具初始化失败记为业务 RED，也不以单项通过替代组合失败。
+- Surefire 报告归档可能混有历史 XML；总数仅统计本次日志实际运行的目标及对应报告。自动门禁使用本次唯一报告后缀，逐目标核对报告身份、执行数、失败和跳过数；零执行、缺报告及全跳过不得判通过。
+- 脚本替身测试仅证明调用及结果处理；真实 Maven、覆盖扫描与生产审批必须分别验证，不能互相替代。
+
 ### yudao-server reactor unpack 测试门禁
 
 - Trigger: `mvn -pl yudao-server -am ... test` 在 `maven-dependency-plugin:unpack` 阶段报 `Artifact has not been packaged yet`，且目标测试只是 server 模块自身静态/配置测试。

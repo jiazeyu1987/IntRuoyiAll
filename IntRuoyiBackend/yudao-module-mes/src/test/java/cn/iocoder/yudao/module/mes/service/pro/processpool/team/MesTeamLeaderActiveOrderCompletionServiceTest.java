@@ -4,11 +4,15 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 
@@ -16,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,6 +42,8 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
     private MesActiveOrderTransferTraceService activeOrderTransferTraceService;
     @Mock
     private MesPqcProcessInspectionAggregationService processInspectionAggregationService;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     private MesTeamLeaderActiveOrderCompletionServiceImpl service;
 
@@ -45,6 +52,7 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         service = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrderMapper, receiptMapper,
                 progressPort, backfillPort, pickListCompletionSourceService, activeOrderTransferTraceService,
                 processInspectionAggregationService);
+        ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
     }
 
     @Test
@@ -109,6 +117,35 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         assertEquals(102L, receiptCaptor.getValue().getProcessInspectionId());
         verify(processInspectionAggregationService).aggregateApprovedPqcSubmissionsForActiveOrder(10L);
         verify(activeOrderTransferTraceService).recordProductIssueInventoryTracesForActiveOrder(order);
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        assertEquals("mes.active-order.complete", auditCaptor.getValue().getOperationId());
+        assertEquals("ACTIVE_ORDER_COMPLETE:99", auditCaptor.getValue().getIdempotencyKey());
+        assertEquals("COMPLETED", auditCaptor.getValue().getAfterState().getState());
+    }
+
+    @Test
+    void completionAuditFailureMustPropagateAfterFormalReceiptWrite() {
+        MesProcessPoolActiveOrderDO order = order();
+        when(activeOrderMapper.selectByIdForUpdate(10L)).thenReturn(order);
+        when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(null);
+        when(receiptMapper.selectByIdempotencyKeyForUpdate("key-1")).thenReturn(null);
+        when(progressPort.read(anyLong(), any())).thenReturn(progress());
+        when(backfillPort.prepare(anyLong(), any(), any())).thenReturn(draft());
+        when(activeOrderMapper.markCompleted(10L, 2, 20L)).thenReturn(1);
+        when(receiptMapper.insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolActiveOrderCompletionReceiptDO.class).setId(99L);
+            return 1;
+        });
+        doThrow(new IllegalStateException("gxp append failed"))
+                .when(gxpAuditService).append(any(GxpAuditCommand.class));
+
+        assertThrows(IllegalStateException.class, () -> service.complete(20L, command()));
+
+        verify(gxpAuditService).acquireLedgerLock();
+        verify(gxpAuditService).append(any(GxpAuditCommand.class));
+        verify(receiptMapper).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
     }
 
     @Test

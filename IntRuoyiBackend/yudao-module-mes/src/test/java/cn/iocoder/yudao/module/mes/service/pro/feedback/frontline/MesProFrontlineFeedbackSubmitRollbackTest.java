@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.ActiveOrderSnapshotResolver;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,6 +50,8 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
     private MesProBatchRecordExecutionSignatureService signatureService;
     @Mock
     private ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -63,7 +67,9 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
                 signatureService,
-                activeOrderSnapshotResolver);
+                activeOrderSnapshotResolver,
+                gxpAuditService);
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuditIdentity(submitService);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
         MesProFrontlineFeedbackSubmitTestData.stubLossReasonValidator(lossReasonValidator);
         MesProFrontlineFeedbackSubmitTestData.stubActiveOrderSnapshot(activeOrderSnapshotResolver);
@@ -103,5 +109,26 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
         verify(feedbackService).submitFeedback(501L);
         verify(feedbackMaterialService).createMaterials(any());
         verify(processPoolSubmitEventService).createSubmitEvent(any());
+    }
+
+    @Test
+    void shouldPropagateUnifiedGxpAuditFailureToTriggerTransactionRollback() {
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
+        when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
+        doThrow(new IllegalStateException("GxP audit append failed"))
+                .when(gxpAuditService).append(any());
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(IllegalStateException.class,
+                    () -> submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+        }
+
+        verify(feedbackService).createFrontlineFeedback(any());
+        verify(feedbackService).submitFeedback(501L);
+        verify(feedbackMaterialService).createMaterials(any());
+        verify(processPoolSubmitEventService).createSubmitEvent(any());
+        verify(gxpAuditService).append(any());
     }
 }

@@ -4190,7 +4190,6 @@ import {
   correctProcessPoolProductionReport
 } from '@/api/mes/pro/processpool/eventRevision'
 import { MdItemApi } from '@/api/mes/md/item'
-import { SOURCE_TYPE_PQC_SUBMISSION } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { formatDateTimeValue, formatDate } from '@/utils/formatTime'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 
@@ -4918,7 +4917,7 @@ const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
   Boolean(row.id)
 
 const canOpenPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) =>
-  canReviewSubmission(row)
+  canReviewSubmission(row) && Boolean(row.activeOrderId)
 
 const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
   !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value) &&
@@ -8820,8 +8819,8 @@ const openPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) 
     return
   }
   const query: Record<string, string> = {
-    sourceType: SOURCE_TYPE_PQC_SUBMISSION,
-    sourceId: String(row.id)
+    activeOrderId: String(row.activeOrderId),
+    autoCreate: '1'
   }
   router.push({
     name: 'MesProFeedbackEdhrNonconformanceReview',
@@ -9809,17 +9808,18 @@ const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
     const preview = await previewTeamLeaderActiveOrderRebuild(
       requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
     )
-    const confirmMessage = preview.hasHistoricalRuntimeData
-      ? `当前活跃订单已有 ${preview.productionReportCount} 条报工记录、${preview.productionProgressCount} 条生产进度、${preview.pqcInspectionResultCount} 条 PQC 检验结果。确认后会先删除这些历史业务结果，并删除生产快照、PQC 快照，再按当前最新数据重建。${preview.releaseApplicationCount > 0 ? ` 当前已有 ${preview.releaseApplicationCount} 条放行申请，后端将禁止重建，请先完成或关闭放行链路后再操作。` : ''}`
-      : '确认重建当前活跃订单的生产快照和 PQC 快照？系统会删除旧生产快照、PQC 快照，并按当前最新数据重新生成。'
+    if (preview.hasHistoricalRuntimeData || preview.releaseApplicationCount > 0) {
+      throw new Error('已有报工记录、生产进度、PQC 检验结果或放行证据，禁止重建；历史记录必须保留。')
+    }
+    const confirmMessage = '当前订单无已提交的业务证据。确认按最新配置重建生产快照和 PQC 快照？'
     await ElMessageBox.confirm(confirmMessage, '重建活跃订单', {
-      type: preview.hasHistoricalRuntimeData ? 'warning' : 'info',
+      type: 'info',
       confirmButtonText: '确认重建',
       cancelButtonText: '取消'
     })
     const result = await rebuildTeamLeaderActiveOrder({
       activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空'),
-      confirmDeleteHistoricalRuntimeData: preview.hasHistoricalRuntimeData
+      confirmDeleteHistoricalRuntimeData: false
     })
     writeCompleted = true
     ElMessage.success(
@@ -10081,9 +10081,12 @@ const handleRecommendedActiveOrderConflictResolution = async () => {
   let writeCompletedPhase: 'NONE' | 'REBUILT' | 'SIMULATED' = 'NONE'
   try {
     const preview = await previewTeamLeaderActiveOrderRebuild(activeOrderId)
+    if (preview.hasHistoricalRuntimeData || preview.releaseApplicationCount > 0) {
+      throw new Error('已有报工、检验或放行证据，禁止重建；历史记录必须保留。')
+    }
     await rebuildTeamLeaderActiveOrder({
       activeOrderId,
-      confirmDeleteHistoricalRuntimeData: preview.hasHistoricalRuntimeData
+      confirmDeleteHistoricalRuntimeData: false
     })
     writeCompletedPhase = 'REBUILT'
     activeOrderRebuildSubmittingId.value = undefined

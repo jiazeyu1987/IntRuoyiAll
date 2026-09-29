@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
@@ -16,12 +17,14 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQu
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -72,6 +75,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     @Mock
     private MesProcessPoolReportAllocationMapper allocationMapper;
     @Mock
+    private MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
+    @Mock
     private MesProProcessPoolQuantityFragmentMapper quantityFragmentMapper;
     @Mock
     private MesProProcessPoolPqcRecordMapper pqcRecordMapper;
@@ -93,26 +98,48 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
     @Mock
     private MesProBatchRecordExecutionSignatureService signatureService;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     private MesTeamLeaderSubmissionReviewService submissionReviewService;
     private MesTeamLeaderReportConfirmationService reportConfirmationService;
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(snapshotMapper.selectListByActiveOrderAndProcessForUpdate(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(invocation -> List.of(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(invocation.getArgument(0)).routeProcessId(5001L)
+                        .processId(invocation.getArgument(1)).overagePercentSnapshot(BigDecimal.ZERO)
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build()));
+        org.mockito.Mockito.lenient().when(snapshotMapper.selectByActiveOrderAndProcess(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyLong())).thenAnswer(invocation ->
+                MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(invocation.getArgument(0)).routeProcessId(invocation.getArgument(1))
+                        .processId(invocation.getArgument(2))
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build());
         submissionReviewService = new MesTeamLeaderSubmissionReviewServiceImpl(scopeService, eventMapper, reviewMapper,
                 processInspectionAggregationService);
         ReflectionTestUtils.setField(submissionReviewService, "signatureService", signatureService);
+        ReflectionTestUtils.setField(submissionReviewService, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(submissionReviewService, "pqcTaskMapper", pqcTaskMapper);
+        lenient().when(pqcTaskMapper.selectById(5101L)).thenReturn(MesPqcInspectionTaskDO.builder()
+                .id(5101L).activeOrderId(8101L).build());
         MesTeamLeaderFifoAllocationService fifoAllocationService =
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
-                        orderProcessTargetService, abnormalStateService);
+                        orderProcessTargetService, abnormalStateService, eventMapper, snapshotMapper);
         reportConfirmationService = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper,
                 activeOrderMapper, workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper,
                 pqcRecordMapper, fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper,
                 pqcPieceDetailMapper, orderProcessTargetService, orderProcessCompletionService,
                 abnormalStateService, reportManagementSummaryService);
         ReflectionTestUtils.setField(reportConfirmationService, "signatureService", signatureService);
+        ReflectionTestUtils.setField(reportConfirmationService, "snapshotMapper", snapshotMapper);
         lenient().when(signatureService.recordTeamLeaderReviewSignature(anyLong(), any(), any(),
                 eq("PROCESS_POOL_EVENT"), eq(1001L), any()))
+                .thenReturn(REVIEW_SIGNATURE_ID);
+        lenient().when(signatureService.recordTeamLeaderReviewSignature(anyLong(), any(), any(), any(), any(), any()))
                 .thenReturn(REVIEW_SIGNATURE_ID);
     }
 
@@ -250,6 +277,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     @Test
     void confirmSubmissionShouldPersistReviewSignatureOnApprovalReview() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         when(pqcRecordMapper.selectListByProductionSubmitEventId(EVENT_ID)).thenReturn(List.of(
                 pqcRecord(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)));
@@ -427,6 +455,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 .id(8101L)
                 .leaderUserId(LEADER_USER_ID)
                 .workOrderId(9001L)
+                .routeId(4001L)
                 .activeStatus("ACTIVE")
                 .joinedAt(LocalDateTime.of(2026, 8, 3, 8, 0))
                 .build();

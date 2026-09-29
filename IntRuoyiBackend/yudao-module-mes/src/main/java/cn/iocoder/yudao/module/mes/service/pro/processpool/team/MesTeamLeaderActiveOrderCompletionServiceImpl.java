@@ -5,6 +5,12 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +20,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_IDEMPOTENCY_CONFLICT;
@@ -36,6 +43,9 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
     private final MesTeamLeaderActiveOrderPickListCompletionSourceService pickListCompletionSourceService;
     private final MesActiveOrderTransferTraceService activeOrderTransferTraceService;
     private final MesPqcProcessInspectionAggregationService processInspectionAggregationService;
+
+    @Resource
+    private GxpAuditService gxpAuditService;
 
     public MesTeamLeaderActiveOrderCompletionServiceImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -103,6 +113,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
     public MesTeamLeaderActiveOrderCompletionResult complete(
             Long leaderUserId, MesTeamLeaderActiveOrderCompletionCommand command) {
         validateCommand(command);
+        gxpAuditService.acquireLedgerLock();
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(command.getActiveOrderId());
         if (activeOrder == null) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, command.getActiveOrderId());
@@ -205,7 +216,80 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         if (receiptMapper.insert(receipt) <= 0 || receipt.getId() == null) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PERSISTENCE_FAILED, activeOrder.getId());
         }
+        appendCompletionGxpAudit(activeOrder, receipt);
         return toResult(receipt);
+    }
+
+    private void appendCompletionGxpAudit(MesProcessPoolActiveOrderDO activeOrder,
+                                          MesProcessPoolActiveOrderCompletionReceiptDO receipt) {
+        Map<String, Object> before = new java.util.LinkedHashMap<>();
+        before.put("activeOrderId", activeOrder.getId());
+        before.put("activeStatus", activeOrder.getActiveStatus());
+        before.put("businessStatus", activeOrder.getBusinessStatus());
+        before.put("version", receipt.getExpectedVersion());
+        Map<String, Object> after = new java.util.LinkedHashMap<>();
+        after.put("activeOrderId", receipt.getActiveOrderId());
+        after.put("completedVersion", receipt.getCompletedVersion());
+        after.put("completionReceiptId", receipt.getId());
+        after.put("completionStatus", receipt.getCompletionStatus());
+        after.put("batchRecordStatus", receipt.getBatchRecordStatus());
+        after.put("processInspectionStatus", receipt.getProcessInspectionStatus());
+        after.put("batchRecordId", receipt.getBatchRecordId());
+        after.put("processInspectionId", receipt.getProcessInspectionId());
+        after.put("lossReportStatus", receipt.getLossReportStatus());
+        after.put("hasActualLoss", receipt.getHasActualLoss());
+        after.put("lossQuantity", receipt.getLossQuantity());
+        after.put("zeroLossConfirmationSnapshot", receipt.getZeroLossConfirmationSnapshot());
+        after.put("sourceSnapshotHash", receipt.getSourceSnapshotHash());
+        after.put("formalSourceSnapshotJson", receipt.getFormalSourceSnapshotJson());
+        after.put("signatureSnapshotJson", receipt.getSignatureSnapshotJson());
+        List<GxpAuditRelation> links = new java.util.ArrayList<>();
+        links.add(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
+                String.valueOf(activeOrder.getId()), String.valueOf(receipt.getCompletedVersion()), null));
+        links.add(new GxpAuditRelation("SOURCE", "COMPLETION_RECEIPT",
+                String.valueOf(receipt.getId()), String.valueOf(receipt.getCompletedVersion()),
+                receipt.getReceiptHash()));
+        if (receipt.getBatchRecordId() != null) {
+            links.add(new GxpAuditRelation("SOURCE", "BATCH_RECORD",
+                    String.valueOf(receipt.getBatchRecordId()), null, null));
+        }
+        if (receipt.getProcessInspectionId() != null) {
+            links.add(new GxpAuditRelation("SOURCE", "PROCESS_INSPECTION",
+                    String.valueOf(receipt.getProcessInspectionId()), null, null));
+        }
+        if (receipt.getLossRecordId() != null) {
+            links.add(new GxpAuditRelation("SOURCE", "LOSS_REPORT",
+                    String.valueOf(receipt.getLossRecordId()), null, receipt.getLossSourceHash()));
+        }
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .eventSchemaVersion(2)
+                .operationId("mes.active-order.complete")
+                .subjectId("ACTIVE_ORDER:" + activeOrder.getId())
+                .subjectVersion(String.valueOf(receipt.getCompletedVersion()))
+                .reason("活跃订单已完成正式回填并生成完工回执")
+                .reasonCode("MES_ACTIVE_ORDER_COMPLETE")
+                .reasonSource("SYSTEM")
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state("ACTIVE")
+                        .objectVersion(String.valueOf(receipt.getExpectedVersion()))
+                        .canonicalJson(JsonUtils.toJsonString(before))
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state("COMPLETED")
+                        .objectVersion(String.valueOf(receipt.getCompletedVersion()))
+                        .canonicalJson(JsonUtils.toJsonString(after))
+                        .build())
+                .idempotencyKey("ACTIVE_ORDER_COMPLETE:" + receipt.getId())
+                .requestId("MES-ACTIVE-ORDER-COMPLETE:" + receipt.getId())
+                .resultStatus("SUCCESS")
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator("cn.iocoder.yudao.module.mes.service.pro.processpool.team."
+                        + "MesTeamLeaderActiveOrderCompletionServiceImpl#complete")
+                .links(links)
+                .evidences(List.of(new GxpAuditEvidence("FORMAL_COMPLETION_RECEIPT",
+                        String.valueOf(receipt.getId()), String.valueOf(receipt.getCompletedVersion()),
+                        receipt.getReceiptHash(), "COMPLETION")))
+                .build());
     }
 
     private static void validateDraft(Long activeOrderId, MesTeamLeaderActiveOrderCompletionBackfillDraft draft) {

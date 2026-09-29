@@ -15,15 +15,18 @@ const detailPanel = fs.readFileSync(
   'utf8'
 )
 const createBlock = reviewPage.match(
-  /<div v-if="canCreateEntry"[\s\S]*?(?=\n      <div class="edhr-ncr__layout")/
+  /<el-dialog[\s\S]*?data-edhr-ncr-create-dialog[\s\S]*?<\/el-dialog>/
 )?.[0]
-assert(createBlock, '创建评审表单必须存在')
-assert.match(createBlock, /label="电子签名密码"/, '创建评审必须要求电子签名密码')
-assert.match(createBlock, /v-model="entryForm\.signaturePassword"/, '创建签名密码必须绑定创建表单')
+assert(createBlock, '新建不合格评审弹框必须存在')
+assert.match(createBlock, /data-edhr-ncr-active-order/, '新建必须选择活跃订单')
+assert.match(createBlock, /data-edhr-ncr-create-reason/, '新建必须填写不合格原因')
+assert.doesNotMatch(createBlock, /label="电子签名密码"/, 'ACTIVE_ORDER 新建不得展示电子签名密码')
+assert.doesNotMatch(createBlock, /entryForm\.signaturePassword/, 'ACTIVE_ORDER 新建表单不得包含签名密码')
+assert.doesNotMatch(createBlock, /label="正式来源"|label="来源类型"/, '新建不得再选择来源类型')
 assert.match(
   reviewPage,
-  /createNonconformanceReview\(\{[\s\S]*signaturePassword\s*\}/,
-  '创建请求必须提交签名密码'
+  /createNonconformanceReview\(\{[\s\S]*activeOrderId:\s*selectedActiveOrderId\.value[\s\S]*nonconformanceReason:\s*reason\s*\}\)/,
+  'ACTIVE_ORDER 创建请求只提交活跃订单和不合格原因'
 )
 
 const evidenceStart = detailPanel.indexOf('data-active-order-operation-ncr-evidence')

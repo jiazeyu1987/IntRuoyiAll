@@ -73,5 +73,20 @@ assert.doesNotMatch(
   /<span>不合格原因：\{\{[\s\S]*<span>评审意见：\{\{/,
   '不合格原因和评审意见不得继续作为连续 inline 文本展示。'
 )
+assert.match(
+  panel,
+  /label="偏差"[\s\S]*name="deviation"[\s\S]*data-active-order-deviation-tab/,
+  '批记录详情必须提供独立的偏差页签。'
+)
+assert.match(
+  panel,
+  /description="没有偏差"[\s\S]*data-active-order-deviation-empty/,
+  '无关联偏差时必须明确展示没有偏差。'
+)
+assert.match(
+  panel,
+  /nonconformanceOperationFacts[\s\S]*fact\.operationType === 'NONCONFORMANCE_REVIEW_CREATE'[\s\S]*fact\.operationType === 'NONCONFORMANCE_REVIEW_DISPOSE'/,
+  '偏差页签只能展示不合格评审发起和处置事实。'
+)
 
 console.log('PASS: active-order NCR evidence layout static contract')

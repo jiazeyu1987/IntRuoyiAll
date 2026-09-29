@@ -475,6 +475,8 @@ export interface EdhrBatchExecutionRespVO {
   closeBlockers?: string[]
   releaseActionLocked?: boolean
   releaseActionLockReason?: string
+  productionActionLocked?: boolean
+  productionActionLockReason?: string
   pendingVoidChangeEventId?: number
   pendingVoidChangeCode?: string
   pendingVoidChangeStatus?: string

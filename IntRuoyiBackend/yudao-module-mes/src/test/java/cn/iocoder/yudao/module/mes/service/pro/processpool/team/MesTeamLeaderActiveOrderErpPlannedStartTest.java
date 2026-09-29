@@ -181,6 +181,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     @Mock private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
 
     private MesTeamLeaderActiveOrderService service;
+    @Mock private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
 
     @BeforeEach
     void setUp() {
@@ -203,6 +204,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 pickListBindingMapper, pickListBindingItemMapper, workOrderBomMapper,
                 batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper,
                 routeStartAuthorizationService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(reportAllocationMapper.selectListByActiveOrderIds(any())).thenReturn(List.of());
         lenient().when(routeDccProjectBindingMapper.selectCurrentByRouteId(922119L))
@@ -232,6 +234,9 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                         .lifecycleStatus("ACTIVE")
                         .routeSnapshotJson(activeRouteSnapshotJson())
                         .build()));
+        lenient().when(routeVersionMapper.selectById(448L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(448L).routeId(922119L).active(Boolean.TRUE).lifecycleStatus("ACTIVE")
+                .routeSnapshotJson(activeRouteSnapshotJson()).build());
         List<MesMdItemDO> routeItems = List.of(
                 MesMdItemDO.builder().id(1001L).code("WO-PRODUCT").name("生产工单产品")
                         .productMasterId(11L).build(),
@@ -239,6 +244,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                         .productMasterId(11L).build());
         lenient().when(itemMapper.selectBatchIds(any())).thenReturn(routeItems);
         lenient().when(itemMapper.selectListByIds(any())).thenReturn(routeItems);
+        lenient().when(itemMapper.selectById(1001L)).thenReturn(routeItems.get(0));
         lenient().when(dccProjectCodeMapper.selectById(147L)).thenReturn(DccProjectCodeDO.builder()
                 .id(147L)
                 .productMasterId(11L)
@@ -437,6 +443,14 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                         "enabled": true,
                         "productionQuantityFactor": 1.000000
                       }
+                    ],
+                    "productionProcessConfigSchemaVersion": 1,
+                    "productionProcessConfigs": [
+                      {"routeProcessId":928609,"processId":6001,"overagePercent":0,
+                       "lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}
+                    ],
+                    "batchUseConfigs": [
+                      {"routeProcessId":928609,"inputMaterialIds":[],"outputMaterialIds":[1001]}
                     ]
                   }
                 }

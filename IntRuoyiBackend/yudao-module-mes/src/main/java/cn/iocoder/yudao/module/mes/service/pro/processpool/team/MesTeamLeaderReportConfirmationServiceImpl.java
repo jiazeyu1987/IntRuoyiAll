@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
@@ -19,6 +20,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQu
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
@@ -86,6 +88,9 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
 
     @Resource
     private MesProBatchRecordExecutionSignatureService signatureService;
+
+    @Resource
+    private MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
 
     public MesTeamLeaderReportConfirmationServiceImpl(MesTeamLeaderScopeService scopeService,
                                                       MesProProcessPoolEventMapper eventMapper,
@@ -269,10 +274,10 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                 .stream()
                 .collect(Collectors.toMap(MesProWorkOrderDO::getId, Function.identity(), (a, b) -> a,
                         LinkedHashMap::new));
-        Map<Long, BigDecimal> existingAllocated = allocationMapper
+        List<MesProcessPoolReportAllocationDO> existingAllocations = allocationMapper
                 .selectListByWorkOrderIdsAndProcessForUpdate(workOrderIds, event.getRouteProcessId(),
-                        event.getProcessId())
-                .stream()
+                        event.getProcessId());
+        Map<Long, BigDecimal> existingAllocated = existingAllocations.stream()
                 .collect(Collectors.groupingBy(MesProcessPoolReportAllocationDO::getWorkOrderId,
                         LinkedHashMap::new,
                         Collectors.reducing(BigDecimal.ZERO,
@@ -297,7 +302,51 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH,
                     submittedQuantity.stripTrailingZeros().toPlainString());
         }
+        assertWithinFrozenCapacity(event, prepared, existingAllocations);
         return prepared;
+    }
+
+    private void assertWithinFrozenCapacity(MesProProcessPoolEventDO event,
+                                            List<PreparedAllocationLine> prepared,
+                                            List<MesProcessPoolReportAllocationDO> existingAllocations) {
+        Map<Long, BigDecimal> requestedByActiveOrder = new LinkedHashMap<>();
+        Map<Long, PreparedAllocationLine> targetByActiveOrder = new LinkedHashMap<>();
+        for (PreparedAllocationLine line : prepared) {
+            requestedByActiveOrder.merge(line.activeOrder().getId(), line.quantity(), BigDecimal::add);
+            targetByActiveOrder.put(line.activeOrder().getId(), line);
+        }
+        for (Map.Entry<Long, PreparedAllocationLine> entry : targetByActiveOrder.entrySet()) {
+            MesProcessPoolActiveOrderDO activeOrder = entry.getValue().activeOrder();
+            MesTeamLeaderOrderProcessTarget target = entry.getValue().target();
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot = snapshotMapper
+                    .selectListByActiveOrderAndProcessForUpdate(activeOrder.getId(), target.processId()).stream()
+                    .filter(row -> Objects.equals(row.getRouteProcessId(), target.routeProcessId()))
+                    .findFirst().orElse(null);
+            if (snapshot == null || snapshot.getOveragePercentSnapshot() == null) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                        "reportConfirmation.frozenProcessSnapshot activeOrderId=" + activeOrder.getId());
+            }
+            List<MesProcessPoolReportAllocationDO> projected = new ArrayList<>(existingAllocations.stream()
+                    .filter(row -> Objects.equals(row.getActiveOrderId(), activeOrder.getId())).toList());
+            List<Long> previousEventIds = projected.stream().map(MesProcessPoolReportAllocationDO::getEventId)
+                    .distinct().toList();
+            List<MesProProcessPoolEventDO> events = new ArrayList<>();
+            if (!previousEventIds.isEmpty()) {
+                events.addAll(eventMapper.selectBatchIds(previousEventIds));
+            }
+            events.add(event);
+            projected.add(MesProcessPoolReportAllocationDO.builder().eventId(event.getId())
+                    .activeOrderId(activeOrder.getId()).workOrderId(activeOrder.getWorkOrderId())
+                    .routeProcessId(target.routeProcessId()).processId(target.processId())
+                    .allocatedQuantity(requestedByActiveOrder.get(activeOrder.getId())).build());
+            BigDecimal maximum = MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(
+                    activeOrder, snapshot, events, projected);
+            BigDecimal limit = target.plannedQuantity().multiply(
+                    BigDecimal.ONE.add(snapshot.getOveragePercentSnapshot().movePointLeft(2)));
+            if (maximum.compareTo(limit) > 0) {
+                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH, activeOrder.getId());
+            }
+        }
     }
 
     private MesTeamLeaderOrderProcessTarget requireTarget(MesProcessPoolActiveOrderDO activeOrder,

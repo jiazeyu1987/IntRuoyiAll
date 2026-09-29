@@ -12,6 +12,7 @@ const RESUME_ACTIVE_ORDER_ID = process.env.PQC_RELEASE_WRITE_E2E_RESUME_ACTIVE_O
 const RESUME_APPLICATION_ID = process.env.PQC_RELEASE_WRITE_E2E_RESUME_APPLICATION_ID || ''
 const RESUME_PQC_WORK_TASK_ID = process.env.PQC_RELEASE_WRITE_E2E_RESUME_PQC_WORK_TASK_ID || ''
 const RESUME_REVIEW_ID = process.env.PQC_RELEASE_WRITE_E2E_RESUME_REVIEW_ID || ''
+const RESUME_MANAGER_RELEASE = process.env.PQC_RELEASE_WRITE_E2E_RESUME_MANAGER_RELEASE === '1'
 const CHROME_EXECUTABLE =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
@@ -46,6 +47,10 @@ const evidence = {
   reviewId: null,
   batchExecutionId: null,
   signatureId: null,
+  managerReleaseStatus: null,
+  ncrEntryUrl: null,
+  ncrEntryActiveOrderId: null,
+  stage1Candidates: [],
   targetWrites: [],
   cleanup: { attempted: false, activeOrderRemoved: false, templateActiveOrderRemoved: false },
   consoleErrors: [],
@@ -101,7 +106,8 @@ const waitBusinessWrite = async (page, endpoint, action) => {
     endpoint,
     method: response.request().method(),
     httpStatus: response.status(),
-    businessCode: body.code
+    businessCode: body.code,
+    businessMessage: body.msg || null
   })
   persist()
   assert.equal(response.status(), 200, `${endpoint} HTTP失败`)
@@ -190,22 +196,32 @@ const createTemplateActiveOrder = async (page) => {
       }))
     })
     persist()
-    const addableCandidates = (candidateBody.data || []).filter(
-      (item) => item.eligible && item.candidateState === 'ADDABLE'
-    )
-    const reusableStage1Candidates = (candidateBody.data || []).filter(
+    const eligibleCandidates = (candidateBody.data || []).filter(
       (item) =>
         item.eligible &&
+        ['ADDABLE', 'RECOVERABLE', 'REUSABLE'].includes(item.candidateState)
+    )
+    const addableCandidates = eligibleCandidates.filter((item) => item.candidateState === 'ADDABLE')
+    const recoverableCandidates = eligibleCandidates.filter(
+      (item) => item.candidateState === 'RECOVERABLE'
+    )
+    const reusableStage1Candidates = eligibleCandidates.filter(
+      (item) =>
         item.candidateState === 'REUSABLE' &&
         item.workOrderCode.startsWith('STAGE1-WO-')
     )
-    candidates = addableCandidates.length > 0 ? addableCandidates : reusableStage1Candidates
+    candidates =
+      addableCandidates.length > 0
+        ? addableCandidates
+        : recoverableCandidates.length > 0
+          ? recoverableCandidates
+          : reusableStage1Candidates
     if (candidates.length > 0) {
       selectedKeyword = keyword
       break
     }
   }
-  assert.ok(candidates.length > 0, '宽关键词候选中没有ADDABLE工单或任务自有STAGE1可复用工单')
+  assert.ok(candidates.length > 0, '宽关键词候选中没有可加入、可恢复或任务自有STAGE1可复用工单')
 
   let selected
   for (const candidate of candidates) {
@@ -244,11 +260,11 @@ const createTemplateActiveOrder = async (page) => {
     '/mes/pro/process-pool/team-leader/active-order/add',
     async () =>
       firstVisible(
-        dialog.getByRole('button', { name: /加入活跃订单|确认复用/ }),
+        dialog.getByRole('button', { name: /加入活跃订单|确认复用|恢复活跃订单/ }),
         '提交活跃订单'
       ).then((item) => item.click())
   )
-  assert.ok(['ADD', 'REUSE'].includes(receipt.action), `不支持的模板提交动作：${receipt.action}`)
+  assert.ok(['ADD', 'REUSE', 'RECOVER'].includes(receipt.action), `不支持的模板提交动作：${receipt.action}`)
   evidence.templateActiveOrderId = String(receipt.activeOrderId)
   evidence.templateWorkOrderCode = selected.candidate.workOrderCode
   persist()
@@ -258,25 +274,78 @@ const createTemplateActiveOrder = async (page) => {
   })
 }
 
+const parseProgressPercent = (text) => {
+  const match = String(text || '').match(/-?\d+(?:\.\d+)?/)
+  return match ? Number(match[0]) : null
+}
+
+const readStage1Candidates = async (page) => {
+  const rows = page.locator('[data-team-leader-active-order-list] .el-table__body-wrapper tbody tr')
+  const candidates = []
+  for (let index = 0; index < (await rows.count()); index += 1) {
+    const row = rows.nth(index)
+    const idNode = row.locator('[data-team-leader-active-order-id]').first()
+    const stage1Button = row.locator('[data-team-leader-simulate-active-order-stage1-p1]').first()
+    if ((await idNode.count()) === 0 || (await stage1Button.count()) === 0) continue
+    const productionProgress = parseProgressPercent(
+      await row.locator('[data-team-leader-active-order-production-progress]').innerText()
+    )
+    const inspectionProgress = parseProgressPercent(
+      await row.locator('[data-team-leader-active-order-inspection-progress]').innerText()
+    )
+    candidates.push({
+      activeOrderId: await idNode.getAttribute('data-team-leader-active-order-id'),
+      productionProgress,
+      inspectionProgress,
+      buttonVisible: await stage1Button.isVisible(),
+      buttonEnabled: await stage1Button.isEnabled(),
+      incomplete: productionProgress !== 100 || inspectionProgress !== 100
+    })
+  }
+  evidence.stage1Candidates = candidates
+  persist()
+  return candidates
+}
+
+const resetFixedSimulationOrder = async (page) => {
+  const data = await waitBusinessWrite(
+    page,
+    '/mes/pro/process-pool/team-leader/active-order/simulation/test-reset',
+    async () => {
+      await firstVisible(
+        page.locator('[data-team-leader-reset-fixed-active-order]'),
+        '重置指定测试订单'
+      ).then((item) => item.click())
+    }
+  )
+  evidence.templateActiveOrderId = String(data.activeOrderId)
+  evidence.templateWorkOrderCode = data.workOrderCode || null
+  persist()
+  await rowByActiveOrderId(page, evidence.templateActiveOrderId).waitFor({
+    state: 'visible',
+    timeout: 60000
+  })
+}
+
 const createStage1Sample = async (page) => {
   await openProductionLeaderActiveOrders(page)
-  const buttons = page.locator('[data-team-leader-simulate-active-order-stage1-p1]')
-  await buttons
-    .first()
-    .waitFor({ state: 'visible', timeout: 15000 })
-    .catch(() => {})
-  if ((await buttons.count()) === 0) {
-    await createTemplateActiveOrder(page)
-  }
-  const refreshedButtons = page.locator('[data-team-leader-simulate-active-order-stage1-p1]')
-  let button
-  for (let index = 0; index < (await refreshedButtons.count()); index += 1) {
-    const candidate = refreshedButtons.nth(index)
-    if ((await candidate.isVisible()) && (await candidate.isEnabled())) {
-      button = candidate
-      break
-    }
-  }
+  await resetFixedSimulationOrder(page)
+  const candidates = await readStage1Candidates(page)
+  const selectedActiveOrderId = evidence.templateActiveOrderId
+  const selectedCandidate = candidates.find(
+    (item) => String(item.activeOrderId) === String(selectedActiveOrderId)
+  )
+  assert.ok(
+    selectedCandidate && selectedCandidate.buttonVisible && selectedCandidate.buttonEnabled,
+    `没有可用的 P1 双100模板订单：${JSON.stringify(candidates)}`
+  )
+  assert.ok(
+    selectedCandidate.incomplete,
+    `选中的活跃订单已经是双100，禁止重复模拟：${JSON.stringify(selectedCandidate)}`
+  )
+  const button = rowByActiveOrderId(page, selectedActiveOrderId).locator(
+    '[data-team-leader-simulate-active-order-stage1-p1]'
+  )
   assert.ok(button, '没有可用的 P1 双100模板订单')
   const data = await waitBusinessWrite(
     page,
@@ -322,23 +391,13 @@ const applyForRelease = async (page) => {
 }
 
 const openPqcReleasePage = async (page) => {
-  const pageResponse = page.waitForResponse(
-    (response) => {
-      const url = new URL(response.url())
-      return (
-        response.request().method() === 'GET' &&
-        url.pathname.endsWith('/mes/pro/production-release/pqc/page') &&
-        url.searchParams.get('viewStatus') === 'PENDING'
-      )
-    },
-    { timeout: 60000 }
-  )
   await clickMenu(page, 'MES 系统')
   await clickMenu(page, 'eDHR批记录')
   await clickMenu(page, 'PQC生产放行')
-  await page.waitForURL((url) => url.pathname === '/mes/production-release/pqc', { timeout: 60000 })
-  const pageBody = await (await pageResponse).json()
-  assert.equal(pageBody.code, 0, pageBody.msg || 'PQC生产放行列表加载失败')
+  await page
+    .locator('[data-pqc-production-release-page]')
+    .waitFor({ state: 'visible', timeout: 60000 })
+  assert.equal(new URL(page.url()).pathname, '/mes/pro/production-release/pqc')
   await page
     .locator('[data-pqc-production-release-page]')
     .waitFor({ state: 'visible', timeout: 60000 })
@@ -356,33 +415,72 @@ const createAndConcedeReview = async (page) => {
   await page.waitForURL((url) => url.pathname === '/mes/pro/feedback/edhr-nonconformance-review', {
     timeout: 60000
   })
-  const reasonItem = page.locator('.el-form-item').filter({ hasText: '不合格原因' }).first()
+  evidence.ncrEntryUrl = page.url()
+  evidence.ncrEntryActiveOrderId = new URL(page.url()).searchParams.get('activeOrderId')
+  persist()
+  assert.equal(
+    String(evidence.ncrEntryActiveOrderId),
+    String(evidence.activeOrderId),
+    `不合格审查入口缺少当前活跃订单参数：${evidence.ncrEntryUrl}`
+  )
+  const createDialog = page.locator('[data-edhr-ncr-create-dialog]:visible')
+  await createDialog.waitFor({ state: 'visible', timeout: 60000 })
+  assert.equal(
+    await createDialog.getAttribute('data-entry-active-order-id'),
+    String(evidence.activeOrderId),
+    'PQC入口路由参数必须解析为当前活跃订单'
+  )
+  const activeOrderSelect = createDialog.locator('[data-edhr-ncr-active-order]')
+  await activeOrderSelect.waitFor({ state: 'visible', timeout: 30000 })
+  await page.waitForFunction((dialog) =>
+    dialog?.getAttribute('data-selected-active-order-id') ===
+      dialog?.getAttribute('data-entry-active-order-id'),
+  await createDialog.elementHandle())
+  assert.equal(
+    await createDialog.getAttribute('data-selected-active-order-id'),
+    String(evidence.activeOrderId),
+    'PQC入口弹框必须选中当前活跃订单'
+  )
+  assert.equal(
+    await activeOrderSelect.locator('input').first().isDisabled(),
+    true,
+    'PQC入口必须锁定当前活跃订单'
+  )
+  const reasonItem = createDialog.locator('.el-form-item').filter({ hasText: '不合格原因' }).first()
   await reasonItem.locator('textarea').fill(`M6让步评审 ${RUN_ID}`)
   const review = await waitBusinessWrite(
     page,
     '/mes/pro/edhr-nonconformance-review/create',
     async () => {
-      await page.getByRole('button', { name: '提交不合格评审' }).click()
+      await createDialog.getByRole('button', { name: '提交不合格评审' }).click()
     }
   )
   evidence.reviewId = String(review.id)
+  assert.equal(String(review.activeOrderId), String(evidence.activeOrderId))
+  assert.equal(review.sourceType, 'ACTIVE_ORDER')
+  assert.match(review.reviewCode, /^BHGSP-\d{6}-\d{8}$/)
   persist()
 
-  const detail = page.locator('.edhr-ncr__detail')
+  const pendingTabResponse = page.waitForResponse(
+    (response) => {
+      const url = new URL(response.url())
+      return url.pathname.endsWith('/mes/pro/edhr-nonconformance-review/page')
+        && url.searchParams.get('reviewStatus') === 'pending_review'
+    },
+    { timeout: 60000 }
+  )
+  await page.getByRole('tab', { name: '进行中', exact: true }).click()
+  await pendingTabResponse
+  const reviewRow = page.locator('.el-table__body-wrapper tbody tr').filter({ hasText: review.reviewCode }).first()
+  await reviewRow.waitFor({ state: 'visible', timeout: 60000 })
+  await reviewRow.getByRole('button', { name: '处理', exact: true }).click()
+  const detail = page.locator('[data-edhr-ncr-review-dialog]:visible')
   await detail.waitFor({ state: 'visible', timeout: 60000 })
   const uploadInput = detail.locator('input[type="file"]').first()
   await uploadInput.setInputFiles(REVIEW_FIXTURE)
   await page.waitForTimeout(1000)
-  await detail
-    .locator('.el-form-item')
-    .filter({ hasText: '评审意见' })
-    .locator('textarea')
-    .fill('同意让步，待PQC签字')
-  await detail
-    .locator('.el-form-item')
-    .filter({ hasText: '电子签名' })
-    .locator('input')
-    .fill('admin QA')
+  await detail.getByPlaceholder('请输入评审意见').fill('同意让步，待PQC签字')
+  await detail.getByPlaceholder('请输入本人电子签名密码').fill(PASSWORD)
   const disposed = await waitBusinessWrite(
     page,
     '/mes/pro/edhr-nonconformance-review/dispose',
@@ -391,14 +489,24 @@ const createAndConcedeReview = async (page) => {
     }
   )
   assert.equal(disposed.disposition, 'concession_release')
+  await detail.getByRole('button', { name: '关闭', exact: true }).click()
+  await detail.waitFor({ state: 'hidden', timeout: 30000 })
 }
 
 const signRelease = async (page) => {
   const row = await openPqcReleasePage(page)
-  await row.getByText('待让步签字', { exact: true }).waitFor({ state: 'visible', timeout: 60000 })
+  await row
+    .locator('[data-pqc-production-release-approve]')
+    .waitFor({ state: 'visible', timeout: 60000 })
+  assert.notEqual(
+    await row.locator('[data-pqc-production-release-approve]').isDisabled(),
+    true,
+    '让步处置后放行按钮仍不可用'
+  )
   await row.locator('[data-pqc-production-release-approve]').click()
   const dialog = page.locator('[data-pqc-production-release-dialog]:visible')
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
+  await dialog.locator('input[placeholder="请输入UDI编号"]').fill(`UDI-${RUN_ID}`)
   await dialog.locator('input[type="password"]').fill(PASSWORD)
   await dialog.locator('textarea').fill(`M6电子签名放行 ${RUN_ID}`)
   const data = await waitBusinessWrite(
@@ -408,15 +516,55 @@ const signRelease = async (page) => {
       await dialog.getByRole('button', { name: '确认放行', exact: true }).click()
     }
   )
-  assert.equal(data.status, 'REPORT_UPLOAD_PENDING')
-  evidence.batchExecutionId = String(data.batchExecutionId)
-  evidence.signatureId = String(data.signatureId)
+  evidence.batchExecutionId = data.batchExecutionId ? String(data.batchExecutionId) : null
+  evidence.signatureId = data.signatureId ? String(data.signatureId) : null
+  evidence.pqcDecisionStatus = data.status || null
+  assert.ok(
+    ['REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING', 'RELEASED'].includes(data.status),
+    `PQC放行后的状态不在允许范围内：${String(data.status)}`
+  )
   persist()
   await page.getByRole('tab', { name: '已让步放行' }).click()
   await page
     .locator('.el-table__body-wrapper tbody tr')
     .filter({ hasText: evidence.applicationId })
     .waitFor({ state: 'visible', timeout: 60000 })
+}
+
+const approveManagerRelease = async (page) => {
+  await page.goto(`${BASE_URL}/mes/pro/feedback/edhr-work-task`, { waitUntil: 'domcontentloaded' })
+  await page.locator('[data-edhr-work-task-page]').waitFor({ state: 'visible', timeout: 60000 })
+  await page.getByRole('tab', { name: '候选审核', exact: true }).click()
+  const row = page
+    .locator('.el-table__body-wrapper tbody tr')
+    .filter({ hasText: `MANAGER-RELEASE-${evidence.applicationId}` })
+    .first()
+  await row.waitFor({ state: 'visible', timeout: 60000 })
+  const button = row.locator('[data-manager-release-approve]')
+  await button.waitFor({ state: 'visible', timeout: 30000 })
+  assert.equal(await button.isDisabled(), false, '管理者代表最终放行按钮不可用')
+  await button.click()
+  const dialog = page.locator('[data-manager-release-dialog]:visible')
+  await dialog.waitFor({ state: 'visible', timeout: 30000 })
+  const signatureInput = dialog.locator('[data-manager-release-signature-password]').first()
+  const opinionInput = dialog.locator('[data-manager-release-approval-opinion]').first()
+  await signatureInput.waitFor({ state: 'visible', timeout: 30000 })
+  await opinionInput.waitFor({ state: 'visible', timeout: 30000 })
+  await signatureInput.fill(PASSWORD)
+  await opinionInput.fill(`M6管理者代表最终放行 ${RUN_ID}`)
+  assert.equal(await signatureInput.inputValue(), PASSWORD, '管理者代表电子签名密码未写入表单')
+  const response = await waitBusinessWrite(
+    page,
+    '/approval-center/tasks/review',
+    async () => dialog.locator('[data-manager-release-confirm]').click()
+  )
+  void response
+  await page
+    .locator('[data-manager-release-status]')
+    .filter({ hasText: '已放行' })
+    .waitFor({ state: 'visible', timeout: 60000 })
+  evidence.managerReleaseStatus = 'RELEASED'
+  persist()
 }
 
 const cleanupActiveOrder = async (page) => {
@@ -447,7 +595,10 @@ const cleanupActiveOrder = async (page) => {
 }
 
 async function main() {
-  assert.equal(BASE_URL, 'http://127.0.0.1:8311')
+  assert.equal(
+    BASE_URL,
+    process.env.PQC_RELEASE_WRITE_E2E_EXPECTED_BASE_URL || 'http://127.0.0.1:8081'
+  )
   assert.ok(TENANT && USERNAME && PASSWORD, '真实登录输入缺失')
   assert.ok(fs.existsSync(CHROME_EXECUTABLE), 'Chrome不存在')
   assert.ok(fs.existsSync(REVIEW_FIXTURE), '评审材料fixture不存在')
@@ -494,7 +645,12 @@ async function main() {
     } else {
       await createAndConcedeReview(page)
     }
-    await signRelease(page)
+    if (!RESUME_MANAGER_RELEASE) {
+      await signRelease(page)
+    }
+    if (RESUME_MANAGER_RELEASE || evidence.pqcDecisionStatus === 'MANAGER_RELEASE_PENDING') {
+      await approveManagerRelease(page)
+    }
     await page.screenshot({ path: path.join(RESULT_DIR, 'released.png'), fullPage: true })
     try {
       await cleanupActiveOrder(page)

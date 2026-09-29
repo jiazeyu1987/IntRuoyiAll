@@ -46,6 +46,7 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
     @Transactional(rollbackFor = Exception.class)
     @GxpWriteOperation(operationId = "dcc.controlled-file.publish")
     public FormInstanceRespVO publishControlledFile(Long userId, Long id, DccControlledFilePublishReqVO reqVO) {
+        gxpAuditService.acquireLedgerLock();
         DccControlledFileDO file = requirePublishIdentity(id, reqVO);
         BusinessActionContextReqVO publishContext = buildPublishContext(file, reqVO);
         FormInstanceRespVO existing = formCenterRuntimeService.findBusinessActionByIdempotency(

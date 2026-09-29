@@ -20,6 +20,25 @@ final class MesProFrontlineFeedbackSubmitSnapshotTestSupport {
     private MesProFrontlineFeedbackSubmitSnapshotTestSupport() {
     }
 
+    static void stubAuditIdentity(Object service) {
+        var profiles = Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper.class);
+        var users = Mockito.mock(cn.iocoder.yudao.module.system.api.user.AdminUserApi.class);
+        // Fixture follows each real authorization result instead of accepting client display text.
+        var resolver = Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineAuditIdentity.class);
+        Mockito.lenient().when(resolver.production(any())).thenAnswer(invocation -> {
+            MesFrontlineSubmitIdentityTrace identity = invocation.getArgument(0);
+            Long id = identity.actualEmployeeId();
+            Mockito.when(profiles.selectList(Mockito.<com.baomidou.mybatisplus.core.conditions.Wrapper<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO>>any())).thenReturn(List.of(
+                    cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO.builder()
+                            .id(id + 100000).systemUserId(id).enabled(true).build()));
+            Mockito.when(users.getUser(id)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO()
+                    .setId(id).setStatus(0).setUsername("employee." + id).setNickname("正式员工" + id));
+            return new cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineAuditIdentity(profiles, users)
+                    .production(identity);
+        });
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "auditIdentity", resolver);
+    }
+
     static void stubAuthorization(MesFrontlineSubmitAuthorizationService authorizationService) {
         stubAuthorization(authorizationService, List.of(
                 new MesFrontlineProcessMaterial(501L, "A001", "弹簧", null,

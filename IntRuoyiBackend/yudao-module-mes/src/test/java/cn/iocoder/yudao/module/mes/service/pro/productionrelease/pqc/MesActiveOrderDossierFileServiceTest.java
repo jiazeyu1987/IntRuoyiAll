@@ -13,9 +13,11 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrOperationAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -331,10 +333,12 @@ class MesActiveOrderDossierFileServiceTest {
         var fileService = mock(FileService.class);
         var operationAuditService = mock(MesProEdhrOperationAuditService.class);
         var nonconformanceReviewMapper = mock(MesProEdhrNonconformanceReviewMapper.class);
+        var gxpAuditService = mock(GxpAuditService.class);
         var service = new MesActiveOrderDossierFileService(applicationMapper, activeOrderMapper,
                 dossierFileMapper, nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService);
+        ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         return new Fixture(applicationMapper, activeOrderMapper, dossierFileMapper,
-                nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService, service);
+                nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService, gxpAuditService, service);
     }
 
     private record Fixture(
@@ -345,6 +349,7 @@ class MesActiveOrderDossierFileServiceTest {
             AdminUserApi adminUserApi,
             FileService fileService,
             MesProEdhrOperationAuditService operationAuditService,
+            GxpAuditService gxpAuditService,
             MesActiveOrderDossierFileService service) {
     }
 }

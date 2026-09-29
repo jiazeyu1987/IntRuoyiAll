@@ -133,6 +133,23 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .setSql("version = version + 1"));
     }
 
+    default MesProcessPoolActiveOrderDO selectByReworkReviewId(Long reviewId) {
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getReworkReviewId, reviewId));
+    }
+
+    default int retireForRework(Long id, Integer version, LocalDateTime at) {
+        return update(null, new LambdaUpdateWrapper<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getId, id)
+                .eq(MesProcessPoolActiveOrderDO::getVersion, version)
+                .in(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE", "CLOSED")
+                .in(MesProcessPoolActiveOrderDO::getBusinessStatus, "ACTIVE", "COMPLETED", "RELEASED")
+                .set(MesProcessPoolActiveOrderDO::getActiveStatus, "REMOVED")
+                .set(MesProcessPoolActiveOrderDO::getBusinessStatus, "REWORKED")
+                .set(MesProcessPoolActiveOrderDO::getRemovedAt, at)
+                .setSql("version = version + 1"));
+    }
+
     default List<MesProcessPoolActiveOrderDO> selectListByWorkOrderIdForUpdate(Long workOrderId) {
         if (workOrderId == null) {
             return List.of();

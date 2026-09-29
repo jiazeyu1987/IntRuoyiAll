@@ -1416,6 +1416,7 @@
 </template>
 
 <script setup lang="ts">
+import { isAxiosError } from 'axios'
 import {
   FRONTLINE_FIELD_CODES,
   FRONTLINE_PQC_RESULTS,
@@ -5127,34 +5128,33 @@ const closePqcSignatureDialog = () => {
 
 const recoverPqcSubmitReceiptAfterUncertainError = async (
   submitError: unknown,
-  pqcTaskId: number | undefined = activePqcTaskOption.value?.pqcTaskId,
-  resetRecoveredDraft = true
+  pqcTaskId: number
 ) => {
-  const process = deviceState.selectedProcess
-  if (!isFrontlinePqcProcess(process) || !pqcTaskId) {
+  if (!isAxiosError(submitError) || submitError.response ||
+    !['ECONNABORTED', 'ETIMEDOUT'].includes(submitError.code || '')) {
     return false
   }
+  pqcSubmitResultUncertain.value = true
+  pqcSignatureDialogVisible.value = false
   try {
     const recoveredReceipt = await ProFeedbackApi.getFrontlinePqcSubmitReceipt({
       pqcTaskId
     })
-    if (!recoveredReceipt) {
-      return false
-    }
-    if (resetRecoveredDraft) {
-      resetPqcSubmissionDraft(recoveredReceipt.pqcTaskId)
-    }
-    message.success(`PQC正式提交已完成，已恢复事件编号 ${recoveredReceipt.pqcEventId}`)
-    return true
+    // A task receipt (including its server hash) cannot identify this attempted payload.
+    const receiptStatus = recoveredReceipt
+      ? `查到任务历史回执（事件编号 ${recoveredReceipt.pqcEventId}），但无法确认其对应本次提交内容`
+      : '暂未查到任务回执，仍无法确认本次提交是否已完成'
+    showFrontlineError(
+      `PQC正式提交结果不确定：${receiptStatus}；原始提交错误：${resolveErrorMessage(submitError)}。` +
+      '请联系组长核对后再操作。'
+    )
   } catch (confirmationError) {
-    pqcSubmitResultUncertain.value = true
-    pqcSignatureDialogVisible.value = false
     showFrontlineError(
       `PQC正式提交结果不确定，状态确认失败：${resolveErrorMessage(confirmationError)}；` +
       `原始提交错误：${resolveErrorMessage(submitError)}。请刷新页面或联系组长核对后再操作。`
     )
-    return true
   }
+  return true
 }
 
 const handleConfirmPqcSubmit = async () => {
@@ -5189,24 +5189,20 @@ const handleConfirmPqcSubmit = async () => {
         )
         submitReceipts.push(submitReceipt)
       } catch (error) {
-        const recovered = await recoverPqcSubmitReceiptAfterUncertainError(
+        await recoverPqcSubmitReceiptAfterUncertainError(
           error,
-          submitPayload.pqcTaskId,
-          false
+          submitPayload.pqcTaskId
         )
-        if (!recovered || pqcSubmitResultUncertain.value) {
-          throw error
-        }
+        throw error
       }
     }
     resetPqcSubmissionDrafts(submitPayloads.map((payload) => payload.pqcTaskId))
     clearFrontlineError()
     const eventIds = submitReceipts.map((receipt) => receipt.pqcEventId).join('、')
-    const receiptText = eventIds || '已恢复正式回执'
     message.success(
       submitPayloads.length > 1
-        ? `PQC正式提交成功，已提交 ${submitPayloads.length} 个检验方法，事件编号 ${receiptText}`
-        : `PQC正式提交成功，事件编号 ${receiptText}`
+        ? `PQC正式提交成功，已提交 ${submitPayloads.length} 个检验方法，事件编号 ${eventIds}`
+        : `PQC正式提交成功，事件编号 ${eventIds}`
     )
   } catch (error) {
     if (!pqcSubmitResultUncertain.value) {

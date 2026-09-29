@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
@@ -13,6 +14,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExec
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
@@ -21,6 +23,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderScopeService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSubmissionReviewReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSubmissionReviewServiceImpl;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,17 +64,28 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
     void setUp() {
         var submittedAt = LocalDateTime.of(2026, 9, 24, 9, 0);
         event = new MesProProcessPoolEventDO().setId(5101L).setEventType("PQC_INSPECTION")
-                .setWorkOrderId(1001L).setRouteId(2001L).setQaProcessId(7101L)
+                .setWorkOrderId(1001L).setRouteId(2001L).setRouteProcessId(3001L).setProcessId(4001L)
+                .setQaProcessId(7101L)
                 .setActualEmployeeId(21L).setSignatureUserId(21L).setSignatureId(8100L)
                 .setFeedbackSourceType("MES_PQC_INSPECTION_TASK").setFeedbackSourceId(8001L)
                 .setRecordbookSourceType("MES_PQC_INSPECTION_TASK").setRecordbookSourceId(8001L)
                 .setServerSubmitTime(submittedAt);
         event.setTenantId(1L);
+        event.setRawPayload(JsonUtils.toJsonString(Map.ofEntries(
+                Map.entry("submittedEventId", 5101L), Map.entry("pqcTaskId", 8001L),
+                Map.entry("activeOrderId", 6001L), Map.entry("workOrderId", 1001L),
+                Map.entry("routeId", 2001L), Map.entry("routeVersionId", 2002L),
+                Map.entry("routeProcessId", 3001L), Map.entry("processId", 4001L),
+                Map.entry("qaProcessId", 7101L), Map.entry("actualEmployeeId", 21L),
+                Map.entry("inspectionResult", "SUCCESS"), Map.entry("actualInspectionQuantity", 1),
+                Map.entry("scrapQuantity", 0), Map.entry("itemResults", List.of(Map.of(
+                        "itemCode", "QA-R4", "sampleValues", List.of("合格")))))));
         record = new MesProProcessPoolPqcRecordDO().setId(5201L).setEventId(5101L)
                 .setWorkOrderId(1001L).setRouteId(2001L).setQaProcessId(7101L)
                 .setActualEmployeeId(21L).setSignatureUserId(21L).setSignatureId(8100L)
                 .setProcessInspectionReviewId(6101L).setServerSubmitTime(submittedAt);
         record.setTenantId(1L);
+        record.setRawPayload(event.getRawPayload());
         when(events.selectById(5101L)).thenReturn(event);
         when(events.selectByIdForUpdate(5101L)).thenReturn(event);
         when(records.selectByEventId(5101L)).thenReturn(record);
@@ -88,10 +102,38 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
         var producer = new MesTeamLeaderSubmissionReviewServiceImpl(mock(MesTeamLeaderScopeService.class),
                 events, reviews, aggregation);
         ReflectionTestUtils.setField(producer, "signatureService", signatures);
+        // Real review producer; only its audit and task persistence boundaries are test doubles.
+        var audit = mock(GxpAuditService.class);
+        var tasks = mock(MesPqcInspectionTaskMapper.class);
+        var task = new MesPqcInspectionTaskDO().setId(8001L).setActiveOrderId(6001L)
+                .setWorkOrderId(1001L).setRouteId(2001L).setRouteVersionId(2002L)
+                .setRouteProcessId(3001L).setProcessId(4001L).setQaProcessId(7101L)
+                .setTaskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED).setSubmittedEventId(5101L);
+        task.setTenantId(1L);
+        when(tasks.selectById(8001L)).thenReturn(task);
+        ReflectionTestUtils.setField(producer, "gxpAuditService", audit);
+        ReflectionTestUtils.setField(producer, "pqcTaskMapper", tasks);
         assertEquals(6101L, producer.reviewSubmission(MesTeamLeaderSubmissionReviewReqBO.builder()
                 .eventId(5101L).leaderUserId(31L).leaderType("PQC").reviewStatus("APPROVED")
                 .signaturePassword("test-password").build()));
         verify(aggregation).aggregateApprovedPqcSubmission(5101L, 6101L);
+        var signatureSnapshot = JsonUtils.parseTree(review.getReviewSignatureSnapshotJson());
+        assertEquals(MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload()),
+                signatureSnapshot.path("payloadHash").asText());
+        assertEquals(9101L, signatureSnapshot.path("signatureId").asLong());
+        assertEquals(31L, signatureSnapshot.path("actorId").asLong());
+        assertEquals(5101L, signatureSnapshot.path("processPoolEventId").asLong());
+        assertEquals(MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW,
+                signatureSnapshot.path("actionType").asText());
+        assertEquals("PQC_INSPECTION", signatureSnapshot.path("eventType").asText());
+        assertEquals("PQC", signatureSnapshot.path("leaderType").asText());
+        assertEquals("APPROVED", signatureSnapshot.path("reviewStatus").asText());
+        verify(audit).acquireLedgerLock();
+        verify(tasks).selectById(8001L);
+        verify(audit).append(argThat(command -> "mes.pqc.review.approve".equals(command.getOperationId())
+                && "9101".equals(command.getSignatureRecordId())
+                && command.getLinks().stream().anyMatch(link -> "ACTIVE_ORDER".equals(link.objectType())
+                && "6001".equals(link.objectId()))));
         when(reviews.selectById(6101L)).thenAnswer(invocation -> review);
         clearInvocations(reviews, events);
         details.add(new LinkedHashMap<>(Map.ofEntries(Map.entry("id", 7001L), Map.entry("tenantId", 1L),

@@ -64,6 +64,15 @@ class MesPqcProcessInspectionAggregationServiceTest {
     }
 
     @Test
+    void correctionRefreshCannotBeUsedAsFirstAggregationOrReplaySameReview() {
+        when(pqcRecordMapper.selectByEventId(1001L)).thenReturn(pendingRecord());
+        assertThrows(ServiceException.class, () -> service.refreshCorrectedPqcSubmission(1001L, 7000L, 7001L));
+        assertThrows(ServiceException.class, () -> service.refreshCorrectedPqcSubmission(1001L, 7000L, 7000L));
+        verify(aggregateDetailMapper, never()).deleteByEventId(any());
+        verify(aggregateDetailMapper, never()).insertBatch(any());
+    }
+
+    @Test
     void shouldAggregateApprovedPqcSubmissionsForActiveOrderDuringP2Only() {
         MesPqcInspectionTaskDO confirmedTask = submittedTask()
                 .setTaskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)

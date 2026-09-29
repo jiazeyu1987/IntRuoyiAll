@@ -36,6 +36,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceSelecti
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -120,9 +121,10 @@ class MesFrontlinePqcEmployeeSwitchServiceTest {
                 mock(MesPqcItemEquipmentConfigService.class), taskMapper,
                 mock(MesPqcInspectionPieceDetailMapper.class), mock(MesMdItemService.class), scopeMapper,
                 adminUserApi, mock(MesProcessPoolEventService.class),
-                mock(MesProProcessPoolPqcRecordMapper.class),
-                mock(MesProBatchRecordExecutionSignatureService.class),
-                mock(MesProEdhrNonconformanceReviewService.class));
+                 mock(MesProProcessPoolPqcRecordMapper.class),
+                 mock(MesProBatchRecordExecutionSignatureService.class),
+                 mock(MesProEdhrNonconformanceReviewService.class),
+                 mock(GxpAuditService.class));
     }
 
     @Test

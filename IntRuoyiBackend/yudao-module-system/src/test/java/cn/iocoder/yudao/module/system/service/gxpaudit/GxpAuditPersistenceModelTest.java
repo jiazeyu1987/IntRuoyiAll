@@ -21,6 +21,9 @@ class GxpAuditPersistenceModelTest {
         assertEquals("gxp_audit_event", GxpAuditEventDO.class.getAnnotation(TableName.class).value());
         assertEquals("gxp_audit_policy_operation",
                 GxpAuditPolicyOperationDO.class.getAnnotation(TableName.class).value());
+        assertEquals("gxp_audit_event_relation", tableName("GxpAuditEventRelationDO"));
+        assertEquals("gxp_audit_policy_activation", tableName("GxpAuditPolicyActivationDO"));
+        assertEquals("gxp_audit_legacy_fact_baseline", tableName("GxpAuditLegacyFactBaselineDO"));
     }
 
     @Test
@@ -41,6 +44,27 @@ class GxpAuditPersistenceModelTest {
     void shouldUseBaseMappersForAuditCoreTables() {
         assertTrue(BaseMapperX.class.isAssignableFrom(GxpAuditEventMapper.class));
         assertTrue(BaseMapperX.class.isAssignableFrom(GxpAuditPolicyOperationMapper.class));
+        assertTrue(baseMapper("GxpAuditEventRelationMapper"));
+        assertTrue(baseMapper("GxpAuditPolicyActivationMapper"));
+        assertTrue(baseMapper("GxpAuditLegacyFactBaselineMapper"));
+    }
+
+    private String tableName(String simpleName) {
+        try {
+            return Class.forName("cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit." + simpleName)
+                    .getAnnotation(TableName.class).value();
+        } catch (ReflectiveOperationException exception) {
+            return "MISSING:" + simpleName;
+        }
+    }
+
+    private boolean baseMapper(String simpleName) {
+        try {
+            return BaseMapperX.class.isAssignableFrom(Class.forName(
+                    "cn.iocoder.yudao.module.system.dal.mysql.gxpaudit." + simpleName));
+        } catch (ReflectiveOperationException exception) {
+            return false;
+        }
     }
 
 }

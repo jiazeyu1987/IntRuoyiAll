@@ -19,6 +19,161 @@ import java.util.List;
 @Mapper
 public interface MesTeamLeaderDataCleanupMapper {
 
+    @Select({"<script>", "SELECT id FROM mes_pro_process_pool_event_revision WHERE tenant_id = #{tenantId} AND event_id IN",
+            "<foreach collection='eventIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<Long> selectUnprovenSimulationRevisionIdsForUpdate(@Param("tenantId") Long tenantId,
+            @Param("eventIds") Collection<Long> eventIds);
+
+    @Select({"<script>", "SELECT id FROM mes_pro_process_pool_active_order_transfer_trace WHERE tenant_id = #{tenantId} AND active_order_id IN",
+            "<foreach collection='activeOrderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<Long> selectUnprovenSimulationTransferIdsForUpdate(@Param("tenantId") Long tenantId,
+            @Param("activeOrderIds") Collection<Long> activeOrderIds);
+
+    @Select({"<script>", "SELECT id FROM mes_pro_process_pool_team_maintenance_audit WHERE tenant_id = #{tenantId} AND target_type = 'ACTIVE_ORDER' AND target_id IN",
+            "<foreach collection='activeOrderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<Long> selectUnprovenSimulationMaintenanceIdsForUpdate(@Param("tenantId") Long tenantId,
+            @Param("activeOrderIds") Collection<Long> activeOrderIds);
+
+
+    @Select({"<script>", "SELECT * FROM mes_pro_process_pool_quantity_fragment WHERE tenant_id = #{tenantId} AND (event_id IN",
+            "<foreach collection='eventIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "<if test='includeProductionSource'> OR production_submit_event_id IN",
+            "<foreach collection='eventIds' item='id' open='(' separator=',' close=')'>#{id}</foreach></if>",
+            ") ORDER BY id FOR UPDATE", "</script>"})
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolQuantityFragmentDO> selectSimulationFragmentsForUpdate(
+            @Param("tenantId") Long tenantId, @Param("eventIds") Collection<Long> eventIds,
+            @Param("includeProductionSource") boolean includeProductionSource);
+
+    @Select({"<script>", "SELECT * FROM mes_pro_process_pool_pqc_record WHERE tenant_id = #{tenantId} AND (event_id IN",
+            "<foreach collection='eventIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            ") ORDER BY id FOR UPDATE", "</script>"})
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO> selectSimulationPqcRecordsForUpdate(
+            @Param("tenantId") Long tenantId, @Param("eventIds") Collection<Long> eventIds);
+
+    @Select({"<script>", "SELECT * FROM mes_pro_process_pool_active_order_process_snapshot WHERE tenant_id = #{tenantId} AND (active_order_id IN",
+            "<foreach collection='activeOrderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            ") ORDER BY id FOR UPDATE", "</script>"})
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO> selectSimulationSnapshotsForUpdate(
+            @Param("tenantId") Long tenantId, @Param("activeOrderIds") Collection<Long> activeOrderIds);
+
+    @Select({"<script>", "SELECT * FROM mes_pro_process_pool_active_order_pick_list_binding WHERE tenant_id = #{tenantId} AND (active_order_id IN",
+            "<foreach collection='activeOrderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            ") ORDER BY id FOR UPDATE", "</script>"})
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO> selectSimulationBindingsForUpdate(
+            @Param("tenantId") Long tenantId, @Param("activeOrderIds") Collection<Long> activeOrderIds);
+
+    @Select({"<script>", "SELECT * FROM mes_pro_process_pool_active_order_pick_list_binding_item WHERE tenant_id = #{tenantId} AND (binding_id IN",
+            "<foreach collection='bindingIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            ") ORDER BY id FOR UPDATE", "</script>"})
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO> selectSimulationBindingItemsForUpdate(
+            @Param("tenantId") Long tenantId, @Param("bindingIds") Collection<Long> bindingIds);
+
+
+    @Select("SELECT * FROM mes_pro_process_pool_report_allocation WHERE tenant_id = #{tenantId} "
+            + "AND active_order_id = #{activeOrderId} ORDER BY id FOR UPDATE")
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO>
+    selectSimulationAllocationsForUpdate(@Param("tenantId") Long tenantId, @Param("activeOrderId") Long activeOrderId);
+
+    @Select("SELECT * FROM mes_pro_process_pool_report_allocation WHERE tenant_id = #{tenantId} "
+            + "AND event_id = #{eventId} ORDER BY id FOR UPDATE")
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO>
+    selectSimulationEventAllocationsForUpdate(@Param("tenantId") Long tenantId, @Param("eventId") Long eventId);
+
+    @Select({"<script>", "SELECT id FROM mes_pro_process_pool_active_order_completion_receipt WHERE tenant_id = #{tenantId} AND active_order_id IN",
+            "<foreach collection='activeOrderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<Long> selectResetCompletionReceiptIdsForUpdate(@Param("tenantId") Long tenantId,
+                                                       @Param("activeOrderIds") Collection<Long> activeOrderIds);
+
+    @Select({"<script>", "SELECT id FROM mes_pro_process_pool_active_order_completion_backfill WHERE tenant_id = #{tenantId} AND active_order_id IN",
+            "<foreach collection='activeOrderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<Long> selectResetCompletionBackfillIdsForUpdate(@Param("tenantId") Long tenantId,
+                                                        @Param("activeOrderIds") Collection<Long> activeOrderIds);
+
+    @Select({"<script>", "SELECT id FROM mes_pro_process_pool_active_order_release_application WHERE tenant_id = #{tenantId} AND active_order_id IN",
+            "<foreach collection='activeOrderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<Long> selectResetReleaseApplicationIdsForUpdate(@Param("tenantId") Long tenantId,
+                                                        @Param("activeOrderIds") Collection<Long> activeOrderIds);
+
+    @Select({"<script>", "SELECT id FROM mes_pro_edhr_nonconformance_review WHERE tenant_id = #{tenantId} AND active_order_id IN",
+            "<foreach collection='activeOrderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<Long> selectResetNonconformanceIdsForUpdate(@Param("tenantId") Long tenantId,
+                                                    @Param("activeOrderIds") Collection<Long> activeOrderIds);
+
+    @Select("SELECT * FROM mes_pqc_inspection_task WHERE tenant_id = #{tenantId} "
+            + "AND active_order_id = #{activeOrderId} ORDER BY id FOR UPDATE")
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO>
+    selectCleanupTasksForUpdate(@Param("tenantId") Long tenantId, @Param("activeOrderId") Long activeOrderId);
+
+    @Select({"<script>", "SELECT * FROM mes_pqc_inspection_piece_detail WHERE tenant_id = #{tenantId} AND task_id IN",
+            "<foreach collection='taskIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO>
+    selectCleanupPiecesForUpdate(@Param("tenantId") Long tenantId, @Param("taskIds") Collection<Long> taskIds);
+
+    @Select({"<script>", "SELECT * FROM mes_pqc_inspection_task WHERE submitted_event_id IN",
+            "<foreach collection='eventIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO>
+    selectCleanupReferencingTasksForUpdate(@Param("eventIds") Collection<Long> eventIds);
+
+    @Select({"<script>", "SELECT * FROM mes_pro_process_pool_event WHERE feedback_source_type = 'MES_PRO_FEEDBACK' AND feedback_source_id IN",
+            "<foreach collection='feedbackIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO>
+    selectCleanupFeedbackEventsForUpdate(@Param("feedbackIds") Collection<Long> feedbackIds);
+
+    @Select({"<script>", "SELECT * FROM mes_pro_process_pool_submission_review",
+            "WHERE tenant_id = #{tenantId} AND event_id IN",
+            "<foreach collection='eventIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO>
+    selectCleanupReviewsForUpdate(@Param("tenantId") Long tenantId,
+                                 @Param("eventIds") Collection<Long> eventIds);
+
+    @Select("SELECT * FROM mes_pqc_process_inspection_aggregate_detail "
+            + "WHERE tenant_id = #{tenantId} AND active_order_id = #{activeOrderId} ORDER BY id FOR UPDATE")
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO>
+    selectCleanupAggregatesForUpdate(@Param("tenantId") Long tenantId,
+                                    @Param("activeOrderId") Long activeOrderId);
+
+    @Select("SELECT * FROM mes_pro_process_pool_order_process_completion "
+            + "WHERE tenant_id = #{tenantId} AND work_order_id = #{workOrderId} ORDER BY id FOR UPDATE")
+    List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO>
+    selectCleanupCompletionsForUpdate(@Param("tenantId") Long tenantId,
+                                     @Param("workOrderId") Long workOrderId);
+
+    // Match the physical DELETE scope, including soft-deleted history. Never join live parents.
+    @Select({"<script>", "SELECT id FROM mes_pqc_inspection_task WHERE tenant_id = #{tenantId} AND active_order_id IN",
+            "<foreach collection='activeOrderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<Long> selectHistoricalPqcTaskIdsForUpdate(@Param("tenantId") Long tenantId,
+                                                  @Param("activeOrderIds") Collection<Long> activeOrderIds);
+
+    @Select({"<script>", "SELECT id FROM mes_pqc_inspection_piece_detail WHERE tenant_id = #{tenantId} AND task_id IN",
+            "<foreach collection='taskIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<Long> selectHistoricalPqcPieceIdsForUpdate(@Param("tenantId") Long tenantId,
+                                                   @Param("taskIds") Collection<Long> taskIds);
+
+    @Select({"<script>", "SELECT id FROM mes_pqc_process_inspection_aggregate_detail WHERE tenant_id = #{tenantId} AND active_order_id IN",
+            "<foreach collection='activeOrderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<Long> selectHistoricalPqcAggregateIdsForUpdate(@Param("tenantId") Long tenantId,
+                                                       @Param("activeOrderIds") Collection<Long> activeOrderIds);
+
+    @Select({"<script>", "SELECT id FROM mes_pro_process_pool_order_process_completion WHERE tenant_id = #{tenantId} AND work_order_id IN",
+            "<foreach collection='workOrderIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "ORDER BY id FOR UPDATE", "</script>"})
+    List<Long> selectHistoricalCompletionIdsForUpdate(@Param("tenantId") Long tenantId,
+                                                     @Param("workOrderIds") Collection<Long> workOrderIds);
+
     @Delete({
             "<script>",
             "DELETE FROM mes_pro_process_pool_active_order_release_application WHERE tenant_id = #{tenantId} AND active_order_id IN",
@@ -80,6 +235,9 @@ public interface MesTeamLeaderDataCleanupMapper {
 
     @Select("SELECT id FROM mes_pro_edhr_batch_execution WHERE tenant_id = #{tenantId} AND deleted = b'0' ORDER BY id")
     List<Long> selectAllBatchExecutionIds(@Param("tenantId") Long tenantId);
+
+    @Select("SELECT id FROM mes_pro_edhr_batch_execution WHERE tenant_id = #{tenantId} AND deleted = b'0' ORDER BY id FOR UPDATE")
+    List<Long> selectAllBatchExecutionIdsForUpdate(@Param("tenantId") Long tenantId);
 
     @Select({
             "<script>",
@@ -176,6 +334,9 @@ public interface MesTeamLeaderDataCleanupMapper {
 
     @Select("SELECT id FROM mes_pro_process_pool_event WHERE tenant_id = #{tenantId} AND deleted = b'0' ORDER BY id")
     List<Long> selectAllCleanupEventIds(@Param("tenantId") Long tenantId);
+
+    @Select("SELECT id FROM mes_pro_process_pool_event WHERE tenant_id = #{tenantId} AND deleted = b'0' ORDER BY id FOR UPDATE")
+    List<Long> selectAllCleanupEventIdsForUpdate(@Param("tenantId") Long tenantId);
 
     @Select({
             "<script>",

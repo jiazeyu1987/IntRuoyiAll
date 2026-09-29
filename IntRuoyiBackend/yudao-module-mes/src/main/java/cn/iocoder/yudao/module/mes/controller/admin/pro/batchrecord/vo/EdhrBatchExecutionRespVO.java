@@ -92,6 +92,11 @@ public class EdhrBatchExecutionRespVO {
 
     private String releaseActionLockReason;
 
+    /** 后端权威的报工、PQC提交、PQC放行、上市放行共享冻结投影。 */
+    private Boolean productionActionLocked;
+
+    private String productionActionLockReason;
+
     private Long pendingVoidChangeEventId;
 
     private String pendingVoidChangeCode;

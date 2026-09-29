@@ -78,7 +78,7 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
     @Select({
             "<script>",
             "SELECT r.* FROM mes_pro_edhr_nonconformance_review r",
-            "WHERE r.source_type = #{sourceType} AND r.deleted = b'0'",
+            "WHERE r.source_type = #{sourceType} AND r.deleted = FALSE",
             "<if test='tenantId != null'> AND r.tenant_id = #{tenantId} </if>",
             "  AND r.source_id IN",
             "  <foreach collection='sourceIds' item='sourceId' open='(' separator=',' close=')'>",
@@ -88,7 +88,7 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
             "    SELECT 1 FROM mes_pro_edhr_nonconformance_review newer",
             "    WHERE newer.source_type = r.source_type",
             "      AND newer.source_id = r.source_id",
-            "      AND newer.deleted = b'0'",
+            "      AND newer.deleted = FALSE",
             "<if test='tenantId != null'>      AND newer.tenant_id = #{tenantId} </if>",
             "      AND newer.id &gt; r.id",
             "  )",
@@ -99,6 +99,62 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
             @Param("sourceType") String sourceType,
             @Param("sourceIds") Collection<Long> sourceIds,
             @Param("tenantId") Long tenantId);
+
+    default List<MesProEdhrNonconformanceReviewDO> selectLatestByActiveOrderIds(
+            Collection<Long> activeOrderIds, Long tenantId) {
+        if (activeOrderIds == null || activeOrderIds.isEmpty()) {
+            return List.of();
+        }
+        return selectLatestByActiveOrderIdsInternal(activeOrderIds, tenantId);
+    }
+
+    default List<MesProEdhrNonconformanceReviewDO> selectListByActiveOrderIds(
+            Collection<Long> activeOrderIds, Long tenantId) {
+        if (activeOrderIds == null || activeOrderIds.isEmpty()) {
+            return List.of();
+        }
+        return selectListByActiveOrderIdsInternal(activeOrderIds, tenantId);
+    }
+
+    @Select({
+            "<script>",
+            "SELECT r.* FROM mes_pro_edhr_nonconformance_review r",
+            "WHERE r.active_order_id IN",
+            "  <foreach collection='activeOrderIds' item='activeOrderId' open='(' separator=',' close=')'>",
+            "    #{activeOrderId}",
+            "  </foreach>",
+            "  AND r.deleted = FALSE",
+            "  <if test='tenantId != null'> AND r.tenant_id = #{tenantId} </if>",
+            "ORDER BY r.id DESC",
+            "</script>"
+    })
+    List<MesProEdhrNonconformanceReviewDO> selectListByActiveOrderIdsInternal(
+            @Param("activeOrderIds") Collection<Long> activeOrderIds,
+            @Param("tenantId") Long tenantId);
+
+    @Select({
+            "<script>",
+            "SELECT r.* FROM mes_pro_edhr_nonconformance_review r",
+            "WHERE r.active_order_id IN",
+            "  <foreach collection='activeOrderIds' item='activeOrderId' open='(' separator=',' close=')'>",
+            "    #{activeOrderId}",
+            "  </foreach>",
+            "  AND r.deleted = b'0'",
+            "<if test='tenantId != null'> AND r.tenant_id = #{tenantId} </if>",
+            "  AND NOT EXISTS (",
+            "    SELECT 1 FROM mes_pro_edhr_nonconformance_review newer",
+            "    WHERE newer.active_order_id = r.active_order_id",
+            "      AND newer.deleted = b'0'",
+            "<if test='tenantId != null'>      AND newer.tenant_id = #{tenantId} </if>",
+            "      AND newer.id &gt; r.id",
+            "  )",
+            "ORDER BY r.id DESC",
+            "</script>"
+    })
+    List<MesProEdhrNonconformanceReviewDO> selectLatestByActiveOrderIdsInternal(
+            @Param("activeOrderIds") Collection<Long> activeOrderIds,
+            @Param("tenantId") Long tenantId);
+
 
     default Long selectPendingCountByWorkOrderId(Long workOrderId) {
         return selectCount(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()

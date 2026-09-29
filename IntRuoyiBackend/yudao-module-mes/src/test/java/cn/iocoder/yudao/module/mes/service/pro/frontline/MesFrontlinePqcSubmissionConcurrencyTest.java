@@ -42,6 +42,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCre
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -100,6 +101,7 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
         Fixture fixture = new Fixture();
 
         Outcome first = fixture.submitSequential(fixture.command(EMPLOYEE_A, "合格"));
+        fixture.employeeA.setNickname("changed after first submit").setUsername("changed.username");
         Outcome replay = fixture.submitSequential(fixture.command(EMPLOYEE_A, "合格"));
 
         assertNull(first.error());
@@ -109,6 +111,14 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
         assertEquals(first.result().payloadHash(), replay.result().payloadHash());
         assertNotNull(first.result().payloadHash());
         fixture.assertExactlyOneFormalWriteSet();
+        org.mockito.ArgumentCaptor<cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand> audits =
+                org.mockito.ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+        org.mockito.Mockito.verify(fixture.gxpAuditService, org.mockito.Mockito.times(2)).append(audits.capture());
+        assertNotNull(audits.getAllValues().get(0).getPerformedBy());
+        assertEquals(audits.getAllValues().get(0).getPerformedBy(), audits.getAllValues().get(1).getPerformedBy());
+        org.mockito.Mockito.verify(fixture.signatureService, org.mockito.Mockito.times(2))
+                .validatePqcSubmitSignature(org.mockito.ArgumentMatchers.eq(EMPLOYEE_A), anyString());
+        org.mockito.Mockito.verify(fixture.adminUserApi, org.mockito.Mockito.atLeast(2)).getUserList(any());
     }
 
     @Test
@@ -187,6 +197,11 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
         private final TransactionTemplate transactionTemplate;
         private final AtomicInteger casSuccessCount = new AtomicInteger();
         private final MesFrontlinePqcContextService service;
+        private final GxpAuditService gxpAuditService = mock(GxpAuditService.class);
+        private final AdminUserRespDTO employeeA = user(EMPLOYEE_A);
+        private final AdminUserApi adminUserApi = mock(AdminUserApi.class);
+        private final MesProBatchRecordExecutionSignatureService signatureService =
+                mock(MesProBatchRecordExecutionSignatureService.class);
 
         private Fixture() {
             JdbcDataSource dataSource = new JdbcDataSource();
@@ -209,7 +224,6 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
             MesPqcInspectionPieceDetailMapper pieceDetailMapper = mock(MesPqcInspectionPieceDetailMapper.class);
             MesProProcessPoolPqcRecordMapper recordMapper = mock(MesProProcessPoolPqcRecordMapper.class);
             MesProcessPoolTeamLeaderScopeMapper scopeMapper = mock(MesProcessPoolTeamLeaderScopeMapper.class);
-            AdminUserApi adminUserApi = mock(AdminUserApi.class);
             MesQaInspectionRegulationProcessMapper processMapper =
                     mock(MesQaInspectionRegulationProcessMapper.class);
             MesQaInspectionRegulationVersionMapper versionMapper =
@@ -219,8 +233,6 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
             MesQaInspectionRegulationItemEquipmentMapper regulationItemEquipmentMapper =
                     mock(MesQaInspectionRegulationItemEquipmentMapper.class);
             DccProjectCodeMapper dccMapper = mock(DccProjectCodeMapper.class);
-            MesProBatchRecordExecutionSignatureService signatureService =
-                    mock(MesProBatchRecordExecutionSignatureService.class);
             MesProcessPoolEventService eventService = mock(MesProcessPoolEventService.class);
 
             when(taskMapper.selectByIdForUpdate(TASK_ID)).thenAnswer(ignored -> selectTaskForUpdate());
@@ -242,6 +254,15 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                         detail.getTaskId(), detail.getItemCode(), detail.getMeasuredValue(), detail.getJudgement()));
                 return Boolean.TRUE;
             });
+            when(pieceDetailMapper.selectListByTaskId(anyLong())).thenAnswer(invocation -> jdbc.query(
+                    "SELECT task_id, item_code, measured_value, judgement FROM pqc_detail WHERE task_id = ? ORDER BY id",
+                    (rs, rowNum) -> MesPqcInspectionPieceDetailDO.builder()
+                            .taskId(rs.getLong("task_id"))
+                            .itemCode(rs.getString("item_code"))
+                            .measuredValue(rs.getString("measured_value"))
+                            .judgement(rs.getString("judgement"))
+                            .build(),
+                    invocation.getArgument(0, Long.class)));
             when(signatureService.recordPqcSubmitSignature(anyLong(), anyLong(), anyString(), anyString()))
                     .thenAnswer(invocation -> insertSignature(invocation.getArgument(0)));
             when(eventService.createPqcInspectionEvent(any(MesProcessPoolCreatePqcInspectionReqDTO.class)))
@@ -258,7 +279,7 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
             when(scopeMapper.selectActiveScopesByLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
                     .thenReturn(List.of(employeeScope(EMPLOYEE_A), employeeScope(EMPLOYEE_B)));
             when(adminUserApi.getUserList(any())).thenReturn(List.of(
-                    user(LOGIN_USER_ID), user(EMPLOYEE_A), user(EMPLOYEE_B)));
+                    user(LOGIN_USER_ID), employeeA, user(EMPLOYEE_B)));
             when(processMapper.selectById(QA_PROCESS_ID)).thenReturn(
                     MesQaInspectionRegulationProcessDO.builder().id(QA_PROCESS_ID)
                             .regulationVersionId(REGULATION_VERSION_ID).build());
@@ -285,8 +306,9 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                     processMapper, itemMapper, mock(MesQaInspectionRegulationService.class),
                     equipmentConfigService,
                     taskMapper, pieceDetailMapper, mock(MesMdItemService.class), scopeMapper, adminUserApi,
-                    eventService, recordMapper, signatureService,
-                    mock(MesProEdhrNonconformanceReviewService.class));
+                     eventService, recordMapper, signatureService,
+                     mock(MesProEdhrNonconformanceReviewService.class),
+                     gxpAuditService);
         }
 
         private Pair submitConcurrently(MesFrontlinePqcSubmitCommand firstCommand,
@@ -367,7 +389,7 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                     "judgement VARCHAR(32) NOT NULL)");
             jdbc.execute("CREATE TABLE pqc_event (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, " +
                     "task_id BIGINT NOT NULL UNIQUE, actual_employee_id BIGINT NOT NULL, signature_id BIGINT NOT NULL, " +
-                    "server_submit_time TIMESTAMP NOT NULL, raw_payload CLOB)");
+                    "server_submit_time TIMESTAMP NOT NULL, raw_payload CLOB, signature_snapshot CLOB)");
             jdbc.execute("CREATE TABLE pqc_record (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, " +
                     "event_id BIGINT NOT NULL UNIQUE, signature_id BIGINT NOT NULL, inspection_result VARCHAR(32) NOT NULL, " +
                     "server_submit_time TIMESTAMP NOT NULL)");
@@ -408,12 +430,13 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
 
         private Long insertEventAndRecord(MesProcessPoolCreatePqcInspectionReqDTO request) {
             Long eventId = insertAndReturnKey("INSERT INTO pqc_event(task_id, actual_employee_id, signature_id, " +
-                            "server_submit_time, raw_payload) VALUES (?, ?, ?, ?, ?)", statement -> {
+                            "server_submit_time, raw_payload, signature_snapshot) VALUES (?, ?, ?, ?, ?, ?)", statement -> {
                         statement.setLong(1, request.getFeedbackSourceId());
                         statement.setLong(2, request.getActualEmployeeId());
                         statement.setLong(3, request.getSignatureId());
                         statement.setTimestamp(4, Timestamp.valueOf(SUBMIT_TIME));
                         statement.setString(5, request.getRawPayload());
+                        statement.setString(6, request.getSignatureSnapshot());
                     });
             jdbc.update("INSERT INTO pqc_record(event_id, signature_id, inspection_result, server_submit_time) " +
                             "VALUES (?, ?, ?, ?)", eventId, request.getSignatureId(), request.getInspectionResult(),
@@ -434,12 +457,14 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
 
         private MesProProcessPoolEventDO selectEvent(Long eventId) {
             return jdbc.queryForObject("SELECT id, task_id, actual_employee_id, signature_id, " +
-                            "server_submit_time, raw_payload FROM pqc_event WHERE id = ?",
+                            "server_submit_time, raw_payload, signature_snapshot FROM pqc_event WHERE id = ?",
                     (rs, rowNum) -> MesProProcessPoolEventDO.builder().id(rs.getLong("id"))
                             .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
                             .feedbackSourceType("MES_PQC_INSPECTION_TASK")
                             .feedbackSourceId(rs.getLong("task_id"))
                             .actualEmployeeId(rs.getLong("actual_employee_id"))
+                            .signatureUserId(rs.getLong("actual_employee_id"))
+                            .signatureSnapshot(rs.getString("signature_snapshot"))
                             .signatureId(rs.getLong("signature_id"))
                             .serverSubmitTime(rs.getTimestamp("server_submit_time").toLocalDateTime())
                             .rawPayload(rs.getString("raw_payload")).build(), eventId);
@@ -455,6 +480,8 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                             "FROM pqc_record WHERE event_id = ?",
                     (rs, rowNum) -> MesProProcessPoolPqcRecordDO.builder().id(rs.getLong("id"))
                             .eventId(rs.getLong("event_id")).signatureId(rs.getLong("signature_id"))
+                            .actualEmployeeId(selectEvent(eventId).getActualEmployeeId())
+                            .signatureUserId(selectEvent(eventId).getSignatureUserId())
                             .inspectionResult(rs.getString("inspection_result"))
                             .serverSubmitTime(rs.getTimestamp("server_submit_time").toLocalDateTime()).build(), eventId);
         }

@@ -51,6 +51,7 @@ class MesReportAllocationConcurrencyTest {
     @Mock private MesProcessPoolActiveOrderProcessSnapshotMapper activeOrderProcessSnapshotMapper;
 
     private MesReportAllocationCommandService service;
+    @Mock private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
 
     @BeforeEach
     void setUp() {
@@ -58,6 +59,7 @@ class MesReportAllocationConcurrencyTest {
                 allocationMapper, stateMapper, auditMapper, reviewMapper, poolQuantityService, releaseStateService,
                 targetService, fifoService, routeStartAuthorizationService, quantityFragmentService,
                 completionService, reportManagementSummaryService, activeOrderProcessSnapshotMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         when(routeStartAuthorizationService.listAuthorizedRouteProcesses(3001L)).thenReturn(List.of(
                 MesProRouteProcessDO.builder().id(5001L).processId(6001L).build()));
     }

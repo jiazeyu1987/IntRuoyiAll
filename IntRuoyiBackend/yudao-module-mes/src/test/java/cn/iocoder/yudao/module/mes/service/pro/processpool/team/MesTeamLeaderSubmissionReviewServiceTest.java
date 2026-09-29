@@ -2,12 +2,18 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,11 +23,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.doThrow;
@@ -40,11 +50,17 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     @Mock
     private MesProcessPoolSubmissionReviewMapper reviewMapper;
     @Mock
+    private MesPqcInspectionTaskMapper pqcTaskMapper;
+    @Mock
     private MesPqcProcessInspectionAggregationService processInspectionAggregationService;
     @Mock
     private MesProBatchRecordExecutionSignatureService signatureService;
     @Mock
     private MesReportAllocationCommandService reportAllocationCommandService;
+    @Mock
+    private MesProProcessPoolEventRevisionMapper revisionMapper;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     private MesTeamLeaderSubmissionReviewService service;
 
@@ -56,6 +72,11 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         ReflectionTestUtils.setField(service, "reportAllocationCommandService", reportAllocationCommandService);
         lenient().when(signatureService.recordTeamLeaderReviewSignature(
                 any(), any(), any(), any(), any(), any())).thenReturn(9101L);
+        ReflectionTestUtils.setField(service, "revisionMapper", revisionMapper);
+        ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(service, "pqcTaskMapper", pqcTaskMapper);
+        lenient().when(pqcTaskMapper.selectById(5101L)).thenReturn(MesPqcInspectionTaskDO.builder()
+                .id(5101L).activeOrderId(8101L).build());
     }
 
     @Test
@@ -86,6 +107,13 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         assertEquals("{\"outputQuantity\":10}", event.getRawPayload());
         assertEquals(9001L, event.getSignatureId());
         verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7001L);
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        assertEquals("mes.pqc.review.approve", auditCaptor.getValue().getOperationId());
+        assertEquals("PQC_REVIEW:7001", auditCaptor.getValue().getIdempotencyKey());
+        assertEquals("PQC_REVIEW_APPROVED", auditCaptor.getValue().getAfterState().getState());
+        assertHasActiveOrderRelation(auditCaptor.getValue(), 8101L);
     }
 
     @Test
@@ -100,6 +128,12 @@ class MesTeamLeaderSubmissionReviewServiceTest {
 
         assertEquals(7002L, reviewId);
         verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> rejectAuditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(rejectAuditCaptor.capture());
+        assertEquals("mes.pqc.review.reject", rejectAuditCaptor.getValue().getOperationId());
+        assertEquals("PQC_REVIEW_REJECTED", rejectAuditCaptor.getValue().getAfterState().getState());
+        assertHasActiveOrderRelation(rejectAuditCaptor.getValue(), 8101L);
     }
 
     @Test
@@ -192,6 +226,111 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 any(), any(), any(), any(), any(), any());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
+    }
+
+    @Test
+    void shouldReviewSignedCorrectionAfterRejectedPqcWithoutDeletingOldReview() {
+        MesProProcessPoolEventDO corrected = event().setRawPayload(
+                "{\"outputQuantity\":11,\"supersededReviewId\":7000}");
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(corrected);
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingReview());
+        bindRevision(corrected, 8001L);
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7010L);
+            return 1;
+        });
+
+        assertEquals(7010L, service.reviewSubmission(reviewReq()));
+
+        verify(reviewMapper).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(reviewMapper, never()).updateById(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7010L);
+    }
+
+    @Test
+    void repeatedRejectionCorrectionAndApprovalPreserveEachReviewAndReplayLatestOnly() {
+        MesProProcessPoolEventDO corrected = event().setRawPayload(
+                "{\"outputQuantity\":11,\"supersededReviewId\":7000}");
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(corrected);
+        MesProcessPoolSubmissionReviewDO first = existingReview().setLeaderUserId(3001L)
+                .setLeaderType("PQC").setReviewRemark(rejectedReviewReq().getReviewRemark());
+        AtomicReference<MesProcessPoolSubmissionReviewDO> latest = new AtomicReference<>(first);
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenAnswer(invocation -> latest.get());
+        List<MesProcessPoolSubmissionReviewDO> reviews = new ArrayList<>(List.of(first));
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            MesProcessPoolSubmissionReviewDO next = invocation.getArgument(0);
+            next.setId(7000L + reviews.size());
+            reviews.add(next);
+            latest.set(next);
+            return 1;
+        });
+        bindRevision(corrected, 8001L);
+
+        assertEquals(7001L, service.reviewSubmission(rejectedReviewReq()));
+        assertEquals(7001L, service.reviewSubmission(rejectedReviewReq()));
+        corrected.setRawPayload("{\"outputQuantity\":12,\"supersededReviewId\":7001}");
+        bindRevision(corrected, 8002L);
+        assertEquals(7002L, service.reviewSubmission(reviewReq()));
+        assertEquals(7002L, service.reviewSubmission(reviewReq()));
+        assertEquals(3, reviews.size());
+        assertEquals("REJECTED", first.getReviewStatus());
+        verify(signatureService, org.mockito.Mockito.times(2))
+                .recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any());
+        verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7002L);
+        ArgumentCaptor<GxpAuditCommand> audits = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService, org.mockito.Mockito.times(2)).append(audits.capture());
+        assertEquals(List.of("PQC_REVIEW:7001", "PQC_REVIEW:7002"),
+                audits.getAllValues().stream().map(GxpAuditCommand::getIdempotencyKey).toList());
+        assertEquals(List.of("mes.pqc.review.reject", "mes.pqc.review.approve"),
+                audits.getAllValues().stream().map(GxpAuditCommand::getOperationId).toList());
+        for (int index = 0; index < audits.getAllValues().size(); index++) {
+            GxpAuditCommand audit = audits.getAllValues().get(index);
+            assertHasActiveOrderRelation(audit, 8101L);
+            var after = cn.iocoder.yudao.framework.common.util.json.JsonUtils
+                    .parseTree(audit.getAfterState().getCanonicalJson());
+            var signature = cn.iocoder.yudao.framework.common.util.json.JsonUtils
+                    .parseTree(after.path("review").path("reviewSignatureSnapshotJson").asText());
+            assertEquals(8001L + index, signature.path("revisionId").asLong());
+            assertEquals(7000L + index, signature.path("supersededReviewId").asLong());
+            assertEquals(17501L + index, signature.path("revisionSignatureId").asLong());
+            assertTrue(signature.path("payloadHash").isTextual());
+        }
+        verify(reviewMapper, never()).updateById(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(reviewMapper, never()).deleteById(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void payloadClaimWithoutSignedMatchingRevisionCannotReopenRejectedReview() {
+        MesProProcessPoolEventDO corrected = event().setRawPayload(
+                "{\"outputQuantity\":11,\"supersededReviewId\":7000}");
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(corrected);
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingReview());
+        assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+    }
+
+    @Test
+    void signedRevisionForDifferentPayloadCannotReopenRejectedReview() {
+        MesProProcessPoolEventDO corrected = event().setRawPayload(
+                "{\"outputQuantity\":11,\"supersededReviewId\":7000}");
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(corrected);
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingReview());
+        bindRevision(corrected, 8001L);
+        corrected.setRawPayload("{\"outputQuantity\":12,\"supersededReviewId\":7000}");
+        assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any());
+    }
+
+    private void bindRevision(MesProProcessPoolEventDO event, Long id) {
+        MesProProcessPoolEventRevisionDO revision = MesProProcessPoolEventRevisionDO.builder()
+                .id(id).eventId(event.getId()).revisionStatus("EFFECTIVE")
+                .revisionSignatureId(9500L + id).revisionSignatureUserId(3001L).modifiedByUserId(3001L)
+                .revisionSignatureSnapshot("{\"signatureId\":" + (9500L + id)
+                        + ",\"actorId\":3001,\"signedAt\":\"2026-09-28T10:30:00\"}")
+                .afterPayload(event.getRawPayload()).build();
+        revision.setTenantId(event.getTenantId());
+        when(revisionMapper.selectListByEventId(event.getId())).thenReturn(List.of(revision));
     }
 
     @Test
@@ -289,12 +428,19 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         return MesProProcessPoolEventDO.builder()
                 .id(1001L)
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                .feedbackSourceId(5101L)
                 .actualEmployeeId(actualEmployeeId)
                 .rawPayload("{\"outputQuantity\":10}")
                 .serverSubmitTime(LocalDateTime.of(2026, 7, 30, 9, 10))
                 .signatureId(9001L)
                 .signatureUserId(actualEmployeeId)
                 .build();
+    }
+
+    private static void assertHasActiveOrderRelation(GxpAuditCommand command, Long activeOrderId) {
+        assertTrue(command.getLinks().stream().anyMatch(link ->
+                "ACTIVE_ORDER".equals(link.objectType())
+                        && activeOrderId.toString().equals(link.objectId())));
     }
 
     private static MesProcessPoolSubmissionReviewDO existingReview() {

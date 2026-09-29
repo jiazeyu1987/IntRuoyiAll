@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
@@ -18,6 +19,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQu
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
@@ -70,6 +72,8 @@ class MesP0PqcQualityAllocationGateTest {
     @Mock
     private MesProcessPoolReportAllocationMapper allocationMapper;
     @Mock
+    private MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
+    @Mock
     private MesProProcessPoolQuantityFragmentMapper quantityFragmentMapper;
     @Mock
     private MesProProcessPoolPqcRecordMapper pqcRecordMapper;
@@ -94,16 +98,30 @@ class MesP0PqcQualityAllocationGateTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(snapshotMapper.selectListByActiveOrderAndProcessForUpdate(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(invocation -> List.of(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(invocation.getArgument(0)).routeProcessId(5001L)
+                        .processId(invocation.getArgument(1)).overagePercentSnapshot(BigDecimal.ZERO)
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build()));
+        org.mockito.Mockito.lenient().when(snapshotMapper.selectByActiveOrderAndProcess(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyLong())).thenAnswer(invocation ->
+                MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(invocation.getArgument(0)).routeProcessId(invocation.getArgument(1))
+                        .processId(invocation.getArgument(2))
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build());
         MesTeamLeaderFifoAllocationService fifoAllocationService =
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
-                        orderProcessTargetService, abnormalStateService);
+                        orderProcessTargetService, abnormalStateService, eventMapper, snapshotMapper);
         service = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper, activeOrderMapper,
                 workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper, pqcRecordMapper,
                 fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper, pqcPieceDetailMapper,
                 orderProcessTargetService, orderProcessCompletionService, abnormalStateService,
                 reportManagementSummaryService);
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
-        lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any())).thenReturn(9101L);
+        ReflectionTestUtils.setField(service, "snapshotMapper", snapshotMapper);
+        lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any())).thenReturn(9101L);
     }
 
     @Test
@@ -123,6 +141,7 @@ class MesP0PqcQualityAllocationGateTest {
     @Test
     void shouldRejectMissingStructuredPqcBindingBeforeAnyTerminalWrites() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         when(pqcRecordMapper.selectListByProductionSubmitEventId(EVENT_ID)).thenReturn(List.of());
 
@@ -137,6 +156,7 @@ class MesP0PqcQualityAllocationGateTest {
     @Test
     void shouldRejectFailedPqcBindingBeforeAnyTerminalWrites() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         when(pqcRecordMapper.selectListByProductionSubmitEventId(EVENT_ID)).thenReturn(List.of(
                 pqcRecord(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE)));
@@ -152,6 +172,7 @@ class MesP0PqcQualityAllocationGateTest {
     @Test
     void shouldPersistConfirmationOnlyAfterSuccessPqcBindingIsVerified() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         when(pqcRecordMapper.selectListByProductionSubmitEventId(EVENT_ID)).thenReturn(List.of(
                 pqcRecord(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)));
@@ -269,6 +290,7 @@ class MesP0PqcQualityAllocationGateTest {
     @Test
     void shouldRejectSuccessPqcWhenAnyFormalSampleFailsBeforeTerminalWrites() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":2}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":2}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         when(pqcRecordMapper.selectListByProductionSubmitEventId(EVENT_ID)).thenReturn(List.of(
                 pqcRecord(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)));
@@ -289,6 +311,7 @@ class MesP0PqcQualityAllocationGateTest {
     @Test
     void shouldPersistFifoConsumptionFromProductionSubmitFragmentsBeforeTerminalWrites() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":2}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":2}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         when(pqcRecordMapper.selectListByProductionSubmitEventId(EVENT_ID)).thenReturn(List.of(
                 pqcRecord(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)));
@@ -339,6 +362,7 @@ class MesP0PqcQualityAllocationGateTest {
     @Test
     void shouldRejectFifoConfirmationWhenPersistedConsumptionLeavesQualifiedQuantityShort() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":2}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":2}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         when(pqcRecordMapper.selectListByProductionSubmitEventId(EVENT_ID)).thenReturn(List.of(
                 pqcRecord(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)));
@@ -369,6 +393,7 @@ class MesP0PqcQualityAllocationGateTest {
     @Test
     void shouldRejectDuplicateOrConcurrentConfirmationWithLockedAllocationStateBeforeDownstreamWrites() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":2}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":2}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of(existingAllocation()));
 
         ServiceException ex = assertThrows(ServiceException.class,
@@ -426,7 +451,9 @@ class MesP0PqcQualityAllocationGateTest {
     }
 
     private static MesProProcessPoolEventDO productionSubmitEvent(String rawPayload) {
-        return event(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT, rawPayload);
+        MesProProcessPoolEventDO event = event(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT, rawPayload);
+        event.setReportOutputQuantity(com.alibaba.fastjson.JSON.parseObject(rawPayload).getBigDecimal("outputQuantity"));
+        return event;
     }
 
     private static MesProProcessPoolEventDO event(String eventType, String rawPayload) {
@@ -497,6 +524,7 @@ class MesP0PqcQualityAllocationGateTest {
                 .id(8101L)
                 .leaderUserId(LEADER_USER_ID)
                 .workOrderId(9001L)
+                .routeId(4001L)
                 .activeStatus("ACTIVE")
                 .joinedAt(LocalDateTime.of(2026, 8, 3, 8, 0))
                 .build();
