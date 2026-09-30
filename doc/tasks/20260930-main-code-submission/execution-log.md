@@ -1,0 +1,36 @@
+# 执行记录
+
+- REQUEST: 用户当轮要求“提交主干代码”。
+- PRECHECK: 已读取 AGENTS.md、docs/task-closeout-rules.md、docs/branch-runtime-ports.md、docs/worktree-restrictions.md、docs/powershell-encoding.md。
+- BRANCH: 当前 int_qms，HEAD a9bcb6d36d96145ddc1252f111347b644b328deb；int_main / origin/int_main 位于 cc0770cba。本地主干与 int_qms 各有 18 / 24 个独有提交，不能按 fast-forward 假定合入。
+- INVENTORY: 234 个 tracked 改动、552 个 untracked 文件；尚未暂存、提交、切换、合并或推送。
+- SCOPE_QUESTION: 已请求用户选择“提交当前改动，再合入并推送 int_main”或“只处理 int_main 已有代码”；等待答复，继续独立只读预检。
+- EXISTING_EVIDENCE: 20260929-dcc-upload-revision-browse-fixes / reaudit 有定向验证报告；静态和单元 PASS 不等于运行态、迁移或 E2E PASS。
+- GREEN: pwsh -NoProfile -File scripts/preflight/branch-runtime-port-guard.ps1 -> PASS，int_qms/int_qms 为 8061/48061。
+- GREEN: git -c core.safecrlf=false diff --check -> PASS；该命令仍按真实差异检查，仅抑制 CRLF 自动转换提示。
+- PREFLIGHT: 未跟踪文件没有超过 50MB 的文件；存在 40 个 ZIP 和其他历史验证附件，尚未将这些资产暂存或清理。
+- BLOCKER: git ls-remote --heads origin int_main int_qms -> FAIL，工具报告退出码 1；GitHub 443 经 127.0.0.1 代理连接失败，无法核对实时远端。未修改代理配置或绕过失败。
+- STATUS: blocked；等待明确范围与远端网络恢复。仅新增当前任务三份记录，未修改生产代码或已有任务资产。
+- SCOPE_UPDATE: 用户最新指令“提交到intqms”，目标明确为当前实际 int_qms；不切换或合并 int_main。
+- AUTHORIZATION: 当前分支代码提交及规则要求的普通推送；不包含强推、历史重写、发布、数据库写入、服务重启或启用子 Agent。
+- GREEN: 本轮重跑 branch-runtime-port-guard.ps1 和 git diff --check 均 PASS；实际 pre-commit / pre-push hook 均执行端口合同 guard，无跳过。
+- BASELINE_PLAN: 原有脏工作区独立基线；当前提交任务三份记录单独收尾提交。本任务不修改生产行为，生产代码原有 TDD 证据保留在各既有任务目录，不重新宣称已完成业务验证。
+- STAGING_BLOCKER: 按 NUL 分隔路径清单执行定向 git add --pathspec-from-file=- --pathspec-file-nul 时失败，Git 返回 128：.git/index.lock 已存在。暂存未成功。
+- STALE_LOCK_PRECHECK: 锁为零字节，创建/修改时间均为 2026-09-22 09:14:53；2026-09-30 20:12 的检查未发现活动 Git/Git-LFS 进程，staged 文件数量为 0。已读取 docs/powershell-memory.md 与 docs/worktree-memory.md 的陈旧锁门禁。
+- AUTO_REVIEW_BLOCKER: 对已核对的单个 .git/index.lock 执行 Remove-Item -LiteralPath 的命令被自动审批拒绝，返回 blocked by policy；命令没有执行，未删除锁，不用其他方式绕过拒绝。
+- NETWORK_BLOCKER: 本轮再次 git ls-remote --heads origin int_qms -> FAIL，本机 127.0.0.1 代理连接失败；尚未执行推送。
+- CURRENT_RESULT: 未产生 commit，未切换分支，未改动生产代码；等待用户处理锁文件后继续 int_qms 提交。
+- RESUME: 用户回复“已经删除”。复核 index.lock 不存在，无活动 Git 进程，分支仍为 int_qms，HEAD 仍为 a9bcb6d36d96145ddc1252f111347b644b328deb；staged 为空。锁阻塞已解除，继续原授权提交。
+- STAGED_CHECK: 原始基线 795 文件已暂存；git diff --cached --check 失败，问题仅为历史 Markdown 行尾空白、两个文件 EOF 多余空行，以及临时 stdout 空白。
+- SCOPE_REFINEMENT: docs/task-closeout-rules.md 明确禁止临时产物进入最终提交。doc/tasks 下非 Markdown 附件撤销本轮暂存但保留原文件；正式记录与生产代码继续基线提交。更具体的临时产物门禁优先于脏工作区整体基线的一般规则，禁止用提交原始运行附件消除 untracked 状态。
+- DOCUMENT_FORMAT: 只处理 staged 检查定位的 Markdown 格式问题；两空格硬换行转换为反斜杠硬换行，保留语义。该文档变更进行结构/UTF-8验证，不作为生产行为变更或业务 GREEN。
+- GREEN: Markdown 格式和 Given/When/Then/And 结构核验 -> PASS，7 文件；修正后 git diff --cached --check -> PASS。
+- BASELINE_COMMIT: bd33a7df6ae75e5f774a4183a34677abb19d841f，chore(qms): snapshot current code and formal task records；524 文件，29979 insertions / 1379 deletions。完整文件清单保存在 commit-files.json 的 baselineFiles 字段。
+- BASELINE_SCOPE: Backend 213、Frontend 117、docs 27、doc/tasks 正式 Markdown 167；271 个任务原始附件仅撤销本轮暂存，保留实体文件，完整清单见 commit-files.json 的 localArtifactsNotCommitted。
+- IMPLEMENTATION_COMMIT: 本任务没有生产行为实现，不适用独立实现提交；只产生工作区基线和提交收尾记录。
+- PRECOMMIT: 仓库真实 pre-commit 端口 guard -> PASS，无跳过；已核对 staged 清单与基线一致，私钥和提供商 token 特征检查通过。
+- CLOSEOUT_STATUS: ready_for_closeout；仅清理本任务目录，保留三份记录和 commit-files.json。
+- CLEANUP_PREVIEW: PASS，keep=4，delete=0，warnings=none。
+- CLEANUP_APPLY: PASS，keep=4，delete=0，warnings=none；未删除当前任务或其他任务文件。
+- PUSH: git push origin int_qms -> FAIL，退出码 128，GitHub 443 经 127.0.0.1 本机代理连接失败；未强推、未改代理、未绕过故障。
+- CLOSEOUT_SCOPE: 收尾文件为 task.md、execution-log.md、verification-report.md、commit-files.json，完整仓库相对路径见 commit-files.json 的 closeoutFiles 字段。普通代码提交成功，任务因未推送保持 blocked。
