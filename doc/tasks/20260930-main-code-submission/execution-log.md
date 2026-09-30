@@ -34,3 +34,8 @@
 - CLEANUP_APPLY: PASS，keep=4，delete=0，warnings=none；未删除当前任务或其他任务文件。
 - PUSH: git push origin int_qms -> FAIL，退出码 128，GitHub 443 经 127.0.0.1 本机代理连接失败；未强推、未改代理、未绕过故障。
 - CLOSEOUT_SCOPE: 收尾文件为 task.md、execution-log.md、verification-report.md、commit-files.json，完整仓库相对路径见 commit-files.json 的 closeoutFiles 字段。普通代码提交成功，任务因未推送保持 blocked。
+
+- CLOSEOUT_COMMIT: 9459c94686a8931752b0e74ee493227ca4ae9044，docs(qms): record code submission and push blocker；四个收尾文件，清单见 commit-files.json 的 closeoutFiles。
+- FINAL_PRECHECK: 本地已形成基线和收尾两个提交，origin/int_qms 未同步；271 个本地附件及并行新增未跟踪文件保留，不删文件、不加入宽泛 ignore。
+- CONCURRENT_CHANGES: 基线提交后其他线程新增 3 个已跟踪改动；完整路径见 commit-files.json 的 concurrentChangesAfterBaseline。本任务只保存此次清单和提交回执，不暂存这些后续并行改动。
+- RECEIPT_SCOPE: 本轮回执只更新 task.md、execution-log.md、commit-files.json，记录实际收尾 hash；无实现改动。

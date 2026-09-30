@@ -815,5 +815,12 @@
     "doc/tasks/20260930-main-code-submission/execution-log.md",
     "doc/tasks/20260930-main-code-submission/verification-report.md",
     "doc/tasks/20260930-main-code-submission/commit-files.json"
-  ]
+  ],
+  "closeoutCommit": "9459c94686a8931752b0e74ee493227ca4ae9044",
+  "concurrentChangesAfterBaseline": [
+    "AGENTS.md",
+    "doc/tasks/20260930-dcc-parallel-management/execution-log.md",
+    "doc/tasks/20260930-dcc-parallel-management/task.md"
+  ],
+  "untrackedFilesAfterCloseoutCount": 578
 }

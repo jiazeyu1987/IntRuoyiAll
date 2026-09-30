@@ -12,10 +12,10 @@
 - [x] 端口合同与差异检查通过。
 - [x] 修正 staged 新增文档格式，并排除任务临时附件。
 - [x] 完成独立基线提交。
-- [ ] 提交当前任务收尾记录。
+- [x] 提交当前任务收尾记录。
 - [ ] 推送 origin/int_qms 并核对结果。
 - [x] cleanup preview/apply 通过，keep=4、delete=0。
-- [ ] 验证最终 Git 状态。
+- [x] 验证 Git 状态；本地 ahead，推送阻塞，后续并行改动保留。
 
 ## Expected Verification
 
