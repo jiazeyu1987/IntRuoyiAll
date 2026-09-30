@@ -112,13 +112,18 @@ assert.match(
 )
 assert.match(
   currentVersionLookupBlock,
-  /formData\.changeType\s*=\s*'REVISION'/,
-  '文件编号命中现行版本时必须自动切换为升版，避免同编号新建 master。'
+  /formData\.changeType\s*=\s*'NEW'/,
+  '文件编号命中现行版本时，普通上传仍必须保持 NEW，由上传入口阻断已有逻辑身份。'
 )
 assert.match(
   currentVersionLookupBlock,
-  /revisionTargetControlledFileId\s*=\s*info\.currentControlledFileId/,
-  '文件编号命中现行版本时必须绑定现行版本作为升版目标。'
+  /revisionTargetControlledFileId\s*=\s*null[\s\S]*revisionSourceControlledFileId\s*=\s*null/,
+  '文件编号命中现行版本时，上传入口不得绑定升版目标或来源版本。'
+)
+assert.doesNotMatch(
+  currentVersionLookupBlock,
+  /formData\.changeType\s*=\s*'REVISION'|revisionTargetControlledFileId\s*=\s*info\.currentControlledFileId/,
+  '上传入口不得把已有逻辑文件自动切换为 REVISION 升版。'
 )
 assert.match(
   uploadPage,
@@ -127,8 +132,8 @@ assert.match(
 )
 assert.match(
   uploadPage,
-  /当前变更方式：{{ formData\.changeType === 'REVISION' \? '升版' : '新建' }}/,
-  '现行版本面板必须展示当前变更方式，避免用户误判新建或升版状态。'
+  /该逻辑文件已存在；请到文件浏览中检出后再检入新版本。/,
+  '现行版本面板必须提示已有逻辑文件不能通过上传入口升版。'
 )
 for (const label of ['原版本路径', '源文件路径', '受控文件路径']) {
   assert.match(

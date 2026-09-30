@@ -373,6 +373,7 @@ const viewerFrameRef = ref<HTMLDivElement>()
 const pageEntries = ref<Array<{ pageNumber: number; width: number; height: number }>>([])
 const canvasRefMap = new Map<number, HTMLCanvasElement>()
 const renderVersion = ref(0)
+let previewUnmounted = false
 const pdfLoadingTask = shallowRef<ViewerLoadingTask | null>(null)
 const pdfDocument = shallowRef<ViewerCanvasDocumentProxy | null>(null)
 const resolvedPreviewMetadata = shallowRef<ControlledFilePreviewMetadataVO | null>(null)
@@ -391,6 +392,9 @@ const VIEWER_ZOOM_STEP_PERCENT = 25
 const DEFAULT_VIEWER_ZOOM_PERCENT = 100
 const viewerZoomPercent = ref(DEFAULT_VIEWER_ZOOM_PERCENT)
 const viewerRotationDegrees = ref(0)
+
+const isCurrentRenderVersion = (currentRenderVersion: number) =>
+  !previewUnmounted && currentRenderVersion === renderVersion.value
 
 const resolvedWatermarkText = computed(() => String(resolvedWatermark.value?.text || '').trim())
 const resolvedWatermarkLabel = computed(() => getPreviewWatermarkBadgeLabel(resolvedWatermark.value))
@@ -512,35 +516,57 @@ const revokeMediaObjectUrl = () => {
   }
 }
 
-const destroyPdfArtifacts = async () => {
+const destroyPdfArtifacts = async (currentRenderVersion?: number) => {
+  if (currentRenderVersion !== undefined && !isCurrentRenderVersion(currentRenderVersion)) {
+    return
+  }
+  const documentToDestroy = pdfDocument.value
+  const loadingTaskToDestroy = pdfLoadingTask.value
   pageEntries.value = []
   canvasRefMap.clear()
-  if (pdfDocument.value?.cleanup) {
-    await pdfDocument.value.cleanup()
+  if (documentToDestroy?.cleanup) {
+    await documentToDestroy.cleanup()
   }
-  if (pdfDocument.value?.destroy) {
-    await pdfDocument.value.destroy()
-  } else if (pdfLoadingTask.value?.destroy) {
-    await pdfLoadingTask.value.destroy()
+  if (documentToDestroy?.destroy) {
+    await documentToDestroy.destroy()
+  } else if (loadingTaskToDestroy?.destroy) {
+    await loadingTaskToDestroy.destroy()
   }
-  pdfDocument.value = null
-  pdfLoadingTask.value = null
+  if (pdfDocument.value === documentToDestroy) {
+    pdfDocument.value = null
+  }
+  if (pdfLoadingTask.value === loadingTaskToDestroy) {
+    pdfLoadingTask.value = null
+  }
 }
 
-const resetPreviewState = async () => {
+const resetPreviewState = async (currentRenderVersion?: number) => {
+  if (currentRenderVersion !== undefined && !isCurrentRenderVersion(currentRenderVersion)) {
+    return
+  }
   revokeMediaObjectUrl()
   textPreviewContent.value = ''
   currentPdfBytes.value = null
-  await destroyPdfArtifacts()
+  await destroyPdfArtifacts(currentRenderVersion)
+  if (currentRenderVersion !== undefined && !isCurrentRenderVersion(currentRenderVersion)) {
+    return
+  }
 }
 
-const resolvePreviewBlob = async () => {
+const resolvePreviewBlob = async (currentRenderVersion: number) => {
   if (props.previewBlob instanceof Uint8Array) {
+    if (!isCurrentRenderVersion(currentRenderVersion)) {
+      return null
+    }
     return { bytes: props.previewBlob, blob: new Blob([props.previewBlob]) }
   }
   if (props.previewBlob instanceof Blob) {
+    const bytes = new Uint8Array(await props.previewBlob.arrayBuffer())
+    if (!isCurrentRenderVersion(currentRenderVersion)) {
+      return null
+    }
     return {
-      bytes: new Uint8Array(await props.previewBlob.arrayBuffer()),
+      bytes,
       blob: props.previewBlob
     }
   }
@@ -549,12 +575,19 @@ const resolvePreviewBlob = async () => {
       resolvedOnlinePreviewSource.value,
       resolvedPreviewMetadata.value || undefined
     )
+    if (!isCurrentRenderVersion(currentRenderVersion)) {
+      return null
+    }
     resolvedWatermark.value = withTraceableWatermark(
       preview.watermark,
       resolvedWatermark.value?.traceCode
     )
+    const bytes = new Uint8Array(await preview.blob.arrayBuffer())
+    if (!isCurrentRenderVersion(currentRenderVersion)) {
+      return null
+    }
     return {
-      bytes: new Uint8Array(await preview.blob.arrayBuffer()),
+      bytes,
       blob: preview.blob
     }
   }
@@ -577,7 +610,7 @@ const renderPdfPages = async (
   })
   pdfLoadingTask.value = loadingTask
   const loadedDocument = (await loadingTask.promise) as ViewerCanvasDocumentProxy
-  if (currentRenderVersion !== renderVersion.value) {
+  if (!isCurrentRenderVersion(currentRenderVersion)) {
     await loadingTask.destroy?.()
     return
   }
@@ -585,6 +618,11 @@ const renderPdfPages = async (
   const nextPageEntries: Array<{ pageNumber: number; width: number; height: number }> = []
   for (let pageNumber = 1; pageNumber <= loadedDocument.numPages; pageNumber += 1) {
     const page = await loadedDocument.getPage(pageNumber)
+    if (!isCurrentRenderVersion(currentRenderVersion)) {
+      page.cleanup?.()
+      await loadedDocument.destroy?.()
+      return
+    }
     const viewport = page.getViewport({ scale })
     nextPageEntries.push({
       pageNumber,
@@ -595,12 +633,19 @@ const renderPdfPages = async (
   }
   pageEntries.value = nextPageEntries
   await nextTick()
+  if (!isCurrentRenderVersion(currentRenderVersion)) {
+    return
+  }
   const outputScale = window.devicePixelRatio || 1
   for (const pageEntry of pageEntries.value) {
-    if (currentRenderVersion !== renderVersion.value) {
+    if (!isCurrentRenderVersion(currentRenderVersion)) {
       return
     }
     const page = await loadedDocument.getPage(pageEntry.pageNumber)
+    if (!isCurrentRenderVersion(currentRenderVersion)) {
+      page.cleanup?.()
+      return
+    }
     const canvas = canvasRefMap.get(pageEntry.pageNumber)
     if (!canvas) {
       continue
@@ -619,6 +664,10 @@ const renderPdfPages = async (
       canvasContext: context,
       viewport: renderViewport
     }).promise
+    if (!isCurrentRenderVersion(currentRenderVersion)) {
+      page.cleanup?.()
+      return
+    }
     drawControlledPreviewStamp(context, viewport, resolvedWatermark.value, outputScale)
     page.cleanup?.()
   }
@@ -637,10 +686,16 @@ const loadPreview = async () => {
   resolvedOnlyOfficeDocumentUrl.value = props.onlyofficeDocumentUrl || ''
   resolvedPreviewUnavailableReason.value = props.previewUnavailableReason || ''
   resolvedFileName.value = props.title || ''
-  await resetPreviewState()
+  await resetPreviewState(currentRenderVersion)
+  if (!isCurrentRenderVersion(currentRenderVersion)) {
+    return
+  }
   try {
     if (resolvedOnlinePreviewSource.value && !props.previewKind) {
       const metadata = await getOnlineFilePreviewMetadata(resolvedOnlinePreviewSource.value)
+      if (!isCurrentRenderVersion(currentRenderVersion)) {
+        return
+      }
       resolvedPreviewMetadata.value = metadata
       resolvedPreviewKind.value = metadata.previewKind
       resolvedOnlyOfficeBaseUrl.value = metadata.onlyofficeBaseUrl || ''
@@ -665,28 +720,39 @@ const loadPreview = async () => {
       return
     }
 
-    const previewPayload = await resolvePreviewBlob()
+    const previewPayload = await resolvePreviewBlob(currentRenderVersion)
     if (!previewPayload) {
       return
     }
 
     if (['IMAGE', 'VIDEO', 'AUDIO'].includes(resolvedPreviewKind.value)) {
+      if (!isCurrentRenderVersion(currentRenderVersion)) {
+        return
+      }
       mediaObjectUrl.value = URL.createObjectURL(previewPayload.blob)
       return
     }
 
     if (resolvedPreviewKind.value === 'TEXT') {
+      if (!isCurrentRenderVersion(currentRenderVersion)) {
+        return
+      }
       textPreviewContent.value = new TextDecoder().decode(previewPayload.bytes)
       return
     }
 
+    if (!isCurrentRenderVersion(currentRenderVersion)) {
+      return
+    }
     const scale = getProtectedViewerRenderScale(viewerFrameRef.value?.clientWidth)
     currentPdfBytes.value = previewPayload.bytes
     await renderPdfPages(previewPayload.bytes, currentRenderVersion, scale)
   } catch (error) {
-    errorMessage.value = resolveViewerErrorMessage(error, '受控预览加载失败，请查看错误提示后重试。')
+    if (isCurrentRenderVersion(currentRenderVersion)) {
+      errorMessage.value = resolveViewerErrorMessage(error, '受控预览加载失败，请查看错误提示后重试。')
+    }
   } finally {
-    if (currentRenderVersion === renderVersion.value) {
+    if (isCurrentRenderVersion(currentRenderVersion)) {
       loading.value = false
     }
   }
@@ -699,10 +765,12 @@ const handleWindowKeydown = (event: KeyboardEvent) => {
 }
 
 onMounted(() => {
+  previewUnmounted = false
   window.addEventListener('keydown', handleWindowKeydown, true)
 })
 
 onBeforeUnmount(() => {
+  previewUnmounted = true
   renderVersion.value += 1
   void resetPreviewState()
   window.removeEventListener('keydown', handleWindowKeydown, true)

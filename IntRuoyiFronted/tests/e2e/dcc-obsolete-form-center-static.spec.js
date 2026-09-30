@@ -9,6 +9,7 @@ const workflowApi = readSource('src/api/dcc/controlledFile/workflow.ts')
 const formInstanceApi = readSource('src/api/form-center/instance.ts')
 const processInstanceApi = readSource('src/api/bpm/processInstance/index.ts')
 const detailPage = readSource('src/views/dcc/controlled-file/detail/index.vue')
+const actionPanel = readSource('src/views/form-center/business-action/ActionFormPanel.vue')
 const policySetupE2e = readSource('tests/e2e/dcc-obsolete-policy-ui-setup.e2e.cjs')
 const realSubmitE2e = readSource('tests/e2e/dcc-obsolete-form-center-real-submit.e2e.cjs')
 
@@ -29,23 +30,18 @@ assert.match(
 )
 assert.match(
   detailPage,
-  /getProcessDefinition\(undefined,\s*resolution\.bpmProcessKey\)/,
-  'DCC obsolete dialog must resolve the BPM process definition from the form-center policy key.'
+  /previewApprovalRoute/,
+  'DCC obsolete dialog must resolve the frozen DCC route before submission.'
 )
 assert.match(
   detailPage,
-  /getApprovalDetail/,
-  'DCC obsolete dialog must load BPM approval detail before submission.'
+  /actionType:\s*'OBSOLETE'/,
+  'DCC obsolete route preview must use the obsolete action type.'
 )
 assert.match(
   detailPage,
-  /CandidateStrategy\.START_USER_SELECT/,
-  'DCC obsolete dialog must detect BPM starter-selected approval nodes.'
-)
-assert.match(
-  detailPage,
-  /NodeId\.START_USER_NODE_ID/,
-  'DCC obsolete dialog must query start-node approval detail for starter-selected assignees.'
+  /resolvedUserIds/,
+  'DCC obsolete dialog must freeze route-resolved department owners into the form payload.'
 )
 
 assert.match(
@@ -101,16 +97,6 @@ assert.match(
 )
 assert.match(
   detailPage,
-  /UserSelectV2[\s\S]*v-model="obsoleteDialog\.startUserSelectAssignees\[task\.id\]"/,
-  'DCC obsolete dialog must render a visible user selector for each starter-selected BPM node.'
-)
-assert.match(
-  detailPage,
-  /请选择\$\{task\.name\}审批人/,
-  'DCC obsolete submit must fail visibly when a required starter-selected approver is missing.'
-)
-assert.match(
-  detailPage,
   /data-testid="dcc-obsolete-form-center-panel"[\s\S]*<ActionFormPanel/,
   'DCC obsolete dialog must delegate approval submission to the embedded form-center action panel.'
 )
@@ -123,6 +109,16 @@ assert.match(
   detailPage,
   /:context="dccObsoleteFormCenterContext"/,
   'DCC obsolete form-center panel must bind the official controlled-file business context.'
+)
+assert.match(
+  actionPanel,
+  /JSON\.stringify\(props\.formData\.startUserSelectAssignees/,
+  'Form-center action panel must reload when frozen DCC assignees arrive asynchronously.'
+)
+assert.match(
+  actionPanel,
+  /configuredAssignees\s*=\s*props\.formData\.startUserSelectAssignees[\s\S]*actionFormData\.value\.startUserSelectAssignees\s*=\s*configuredAssignees/,
+  'Form-center action panel must prefer current frozen DCC assignees over stale draft snapshots.'
 )
 assert.doesNotMatch(
   detailPage,

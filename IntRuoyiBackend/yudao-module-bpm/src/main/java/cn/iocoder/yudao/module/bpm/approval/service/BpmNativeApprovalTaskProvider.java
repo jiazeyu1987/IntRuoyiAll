@@ -97,6 +97,11 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
     );
     private static final Set<String> TODO_ACTIONS = Set.of("OPEN_DETAIL", "APPROVE", "REJECT");
     private static final Set<String> DETAIL_ACTIONS = Set.of("OPEN_DETAIL");
+    private static final Set<String> DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEYS = Set.of(
+            "dcc-controlled-file-upload",
+            "dcc-controlled-file-revision",
+            "dcc-controlled-file-obsolete"
+    );
 
     private final BpmProcessInstanceService processInstanceService;
     private final BpmProcessInstanceCopyService copyService;
@@ -231,14 +236,26 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         List<Task> visibleTasks = new ArrayList<>(page.getList());
         visibleTasks.addAll(listRegistrationCertificateCandidateTodos(context, reqVO, visibleTasks));
         Map<String, ProcessInstance> processInstancesById = requireRuntimeProcessInstances(visibleTasks);
-        List<ApprovalTaskSummary> summaries = visibleTasks.stream()
+        List<Task> nonDccTasks = visibleTasks.stream()
+                .filter(task -> !isDccControlledFileTask(requireRuntimeProcessInstance(
+                        processInstancesById, task.getProcessInstanceId())))
+                .toList();
+        List<ApprovalTaskSummary> summaries = nonDccTasks.stream()
                 .map(task -> toTodoSummary(task, requireRuntimeProcessInstance(
                         processInstancesById, task.getProcessInstanceId())))
                 .toList();
         if (summaries.isEmpty() && hasText(context.getKeyword())) {
             return pageTodoByProcessInstanceId(context);
         }
-        return new PageResult<>(summaries, Math.max(page.getTotal(), summaries.size()));
+        return new PageResult<>(summaries, Math.max(
+                summaries.size(), page.getTotal() - (visibleTasks.size() - nonDccTasks.size())));
+    }
+
+    private static boolean isDccControlledFileTask(ProcessInstance processInstance) {
+        if (processInstance == null || processInstance.getProcessDefinitionKey() == null) {
+            return false;
+        }
+        return DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEYS.contains(processInstance.getProcessDefinitionKey());
     }
 
     private List<Task> listRegistrationCertificateCandidateTodos(ApprovalTaskQueryContext context,

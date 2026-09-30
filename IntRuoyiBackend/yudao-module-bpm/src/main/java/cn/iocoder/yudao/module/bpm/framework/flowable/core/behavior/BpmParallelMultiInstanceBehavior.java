@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.bpm.framework.flowable.core.behavior;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.iocoder.yudao.framework.common.util.collection.SetUtils;
 import cn.iocoder.yudao.module.bpm.enums.definition.BpmChildProcessMultiInstanceSourceTypeEnum;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.candidate.BpmTaskCandidateInvoker;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.util.BpmnModelUtils;
@@ -17,7 +16,6 @@ import org.flowable.engine.impl.bpmn.behavior.ParallelMultiInstanceBehavior;
 import org.flowable.common.engine.api.delegate.Expression;
 
 import java.util.List;
-import java.util.Set;
 
 /**
  * 自定义的【并行】的【多个】流程任务的 assignee 负责人的分配
@@ -59,14 +57,14 @@ public class BpmParallelMultiInstanceBehavior extends ParallelMultiInstanceBehav
         if (execution.getCurrentFlowElement() instanceof UserTask) {
             // 获取任务的所有处理人
             @SuppressWarnings("unchecked")
-            Set<Long> assigneeUserIds = (Set<Long>) execution.getVariable(super.collectionVariable, Set.class);
+            List<Long> assigneeUserIds = (List<Long>) execution.getVariable(super.collectionVariable, List.class);
             if (assigneeUserIds == null) {
-                assigneeUserIds = taskCandidateInvoker.calculateUsersByTask(execution);
+                assigneeUserIds = taskCandidateInvoker.calculateUserListByTask(execution);
                 if (CollUtil.isEmpty(assigneeUserIds)) {
                     // 特殊：如果没有处理人的情况下，至少有一个 null 空元素，避免自动通过！
                     // 这样，保证在 BpmUserTaskActivityBehavior 至少创建出一个 Task 任务
                     // 用途：1）审批人为空时；2）审批类型为自动通过、自动拒绝时
-                    assigneeUserIds = SetUtils.asSet((Long) null);
+                    assigneeUserIds = List.of((Long) null);
                 }
                 execution.setVariableLocal(super.collectionVariable, assigneeUserIds);
             }

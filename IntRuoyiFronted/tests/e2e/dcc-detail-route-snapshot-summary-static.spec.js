@@ -39,7 +39,7 @@ assert.match(
   'detail route snapshot section must expose a stable test id'
 )
 
-for (const label of ['阶段', '候选摘要', '审批要求', '解析审批人']) {
+for (const label of ['阶段', '候选摘要', '审批要求', '解析审批人', '部门义务', '负责人快照']) {
   assert.match(routeSnapshotSection, new RegExp(`label="${label}"`), `route snapshot table must show ${label}`)
 }
 
@@ -94,7 +94,37 @@ assert.match(
 )
 assert.match(
   detailPage,
-  /resolveUserNames\(row\.resolvedUserIds\)/,
+  /candidateSourceNames/,
+  'route snapshot rows must expose matrix department names'
+)
+assert.match(
+  detailPage,
+  /departmentObligations/,
+  'route snapshot rows must expose department obligations'
+)
+assert.match(
+  detailPage,
+  /obligationId/,
+  'route snapshot rows must expose stable obligation identifiers'
+)
+assert.match(
+  detailPage,
+  /snapshotId/,
+  'route snapshot rows must expose stable assignee snapshot identifiers'
+)
+assert.match(
+  detailPage,
+  /leaderConfigDigest/,
+  'route snapshot rows must expose the frozen leader configuration digest'
+)
+assert.match(
+  detailPage,
+  /resolvedUserNames:\s*resolveUserNames\(snapshot\.resolvedUserIds\)/,
+  'route snapshot rows must map resolved approver ids to readable names'
+)
+assert.match(
+  routeSnapshotSection,
+  /{{ row\.resolvedUserNames }}/,
   'route snapshot table must keep resolved approver names visible'
 )
 assert.match(
@@ -106,6 +136,16 @@ assert.match(
   routeSnapshotSection,
   /data-testid="dcc-detail-route-snapshot-requirement"/,
   'approval requirement cell must expose a stable test id'
+)
+assert.match(
+  routeSnapshotSection,
+  /data-testid="dcc-detail-route-snapshot-obligation"/,
+  'department obligation cell must expose a stable test id'
+)
+assert.match(
+  routeSnapshotSection,
+  /data-testid="dcc-detail-route-snapshot-assignee-snapshot"/,
+  'assignee snapshot cell must expose a stable test id'
 )
 assert.doesNotMatch(
   routeSnapshotSection,

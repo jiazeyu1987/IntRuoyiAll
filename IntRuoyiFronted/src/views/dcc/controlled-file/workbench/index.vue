@@ -295,11 +295,21 @@
   >
     <el-alert v-if="revisionDialog.error" role="alert" type="error" :closable="false" :title="revisionDialog.error" />
     <div v-loading="revisionDialog.loading" class="revision-dialog-body">
-      <template v-if="revisionDialog.options?.openMajorRevision">
-        <el-alert type="info" :closable="false" show-icon title="当前文件已有开放大版本，只能关联现有版本" />
-        <div class="revision-existing">
-          {{ revisionDialog.options.openMajorRevision.versionNo }} / {{ controlledFileStatusLabel(revisionDialog.options.openMajorRevision.status) }}
-        </div>
+      <template v-if="revisionDialog.options?.sourceIterations?.length">
+        <el-alert type="info" :closable="false" show-icon title="请选择需要关联的现有升版版本" />
+        <el-radio-group v-model="revisionDialog.selectedRevisionControlledFileId" class="revision-existing-list">
+          <el-radio
+            v-for="item in revisionDialog.options.sourceIterations"
+            :key="item.controlledFileId"
+            :label="item.controlledFileId"
+            border
+          >
+            {{ item.versionNo }} / {{ controlledFileStatusLabel(item.status) }}
+            <el-tag v-if="item.controlledFileId === revisionDialog.options.openMajorRevision?.controlledFileId" size="small" type="success">
+              当前开放大版本
+            </el-tag>
+          </el-radio>
+        </el-radio-group>
       </template>
       <el-alert
         v-else type="warning" :closable="false" show-icon
@@ -315,7 +325,7 @@
       <el-button :disabled="revisionDialog.submitting" @click="revisionDialog.visible = false">取消</el-button>
       <el-button
         type="primary" :loading="revisionDialog.submitting"
-        :disabled="revisionDialog.loading || !revisionDialog.options?.openMajorRevision" @click="submitImpactRevision"
+        :disabled="revisionDialog.loading || !revisionDialog.selectedRevisionControlledFileId" @click="submitImpactRevision"
       >
         关联现有版本
       </el-button>
@@ -328,7 +338,10 @@ import { ElMessageBox } from 'element-plus'
 import * as TaskApi from '@/api/bpm/task'
 import { getProcessInstance, type ProcessInstanceVO } from '@/api/bpm/processInstance'
 import {
+  CONTROLLED_FILE_OBSOLETE_PROCESS_DEFINITION_KEY,
   CONTROLLED_FILE_PROCESS_DEFINITION_KEY,
+  CONTROLLED_FILE_REVISION_PROCESS_DEFINITION_KEY,
+  CONTROLLED_FILE_UPLOAD_PROCESS_DEFINITION_KEY,
   EXTERNAL_FILE_REVIEW_PROCESS_DEFINITION_KEY,
   getControlledFile,
   getControlledFileBrowserPage,
@@ -419,13 +432,17 @@ const revisionDialog = reactive<{
   error: string
   task: DccPublicationImpactTaskVO | null
   options: DccPublicationImpactRevisionOptionsVO | null
+  selectedRevisionControlledFileId: string
   reason: string
 }>({ visible: false, loading: false, submitting: false, error: '', task: null,
-  options: null, reason: '' })
+  options: null, selectedRevisionControlledFileId: '', reason: '' })
 const message = useMessage()
 
 const DCC_APPROVAL_PROCESS_DEFINITION_KEYS = [
   CONTROLLED_FILE_PROCESS_DEFINITION_KEY,
+  CONTROLLED_FILE_UPLOAD_PROCESS_DEFINITION_KEY,
+  CONTROLLED_FILE_REVISION_PROCESS_DEFINITION_KEY,
+  CONTROLLED_FILE_OBSOLETE_PROCESS_DEFINITION_KEY,
   EXTERNAL_FILE_REVIEW_PROCESS_DEFINITION_KEY
 ]
 
@@ -449,6 +466,18 @@ const openApproval = (row: DccWorkbenchTaskRow) => {
     throw new Error('DCC 工作台审批待办缺少受控文件 ID')
   }
   openControlledFileViewer(router, route, row.controlledFile.id, 'workbench-approval')
+}
+
+const resolveControlledFileIdFromProcessInstance = (processInstance: ProcessInstanceVO) => {
+  const businessObjectId = String(processInstance.businessObjectId || '').trim()
+  if (/^\d+$/.test(businessObjectId)) {
+    return businessObjectId
+  }
+  const businessKey = String(processInstance.businessKey || '').trim()
+  if (/^\d+$/.test(businessKey)) {
+    return businessKey
+  }
+  return ''
 }
 
 const buildTaskRows = async () => {
@@ -475,12 +504,14 @@ const buildTaskRows = async () => {
   const processInstances = await Promise.all(
     taskRows.map((item) => getProcessInstance(item.processInstanceId))
   )
-  const businessKeys = processInstances.map((item: ProcessInstanceVO) => item.businessKey)
-  if (businessKeys.some((item) => !item || !/^\d+$/.test(item))) {
-    throw new Error('DCC 工作台审批待办缺少 businessKey，无法定位受控文件')
+  const controlledFileIds = processInstances.map((item: ProcessInstanceVO) =>
+    resolveControlledFileIdFromProcessInstance(item)
+  )
+  if (controlledFileIds.some((item) => !item)) {
+    throw new Error('DCC 工作台审批待办缺少受控文件业务对象 ID，无法定位受控文件')
   }
   const [files, taskLists] = await Promise.all([
-    Promise.all(businessKeys.map((id) => getControlledFile(id as string))),
+    Promise.all(controlledFileIds.map((id) => getControlledFile(id))),
     Promise.all(taskRows.map((item) => TaskApi.getTaskListByProcessInstanceId(item.processInstanceId)))
   ])
 
@@ -649,10 +680,15 @@ const openImpactRevisionDialog = async (row: DccPublicationImpactTaskVO) => {
   revisionDialog.error = ''
   revisionDialog.task = row
   revisionDialog.options = null
+  revisionDialog.selectedRevisionControlledFileId = ''
   revisionDialog.reason = ''
   impactActionTaskId.value = row.id
   try {
     revisionDialog.options = await getImpactRevisionOptions(row.id)
+    revisionDialog.selectedRevisionControlledFileId =
+      revisionDialog.options.openMajorRevision?.controlledFileId ||
+      revisionDialog.options.sourceIterations?.[0]?.controlledFileId ||
+      ''
   } catch (error) {
     revisionDialog.error = resolveImpactError(error)
   } finally {
@@ -673,8 +709,8 @@ const submitImpactRevision = async () => {
     revisionDialog.error = '升版或关联原因不能为空'
     return
   }
-  if (!options.openMajorRevision) {
-    revisionDialog.error = '请先通过检出、检入创建开放大版本，再关联本影响任务'
+  if (!revisionDialog.selectedRevisionControlledFileId) {
+    revisionDialog.error = '请选择需要关联的现有升版版本'
     return
   }
   revisionDialog.submitting = true
@@ -683,7 +719,7 @@ const submitImpactRevision = async () => {
   try {
     await linkImpactRevision(task.id, {
       expectedVersion: task.rowVersion,
-      revisionControlledFileId: options.openMajorRevision.controlledFileId,
+      revisionControlledFileId: revisionDialog.selectedRevisionControlledFileId,
       reason
     })
     message.success('已关联现有开放大版本')
@@ -853,6 +889,28 @@ onMounted(refreshWorkbench)
 
 .dcc-workbench-row-actions :deep(.el-button + .el-button) {
   margin-left: 0;
+}
+
+.revision-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.revision-existing-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.revision-existing-list :deep(.el-radio.is-bordered) {
+  display: flex;
+  width: 100%;
+  height: auto;
+  min-height: 40px;
+  margin-right: 0;
+  white-space: normal;
 }
 
 @media (max-width: 1180px) {

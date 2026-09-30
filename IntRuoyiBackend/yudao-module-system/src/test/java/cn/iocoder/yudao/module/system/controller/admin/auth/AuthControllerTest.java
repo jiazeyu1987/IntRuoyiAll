@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthInvoiceVouche
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthInvoiceVoucherPrintTicketValidateRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthInvoiceVoucherPrintAssistantStatusRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthPermissionInfoRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthPreLoginPasswordChangeReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.MenuDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
@@ -31,6 +32,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import jakarta.annotation.security.PermitAll;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
@@ -43,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 import static cn.hutool.core.collection.ListUtil.toList;
 import static cn.iocoder.yudao.framework.common.util.collection.SetUtils.asSet;
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomPojo;
+import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.AUTH_LOGIN_BAD_CREDENTIALS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -50,6 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
@@ -84,6 +88,38 @@ class AuthControllerTest extends BaseMockitoUnitTest {
     private InvoiceVoucherPrintKingdeeConfigProvider kingdeeConfigProvider;
     @Mock
     private ValueOperations<String, String> valueOperations;
+
+    @Test
+    void changePasswordBeforeLoginDelegatesWithoutReturningAuthenticationToken() throws NoSuchMethodException {
+        AuthPreLoginPasswordChangeReqVO reqVO = new AuthPreLoginPasswordChangeReqVO();
+        reqVO.setUsername("testuser");
+        reqVO.setOldPassword("current-password");
+        reqVO.setNewPassword("Strong@2026");
+
+        var result = authController.changePasswordBeforeLogin(reqVO);
+
+        assertTrue(result.getData());
+        verify(authService).changePasswordBeforeLogin(eq(reqVO));
+        verify(userService, never()).getUser(any());
+        assertTrue(AuthController.class.getMethod("changePasswordBeforeLogin",
+                AuthPreLoginPasswordChangeReqVO.class).isAnnotationPresent(PermitAll.class));
+    }
+
+    @Test
+    void changePasswordBeforeLoginPropagatesGenericAuthenticationFailure() {
+        AuthPreLoginPasswordChangeReqVO reqVO = new AuthPreLoginPasswordChangeReqVO();
+        reqVO.setUsername("testuser");
+        reqVO.setOldPassword("current-password");
+        reqVO.setNewPassword("Strong@2026");
+        ServiceException genericFailure = new ServiceException(AUTH_LOGIN_BAD_CREDENTIALS);
+        org.mockito.Mockito.doThrow(genericFailure).when(authService).changePasswordBeforeLogin(eq(reqVO));
+
+        ServiceException externalFailure = assertThrows(ServiceException.class,
+                () -> authController.changePasswordBeforeLogin(reqVO));
+
+        assertEquals(AUTH_LOGIN_BAD_CREDENTIALS.getCode(), externalFailure.getCode());
+        assertEquals(AUTH_LOGIN_BAD_CREDENTIALS.getMsg(), externalFailure.getMessage());
+    }
 
     @Test
     void getPermissionInfoHidesSrmMenusAndPermissionsWhenUserLacksSrmAdminRole() {

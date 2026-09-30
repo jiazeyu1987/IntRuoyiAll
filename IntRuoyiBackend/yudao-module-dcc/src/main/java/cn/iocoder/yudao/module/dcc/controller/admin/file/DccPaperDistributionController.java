@@ -33,10 +33,10 @@ public class DccPaperDistributionController {
 
     @GetMapping("/{id}/paper-distributions/records")
     @Operation(summary = "List paper distribution and recovery records")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+        @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
     public CommonResult<List<DccPaperDistributionRecordRespVO>> getPaperDistributionRecords(
             @PathVariable("id") Long id) {
-        return success(paperDistributionAckService.getPaperDistributionRecords(id));
+        return success(paperDistributionAckService.getPaperDistributionRecords(getLoginUserId(), id));
     }
 
     @PostMapping("/{id}/paper-distributions/{distributionId}/acknowledge")

@@ -9,6 +9,7 @@ import { isUrl } from '@/utils/is'
 
 const { wsCache } = useCache()
 const permissionControlledStaticRoutes = showroomRoutes
+const ALWAYS_AVAILABLE_HIDDEN_SHELL_NAMES = new Set(['DccCenterHidden'])
 const SIGNATURE_GOVERNANCE_ROUTE_PATH = '/signature-governance'
 const SIGNATURE_GOVERNANCE_ROUTE_NAME = 'SignatureGovernance'
 const SIGNATURE_RECORDS_ROUTE_PATH = 'signature-records'
@@ -624,6 +625,22 @@ const mergeStaticRoutesWithDynamicRoutes = (
       )
       mergedStaticRoutes[duplicateStaticRouteIndex] = mergedRoute
       mergedRoutesToReplace.push(mergedRoute)
+    }
+  }
+
+  const registeredRouteNames = new Set(
+    [...authorizedStaticRoutes, ...mergedRoutesToReplace]
+      .map((route) => String(route.name || ''))
+      .filter(Boolean)
+  )
+  for (const staticRoute of mergedStaticRoutes) {
+    const routeName = String(staticRoute.name || '')
+    if (
+      ALWAYS_AVAILABLE_HIDDEN_SHELL_NAMES.has(routeName) &&
+      !registeredRouteNames.has(routeName)
+    ) {
+      authorizedStaticRoutes.push(staticRoute)
+      registeredRouteNames.add(routeName)
     }
   }
 

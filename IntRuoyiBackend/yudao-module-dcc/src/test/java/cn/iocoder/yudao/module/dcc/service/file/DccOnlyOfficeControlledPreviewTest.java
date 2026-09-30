@@ -94,6 +94,8 @@ class DccOnlyOfficeControlledPreviewTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileViewMatrixAccessService viewMatrixAccessService;
     @Mock
+    private DccControlledFileAssignmentScopeService assignmentScopeService;
+    @Mock
     private DccDirectoryAccessPermissionService directoryAccessPermissionService;
     @Mock
     private FileMapper fileMapper;
@@ -124,6 +126,8 @@ class DccOnlyOfficeControlledPreviewTest extends BaseMockitoUnitTest {
         ReflectionTestUtils.setField(queryService, "onlyOfficePreviewProperties", properties);
         ReflectionTestUtils.setField(queryService, "onlyOfficePreviewTokenService", tokenService);
         lenient().when(viewMatrixAccessService.canAccessCurrentViewMatrix(any(), any(DccControlledFileDO.class)))
+                .thenReturn(true);
+        lenient().when(assignmentScopeService.isWithinAssignedFileScope(any(), any()))
                 .thenReturn(true);
         lenient().when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
                 .thenReturn(java.util.Optional.of(DCC_REFERENCE));

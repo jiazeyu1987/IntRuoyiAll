@@ -17,6 +17,7 @@ import org.springframework.validation.annotation.Validated;
 import jakarta.annotation.Resource;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * BPM 消息 Service 实现类
@@ -29,6 +30,12 @@ import java.util.Map;
 public class BpmMessageServiceImpl implements BpmMessageService {
 
     static final String DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEY = "dcc-controlled-file-approval";
+    private static final Set<String> DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEYS = Set.of(
+            DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEY,
+            "dcc-controlled-file-upload",
+            "dcc-controlled-file-revision",
+            "dcc-controlled-file-obsolete"
+    );
     static final String DCC_REGISTRATION_CERTIFICATE_ACCESS_PROCESS_DEFINITION_KEY =
             "dcc-registration-certificate-access";
     static final String EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY = "mes-edhr-approval-v1";
@@ -179,7 +186,8 @@ public class BpmMessageServiceImpl implements BpmMessageService {
     }
 
     private boolean isDccNotifyInboxProcess(String processDefinitionKey) {
-        return DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)
+        return processDefinitionKey != null
+                && DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEYS.contains(processDefinitionKey)
                 || DCC_REGISTRATION_CERTIFICATE_ACCESS_PROCESS_DEFINITION_KEY.equals(processDefinitionKey);
     }
 

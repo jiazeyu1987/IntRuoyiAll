@@ -34,6 +34,8 @@ public class DccControlledFileSubmitReqVO {
 
     private String drawingPdfUploadTicket;
 
+    private List<DccControlledFileAttachmentUploadTicketReqVO> attachmentUploadTickets;
+
     @JsonIgnore
     @Schema(hidden = true)
     private Long originalFileId;

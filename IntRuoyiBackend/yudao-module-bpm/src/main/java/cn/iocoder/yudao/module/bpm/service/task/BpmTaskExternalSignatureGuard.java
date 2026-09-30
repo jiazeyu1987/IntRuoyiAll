@@ -9,6 +9,8 @@ import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.task.api.Task;
 import org.springframework.stereotype.Component;
 
+import java.util.Set;
+
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.bpm.enums.ErrorCodeConstants.TASK_APPROVAL_REQUIRES_DCC_SIGNATURE;
 import static cn.iocoder.yudao.module.bpm.enums.ErrorCodeConstants.TASK_APPROVAL_REQUIRES_EDHR_SIGNATURE;
@@ -18,6 +20,12 @@ public class BpmTaskExternalSignatureGuard {
 
     static final String DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEY = "dcc-controlled-file-approval";
     static final String EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY = "mes-edhr-approval-v1";
+    private static final Set<String> DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEYS = Set.of(
+            DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEY,
+            "dcc-controlled-file-upload",
+            "dcc-controlled-file-revision",
+            "dcc-controlled-file-obsolete"
+    );
 
     @Resource
     private BpmProcessDefinitionService processDefinitionService;
@@ -40,7 +48,7 @@ public class BpmTaskExternalSignatureGuard {
         if (definition == null) {
             return;
         }
-        if (StrUtil.equals(definition.getKey(), DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEY)
+        if (DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEYS.contains(definition.getKey())
                 && (changesApprovalRoute || !isFormCenterOwnedProcess(task))) {
             throw exception(TASK_APPROVAL_REQUIRES_DCC_SIGNATURE);
         }

@@ -24,6 +24,22 @@
         </el-select>
         <span v-else>{{ currentCategory?.name || '-' }}</span>
       </el-form-item>
+      <el-form-item label="动作类型" prop="actionType">
+        <el-select
+          v-model="formData.actionType"
+          class="!w-320px"
+          :disabled="editingRoute"
+          placeholder="请选择动作类型"
+          @change="handleActionTypeChange"
+        >
+          <el-option
+            v-for="item in ROUTE_ACTION_TYPE_OPTIONS"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
       <el-form-item label="生效时间" prop="effectiveTime">
         <el-date-picker
           v-model="formData.effectiveTime"
@@ -40,7 +56,7 @@
         <div>
           <div class="text-13px font-600">审批节点</div>
           <div class="mt-2px text-12px text-gray-500">
-            固定四阶段审批策略：会签审核全部通过 100%，其余阶段任意通过，四个阶段均为必经。
+            {{ routePolicyDescription }}
           </div>
         </div>
         <el-button type="primary" plain @click="addNode">
@@ -89,7 +105,7 @@
               />
             </el-select>
             <el-select
-              v-else
+              v-else-if="row.candidateSourceType === 'POSITION'"
               v-model="row.candidateSourceId"
               class="w-full"
               clearable
@@ -98,6 +114,24 @@
             >
               <el-option
                 v-for="item in positions"
+                :key="item.id"
+                :label="item.name"
+                :value="item.id"
+              />
+            </el-select>
+            <el-select
+              v-else
+              v-model="row.candidateSourceIds"
+              class="w-full"
+              clearable
+              filterable
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="请选择会签部门"
+            >
+              <el-option
+                v-for="item in departments"
                 :key="item.id"
                 :label="item.name"
                 :value="item.id"
@@ -145,14 +179,17 @@
 import type { FormRules } from 'element-plus'
 import {
   saveApprovalRoute,
+  type ControlledFileApprovalRouteActionType,
   type ControlledFileApprovalRouteNodeVO,
   type ControlledFileApprovalRouteSaveReqVO,
   type ControlledFileApprovalRouteVO
 } from '@/api/dcc/controlledFile/approvalRoutes'
 import type { ControlledFileApprovalPositionVO } from '@/api/dcc/controlledFile/approvalPositions'
 import type { ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
+import type { DeptVO } from '@/api/system/dept'
 import type { UserVO } from '@/api/system/user'
 import {
+  ROUTE_ACTION_TYPE_OPTIONS,
   ROUTE_CANDIDATE_SOURCE_OPTIONS
 } from '../../shared/options'
 import { formatDccSimpleUserLabel } from '../../shared/utils'
@@ -208,9 +245,45 @@ const FIXED_ROUTE_APPROVAL_POLICY: Record<number, FixedRouteApprovalPolicy> = {
   }
 }
 
-const getFixedRouteApprovalPolicy = (stageNo?: number) =>
-  stageNo == null ? undefined : FIXED_ROUTE_APPROVAL_POLICY[stageNo]
 const EXPECTED_FIXED_ROUTE_STAGE_NOS = [1, 2, 3, 4]
+const ACTION_ROUTE_APPROVAL_POLICY: Record<number, FixedRouteApprovalPolicy> = {
+  1: {
+    approveMethod: 'ALL',
+    approveRatio: 100,
+    required: true,
+    label: '全部通过',
+    ratioLabel: '100%',
+    requiredLabel: '必经'
+  },
+  2: {
+    approveMethod: 'ANY',
+    approveRatio: null,
+    required: true,
+    label: '任意通过',
+    ratioLabel: '-',
+    requiredLabel: '必经'
+  },
+  3: {
+    approveMethod: 'ANY',
+    approveRatio: null,
+    required: true,
+    label: '任意通过',
+    ratioLabel: '-',
+    requiredLabel: '必经'
+  }
+}
+const EXPECTED_ACTION_ROUTE_STAGE_NOS = [1, 2, 3]
+const ACTION_ROUTE_DEFAULT_STAGE_NAMES: Record<number, string> = {
+  1: '会签',
+  2: '批准',
+  3: '文控审核'
+}
+const LEGACY_ROUTE_DEFAULT_STAGE_NAMES: Record<number, string> = {
+  1: '文控审核',
+  2: '会签审核',
+  3: '会签批准',
+  4: '文控批准'
+}
 
 const { t } = useI18n()
 const message = useMessage()
@@ -222,8 +295,10 @@ const categories = ref<Array<ControlledFileCategoryVO & { id: number }>>([])
 const editingRoute = ref(false)
 const users = ref<UserVO[]>([])
 const positions = ref<ControlledFileApprovalPositionVO[]>([])
+const departments = ref<DeptVO[]>([])
 const formData = ref<ControlledFileApprovalRouteFormVO>({
   categoryId: undefined,
+  actionType: 'NEW',
   effectiveTime: '',
   remark: '',
   nodes: []
@@ -231,6 +306,7 @@ const formData = ref<ControlledFileApprovalRouteFormVO>({
 
 const formRules = reactive<FormRules>({
   categoryId: [{ required: true, message: '文件类别不能为空', trigger: 'change' }],
+  actionType: [{ required: true, message: '动作类型不能为空', trigger: 'change' }],
   effectiveTime: [{ required: true, message: '生效时间不能为空', trigger: 'change' }]
 })
 
@@ -238,15 +314,35 @@ const emit = defineEmits<{
   success: []
 }>()
 
+const isLegacyRoute = computed(() => formData.value.actionType === 'LEGACY')
+const currentRouteApprovalPolicy = computed(() =>
+  isLegacyRoute.value ? FIXED_ROUTE_APPROVAL_POLICY : ACTION_ROUTE_APPROVAL_POLICY
+)
+const currentExpectedStageNos = computed(() =>
+  isLegacyRoute.value ? EXPECTED_FIXED_ROUTE_STAGE_NOS : EXPECTED_ACTION_ROUTE_STAGE_NOS
+)
+const routePolicyDescription = computed(() =>
+  isLegacyRoute.value
+    ? '历史通用流程固定四阶段：文控审核、会签审核、会签批准、文控批准。'
+    : '三动作流程固定三阶段：会签全部通过 100%，批准与文控审核任意通过。'
+)
+const getFixedRouteApprovalPolicy = (stageNo?: number) =>
+  stageNo == null ? undefined : currentRouteApprovalPolicy.value[stageNo]
+
+const resolveDefaultStageName = (stageNo: number) =>
+  isLegacyRoute.value
+    ? LEGACY_ROUTE_DEFAULT_STAGE_NAMES[stageNo] || ''
+    : ACTION_ROUTE_DEFAULT_STAGE_NAMES[stageNo] || ''
+
 const createDefaultNode = (index: number): ControlledFileApprovalRouteNodeVO => ({
-  stageNo: index + 1,
-  stageName: '',
-  candidateSourceType: 'POSITION',
+  stageNo: currentExpectedStageNos.value[index] ?? index + 1,
+  stageName: resolveDefaultStageName(currentExpectedStageNos.value[index] ?? index + 1),
+  candidateSourceType: !isLegacyRoute.value && index === 0 ? 'DEPT' : 'POSITION',
   candidateSourceId: 0,
   candidateSourceIds: [],
-  approveMethod: getFixedRouteApprovalPolicy(index + 1)?.approveMethod || 'ANY',
-  approveRatio: getFixedRouteApprovalPolicy(index + 1)?.approveRatio ?? undefined,
-  required: getFixedRouteApprovalPolicy(index + 1)?.required ?? true,
+  approveMethod: getFixedRouteApprovalPolicy(currentExpectedStageNos.value[index] ?? index + 1)?.approveMethod || 'ANY',
+  approveRatio: getFixedRouteApprovalPolicy(currentExpectedStageNos.value[index] ?? index + 1)?.approveRatio ?? undefined,
+  required: getFixedRouteApprovalPolicy(currentExpectedStageNos.value[index] ?? index + 1)?.required ?? true,
   sort: index + 1
 })
 
@@ -261,6 +357,7 @@ const open = (payload: {
   route?: ControlledFileApprovalRouteVO
   users: UserVO[]
   positions: ControlledFileApprovalPositionVO[]
+  departments: DeptVO[]
 }) => {
   dialogVisible.value = true
   editingRoute.value = Boolean(payload.route)
@@ -273,11 +370,13 @@ const open = (payload: {
   }
   users.value = payload.users
   positions.value = payload.positions
+  departments.value = payload.departments
   resetForm()
   if (payload.route) {
     formData.value = {
       ...JSON.parse(JSON.stringify(payload.route)),
       categoryId: routeCategory?.id ?? payload.route.categoryId,
+      actionType: payload.route.actionType || 'LEGACY',
       effectiveTime: formatDateTimeValue(payload.route.effectiveTime, ''),
       nodes: payload.route.nodes.map((item) => ({
         ...JSON.parse(JSON.stringify(item)),
@@ -286,12 +385,13 @@ const open = (payload: {
     }
   } else {
     formData.value.categoryId = routeCategory?.id
+    formData.value.actionType = 'NEW'
   }
   dialogTitle.value = payload.route
     ? `编辑路线 - ${currentCategory.value?.name || payload.route.categoryName || '-'}`
     : '新增路线'
   if (formData.value.nodes.length === 0) {
-    addNode()
+    resetNodesForActionType()
   }
 }
 
@@ -300,6 +400,7 @@ defineExpose({ open })
 const resetForm = () => {
   formData.value = {
     categoryId: undefined,
+    actionType: 'NEW',
     effectiveTime: '',
     remark: '',
     nodes: []
@@ -311,6 +412,14 @@ const addNode = () => {
   formData.value.nodes.push(createDefaultNode(formData.value.nodes.length))
 }
 
+const resetNodesForActionType = () => {
+  formData.value.nodes = currentExpectedStageNos.value.map((_, index) => createDefaultNode(index))
+}
+
+const handleActionTypeChange = () => {
+  resetNodesForActionType()
+}
+
 const removeNode = (index: number) => {
   formData.value.nodes.splice(index, 1)
 }
@@ -320,16 +429,27 @@ const handleSourceTypeChange = (row: ControlledFileApprovalRouteNodeVO) => {
   row.candidateSourceIds = []
 }
 
+const resolveCandidateSourceIds = (item: ControlledFileApprovalRouteNodeVO) => {
+  const ids = item.candidateSourceType === 'DEPT'
+    ? item.candidateSourceIds || []
+    : item.candidateSourceId
+      ? [item.candidateSourceId]
+      : []
+  return ids.filter((id): id is number => Number.isFinite(Number(id)) && Number(id) > 0)
+}
+
 const normalizeRouteNodeFixedApprovalPolicy = (item: ControlledFileApprovalRouteNodeVO) => {
   const fixedPolicy = getFixedRouteApprovalPolicy(item.stageNo)
-  if (!fixedPolicy || !item.candidateSourceId) {
+  const candidateSourceIds = resolveCandidateSourceIds(item)
+  if (!fixedPolicy || candidateSourceIds.length === 0) {
     return undefined
   }
   return {
     stageNo: item.stageNo,
     stageName: item.stageName,
     candidateSourceType: item.candidateSourceType,
-    candidateSourceId: item.candidateSourceId as number,
+    candidateSourceId: candidateSourceIds[0],
+    candidateSourceIds,
     approveMethod: fixedPolicy.approveMethod,
     approveRatio: fixedPolicy.approveRatio ?? undefined,
     required: fixedPolicy.required,
@@ -338,15 +458,19 @@ const normalizeRouteNodeFixedApprovalPolicy = (item: ControlledFileApprovalRoute
 }
 
 const validateFixedRouteStageUniqueness = (nodes: ControlledFileApprovalRouteSaveReqVO['nodes']) => {
-  const expectedStageNos = new Set<number>(EXPECTED_FIXED_ROUTE_STAGE_NOS)
+  const expectedStageNos = new Set<number>(currentExpectedStageNos.value)
   const seenStageNos = new Set<number>()
   if (nodes.length !== expectedStageNos.size) {
-    message.warning('固定四阶段审批路线要求每个阶段恰好一条')
+    message.warning(isLegacyRoute.value ? '固定四阶段审批路线要求每个阶段恰好一条' : '三动作审批路线要求每个阶段恰好一条')
     return false
   }
   for (const node of nodes) {
     if (!expectedStageNos.has(node.stageNo) || seenStageNos.has(node.stageNo)) {
-      message.warning('固定四阶段审批路线要求每个阶段恰好一条')
+      message.warning(isLegacyRoute.value ? '固定四阶段审批路线要求每个阶段恰好一条' : '三动作审批路线要求每个阶段恰好一条')
+      return false
+    }
+    if (!isLegacyRoute.value && node.stageNo === 1 && node.candidateSourceType !== 'DEPT') {
+      message.warning('三动作流程的会签节点只能选择部门负责人')
       return false
     }
     seenStageNos.add(node.stageNo)
@@ -372,7 +496,7 @@ const submitForm = async () => {
       !item.stageNo ||
       !item.stageName ||
       !item.candidateSourceType ||
-      !item.candidateSourceId ||
+      resolveCandidateSourceIds(item).length === 0 ||
       !item.approveMethod
   )
   if (invalidNode) {
@@ -398,6 +522,7 @@ const submitForm = async () => {
   formLoading.value = true
   try {
     await saveApprovalRoute(formData.value.categoryId, {
+      actionType: formData.value.actionType as ControlledFileApprovalRouteActionType,
       effectiveTime: formData.value.effectiveTime,
       remark: formData.value.remark,
       nodes: fixedNodes

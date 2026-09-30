@@ -48,8 +48,18 @@ assert.match(
 )
 assert.match(
   distributionTab,
-  /getCategoryDistributionRules\(category\.id\)/,
-  'distribution rules tab must load rules for each category row'
+  /visibleCategoryIds = computed\(\(\) => paginatedRows\.value\.map\(\(row\) => row\.categoryId\)\)/,
+  'distribution rules tab must derive rule loading from currently visible category rows'
+)
+assert.match(
+  distributionTab,
+  /categoryIds\.map\(async \(categoryId\) => \{[\s\S]*getCategoryDistributionRules\(categoryId\)/,
+  'distribution rules tab must load rules for each visible category id'
+)
+assert.match(
+  distributionTab,
+  /loadedRuleCategoryIds\.value\.has\(categoryId\)[\s\S]*nextLoadedRuleCategoryIds\.add\(categoryId\)/,
+  'distribution rules tab must remember loaded category ids and avoid repeat loading'
 )
 assert.match(
   distributionTab,

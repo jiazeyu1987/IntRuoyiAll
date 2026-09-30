@@ -130,6 +130,8 @@ export default {
     tenantNamePlaceholder: 'Please Enter Tenant Name',
     usernamePlaceholder: 'Please Enter Username',
     passwordPlaceholder: 'Please Enter Password',
+    passwordChangeRequired: 'Change your password before continuing.',
+    changePassword: 'Change Password and Sign In',
     codePlaceholder: 'Please Enter Verification Code',
     mobileTitle: 'Mobile sign in',
     mobileNumber: 'Mobile Number',

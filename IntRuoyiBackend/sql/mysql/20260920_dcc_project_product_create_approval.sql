@@ -1,0 +1,76 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260903_dcc_explicit_data_relation.sql; type=schema; riskLevel=medium
+-- DCC 项目代码与产品目录联合新建审批链：申请记录与一对一关系记录。
+
+CREATE TABLE IF NOT EXISTS dcc_project_product_create_request (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    tenant_id BIGINT NOT NULL DEFAULT 0,
+    project_name VARCHAR(255) NOT NULL,
+    project_code VARCHAR(128) NOT NULL,
+    project_leader VARCHAR(128) NOT NULL,
+    product_code VARCHAR(128) NOT NULL,
+    product_name VARCHAR(512) NOT NULL,
+    classification VARCHAR(32) NOT NULL,
+    remark VARCHAR(2048) NULL,
+    status VARCHAR(32) NOT NULL,
+    applicant_user_id BIGINT NOT NULL,
+    reviewer_user_id BIGINT NULL,
+    approver_user_id BIGINT NULL,
+    review_reason VARCHAR(2048) NULL,
+    approval_reason VARCHAR(2048) NULL,
+    reject_reason VARCHAR(2048) NULL,
+    write_error_code VARCHAR(64) NULL,
+    write_error_message VARCHAR(4096) NULL,
+    generated_project_code_id BIGINT NULL,
+    generated_product_catalog_id BIGINT NULL,
+    relation_id BIGINT NULL,
+    previous_request_id BIGINT NULL,
+    submitted_time DATETIME NULL,
+    reviewed_time DATETIME NULL,
+    approved_time DATETIME NULL,
+    completed_time DATETIME NULL,
+    failed_time DATETIME NULL,
+    creator VARCHAR(64) NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updater VARCHAR(64) NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted BIT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_dcc_ppcr_tenant_status (tenant_id, status, deleted),
+    KEY idx_dcc_ppcr_project_code (tenant_id, project_code, deleted),
+    KEY idx_dcc_ppcr_product_code (tenant_id, product_code, deleted),
+    KEY idx_dcc_ppcr_product_name (tenant_id, product_name, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='DCC项目代码与产品目录联合新建申请';
+
+CREATE TABLE IF NOT EXISTS dcc_project_product_relation (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    tenant_id BIGINT NOT NULL DEFAULT 0,
+    request_id BIGINT NOT NULL,
+    project_code_id BIGINT NOT NULL,
+    product_catalog_id BIGINT NOT NULL,
+    relation_status VARCHAR(32) NOT NULL,
+    creator VARCHAR(64) NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updater VARCHAR(64) NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted BIT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_dcc_ppr_request (tenant_id, request_id, deleted),
+    UNIQUE KEY uk_dcc_ppr_project (tenant_id, project_code_id, deleted),
+    UNIQUE KEY uk_dcc_ppr_product (tenant_id, product_catalog_id, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='DCC项目代码与产品目录一对一关系';
+
+CREATE TABLE IF NOT EXISTS dcc_project_product_identity_claim (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    tenant_id BIGINT NOT NULL DEFAULT 0,
+    request_id BIGINT NOT NULL,
+    identity_type VARCHAR(32) NOT NULL,
+    identity_value VARCHAR(512) NOT NULL,
+    creator VARCHAR(64) NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updater VARCHAR(64) NULL,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted BIT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_dcc_ppic_identity (tenant_id, identity_type, identity_value, deleted),
+    KEY idx_dcc_ppic_request (tenant_id, request_id, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='DCC项目代码与产品目录联合新建唯一身份占用';

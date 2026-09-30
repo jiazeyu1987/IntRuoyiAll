@@ -243,6 +243,7 @@ CREATE TABLE IF NOT EXISTS `dcc_position_assignment` (
 CREATE TABLE IF NOT EXISTS `dcc_category_approval_route` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `category_id` BIGINT NOT NULL,
+  `action_type` VARCHAR(32) NOT NULL DEFAULT 'LEGACY',
   `version_no` INT NOT NULL,
   `active` TINYINT NOT NULL DEFAULT 1,
   `effective_time` DATETIME NULL,
@@ -253,7 +254,8 @@ CREATE TABLE IF NOT EXISTS `dcc_category_approval_route` (
   `creator` VARCHAR(64) NULL,
   `updater` VARCHAR(64) NULL,
   `deleted` TINYINT NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_category_route_action_version` (`category_id`, `action_type`, `version_no`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_category_approval_route_node` (
@@ -307,6 +309,24 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_master` (
   `deleted` TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   CONSTRAINT `uk_dcc_controlled_file_master_chain` UNIQUE (`category_id`, `directory_id`, `file_name`)
+);
+
+CREATE TABLE IF NOT EXISTS `intern_user_time_maintenance_audit` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NULL,
+  `target_type` VARCHAR(64) NOT NULL,
+  `target_id` BIGINT NOT NULL,
+  `target_name` VARCHAR(256) NULL,
+  `field_name` VARCHAR(64) NOT NULL,
+  `old_time` DATETIME NULL,
+  `new_time` DATETIME NOT NULL,
+  `operator_user_id` BIGINT NULL,
+  `creator` VARCHAR(64) NULL,
+  `create_time` DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) NULL,
+  `update_time` DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
@@ -713,6 +733,31 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_route_snapshot` (
   `updater` VARCHAR(64) NULL,
   `deleted` TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_task_assignee_snapshot` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` BIGINT NOT NULL,
+  `node_instance_id` VARCHAR(128) NULL,
+  `stage_code` VARCHAR(64) NOT NULL,
+  `stage_no` INT NULL,
+  `department_id` BIGINT NOT NULL,
+  `department_name` VARCHAR(128) NULL,
+  `assignee_user_id` BIGINT NOT NULL,
+  `assignee_name` VARCHAR(128) NULL,
+  `leader_config_digest` VARCHAR(255) NULL,
+  `bpm_task_id` VARCHAR(128) NULL,
+  `obligation_id` VARCHAR(128) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_task_assignee_obligation` (`tenant_id`, `controlled_file_id`, `stage_code`, `department_id`, `deleted`),
+  UNIQUE KEY `uk_dcc_task_assignee_obligation_id` (`tenant_id`, `obligation_id`, `deleted`),
+  KEY `idx_dcc_task_assignee_user` (`tenant_id`, `assignee_user_id`, `stage_code`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_external_file_review` (

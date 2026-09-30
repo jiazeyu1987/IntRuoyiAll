@@ -12,5 +12,7 @@ public class DccControlledFileSubmitIterationReqVO {
     @NotBlank(message = "idempotencyKey is required")
     private String idempotencyKey;
 
+    private Boolean needTraining;
+
     private List<Long> selectedSignoffUserIds;
 }

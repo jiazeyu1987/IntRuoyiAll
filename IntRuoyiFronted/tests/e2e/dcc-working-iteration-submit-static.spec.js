@@ -23,6 +23,21 @@ assert.match(
 assert.match(page, /submitControlledFileWorkingIteration\(id,[\s\S]*idempotencyKey:/)
 assert.match(
   page,
+  /checkControlledFileRouteReadiness\(\{\s*categoryId:\s*row\.categoryId,\s*actionType:\s*'REVISION'\s*\}\)/,
+  'working iteration submit must precheck the REVISION action route before submitting'
+)
+assert.doesNotMatch(
+  page,
+  /checkControlledFileRouteReadiness\(\{[\s\S]*selectedSignoffUserIds/,
+  'working iteration route readiness must not send deprecated manual signoff users'
+)
+assert.doesNotMatch(
+  page,
+  /submitControlledFileWorkingIteration\(id,[\s\S]*selectedSignoffUserIds/,
+  'working iteration submit must not send deprecated manual signoff users'
+)
+assert.match(
+  page,
   /const browserMutationIdempotencyKeys = reactive<Record<string, string>>\(\{\}\)/,
   'browser-side DCC mutations must cache idempotency keys per action target for retry replay'
 )
@@ -43,12 +58,13 @@ assert.match(
 )
 assert.match(
   page,
-  /deleteBrowserMutationIdempotencyKey\('major-revision', file\.id\)/,
-  'successful major revision creation must release its cached idempotency key after the server has accepted it'
+  /<el-radio value="MAJOR" :disabled="!canMajorCheckin">大版本（下一修订版，需项目所有者）<\/el-radio>/,
+  'major version creation must be selected inside the controlled check-in flow and gated by project owner capability'
 )
 assert.match(page, /message\.success\(`版本 \$\{file\.versionNo\} 已提交审批`\)/)
-assert.match(page, /confirmButtonText: '创建修订版'/)
-assert.match(page, /message\.success\(`大版本已创建，工作版本记录编号 \$\{newId\}`\)/)
+assert.match(page, /checkinForm\.versionChangeType === 'MAJOR'[\s\S]*'大版本检入必须上传新的源文件'/)
+assert.match(page, /checkinControlledFile\(baseId,[\s\S]*versionChangeType:\s*checkinForm\.versionChangeType/)
+assert.match(page, /message\.success\(`文件已检入，新版本为 \$\{updatedFile\.versionNo\}`\)/)
 assert.doesNotMatch(page, /创建并送审|大版本已创建并送审/)
 
 console.log('PASS: DCC WORKING iteration submit static contract')

@@ -26,6 +26,11 @@ export type OnlineFilePreviewSource =
       controlledFileId: number | string
     }
   | {
+      type: 'DCC_CONTROLLED_FILE_ATTACHMENT'
+      controlledFileId: number | string
+      attachmentId: number | string
+    }
+  | {
       type: 'EDHR_SPECIAL_NODE_ATTACHMENT'
       fileId: number | string
     }
@@ -39,6 +44,15 @@ export const buildDccControlledFilePreviewSource = (
 ): OnlineFilePreviewSource => ({
   type: 'DCC_CONTROLLED_FILE',
   controlledFileId
+})
+
+export const buildDccControlledFileAttachmentPreviewSource = (
+  controlledFileId: number | string,
+  attachmentId: number | string
+): OnlineFilePreviewSource => ({
+  type: 'DCC_CONTROLLED_FILE_ATTACHMENT',
+  controlledFileId,
+  attachmentId
 })
 
 export const buildEdhrSpecialNodeAttachmentPreviewSource = (
@@ -60,6 +74,16 @@ export const getOnlineFilePreviewMetadata = async (
 ): Promise<ControlledFilePreviewMetadataVO> => {
   if (source.type === 'DCC_CONTROLLED_FILE') {
     return getControlledFilePreviewMetadata(source.controlledFileId)
+  }
+  if (source.type === 'DCC_CONTROLLED_FILE_ATTACHMENT') {
+    return parseControlledFilePreviewMetadata(
+      await request.get({
+        url: `/dcc/controlled-files/${source.controlledFileId}/attachments/${source.attachmentId}/preview-metadata`,
+        headers: {
+          [DCC_REQUEST_ID_HEADER]: `DCC-CONTROLLED-ATTACHMENT-PREVIEW-META-${generateUUID()}`
+        }
+      })
+    )
   }
   if (source.type === 'DCC_REGISTRATION_CERTIFICATE') {
     return parseControlledFilePreviewMetadata(
@@ -86,14 +110,18 @@ export const previewOnlineFileWithWatermark = async (
   const resolvedMetadata = metadata || (await getOnlineFilePreviewMetadata(source))
   const previewUrl = source.type === 'DCC_REGISTRATION_CERTIFICATE'
     ? `/dcc/registration-certificates/files/${source.businessFileId}/preview`
-    : `/dcc/file-preview/files/${source.fileId}/preview`
+    : source.type === 'DCC_CONTROLLED_FILE_ATTACHMENT'
+      ? `/dcc/controlled-files/${source.controlledFileId}/attachments/${source.attachmentId}/preview`
+      : `/dcc/file-preview/files/${source.fileId}/preview`
   const response = await axios.get<Blob>(
     `${axiosConfig.base_url}${previewUrl}`,
     {
       headers: buildControlledFileBinaryHeaders({
         ...(source.type === 'DCC_REGISTRATION_CERTIFICATE'
           ? { [DCC_REQUEST_ID_HEADER]: `DCC-REG-CERT-PREVIEW-BINARY-${generateUUID()}` }
-          : {}),
+          : source.type === 'DCC_CONTROLLED_FILE_ATTACHMENT'
+            ? { [DCC_REQUEST_ID_HEADER]: `DCC-CONTROLLED-ATTACHMENT-PREVIEW-BINARY-${generateUUID()}` }
+            : {}),
         [DCC_VIEWER_TOKEN_HEADER]: resolvedMetadata.viewerToken,
         [DCC_VIEWER_TOKEN_ID_HEADER]: resolvedMetadata.viewerTokenId,
         [DCC_VIEWER_TOKEN_NONCE_HEADER]: resolvedMetadata.viewerTokenNonce,

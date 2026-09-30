@@ -21,6 +21,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileCheckoutMappe
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMetadataChangeItemMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMetadataChangeMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingProgressMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileAccessEventMapper;
@@ -31,15 +32,21 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import jakarta.annotation.Resource;
+import javax.sql.DataSource;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Import(DccControlledFileLogQueryServiceImpl.class)
@@ -48,30 +55,36 @@ class DccControlledFileLogQueryServiceTest extends BaseDbUnitTest {
     @Resource
     private DccControlledFileLogQueryService logQueryService;
     @Resource
+    private DataSource dataSource;
+    @MockitoSpyBean
     private DccControlledFileMapper controlledFileMapper;
-    @Resource
+    @MockitoSpyBean
     private DccControlledFileCheckoutMapper checkoutMapper;
-    @Resource
+    @MockitoSpyBean
     private DccControlledFileDistributionMapper distributionMapper;
-    @Resource
+    @MockitoSpyBean
     private DccControlledFileAccessEventMapper accessEventMapper;
-    @Resource
+    @MockitoSpyBean
     private DccControlledFileAccessLogMapper accessLogMapper;
-    @Resource
+    @MockitoSpyBean
     private DccProjectCodeMapper projectCodeMapper;
-    @Resource
+    @MockitoSpyBean
     private DccProjectCodeAssignmentMapper assignmentMapper;
-    @Resource
+    @MockitoSpyBean
     private DccControlledFileMetadataChangeMapper changeMapper;
-    @Resource
+    @MockitoSpyBean
     private DccControlledFileMetadataChangeItemMapper changeItemMapper;
-    @Resource
+    @MockitoSpyBean
+    private DccProjectCodeAssignmentFileMapper assignmentFileMapper;
+    @MockitoSpyBean
     private DccControlledFileTrainingProgressMapper trainingProgressMapper;
     @MockitoBean
     private AdminUserApi adminUserApi;
 
     @BeforeEach
     void setUpUsers() {
+        new JdbcTemplate(dataSource).execute(
+                "ALTER TABLE dcc_controlled_file_access_log ALTER COLUMN user_id DROP NOT NULL");
         when(adminUserApi.getUserList(ArgumentMatchers.<Collection<Long>>any())).thenAnswer(invocation -> {
             Collection<Long> ids = invocation.getArgument(0);
             return ids.stream()
@@ -211,7 +224,7 @@ class DccControlledFileLogQueryServiceTest extends BaseDbUnitTest {
 
         DccControlledFileLogPageReqVO req = new DccControlledFileLogPageReqVO();
         req.setLogType("PROJECT_CODE_CHANGE");
-        req.setControlledFileId(file.getId());
+        req.setControlledFileId(String.valueOf(file.getId()));
         PageResult<DccControlledFileLogRespVO> page = logQueryService.getLogPage(req);
 
         assertEquals(1L, page.getTotal());
@@ -236,7 +249,7 @@ class DccControlledFileLogQueryServiceTest extends BaseDbUnitTest {
 
         DccControlledFileLogPageReqVO req = new DccControlledFileLogPageReqVO();
         req.setLogType("FILE_CHECKOUT");
-        req.setControlledFileId(file.getId());
+        req.setControlledFileId(String.valueOf(file.getId()));
         req.setMasterId(file.getMasterId());
         req.setVersionNo("A/1");
         PageResult<DccControlledFileLogRespVO> page = logQueryService.getLogPage(req);
@@ -246,6 +259,153 @@ class DccControlledFileLogQueryServiceTest extends BaseDbUnitTest {
         assertEquals("撤销检出", row.getActionLabel());
         assertEquals("不再修改", row.getReason());
         assertTrue(row.getDetailJson().contains("CANCELLED"));
+    }
+
+    @Test
+    void getLogPage_preservesNineteenDigitControlledFileIdAtQueryBoundary() {
+        long fileId = 2054545668044084022L;
+        DccControlledFileDO file = insertLifecycleFile(fileId, "DOC-19-DIGIT", "19位受控文件", "B/1",
+                "OBSOLETE", "OBSOLETE", LocalDateTime.of(2026, 8, 4, 9, 0),
+                LocalDateTime.of(2026, 8, 4, 10, 0), LocalDateTime.of(2026, 8, 4, 11, 0),
+                2201L, LocalDateTime.of(2026, 8, 4, 12, 0));
+
+        DccControlledFileLogPageReqVO req = new DccControlledFileLogPageReqVO();
+        req.setLogType("FILE_OBSOLETE");
+        req.setControlledFileId(String.valueOf(file.getId()));
+
+        PageResult<DccControlledFileLogRespVO> page = logQueryService.getLogPage(req);
+
+        assertEquals(1L, page.getTotal());
+        assertEquals("DOC-19-DIGIT", page.getList().get(0).getFileNumber());
+    }
+
+    @Test
+    void getLogPage_withControlledFileIdUsesScopedSourceQueries() {
+        long fileId = 2054545668044084024L;
+        insertLifecycleFile(fileId, "DOC-SCOPED", "精确查询", "B/1",
+                "OBSOLETE", "OBSOLETE", LocalDateTime.of(2026, 8, 5, 9, 0),
+                LocalDateTime.of(2026, 8, 5, 10, 0), LocalDateTime.of(2026, 8, 5, 11, 0),
+                2201L, LocalDateTime.of(2026, 8, 5, 12, 0));
+
+        DccControlledFileLogPageReqVO req = new DccControlledFileLogPageReqVO();
+        req.setControlledFileId(String.valueOf(fileId));
+        req.setKeyword("DOC-SCOPED");
+
+        PageResult<DccControlledFileLogRespVO> page = logQueryService.getLogPage(req);
+
+        assertEquals(3L, page.getTotal());
+        verify(controlledFileMapper, never()).selectList();
+        verify(accessLogMapper, never()).selectList();
+        verify(accessEventMapper, never()).selectList();
+        verify(distributionMapper, never()).selectList();
+        verify(checkoutMapper, never()).selectList();
+        verify(assignmentMapper, never()).selectList();
+        verify(assignmentFileMapper, never()).selectList();
+        verify(changeMapper, never()).selectList();
+        verify(changeItemMapper, never()).selectList();
+        verify(trainingProgressMapper, never()).selectList();
+    }
+
+    @Test
+    void getLogPage_usesScopedEventUserNameWhenAccessLogUserIsNullAndKeepsLogUserPriority() {
+        long fileId = 2054545668044084026L;
+        DccControlledFileDO file = insertControlledFile(fileId, "DOC-AUDIT-USER", "访问用户映射", "A/1");
+        DccControlledFileDO otherFile = insertControlledFile(2054545668044084027L,
+                "DOC-AUDIT-OTHER", "其他文件", "A/1");
+        LocalDateTime occurredAt = LocalDateTime.of(2026, 9, 28, 10, 0);
+
+        DccControlledFileAccessEventDO eventUserFallback = DccControlledFileAccessEventDO.builder()
+                .accessEventCode("AE-" + fileId + "-NULL-LOG-USER")
+                .controlledFileId(fileId)
+                .fileVersionNo(file.getVersionNo())
+                .userId(2209L)
+                .accessType("PREVIEW")
+                .purpose("CONTROLLED_PREVIEW")
+                .result("SUCCESS")
+                .occurredAt(occurredAt)
+                .build();
+        accessEventMapper.insert(eventUserFallback);
+        accessLogMapper.insert(DccControlledFileAccessLogDO.builder()
+                .controlledFileId(null)
+                .accessEventId(eventUserFallback.getId())
+                .accessEventCode(eventUserFallback.getAccessEventCode())
+                .fileVersionNo(file.getVersionNo())
+                .userId(null)
+                .actionType("PREVIEW")
+                .result("SUCCESS")
+                .build());
+
+        DccControlledFileAccessEventDO eventWithBothUsers = DccControlledFileAccessEventDO.builder()
+                .accessEventCode("AE-" + fileId + "-LOG-USER-PRIORITY")
+                .controlledFileId(fileId)
+                .fileVersionNo(file.getVersionNo())
+                .userId(2210L)
+                .accessType("DOWNLOAD")
+                .purpose("CONTROLLED_DOWNLOAD")
+                .result("SUCCESS")
+                .occurredAt(occurredAt.plusMinutes(1))
+                .build();
+        accessEventMapper.insert(eventWithBothUsers);
+        accessLogMapper.insert(DccControlledFileAccessLogDO.builder()
+                .controlledFileId(fileId)
+                .accessEventId(eventWithBothUsers.getId())
+                .accessEventCode(eventWithBothUsers.getAccessEventCode())
+                .fileVersionNo(file.getVersionNo())
+                .userId(2201L)
+                .actionType("DOWNLOAD")
+                .result("SUCCESS")
+                .build());
+
+        DccControlledFileAccessEventDO otherFileEvent = DccControlledFileAccessEventDO.builder()
+                .accessEventCode("AE-OTHER-FILE")
+                .controlledFileId(otherFile.getId())
+                .fileVersionNo(otherFile.getVersionNo())
+                .userId(2299L)
+                .accessType("PREVIEW")
+                .purpose("CONTROLLED_PREVIEW")
+                .result("SUCCESS")
+                .occurredAt(occurredAt.plusMinutes(2))
+                .build();
+        accessEventMapper.insert(otherFileEvent);
+        accessLogMapper.insert(DccControlledFileAccessLogDO.builder()
+                .controlledFileId(null)
+                .accessEventId(otherFileEvent.getId())
+                .accessEventCode(otherFileEvent.getAccessEventCode())
+                .fileVersionNo(otherFile.getVersionNo())
+                .userId(2298L)
+                .actionType("PREVIEW")
+                .result("SUCCESS")
+                .build());
+
+        DccControlledFileLogPageReqVO req = new DccControlledFileLogPageReqVO();
+        req.setLogType("CONTROLLED_FILE_AUDIT");
+        req.setControlledFileId(String.valueOf(fileId));
+        PageResult<DccControlledFileLogRespVO> page = logQueryService.getLogPage(req);
+
+        assertEquals(2L, page.getTotal());
+        DccControlledFileLogRespVO eventFallbackRow = page.getList().stream()
+                .filter(row -> row.getOperatorUserId().equals(2209L))
+                .findFirst().orElseThrow();
+        assertEquals("用户2209", eventFallbackRow.getOperatorName());
+        DccControlledFileLogRespVO logUserPriorityRow = page.getList().stream()
+                .filter(row -> row.getOperatorUserId().equals(2201L))
+                .findFirst().orElseThrow();
+        assertEquals("用户2201", logUserPriorityRow.getOperatorName());
+        assertTrue(page.getList().stream().noneMatch(row -> row.getOperatorUserId().equals(2299L)));
+        verify(accessEventMapper).selectListByControlledFileId(fileId);
+        verify(accessEventMapper, never()).selectList();
+        verify(accessLogMapper, never()).selectList();
+    }
+
+    @Test
+    void getLogPage_rejectsInvalidControlledFileId() {
+        DccControlledFileLogPageReqVO req = new DccControlledFileLogPageReqVO();
+        req.setControlledFileId("2054545668044084022x");
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> logQueryService.getLogPage(req));
+
+        assertTrue(exception.getMessage().contains("controlledFileId"));
     }
 
     private DccControlledFileDO insertControlledFile(Long id, String fileNumber, String fileName, String versionNo) {

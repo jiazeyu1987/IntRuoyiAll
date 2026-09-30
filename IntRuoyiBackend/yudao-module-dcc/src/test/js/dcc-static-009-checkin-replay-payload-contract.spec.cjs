@@ -41,7 +41,7 @@ assert.match(
 const replayPayload = extract(
   queryService,
   'private boolean matchesCheckinReplayPayload',
-  'private DccWindchillVersionNumber resolveNextIteration',
+  'private boolean matchesCheckinDrawingReplay',
   'checkin replay payload'
 )
 assert.match(

@@ -58,6 +58,7 @@ export interface ControlledFileSubmitReqVO {
   sourceUploadTicket?: string
   sourceFileName?: string
   drawingPdfUploadTicket?: string
+  attachmentUploadTickets?: ControlledFileAttachmentUploadTicketVO[]
   fileName: string
   fileNumber: string
   productMasterId?: null
@@ -76,9 +77,15 @@ export interface ControlledFileSubmitReqVO {
   remark?: string
 }
 
+export interface ControlledFileAttachmentUploadTicketVO {
+  uploadTicket: string
+  sessionId: string
+}
+
 export interface ControlledFileSubmitIterationReqVO {
   idempotencyKey: string
-  selectedSignoffUserIds: number[]
+  needTraining: boolean
+  selectedSignoffUserIds?: number[]
 }
 
 export interface ControlledFileMetadataUpdateReqVO {
@@ -159,6 +166,7 @@ export interface ControlledFileUploadRespVO {
 export type UploadPreviewPurpose =
   | 'SOURCE'
   | 'DRAWING_PDF'
+  | 'ATTACHMENT'
   | 'APPROVAL_PDF'
   | 'TRAINING_RECORD'
   | 'EXTERNAL_REVIEW_OUTPUT'
@@ -180,6 +188,10 @@ export interface ControlledFileUploadTemporaryStatusRespVO {
 export interface ControlledFileUploadPreviewContext {
   categoryId: number
   sessionId: string
+  uploadContext?: 'NEW_UPLOAD' | 'CHECKIN' | 'EXTERNAL_REVIEW'
+  dccProjectCodeId?: number
+  fileTypeTaxonomyId?: number
+  fileName?: string
   controlledFileId?: number | string
   taskId?: string
 }
@@ -332,7 +344,8 @@ export interface ControlledFilePrintHtmlVO {
 
 export interface ControlledFileRoutePreviewReqVO {
   categoryId: number
-  selectedSignoffUserIds: number[]
+  actionType?: ControlledFileChangeType
+  selectedSignoffUserIds?: number[]
 }
 
 export interface ControlledFileRoutePreviewVO {
@@ -340,7 +353,7 @@ export interface ControlledFileRoutePreviewVO {
   stageCode?: string
   stageName: string
   stageOrder?: number
-  candidateSourceType: 'USER' | 'POSITION'
+  candidateSourceType: 'USER' | 'POSITION' | 'DEPT'
   candidateSourceId?: number
   candidateSourceIds: number[]
   approveMethod: 'ANY' | 'ALL'
@@ -401,6 +414,7 @@ export interface ControlledFileVersionHistoryVO {
   rejectReason?: string | null
   finalizationError?: string | null
   status: string
+  needTraining?: boolean
   publishedArtifactAvailable?: boolean
   stampedArtifactAvailable?: boolean
   currentActiveVersionNo?: string | null
@@ -660,12 +674,18 @@ export interface ControlledFileVO {
   fileNumber?: string
   publishedArtifactAvailable?: boolean
   stampedArtifactAvailable?: boolean
+  trainingRecordAvailable?: boolean
+  trainingRecordFileName?: string | null
+  distributionCompleted?: boolean
   versionNo: string
   revisionCode?: string | null
   iterationNo?: number | null
+  predecessorControlledFileId?: number | null
+  revisionBaseActiveControlledFileId?: number | null
   effectiveDate?: string
   remark?: string
   relatedFiles?: ControlledFileRelatedFileVO[]
+  attachments?: ControlledFileAttachmentVO[]
   status: string
   requesterId: number
   processInstanceId?: string
@@ -717,6 +737,7 @@ export interface ControlledFileCheckinReqVO {
   drawingPdfUploadTicket?: string
   sessionId?: string
   changeDescription: string
+  needTraining: boolean
   remark?: string
 }
 
@@ -732,6 +753,17 @@ export interface ControlledFileRelatedFileVO {
   fileName?: string | null
   versionNo?: string | null
   status?: string | null
+}
+
+export interface ControlledFileAttachmentVO {
+  attachmentId: number
+  storageFileId: number
+  fileName: string
+  contentType?: string | null
+  fileSize?: number | null
+  fileSha256?: string | null
+  previewKind?: ControlledFilePreviewKind | null
+  sortNo?: number | null
 }
 
 export interface ExternalFileReviewVO {
@@ -1092,6 +1124,9 @@ export interface NasPermissionRestoreStatusVO extends NasPermissionRestoreApplyR
 }
 
 export const CONTROLLED_FILE_PROCESS_DEFINITION_KEY = 'dcc-controlled-file-approval'
+export const CONTROLLED_FILE_UPLOAD_PROCESS_DEFINITION_KEY = 'dcc-controlled-file-upload'
+export const CONTROLLED_FILE_REVISION_PROCESS_DEFINITION_KEY = 'dcc-controlled-file-revision'
+export const CONTROLLED_FILE_OBSOLETE_PROCESS_DEFINITION_KEY = 'dcc-controlled-file-obsolete'
 export const EXTERNAL_FILE_REVIEW_PROCESS_DEFINITION_KEY = 'dcc-external-file-review'
 export const CONTROLLED_FILE_TASK_PASSWORD_INVALID_CODE = 1080000022
 export const CONTROLLED_FILE_PREVIEW_WATERMARK_HEADER = 'x-dcc-preview-watermark'
@@ -1617,6 +1652,11 @@ export const createWorkingControlledFile = async (data: ControlledFileSubmitReqV
   return await request.post({ url: '/dcc/controlled-files/working', data })
 }
 
+export const submitControlledFile = async (data: ControlledFileSubmitReqVO): Promise<number> => {
+  assertControlledFileSubmitRequest(data, 'DCC controlled file submit')
+  return await request.post({ url: '/dcc/controlled-files/submit', data })
+}
+
 export const submitControlledFileWorkingIteration = async (
   id: number | string,
   data: ControlledFileSubmitIterationReqVO
@@ -1642,6 +1682,10 @@ export const uploadControlledFilePreview = async (
   formData.append('categoryId', String(context.categoryId))
   formData.append('sessionId', context.sessionId)
   formData.append('purpose', purpose)
+  if (context.uploadContext) formData.append('uploadContext', context.uploadContext)
+  if (context.dccProjectCodeId != null) formData.append('dccProjectCodeId', String(context.dccProjectCodeId))
+  if (context.fileTypeTaxonomyId != null) formData.append('fileTypeTaxonomyId', String(context.fileTypeTaxonomyId))
+  if (context.fileName) formData.append('fileName', context.fileName)
   if (context.controlledFileId != null) formData.append('controlledFileId', String(context.controlledFileId))
   if (context.taskId) formData.append('taskId', context.taskId)
   const res = await request.upload({

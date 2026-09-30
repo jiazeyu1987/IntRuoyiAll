@@ -104,6 +104,22 @@ public class DccProjectFileTemplateServiceImpl implements DccProjectFileTemplate
         validateTemplateTaxonomy(fileTypeTaxonomyId, taxonomyMap(rows), activeCategoryCounts());
     }
 
+    @Override
+    public void validateUploadLocation(Long projectCodeId, Long fileTypeTaxonomyId) {
+        List<DccProjectFileTemplateItemDO> configuredItems =
+                templateItemMapper.selectListByProjectCodeId(projectCodeId);
+        if (configuredItems.isEmpty()) {
+            throw exception(PROJECT_FILE_TEMPLATE_NOT_CONFIGURED);
+        }
+        boolean taxonomyConfigured = configuredItems.stream()
+                .anyMatch(item -> Objects.equals(item.getFileTypeTaxonomyId(), fileTypeTaxonomyId));
+        if (!taxonomyConfigured) {
+            throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+        }
+        List<DccFileTypeTaxonomyDO> rows = taxonomyAdminService.getTaxonomyList();
+        validateTemplateTaxonomy(fileTypeTaxonomyId, taxonomyMap(rows), activeCategoryCounts());
+    }
+
     private DccProjectFileTemplateItemDO normalizeAndValidate(
             Long projectCodeId,
             DccProjectFileTemplateItemSaveReqVO requestedItem,

@@ -52,6 +52,7 @@ export interface ControlledFileCategoryPermissionRuleVO {
   actionType: ControlledFileCategoryPermissionAction
   subjectType: ControlledFileCategoryPermissionSubjectType
   subjectId: number
+  scopeType?: 'GLOBAL' | 'PRODUCT_GROUP'
   active: boolean
   remark?: string
 }

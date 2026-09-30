@@ -17,6 +17,7 @@ export type ProcessInstanceVO = {
   status: number
   remark: string
   businessKey: string
+  businessObjectId?: string
   createTime: string
   endTime: string
   processDefinition?: ProcessDefinitionVO

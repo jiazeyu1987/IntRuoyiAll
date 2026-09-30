@@ -544,6 +544,15 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
     }
 
     @Override
+    public FormInstanceRespVO findDraftBusinessAction(BusinessActionContextReqVO reqVO, Long userId) {
+        reqVO.setTenantId(resolveTenantId(reqVO.getTenantId()));
+        FormActionInstanceDO draft = actionInstanceMapper.selectDraftByBusinessAction(
+                reqVO.getTenantId(), reqVO.getSystemCode(), reqVO.getObjectType(), reqVO.getObjectId(),
+                reqVO.getObjectVersion(), reqVO.getActionCode(), userId);
+        return draft == null ? null : toInstanceResp(draft);
+    }
+
+    @Override
     public FormInstanceRespVO findBusinessActionByIdempotency(BusinessActionContextReqVO reqVO,
                                                                String idempotencyKey) {
         if (reqVO == null || StrUtil.isBlank(idempotencyKey)
@@ -650,7 +659,8 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
             return toInstanceResp(instance);
         }
         String processInstanceId = processInstanceApi.createProcessInstance(userId,
-                buildBpmRequest(instance, resolvedPolicy, reqVO.getStartUserSelectAssignees()));
+                buildBpmRequest(instance, resolvedPolicy, reqVO.getStartUserSelectAssignees(),
+                        reqVO.getApproveUserSelectAssignees()));
         try {
             instance.setStatus(FormInstanceStatus.IN_APPROVAL.name());
             instance.setFormDataJson(JsonUtils.toJsonString(reqVO.getFormData()));
@@ -1036,7 +1046,8 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
     }
 
     private BpmProcessInstanceCreateReqDTO buildBpmRequest(FormActionInstanceDO instance, FormActionPolicy policy,
-            Map<String, List<Long>> startUserSelectAssignees) {
+            Map<String, List<Long>> startUserSelectAssignees,
+            Map<String, List<Long>> approveUserSelectAssignees) {
         BpmProcessInstanceCreateReqDTO reqDTO = new BpmProcessInstanceCreateReqDTO();
         reqDTO.setProcessDefinitionKey(policy.getBpmProcessKey());
         reqDTO.setBusinessKey(BUSINESS_KEY_PREFIX + instance.getInstanceCode());
@@ -1063,6 +1074,11 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
             variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
                     startUserSelectAssignees);
             reqDTO.setStartUserSelectAssignees(startUserSelectAssignees);
+        }
+        if (approveUserSelectAssignees != null && !approveUserSelectAssignees.isEmpty()) {
+            variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_APPROVE_USER_SELECT_ASSIGNEES,
+                    approveUserSelectAssignees);
+            reqDTO.setApproveUserSelectAssignees(approveUserSelectAssignees);
         }
         reqDTO.setVariables(variables);
         return reqDTO;

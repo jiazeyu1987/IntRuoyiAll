@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
@@ -58,6 +59,13 @@ class DccControlledFileLogControllerTest extends BaseMockitoUnitTest {
         assertTrue(Boolean.TRUE.equals(result.isSuccess()));
         assertEquals(pageResult, result.getData());
         verify(logQueryService).getLogPage(reqVO);
+    }
+
+    @Test
+    void pageRequest_keepsControlledFileIdAsStringForJavaScriptSafeTransport() throws Exception {
+        Field field = DccControlledFileLogPageReqVO.class.getDeclaredField("controlledFileId");
+        assertEquals(String.class, field.getType(),
+                "19 位 controlledFileId 必须以 String 穿过日志查询 VO，避免前端 number 精度丢失");
     }
 
     private Method findMappedMethod(Class<? extends Annotation> mappingAnnotationType, String expectedFullPath) {

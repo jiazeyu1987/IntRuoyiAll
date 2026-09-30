@@ -23,7 +23,7 @@ const detailPage = readSource('src/views/dcc/controlled-file/detail/index.vue')
 const distributionSection = extractBetween(
   detailPage,
   '<div class="text-15px font-600">分发状态</div>',
-  '<ContentWrap data-testid="dcc-detail-training-section"',
+  '<ContentWrap data-testid="dcc-controlled-print-records"',
   'detail distribution section'
 )
 
@@ -37,6 +37,36 @@ assert.match(
   distributionSection,
   /data-testid="dcc-detail-distribution-section"/,
   '详情页分发状态区域必须提供稳定测试标识'
+)
+assert.match(
+  distributionSection,
+  /v-if="fileDetail\?\.distributionCompleted"/,
+  '三流程分发完成提示必须只受 distributionCompleted 控制'
+)
+assert.match(
+  distributionSection,
+  /data-testid="dcc-detail-distribution-completed"/,
+  '三流程分发完成提示必须提供稳定测试标识'
+)
+assert.match(
+  distributionSection,
+  /title="三流程分发节点已完成"/,
+  '分发完成提示必须明确文控分发节点已完成'
+)
+assert.match(
+  distributionSection,
+  /description="当前版本已完成文控下发节点；本页面暂无逐部门分发表回执数据。"/,
+  '分发完成提示必须明确暂无逐部门回执数据'
+)
+assert.match(
+  distributionSection,
+  /:empty-text="fileDetail\?\.distributionCompleted \? '三流程分发节点已完成，暂无逐部门回执数据' : '当前版本暂无分发记录'"/,
+  '分发空状态必须区分三流程节点完成和普通无分发记录'
+)
+assert.doesNotMatch(
+  distributionSection,
+  /DCC-E2E|fake|mock|placeholder|伪造|虚构/i,
+  '分发完成区域不得包含测试编号、fake、mock、placeholder 或伪造证据'
 )
 
 const retainedColumns = ['部门', '接收人', '分发摘要', '回收摘要', '操作']
@@ -105,8 +135,13 @@ assert.match(
   '回收摘要必须继续展示回收日期'
 )
 assert.match(
-  distributionSection,
+  detailPage,
   /getDistributionRecipientDisplay\(row\)/,
+  '分发状态展示行必须继续通过正式函数计算接收人'
+)
+assert.match(
+  distributionSection,
+  /{{ row\.recipientText }}/,
   '分发状态主表必须继续展示接收人'
 )
 

@@ -13,6 +13,8 @@ import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskTimelineEntry;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskTimelineQueryContext;
 import cn.iocoder.yudao.module.bpm.approval.service.provider.ApprovalTaskProvider;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskApproveReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRejectReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRespVO;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.util.FlowableUtils;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
@@ -22,10 +24,13 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRej
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRouteSnapshotDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRouteSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileProcessDefinitionKeys;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowService;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.runtime.ProcessInstance;
@@ -36,8 +41,10 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,13 +55,15 @@ import java.util.stream.Collectors;
 @Component
 public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
 
-    private static final String PROCESS_DEFINITION_KEY = "dcc-controlled-file-approval";
+    private static final String EXTERNAL_REVIEW_PROCESS_DEFINITION_KEY = "dcc-external-file-review";
+    private static final List<String> DCC_PROCESS_DEFINITION_KEYS = buildDccProcessDefinitionKeys();
     private static final String SOURCE_TASK_TYPE = "DCC_CONTROLLED_FILE_TASK";
     private static final String APPROVAL_CENTER_VIEWER_FROM = "approval-center";
     private static final String APPROVAL_CENTER_HANDLING_MODE = "approval";
     private static final int SOURCE_PAGE_SIZE = 200;
     private static final Set<String> PROCESS_IN_MODULE_ACTIONS = Set.of("PROCESS_IN_MODULE");
     private static final Set<String> QUICK_REVIEW_ACTIONS = Set.of("APPROVE", "REJECT", "PROCESS_IN_MODULE");
+    private static final Set<String> FORM_CENTER_OBSOLETE_ACTIONS = Set.of("APPROVE", "REJECT");
     private static final Set<ApprovalTaskViewType> SUPPORTED_VIEWS = Set.of(
             ApprovalTaskViewType.TODO,
             ApprovalTaskViewType.DONE
@@ -72,17 +81,26 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private final DccControlledFileWorkflowService workflowService;
     private final DccControlledFileMapper controlledFileMapper;
     private final DccFileCategoryMapper fileCategoryMapper;
+    private final DccControlledFileRouteSnapshotMapper routeSnapshotMapper;
+
+    private static List<String> buildDccProcessDefinitionKeys() {
+        List<String> keys = new ArrayList<>(DccControlledFileProcessDefinitionKeys.APPROVAL_CENTER_KEYS);
+        keys.add(EXTERNAL_REVIEW_PROCESS_DEFINITION_KEY);
+        return List.copyOf(keys);
+    }
 
     public DccApprovalTaskAdapter(BpmTaskService bpmTaskService,
                                   BpmProcessInstanceService processInstanceService,
                                   DccControlledFileWorkflowService workflowService,
                                   DccControlledFileMapper controlledFileMapper,
-                                  DccFileCategoryMapper fileCategoryMapper) {
+                                  DccFileCategoryMapper fileCategoryMapper,
+                                  DccControlledFileRouteSnapshotMapper routeSnapshotMapper) {
         this.bpmTaskService = bpmTaskService;
         this.processInstanceService = processInstanceService;
         this.workflowService = workflowService;
         this.controlledFileMapper = controlledFileMapper;
         this.fileCategoryMapper = fileCategoryMapper;
+        this.routeSnapshotMapper = routeSnapshotMapper;
     }
 
     @Override
@@ -144,52 +162,83 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private PageResult<ApprovalTaskSummary> pageTodo(ApprovalTaskQueryContext context) {
         VisibleWindow window = visibleWindow(context);
         List<ApprovalTaskSummary> summaries = new ArrayList<>();
+        Set<String> seenTaskIds = new HashSet<>();
         long visibleTotal = 0L;
-        long sourceOffset = 0L;
-        int sourcePageNo = 1;
-        while (true) {
-            PageResult<Task> page = requireSourcePage(
-                    bpmTaskService.getTaskTodoPage(resolveQueryUserId(context),
-                            toBpmTaskPageReqVO(context, sourcePageNo, SOURCE_PAGE_SIZE)),
-                    "TODO", sourcePageNo);
-            if (page.getList().isEmpty()) {
-                if (sourceOffset < page.getTotal()) {
-                    throw sourcePageInconsistent("TODO", sourcePageNo, sourceOffset, page.getTotal());
+        for (String processDefinitionKey : DCC_PROCESS_DEFINITION_KEYS) {
+            long sourceOffset = 0L;
+            int sourcePageNo = 1;
+            while (true) {
+                PageResult<Task> page = requireSourcePage(
+                        bpmTaskService.getTaskTodoPage(resolveQueryUserId(context),
+                                toBpmTaskPageReqVO(context, sourcePageNo, SOURCE_PAGE_SIZE, processDefinitionKey)),
+                        "TODO", sourcePageNo);
+                if (page.getList().isEmpty()) {
+                    if (sourceOffset < page.getTotal()) {
+                        throw sourcePageInconsistent("TODO", sourcePageNo, sourceOffset, page.getTotal());
+                    }
+                    break;
                 }
-                break;
-            }
-            Map<String, ProcessInstance> processInstanceMap = processInstanceService.getProcessInstanceMap(
-                    toProcessInstanceIds(page.getList(), Task::getProcessInstanceId));
-            for (Task task : page.getList()) {
-                ProcessInstance processInstance = requireProcessInstance(processInstanceMap,
-                        task.getProcessInstanceId());
-                if (!isDccControlledFileBusinessKey(requireBusinessKey(processInstance.getBusinessKey()))) {
-                    continue;
+                Map<String, ProcessInstance> processInstanceMap = processInstanceService.getProcessInstanceMap(
+                        toProcessInstanceIds(page.getList(), Task::getProcessInstanceId));
+                for (Task task : page.getList()) {
+                    if (task.getId() != null && !seenTaskIds.add(task.getId())) {
+                        continue;
+                    }
+                    ProcessInstance processInstance = requireProcessInstance(processInstanceMap,
+                            task.getProcessInstanceId());
+                    if (!isDccControlledFileBusinessKey(resolveControlledFileBusinessKey(processInstance))) {
+                        continue;
+                    }
+                    DccControlledFileDO fileSnapshot = requireControlledFileSnapshotForTodo(
+                            resolveControlledFileBusinessKey(processInstance));
+                    if (isCompletedNativeFinalizationTask(processInstance, task, fileSnapshot)) {
+                        continue;
+                    }
+                    ApprovalTaskSummary summary = toSummary(task, processInstance);
+                    if (!matchesKeyword(summary, context.getKeyword())) {
+                        continue;
+                    }
+                    if (window.contains(visibleTotal)) {
+                        summaries.add(summary);
+                    }
+                    visibleTotal++;
                 }
-                if (window.contains(visibleTotal)) {
-                    summaries.add(toSummary(task, processInstance));
+                sourceOffset += page.getList().size();
+                if (sourceOffset >= page.getTotal()) {
+                    break;
                 }
-                visibleTotal++;
+                sourcePageNo++;
             }
-            sourceOffset += page.getList().size();
-            if (sourceOffset >= page.getTotal()) {
-                break;
-            }
-            sourcePageNo++;
         }
         return new PageResult<>(summaries, visibleTotal);
+    }
+
+    private static boolean isCompletedNativeFinalizationTask(ProcessInstance processInstance,
+                                                             Task task,
+                                                             DccControlledFileDO file) {
+        return file != null
+                && Set.of(
+                        DccControlledFileStatusEnum.ACTIVE.getStatus(),
+                        DccControlledFileStatusEnum.SUPERSEDED.getStatus(),
+                        DccControlledFileStatusEnum.OBSOLETE.getStatus()
+                ).contains(file.getStatus())
+                && (DccControlledFileProcessDefinitionKeys.UPLOAD.equals(processInstance.getProcessDefinitionKey())
+                || DccControlledFileProcessDefinitionKeys.REVISION.equals(processInstance.getProcessDefinitionKey()))
+                && DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(task.getTaskDefinitionKey());
     }
 
     private PageResult<ApprovalTaskSummary> pageDone(ApprovalTaskQueryContext context) {
         VisibleWindow window = visibleWindow(context);
         List<ApprovalTaskSummary> summaries = new ArrayList<>();
+        Set<String> seenTaskIds = new HashSet<>();
         long visibleTotal = 0L;
-        long sourceOffset = 0L;
-        int sourcePageNo = 1;
-        while (true) {
+        for (String processDefinitionKey : DCC_PROCESS_DEFINITION_KEYS) {
+            long sourceOffset = 0L;
+            int sourcePageNo = 1;
+            while (true) {
             PageResult<HistoricTaskInstance> page = requireSourcePage(
                     bpmTaskService.getTaskDonePage(resolveQueryUserId(context),
-                            toBpmTaskPageReqVO(context, sourcePageNo, SOURCE_PAGE_SIZE)),
+                            toBpmTaskPageReqVO(context, sourcePageNo, SOURCE_PAGE_SIZE, processDefinitionKey)),
                     "DONE", sourcePageNo);
             if (page.getList().isEmpty()) {
                 if (sourceOffset < page.getTotal()) {
@@ -197,17 +246,24 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 }
                 break;
             }
-            Map<String, HistoricProcessInstance> processInstanceMap =
-                    processInstanceService.getHistoricProcessInstanceMap(
-                            toProcessInstanceIds(page.getList(), HistoricTaskInstance::getProcessInstanceId));
-            for (HistoricTaskInstance task : page.getList()) {
-                HistoricProcessInstance processInstance = requireHistoricProcessInstance(processInstanceMap,
+                Map<String, HistoricProcessInstance> processInstanceMap =
+                        processInstanceService.getHistoricProcessInstanceMap(
+                                toProcessInstanceIds(page.getList(), HistoricTaskInstance::getProcessInstanceId));
+                for (HistoricTaskInstance task : page.getList()) {
+                    if (task.getId() != null && !seenTaskIds.add(task.getId())) {
+                        continue;
+                    }
+                    HistoricProcessInstance processInstance = requireHistoricProcessInstance(processInstanceMap,
                         task.getProcessInstanceId());
-                if (!isDccControlledFileBusinessKey(requireBusinessKey(processInstance.getBusinessKey()))) {
+                if (!isDccControlledFileBusinessKey(resolveControlledFileBusinessKey(processInstance))) {
+                    continue;
+                }
+                ApprovalTaskSummary summary = toSummary(task, processInstance);
+                if (!matchesKeyword(summary, context.getKeyword())) {
                     continue;
                 }
                 if (window.contains(visibleTotal)) {
-                    summaries.add(toSummary(task, processInstance));
+                    summaries.add(summary);
                 }
                 visibleTotal++;
             }
@@ -215,22 +271,37 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
             if (sourceOffset >= page.getTotal()) {
                 break;
             }
-            sourcePageNo++;
+                sourcePageNo++;
+            }
         }
         return new PageResult<>(summaries, visibleTotal);
     }
 
-    private BpmTaskPageReqVO toBpmTaskPageReqVO(ApprovalTaskQueryContext context, int pageNo, int pageSize) {
+    private BpmTaskPageReqVO toBpmTaskPageReqVO(ApprovalTaskQueryContext context, int pageNo, int pageSize,
+                                                String processDefinitionKey) {
         BpmTaskPageReqVO reqVO = new BpmTaskPageReqVO();
         reqVO.setPageNo(pageNo);
         reqVO.setPageSize(pageSize);
-        reqVO.setProcessDefinitionKey(PROCESS_DEFINITION_KEY);
-        reqVO.setName(context.getKeyword());
+        reqVO.setProcessDefinitionKey(processDefinitionKey);
         return reqVO;
     }
 
+    private static boolean matchesKeyword(ApprovalTaskSummary summary, String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return true;
+        }
+        String normalizedKeyword = keyword.trim().toLowerCase();
+        return containsIgnoreCase(summary.getBusinessTitle(), normalizedKeyword)
+                || containsIgnoreCase(summary.getBusinessCode(), normalizedKeyword)
+                || containsIgnoreCase(summary.getBusinessKey(), normalizedKeyword);
+    }
+
+    private static boolean containsIgnoreCase(String value, String normalizedKeyword) {
+        return value != null && value.toLowerCase().contains(normalizedKeyword);
+    }
+
     private ApprovalTaskSummary toSummary(Task task, ProcessInstance processInstance) {
-        String businessKey = requireBusinessKey(processInstance.getBusinessKey());
+        String businessKey = resolveControlledFileBusinessKey(processInstance);
         if (!isDccControlledFileBusinessKey(businessKey)) {
             return null;
         }
@@ -254,13 +325,14 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .requiresSignature(Boolean.TRUE)
                 .detailRoute("/dcc/controlled-file/detail/" + businessKey)
                 .detailQuery(approvalCenterHandlingDetailQuery(task))
-                .availableActions(resolveTodoAvailableActions(task.getTaskDefinitionKey(), file.getStatus()))
+                .availableActions(resolveTodoAvailableActions(processInstance.getProcessDefinitionKey(),
+                        task.getTaskDefinitionKey(), file.getStatus()))
                 .capabilities(CAPABILITIES)
                 .build();
     }
 
     private ApprovalTaskSummary toSummary(HistoricTaskInstance task, HistoricProcessInstance processInstance) {
-        String businessKey = requireBusinessKey(processInstance.getBusinessKey());
+        String businessKey = resolveControlledFileBusinessKey(processInstance);
         if (!isDccControlledFileBusinessKey(businessKey)) {
             return null;
         }
@@ -338,6 +410,22 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 "APPROVAL_TASK_ID_REQUIRED: DCC review requires source task id");
         String password = requireText(context.getSignaturePassword(),
                 "APPROVAL_SIGNATURE_PASSWORD_REQUIRED: DCC review requires signature password");
+        if (isObsoleteApprovalTask(context)) {
+            if (context.getResult() == ApprovalTaskReviewResult.APPROVE) {
+                bpmTaskService.approveTask(context.getLoginUserId(), new BpmTaskApproveReqVO()
+                        .setId(taskId)
+                        .setReason(requireApprovalReason(context.getReason()))
+                        .setNextAssignees(buildFrozenStageAssigneeMap(fileId)));
+                return;
+            }
+            if (context.getResult() == ApprovalTaskReviewResult.REJECT) {
+                bpmTaskService.rejectTask(context.getLoginUserId(), new BpmTaskRejectReqVO()
+                        .setId(taskId)
+                        .setReason(requireText(context.getReason(),
+                                "APPROVAL_REJECT_REASON_REQUIRED: DCC reject requires reason")));
+                return;
+            }
+        }
         if (context.getResult() == ApprovalTaskReviewResult.APPROVE) {
             DccControlledFileApproveTaskReqVO reqVO = new DccControlledFileApproveTaskReqVO();
             reqVO.setTaskId(taskId);
@@ -359,6 +447,43 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 + context.getResult());
     }
 
+    private Map<String, List<Long>> buildFrozenStageAssigneeMap(Long controlledFileId) {
+        List<DccControlledFileRouteSnapshotDO> snapshots = routeSnapshotMapper
+                .selectListByControlledFileId(controlledFileId);
+        if (snapshots == null || snapshots.isEmpty()) {
+            throw new IllegalStateException("DCC route snapshot is required for obsolete approval "
+                    + controlledFileId);
+        }
+        return snapshots.stream()
+                .filter(snapshot -> snapshot.getStageCode() != null && !snapshot.getStageCode().isBlank())
+                .collect(Collectors.toMap(
+                        DccControlledFileRouteSnapshotDO::getStageCode,
+                        this::parseResolvedUserIds,
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+    }
+
+    private List<Long> parseResolvedUserIds(DccControlledFileRouteSnapshotDO snapshot) {
+        if (snapshot == null || snapshot.getResolvedUserIds() == null
+                || snapshot.getResolvedUserIds().isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(snapshot.getResolvedUserIds().split(","))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .map(Long::valueOf)
+                .toList();
+    }
+
+    private boolean isObsoleteApprovalTask(ApprovalTaskReviewContext context) {
+        String processInstanceId = requireText(context.getProcessInstanceId(),
+                "APPROVAL_PROCESS_INSTANCE_REQUIRED: DCC review requires process instance id");
+        ProcessInstance processInstance = processInstanceService.getProcessInstance(processInstanceId);
+        return processInstance != null
+                && DccControlledFileProcessDefinitionKeys.FORM_CENTER_OBSOLETE_KEYS
+                .contains(processInstance.getProcessDefinitionKey());
+    }
+
     private static Map<String, String> approvalCenterViewerDetailQuery() {
         Map<String, String> query = new LinkedHashMap<>();
         query.put("viewer", "1");
@@ -377,7 +502,16 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         return query;
     }
 
-    private static Set<String> resolveTodoAvailableActions(String taskDefinitionKey, String fileStatus) {
+    private static Set<String> resolveTodoAvailableActions(String processDefinitionKey,
+                                                           String taskDefinitionKey,
+                                                           String fileStatus) {
+        if (processDefinitionKey != null
+                && DccControlledFileProcessDefinitionKeys.FORM_CENTER_OBSOLETE_KEYS.contains(processDefinitionKey)) {
+            return FORM_CENTER_OBSOLETE_ACTIONS;
+        }
+        if (EXTERNAL_REVIEW_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
+            return PROCESS_IN_MODULE_ACTIONS;
+        }
         if (isDocControlFinalApprovalTask(taskDefinitionKey, fileStatus)) {
             return PROCESS_IN_MODULE_ACTIONS;
         }
@@ -394,10 +528,8 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     }
 
     private static boolean isQuickReviewTask(String taskDefinitionKey, String fileStatus) {
-        return DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(taskDefinitionKey)
-                || DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode().equals(taskDefinitionKey)
+        return DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode().equals(taskDefinitionKey)
                 || DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode().equals(taskDefinitionKey)
-                || DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus().equals(fileStatus)
                 || DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus().equals(fileStatus)
                 || DccControlledFileStatusEnum.PENDING_MATRIX_APPROVAL.getStatus().equals(fileStatus);
     }
@@ -491,7 +623,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     }
 
     private String resolveTimelineBusinessKey(String requestedBusinessKey, HistoricProcessInstance processInstance) {
-        String actualBusinessKey = requireBusinessKey(processInstance.getBusinessKey());
+        String actualBusinessKey = resolveControlledFileBusinessKey(processInstance);
         if (requestedBusinessKey == null || requestedBusinessKey.isBlank()) {
             return actualBusinessKey;
         }
@@ -500,6 +632,27 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                     + requestedBusinessKey + " does not match process " + actualBusinessKey);
         }
         return requestedBusinessKey;
+    }
+
+    private static String resolveControlledFileBusinessKey(ProcessInstance processInstance) {
+        return resolveControlledFileBusinessKey(processInstance.getProcessDefinitionKey(),
+                processInstance.getBusinessKey(), processInstance.getProcessVariables());
+    }
+
+    private static String resolveControlledFileBusinessKey(HistoricProcessInstance processInstance) {
+        return resolveControlledFileBusinessKey(processInstance.getProcessDefinitionKey(),
+                processInstance.getBusinessKey(), processInstance.getProcessVariables());
+    }
+
+    private static String resolveControlledFileBusinessKey(String processDefinitionKey,
+                                                           String businessKey,
+                                                           Map<String, Object> processVariables) {
+        if (processDefinitionKey != null
+                && DccControlledFileProcessDefinitionKeys.FORM_CENTER_OBSOLETE_KEYS.contains(processDefinitionKey)) {
+            Object objectId = processVariables == null ? null : processVariables.get("objectId");
+            return requireBusinessKey(objectId == null ? null : String.valueOf(objectId));
+        }
+        return requireBusinessKey(businessKey);
     }
 
     private List<HistoricTaskInstance> requireTimelineTasks(String processInstanceId) {

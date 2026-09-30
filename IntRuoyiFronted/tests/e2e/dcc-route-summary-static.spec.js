@@ -53,13 +53,19 @@ for (const removedToken of ['data-testid="dcc-route-summary"', 'row.nodeSummary'
 for (const behaviorToken of [
   'getApprovalRoutePage(queryParams)',
   'routeTotal.value = pageResult.total ?? 0',
-  'previewApprovalRoute({ categoryId: queryParams.categoryId })',
   'handlePreview',
   'resolvePositionNames(row.candidateSourceIds)',
   'resolveUserNames(row.resolvedUserIds)'
 ]) {
   assert.ok(routePage.includes(behaviorToken), `审批路线原有行为必须保留：${behaviorToken}`)
 }
+
+assert.ok(routeTable.includes('label="动作类型"'), '审批路线主表必须显示动作类型列')
+assert.ok(routePage.includes('queryParamKey: \'actionType\''), '审批路线必须支持按动作类型筛选')
+assert.ok(
+  /previewApprovalRoute\(\{\s*categoryId:\s*queryParams\.categoryId,\s*actionType:\s*queryParams\.actionType\s*\}\)/.test(routePage),
+  '审批路线预览必须同时按类别和动作类型读取路线'
+)
 
 assert.ok(routePage.includes('const formatRouteNodeAssignees = '), '审批路线主表必须按节点聚合审批对象')
 assert.ok(routePage.includes('const formatRouteNodeSubject = '), '审批路线主表必须解析单个节点审批对象')

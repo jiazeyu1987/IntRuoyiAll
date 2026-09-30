@@ -19,7 +19,6 @@ export interface UploadFormDraft {
   revisionSourceControlledFileId: number | null
   relatedControlledFileIds: number[]
   needTraining: boolean
-  selectedSignoffUserIds: number[]
   processType: 'CONTROLLED_FILE' | 'EXTERNAL_REVIEW'
   changeType: ControlledFileChangeType
   versionNo?: string
@@ -346,7 +345,8 @@ export const clearSubmitFieldErrors = (fieldErrors: UploadSubmitFieldErrors) => 
 export const buildSubmitPayload = (
   draft: UploadFormDraft,
   previewFile: ControlledFileUploadRespVO,
-  drawingPdfUpload?: ControlledFileUploadRespVO
+  drawingPdfUpload?: ControlledFileUploadRespVO,
+  attachmentUploads: ControlledFileUploadRespVO[] = []
 ): ControlledFileSubmitReqVO => ({
   categoryId: draft.categoryId as number,
   directoryId: draft.directoryId as number,
@@ -356,6 +356,10 @@ export const buildSubmitPayload = (
   sourceUploadTicket: previewFile.uploadTicket,
   sourceFileName: previewFile.fileName,
   drawingPdfUploadTicket: drawingPdfUpload?.uploadTicket,
+  attachmentUploadTickets: attachmentUploads.map((upload) => ({
+    uploadTicket: upload.uploadTicket,
+    sessionId: upload.sessionId
+  })),
   fileName: trimText(draft.fileName),
   fileNumber: trimText(draft.fileNumber),
   productMasterId: null,
@@ -366,7 +370,6 @@ export const buildSubmitPayload = (
   revisionSourceControlledFileId: draft.revisionSourceControlledFileId ?? undefined,
   relatedControlledFileIds: [...(draft.relatedControlledFileIds ?? [])],
   needTraining: Boolean(draft.needTraining),
-  selectedSignoffUserIds: draft.selectedSignoffUserIds ?? [],
   processType: draft.processType,
   changeType: draft.changeType,
   versionNo: trimText(draft.versionNo) || undefined,
@@ -382,9 +385,10 @@ export const createUploadSubmitterService = (deps: UploadSubmitterServiceDeps) =
     async submit(
       draft: UploadFormDraft,
       previewFile: ControlledFileUploadRespVO,
-      drawingPdfUpload?: ControlledFileUploadRespVO
+      drawingPdfUpload?: ControlledFileUploadRespVO,
+      attachmentUploads: ControlledFileUploadRespVO[] = []
     ) {
-      return await deps.submit(buildSubmitPayload(draft, previewFile, drawingPdfUpload))
+      return await deps.submit(buildSubmitPayload(draft, previewFile, drawingPdfUpload, attachmentUploads))
     }
   }
 }

@@ -327,6 +327,6 @@ public interface BpmTaskService {
      * @param processInstanceId 流程示例编号
      * @param taskDefineKey     任务 Key
      */
-    void triggerTask(String processInstanceId, String taskDefineKey);
+    boolean triggerTask(String processInstanceId, String taskDefineKey);
 
 }

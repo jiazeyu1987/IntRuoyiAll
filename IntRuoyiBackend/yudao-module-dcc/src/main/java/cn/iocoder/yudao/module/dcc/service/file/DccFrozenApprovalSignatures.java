@@ -12,51 +12,104 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 
 /** Finalization uses the frozen roster, never the reduced set of runtime tasks. */
 final class DccFrozenApprovalSignatures {
-    private static final Set<String> STAGES = Set.of("DOC_CONTROL_REVIEW", "MATRIX_REVIEW",
+    private static final Set<String> LEGACY_STAGES = Set.of("DOC_CONTROL_REVIEW", "MATRIX_REVIEW",
             "MATRIX_APPROVAL", "DOC_CONTROL_APPROVAL");
+    private static final Set<String> THREE_WORKFLOW_STAGES = Set.of("DOC_CONTROL_REVIEW", "MATRIX_REVIEW",
+            "MATRIX_APPROVAL");
 
     private DccFrozenApprovalSignatures() {}
 
     static void requireComplete(DccControlledFileDO file, List<DccControlledFileRouteSnapshotDO> snapshots,
                                 List<DccControlledFileSignatureDO> signatures) {
+        Set<String> expectedStages = isThreeWorkflow(file) ? THREE_WORKFLOW_STAGES : LEGACY_STAGES;
         if (file == null || file.getId() == null || StrUtil.isBlank(file.getVersionNo())
-                || snapshots == null || snapshots.size() != STAGES.size() || signatures == null) {
+                || snapshots == null || snapshots.size() != expectedStages.size() || signatures == null) {
             throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
         }
         Set<String> seen = new HashSet<>();
         for (var stage : snapshots) {
             if (stage == null || !Objects.equals(file.getId(), stage.getControlledFileId())
-                    || !STAGES.contains(stage.getStageCode()) || !seen.add(stage.getStageCode())
+                    || !expectedStages.contains(stage.getStageCode()) || !seen.add(stage.getStageCode())
                     || StrUtil.isBlank(stage.getResolvedUserIds())) {
                 throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
             }
-            Set<Long> required = new LinkedHashSet<>();
-            try {
-                for (String raw : stage.getResolvedUserIds().split(",", -1)) {
-                    long id = Long.parseLong(raw.trim());
-                    if (id <= 0 || !required.add(id)) throw new NumberFormatException("invalid roster");
+            List<Long> requiredUsers = parseIds(stage.getResolvedUserIds());
+            boolean departmentObligations = "DEPT".equalsIgnoreCase(stage.getCandidateSourceType());
+            if (departmentObligations) {
+                List<Long> departmentIds = parseIds(stage.getCandidateSourceIds());
+                if (new HashSet<>(departmentIds).size() != departmentIds.size()
+                        || departmentIds.size() != requiredUsers.size()) {
+                    throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
                 }
-            } catch (NumberFormatException invalid) {
+            } else if (new HashSet<>(requiredUsers).size() != requiredUsers.size()) {
                 throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
             }
-            Set<Long> signed = signatures.stream().filter(Objects::nonNull)
-                    .filter(s -> s.getId() != null && Objects.equals(file.getId(), s.getControlledFileId())
-                            && Objects.equals(file.getId(), s.getRevisionId())
-                            && Objects.equals(file.getVersionNo(), s.getVersionNo())
-                            && "APPROVE".equals(s.getActionType())
-                            && (stage.getStageCode() + "_APPROVE").equals(s.getMeaningCode())
-                            && Boolean.TRUE.equals(s.getPasswordVerified()) && s.getSignedAt() != null
-                            && StrUtil.isNotBlank(s.getTaskId()) && StrUtil.isNotBlank(s.getEvidenceHash())
-                            && "VALID".equals(s.getEvidenceStatus()))
-                    .map(DccControlledFileSignatureDO::getActorId).filter(required::contains)
-                    .collect(Collectors.toSet());
+            Map<String, Long> signedTaskActors = signatures.stream().filter(Objects::nonNull)
+                    .filter(signature -> isValidStageSignature(file, stage.getStageCode(), signature))
+                    .filter(signature -> requiredUsers.contains(signature.getActorId()))
+                    .collect(Collectors.toMap(DccControlledFileSignatureDO::getTaskId,
+                            DccControlledFileSignatureDO::getActorId, (first, duplicate) -> {
+                                if (!Objects.equals(first, duplicate)) {
+                                    throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+                                }
+                                return first;
+                            }));
+            Map<Long, Long> signedUserCounts = signedTaskActors.values().stream()
+                    .collect(Collectors.groupingBy(userId -> userId, Collectors.counting()));
             if (Boolean.TRUE.equals(stage.getRequireAllApprovals()) || "ALL".equals(stage.getApproveMethod())) {
-                if (!signed.containsAll(required)) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
-            } else if ("ANY".equals(stage.getApproveMethod())) {
-                if (signed.isEmpty()) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
-            } else {
+                if (departmentObligations ? !coversRequiredDepartmentApprovals(requiredUsers, signedUserCounts)
+                        : !signedUserCounts.keySet().containsAll(requiredUsers)) {
+                    throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+                }
+            } else if ("ANY".equals(stage.getApproveMethod()) && signedTaskActors.isEmpty()) {
                 throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+            } else {
+                if (!"ANY".equals(stage.getApproveMethod())) {
+                    throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+                }
             }
         }
+    }
+
+    private static List<Long> parseIds(String rawIds) {
+        if (StrUtil.isBlank(rawIds)) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        }
+        List<Long> ids = new ArrayList<>();
+        try {
+            for (String raw : rawIds.split(",", -1)) {
+                long id = Long.parseLong(raw.trim());
+                if (id <= 0) throw new NumberFormatException("invalid id");
+                ids.add(id);
+            }
+        } catch (NumberFormatException invalid) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        }
+        return ids;
+    }
+
+    private static boolean isValidStageSignature(DccControlledFileDO file, String stageCode,
+                                                 DccControlledFileSignatureDO signature) {
+        return signature.getId() != null && Objects.equals(file.getId(), signature.getControlledFileId())
+                && Objects.equals(file.getId(), signature.getRevisionId())
+                && Objects.equals(file.getVersionNo(), signature.getVersionNo())
+                && "APPROVE".equals(signature.getActionType())
+                && (stageCode + "_APPROVE").equals(signature.getMeaningCode())
+                && Boolean.TRUE.equals(signature.getPasswordVerified()) && signature.getSignedAt() != null
+                && StrUtil.isNotBlank(signature.getTaskId()) && StrUtil.isNotBlank(signature.getEvidenceHash())
+                && "VALID".equals(signature.getEvidenceStatus());
+    }
+
+    private static boolean coversRequiredDepartmentApprovals(List<Long> requiredUsers,
+                                                              Map<Long, Long> signedUserCounts) {
+        Map<Long, Long> requiredCounts = requiredUsers.stream()
+                .collect(Collectors.groupingBy(userId -> userId, Collectors.counting()));
+        return requiredCounts.entrySet().stream().allMatch(entry ->
+                signedUserCounts.getOrDefault(entry.getKey(), 0L) >= entry.getValue());
+    }
+
+    private static boolean isThreeWorkflow(DccControlledFileDO file) {
+        return file != null && (DccControlledFileProcessDefinitionKeys.UPLOAD.equals(file.getProcessDefinitionKey())
+                || DccControlledFileProcessDefinitionKeys.REVISION.equals(file.getProcessDefinitionKey()));
     }
 }

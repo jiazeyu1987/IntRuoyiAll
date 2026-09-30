@@ -49,6 +49,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_UPLOAD_SI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_LIFECYCLE_STAGE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_SELECTION_INVALID;
 
 @Service
 public class DccControlledFileUploadServiceImpl implements DccControlledFileUploadService {
@@ -91,7 +92,29 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             validatePreviewSession(reqVO.getSessionId());
             purpose = validatePreviewPurposeName(reqVO.getPurpose(), file.getOriginalFilename());
             boolean approvalPdf = DccControlledFileUploadTypePolicy.PURPOSE_APPROVAL_PDF.equals(purpose);
+            String ticketSessionId = reqVO.getSessionId();
             validatePreviewCategory(userId, reqVO.getCategoryId(), !approvalPdf);
+            if (DccControlledFileUploadTypePolicy.PURPOSE_SOURCE.equals(purpose)
+                    || DccControlledFileUploadTypePolicy.PURPOSE_DRAWING_PDF.equals(purpose)
+                    || DccControlledFileUploadTypePolicy.PURPOSE_ATTACHMENT.equals(purpose)) {
+                if (StrUtil.isBlank(reqVO.getUploadContext())) {
+                    throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+                }
+                workflowService.validateSourceUploadContext(userId, reqVO);
+                String prefix = switch (reqVO.getUploadContext()) {
+                    case "NEW_UPLOAD" -> DccSourceUploadSession.newUploadPrefix(reqVO.getDccProjectCodeId(),
+                            reqVO.getFileTypeTaxonomyId(), reqVO.getFileName());
+                    case "CHECKIN" -> {
+                        if (DccControlledFileUploadTypePolicy.PURPOSE_ATTACHMENT.equals(purpose)) {
+                            throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+                        }
+                        yield DccSourceUploadSession.checkinPrefix(reqVO.getControlledFileId());
+                    }
+                    case "EXTERNAL_REVIEW" -> DccSourceUploadSession.externalPrefix();
+                    default -> throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+                };
+                ticketSessionId = DccSourceUploadSession.scope(prefix, reqVO.getSessionId());
+            }
             if (approvalPdf) {
                 workflowService.validateApprovalPdfUpload(userId, reqVO.getControlledFileId(), reqVO.getTaskId(),
                         reqVO.getCategoryId(), reqVO.getSessionId());
@@ -102,14 +125,14 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             validatePreviewPurposeContent(purpose, file.getOriginalFilename(), content);
             String requestId = auditContext.requireRequestId("upload preview");
             DccUploadTicketCreated uploadTicket = uploadTicketService.reuseActiveTicketOrReject(
-                    new DccUploadTicketPreflightCommand(userId, reqVO.getCategoryId(), reqVO.getSessionId(), purpose,
+                    new DccUploadTicketPreflightCommand(userId, reqVO.getCategoryId(), ticketSessionId, purpose,
                             content));
             FileDO storedFile;
             if (uploadTicket == null) {
                 storedFile = storePreviewFile(content, file);
                 try {
                     uploadTicket = uploadTicketService.createTicket(new DccUploadTicketCreateCommand(
-                            userId, reqVO.getCategoryId(), reqVO.getSessionId(),
+                            userId, reqVO.getCategoryId(), ticketSessionId,
                             purpose, storedFile.getId(),
                             storedFile.getName(), file.getContentType(), file.getSize(), content, requestId));
                 } catch (Exception ex) {

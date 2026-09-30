@@ -197,11 +197,7 @@
                 {{ uploadDirectoryTree.bindingDirectoryPath }}
               </div>
               <div class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-                {{
-                  uploadDirectoryTree.defaultUnclassified
-                    ? '该类别未配置专属目录，按规则发布到“未分类”。'
-                    : '当前绑定目录已经是最后一层目录，将直接提交到该目录。'
-                }}
+                当前绑定目录已经是最后一层目录，将直接提交到该目录。
               </div>
             </template>
             <template v-else>
@@ -334,7 +330,7 @@
             v-model="formData.productCode"
             class="!w-420px"
             readonly
-            placeholder="选择项目后解析正式产品编号"
+            placeholder="选择 DCC 项目后自动生成"
           />
           <div
             v-if="isProductRequiredForSelectedCategory"
@@ -345,10 +341,9 @@
             {{ productCodeBindingHintText }}
           </div>
           <div v-if="selectedProjectCode" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-            {{ projectProductSource === 'PRODUCT_MASTER' ? '来源：关联产品主档' : '当前项目未关联产品主档' }}
-            · 项目：{{ selectedProjectCode.projectName }} / {{ selectedProjectCode.projectCode || '-' }}
+            来源：DCC 项目代码 · 项目：{{ selectedProjectCode.projectName }} / {{ selectedProjectCode.projectCode || '-' }}
           </div>
-          <div v-if="projectProductLoading" class="mt-6px text-12px">正在解析产品编号…</div>
+          <div v-if="projectProductLoading" class="mt-6px text-12px">正在生成产品编号...</div>
           <div v-if="projectProductError" class="mt-6px text-12px text-[var(--el-color-danger)]">{{ projectProductError }}</div>
         </el-form-item>
         <el-form-item :label="isExternalReview ? '版本号' : '初始版本号'" prop="versionNo" :error="submitFieldErrors.versionNo">
@@ -440,12 +435,13 @@
           >
           <section class="upload-section upload-section--approval" data-testid="dcc-upload-section-approval">
         <div class="upload-section__title">审批要求</div>
-        <el-form-item label="培训要求" prop="needTraining">
-          <el-switch
+        <el-form-item v-if="!isExternalReview" label="培训要求" prop="needTraining">
+          <el-checkbox
             v-model="formData.needTraining"
-            active-text="需要培训"
-            inactive-text="无需培训"
-          />
+            data-testid="dcc-upload-need-training"
+          >
+            需要培训
+          </el-checkbox>
         </el-form-item>
       </section>
 
@@ -546,6 +542,55 @@
             </div>
           </div>
         </el-form-item>
+        <el-form-item label="普通附件">
+          <div class="w-full">
+            <el-upload
+              ref="attachmentUploadRef"
+              action="#"
+              multiple
+              :auto-upload="false"
+              :file-list="attachmentFileList"
+              :on-change="handleAttachmentFileChange"
+              :before-remove="handleBeforeAttachmentRemove"
+              :on-remove="handleAttachmentRemove"
+              data-testid="dcc-upload-attachment-files"
+            >
+              <el-button plain :loading="uploadAttachmentLoading">
+                <Icon icon="ep:paperclip" class="mr-5px" />
+                选择附件
+              </el-button>
+              <template #tip>
+                <div class="mt-8px text-12px text-[var(--el-text-color-secondary)]">
+                  可一次选择多个普通附件，附件随本次受控文件一并提交，查看详情时可在线预览 PDF、图片等文件。
+                </div>
+              </template>
+            </el-upload>
+            <el-alert
+              v-if="attachmentUploadBlockMessage"
+              data-testid="dcc-upload-attachment-upload-state"
+              class="mt-12px"
+              type="warning"
+              :closable="false"
+              show-icon
+              :title="attachmentUploadBlockMessage"
+            />
+            <div
+              v-if="attachmentUploads.length"
+              class="mt-12px rounded-8px border border-[var(--el-border-color-light)] bg-[#fafcff] px-12px py-10px text-13px"
+            >
+              <div class="font-600 text-[var(--el-text-color-primary)]">已上传附件</div>
+              <div
+                v-for="upload in attachmentUploads"
+                :key="upload.uid"
+                class="mt-6px flex flex-wrap items-center gap-8px text-[var(--el-text-color-secondary)]"
+              >
+                <Icon icon="ep:paperclip" />
+                <span class="text-[var(--el-text-color-primary)]">{{ upload.fileName }}</span>
+                <span>{{ upload.contentType || '-' }} · {{ formatPreviewFileSize(upload.fileSize) }}</span>
+              </div>
+            </div>
+          </div>
+        </el-form-item>
       </section>
 
 
@@ -554,7 +599,12 @@
 
         <section class="upload-submit-bar" data-testid="dcc-upload-section-submit">
           <el-form-item>
-            <el-button type="primary" :loading="submitLoading" @click="submitForm">
+            <el-button
+              type="primary"
+              :loading="submitLoading"
+              :disabled="submitBlockedByRouteReadiness || hasUnreadyAttachmentUploads"
+              @click="submitForm"
+            >
               <Icon icon="ep:promotion" class="mr-5px" />
               {{ submitButtonText }}
             </el-button>
@@ -587,8 +637,7 @@ import {
   getControlledFileUploadDirectoryTree,
   getControlledFileUploadNameOptions,
   checkControlledFileRouteReadiness,
-  createWorkingControlledFile,
-  previewControlledFileProjectProduct,
+  submitControlledFile,
   uploadControlledFilePreview,
   type ControlledFileCurrentVersionRespVO,
   type ControlledFileRouteReadinessVO,
@@ -612,6 +661,7 @@ import {
   formatPreviewFileSize,
   resolveUploadErrorMessage,
   resolveUploadPreviewErrorMessage,
+  isFileNumberChainConflictMessage,
   isDccProductRequiredForCategoryCode,
   validateDrawingPdfUpload,
   validateControlledFileSelection,
@@ -641,6 +691,7 @@ interface UploadNameSuggestionItem {
 const formRef = ref()
 const uploadRef = ref()
 const drawingPdfUploadRef = ref()
+const attachmentUploadRef = ref()
 const categories = ref<ControlledFileCategoryVO[]>([])
 const projectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const relatedFileOptions = ref<ControlledFileVO[]>([])
@@ -656,20 +707,34 @@ const selectedProjectTemplateItemId = ref<number>()
 const uploadNameOptions = ref<ControlledFileUploadNameOptionVO[]>([])
 const uploadDirectoryTree = ref<ControlledFileUploadDirectoryTreeVO>()
 const currentVersionInfo = ref<ControlledFileCurrentVersionRespVO>()
+const selectedHistoryVersion = ref<string | null>()
 const fileList = ref<UploadUserFile[]>([])
 const drawingPdfFileList = ref<UploadUserFile[]>([])
+const attachmentFileList = ref<UploadUserFile[]>([])
 const previewUpload = ref<ControlledFileUploadRespVO>()
 const drawingPdfUpload = ref<ControlledFileUploadRespVO>()
+type AttachmentUploadState = ControlledFileUploadRespVO & { uid: string | number }
+const attachmentUploads = ref<AttachmentUploadState[]>([])
+type AttachmentUploadAttempt = {
+  uid: string | number
+  generation: number
+  fileName: string
+  status: 'UPLOADING' | 'READY' | 'FAILED'
+}
+const attachmentUploadAttempts = ref<AttachmentUploadAttempt[]>([])
+const attachmentUploadGenerations = new Map<string, number>()
+let sourceUploadRequestSeq = 0
+let drawingPdfUploadRequestSeq = 0
+let uploadDirectoryRequestSeq = 0
 const previewFileBlob = ref<File | null>(null)
 const uploadPreviewError = ref('')
 const submitLoading = ref(false)
 const projectProductLoading = ref(false)
 const projectProductError = ref('')
 const projectProductResolvedId = ref<number | null>(null)
-const projectProductSource = ref('')
-let projectProductRequestSequence = 0
 const uploadPreviewLoading = ref(false)
 const uploadDrawingPdfLoading = ref(false)
+const uploadAttachmentLoading = ref(false)
 const uploadNameOptionsLoading = ref(false)
 const uploadNameOptionsLoadedKey = ref('')
 const currentVersionLookupLoading = ref(false)
@@ -686,6 +751,8 @@ const relatedFileOptionsError = ref('')
 const projectFileTemplateError = ref('')
 const categoryOptionsError = ref('')
 const uploadSessionId = createControlledFileUploadSessionId()
+const uploadSessionBinding = ref<{ clientSessionId: string; scopedSessionId: string }>()
+const attachmentUploadPurpose = { purpose: 'ATTACHMENT' as const }.purpose
 const uploadSubmitted = ref(false)
 const submitFieldErrors = reactive({
   versionNo: ''
@@ -694,17 +761,94 @@ const submitFieldErrors = reactive({
 const DEFAULT_MANUAL_VERSION_NO = 'V1.0'
 const DEFAULT_CONTROLLED_INITIAL_VERSION_NO = 'A/1'
 const VERSION_NO_FORMAT_MESSAGE = '版本号格式不正确，请使用 V1.0、V2.0 或 1.0 这类数字版本。'
-const CONTROLLED_INITIAL_VERSION_MESSAGE = '初始版本号格式不正确，请使用 A/1、B/1 等“修订版/1”格式。'
+const CONTROLLED_INITIAL_VERSION_MESSAGE = '初始版本号格式不正确，请使用 A/1、A/1/1 等“修订版/迭代段”格式。'
 const VERSION_NO_PATTERN = /^[Vv]?\d+(?:\.\d+)*$/
-const WINDCHILL_VERSION_PATTERN = /^([A-Z]+)\/[1-9]\d*$/i
+const WINDCHILL_VERSION_PATTERN = /^[A-Z]+(?:\/[1-9]\d*)+$/i
 const resolveTodayDate = () => formatToDate(new Date())
 const isVersionNoTextValid = (versionNo?: string | null) => VERSION_NO_PATTERN.test((versionNo || '').trim())
+const resolveNextMajorVersionNo = (currentVersionNo: string | null | undefined) => {
+  const matched = (currentVersionNo || '').trim().match(/^[Vv]?(\d+)(?:\.\d+)*$/)
+  if (!matched) {
+    return DEFAULT_MANUAL_VERSION_NO
+  }
+  const majorVersion = Number(matched[1])
+  const nextMajorVersion = Number.isFinite(majorVersion) ? majorVersion + 1 : 1
+  return `V${nextMajorVersion}.0`
+}
 
 const resolveProcessTypeByRoute = () =>
   route.path.includes('/external') ? 'EXTERNAL_REVIEW' : 'CONTROLLED_FILE'
 const isExternalReview = computed(() => resolveProcessTypeByRoute() === 'EXTERNAL_REVIEW')
 const pageTitle = computed(() => (isExternalReview.value ? '外来文件评审' : '受控文件提交'))
 const submitButtonText = computed(() => (isExternalReview.value ? '提交评审' : '创建受控文件'))
+
+const submitBlockedByRouteReadiness = computed(() =>
+  Boolean(
+    selectedCategory.value &&
+      (routeReadinessLoading.value ||
+        routeReadinessError.value ||
+        routeReadiness.value?.ready === false)
+  )
+)
+
+const findAttachmentUploadAttempt = (uid: string | number) =>
+  attachmentUploadAttempts.value.find((attempt) => String(attempt.uid) === String(uid))
+
+const nextAttachmentUploadGeneration = (uid: string | number) => {
+  const key = String(uid)
+  const generation = (attachmentUploadGenerations.get(key) || 0) + 1
+  attachmentUploadGenerations.set(key, generation)
+  return generation
+}
+
+const isCurrentAttachmentUpload = (uid: string | number, generation: number) =>
+  attachmentUploadGenerations.get(String(uid)) === generation &&
+  findAttachmentUploadAttempt(uid)?.generation === generation
+
+const syncAttachmentUploadLoading = () => {
+  uploadAttachmentLoading.value = attachmentUploadAttempts.value.some(
+    (attempt) => attempt.status === 'UPLOADING'
+  )
+}
+
+const hasUnreadyAttachmentUploads = computed(() =>
+  attachmentFileList.value.some((file) => findAttachmentUploadAttempt(file.uid)?.status !== 'READY')
+)
+
+const attachmentUploadBlockMessage = computed(() => {
+  if (attachmentUploadAttempts.value.some((attempt) => attempt.status === 'UPLOADING')) {
+    return '普通附件仍在上传，请等待全部附件上传完成后再提交。'
+  }
+  if (attachmentUploadAttempts.value.some((attempt) => attempt.status === 'FAILED')) {
+    return '普通附件上传失败，请移除失败附件后再提交。'
+  }
+  return ''
+})
+
+const resolveReadyAttachmentUploads = (): ControlledFileUploadRespVO[] | undefined => {
+  const selectedUids = attachmentFileList.value.map((file) => String(file.uid))
+  const readyUploads = selectedUids.map((uid) => {
+    const attempt = attachmentUploadAttempts.value.find((candidate) => String(candidate.uid) === uid)
+    return attempt?.status === 'READY'
+      ? attachmentUploads.value.find((upload) => String(upload.uid) === uid)
+      : undefined
+  })
+  if (readyUploads.some((upload) => !upload) || readyUploads.length !== selectedUids.length) {
+    return undefined
+  }
+  return readyUploads.filter((upload): upload is AttachmentUploadState => Boolean(upload))
+}
+
+const canRetryWorkingDraftCreationAfterCurrentVersionConflictMessage = (
+  errorMessage = currentVersionLookupError.value
+) =>
+  !isExternalReview.value &&
+  formData.changeType === 'NEW' &&
+  uploadSessionBinding.value?.clientSessionId === uploadSessionId &&
+  uploadSessionBinding.value.scopedSessionId === previewUpload.value?.sessionId &&
+  Boolean(previewUpload.value?.uploadTicket) &&
+  isFileNumberChainConflictMessage(errorMessage)
+
 const formData = reactive<UploadFormDraft>({
   categoryId: null,
   directoryId: null,
@@ -718,7 +862,6 @@ const formData = reactive<UploadFormDraft>({
   revisionSourceControlledFileId: null,
   relatedControlledFileIds: [],
   needTraining: false,
-  selectedSignoffUserIds: [],
   processType: resolveProcessTypeByRoute(),
   changeType: 'NEW',
   versionNo: isExternalReview.value ? DEFAULT_MANUAL_VERSION_NO : DEFAULT_CONTROLLED_INITIAL_VERSION_NO,
@@ -833,7 +976,6 @@ const selectedCategory = computed(() =>
 const selectedProjectCode = computed(() =>
   projectCodeOptions.value.find((project) => project.id === formData.dccProjectCodeId)
 )
-const categoryDirectoryBindingMessage = '该类别未配置专属目录，按规则发布到“未分类”。'
 const categorySelectEmptyText = computed(() => {
   return '当前没有可选文件类别'
 })
@@ -882,7 +1024,7 @@ const categoryPreflightMessage = computed(() => {
   }
   const boundCategory = selectedFileTypeTaxonomyBoundCategories.value[0]
   if (!boundCategory.directoryId) {
-    return categoryDirectoryBindingMessage
+    return '该类别未配置正式默认目录，请联系文控管理员配置后再提交。'
   }
   return ''
 })
@@ -904,7 +1046,7 @@ const productCodeBindingHintClass = computed(() =>
 
 const uploadSubmitterService = createUploadSubmitterService({
   uploadPreview: uploadControlledFilePreview,
-  submit: createWorkingControlledFile
+  submit: submitControlledFile
 })
 
 const canLoadUploadNameOptions = computed(
@@ -988,13 +1130,9 @@ const formRules = reactive<FormRules>({
   versionNo: [
     {
       validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
-        if (!isExternalReview.value) {
-          callback()
-          return
-        }
         const versionNo = String(value || '').trim()
         if (!versionNo) {
-          callback(new Error('请输入版本号'))
+          callback(new Error(isExternalReview.value ? '请输入版本号' : '请输入初始版本号'))
           return
         }
         if (!isVersionNoFormatValid.value) {
@@ -1036,6 +1174,7 @@ let currentVersionLookupSeq = 0
 
 const clearCurrentVersionInfo = () => {
   currentVersionInfo.value = undefined
+  selectedHistoryVersion.value = undefined
   currentVersionLookupError.value = ''
 }
 
@@ -1071,11 +1210,15 @@ const resetUploadNameContext = (clearFileName: boolean) => {
 }
 
 const resetUploadDirectoryContext = () => {
+  uploadDirectoryRequestSeq++
   uploadDirectoryTree.value = undefined
   formData.directoryId = null
 }
 
 const resetSelectedPreview = () => {
+  sourceUploadRequestSeq++
+  uploadPreviewLoading.value = false
+  uploadSessionBinding.value = undefined
   previewUpload.value = undefined
   fileList.value = []
   previewFileBlob.value = null
@@ -1083,8 +1226,17 @@ const resetSelectedPreview = () => {
 }
 
 const resetDrawingPdfUpload = () => {
+  drawingPdfUploadRequestSeq++
+  uploadDrawingPdfLoading.value = false
   drawingPdfUpload.value = undefined
   drawingPdfFileList.value = []
+}
+
+const resetAttachmentUploads = () => {
+  attachmentUploadAttempts.value.forEach((attempt) => nextAttachmentUploadGeneration(attempt.uid))
+  attachmentUploads.value = []
+  attachmentFileList.value = []
+  syncAttachmentUploadLoading()
 }
 
 const resetCategorySelectionForFileTypeTaxonomyChange = () => {
@@ -1092,6 +1244,7 @@ const resetCategorySelectionForFileTypeTaxonomyChange = () => {
   resetUploadDirectoryContext()
   resetSelectedPreview()
   resetDrawingPdfUpload()
+  resetAttachmentUploads()
   clearSubmitFieldErrors(submitFieldErrors)
 }
 
@@ -1108,7 +1261,11 @@ const syncAutoCategoryFromSelectedFileTypeTaxonomy = async () => {
 }
 
 const hasTemporaryUploadState = () =>
-  Boolean(previewUpload.value?.uploadTicket || drawingPdfUpload.value?.uploadTicket)
+  Boolean(
+    previewUpload.value?.uploadTicket ||
+      drawingPdfUpload.value?.uploadTicket ||
+      attachmentUploads.value.some((upload) => upload.uploadTicket)
+  )
 
 const resolveCurrentUploadCleanupRequestId = () =>
   previewUpload.value?.requestId || drawingPdfUpload.value?.requestId
@@ -1118,11 +1275,25 @@ const cleanupCurrentUploadSession = async (showSuccess = false) => {
     return true
   }
   try {
-    const status = await cleanupControlledFileUploadSession(
-      uploadSessionId,
-      resolveCurrentUploadCleanupRequestId()
-    )
-    if (showSuccess && (status.cleanedCount ?? 0) > 0) {
+    let cleanedCount = 0
+    if (previewUpload.value?.uploadTicket || drawingPdfUpload.value?.uploadTicket) {
+      const status = await cleanupControlledFileUploadSession(
+        (previewUpload.value || drawingPdfUpload.value)!.sessionId,
+        resolveCurrentUploadCleanupRequestId()
+      )
+      cleanedCount += status.cleanedCount ?? 0
+    }
+    for (const upload of attachmentUploads.value) {
+      if (upload.uploadTicket) {
+        const status = await cleanupControlledFileUploadTicket(
+          upload.sessionId,
+          upload.uploadTicket,
+          upload.requestId
+        )
+        cleanedCount += status.cleanedCount ?? 0
+      }
+    }
+    if (showSuccess && cleanedCount > 0) {
       message.success('已清理本次上传临时文件')
     }
     return true
@@ -1141,12 +1312,12 @@ const cleanupTemporaryUploadTicket = async (
   }
   try {
     const status = await cleanupControlledFileUploadTicket(
-      uploadSessionId,
+      upload.sessionId,
       upload.uploadTicket,
       upload.requestId
     )
     if (showSuccess && (status.cleanedCount ?? 0) > 0) {
-      message.success('已清理本次图纸 PDF 临时文件')
+      message.success('已清理本次临时文件')
     }
     return true
   } catch (error) {
@@ -1155,13 +1326,28 @@ const cleanupTemporaryUploadTicket = async (
   }
 }
 
-const buildUploadPreviewContext = () => {
+const buildUploadPreviewContext = (sessionId = uploadSessionId) => {
   if (!formData.categoryId) {
     throw new Error(isExternalReview.value ? '请先选择文件类别' : categoryPreflightMessage.value || '文件分类尚未自动匹配文件类别')
   }
   return {
     categoryId: formData.categoryId,
-    sessionId: uploadSessionId
+    uploadContext: isExternalReview.value ? 'EXTERNAL_REVIEW' as const : 'NEW_UPLOAD' as const,
+    dccProjectCodeId: formData.dccProjectCodeId ?? undefined,
+    fileTypeTaxonomyId: formData.fileTypeTaxonomyId ?? undefined,
+    fileName: formData.fileName,
+    sessionId
+  }
+}
+
+const cleanupStaleUploadResponse = async (
+  upload: ControlledFileUploadRespVO,
+  label: string
+) => {
+  try {
+    await cleanupControlledFileUploadTicket(upload.sessionId, upload.uploadTicket, upload.requestId)
+  } catch (error) {
+    message.error(resolveUploadErrorMessage(error, `${label}临时文件清理失败，请联系管理员处理`))
   }
 }
 
@@ -1238,30 +1424,13 @@ const loadProjectFileTemplate = async (projectCodeId: number) => {
   }
 }
 
-const applyDccProjectCodeProductNumber = async () => {
-  const requestSequence = ++projectProductRequestSequence
-  const projectCodeId = formData.dccProjectCodeId
+const applyDccProjectCodeProductNumber = () => {
+  const projectCode = selectedProjectCode.value
   formData.productMasterId = null
-  formData.productCode = ''
+  formData.productCode = selectedProjectCode.value?.projectCode?.trim() || ''
   projectProductError.value = ''
-  projectProductSource.value = ''
-  projectProductResolvedId.value = null
-  projectProductLoading.value = Boolean(projectCodeId)
-  if (!projectCodeId) return
-  const isCurrent = () => requestSequence === projectProductRequestSequence && formData.dccProjectCodeId === projectCodeId
-  try {
-    const product = await previewControlledFileProjectProduct(projectCodeId)
-    if (!isCurrent()) return
-    if (product.projectCodeId !== projectCodeId) throw new Error('产品编号响应与当前项目不一致')
-    formData.productMasterId = product.productMasterId
-    formData.productCode = product.productCode?.trim() || ''
-    projectProductSource.value = product.source
-    projectProductResolvedId.value = projectCodeId
-  } catch (error) {
-    if (isCurrent()) projectProductError.value = resolveUploadErrorMessage(error, '产品编号解析失败，请重新选择项目后重试')
-  } finally {
-    if (isCurrent()) projectProductLoading.value = false
-  }
+  projectProductResolvedId.value = projectCode?.id ?? null
+  projectProductLoading.value = false
 }
 
 const loadBaseData = async () => {
@@ -1427,11 +1596,18 @@ const handleProjectTemplateTypeChange = () => {
 }
 
 const loadUploadDirectoryTree = async (categoryId: number) => {
+  const requestSequence = ++uploadDirectoryRequestSeq
   try {
     const tree = await getControlledFileUploadDirectoryTree(categoryId)
+    if (requestSequence !== uploadDirectoryRequestSeq || formData.categoryId !== categoryId) {
+      return
+    }
     uploadDirectoryTree.value = tree
     formData.directoryId = tree.leafBinding ? tree.bindingDirectoryId : null
   } catch (error) {
+    if (requestSequence !== uploadDirectoryRequestSeq || formData.categoryId !== categoryId) {
+      return
+    }
     uploadDirectoryTree.value = undefined
     formData.directoryId = null
     message.error(resolveUploadErrorMessage(error, '上传目录加载失败，请查看错误提示后重试'))
@@ -1654,10 +1830,7 @@ const refreshRouteReadiness = async () => {
   routeReadinessLoading.value = true
   routeReadinessError.value = ''
   try {
-    const readiness = await checkControlledFileRouteReadiness({
-      categoryId,
-      selectedSignoffUserIds: [...formData.selectedSignoffUserIds]
-    })
+    const readiness = await checkControlledFileRouteReadiness({ categoryId, actionType: 'NEW' })
     if (requestSeq !== routeReadinessRequestSeq) {
       return false
     }
@@ -1679,7 +1852,9 @@ const refreshRouteReadiness = async () => {
   }
 }
 
-const loadCurrentVersionByFileNumber = async () => {
+const loadCurrentVersionByFileNumber = async (options: {
+  suppressWorkingDraftRetryConflictMessage?: boolean
+} = {}) => {
   const fileNumber = formData.fileNumber.trim()
   const requestSeq = ++currentVersionLookupSeq
   if (!fileNumber) {
@@ -1714,8 +1889,13 @@ const loadCurrentVersionByFileNumber = async () => {
     if (requestSeq === currentVersionLookupSeq) {
       const errorMessage = resolveUploadErrorMessage(error, '当前有效版本信息查询失败，请查看错误提示后重试')
       currentVersionInfo.value = undefined
-      currentVersionLookupError.value = errorMessage
-      message.error(errorMessage)
+      const recoverableRetryConflict =
+        options.suppressWorkingDraftRetryConflictMessage === true &&
+        canRetryWorkingDraftCreationAfterCurrentVersionConflictMessage(errorMessage)
+      currentVersionLookupError.value = recoverableRetryConflict ? '' : errorMessage
+      if (!recoverableRetryConflict) {
+        message.error(errorMessage)
+      }
     }
   } finally {
     if (requestSeq === currentVersionLookupSeq) {
@@ -1747,6 +1927,7 @@ const handleCategoryChange = async () => {
   resetUploadDirectoryContext()
   resetSelectedPreview()
   resetDrawingPdfUpload()
+  resetAttachmentUploads()
   if (formData.categoryId) {
     applyDccProjectCodeProductNumber()
     await loadUploadDirectoryTree(formData.categoryId)
@@ -1781,6 +1962,8 @@ const handleProjectTemplateFileSelect = async (item: UploadNameSuggestionItem) =
   )
   if (historyOption) {
     formData.fileNumber = historyOption.fileNumber?.trim() || formData.fileNumber
+    selectedHistoryVersion.value = historyOption.currentVersionNo || null
+    formData.versionNo = resolveNextMajorVersionNo(selectedHistoryVersion.value)
     await loadCurrentVersionByFileNumber()
   } else {
     resetUploadNameLinkage(true)
@@ -1827,6 +2010,8 @@ const handleFileExceed: UploadProps['onExceed'] = () => {
 }
 
 const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
+  const requestSeq = ++sourceUploadRequestSeq
+  const selectedUid = file.uid
   const validation = validateControlledFileSelection(
     uploadFiles.map((item) => ({
       name: item.name,
@@ -1845,6 +2030,12 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
   if (!file.raw) {
     return
   }
+  if (!(await cleanupCurrentUploadSession())) {
+    uploadRef.value?.clearFiles()
+    return
+  }
+  resetDrawingPdfUpload()
+  resetAttachmentUploads()
 
   clearSubmitFieldErrors(submitFieldErrors)
   uploadPreviewError.value = ''
@@ -1854,28 +2045,49 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
 
   uploadPreviewLoading.value = true
   try {
-    previewUpload.value = await uploadSubmitterService.uploadPreview(
+    const uploaded = await uploadSubmitterService.uploadPreview(
       file.raw as File,
       'SOURCE',
       buildUploadPreviewContext()
     )
+    const isCurrentSelection =
+      requestSeq === sourceUploadRequestSeq &&
+      fileList.value.some((selectedFile) => selectedFile.uid === selectedUid)
+    if (!isCurrentSelection) {
+      await cleanupStaleUploadResponse(uploaded, '受控文件')
+      return
+    }
+    uploadSessionBinding.value = {
+      clientSessionId: uploadSessionId,
+      scopedSessionId: uploaded.sessionId
+    }
+    previewUpload.value = uploaded
   } catch (error) {
-    previewUpload.value = undefined
-    previewFileBlob.value = null
-    uploadPreviewError.value = resolveUploadPreviewErrorMessage(error, '文件预览上传失败，请查看错误提示后重试')
-    message.error(uploadPreviewError.value)
+    if (requestSeq === sourceUploadRequestSeq) {
+      previewUpload.value = undefined
+      previewFileBlob.value = null
+      uploadPreviewError.value = resolveUploadPreviewErrorMessage(error, '文件预览上传失败，请查看错误提示后重试')
+      message.error(uploadPreviewError.value)
+    }
   } finally {
-    uploadPreviewLoading.value = false
+    if (requestSeq === sourceUploadRequestSeq) {
+      uploadPreviewLoading.value = false
+    }
   }
 }
 
 const handleBeforeFileRemove: UploadProps['beforeRemove'] = async () => {
-  return await cleanupCurrentUploadSession(true)
+  const cleaned = await cleanupCurrentUploadSession(true)
+  if (cleaned) {
+    sourceUploadRequestSeq++
+  }
+  return cleaned
 }
 
 const handleFileRemove: UploadProps['onRemove'] = () => {
   resetSelectedPreview()
   resetDrawingPdfUpload()
+  resetAttachmentUploads()
   clearSubmitFieldErrors(submitFieldErrors)
 }
 
@@ -1884,6 +2096,8 @@ const handleDrawingPdfExceed: UploadProps['onExceed'] = () => {
 }
 
 const handleDrawingPdfChange: UploadProps['onChange'] = async (file, uploadFiles) => {
+  const requestSeq = ++drawingPdfUploadRequestSeq
+  const selectedUid = file.uid
   const validation = validateSingleUploadFileSelection(
     uploadFiles.map((item) => ({
       name: item.name,
@@ -1921,26 +2135,117 @@ const handleDrawingPdfChange: UploadProps['onChange'] = async (file, uploadFiles
   drawingPdfUpload.value = undefined
   uploadDrawingPdfLoading.value = true
   try {
-    drawingPdfUpload.value = await uploadSubmitterService.uploadPreview(
+    const uploaded = await uploadSubmitterService.uploadPreview(
       file.raw as File,
       'DRAWING_PDF',
       buildUploadPreviewContext()
     )
+    const isCurrentSelection =
+      requestSeq === drawingPdfUploadRequestSeq &&
+      drawingPdfFileList.value.some((selectedFile) => selectedFile.uid === selectedUid)
+    if (!isCurrentSelection) {
+      await cleanupStaleUploadResponse(uploaded, '图纸 PDF')
+      return
+    }
+    drawingPdfUpload.value = uploaded
   } catch (error) {
-    drawingPdfUpload.value = undefined
-    uploadPreviewError.value = resolveUploadPreviewErrorMessage(error, '图纸 PDF 上传失败，请查看错误提示后重试')
-    message.error(uploadPreviewError.value)
+    if (requestSeq === drawingPdfUploadRequestSeq) {
+      drawingPdfUpload.value = undefined
+      uploadPreviewError.value = resolveUploadPreviewErrorMessage(error, '图纸 PDF 上传失败，请查看错误提示后重试')
+      message.error(uploadPreviewError.value)
+    }
   } finally {
-    uploadDrawingPdfLoading.value = false
+    if (requestSeq === drawingPdfUploadRequestSeq) {
+      uploadDrawingPdfLoading.value = false
+    }
   }
 }
 
 const handleBeforeDrawingPdfRemove: UploadProps['beforeRemove'] = async () => {
-  return await cleanupTemporaryUploadTicket(drawingPdfUpload.value, true)
+  const cleaned = await cleanupTemporaryUploadTicket(drawingPdfUpload.value, true)
+  if (cleaned) {
+    drawingPdfUploadRequestSeq++
+  }
+  return cleaned
 }
 
 const handleDrawingPdfRemove: UploadProps['onRemove'] = () => {
   resetDrawingPdfUpload()
+}
+
+const handleAttachmentFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
+  if (!file.raw) {
+    return
+  }
+  const generation = nextAttachmentUploadGeneration(file.uid)
+  attachmentUploadAttempts.value = [
+    ...attachmentUploadAttempts.value.filter((attempt) => String(attempt.uid) !== String(file.uid)),
+    { uid: file.uid, generation, fileName: file.name, status: 'UPLOADING' }
+  ]
+  clearSubmitFieldErrors(submitFieldErrors)
+  uploadPreviewError.value = ''
+  attachmentFileList.value = uploadFiles
+  syncAttachmentUploadLoading()
+  const sessionId = createControlledFileUploadSessionId()
+  try {
+    const uploaded = await uploadSubmitterService.uploadPreview(
+      file.raw as File,
+      attachmentUploadPurpose,
+      buildUploadPreviewContext(sessionId)
+    )
+    if (!isCurrentAttachmentUpload(file.uid, generation) ||
+        !attachmentFileList.value.some((item) => String(item.uid) === String(file.uid))) {
+      await cleanupStaleUploadResponse(uploaded, '普通附件')
+      return
+    }
+    attachmentUploads.value = [
+      ...attachmentUploads.value.filter((upload) => upload.uid !== file.uid),
+      {
+        ...uploaded,
+        uid: file.uid
+      }
+    ]
+    const attempt = findAttachmentUploadAttempt(file.uid)
+    if (attempt) {
+      attempt.status = 'READY'
+    }
+  } catch (error) {
+    if (isCurrentAttachmentUpload(file.uid, generation)) {
+      const attempt = findAttachmentUploadAttempt(file.uid)
+      if (attempt) {
+        attempt.status = 'FAILED'
+      }
+      uploadPreviewError.value = resolveUploadPreviewErrorMessage(error, '普通附件上传失败，请移除失败附件后重试')
+      message.error(uploadPreviewError.value)
+    }
+  } finally {
+    syncAttachmentUploadLoading()
+  }
+}
+
+const handleBeforeAttachmentRemove: UploadProps['beforeRemove'] = async (file) => {
+  const attempt = findAttachmentUploadAttempt(file.uid)
+  if (attempt?.status === 'UPLOADING') {
+    nextAttachmentUploadGeneration(file.uid)
+    return true
+  }
+  const upload = attachmentUploads.value.find((item) => item.uid === file.uid)
+  const cleaned = await cleanupTemporaryUploadTicket(upload, true)
+  if (cleaned && attempt && isCurrentAttachmentUpload(file.uid, attempt.generation)) {
+    nextAttachmentUploadGeneration(file.uid)
+  }
+  return cleaned
+}
+
+const handleAttachmentRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
+  nextAttachmentUploadGeneration(file.uid)
+  attachmentUploads.value = attachmentUploads.value.filter((upload) => upload.uid !== file.uid)
+  attachmentUploadAttempts.value = attachmentUploadAttempts.value.filter(
+    (attempt) => String(attempt.uid) !== String(file.uid)
+  )
+  attachmentFileList.value = uploadFiles
+  syncAttachmentUploadLoading()
+  clearSubmitFieldErrors(submitFieldErrors)
 }
 
 const submitForm = async () => {
@@ -1953,15 +2258,27 @@ const submitForm = async () => {
   if (!valid) {
     return
   }
+  if (!isVersionNoFormatValid.value) {
+    submitFieldErrors.versionNo = versionFormatPreflightMessage.value
+    message.warning(versionFormatPreflightMessage.value)
+    return
+  }
+  const initialAttachmentSnapshot = resolveReadyAttachmentUploads()
+  if (hasUnreadyAttachmentUploads.value || !initialAttachmentSnapshot) {
+    message.warning(attachmentUploadBlockMessage.value || '请等待全部普通附件上传完成后再提交')
+    return
+  }
   if (currentVersionLookupTimer) {
     clearTimeout(currentVersionLookupTimer)
     currentVersionLookupTimer = undefined
   }
-  await loadCurrentVersionByFileNumber()
+  await loadCurrentVersionByFileNumber({ suppressWorkingDraftRetryConflictMessage: true })
   if (currentVersionLookupError.value) {
-    submitFieldErrors.versionNo = currentVersionLookupError.value
-    message.warning(currentVersionLookupError.value)
-    return
+    if (!canRetryWorkingDraftCreationAfterCurrentVersionConflictMessage()) {
+      submitFieldErrors.versionNo = currentVersionLookupError.value
+      message.warning(currentVersionLookupError.value)
+      return
+    }
   }
   if (existingUploadIdentityBlockReason.value) {
     submitFieldErrors.versionNo = existingUploadIdentityBlockReason.value
@@ -2010,15 +2327,27 @@ const submitForm = async () => {
     message.warning(drawingPdfValidation.message || '图纸 PDF 校验失败')
     return
   }
+  await refreshRouteReadiness()
+  if (!routeReadiness.value?.ready) {
+    const blockerMessage = routeReadiness.value?.blockers?.[0]?.message || routeReadinessError.value
+    message.warning(blockerMessage || '审批路线尚未就绪，请处理配置后重试')
+    return
+  }
+  const attachmentSnapshot = resolveReadyAttachmentUploads()
+  if (hasUnreadyAttachmentUploads.value || !attachmentSnapshot) {
+    message.warning(attachmentUploadBlockMessage.value || '普通附件状态已变化，请等待全部附件上传完成后再提交')
+    return
+  }
   submitLoading.value = true
   try {
     await uploadSubmitterService.submit(
       { ...formData },
       previewUpload.value,
-      drawingPdfUpload.value
+      drawingPdfUpload.value,
+      attachmentSnapshot
     )
     uploadSubmitted.value = true
-    message.success(isExternalReview.value ? '外来文件评审已提交审批' : '受控文件已创建，请在文件浏览中提交审批')
+    message.success(isExternalReview.value ? '外来文件评审已提交审批' : '受控文件已提交审批')
     await router.push({ name: 'DccControlledFileBrowser' })
   } catch (error) {
     const feedback = buildSubmitFailureFeedback(

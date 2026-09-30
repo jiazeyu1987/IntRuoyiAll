@@ -30,7 +30,7 @@ const extractFunction = (source, marker) => {
   assert.fail(`${marker} function body should close`)
 }
 
-const checkinTitleIndex = page.indexOf('title="检入新小版本"')
+const checkinTitleIndex = page.indexOf('title="检入新版本"')
 assert.notEqual(checkinTitleIndex, -1, 'checkin dialog should exist')
 const checkinDialogStart = page.lastIndexOf('<el-dialog', checkinTitleIndex)
 const checkinDialogEnd = page.indexOf('</el-dialog>', checkinTitleIndex)
@@ -61,7 +61,11 @@ assert.match(checkinDialog, /data-testid="dcc-controlled-browser-checkin-remark"
 assert.match(checkinDialog, /源文件或备注至少一项真实变化/)
 assert.match(checkinDialog, /未上传新源文件时，备注需与当前版本不同/)
 
-assert.match(page, /const checkinForm = reactive\(\{\s*changeDescription: '',\s*remark: ''\s*\}\)/)
+assert.match(
+  page,
+  /const checkinForm = reactive<[^>]+>\(\{\s*versionChangeType: 'MINOR', changeDescription: '', needTraining: false, remark: ''\s*\}\)/,
+  'checkin form must initialize minor checkin, empty description, training checkbox and remark'
+)
 assert.match(handleCheckin, /checkinForm\.remark = String\(file\.remark \|\| ''\)/)
 assert.match(resetCheckinDialog, /checkinForm\.remark = ''/)
 
@@ -71,6 +75,11 @@ assert.match(
   submitCheckin,
   /const hasCheckinRemarkChange =\s*Boolean\(normalizedCheckinRemark\) && normalizedCheckinRemark !== String\(target\.remark \|\| ''\)\.trim\(\)/
 )
+assert.match(
+  submitCheckin,
+  /const requiresFreshSource = checkinForm\.versionChangeType === 'MAJOR'[\s\S]*if \(requiresFreshSource && !hasCheckinUpload\)/,
+  'major checkin and rework checkin must still require a fresh source file'
+)
 assert.doesNotMatch(
   submitCheckin,
   /if \(!uploaded\?\.uploadTicket\) \{[\s\S]*?return[\s\S]*?\}/,
@@ -78,7 +87,7 @@ assert.doesNotMatch(
 )
 assert.match(submitCheckin, /请上传修改后的源文件，或修改检入备注。/)
 assert.match(submitCheckin, /uploadTicket:\s*hasCheckinUpload \? uploaded\?\.uploadTicket : undefined/)
-assert.match(submitCheckin, /sessionId:\s*hasCheckinUpload \? checkinUploadSessionId\.value : undefined/)
+assert.match(submitCheckin, /sessionId:\s*hasCheckinUpload \? checkinUpload\.value!\.sessionId : undefined/)
 assert.match(submitCheckin, /remark:\s*normalizedCheckinRemark/)
 
 console.log('PASS: DCC-STATIC-022 remark-only checkin static contract')

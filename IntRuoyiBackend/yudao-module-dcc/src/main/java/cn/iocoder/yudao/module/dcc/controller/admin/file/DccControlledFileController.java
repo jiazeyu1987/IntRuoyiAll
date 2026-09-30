@@ -296,7 +296,7 @@ public class DccControlledFileController {
     public CommonResult<DccControlledFileRouteReadinessRespVO> previewRoute(
             @Valid @RequestBody DccControlledFileRoutePreviewReqVO reqVO) {
         return success(workflowService.previewRoute(getLoginUserId(), reqVO.getCategoryId(),
-                reqVO.getSelectedSignoffUserIds()));
+                reqVO.getSelectedSignoffUserIds(), reqVO.getActionType()));
     }
 
     @GetMapping("/upload-name-options")
@@ -306,6 +306,13 @@ public class DccControlledFileController {
             @RequestParam("dccProjectCodeId") Long dccProjectCodeId,
             @RequestParam("fileTypeTaxonomyId") Long fileTypeTaxonomyId) {
         return success(queryService.listUploadNameOptions(dccProjectCodeId, fileTypeTaxonomyId));
+    }
+
+    @PostMapping("/submit")
+    @Operation(summary = "Submit one new controlled file and start approval")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<Long> submitControlledFile(@Valid @RequestBody DccControlledFileSubmitReqVO reqVO) {
+        return success(workflowService.submitControlledFile(getLoginUserId(), reqVO));
     }
 
     @GetMapping("/current-version")
@@ -811,6 +818,43 @@ public class DccControlledFileController {
     public CommonResult<DccControlledFilePreviewMetadataRespVO> getPreviewMetadata(@PathVariable("id") Long id,
                                                                                   HttpServletRequest request) {
         return success(queryService.getPreviewMetadata(getLoginUserId(), id, auditContext(request, null)));
+    }
+
+    @GetMapping("/{id:\\d+}/attachments/{attachmentId:\\d+}/preview")
+    @Operation(summary = "Preview controlled file attachment")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> previewControlledFileAttachment(
+            @PathVariable("id") Long id,
+            @PathVariable("attachmentId") Long attachmentId,
+            @RequestHeader(VIEWER_TOKEN_HEADER) String viewerToken,
+            @RequestHeader(ACCESS_EVENT_CODE_HEADER) String accessEventCode,
+            @RequestHeader(WATERMARK_TRACE_CODE_HEADER) String watermarkTraceCode,
+            @RequestHeader(VIEWER_TOKEN_ID_HEADER) String viewerTokenId,
+            @RequestHeader(VIEWER_TOKEN_NONCE_HEADER) String viewerTokenNonce,
+            HttpServletRequest request) {
+        var binary = queryService.readAttachmentPreviewFile(getLoginUserId(), id, attachmentId, viewerToken,
+                accessEventCode, watermarkTraceCode, viewerTokenId, viewerTokenNonce,
+                auditContext(request, accessEventCode));
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType(binary.contentType()))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        contentDispositionInline(binary.fileName()))
+                .header(org.springframework.http.HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
+                        PREVIEW_WATERMARK_HEADER + "," + ACCESS_EVENT_CODE_HEADER)
+                .header(PREVIEW_WATERMARK_HEADER, encodePreviewWatermark(binary.watermark()))
+                .header(ACCESS_EVENT_CODE_HEADER, accessEventCode)
+                .body(binary.bytes());
+    }
+
+    @GetMapping("/{id:\\d+}/attachments/{attachmentId:\\d+}/preview-metadata")
+    @Operation(summary = "Get controlled file attachment preview metadata")
+    @PreAuthorize("isAuthenticated()")
+    public CommonResult<DccControlledFilePreviewMetadataRespVO> getAttachmentPreviewMetadata(
+            @PathVariable("id") Long id,
+            @PathVariable("attachmentId") Long attachmentId,
+            HttpServletRequest request) {
+        return success(queryService.getAttachmentPreviewMetadata(getLoginUserId(), id, attachmentId,
+                auditContext(request, null)));
     }
 
     @GetMapping("/{id:\\d+}/onlyoffice-file")

@@ -124,6 +124,24 @@ class BpmNativeApprovalTaskProviderTest {
     }
 
     @Test
+    void pageTodoExcludesDccControlledFileTasksBecauseDccProviderOwnsThem() {
+        Task task = mock(Task.class);
+        when(task.getProcessInstanceId()).thenReturn("dcc-pi-100");
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessDefinitionKey()).thenReturn("dcc-controlled-file-upload");
+        when(processInstanceService.getProcessInstanceMap(Set.of("dcc-pi-100")))
+                .thenReturn(Map.of("dcc-pi-100", processInstance));
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, null, 1, 10));
+
+        assertEquals(0L, page.getTotal());
+        assertTrue(page.getList().isEmpty());
+    }
+
+    @Test
     void pageTodoFindsAssignedTaskWhenKeywordIsProcessInstanceId() {
         Task task = mock(Task.class);
         when(task.getId()).thenReturn("task-regcert-access");

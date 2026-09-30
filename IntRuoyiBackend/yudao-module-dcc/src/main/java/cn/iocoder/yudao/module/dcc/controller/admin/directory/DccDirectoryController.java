@@ -141,7 +141,7 @@ public class DccDirectoryController {
 
     @GetMapping("/access-rule-directories")
     @Operation(summary = "获取已绑定访问规则的目录列表")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:access-rule:manage')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:access-rule:manage', 'dcc:controlled-file:category:manage')")
     public CommonResult<List<DccDirectoryAccessRuleDirectoryRespVO>> listAccessRuleDirectories() {
         List<DccDirectoryAccessRuleDirectorySummary> directories = directoryAdminService.listAccessRuleDirectories();
         return success(convertList(directories, item -> {
@@ -155,7 +155,7 @@ public class DccDirectoryController {
 
     @GetMapping("/{id:\\d+}/access-rules")
     @Operation(summary = "获取目录访问规则")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:access-rule:manage')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:access-rule:manage', 'dcc:controlled-file:category:manage')")
     public CommonResult<List<DccDirectoryAccessRuleRespVO>> getAccessRules(@PathVariable("id") Long id) {
         List<DccDirectoryAccessRuleDO> rules = directoryAdminService.getAccessRules(id);
         return success(convertList(rules, item -> normalizeMergedReadPermission(
@@ -164,7 +164,7 @@ public class DccDirectoryController {
 
     @org.springframework.web.bind.annotation.DeleteMapping("/{id:\\d+}/access-rules")
     @Operation(summary = "删除目录整组访问规则")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:access-rule:manage')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:access-rule:manage', 'dcc:controlled-file:category:manage')")
     public CommonResult<Boolean> deleteAccessRules(@PathVariable("id") Long id) {
         directoryAdminService.deleteAccessRules(id);
         return success(true);
@@ -172,7 +172,7 @@ public class DccDirectoryController {
 
     @PutMapping("/{id:\\d+}/access-rules")
     @Operation(summary = "替换目录访问规则")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:access-rule:manage')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:access-rule:manage', 'dcc:controlled-file:category:manage')")
     public CommonResult<Boolean> replaceAccessRules(@PathVariable("id") Long id,
                                                     @Valid @RequestBody List<DccDirectoryAccessRuleSaveReqVO> reqVOList) {
         directoryAdminService.replaceAccessRules(id, reqVOList);

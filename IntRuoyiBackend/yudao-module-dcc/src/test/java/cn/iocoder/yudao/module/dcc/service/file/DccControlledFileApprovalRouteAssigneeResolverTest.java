@@ -10,6 +10,8 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteMappe
 import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteNodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
 import cn.iocoder.yudao.module.dcc.service.position.DccApprovalPositionRuntimeResolver;
+import cn.iocoder.yudao.module.system.api.dept.DeptApi;
+import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.junit.jupiter.api.Test;
@@ -24,6 +26,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW_APPROVER_NOT_FOUND;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -40,6 +43,8 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
     private DccApprovalPositionRuntimeResolver positionRuntimeResolver;
     @Mock
     private AdminUserApi adminUserApi;
+    @Mock
+    private DeptApi deptApi;
     @Mock
     private DccApprovalParticipantPostValidator approvalParticipantPostValidator;
 
@@ -100,6 +105,89 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
 
         assertEquals(Map.of(DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), List.of(914518L, 914519L)),
                 result);
+    }
+
+    @Test
+    void resolveRoute_deptSourceResolvesDepartmentLeadersAndKeepsDuplicateLeaderObligations() {
+        DccCategoryApprovalRouteDO route = DccCategoryApprovalRouteDO.builder()
+                .id(26L).categoryId(16L).versionNo(1).active(Boolean.TRUE).build();
+        when(routeMapper.selectLatestActiveByCategoryId(16L)).thenReturn(route);
+        when(routeNodeMapper.selectListByRouteId(26L)).thenReturn(List.of(
+                routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "USER", 914518L,
+                        null, 1),
+                routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "DEPT", null,
+                        "81,82", 2),
+                routeNode(3, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "USER", 914521L,
+                        null, 3),
+                routeNode(4, DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode(), "USER", 914522L,
+                        null, 4)
+        ));
+        when(deptApi.getDeptList(List.of(81L, 82L))).thenReturn(List.of(
+                dept(81L, "生产部", 700L),
+                dept(82L, "质量部", 700L)
+        ));
+
+        DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute result = resolver.resolveRoute(16L, 99L);
+
+        assertEquals(List.of(700L, 700L), result.nodes().get(1).resolvedUserIds());
+        assertEquals(List.of(81L, 82L), result.nodes().get(1).candidateSourceIds());
+    }
+
+    @Test
+    void resolveRoute_deptSourceWithoutLeaderFailsFastForWholeRoute() {
+        DccCategoryApprovalRouteDO route = DccCategoryApprovalRouteDO.builder()
+                .id(27L).categoryId(17L).versionNo(1).active(Boolean.TRUE).build();
+        when(routeMapper.selectLatestActiveByCategoryId(17L)).thenReturn(route);
+        when(routeNodeMapper.selectListByRouteId(27L)).thenReturn(List.of(
+                routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "USER", 914518L,
+                        null, 1),
+                routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "DEPT", 81L,
+                        null, 2),
+                routeNode(3, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "USER", 914521L,
+                        null, 3),
+                routeNode(4, DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode(), "USER", 914522L,
+                        null, 4)
+        ));
+        when(deptApi.getDeptList(List.of(81L))).thenReturn(List.of(dept(81L, "生产部", null)));
+
+        assertServiceException(() -> resolver.resolveRoute(17L, 99L),
+                ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+    }
+
+    @Test
+    void resolveRoute_actionTypeUsesIndependentRouteAndDoesNotFallbackToLegacy() {
+        when(routeMapper.selectLatestActiveByCategoryIdAndActionType(18L, "NEW")).thenReturn(null);
+
+        assertServiceException(() -> resolver.resolveRoute(18L, 99L, "NEW"),
+                CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
+        verify(routeMapper, never()).selectLatestActiveByCategoryId(18L);
+    }
+
+    @Test
+    void resolveRoute_actionTypeStartsWithMatrixReview() {
+        DccCategoryApprovalRouteDO uploadRoute = DccCategoryApprovalRouteDO.builder()
+                .id(29L).categoryId(19L).versionNo(1).actionType("NEW").active(Boolean.TRUE).build();
+        when(routeMapper.selectLatestActiveByCategoryIdAndActionType(19L, "NEW")).thenReturn(uploadRoute);
+        when(routeNodeMapper.selectListByRouteId(29L)).thenReturn(List.of(
+                routeNode(1, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "DEPT", null, "81,82", 1),
+                routeNode(2, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "USER", 914521L, null, 2),
+                routeNode(3, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "USER", 914522L, null, 3)
+        ));
+        when(deptApi.getDeptList(List.of(81L, 82L))).thenReturn(List.of(
+                dept(81L, "生产部", 700L),
+                dept(82L, "质量部", 701L)
+        ));
+
+        DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute result =
+                resolver.resolveRoute(19L, 99L, "NEW");
+        Map<String, List<Long>> startAssignees = resolver.buildStartUserSelectAssigneeMap(result.nodes());
+        Map<String, List<Long>> approveAssignees = resolver.buildApproveUserSelectAssigneeMap(result.nodes());
+
+        assertEquals(DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), result.nodes().get(0).stageCode());
+        assertEquals(Map.of(DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), List.of(700L, 701L)),
+                startAssignees);
+        assertEquals(List.of(914521L), approveAssignees.get(DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode()));
+        assertEquals(List.of(914522L), approveAssignees.get(DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode()));
     }
 
     @Test
@@ -188,6 +276,9 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
     void buildApproveUserSelectAssigneeMap_duplicateStageCodeFailsFast() {
         List<DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode> nodes = List.of(
                 new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                        1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "文控预审", 1,
+                        "USER", 200L, List.of(200L), "ANY", null, Boolean.FALSE, List.of(200L)),
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
                         2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "会签审核-第一组", 2,
                         "USER", 201L, List.of(201L), "ALL", 100, Boolean.TRUE, List.of(201L)),
                 new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
@@ -220,5 +311,13 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
                 .required(Boolean.TRUE)
                 .sort(sort)
                 .build();
+    }
+
+    private DeptRespDTO dept(Long id, String name, Long leaderUserId) {
+        DeptRespDTO dept = new DeptRespDTO();
+        dept.setId(id);
+        dept.setName(name);
+        dept.setLeaderUserId(leaderUserId);
+        return dept;
     }
 }

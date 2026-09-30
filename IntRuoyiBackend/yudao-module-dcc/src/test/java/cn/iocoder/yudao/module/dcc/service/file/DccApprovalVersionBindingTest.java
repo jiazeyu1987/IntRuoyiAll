@@ -8,14 +8,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DccApprovalVersionBindingTest {
 
     @Test
-    void initialApprovalSubjectUsesConcreteIterationLabel() {
+    void initialApprovalSubjectRejectsClientControlledVersionAndUsesConcreteIterationLabel() {
+        assertThrows(IllegalArgumentException.class,
+                () -> DccWindchillVersionNumber.initialForNewFile("client-value"));
         DccControlledFileDO file = DccControlledFileDO.builder()
-                .versionNo(DccWindchillVersionNumber.initialForNewFile("client-value"))
+                .versionNo(DccWindchillVersionNumber.initialForNewFile("A/1"))
                 .build();
 
         assertEquals("A/1", file.getVersionNo());

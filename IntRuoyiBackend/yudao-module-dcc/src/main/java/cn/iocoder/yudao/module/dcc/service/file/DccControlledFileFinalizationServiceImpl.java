@@ -7,6 +7,7 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
 import cn.iocoder.yudao.module.bpm.api.event.BpmProcessInstanceStatusEvent;
 import cn.iocoder.yudao.module.bpm.enums.task.BpmProcessInstanceStatusEnum;
+import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDistributionRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryTrainingRuleDO;
@@ -41,6 +42,7 @@ import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileTrainingStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccDistributionMediumEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileProcessDefinitionKeys;
 import cn.iocoder.yudao.module.dcc.service.download.DccDownloadFileBinary;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
@@ -66,6 +68,7 @@ import java.util.Set;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_MANUAL_RELEASE_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DISTRIBUTION_MEDIUM_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PDF_CONVERSION_CONFIG_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PDF_CONVERSION_FAILED;
@@ -169,6 +172,8 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
     private DccPublicationFollowupService publicationFollowupService;
     @Resource
     private DccControlledFileFinalizationFailureService finalizationFailureService;
+    @Resource
+    private BpmTaskService bpmTaskService;
 
     @Override
     public void handleProcessInstanceStatusChanged(BpmProcessInstanceStatusEvent event) {
@@ -210,6 +215,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             throw exception(CONTROLLED_FILE_STAMP_RETRY_NOT_ALLOWED);
         }
         requirePublishPermission(userId, file);
+        requireRetryApprovalEvidence(file);
         String eventKey = platformAdapter.nextFinalizationRetryEventKey(file);
         platformAdapter.recordFinalizationRetried(file, userId, eventKey);
         runFinalizationWithFailureHandling(file, userId, eventKey);
@@ -268,6 +274,10 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
+        if (isThreeWorkflowUploadOrRevision(file)) {
+            releaseThreeWorkflowManualDistribution(userId, id);
+            return;
+        }
         if (DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(file.getProcessType())
                 || !DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus().equals(file.getStatus())
                 || !permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
@@ -290,6 +300,37 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         transactionTemplate.executeWithoutResult(status ->
                 activateRevision(file, master, category, publishedArtifact, distributionPlans, userId,
                         "dcc-manual-release:" + id));
+    }
+
+    private void releaseThreeWorkflowManualDistribution(Long userId, Long id) {
+        transactionTemplate.executeWithoutResult(status -> {
+            Long tenantId = TenantContextHolder.getRequiredTenantId();
+            DccControlledFileDO file = controlledFileMapper.selectByIdAndTenantForUpdate(tenantId, id);
+            if (file == null) {
+                throw exception(CONTROLLED_FILE_NOT_EXISTS);
+            }
+            if (!isThreeWorkflowUploadOrRevision(file)
+                    || !DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus().equals(file.getStatus())
+                    || !permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
+                    DccFileCategoryPermissionActionEnum.DISTRIBUTE)
+                    || Boolean.TRUE.equals(file.getNeedTraining()) && file.getTrainingRecordFileId() == null) {
+                throw exception(CONTROLLED_FILE_MANUAL_RELEASE_NOT_ALLOWED);
+            }
+            int updated = controlledFileMapper.transitionStatus(tenantId, id,
+                    DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus(),
+                    DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus(), userId);
+            if (updated != 1) {
+                throw exception(CONTROLLED_FILE_MANUAL_RELEASE_NOT_ALLOWED);
+            }
+            if (!bpmTaskService.triggerTask(file.getProcessInstanceId(), "DISTRIBUTION")) {
+                throw new IllegalStateException("DCC distribution BPM task was not triggered");
+            }
+        });
+    }
+
+    private boolean isThreeWorkflowUploadOrRevision(DccControlledFileDO file) {
+        return file != null && (DccControlledFileProcessDefinitionKeys.UPLOAD.equals(file.getProcessDefinitionKey())
+                || DccControlledFileProcessDefinitionKeys.REVISION.equals(file.getProcessDefinitionKey()));
     }
 
     @Override
@@ -333,10 +374,14 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
                 validateApprovalEventIdentity(file, event);
                 if (DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())) return;
                 if (!DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus().equals(file.getStatus())
-                        && !DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())) {
+                        && !DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
+                        && !isThreeWorkflowDocControlReview(file)) {
                     throw new IllegalStateException("DCC approval cannot finalize status " + file.getStatus());
                 }
-                if (file.getPublishedFileId() == null || file.getStampedFileId() == null) {
+                boolean threeWorkflowDocControlReview = isThreeWorkflowDocControlReview(file);
+                if (threeWorkflowDocControlReview
+                        ? file.getPublishedFileId() != null || file.getStampedFileId() != null
+                        : file.getPublishedFileId() == null || file.getStampedFileId() == null) {
                     throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
                 }
                 List<cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO> approvalSignatures =
@@ -344,8 +389,10 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
                 DccFrozenApprovalSignatures.requireComplete(file,
                         routeSnapshotMapper.selectListByControlledFileId(file.getId()), approvalSignatures);
                 verifyApprovalSignatureEvidence(file, approvalSignatures);
-                if (DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus().equals(file.getStatus())) {
-                    LocalDateTime approvedAt = LocalDateTime.now();
+                if (DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus().equals(file.getStatus())
+                        || isThreeWorkflowDocControlReview(file)) {
+                    LocalDateTime approvedAt = file.getApprovedTime() == null
+                            ? LocalDateTime.now() : file.getApprovedTime();
                     if (controlledFileMapper.markReadyToPublishAfterApproval(tenantId, file.getId(), event.getId(),
                             event.getProcessDefinitionKey(), file.getStatus(), approvedAt, event.getActorUserId()) != 1) {
                         throw new IllegalStateException("DCC approval lost its status CAS");
@@ -420,10 +467,30 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         }
     }
 
+    /**
+     * A failed finalization may be retried only when the approval evidence survived
+     * the failed derived-file operation. The failure marker itself is not approval
+     * evidence and must never be enough to activate a file.
+     */
+    private void requireRetryApprovalEvidence(DccControlledFileDO file) {
+        List<cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO> signatures =
+                approvalSignatureMapper.selectListByControlledFileId(file.getId());
+        DccFrozenApprovalSignatures.requireComplete(file,
+                routeSnapshotMapper.selectListByControlledFileId(file.getId()), signatures);
+        verifyApprovalSignatureEvidence(file, signatures);
+    }
+
     private boolean isOrdinaryApprovalCandidate(DccControlledFileDO file) {
         return DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(file.getProcessType())
                 && (DccControlledFileChangeTypeEnum.NEW.getCode().equals(file.getChangeType())
                 || DccControlledFileChangeTypeEnum.REVISION.getCode().equals(file.getChangeType()));
+    }
+
+    private boolean isThreeWorkflowDocControlReview(DccControlledFileDO file) {
+        return file != null
+                && DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus().equals(file.getStatus())
+                && (DccControlledFileProcessDefinitionKeys.UPLOAD.equals(file.getProcessDefinitionKey())
+                || DccControlledFileProcessDefinitionKeys.REVISION.equals(file.getProcessDefinitionKey()));
     }
 
     private DccControlledFileDO requirePublishReadyCandidate(Long userId, Long id, boolean enforcePendingActionGuard) {
@@ -446,9 +513,6 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
         }
         requirePublishPermission(userId, file);
-        if (file.getPublishedFileId() == null || file.getStampedFileId() == null) {
-            throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
-        }
         DccControlledFileMasterDO master = controlledFileMasterMapper.selectById(file.getMasterId());
         if (master == null) {
             throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
@@ -672,6 +736,14 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         if (sourceFileId == null) {
             throw new IllegalStateException("Controlled file source PDF is missing for finalization");
         }
+        FileDO sourceFile = fileMapper.selectById(sourceFileId);
+        if (sourceFile != null
+                && DccControlledFileUploadTypePolicy.isDrawingSourceName(sourceFile.getName())) {
+            if (file.getDrawingPdfFileId() == null) {
+                throw exception(CONTROLLED_FILE_DRAWING_PDF_REQUIRED);
+            }
+            return file.getDrawingPdfFileId();
+        }
         return sourceFileId;
     }
 
@@ -759,7 +831,6 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
                 .publishedFileId(publishedArtifact.publishedFileId())
                 .stampedFileId(publishedArtifact.stampedFileId())
                 .stampedTime(publishedArtifact.stampedTime())
-                .approvedTime(LocalDateTime.now())
                 .publishedTime(LocalDateTime.now())
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .finalizationError("")
@@ -1106,7 +1177,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
                 "Controlled file version chain must not be null during finalization");
         for (DccControlledFileDO iteration : chain) {
             if (iteration == null || Objects.equals(iteration.getId(), newActiveFile.getId())
-                    || !DccControlledFileStatusEnum.WORKING.getStatus().equals(iteration.getStatus())) {
+                    || !isUnfinishedWorkflowVersion(iteration)) {
                 continue;
             }
             DccControlledFileVersion workingVersion = DccControlledFileVersion.parse(iteration.getVersionNo());
@@ -1126,12 +1197,26 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         }
     }
 
+    private boolean isUnfinishedWorkflowVersion(DccControlledFileDO file) {
+        if (file == null || StrUtil.isBlank(file.getStatus())) {
+            return false;
+        }
+        return !Set.of(
+                DccControlledFileStatusEnum.ACTIVE.getStatus(),
+                DccControlledFileStatusEnum.REJECTED.getStatus(),
+                DccControlledFileStatusEnum.WITHDRAWN.getStatus(),
+                DccControlledFileStatusEnum.OBSOLETE.getStatus(),
+                DccControlledFileStatusEnum.SUPERSEDED.getStatus()
+        ).contains(file.getStatus());
+    }
+
     private void validateApprovalEventIdentity(DccControlledFileDO file,
                                                BpmProcessInstanceStatusEvent event) {
         if (!Objects.equals(file.getProcessInstanceId(), event.getId())
                 || !Objects.equals(file.getProcessDefinitionKey(), event.getProcessDefinitionKey())
-                || !Objects.equals(DccControlledFileWorkflowServiceImpl.BPM_PROCESS_DEFINITION_KEY,
-                event.getProcessDefinitionKey())) {
+                || StrUtil.isBlank(event.getProcessDefinitionKey())
+                || !DccControlledFileProcessDefinitionKeys.NATIVE_FINALIZATION_KEYS
+                .contains(event.getProcessDefinitionKey())) {
             throw new IllegalStateException("DCC approval event identity does not match the controlled file");
         }
     }

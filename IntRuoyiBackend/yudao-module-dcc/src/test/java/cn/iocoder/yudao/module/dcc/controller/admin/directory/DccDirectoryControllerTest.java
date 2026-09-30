@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -181,6 +182,26 @@ class DccDirectoryControllerTest extends BaseMockitoUnitTest {
                 () -> directoryController.listAccessRuleDirectories());
 
         assertEquals(FILE_DIRECTORY_NOT_EXISTS.getCode(), exception.getCode());
+    }
+
+    @Test
+    void directoryAuthorizationEndpoints_acceptMergedCategoryManagementPermission() throws Exception {
+        assertEquals(
+                "@ss.hasAnyPermissions('dcc:controlled-file:access-rule:manage', 'dcc:controlled-file:category:manage')",
+                DccDirectoryController.class.getDeclaredMethod("listAccessRuleDirectories")
+                        .getAnnotation(PreAuthorize.class).value());
+        assertEquals(
+                "@ss.hasAnyPermissions('dcc:controlled-file:access-rule:manage', 'dcc:controlled-file:category:manage')",
+                DccDirectoryController.class.getDeclaredMethod("getAccessRules", Long.class)
+                        .getAnnotation(PreAuthorize.class).value());
+        assertEquals(
+                "@ss.hasAnyPermissions('dcc:controlled-file:access-rule:manage', 'dcc:controlled-file:category:manage')",
+                DccDirectoryController.class.getDeclaredMethod("deleteAccessRules", Long.class)
+                        .getAnnotation(PreAuthorize.class).value());
+        assertEquals(
+                "@ss.hasAnyPermissions('dcc:controlled-file:access-rule:manage', 'dcc:controlled-file:category:manage')",
+                DccDirectoryController.class.getDeclaredMethod("replaceAccessRules", Long.class, List.class)
+                        .getAnnotation(PreAuthorize.class).value());
     }
 
     private cn.iocoder.yudao.framework.common.exception.ServiceException serviceException(ErrorCode errorCode) {

@@ -199,6 +199,14 @@
         />
       </el-tab-pane>
 
+      <el-tab-pane label="类别权限" name="permission-rules" lazy>
+        <CategoryPermissionRulesTab
+          v-if="isTabPaneMounted('permission-rules')"
+          :active="activeTab === 'permission-rules'"
+          :category-revision="categoryRevision"
+        />
+      </el-tab-pane>
+
       <el-tab-pane label="目录授权" name="directory-auth" lazy>
         <DirectoryAuthorizationTabPanel
           v-if="isTabPaneMounted('directory-auth')"
@@ -283,6 +291,9 @@ const CategoryReviewMatrixTable = defineAsyncComponent(
 const CategoryViewMatrixTable = defineAsyncComponent(
   () => import('./components/CategoryViewMatrixTable.vue')
 )
+const CategoryPermissionRulesTab = defineAsyncComponent(
+  () => import('./components/CategoryPermissionRulesTab.vue')
+)
 const DirectoryAuthorizationTabPanel = defineAsyncComponent(
   () => import('../components/DirectoryAuthorizationTabPanel.vue')
 )
@@ -307,6 +318,7 @@ const TAB_NAMES = [
   'list',
   'review-matrix',
   'view-matrix',
+  'permission-rules',
   'directory-auth',
   'distribution-rules',
   'training-rules'

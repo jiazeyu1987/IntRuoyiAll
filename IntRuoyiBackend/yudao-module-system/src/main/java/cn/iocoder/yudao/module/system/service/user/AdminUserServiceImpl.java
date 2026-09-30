@@ -310,11 +310,14 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateUserPassword(Long id, UserProfileUpdatePasswordReqVO reqVO) {
-        // 校验旧密码密码
-        validateOldPassword(id, reqVO.getOldPassword());
+        AdminUserDO user = userMapper.selectByIdForUpdate(id);
+        if (user == null) {
+            throw exception(USER_NOT_EXISTS);
+        }
+        validateOldPassword(user, reqVO.getOldPassword());
         validatePasswordStrength(reqVO.getNewPassword());
-        AdminUserDO user = validateUserExists(id);
         validatePasswordNotReused(user, reqVO.getNewPassword());
         // 执行更新
         AdminUserDO updateObj = new AdminUserDO().setId(id);
@@ -745,6 +748,10 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (user == null) {
             throw exception(USER_NOT_EXISTS);
         }
+        validateOldPassword(user, oldPassword);
+    }
+
+    private void validateOldPassword(AdminUserDO user, String oldPassword) {
         if (!isPasswordMatch(oldPassword, user.getPassword())) {
             throw exception(USER_PASSWORD_FAILED);
         }

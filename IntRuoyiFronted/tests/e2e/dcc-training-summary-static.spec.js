@@ -18,6 +18,14 @@ const extractBetween = (source, start, end) => {
   return source.slice(startIndex, endIndex)
 }
 
+const extractBetweenRegex = (source, startPattern, end) => {
+  const match = source.match(startPattern)
+  assert.ok(match?.index !== undefined, `missing source marker: ${startPattern}`)
+  const endIndex = source.indexOf(end, match.index + match[0].length)
+  assert.notEqual(endIndex, -1, `missing source marker: ${end}`)
+  return source.slice(match.index, endIndex)
+}
+
 const packageJson = JSON.parse(readSource('package.json'))
 const trainingMinePage = readSource('src/views/dcc/controlled-file/training/mine/index.vue')
 const trainingPresentation = readSource('src/views/dcc/controlled-file/training/presentation.ts')
@@ -51,7 +59,7 @@ assert.match(
 
 const trainingTableSource = extractBetween(
   trainingMinePage,
-  '<el-table v-loading="loading"',
+  '<el-table',
   '</el-table>'
 )
 for (const label of ['累计时长', '状态', '确认完成时间']) {
@@ -62,10 +70,10 @@ for (const label of ['累计时长', '状态', '确认完成时间']) {
   )
 }
 
-const summaryTemplate = extractBetween(
+const summaryTemplate = extractBetweenRegex(
   trainingMinePage,
-  '<el-table-column label="培训摘要"',
-  '<el-table-column label="操作"'
+  /<el-table-column[\s\S]*?label="培训摘要"/,
+  'label="操作"'
 )
 assert.match(summaryTemplate, /training-summary__main/, 'training summary must have a main line')
 assert.match(summaryTemplate, /training-summary__progress/, 'training summary must include compact progress')

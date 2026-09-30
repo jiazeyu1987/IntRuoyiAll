@@ -66,6 +66,7 @@ public interface BpmProcessInstanceConvert {
         PageResult<BpmProcessInstanceRespVO> vpPageResult = BeanUtils.toBean(pageResult, BpmProcessInstanceRespVO.class);
         for (int i = 0; i < pageResult.getList().size(); i++) {
             BpmProcessInstanceRespVO respVO = vpPageResult.getList().get(i);
+            respVO.setBusinessKey(pageResult.getList().get(i).getBusinessKey());
             respVO.setStatus(FlowableUtils.getProcessInstanceStatus(pageResult.getList().get(i)));
             MapUtils.findAndThen(processDefinitionMap, respVO.getProcessDefinitionId(),
                     processDefinition -> respVO.setCategory(processDefinition.getCategory())
@@ -94,6 +95,7 @@ public interface BpmProcessInstanceConvert {
                     pageResult.getList().get(i).getProcessVariables()));
             // 表单
             respVO.setFormVariables(pageResult.getList().get(i).getProcessVariables());
+            respVO.setBusinessObjectId(resolveBusinessObjectId(pageResult.getList().get(i).getProcessVariables()));
         }
         return vpPageResult;
     }
@@ -104,8 +106,10 @@ public interface BpmProcessInstanceConvert {
                                                           AdminUserRespDTO startUser,
                                                           DeptRespDTO dept) {
         BpmProcessInstanceRespVO respVO = BeanUtils.toBean(processInstance, BpmProcessInstanceRespVO.class);
-        respVO.setStatus(FlowableUtils.getProcessInstanceStatus(processInstance))
-                .setFormVariables(FlowableUtils.getProcessInstanceFormVariable(processInstance));
+        respVO.setBusinessKey(processInstance.getBusinessKey())
+                .setStatus(FlowableUtils.getProcessInstanceStatus(processInstance))
+                .setFormVariables(FlowableUtils.getProcessInstanceFormVariable(processInstance))
+                .setBusinessObjectId(resolveBusinessObjectId(processInstance.getProcessVariables()));
         // definition
         respVO.setProcessDefinition(BeanUtils.toBean(processDefinition, BpmProcessDefinitionRespVO.class));
         copyTo(processDefinitionInfo, respVO.getProcessDefinition());
@@ -117,6 +121,12 @@ public interface BpmProcessInstanceConvert {
             }
         }
         return respVO;
+    }
+
+    default String resolveBusinessObjectId(Map<String, Object> processVariables) {
+        Object objectId = processVariables == null ? null : processVariables.get("objectId");
+        String value = objectId == null ? null : String.valueOf(objectId).trim();
+        return StrUtil.isBlank(value) ? null : value;
     }
 
     @Mapping(source = "from.id", target = "to.id", ignore = true)
@@ -342,6 +352,7 @@ public interface BpmProcessInstanceConvert {
                 .setEndTime(DateUtils.of(historicProcessInstance.getEndTime()))
                 .setStartUser(startUser).setStatus(FlowableUtils.getProcessInstanceStatus(historicProcessInstance))
                 .setFormVariables(historicProcessInstance.getProcessVariables())
+                .setBusinessObjectId(resolveBusinessObjectId(historicProcessInstance.getProcessVariables()))
                 .setProcessDefinition(BeanUtils.toBean(processDefinitionInfo, BpmProcessDefinitionRespVO.class));
         printData.setProcessInstance(processInstance);
         // 审批历史

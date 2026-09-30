@@ -3,7 +3,7 @@
     <div v-loading="loading" class="review-matrix-dialog">
       <el-alert
         class="mb-16px"
-        title="第 1 / 4 层文控继续固定，仅维护第 2 层审核与第 3 层批准规则；点击自动解析人员后将按标签初步匹配部门并刷新预览。"
+        title="审阅矩阵只维护会签与批准规则；上传/升版由路线接入培训、分发和文控审核，作废不包含培训或分发。点击自动解析人员后将按标签初步匹配部门并刷新预览。"
         type="info"
         :closable="false"
       />

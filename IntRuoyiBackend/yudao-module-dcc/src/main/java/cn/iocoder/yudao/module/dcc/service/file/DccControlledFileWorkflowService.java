@@ -18,6 +18,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTra
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileWithdrawReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccSignatureActionRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccProjectProductRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadPreviewReqVO;
 
 import java.util.List;
 
@@ -27,13 +28,17 @@ public interface DccControlledFileWorkflowService {
 
     void validateApprovalPdfUpload(Long userId, Long fileId, String taskId, Long categoryId, String sessionId);
 
+    void validateSourceUploadContext(Long userId, DccControlledFileUploadPreviewReqVO request);
+
     DccControlledFileRouteReadinessRespVO previewRoute(Long userId, Long categoryId,
-                                                       List<Long> selectedSignoffUserIds);
+                                                       List<Long> selectedSignoffUserIds, String actionType);
 
     DccControlledFileCurrentVersionRespVO getCurrentVersionByFileNumber(Long userId, String fileNumber);
     DccControlledFileCurrentVersionRespVO getCurrentVersionByFileNumber(Long userId, String fileNumber,
-                                                                         Long dccProjectCodeId,
-                                                                         Long fileTypeTaxonomyId);
+                                                                          Long dccProjectCodeId,
+                                                                          Long fileTypeTaxonomyId);
+
+    Long submitControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO);
 
     Long createWorkingControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO);
 

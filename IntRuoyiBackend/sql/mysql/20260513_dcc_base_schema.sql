@@ -169,6 +169,7 @@ CREATE TABLE IF NOT EXISTS `dcc_position_assignment` (
 CREATE TABLE IF NOT EXISTS `dcc_category_approval_route` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `category_id` bigint NOT NULL,
+  `action_type` varchar(32) NOT NULL DEFAULT 'LEGACY' COMMENT 'Action type: LEGACY/NEW/REVISION/OBSOLETE',
   `version_no` int NOT NULL,
   `active` tinyint NOT NULL DEFAULT 1,
   `effective_time` datetime DEFAULT NULL,
@@ -180,7 +181,7 @@ CREATE TABLE IF NOT EXISTS `dcc_category_approval_route` (
   `updater` varchar(64) DEFAULT NULL,
   `deleted` tinyint NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_dcc_category_route_version` (`category_id`, `version_no`)
+  UNIQUE KEY `uk_dcc_category_route_action_version` (`category_id`, `action_type`, `version_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC category approval route';
 
 CREATE TABLE IF NOT EXISTS `dcc_category_approval_route_node` (
@@ -353,6 +354,31 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_route_snapshot` (
   PRIMARY KEY (`id`),
   KEY `idx_dcc_route_snapshot_file` (`controlled_file_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC controlled file route snapshot';
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_task_assignee_snapshot` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` bigint NOT NULL,
+  `node_instance_id` varchar(128) DEFAULT NULL,
+  `stage_code` varchar(64) NOT NULL,
+  `stage_no` int DEFAULT NULL,
+  `department_id` bigint NOT NULL,
+  `department_name` varchar(128) DEFAULT NULL,
+  `assignee_user_id` bigint NOT NULL,
+  `assignee_name` varchar(128) DEFAULT NULL,
+  `leader_config_digest` varchar(255) DEFAULT NULL,
+  `bpm_task_id` varchar(128) DEFAULT NULL,
+  `obligation_id` varchar(128) NOT NULL,
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  `create_time` datetime DEFAULT NULL,
+  `update_time` datetime DEFAULT NULL,
+  `creator` varchar(64) DEFAULT NULL,
+  `updater` varchar(64) DEFAULT NULL,
+  `deleted` tinyint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_task_assignee_obligation` (`tenant_id`, `controlled_file_id`, `stage_code`, `department_id`, `deleted`),
+  UNIQUE KEY `uk_dcc_task_assignee_obligation_id` (`tenant_id`, `obligation_id`, `deleted`),
+  KEY `idx_dcc_task_assignee_user` (`tenant_id`, `assignee_user_id`, `stage_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC controlled file task assignee snapshot';
 
 CREATE TABLE IF NOT EXISTS `dcc_external_file_review` (
   `id` bigint NOT NULL AUTO_INCREMENT,

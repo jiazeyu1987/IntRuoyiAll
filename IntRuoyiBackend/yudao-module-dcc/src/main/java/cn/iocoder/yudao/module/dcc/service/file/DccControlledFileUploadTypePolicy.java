@@ -13,6 +13,7 @@ public final class DccControlledFileUploadTypePolicy {
     public static final String PURPOSE_APPROVAL_PDF = "APPROVAL_PDF";
     public static final String PURPOSE_TRAINING_RECORD = "TRAINING_RECORD";
     public static final String PURPOSE_EXTERNAL_REVIEW_OUTPUT = "EXTERNAL_REVIEW_OUTPUT";
+    public static final String PURPOSE_ATTACHMENT = "ATTACHMENT";
 
     private static final Set<String> EDITABLE_SOURCE_EXTENSIONS = Set.of(
             "doc", "docx", "xls", "xlsx", "pdf", "dwg", "sldprt", "sldasm", "slddrw");
@@ -32,7 +33,8 @@ public final class DccControlledFileUploadTypePolicy {
                 || PURPOSE_APPROVAL_PDF.equals(normalized)
                 || PURPOSE_DRAWING_PDF.equals(normalized)
                 || PURPOSE_TRAINING_RECORD.equals(normalized)
-                || PURPOSE_EXTERNAL_REVIEW_OUTPUT.equals(normalized);
+                || PURPOSE_EXTERNAL_REVIEW_OUTPUT.equals(normalized)
+                || PURPOSE_ATTACHMENT.equals(normalized);
     }
 
     public static boolean isSourcePurpose(String purpose) {
@@ -41,6 +43,10 @@ public final class DccControlledFileUploadTypePolicy {
 
     public static boolean isDrawingPdfPurpose(String purpose) {
         return PURPOSE_DRAWING_PDF.equals(normalizePurpose(purpose));
+    }
+
+    public static boolean isAttachmentPurpose(String purpose) {
+        return PURPOSE_ATTACHMENT.equals(normalizePurpose(purpose));
     }
 
     public static boolean isAllowedEditableSourceName(String fileName) {

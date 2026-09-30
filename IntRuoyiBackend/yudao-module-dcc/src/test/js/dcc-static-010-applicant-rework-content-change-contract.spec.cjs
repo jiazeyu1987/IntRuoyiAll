@@ -88,7 +88,7 @@ assert.match(
 )
 assert.match(
   reworkPredecessorMatcher,
-  /Objects\.equals\(fileVersion\.revisionCode\(\),\s*predecessorVersion\.revisionCode\(\)\)[\s\S]*fileVersion\.iterationNo\(\) > predecessorVersion\.iterationNo\(\)/,
+  /fileVersion\.sameMajorIdentity\(predecessorVersion\)[\s\S]*fileVersion\.compareTo\(predecessorVersion\) > 0/,
   'corrected resubmission must advance the same revision iteration instead of bypassing another open candidate'
 )
 

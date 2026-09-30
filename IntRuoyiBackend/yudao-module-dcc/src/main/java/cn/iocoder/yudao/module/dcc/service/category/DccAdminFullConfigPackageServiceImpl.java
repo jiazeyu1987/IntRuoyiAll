@@ -291,6 +291,7 @@ public class DccAdminFullConfigPackageServiceImpl implements DccAdminFullConfigP
         item.setRemark(category.getRemark());
         item.setDescription(category.getDescription());
         item.setLifecycleStage(category.getLifecycleStage());
+        item.setFileTypeTaxonomyId(category.getFileTypeTaxonomyId());
         item.setDistributionRequired(category.getDistributionRequired());
         item.setTrainingRequired(category.getTrainingRequired());
         if (binding != null) {
@@ -590,6 +591,7 @@ public class DccAdminFullConfigPackageServiceImpl implements DccAdminFullConfigP
             categoryReq.setRemark(item.getRemark());
             categoryReq.setDescription(item.getDescription());
             categoryReq.setLifecycleStage(item.getLifecycleStage());
+            categoryReq.setFileTypeTaxonomyId(item.getFileTypeTaxonomyId());
             categoryReq.setDistributionRequired(item.getDistributionRequired());
             categoryReq.setTrainingRequired(item.getTrainingRequired());
             Long categoryId;
@@ -1538,6 +1540,7 @@ public class DccAdminFullConfigPackageServiceImpl implements DccAdminFullConfigP
         private String remark;
         private String description;
         private String lifecycleStage;
+        private Long fileTypeTaxonomyId;
         private Boolean distributionRequired;
         private Boolean trainingRequired;
         private DirectoryBindingItem directoryBinding;

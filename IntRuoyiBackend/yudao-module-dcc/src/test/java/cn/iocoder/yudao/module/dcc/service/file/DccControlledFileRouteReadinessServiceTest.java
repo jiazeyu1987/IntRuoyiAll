@@ -3,20 +3,24 @@ package cn.iocoder.yudao.module.dcc.service.file;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteDO;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_READY;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.APPROVAL_POSITION_UPLOADER_MAPPING_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
@@ -39,7 +43,7 @@ class DccControlledFileRouteReadinessServiceTest extends BaseMockitoUnitTest {
 
     @Test
     void evaluate_aggregatesPostPermissionAuthorizationAndImageBlockers() {
-        when(routeAssigneeResolver.resolveRouteForReadiness(10L, 99L)).thenReturn(resolvedRoute(List.of(
+        when(routeAssigneeResolver.resolveRouteForReadiness(10L, 99L, null)).thenReturn(resolvedRoute(List.of(
                 new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
                         1, "DOC_CONTROL_REVIEW", "文控审核", 1, "USER", 101L,
                         List.of(101L, 102L, 103L, 104L), "ALL", 100, true,
@@ -76,10 +80,30 @@ class DccControlledFileRouteReadinessServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void evaluate_treatsMissingSignatureObjectAsImageBlockerInsteadOfServerError() {
+        when(routeAssigneeResolver.resolveRouteForReadiness(10L, 99L, null)).thenReturn(resolvedRoute(List.of(
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                        1, "DOC_CONTROL_REVIEW", "文控审核", 1, "USER", 101L,
+                        List.of(101L), "ALL", 100, true, List.of(101L)))));
+        when(adminUserApi.getUserList(List.of(101L))).thenReturn(List.of(user(101L, "签名对象缺失", Set.of(12L))));
+        when(permissionApi.hasAnyPermissions(101L, "dcc:controlled-file:review")).thenReturn(true);
+        when(signatureAuthorizationService.getAuthorizationMap(List.of(101L))).thenReturn(Map.of(101L, true));
+        doThrow(NoSuchKeyException.builder().message("signature object missing").build())
+                .when(signatureImageService).requireActiveSnapshot(101L);
+
+        DccControlledFileRouteReadinessService.RouteReadinessEvaluation evaluation =
+                service.evaluate(10L, 99L, List.of());
+
+        assertFalse(evaluation.response().getReady());
+        assertEquals(List.of("APPROVER_SIGNATURE_IMAGE_INVALID"),
+                evaluation.response().getBlockers().stream().map(blocker -> blocker.getReasonCode()).toList());
+    }
+
+    @Test
     void evaluate_submitterDepartmentLeaderMissingReturnsOrganizationBlocker() {
         doThrow(new ServiceException(APPROVAL_POSITION_UPLOADER_MAPPING_INVALID.getCode(),
                 "Approval position runtime mapping failed: 编制人直接主管 requires a local department leader for the submitter"))
-                .when(routeAssigneeResolver).resolveRouteForReadiness(10L, 99L);
+                .when(routeAssigneeResolver).resolveRouteForReadiness(10L, 99L, null);
 
         DccControlledFileRouteReadinessService.RouteReadinessEvaluation evaluation =
                 service.evaluate(10L, 99L, List.of());
@@ -88,6 +112,15 @@ class DccControlledFileRouteReadinessServiceTest extends BaseMockitoUnitTest {
         assertEquals(1, evaluation.response().getBlockers().size());
         assertEquals("SUBMITTER_ORG_MAPPING_INVALID", evaluation.response().getBlockers().get(0).getReasonCode());
         assertTrue(evaluation.response().getBlockers().get(0).getMessage().contains("部门负责人"));
+    }
+
+    @Test
+    void evaluate_actionRouteRejectsDeprecatedManualSignoffUsers() {
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.evaluate(10L, 99L, List.of(101L), DccControlledFileChangeTypeEnum.NEW.getCode()));
+
+        assertEquals(CONTROLLED_FILE_ROUTE_NOT_READY.getCode(), ex.getCode());
+        assertTrue(ex.getMessage().contains("不得手选会签人"));
     }
 
     private DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute(

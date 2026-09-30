@@ -236,6 +236,15 @@ public class FormCenterController {
         return success(formCenterRuntimeService.findActiveBusinessAction(reqVO));
     }
 
+    @PostMapping("/actions/draft-instance")
+    @Operation(summary = "查询当前用户业务动作草稿")
+    @PreAuthorize("@ss.hasPermission('form:instance:create')")
+    public CommonResult<FormInstanceRespVO> findDraftBusinessAction(
+            @Valid @RequestBody BusinessActionContextReqVO reqVO) {
+        return success(formCenterRuntimeService.findDraftBusinessAction(
+                reqVO, WebFrameworkUtils.getLoginUserId()));
+    }
+
     @PostMapping("/instances")
     @Operation(summary = "创建表单实例草稿")
     @PreAuthorize("@ss.hasPermission('form:instance:create')")

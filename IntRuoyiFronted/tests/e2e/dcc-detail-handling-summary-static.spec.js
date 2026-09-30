@@ -14,7 +14,7 @@ const packageJson = JSON.parse(readSource('package.json'))
 const detailPage = readSource('src/views/dcc/controlled-file/detail/index.vue')
 const handlingSummary = readSource('src/views/dcc/controlled-file/shared/handlingSummary.ts')
 const summaryTemplateMatch = detailPage.match(
-  /<div\s+v-if="fileDetail"\s+class="detail-handling-summary"[\s\S]*?<\/ContentWrap>/
+  /<div\s+v-if="fileDetail && showDetailManagementActions"\s+class="detail-handling-summary"[\s\S]*?<\/ContentWrap>/
 )
 const summaryLogicMatch = detailPage.match(
   /const detailHandlingSummary = computed[\s\S]*?const getPreviewApprovalProgress/

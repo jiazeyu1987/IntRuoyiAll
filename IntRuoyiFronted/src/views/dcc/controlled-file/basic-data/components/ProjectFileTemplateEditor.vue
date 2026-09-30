@@ -200,6 +200,8 @@ const taxonomyTreeOptions = computed(
     handleTree(
       activeTaxonomyRows.value.map((row) => ({
         ...row,
+        value: row.id,
+        label: row.name,
         disabled: !row.id || !selectableTaxonomyIds.value.has(row.id)
       }))
     ) as DccFileTypeTaxonomyVO[]
@@ -218,8 +220,8 @@ const taxonomyPathDepthMap = computed(() => {
   return depthMap
 })
 const taxonomyCascaderProps = {
-  value: 'id',
-  label: 'name',
+  value: 'value',
+  label: 'label',
   children: 'children',
   emitPath: false,
   checkStrictly: true

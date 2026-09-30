@@ -37,9 +37,31 @@ const buildPermissionHelpers = () => {
   assert.notEqual(start, -1, 'permission helper block should exist')
   assert.notEqual(end, -1, 'permission helper block end should exist')
 
-  const snippet = `
+const snippet = `
 const cloneDeep = globalThis.__cloneDeep
 const isUrl = globalThis.__isUrl
+const ALWAYS_AVAILABLE_HIDDEN_SHELL_NAMES = new Set(['DccCenterHidden'])
+const SIGNATURE_GOVERNANCE_ROUTE_PATH = '/signature-governance'
+const SIGNATURE_GOVERNANCE_ROUTE_NAME = 'SignatureGovernance'
+const SIGNATURE_RECORDS_ROUTE_PATH = 'signature-records'
+const SIGNATURE_RECORDS_ROUTE_NAME = 'SignatureGovernanceSignatureRecords'
+const SIGNATURE_RECORDS_ROUTE_TITLE = '签名记录'
+const SIGNATURE_MY_SIGNATURE_ROUTE_PATH = 'my-signature'
+const LEGACY_SIGNATURE_GOVERNANCE_OVERVIEW_CHILD_PATH = 'overview'
+const LEGACY_SIGNATURE_GOVERNANCE_OVERVIEW_ROUTE_NAME = 'SignatureGovernanceOverview'
+const LEGACY_SIGNATURE_GOVERNANCE_OVERVIEW_TITLE = '总览'
+const APPROVAL_CENTER_ROUTE_PATH = '/approval-center'
+const APPROVAL_CENTER_ROUTE_NAME = 'ApprovalCenter'
+const APPROVAL_CENTER_WORKFLOW_MANAGEMENT_ROUTE_NAME = 'ApprovalCenterWorkflowManagement'
+const APPROVAL_CENTER_BPM_MODEL_ROUTE_NAME = 'ApprovalCenterBpmModel'
+const APPROVAL_CENTER_CC_ROUTE_NAME = 'ApprovalCenterCc'
+const APPROVAL_CENTER_OA_EXAMPLE_ROUTE_NAME = 'ApprovalCenterOaExample'
+const APPROVAL_CENTER_WORKFLOW_MANAGEMENT_ROUTE_PATH = 'manager'
+const APPROVAL_CENTER_BPM_MODEL_ROUTE_PATH = 'model'
+const APPROVAL_CENTER_BPM_MODEL_MENU_PATH = 'manager/model'
+const APPROVAL_CENTER_BPM_MODEL_TITLE = '流程模型'
+const APPROVAL_CENTER_CC_TITLE = '抄送我的'
+const APPROVAL_CENTER_OA_EXAMPLE_TITLE = 'OA 示例'
 ${source.slice(start, end)}
 module.exports = {
   mergeStaticRoutesWithDynamicRoutes
@@ -159,6 +181,45 @@ test('duplicate hidden static shells should not swallow visible top-level DCC an
   assert.deepEqual(
     toPlainArray(mesRouteToReplace?.children?.map((child) => child.name)),
     ['MesHome', 'MesWmLocation']
+  )
+})
+
+test('dcc hidden shell should remain available when only leaf menus are dynamic', () => {
+  const { mergeStaticRoutesWithDynamicRoutes } = buildPermissionHelpers()
+
+  const staticRoutes = [
+    {
+      path: '/dcc',
+      name: 'DccCenterHidden',
+      meta: { hidden: true },
+      children: [
+        {
+          path: 'controlled-file/detail/:id(\\d+)',
+          name: 'DccControlledFileDetail',
+          meta: { hidden: true, canTo: true }
+        }
+      ]
+    }
+  ]
+
+  const dynamicRoutes = [
+    {
+      path: '/dcc/controlled-file/training-mine',
+      name: 'DccControlledFileTrainingMineHidden',
+      meta: { hidden: true, title: '我的培训' }
+    }
+  ]
+
+  const { authorizedStaticRoutes } = mergeStaticRoutesWithDynamicRoutes(
+    staticRoutes,
+    dynamicRoutes
+  )
+  const dccRoute = authorizedStaticRoutes.find((route) => route.name === 'DccCenterHidden')
+
+  assert.ok(dccRoute, 'DCC hidden shell should be registered for deep-link pages')
+  assert.ok(
+    dccRoute.children?.some((child) => child.name === 'DccControlledFileDetail'),
+    'DCC detail route should remain available after permission route rebuild'
   )
 })
 

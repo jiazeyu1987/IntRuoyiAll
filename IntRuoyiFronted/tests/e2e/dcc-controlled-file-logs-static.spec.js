@@ -55,6 +55,17 @@ assert.match(
 assert.match(logsApi, /DccControlledFileLogPageReqVO/, '文控日志 API 必须声明请求类型')
 assert.match(logsApi, /DccControlledFileLogRespVO/, '文控日志 API 必须声明响应类型')
 
+assert.match(
+  logsApi,
+  /controlledFileId\?:\s*string/,
+  '文控日志 API 的 controlledFileId 必须按字符串传输，避免 19 位 ID 被 JavaScript number 截断'
+)
+assert.doesNotMatch(
+  logsApi,
+  /controlledFileId\?:\s*number/,
+  '文控日志 API 不得把 controlledFileId 声明为 number'
+)
+
 const unifiedTemplateMatch = logsPage.match(/<UnifiedListTemplate[\s\S]*?<\/UnifiedListTemplate>/)
 assert.ok(unifiedTemplateMatch, '文控日志页面必须使用 UnifiedListTemplate')
 const unifiedTemplate = unifiedTemplateMatch[0]
@@ -129,6 +140,22 @@ for (const quickFilterToken of [
 ]) {
   assert.ok(logsPage.includes(quickFilterToken), `文控日志快速过滤仍需保留 ${quickFilterToken}`)
 }
+
+assert.match(
+  logsPage,
+  /keyword:\s*getFirstQueryValue\(route\.query\.keyword\)/,
+  '文控日志页面必须从 URL 恢复 keyword 筛选'
+)
+assert.match(
+  logsPage,
+  /controlledFileId:\s*getFirstQueryValue\(route\.query\.controlledFileId\)/,
+  '文控日志页面必须按字符串恢复 controlledFileId，保留完整 19 位值'
+)
+assert.doesNotMatch(
+  logsPage,
+  /controlledFileId:\s*getNumberQueryValue\(route\.query\.controlledFileId\)/,
+  'controlledFileId 不得通过 Number() 恢复'
+)
 
 for (const behaviorToken of [
   "defineOptions({ name: 'DccControlledFileLogs' })",

@@ -180,6 +180,21 @@ class DccProjectFileTemplateServiceImplTest extends BaseMockitoUnitTest {
         service.validateUploadSelection(100L, 103L, "零件图");
     }
 
+    @Test
+    void validateUploadLocation_allowsNameOutsideLegacyTemplateItems() {
+        when(templateItemMapper.selectListByProjectCodeId(100L)).thenReturn(List.of(
+                DccProjectFileTemplateItemDO.builder()
+                        .id(900L).projectCodeId(100L).fileTypeTaxonomyId(103L)
+                        .fileName("旧模板名称").sortOrder(1).build()));
+        when(taxonomyAdminService.getTaxonomyList()).thenReturn(taxonomyRows());
+        when(taxonomyAdminService.resolveActivePath(103L)).thenReturn(
+                new DccFileTypeTaxonomyPath(103L, "技术文档", "设计阶段", "产品图纸", null, null));
+        when(categoryMapper.selectList()).thenReturn(List.of(DccFileCategoryDO.builder()
+                .id(501L).active(true).fileTypeTaxonomyId(103L).build()));
+
+        service.validateUploadLocation(100L, 103L);
+    }
+
     private static DccProjectCodeDO projectCode() {
         return DccProjectCodeDO.builder().id(100L).projectName("项目A").projectCode("A-001")
                 .status("ENABLE").build();

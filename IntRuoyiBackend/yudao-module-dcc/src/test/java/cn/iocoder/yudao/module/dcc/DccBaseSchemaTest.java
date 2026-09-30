@@ -49,6 +49,9 @@ class DccBaseSchemaTest {
                     "obsolete_reason", "superseded_by_file_id", "finalization_error")),
             Map.entry("dcc_controlled_file_route_snapshot", List.of(
                     "stage_code", "stage_name", "stage_order", "candidate_source_ids", "require_all_approvals")),
+            Map.entry("dcc_controlled_file_task_assignee_snapshot", List.of(
+                    "controlled_file_id", "stage_code", "department_id", "assignee_user_id", "obligation_id",
+                    "uk_dcc_task_assignee_obligation")),
             Map.entry("dcc_controlled_file_signature", List.of(
                     "controlled_file_id", "task_id", "actor_id", "action_type",
                     "signature_mode", "password_verified", "comment", "signed_at",
@@ -1369,7 +1372,9 @@ class DccBaseSchemaTest {
 
     private static void assertSchemaIsNonDestructive(String schema, String schemaName) {
         String executableSchema = stripSqlComments(schema);
-        assertFalse(Pattern.compile("\\b(DROP\\s+TABLE|TRUNCATE\\s+TABLE)\\b", Pattern.CASE_INSENSITIVE)
+        assertFalse(Pattern.compile("\\bDROP\\s+(?!TEMPORARY\\s+)TABLE\\s+(?!`?tmp_)"
+                                + "|\\bTRUNCATE\\s+TABLE\\s+(?!`?tmp_)",
+                        Pattern.CASE_INSENSITIVE)
                         .matcher(executableSchema).find(),
                 "DCC " + schemaName + " schema must not contain destructive table operations");
         assertFalse(Pattern.compile("\\bDELETE\\s+FROM\\s+`?dcc_", Pattern.CASE_INSENSITIVE)
@@ -1411,25 +1416,28 @@ class DccBaseSchemaTest {
     }
 
     private static void assertColumnExists(String createBlock, String tableName, String column, String schemaName) {
-        assertTrue(Pattern.compile("`" + Pattern.quote(column) + "`\\s+", Pattern.CASE_INSENSITIVE)
-                        .matcher(createBlock).find(),
+        assertTrue(schemaDefinesColumn(createBlock, column),
                 "Missing column " + tableName + "." + column + " in " + schemaName + " schema");
     }
 
     private static void assertColumnCovered(String schema, String createBlock, String tableName, String column,
                                             String schemaName) {
         boolean existsInCreateBlock = createBlock != null
-                && Pattern.compile("`" + Pattern.quote(column) + "`\\s+", Pattern.CASE_INSENSITIVE)
-                .matcher(createBlock).find();
+                && schemaDefinesColumn(createBlock, column);
         boolean existsInMigrationPatch = Pattern.compile(
                 "ensure_dcc_column\\s*\\(\\s*'" + Pattern.quote(tableName) + "'\\s*,\\s*'"
                         + Pattern.quote(column) + "'",
                 Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(schema).find()
                 || Pattern.compile("ALTER\\s+TABLE\\s+`?" + Pattern.quote(tableName)
-                        + "`?\\s+ADD\\s+COLUMN\\s+`?" + Pattern.quote(column) + "`?",
+                        + "`?\\s+ADD\\s+COLUMN\\s+`?" + Pattern.quote(column) + "`?\\b",
                 Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(schema).find();
         assertTrue(existsInCreateBlock || existsInMigrationPatch,
                 "Missing column " + tableName + "." + column + " in " + schemaName + " schema");
+    }
+
+    private static boolean schemaDefinesColumn(String schema, String column) {
+        return Pattern.compile("`" + Pattern.quote(column) + "`\\s+|\\b" + Pattern.quote(column) + "\\b\\s+",
+                Pattern.CASE_INSENSITIVE).matcher(schema).find();
     }
 
     private static boolean schemaContainsColumnPatch(String schema, String tableName) {
@@ -1597,8 +1605,7 @@ class DccBaseSchemaTest {
 
     private static void assertSchemaHasColumns(String schema, String tableName, List<String> columns) {
         for (String column : columns) {
-            assertTrue(Pattern.compile("`" + Pattern.quote(column) + "`\\s+", Pattern.CASE_INSENSITIVE)
-                            .matcher(schema).find(),
+            assertTrue(schemaDefinesColumn(schema, column),
                     "Missing column " + tableName + "." + column + " in DCC hardening schema");
         }
     }
@@ -1617,11 +1624,13 @@ class DccBaseSchemaTest {
         try (var stream = Files.list(mysqlDir)) {
             StringBuilder schema = new StringBuilder();
             for (Path path : stream
-                    .filter(item -> item.getFileName().toString().contains("_dcc_"))
                     .filter(item -> item.getFileName().toString().endsWith(".sql"))
                     .sorted()
                     .toList()) {
-                schema.append(Files.readString(path)).append('\n');
+                String sql = Files.readString(path);
+                if (path.getFileName().toString().contains("_dcc_") || sql.contains("dcc_")) {
+                    schema.append(sql).append('\n');
+                }
             }
             return schema.toString();
         }

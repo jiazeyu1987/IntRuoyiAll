@@ -1,14 +1,14 @@
 package cn.iocoder.yudao.module.dcc.service.file.listener;
 
 import cn.iocoder.yudao.module.bpm.api.event.BpmProcessInstanceStatusEvent;
-import cn.iocoder.yudao.module.bpm.api.event.BpmProcessInstanceStatusEventListener;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationService;
-import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImpl;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileProcessDefinitionKeys;
 import jakarta.annotation.Resource;
+import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Component;
 
 @Component
-public class DccControlledFileStatusListener extends BpmProcessInstanceStatusEventListener {
+public class DccControlledFileStatusListener implements ApplicationListener<BpmProcessInstanceStatusEvent> {
 
     private static final String FORM_CENTER_BUSINESS_KEY_PREFIX = "FORM_ACTION:";
 
@@ -16,12 +16,10 @@ public class DccControlledFileStatusListener extends BpmProcessInstanceStatusEve
     private DccControlledFileFinalizationService finalizationService;
 
     @Override
-    public String getProcessDefinitionKey() {
-        return DccControlledFileWorkflowServiceImpl.BPM_PROCESS_DEFINITION_KEY;
-    }
-
-    @Override
-    protected void onEvent(BpmProcessInstanceStatusEvent event) {
+    public void onApplicationEvent(BpmProcessInstanceStatusEvent event) {
+        if (!DccControlledFileProcessDefinitionKeys.NATIVE_FINALIZATION_KEYS.contains(event.getProcessDefinitionKey())) {
+            return;
+        }
         if (event.getBusinessKey() != null && event.getBusinessKey().startsWith(FORM_CENTER_BUSINESS_KEY_PREFIX)) {
             return;
         }

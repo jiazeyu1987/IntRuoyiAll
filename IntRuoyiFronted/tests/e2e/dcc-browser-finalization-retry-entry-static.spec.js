@@ -7,8 +7,8 @@ const source = fs.readFileSync(browserPath, 'utf8')
 
 assert.match(
   source,
-  /getSelectedVersion\(row\)\.status === 'FINALIZATION_FAILED'[\s\S]*data-testid="dcc-controlled-browser-retry-publish"[\s\S]*@click="openManagement\(getSelectedVersion\(row\)\.id\)"[\s\S]*重试发布/,
-  'FINALIZATION_FAILED browser versions must expose a visible management entry for the existing retry action'
+  /getSelectedVersion\(row\)\.status === 'FINALIZATION_FAILED'[\s\S]*data-testid="dcc-controlled-browser-retry-publish"[\s\S]*@click="openManagement\(getSelectedVersion\(row\)\.id\)"[\s\S]*重试生效/,
+  'FINALIZATION_FAILED browser versions must expose a visible management entry for the existing finalization retry action'
 )
 
 console.log('DCC browser finalization retry entry static checks passed')

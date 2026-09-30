@@ -40,7 +40,7 @@ const queryService = read('src/main/java/cn/iocoder/yudao/module/dcc/service/fil
 const replayPayload = extract(
   queryService,
   'private boolean matchesCheckinReplayPayload',
-  'private DccWindchillVersionNumber resolveNextIteration',
+  'private boolean isMajorCheckin',
   'checkin replay payload'
 )
 

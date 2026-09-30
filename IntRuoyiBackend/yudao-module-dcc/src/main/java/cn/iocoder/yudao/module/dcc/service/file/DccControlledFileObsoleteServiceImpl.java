@@ -79,6 +79,8 @@ public class DccControlledFileObsoleteServiceImpl implements DccControlledFileOb
     private DccControlledFilePendingActionGuard pendingActionGuard;
     @Resource
     private DccControlledFileApprovalRouteAssigneeResolver approvalRouteAssigneeResolver;
+    @Resource
+    private DccControlledFileNameClaimService nameClaimService;
 
     @Override
     public void precheckObsoleteControlledFile(Long userId, Long id, DccControlledFileObsoleteReqVO reqVO) {
@@ -101,11 +103,16 @@ public class DccControlledFileObsoleteServiceImpl implements DccControlledFileOb
 
         FormInstanceSubmitReqVO submitReqVO = new FormInstanceSubmitReqVO();
         submitReqVO.setFormData(formData);
-        Map<String, List<Long>> startUserSelectAssignees = reqVO.getStartUserSelectAssignees();
-        if (startUserSelectAssignees == null || startUserSelectAssignees.isEmpty()) {
-            startUserSelectAssignees = approvalRouteAssigneeResolver.resolveStartUserSelectAssignees(file, userId);
-        }
+        String actionType = DccControlledFileProcessDefinitionKeys.toActionType(
+                DccControlledFileProcessDefinitionKeys.OBSOLETE);
+        DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute =
+                approvalRouteAssigneeResolver.resolveRoute(file.getCategoryId(), userId, actionType);
+        Map<String, List<Long>> startUserSelectAssignees = approvalRouteAssigneeResolver
+                .buildStartUserSelectAssigneeMap(resolvedRoute.nodes());
+        Map<String, List<Long>> approveUserSelectAssignees = approvalRouteAssigneeResolver
+                .buildApproveUserSelectAssigneeMap(resolvedRoute.nodes());
         submitReqVO.setStartUserSelectAssignees(startUserSelectAssignees);
+        submitReqVO.setApproveUserSelectAssignees(approveUserSelectAssignees);
         return formCenterRuntimeService.submitInstance(draft.getId(), submitReqVO, userId);
     }
 
@@ -140,6 +147,11 @@ public class DccControlledFileObsoleteServiceImpl implements DccControlledFileOb
                     .currentActiveControlledFileId(null)
                     .status(DccControlledFileMasterStatusEnum.OBSOLETE_CHAIN.getCode())
                     .build());
+            Long tenantId = file.getTenantId();
+            if (tenantId == null) {
+                tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId();
+            }
+            nameClaimService.release(tenantId, master.getId());
         }
 
         for (Long recipientUserId : resolveObsoleteNotificationRecipientUserIds(file, userId)) {

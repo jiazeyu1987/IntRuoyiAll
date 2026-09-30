@@ -36,7 +36,8 @@ assert.match(workflow, /publishedArtifactAvailable\?: boolean/)
 assert.match(workflow, /stampedArtifactAvailable\?: boolean/)
 assert.match(workflow, /previewUnavailableReason\?: string/)
 assert.match(workflow, /interface ControlledFileRouteReadinessVO/)
-assert.match(workflow, /selectedSignoffUserIds: number\[\]/)
+assert.match(workflow, /actionType\?: ControlledFileChangeType/)
+assert.match(workflow, /selectedSignoffUserIds\?: number\[\]/)
 assert.match(workflow, /Promise<ControlledFileRouteReadinessVO>/)
 assert.match(workflow, /interface ControlledFileTaskReadinessVO/)
 assert.match(workflow, /getControlledFileTaskActionReadiness/)
@@ -44,7 +45,23 @@ assert.match(workflow, /task-action-readiness/)
 
 assert.match(upload, /data-testid="dcc-upload-route-readiness"/)
 assert.match(upload, /checkControlledFileRouteReadiness/)
+assert.match(
+  upload,
+  /checkControlledFileRouteReadiness\(\{\s*categoryId,\s*actionType:\s*'NEW'\s*\}\)/,
+  'upload readiness must request the NEW action route'
+)
+assert.doesNotMatch(
+  upload,
+  /checkControlledFileRouteReadiness\(\{[\s\S]*selectedSignoffUserIds/,
+  'upload readiness must not send deprecated manual signoff users'
+)
 assert.match(upload, /routeReadiness\.value\.blockers/)
+assert.match(upload, /:disabled="submitBlockedByRouteReadiness"/)
+assert.match(
+  upload,
+  /const submitBlockedByRouteReadiness = computed\(\(\) =>[\s\S]*routeReadinessLoading\.value[\s\S]*routeReadinessError\.value[\s\S]*routeReadiness\.value\?\.ready === false/,
+  'known route-readiness blockers must disable the upload submit button'
+)
 assert.match(upload, /await refreshRouteReadiness\(\)/)
 assert.match(upload, /if \(!routeReadiness\.value\?\.ready\)/)
 

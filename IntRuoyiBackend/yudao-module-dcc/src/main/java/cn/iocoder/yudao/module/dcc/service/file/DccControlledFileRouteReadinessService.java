@@ -6,12 +6,14 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRoutePreviewRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessBlockerRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -53,9 +55,15 @@ public class DccControlledFileRouteReadinessService {
     private DccElectronicSignatureImageService signatureImageService;
 
     public RouteReadinessEvaluation evaluate(Long categoryId, Long submitterUserId, List<Long> selectedSignoffUserIds) {
+        return evaluate(categoryId, submitterUserId, selectedSignoffUserIds, null);
+    }
+
+    public RouteReadinessEvaluation evaluate(Long categoryId, Long submitterUserId, List<Long> selectedSignoffUserIds,
+                                             String actionType) {
+        rejectManualSignoffUsersForActionRoute(actionType, selectedSignoffUserIds);
         DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute;
         try {
-            resolvedRoute = routeAssigneeResolver.resolveRouteForReadiness(categoryId, submitterUserId);
+            resolvedRoute = routeAssigneeResolver.resolveRouteForReadiness(categoryId, submitterUserId, actionType);
         } catch (ServiceException ex) {
             if (ex.getCode() != APPROVAL_POSITION_UPLOADER_CONTEXT_REQUIRED.getCode()
                     && ex.getCode() != APPROVAL_POSITION_UPLOADER_MAPPING_INVALID.getCode()) {
@@ -75,6 +83,13 @@ public class DccControlledFileRouteReadinessService {
         }
         resolvedRoute = applySelectedSignoffUsers(resolvedRoute, selectedSignoffUserIds);
         return evaluateResolvedRoute(resolvedRoute);
+    }
+
+    private void rejectManualSignoffUsersForActionRoute(String actionType, List<Long> selectedSignoffUserIds) {
+        if (DccControlledFileChangeTypeEnum.isValid(actionType)
+                && selectedSignoffUserIds != null && !selectedSignoffUserIds.isEmpty()) {
+            throw exception(CONTROLLED_FILE_ROUTE_NOT_READY, "会签人由部门矩阵负责人配置，预检请求不得手选会签人");
+        }
     }
 
     private RouteReadinessEvaluation evaluateResolvedRoute(
@@ -141,6 +156,8 @@ public class DccControlledFileRouteReadinessService {
                 result.put(userId, snapshot != null && snapshot.getImageId() != null
                         && snapshot.getFileId() != null && "VALID".equals(snapshot.getVerifiedStatus()));
             } catch (ServiceException ex) {
+                result.put(userId, false);
+            } catch (NoSuchKeyException ex) {
                 result.put(userId, false);
             }
         }

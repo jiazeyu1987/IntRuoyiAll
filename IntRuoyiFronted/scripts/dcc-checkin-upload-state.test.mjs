@@ -8,10 +8,13 @@ import test from 'node:test'
 const source = readFileSync(fileURLToPath(new URL('../src/views/dcc/controlled-file/browser/index.vue', import.meta.url)), 'utf8')
 const extract = name => {
   const start = source.indexOf(`const ${name} =`)
-  const end = source.indexOf('\n}\n', start) < 0
-    ? source.indexOf('\r\n}\r\n', start) + 3 : source.indexOf('\n}\n', start) + 2
+  const lfEnd = source.indexOf('\n}\n', start)
+  const crlfEnd = source.indexOf('\r\n}\r\n', start)
+  const candidates = [lfEnd, crlfEnd].filter(value => value >= 0)
+  const end = Math.min(...candidates)
+  const endLength = end === crlfEnd ? 4 : 2
   assert.ok(start > 0 && end > start, name)
-  return source.slice(start, end)
+  return source.slice(start, end + endLength)
 }
 const setup = () => {
   const warnings = []; let writes = 0

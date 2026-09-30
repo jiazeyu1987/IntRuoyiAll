@@ -11,5 +11,7 @@ public class DccControlledFileRoutePreviewReqVO {
     @NotNull(message = "categoryId is required")
     private Long categoryId;
 
+    private String actionType;
+
     private List<Long> selectedSignoffUserIds;
 }

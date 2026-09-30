@@ -1,5 +1,6 @@
 <template>
   <el-form
+    v-if="!passwordChangeRequired"
     v-show="getShow"
     ref="formLogin"
     :model="loginData.loginForm"
@@ -109,6 +110,81 @@
       </el-col>
     </el-row>
   </el-form>
+  <el-form
+    v-if="getShow && passwordChangeRequired"
+    ref="formPasswordChange"
+    :model="changePasswordForm"
+    :rules="passwordChangeRules"
+    class="login-form"
+    label-position="top"
+    label-width="120px"
+    size="large"
+    data-testid="required-password-change-form"
+    @submit.prevent="submitRequiredPasswordChange"
+  >
+    <el-row class="mx-[-10px]">
+      <el-col :span="24" class="px-10px">
+        <el-form-item>
+          <LoginFormTitle class="w-full" />
+        </el-form-item>
+      </el-col>
+      <el-col :span="24" class="px-10px">
+        <el-alert
+          :title="t('login.passwordChangeRequired')"
+          type="warning"
+          :closable="false"
+          show-icon
+        />
+      </el-col>
+      <el-col v-if="loginErrorMessage" :span="24" class="px-10px">
+        <el-alert :title="loginErrorMessage" type="error" :closable="false" show-icon />
+      </el-col>
+      <el-col :span="24" class="px-10px">
+        <el-form-item :label="t('profile.password.oldPassword')" prop="oldPassword">
+          <el-input
+            v-model="changePasswordForm.oldPassword"
+            type="password"
+            show-password
+            autocomplete="current-password"
+            data-testid="required-password-change-current"
+          />
+        </el-form-item>
+      </el-col>
+      <el-col :span="24" class="px-10px">
+        <el-form-item :label="t('profile.password.newPassword')" prop="newPassword">
+          <el-input
+            v-model="changePasswordForm.newPassword"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            data-testid="required-password-change-new"
+          />
+        </el-form-item>
+      </el-col>
+      <el-col :span="24" class="px-10px">
+        <el-form-item :label="t('profile.password.confirmPassword')" prop="confirmPassword">
+          <el-input
+            v-model="changePasswordForm.confirmPassword"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            data-testid="required-password-change-confirm"
+          />
+        </el-form-item>
+      </el-col>
+      <el-col :span="24" class="px-10px">
+        <el-form-item>
+          <XButton
+            :loading="loginLoading"
+            :title="t('login.changePassword')"
+            class="w-full"
+            type="primary"
+            native-type="submit"
+          />
+        </el-form-item>
+      </el-col>
+    </el-row>
+  </el-form>
 </template>
 <script lang="ts" setup>
 import { ElLoading } from 'element-plus'
@@ -121,6 +197,7 @@ import * as authUtil from '@/utils/auth'
 import { usePermissionStore } from '@/store/modules/permission'
 import * as LoginApi from '@/api/login'
 import { LoginStateEnum, resolveLoginErrorMessage, useFormValid, useLoginState, useLoginTenant } from './useLogin'
+import { systemPasswordRule } from '@/views/system/user/systemPasswordPolicy'
 
 defineOptions({ name: 'LoginForm' })
 
@@ -129,7 +206,9 @@ const iconHouse = useIcon({ icon: 'ep:house' })
 const iconAvatar = useIcon({ icon: 'ep:avatar' })
 const iconLock = useIcon({ icon: 'ep:lock' })
 const formLogin = ref()
+const formPasswordChange = ref()
 const { validForm } = useFormValid(formLogin)
+const { validForm: validPasswordChangeForm } = useFormValid(formPasswordChange)
 const { resolveTenantId } = useLoginTenant()
 const { setLoginState, getLoginState } = useLoginState()
 const { currentRoute, push } = useRouter()
@@ -137,6 +216,14 @@ const permissionStore = usePermissionStore()
 const redirect = ref<string>('')
 const loginLoading = ref(false)
 const loginErrorMessage = ref('')
+const passwordChangeRequired = ref(false)
+const passwordChangeSubmitting = ref(false)
+const changePasswordForm = reactive({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+const loading = ref() // ElLoading.service 返回的实例
 
 const getShow = computed(() => unref(getLoginState) === LoginStateEnum.LOGIN)
 
@@ -144,6 +231,18 @@ const LoginRules = {
   tenantName: [required],
   username: [required],
   password: [required]
+}
+const validatePasswordConfirmation = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  if (value !== changePasswordForm.newPassword) {
+    callback(new Error(t('profile.password.diffPwd')))
+    return
+  }
+  callback()
+}
+const passwordChangeRules = {
+  oldPassword: [required],
+  newPassword: [required, systemPasswordRule],
+  confirmPassword: [required, { validator: validatePasswordConfirmation, trigger: 'blur' }]
 }
 const tenantHistoryOptions = ref<authUtil.LoginTenantHistoryRecord[]>([])
 const loginData = reactive({
@@ -219,7 +318,43 @@ const getTenantByWebsite = async () => {
     }
   }
 }
-const loading = ref() // ElLoading.service 返回的实例
+const isPasswordChangeRequiredError = (error: unknown) => {
+  const errorLike = error as any
+  const code = Number(errorLike?.response?.data?.code ?? errorLike?.code ?? 0)
+  return code === 1002000011 || code === 1002000009
+}
+
+const completeLogin = async (loginForm: authUtil.LoginFormType, tenantId: number | boolean) => {
+  const res = await LoginApi.login(loginForm, tenantId)
+  if (!res) {
+    return
+  }
+  loading.value = ElLoading.service({
+    lock: true,
+    text: '正在加载系统中...',
+    background: 'rgba(0, 0, 0, 0.7)'
+  })
+  if (loginForm.rememberMe && !passwordChangeRequired.value) {
+    authUtil.setLoginForm(loginForm)
+  } else {
+    authUtil.removeLoginForm(loginForm.tenantName)
+  }
+  authUtil.setToken(res)
+  if (!redirect.value) {
+    redirect.value = '/'
+  }
+  if (redirect.value.indexOf('sso') !== -1) {
+    window.location.href = window.location.href.replace('/login?redirect=', '')
+  } else {
+    try {
+      await push({ path: redirect.value || permissionStore.addRouters[0]?.path || '/srm/portal/application' })
+    } catch (error) {
+      loginErrorMessage.value = resolveLoginErrorMessage(error, 'permission')
+      throw error
+    }
+  }
+}
+
 // 登录
 const handleLogin = async () => {
   loginLoading.value = true
@@ -235,39 +370,62 @@ const handleLogin = async () => {
       return
     }
     const loginDataLoginForm = { ...loginData.loginForm }
-    const res = await LoginApi.login(loginDataLoginForm, tenantId)
-    if (!res) {
+    await completeLogin(loginDataLoginForm, tenantId)
+  } catch (error) {
+    if (isPasswordChangeRequiredError(error)) {
+      passwordChangeRequired.value = true
+      changePasswordForm.oldPassword = loginData.loginForm.password
+      loginData.loginForm.password = ''
+      loginErrorMessage.value = ''
+    } else {
+      loginErrorMessage.value = resolveLoginErrorMessage(error, 'auth')
+    }
+  } finally {
+    loginLoading.value = false
+    loading.value?.close()
+  }
+}
+
+const submitRequiredPasswordChange = async () => {
+  if (passwordChangeSubmitting.value) return
+  passwordChangeSubmitting.value = true
+  loginLoading.value = true
+  loginErrorMessage.value = ''
+  let passwordChangeAttempted = false
+  try {
+    const tenantId = await getTenantId()
+    if (!tenantId) {
+      loginErrorMessage.value = resolveLoginErrorMessage(new Error('TENANT_NOT_FOUND'), 'tenant')
       return
     }
-    loading.value = ElLoading.service({
-      lock: true,
-      text: '正在加载系统中...',
-      background: 'rgba(0, 0, 0, 0.7)'
-    })
-    if (loginDataLoginForm.rememberMe) {
-      authUtil.setLoginForm(loginDataLoginForm)
-    } else {
-      authUtil.removeLoginForm(loginDataLoginForm.tenantName)
+    const valid = await validPasswordChangeForm()
+    if (!valid) {
+      return
     }
-    authUtil.setToken(res)
-    if (!redirect.value) {
-      redirect.value = '/'
-    }
-    // 判断是否为SSO登录
-    if (redirect.value.indexOf('sso') !== -1) {
-      window.location.href = window.location.href.replace('/login?redirect=', '')
-    } else {
-      try {
-        await push({ path: redirect.value || permissionStore.addRouters[0]?.path || '/srm/portal/application' })
-      } catch (error) {
-        loginErrorMessage.value = resolveLoginErrorMessage(error, 'permission')
-        throw error
-      }
-    }
+    const newPassword = changePasswordForm.newPassword
+    passwordChangeAttempted = true
+    await LoginApi.changePasswordBeforeLogin(
+      {
+        username: loginData.loginForm.username,
+        oldPassword: changePasswordForm.oldPassword,
+        newPassword
+      },
+      tenantId
+    )
+    passwordChangeRequired.value = false
+    const changedLoginForm = { ...loginData.loginForm, password: newPassword, rememberMe: false }
+    await completeLogin(changedLoginForm, tenantId)
   } catch (error) {
     loginErrorMessage.value = resolveLoginErrorMessage(error, 'auth')
   } finally {
+    if (passwordChangeAttempted) {
+      changePasswordForm.oldPassword = ''
+      changePasswordForm.newPassword = ''
+      changePasswordForm.confirmPassword = ''
+      loginData.loginForm.password = ''
+    }
     loginLoading.value = false
+    passwordChangeSubmitting.value = false
     loading.value?.close()
   }
 }

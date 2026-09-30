@@ -27,6 +27,7 @@ public class DccControlledFileVersionHistoryRespVO {
     private String rejectReason;
     private String finalizationError;
     private String status;
+    private Boolean needTraining;
     private String currentActiveVersionNo;
     private Boolean publishedArtifactAvailable;
     private Boolean stampedArtifactAvailable;

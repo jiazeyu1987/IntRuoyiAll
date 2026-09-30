@@ -55,6 +55,7 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
     @Update("""
             UPDATE dcc_controlled_file
             SET status = #{change.status}, submitter_id = #{actorId},
+                need_training = #{change.needTraining},
                 submit_idempotency_key = #{change.submitIdempotencyKey},
                 submit_payload_hash = #{change.submitPayloadHash},
                 process_definition_key = #{change.processDefinitionKey}, submitted_time = #{change.submittedTime},
@@ -67,7 +68,7 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
 
     @Update("""
             UPDATE dcc_controlled_file
-            SET status = 'READY_TO_PUBLISH', approved_time = #{approvedTime},
+            SET status = 'READY_TO_PUBLISH', approved_time = COALESCE(approved_time, #{approvedTime}),
                 updater = #{actorId}, update_time = CURRENT_TIMESTAMP
             WHERE tenant_id = #{tenantId}
               AND id = #{controlledFileId}

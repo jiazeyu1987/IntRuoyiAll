@@ -44,12 +44,11 @@ const dccLocationResolver = extractBetween(
   'const resolveDecisionDetailRoute = (row: ApprovalTaskSummaryVO) => {',
   'approval-center DCC detail resolver'
 )
-const handlingBranch = extractBetween(
-  dccLocationResolver,
-  'if (isDccModuleHandling) {',
-  "    return {\n      path: normalizedPath,\n      query: {\n        ...nextQuery,\n        viewer: '1'",
-  'approval-center DCC handling branch'
-)
+const handlingBranchStart = dccLocationResolver.indexOf('if (isDccModuleHandling) {')
+assert.notEqual(handlingBranchStart, -1, 'approval-center DCC handling branch missing start marker')
+const readonlyViewerBranchStart = dccLocationResolver.indexOf("viewer: '1'", handlingBranchStart)
+assert.notEqual(readonlyViewerBranchStart, -1, 'approval-center DCC readonly viewer branch missing after handling branch')
+const handlingBranch = dccLocationResolver.slice(handlingBranchStart, readonlyViewerBranchStart)
 
 assert.match(
   handlingBranch,
@@ -79,8 +78,8 @@ assert.match(
 )
 assert.match(
   detailPage,
-  /const showDetailManagementActions = computed\(\(\) => !isBrowserTraceabilityPage\.value && showFullDetailSections\.value\)/,
-  'general detail actions must be hidden from the upload approval page'
+  /const showDetailManagementActions = computed\([\s\S]{0,240}!isBrowserTraceabilityPage\.value[\s\S]{0,240}showFullDetailSections\.value[\s\S]{0,240}FINALIZATION_FAILED/,
+  'general detail actions must stay hidden in approval upload mode while finalization failure may expose recovery actions'
 )
 assert.match(
   detailPage,
@@ -179,8 +178,13 @@ for (const forbiddenMarker of [
 
 assert.match(
   dccQueryService,
-  /if \(accessType == DccAccessTypeEnum\.PREVIEW && isPendingPreviewStatus\(file\.getStatus\(\)\)\) \{[\s\S]*return file\.getOriginalFileId\(\)/,
-  'backend preview contract must keep pending approval preview on the uploaded original file'
+  /private Long resolveBinaryFileId\(DccControlledFileDO file, DccAccessTypeEnum accessType\) \{[\s\S]*if \(accessType == DccAccessTypeEnum\.PREVIEW\) \{[\s\S]*Long referenceId = resolvePreviewReferenceId\(file\)/,
+  'backend preview contract must route preview access through the controlled preview reference resolver'
+)
+assert.match(
+  dccQueryService,
+  /private Long resolvePreviewReferenceId\(DccControlledFileDO file\) \{[\s\S]*isPendingPreviewStatus\(status\)[\s\S]*return file\.getSourceFileId\(\) == null \? file\.getOriginalFileId\(\) : file\.getSourceFileId\(\)/,
+  'backend preview contract must keep pending approval preview on the submitted source or uploaded original file'
 )
 
 assert.doesNotMatch(

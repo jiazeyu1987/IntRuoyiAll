@@ -19,6 +19,7 @@ public interface ErrorCodeConstants {
     ErrorCode AUTH_REGISTER_CAPTCHA_CODE_ERROR = new ErrorCode(1_002_000_008, "验证码不正确，原因：{}");
     ErrorCode AUTH_LOGIN_PASSWORD_EXPIRED = new ErrorCode(1_002_000_009, "密码已过期，请修改密码后再登录");
     ErrorCode AUTH_LOGIN_PASSWORD_CHANGE_REQUIRED = new ErrorCode(1_002_000_011, "首次或重置后必须修改密码后再登录");
+    ErrorCode AUTH_LOGIN_PASSWORD_CHANGE_NOT_ALLOWED = new ErrorCode(1_002_000_012, "当前账号不允许使用登录前改密入口");
 
     // ========== 菜单模块 1-002-001-000 ==========
     ErrorCode MENU_NAME_DUPLICATE = new ErrorCode(1_002_001_000, "已经存在该名字的菜单");

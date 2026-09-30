@@ -1,0 +1,49 @@
+# Execution Log
+
+## 2026-09-17
+
+- READ: `AGENTS.md` -> PASS.
+- READ: `docs/task-closeout-rules.md` -> PASS.
+- READ: `docs/backend-development.md` -> PASS, relevant DCC backend gates reviewed.
+- READ: `docs/frontend-development.md` -> PASS, relevant frontend static contract gates reviewed.
+- READ: `docs/powershell-encoding.md` -> PASS.
+- READ: `docs/database-rules.md` -> PASS, permission/menu/schema boundary reviewed for this static task.
+- READ: `docs/test-release-preflight.md` -> PASS, no release actions planned.
+- READ: `docs/local-runtime.md` -> PASS, no service start/restart planned.
+- READ: DCC flow/product docs -> PASS, latest no-training/no-distribution main flow selected over older Windchill-only PRD conflicts.
+- SUBAGENTS: spawned four gpt-5.5 high static review threads for controlled browsing, revision, lifecycle, and upload-to-controlled-save flows.
+- SUBAGENTS: prior four child threads `01a0abb5-b23e-7850-bbc4-b3c850022044`, `01a0abb5-b3ce-70e0-ad75-09f0f6ae36b3`, `01a0abb5-b569-7892-85e1-1df7a4f4e942`, `01a0abb5-b76c-7723-b429-8df96ab98c85` timed out after narrowed retry and were shut down.
+- SUBAGENTS: restarted narrowed gpt-5.5 high read-only audit threads: controlled browsing `01a0abd5-5184-7a83-b2d0-14ba2b9540b3`, revision `01a0abd5-527c-7052-bcd1-43a46cab1a52`, lifecycle `01a0abd5-5374-7cb0-b007-1602f78116b6`, upload-to-controlled-save `01a0abd5-545d-7462-b4fe-87d10898d78c`.
+- BDD: four main-flow scenarios recorded before production code changes.
+- REVIEW: revision and lifecycle reviewers confirmed that a project Owner checking in another requester's file could not submit the new WORKING version. Main-thread review confirmed both backend and frontend submission gates use requesterId.
+- BDD: Given an original requester 88 and authorized check-in user 99, When user 99 checks in major version B/1, Then the new WORKING version has requesterId and submitterId 99 and the original version is retained.
+- TOOL: bare mvn was unavailable in the inherited PATH. User-level MAVEN_HOME located the existing Maven 3.9.11 under .runtime/tools; Java 17.0.20.1 verified. No installation or configuration changes.
+- RED: Maven DccControlledFileQueryServiceTest#majorCheckinByProjectOwnerUsesOwnerAsNewWorkingRequester -> FAIL, 1 test, expected requester 99 but actual 88.
+- FIX: copyForCheckin now assigns requesterId(userId); submission authorization remains requester-only.
+- REVIEW: controlled browsing reviewers Pascal and Goodall reported no static logic issues across discovery, details, preview, version/directory scope and related-file selection.
+- GREEN / REGRESSION: Maven DccControlledFileQueryServiceTest,DccControlledFileVersionNumberAllocationTest -> PASS, 152 tests, 0 failures/errors/skips.
+- RE-REVIEW: Lorentz (revision) and Pasteur (lifecycle) reread the requester fix and their full flows; both reported no remaining confirmed static logic issue.
+- REVIEW: Nash reported missing pre-upload template validation and selectable upload directory. Main thread confirmed the first; rejected the second because the user's step 25 applies to final controlled save, whose directory is already server-resolved. Nash rereviewed and withdrew the directory finding.
+- RED: DccControlledFileUploadApiTest#sourceUploadWithoutTemplateContextIsRejectedBeforeReadingFile -> FAIL: file stream was read without template context, instead of rejecting the request.
+- FIX: explicit NEW_UPLOAD/CHECKIN/EXTERNAL_REVIEW source upload contexts. First upload validates enabled project, project access, configured template and matching category before reading bytes. Check-in validates the active checkout actor and exact version. Frontend callers send the corresponding context.
+- TEST: DccSourceUploadContextTest (5 cases) and DccControlledFileUploadApiTest (34 cases) passed. The broader workflow suite exposed six stale successful-update mock fixtures and one obsolete unclassified-directory fallback expectation; updated those tests to reflect existing production contracts.
+- TYPECHECK: bundled Node running vue-tsc --noEmit -p tsconfig.relaxed.json -> PASS.
+- STATIC REGRESSION: dcc-upload-controlled-save-closed-loop, dcc-working-iteration-submit, dcc-upload-project-taxonomy-revision, dcc-upload-category-taxonomy-binding -> PASS (Node-only contracts; no E2E execution).
+- RE-REVIEW / CONFIRMED: Nash found tickets did not retain uploadContext, allowing external-review tickets to be submitted as ordinary controlled uploads. Main thread confirmed resolution checked only uploader/category/session/purpose.
+- RED: DccControlledFileWorkflowServiceImplTest#newUploadRejectsTicketSessionFromAnotherUploadContext -> FAIL, expected ServiceException but none was thrown.
+- FIX: DccSourceUploadSession scopes server-created ticket sessions to NEW_UPLOAD project/taxonomy/trimmed filename, CHECKIN exact version, or EXTERNAL_REVIEW. Submit/check-in rederive the expected prefix before resolving tickets. Frontend cleanup and check-in use returned ticket sessions. Session length remains within the existing varchar(128); no schema change.
+- GREEN / REGRESSION: Maven -q -pl yudao-module-dcc -Dtest=DccControlledFileUploadApiTest,DccSourceUploadContextTest,DccControlledFileWorkflowServiceImplTest,DccControlledFileQueryServiceTest,DccControlledFileVersionNumberAllocationTest -Dsurefire.failIfNoSpecifiedTests=false test -> PASS, 327 tests, 0 failures/errors/skips. JAVA_HOME=.runtime/tools/jdk-17; Maven=.runtime/tools/apache-maven-3.9.11/bin/mvn.cmd.
+- TYPECHECK: repeated vue-tsc --noEmit -p tsconfig.relaxed.json after scoped-session frontend changes -> PASS.
+- STATIC REGRESSION: backend contracts 014/023/025 and frontend remark-only check-in 022 -> PASS. Contract 022 had obsolete small-version-only title/form assertions; updated to the existing major/minor form and returned-session contract.
+- RE-REVIEW: Nash reread the scoped-session changes and the full upload-to-controlled-save flow; no remaining confirmed static logic issue.
+- DIFF: git diff --check -> PASS. Existing dirty files retained; no Git commit/push.
+- CLOSEOUT PRECHECK: required task-closeout-cleanup skill/script is not present in repository scripts or installed local skills. No cleanup execution is claimed. This does not block static code review or tests, but formal task closeout remains pending.
+- DUPLICATE RECORDS: nine prior task directories have the same four-flow objective and only preparatory records. Consolidated their status by reference to this task, preserving all history and avoiding duplicate claims of independent verification.
+- RE-REVIEW: Lorentz confirmed final revision/check-in scoped-session flow has no static logic issues. Pasteur confirmed lifecycle state transitions but found external-review drawing-PDF deletion/replacement discarded local state without cleaning tickets; main thread confirmed.
+- RED: dcc-external-review-upload-cleanup-static.spec.cjs -> 2 behavioral failures from actual parsed Vue handlers: deletion returned true without cleanup; replacement called upload without cleanup. Initial test-harness parser/import errors were corrected before this behavioral RED and are not counted as product failures.
+- FIX: external-review PDF deletion and replacement call single-ticket cleanup using the upload response sessionId/uploadTicket/requestId; failed cleanup prevents deletion/new upload.
+- GREEN: same Node behavioral test -> 2 tests PASS. No browser/E2E or network calls; actual handlers execute in isolated unit-test contexts.
+- REGRESSION: added a successful single-ticket cleanup request assertion and failed-cleanup error propagation assertion; the same Node suite now has 3 passing tests. Final frontend vue-tsc rerun -> PASS.
+- CLEANUP INVENTORY: main task directory contains only task.md, execution-log.md and verification-report.md; all are required retained records. No task-local disposable artifacts exist. This is a manual inventory, not task-closeout-cleanup preview/apply.
+- RE-REVIEW / RED: Pasteur found invalid-PDF replacement also discarded the old ticket before cleanup. Actual-handler test reproduced cleanupCalls=0 instead of 1.
+- FIX / GREEN: invalid-PDF branch now awaits exact-ticket cleanup before reset and preserves old state on failure; all 4 Node handler tests PASS.

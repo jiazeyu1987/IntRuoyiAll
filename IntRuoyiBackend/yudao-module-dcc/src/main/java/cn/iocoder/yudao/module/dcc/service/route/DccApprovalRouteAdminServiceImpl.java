@@ -25,6 +25,8 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteNodeM
 import cn.iocoder.yudao.module.dcc.enums.DccApprovalModeEnum;
 import cn.iocoder.yudao.module.dcc.service.position.DccApprovalPositionRuntimeResolver;
 import cn.iocoder.yudao.module.dcc.service.file.DccApprovalParticipantPostValidator;
+import cn.iocoder.yudao.module.system.api.dept.DeptApi;
+import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
@@ -54,7 +56,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW
 public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminService {
 
     static final ErrorCode APPROVAL_ROUTE_FIXED_STAGE_INVALID =
-            new ErrorCode(1_080_000_103, "审批路线必须使用固定四阶段审批策略：文控审核任意通过、会签审核全部通过100%、会签批准任意通过、文控批准任意通过，且四阶段均为必经");
+            new ErrorCode(1_080_000_103, "审批路线节点不符合当前动作的固定审批策略，且所有必经阶段必须完整配置");
 
     @Resource
     private DccFileCategoryMapper categoryMapper;
@@ -68,6 +70,8 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
     private DccPositionAssignmentMapper positionAssignmentMapper;
     @Resource
     private AdminUserApi adminUserApi;
+    @Resource
+    private DeptApi deptApi;
     @Resource
     private DccApprovalPositionRuntimeResolver positionRuntimeResolver;
     @Resource
@@ -109,11 +113,13 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
         if (reqVO.getNodes() == null || reqVO.getNodes().isEmpty()) {
             throw exception(APPROVAL_ROUTE_NODE_EMPTY);
         }
-        validateFixedStages(reqVO.getNodes());
-        Integer maxVersion = routeMapper.selectMaxVersionNoIncludingDeleted(categoryId);
+        String actionType = normalizeActionType(reqVO.getActionType());
+        validateStages(actionType, reqVO.getNodes());
+        Integer maxVersion = routeMapper.selectMaxVersionNoIncludingDeletedByActionType(categoryId, actionType);
         LocalDateTime now = LocalDateTime.now();
         DccCategoryApprovalRouteDO route = DccCategoryApprovalRouteDO.builder()
                 .categoryId(categoryId)
+                .actionType(actionType)
                 .versionNo(maxVersion + 1)
                 .active(Boolean.TRUE)
                 .effectiveTime(reqVO.getEffectiveTime())
@@ -126,6 +132,7 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
             oldRoutes.stream()
                     .filter(item -> !item.getId().equals(route.getId()))
                     .filter(item -> Boolean.TRUE.equals(item.getActive()))
+                    .filter(item -> actionType.equals(normalizeActionType(item.getActionType())))
                     .filter(item -> isEffectiveAt(item.getEffectiveTime(), now))
                     .forEach(item -> routeMapper.updateById(DccCategoryApprovalRouteDO.builder()
                             .id(item.getId())
@@ -152,7 +159,10 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
     @Override
     public List<DccApprovalRoutePreviewRespVO> previewRoute(DccApprovalRoutePreviewReqVO reqVO) {
         validateCategoryExists(reqVO.getCategoryId());
-        DccCategoryApprovalRouteDO route = routeMapper.selectLatestActiveByCategoryId(reqVO.getCategoryId());
+        String actionType = normalizeActionType(reqVO.getActionType());
+        DccCategoryApprovalRouteDO route = isLegacyActionType(actionType)
+                ? routeMapper.selectLatestActiveByCategoryId(reqVO.getCategoryId())
+                : routeMapper.selectLatestActiveByCategoryIdAndActionType(reqVO.getCategoryId(), actionType);
         if (route == null) {
             throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.APPROVAL_ROUTE_NOT_EXISTS);
         }
@@ -164,18 +174,7 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
         if (nodes.isEmpty()) {
             throw exception(APPROVAL_ROUTE_NODE_EMPTY);
         }
-        validateFixedStages(nodes.stream().map(node -> {
-            DccApprovalRouteNodeSaveReqVO reqNode = new DccApprovalRouteNodeSaveReqVO();
-            reqNode.setStageNo(node.getStageNo());
-            reqNode.setStageName(node.getStageName());
-            reqNode.setCandidateSourceType(node.getCandidateSourceType());
-            reqNode.setCandidateSourceId(node.getCandidateSourceId());
-            reqNode.setApproveMethod(node.getApproveMethod());
-            reqNode.setApproveRatio(node.getApproveRatio());
-            reqNode.setRequired(node.getRequired());
-            reqNode.setSort(node.getSort());
-            return reqNode;
-        }).toList());
+        validateRouteNodes(actionType, nodes);
         return CollectionUtils.convertList(nodes, this::previewNode);
     }
 
@@ -186,6 +185,7 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
         respVO.setId(route.getId());
         respVO.setCategoryId(route.getCategoryId());
         respVO.setCategoryName(category == null ? null : category.getName());
+        respVO.setActionType(route.getActionType());
         respVO.setVersionNo(route.getVersionNo());
         respVO.setActive(route.getActive());
         respVO.setStatusLabel(Boolean.TRUE.equals(route.getActive()) ? "启用" : "停用");
@@ -292,6 +292,8 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
         if ("USER".equalsIgnoreCase(node.getCandidateSourceType())) {
             validateUserCandidateIds(candidateSourceIds);
             resolvedUserIds = candidateSourceIds;
+        } else if ("DEPT".equalsIgnoreCase(node.getCandidateSourceType())) {
+            resolvedUserIds = resolveDepartmentLeaders(candidateSourceIds);
         } else {
             if (!"POSITION".equalsIgnoreCase(node.getCandidateSourceType())) {
                 throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
@@ -334,6 +336,29 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
         return respVO;
     }
 
+    private List<Long> resolveDepartmentLeaders(List<Long> departmentIds) {
+        if (departmentIds.isEmpty()) {
+            throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+        }
+        try {
+            deptApi.validateDeptList(departmentIds);
+        } catch (ServiceException ex) {
+            throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+        }
+        Map<Long, List<DeptRespDTO>> deptMap = deptApi.getDeptList(departmentIds).stream()
+                .collect(Collectors.groupingBy(DeptRespDTO::getId));
+        List<Long> leaderUserIds = new ArrayList<>(departmentIds.size());
+        for (Long departmentId : departmentIds) {
+            List<DeptRespDTO> matches = deptMap.get(departmentId);
+            if (matches == null || matches.size() != 1 || matches.get(0).getLeaderUserId() == null) {
+                throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+            }
+            leaderUserIds.add(matches.get(0).getLeaderUserId());
+        }
+        validateUserCandidateIds(leaderUserIds);
+        return leaderUserIds;
+    }
+
     private void validateUserCandidateIds(List<Long> candidateSourceIds) {
         if (candidateSourceIds.isEmpty()) {
             throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
@@ -347,8 +372,12 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
     }
 
     private DccCategoryApprovalRouteNodeDO toRouteNode(Long routeId, DccApprovalRouteNodeSaveReqVO reqVO) {
-        DccFixedApprovalRoutePolicy.FixedStageDefinition stageDefinition =
-                DccFixedApprovalRoutePolicy.requireStage(reqVO.getStageNo(), APPROVAL_ROUTE_FIXED_STAGE_INVALID);
+        DccCategoryApprovalRouteDO route = routeMapper.selectById(routeId);
+        String actionType = normalizeActionType(route == null ? null : route.getActionType());
+        DccFixedApprovalRoutePolicy.FixedStageDefinition stageDefinition = isLegacyActionType(actionType)
+                ? DccFixedApprovalRoutePolicy.requireStage(reqVO.getStageNo(), APPROVAL_ROUTE_FIXED_STAGE_INVALID)
+                : DccActionApprovalRoutePolicy.requireStage(reqVO.getStageNo(), APPROVAL_ROUTE_FIXED_STAGE_INVALID);
+        List<Long> candidateSourceIds = readSaveCandidateSourceIds(reqVO);
         return DccCategoryApprovalRouteNodeDO.builder()
                 .routeId(routeId)
                 .stageNo(reqVO.getStageNo())
@@ -356,14 +385,33 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
                 .stageName(reqVO.getStageName())
                 .stageOrder(stageDefinition.stageOrder())
                 .candidateSourceType(reqVO.getCandidateSourceType())
-                .candidateSourceId(reqVO.getCandidateSourceId())
-                .candidateSourceIds(String.valueOf(reqVO.getCandidateSourceId()))
+                .candidateSourceId(candidateSourceIds.get(0))
+                .candidateSourceIds(formatCandidateSourceIds(candidateSourceIds))
                 .approveMethod(stageDefinition.approveMethod())
                 .approveRatio(stageDefinition.approveRatio())
                 .requireAllApprovals(stageDefinition.requireAllApprovals())
                 .required(stageDefinition.required())
                 .sort(reqVO.getSort())
                 .build();
+    }
+
+    private List<Long> readSaveCandidateSourceIds(DccApprovalRouteNodeSaveReqVO reqVO) {
+        List<Long> candidateSourceIds = reqVO.getCandidateSourceIds() == null ? List.of() : reqVO.getCandidateSourceIds().stream()
+                .filter(Objects::nonNull)
+                .toList();
+        if (candidateSourceIds.isEmpty() && reqVO.getCandidateSourceId() != null) {
+            candidateSourceIds = List.of(reqVO.getCandidateSourceId());
+        }
+        if (candidateSourceIds.isEmpty()) {
+            throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+        }
+        return candidateSourceIds;
+    }
+
+    private String formatCandidateSourceIds(List<Long> candidateSourceIds) {
+        return candidateSourceIds.stream()
+                .map(String::valueOf)
+                .collect(Collectors.joining(","));
     }
 
     private DccFileCategoryDO validateCategoryExists(Long categoryId) {
@@ -378,8 +426,48 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
         return effectiveTime == null || !effectiveTime.isAfter(selectionTime);
     }
 
+    private void validateRouteNodes(String actionType, List<DccCategoryApprovalRouteNodeDO> nodes) {
+        if (!isLegacyActionType(actionType)) {
+            DccActionApprovalRoutePolicy.validateRouteNodes(actionType, nodes, APPROVAL_ROUTE_FIXED_STAGE_INVALID);
+            return;
+        }
+        validateFixedStages(nodes.stream().map(node -> {
+            DccApprovalRouteNodeSaveReqVO reqNode = new DccApprovalRouteNodeSaveReqVO();
+            reqNode.setStageNo(node.getStageNo());
+            reqNode.setStageName(node.getStageName());
+            reqNode.setCandidateSourceType(node.getCandidateSourceType());
+            reqNode.setCandidateSourceId(node.getCandidateSourceId());
+            reqNode.setCandidateSourceIds(readCandidateSourceIds(node.getCandidateSourceIds(), node.getCandidateSourceId()));
+            reqNode.setApproveMethod(node.getApproveMethod());
+            reqNode.setApproveRatio(node.getApproveRatio());
+            reqNode.setRequired(node.getRequired());
+            reqNode.setSort(node.getSort());
+            return reqNode;
+        }).toList());
+    }
+
+    private void validateStages(String actionType, List<DccApprovalRouteNodeSaveReqVO> nodes) {
+        if (isLegacyActionType(actionType)) {
+            DccFixedApprovalRoutePolicy.validateSaveNodes(nodes, APPROVAL_ROUTE_FIXED_STAGE_INVALID);
+            return;
+        }
+        DccActionApprovalRoutePolicy.validateSaveNodes(actionType, nodes, APPROVAL_ROUTE_FIXED_STAGE_INVALID);
+    }
+
     private void validateFixedStages(List<DccApprovalRouteNodeSaveReqVO> nodes) {
-        DccFixedApprovalRoutePolicy.validateSaveNodes(nodes, APPROVAL_ROUTE_FIXED_STAGE_INVALID);
+        validateStages("LEGACY", nodes);
+    }
+
+    private String normalizeActionType(String actionType) {
+        String normalized = StrUtil.blankToDefault(actionType, "LEGACY").trim().toUpperCase();
+        if (isLegacyActionType(normalized) || DccActionApprovalRoutePolicy.supports(normalized)) {
+            return normalized;
+        }
+        throw exception(APPROVAL_ROUTE_FIXED_STAGE_INVALID);
+    }
+
+    private boolean isLegacyActionType(String actionType) {
+        return StrUtil.isBlank(actionType) || "LEGACY".equalsIgnoreCase(actionType);
     }
 
     private List<Long> resolveAssignmentUsers(DccPositionAssignmentDO assignment) {

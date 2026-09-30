@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.api.event.BpmProcessInstanceStatusEvent;
 import cn.iocoder.yudao.module.bpm.enums.task.BpmProcessInstanceStatusEnum;
+import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDistributionRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryTrainingRuleDO;
@@ -67,10 +68,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PUBLISH_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PDF_CONVERSION_FAILED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_STAMP_GENERATION_FAILED;
@@ -82,6 +85,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_MANUAL_RELEASE_NOT_ALLOWED;
 import static org.mockito.Mockito.atLeastOnce;
@@ -160,6 +164,8 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     private DccPublicationFollowupService publicationFollowupService;
     @Mock
     private DccControlledFileFinalizationFailureService finalizationFailureService;
+    @Mock
+    private BpmTaskService bpmTaskService;
 
     private DccControlledFileMessageDeliveryService messageDeliveryService;
     private java.util.Map<Long, DccControlledFileMessageJobDO> messageJobs;
@@ -196,6 +202,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         lenient().when(controlledFileMapper.markReadyToPublishAfterApproval(
                 any(), any(), any(), any(), any(), any(), any())).thenReturn(1);
         lenient().when(controlledFileMapper.transitionStatus(any(), any(), any(), any(), any())).thenReturn(1);
+        lenient().when(bpmTaskService.triggerTask(anyString(), anyString())).thenReturn(Boolean.TRUE);
         lenient().when(controlledFileMapper.selectByIdAndTenantForUpdate(any(), any()))
                 .thenAnswer(invocation -> controlledFileMapper.selectById(invocation.getArgument(1)));
         lenient().when(controlledFileMasterMapper.selectByIdForUpdate(any()))
@@ -366,23 +373,65 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     }
 
     private void stubCompleteOrdinaryApprovalRoster(DccControlledFileDO file) {
-        List<String> stages = List.of("DOC_CONTROL_REVIEW", "MATRIX_REVIEW", "MATRIX_APPROVAL", "DOC_CONTROL_APPROVAL");
-        when(routeSnapshotMapper.selectListByControlledFileId(file.getId())).thenReturn(stages.stream().map(stage ->
-                cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRouteSnapshotDO.builder()
-                        .controlledFileId(file.getId()).stageCode(stage).resolvedUserIds("99")
-                        .requireAllApprovals("MATRIX_REVIEW".equals(stage))
-                        .approveMethod("MATRIX_REVIEW".equals(stage) ? "ALL" : "ANY").build()).toList());
-        when(approvalSignatureMapper.selectListByControlledFileId(file.getId())).thenReturn(stages.stream().map(stage ->
-                cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO.builder()
-                        .id((long) stages.indexOf(stage) + 1).controlledFileId(file.getId()).revisionId(file.getId())
-                        .versionNo(file.getVersionNo()).actorId(99L).actionType("APPROVE").meaningCode(stage + "_APPROVE")
-                        .passwordVerified(true).signedAt(LocalDateTime.now()).taskId(stage + "-task")
-                        .evidenceStatus("VALID").evidenceHash("signed-evidence").build()).toList());
+        stubOrdinaryApprovalRoster(file, 2);
+    }
+
+    private void stubOrdinaryApprovalRoster(DccControlledFileDO file, int departmentSignoffTaskCount) {
+        boolean threeWorkflow = Set.of(DccControlledFileProcessDefinitionKeys.UPLOAD,
+                DccControlledFileProcessDefinitionKeys.REVISION).contains(file.getProcessDefinitionKey());
+        List<String> stages = threeWorkflow
+                ? List.of("DOC_CONTROL_REVIEW", "MATRIX_REVIEW", "MATRIX_APPROVAL")
+                : List.of("DOC_CONTROL_REVIEW", "MATRIX_REVIEW", "MATRIX_APPROVAL", "DOC_CONTROL_APPROVAL");
+        when(routeSnapshotMapper.selectListByControlledFileId(file.getId())).thenReturn(stages.stream().map(stage -> {
+            boolean departmentSignoff = threeWorkflow && "MATRIX_REVIEW".equals(stage);
+            return cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRouteSnapshotDO.builder()
+                    .controlledFileId(file.getId()).stageCode(stage)
+                    .candidateSourceType(departmentSignoff ? "DEPT" : null)
+                    .candidateSourceIds(departmentSignoff ? "300,301" : null)
+                    .resolvedUserIds(departmentSignoff ? "99,99" : "99")
+                    .requireAllApprovals("MATRIX_REVIEW".equals(stage))
+                    .approveMethod("MATRIX_REVIEW".equals(stage) ? "ALL" : "ANY").build();
+        }).toList());
+        List<cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO> signatures =
+                new ArrayList<>();
+        long signatureId = 1L;
+        for (String stage : stages) {
+            int taskCount = threeWorkflow && "MATRIX_REVIEW".equals(stage) ? departmentSignoffTaskCount : 1;
+            for (int taskIndex = 1; taskIndex <= taskCount; taskIndex++) {
+                signatures.add(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO.builder()
+                        .id(signatureId++).controlledFileId(file.getId()).revisionId(file.getId())
+                        .versionNo(file.getVersionNo()).actorId(99L).actionType("APPROVE")
+                        .meaningCode(stage + "_APPROVE").passwordVerified(true).signedAt(LocalDateTime.now())
+                        .taskId(stage + "-task-" + taskIndex).evidenceStatus("VALID")
+                        .evidenceHash("signed-evidence").build());
+            }
+        }
+        when(approvalSignatureMapper.selectListByControlledFileId(file.getId())).thenReturn(signatures);
     }
 
     @Test
     void handleProcessInstanceStatusChanged_revisionApprovalMarksReadyToPublishWithoutActivating_newOrdinaryPolicy() {
         assertOrdinaryActivation("REVISION", false, false, false);
+    }
+
+    @Test
+    void handleProcessInstanceStatusChanged_preservesContentApprovalTimeDuringFinalization() {
+        LocalDateTime approvedAt = LocalDateTime.of(2026, 9, 29, 9, 15);
+        DccControlledFileDO file = buildRevisionApprovalCandidate(917L, 717L, 18L, 117L);
+        file.setPublishedFileId(617L);
+        file.setStampedFileId(617L);
+        file.setApprovedTime(approvedAt);
+        when(controlledFileMapper.selectById(917L)).thenReturn(file);
+        when(controlledFileMasterMapper.selectById(717L))
+                .thenReturn(DccControlledFileMasterDO.builder().id(717L).build());
+        when(categoryMapper.selectById(18L)).thenReturn(category(18L, false, false));
+        stubCompleteOrdinaryApprovalRoster(file);
+
+        finalizationService.handleProcessInstanceStatusChanged(approveEvent(917L));
+
+        verify(controlledFileMapper).markReadyToPublishAfterApproval(any(), eq(917L), eq("process-917"),
+                eq(DccControlledFileWorkflowServiceImpl.BPM_PROCESS_DEFINITION_KEY),
+                eq(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus()), eq(approvedAt), eq(99L));
     }
 
     @Test
@@ -458,6 +507,89 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
 
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
         verify(platformAdapter, never()).recordApprovedReadyToPublish(any(), any(), any());
+    }
+
+    @Test
+    void handleProcessInstanceStatusChanged_acceptsTheFrozenUploadProcessDefinitionKey() {
+        DccControlledFileDO file = buildRevisionApprovalCandidate(912L, 712L, 18L, 112L);
+        file.setStatus(DccControlledFileStatusEnum.ACTIVE.getStatus());
+        file.setProcessInstanceId("process-912");
+        file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);
+        when(controlledFileMapper.selectById(912L)).thenReturn(file);
+
+        finalizationService.handleProcessInstanceStatusChanged(
+                approveEvent(912L, DccControlledFileProcessDefinitionKeys.UPLOAD));
+
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+        verify(platformAdapter, never()).recordApprovedReadyToPublish(any(), any(), any());
+    }
+
+    @Test
+    void handleProcessInstanceStatusChanged_uploadDocControlReviewActivatesControlledFile() throws Exception {
+        DccControlledFileDO file = buildRevisionApprovalCandidate(914L, 714L, 18L, 114L);
+        file.setChangeType(DccControlledFileChangeTypeEnum.NEW.getCode());
+        file.setStatus(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus());
+        file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);
+        file.setPublishedFileId(null);
+        file.setStampedFileId(null);
+        when(controlledFileMapper.selectById(914L)).thenReturn(file);
+        when(controlledFileMasterMapper.selectById(714L)).thenReturn(DccControlledFileMasterDO.builder()
+                .id(714L).categoryId(18L).fileName("SOP-001").fileNumber("FI-001").build());
+        when(categoryMapper.selectById(18L)).thenReturn(category(18L, false, false));
+        stubCompleteOrdinaryApprovalRoster(file);
+        stubStampedArtifact(114L, 614L);
+
+        finalizationService.handleProcessInstanceStatusChanged(
+                approveEvent(914L, DccControlledFileProcessDefinitionKeys.UPLOAD));
+
+        verify(controlledFileMapper).markReadyToPublishAfterApproval(any(), eq(914L), eq("process-914"),
+                eq(DccControlledFileProcessDefinitionKeys.UPLOAD),
+                eq(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus()), any(), eq(99L));
+        ArgumentCaptor<DccControlledFileDO> updates = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper, atLeastOnce()).updateById(updates.capture());
+        assertTrue(updates.getAllValues().stream().anyMatch(row -> Long.valueOf(914L).equals(row.getId())
+                && DccControlledFileStatusEnum.ACTIVE.getStatus().equals(row.getStatus())));
+        verify(pdfStampService).stamp("source-pdf".getBytes());
+        verify(fileService).createFile("stamped-pdf".getBytes(), "source.pdf", "dcc/stamped", "application/pdf");
+        verify(signatureBindingService).bindPublishedCopy(file, 614L, 99L, "process-914");
+        verify(platformAdapter).recordFinalizationStarted(file, 99L, "process-914");
+        verify(publicationFollowupService).recordPublishedRevision(eq(file), any());
+    }
+
+    @Test
+    void handleProcessInstanceStatusChanged_sameDepartmentLeaderMustSignEachObligation() throws Exception {
+        DccControlledFileDO file = buildRevisionApprovalCandidate(926L, 726L, 18L, 126L);
+        file.setChangeType(DccControlledFileChangeTypeEnum.NEW.getCode());
+        file.setStatus(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus());
+        file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);
+        file.setPublishedFileId(null);
+        file.setStampedFileId(null);
+        when(controlledFileMapper.selectById(926L)).thenReturn(file);
+        when(controlledFileMasterMapper.selectById(726L)).thenReturn(DccControlledFileMasterDO.builder()
+                .id(726L).categoryId(18L).fileName("SOP-002").fileNumber("FI-002").build());
+        stubOrdinaryApprovalRoster(file, 1);
+
+        ServiceException failure = assertThrows(ServiceException.class,
+                () -> finalizationService.handleProcessInstanceStatusChanged(
+                        approveEvent(926L, DccControlledFileProcessDefinitionKeys.UPLOAD)));
+
+        assertEquals(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING.getMsg(), failure.getMessage());
+        verify(controlledFileMapper, never()).markReadyToPublishAfterApproval(any(), any(), any(), any(), any(), any(), any());
+        verify(pdfStampService, never()).stamp(any());
+    }
+
+    @Test
+    void handleProcessInstanceStatusChanged_legacyApprovalRequiresBoundPublishedArtifact() throws IOException {
+        DccControlledFileDO file = buildRevisionApprovalCandidate(916L, 716L, 18L, 116L);
+        file.setPublishedFileId(null);
+        file.setStampedFileId(null);
+        when(controlledFileMapper.selectById(916L)).thenReturn(file);
+
+        assertThrows(ServiceException.class,
+                () -> finalizationService.handleProcessInstanceStatusChanged(approveEvent(916L)));
+
+        verify(controlledFileMapper, never()).markReadyToPublishAfterApproval(any(), any(), any(), any(), any(), any(), any());
+        verify(pdfStampService, never()).stamp(any());
     }
 
     @Test
@@ -565,6 +697,9 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         file.setPublishedFileId(615L);
         file.setStampedFileId(615L);
         lenient().when(controlledFileMapper.selectById(915L)).thenReturn(file);
+        lenient().when(controlledFileMasterMapper.selectById(715L))
+                .thenReturn(DccControlledFileMasterDO.builder().id(715L).build());
+        lenient().when(categoryMapper.selectById(18L)).thenReturn(category(18L, false, false));
         lenient().when(permissionApi.hasAnyRoles(99L, "doc_control")).thenReturn(true);
         lenient().when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve")).thenReturn(true);
         lenient().when(permissionSupport.hasCategoryPermission(18L, 99L,
@@ -575,18 +710,20 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void precheckPublishControlledFile_requiresApprovalBoundStampedPdf() throws Exception {
+    void precheckPublishControlledFile_allowsStampGenerationDuringPublishEffect() throws Exception {
         DccControlledFileDO file = buildReadyToPublishCandidate(916L, 716L, 18L, 116L);
         file.setPublishedFileId(null);
         file.setStampedFileId(null);
         lenient().when(controlledFileMapper.selectById(916L)).thenReturn(file);
+        lenient().when(controlledFileMasterMapper.selectById(716L))
+                .thenReturn(DccControlledFileMasterDO.builder().id(716L).build());
+        lenient().when(categoryMapper.selectById(18L)).thenReturn(category(18L, false, false));
         lenient().when(permissionApi.hasAnyRoles(99L, "doc_control")).thenReturn(true);
         lenient().when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve")).thenReturn(true);
         lenient().when(permissionSupport.hasCategoryPermission(18L, 99L,
                 DccFileCategoryPermissionActionEnum.APPROVE)).thenReturn(true);
 
-        assertServiceException(() -> finalizationService.precheckPublishControlledFile(99L, 916L),
-                CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
+        finalizationService.precheckPublishControlledFile(99L, 916L);
 
         verify(fileService, never()).createFile(any(), any(), any(), any());
         verify(pdfStampService, never()).stamp(any());
@@ -699,7 +836,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void applyApprovedPublishControlledFile_supersedesStaleWorkingIterationAndPreservesApprovalTime() {
+    void applyApprovedPublishControlledFile_supersedesStalePendingIterationAndPreservesApprovalTime() {
         java.time.LocalDateTime approvedAt = java.time.LocalDateTime.of(2026, 9, 12, 9, 30);
         DccControlledFileDO candidate = buildReadyToPublishCandidate(920L, 720L, 18L, 120L);
         candidate.setVersionNo("B/1");
@@ -709,16 +846,16 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         DccControlledFileDO active = DccControlledFileDO.builder().id(918L).masterId(720L)
                 .versionNo("A/1").revisionCode("A").iterationNo(1)
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
-        DccControlledFileDO staleWorking = DccControlledFileDO.builder().id(919L).masterId(720L)
+        DccControlledFileDO stalePending = DccControlledFileDO.builder().id(919L).masterId(720L)
                 .versionNo("A/2").revisionCode("A").iterationNo(2)
-                .status(DccControlledFileStatusEnum.WORKING.getStatus()).build();
+                .status(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus()).build();
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
                 .id(720L).currentActiveControlledFileId(918L)
                 .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode()).build();
         when(controlledFileMapper.selectById(920L)).thenReturn(candidate);
         when(controlledFileMapper.selectById(918L)).thenReturn(active);
         when(controlledFileMasterMapper.selectById(720L)).thenReturn(master);
-        when(controlledFileMapper.selectListByMasterId(720L)).thenReturn(List.of(active, staleWorking, candidate));
+        when(controlledFileMapper.selectListByMasterId(720L)).thenReturn(List.of(active, stalePending, candidate));
         when(controlledFileMapper.updateById(any(DccControlledFileDO.class))).thenReturn(1);
         when(categoryMapper.selectById(18L)).thenReturn(category(18L, false, false));
         when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve")).thenReturn(true);
@@ -805,6 +942,8 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     @Test
     void activateWithoutApproval_finalizingFileCreatesActiveRevisionAndDownstreamRecords() throws Exception {
         DccControlledFileDO file = buildFinalizingFile(991L, 791L, 20L, 191L);
+        LocalDateTime approvedAt = LocalDateTime.of(2026, 9, 12, 9, 30);
+        file.setApprovedTime(approvedAt);
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
                 .id(791L)
                 .categoryId(20L)
@@ -823,6 +962,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         verify(controlledFileMapper).updateById(fileCaptor.capture());
         assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), fileCaptor.getValue().getStatus());
         assertEquals(691L, fileCaptor.getValue().getPublishedFileId());
+        assertNull(fileCaptor.getValue().getApprovedTime());
         ArgumentCaptor<DccControlledFileMasterDO> masterCaptor = ArgumentCaptor.forClass(DccControlledFileMasterDO.class);
         verify(controlledFileMasterMapper).updateById(masterCaptor.capture());
         assertEquals(991L, masterCaptor.getValue().getCurrentActiveControlledFileId());
@@ -967,6 +1107,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         when(controlledFileMasterMapper.selectById(702L)).thenReturn(DccControlledFileMasterDO.builder()
                 .id(702L).categoryId(12L).fileName("SOP-003").fileNumber("FI-003").build());
         when(categoryMapper.selectById(12L)).thenReturn(category(12L, false, false));
+        stubCompleteOrdinaryApprovalRoster(file);
         stubStampedArtifact(102L, 602L);
         when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve")).thenReturn(true);
         when(platformAdapter.nextFinalizationRetryEventKey(file))
@@ -992,6 +1133,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         when(controlledFileMasterMapper.selectById(702L)).thenReturn(DccControlledFileMasterDO.builder()
                 .id(702L).categoryId(12L).fileName("SOP-003").fileNumber("FI-003").build());
         when(categoryMapper.selectById(12L)).thenReturn(category(12L, false, false));
+        stubCompleteOrdinaryApprovalRoster(file);
         stubStampedArtifact(102L, 602L);
         when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve")).thenReturn(true);
         when(platformAdapter.nextFinalizationRetryEventKey(file))
@@ -1020,7 +1162,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"role", "permission", "category"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"role", "permission"})
     void retryStamp_missingPublishAuthorizationMustNotAdvance(String missing) {
         DccControlledFileDO file = buildFinalizingFile(902L, 702L, 12L, 102L);
         file.setStatus(DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus());
@@ -1030,11 +1172,6 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
             when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve"))
                     .thenReturn(!"permission".equals(missing));
         }
-        if ("category".equals(missing)) {
-            when(permissionSupport.hasCategoryPermission(12L, 99L, DccFileCategoryPermissionActionEnum.APPROVE))
-                    .thenReturn(false);
-        }
-
         assertServiceException(() -> finalizationService.retryStamp(99L, 902L), CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
         verify(platformAdapter, never()).recordFinalizationRetried(any(), any(), any());
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
@@ -1164,6 +1301,98 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void releaseManualDistribution_newUploadProcessTriggersDistributionReceiveTaskAndMovesToDocControlReview() {
+        DccControlledFileDO file = buildFinalizingFile(908L, 708L, 17L, 108L);
+        file.setStatus(DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus());
+        file.setProcessType(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode());
+        file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);
+        file.setPublishedFileId(108L);
+        file.setStampedFileId(108L);
+        when(controlledFileMapper.selectById(908L)).thenReturn(file);
+        when(permissionSupport.hasCategoryPermission(17L, 99L,
+                DccFileCategoryPermissionActionEnum.DISTRIBUTE)).thenReturn(true);
+
+        finalizationService.releaseManualDistribution(99L, 908L);
+
+        verify(controlledFileMapper).transitionStatus(1L, 908L,
+                DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus(),
+                DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus(), 99L);
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+        verify(bpmTaskService).triggerTask("proc-1", "DISTRIBUTION");
+        verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
+        verify(platformAdapter, never()).recordFinalized(any(), any(), any(), any());
+    }
+
+    @Test
+    void releaseManualDistribution_nativeUploadWithTrainingRecordDoesNotWaitForFinalizationTrainingRows() {
+        DccControlledFileDO file = buildFinalizingFile(909L, 709L, 17L, 109L);
+        file.setStatus(DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus());
+        file.setProcessType(DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode());
+        file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);
+        file.setNeedTraining(true);
+        file.setTrainingRecordFileId(110L);
+        when(controlledFileMapper.selectById(909L)).thenReturn(file);
+        when(permissionSupport.hasCategoryPermission(17L, 99L,
+                DccFileCategoryPermissionActionEnum.DISTRIBUTE)).thenReturn(true);
+
+        finalizationService.releaseManualDistribution(99L, 909L);
+
+        verify(controlledFileMapper).transitionStatus(1L, 909L,
+                DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus(),
+                DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus(), 99L);
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+        verify(bpmTaskService).triggerTask("proc-1", "DISTRIBUTION");
+        verify(trainingMapper, never()).selectListByControlledFileId(909L);
+    }
+
+    @Test
+    void releaseManualDistribution_triggerFailureLeavesTransitionInsideTransaction() {
+        DccControlledFileDO file = buildFinalizingFile(910L, 710L, 17L, 110L);
+        file.setStatus(DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus());
+        file.setProcessType(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode());
+        file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);
+        when(controlledFileMapper.selectById(910L)).thenReturn(file);
+        when(permissionSupport.hasCategoryPermission(17L, 99L,
+                DccFileCategoryPermissionActionEnum.DISTRIBUTE)).thenReturn(true);
+        when(bpmTaskService.triggerTask("proc-1", "DISTRIBUTION"))
+                .thenThrow(new IllegalStateException("missing distribution execution"));
+
+        assertThrows(IllegalStateException.class,
+                () -> finalizationService.releaseManualDistribution(99L, 910L));
+
+        verify(transactionTemplate).executeWithoutResult(any());
+        verify(controlledFileMapper).transitionStatus(1L, 910L,
+                DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus(),
+                DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus(), 99L);
+        assertEquals(DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus(), file.getStatus());
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+    }
+
+    @Test
+    void releaseManualDistribution_lostStatusCompareAndSetDoesNotTriggerBpm() {
+        DccControlledFileDO file = buildFinalizingFile(911L, 711L, 17L, 111L);
+        file.setStatus(DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus());
+        file.setProcessType(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode());
+        file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.REVISION);
+        when(controlledFileMapper.selectById(911L)).thenReturn(file);
+        when(permissionSupport.hasCategoryPermission(17L, 99L,
+                DccFileCategoryPermissionActionEnum.DISTRIBUTE)).thenReturn(true);
+        when(controlledFileMapper.transitionStatus(1L, 911L,
+                DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus(),
+                DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus(), 99L)).thenReturn(0);
+
+        assertServiceException(() -> finalizationService.releaseManualDistribution(99L, 911L),
+                CONTROLLED_FILE_MANUAL_RELEASE_NOT_ALLOWED);
+
+        verify(controlledFileMapper).transitionStatus(1L, 911L,
+                DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus(),
+                DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus(), 99L);
+        assertEquals(DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus(), file.getStatus());
+        verify(bpmTaskService, never()).triggerTask("proc-1", "DISTRIBUTION");
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+    }
+
+    @Test
     void handleProcessInstanceStatusChanged_paperDistributionSkipsDigitalRecipientsButSnapshotsMedium_newOrdinaryPolicy() {
         assertOrdinaryActivation("NEW", true, false, false);
     }
@@ -1243,9 +1472,13 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     }
 
     private static BpmProcessInstanceStatusEvent approveEvent(Long fileId) {
+        return approveEvent(fileId, DccControlledFileWorkflowServiceImpl.BPM_PROCESS_DEFINITION_KEY);
+    }
+
+    private static BpmProcessInstanceStatusEvent approveEvent(Long fileId, String processDefinitionKey) {
         BpmProcessInstanceStatusEvent event = new BpmProcessInstanceStatusEvent(new Object());
         event.setId("process-" + fileId);
-        event.setProcessDefinitionKey(DccControlledFileWorkflowServiceImpl.BPM_PROCESS_DEFINITION_KEY);
+        event.setProcessDefinitionKey(processDefinitionKey);
         event.setBusinessKey(String.valueOf(fileId));
         event.setStatus(BpmProcessInstanceStatusEnum.APPROVE.getStatus());
         event.setActorUserId(99L);

@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.bpm.framework.flowable.core.candidate.strategy.ot
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.candidate.strategy.user.BpmTaskCandidateUserStrategy;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmTaskCandidateStrategyEnum;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnModelConstants;
+import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.util.BpmnModelUtils;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
@@ -231,6 +232,42 @@ public class BpmTaskCandidateInvokerTest extends BaseMockitoUnitTest {
                     startUserId, processDefinitionId, processVariables);
             // 断言
             assertEquals(asSet(2L), results);
+        }
+    }
+
+    @Test
+    public void testCalculateUsersByActivity_dccUsesFrozenCandidateVariablesBeforeStaticStrategy() {
+        BpmTaskCandidateStrategy dccStrategy = mock(BpmTaskCandidateStrategy.class);
+        when(dccStrategy.getStrategy()).thenReturn(BpmTaskCandidateStrategyEnum.MULTI_DEPT_LEADER_MULTI);
+        when(dccStrategy.calculateUsersByActivity(any(BpmnModel.class), eq("MATRIX_REVIEW"), eq(""),
+                eq(1L), eq("dcc-controlled-file-obsolete:3"), anyMap()))
+                .thenReturn(new LinkedHashSet<>());
+        BpmTaskCandidateInvoker invoker = new BpmTaskCandidateInvoker(List.of(dccStrategy), adminUserApi);
+
+        BpmnModel bpmnModel = mock(BpmnModel.class);
+        org.flowable.bpmn.model.Process process = new org.flowable.bpmn.model.Process();
+        process.setId("dcc-controlled-file-obsolete");
+        when(bpmnModel.getMainProcess()).thenReturn(process);
+        UserTask userTask = mock(UserTask.class);
+        Map<String, Object> processVariables = new HashMap<>();
+        processVariables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                Map.of("MATRIX_REVIEW", List.of(1L, 1L)));
+        try (MockedStatic<BpmnModelUtils> bpmnModelUtilsMockedStatic = mockStatic(BpmnModelUtils.class)) {
+            bpmnModelUtilsMockedStatic.when(() -> BpmnModelUtils.getFlowElementById(bpmnModel, "MATRIX_REVIEW"))
+                    .thenReturn(userTask);
+            bpmnModelUtilsMockedStatic.when(() -> BpmnModelUtils.parseApproveType(userTask)).thenReturn(null);
+            bpmnModelUtilsMockedStatic.when(() -> BpmnModelUtils.parseCandidateStrategy(userTask))
+                    .thenReturn(BpmTaskCandidateStrategyEnum.MULTI_DEPT_LEADER_MULTI.getStrategy());
+            bpmnModelUtilsMockedStatic.when(() -> BpmnModelUtils.parseCandidateParam(userTask)).thenReturn("");
+            AdminUserRespDTO enabledUser = randomPojo(AdminUserRespDTO.class,
+                    o -> o.setId(1L).setStatus(CommonStatusEnum.ENABLE.getStatus()));
+            when(adminUserApi.getUserMap(eq(asSet(1L))))
+                    .thenReturn(Map.of(1L, enabledUser));
+
+            Set<Long> results = invoker.calculateUsersByActivity(bpmnModel, "MATRIX_REVIEW", 1L,
+                    "dcc-controlled-file-obsolete:3", processVariables);
+
+            assertEquals(asSet(1L), results);
         }
     }
 

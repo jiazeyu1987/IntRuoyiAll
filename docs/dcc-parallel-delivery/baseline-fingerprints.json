@@ -1,0 +1,132 @@
+{
+  "date": "2026-09-30",
+  "actual_branch": "int_qms",
+  "head": "a9bcb6d36d96145ddc1252f111347b644b328deb",
+  "evidence": "working-tree file fingerprints; not HEAD fingerprints; not a recoverable complete snapshot",
+  "normalization": "UTF-8 without BOM; CRLF and CR converted to LF; no trailing-line changes",
+  "pre_task_status_entries": 385,
+  "pre_task_tracked_changed_entries": 236,
+  "pre_task_untracked_entries": 149,
+  "files": [
+    {
+      "path": "docs/product/dcc-final-requirements.html",
+      "sha256_utf8_lf": "4b3c29ecb39ff4be31b9d54dbbd3a1e701d94a10e1cedb3686957de05c20d37a",
+      "lines": 444
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "sha256_utf8_lf": "aca93e11ccb83a6fbd7cbf93d673ffc655c8467f6ac2f34bff42266b6776e0e3",
+      "lines": 3307
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl.java",
+      "sha256_utf8_lf": "49297713ae528d23ae6a4982bbb9d81965122d6aa623dbd41d5209628ce8e284",
+      "lines": 1283
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.java",
+      "sha256_utf8_lf": "98541ee2381ebc70ed0ec22487dec17cfb4062268fe1fe0c53d57301ed1fc108",
+      "lines": 253
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteFormEffectExecutor.java",
+      "sha256_utf8_lf": "6af27e5493e70b9d5d8bdd9dac8b788fc1f7d7c1762c0b149886e7ec9a66b3c2",
+      "lines": 144
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "sha256_utf8_lf": "f2c847ea7e9c44ab51d656873cbbbf8a6c48a1717e3002c290592a901cc20519",
+      "lines": 3840
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileVersionPolicy.java",
+      "sha256_utf8_lf": "06ef90b74a6075d53184e8e7fa5854ee9f4741b990adcdbddf54c78bd1cdd6e3",
+      "lines": 256
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNameClaimService.java",
+      "sha256_utf8_lf": "740248c425a46f5bd681f16632ab887197702ce8f762f00fd700d3e53daa4a87",
+      "lines": 63
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceImpl.java",
+      "sha256_utf8_lf": "66ff7e21f3e1550068b02ae4cc8e6c178de20b64510d63fb42655b6506fa2335",
+      "lines": 216
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicationFollowupServiceImpl.java",
+      "sha256_utf8_lf": "871be78fa29d095a505e23ff97906897563cfded9abb0c1c71555b4f43d5c28b",
+      "lines": 597
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectFileTemplateServiceImpl.java",
+      "sha256_utf8_lf": "2593386c357253256681ef200c454e6bc23b4ef56d615421a6e07c5060ba01a5",
+      "lines": 290
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateServiceImpl.java",
+      "sha256_utf8_lf": "47d90df7a26f4135fa66a0d48b6c5f552a1add9b61255ad4f2314059c2f54294",
+      "lines": 228
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "sha256_utf8_lf": "f3fc80ac84c5b51c0c553306d3003ee3d7eda31ec572ecff24a74f97e7771d61",
+      "lines": 207
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/route/DccActionApprovalRoutePolicy.java",
+      "sha256_utf8_lf": "af6a0b25c7c5ea7e75a54d075d1e8b271446d5c019002688349e06831763dbad",
+      "lines": 114
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileDO.java",
+      "sha256_utf8_lf": "e53c5c974a2e9346e1210c497e4e0711d8aa2ec8b57a7f13fb34ed6cfbe6418a",
+      "lines": 94
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileMasterDO.java",
+      "sha256_utf8_lf": "8c45d665191b351b9fa5591832e2fb5cc9938bc96f983faba09f461e0391d037",
+      "lines": 35
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/projectcode/DccProjectCodeDO.java",
+      "sha256_utf8_lf": "805b3a5252325c536d3b8cbe5343c2640016d1726431a9bab3a3e5954fc710d0",
+      "lines": 40
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+      "sha256_utf8_lf": "71c8e21b367613cd7c3d0a61532418ae8d5a126d8bffe15c891d07997b85cf35",
+      "lines": 2595
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "sha256_utf8_lf": "fadf594a121e488f583f97d43d9dcdf7e61cbb0e275e41c017e9d05b4831f28f",
+      "lines": 394
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "sha256_utf8_lf": "40f5babaee2e9ebb25d6496fd0569e62ac3f903e2b932692faa97efb0d0cee82",
+      "lines": 7605
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "sha256_utf8_lf": "7c37756edc1e61a575adeda5e12a1ca285776bf84f72923df7bb79814bfc99a9",
+      "lines": 4435
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue",
+      "sha256_utf8_lf": "910ef7940853a984fa82362286980f2b2490c92ce9a129be4e520b87067998f2",
+      "lines": 1612
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue",
+      "sha256_utf8_lf": "a6e52d0e674ae6920b60ee025b48f06e7a7bd4d8d48d6dacc9b6b63085f2d3be",
+      "lines": 4095
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectFileTemplateEditor.vue",
+      "sha256_utf8_lf": "f95478b55145dad21a3c5187ca979c1d682675a37e0ed971e1ddccd73ee35e28",
+      "lines": 362
+    }
+  ]
+}

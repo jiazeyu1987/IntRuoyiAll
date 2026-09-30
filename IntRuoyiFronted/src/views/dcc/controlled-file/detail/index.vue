@@ -483,6 +483,34 @@
       </ContentWrap>
     </template>
 
+    <ContentWrap v-if="!showLifecycleTraceSections" data-testid="dcc-detail-attachments">
+      <div class="mb-12px flex items-center justify-between gap-12px">
+        <div class="text-15px font-600">普通附件</div>
+        <el-tag size="small" type="info">共 {{ fileDetail?.attachments?.length || 0 }} 个</el-tag>
+      </div>
+      <el-table v-if="fileDetail?.attachments?.length" :data="fileDetail.attachments" border>
+        <el-table-column prop="fileName" label="附件名称" min-width="220" show-overflow-tooltip />
+        <el-table-column label="类型" width="120">
+          <template #default="{ row }">
+            {{ row.previewKind || row.contentType || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="大小" width="120">
+          <template #default="{ row }">
+            {{ formatAttachmentFileSize(row.fileSize) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="130" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="openAttachmentPreview(row)">
+              在线查看
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-else :image-size="72" description="暂无普通附件" />
+    </ContentWrap>
+
     <template v-if="showLifecycleTraceSections">
     <ContentWrap data-testid="dcc-detail-project-code-linkage" class="mt-16px">
       <div class="detail-table-header mb-12px">
@@ -695,6 +723,34 @@
       />
     </ContentWrap>
 
+    <ContentWrap data-testid="dcc-detail-attachments">
+      <div class="mb-12px flex items-center justify-between gap-12px">
+        <div class="text-15px font-600">普通附件</div>
+        <el-tag size="small" type="info">共 {{ fileDetail?.attachments?.length || 0 }} 个</el-tag>
+      </div>
+      <el-table v-if="fileDetail?.attachments?.length" :data="fileDetail.attachments" border>
+        <el-table-column prop="fileName" label="附件名称" min-width="220" show-overflow-tooltip />
+        <el-table-column label="类型" width="120">
+          <template #default="{ row }">
+            {{ row.previewKind || row.contentType || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="大小" width="120">
+          <template #default="{ row }">
+            {{ formatAttachmentFileSize(row.fileSize) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="130" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="openAttachmentPreview(row)">
+              在线查看
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-else :image-size="72" description="暂无普通附件" />
+    </ContentWrap>
+
     <ContentWrap>
       <div class="mb-12px flex items-center justify-between gap-12px">
         <div class="text-15px font-600">关键记录时间线</div>
@@ -855,6 +911,43 @@
         >
           <template #default="{ row }">
             {{ row.resolvedUserNames }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="isRouteSnapshotColumnVisible('departmentObligationText')"
+          label="部门义务"
+          prop="departmentObligationText"
+          :width="getRouteSnapshotColumnWidthString('departmentObligationText')"
+          :min-width="getRouteSnapshotColumnMinWidthString('departmentObligationText', 300)"
+          v-bind="sortColumnAttrs('departmentObligationText')"
+        >
+          <template #default="{ row }">
+            <div class="route-snapshot-summary" data-testid="dcc-detail-route-snapshot-obligation">
+              <div v-for="obligation in row.departmentObligations" :key="obligation.obligationId || obligation.snapshotId">
+                {{ obligation.departmentName || `部门#${obligation.departmentId}` }}
+              </div>
+              <div v-if="!row.departmentObligations?.length">-</div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="isRouteSnapshotColumnVisible('assigneeSnapshotText')"
+          label="负责人快照"
+          prop="assigneeSnapshotText"
+          :width="getRouteSnapshotColumnWidthString('assigneeSnapshotText')"
+          :min-width="getRouteSnapshotColumnMinWidthString('assigneeSnapshotText', 360)"
+          v-bind="sortColumnAttrs('assigneeSnapshotText')"
+        >
+          <template #default="{ row }">
+            <div class="route-snapshot-summary" data-testid="dcc-detail-route-snapshot-assignee-snapshot">
+              <div v-for="obligation in row.departmentObligations" :key="`${obligation.obligationId || obligation.snapshotId}-assignee`">
+                {{ obligation.departmentName || `部门#${obligation.departmentId}` }}：{{ obligation.assigneeName || userNameMap.get(obligation.assigneeUserId) || `用户#${obligation.assigneeUserId}` }}
+                <span class="text-12px text-[var(--el-text-color-secondary)]">
+                  （快照 #{{ obligation.snapshotId || '-' }} · {{ obligation.obligationId || '-' }}）
+                </span>
+              </div>
+              <div v-if="!row.departmentObligations?.length">-</div>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -1084,18 +1177,28 @@
           </div>
         </template>
         <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-      <el-table
-        data-user-table-column-explicit
-        data-user-table-key="dcc.controlledFile.detail.distributionStatus"
-        :data="pagedDistributionStatusRows"
-        data-testid="dcc-detail-distribution-section"
-        border
-        :stripe="true"
-        :show-overflow-tooltip="true"
-        empty-text="当前版本暂无分发记录"
-        @header-dragend="handleDistributionStatusHeaderDragend"
-        @sort-change="handleTemplateSortChange"
-      >
+          <el-alert
+            v-if="fileDetail?.distributionCompleted"
+            class="mb-12px"
+            data-testid="dcc-detail-distribution-completed"
+            :closable="false"
+            show-icon
+            type="success"
+            title="三流程分发节点已完成"
+            description="当前版本已完成文控下发节点；本页面暂无逐部门分发表回执数据。"
+          />
+          <el-table
+            data-user-table-column-explicit
+            data-user-table-key="dcc.controlledFile.detail.distributionStatus"
+            :data="pagedDistributionStatusRows"
+            data-testid="dcc-detail-distribution-section"
+            border
+            :stripe="true"
+            :show-overflow-tooltip="true"
+            :empty-text="fileDetail?.distributionCompleted ? '三流程分发节点已完成，暂无逐部门回执数据' : '当前版本暂无分发记录'"
+            @header-dragend="handleDistributionStatusHeaderDragend"
+            @sort-change="handleTemplateSortChange"
+          >
         <el-table-column
           v-if="isDistributionStatusColumnVisible('departmentName')"
           label="部门"
@@ -1213,7 +1316,7 @@
             <span v-if="!hasDistributionRowAction(row)">-</span>
           </template>
         </el-table-column>
-      </el-table>
+          </el-table>
         </template>
       </UnifiedListTemplate>
     </ContentWrap>
@@ -1454,6 +1557,16 @@
               </div>
             </div>
           </div>
+          <el-alert
+            v-if="fileDetail?.needTraining && fileDetail?.trainingRecordAvailable"
+            class="mb-12px"
+            data-testid="dcc-detail-training-record-evidence"
+            :closable="false"
+            show-icon
+            type="success"
+            title="三流程培训记录已上传"
+            :description="`证据文件：${fileDetail.trainingRecordFileName || '已绑定文件'}`"
+          />
           <el-table
             data-user-table-column-explicit
             data-user-table-key="dcc.controlledFile.detail.trainingStatus"
@@ -1461,7 +1574,7 @@
             border
             :stripe="true"
             :show-overflow-tooltip="true"
-            empty-text="当前版本暂无培训记录"
+            :empty-text="fileDetail?.needTraining && fileDetail?.trainingRecordAvailable ? '三流程培训记录已上传，见上方证据' : '当前版本暂无培训记录'"
             @header-dragend="handleTrainingStatusHeaderDragend"
             @sort-change="handleTemplateSortChange"
           >
@@ -1948,7 +2061,7 @@
           />
         </el-form-item>
         <template v-if="shouldCollectFourthNodeFiles">
-          <el-alert title="最终批准后按正式默认目录自动存储并生效，无需选择分发部门或提交培训记录。" type="info" :closable="false" />
+          <el-alert title="最终批准前需确认盖章 PDF 和正式存入路径；培训与分发证据由前序节点冻结。" type="info" :closable="false" />
           <el-form-item label="盖章 PDF" :error="actionDialog.fieldErrors.stampedPdfUploadTicket">
             <div class="w-full">
               <el-upload
@@ -1970,6 +2083,68 @@
               </el-upload>
               <div v-if="fourthNodeUpload.stampedPdf" class="mt-8px text-13px text-[var(--el-text-color-secondary)]">
                 {{ fourthNodeUpload.stampedPdf.fileName }}
+              </div>
+            </div>
+          </el-form-item>
+          <el-form-item label="存入路径确认" :error="actionDialog.fieldErrors.confirmedDirectoryId">
+            <el-tree-select
+              v-model="fourthNodeUpload.confirmedDirectoryId"
+              class="!w-full"
+              data-testid="dcc-doc-control-confirmed-directory"
+              :data="docControlDirectoryTreeOptions"
+              :loading="docControlDirectoryTreeLoading"
+              node-key="id"
+              :props="docControlDirectoryTreeProps"
+              clearable
+              filterable
+              check-strictly
+              placeholder="请选择存入路径"
+              @change="clearActionDialogFieldError('confirmedDirectoryId')"
+            />
+          </el-form-item>
+          <el-form-item label="文件下发范围" :error="actionDialog.fieldErrors.selectedDistributionScopes">
+            <div class="w-full">
+              <el-tree-select
+                v-model="selectedDistributionDepartmentIds"
+                class="!w-full"
+                data-testid="dcc-doc-control-distribution-departments"
+                :data="departmentTreeOptions"
+                node-key="id"
+                :props="departmentTreeProps"
+                multiple
+                clearable
+                filterable
+                check-strictly
+                collapse-tags
+                collapse-tags-tooltip
+                placeholder="请选择下发部门"
+              />
+              <div
+                v-if="fourthNodeUpload.selectedDistributionScopes.length"
+                class="mt-8px flex flex-col gap-8px"
+              >
+                <div
+                  v-for="scope in fourthNodeUpload.selectedDistributionScopes"
+                  :key="scope.departmentId"
+                  class="flex items-center gap-8px text-13px"
+                >
+                  <span class="min-w-120px text-[var(--el-text-color-secondary)]">
+                    {{ deptNameMap.get(scope.departmentId) || `部门#${scope.departmentId}` }}
+                  </span>
+                  <el-select
+                    v-model="scope.distributionMedium"
+                    class="!w-160px"
+                    placeholder="请选择下发介质"
+                    @change="clearActionDialogFieldError('selectedDistributionScopes')"
+                  >
+                    <el-option
+                      v-for="option in docControlDistributionMediumOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                </div>
               </div>
             </div>
           </el-form-item>
@@ -2184,10 +2359,14 @@
         <el-button @click="closeElectronicReceiptDialog">取消</el-button>
         <el-button
           type="primary"
+          :disabled="isElectronicReceiptConfirmDisabled"
           :loading="electronicReceiptDialog.submitting"
           @click="submitElectronicReceiptDialog"
         >
-          确认签收
+          <template v-if="electronicReceiptDialog.confirmCountdownSeconds > 0">
+            确认签收（{{ electronicReceiptDialog.confirmCountdownSeconds }}s）
+          </template>
+          <template v-else>确认签收</template>
         </el-button>
       </template>
     </el-dialog>
@@ -2286,6 +2465,10 @@
           "
           :form-data="dccObsoleteFormCenterFormData"
           :idempotency-key="obsoleteDialog.idempotencyKey"
+          :initial-instance-id="obsoleteDraftAction?.id"
+          :initial-instance-code="obsoleteDraftAction?.instanceCode"
+          :initial-instance-status="obsoleteDraftAction?.status"
+          :initial-bpm-process-instance-id="obsoleteDraftAction?.bpmProcessInstanceId"
         />
         <el-alert
           v-else
@@ -2364,6 +2547,8 @@
       <el-table-column label="审批方式" width="120" prop="approveMethodLabel" />
       <el-table-column label="通过比例" align="center" width="100" prop="approveRatioText" />
       <el-table-column label="解析审批人" min-width="260" prop="resolvedUserNames" show-overflow-tooltip />
+      <el-table-column label="部门义务" min-width="280" prop="departmentObligationText" show-overflow-tooltip />
+      <el-table-column label="负责人快照" min-width="360" prop="assigneeSnapshotText" show-overflow-tooltip />
       <el-table-column label="同层情况" min-width="140" prop="approvalHint" show-overflow-tooltip />
     </el-table>
   </el-dialog>
@@ -2632,6 +2817,20 @@
     :directories="directories"
     @saved="handleMetadataSaved"
   />
+
+  <el-dialog
+    v-model="attachmentPreviewDialogVisible"
+    :title="selectedAttachmentPreview?.fileName || '附件预览'"
+    width="88vw"
+    top="5vh"
+    destroy-on-close
+  >
+    <ProtectedPdfViewer
+      v-if="selectedAttachmentPreviewSource"
+      :preview-source="selectedAttachmentPreviewSource"
+      :title="selectedAttachmentPreview?.fileName || '附件预览'"
+    />
+  </el-dialog>
 </template>
 
 <script lang="ts" setup>
@@ -2648,6 +2847,7 @@ import {
   acknowledgeControlledFileTraining,
   approveExternalFileReviewTask,
   cleanupControlledFileUploadSession,
+  cleanupControlledFileUploadTicket,
   createControlledFilePrintRecord,
   createControlledFileUploadSessionId,
   createDistributionRecipientSignTask,
@@ -2687,6 +2887,7 @@ import {
   type ControlledFileSignatureSummaryVO,
   type ControlledFileTaskReadinessBlockerVO,
   type ControlledFileVersionHistoryVO,
+  type ControlledFileAttachmentVO,
   type ControlledFileVO
 } from '@/api/dcc/controlledFile/workflow'
 import { getSimpleDeptList, type DeptVO } from '@/api/system/dept'
@@ -2701,7 +2902,12 @@ import type { TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter
 import { checkPermi } from '@/utils/permission'
 import { downloadByData } from '@/utils/filt'
 import { generateUUID } from '@/utils'
-import { findActiveBusinessAction, type FormInstanceVO } from '@/api/form-center/instance'
+import { previewApprovalRoute } from '@/api/dcc/controlledFile/approvalRoutes'
+import {
+  findActiveBusinessAction,
+  findDraftBusinessAction,
+  type FormInstanceVO
+} from '@/api/form-center/instance'
 import { resolveBusinessAction, type BusinessActionContextVO } from '@/api/form-center/businessAction'
 import { resolveControlledActionProjection } from '@/api/form-center/actionProjection'
 import {
@@ -2729,6 +2935,8 @@ import {
   type DccTaskStageProgress
 } from '../shared/approval'
 import {
+  hasDccControlledFileActionProjection,
+  isDccControlledFileActionAllowed,
   isDccControlledFileWithdrawableStatus,
   type DccControlledFileStatus
 } from '../shared/lifecycle'
@@ -2739,6 +2947,7 @@ import { flattenTree } from '../shared/utils'
 import ControlledFileBasicInfoPanel from '../shared/ControlledFileBasicInfoPanel.vue'
 import ControlledFileMetadataDialog from '../shared/ControlledFileMetadataDialog.vue'
 import ProtectedPdfViewer from '../view/index.vue'
+import { buildDccControlledFileAttachmentPreviewSource } from '@/api/common/filePreview'
 import {
   buildControlledFileViewerPath,
   isControlledFileViewerMode,
@@ -2789,6 +2998,8 @@ const DCC_PUBLISH_ACTION_CODE = 'PUBLISH'
 const hasMetadataEditorRole = (roles: string[]) => roles.includes(DOC_CONTROL_ROLE_CODE)
 
 const fileDetail = ref<ControlledFileVO>()
+const attachmentPreviewDialogVisible = ref(false)
+const selectedAttachmentPreview = ref<ControlledFileAttachmentVO>()
 const fileAccessExplanation = ref<ControlledFileAccessExplanationVO | null>(null)
 const accessExplanationError = ref('')
 const activeObsoleteAction = ref<FormInstanceVO | null>(null)
@@ -2842,6 +3053,7 @@ const dccSignatureEvidenceLoading = ref(false)
 const dccSignatureEvidenceList = ref<DccElectronicSignatureVO[]>([])
 const dccSignatureEvidenceTotal = ref(0)
 const dccSignatureEvidenceError = ref('')
+let dccSignatureEvidenceRequestSequence = 0
 const dccSignatureEvidenceQueryParams = reactive({
   pageNo: 1,
   pageSize: 10
@@ -2855,6 +3067,7 @@ const externalOutputFileList = ref<UploadUserFile[]>([])
 const fourthNodeUploadSessionId = ref(createControlledFileUploadSessionId())
 const applicantTrainingRecordUploadSessionId = ref(createControlledFileUploadSessionId())
 const externalOutputUploadSessionId = ref(createControlledFileUploadSessionId())
+let applicantTrainingRecordUploadSequence = 0
 const docControlDirectoryTreeOptions = ref<ControlledFileUploadDirectoryNodeVO[]>([])
 const docControlDirectoryTreeLoading = ref(false)
 
@@ -2913,7 +3126,9 @@ const routeSnapshotDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'stageDisplayName', label: '阶段', minWidth: 240 },
   { key: 'candidateText', label: '候选摘要', minWidth: 260 },
   { key: 'approvalRequirementText', label: '审批要求', minWidth: 260 },
-  { key: 'resolvedUserNames', label: '解析审批人', minWidth: 260 }
+  { key: 'resolvedUserNames', label: '解析审批人', minWidth: 260 },
+  { key: 'departmentObligationText', label: '部门义务', minWidth: 300 },
+  { key: 'assigneeSnapshotText', label: '负责人快照', minWidth: 360 }
 ]
 const {
   columns: routeSnapshotColumns,
@@ -3188,6 +3403,7 @@ const paperDistributionIssueDialog = reactive({
 const electronicReceiptDialog = reactive({
   visible: false,
   submitting: false,
+  confirmCountdownSeconds: 0,
   inlineError: '',
   fieldErrors: {} as Record<string, string>,
   distributionId: undefined as number | undefined,
@@ -3197,6 +3413,8 @@ const electronicReceiptDialog = reactive({
     comment: ''
   }
 })
+const ELECTRONIC_RECEIPT_CONFIRM_COUNTDOWN_SECONDS = 10
+let electronicReceiptConfirmCountdownTimer: number | undefined
 
 const distributionSignDialog = reactive({
   visible: false,
@@ -3236,8 +3454,11 @@ const obsoleteDialog = reactive({
   reason: '',
   idempotencyKey: '',
   startUserSelectTasks: [] as ProcessInstanceApi.ApprovalNodeInfo[],
-  startUserSelectAssignees: {} as Record<string, number[]>
+  startUserSelectAssignees: {} as Record<string, number[]>,
+  approveUserSelectAssignees: {} as Record<string, number[]>
 })
+
+const obsoleteDraftAction = ref<FormInstanceVO | null>(null)
 
 const publishDialog = reactive({
   visible: false,
@@ -3277,6 +3498,14 @@ const toDccControlledFileStatus = (
 }
 
 const controlledFileId = computed(() => String(route.params.id || ''))
+const selectedAttachmentPreviewSource = computed(() =>
+  selectedAttachmentPreview.value && controlledFileId.value
+    ? buildDccControlledFileAttachmentPreviewSource(
+      controlledFileId.value,
+      selectedAttachmentPreview.value.attachmentId
+    )
+    : undefined
+)
 const currentUserId = computed(() => userStore.getUser.id)
 const fileStatus = computed(() => toDccControlledFileStatus(fileDetail.value?.status))
 const obsoleteActionLocked = computed(() => Boolean(activeObsoleteAction.value))
@@ -3293,7 +3522,11 @@ const isApprovalUploadHandlingPage = computed(
     String(route.query.from || '') === 'approval-center'
 )
 const showFullDetailSections = computed(() => !isApprovalUploadHandlingPage.value)
-const showDetailManagementActions = computed(() => !isBrowserTraceabilityPage.value && showFullDetailSections.value)
+const showDetailManagementActions = computed(
+  () =>
+    !isBrowserTraceabilityPage.value &&
+    (showFullDetailSections.value || fileDetail.value?.status === 'FINALIZATION_FAILED')
+)
 const traceabilityScope = computed(() =>
   resolveControlledFileTraceabilityScope(route.query as Record<string, unknown>)
 )
@@ -3304,7 +3537,9 @@ const showSignatureTraceSections = computed(
   () => showFullDetailSections.value && (!isBrowserTraceabilityPage.value || traceabilityScope.value === 'signature')
 )
 const canRetryStampPermission = computed(() => checkPermi(['dcc:controlled-file:stamp:retry']))
-const canEditMetadata = computed(() => hasMetadataEditorRole(userStore.getRoles))
+const canEditMetadata = computed(
+  () => hasMetadataEditorRole(userStore.getRoles) && hasDccControlledFileActionProjection(fileDetail.value)
+)
 const detailActionState = computed(() => getDetailActionState(fileDetail.value))
 const hasControlledPrintMenuPermission = computed(() => checkPermi(['dcc:controlled-file:print']))
 const controlledPrintAllowed = computed(
@@ -3421,13 +3656,16 @@ const publishActionLockDescription = computed(() => {
 const canWithdraw = computed(
   () =>
     isDccControlledFileWithdrawableStatus(fileStatus.value) &&
-    fileDetail.value?.requesterId === currentUserId.value
+    fileDetail.value?.requesterId === currentUserId.value &&
+    fileDetail.value?.actionProjection?.canWithdraw === true &&
+    isDccControlledFileActionAllowed(fileDetail.value, 'WITHDRAW')
 )
 const canUploadApplicantTrainingRecord = computed(
   () =>
     fileStatus.value === 'PENDING_APPLICANT_TRAINING_RECORD' &&
     fileDetail.value?.requesterId === currentUserId.value &&
-    Boolean(fileDetail.value?.needTraining)
+    Boolean(fileDetail.value?.needTraining) &&
+    isDccControlledFileActionAllowed(fileDetail.value, 'UPLOAD_TRAINING_RECORD')
 )
 const canHandleWithdrawnFlow = computed(
   () =>
@@ -3807,14 +4045,14 @@ const pagedVersionHistoryRows = computed(() =>
   )
 )
 const supersededPredecessorVersions = computed(() => {
-  const currentId = Number(fileDetail.value?.id || 0)
+  const currentId = String(fileDetail.value?.id || '').trim()
   if (!currentId) {
     return []
   }
   return (fileDetail.value?.versionHistory || []).filter(
     (version) =>
       version.status === 'SUPERSEDED' &&
-      String(version.supersededByFileId || '').trim() === String(currentId)
+      String(version.supersededByFileId || '').trim() === currentId
   )
 })
 const isPublishCompletionSummaryVisible = computed(() => {
@@ -3890,6 +4128,40 @@ const getPreviewApprovalProgress = (snapshot: ControlledFileRouteSnapshotVO) =>
       item.stageOrder === (snapshot.stageOrder ?? snapshot.stageNo)
   )
 
+type ControlledFileDepartmentObligationDetail = {
+  snapshotId?: number | null
+  departmentId?: number | null
+  departmentName?: string | null
+  assigneeUserId?: number | null
+  assigneeName?: string | null
+  leaderConfigDigest?: string | null
+  obligationId?: string | null
+  bpmTaskId?: string | null
+}
+
+type ControlledFileRouteSnapshotDetail = ControlledFileRouteSnapshotVO & {
+  candidateSourceNames?: Array<string | null>
+  departmentObligations?: ControlledFileDepartmentObligationDetail[]
+}
+
+const asRouteSnapshotDetail = (snapshot: ControlledFileRouteSnapshotVO) =>
+  snapshot as ControlledFileRouteSnapshotDetail
+
+const formatDepartmentObligations = (snapshot: ControlledFileRouteSnapshotVO) =>
+  (asRouteSnapshotDetail(snapshot).departmentObligations || [])
+    .map((obligation) => obligation.departmentName || `部门#${obligation.departmentId || '-'}`)
+    .join('、') || '-'
+
+const formatAssigneeSnapshots = (snapshot: ControlledFileRouteSnapshotVO) =>
+  (asRouteSnapshotDetail(snapshot).departmentObligations || [])
+    .map((obligation) => {
+      const assigneeName =
+        obligation.assigneeName ||
+        `用户#${obligation.assigneeUserId || '-'}`
+      return `${obligation.departmentName || `部门#${obligation.departmentId || '-'}`}：${assigneeName}（快照 #${obligation.snapshotId || '-'} · ${obligation.obligationId || '-'}）`
+    })
+    .join('；') || '-'
+
 const getRouteSnapshotCandidateText = (snapshot: ControlledFileRouteSnapshotVO) => {
   const candidateIds =
     snapshot.candidateSourceIds?.length || !snapshot.candidateSourceId
@@ -3902,6 +4174,10 @@ const getRouteSnapshotCandidateText = (snapshot: ControlledFileRouteSnapshotVO) 
     return candidateIds.length
       ? `按 ${candidateIds.length} 个审批角色解析`
       : '按审批角色解析'
+  }
+  if (snapshot.candidateSourceType === 'DEPT') {
+    const names = asRouteSnapshotDetail(snapshot).candidateSourceNames || []
+    return names.map((name, index) => name || `部门#${candidateIds[index] || '-'}`).join('、') || '未返回会签部门'
   }
   return '按路线配置解析'
 }
@@ -3934,12 +4210,15 @@ const routeSnapshotRows = computed(() =>
           : '待处理'
       return {
         ...snapshot,
+        ...asRouteSnapshotDetail(snapshot),
         stageDisplayName,
         stageMetaText: `版本 ${snapshot.routeVersionNo || '-'} · 阶段 ${snapshot.stageNo || '-'} · ${
           snapshot.stageCode || '-'
         }`,
         candidateSourceLabel: getOptionLabel(ROUTE_CANDIDATE_SOURCE_OPTIONS, snapshot.candidateSourceType),
         candidateText: getRouteSnapshotCandidateText(snapshot),
+        departmentObligationText: formatDepartmentObligations(snapshot),
+        assigneeSnapshotText: formatAssigneeSnapshots(snapshot),
         approveMethodLabel,
         approveRatioText,
         approvalProgressText,
@@ -3977,6 +4256,7 @@ const previewApprovalRows = computed(() =>
       )
       return {
         ...snapshot,
+        ...asRouteSnapshotDetail(snapshot),
         stageDisplayName: progress?.stageName || stageName,
         approveMethodLabel: getOptionLabel(ROUTE_APPROVE_METHOD_OPTIONS, snapshot.approveMethod),
         approveRatioText:
@@ -3984,6 +4264,8 @@ const previewApprovalRows = computed(() =>
             ? '-'
             : `${snapshot.approveRatio}%`,
         resolvedUserNames: resolveUserNames(snapshot.resolvedUserIds),
+        departmentObligationText: formatDepartmentObligations(snapshot),
+        assigneeSnapshotText: formatAssigneeSnapshots(snapshot),
         approvalProgressText: progress?.completionText || '-',
         approvalHint: progress?.sameLayerHint || '-',
         approvalStatusLabel: progress?.isCompleted
@@ -4125,6 +4407,9 @@ const manualReleasePermissionGapVisible = computed(
 )
 const distributionReceiptRows = computed(() =>
   paperDistributionRecords.value
+)
+const isElectronicReceiptConfirmDisabled = computed(
+  () => electronicReceiptDialog.submitting || electronicReceiptDialog.confirmCountdownSeconds > 0
 )
 
 const getControlledPrintStatusLabel = (status: string | undefined) => {
@@ -4283,7 +4568,8 @@ const dccObsoleteFormCenterFormData = computed(() => ({
   controlledFileId: controlledFileId.value,
   fileNumber: fileDetail.value?.fileNumber || '',
   versionNo: fileDetail.value?.versionNo || '',
-  startUserSelectAssignees: obsoleteDialog.startUserSelectAssignees
+  startUserSelectAssignees: obsoleteDialog.startUserSelectAssignees,
+  approveUserSelectAssignees: obsoleteDialog.approveUserSelectAssignees
 }))
 
 const buildPublishBusinessActionContext = (
@@ -4310,7 +4596,13 @@ const buildPublishBusinessActionContext = (
   }
 }
 
-const loadActiveObsoleteAction = async (detail: ControlledFileVO) => {
+const loadActiveObsoleteAction = async (
+  detail: ControlledFileVO,
+  sequence = detailLoadSequence,
+  requestedId = controlledFileId.value,
+  requestedRoute = route.fullPath
+) => {
+  if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
   activeObsoleteAction.value = null
   activeObsoleteActionError.value = ''
   if (viewerMode.value || !showDetailManagementActions.value) {
@@ -4325,16 +4617,47 @@ const loadActiveObsoleteAction = async (detail: ControlledFileVO) => {
     return
   }
   try {
-    activeObsoleteAction.value = await findActiveBusinessAction(context)
+    const action = await findActiveBusinessAction(context)
+    if (isCurrentDetailLoad(sequence, requestedId, requestedRoute)) activeObsoleteAction.value = action
   } catch (error) {
-    activeObsoleteActionError.value = resolveReadSideErrorMessage(
-      error,
-      '作废动作状态加载失败，请查看后端错误后重试。'
-    )
+    if (isCurrentDetailLoad(sequence, requestedId, requestedRoute)) {
+      activeObsoleteActionError.value = resolveReadSideErrorMessage(error, '作废动作状态加载失败，请查看后端错误后重试。')
+    }
   }
 }
 
-const loadActivePublishAction = async (detail: ControlledFileVO) => {
+const loadDraftObsoleteAction = async (
+  detail: ControlledFileVO,
+  sequence = detailLoadSequence,
+  requestedId = controlledFileId.value,
+  requestedRoute = route.fullPath
+) => {
+  if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
+  obsoleteDraftAction.value = null
+  if (viewerMode.value || !showDetailManagementActions.value || detail.status !== 'ACTIVE') {
+    return
+  }
+  const context = buildObsoleteBusinessActionContext(detail)
+  if (!context) {
+    return
+  }
+  try {
+    const action = await findDraftBusinessAction(context)
+    if (isCurrentDetailLoad(sequence, requestedId, requestedRoute)) obsoleteDraftAction.value = action
+  } catch (error) {
+    if (isCurrentDetailLoad(sequence, requestedId, requestedRoute)) {
+      activeObsoleteActionError.value = resolveReadSideErrorMessage(error, '作废草稿加载失败，请查看后端错误后重试。')
+    }
+  }
+}
+
+const loadActivePublishAction = async (
+  detail: ControlledFileVO,
+  sequence = detailLoadSequence,
+  requestedId = controlledFileId.value,
+  requestedRoute = route.fullPath
+) => {
+  if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
   activePublishAction.value = null
   activePublishActionError.value = ''
   if (viewerMode.value || !showDetailManagementActions.value) {
@@ -4349,12 +4672,12 @@ const loadActivePublishAction = async (detail: ControlledFileVO) => {
     return
   }
   try {
-    activePublishAction.value = await findActiveBusinessAction(context)
+    const action = await findActiveBusinessAction(context)
+    if (isCurrentDetailLoad(sequence, requestedId, requestedRoute)) activePublishAction.value = action
   } catch (error) {
-    activePublishActionError.value = resolveReadSideErrorMessage(
-      error,
-      '发布动作状态加载失败，请查看后端错误后重试。'
-    )
+    if (isCurrentDetailLoad(sequence, requestedId, requestedRoute)) {
+      activePublishActionError.value = resolveReadSideErrorMessage(error, '发布动作状态加载失败，请查看后端错误后重试。')
+    }
   }
 }
 
@@ -4366,6 +4689,7 @@ const isCurrentDetailLoad = (sequence: number, requestedId: string, requestedRou
   requestedRoute === route.fullPath
 
 const loadData = async (sequence: number, requestedId: string, requestedRoute: string) => {
+  const canReadControlledFileAuxiliaries = checkPermi(['dcc:controlled-file:query'])
   const [
     detail,
     categoryList,
@@ -4376,14 +4700,14 @@ const loadData = async (sequence: number, requestedId: string, requestedRoute: s
     approvalPrintTemplate
   ] = await Promise.all([
     getControlledFile(controlledFileId.value),
-    getFileCategoryList(),
-    getDirectoryTree(),
-    getSimpleUserList(),
-    getSimpleDeptList(),
-    viewerMode.value || !showLifecycleTraceSections.value
+    canReadControlledFileAuxiliaries ? getFileCategoryList() : Promise.resolve([]),
+    canReadControlledFileAuxiliaries ? getDirectoryTree() : Promise.resolve([]),
+    canReadControlledFileAuxiliaries ? getSimpleUserList() : Promise.resolve([]),
+    canReadControlledFileAuxiliaries ? getSimpleDeptList() : Promise.resolve([]),
+    viewerMode.value || !showLifecycleTraceSections.value || !canReadControlledFileAuxiliaries
       ? Promise.resolve([])
       : getPaperDistributionRecords(controlledFileId.value),
-    viewerMode.value || !showLifecycleTraceSections.value
+    viewerMode.value || !showLifecycleTraceSections.value || !canReadControlledFileAuxiliaries
       ? Promise.resolve(null)
       : getActiveApprovalPrintTemplate()
   ])
@@ -4391,14 +4715,19 @@ const loadData = async (sequence: number, requestedId: string, requestedRoute: s
     return false
   }
   fileDetail.value = detail
-  await loadActiveObsoleteAction(detail)
-  await loadActivePublishAction(detail)
+  await loadActiveObsoleteAction(detail, sequence, requestedId, requestedRoute)
+  if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return false
+  await loadDraftObsoleteAction(detail, sequence, requestedId, requestedRoute)
+  if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return false
+  await loadActivePublishAction(detail, sequence, requestedId, requestedRoute)
+  if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return false
   fileAccessExplanation.value = detail.accessExplanation || null
   categories.value = categoryList
   directories.value = directoryTree
   activeApprovalPrintTemplate.value = approvalPrintTemplate
   paperDistributionRecords.value = paperRecords || []
   await loadControlledPrintRecords()
+  if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return false
   categoryNameMap.value = new Map(categoryList.map((item) => [item.id as number, item.name]))
   directoryNameMap.value = new Map(
     flattenTree(directoryTree).map((item) => [item.id as number, item.name])
@@ -4418,34 +4747,54 @@ const loadData = async (sequence: number, requestedId: string, requestedRoute: s
 }
 
 const loadDccSignatureEvidenceList = async () => {
+  const requestSequence = ++dccSignatureEvidenceRequestSequence
+  const requestedFileId = String(controlledFileId.value || '').trim()
+  const requestedRoute = route.fullPath
+  const requestedPageNo = dccSignatureEvidenceQueryParams.pageNo
+  const requestedPageSize = dccSignatureEvidenceQueryParams.pageSize
+  const requestedDetailSequence = detailLoadSequence
+  const isCurrentRequest = () =>
+    requestSequence === dccSignatureEvidenceRequestSequence &&
+    requestedFileId === String(controlledFileId.value || '').trim() &&
+    requestedRoute === route.fullPath &&
+    requestedPageNo === dccSignatureEvidenceQueryParams.pageNo &&
+    requestedPageSize === dccSignatureEvidenceQueryParams.pageSize &&
+    requestedDetailSequence === detailLoadSequence
+
   dccSignatureEvidenceError.value = ''
   if (viewerMode.value || !showSignatureTraceSections.value) {
+    if (!isCurrentRequest()) return
     dccSignatureEvidenceList.value = []
     dccSignatureEvidenceTotal.value = 0
     return
   }
-  if (!controlledFileId.value) {
+  if (!requestedFileId) {
+    if (!isCurrentRequest()) return
     dccSignatureEvidenceList.value = []
     dccSignatureEvidenceTotal.value = 0
     return
   }
   if (!checkPermi(['dcc:controlled-file:signature:manage'])) {
+    if (!isCurrentRequest()) return
     dccSignatureEvidenceError.value =
       '当前可查看签核追溯摘要；高级签名留痕需 DCC 电子签名管理权限。'
     dccSignatureEvidenceList.value = []
     dccSignatureEvidenceTotal.value = 0
     return
   }
+  if (!isCurrentRequest()) return
   dccSignatureEvidenceLoading.value = true
   try {
     const data = await getDccElectronicSignaturePage({
-      controlledFileId: controlledFileId.value,
-      pageNo: dccSignatureEvidenceQueryParams.pageNo,
-      pageSize: dccSignatureEvidenceQueryParams.pageSize
+      controlledFileId: requestedFileId,
+      pageNo: requestedPageNo,
+      pageSize: requestedPageSize
     })
+    if (!isCurrentRequest()) return
     dccSignatureEvidenceList.value = data.list || []
     dccSignatureEvidenceTotal.value = data.total || 0
   } catch (error) {
+    if (!isCurrentRequest()) return
     dccSignatureEvidenceList.value = []
     dccSignatureEvidenceTotal.value = 0
     dccSignatureEvidenceError.value = resolveReadSideErrorMessage(
@@ -4453,15 +4802,24 @@ const loadDccSignatureEvidenceList = async () => {
       '签名留痕加载失败；审批任务加载不受影响，请根据后端错误提示修正权限后重试。'
     )
   } finally {
-    dccSignatureEvidenceLoading.value = false
+    if (isCurrentRequest()) {
+      dccSignatureEvidenceLoading.value = false
+    }
   }
 }
 
-const loadAccessExplanationOnly = async () => {
+const loadAccessExplanationOnly = async (
+  sequence = detailLoadSequence,
+  requestedId = controlledFileId.value,
+  requestedRoute = route.fullPath
+) => {
   try {
-    fileAccessExplanation.value = await getControlledFileAccessExplanation(controlledFileId.value)
+    const explanation = await getControlledFileAccessExplanation(controlledFileId.value)
+    if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
+    fileAccessExplanation.value = explanation
     accessExplanationError.value = ''
   } catch (error) {
+    if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
     fileAccessExplanation.value = null
     accessExplanationError.value = resolveReadSideErrorMessage(
       error,
@@ -4549,7 +4907,8 @@ const reloadAll = async () => {
     }
     await openControlledPrintDialogFromRoute()
   } catch (error) {
-    await loadAccessExplanationOnly()
+    await loadAccessExplanationOnly(sequence, requestedId, requestedRoute)
+    if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
     const errorMessage = resolveReadSideErrorMessage(error, '受控文件详情加载失败，请查看权限说明后重试。')
     message.error(accessExplanationError.value ? `${errorMessage}；${accessExplanationError.value}` : errorMessage)
   }
@@ -4579,11 +4938,44 @@ const resolveUserNames = (userIds: number[]) => {
   return userIds.map((item) => userNameMap.value.get(item) || `用户#${item}`).join('、')
 }
 
+const formatAttachmentFileSize = (fileSize: number | null | undefined) => {
+  if (!fileSize || fileSize < 0) {
+    return '-'
+  }
+  if (fileSize < 1024) {
+    return `${fileSize} B`
+  }
+  if (fileSize < 1024 * 1024) {
+    return `${(fileSize / 1024).toFixed(1)} KB`
+  }
+  return `${(fileSize / 1024 / 1024).toFixed(2)} MB`
+}
+
+const ensureDetailActionAllowed = (action: Parameters<typeof isDccControlledFileActionAllowed>[1], actionLabel: string) => {
+  if (isDccControlledFileActionAllowed(fileDetail.value, action)) {
+    return true
+  }
+  message.warning(`后端动作投影未放行${actionLabel}，请刷新后重试。`)
+  return false
+}
+
 const openPreview = () => {
+  if (!ensureDetailActionAllowed('PREVIEW', '预览受控文件')) {
+    return
+  }
   window.open(buildControlledFileViewerPath(controlledFileId.value, 'detail', route.fullPath), '_blank')
 }
 
+const openAttachmentPreview = (attachment: ControlledFileAttachmentVO) => {
+  selectedAttachmentPreview.value = attachment
+  attachmentPreviewDialogVisible.value = true
+}
+
 const openMetadataDialog = () => {
+  if (!canEditMetadata.value) {
+    message.warning('后端动作投影未放行基础信息修改，请刷新后重试。')
+    return
+  }
   metadataDialogVisible.value = true
 }
 
@@ -4612,13 +5004,13 @@ const handleRecognizeProjectCode = async () => {
 const openDccProjectCode = (projectCodeId: number) => {
   if (!fileDetail.value?.id) {
     router.push({
-      path: '/mes/md/dcc-project-code',
+      path: '/mdm/project-code',
       query: { projectCodeId: String(projectCodeId) }
     })
     return
   }
   router.push({
-    path: '/mes/md/dcc-project-code',
+    path: '/mdm/project-code',
     query: {
       projectCodeId: String(projectCodeId),
       associatedFocus: '1',
@@ -4781,11 +5173,14 @@ const cleanupDetailUploadSession = async (
   }
 }
 
-const cleanupApplicantTrainingRecordUploadSession = async () =>
+const cleanupApplicantTrainingRecordUploadSession = async (
+  sessionId = applicantTrainingRecordUploadSessionId.value,
+  upload = applicantTrainingRecordDialog.file
+) =>
   await cleanupDetailUploadSession(
-    applicantTrainingRecordUploadSessionId.value,
-    Boolean(applicantTrainingRecordDialog.file?.uploadTicket),
-    applicantTrainingRecordDialog.file?.requestId,
+    sessionId,
+    Boolean(upload?.uploadTicket),
+    upload?.requestId,
     (errorMessage) => {
       applicantTrainingRecordDialog.inlineError = errorMessage
     }
@@ -4911,30 +5306,61 @@ const handleApplicantTrainingRecordChange: UploadProps['onChange'] = async (file
   if (!file.raw) {
     return
   }
+  const requestSequence = ++applicantTrainingRecordUploadSequence
+  const sessionId = applicantTrainingRecordUploadSessionId.value
+  const isCurrentApplicantTrainingRecordUpload = () =>
+    requestSequence === applicantTrainingRecordUploadSequence &&
+    applicantTrainingRecordUploadSessionId.value === sessionId &&
+    applicantTrainingRecordDialog.visible
   clearApplicantTrainingRecordFieldError('trainingRecordUploadTicket')
   applicantTrainingRecordFileList.value = uploadFiles.slice(-1)
   applicantTrainingRecordDialog.file = undefined
   applicantTrainingRecordDialog.uploading = true
   try {
-    applicantTrainingRecordDialog.file = await uploadControlledFilePreview(
+    const uploaded = await uploadControlledFilePreview(
       file.raw as File,
       'TRAINING_RECORD',
-      buildDetailUploadPreviewContext(applicantTrainingRecordUploadSessionId.value)
+      buildDetailUploadPreviewContext(sessionId)
     )
+    if (!isCurrentApplicantTrainingRecordUpload()) {
+      try {
+        await cleanupControlledFileUploadTicket(sessionId, uploaded.uploadTicket, uploaded.requestId)
+      } catch (error) {
+        message.error(resolveReadSideErrorMessage(error, '已取消的培训记录临时文件清理失败，请联系管理员处理。'))
+      }
+      return
+    }
+    applicantTrainingRecordDialog.file = uploaded
   } catch (error) {
-    applicantTrainingRecordFileList.value = []
-    applicantTrainingRecordDialog.file = undefined
-    applicantTrainingRecordDialog.inlineError = resolveReadSideErrorMessage(
-      error,
-      '培训记录上传失败，请查看错误提示后重试。'
-    )
+    if (isCurrentApplicantTrainingRecordUpload()) {
+      applicantTrainingRecordFileList.value = []
+      applicantTrainingRecordDialog.file = undefined
+      applicantTrainingRecordDialog.inlineError = resolveReadSideErrorMessage(
+        error,
+        '培训记录上传失败，请查看错误提示后重试。'
+      )
+    }
   } finally {
-    applicantTrainingRecordDialog.uploading = false
+    if (isCurrentApplicantTrainingRecordUpload()) {
+      applicantTrainingRecordDialog.uploading = false
+    }
   }
 }
 
 const handleBeforeApplicantTrainingRecordRemove: UploadProps['beforeRemove'] = async () => {
-  return await cleanupApplicantTrainingRecordUploadSession()
+  const sessionId = applicantTrainingRecordUploadSessionId.value
+  const upload = applicantTrainingRecordDialog.file
+  applicantTrainingRecordUploadSequence += 1
+  applicantTrainingRecordUploadSessionId.value = createControlledFileUploadSessionId()
+  applicantTrainingRecordDialog.uploading = false
+  applicantTrainingRecordDialog.file = undefined
+  const cleaned = await cleanupApplicantTrainingRecordUploadSession(sessionId, upload)
+  if (!cleaned) {
+    applicantTrainingRecordUploadSequence += 1
+    applicantTrainingRecordUploadSessionId.value = sessionId
+    applicantTrainingRecordDialog.file = upload
+  }
+  return cleaned
 }
 
 const handleApplicantTrainingRecordRemove: UploadProps['onRemove'] = () => {
@@ -5061,6 +5487,7 @@ const refreshTaskActionReadiness = async () => {
 }
 
 const resetApplicantTrainingRecordDialog = () => {
+  applicantTrainingRecordUploadSequence += 1
   applicantTrainingRecordUploadSessionId.value = createControlledFileUploadSessionId()
   applicantTrainingRecordFileList.value = []
   applicantTrainingRecordDialog.file = undefined
@@ -5075,14 +5502,28 @@ const openApplicantTrainingRecordDialog = () => {
     message.warning('当前状态不可上传培训记录')
     return
   }
+  if (!ensureDetailActionAllowed('UPLOAD_TRAINING_RECORD', '上传培训记录')) {
+    return
+  }
   applicantTrainingRecordDialog.visible = true
   applicantTrainingRecordDialog.submitting = false
   resetApplicantTrainingRecordDialog()
 }
 
 const closeApplicantTrainingRecordDialog = async (submitted: boolean | MouseEvent = false) => {
-  if (submitted !== true && !(await cleanupApplicantTrainingRecordUploadSession())) {
-    return
+  if (submitted !== true) {
+    const sessionId = applicantTrainingRecordUploadSessionId.value
+    const upload = applicantTrainingRecordDialog.file
+    applicantTrainingRecordUploadSequence += 1
+    applicantTrainingRecordUploadSessionId.value = createControlledFileUploadSessionId()
+    applicantTrainingRecordDialog.uploading = false
+    applicantTrainingRecordDialog.file = undefined
+    if (!(await cleanupApplicantTrainingRecordUploadSession(sessionId, upload))) {
+      applicantTrainingRecordUploadSequence += 1
+      applicantTrainingRecordUploadSessionId.value = sessionId
+      applicantTrainingRecordDialog.file = upload
+      return
+    }
   }
   applicantTrainingRecordDialog.visible = false
   applicantTrainingRecordDialog.submitting = false
@@ -5090,6 +5531,10 @@ const closeApplicantTrainingRecordDialog = async (submitted: boolean | MouseEven
 }
 
 const submitApplicantTrainingRecordDialog = async () => {
+  if (applicantTrainingRecordDialog.uploading) {
+    applicantTrainingRecordDialog.inlineError = '培训记录仍在上传，请等待上传完成。'
+    return
+  }
   if (!applicantTrainingRecordDialog.file?.uploadTicket) {
     applicantTrainingRecordDialog.fieldErrors = { trainingRecordUploadTicket: '请上传培训记录' }
     applicantTrainingRecordDialog.inlineError = '请上传培训记录'
@@ -5103,7 +5548,7 @@ const submitApplicantTrainingRecordDialog = async () => {
       sessionId: applicantTrainingRecordDialog.file.sessionId,
       trainingRecordUploadTicket: applicantTrainingRecordDialog.file.uploadTicket
     })
-    message.success('培训记录已上传，流程已进入文控批准')
+    message.success('培训记录已上传，流程已进入人工分发')
     await closeApplicantTrainingRecordDialog(true)
     await reloadAll()
   } catch (error) {
@@ -5117,6 +5562,9 @@ const submitApplicantTrainingRecordDialog = async () => {
 }
 
 const handleWithdraw = async () => {
+  if (!ensureDetailActionAllowed('WITHDRAW', '撤回申请')) {
+    return
+  }
   try {
     await message.confirm('确认撤回当前受控文件申请吗？')
     withdrawLoading.value = true
@@ -5255,33 +5703,25 @@ const handleRetryStamp = async () => {
 const loadObsoleteStartUserSelectTasks = async () => {
   obsoleteDialog.startUserSelectTasks = []
   obsoleteDialog.startUserSelectAssignees = {}
+  obsoleteDialog.approveUserSelectAssignees = {}
   const context = buildObsoleteBusinessActionContext(fileDetail.value)
   if (!context) {
     throw new Error('当前文件缺少平台动作上下文，无法解析作废审批人。')
   }
-  const resolution = await resolveBusinessAction(context)
-  if (!resolution.requiresBpm || !resolution.bpmProcessKey) {
-    return
+  const categoryId = fileDetail.value?.categoryId
+  if (!categoryId) {
+    throw new Error('当前文件缺少文件类别，无法解析作废审批人。')
   }
-  const processDefinition = await DefinitionApi.getProcessDefinition(undefined, resolution.bpmProcessKey)
-  if (!processDefinition?.id) {
-    throw new Error('作废审批流程未配置，请联系管理员。')
+  const routePreview = await previewApprovalRoute({ categoryId, actionType: 'OBSOLETE' })
+  const matrixReview = routePreview.find((node) => node.stageCode === 'MATRIX_REVIEW')
+  const resolvedUserIds = matrixReview?.resolvedUserIds || []
+  if (!matrixReview || resolvedUserIds.length === 0) {
+    throw new Error('作废会签部门负责人未解析到有效审批人。')
   }
-  const approvalDetail = await ProcessInstanceApi.getApprovalDetail({
-    processDefinitionId: processDefinition.id,
-    activityId: NodeId.START_USER_NODE_ID,
-    processVariablesStr: JSON.stringify({
-      controlledFileId: controlledFileId.value,
-      actionCode: 'OBSOLETE'
-    })
-  })
-  obsoleteDialog.startUserSelectTasks =
-    approvalDetail?.activityNodes?.filter(
-      (node: ProcessInstanceApi.ApprovalNodeInfo) =>
-        CandidateStrategy.START_USER_SELECT === node.candidateStrategy
-    ) || []
-  for (const task of obsoleteDialog.startUserSelectTasks) {
-    obsoleteDialog.startUserSelectAssignees[task.id] = []
+  obsoleteDialog.startUserSelectAssignees[matrixReview.stageCode || 'MATRIX_REVIEW'] = resolvedUserIds
+  for (const node of routePreview) {
+    if (node === matrixReview || !node.stageCode || !node.resolvedUserIds?.length) continue
+    obsoleteDialog.approveUserSelectAssignees[node.stageCode] = node.resolvedUserIds
   }
 }
 
@@ -5330,6 +5770,7 @@ const openObsoleteDialog = async () => {
   obsoleteDialog.idempotencyKey = `DCC-OBSOLETE-${controlledFileId.value}-${generateUUID()}`
   obsoleteDialog.startUserSelectTasks = []
   obsoleteDialog.startUserSelectAssignees = {}
+  obsoleteDialog.approveUserSelectAssignees = {}
   try {
     await loadObsoleteStartUserSelectTasks()
   } catch (error) {
@@ -5348,6 +5789,7 @@ const closeObsoleteDialog = () => {
   obsoleteDialog.idempotencyKey = ''
   obsoleteDialog.startUserSelectTasks = []
   obsoleteDialog.startUserSelectAssignees = {}
+  obsoleteDialog.approveUserSelectAssignees = {}
 }
 
 const openPublishDialog = async () => {
@@ -5429,6 +5871,9 @@ const submitPublishDialog = async () => {
 }
 
 const handleAcknowledgeTraining = async () => {
+  if (!ensureDetailActionAllowed('ACKNOWLEDGE_TRAINING', '确认培训')) {
+    return
+  }
   try {
     await message.confirm('确认完成当前版本培训并提交确认吗？')
     trainingAckLoading.value = true
@@ -5445,6 +5890,9 @@ const handleAcknowledgeTraining = async () => {
 }
 
 const handleManualRelease = async () => {
+  if (!ensureDetailActionAllowed('MANUAL_RELEASE', '下发')) {
+    return
+  }
   try {
     await message.confirm('确认完成历史培训放行并下发当前版本吗？')
     manualReleaseLoading.value = true
@@ -5638,13 +6086,37 @@ const pagedDistributionStatusRows = computed(() =>
 )
 
 const resetElectronicReceiptDialog = () => {
+  clearElectronicReceiptConfirmCountdownTimer()
   electronicReceiptDialog.submitting = false
+  electronicReceiptDialog.confirmCountdownSeconds = 0
   electronicReceiptDialog.inlineError = ''
   electronicReceiptDialog.fieldErrors = {}
   electronicReceiptDialog.distributionId = undefined
   electronicReceiptDialog.recipientId = undefined
   electronicReceiptDialog.form.password = ''
   electronicReceiptDialog.form.comment = ''
+}
+
+const clearElectronicReceiptConfirmCountdownTimer = () => {
+  if (electronicReceiptConfirmCountdownTimer === undefined) {
+    return
+  }
+  window.clearInterval(electronicReceiptConfirmCountdownTimer)
+  electronicReceiptConfirmCountdownTimer = undefined
+}
+
+const startElectronicReceiptConfirmCountdown = () => {
+  clearElectronicReceiptConfirmCountdownTimer()
+  electronicReceiptDialog.confirmCountdownSeconds = ELECTRONIC_RECEIPT_CONFIRM_COUNTDOWN_SECONDS
+  electronicReceiptConfirmCountdownTimer = window.setInterval(() => {
+    electronicReceiptDialog.confirmCountdownSeconds = Math.max(
+      electronicReceiptDialog.confirmCountdownSeconds - 1,
+      0
+    )
+    if (electronicReceiptDialog.confirmCountdownSeconds === 0) {
+      clearElectronicReceiptConfirmCountdownTimer()
+    }
+  }, 1000)
 }
 
 const openElectronicReceiptDialog = (distribution: ControlledFileDistributionStatusVO) => {
@@ -5657,6 +6129,7 @@ const openElectronicReceiptDialog = (distribution: ControlledFileDistributionSta
   electronicReceiptDialog.distributionId = distribution.id
   electronicReceiptDialog.recipientId = recipient.id
   electronicReceiptDialog.visible = true
+  startElectronicReceiptConfirmCountdown()
 }
 
 const closeElectronicReceiptDialog = () => {
@@ -5678,6 +6151,7 @@ const submitElectronicReceiptDialog = async () => {
   if (
     !electronicReceiptDialog.distributionId ||
     !electronicReceiptDialog.recipientId ||
+    isElectronicReceiptConfirmDisabled.value ||
     !validateElectronicReceiptDialog()
   ) {
     return
@@ -5713,6 +6187,10 @@ const submitElectronicReceiptDialog = async () => {
     electronicReceiptLoadingRecipientId.value = undefined
   }
 }
+
+onUnmounted(() => {
+  clearElectronicReceiptConfirmCountdownTimer()
+})
 
 const resetDistributionSignDialog = () => {
   distributionSignDialog.submitting = false
@@ -5937,6 +6415,9 @@ const resetControlledPrintDialog = () => {
 }
 
 const openControlledPrintDialog = () => {
+  if (!ensureDetailActionAllowed('PRINT', '受控打印')) {
+    return
+  }
   if (!controlledPrintAllowed.value) {
     message.error('当前用户没有受控打印权限，或该文件不是当前有效受控版本。')
     return
@@ -6198,6 +6679,9 @@ const openActionDialog = (mode: DccApprovalActionMode) => {
   resetFourthNodeUploads()
   resetTaskActionReadiness()
   if (mode === 'approve' && !isExternalReviewProcess.value) {
+    if (isFourthNodeApprovalTask.value) {
+      void loadDocControlDirectoryTree()
+    }
     void refreshTaskActionReadiness()
   }
 }
@@ -6272,6 +6756,17 @@ const submitActionDialog = async () => {
       return
     }
     await refreshTaskActionReadiness()
+    if (
+      shouldCollectFourthNodeFiles.value &&
+      actionDialog.mode === 'approve' &&
+      !fourthNodeUpload.selectedDistributionScopes.length
+    ) {
+      actionDialog.fieldErrors = {
+        selectedDistributionScopes: '请选择文件下发范围'
+      }
+      actionDialog.inlineError = '请选择文件下发范围'
+      return
+    }
     if (!taskActionReadiness.ready) {
       applyTaskActionReadinessFieldErrors()
       actionDialog.inlineError =
@@ -6287,7 +6782,9 @@ const submitActionDialog = async () => {
         password: actionDialog.form.password,
         reason: actionDialog.form.reason,
         sessionId: fourthNodeUpload.stampedPdf?.sessionId,
-        stampedPdfUploadTicket: fourthNodeUpload.stampedPdf?.uploadTicket
+        stampedPdfUploadTicket: fourthNodeUpload.stampedPdf?.uploadTicket,
+        confirmedDirectoryId: fourthNodeUpload.confirmedDirectoryId,
+        selectedDistributionScopes: fourthNodeUpload.selectedDistributionScopes
       },
       taskId: String(approvalTodoTask.value.id)
     })
@@ -6468,6 +6965,16 @@ watch(
       !isExternalReviewProcess.value
     ) {
       void refreshTaskActionReadiness()
+    }
+  }
+)
+
+watch(
+  [currentUserId, approvalTaskList],
+  () => {
+    const currentTask = findCurrentUserTodoTask(approvalTaskList.value)
+    if (currentTask) {
+      approvalTodoTask.value = currentTask
     }
   }
 )

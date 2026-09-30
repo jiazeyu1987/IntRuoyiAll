@@ -17,7 +17,7 @@ class ShowroomReleaseAssetErrorSemanticsTest extends AbstractShowroomReleaseDbTe
     @Test
     void shouldReturnExplicitNotFoundAndGoneForAssets() throws Exception {
         ShowroomMaterializedRelease release = publishReleaseFixture();
-        ShowroomMaterializedRelease.MaterializedAsset asset = release.assets().getFirst();
+        ShowroomMaterializedRelease.MaterializedAsset asset = release.assets().get(0);
 
         var missing = scopedAssetController.getAsset(DEFAULT_SITE_KEY, DEFAULT_STAGE,
                 "missing-asset", "deadbeef", new HttpHeaders());

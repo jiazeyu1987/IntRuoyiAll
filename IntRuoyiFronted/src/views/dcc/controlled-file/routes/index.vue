@@ -59,6 +59,17 @@
             </template>
           </el-table-column>
           <el-table-column
+            v-if="isRouteColumnVisible('actionType')"
+            label="动作类型"
+            prop="actionType"
+            :width="getRouteColumnWidthString('actionType', 128)"
+            v-bind="sortColumnAttrs('actionType')"
+          >
+            <template #default="{ row }">
+              <el-tag effect="plain">{{ formatRouteActionType(row.actionType) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
             v-if="isRouteColumnVisible('node1')"
             label="节点1"
             prop="node1"
@@ -183,14 +194,14 @@
           </el-table-column>
           <el-table-column
             v-if="isRoutePreviewColumnVisible('candidateSourceIds')"
-            label="岗位集合"
+            label="候选集合"
             prop="candidateSourceIds"
             :width="getRoutePreviewColumnWidthString('candidateSourceIds')"
             :min-width="getRoutePreviewColumnMinWidthString('candidateSourceIds', 280)"
             v-bind="sortColumnAttrs('candidateSourceIds')"
           >
             <template #default="{ row }">
-              {{ resolvePositionNames(row.candidateSourceIds) }}
+              {{ resolvePreviewCandidateNames(row) }}
             </template>
           </el-table-column>
           <el-table-column
@@ -217,6 +228,7 @@ import {
   deleteApprovalRoute,
   getApprovalRoutePage,
   previewApprovalRoute,
+  type ControlledFileApprovalRouteActionType,
   type ControlledFileApprovalRouteNodeVO,
   type ControlledFileApprovalRoutePreviewVO,
   type ControlledFileApprovalRouteVO
@@ -229,6 +241,7 @@ import {
   getFileCategoryList,
   type ControlledFileCategoryVO
 } from '@/api/dcc/controlledFile/fileCategories'
+import { getSimpleDeptList, type DeptVO } from '@/api/system/dept'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -236,7 +249,7 @@ import {
   useTableQuickFilter,
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
-import { ROUTE_PREVIEW_MODE_OPTIONS, getOptionLabel } from '../shared/options'
+import { ROUTE_ACTION_TYPE_OPTIONS, ROUTE_PREVIEW_MODE_OPTIONS, getOptionLabel } from '../shared/options'
 import { formatDccSimpleUserLabel, resolveDccPositionName } from '../shared/utils'
 import RouteForm from './components/RouteForm.vue'
 
@@ -249,6 +262,7 @@ const routeSubjectLookupsLoaded = ref(false)
 const categories = ref<ControlledFileCategoryVO[]>([])
 const positions = ref<ControlledFileApprovalPositionVO[]>([])
 const users = ref<UserVO[]>([])
+const departments = ref<DeptVO[]>([])
 const routes = ref<ControlledFileApprovalRouteVO[]>([])
 const previewRows = ref<ControlledFileApprovalRoutePreviewVO[]>([])
 const routePreviewError = ref('')
@@ -259,14 +273,17 @@ const queryParams = reactive<{
   pageNo: number
   pageSize: number
   categoryId?: number
+  actionType?: ControlledFileApprovalRouteActionType
 }>({
   pageNo: 1,
   pageSize: 10,
-  categoryId: undefined
+  categoryId: undefined,
+  actionType: 'NEW'
 })
 
 const routeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'categoryName', label: '文件类别', minWidth: 220 },
+  { key: 'actionType', label: '动作类型', width: 128 },
   { key: 'node1', label: '节点1', minWidth: 180 },
   { key: 'node2', label: '节点2', minWidth: 260 },
   { key: 'node3', label: '节点3', minWidth: 220 },
@@ -322,6 +339,14 @@ const routeQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() =>
       value: item.id
     })),
     placeholder: '请选择文件类别'
+  },
+  {
+    key: 'actionType',
+    label: '动作类型',
+    type: 'select',
+    queryParamKey: 'actionType',
+    options: ROUTE_ACTION_TYPE_OPTIONS,
+    placeholder: '请选择动作类型'
   }
 ])
 
@@ -348,12 +373,14 @@ const loadRouteSubjectLookups = async () => {
   if (routeSubjectLookupsLoaded.value) {
     return
   }
-  const [positionList, userList] = await Promise.all([
+  const [positionList, userList, departmentList] = await Promise.all([
     getApprovalPositionList(),
-    getSimpleUserList()
+    getSimpleUserList(),
+    getSimpleDeptList()
   ])
   positions.value = positionList
   users.value = userList
+  departments.value = departmentList
   routeSubjectLookupsLoaded.value = true
 }
 
@@ -406,7 +433,8 @@ const handleCreateRoute = async () => {
     category: resolveSelectedCategory(),
     categories: categoryOptions.value,
     users: users.value,
-    positions: activePositions.value
+    positions: activePositions.value,
+    departments: departments.value
   })
 }
 
@@ -422,7 +450,8 @@ const handleEditRoute = async (row: ControlledFileApprovalRouteVO) => {
     categories: categoryOptions.value,
     route: row,
     users: users.value,
-    positions: activePositions.value
+    positions: activePositions.value,
+    departments: departments.value
   })
 }
 
@@ -451,7 +480,10 @@ const handlePreview = async () => {
   routePreviewError.value = ''
   try {
     await loadRouteSubjectLookups()
-    previewRows.value = await previewApprovalRoute({ categoryId: queryParams.categoryId })
+    previewRows.value = await previewApprovalRoute({
+      categoryId: queryParams.categoryId,
+      actionType: queryParams.actionType
+    })
     previewQueryParams.pageNo = 1
   } catch (error) {
     previewRows.value = []
@@ -508,6 +540,14 @@ const resolveRouteNodePositionNames = (node: ControlledFileApprovalRouteNodeVO) 
   return positionNames.join('、')
 }
 
+const formatRouteActionType = (actionType?: string | null) =>
+  getOptionLabel(ROUTE_ACTION_TYPE_OPTIONS, actionType || 'LEGACY')
+
+const resolveRouteNodeDepartmentNames = (node: ControlledFileApprovalRouteNodeVO) =>
+  getRouteNodeCandidateIds(node)
+    .map((id) => departments.value.find((department) => department.id === id)?.name || `部门#${id}`)
+    .join('、')
+
 const formatRouteNodeSubject = (node: ControlledFileApprovalRouteNodeVO) => {
   if (node.candidateSourceType === 'POSITION') {
     const positionNames = resolveRouteNodePositionNames(node)
@@ -528,6 +568,9 @@ const formatRouteNodeSubject = (node: ControlledFileApprovalRouteNodeVO) => {
   }
   if (node.candidateSourceType === 'USER') {
     return candidateIds.map(resolveRouteNodeUserName).join('、')
+  }
+  if (node.candidateSourceType === 'DEPT') {
+    return resolveRouteNodeDepartmentNames(node)
   }
   if (node.candidateSourceType === 'POSITION') {
     return '-'
@@ -551,6 +594,25 @@ const resolvePositionNames = (ids: number[]) => {
     return '-'
   }
   return ids.map((id) => resolveDccPositionName(id, positions.value)).join(' / ')
+}
+
+const resolveDepartmentNames = (ids: number[]) => {
+  if (!ids?.length) {
+    return '-'
+  }
+  return ids
+    .map((id) => departments.value.find((department) => department.id === id)?.name || `部门#${id}`)
+    .join(' / ')
+}
+
+const resolvePreviewCandidateNames = (row: ControlledFileApprovalRoutePreviewVO) => {
+  if (row.candidateSourceType === 'USER') {
+    return resolveUserNames(row.candidateSourceIds)
+  }
+  if (row.candidateSourceType === 'DEPT') {
+    return resolveDepartmentNames(row.candidateSourceIds)
+  }
+  return resolvePositionNames(row.candidateSourceIds)
 }
 
 const resolveUserNames = (userIds: number[]) => {

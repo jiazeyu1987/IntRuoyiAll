@@ -15,10 +15,10 @@ const basicDataPageSource = readSource(
   'src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue'
 )
 const projectCodeServiceSource = readWorkspaceSource(
-  'ruoyi-vue-pro/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectCodeServiceImpl.java'
+  'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectCodeServiceImpl.java'
 )
 const recognitionServiceSource = readWorkspaceSource(
-  'ruoyi-vue-pro/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileProjectCodeRecognitionServiceImpl.java'
+  'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileProjectCodeRecognitionServiceImpl.java'
 )
 
 const extractFrom = (source, startToken) => {

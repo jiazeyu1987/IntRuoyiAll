@@ -45,15 +45,15 @@ class ShowroomReleaseWebsiteIndexAssemblyTest extends AbstractShowroomReleaseDbT
         assertFalse(homeImage.containsKey("url"));
         List<Map<String, Object>> showrooms = castList(body.get("showrooms"));
         assertEquals(1, showrooms.size());
-        assertEquals("CARDIOLOGY", showrooms.getFirst().get("hallCode"));
-        Long hallId = release.sourceSnapshot().halls().getFirst().hall().hallId();
-        Map<String, Object> hallAudioZh = castMap(showrooms.getFirst().get("audioZh"));
-        Map<String, Object> hallAudioEn = castMap(showrooms.getFirst().get("audioEn"));
+        assertEquals("CARDIOLOGY", showrooms.get(0).get("hallCode"));
+        Long hallId = release.sourceSnapshot().halls().get(0).hall().hallId();
+        Map<String, Object> hallAudioZh = castMap(showrooms.get(0).get("audioZh"));
+        Map<String, Object> hallAudioEn = castMap(showrooms.get(0).get("audioEn"));
         assertEquals("hall-" + hallId + "-audio-zh", hallAudioZh.get("assetId"));
         assertEquals("hall-" + hallId + "-audio-en", hallAudioEn.get("assetId"));
-        List<Map<String, Object>> products = castList(showrooms.getFirst().get("products"));
+        List<Map<String, Object>> products = castList(showrooms.get(0).get("products"));
         assertEquals(1, products.size());
-        assertEquals("product-detail-" + productId, products.getFirst().get("detailDocumentId"));
+        assertEquals("product-detail-" + productId, products.get(0).get("detailDocumentId"));
     }
 
     @Test
@@ -94,12 +94,12 @@ class ShowroomReleaseWebsiteIndexAssemblyTest extends AbstractShowroomReleaseDbT
                         ShowroomReleaseConstants.DOCUMENT_ID_WEBSITE_INDEX),
                 Map.class);
         List<Map<String, Object>> showrooms = castList(body.get("showrooms"));
-        List<Map<String, Object>> products = castList(showrooms.getFirst().get("products"));
+        List<Map<String, Object>> products = castList(showrooms.get(0).get("products"));
         assertEquals(2, products.size());
-        assertDecimal("0", products.getFirst().get("layoutX"));
-        assertDecimal("0", products.getFirst().get("layoutY"));
-        assertDecimal("0.3", products.getFirst().get("layoutWidth"));
-        assertDecimal("1", products.getFirst().get("layoutHeight"));
+        assertDecimal("0", products.get(0).get("layoutX"));
+        assertDecimal("0", products.get(0).get("layoutY"));
+        assertDecimal("0.3", products.get(0).get("layoutWidth"));
+        assertDecimal("1", products.get(0).get("layoutHeight"));
         assertDecimal("0.3", products.get(1).get("layoutX"));
         assertDecimal("0", products.get(1).get("layoutY"));
         assertDecimal("0.7", products.get(1).get("layoutWidth"));
@@ -199,10 +199,10 @@ class ShowroomReleaseWebsiteIndexAssemblyTest extends AbstractShowroomReleaseDbT
                         ShowroomReleaseConstants.DOCUMENT_ID_WEBSITE_INDEX),
                 Map.class);
         List<Map<String, Object>> showrooms = castList(body.get("showrooms"));
-        List<Map<String, Object>> products = castList(showrooms.getFirst().get("products"));
+        List<Map<String, Object>> products = castList(showrooms.get(0).get("products"));
         assertEquals(1, products.size());
-        assertEquals("product_001", products.getFirst().get("productCode"));
-        assertEquals("三通旋塞", products.getFirst().get("nameCn"));
+        assertEquals("product_001", products.get(0).get("productCode"));
+        assertEquals("三通旋塞", products.get(0).get("nameCn"));
         assertFalse(JsonUtils.toJsonString(body).contains("product_002"));
     }
 

@@ -25,7 +25,8 @@ class DccWorkingSubmissionConditionTest {
             sql.execute("""
                     CREATE TABLE dcc_controlled_file (
                       id BIGINT PRIMARY KEY, tenant_id BIGINT, requester_id BIGINT, checked_out_by BIGINT,
-                      status VARCHAR(64), deleted INT, submitter_id BIGINT, submit_idempotency_key VARCHAR(128),
+                      status VARCHAR(64), deleted INT, need_training BOOLEAN DEFAULT FALSE,
+                      submitter_id BIGINT, submit_idempotency_key VARCHAR(128),
                       submit_payload_hash VARCHAR(128), process_definition_key VARCHAR(128), submitted_time TIMESTAMP,
                       updater VARCHAR(64), update_time TIMESTAMP, checked_out_time TIMESTAMP, checked_out_reason VARCHAR(128))
                     """);
@@ -44,9 +45,18 @@ class DccWorkingSubmissionConditionTest {
             for (long id = 1; id <= 6; id++) {
                 DccControlledFileDO change = DccControlledFileDO.builder().id(id).status("PENDING_DOC_CONTROL_REVIEW")
                         .submitIdempotencyKey("key-" + id).submitPayloadHash("hash-" + id)
+                        .needTraining(id == 1)
                         .processDefinitionKey("dcc-controlled-file-approval").submittedTime(LocalDateTime.now()).build();
                 assertEquals(id == 1 ? 1 : 0, method.invoke(mapper, 31L, 99L, change), "claim file " + id);
                 assertEquals(0, method.invoke(mapper, 31L, 99L, change), "cannot claim twice " + id);
+                if (id == 1) {
+                    try (var statement = session.getConnection().prepareStatement(
+                            "SELECT need_training FROM dcc_controlled_file WHERE id = 1");
+                         var result = statement.executeQuery()) {
+                        assertEquals(true, result.next() && result.getBoolean(1),
+                                "submission must persist the selected training flag");
+                    }
+                }
             }
         }
         var start = new java.util.concurrent.CountDownLatch(1);

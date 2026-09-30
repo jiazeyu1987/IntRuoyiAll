@@ -30,8 +30,13 @@ assert.match(
 )
 assert.match(
   adapter,
-  /\.availableActions\(resolveTodoAvailableActions\(task\.getTaskDefinitionKey\(\), file\.getStatus\(\)\)\)/,
-  'DCC TODO summaries must derive available actions from the current stage/status.'
+  /\.availableActions\(\s*resolveTodoAvailableActions\(\s*processInstance\.getProcessDefinitionKey\(\),\s*task\.getTaskDefinitionKey\(\),\s*file\.getStatus\(\)\s*\)\s*\)/,
+  'DCC TODO summaries must derive available actions from process definition, current stage, and status.'
+)
+assert.match(
+  adapter,
+  /private static final Set<String> FORM_CENTER_OBSOLETE_ACTIONS = Set\.of\("APPROVE", "REJECT"\)/,
+  'DCC obsolete form-center tasks must project only APPROVE and REJECT actions.'
 )
 const actionResolver = extract(
   adapter,
@@ -41,6 +46,9 @@ const actionResolver = extract(
 )
 assert.match(actionResolver, /isDocControlFinalApprovalTask\(taskDefinitionKey, fileStatus\)[\s\S]*?return PROCESS_IN_MODULE_ACTIONS;/,
   'Final doc-control approval must stay in module handling because it requires stamped PDF, directory, and distribution data.')
+assert.match(actionResolver,
+  /processDefinitionKey[\s\S]*?DccControlledFileProcessDefinitionKeys\.FORM_CENTER_OBSOLETE_KEYS\.contains\(processDefinitionKey\)[\s\S]*?return FORM_CENTER_OBSOLETE_ACTIONS;/,
+  'Obsolete form-center tasks must project APPROVE and REJECT before generic DCC stage handling.')
 assert.match(actionResolver, /isQuickReviewTask\(taskDefinitionKey, fileStatus\)[\s\S]*?return QUICK_REVIEW_ACTIONS;/,
   'Review-capable DCC stages must expose unified quick review actions.')
 assert.match(actionResolver, /DccControlledFileStageCodeEnum\.DOC_CONTROL_APPROVAL/, 'Final doc-control stage must be explicitly identified.')

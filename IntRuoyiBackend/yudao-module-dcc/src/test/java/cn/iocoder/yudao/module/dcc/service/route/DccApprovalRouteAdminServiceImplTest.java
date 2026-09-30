@@ -22,6 +22,8 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteNodeM
 import cn.iocoder.yudao.module.dcc.enums.DccApprovalModeEnum;
 import cn.iocoder.yudao.module.dcc.service.file.DccApprovalParticipantPostValidator;
 import cn.iocoder.yudao.module.dcc.service.position.DccApprovalPositionRuntimeResolver;
+import cn.iocoder.yudao.module.system.api.dept.DeptApi;
+import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
@@ -62,6 +64,8 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
     private DccCategoryApprovalRouteNodeMapper routeNodeMapper;
     @MockitoBean
     private AdminUserApi adminUserApi;
+    @MockitoBean
+    private DeptApi deptApi;
     @MockitoBean
     private DccApprovalPositionRuntimeResolver positionRuntimeResolver;
     @MockitoBean
@@ -140,6 +144,75 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
                 "USER", 203L, "ANY", false, 4));
         doThrow(new ServiceException(1_002_000_004, "user disabled"))
                 .when(adminUserApi).validateUserList(List.of(200L));
+
+        DccApprovalRoutePreviewReqVO reqVO = new DccApprovalRoutePreviewReqVO();
+        reqVO.setCategoryId(category.getId());
+
+        assertServiceException(() -> routeAdminService.previewRoute(reqVO), ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+    }
+
+    @Test
+    void testPreviewRoute_deptCandidateResolvesDepartmentLeader() {
+        DccFileCategoryDO category = createCategory("DEPT_ROUTE");
+        DccCategoryApprovalRouteDO route = createRoute(category.getId());
+        routeNodeMapper.insert(createRouteNode(route.getId(), 1, "DOC_CONTROL_REVIEW", "文控审核",
+                "USER", 200L, "ANY", false, 1));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 2, "MATRIX_REVIEW", "会签审核",
+                "DEPT", 321L, "ALL", true, 2));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 3, "MATRIX_APPROVAL", "会签批准",
+                "USER", 202L, "ANY", false, 3));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
+                "USER", 203L, "ANY", false, 4));
+        when(deptApi.getDeptList(List.of(321L))).thenReturn(List.of(dept(321L, "生产部", 701L)));
+
+        DccApprovalRoutePreviewReqVO reqVO = new DccApprovalRoutePreviewReqVO();
+        reqVO.setCategoryId(category.getId());
+
+        List<DccApprovalRoutePreviewRespVO> preview = routeAdminService.previewRoute(reqVO);
+
+        assertEquals("DEPT", preview.get(1).getCandidateSourceType());
+        assertEquals(List.of(321L), preview.get(1).getCandidateSourceIds());
+        assertEquals(List.of(701L), preview.get(1).getResolvedUserIds());
+    }
+
+    @Test
+    void testPreviewRoute_deptCandidateIdsResolveDepartmentLeadersAndKeepDuplicateObligations() {
+        DccFileCategoryDO category = createCategory("DEPT_ROUTE_MULTI");
+        DccCategoryApprovalRouteDO route = createRoute(category.getId());
+        routeNodeMapper.insert(createRouteNode(route.getId(), 1, "DOC_CONTROL_REVIEW", "文控审核",
+                "USER", 200L, "ANY", false, 1));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 2, "MATRIX_REVIEW", "会签审核",
+                "DEPT", List.of(81L, 82L), "ALL", true, 2));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 3, "MATRIX_APPROVAL", "会签批准",
+                "USER", 202L, "ANY", false, 3));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
+                "USER", 203L, "ANY", false, 4));
+        when(deptApi.getDeptList(List.of(81L, 82L)))
+                .thenReturn(List.of(dept(81L, "生产部", 701L), dept(82L, "质量部", 701L)));
+
+        DccApprovalRoutePreviewReqVO reqVO = new DccApprovalRoutePreviewReqVO();
+        reqVO.setCategoryId(category.getId());
+
+        List<DccApprovalRoutePreviewRespVO> preview = routeAdminService.previewRoute(reqVO);
+
+        assertEquals("DEPT", preview.get(1).getCandidateSourceType());
+        assertEquals(List.of(81L, 82L), preview.get(1).getCandidateSourceIds());
+        assertEquals(List.of(701L, 701L), preview.get(1).getResolvedUserIds());
+    }
+
+    @Test
+    void testPreviewRoute_deptCandidateWithoutLeaderFailsFast() {
+        DccFileCategoryDO category = createCategory("DEPT_ROUTE_MISSING");
+        DccCategoryApprovalRouteDO route = createRoute(category.getId());
+        routeNodeMapper.insert(createRouteNode(route.getId(), 1, "DOC_CONTROL_REVIEW", "文控审核",
+                "USER", 200L, "ANY", false, 1));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 2, "MATRIX_REVIEW", "会签审核",
+                "DEPT", 321L, "ALL", true, 2));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 3, "MATRIX_APPROVAL", "会签批准",
+                "USER", 202L, "ANY", false, 3));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
+                "USER", 203L, "ANY", false, 4));
+        when(deptApi.getDeptList(List.of(321L))).thenReturn(List.of(dept(321L, "生产部", null)));
 
         DccApprovalRoutePreviewReqVO reqVO = new DccApprovalRoutePreviewReqVO();
         reqVO.setCategoryId(category.getId());
@@ -369,6 +442,112 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void testSaveRoute_actionTypeNewPersistsActionRouteAndKeepsLegacyActive() {
+        DccFileCategoryDO category = createCategory("ACTION_NEW_SAVE");
+        DccCategoryApprovalRouteDO legacyRoute = createRoute(category.getId());
+
+        DccApprovalRouteSaveReqVO reqVO = new DccApprovalRouteSaveReqVO();
+        reqVO.setActionType("NEW");
+        reqVO.setEffectiveTime(LocalDateTime.now());
+        reqVO.setRemark("new upload route");
+        reqVO.setNodes(List.of(
+                createNodeReq(1, "会签", "DEPT", List.of(81L, 82L), "ALL", 1),
+                createNodeReq(2, "批准", "USER", 202L, "ANY", 2),
+                createNodeReq(3, "文控审核", "USER", 203L, "ANY", 3)
+        ));
+
+        DccCategoryApprovalRouteDO route = routeAdminService.saveRoute(category.getId(), reqVO);
+
+        assertEquals("NEW", route.getActionType());
+        assertEquals(Boolean.TRUE, routeMapper.selectById(legacyRoute.getId()).getActive());
+        List<DccCategoryApprovalRouteNodeDO> nodes = routeNodeMapper.selectListByRouteId(route.getId());
+        assertEquals(List.of("MATRIX_REVIEW", "MATRIX_APPROVAL", "DOC_CONTROL_REVIEW"),
+                nodes.stream().map(DccCategoryApprovalRouteNodeDO::getStageCode).toList());
+        assertEquals("DEPT", nodes.get(0).getCandidateSourceType());
+        assertEquals("81,82", nodes.get(0).getCandidateSourceIds());
+    }
+
+    @Test
+    void testPreviewRoute_actionTypeNewUsesActionRouteNotLegacy() {
+        DccFileCategoryDO category = createCategory("ACTION_NEW_PREVIEW");
+        DccCategoryApprovalRouteDO legacyRoute = createRoute(category.getId());
+        routeNodeMapper.insert(createRouteNode(legacyRoute.getId(), 1, "DOC_CONTROL_REVIEW", "文控审核",
+                "USER", 200L, "ANY", false, 1));
+        routeNodeMapper.insert(createRouteNode(legacyRoute.getId(), 2, "MATRIX_REVIEW", "会签审核",
+                "USER", 201L, "ALL", true, 2));
+        routeNodeMapper.insert(createRouteNode(legacyRoute.getId(), 3, "MATRIX_APPROVAL", "会签批准",
+                "USER", 202L, "ANY", false, 3));
+        routeNodeMapper.insert(createRouteNode(legacyRoute.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
+                "USER", 203L, "ANY", false, 4));
+        DccCategoryApprovalRouteDO actionRoute = createRoute(category.getId(), "NEW");
+        routeNodeMapper.insert(createRouteNode(actionRoute.getId(), 1, "MATRIX_REVIEW", "会签",
+                "DEPT", List.of(81L, 82L), "ALL", true, 1));
+        routeNodeMapper.insert(createRouteNode(actionRoute.getId(), 2, "MATRIX_APPROVAL", "批准",
+                "USER", 302L, "ANY", false, 2));
+        routeNodeMapper.insert(createRouteNode(actionRoute.getId(), 3, "DOC_CONTROL_REVIEW", "文控审核",
+                "USER", 303L, "ANY", false, 3));
+        when(deptApi.getDeptList(List.of(81L, 82L)))
+                .thenReturn(List.of(dept(81L, "生产部", 701L), dept(82L, "质量部", 702L)));
+
+        DccApprovalRoutePreviewReqVO reqVO = new DccApprovalRoutePreviewReqVO();
+        reqVO.setCategoryId(category.getId());
+        reqVO.setActionType("NEW");
+
+        List<DccApprovalRoutePreviewRespVO> preview = routeAdminService.previewRoute(reqVO);
+
+        assertEquals(3, preview.size());
+        assertEquals("MATRIX_REVIEW", preview.get(0).getStageCode());
+        assertEquals("DEPT", preview.get(0).getCandidateSourceType());
+        assertEquals(List.of(81L, 82L), preview.get(0).getCandidateSourceIds());
+        assertEquals(List.of(701L, 702L), preview.get(0).getResolvedUserIds());
+        assertEquals(List.of(302L), preview.get(1).getResolvedUserIds());
+    }
+
+    @Test
+    void testSaveRoute_actionTypeSignoffRejectsUserCandidate() {
+        DccFileCategoryDO category = createCategory("ACTION_NEW_USER_SIGNOFF");
+
+        DccApprovalRouteSaveReqVO reqVO = new DccApprovalRouteSaveReqVO();
+        reqVO.setActionType("NEW");
+        reqVO.setEffectiveTime(LocalDateTime.now());
+        reqVO.setNodes(List.of(
+                createNodeReq(1, "会签", "USER", 201L, "ALL", 1),
+                createNodeReq(2, "批准", "USER", 202L, "ANY", 2),
+                createNodeReq(3, "文控审核", "USER", 203L, "ANY", 3)
+        ));
+
+        assertServiceException(() -> routeAdminService.saveRoute(category.getId(), reqVO),
+                DccApprovalRouteAdminServiceImpl.APPROVAL_ROUTE_FIXED_STAGE_INVALID);
+        assertEquals(0L, routeMapper.selectCount(DccCategoryApprovalRouteDO::getCategoryId, category.getId()));
+    }
+
+    @Test
+    void testSaveRoute_persistsMatrixReviewDepartmentIdsWithoutResolvingUsers() {
+        DccFileCategoryDO category = createCategory("DEPT_SAVE");
+
+        DccApprovalRouteSaveReqVO reqVO = new DccApprovalRouteSaveReqVO();
+        reqVO.setEffectiveTime(LocalDateTime.now());
+        reqVO.setRemark("department matrix");
+        reqVO.setNodes(List.of(
+                createNodeReq(1, "文控审核", "USER", 200L, "ANY", 1),
+                createNodeReq(2, "会签审核", "DEPT", List.of(81L, 82L), "ALL", 2),
+                createNodeReq(3, "会签批准", "USER", 202L, "ANY", 3),
+                createNodeReq(4, "文控批准", "USER", 203L, "ANY", 4)
+        ));
+
+        DccCategoryApprovalRouteDO route = routeAdminService.saveRoute(category.getId(), reqVO);
+
+        List<DccCategoryApprovalRouteNodeDO> nodes = routeNodeMapper.selectListByRouteId(route.getId());
+        DccCategoryApprovalRouteNodeDO matrixReview = nodes.stream()
+                .filter(node -> Integer.valueOf(2).equals(node.getStageNo()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("DEPT", matrixReview.getCandidateSourceType());
+        assertEquals(81L, matrixReview.getCandidateSourceId());
+        assertEquals("81,82", matrixReview.getCandidateSourceIds());
+    }
+
+    @Test
     void testSaveRoute_futureEffectiveRouteKeepsCurrentRouteSelectable() {
         DccFileCategoryDO category = createCategory("FUTURE_SAVE");
         DccCategoryApprovalRouteDO currentRoute = createRoute(category.getId(), 1, Boolean.TRUE,
@@ -575,15 +754,33 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         return position;
     }
 
+    private DeptRespDTO dept(Long id, String name, Long leaderUserId) {
+        DeptRespDTO dept = new DeptRespDTO();
+        dept.setId(id);
+        dept.setName(name);
+        dept.setLeaderUserId(leaderUserId);
+        return dept;
+    }
+
     private DccCategoryApprovalRouteDO createRoute(Long categoryId) {
-        return createRoute(categoryId, 1, Boolean.TRUE, LocalDateTime.now());
+        return createRoute(categoryId, 1, Boolean.TRUE, LocalDateTime.of(2026, 1, 1, 0, 0));
+    }
+
+    private DccCategoryApprovalRouteDO createRoute(Long categoryId, String actionType) {
+        return createRoute(categoryId, actionType, 1, Boolean.TRUE, LocalDateTime.of(2026, 1, 1, 0, 0));
     }
 
     private DccCategoryApprovalRouteDO createRoute(Long categoryId, int versionNo, Boolean active,
                                                    LocalDateTime effectiveTime) {
+        return createRoute(categoryId, "LEGACY", versionNo, active, effectiveTime);
+    }
+
+    private DccCategoryApprovalRouteDO createRoute(Long categoryId, String actionType, int versionNo, Boolean active,
+                                                   LocalDateTime effectiveTime) {
         DccCategoryApprovalRouteDO route = DccCategoryApprovalRouteDO.builder()
                 .id(randomLongId())
                 .categoryId(categoryId)
+                .actionType(actionType)
                 .versionNo(versionNo)
                 .active(active)
                 .effectiveTime(effectiveTime)
@@ -607,6 +804,14 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         return reqVO;
     }
 
+    private DccApprovalRouteNodeSaveReqVO createNodeReq(int stageNo, String stageName, String sourceType,
+                                                        List<Long> sourceIds, String approveMethod, int sort) {
+        DccApprovalRouteNodeSaveReqVO reqVO = createNodeReq(stageNo, stageName, sourceType,
+                sourceIds == null || sourceIds.isEmpty() ? null : sourceIds.get(0), approveMethod, sort);
+        reqVO.setCandidateSourceIds(sourceIds);
+        return reqVO;
+    }
+
     private DccCategoryApprovalRouteNodeDO createRouteNode(Long routeId, int stageNo, String stageCode, String stageName,
                                                            String sourceType, Long sourceId, String approveMethod,
                                                            boolean requireAllApprovals, int sort) {
@@ -626,5 +831,17 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
                 .required(Boolean.TRUE)
                 .sort(sort)
                 .build();
+    }
+
+    private DccCategoryApprovalRouteNodeDO createRouteNode(Long routeId, int stageNo, String stageCode, String stageName,
+                                                           String sourceType, List<Long> sourceIds, String approveMethod,
+                                                           boolean requireAllApprovals, int sort) {
+        DccCategoryApprovalRouteNodeDO node = createRouteNode(routeId, stageNo, stageCode, stageName, sourceType,
+                sourceIds == null || sourceIds.isEmpty() ? null : sourceIds.get(0), approveMethod,
+                requireAllApprovals, sort);
+        node.setCandidateSourceIds(sourceIds == null ? null : sourceIds.stream()
+                .map(String::valueOf)
+                .collect(java.util.stream.Collectors.joining(",")));
+        return node;
     }
 }

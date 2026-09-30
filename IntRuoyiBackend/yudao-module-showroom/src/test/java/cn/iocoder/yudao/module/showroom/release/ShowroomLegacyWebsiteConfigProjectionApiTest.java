@@ -20,7 +20,7 @@ class ShowroomLegacyWebsiteConfigProjectionApiTest extends AbstractShowroomRelea
         assertEquals("盈泰医疗", payload.company().name());
         assertTrue(payload.company().homeImageUrl().startsWith("/showroom/sites/"));
         assertEquals(1, payload.showrooms().size());
-        assertEquals(1, payload.showrooms().getFirst().products().size());
-        assertTrue(payload.showrooms().getFirst().products().getFirst().previewImageUrl().startsWith("/showroom/sites/"));
+        assertEquals(1, payload.showrooms().get(0).products().size());
+        assertTrue(payload.showrooms().get(0).products().get(0).previewImageUrl().startsWith("/showroom/sites/"));
     }
 }

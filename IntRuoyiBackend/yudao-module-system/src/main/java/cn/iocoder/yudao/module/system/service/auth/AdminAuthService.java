@@ -24,6 +24,13 @@ public interface AdminAuthService {
     AdminUserDO authenticate(String username, String password);
 
     /**
+     * 修改首次、重置后或已过期的密码，不建立认证会话。
+     *
+     * @param reqVO 账号、当前密码和新密码
+     */
+    void changePasswordBeforeLogin(@Valid AuthPreLoginPasswordChangeReqVO reqVO);
+
+    /**
      * 账号登录
      *
      * @param reqVO 登录信息

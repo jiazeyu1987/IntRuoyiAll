@@ -4,7 +4,9 @@ const assert = require('node:assert/strict')
 
 const root = path.resolve(__dirname, '../..')
 const page = fs.readFileSync(path.join(root, 'src/views/approval-center/index.vue'), 'utf8')
-const actionColumnStart = page.indexOf('<el-table-column\n                v-if="isApprovalColumnVisible(\'actions\')"')
+const actionColumnStart = page.search(
+  /<el-table-column\s+v-if\s*=\s*"isApprovalColumnVisible\(\s*'actions'\s*\)"/
+)
 const actionColumnEnd = page.indexOf('</el-table-column>', actionColumnStart)
 
 assert.notEqual(actionColumnStart, -1, '审批中心必须保留操作列')

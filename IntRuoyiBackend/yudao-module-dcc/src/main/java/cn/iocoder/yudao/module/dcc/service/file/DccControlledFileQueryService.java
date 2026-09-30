@@ -51,9 +51,17 @@ public interface DccControlledFileQueryService {
     DccControlledFilePreviewMetadataRespVO getPreviewMetadata(Long userId, Long id,
                                                               DccRequestAuditContext auditContext);
 
+    DccControlledFilePreviewMetadataRespVO getAttachmentPreviewMetadata(Long userId, Long id, Long attachmentId,
+                                                                        DccRequestAuditContext auditContext);
+
     DccControlledFileBinary readPreviewFile(Long userId, Long id, String viewerToken, String accessEventCode,
                                             String watermarkTraceCode, String viewerTokenId,
                                             String viewerTokenNonce, DccRequestAuditContext auditContext);
+
+    DccControlledFileBinary readAttachmentPreviewFile(Long userId, Long id, Long attachmentId, String viewerToken,
+                                                      String accessEventCode, String watermarkTraceCode,
+                                                      String viewerTokenId, String viewerTokenNonce,
+                                                      DccRequestAuditContext auditContext);
 
     DccDownloadFileBinary readDownloadFile(Long userId, Long id, Boolean nonControlledWarningConfirmed,
                                            String downloadRequestId, DccRequestAuditContext auditContext);

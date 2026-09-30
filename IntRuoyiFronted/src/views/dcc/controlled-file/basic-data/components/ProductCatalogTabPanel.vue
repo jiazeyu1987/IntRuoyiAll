@@ -31,11 +31,12 @@
           class="scheme-d-btn scheme-d-btn--success"
           type="primary"
           plain
-          @click="openForm('create')"
+          data-testid="dcc-project-product-create-open"
+          @click="openProjectProductDialog"
           v-hasPermi="['dcc:project-code:create']"
         >
           <Icon icon="ep:plus" class="mr-5px" />
-          新增产品目录
+          新建项目代码及产品
         </el-button>
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -356,6 +357,136 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
+  <Dialog
+    v-model="projectProductDialogVisible"
+    class="scheme-d-form-control"
+    title="新建项目代码及产品"
+    width="980px"
+  >
+    <el-form
+      ref="projectProductFormRef"
+      v-loading="projectProductLoading"
+      :model="projectProductForm"
+      :rules="projectProductRules"
+      label-width="96px"
+    >
+      <el-row :gutter="18">
+        <el-col :span="12">
+          <el-form-item label="项目名称" prop="projectName">
+            <el-input v-model="projectProductForm.projectName" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="项目代码" prop="projectCode">
+            <el-input v-model="projectProductForm.projectCode" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="项目负责人" prop="projectLeader">
+            <el-input v-model="projectProductForm.projectLeader" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="产品编码" prop="productCode">
+            <el-input v-model="projectProductForm.productCode" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="产品名称" prop="productName">
+            <el-input v-model="projectProductForm.productName" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="分类" prop="classification">
+            <el-select v-model="projectProductForm.classification" class="!w-100%">
+              <el-option label="一类" value="一类" />
+              <el-option label="二类" value="二类" />
+              <el-option label="三类" value="三类" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        <el-col :span="24">
+          <el-form-item label="备注" prop="remark">
+            <el-input v-model="projectProductForm.remark" type="textarea" :rows="2" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+    </el-form>
+    <el-divider />
+    <div class="mb-8px flex items-center justify-between">
+      <span class="font-600">申请与审批记录</span>
+      <el-button link type="primary" :loading="projectProductRequestsLoading" @click="loadProjectProductRequests">
+        刷新
+      </el-button>
+    </div>
+    <el-table
+      v-loading="projectProductRequestsLoading"
+      :data="projectProductRequests"
+      max-height="260"
+      border
+      size="small"
+    >
+      <el-table-column prop="projectCode" label="项目代码" min-width="120" />
+      <el-table-column prop="productCode" label="产品编码" min-width="120" />
+      <el-table-column prop="productName" label="产品名称" min-width="150" />
+      <el-table-column prop="status" label="状态" width="120" />
+      <el-table-column label="操作" fixed="right" width="180">
+        <template #default="{ row }">
+          <el-button
+            v-if="row.status === 'PENDING_REVIEW'"
+            link
+            type="primary"
+            @click="handleProjectProductAction(row, 'review', true)"
+          >
+            审核通过
+          </el-button>
+          <el-button
+            v-if="row.status === 'PENDING_REVIEW'"
+            link
+            type="danger"
+            @click="handleProjectProductAction(row, 'review', false)"
+          >
+            审核驳回
+          </el-button>
+          <el-button
+            v-if="row.status === 'PENDING_APPROVAL'"
+            link
+            type="primary"
+            @click="handleProjectProductAction(row, 'approve', true)"
+          >
+            批准通过
+          </el-button>
+          <el-button
+            v-if="row.status === 'PENDING_APPROVAL'"
+            link
+            type="danger"
+            @click="handleProjectProductAction(row, 'approve', false)"
+          >
+            批准驳回
+          </el-button>
+          <el-button
+            v-if="row.status === 'WRITE_FAILED'"
+            link
+            type="warning"
+            @click="handleProjectProductRetry(row)"
+          >
+            重试写入
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <template #footer>
+      <div class="scheme-d-dialog-footer">
+        <el-button type="primary" :loading="projectProductLoading" @click="submitProjectProductRequest">
+          提交审批
+        </el-button>
+        <el-button :disabled="projectProductLoading" @click="projectProductDialogVisible = false">
+          取消
+        </el-button>
+      </div>
+    </template>
+  </Dialog>
+
   <Dialog v-model="formVisible" class="scheme-d-form-control" title="产品目录维护" width="820px">
     <el-form
       ref="formRef"
@@ -502,6 +633,15 @@ import {
   getProductCatalogPage,
   updateProductCatalog
 } from '@/api/dcc/controlledFile/productCatalog'
+import {
+  approveDccProjectProductRequest,
+  createDccProjectProductRequest,
+  getDccProjectProductRequests,
+  retryDccProjectProductRequestWrite,
+  reviewDccProjectProductRequest,
+  type DccProjectProductCreateReqVO,
+  type DccProjectProductCreateRespVO
+} from '@/api/dcc/controlledFile/projectProductRequests'
 import { getProjectCodePage, type DccProjectCodeRespVO } from '@/api/dcc/controlledFile/projectCodes'
 import { createDccDataRelation } from '@/api/dcc/dataRelations'
 import {
@@ -534,6 +674,28 @@ const bindingFormData = reactive({
 const bindingFormRules: FormRules = {
   projectCodeId: [{ required: true, message: '请选择DCC项目代码', trigger: 'change' }],
   registrationCertificateId: [{ required: true, message: '请选择注册证', trigger: 'change' }]
+}
+const projectProductDialogVisible = ref(false)
+const projectProductLoading = ref(false)
+const projectProductRequestsLoading = ref(false)
+const projectProductFormRef = ref()
+const projectProductRequests = ref<DccProjectProductCreateRespVO[]>([])
+const projectProductForm = reactive<DccProjectProductCreateReqVO>({
+  projectName: '',
+  projectCode: '',
+  projectLeader: '',
+  productCode: '',
+  productName: '',
+  classification: '一类',
+  remark: ''
+})
+const projectProductRules: FormRules = {
+  projectName: [{ required: true, message: '请输入项目名称', trigger: 'blur' }],
+  projectCode: [{ required: true, message: '请输入项目代码', trigger: 'blur' }],
+  projectLeader: [{ required: true, message: '请输入项目负责人', trigger: 'blur' }],
+  productCode: [{ required: true, message: '请输入产品编码', trigger: 'blur' }],
+  productName: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
+  classification: [{ required: true, message: '请选择分类', trigger: 'change' }]
 }
 
 const productStatusOptions = [
@@ -818,6 +980,83 @@ const resetFormData = () => {
     remark: ''
   }
   formRef.value?.resetFields()
+}
+
+const resetProjectProductForm = () => {
+  projectProductForm.projectName = ''
+  projectProductForm.projectCode = ''
+  projectProductForm.projectLeader = ''
+  projectProductForm.productCode = ''
+  projectProductForm.productName = ''
+  projectProductForm.classification = '一类'
+  projectProductForm.remark = ''
+  projectProductFormRef.value?.resetFields()
+}
+
+const loadProjectProductRequests = async () => {
+  projectProductRequestsLoading.value = true
+  try {
+    projectProductRequests.value = await getDccProjectProductRequests()
+  } finally {
+    projectProductRequestsLoading.value = false
+  }
+}
+
+const openProjectProductDialog = async () => {
+  resetProjectProductForm()
+  projectProductDialogVisible.value = true
+  await loadProjectProductRequests()
+}
+
+const submitProjectProductRequest = async () => {
+  const valid = await projectProductFormRef.value?.validate()
+  if (!valid) return
+  projectProductLoading.value = true
+  try {
+    await createDccProjectProductRequest({ ...projectProductForm })
+    message.success('申请已提交，等待 admin 审核')
+    resetProjectProductForm()
+    await loadProjectProductRequests()
+  } finally {
+    projectProductLoading.value = false
+  }
+}
+
+const handleProjectProductAction = async (
+  row: DccProjectProductCreateRespVO,
+  node: 'review' | 'approve',
+  approve: boolean
+) => {
+  const reason = window.prompt(approve ? '请输入通过意见' : '请输入驳回原因', '')
+  if (reason === null || !reason.trim()) {
+    message.warning('审批意见不能为空')
+    return
+  }
+  projectProductRequestsLoading.value = true
+  try {
+    if (node === 'review') {
+      await reviewDccProjectProductRequest(row.id, { reason: reason.trim() }, approve)
+    } else {
+      await approveDccProjectProductRequest(row.id, { reason: reason.trim() }, approve)
+    }
+    message.success('审批处理成功')
+    await loadProjectProductRequests()
+    await getList()
+  } finally {
+    projectProductRequestsLoading.value = false
+  }
+}
+
+const handleProjectProductRetry = async (row: DccProjectProductCreateRespVO) => {
+  projectProductRequestsLoading.value = true
+  try {
+    await retryDccProjectProductRequestWrite(row.id)
+    message.success('已重新写入')
+    await loadProjectProductRequests()
+    await getList()
+  } finally {
+    projectProductRequestsLoading.value = false
+  }
 }
 
 const PRODUCT_CATALOG_TREE_PAGE_SIZE = 200
@@ -1111,7 +1350,7 @@ const openLinkedProjectCode = (row: DccProductCatalogRespVO) => {
     return
   }
   router.push({
-    path: '/mes/md/dcc-project-code',
+    path: '/mdm/project-code',
     query: { projectCodeId: String(row.projectCodeId) }
   })
 }

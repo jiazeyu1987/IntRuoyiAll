@@ -112,7 +112,7 @@ class DccWorkingIterationSubmissionServiceTest {
         DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route =
                 new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(
                         DccCategoryApprovalRouteDO.builder().id(30L).versionNo(2).build(), List.of(node));
-        when(routeReadinessService.evaluate(10L, 99L, List.of())).thenReturn(
+        when(routeReadinessService.evaluate(10L, 99L, List.of(), "REVISION")).thenReturn(
                 new DccControlledFileRouteReadinessService.RouteReadinessEvaluation(route,
                         DccControlledFileRouteReadinessRespVO.builder()
                                 .ready(true).nodes(List.of()).blockers(List.of()).build()));
@@ -160,7 +160,7 @@ class DccWorkingIterationSubmissionServiceTest {
         DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route =
                 new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(
                         DccCategoryApprovalRouteDO.builder().id(30L).versionNo(2).build(), List.of(node));
-        when(routeReadinessService.evaluate(10L, 99L, List.of())).thenReturn(
+        when(routeReadinessService.evaluate(10L, 99L, List.of(), "NEW")).thenReturn(
                 new DccControlledFileRouteReadinessService.RouteReadinessEvaluation(route,
                         DccControlledFileRouteReadinessRespVO.builder()
                                 .ready(true).nodes(List.of()).blockers(List.of()).build()));
@@ -178,6 +178,50 @@ class DccWorkingIterationSubmissionServiceTest {
 
         verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
         verify(platformAdapter).recordSubmitted(working, 99L, "proc-new-901");
+    }
+
+    @Test
+    void submitNewWorkingIterationBasedOnFormalActiveUsesRevisionRoute() {
+        DccControlledFileDO active = iteration(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
+        active.setChangeType(DccControlledFileChangeTypeEnum.NEW.getCode());
+        DccControlledFileDO working = iteration(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
+        working.setChangeType(DccControlledFileChangeTypeEnum.NEW.getCode());
+        when(controlledFileMapper.selectById(901L)).thenReturn(working);
+        when(controlledFileMapper.selectByIdAndTenantForUpdate(1L, 901L)).thenReturn(working);
+        when(masterMapper.selectByIdForUpdate(700L)).thenReturn(
+                DccControlledFileMasterDO.builder().id(700L).currentActiveControlledFileId(900L).build());
+        when(controlledFileMapper.selectListByMasterIdForUpdate(700L)).thenReturn(List.of(active, working));
+        when(categoryPermissionSupport.hasCategoryPermission(eq(10L), eq(99L), any())).thenReturn(true);
+        when(checkoutMapper.selectActiveByMasterId(1L, 700L)).thenReturn(null);
+        DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode node =
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                        1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "文控审核", 1,
+                        "USER", 200L, List.of(200L), "ANY", 100, false, List.of(200L));
+        DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route =
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(
+                        DccCategoryApprovalRouteDO.builder().id(30L).versionNo(2).build(), List.of(node));
+        when(routeReadinessService.evaluate(10L, 99L, List.of(), "REVISION")).thenReturn(
+                new DccControlledFileRouteReadinessService.RouteReadinessEvaluation(route,
+                        DccControlledFileRouteReadinessRespVO.builder()
+                                .ready(true).nodes(List.of()).blockers(List.of()).build()));
+        when(routeAssigneeResolver.buildStartUserSelectAssigneeMap(List.of(node))).thenReturn(
+                Map.of(DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), List.of(200L)));
+        when(routeAssigneeResolver.buildApproveUserSelectAssigneeMap(List.of(node))).thenReturn(Map.of());
+        when(bpmProcessInstanceApi.createProcessInstance(eq(99L), any(BpmProcessInstanceCreateReqDTO.class)))
+                .thenReturn("proc-revision-901");
+        when(controlledFileMapper.claimWorkingIterationSubmission(eq(1L), eq(99L), any(DccControlledFileDO.class)))
+                .thenReturn(1);
+        when(controlledFileMapper.updateById(any(DccControlledFileDO.class))).thenReturn(1);
+        DccControlledFileSubmitIterationReqVO request = new DccControlledFileSubmitIterationReqVO();
+        request.setIdempotencyKey("submit-active-new-901");
+
+        assertEquals(901L, service.submitWorkingIteration(99L, 901L, request));
+
+        verify(routeReadinessService).evaluate(10L, 99L, List.of(), "REVISION");
+        ArgumentCaptor<DccControlledFileDO> claimCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).claimWorkingIterationSubmission(eq(1L), eq(99L), claimCaptor.capture());
+        assertEquals(DccControlledFileProcessDefinitionKeys.REVISION,
+                claimCaptor.getValue().getProcessDefinitionKey());
     }
 
     @Test
@@ -254,7 +298,7 @@ class DccWorkingIterationSubmissionServiceTest {
                 () -> service.submitWorkingIteration(100L, 901L, request));
 
         assertEquals(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED.getCode(), error.getCode());
-        verify(routeReadinessService, never()).evaluate(any(), any(), any());
+        verify(routeReadinessService, never()).evaluate(any(), any(), any(), any());
         verify(bpmProcessInstanceApi, never()).createProcessInstance(any(), any());
     }
 
@@ -284,7 +328,7 @@ class DccWorkingIterationSubmissionServiceTest {
         DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route =
                 new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(
                         DccCategoryApprovalRouteDO.builder().id(30L).versionNo(2).build(), List.of(node));
-        when(routeReadinessService.evaluate(10L, 99L, List.of())).thenReturn(
+        when(routeReadinessService.evaluate(10L, 99L, List.of(), "REVISION")).thenReturn(
                 new DccControlledFileRouteReadinessService.RouteReadinessEvaluation(route,
                         DccControlledFileRouteReadinessRespVO.builder()
                                 .ready(true).nodes(List.of()).blockers(List.of()).build()));

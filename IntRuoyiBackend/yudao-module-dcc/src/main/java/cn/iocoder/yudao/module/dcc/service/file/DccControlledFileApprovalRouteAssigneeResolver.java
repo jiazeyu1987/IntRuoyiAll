@@ -12,7 +12,10 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteNodeM
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.dcc.service.position.DccApprovalPositionRuntimeResolver;
+import cn.iocoder.yudao.module.dcc.service.route.DccActionApprovalRoutePolicy;
 import cn.iocoder.yudao.module.dcc.service.route.DccFixedApprovalRoutePolicy;
+import cn.iocoder.yudao.module.system.api.dept.DeptApi;
+import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
@@ -47,14 +50,22 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
     @Resource
     private AdminUserApi adminUserApi;
     @Resource
+    private DeptApi deptApi;
+    @Resource
     private DccApprovalParticipantPostValidator approvalParticipantPostValidator;
 
     public Map<String, List<Long>> resolveStartUserSelectAssignees(DccControlledFileDO file, Long submitterUserId) {
+        return resolveStartUserSelectAssignees(file, submitterUserId,
+                file == null ? null : DccControlledFileProcessDefinitionKeys.toActionType(file.getProcessDefinitionKey()));
+    }
+
+    public Map<String, List<Long>> resolveStartUserSelectAssignees(DccControlledFileDO file, Long submitterUserId,
+                                                                   String actionType) {
         if (file == null || file.getCategoryId() == null) {
             throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
         }
         Map<String, List<Long>> startUserSelectAssignees = buildStartUserSelectAssigneeMap(
-                resolveRoute(file.getCategoryId(), submitterUserId).nodes());
+                resolveRoute(file.getCategoryId(), submitterUserId, actionType).nodes());
         if (startUserSelectAssignees.isEmpty()) {
             throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
         }
@@ -65,12 +76,27 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
         return resolveRoute(categoryId, submitterUserId, true);
     }
 
+    public ResolvedRoute resolveRoute(Long categoryId, Long submitterUserId, String actionType) {
+        return resolveRoute(categoryId, submitterUserId, actionType, true);
+    }
+
     public ResolvedRoute resolveRouteForReadiness(Long categoryId, Long submitterUserId) {
         return resolveRoute(categoryId, submitterUserId, false);
     }
 
+    public ResolvedRoute resolveRouteForReadiness(Long categoryId, Long submitterUserId, String actionType) {
+        return resolveRoute(categoryId, submitterUserId, actionType, false);
+    }
+
     private ResolvedRoute resolveRoute(Long categoryId, Long submitterUserId, boolean requireConfiguredPosts) {
-        DccCategoryApprovalRouteDO route = routeMapper.selectLatestActiveByCategoryId(categoryId);
+        return resolveRoute(categoryId, submitterUserId, null, requireConfiguredPosts);
+    }
+
+    private ResolvedRoute resolveRoute(Long categoryId, Long submitterUserId, String actionType,
+                                       boolean requireConfiguredPosts) {
+        DccCategoryApprovalRouteDO route = StrUtil.isBlank(actionType)
+                ? routeMapper.selectLatestActiveByCategoryId(categoryId)
+                : routeMapper.selectLatestActiveByCategoryIdAndActionType(categoryId, actionType);
         if (route == null) {
             throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
         }
@@ -82,24 +108,34 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
         if (routeNodes.isEmpty()) {
             throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
         }
-        DccFixedApprovalRoutePolicy.validateRouteNodes(routeNodes, CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+        if (StrUtil.isBlank(actionType)) {
+            DccFixedApprovalRoutePolicy.validateRouteNodes(routeNodes, CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+        } else {
+            DccActionApprovalRoutePolicy.validateRouteNodes(actionType, routeNodes, CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+        }
         List<ResolvedRouteNode> resolvedNodes = routeNodes.stream()
                 .map(routeNode -> resolveRouteNode(routeNode, submitterUserId, requireConfiguredPosts))
                 .toList();
-        if (toPendingStatus(resolvedNodes.get(0).stageNo()) == null) {
+        if (toPendingStatus(resolvedNodes.get(0).stageCode()) == null) {
             throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
         }
         return new ResolvedRoute(route, resolvedNodes);
     }
 
     public Map<String, List<Long>> buildStartUserSelectAssigneeMap(List<ResolvedRouteNode> nodes) {
-        return buildUniqueStageAssigneeMap(nodes,
-                node -> DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(node.stageCode()));
+        if (nodes == null || nodes.isEmpty()) {
+            return Map.of();
+        }
+        ResolvedRouteNode firstNode = nodes.get(0);
+        return buildUniqueStageAssigneeMap(nodes, node -> node == firstNode);
     }
 
     public Map<String, List<Long>> buildApproveUserSelectAssigneeMap(List<ResolvedRouteNode> nodes) {
-        return buildUniqueStageAssigneeMap(nodes,
-                node -> !DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(node.stageCode()));
+        if (nodes == null || nodes.isEmpty()) {
+            return Map.of();
+        }
+        ResolvedRouteNode firstNode = nodes.get(0);
+        return buildUniqueStageAssigneeMap(nodes, node -> node != firstNode);
     }
 
     private Map<String, List<Long>> buildUniqueStageAssigneeMap(List<ResolvedRouteNode> nodes,
@@ -141,6 +177,9 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
             validateResolvedUserIds(candidateSourceIds, requireConfiguredPosts);
             return candidateSourceIds;
         }
+        if ("DEPT".equalsIgnoreCase(routeNode.getCandidateSourceType())) {
+            return resolveDepartmentLeaders(candidateSourceIds, requireConfiguredPosts);
+        }
         if (!"POSITION".equalsIgnoreCase(routeNode.getCandidateSourceType())) {
             throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
         }
@@ -160,6 +199,30 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
         List<Long> resolvedUserIds = new ArrayList<>(userIds);
         validateResolvedUserIds(resolvedUserIds, requireConfiguredPosts);
         return resolvedUserIds;
+    }
+
+    private List<Long> resolveDepartmentLeaders(List<Long> departmentIds, boolean requireConfiguredPosts) {
+        if (departmentIds.isEmpty()) {
+            throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+        }
+        try {
+            deptApi.validateDeptList(departmentIds);
+        } catch (ServiceException ex) {
+            throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+        }
+        List<DeptRespDTO> departments = deptApi.getDeptList(departmentIds);
+        Map<Long, List<DeptRespDTO>> departmentMap = departments.stream()
+                .collect(Collectors.groupingBy(DeptRespDTO::getId));
+        List<Long> leaderUserIds = new ArrayList<>(departmentIds.size());
+        for (Long departmentId : departmentIds) {
+            List<DeptRespDTO> matches = departmentMap.get(departmentId);
+            if (matches == null || matches.size() != 1 || matches.get(0).getLeaderUserId() == null) {
+                throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+            }
+            leaderUserIds.add(matches.get(0).getLeaderUserId());
+        }
+        validateResolvedUserIds(leaderUserIds, requireConfiguredPosts);
+        return leaderUserIds;
     }
 
     private void validateResolvedUserIds(List<Long> userIds, boolean requireConfiguredPosts) {
@@ -196,17 +259,23 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
         return fallbackId == null ? List.of() : List.of(fallbackId);
     }
 
-    private String toPendingStatus(Integer stageNo) {
-        if (stageNo == null) {
+    private String toPendingStatus(String stageCode) {
+        if (stageCode == null) {
             return null;
         }
-        return switch (stageNo) {
-            case 1 -> DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus();
-            case 2 -> DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus();
-            case 3 -> DccControlledFileStatusEnum.PENDING_MATRIX_APPROVAL.getStatus();
-            case 4 -> DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus();
-            default -> null;
-        };
+        if (DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(stageCode)) {
+            return DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus();
+        }
+        if (DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode().equals(stageCode)) {
+            return DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus();
+        }
+        if (DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode().equals(stageCode)) {
+            return DccControlledFileStatusEnum.PENDING_MATRIX_APPROVAL.getStatus();
+        }
+        if (DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode().equals(stageCode)) {
+            return DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus();
+        }
+        return null;
     }
 
     public record ResolvedRoute(DccCategoryApprovalRouteDO route, List<ResolvedRouteNode> nodes) {

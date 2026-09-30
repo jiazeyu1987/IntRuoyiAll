@@ -76,6 +76,24 @@ class BpmMessageServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void sendMessageWhenTaskAssigned_newDccUploadProcess_usesNotifyInbox() {
+        BpmMessageSendWhenTaskCreatedReqDTO reqDTO = new BpmMessageSendWhenTaskCreatedReqDTO();
+        reqDTO.setProcessInstanceId("proc-upload-1");
+        reqDTO.setProcessInstanceName("DCC上传流程");
+        reqDTO.setProcessDefinitionKey("dcc-controlled-file-upload");
+        reqDTO.setStartUserId(99L);
+        reqDTO.setStartUserNickname("提交人");
+        reqDTO.setTaskId("task-upload-1");
+        reqDTO.setTaskName("会签");
+        reqDTO.setAssigneeUserId(100L);
+
+        messageService.sendMessageWhenTaskAssigned(reqDTO);
+
+        verify(notifyMessageSendApi).sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class));
+        verify(smsSendApi, never()).sendSingleSmsToAdmin(any(SmsSendSingleToUserReqDTO.class));
+    }
+
+    @Test
     void sendMessageWhenTaskAssigned_registrationCertificateProcess_usesNotifyInbox() {
         BpmMessageSendWhenTaskCreatedReqDTO reqDTO = new BpmMessageSendWhenTaskCreatedReqDTO();
         reqDTO.setProcessInstanceId("proc-reg-cert-1");

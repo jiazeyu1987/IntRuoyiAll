@@ -81,6 +81,17 @@ import static org.mockito.Mockito.when;
 
 class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
 
+    @Test
+    void sourceUploadWithoutTemplateContextIsRejectedBeforeReadingFile() {
+        ReadFailingMultipartFile source = new ReadFailingMultipartFile("source.docx", 4L);
+        DccControlledFileUploadPreviewReqVO request = uploadReq("SOURCE", source);
+        request.setUploadContext(null);
+        assertServiceException(() -> uploadService.uploadPreviewFile(99L, request, auditContext("REQ-NO-TEMPLATE")),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+        assertFalse(source.inputStreamRequested);
+        org.mockito.Mockito.verifyNoInteractions(fileService, uploadTicketService);
+    }
+
     @Mock
     private DccControlledFileWorkflowService workflowService;
 
@@ -326,7 +337,8 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         verify(uploadTicketService).createTicket(ticketCaptor.capture());
         assertEquals(99L, ticketCaptor.getValue().userId());
         assertEquals(10L, ticketCaptor.getValue().categoryId());
-        assertEquals("session-1", ticketCaptor.getValue().sessionId());
+        assertEquals(DccSourceUploadSession.scope(DccSourceUploadSession.newUploadPrefix(30L, 20L, "SOP-001"),
+                "session-1"), ticketCaptor.getValue().sessionId());
         assertEquals("SOURCE", ticketCaptor.getValue().purpose());
         assertEquals(100L, ticketCaptor.getValue().storageFileId());
         assertEquals("REQ-UPLOAD-SUCCESS", ticketCaptor.getValue().requestId());
@@ -841,6 +853,10 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         reqVO.setCategoryId(10L);
         reqVO.setSessionId("session-1");
         reqVO.setPurpose(purpose);
+        reqVO.setUploadContext("NEW_UPLOAD");
+        reqVO.setDccProjectCodeId(30L);
+        reqVO.setFileTypeTaxonomyId(20L);
+        reqVO.setFileName("SOP-001");
         reqVO.setFiles(new MultipartFile[]{file});
         return reqVO;
     }

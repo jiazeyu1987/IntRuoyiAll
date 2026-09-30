@@ -30,6 +30,13 @@ public class DccControlledFileUploadPreviewReqVO {
     @NotBlank(message = "purpose is required")
     private String purpose;
 
+    @Schema(description = "Source upload context: NEW_UPLOAD, CHECKIN or EXTERNAL_REVIEW")
+    private String uploadContext;
+
+    private Long dccProjectCodeId;
+    private Long fileTypeTaxonomyId;
+    private String fileName;
+
     @Schema(description = "Exact controlled file version for APPROVAL_PDF")
     private Long controlledFileId;
 

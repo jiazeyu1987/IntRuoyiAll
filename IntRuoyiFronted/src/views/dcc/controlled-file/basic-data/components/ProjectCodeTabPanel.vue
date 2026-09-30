@@ -26,17 +26,6 @@
     >
       <template #actions>
         <el-button
-          class="scheme-d-btn scheme-d-btn--success"
-          type="primary"
-          plain
-          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
-          @click="openForm('create')"
-          v-hasPermi="['dcc:project-code:create']"
-        >
-          <Icon icon="ep:plus" class="mr-5px" />
-          新增项目代码
-        </el-button>
-        <el-button
           class="scheme-d-btn scheme-d-btn--primary"
           type="primary"
           plain
@@ -2445,7 +2434,7 @@ const queryParams = reactive<DccProjectCodePageQuery>({
 })
 
 const POSITIVE_INTEGER_TEXT = /^[1-9]\d*$/
-const PROJECT_CODE_ROUTE_PATH = '/mes/md/dcc-project-code'
+const PROJECT_CODE_ROUTE_PATH = '/mdm/project-code'
 
 const isProjectCodeRoute = () => route.path === PROJECT_CODE_ROUTE_PATH
 
@@ -3724,7 +3713,7 @@ const openProjectCodeDetail = async (projectCode: DccProjectCodeRespVO | number 
   }
   detailDrawerVisible.value = true
   await router.replace({
-    path: '/mes/md/dcc-project-code',
+    path: '/mdm/project-code',
     query: { ...route.query, projectCodeId: id }
   })
 }

@@ -28,6 +28,7 @@ import cn.iocoder.yudao.module.system.service.social.SocialUserService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl;
 import cn.iocoder.yudao.module.system.service.user.AdminUserPasswordPolicy;
+import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
 import com.anji.captcha.model.common.ResponseModel;
 import com.anji.captcha.model.vo.CaptchaVO;
 import com.anji.captcha.service.CaptchaService;
@@ -82,6 +83,10 @@ public class AdminAuthServiceImpl implements AdminAuthService {
 
     @Override
     public AdminUserDO authenticate(String username, String password) {
+        return authenticate(username, password, false);
+    }
+
+    private AdminUserDO authenticate(String username, String password, boolean preLoginPasswordChange) {
         final LoginLogTypeEnum logTypeEnum = LoginLogTypeEnum.LOGIN_USERNAME;
         // 校验账号是否存在
         AdminUserDO user = userService.getUserByUsername(username);
@@ -92,11 +97,11 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         // 校验是否禁用
         if (CommonStatusEnum.isDisable(user.getStatus())) {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.USER_DISABLED);
-            throw exception(AUTH_LOGIN_USER_DISABLED);
+            throw exception(preLoginPasswordChange ? AUTH_LOGIN_BAD_CREDENTIALS : AUTH_LOGIN_USER_DISABLED);
         }
         if (AdminUserServiceImpl.isLoginLockActive(user, LocalDateTime.now())) {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.USER_LOCKED);
-            throw exception(AUTH_LOGIN_USER_LOCKED);
+            throw exception(preLoginPasswordChange ? AUTH_LOGIN_BAD_CREDENTIALS : AUTH_LOGIN_USER_LOCKED);
         }
         if (Objects.equals(user.getLoginLocked(), 1)) {
             userService.resetUserLoginFailure(user.getId());
@@ -110,16 +115,35 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.BAD_CREDENTIALS);
             throw exception(AUTH_LOGIN_BAD_CREDENTIALS);
         }
-        if (Objects.equals(user.getPasswordCredentialStatus(), "INITIAL")
-                || Objects.equals(user.getPasswordCredentialStatus(), "RESET_REQUIRED")) {
+        boolean initialOrResetRequired = Objects.equals(user.getPasswordCredentialStatus(), "INITIAL")
+                || Objects.equals(user.getPasswordCredentialStatus(), "RESET_REQUIRED");
+        boolean passwordExpired = AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now());
+        if (preLoginPasswordChange) {
+            if (!initialOrResetRequired && !passwordExpired) {
+                createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.PASSWORD_CHANGE_NOT_ALLOWED);
+                throw exception(AUTH_LOGIN_BAD_CREDENTIALS);
+            }
+            return user;
+        }
+        if (initialOrResetRequired) {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.PASSWORD_CHANGE_REQUIRED);
             throw exception(AUTH_LOGIN_PASSWORD_CHANGE_REQUIRED);
         }
-        if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now())) {
+        if (passwordExpired) {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.PASSWORD_EXPIRED);
             throw exception(AUTH_LOGIN_PASSWORD_EXPIRED);
         }
         return user;
+    }
+
+    @Override
+    @DataPermission(enable = false)
+    public void changePasswordBeforeLogin(AuthPreLoginPasswordChangeReqVO reqVO) {
+        AdminUserDO user = authenticate(reqVO.getUsername(), reqVO.getOldPassword(), true);
+        UserProfileUpdatePasswordReqVO updateReqVO = new UserProfileUpdatePasswordReqVO();
+        updateReqVO.setOldPassword(reqVO.getOldPassword());
+        updateReqVO.setNewPassword(reqVO.getNewPassword());
+        userService.updateUserPassword(user.getId(), updateReqVO);
     }
 
     @Override

@@ -17,6 +17,8 @@ public class DccControlledFileCheckinReqVO {
 
     private String changeDescription;
 
+    private Boolean needTraining;
+
     /** Optional metadata-only change. Only the remark field is mutable in P2. */
     private String remark;
 }

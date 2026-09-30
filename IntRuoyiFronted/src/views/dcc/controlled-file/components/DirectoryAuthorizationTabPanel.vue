@@ -99,7 +99,7 @@
               plain
               @click="addRule"
               :disabled="!selectedDirectoryId"
-              v-hasPermi="['dcc:controlled-file:access-rule:manage']"
+              v-hasPermi="['dcc:controlled-file:category:manage']"
             >
               <Icon icon="ep:plus" class="mr-5px" />
               新增规则
@@ -109,7 +109,7 @@
               @click="saveRules"
               :disabled="!selectedDirectoryId"
               :loading="saveLoading"
-              v-hasPermi="['dcc:controlled-file:access-rule:manage']"
+              v-hasPermi="['dcc:controlled-file:category:manage']"
             >
               <Icon icon="ep:check" class="mr-5px" />
               保存规则

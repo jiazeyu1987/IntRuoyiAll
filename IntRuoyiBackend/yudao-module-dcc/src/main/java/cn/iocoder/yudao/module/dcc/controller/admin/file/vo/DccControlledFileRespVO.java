@@ -25,6 +25,9 @@ public class DccControlledFileRespVO {
     private String previewUnavailableReason;
     private Boolean publishedArtifactAvailable;
     private Boolean stampedArtifactAvailable;
+    private Boolean trainingRecordAvailable;
+    private String trainingRecordFileName;
+    private Boolean distributionCompleted;
     private String fileNumber;
     private Long productMasterId;
     private String productCode;
@@ -91,4 +94,5 @@ public class DccControlledFileRespVO {
     private List<DccControlledFileTrainingStatusRespVO> trainingStatuses;
     private List<DccControlledFileSignatureSummaryRespVO> signatureSummaries;
     private List<DccControlledFileRelatedFileRespVO> relatedFiles;
+    private List<DccControlledFileAttachmentRespVO> attachments;
 }

@@ -30,13 +30,13 @@ assert.equal(
 
 requireToken(
   uploadPage,
-  '该类别未配置专属目录，按规则发布到“未分类”。',
-  'unclassified directory landing must be shown as an allowed business rule'
+  '该类别未配置正式默认目录，请联系文控管理员配置后再提交。',
+  'missing default directory must be shown as a blocking controlled-save configuration error'
 )
 assert.doesNotMatch(
   uploadPage,
-  /系统将自动提交到未分类目录/,
-  'unclassified landing copy must not look like an abnormal fallback'
+  /系统将自动提交到未分类目录|按规则发布到“未分类”/,
+  'missing default directory must not be presented as an automatic unclassified landing'
 )
 
 requireToken(
@@ -51,24 +51,29 @@ requireToken(
 )
 requireToken(
   uploadPage,
-  'const VERSION_NO_PATTERN = /^[Vv]?\\d+(?:\\.\\d+)*$/',
-  'frontend version pattern must match backend parser shape: optional V + numeric dot segments'
+  'const WINDCHILL_VERSION_PATTERN = /^[A-Z]+(?:\\/[1-9]\\d*)+$/i',
+  'controlled-file initial version pattern must accept configured multi-segment Windchill versions'
 )
 assert.match(
   uploadPage,
   /versionNo:\s*\[\s*\{[\s\S]*validator:[\s\S]*VERSION_NO_FORMAT_MESSAGE[\s\S]*trigger:\s*'blur'/,
   'versionNo form rule must reject invalid formats before submit'
 )
+assert.doesNotMatch(
+  uploadPage,
+  /versionNo:\s*\[\s*\{[\s\S]*validator:[\s\S]*if \(!isExternalReview\.value\) \{\s*callback\(\)\s*return\s*\}/,
+  'ordinary controlled-file uploads must not bypass initial version validation in the form rule'
+)
 
 requireToken(
   uploadPage,
-  '已选择历史文件名称，系统将先匹配现行主档；匹配成功后按升版提交',
-  'history file copy must not promise revision before current master is matched'
+  '新文件须使用修订版/1格式；后续大小版本统一通过文件检出、检入生成。',
+  'upload page must direct later version changes to checkout/checkin instead of upload revision'
 )
 assert.doesNotMatch(
   uploadPage,
-  /已选择历史文件名称，将按升版提交；当前版本号/,
-  'old unconditional revision promise must be removed'
+  /已选择历史文件名称，将按升版提交；当前版本号|按升版提交/,
+  'upload page must not promise upload-based revision'
 )
 
 const currentVersionPanel = extractBetween(
@@ -79,13 +84,13 @@ const currentVersionPanel = extractBetween(
 )
 assert.match(
   currentVersionPanel,
-  /currentVersionLookupError[\s\S]*currentVersionInfo\?\.matched[\s\S]*isRevisionUpload/,
-  'current version panel must show lookup error first, matched master second, and revision-only block instead of new master'
+  /currentVersionLookupError[\s\S]*currentVersionInfo\?\.matched[\s\S]*该逻辑文件已存在；请到文件浏览中检出后再检入新版本。/,
+  'current version panel must show lookup errors and block existing logical identities before new upload submission'
 )
 requireToken(
   currentVersionPanel,
-  '不会创建新的 master 主档',
-  'revision failure must explicitly say it will not create a new master'
+  '请到文件浏览中检出后再检入新版本',
+  'existing logical identity copy must direct users to checkout/checkin'
 )
 
 const preflightBlock = extractBetween(
@@ -96,7 +101,7 @@ const preflightBlock = extractBetween(
 )
 for (const token of [
   'currentVersionLookupError.value',
-  'revisionTargetPreflightBlockReason.value',
+  'existingUploadIdentityBlockReason.value',
   'isVersionNoFormatValid.value',
   'effectiveDatePreflightText.value'
 ]) {
@@ -110,8 +115,13 @@ assert.notEqual(submitFormStart, -1, 'submit form block missing start token')
 const submitFormBlock = uploadPage.slice(submitFormStart, submitFormStart + 12000)
 assert.match(
   submitFormBlock,
-  /await loadCurrentVersionByFileNumber\(\)[\s\S]*currentVersionLookupError\.value[\s\S]*revisionTargetPreflightBlockReason\.value/,
-  'submit must refresh current-version state and block revision conflicts before sending write request'
+  /await loadCurrentVersionByFileNumber(?:\(\)|\([^)]*\))[\s\S]*currentVersionLookupError\.value[\s\S]*existingUploadIdentityBlockReason\.value/,
+  'submit must refresh current-version state and block existing logical identities before sending write request'
+)
+assert.match(
+  submitFormBlock,
+  /if \(!isVersionNoFormatValid\.value\) \{[\s\S]*submitFieldErrors\.versionNo = versionFormatPreflightMessage\.value[\s\S]*message\.warning\(versionFormatPreflightMessage\.value\)[\s\S]*return[\s\S]*\}/,
+  'submit must block invalid ordinary controlled-file initial versions before sending the write request'
 )
 
 for (const token of [

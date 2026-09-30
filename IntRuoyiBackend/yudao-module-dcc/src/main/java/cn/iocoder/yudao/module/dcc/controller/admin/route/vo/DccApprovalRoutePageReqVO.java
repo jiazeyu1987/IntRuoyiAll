@@ -14,4 +14,7 @@ public class DccApprovalRoutePageReqVO extends PageParam {
 
     @Schema(description = "文件类别编号")
     private Long categoryId;
+
+    @Schema(description = "动作类型：LEGACY/NEW/REVISION/OBSOLETE")
+    private String actionType;
 }

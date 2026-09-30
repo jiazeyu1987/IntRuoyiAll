@@ -1654,19 +1654,22 @@ public class BpmTaskServiceImpl implements BpmTaskService {
     }
 
     @Override
-    public void triggerTask(String processInstanceId, String taskDefineKey) {
-        Execution execution = runtimeService.createExecutionQuery()
+    public boolean triggerTask(String processInstanceId, String taskDefineKey) {
+        List<Execution> executions = runtimeService.createExecutionQuery()
                 .processInstanceId(processInstanceId)
                 .activityId(taskDefineKey)
-                .singleResult();
-        if (execution == null) {
-            log.error("[triggerTask][processInstanceId({}) activityId({}) 没有找到执行活动]", processInstanceId, taskDefineKey);
-            return;
+                .list();
+        if (executions.size() != 1) {
+            log.error("[triggerTask][processInstanceId({}) activityId({}) execution数量({})不唯一]",
+                    processInstanceId, taskDefineKey, executions.size());
+            throw exception(TASK_TARGET_NODE_NOT_EXISTS);
         }
+        Execution execution = executions.get(0);
 
         // 若存在直接触发接收任务，执行后续节点
         FlowableUtils.execute(execution.getTenantId(),
                 () -> runtimeService.trigger(execution.getId()));
+        return true;
     }
 
     /**

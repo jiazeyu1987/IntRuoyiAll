@@ -74,7 +74,8 @@ for (const behaviorToken of [
   'addRule',
   'removeRule',
   'saveRules',
-  'getCategoryDistributionRules(category.id)',
+  'visibleCategoryIds',
+  'getCategoryDistributionRules(categoryId)',
   'replaceCategoryDistributionRules',
   'data-user-table-column-explicit',
   ':error-message="drawerErrorMessage"'

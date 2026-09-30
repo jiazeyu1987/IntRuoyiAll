@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.BusinessActionContextReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceCreateReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceRespVO;
@@ -40,6 +41,7 @@ import java.util.Map;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_OBSOLETE_NOT_ALLOWED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -81,6 +83,8 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
     private DccControlledFilePendingActionGuard pendingActionGuard;
     @Mock
     private DccControlledFileApprovalRouteAssigneeResolver approvalRouteAssigneeResolver;
+    @Mock
+    private DccControlledFileNameClaimService nameClaimService;
 
     private DccControlledFileMessageDeliveryService messageDeliveryService;
     @InjectMocks
@@ -102,21 +106,41 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void obsoleteControlledFile_submitsFormCenterActionWithoutApplyingDomainEffect() {
+    void obsoleteRequestJsonRejectsNeedTrainingEvenWhenGlobalMapperAllowsUnknownFields() {
+        assertThrows(Exception.class, () -> JsonUtils.getObjectMapper().readValue("""
+                {
+                  "reason": "No longer effective",
+                  "idempotencyKey": "DCC-OBSOLETE-900-V1",
+                  "needTraining": true
+                }
+                """, DccControlledFileObsoleteReqVO.class));
+    }
+
+    @Test
+    void obsoleteControlledFile_usesObsoleteRouteAssigneesEvenWhenRequestCarriesManualAssignees() {
         DccControlledFileObsoleteReqVO reqVO = new DccControlledFileObsoleteReqVO();
         reqVO.setReason("Superseded by FI-001 V2.0");
         reqVO.setIdempotencyKey("DCC-OBSOLETE-900-V1");
         reqVO.setStartUserSelectAssignees(Map.of("DOC_CONTROL_REVIEW", List.of(914518L)));
-        when(controlledFileMapper.selectById(900L)).thenReturn(DccControlledFileDO.builder()
+        DccControlledFileDO file = DccControlledFileDO.builder()
                 .id(900L)
                 .masterId(700L)
                 .categoryId(10L)
                 .productCode("PRD-001")
                 .versionNo("V1.0")
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
-                .build());
+                .build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
         when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(true);
+        DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute = resolvedRoute();
+        when(approvalRouteAssigneeResolver.resolveRoute(10L, 99L,
+                DccControlledFileProcessDefinitionKeys.toActionType(DccControlledFileProcessDefinitionKeys.OBSOLETE)))
+                .thenReturn(resolvedRoute);
+        when(approvalRouteAssigneeResolver.buildStartUserSelectAssigneeMap(resolvedRoute.nodes()))
+                .thenReturn(Map.of("MATRIX_REVIEW", List.of(7201L, 7202L)));
+        when(approvalRouteAssigneeResolver.buildApproveUserSelectAssigneeMap(resolvedRoute.nodes()))
+                .thenReturn(Map.of("DOC_CONTROL_REVIEW", List.of(914518L)));
         FormInstanceRespVO draft = new FormInstanceRespVO();
         draft.setId(37L);
         draft.setStatus("DRAFT");
@@ -152,8 +176,12 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         ArgumentCaptor<FormInstanceSubmitReqVO> submitCaptor = ArgumentCaptor.forClass(FormInstanceSubmitReqVO.class);
         verify(formCenterRuntimeService).submitInstance(eq(37L), submitCaptor.capture(), eq(99L));
         assertEquals(createCaptor.getValue().getFormData(), submitCaptor.getValue().getFormData());
-        assertEquals(Map.of("DOC_CONTROL_REVIEW", List.of(914518L)),
+        assertEquals(Map.of("MATRIX_REVIEW", List.of(7201L, 7202L)),
                 submitCaptor.getValue().getStartUserSelectAssignees());
+        verify(approvalRouteAssigneeResolver, times(1)).resolveRoute(10L, 99L,
+                DccControlledFileProcessDefinitionKeys.toActionType(DccControlledFileProcessDefinitionKeys.OBSOLETE));
+        verify(approvalRouteAssigneeResolver).buildStartUserSelectAssigneeMap(resolvedRoute.nodes());
+        verify(approvalRouteAssigneeResolver).buildApproveUserSelectAssigneeMap(resolvedRoute.nodes());
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
         verify(obsoleteAuditMapper, never()).insert(any(DccControlledFileObsoleteAuditDO.class));
         verify(obsoleteFileStorageService, never()).moveControlledFileArtifactsToObsoleteFolder(any());
@@ -176,8 +204,14 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
         when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(true);
-        when(approvalRouteAssigneeResolver.resolveStartUserSelectAssignees(file, 99L))
+        DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute = resolvedRoute();
+        when(approvalRouteAssigneeResolver.resolveRoute(10L, 99L,
+                DccControlledFileProcessDefinitionKeys.toActionType(DccControlledFileProcessDefinitionKeys.OBSOLETE)))
+                .thenReturn(resolvedRoute);
+        when(approvalRouteAssigneeResolver.buildStartUserSelectAssigneeMap(resolvedRoute.nodes()))
                 .thenReturn(Map.of("DOC_CONTROL_REVIEW", List.of(914518L)));
+        when(approvalRouteAssigneeResolver.buildApproveUserSelectAssigneeMap(resolvedRoute.nodes()))
+                .thenReturn(Map.of());
         FormInstanceRespVO draft = new FormInstanceRespVO();
         draft.setId(38L);
         draft.setStatus("DRAFT");
@@ -192,13 +226,69 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         FormInstanceRespVO result = obsoleteService.obsoleteControlledFile(99L, 900L, reqVO);
 
         assertEquals("IN_APPROVAL", result.getStatus());
-        verify(approvalRouteAssigneeResolver).resolveStartUserSelectAssignees(file, 99L);
+        verify(approvalRouteAssigneeResolver, times(1)).resolveRoute(10L, 99L,
+                DccControlledFileProcessDefinitionKeys.toActionType(DccControlledFileProcessDefinitionKeys.OBSOLETE));
+        verify(approvalRouteAssigneeResolver).buildStartUserSelectAssigneeMap(resolvedRoute.nodes());
+        verify(approvalRouteAssigneeResolver).buildApproveUserSelectAssigneeMap(resolvedRoute.nodes());
         ArgumentCaptor<FormInstanceSubmitReqVO> submitCaptor = ArgumentCaptor.forClass(FormInstanceSubmitReqVO.class);
         verify(formCenterRuntimeService).submitInstance(eq(38L), submitCaptor.capture(), eq(99L));
         assertEquals(Map.of("DOC_CONTROL_REVIEW", List.of(914518L)),
                 submitCaptor.getValue().getStartUserSelectAssignees());
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
         verify(obsoleteAuditMapper, never()).insert(any(DccControlledFileObsoleteAuditDO.class));
+    }
+
+    @Test
+    void obsoleteControlledFile_derivesAssigneesFromObsoleteActionRouteRegardlessOriginalProcessKey() {
+        DccControlledFileObsoleteReqVO reqVO = new DccControlledFileObsoleteReqVO();
+        reqVO.setReason("Controlled file no longer applies");
+        reqVO.setIdempotencyKey("DCC-OBSOLETE-904-V1-AUTO");
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(904L)
+                .masterId(704L)
+                .categoryId(10L)
+                .productCode("PRD-004")
+                .versionNo("V1.0")
+                .processDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD)
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build();
+        when(controlledFileMapper.selectById(904L)).thenReturn(file);
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
+                .thenReturn(true);
+        DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute = resolvedRoute();
+        when(approvalRouteAssigneeResolver.resolveRoute(10L, 99L,
+                DccControlledFileProcessDefinitionKeys.toActionType(DccControlledFileProcessDefinitionKeys.OBSOLETE)))
+                .thenReturn(resolvedRoute);
+        when(approvalRouteAssigneeResolver.buildStartUserSelectAssigneeMap(resolvedRoute.nodes()))
+                .thenReturn(Map.of("MATRIX_REVIEW", List.of(7201L)));
+        when(approvalRouteAssigneeResolver.buildApproveUserSelectAssigneeMap(resolvedRoute.nodes()))
+                .thenReturn(Map.of());
+        FormInstanceRespVO draft = new FormInstanceRespVO();
+        draft.setId(39L);
+        draft.setStatus("DRAFT");
+        FormInstanceRespVO submitted = new FormInstanceRespVO();
+        submitted.setId(39L);
+        submitted.setStatus("IN_APPROVAL");
+        submitted.setBpmProcessInstanceId("process-39");
+        when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), eq(99L))).thenReturn(draft);
+        when(formCenterRuntimeService.submitInstance(eq(39L), any(FormInstanceSubmitReqVO.class), eq(99L)))
+                .thenReturn(submitted);
+
+        FormInstanceRespVO result = obsoleteService.obsoleteControlledFile(99L, 904L, reqVO);
+
+        assertEquals("IN_APPROVAL", result.getStatus());
+        verify(approvalRouteAssigneeResolver, times(1)).resolveRoute(10L, 99L,
+                DccControlledFileProcessDefinitionKeys.toActionType(DccControlledFileProcessDefinitionKeys.OBSOLETE));
+        verify(approvalRouteAssigneeResolver).buildStartUserSelectAssigneeMap(resolvedRoute.nodes());
+        verify(approvalRouteAssigneeResolver).buildApproveUserSelectAssigneeMap(resolvedRoute.nodes());
+        ArgumentCaptor<FormInstanceSubmitReqVO> submitCaptor = ArgumentCaptor.forClass(FormInstanceSubmitReqVO.class);
+        verify(formCenterRuntimeService).submitInstance(eq(39L), submitCaptor.capture(), eq(99L));
+        assertEquals(Map.of("MATRIX_REVIEW", List.of(7201L)),
+                submitCaptor.getValue().getStartUserSelectAssignees());
+    }
+
+    private DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute() {
+        return new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(null, List.of());
     }
 
     @Test

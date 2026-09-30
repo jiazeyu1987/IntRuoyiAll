@@ -66,6 +66,25 @@
 
     <el-col :span="18">
       <ContentWrap class="browser-list-wrap">
+        <el-alert
+          v-if="checkinRefreshPending"
+          class="mb-12px"
+          :closable="false"
+          type="warning"
+          show-icon
+        >
+          <template #title>
+            文件已检入，新版本为 {{ checkinRefreshPending.versionNo || checkinRefreshPending.controlledFileId }}，但列表刷新失败。
+          </template>
+          <template #default>
+            <div class="flex items-center gap-8px">
+              <span>请重新加载列表确认最新版本。</span>
+              <el-button link type="primary" :loading="checkinRefreshLoading" @click="retryCheckinListRefresh">
+                重新加载
+              </el-button>
+            </div>
+          </template>
+        </el-alert>
         <UnifiedListTemplate
           class="browser-list-template"
           :table-key="DCC_BROWSER_COLUMN_TABLE_KEY"
@@ -399,7 +418,7 @@
                   link
                   type="primary"
                   :loading="submitApprovalLoadingId === getSelectedVersion(row).id"
-                  @click="handleSubmitWorkingIteration(getSelectedVersion(row))"
+                  @click="handleSubmitWorkingIteration(row, getSelectedVersion(row))"
                 >
                   提交审批
                 </el-button>
@@ -473,6 +492,42 @@
                   @click="openSignatureEvidence(getSelectedVersion(row).id)"
                 >
                   签核
+                </el-button>
+                <el-button
+                  v-if="getSelectedVersion(row).id"
+                  link
+                  type="primary"
+                  @click="openDccTimeForm('publishedTime', getSelectedVersion(row))"
+                  v-hasPermi="['intern-user:time-maintenance:dcc-published-time:update']"
+                >
+                  修改升版时间
+                </el-button>
+                <el-button
+                  v-if="getSelectedVersion(row).id"
+                  link
+                  type="primary"
+                  @click="openDccTimeAudit('dccPublishedTime', getSelectedVersion(row), '升版时间修改审计')"
+                  v-hasPermi="['intern-user:time-maintenance:dcc-published-time-audit:query']"
+                >
+                  升版审计
+                </el-button>
+                <el-button
+                  v-if="getSelectedVersion(row).id"
+                  link
+                  type="primary"
+                  @click="openDccTimeForm('obsoletedTime', getSelectedVersion(row))"
+                  v-hasPermi="['intern-user:time-maintenance:dcc-obsoleted-time:update']"
+                >
+                  修改作废时间
+                </el-button>
+                <el-button
+                  v-if="getSelectedVersion(row).id"
+                  link
+                  type="primary"
+                  @click="openDccTimeAudit('dccObsoletedTime', getSelectedVersion(row), '作废时间修改审计')"
+                  v-hasPermi="['intern-user:time-maintenance:dcc-obsoleted-time-audit:query']"
+                >
+                  作废审计
                 </el-button>
                 <el-button
                   v-if="getBrowserRowActionState(getSelectedVersion(row)).canDownload"
@@ -956,6 +1011,14 @@
           <el-radio value="MAJOR" :disabled="!canMajorCheckin">大版本（下一修订版，需项目所有者）</el-radio>
         </el-radio-group>
       </el-form-item>
+      <el-form-item label="培训要求">
+        <el-checkbox
+          v-model="checkinForm.needTraining"
+          data-testid="dcc-controlled-browser-checkin-need-training"
+        >
+          需要培训
+        </el-checkbox>
+      </el-form-item>
       <el-form-item label="修改后的源文件（可选）">
         <el-upload
           data-testid="dcc-controlled-browser-checkin-upload"
@@ -1036,6 +1099,8 @@
     load-directories-on-open
     @saved="handleMetadataSaved"
   />
+  <InternUserDccTimeForm ref="internUserDccTimeFormRef" @success="getList" />
+  <InternUserTimeAuditDialog ref="internUserTimeAuditDialogRef" />
 </template>
 
 <script lang="ts" setup>
@@ -1064,6 +1129,7 @@ import {
   cleanupControlledFileUploadTicket,
   createControlledFileUploadSessionId,
   createControlledFileBatchRecognitionTask,
+  checkControlledFileRouteReadiness,
   exportControlledFileMetadataExcel,
   exportControlledFileRecognitionMigrationExcel,
   exportControlledFileRecognitionRecordExcel,
@@ -1091,6 +1157,8 @@ import {
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import InternUserDccTimeForm from '@/views/intern-user/time-maintenance/InternUserDccTimeForm.vue'
+import InternUserTimeAuditDialog from '@/views/intern-user/time-maintenance/InternUserTimeAuditDialog.vue'
 import {
   useTableQuickFilter,
   type TableQuickFilterDefinition
@@ -1235,6 +1303,8 @@ const loading = ref(false)
 let listRequestSequence = 0
 const total = ref(0)
 const browserListErrorMessage = ref<string>('')
+const checkinRefreshLoading = ref(false)
+const checkinRefreshPending = ref<{ controlledFileId: number | string; versionNo?: string }>()
 const directories = ref<ControlledFileDirectoryNode[]>([])
 const categories = ref<ControlledFileCategoryVO[]>([])
 const downloadLoadingId = ref<number>()
@@ -1254,8 +1324,13 @@ const checkinTarget = ref<ControlledFileBrowserVersion>()
 const checkinUploadSessionId = ref(createControlledFileUploadSessionId())
 const checkinUpload = ref<ControlledFileUploadRespVO>()
 const checkinFileList = ref<UploadUserFile[]>([])
-const checkinForm = reactive<{ versionChangeType: 'MINOR' | 'MAJOR'; changeDescription: string; remark: string }>({
-  versionChangeType: 'MINOR', changeDescription: '', remark: ''
+const checkinForm = reactive<{
+  versionChangeType: 'MINOR' | 'MAJOR'
+  changeDescription: string
+  needTraining: boolean
+  remark: string
+}>({
+  versionChangeType: 'MINOR', changeDescription: '', needTraining: false, remark: ''
 })
 const canMajorCheckin = computed(() => Boolean(
   checkinTarget.value && isDccControlledFileActionAllowed(checkinTarget.value, 'MAJOR_REVISION')
@@ -1280,6 +1355,8 @@ const recognitionMigrationImportPreview =
 const metadataDialogVisible = ref(false)
 const metadataDialogMounted = ref(false)
 const metadataEditingFile = ref<ControlledFileVO>()
+const internUserDccTimeFormRef = ref()
+const internUserTimeAuditDialogRef = ref()
 const batchRecognitionConfirmVisible = ref(false)
 const batchRecognitionProgressVisible = ref(false)
 const batchRecognitionCreating = ref(false)
@@ -1308,6 +1385,7 @@ type ControlledFileBrowserVersion = ControlledFileVersionHistoryVO &
     | 'publishedArtifactAvailable'
     | 'stampedArtifactAvailable'
     | 'currentActiveVersionNo'
+    | 'needTraining'
     | 'checkedOut'
     | 'checkedOutBy'
     | 'checkedOutByName'
@@ -1387,7 +1465,7 @@ const isValidBrowserOptionId = (value: unknown): value is ControlledFileBrowserO
 const categoryOptions = computed(() =>
   categories.value.filter(
     (item): item is ControlledFileCategoryVO & { id: number } =>
-      item.active && typeof item.id === 'number' && Number.isFinite(item.id)
+      item.active && isValidBrowserOptionId(item.id) && typeof item.id === 'number'
   )
 )
 const categoryNameMap = computed(
@@ -1544,7 +1622,9 @@ const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowser
   title: row.title,
   fileNumber: row.fileNumber || '',
   versionNo: row.versionNo,
+  revisionBaseActiveControlledFileId: row.revisionBaseActiveControlledFileId,
   status: row.status,
+  needTraining: row.needTraining,
   requesterId: row.requesterId,
   publishedArtifactAvailable: row.publishedArtifactAvailable,
   stampedArtifactAvailable: row.stampedArtifactAvailable,
@@ -1581,6 +1661,7 @@ const hydrateCurrentBrowserVersionActionState = (
       version.stampedArtifactAvailable ?? row.stampedArtifactAvailable,
     currentActiveVersionNo: version.currentActiveVersionNo ?? row.currentActiveVersionNo,
     requesterId: version.requesterId ?? row.requesterId,
+    needTraining: version.needTraining ?? row.needTraining,
     canPreview: version.canPreview ?? row.canPreview,
     canDownload: version.canDownload ?? row.canDownload,
     canPrint: version.canPrint ?? row.canPrint,
@@ -1596,10 +1677,14 @@ const getVersionOptions = (row: ControlledFileBrowserRow): ControlledFileBrowser
   const historyOptions = (row.versionHistory || [])
     .filter((item): item is ControlledFileBrowserVersion => isValidBrowserOptionId(item.id))
     .map((version) => hydrateCurrentBrowserVersionActionState(row, version))
-  if (historyOptions.length) {
+  if (!isValidBrowserOptionId(row.id)) {
     return historyOptions
   }
-  return isValidBrowserOptionId(row.id) ? [buildCurrentVersionOption(row)] : []
+  const currentOption = hydrateCurrentBrowserVersionActionState(row, buildCurrentVersionOption(row))
+  if (historyOptions.some((item) => String(item.id) === String(currentOption.id))) {
+    return historyOptions
+  }
+  return [currentOption, ...historyOptions]
 }
 
 const resolveInitialSelectedVersionId = (row: ControlledFileVO): ControlledFileBrowserOptionId | undefined => {
@@ -1704,26 +1789,67 @@ const canEditVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =
 const canCheckoutVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
   Boolean(canEditVersion(file) || isDccControlledFileActionAllowed(file, 'MAJOR_REVISION'))
 
-const parseWindchillVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) => {
-  const revisionCode = String(file.revisionCode || '').trim().toUpperCase()
-  const iterationNo = Number(file.iterationNo)
-  if (/^[A-Z]+$/.test(revisionCode) && Number.isInteger(iterationNo) && iterationNo > 0) {
-    return { revisionCode, iterationNo }
+type WindchillVersion = {
+  revisionCode: string
+  iterationNo: number
+  segments: string[]
+}
+
+const parseWindchillVersion = (file: ControlledFileVO | ControlledFileBrowserVersion): WindchillVersion | undefined => {
+  const normalizedVersion = String(file.versionNo || '').trim().toUpperCase()
+  const versionSegments = normalizedVersion.split('/')
+  if (
+    versionSegments.length >= 2 &&
+    /^[A-Z]+$/.test(versionSegments[0]) &&
+    versionSegments.slice(1).every((segment) => /^[1-9][0-9]*$/.test(segment))
+  ) {
+    return {
+      revisionCode: versionSegments.slice(0, -1).join('/'),
+      iterationNo: Number(versionSegments[versionSegments.length - 1]),
+      segments: versionSegments
+    }
   }
-  const match = String(file.versionNo || '').trim().toUpperCase().match(/^([A-Z]+)\/([1-9][0-9]*)$/)
-  if (!match) return undefined
-  return { revisionCode: match[1], iterationNo: Number(match[2]) }
+
+  const revisionSegments = String(file.revisionCode || '').trim().toUpperCase().split('/')
+  const iterationNo = Number(file.iterationNo)
+  if (
+    revisionSegments.length >= 1 &&
+    /^[A-Z]+$/.test(revisionSegments[0]) &&
+    revisionSegments.slice(1).every((segment) => /^[1-9][0-9]*$/.test(segment)) &&
+    Number.isInteger(iterationNo) &&
+    iterationNo > 0
+  ) {
+    return {
+      revisionCode: revisionSegments.join('/'),
+      iterationNo,
+      segments: [...revisionSegments, String(iterationNo)]
+    }
+  }
+  return undefined
+}
+
+const compareVersionSegment = (left: string, right: string) => {
+  const leftNumber = /^[0-9]+$/.test(left) ? Number(left) : undefined
+  const rightNumber = /^[0-9]+$/.test(right) ? Number(right) : undefined
+  if (leftNumber !== undefined && rightNumber !== undefined) {
+    return leftNumber - rightNumber
+  }
+  if (leftNumber !== undefined || rightNumber !== undefined) {
+    return leftNumber === undefined ? 1 : -1
+  }
+  return left.length - right.length || left.localeCompare(right)
 }
 
 const compareWindchillVersion = (
-  left: { revisionCode: string; iterationNo: number },
-  right: { revisionCode: string; iterationNo: number }
+  left: WindchillVersion,
+  right: WindchillVersion
 ) => {
-  if (left.revisionCode.length !== right.revisionCode.length) {
-    return left.revisionCode.length - right.revisionCode.length
+  const length = Math.max(left.segments.length, right.segments.length)
+  for (let index = 0; index < length; index += 1) {
+    const segmentCompare = compareVersionSegment(left.segments[index] || '0', right.segments[index] || '0')
+    if (segmentCompare !== 0) return segmentCompare
   }
-  const revisionCompare = left.revisionCode.localeCompare(right.revisionCode)
-  return revisionCompare || left.iterationNo - right.iterationNo
+  return 0
 }
 
 const isLatestWorkingIteration = (
@@ -1735,7 +1861,7 @@ const isLatestWorkingIteration = (
   const latest = getVersionOptions(row)
     .filter((item) => item.status === 'WORKING')
     .map((item) => ({ item, version: parseWindchillVersion(item) }))
-    .filter((item): item is { item: ControlledFileBrowserVersion; version: { revisionCode: string; iterationNo: number } } => Boolean(item.version))
+    .filter((item): item is { item: ControlledFileBrowserVersion; version: WindchillVersion } => Boolean(item.version))
     .sort((left, right) => compareWindchillVersion(right.version, left.version))[0]?.item
   return Boolean(latest?.id && String(latest.id) === String(file.id))
 }
@@ -1779,7 +1905,29 @@ const deleteBrowserMutationIdempotencyKey = (action: string, id: number | string
 const createWorkingIterationSubmitIdempotencyKey = (id: number | string) =>
   getOrCreateBrowserMutationIdempotencyKey('working-submit', id)
 
+const resolveWorkingIterationRouteAction = (
+  file: ControlledFileVO | ControlledFileBrowserVersion
+) => file.revisionBaseActiveControlledFileId ? 'REVISION' as const : 'NEW' as const
+
+const assertWorkingIterationRouteReadiness = async (
+  row: ControlledFileBrowserRow,
+  file: ControlledFileVO | ControlledFileBrowserVersion
+) => {
+  if (!Number.isFinite(Number(row.categoryId))) {
+    throw new Error('文件类别缺失，无法校验升版审批路线。')
+  }
+  const readiness = await checkControlledFileRouteReadiness({
+    categoryId: row.categoryId,
+    actionType: resolveWorkingIterationRouteAction(file)
+  })
+  if (!readiness.ready) {
+    const blockerMessage = readiness.blockers?.[0]?.message
+    throw new Error(blockerMessage || `当前审批路线存在 ${readiness.blockers?.length || 0} 项缺失，请先维护路线。`)
+  }
+}
+
 const handleSubmitWorkingIteration = async (
+  row: ControlledFileBrowserRow,
   file: ControlledFileVO | ControlledFileBrowserVersion
 ) => {
   const id = file.id
@@ -1796,9 +1944,10 @@ const handleSubmitWorkingIteration = async (
   }
   submitApprovalLoadingId.value = id
   try {
+    await assertWorkingIterationRouteReadiness(row, file)
     await submitControlledFileWorkingIteration(id, {
       idempotencyKey: createWorkingIterationSubmitIdempotencyKey(id),
-      selectedSignoffUserIds: []
+      needTraining: Boolean(file.needTraining)
     })
     deleteBrowserMutationIdempotencyKey('working-submit', id)
     message.success(`版本 ${file.versionNo} 已提交审批`)
@@ -1883,6 +2032,7 @@ const handleCheckin = (file: ControlledFileBrowserVersion) => {
   if (!isValidBrowserOptionId(id) || !isCheckedOutByCurrentUser(file)) return
   resetCheckinDialog()
   checkinTarget.value = file
+  checkinForm.needTraining = Boolean(file.needTraining)
   checkinForm.remark = String(file.remark || '')
   checkinDialogVisible.value = true
 }
@@ -1895,6 +2045,7 @@ const resetCheckinDialog = () => {
   checkinUpload.value = undefined
   checkinFileList.value = []
   checkinForm.changeDescription = ''
+  checkinForm.needTraining = false
   checkinForm.remark = ''
   checkinForm.versionChangeType = 'MINOR'
   checkinUploadSessionId.value = createControlledFileUploadSessionId()
@@ -1994,6 +2145,8 @@ const uploadCheckinSource = async (options: UploadRequestOptions) => {
   try {
     const uploaded = await uploadControlledFilePreview(options.file, 'SOURCE', {
       categoryId: row.categoryId,
+      uploadContext: 'CHECKIN',
+      controlledFileId: target.id,
       sessionId
     })
     if (!isCurrentRequest()) {
@@ -2038,6 +2191,8 @@ const uploadCheckinDrawingPdf = async (options: UploadRequestOptions) => {
   try {
     const uploaded = await uploadControlledFilePreview(options.file, 'DRAWING_PDF', {
       categoryId: row.categoryId,
+      uploadContext: 'CHECKIN',
+      controlledFileId: target.id,
       sessionId
     })
     if (!isCurrentRequest()) {
@@ -2107,14 +2262,41 @@ const submitCheckin = async () => {
       uploadTicket: hasCheckinUpload ? uploaded?.uploadTicket : undefined,
       drawingPdfUploadTicket: isDrawingSourceFile(uploaded?.fileName)
         ? checkinDrawingPdfUpload.value?.uploadTicket : undefined,
-      sessionId: hasCheckinUpload ? checkinUploadSessionId.value : undefined,
+      sessionId: hasCheckinUpload ? checkinUpload.value!.sessionId : undefined,
       changeDescription,
+      needTraining: checkinForm.needTraining,
       remark: normalizedCheckinRemark
     })
     checkinDialogVisible.value = false
-    await getList()
-    mergeCheckinResult(updatedFile, baseId)
-    message.success(`文件已检入，新版本为 ${updatedFile.versionNo}`)
+
+    const previousList = list.value
+    const previousTotal = total.value
+    let refreshError: unknown
+    try {
+      await getList()
+      mergeCheckinResult(updatedFile, baseId)
+    } catch (error) {
+      refreshError = error
+      list.value = previousList
+      total.value = previousTotal
+      try {
+        mergeCheckinResult(updatedFile, baseId)
+      } catch (mergeError) {
+        refreshError = mergeError
+      }
+    }
+
+    const versionIdentity = updatedFile.versionNo || String(updatedFile.id)
+    if (refreshError) {
+      checkinRefreshPending.value = {
+        controlledFileId: updatedFile.id,
+        versionNo: updatedFile.versionNo
+      }
+      message.warning(`文件已成功检入，新版本为 ${versionIdentity}（ID ${updatedFile.id}），但刷新列表失败，请重新加载。`)
+    } else {
+      checkinRefreshPending.value = undefined
+      message.success(`文件已检入，新版本为 ${versionIdentity}（ID ${updatedFile.id}）`)
+    }
   } catch (error) {
     message.error(resolveBrowserErrorMessage(error, '文件检入失败，请稍后重试。'))
   } finally {
@@ -3068,6 +3250,22 @@ const refreshList = async () => {
   persistBrowserRememberedState()
 }
 
+const retryCheckinListRefresh = async () => {
+  if (!checkinRefreshPending.value || checkinRefreshLoading.value) {
+    return
+  }
+  checkinRefreshLoading.value = true
+  try {
+    await getList()
+    checkinRefreshPending.value = undefined
+    message.success('列表已重新加载')
+  } catch (error) {
+    message.error(resolveBrowserErrorMessage(error, '列表重新加载失败，请稍后重试。'))
+  } finally {
+    checkinRefreshLoading.value = false
+  }
+}
+
 const buildBrowserRequestParams = (): ControlledFilePageReqVO => {
   const requestParams: ControlledFilePageReqVO = {
     pageNo: queryParams.pageNo,
@@ -3584,6 +3782,25 @@ const openMetadataDialog = async (file: ControlledFileVO) => {
   await nextTick()
   metadataEditingFile.value = file
   metadataDialogVisible.value = true
+}
+
+const openDccTimeForm = (
+  kind: 'publishedTime' | 'obsoletedTime',
+  file: ControlledFileBrowserVersion
+) => {
+  internUserDccTimeFormRef.value.open(kind, {
+    id: String(file.id),
+    publishedTime: file.publishedTime,
+    obsoletedTime: file.obsoletedTime
+  })
+}
+
+const openDccTimeAudit = (
+  kind: 'dccPublishedTime' | 'dccObsoletedTime',
+  file: ControlledFileBrowserVersion,
+  title: string
+) => {
+  internUserTimeAuditDialogRef.value.open(kind, String(file.id), title)
 }
 
 const handleMetadataSaved = async () => {

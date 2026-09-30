@@ -12,4 +12,6 @@ public class FormInstanceSubmitReqVO {
 
     private Map<String, List<Long>> startUserSelectAssignees;
 
+    private Map<String, List<Long>> approveUserSelectAssignees;
+
 }

@@ -859,6 +859,19 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
     @DataPermission(enable = false) // 关闭数据权限，避免查询不到用户数据。相关案例：https://gitee.com/zhijiantianya/yudao-cloud/issues/ID1UYA
     public String createProcessInstance(Long userId, @Valid BpmProcessInstanceCreateReqDTO createReqDTO) {
         return FlowableUtils.executeAuthenticatedUserId(userId, () -> {
+            Map<String, Object> variables = createReqDTO.getVariables();
+            if (variables == null) {
+                variables = new HashMap<>();
+                createReqDTO.setVariables(variables);
+            }
+            if (CollUtil.isNotEmpty(createReqDTO.getStartUserSelectAssignees())) {
+                variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                        createReqDTO.getStartUserSelectAssignees());
+            }
+            if (CollUtil.isNotEmpty(createReqDTO.getApproveUserSelectAssignees())) {
+                variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_APPROVE_USER_SELECT_ASSIGNEES,
+                        createReqDTO.getApproveUserSelectAssignees());
+            }
             // 获得流程定义
             ProcessDefinition definition = processDefinitionService
                     .getActiveProcessDefinition(createReqDTO.getProcessDefinitionKey());

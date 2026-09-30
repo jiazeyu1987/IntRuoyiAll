@@ -1,6 +1,6 @@
 import { useCache, CACHE_KEY } from '@/hooks/web/useCache'
 import { TokenType } from '@/api/login/types'
-import { decrypt, encrypt } from '@/utils/jsencrypt'
+import { decrypt } from '@/utils/jsencrypt'
 
 const { wsCache } = useCache()
 
@@ -72,13 +72,12 @@ const normalizeLoginForm = (loginForm?: Partial<LoginFormType>): LoginFormType =
   rememberMe: Boolean(loginForm?.rememberMe)
 })
 
-const encryptLoginForm = (loginForm: LoginFormType) => {
+const cacheSafeLoginForm = (loginForm: LoginFormType) => {
   const normalizedLoginForm = normalizeLoginForm(loginForm)
   return {
-    ...normalizedLoginForm,
-    password: normalizedLoginForm.password
-      ? (encrypt(normalizedLoginForm.password) as string)
-      : normalizedLoginForm.password
+    tenantName: normalizedLoginForm.tenantName,
+    username: normalizedLoginForm.username,
+    rememberMe: normalizedLoginForm.rememberMe
   }
 }
 
@@ -106,7 +105,7 @@ const isLegacyDefaultLoginForm = (loginForm?: Partial<LoginFormType>) => {
 }
 
 const setEncryptedLoginForm = (loginForm: LoginFormType) => {
-  wsCache.set(CACHE_KEY.LoginForm, encryptLoginForm(loginForm), {
+  wsCache.set(CACHE_KEY.LoginForm, cacheSafeLoginForm(loginForm), {
     exp: LoginFormCacheExpireSeconds
   })
 }
@@ -119,7 +118,7 @@ const setEncryptedLoginTenantHistory = (loginHistory: LoginTenantHistoryRecord[]
   wsCache.set(
     CACHE_KEY.LoginTenantHistory,
     loginHistory.map((item) => ({
-      ...encryptLoginForm(item),
+      ...cacheSafeLoginForm(item),
       updatedAt: item.updatedAt
     })),
     { exp: LoginFormCacheExpireSeconds }
@@ -133,6 +132,10 @@ export const getLoginForm = () => {
     if (isLegacyDefaultLoginForm(decryptedLoginForm)) {
       wsCache.delete(CACHE_KEY.LoginForm)
     } else {
+      if (decryptedLoginForm.password) {
+        decryptedLoginForm.password = ''
+        setEncryptedLoginForm(decryptedLoginForm)
+      }
       return decryptedLoginForm
     }
   }
@@ -145,7 +148,7 @@ export const getLoginFormHistory = () => {
   if (!Array.isArray(loginHistory)) {
     return []
   }
-  let removedLegacyDefaultLoginForm = false
+  let updatedLegacyLoginCache = false
   const nextLoginHistory = loginHistory
     .map((item) => {
       const decryptedLoginForm = decryptLoginForm(item)
@@ -153,8 +156,12 @@ export const getLoginFormHistory = () => {
         return undefined
       }
       if (isLegacyDefaultLoginForm(decryptedLoginForm)) {
-        removedLegacyDefaultLoginForm = true
+        updatedLegacyLoginCache = true
         return undefined
+      }
+      if (decryptedLoginForm.password) {
+        decryptedLoginForm.password = ''
+        updatedLegacyLoginCache = true
       }
       return {
         ...decryptedLoginForm,
@@ -163,7 +170,7 @@ export const getLoginFormHistory = () => {
     })
     .filter((item): item is LoginTenantHistoryRecord => Boolean(item?.tenantName))
     .sort((left, right) => right.updatedAt - left.updatedAt)
-  if (removedLegacyDefaultLoginForm) {
+  if (updatedLegacyLoginCache) {
     setEncryptedLoginTenantHistory(nextLoginHistory)
   }
   return nextLoginHistory

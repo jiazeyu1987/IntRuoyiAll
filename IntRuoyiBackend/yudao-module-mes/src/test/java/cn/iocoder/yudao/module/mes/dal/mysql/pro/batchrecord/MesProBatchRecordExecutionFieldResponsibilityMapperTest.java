@@ -243,7 +243,7 @@ class MesProBatchRecordExecutionFieldResponsibilityMapperTest extends BaseDbUnit
                 .filter(TenantLineInnerInterceptor.class::isInstance)
                 .toList();
         assertEquals(1, tenantInterceptors.size());
-        assertInstanceOf(TenantLineInnerInterceptor.class, tenantInterceptors.getFirst());
+        assertInstanceOf(TenantLineInnerInterceptor.class, tenantInterceptors.get(0));
         assertTenantTableMetadata("mes_pro_batch_record_execution", MesProBatchRecordExecutionDO.class);
         assertTenantTableMetadata("mes_pro_batch_record_execution_signature",
                 MesProBatchRecordExecutionSignatureDO.class);

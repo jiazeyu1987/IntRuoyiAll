@@ -13,11 +13,9 @@ const readSource = (relativePath) => {
 const packageJson = JSON.parse(readSource('package.json'))
 const entryComponent = readSource('src/views/dcc/controlled-file/shared/ControlledFileWorkbenchEntry.vue')
 
-const pages = [
-  'src/views/dcc/controlled-file/browser/index.vue',
-  'src/views/dcc/controlled-file/approval-tasks/index.vue',
-  'src/views/dcc/controlled-file/training/mine/index.vue'
-]
+const browserPage = readSource('src/views/dcc/controlled-file/browser/index.vue')
+const approvalTasksPage = readSource('src/views/dcc/controlled-file/approval-tasks/index.vue')
+const trainingMinePage = readSource('src/views/dcc/controlled-file/training/mine/index.vue')
 
 assert.equal(
   packageJson.scripts['e2e:dcc:workbench-entry:static'],
@@ -39,13 +37,20 @@ assert.match(
 assert.match(entryComponent, /router\.push/, 'workbench entry must use frontend routing')
 assert.doesNotMatch(entryComponent, /mock|placeholder/i, 'workbench entry must not use mock or placeholder logic')
 
-for (const pagePath of pages) {
-  const source = readSource(pagePath)
-  assert.match(
-    source,
-    /ControlledFileWorkbenchEntry/,
-    `${pagePath} must import and render the shared workbench entry`
-  )
-}
+assert.doesNotMatch(
+  browserPage,
+  /ControlledFileWorkbenchEntry/,
+  'controlled browser must not reintroduce the old header workbench entry'
+)
+assert.match(
+  approvalTasksPage,
+  /router\.replace\(\{[\s\S]*path:\s*'\/approval-center'[\s\S]*moduleCode:\s*'DCC'[\s\S]*viewType:\s*'TODO'/,
+  'legacy DCC approval task page must redirect to unified approval center instead of rendering a duplicate entry'
+)
+assert.doesNotMatch(
+  trainingMinePage,
+  /ControlledFileWorkbenchEntry/,
+  'training mine page must rely on the standard list toolbar and not render the removed workbench entry'
+)
 
 console.log('PASS: DCC workbench entry static contract')

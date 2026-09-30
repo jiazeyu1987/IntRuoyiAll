@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.api.event.BpmProcessInstanceStatusEvent;
 import cn.iocoder.yudao.module.bpm.enums.task.BpmProcessInstanceStatusEnum;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
@@ -32,6 +33,7 @@ import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -47,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -100,17 +103,25 @@ class DccControlledFilePublicationFlowTest extends BaseMockitoUnitTest {
     private DccControlledFileSignatureBindingService signatureBindingService;
     @Mock
     private DccPublicationFollowupService publicationFollowupService;
+    @Mock
+    private DccControlledFileFinalizationFailureService finalizationFailureService;
 
     @InjectMocks
     private DccControlledFileFinalizationServiceImpl finalizationService;
 
     @BeforeEach
     void setUp() {
+        TenantContextHolder.setTenantId(1L);
         doAnswer(invocation -> {
             Consumer<TransactionStatus> action = invocation.getArgument(0);
             action.accept(null);
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
+    }
+
+    @AfterEach
+    void tearDownTenantContext() {
+        TenantContextHolder.clear();
     }
 
     @Test
@@ -198,11 +209,9 @@ class DccControlledFilePublicationFlowTest extends BaseMockitoUnitTest {
                 () -> finalizationService.handleProcessInstanceStatusChanged(approveEvent(901L)));
 
         assertEquals(CONTROLLED_FILE_STAMP_GENERATION_FAILED.getCode(), ex.getCode());
-        ArgumentCaptor<DccControlledFileDO> updateCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
-        verify(controlledFileMapper).updateById(updateCaptor.capture());
-        assertEquals(DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus(), updateCaptor.getValue().getStatus());
+        verify(finalizationFailureService).recordFailure(eq(1L), eq(901L),
+                eq(DccControlledFileStatusEnum.FINALIZING.getStatus()), isNull(), any(), isNull());
         verify(platformAdapter).recordFinalizationStarted(eq(currentFile), any(), any());
-        verify(platformAdapter).recordFinalizationFailed(eq(currentFile), any(), any(), any());
         verify(platformAdapter, never()).recordFinalized(any(), any(), any(), any());
         verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
         verify(trainingMapper, never()).insert(any(DccControlledFileTrainingDO.class));

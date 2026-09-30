@@ -225,6 +225,23 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void createShouldRejectDuplicateProjectCodeAcrossProjectNames() {
+        projectCodeMapper.insert(DccProjectCodeDO.builder()
+                .docControlNo("1")
+                .projectName("项目A")
+                .projectCode("CODE-SHARED")
+                .status(DccProjectCodeStatusConstants.ENABLE)
+                .build());
+
+        DccProjectCodeSaveReqVO createReqVO = new DccProjectCodeSaveReqVO();
+        createReqVO.setProjectName("项目B");
+        createReqVO.setProjectCode("CODE-SHARED");
+        createReqVO.setStatus(DccProjectCodeStatusConstants.ENABLE);
+
+        assertServiceException(() -> projectCodeService.createProjectCode(createReqVO), PROJECT_CODE_DUPLICATE);
+    }
+
+    @Test
     void deleteShouldRejectReferencedProjectCode() {
         DccProjectCodeDO projectCode = DccProjectCodeDO.builder()
                 .docControlNo("1")

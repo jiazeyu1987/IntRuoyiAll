@@ -593,5 +593,27 @@ public interface ErrorCodeConstants {
             "Only the latest WORKING controlled file iteration can be submitted");
     ErrorCode DCC_PROJECT_ACCESS_RULE_INVALID = new ErrorCode(1_080_000_346,
             "DCC project access rules are invalid: include at least one active OWNER and non-blank change reason");
+    ErrorCode CONTROLLED_FILE_NAME_EXISTS = new ErrorCode(1_080_000_348,
+            "文件名称已存在，请先走作废或者升版路线");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_NOT_EXISTS = new ErrorCode(1_080_000_350,
+            "DCC 项目代码与产品目录联合新建申请不存在");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID = new ErrorCode(1_080_000_351,
+            "DCC 项目代码与产品目录联合新建申请状态不合法");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_ADMIN_REQUIRED = new ErrorCode(1_080_000_352,
+            "只有 admin 可以审核或批准 DCC 项目代码与产品目录联合新建申请");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_DUPLICATE_PROJECT_CODE = new ErrorCode(1_080_000_353,
+            "项目代码已存在或正在申请中");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_DUPLICATE_PRODUCT_CODE = new ErrorCode(1_080_000_354,
+            "产品编码已存在或正在申请中");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_DUPLICATE_PRODUCT_NAME = new ErrorCode(1_080_000_355,
+            "产品名称已存在或正在申请中");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_CLASSIFICATION_INVALID = new ErrorCode(1_080_000_356,
+            "分类只能选择一类、二类或三类");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_WRITE_FAILED = new ErrorCode(1_080_000_357,
+            "DCC 项目代码与产品目录正式数据写入失败");
+    ErrorCode DCC_PROJECT_CODE_DIRECT_CREATE_NOT_ALLOWED = new ErrorCode(1_080_000_358,
+            "DCC 项目代码必须从项目代码与产品目录联合新建申请创建");
+    ErrorCode DCC_PRODUCT_CATALOG_DIRECT_CREATE_NOT_ALLOWED = new ErrorCode(1_080_000_359,
+            "DCC 产品目录必须从项目代码与产品目录联合新建申请创建");
 
 }

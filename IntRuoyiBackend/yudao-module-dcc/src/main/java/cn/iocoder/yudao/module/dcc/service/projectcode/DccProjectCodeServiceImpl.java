@@ -81,6 +81,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DUPLICATE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_STATUS_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_CODE_DIRECT_CREATE_NOT_ALLOWED;
 
 @Service
 @Validated
@@ -171,12 +172,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createProjectCode(DccProjectCodeSaveReqVO reqVO) {
-        DccProjectCodeSaveReqVO normalizedReqVO = normalizeSaveReqVO(reqVO);
-        validateProjectCodeStatus(normalizedReqVO.getStatus());
-        validateProjectCodeUnique(normalizedReqVO.getProjectName(), normalizedReqVO.getProjectCode(), null);
-        DccProjectCodeDO projectCode = buildProjectCodeDO(normalizedReqVO, null);
-        projectCodeMapper.insert(projectCode);
-        return projectCode.getId();
+        throw exception(DCC_PROJECT_CODE_DIRECT_CREATE_NOT_ALLOWED);
     }
 
     @Override
@@ -1118,7 +1114,10 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     }
 
     private void validateProjectCodeUnique(String projectName, String projectCode, Long excludeId) {
-        if (projectCodeMapper.selectByProjectNameAndProjectCodeExcludingId(projectName, projectCode, excludeId) != null) {
+        DccProjectCodeDO existing = StrUtil.isBlank(projectCode)
+                ? projectCodeMapper.selectByProjectNameAndProjectCodeExcludingId(projectName, projectCode, excludeId)
+                : projectCodeMapper.selectByProjectCodeExcludingId(projectCode, excludeId);
+        if (existing != null) {
             throw exception(PROJECT_CODE_DUPLICATE);
         }
     }

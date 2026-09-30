@@ -1,7 +1,8 @@
 import request from '@/config/axios'
 
-export type ControlledFileRouteCandidateSourceType = 'USER' | 'POSITION'
+export type ControlledFileRouteCandidateSourceType = 'USER' | 'POSITION' | 'DEPT'
 export type ControlledFileRouteApproveMethod = 'ANY' | 'ALL'
+export type ControlledFileApprovalRouteActionType = 'LEGACY' | 'NEW' | 'REVISION' | 'OBSOLETE'
 
 export interface ControlledFileApprovalRouteNodeVO {
   id?: number
@@ -32,6 +33,7 @@ export interface ControlledFileApprovalRouteVO {
   id?: number
   categoryId?: number
   categoryName?: string
+  actionType?: ControlledFileApprovalRouteActionType
   versionNo?: number
   active?: boolean
   statusLabel?: string
@@ -44,6 +46,7 @@ export interface ControlledFileApprovalRouteVO {
 
 export interface ControlledFileApprovalRoutePreviewReqVO {
   categoryId: number
+  actionType?: ControlledFileApprovalRouteActionType
 }
 
 export interface ControlledFileApprovalRoutePreviewVO {
@@ -59,13 +62,15 @@ export interface ControlledFileApprovalRoutePreviewVO {
 }
 
 export interface ControlledFileApprovalRouteSaveReqVO {
+  actionType: ControlledFileApprovalRouteActionType
   effectiveTime: string
   remark?: string
   nodes: Array<{
     stageNo: number
     stageName: string
     candidateSourceType: ControlledFileRouteCandidateSourceType
-    candidateSourceId: number
+    candidateSourceId?: number
+    candidateSourceIds: number[]
     approveMethod: ControlledFileRouteApproveMethod
     approveRatio?: number
     required: boolean
@@ -77,6 +82,7 @@ export interface ControlledFileApprovalRoutePageReqVO {
   pageNo: number
   pageSize: number
   categoryId?: number
+  actionType?: ControlledFileApprovalRouteActionType
 }
 
 export const getApprovalRoutePage = async (

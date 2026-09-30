@@ -68,4 +68,19 @@ public interface FormActionInstanceMapper extends BaseMapperX<FormActionInstance
                 .last("LIMIT 1"));
     }
 
+    default FormActionInstanceDO selectDraftByBusinessAction(Long tenantId, String systemCode, String objectType,
+            String objectId, String objectVersion, String actionCode, Long applicantUserId) {
+        return selectOne(new QueryWrapperX<FormActionInstanceDO>()
+                .eq("tenant_id", tenantId)
+                .eq("system_code", systemCode)
+                .eq("object_type", objectType)
+                .eq("object_id", objectId)
+                .eq("object_version", objectVersion)
+                .eq("action_code", actionCode)
+                .eq("applicant_user_id", applicantUserId)
+                .eq("status", FormInstanceStatus.DRAFT.name())
+                .orderByDesc("id")
+                .last("LIMIT 1"));
+    }
+
 }

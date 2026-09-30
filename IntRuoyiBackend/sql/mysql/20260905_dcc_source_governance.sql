@@ -5,6 +5,7 @@ SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_source_governance_batch` (
   `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` bigint NOT NULL DEFAULT 0,
   `task_key` varchar(128) NOT NULL,
   `tenant_scope_json` text NOT NULL,
   `tenant_scope_sha256` varchar(64) NOT NULL,

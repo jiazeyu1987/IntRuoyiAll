@@ -18,7 +18,7 @@ export interface DccControlledFileLogPageReqVO extends PageParam {
   keyword?: string
   actionType?: string
   result?: string
-  controlledFileId?: number
+  controlledFileId?: string
   masterId?: number
   versionNo?: string
   projectCodeId?: number

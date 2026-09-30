@@ -4,6 +4,7 @@ const path = require('node:path')
 
 const repoRoot = path.resolve(__dirname, '../..')
 const workspaceRoot = path.resolve(repoRoot, '..')
+const backendRoot = path.join(workspaceRoot, 'IntRuoyiBackend')
 
 function readUtf8(absolutePath) {
   assert.ok(fs.existsSync(absolutePath), `missing required file: ${absolutePath}`)
@@ -18,7 +19,7 @@ const routeSource = readUtf8(
   path.join(repoRoot, 'src/router/modules/remaining.ts')
 )
 const sqlSource = readUtf8(
-  path.join(workspaceRoot, 'ruoyi-vue-pro/sql/mysql/20260630_dcc_admin_full_config_menu.sql')
+  path.join(backendRoot, 'sql/mysql/20260630_dcc_admin_full_config_menu.sql')
 )
 
 for (const fragment of [

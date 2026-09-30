@@ -46,4 +46,12 @@ public class BpmProcessInstanceCreateReqDTO {
      */
     private Map<String, List<Long>> startUserSelectAssignees;
 
+    /**
+     * 发起时由业务方确认的后续节点审批人 Map。
+     *
+     * DCC FormCenter 作废等业务会在流程启动前冻结批准、文控审核候选人，
+     * 不能只依赖通用 variables 透传，避免跨 DTO 边界后名单丢失。
+     */
+    private Map<String, List<Long>> approveUserSelectAssignees;
+
 }

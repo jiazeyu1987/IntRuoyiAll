@@ -5,17 +5,17 @@ interface DccDistributionTaskRequestOptions {
 }
 
 export interface DistributionTaskVO {
-  recipientId: number
-  distributionId: number
-  controlledFileId: number
-  categoryId: number
+  recipientId: number | string
+  distributionId: number | string
+  controlledFileId: number | string
+  categoryId: number | string
   fileName?: string
   title?: string
   fileNumber?: string
   versionNo?: string
   fileStatus: string
-  userId: number
-  departmentId?: number
+  userId: number | string
+  departmentId?: number | string
   distributionMedium: string
   readAt?: number
   acknowledgedAt?: number

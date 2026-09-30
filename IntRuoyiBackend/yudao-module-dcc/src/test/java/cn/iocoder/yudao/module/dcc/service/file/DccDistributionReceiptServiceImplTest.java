@@ -94,6 +94,7 @@ class DccDistributionReceiptServiceImplTest extends BaseMockitoUnitTest {
         verify(distributionRecipientMapper).updateById(recipientCaptor.capture());
         assertEquals(501L, recipientCaptor.getValue().getId());
         assertEquals("已收到电子受控文件", recipientCaptor.getValue().getAckComment());
+        assertNotNull(recipientCaptor.getValue().getReadAt());
         assertNotNull(recipientCaptor.getValue().getAcknowledgedAt());
         ArgumentCaptor<DccControlledFileDistributionDO> distributionCaptor =
                 ArgumentCaptor.forClass(DccControlledFileDistributionDO.class);

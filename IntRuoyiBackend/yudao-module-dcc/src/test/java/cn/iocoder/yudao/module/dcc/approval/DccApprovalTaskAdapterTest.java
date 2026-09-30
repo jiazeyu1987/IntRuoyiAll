@@ -8,14 +8,19 @@ import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskQueryContext;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewContext;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskSummary;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskApproveReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRejectReqVO;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileApproveTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRejectTaskReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRouteSnapshotDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRouteSnapshotMapper;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileProcessDefinitionKeys;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowService;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.runtime.ProcessInstance;
@@ -37,6 +42,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -48,6 +54,15 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class DccApprovalTaskAdapterTest {
 
+    private static final List<String> EXPECTED_DCC_PROCESS_DEFINITION_KEYS = List.of(
+            DccControlledFileProcessDefinitionKeys.LEGACY_APPROVAL,
+            DccControlledFileProcessDefinitionKeys.UPLOAD,
+            DccControlledFileProcessDefinitionKeys.REVISION,
+            DccControlledFileProcessDefinitionKeys.OBSOLETE,
+            DccControlledFileProcessDefinitionKeys.LEGACY_OBSOLETE_FORM_CENTER,
+            "dcc-external-file-review"
+    );
+
     @Mock
     private BpmTaskService bpmTaskService;
     @Mock
@@ -58,6 +73,8 @@ class DccApprovalTaskAdapterTest {
     private DccControlledFileMapper controlledFileMapper;
     @Mock
     private DccFileCategoryMapper fileCategoryMapper;
+    @Mock
+    private DccControlledFileRouteSnapshotMapper routeSnapshotMapper;
     @InjectMocks
     private DccApprovalTaskAdapter adapter;
 
@@ -115,7 +132,7 @@ class DccApprovalTaskAdapterTest {
         ), summary.getBusinessContextTags());
         assertEquals(Boolean.FALSE, summary.getBusinessDeleted());
         assertEquals(Boolean.TRUE, summary.getRequiresSignature());
-        assertEquals(Set.of("APPROVE", "REJECT", "PROCESS_IN_MODULE"), summary.getAvailableActions());
+        assertEquals(Set.of("PROCESS_IN_MODULE"), summary.getAvailableActions());
         assertEquals("/dcc/controlled-file/detail/6001", summary.getDetailRoute());
         assertEquals(Map.of(
                 "handling", "approval",
@@ -125,9 +142,162 @@ class DccApprovalTaskAdapterTest {
         ), summary.getDetailQuery());
 
         ArgumentCaptor<BpmTaskPageReqVO> captor = ArgumentCaptor.forClass(BpmTaskPageReqVO.class);
-        verify(bpmTaskService).getTaskTodoPage(eq(100L), captor.capture());
-        assertEquals("dcc-controlled-file-approval", captor.getValue().getProcessDefinitionKey());
+        verify(bpmTaskService, org.mockito.Mockito.times(EXPECTED_DCC_PROCESS_DEFINITION_KEYS.size()))
+                .getTaskTodoPage(eq(100L), captor.capture());
+        assertEquals(EXPECTED_DCC_PROCESS_DEFINITION_KEYS,
+                captor.getAllValues().stream().map(BpmTaskPageReqVO::getProcessDefinitionKey).toList());
         verify(workflowService, never()).getControlledFile(anyLong());
+    }
+
+    @Test
+    void pageTodoDoesNotProjectNativeFinalReviewTaskAfterFileBecameActive() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-active-final");
+        when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
+        when(task.getProcessInstanceId()).thenReturn("pi-active-final");
+        when(bpmTaskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessDefinitionKey()).thenReturn(
+                DccControlledFileProcessDefinitionKeys.UPLOAD);
+        when(processInstance.getBusinessKey()).thenReturn("6002");
+        when(processInstanceService.getProcessInstanceMap(Set.of("pi-active-final")))
+                .thenReturn(Map.of("pi-active-final", processInstance));
+        DccControlledFileDO file = new DccControlledFileDO();
+        file.setId(6002L);
+        file.setTitle("Active DCC file");
+        file.setFileNumber("ACTIVE-6002");
+        file.setVersionNo("A/1");
+        file.setCategoryId(7001L);
+        file.setStatus("ACTIVE");
+        when(controlledFileMapper.selectByIdIncludingDeleted(6002L)).thenReturn(file);
+
+        PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10));
+
+        assertEquals(0L, page.getTotal());
+        assertTrue(page.getList().isEmpty());
+    }
+
+    @Test
+    void pageTodoDoesNotProjectNativeFinalReviewTaskAfterFileWasSuperseded() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-superseded-final");
+        when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
+        when(task.getProcessInstanceId()).thenReturn("pi-superseded-final");
+        when(bpmTaskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessDefinitionKey()).thenReturn(
+                DccControlledFileProcessDefinitionKeys.REVISION);
+        when(processInstance.getBusinessKey()).thenReturn("6003");
+        when(processInstanceService.getProcessInstanceMap(Set.of("pi-superseded-final")))
+                .thenReturn(Map.of("pi-superseded-final", processInstance));
+        DccControlledFileDO file = new DccControlledFileDO();
+        file.setId(6003L);
+        file.setTitle("Superseded DCC file");
+        file.setFileNumber("SUPERSEDED-6003");
+        file.setVersionNo("A/1");
+        file.setCategoryId(7001L);
+        file.setStatus("SUPERSEDED");
+        when(controlledFileMapper.selectByIdIncludingDeleted(6003L)).thenReturn(file);
+
+        PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10));
+
+        assertEquals(0L, page.getTotal());
+        assertTrue(page.getList().isEmpty());
+    }
+
+    @Test
+    void pageTodoMapsExternalReviewTasksToModuleProcessingOnly() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("external-task-1");
+        when(task.getName()).thenReturn("文控审核");
+        when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
+        when(task.getProcessInstanceId()).thenReturn("external-pi-1");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(bpmTaskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenAnswer(invocation -> {
+                    BpmTaskPageReqVO reqVO = invocation.getArgument(1);
+                    return "dcc-external-file-review".equals(reqVO.getProcessDefinitionKey())
+                            ? new PageResult<>(List.of(task), 1L)
+                            : new PageResult<>(List.of(), 0L);
+                });
+
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getBusinessKey()).thenReturn("6012");
+        when(processInstance.getStartUserId()).thenReturn("501");
+        when(processInstance.getProcessDefinitionKey()).thenReturn("dcc-external-file-review");
+        when(processInstanceService.getProcessInstanceMap(Set.of("external-pi-1")))
+                .thenReturn(Map.of("external-pi-1", processInstance));
+
+        DccControlledFileDO file = new DccControlledFileDO();
+        file.setId(6012L);
+        file.setTitle("外来文件评审样例");
+        file.setFileNumber("EXT-6012");
+        file.setVersionNo("A");
+        file.setCategoryId(7001L);
+        file.setStatus("PENDING_DOC_CONTROL_REVIEW");
+        when(controlledFileMapper.selectByIdIncludingDeleted(6012L)).thenReturn(file);
+        when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7001L).name("外来文件").distributionRequired(Boolean.FALSE).build());
+
+        PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        assertEquals(Set.of("PROCESS_IN_MODULE"), page.getList().get(0).getAvailableActions());
+        assertEquals("external-task-1", page.getList().get(0).getSourceTaskId());
+        assertEquals("6012", page.getList().get(0).getBusinessKey());
+    }
+
+    @Test
+    void pageTodoMapsObsoleteFormCenterProcessByObjectIdVariable() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("obsolete-task-1");
+        when(task.getName()).thenReturn("作废审核");
+        when(task.getTaskDefinitionKey()).thenReturn("OBSOLETE_APPROVAL");
+        when(task.getProcessInstanceId()).thenReturn("obsolete-pi-1");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(bpmTaskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenAnswer(invocation -> {
+                    BpmTaskPageReqVO request = invocation.getArgument(1);
+                    return DccControlledFileProcessDefinitionKeys.OBSOLETE.equals(request.getProcessDefinitionKey())
+                            ? new PageResult<>(List.of(task), 1L)
+                            : new PageResult<>(List.of(), 0L);
+                });
+
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessDefinitionKey()).thenReturn(DccControlledFileProcessDefinitionKeys.OBSOLETE);
+        when(processInstance.getBusinessKey()).thenReturn("FORM_ACTION:FCI-1-1789847768616");
+        when(processInstance.getProcessVariables()).thenReturn(Map.of("objectId", "6003"));
+        when(processInstance.getStartUserId()).thenReturn("501");
+        when(processInstanceService.getProcessInstanceMap(Set.of("obsolete-pi-1")))
+                .thenReturn(Map.of("obsolete-pi-1", processInstance));
+
+        DccControlledFileDO file = new DccControlledFileDO();
+        file.setId(6003L);
+        file.setTitle("待作废文控文件");
+        file.setFileNumber("OBSOLETE-6003");
+        file.setVersionNo("A");
+        file.setCategoryId(7001L);
+        file.setStatus("ACTIVE");
+        when(controlledFileMapper.selectByIdIncludingDeleted(6003L)).thenReturn(file);
+        when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7001L)
+                .name("SOP 文件")
+                .distributionRequired(Boolean.FALSE)
+                .build());
+
+        PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        assertEquals("6003", page.getList().get(0).getBusinessKey());
+        assertEquals("OBSOLETE-6003", page.getList().get(0).getBusinessCode());
+        assertEquals(Set.of("APPROVE", "REJECT"),
+                page.getList().get(0).getAvailableActions());
     }
 
     @Test
@@ -155,6 +325,43 @@ class DccApprovalTaskAdapterTest {
         file.setCategoryId(7001L);
         file.setStatus("PENDING_DOC_CONTROL_APPROVAL");
         when(controlledFileMapper.selectByIdIncludingDeleted(6004L)).thenReturn(file);
+        when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7001L)
+                .name("SOP 文件")
+                .distributionRequired(Boolean.TRUE)
+                .build());
+
+        PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10));
+
+        assertEquals(Set.of("PROCESS_IN_MODULE"), page.getList().get(0).getAvailableActions());
+    }
+
+    @Test
+    void pageTodoKeepsNativeDocControlReviewInModuleBecauseFinalReviewOwnsEvidenceAndFinalization() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-native-final");
+        when(task.getName()).thenReturn("文控审核");
+        when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
+        when(task.getProcessInstanceId()).thenReturn("pi-native-final");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(bpmTaskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getBusinessKey()).thenReturn("6005");
+        when(processInstance.getStartUserId()).thenReturn("501");
+        when(processInstanceService.getProcessInstanceMap(Set.of("pi-native-final")))
+                .thenReturn(Map.of("pi-native-final", processInstance));
+
+        DccControlledFileDO file = new DccControlledFileDO();
+        file.setId(6005L);
+        file.setTitle("DCC-SOP-005");
+        file.setFileNumber("SOP-005");
+        file.setVersionNo("A/1");
+        file.setCategoryId(7001L);
+        file.setStatus("PENDING_DOC_CONTROL_REVIEW");
+        when(controlledFileMapper.selectByIdIncludingDeleted(6005L)).thenReturn(file);
         when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
                 .id(7001L)
                 .name("SOP 文件")
@@ -208,6 +415,65 @@ class DccApprovalTaskAdapterTest {
     }
 
     @Test
+    void pageTodoFiltersByControlledFileNumberInsteadOfBpmTaskName() {
+        Task matchingTask = mock(Task.class);
+        when(matchingTask.getId()).thenReturn("task-keyword-match");
+        when(matchingTask.getName()).thenReturn("文控审核");
+        when(matchingTask.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
+        when(matchingTask.getProcessInstanceId()).thenReturn("pi-keyword-match");
+        when(matchingTask.getCreateTime()).thenReturn(new Date(1782180000000L));
+
+        Task nonMatchingTask = mock(Task.class);
+        when(nonMatchingTask.getId()).thenReturn("task-keyword-miss");
+        when(nonMatchingTask.getName()).thenReturn("文控审核");
+        when(nonMatchingTask.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
+        when(nonMatchingTask.getProcessInstanceId()).thenReturn("pi-keyword-miss");
+        when(nonMatchingTask.getCreateTime()).thenReturn(new Date(1782180000000L));
+
+        when(bpmTaskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(matchingTask, nonMatchingTask), 2L));
+
+        ProcessInstance matchingProcess = mock(ProcessInstance.class);
+        when(matchingProcess.getBusinessKey()).thenReturn("6010");
+        when(matchingProcess.getStartUserId()).thenReturn("501");
+        ProcessInstance nonMatchingProcess = mock(ProcessInstance.class);
+        when(nonMatchingProcess.getBusinessKey()).thenReturn("6011");
+        when(nonMatchingProcess.getStartUserId()).thenReturn("501");
+        when(processInstanceService.getProcessInstanceMap(Set.of("pi-keyword-match", "pi-keyword-miss")))
+                .thenReturn(Map.of(
+                        "pi-keyword-match", matchingProcess,
+                        "pi-keyword-miss", nonMatchingProcess));
+
+        DccControlledFileDO matchingFile = new DccControlledFileDO();
+        matchingFile.setId(6010L);
+        matchingFile.setTitle("关键词匹配文件");
+        matchingFile.setFileNumber("OBSOLETE-KEYWORD-6010");
+        matchingFile.setVersionNo("A");
+        matchingFile.setCategoryId(7001L);
+        matchingFile.setStatus("PENDING_DOC_CONTROL_REVIEW");
+        DccControlledFileDO nonMatchingFile = new DccControlledFileDO();
+        nonMatchingFile.setId(6011L);
+        nonMatchingFile.setTitle("其他文件");
+        nonMatchingFile.setFileNumber("OTHER-6011");
+        nonMatchingFile.setVersionNo("A");
+        nonMatchingFile.setCategoryId(7001L);
+        nonMatchingFile.setStatus("PENDING_DOC_CONTROL_REVIEW");
+        when(controlledFileMapper.selectByIdIncludingDeleted(6010L)).thenReturn(matchingFile);
+        when(controlledFileMapper.selectByIdIncludingDeleted(6011L)).thenReturn(nonMatchingFile);
+        when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7001L)
+                .name("SOP 文件")
+                .distributionRequired(Boolean.FALSE)
+                .build());
+
+        PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, "OBSOLETE-KEYWORD-6010", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        assertEquals("OBSOLETE-KEYWORD-6010", page.getList().get(0).getBusinessCode());
+    }
+
+    @Test
     void reviewApproveDelegatesToControlledFileWorkflow() {
         adapter.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.DCC,
                 "DCC_CONTROLLED_FILE_TASK", "task-approve", "6001", "pi-1",
@@ -219,6 +485,51 @@ class DccApprovalTaskAdapterTest {
         assertEquals("task-approve", captor.getValue().getTaskId());
         assertEquals("secret", captor.getValue().getPassword());
         assertEquals("同意", captor.getValue().getReason());
+    }
+
+    @Test
+    void reviewObsoleteApproveCompletesFormCenterBpmTask() {
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessDefinitionKey()).thenReturn("dcc-controlled-file-obsolete-approval");
+        when(processInstanceService.getProcessInstance("obsolete-pi-approve")).thenReturn(processInstance);
+        when(routeSnapshotMapper.selectListByControlledFileId(6001L)).thenReturn(List.of(
+                DccControlledFileRouteSnapshotDO.builder()
+                        .controlledFileId(6001L).stageCode("MATRIX_REVIEW").resolvedUserIds("7001,7001").build(),
+                DccControlledFileRouteSnapshotDO.builder()
+                        .controlledFileId(6001L).stageCode("MATRIX_APPROVAL").resolvedUserIds("7001").build(),
+                DccControlledFileRouteSnapshotDO.builder()
+                        .controlledFileId(6001L).stageCode("DOC_CONTROL_REVIEW").resolvedUserIds("7001").build()));
+
+        adapter.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.DCC,
+                "DCC_CONTROLLED_FILE_TASK", "obsolete-task-approve", "6001", "obsolete-pi-approve",
+                ApprovalTaskReviewResult.APPROVE, "作废审批通过", "secret", false));
+
+        ArgumentCaptor<BpmTaskApproveReqVO> captor = ArgumentCaptor.forClass(BpmTaskApproveReqVO.class);
+        verify(bpmTaskService).approveTask(eq(100L), captor.capture());
+        assertEquals("obsolete-task-approve", captor.getValue().getId());
+        assertEquals("作废审批通过", captor.getValue().getReason());
+        assertEquals(Map.of(
+                "MATRIX_REVIEW", List.of(7001L, 7001L),
+                "MATRIX_APPROVAL", List.of(7001L),
+                "DOC_CONTROL_REVIEW", List.of(7001L)), captor.getValue().getNextAssignees());
+        verify(workflowService, never()).approveTask(anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void reviewObsoleteRejectCompletesFormCenterBpmTask() {
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessDefinitionKey()).thenReturn("dcc-controlled-file-obsolete-approval");
+        when(processInstanceService.getProcessInstance("obsolete-pi-reject")).thenReturn(processInstance);
+
+        adapter.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.DCC,
+                "DCC_CONTROLLED_FILE_TASK", "obsolete-task-reject", "6001", "obsolete-pi-reject",
+                ApprovalTaskReviewResult.REJECT, "作废申请退回", "secret", false));
+
+        ArgumentCaptor<BpmTaskRejectReqVO> captor = ArgumentCaptor.forClass(BpmTaskRejectReqVO.class);
+        verify(bpmTaskService).rejectTask(eq(100L), captor.capture());
+        assertEquals("obsolete-task-reject", captor.getValue().getId());
+        assertEquals("作废申请退回", captor.getValue().getReason());
+        verify(workflowService, never()).rejectTask(anyLong(), anyLong(), any());
     }
 
     @Test
@@ -457,8 +768,10 @@ class DccApprovalTaskAdapterTest {
         assertEquals(Map.of("viewer", "1", "from", "approval-center"), summary.getDetailQuery());
 
         ArgumentCaptor<BpmTaskPageReqVO> captor = ArgumentCaptor.forClass(BpmTaskPageReqVO.class);
-        verify(bpmTaskService).getTaskDonePage(eq(100L), captor.capture());
-        assertEquals("dcc-controlled-file-approval", captor.getValue().getProcessDefinitionKey());
+        verify(bpmTaskService, org.mockito.Mockito.times(EXPECTED_DCC_PROCESS_DEFINITION_KEYS.size()))
+                .getTaskDonePage(eq(100L), captor.capture());
+        assertEquals(EXPECTED_DCC_PROCESS_DEFINITION_KEYS,
+                captor.getAllValues().stream().map(BpmTaskPageReqVO::getProcessDefinitionKey).toList());
         verify(controlledFileMapper).selectByIdIncludingDeleted(6002L);
         verify(workflowService, never()).getControlledFile(anyLong());
     }
@@ -657,6 +970,7 @@ class DccApprovalTaskAdapterTest {
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10, true));
 
         assertEquals(1L, page.getTotal());
-        verify(bpmTaskService).getTaskTodoPage(eq(null), any(BpmTaskPageReqVO.class));
+        verify(bpmTaskService, org.mockito.Mockito.times(EXPECTED_DCC_PROCESS_DEFINITION_KEYS.size()))
+                .getTaskTodoPage(eq(null), any(BpmTaskPageReqVO.class));
     }
 }

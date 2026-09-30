@@ -243,6 +243,7 @@ class DccAdminFullConfigPackageServiceTest extends BaseDbUnitTest {
                     .remark(reqVO.getRemark())
                     .description(reqVO.getDescription())
                     .lifecycleStage(reqVO.getLifecycleStage())
+                    .fileTypeTaxonomyId(reqVO.getFileTypeTaxonomyId())
                     .distributionRequired(reqVO.getDistributionRequired())
                     .trainingRequired(reqVO.getTrainingRequired())
                     .build();
@@ -261,6 +262,7 @@ class DccAdminFullConfigPackageServiceTest extends BaseDbUnitTest {
             category.setRemark(reqVO.getRemark());
             category.setDescription(reqVO.getDescription());
             category.setLifecycleStage(reqVO.getLifecycleStage());
+            category.setFileTypeTaxonomyId(reqVO.getFileTypeTaxonomyId());
             category.setDistributionRequired(reqVO.getDistributionRequired());
             category.setTrainingRequired(reqVO.getTrainingRequired());
             categoryMapper.updateById(category);
@@ -655,6 +657,7 @@ class DccAdminFullConfigPackageServiceTest extends BaseDbUnitTest {
         assertEquals("文控中心/质量体系", payload.getDirectories().get(1).getPath());
         assertEquals("quality_role", payload.getDirectories().get(1).getAccessRules().get(0).getRoleCode());
         assertEquals(1, payload.getCategories().size());
+        assertEquals(8801L, payload.getCategories().get(0).getFileTypeTaxonomyId());
         assertEquals("文控中心/质量体系", payload.getCategories().get(0).getDirectoryBinding().getDirectoryPath());
         assertEquals(DccFileCategoryPermissionScopeEnum.PRODUCT_GROUP.getCode(),
                 payload.getCategories().get(0).getPermissionRules().get(0).getScopeType());
@@ -804,6 +807,7 @@ class DccAdminFullConfigPackageServiceTest extends BaseDbUnitTest {
         verify(viewMatrixAdminService).importViewMatrix(anyLong(), any(DccCategoryViewMatrixSaveReqVO.class));
         verify(viewMatrixAdminService, never()).saveViewMatrix(anyLong(), any(DccCategoryViewMatrixSaveReqVO.class));
         DccFileCategoryDO category = categoryMapper.selectOne(DccFileCategoryDO::getCode, "SOP");
+        assertEquals(8801L, category.getFileTypeTaxonomyId());
         assertEquals(1, permissionRuleMapper.selectCount(DccFileCategoryPermissionRuleDO::getCategoryId, category.getId()));
         assertEquals(DccFileCategoryPermissionScopeEnum.PRODUCT_GROUP.getCode(),
                 permissionRuleMapper.selectList(DccFileCategoryPermissionRuleDO::getCategoryId, category.getId())
@@ -1085,6 +1089,7 @@ class DccAdminFullConfigPackageServiceTest extends BaseDbUnitTest {
                 .source("LOCAL")
                 .description("seed")
                 .lifecycleStage("PLAN")
+                .fileTypeTaxonomyId(8801L)
                 .distributionRequired(Boolean.TRUE)
                 .trainingRequired(Boolean.TRUE)
                 .build();
@@ -1178,6 +1183,7 @@ class DccAdminFullConfigPackageServiceTest extends BaseDbUnitTest {
                       "remark":"seed",
                       "description":"desc",
                       "lifecycleStage":"PLAN",
+                      "fileTypeTaxonomyId":8801,
                       "distributionRequired":true,
                       "trainingRequired":true,
                       "directoryBinding":{

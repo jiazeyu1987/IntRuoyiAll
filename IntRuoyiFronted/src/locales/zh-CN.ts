@@ -131,6 +131,8 @@ export default {
     tenantNamePlaceholder: '请输入租户名称',
     usernamePlaceholder: '请输入用户名',
     passwordPlaceholder: '请输入密码',
+    passwordChangeRequired: '首次登录、管理员重置或密码过期后，请先修改密码。',
+    changePassword: '修改密码并登录',
     codePlaceholder: '请输入验证码',
     mobileTitle: '手机登录',
     mobileNumber: '手机号码',

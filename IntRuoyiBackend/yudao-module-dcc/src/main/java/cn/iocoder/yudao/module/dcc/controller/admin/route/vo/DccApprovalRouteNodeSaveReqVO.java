@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class DccApprovalRouteNodeSaveReqVO {
     @NotNull(message = "阶段编号不能为空")
@@ -12,8 +14,8 @@ public class DccApprovalRouteNodeSaveReqVO {
     private String stageName;
     @NotBlank(message = "候选源类型不能为空")
     private String candidateSourceType;
-    @NotNull(message = "候选源编号不能为空")
     private Long candidateSourceId;
+    private List<Long> candidateSourceIds;
     @NotBlank(message = "审批方式不能为空")
     private String approveMethod;
     private Integer approveRatio;

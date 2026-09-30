@@ -36,6 +36,7 @@ DELETE FROM `dcc_project_code_import_batch`;
 DELETE FROM `dcc_project_file_template_item`;
 DELETE FROM `dcc_project_access_rule`;
 DELETE FROM `dcc_project_code`;
+DELETE FROM `intern_user_time_maintenance_audit`;
 DELETE FROM `dcc_controlled_file_obsolete_audit`;
 DELETE FROM `dcc_electronic_signature_authorization`;
 DELETE FROM `dcc_controlled_file_training_view_session`;

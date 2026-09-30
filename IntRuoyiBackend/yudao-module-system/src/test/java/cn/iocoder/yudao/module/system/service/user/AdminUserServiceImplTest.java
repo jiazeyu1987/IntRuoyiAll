@@ -521,7 +521,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     @Test
     public void testUpdateUserPassword_success() {
         // mock 数据
-        AdminUserDO dbUser = randomAdminUserDO(o -> o.setPassword("encode:tudou"));
+        AdminUserDO dbUser = randomAdminUserDO(o -> o.setPassword("encode:tudou")
+                .setPasswordCredentialStatus("RESET_REQUIRED"));
         userMapper.insert(dbUser);
         // 准备参数
         Long userId = dbUser.getId();
@@ -539,10 +540,32 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         // 断言
         AdminUserDO user = userMapper.selectById(userId);
         assertEquals("encode:Yuanma@2026", user.getPassword());
+        assertEquals("ACTIVE", user.getPasswordCredentialStatus());
         assertNotNull(user.getPasswordUpdateTime());
         List<AdminUserPasswordHistoryDO> historyList = passwordHistoryMapper.selectLatestListByUserId(userId, 5);
         assertEquals(1, historyList.size());
         assertEquals("encode:tudou", historyList.get(0).getPasswordHash());
+    }
+
+    @Test
+    public void testUpdateUserPassword_initialCredentialBecomesActive() {
+        AdminUserDO dbUser = randomAdminUserDO(o -> o.setPassword("encode:initial")
+                .setPasswordCredentialStatus("INITIAL"));
+        userMapper.insert(dbUser);
+        UserProfileUpdatePasswordReqVO reqVO = randomPojo(UserProfileUpdatePasswordReqVO.class, o -> {
+            o.setOldPassword("initial");
+            o.setNewPassword("Initial@2026");
+        });
+        when(passwordEncoder.matches(eq("initial"), eq(dbUser.getPassword()))).thenReturn(true);
+        when(passwordEncoder.encode(eq("Initial@2026"))).thenReturn("encode:Initial@2026");
+
+        userService.updateUserPassword(dbUser.getId(), reqVO);
+
+        AdminUserDO updatedUser = userMapper.selectById(dbUser.getId());
+        assertEquals("ACTIVE", updatedUser.getPasswordCredentialStatus());
+        assertEquals("encode:Initial@2026", updatedUser.getPassword());
+        assertEquals("encode:initial", passwordHistoryMapper
+                .selectLatestListByUserId(dbUser.getId(), 5).get(0).getPasswordHash());
     }
 
     @Test

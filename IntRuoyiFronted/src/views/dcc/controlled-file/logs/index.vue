@@ -290,9 +290,10 @@ const queryParams = reactive<DccControlledFileLogPageReqVO & { pageNo: number; p
   pageNo: 1,
   pageSize: 10,
   logType: getFirstQueryValue(route.query.logType),
+  keyword: getFirstQueryValue(route.query.keyword),
   projectCodeId: getNumberQueryValue(route.query.projectCodeId),
   assignmentId: getNumberQueryValue(route.query.assignmentId),
-  controlledFileId: getNumberQueryValue(route.query.controlledFileId)
+  controlledFileId: getFirstQueryValue(route.query.controlledFileId)
 })
 
 const loading = ref(false)

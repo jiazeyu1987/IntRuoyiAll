@@ -55,6 +55,9 @@ const PASSWORD =
   process.env.DCC_APPROVAL_UPLOAD_VIEW_E2E_PASSWORD ||
   baseEnv.VITE_APP_DEFAULT_LOGIN_PASSWORD ||
   ''
+const BUSINESS_KEYWORD = String(
+  process.env.DCC_APPROVAL_UPLOAD_VIEW_E2E_KEYWORD || ''
+).trim()
 
 function ensureOutputDir() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true })
@@ -221,7 +224,10 @@ async function main() {
 
   try {
     await login(page)
-    await page.goto(`${BASE_URL}${TARGET_PATH}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    const targetUrl = BUSINESS_KEYWORD
+      ? `${BASE_URL}${TARGET_PATH}&keyword=${encodeURIComponent(BUSINESS_KEYWORD)}`
+      : `${BASE_URL}${TARGET_PATH}`
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
     await page.getByRole('heading', { name: '审批中心' }).waitFor({ state: 'visible', timeout: 60000 })
     await page.locator('.approval-center__table').waitFor({ state: 'visible', timeout: 60000 })
     await settle(page)
@@ -240,14 +246,22 @@ async function main() {
       throw new Error(`E2E_BLOCKED: no DCC TODO rows for ${TENANT}/${USERNAME}`)
     }
 
-    const openButton = page.getByRole('button', { name: /^打开$/ }).first()
-    if (!(await openButton.count())) {
-      throw new Error(`E2E_BLOCKED: DCC TODO rows exist but no visible 打开 button`)
+    const targetRow = BUSINESS_KEYWORD
+      ? page.locator('.approval-center__table .el-table__body-wrapper tbody tr:visible')
+          .filter({ hasText: BUSINESS_KEYWORD })
+          .first()
+      : page.locator('.approval-center__table .el-table__body-wrapper tbody tr:visible').first()
+    if (!(await targetRow.count())) {
+      throw new Error(`E2E_BLOCKED: no visible DCC TODO row for keyword ${BUSINESS_KEYWORD || '<first-row>'}`)
+    }
+    const viewButton = targetRow.getByRole('button', { name: /^查看$/ }).first()
+    if (!(await viewButton.count()) || !(await viewButton.isEnabled())) {
+      throw new Error(`E2E_BLOCKED: target DCC TODO row has no enabled 查看 button`)
     }
 
     await Promise.all([
       page.waitForURL((current) => current.pathname.includes('/dcc/controlled-file/detail/'), { timeout: 60000 }),
-      openButton.click()
+      viewButton.click()
     ])
     await page.locator('[data-testid="dcc-approval-upload-view"]').waitFor({ state: 'visible', timeout: 60000 })
     await page.locator('[data-testid="dcc-approval-upload-file-preview"] .protected-viewer-shell').waitFor({ state: 'visible', timeout: 60000 })
@@ -290,6 +304,7 @@ async function main() {
       baseUrl: BASE_URL,
       tenant: TENANT,
       username: USERNAME,
+      businessKeyword: BUSINESS_KEYWORD || null,
       approvalTotal,
       selectedBusinessKey: approvalRows[0]?.businessKey || approvalRows[0]?.businessId || null,
       finalUrl: page.url(),

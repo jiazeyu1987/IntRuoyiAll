@@ -128,6 +128,43 @@ class FormCenterRuntimeBpmCallbackTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void findDraftBusinessActionReturnsCurrentUsersDraftByBusinessAction() {
+        TenantContextHolder.setTenantId(122L);
+        FormActionInstanceDO draft = instance();
+        draft.setStatus(FormInstanceStatus.DRAFT.name());
+        draft.setApplicantUserId(100L);
+        draft.setActionCode("OBSOLETE");
+        BusinessActionContextReqVO draftContext = new BusinessActionContextReqVO();
+        draftContext.setTenantId(122L);
+        draftContext.setDataDomain("DCC");
+        draftContext.setSystemCode("DCC");
+        draftContext.setObjectType("CONTROLLED_FILE");
+        draftContext.setObjectId("FILE-1001");
+        draftContext.setObjectVersion("V1");
+        draftContext.setActionCode("OBSOLETE");
+        draftContext.setObjectState("ACTIVE");
+        draft.setBusinessContextJson(JsonUtils.toJsonString(draftContext));
+        when(actionInstanceMapper.selectDraftByBusinessAction(
+                122L, "DCC", "CONTROLLED_FILE", "FILE-1001", "V1", "OBSOLETE", 100L))
+                .thenReturn(draft);
+
+        BusinessActionContextReqVO reqVO = new BusinessActionContextReqVO();
+        reqVO.setSystemCode("DCC");
+        reqVO.setObjectType("CONTROLLED_FILE");
+        reqVO.setObjectId("FILE-1001");
+        reqVO.setObjectVersion("V1");
+        reqVO.setActionCode("OBSOLETE");
+
+        FormInstanceRespVO result = runtimeService.findDraftBusinessAction(reqVO, 100L);
+
+        assertEquals(10L, result.getId());
+        assertEquals("DRAFT", result.getStatus());
+        assertEquals("OBSOLETE", result.getContext().getActionCode());
+        verify(actionInstanceMapper).selectDraftByBusinessAction(
+                122L, "DCC", "CONTROLLED_FILE", "FILE-1001", "V1", "OBSOLETE", 100L);
+    }
+
+    @Test
     void taskCreatedPersistsActivePermissionsForEachHandler() {
         TenantContextHolder.setTenantId(122L);
         when(actionInstanceMapper.selectByProcessInstanceId(122L, "PI-1001")).thenReturn(instance());

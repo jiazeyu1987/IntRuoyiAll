@@ -15,28 +15,48 @@
         <el-upload
           :auto-upload="false"
           :show-file-list="false"
+          :disabled="!signatureImageReason.trim()"
           accept="image/png,image/jpeg"
           :on-change="handleSignatureImageFileChange"
         >
-          <el-button :loading="signatureImageState.uploading" type="primary">
+          <el-button
+            :disabled="!signatureImageReason.trim()"
+            :loading="signatureImageState.uploading"
+            type="primary"
+          >
             上传图片
           </el-button>
         </el-upload>
         <el-button
-          :disabled="!mySignatureImage || mySignatureImage.active"
+          :disabled="!mySignatureImage || mySignatureImage.active || !signatureImageReason.trim()"
           :loading="signatureImageState.enabling"
           @click="handleEnableSignatureImage"
         >
           启用图片
         </el-button>
         <el-button
-          :disabled="!mySignatureImage?.active"
+          :disabled="!mySignatureImage?.active || !signatureImageReason.trim()"
           :loading="signatureImageState.disabling"
           @click="handleDisableSignatureImage"
         >
           停用图片
         </el-button>
       </div>
+    </div>
+
+    <div class="signature-my-pane__reason" data-testid="dcc-my-signature-image-reason">
+      <label class="signature-my-pane__reason-label" for="signature-image-reason">
+        变更原因 <span aria-hidden="true">*</span>
+      </label>
+      <el-input
+        id="signature-image-reason"
+        v-model="signatureImageReason"
+        type="textarea"
+        :rows="2"
+        maxlength="500"
+        show-word-limit
+        placeholder="请输入本次签名图片变更原因"
+      />
     </div>
 
     <div v-loading="signatureImageState.loading" class="signature-my-pane__body">
@@ -103,6 +123,7 @@ defineOptions({ name: 'SignatureGovernanceMySignaturePane' })
 const message = useMessage()
 
 const mySignatureImage = ref<DccElectronicSignatureImageVO | null>(null)
+const signatureImageReason = ref('')
 const inlineError = ref('')
 const signatureImageState = reactive({
   loading: false,
@@ -143,6 +164,15 @@ const setInlineError = (error: unknown, defaultMessage: string) => {
   message.error(inlineError.value)
 }
 
+const getRequiredSignatureImageReason = () => {
+  const reason = signatureImageReason.value.trim()
+  if (!reason) {
+    message.error('请填写签名图片变更原因')
+    return ''
+  }
+  return reason
+}
+
 const loadMySignatureImage = async () => {
   signatureImageState.loading = true
   inlineError.value = ''
@@ -167,11 +197,14 @@ const handleSignatureImageFileChange = async (uploadFile: UploadFile) => {
     message.error('签名图片仅支持 PNG/JPEG')
     return
   }
+  const reason = getRequiredSignatureImageReason()
+  if (!reason) return
+
   signatureImageState.uploading = true
   inlineError.value = ''
   try {
-    const uploaded = await uploadDccElectronicSignatureImage(rawFile, '用户上传签名图片')
-    mySignatureImage.value = await enableDccElectronicSignatureImage(uploaded.id, '用户启用签名图片')
+    const uploaded = await uploadDccElectronicSignatureImage(rawFile, reason)
+    mySignatureImage.value = await enableDccElectronicSignatureImage(uploaded.id, reason)
     message.success('签名图片已上传并启用')
   } catch (error) {
     setInlineError(error, '签名图片上传失败，请查看错误提示后重试。')
@@ -185,12 +218,15 @@ const handleEnableSignatureImage = async () => {
     message.error('启用签名图片缺少图片 ID')
     return
   }
+  const reason = getRequiredSignatureImageReason()
+  if (!reason) return
+
   signatureImageState.enabling = true
   inlineError.value = ''
   try {
     mySignatureImage.value = await enableDccElectronicSignatureImage(
       mySignatureImage.value.id,
-      '用户启用签名图片'
+      reason
     )
     message.success('签名图片已启用')
   } catch (error) {
@@ -201,10 +237,13 @@ const handleEnableSignatureImage = async () => {
 }
 
 const handleDisableSignatureImage = async () => {
+  const reason = getRequiredSignatureImageReason()
+  if (!reason) return
+
   signatureImageState.disabling = true
   inlineError.value = ''
   try {
-    mySignatureImage.value = await disableDccElectronicSignatureImage('用户停用签名图片')
+    mySignatureImage.value = await disableDccElectronicSignatureImage(reason)
     message.success('签名图片已停用')
   } catch (error) {
     setInlineError(error, '停用签名图片失败，请查看错误提示后重试。')
@@ -251,6 +290,23 @@ onMounted(() => {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.signature-my-pane__reason {
+  display: grid;
+  grid-template-columns: minmax(112px, 160px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.signature-my-pane__reason-label {
+  padding-top: 8px;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.signature-my-pane__reason-label span {
+  color: #c2410c;
 }
 
 .signature-my-pane__body {
@@ -339,6 +395,15 @@ onMounted(() => {
   .signature-my-pane__detail,
   .signature-my-pane__fields {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .signature-my-pane__reason {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .signature-my-pane__reason-label {
+    padding-top: 0;
   }
 }
 </style>

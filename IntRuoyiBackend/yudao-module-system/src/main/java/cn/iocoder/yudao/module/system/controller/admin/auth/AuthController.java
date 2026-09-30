@@ -119,6 +119,16 @@ public class AuthController {
         return success(authService.login(reqVO));
     }
 
+    @PostMapping("/change-password-before-login")
+    @PermitAll
+    @DataPermission(enable = false)
+    @Operation(summary = "登录前修改首次、重置后或过期密码")
+    public CommonResult<Boolean> changePasswordBeforeLogin(
+            @RequestBody @Valid AuthPreLoginPasswordChangeReqVO reqVO) {
+        authService.changePasswordBeforeLogin(reqVO);
+        return success(true);
+    }
+
     @PostMapping("/logout")
     @PermitAll
     @Operation(summary = "登出系统")

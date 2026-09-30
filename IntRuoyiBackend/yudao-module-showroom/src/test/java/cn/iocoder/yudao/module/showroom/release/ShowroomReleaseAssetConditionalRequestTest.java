@@ -11,7 +11,7 @@ class ShowroomReleaseAssetConditionalRequestTest extends AbstractShowroomRelease
     @Test
     void shouldReturnNotModifiedWhenAssetValidatorsMatch() throws Exception {
         ShowroomMaterializedRelease release = publishReleaseFixture();
-        ShowroomMaterializedRelease.MaterializedAsset asset = release.assets().getFirst();
+        ShowroomMaterializedRelease.MaterializedAsset asset = release.assets().get(0);
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.IF_NONE_MATCH, "\"" + asset.contentHash() + "\"");
 

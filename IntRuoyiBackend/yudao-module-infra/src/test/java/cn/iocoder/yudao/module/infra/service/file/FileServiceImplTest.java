@@ -116,7 +116,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String url = randomString();
         AtomicReference<String> pathRef = new AtomicReference<>();
         when(client.upload(same(content), argThat(path -> {
-            assertTrue(path.matches(directory + "/\\d{8}/\\d+/" + name + ".jpg"));
+            assertPathWithUniqueSuffix(path, directory, name + ".jpg");
             pathRef.set(path);
             return true;
         }), eq(type))).thenReturn(url);
@@ -148,7 +148,8 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         String url = randomString();
         AtomicReference<String> pathRef = new AtomicReference<>();
         when(client.upload(same(content), argThat(path -> {
-            assertTrue(path.matches("\\d{8}/\\d+/6318848e882d8a7e7e82789d87608f684ee52d41966bfc8cad3ce15aad2b970e\\.jpg"));
+            assertPathWithUniqueSuffix(path, null,
+                    "6318848e882d8a7e7e82789d87608f684ee52d41966bfc8cad3ce15aad2b970e.jpg");
             pathRef.set(path);
             return true;
         }), eq(type))).thenReturn(url);
@@ -236,7 +237,7 @@ public class FileServiceImplTest extends BaseDbUnitTest {
             String url = randomString();
             AtomicReference<String> pathRef = new AtomicReference<>();
             when(client.upload(same(contentPath), eq((long) content.length), argThat(path -> {
-                assertTrue(path.matches(directory + "/\\d{8}/\\d+/" + name));
+                assertPathWithUniqueSuffix(path, directory, name);
                 pathRef.set(path);
                 return true;
             }), eq(type))).thenReturn(url);
@@ -254,6 +255,19 @@ public class FileServiceImplTest extends BaseDbUnitTest {
         } finally {
             Files.deleteIfExists(contentPath);
         }
+    }
+
+    private static void assertPathWithUniqueSuffix(String path, String directory, String fileName) {
+        assertNotNull(path);
+        String normalizedPath = directory == null || directory.isEmpty() ? path : path.substring(directory.length() + 1);
+        if (directory != null && !directory.isEmpty()) {
+            assertTrue(path.startsWith(directory + "/"));
+        }
+        String[] parts = normalizedPath.split("/");
+        assertEquals(3, parts.length);
+        assertTrue(parts[0].matches("\\d{8}"));
+        assertTrue(parts[1].matches("\\d+"));
+        assertEquals(fileName, parts[2]);
     }
 
     @Test

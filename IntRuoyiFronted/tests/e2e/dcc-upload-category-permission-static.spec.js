@@ -19,8 +19,8 @@ assert.match(
 
 assert.match(
   uploadPageSource,
-  /getFileTypeTaxonomyUploadOptions[\s\S]*fileTypeTaxonomies\.value = await getFileTypeTaxonomyUploadOptions\(\)/,
-  'DCC upload page must load taxonomy candidates from the upload runtime endpoint'
+  /getProjectCodeFileTemplate[\s\S]*fileTypeTaxonomies\.value = template\.taxonomyOptions \|\| \[\]/,
+  'DCC upload page must load taxonomy candidates from the selected project template contract'
 )
 
 assert.doesNotMatch(
@@ -44,19 +44,19 @@ assert.match(
 assert.doesNotMatch(
   uploadPageSource,
   /const availableCategories = computed\(\(\) =>[\s\S]*Boolean\(category\.directoryId\)/,
-  'DCC upload page must not reject otherwise uploadable categories without a bound upload directory; backend resolves them to 未分类'
+  'DCC upload page must keep the formal category visible so the missing default-directory blocker is explicit'
 )
 
 assert.match(
   uploadPageSource,
-  /未绑定提交目录[\s\S]*未分类目录/,
-  'DCC upload page must tell users that an unbound category is automatically landed in 未分类 instead of asking them to bind manually'
+  /该类别未配置正式默认目录，请联系文控管理员配置后再提交。/,
+  'DCC upload page must require formal default-directory configuration before ordinary controlled-file submission'
 )
 
 assert.doesNotMatch(
   uploadPageSource,
-  /请先在 DCC 文件类别维护目录绑定/,
-  'DCC upload page must not ask submitters to maintain category-directory bindings manually'
+  /自动提交到未分类目录|按规则发布到“未分类”|自动落位到未分类目录/,
+  'DCC upload page must not present missing default-directory configuration as an automatic unclassified landing'
 )
 
 assert.doesNotMatch(

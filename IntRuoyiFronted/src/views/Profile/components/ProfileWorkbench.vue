@@ -149,6 +149,79 @@
         </el-table>
       </template>
     </UnifiedListTemplate>
+
+    <el-dialog
+      v-model="distributionReceiptDialog.visible"
+      title="电子发放签收"
+      width="520px"
+      destroy-on-close
+      @closed="resetDistributionReceiptDialog"
+    >
+      <el-descriptions v-if="distributionReceiptDialog.task" :column="1" border size="small">
+        <el-descriptions-item label="文件编号">
+          {{ distributionReceiptDialog.task.fileNumber || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="文件名称">
+          {{ distributionReceiptDialog.task.title || distributionReceiptDialog.task.fileName || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="版本">
+          {{ distributionReceiptDialog.task.versionNo || '-' }}
+        </el-descriptions-item>
+      </el-descriptions>
+      <el-alert
+        v-if="distributionReceiptDialog.inlineError"
+        class="profile-workbench__receipt-error"
+        :title="distributionReceiptDialog.inlineError"
+        type="error"
+        show-icon
+        :closable="false"
+      />
+      <el-form
+        ref="distributionReceiptFormRef"
+        class="profile-workbench__receipt-form"
+        :model="distributionReceiptDialog.form"
+        label-width="96px"
+      >
+        <el-form-item
+          label="电子签名"
+          prop="password"
+          :error="distributionReceiptDialog.fieldErrors.password"
+        >
+          <el-input
+            v-model="distributionReceiptDialog.form.password"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            placeholder="请输入当前账号密码"
+            @input="distributionReceiptDialog.fieldErrors.password = ''"
+          />
+        </el-form-item>
+        <el-form-item label="签收说明">
+          <el-input
+            v-model="distributionReceiptDialog.form.comment"
+            type="textarea"
+            :rows="3"
+            maxlength="200"
+            show-word-limit
+            placeholder="可填写签收说明"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="distributionReceiptDialog.visible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="distributionReceiptDialog.submitting"
+          :disabled="isDistributionReceiptConfirmDisabled"
+          @click="submitDistributionReceiptDialog"
+        >
+          <template v-if="distributionReceiptDialog.confirmCountdownSeconds > 0">
+            确认签收（{{ distributionReceiptDialog.confirmCountdownSeconds }}s）
+          </template>
+          <template v-else>确认签收</template>
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -160,6 +233,7 @@ import {
   getMyDistributionTaskPage,
   type DistributionTaskVO
 } from '@/api/dcc/controlledFile/distribution'
+import { acknowledgeElectronicDistribution } from '@/api/dcc/controlledFile/workflow'
 import {
   getMyTrainingTaskPage,
   type TrainingTaskProgressVO
@@ -210,10 +284,12 @@ interface UnifiedTodoRow {
   dueAt?: string | number
   route: RouteLocationRaw
   edhrWorkTask?: EdhrWorkTaskRespVO
+  dccDistributionTask?: DistributionTaskVO
 }
 
 const TODO_PAGE_SIZE = 50
 const TODO_TABLE_KEY = 'profile.workbench.todo'
+const DISTRIBUTION_RECEIPT_CONFIRM_COUNTDOWN_SECONDS = 10
 const router = useRouter()
 const userStore = useUserStore()
 const profileWorkbenchTodoBadgeStore = useProfileWorkbenchTodoBadgeStore()
@@ -225,6 +301,22 @@ const activeVisibilityTab = ref<'visible' | 'hidden'>('visible')
 const hiddenTaskKeys = ref<Set<string>>(new Set())
 const todoRows = ref<UnifiedTodoRow[]>([])
 const loadErrorMessages = ref<string[]>([])
+const distributionReceiptFormRef = ref()
+let distributionReceiptConfirmCountdownTimer: ReturnType<typeof setInterval> | undefined
+const distributionReceiptDialog = reactive({
+  visible: false,
+  submitting: false,
+  confirmCountdownSeconds: 0,
+  inlineError: '',
+  fieldErrors: {
+    password: ''
+  },
+  task: undefined as DistributionTaskVO | undefined,
+  form: {
+    password: '',
+    comment: ''
+  }
+})
 
 const todoDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'taskType', label: '任务类型', width: 120 },
@@ -328,6 +420,12 @@ const pagedRows = computed(() => {
   return filteredRows.value.slice(start, start + queryParams.pageSize)
 })
 
+const isDistributionReceiptConfirmDisabled = computed(
+  () =>
+    distributionReceiptDialog.submitting ||
+    distributionReceiptDialog.confirmCountdownSeconds > 0
+)
+
 const ensureCurrentPageInRange = () => {
   const maxPage = Math.max(1, Math.ceil(filteredRows.value.length / queryParams.pageSize))
   if (queryParams.pageNo > maxPage) {
@@ -339,6 +437,10 @@ const resolveErrorMessage = (error: unknown, fallback: string) => {
   const responseMessage = (error as any)?.response?.data?.message || (error as any)?.response?.data?.msg
   if (typeof responseMessage === 'string' && responseMessage.trim()) {
     return responseMessage
+  }
+  const directMessage = (error as any)?.message || (error as any)?.msg
+  if (typeof directMessage === 'string' && directMessage.trim()) {
+    return directMessage
   }
   if (error instanceof Error && error.message.trim()) {
     return error.message
@@ -430,6 +532,7 @@ const mapDccDistributionRow = (item: DistributionTaskVO): UnifiedTodoRow => ({
   ]),
   statusLabel: getDccDistributionStatusLabel(item.status),
   createdAt: item.publishedTime,
+  dccDistributionTask: item,
   route: {
     name: 'DccControlledFileDetail',
     params: { id: item.controlledFileId },
@@ -666,11 +769,88 @@ const getTaskTypeTagType = (taskType: TodoTaskType) => {
 }
 
 const openTodo = async (row: UnifiedTodoRow) => {
+  if (row.dccDistributionTask) {
+    openDistributionReceiptDialog(row.dccDistributionTask)
+    return
+  }
   if (row.edhrWorkTask) {
     await navigateToEdhrWorkTask(router, row.edhrWorkTask)
     return
   }
   await router.push(row.route)
+}
+
+const clearDistributionReceiptConfirmCountdownTimer = () => {
+  if (distributionReceiptConfirmCountdownTimer) {
+    clearInterval(distributionReceiptConfirmCountdownTimer)
+    distributionReceiptConfirmCountdownTimer = undefined
+  }
+}
+
+const startDistributionReceiptConfirmCountdown = () => {
+  clearDistributionReceiptConfirmCountdownTimer()
+  distributionReceiptDialog.confirmCountdownSeconds = DISTRIBUTION_RECEIPT_CONFIRM_COUNTDOWN_SECONDS
+  distributionReceiptConfirmCountdownTimer = setInterval(() => {
+    if (distributionReceiptDialog.confirmCountdownSeconds <= 1) {
+      distributionReceiptDialog.confirmCountdownSeconds = 0
+      clearDistributionReceiptConfirmCountdownTimer()
+      return
+    }
+    distributionReceiptDialog.confirmCountdownSeconds -= 1
+  }, 1000)
+}
+
+const resetDistributionReceiptDialog = () => {
+  clearDistributionReceiptConfirmCountdownTimer()
+  distributionReceiptDialog.submitting = false
+  distributionReceiptDialog.confirmCountdownSeconds = 0
+  distributionReceiptDialog.inlineError = ''
+  distributionReceiptDialog.fieldErrors.password = ''
+  distributionReceiptDialog.task = undefined
+  distributionReceiptDialog.form.password = ''
+  distributionReceiptDialog.form.comment = ''
+}
+
+const openDistributionReceiptDialog = (task: DistributionTaskVO) => {
+  resetDistributionReceiptDialog()
+  distributionReceiptDialog.task = task
+  distributionReceiptDialog.visible = true
+  nextTick(() => {
+    distributionReceiptFormRef.value?.clearValidate?.()
+  })
+  startDistributionReceiptConfirmCountdown()
+}
+
+const submitDistributionReceiptDialog = async () => {
+  if (isDistributionReceiptConfirmDisabled.value) {
+    return
+  }
+  const task = distributionReceiptDialog.task
+  if (!task) {
+    distributionReceiptDialog.inlineError = '缺少分发待办信息，无法签收。'
+    return
+  }
+  const password = distributionReceiptDialog.form.password.trim()
+  if (!password) {
+    distributionReceiptDialog.fieldErrors.password = '请输入电子签名'
+    return
+  }
+  distributionReceiptDialog.submitting = true
+  distributionReceiptDialog.inlineError = ''
+  distributionReceiptDialog.fieldErrors.password = ''
+  try {
+    await acknowledgeElectronicDistribution(task.controlledFileId, task.distributionId, task.recipientId, {
+      password,
+      comment: distributionReceiptDialog.form.comment.trim() || undefined
+    })
+    ElMessage.success('签收成功')
+    distributionReceiptDialog.visible = false
+    await loadWorkbench()
+  } catch (error) {
+    distributionReceiptDialog.inlineError = resolveErrorMessage(error, '签收失败')
+  } finally {
+    distributionReceiptDialog.submitting = false
+  }
 }
 
 const refreshTodoBadgeAfterVisibilityChange = async () => {
@@ -766,6 +946,10 @@ watch(
 onMounted(() => {
   loadWorkbench()
 })
+
+onUnmounted(() => {
+  clearDistributionReceiptConfirmCountdownTimer()
+})
 </script>
 
 <style scoped>
@@ -820,5 +1004,13 @@ onMounted(() => {
 .profile-workbench__status small {
   color: #6b7280;
   font-size: 12px;
+}
+
+.profile-workbench__receipt-error {
+  margin-top: 12px;
+}
+
+.profile-workbench__receipt-form {
+  margin-top: 16px;
 }
 </style>

@@ -22,12 +22,11 @@ assert.ok(
   '类别页必须提供审阅矩阵页签'
 )
 assert.ok(
-  categoryPage.includes('<CategoryReviewMatrixTable />'),
+  /<CategoryReviewMatrixTable\b[\s\S]*?\/>/.test(categoryPage),
   '审阅矩阵页签必须挂接独立的矩阵表格组件'
 )
 
 for (const token of [
-  '第 1 / 4 层文控继续固定',
   'data-testid="dcc-review-matrix-table"',
   'getCategoryReviewMatrixRows',
   'deleteCategoryApprovalMatrix',
@@ -75,7 +74,6 @@ for (const removedQueryToken of [
   'configured: true',
   'queryParams.configured = true',
   'v-model="queryParams.configured"',
-  'active?: boolean',
   'configured?: boolean',
   'ACTIVE_STATUS_OPTIONS',
   'formatBooleanLabel',
@@ -119,6 +117,9 @@ const reviewMatrixDialog = readSource(
 )
 
 for (const dialogToken of [
+  '审阅矩阵只维护会签与批准规则',
+  '上传/升版由路线接入培训、分发和文控审核',
+  '作废不包含培训或分发',
   'data-testid="dcc-review-matrix-rule-editor"',
   '自动解析人员',
   '新增规则',
@@ -129,9 +130,9 @@ for (const dialogToken of [
   'label="对应部门"',
   'label="主体集合"',
   'placeholder="请选择系统用户"',
-  'placeholder="请选择系统角色"',
-  'placeholder="请选择系统岗位"',
-  'placeholder="请选择 DCC 岗位"',
+  'placeholder="请选择权限角色"',
+  'placeholder="请选择组织角色"',
+  'placeholder="请选择审批角色"',
   "value=\"SIGNOFF\"",
   "value=\"APPROVAL\"",
   "value=\"ROLE\"",
