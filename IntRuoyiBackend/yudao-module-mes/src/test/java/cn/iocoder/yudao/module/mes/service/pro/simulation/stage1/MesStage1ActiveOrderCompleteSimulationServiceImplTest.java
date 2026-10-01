@@ -29,7 +29,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseAre
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseLocationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionDiffMapper;
@@ -168,8 +169,6 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
     @Mock
     private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     @Mock
-    private MesProEdhrBatchExecutionMapper batchExecutionMapper;
-    @Mock
     private MesWmWarehouseMapper warehouseMapper;
     @Mock
     private MesWmWarehouseLocationMapper warehouseLocationMapper;
@@ -188,8 +187,41 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
     @Mock
     private MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService;
 
+    @Mock
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
+
     @InjectMocks
     private MesStage1ActiveOrderCompleteSimulationServiceImpl service;
+
+    @Test
+    void reworkP1DoesNotTreatPreviousCycleBatchAsCurrentSideEffect() {
+        TenantContextHolder.setTenantId(1L);
+        var order = activeOrder(329L).setReworkSourceActiveOrderId(328L).setReworkReviewId(77L);
+        var predecessor = new MesProEdhrBatchExecutionOriginDO()
+                .setActiveOrderId(328L).setWorkOrderId(9001L).setBatchExecutionId(900L);
+        when(batchExecutionOriginMapper.selectListByTraceFilter(any(), any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    Long requestedActiveOrder = invocation.getArgument(0);
+                    Long requestedWorkOrder = invocation.getArgument(1);
+                    return List.of(predecessor).stream()
+                            .filter(origin -> requestedActiveOrder == null || requestedActiveOrder.equals(origin.getActiveOrderId()))
+                            .filter(origin -> requestedWorkOrder == null || requestedWorkOrder.equals(origin.getWorkOrderId()))
+                            .toList();
+                });
+        assertDoesNotThrow(() -> ReflectionTestUtils.invokeMethod(service, "assertNoDownstreamSideEffects", order));
+        verify(batchExecutionOriginMapper).selectListByTraceFilter(329L, 9001L, null, null);
+    }
+
+    @Test
+    void currentCycleBatchStillBlocksP1() {
+        TenantContextHolder.setTenantId(1L);
+        var order = activeOrder(329L).setReworkSourceActiveOrderId(328L).setReworkReviewId(77L);
+        org.mockito.Mockito.lenient().when(batchExecutionOriginMapper.selectListByTraceFilter(329L, 9001L, null, null))
+                .thenReturn(List.of(new MesProEdhrBatchExecutionOriginDO().setActiveOrderId(329L).setBatchExecutionId(901L)));
+        var error = assertThrows(IllegalStateException.class,
+                () -> ReflectionTestUtils.invokeMethod(service, "assertNoDownstreamSideEffects", order));
+        assertEquals("STAGE1_BATCH_EXECUTION_SIDE_EFFECT", error.getMessage());
+    }
 
     @AfterEach
     void clearTenant() {
@@ -231,7 +263,7 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
         when(completionReceiptMapper.selectByActiveOrderIdForUpdate(328L)).thenReturn(null);
         when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(328L))).thenReturn(List.of());
         when(aggregateMapper.selectListByActiveOrderIdForUpdate(328L)).thenReturn(List.of());
-        when(batchExecutionMapper.selectList(any(Wrapper.class))).thenReturn(List.of());
+        when(batchExecutionOriginMapper.selectListByTraceFilter(328L, 9001L, null, null)).thenReturn(List.of());
         when(workOrderMapper.selectList(any())).thenReturn(List.of());
 
         MesStage1ActiveOrderCompleteSimulationResult result = service.simulate(command(328L));

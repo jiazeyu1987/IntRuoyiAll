@@ -16,7 +16,6 @@ import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProduc
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderSaveReqVO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
@@ -45,7 +44,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseAre
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseLocationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
@@ -165,7 +164,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     private final MesProcessPoolActiveOrderCompletionBackfillMapper completionBackfillMapper;
     private final MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper;
     private final MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
-    private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
+    private final MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
     private final MesWmWarehouseMapper warehouseMapper;
     private final MesWmWarehouseLocationMapper warehouseLocationMapper;
     private final MesWmWarehouseAreaMapper warehouseAreaMapper;
@@ -210,7 +209,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
             MesProcessPoolActiveOrderCompletionBackfillMapper completionBackfillMapper,
             MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper,
             MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper,
-            MesProEdhrBatchExecutionMapper batchExecutionMapper,
+            MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper,
             MesWmWarehouseMapper warehouseMapper,
             MesWmWarehouseLocationMapper warehouseLocationMapper,
             MesWmWarehouseAreaMapper warehouseAreaMapper,
@@ -253,7 +252,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         this.completionBackfillMapper = completionBackfillMapper;
         this.completionReceiptMapper = completionReceiptMapper;
         this.releaseApplicationMapper = releaseApplicationMapper;
-        this.batchExecutionMapper = batchExecutionMapper;
+        this.batchExecutionOriginMapper = batchExecutionOriginMapper;
         this.warehouseMapper = warehouseMapper;
         this.warehouseLocationMapper = warehouseLocationMapper;
         this.warehouseAreaMapper = warehouseAreaMapper;
@@ -1368,11 +1367,10 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         if (!aggregateMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId()).isEmpty()) {
             throw new IllegalStateException("STAGE1_PROCESS_INSPECTION_AGGREGATE_SIDE_EFFECT");
         }
-        List<MesProEdhrBatchExecutionDO> batches = batchExecutionMapper.selectList(
-                new LambdaQueryWrapper<MesProEdhrBatchExecutionDO>()
-                        .eq(MesProEdhrBatchExecutionDO::getTenantId, TenantContextHolder.getTenantId())
-                        .eq(MesProEdhrBatchExecutionDO::getWorkOrderId, activeOrder.getWorkOrderId()));
-        if (!batches.isEmpty()) {
+        // A rework cycle keeps its predecessor's batch as evidence. Only this
+        // active order's formal origin may prove that P1 has entered downstream.
+        if (!batchExecutionOriginMapper.selectListByTraceFilter(
+                activeOrder.getId(), activeOrder.getWorkOrderId(), null, null).isEmpty()) {
             throw new IllegalStateException("STAGE1_BATCH_EXECUTION_SIDE_EFFECT");
         }
     }

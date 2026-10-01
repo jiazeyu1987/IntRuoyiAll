@@ -33,6 +33,7 @@ import com.alibaba.fastjson.JSONObject;
 import cn.hutool.crypto.digest.DigestUtil;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -129,6 +130,12 @@ class MesProEdhrDeviationNcrIntegrationTest {
                 eq(501L), eq(7001L), eq("signature"), any(), any());
         verify(deviationMapper).closeToNonconformance(any(), eq(9001L), eq(List.of(3001L, 3002L)), eq(7001L), any());
         verify(batchExecutionMapper).updateById(org.mockito.ArgumentMatchers.<MesProEdhrBatchExecutionDO>any());
+        var audit = ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
+        verify(operationAuditService).recordInCallerTransaction(audit.capture());
+        JSONObject metadata = JSON.parseObject(audit.getValue().getMetadataJson());
+        // Transferred deviation IDs are source evidence, never uploaded review materials.
+        assertNull(metadata.getString("reviewMaterialsJson"));
+        assertEquals(List.of(3001L, 3002L), metadata.getJSONArray("sourceDeviationIds").toJavaList(Long.class));
     }
 
     @Test

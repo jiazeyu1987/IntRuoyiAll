@@ -296,6 +296,16 @@
 - Forbidden action: 禁止因已有“删除 worktree”授权就静默丢弃可提交源码；禁止把 dirty worktree 的代码混入主工作区基线提交；禁止在保全提交后忘记复跑 `git worktree remove`，也禁止删除分支引用来掩盖未合入状态。
 - Evidence: `doc/tasks/20260805-remove-non-main-worktrees/execution-log.md`，批量删除时 `profile-erp-table-auto-sync` 仍有 31 个未提交实现/测试/任务文件，先提交 `35c583ce5` 到其自身分支后再移除 worktree。
 
+### 按更新时间批量删除的只读盘点与保全门禁
+
+- Trigger: 用户明确授权按最近若干天未更新的条件批量删除 worktree，而非按分支合入状态做常规任务收尾。
+- Preflight check: 固定带时区的滚动时间阈值；同时检查目录内部文件、目录及 worktree 专属 Git 元数据最新写入时间，不能只看根目录时间或最后提交时间。使用 `git --no-optional-locks status` 避免检查本身刷新索引；进程扫描排除当前 PID，记录路径归属，不按端口盲停进程。先核对聊天附件；仅对本聊天可管理的托管附件使用归档工具，其余真实 linked worktree 必须核对所属 common Git 目录、注册路径和显式绝对路径边界。
+- Preservation rule: 删除授权不等于丢弃源码授权；未授权提交时不得用保全提交绕过最近层级 AGENTS。删除前保存 binary patch、变更/未跟踪文件及核心任务记录到独立恢复目录，逐文件核对 SHA-256；没有 surviving ref 覆盖的 detached HEAD 必须生成完整 bundle 并 verify。保留既有分支与恢复包，不顺手合并、推送或创建备份分支。忽略文件不自动进入保全包，需先识别仍有用途的内容。
+- Blocker: 近期更新、运行中、locked/index.lock、扫描拒绝访问、缺失 Git 元数据、物理路径与注册路径不同、或保全核验失败时停止该目标。不得把异常 worktree 静默降级成普通目录递归删除。
+- Verification: 逐项核对物理目录不存在、所属仓库注册不存在、HEAD 有引用或已验证 bundle、具名分支仍包含原 HEAD；只对已删除且登记端口无监听的目标持同一 registry mutex 置 inactive，并验证其他登记项不变。批量完整证据保存为任务报告，终端仅输出汇总，避免输出截断掩盖遗漏。
+- Forbidden action: 禁止只凭最后提交时间判旧、因盘满跳过保全、对 worktree 父目录批量递归删除、将扫描失败记为清理成功、释放有监听或其他任务的槽位、或清理独立恢复目录。
+- Evidence: `doc/tasks/20261001-delete-stale-d-worktrees/verification-report.md`。
+
 ### Git 注册已移除但物理目录被运行态锁住
 
 - Trigger: `git worktree remove <path>` 返回 `Invalid argument`、Git 注册列表已不再显示目标 worktree，但物理目录仍存在，或残留目录内 `runtime-backend.err.log` / Vite / Java / esbuild 文件被占用。
@@ -431,6 +441,8 @@
 ### 运行时融合后的版本与端口交叉核验
 
 - 触发场景：功能 worktree 已融合到 `int_main`，需要用本机长期运行态做真实页面验证，且运行态目录可能同时保留多个历史 jar。
+- 隔离完整构建：旧运行包包含未提交但已经验证的前期修复时，干净 HEAD 加本次补丁可能退回这些修复。先冻结旧包对应的最小源码基线和本次补丁白名单，逐文件记录来源、相对路径、字节数与 SHA-256，独立审查后复制到自有隔离 checkout；不从共享脏目录直接打包，不携带无来源旧 class。
+- 构建证据：标准完整 package 与同一输入的实际测试执行分别记录；跳过测试执行的 BUILD SUCCESS 不能替代回归 PASS。新包关键 class 和伴随 class 须与自身已验证 target 核对，稳定副本再次核对整体 SHA-256；尚未加载目标 PID、健康检查及真实业务复验的包只能记为构建通过。
 - 经验规则：先核对 `int_main` 的祖先链和分支端口门禁，再按 PID、启动命令、jar 文件名和独立日志确认端口归属；只在新 jar 的健康检查和启动成功时间窗均通过后宣称运行态已切换。
 - 经验规则：如果两个已验证运行包分别覆盖不同模块，优先以最新且已验证的运行包为底，逐个替换缺失的 nested module jar，再用 `jar tf` 复核关键 class 同时存在；不要直接把单个 class、`target/classes` 或未核对的模块拼成 fat jar。
 - 经验规则：若完整打包被无关模块阻断且只能做本机定向恢复，hotfix Jar 必须单独命名并记录原 Jar 哈希、hotfix Jar 哈希、外层 nested module `compress_type=0`、替换 class 哈希、旧/新 PID、health 和登录态目标接口业务码；同时把完整构建阻断点单独列为非任务 blocker，避免把 hotfix 运行态写成发布构建通过。

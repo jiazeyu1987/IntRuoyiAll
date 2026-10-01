@@ -93,10 +93,11 @@ export interface EdhrNonconformanceReviewMaterialEvent {
 export const uploadNonconformanceReviewMaterial = async (reviewId: EdhrRouteId, file: File) => {
   const data = new FormData()
   data.append('file', file)
-  return await request.upload<EdhrNonconformanceReviewMaterial>({
+  const response = await request.upload<{ data: EdhrNonconformanceReviewMaterial }>({
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/${reviewId}/materials/upload`,
     data
   })
+  return response.data
 }
 
 export interface EdhrNonconformanceReviewPageReqVO extends PageParam {

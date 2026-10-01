@@ -1317,6 +1317,34 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void cancelTasksForTestReset(List<Long> workTaskIds, String reason) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        if (workTaskIds == null || workTaskIds.isEmpty() || StrUtil.isBlank(reason)
+                || workTaskIds.stream().anyMatch(id -> id == null || id <= 0)
+                || workTaskIds.stream().distinct().count() != workTaskIds.size()) {
+            throw new IllegalArgumentException("FIXED_TEST_RESET_WORK_TASK_IDENTITIES_INVALID");
+        }
+        LocalDateTime at = LocalDateTime.now();
+        for (Long id : workTaskIds.stream().sorted().toList()) {
+            MesProEdhrWorkTaskDO task = workTaskMapper.selectOne(
+                    new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<MesProEdhrWorkTaskDO>()
+                            .eq("tenant_id", tenantId).eq("id", id).last("FOR UPDATE"));
+            if (task == null) {
+                throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
+            }
+            if (isActiveFillOrReworkStatus(task.getStatus())) {
+                cancelTaskAndRevokeRuntimeEntitlement(task, reason, at);
+            } else if (MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus())
+                    || MesProEdhrWorkTaskStatus.CANCELED.equals(task.getStatus())) {
+                revokeRuntimeTaskEntitlement(task);
+            } else {
+                throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
+            }
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void cancelActiveTasksByBatch(Long batchExecutionId, String reason) {
         if (batchExecutionId == null || StrUtil.isBlank(reason)) {
             throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);

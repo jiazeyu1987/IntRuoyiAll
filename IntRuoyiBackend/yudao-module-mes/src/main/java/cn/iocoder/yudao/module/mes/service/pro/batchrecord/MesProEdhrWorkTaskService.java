@@ -130,6 +130,9 @@ public interface MesProEdhrWorkTaskService {
 
     void cancelActiveTasksByBatch(Long batchExecutionId, String reason);
 
+    /** Internal fixed-test reset: cancel current tasks and revoke even terminal tasks' grants. */
+    void cancelTasksForTestReset(List<Long> workTaskIds, String reason);
+
     MesProEdhrWorkTaskDO reassignFillTask(Long workTaskId, String reason);
 
     void reconcileProcessFormFillTaskOwnership(String responsibilitySourceKey,

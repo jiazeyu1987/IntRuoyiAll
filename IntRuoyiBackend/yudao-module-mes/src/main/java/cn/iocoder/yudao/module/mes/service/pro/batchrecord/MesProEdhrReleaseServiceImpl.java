@@ -2105,6 +2105,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         after.put("activeOrderId", command.getActiveOrderId());
         after.put("releaseStatus", STATUS_RELEASED);
         after.put("decisionStatus", decision.getDecisionStatus());
+        after.put("approvalOpinion", decision.getApprovalOpinion());
         after.put("actorUserId", command.getActorUserId());
         after.put("signoffEvidenceHash", decision.getSignoffEvidenceHash());
         after.put("auditSnapshotJson", decision.getAuditSnapshotJson());
@@ -2138,7 +2139,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .operationId("mes.market-release.approve")
                 .subjectId("RELEASE_TRANSACTION:" + transaction.getId())
                 .subjectVersion(String.valueOf(decision.getVersion()))
-                .reason(StrUtil.trim(command.getApprovalOpinion()))
+                .reason("上市放行已完成正式审批")
                 .reasonCode("MES_MARKET_RELEASE_APPROVE")
                 .reasonSource("SYSTEM")
                 .beforeState(GxpAuditStateEnvelope.builder()

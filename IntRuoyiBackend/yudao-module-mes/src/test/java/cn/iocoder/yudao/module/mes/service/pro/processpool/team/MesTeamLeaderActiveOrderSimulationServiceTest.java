@@ -461,6 +461,14 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .insert(reviewCaptor.capture());
         assertEquals(List.of(10002L, 10004L), reviewCaptor.getAllValues().stream()
                 .map(MesProcessPoolSubmissionReviewDO::getReviewSignatureId).toList());
+        for (var review : reviewCaptor.getAllValues()) {
+            var snapshot = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(review.getReviewSignatureSnapshotJson());
+            assertEquals(String.valueOf(review.getEventId()), snapshot.path("processPoolEventId").asText());
+            assertEquals(review.getLeaderType(), snapshot.path("leaderType").asText());
+            assertEquals("APPROVED", snapshot.path("reviewStatus").asText());
+            assertEquals("PRODUCTION".equals(review.getLeaderType()) ? "PRODUCTION_SUBMIT" : "PQC_INSPECTION",
+                    snapshot.path("eventType").asText());
+        }
         org.mockito.Mockito.verify(signatureService)
                 .recordStage1SimulationSignature(3001L,
                         MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT, 8101L,

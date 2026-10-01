@@ -1138,6 +1138,7 @@ export const applyTeamLeaderActiveOrderRelease = async (
   return await request.post<TeamLeaderActiveOrderReleaseApplyRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/release/apply',
     data,
+    timeout: 180000,
     ignoreErrorMessage: true
   })
 }

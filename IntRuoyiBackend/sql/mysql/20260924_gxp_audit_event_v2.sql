@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260908_gxp_audit_trail_core.sql; type=schema; riskLevel=high
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260908_gxp_audit_trail_core; type=schema; riskLevel=high
 -- GXP_EVENT_V2 is an additive migration. It does not rewrite V1 event payloads or delete audit rows.
 
 DROP PROCEDURE IF EXISTS `ensure_gxp_audit_v2_column`;

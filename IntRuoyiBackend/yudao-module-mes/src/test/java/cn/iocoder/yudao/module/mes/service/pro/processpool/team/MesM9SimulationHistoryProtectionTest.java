@@ -300,7 +300,7 @@ class MesM9SimulationHistoryProtectionTest {
 
     @ParameterizedTest
     @ValueSource(strings={"resetRevision", "cleanupRevision", "resetTransfer", "resetMaintenance"})
-    void signedOrHistoricalFactsWithoutSimulationProvenanceCannotBeErased(String kind) {
+    void fixedResetAllowsOwnHistoryWhileOrdinaryCleanupRequiresSimulationProvenance(String kind) {
         stubOwnedEvent("PRODUCTION_SUBMIT", false);
         boolean reset = kind.startsWith("reset");
         var mapper = dependency(MesTeamLeaderDataCleanupMapper.class);
@@ -318,13 +318,39 @@ class MesM9SimulationHistoryProtectionTest {
             when(mapper.selectUnprovenSimulationMaintenanceIdsForUpdate(eq(92820L), anyCollection()))
                     .thenReturn(List.of(1203L));
         }
-        rejectWrites = true;
-        var error = assertThrows(ServiceException.class, () -> {
-            if (reset) service.resetFixedSimulationActiveOrder(3001L);
-            else service.cleanupLatestSimulationActiveOrder(3001L, 101L);
-        });
-        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
-                .PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED.getCode(), error.getCode());
+        if (reset) {
+            assertDoesNotThrow(() -> resetTargetWithSuccessfulReadd().resetFixedSimulationActiveOrder(3001L));
+            verify(mapper).deleteEventRevisions(92820L, List.of(501L));
+            verify(mapper).deleteTransferTraces(92820L, List.of(101L));
+            verify(mapper, never()).deleteActiveOrderAudits(anyLong(), anyCollection());
+        } else {
+            rejectWrites = true;
+            var error = assertThrows(ServiceException.class, () -> service.cleanupLatestSimulationActiveOrder(3001L, 101L));
+            assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
+                    .PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED.getCode(), error.getCode());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"transfer", "maintenance"})
+    void ordinaryCleanupRetainsHistoricalTablesOutsideItsDeletionScope(String history) {
+        stubOwnedEvent("PRODUCTION_SUBMIT", false);
+        var mapper = dependency(MesTeamLeaderDataCleanupMapper.class);
+        if (history.equals("transfer")) {
+            when(mapper.selectUnprovenSimulationTransferIdsForUpdate(eq(92820L), anyCollection()))
+                    .thenReturn(List.of(1202L));
+        } else {
+            when(mapper.selectUnprovenSimulationMaintenanceIdsForUpdate(eq(92820L), anyCollection()))
+                    .thenReturn(List.of(1203L));
+        }
+
+        assertDoesNotThrow(() -> service.cleanupLatestSimulationActiveOrder(3001L, 101L));
+
+        verify(dependency(MesProProcessPoolEventMapper.class)).deleteActiveOrderRuntimeEventsByIds(Set.of(501L));
+        verify(mapper, never()).deleteTransferTraces(anyLong(), anyCollection());
+        verify(mapper, never()).deleteActiveOrderAudits(anyLong(), anyCollection());
+        verify(dependency(MesProcessPoolTeamMaintenanceAuditMapper.class), never()).deleteById(anyLong());
+        verify(dependency(MesProcessPoolActiveOrderTransferTraceMapper.class), never()).deleteById(anyLong());
     }
 
 
@@ -332,7 +358,7 @@ class MesM9SimulationHistoryProtectionTest {
         return java.util.stream.Stream.of("reset", "cleanup").flatMap(entry ->
                 java.util.stream.Stream.of("fragment", "pqcRecord", "snapshot", "binding", "bindingItem")
                         .flatMap(table -> java.util.stream.Stream.of("formal", "differentRun", "missingIdentity",
-                                        "differentStage", "foreignSource", "legal")
+                                        "differentStage", "foreignSource", "foreignTenant", "legal")
                                 .map(scenario -> org.junit.jupiter.params.provider.Arguments.of(entry, table, scenario))));
     }
 
@@ -353,7 +379,7 @@ class MesM9SimulationHistoryProtectionTest {
                 row = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolQuantityFragmentDO
                         .builder().id(601L).eventId(501L).productionSubmitEventId(501L).workOrderId(201L).build();
                 sourceField = "workOrderId";
-                when(mapper.selectSimulationFragmentsForUpdate(eq(92820L), anyCollection(), eq(entry.equals("cleanup"))))
+                when(mapper.selectSimulationFragmentsForUpdate(eq(92820L), anyCollection(), eq(true)))
                         .thenReturn(List.of((cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolQuantityFragmentDO) row));
             }
             case "pqcRecord" -> {
@@ -393,7 +419,7 @@ class MesM9SimulationHistoryProtectionTest {
             }
             default -> throw new AssertionError(table);
         }
-        ReflectionTestUtils.setField(row, "tenantId", 92820L);
+        ReflectionTestUtils.setField(row, "tenantId", scenario.equals("foreignTenant") ? 92821L : 92820L);
         ReflectionTestUtils.setField(row, "simulated", !scenario.equals("formal"));
         ReflectionTestUtils.setField(row, "simulationRunId",
                 scenario.equals("missingIdentity") ? null : scenario.equals("differentRun") ? "other-run" : "M9-owned");
@@ -411,11 +437,12 @@ class MesM9SimulationHistoryProtectionTest {
             if (entry.equals("reset")) target.resetFixedSimulationActiveOrder(3001L);
             else target.cleanupLatestSimulationActiveOrder(3001L, 101L);
         };
-        if (scenario.equals("legal")) {
+        if (scenario.equals("legal") || (entry.equals("reset")
+                && Set.of("formal", "differentRun", "missingIdentity", "differentStage").contains(scenario))) {
             assertDoesNotThrow(action);
             // A positive must consume the candidate, not pass because the new query was never reached.
             switch (table) {
-                case "fragment" -> verify(mapper).selectSimulationFragmentsForUpdate(eq(92820L), anyCollection(), eq(entry.equals("cleanup")));
+                case "fragment" -> verify(mapper).selectSimulationFragmentsForUpdate(eq(92820L), anyCollection(), eq(true));
                 case "pqcRecord" -> verify(mapper).selectSimulationPqcRecordsForUpdate(eq(92820L), anyCollection());
                 case "snapshot" -> verify(mapper).selectSimulationSnapshotsForUpdate(eq(92820L), anyCollection());
                 case "binding" -> verify(mapper).selectSimulationBindingsForUpdate(eq(92820L), anyCollection());
@@ -440,8 +467,11 @@ class MesM9SimulationHistoryProtectionTest {
         var ctor = MesTeamLeaderActiveOrderServiceImpl.class.getConstructors()[0];
         Object[] args = Arrays.stream(ctor.getParameterTypes()).map(this::createMock).toArray();
         service = (MesTeamLeaderActiveOrderServiceImpl) ctor.newInstance(args);
-        ReflectionTestUtils.setField(service, "dataCleanupMapper", dependency(MesTeamLeaderDataCleanupMapper.class));
-        ReflectionTestUtils.setField(service, "gxpAuditService", dependency(GxpAuditService.class));
+        for (var field : MesTeamLeaderActiveOrderServiceImpl.class.getDeclaredFields()) {
+            if (field.isAnnotationPresent(jakarta.annotation.Resource.class)) {
+                ReflectionTestUtils.setField(service, field.getName(), createMock(field.getType()));
+            }
+        }
     }
 
     Object createMock(Class<?> type) {
@@ -471,7 +501,7 @@ class MesM9SimulationHistoryProtectionTest {
 
     @ParameterizedTest
     @ValueSource(strings={"formal", "missingRun", "differentOwner", "missingParent"})
-    void fixedResetRejectsUnprovenOwnershipBeforeChangingWorkOrder(String scenario) {
+    void fixedResetRequiresOwnershipButNotSimulationTags(String scenario) {
         var workOrder = MesProWorkOrderDO.builder().id(201L).build();
         workOrder.setTenantId(92820L);
         when(dependency(MesProWorkOrderMapper.class).selectByTenantIdAndCodeForUpdate(eq(92820L), anyString())).thenReturn(workOrder);
@@ -481,8 +511,14 @@ class MesM9SimulationHistoryProtectionTest {
         if (scenario.equals("differentOwner")) order.setLeaderUserId(3002L);
         when(dependency(MesProcessPoolActiveOrderMapper.class).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
                 .thenReturn(scenario.equals("missingParent") ? List.of() : List.of(order));
-        rejectWrites = true;
-        assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
+        if (scenario.equals("formal") || scenario.equals("missingRun")) {
+            var result = assertDoesNotThrow(() -> resetTargetWithSuccessfulReadd().resetFixedSimulationActiveOrder(3001L));
+            assertEquals(201L, result.getWorkOrderId());
+            verify(dependency(MesTeamLeaderDataCleanupMapper.class)).deleteActiveOrders(92820L, List.of(101L));
+        } else {
+            rejectWrites = true;
+            assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
+        }
     }
 
     @ParameterizedTest
@@ -657,7 +693,7 @@ class MesM9SimulationHistoryProtectionTest {
 
     @ParameterizedTest
     @ValueSource(strings={"formalEvent", "formalBatch"})
-    void fixedResetSimulationParentDoesNotAuthorizeFormalChildHistory(String scenario) {
+    void fixedResetMayClearFormalEventOrBatchBelongingToFixedWorkOrder(String scenario) {
         var workOrder = MesProWorkOrderDO.builder().id(201L).build();
         workOrder.setTenantId(92820L);
         when(dependency(MesProWorkOrderMapper.class).selectByTenantIdAndCodeForUpdate(eq(92820L), anyString()))
@@ -675,8 +711,12 @@ class MesM9SimulationHistoryProtectionTest {
             when(dependency(MesTeamLeaderDataCleanupMapper.class).selectBatchExecutionIdsByWorkOrderIds(92820L, List.of(201L)))
                     .thenReturn(List.of(901L));
         }
-        rejectWrites = true;
-        assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
+        assertDoesNotThrow(() -> resetTargetWithSuccessfulReadd().resetFixedSimulationActiveOrder(3001L));
+        if (scenario.equals("formalEvent")) {
+            verify(dependency(MesTeamLeaderDataCleanupMapper.class)).deleteEvents(92820L, List.of(501L));
+        } else {
+            verify(dependency(MesTeamLeaderDataCleanupMapper.class)).deleteBatchExecutions(92820L, List.of(901L));
+        }
     }
 
     private void stubFixedResetOwner() {
@@ -690,7 +730,7 @@ class MesM9SimulationHistoryProtectionTest {
 
     @ParameterizedTest
     @ValueSource(strings={"task", "piece", "aggregate", "completion", "feedback"})
-    void fixedResetRejectsFormalChildrenWithoutEventsBeforeFirstWrite(String kind) {
+    void fixedResetAllowsOwnedTaskPiecesButRejectsIncompleteSourceEvidence(String kind) {
         stubFixedResetOwner();
         var cleanup = dependency(MesTeamLeaderDataCleanupMapper.class);
         if (kind.equals("task") || kind.equals("piece")) {
@@ -725,10 +765,16 @@ class MesM9SimulationHistoryProtectionTest {
             when(dependency(MesProFeedbackMapper.class).selectListByIdsForUpdate(List.of(901L)))
                     .thenReturn(List.of(MesProFeedbackDO.builder().id(901L).workOrderId(201L).build()));
         }
-        rejectWrites = true;
-        var error = assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
-        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
-                .PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED.getCode(), error.getCode());
+        if (kind.equals("task") || kind.equals("piece")) {
+            assertDoesNotThrow(() -> resetTargetWithSuccessfulReadd().resetFixedSimulationActiveOrder(3001L));
+            verify(cleanup).deletePqcTasks(92820L, List.of(101L));
+            if (kind.equals("piece")) verify(cleanup).deletePqcPieceDetails(92820L, List.of(301L));
+        } else {
+            rejectWrites = true;
+            var error = assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
+            assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
+                    .PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED.getCode(), error.getCode());
+        }
     }
 
     @Test
@@ -769,7 +815,7 @@ class MesM9SimulationHistoryProtectionTest {
 
     @ParameterizedTest
     @ValueSource(strings={"receipt", "backfill", "releaseApplication", "nonconformance"})
-    void fixedResetCannotDeleteProtectedFactsWithoutAnyBatchOrEvent(String kind) {
+    void fixedResetClearsItsOwnCompletedDownstreamFactsAndReaddsSameWorkOrder(String kind) {
         stubFixedResetOwner();
         var mapper = dependency(MesTeamLeaderDataCleanupMapper.class);
         switch (kind) {
@@ -783,10 +829,228 @@ class MesM9SimulationHistoryProtectionTest {
                     .thenReturn(List.of(1104L));
             default -> throw new AssertionError(kind);
         }
+        var target = resetTargetWithSuccessfulReadd();
+        var result = assertDoesNotThrow(() -> target.resetFixedSimulationActiveOrder(3001L));
+        assertEquals(201L, result.getWorkOrderId());
+        assertEquals(102L, result.getActiveOrderId());
+        verify(mapper).deleteCompletionReceipts(92820L, List.of(101L));
+        verify(mapper).deleteCompletionBackfills(92820L, List.of(101L));
+        verify(mapper).deleteReleaseApplications(92820L, List.of(101L));
+        verify(mapper).deleteNonconformanceReviewsByActiveOrderIds(92820L, List.of(101L));
+        verify(mapper).deleteActiveOrders(92820L, List.of(101L));
+        verify(target).addActiveOrder(argThat(request -> request.getLeaderUserId().equals(3001L)
+                && request.getWorkOrderId().equals(201L)));
+    }
+
+    private MesTeamLeaderActiveOrderServiceImpl resetTargetWithSuccessfulReadd() {
+        var target = spy(service);
+        doReturn(MesTeamLeaderActiveOrderAddResult.builder().activeOrderId(102L).workOrderId(201L)
+                .action(MesTeamLeaderActiveOrderAddResult.ACTION_ADD).build()).when(target).addActiveOrder(any());
+        return target;
+    }
+
+    @Test
+    void fixedResetCanRunAgainAfterReaddCreatesAnOrdinaryActiveOrder() {
+        stubFixedResetOwner();
+        var secondRound = parent();
+        secondRound.setId(102L);
+        secondRound.setSimulated(false);
+        secondRound.setSimulationStage(null);
+        secondRound.setSimulationRunId(null);
+        when(dependency(MesProcessPoolActiveOrderMapper.class)
+                .selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
+                .thenReturn(List.of(parent()), List.of(secondRound));
+        var target = spy(service);
+        doReturn(MesTeamLeaderActiveOrderAddResult.builder().activeOrderId(102L).workOrderId(201L)
+                        .action(MesTeamLeaderActiveOrderAddResult.ACTION_ADD).build(),
+                MesTeamLeaderActiveOrderAddResult.builder().activeOrderId(103L).workOrderId(201L)
+                        .action(MesTeamLeaderActiveOrderAddResult.ACTION_ADD).build())
+                .when(target).addActiveOrder(any());
+
+        assertEquals(102L, target.resetFixedSimulationActiveOrder(3001L).getActiveOrderId());
+        assertEquals(103L, target.resetFixedSimulationActiveOrder(3001L).getActiveOrderId());
+
+        verify(dependency(MesTeamLeaderDataCleanupMapper.class)).deleteActiveOrders(92820L, List.of(101L));
+        verify(dependency(MesTeamLeaderDataCleanupMapper.class)).deleteActiveOrders(92820L, List.of(102L));
+        verify(target, times(2)).addActiveOrder(argThat(request -> request.getWorkOrderId().equals(201L)));
+        verify(dependency(MesProWorkOrderMapper.class), never()).insert(any(MesProWorkOrderDO.class));
+    }
+
+    @Test
+    void fixedResetDoesNotHideReaddFailureAndDeclaresRollbackForException() throws Exception {
+        stubFixedResetOwner();
+        var target = spy(service);
+        var failure = new IllegalStateException("formal add prerequisite failed");
+        doThrow(failure).when(target).addActiveOrder(any());
+
+        assertSame(failure, assertThrows(IllegalStateException.class,
+                () -> target.resetFixedSimulationActiveOrder(3001L)));
+        var transactional = MesTeamLeaderActiveOrderServiceImpl.class
+                .getMethod("resetFixedSimulationActiveOrder", Long.class)
+                .getAnnotation(org.springframework.transaction.annotation.Transactional.class);
+        assertNotNull(transactional);
+        assertTrue(Arrays.asList(transactional.rollbackFor()).contains(Exception.class));
+        // This unit test verifies propagation and the transaction contract, not a database rollback.
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"foreignTenant", "foreignWorkOrder", "missingEvent"})
+    void fixedResetRejectsOutOfScopeOrMissingEventBeforeWrites(String scope) {
+        stubFixedResetOwner();
+        when(dependency(MesTeamLeaderDataCleanupMapper.class).selectEventIdsByWorkOrderIds(92820L, List.of(201L)))
+                .thenReturn(List.of(501L));
+        var event = MesProProcessPoolEventDO.builder().id(501L)
+                .workOrderId(scope.equals("foreignWorkOrder") ? 202L : 201L).eventType("PRODUCTION_SUBMIT").build();
+        event.setTenantId(scope.equals("foreignTenant") ? 92821L : 92820L);
+        when(dependency(MesProProcessPoolEventMapper.class).selectByIdForUpdate(501L))
+                .thenReturn(scope.equals("missingEvent") ? null : event);
         rejectWrites = true;
-        var error = assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
-        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
-                .PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED.getCode(), error.getCode());
+        assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"ownedBackfill", "foreignBackfill"})
+    void fixedResetCompletionRequiresActualCompletionBackfillIdentity(String scope) {
+        stubFixedResetOwner();
+        stubOwnedEvent("PRODUCTION_SUBMIT", false);
+        var mapper = dependency(MesTeamLeaderDataCleanupMapper.class);
+        when(mapper.selectEventIdsByWorkOrderIds(92820L, List.of(201L))).thenReturn(List.of(501L));
+        when(mapper.selectResetCompletionBackfillIdsForUpdate(92820L, List.of(101L))).thenReturn(List.of(1102L));
+        var completion = MesProcessPoolOrderProcessCompletionDO.builder().id(801L).workOrderId(201L)
+                .lastEventId(501L).sourceEventIdsJson("[501]").sourceAllocationIdsJson("[401]")
+                .backfillExecutionId(scope.equals("ownedBackfill") ? 1102L : 999L).build();
+        completion.setTenantId(92820L);
+        when(mapper.selectCleanupCompletionsForUpdate(92820L, 201L)).thenReturn(List.of(completion));
+
+        if (scope.equals("ownedBackfill")) {
+            assertDoesNotThrow(() -> resetTargetWithSuccessfulReadd().resetFixedSimulationActiveOrder(3001L));
+            verify(mapper).deleteOrderProcessCompletions(92820L, List.of(201L));
+            verify(mapper).deleteCompletionBackfills(92820L, List.of(101L));
+        } else {
+            rejectWrites = true;
+            assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
+        }
+    }
+
+    @Test
+    void fixedResetClearsCompletedBatchReleaseAndRecordRuntimeBeforeReadd() {
+        stubFixedResetOwner();
+        var mapper = dependency(MesTeamLeaderDataCleanupMapper.class);
+        when(mapper.selectBatchExecutionIdsByWorkOrderIds(92820L, List.of(201L))).thenReturn(List.of(901L));
+        when(mapper.selectBatchRecordExecutionIds(92820L, List.of(901L))).thenReturn(List.of(902L));
+        when(mapper.selectReleaseTransactionIds(92820L, List.of(901L))).thenReturn(List.of(903L));
+        when(mapper.selectRecordbookIds(92820L, List.of(901L))).thenReturn(List.of(904L));
+        when(mapper.selectRecordbookEntryIds(92820L, List.of(904L))).thenReturn(List.of(905L));
+        when(mapper.selectFormInstanceIds(92820L, List.of(901L))).thenReturn(List.of(906L));
+        when(mapper.selectTravelerIds(92820L, List.of(901L))).thenReturn(List.of(907L));
+        var target = resetTargetWithSuccessfulReadd();
+
+        var result = assertDoesNotThrow(() -> target.resetFixedSimulationActiveOrder(3001L));
+
+        assertEquals(201L, result.getWorkOrderId());
+        assertEquals(1L, result.getDeletedBatchExecutionCount());
+        assertEquals(1L, result.getDeletedRecordExecutionCount());
+        var ordered = inOrder(mapper, target);
+        ordered.verify(mapper).deleteExecutionAttachments(92820L, List.of(901L), List.of(902L));
+        ordered.verify(mapper).deleteWorkTasks(92820L, List.of(901L));
+        ordered.verify(mapper).deleteNonconformanceReviews(92820L, List.of(901L));
+        ordered.verify(mapper).deleteTravelerEvents(92820L, List.of(907L));
+        ordered.verify(mapper).deleteRecordbooks(92820L, List.of(904L));
+        ordered.verify(mapper).deleteFormInstances(92820L, List.of(906L));
+        ordered.verify(mapper).deleteReleaseTransactions(92820L, List.of(901L));
+        ordered.verify(mapper).deleteExecutions(92820L, List.of(902L));
+        ordered.verify(mapper).deleteBatchExecutions(92820L, List.of(901L));
+        ordered.verify(mapper).deleteActiveOrders(92820L, List.of(101L));
+        ordered.verify(target).addActiveOrder(argThat(request -> request.getWorkOrderId().equals(201L)));
+        verify(dependency(MesProWorkOrderMapper.class), never()).deleteById(anyLong());
+        verify(mapper, never()).deleteExecutionSignatures(anyLong(), anyCollection());
+        verify(mapper, never()).deleteBatchSignatures(anyLong(), anyCollection());
+        verify(mapper, never()).deleteBatchArchives(anyLong(), anyCollection());
+        verify(mapper, never()).deleteOperationAuditEvents(anyLong(), anyCollection(), anyCollection());
+        verify(mapper, never()).deleteRecordChangeEvents(anyLong(), anyCollection(), anyCollection());
+        verify(mapper, never()).deleteActiveOrderAudits(anyLong(), anyCollection());
+    }
+
+    @Test
+    void fixedResetClearsCompletedAndReworkCyclesOfSameOwnerAndWorkOrder() {
+        stubFixedResetOwner();
+        var original = parent();
+        original.setActiveStatus("CLOSED");
+        original.setBusinessStatus("REWORK");
+        var rework = parent();
+        rework.setId(103L);
+        rework.setSimulated(false);
+        rework.setSimulationRunId(null);
+        rework.setSimulationStage(null);
+        rework.setReworkSourceActiveOrderId(101L);
+        rework.setReworkReviewId(1104L);
+        when(dependency(MesProcessPoolActiveOrderMapper.class)
+                .selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
+                .thenReturn(List.of(original, rework));
+        var target = resetTargetWithSuccessfulReadd();
+
+        var result = assertDoesNotThrow(() -> target.resetFixedSimulationActiveOrder(3001L));
+
+        assertEquals(201L, result.getWorkOrderId());
+        assertEquals(2L, result.getPreviousActiveOrderCount());
+        verify(dependency(MesTeamLeaderDataCleanupMapper.class)).deleteActiveOrders(92820L, List.of(101L, 103L));
+        verify(target).addActiveOrder(argThat(request -> request.getWorkOrderId().equals(201L)));
+    }
+
+    @Test
+    void fixedResetCompletionCanReferenceAllocationsAcrossItsOriginalAndReworkCycles() {
+        stubFixedResetOwner();
+        var rework = parent();
+        rework.setId(103L);
+        rework.setSimulated(false);
+        rework.setReworkSourceActiveOrderId(101L);
+        rework.setReworkReviewId(1104L);
+        when(dependency(MesProcessPoolActiveOrderMapper.class)
+                .selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
+                .thenReturn(List.of(parent(), rework));
+        var mapper = dependency(MesTeamLeaderDataCleanupMapper.class);
+        when(mapper.selectEventIdsByWorkOrderIds(92820L, List.of(201L))).thenReturn(List.of(501L, 502L));
+        when(mapper.selectResetCompletionBackfillIdsForUpdate(92820L, List.of(101L, 103L)))
+                .thenReturn(List.of(1102L));
+        for (int index = 0; index < 2; index++) {
+            long ownerId = index == 0 ? 101L : 103L;
+            long eventId = 501L + index;
+            var event = MesProProcessPoolEventDO.builder().id(eventId).workOrderId(201L)
+                    .eventType("PRODUCTION_SUBMIT").build();
+            event.setTenantId(92820L);
+            when(dependency(MesProProcessPoolEventMapper.class).selectByIdForUpdate(eventId)).thenReturn(event);
+            var allocation = MesProcessPoolReportAllocationDO.builder().id(401L + index)
+                    .activeOrderId(ownerId).eventId(eventId).build();
+            allocation.setTenantId(92820L);
+            when(mapper.selectSimulationAllocationsForUpdate(92820L, ownerId)).thenReturn(List.of(allocation));
+            when(mapper.selectSimulationEventAllocationsForUpdate(92820L, eventId)).thenReturn(List.of(allocation));
+        }
+        var completion = MesProcessPoolOrderProcessCompletionDO.builder().id(801L).workOrderId(201L)
+                .lastEventId(502L).sourceEventIdsJson("[501,502]").sourceAllocationIdsJson("[401,402]")
+                .backfillExecutionId(1102L).build();
+        completion.setTenantId(92820L);
+        when(mapper.selectCleanupCompletionsForUpdate(92820L, 201L)).thenReturn(List.of(completion));
+
+        assertDoesNotThrow(() -> resetTargetWithSuccessfulReadd().resetFixedSimulationActiveOrder(3001L));
+
+        verify(mapper).deleteAllocations(92820L, List.of(101L, 103L));
+        verify(mapper).deleteOrderProcessCompletions(92820L, List.of(201L));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"foreignTenant", "foreignOwner", "foreignWorkOrder"})
+    void fixedResetRejectsAnyCandidateOutsideItsTenantOwnerOrWorkOrderBeforeWrites(String scope) {
+        stubFixedResetOwner();
+        var outside = parent();
+        outside.setId(103L);
+        if (scope.equals("foreignTenant")) outside.setTenantId(92821L);
+        if (scope.equals("foreignOwner")) outside.setLeaderUserId(3002L);
+        if (scope.equals("foreignWorkOrder")) outside.setWorkOrderId(202L);
+        when(dependency(MesProcessPoolActiveOrderMapper.class)
+                .selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
+                .thenReturn(List.of(parent(), outside));
+        rejectWrites = true;
+        assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
     }
 
     @ParameterizedTest
@@ -831,11 +1095,12 @@ class MesM9SimulationHistoryProtectionTest {
 
     @ParameterizedTest
     @ValueSource(strings={"reset", "cleanup"})
-    void softDeletedFormalAllocationCannotDisappearFromPhysicalDeleteGuard(String entry) {
+    void softDeletedOwnedAllocationIsIncludedAndOnlyFixedResetAllowsFormalProvenance(String entry) {
+        stubOwnedEvent("PRODUCTION_SUBMIT", false);
         if (entry.equals("reset")) {
             stubFixedResetOwner();
-        } else {
-            stubOwnedEvent("PRODUCTION_SUBMIT", false);
+            when(dependency(MesTeamLeaderDataCleanupMapper.class).selectEventIdsByWorkOrderIds(92820L, List.of(201L)))
+                    .thenReturn(List.of(501L));
         }
         var historical = MesProcessPoolReportAllocationDO.builder().id(499L).activeOrderId(101L)
                 .eventId(501L).simulated(false).build();
@@ -846,13 +1111,16 @@ class MesM9SimulationHistoryProtectionTest {
                 .thenReturn(List.of());
         when(dependency(MesTeamLeaderDataCleanupMapper.class).selectSimulationAllocationsForUpdate(92820L, 101L))
                 .thenReturn(List.of(historical));
-        rejectWrites = true;
-        var error = assertThrows(ServiceException.class, () -> {
-            if (entry.equals("reset")) service.resetFixedSimulationActiveOrder(3001L);
-            else service.cleanupLatestSimulationActiveOrder(3001L, 101L);
-        });
-        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
-                .PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED.getCode(), error.getCode());
+        if (entry.equals("reset")) {
+            assertDoesNotThrow(() -> resetTargetWithSuccessfulReadd().resetFixedSimulationActiveOrder(3001L));
+            verify(dependency(MesTeamLeaderDataCleanupMapper.class)).selectSimulationAllocationsForUpdate(92820L, 101L);
+            verify(dependency(MesTeamLeaderDataCleanupMapper.class)).deleteAllocations(92820L, List.of(101L));
+        } else {
+            rejectWrites = true;
+            var error = assertThrows(ServiceException.class, () -> service.cleanupLatestSimulationActiveOrder(3001L, 101L));
+            assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
+                    .PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED.getCode(), error.getCode());
+        }
     }
 
     @ParameterizedTest

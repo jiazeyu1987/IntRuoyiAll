@@ -51,21 +51,24 @@ public class MesTeamLeaderWorkbenchServiceImpl implements MesTeamLeaderWorkbench
             reqVO.setEmployeeUserIds(responsibleEmployeeIds);
             reqVO.setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION);
         } else if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(leaderType)) {
-            Set<Long> routeProcessIds = listAuthorizedRouteProcessIds(leaderUserId);
-            if (routeProcessIds.isEmpty()) {
+            Set<Long> processIds = listAuthorizedProcessIds(leaderUserId);
+            if (processIds.isEmpty()) {
                 return PageResult.empty();
             }
-            reqVO.setRouteProcessIds(routeProcessIds);
+            // Shared report pools use the process identity, as allocation commands do.
+            // Publishing a route replaces its routeProcessIds, but not existing report facts.
+            reqVO.setProcessIds(processIds);
+            reqVO.setRouteProcessIds(null);
             reqVO.setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT);
             reqVO.setRequirePositiveOutputQuantity(Boolean.TRUE);
         }
         return timelineService.getTimelinePage(reqVO);
     }
 
-    private Set<Long> listAuthorizedRouteProcessIds(Long leaderUserId) {
+    private Set<Long> listAuthorizedProcessIds(Long leaderUserId) {
         return routeStartAuthorizationService.listAuthorizedRouteProcesses(leaderUserId)
                     .stream()
-                    .map(MesProRouteProcessDO::getId)
+                    .map(MesProRouteProcessDO::getProcessId)
                     .filter(java.util.Objects::nonNull)
                     .collect(java.util.stream.Collectors.toSet());
     }
@@ -75,7 +78,7 @@ public class MesTeamLeaderWorkbenchServiceImpl implements MesTeamLeaderWorkbench
         validateLeaderContext(leaderUserId, leaderType);
         ProcessPoolTimelineDetailRespVO detail = timelineService.getTimelineDetail(eventId);
         if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(leaderType)) {
-            if (!listAuthorizedRouteProcessIds(leaderUserId).contains(detail.getRouteProcessId())) {
+            if (!listAuthorizedProcessIds(leaderUserId).contains(detail.getProcessId())) {
                 throw exception(PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED, "工序报工");
             }
         } else {

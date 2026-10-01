@@ -114,7 +114,8 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
             assertEquals("TEST_RECORD:R001", auditCommand.getSubjectId());
             assertEquals("V1", auditCommand.getSubjectVersion());
             assertEquals("审批通过", auditCommand.getReason());
-            assertEquals("idem-001", auditCommand.getIdempotencyKey());
+            assertEquals("SIGNATURE:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex("idem-001"),
+                    auditCommand.getIdempotencyKey());
             assertEquals(String.valueOf(result.signatureId()), auditCommand.getSignatureRecordId());
             assertEquals(result.contentHash(), auditCommand.getSignatureContentHash());
             assertEquals("NO_SIGNATURE_RECORD", auditCommand.getBeforeState().getState());
@@ -153,6 +154,33 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
             assertEquals(first.signatureId(), second.signatureId());
             verify(adminUserApi, times(1)).reauthenticateForSignature(101L, "Signer@2026");
             assertEquals(1L, signatureRecordMapper.selectCount(null));
+        }
+    }
+
+    @Test
+    public void testSign_longBusinessKeyProducesBoundedDistinctAuditKeysAndReplays() {
+        String prefix = "MES|101|PQC_RELEASE|" + "x".repeat(110);
+        when(gxpAuditService.append(any())).thenAnswer(invocation -> {
+            GxpAuditCommand audit = invocation.getArgument(0);
+            assertTrue(audit.getIdempotencyKey().length() <= 96,
+                    "Signature audit key must satisfy the GxP V2 limit");
+            return new GxpAuditAppendResult(9001L, 1L, "a".repeat(64), false);
+        });
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+            ElectronicSignatureCommand firstCommand = buildCommand(prefix + "A", "V1", "审批通过");
+            ElectronicSignatureResult first = signatureService.sign(firstCommand);
+            assertEquals(first.signatureId(), signatureService.sign(firstCommand).signatureId());
+            signatureService.sign(buildCommand(prefix + "B", "V1", "审批通过"));
+            ArgumentCaptor<GxpAuditCommand> audits = ArgumentCaptor.forClass(GxpAuditCommand.class);
+            verify(gxpAuditService, times(2)).append(audits.capture());
+            assertEquals("SIGNATURE:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(prefix + "A"),
+                    audits.getAllValues().get(0).getIdempotencyKey());
+            assertEquals("SIGNATURE:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(prefix + "B"),
+                    audits.getAllValues().get(1).getIdempotencyKey());
+            assertNotEquals(audits.getAllValues().get(0).getIdempotencyKey(),
+                    audits.getAllValues().get(1).getIdempotencyKey());
+            assertEquals(prefix + "A", signatureRecordMapper.selectById(first.signatureId()).getIdempotencyKey());
         }
     }
 

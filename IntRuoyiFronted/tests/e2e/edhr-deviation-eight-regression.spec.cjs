@@ -6,6 +6,7 @@ const source = fs.readFileSync(path.join(root, 'src/views/mes/pro/edhr-deviation
 function harness(overrides = {}) {
  const messages = [], calls = []
  const context = { ref: value => ({value}), reactive: value => value, computed: fn => ({get value(){return fn()}}), watch:()=>{}, useRouter:()=>({push:()=>{}}), defineProps:()=>({id:1,readonly:false}), withDefaults:v=>v, ElMessage:{error:v=>messages.push(v),success:()=>{},warning:v=>messages.push(v)}, ElMessageBox:{confirm:async()=>{}}, getDeviation:async id=>({id,status:'OPEN'}), getDeviationHandling:async()=>undefined, saveDeviationHandling:async(id,body)=>{calls.push(body);return {id:1,deviationId:id,...body,contentVersion:body.expectedContentVersion+1,contentHash:'hash'}}, signDeviationHandling:async body=>calls.push(body), ...overrides }
+ context.useMessage = () => ({confirm: (...args) => context.ElMessageBox.confirm(...args)})
  let script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*$/gm,'')
  script += '\nglobalThis.api={props,detail,handling,handlingForm,load,loadHandling,saveHandling,startHandling,signHandling,openSignDialog,signVisible,handlingSaving,closeHandling};'
  vm.runInNewContext(ts.transpileModule(script,{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.None}}).outputText,context)

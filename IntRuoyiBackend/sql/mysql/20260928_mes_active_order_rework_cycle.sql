@@ -51,7 +51,8 @@ BEGIN
       AND data_type='bigint' AND is_nullable='YES') <> 2 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Rework relation columns must be nullable BIGINT';
   END IF;
-  SELECT REGEXP_REPLACE(REPLACE(LOWER(generation_expression),'_utf8mb4',''), '[[:space:]`()]+', '')
+  -- MySQL metadata may escape literal quotes; compare the canonical expression.
+  SELECT REPLACE(REGEXP_REPLACE(REPLACE(LOWER(generation_expression),'_utf8mb4',''), '[[:space:]`()]+', ''),CONCAT(CHAR(92),CHAR(39)),CHAR(39))
     INTO actual_expression FROM information_schema.columns WHERE table_schema=DATABASE()
       AND table_name='mes_pro_process_pool_active_order' AND column_name='current_route_version_id'
       AND data_type='bigint' AND extra LIKE '%STORED GENERATED%';

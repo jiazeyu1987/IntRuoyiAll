@@ -95,6 +95,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
@@ -1596,7 +1597,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
             security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("审批放行人");
             releaseService.approve(approvalRequest(precheck, batch, approvalTask,
-                    "approve-close-and-archive", signoffEvidenceHash, "批准后进入归档"));
+                    "approve-close-and-archive", signoffEvidenceHash, null));
         }
 
         MesProEdhrBatchExecutionDO closed = batchExecutionMapper.selectById(batch.getId());
@@ -1604,6 +1605,13 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals(10001L, closed.getClosedBy());
         assertNotNull(closed.getClosedAt());
         verify(workTaskService).createArchiveTaskAfterBatchClose(any());
+        var audits = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+        verify(gxpAuditService, atLeastOnce()).append(audits.capture());
+        var approvalAudit = audits.getAllValues().stream()
+                .filter(audit -> "mes.market-release.approve".equals(audit.getOperationId()))
+                .findFirst().orElseThrow();
+        assertEquals("上市放行已完成正式审批", approvalAudit.getReason());
+        assertEquals("SYSTEM", approvalAudit.getReasonSource());
     }
 
     @Test

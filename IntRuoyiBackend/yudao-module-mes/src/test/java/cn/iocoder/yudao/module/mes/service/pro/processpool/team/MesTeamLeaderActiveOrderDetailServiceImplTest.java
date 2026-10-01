@@ -72,6 +72,17 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesTeamLeaderActiveOrderDetailServiceImplTest {
 
+    @Test
+    void deviationSourcesDoNotMasqueradeAsReviewMaterialFiles() {
+        var metadata = JSON.parseObject("{\"sourceDeviationIds\":[3001,3002]}");
+        assertNull(org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                service, "reviewMaterialFileIdOf", metadata));
+        metadata.put("reviewMaterialsJson", "{\"activeMaterials\":[{\"fileId\":8001}]}");
+        Long materialId = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                service, "reviewMaterialFileIdOf", metadata);
+        assertEquals(8001L, materialId);
+    }
+
     @Mock
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
     @Mock

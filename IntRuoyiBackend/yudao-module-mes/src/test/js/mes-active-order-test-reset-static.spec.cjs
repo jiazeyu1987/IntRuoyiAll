@@ -13,6 +13,8 @@ const api = read('IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts')
 const workbench = read('IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
 
 const targetCode = 'SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891'
+const reset = service.split('public MesTeamLeaderActiveOrderTestResetResult resetFixedSimulationActiveOrder(')[1]
+  .split('public MesTeamLeaderActiveOrderSimulationCopyResult copyLatestSimulationActiveOrder(')[0]
 
 assert.match(serviceApi, /resetFixedSimulationActiveOrder\s*\(/)
 assert.match(controller, /active-order\/simulation\/test-reset/)
@@ -20,6 +22,19 @@ assert.match(controller, /mes:pro-process-pool-team-leader:maintain/)
 assert.match(service, new RegExp(targetCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 assert.match(service, /TenantContextHolder\.getTenantId\(\)/)
 assert.match(service, /@Transactional\(rollbackFor = Exception\.class\)/)
+assert.match(reset, /selectByTenantIdAndCodeForUpdate\(\s*tenantId, FIXED_TEST_WORK_ORDER_CODE\)/,
+  'special reset must lock the exact fixed fixture in the current tenant')
+assert.match(reset, /fixedTestOrderDownstreamCleanupService\.cleanup\(/,
+  'special reset must close downstream deviation and approval runtime before readding the fixture')
+assert.doesNotMatch(reset, /createWorkOrder\(|copyLatestSimulationActiveOrder\(/,
+  'reset must reuse the fixed work-order master, not create another work order')
+for (const preservedAudit of [
+  'deleteExecutionSignatures', 'deleteBatchSignatures', 'deleteBatchArchives',
+  'deleteOperationAuditEvents', 'deleteRecordChangeEvents', 'deleteActiveOrderAudits'
+]) {
+  assert.doesNotMatch(reset, new RegExp(`dataCleanupMapper\\.${preservedAudit}\\(`),
+    `fixed reset must retain immutable evidence: ${preservedAudit}`)
+}
 assert.match(
   service,
   /\.eq\(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrder\.getId\(\)\)/,

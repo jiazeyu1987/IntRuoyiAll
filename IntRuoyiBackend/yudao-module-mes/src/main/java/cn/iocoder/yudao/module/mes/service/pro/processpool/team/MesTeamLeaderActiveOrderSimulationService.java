@@ -317,7 +317,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
                     simulationStage, simulationRunId);
             reportAllocationCommandService.createInitialAllocation(eventId, activeOrder.getId(), remainingQuantity);
             markSimulationAllocations(eventId, simulationStage, simulationRunId);
-            MesProcessPoolSubmissionReviewDO review = insertApprovedReview(eventId, leaderUserId,
+            MesProcessPoolSubmissionReviewDO review = insertApprovedReview(eventId, MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT, leaderUserId,
                     MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, "模拟生产组长复核",
                     simulationStage, simulationRunId);
             List<MesProcessPoolReportAllocationDO> confirmedAllocations = linkAllocationsToReview(eventId, review);
@@ -881,7 +881,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                         "活跃订单 PQC 任务状态不可模拟，activeOrderId=" + activeOrder.getId());
             }
-            MesProcessPoolSubmissionReviewDO review = insertApprovedReview(eventId, leaderUserId,
+            MesProcessPoolSubmissionReviewDO review = insertApprovedReview(eventId, MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION, leaderUserId,
                     MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, "模拟PQC组长复核",
                     simulationStage, simulationRunId);
             if (isStage1Simulation(simulationStage)) {
@@ -1365,7 +1365,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
         return new ArrayList<>(snapshotByItem.values());
     }
 
-    private MesProcessPoolSubmissionReviewDO insertApprovedReview(Long eventId, Long leaderUserId, String leaderType,
+    private MesProcessPoolSubmissionReviewDO insertApprovedReview(Long eventId, String eventType, Long leaderUserId, String leaderType,
                                                                   String remark, String simulationStage,
                                                                   String simulationRunId) {
         MesProcessPoolSubmissionReviewDO existing = submissionReviewMapper.selectLatestByEventIdForUpdate(eventId);
@@ -1389,9 +1389,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .reviewedAt(now)
                 .reviewSignatureId(signatureId)
                 .reviewSignatureUserId(leaderUserId)
-                .reviewSignatureSnapshotJson(buildStage1SimulationSignatureSnapshot(signatureId, leaderUserId,
-                        MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW, eventId,
-                        now, simulationStage, simulationRunId))
+                .reviewSignatureSnapshotJson(buildStage1SimulationReviewSignatureSnapshot(signatureId, leaderUserId,
+                        eventId, eventType, leaderType, now, simulationStage, simulationRunId))
                 .simulated(simulationStage != null && !simulationStage.isBlank())
                 .simulationStage(simulationStage)
                 .simulationRunId(simulationRunId)
@@ -1612,6 +1611,24 @@ public class MesTeamLeaderActiveOrderSimulationService {
         return JsonUtils.toJsonString(payload);
     }
 
+    private String buildStage1SimulationReviewSignatureSnapshot(Long signatureId, Long actorId,
+                                                                Long eventId, String eventType, String leaderType,
+                                                                LocalDateTime occurredAt,
+                                                                String simulationStage, String simulationRunId) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("simulated", true);
+        payload.put("signatureId", signatureId);
+        payload.put("actorId", actorId);
+        payload.put("actionType", MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW);
+        payload.put("objectId", eventId);
+        payload.put("processPoolEventId", eventId);
+        payload.put("eventType", eventType);
+        payload.put("leaderType", leaderType);
+        payload.put("reviewStatus", MesProcessPoolSubmissionReviewDO.STATUS_APPROVED);
+        payload.put("occurredAt", occurredAt);
+        putSimulationMetadata(payload, simulationStage, simulationRunId);
+        return JsonUtils.toJsonString(payload);
+    }
     private void putSimulationMetadata(Map<String, Object> payload, String simulationStage,
                                        String simulationRunId) {
         if (simulationStage != null && !simulationStage.isBlank()) {

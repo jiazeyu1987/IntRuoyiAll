@@ -431,7 +431,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         }
         recordReviewOperation("NONCONFORMANCE_REVIEW_DEVIATION_TRANSFER",
                 "关键偏差转不合格评审", review, activeOrderId, null, now, signatureId,
-                null, null, deviationIdsJson, reason, "QA电子签名#" + signatureId, actorUserId);
+                null, null, null, reason, "QA电子签名#" + signatureId, actorUserId);
         review.setQaCreateSignatureId(signatureId).setQaSignature("QA电子签名#" + signatureId)
                 .setQaUserId(actorUserId);
         return toResp(review);
@@ -1630,6 +1630,9 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         metadata.put("reviewMaterialUrl", reviewMaterialUrl);
         metadata.put("reviewMaterialFileId", reviewMaterialFileId);
         metadata.put("reviewMaterialsJson", reviewMaterialsJson);
+        if (review.getDeviationIdsJson() != null && !review.getDeviationIdsJson().isBlank()) {
+            metadata.put("sourceDeviationIds", JSON.parseArray(review.getDeviationIdsJson()));
+        }
         metadata.put("reviewOpinion", reviewOpinion);
         metadata.put("disposition", disposition);
         metadata.put("qaSignature", qaSignature);

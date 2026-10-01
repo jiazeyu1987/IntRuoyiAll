@@ -16,6 +16,7 @@
 - 新 DCC 生命周期只为新建逻辑文件提供身份、版本、检出和审计字段；迁移不得回填、重命名或更新历史 Master/Version 行来“对齐”新字段。
 - MySQL 幂等新增列必须使用 `information_schema.COLUMNS` 守护过程；不得使用 MySQL 运行库不接受的 `ADD COLUMN IF NOT EXISTS`。测试 H2 对 generated column 的语法可不同，必须同时保留 H2 夹具合同和 MySQL migration 合同。
 - 迁移验证至少包含：完整 `dependsOn` 闭包的 policy gate、首次/重复执行静态合同、历史数据零写入证据，以及运行后端实际连接库的 schema 复核。运行 Jar 未包含新接口或 schema 未执行时，禁止用 API/页面假设已部署。
+- `dependsOn` 引用正式 `migrationId`（SQL 文件名不含 `.sql` 后缀）；修正元数据后用实际目标文件的完整依赖闭包做回归，不能只用临时示例证明解析器通过。已有前置结构满足时，只执行缺失的必需正式迁移，不重复改写无关结构。
 
 ### MySQL 被索引字符列扩容顺序门禁
 
@@ -27,6 +28,9 @@
 - Evidence: `doc/tasks/20260911-dcc-p4-review-round2-fixes/verification-report.md`。
 
 ### 运行态迁移漂移系统异常门禁
+
+- Local restart probe coverage: 本机重启脚本的既有 schema probes 全部通过，只能证明已登记的检查项满足；新增生命周期迁移必须逐项核对当前运行库字段、生成列与索引。运行 Jar 与编译产物一致、health=UP 都不能代替业务列表的真实加载核验。
+
 
 - Trigger: 页面或接口在当前代码已支持的路径上提示 `系统异常`，后端栈包含缺表、缺列、`doesn't have a default value`、`cannot be null`、旧索引冲突，或源码已有对应正式迁移但运行库 schema 可能滞后。
 - Preflight check: 先从后端失败栈冻结首个数据库异常、Mapper 与目标表，再以当前后端 Java 进程实际启动参数/运行态数据源作为真实连接库，不能只看 `application-local.yaml` 或默认配置；随后用 `information_schema.columns/statistics` 或 `SHOW COLUMNS/INDEX` 对比当前运行库和目标正式迁移；同时确认迁移 metadata、`dependsOn` 和 release migration policy gate 通过。不得先改业务代码适配旧库。

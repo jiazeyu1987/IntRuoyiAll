@@ -22,6 +22,7 @@ function harness(options = {}) {
     }),
     watch: () => {},
     useRouter: () => ({}),
+    useMessage: () => ({ confirm: async () => {} }),
     defineProps: () => props,
     withDefaults: (v) => v,
     getDeviation:

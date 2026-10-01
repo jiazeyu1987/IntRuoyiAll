@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260924_gxp_audit_event_v2.sql; type=schema; riskLevel=high
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260924_gxp_audit_event_v2; type=schema; riskLevel=high
 -- F01 isolated protocol storage, NOT approval to issue V2 commands or activate a policy.
 -- Additive only: no event backfill, no inferred legacy receipts, no business data changes.
 -- Application identity must have SELECT/INSERT only on this table; grants are deployment-owned.

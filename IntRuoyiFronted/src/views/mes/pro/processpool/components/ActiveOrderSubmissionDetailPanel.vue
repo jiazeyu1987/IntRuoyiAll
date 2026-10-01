@@ -2533,6 +2533,7 @@ const openGxpAuditEvent = async (event: GxpAuditEventRespVO) => {
 }
 
 const activeOrderOperationTypeLabels: Record<string, string> = {
+  RESET_FIXED_TEST_ORDER: '重置指定测试订单',
   ADD_ACTIVE_ORDER: '加入活跃订单',
   APPROVE: '审批中心批准放行',
   ARCHIVE: '生成电子批记录归档',

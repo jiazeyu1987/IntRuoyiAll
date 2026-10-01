@@ -206,8 +206,10 @@
 <script setup lang="ts">
 import { closeDeviationHandling, getDeviation, getDeviationHandling, saveDeviationHandling, signDeviationHandling, type DeviationHandlingRespVO, type DeviationRespVO } from '@/api/mes/pro/edhr/deviation'
 import { createCriticalDeviationReview, getNonconformanceReview, type EdhrNonconformanceReviewRespVO } from '@/api/mes/pro/edhr/nonconformanceReview'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { useMessage } from '@/hooks/web/useMessage'
 import dayjs from 'dayjs'
+const message = useMessage()
 const props = withDefaults(defineProps<{ id: number; readonly?: boolean }>(), { readonly: false })
 const loading = ref(false)
 const detail = ref<DeviationRespVO>()
@@ -534,7 +536,12 @@ const closeHandling = async () => {
   if (props.readonly || !canSignSavedHandling()) return
   const id = props.id
   const sequence = loadSequence
-  await ElMessageBox.confirm('确认按当前处理内容常规关闭该偏差吗？', '关闭确认')
+  try {
+    await message.confirm('确认按当前处理内容常规关闭该偏差吗？', '关闭确认')
+  } catch (action) {
+    if (action === 'cancel' || action === 'close') return
+    throw action
+  }
   if (id !== props.id || sequence !== loadSequence || !canSignSavedHandling()) return
   closing.value = true
   try {

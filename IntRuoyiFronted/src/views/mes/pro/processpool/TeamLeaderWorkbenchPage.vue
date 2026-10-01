@@ -1546,7 +1546,8 @@
           v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
           type="warning"
           :loading="activeOrderTestResetSubmitting"
-          :disabled="maintenanceSubmitting || activeOrderSimulationSubmittingId !== undefined"
+          :disabled="activeOrderTestResetBlocked"
+          title="清理指定测试订单的本轮测试数据，并重新加入活跃订单；保留原工单及领料关联"
           data-team-leader-reset-fixed-active-order
           @click="handleResetFixedSimulationActiveOrder"
         >
@@ -1555,6 +1556,7 @@
         </el-button>
         <el-button
           type="primary"
+          :disabled="activeOrderTestResetSubmitting"
           data-team-leader-open-active-order-dialog
           @click="openActiveOrderDialog"
         >
@@ -1567,7 +1569,7 @@
           type="danger"
           plain
           :loading="teamLeaderDataCleanupSubmitting"
-          :disabled="maintenanceSubmitting || activeOrderSimulationSubmittingId !== undefined"
+          :disabled="maintenanceSubmitting || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
           data-team-leader-data-cleanup
           @click="handleTeamLeaderDataCleanup"
         >
@@ -1680,7 +1682,7 @@
                   :disabled="
                     isFirstActiveOrder(row) ||
                     activeOrderMoveSubmittingId !== undefined ||
-                    activeOrderSimulationSubmittingId !== undefined
+                    activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
                   "
                   :loading="
                     activeOrderMoveSubmittingId === row.id && activeOrderMoveDirection === 'UP'
@@ -1700,7 +1702,7 @@
                   :disabled="
                     isLastActiveOrder(row) ||
                     activeOrderMoveSubmittingId !== undefined ||
-                    activeOrderSimulationSubmittingId !== undefined
+                    activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
                   "
                   :loading="
                     activeOrderMoveSubmittingId === row.id && activeOrderMoveDirection === 'DOWN'
@@ -1726,7 +1728,7 @@
                 :loading="maintenanceSubmitting"
                 :disabled="
                   activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined
+                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
                 "
                 data-team-leader-remove-active-order
                 @click="handleRemoveActiveOrder(row)"
@@ -1736,7 +1738,7 @@
               <el-button
                 link
                 type="warning"
-                :disabled="row.abnormal || row.readBlocked || activeOrderSimulationSubmittingId !== undefined"
+                :disabled="row.abnormal || row.readBlocked || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
                 :loading="abnormalSubmitting && abnormalForm.activeOrderId === row.id"
                 :title="
                   row.abnormal ? row.abnormalReason || '该订单已报异常' : '针对该活跃订单报异常'
@@ -1751,7 +1753,7 @@
                 type="primary"
                 :disabled="
                   !canApplyActiveOrderRelease(row) || isActiveOrderReleaseApplicationLocked(row.id)
-                    || activeOrderSimulationSubmittingId !== undefined
+                    || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
                 "
                 :loading="releaseApplicationSubmittingId === row.id"
                 :title="resolveActiveOrderReleaseApplyDisabledReason(row)"
@@ -1767,7 +1769,7 @@
                 :disabled="
                   maintenanceSubmitting ||
                   activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined
+                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
                 "
                 data-team-leader-rebuild-active-order
                 @click="handleRebuildActiveOrder(row)"
@@ -1783,7 +1785,7 @@
                   maintenanceSubmitting ||
                   row.activeStatus !== 'ACTIVE' ||
                   activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined ||
+                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined ||
                   activeOrderVersionUpgradeSubmittingId !== undefined
                 "
                 title="按全部最新正式版本发起版本升级重启审批"
@@ -1797,7 +1799,7 @@
                 :disabled="
                   maintenanceSubmitting ||
                   activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined
+                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
                 "
                 data-team-leader-copy-latest-simulation-order
                 @click="handleCopyLatestSimulationActiveOrder(row)"
@@ -1813,7 +1815,7 @@
                 :disabled="
                   maintenanceSubmitting ||
                   activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined
+                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
                 "
                 data-team-leader-cleanup-latest-simulation-order
                 @click="handleCleanupLatestSimulationActiveOrder(row)"
@@ -1827,7 +1829,7 @@
                 :disabled="
                   maintenanceSubmitting ||
                   activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined
+                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
                 "
                 data-team-leader-simulate-active-order-stage1-p1
                 @click="handleSimulateStage1(row)"
@@ -1841,7 +1843,7 @@
                 :disabled="
                   maintenanceSubmitting ||
                   activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined ||
+                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined ||
                   !canGenerateStage1Forms(row)
                 "
                 :title="resolveStage1GenerateFormDisabledReason(row)"
@@ -1856,7 +1858,7 @@
                 link
                 type="primary"
                 :loading="releaseApplicationSubmittingId === row.id"
-                :disabled="maintenanceSubmitting || activeOrderSimulationSubmittingId !== undefined || releaseApplicationSubmittingId !== undefined || !canApplyActiveOrderRelease(row)"
+                :disabled="maintenanceSubmitting || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined || releaseApplicationSubmittingId !== undefined || !canApplyActiveOrderRelease(row)"
                 title="将P2生成的记录推送给PQC生产放行"
                 data-team-leader-push-pqc-stage3
                 @click="handlePushGeneratedPqcRelease(row)"
@@ -1871,7 +1873,7 @@
                 :disabled="
                   maintenanceSubmitting ||
                   activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined
+                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
                 "
                 data-team-leader-simulate-active-order-stage2-5
                 title="模拟完工并打开真实批次执行详情"
@@ -4461,6 +4463,18 @@ const activeOrderRebuildSubmittingId = ref<number | string>()
 const activeOrderVersionUpgradeSubmittingId = ref<number | string>()
 const activeOrderSimulationSubmittingId = ref<number | string>()
 const activeOrderTestResetSubmitting = ref(false)
+const activeOrderTestResetBlocked = computed(() =>
+  activeOrderTestResetSubmitting.value ||
+  maintenanceSubmitting.value ||
+  activeOrderSimulationSubmittingId.value !== undefined ||
+  teamLeaderDataCleanupSubmitting.value ||
+  activeOrderMoveSubmittingId.value !== undefined ||
+  activeOrderRebuildSubmittingId.value !== undefined ||
+  activeOrderVersionUpgradeSubmittingId.value !== undefined ||
+  releaseApplicationSubmittingId.value !== undefined ||
+  abnormalSubmitting.value ||
+  activeOrderConflictSubmitting.value
+)
 const teamLeaderDataCleanupSubmitting = ref(false)
 const correctionSubmitting = ref(false)
 const detailVisible = ref(false)
@@ -9339,6 +9353,7 @@ const resetAbnormalForm = () => {
 }
 
 const openAbnormalDialog = (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   if (row.abnormal) {
     ElMessage.warning(row.abnormalReason || '该订单已报异常')
     return
@@ -9351,6 +9366,7 @@ const openAbnormalDialog = (row: TeamLeaderActiveOrderRespVO) => {
 const submitAbnormal = async () => {
   const valid = await abnormalFormRef.value?.validate?.()
   if (valid === false) return
+  if (activeOrderTestResetSubmitting.value) return
   const activeOrderId = requirePositiveNumber(abnormalForm.activeOrderId, '活跃订单ID不能为空')
   abnormalSubmitting.value = true
   try {
@@ -9388,6 +9404,7 @@ const resetActiveOrderForm = () => {
 }
 
 const openActiveOrderDialog = () => {
+  if (activeOrderTestResetSubmitting.value) return
   resetActiveOrderForm()
   activeOrderAddDialogVisible.value = true
 }
@@ -9528,6 +9545,7 @@ const activeOrderCommitSuccessMessage = (action: TeamLeaderActiveOrderCommitActi
 }
 
 const submitAddActiveOrder = async () => {
+  if (activeOrderTestResetSubmitting.value) return
   maintenanceSubmitting.value = true
   let writeCompleted = false
   try {
@@ -9677,6 +9695,7 @@ const assertActiveOrderReleaseApplicationReceipt = (
 }
 
 const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   if (!canApplyActiveOrderRelease(row)) {
     ElMessage.warning(resolveActiveOrderReleaseApplyDisabledReason(row))
     return
@@ -9692,6 +9711,7 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
     ElMessage.error(resolveErrorMessage(confirmationAction, '申请确认弹窗打开失败'))
     return
   }
+  if (activeOrderTestResetSubmitting.value) return
   const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
   const idempotencyKey = getOrCreateActiveOrderReleaseIdempotencyKey(row)
   releaseApplicationSubmittingId.value = row.id
@@ -9773,6 +9793,7 @@ const submitMoveActiveOrder = async (
   row: TeamLeaderActiveOrderRespVO,
   direction: 'UP' | 'DOWN'
 ) => {
+  if (activeOrderTestResetSubmitting.value) return
   activeOrderMoveSubmittingId.value = row.id
   activeOrderMoveDirection.value = direction
   let writeCompleted = false
@@ -9802,6 +9823,7 @@ const submitMoveActiveOrder = async (
 }
 
 const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   activeOrderRebuildSubmittingId.value = row.id
   let writeCompleted = false
   try {
@@ -9840,6 +9862,7 @@ const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const handleActiveOrderVersionUpgrade = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   activeOrderVersionUpgradeSubmittingId.value = row.id
   try {
     const preview = await previewTeamLeaderActiveOrderVersionUpgrade(
@@ -9857,6 +9880,7 @@ const handleActiveOrderVersionUpgrade = async (row: TeamLeaderActiveOrderRespVO)
 }
 
 const submitActiveOrderVersionUpgrade = async () => {
+  if (activeOrderTestResetSubmitting.value) return
   const preview = activeOrderVersionUpgradePreview.value
   if (!preview) {
     ElMessage.error('缺少活跃订单版本升级预览结果')
@@ -9883,6 +9907,7 @@ const submitActiveOrderVersionUpgrade = async () => {
 const createSimulationCopyRunId = () => `SIMCOPY-${Date.now()}-${crypto.randomUUID()}`
 
 const handleCopyLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   activeOrderSimulationSubmittingId.value = row.id
   let result: TeamLeaderActiveOrderSimulationCopyRespVO | undefined
   try {
@@ -9914,6 +9939,7 @@ const handleCopyLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderR
 }
 
 const handleCleanupLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   activeOrderSimulationSubmittingId.value = row.id
   let writeCompleted = false
   try {
@@ -9945,6 +9971,7 @@ const handleCleanupLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrd
 }
 
 const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   activeOrderSimulationSubmittingId.value = row.id
   let writeCompleted = false
   try {
@@ -9975,6 +10002,7 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const handleGenerateStage1Forms = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   if (!canGenerateStage1Forms(row)) {
     ElMessage.warning(resolveStage1GenerateFormDisabledReason(row))
     return
@@ -10009,6 +10037,7 @@ const handleGenerateStage1Forms = async (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const handleSimulateStage2_5 = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   if (!row.version && row.version !== 0) {
     ElMessage.error('活跃订单版本缺失，无法安全执行模拟完工')
     return
@@ -10036,6 +10065,7 @@ const handleSimulateStage2_5 = async (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const handlePushGeneratedPqcRelease = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   if (!canApplyActiveOrderRelease(row)) {
     ElMessage.warning(resolveActiveOrderReleaseApplyDisabledReason(row))
     return
@@ -10069,6 +10099,7 @@ const handlePushGeneratedPqcRelease = async (row: TeamLeaderActiveOrderRespVO) =
 }
 
 const handleRecommendedActiveOrderConflictResolution = async () => {
+  if (activeOrderTestResetSubmitting.value) return
   const row = activeOrderConflictSelectedOrder.value
   if (!row) {
     ElMessage.error('请选择需要处理的活跃订单')
@@ -10117,6 +10148,7 @@ const handleRecommendedActiveOrderConflictResolution = async () => {
 }
 
 const handleRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   maintenanceSubmitting.value = true
   let writeCompleted = false
   try {
@@ -10139,18 +10171,32 @@ const handleRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const handleResetFixedSimulationActiveOrder = async () => {
+  if (activeOrderTestResetBlocked.value) return
   activeOrderTestResetSubmitting.value = true
   let writeCompleted = false
   try {
     const result = await resetFixedSimulationActiveOrder()
+    if (!result?.workOrderCode?.trim() || !/^[1-9]\d*$/.test(String(result.activeOrderId))) {
+      throw new Error('重置回执缺少正式工单号或活跃订单身份，请刷新核对后再操作')
+    }
     writeCompleted = true
-    ElMessage.success(
-      `测试订单已重置并重新加入：${result.workOrderCode}（活跃订单 ${result.activeOrderId}）`
-    )
+    activeOrderWorkOrderKeyword.value = result.workOrderCode
+    activeOrderQuery.pageNo = 1
     await loadActiveOrders()
+    if (!activeOrderOptions.value.some((order) =>
+      String(order.id) === String(result.activeOrderId) && order.workOrderCode === result.workOrderCode
+    )) {
+      throw new Error('刷新后未找到重置回执对应的活跃订单，请核对列表')
+    }
+    ElMessage.success(
+      `本轮测试数据已清理，原工单已重新加入：${result.workOrderCode}（活跃订单 ${result.activeOrderId}）`
+    )
   } catch (error) {
+    const reason = resolveErrorMessage(error, '请稍后刷新核对')
     ElMessage.error(
-      resolveErrorMessage(error, writeCompleted ? '测试订单已重置，但列表刷新失败' : '测试订单重置失败')
+      writeCompleted
+        ? `测试订单已重置，但列表刷新失败：${reason}；请刷新列表，不要再次重置`
+        : `测试订单重置失败：${reason}`
     )
   } finally {
     activeOrderTestResetSubmitting.value = false
@@ -10162,6 +10208,7 @@ const handleActiveOrderWorkOrderKeywordChange = () => {
 }
 
 const handleTeamLeaderDataCleanup = async () => {
+  if (activeOrderTestResetSubmitting.value) return
   teamLeaderDataCleanupSubmitting.value = true
   try {
     const preview = await previewTeamLeaderDataCleanup()

@@ -221,7 +221,7 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
                         .objectVersion(snapshot.subjectVersion())
                         .canonicalJson(gxpAuditAfterStateJson(command, snapshot, record))
                         .build())
-                .idempotencyKey(command.idempotencyKey())
+                .idempotencyKey("SIGNATURE:" + hash(command.idempotencyKey()))
                 .source("ElectronicSignatureServiceImpl.sign")
                 .signatureRecordId(String.valueOf(record.getId()))
                 .signatureContentHash(record.getContentHash())
