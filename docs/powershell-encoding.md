@@ -21,6 +21,11 @@
 - 不得用默认 `Set-Content`、`Add-Content`、`Out-File`、`>`、`>>` 写中文文本。
 - 不得用 `cmd /c echo`、`type`、`more` 或未声明编码的批处理方式生成中文文件。
 
+## Git 换行核验
+
+- 在 Windows 工作区运行 `git diff --check` 时保留仓库的 `core.autocrlf` 和属性规则；临时关闭换行规范化会把 CRLF 文件误判为整文件改动及尾随空白，不应据此重写源码。
+- 命令异常输出可能包含既有凭据或超长全文；脚本应捕获输出并仅报告文件路径、退出码与必要摘要，确认脱敏后再写入任务记录。真实空白问题仍按正常 `git diff --check` 和 `git diff --cached --check` 判断。
+
 ## 禁止做法
 
 - 禁止发现乱码后静默重写文件。
