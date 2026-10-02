@@ -19,6 +19,7 @@ const specs = [
   'tests/e2e/edhr-ai-loop-pqc-write-safety.spec.cjs',
   'tests/e2e/edhr-ai-loop-completion-s04-static.spec.cjs',
   'tests/e2e/edhr-ai-loop-release-s05-static.spec.cjs',
+  'tests/e2e/edhr-ai-loop-dialog-contract.spec.cjs',
   'tests/e2e/edhr-ai-loop-report-upload-s06-static.spec.cjs',
   'tests/e2e/edhr-ai-loop-final-release-s07-static.spec.cjs',
   'tests/e2e/edhr-ai-loop-archive-s08-static.spec.cjs',

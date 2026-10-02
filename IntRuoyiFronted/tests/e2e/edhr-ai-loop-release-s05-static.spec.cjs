@@ -34,8 +34,9 @@ for (const selector of [
 }
 for (const selector of [
   'data-edhr-ncr-page',
-  'data-edhr-ncr-active-order-detail',
-  'data-edhr-ncr-active-order-detail-back',
+  'data-edhr-ncr-create-dialog',
+  'data-edhr-ncr-review-dialog',
+  'data-edhr-ncr-review-process',
   'data-edhr-ncr-create-reason',
   'data-edhr-ncr-create-submit',
   'data-edhr-ncr-review-material',
@@ -47,10 +48,14 @@ for (const selector of [
 ]) {
   assert.match(nonconformancePage, new RegExp(selector), `nonconformance review page missing ${selector}`)
 }
-assert.match(nonconformancePage, /ActiveOrderSubmissionDetailPanel/)
-assert.match(nonconformancePage, /getNonconformanceReviewActiveOrderDetail/)
-assert.match(nonconformancePage, /data-edhr-ncr-active-order-detail[\s\S]*>\s*详情\s*</)
-assert.doesNotMatch(nonconformancePage, /@click\.stop="selectReview\(row\)"[\s\S]*>\s*处理\s*</)
+assert.match(nonconformancePage, /data-edhr-ncr-review-process[\s\S]*@click\.stop="openReviewDialog\(row\)"/)
+assert.match(nonconformancePage, /<el-dialog[\s\S]*data-edhr-ncr-create-dialog/)
+assert.match(nonconformancePage, /<el-dialog[\s\S]*data-edhr-ncr-review-dialog/)
+assert.match(runner, /createDialog\.locator\('\[data-edhr-ncr-create-submit\]'\)/)
+assert.match(runner, /reviewDialog\.locator\('\[data-edhr-ncr-concession-release\]'\)/)
+assert.match(runner, /created\.sourceType, 'ACTIVE_ORDER'/)
+assert.match(runner, /String\(created\.sourceId\), String\(manifestOrder\.activeOrderId\)/)
+assert.doesNotMatch(runner, /reviewPage\.locator\('\[data-edhr-ncr-(?:create-reason|create-submit|review-material|review-opinion|signature-password|concession-release)\]/)
 assert.doesNotMatch(pqcReleasePage, /data-pqc-production-release-report-task-list/)
 assert.doesNotMatch(pqcReleasePage, />\s*查看批记录\s*</)
 

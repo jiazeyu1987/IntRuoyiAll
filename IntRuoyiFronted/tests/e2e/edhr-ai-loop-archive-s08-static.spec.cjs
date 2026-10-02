@@ -38,7 +38,7 @@ for (const selector of [
   'data-edhr-history-work-order-code',
   'data-edhr-history-batch-code',
   'data-edhr-history-batch-status',
-  'data-edhr-history-active-order-detail'
+  'data-edhr-history-detail-action'
 ]) {
   assert.match(historyPage, new RegExp(selector), `history page missing ${selector}`)
 }
@@ -49,7 +49,9 @@ assert.match(runner, /data-edhr-archive-task-open/)
 assert.match(runner, /data-edhr-archive-generate/)
 assert.match(runner, /\/mes\/pro\/edhr-batch-execution-archive\/generate/)
 assert.match(runner, /\/mes\/pro\/feedback\/edhr-batch-history/)
-assert.match(runner, /data-edhr-history-active-order-detail/)
+assert.match(historyPage, /data-edhr-history-detail-action[\s\S]*@click="openActiveOrderDetail\(row\)"/)
+assert.match(runner, /row\.locator\('\[data-edhr-history-detail-action\]'\)\.click\(\)/)
+assert.doesNotMatch(runner, /data-edhr-history-active-order-detail/)
 assert.match(runner, /data-active-order-summary-operation-facts-table/)
 assert.match(runner, /发起不合格评审/)
 assert.match(runner, /让步放行/)
