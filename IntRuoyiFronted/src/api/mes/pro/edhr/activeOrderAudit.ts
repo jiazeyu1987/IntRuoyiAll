@@ -13,7 +13,7 @@ export interface GxpAuditEventPageReqVO {
   action?: string
   resultStatus?: string
   signaturePresent?: boolean
-  occurredAt?: string[]
+  occurredAt?: [number, number]
 }
 
 export interface GxpAuditEventRelationRespVO {
@@ -23,7 +23,7 @@ export interface GxpAuditEventRelationRespVO {
   targetId?: string
   targetVersion?: string
   targetHash?: string
-  createdAtUtc?: string
+  createdAtUtc?: number
 }
 
 export interface GxpAuditEventRespVO {
@@ -40,7 +40,7 @@ export interface GxpAuditEventRespVO {
   actorDisplayName?: string
   authenticatedActorJson?: string
   performedByJson?: string
-  serverOccurredAt?: string
+  serverOccurredAt?: number
   beforeStateJson?: string
   afterStateJson?: string
   resultStatus?: string

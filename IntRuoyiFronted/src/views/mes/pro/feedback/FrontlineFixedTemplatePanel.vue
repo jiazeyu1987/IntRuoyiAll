@@ -7921,13 +7921,32 @@ onUnmounted(() => {
   }
 }
 
+.frontline-production-stage .frontline-operator-top.is-production {
+  grid-template-columns:
+    minmax(0, 1.45fr) minmax(0, 1.55fr) minmax(0, 0.6fr)
+    max(240px, calc(var(--frontline-production-top-action-font-size, 42px) * 3 + 24px));
+}
+
+.frontline-production-stage .frontline-production-main {
+  grid-template-rows:
+    minmax(0, 1fr)
+    max(126px, calc(var(--frontline-production-footer-action-font-size, 54px) * 1.35 + 24px));
+}
+
+.frontline-production-stage .frontline-production-submit-bar {
+  grid-template-columns:
+    max(300px, calc(var(--frontline-production-footer-action-font-size, 54px) * 2 + 24px)) 1fr;
+}
+
 .frontline-production-stage .frontline-production-fullscreen-toggle {
   font-size: var(--frontline-production-top-action-font-size, 42px);
+  white-space: nowrap;
 }
 
 .frontline-production-stage .frontline-production-reset-button,
 .frontline-production-stage .frontline-production-submit-button {
   font-size: var(--frontline-production-footer-action-font-size, 54px);
+  white-space: nowrap;
 }
 
 .frontline-pqc-inspection-list {

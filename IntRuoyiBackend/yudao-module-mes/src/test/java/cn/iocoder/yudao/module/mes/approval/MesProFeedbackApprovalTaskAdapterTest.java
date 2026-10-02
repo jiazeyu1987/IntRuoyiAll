@@ -39,6 +39,8 @@ class MesProFeedbackApprovalTaskAdapterTest {
     private MesProFeedbackMapper feedbackMapper;
     @Mock
     private MesProFeedbackService feedbackService;
+    @Mock
+    private MesFeedbackFormalReviewProjection formalReviewProjection;
     @InjectMocks
     private MesProFeedbackApprovalTaskAdapter adapter;
 
@@ -196,7 +198,7 @@ class MesProFeedbackApprovalTaskAdapterTest {
         feedback.setUpdateTime(rejectedAt);
         feedback.setRemark("数量不一致");
         when(feedbackMapper.selectUnifiedApprovalList(100L, null,
-                List.of(MesProFeedbackStatusEnum.UNCHECK.getStatus(),
+                List.of(MesProFeedbackStatusEnum.APPROVING.getStatus(), MesProFeedbackStatusEnum.UNCHECK.getStatus(),
                         MesProFeedbackStatusEnum.FINISHED.getStatus(),
                         MesProFeedbackStatusEnum.PREPARE.getStatus()), "FB"))
                 .thenReturn(List.of(feedback));

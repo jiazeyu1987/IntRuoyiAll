@@ -20,8 +20,8 @@ assert.equal(baseline.productionProcesses[0].quantity, 10)
 assert.throws(() => freezeExecutionBaseline(order, [{ ...productionProcesses[0], targetQuantity: undefined }], pqcProcesses), /targetQuantity/)
 assert.throws(() => freezeExecutionBaseline(order, productionProcesses, [{ ...pqcProcesses[0], tasks: [task(71, 2), task(71, 2)] }]), /duplicate/)
 assert.throws(() => freezeExecutionBaseline(order, productionProcesses, [{ ...pqcProcesses[0], tasks: [{ ...task(71, 2), quantity: 0 }] }]), /quantity/)
-const submitted71 = { formalIdentity: baseline.pqcGroups[0].tasks[0].formalIdentity, pqcTaskId: '100071' }
-const submitted72 = { formalIdentity: baseline.pqcGroups[0].tasks[1].formalIdentity, pqcTaskId: '100072' }
+const submitted71 = { formalIdentity: baseline.pqcGroups[0].tasks[0].formalIdentity, pqcTaskId: '71' }
+const submitted72 = { formalIdentity: baseline.pqcGroups[0].tasks[1].formalIdentity, pqcTaskId: '72' }
 assert.throws(() => assertCoverage(baseline, ['1', '2'], [submitted71]), /coverage/)
 assert.throws(() => assertCoverage(baseline, ['1', '2'], [submitted71]), error => {
   assert.deepEqual(error.actual.missingProductionIds, ['3'])
@@ -38,3 +38,27 @@ console.log('PASS: dynamic coverage behavior (3 production processes, independen
 
 const noMaterial = freezeExecutionBaseline(order, [{ ...productionProcesses[0], outputMaterials: [], quantityMode: 'PROCESS_QUANTITY' }], pqcProcesses)
 assert.equal(noMaterial.productionProcesses[0].quantityMode, 'PROCESS_QUANTITY')
+
+// Distinct tasks can share a QA item, rule and round. Every receipt still counts.
+const repeatedItems = Array.from({ length: 15 }, (_, index) => ({
+  ...task(101 + index, 2), inspectionItems: task(71, 2).inspectionItems
+})).concat(Array.from({ length: 15 }, (_, index) => ({
+  ...task(201 + index, 3), inspectionItems: task(72, 3).inspectionItems
+})))
+const repeatedBaseline = freezeExecutionBaseline(order, baseline.productionProcesses, [{
+  ...pqcProcesses[0], tasks: repeatedItems
+}])
+assert.equal(repeatedBaseline.expected.pqcTaskCount, 30)
+assert.equal(repeatedBaseline.expected.pqcSubmissionCount, 30, 'distinct tasks must not be collapsed by item/rule')
+assert.equal(repeatedBaseline.expected.pqcUiSubmissionCount, 15)
+assert.equal(repeatedBaseline.expected.pqcReviewCount, 15)
+assert.deepEqual(repeatedBaseline.pqcGroups.map(group => group.tasks.map(t => t.pqcTaskId)),
+  Array.from({ length: 15 }, (_, index) => [String(101 + index), String(201 + index)]))
+const allReceipts = repeatedBaseline.pqcTasks.map(({ pqcTaskId, formalIdentity }) => ({ pqcTaskId, formalIdentity }))
+assertCoverage(repeatedBaseline, ['1', '2', '3'], allReceipts)
+assert.throws(() => assertCoverage(repeatedBaseline, ['1', '2', '3'], allReceipts.slice(0, 2)), /coverage/)
+assert.throws(() => assertCoverage(repeatedBaseline, ['1', '2', '3'],
+  allReceipts.map(receipt => ({ ...receipt, pqcTaskId: 999 }))), /coverage/)
+assert.throws(() => assertCoverage(repeatedBaseline, ['1', '2', '3'],
+  allReceipts.map((receipt, index) => index === 29 ? allReceipts[0] : receipt)), /coverage/)
+console.log('PASS: exact task receipt coverage, 30 repeated-item tasks across 15 UI submissions')

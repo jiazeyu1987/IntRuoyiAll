@@ -2143,6 +2143,41 @@
           </el-descriptions>
         </template>
       </Dialog>
+      <Dialog
+        title="业务签名证据"
+        v-model="signatureEvidenceViewer.state.visible"
+        width="900px"
+        destroy-on-close
+        @close="signatureEvidenceViewer.close"
+      >
+        <el-alert
+          v-if="signatureEvidenceViewer.state.error"
+          :title="signatureEvidenceViewer.state.error" type="error" :closable="false" show-icon
+          data-active-order-signature-error />
+        <el-skeleton v-else-if="signatureEvidenceViewer.state.loading" :rows="8" animated />
+        <el-descriptions
+          v-else-if="signatureEvidenceViewer.state.selected" :column="2" border size="small"
+          data-active-order-signature-evidence>
+          <el-descriptions-item label="签名编号">{{ signatureEvidenceViewer.state.selected.evidence.id }}</el-descriptions-item>
+          <el-descriptions-item label="业务动作">{{ signatureEvidenceViewer.state.selected.evidence.actionCode }}</el-descriptions-item>
+          <el-descriptions-item label="业务记录签名人">{{ signatureEvidenceViewer.state.selected.signerName }}</el-descriptions-item>
+          <el-descriptions-item label="签署账号编号">{{ signatureEvidenceViewer.state.selected.evidence.actorId }}</el-descriptions-item>
+          <el-descriptions-item label="签署时间">{{ formatDateTime(signatureEvidenceViewer.state.selected.evidence.signedAt) }}</el-descriptions-item>
+          <el-descriptions-item label="业务时区">{{ signatureEvidenceViewer.state.selected.evidence.timeZone || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="签名含义">{{ signatureEvidenceViewer.state.selected.evidence.meaningLabel || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="认证方式">{{ signatureEvidenceViewer.state.selected.evidence.authenticationMethod || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="签署原因" :span="2">{{ signatureEvidenceViewer.state.selected.evidence.reason || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="原记录完整性状态">{{ signatureEvidenceViewer.state.selected.evidence.verificationStatus || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="本次完整性核验">
+            <el-tag :type="signatureEvidenceViewer.state.selected.verification.verificationStatus === 'VALID' ? 'success' : 'danger'">
+              {{ signatureEvidenceViewer.state.selected.verification.verificationStatus === 'VALID' ? '核验通过' : '不一致' }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="内容摘要" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ signatureEvidenceViewer.state.selected.evidence.contentHash }}</pre></el-descriptions-item>
+          <el-descriptions-item label="证据摘要" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ signatureEvidenceViewer.state.selected.evidence.evidenceHash }}</pre></el-descriptions-item>
+          <el-descriptions-item label="原签署内容快照" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ formatGxpAuditJson(signatureEvidenceViewer.state.selected.evidence.canonicalContentJson) }}</pre></el-descriptions-item>
+        </el-descriptions>
+      </Dialog>
     </template>
   </div>
 </template>
@@ -2189,6 +2224,8 @@ import {
   type OnlineFilePreviewSource
 } from '@/api/common/filePreview'
 import { formatDateTimeValue } from '@/utils/formatTime'
+import { getActiveOrderSignatureEvidence } from '@/api/mes/pro/edhr/activeOrderSignature'
+import { createActiveOrderSignatureEvidenceViewer, type SignatureBusinessContext } from './activeOrderSignatureEvidenceViewer'
 import { resolveUrlPathFileName } from '@/utils/fileName'
 import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
@@ -2319,6 +2356,21 @@ const auditScopeIdValue = computed<ActiveOrderAuditIdentity | undefined>(() => {
   if (auditScopeTypeValue.value === 'PQC') return props.pqcReleaseApplicationId
   return props.detail?.activeOrderId
 })
+const signatureEvidenceContext = computed<SignatureBusinessContext | undefined>(() => {
+  if (!props.detail?.activeOrderId || props.loading || props.error) return undefined
+  const scope = auditScopeTypeValue.value
+  // Embedded formal batch panels have the explicit active-order identity of their authorized detail.
+  const identity = scope === 'BATCH'
+    ? props.auditScopeId ?? { activeOrderId: props.detail.activeOrderId }
+    : auditScopeIdValue.value
+  if (identity === undefined) return undefined
+  return { scope, identity, activeOrderId: props.detail.activeOrderId }
+})
+const signatureEvidenceViewer = createActiveOrderSignatureEvidenceViewer(
+  () => signatureEvidenceContext.value, getActiveOrderSignatureEvidence
+)
+watch(signatureEvidenceContext, () => signatureEvidenceViewer.close())
+onBeforeUnmount(() => signatureEvidenceViewer.close())
 const showProductionSubmissionTab = computed(
   () => displayMode.value === 'full' || displayMode.value === 'production'
 )
@@ -3057,13 +3109,7 @@ const openActiveOrderSignatureRecord = (
   signature?: TeamLeaderActiveOrderSignatureDetailRespVO
 ) => {
   if (!signature?.signatureId) return
-  router.push({
-    path: '/signature-governance/signature-records',
-    query: {
-      quickFilterField: 'signatureId',
-      quickFilterValue: String(signature.signatureId)
-    }
-  })
+  void signatureEvidenceViewer.open(signature.signatureId)
 }
 
 const toOperationFactSignature = (

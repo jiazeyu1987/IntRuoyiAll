@@ -26,7 +26,8 @@ function pqcGroupIdentity(processKey, task) {
   return JSON.stringify([processKey, task.type, task.businessDate, task.shiftCode, String(task.roundNo)])
 }
 function pqcTaskFormalIdentity(processKey, task) {
-  return JSON.stringify([processKey, task.ruleKey, task.type, task.businessDate, task.shiftCode, String(task.roundNo), taskInspectionItemIdentity(task)])
+  positive(task.pqcTaskId, 'pqcTaskId')
+  return JSON.stringify([String(task.pqcTaskId), processKey, task.ruleKey, task.type, task.businessDate, task.shiftCode, String(task.roundNo), taskInspectionItemIdentity(task)])
 }
 function buildPqcTaskGroups(pqcProcesses, options = {}) {
   const groups = []
@@ -36,16 +37,19 @@ function buildPqcTaskGroups(pqcProcesses, options = {}) {
     for (const task of process.tasks) {
       if (options.requirePending) assert.equal(task.taskStatus, 'PENDING', `initial task not PENDING: ${task.pqcTaskId}`)
       const key = pqcGroupIdentity(process.processKey, task)
-      if (!scoped.has(key)) scoped.set(key, { processKey: process.processKey, processLabel: process.processLabel, ruleKey: task.ruleKey, type: task.type, tasks: [] })
+      if (!scoped.has(key)) scoped.set(key, [])
       const groupedTask = { ...task, processKey: process.processKey, formalIdentity: pqcTaskFormalIdentity(process.processKey, task) }
-      const group = scoped.get(key)
       const identity = taskInspectionItemIdentity(task)
-      if (!group.tasks.some(existing => taskInspectionItemIdentity(existing) === identity)) {
-        group.tasks.push(groupedTask)
+      const rounds = scoped.get(key)
+      let group = rounds.find(candidate => !candidate.tasks.some(existing => taskInspectionItemIdentity(existing) === identity))
+      if (!group) {
+        group = { processKey: process.processKey, processLabel: process.processLabel, ruleKey: task.ruleKey, type: task.type, tasks: [] }
+        rounds.push(group)
       }
+      group.tasks.push(groupedTask)
       tasks.push(groupedTask)
     }
-    groups.push(...scoped.values())
+    groups.push(...Array.from(scoped.values()).flat())
   }
   return { groups, tasks }
 }
@@ -78,19 +82,24 @@ function freezeExecutionBaseline(order, productionProcesses, pqcProcesses) {
 }
 function assertCoverage(baseline, productionIds, submittedPqcTasks) {
   const expectedProduction = baseline.productionProcesses.map(p => String(p.routeProcessId)).sort()
-  const expectedPqcFormalIdentities = baseline.pqcGroups.flatMap(group => group.tasks).map(t => String(t.formalIdentity)).sort()
+  const expectedPqcFormalIdentities = baseline.pqcTasks.map(t => String(t.formalIdentity)).sort()
+  const expectedPqcTaskIds = baseline.pqcTasks.map(t => String(t.pqcTaskId)).sort()
   const actualProduction = productionIds.map(String).sort()
-  const actualPqcFormalIdentities = submittedPqcTasks.map(task => String(task.formalIdentity || task)).sort()
-  if (JSON.stringify(actualProduction) !== JSON.stringify(expectedProduction) || JSON.stringify(actualPqcFormalIdentities) !== JSON.stringify(expectedPqcFormalIdentities)) {
+  const actualPqcFormalIdentities = submittedPqcTasks.map(task => String(task.formalIdentity)).sort()
+  const actualPqcTaskIds = submittedPqcTasks.map(task => String(task.pqcTaskId)).sort()
+  if (JSON.stringify(actualProduction) !== JSON.stringify(expectedProduction) ||
+      JSON.stringify(actualPqcFormalIdentities) !== JSON.stringify(expectedPqcFormalIdentities) ||
+      JSON.stringify(actualPqcTaskIds) !== JSON.stringify(expectedPqcTaskIds)) {
     const error = new Error('production/PQC coverage mismatch')
     error.stage = 'S03'
     error.errorType = 'BUSINESS_ASSERTION'
     error.action = '冻结工序和任务覆盖核验'
     error.expected = baseline
     error.actual = { workOrderCode: baseline.workOrderCode, activeOrderId: baseline.activeOrderId,
-      productionIds: actualProduction, pqcFormalIdentities: actualPqcFormalIdentities,
+      productionIds: actualProduction, pqcFormalIdentities: actualPqcFormalIdentities, pqcTaskIds: actualPqcTaskIds,
       missingProductionIds: expectedProduction.filter(id => !actualProduction.includes(id)),
-      missingPqcFormalIdentities: expectedPqcFormalIdentities.filter(id => !actualPqcFormalIdentities.includes(id)) }
+      missingPqcFormalIdentities: expectedPqcFormalIdentities.filter(id => !actualPqcFormalIdentities.includes(id)),
+      missingPqcTaskIds: expectedPqcTaskIds.filter(id => !actualPqcTaskIds.includes(id)) }
     throw error
   }
 }

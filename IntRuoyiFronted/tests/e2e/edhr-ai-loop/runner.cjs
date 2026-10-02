@@ -304,14 +304,6 @@ async function isLoginPage(page) {
     .first().isVisible({ timeout: 1000 }).catch(() => false)
 }
 
-async function ensurePqcSession(page, manifestOrder, processKey) {
-  if (!(await isLoginPage(page))) return false
-  await login(page)
-  await selectFrontlinePqcOrder(page, manifestOrder)
-  await selectFrontlinePqcProcess(page, processKey)
-  return true
-}
-
 async function selectLoginTenant(page, tenantName = '芋道源码') {
   await waitForLoginFormShell(page)
   const tenant = page.locator(
@@ -596,8 +588,16 @@ async function selectFrontlinePqcOrder(page, manifestOrder) {
     has: page.locator(`[data-pqc-order-option-code] strong:text-is("${manifestOrder.workOrderCode}")`)
   }).first()
   await option.waitFor({ state: 'visible', timeout: 30000 })
-  await option.click()
+  // Listen only to the request caused by this explicit order selection, not initial cached/default-order rendering.
+  const processesResponse = page.waitForResponse(r => r.request().method() === 'GET' &&
+    r.url().includes('/pqc/active-order/processes?') &&
+    new URL(r.url()).searchParams.get('activeOrderId') === String(manifestOrder.activeOrderId), { timeout: 60000 })
+  const [response] = await Promise.all([processesResponse, option.click()])
+  const processes = await readPageResponse(response, '所选订单fresh PQC工序')
+  assert.ok(Array.isArray(processes), 'PQC processes must be array')
+  for (const process of processes) assert.equal(String(process.activeOrderId), String(manifestOrder.activeOrderId), 'PQC工序活跃订单身份变化')
   await page.locator('[data-pqc-order-code]').filter({ hasText: manifestOrder.workOrderCode }).waitFor({ state: 'visible', timeout: 30000 })
+  return processes
 }
 
 async function selectFrontlinePqcProcess(page, processKey) {
@@ -693,86 +693,140 @@ async function fillPqcInspectionItems(page, step) {
   return items
 }
 
-async function submitOnePqcInspectionRound(page, manifestOrder, step, sessionRecoveryAttempted = false) {
-  let items = await fillPqcInspectionItems(page, step)
+async function submitOnePqcInspectionRound(page, manifestOrder, step) {
+  assert.equal(await isLoginPage(page), false, 'PQC签名前会话已失效，停止当前组；需新的只读身份核对后恢复')
+  const items = await fillPqcInspectionItems(page, step)
   const submitButton = page.locator('[data-pqc-submit-open-signature]')
-  if (!(await submitButton.isEnabled().catch(() => false)) &&
-      await ensurePqcSession(page, manifestOrder, step.processKey)) {
-    items = await fillPqcInspectionItems(page, step)
-  }
+  assert.equal(await submitButton.isEnabled(), true, 'PQC提交入口不可用，停止当前组')
   await submitButton.click()
   const dialog = page.locator('[data-pqc-signature-dialog]')
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
   await dialog.locator('[data-pqc-signature-password]').fill(signaturePassword)
   // Each configured task posts its own receipt; the leader page reviews the formal group once.
-  const receipts = Promise.all(step.tasks.map(async task => {
+  const successfulSubmissions = []
+  const receiptWaits = step.tasks.map(async task => {
     const response = await page.waitForResponse(r => r.url().includes('/mes/pro/feedback/frontline/device-account/pqc/submit') &&
-      r.request().method() === 'POST' && String(r.request().postDataJSON().pqcTaskId) === task.pqcTaskId)
+      r.request().method() === 'POST' &&
+      String(r.request().postDataJSON().activeOrderId) === String(manifestOrder.activeOrderId) &&
+      String(r.request().postDataJSON().pqcTaskId) === task.pqcTaskId, { timeout: 60000 })
     assert.equal(response.ok(), true, `PQC提交 ${task.pqcTaskId}: HTTP ${response.status()}`)
     const body = await response.json()
-    return { task, body }
-  }))
-  const responseResults = await Promise.all([receipts, dialog.locator('[data-pqc-submit-confirm-accept]').click()])
-    .then(([results]) => results)
-  const unauthorized = responseResults.find(({ body }) => Number(body.code) === 401)
-  if (unauthorized && !sessionRecoveryAttempted) {
-    await page.goto(`${frontendUrl}/login`, { waitUntil: 'commit', timeout: 60000 })
-    await ensurePqcSession(page, manifestOrder, step.processKey)
-    return submitOnePqcInspectionRound(page, manifestOrder, step, true)
-  }
-  const submissions = responseResults.map(({ task, body }) => {
-    assert.notEqual(Number(body.code), 401, `PQC提交 ${task.pqcTaskId}: 登录会话恢复后仍未认证`)
     assert.equal(Number(body.code), 0, `PQC提交 ${task.pqcTaskId}: ${body.msg || 'unknown'}`)
     assert.ok(body.data != null, `PQC提交 ${task.pqcTaskId}: missing data`)
     const data = body.data
     assert.equal(String(data.pqcTaskId), task.pqcTaskId)
     assert.equal(data.inspectionResult, 'SUCCESS', `PQC检验不合格: ${task.pqcTaskId}`)
     const submitSourceEventId = requirePositiveIdString(data.sourceRevision, `PQC提交 ${task.pqcTaskId} 来源事件`)
-    return { ...data, processKey: step.processKey, processLabel: step.processLabel, ruleKey: task.ruleKey, formalIdentity: task.formalIdentity,
+    assert.equal(requirePositiveIdString(data.pqcEventId, 'PQC正式事件'), submitSourceEventId, 'PQC回执正式事件与来源事件不一致')
+    const submission = { ...data, processKey: step.processKey, processLabel: step.processLabel, ruleKey: task.ruleKey, formalIdentity: task.formalIdentity,
       submitSourceEventId, quantity: task.quantity, items: items.filter(item => item.pqcTaskId === task.pqcTaskId), workOrderCode: manifestOrder.workOrderCode }
+    successfulSubmissions.push(submission)
+    return submission
   })
-  await dialog.waitFor({ state: 'hidden', timeout: 30000 })
-  return submissions
+  const receipts = Promise.all(receiptWaits)
+  try {
+    const [submissions] = await Promise.all([receipts, dialog.locator('[data-pqc-submit-confirm-accept]').click()])
+    assert.equal(new Set(submissions.map(s => s.submitSourceEventId)).size, step.tasks.length, 'PQC回执来源事件重复')
+    await dialog.waitFor({ state: 'hidden', timeout: 30000 })
+    return submissions
+  } catch (error) {
+    // Finish only the already-registered read waits so late successful identities survive the failure report.
+    const outcomes = await Promise.allSettled(receiptWaits)
+    throw stageError({ stage: 'S03', errorType: 'TEST_HARNESS_FAILURE', action: 'PQC组提交停止，禁止自动重写',
+      message: errorMessage(error), expected: { pqcTaskIds: step.tasks.map(t => t.pqcTaskId) },
+      actual: { activeOrderId: manifestOrder.activeOrderId, workOrderCode: manifestOrder.workOrderCode,
+        successfulSubmissions, receiptFailures: outcomes.flatMap((outcome, index) => outcome.status === 'rejected'
+          ? [{ pqcTaskId: step.tasks[index].pqcTaskId, message: errorMessage(outcome.reason) }] : []),
+        businessWritesMayHaveCompleted: true, automaticRetry: false,
+        recoveryRequired: '新的只读会话核对全部本组任务及正式回执，确认pending/completed/diverged后再决定剩余动作' } })
+  }
 }
 
 async function openPqcReviewWorkbench(page) {
+  const response = page.waitForResponse(r => r.request().method() === 'GET' &&
+    r.url().includes('/mes/pro/process-pool/team-leader/submission/page?') &&
+    new URL(r.url()).searchParams.get('leaderType') === 'PQC', { timeout: 60000 })
   await page.goto(`${frontendUrl}/mes/pro/process-pool/pqc-leader`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.locator('[data-pqc-leader-workbench-page]').waitFor({ state: 'visible', timeout: 30000 })
   const managementTab = page.locator('[data-pqc-leader-module-tab-management]').first()
   if (await managementTab.isVisible().catch(() => false)) await managementTab.click()
+  const data = await readPageResponse(await response, 'PQC组长fresh提交列表')
+  assert.ok(Array.isArray(data.list), 'PQC提交列表缺少正式list')
   await page.locator('[data-user-table-key="mes.processPool.teamLeader.submissions"]').waitFor({ state: 'visible', timeout: 30000 })
+  return data
 }
 
-async function reviewPqcInspectionSubmission(page, manifestOrder, submission, sessionRecoveryAttempted = false) {
-  if (await isLoginPage(page)) {
-    await login(page)
+function exactPqcEventIds(ids, label) {
+  assert.ok(Array.isArray(ids) && ids.length > 0, `${label}缺少事件集合`)
+  const normalized = ids.map(id => requirePositiveIdString(id, label)).sort()
+  assert.equal(new Set(normalized).size, normalized.length, `${label}事件重复`)
+  return normalized
+}
+
+function pqcReviewSourceEventIds(row) {
+  const ids = []
+  if (row.submittedEventId != null) ids.push(requirePositiveIdString(row.submittedEventId, 'PQC复核来源事件'))
+  for (const key of ['submittedEventIds', 'groupedEventIds']) {
+    if (row[key] != null) {
+      assert.ok(Array.isArray(row[key]), `PQC复核${key}必须是事件数组`)
+      if (row[key].length > 0) ids.push(...exactPqcEventIds(row[key], `PQC复核${key}`))
+    }
   }
-  await openPqcReviewWorkbench(page)
+  return Array.from(new Set(ids)).sort()
+}
+
+function selectExactPqcReviewRow(rows, order, eventIds) {
+  const expected = exactPqcEventIds(eventIds, '本组PQC回执')
+  const matches = rows.filter(row => String(row.activeOrderId) === String(order.activeOrderId) &&
+    row.workOrderCode === order.workOrderCode && !row.released &&
+    (row.submissionReviewStatus == null || row.submissionReviewStatus === 'PENDING') &&
+    row.processInspectionAggregationStatus !== 'AGGREGATED' &&
+    pqcReviewSourceEventIds(row).join(' ') === expected.join(' '))
+  assert.equal(matches.length, 1, '本组exact来源事件集合待复核PQC提交必须唯一，禁止误审或重审')
+  requirePositiveIdString(matches[0].id, 'PQC复核行事件')
+  return matches[0]
+}
+
+async function reviewPqcInspectionSubmission(page, manifestOrder, submission) {
+  assert.equal(await isLoginPage(page), false, 'PQC复核前会话失效；停止当前组，需新的只读身份核对后恢复')
+  const expectedEventIds = exactPqcEventIds(submission.groupedPqcEventIds, '本组PQC回执')
+  assert.equal(exactPqcEventIds(submission.groupedPqcTaskIds, '本组PQC任务').length, expectedEventIds.length, 'PQC回执任务与事件集合数量不一致')
+  const data = await openPqcReviewWorkbench(page)
+  const candidate = selectExactPqcReviewRow(data.list, manifestOrder, expectedEventIds)
   const row = page.locator('.el-table__row:visible').filter({
     has: page.locator(`[data-pqc-leader-work-order]:text-is("${manifestOrder.workOrderCode}")`)
   }).filter({
-    has: page.locator('[data-team-leader-review-event-id]')
+    has: page.locator(`[data-team-leader-review-event-id="${requirePositiveIdString(candidate.id, 'PQC复核行事件')}"]`)
   })
   await row.first().waitFor({ state: 'visible', timeout: 30000 })
-  assert.equal(await row.count(), 1, '当前工单下待复核PQC提交必须唯一，禁止误审其他PQC提交')
+  assert.equal(await row.count(), 1, '本组exact来源事件集合可见PQC行必须唯一')
   const reviewButton = row.locator('[data-team-leader-review-event-id]').first()
   const eventId = await reviewButton.getAttribute('data-team-leader-review-event-id')
+  const visibleEventIds = (await reviewButton.getAttribute('data-pqc-leader-submitted-event-ids') || '').trim().split(/\s+/)
+  assert.equal(exactPqcEventIds(visibleEventIds, '可见复核来源事件').join(' '), expectedEventIds.join(' '), 'PQC可见行来源事件集合与本组回执不一致')
   await reviewButton.click()
   const dialog = page.locator('[data-team-leader-review-dialog]')
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
   await dialog.locator('[data-team-leader-review-signature-password]').fill(signaturePassword)
-  const reviewResponse = page.waitForResponse((r) => r.url().includes('/mes/pro/process-pool/team-leader/submission/review') && r.request().method() === 'POST')
-  await dialog.locator('[data-team-leader-review-submit]').click()
-  const response = await reviewResponse
-  assert.equal(response.ok(), true, `PQC组长复核失败：HTTP ${response.status()}`)
-  const body = await response.json()
-  if (Number(body.code) === 401 && !sessionRecoveryAttempted) {
-    await login(page)
-    return reviewPqcInspectionSubmission(page, manifestOrder, submission, true)
+  const reviewResponse = page.waitForResponse((r) => r.url().includes('/mes/pro/process-pool/team-leader/submission/review') &&
+    r.request().method() === 'POST' && String(r.request().postDataJSON().eventId) === String(eventId) &&
+    r.request().postDataJSON().leaderType === 'PQC', { timeout: 60000 })
+  try {
+    const [response] = await Promise.all([reviewResponse, dialog.locator('[data-team-leader-review-submit]').click()])
+    assert.equal(response.ok(), true, `PQC组长复核失败：HTTP ${response.status()}`)
+    const body = await response.json()
+    assert.equal(Number(body.code), 0, `PQC组长复核业务失败：${body.msg || 'unknown'}`)
+    const reviewId = requirePositiveIdString(body.data, 'PQC组长复核回执')
+    await dialog.waitFor({ state: 'hidden', timeout: 30000 })
+    return { eventId: requirePositiveIdString(eventId, 'PQC组长复核eventId'), reviewId, reviewStatus: 'APPROVED',
+      groupedPqcTaskIds: submission.groupedPqcTaskIds, groupedPqcEventIds: expectedEventIds }
+  } catch (error) {
+    throw stageError({ stage: 'S03', errorType: 'TEST_HARNESS_FAILURE', action: 'PQC组复核停止，禁止自动重写',
+      message: errorMessage(error), expected: { groupedPqcEventIds: expectedEventIds },
+      actual: { activeOrderId: manifestOrder.activeOrderId, eventId, groupedPqcTaskIds: submission.groupedPqcTaskIds,
+        businessWritesMayHaveCompleted: true, automaticRetry: false,
+        recoveryRequired: '新的只读会话核对本组exact事件集合复核状态后再决定剩余动作' } })
   }
-  assert.equal(Number(body.code), 0, `PQC组长复核业务失败：${body.msg || 'unknown'}`)
-  await dialog.waitFor({ state: 'hidden', timeout: 30000 })
-  return { eventId: requirePositiveIdString(eventId, 'PQC组长复核eventId'), reviewStatus: 'APPROVED' }
 }
 
 async function readPageResponse(response, label) {
@@ -796,13 +850,7 @@ async function readOrderDetailFromPage(page, order) {
 }
 
 async function readPqcProcessesFromPage(page, order) {
-  const response = page.waitForResponse(r => r.url().includes('/pqc/active-order/processes?') &&
-    new URL(r.url()).searchParams.get('activeOrderId') === String(order.activeOrderId))
-  await selectFrontlinePqcOrder(page, order)
-  const processes = await readPageResponse(await response, 'PQC工序')
-  assert.ok(Array.isArray(processes), 'PQC processes must be array')
-  for (const process of processes) assert.equal(String(process.activeOrderId), String(order.activeOrderId))
-  return processes
+  return selectFrontlinePqcOrder(page, order)
 }
 
 function pqcInspectionContract(items) {
@@ -894,9 +942,63 @@ async function discoverPendingPqcTasksForOrder(page, order, baseline, production
 }
 
 async function submitOnePqcInspectionForProcess(page, manifestOrder, step) {
-  await selectFrontlinePqcOrder(page, manifestOrder)
+  const processes = await readPqcProcessesFromPage(page, manifestOrder)
+  const freshPendingTaskIds = assertFreshPqcTaskGroup(processes, manifestOrder, step)
+  // Rule selection controls which processes are visible in the real picker.
+  const ruleTab = page.locator(`[data-pqc-inspection-rule-tab="${cssAttributeValue(step.ruleKey)}"]`)
+  await ruleTab.waitFor({ state: 'visible', timeout: 30000 })
+  await ruleTab.click()
+  await page.locator(`[data-pqc-inspection-rule-tab="${cssAttributeValue(step.ruleKey)}"][aria-pressed="true"]`).waitFor({ state: 'visible', timeout: 30000 })
   const processLabel = await selectFrontlinePqcProcess(page, step.processKey)
-  return submitOnePqcInspectionRound(page, manifestOrder, { ...step, processLabel })
+  const submissions = await submitOnePqcInspectionRound(page, manifestOrder, { ...step, processLabel })
+  return submissions.map(submission => ({ ...submission, freshPendingTaskIds }))
+}
+
+function assertFreshPqcTaskGroup(processes, order, step) {
+  assert.ok(Array.isArray(processes), 'fresh PQC工序响应缺失')
+  const matches = processes.filter(process => `QA-${process.regulationVersionId}-${process.qaProcessId}` === step.processKey)
+  assert.equal(matches.length, 1, 'fresh PQC正式工序必须唯一')
+  const process = matches[0]
+  assert.equal(String(process.activeOrderId), String(order.activeOrderId), 'fresh PQC活跃订单身份变化')
+  assert.ok(Array.isArray(process.pqcTaskOptions) && Array.isArray(process.inspectionItems), 'fresh PQC任务或项目集合缺失')
+  const allTaskIds = process.pqcTaskOptions.map(task => requirePositiveIdString(task.pqcTaskId, 'fresh PQC任务'))
+  assert.equal(new Set(allTaskIds).size, allTaskIds.length, 'fresh PQC任务身份重复')
+  assert.ok(step.tasks.length > 0, '冻结PQC组无任务')
+  const scope = task => JSON.stringify([task.type || task.inspectionType, task.businessDate, task.shiftCode, String(task.roundNo)])
+  const expectedScope = scope(step.tasks[0])
+  for (const task of step.tasks) {
+    assert.equal(scope(task), expectedScope, '冻结PQC组包含不同业务轮次')
+    assert.equal(task.ruleKey, step.ruleKey, '冻结PQC组检验规则变化')
+  }
+  const includesItem = (task, code) => String(task.qaItemCode || '').trim() === code ||
+    task.inspectionItems.some(item => item.itemCode === code)
+  // Item/rule clicks choose the first pending task before the active task determines the submission scope.
+  for (const task of step.tasks) {
+    for (const item of task.inspectionItems) {
+      const active = process.pqcTaskOptions.find(candidate => candidate.taskStatus === 'PENDING' &&
+        candidate.inspectionRuleKey === step.ruleKey && includesItem(candidate, item.itemCode))
+      assert.ok(active, 'fresh PQC项目规则缺少pending任务')
+      assert.equal(String(active.pqcTaskId), task.pqcTaskId, 'fresh PQC页面将选中不同pending任务，禁止跨业务轮次提交')
+    }
+  }
+  const scoped = process.pqcTaskOptions.filter(task => scope(task) === expectedScope)
+  const selected = new Map()
+  // Match the page's getPqcCurrentSubmitTaskOptions: first pending task per visible configured item.
+  for (const item of process.inspectionItems) {
+    if (!scoped.some(task => includesItem(task, item.itemCode))) continue
+    const pending = scoped.find(task => task.taskStatus === 'PENDING' && includesItem(task, item.itemCode))
+    if (pending) selected.set(String(pending.pqcTaskId), toPqcTaskSnapshot(step.processKey, pending))
+  }
+  const expectedIds = exactPqcEventIds(step.tasks.map(task => task.pqcTaskId), '冻结PQC任务')
+  const actualIds = Array.from(selected.keys()).sort()
+  assert.equal(actualIds.join(' '), expectedIds.join(' '), 'fresh pending任务集合与本组选中任务不一致，禁止提交')
+  for (const task of step.tasks) {
+    const current = selected.get(task.pqcTaskId)
+    assert.equal(current.formalIdentity, task.formalIdentity, 'fresh pending任务正式身份变化')
+    assert.equal(Number(current.quantity), Number(task.quantity), 'fresh pending任务应检数量变化')
+    assert.deepEqual(current.inspectionItems, task.inspectionItems, 'fresh pending任务检验项目或标准变化')
+  }
+  return actualIds
 }
 
 async function executeProductionAndPqcInterleaved(page, manifestOrder, activeOrder) {
@@ -917,7 +1019,8 @@ async function executeProductionAndPqcInterleaved(page, manifestOrder, activeOrd
         }
         pqc.reviews.push(await reviewPqcInspectionSubmission(page, manifestOrder, {
           ...submissions[0],
-          groupedPqcTaskIds: submissions.map(submission => String(submission.pqcTaskId))
+          groupedPqcTaskIds: submissions.map(submission => String(submission.pqcTaskId)),
+          groupedPqcEventIds: submissions.map(submission => submission.submitSourceEventId)
         }))
         executedSteps.push({ kind: 'PQC', processKey: step.processKey, taskIds: step.tasks.map(t => t.pqcTaskId) })
       })

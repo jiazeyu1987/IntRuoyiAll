@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.system.controller.admin.gxpaudit.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -15,5 +16,6 @@ public class GxpAuditEventRelationRespVO {
     private String targetId;
     private String targetVersion;
     private String targetHash;
+    @JsonSerialize(using = GxpAuditUtcTimestampSerializer.class)
     private LocalDateTime createdAtUtc;
 }

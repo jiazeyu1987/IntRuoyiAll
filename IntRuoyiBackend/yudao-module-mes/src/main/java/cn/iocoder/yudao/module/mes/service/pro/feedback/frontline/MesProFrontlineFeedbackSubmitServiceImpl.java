@@ -165,7 +165,12 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         applyServerResolvedFeedbackIdentity(reqVO);
         String performedBy = auditIdentity.production(identityTrace);
         Long signatureId = signatureService.recordProductionSubmitSignature(reqVO.getSignatureEmployeeId(),
-                reqVO.getSignaturePassword(), "一线生产报工提交");
+                reqVO.getSignaturePassword(), "一线生产报工提交",
+                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext(
+                        reqVO.getProcessPoolContext().getActiveOrderId(),
+                        reqVO.getProcessPoolContext().getRouteProcessId(),
+                        reqVO.getProcessPoolContext().getProcessId(),
+                        reqVO.getProcessPoolSubmissionIdempotencyKey()));
         reqVO.setSignatureId(signatureId);
         splitPayload = payloadSplitter.split(reqVO, loginUserId, submittedAt, lossReasonSnapshot);
         if (materialSubmission != null) {

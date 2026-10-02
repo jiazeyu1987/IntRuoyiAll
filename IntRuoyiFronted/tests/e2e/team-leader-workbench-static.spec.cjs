@@ -262,21 +262,22 @@ assert.doesNotMatch(
 )
 requireApiEndpoint('createTeamDevice', '/team-device/create', 'team device create API')
 requireApiEndpoint('updateTeamDeviceStatus', '/team-device/status/update', 'team device status API')
-requireApiEndpoint(
-  'getTeamLeaderProcessConfigList',
-  '/process-config/list',
-  'unified process config read API'
-)
-requireApiEndpoint(
-  'saveTeamProcessConfigDeviceBinding',
-  '/process-config/device-binding/save',
-  'route process device binding API'
-)
-requireApiEndpoint(
-  'saveTeamProcessConfigDeviceParameterRule',
-  '/process-config/device-parameter-rule/save',
-  'route process parameter API'
-)
+for (const [functionName, message] of [
+  ['getTeamLeaderProcessConfigList', '工序配置已迁移到工艺路线候选版本维护'],
+  ['saveTeamProcessConfigDeviceBinding', '设备映射已迁移到工艺路线候选版本维护'],
+  ['saveTeamProcessConfigDeviceParameterRule', '设备参数标准已迁移到工艺路线候选版本维护']
+]) {
+  const declaration = api.indexOf(`export const ${functionName} = async`)
+  assert.ok(declaration >= 0, `retired ${functionName} must fail explicitly`)
+  const nextDeclaration = api.indexOf('export const ', declaration + 1)
+  const body = api.slice(declaration, nextDeclaration < 0 ? api.length : nextDeclaration)
+  assert.ok(body.includes(`throw new Error('${message}')`), `${functionName} must explain its formal replacement`)
+  assert.doesNotMatch(body, /request\.(get|post|put|delete)\(/, `${functionName} cannot write through retired endpoints`)
+}
+assert.doesNotMatch(api, /\/process-config\/(list|device-binding\/save|device-parameter-rule\/save)/,
+  'retired shared process config endpoints must not be restored')
+assert.match(page, /const showProductionProcessConfigModule = computed\(\s*\(\) => false\s*\)/,
+  'retired production config controls must not become reachable')
 requireApiEndpoint(
   'saveTeamProcessDefectReason',
   '/process-defect-reason/save',

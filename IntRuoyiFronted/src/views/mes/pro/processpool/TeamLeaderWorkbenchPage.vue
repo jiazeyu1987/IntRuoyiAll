@@ -2777,6 +2777,25 @@
         </el-descriptions>
       </div>
     </div>
+    <template #footer>
+      <el-button
+        v-if="detail && isProductionLeader && canAllocateSubmission(detail)"
+        type="primary"
+        :data-production-detail-allocation-event-id="String(detail.id)"
+        @click="openAllocation(detail)"
+      >
+        分配复核
+      </el-button>
+      <el-button
+        v-if="detail && isProductionLeader && canRejectProductionSubmission(detail)"
+        type="danger"
+        :data-production-detail-reject-event-id="String(detail.id)"
+        @click="openProductionReject(detail)"
+      >
+        驳回
+      </el-button>
+      <el-button @click="detailVisible = false">关闭</el-button>
+    </template>
   </el-drawer>
 
   <el-dialog
@@ -4089,7 +4108,7 @@
 <script setup lang="ts">
 import { applyWithNoReplenishmentConfirmation } from './activeOrderReplenishmentConfirmation'
 import { watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableMultiFilter from '@/components/TableMultiFilter/index.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -4440,6 +4459,7 @@ const props = withDefaults(
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
 const router = useRouter()
+const route = useRoute()
 const activePqcModuleTab = ref<'personnel' | 'management' | 'equipment' | 'detail' | 'history'>(
   'management'
 )
@@ -10313,6 +10333,59 @@ const resolvePqcTagType = (pqcResult?: string) => {
 }
 
 onBeforeUnmount(clearProductionPersonnelDialogError)
+
+let productionEventNavigationRequestId = 0
+const parseProductionEventQuery = (value: unknown): number | undefined => {
+  if (value === undefined) return undefined
+  if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)) {
+    throw new Error('生产提交事件编号必须是唯一的正整数')
+  }
+  const eventId = Number(value)
+  if (!Number.isSafeInteger(eventId)) {
+    throw new Error('生产提交事件编号超出可精确读取范围')
+  }
+  return eventId
+}
+
+const navigateToProductionEvent = async (value: unknown) => {
+  const requestId = ++productionEventNavigationRequestId
+  if (!showProductionModuleTabs.value || !isProductionLeader.value) return
+  detailVisible.value = false
+  detail.value = undefined
+  detailLoading.value = false
+  try {
+    const eventId = parseProductionEventQuery(value)
+    if (eventId === undefined) return
+    detailLoading.value = true
+    const selected = await getTeamLeaderSubmissionDetail(eventId, 'PRODUCTION')
+    if (requestId !== productionEventNavigationRequestId) return
+    if (selected.id !== eventId) {
+      throw new Error('生产提交详情与指定事件编号不一致')
+    }
+    activeProductionModuleTab.value = ['APPROVED', 'REJECTED'].includes(
+      selected.submissionReviewStatus || ''
+    )
+      ? 'reportHistory'
+      : 'report'
+    pqcDetailQuery.pageNo = 1
+    detail.value = selected
+    detailVisible.value = true
+  } catch (error) {
+    if (requestId === productionEventNavigationRequestId) {
+      ElMessage.error(resolveErrorMessage(error, '指定生产提交详情加载失败'))
+    }
+  } finally {
+    if (requestId === productionEventNavigationRequestId) detailLoading.value = false
+  }
+}
+
+watch(
+  () => route.query.eventId,
+  (value) => {
+    void navigateToProductionEvent(value)
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
   if (isProductionLeader.value) {

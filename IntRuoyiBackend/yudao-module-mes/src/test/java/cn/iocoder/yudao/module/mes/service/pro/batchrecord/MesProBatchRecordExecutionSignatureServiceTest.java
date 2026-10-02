@@ -87,6 +87,49 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     private MesProBatchRecordExecutionSignatureService signatureService;
 
     @Test
+    void productionSigningIdentitySeparatesSubmissionsAndIsStableForReplay() {
+        when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser("生产员工"));
+        stubActorSnapshot();
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7001L));
+        var first = new MesProductionSubmitSignatureContext(409L, 520L, 985L, "submit-1");
+        var secondProcess = new MesProductionSubmitSignatureContext(409L, 521L, 986L, "submit-2");
+        var nextSubmission = new MesProductionSubmitSignatureContext(409L, 520L, 985L, "submit-3");
+        var nextOrder = new MesProductionSubmitSignatureContext(410L, 520L, 985L, "submit-1");
+        for (var context : List.of(first, first, secondProcess, nextSubmission, nextOrder)) {
+            signatureService.recordProductionSubmitSignature(99L, "secret", "一线生产报工提交", context);
+        }
+
+        var commands = ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        verify(electronicSignatureService, times(5)).sign(commands.capture());
+        var values = commands.getAllValues();
+        assertEquals(values.get(0).subjectId(), values.get(1).subjectId());
+        assertEquals(values.get(0).expectedSubjectVersion(), values.get(1).expectedSubjectVersion());
+        assertEquals(values.get(0).idempotencyKey(), values.get(1).idempotencyKey());
+        for (int i = 2; i < values.size(); i++) {
+            assertNotEquals(values.get(0).subjectId(), values.get(i).subjectId());
+            assertNotEquals(values.get(0).idempotencyKey(), values.get(i).idempotencyKey());
+            assertTrue(values.get(i).idempotencyKey().length() <= 191);
+        }
+        String[] identity = new String(Base64.getUrlDecoder().decode(values.get(0).subjectId()),
+                StandardCharsets.UTF_8).split("\n", -1);
+        assertEquals("MES_PRODUCTION_SUBMISSION", identity[9]);
+        assertEquals("409", identity[10]);
+        assertEquals(first.sourceName(), identity[11]);
+        assertEquals("PRODUCTION_SUBMIT", values.get(0).actionCode());
+        verify(signatureMapper, never()).insert(any(MesProBatchRecordExecutionSignatureDO.class));
+    }
+
+    @Test
+    void missingProductionSigningContextFailsBeforeAuthenticationOrWrites() {
+        assertServiceException(() -> signatureService.recordProductionSubmitSignature(
+                99L, "secret", "submit", null), MesProductionSubmitSignatureContext.CONTEXT_INVALID);
+        org.mockito.Mockito.verifyNoInteractions(adminUserService, authorizationService,
+                adminUserApi, electronicSignatureService, signatureMapper, gxpAuditService);
+    }
+
+    @Test
     void recordSubmitSignature_success() {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
@@ -185,7 +228,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
             when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
                     .thenReturn(unifiedSignatureResult(7102L));
 
-            Long signatureId = signatureService.recordProductionSubmitSignature(9102L, "selected-secret", "一线生产报工提交");
+            Long signatureId = signatureService.recordProductionSubmitSignature(9102L, "selected-secret", "一线生产报工提交", new MesProductionSubmitSignatureContext(409L, 520L, 985L, "production-submit-1"));
 
             ArgumentCaptor<ElectronicSignatureCommand> captor =
                     ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
@@ -252,7 +295,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
         Long signatureId;
         TenantContextHolder.setTenantId(1L);
         try {
-            signatureId = signatureService.recordProductionSubmitSignature(8801L, "tmp-secret", "一线生产报工提交");
+            signatureId = signatureService.recordProductionSubmitSignature(8801L, "tmp-secret", "一线生产报工提交", new MesProductionSubmitSignatureContext(409L, 520L, 985L, "production-submit-1"));
         } finally {
             TenantContextHolder.clear();
         }
@@ -268,6 +311,10 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
         assertEquals(0L, signature.getExecutionId());
         assertEquals(8801L, signature.getActorId());
         assertEquals("PRODUCTION_SUBMIT", signature.getActionType());
+        assertEquals(MesProductionSubmitSignatureContext.SOURCE_TYPE, signature.getReviewSourceType());
+        assertEquals(409L, signature.getReviewSourceId());
+        assertEquals(new MesProductionSubmitSignatureContext(409L, 520L, 985L,
+                "production-submit-1").projectionSourceName(), signature.getReviewSourceName());
         assertEquals("PASSWORD", signature.getSignatureMode());
         assertTrue(Boolean.TRUE.equals(signature.getPasswordVerified()));
         assertEquals("临时工甲", signature.getActorName());
@@ -297,7 +344,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
                 .build());
         when(passwordEncoder.matches("bad-secret", "bcrypt-temp-sign")).thenReturn(false);
 
-        assertServiceException(() -> signatureService.recordProductionSubmitSignature(8801L, "bad-secret", "一线生产报工提交"),
+        assertServiceException(() -> signatureService.recordProductionSubmitSignature(8801L, "bad-secret", "一线生产报工提交", new MesProductionSubmitSignatureContext(409L, 520L, 985L, "production-submit-1")),
                 PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
 
         verify(passwordEncoder).matches("bad-secret", "bcrypt-temp-sign");

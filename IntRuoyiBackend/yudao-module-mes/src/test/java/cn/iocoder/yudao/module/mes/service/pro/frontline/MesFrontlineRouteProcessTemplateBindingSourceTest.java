@@ -44,14 +44,14 @@ class MesFrontlineRouteProcessTemplateBindingSourceTest {
     }
 
     @Test
-    void shouldResolvePqcTemplateFromCheckRouteProcess() {
+    void shouldResolveProductionTemplateFromCheckRouteProcess() {
         when(routeProcessMapper.selectByIdIgnoreDeleted(1002L)).thenReturn(routeProcess(1002L, 101L, 202L, true));
 
         MesFrontlineTemplateDescriptor template = bindingSource.findTemplate(
                 new MesFrontlineTemplateRequest(9001L, 10002L, 101L, 1002L, 202L));
 
-        assertEquals(FrontlineTemplateCodes.PQC_SIMPLIFIED, template.templateNo());
-        assertEquals(FrontlineTemplateTypes.PQC, template.templateType());
+        assertEquals(FrontlineTemplateCodes.PRODUCTION_SIMPLIFIED, template.templateNo());
+        assertEquals(FrontlineTemplateTypes.PRODUCTION, template.templateType());
         assertEquals(1002L, template.routeProcessId());
         assertEquals(202L, template.processId());
         assertEquals(10002L, template.actualEmployeeId());
@@ -96,12 +96,12 @@ class MesFrontlineRouteProcessTemplateBindingSourceTest {
     }
 
     @Test
-    void shouldResolvePqcTemplateFromFrozenSnapshotCheckFlagWithoutCurrentRouteLookup() {
+    void shouldResolveProductionTemplateFromFrozenSnapshotCheckFlagWithoutCurrentRouteLookup() {
         MesFrontlineTemplateDescriptor template = bindingSource.findTemplate(
                 new MesFrontlineTemplateRequest(9001L, 980024L, 922119L, 980646L, 922986L, true));
 
-        assertEquals(FrontlineTemplateCodes.PQC_SIMPLIFIED, template.templateNo());
-        assertEquals(FrontlineTemplateTypes.PQC, template.templateType());
+        assertEquals(FrontlineTemplateCodes.PRODUCTION_SIMPLIFIED, template.templateNo());
+        assertEquals(FrontlineTemplateTypes.PRODUCTION, template.templateType());
         assertEquals(980646L, template.routeProcessId());
         assertEquals(922986L, template.processId());
         assertEquals(980024L, template.actualEmployeeId());

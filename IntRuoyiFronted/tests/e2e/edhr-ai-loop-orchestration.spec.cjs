@@ -25,10 +25,13 @@ async function run(failReview = false, deferToTail = false) {
       return step.tasks.map(t => ({
         pqcTaskId: t.pqcTaskId,
         pqcEventId: `8${t.pqcTaskId}`,
+        submitSourceEventId: `8${t.pqcTaskId}`,
         formalIdentity: t.formalIdentity
       }))
     },
     reviewPqcInspectionSubmission: async (_page, _order, submission) => {
+      assert.equal(submission.groupedPqcTaskIds.join(','), '71,72')
+      assert.equal(submission.groupedPqcEventIds.join(','), '871,872')
       calls.push(`review-pqc:${submission.pqcEventId}`)
       if (failReview) throw new Error('review rejected')
       return { eventId: submission.pqcEventId }

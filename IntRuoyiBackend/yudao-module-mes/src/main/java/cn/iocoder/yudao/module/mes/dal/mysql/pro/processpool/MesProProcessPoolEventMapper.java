@@ -14,6 +14,25 @@ import java.util.List;
 @Mapper
 public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessPoolEventDO> {
 
+    default List<MesProProcessPoolEventDO> selectFormalProductionByFeedbackIds(Long tenantId,
+                                                                            Collection<Long> feedbackIds) {
+        if (feedbackIds.isEmpty()) return Collections.emptyList();
+        return selectList(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+                .eq(MesProProcessPoolEventDO::getTenantId, tenantId)
+                .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .eq(MesProProcessPoolEventDO::getFeedbackSourceType, "MES_PRO_FEEDBACK")
+                .in(MesProProcessPoolEventDO::getFeedbackSourceId, feedbackIds));
+    }
+
+    default List<MesProProcessPoolEventDO> selectFormalProductionByEventIds(Long tenantId, Collection<Long> eventIds) {
+        if (eventIds.isEmpty()) return Collections.emptyList();
+        return selectList(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+                .eq(MesProProcessPoolEventDO::getTenantId, tenantId)
+                .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .eq(MesProProcessPoolEventDO::getFeedbackSourceType, "MES_PRO_FEEDBACK")
+                .in(MesProProcessPoolEventDO::getId, eventIds));
+    }
+
     /** Completion already holds target allocation locks; never wait on the event-first writer chain. */
     default MesProProcessPoolEventDO selectByIdForUpdateNowait(Long id) {
         java.util.Objects.requireNonNull(id, "production freeze event id");

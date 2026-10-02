@@ -361,3 +361,9 @@
 - Verification: SQL 合同断言正式迁移和全部 schema 定义一致；对现有测试库首次及重复执行迁移，并核对 `information_schema.columns` 的实际类型。
 - Forbidden action: 禁止截断后写入、吞掉 Data truncation、只扩大前端输入限制，或用另一列/JSON 临时保存溢出内容。
 - Evidence: `doc/tasks/20260907-dcc-release-notification-impact/verification-report.md`。
+
+## JSON快照校验与候选版本差异审查
+
+- 只读审查带hash的JSON快照时，先核对生产实现的hash输入：原文、规范JSON或其它正式格式。采用canonical格式的快照不得直接用原JSON字节hash判定损坏；优先调用已核实运行产物中的实际规范化类，并比较存储hash与格式版本。
+- 发布来源未知的候选前，保留完整差异及来源身份；行ID/时间与业务绑定、版本引用、布局字段分别评审，不得直接忽略差异后宣称候选与正式版相同。只读比对和hash一致不代表已获发布授权或真实E2E通过。
+- 证据：`doc/tasks/20260930-edhr-seven-test-accounts/route-v16-v17-comparison-summary.json`及`execution-log.md`。

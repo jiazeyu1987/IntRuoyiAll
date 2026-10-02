@@ -341,6 +341,15 @@
 - Evidence: `doc/tasks/20260826-edhr-pdf-signature-compliance/verification-report.md`，eDHR PDF 签名修复中一次 `mvn -pl yudao-module-mes -am ... test` 在主编译阶段报 JVM native memory allocation failure；后续仅记录窄范围补充验证 PASS，标准 lifecycle 仍保持 blocked。
 ## 执行顺序
 
+### 主机缓存删除多次复核门禁
+
+- 触发：用户授权清理主机缓存，尤其要求避免大范围误删或排除某应用数据。
+- 规则：先固定绝对路径白名单和排除项，再保存逐文件路径、字节、修改时间与清单指纹；删除前再次核对路径祖先无 reparse point、文件仍在白名单且未变化。通配符只用于只读筛选，删除命令仅用 LiteralPath 普通文件，不递归删除目录。
+- 运行依赖不能仅凭 cache 目录名判可删除；用户后续排除某应用时，连该应用的运行环境、旧安装残留、日志和崩溃转储都必须排除。
+- 占用、修改、目录链接和权限异常须明确保留或阻塞；重复个人资料须核对内容指纹并保留另一份。
+- 安全策略若拒绝删除或 WhatIf，不得改用脚本 Apply、其它 shell/语言/工具规避；记录具体拒绝和实际零删除，不把预览字节当作已释放空间。
+- 验证：逐文件结果和卷可用空间分别记录；运行中的应用会再生成缓存，不能把外部变化算作本任务删除量。
+
 1. 阶段 1：任务提交/推送预检
    必查项: 当前分支、remote、工作区脏状态、staged 文件清单、用户授权边界。
    推荐命令: `git status --short --branch`、`git branch --show-current`、`git remote -v`。

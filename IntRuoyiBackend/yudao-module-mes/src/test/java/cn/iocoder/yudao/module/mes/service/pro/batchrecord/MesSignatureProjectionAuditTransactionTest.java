@@ -143,7 +143,8 @@ class MesSignatureProjectionAuditTransactionTest {
 
     @Test
     void employeeCreateCapturesPersistedProjectionWithoutInventingSystemSigner() {
-        Long id = service.recordProductionSubmitSignature(8801L, "fixture-signature-password", "Production submit");
+        Long id = service.recordProductionSubmitSignature(8801L, "fixture-signature-password",
+                "Production submit", productionContext());
         assertEquals(1, count("gxp_audit_event"));
         JSONObject event = event(EMPLOYEE_CREATE);
         assertEquals("ABSENT", event.getString("before_state"));
@@ -191,7 +192,7 @@ class MesSignatureProjectionAuditTransactionTest {
     void employeeAuditFailureRollsBackProjectionAndLedger() {
         installFailureTrigger();
         assertThrows(RuntimeException.class, () -> service.recordProductionSubmitSignature(
-                8801L, "fixture-signature-password", "Production submit"));
+                8801L, "fixture-signature-password", "Production submit", productionContext()));
         assertTrue(FAILURE_SAW_WRITES.get(), "Relation failure must see real projection and real event");
         assertEquals(0, count(TABLE));
         assertAuditRollback();
@@ -221,7 +222,7 @@ class MesSignatureProjectionAuditTransactionTest {
     void missingActivatedOperationRejectsProjectionCommit() {
         jdbc.update("DELETE FROM gxp_audit_policy_operation WHERE operation_id=?", EMPLOYEE_CREATE);
         assertThrows(RuntimeException.class, () -> service.recordProductionSubmitSignature(
-                8801L, "fixture-signature-password", "Production submit"));
+                8801L, "fixture-signature-password", "Production submit", productionContext()));
         assertEquals(0, count(TABLE));
         assertAuditRollback();
     }
@@ -242,7 +243,8 @@ class MesSignatureProjectionAuditTransactionTest {
 
     @Test
     void invalidPasswordCannotWriteProjectionOrAudit() {
-        assertThrows(RuntimeException.class, () -> service.recordProductionSubmitSignature(8801L, "wrong", "submit"));
+        assertThrows(RuntimeException.class, () -> service.recordProductionSubmitSignature(
+                8801L, "wrong", "submit", productionContext()));
         assertEquals(0, count(TABLE));
         assertAuditRollback();
     }
@@ -254,6 +256,10 @@ class MesSignatureProjectionAuditTransactionTest {
         assertThrows(RuntimeException.class, () -> service.attachFieldChangeSignature(binding(id).setExecutionId(222L)));
         assertEquals(before, snapshot(id));
         assertAuditRollback();
+    }
+
+    private MesProductionSubmitSignatureContext productionContext() {
+        return new MesProductionSubmitSignatureContext(409L, 520L, 985L, "production-submit-1");
     }
 
     private Long seedDraft() {

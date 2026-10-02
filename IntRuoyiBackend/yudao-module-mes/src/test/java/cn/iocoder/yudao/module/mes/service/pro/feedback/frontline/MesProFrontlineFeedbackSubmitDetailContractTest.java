@@ -84,7 +84,7 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
         org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApplyMaterial(
                         any(), any(), any(), any(), any()))
                 .thenReturn(MesFrontlineParameterAuditResult.empty());
-        org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any()))
+        org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any(), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
     }
 

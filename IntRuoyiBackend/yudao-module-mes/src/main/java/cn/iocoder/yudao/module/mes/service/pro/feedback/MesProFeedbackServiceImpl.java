@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.feedback;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.mes.approval.MesFeedbackFormalReviewProjection;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.MesProFeedbackPageReqVO;
@@ -51,6 +52,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProF
 @Service
 @Validated
 public class MesProFeedbackServiceImpl implements MesProFeedbackService {
+
+    @Resource
+    private MesFeedbackFormalReviewProjection formalReviewProjection;
 
     @Resource
     private MesProFeedbackMapper feedbackMapper;
@@ -175,12 +179,15 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void rejectFeedback(Long id) {
         rejectFeedback(id, null);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void rejectFeedback(Long id, String reason) {
+        formalReviewProjection.assertLegacyOperationAllowed(id);
         // 1. 校验存在 + 审批中状态
         validateFeedbackStatusApproving(id);
 
@@ -193,6 +200,7 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean approveFeedback(Long id) {
+        formalReviewProjection.assertLegacyOperationAllowed(id);
         // 1.1 校验存在 + 审批中状态
         MesProFeedbackDO feedback = validateFeedbackStatusApproving(id);
         nonconformanceReviewService.ensureWorkOrderNotFrozen(feedback.getWorkOrderId(), "PQC提交");

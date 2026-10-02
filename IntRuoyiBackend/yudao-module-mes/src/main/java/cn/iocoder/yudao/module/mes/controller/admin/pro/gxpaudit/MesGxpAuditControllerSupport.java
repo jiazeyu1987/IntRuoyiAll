@@ -31,7 +31,7 @@ public final class MesGxpAuditControllerSupport {
                 .setResultStatus(reqVO.getResultStatus())
                 .setActorId(reqVO.getActorId())
                 .setSignaturePresent(reqVO.getSignaturePresent())
-                .setOccurredAt(reqVO.getOccurredAt());
+                .setOccurredAt(reqVO.toUtcOccurredAt());
         query.setPageNo(reqVO.getPageNo());
         query.setPageSize(reqVO.getPageSize());
         return query;

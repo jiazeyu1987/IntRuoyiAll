@@ -63,6 +63,11 @@ assert.match(
 )
 assert.match(
   approvalCenter,
+  /MES_PRO_FEEDBACK:\s*'生产报工复核任务'/,
+  '正式生产报工任务必须显示已配置的中文来源。'
+)
+assert.match(
+  approvalCenter,
   /const APPROVAL_BUSINESS_TITLE_LABELS:\s*Record<string,\s*string>\s*=\s*\{[\s\S]*'DCC Controlled File Approval':\s*'文控受控文件审批'/,
   '审批中心必须登记 DCC Controlled File Approval 的纯中文显示名。'
 )

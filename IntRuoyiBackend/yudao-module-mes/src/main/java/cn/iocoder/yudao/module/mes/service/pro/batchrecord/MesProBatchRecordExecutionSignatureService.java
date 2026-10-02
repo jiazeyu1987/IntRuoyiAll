@@ -284,20 +284,26 @@ public class MesProBatchRecordExecutionSignatureService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public Long recordProductionSubmitSignature(Long actorId, String password, String comment) {
+    public Long recordProductionSubmitSignature(Long actorId, String password, String comment,
+                                                MesProductionSubmitSignatureContext context) {
+        if (context == null) {
+            throw exception(MesProductionSubmitSignatureContext.CONTEXT_INVALID);
+        }
         if (actorId == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
         AdminUserDO user = adminUserService.getUser(actorId);
         if (user == null) {
             gxpAuditService.acquireLedgerLock();
-            return recordProductionSubmitSignatureForEmployeeProfile(actorId, password, comment);
+            return recordProductionSubmitSignatureForEmployeeProfile(actorId, password, comment, context);
         }
         if (!authorizationService.isElectronicSignatureEnabled(actorId)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
         return recordSignatureForSystemUser(actorId, user, 0L, password, comment, ACTION_PRODUCTION_SUBMIT,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null,
+                MesProductionSubmitSignatureContext.SOURCE_TYPE, context.activeOrderId(), context.sourceName(),
+                null, null, null, null, null,
                 null);
     }
 
@@ -794,7 +800,9 @@ public class MesProBatchRecordExecutionSignatureService {
                 MesBatchRecordSignatureSubjectAdapter.subjectVersion(subjectId),
                 password,
                 StrUtil.blankToDefault(StrUtil.trim(reason), StrUtil.blankToDefault(StrUtil.trim(comment), actionType)),
-                "MES|" + actorId + "|" + actionType + "|" + subjectId,
+                ACTION_PRODUCTION_SUBMIT.equals(actionType)
+                        ? "MES|" + actorId + "|" + actionType + "|" + DigestUtil.sha256Hex(subjectId)
+                        : "MES|" + actorId + "|" + actionType + "|" + subjectId,
                 businessOccurredAt(signatureTimeEvidence),
                 businessTimeZone(signatureTimeEvidence)));
     }
@@ -809,7 +817,8 @@ public class MesProBatchRecordExecutionSignatureService {
                 ? null : signatureTimeEvidence.selectedTimeZone();
     }
 
-    private Long recordProductionSubmitSignatureForEmployeeProfile(Long actorId, String password, String comment) {
+    private Long recordProductionSubmitSignatureForEmployeeProfile(Long actorId, String password, String comment,
+                                                                   MesProductionSubmitSignatureContext context) {
         if (StrUtil.isBlank(password)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
         }
@@ -836,6 +845,9 @@ public class MesProBatchRecordExecutionSignatureService {
                 .executionId(0L)
                 .actorId(actorId)
                 .actionType(ACTION_PRODUCTION_SUBMIT)
+                .reviewSourceType(MesProductionSubmitSignatureContext.SOURCE_TYPE)
+                .reviewSourceId(context.activeOrderId())
+                .reviewSourceName(context.projectionSourceName())
                 .signatureMode(SIGNATURE_MODE_PASSWORD)
                 .passwordVerified(Boolean.TRUE)
                 .comment(StrUtil.blankToDefault(StrUtil.trim(comment), null))

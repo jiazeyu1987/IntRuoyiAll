@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.system.controller.admin.gxpaudit.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -23,6 +24,7 @@ public class GxpAuditEventRespVO {
     private Long actorId;
     private String actorUsername;
     private String actorDisplayName;
+    @JsonSerialize(using = GxpAuditUtcTimestampSerializer.class)
     private LocalDateTime serverOccurredAt;
     private String beforeState;
     private String beforeObjectVersion;
